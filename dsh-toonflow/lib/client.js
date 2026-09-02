@@ -1,6 +1,6 @@
 (() => {
   // src/client/toonflow.module.css
-  var toonflow_default = ".tf-root{font-family:ui-sans-serif,system-ui,sans-serif;font-size:13px;line-height:1.5;padding:12px 14px;height:100%;overflow-y:auto;color:var(--theme-text,#e0e0e0)}\n.tf-root *{box-sizing:border-box}\n.tf-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;min-height:28px}\n.tf-back{background:none;border:none;color:var(--theme-text,#aaa);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:13px;display:flex;align-items:center;gap:4px}\n.tf-back:hover{background:var(--theme-input-bg,#80808020)}\n.tf-title{font-size:15px;font-weight:600;flex:1}\n.tf-card{border:1px solid var(--theme-border,#80808040);border-radius:8px;padding:12px;margin-bottom:10px;cursor:pointer;transition:background .15s}\n.tf-card:hover{background:var(--theme-input-bg,#80808014)}\n.tf-card-head{display:flex;align-items:center;gap:8px}\n.tf-card-title{font-weight:600;font-size:13px;margin-bottom:4px;flex:1}\n.tf-card-meta{font-size:11px;opacity:.6}\n.tf-progress{height:6px;border-radius:3px;background:var(--theme-input-bg,#80808020);margin:6px 0;overflow:hidden}\n.tf-progress-fill{height:100%;border-radius:3px;background:#4a9eff;transition:width .3s}\n.tf-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap}\n.tf-badge-draft{background:#80808025;color:var(--theme-text,#aaa)}\n.tf-badge-ready{background:#1565c020;color:#64b5f6}\n.tf-badge-queued{background:#f57f1720;color:#ffb74d;animation:tf-pulse 1.5s infinite}\n.tf-badge-done{background:#2e7d3220;color:#81c784}\n.tf-badge-failed{background:#c6282820;color:#ef5350}\n@keyframes tf-pulse{0%,100%{opacity:1}50%{opacity:.45}}\n.tf-section{margin-bottom:16px}\n.tf-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}\n.tf-section-title{font-size:12px;font-weight:600;opacity:.7;text-transform:uppercase;letter-spacing:.5px}\n.tf-section-link{font-size:11px;color:#4a9eff;cursor:pointer;background:none;border:none;padding:0}\n.tf-section-link:hover{text-decoration:underline}\n.tf-grid{display:flex;gap:8px;flex-wrap:wrap}\n.tf-thumb{width:72px;border-radius:6px;overflow:hidden;text-align:center;cursor:pointer}\n.tf-thumb-img{width:72px;height:72px;border-radius:6px;object-fit:cover;background:var(--theme-input-bg,#80808020);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--theme-text,#aaa)}\n.tf-thumb-label{font-size:10px;margin-top:3px;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.tf-thumb-badge{position:relative}\n.tf-thumb-badge .tf-badge{position:absolute;bottom:2px;right:2px;font-size:9px;padding:0 4px}\n.tf-shot{border:1px solid var(--theme-border,#80808030);border-radius:8px;padding:10px 12px;margin-bottom:8px}\n.tf-shot-head{display:flex;align-items:baseline;gap:6px;margin-bottom:6px}\n.tf-shot-num{font-weight:700;font-size:13px;color:#4a9eff;min-width:24px}\n.tf-shot-desc{font-size:12px;flex:1}\n.tf-shot-media{display:flex;gap:8px;margin-bottom:8px}\n.tf-shot-img{width:120px;height:68px;border-radius:4px;object-fit:cover;background:var(--theme-input-bg,#80808020);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--theme-text,#666)}\n.tf-shot-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px}\n.tf-shot-chars{opacity:.6;flex:1}\n.tf-shot-error{font-size:11px;color:#ef5350;margin-top:4px}\n.tf-btn{font:inherit;cursor:pointer;background:#4a9eff;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;white-space:nowrap;transition:opacity .15s}\n.tf-btn:hover{opacity:.85}\n.tf-btn:disabled{opacity:.4;cursor:not-allowed}\n.tf-btn-ghost{background:transparent;border:1px solid var(--theme-border,#80808050);color:var(--theme-text,#ccc)}\n.tf-btn-danger{background:transparent;border:1px solid #d33;color:#ef5350}\n.tf-btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}\n.tf-detail-split{display:flex;gap:14px}\n.tf-detail-left{flex:0 0 45%;display:flex;flex-direction:column;gap:8px}\n.tf-detail-right{flex:1;min-width:0}\n.tf-detail-img{width:100%;aspect-ratio:16/9;border-radius:6px;object-fit:cover;background:var(--theme-input-bg,#80808020);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--theme-text,#666)}\n.tf-detail-field{margin-bottom:10px}\n.tf-detail-label{font-size:11px;font-weight:600;opacity:.5;text-transform:uppercase;margin-bottom:3px}\n.tf-detail-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}\n.tf-detail-value{font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word}\n.tf-detail-bar{border-top:1px solid var(--theme-border,#80808030);padding-top:10px;margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}\n.tf-export-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;border-bottom:1px solid var(--theme-border,#80808015)}\n.tf-export-check{width:16px;text-align:center}\n.tf-export-name{flex:1}\n.tf-export-dur{opacity:.6;min-width:30px;text-align:right}\n.tf-export-summary{margin:14px 0;padding:10px;background:var(--theme-input-bg,#80808010);border-radius:6px;font-size:12px;line-height:1.7;white-space:pre-line}\n.tf-empty{text-align:center;padding:40px 20px;opacity:.5;font-size:13px}\n.tf-error{margin-bottom:12px;padding:8px 10px;border:1px solid #c6282860;border-radius:6px;background:#c6282815;color:#ef5350;font-size:12px}\n";
+  var toonflow_default = ".tf-root{font-family:ui-sans-serif,system-ui,sans-serif;font-size:13px;line-height:1.5;padding:12px 14px;height:100%;overflow-y:auto;color:var(--theme-text,#e0e0e0)}\n.tf-root *{box-sizing:border-box}\n.tf-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;min-height:28px}\n.tf-back{background:none;border:none;color:var(--theme-text,#aaa);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:13px;display:flex;align-items:center;gap:4px}\n.tf-back:hover{background:var(--theme-input-bg,#80808020)}\n.tf-title{font-size:15px;font-weight:600;flex:1}\n.tf-card{border:1px solid var(--theme-border,#80808040);border-radius:8px;padding:12px;margin-bottom:10px;cursor:pointer;transition:background .15s}\n.tf-card:hover{background:var(--theme-input-bg,#80808014)}\n.tf-card-head{display:flex;align-items:center;gap:8px}\n.tf-card-title{font-weight:600;font-size:13px;margin-bottom:4px;flex:1}\n.tf-card-meta{font-size:11px;opacity:.6}\n.tf-progress{height:6px;border-radius:3px;background:var(--theme-input-bg,#80808020);margin:6px 0;overflow:hidden}\n.tf-progress-fill{height:100%;border-radius:3px;background:#4a9eff;transition:width .3s}\n.tf-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap}\n.tf-badge-draft{background:#80808025;color:var(--theme-text,#aaa)}\n.tf-badge-ready{background:#1565c020;color:#64b5f6}\n.tf-badge-queued{background:#f57f1720;color:#ffb74d;animation:tf-pulse 1.5s infinite}\n.tf-badge-done{background:#2e7d3220;color:#81c784}\n.tf-badge-failed{background:#c6282820;color:#ef5350}\n@keyframes tf-pulse{0%,100%{opacity:1}50%{opacity:.45}}\n.tf-section{margin-bottom:16px}\n.tf-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}\n.tf-section-title{font-size:12px;font-weight:600;opacity:.7;text-transform:uppercase;letter-spacing:.5px}\n.tf-section-link{font-size:11px;color:#4a9eff;cursor:pointer;background:none;border:none;padding:0}\n.tf-section-link:hover{text-decoration:underline}\n.tf-grid{display:flex;gap:8px;flex-wrap:wrap}\n.tf-thumb{width:72px;border-radius:6px;overflow:hidden;text-align:center;cursor:pointer}\n.tf-thumb-img{width:72px;height:72px;border-radius:6px;object-fit:cover;background:var(--theme-input-bg,#80808020);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--theme-text,#aaa)}\n.tf-thumb-label{font-size:10px;margin-top:3px;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.tf-thumb-badge{position:relative}\n.tf-thumb-badge .tf-badge{position:absolute;bottom:2px;right:2px;font-size:9px;padding:0 4px}\n.tf-shot{border:1px solid var(--theme-border,#80808030);border-radius:8px;padding:10px 12px;margin-bottom:8px}\n.tf-shot-head{display:flex;align-items:baseline;gap:6px;margin-bottom:6px}\n.tf-shot-num{font-weight:700;font-size:13px;color:#4a9eff;min-width:24px}\n.tf-shot-desc{font-size:12px;flex:1}\n.tf-shot-media{display:flex;gap:8px;margin-bottom:8px}\n.tf-shot-img{width:120px;height:68px;border-radius:4px;object-fit:cover;background:var(--theme-input-bg,#80808020);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--theme-text,#666)}\n.tf-shot-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px}\n.tf-shot-chars{opacity:.6;flex:1}\n.tf-shot-error{font-size:11px;color:#ef5350;margin-top:4px}\n.tf-btn{font:inherit;cursor:pointer;background:#4a9eff;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;white-space:nowrap;transition:opacity .15s}\n.tf-btn:hover{opacity:.85}\n.tf-btn:disabled{opacity:.4;cursor:not-allowed}\n.tf-btn-ghost{background:transparent;border:1px solid var(--theme-border,#80808050);color:var(--theme-text,#ccc)}\n.tf-btn-danger{background:transparent;border:1px solid #d33;color:#ef5350}\n.tf-btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}\n.tf-detail-split{display:flex;gap:14px}\n.tf-detail-left{flex:0 0 45%;display:flex;flex-direction:column;gap:8px}\n.tf-detail-right{flex:1;min-width:0}\n.tf-detail-img{width:100%;aspect-ratio:16/9;border-radius:6px;object-fit:cover;background:var(--theme-input-bg,#80808020);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--theme-text,#666)}\n.tf-detail-field{margin-bottom:10px}\n.tf-detail-label{font-size:11px;font-weight:600;opacity:.5;text-transform:uppercase;margin-bottom:3px}\n.tf-detail-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}\n.tf-detail-value{font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word}\n.tf-detail-bar{border-top:1px solid var(--theme-border,#80808030);padding-top:10px;margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}\n.tf-export-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;border-bottom:1px solid var(--theme-border,#80808015)}\n.tf-export-check{width:16px;text-align:center}\n.tf-export-name{flex:1}\n.tf-export-dur{opacity:.6;min-width:30px;text-align:right}\n.tf-export-summary{margin:14px 0;padding:10px;background:var(--theme-input-bg,#80808010);border-radius:6px;font-size:12px;line-height:1.7;white-space:pre-line}\n.tf-empty{text-align:center;padding:40px 20px;opacity:.5;font-size:13px}\n.tf-error{margin-bottom:12px;padding:8px 10px;border:1px solid #c6282860;border-radius:6px;background:#c6282815;color:#ef5350;font-size:12px}\n.tf-modal-backdrop{position:fixed;inset:0;z-index:1000;background:#0008;display:flex;align-items:center;justify-content:center;padding:20px}\n.tf-modal{width:min(440px,100%);max-height:calc(100vh - 40px);overflow:auto;border:1px solid var(--theme-border,#80808050);border-radius:10px;background:var(--theme-bg,#1e1e1e);box-shadow:0 18px 60px #0008}\n.tf-modal-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--theme-border,#80808030)}\n.tf-modal-title{font-size:14px;font-weight:600;flex:1}\n.tf-modal-close{border:none;background:none;color:var(--theme-text,#ccc);font-size:22px;line-height:1;cursor:pointer;padding:0 3px;opacity:.7}\n.tf-modal-close:hover{opacity:1}\n.tf-modal-body{padding:14px}\n.tf-modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 14px 14px}\n.tf-form-field{display:block;margin-bottom:12px}\n.tf-form-field:last-child{margin-bottom:0}\n.tf-form-label{display:block;font-size:11px;font-weight:600;opacity:.65;margin-bottom:5px}\n.tf-input,.tf-textarea{display:block;width:100%;border:1px solid var(--theme-border,#80808050);border-radius:6px;background:var(--theme-input-bg,#80808018);color:var(--theme-text,#e0e0e0);font:inherit;padding:7px 9px;outline:none}\n.tf-input:focus,.tf-textarea:focus{border-color:#4a9eff;box-shadow:0 0 0 2px #4a9eff25}\n.tf-textarea{resize:vertical;min-height:76px}\n.tf-confirm-message{margin:0;line-height:1.7;white-space:pre-wrap}\n.tf-btn-danger-solid{background:#c62828;color:#fff}\n";
 
   // src/client/api.js
   var API = "/toonflow/api";
@@ -12,7 +12,12 @@
         body: JSON.stringify(body)
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok === false) throw new Error(data.error || `HTTP ${response.status}`);
+      if (!response.ok || data.ok === false) {
+        const error = new Error(data.error || `HTTP ${response.status}`);
+        error.code = data.code;
+        error.status = response.status;
+        throw error;
+      }
       return data;
     }
     function mediaUrl(projectId, filePath) {
@@ -31,16 +36,21 @@
       const [loading, setLoading] = useState(true);
       const [busy, setBusy] = useState(false);
       const [error, setError] = useState("");
+      const [errorCode, setErrorCode] = useState("");
       const [revision, setRevision] = useState(0);
       useEffect(() => {
         if (view !== "list") return;
         let cancelled = false;
         setLoading(true);
         setError("");
+        setErrorCode("");
         api.fetchJson("/project.list").then((data) => {
           if (!cancelled) setProjects(data.projects || []);
         }).catch((reason) => {
-          if (!cancelled) setError(reason.message || String(reason));
+          if (!cancelled) {
+            setError(reason.message || String(reason));
+            setErrorCode(reason.code || "");
+          }
         }).finally(() => {
           if (!cancelled) setLoading(false);
         });
@@ -53,10 +63,14 @@
         let cancelled = false;
         setLoading(true);
         setError("");
+        setErrorCode("");
         api.fetchJson("/plan.get", { projectId }).then((data) => {
           if (!cancelled) setPlan(data);
         }).catch((reason) => {
-          if (!cancelled) setError(reason.message || String(reason));
+          if (!cancelled) {
+            setError(reason.message || String(reason));
+            setErrorCode(reason.code || "");
+          }
         }).finally(() => {
           if (!cancelled) setLoading(false);
         });
@@ -67,6 +81,7 @@
       const createProject = useCallback(async (input) => {
         setBusy(true);
         setError("");
+        setErrorCode("");
         try {
           const result = await api.fetchJson("/project.create", input);
           setRevision((value) => value + 1);
@@ -81,6 +96,7 @@
       const deleteProject = useCallback(async (id) => {
         setBusy(true);
         setError("");
+        setErrorCode("");
         try {
           await api.fetchJson("/project.delete", { projectId: id });
           setProjects((current) => current.filter((item) => item.id !== id));
@@ -95,6 +111,7 @@
       const updateShot = useCallback(async (shotId, updates) => {
         setBusy(true);
         setError("");
+        setErrorCode("");
         try {
           const data = await api.fetchJson("/plan.update_shot", { projectId, shotId, updates });
           setPlan((current) => current ? {
@@ -111,17 +128,158 @@
           setBusy(false);
         }
       }, [projectId]);
+      const clearPlan = useCallback(() => setPlan(null), []);
       return {
         projects,
         plan: plan?.project?.id === projectId ? plan : null,
         loading,
         busy,
         error,
-        clearPlan: () => setPlan(null),
+        missingProject: errorCode === "PROJECT_NOT_FOUND",
+        clearPlan,
         createProject,
         deleteProject,
         updateShot
       };
+    };
+  }
+
+  // src/client/components/Modal.js
+  function Modal(h, { title, onClose, children, actions }) {
+    const titleId = "toonflow-modal-title";
+    return h(
+      "div",
+      {
+        className: "tf-modal-backdrop",
+        onMouseDown: (event) => {
+          if (event.target === event.currentTarget) onClose();
+        }
+      },
+      h(
+        "div",
+        {
+          className: "tf-modal",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": titleId
+        },
+        h(
+          "div",
+          { className: "tf-modal-head" },
+          h("div", { id: titleId, className: "tf-modal-title" }, title),
+          h("button", {
+            type: "button",
+            className: "tf-modal-close",
+            "aria-label": "\u5173\u95ED\u5F39\u7A97",
+            onClick: onClose
+          }, "\xD7")
+        ),
+        h("div", { className: "tf-modal-body" }, children),
+        actions ? h("div", { className: "tf-modal-actions" }, actions) : null
+      )
+    );
+  }
+  function createProjectDialog(React) {
+    const { createElement: h, useState } = React;
+    return function ProjectDialog({ busy, onClose, onSubmit }) {
+      const [title, setTitle] = useState("");
+      const [description, setDescription] = useState("");
+      const submit = (event) => {
+        event.preventDefault();
+        if (!busy && title.trim()) void onSubmit({ title: title.trim(), description: description.trim() });
+      };
+      return h(
+        "form",
+        { onSubmit: submit },
+        Modal(h, {
+          title: "\u65B0\u5EFA\u9879\u76EE",
+          onClose,
+          children: h(
+            "div",
+            null,
+            h(
+              "label",
+              { className: "tf-form-field" },
+              h("span", { className: "tf-form-label" }, "\u9879\u76EE\u540D\u79F0"),
+              h("input", {
+                className: "tf-input",
+                value: title,
+                maxLength: 120,
+                autoFocus: true,
+                disabled: busy,
+                onChange: (event) => setTitle(event.target.value)
+              })
+            ),
+            h(
+              "label",
+              { className: "tf-form-field" },
+              h("span", { className: "tf-form-label" }, "\u9879\u76EE\u7B80\u4ECB\uFF08\u53EF\u9009\uFF09"),
+              h("textarea", {
+                className: "tf-textarea",
+                value: description,
+                maxLength: 2e3,
+                rows: 4,
+                disabled: busy,
+                onChange: (event) => setDescription(event.target.value)
+              })
+            )
+          ),
+          actions: [
+            h("button", { key: "cancel", type: "button", className: "tf-btn tf-btn-ghost", disabled: busy, onClick: onClose }, "\u53D6\u6D88"),
+            h("button", { key: "submit", type: "submit", className: "tf-btn", disabled: busy || !title.trim() }, busy ? "\u521B\u5EFA\u4E2D\u2026" : "\u521B\u5EFA")
+          ]
+        })
+      );
+    };
+  }
+  function createConfirmDialog(React) {
+    const h = React.createElement;
+    return function ConfirmDialog({ title, message, busy, onClose, onConfirm }) {
+      return Modal(h, {
+        title,
+        onClose,
+        children: h("p", { className: "tf-confirm-message" }, message),
+        actions: [
+          h("button", { key: "cancel", type: "button", className: "tf-btn tf-btn-ghost", disabled: busy, onClick: onClose }, "\u53D6\u6D88"),
+          h("button", { key: "confirm", type: "button", className: "tf-btn tf-btn-danger-solid", disabled: busy, onClick: onConfirm }, busy ? "\u5220\u9664\u4E2D\u2026" : "\u786E\u8BA4\u5220\u9664")
+        ]
+      });
+    };
+  }
+  function createTextEditDialog(React) {
+    const { createElement: h, useState } = React;
+    return function TextEditDialog({ label, initialValue, busy, onClose, onSubmit }) {
+      const [value, setValue] = useState(initialValue || "");
+      const submit = (event) => {
+        event.preventDefault();
+        if (!busy && value !== initialValue) void onSubmit(value);
+      };
+      return h(
+        "form",
+        { onSubmit: submit },
+        Modal(h, {
+          title: `\u7F16\u8F91${label}`,
+          onClose,
+          children: h(
+            "label",
+            { className: "tf-form-field" },
+            h("span", { className: "tf-form-label" }, label),
+            h("textarea", {
+              className: "tf-textarea",
+              value,
+              maxLength: 1e4,
+              rows: 7,
+              autoFocus: true,
+              disabled: busy,
+              onChange: (event) => setValue(event.target.value)
+            })
+          ),
+          actions: [
+            h("button", { key: "cancel", type: "button", className: "tf-btn tf-btn-ghost", disabled: busy, onClick: onClose }, "\u53D6\u6D88"),
+            h("button", { key: "submit", type: "submit", className: "tf-btn", disabled: busy || value === initialValue }, busy ? "\u4FDD\u5B58\u4E2D\u2026" : "\u4FDD\u5B58")
+          ]
+        })
+      );
     };
   }
 
@@ -462,8 +620,10 @@
     return (items || []).find((item) => item.id === id)?.name || id || "";
   }
   function createShotDetail(React, api) {
-    const h = React.createElement;
+    const { createElement: h, useState } = React;
+    const TextEditDialog = createTextEditDialog(React);
     return function ShotDetail({ projectId, shotId, plan, busy, navigate, onUpdate }) {
+      const [editing, setEditing] = useState(null);
       const characters = plan?.characters || [];
       const scenes = plan?.scenes || [];
       const shot = (plan?.shots || []).find((item) => item.id === shotId);
@@ -479,10 +639,7 @@
             key ? h("button", {
               className: "tf-section-link",
               disabled: busy,
-              onClick: () => {
-                const next = window.prompt(`\u7F16\u8F91${label}`, value || "");
-                if (next !== null && next !== value) void onUpdate(shot.id, { [key]: next });
-              }
+              onClick: () => setEditing({ key, label, value: value || "" })
             }, busy ? "\u4FDD\u5B58\u4E2D\u2026" : "\u7F16\u8F91") : null
           ),
           h("div", { className: "tf-detail-value" }, value || "(\u7A7A)")
@@ -535,25 +692,38 @@
           shot.lastError ? h("span", { className: "tf-shot-error" }, shot.lastError) : null,
           shot.retryCount > 0 ? h("span", { className: "tf-card-meta" }, `\u91CD\u8BD5 ${shot.retryCount}/3`) : null
         ),
-        h("div", { className: "tf-btn-row" }, generationActions)
+        h("div", { className: "tf-btn-row" }, generationActions),
+        editing ? h(TextEditDialog, {
+          key: editing.key,
+          label: editing.label,
+          initialValue: editing.value,
+          busy,
+          onClose: () => setEditing(null),
+          onSubmit: async (value) => {
+            if (await onUpdate(shot.id, { [editing.key]: value })) setEditing(null);
+          }
+        }) : null
       );
     };
   }
 
   // src/client/ToonflowApp.js
   function createToonflowApp(React, api, styles) {
-    const { createElement: h, useCallback, useState } = React;
+    const { createElement: h, useCallback, useEffect, useState } = React;
     const useProject = createUseProject(React, api);
     const ProjectList = createProjectList(React);
     const Dashboard = createDashboard(React, api);
     const ShotBoard = createShotBoard(React, api);
     const ShotDetail = createShotDetail(React, api);
     const ExportPanel = createExportPanel(React);
+    const ProjectDialog = createProjectDialog(React);
+    const ConfirmDialog = createConfirmDialog(React);
     return function ToonflowApp({ ctx, tab }) {
       const meta = tab?.meta || {};
       const [view, setView] = useState(meta.view || "list");
       const [projectId, setProjectId] = useState(meta.projectId || null);
       const [extra, setExtra] = useState(meta.extra || {});
+      const [dialog, setDialog] = useState(null);
       const data = useProject(view, projectId);
       const navigate = useCallback((nextView, nextProjectId, nextExtra) => {
         setView(nextView);
@@ -570,17 +740,12 @@
             extra: next
           }
         });
-      }, [ctx, tab?.id, projectId]);
-      async function onCreate() {
-        const title = window.prompt("\u9879\u76EE\u540D\u79F0");
-        if (!title?.trim()) return;
-        const description = window.prompt("\u9879\u76EE\u7B80\u4ECB\uFF08\u53EF\u9009\uFF09");
-        await data.createProject({ title: title.trim(), description: description || "" });
-      }
-      async function onDelete(project) {
-        if (!window.confirm(`\u786E\u8BA4\u5220\u9664\u9879\u76EE\u300C${project.title}\u300D\uFF1F\u9879\u76EE\u6587\u4EF6\u548C\u8D44\u4EA7\u4F1A\u4E00\u5E76\u5220\u9664\u3002`)) return;
-        await data.deleteProject(project.id);
-      }
+      }, [ctx, tab?.id, projectId, data.clearPlan]);
+      useEffect(() => {
+        if (view !== "list" && data.missingProject) navigate("list", null);
+      }, [view, data.missingProject, navigate]);
+      const onCreate = () => setDialog({ kind: "create" });
+      const onDelete = (project) => setDialog({ kind: "delete", project });
       let page;
       if (view !== "list" && data.loading && !data.plan) {
         page = h("div", { className: "tf-empty" }, "\u6B63\u5728\u52A0\u8F7D\u2026");
@@ -609,12 +774,33 @@
           onDelete
         });
       }
+      let modal = null;
+      if (dialog?.kind === "create") {
+        modal = h(ProjectDialog, {
+          busy: data.busy,
+          onClose: () => setDialog(null),
+          onSubmit: async (input) => {
+            if (await data.createProject(input)) setDialog(null);
+          }
+        });
+      } else if (dialog?.kind === "delete") {
+        modal = h(ConfirmDialog, {
+          title: "\u5220\u9664\u9879\u76EE",
+          message: `\u786E\u8BA4\u5220\u9664\u9879\u76EE\u300C${dialog.project.title}\u300D\uFF1F\u9879\u76EE\u6587\u4EF6\u548C\u8D44\u4EA7\u4F1A\u4E00\u5E76\u5220\u9664\u3002`,
+          busy: data.busy,
+          onClose: () => setDialog(null),
+          onConfirm: async () => {
+            if (await data.deleteProject(dialog.project.id)) setDialog(null);
+          }
+        });
+      }
       return h(
         "div",
         { className: "tf-root" },
         h("style", null, styles),
         data.error ? h("div", { className: "tf-error" }, data.error) : null,
-        page
+        page,
+        modal
       );
     };
   }

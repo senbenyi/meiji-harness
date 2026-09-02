@@ -1,4 +1,5 @@
 import { createUseProject } from './hooks/useProject.js'
+import { createConfirmDialog, createProjectDialog } from './components/Modal.js'
 import { createDashboard } from './views/Dashboard.js'
 import { createExportPanel } from './views/ExportPanel.js'
 import { createProjectList } from './views/ProjectList.js'
@@ -6,19 +7,22 @@ import { createShotBoard } from './views/ShotBoard.js'
 import { createShotDetail } from './views/ShotDetail.js'
 
 export function createToonflowApp(React, api, styles) {
-  const { createElement: h, useCallback, useState } = React
+  const { createElement: h, useCallback, useEffect, useState } = React
   const useProject = createUseProject(React, api)
   const ProjectList = createProjectList(React)
   const Dashboard = createDashboard(React, api)
   const ShotBoard = createShotBoard(React, api)
   const ShotDetail = createShotDetail(React, api)
   const ExportPanel = createExportPanel(React)
+  const ProjectDialog = createProjectDialog(React)
+  const ConfirmDialog = createConfirmDialog(React)
 
   return function ToonflowApp({ ctx, tab }) {
     const meta = tab?.meta || {}
     const [view, setView] = useState(meta.view || 'list')
     const [projectId, setProjectId] = useState(meta.projectId || null)
     const [extra, setExtra] = useState(meta.extra || {})
+    const [dialog, setDialog] = useState(null)
     const data = useProject(view, projectId)
 
     const navigate = useCallback((nextView, nextProjectId, nextExtra) => {
@@ -36,19 +40,14 @@ export function createToonflowApp(React, api, styles) {
           extra: next,
         },
       })
-    }, [ctx, tab?.id, projectId])
+    }, [ctx, tab?.id, projectId, data.clearPlan])
 
-    async function onCreate() {
-      const title = window.prompt('项目名称')
-      if (!title?.trim()) return
-      const description = window.prompt('项目简介（可选）')
-      await data.createProject({ title: title.trim(), description: description || '' })
-    }
+    useEffect(() => {
+      if (view !== 'list' && data.missingProject) navigate('list', null)
+    }, [view, data.missingProject, navigate])
 
-    async function onDelete(project) {
-      if (!window.confirm(`确认删除项目「${project.title}」？项目文件和资产会一并删除。`)) return
-      await data.deleteProject(project.id)
-    }
+    const onCreate = () => setDialog({ kind: 'create' })
+    const onDelete = project => setDialog({ kind: 'delete', project })
 
     let page
     if (view !== 'list' && data.loading && !data.plan) {
@@ -79,10 +78,32 @@ export function createToonflowApp(React, api, styles) {
       })
     }
 
+    let modal = null
+    if (dialog?.kind === 'create') {
+      modal = h(ProjectDialog, {
+        busy: data.busy,
+        onClose: () => setDialog(null),
+        onSubmit: async input => {
+          if (await data.createProject(input)) setDialog(null)
+        },
+      })
+    } else if (dialog?.kind === 'delete') {
+      modal = h(ConfirmDialog, {
+        title: '删除项目',
+        message: `确认删除项目「${dialog.project.title}」？项目文件和资产会一并删除。`,
+        busy: data.busy,
+        onClose: () => setDialog(null),
+        onConfirm: async () => {
+          if (await data.deleteProject(dialog.project.id)) setDialog(null)
+        },
+      })
+    }
+
     return h('div', { className: 'tf-root' },
       h('style', null, styles),
       data.error ? h('div', { className: 'tf-error' }, data.error) : null,
       page,
+      modal,
     )
   }
 }

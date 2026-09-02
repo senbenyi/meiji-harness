@@ -7,6 +7,7 @@ export function createUseProject(React, api) {
     const [loading, setLoading] = useState(true)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+    const [errorCode, setErrorCode] = useState('')
     const [revision, setRevision] = useState(0)
 
     useEffect(() => {
@@ -14,9 +15,15 @@ export function createUseProject(React, api) {
       let cancelled = false
       setLoading(true)
       setError('')
+      setErrorCode('')
       api.fetchJson('/project.list')
         .then(data => { if (!cancelled) setProjects(data.projects || []) })
-        .catch(reason => { if (!cancelled) setError(reason.message || String(reason)) })
+        .catch(reason => {
+          if (!cancelled) {
+            setError(reason.message || String(reason))
+            setErrorCode(reason.code || '')
+          }
+        })
         .finally(() => { if (!cancelled) setLoading(false) })
       return () => { cancelled = true }
     }, [view, revision])
@@ -26,9 +33,15 @@ export function createUseProject(React, api) {
       let cancelled = false
       setLoading(true)
       setError('')
+      setErrorCode('')
       api.fetchJson('/plan.get', { projectId })
         .then(data => { if (!cancelled) setPlan(data) })
-        .catch(reason => { if (!cancelled) setError(reason.message || String(reason)) })
+        .catch(reason => {
+          if (!cancelled) {
+            setError(reason.message || String(reason))
+            setErrorCode(reason.code || '')
+          }
+        })
         .finally(() => { if (!cancelled) setLoading(false) })
       return () => { cancelled = true }
     }, [view, projectId, revision])
@@ -36,6 +49,7 @@ export function createUseProject(React, api) {
     const createProject = useCallback(async (input) => {
       setBusy(true)
       setError('')
+      setErrorCode('')
       try {
         const result = await api.fetchJson('/project.create', input)
         setRevision(value => value + 1)
@@ -51,6 +65,7 @@ export function createUseProject(React, api) {
     const deleteProject = useCallback(async (id) => {
       setBusy(true)
       setError('')
+      setErrorCode('')
       try {
         await api.fetchJson('/project.delete', { projectId: id })
         setProjects(current => current.filter(item => item.id !== id))
@@ -66,6 +81,7 @@ export function createUseProject(React, api) {
     const updateShot = useCallback(async (shotId, updates) => {
       setBusy(true)
       setError('')
+      setErrorCode('')
       try {
         const data = await api.fetchJson('/plan.update_shot', { projectId, shotId, updates })
         setPlan(current => current ? {
@@ -83,13 +99,16 @@ export function createUseProject(React, api) {
       }
     }, [projectId])
 
+    const clearPlan = useCallback(() => setPlan(null), [])
+
     return {
       projects,
       plan: plan?.project?.id === projectId ? plan : null,
       loading,
       busy,
       error,
-      clearPlan: () => setPlan(null),
+      missingProject: errorCode === 'PROJECT_NOT_FOUND',
+      clearPlan,
       createProject,
       deleteProject,
       updateShot,

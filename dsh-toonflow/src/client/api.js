@@ -8,7 +8,12 @@ export function createApi(fetchImpl = fetch) {
       body: JSON.stringify(body),
     })
     const data = await response.json().catch(() => ({}))
-    if (!response.ok || data.ok === false) throw new Error(data.error || `HTTP ${response.status}`)
+    if (!response.ok || data.ok === false) {
+      const error = new Error(data.error || `HTTP ${response.status}`)
+      error.code = data.code
+      error.status = response.status
+      throw error
+    }
     return data
   }
 

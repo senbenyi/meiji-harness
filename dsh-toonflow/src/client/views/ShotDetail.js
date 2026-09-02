@@ -1,6 +1,7 @@
 import { ActionButton } from '../components/ActionButton.js'
 import { Breadcrumb } from '../components/Breadcrumb.js'
 import { EmptyState } from '../components/EmptyState.js'
+import { createTextEditDialog } from '../components/Modal.js'
 import { StatusBadge } from '../components/StatusBadge.js'
 
 function nameOf(items, id) {
@@ -8,8 +9,10 @@ function nameOf(items, id) {
 }
 
 export function createShotDetail(React, api) {
-  const h = React.createElement
+  const { createElement: h, useState } = React
+  const TextEditDialog = createTextEditDialog(React)
   return function ShotDetail({ projectId, shotId, plan, busy, navigate, onUpdate }) {
+    const [editing, setEditing] = useState(null)
     const characters = plan?.characters || []
     const scenes = plan?.scenes || []
     const shot = (plan?.shots || []).find(item => item.id === shotId)
@@ -22,10 +25,7 @@ export function createShotDetail(React, api) {
           key ? h('button', {
             className: 'tf-section-link',
             disabled: busy,
-            onClick: () => {
-              const next = window.prompt(`编辑${label}`, value || '')
-              if (next !== null && next !== value) void onUpdate(shot.id, { [key]: next })
-            },
+            onClick: () => setEditing({ key, label, value: value || '' }),
           }, busy ? '保存中…' : '编辑') : null,
         ),
         h('div', { className: 'tf-detail-value' }, value || '(空)'),
@@ -75,6 +75,16 @@ export function createShotDetail(React, api) {
         shot.retryCount > 0 ? h('span', { className: 'tf-card-meta' }, `重试 ${shot.retryCount}/3`) : null,
       ),
       h('div', { className: 'tf-btn-row' }, generationActions),
+      editing ? h(TextEditDialog, {
+        key: editing.key,
+        label: editing.label,
+        initialValue: editing.value,
+        busy,
+        onClose: () => setEditing(null),
+        onSubmit: async value => {
+          if (await onUpdate(shot.id, { [editing.key]: value })) setEditing(null)
+        },
+      }) : null,
     )
   }
 }
