@@ -44,12 +44,15 @@ export function createShotDetail(React, api) {
       ghost: Boolean(shot.imagePath),
       onSelect: file => onImportImage(shot.id, file),
     }))
-    if (shot.status === 'image_ready') {
-      generationActions.push(ActionButton(h, { key: 'video', label: '▶ 生成视频', disabled: busy, onClick: () => onGenerateVideo(shot.id) }))
-    } else if (shot.status === 'video_ready') {
-      generationActions.push(ActionButton(h, { key: 'video-again', label: '🔄 重新生成视频', disabled: busy, ghost: true, onClick: () => onGenerateVideo(shot.id) }))
-    } else if (shot.status === 'failed' && shot.failedStage === 'video' && (shot.retryCount || 0) < 3) {
-      generationActions.push(ActionButton(h, { key: 'retry', label: `🔄 重试 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => onRetry(shot.id) }))
+    if (shot.imagePath && !['image_queued', 'video_queued'].includes(shot.status)) {
+      const regenerate = shot.status === 'video_ready' || (shot.status === 'failed' && shot.failedStage === 'video')
+      generationActions.push(ActionButton(h, {
+        key: 'video',
+        label: regenerate ? '🔄 重新生成视频' : '▶ 生成视频',
+        disabled: busy,
+        ghost: shot.status === 'video_ready',
+        onClick: () => onGenerateVideo(shot.id),
+      }))
     }
 
     return h('div', null,
@@ -81,7 +84,7 @@ export function createShotDetail(React, api) {
       h('div', { className: 'tf-detail-bar' },
         StatusBadge(h, { status: shot.status }),
         shot.lastError ? h('span', { className: 'tf-shot-error' }, shot.lastError) : null,
-        shot.retryCount > 0 ? h('span', { className: 'tf-card-meta' }, `重试 ${shot.retryCount}/3`) : null,
+        shot.retryCount > 0 ? h('span', { className: 'tf-card-meta' }, `历史重试 ${shot.retryCount} 次`) : null,
       ),
       h('div', { className: 'tf-btn-row' }, generationActions),
       editing ? h(TextEditDialog, {

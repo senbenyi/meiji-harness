@@ -713,18 +713,20 @@
     const h = React.createElement;
     const ImageImportButton = createImageImportButton(React);
     function shotAction(shot, busy, actions) {
+      if (shot.imagePath && !["image_queued", "video_queued"].includes(shot.status)) {
+        const regenerate = shot.status === "video_ready" || shot.status === "failed" && shot.failedStage === "video";
+        return ActionButton(h, {
+          label: regenerate ? "\u{1F504} \u91CD\u65B0\u751F\u6210\u89C6\u9891" : "\u25B6 \u751F\u6210\u89C6\u9891",
+          disabled: busy,
+          onClick: () => actions.onGenerateVideo(shot.id)
+        });
+      }
       if (shot.status === "draft" || shot.status === "prompt_ready" || shot.status === "failed" && shot.failedStage === "image") {
         return h(ImageImportButton, {
           label: shot.imagePath ? "\u66FF\u6362\u9996\u5E27" : "\u5BFC\u5165\u9996\u5E27",
           busy,
           onSelect: (file) => actions.onImportImage(shot.id, file)
         });
-      }
-      if (shot.status === "image_ready") {
-        return ActionButton(h, { label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: busy, onClick: () => actions.onGenerateVideo(shot.id) });
-      }
-      if (shot.status === "failed" && shot.failedStage === "video" && (shot.retryCount || 0) < 3) {
-        return ActionButton(h, { label: `\u{1F504} \u91CD\u8BD5 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => actions.onRetry(shot.id) });
       }
       return null;
     }
@@ -803,12 +805,15 @@
         ghost: Boolean(shot.imagePath),
         onSelect: (file) => onImportImage(shot.id, file)
       }));
-      if (shot.status === "image_ready") {
-        generationActions.push(ActionButton(h, { key: "video", label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: busy, onClick: () => onGenerateVideo(shot.id) }));
-      } else if (shot.status === "video_ready") {
-        generationActions.push(ActionButton(h, { key: "video-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u89C6\u9891", disabled: busy, ghost: true, onClick: () => onGenerateVideo(shot.id) }));
-      } else if (shot.status === "failed" && shot.failedStage === "video" && (shot.retryCount || 0) < 3) {
-        generationActions.push(ActionButton(h, { key: "retry", label: `\u{1F504} \u91CD\u8BD5 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => onRetry(shot.id) }));
+      if (shot.imagePath && !["image_queued", "video_queued"].includes(shot.status)) {
+        const regenerate = shot.status === "video_ready" || shot.status === "failed" && shot.failedStage === "video";
+        generationActions.push(ActionButton(h, {
+          key: "video",
+          label: regenerate ? "\u{1F504} \u91CD\u65B0\u751F\u6210\u89C6\u9891" : "\u25B6 \u751F\u6210\u89C6\u9891",
+          disabled: busy,
+          ghost: shot.status === "video_ready",
+          onClick: () => onGenerateVideo(shot.id)
+        }));
       }
       return h(
         "div",
@@ -845,7 +850,7 @@
           { className: "tf-detail-bar" },
           StatusBadge(h, { status: shot.status }),
           shot.lastError ? h("span", { className: "tf-shot-error" }, shot.lastError) : null,
-          shot.retryCount > 0 ? h("span", { className: "tf-card-meta" }, `\u91CD\u8BD5 ${shot.retryCount}/3`) : null
+          shot.retryCount > 0 ? h("span", { className: "tf-card-meta" }, `\u5386\u53F2\u91CD\u8BD5 ${shot.retryCount} \u6B21`) : null
         ),
         h("div", { className: "tf-btn-row" }, generationActions),
         editing ? h(TextEditDialog, {

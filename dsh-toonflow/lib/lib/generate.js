@@ -70,6 +70,7 @@ function shotPrompt(shot, key) {
 
 export function createGenerationService(ctx, config) {
   const monitors = new Map()
+  const submissions = new Set()
   let disposed = false
 
   async function monitor(key, jobId, kind, complete, fail) {
@@ -97,9 +98,10 @@ export function createGenerationService(ctx, config) {
       ...character,
       imageStatus: 'image_queued',
       imageJobId: null,
-      lastError: null,
     }))
     const character = pending.character
+    const submissionKey = `character:${projectId}:${characterId}`
+    submissions.add(submissionKey)
     try {
       const model = modelConfig(config, 'characterImage')
       if (!model.template) throw new ToonflowError('MODEL_NOT_CONFIGURED', 'Character image template is not configured')
@@ -137,6 +139,8 @@ export function createGenerationService(ctx, config) {
         ...current, imageStatus: 'failed', lastError: errorMessage(error),
       }))
       throw error
+    } finally {
+      submissions.delete(submissionKey)
     }
   }
 
@@ -158,18 +162,19 @@ export function createGenerationService(ctx, config) {
     const pathField = stage === 'video' ? 'videoPath' : 'imagePath'
     const modelKey = stage === 'video' ? 'shotVideo' : 'shotImage'
     const pending = await updateShotRecord(config, projectId, shotId, shot => {
-      if (retry && (shot.retryCount || 0) >= 3) throw new ToonflowError('RETRY_LIMIT', 'Shot retry limit reached')
+      if (retry && stage !== 'video' && (shot.retryCount || 0) >= 3) throw new ToonflowError('RETRY_LIMIT', 'Shot retry limit reached')
       if (stage === 'video' && !shot.imagePath) throw new ToonflowError('IMAGE_REQUIRED', 'Generate the first frame before video')
       return {
         ...shot,
         status: queuedStatus,
         [jobField]: null,
         failedStage: null,
-        lastError: null,
         retryCount: retry ? (shot.retryCount || 0) + 1 : (shot.retryCount || 0),
       }
     })
     const shot = pending.shot
+    const submissionKey = `shot:${projectId}:${shotId}:${stage}`
+    submissions.add(submissionKey)
     try {
       const model = modelConfig(config, modelKey)
       if (!model.template) throw new ToonflowError('MODEL_NOT_CONFIGURED', `${stage === 'video' ? 'Video' : 'Shot image'} template is not configured`)
@@ -208,6 +213,8 @@ export function createGenerationService(ctx, config) {
         ...current, status: 'failed', failedStage: stage, lastError: errorMessage(error),
       }))
       throw error
+    } finally {
+      submissions.delete(submissionKey)
     }
   }
 
@@ -216,8 +223,11 @@ export function createGenerationService(ctx, config) {
     for (const character of data.characters) {
       if (character.imageStatus !== 'image_queued') continue
       if (!character.imageJobId) {
+        if (submissions.has(`character:${projectId}:${character.id}`)) continue
         await updateCharacterRecord(config, projectId, character.id, current => ({
-          ...current, imageStatus: 'failed', lastError: 'Generation was interrupted before a job was created',
+          ...current,
+          imageStatus: 'failed',
+          lastError: current.lastError || 'Generation was interrupted before a job was created',
         }))
         continue
       }
@@ -243,8 +253,12 @@ export function createGenerationService(ctx, config) {
       const jobId = stage === 'video' ? shot.videoJobId : shot.imageJobId
       if (!stage) continue
       if (!jobId) {
+        if (submissions.has(`shot:${projectId}:${shot.id}:${stage}`)) continue
         await updateShotRecord(config, projectId, shot.id, current => ({
-          ...current, status: 'failed', failedStage: stage, lastError: 'Generation was interrupted before a job was created',
+          ...current,
+          status: 'failed',
+          failedStage: stage,
+          lastError: current.lastError || 'Generation was interrupted before a job was created',
         }))
         continue
       }

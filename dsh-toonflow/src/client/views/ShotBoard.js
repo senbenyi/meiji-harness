@@ -14,18 +14,20 @@ export function createShotBoard(React, api) {
   const ImageImportButton = createImageImportButton(React)
 
   function shotAction(shot, busy, actions) {
+    if (shot.imagePath && !['image_queued', 'video_queued'].includes(shot.status)) {
+      const regenerate = shot.status === 'video_ready' || (shot.status === 'failed' && shot.failedStage === 'video')
+      return ActionButton(h, {
+        label: regenerate ? '🔄 重新生成视频' : '▶ 生成视频',
+        disabled: busy,
+        onClick: () => actions.onGenerateVideo(shot.id),
+      })
+    }
     if (shot.status === 'draft' || shot.status === 'prompt_ready' || (shot.status === 'failed' && shot.failedStage === 'image')) {
       return h(ImageImportButton, {
         label: shot.imagePath ? '替换首帧' : '导入首帧',
         busy,
         onSelect: file => actions.onImportImage(shot.id, file),
       })
-    }
-    if (shot.status === 'image_ready') {
-      return ActionButton(h, { label: '▶ 生成视频', disabled: busy, onClick: () => actions.onGenerateVideo(shot.id) })
-    }
-    if (shot.status === 'failed' && shot.failedStage === 'video' && (shot.retryCount || 0) < 3) {
-      return ActionButton(h, { label: `🔄 重试 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => actions.onRetry(shot.id) })
     }
     return null
   }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import * as path from 'node:path'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
 import { createGenerationService } from '../lib/lib/generate.js'
@@ -10,7 +10,10 @@ import { projectDir, writeJsonAtomic } from '../lib/lib/store.js'
 async function fixture(t) {
   const workspace = await mkdtemp(path.join(tmpdir(), 'dsh-toonflow-generate-test-'))
   t.after(() => rm(workspace, { recursive: true, force: true }))
-  const config = { workspace }
+  const config = {
+    workspace,
+    models: { shotVideo: { template: 'test-video', args: {} } },
+  }
   const created = await projectCreate(config, { title: '生成测试' })
   const projectId = created.project.id
   const directory = projectDir(config, projectId)
@@ -33,6 +36,14 @@ async function waitFor(check, timeout = 1000) {
     await new Promise(resolve => setTimeout(resolve, 10))
   }
   throw new Error('timed out waiting for generation state')
+}
+
+async function addFirstFrame(directory) {
+  const relativePath = 'assets/shots/shot-001-image.jpg'
+  const file = path.join(directory, relativePath)
+  await mkdir(path.dirname(file), { recursive: true })
+  await writeFile(file, 'fake jpg')
+  return relativePath
 }
 
 test('generates a shot image and copies the ComfyUI output into project assets', async (t) => {
@@ -72,4 +83,102 @@ test('persists a useful failed state when dsh-comfyui is unavailable', async (t)
   assert.equal(data.shots[0].status, 'failed')
   assert.equal(data.shots[0].failedStage, 'image')
   assert.match(data.shots[0].lastError, /not enabled/)
+})
+
+test('preserves the original failure when reconciling an interrupted submission', async (t) => {
+  const { config, projectId, directory } = await fixture(t)
+  const shotsPath = path.join(directory, 'shots.json')
+  const shots = JSON.parse(await readFile(shotsPath, 'utf8'))
+  const imagePath = await addFirstFrame(directory)
+  await writeJsonAtomic(shotsPath, [{
+    ...shots[0],
+    imagePath,
+    status: 'video_queued',
+    videoJobId: null,
+    failedStage: null,
+    lastError: 'HTTP POST /upload/image: fetch failed',
+  }])
+  const service = createGenerationService({ tools: { get: () => undefined } }, config)
+  t.after(() => service.dispose())
+
+  await service.batchStatus(projectId)
+
+  const data = await projectGet(config, { projectId })
+  assert.equal(data.shots[0].status, 'failed')
+  assert.equal(data.shots[0].failedStage, 'video')
+  assert.equal(data.shots[0].lastError, 'HTTP POST /upload/image: fetch failed')
+})
+
+test('does not reconcile an in-flight video submission as interrupted', async (t) => {
+  const { config, projectId, directory } = await fixture(t)
+  const shotsPath = path.join(directory, 'shots.json')
+  const shots = JSON.parse(await readFile(shotsPath, 'utf8'))
+  const imagePath = await addFirstFrame(directory)
+  await writeJsonAtomic(shotsPath, [{
+    ...shots[0],
+    imagePath,
+    status: 'failed',
+    failedStage: 'video',
+    retryCount: 3,
+    lastError: 'HTTP POST /upload/image: fetch failed',
+  }])
+  let rejectSubmission
+  const tools = new Map([
+    ['_dsh_external_dsh_comfyui_generate', {
+      execute: () => new Promise((resolve, reject) => { rejectSubmission = reject }),
+    }],
+  ])
+  const service = createGenerationService({ tools: { get: name => tools.get(name) } }, config)
+  t.after(() => service.dispose())
+
+  const submission = service.submitShotVideo(projectId, 'shot-001').catch(error => error)
+  await waitFor(async () => {
+    const data = await projectGet(config, { projectId })
+    return data.shots[0].status === 'video_queued' ? data : null
+  })
+  await service.batchStatus(projectId)
+
+  const queued = await projectGet(config, { projectId })
+  assert.equal(queued.shots[0].status, 'video_queued')
+  assert.equal(queued.shots[0].lastError, 'HTTP POST /upload/image: fetch failed')
+
+  rejectSubmission(new Error('HTTP POST /upload/image: fetch failed'))
+  await submission
+  const failed = await projectGet(config, { projectId })
+  assert.equal(failed.shots[0].status, 'failed')
+  assert.equal(failed.shots[0].lastError, 'HTTP POST /upload/image: fetch failed')
+})
+
+test('allows video retry after three historical failures when a first frame exists', async (t) => {
+  const { config, projectId, directory } = await fixture(t)
+  const shotsPath = path.join(directory, 'shots.json')
+  const output = path.join(config.workspace, 'comfy-output.mp4')
+  await writeFile(output, 'fake mp4')
+  const shots = JSON.parse(await readFile(shotsPath, 'utf8'))
+  const imagePath = await addFirstFrame(directory)
+  await writeJsonAtomic(shotsPath, [{
+    ...shots[0],
+    imagePath,
+    status: 'failed',
+    failedStage: 'video',
+    retryCount: 3,
+    lastError: 'previous failure',
+  }])
+  const tools = new Map([
+    ['_dsh_external_dsh_comfyui_generate', { execute: async () => JSON.stringify({ ok: true, job_id: 'job-video' }) }],
+    ['_dsh_external_dsh_comfyui_job', { execute: async () => JSON.stringify({
+      ok: true, status: 'success', outputs: [{ kind: 'video', path: output }],
+    }) }],
+  ])
+  const service = createGenerationService({ tools: { get: name => tools.get(name) } }, config)
+  t.after(() => service.dispose())
+
+  await service.retryShot(projectId, 'shot-001')
+  const ready = await waitFor(async () => {
+    const data = await projectGet(config, { projectId })
+    return data.shots[0].status === 'video_ready' ? data : null
+  })
+
+  assert.equal(ready.shots[0].retryCount, 4)
+  assert.match(ready.shots[0].videoPath, /^assets\/shots\/shot-001-video-/)
 })
