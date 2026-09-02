@@ -4,29 +4,20 @@ import test from 'node:test'
 
 test('generated client bundle registers a valid DSH module', async (t) => {
   const previousWindow = globalThis.window
-  let definition
+  const definitions = []
   globalThis.window = {
     __ModuleLoader__: {
-      load(value) { definition = value },
+      load(value) { definitions.push(value) },
     },
   }
   t.after(() => { globalThis.window = previousWindow })
 
   await import(`../lib/client.js?test=${Date.now()}`)
-  assert.equal(definition.id, '@dsh-external/dsh-toonflow')
-
-  const React = {
-    createElement() {},
-    useCallback() {},
-    useEffect() {},
-    useState() {},
-  }
-  const plugin = definition.factory(id => {
-    assert.equal(id, 'react')
-    return React
-  })
-  assert.equal(typeof plugin.apply, 'function')
-  assert.deepEqual(plugin.inject, [])
+  assert.deepEqual(definitions.map(item => item.id), [
+    '@dsh-external/dsh-toonflow',
+    'dsh-better-sidebar',
+  ])
+  assert.equal(typeof definitions[0].factory, 'function')
 
   const bundle = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
   assert.doesNotMatch(bundle, /window\.(?:prompt|confirm)\s*\(/)

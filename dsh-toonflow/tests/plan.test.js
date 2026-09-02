@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { projectCreate } from '../lib/lib/project.js'
-import { planGet, planUpdateShot } from '../lib/lib/plan.js'
-import { projectDir, writeJsonAtomic } from '../lib/lib/store.js'
+import { projectCreate } from '../src/toonflow/server/lib/project.js'
+import { planGet, planUpdateShot } from '../src/toonflow/server/lib/plan.js'
+import { projectDir, writeJsonAtomic } from '../src/toonflow/server/lib/store.js'
 
 test('updates a shot atomically and refreshes the project summary', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'dsh-toonflow-plan-test-'))

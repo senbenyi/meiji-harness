@@ -161,7 +161,10 @@ function clientBundle(pluginId: string, entryFile: string): UserConfig {
       entryFileNames: entryFile,
       sourcemapPathTransform: browserSourcePath,
       banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify(pluginId)}, factory: (require) => {`,
-      footer: `return module.exports; } });`,
+      // Keep the historical client module id as a lightweight alias. Existing
+      // sidebar extensions generally inject `betterSidebar`, but bundles that
+      // still require `dsh-better-sidebar` can resolve the merged module too.
+      footer: `return module.exports; } }); window.__ModuleLoader__.load({ id: 'dsh-better-sidebar', factory: (require) => require(${JSON.stringify(pluginId)}) });`,
       intro: 'var module = { exports: {} }; var exports = module.exports;',
       // The CJS wrapper factory's `require` only resolves module-table entries
       // (react, cordis, ...); it cannot load relative chunk URLs in the browser.

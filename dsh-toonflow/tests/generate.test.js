@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { createGenerationService } from '../lib/lib/generate.js'
-import { projectCreate, projectGet } from '../lib/lib/project.js'
-import { projectDir, writeJsonAtomic } from '../lib/lib/store.js'
+import { createGenerationService } from '../src/toonflow/server/lib/generate.js'
+import { projectCreate, projectGet } from '../src/toonflow/server/lib/project.js'
+import { projectDir, writeJsonAtomic } from '../src/toonflow/server/lib/store.js'
 
 async function fixture(t) {
   const workspace = await mkdtemp(path.join(tmpdir(), 'dsh-toonflow-generate-test-'))

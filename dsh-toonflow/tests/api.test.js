@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createApi } from '../src/client/api.js'
+import { createApi } from '../src/toonflow/client/api.js'
 
 test('preserves API error code and status for client recovery', async () => {
   const api = createApi(async () => ({

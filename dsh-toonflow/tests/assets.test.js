@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { registerUploadedImage } from '../lib/lib/assets.js'
-import { projectCreate } from '../lib/lib/project.js'
-import { projectDir } from '../lib/lib/store.js'
+import { registerUploadedImage } from '../src/toonflow/server/lib/assets.js'
+import { projectCreate } from '../src/toonflow/server/lib/project.js'
+import { projectDir } from '../src/toonflow/server/lib/store.js'
 
 const PNG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0])
 

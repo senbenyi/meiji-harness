@@ -8,8 +8,8 @@ import {
   projectDelete,
   projectGet,
   projectList,
-} from '../lib/lib/project.js'
-import { projectDir, resolveProjectFile } from '../lib/lib/store.js'
+} from '../src/toonflow/server/lib/project.js'
+import { projectDir, resolveProjectFile } from '../src/toonflow/server/lib/store.js'
 
 async function fixture(t) {
   const workspace = await mkdtemp(path.join(tmpdir(), 'dsh-toonflow-test-'))
