@@ -1,13 +1,12 @@
 import * as path from 'node:path'
 import { readFile } from 'node:fs/promises'
 import {
-  planGet,
-  planUpdateShot,
   projectCreate,
   projectDelete,
   projectGet,
   projectList,
 } from './lib/project.js'
+import { planGet, planUpdateShot } from './lib/plan.js'
 import { ToonflowError, resolveProjectFile } from './lib/store.js'
 
 export const name = '@dsh-external/dsh-toonflow'

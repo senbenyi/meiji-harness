@@ -19,6 +19,9 @@ logs/
 *.log
 npm-debug.log*
 
+# local Toonflow runtime data
+toonflow-workspace/
+
 # env
 .env
 .env.*.local

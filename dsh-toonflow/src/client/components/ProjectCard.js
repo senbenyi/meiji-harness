@@ -11,7 +11,7 @@ function timeAgo(timestamp) {
 }
 
 export function ProjectCard(h, { project, busy, progressBar, onSelect, onDelete }) {
-  return h('div', { className: 'tf-card', onClick: onSelect },
+  return h('div', { key: project.id, className: 'tf-card', onClick: onSelect },
     h('div', { className: 'tf-card-head' },
       h('div', { className: 'tf-card-title' }, project.title),
       h('button', {

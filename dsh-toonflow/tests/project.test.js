@@ -4,14 +4,12 @@ import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os'
 import test from 'node:test'
 import {
-  planGet,
-  planUpdateShot,
   projectCreate,
   projectDelete,
   projectGet,
   projectList,
 } from '../lib/lib/project.js'
-import { projectDir, resolveProjectFile, writeJsonAtomic } from '../lib/lib/store.js'
+import { projectDir, resolveProjectFile } from '../lib/lib/store.js'
 
 async function fixture(t) {
   const workspace = await mkdtemp(path.join(tmpdir(), 'dsh-toonflow-test-'))
@@ -45,40 +43,6 @@ test('creates, lists, reads, and deletes an empty project', async (t) => {
 
   await projectDelete(config, { projectId: id })
   assert.deepEqual((await projectList(config)).projects, [])
-})
-
-test('updates a shot atomically and refreshes the project summary', async (t) => {
-  const config = await fixture(t)
-  const created = await projectCreate(config, { title: '镜头测试' })
-  const id = created.project.id
-  const dir = projectDir(config, id)
-  await writeJsonAtomic(path.join(dir, 'shots.json'), [{
-    id: 'shot-001',
-    order: 1,
-    durationSec: 5,
-    characterIds: [],
-    sceneId: null,
-    description: '旧描述',
-    camera: '',
-    imagePrompt: '',
-    videoPrompt: '',
-    status: 'draft',
-    retryCount: 0,
-    lastError: null,
-  }])
-
-  const updated = await planUpdateShot(config, {
-    projectId: id,
-    shotId: 'shot-001',
-    updates: { description: '新描述', imagePrompt: 'cinematic scene' },
-  })
-  assert.equal(updated.shot.description, '新描述')
-  assert.equal(updated.shot.imagePrompt, 'cinematic scene')
-  assert.ok(updated.shot.updatedAt)
-
-  const persisted = await planGet(config, { projectId: id })
-  assert.equal(persisted.shots[0].description, '新描述')
-  assert.equal(persisted.project.updatedAt, updated.project.updatedAt)
 })
 
 test('serves only existing files contained by the selected project', async (t) => {

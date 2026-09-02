@@ -10,7 +10,7 @@ import {
   removeProject,
   writeJsonAtomic,
 } from './store.js'
-import { validateProjectCreate, validateShotUpdates } from './schema.js'
+import { validateProjectCreate } from './schema.js'
 
 function entityFile(dir, name) {
   return path.join(dir, `${name}.json`)
@@ -20,7 +20,7 @@ function makeProjectId() {
   return `project-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-async function loadProjectFiles(dir) {
+export async function loadProjectFiles(dir) {
   const [project, characters, scenes, shots] = await Promise.all([
     readJson(entityFile(dir, 'project')),
     readJson(entityFile(dir, 'characters'), []),
@@ -33,7 +33,7 @@ async function loadProjectFiles(dir) {
   return { project, characters, scenes, shots }
 }
 
-function summaryOf(data) {
+export function summaryOf(data) {
   const shotsDone = data.shots.filter(shot => shot.status === 'video_ready').length
   return {
     ...data.project,
@@ -106,27 +106,4 @@ export async function projectCreate(config, body = {}) {
 export async function projectDelete(config, { projectId } = {}) {
   await removeProject(config, projectId)
   return { ok: true, projectId }
-}
-
-export async function planGet(config, body = {}) {
-  return projectGet(config, body)
-}
-
-export async function planUpdateShot(config, { projectId, shotId, updates } = {}) {
-  if (typeof shotId !== 'string' || shotId.trim() === '') {
-    throw new ToonflowError('VALIDATION_ERROR', 'shotId is required')
-  }
-  const dir = await ensureProjectExists(config, projectId)
-  const data = await loadProjectFiles(dir)
-  const index = data.shots.findIndex(shot => shot.id === shotId)
-  if (index === -1) throw new ToonflowError('SHOT_NOT_FOUND', `Shot not found: ${shotId}`, 404)
-
-  const now = new Date().toISOString()
-  const shot = { ...data.shots[index], ...validateShotUpdates(updates), updatedAt: now }
-  const shots = [...data.shots]
-  shots[index] = shot
-  const project = { ...data.project, updatedAt: now }
-  await writeJsonAtomic(entityFile(dir, 'shots'), shots)
-  await writeJsonAtomic(entityFile(dir, 'project'), project)
-  return { ok: true, shot, project, summary: summaryOf({ ...data, project, shots }) }
 }

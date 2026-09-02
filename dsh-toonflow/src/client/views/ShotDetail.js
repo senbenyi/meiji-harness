@@ -34,13 +34,13 @@ export function createShotDetail(React, api) {
 
     const generationActions = []
     if (shot.status === 'draft' || shot.status === 'prompt_ready') {
-      generationActions.push(ActionButton(h, { label: '▶ 生成首帧', disabled: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'image', label: '▶ 生成首帧', disabled: true, title: '即将支持' }))
     } else if (shot.status === 'image_ready') {
-      generationActions.push(ActionButton(h, { label: '▶ 生成视频', disabled: true, title: '即将支持' }))
-      generationActions.push(ActionButton(h, { label: '🔄 重新生成首帧', disabled: true, ghost: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'video', label: '▶ 生成视频', disabled: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: true, ghost: true, title: '即将支持' }))
     } else if (shot.status === 'video_ready') {
-      generationActions.push(ActionButton(h, { label: '🔄 重新生成首帧', disabled: true, ghost: true, title: '即将支持' }))
-      generationActions.push(ActionButton(h, { label: '🔄 重新生成视频', disabled: true, ghost: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: true, ghost: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'video-again', label: '🔄 重新生成视频', disabled: true, ghost: true, title: '即将支持' }))
     }
 
     return h('div', null,
