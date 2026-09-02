@@ -1,0 +1,6 @@
+# dsh-toonflow bundle patch
+- insert:
+    - id: dsh-toonflow
+      name: '@dsh-external/dsh-toonflow'
+      config:
+        workspace: './toonflow-workspace'
