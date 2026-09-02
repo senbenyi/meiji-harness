@@ -675,9 +675,6 @@ function buildApi(
  * {@link resolveSidebarConfig}.
  */
 export function apply(ctx: Context, config?: SidebarConfig): void {
-  // Toonflow's routes and generation lifecycle are hosted by the same Cordis
-  // plugin instance as the sidebar, so no external sidebar package is needed.
-  applyToonflowHost(ctx, config ?? {})
   // pnpm strips the executable bit from node-pty's prebuilt spawn-helper;
   // restore it before any terminal can spawn (idempotent).
   ensureSpawnHelper()
@@ -692,6 +689,9 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // gateway fence derives its list from. Read per request from the live
   // service value; a replaced list takes effect without a plugin restart.
   const fence = (req: SidebarHttpRequest): boolean => isTrustedApiRequest(req, ctx.webRuntime.trustedHosts)
+  // Toonflow's routes and generation lifecycle are hosted by the same Cordis
+  // plugin instance as the sidebar and share its live request-trust fence.
+  applyToonflowHost(ctx, config ?? {}, fence)
   // node-pty is loaded lazily, never at module top level (issue #140): a
   // missing or broken install must degrade THIS plugin — terminal tab shows
   // a repair command, agent terminal tools stay unregistered — instead of

@@ -7,7 +7,7 @@ import { createProjectList } from './views/ProjectList.js'
 import { createShotBoard } from './views/ShotBoard.js'
 import { createShotDetail } from './views/ShotDetail.js'
 
-export function createToonflowApp(React, api, styles) {
+export function createToonflowApp(React, api) {
   const { createElement: h, useCallback, useEffect, useState } = React
   const useProject = createUseProject(React, api)
   const usePolling = createUsePolling(React)
@@ -116,7 +116,6 @@ export function createToonflowApp(React, api, styles) {
     }
 
     return h('div', { className: 'tf-root' },
-      h('style', null, styles),
       data.error ? h('div', { className: 'tf-error' }, data.error) : null,
       page,
       modal,

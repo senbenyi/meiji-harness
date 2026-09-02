@@ -1,11 +1,11 @@
-import styles from './toonflow.module.css'
+import './toonflow.css'
 import { createApi } from './api.js'
 import { createToonflowApp } from './ToonflowApp.js'
 import * as React from 'react'
 
 const h = React.createElement
 const api = createApi()
-const ToonflowApp = createToonflowApp(React, api, styles)
+const ToonflowApp = createToonflowApp(React, api)
 
     function ToonflowIcon({ size }) {
       return h('svg', {

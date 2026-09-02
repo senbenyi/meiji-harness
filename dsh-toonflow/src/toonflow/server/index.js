@@ -69,7 +69,7 @@ function sendError(res, error) {
   })
 }
 
-function attachRoutes(ctx, config, generation) {
+function attachRoutes(ctx, config, generation, fence) {
   const routes = new Map([
     ['/project.list', projectList],
     ['/project.get', projectGet],
@@ -88,6 +88,7 @@ function attachRoutes(ctx, config, generation) {
     kind: 'prefix',
     path: '/toonflow/api',
     handler: async (req, res) => {
+      if (!fence(req)) return sendJson(res, 403, { ok: false, code: 'FORBIDDEN', error: 'Request origin is not trusted' })
       if (req.method !== 'POST') return sendJson(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', error: 'Method not allowed' })
       const pathname = new URL(req.url ?? '/', 'http://dsh.internal').pathname
       const sub = pathname.replace(/^\/toonflow\/api/, '') || '/'
@@ -106,6 +107,10 @@ function attachRoutes(ctx, config, generation) {
     kind: 'prefix',
     path: '/toonflow/file',
     handler: async (req, res) => {
+      if (!fence(req)) {
+        res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
+        return res.end('Request origin is not trusted')
+      }
       if (req.method !== 'GET') {
         res.writeHead(405)
         return res.end()
@@ -130,6 +135,7 @@ function attachRoutes(ctx, config, generation) {
     kind: 'prefix',
     path: '/toonflow/import-image',
     handler: async (req, res) => {
+      if (!fence(req)) return sendJson(res, 403, { ok: false, code: 'FORBIDDEN', error: 'Request origin is not trusted' })
       if (req.method !== 'POST') return sendJson(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', error: 'Method not allowed' })
       try {
         const url = new URL(req.url ?? '/', 'http://dsh.internal')
@@ -175,11 +181,11 @@ function attachRoutes(ctx, config, generation) {
   }
 }
 
-export function apply(ctx, config = {}) {
+export function apply(ctx, config = {}, fence = (_request) => false) {
   const generation = createGenerationService(ctx, config)
   const register = (scope) => scope.effect(
     () => {
-      const disposeRoutes = attachRoutes(scope, config, generation)
+      const disposeRoutes = attachRoutes(scope, config, generation, fence)
       return () => {
         generation.dispose()
         disposeRoutes()
