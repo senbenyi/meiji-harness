@@ -11,20 +11,20 @@ function nameOf(items, id) {
 export function createShotBoard(React, api) {
   const h = React.createElement
 
-  function shotAction(shot) {
+  function shotAction(shot, busy, actions) {
     if (shot.status === 'draft' || shot.status === 'prompt_ready') {
-      return ActionButton(h, { label: '▶ 生成首帧', disabled: true, title: '即将支持' })
+      return ActionButton(h, { label: '▶ 生成首帧', disabled: busy, onClick: () => actions.onGenerateImage(shot.id) })
     }
     if (shot.status === 'image_ready') {
-      return ActionButton(h, { label: '▶ 生成视频', disabled: true, title: '即将支持' })
+      return ActionButton(h, { label: '▶ 生成视频', disabled: busy, onClick: () => actions.onGenerateVideo(shot.id) })
     }
     if (shot.status === 'failed' && (shot.retryCount || 0) < 3) {
-      return ActionButton(h, { label: `🔄 重试 (${shot.retryCount || 0}/3)`, disabled: true, title: '即将支持' })
+      return ActionButton(h, { label: `🔄 重试 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => actions.onRetry(shot.id) })
     }
     return null
   }
 
-  return function ShotBoardView({ projectId, plan, navigate }) {
+  return function ShotBoardView({ projectId, plan, busy, navigate, onGenerateImage, onGenerateVideo, onRetry }) {
     const characters = plan?.characters || []
     const scenes = plan?.scenes || []
     const shots = plan?.shots || []
@@ -43,7 +43,7 @@ export function createShotBoard(React, api) {
           characterNames: (shot.characterIds || []).map(id => nameOf(characters, id)).join(', '),
           sceneName: nameOf(scenes, shot.sceneId),
           statusBadge: StatusBadge(h, { status: shot.status }),
-          action: shotAction(shot),
+          action: shotAction(shot, busy, { onGenerateImage, onGenerateVideo, onRetry }),
           onDetails: () => navigate('shot', projectId, { shotId: shot.id }),
         })),
     )

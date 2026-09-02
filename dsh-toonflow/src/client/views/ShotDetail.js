@@ -11,7 +11,9 @@ function nameOf(items, id) {
 export function createShotDetail(React, api) {
   const { createElement: h, useState } = React
   const TextEditDialog = createTextEditDialog(React)
-  return function ShotDetail({ projectId, shotId, plan, busy, navigate, onUpdate }) {
+  return function ShotDetail({
+    projectId, shotId, plan, busy, navigate, onUpdate, onGenerateImage, onGenerateVideo, onRetry,
+  }) {
     const [editing, setEditing] = useState(null)
     const characters = plan?.characters || []
     const scenes = plan?.scenes || []
@@ -34,13 +36,15 @@ export function createShotDetail(React, api) {
 
     const generationActions = []
     if (shot.status === 'draft' || shot.status === 'prompt_ready') {
-      generationActions.push(ActionButton(h, { key: 'image', label: '▶ 生成首帧', disabled: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'image', label: '▶ 生成首帧', disabled: busy, onClick: () => onGenerateImage(shot.id) }))
     } else if (shot.status === 'image_ready') {
-      generationActions.push(ActionButton(h, { key: 'video', label: '▶ 生成视频', disabled: true, title: '即将支持' }))
-      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: true, ghost: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'video', label: '▶ 生成视频', disabled: busy, onClick: () => onGenerateVideo(shot.id) }))
+      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }))
     } else if (shot.status === 'video_ready') {
-      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: true, ghost: true, title: '即将支持' }))
-      generationActions.push(ActionButton(h, { key: 'video-again', label: '🔄 重新生成视频', disabled: true, ghost: true, title: '即将支持' }))
+      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }))
+      generationActions.push(ActionButton(h, { key: 'video-again', label: '🔄 重新生成视频', disabled: busy, ghost: true, onClick: () => onGenerateVideo(shot.id) }))
+    } else if (shot.status === 'failed' && (shot.retryCount || 0) < 3) {
+      generationActions.push(ActionButton(h, { key: 'retry', label: `🔄 重试 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => onRetry(shot.id) }))
     }
 
     return h('div', null,

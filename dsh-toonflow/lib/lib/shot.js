@@ -10,13 +10,14 @@ async function withProjectLock(config, projectId, task) {
   const previous = projectLocks.get(key) || Promise.resolve()
   let release
   const current = new Promise(resolve => { release = resolve })
-  projectLocks.set(key, previous.then(() => current))
+  const queued = previous.then(() => current)
+  projectLocks.set(key, queued)
   await previous
   try {
     return await task(directory)
   } finally {
     release()
-    if (projectLocks.get(key) === current) projectLocks.delete(key)
+    if (projectLocks.get(key) === queued) projectLocks.delete(key)
   }
 }
 

@@ -7,10 +7,11 @@ import {
   projectList,
 } from './lib/project.js'
 import { planGet, planUpdateShot } from './lib/plan.js'
+import { createGenerationService } from './lib/generate.js'
 import { ToonflowError, resolveProjectFile } from './lib/store.js'
 
 export const name = '@dsh-external/dsh-toonflow'
-export const inject = []
+export const inject = ['tools']
 
 const MEDIA_TYPES = new Map([
   ['.png', 'image/png'],
@@ -53,7 +54,7 @@ function sendError(res, error) {
   })
 }
 
-function attachRoutes(ctx, config) {
+function attachRoutes(ctx, config, generation) {
   const routes = new Map([
     ['/project.list', projectList],
     ['/project.get', projectGet],
@@ -61,6 +62,11 @@ function attachRoutes(ctx, config) {
     ['/project.delete', projectDelete],
     ['/plan.get', planGet],
     ['/plan.update_shot', planUpdateShot],
+    ['/shot.batch_status', (_config, body) => generation.batchStatus(body.projectId)],
+    ['/shot.generate_image', (_config, body) => generation.submitShotImage(body.projectId, body.shotId)],
+    ['/shot.generate_video', (_config, body) => generation.submitShotVideo(body.projectId, body.shotId)],
+    ['/shot.retry', (_config, body) => generation.retryShot(body.projectId, body.shotId)],
+    ['/char.generate_image', (_config, body) => generation.submitCharacter(body.projectId, body.characterId)],
   ])
 
   const disposeApi = ctx.webServer.register({
@@ -112,9 +118,16 @@ function attachRoutes(ctx, config) {
 }
 
 export function apply(ctx, config = {}) {
+  const generation = createGenerationService(ctx, config)
   const register = (scope) => scope.effect(
-    () => attachRoutes(scope, config),
-    '@dsh-external/dsh-toonflow: phase 2 routes',
+    () => {
+      const disposeRoutes = attachRoutes(scope, config, generation)
+      return () => {
+        generation.dispose()
+        disposeRoutes()
+      }
+    },
+    '@dsh-external/dsh-toonflow: routes',
   )
   if (typeof ctx.inject === 'function') {
     ctx.inject(['webServer'], register)
@@ -122,5 +135,5 @@ export function apply(ctx, config = {}) {
     const webServer = ctx.get?.('webServer')
     if (webServer) register(ctx)
   }
-  ctx.logger?.info?.('[toonflow] Phase 2 — JSON data API loaded')
+  ctx.logger?.info?.('[toonflow] Phase 3 — generation API loaded')
 }

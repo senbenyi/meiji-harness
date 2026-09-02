@@ -21,6 +21,7 @@ npm-debug.log*
 
 # local Toonflow runtime data
 toonflow-workspace/
+comfyui-output/
 
 # env
 .env

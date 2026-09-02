@@ -142,7 +142,11 @@ export function createGenerationService(ctx, config) {
 
   async function referenceImage(projectId, shot, model) {
     if (!model.useReferenceImage) return undefined
-    const candidate = shot.referenceImages?.[0]
+    const data = await projectGet(config, { projectId })
+    const linkedCharacter = data.characters.find(character =>
+      shot.characterIds?.includes(character.id) && character.imagePath,
+    )
+    const candidate = shot.referenceImages?.[0] || linkedCharacter?.imagePath
     if (!candidate) return undefined
     return resolveProjectFile(config, projectId, candidate)
   }
@@ -211,7 +215,13 @@ export function createGenerationService(ctx, config) {
   async function reconcile(projectId) {
     const data = await projectGet(config, { projectId })
     for (const character of data.characters) {
-      if (character.imageStatus !== 'image_queued' || !character.imageJobId) continue
+      if (character.imageStatus !== 'image_queued') continue
+      if (!character.imageJobId) {
+        await updateCharacterRecord(config, projectId, character.id, current => ({
+          ...current, imageStatus: 'failed', lastError: 'Generation was interrupted before a job was created',
+        }))
+        continue
+      }
       void monitor(
         `character:${projectId}:${character.id}`,
         character.imageJobId,
@@ -232,7 +242,13 @@ export function createGenerationService(ctx, config) {
     for (const shot of data.shots) {
       const stage = shot.status === 'video_queued' ? 'video' : shot.status === 'image_queued' ? 'image' : null
       const jobId = stage === 'video' ? shot.videoJobId : shot.imageJobId
-      if (!stage || !jobId) continue
+      if (!stage) continue
+      if (!jobId) {
+        await updateShotRecord(config, projectId, shot.id, current => ({
+          ...current, status: 'failed', failedStage: stage, lastError: 'Generation was interrupted before a job was created',
+        }))
+        continue
+      }
       void monitor(
         `shot:${projectId}:${shot.id}:${stage}`,
         jobId,

@@ -99,6 +99,41 @@ export function createUseProject(React, api) {
       }
     }, [projectId])
 
+    const replacePlan = useCallback((data) => {
+      if (data?.project?.id === projectId) setPlan(data)
+    }, [projectId])
+
+    const refreshGeneration = useCallback(async () => {
+      if (!projectId) return null
+      try {
+        const data = await api.fetchJson('/shot.batch_status', { projectId })
+        replacePlan(data)
+        return data
+      } catch (reason) {
+        setError(reason.message || String(reason))
+        setErrorCode(reason.code || '')
+        return null
+      }
+    }, [projectId, replacePlan])
+
+    const generate = useCallback(async (route, body) => {
+      setBusy(true)
+      setError('')
+      setErrorCode('')
+      try {
+        const data = await api.fetchJson(route, { projectId, ...body })
+        replacePlan(data)
+        return data
+      } catch (reason) {
+        setError(reason.message || String(reason))
+        setErrorCode(reason.code || '')
+        setRevision(value => value + 1)
+        return null
+      } finally {
+        setBusy(false)
+      }
+    }, [projectId, replacePlan])
+
     const clearPlan = useCallback(() => setPlan(null), [])
 
     return {
@@ -109,9 +144,15 @@ export function createUseProject(React, api) {
       error,
       missingProject: errorCode === 'PROJECT_NOT_FOUND',
       clearPlan,
+      replacePlan,
+      refreshGeneration,
       createProject,
       deleteProject,
       updateShot,
+      generateCharacter: characterId => generate('/char.generate_image', { characterId }),
+      generateShotImage: shotId => generate('/shot.generate_image', { shotId }),
+      generateShotVideo: shotId => generate('/shot.generate_video', { shotId }),
+      retryShot: shotId => generate('/shot.retry', { shotId }),
     }
   }
 }

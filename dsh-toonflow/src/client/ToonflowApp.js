@@ -1,4 +1,5 @@
 import { createUseProject } from './hooks/useProject.js'
+import { createUsePolling } from './hooks/usePolling.js'
 import { createConfirmDialog, createProjectDialog } from './components/Modal.js'
 import { createDashboard } from './views/Dashboard.js'
 import { createExportPanel } from './views/ExportPanel.js'
@@ -9,6 +10,7 @@ import { createShotDetail } from './views/ShotDetail.js'
 export function createToonflowApp(React, api, styles) {
   const { createElement: h, useCallback, useEffect, useState } = React
   const useProject = createUseProject(React, api)
+  const usePolling = createUsePolling(React)
   const ProjectList = createProjectList(React)
   const Dashboard = createDashboard(React, api)
   const ShotBoard = createShotBoard(React, api)
@@ -24,6 +26,9 @@ export function createToonflowApp(React, api, styles) {
     const [extra, setExtra] = useState(meta.extra || {})
     const [dialog, setDialog] = useState(null)
     const data = useProject(view, projectId)
+    const hasQueued = Boolean(data.plan?.characters?.some(item => item.imageStatus === 'image_queued')
+      || data.plan?.shots?.some(item => item.status === 'image_queued' || item.status === 'video_queued'))
+    usePolling(view !== 'list' && Boolean(projectId) && hasQueued, data.refreshGeneration)
 
     const navigate = useCallback((nextView, nextProjectId, nextExtra) => {
       setView(nextView)
@@ -53,9 +58,17 @@ export function createToonflowApp(React, api, styles) {
     if (view !== 'list' && data.loading && !data.plan) {
       page = h('div', { className: 'tf-empty' }, '正在加载…')
     } else if (view === 'dashboard') {
-      page = h(Dashboard, { projectId, plan: data.plan, navigate })
+      page = h(Dashboard, {
+        projectId, plan: data.plan, busy: data.busy, navigate,
+        onGenerateCharacter: data.generateCharacter,
+      })
     } else if (view === 'shots') {
-      page = h(ShotBoard, { projectId, plan: data.plan, navigate })
+      page = h(ShotBoard, {
+        projectId, plan: data.plan, busy: data.busy, navigate,
+        onGenerateImage: data.generateShotImage,
+        onGenerateVideo: data.generateShotVideo,
+        onRetry: data.retryShot,
+      })
     } else if (view === 'shot') {
       page = h(ShotDetail, {
         projectId,
@@ -64,6 +77,9 @@ export function createToonflowApp(React, api, styles) {
         busy: data.busy,
         navigate,
         onUpdate: data.updateShot,
+        onGenerateImage: data.generateShotImage,
+        onGenerateVideo: data.generateShotVideo,
+        onRetry: data.retryShot,
       })
     } else if (view === 'export') {
       page = h(ExportPanel, { projectId, plan: data.plan, navigate })

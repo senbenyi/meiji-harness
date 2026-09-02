@@ -128,6 +128,38 @@
           setBusy(false);
         }
       }, [projectId]);
+      const replacePlan = useCallback((data) => {
+        if (data?.project?.id === projectId) setPlan(data);
+      }, [projectId]);
+      const refreshGeneration = useCallback(async () => {
+        if (!projectId) return null;
+        try {
+          const data = await api.fetchJson("/shot.batch_status", { projectId });
+          replacePlan(data);
+          return data;
+        } catch (reason) {
+          setError(reason.message || String(reason));
+          setErrorCode(reason.code || "");
+          return null;
+        }
+      }, [projectId, replacePlan]);
+      const generate = useCallback(async (route, body) => {
+        setBusy(true);
+        setError("");
+        setErrorCode("");
+        try {
+          const data = await api.fetchJson(route, { projectId, ...body });
+          replacePlan(data);
+          return data;
+        } catch (reason) {
+          setError(reason.message || String(reason));
+          setErrorCode(reason.code || "");
+          setRevision((value) => value + 1);
+          return null;
+        } finally {
+          setBusy(false);
+        }
+      }, [projectId, replacePlan]);
       const clearPlan = useCallback(() => setPlan(null), []);
       return {
         projects,
@@ -137,10 +169,44 @@
         error,
         missingProject: errorCode === "PROJECT_NOT_FOUND",
         clearPlan,
+        replacePlan,
+        refreshGeneration,
         createProject,
         deleteProject,
-        updateShot
+        updateShot,
+        generateCharacter: (characterId) => generate("/char.generate_image", { characterId }),
+        generateShotImage: (shotId) => generate("/shot.generate_image", { shotId }),
+        generateShotVideo: (shotId) => generate("/shot.generate_video", { shotId }),
+        retryShot: (shotId) => generate("/shot.retry", { shotId })
       };
+    };
+  }
+
+  // src/client/hooks/usePolling.js
+  function createUsePolling(React) {
+    const { useEffect } = React;
+    return function usePolling(enabled, poll, intervalMs = 2500) {
+      useEffect(() => {
+        if (!enabled) return;
+        let active = true;
+        let running = false;
+        const tick = async () => {
+          if (!active || running || document.visibilityState === "hidden") return;
+          running = true;
+          try {
+            await poll();
+          } catch {
+          } finally {
+            running = false;
+          }
+        };
+        const timer = setInterval(tick, intervalMs);
+        void tick();
+        return () => {
+          active = false;
+          clearInterval(timer);
+        };
+      }, [enabled, poll, intervalMs]);
     };
   }
 
@@ -313,7 +379,8 @@
       { key: character.id, className: "tf-thumb" },
       character.imagePath ? h("img", { className: "tf-thumb-img", src: mediaUrl(projectId, character.imagePath), alt: character.name }) : h("div", { className: "tf-thumb-img" }, "\u{1F464}"),
       h("div", { className: "tf-thumb-label" }, character.name),
-      character.imagePath ? null : generateButton
+      character.imageStatus === "failed" && character.lastError ? h("div", { className: "tf-shot-error" }, character.lastError) : null,
+      character.imagePath && character.imageStatus !== "failed" ? null : generateButton
     );
   }
 
@@ -350,7 +417,7 @@
   // src/client/views/Dashboard.js
   function createDashboard(React, api) {
     const h = React.createElement;
-    return function Dashboard({ projectId, plan, navigate }) {
+    return function Dashboard({ projectId, plan, busy, navigate, onGenerateCharacter }) {
       const project = plan?.project;
       const characters = plan?.characters || [];
       const scenes = plan?.scenes || [];
@@ -374,10 +441,10 @@
             projectId,
             mediaUrl: api.mediaUrl,
             generateButton: ActionButton(h, {
-              label: "\u751F\u6210\u56FE",
-              disabled: true,
+              label: character.imageStatus === "image_queued" ? "\u751F\u6210\u4E2D\u2026" : character.imageStatus === "failed" ? "\u91CD\u8BD5\u751F\u6210" : "\u751F\u6210\u89D2\u8272\u56FE",
+              disabled: busy || character.imageStatus === "image_queued",
               ghost: true,
-              title: "\u5373\u5C06\u652F\u6301\uFF1A\u751F\u6210\u89D2\u8272\u53C2\u8003\u56FE"
+              onClick: () => onGenerateCharacter(character.id)
             })
           })))
         ),
@@ -577,19 +644,19 @@
   }
   function createShotBoard(React, api) {
     const h = React.createElement;
-    function shotAction(shot) {
+    function shotAction(shot, busy, actions) {
       if (shot.status === "draft" || shot.status === "prompt_ready") {
-        return ActionButton(h, { label: "\u25B6 \u751F\u6210\u9996\u5E27", disabled: true, title: "\u5373\u5C06\u652F\u6301" });
+        return ActionButton(h, { label: "\u25B6 \u751F\u6210\u9996\u5E27", disabled: busy, onClick: () => actions.onGenerateImage(shot.id) });
       }
       if (shot.status === "image_ready") {
-        return ActionButton(h, { label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: true, title: "\u5373\u5C06\u652F\u6301" });
+        return ActionButton(h, { label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: busy, onClick: () => actions.onGenerateVideo(shot.id) });
       }
       if (shot.status === "failed" && (shot.retryCount || 0) < 3) {
-        return ActionButton(h, { label: `\u{1F504} \u91CD\u8BD5 (${shot.retryCount || 0}/3)`, disabled: true, title: "\u5373\u5C06\u652F\u6301" });
+        return ActionButton(h, { label: `\u{1F504} \u91CD\u8BD5 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => actions.onRetry(shot.id) });
       }
       return null;
     }
-    return function ShotBoardView({ projectId, plan, navigate }) {
+    return function ShotBoardView({ projectId, plan, busy, navigate, onGenerateImage, onGenerateVideo, onRetry }) {
       const characters = plan?.characters || [];
       const scenes = plan?.scenes || [];
       const shots = plan?.shots || [];
@@ -608,7 +675,7 @@
           characterNames: (shot.characterIds || []).map((id) => nameOf(characters, id)).join(", "),
           sceneName: nameOf(scenes, shot.sceneId),
           statusBadge: StatusBadge(h, { status: shot.status }),
-          action: shotAction(shot),
+          action: shotAction(shot, busy, { onGenerateImage, onGenerateVideo, onRetry }),
           onDetails: () => navigate("shot", projectId, { shotId: shot.id })
         }))
       );
@@ -622,7 +689,17 @@
   function createShotDetail(React, api) {
     const { createElement: h, useState } = React;
     const TextEditDialog = createTextEditDialog(React);
-    return function ShotDetail({ projectId, shotId, plan, busy, navigate, onUpdate }) {
+    return function ShotDetail({
+      projectId,
+      shotId,
+      plan,
+      busy,
+      navigate,
+      onUpdate,
+      onGenerateImage,
+      onGenerateVideo,
+      onRetry
+    }) {
       const [editing, setEditing] = useState(null);
       const characters = plan?.characters || [];
       const scenes = plan?.scenes || [];
@@ -647,13 +724,15 @@
       }
       const generationActions = [];
       if (shot.status === "draft" || shot.status === "prompt_ready") {
-        generationActions.push(ActionButton(h, { key: "image", label: "\u25B6 \u751F\u6210\u9996\u5E27", disabled: true, title: "\u5373\u5C06\u652F\u6301" }));
+        generationActions.push(ActionButton(h, { key: "image", label: "\u25B6 \u751F\u6210\u9996\u5E27", disabled: busy, onClick: () => onGenerateImage(shot.id) }));
       } else if (shot.status === "image_ready") {
-        generationActions.push(ActionButton(h, { key: "video", label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: true, title: "\u5373\u5C06\u652F\u6301" }));
-        generationActions.push(ActionButton(h, { key: "image-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u9996\u5E27", disabled: true, ghost: true, title: "\u5373\u5C06\u652F\u6301" }));
+        generationActions.push(ActionButton(h, { key: "video", label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: busy, onClick: () => onGenerateVideo(shot.id) }));
+        generationActions.push(ActionButton(h, { key: "image-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u9996\u5E27", disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }));
       } else if (shot.status === "video_ready") {
-        generationActions.push(ActionButton(h, { key: "image-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u9996\u5E27", disabled: true, ghost: true, title: "\u5373\u5C06\u652F\u6301" }));
-        generationActions.push(ActionButton(h, { key: "video-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u89C6\u9891", disabled: true, ghost: true, title: "\u5373\u5C06\u652F\u6301" }));
+        generationActions.push(ActionButton(h, { key: "image-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u9996\u5E27", disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }));
+        generationActions.push(ActionButton(h, { key: "video-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u89C6\u9891", disabled: busy, ghost: true, onClick: () => onGenerateVideo(shot.id) }));
+      } else if (shot.status === "failed" && (shot.retryCount || 0) < 3) {
+        generationActions.push(ActionButton(h, { key: "retry", label: `\u{1F504} \u91CD\u8BD5 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => onRetry(shot.id) }));
       }
       return h(
         "div",
@@ -711,6 +790,7 @@
   function createToonflowApp(React, api, styles) {
     const { createElement: h, useCallback, useEffect, useState } = React;
     const useProject = createUseProject(React, api);
+    const usePolling = createUsePolling(React);
     const ProjectList = createProjectList(React);
     const Dashboard = createDashboard(React, api);
     const ShotBoard = createShotBoard(React, api);
@@ -725,6 +805,8 @@
       const [extra, setExtra] = useState(meta.extra || {});
       const [dialog, setDialog] = useState(null);
       const data = useProject(view, projectId);
+      const hasQueued = Boolean(data.plan?.characters?.some((item) => item.imageStatus === "image_queued") || data.plan?.shots?.some((item) => item.status === "image_queued" || item.status === "video_queued"));
+      usePolling(view !== "list" && Boolean(projectId) && hasQueued, data.refreshGeneration);
       const navigate = useCallback((nextView, nextProjectId, nextExtra) => {
         setView(nextView);
         if (nextProjectId !== void 0) {
@@ -750,9 +832,23 @@
       if (view !== "list" && data.loading && !data.plan) {
         page = h("div", { className: "tf-empty" }, "\u6B63\u5728\u52A0\u8F7D\u2026");
       } else if (view === "dashboard") {
-        page = h(Dashboard, { projectId, plan: data.plan, navigate });
+        page = h(Dashboard, {
+          projectId,
+          plan: data.plan,
+          busy: data.busy,
+          navigate,
+          onGenerateCharacter: data.generateCharacter
+        });
       } else if (view === "shots") {
-        page = h(ShotBoard, { projectId, plan: data.plan, navigate });
+        page = h(ShotBoard, {
+          projectId,
+          plan: data.plan,
+          busy: data.busy,
+          navigate,
+          onGenerateImage: data.generateShotImage,
+          onGenerateVideo: data.generateShotVideo,
+          onRetry: data.retryShot
+        });
       } else if (view === "shot") {
         page = h(ShotDetail, {
           projectId,
@@ -760,7 +856,10 @@
           plan: data.plan,
           busy: data.busy,
           navigate,
-          onUpdate: data.updateShot
+          onUpdate: data.updateShot,
+          onGenerateImage: data.generateShotImage,
+          onGenerateVideo: data.generateShotVideo,
+          onRetry: data.retryShot
         });
       } else if (view === "export") {
         page = h(ExportPanel, { projectId, plan: data.plan, navigate });

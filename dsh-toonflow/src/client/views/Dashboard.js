@@ -7,7 +7,7 @@ import { StatusBadge } from '../components/StatusBadge.js'
 
 export function createDashboard(React, api) {
   const h = React.createElement
-  return function Dashboard({ projectId, plan, navigate }) {
+  return function Dashboard({ projectId, plan, busy, navigate, onGenerateCharacter }) {
     const project = plan?.project
     const characters = plan?.characters || []
     const scenes = plan?.scenes || []
@@ -26,7 +26,10 @@ export function createDashboard(React, api) {
           projectId,
           mediaUrl: api.mediaUrl,
           generateButton: ActionButton(h, {
-            label: '生成图', disabled: true, ghost: true, title: '即将支持：生成角色参考图',
+            label: character.imageStatus === 'image_queued' ? '生成中…' : character.imageStatus === 'failed' ? '重试生成' : '生成角色图',
+            disabled: busy || character.imageStatus === 'image_queued',
+            ghost: true,
+            onClick: () => onGenerateCharacter(character.id),
           }),
         }))),
       ),

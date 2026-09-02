@@ -4,3 +4,17 @@
       name: '@dsh-external/dsh-toonflow'
       config:
         workspace: './toonflow-workspace'
+        models:
+          characterImage:
+            template: 'anima-txt2img'
+            args:
+              width: 768
+              height: 1024
+          shotImage:
+            template: 'anima-txt2img'
+            args:
+              width: 1280
+              height: 720
+          shotVideo:
+            template: ''
+            args: {}
