@@ -134,6 +134,23 @@ export function createUseProject(React, api) {
       }
     }, [projectId, replacePlan])
 
+    const importImage = useCallback(async (scope, entityId, file) => {
+      setBusy(true)
+      setError('')
+      setErrorCode('')
+      try {
+        const data = await api.uploadImage({ projectId, scope, entityId, file })
+        replacePlan(data)
+        return data
+      } catch (reason) {
+        setError(reason.message || String(reason))
+        setErrorCode(reason.code || '')
+        return null
+      } finally {
+        setBusy(false)
+      }
+    }, [projectId, replacePlan])
+
     const clearPlan = useCallback(() => setPlan(null), [])
 
     return {
@@ -149,6 +166,8 @@ export function createUseProject(React, api) {
       createProject,
       deleteProject,
       updateShot,
+      importCharacterImage: (characterId, file) => importImage('characters', characterId, file),
+      importShotImage: (shotId, file) => importImage('shots', shotId, file),
       generateCharacter: characterId => generate('/char.generate_image', { characterId }),
       generateShotImage: shotId => generate('/shot.generate_image', { shotId }),
       generateShotVideo: shotId => generate('/shot.generate_video', { shotId }),

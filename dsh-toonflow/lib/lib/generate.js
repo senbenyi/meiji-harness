@@ -181,7 +181,6 @@ export function createGenerationService(ctx, config) {
         template: model.template,
         prompt: shotPrompt(shot, stage === 'video' ? 'videoPrompt' : 'imagePrompt'),
         ...(image ? { image } : {}),
-        ...(stage === 'video' ? { duration: shot.durationSec } : {}),
         wait_s: 0,
       })
       const queued = await updateShotRecord(config, projectId, shotId, current => ({

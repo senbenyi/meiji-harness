@@ -3,6 +3,7 @@ import { Breadcrumb } from '../components/Breadcrumb.js'
 import { EmptyState } from '../components/EmptyState.js'
 import { createTextEditDialog } from '../components/Modal.js'
 import { StatusBadge } from '../components/StatusBadge.js'
+import { createImageImportButton } from '../components/ImageImportButton.js'
 
 function nameOf(items, id) {
   return (items || []).find(item => item.id === id)?.name || id || ''
@@ -11,8 +12,9 @@ function nameOf(items, id) {
 export function createShotDetail(React, api) {
   const { createElement: h, useState } = React
   const TextEditDialog = createTextEditDialog(React)
+  const ImageImportButton = createImageImportButton(React)
   return function ShotDetail({
-    projectId, shotId, plan, busy, navigate, onUpdate, onGenerateImage, onGenerateVideo, onRetry,
+    projectId, shotId, plan, busy, navigate, onUpdate, onImportImage, onGenerateVideo, onRetry,
   }) {
     const [editing, setEditing] = useState(null)
     const characters = plan?.characters || []
@@ -35,15 +37,18 @@ export function createShotDetail(React, api) {
     }
 
     const generationActions = []
-    if (shot.status === 'draft' || shot.status === 'prompt_ready') {
-      generationActions.push(ActionButton(h, { key: 'image', label: '▶ 生成首帧', disabled: busy, onClick: () => onGenerateImage(shot.id) }))
-    } else if (shot.status === 'image_ready') {
+    generationActions.push(h(ImageImportButton, {
+      key: 'image-import',
+      label: shot.imagePath ? '替换首帧' : '导入首帧',
+      busy,
+      ghost: Boolean(shot.imagePath),
+      onSelect: file => onImportImage(shot.id, file),
+    }))
+    if (shot.status === 'image_ready') {
       generationActions.push(ActionButton(h, { key: 'video', label: '▶ 生成视频', disabled: busy, onClick: () => onGenerateVideo(shot.id) }))
-      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }))
     } else if (shot.status === 'video_ready') {
-      generationActions.push(ActionButton(h, { key: 'image-again', label: '🔄 重新生成首帧', disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }))
       generationActions.push(ActionButton(h, { key: 'video-again', label: '🔄 重新生成视频', disabled: busy, ghost: true, onClick: () => onGenerateVideo(shot.id) }))
-    } else if (shot.status === 'failed' && (shot.retryCount || 0) < 3) {
+    } else if (shot.status === 'failed' && shot.failedStage === 'video' && (shot.retryCount || 0) < 3) {
       generationActions.push(ActionButton(h, { key: 'retry', label: `🔄 重试 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => onRetry(shot.id) }))
     }
 

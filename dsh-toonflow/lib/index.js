@@ -8,6 +8,8 @@ import {
 } from './lib/project.js'
 import { planGet, planUpdateShot } from './lib/plan.js'
 import { createGenerationService } from './lib/generate.js'
+import { registerUploadedImage } from './lib/assets.js'
+import { updateCharacterRecord, updateShotRecord } from './lib/shot.js'
 import { ToonflowError, resolveProjectFile } from './lib/store.js'
 
 export const name = '@dsh-external/dsh-toonflow'
@@ -38,6 +40,19 @@ async function readBody(req) {
   } catch {
     throw new ToonflowError('INVALID_JSON', 'Request body must be valid JSON')
   }
+}
+
+async function readUpload(req) {
+  const declared = Number(req.headers?.['content-length'] || 0)
+  if (declared > 25 * 1024 * 1024) throw new ToonflowError('UPLOAD_TOO_LARGE', 'Image must be 25 MB or smaller', 413)
+  const chunks = []
+  let size = 0
+  for await (const chunk of req) {
+    size += chunk.length
+    if (size > 25 * 1024 * 1024) throw new ToonflowError('UPLOAD_TOO_LARGE', 'Image must be 25 MB or smaller', 413)
+    chunks.push(Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks)
 }
 
 function sendJson(res, status, value) {
@@ -111,7 +126,50 @@ function attachRoutes(ctx, config, generation) {
     },
   })
 
+  const disposeImport = ctx.webServer.register({
+    kind: 'prefix',
+    path: '/toonflow/import-image',
+    handler: async (req, res) => {
+      if (req.method !== 'POST') return sendJson(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', error: 'Method not allowed' })
+      try {
+        const url = new URL(req.url ?? '/', 'http://dsh.internal')
+        const projectId = url.searchParams.get('projectId')
+        const scope = url.searchParams.get('scope')
+        const entityId = url.searchParams.get('entityId')
+        const filename = url.searchParams.get('filename')
+        const bytes = await readUpload(req)
+        const result = scope === 'characters'
+          ? await updateCharacterRecord(config, projectId, entityId, async character => {
+            const imagePath = await registerUploadedImage(config, {
+              projectId, scope, entityId, filename, bytes,
+            })
+            return { ...character, imagePath, imageStatus: 'image_ready', imageJobId: null, lastError: null }
+          })
+          : await updateShotRecord(config, projectId, entityId, async shot => {
+            const imagePath = await registerUploadedImage(config, {
+              projectId, scope, entityId, filename, bytes,
+            })
+            return {
+              ...shot,
+              imagePath,
+              videoPath: null,
+              status: 'image_ready',
+              imageJobId: null,
+              videoJobId: null,
+              failedStage: null,
+              lastError: null,
+            }
+          })
+        return sendJson(res, 200, result)
+      } catch (error) {
+        ctx.logger?.warn?.(`[toonflow] import-image: ${error?.message || error}`)
+        return sendError(res, error)
+      }
+    },
+  })
+
   return () => {
+    disposeImport?.()
     disposeFile?.()
     disposeApi?.()
   }

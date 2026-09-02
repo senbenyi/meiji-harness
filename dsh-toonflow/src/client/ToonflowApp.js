@@ -60,12 +60,12 @@ export function createToonflowApp(React, api, styles) {
     } else if (view === 'dashboard') {
       page = h(Dashboard, {
         projectId, plan: data.plan, busy: data.busy, navigate,
-        onGenerateCharacter: data.generateCharacter,
+        onImportCharacterImage: data.importCharacterImage,
       })
     } else if (view === 'shots') {
       page = h(ShotBoard, {
         projectId, plan: data.plan, busy: data.busy, navigate,
-        onGenerateImage: data.generateShotImage,
+        onImportImage: data.importShotImage,
         onGenerateVideo: data.generateShotVideo,
         onRetry: data.retryShot,
       })
@@ -77,7 +77,7 @@ export function createToonflowApp(React, api, styles) {
         busy: data.busy,
         navigate,
         onUpdate: data.updateShot,
-        onGenerateImage: data.generateShotImage,
+        onImportImage: data.importShotImage,
         onGenerateVideo: data.generateShotVideo,
         onRetry: data.retryShot,
       })

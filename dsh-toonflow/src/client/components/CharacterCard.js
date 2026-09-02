@@ -7,6 +7,6 @@ export function CharacterCard(h, { character, projectId, mediaUrl, generateButto
     character.imageStatus === 'failed' && character.lastError
       ? h('div', { className: 'tf-shot-error' }, character.lastError)
       : null,
-    character.imagePath && character.imageStatus !== 'failed' ? null : generateButton,
+    generateButton,
   )
 }

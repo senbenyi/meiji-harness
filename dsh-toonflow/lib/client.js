@@ -24,7 +24,23 @@
       if (!projectId || !filePath) return null;
       return `/toonflow/file?project=${encodeURIComponent(projectId)}&path=${encodeURIComponent(filePath)}`;
     }
-    return { fetchJson, mediaUrl };
+    async function uploadImage({ projectId, scope, entityId, file }) {
+      const query = new URLSearchParams({ projectId, scope, entityId, filename: file.name });
+      const response = await fetchImpl(`/toonflow/import-image?${query}`, {
+        method: "POST",
+        headers: { "content-type": file.type || "application/octet-stream" },
+        body: file
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        const error = new Error(data.error || `HTTP ${response.status}`);
+        error.code = data.code;
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+    return { fetchJson, uploadImage, mediaUrl };
   }
 
   // src/client/hooks/useProject.js
@@ -160,6 +176,22 @@
           setBusy(false);
         }
       }, [projectId, replacePlan]);
+      const importImage = useCallback(async (scope, entityId, file) => {
+        setBusy(true);
+        setError("");
+        setErrorCode("");
+        try {
+          const data = await api.uploadImage({ projectId, scope, entityId, file });
+          replacePlan(data);
+          return data;
+        } catch (reason) {
+          setError(reason.message || String(reason));
+          setErrorCode(reason.code || "");
+          return null;
+        } finally {
+          setBusy(false);
+        }
+      }, [projectId, replacePlan]);
       const clearPlan = useCallback(() => setPlan(null), []);
       return {
         projects,
@@ -174,6 +206,8 @@
         createProject,
         deleteProject,
         updateShot,
+        importCharacterImage: (characterId, file) => importImage("characters", characterId, file),
+        importShotImage: (shotId, file) => importImage("shots", shotId, file),
         generateCharacter: (characterId) => generate("/char.generate_image", { characterId }),
         generateShotImage: (shotId) => generate("/shot.generate_image", { shotId }),
         generateShotVideo: (shotId) => generate("/shot.generate_video", { shotId }),
@@ -380,7 +414,7 @@
       character.imagePath ? h("img", { className: "tf-thumb-img", src: mediaUrl(projectId, character.imagePath), alt: character.name }) : h("div", { className: "tf-thumb-img" }, "\u{1F464}"),
       h("div", { className: "tf-thumb-label" }, character.name),
       character.imageStatus === "failed" && character.lastError ? h("div", { className: "tf-shot-error" }, character.lastError) : null,
-      character.imagePath && character.imageStatus !== "failed" ? null : generateButton
+      generateButton
     );
   }
 
@@ -414,10 +448,43 @@
     return h("span", { className: `tf-badge ${value.cls}` }, value.label);
   }
 
+  // src/client/components/ImageImportButton.js
+  function createImageImportButton(React) {
+    const { createElement: h, useRef } = React;
+    return function ImageImportButton({ label = "\u5BFC\u5165\u56FE\u7247", busy, ghost = false, onSelect }) {
+      const input = useRef(null);
+      return h(
+        React.Fragment,
+        null,
+        h("input", {
+          ref: input,
+          type: "file",
+          accept: "image/png,image/jpeg,image/gif,image/webp",
+          style: { display: "none" },
+          onChange: (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void onSelect(file);
+          }
+        }),
+        h("button", {
+          type: "button",
+          className: `tf-btn${ghost ? " tf-btn-ghost" : ""}`,
+          disabled: busy,
+          onClick: (event) => {
+            event.stopPropagation();
+            input.current?.click();
+          }
+        }, busy ? "\u5BFC\u5165\u4E2D\u2026" : label)
+      );
+    };
+  }
+
   // src/client/views/Dashboard.js
   function createDashboard(React, api) {
     const h = React.createElement;
-    return function Dashboard({ projectId, plan, busy, navigate, onGenerateCharacter }) {
+    const ImageImportButton = createImageImportButton(React);
+    return function Dashboard({ projectId, plan, busy, navigate, onImportCharacterImage }) {
       const project = plan?.project;
       const characters = plan?.characters || [];
       const scenes = plan?.scenes || [];
@@ -440,11 +507,11 @@
             character,
             projectId,
             mediaUrl: api.mediaUrl,
-            generateButton: ActionButton(h, {
-              label: character.imageStatus === "image_queued" ? "\u751F\u6210\u4E2D\u2026" : character.imageStatus === "failed" ? "\u91CD\u8BD5\u751F\u6210" : "\u751F\u6210\u89D2\u8272\u56FE",
-              disabled: busy || character.imageStatus === "image_queued",
+            generateButton: h(ImageImportButton, {
+              label: character.imagePath ? "\u66FF\u6362\u89D2\u8272\u56FE" : "\u5BFC\u5165\u89D2\u8272\u56FE",
+              busy,
               ghost: true,
-              onClick: () => onGenerateCharacter(character.id)
+              onSelect: (file) => onImportCharacterImage(character.id, file)
             })
           })))
         ),
@@ -644,19 +711,24 @@
   }
   function createShotBoard(React, api) {
     const h = React.createElement;
+    const ImageImportButton = createImageImportButton(React);
     function shotAction(shot, busy, actions) {
-      if (shot.status === "draft" || shot.status === "prompt_ready") {
-        return ActionButton(h, { label: "\u25B6 \u751F\u6210\u9996\u5E27", disabled: busy, onClick: () => actions.onGenerateImage(shot.id) });
+      if (shot.status === "draft" || shot.status === "prompt_ready" || shot.status === "failed" && shot.failedStage === "image") {
+        return h(ImageImportButton, {
+          label: shot.imagePath ? "\u66FF\u6362\u9996\u5E27" : "\u5BFC\u5165\u9996\u5E27",
+          busy,
+          onSelect: (file) => actions.onImportImage(shot.id, file)
+        });
       }
       if (shot.status === "image_ready") {
         return ActionButton(h, { label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: busy, onClick: () => actions.onGenerateVideo(shot.id) });
       }
-      if (shot.status === "failed" && (shot.retryCount || 0) < 3) {
+      if (shot.status === "failed" && shot.failedStage === "video" && (shot.retryCount || 0) < 3) {
         return ActionButton(h, { label: `\u{1F504} \u91CD\u8BD5 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => actions.onRetry(shot.id) });
       }
       return null;
     }
-    return function ShotBoardView({ projectId, plan, busy, navigate, onGenerateImage, onGenerateVideo, onRetry }) {
+    return function ShotBoardView({ projectId, plan, busy, navigate, onImportImage, onGenerateVideo, onRetry }) {
       const characters = plan?.characters || [];
       const scenes = plan?.scenes || [];
       const shots = plan?.shots || [];
@@ -675,7 +747,7 @@
           characterNames: (shot.characterIds || []).map((id) => nameOf(characters, id)).join(", "),
           sceneName: nameOf(scenes, shot.sceneId),
           statusBadge: StatusBadge(h, { status: shot.status }),
-          action: shotAction(shot, busy, { onGenerateImage, onGenerateVideo, onRetry }),
+          action: shotAction(shot, busy, { onImportImage, onGenerateVideo, onRetry }),
           onDetails: () => navigate("shot", projectId, { shotId: shot.id })
         }))
       );
@@ -689,6 +761,7 @@
   function createShotDetail(React, api) {
     const { createElement: h, useState } = React;
     const TextEditDialog = createTextEditDialog(React);
+    const ImageImportButton = createImageImportButton(React);
     return function ShotDetail({
       projectId,
       shotId,
@@ -696,7 +769,7 @@
       busy,
       navigate,
       onUpdate,
-      onGenerateImage,
+      onImportImage,
       onGenerateVideo,
       onRetry
     }) {
@@ -723,15 +796,18 @@
         );
       }
       const generationActions = [];
-      if (shot.status === "draft" || shot.status === "prompt_ready") {
-        generationActions.push(ActionButton(h, { key: "image", label: "\u25B6 \u751F\u6210\u9996\u5E27", disabled: busy, onClick: () => onGenerateImage(shot.id) }));
-      } else if (shot.status === "image_ready") {
+      generationActions.push(h(ImageImportButton, {
+        key: "image-import",
+        label: shot.imagePath ? "\u66FF\u6362\u9996\u5E27" : "\u5BFC\u5165\u9996\u5E27",
+        busy,
+        ghost: Boolean(shot.imagePath),
+        onSelect: (file) => onImportImage(shot.id, file)
+      }));
+      if (shot.status === "image_ready") {
         generationActions.push(ActionButton(h, { key: "video", label: "\u25B6 \u751F\u6210\u89C6\u9891", disabled: busy, onClick: () => onGenerateVideo(shot.id) }));
-        generationActions.push(ActionButton(h, { key: "image-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u9996\u5E27", disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }));
       } else if (shot.status === "video_ready") {
-        generationActions.push(ActionButton(h, { key: "image-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u9996\u5E27", disabled: busy, ghost: true, onClick: () => onGenerateImage(shot.id) }));
         generationActions.push(ActionButton(h, { key: "video-again", label: "\u{1F504} \u91CD\u65B0\u751F\u6210\u89C6\u9891", disabled: busy, ghost: true, onClick: () => onGenerateVideo(shot.id) }));
-      } else if (shot.status === "failed" && (shot.retryCount || 0) < 3) {
+      } else if (shot.status === "failed" && shot.failedStage === "video" && (shot.retryCount || 0) < 3) {
         generationActions.push(ActionButton(h, { key: "retry", label: `\u{1F504} \u91CD\u8BD5 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => onRetry(shot.id) }));
       }
       return h(
@@ -837,7 +913,7 @@
           plan: data.plan,
           busy: data.busy,
           navigate,
-          onGenerateCharacter: data.generateCharacter
+          onImportCharacterImage: data.importCharacterImage
         });
       } else if (view === "shots") {
         page = h(ShotBoard, {
@@ -845,7 +921,7 @@
           plan: data.plan,
           busy: data.busy,
           navigate,
-          onGenerateImage: data.generateShotImage,
+          onImportImage: data.importShotImage,
           onGenerateVideo: data.generateShotVideo,
           onRetry: data.retryShot
         });
@@ -857,7 +933,7 @@
           busy: data.busy,
           navigate,
           onUpdate: data.updateShot,
-          onGenerateImage: data.generateShotImage,
+          onImportImage: data.importShotImage,
           onGenerateVideo: data.generateShotVideo,
           onRetry: data.retryShot
         });

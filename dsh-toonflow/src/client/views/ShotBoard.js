@@ -3,6 +3,7 @@ import { Breadcrumb } from '../components/Breadcrumb.js'
 import { EmptyState } from '../components/EmptyState.js'
 import { ShotRow } from '../components/ShotRow.js'
 import { StatusBadge } from '../components/StatusBadge.js'
+import { createImageImportButton } from '../components/ImageImportButton.js'
 
 function nameOf(items, id) {
   return (items || []).find(item => item.id === id)?.name || id || ''
@@ -10,21 +11,26 @@ function nameOf(items, id) {
 
 export function createShotBoard(React, api) {
   const h = React.createElement
+  const ImageImportButton = createImageImportButton(React)
 
   function shotAction(shot, busy, actions) {
-    if (shot.status === 'draft' || shot.status === 'prompt_ready') {
-      return ActionButton(h, { label: '▶ 生成首帧', disabled: busy, onClick: () => actions.onGenerateImage(shot.id) })
+    if (shot.status === 'draft' || shot.status === 'prompt_ready' || (shot.status === 'failed' && shot.failedStage === 'image')) {
+      return h(ImageImportButton, {
+        label: shot.imagePath ? '替换首帧' : '导入首帧',
+        busy,
+        onSelect: file => actions.onImportImage(shot.id, file),
+      })
     }
     if (shot.status === 'image_ready') {
       return ActionButton(h, { label: '▶ 生成视频', disabled: busy, onClick: () => actions.onGenerateVideo(shot.id) })
     }
-    if (shot.status === 'failed' && (shot.retryCount || 0) < 3) {
+    if (shot.status === 'failed' && shot.failedStage === 'video' && (shot.retryCount || 0) < 3) {
       return ActionButton(h, { label: `🔄 重试 (${shot.retryCount || 0}/3)`, disabled: busy, onClick: () => actions.onRetry(shot.id) })
     }
     return null
   }
 
-  return function ShotBoardView({ projectId, plan, busy, navigate, onGenerateImage, onGenerateVideo, onRetry }) {
+  return function ShotBoardView({ projectId, plan, busy, navigate, onImportImage, onGenerateVideo, onRetry }) {
     const characters = plan?.characters || []
     const scenes = plan?.scenes || []
     const shots = plan?.shots || []
@@ -43,7 +49,7 @@ export function createShotBoard(React, api) {
           characterNames: (shot.characterIds || []).map(id => nameOf(characters, id)).join(', '),
           sceneName: nameOf(scenes, shot.sceneId),
           statusBadge: StatusBadge(h, { status: shot.status }),
-          action: shotAction(shot, busy, { onGenerateImage, onGenerateVideo, onRetry }),
+          action: shotAction(shot, busy, { onImportImage, onGenerateVideo, onRetry }),
           onDetails: () => navigate('shot', projectId, { shotId: shot.id }),
         })),
     )

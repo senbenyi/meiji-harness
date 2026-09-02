@@ -16,5 +16,5 @@
               width: 1280
               height: 720
           shotVideo:
-            template: ''
+            template: 'wan22-remix-short'
             args: {}

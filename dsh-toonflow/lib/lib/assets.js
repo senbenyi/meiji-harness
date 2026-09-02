@@ -1,10 +1,20 @@
 import * as path from 'node:path'
-import { copyFile, mkdir, realpath, rename, stat, unlink } from 'node:fs/promises'
+import { copyFile, mkdir, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { ToonflowError, ensureProjectExists } from './store.js'
 
 const EXTENSIONS = {
   image: new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']),
   video: new Set(['.mp4', '.webm', '.mov']),
+}
+
+const IMAGE_SIGNATURES = {
+  '.png': buffer => buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
+  '.jpg': buffer => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
+  '.jpeg': buffer => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
+  '.gif': buffer => buffer.length >= 6 && ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii')),
+  '.webp': buffer => buffer.length >= 12
+    && buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+    && buffer.subarray(8, 12).toString('ascii') === 'WEBP',
 }
 
 function safeName(value, field) {
@@ -54,6 +64,41 @@ export async function registerGeneratedAsset(config, {
   const temp = path.join(directory, `.${filename}.${process.pid}.tmp`)
   try {
     await copyFile(source, temp)
+    await rename(temp, destination)
+  } catch (error) {
+    await unlink(temp).catch(() => {})
+    throw error
+  }
+  return path.posix.join('assets', scope, filename)
+}
+
+export async function registerUploadedImage(config, {
+  projectId,
+  scope,
+  entityId,
+  filename: sourceName,
+  bytes,
+}) {
+  if (!['characters', 'shots'].includes(scope)) {
+    throw new ToonflowError('INVALID_ASSET_SCOPE', 'Asset scope must be characters or shots')
+  }
+  if (!Buffer.isBuffer(bytes) || bytes.length === 0) {
+    throw new ToonflowError('EMPTY_UPLOAD', 'Select a non-empty image file')
+  }
+  const extension = path.extname(String(sourceName || '')).toLowerCase()
+  const matches = IMAGE_SIGNATURES[extension]
+  if (!matches || !matches(bytes)) {
+    throw new ToonflowError('UNSUPPORTED_IMAGE', 'Only valid PNG, JPEG, GIF, or WebP images are supported', 415)
+  }
+
+  const project = await ensureProjectExists(config, projectId)
+  const directory = path.join(project, 'assets', scope)
+  await mkdir(directory, { recursive: true })
+  const filename = `${safeName(entityId, 'entityId')}-image-${Date.now()}${extension}`
+  const destination = path.join(directory, filename)
+  const temp = path.join(directory, `.${filename}.${process.pid}.tmp`)
+  try {
+    await writeFile(temp, bytes, { flag: 'wx' })
     await rename(temp, destination)
   } catch (error) {
     await unlink(temp).catch(() => {})

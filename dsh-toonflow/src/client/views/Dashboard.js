@@ -4,10 +4,12 @@ import { CharacterCard } from '../components/CharacterCard.js'
 import { EmptyState } from '../components/EmptyState.js'
 import { ProgressBar } from '../components/ProgressBar.js'
 import { StatusBadge } from '../components/StatusBadge.js'
+import { createImageImportButton } from '../components/ImageImportButton.js'
 
 export function createDashboard(React, api) {
   const h = React.createElement
-  return function Dashboard({ projectId, plan, busy, navigate, onGenerateCharacter }) {
+  const ImageImportButton = createImageImportButton(React)
+  return function Dashboard({ projectId, plan, busy, navigate, onImportCharacterImage }) {
     const project = plan?.project
     const characters = plan?.characters || []
     const scenes = plan?.scenes || []
@@ -25,11 +27,11 @@ export function createDashboard(React, api) {
           character,
           projectId,
           mediaUrl: api.mediaUrl,
-          generateButton: ActionButton(h, {
-            label: character.imageStatus === 'image_queued' ? '生成中…' : character.imageStatus === 'failed' ? '重试生成' : '生成角色图',
-            disabled: busy || character.imageStatus === 'image_queued',
+          generateButton: h(ImageImportButton, {
+            label: character.imagePath ? '替换角色图' : '导入角色图',
+            busy,
             ghost: true,
-            onClick: () => onGenerateCharacter(character.id),
+            onSelect: file => onImportCharacterImage(character.id, file),
           }),
         }))),
       ),

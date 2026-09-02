@@ -22,5 +22,22 @@ export function createApi(fetchImpl = fetch) {
     return `/toonflow/file?project=${encodeURIComponent(projectId)}&path=${encodeURIComponent(filePath)}`
   }
 
-  return { fetchJson, mediaUrl }
+  async function uploadImage({ projectId, scope, entityId, file }) {
+    const query = new URLSearchParams({ projectId, scope, entityId, filename: file.name })
+    const response = await fetchImpl(`/toonflow/import-image?${query}`, {
+      method: 'POST',
+      headers: { 'content-type': file.type || 'application/octet-stream' },
+      body: file,
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data.ok === false) {
+      const error = new Error(data.error || `HTTP ${response.status}`)
+      error.code = data.code
+      error.status = response.status
+      throw error
+    }
+    return data
+  }
+
+  return { fetchJson, uploadImage, mediaUrl }
 }
