@@ -19,7 +19,7 @@ Phase 5  →  接通 Agent 工具             →  技术用户可用对话驱�
 dsh-toonflow 是一个 **可视化操作台 + 编排层** 插件：
 
 - Cordis 插件，注册到 DeepSeek Harness；
-- 通过 dsh-better-sidebar 的 `registerTab` API 提供侧边栏 Tab；
+- 通过包内置的 `betterSidebar.registerTab` API 提供 Toonflow 侧边栏 Tab；
 - **目标用户是运营人员**：项目卡片、角色头像、分镜网格、状态徽标、一键按钮；
 - 生成能力委托给 dsh-comfyui，自身只管状态与资产。
 
@@ -27,7 +27,7 @@ dsh-toonflow 是一个 **可视化操作台 + 编排层** 插件：
 |---|---|---|
 | Toonflow-app | 流水线：剧本→角色→衍生资产→分镜→视频；状态机（未生成→生成中→已完成/失败）；批量并发控制（concurrentCount）；参考图 Base64 传递；技能文件驱动 Agent | Electron；SQLite；三层 Agent；无限画布；向量记忆；供应商管理 |
 | dsh-comfyui | `__ModuleLoader__.load` 客户端注册；`fetchJson(API + path)` 通信模式；`ctx.webServer.register({ kind: 'prefix' })` 路由注册；cordis.patch.yml 声明 | HTTP 客户端；工作流扫描（直接复用） |
-| DSH-better-sidebar | `registerTab` API；CSS Modules + `--dsw-alias-*` 主题令牌；`clsx` 条件类名；`useState`+`useRef`+`useEffect` 轮询模式；`tab.meta` 持久化状态；`@deepseek-ai/dsh-client-ui-primitives` 组件库 | 文件管理器；终端；Git 集成 |
+| 内置侧边栏 | `registerTab` API；CSS Modules + `--dsw-alias-*` 主题令牌；`clsx` 条件类名；`useState`+`useRef`+`useEffect` 轮询模式；`tab.meta` 持久化状态；`@deepseek-ai/dsh-client-ui-primitives` 组件库 | 无；侧边栏能力已全部并入本包 |
 
 ## 3. 系统边界
 
@@ -65,8 +65,7 @@ ComfyUI（GPU 推理）
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-slots",
-        "dsh-better-sidebar"
+        "@deepseek-ai/dsh-client-ui-slots"
       ],
       "platform": "web"
     }

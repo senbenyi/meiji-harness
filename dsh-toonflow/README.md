@@ -1,50 +1,38 @@
 # dsh-toonflow
 
-DeepSeek Harness 的 AI 短剧可视化操作台与编排插件。
+DeepSeek Harness 的 AI 短剧可视化操作台。插件已内置原 `dsh-sidebar`
+的完整侧边栏工作台，不再依赖或单独挂载 `dsh-better-sidebar`。
 
-## 结构约定
+## 功能
+
+- Toonflow：项目管理、角色、分镜、图片/视频生成、素材导入与导出界面。
+- 侧边栏：文件树、编辑器、终端、Git、浏览器、后台任务、侧边对话、分栏和浮窗。
+- 扩展服务：继续通过 `ctx.betterSidebar` 注册额外页签和文件查看器。
+- 会话隔离：侧边栏布局、页签和终端按 DSH 会话管理。
+
+## 源码结构
 
 ```text
-dsh-toonflow/
-├── package.json
-├── cordis.patch.yml
-├── src/client/                 # 客户端唯一源码
-│   ├── index.js                # ModuleLoader + sidebar 注册
-│   ├── ToonflowApp.js          # 页面路由与 tab.meta
-│   ├── api.js                  # /toonflow/api 与媒体 URL
-│   ├── toonflow.module.css
-│   ├── hooks/                  # 数据加载与状态 Hook
-│   ├── views/                  # 五个页面
-│   └── components/             # 可复用 UI 组件
-├── lib/                        # DSH 实际加载的发布产物
-│   ├── index.js                # Host 入口与 HTTP 路由
-│   ├── client.js               # npm run build 生成，禁止手改
-│   └── lib/
-│       ├── project.js          # 项目 CRUD
-│       ├── plan.js             # 计划读取与镜头编辑
-│       ├── schema.js           # 输入校验
-│       └── store.js            # 原子 JSON 存储与路径边界
-├── scripts/                    # 构建脚本
-├── skills/                     # Phase 5 Agent 技能文件
-└── tests/                      # 与 Host 模块同名的测试
+src/index.ts                 # 合并后的 Host 入口
+src/client/index.tsx         # 合并后的 Client 入口
+src/toonflow/server/         # Toonflow API、存储与生成编排
+src/toonflow/client/         # Toonflow 页签 UI
+src/client/                  # 内置侧边栏 UI
+skills/                      # Toonflow Agent 技能
+tests/                       # Toonflow Host 测试
 ```
 
-后续阶段按职责新增文件，不把逻辑堆回入口：Phase 3 使用
-`lib/lib/generate.js`、`assets.js`、`shot.js` 和 `src/client/hooks/usePolling.js`；
-Phase 4 使用 `lib/lib/export.js`；Phase 5 使用 `lib/lib/tools.js` 与 `skills/`。
-
-## 命令
+## 开发命令
 
 ```sh
-npm install
-npm run build
-npm test
+pnpm install
+pnpm build
+pnpm test
 ```
 
-客户端修改只编辑 `src/client/`，随后执行 `npm run build` 更新
-`lib/client.js`。Host 文件直接位于 `lib/`，不经过编译。
+构建会生成 `lib/` 发布产物。仓库内只维护 `src/` 下的源码，不要直接修改
+生成后的客户端 bundle。
 
-## 数据目录
-
-`cordis.patch.yml` 默认配置 `workspace: './toonflow-workspace'`。相对路径以
-DSH 进程的当前工作目录为基准；需要稳定位置时应配置绝对路径。
+默认项目数据目录为 `./toonflow-workspace`，可通过插件配置的 `workspace`
+改为稳定的绝对路径。生成模型在 `models.characterImage`、
+`models.shotImage` 和 `models.shotVideo` 中配置。

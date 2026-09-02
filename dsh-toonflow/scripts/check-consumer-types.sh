@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Consumer-facing type surface check: build a tiny standalone consumer that
-# imports `dsh-better-sidebar/client/service` WITHOUT @types/node and with
+# imports `@dsh-external/dsh-toonflow/client/service` WITHOUT @types/node and with
 # skipLibCheck: false, then type-check it with the repo's tsc.
 #
 # This is the exact scenario the v0.12.0 API work cares about: the shipped
@@ -20,22 +20,22 @@ fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-mkdir -p "$WORK/node_modules"
-ln -s "$(pwd)" "$WORK/node_modules/dsh-better-sidebar"
+mkdir -p "$WORK/node_modules/@dsh-external"
+ln -s "$(pwd)" "$WORK/node_modules/@dsh-external/dsh-toonflow"
 # The vendored cordis base (and, through its realpath, cosmokit / standard-schema)
 # must resolve so the consumer can type `Context` against the DSH runtime scope.
 mkdir -p "$WORK/node_modules/@deepseek-ai"
 ln -s "$(pwd)/node_modules/@deepseek-ai/cordis" "$WORK/node_modules/@deepseek-ai/cordis"
 
 cat > "$WORK/check.ts" <<'EOF'
-import { SIDEBAR_FEATURES, SIDEBAR_SERVICE_VERSION } from 'dsh-better-sidebar/client/service'
-import type {} from 'dsh-better-sidebar/client/service'
+import { SIDEBAR_FEATURES, SIDEBAR_SERVICE_VERSION } from '@dsh-external/dsh-toonflow/client/service'
+import type {} from '@dsh-external/dsh-toonflow/client/service'
 import type {
   BetterSidebarService, FileViewerDescriptor, OpenTabSeed, SidebarSettingsRenderProps,
   TabComponentProps, TabDescriptor,
-} from 'dsh-better-sidebar/client/service'
-import type { SessionScope, SidebarSnapshot, SidebarState, SidebarStore, SidebarTab } from 'dsh-better-sidebar/client/service'
-import type { SidebarPrefs } from 'dsh-better-sidebar/client/service'
+} from '@dsh-external/dsh-toonflow/client/service'
+import type { SessionScope, SidebarSnapshot, SidebarState, SidebarStore, SidebarTab } from '@dsh-external/dsh-toonflow/client/service'
+import type { SidebarPrefs } from '@dsh-external/dsh-toonflow/client/service'
 // The vendored-cordis path: `Context` from '@deepseek-ai/cordis' plus the
 // side-effect type import above must expose `ctx.betterSidebar` — the consumer
 // never needs to import this package's own Context type.
@@ -103,14 +103,13 @@ set -e
 # Fail only on errors that mention OUR package / declarations / the fixture.
 # Upstream noise (vendored cordis / cosmokit declaration warnings under the
 # repo's pinned TS lib) lives anywhere under node_modules and is filtered.
-if grep -E "dsh-better-sidebar|lib/types|check\.ts" "$WORK/strict.log" | grep -vE "node_modules/[^ ]*(cordis|cosmokit)"; then
-  echo "[check-consumer-types] FAIL: errors in the dsh-better-sidebar declaration surface:" >&2
-  grep -E "dsh-better-sidebar|lib/types|check\.ts" "$WORK/strict.log" >&2
+if grep -E "dsh-toonflow|lib/types|check\.ts" "$WORK/strict.log" | grep -vE "node_modules/[^ ]*(cordis|cosmokit)"; then
+  echo "[check-consumer-types] FAIL: errors in the dsh-toonflow declaration surface:" >&2
+  grep -E "dsh-toonflow|lib/types|check\.ts" "$WORK/strict.log" >&2
   exit 1
 fi
 if [ "$STATUS" -ne 0 ]; then
   echo "[check-consumer-types] pass 2 note: strict mode only reports upstream declaration noise:"
-  grep -v "dsh-better-sidebar\|lib/types\|check\.ts" "$WORK/strict.log" | head -5 || true
+  grep -v "dsh-toonflow\|lib/types\|check\.ts" "$WORK/strict.log" | head -5 || true
 fi
 echo "[check-consumer-types] OK: the client/service declaration surface is node-free and self-contained."
-

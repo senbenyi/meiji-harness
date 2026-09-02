@@ -1,18 +1,11 @@
 import styles from './toonflow.module.css'
 import { createApi } from './api.js'
 import { createToonflowApp } from './ToonflowApp.js'
+import * as React from 'react'
 
-window.__ModuleLoader__.load({
-  id: '@dsh-external/dsh-toonflow',
-  factory: (require) => {
-    console.log('[toonflow] client factory executing')
-    const module = { exports: {} }
-    const exports = module.exports
-    Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
-    const React = require('react')
-    const h = React.createElement
-    const api = createApi()
-    const ToonflowApp = createToonflowApp(React, api, styles)
+const h = React.createElement
+const api = createApi()
+const ToonflowApp = createToonflowApp(React, api, styles)
 
     function ToonflowIcon({ size }) {
       return h('svg', {
@@ -71,7 +64,7 @@ window.__ModuleLoader__.load({
         : node
     }
 
-    function apply(ctx) {
+    export function registerToonflow(ctx) {
       console.log('[toonflow] apply() called')
       ctx.inject(['betterSidebar'], (scope) => {
         scope.effect(() => {
@@ -124,9 +117,3 @@ window.__ModuleLoader__.load({
         }, 'dsh-toonflow: sidebar tab')
       })
     }
-
-    exports.apply = apply
-    exports.inject = []
-    return module.exports
-  },
-})

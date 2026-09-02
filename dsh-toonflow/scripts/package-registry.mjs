@@ -6,7 +6,7 @@
  *   pnpm build
  *   node scripts/package-registry.mjs
  *   dsh registry install ./registry
- *   dsh registry enable dsh-external/dsh-better-sidebar
+ *   dsh registry enable dsh-external/dsh-toonflow
  *
  * The registry install copies the whole source directory (`cp -r`), so
  * installing the repo root would drag in `node_modules/` (machine-local
@@ -35,8 +35,9 @@ const files = [
   'lib/client-terminal.js.map',
   'lib/client-editor.js',
   'lib/client-editor.js.map',
+  'lib/client-mermaid.js',
+  'lib/client-mermaid.js.map',
   'README.md',
-  'LICENSE',
 ]
 
 rmSync(out, { recursive: true, force: true })
@@ -52,4 +53,4 @@ for (const file of files) {
   cpSync(source, target)
 }
 console.log(`registry/ assembled (${files.length} files)`)
-console.log('next: dsh registry install ./registry && dsh registry enable dsh-external/dsh-better-sidebar')
+console.log('next: dsh registry install ./registry && dsh registry enable dsh-external/dsh-toonflow')

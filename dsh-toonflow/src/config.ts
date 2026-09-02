@@ -2,7 +2,7 @@
  * Serializable configuration and defaults for the sidebar host half. Loader
  * schema validation normally fills defaults; {@link resolveSidebarConfig}
  * applies the same defaults for direct callers that bypass the Loader.
- * @module dsh-better-sidebar/config
+ * @module @dsh-external/dsh-toonflow/config
  */
 
 import z from 'schemastery'
@@ -38,6 +38,10 @@ export {
 
 /** Tunable sidebar host limits (every field optional; defaults fill in). */
 export interface SidebarConfig {
+  /** Toonflow project storage root. Relative paths resolve from the DSH process cwd. */
+  workspace?: string
+  /** Toonflow generation model templates and arguments, keyed by generation stage. */
+  models?: Record<string, unknown>
   /** Read cap of one text file (bytes); larger files return truncated. */
   readLimit?: number
   /** Media route cap (bytes); larger binaries are refused. */
@@ -70,6 +74,8 @@ export interface SidebarConfig {
 
 /** Schemastery schema for the plugin configuration. */
 export const Config: z<SidebarConfig> = z.object({
+  workspace: z.string().default('./toonflow-workspace'),
+  models: z.dict(z.any()).default({}),
   readLimit: z.number().step(1).min(1).default(512 * 1024),
   mediaLimit: z.number().step(1).min(1).default(20 * 1024 * 1024),
   uploadLimit: z.number().step(1).min(1).default(128 * 1024 * 1024),

@@ -555,14 +555,14 @@ export interface SidebarContextShape {
 /**
  * The Context this plugin sees: the vendored cordis Context intersected with
  * the structural service faces above. Re-exported from the package root so a
- * consumer can `import type { Context } from 'dsh-better-sidebar'`.
+ * consumer can import `Context` from `@dsh-external/dsh-toonflow`.
  */
 export type Context = CordisContext & SidebarContextShape
 
 /**
  * Consumer-facing augmentation (deliberately the only one kept): a plugin
- * that imports `Context` from `@deepseek-ai/cordis` and does
- * `import type {} from 'dsh-better-sidebar'` sees `ctx.betterSidebar`
+ * that imports `Context` from `@deepseek-ai/cordis` and imports this package's
+ * types sees `ctx.betterSidebar`
  * without importing this package's own Context type.
  */
 declare module '@deepseek-ai/cordis' {

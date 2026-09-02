@@ -54,6 +54,7 @@ import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
 import { buildSubagentLiveApi, type SidebarSubagentLiveRoutes } from './subagent-live-route.ts'
 import { buildSidechatApi } from './sidechat-routes.ts'
 import { readJsonBody, requireString, SidebarError, writeError, writeJson, writeOk } from './wire.ts'
+import { apply as applyToonflowHost } from './toonflow/server/index.js'
 
 export { Config }
 export type { SidebarConfig, ResolvedSidebarConfig }
@@ -74,7 +75,7 @@ export type {
 } from './client/service.ts'
 
 /** Plugin identity for cordis.yml rows. */
-export const name = 'dsh-better-sidebar'
+export const name = '@dsh-external/dsh-toonflow'
 
 /** Services required before mounting: the webserver routes, the session store, the web runtime's trusted hosts, and the tool registry. */
 export const inject = ['webServer', 'sessions', 'webRuntime', 'tools']
@@ -674,6 +675,9 @@ function buildApi(
  * {@link resolveSidebarConfig}.
  */
 export function apply(ctx: Context, config?: SidebarConfig): void {
+  // Toonflow's routes and generation lifecycle are hosted by the same Cordis
+  // plugin instance as the sidebar, so no external sidebar package is needed.
+  applyToonflowHost(ctx, config ?? {})
   // pnpm strips the executable bit from node-pty's prebuilt spawn-helper;
   // restore it before any terminal can spawn (idempotent).
   ensureSpawnHelper()

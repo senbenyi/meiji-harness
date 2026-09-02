@@ -30,6 +30,7 @@ import { LOCALE_NS, attachLocale, attachBetterLocale, t, zh, en,
 } from './locales.ts'
 import css from './sidebar.module.css'
 import './layout.css'
+import { registerToonflow } from '../toonflow/client/index.js'
 
 /** Services required before mounting (provided by the client runtime; the
  *  locale service backs the sidebar's copy — see locales.ts). `modules`
@@ -124,6 +125,9 @@ export function apply(ctx: Context): void {
   // are ready by the time the sidebar renders.
   const service = createBetterSidebarService(sidebarStore)
   ctx.provide('betterSidebar', service)
+  // Toonflow is now part of this package. Register its tab against the
+  // in-process sidebar service instead of depending on a second plugin.
+  registerToonflow(ctx)
   // Terminal tab titles use the host's effective shell name (e.g. bash/zsh)
   // instead of "Terminal 1". Start with a safe fallback and replace it as
   // soon as the host shell info resolves. Tabs created before the response

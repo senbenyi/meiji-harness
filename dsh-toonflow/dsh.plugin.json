@@ -1,0 +1,16 @@
+{
+  "id": "dsh-external/dsh-toonflow",
+  "version": "0.1.0",
+  "main": "./lib/index.js",
+  "description": "AI 短剧导演工作台，内置 VSCode 风格侧边栏、项目管理、分镜、生成与导出界面",
+  "engines": {
+    "dsh": ">=0.1.2-alpha.3"
+  },
+  "contributes": {
+    "tools": [],
+    "skills": []
+  },
+  "client": {
+    "main": "./lib/client-registry.js"
+  }
+}
