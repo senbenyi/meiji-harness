@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# dependencies
+node_modules/
+
+# build output
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# coverage
+coverage/
+*.lcov
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.*.local
+.env.local
+
+# misc caches
+.cache/
+.eslintcache
+
+# archives
+*.tgz
+
+# editor
+.vscode/
+*.swp
