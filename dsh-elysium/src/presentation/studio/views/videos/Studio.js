@@ -50,6 +50,14 @@ function summaryPriority(summary) {
   return 3
 }
 
+function projectSummaryText(summary) {
+  const parts = [`${summary.done}/${summary.total} 集已完成`]
+  if (summary.running) parts.push(`${summary.running} 生产中`)
+  if (summary.failed) parts.push(`${summary.failed} 失败`)
+  if (summary.review) parts.push(`${summary.review} 待审核`)
+  return parts.join(' · ')
+}
+
 function storedValue(key, fallback) {
   try { return window.sessionStorage.getItem(key) || fallback } catch { return fallback }
 }
@@ -649,7 +657,7 @@ export function createStudio(React, api) {
         ? h('button', { className: 'ely-btn ely-btn-secondary', disabled: true }, '本集已完成')
         : h('button', { className: 'ely-btn ely-btn-secondary', onClick: () => setActiveStage('final') }, '查看成片')
       if (!hasPlan) return h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || storyLocked || !storyValid, title: !storyValid ? '名称、故事或时长无效' : '生成规划', onClick: planEpisode }, busy ? '规划中…' : '自动规划')
-      return h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || editorDirty || (!episode.state.authorizedAt && !authorized), title: editorDirty ? '需先保存或取消修改' : '', onClick: start }, busy ? '处理中…' : episode.state.status === 'paused' ? '继续生产' : '开始自动生产')
+      return h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || editorDirty || (!episode.state.authorizedAt && !authorized), title: editorDirty ? '需先保存或取消修改' : '', onClick: start }, busy ? '处理中…' : episode.state.status === 'paused' ? '继续生产' : '开始生产')
     }
 
     const renderBulkBar = () => selectedProjectIds.length ? h('section', { className: 'ely-hub-batch' },
@@ -666,9 +674,7 @@ export function createStudio(React, api) {
       return h('section', { className: 'ely-hub' },
         h('header', { className: 'ely-hub-head' }, h('div', null, h('h1', null, '总览')),
           h('button', { className: 'ely-btn ely-btn-primary', onClick: () => setShowProjectForm(true) }, '新建')),
-        h('div', { className: 'ely-hub-controls' },
-          h('input', { className: 'tf-input ely-hub-search', type: 'search', value: projectQuery, placeholder: '搜索名称或单集', 'aria-label': '搜索名称或单集', onChange: event => setProjectQuery(event.target.value) }),
-          h('nav', { className: 'ely-hub-filters', 'aria-label': '状态筛选' }, PROJECT_VIEWS.map(([key, label]) => h('button', { key, className: projectView === key ? 'is-active' : '', 'aria-current': projectView === key ? 'page' : undefined, onClick: () => setProjectView(key) }, h('span', null, label), h('strong', null, viewCounts[key]))))),
+        h('input', { className: 'tf-input ely-hub-search', type: 'search', value: projectQuery, placeholder: '搜索名称或单集', 'aria-label': '搜索名称或单集', onChange: event => setProjectQuery(event.target.value) }),
         projectView !== 'all' && projectView !== 'done'
           ? h('div', { className: 'ely-queue' },
             h('div', { className: 'ely-list-heading' }, h('strong', null, queueLabel), h('span', null, `${queueEpisodes.length} 个单集`),
@@ -681,8 +687,8 @@ export function createStudio(React, api) {
             visibleProjectRows.length ? visibleProjectRows.map(({ project, summary }) => h('article', { className: 'ely-project-table-row', key: project.id },
               h('input', { type: 'checkbox', 'aria-label': `选择 ${project.title}`, checked: selectedProjectIds.includes(project.id), onChange: () => toggleProject(project.id) }),
               h('button', { className: 'ely-project-cell', title: project.title, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('span', null, `${summary.done}/${summary.total} 集已完成`)),
-              h('div', { className: 'ely-project-signals' }, summary.running ? h('span', { className: 'is-running' }, `${summary.running} 生产中`) : null, summary.failed ? h('span', { className: 'is-danger' }, `${summary.failed} 失败`) : null, summary.review ? h('span', { className: 'is-review' }, `${summary.review} 待审核`) : null, !summary.running && !summary.failed && !summary.review ? h('span', null, summary.total ? `${summary.total - summary.done} 待推进` : '暂无单集') : null),
-              h('button', { className: 'ely-open-project', onClick: () => selectProject(project.id) }, '打开')))
+              h('div', { className: 'ely-project-signals' }, summary.running ? h('span', { className: 'is-running' }, `${summary.running} 生产中`) : null, summary.failed ? h('span', { className: 'is-danger' }, `${summary.failed} 失败`) : null, summary.review ? h('span', { className: 'is-review' }, `${summary.review} 待审核`) : null, !summary.running && !summary.failed && !summary.review ? h('span', null, summary.total ? `${summary.total - summary.done} 待推进` : '暂无单集') : null))
+            )
               : h('div', { className: 'ely-hub-empty' }, normalizedProjectQuery ? '没有匹配结果' : '暂无内容')),
         renderBulkBar(),
       )
@@ -692,14 +698,14 @@ export function createStudio(React, api) {
       const summary = projectProductionSummary(currentEpisodes)
       return h('section', { className: 'ely-project-detail' },
         h('button', { className: 'ely-back-link', onClick: () => openOverview('all') }, '‹ 返回总览'),
-        h('header', { className: 'ely-project-detail-head' }, h('div', null, h('h1', { title: selectedProject?.title }, selectedProject?.title || '未命名'), h('p', null, `${summary.done}/${summary.total} 集已完成 · ${summary.running} 生产中 · ${summary.failed} 失败 · ${summary.review} 待审核`)),
+        h('header', { className: 'ely-project-detail-head' }, h('div', null, h('h1', { title: selectedProject?.title }, selectedProject?.title || '未命名'), h('p', null, projectSummaryText(summary))),
           h('div', null, h('button', { className: 'ely-btn ely-btn-secondary', title: `删除 ${selectedProject?.title || ''}`, onClick: () => setProjectToDelete(selectedProject) }, '删除'), h('button', { className: 'ely-btn ely-btn-primary', onClick: () => createEpisodeIn(projectId) }, '新建单集'))),
         h('div', { className: 'ely-hub-controls' },
           h('input', { className: 'tf-input ely-hub-search', type: 'search', value: episodeQuery, placeholder: '搜索单集', 'aria-label': '搜索单集', onChange: event => setEpisodeQuery(event.target.value) }),
           h('nav', { className: 'ely-hub-filters', 'aria-label': '单集状态筛选' }, PROJECT_VIEWS.map(([key, label]) => h('button', { key, className: episodeView === key ? 'is-active' : '', onClick: () => setEpisodeView(key) }, h('span', null, label), h('strong', null, currentEpisodes.filter(item => matchesView(item.status, key)).length)))),
         ),
         h('div', { className: 'ely-episode-table' },
-          h('div', { className: 'ely-list-heading' }, h('strong', null, '单集列表'), h('span', null, `${filteredEpisodes.length} 集 · 第 ${episodePage}/${episodePages} 页`)),
+          h('div', { className: 'ely-list-heading' }, h('strong', null, '单集列表'), h('span', null, `${filteredEpisodes.length} 集${episodePages > 1 ? ` · 第 ${episodePage}/${episodePages} 页` : ''}`)),
           pagedEpisodes.length ? pagedEpisodes.map(item => h('button', { className: 'ely-episode-table-row', key: item.id, onClick: () => chooseEpisode(projectId, item.id) },
             h('span', { className: 'ely-episode-number' }, String(currentEpisodes.indexOf(item) + 1).padStart(2, '0')), h('strong', { title: item.title }, item.title), h(StatusPill, { status: item.status }), h('span', { className: 'ely-row-arrow' }, '›'))) : h('div', { className: 'ely-hub-empty' }, currentEpisodes.length ? '没有匹配的单集' : '暂无单集'),
           episodePages > 1 ? h('div', { className: 'ely-pagination' }, h('button', { className: 'ely-btn ely-btn-secondary', disabled: episodePage <= 1, onClick: () => setEpisodePage(page => page - 1) }, '上一页'), h('span', null, `${episodePage} / ${episodePages}`), h('button', { className: 'ely-btn ely-btn-secondary', disabled: episodePage >= episodePages, onClick: () => setEpisodePage(page => page + 1) }, '下一页')) : null,
@@ -708,8 +714,8 @@ export function createStudio(React, api) {
     }
 
     return h('div', { className: 'ely-studio' },
-      h('aside', { className: 'ely-library' },
-        h('div', { className: 'ely-library-head' }, h('span', null, '总览'), h('button', { title: showProjectForm ? '收起' : '新建', 'aria-label': showProjectForm ? '收起' : '新建', 'aria-expanded': showProjectForm, onClick: () => setShowProjectForm(value => !value) }, showProjectForm ? '×' : '+')),
+      h('aside', { className: `ely-library${projectId ? ' is-contextual' : ''}` },
+        h('div', { className: 'ely-library-head' }, h('span', null, '总览'), h('button', { title: showProjectForm ? '收起' : '新建', 'aria-label': showProjectForm ? '收起' : '新建', 'aria-expanded': showProjectForm, onClick: () => setShowProjectForm(value => !value) }, showProjectForm ? '−' : '+')),
         showProjectForm ? h('div', { className: 'ely-project-create' }, h('input', { className: 'tf-input', autoFocus: true, maxLength: 120, placeholder: '名称', value: projectTitle, onChange: event => setProjectTitle(event.target.value), onKeyDown: event => { if (event.key === 'Enter' && projectTitle.trim()) navigateSafely('创建并切换', createProject) } }), h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !projectTitle.trim(), title: projectTitle.trim() ? '创建' : '请输入名称', onClick: () => navigateSafely('创建并切换', createProject) }, busy ? '创建中…' : '创建')) : null,
         projectsLoading ? h('div', { className: 'ely-library-empty', role: 'status' }, '正在加载…') : h(React.Fragment, null,
           h('nav', { className: 'ely-library-nav', 'aria-label': '视图' }, PROJECT_VIEWS.map(([key, label]) => h('button', { key, className: workspaceView === 'overview' && projectView === key ? 'is-active' : '', onClick: () => openOverview(key) }, h('span', null, label), h('strong', null, viewCounts[key])))),
@@ -725,7 +731,7 @@ export function createStudio(React, api) {
             : h('div', { className: 'ely-production' },
               h('header', { className: 'ely-production-head' },
                 h('div', { className: 'ely-production-title' }, h('button', { className: 'ely-breadcrumb', title: `返回 ${selectedProject?.title || ''}`, onClick: () => selectProject(projectId) }, '‹ 返回'), h('h1', { title: episode.episode.title }, episode.episode.title), h('div', { className: 'ely-production-meta' }, h(StatusPill, { status: episode.state.status }), h('span', null, `${episode.episode.targetDurationSec} 秒`), h('span', null, episode.episode.profile === 'final' ? '正式' : '预览'))),
-                h('button', { className: 'ely-head-refresh', disabled: busy || !!editor, onClick: () => refresh(false), title: editor ? '请先保存或取消修改' : '刷新生产状态' }, busy ? '更新中…' : '刷新状态')),
+                h('button', { className: 'ely-head-refresh', disabled: busy || !!editor, onClick: () => refresh(false), title: editor ? '请先保存或取消修改' : '刷新生产状态' }, busy ? '更新中…' : '刷新')),
               (error || message) ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}`, role: error ? 'alert' : 'status' }, h('span', null, error || message), h('button', { 'aria-label': '关闭提示', onClick: () => { setError(''); setMessage('') } }, '×')) : null,
               h('nav', { className: 'ely-stage-track', 'aria-label': '制作流程' },
                 h('div', { className: 'ely-stage-track-title' }, h('strong', null, '制作流程'), h('span', null, `${completedStageCount}/8`)),

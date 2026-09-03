@@ -32,7 +32,7 @@ test('studio project navigation supports explicit multi-project actions', async 
   assert.match(source, /启动 \/ 继续 \(\$\{batchStartCount\}\)/)
   assert.match(source, /暂停 \(\$\{batchPauseCount\}\)/)
   assert.match(source, /confirmAuthorizedContent: true/)
-  assert.match(source, /ely-open-project/)
+  assert.match(source, /ely-project-cell/)
   assert.match(source, /'新建单集'/)
   assert.match(source, /'删除'/)
   assert.match(source, /call\('\/project\.delete'/)

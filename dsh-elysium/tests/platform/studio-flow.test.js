@@ -122,12 +122,12 @@ test('studio protects edits and completes the guided production interaction flow
     assert.equal(document.querySelector('.ely-toast'), null)
     await click(button('全部'))
     const projectOne = [...document.querySelectorAll('.ely-project-table-row')].find(item => item.textContent.includes('项目一'))
-    await click(projectOne.querySelector('.ely-open-project'))
+    await click(projectOne.querySelector('.ely-project-cell'))
     await click(button('新建单集'))
     await click(button('返回'))
     await click(button('全部'))
     const projectThree = [...document.querySelectorAll('.ely-project-table-row')].find(item => item.textContent.includes('项目三'))
-    await click(projectThree.querySelector('.ely-open-project'))
+    await click(projectThree.querySelector('.ely-project-cell'))
     await click(button('删除'))
     await click(button('取消'))
     assert.ok(projects.some(item => item.id === 'project-3'))
@@ -136,7 +136,7 @@ test('studio protects edits and completes the guided production interaction flow
     assert.ok(!projects.some(item => item.id === 'project-3'))
 
     const projectOneAgain = [...document.querySelectorAll('.ely-project-table-row')].find(item => item.textContent.includes('项目一'))
-    await click(projectOneAgain.querySelector('.ely-open-project'))
+    await click(projectOneAgain.querySelector('.ely-project-cell'))
     await click(document.querySelector('.ely-episode-table-row'))
     await settle()
 
@@ -144,7 +144,7 @@ test('studio protects edits and completes the guided production interaction flow
     await change(document.querySelector('.ely-story-input'), '尚未保存的新故事')
     assert.equal(button('保存').disabled, false)
     assert.ok(document.querySelector('.ely-stage-unsaved'))
-    assert.equal(button('刷新状态').disabled, true)
+    assert.equal(button('刷新').disabled, true)
     await click(button('全部'))
     assert.match(document.body.textContent, /放弃未保存修改/)
     const modal = document.querySelector('.tf-modal')
@@ -167,7 +167,7 @@ test('studio protects edits and completes the guided production interaction flow
     await settle(); await settle()
 
     const projectTwo = [...document.querySelectorAll('.ely-project-table-row')].find(item => item.textContent.includes('项目二'))
-    await click(projectTwo.querySelector('.ely-open-project'))
+    await click(projectTwo.querySelector('.ely-project-cell'))
     await click(button('新建单集'))
 
     await change(document.querySelector('input[placeholder*="雨夜来客"]'), '第二项目第一集')
@@ -211,12 +211,12 @@ test('studio protects edits and completes the guided production interaction flow
     await change(document.querySelector('.ely-plan-editor input'), '二次编辑后的章节')
     await click(button('保存'))
     assert.match(document.body.textContent, /二次编辑后的章节/)
-    await click(button('刷新状态'))
+    await click(button('刷新'))
     assert.match(document.body.textContent, /二次编辑后的章节/)
     for (const stage of ['资产', '规划', '起始帧', '关键帧', '章节', '故事', '剧本']) await click(button(stage))
 
     await click(document.querySelector('.ely-authorization input'))
-    await doubleClick(button('开始自动生产'))
+    await doubleClick(button('开始生产'))
     assert.equal(calls.filter(([route]) => route === '/production.start').length, 1)
     assert.ok(button('暂停生产'))
     assert.equal(button('编辑').disabled, true)
@@ -227,7 +227,7 @@ test('studio protects edits and completes the guided production interaction flow
     const current = details.get('project-2')
     current.state.status = 'needs_attention'
     current.issues = [{ id: 'issue-1', status: 'open', taskId: 'task-1', code: 'FAILED', message: '模拟失败' }]
-    await click(button('刷新状态'))
+    await click(button('刷新'))
     assert.ok(document.querySelector('.ely-stage-panel > .ely-attention'))
     await doubleClick(button('重试'))
     assert.equal(calls.filter(([route]) => route === '/production.retry').length, 1)
@@ -235,7 +235,7 @@ test('studio protects edits and completes the guided production interaction flow
     current.state.status = 'awaiting_review'
     current.state.final = { path: 'final.mp4', qc: { durationSec: 10 } }
     current.tasks = [{ id: 'final-1', type: 'final', entityId: 'episode', status: 'succeeded', path: 'final.mp4' }]
-    await click(button('刷新状态'))
+    await click(button('刷新'))
     await click(button('前往终审'))
     assert.equal(document.querySelector('.ely-review .ely-btn'), null)
     const reviewCheck = document.querySelector('.ely-check input')
@@ -320,7 +320,7 @@ test('studio keeps twenty large projects searchable and paginates the active pro
     await act(async () => Simulate.change(search, { target: { value: '第二十部' } }))
     assert.equal(document.querySelectorAll('.ely-project-table-row').length, 1)
     assert.match(document.querySelector('.ely-project-cell').title, /超长项目名称/)
-    await click(document.querySelector('.ely-open-project'))
+    await click(document.querySelector('.ely-project-cell'))
     await settle()
     assert.equal(document.querySelectorAll('.ely-episode-table-row').length, 25)
     assert.match(document.querySelector('.ely-list-heading').textContent, /100 集 · 第 1\/4 页/)
@@ -329,7 +329,7 @@ test('studio keeps twenty large projects searchable and paginates the active pro
 
     await click(document.querySelector('.ely-back-link'))
     await act(async () => Simulate.change(document.querySelector('input[aria-label="搜索名称或单集"]'), { target: { value: '' } }))
-    const attention = [...document.querySelectorAll('.ely-hub-filters button')].find(item => item.textContent.includes('待处理'))
+    const attention = [...document.querySelectorAll('.ely-library-nav button')].find(item => item.textContent.includes('待处理'))
     await click(attention)
     assert.ok(document.querySelectorAll('.ely-queue-row').length > 20)
     assert.match(document.querySelector('.ely-queue').textContent, /失败|等待终审/)
