@@ -32,21 +32,28 @@ Elysium 持久化单集、任务和生产状态，
 ```text
 dsh-elysium/
 ├── src/                                      # 插件源码根目录
-│   ├── index.ts                              # DSH 插件入口，组合 Sidebar 与视频生产模块
-│   ├── config.ts                             # 插件配置结构、默认值和校验
-│   ├── invariant.ts                          # 插件运行时约束入口
-│   ├── sidebar/                              # 内置 Better Sidebar 工作台与扩展服务
-│   │   ├── server.ts                         # 路由、文件、终端、Git、聊天和生命周期
-│   │   └── client/                           # Sidebar 前端界面、组件和交互逻辑
-│   ├── videos/                               # AI 短视频生产业务域
-│   │   ├── client/                           # 单集工作台、生产状态、素材和人工验收界面
-│   │   └── server/                           # 服务端入口、接口注册和业务能力装配
-│   │       ├── application/                  # 故事规划、生产调度、生成、重试、拼接和 QC
-│   │       ├── episode/                      # 单集、章节、任务、状态、版本和依赖规则
-│   │       ├── project/                      # 项目、镜头、素材和旧工作台兼容能力
-│   │       └── infrastructure/               # 持久化、文件系统和外部服务适配
-│   │           └── comfyui/                  # 工作流校验、参数注入、提交、恢复和产物下载
-│   └── client/                               # 对外稳定的客户端兼容入口，不放业务实现
+│   ├── bootstrap/                            # 组合根：装配配置、服务、路由和插件生命周期
+│   │   ├── plugin.ts                         # 唯一运行时装配入口
+│   │   └── config.ts                         # 单插件统一配置实现
+│   ├── domain/                               # 与界面和外部服务无关的短剧核心规则
+│   │   ├── episode.js                        # 单集、规划、锚点和任务依赖规则
+│   │   ├── project.js                        # 项目与镜头数据规则
+│   │   └── errors.js                         # 领域错误模型
+│   ├── application/                          # 用例层：规划、生产、生成、重试、拼接和 QC
+│   ├── infrastructure/                       # 外部系统和本机能力适配
+│   │   ├── comfyui/                          # 工作流校验、提交、恢复和产物下载
+│   │   ├── persistence/                      # 工作区路径、文件存储和原子写入
+│   │   └── workspace/                        # 文件、终端、Git、浏览器等 Harness 能力
+│   ├── presentation/                         # 所有用户入口和宿主协议适配
+│   │   ├── dsh/                              # DSH 路由、聊天工具、生命周期和服务桥接
+│   │   ├── studio/                           # AI 短剧生产工作台 UI
+│   │   └── workbench/                        # 文件、终端、Git、浏览器和侧聊 UI
+│   ├── public/                               # 对外稳定的源码兼容出口，不放业务实现
+│   │   └── client/                           # 客户端 API 与服务类型出口
+│   ├── shared/                               # 跨层共享且不含业务流程的最小类型与约束
+│   ├── index.ts                              # 稳定包入口，转发 bootstrap/plugin.ts
+│   ├── config.ts                             # 稳定配置入口，转发 bootstrap/config.ts
+│   └── invariant.ts                          # 稳定约束入口，转发 shared/invariant.ts
 ├── templates/                                # 随插件发布、运行时可复制的模板资源
 │   └── comfyui/                              # ComfyUI 工作流、合同和模型目录模板
 ├── tests/                                    # 按职责组织的自动化测试
@@ -63,13 +70,14 @@ dsh-elysium/
 └── elysium-workspace/                        # 本地项目、任务和产物数据，不属于源码
 ```
 
-`src/index.ts` 是唯一服务端组合入口，`src/config.ts` 是唯一配置入口。新界面和
-业务实现应进入对应的 `sidebar/` 或 `videos/` 目录。
+`src/index.ts`、`src/config.ts` 和 `src/invariant.ts` 只保留稳定导出；真实装配集中在
+`bootstrap/`。短剧规则进入 `domain/`，用例进入 `application/`，ComfyUI、持久化和
+本机能力进入 `infrastructure/`，界面、聊天工具和 DSH 路由进入 `presentation/`。
 `lib/`、`registry/`、`node_modules/` 和 `elysium-workspace/` 都不是源码维护入口。
 
-维护边界：视频生产业务放入 `src/videos/`，通用工作台能力放入
-`src/sidebar/`，插件组合入口是 `src/index.ts`，统一配置入口是 `src/config.ts`；工作流资源放入
-`templates/`，不要硬编码到业务实现中。
+依赖边界：`domain/` 不依赖应用、基础设施或界面；`application/` 组织领域规则和生产用例；
+`presentation/` 只处理用户交互、DSH 协议和输入输出；`infrastructure/` 负责技术实现；
+`bootstrap/` 负责把它们装配成一个插件。工作流资源放入 `templates/`，不要硬编码到业务实现中。
 
 ## 开发命令
 

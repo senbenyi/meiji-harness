@@ -12,11 +12,11 @@
 
 可保留：
 
-- `src/videos/server/infrastructure/comfyui/`：模板扫描、参数注入、远程提交、任务恢复和产物下载。
+- `src/infrastructure/comfyui/`：模板扫描、参数注入、远程提交、任务恢复和产物下载。
 - `templates/comfyui/`：`qwen-image-t2i` 与 `wan22-remix-long` 合同。
-- `src/videos/server/infrastructure/store.js`：目录约束、原子 JSON 写入和安全文件解析。
-- `src/videos/server/project/assets.js`：生成产物与上传素材归档。
-- `src/videos/server/application/factory.js`：FFmpeg 拼接、FFprobe 时长检查和成片哈希人审的兼容实现。
+- `src/infrastructure/persistence/store.js`：目录约束、原子 JSON 写入和安全文件解析。
+- `src/application/asset-service.js`：生成产物与上传素材归档。
+- `src/application/legacy-factory-service.js`：FFmpeg 拼接、FFprobe 时长检查和成片哈希人审的兼容实现。
 - `betterSidebar` 页签注册方式。
 
 必须替换：
@@ -175,27 +175,37 @@ succeeded → stale
 
 ```text
 src/
-  plugin/
-    server.ts              # 唯一宿主入口，组合 Sidebar 与视频生产
-  config/
-    index.ts               # 单插件统一配置
-  sidebar/                 # Better Sidebar 内部模块，保留全部原功能
-  videos/
-    client/                # 单集工作台
-    server/
-      application/         # 规划、调度、生成、合成与兼容入口
-      episode/             # 单集、任务图与依赖失效
-      project/             # 项目、分镜与资产
-      infrastructure/
-        store.js           # 文件持久化与路径约束
-        comfyui/           # 内置远程 ComfyUI 合同驱动
+  bootstrap/
+    plugin.ts              # 唯一组合根，装配插件生命周期与所有适配器
+    config.ts              # 单插件统一配置实现
+  domain/
+    episode.js             # 单集、规划、锚点、任务图与依赖失效规则
+    project.js             # 项目和镜头数据规则
+    errors.js              # 领域错误模型
+  application/             # 规划、调度、生成、合成与兼容用例
+  infrastructure/
+    comfyui/               # 内置远程 ComfyUI 合同驱动
+    persistence/store.js   # 文件持久化与路径约束
+    workspace/             # 文件、终端、Git 和浏览器技术适配
+  presentation/
+    dsh/                   # DSH 路由、聊天工具、宿主服务和生命周期桥接
+    studio/                # 单集生产工作台 UI
+    workbench/             # 文件、终端、Git、浏览器和侧聊 UI
+  public/client/           # 稳定扩展 API 兼容出口
+  shared/                  # 跨层最小共享类型和约束
   index.ts                 # 稳定包入口
-  client/                  # 稳定扩展 API 兼容入口
+  config.ts                # 稳定配置入口
+  invariant.ts             # 稳定运行时约束入口
 ```
 
 只有 `@dsh-external/dsh-elysium` 一个安装身份、一个客户端 bundle 和一个 Cordis
 配置块。`ctx.betterSidebar`、`/sidebar/*`、`/elysium/*` 与聊天工具名保持兼容；
 `dsh-comfyui` 不再作为独立插件或依赖存在。
+
+代码依赖以领域规则为中心：`domain/` 不引用界面、DSH、ComfyUI 或文件存储；
+`application/` 执行用例并通过明确的基础设施模块完成持久化与远程调用；`presentation/`
+只承载 UI、DSH 协议和宿主桥接；`bootstrap/` 负责插件级装配。根级入口只做稳定转发，
+避免内部目录重组再次破坏包使用方。
 
 关键实现要求：
 
