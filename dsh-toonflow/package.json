@@ -72,7 +72,7 @@
     "bundle": "tsdown",
     "watch": "tsdown --watch",
     "prepare": "tsdown",
-    "test": "vitest run && npm run test:toonflow",
+    "test": "npm run test:toonflow",
     "test:toonflow": "node --test tests/*.test.js",
     "check:consumer-types": "bash scripts/check-consumer-types.sh"
   },

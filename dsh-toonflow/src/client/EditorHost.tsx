@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createElement } from 'react'
 import clsx from 'clsx'
-import { IconCheckOutline16, IconFolderOpen16, IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconCheckOutline16, IconFolderOpen16, IconRefreshOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '../context-types.ts'
 import { api, isOutsideWorkspaceMessage, mediaUrl, type SessionScope } from './api.ts'
 import { BinaryDownload } from './binary-download.tsx'
@@ -114,15 +114,15 @@ export function EditorHost(props: {
   // Manual refresh (issue #167): bumping the sequence re-runs the load effect
   // with the same path/scope — the only reload entry besides open/close.
   const [reloadSeq, setReloadSeq] = useState(0)
+  const [refreshConfirmOpen, setRefreshConfirmOpen] = useState(false)
 
   // Manual refresh (issue #167 + PR #228): a dirty draft is dropped by the
-  // reload (the editor instance remounts), so confirm before discarding it.
+  // reload (the editor instance remounts), so use the shared accessible modal
+  // before discarding it. Native window.confirm is forbidden in client bundles.
   const refreshFile = (): void => {
     if (toolbar?.dirty === true) {
-      const confirmed = typeof window.confirm === 'function'
-        ? window.confirm(t('refreshUnsavedConfirm'))
-        : false
-      if (!confirmed) return
+      setRefreshConfirmOpen(true)
+      return
     }
     setReloadSeq(sequence => sequence + 1)
   }
@@ -511,6 +511,28 @@ export function EditorHost(props: {
           </div>
         )}
       </div>
+      <Modal
+        open={refreshConfirmOpen}
+        onClose={() => { setRefreshConfirmOpen(false) }}
+        title={t('refresh')}
+        closeLabel={t('cancel')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => { setRefreshConfirmOpen(false) }}>{t('cancel')}</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setRefreshConfirmOpen(false)
+                setReloadSeq(sequence => sequence + 1)
+              }}
+            >
+              {t('refresh')}
+            </Button>
+          </>
+        )}
+      >
+        <p>{t('refreshUnsavedConfirm')}</p>
+      </Modal>
     </div>
   )
 }
