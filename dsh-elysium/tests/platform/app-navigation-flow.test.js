@@ -16,10 +16,13 @@ test('top navigation protects unsaved settings and keeps tab metadata in sync', 
   const { createRoot } = await import('react-dom/client')
   const { act, Simulate } = await import('react-dom/test-utils')
   const updates = []
+  let resolveSettingsState
+  const settingsState = new Promise(resolve => { resolveSettingsState = resolve })
+  const loadedSettingsState = { baseUrl: 'http://127.0.0.1:8189', ping: { ok: true }, templates: [], loras: [], availableLoras: [] }
   const api = {
     mediaUrl: () => '',
     async fetchJson(route) {
-      if (route === '/comfyui.state') return { baseUrl: 'http://127.0.0.1:8189', ping: { ok: true }, templates: [], loras: [], availableLoras: [] }
+      if (route === '/comfyui.state') return settingsState
       if (route === '/project.list') return { projects: [] }
       throw new Error(`unexpected route: ${route}`)
     },
@@ -34,6 +37,10 @@ test('top navigation protects unsaved settings and keeps tab metadata in sync', 
   try {
     await act(async () => root.render(React.createElement(App, { ctx, tab: { id: 'elysium', meta: { view: 'comfyui' } } })))
     await settle()
+    assert.equal(button('制作').disabled, false)
+    assert.equal(button('模型设置').disabled, false)
+    assert.equal(document.querySelector('input[aria-label="ComfyUI 服务地址"]').disabled, false)
+    await act(async () => { resolveSettingsState(loadedSettingsState); await new Promise(resolve => setTimeout(resolve, 0)) })
     await act(async () => { Simulate.change(document.querySelector('input[aria-label="ComfyUI 服务地址"]'), { target: { value: 'http://draft:8188' } }) })
     await click(button('制作'))
     assert.match(document.body.textContent, /模型设置还有未保存修改/)

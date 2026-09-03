@@ -108,14 +108,22 @@ export function createComfyUiSettings(React, api) {
       }
     }
 
-    const loadState = async (initial = false) => run('refresh', async () => {
-      const value = await api.fetchJson('/comfyui.state', {})
-      applyState(value)
-      setTested(null)
-      setWorkflowTests({})
-      if (!initial) setNotice({ ok: true, text: '状态已刷新。' })
-      return value
-    })
+    const loadState = async (initial = false) => {
+      const load = async () => {
+        const value = await api.fetchJson('/comfyui.state', {})
+        applyState(value)
+        setTested(null)
+        setWorkflowTests({})
+        if (!initial) setNotice({ ok: true, text: '状态已刷新。' })
+        return value
+      }
+      if (!initial) return run('refresh', load)
+      try { return await load() }
+      catch (error) {
+        setNotice({ ok: false, text: error.message || String(error) })
+        return null
+      }
+    }
 
     useEffect(() => { void loadState(true) }, [])
 
@@ -286,13 +294,13 @@ export function createComfyUiSettings(React, api) {
 
     return h('div', { className: 'tf-comfy', 'aria-busy': !!busy },
       h('header', { className: 'tf-settings-head' },
-        h('div', null, h('div', { className: 'tf-title' }, '模型设置'), h('div', { className: 'tf-card-meta' }, 'ComfyUI 与 LoRA')),
+        h('div', null, h('div', { className: 'tf-title' }, '模型设置')),
         h('span', { className: `tf-comfy-status ${statusTone}`, role: 'status', 'aria-live': 'polite', title: deviceName || statusText }, statusText),
       ),
       notice ? h('div', { className: notice.ok ? 'tf-success' : 'tf-error', role: notice.ok ? 'status' : 'alert', 'aria-live': 'polite' }, notice.text) : null,
 
       h('section', { className: 'tf-settings-card' },
-        h(Field, { composite: true, label: 'ComfyUI 服务地址', hint: !baseDirty && state?.ping?.ok ? `已连接${state.ping.version ? ` · ComfyUI ${state.ping.version}` : ''}` : '测试不会保存；保存地址后才会用于生产任务。' },
+        h(Field, { composite: true, label: 'ComfyUI 服务地址', hint: !baseDirty && state?.ping?.ok ? `已连接${state.ping.version ? ` · ComfyUI ${state.ping.version}` : ''}` : null },
           h('div', { className: 'tf-settings-line' },
             h('input', { className: 'tf-input', 'aria-label': 'ComfyUI 服务地址', value: baseUrl, inputMode: 'url', disabled: !!busy, onChange: event => { setBaseUrl(event.target.value); setTested(null) } }),
             h('button', { className: 'tf-btn', disabled: !!busy || !baseDirty, onClick: saveBaseUrl }, busy === 'save-base' ? '保存中…' : '保存地址'),

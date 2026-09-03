@@ -514,7 +514,7 @@ export function createStudio(React, api) {
         projectsLoading ? h('div', { className: 'ely-library-empty', role: 'status' }, '正在加载项目…') : projects.length ? h(React.Fragment, null,
           h('div', { className: 'ely-project-toolbar' },
             h('button', { disabled: busy, onClick: toggleAllProjects }, selectedProjectIds.length === projects.length ? '清空' : '全选'),
-            h('span', null, selectedProjectIds.length ? `已选 ${selectedProjectIds.length}` : '勾选后批量操作')),
+            selectedProjectIds.length ? h('span', null, `已选 ${selectedProjectIds.length}`) : null),
           h('div', { className: 'ely-project-list' }, projects.map(project => {
             const items = projectEpisodes[project.id] || []
             const expanded = openProjectIds.includes(project.id)
