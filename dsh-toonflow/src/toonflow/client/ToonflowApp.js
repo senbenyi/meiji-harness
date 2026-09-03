@@ -3,6 +3,7 @@ import { createUsePolling } from './hooks/usePolling.js'
 import { createConfirmDialog, createProjectDialog } from './components/Modal.js'
 import { createDashboard } from './views/Dashboard.js'
 import { createExportPanel } from './views/ExportPanel.js'
+import { createFactory } from './views/Factory.js'
 import { createProjectList } from './views/ProjectList.js'
 import { createShotBoard } from './views/ShotBoard.js'
 import { createShotDetail } from './views/ShotDetail.js'
@@ -16,12 +17,13 @@ export function createToonflowApp(React, api) {
   const ShotBoard = createShotBoard(React, api)
   const ShotDetail = createShotDetail(React, api)
   const ExportPanel = createExportPanel(React)
+  const Factory = createFactory(React, api)
   const ProjectDialog = createProjectDialog(React)
   const ConfirmDialog = createConfirmDialog(React)
 
   return function ToonflowApp({ ctx, tab }) {
     const meta = tab?.meta || {}
-    const [view, setView] = useState(meta.view || 'list')
+    const [view, setView] = useState(meta.view || 'factory')
     const [projectId, setProjectId] = useState(meta.projectId || null)
     const [extra, setExtra] = useState(meta.extra || {})
     const [dialog, setDialog] = useState(null)
@@ -55,7 +57,9 @@ export function createToonflowApp(React, api) {
     const onDelete = project => setDialog({ kind: 'delete', project })
 
     let page
-    if (view !== 'list' && data.loading && !data.plan) {
+    if (view === 'factory') {
+      page = h(Factory)
+    } else if (view !== 'list' && data.loading && !data.plan) {
       page = h('div', { className: 'tf-empty' }, '正在加载…')
     } else if (view === 'dashboard') {
       page = h(Dashboard, {
@@ -116,6 +120,16 @@ export function createToonflowApp(React, api) {
     }
 
     return h('div', { className: 'tf-root' },
+      h('div', { className: 'tf-modebar' },
+        h('button', {
+          className: `tf-btn tf-btn-ghost${view === 'factory' ? ' tf-btn-active' : ''}`,
+          onClick: () => navigate('factory', null),
+        }, '生产工厂'),
+        h('button', {
+          className: `tf-btn tf-btn-ghost${view !== 'factory' ? ' tf-btn-active' : ''}`,
+          onClick: () => navigate('list', null),
+        }, '素材项目'),
+      ),
       data.error ? h('div', { className: 'tf-error' }, data.error) : null,
       page,
       modal,

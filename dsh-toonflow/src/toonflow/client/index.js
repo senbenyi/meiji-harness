@@ -71,7 +71,7 @@ const ToonflowApp = createToonflowApp(React, api)
           const sidebar = scope.betterSidebar
           const disposeTab = sidebar.registerTab({
             id: 'toonflow',
-            title: 'Toonflow',
+            title: 'AI短剧工厂',
             icon: size => h(ToonflowIcon, { size }),
             order: 60,
             single: true,
@@ -79,7 +79,7 @@ const ToonflowApp = createToonflowApp(React, api)
               const existing = findTab(state.splits, 'toonflow')
                 || findTab(state.bottomSplits, 'toonflow')
                 || state.floats?.find(item => item.tab.id === 'toonflow')?.tab
-              const tab = existing || { id: 'toonflow', type: 'toonflow', title: 'Toonflow' }
+              const tab = existing || { id: 'toonflow', type: 'toonflow', title: 'AI短剧工厂' }
               const cleanSplits = removeTab(state.splits, 'toonflow')
               const cleanBottomSplits = removeTab(state.bottomSplits, 'toonflow')
               const target = firstLeaf(cleanSplits)

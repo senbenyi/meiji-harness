@@ -3,18 +3,20 @@
     - id: dsh-toonflow
       name: '@dsh-external/dsh-toonflow'
       config:
-        workspace: './toonflow-workspace'
+        workspace: '/Users/mac/.dsh/profiles/web/data/toonflow'
         models:
           characterImage:
-            template: 'anima-txt2img'
+            template: 'qwen-image-t2i'
             args:
               width: 768
               height: 1024
           shotImage:
-            template: 'anima-txt2img'
+            template: 'qwen-image-t2i'
             args:
               width: 1280
               height: 720
           shotVideo:
-            template: 'wan22-remix-short'
+            template: 'wan22-remix-long'
             args: {}
+        ffmpeg: 'ffmpeg'
+        ffprobe: 'ffprobe'

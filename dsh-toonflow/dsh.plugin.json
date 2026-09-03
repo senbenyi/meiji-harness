@@ -1,14 +1,14 @@
 {
   "id": "dsh-external/dsh-toonflow",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "./lib/index.js",
-  "description": "AI 短剧导演工作台，内置 VSCode 风格侧边栏、项目管理、分镜、生成与导出界面",
+  "description": "AI 成人短剧工厂：通过 dsh-comfyui 调度远程工作流，固定 12 镜、2 个六锚点视频块和不少于 40 秒成片",
   "engines": {
     "dsh": ">=0.1.2-alpha.3"
   },
   "contributes": {
-    "tools": [],
-    "skills": []
+    "tools": ["_dsh_external_dsh_toonflow_factory"],
+    "skills": ["./skills/vmp-video-factory/SKILL.md"]
   },
   "client": {
     "main": "./lib/client-registry.js"

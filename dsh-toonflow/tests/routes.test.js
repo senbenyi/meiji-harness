@@ -46,6 +46,7 @@ test('rejects untrusted requests before every Toonflow route', async () => {
   assert.deepEqual(routes.map(route => route.path), [
     '/toonflow/api',
     '/toonflow/file',
+    '/toonflow/factory-file',
     '/toonflow/import-image',
   ])
   for (const route of routes) {

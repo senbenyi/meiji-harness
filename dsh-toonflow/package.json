@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-toonflow",
-  "version": "0.1.0",
-  "description": "AI short-drama workflow with an integrated VSCode-like DSH sidebar workspace.",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness AI short-drama factory: fixed 12 shots, two six-anchor video blocks, QC and approval.",
   "type": "module",
   "publishConfig": {
     "access": "public"

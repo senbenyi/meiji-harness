@@ -42,6 +42,9 @@ export interface SidebarConfig {
   workspace?: string
   /** Toonflow generation model templates and arguments, keyed by generation stage. */
   models?: Record<string, unknown>
+  /** Local post-production executables. Media generation itself remains remote. */
+  ffmpeg?: string
+  ffprobe?: string
   /** Read cap of one text file (bytes); larger files return truncated. */
   readLimit?: number
   /** Media route cap (bytes); larger binaries are refused. */
@@ -76,6 +79,8 @@ export interface SidebarConfig {
 export const Config: z<SidebarConfig> = z.object({
   workspace: z.string().default('./toonflow-workspace'),
   models: z.dict(z.any()).default({}),
+  ffmpeg: z.string().default('ffmpeg'),
+  ffprobe: z.string().default('ffprobe'),
   readLimit: z.number().step(1).min(1).default(512 * 1024),
   mediaLimit: z.number().step(1).min(1).default(20 * 1024 * 1024),
   uploadLimit: z.number().step(1).min(1).default(128 * 1024 * 1024),
