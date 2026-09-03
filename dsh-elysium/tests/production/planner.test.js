@@ -32,12 +32,26 @@ test('uses the configured Qwen provider and returns six concrete anchors per cha
 
   assert.equal(request.provider, 'qwen38-local')
   assert.equal(request.model, 'qwen3.8-27b-video-prompt')
+  assert.match(request.messages[0].content[0].text, /^\/no_think/)
   assert.match(request.messages[0].content[0].text, /16:9 横屏/)
   assert.equal(result.plan.source, 'producer-agent')
   assert.equal(result.plan.chapters.length, 3)
   assert.equal(result.plan.chapters.every(chapter => chapter.anchors.length === 6), true)
   assert.equal(result.plan.chapters[0].anchors[0].role, 'start')
   assert.equal(result.plan.chapters[0].anchors[1].role, 'continuation')
+})
+
+test('accepts validated JSON when Qwen exposes it only as reasoning output', async () => {
+  const ctx = { llm: { async *stream() {
+    yield { type: 'reasoning-delta', index: 0, text: response(1) }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  } } }
+  const result = await createPlannerService(ctx).plan({
+    episodeId: 'episode-reasoning', sourceText: '月球便利店。', targetDurationSec: 20,
+  })
+
+  assert.equal(result.plan.chapters.length, 1)
+  assert.equal(result.plan.chapters[0].anchors.length, 6)
 })
 
 test('rejects malformed planner output instead of silently creating a fake draft', async () => {

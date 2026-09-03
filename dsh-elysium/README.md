@@ -89,6 +89,18 @@ pnpm test
 pnpm build
 ```
 
+日常开发无需重复完整发布：
+
+```sh
+pnpm dev:ui       # UI/CSS 保存后直接更新 registry，刷新浏览器即可
+pnpm dev:server   # 服务端保存后自动构建并重启 dsh web
+pnpm release:local # 交付前执行测试、完整构建、安装和重启
+```
+
+`dev:ui` 与 `dev:server` 可分别运行在两个终端。web profile 首次链接到本仓库的
+`registry/` 后，日常 UI 调试不再需要重复安装或重启。执行 `release:local` 前先用
+`Ctrl-C` 停止两个开发监听器。
+
 项目使用 pnpm。不要在该目录执行 `npm install`，避免生成另一套锁文件或破坏 pnpm
 链接结构。IDE 出现依赖红线时，先确认打开的项目根目录是当前 `dsh-elysium/`，再重载
 TypeScript 服务；`check:source-imports`、`typecheck` 和 `pnpm list` 才是源码与依赖状态依据。

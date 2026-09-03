@@ -71,7 +71,8 @@ function normalizeResult(value, body, chapterCount) {
 function plannerPrompt(body, chapterCount, chapterOffset, totalChapters, continuity) {
   const first = chapterOffset + 1
   const last = chapterOffset + chapterCount
-  return `你是短剧导演和分镜规划师。请把故事规划为可直接用于长视频生成的 JSON。
+  return `/no_think
+你是短剧导演和分镜规划师。请把故事规划为可直接用于长视频生成的 JSON。
 
 硬性要求：
 1. 只输出一个 JSON 对象，不要 Markdown，不要解释。
@@ -113,6 +114,7 @@ export function createPlannerService(ctx, config = {}) {
         content: [{ type: 'text', text: plannerPrompt(body, batchSize, offset, chapterCount, continuity) }],
       })
       let output = ''
+      let reasoning = ''
       for await (const chunk of llm.stream({
         provider,
         model,
@@ -121,12 +123,14 @@ export function createPlannerService(ctx, config = {}) {
         maxTokens: Number(config.planner?.maxTokens || 4096),
       })) {
         if (chunk.type === 'text-delta') output += chunk.text
+        if (chunk.type === 'reasoning-delta') reasoning += chunk.text
         if (chunk.type === 'finish' && ['error', 'aborted'].includes(chunk.reason?.kind)) {
           fail('PLANNER_FAILED', chunk.reason.failure?.message || 'Qwen3.8 规划失败')
         }
       }
-      if (!output.trim()) fail('PLANNER_EMPTY', 'Qwen3.8 没有返回规划')
-      const batch = extractJson(output)
+      const raw = output.trim() ? output : reasoning
+      if (!raw.trim()) fail('PLANNER_EMPTY', 'Qwen3.8 没有返回规划')
+      const batch = extractJson(raw)
       if (!Array.isArray(batch?.chapters) || batch.chapters.length !== batchSize) {
         fail('PLANNER_OUTPUT_INVALID', `Qwen3.8 本批应返回 ${batchSize} 章，实际返回 ${batch?.chapters?.length ?? 0} 章`)
       }

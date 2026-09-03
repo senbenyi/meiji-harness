@@ -69,6 +69,9 @@
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && tsdown",
+    "dev:ui": "tsdown --config tsdown.ui.config.ts --watch",
+    "dev:server": "node scripts/dev-server.mjs",
+    "release:local": "node scripts/release-local.mjs",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
     "bundle": "tsdown",

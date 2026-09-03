@@ -39,6 +39,20 @@ function stageState(detail, stage, index) {
   return 'pending'
 }
 
+export function bulkProductionRequests(projectEpisodes, action) {
+  const statuses = action === 'pause' ? ['running', 'queued'] : ['ready', 'paused']
+  return projectEpisodes.flatMap(project => project.episodes
+    .filter(episode => statuses.includes(episode.status))
+    .map(episode => ({
+      route: action === 'pause' ? '/production.pause' : episode.status === 'paused' ? '/production.resume' : '/production.start',
+      body: {
+        projectId: project.projectId,
+        episodeId: episode.id,
+        ...(action === 'start' && episode.status === 'ready' ? { confirmAuthorizedContent: true } : {}),
+      },
+    })))
+}
+
 export function createStudio(React, api) {
   const { createElement: h, useCallback, useEffect, useState } = React
 
@@ -54,6 +68,8 @@ export function createStudio(React, api) {
   return function Studio({ initialProjectId, initialEpisodeId, onSelection }) {
     const [projects, setProjects] = useState([])
     const [projectId, setProjectId] = useState(initialProjectId || '')
+    const [selectedProjectIds, setSelectedProjectIds] = useState([])
+    const [batchAuthorized, setBatchAuthorized] = useState(false)
     const [episodes, setEpisodes] = useState([])
     const [episode, setEpisode] = useState(null)
     const [activeStage, setActiveStage] = useState('story')
@@ -85,6 +101,7 @@ export function createStudio(React, api) {
       const result = await call('/project.list', {}, true)
       if (!result) return
       setProjects(result.projects || [])
+      setSelectedProjectIds(current => current.filter(id => result.projects?.some(project => project.id === id)))
       if (!projectId && result.projects?.length) setProjectId(result.projects[0].id)
     }, [call, projectId])
 
@@ -126,6 +143,49 @@ export function createStudio(React, api) {
       if (!result) return
       setProjectTitle(''); setShowProjectForm(false); await loadProjects(); setProjectId(result.project.id); setEpisode(null)
       setMessage('项目已创建，现在可以开始第一集')
+    }
+
+    const selectProject = id => {
+      setProjectId(id)
+      setEpisode(null)
+    }
+
+    const toggleProject = id => {
+      setBatchAuthorized(false)
+      setSelectedProjectIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
+    }
+
+    const toggleAllProjects = () => {
+      setBatchAuthorized(false)
+      setSelectedProjectIds(current => current.length === projects.length ? [] : projects.map(project => project.id))
+    }
+
+    const runBulk = async action => {
+      if (!selectedProjectIds.length) return
+      if (action === 'start' && !batchAuthorized) return setError('批量启动前请确认所选项目内容合规且素材权利清晰')
+      setBusy(true); setError(''); setMessage('')
+      try {
+        const projectEpisodes = await Promise.all(selectedProjectIds.map(async id => ({
+          projectId: id,
+          episodes: (await api.fetchJson('/episode.list', { projectId: id })).episodes || [],
+        })))
+        const requests = bulkProductionRequests(projectEpisodes, action)
+        if (!requests.length) {
+          setMessage(action === 'pause' ? '所选项目中没有正在生产的单集' : '所选项目中没有可启动或继续的单集')
+          return
+        }
+        const results = await Promise.allSettled(requests.map(request => api.fetchJson(request.route, request.body)))
+        const failures = results.filter(result => result.status === 'rejected')
+        const succeeded = results.length - failures.length
+        if (failures.length) setError(`已处理 ${succeeded} 个单集，${failures.length} 个失败：${failures[0].reason?.message || '未知错误'}`)
+        else setMessage(`已${action === 'pause' ? '暂停' : '启动或继续'} ${succeeded} 个单集`)
+        if (action === 'start') setBatchAuthorized(false)
+        if (selectedProjectIds.includes(projectId)) await loadEpisodes(projectId)
+      } catch (reason) {
+        setError(reason.message || String(reason))
+      } finally {
+        setBusy(false)
+      }
     }
 
     const createEpisode = async () => {
@@ -276,11 +336,23 @@ export function createStudio(React, api) {
       h('aside', { className: 'ely-library' },
         h('div', { className: 'ely-library-head' }, h('span', null, '我的项目'), h('button', { title: '新建项目', onClick: () => setShowProjectForm(value => !value) }, '+')),
         showProjectForm ? h('div', { className: 'ely-project-create' }, h('input', { className: 'tf-input', autoFocus: true, placeholder: '项目名称', value: projectTitle, onChange: event => setProjectTitle(event.target.value), onKeyDown: event => { if (event.key === 'Enter') void createProject() } }), h('button', { className: 'ely-btn ely-btn-primary', disabled: busy, onClick: createProject }, '创建')) : null,
-        h('select', { className: 'tf-input ely-project-select', value: projectId, onChange: event => { setProjectId(event.target.value); setEpisode(null) } }, h('option', { value: '' }, '选择项目'), projects.map(project => h('option', { key: project.id, value: project.id }, project.title))),
+        projects.length ? h(React.Fragment, null,
+          h('div', { className: 'ely-project-toolbar' },
+            h('button', { onClick: toggleAllProjects }, selectedProjectIds.length === projects.length ? '清空' : '全选'),
+            h('span', null, selectedProjectIds.length ? `已选 ${selectedProjectIds.length}` : '勾选后批量操作')),
+          h('div', { className: 'ely-project-list' }, projects.map(project => h('div', { key: project.id, className: project.id === projectId ? 'is-active' : '' },
+            h('input', { type: 'checkbox', 'aria-label': `选择项目 ${project.title}`, checked: selectedProjectIds.includes(project.id), onChange: () => toggleProject(project.id) }),
+            h('button', { title: project.title, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, project.id === projectId ? '正在查看' : '打开项目'))))),
+          selectedProjectIds.length ? h('div', { className: 'ely-project-batch' },
+            h('label', null, h('input', { type: 'checkbox', checked: batchAuthorized, onChange: event => setBatchAuthorized(event.target.checked) }), h('span', null, '确认所选内容及素材已获授权')),
+            h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !batchAuthorized, title: '启动就绪单集，并继续已暂停单集', onClick: () => void runBulk('start') }, '批量启动 / 继续'),
+            h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, title: '暂停所选项目中正在生产的单集', onClick: () => void runBulk('pause') }, '批量暂停')) : null)
+          : h('div', { className: 'ely-library-empty' }, '创建项目后开始制作'),
         projectId ? h(React.Fragment, null,
-          h('div', { className: 'ely-library-label' }, h('span', null, '单集'), h('small', null, episodes.length)),
-          h('div', { className: 'ely-episode-list' }, episodes.map(item => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, className: item.id === selectedEpisodeId ? 'is-active' : '', onClick: () => void chooseEpisode(item.id) }, h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) })),
-          h('button', { className: 'ely-new-episode', onClick: () => { setEpisode(null); setActiveStage('story') } }, h('span', null, '+'), '新建单集')) : h('div', { className: 'ely-library-empty' }, '创建项目后开始制作')),
+          h('div', { className: 'ely-library-label' },
+            h('span', null, '单集'),
+            h('div', null, h('small', null, episodes.length), h('button', { className: 'ely-add-episode', title: '新建单集', onClick: () => { setEpisode(null); setActiveStage('story') } }, '+ 新建'))),
+          h('div', { className: 'ely-episode-list' }, episodes.map(item => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, className: item.id === selectedEpisodeId ? 'is-active' : '', onClick: () => void chooseEpisode(item.id) }, h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) }))) : h('div', { className: 'ely-library-empty' }, '创建项目后开始制作')),
       h('main', { className: 'ely-workspace' },
         (error || message) && !episode ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}` }, h('span', null, error || message), h('button', { onClick: () => { setError(''); setMessage('') } }, '×')) : null,
         !projectId ? h('section', { className: 'ely-zero' }, h('span', { className: 'ely-zero-logo' }, 'E'), h('h1', null, '创建你的第一个世界'), h('p', null, '项目用于集中管理同一系列中的故事、人物资产和成片。'), h('button', { className: 'ely-btn ely-btn-primary', onClick: () => setShowProjectForm(true) }, '新建项目'))

@@ -1,5 +1,5 @@
 import { createStudio } from './views/Studio.js'
-import { createComfyUiSettings } from './views/ComfyUiSettings.js'
+import { createComfyUiSettings } from './views/setting/Settings.js'
 
 export function createElysiumApp(React, api) {
   const { createElement: h, useCallback, useState } = React
