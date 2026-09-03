@@ -20,8 +20,9 @@ Elysium 持久化单集、任务和生产状态，
 原 ComfyUI 插件的检查、生成、任务恢复、模板和 LoRA 管理能力统一为该工具下的
 `comfyui_*` 动作，不再注册第二组聊天工具。
 
-生产顺序为：故事规划 → 每章起始帧 → 5 张连续关键帧 → 六锚点章节视频 →
-720×1280、24fps、H.264 成片。成片未达到单集目标时长时不会进入人审状态。
+生产顺序为：Qwen3.8 剧本与分镜规划 → 角色定妆图 → 每章文生图起始帧 →
+5 张连续关键帧 → 六锚点章节视频 → 24fps、H.264 成片。支持 9:16 和 16:9；
+合成时使用运动插帧并精确裁切目标时长，时长偏差超过 QC 容差时不会进入人审。
 
 产品需求见 `docs/elysium-product-requirements.md`，代码结构和实施边界见
 `docs/elysium-technical-design.md`。
@@ -31,10 +32,9 @@ Elysium 持久化单集、任务和生产状态，
 ```text
 dsh-elysium/
 ├── src/                                      # 插件源码根目录
-│   ├── plugin/                               # 轻量插件入口、统一配置和模块装配
-│   │   └── server.ts                         # 组合 Sidebar 与视频生产模块
-│   ├── config/                               # 插件统一配置
-│   │   └── index.ts                          # 配置结构、默认值和校验
+│   ├── index.ts                              # DSH 插件入口，组合 Sidebar 与视频生产模块
+│   ├── config.ts                             # 插件配置结构、默认值和校验
+│   ├── invariant.ts                          # 插件运行时约束入口
 │   ├── sidebar/                              # 内置 Better Sidebar 工作台与扩展服务
 │   │   ├── server.ts                         # 路由、文件、终端、Git、聊天和生命周期
 │   │   └── client/                           # Sidebar 前端界面、组件和交互逻辑
@@ -46,7 +46,7 @@ dsh-elysium/
 │   │       ├── project/                      # 项目、镜头、素材和旧工作台兼容能力
 │   │       └── infrastructure/               # 持久化、文件系统和外部服务适配
 │   │           └── comfyui/                  # 工作流校验、参数注入、提交、恢复和产物下载
-│   └── client/                               # 对外稳定的客户端兼容入口
+│   └── client/                               # 对外稳定的客户端兼容入口，不放业务实现
 ├── templates/                                # 随插件发布、运行时可复制的模板资源
 │   └── comfyui/                              # ComfyUI 工作流、合同和模型目录模板
 ├── tests/                                    # 按职责组织的自动化测试
@@ -63,7 +63,8 @@ dsh-elysium/
 └── elysium-workspace/                        # 本地项目、任务和产物数据，不属于源码
 ```
 
-`src/` 根层文件只保留稳定导出和兼容入口；新界面实现应进入对应的业务目录。
+`src/index.ts` 是唯一服务端组合入口，`src/config.ts` 是唯一配置入口。新界面和
+业务实现应进入对应的 `sidebar/` 或 `videos/` 目录。
 `lib/`、`registry/`、`node_modules/` 和 `elysium-workspace/` 都不是源码维护入口。
 
 维护边界：视频生产业务放入 `src/videos/`，通用工作台能力放入
@@ -74,12 +75,22 @@ dsh-elysium/
 
 ```sh
 pnpm install
-pnpm build
+pnpm run check:source-imports
+pnpm run typecheck
 pnpm test
+pnpm build
 ```
 
+项目使用 pnpm。不要在该目录执行 `npm install`，避免生成另一套锁文件或破坏 pnpm
+链接结构。IDE 出现依赖红线时，先确认打开的项目根目录是当前 `dsh-elysium/`，再重载
+TypeScript 服务；`check:source-imports`、`typecheck` 和 `pnpm list` 才是源码与依赖状态依据。
+
+以上命令证据相互独立：导入检查和类型检查通过不代表已经构建；构建通过不代表插件已
+重新安装；只有重新安装、重启 DSH 并完成浏览器/真实生产链路验证后，才能确认运行时生效。
+
 默认数据目录为 `./elysium-workspace`。可通过 `workspace` 修改路径，通过
-`comfyui.baseUrl` 配置隧道地址。托管生产使用 `models.characterImage`、
+`comfyui.baseUrl` 配置隧道地址。Qwen3.8 规划模型通过 `planner.provider`、
+`planner.model` 和 `planner.maxTokens` 配置；托管生产使用 `models.characterImage`、
 `models.startFrame`、`models.keyframeImage` 和 `models.chapterVideo`；旧素材工作台继续使用
 `models.shotImage` 与 `models.shotVideo`，两套入口都保留。工作流合同保存在
 `templates/comfyui/`，运行时复制到 Elysium 工作区后管理；不需要安装
