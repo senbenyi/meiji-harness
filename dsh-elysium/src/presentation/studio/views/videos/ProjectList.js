@@ -1,7 +1,7 @@
-import { ActionButton } from '../components/ActionButton.js'
-import { EmptyState } from '../components/EmptyState.js'
-import { ProgressBar } from '../components/ProgressBar.js'
-import { ProjectCard } from '../components/ProjectCard.js'
+import { ActionButton } from '../../components/ActionButton.js'
+import { EmptyState } from '../../components/EmptyState.js'
+import { ProgressBar } from '../../components/ProgressBar.js'
+import { ProjectCard } from '../../components/ProjectCard.js'
 
 export function createProjectList(React) {
   const h = React.createElement

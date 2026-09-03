@@ -33,6 +33,18 @@ async function eventually(check, timeout = 3000) {
   throw new Error('production did not settle')
 }
 
+test('defaults new episodes to ten seconds and enforces the lower bound', async t => {
+  const { workspace, body } = await fixture(t)
+  delete body.targetDurationSec
+  const created = await episodeCreate({ workspace }, body)
+  assert.equal(created.episode.targetDurationSec, 10)
+  assert.equal(created.plan.chapters.length, 1)
+  await assert.rejects(
+    episodeUpdate({ workspace }, { projectId: body.projectId, episodeId: body.episodeId, updates: { targetDurationSec: 9 } }),
+    /targetDurationSec 超出范围/,
+  )
+})
+
 test('creates dynamic chapters with one start frame and five continuation frames', async t => {
   const { workspace, body } = await fixture(t, 41)
   const created = await episodeCreate({ workspace }, body)

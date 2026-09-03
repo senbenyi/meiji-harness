@@ -66,7 +66,7 @@ export async function episodeCreate(config, body = {}) {
   const projectDirectory = await ensureProjectExists(config, projectId)
   const p = episodePaths(projectDirectory, episodeId)
   if (await stat(p.dir).catch(() => null)) fail('EPISODE_EXISTS', `单集已存在：${episodeId}`, 409)
-  const targetDurationSec = Number(body.targetDurationSec || 60)
+  const targetDurationSec = Number(body.targetDurationSec ?? 10)
   if (!Number.isFinite(targetDurationSec) || targetDurationSec < TARGET_MIN || targetDurationSec > TARGET_MAX) {
     fail('VALIDATION_ERROR', `targetDurationSec 必须在 ${TARGET_MIN} 到 ${TARGET_MAX} 秒之间`)
   }

@@ -1,10 +1,10 @@
-import { ActionButton } from '../components/ActionButton.js'
-import { Breadcrumb } from '../components/Breadcrumb.js'
-import { CharacterCard } from '../components/CharacterCard.js'
-import { EmptyState } from '../components/EmptyState.js'
-import { ProgressBar } from '../components/ProgressBar.js'
-import { StatusBadge } from '../components/StatusBadge.js'
-import { createImageImportButton } from '../components/ImageImportButton.js'
+import { ActionButton } from '../../components/ActionButton.js'
+import { Breadcrumb } from '../../components/Breadcrumb.js'
+import { CharacterCard } from '../../components/CharacterCard.js'
+import { EmptyState } from '../../components/EmptyState.js'
+import { ProgressBar } from '../../components/ProgressBar.js'
+import { StatusBadge } from '../../components/StatusBadge.js'
+import { createImageImportButton } from '../../components/ImageImportButton.js'
 
 export function createDashboard(React, api) {
   const h = React.createElement

@@ -33,6 +33,19 @@ function bundledTemplatesDir() {
   return candidates.find(candidate => fs.existsSync(candidate)) || candidates[0]
 }
 
+function bundledTemplateIds() {
+  const source = bundledTemplatesDir()
+  if (!fs.existsSync(source)) return new Set()
+  const ids = new Set()
+  for (const name of fs.readdirSync(source).filter(file => file.endsWith('.contract.json'))) {
+    try {
+      const contract = JSON.parse(fs.readFileSync(path.join(source, name), 'utf8'))
+      if (contract.id) ids.add(String(contract.id))
+    } catch { /* invalid bundled contracts are reported by normal template loading */ }
+  }
+  return ids
+}
+
 function copyBundledTemplates(target) {
   fs.mkdirSync(target, { recursive: true })
   const source = bundledTemplatesDir()
@@ -114,12 +127,13 @@ export function createComfyUiService(config = {}) {
         try { availableLoras = await listLoraFiles(current.baseUrl) } catch { /* optional metadata */ }
       }
       const onServer = new Set(availableLoras)
+      const protectedTemplates = bundledTemplateIds()
       return {
         ok: true,
         baseUrl: current.baseUrl,
         ping: status,
-        templates: annotateTemplates(current.templatesDir, settings),
-        loras: loraCatalog(current.templatesDir, settings).map(item => ({ ...item, on_server: onServer.has(item.name) })),
+        templates: annotateTemplates(current.templatesDir, settings).map(item => ({ ...item, removable: !protectedTemplates.has(item.id) })),
+        loras: loraCatalog(current.templatesDir, settings).map(item => ({ ...item, on_server: status.ok ? onServer.has(item.name) : null })),
         availableLoras,
       }
     },
@@ -127,6 +141,19 @@ export function createComfyUiService(config = {}) {
       const current = runtime()
       saveSettings(current.templatesDir, patch)
       return this.state()
+    },
+    async testConnection(input = {}) {
+      const candidate = String(input.baseUrl || '').trim().replace(/\/$/, '')
+      let parsed
+      try { parsed = new URL(candidate) } catch { /* handled below */ }
+      if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+        throw Object.assign(new Error('请输入有效的 HTTP(S) ComfyUI 地址'), { code: 'BAD_BASE_URL' })
+      }
+      const status = await ping(candidate)
+      if (!status.ok) {
+        throw Object.assign(new Error(status.message || '无法连接 ComfyUI'), { code: status.code || 'UNREACHABLE' })
+      }
+      return { ok: true, baseUrl: candidate, ping: status }
     },
     async inspect(template, query) {
       const current = runtime()
@@ -153,6 +180,9 @@ export function createComfyUiService(config = {}) {
     },
     async removeTemplate(id) {
       const current = runtime()
+      if (bundledTemplateIds().has(String(id))) {
+        throw Object.assign(new Error('内置工作流由插件维护，不能删除'), { code: 'BUNDLED_TEMPLATE' })
+      }
       const removed = removeTemplate(current.templatesDir, id)
       return { ...(await this.state()), ...removed }
     },

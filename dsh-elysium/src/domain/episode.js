@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { ElysiumError } from './errors.js'
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
-export const TARGET_MIN = 20
+export const TARGET_MIN = 10
 export const TARGET_MAX = 600
 export const CHAPTER_SECONDS = 20
 export const ANCHORS_PER_CHAPTER = 6

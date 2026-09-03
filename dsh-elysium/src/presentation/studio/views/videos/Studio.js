@@ -1,3 +1,5 @@
+import { createConfirmDialog } from '../../components/Modal.js'
+
 const STAGES = [
   { key: 'story', label: '故事', short: '01', hint: '确定内容与生产规格' },
   { key: 'script', label: '剧本', short: '02', hint: '查看场景拆解' },
@@ -39,6 +41,10 @@ function stageState(detail, stage, index) {
   return 'pending'
 }
 
+export function episodesInCreationOrder(episodes) {
+  return [...(episodes || [])].sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')) || String(a.id).localeCompare(String(b.id)))
+}
+
 export function bulkProductionRequests(projectEpisodes, action) {
   const statuses = action === 'pause' ? ['running', 'queued'] : ['ready', 'paused']
   return projectEpisodes.flatMap(project => project.episodes
@@ -55,6 +61,7 @@ export function bulkProductionRequests(projectEpisodes, action) {
 
 export function createStudio(React, api) {
   const { createElement: h, useCallback, useEffect, useState } = React
+  const ConfirmDialog = createConfirmDialog(React)
 
   function StatusPill({ status }) {
     const [label, tone] = statusMeta(status)
@@ -68,9 +75,10 @@ export function createStudio(React, api) {
   return function Studio({ initialProjectId, initialEpisodeId, onSelection }) {
     const [projects, setProjects] = useState([])
     const [projectId, setProjectId] = useState(initialProjectId || '')
+    const [episodeIdToOpen, setEpisodeIdToOpen] = useState(initialEpisodeId || '')
     const [selectedProjectIds, setSelectedProjectIds] = useState([])
     const [batchAuthorized, setBatchAuthorized] = useState(false)
-    const [episodes, setEpisodes] = useState([])
+    const [projectEpisodes, setProjectEpisodes] = useState({})
     const [episode, setEpisode] = useState(null)
     const [activeStage, setActiveStage] = useState('story')
     const [busy, setBusy] = useState(false)
@@ -81,7 +89,8 @@ export function createStudio(React, api) {
     const [reviewer, setReviewer] = useState('')
     const [showProjectForm, setShowProjectForm] = useState(false)
     const [projectTitle, setProjectTitle] = useState('')
-    const [draft, setDraft] = useState({ title: '', sourceText: '', targetDurationSec: 60, aspectRatio: '9:16', profile: 'preview', budget: '', stylePrompt: '', castPrompt: '' })
+    const [projectToDelete, setProjectToDelete] = useState(null)
+    const [draft, setDraft] = useState({ title: '', sourceText: '', targetDurationSec: 10, aspectRatio: '9:16', profile: 'preview', budget: '', stylePrompt: '', castPrompt: '' })
 
     const selectedEpisodeId = episode?.episode?.id || ''
     const selectedProject = projects.find(project => project.id === projectId)
@@ -89,6 +98,7 @@ export function createStudio(React, api) {
     const completeTasks = (episode?.tasks || []).filter(task => task.status === 'succeeded').length
     const totalTasks = episode?.tasks?.length || 0
     const progress = totalTasks ? Math.round((completeTasks / totalTasks) * 100) : 0
+    const activeTasks = (episode?.tasks || []).filter(task => ['running', 'queued'].includes(task.status)).length
 
     const call = useCallback(async (route, body = {}, quiet = false) => {
       if (!quiet) { setBusy(true); setError(''); setMessage('') }
@@ -100,36 +110,45 @@ export function createStudio(React, api) {
     const loadProjects = useCallback(async () => {
       const result = await call('/project.list', {}, true)
       if (!result) return
-      setProjects(result.projects || [])
-      setSelectedProjectIds(current => current.filter(id => result.projects?.some(project => project.id === id)))
-      if (!projectId && result.projects?.length) setProjectId(result.projects[0].id)
+      const nextProjects = result.projects || []
+      setProjects(nextProjects)
+      setSelectedProjectIds(current => current.filter(id => nextProjects.some(project => project.id === id)))
+      const lists = await Promise.all(nextProjects.map(async project => {
+        try {
+          const listed = await api.fetchJson('/episode.list', { projectId: project.id })
+          return [project.id, episodesInCreationOrder(listed.episodes)]
+        } catch { return [project.id, []] }
+      }))
+      setProjectEpisodes(Object.fromEntries(lists))
+      if (!projectId && nextProjects.length) setProjectId(nextProjects[0].id)
     }, [call, projectId])
 
     const loadEpisodes = useCallback(async (id = projectId) => {
-      if (!id) { setEpisodes([]); setEpisode(null); return }
+      if (!id) { setEpisode(null); return }
       const result = await call('/episode.list', { projectId: id }, true)
       if (!result) return
-      setEpisodes(result.episodes || [])
-      const wanted = episode?.episode?.projectId === id ? episode.episode.id : initialEpisodeId
-      const next = result.episodes?.find(item => item.id === wanted) || result.episodes?.[0]
+      const ordered = episodesInCreationOrder(result.episodes)
+      setProjectEpisodes(current => ({ ...current, [id]: ordered }))
+      const wanted = episodeIdToOpen || (episode?.episode?.projectId === id ? episode.episode.id : '')
+      const next = ordered.find(item => item.id === wanted) || ordered[0]
       if (!next) return setEpisode(null)
       const detail = await call('/episode.get', { projectId: id, episodeId: next.id }, true)
       if (detail) { setEpisode(detail); setActiveStage(visibleStage(detail.state?.activeStage)) }
-    }, [call, projectId, initialEpisodeId, episode?.episode?.id, episode?.episode?.projectId])
+    }, [call, projectId, episodeIdToOpen, episode?.episode?.id, episode?.episode?.projectId])
 
     const refresh = useCallback(async (quiet = true) => {
       if (!projectId || !selectedEpisodeId) return
       const result = await call('/production.status', { projectId, episodeId: selectedEpisodeId }, quiet)
       if (result) {
         setEpisode(result)
-        setEpisodes(current => current.map(item => item.id === selectedEpisodeId
+        setProjectEpisodes(current => ({ ...current, [projectId]: (current[projectId] || []).map(item => item.id === selectedEpisodeId
           ? { ...item, title: result.episode.title, status: result.state.status, activeStage: result.state.activeStage }
-          : item))
+          : item) }))
       }
     }, [call, projectId, selectedEpisodeId])
 
     useEffect(() => { void loadProjects() }, [])
-    useEffect(() => { void loadEpisodes(projectId) }, [projectId])
+    useEffect(() => { void loadEpisodes(projectId) }, [projectId, episodeIdToOpen])
     useEffect(() => { onSelection?.(projectId || null, selectedEpisodeId || null) }, [projectId, selectedEpisodeId, onSelection])
     useEffect(() => {
       if (!['running', 'queued'].includes(episode?.state?.status)) return undefined
@@ -141,13 +160,43 @@ export function createStudio(React, api) {
       if (!projectTitle.trim()) return setError('请输入项目名称')
       const result = await call('/project.create', { title: projectTitle.trim() })
       if (!result) return
-      setProjectTitle(''); setShowProjectForm(false); await loadProjects(); setProjectId(result.project.id); setEpisode(null)
+      setProjectTitle(''); setShowProjectForm(false); await loadProjects(); setProjectId(result.project.id); setEpisodeIdToOpen(''); setEpisode(null)
       setMessage('项目已创建，现在可以开始第一集')
     }
 
     const selectProject = id => {
       setProjectId(id)
+      setEpisodeIdToOpen('')
       setEpisode(null)
+    }
+
+    const createEpisodeIn = id => {
+      setProjectId(id)
+      setEpisodeIdToOpen('')
+      setEpisode(null)
+      setActiveStage('story')
+    }
+
+    const deleteProject = async () => {
+      if (!projectToDelete) return
+      const deletedId = projectToDelete.id
+      const result = await call('/project.delete', { projectId: deletedId })
+      if (!result) return
+      const nextProject = projects.find(project => project.id !== deletedId)
+      setProjects(current => current.filter(project => project.id !== deletedId))
+      setSelectedProjectIds(current => current.filter(id => id !== deletedId))
+      setProjectEpisodes(current => {
+        const next = { ...current }
+        delete next[deletedId]
+        return next
+      })
+      if (projectId === deletedId) {
+        setProjectId(nextProject?.id || '')
+        setEpisodeIdToOpen('')
+        setEpisode(null)
+      }
+      setProjectToDelete(null)
+      setMessage('项目已删除')
     }
 
     const toggleProject = id => {
@@ -179,6 +228,17 @@ export function createStudio(React, api) {
         const succeeded = results.length - failures.length
         if (failures.length) setError(`已处理 ${succeeded} 个单集，${failures.length} 个失败：${failures[0].reason?.message || '未知错误'}`)
         else setMessage(`已${action === 'pause' ? '暂停' : '启动或继续'} ${succeeded} 个单集`)
+        setProjectEpisodes(current => {
+          const next = { ...current }
+          results.forEach((result, index) => {
+            if (result.status !== 'fulfilled') return
+            const request = requests[index]
+            next[request.body.projectId] = (next[request.body.projectId] || []).map(item => item.id === request.body.episodeId
+              ? { ...item, status: action === 'pause' ? 'paused' : 'running' }
+              : item)
+          })
+          return next
+        })
         if (action === 'start') setBatchAuthorized(false)
         if (selectedProjectIds.includes(projectId)) await loadEpisodes(projectId)
       } catch (reason) {
@@ -194,14 +254,17 @@ export function createStudio(React, api) {
       const result = await call('/episode.create', { projectId, episodeId: makeEpisodeId(), ...draft, budget: draft.budget === '' ? null : Number(draft.budget) })
       if (!result) return
       setEpisode(result); setActiveStage('story')
-      setEpisodes(current => [{ ...result.episode, status: result.state.status, activeStage: result.state.activeStage }, ...current])
-      setMessage('单集已建立，Qwen3.8 已完成剧本与长视频规划')
+      setEpisodeIdToOpen(result.episode.id)
+      setProjectEpisodes(current => ({ ...current, [projectId]: episodesInCreationOrder([...(current[projectId] || []), { ...result.episode, status: result.state.status, activeStage: result.state.activeStage }]) }))
+      setMessage('单集已保存，可继续编辑或开始自动规划')
     }
 
-    const chooseEpisode = async id => {
-      const result = await call('/episode.get', { projectId, episodeId: id })
-      if (!result) return
-      setEpisode(result); setActiveStage(visibleStage(result.state?.activeStage)); setAuthorized(false); setReviewed(false)
+    const chooseEpisode = (ownerProjectId, id) => {
+      if (ownerProjectId !== projectId || id !== selectedEpisodeId) setEpisode(null)
+      setProjectId(ownerProjectId)
+      setEpisodeIdToOpen(id)
+      setAuthorized(false)
+      setReviewed(false)
     }
 
     const saveStory = async () => {
@@ -209,7 +272,12 @@ export function createStudio(React, api) {
         sourceText: episode.episode.sourceText, title: episode.episode.title, targetDurationSec: episode.episode.targetDurationSec,
         aspectRatio: episode.episode.aspectRatio || '9:16', profile: episode.episode.profile, stylePrompt: episode.episode.stylePrompt, castPrompt: episode.episode.castPrompt,
       } })
-      if (result) { setEpisode(result); setMessage('已保存；内容变化时 Qwen3.8 会同步重做规划') }
+      if (result) { setEpisode(result); setMessage('已保存') }
+    }
+
+    const planEpisode = async () => {
+      const result = await call('/episode.plan', { projectId, episodeId: selectedEpisodeId })
+      if (result) { setEpisode(result); setActiveStage('script'); setMessage('Qwen3.8 已完成剧本与长视频规划') }
     }
 
     const start = async () => {
@@ -257,14 +325,14 @@ export function createStudio(React, api) {
         h(Field, { label: '单集名称' }, h('input', { className: 'tf-input', placeholder: '例如：雨夜来客', value: draft.title, onChange: event => setDraft(value => ({ ...value, title: event.target.value })) })),
         h(Field, { label: '故事内容' }, h('textarea', { className: 'tf-textarea ely-story-input', placeholder: '从一个能看见未来十秒的女孩开始……', value: draft.sourceText, onChange: event => setDraft(value => ({ ...value, sourceText: event.target.value })) })),
         h('div', { className: 'ely-form-row' },
-          h(Field, { label: '目标时长' }, h('div', { className: 'ely-input-suffix' }, h('input', { className: 'tf-input', type: 'number', min: 20, max: 600, value: draft.targetDurationSec, onChange: event => setDraft(value => ({ ...value, targetDurationSec: Number(event.target.value) })) }), h('span', null, '秒'))),
+          h(Field, { label: '目标时长' }, h('div', { className: 'ely-input-suffix' }, h('input', { className: 'tf-input', type: 'number', min: 10, max: 600, value: draft.targetDurationSec, onChange: event => setDraft(value => ({ ...value, targetDurationSec: Number(event.target.value) })) }), h('span', null, '秒'))),
           h(Field, { label: '画幅' }, h('select', { className: 'tf-input', value: draft.aspectRatio, onChange: event => setDraft(value => ({ ...value, aspectRatio: event.target.value })) }, h('option', { value: '9:16' }, '9:16 · 竖屏'), h('option', { value: '16:9' }, '16:9 · 横屏'))),
         ),
         h(Field, { label: '生成质量' }, h('select', { className: 'tf-input', value: draft.profile, onChange: event => setDraft(value => ({ ...value, profile: event.target.value })) }, h('option', { value: 'preview' }, '预览 · 快速验证'), h('option', { value: 'final' }, '正式 · 最终质量'))),
         h('details', { className: 'ely-advanced' }, h('summary', null, '视觉设定（选填）'),
           h(Field, { label: '人物统一设定' }, h('input', { className: 'tf-input', placeholder: '主角的外观、服装和气质', value: draft.castPrompt, onChange: event => setDraft(value => ({ ...value, castPrompt: event.target.value })) })),
           h(Field, { label: '画面风格' }, h('input', { className: 'tf-input', placeholder: '电影感、色调、光线与镜头语言', value: draft.stylePrompt, onChange: event => setDraft(value => ({ ...value, stylePrompt: event.target.value })) }))),
-        h('button', { className: 'ely-btn ely-btn-primary ely-btn-wide', disabled: busy, onClick: createEpisode }, busy ? 'Qwen3.8 正在规划…' : '建立单集并自动规划'),
+        h('button', { className: 'ely-btn ely-btn-primary ely-btn-wide', disabled: busy, onClick: createEpisode }, busy ? '保存中…' : '保存'),
       ),
     )
 
@@ -274,9 +342,9 @@ export function createStudio(React, api) {
       if (activeStage === 'story') {
         body = h('div', { className: 'ely-editor' },
           h(Field, { label: '单集名称' }, h('input', { className: 'tf-input', value: episode.episode.title, onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, title: event.target.value } })) })),
-          h(Field, { label: '故事内容', hint: '修改故事或时长后，受影响的下游产物会自动失效并重新规划' }, h('textarea', { className: 'tf-textarea ely-story-input', value: episode.episode.sourceText, onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, sourceText: event.target.value } })) })),
+          h(Field, { label: '故事内容', hint: '修改后请先保存，再按需重新规划' }, h('textarea', { className: 'tf-textarea ely-story-input', value: episode.episode.sourceText, onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, sourceText: event.target.value } })) })),
           h('div', { className: 'ely-form-row' },
-            h(Field, { label: '目标时长' }, h('div', { className: 'ely-input-suffix' }, h('input', { className: 'tf-input', type: 'number', min: 20, max: 600, value: episode.episode.targetDurationSec, onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, targetDurationSec: Number(event.target.value) } })) }), h('span', null, '秒'))),
+            h(Field, { label: '目标时长' }, h('div', { className: 'ely-input-suffix' }, h('input', { className: 'tf-input', type: 'number', min: 10, max: 600, value: episode.episode.targetDurationSec, onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, targetDurationSec: Number(event.target.value) } })) }), h('span', null, '秒'))),
             h(Field, { label: '画幅' }, h('select', { className: 'tf-input', value: episode.episode.aspectRatio || '9:16', onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, aspectRatio: event.target.value } })) }, h('option', { value: '9:16' }, '9:16 · 竖屏'), h('option', { value: '16:9' }, '16:9 · 横屏'))),
           ),
           h(Field, { label: '生成质量' }, h('select', { className: 'tf-input', value: episode.episode.profile, onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, profile: event.target.value } })) }, h('option', { value: 'preview' }, '预览 · 快速验证'), h('option', { value: 'final' }, '正式 · 最终质量'))),
@@ -284,7 +352,9 @@ export function createStudio(React, api) {
             h(Field, { label: '人物统一设定' }, h('input', { className: 'tf-input', value: episode.episode.castPrompt || '', placeholder: '人物外观、服装和气质', onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, castPrompt: event.target.value } })) })),
             h(Field, { label: '画面风格' }, h('input', { className: 'tf-input', value: episode.episode.stylePrompt || '', placeholder: '色调、光线与镜头语言', onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, stylePrompt: event.target.value } })) })),
           ),
-          h('div', { className: 'ely-editor-actions' }, h('button', { className: 'ely-btn ely-btn-primary', disabled: busy, onClick: saveStory }, '保存')),
+          h('div', { className: 'ely-editor-actions' },
+            h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: saveStory }, '保存'),
+            h('button', { className: 'ely-btn ely-btn-primary', disabled: busy, onClick: planEpisode }, '自动规划')),
         )
       } else if (activeStage === 'script') {
         body = h('div', { className: 'ely-document' }, h('blockquote', null, episode.script?.synopsis || episode.episode.sourceText),
@@ -297,7 +367,7 @@ export function createStudio(React, api) {
         }) : h('div', { className: 'ely-empty-state' }, h('strong', null, '没有独立资产'), h('p', null, '当前故事会直接使用全局视觉设定。')))
       } else if (activeStage === 'plan') {
         body = h('div', { className: 'ely-plan' },
-          h('div', { className: 'ely-callout' }, episode.plan.source === 'producer-agent' ? '当前剧本和分镜由 Qwen3.8 生成，并已通过六锚点与重复内容校验。' : '这是旧版或人工规划；修改故事并保存后会由 Qwen3.8 重新规划。'),
+          h('div', { className: 'ely-callout' }, episode.plan.source === 'producer-agent' ? '当前剧本和分镜由 Qwen3.8 生成，并已通过六锚点与重复内容校验。' : '当前为草稿规划；请先保存故事，再点击“自动规划”。'),
           h('div', { className: 'ely-chapter-list' }, episode.plan.chapters.map((chapter, chapterIndex) => h('article', { className: 'ely-chapter', key: chapter.id },
             h('header', null, h('span', null, `CHAPTER ${String(chapterIndex + 1).padStart(2, '0')}`), h('h3', null, chapter.title), h('small', null, `${chapter.anchors.length} 个画面锚点`)),
             h('div', { className: 'ely-anchor-list' }, chapter.anchors.map((anchor, index) => h('div', { className: 'ely-anchor-row', key: anchor.id },
@@ -332,6 +402,15 @@ export function createStudio(React, api) {
       return h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || (!episode.state.authorizedAt && !authorized), onClick: start }, episode.state.status === 'paused' ? '继续生产' : '开始自动生产')
     }
 
+    const nextStep = () => {
+      if (episode.state.status === 'running') return ['自动生产进行中', activeTasks ? `${activeTasks} 项任务正在排队或生成，你可以离开当前页面。` : '系统正在推进下一项任务，进度会自动更新。']
+      if (episode.state.status === 'needs_attention') return ['先处理异常', `${openIssues.length || 1} 项问题阻止流程继续，修复后会从断点恢复。`]
+      if (episode.state.status === 'awaiting_review') return ['观看并验收成片', '完整播放成片，确认连续性与内容质量后完成终审。']
+      if (episode.state.status === 'approved') return ['本集已完成', '成片已经通过终审，可在“成片”阶段查看交付结果。']
+      if (!episode.state.authorizedAt) return ['确认后开始生产', '勾选内容与素材授权，系统将自动完成后续阶段。']
+      return ['继续自动生产', '系统会从当前进度继续，并保留已经完成的有效产物。']
+    }
+
     return h('div', { className: 'ely-studio' },
       h('aside', { className: 'ely-library' },
         h('div', { className: 'ely-library-head' }, h('span', null, '我的项目'), h('button', { title: '新建项目', onClick: () => setShowProjectForm(value => !value) }, '+')),
@@ -340,33 +419,54 @@ export function createStudio(React, api) {
           h('div', { className: 'ely-project-toolbar' },
             h('button', { onClick: toggleAllProjects }, selectedProjectIds.length === projects.length ? '清空' : '全选'),
             h('span', null, selectedProjectIds.length ? `已选 ${selectedProjectIds.length}` : '勾选后批量操作')),
-          h('div', { className: 'ely-project-list' }, projects.map(project => h('div', { key: project.id, className: project.id === projectId ? 'is-active' : '' },
-            h('input', { type: 'checkbox', 'aria-label': `选择项目 ${project.title}`, checked: selectedProjectIds.includes(project.id), onChange: () => toggleProject(project.id) }),
-            h('button', { title: project.title, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, project.id === projectId ? '正在查看' : '打开项目'))))),
+          h('div', { className: 'ely-project-list' }, projects.map(project => {
+            const items = projectEpisodes[project.id] || []
+            return h('section', { key: project.id, className: `ely-project-group ${project.id === projectId ? 'is-active' : ''}` },
+              h('div', { className: 'ely-project-row' },
+                h('div', { className: 'ely-project-main' },
+                  h('input', { type: 'checkbox', 'aria-label': `选择项目 ${project.title}`, checked: selectedProjectIds.includes(project.id), onChange: () => toggleProject(project.id) }),
+                  h('button', { className: 'ely-project-title', title: project.title, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, `${items.length} 集`))),
+                h('div', { className: 'ely-project-actions' },
+                  h('button', { className: 'ely-add-episode', title: `在 ${project.title} 中新建单集`, onClick: () => createEpisodeIn(project.id) }, '+ 单集'),
+                  h('button', { className: 'ely-delete-project', title: `删除项目 ${project.title}`, 'aria-label': `删除项目 ${project.title}`, onClick: () => setProjectToDelete(project) }, '删除项目'))),
+              h('div', { className: 'ely-project-episodes', role: 'list', 'aria-label': `${project.title}的单集` }, items.length
+                ? items.map((item, index) => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, role: 'listitem', className: item.id === selectedEpisodeId && project.id === projectId ? 'is-active' : '', onClick: () => chooseEpisode(project.id, item.id) }, h('span', { className: 'ely-episode-order' }, String(index + 1).padStart(2, '0')), h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) })
+                : h('span', { className: 'ely-project-no-episodes' }, '暂无单集')))
+          })),
           selectedProjectIds.length ? h('div', { className: 'ely-project-batch' },
             h('label', null, h('input', { type: 'checkbox', checked: batchAuthorized, onChange: event => setBatchAuthorized(event.target.checked) }), h('span', null, '确认所选内容及素材已获授权')),
             h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !batchAuthorized, title: '启动就绪单集，并继续已暂停单集', onClick: () => void runBulk('start') }, '批量启动 / 继续'),
             h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, title: '暂停所选项目中正在生产的单集', onClick: () => void runBulk('pause') }, '批量暂停')) : null)
           : h('div', { className: 'ely-library-empty' }, '创建项目后开始制作'),
-        projectId ? h(React.Fragment, null,
-          h('div', { className: 'ely-library-label' },
-            h('span', null, '单集'),
-            h('div', null, h('small', null, episodes.length), h('button', { className: 'ely-add-episode', title: '新建单集', onClick: () => { setEpisode(null); setActiveStage('story') } }, '+ 新建'))),
-          h('div', { className: 'ely-episode-list' }, episodes.map(item => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, className: item.id === selectedEpisodeId ? 'is-active' : '', onClick: () => void chooseEpisode(item.id) }, h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) }))) : h('div', { className: 'ely-library-empty' }, '创建项目后开始制作')),
+        !projects.length ? h('div', { className: 'ely-library-empty' }, '创建项目后开始制作') : null),
       h('main', { className: 'ely-workspace' },
         (error || message) && !episode ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}` }, h('span', null, error || message), h('button', { onClick: () => { setError(''); setMessage('') } }, '×')) : null,
         !projectId ? h('section', { className: 'ely-zero' }, h('span', { className: 'ely-zero-logo' }, 'E'), h('h1', null, '创建你的第一个世界'), h('p', null, '项目用于集中管理同一系列中的故事、人物资产和成片。'), h('button', { className: 'ely-btn ely-btn-primary', onClick: () => setShowProjectForm(true) }, '新建项目'))
           : !episode ? renderCreateEpisode()
-            : h(React.Fragment, null,
+            : h('div', { className: 'ely-production' },
               h('header', { className: 'ely-production-head' },
                 h('div', { className: 'ely-production-title' }, h('span', { className: 'ely-breadcrumb' }, selectedProject?.title || '项目', ' / 单集'), h('h1', null, episode.episode.title), h('div', { className: 'ely-production-meta' }, h(StatusPill, { status: episode.state.status }), h('span', null, `${episode.episode.targetDurationSec} 秒`), h('span', null, episode.episode.profile === 'final' ? '正式质量' : '预览质量'))),
-                h('div', { className: 'ely-production-action' }, primaryAction())),
-              !episode.state.authorizedAt && !['approved', 'awaiting_review'].includes(episode.state.status) ? h('label', { className: 'ely-authorization' }, h('input', { type: 'checkbox', checked: authorized, onChange: event => setAuthorized(event.target.checked) }), h('span', null, h('strong', null, '生产授权'), h('small', null, '确认内容合规且拥有素材使用权')), h('i', null)) : null,
-              h('section', { className: 'ely-progress-card' }, h('div', { className: 'ely-progress-copy' }, h('strong', null, episode.state.status === 'running' ? '正在自动生产' : episode.state.status === 'awaiting_review' ? '成片等待你的确认' : episode.state.status === 'approved' ? '本集制作完成' : '制作进度'), h('span', null, `${completeTasks} / ${totalTasks} 项任务`)), h('strong', { className: 'ely-progress-value' }, `${progress}%`), h('div', { className: 'ely-progress-track' }, h('i', { style: { width: `${progress}%` } }))),
+                h('button', { className: 'ely-head-refresh', disabled: busy, onClick: () => refresh(false), title: '刷新生产状态' }, busy ? '更新中…' : '刷新状态')),
               (error || message) ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}` }, h('span', null, error || message), h('button', { onClick: () => { setError(''); setMessage('') } }, '×')) : null,
-              openIssues.length ? h('section', { className: 'ely-attention' }, h('header', null, h('div', null, h('span', null, '!'), h('strong', null, `${openIssues.length} 项需要处理`)), h('small', null, '其他可执行任务不会受影响')), openIssues.map(issue => h('article', { key: issue.id }, h('div', null, h('strong', null, issue.code), h('p', null, issue.message)), h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: () => retry(issue.taskId) }, '重试')))) : null,
-              h('nav', { className: 'ely-stage-track', 'aria-label': '制作流程' }, STAGES.map((stage, index) => { const state = stageState(episode, stage.key, index); return h('button', { key: stage.key, className: `${stage.key === activeStage ? 'is-active ' : ''}is-${state}`, onClick: () => setActiveStage(stage.key) }, h('span', null, state === 'complete' ? '✓' : stage.short), h('strong', null, stage.label)) })),
-              renderStageContent())),
+              h('div', { className: 'ely-production-layout' },
+                h('nav', { className: 'ely-stage-track', 'aria-label': '制作流程' },
+                  h('div', { className: 'ely-stage-track-title' }, h('strong', null, '制作流程'), h('span', null, '自动推进')),
+                  STAGES.map((stage, index) => { const state = stageState(episode, stage.key, index); return h('button', { key: stage.key, className: `${stage.key === activeStage ? 'is-active ' : ''}is-${state}`, onClick: () => setActiveStage(stage.key) }, h('span', null, state === 'complete' ? '✓' : stage.short), h('span', { className: 'ely-stage-copy' }, h('strong', null, stage.label), h('small', null, stage.hint))) })),
+                h('div', { className: 'ely-stage-content' }, renderStageContent()),
+                h('aside', { className: 'ely-production-rail' },
+                  h('section', { className: 'ely-next-card' }, h('span', { className: 'ely-rail-kicker' }, '下一步'), h('h2', null, nextStep()[0]), h('p', null, nextStep()[1]), h('div', { className: 'ely-primary-action' }, primaryAction())),
+                  !episode.state.authorizedAt && !['approved', 'awaiting_review'].includes(episode.state.status) ? h('label', { className: 'ely-authorization' }, h('input', { type: 'checkbox', checked: authorized, onChange: event => setAuthorized(event.target.checked) }), h('span', null, h('strong', null, '生产授权'), h('small', null, '确认内容合规且拥有素材使用权'))) : null,
+                  h('section', { className: 'ely-progress-card' }, h('div', { className: 'ely-progress-copy' }, h('strong', null, '总体进度'), h('span', null, `${completeTasks} / ${totalTasks} 项任务完成`)), h('strong', { className: 'ely-progress-value' }, `${progress}%`), h('div', { className: 'ely-progress-track' }, h('i', { style: { width: `${progress}%` } }))),
+                  h('section', { className: 'ely-queue-card' }, h('div', null, h('span', null, '进行中'), h('strong', null, activeTasks)), h('div', null, h('span', null, '待处理'), h('strong', { className: openIssues.length ? 'is-danger' : '' }, openIssues.length))),
+                  openIssues.length ? h('section', { className: 'ely-attention' }, h('header', null, h('div', null, h('span', null, '!'), h('strong', null, `${openIssues.length} 项需要处理`))), openIssues.map(issue => h('article', { key: issue.id }, h('div', null, h('strong', null, issue.code), h('p', null, issue.message)), h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: () => retry(issue.taskId) }, '重试')))) : null)),
+              )),
+        projectToDelete ? h(ConfirmDialog, {
+          title: '删除项目',
+          message: `确定删除“${projectToDelete.title}”吗？项目下的全部单集与产物也会被删除，且无法恢复。`,
+          busy,
+          onClose: () => setProjectToDelete(null),
+          onConfirm: deleteProject,
+        }) : null,
     )
   }
 }

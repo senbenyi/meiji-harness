@@ -92,6 +92,12 @@ async function updatePlannedEpisode(config, planner, body) {
   return episodeUpdate(config, { ...body, updates: { ...updates, ...planned } })
 }
 
+async function planSavedEpisode(config, planner, body) {
+  const current = await episodeGet(config, body)
+  const planned = await planner.plan({ ...current.episode, episodeId: current.episode.id })
+  return episodeUpdate(config, { ...body, updates: planned })
+}
+
 function attachRoutes(ctx, config, generation, factory, production, planner, comfy, fence) {
   const routes = new Map([
     ['/project.list', projectList],
@@ -107,9 +113,10 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
     ['/char.generate_image', (_config, body) => generation.submitCharacter(body.projectId, body.characterId)],
     ['/factory.execute', (_config, body) => factory.execute(body)],
     ['/episode.list', episodeList],
-    ['/episode.create', (_config, body) => createPlannedEpisode(config, planner, body)],
+    ['/episode.create', episodeCreate],
     ['/episode.get', episodeGet],
-    ['/episode.update', (_config, body) => updatePlannedEpisode(config, planner, body)],
+    ['/episode.update', episodeUpdate],
+    ['/episode.plan', (_config, body) => planSavedEpisode(config, planner, body)],
     ['/production.start', (_config, body) => production.start(body)],
     ['/production.pause', (_config, body) => production.pause(body)],
     ['/production.resume', (_config, body) => production.resume(body)],
@@ -119,6 +126,7 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
     ['/issue.resolve', (_config, body) => production.resolveIssue(body)],
     ['/review.approve', (_config, body) => production.approve(body)],
     ['/comfyui.state', () => comfy.state()],
+    ['/comfyui.test', (_config, body) => comfy.testConnection(body)],
     ['/comfyui.save', (_config, body) => comfy.saveSettings(body)],
     ['/comfyui.inspect', (_config, body) => comfy.inspect(body.template, body.query)],
     ['/comfyui.scan', (_config, body) => comfy.scan(body)],
@@ -279,7 +287,7 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
       episodeId: { type: 'string', description: '新流程单集 ID' },
       title: { type: 'string', description: '单集标题' },
       sourceText: { type: 'string', description: '故事原文或想法' },
-      targetDurationSec: { type: 'number', description: '目标时长，20 到 600 秒' },
+      targetDurationSec: { type: 'number', description: '目标时长，10 到 600 秒' },
       aspectRatio: { type: 'string', description: '画幅：9:16 或 16:9' },
       profile: { type: 'string', description: 'preview 或 final' },
       budget: { type: 'number', description: '生产预算' },

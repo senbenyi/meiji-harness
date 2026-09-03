@@ -55,7 +55,9 @@ export async function uploadImage(baseUrl, filePath, buf, filename) {
   fd.append('image', blob, filename)
   fd.append('overwrite', 'true')
   fd.append('type', 'input')
-  const res = await comfyFetch(baseUrl, 'POST', '/upload/image', { body: fd, timeout: 120000 })
+  // Remote ComfyUI can block its HTTP loop briefly while releasing GPU models.
+  // Keep uploads alive longer than ordinary metadata requests; overwrite makes retries safe.
+  const res = await comfyFetch(baseUrl, 'POST', '/upload/image', { body: fd, timeout: 300000 })
   if (!res.ok) {
     throw Object.assign(new Error(`UPLOAD_FAILED ${res.status}`), { code: 'UPLOAD_FAILED', data: res.data })
   }

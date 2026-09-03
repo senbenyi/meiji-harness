@@ -1,6 +1,6 @@
-import { ActionButton } from '../components/ActionButton.js'
-import { Breadcrumb } from '../components/Breadcrumb.js'
-import { StatusBadge } from '../components/StatusBadge.js'
+import { ActionButton } from '../../components/ActionButton.js'
+import { Breadcrumb } from '../../components/Breadcrumb.js'
+import { StatusBadge } from '../../components/StatusBadge.js'
 
 export function createExportPanel(React) {
   const h = React.createElement

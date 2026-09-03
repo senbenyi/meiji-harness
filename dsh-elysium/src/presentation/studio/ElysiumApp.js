@@ -1,4 +1,4 @@
-import { createStudio } from './views/Studio.js'
+import { createStudio } from './views/videos/Studio.js'
 import { createComfyUiSettings } from './views/setting/Settings.js'
 
 export function createElysiumApp(React, api) {
@@ -39,7 +39,7 @@ export function createElysiumApp(React, api) {
         ),
         h('nav', { className: 'ely-view-switch' },
           h('button', { className: view === 'studio' ? 'is-active' : '', onClick: () => switchView('studio') }, '制作'),
-          h('button', { className: view === 'comfyui' ? 'is-active' : '', onClick: () => switchView('comfyui') }, '模型'),
+          h('button', { className: view === 'comfyui' ? 'is-active' : '', onClick: () => switchView('comfyui') }, '设置'),
         ),
       ),
       view === 'comfyui'

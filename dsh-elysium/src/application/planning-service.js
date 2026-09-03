@@ -102,7 +102,7 @@ export function createPlannerService(ctx, config = {}) {
   async function plan(body) {
     const llm = ctx.llm || ctx.get?.('llm')
     if (!llm?.stream) fail('PLANNER_UNAVAILABLE', 'Qwen3.8 规划服务未加载', 424)
-    const chapterCount = Math.max(1, Math.ceil(Number(body.targetDurationSec || 60) / CHAPTER_SECONDS))
+    const chapterCount = Math.max(1, Math.ceil(Number(body.targetDurationSec ?? 10) / CHAPTER_SECONDS))
     const chapters = []
     let synopsis = ''
     let castPrompt = ''

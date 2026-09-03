@@ -73,7 +73,7 @@ export function createComfyUiSettings(React, api) {
 
     return h('div', { className: 'tf-comfy' },
       h('header', { className: 'tf-settings-head' },
-        h('div', null, h('div', { className: 'tf-title' }, '自定义'), h('div', { className: 'tf-card-meta' }, '连接、工作流与 LoRA')),
+        h('div', null, h('div', { className: 'tf-title' }, '自定义'), h('div', { className: 'tf-card-meta' }, 'LoRA')),
         h('span', { className: `tf-comfy-status ${connected ? 'is-online' : 'is-offline'}` }, connected ? `在线 · ${device}` : '未连接'),
       ),
       notice ? h('div', { className: notice.ok ? 'tf-success' : 'tf-error' }, notice.text) : null,

@@ -1,9 +1,9 @@
-import { ActionButton } from '../components/ActionButton.js'
-import { Breadcrumb } from '../components/Breadcrumb.js'
-import { EmptyState } from '../components/EmptyState.js'
-import { createTextEditDialog } from '../components/Modal.js'
-import { StatusBadge } from '../components/StatusBadge.js'
-import { createImageImportButton } from '../components/ImageImportButton.js'
+import { ActionButton } from '../../components/ActionButton.js'
+import { Breadcrumb } from '../../components/Breadcrumb.js'
+import { EmptyState } from '../../components/EmptyState.js'
+import { createTextEditDialog } from '../../components/Modal.js'
+import { StatusBadge } from '../../components/StatusBadge.js'
+import { createImageImportButton } from '../../components/ImageImportButton.js'
 
 function nameOf(items, id) {
   return (items || []).find(item => item.id === id)?.name || id || ''
