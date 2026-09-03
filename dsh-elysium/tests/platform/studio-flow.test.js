@@ -166,7 +166,7 @@ test('studio protects edits and completes the guided production interaction flow
     assert.equal(calls.filter(([route]) => route === '/episode.plan').length, 1)
     assert.equal(button('故事').disabled, false)
     assert.equal(document.querySelector('button[aria-label="新建项目"]').disabled, false)
-    assert.equal(document.querySelector('input[aria-label^="选择项目"]').disabled, false)
+    assert.equal(button('全部短剧').disabled, false)
     await act(async () => { resolvePlan(); await new Promise(resolve => setTimeout(resolve, 0)) })
     assert.match(document.body.textContent, /已规划/)
     for (const stage of ['资产', '规划', '起始帧', '关键帧', '章节', '故事', '剧本']) await click(button(stage))
@@ -205,14 +205,15 @@ test('studio protects edits and completes the guided production interaction flow
     assert.ok(document.querySelector('a[download$=".mp4"]'))
     assert.equal(button('本集已完成').disabled, true)
 
+    await click(button('全部短剧'))
     await click(document.querySelector('input[aria-label^="选择项目 项目一"]'))
     await click(document.querySelector('input[aria-label="选择项目 项目二"]'))
-    const batchAuthorization = document.querySelector('.ely-project-batch input[type="checkbox"]')
+    const batchAuthorization = document.querySelector('.ely-hub-batch input[type="checkbox"]')
     await click(batchAuthorization)
     const startsBeforeBatch = calls.filter(([route]) => route === '/production.start').length
-    await doubleClick([...document.querySelectorAll('.ely-project-batch button')].find(item => item.textContent.includes('启动 / 继续')))
+    await doubleClick([...document.querySelectorAll('.ely-hub-batch button')].find(item => item.textContent.includes('启动 / 继续')))
     assert.ok(calls.filter(([route]) => route === '/production.start').length > startsBeforeBatch)
-    await doubleClick([...document.querySelectorAll('.ely-project-batch button')].find(item => item.textContent.includes('暂停')))
+    await doubleClick([...document.querySelectorAll('.ely-hub-batch button')].find(item => item.textContent.includes('暂停')))
   } finally {
     await act(async () => root.unmount())
     dom.window.close()
