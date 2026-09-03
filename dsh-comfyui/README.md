@@ -23,6 +23,7 @@ Image-to-image · text-to-image · image-to-video · text-to-video: scan a workf
 | `_dsh_external_dsh_comfyui_job` | 查询 / 等待 / 取消任务；成品只返回磁盘路径 Query / wait / cancel jobs; outputs are disk paths |
 | `_dsh_external_dsh_comfyui_import` | 扫描 / 导入本地 API Format JSON 为新模板（默认只扫描不落盘）Scan / import a local API-format JSON as a template (preview-only by default) |
 | `_dsh_external_dsh_comfyui_lora` | LoRA 注册表：`list` / `register` / `remove` 触发词与用法注释（与设置页同一张表）LoRA registry: list/register/remove trigger words and usage notes (same table as Settings) |
+| `_dsh_external_dsh_comfyui_pipeline` | VMP 生产通道：创建/检查生产单、运行或恢复远端流水线、同步成片/QC/人审结果；固定 12 镜、2 块、≥40 秒 |
 
 ## 核心设计 · Core design
 
@@ -91,6 +92,9 @@ After a harness restart, the six `_dsh_external_dsh_comfyui_*` tools appear in n
 | `baseUrl` | `http://127.0.0.1:8188`（patch 覆盖为局域网地址） | ComfyUI 服务器 |
 | `templatesDir` | 包内 `templates/` | 合同 + 工作流 JSON |
 | `outputDir` | `E:\agent\output\comfyui` | 成品目录（按 prompt_id 分子目录） |
+| `pipelineAdapter` | 空 | 本机到远端 VMP 的受控适配器绝对路径 |
+| `pipelineSpecRoot` | 空 | Harness 创建和读取生产单的本机绝对目录 |
+| `pipelineArtifactsRoot` | 空 | 从远端同步成片、QC 与人审记录的本机绝对目录 |
 
 覆盖方式（profile 的 cordis.patch.yml 或预设配置）· Override in the profile's `cordis.patch.yml` or a preset config:
 
@@ -98,8 +102,11 @@ After a harness restart, the six `_dsh_external_dsh_comfyui_*` tools appear in n
 - id: dsh-comfyui
   name: '@dsh-external/dsh-comfyui'
   config:
-    baseUrl: 'http://192.168.0.103:8188'
-    outputDir: 'E:\agent\output\comfyui'
+    baseUrl: 'http://127.0.0.1:8189'
+    outputDir: '/Users/mac/.dsh/profiles/web/data/comfyui'
+    pipelineAdapter: '/Users/mac/ai/llm-ai-veo/llm-ai-model/app/vmp_remote.sh'
+    pipelineSpecRoot: '/Users/mac/.dsh/profiles/web/data/vmp/episodes'
+    pipelineArtifactsRoot: '/Users/mac/.dsh/profiles/web/data/vmp/artifacts'
 ```
 
 另有浏览器设置页（**设置 → ComfyUI**）：改地址、**模板/LoRA 注释**（写给模型看：底模、自然语言还是 tag、LoRA 特殊用法）、LoRA 触发词（`mode=仅模型` 不写进提示词，适合 turbo；可从 ComfyUI 文件列表添加/删除）、**导入工作流**（API Format JSON，默认只扫描预览）。`user-settings.json` 保存在 `templates/` 下（gitignored）。`list` / `inspect` 会带上 `user_note`。

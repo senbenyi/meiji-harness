@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-comfyui",
-  "version": "0.1.1",
-  "description": "ComfyUI 驱动器（AI-first 合同制）：模型只见合同槽、不见工作流 JSON。文生图/图生图/文生视频/图生视频模板，双重预检防幻觉，官方/自定义节点活体判定。",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness 的远程 ComfyUI 驱动器与 VMP 生产通道：合同制工作流、任务恢复、产物同步和安全预览。",
   "type": "module",
   "engines": {
     "node": ">=18"

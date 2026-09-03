@@ -3,5 +3,8 @@
     - id: dsh-comfyui
       name: '@dsh-external/dsh-comfyui'
       config:
-        baseUrl: 'http://192.168.0.103:8188'
-        outputDir: 'E:\\agent\\output\\comfyui'
+        baseUrl: 'http://127.0.0.1:8189'
+        outputDir: '/Users/mac/.dsh/profiles/web/data/comfyui'
+        pipelineAdapter: '/Users/mac/ai/llm-ai-veo/llm-ai-model/app/vmp_remote.sh'
+        pipelineSpecRoot: '/Users/mac/.dsh/profiles/web/data/vmp/episodes'
+        pipelineArtifactsRoot: '/Users/mac/.dsh/profiles/web/data/vmp/artifacts'

@@ -1,5 +1,6 @@
 import * as path from 'node:path'
 import { readFile } from 'node:fs/promises'
+import { defineTool } from '@deepseek-ai/dsh-tools'
 import {
   projectCreate,
   projectDelete,
@@ -11,6 +12,7 @@ import { createGenerationService } from './lib/generate.js'
 import { registerUploadedImage } from './lib/assets.js'
 import { updateCharacterRecord, updateShotRecord } from './lib/shot.js'
 import { ToonflowError, resolveProjectFile } from './lib/store.js'
+import { createFactoryService, FACTORY_TOOL } from './lib/factory.js'
 
 export const name = '@dsh-external/dsh-toonflow'
 export const inject = ['tools']
@@ -69,7 +71,7 @@ function sendError(res, error) {
   })
 }
 
-function attachRoutes(ctx, config, generation, fence) {
+function attachRoutes(ctx, config, generation, factory, fence) {
   const routes = new Map([
     ['/project.list', projectList],
     ['/project.get', projectGet],
@@ -82,6 +84,7 @@ function attachRoutes(ctx, config, generation, fence) {
     ['/shot.generate_video', (_config, body) => generation.submitShotVideo(body.projectId, body.shotId)],
     ['/shot.retry', (_config, body) => generation.retryShot(body.projectId, body.shotId)],
     ['/char.generate_image', (_config, body) => generation.submitCharacter(body.projectId, body.characterId)],
+    ['/factory.execute', (_config, body) => factory.execute(body)],
   ])
 
   const disposeApi = ctx.webServer.register({
@@ -183,9 +186,10 @@ function attachRoutes(ctx, config, generation, fence) {
 
 export function apply(ctx, config = {}, fence = (_request) => false) {
   const generation = createGenerationService(ctx, config)
+  const factory = createFactoryService(ctx)
   const register = (scope) => scope.effect(
     () => {
-      const disposeRoutes = attachRoutes(scope, config, generation, fence)
+      const disposeRoutes = attachRoutes(scope, config, generation, factory, fence)
       return () => {
         generation.dispose()
         disposeRoutes()
@@ -199,5 +203,32 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
     const webServer = ctx.get?.('webServer')
     if (webServer) register(ctx)
   }
-  ctx.logger?.info?.('[toonflow] Phase 3 — generation API loaded')
+  ctx.effect(() => ctx.tools.register(defineTool({
+    name: FACTORY_TOOL,
+    description: 'AI 成人短剧工厂。固定 VMP V1：12 镜、2 个视频块、成片不少于 40 秒。通过 dsh-comfyui 调用远程流水线；支持创建/检查/启动/续跑/状态/产物同步/人工验收。付费生成前必须确认均为已授权的虚构成年人。',
+    parameters: {
+      action: { type: 'string', required: true, description: 'list | create | check | status | run | job | sync | approve' },
+      spec: { type: 'string', description: '生产单文件名，如 mvp-demo.json' },
+      episode: { type: 'object', additionalProperties: true, description: 'create 使用的完整 vmp-1 生产单，必须正好包含 shot-01..shot-12' },
+      stage: { type: 'string', description: 'run 使用：images | video | final | all' },
+      job_id: { type: 'string', description: 'job 使用的本机任务 ID' },
+      episode_id: { type: 'string', description: 'sync 使用的 mvp-* 单集 ID' },
+      artifact: { type: 'string', description: 'sync 使用：final | qc | review' },
+      confirm_authorized_adults: { type: 'boolean', description: '付费图片/视频生成前必须为 true' },
+      reviewer: { type: 'string', description: 'approve 使用的审核人标识' },
+      confirm_human_review_passed: { type: 'boolean', description: '完整观看成片并确认通过后才可为 true' },
+    },
+    output: {
+      schema: { type: 'string' },
+      render: (_args, value) => [{ type: 'text', text: String(value) }],
+    },
+    async execute(args) {
+      try {
+        return JSON.stringify(await factory.execute(args || {}), null, 2)
+      } catch (error) {
+        return JSON.stringify({ ok: false, code: error?.code || 'FACTORY_ERROR', message: error?.message || String(error) }, null, 2)
+      }
+    },
+  })), '@dsh-external/dsh-toonflow: factory tool')
+  ctx.logger?.info?.('[toonflow] AI short-drama factory API and chat tool loaded')
 }

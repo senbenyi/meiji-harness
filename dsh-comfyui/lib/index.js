@@ -19,6 +19,7 @@ import {
 } from './lib/engine.js'
 import { annotateInspect, annotateTemplates, loraCatalog, loadSettings, removeLora, saveSettings, upsertLora } from './lib/store.js'
 import { scanPath, saveTemplate, removeTemplate } from './lib/import-template.js'
+import { createPipelineService, servePipelineArtifact } from './lib/pipeline.js'
 
 export const name = '@dsh-external/dsh-comfyui'
 export const inject = ['tools']
@@ -26,6 +27,9 @@ export const Config = z.object({
   baseUrl: z.string().default('http://127.0.0.1:8188'),
   templatesDir: z.string().default(''),
   outputDir: z.string().default('E:\\agent\\output\\comfyui'),
+  pipelineAdapter: z.string().default(''),
+  pipelineSpecRoot: z.string().default(''),
+  pipelineArtifactsRoot: z.string().default(''),
 })
 
 const TOOL = {
@@ -35,6 +39,7 @@ const TOOL = {
   job: '_dsh_external_dsh_comfyui_job',
   import: '_dsh_external_dsh_comfyui_import',
   lora: '_dsh_external_dsh_comfyui_lora',
+  pipeline: '_dsh_external_dsh_comfyui_pipeline',
 }
 
 const textOut = {
@@ -52,6 +57,9 @@ function resolveCfg(config) {
     baseUrl: (fromFile || config.baseUrl || 'http://127.0.0.1:8188').replace(/\/$/, ''),
     templatesDir,
     outputDir: config.outputDir || path.join(PLUGIN_ROOT, 'output'),
+    pipelineAdapter: config.pipelineAdapter || '',
+    pipelineSpecRoot: config.pipelineSpecRoot || '',
+    pipelineArtifactsRoot: config.pipelineArtifactsRoot || '',
   }
 }
 
@@ -151,15 +159,35 @@ function attachSettingsApi(ctx, config) {
   }), '@dsh-external/dsh-comfyui: settings api')
 }
 
+function attachPipelineArtifactApi(ctx, config) {
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'prefix',
+    path: '/comfyui/pipeline-file',
+    handler: async (req, res) => {
+      if (!isTrustedSettingsRequest(req)) {
+        return sendJson(res, 403, { ok: false, code: 'FORBIDDEN', error: 'Request origin is not trusted' })
+      }
+      if (req.method !== 'GET') {
+        return sendJson(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', error: 'Method not allowed' })
+      }
+      return servePipelineArtifact(req, res, resolveCfg(config))
+    },
+  }), '@dsh-external/dsh-comfyui: pipeline artifact')
+}
+
 function registerSettingsApi(ctx, config) {
   // tools stay available even if webServer is late; settings page waits for it.
   if (typeof ctx.inject === 'function') {
-    ctx.inject(['webServer'], (scope) => attachSettingsApi(scope, config))
+    ctx.inject(['webServer'], (scope) => {
+      attachSettingsApi(scope, config)
+      attachPipelineArtifactApi(scope, config)
+    })
     return
   }
   const webServer = typeof ctx.get === 'function' ? ctx.get('webServer') : undefined
   if (!webServer || typeof webServer.register !== 'function') return
   attachSettingsApi(ctx, config)
+  attachPipelineArtifactApi(ctx, config)
 }
 
 function dump(value) {
@@ -186,6 +214,7 @@ async function settingsView(cfg, settings) {
 
 export function apply(ctx, config) {
   registerSettingsApi(ctx, config)
+  const pipeline = createPipelineService(() => resolveCfg(config))
 
   ctx.effect(() => ctx.tools.register(defineTool({
     name: TOOL.list,
@@ -450,4 +479,29 @@ export function apply(ctx, config) {
       }
     },
   })), '@dsh-external/dsh-comfyui: lora')
+
+  ctx.effect(() => ctx.tools.register(defineTool({
+    name: TOOL.pipeline,
+    description: 'VMP 工业化短剧流水线入口。固定 12 镜、2 个视频块、成片不少于 40 秒；生产单与远端执行器负责幂等、续跑、QC 和人工验收。先 list/create/check，再 run。',
+    parameters: {
+      action: { type: 'string', required: true, description: 'list | create | check | status | run | job | sync | approve' },
+      spec: { type: 'string', description: '生产单文件名，如 mvp-demo.json' },
+      episode: { type: 'object', additionalProperties: true, description: 'create 使用的完整 vmp-1 生产单；固定 12 镜并包含四项合规确认' },
+      stage: { type: 'string', description: 'run 使用：images | video | final | all' },
+      job_id: { type: 'string', description: 'job 使用的本机任务 ID' },
+      episode_id: { type: 'string', description: 'sync 使用的 mvp-* 单集 ID' },
+      artifact: { type: 'string', description: 'sync 使用：final | qc | review' },
+      confirm_authorized_adults: { type: 'boolean', description: '付费图片/视频生成前必须为 true' },
+      reviewer: { type: 'string', description: 'approve 使用的审核人标识' },
+      confirm_human_review_passed: { type: 'boolean', description: '完整观看成片并确认通过后才可为 true' },
+    },
+    output: textOut,
+    async execute(args) {
+      try {
+        return dump(await pipeline.execute(args || {}))
+      } catch (e) {
+        return dump({ ok: false, code: e.code || 'PIPELINE_ERROR', message: e.message })
+      }
+    },
+  })), '@dsh-external/dsh-comfyui: pipeline')
 }
