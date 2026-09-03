@@ -1,5 +1,6 @@
 import * as path from 'node:path'
-import { readFile } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import {
   projectCreate,
@@ -30,7 +31,29 @@ const MEDIA_TYPES = new Map([
   ['.mp4', 'video/mp4'],
   ['.webm', 'video/webm'],
   ['.mov', 'video/quicktime'],
+  ['.mkv', 'video/x-matroska'],
 ])
+
+function byteRange(value, size) {
+  if (!value) return null
+  const match = /^bytes=(\d*)-(\d*)$/.exec(String(value).trim())
+  if (!match || (!match[1] && !match[2])) throw new ElysiumError('INVALID_RANGE', 'Invalid byte range', 416)
+  let start
+  let end
+  if (!match[1]) {
+    const length = Number(match[2])
+    if (!Number.isSafeInteger(length) || length <= 0) throw new ElysiumError('INVALID_RANGE', 'Invalid byte range', 416)
+    start = Math.max(0, size - length)
+    end = size - 1
+  } else {
+    start = Number(match[1])
+    end = match[2] ? Number(match[2]) : size - 1
+  }
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start >= size || end < start) {
+    throw new ElysiumError('INVALID_RANGE', 'Requested byte range is not satisfiable', 416)
+  }
+  return { start, end: Math.min(end, size - 1) }
+}
 
 async function readBody(req) {
   const chunks = []
@@ -164,7 +187,7 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
         res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
         return res.end('Request origin is not trusted')
       }
-      if (req.method !== 'GET') {
+      if (!['GET', 'HEAD'].includes(req.method)) {
         res.writeHead(405)
         return res.end()
       }
@@ -173,9 +196,28 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
         const file = await resolveProjectFile(config, url.searchParams.get('project'), url.searchParams.get('path'))
         const type = MEDIA_TYPES.get(path.extname(file).toLowerCase())
         if (!type) throw new ElysiumError('UNSUPPORTED_MEDIA', 'Unsupported media type', 415)
-        const body = await readFile(file)
-        res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' })
-        res.end(body)
+        const size = (await stat(file)).size
+        let range
+        try { range = byteRange(req.headers?.range, size) }
+        catch (error) {
+          if (error?.status !== 416) throw error
+          res.writeHead(416, { 'content-range': `bytes */${size}`, 'accept-ranges': 'bytes' })
+          return res.end()
+        }
+        const start = range?.start ?? 0
+        const end = range?.end ?? Math.max(0, size - 1)
+        const headers = {
+          'content-type': type,
+          'content-length': range ? end - start + 1 : size,
+          'accept-ranges': 'bytes',
+          'cache-control': 'no-cache',
+          'x-content-type-options': 'nosniff',
+        }
+        if (range) headers['content-range'] = `bytes ${start}-${end}/${size}`
+        res.writeHead(range ? 206 : 200, headers)
+        if (req.method === 'HEAD' || size === 0) return res.end()
+        for await (const chunk of createReadStream(file, { start, end })) res.write(chunk)
+        res.end()
       } catch (error) {
         const status = Number.isInteger(error?.status) ? error.status : 500
         res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8' })

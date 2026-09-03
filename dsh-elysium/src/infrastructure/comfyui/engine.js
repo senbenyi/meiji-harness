@@ -36,9 +36,9 @@ function fail(code, message, extra = {}) {
   return { ok: false, code, message, ...extra }
 }
 
-export async function ping(baseUrl) {
+export async function ping(baseUrl, timeout = 8000) {
   try {
-    const res = await comfyJson(baseUrl, 'GET', '/system_stats', { timeout: 8000 })
+    const res = await comfyJson(baseUrl, 'GET', '/system_stats', { timeout })
     if (!res.ok) return { ok: false, code: 'UNREACHABLE', status: res.status }
     const dev = res.data?.devices?.[0] || {}
     return {
@@ -207,16 +207,22 @@ async function checkModels(baseUrl, graph) {
   return errors
 }
 
-export async function testTemplateReadiness({ baseUrl, templatesDir, template }) {
+export async function testTemplateReadiness({ baseUrl, templatesDir, template, pingTimeout = 30000 }) {
   const contract = getContract(templatesDir, template)
-  const connection = await ping(baseUrl)
+  let connection = await ping(baseUrl, pingTimeout)
+  if (!connection.ok && connection.code === 'TIMEOUT') connection = await ping(baseUrl, pingTimeout)
   if (!connection.ok) {
     return {
       ok: true,
       ready: false,
       template,
       checked_nodes: 0,
-      errors: [{ code: connection.code || 'UNREACHABLE', message: connection.message || '无法连接 ComfyUI' }],
+      errors: [{
+        code: connection.code || 'UNREACHABLE',
+        message: connection.code === 'TIMEOUT'
+          ? 'ComfyUI 连接超时（已重试），请检查服务负载或 SSH 隧道'
+          : connection.message || '无法连接 ComfyUI',
+      }],
     }
   }
 
@@ -470,7 +476,9 @@ export async function cancelJob(baseUrl) {
 export async function waitForJob({ baseUrl, outputDir, promptId, saveIds, waitS }) {
   const deadline = Date.now() + waitS * 1000
   while (Date.now() < deadline) {
-    const hist = await comfyJson(baseUrl, 'GET', `/history/${encodeURIComponent(promptId)}`, { timeout: 20000 })
+    // Some ComfyUI nodes block the HTTP loop during GPU-heavy inference.
+    // A slow history response is not evidence that the submitted job failed.
+    const hist = await comfyJson(baseUrl, 'GET', `/history/${encodeURIComponent(promptId)}`, { timeout: 300000 })
     const entry = hist.data?.[promptId]
     if (entry) {
       const statusStr = entry.status?.status_str

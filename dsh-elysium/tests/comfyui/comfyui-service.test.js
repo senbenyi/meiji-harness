@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import * as path from 'node:path'
 import test from 'node:test'
 import { createComfyUiService, resolveComfyUiConfig } from '../../src/infrastructure/comfyui/service.js'
+import { testTemplateReadiness } from '../../src/infrastructure/comfyui/engine.js'
 
 test('internal ComfyUI runtime seeds bundled workflows into the Elysium workspace', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-comfyui-'))
@@ -77,6 +78,38 @@ test('workflow test checks live nodes without submitting a generation', async (t
   assert.equal(result.checked_nodes, 1)
   assert.ok(requests.includes('/object_info/TestNode'))
   assert.ok(!requests.includes('/prompt'))
+})
+
+test('workflow test retries one transient ComfyUI status timeout', async (t) => {
+  const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-comfyui-workflow-retry-'))
+  let statusRequests = 0
+  const server = createServer((req, res) => {
+    res.setHeader('content-type', 'application/json')
+    if (req.url === '/system_stats') {
+      statusRequests += 1
+      if (statusRequests === 1) return
+      return res.end(JSON.stringify({ system: {}, devices: [] }))
+    }
+    if (req.url === '/object_info/TestNode') return res.end(JSON.stringify({ TestNode: { python_module: 'nodes', input: { required: {} } } }))
+    res.statusCode = 404
+    res.end('{}')
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => {
+    server.closeAllConnections?.()
+    server.close()
+    return rm(workspace, { recursive: true, force: true })
+  })
+  const baseUrl = `http://127.0.0.1:${server.address().port}`
+  const service = createComfyUiService({ workspace, comfyui: { baseUrl } })
+  const { templatesDir } = service.runtime()
+  await writeFile(path.join(templatesDir, 'retry-ready.json'), JSON.stringify({ 1: { class_type: 'TestNode', inputs: {} } }))
+  await writeFile(path.join(templatesDir, 'retry-ready.contract.json'), JSON.stringify({ id: 'retry-ready', workflow: 'retry-ready.json', slots: {} }))
+
+  const result = await testTemplateReadiness({ baseUrl, templatesDir, template: 'retry-ready', pingTimeout: 20 })
+
+  assert.equal(statusRequests, 2)
+  assert.equal(result.ready, true)
 })
 
 test('bundled workflows are protected and offline LoRA availability stays unknown', async (t) => {

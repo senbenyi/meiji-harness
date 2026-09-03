@@ -253,7 +253,7 @@ export function TerminalView(props: { scope: SessionScope; tabId: string; store:
         failures += 1
         if (failures >= FAILURE_LIMIT) {
           const detail = event.reason !== '' ? ` (${event.code}: ${event.reason})` : ` (${event.code})`
-          console.error('[dsh-better-sidebar] terminal connection failed:', event.code, event.reason, url)
+          console.error('[dsh-elysium] terminal connection failed:', event.code, event.reason, url)
           setFatal(`${t('terminalConnectFailed')}${detail}`)
           return
         }
@@ -313,7 +313,7 @@ export function TerminalView(props: { scope: SessionScope; tabId: string; store:
         fit.fit()
         sendResize()
       } catch (error) {
-        console.error('[dsh-better-sidebar] xterm open failed:', error)
+        console.error('[dsh-elysium] xterm open failed:', error)
       }
     })
 

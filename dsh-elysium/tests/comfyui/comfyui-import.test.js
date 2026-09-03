@@ -8,7 +8,7 @@ import { loadSettings, saveSettings } from '../../src/infrastructure/comfyui/sto
 import { listTemplates } from '../../src/infrastructure/comfyui/templates.js'
 
 describe('removeTemplate', () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'dsh-comfyui-rm-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'elysium-comfy-driver-rm-'))
   const outside = path.join(dir, '..', 'outside-workflow.json')
   after(() => {
     rmSync(dir, { recursive: true, force: true })

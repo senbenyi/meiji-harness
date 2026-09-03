@@ -87,6 +87,7 @@ export function createStudio(React, api) {
     const [projectId, setProjectId] = useState(initialProjectId || '')
     const [episodeIdToOpen, setEpisodeIdToOpen] = useState(initialEpisodeId || '')
     const [selectedProjectIds, setSelectedProjectIds] = useState([])
+    const [openProjectIds, setOpenProjectIds] = useState(initialProjectId ? [initialProjectId] : [])
     const [batchAuthorized, setBatchAuthorized] = useState(false)
     const [projectEpisodes, setProjectEpisodes] = useState({})
     const [episode, setEpisode] = useState(null)
@@ -122,6 +123,8 @@ export function createStudio(React, api) {
     const selectedEpisodes = selectedProjectIds.flatMap(id => projectEpisodes[id] || [])
     const batchStartCount = selectedEpisodes.filter(item => ['ready', 'paused'].includes(item.status)).length
     const batchPauseCount = selectedEpisodes.filter(item => ['running', 'queued'].includes(item.status)).length
+    const currentStage = STAGES.find(item => item.key === activeStage) || STAGES[0]
+    const completedStageCount = episode ? STAGES.filter((stage, index) => stageState(episode, stage.key, index) === 'complete').length : 0
 
     useEffect(() => { onDirty?.(storyDirty || draftDirty) }, [storyDirty, draftDirty, onDirty])
     useEffect(() => { onBusy?.(busy); return () => onBusy?.(false) }, [busy, onBusy])
@@ -149,7 +152,10 @@ export function createStudio(React, api) {
         } catch { return [project.id, []] }
       }))
       setProjectEpisodes(Object.fromEntries(lists))
-      if (!projectId && nextProjects.length) setProjectId(nextProjects[0].id)
+      if (!projectId && nextProjects.length) {
+        setProjectId(nextProjects[0].id)
+        setOpenProjectIds(current => current.includes(nextProjects[0].id) ? current : [...current, nextProjects[0].id])
+      }
       setProjectsLoading(false)
     }, [call, projectId])
 
@@ -193,7 +199,7 @@ export function createStudio(React, api) {
       if (!projectTitle.trim()) return setError('请输入项目名称')
       const result = await call('/project.create', { title: projectTitle.trim() })
       if (!result) return
-      setProjectTitle(''); setShowProjectForm(false); await loadProjects(); setProjectId(result.project.id); setEpisodeIdToOpen(''); setEpisode(null)
+      setProjectTitle(''); setShowProjectForm(false); await loadProjects(); setProjectId(result.project.id); setOpenProjectIds(current => [...new Set([...current, result.project.id])]); setEpisodeIdToOpen(''); setEpisode(null)
       setMessage('项目已创建，现在可以开始第一集')
     }
 
@@ -214,6 +220,7 @@ export function createStudio(React, api) {
       if (id === projectId) return
       navigateSafely('切换项目', () => {
         setProjectId(id)
+        setOpenProjectIds(current => current.includes(id) ? current : [...current, id])
         setEpisodeIdToOpen('')
         setEpisode(null)
       })
@@ -222,6 +229,7 @@ export function createStudio(React, api) {
     const createEpisodeIn = id => {
       navigateSafely('新建单集', () => {
         setProjectId(id)
+        setOpenProjectIds(current => current.includes(id) ? current : [...current, id])
         setEpisodeIdToOpen('')
         setEpisode(null)
         setSavedStory('')
@@ -238,6 +246,7 @@ export function createStudio(React, api) {
       const nextProject = projects.find(project => project.id !== deletedId)
       setProjects(current => current.filter(project => project.id !== deletedId))
       setSelectedProjectIds(current => current.filter(id => id !== deletedId))
+      setOpenProjectIds(current => current.filter(id => id !== deletedId))
       setProjectEpisodes(current => {
         const next = { ...current }
         delete next[deletedId]
@@ -255,6 +264,10 @@ export function createStudio(React, api) {
     const toggleProject = id => {
       setBatchAuthorized(false)
       setSelectedProjectIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
+    }
+
+    const toggleProjectOpen = id => {
+      setOpenProjectIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
     }
 
     const toggleAllProjects = () => {
@@ -322,6 +335,7 @@ export function createStudio(React, api) {
         setEpisode(null)
         setSavedStory('')
         setProjectId(ownerProjectId)
+        setOpenProjectIds(current => current.includes(ownerProjectId) ? current : [...current, ownerProjectId])
         setEpisodeIdToOpen(id)
         setAuthorized(false)
         setReviewed(false)
@@ -374,11 +388,13 @@ export function createStudio(React, api) {
 
     const renderTask = (task, index) => {
       const url = task.path ? api.mediaUrl(projectId, task.path) : ''
-      return h('article', { className: `ely-artifact is-${task.type}${url ? '' : ' is-empty'}`, key: task.id },
+      const [, tone] = statusMeta(task.status)
+      const placeholder = ['needs_attention', 'failed'].includes(task.status) ? '生成失败' : task.status === 'running' ? '生成中' : '等待生成'
+      return h('article', { className: `ely-artifact is-${task.type} is-${tone}${url ? '' : ' is-empty'}`, key: task.id },
         h('div', { className: 'ely-artifact-preview' },
           url && !['chapter', 'final'].includes(task.type) ? h('img', { src: url, alt: task.entityId }) : null,
           url && ['chapter', 'final'].includes(task.type) ? h('video', { src: url, controls: true, preload: 'metadata' }) : null,
-          !url ? h('div', { className: 'ely-artifact-placeholder' }, h('span', null, task.status === 'running' ? '生成中' : '等待生成')) : null,
+          !url ? h('div', { className: 'ely-artifact-placeholder' }, h('span', null, placeholder)) : null,
           h('span', { className: 'ely-artifact-number' }, String(index + 1).padStart(2, '0')),
         ),
         h('div', { className: 'ely-artifact-body' },
@@ -409,7 +425,7 @@ export function createStudio(React, api) {
     )
 
     const renderStageContent = () => {
-      const stage = STAGES.find(item => item.key === activeStage) || STAGES[0]
+      const stage = currentStage
       let body
       if (activeStage === 'story') {
         body = h('div', { className: 'ely-editor' },
@@ -425,10 +441,6 @@ export function createStudio(React, api) {
             h(Field, { label: '人物统一设定' }, h('input', { className: 'tf-input', disabled: storyLocked, value: episode.episode.castPrompt || '', placeholder: '人物外观、服装和气质', onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, castPrompt: event.target.value } })) })),
             h(Field, { label: '画面风格' }, h('input', { className: 'tf-input', disabled: storyLocked, value: episode.episode.stylePrompt || '', placeholder: '色调、光线与镜头语言', onChange: event => setEpisode(value => ({ ...value, episode: { ...value.episode, stylePrompt: event.target.value } })) })),
           ),
-          h('div', { className: 'ely-editor-actions' },
-            storyDirty ? h('span', { className: 'ely-unsaved' }, '未保存') : null,
-            h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy || storyLocked || !storyDirty || !storyValid, onClick: saveStory }, busy ? '保存中…' : '保存修改'),
-            h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || storyLocked || storyDirty || !storyValid, title: storyDirty ? '请先保存修改' : !storyValid ? '请填写有效的名称、故事和目标时长' : '生成剧本与长视频规划', onClick: planEpisode }, busy ? '规划中…' : '自动规划')),
         )
       } else if (activeStage === 'script') {
         body = h('div', { className: 'ely-document' }, h('blockquote', null, episode.script?.synopsis || episode.episode.sourceText),
@@ -457,7 +469,7 @@ export function createStudio(React, api) {
           episode.state.status === 'awaiting_review' ? h('div', { className: 'ely-review' }, h('h3', null, '人工终审'), h('p', null, '请完整播放成片，确认画面连续性、人物一致性和内容完整性。'),
             h(Field, { label: '审核人' }, h('input', { className: 'tf-input', maxLength: 120, placeholder: '输入审核人标识', value: reviewer, onChange: event => setReviewer(event.target.value) })),
             h('label', { className: `ely-check${reviewWatched ? '' : ' is-disabled'}` }, h('input', { type: 'checkbox', disabled: !reviewWatched, checked: reviewed, onChange: event => setReviewed(event.target.checked) }), h('span', null, reviewWatched ? '我已完整观看并确认成片通过' : '完整播放至结尾后可确认')),
-            h('div', { className: 'ely-review-actions' }, h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !reviewer.trim() || !reviewWatched || !reviewed, onClick: approve }, busy ? '提交中…' : '通过终审'))) : null,
+          ) : null,
           h('div', { className: 'ely-final-actions' }, h('a', { className: 'ely-btn ely-btn-secondary ely-download', href: finalUrl, download: `${episode.episode.title || 'elysium'}.mp4` }, '下载成片')),
         )
       } else {
@@ -465,16 +477,22 @@ export function createStudio(React, api) {
         body = tasks.length ? h('div', { className: 'ely-artifact-grid' }, tasks.map(renderTask)) : h('div', { className: 'ely-empty-state' }, h('strong', null, '尚未生成产物'), h('p', null, '启动自动生产后，结果会实时出现在这里。'))
       }
       return h('section', { className: 'ely-stage-panel' },
-        h('header', { className: 'ely-stage-header' }, h('div', null, h('span', { className: 'ely-eyebrow' }, `STAGE ${stage.short}`), h('h2', null, stage.label), h('p', null, stage.hint)), h('span', { className: `ely-stage-mark is-${stageState(episode, stage.key, STAGES.findIndex(item => item.key === stage.key))}` })),
+        h('header', { className: 'ely-stage-header' }, h('div', null, h('span', { className: 'ely-eyebrow' }, `STAGE ${stage.short}`), h('h2', null, stage.label), h('p', null, stage.hint)),
+          h('div', { className: 'ely-stage-state' }, activeStage === 'story' && storyDirty ? h('span', { className: 'ely-stage-unsaved' }, '未保存') : null, h('span', { className: `ely-stage-mark is-${stageState(episode, stage.key, STAGES.findIndex(item => item.key === stage.key))}`, role: 'img', 'aria-label': `${stage.label}阶段状态` }))),
         body)
     }
 
     const primaryAction = () => {
       if (episode.state.status === 'running') return h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: pause }, '暂停生产')
-      if (episode.state.status === 'needs_attention') return h('button', { className: 'ely-btn ely-btn-secondary', disabled: true }, '请先处理异常')
-      if (episode.state.status === 'awaiting_review') return h('button', { className: 'ely-btn ely-btn-primary', onClick: () => setActiveStage('final') }, '前往终审')
-      if (episode.state.status === 'approved') return h('button', { className: 'ely-btn ely-btn-secondary', onClick: () => setActiveStage('final') }, '查看成片')
-      if (!hasPlan) return h('button', { className: 'ely-btn ely-btn-secondary', disabled: true, title: '请先在故事阶段完成自动规划' }, '请先自动规划')
+      if (episode.state.status === 'needs_attention') return h('span', { className: 'ely-primary-guidance' }, openIssues.length > 1 ? '请在下方逐项重试失败任务' : '请使用下方“重试”恢复流程')
+      if (episode.state.status === 'awaiting_review') return activeStage === 'final'
+        ? h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !reviewer.trim() || !reviewWatched || !reviewed, title: !reviewWatched ? '请先完整播放成片' : !reviewer.trim() ? '请输入审核人标识' : !reviewed ? '请确认终审结果' : '提交终审', onClick: approve }, busy ? '提交中…' : '通过终审')
+        : h('button', { className: 'ely-btn ely-btn-primary', onClick: () => setActiveStage('final') }, '前往终审')
+      if (episode.state.status === 'approved') return activeStage === 'final'
+        ? h('button', { className: 'ely-btn ely-btn-secondary', disabled: true }, '本集已完成')
+        : h('button', { className: 'ely-btn ely-btn-secondary', onClick: () => setActiveStage('final') }, '查看成片')
+      if (storyDirty) return h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || storyLocked || !storyValid, title: !storyValid ? '请填写有效的名称、故事和目标时长' : '保存当前故事修改', onClick: saveStory }, busy ? '保存中…' : '保存修改')
+      if (!hasPlan) return h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || storyLocked || !storyValid, title: !storyValid ? '请填写有效的名称、故事和目标时长' : '生成剧本与长视频规划', onClick: planEpisode }, busy ? '规划中…' : '自动规划')
       return h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || storyDirty || (!episode.state.authorizedAt && !authorized), title: storyDirty ? '请先保存故事修改' : '', onClick: start }, busy ? '处理中…' : episode.state.status === 'paused' ? '继续生产' : '开始自动生产')
     }
 
@@ -483,8 +501,8 @@ export function createStudio(React, api) {
       if (episode.state.status === 'needs_attention') return ['先处理异常', `${openIssues.length || 1} 项问题阻止流程继续，修复后会从断点恢复。`]
       if (episode.state.status === 'awaiting_review') return ['观看并验收成片', '完整播放成片，确认连续性与内容质量后完成终审。']
       if (episode.state.status === 'approved') return ['本集已完成', '成片已经通过终审，可在“成片”阶段查看交付结果。']
-      if (!hasPlan) return ['先完成自动规划', '进入“故事”阶段保存内容，再生成剧本、资产和长视频规划。']
       if (storyDirty) return ['先保存故事修改', '当前修改尚未保存，保存后才能开始或继续生产。']
+      if (!hasPlan) return ['先完成自动规划', '进入“故事”阶段补全内容，再生成剧本、资产和长视频规划。']
       if (!episode.state.authorizedAt) return ['确认后开始生产', '勾选内容与素材授权，系统将自动完成后续阶段。']
       return ['继续自动生产', '系统会从当前进度继续，并保留已经完成的有效产物。']
     }
@@ -495,27 +513,28 @@ export function createStudio(React, api) {
         showProjectForm ? h('div', { className: 'ely-project-create' }, h('input', { className: 'tf-input', autoFocus: true, maxLength: 120, placeholder: '项目名称', value: projectTitle, onChange: event => setProjectTitle(event.target.value), onKeyDown: event => { if (event.key === 'Enter' && projectTitle.trim()) navigateSafely('创建并切换项目', createProject) } }), h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !projectTitle.trim(), title: projectTitle.trim() ? '创建项目' : '请输入项目名称', onClick: () => navigateSafely('创建并切换项目', createProject) }, busy ? '创建中…' : '创建')) : null,
         projectsLoading ? h('div', { className: 'ely-library-empty', role: 'status' }, '正在加载项目…') : projects.length ? h(React.Fragment, null,
           h('div', { className: 'ely-project-toolbar' },
-            h('button', { onClick: toggleAllProjects }, selectedProjectIds.length === projects.length ? '清空' : '全选'),
+            h('button', { disabled: busy, onClick: toggleAllProjects }, selectedProjectIds.length === projects.length ? '清空' : '全选'),
             h('span', null, selectedProjectIds.length ? `已选 ${selectedProjectIds.length}` : '勾选后批量操作')),
           h('div', { className: 'ely-project-list' }, projects.map(project => {
             const items = projectEpisodes[project.id] || []
+            const expanded = openProjectIds.includes(project.id)
             return h('section', { key: project.id, className: `ely-project-group ${project.id === projectId ? 'is-active' : ''}` },
-              h('div', { className: 'ely-project-row' },
-                h('div', { className: 'ely-project-main' },
-                  h('input', { type: 'checkbox', 'aria-label': `选择项目 ${project.title}`, checked: selectedProjectIds.includes(project.id), onChange: () => toggleProject(project.id) }),
-                  h('button', { className: 'ely-project-title', title: project.title, disabled: busy, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, `${items.length} 集`))),
+              h('div', { className: 'ely-project-main' },
+                h('input', { type: 'checkbox', 'aria-label': `选择项目 ${project.title}`, checked: selectedProjectIds.includes(project.id), disabled: busy, onChange: () => toggleProject(project.id) }),
+                h('button', { className: 'ely-project-toggle', title: expanded ? '收起单集' : '展开单集', 'aria-label': `${expanded ? '收起' : '展开'}项目 ${project.title}`, 'aria-expanded': expanded, disabled: busy, onClick: () => toggleProjectOpen(project.id) }, '›'),
+                h('button', { className: 'ely-project-title', title: project.title, disabled: busy, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, `${items.length} 集`)),
                 h('div', { className: 'ely-project-actions' },
-                  h('button', { className: 'ely-add-episode', title: `在 ${project.title} 中新建单集`, disabled: busy, onClick: () => createEpisodeIn(project.id) }, '+ 单集'),
+                  h('button', { className: 'ely-add-episode', title: `在 ${project.title} 中新建单集`, 'aria-label': `在 ${project.title} 中新建单集`, disabled: busy, onClick: () => createEpisodeIn(project.id) }, '+'),
                   h('button', { className: 'ely-delete-project', title: `删除项目 ${project.title}`, 'aria-label': `删除项目 ${project.title}`, disabled: busy, onClick: () => setProjectToDelete(project) }, '删除'))),
-              h('div', { className: 'ely-project-episodes', role: 'list', 'aria-label': `${project.title}的单集` }, items.length
+              expanded ? h('div', { className: 'ely-project-episodes', role: 'list', 'aria-label': `${project.title}的单集` }, items.length
                 ? items.map((item, index) => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, role: 'listitem', className: item.id === selectedEpisodeId && project.id === projectId ? 'is-active' : '', disabled: busy, onClick: () => chooseEpisode(project.id, item.id) }, h('span', { className: 'ely-episode-order' }, String(index + 1).padStart(2, '0')), h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) })
-                : h('span', { className: 'ely-project-no-episodes' }, '暂无单集')))
+                : h('span', { className: 'ely-project-no-episodes' }, '暂无单集')) : null)
           })),
           selectedProjectIds.length ? h('div', { className: 'ely-project-batch' },
             h('label', null, h('input', { type: 'checkbox', checked: batchAuthorized, disabled: !batchStartCount, onChange: event => setBatchAuthorized(event.target.checked) }), h('span', null, batchStartCount ? `确认 ${batchStartCount} 个单集内容及素材已获授权` : '没有可启动的单集')),
             h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || storyDirty || draftDirty || !batchAuthorized || !batchStartCount, title: storyDirty || draftDirty ? '请先处理当前未保存内容' : batchStartCount ? '启动就绪单集，并继续已暂停单集' : '没有就绪或已暂停的单集', onClick: () => void runBulk('start') }, `启动 / 继续 (${batchStartCount})`),
             h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy || storyDirty || draftDirty || !batchPauseCount, title: storyDirty || draftDirty ? '请先处理当前未保存内容' : batchPauseCount ? '暂停所选项目中正在生产的单集' : '没有正在生产的单集', onClick: () => void runBulk('pause') }, `暂停 (${batchPauseCount})`)) : null)
-          : h('div', { className: 'ely-library-empty' }, '创建项目后开始制作'),
+          : null,
         !projectsLoading && !projects.length ? h('div', { className: 'ely-library-empty' }, '创建项目后开始制作') : null),
       h('main', { className: 'ely-workspace' },
         (error || message) && !episode ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}`, role: error ? 'alert' : 'status' }, h('span', null, error || message), h('button', { 'aria-label': '关闭提示', onClick: () => { setError(''); setMessage('') } }, '×')) : null,
@@ -524,20 +543,21 @@ export function createStudio(React, api) {
             : !episode ? renderCreateEpisode()
             : h('div', { className: 'ely-production' },
               h('header', { className: 'ely-production-head' },
-                h('div', { className: 'ely-production-title' }, h('span', { className: 'ely-breadcrumb' }, selectedProject?.title || '项目', ' / 单集'), h('h1', null, episode.episode.title), h('div', { className: 'ely-production-meta' }, h(StatusPill, { status: episode.state.status }), h('span', null, `${episode.episode.targetDurationSec} 秒`), h('span', null, episode.episode.profile === 'final' ? '正式质量' : '预览质量'))),
+                h('div', { className: 'ely-production-title' }, h('span', { className: 'ely-breadcrumb', title: selectedProject?.title || '项目' }, selectedProject?.title || '项目', ' / 单集'), h('h1', { title: episode.episode.title }, episode.episode.title), h('div', { className: 'ely-production-meta' }, h(StatusPill, { status: episode.state.status }), h('span', { className: 'ely-current-stage' }, `当前：${currentStage.label}`), h('span', null, `${episode.episode.targetDurationSec} 秒`), h('span', null, episode.episode.profile === 'final' ? '正式质量' : '预览质量'))),
                 h('button', { className: 'ely-head-refresh', disabled: busy || storyDirty, onClick: () => refresh(false), title: storyDirty ? '请先保存或放弃故事修改' : '刷新生产状态' }, busy ? '更新中…' : '刷新状态')),
               (error || message) ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}`, role: error ? 'alert' : 'status' }, h('span', null, error || message), h('button', { 'aria-label': '关闭提示', onClick: () => { setError(''); setMessage('') } }, '×')) : null,
               h('div', { className: 'ely-production-layout' },
                 h('nav', { className: 'ely-stage-track', 'aria-label': '制作流程' },
-                  h('div', { className: 'ely-stage-track-title' }, h('strong', null, '制作流程'), h('span', null, '8 个阶段 · 横向滑动')),
+                  h('div', { className: 'ely-stage-track-title' }, h('strong', null, '制作流程'), h('span', null, `已完成 ${completedStageCount}/8`)),
                   STAGES.map((stage, index) => { const state = stageState(episode, stage.key, index); return h('button', { key: stage.key, className: `${stage.key === activeStage ? 'is-active ' : ''}is-${state}`, 'aria-current': stage.key === activeStage ? 'step' : undefined, disabled: busy, onClick: () => setActiveStage(stage.key) }, h('span', null, state === 'complete' ? '✓' : stage.short), h('span', { className: 'ely-stage-copy' }, h('strong', null, stage.label), h('small', null, stage.hint))) })),
                 h('div', { className: 'ely-stage-content' }, renderStageContent()),
                 h('aside', { className: 'ely-production-rail' },
-                  h('section', { className: 'ely-next-card' }, h('span', { className: 'ely-rail-kicker' }, '下一步'), h('h2', null, nextStep()[0]), h('p', null, nextStep()[1]), h('div', { className: 'ely-primary-action' }, primaryAction())),
-                  hasPlan && !episode.state.authorizedAt && !['approved', 'awaiting_review'].includes(episode.state.status) ? h('label', { className: 'ely-authorization' }, h('input', { type: 'checkbox', checked: authorized, onChange: event => setAuthorized(event.target.checked) }), h('span', null, h('strong', null, '生产授权'), h('small', null, '确认内容合规且拥有素材使用权'))) : null,
-                  h('section', { className: 'ely-progress-card' }, h('div', { className: 'ely-progress-copy' }, h('strong', null, '总体进度'), h('span', null, `${completeTasks} / ${totalTasks} 项任务完成`)), h('strong', { className: 'ely-progress-value' }, `${progress}%`), h('div', { className: 'ely-progress-track' }, h('i', { style: { width: `${progress}%` } }))),
-                  h('section', { className: 'ely-queue-card' }, h('div', null, h('span', null, '进行中'), h('strong', null, activeTasks)), h('div', null, h('span', null, '待处理'), h('strong', { className: openIssues.length ? 'is-danger' : '' }, openIssues.length))),
-                  openIssues.length ? h('section', { className: 'ely-attention' }, h('header', null, h('div', null, h('span', null, '!'), h('strong', null, `${openIssues.length} 项需要处理`))), openIssues.map(issue => h('article', { key: issue.id }, h('div', null, h('strong', null, issue.code), h('p', null, issue.message)), h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: () => retry(issue.taskId) }, '重试')))) : null)),
+                  h('section', { className: 'ely-next-card', 'aria-live': 'polite' }, h('span', { className: 'ely-rail-kicker' }, '下一步'), h('h2', null, nextStep()[0]), h('p', null, nextStep()[1]),
+                    hasPlan && !episode.state.authorizedAt && !['approved', 'awaiting_review'].includes(episode.state.status) ? h('label', { className: 'ely-authorization' }, h('input', { type: 'checkbox', checked: authorized, onChange: event => setAuthorized(event.target.checked) }), h('span', null, h('strong', null, '生产授权'), h('small', null, '确认内容合规且拥有素材使用权'))) : null,
+                    h('div', { className: 'ely-primary-action' }, primaryAction())),
+                  openIssues.length ? h('section', { className: 'ely-attention' }, h('header', null, h('div', null, h('span', null, '!'), h('strong', null, `${openIssues.length} 项需要处理`))), openIssues.map(issue => h('article', { key: issue.id }, h('div', null, h('strong', null, issue.code), h('p', null, issue.message)), h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: () => retry(issue.taskId) }, '重试')))) : null,
+                  totalTasks ? h('section', { className: 'ely-progress-card' }, h('div', { className: 'ely-progress-copy' }, h('strong', null, '总体进度'), h('span', null, `${completeTasks} / ${totalTasks} 项任务完成`)), h('strong', { className: 'ely-progress-value' }, `${progress}%`), h('div', { className: 'ely-progress-track' }, h('i', { style: { width: `${progress}%` } }))) : null,
+                  totalTasks ? h('section', { className: 'ely-queue-card' }, h('div', null, h('span', null, '进行中'), h('strong', null, activeTasks)), h('div', null, h('span', null, '待处理'), h('strong', { className: openIssues.length ? 'is-danger' : '' }, openIssues.length))) : null)),
               )),
         projectToDelete ? h(ConfirmDialog, {
           title: '删除项目',

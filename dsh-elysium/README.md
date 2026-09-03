@@ -1,7 +1,7 @@
 # dsh-elysium
 
 DeepSeek Harness 的单插件 AI 短剧生产工厂，内置单集工作台、ComfyUI 驱动、
-持久化生产编排和完整 Better Sidebar 平台能力。安装时只有 `dsh-elysium` 一个单元。
+持久化生产编排和完整 Elysium 平台能力。安装时只有 `dsh-elysium` 一个单元。
 
 ## 核心能力
 
@@ -113,5 +113,26 @@ TypeScript 服务；`check:source-imports`、`typecheck` 和 `pnpm list` 才是�
 `planner.model` 和 `planner.maxTokens` 配置；托管生产使用 `models.characterImage`、
 `models.startFrame`、`models.keyframeImage` 和 `models.chapterVideo`；旧素材工作台继续使用
 `models.shotImage` 与 `models.shotVideo`，两套入口都保留。工作流合同保存在
-`templates/comfyui/`，运行时复制到 Elysium 工作区后管理；不需要安装
-`dsh-comfyui` 或 `dsh-better-sidebar`。
+`templates/comfyui/`，运行时复制到 Elysium 工作区后管理；远程生成驱动与侧栏能力均已
+内置，不需要额外安装配套插件。
+
+## 交付验收
+
+交付机器需要 Node.js 20+、pnpm、DSH，以及可执行的 `ffmpeg`、`ffprobe`。远程
+ComfyUI、所需节点和模型必须已部署；真实图片和视频生成会消耗远端算力，不属于本地
+安装成功的判定条件。
+
+```sh
+command -v ffmpeg
+command -v ffprobe
+pnpm release:local
+curl -sS -X POST http://127.0.0.1:3080/elysium/api/project.list \
+  -H 'content-type: application/json' --data '{}'
+```
+
+随后在 DSH 打开“极乐世界”，依次完成：自定义页测试并保存 ComfyUI → 新建项目 →
+新建单集 → 保存故事 → 自动规划 → 确认授权 → 开始生产 → 异常时重试 → 完整播放成片 →
+人工终审 → 下载成片。刷新页签后应恢复当前项目、单集和服务端生产阶段。
+
+验收证据必须分层记录：测试通过不等于构建成功，构建成功不等于已安装，接口健康不等于
+浏览器链路通过；未实际执行远端 ComfyUI 生产时，应明确标记“待 GPU 验证”。

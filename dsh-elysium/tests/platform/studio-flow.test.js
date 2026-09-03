@@ -24,10 +24,14 @@ test('studio protects edits and completes the guided production interaction flow
 
   const { createRoot } = await import('react-dom/client')
   const { act, Simulate } = await import('react-dom/test-utils')
-  const projects = [{ id: 'project-1', title: '项目一' }, { id: 'project-2', title: '项目二' }]
+  const longProjectTitle = '项目一 · 这是一个用于验证超长名称截断与完整标题提示的项目'
+  const projects = [{ id: 'project-1', title: longProjectTitle }, { id: 'project-2', title: '项目二' }]
   const details = new Map([['project-1', episode('project-1')]])
   const summaries = new Map([
-    ['project-1', [{ ...details.get('project-1').episode, status: 'ready', activeStage: 'story', createdAt: '1' }]],
+    ['project-1', [
+      { ...details.get('project-1').episode, status: 'ready', activeStage: 'story', createdAt: '01' },
+      ...Array.from({ length: 14 }, (_, index) => ({ id: `episode-${index + 2}`, projectId: 'project-1', title: `单集 ${index + 2}`, status: index === 0 ? 'running' : index === 1 ? 'failed' : 'ready', activeStage: 'story', createdAt: String(index + 2).padStart(2, '0') })),
+    ]],
     ['project-2', []],
   ])
   const calls = []
@@ -92,7 +96,20 @@ test('studio protects edits and completes the guided production interaction flow
   try {
     await act(async () => root.render(React.createElement(Studio, { initialProjectId: 'project-1', initialEpisodeId: 'episode-1' })))
     await settle(); await settle()
-    assert.equal(button('请先自动规划').disabled, true)
+    const initialProject = [...document.querySelectorAll('.ely-project-group')].find(item => item.textContent.includes('项目一'))
+    const initialToggle = initialProject.querySelector('.ely-project-toggle')
+    assert.equal(initialProject.querySelector('.ely-project-title').title, longProjectTitle)
+    assert.equal(initialToggle.getAttribute('aria-expanded'), 'true')
+    assert.equal(initialProject.querySelectorAll('[role="listitem"]').length, 15)
+    assert.ok(initialProject.querySelector('.is-working'))
+    assert.ok(initialProject.querySelector('.is-danger'))
+    await click(initialToggle)
+    assert.equal(initialProject.querySelector('.ely-project-episodes'), null)
+    await click(initialToggle)
+    assert.equal(initialToggle.getAttribute('aria-expanded'), 'true')
+    assert.equal(button('自动规划').disabled, false)
+    assert.equal(document.querySelectorAll('.ely-primary-action button').length, 1)
+    assert.equal(document.querySelector('.ely-editor .ely-btn'), null)
 
     await click(document.querySelector('button[aria-label="新建项目"]'))
     await change(document.querySelector('input[placeholder="项目名称"]'), '项目三')
@@ -112,7 +129,8 @@ test('studio protects edits and completes the guided production interaction flow
     assert.ok(!projects.some(item => item.id === 'project-3'))
 
     await change(document.querySelector('.ely-story-input'), '尚未保存的新故事')
-    assert.equal(button('自动规划').disabled, true)
+    assert.equal(button('保存修改').disabled, false)
+    assert.ok(document.querySelector('.ely-stage-unsaved'))
     assert.equal(button('刷新状态').disabled, true)
     await click(button('项目二'))
     assert.match(document.body.textContent, /放弃未保存修改/)
@@ -138,7 +156,7 @@ test('studio protects edits and completes the guided production interaction flow
     await change(durationInput, 10)
     await doubleClick(button('保存单集'))
     assert.equal(calls.filter(([route]) => route === '/episode.create').length, 1)
-    assert.equal(button('请先自动规划').disabled, true)
+    assert.equal(button('自动规划').disabled, false)
     await change(document.querySelector('.ely-story-input'), '保存后的新故事')
     await click(button('保存修改'))
     await doubleClick(button('自动规划'))
@@ -158,6 +176,7 @@ test('studio protects edits and completes the guided production interaction flow
     current.state.status = 'needs_attention'
     current.issues = [{ id: 'issue-1', status: 'open', taskId: 'task-1', code: 'FAILED', message: '模拟失败' }]
     await click(button('刷新状态'))
+    assert.ok(document.querySelector('.ely-production-rail').children[1].classList.contains('ely-attention'))
     await doubleClick(button('重试'))
     assert.equal(calls.filter(([route]) => route === '/production.retry').length, 1)
 
@@ -166,6 +185,7 @@ test('studio protects edits and completes the guided production interaction flow
     current.tasks = [{ id: 'final-1', type: 'final', entityId: 'episode', status: 'succeeded', path: 'final.mp4' }]
     await click(button('刷新状态'))
     await click(button('前往终审'))
+    assert.equal(document.querySelector('.ely-review .ely-btn'), null)
     const reviewCheck = document.querySelector('.ely-check input')
     assert.equal(reviewCheck.disabled, true)
     await act(async () => { Simulate.ended(document.querySelector('.ely-final-player video')) })
@@ -176,8 +196,9 @@ test('studio protects edits and completes the guided production interaction flow
     assert.equal(calls.filter(([route]) => route === '/review.approve').length, 1)
     assert.equal(calls.findLast(([route]) => route === '/review.approve')[1].reviewer, 'reviewer')
     assert.ok(document.querySelector('a[download$=".mp4"]'))
+    assert.equal(button('本集已完成').disabled, true)
 
-    await click(document.querySelector('input[aria-label="选择项目 项目一"]'))
+    await click(document.querySelector('input[aria-label^="选择项目 项目一"]'))
     await click(document.querySelector('input[aria-label="选择项目 项目二"]'))
     const batchAuthorization = document.querySelector('.ely-project-batch input[type="checkbox"]')
     await click(batchAuthorization)

@@ -41,7 +41,9 @@ const files = [
   'lib/client-mermaid.js',
   'lib/client-mermaid.js.map',
   'templates',
+  'docs',
   'README.md',
+  'LICENSE',
 ]
 
 rmSync(out, { recursive: true, force: true })

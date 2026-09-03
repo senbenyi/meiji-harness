@@ -1,5 +1,5 @@
 /**
- * dsh-better-sidebar host half: the /sidebar JSON API (explorer listing, file
+ * dsh-elysium host half: the /sidebar JSON API (explorer listing, file
  * read/write, git), the /sidebar/file media route (images), the /sidebar/html
  * preview route, the /sidebar/bundle lazy-chunk route (client code splits),
  * and the terminal WebSocket upgrade. Every route passes the same
@@ -671,7 +671,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
     const detail = status.ok
       ? 'unknown cause'
       : `${status.cause}. Repair: ${status.command}`
-    ctx.logger?.warn(`[dsh-better-sidebar] node-pty (${DSH_NODE_PTY_RANGE}) failed to load: ${detail}`)
+    ctx.logger?.warn(`[dsh-elysium] node-pty (${DSH_NODE_PTY_RANGE}) failed to load: ${detail}`)
   }
   const ptyManager = nodePty !== null
     ? new PtyManager(terminalShell, resolved.terminalsPerSession, resolved.shellArgs, nodePty)
@@ -727,7 +727,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
   }
   ctx.inject(['settings'], (sctx) => {
     // DSH 0.1.2-alpha.2 validates namespaces at compile time
-    // (SettingsNamespaceInput); the 'dsh-better-sidebar' literal passes, so the
+    // (SettingsNamespaceInput); the 'dsh-elysium' literal passes, so the
     // runtime helper this used to call (settingsNamespace) is gone upstream.
     const ns = SIDEBAR_PREFS_NS
     // The structural settings mirror types `schema` as unknown, so the
@@ -830,7 +830,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
         writeError(res, error)
       }
     },
-  }), 'dsh-better-sidebar: /sidebar/api routes')
+  }), 'dsh-elysium: /sidebar/api routes')
 
   // ── Raw upload route ───────────────────────────────────────────────────
   // One request writes one file without JSON/base64 inflation. Folder uploads
@@ -872,13 +872,13 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
         writeError(res, error)
       }
     },
-  }), 'dsh-better-sidebar: /sidebar/upload route')
+  }), 'dsh-elysium: /sidebar/upload route')
 
   // ── Lazy chunk route (client bundle splits) ─────────────────────────────
   // Serves the client half's split bundles (lib/client-<name>.js) so the
   // heavy preview/terminal libraries load on first use, not at page start
   // (see bundle-route.ts / presentation/workbench/chunk-loader.ts).
-  ctx.effect(() => registerBundleRoute(ctx, fence), 'dsh-better-sidebar: /sidebar/bundle chunk route')
+  ctx.effect(() => registerBundleRoute(ctx, fence), 'dsh-elysium: /sidebar/bundle chunk route')
 
   // ── Media route (images for the editor) ─────────────────────────────────
   ctx.effect(() => ctx.webServer.register({
@@ -920,7 +920,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
         writeError(res, error)
       }
     },
-  }), 'dsh-better-sidebar: /sidebar/file media route')
+  }), 'dsh-elysium: /sidebar/file media route')
 
   // ── HTML preview route (sandboxed HTML + its relative assets) ───────────
   // Serves files under the session cwd for the built-in HTML previewer. The
@@ -982,7 +982,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
         writeError(res, error)
       }
     },
-  }), 'dsh-better-sidebar: /sidebar/html preview route')
+  }), 'dsh-elysium: /sidebar/html preview route')
 
   // ── Terminal WebSocket ──────────────────────────────────────────────────
   // One upgrade endpoint serves both UI-tab terminals (?tab=...) and
@@ -1006,7 +1006,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
         void attachTerminal(ctx, ptyManager, agentPtyRegistry, ws, req, resolved, () => settingsFace)
       })
     },
-  }), 'dsh-better-sidebar: terminal WebSocket')
+  }), 'dsh-elysium: terminal WebSocket')
 
   // ── Agent terminals push WebSocket ──────────────────────────────────────
   // Pushes the live list of agent terminals for one session to the sidebar
@@ -1028,7 +1028,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
         void attachAgentList(agentPtyRegistry, ws, req)
       })
     },
-  }), 'dsh-better-sidebar: agent-terminals push WebSocket')
+  }), 'dsh-elysium: agent-terminals push WebSocket')
 
   // ── Agent opens push WebSocket ─────────────────────────────────────────
   // Pushes `sidebar_open` requests for one session to the sidebar view: the
@@ -1048,7 +1048,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
         void attachAgentOpen(agentOpenRegistry, ws, req)
       })
     },
-  }), 'dsh-better-sidebar: agent-opens push WebSocket')
+  }), 'dsh-elysium: agent-opens push WebSocket')
 
   ctx.effect(() => () => {
     toolsDisposers?.()
@@ -1059,7 +1059,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
     wss.close()
     agentListWss.close()
     agentOpenWss.close()
-  }, 'dsh-better-sidebar: teardown')
+  }, 'dsh-elysium: teardown')
 }
 
 /** Push queued `sidebar_open` requests for one session to a connected view. */

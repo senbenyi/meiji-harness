@@ -7,9 +7,8 @@
  */
 
 /** The user-settings namespace holding the side card preferences. */
-// Keep the historical namespace so upgrading from the standalone sidebar
-// preserves every user's existing side-card settings.
-export const SIDEBAR_PREFS_NS = 'dsh-better-sidebar'
+// Keep this aligned with the single Elysium plugin identity.
+export const SIDEBAR_PREFS_NS = 'dsh-elysium'
 
 /** User-facing side card preferences (new-conversation defaults). */
 export interface SidebarPrefs {

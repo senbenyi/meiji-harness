@@ -200,7 +200,7 @@ src/
 
 只有 `@dsh-external/dsh-elysium` 一个安装身份、一个客户端 bundle 和一个 Cordis
 配置块。`ctx.betterSidebar`、`/sidebar/*`、`/elysium/*` 与聊天工具名保持兼容；
-`dsh-comfyui` 不再作为独立插件或依赖存在。
+远程 ComfyUI 驱动已内置，不再作为独立插件或依赖存在。
 
 代码依赖以领域规则为中心：`domain/` 不引用界面、DSH、ComfyUI 或文件存储；
 `application/` 执行用例并通过明确的基础设施模块完成持久化与远程调用；`presentation/`

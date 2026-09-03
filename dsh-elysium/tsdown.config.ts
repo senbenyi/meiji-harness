@@ -1,15 +1,15 @@
 /**
- * tsdown build for dsh-better-sidebar: the host-half lib (lib/index.js and
+ * tsdown build for dsh-elysium: the host-half lib (lib/index.js and
  * the lib/invariant.js companion, ESM node) plus the two browser client
  * bundles (lib/client.js and lib/client-registry.js, CJS closure factory) —
  * one per install channel:
  *
  * - `lib/client.js` serves the official profile channel, registering with
- *   the package-name id `dsh-better-sidebar` (the client-modules compose
+ *   the package-name id `dsh-elysium` (the client-modules compose
  *   keys on the package name; keep it in sync with package.json `name`),
  * - `lib/client-registry.js` serves the plugin-registry channel
  *   (dsh.plugin.json), registering with the manifest id
- *   `dsh-external/dsh-better-sidebar` (the registry browser-side `arrive()`
+ *   `dsh-external/dsh-elysium` (the registry browser-side `arrive()`
  *   check requires bundle id === plugin id).
  *
  * Both bundles replicate the official DSH client-bundle preset
@@ -119,9 +119,9 @@ function browserSourcePath(source: string, sourcemapPath: string): string {
 /**
  * One client bundle build for a plugin id. The same embedded sidebar client is
  * compiled twice with only the registered id and the output file name
- * differing: the official channel uses the package name (`dsh-better-sidebar`)
+ * differing: the official channel uses the package name (`dsh-elysium`)
  * and the registry channel uses the manifest id
- * (`dsh-external/dsh-better-sidebar`).
+ * (`dsh-external/dsh-elysium`).
  * @param pluginId - the `__ModuleLoader__.load({ id })` value and the
  *   data-plugin style-tag prefix of this bundle.
  * @param entryFile - the output file name under lib/.
@@ -161,10 +161,10 @@ function clientBundle(pluginId: string, entryFile: string): UserConfig {
       entryFileNames: entryFile,
       sourcemapPathTransform: browserSourcePath,
       banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify(pluginId)}, factory: (require) => {`,
-      // Keep the historical client module id as a lightweight alias. Existing
-      // sidebar extensions generally inject `betterSidebar`, but bundles that
-      // still require `dsh-better-sidebar` can resolve the merged module too.
-      footer: `return module.exports; } }); window.__ModuleLoader__.load({ id: 'dsh-better-sidebar', factory: (require) => require(${JSON.stringify(pluginId)}) });`,
+      // Keep the short client module id as a lightweight alias. Existing
+      // sidebar extensions generally inject `betterSidebar`, while bundles can
+      // resolve the merged module through the unified Elysium id.
+      footer: `return module.exports; } }); window.__ModuleLoader__.load({ id: 'dsh-elysium', factory: (require) => require(${JSON.stringify(pluginId)}) });`,
       intro: 'var module = { exports: {} }; var exports = module.exports;',
       // The CJS wrapper factory's `require` only resolves module-table entries
       // (react, cordis, ...); it cannot load relative chunk URLs in the browser.
@@ -189,7 +189,7 @@ function clientBundle(pluginId: string, entryFile: string): UserConfig {
  * loader (src/presentation/workbench/chunk-loader.ts) materializes it with a require built
  * from the module table's seed words.
  *
- * Chunk css tags use the constant plugin id `dsh-better-sidebar` (matching
+ * Chunk css tags use the constant plugin id `dsh-elysium` (matching
  * the official channel; the registry channel re-injects an identical copy
  * of the shared module css — same content, no functional impact).
  * @param name - chunk name; entry src/presentation/workbench/chunks/<name>.tsx, output

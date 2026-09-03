@@ -448,7 +448,7 @@ export function Sidebar(props: { ctx: Context; store: SidebarStore }) {
         if (closed) return
         failures += 1
         if (failures >= FAILURE_LIMIT) {
-          console.error('[dsh-better-sidebar] agent-terminals connection failed; stopping reconnect loop', sessionId)
+          console.error('[dsh-elysium] agent-terminals connection failed; stopping reconnect loop', sessionId)
           return
         }
         retry = window.setTimeout(connect, 2000)
@@ -520,7 +520,7 @@ export function Sidebar(props: { ctx: Context; store: SidebarStore }) {
         if (closed) return
         failures += 1
         if (failures >= FAILURE_LIMIT) {
-          console.error('[dsh-better-sidebar] agent-opens connection failed; stopping reconnect loop', sessionId)
+          console.error('[dsh-elysium] agent-opens connection failed; stopping reconnect loop', sessionId)
           return
         }
         retry = window.setTimeout(connect, 2000)
@@ -1416,7 +1416,7 @@ export function Sidebar(props: { ctx: Context; store: SidebarStore }) {
     try {
       value = descriptor.badge(ctx, { sessionId, cwd }, state)
     } catch (error) {
-      console.error('[dsh-better-sidebar] tab badge error:', error)
+      console.error('[dsh-elysium] tab badge error:', error)
       return null
     }
     if (value === null || value === undefined || value === '') return null

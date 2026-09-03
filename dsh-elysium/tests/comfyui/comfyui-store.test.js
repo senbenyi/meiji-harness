@@ -12,7 +12,7 @@ import {
 import { inspectTemplate } from '../../src/infrastructure/comfyui/templates.js'
 
 describe('user notes', () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'dsh-comfyui-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'elysium-comfy-driver-'))
   after(() => rmSync(dir, { recursive: true, force: true }))
 
   writeFileSync(path.join(dir, 'demo.contract.json'), JSON.stringify({

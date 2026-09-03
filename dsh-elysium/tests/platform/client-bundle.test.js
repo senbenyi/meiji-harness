@@ -16,7 +16,7 @@ test('generated client bundle registers a valid DSH module', async (t) => {
   await import(`../../lib/client.js?test=${Date.now()}`)
   assert.deepEqual(definitions.map(item => item.id), [
     '@dsh-external/dsh-elysium',
-    'dsh-better-sidebar',
+    'dsh-elysium',
   ])
   assert.equal(typeof definitions[0].factory, 'function')
 
