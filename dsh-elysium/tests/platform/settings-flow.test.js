@@ -43,12 +43,13 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
   let state = initialState()
   const calls = []
   const workflowResolvers = []
+  let resolveConnectionTest
   const dirtyStates = []
   const api = {
     async fetchJson(route, body = {}) {
       calls.push([route, structuredClone(body)])
       if (route === '/comfyui.state') return structuredClone(state)
-      if (route === '/comfyui.test') return { ok: true, baseUrl: body.baseUrl.replace(/\/$/, ''), ping: { ok: true, device: 'GPU' } }
+      if (route === '/comfyui.test') return new Promise(resolve => { resolveConnectionTest = () => resolve({ ok: true, baseUrl: body.baseUrl.replace(/\/$/, ''), ping: { ok: true, device: 'GPU' } }) })
       if (route === '/comfyui.save') {
         if (body.baseUrl) state.baseUrl = body.baseUrl.replace(/\/$/, '')
         if (body.templates) state.templates = state.templates.map(item => ({ ...item, user_note: body.templates[item.id]?.note || '' }))
@@ -97,6 +98,11 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
     assert.equal(document.querySelector('button[aria-label="刷新服务器状态"]').disabled, true)
     await doubleClick(baseTest)
     assert.equal(calls.filter(([route]) => route === '/comfyui.test').length, 1)
+    assert.equal(baseTest.disabled, true)
+    assert.equal(baseSave.disabled, false)
+    assert.equal(document.querySelector('.tf-model-routing select').disabled, false)
+    assert.equal(document.querySelector('.tf-comfy-add input').disabled, false)
+    await act(async () => { resolveConnectionTest(); await new Promise(resolve => setTimeout(resolve, 0)) })
     assert.match(document.body.textContent, /地址尚未保存/)
     await click(baseSave)
     assert.equal(state.baseUrl, 'http://gpu.example:8188')

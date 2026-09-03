@@ -35,6 +35,7 @@ test('studio protects edits and completes the guided production interaction flow
     ['project-2', []],
   ])
   const calls = []
+  let resolvePlan
   const api = {
     mediaUrl: (projectId, path) => `/file/${projectId}/${path}`,
     async fetchJson(route, body = {}) {
@@ -65,7 +66,7 @@ test('studio protects edits and completes the guided production interaction flow
         const value = details.get(body.projectId)
         value.script = { synopsis: '已规划', scenes: [{ id: 'scene-1', title: '开场', summary: '场景摘要' }] }
         value.plan = { source: 'producer-agent', chapters: [{ id: 'chapter-1', title: '第一章', anchors: [{ id: 'anchor-1', imagePrompt: '起始画面' }] }] }
-        return structuredClone(value)
+        return new Promise(resolve => { resolvePlan = () => resolve(structuredClone(value)) })
       }
       if (route === '/production.start' || route === '/production.resume') {
         const value = details.get(body.projectId); value.state.status = 'running'; value.state.authorizedAt ||= 'now'; value.tasks = [{ id: 'task-1', type: 'start_frame', entityId: 'chapter-1', status: 'running' }]; return structuredClone(value)
@@ -161,6 +162,10 @@ test('studio protects edits and completes the guided production interaction flow
     await click(button('保存修改'))
     await doubleClick(button('自动规划'))
     assert.equal(calls.filter(([route]) => route === '/episode.plan').length, 1)
+    assert.equal(button('故事').disabled, false)
+    assert.equal(document.querySelector('button[aria-label="新建项目"]').disabled, false)
+    assert.equal(document.querySelector('input[aria-label^="选择项目"]').disabled, false)
+    await act(async () => { resolvePlan(); await new Promise(resolve => setTimeout(resolve, 0)) })
     assert.match(document.body.textContent, /已规划/)
     for (const stage of ['资产', '规划', '起始帧', '关键帧', '章节', '故事', '剧本']) await click(button(stage))
 
