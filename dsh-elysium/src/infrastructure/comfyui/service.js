@@ -57,6 +57,50 @@ function normalizeBaseUrl(value) {
   return candidate
 }
 
+const MODEL_STAGE_DEFAULTS = {
+  characterImage: 'qwen-image-t2i',
+  startFrame: 'qwen-image-t2i',
+  keyframeImage: 'qwen-image-edit',
+  chapterVideo: 'wan22-remix-long',
+  shotImage: 'qwen-image-t2i',
+  shotVideo: 'wan22-remix-long',
+}
+
+function applyModelRouting(config, routing = {}) {
+  const planner = routing.planner
+  if (planner?.provider && planner.model) {
+    config.planner = { ...(config.planner || {}), ...planner }
+  }
+  config.models ||= {}
+  for (const [key, fallback] of Object.entries(MODEL_STAGE_DEFAULTS)) {
+    const template = routing.stages?.[key] || config.models[key]?.template || fallback
+    config.models[key] = { ...(config.models[key] || {}), template }
+  }
+}
+
+function currentModelRouting(config) {
+  return {
+    planner: {
+      provider: String(config.planner?.provider || 'qwen38-local'),
+      model: String(config.planner?.model || 'qwen3.8-27b-video-prompt'),
+      maxTokens: Number(config.planner?.maxTokens || 4096),
+    },
+    stages: Object.fromEntries(Object.entries(MODEL_STAGE_DEFAULTS).map(([key, fallback]) => [key, String(config.models?.[key]?.template || fallback)])),
+  }
+}
+
+async function textProviderCatalog(llm) {
+  if (!llm?.listProviders) return []
+  return Promise.all(llm.listProviders().map(async provider => {
+    try {
+      const models = await llm.listModels(provider.id)
+      return { ...provider, models }
+    } catch (error) {
+      return { ...provider, models: [], error: error?.message || String(error) }
+    }
+  }))
+}
+
 function copyBundledTemplates(target) {
   fs.mkdirSync(target, { recursive: true })
   const source = bundledTemplatesDir()
@@ -94,6 +138,7 @@ export function resolveComfyUiConfig(config = {}) {
   copyBundledTemplates(templatesDir)
   fs.mkdirSync(outputDir, { recursive: true })
   const settings = loadSettings(templatesDir)
+  applyModelRouting(config, settings.modelRouting)
   return {
     baseUrl: String(settings.baseUrl || comfyui.baseUrl || 'http://127.0.0.1:8189').replace(/\/$/, ''),
     templatesDir,
@@ -101,8 +146,9 @@ export function resolveComfyUiConfig(config = {}) {
   }
 }
 
-export function createComfyUiService(config = {}) {
+export function createComfyUiService(config = {}, llm) {
   const runtime = () => resolveComfyUiConfig(config)
+  runtime()
 
   return {
     runtime,
@@ -139,13 +185,16 @@ export function createComfyUiService(config = {}) {
       }
       const onServer = new Set(availableLoras)
       const protectedTemplates = bundledTemplateIds()
+      const templates = annotateTemplates(current.templatesDir, settings).map(item => ({ ...item, removable: !protectedTemplates.has(item.id) }))
       return {
         ok: true,
         baseUrl: current.baseUrl,
         ping: status,
-        templates: annotateTemplates(current.templatesDir, settings).map(item => ({ ...item, removable: !protectedTemplates.has(item.id) })),
+        templates,
         loras: loraCatalog(current.templatesDir, settings).map(item => ({ ...item, on_server: status.ok ? onServer.has(item.name) : null })),
         availableLoras,
+        modelRouting: currentModelRouting(config),
+        textProviders: await textProviderCatalog(llm),
       }
     },
     async saveSettings(patch = {}) {

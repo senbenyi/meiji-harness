@@ -91,10 +91,15 @@ function sendJson(res, status, value) {
 
 function sendError(res, error) {
   const status = Number.isInteger(error?.status) ? error.status : 500
+  const safeMessage = {
+    TIMEOUT: '连接 ComfyUI 超时，请检查服务状态、地址或 SSH 隧道后重试',
+    HTTP_ERROR: '无法连接 ComfyUI，请检查服务地址和网络后重试',
+    UNREACHABLE: 'ComfyUI 当前不可用，请检查服务后重试',
+  }[error?.code]
   sendJson(res, status, {
     ok: false,
     code: error?.code || 'INTERNAL_ERROR',
-    error: status >= 500 ? 'Internal server error' : error.message,
+    error: safeMessage || (status >= 500 ? 'Internal server error' : error.message),
   })
 }
 
@@ -288,7 +293,7 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
 }
 
 export function apply(ctx, config = {}, fence = (_request) => false) {
-  const comfy = createComfyUiService(config)
+  const comfy = createComfyUiService(config, ctx.llm || ctx.get?.('llm'))
   const generation = createGenerationService(ctx, config, comfy)
   const factory = createFactoryService(ctx, config, comfy)
   const production = createProductionService(ctx, config, comfy)

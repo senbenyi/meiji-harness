@@ -18,6 +18,25 @@ function notesFromState(value) {
   return Object.fromEntries((value?.templates || []).map(item => [item.id, item.user_note || '']))
 }
 
+function routingFromState(value) {
+  const saved = value?.modelRouting || {}
+  return {
+    planner: {
+      provider: saved.planner?.provider || 'qwen38-local',
+      model: saved.planner?.model || 'qwen3.8-27b-video-prompt',
+      maxTokens: Number(saved.planner?.maxTokens || 4096),
+    },
+    stages: {
+      characterImage: saved.stages?.characterImage || 'qwen-image-t2i',
+      startFrame: saved.stages?.startFrame || 'qwen-image-t2i',
+      keyframeImage: saved.stages?.keyframeImage || 'qwen-image-edit',
+      chapterVideo: saved.stages?.chapterVideo || 'wan22-remix-long',
+      shotImage: saved.stages?.shotImage || 'qwen-image-t2i',
+      shotVideo: saved.stages?.shotVideo || 'wan22-remix-long',
+    },
+  }
+}
+
 function sameValue(a, b) {
   return JSON.stringify(a) === JSON.stringify(b)
 }
@@ -49,6 +68,7 @@ export function createComfyUiSettings(React, api) {
   return function ComfyUiSettings({ onDirty, onBusy }) {
     const [state, setState] = useState(null)
     const [baseUrl, setBaseUrl] = useState('http://127.0.0.1:8189')
+    const [modelRouting, setModelRouting] = useState(() => routingFromState(null))
     const [templateNotes, setTemplateNotes] = useState({})
     const [loras, setLoras] = useState([])
     const [filter, setFilter] = useState('')
@@ -60,12 +80,15 @@ export function createComfyUiSettings(React, api) {
     const [notice, setNotice] = useState(null)
     const [pendingDelete, setPendingDelete] = useState(null)
     const [workflowTests, setWorkflowTests] = useState({})
+    const [testingWorkflows, setTestingWorkflows] = useState({})
     const [openWorkflows, setOpenWorkflows] = useState({})
     const busyRef = useRef(false)
+    const testingWorkflowsRef = useRef(new Set())
 
-    const applyState = (value, sections = ['base', 'templates', 'loras']) => {
+    const applyState = (value, sections = ['base', 'models', 'templates', 'loras']) => {
       setState(value)
       if (sections.includes('base')) setBaseUrl(value.baseUrl || 'http://127.0.0.1:8189')
+      if (sections.includes('models')) setModelRouting(routingFromState(value))
       if (sections.includes('templates')) setTemplateNotes(notesFromState(value))
       if (sections.includes('loras')) setLoras((value.loras || []).map(item => ({ ...item })))
     }
@@ -103,7 +126,8 @@ export function createComfyUiSettings(React, api) {
     const baseDirty = !!state && baseUrl.trim().replace(/\/$/, '') !== state.baseUrl
     const templatesDirty = !!state && !sameValue(currentTemplatePayload, savedTemplatePayload)
     const lorasDirty = !!state && !sameValue(currentLoraPayload, savedLoraPayload)
-    const dirty = baseDirty || templatesDirty || lorasDirty
+    const modelsDirty = !!state && !sameValue(modelRouting, routingFromState(state))
+    const dirty = baseDirty || modelsDirty || templatesDirty || lorasDirty
 
     useEffect(() => { onDirty?.(dirty) }, [dirty, onDirty])
     useEffect(() => { onBusy?.(!!busy); return () => onBusy?.(false) }, [busy, onBusy])
@@ -129,6 +153,12 @@ export function createComfyUiSettings(React, api) {
       setNotice(value.ping?.ok
         ? { ok: true, text: 'ComfyUI 地址已保存并连接成功。' }
         : { ok: false, text: `地址已保存，但连接失败：${value.ping?.message || value.ping?.code || '无法访问服务'}` })
+    })
+
+    const saveModelRouting = () => run('save-models', async () => {
+      const value = await api.fetchJson('/comfyui.save', { modelRouting })
+      applyState(value, ['models'])
+      setNotice({ ok: true, text: '模型路由已保存，后续任务将使用新的模型配置。' })
     })
 
     const saveTemplateNotes = () => run('save-templates', async () => {
@@ -159,13 +189,28 @@ export function createComfyUiSettings(React, api) {
       setNotice({ ok: true, text: `已导入 ${value.id || '工作流'}。` })
     })
 
-    const testWorkflow = template => run(`test-template:${template.id}`, async () => {
-      const value = await api.fetchJson('/comfyui.test_template', { template: template.id })
-      setWorkflowTests(current => ({ ...current, [template.id]: value }))
-      setNotice(value.ready
-        ? { ok: true, text: `${template.title || template.id} 测试通过，未执行生成。` }
-        : { ok: false, text: `${template.title || template.id} 测试未通过，请查看工作流详情。` })
-    })
+    const testWorkflow = async template => {
+      const id = template.id
+      if (testingWorkflowsRef.current.has(id)) return null
+      testingWorkflowsRef.current.add(id)
+      setTestingWorkflows(current => ({ ...current, [id]: true }))
+      setWorkflowTests(current => ({ ...current, [id]: null }))
+      try {
+        const value = await api.fetchJson('/comfyui.test_template', { template: id })
+        setWorkflowTests(current => ({ ...current, [id]: value }))
+        return value
+      } catch (error) {
+        setWorkflowTests(current => ({ ...current, [id]: { ready: false, checked_nodes: 0, errors: [{ message: error.message || String(error) }] } }))
+        return null
+      } finally {
+        testingWorkflowsRef.current.delete(id)
+        setTestingWorkflows(current => {
+          const next = { ...current }
+          delete next[id]
+          return next
+        })
+      }
+    }
 
     const confirmDelete = () => run('delete', async () => {
       const target = pendingDelete
@@ -215,10 +260,33 @@ export function createComfyUiSettings(React, api) {
     const selected = choices.includes(pick) ? pick : (choices[0] || '')
     const draftCurrent = !!draft && draft.fingerprint === workflowFingerprint(workflow)
     const configuredCount = loras.filter(item => item.in_registry !== false).length
+    const textProviders = state?.textProviders || []
+    const activeProvider = textProviders.find(item => item.id === modelRouting.planner.provider)
+    const textModels = activeProvider?.models || []
+    const templates = state?.templates || []
+    const templateModes = template => template.capabilities?.mode || []
+    const stageTemplates = key => templates.filter(template => {
+      const modes = templateModes(template)
+      if (key === 'keyframeImage') return modes.some(mode => ['i2i', 'keyframe', 'image'].includes(mode))
+      if (key === 'chapterVideo') return modes.some(mode => ['long_video', 'six_anchor', 'video'].includes(mode))
+      if (key === 'shotVideo') return modes.some(mode => ['i2v', 'long_video', 'video'].includes(mode))
+      return modes.some(mode => ['t2i', 'image'].includes(mode))
+    })
+    const updatePlanner = patch => setModelRouting(current => ({ ...current, planner: { ...current.planner, ...patch } }))
+    const updateStage = (key, template) => setModelRouting(current => ({ ...current, stages: { ...current.stages, [key]: template } }))
+
+    const ModelSelect = ({ stage, label }) => {
+      const choices = stageTemplates(stage)
+      const current = modelRouting.stages[stage]
+      return h(Field, { label }, h('select', { className: 'tf-input', value: current, disabled: !!busy, onChange: event => updateStage(stage, event.target.value) },
+        !choices.some(item => item.id === current) ? h('option', { value: current }, `${current}（当前配置）`) : null,
+        choices.map(item => h('option', { key: item.id, value: item.id }, item.title || item.id)),
+      ))
+    }
 
     return h('div', { className: 'tf-comfy', 'aria-busy': !!busy },
       h('header', { className: 'tf-settings-head' },
-        h('div', null, h('div', { className: 'tf-title' }, '自定义'), h('div', { className: 'tf-card-meta' }, 'LoRA')),
+        h('div', null, h('div', { className: 'tf-title' }, '模型设置'), h('div', { className: 'tf-card-meta' }, 'ComfyUI 与 LoRA')),
         h('span', { className: `tf-comfy-status ${statusTone}`, role: 'status', 'aria-live': 'polite', title: deviceName || statusText }, statusText),
       ),
       notice ? h('div', { className: notice.ok ? 'tf-success' : 'tf-error', role: notice.ok ? 'status' : 'alert', 'aria-live': 'polite' }, notice.text) : null,
@@ -227,9 +295,51 @@ export function createComfyUiSettings(React, api) {
         h(Field, { composite: true, label: 'ComfyUI 服务地址', hint: !baseDirty && state?.ping?.ok ? `已连接${state.ping.version ? ` · ComfyUI ${state.ping.version}` : ''}` : '测试不会保存；保存地址后才会用于生产任务。' },
           h('div', { className: 'tf-settings-line' },
             h('input', { className: 'tf-input', 'aria-label': 'ComfyUI 服务地址', value: baseUrl, inputMode: 'url', disabled: !!busy, onChange: event => { setBaseUrl(event.target.value); setTested(null) } }),
-            h('button', { className: 'tf-btn', disabled: !!busy || !baseDirty, onClick: saveBaseUrl }, busy === 'save-base' ? '保存中…' : '保存'),
-            h('button', { className: 'tf-btn tf-btn-ghost', disabled: !!busy || !baseUrl.trim(), onClick: testConnection }, busy === 'test' ? '测试中…' : '测试'),
+            h('button', { className: 'tf-btn', disabled: !!busy || !baseDirty, onClick: saveBaseUrl }, busy === 'save-base' ? '保存中…' : '保存地址'),
+            h('button', { className: 'tf-btn tf-btn-ghost', disabled: !!busy || !baseUrl.trim(), onClick: testConnection }, busy === 'test' ? '测试中…' : '测试连接'),
             h('button', { className: 'tf-icon-btn', 'aria-label': '刷新服务器状态', title: dirty ? '请先保存或撤销未保存修改' : '刷新服务器状态', disabled: !!busy || dirty, onClick: () => loadState(false) }, '↻'),
+          ),
+        ),
+      ),
+
+      h('details', { className: 'tf-settings-section tf-model-routing', open: true },
+        h('summary', { className: 'tf-settings-summary' }, h('span', null, '模型路由'), h('span', { className: 'tf-settings-count' }, `文本、图片、视频${modelsDirty ? ' · 未保存' : ''}`)),
+        h('div', { className: 'tf-settings-body tf-model-routing-body' },
+          h('div', { className: 'tf-model-group' },
+            h('div', { className: 'tf-model-group-title' }, '文本规划模型'),
+            h('div', { className: 'tf-model-grid' },
+              h(Field, { label: '供应商', hint: textProviders.length ? '来自 DSH 当前已注册的模型供应商。' : '当前未发现供应商，可保留已有自定义路由。' }, h('select', {
+                className: 'tf-input', value: modelRouting.planner.provider, disabled: !!busy || !textProviders.length,
+                onChange: event => {
+                  const provider = textProviders.find(item => item.id === event.target.value)
+                  updatePlanner({ provider: event.target.value, model: provider?.models?.[0]?.id || '' })
+                },
+              },
+              !textProviders.some(item => item.id === modelRouting.planner.provider) ? h('option', { value: modelRouting.planner.provider }, `${modelRouting.planner.provider}（当前配置）`) : null,
+              textProviders.map(item => h('option', { key: item.id, value: item.id }, item.name || item.id)))),
+              h(Field, { label: '模型' }, textModels.length
+                ? h('select', { className: 'tf-input', value: modelRouting.planner.model, disabled: !!busy, onChange: event => updatePlanner({ model: event.target.value }) },
+                    !textModels.some(item => item.id === modelRouting.planner.model) ? h('option', { value: modelRouting.planner.model }, `${modelRouting.planner.model}（自定义）`) : null,
+                    textModels.map(item => h('option', { key: item.id, value: item.id }, item.name || item.id)))
+                : h('input', { className: 'tf-input', value: modelRouting.planner.model, disabled: !!busy, onChange: event => updatePlanner({ model: event.target.value }) })),
+              h(Field, { label: '最大输出 Token' }, h('input', { className: 'tf-input', type: 'number', min: 512, max: 32768, step: 1, value: modelRouting.planner.maxTokens, disabled: !!busy, onChange: event => updatePlanner({ maxTokens: Number(event.target.value) }) })),
+            ),
+          ),
+          h('div', { className: 'tf-model-group' },
+            h('div', { className: 'tf-model-group-title' }, '图片与视频模型'),
+            h('p', { className: 'tf-settings-hint' }, '每个生产阶段可独立选择已安装或导入的 ComfyUI 工作流。'),
+            h('div', { className: 'tf-model-grid' },
+              h(ModelSelect, { stage: 'characterImage', label: '角色定妆图' }),
+              h(ModelSelect, { stage: 'startFrame', label: '章节起始帧' }),
+              h(ModelSelect, { stage: 'keyframeImage', label: '连续关键帧' }),
+              h(ModelSelect, { stage: 'chapterVideo', label: '章节长视频' }),
+              h(ModelSelect, { stage: 'shotImage', label: '单镜图片' }),
+              h(ModelSelect, { stage: 'shotVideo', label: '单镜视频' }),
+            ),
+          ),
+          h('div', { className: 'tf-settings-footer' },
+            h('button', { className: 'tf-btn tf-btn-ghost', disabled: !!busy || !modelsDirty, onClick: () => setModelRouting(routingFromState(state)) }, '撤销'),
+            h('button', { className: 'tf-btn', disabled: !!busy || !modelsDirty || !modelRouting.planner.provider.trim() || !modelRouting.planner.model.trim(), onClick: saveModelRouting }, busy === 'save-models' ? '保存中…' : '保存模型'),
           ),
         ),
       ),
@@ -242,9 +352,9 @@ export function createComfyUiSettings(React, api) {
               : !state.templates?.length ? h('div', { className: 'tf-settings-empty' }, '暂无工作流')
                 : state.templates.map(template => {
                   const testResult = workflowTests[template.id]
-                  const testing = busy === `test-template:${template.id}`
+                  const testing = !!testingWorkflows[template.id]
                   const expanded = !!openWorkflows[template.id]
-                  return h('div', { className: 'tf-settings-item tf-workflow-item', key: template.id },
+                  return h('div', { className: 'tf-settings-item tf-workflow-item', key: template.id, 'aria-busy': testing },
                   h('div', { className: 'tf-workflow-row' },
                     h('button', {
                       className: 'tf-workflow-toggle', 'aria-expanded': expanded, disabled: !!busy,
@@ -254,9 +364,9 @@ export function createComfyUiSettings(React, api) {
                     h('span', { className: 'tf-comfy-name' }, template.title || template.id),
                     h('span', { className: 'tf-settings-meta' }, template.removable ? (template.capabilities?.mode || []).join(' · ') : '内置')),
                     h('div', { className: 'tf-workflow-actions' },
-                      h('button', { className: 'tf-btn tf-btn-ghost tf-btn-small', title: baseDirty ? '请先保存 ComfyUI 地址' : '检查节点、输入结构与模型文件，不执行生成', disabled: !!busy || baseDirty, onClick: () => testWorkflow(template) }, testing ? '测试中…' : '测试'),
+                      h('button', { className: 'tf-btn tf-btn-ghost tf-btn-small', title: baseDirty ? '请先保存 ComfyUI 地址' : '检查节点、输入结构与模型文件，不执行生成', disabled: !!busy || testing || baseDirty, onClick: () => testWorkflow(template) }, testing ? '测试中…' : '测试'),
                       template.removable
-                        ? h('button', { className: 'tf-link-danger', disabled: !!busy, onClick: () => setPendingDelete({ type: 'template', item: template }) }, '删除')
+                        ? h('button', { className: 'tf-link-danger', disabled: !!busy || testing, onClick: () => setPendingDelete({ type: 'template', item: template }) }, '删除')
                         : null,
                     ),
                   ),

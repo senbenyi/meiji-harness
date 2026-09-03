@@ -65,7 +65,7 @@ export function createElysiumApp(React, api) {
         ),
         h('nav', { className: 'ely-view-switch' },
           h('button', { className: view === 'studio' ? 'is-active' : '', 'aria-current': view === 'studio' ? 'page' : undefined, disabled: childBusy, title: childBusy ? '当前操作完成后可切换' : '', onClick: () => switchView('studio') }, '制作'),
-          h('button', { className: view === 'comfyui' ? 'is-active' : '', 'aria-current': view === 'comfyui' ? 'page' : undefined, disabled: childBusy, title: childBusy ? '当前操作完成后可切换' : '', onClick: () => switchView('comfyui') }, '自定义'),
+          h('button', { className: view === 'comfyui' ? 'is-active' : '', 'aria-current': view === 'comfyui' ? 'page' : undefined, disabled: childBusy, title: childBusy ? '当前操作完成后可切换' : '', onClick: () => switchView('comfyui') }, '模型设置'),
         ),
       ),
       view === 'comfyui'
@@ -74,7 +74,7 @@ export function createElysiumApp(React, api) {
       pendingView ? Modal(h, {
         title: '放弃未保存修改？',
         onClose: () => setPendingView(''),
-        children: h('p', { className: 'tf-confirm-message' }, `${view === 'comfyui' ? '自定义设置' : '当前内容'}还有未保存修改。离开后这些修改将丢失。`),
+        children: h('p', { className: 'tf-confirm-message' }, `${view === 'comfyui' ? '模型设置' : '当前内容'}还有未保存修改。离开后这些修改将丢失。`),
         actions: [
           h('button', { key: 'cancel', className: 'tf-btn tf-btn-ghost', onClick: () => setPendingView('') }, '继续编辑'),
           h('button', { key: 'discard', className: 'tf-btn tf-btn-danger-solid', onClick: discardAndSwitch }, '放弃并离开'),

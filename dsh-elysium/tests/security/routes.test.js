@@ -71,7 +71,7 @@ test('rejects untrusted requests before every Elysium route', async () => {
   cleanup()
 })
 
-test('episode create route saves a draft without invoking the planner', async t => {
+test('episode create stays draft and known service failures remain actionable', async t => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-route-test-'))
   t.after(() => rm(workspace, { recursive: true, force: true }))
   const project = await projectCreate({ workspace }, { title: '先保存项目' })
@@ -112,6 +112,15 @@ test('episode create route saves a draft without invoking the planner', async t 
 
   assert.equal(response.status, 200)
   assert.equal(JSON.parse(response.body).plan.source, 'auto-draft')
+
+  const failedConnection = responseRecorder()
+  await api.handler(jsonRequest('/elysium/api/comfyui.test', {
+    baseUrl: 'http://127.0.0.1:1',
+  }), failedConnection)
+  const failure = JSON.parse(failedConnection.body)
+  assert.equal(failedConnection.status, 500)
+  assert.equal(failure.code, 'HTTP_ERROR')
+  assert.match(failure.error, /检查服务地址和网络后重试/)
 })
 
 test('streams project media with byte-range support for video playback', async t => {

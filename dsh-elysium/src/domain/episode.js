@@ -196,7 +196,7 @@ export function initialState(episode) {
   return {
     schemaVersion: 'elysium-state-2',
     episodeId: episode.id,
-    status: 'ready',
+    status: 'draft',
     activeStage: 'story',
     authorizedAt: null,
     approval: null,

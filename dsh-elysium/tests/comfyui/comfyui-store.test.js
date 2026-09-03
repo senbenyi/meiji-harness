@@ -53,4 +53,15 @@ describe('user notes', () => {
     assert.equal(loadSettings(dir).templates.demo.note, 'keep me')
   })
 
+  it('persists text and stage model routing without exposing arbitrary fields', () => {
+    saveSettings(dir, { modelRouting: {
+      planner: { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192, ignored: 'drop' },
+      stages: { characterImage: 'demo', chapterVideo: 'video-demo', ignored: 'drop' },
+    } })
+    assert.deepEqual(loadSettings(dir).modelRouting, {
+      planner: { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192 },
+      stages: { characterImage: 'demo', chapterVideo: 'video-demo' },
+    })
+  })
+
 })

@@ -28,6 +28,35 @@ test('internal ComfyUI settings persist without a second plugin', async (t) => {
   assert.equal(service.runtime().baseUrl, 'http://127.0.0.1:18189')
 })
 
+test('model routing lists registered text models and updates the live config', async (t) => {
+  const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-model-routing-'))
+  t.after(() => rm(workspace, { recursive: true, force: true }))
+  const config = { workspace, comfyui: { baseUrl: 'http://127.0.0.1:9' }, planner: {}, models: {} }
+  const llm = {
+    listProviders: () => [{ id: 'openai', name: 'OpenAI' }, { id: 'offline', name: 'Offline' }],
+    listModels: async provider => {
+      if (provider === 'offline') throw new Error('not configured')
+      return [{ provider, id: 'gpt-5.5', name: 'GPT-5.5' }]
+    },
+  }
+  const service = createComfyUiService(config, llm)
+
+  const initial = await service.state()
+  assert.equal(initial.textProviders[0].models[0].id, 'gpt-5.5')
+  assert.equal(initial.textProviders[1].error, 'not configured')
+  await service.saveSettings({ modelRouting: {
+    planner: { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192 },
+    stages: { characterImage: 'anima-txt2img', chapterVideo: 'wan22-remix-long' },
+  } })
+  assert.deepEqual(config.planner, { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192 })
+  assert.equal(config.models.characterImage.template, 'anima-txt2img')
+
+  const restartedConfig = { workspace, comfyui: { baseUrl: 'http://127.0.0.1:9' }, planner: {}, models: {} }
+  createComfyUiService(restartedConfig, llm)
+  assert.deepEqual(restartedConfig.planner, { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192 })
+  assert.equal(restartedConfig.models.characterImage.template, 'anima-txt2img')
+})
+
 test('connection test validates a draft URL without saving it', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-comfyui-test-'))
   const server = createServer((_req, res) => {

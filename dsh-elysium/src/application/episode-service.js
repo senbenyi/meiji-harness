@@ -116,6 +116,7 @@ export async function loadEpisode(config, projectId, episodeId) {
   const [episode, script, assets, plan, state, tasks, issues] = await Promise.all([
     readJson(p.episode), readJson(p.script, null), readJson(p.assets, []), readJson(p.plan), readJson(p.state), readJson(p.tasks, []), readJson(p.issues, []),
   ])
+  if (plan?.source === 'auto-draft' && state?.status === 'ready') state.status = 'draft'
   return { p, projectDirectory, episode, script: script || defaultScript(episode, plan), assets, plan, state, tasks, issues }
 }
 
@@ -170,6 +171,13 @@ export async function episodeUpdate(config, body = {}) {
       negativePrompt: loaded.episode.negativePrompt,
       plan: loaded.plan,
     })
+    const previousPlanningInputs = JSON.stringify({
+      sourceText: loaded.episode.sourceText,
+      targetDurationSec: loaded.episode.targetDurationSec,
+      aspectRatio: loaded.episode.aspectRatio || '9:16',
+      stylePrompt: loaded.episode.stylePrompt,
+      castPrompt: loaded.episode.castPrompt,
+    })
     if (patch.sourceText !== undefined) loaded.episode.sourceText = text(patch.sourceText, 'sourceText')
     if (patch.title !== undefined) loaded.episode.title = text(patch.title, 'title', 120)
     if (patch.profile !== undefined) loaded.episode.profile = patch.profile === 'final' ? 'final' : 'preview'
@@ -183,14 +191,21 @@ export async function episodeUpdate(config, body = {}) {
       loaded.episode.targetDurationSec = duration
     }
     assertStyleRatio(loaded.episode.stylePrompt, loaded.episode.aspectRatio || '9:16')
+    const planningInputsChanged = previousPlanningInputs !== JSON.stringify({
+      sourceText: loaded.episode.sourceText,
+      targetDurationSec: loaded.episode.targetDurationSec,
+      aspectRatio: loaded.episode.aspectRatio || '9:16',
+      stylePrompt: loaded.episode.stylePrompt,
+      castPrompt: loaded.episode.castPrompt,
+    })
     if (patch.plan !== undefined) {
       loaded.plan = validatePlan(patch.plan, loaded.episode.id)
-    } else if (loaded.plan.source === 'auto-draft' && ['sourceText', 'targetDurationSec', 'stylePrompt', 'castPrompt', 'aspectRatio'].some(key => patch[key] !== undefined)) {
+    } else if (planningInputsChanged) {
       loaded.plan = validatePlan(defaultPlan(loaded.episode, loaded.episode.id, loaded.episode.targetDurationSec), loaded.episode.id)
       loaded.plan.source = 'auto-draft'
     }
     if (patch.script && typeof patch.script === 'object') loaded.script = { ...patch.script, source: patch.script.source || 'edited' }
-    else if (loaded.script?.source === 'auto-draft' && (patch.sourceText !== undefined || patch.plan !== undefined)) loaded.script = defaultScript(loaded.episode, loaded.plan)
+    else if (planningInputsChanged || (loaded.script?.source === 'auto-draft' && patch.plan !== undefined)) loaded.script = defaultScript(loaded.episode, loaded.plan)
     if (Array.isArray(patch.assets)) loaded.assets = patch.assets.map(item => ({ ...item }))
     else if (patch.castPrompt !== undefined || patch.stylePrompt !== undefined) loaded.assets = defaultAssets(loaded.episode)
     const nextProductionInput = JSON.stringify({
@@ -218,7 +233,7 @@ export async function episodeUpdate(config, body = {}) {
           }
         }
       }
-      loaded.state.status = 'ready'
+      loaded.state.status = loaded.plan.source === 'auto-draft' ? 'draft' : 'ready'
       loaded.state.activeStage = 'story'
       loaded.state.approval = null
       if (loaded.tasks.find(task => task.id === 'final')?.status !== 'succeeded') loaded.state.final = null

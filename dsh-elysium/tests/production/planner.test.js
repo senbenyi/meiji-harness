@@ -41,6 +41,23 @@ test('uses the configured Qwen provider and returns six concrete anchors per cha
   assert.equal(result.plan.chapters[0].anchors[1].role, 'continuation')
 })
 
+test('uses a model routing change made after the planner service starts', async () => {
+  let request
+  const config = { planner: { provider: 'first', model: 'model-a', maxTokens: 4096 } }
+  const ctx = { llm: { async *stream(value) {
+    request = value
+    yield { type: 'text-delta', index: 0, text: response(1) }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  } } }
+  const planner = createPlannerService(ctx, config)
+  config.planner = { provider: 'second', model: 'model-b', maxTokens: 8192 }
+  await planner.plan({ episodeId: 'episode-switch', sourceText: '切换模型。', targetDurationSec: 20 })
+
+  assert.equal(request.provider, 'second')
+  assert.equal(request.model, 'model-b')
+  assert.equal(request.maxTokens, 8192)
+})
+
 test('accepts validated JSON when Qwen exposes it only as reasoning output', async () => {
   const ctx = { llm: { async *stream() {
     yield { type: 'reasoning-delta', index: 0, text: response(1) }

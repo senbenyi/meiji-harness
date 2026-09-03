@@ -379,9 +379,12 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
 
   async function start(body = {}) {
     assertAuthorization(body)
+    const candidate = await loadEpisode(config, body.projectId, body.episodeId)
+    if (candidate.plan?.source === 'auto-draft') fail('PLAN_REQUIRED', '请先完成自动规划再开始生产', 409)
     await preflightContracts(comfy, config)
     const result = await withEpisodeLock(body.projectId, body.episodeId, async () => {
       const loaded = await loadEpisode(config, body.projectId, body.episodeId)
+      if (loaded.plan?.source === 'auto-draft') fail('PLAN_REQUIRED', '请先完成自动规划再开始生产', 409)
       if (loaded.state.status === 'approved') fail('ALREADY_APPROVED', '当前成片已经验收；修改上游后才能重新生产', 409)
       if (loaded.state.status === 'awaiting_review') fail('REVIEW_PENDING', '当前成片正在等待人工终审', 409)
       if (loaded.state.status === 'needs_attention' && loaded.tasks.some(task => task.status === 'needs_attention')) {

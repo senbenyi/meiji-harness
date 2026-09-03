@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { projectCreate } from '../../src/application/project-service.js'
-import { episodeCreate, episodeUpdate } from '../../src/application/episode-service.js'
+import { episodeCreate, episodeGet, episodeUpdate } from '../../src/application/episode-service.js'
 import { createProductionService } from '../../src/application/production-service.js'
 
 async function fixture(t, targetDurationSec = 20) {
@@ -33,12 +33,28 @@ async function eventually(check, timeout = 3000) {
   throw new Error('production did not settle')
 }
 
+async function createReadyEpisode(config, body) {
+  const created = await episodeCreate(config, body)
+  return episodeUpdate(config, {
+    projectId: body.projectId,
+    episodeId: body.episodeId,
+    updates: {
+      plan: { ...created.plan, source: 'producer-agent' },
+      script: { ...created.script, source: 'producer-agent' },
+    },
+  })
+}
+
 test('defaults new episodes to ten seconds and enforces the lower bound', async t => {
   const { workspace, body } = await fixture(t)
   delete body.targetDurationSec
   const created = await episodeCreate({ workspace }, body)
   assert.equal(created.episode.targetDurationSec, 10)
   assert.equal(created.plan.chapters.length, 1)
+  assert.equal(created.state.status, 'draft')
+  const statePath = path.join(workspace, 'projects', body.projectId, 'episodes', body.episodeId, 'state.json')
+  await writeFile(statePath, JSON.stringify({ ...created.state, status: 'ready' }))
+  assert.equal((await episodeGet({ workspace }, body)).state.status, 'draft')
   await assert.rejects(
     episodeUpdate({ workspace }, { projectId: body.projectId, episodeId: body.episodeId, updates: { targetDurationSec: 9 } }),
     /targetDurationSec 超出范围/,
@@ -99,7 +115,7 @@ test('rejects repeated full-story prompts before any image task is created', asy
 
 test('rejects an incompatible image-edit contract before submitting paid work', async t => {
   const { workspace, projectId, body } = await fixture(t)
-  await episodeCreate({ workspace }, body)
+  await createReadyEpisode({ workspace }, body)
   let submissions = 0
   const comfy = {
     async inspect(template) {
@@ -149,7 +165,7 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
     },
   }
   const config = { workspace, ffmpeg, ffprobe }
-  await episodeCreate(config, body)
+  await createReadyEpisode(config, body)
   const production = createProductionService({}, config, comfy)
   t.after(() => production.dispose())
   await assert.rejects(production.start({ projectId, episodeId: body.episodeId }), /必须确认/)
@@ -179,7 +195,7 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
   const changed = await episodeUpdate(config, {
     projectId, episodeId: body.episodeId, updates: { sourceText: '角色改在清晨车站重逢。' },
   })
-  assert.equal(changed.state.status, 'ready')
+  assert.equal(changed.state.status, 'draft')
   assert.equal(changed.state.final, null)
   assert.equal(changed.tasks.find(task => task.id === 'asset:cast-main').status, 'succeeded')
   assert.equal(changed.tasks.filter(task => task.id !== 'asset:cast-main').every(task => task.status === 'pending'), true)
@@ -214,7 +230,7 @@ test('retry resumes an authorized production instead of leaving pending tasks st
     },
   }
   const config = { workspace, ffmpeg, ffprobe }
-  await episodeCreate(config, body)
+  await createReadyEpisode(config, body)
   const production = createProductionService({}, config, comfy)
   t.after(() => production.dispose())
 

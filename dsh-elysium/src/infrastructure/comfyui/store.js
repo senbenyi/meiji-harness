@@ -24,6 +24,7 @@ export function defaultSettings() {
     baseUrl: '',
     loras: { ...DEFAULT_LORA_META },
     templates: {},
+    modelRouting: {},
   }
 }
 
@@ -36,6 +37,7 @@ export function loadSettings(templatesDir) {
       baseUrl: typeof raw.baseUrl === 'string' ? raw.baseUrl : '',
       loras: hasLoras ? normalizeLoras(raw.loras) : { ...DEFAULT_LORA_META },
       templates: raw.templates && typeof raw.templates === 'object' ? normalizeTemplateNotes(raw.templates) : {},
+      modelRouting: normalizeModelRouting(raw.modelRouting),
     }
   } catch {
     return defaultSettings()
@@ -48,10 +50,31 @@ export function saveSettings(templatesDir, patch) {
     baseUrl: patch.baseUrl != null ? String(patch.baseUrl) : cur.baseUrl,
     loras: patch.loras != null ? normalizeLoras(patch.loras) : cur.loras,
     templates: patch.templates != null ? normalizeTemplateNotes(patch.templates) : cur.templates,
+    modelRouting: patch.modelRouting != null ? normalizeModelRouting(patch.modelRouting) : cur.modelRouting,
   }
   fs.mkdirSync(templatesDir, { recursive: true })
   fs.writeFileSync(settingsFile(templatesDir), `${JSON.stringify(next, null, 2)}\n`, 'utf8')
   return next
+}
+
+function normalizeModelRouting(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
+  const planner = input.planner && typeof input.planner === 'object'
+    ? {
+        provider: String(input.planner.provider || '').trim(),
+        model: String(input.planner.model || '').trim(),
+        maxTokens: Math.max(512, Math.min(32768, Math.round(Number(input.planner.maxTokens) || 4096))),
+      }
+    : null
+  const stages = {}
+  for (const key of ['characterImage', 'startFrame', 'keyframeImage', 'chapterVideo', 'shotImage', 'shotVideo']) {
+    const template = String(input.stages?.[key] || '').trim()
+    if (template) stages[key] = template
+  }
+  return {
+    ...(planner?.provider && planner.model ? { planner } : {}),
+    ...(Object.keys(stages).length ? { stages } : {}),
+  }
 }
 
 function normalizeLoras(input) {

@@ -14,6 +14,17 @@ function initialState() {
     ],
     loras: [{ name: 'saved.safetensors', triggerWords: 'saved', mode: 'both', note: '', usedBy: [], on_server: true, in_registry: true }],
     availableLoras: ['saved.safetensors', 'new.safetensors'],
+    modelRouting: {
+      planner: { provider: 'qwen38-local', model: 'qwen3.8-27b-video-prompt', maxTokens: 4096 },
+      stages: {
+        characterImage: 'builtin', startFrame: 'builtin', keyframeImage: 'builtin',
+        chapterVideo: 'custom', shotImage: 'builtin', shotVideo: 'custom',
+      },
+    },
+    textProviders: [
+      { id: 'qwen38-local', name: 'Qwen Local', models: [{ id: 'qwen3.8-27b-video-prompt', name: 'Qwen 3.8' }] },
+      { id: 'openai', name: 'OpenAI', models: [{ id: 'gpt-5.4', name: 'GPT-5.4' }, { id: 'gpt-5.5', name: 'GPT-5.5' }] },
+    ],
   }
 }
 
@@ -31,6 +42,7 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
   const { act, Simulate } = await import('react-dom/test-utils')
   let state = initialState()
   const calls = []
+  const workflowResolvers = []
   const dirtyStates = []
   const api = {
     async fetchJson(route, body = {}) {
@@ -41,9 +53,10 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
         if (body.baseUrl) state.baseUrl = body.baseUrl.replace(/\/$/, '')
         if (body.templates) state.templates = state.templates.map(item => ({ ...item, user_note: body.templates[item.id]?.note || '' }))
         if (body.loras) state.loras = Object.entries(body.loras).map(([name, value]) => ({ name, ...value, usedBy: [], on_server: true, in_registry: true }))
+        if (body.modelRouting) state.modelRouting = structuredClone(body.modelRouting)
         return structuredClone(state)
       }
-      if (route === '/comfyui.test_template') return { ready: false, checked_nodes: 3, errors: [{ code: 'MODEL_MISSING', name: 'missing.safetensors' }] }
+      if (route === '/comfyui.test_template') return new Promise(resolve => workflowResolvers.push({ id: body.template, resolve }))
       if (route === '/comfyui.scan') return { draft: { id: body.id || 'imported', title: body.title || '导入工作流', nodes: 6 } }
       if (route === '/comfyui.import') {
         state.templates.push({ id: body.id || 'imported', title: body.title || '导入工作流', removable: true, user_note: '', capabilities: { mode: ['image'] } })
@@ -88,17 +101,40 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
     await click(baseSave)
     assert.equal(state.baseUrl, 'http://gpu.example:8188')
 
+    const modelSelects = [...document.querySelectorAll('.tf-model-routing select')]
+    await change(modelSelects[0], 'openai')
+    assert.equal(modelSelects[1].value, 'gpt-5.4')
+    await change(modelSelects[1], 'gpt-5.5')
+    await click(button('保存模型'))
+    assert.deepEqual(state.modelRouting.planner, { provider: 'openai', model: 'gpt-5.5', maxTokens: 4096 })
+
     const customRow = [...document.querySelectorAll('.tf-workflow-row')].find(item => item.textContent.includes('自定义工作流'))
     await click(customRow.querySelector('.tf-workflow-toggle'))
     const note = document.querySelector('.tf-workflow-body textarea')
     await change(note, '新注释')
     assert.equal(button('保存注释').disabled, false)
-    await click(button('撤销'))
+    await click(buttons('撤销')[1])
     assert.equal(note.value, '原注释')
     await change(note, '已保存注释')
     await click(button('保存注释'))
     assert.equal(state.templates.find(item => item.id === 'custom').user_note, '已保存注释')
-    await click(customRow.querySelector('.tf-workflow-actions .tf-btn'))
+    const builtinRow = [...document.querySelectorAll('.tf-workflow-row')].find(item => item.textContent.includes('内置工作流'))
+    const builtinTest = builtinRow.querySelector('.tf-workflow-actions .tf-btn')
+    const customTest = customRow.querySelector('.tf-workflow-actions .tf-btn')
+    await click(builtinTest)
+    assert.equal(builtinTest.disabled, true)
+    assert.equal(customTest.disabled, false)
+    await click(customTest)
+    assert.equal(customTest.disabled, true)
+    await click(builtinTest)
+    assert.equal(calls.filter(([route]) => route === '/comfyui.test_template').length, 2)
+    await act(async () => {
+      workflowResolvers.find(item => item.id === 'builtin').resolve({ ready: true, checked_nodes: 2, errors: [] })
+      workflowResolvers.find(item => item.id === 'custom').resolve({ ready: false, checked_nodes: 3, errors: [{ code: 'MODEL_MISSING', name: 'missing.safetensors' }] })
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+    assert.equal(builtinTest.disabled, false)
+    assert.equal(customTest.disabled, false)
     assert.match(document.body.textContent, /缺少模型：missing\.safetensors/)
 
     await click(button('删除'))

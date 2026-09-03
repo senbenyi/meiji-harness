@@ -42,8 +42,8 @@ function stageState(detail, stage, index) {
   if (tasks.length && tasks.every(task => task.status === 'succeeded')) return 'complete'
   if (tasks.some(task => ['running', 'queued'].includes(task.status))) return 'active'
   if (stage === 'story' && detail.episode?.sourceText) return 'complete'
-  if (stage === 'script' && detail.script?.scenes?.length) return 'complete'
-  if (stage === 'plan' && detail.plan?.chapters?.length) return 'complete'
+  if (stage === 'script' && detail.plan?.source !== 'auto-draft' && detail.script?.scenes?.length) return 'complete'
+  if (stage === 'plan' && detail.plan?.source !== 'auto-draft' && detail.plan?.chapters?.length) return 'complete'
   const currentIndex = STAGES.findIndex(item => item.key === detail.state?.activeStage)
   if (currentIndex === index && ['running', 'queued'].includes(detail.state?.status)) return 'active'
   return 'pending'
@@ -118,7 +118,7 @@ export function createStudio(React, api) {
     const draftDirty = storyFingerprint(draft) !== storyFingerprint(EMPTY_DRAFT)
     const storyValid = !!episode?.episode?.title.trim() && !!episode?.episode?.sourceText.trim() && Number(episode?.episode?.targetDurationSec) >= 10 && Number(episode?.episode?.targetDurationSec) <= 600
     const draftValid = !!draft.title.trim() && !!draft.sourceText.trim() && Number(draft.targetDurationSec) >= 10 && Number(draft.targetDurationSec) <= 600
-    const hasPlan = !!episode?.script?.scenes?.length && !!episode?.plan?.chapters?.length
+    const hasPlan = episode?.plan?.source !== 'auto-draft' && !!episode?.script?.scenes?.length && !!episode?.plan?.chapters?.length
     const storyLocked = ['running', 'queued'].includes(episode?.state?.status)
     const selectedEpisodes = selectedProjectIds.flatMap(id => projectEpisodes[id] || [])
     const batchStartCount = selectedEpisodes.filter(item => ['ready', 'paused'].includes(item.status)).length
@@ -525,7 +525,7 @@ export function createStudio(React, api) {
                 h('button', { className: 'ely-project-title', title: project.title, disabled: busy, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, `${items.length} 集`)),
                 h('div', { className: 'ely-project-actions' },
                   h('button', { className: 'ely-add-episode', title: `在 ${project.title} 中新建单集`, 'aria-label': `在 ${project.title} 中新建单集`, disabled: busy, onClick: () => createEpisodeIn(project.id) }, '+'),
-                  h('button', { className: 'ely-delete-project', title: `删除项目 ${project.title}`, 'aria-label': `删除项目 ${project.title}`, disabled: busy, onClick: () => setProjectToDelete(project) }, '删除'))),
+                  h('button', { className: 'ely-delete-project', title: `删除项目 ${project.title}`, 'aria-label': `删除项目 ${project.title}`, disabled: busy, onClick: () => setProjectToDelete(project) }, '−'))),
               expanded ? h('div', { className: 'ely-project-episodes', role: 'list', 'aria-label': `${project.title}的单集` }, items.length
                 ? items.map((item, index) => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, role: 'listitem', className: item.id === selectedEpisodeId && project.id === projectId ? 'is-active' : '', disabled: busy, onClick: () => chooseEpisode(project.id, item.id) }, h('span', { className: 'ely-episode-order' }, String(index + 1).padStart(2, '0')), h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) })
                 : h('span', { className: 'ely-project-no-episodes' }, '暂无单集')) : null)
