@@ -14,6 +14,7 @@ export function createElysiumApp(React, api) {
     const [settingsDirty, setSettingsDirty] = useState(false)
     const [studioDirty, setStudioDirty] = useState(false)
     const [pendingView, setPendingView] = useState('')
+    const [childBusy, setChildBusy] = useState(false)
 
     useEffect(() => {
       if (!settingsDirty && !studioDirty) return undefined
@@ -63,13 +64,13 @@ export function createElysiumApp(React, api) {
           h('div', null, h('strong', null, '极乐世界'), h('small', null, 'ELYSIUM STUDIO')),
         ),
         h('nav', { className: 'ely-view-switch' },
-          h('button', { className: view === 'studio' ? 'is-active' : '', 'aria-current': view === 'studio' ? 'page' : undefined, onClick: () => switchView('studio') }, '制作'),
-          h('button', { className: view === 'comfyui' ? 'is-active' : '', 'aria-current': view === 'comfyui' ? 'page' : undefined, onClick: () => switchView('comfyui') }, '自定义'),
+          h('button', { className: view === 'studio' ? 'is-active' : '', 'aria-current': view === 'studio' ? 'page' : undefined, disabled: childBusy, title: childBusy ? '当前操作完成后可切换' : '', onClick: () => switchView('studio') }, '制作'),
+          h('button', { className: view === 'comfyui' ? 'is-active' : '', 'aria-current': view === 'comfyui' ? 'page' : undefined, disabled: childBusy, title: childBusy ? '当前操作完成后可切换' : '', onClick: () => switchView('comfyui') }, '自定义'),
         ),
       ),
       view === 'comfyui'
-        ? h('div', { className: 'ely-settings-wrap' }, h(ComfyUiSettings, { onDirty: setSettingsDirty }))
-        : h(Studio, { initialProjectId: selection.projectId, initialEpisodeId: selection.episodeId, onSelection, onDirty: setStudioDirty }),
+        ? h('div', { className: 'ely-settings-wrap' }, h(ComfyUiSettings, { onDirty: setSettingsDirty, onBusy: setChildBusy }))
+        : h(Studio, { initialProjectId: selection.projectId, initialEpisodeId: selection.episodeId, onSelection, onDirty: setStudioDirty, onBusy: setChildBusy }),
       pendingView ? Modal(h, {
         title: '放弃未保存修改？',
         onClose: () => setPendingView(''),

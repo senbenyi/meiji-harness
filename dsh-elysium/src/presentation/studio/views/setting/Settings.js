@@ -46,7 +46,7 @@ export function createComfyUiSettings(React, api) {
     )
   }
 
-  return function ComfyUiSettings({ onDirty }) {
+  return function ComfyUiSettings({ onDirty, onBusy }) {
     const [state, setState] = useState(null)
     const [baseUrl, setBaseUrl] = useState('http://127.0.0.1:8189')
     const [templateNotes, setTemplateNotes] = useState({})
@@ -106,6 +106,7 @@ export function createComfyUiSettings(React, api) {
     const dirty = baseDirty || templatesDirty || lorasDirty
 
     useEffect(() => { onDirty?.(dirty) }, [dirty, onDirty])
+    useEffect(() => { onBusy?.(!!busy); return () => onBusy?.(false) }, [busy, onBusy])
     useEffect(() => {
       if (!dirty) return undefined
       const warn = event => { event.preventDefault(); event.returnValue = '' }
@@ -225,7 +226,7 @@ export function createComfyUiSettings(React, api) {
       h('section', { className: 'tf-settings-card' },
         h(Field, { composite: true, label: 'ComfyUI 服务地址', hint: !baseDirty && state?.ping?.ok ? `已连接${state.ping.version ? ` · ComfyUI ${state.ping.version}` : ''}` : '测试不会保存；保存地址后才会用于生产任务。' },
           h('div', { className: 'tf-settings-line' },
-            h('input', { className: 'tf-input', 'aria-label': 'ComfyUI 服务地址', value: baseUrl, inputMode: 'url', onChange: event => { setBaseUrl(event.target.value); setTested(null) } }),
+            h('input', { className: 'tf-input', 'aria-label': 'ComfyUI 服务地址', value: baseUrl, inputMode: 'url', disabled: !!busy, onChange: event => { setBaseUrl(event.target.value); setTested(null) } }),
             h('button', { className: 'tf-btn', disabled: !!busy || !baseDirty, onClick: saveBaseUrl }, busy === 'save-base' ? '保存中…' : '保存'),
             h('button', { className: 'tf-btn tf-btn-ghost', disabled: !!busy || !baseUrl.trim(), onClick: testConnection }, busy === 'test' ? '测试中…' : '测试'),
             h('button', { className: 'tf-icon-btn', 'aria-label': '刷新服务器状态', title: dirty ? '请先保存或撤销未保存修改' : '刷新服务器状态', disabled: !!busy || dirty, onClick: () => loadState(false) }, '↻'),
@@ -246,7 +247,7 @@ export function createComfyUiSettings(React, api) {
                   return h('div', { className: 'tf-settings-item tf-workflow-item', key: template.id },
                   h('div', { className: 'tf-workflow-row' },
                     h('button', {
-                      className: 'tf-workflow-toggle', 'aria-expanded': expanded,
+                      className: 'tf-workflow-toggle', 'aria-expanded': expanded, disabled: !!busy,
                       onClick: () => setOpenWorkflows(current => ({ ...current, [template.id]: !expanded })),
                     },
                     h('span', { className: 'tf-workflow-chevron', 'aria-hidden': 'true' }, '›'),
@@ -268,7 +269,7 @@ export function createComfyUiSettings(React, api) {
                     h('div', { className: 'tf-card-meta' }, template.id),
                     template.prompt_hint ? h('p', { className: 'tf-settings-hint' }, template.prompt_hint) : null,
                     h(Field, { label: 'AI 使用说明' }, h('textarea', {
-                      className: 'tf-textarea tf-comfy-note', value: templateNotes[template.id] || '', placeholder: '底模、提示词格式和限制说明',
+                      className: 'tf-textarea tf-comfy-note', value: templateNotes[template.id] || '', placeholder: '底模、提示词格式和限制说明', disabled: !!busy,
                       onChange: event => setTemplateNotes({ ...templateNotes, [template.id]: event.target.value }),
                     })),
                     !template.removable ? h('div', { className: 'tf-settings-protected' }, '内置工作流由插件维护，不可删除') : null,
@@ -282,10 +283,10 @@ export function createComfyUiSettings(React, api) {
               h('summary', null, '高级：导入 API 工作流'),
               h('div', { className: 'tf-settings-stack' },
                 h('p', { className: 'tf-settings-hint' }, '供维护人员使用。路径位于运行 Elysium 的服务器；扫描不会执行模型。'),
-                h(Field, { label: 'API Format JSON 绝对路径' }, h('input', { className: 'tf-input', value: workflow.path, onChange: event => { setWorkflow({ ...workflow, path: event.target.value }); setDraft(null) } })),
+                h(Field, { label: 'API Format JSON 绝对路径' }, h('input', { className: 'tf-input', value: workflow.path, disabled: !!busy, onChange: event => { setWorkflow({ ...workflow, path: event.target.value }); setDraft(null) } })),
                 h('div', { className: 'tf-settings-line' },
-                  h(Field, { label: '模板 ID（可留空）' }, h('input', { className: 'tf-input', value: workflow.id, onChange: event => setWorkflow({ ...workflow, id: event.target.value }) })),
-                  h(Field, { label: '显示名称（可留空）' }, h('input', { className: 'tf-input', value: workflow.title, onChange: event => setWorkflow({ ...workflow, title: event.target.value }) })),
+                  h(Field, { label: '模板 ID（可留空）' }, h('input', { className: 'tf-input', value: workflow.id, disabled: !!busy, onChange: event => setWorkflow({ ...workflow, id: event.target.value }) })),
+                  h(Field, { label: '显示名称（可留空）' }, h('input', { className: 'tf-input', value: workflow.title, disabled: !!busy, onChange: event => setWorkflow({ ...workflow, title: event.target.value }) })),
                 ),
                 h('div', { className: 'tf-settings-footer' },
                   h('button', { className: 'tf-btn tf-btn-ghost', disabled: !!busy || !workflow.path.trim(), onClick: scan }, busy === 'scan' ? '扫描中…' : '扫描'),
@@ -315,11 +316,11 @@ export function createComfyUiSettings(React, api) {
                     h('div', { className: 'tf-settings-item-body tf-settings-stack' },
                       item.usedBy?.length ? h('div', { className: 'tf-card-meta' }, `工作流引用：${item.usedBy.join(', ')}`) : null,
                       item.in_registry === false ? h('div', { className: 'tf-settings-hint' }, '尚未添加自定义配置；编辑后保存即可启用。') : null,
-                      h(Field, { label: '触发词' }, h('input', { className: 'tf-input', value: item.triggerWords || '', onChange: event => updateLora(index, { triggerWords: event.target.value }) })),
-                      h(Field, { label: '应用方式' }, h('select', { className: 'tf-input', value: item.mode, onChange: event => updateLora(index, { mode: event.target.value }) },
+                      h(Field, { label: '触发词' }, h('input', { className: 'tf-input', value: item.triggerWords || '', disabled: !!busy, onChange: event => updateLora(index, { triggerWords: event.target.value }) })),
+                      h(Field, { label: '应用方式' }, h('select', { className: 'tf-input', value: item.mode, disabled: !!busy, onChange: event => updateLora(index, { mode: event.target.value }) },
                         h('option', { value: 'both' }, '加载模型并写入提示词'), h('option', { value: 'model-only' }, '仅加载模型'),
                       )),
-                      h(Field, { label: 'AI 使用说明' }, h('textarea', { className: 'tf-textarea tf-comfy-note', value: item.note || '', placeholder: '建议权重、适用工作流和限制', onChange: event => updateLora(index, { note: event.target.value }) })),
+                      h(Field, { label: 'AI 使用说明' }, h('textarea', { className: 'tf-textarea tf-comfy-note', value: item.note || '', placeholder: '建议权重、适用工作流和限制', disabled: !!busy, onChange: event => updateLora(index, { note: event.target.value }) })),
                       item.in_registry !== false
                         ? h('button', { className: 'tf-link-danger', disabled: !!busy, onClick: () => removeLora(item) }, saved?.in_registry ? '移除自定义配置' : '移除未保存项')
                         : null,
@@ -329,8 +330,8 @@ export function createComfyUiSettings(React, api) {
             h('div', { className: 'tf-comfy-add' },
               h(Field, { composite: true, label: connected ? '添加远程 LoRA' : '添加 LoRA 文件名', hint: connected ? '输入关键字筛选远程文件；添加后需保存。' : '当前未连接，可手动登记文件名；添加后需保存。' },
                 h('div', { className: 'tf-settings-line' },
-                  h('input', { className: 'tf-input tf-comfy-filter', 'aria-label': connected ? '筛选远程 LoRA' : 'LoRA 文件名', value: filter, placeholder: connected ? '筛选文件' : '文件名.safetensors', onChange: event => setFilter(event.target.value) }),
-                  connected ? h('select', { className: 'tf-input tf-comfy-picker', 'aria-label': '远程 LoRA 文件', value: selected, disabled: !choices.length, onChange: event => setPick(event.target.value) }, choices.length ? choices.slice(0, 400).map(name => h('option', { key: name, value: name }, name)) : h('option', { value: '' }, '没有可添加项')) : null,
+                  h('input', { className: 'tf-input tf-comfy-filter', 'aria-label': connected ? '筛选远程 LoRA' : 'LoRA 文件名', value: filter, placeholder: connected ? '筛选文件' : '文件名.safetensors', disabled: !!busy, onChange: event => setFilter(event.target.value) }),
+                  connected ? h('select', { className: 'tf-input tf-comfy-picker', 'aria-label': '远程 LoRA 文件', value: selected, disabled: !!busy || !choices.length, onChange: event => setPick(event.target.value) }, choices.length ? choices.slice(0, 400).map(name => h('option', { key: name, value: name }, name)) : h('option', { value: '' }, '没有可添加项')) : null,
                   h('button', {
                     className: 'tf-btn tf-btn-ghost', disabled: !!busy || !(connected ? selected : filter.trim()),
                     onClick: () => {

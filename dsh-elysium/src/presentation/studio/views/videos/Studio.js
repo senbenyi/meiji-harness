@@ -80,7 +80,7 @@ export function createStudio(React, api) {
     return h('label', { className: 'ely-field' }, h('span', { className: 'ely-field-label' }, label), children, hint ? h('small', null, hint) : null)
   }
 
-  return function Studio({ initialProjectId, initialEpisodeId, onSelection, onDirty }) {
+  return function Studio({ initialProjectId, initialEpisodeId, onSelection, onDirty, onBusy }) {
     const [projects, setProjects] = useState([])
     const [projectsLoading, setProjectsLoading] = useState(true)
     const [episodeLoading, setEpisodeLoading] = useState(false)
@@ -124,6 +124,7 @@ export function createStudio(React, api) {
     const batchPauseCount = selectedEpisodes.filter(item => ['running', 'queued'].includes(item.status)).length
 
     useEffect(() => { onDirty?.(storyDirty || draftDirty) }, [storyDirty, draftDirty, onDirty])
+    useEffect(() => { onBusy?.(busy); return () => onBusy?.(false) }, [busy, onBusy])
     useEffect(() => { setReviewWatched(false); setReviewed(false) }, [episode?.state?.final?.path])
 
     const call = useCallback(async (route, body = {}, quiet = false) => {
@@ -390,7 +391,7 @@ export function createStudio(React, api) {
 
     const renderCreateEpisode = () => h('section', { className: 'ely-create' },
       h('header', { className: 'ely-create-head' }, h('div', null, h('span', { className: 'ely-eyebrow' }, selectedProject?.title || '项目'), h('h1', null, '创建新单集'), h('p', null, '写下故事，保存后再进行自动规划。')),
-        (projectEpisodes[projectId] || []).length ? h('button', { className: 'ely-btn ely-btn-secondary', onClick: () => chooseEpisode(projectId, projectEpisodes[projectId][0].id) }, '取消') : null),
+        (projectEpisodes[projectId] || []).length ? h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: () => chooseEpisode(projectId, projectEpisodes[projectId][0].id) }, '取消') : null),
       h('div', { className: 'ely-create-form' },
         h(Field, { label: '单集名称' }, h('input', { className: 'tf-input', maxLength: 120, placeholder: '例如：雨夜来客', value: draft.title, onChange: event => updateDraft({ title: event.target.value }) })),
         h(Field, { label: '故事内容', hint: '至少写清开场、冲突和结尾；后续仍可修改。' }, h('textarea', { className: 'tf-textarea ely-story-input', maxLength: 20000, placeholder: '从一个能看见未来十秒的女孩开始……', value: draft.sourceText, onChange: event => updateDraft({ sourceText: event.target.value }) })),
@@ -490,7 +491,7 @@ export function createStudio(React, api) {
 
     return h('div', { className: 'ely-studio' },
       h('aside', { className: 'ely-library' },
-        h('div', { className: 'ely-library-head' }, h('span', null, '我的项目'), h('button', { title: showProjectForm ? '收起新建项目' : '新建项目', 'aria-label': showProjectForm ? '收起新建项目' : '新建项目', 'aria-expanded': showProjectForm, onClick: () => setShowProjectForm(value => !value) }, showProjectForm ? '×' : '+')),
+        h('div', { className: 'ely-library-head' }, h('span', null, '我的项目'), h('button', { title: showProjectForm ? '收起新建项目' : '新建项目', 'aria-label': showProjectForm ? '收起新建项目' : '新建项目', 'aria-expanded': showProjectForm, disabled: busy, onClick: () => setShowProjectForm(value => !value) }, showProjectForm ? '×' : '+')),
         showProjectForm ? h('div', { className: 'ely-project-create' }, h('input', { className: 'tf-input', autoFocus: true, maxLength: 120, placeholder: '项目名称', value: projectTitle, onChange: event => setProjectTitle(event.target.value), onKeyDown: event => { if (event.key === 'Enter' && projectTitle.trim()) navigateSafely('创建并切换项目', createProject) } }), h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !projectTitle.trim(), title: projectTitle.trim() ? '创建项目' : '请输入项目名称', onClick: () => navigateSafely('创建并切换项目', createProject) }, busy ? '创建中…' : '创建')) : null,
         projectsLoading ? h('div', { className: 'ely-library-empty', role: 'status' }, '正在加载项目…') : projects.length ? h(React.Fragment, null,
           h('div', { className: 'ely-project-toolbar' },
@@ -502,12 +503,12 @@ export function createStudio(React, api) {
               h('div', { className: 'ely-project-row' },
                 h('div', { className: 'ely-project-main' },
                   h('input', { type: 'checkbox', 'aria-label': `选择项目 ${project.title}`, checked: selectedProjectIds.includes(project.id), onChange: () => toggleProject(project.id) }),
-                  h('button', { className: 'ely-project-title', title: project.title, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, `${items.length} 集`))),
+                  h('button', { className: 'ely-project-title', title: project.title, disabled: busy, onClick: () => selectProject(project.id) }, h('strong', null, project.title), h('small', null, `${items.length} 集`))),
                 h('div', { className: 'ely-project-actions' },
-                  h('button', { className: 'ely-add-episode', title: `在 ${project.title} 中新建单集`, onClick: () => createEpisodeIn(project.id) }, '+ 单集'),
-                  h('button', { className: 'ely-delete-project', title: `删除项目 ${project.title}`, 'aria-label': `删除项目 ${project.title}`, onClick: () => setProjectToDelete(project) }, '删除'))),
+                  h('button', { className: 'ely-add-episode', title: `在 ${project.title} 中新建单集`, disabled: busy, onClick: () => createEpisodeIn(project.id) }, '+ 单集'),
+                  h('button', { className: 'ely-delete-project', title: `删除项目 ${project.title}`, 'aria-label': `删除项目 ${project.title}`, disabled: busy, onClick: () => setProjectToDelete(project) }, '删除'))),
               h('div', { className: 'ely-project-episodes', role: 'list', 'aria-label': `${project.title}的单集` }, items.length
-                ? items.map((item, index) => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, role: 'listitem', className: item.id === selectedEpisodeId && project.id === projectId ? 'is-active' : '', onClick: () => chooseEpisode(project.id, item.id) }, h('span', { className: 'ely-episode-order' }, String(index + 1).padStart(2, '0')), h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) })
+                ? items.map((item, index) => { const [label, tone] = statusMeta(item.status); return h('button', { key: item.id, role: 'listitem', className: item.id === selectedEpisodeId && project.id === projectId ? 'is-active' : '', disabled: busy, onClick: () => chooseEpisode(project.id, item.id) }, h('span', { className: 'ely-episode-order' }, String(index + 1).padStart(2, '0')), h('span', null, h('strong', null, item.title), h('small', null, label)), h('i', { className: `is-${tone}` })) })
                 : h('span', { className: 'ely-project-no-episodes' }, '暂无单集')))
           })),
           selectedProjectIds.length ? h('div', { className: 'ely-project-batch' },
@@ -528,8 +529,8 @@ export function createStudio(React, api) {
               (error || message) ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}`, role: error ? 'alert' : 'status' }, h('span', null, error || message), h('button', { 'aria-label': '关闭提示', onClick: () => { setError(''); setMessage('') } }, '×')) : null,
               h('div', { className: 'ely-production-layout' },
                 h('nav', { className: 'ely-stage-track', 'aria-label': '制作流程' },
-                  h('div', { className: 'ely-stage-track-title' }, h('strong', null, '制作流程'), h('span', null, '8 个阶段')),
-                  STAGES.map((stage, index) => { const state = stageState(episode, stage.key, index); return h('button', { key: stage.key, className: `${stage.key === activeStage ? 'is-active ' : ''}is-${state}`, 'aria-current': stage.key === activeStage ? 'step' : undefined, onClick: () => setActiveStage(stage.key) }, h('span', null, state === 'complete' ? '✓' : stage.short), h('span', { className: 'ely-stage-copy' }, h('strong', null, stage.label), h('small', null, stage.hint))) })),
+                  h('div', { className: 'ely-stage-track-title' }, h('strong', null, '制作流程'), h('span', null, '8 个阶段 · 横向滑动')),
+                  STAGES.map((stage, index) => { const state = stageState(episode, stage.key, index); return h('button', { key: stage.key, className: `${stage.key === activeStage ? 'is-active ' : ''}is-${state}`, 'aria-current': stage.key === activeStage ? 'step' : undefined, disabled: busy, onClick: () => setActiveStage(stage.key) }, h('span', null, state === 'complete' ? '✓' : stage.short), h('span', { className: 'ely-stage-copy' }, h('strong', null, stage.label), h('small', null, stage.hint))) })),
                 h('div', { className: 'ely-stage-content' }, renderStageContent()),
                 h('aside', { className: 'ely-production-rail' },
                   h('section', { className: 'ely-next-card' }, h('span', { className: 'ely-rail-kicker' }, '下一步'), h('h2', null, nextStep()[0]), h('p', null, nextStep()[1]), h('div', { className: 'ely-primary-action' }, primaryAction())),
