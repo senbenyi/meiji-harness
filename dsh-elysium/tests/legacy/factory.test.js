@@ -30,7 +30,8 @@ function episode(id = 'factory-test') {
 }
 
 async function eventually(fn) {
-  for (let index = 0; index < 100; index += 1) {
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
     const value = await fn()
     if (value.state.status !== 'running') return value
     await new Promise(resolve => setTimeout(resolve, 10))

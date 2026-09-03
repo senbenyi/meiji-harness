@@ -14,6 +14,5 @@ pnpm install
 pnpm build
 pnpm test
 node scripts/package-registry.mjs
-dsh registry install ./registry
-dsh registry enable dsh-external/dsh-elysium
+dsh plugin --profile web add --workspace-root ./registry
 ```

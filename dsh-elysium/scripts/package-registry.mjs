@@ -5,8 +5,7 @@
  *
  *   pnpm build
  *   node scripts/package-registry.mjs
- *   dsh registry install ./registry
- *   dsh registry enable dsh-external/dsh-elysium
+ *   dsh plugin --profile web add --workspace-root ./registry
  *
  * The registry install copies the whole source directory (`cp -r`), so
  * installing the repo root would drag in `node_modules/` (machine-local
@@ -24,9 +23,13 @@ const out = join(root, 'registry')
 
 /** Files copied into registry/, preserving relative paths (lib/ stays lib/). */
 const files = [
+  'package.json',
+  'cordis.patch.yml',
   'dsh.plugin.json',
   'lib/index.js',
   'lib/invariant.js',
+  'lib/client.js',
+  'lib/client.js.map',
   'lib/client-registry.js',
   'lib/client-registry.js.map',
   // Lazy chunks: the client fetches these from the host's /sidebar/bundle
@@ -38,10 +41,7 @@ const files = [
   'lib/client-mermaid.js',
   'lib/client-mermaid.js.map',
   'templates',
-  'skills',
   'README.md',
-  'LICENSE',
-  'THIRD_PARTY_NOTICES.md',
 ]
 
 rmSync(out, { recursive: true, force: true })
@@ -57,4 +57,4 @@ for (const file of files) {
   cpSync(source, target, { recursive: true })
 }
 console.log(`registry/ assembled (${files.length} files)`)
-console.log('next: dsh registry install ./registry && dsh registry enable dsh-external/dsh-elysium')
+console.log('next: dsh plugin --profile web add --workspace-root ./registry')
