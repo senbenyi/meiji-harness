@@ -1,0 +1,119 @@
+{
+  "id": "wan22-remix-short",
+  "title": "Wan2.2 Remix Short I2V",
+  "workflow": "wan22-remix-short.json",
+  "prompt_style": "natural_en",
+  "prompt_hint": "Full sentences of motion and camera. Outputs video, not a still. Do not use 1girl tags unless the graph is anime-still.",
+  "media": {
+    "in": [
+      "image",
+      "text"
+    ],
+    "out": [
+      "video"
+    ]
+  },
+  "capabilities": {
+    "mode": [
+      "i2v"
+    ],
+    "can": [
+      "prompt",
+      "size",
+      "seed",
+      "video",
+      "image_input"
+    ],
+    "cannot": [
+      "lora_switch",
+      "t2i",
+      "i2i",
+      "t2v",
+      "upscale",
+      "logo"
+    ],
+    "style": []
+  },
+  "slots": {
+    "prompt": {
+      "key": "prompt",
+      "type": "text",
+      "required": true,
+      "node": "3",
+      "field": "text"
+    },
+    "negative": {
+      "key": "negative",
+      "type": "text",
+      "required": false,
+      "node": "4",
+      "field": "text"
+    },
+    "image": {
+      "key": "image",
+      "type": "image",
+      "required": true,
+      "node": "1",
+      "field": "image"
+    },
+    "width": {
+      "key": "width",
+      "type": "number",
+      "required": false,
+      "node": "6",
+      "field": "width"
+    },
+    "height": {
+      "key": "height",
+      "type": "number",
+      "required": false,
+      "node": "6",
+      "field": "height"
+    },
+    "steps": {
+      "key": "steps",
+      "type": "number",
+      "required": false,
+      "node": "11",
+      "field": "steps"
+    },
+    "cfg": {
+      "key": "cfg",
+      "type": "number",
+      "required": false,
+      "node": "11",
+      "field": "cfg"
+    },
+    "seed": {
+      "key": "seed",
+      "type": "seed",
+      "required": false,
+      "node": "11",
+      "field": "noise_seed"
+    }
+  },
+  "loras": [],
+  "models": {
+    "clip": {
+      "key": "clip",
+      "node": "2",
+      "field": "clip_name"
+    },
+    "clip_type": {
+      "key": "clip_type",
+      "node": "2",
+      "field": "type"
+    },
+    "unet": {
+      "key": "unet",
+      "node": "8",
+      "field": "unet_name"
+    },
+    "vae": {
+      "key": "vae",
+      "node": "5",
+      "field": "vae_name"
+    }
+  },
+  "notes": "Output is video (VHS/SaveVideo), not SaveImage. Do not promise a still. Custom nodes required: ImageResize+, PainterVRAM (offline scan; live preflight is authoritative) Video jobs need VRAM and custom nodes. If preflight reports NODE_MISSING / MODEL_MISSING, say the machine cannot run this template — do not fake an image."
+}
