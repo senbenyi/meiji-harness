@@ -1,5 +1,4 @@
 import { createConfirmDialog } from '../../components/Modal.js'
-import './settings.css'
 
 function templatePayload(notes) {
   return Object.fromEntries(Object.entries(notes).map(([id, note]) => [id, { note }]))
@@ -36,7 +35,7 @@ function workflowErrorText(error) {
 }
 
 export function createComfyUiSettings(React, api) {
-  const { createElement: h, useEffect, useState } = React
+  const { createElement: h, useEffect, useRef, useState } = React
   const ConfirmDialog = createConfirmDialog(React)
 
   function Field({ label, hint, children, composite = false }) {
@@ -62,6 +61,7 @@ export function createComfyUiSettings(React, api) {
     const [pendingDelete, setPendingDelete] = useState(null)
     const [workflowTests, setWorkflowTests] = useState({})
     const [openWorkflows, setOpenWorkflows] = useState({})
+    const busyRef = useRef(false)
 
     const applyState = (value, sections = ['base', 'templates', 'loras']) => {
       setState(value)
@@ -71,6 +71,8 @@ export function createComfyUiSettings(React, api) {
     }
 
     const run = async (key, action) => {
+      if (busyRef.current) return null
+      busyRef.current = true
       setBusy(key)
       setNotice(null)
       try { return await action() }
@@ -78,6 +80,7 @@ export function createComfyUiSettings(React, api) {
         setNotice({ ok: false, text: error.message || String(error) })
         return null
       } finally {
+        busyRef.current = false
         setBusy('')
       }
     }
@@ -197,10 +200,12 @@ export function createComfyUiSettings(React, api) {
 
     const testedCurrent = tested?.baseUrl === baseUrl.trim().replace(/\/$/, '')
     const connected = !baseDirty && state?.ping?.ok
+    const deviceName = (testedCurrent ? tested?.ping?.device : state?.ping?.device) || ''
+    const deviceLabel = deviceName.match(/(?:RTX|A\d|H\d|L\d)\s*\d+[A-Za-z]*/i)?.[0] || deviceName.replace(/^NVIDIA\s+(?:GeForce\s+)?/i, '')
     const statusText = !state ? '检查中…'
-      : testedCurrent ? `在线${tested.ping?.device ? ` · ${tested.ping.device}` : ''}${baseDirty ? ' · 未保存' : ''}`
+      : testedCurrent ? `在线${deviceLabel ? ` · ${deviceLabel}` : ''}${baseDirty ? ' · 未保存' : ''}`
         : baseDirty ? '地址未保存'
-        : connected ? `在线${state.ping.device ? ` · ${state.ping.device}` : ''}`
+        : connected ? `在线${deviceLabel ? ` · ${deviceLabel}` : ''}`
           : `未连接${state.ping?.code ? ` · ${state.ping.code}` : ''}`
     const statusTone = !state ? 'is-pending' : testedCurrent ? 'is-online' : baseDirty ? 'is-pending' : connected ? 'is-online' : 'is-offline'
     const registered = new Set(loras.map(item => item.name))
@@ -212,8 +217,8 @@ export function createComfyUiSettings(React, api) {
 
     return h('div', { className: 'tf-comfy', 'aria-busy': !!busy },
       h('header', { className: 'tf-settings-head' },
-        h('div', null, h('div', { className: 'tf-title' }, '模型设置'), h('div', { className: 'tf-card-meta' }, '连接、工作流与 LoRA')),
-        h('span', { className: `tf-comfy-status ${statusTone}`, role: 'status', 'aria-live': 'polite', title: statusText }, statusText),
+        h('div', null, h('div', { className: 'tf-title' }, '自定义'), h('div', { className: 'tf-card-meta' }, 'LoRA')),
+        h('span', { className: `tf-comfy-status ${statusTone}`, role: 'status', 'aria-live': 'polite', title: deviceName || statusText }, statusText),
       ),
       notice ? h('div', { className: notice.ok ? 'tf-success' : 'tf-error', role: notice.ok ? 'status' : 'alert', 'aria-live': 'polite' }, notice.text) : null,
 
@@ -221,15 +226,15 @@ export function createComfyUiSettings(React, api) {
         h(Field, { composite: true, label: 'ComfyUI 服务地址', hint: !baseDirty && state?.ping?.ok ? `已连接${state.ping.version ? ` · ComfyUI ${state.ping.version}` : ''}` : '测试不会保存；保存地址后才会用于生产任务。' },
           h('div', { className: 'tf-settings-line' },
             h('input', { className: 'tf-input', 'aria-label': 'ComfyUI 服务地址', value: baseUrl, inputMode: 'url', onChange: event => { setBaseUrl(event.target.value); setTested(null) } }),
-            h('button', { className: 'tf-btn tf-btn-ghost', disabled: !!busy || !baseUrl.trim(), onClick: testConnection }, busy === 'test' ? '测试中…' : '测试连接'),
-            h('button', { className: 'tf-btn', disabled: !!busy || !baseDirty, onClick: saveBaseUrl }, busy === 'save-base' ? '保存中…' : '保存地址'),
+            h('button', { className: 'tf-btn', disabled: !!busy || !baseDirty, onClick: saveBaseUrl }, busy === 'save-base' ? '保存中…' : '保存'),
+            h('button', { className: 'tf-btn tf-btn-ghost', disabled: !!busy || !baseUrl.trim(), onClick: testConnection }, busy === 'test' ? '测试中…' : '测试'),
             h('button', { className: 'tf-icon-btn', 'aria-label': '刷新服务器状态', title: dirty ? '请先保存或撤销未保存修改' : '刷新服务器状态', disabled: !!busy || dirty, onClick: () => loadState(false) }, '↻'),
           ),
         ),
       ),
 
       h('div', { className: 'tf-settings-columns' },
-        h('details', { className: 'tf-settings-section', open: true },
+        h('details', { className: 'tf-settings-section' },
           h('summary', { className: 'tf-settings-summary' }, h('span', null, '工作流'), h('span', { className: 'tf-settings-count' }, `${state?.templates?.length ?? '—'} 个${templatesDirty ? ' · 未保存' : ''}`)),
           h('div', { className: 'tf-settings-body' },
             !state ? h('div', { className: 'tf-settings-empty' }, '正在加载工作流…')

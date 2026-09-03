@@ -63,8 +63,8 @@ export function createElysiumApp(React, api) {
           h('div', null, h('strong', null, '极乐世界'), h('small', null, 'ELYSIUM STUDIO')),
         ),
         h('nav', { className: 'ely-view-switch' },
-          h('button', { className: view === 'studio' ? 'is-active' : '', onClick: () => switchView('studio') }, '制作'),
-          h('button', { className: view === 'comfyui' ? 'is-active' : '', onClick: () => switchView('comfyui') }, '设置'),
+          h('button', { className: view === 'studio' ? 'is-active' : '', 'aria-current': view === 'studio' ? 'page' : undefined, onClick: () => switchView('studio') }, '制作'),
+          h('button', { className: view === 'comfyui' ? 'is-active' : '', 'aria-current': view === 'comfyui' ? 'page' : undefined, onClick: () => switchView('comfyui') }, '自定义'),
         ),
       ),
       view === 'comfyui'

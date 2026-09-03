@@ -13,7 +13,16 @@ export function Modal(h, { title, onClose, children, actions }) {
     'aria-labelledby': titleId,
     tabIndex: -1,
     ref: node => { if (node && typeof document !== 'undefined' && !node.contains(document.activeElement)) node.focus() },
-    onKeyDown: event => { if (event.key === 'Escape') onClose() },
+    onKeyDown: event => {
+      if (event.key === 'Escape') return onClose()
+      if (event.key !== 'Tab') return
+      const focusable = [...event.currentTarget.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]')]
+      if (!focusable.length) return event.preventDefault()
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    },
   },
   h('div', { className: 'tf-modal-head' },
     h('div', { id: titleId, className: 'tf-modal-title' }, title),

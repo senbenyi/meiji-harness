@@ -1,4 +1,5 @@
 import './elysium.css'
+import './views/setting/settings.css'
 import { createApi } from './api.js'
 import { createElysiumApp } from './ElysiumApp.js'
 import * as React from 'react'
