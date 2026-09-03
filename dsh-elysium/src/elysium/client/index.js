@@ -71,7 +71,7 @@ const ElysiumApp = createElysiumApp(React, api)
           const sidebar = scope.betterSidebar
           const disposeTab = sidebar.registerTab({
             id: 'elysium',
-            title: '极乐工厂',
+            title: '极乐世界',
             icon: size => h(ElysiumIcon, { size }),
             order: 60,
             single: true,
@@ -79,7 +79,7 @@ const ElysiumApp = createElysiumApp(React, api)
               const existing = findTab(state.splits, 'elysium')
                 || findTab(state.bottomSplits, 'elysium')
                 || state.floats?.find(item => item.tab.id === 'elysium')?.tab
-              const tab = existing || { id: 'elysium', type: 'elysium', title: '极乐工厂' }
+              const tab = existing || { id: 'elysium', type: 'elysium', title: '极乐世界' }
               const cleanSplits = removeTab(state.splits, 'elysium')
               const cleanBottomSplits = removeTab(state.bottomSplits, 'elysium')
               const target = firstLeaf(cleanSplits)

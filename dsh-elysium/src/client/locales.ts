@@ -219,7 +219,7 @@ export const zh = {
   uploadFailedUnknown: '未知错误',
   uploadTooLarge: '文件过大，超出上传上限',
   uploadCancelled: '上传已取消',
-  settingsNav: '侧边卡片',
+  settingsNav: '极乐世界',
   settingsIntro: '管理侧边卡片的显示内容与默认行为',
   settingsPopupDesc: '为「{feature}」配置相关选项',
   settingsDone: '完成',
