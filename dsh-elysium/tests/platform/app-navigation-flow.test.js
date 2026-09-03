@@ -52,7 +52,7 @@ test('top navigation protects unsaved settings and keeps tab metadata in sync', 
     await click(button('制作'))
     await click(button('放弃并离开'))
     await settle()
-    assert.match(document.body.textContent, /创建你的第一个世界/)
+    assert.match(document.body.textContent, /短剧总览/)
     assert.equal(updates.at(-1).meta.view, 'studio')
     await click(button('模型设置'))
     await settle()
