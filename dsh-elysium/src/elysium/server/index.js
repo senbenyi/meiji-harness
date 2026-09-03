@@ -97,6 +97,8 @@ function attachRoutes(ctx, config, generation, factory, production, comfy, fence
     ['/production.resume', (_config, body) => production.resume(body)],
     ['/production.status', (_config, body) => production.status(body)],
     ['/production.retry', (_config, body) => production.retry(body)],
+    ['/artifact.adopt', (_config, body) => production.adopt(body)],
+    ['/issue.resolve', (_config, body) => production.resolveIssue(body)],
     ['/review.approve', (_config, body) => production.approve(body)],
     ['/comfyui.state', () => comfy.state()],
     ['/comfyui.save', (_config, body) => comfy.saveSettings(body)],
@@ -267,6 +269,9 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
       plan: { type: 'object', additionalProperties: true, description: '动态章节规划；每章正好六个锚点' },
       updates: { type: 'object', additionalProperties: true, description: '单集更新字段' },
       taskId: { type: 'string', description: '精确重试的任务 ID' },
+      issueId: { type: 'string', description: '待处理问题 ID' },
+      path: { type: 'string', description: '要采用的历史产物路径' },
+      resolution: { type: 'string', description: '问题处理方式，当前支持 retry' },
       confirmAuthorizedContent: { type: 'boolean', description: '本次单集付费生成授权' },
       confirmHumanReviewPassed: { type: 'boolean', description: '新流程人工终审确认' },
     },
@@ -287,6 +292,8 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
           production_resume: () => production.resume(input),
           production_status: () => production.status(input),
           production_retry: () => production.retry(input),
+          artifact_adopt: () => production.adopt(input),
+          issue_resolve: () => production.resolveIssue(input),
           review_approve: () => production.approve(input),
         }
         const handler = handlers[input.action]
