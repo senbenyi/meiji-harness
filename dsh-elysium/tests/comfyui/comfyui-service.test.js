@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { createServer } from 'node:http'
 import * as path from 'node:path'
 import test from 'node:test'
 import { createComfyUiService, resolveComfyUiConfig } from '../../src/infrastructure/comfyui/service.js'
@@ -24,6 +25,70 @@ test('internal ComfyUI settings persist without a second plugin', async (t) => {
 
   await service.saveSettings({ baseUrl: 'http://127.0.0.1:18189' })
   assert.equal(service.runtime().baseUrl, 'http://127.0.0.1:18189')
+})
+
+test('connection test validates a draft URL without saving it', async (t) => {
+  const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-comfyui-test-'))
+  const server = createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ system: { comfyui_version: 'test' }, devices: [{ name: 'Test GPU' }] }))
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => {
+    server.close()
+    return rm(workspace, { recursive: true, force: true })
+  })
+  const service = createComfyUiService({ workspace, comfyui: { baseUrl: 'http://127.0.0.1:9' } })
+  const draftUrl = `http://127.0.0.1:${server.address().port}`
+
+  const tested = await service.testConnection({ baseUrl: draftUrl })
+
+  assert.equal(tested.ping.ok, true)
+  assert.equal(tested.ping.device, 'Test GPU')
+  assert.equal(service.runtime().baseUrl, 'http://127.0.0.1:9')
+  await assert.rejects(service.saveSettings({ baseUrl: 'not-a-url' }), error => error.code === 'BAD_BASE_URL')
+})
+
+test('workflow test checks live nodes without submitting a generation', async (t) => {
+  const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-comfyui-workflow-test-'))
+  const requests = []
+  const server = createServer((req, res) => {
+    requests.push(req.url)
+    res.setHeader('content-type', 'application/json')
+    if (req.url === '/system_stats') return res.end(JSON.stringify({ system: {}, devices: [] }))
+    if (req.url === '/object_info/TestNode') return res.end(JSON.stringify({ TestNode: { python_module: 'nodes', input: { required: {} } } }))
+    res.statusCode = 404
+    res.end('{}')
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => {
+    server.close()
+    return rm(workspace, { recursive: true, force: true })
+  })
+  const baseUrl = `http://127.0.0.1:${server.address().port}`
+  const service = createComfyUiService({ workspace, comfyui: { baseUrl } })
+  const { templatesDir } = service.runtime()
+  await writeFile(path.join(templatesDir, 'test-ready.json'), JSON.stringify({ 1: { class_type: 'TestNode', inputs: {} } }))
+  await writeFile(path.join(templatesDir, 'test-ready.contract.json'), JSON.stringify({ id: 'test-ready', title: 'Test Ready', workflow: 'test-ready.json', slots: {} }))
+
+  const result = await service.testTemplate('test-ready')
+
+  assert.equal(result.ready, true)
+  assert.equal(result.checked_nodes, 1)
+  assert.ok(requests.includes('/object_info/TestNode'))
+  assert.ok(!requests.includes('/prompt'))
+})
+
+test('bundled workflows are protected and offline LoRA availability stays unknown', async (t) => {
+  const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-comfyui-protected-'))
+  t.after(() => rm(workspace, { recursive: true, force: true }))
+  const service = createComfyUiService({ workspace, comfyui: { baseUrl: 'http://127.0.0.1:9' } })
+
+  const state = await service.state()
+
+  assert.ok(state.templates.some(item => item.id === 'qwen-image-t2i' && item.removable === false))
+  assert.ok(state.loras.every(item => item.on_server === null))
+  await assert.rejects(service.removeTemplate('qwen-image-t2i'), error => error.code === 'BUNDLED_TEMPLATE')
 })
 
 test('newer bundled contracts upgrade stale runtime templates together with their workflow', async (t) => {

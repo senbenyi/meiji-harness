@@ -10,6 +10,7 @@ import {
   listLoraFiles,
   ping,
   searchAssets,
+  testTemplateReadiness,
   waitForJob,
 } from './engine.js'
 import { scanPath, saveTemplate, removeTemplate } from './import-template.js'
@@ -44,6 +45,16 @@ function bundledTemplateIds() {
     } catch { /* invalid bundled contracts are reported by normal template loading */ }
   }
   return ids
+}
+
+function normalizeBaseUrl(value) {
+  const candidate = String(value || '').trim().replace(/\/$/, '')
+  let parsed
+  try { parsed = new URL(candidate) } catch { /* handled below */ }
+  if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+    throw Object.assign(new Error('请输入有效的 HTTP(S) ComfyUI 地址'), { code: 'BAD_BASE_URL' })
+  }
+  return candidate
 }
 
 function copyBundledTemplates(target) {
@@ -139,16 +150,12 @@ export function createComfyUiService(config = {}) {
     },
     async saveSettings(patch = {}) {
       const current = runtime()
-      saveSettings(current.templatesDir, patch)
+      const next = patch.baseUrl == null ? patch : { ...patch, baseUrl: normalizeBaseUrl(patch.baseUrl) }
+      saveSettings(current.templatesDir, next)
       return this.state()
     },
     async testConnection(input = {}) {
-      const candidate = String(input.baseUrl || '').trim().replace(/\/$/, '')
-      let parsed
-      try { parsed = new URL(candidate) } catch { /* handled below */ }
-      if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
-        throw Object.assign(new Error('请输入有效的 HTTP(S) ComfyUI 地址'), { code: 'BAD_BASE_URL' })
-      }
+      const candidate = normalizeBaseUrl(input.baseUrl)
       const status = await ping(candidate)
       if (!status.ok) {
         throw Object.assign(new Error(status.message || '无法连接 ComfyUI'), { code: status.code || 'UNREACHABLE' })
@@ -160,6 +167,13 @@ export function createComfyUiService(config = {}) {
       const result = annotateInspect(inspectTemplate(current.templatesDir, template), loadSettings(current.templatesDir))
       if (query) result.assets = await searchAssets(current.baseUrl, query)
       return { ok: true, ...result }
+    },
+    async testTemplate(template) {
+      const current = runtime()
+      if (!String(template || '').trim()) {
+        throw Object.assign(new Error('请选择要测试的工作流'), { code: 'SLOT_REQUIRED' })
+      }
+      return testTemplateReadiness({ ...current, template: String(template) })
     },
     async scan(input = {}) {
       const current = runtime()

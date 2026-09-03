@@ -129,6 +129,7 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
     ['/comfyui.test', (_config, body) => comfy.testConnection(body)],
     ['/comfyui.save', (_config, body) => comfy.saveSettings(body)],
     ['/comfyui.inspect', (_config, body) => comfy.inspect(body.template, body.query)],
+    ['/comfyui.test_template', (_config, body) => comfy.testTemplate(body.template)],
     ['/comfyui.scan', (_config, body) => comfy.scan(body)],
     ['/comfyui.import', (_config, body) => comfy.importTemplate(body)],
     ['/comfyui.remove_template', (_config, body) => comfy.removeTemplate(body.id)],

@@ -207,6 +207,51 @@ async function checkModels(baseUrl, graph) {
   return errors
 }
 
+export async function testTemplateReadiness({ baseUrl, templatesDir, template }) {
+  const contract = getContract(templatesDir, template)
+  const connection = await ping(baseUrl)
+  if (!connection.ok) {
+    return {
+      ok: true,
+      ready: false,
+      template,
+      checked_nodes: 0,
+      errors: [{ code: connection.code || 'UNREACHABLE', message: connection.message || '无法连接 ComfyUI' }],
+    }
+  }
+
+  const graph = cloneGraph(loadWorkflow(contract))
+  const cache = new Map()
+  let appliedAliases = []
+  try {
+    appliedAliases = await applyClassAliases(graph, await aliasPredicate(baseUrl, cache))
+  } catch (error) {
+    return {
+      ok: true,
+      ready: false,
+      template,
+      checked_nodes: 0,
+      errors: [{ code: error.code || 'NODE_UNREACHABLE', message: error.message || String(error) }],
+    }
+  }
+
+  const dynamicTargets = new Set(Object.values(contract.slots || {}).flatMap(slotTargetsSafe).map(target => `${target.node}:${target.field}`))
+  const checkedNodes = uniqueClassTypes(graph)
+  const { errors: schemaErrors, customNodes } = await preflight(baseUrl, graph, cache)
+  const relevantSchemaErrors = schemaErrors.filter(error => error.code !== 'REQUIRED_EMPTY' || !dynamicTargets.has(`${error.node}:${error.input}`))
+  const modelErrors = await checkModels(baseUrl, graph)
+  const errors = [...relevantSchemaErrors, ...modelErrors]
+  return {
+    ok: true,
+    ready: errors.length === 0,
+    template,
+    checked_nodes: checkedNodes.length,
+    custom_nodes: customNodes,
+    applied_aliases: appliedAliases,
+    errors,
+  }
+}
+
 async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map()) {
   if (!filePath) {
     throw Object.assign(new Error('MEDIA_MISSING'), { code: 'MEDIA_MISSING' })
