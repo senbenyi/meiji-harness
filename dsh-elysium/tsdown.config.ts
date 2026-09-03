@@ -19,7 +19,7 @@
  * - externals resolve through the loader module table at runtime (the
  *   PLATFORM_MODULES seed list from apps/web's platform.ts, plus the
  *   runtime/client exemption),
- * - everything else is inlined into the bundle (xterm, clsx, ...),
+ * - everything else is inlined into the bundle (clsx, ...),
  * - the purity gate rejects any other @deepseek-ai value import: cross-plugin
  *   collaboration goes through cordis services, never value imports,
  * - CSS Modules compile to hashed class maps and inject <style data-plugin>
@@ -27,8 +27,8 @@
  * - each artifact registers itself via window.__ModuleLoader__.load({id,
  *   factory}) with the (require) => exports CJS closure shape.
  *
- * Lazy chunks (lib/client-<name>.js): the heavy preview/terminal libraries
- * (CodeMirror, xterm) build as two standalone chunk bundles
+ * Lazy chunks (lib/client-<name>.js): heavy preview libraries such as
+ * CodeMirror build as standalone chunk bundles
  * (src/presentation/workbench/chunks/<name>.tsx), shared by both channels. Each script
  * assigns its factory to the plugin-owned global registry
  * (globalThis.__dshChunks__) and is fetched by
@@ -288,7 +288,7 @@ function makeCssPlugin(pluginId: string): BuildPlugin {
     resolveId(source: string, importer: string | undefined) {
       if (!source.endsWith('.css')) return null
       // Relative/absolute paths resolve against the importer; bare
-      // specifiers (e.g. '@xterm/xterm/css/xterm.css') resolve from the package.
+      // package-relative style specifiers resolve from the package.
       let abs: string
       if (source.startsWith('.') || source.startsWith('/') || /^[A-Za-z]:[\\/]/.test(source)) {
         abs = importer === undefined ? source : resolvePath(dirname(importer), source)
@@ -303,7 +303,7 @@ function makeCssPlugin(pluginId: string): BuildPlugin {
       this.addWatchFile(fileId)
       const source = await readFile(fileId)
       // CSS Modules (x.module.css) become hashed class maps; plain css
-      // (xterm's stylesheet) is inlined verbatim.
+      // third-party stylesheets are inlined verbatim.
       if (fileId.endsWith('.module.css')) {
         const { code, exports: cssExports } = transform({
           filename: fileId,
@@ -327,7 +327,7 @@ function makeCssPlugin(pluginId: string): BuildPlugin {
 }
 
 /** The lazy chunk names (keep in sync with sidebar/bundle-route.ts). */
-const CHUNKS = ['terminal', 'editor', 'mermaid']
+const CHUNKS = ['editor', 'mermaid']
 
 export default [
   {

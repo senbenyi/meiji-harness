@@ -57,10 +57,10 @@ function LazyChunkView<P>({ chunk, pick, props }: LazyChunkViewProps<P>): ReactN
         <span>{state.message}</span>
         <button
           type="button"
-          className={css.terminalRetry}
+          className={css.retryButton}
           onClick={() => { setAttempt(current => current + 1) }}
         >
-          {t('terminalRetry')}
+          {t('retry')}
         </button>
       </div>
     )

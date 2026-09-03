@@ -112,24 +112,20 @@ export function createComfyUiSettings(React, api) {
       }
     }
 
-    const loadState = async (initial = false) => {
-      const load = async () => {
+    const loadState = async () => {
+      try {
         const value = await api.fetchJson('/comfyui.state', {})
         applyState(value)
         setTested(null)
         setWorkflowTests({})
-        if (!initial) setNotice({ ok: true, text: '状态已刷新。' })
         return value
-      }
-      if (!initial) return run('refresh', load)
-      try { return await load() }
-      catch (error) {
+      } catch (error) {
         setNotice({ ok: false, text: error.message || String(error) })
         return null
       }
     }
 
-    useEffect(() => { void loadState(true) }, [])
+    useEffect(() => { void loadState() }, [])
 
     const currentTemplatePayload = templatePayload(templateNotes)
     const savedTemplatePayload = templatePayload(notesFromState(state))
@@ -151,9 +147,15 @@ export function createComfyUiSettings(React, api) {
 
     const testConnection = () => run('test', async () => {
       setTested(null)
-      const value = await api.fetchJson('/comfyui.test', { baseUrl: baseUrl.trim() })
-      setTested(value)
-      setNotice({ ok: true, text: `连接成功${value.ping?.device ? ` · ${value.ping.device}` : ''}。${baseDirty ? '地址尚未保存。' : '当前保存地址未改变。'}` })
+      const normalizedBaseUrl = baseUrl.trim().replace(/\/$/, '')
+      try {
+        const value = await api.fetchJson('/comfyui.test', { baseUrl: baseUrl.trim() })
+        setTested(value)
+        return value
+      } catch {
+        setTested({ baseUrl: normalizedBaseUrl, ping: { ok: false } })
+        return null
+      }
     })
 
     const saveBaseUrl = () => run('save-base', async () => {
@@ -161,27 +163,21 @@ export function createComfyUiSettings(React, api) {
       applyState(value, ['base'])
       setTested(null)
       setWorkflowTests({})
-      setNotice(value.ping?.ok
-        ? { ok: true, text: 'ComfyUI 地址已保存并连接成功。' }
-        : { ok: false, text: `地址已保存，但连接失败：${value.ping?.message || value.ping?.code || '无法访问服务'}` })
     })
 
     const saveModelRouting = () => run('save-models', async () => {
       const value = await api.fetchJson('/comfyui.save', { modelRouting })
       applyState(value, ['models'])
-      setNotice({ ok: true, text: '模型路由已保存，后续任务将使用新的模型配置。' })
     })
 
     const saveTemplateNotes = () => run('save-templates', async () => {
       const value = await api.fetchJson('/comfyui.save', { templates: currentTemplatePayload })
       applyState(value, ['templates'])
-      setNotice({ ok: true, text: '工作流注释已保存。' })
     })
 
     const saveLoras = () => run('save-loras', async () => {
       const value = await api.fetchJson('/comfyui.save', { loras: currentLoraPayload })
       applyState(value, ['loras'])
-      setNotice({ ok: true, text: 'LoRA 设置已保存。' })
     })
 
     const scan = () => run('scan', async () => {
@@ -189,7 +185,6 @@ export function createComfyUiSettings(React, api) {
       const next = { ...workflow, id: value.draft?.id || workflow.id, title: value.draft?.title || workflow.title }
       setWorkflow(next)
       setDraft({ preview: value.draft, fingerprint: workflowFingerprint(next) })
-      setNotice({ ok: true, text: '扫描完成。请核对摘要后再导入。' })
     })
 
     const importWorkflow = () => run('import', async () => {
@@ -197,7 +192,6 @@ export function createComfyUiSettings(React, api) {
       applyState(value, ['templates'])
       setWorkflow({ path: '', id: '', title: '' })
       setDraft(null)
-      setNotice({ ok: true, text: `已导入 ${value.id || '工作流'}。` })
     })
 
     const testWorkflow = async template => {
@@ -231,7 +225,6 @@ export function createComfyUiSettings(React, api) {
         setState(value)
         setTemplateNotes(current => Object.fromEntries(Object.entries(current).filter(([id]) => id !== target.item.id)))
         setWorkflowTests(current => Object.fromEntries(Object.entries(current).filter(([id]) => id !== target.item.id)))
-        setNotice({ ok: true, text: `已删除 ${target.item.title || target.item.id}。` })
       } else {
         const value = await api.fetchJson('/comfyui.remove_lora', { name: target.item.name })
         setState(value)
@@ -240,7 +233,6 @@ export function createComfyUiSettings(React, api) {
           const referenced = value.loras?.find(item => item.name === target.item.name)
           return referenced ? [...remaining, { ...referenced }].sort((a, b) => a.name.localeCompare(b.name)) : remaining
         })
-        setNotice({ ok: true, text: `已移除 ${target.item.name} 的自定义配置。` })
       }
       setPendingDelete(null)
     })
@@ -256,15 +248,12 @@ export function createComfyUiSettings(React, api) {
     }
 
     const testedCurrent = tested?.baseUrl === baseUrl.trim().replace(/\/$/, '')
-    const connected = !baseDirty && state?.ping?.ok
-    const deviceName = (testedCurrent ? tested?.ping?.device : state?.ping?.device) || ''
-    const deviceLabel = deviceName.match(/(?:RTX|A\d|H\d|L\d)\s*\d+[A-Za-z]*/i)?.[0] || deviceName.replace(/^NVIDIA\s+(?:GeForce\s+)?/i, '')
-    const statusText = !state ? '检查中…'
-      : testedCurrent ? `在线${deviceLabel ? ` · ${deviceLabel}` : ''}${baseDirty ? ' · 未保存' : ''}`
-        : baseDirty ? '地址未保存'
-        : connected ? `在线${deviceLabel ? ` · ${deviceLabel}` : ''}`
-          : `未连接${state.ping?.code ? ` · ${state.ping.code}` : ''}`
-    const statusTone = !state ? 'is-pending' : testedCurrent ? 'is-online' : baseDirty ? 'is-pending' : connected ? 'is-online' : 'is-offline'
+    const connectionStatus = testedCurrent
+      ? tested?.ping?.ok ? '已连接' : '连接失败'
+      : baseDirty ? '未连接'
+        : state?.ping?.ok ? '已连接'
+          : state?.ping ? '连接失败' : '未连接'
+    const connected = connectionStatus === '已连接'
     const registered = new Set(loras.map(item => item.name))
     const query = filter.trim().toLowerCase()
     const choices = (state?.availableLoras || []).filter(name => !registered.has(name) && (!query || name.toLowerCase().includes(query)))
@@ -299,17 +288,15 @@ export function createComfyUiSettings(React, api) {
     return h('div', { className: 'tf-comfy' },
       h('header', { className: 'tf-settings-head' },
         h('div', null, h('div', { className: 'tf-title' }, '模型设置')),
-        h('span', { className: `tf-comfy-status ${statusTone}`, role: 'status', 'aria-live': 'polite', title: deviceName || statusText }, statusText),
       ),
       notice ? h('div', { className: notice.ok ? 'tf-success' : 'tf-error', role: notice.ok ? 'status' : 'alert', 'aria-live': 'polite' }, notice.text) : null,
 
       h('section', { className: 'tf-settings-card' },
-        h(Field, { composite: true, label: 'ComfyUI 服务地址', hint: !baseDirty && state?.ping?.ok ? `已连接${state.ping.version ? ` · ComfyUI ${state.ping.version}` : ''}` : null },
+        h(Field, { composite: true, label: 'ComfyUI 服务地址', hint: connectionStatus },
           h('div', { className: 'tf-settings-line' },
             h('input', { className: 'tf-input', 'aria-label': 'ComfyUI 服务地址', value: baseUrl, inputMode: 'url', disabled: isBusy('save-base'), onChange: event => { setBaseUrl(event.target.value); setTested(null) } }),
             h('button', { className: 'tf-btn', disabled: isBusy('save-base') || !baseDirty, onClick: saveBaseUrl }, isBusy('save-base') ? '保存中…' : '保存地址'),
             h('button', { className: 'tf-btn tf-btn-ghost', disabled: isBusy('test') || !baseUrl.trim(), onClick: testConnection }, isBusy('test') ? '测试中…' : '测试连接'),
-            h('button', { className: 'tf-icon-btn', 'aria-label': '刷新服务器状态', title: dirty ? '请先保存或撤销未保存修改' : '刷新服务器状态', disabled: isBusy('refresh') || dirty, onClick: () => loadState(false) }, '↻'),
           ),
         ),
       ),
@@ -320,7 +307,7 @@ export function createComfyUiSettings(React, api) {
           h('div', { className: 'tf-model-group' },
             h('div', { className: 'tf-model-group-title' }, '文本规划模型'),
             h('div', { className: 'tf-model-grid' },
-              h(Field, { label: '供应商', hint: textProviders.length ? '来自 DSH 当前已注册的模型供应商。' : '当前未发现供应商，可保留已有自定义路由。' }, h('select', {
+              h(Field, { label: '供应商' }, h('select', {
                 className: 'tf-input', value: modelRouting.planner.provider, disabled: isBusy('save-models') || !textProviders.length,
                 onChange: event => {
                   const provider = textProviders.find(item => item.id === event.target.value)
@@ -339,7 +326,6 @@ export function createComfyUiSettings(React, api) {
           ),
           h('div', { className: 'tf-model-group' },
             h('div', { className: 'tf-model-group-title' }, '图片与视频模型'),
-            h('p', { className: 'tf-settings-hint' }, '每个生产阶段可独立选择已安装或导入的 ComfyUI 工作流。'),
             h('div', { className: 'tf-model-grid' },
               h(ModelSelect, { stage: 'characterImage', label: '角色定妆图' }),
               h(ModelSelect, { stage: 'startFrame', label: '章节起始帧' }),
@@ -384,7 +370,7 @@ export function createComfyUiSettings(React, api) {
                   ),
                   testResult ? h('div', { className: `tf-workflow-test ${testResult.ready ? 'is-ready' : 'is-failed'}`, role: 'status' },
                     h('strong', null, testResult.ready ? '测试通过' : '测试未通过'),
-                    h('span', null, `已检查 ${testResult.checked_nodes || 0} 类节点；未执行生成。`),
+                    h('span', null, `${testResult.checked_nodes || 0} 类节点 · 未执行生成`),
                     testResult.errors?.length ? h('ul', null, testResult.errors.slice(0, 6).map((error, index) => h('li', { key: `${error.code || 'error'}-${index}` }, workflowErrorText(error)))) : null,
                   ) : null,
                   expanded ? h('div', { className: 'tf-settings-item-body tf-workflow-body' },
@@ -404,7 +390,7 @@ export function createComfyUiSettings(React, api) {
             h('details', { className: 'tf-settings-advanced' },
               h('summary', null, '高级：导入 API 工作流'),
               h('div', { className: 'tf-settings-stack' },
-                h('p', { className: 'tf-settings-hint' }, '供维护人员使用。路径位于运行 Elysium 的服务器；扫描不会执行模型。'),
+                h('p', { className: 'tf-settings-hint' }, '服务器路径 · 扫描不执行模型'),
                 h(Field, { label: 'API Format JSON 绝对路径' }, h('input', { className: 'tf-input', value: workflow.path, disabled: isBusy('scan') || isBusy('import'), onChange: event => { setWorkflow({ ...workflow, path: event.target.value }); setDraft(null) } })),
                 h('div', { className: 'tf-settings-line' },
                   h(Field, { label: '模板 ID（可留空）' }, h('input', { className: 'tf-input', value: workflow.id, disabled: isBusy('scan') || isBusy('import'), onChange: event => setWorkflow({ ...workflow, id: event.target.value }) })),
@@ -421,7 +407,7 @@ export function createComfyUiSettings(React, api) {
           ),
         ),
 
-        h('details', { className: 'tf-settings-section', open: true },
+        h('details', { className: 'tf-settings-section' },
           h('summary', { className: 'tf-settings-summary' }, h('span', null, 'LoRA'), h('span', { className: 'tf-settings-count' }, `${configuredCount} 个已配置 · ${state?.availableLoras?.length ?? '—'} 个远程${lorasDirty ? ' · 未保存' : ''}`)),
           h('div', { className: 'tf-settings-body' },
             !state ? h('div', { className: 'tf-settings-empty' }, '正在加载 LoRA…')
@@ -437,7 +423,7 @@ export function createComfyUiSettings(React, api) {
                     ),
                     h('div', { className: 'tf-settings-item-body tf-settings-stack' },
                       item.usedBy?.length ? h('div', { className: 'tf-card-meta' }, `工作流引用：${item.usedBy.join(', ')}`) : null,
-                      item.in_registry === false ? h('div', { className: 'tf-settings-hint' }, '尚未添加自定义配置；编辑后保存即可启用。') : null,
+                      item.in_registry === false ? h('div', { className: 'tf-settings-hint' }, '未配置') : null,
                       h(Field, { label: '触发词' }, h('input', { className: 'tf-input', value: item.triggerWords || '', disabled: isBusy('save-loras'), onChange: event => updateLora(index, { triggerWords: event.target.value }) })),
                       h(Field, { label: '应用方式' }, h('select', { className: 'tf-input', value: item.mode, disabled: isBusy('save-loras'), onChange: event => updateLora(index, { mode: event.target.value }) },
                         h('option', { value: 'both' }, '加载模型并写入提示词'), h('option', { value: 'model-only' }, '仅加载模型'),
@@ -450,7 +436,7 @@ export function createComfyUiSettings(React, api) {
                   )
                 }),
             h('div', { className: 'tf-comfy-add' },
-              h(Field, { composite: true, label: connected ? '添加远程 LoRA' : '添加 LoRA 文件名', hint: connected ? '输入关键字筛选远程文件；添加后需保存。' : '当前未连接，可手动登记文件名；添加后需保存。' },
+              h(Field, { composite: true, label: connected ? '添加远程 LoRA' : '添加 LoRA 文件名', hint: connected ? '添加后需保存' : '未连接 · 可手动登记' },
                 h('div', { className: 'tf-settings-line' },
                   h('input', { className: 'tf-input tf-comfy-filter', 'aria-label': connected ? '筛选远程 LoRA' : 'LoRA 文件名', value: filter, placeholder: connected ? '筛选文件' : '文件名.safetensors', disabled: isBusy('save-loras'), onChange: event => setFilter(event.target.value) }),
                   connected ? h('select', { className: 'tf-input tf-comfy-picker', 'aria-label': '远程 LoRA 文件', value: selected, disabled: isBusy('save-loras') || !choices.length, onChange: event => setPick(event.target.value) }, choices.length ? choices.slice(0, 400).map(name => h('option', { key: name, value: name }, name)) : h('option', { value: '' }, '没有可添加项')) : null,
@@ -461,7 +447,6 @@ export function createComfyUiSettings(React, api) {
                       if (!name || registered.has(name)) return
                       setLoras(current => [...current, { name, triggerWords: '', mode: 'both', note: '', usedBy: [], on_server: connected ? true : null, in_registry: true }].sort((a, b) => a.name.localeCompare(b.name)))
                       setPick(''); setFilter('')
-                      setNotice({ ok: true, text: `已将 ${name} 加入草稿，请保存 LoRA。` })
                     },
                   }, '添加'),
                 ),

@@ -36,6 +36,7 @@ test('studio protects edits and completes the guided production interaction flow
   ])
   const calls = []
   let resolvePlan
+  let failNextUpdate = false
   const api = {
     mediaUrl: (projectId, path) => `/file/${projectId}/${path}`,
     async fetchJson(route, body = {}) {
@@ -60,7 +61,14 @@ test('studio protects edits and completes the guided production interaction flow
         return structuredClone(value)
       }
       if (route === '/episode.update') {
-        const value = details.get(body.projectId); Object.assign(value.episode, body.updates); return structuredClone(value)
+        if (failNextUpdate) { failNextUpdate = false; throw new Error('模拟保存失败') }
+        const value = details.get(body.projectId)
+        const { script, plan, assets, ...episodeUpdates } = body.updates
+        Object.assign(value.episode, episodeUpdates)
+        if (script) value.script = structuredClone(script)
+        if (plan) value.plan = structuredClone(plan)
+        if (assets) value.assets = structuredClone(assets)
+        return structuredClone(value)
       }
       if (route === '/episode.plan') {
         const value = details.get(body.projectId)
@@ -100,25 +108,30 @@ test('studio protects edits and completes the guided production interaction flow
     assert.equal(document.querySelector('.ely-current-project button').title, longProjectTitle)
     assert.equal(button('自动规划').disabled, false)
     assert.equal(document.querySelectorAll('.ely-primary-action button').length, 1)
-    assert.equal(document.querySelector('.ely-editor .ely-btn'), null)
+    assert.equal(document.querySelector('.ely-story-input'), null)
+    assert.equal(document.querySelector('.ely-breadcrumb').textContent.trim(), '‹ 返回')
+    assert.ok(button('编辑'))
+    assert.equal(document.querySelector('.ely-production-rail'), null)
+    assert.equal(document.querySelectorAll('.ely-stage-steps button').length, 8)
+    assert.ok(document.querySelector('.ely-stage-header .ely-primary-action'))
 
-    await click(document.querySelector('button[aria-label="新建项目"]'))
-    await change(document.querySelector('input[placeholder="项目名称"]'), '项目三')
+    await click(document.querySelector('button[aria-label="新建"]'))
+    await change(document.querySelector('input[placeholder="名称"]'), '项目三')
     await doubleClick(button('创建'))
     assert.equal(calls.filter(([route]) => route === '/project.create').length, 1)
-    await click(document.querySelector('button[aria-label="关闭提示"]'))
-    await click(button('全部短剧'))
+    assert.equal(document.querySelector('.ely-toast'), null)
+    await click(button('全部'))
     const projectOne = [...document.querySelectorAll('.ely-project-table-row')].find(item => item.textContent.includes('项目一'))
     await click(projectOne.querySelector('.ely-open-project'))
     await click(button('新建单集'))
-    await click(button('取消'))
-    await click(button('全部短剧'))
+    await click(button('返回'))
+    await click(button('全部'))
     const projectThree = [...document.querySelectorAll('.ely-project-table-row')].find(item => item.textContent.includes('项目三'))
     await click(projectThree.querySelector('.ely-open-project'))
-    await click(button('删除短剧'))
+    await click(button('删除'))
     await click(button('取消'))
     assert.ok(projects.some(item => item.id === 'project-3'))
-    await click(button('删除短剧'))
+    await click(button('删除'))
     await click(button('确认删除'))
     assert.ok(!projects.some(item => item.id === 'project-3'))
 
@@ -127,11 +140,12 @@ test('studio protects edits and completes the guided production interaction flow
     await click(document.querySelector('.ely-episode-table-row'))
     await settle()
 
+    await click(button('编辑'))
     await change(document.querySelector('.ely-story-input'), '尚未保存的新故事')
-    assert.equal(button('保存修改').disabled, false)
+    assert.equal(button('保存').disabled, false)
     assert.ok(document.querySelector('.ely-stage-unsaved'))
     assert.equal(button('刷新状态').disabled, true)
-    await click(button('全部短剧'))
+    await click(button('全部'))
     assert.match(document.body.textContent, /放弃未保存修改/)
     const modal = document.querySelector('.tf-modal')
     const modalActions = [...modal.querySelectorAll('button:not(:disabled)')]
@@ -140,10 +154,15 @@ test('studio protects edits and completes the guided production interaction flow
     assert.equal(document.activeElement, modalActions[0])
     await act(async () => { modal.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     assert.doesNotMatch(document.body.textContent, /放弃未保存修改/)
-    await click(button('全部短剧'))
+    await click(button('全部'))
     await click(button('继续编辑'))
     assert.match(document.body.textContent, /尚未保存的新故事/)
-    await click(button('全部短剧'))
+    await click(button('取消'))
+    assert.doesNotMatch(document.body.textContent, /尚未保存的新故事/)
+    assert.equal(document.querySelector('.ely-story-input'), null)
+    await click(button('编辑'))
+    await change(document.querySelector('.ely-story-input'), '尚未保存的新故事')
+    await click(button('全部'))
     await click(button('放弃并继续'))
     await settle(); await settle()
 
@@ -152,7 +171,7 @@ test('studio protects edits and completes the guided production interaction flow
     await click(button('新建单集'))
 
     await change(document.querySelector('input[placeholder*="雨夜来客"]'), '第二项目第一集')
-    await change(document.querySelector('textarea[placeholder*="未来十秒"]'), '测试完整故事')
+    await change(document.querySelector('.ely-create-form textarea'), '测试完整故事')
     const durationInput = document.querySelector('.ely-create-form input[type="number"]')
     await change(durationInput, 9)
     assert.equal(button('保存单集').disabled, true)
@@ -160,21 +179,47 @@ test('studio protects edits and completes the guided production interaction flow
     await doubleClick(button('保存单集'))
     assert.equal(calls.filter(([route]) => route === '/episode.create').length, 1)
     assert.equal(button('自动规划').disabled, false)
+    await click(button('编辑'))
     await change(document.querySelector('.ely-story-input'), '保存后的新故事')
-    await click(button('保存修改'))
+    failNextUpdate = true
+    await click(button('保存'))
+    assert.match(document.body.textContent, /模拟保存失败/)
+    assert.ok(document.querySelector('.ely-story-input'))
+    await click(button('保存'))
+    assert.equal(document.querySelector('.ely-story-input'), null)
+    assert.match(document.body.textContent, /保存后的新故事/)
     await doubleClick(button('自动规划'))
     assert.equal(calls.filter(([route]) => route === '/episode.plan').length, 1)
     assert.equal(button('故事').disabled, false)
-    assert.equal(document.querySelector('button[aria-label="新建项目"]').disabled, false)
-    assert.equal(button('全部短剧').disabled, false)
+    assert.equal(document.querySelector('button[aria-label="新建"]').disabled, false)
+    assert.equal(button('全部').disabled, false)
     await act(async () => { resolvePlan(); await new Promise(resolve => setTimeout(resolve, 0)) })
     assert.match(document.body.textContent, /已规划/)
+    await click(button('编辑'))
+    await change(document.querySelector('.ely-script-synopsis-input'), '取消的剧本修改')
+    await click(button('取消'))
+    assert.doesNotMatch(document.body.textContent, /取消的剧本修改/)
+    await click(button('编辑'))
+    await change(document.querySelector('.ely-script-synopsis-input'), '二次编辑后的剧本')
+    await click(button('保存'))
+    assert.match(document.body.textContent, /二次编辑后的剧本/)
+    await click(button('故事'))
+    await click(button('剧本'))
+    assert.match(document.body.textContent, /二次编辑后的剧本/)
+    await click(button('规划'))
+    await click(button('编辑'))
+    await change(document.querySelector('.ely-plan-editor input'), '二次编辑后的章节')
+    await click(button('保存'))
+    assert.match(document.body.textContent, /二次编辑后的章节/)
+    await click(button('刷新状态'))
+    assert.match(document.body.textContent, /二次编辑后的章节/)
     for (const stage of ['资产', '规划', '起始帧', '关键帧', '章节', '故事', '剧本']) await click(button(stage))
 
     await click(document.querySelector('.ely-authorization input'))
     await doubleClick(button('开始自动生产'))
     assert.equal(calls.filter(([route]) => route === '/production.start').length, 1)
     assert.ok(button('暂停生产'))
+    assert.equal(button('编辑').disabled, true)
     await click(button('暂停生产'))
     assert.ok(button('继续生产'))
     await click(button('继续生产'))
@@ -183,7 +228,7 @@ test('studio protects edits and completes the guided production interaction flow
     current.state.status = 'needs_attention'
     current.issues = [{ id: 'issue-1', status: 'open', taskId: 'task-1', code: 'FAILED', message: '模拟失败' }]
     await click(button('刷新状态'))
-    assert.ok(document.querySelector('.ely-production-rail').children[1].classList.contains('ely-attention'))
+    assert.ok(document.querySelector('.ely-stage-panel > .ely-attention'))
     await doubleClick(button('重试'))
     assert.equal(calls.filter(([route]) => route === '/production.retry').length, 1)
 
@@ -205,15 +250,93 @@ test('studio protects edits and completes the guided production interaction flow
     assert.ok(document.querySelector('a[download$=".mp4"]'))
     assert.equal(button('本集已完成').disabled, true)
 
-    await click(button('全部短剧'))
-    await click(document.querySelector('input[aria-label^="选择项目 项目一"]'))
-    await click(document.querySelector('input[aria-label="选择项目 项目二"]'))
+    await click(button('全部'))
+    await click(document.querySelector('input[aria-label^="选择 项目一"]'))
+    await click(document.querySelector('input[aria-label="选择 项目二"]'))
     const batchAuthorization = document.querySelector('.ely-hub-batch input[type="checkbox"]')
     await click(batchAuthorization)
     const startsBeforeBatch = calls.filter(([route]) => route === '/production.start').length
     await doubleClick([...document.querySelectorAll('.ely-hub-batch button')].find(item => item.textContent.includes('启动 / 继续')))
     assert.ok(calls.filter(([route]) => route === '/production.start').length > startsBeforeBatch)
     await doubleClick([...document.querySelectorAll('.ely-hub-batch button')].find(item => item.textContent.includes('暂停')))
+  } finally {
+    await act(async () => root.unmount())
+    dom.window.close()
+    globalThis.window = previous.window
+    globalThis.document = previous.document
+    if (previous.navigator) Object.defineProperty(globalThis, 'navigator', previous.navigator)
+    else delete globalThis.navigator
+    delete globalThis.IS_REACT_ACT_ENVIRONMENT
+  }
+})
+
+test('studio keeps twenty large projects searchable and paginates the active project', async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://127.0.0.1:3080/' })
+  const previous = { window: globalThis.window, document: globalThis.document, navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') }
+  globalThis.window = dom.window
+  globalThis.document = dom.window.document
+  Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true
+  window.HTMLElement.prototype.attachEvent = () => {}
+  window.HTMLElement.prototype.detachEvent = () => {}
+
+  const { createRoot } = await import('react-dom/client')
+  const { act, Simulate } = await import('react-dom/test-utils')
+  const projects = Array.from({ length: 20 }, (_, index) => ({
+    id: `project-${index + 1}`,
+    title: index === 19 ? '第二十部 · 超长项目名称用于验证密集工作台不会横向溢出并且仍可快速定位' : `短剧项目 ${String(index + 1).padStart(2, '0')}`,
+  }))
+  const summaries = new Map(projects.map((project, projectIndex) => {
+    const count = projectIndex === 19 ? 100 : 10 + (projectIndex % 5) * 15
+    return [project.id, Array.from({ length: count }, (_, episodeIndex) => ({
+      id: `${project.id}-episode-${episodeIndex + 1}`,
+      projectId: project.id,
+      title: `第 ${String(episodeIndex + 1).padStart(3, '0')} 集`,
+      status: episodeIndex % 23 === 0 ? 'failed' : episodeIndex % 17 === 0 ? 'awaiting_review' : episodeIndex % 11 === 0 ? 'running' : episodeIndex % 7 === 0 ? 'approved' : 'ready',
+      activeStage: 'story',
+      createdAt: String(episodeIndex + 1),
+    }))]
+  }))
+  const api = {
+    mediaUrl: () => '',
+    async fetchJson(route, body = {}) {
+      if (route === '/project.list') return { projects }
+      if (route === '/episode.list') return { episodes: summaries.get(body.projectId) || [] }
+      throw new Error(`unexpected route: ${route}`)
+    },
+  }
+  const Studio = createStudio(React, api)
+  const root = createRoot(document.getElementById('root'))
+  const settle = async () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+  const click = async element => act(async () => { element.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); await new Promise(resolve => setTimeout(resolve, 0)) })
+
+  try {
+    await act(async () => root.render(React.createElement(Studio)))
+    await settle(); await settle()
+    assert.equal(document.querySelectorAll('.ely-project-table-row').length, 20)
+    assert.equal(document.querySelector('.ely-project-episodes'), null)
+
+    const search = document.querySelector('input[aria-label="搜索名称或单集"]')
+    await act(async () => Simulate.change(search, { target: { value: '第二十部' } }))
+    assert.equal(document.querySelectorAll('.ely-project-table-row').length, 1)
+    assert.match(document.querySelector('.ely-project-cell').title, /超长项目名称/)
+    await click(document.querySelector('.ely-open-project'))
+    await settle()
+    assert.equal(document.querySelectorAll('.ely-episode-table-row').length, 25)
+    assert.match(document.querySelector('.ely-list-heading').textContent, /100 集 · 第 1\/4 页/)
+    await click([...document.querySelectorAll('.ely-pagination button')].find(item => item.textContent === '下一页'))
+    assert.match(document.querySelector('.ely-list-heading').textContent, /第 2\/4 页/)
+
+    await click(document.querySelector('.ely-back-link'))
+    await act(async () => Simulate.change(document.querySelector('input[aria-label="搜索名称或单集"]'), { target: { value: '' } }))
+    const attention = [...document.querySelectorAll('.ely-hub-filters button')].find(item => item.textContent.includes('待处理'))
+    await click(attention)
+    assert.ok(document.querySelectorAll('.ely-queue-row').length > 20)
+    assert.match(document.querySelector('.ely-queue').textContent, /失败|等待终审/)
+    await click([...document.querySelectorAll('.ely-queue-tabs button')].find(item => item.textContent === '失败'))
+    assert.ok([...document.querySelectorAll('.ely-queue-row .ely-status')].every(item => item.textContent === '失败' || item.textContent === '需要处理'))
+    await click([...document.querySelectorAll('.ely-queue-tabs button')].find(item => item.textContent === '待审核'))
+    assert.ok([...document.querySelectorAll('.ely-queue-row .ely-status')].every(item => item.textContent === '等待终审'))
   } finally {
     await act(async () => root.unmount())
     dom.window.close()

@@ -228,18 +228,6 @@ export interface SidebarJobsService {
 export interface SidebarAgentsService {
   /** The live agent registered under a session id, or undefined when not live. */
   get(id: string): SidebarAgent | undefined
-  /**
-   * Create a session + agent with a custom seed (mirror of the runtime
-   * AgentRegistry.create) — the Side Chat thread-creation seam: the SAME
-   * public seam api-proxy's session.fork and the subagent fork provider use.
-   */
-  create?(options: unknown): Promise<{ agent: SidebarAgent; dispose(): Promise<void> }>
-  /**
-   * Resume an agent on a persisted session (mirror of the runtime
-   * AgentRegistry.resume) — the Side Chat cold-continuation seam after a
-   * DSH restart or a closed thread.
-   */
-  resume?(options: unknown): Promise<{ agent: SidebarAgent; dispose(): Promise<void> }>
 }
 
 /** The host subagent runtime face (`ctx.subagents`; optional — the live
@@ -277,26 +265,7 @@ export type SidebarSubagentDescendantEntry =
     depth: number
   }
 
-/** The host agent-presets service face (mirror of the runtime agentPresets
- *  service): resolves and mounts the preset composition a session recorded,
- *  so a resumed or forked session rebuilds the same tool/prompt world its
- *  history was produced under. */
-export interface SidebarAgentPresetsService {
-  /** Resolve a preset id; undefined resolves the deployment default. */
-  resolve(presetId?: string): Promise<{ id: string }>
-  /** Mount a preset's composition into an agent scope before publication. */
-  mount(agentCtx: unknown, presetId: string): Promise<void>
-}
-
-/** The host session-title service face (mirror of the sessionTitle service). */
-export interface SidebarSessionTitleService {
-  /** Rename one live session's title (pins it against auto-regeneration). */
-  rename(session: unknown, title: string): { title: string; eventSeq: number }
-}
-
-/** The host session-persistence face (mirror of the sessionPersistence
- *  service): detached inspection of a persisted session, used to compose the
- *  recorded preset when a Side Chat thread cold-resumes. */
+/** The host session-persistence face used for detached session inspection. */
 export interface SidebarSessionPersistenceService {
   inspect(sessionId: string): Promise<{
     meta: { cwd?: string; agentPreset?: string }
@@ -329,23 +298,6 @@ export interface SidebarSessionsService {
    * — used to jump back to the main agent from the topology root node.
    */
   open?(id: string): void
-  /**
-   * Fork a session from a completed-turn prefix of the source and resolve
-   * the child session id (mirror of the runtime ISessions.fork — throws on
-   * failure). The Side Chat "save as new session" action uses this to
-   * promote a hidden side thread into a top-level session.
-   */
-  fork?(opts: { sessionId: string; atSeq?: number; increaseTitle?: boolean }): Promise<string>
-  /**
-   * Resolve the stable session binding of one listed session (mirror of the
-   * runtime ISessions.binding); the saved-session rename uses the face's
-   * behavior verbs.
-   */
-  binding?(id: string): {
-    session: {
-      rename(title: string): Promise<unknown>
-    }
-  } | undefined
   /**
    * Resolve an Agent-scoped context view for one session (mirror of the
    * runtime ISessions.scope) — the ticket `ctx.conversation.input.for`
@@ -471,8 +423,7 @@ export interface SidebarToolsService {
 
 /**
  * The agent face a tool sees on `exec.agent` (mirror of @deepseek-ai/dsh-agent's
- * Agent). Only the slices the terminal tools touch are restated: the live
- * session identity and its header cwd, both readonly.
+ * Agent). Only the live session identity and header cwd are restated.
  */
 export interface SidebarAgent {
   /** The live session identity shared with the session log. */
@@ -512,15 +463,11 @@ export interface SidebarContextShape {
   modules: { import(specifier: string): Promise<unknown> }
   /** The host background-job registry (optional; routes degrade to 503). */
   jobs: SidebarJobsService
-  /** The host live-agent registry (optional; side chat thread agents). */
+  /** The host live-agent registry. */
   agents: SidebarAgentsService
   /** The host subagent runtime (optional; live topology batch route). */
   subagents: SidebarSubagentsService
-  /** The host agent-presets service (optional; side chat cold resume). */
-  agentPresets: SidebarAgentPresetsService
-  /** The host session-title service (optional; side chat thread label pin). */
-  sessionTitle: SidebarSessionTitleService
-  /** The host session-persistence service (optional; side chat cold resume). */
+  /** The host session-persistence service. */
   sessionPersistence: SidebarSessionPersistenceService
   /**
    * The client connection lifecycle (DSH 0.1.2-alpha.2+; optional so older

@@ -38,11 +38,9 @@ import type {
 import {
   collectBranchIds,
   countSubagentDescendants,
-  isSideThreadSummary,
   rootAncestor,
 } from './subagent-detect.ts'
 import { type LastActivity } from '../dsh/subagent-activity.ts'
-import { SIDE_LABEL_PREFIX } from '../dsh/sidechat-core.ts'
 import {
   collectTreeJobs,
   formatJobDuration,
@@ -66,16 +64,13 @@ const JOB_POLL_MS = 2000
 /** How long the kill button stays armed before it needs re-confirming. */
 const JOB_KILL_ARM_MS = 3000
 
-/** The direct subagent children of one parent (durable `origin` rows;
- *  Side Chat threads ride the same origin but are tab-strip conversations,
- *  never topology). */
+/** The direct subagent children of one parent (durable `origin` rows). */
 function directChildren(
   byId: Readonly<Record<string, SidebarSessionSummary>>,
   parentSessionId: string,
 ): SidebarSessionSummary[] {
   return Object.values(byId).filter(
-    summary => summary.origin === 'subagent' && summary.parentId === parentSessionId
-      && !isSideThreadSummary(summary),
+    summary => summary.origin === 'subagent' && summary.parentId === parentSessionId,
   )
 }
 
@@ -250,14 +245,7 @@ function CatalogRows({
   openChild, refresh,
 }: RowsProps) {
   const emptyLoading = catalog?.state === 'loading' && catalog.entries.length === 0
-  // Side Chat threads are honest catalog citizens (durable descriptor, 'Side: '
-  // label) but they are NOT subagent topology — filter them out here (the tab
-  // strip owns them). Legacy threads created before the descriptor fix still
-  // arrive as corrupt diagnostics; they are recognized by summary title.
-  const visibleEntries = (catalog?.entries ?? []).filter((entry) => {
-    if (entry.kind === 'child') return !(entry.label?.startsWith(SIDE_LABEL_PREFIX) ?? false)
-    return !(byId[entry.id]?.displayTitle.startsWith(SIDE_LABEL_PREFIX) ?? false)
-  })
+  const visibleEntries = catalog?.entries ?? []
   return (
     <>
       {emptyLoading && (
@@ -376,7 +364,7 @@ function CatalogRows({
 
 /**
  * The shared output dock of the jobs section: ONE pane at the bottom of the
- * sidebar body (sticky, terminal-like) shows the SELECTED job's output as
+ * sidebar body shows the selected job's output as
  * the MODEL has read it so far (replayed from the owner session's event
  * log), refreshed every {@link JOB_POLL_MS} while the job runs and the
  * page is visible. The model's `job_output` cursor is never touched — the

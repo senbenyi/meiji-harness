@@ -3,13 +3,13 @@
  *
  * One tool lets the model actively open a local file, a local folder (as a
  * tree rooted there), or an HTTP(S) page in the CALLING session's sidebar.
- * Mirroring the agent-terminal tools, the tool binds to the calling agent's
- * session through `exec.agent.session.id` — the model never passes a
+ * The tool binds to the calling agent's session through
+ * `exec.agent.session.id` — the model never passes a
  * sessionId, and opens for non-active sessions are queued until that
  * session's sidebar view is next connected.
  *
  * Delivery is a host→browser push over the dedicated `/sidebar/ws/agent-opens`
- * endpoint (the same pattern as `/sidebar/ws/agent-terminals`): the registry
+ * endpoint: the registry
  * keeps a per-session queue; a push is consumed on send (`delivered: true`
  * means a sidebar view was attached at call time), otherwise the request
  * stays queued and is replayed when a view for that session attaches.
@@ -58,7 +58,7 @@ type Sender = (request: AgentOpenRequest) => void
  * applied, and the browser tab type has no per-URL dedupe, so replaying
  * would mint duplicate tabs). With no attached view the request stays queued
  * and `attach` replays it on connect. `drainAll` drops every queued request
- * (the feature was turned off); `dispose` also drops every subscriber.
+ * during teardown; `dispose` also drops every subscriber.
  */
 export class AgentOpenRegistry {
   private pending = new Map<string, AgentOpenRequest[]>()
@@ -99,11 +99,6 @@ export class AgentOpenRegistry {
       current?.delete(send)
       if (current !== undefined && current.size === 0) this.subscribers.delete(sessionId)
     }
-  }
-
-  /** Drop every queued request (the feature was turned off mid-session). */
-  drainAll(): void {
-    this.pending.clear()
   }
 
   /** Drop the queue and every subscriber (plugin teardown). */
@@ -180,8 +175,7 @@ function isWindowsDrivePrefix(raw: string): boolean {
 
 /**
  * Register the `sidebar_open` tool against the host tool registry. The tool
- * is gated by the side-card setting `agentOpenTools` (the caller registers
- * and unregisters it); `readPrefs` supplies the live prefs so a disabled
+ * is always registered; `readPrefs` supplies the live prefs so a disabled
  * target tab type (editor/browser) is reported to the model instead of
  * silently no-oping on the client. `resolveCwd` threads the calling
  * session's live cwd so relative paths resolve the same way the sidebar's
@@ -212,7 +206,7 @@ export function registerOpenTool(
       + 'The open lands in the CALLING session\'s sidebar: while that session\'s sidebar view is not connected '
       + '(e.g. the session is not the active one), the open is queued and delivered when the session sidebar is next shown — '
       + 'the result reports `delivered` so you know whether it is visible right now. '
-      + 'The side card setting "model opens files/folders/pages in the sidebar" must be on, and the target tab type must be enabled in that session\'s settings.',
+      + 'The target tab type must be enabled in that session\'s settings.',
     parameters: {
       target: {
         type: 'string',

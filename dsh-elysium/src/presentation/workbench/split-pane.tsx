@@ -31,12 +31,6 @@ export interface WorkbenchActions {
   resizeSplit: (splitId: string, index: number, deltaFrac: number) => void
   /** Float a docked tab out as a free window (tab context menu entry). */
   floatTab: (tabId: string) => void
-  /**
-   * Pin/unpin a terminal tab (v0.17.0+). The shell snapshots the home cwd
-   * at pin time; null clears the pin. Optional: when undefined the tab
-   * context menu hides the pin entry (legacy callers).
-   */
-  pinTab?: (tabId: string, scope: 'workspace' | 'global' | null) => void
 }
 
 /** One divider: pointer-capture drag translating px deltas into fractions.
@@ -47,7 +41,7 @@ export interface WorkbenchActions {
  *
  * The moves are BATCHED per frame (createFrameBatcher): a pointer stream
  * fires faster than the display refresh, and applying each move is a store
- * reduce that re-renders both workbenches (terminals, editors, trees) per
+ * reduce that re-renders both workbenches (editors and trees) per
  * event — the visible drag lag on slower CPUs (#315). The batch accumulates
  * the incremental deltas in a ref and applies the summed fraction at most
  * once per frame; the sum equals what the per-event application would have
@@ -217,15 +211,12 @@ function LeafView(props: {
           else actions.moveTabBefore(payload, leaf.id, before)
         }}
         onFloatTab={actions.floatTab}
-        onPinTab={actions.pinTab}
       />
       {leaf.tabs.length > 0 ? (
         /*
           Every tab stays MOUNTED (inactive ones hidden), so switching tabs
-          never tears down the content: a terminal keeps its pty connection
-          and scrollback, an editor keeps its CodeMirror view and unsaved
-          draft, explorer/git keep their loaded data. The unmount (and the
-          terminal's close frame) happens only when a tab is truly closed.
+          never tears down the content: editors keep their CodeMirror view
+          and unsaved draft. Unmount happens only when a tab is truly closed.
         */
         <div className={css.paneContent}>
           {leaf.tabs.map(tab => (

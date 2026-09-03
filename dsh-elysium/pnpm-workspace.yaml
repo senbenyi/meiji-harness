@@ -1,11 +1,7 @@
 packages:
   - .
 
-# node-pty's install script copies its shipped prebuilt binaries into place
-# (no source compilation on supported platforms); pnpm 10+ blocks dependency
-# build scripts unless approved.
 allowBuilds:
-  node-pty: true
   protobufjs: true
 
 # The @deepseek-ai/* packages declare their dsh-* siblings as peerDependencies

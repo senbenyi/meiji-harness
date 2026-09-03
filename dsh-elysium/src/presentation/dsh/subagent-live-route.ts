@@ -17,7 +17,6 @@
  *   the batch still returns.
  */
 import type { Context, SidebarSubagentsService } from './context-types.ts'
-import { SIDE_LABEL_PREFIX } from './sidechat-core.ts'
 import { lastActivity, type LastActivity } from './subagent-activity.ts'
 import { requireString, SidebarError } from './wire.ts'
 
@@ -70,11 +69,8 @@ export function buildSubagentLiveApi(ctx: Context): SidebarSubagentLiveRoutes {
       const live: Record<string, LastActivity> = {}
       for (const entry of descendants) {
         // Same gate the client renders cards on: only catalog-running
-        // children get live lines (spec: "仅对 running 且非 Side Chat").
+        // children get live lines.
         if (entry.kind !== 'child' || entry.activity !== 'running') continue
-        // Side Chat threads ride the subagent origin but are sidebar tabs,
-        // never topology — keep them out of the live map too.
-        if (entry.label?.startsWith(SIDE_LABEL_PREFIX) ?? false) continue
         try {
           const activity = lastActivity(
             ctx.sessions.get(entry.id)?.events ?? [],

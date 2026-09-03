@@ -371,7 +371,7 @@
 }
 
 /* The command line: a kind badge followed by the command itself in the code
-   face, like the terminal's live lines. */
+   face, matching the live output lines. */
 .jobsLabelLine {
   display: flex;
   align-items: center;
@@ -457,7 +457,7 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* ── The shared output dock (bottom of the page, sticky like a terminal) ── */
+/* ── Shared output dock at the bottom of the page ── */
 
 /* Direct child of the scrolling body, so it docks at the scrollport's bottom
    edge while the job list scrolls above it; a solid background keeps the

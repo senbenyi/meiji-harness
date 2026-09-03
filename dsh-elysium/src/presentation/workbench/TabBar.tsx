@@ -1,8 +1,8 @@
 /**
  * The tab strip of one pane: tabs capped at TAB_MAX_WIDTH (ellipsized),
  * overflow scrolls horizontally, a close button per tab, a four-way split
- * button cluster, and the + menu that opens new tabs (explorer / git /
- * terminal). Tabs are draggable; dropping onto another tab inserts before it,
+ * button cluster, and the + menu that opens new tabs. Tabs are draggable;
+ * dropping onto another tab inserts before it,
  * dropping on the strip background appends to this pane. Right-clicking a
  * tab opens the tab context menu (float as a free window / close / close
  * others / close to the left / close to the right, the close ones scoped to
@@ -14,9 +14,6 @@ import {
   IconCloseFill14, IconPlusOutline16, Menu,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SidebarTab } from './state.ts'
-import { isAgentTabId } from './state.ts'
-import { isPinnedVirtualTab } from './pinned.ts'
-import { IconPinOutline16 } from './icons.tsx'
 import { t } from './locales.ts'
 import css from './sidebar.module.css'
 
@@ -70,13 +67,6 @@ export function TabBar(props: {
   /** Float a tab out as a free window (the tab context menu's entry; the
    *  drag-to-conversation gesture is handled at the Sidebar shell level). */
   onFloatTab: (tabId: string) => void
-  /**
-   * Pin/unpin a terminal tab (v0.17.0+). Called with `'workspace'` or
-   * `'global'` to pin (the shell snapshots the home cwd), or `null` to
-   * unpin. Non-terminal tabs never trigger this callback. Optional: the
-   * menu hides the pin entry when unset (legacy callers).
-   */
-  onPinTab?: (tabId: string, scope: 'workspace' | 'global' | null) => void
   /** Icon resolver for tab labels (reads from the tab descriptor registry). */
   getTabIcon?: (tab: SidebarTab) => ReactNode
   /** Badge resolver for tab labels (reads the descriptor's `badge`; the
@@ -84,11 +74,11 @@ export function TabBar(props: {
   getTabBadge?: (tab: SidebarTab) => ReactNode
 }) {
   const {
-    paneId, tabs, active, onActivate, onClose, onNewTab, newTabOptions, onDropTab, onFloatTab, onPinTab, getTabIcon, getTabBadge,
+    paneId, tabs, active, onActivate, onClose, onNewTab, newTabOptions, onDropTab, onFloatTab, getTabIcon, getTabBadge,
   } = props
   const [menuOpen, setMenuOpen] = useState(false)
   // The tab right-click context menu: the target tab plus the cursor
-  // position (the portaled Menu anchors there, following the git lens/FileTree).
+  // position (the portaled Menu anchors there).
   const [tabMenu, setTabMenu] = useState<{ tabId: string; x: number; y: number } | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
@@ -184,14 +174,13 @@ export function TabBar(props: {
     >
       <div ref={listRef} className={css.tabList}>
         {tabs.map(tab => {
-          const pinned = isPinnedVirtualTab(tab) || tab.pin !== undefined
           return (
           <div
             key={tab.id}
-            className={clsx(css.tab, active === tab.id && css.tabActive, pinned && css.pinnedTab)}
+            className={clsx(css.tab, active === tab.id && css.tabActive)}
             title={tab.title}
-            draggable={!pinned}
-            onDragStart={pinned ? undefined : (event) => {
+            draggable
+            onDragStart={(event) => {
               setTabDragging(true)
               event.dataTransfer.setData(TAB_DRAG_TYPE, serializeDrag({ tabId: tab.id, paneId }))
               event.dataTransfer.effectAllowed = 'move'
@@ -199,7 +188,6 @@ export function TabBar(props: {
             onDragEnd={() => { setTabDragging(false); setDragOver(false) }}
             onDragOver={(event) => { event.preventDefault(); event.stopPropagation() }}
             onDrop={(event) => {
-              if (pinned) { event.stopPropagation(); return }
               event.preventDefault()
               event.stopPropagation()
               setTabDragging(false)
@@ -228,7 +216,6 @@ export function TabBar(props: {
               setTabMenu({ tabId: tab.id, x: event.clientX, y: event.clientY })
             }}
           >
-            {pinned && <IconPinOutline16 size={16} />}
             {getTabIcon?.(tab) ?? null}
             {getTabBadge?.(tab) ?? null}
             <span className={css.tabTitle}>{tab.title}</span>
@@ -282,46 +269,15 @@ export function TabBar(props: {
           The tab context menu, positioned at the right-click cursor (portal
           so the panel's overflow clip cannot crop it). Close operations are
           scoped to THIS pane: "close others/left/right" walk the render-time
-          tab snapshot and reuse the per-tab onClose path (which routes
-          through the service and releases terminals), so the target tab is
+          tab snapshot and reuse the per-tab onClose path, so the target tab is
           never closed and the pane never empties mid-loop.
         */}
         <Menu
           open={tabMenu !== null && tabMenuIndex >= 0}
           onClose={() => { setTabMenu(null) }}
           items={(() => {
-            // The target tab drives the pin entry's shape: terminal tabs
-            // get either a "Pin ▸" submenu (unpinned) or a single "Unpin"
-            // row (pinned). Non-terminal tabs and missing onPinTab get no
-            // pin entry at all — the menu stays exactly the legacy 5-item
-            // shape. Pinned VIRTUAL tabs (injected from other sessions)
-            // get a stripped menu: only Unpin + Close (no float, no
-            // close-others/left/right — those are pane-scoped operations
-            // that don't apply to cross-session virtual tabs).
-            const targetTab = tabMenuIndex >= 0 ? tabs[tabMenuIndex] : undefined
-            const isTerminal = targetTab?.type === 'terminal'
-            const isPinnedVirtual = targetTab !== undefined && isPinnedVirtualTab(targetTab)
-            const pinEntries = isTerminal && onPinTab !== undefined
-              ? targetTab!.pin !== undefined
-                ? [{ id: 'unpin', label: t('unpinTerminal') }]
-                : [{
-                    id: 'pin',
-                    label: isAgentTabId(targetTab!.id) ? t('pinAgentTerminal') : t('pinTerminal'),
-                    submenu: [
-                      { id: 'pinWorkspace', label: t('pinToWorkspace') },
-                      { id: 'pinGlobal', label: t('pinToGlobal') },
-                    ],
-                  }]
-              : []
-            if (isPinnedVirtual) {
-              return [
-                ...pinEntries,
-                { id: 'close', label: t('close') },
-              ]
-            }
             return [
               { id: 'float', label: t('moveToFreeWindow') },
-              ...pinEntries,
               { id: 'close', label: t('close') },
               { id: 'closeOthers', label: t('closeOtherTabs'), ...(tabs.length <= 1 ? { disabled: true } : {}) },
               { id: 'closeLeft', label: t('closeLeftTabs'), ...(tabMenuIndex <= 0 ? { disabled: true } : {}) },
@@ -336,12 +292,6 @@ export function TabBar(props: {
             if (index < 0) return
             if (id === 'float') {
               onFloatTab(target.tabId)
-            } else if (id === 'pinWorkspace') {
-              onPinTab?.(target.tabId, 'workspace')
-            } else if (id === 'pinGlobal') {
-              onPinTab?.(target.tabId, 'global')
-            } else if (id === 'unpin') {
-              onPinTab?.(target.tabId, null)
             } else if (id === 'close') {
               onClose(target.tabId)
             } else if (id === 'closeOthers') {

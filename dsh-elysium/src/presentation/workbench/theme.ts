@@ -1,11 +1,11 @@
 /**
  * Live theme access for surfaces that cannot consume the token colors
- * directly — xterm's palette and CodeMirror's theme extensions need concrete
+ * directly — CodeMirror's theme extensions need concrete
  * values, but the app's scheme flips at runtime (ui-layout's ThemePresenter
  * projects prefers-color-scheme and the user's choice onto
  * body[data-ds-dark-theme] and html { color-scheme }). This module reads the
  * resolved scheme and token values, and notifies subscribers on flips, so
- * the terminal and the editor re-theme in place instead of freezing in the
+ * editors re-theme in place instead of freezing in the
  * scheme they happened to be created under.
  */
 
@@ -33,7 +33,7 @@ export function tokenValue(name: string): string {
 /** Minimal alpha for a token color to count as effectively opaque. Skin
  *  systems turn `--dsw-alias-bg-base` translucent for glass panels (the
  *  dsh-web-ui skins use rgba 0.16–0.7; `transparent` is 0); below this
- *  floor a text surface (terminal, editor) would render over the skin's
+ *  floor an editor surface would render over the skin's
  *  backdrop art, so callers fall back to an opaque color. Values at or
  *  above the floor (e.g. a skin's scoped 0.96 porcelain) pass through —
  *  the skin still controls the surface. */
@@ -74,7 +74,7 @@ export function colorAlpha(color: string): number | null {
  * surfaces (issue #90). Skin systems routinely set global tokens to
  * `transparent` (glass skins) or translucent glass values (`rgba(…,0.16–0.7)`,
  * e.g. the dsh-web-ui skins) — both are truthy strings, so callers using
- * `|| fallback` never fire and the terminal/editor goes see-through over
+ * `|| fallback` never fire and the editor goes see-through over
  * the skin's backdrop. This returns '' for visually inert values (unset
  * keywords, transparent, and any color below the opacity floor) so the
  * caller's fallback chain engages; effectively opaque values pass through.

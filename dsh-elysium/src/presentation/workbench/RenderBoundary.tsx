@@ -36,10 +36,10 @@ export class RenderBoundary extends Component<{ children?: ReactNode; className?
           <span>dsh-elysium: {this.state.error}</span>
           <button
             type="button"
-            className={css.terminalRetry}
+            className={css.retryButton}
             onClick={() => { this.setState({ error: null }) }}
           >
-            {t('terminalRetry')}
+            {t('retry')}
           </button>
         </div>
       )

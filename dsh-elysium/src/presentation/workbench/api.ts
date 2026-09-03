@@ -8,8 +8,6 @@
  */
 import { encodeHtmlUrl } from '../dsh/html-route.ts'
 import type { LastActivity } from '../dsh/subagent-activity.ts'
-import type { SidechatLogEvent, SidechatThreadInfo } from '../dsh/sidechat-core.ts'
-import type { SidebarSessionEvent } from '../dsh/context-types.ts'
 import type { BrowserProbeResult } from './browser.ts'
 
 /** One wire failure. */
@@ -50,46 +48,6 @@ export interface FsEntry {
   broken: boolean
 }
 
-/** Git status entry (host git shape). */
-export interface GitStatusEntry {
-  path: string
-  xy: string
-}
-
-/** Git status snapshot. */
-export interface GitStatusResult {
-  isRepo: boolean
-  branch?: string
-  entries: GitStatusEntry[]
-  /** True when the host capped `entries` (huge untracked set); the panel
-   *  shows a truncation notice instead of freezing (#369). */
-  truncated?: boolean
-  root?: string
-  repositories?: string[]
-}
-
-/** One linked Git checkout. */
-export interface GitWorktree {
-  path: string
-  branch: string
-  current: boolean
-  changes: number
-}
-
-/** One git log row. */
-export interface GitLogEntry {
-  /** Short hash (7+ chars, display). */
-  hash: string
-  /** Full 40-char hash (advanced operations). */
-  hashFull: string
-  subject: string
-  author: string
-  /** ISO 8601 author date (`%ai`). */
-  date: string
-  /** Ref decorations (--decorate=short), e.g. `HEAD -> main, origin/main`; '' when none. */
-  refs: string
-}
-
 /** Text read result. */
 export interface FsTextResult { kind: 'text'; content: string; truncated: boolean }
 /** Binary read result (no content; images load through the media route).
@@ -113,21 +71,6 @@ export interface JobOutputResult {
 
 /** The `subagents.live` response: running child id → latest activity. */
 export type SubagentLiveResult = { live: Record<string, LastActivity> }
-
-/** Terminal dependency status (mirror of the host's depsStatus; issue #140). */
-export type TerminalDepsStatus =
-  | { ok: true }
-  | {
-    ok: false
-    /** The require-time error message (module missing, native binding broken…). */
-    cause: string
-    /** The pasteable repair command (terminal/cmd). */
-    command: string
-    /** The detected profile name (null when undetected → the command defaults to web). */
-    profile: string | null
-    /** Optional supplementary hint (fallback command only). */
-    note?: string
-  }
 
 async function call<T>(method: string, payload: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   let response: Response
@@ -196,8 +139,6 @@ export interface SessionScope {
   sessionId: string
   /** The session's working directory from the client list summary (optional). */
   cwd?: string
-  /** Selected Git repository when cwd is a workspace container. */
-  repoRoot?: string
 }
 
 /** Fold a scope into a JSON payload ({cwd} only when present). */
@@ -205,15 +146,8 @@ function scopePayload(scope: SessionScope, extra: Record<string, unknown>): Reco
   return {
     sessionId: scope.sessionId,
     ...(scope.cwd !== undefined && scope.cwd !== '' ? { cwd: scope.cwd } : {}),
-    ...(scope.repoRoot !== undefined && scope.repoRoot !== '' ? { repoRoot: scope.repoRoot } : {}),
     ...extra,
   }
-}
-
-/** Add a linked-worktree selection to a scoped Git request. The host validates
- * membership before using it as a command cwd. */
-function gitPayload(scope: SessionScope, worktree: string | undefined, extra: Record<string, unknown>): Record<string, unknown> {
-  return scopePayload(scope, { ...(worktree !== undefined && worktree !== '' ? { worktree } : {}), ...extra })
 }
 
 /** The sidebar API surface (session scope threaded through every call). */
@@ -234,61 +168,6 @@ export const api = {
    *  `relativePath`); the host streams it under the session workspace. */
   uploadFile: (scope: SessionScope, dir: string, relativePath: string, body: Blob, signal?: AbortSignal) =>
     fetchUpload<{ path: string; size: number }>(scope, dir, relativePath, body, signal),
-  gitWorktrees: (scope: SessionScope, signal?: AbortSignal) =>
-    call<GitWorktree[]>('git.worktrees', scopePayload(scope, {}), signal),
-  gitStatus: (scope: SessionScope, worktree?: string, signal?: AbortSignal) =>
-    call<GitStatusResult>('git.status', gitPayload(scope, worktree, {}), signal),
-  gitDiff: (scope: SessionScope, path: string | undefined, staged: boolean, worktree?: string, signal?: AbortSignal) =>
-    call<{ diff: string }>('git.diff', gitPayload(scope, worktree, { ...(path !== undefined ? { path } : {}), staged }), signal),
-  gitStage: (scope: SessionScope, path?: string, worktree?: string) =>
-    call<{ ok: true }>('git.stage', gitPayload(scope, worktree, { ...(path !== undefined ? { path } : {}) })),
-  gitUnstage: (scope: SessionScope, path?: string, worktree?: string) =>
-    call<{ ok: true }>('git.unstage', gitPayload(scope, worktree, { ...(path !== undefined ? { path } : {}) })),
-  gitCommit: (scope: SessionScope, message: string, worktree?: string) =>
-    call<{ ok: true }>('git.commit', gitPayload(scope, worktree, { message })),
-  gitBranch: (scope: SessionScope, worktree?: string, signal?: AbortSignal) =>
-    call<{ current: string; names: string[] }>('git.branch', gitPayload(scope, worktree, {}), signal),
-  gitCheckout: (scope: SessionScope, branch: string, worktree?: string) =>
-    call<{ ok: true }>('git.checkout', gitPayload(scope, worktree, { branch })),
-  /** Recent commit history, lazily pageable (skip/count; defaults 0/30). */
-  gitLog: (scope: SessionScope, count?: number, skip?: number, worktree?: string, signal?: AbortSignal) =>
-    call<GitLogEntry[]>('git.log', gitPayload(scope, worktree, {
-      ...(count !== undefined ? { count } : {}),
-      ...(skip !== undefined ? { skip } : {}),
-    }), signal),
-  /** Full patch text of one commit (diff display for the history rows). */
-  gitCommitDiff: (scope: SessionScope, hash: string, worktree?: string, signal?: AbortSignal) =>
-    call<{ diff: string }>('git.commit-diff', gitPayload(scope, worktree, { hash }), signal),
-  /** The session's file-tool events for the changes tab's session lens: the
-   *  `tool/call` + `tool/result` rows past `afterSeq` (0 = whole window),
-   *  capped to the recent window host-side. The client runtime exposes no
-   *  event-log face, so the lens polls this delta route. */
-  changesOps: (scope: SessionScope, afterSeq?: number, signal?: AbortSignal) =>
-    call<{ events: SidebarSessionEvent[]; lastSeq: number }>('changes.ops', scopePayload(scope, {
-      ...(afterSeq !== undefined && afterSeq > 0 ? { afterSeq } : {}),
-    }), signal),
-  /** Discard the worktree changes of one file (the index is untouched). */
-  gitDiscard: (scope: SessionScope, path: string, worktree?: string) =>
-    call<{ ok: true }>('git.discard', gitPayload(scope, worktree, { path })),
-  /** Revert one commit onto the current branch. */
-  gitRevert: (scope: SessionScope, hash: string, worktree?: string) =>
-    call<{ ok: true }>('git.revert', gitPayload(scope, worktree, { hash })),
-  /** Cherry-pick one commit onto the current branch. */
-  gitCherryPick: (scope: SessionScope, hash: string, worktree?: string) =>
-    call<{ ok: true }>('git.cherry-pick', gitPayload(scope, worktree, { hash })),
-  /** Release a terminal's process immediately (tab closed; the WS close frame
-   *  may be unreachable while the socket is down, so the host also accepts
-   *  this explicit route). */
-  ptyClose: (scope: SessionScope, tab: string) =>
-    call<{ ok: true }>('pty.close', scopePayload(scope, { tab })),
-  /** Release an agent terminal by uuid (tab closed while WS was down). */
-  agentPtyClose: (uuid: string) =>
-    call<{ ok: true }>('agent-pty.close', { uuid }),
-  /** Terminal dependency status (issue #140): after a WS close 1011 with
-   *  reason `pty-deps-missing` the view fetches the full repair details here
-   *  (the close reason itself is capped at 123 bytes). */
-  terminalDeps: () =>
-    call<TerminalDepsStatus>('terminal.deps', {}),
   /**
    * The output the model has read so far for one background job (replayed
    * from the owner session's event log — never the model's job_output
@@ -309,34 +188,6 @@ export const api = {
    */
   subagentsLive: (rootSessionId: string, signal?: AbortSignal) =>
     call<SubagentLiveResult>('subagents.live', { rootSessionId }, signal),
-  /** Create a Side Chat thread: a child session seeded with the parent's
-   *  full log up to now. Empty question = immediate create (Codex-style):
-   *  the thread opens empty, the first prompt carries the boundary. */
-  sidechatStart: (sessionId: string, question?: string) =>
-    call<{ childId: string }>('sidechat.start', { sessionId, question: question ?? '' }),
-  /** Deliver one follow-up message to a Side Chat thread. */
-  sidechatPrompt: (childId: string, text: string) =>
-    call<{ accepted: true }>('sidechat.prompt', { childId, text }),
-  /** Abort a Side Chat thread's running turn (queued work is preserved). */
-  sidechatCancel: (childId: string) =>
-    call<{ accepted: true }>('sidechat.cancel', { childId }),
-  /** Release a Side Chat thread's live agent (history stays persisted). */
-  sidechatDispose: (childId: string) =>
-    call<{ accepted: true }>('sidechat.dispose', { childId }),
-  /** Live state + agent identity (provider/model/preset) of a thread. */
-  sidechatInfo: (childId: string) =>
-    call<SidechatThreadInfo>('sidechat.info', { childId }),
-  /** One transcript pull of a Side Chat thread: the thread's OWN events
-   *  (the inherited seed is cut host-side and never crosses the wire).
-   *  `afterSeq` narrows the response to the delta beyond it (poll tail). */
-  sidechatEvents: (childId: string, afterSeq?: number, signal?: AbortSignal) =>
-    call<{ events: SidechatLogEvent[] }>('sidechat.events', {
-      childId,
-      ...(afterSeq !== undefined ? { afterSeq } : {}),
-    }, signal),
-  /** The effective terminal shell and its display name (plugin-global). */
-  shellGet: () =>
-    call<{ shell: string; name: string }>('shell.get', {}),
   /** Read the side card preferences (plugin-global, no session scope). */
   settingsGet: () =>
     call<{ value?: unknown; revision?: number; externalDisable?: boolean }>('settings.get', {}),

@@ -88,14 +88,19 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
   try {
     await act(async () => root.render(React.createElement(Settings, { onDirty: value => dirtyStates.push(value) })))
     await settle()
-    assert.match(document.body.textContent, /在线 · GPU/)
+    assert.equal(document.querySelector('.tf-settings-card small').textContent, '已连接')
+    assert.equal(document.querySelector('button[aria-label="刷新服务器状态"]'), null)
+    assert.doesNotMatch(document.body.textContent, /未发现供应商|可保留自定义路由/)
+    const sectionSummaries = [...document.querySelectorAll('.tf-settings-section > summary')]
+    assert.equal(sectionSummaries.find(item => item.textContent.includes('工作流')).parentElement.open, false)
+    assert.equal(sectionSummaries.find(item => item.textContent.includes('LoRA')).parentElement.open, false)
 
     const baseInput = document.querySelector('input[aria-label="ComfyUI 服务地址"]')
     const baseSave = document.querySelector('.tf-settings-card .tf-btn:not(.tf-btn-ghost)')
     const baseTest = document.querySelector('.tf-settings-card .tf-btn-ghost')
     await change(baseInput, 'http://gpu.example:8188/')
     assert.equal(baseSave.disabled, false)
-    assert.equal(document.querySelector('button[aria-label="刷新服务器状态"]').disabled, true)
+    assert.equal(document.querySelector('.tf-settings-card small').textContent, '未连接')
     await doubleClick(baseTest)
     assert.equal(calls.filter(([route]) => route === '/comfyui.test').length, 1)
     assert.equal(baseTest.disabled, true)
@@ -103,9 +108,11 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
     assert.equal(document.querySelector('.tf-model-routing select').disabled, false)
     assert.equal(document.querySelector('.tf-comfy-add input').disabled, false)
     await act(async () => { resolveConnectionTest(); await new Promise(resolve => setTimeout(resolve, 0)) })
-    assert.match(document.body.textContent, /地址尚未保存/)
+    assert.equal(document.querySelector('.tf-settings-card small').textContent, '已连接')
+    assert.doesNotMatch(document.body.textContent, /连接成功.*当前保存地址未改变|地址尚未保存/)
     await click(baseSave)
     assert.equal(state.baseUrl, 'http://gpu.example:8188')
+    assert.doesNotMatch(document.body.textContent, /ComfyUI 地址已保存并连接成功|地址已保存，但连接失败/)
 
     const modelSelects = [...document.querySelectorAll('.tf-model-routing select')]
     await change(modelSelects[0], 'openai')

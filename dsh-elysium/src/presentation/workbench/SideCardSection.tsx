@@ -4,21 +4,14 @@
  *
  * The section is DECLARATIVE — it renders the enable/disable inventory from
  * the sidebar service's registries instead of hardcoding rows:
- *  - 常规: new conversations open the panel by default (a toggle row), the
- *    default panel width as a percent of the window (number input row), and
- *    the open-path interception toggle — the DSH settings-row recipe
- *    (title/desc left + control right, hairline separators).
  *  - 侧边栏内容: one SMALL CARD per REGISTERED tab type (built-ins and
  *    external plugins alike), laid out in a responsive grid that wraps
  *    several cards per row — icon chip + title + type id, clicked to toggle
  *    the switch persisted in `prefs.tabsEnabled[id]`.
- *  - 文件预览: one SMALL CARD per REGISTERED file viewer — icon chip + title
- *    + the extensions it covers, clicked to toggle `prefs.viewersEnabled[id]`.
  *
  * Every group lives in a container card (the DSH PluginCard recipe: l2
  * hairline, 16px radius, layer-3 fill) with a heading and an inventory count
- * badge (the settings catalogHeading recipe); the section opens with a
- * one-line intro (the DSH section heading+intro recipe).
+ * badge (the settings catalogHeading recipe).
  *
  * A card's on/off state is its VISUAL STATE: enabled = highlighted (brand
  * border + tinted fill + a compact switch knob at the card's far right),
@@ -27,7 +20,7 @@
  * edge that opens a native Modal (wider than the primitive default) with
  * the related settings as title/desc + custom-switch rows and a Done
  * footer; the popup body scrolls internally when a feature declares many
- * rows (e.g. Terminal's six). The toggles themselves are custom
+ * rows. The toggles themselves are custom
  * switches: a real checkbox (native semantics and focus) driving a styled
  * track/thumb.
  *
@@ -40,10 +33,9 @@
  * shows the wire error inline — a broken settings surface never crashes the
  * shell.
  */
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   IconChevronDownOutline14,
-  IconPlusOutline16,
   IconSettingsOutline16,
   Input,
   Menu,
@@ -53,25 +45,13 @@ import clsx from 'clsx'
 // Type-only: pulls the settings shell's SlotMap merges ('settings.section').
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import {
-  clampWidthPercent,
-  TITLE_BAR_STRIP_MAX,
-  TITLE_BAR_STRIP_MIN,
-  WIDTH_PERCENT_MAX,
-  WIDTH_PERCENT_MIN,
-  type SidebarPrefs,
-  type TitleBarScheme,
-} from '../../shared/sidebar-preferences.ts'
+import type { SidebarPrefs } from '../../shared/sidebar-preferences.ts'
 import { api } from './api.ts'
 import { parsePrefs } from './prefs.ts'
-import { AddPluginModal, type PluginKind } from './add-plugin-modal.tsx'
 import { t } from './locales.ts'
-import { parseDesktopEnv } from './desktop-env.ts'
-import { getShellPreset, getShellPresets } from './shell-presets.ts'
 import type { SidebarStore } from './state.ts'
 import type {
   BetterSidebarService,
-  FileViewerDescriptor,
   SidebarSettingsRenderProps,
   SidebarSettingToggle,
   TabDescriptor,
@@ -107,30 +87,14 @@ function iconOf(icon: ReactNode | ((size: number) => ReactNode) | undefined, siz
   return typeof icon === 'function' ? icon(size) : icon
 }
 
-/** Tab inventory order: hidden types (editor/diff) last, then + menu order. */
+/** Tab inventory order: hidden types last, then + menu order. */
 function tabOrder(a: TabDescriptor, b: TabDescriptor): number {
   if (a.hidden !== b.hidden) return a.hidden === true ? 1 : -1
   return (a.order ?? 100) - (b.order ?? 100)
 }
 
-/**
- * The scheme dropdown's current value: the plain scheme, or `preset:<id>`
- * while a preset is active. Falls back to `auto` when the stored preset id
- * is no longer registered (the strip resolves to 0 then anyway).
- */
-function titleBarSchemeValue(prefs: SidebarPrefs): string {
-  if (prefs.titleBarScheme !== 'preset') return prefs.titleBarScheme
-  const preset = getShellPreset(prefs.titleBarPresetId)
-  return preset !== undefined ? `preset:${preset.id}` : 'auto'
-}
-
-/** Viewer inventory order: priority desc (the catch-all `code` comes last). */
-function viewerOrder(a: FileViewerDescriptor, b: FileViewerDescriptor): number {
-  return (b.priority ?? 0) - (a.priority ?? 0)
-}
-
 /** Whether a feature declares any secondary settings (gear button shows). */
-function hasSettings(feature: TabDescriptor | FileViewerDescriptor): boolean {
+function hasSettings(feature: TabDescriptor): boolean {
   const settings = feature.settings
   return settings !== undefined && (
     (settings.toggles?.length ?? 0) > 0
@@ -139,9 +103,9 @@ function hasSettings(feature: TabDescriptor | FileViewerDescriptor): boolean {
   )
 }
 
-/** A feature's display name (viewers fall back to their id). */
-function featureNameOf(feature: TabDescriptor | FileViewerDescriptor): string {
-  return textOf('title' in feature ? feature.title : undefined) || feature.id
+/** A feature's display name. */
+function featureNameOf(feature: TabDescriptor): string {
+  return textOf(feature.title) || feature.id
 }
 
 /**
@@ -334,37 +298,6 @@ function TypedRow(props: {
   )
 }
 /**
- * The multi-line custom-CSS input (scheme `custom`): a monospace textarea
- * whose draft is local state, committed on blur or Cmd/Ctrl+Enter through
- * the parent's handler. Keyed by the stored value so an external commit
- * remounts it with the canonical text (same pattern as TypedRow).
- */
-function CssDraft(props: {
-  value: string
-  onCommit: (raw: string) => void
-  label: string
-  placeholder?: string
-}) {
-  const { value, onCommit, label, placeholder } = props
-  const [draft, setDraft] = useState(value)
-  return (
-    <textarea
-      className={css.cssTextArea}
-      rows={6}
-      value={draft}
-      placeholder={placeholder}
-      aria-label={label}
-      spellCheck={false}
-      onChange={event => { setDraft(event.currentTarget.value) }}
-      onBlur={() => { onCommit(draft) }}
-      onKeyDown={event => {
-        if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) event.currentTarget.blur()
-      }}
-    />
-  )
-}
-
-/**
  * The reusable dropdown — the primitives Menu, NOT a native <select>: a
  * closed anchor button (picked option text + chevron) opening one Menu item
  * per option (big-icon cards when any option carries an icon). Single-pick
@@ -491,7 +424,7 @@ function SelectRow(props: {
 }
 
 /**
- * The secondary settings popup body of one feature (tab or viewer):
+ * The secondary settings popup body of one tab feature:
  * - the host-prefs `toggles` rows, then the plugin-owned `pluginToggles`
  *   rows (their values live in `pluginSettings[feature.id]`, projected onto
  *   the prefs face so the shared row renderer reads them);
@@ -501,7 +434,7 @@ function SelectRow(props: {
  *   open-behavior picker) and still ship a custom configuration area.
  */
 export function SettingsBody(props: {
-  feature: TabDescriptor | FileViewerDescriptor
+  feature: TabDescriptor
   prefs: SidebarPrefs
   store: SidebarStore
   service: BetterSidebarService
@@ -573,22 +506,11 @@ export function SettingsBody(props: {
  */
 export function SideCardSection({ store, service }: SideCardSectionProps) {
   const [prefs, setPrefs] = useState<SidebarPrefs>(() => store.getPrefs())
-  const [widthDraft, setWidthDraft] = useState<string>(String(store.getPrefs().defaultWidthPercent))
   const [error, setError] = useState<string | null>(null)
   // Which feature's secondary settings popup is open (null = closed).
-  const [settingsFor, setSettingsFor] = useState<TabDescriptor | FileViewerDescriptor | null>(null)
-  // Whether the position-compat strip popup (the gear on the 常规 row) is open.
-  const [stripSettingsOpen, setStripSettingsOpen] = useState(false)
-  // The parsed desktop environment (URL stamps — see desktop-env.ts). Used
-  // ONLY to badge matching presets in the scheme dropdown ("已检测");
-  // nothing is auto-applied.
-  const detectedEnv = useMemo(() => parseDesktopEnv(), [])
-  // Whether the "add plugin" modal (a dashed card at the end of the
-  // 侧边栏内容 / 文件预览 grids) is open, and for which extension point
-  // (null = closed).
-  const [addPluginsOpen, setAddPluginsOpen] = useState<PluginKind | null>(null)
+  const [settingsFor, setSettingsFor] = useState<TabDescriptor | null>(null)
   // The LATEST optimistic prefs, kept in sync with the state. Nested-map
-  // merges (tabsEnabled / viewersEnabled / pluginSettings) MUST build from
+  // merges (tabsEnabled / pluginSettings) MUST build from
   // this ref, not from the render-time `prefs`: two same-tick writes (e.g.
   // a settings panel updating several plugin keys at once) would otherwise
   // both spread the stale map and the later patch would drop the earlier
@@ -596,14 +518,16 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
   const optimisticRef = useRef(prefs)
   useEffect(() => { optimisticRef.current = prefs }, [prefs])
 
-  // The declarative inventory: the registered tab types and file viewers.
+  // The declarative inventory of registered tab types.
   // Local state + service.subscribe (registry changes are rare — plugin
   // load/unload — so a plain effect is enough; no external-store ceremony).
-  const [tabs, setTabs] = useState<TabDescriptor[]>(() => [...service.getTabs()].sort(tabOrder))
-  const [viewers, setViewers] = useState<FileViewerDescriptor[]>(() => [...service.getFileViewers()].sort(viewerOrder))
+  const [tabs, setTabs] = useState<TabDescriptor[]>(() => [...service.getTabs()]
+    .filter(tab => tab.id === 'subagent' || tab.id === 'elysium')
+    .sort(tabOrder))
   useEffect(() => service.subscribe(() => {
-    setTabs([...service.getTabs()].sort(tabOrder))
-    setViewers([...service.getFileViewers()].sort(viewerOrder))
+    setTabs([...service.getTabs()]
+      .filter(tab => tab.id === 'subagent' || tab.id === 'elysium')
+      .sort(tabOrder))
   }), [service])
 
   // The settings document revision (guards concurrent writes). A ref: commits
@@ -627,7 +551,6 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
       if (dirtyRef.current) return
       const next = parsePrefs(view.value)
       setPrefs(next)
-      setWidthDraft(String(next.defaultWidthPercent))
     }).catch(() => { /* the store's defaults stay authoritative */ })
     return () => { cancelled = true }
   }, [])
@@ -660,7 +583,6 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
   const applyOutcome = (previous: SidebarPrefs, outcome: { ok: boolean; prefs: SidebarPrefs }): void => {
     const settled = outcome.ok ? outcome.prefs : previous
     setPrefs(settled)
-    setWidthDraft(String(settled.defaultWidthPercent))
   }
 
   /** Optimistically apply one pref patch, then commit (revert on failure). */
@@ -673,18 +595,9 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
     void commit(patch).then(outcome => applyOutcome(previous, outcome))
   }
 
-  const onToggle = (next: boolean): void => {
-    applyPref({ openByDefault: next })
-  }
-
   /** Flip one per-tab enable switch (merge into the tabsEnabled map). */
   const onToggleTab = (id: string, next: boolean): void => {
     applyPref({ tabsEnabled: { ...optimisticRef.current.tabsEnabled, [id]: next } })
-  }
-
-  /** Flip one per-viewer enable switch (merge into the viewersEnabled map). */
-  const onToggleViewer = (id: string, next: boolean): void => {
-    applyPref({ viewersEnabled: { ...optimisticRef.current.viewersEnabled, [id]: next } })
   }
 
   /** Flip one declaratively-declared toggle (a SidebarPrefs boolean field). */
@@ -720,38 +633,6 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
     return raw
   }
 
-  /**
-   * Pick the title-bar / shell compatibility scheme. Mirrors the legacy
-   * `titleBarCompat` flag (true = anything but the conservative auto) so
-   * documents stay readable by older plugin versions.
-   */
-  /**
-   * Pick the title-bar / shell compatibility scheme from the dropdown. The
-   * option values are `auto` | `web` | `custom` | `preset:<id>`; selecting
-   * a preset stores both the scheme and its id. Mirrors the legacy
-   * `titleBarCompat` flag (true for preset/custom) so documents stay
-   * readable by older plugin versions.
-   */
-  const onSchemeSelect = (value: unknown): void => {
-    if (typeof value !== 'string') return
-    if (value === 'auto' || value === 'web' || value === 'custom') {
-      applyPref({ titleBarScheme: value, titleBarCompat: value === 'custom' })
-      return
-    }
-    if (value.startsWith('preset:') && getShellPreset(value.slice('preset:'.length)) !== undefined) {
-      applyPref({
-        titleBarScheme: 'preset',
-        titleBarPresetId: value.slice('preset:'.length),
-        titleBarCompat: true,
-      })
-    }
-  }
-
-  /** Commit the free-form custom CSS (scheme `custom`). */
-  const commitCustomCss = (raw: string): void => {
-    applyPref({ customCss: raw })
-  }
-
   /** Persist one plugin-owned setting of one descriptor (merged into the pluginSettings blob). */
   const applyPluginSetting = (descriptorId: string, key: string, value: unknown): void => {
     applyPref({ pluginSettings: mergePluginSetting(optimisticRef.current.pluginSettings, descriptorId, key, value) })
@@ -777,20 +658,6 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
     }
     applyPluginSetting(descriptorId, toggle.key, raw)
     return raw
-  }
-
-  const commitWidth = (): void => {
-    const parsed = Number(widthDraft)
-    if (!Number.isFinite(parsed)) {
-      setWidthDraft(String(prefs.defaultWidthPercent))
-      return
-    }
-    const clamped = clampWidthPercent(parsed)
-    const previous = prefs
-    setPrefs({ ...previous, defaultWidthPercent: clamped })
-    setWidthDraft(String(clamped))
-    setError(null)
-    void commit({ defaultWidthPercent: clamped }).then(outcome => applyOutcome(previous, outcome))
   }
 
   /**
@@ -854,122 +721,6 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
 
   return (
     <div className={css.section}>
-      <p className={css.intro}>{t('settingsIntro')}</p>
-
-      {/* The managing plugin's own identity: name + version badge, so the
-          section is attributable at a glance (the version is the service
-          instance's, kept in lockstep with package.json by
-          tests/service.spec.ts). */}
-      <div className={css.versionBadge}>
-        <span className={css.versionBadgeName}>dsh-elysium</span>
-        <span className={css.versionBadgeTag}>v{service.version}</span>
-      </div>
-
-      {/* 常规: the DSH settings-row recipe — title/desc left, control right. */}
-      <div className={css.group}>
-        <div className={css.groupHeading}>{t('settingsGeneralTitle')}</div>
-        <div className={css.row}>
-          <span className={css.rowText}>
-            <span className={css.title}>{t('settingsOpenTitle')}</span>
-            <span className={css.desc}>{t('settingsOpenDesc')}</span>
-          </span>
-          <Switch
-            label={t('settingsOpenTitle')}
-            checked={prefs.openByDefault}
-            onChange={onToggle}
-          />
-        </div>
-        <div className={css.row}>
-          <span className={css.rowText}>
-            <span className={css.title}>{t('settingsWidthTitle')}</span>
-            <span className={css.desc}>{t('settingsWidthDesc')}</span>
-          </span>
-          <span className={css.control}>
-            <Input
-              type="number"
-              className={css.percentInput}
-              value={widthDraft}
-              min={WIDTH_PERCENT_MIN}
-              max={WIDTH_PERCENT_MAX}
-              step={1}
-              aria-label={t('settingsWidthTitle')}
-              onChange={event => { setWidthDraft(event.currentTarget.value) }}
-              onBlur={commitWidth}
-              onKeyDown={event => {
-                if (event.key === 'Enter') event.currentTarget.blur()
-              }}
-            />
-            <span className={css.suffix}>{t('settingsWidthSuffix')}</span>
-          </span>
-        </div>
-        <div className={css.row}>
-          <span className={css.rowText}>
-            <span className={css.title}>{t('settingsOpenPathTitle')}</span>
-            <span className={css.desc}>{t('settingsOpenPathDesc')}</span>
-          </span>
-          <Switch
-            label={t('settingsOpenPathTitle')}
-            checked={prefs.interceptOpenPath}
-            onChange={(next) => { applyPref({ interceptOpenPath: next }) }}
-          />
-        </div>
-        <div className={css.row}>
-          <span className={css.rowText}>
-            <span className={css.title}>{t('settingsOpenToolsTitle')}</span>
-            <span className={css.desc}>{t('settingsOpenToolsDesc')}</span>
-          </span>
-          <Switch
-            label={t('settingsOpenToolsTitle')}
-            checked={prefs.agentOpenTools}
-            onChange={(next) => { applyPref({ agentOpenTools: next }) }}
-          />
-        </div>
-        <div className={css.row}>
-          <span className={css.rowText}>
-            <span className={css.title}>{t('settingsTitleBarTitle')}</span>
-            <span className={css.desc}>{t('settingsTitleBarDesc')}</span>
-          </span>
-          <span className={css.control}>
-            {/*
-              The scheme dropdown (the shared SelectMenu — NOT a native
-              select): 自动检测 (default) / DSH官方Web / 各壳兼容方案 /
-              自定义方案. Matching presets carry a 「已检测」 desc badge
-              (suggestion only). The 自定义方案 row keeps its gear (the
-              popup with the shift distance + custom CSS) — the other
-              schemes need no further settings.
-            */}
-            <SelectMenu
-              label={t('settingsTitleBarTitle')}
-              value={titleBarSchemeValue(prefs)}
-              options={[
-                { value: 'auto', title: t('settingsSchemeAutoTitle'), desc: t('settingsSchemeAutoDesc') },
-                { value: 'web', title: t('settingsSchemeWebTitle'), desc: t('settingsSchemeWebDesc') },
-                ...getShellPresets().map(preset => ({
-                  value: `preset:${preset.id}`,
-                  title: preset.title,
-                  desc: preset.detect?.(detectedEnv) === true
-                    ? `${preset.desc}（${t('settingsSchemeDetectedSuffix')}）`
-                    : preset.desc,
-                })),
-                { value: 'custom', title: t('settingsSchemeCustomTitle'), desc: t('settingsSchemeCustomDesc') },
-              ]}
-              onSelect={onSchemeSelect}
-            />
-            {prefs.titleBarScheme === 'custom' && (
-              <button
-                type="button"
-                className={css.rowGear}
-                aria-label={`${t('settingsTitleBarTitle')} ${t('settingsPopup')}`}
-                title={t('settingsPopup')}
-                onClick={() => { setStripSettingsOpen(true) }}
-              >
-                <IconSettingsOutline16 size={14} />
-              </button>
-            )}
-          </span>
-        </div>
-      </div>
-
       {/* 侧边栏内容: one small card per registered tab type in a responsive
           grid; features declaring `settings.toggles` open their settings in
           the popup (gear corner button) instead of nested inline rows. */}
@@ -995,61 +746,6 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
               })}
             </Fragment>
           ))}
-          {/* The "add tab plugin" entry: same card size as the inventory,
-              but a dashed border — it opens the TAB-registration plugin
-              modal instead of toggling a feature. */}
-          <button
-            type="button"
-            className={clsx(css.card, css.addCard)}
-            onClick={() => { setAddPluginsOpen('tab') }}
-          >
-            <span className={css.cardTop}>
-              <span className={css.cardIconChip}>
-                <IconPlusOutline16 size={16} />
-              </span>
-              <span className={css.cardTitle}>{t('addPluginsTabCard')}</span>
-            </span>
-            <span className={css.cardDesc}>{t('addPluginsTabCardDesc')}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 文件预览: one small card per registered file viewer. */}
-      <div className={css.group}>
-        <div className={css.groupHeading}>
-          <span>{t('settingsViewersTitle')}</span>
-          <span className={css.count}>{viewers.length}</span>
-        </div>
-        <div className={css.grid}>
-          {viewers.map(viewer => (
-            <Fragment key={viewer.id}>
-              {renderCard({
-                title: textOf(viewer.title) || viewer.id,
-                desc: viewer.exts.length === 0 ? t('settingsViewerCatchAll') : viewer.exts.join(' · '),
-                icon: iconOf(viewer.icon, 16),
-                enabled: prefs.viewersEnabled[viewer.id] !== false,
-                onToggle: (next) => { onToggleViewer(viewer.id, next) },
-                onOpenSettings: prefs.viewersEnabled[viewer.id] !== false && hasSettings(viewer)
-                  ? () => { setSettingsFor(viewer) }
-                  : undefined,
-              })}
-            </Fragment>
-          ))}
-          {/* The "add preview plugin" entry: dashed card opening the
-              FILE-PREVIEWER registration modal. */}
-          <button
-            type="button"
-            className={clsx(css.card, css.addCard)}
-            onClick={() => { setAddPluginsOpen('viewer') }}
-          >
-            <span className={css.cardTop}>
-              <span className={css.cardIconChip}>
-                <IconPlusOutline16 size={16} />
-              </span>
-              <span className={css.cardTitle}>{t('addPluginsViewerCard')}</span>
-            </span>
-            <span className={css.cardDesc}>{t('addPluginsViewerCardDesc')}</span>
-          </button>
         </div>
       </div>
 
@@ -1091,66 +787,6 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
             service={service}
           />
         </Modal>
-      )}
-
-      {/* The custom-scheme popup (opened by the gear next to the scheme
-          dropdown when 自定义方案 is active): the shift distance in px and
-          the free-form custom CSS. The OTHER schemes (自动检测 / DSH官方Web /
-          壳预设) need no further settings — the scheme itself is chosen on
-          the 常规 row. Mounted only while open (the Modal SSR rule above). */}
-      {stripSettingsOpen && (
-        <Modal
-          open
-          onClose={() => { setStripSettingsOpen(false) }}
-          title={t('settingsTitleBarTitle')}
-          description={t('settingsPopupDesc', { feature: t('settingsTitleBarTitle') })}
-          closeLabel={t('close')}
-          className={css.popupDialog}
-          footer={(
-            <button type="button" className={css.done} onClick={() => { setStripSettingsOpen(false) }}>
-              {t('settingsDone')}
-            </button>
-          )}
-        >
-          <div className={css.popupRows}>
-            <FeatureSettingsRows
-              toggles={[{
-                key: 'titleBarStripPx',
-                type: 'number',
-                title: () => t('settingsTitleBarStripTitle'),
-                desc: () => t('settingsTitleBarStripDesc'),
-                min: TITLE_BAR_STRIP_MIN,
-                max: TITLE_BAR_STRIP_MAX,
-                unit: 'px',
-              }]}
-              prefs={prefs}
-              onToggle={onToggleSetting}
-              onCommit={onCommitSetting}
-            />
-            <CssDraft
-              key={prefs.customCss}
-              value={prefs.customCss}
-              label={t('settingsCustomCssTitle')}
-              placeholder={t('settingsCustomCssPlaceholder')}
-              onCommit={commitCustomCss}
-            />
-          </div>
-        </Modal>
-      )}
-
-      {/* The "add plugin" modal (opened by the dashed cards above): declares
-          the extension point of the clicked kind, opens the GitHub topic,
-          and lists the matching recommended plugin catalog with per-entry
-          install buttons (the install flow opens a ~/.dsh terminal with
-          the command pre-typed; failures render inline here, in settings
-          only). Mounted only while open (Modal runs hooks unconditionally
-          — same SSR rule as the settings popup above). */}
-      {addPluginsOpen !== null && (
-        <AddPluginModal
-          service={service}
-          onClose={() => { setAddPluginsOpen(null) }}
-          kind={addPluginsOpen}
-        />
       )}
 
       {error !== null && (

@@ -186,11 +186,11 @@ src/
   infrastructure/
     comfyui/               # 内置远程 ComfyUI 合同驱动
     persistence/store.js   # 文件持久化与路径约束
-    workspace/             # 文件、终端、Git 和浏览器技术适配
+    workspace/             # 文件和浏览器技术适配
   presentation/
     dsh/                   # DSH 路由、聊天工具、宿主服务和生命周期桥接
     studio/                # 单集生产工作台 UI
-    workbench/             # 文件、终端、Git、浏览器和侧聊 UI
+    workbench/             # 文件、浏览器和后台任务 UI
   public/client/           # 稳定扩展 API 兼容出口
   shared/                  # 跨层最小共享类型和约束
   index.ts                 # 稳定包入口

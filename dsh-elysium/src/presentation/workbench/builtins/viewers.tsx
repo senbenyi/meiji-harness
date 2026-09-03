@@ -3,7 +3,7 @@
  * registered viewer (image / pdf / markdown / html / code /
  * binary-download), exactly like external plugins register theirs. Office
  * previews (.docx / .xlsx / .pptx) are NOT built in anymore — they moved to
- * the recommended office plugin (see plugins-viewers.ts), which registers
+ * an optional external viewer plugin, which registers
  * the same ids through this service.
  *
  * The `binary-download` viewer sniffs NUL bytes via `detect` for unknown

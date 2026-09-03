@@ -162,9 +162,8 @@ export function registerTurnTailInterception(ctx: Context, store: SidebarStore):
  */
 export function registerOpenPathInterception(ctx: Context, store: SidebarStore): () => void {
   return wrapOpenPath(ctx.workspaces, {
-    takeoverEnabled: () => !store.getSuspended()
-      && store.getPrefs().interceptOpenPath !== false
-      && store.getPrefs().tabsEnabled['editor'] !== false,
+      takeoverEnabled: () => !store.getSuspended()
+        && store.getPrefs().tabsEnabled['editor'] !== false,
     currentSessionId: () => ctx.sessions.list.getSnapshot().current,
     openInSidebar: (path, sessionId) => { openSidebarFile(ctx, store, sessionId, path) },
     revealInExplorer: (_path, sessionId) => { revealInExplorer(ctx, store, sessionId, lastProduced) },

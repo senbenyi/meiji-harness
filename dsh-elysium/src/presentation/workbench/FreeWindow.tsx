@@ -11,7 +11,7 @@
  * just moves the window. The SE corner resizes, any press raises (the
  * floats array's order is the stacking order), the header right-click menu
  * and the X button dock / close. The tab content reuses the regular tab
- * renderer, so every tab type (terminal, editor, plugin tabs) floats
+ * renderer, so every tab type (editor, browser, plugin tabs) floats
  * unchanged.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'

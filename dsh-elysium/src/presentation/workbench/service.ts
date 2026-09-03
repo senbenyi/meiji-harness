@@ -9,12 +9,10 @@
  * Design notes:
  * - The registry is synchronous-snapshot (Map + listener set) so React
  *   can read it through `useSyncExternalStore` without tearing.
- * - `dedupeKey` unifies the three open-tab strategies the builtins used to
- *   hardcode: single-instance (`() => type`), per-path (`tab => tab.path`),
- *   and per-id (`tab => tab.id` for diff tabs whose id is change-derived).
+ * - `dedupeKey` supports both single-instance (`() => type`) and keyed
+ *   instances such as per-path editors (`tab => tab.path`).
  *   `single: true` is sugar for `dedupeKey: () => id`.
- * - `createTab` lets a descriptor own tab instantiation (the terminal
- *   builtin uses it to mint `terminal:<n>` ids and bump `nextTerminal`).
+ * - `createTab` lets a descriptor own tab instantiation.
  * - `matchFileViewer` walks descriptors in priority order (desc, stable):
  *   per descriptor it tries `detect` first (when `head` bytes are given),
  *   then `exts`; `exts: []` is a catch-all that matches any path.
@@ -41,7 +39,6 @@ export type {
   SidebarState,
   SidebarStore,
   SidebarSnapshot,
-  SidebarDiffRef,
   TabType,
 } from './state.ts'
 export type { SessionScope } from './api.ts'
@@ -68,7 +65,7 @@ export interface SidebarSettingSelectOption {
 
 /** One declarative setting of a tab/viewer, rendered as a nested row in the
  *  Side card settings page (e.g. the Subagent page's "auto-open when a
- *  subagent appears" switch, or the terminal's custom font rows). `type`
+ *  subagent appears" switch). `type`
  *  selects the control: 'switch' (default) renders the custom switch,
  *  'text' a free-form input committed on blur/Enter, 'number' a numeric
  *  input clamped to `min`/`max`, 'select' a dropdown over the declared
@@ -116,8 +113,7 @@ export interface SidebarSettingsDeclaration {
   /**
    * Extra settings rows rendered under the feature's own row in the
    * settings page (only while the feature is enabled). Keys must be fields
-   * of the host's PrefsSchema (built-ins: 'autoOpenSubagent',
-   * 'agentTerminalTools', 'agentOpenTools', 'terminalFontFamily'); unknown
+   * of the host's PrefsSchema (built-in: 'autoOpenSubagent'); unknown
    * keys are dropped by the settings seam.
    */
   toggles?: readonly SidebarSettingToggle[]
@@ -153,7 +149,6 @@ export interface TabComponentProps {
   onToggleDir?: (path: string) => void
   onReferenceFile?: (path: string) => void
   onOpenFile?: (path: string) => void
-  onOpenDiff?: (tab: SidebarTab) => void
   onSubagentJump?: (childSessionId: string) => void
 }
 
@@ -168,7 +163,7 @@ export interface TabDescriptor {
   /** Hide from the + menu (the editor tab is opened by file-open, not by the menu). */
   hidden?: boolean
   /**
-   * + menu disabled predicate (e.g. terminal at capacity). Receives the
+   * + menu disabled predicate. Receives the
    * session scope and the live sidebar state (counts, expansions).
    */
   available?: (ctx: Context, scope: SessionScope, state: SidebarState) => boolean
@@ -176,21 +171,19 @@ export interface TabDescriptor {
    * Single-instance sugar: `true` is shorthand for `dedupeKey: () => id`
    * (opening the tab focuses an existing one of the same type instead of
    * creating a duplicate). An explicit `dedupeKey` always wins when both
-   * are given. Builtins: explorer/git/subagent use `single: true`.
+   * are given. The subagent page uses `single: true`.
    */
   single?: boolean
   /**
    * If provided, opening a tab whose `dedupeKey(tab)` matches an existing
    * tab's key focuses the existing one instead of creating a new one.
    * Returning `undefined` means "no dedup — always open a new tab".
-   * Builtins: editor uses `tab => tab.path`; diff uses `tab => tab.id`
-   * (openDiffTab mints change-derived ids).
+   * The editor uses `tab => tab.path`.
    */
   dedupeKey?: (tab: SidebarTab) => string | undefined
   /**
    * Custom tab creation (minting the `SidebarTab` and any state patches).
-   * Return `null` to refuse creation. The terminal builtin uses this to
-   * mint `terminal:<n>` ids and bump `nextTerminal`.
+   * Return `null` to refuse creation.
    * When omitted, a default `{ id, type, title }` tab is created.
    */
   createTab?: (state: SidebarState) => { tab: SidebarTab; patch?: Partial<SidebarState> } | null
@@ -230,9 +223,7 @@ export interface TabDescriptor {
    * focus is NOT an open — it fires `onActivate` instead), `onActivate`
    * when a tab is focused (dedupe focus, id-safety-net focus, or the
    * tab-bar activation), `onClose` when a tab is closed through
-   * `closeTab`. Builtin-only flows that mutate state directly (the diff
-   * split placement, agent-terminal reconcile) never touch external tabs
-   * and fire no callbacks. A throwing callback is logged and never breaks
+   * `closeTab`. A throwing callback is logged and never breaks
    * the open/close/activate flow.
    */
   onOpen?: (tab: SidebarTab, scope: SessionScope) => void
@@ -330,8 +321,6 @@ export interface OpenTabSeed {
   title?: string
   /** A file path (the editor tab's content seed). */
   path?: string
-  /** A diff reference (the diff tab's content seed). */
-  diff?: SidebarTab['diff']
   /** Explicit tab id (defaults to the type). */
   id?: string
   /** A URL the tab navigates to on mount (the browser tab's seed). */
@@ -382,7 +371,7 @@ export interface BetterSidebarService {
    * panel hosting the landing pane is collapsed, it is expanded
    * automatically (the right panel by default, the bottom panel when the
    * active pane lives there; on narrow viewports the merged drawer opens).
-   * Type-only opens (the + menu, agent-terminal auto-tabs) never expand —
+   * Type-only opens (the + menu) never expand —
    * the panel behavior is their caller's business.
    *
    * Note: `available` gates the + menu's disabled state only — it does NOT
@@ -625,7 +614,7 @@ export function createBetterSidebarService(store: SidebarStore): BetterSidebarSe
     let created: SidebarTab | undefined
     let activated: SidebarTab | undefined
     const reducer = (state: SidebarState): SidebarState => {
-      // Let the descriptor mint the tab (terminal's nextTerminal bump, etc.).
+      // Let the descriptor mint the tab and optional state patch.
       let tab: SidebarTab
       let next: SidebarState
       if (descriptor.createTab !== undefined) {
@@ -642,7 +631,6 @@ export function createBetterSidebarService(store: SidebarStore): BetterSidebarSe
           // otherwise the descriptor's (possibly i18n) title is the default.
           title: seed.title ?? (typeof descriptor.title === 'function' ? descriptor.title() : descriptor.title),
           ...(seed.path !== undefined ? { path: seed.path } : {}),
-          ...(seed.diff !== undefined ? { diff: seed.diff } : {}),
           ...(seed.meta !== undefined ? { meta: seed.meta } : {}),
         }
         next = applyDedupe(state, tab, descriptor)
@@ -705,8 +693,8 @@ export function createBetterSidebarService(store: SidebarStore): BetterSidebarSe
       // viewports the two workbenches merge into one drawer, so the drawer
       // (panelOpen) is the only lever; on wide viewports the landing pane's
       // own panel opens — the bottom panel when the active pane lives in the
-      // bottom tree, else the right panel. Type-only opens (+ menu,
-      // agent-terminal auto-tabs) never expand (the panel behavior is their
+      // bottom tree, else the right panel. Type-only opens (+ menu) never
+      // expand (the panel behavior is their
       // caller's business). The check runs on the post-dedupe state, so a
       // content open that merely FOCUSES an existing tab expands the panel
       // too — the open must never land out of sight. Opens targeted at an

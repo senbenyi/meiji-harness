@@ -5,13 +5,13 @@
  * shows an error strip instead of a blank panel), registers the turn-tail
  * interception, and contributes the Side card settings section to the DSH
  * Settings shell. Requires the runtime's slots and sessions services; the
- * bundle itself is a module-table consumer only (react + ui-primitives +
- * xterm, all provided or inlined).
+ * bundle itself is a module-table consumer only (react + ui-primitives,
+ * provided or inlined).
  */
 import { createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Context } from '../dsh/context-types.ts'
-import { allLeaves, createSidebarStore, isAgentTabId } from './state.ts'
+import { createSidebarStore } from './state.ts'
 import { createBetterSidebarService, matchUrlTarget } from './service.ts'
 import { revalidateChunksOnReactivate, setChunkModuleSystem } from './chunk-loader.ts'
 import { registerBuiltins } from './builtins/index.ts'
@@ -128,31 +128,11 @@ export function apply(ctx: Context): void {
   // Elysium is now part of this package. Register its tab against the
   // in-process sidebar service instead of depending on a second plugin.
   registerElysium(ctx)
-  // Terminal tab titles use the host's effective shell name (e.g. bash/zsh)
-  // instead of "Terminal 1". Start with a safe fallback and replace it as
-  // soon as the host shell info resolves. Tabs created before the response
-  // arrives keep the fallback title, so also retitle any already-open UI
-  // terminal tabs that still carry it.
-  const fallbackTitle = t('terminal')
-  let terminalTitle = fallbackTitle
-  void api.shellGet().then(({ name }) => {
-    terminalTitle = name
-    const snapshot = service.getSnapshot()
-    if (snapshot.state === undefined) return
-    const tabs = allLeaves(snapshot.state.splits)
-      .concat(allLeaves(snapshot.state.bottomSplits))
-      .flatMap(leaf => leaf.tabs)
-    for (const tab of tabs) {
-      if (tab.type === 'terminal' && !isAgentTabId(tab.id) && tab.title === fallbackTitle) {
-        service.updateTab(tab.id, { title: name })
-      }
-    }
-  }).catch(() => { /* keep fallback */ })
   // Register the plugin's own built-in tabs and viewers through the same
   // service (eating our own dogfood). The disposer unregisters them on
   // fiber disposal (HMR-safe).
   ctx.effect(
-    () => registerBuiltins(ctx, service, { terminalTitle: () => terminalTitle }),
+    () => registerBuiltins(service),
     'dsh-elysium: register built-in tabs and viewers',
   )
   // A failure anywhere in the client lifecycle must never take the app down
