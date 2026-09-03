@@ -19,7 +19,7 @@ import {
   WIDTH_PERCENT_MAX,
   WIDTH_PERCENT_MIN,
   type SidebarPrefs,
-} from './prefs-shared.ts'
+} from './sidebar/prefs-shared.ts'
 
 export {
   SIDEBAR_PREFS_DEFAULTS,
@@ -34,14 +34,20 @@ export {
   WIDTH_PERCENT_MAX,
   WIDTH_PERCENT_MIN,
   type SidebarPrefs,
-} from './prefs-shared.ts'
+} from './sidebar/prefs-shared.ts'
 
-/** Tunable sidebar host limits (every field optional; defaults fill in). */
-export interface SidebarConfig {
+/** Unified single-plugin configuration for video production and the embedded Sidebar. */
+export interface ElysiumConfig {
   /** Elysium project storage root. Relative paths resolve from the DSH process cwd. */
   workspace?: string
   /** Elysium generation model templates and arguments, keyed by generation stage. */
   models?: Record<string, unknown>
+  /** Qwen producer model used to turn a story into a validated chapter and anchor plan. */
+  planner?: {
+    provider?: string
+    model?: string
+    maxTokens?: number
+  }
   /** Internal ComfyUI driver. All image/video inference stays on the remote server behind this endpoint. */
   comfyui?: {
     baseUrl?: string
@@ -82,9 +88,17 @@ export interface SidebarConfig {
 }
 
 /** Schemastery schema for the plugin configuration. */
-export const Config: z<SidebarConfig> = z.object({
+/** Backward-compatible name retained for existing consumers. */
+export type SidebarConfig = ElysiumConfig
+
+export const Config: z<ElysiumConfig> = z.object({
   workspace: z.string().default('./elysium-workspace'),
   models: z.dict(z.any()).default({}),
+  planner: z.object({
+    provider: z.string().default('qwen38-local'),
+    model: z.string().default('qwen3.8-27b-video-prompt'),
+    maxTokens: z.number().step(1).min(512).max(32768).default(4096),
+  }).default({ provider: 'qwen38-local', model: 'qwen3.8-27b-video-prompt', maxTokens: 4096 }),
   comfyui: z.object({
     baseUrl: z.string().default('http://127.0.0.1:8189'),
     templatesDir: z.string().default(''),
@@ -116,13 +130,16 @@ export interface ResolvedSidebarConfig {
   shellArgs: string[]
 }
 
+/** Canonical name for new code; the old name stays public for compatibility. */
+export type ResolvedElysiumConfig = ResolvedSidebarConfig
+
 /**
  * Apply direct-call defaults after Loader schema validation has normally run.
  *
  * @param config - Deployment-provided sidebar host settings.
  * @returns Complete settings consumed by the host half.
  */
-export function resolveSidebarConfig(config: SidebarConfig | undefined): ResolvedSidebarConfig {
+export function resolveSidebarConfig(config: ElysiumConfig | undefined): ResolvedSidebarConfig {
   return {
     readLimit: config?.readLimit ?? 512 * 1024,
     mediaLimit: config?.mediaLimit ?? 20 * 1024 * 1024,

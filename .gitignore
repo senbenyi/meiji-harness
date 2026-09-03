@@ -20,7 +20,7 @@ logs/
 npm-debug.log*
 
 # local Elysium runtime data
-elysium-workspace/
+dsh-elysium/elysium-workspace/
 comfyui-output/
 
 # env

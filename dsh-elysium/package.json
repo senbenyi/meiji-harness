@@ -26,7 +26,7 @@
       "default": "./lib/client.js"
     },
     "./client/api": {
-      "types": "./lib/types/client/service.d.ts",
+      "types": "./lib/types/client/api.d.ts",
       "default": "./lib/client.js"
     },
     "./src/*": "./src/*",
@@ -62,9 +62,10 @@
     "cordis.patch.yml",
     "README.md",
     "dsh.plugin.json",
-    "skills",
     "templates",
-    "docs"
+    "docs",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && tsdown",
@@ -74,8 +75,10 @@
     "watch": "tsdown --watch",
     "prepare": "tsdown",
     "test": "npm run test:elysium",
-    "test:elysium": "node --test tests/*.test.js",
-    "check:consumer-types": "bash scripts/check-consumer-types.sh"
+    "test:elysium": "node --test tests/*/*.test.js",
+    "check:consumer-types": "bash scripts/check-consumer-types.sh",
+    "check:source-imports": "node scripts/check-source-imports.mjs",
+    "update:official-nodes": "node scripts/update-official-nodes.mjs"
   },
   "license": "MIT",
   "peerDependencies": {

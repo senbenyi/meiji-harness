@@ -2,13 +2,12 @@
   "id": "dsh-external/dsh-elysium",
   "version": "0.2.0",
   "main": "./lib/index.js",
-  "description": "极乐世界 AI 短剧工厂：动态长视频规划、六锚点生产、自动恢复、局部重试与成片验收",
+  "description": "极乐世界单插件 AI 短剧工厂：短剧工作台、远程 ComfyUI、自动恢复与完整侧边栏",
   "engines": {
     "dsh": ">=0.1.2-alpha.3"
   },
   "contributes": {
-    "tools": ["_dsh_external_dsh_elysium_factory"],
-    "skills": ["./skills/vmp-video-factory/SKILL.md"]
+    "tools": ["_dsh_external_dsh_elysium_factory"]
   },
   "client": {
     "main": "./lib/client-registry.js"
