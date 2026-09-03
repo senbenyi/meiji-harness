@@ -18,15 +18,15 @@
       "default": "./lib/invariant.js"
     },
     "./client": {
-      "types": "./lib/types/client/index.d.ts",
+      "types": "./lib/types/public/client/index.d.ts",
       "default": "./lib/client.js"
     },
     "./client/service": {
-      "types": "./lib/types/client/service.d.ts",
+      "types": "./lib/types/public/client/service.d.ts",
       "default": "./lib/client.js"
     },
     "./client/api": {
-      "types": "./lib/types/client/api.d.ts",
+      "types": "./lib/types/public/client/api.d.ts",
       "default": "./lib/client.js"
     },
     "./src/*": "./src/*",

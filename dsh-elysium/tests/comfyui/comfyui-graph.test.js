@@ -1,14 +1,14 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { triggerPrefix, activeLoraNames } from '../../src/videos/server/infrastructure/comfyui/store.js'
+import { triggerPrefix, activeLoraNames } from '../../src/infrastructure/comfyui/store.js'
 import {
   applyClassAliases,
   bypassNode,
   injectSlot,
   snapMultiple,
-} from '../../src/videos/server/infrastructure/comfyui/graph.js'
-import { listTemplates, inspectTemplate } from '../../src/videos/server/infrastructure/comfyui/templates.js'
+} from '../../src/infrastructure/comfyui/graph.js'
+import { listTemplates, inspectTemplate } from '../../src/infrastructure/comfyui/templates.js'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 

@@ -41,8 +41,8 @@ import {
   isSideThreadSummary,
   rootAncestor,
 } from './subagent-detect.ts'
-import { type LastActivity } from '../subagent-activity.ts'
-import { SIDE_LABEL_PREFIX } from '../sidechat-core.ts'
+import { type LastActivity } from '../dsh/subagent-activity.ts'
+import { SIDE_LABEL_PREFIX } from '../dsh/sidechat-core.ts'
 import {
   collectTreeJobs,
   formatJobDuration,

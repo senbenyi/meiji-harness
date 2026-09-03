@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { safeOutputFilename, safeOutputSegment } from '../../src/videos/server/infrastructure/comfyui/engine.js'
-import { isTrustedApiRequest } from '../../src/sidebar/trust-fence.ts'
+import { safeOutputFilename, safeOutputSegment } from '../../src/infrastructure/comfyui/engine.js'
+import { isTrustedApiRequest } from '../../src/presentation/dsh/trust-fence.ts'
 
 test('embedded ComfyUI routes share the plugin browser trust fence', () => {
   assert.equal(isTrustedApiRequest({ headers: { host: 'localhost:3000', 'sec-fetch-site': 'cross-site' } }, []), false)

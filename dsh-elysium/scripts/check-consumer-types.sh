@@ -12,8 +12,8 @@ cd "$(dirname "$0")/.."
 
 # The check reads the BUILT declaration surface (lib/types) — fail loudly
 # instead of silently passing when the build output is missing.
-if [ ! -f lib/types/client/service.d.ts ]; then
-  echo "[check-consumer-types] FAIL: lib/types/client/service.d.ts not found — run 'pnpm build' first." >&2
+if [ ! -f lib/types/public/client/service.d.ts ]; then
+  echo "[check-consumer-types] FAIL: lib/types/public/client/service.d.ts not found — run 'pnpm build' first." >&2
   exit 1
 fi
 

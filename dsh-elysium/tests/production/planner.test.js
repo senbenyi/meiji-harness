@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlannerService } from '../../src/videos/server/application/planner.js'
+import { createPlannerService } from '../../src/application/planning-service.js'
 
 function response(chapters = 3) {
   return JSON.stringify({

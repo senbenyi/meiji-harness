@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { createGenerationService } from '../../src/videos/server/application/generate.js'
-import { projectCreate, projectGet } from '../../src/videos/server/project/project.js'
-import { projectDir, writeJsonAtomic } from '../../src/videos/server/infrastructure/store.js'
+import { createGenerationService } from '../../src/application/generation-service.js'
+import { projectCreate, projectGet } from '../../src/application/project-service.js'
+import { projectDir, writeJsonAtomic } from '../../src/infrastructure/persistence/store.js'
 
 async function fixture(t) {
   const workspace = await mkdtemp(path.join(tmpdir(), 'dsh-elysium-generate-test-'))

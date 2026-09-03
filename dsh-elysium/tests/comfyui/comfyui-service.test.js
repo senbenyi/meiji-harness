@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as path from 'node:path'
 import test from 'node:test'
-import { createComfyUiService, resolveComfyUiConfig } from '../../src/videos/server/infrastructure/comfyui/service.js'
+import { createComfyUiService, resolveComfyUiConfig } from '../../src/infrastructure/comfyui/service.js'
 
 test('internal ComfyUI runtime seeds bundled workflows into the Elysium workspace', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-comfyui-'))

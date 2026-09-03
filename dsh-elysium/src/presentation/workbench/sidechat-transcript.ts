@@ -19,7 +19,7 @@
  */
 import type { DiffHunk, ReadBlockLine } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SidebarHistoryEntry } from '../dsh/context-types.ts'
-import { isContextInjectionMessage, SIDE_BOUNDARY_PROMPT } from '../sidechat-core.ts'
+import { isContextInjectionMessage, SIDE_BOUNDARY_PROMPT } from '../dsh/sidechat-core.ts'
 
 /**
  * Structured render payload for a tool row that maps onto one of the host's

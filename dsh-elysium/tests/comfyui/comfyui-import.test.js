@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { removeTemplate } from '../../src/videos/server/infrastructure/comfyui/import-template.js'
-import { loadSettings, saveSettings } from '../../src/videos/server/infrastructure/comfyui/store.js'
-import { listTemplates } from '../../src/videos/server/infrastructure/comfyui/templates.js'
+import { removeTemplate } from '../../src/infrastructure/comfyui/import-template.js'
+import { loadSettings, saveSettings } from '../../src/infrastructure/comfyui/store.js'
+import { listTemplates } from '../../src/infrastructure/comfyui/templates.js'
 
 describe('removeTemplate', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'dsh-comfyui-rm-'))

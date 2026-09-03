@@ -30,7 +30,7 @@ const files = [
   'lib/client-registry.js',
   'lib/client-registry.js.map',
   // Lazy chunks: the client fetches these from the host's /sidebar/bundle
-  // route on first use (see src/sidebar/client/chunk-loader.ts).
+  // route on first use (see src/presentation/workbench/chunk-loader.ts).
   'lib/client-terminal.js',
   'lib/client-terminal.js.map',
   'lib/client-editor.js',

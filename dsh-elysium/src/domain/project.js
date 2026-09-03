@@ -1,4 +1,4 @@
-import { ElysiumError } from '../infrastructure/persistence/store.js'
+import { ElysiumError } from './errors.js'
 
 const SHOT_STATUSES = new Set([
   'draft',

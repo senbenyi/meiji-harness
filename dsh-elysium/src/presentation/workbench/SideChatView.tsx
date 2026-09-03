@@ -59,7 +59,7 @@ import {
   threadHasCompletedTurn,
   threadTrailingPending,
   type SidechatThreadInfo,
-} from '../sidechat-core.ts'
+} from '../dsh/sidechat-core.ts'
 import {
   formatDurationMs,
   formatTokens,

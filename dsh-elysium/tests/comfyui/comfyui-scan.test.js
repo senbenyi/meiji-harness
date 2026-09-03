@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scanGraph } from '../../src/videos/server/infrastructure/comfyui/scan.js'
-import { listTemplates } from '../../src/videos/server/infrastructure/comfyui/templates.js'
+import { scanGraph } from '../../src/infrastructure/comfyui/scan.js'
+import { listTemplates } from '../../src/infrastructure/comfyui/templates.js'
 
 const miniPath = 'D:\\download\\59-MiniMax-H3 文生视频 工作流-带加速 (1).json'
 const templatesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'comfyui')

@@ -248,7 +248,7 @@ function fenceEnabledOf(getSettings: () => SidebarSettingsFace | undefined): boo
 /**
  * Parse the browser tab's `browserAllowedLoopback` allowlist into a matcher
  * over host:port (same contract as the client-side helper in
- * src/client/browser.ts — kept in sync). Bare hosts (`localhost`,
+ * presentation/workbench/browser.ts — kept in sync). Bare hosts (`localhost`,
  * `127.0.0.1`) match every port; `host:port` entries match exactly.
  */
 function parseLoopbackAllowlist(allowlist: string): (host: string, port: string) => boolean {
@@ -877,7 +877,7 @@ export function applySidebar(ctx: Context, config?: SidebarConfig): void {
   // ── Lazy chunk route (client bundle splits) ─────────────────────────────
   // Serves the client half's split bundles (lib/client-<name>.js) so the
   // heavy preview/terminal libraries load on first use, not at page start
-  // (see bundle-route.ts / src/client/chunk-loader.ts).
+  // (see bundle-route.ts / presentation/workbench/chunk-loader.ts).
   ctx.effect(() => registerBundleRoute(ctx, fence), 'dsh-better-sidebar: /sidebar/bundle chunk route')
 
   // ── Media route (images for the editor) ─────────────────────────────────

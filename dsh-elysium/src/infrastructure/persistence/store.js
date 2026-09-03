@@ -1,14 +1,8 @@
 import * as path from 'node:path'
 import { mkdir, readFile, readdir, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
+import { ElysiumError } from '../../domain/errors.js'
 
-export class ElysiumError extends Error {
-  constructor(code, message, status = 400) {
-    super(message)
-    this.name = 'ElysiumError'
-    this.code = code
-    this.status = status
-  }
-}
+export { ElysiumError }
 
 export function workspaceRoot(config = {}) {
   return path.resolve(String(config.workspace || './elysium-workspace'))

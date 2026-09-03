@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import * as path from 'node:path'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { projectCreate } from '../../src/videos/server/project/project.js'
-import { episodeCreate, episodeUpdate } from '../../src/videos/server/episode/episodes.js'
-import { createProductionService } from '../../src/videos/server/application/production.js'
+import { projectCreate } from '../../src/application/project-service.js'
+import { episodeCreate, episodeUpdate } from '../../src/application/episode-service.js'
+import { createProductionService } from '../../src/application/production-service.js'
 
 async function fixture(t, targetDurationSec = 20) {
   const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-v2-'))

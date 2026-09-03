@@ -4,7 +4,7 @@
  */
 
 /* jscpd:ignore-start */
-import type { Context } from './context-types.ts'
+import type { Context } from '../presentation/dsh/context-types.ts'
 
 const PACKAGE_NAME = '@dsh-external/dsh-elysium'
 

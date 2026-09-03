@@ -6,9 +6,9 @@
  * hydrating at page load (a detached session would otherwise fail the
  * request). Failures surface as {@link SidebarApiError} with the wire code.
  */
-import { encodeHtmlUrl } from '../html-route.ts'
-import type { LastActivity } from '../subagent-activity.ts'
-import type { SidechatLogEvent, SidechatThreadInfo } from '../sidechat-core.ts'
+import { encodeHtmlUrl } from '../dsh/html-route.ts'
+import type { LastActivity } from '../dsh/subagent-activity.ts'
+import type { SidechatLogEvent, SidechatThreadInfo } from '../dsh/sidechat-core.ts'
 import type { SidebarSessionEvent } from '../dsh/context-types.ts'
 import type { BrowserProbeResult } from './browser.ts'
 

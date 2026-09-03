@@ -3,7 +3,7 @@
  * (/sidebar/bundle/<name>.js). The official /plugins/<id>/client.js route
  * cannot serve arbitrary file names, so the plugin serves its own split
  * bundles (lib/client-<name>.js) here; the client injects the script on
- * first use of the feature that needs it (see src/client/chunk-loader.ts).
+ * first use of the feature that needs it (see presentation/workbench/chunk-loader.ts).
  *
  * Caching contract: every response carries `cache-control: no-cache` plus an
  * ETag (content hash, memoized per file by mtime/size) and honors
@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context, SidebarHttpRequest, SidebarHttpResponse } from './context-types.ts'
 
-/** The chunk names the client may request (mirror of src/client/chunk-loader.ts). */
+/** The chunk names the client may request (mirror of presentation/workbench/chunk-loader.ts). */
 export const CHUNK_NAMES = ['terminal', 'editor', 'mermaid'] as const
 export type ChunkName = (typeof CHUNK_NAMES)[number]
 

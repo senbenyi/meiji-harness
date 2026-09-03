@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { registerUploadedImage } from '../../src/videos/server/project/assets.js'
-import { projectCreate } from '../../src/videos/server/project/project.js'
-import { projectDir } from '../../src/videos/server/infrastructure/store.js'
+import { registerUploadedImage } from '../../src/application/asset-service.js'
+import { projectCreate } from '../../src/application/project-service.js'
+import { projectDir } from '../../src/infrastructure/persistence/store.js'
 
 const PNG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0])
 

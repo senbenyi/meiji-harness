@@ -2331,7 +2331,7 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
 
 /* ── Narrow (mobile) viewport ──────────────────────────────────────────── */
 
-/* Pairs with NARROW_MAX_WIDTH = 768 in src/client/breakpoints.ts: widths
+/* Pairs with NARROW_MAX_WIDTH = 768 in presentation/workbench/breakpoints.ts: widths
    strictly below 768px (i.e. max-width: 767px) switch the sidebar to the
    mobile layout — one full-screen drawer (the bottom panel's tabs were
    migrated into the right tree), one toggle button. The structural

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createFactoryService, validateEpisodeSpec } from '../../src/videos/server/application/factory.js'
+import { createFactoryService, validateEpisodeSpec } from '../../src/application/legacy-factory-service.js'
 
 function episode(id = 'factory-test') {
   return {

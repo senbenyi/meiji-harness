@@ -1,6 +1,6 @@
 /**
  * Mermaid diagram renderer for the markdown preview, resident in the
- * `mermaid` lazy chunk (src/client/chunks/mermaid.tsx): the mermaid library
+ * `mermaid` lazy chunk (presentation/workbench/chunks/mermaid.tsx): the mermaid library
  * and its transitive graph deps (d3/dagre/cytoscape) are inlined into
  * lib/client-mermaid.js and fetched only when a previewed markdown file
  * actually contains a mermaid fence (see mermaid-blocks.ts).

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { apply } from '../../src/videos/server/index.js'
+import { apply } from '../../src/presentation/dsh/studio-host.js'
 
 function responseRecorder() {
   return {

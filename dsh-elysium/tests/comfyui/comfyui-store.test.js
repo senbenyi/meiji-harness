@@ -8,8 +8,8 @@ import {
   annotateTemplates,
   loadSettings,
   saveSettings,
-} from '../../src/videos/server/infrastructure/comfyui/store.js'
-import { inspectTemplate } from '../../src/videos/server/infrastructure/comfyui/templates.js'
+} from '../../src/infrastructure/comfyui/store.js'
+import { inspectTemplate } from '../../src/infrastructure/comfyui/templates.js'
 
 describe('user notes', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'dsh-comfyui-'))

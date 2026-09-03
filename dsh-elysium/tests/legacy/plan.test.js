@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { projectCreate } from '../../src/videos/server/project/project.js'
-import { planGet, planUpdateShot } from '../../src/videos/server/application/plan.js'
-import { projectDir, writeJsonAtomic } from '../../src/videos/server/infrastructure/store.js'
+import { projectCreate } from '../../src/application/project-service.js'
+import { planGet, planUpdateShot } from '../../src/application/plan-service.js'
+import { projectDir, writeJsonAtomic } from '../../src/infrastructure/persistence/store.js'
 
 test('updates a shot atomically and refreshes the project summary', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'dsh-elysium-plan-test-'))

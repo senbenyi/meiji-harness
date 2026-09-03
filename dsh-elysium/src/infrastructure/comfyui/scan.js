@@ -34,7 +34,7 @@ function officialFallback() {
     const candidates = [
       path.join(moduleDir, 'official-nodes.json'),
       path.resolve(moduleDir, '../templates/comfyui/official-nodes.json'),
-      path.resolve(moduleDir, '../../../../../templates/comfyui/official-nodes.json'),
+      path.resolve(moduleDir, '../../../templates/comfyui/official-nodes.json'),
     ]
     const p = candidates.find(candidate => fs.existsSync(candidate))
     if (!p) throw new Error('official node catalog not found')

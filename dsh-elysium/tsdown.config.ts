@@ -14,7 +14,7 @@
  *
  * Both bundles replicate the official DSH client-bundle preset
  * (packages/client/tsdown.client.ts) and are compiled from the same
- * src/sidebar/client/index.tsx source — only the registered id and the output file
+ * src/presentation/workbench/index.tsx source — only the registered id and the output file
  * name differ, so they cannot drift:
  * - externals resolve through the loader module table at runtime (the
  *   PLATFORM_MODULES seed list from apps/web's platform.ts, plus the
@@ -29,12 +29,12 @@
  *
  * Lazy chunks (lib/client-<name>.js): the heavy preview/terminal libraries
  * (CodeMirror, xterm) build as two standalone chunk bundles
- * (src/sidebar/client/chunks/<name>.tsx), shared by both channels. Each script
+ * (src/presentation/workbench/chunks/<name>.tsx), shared by both channels. Each script
  * assigns its factory to the plugin-owned global registry
  * (globalThis.__dshChunks__) and is fetched by
  * the client on first use from the plugin's own /sidebar/bundle route —
  * chunks deliberately do NOT go through the module loader (see
- * src/sidebar/client/chunk-loader.ts). `codeSplitting: false` keeps every chunk a
+ * src/presentation/workbench/chunk-loader.ts). `codeSplitting: false` keeps every chunk a
  * single script; the core client.js must never statically import a chunks/
  * entry.
  *
@@ -128,7 +128,7 @@ function browserSourcePath(source: string, sourcemapPath: string): string {
  */
 function clientBundle(pluginId: string, entryFile: string): UserConfig {
   return {
-    entry: { client: 'src/sidebar/client/index.tsx' },
+    entry: { client: 'src/presentation/workbench/index.tsx' },
     outDir: 'lib',
     format: 'cjs',
     platform: 'browser',
@@ -186,18 +186,18 @@ function clientBundle(pluginId: string, entryFile: string): UserConfig {
  * boot graph rows, and a chunk id is none of those — resolution would be
  * version-dependent. Instead each script assigns its CJS factory to the
  * plugin-owned global registry `globalThis.__dshChunks__[<name>]`, and the
- * loader (src/sidebar/client/chunk-loader.ts) materializes it with a require built
+ * loader (src/presentation/workbench/chunk-loader.ts) materializes it with a require built
  * from the module table's seed words.
  *
  * Chunk css tags use the constant plugin id `dsh-better-sidebar` (matching
  * the official channel; the registry channel re-injects an identical copy
  * of the shared module css — same content, no functional impact).
- * @param name - chunk name; entry src/sidebar/client/chunks/<name>.tsx, output
- *   lib/client-<name>.js. Keep in sync with CHUNK_NAMES in src/bundle-route.ts.
+ * @param name - chunk name; entry src/presentation/workbench/chunks/<name>.tsx, output
+ *   lib/client-<name>.js. Keep in sync with CHUNK_NAMES in src/presentation/dsh/bundle-route.ts.
  */
 function chunkBundle(name: string): UserConfig {
   return {
-    entry: { [name]: `src/sidebar/client/chunks/${name}.tsx` },
+    entry: { [name]: `src/presentation/workbench/chunks/${name}.tsx` },
     outDir: 'lib',
     format: 'cjs',
     platform: 'browser',

@@ -28,7 +28,7 @@ const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url))
 function bundledTemplatesDir() {
   const candidates = [
     path.resolve(MODULE_DIR, '../templates/comfyui'),
-    path.resolve(MODULE_DIR, '../../../../../templates/comfyui'),
+    path.resolve(MODULE_DIR, '../../../templates/comfyui'),
   ]
   return candidates.find(candidate => fs.existsSync(candidate)) || candidates[0]
 }
