@@ -102,7 +102,7 @@ After a harness restart, the six `_dsh_external_dsh_comfyui_*` tools appear in n
     outputDir: '/Users/mac/.dsh/profiles/web/data/comfyui'
 ```
 
-内置生产模板：`qwen-image-t2i` 用于远程 Qwen 文生图，`wan22-remix-long` 用于 6 张有序关键帧和 6 段运动提示词生成一个 Wan2.2 SVI 长视频块。剧集数量约束、分组、续跑与成片 QC 由 `dsh-toonflow` 负责。
+内置生产模板：`qwen-image-t2i` 用于远程 Qwen 文生图，`wan22-remix-long` 用于 6 张有序关键帧和 6 段运动提示词生成一个 Wan2.2 SVI 长视频块。剧集数量约束、分组、续跑与成片 QC 由 `dsh-elysium` 负责。
 
 另有浏览器设置页（**设置 → ComfyUI**）：改地址、**模板/LoRA 注释**（写给模型看：底模、自然语言还是 tag、LoRA 特殊用法）、LoRA 触发词（`mode=仅模型` 不写进提示词，适合 turbo；可从 ComfyUI 文件列表添加/删除）、**导入工作流**（API Format JSON，默认只扫描预览）。`user-settings.json` 保存在 `templates/` 下（gitignored）。`list` / `inspect` 会带上 `user_note`。
 

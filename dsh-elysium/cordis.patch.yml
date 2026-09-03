@@ -1,0 +1,22 @@
+# dsh-elysium bundle patch
+- insert:
+    - id: dsh-elysium
+      name: '@dsh-external/dsh-elysium'
+      config:
+        workspace: '/Users/mac/.dsh/profiles/web/data/elysium'
+        models:
+          characterImage:
+            template: 'qwen-image-t2i'
+            args:
+              width: 768
+              height: 1024
+          shotImage:
+            template: 'qwen-image-t2i'
+            args:
+              width: 1280
+              height: 720
+          shotVideo:
+            template: 'wan22-remix-long'
+            args: {}
+        ffmpeg: 'ffmpeg'
+        ffprobe: 'ffprobe'

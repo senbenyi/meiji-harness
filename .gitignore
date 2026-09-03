@@ -19,8 +19,8 @@ logs/
 *.log
 npm-debug.log*
 
-# local Toonflow runtime data
-toonflow-workspace/
+# local Elysium runtime data
+elysium-workspace/
 comfyui-output/
 
 # env

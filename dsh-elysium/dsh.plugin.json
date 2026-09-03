@@ -1,0 +1,16 @@
+{
+  "id": "dsh-external/dsh-elysium",
+  "version": "0.2.0",
+  "main": "./lib/index.js",
+  "description": "AI 成人短剧工厂：通过 dsh-comfyui 调度远程工作流，固定 12 镜、2 个六锚点视频块和不少于 40 秒成片",
+  "engines": {
+    "dsh": ">=0.1.2-alpha.3"
+  },
+  "contributes": {
+    "tools": ["_dsh_external_dsh_elysium_factory"],
+    "skills": ["./skills/vmp-video-factory/SKILL.md"]
+  },
+  "client": {
+    "main": "./lib/client-registry.js"
+  }
+}

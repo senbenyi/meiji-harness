@@ -62,7 +62,7 @@ describe('contracts', () => {
     assert.deepEqual(t2i.media.out, ['image'])
   })
 
-  it('ships the Toonflow Wan2.2 short-video contract', () => {
+  it('ships the Elysium Wan2.2 short-video contract', () => {
     const info = inspectTemplate(templatesDir, 'wan22-remix-short')
     assert.deepEqual(info.media.in, ['image', 'text'])
     assert.deepEqual(info.media.out, ['video'])
