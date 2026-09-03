@@ -1,0 +1,7 @@
+- insert:
+    - id: dsh-vmp
+      name: '@dsh-external/dsh-vmp'
+      config:
+        adapter: '/Users/mac/ai/llm-ai-veo/llm-ai-model/app/vmp_remote.sh'
+        specRoot: '/Users/mac/ai/llm-ai-veo/llm-ai-model/workflows/mvp/episodes'
+        localArtifactsRoot: '/Users/mac/ai/llm-ai-veo/llm-ai-model/artifacts/vmp'

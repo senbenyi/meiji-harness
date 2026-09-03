@@ -1,0 +1,12 @@
+{
+  "id": "dsh-external/dsh-vmp",
+  "version": "0.1.0",
+  "main": "./lib/index.js",
+  "description": "VMP AI 短视频生产工厂：插件和聊天共用唯一生产内核",
+  "engines": { "dsh": ">=0.1.2-alpha.3" },
+  "contributes": {
+    "tools": ["_dsh_external_dsh_vmp"],
+    "skills": ["./skills/vmp-video-factory/SKILL.md"]
+  },
+  "client": { "main": "./lib/client.js" }
+}
