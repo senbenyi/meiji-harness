@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-elysium",
   "version": "0.2.0",
-  "description": "DeepSeek Harness AI short-drama factory: fixed 12 shots, two six-anchor video blocks, QC and approval.",
+  "description": "DeepSeek Harness AI short-drama factory with an integrated remote ComfyUI driver.",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -63,6 +63,7 @@
     "README.md",
     "dsh.plugin.json",
     "skills",
+    "templates",
     "docs"
   ],
   "scripts": {

@@ -1,7 +1,7 @@
 # dsh-elysium
 
-DeepSeek Harness 的 AI 成人短剧生产工厂，内置完整侧边栏能力。生产入口通过
-`dsh-comfyui` 调用远程 ComfyUI 合同工作流，固定执行 12 镜、2 个六锚点视频块和不少于 40 秒成片。
+DeepSeek Harness 的单插件 AI 成人短剧生产工厂，内置侧边栏、ComfyUI 驱动和
+合同工作流，固定执行 2 镜、每镜一个长视频和不少于 40 秒成片。
 
 ## 核心能力
 
@@ -13,10 +13,10 @@ DeepSeek Harness 的 AI 成人短剧生产工厂，内置完整侧边栏能力�
 - `ctx.betterSidebar` 页签与文件查看器扩展服务
 
 聊天框统一使用 `_dsh_external_dsh_elysium_factory`。Elysium 持久化生产状态，
-通过 `dsh-comfyui` 的 `generate/job` 合同调用远程 Qwen Image 和 Wan2.2；本机只做
+由 Elysium 内部驱动调用远程 Qwen Image 和 Wan2.2；本机只做
 产物归档、FFmpeg 标准化拼接、FFprobe 时长 QC 和人工验收记录。
 
-生产顺序固定为：12 张镜头图 → `shot-01..06` 与 `shot-07..12` 两个 SVI 视频块 →
+生产顺序固定为：2 张镜头图 → `shot-01` 与 `shot-02` 各生成一个 SVI 长视频 →
 720×1280、24fps、H.264 成片。成片少于 40 秒时不会进入人审状态。
 
 ## 开发命令
@@ -30,4 +30,6 @@ pnpm test
 源码位于 `src/`，构建产物输出到 `lib/`。
 
 默认数据目录为 `./elysium-workspace`。可通过 `workspace` 修改路径，通过
-`models.characterImage`、`models.shotImage` 和 `models.shotVideo` 配置生成模型。
+`comfyui.baseUrl` 配置隧道地址，通过 `models.characterImage`、`models.shotImage` 和
+`models.shotVideo` 配置生成模型。工作流合同保存在 `templates/comfyui/`，运行时复制到
+Elysium 工作区后管理；不需要安装 `dsh-comfyui`。

@@ -4,6 +4,10 @@
       name: '@dsh-external/dsh-elysium'
       config:
         workspace: '/Users/mac/.dsh/profiles/web/data/elysium'
+        comfyui:
+          baseUrl: 'http://127.0.0.1:8189'
+          templatesDir: '/Users/mac/.dsh/profiles/web/data/elysium/comfyui/templates'
+          outputDir: '/Users/mac/.dsh/profiles/web/data/elysium/comfyui/output'
         models:
           characterImage:
             template: 'qwen-image-t2i'

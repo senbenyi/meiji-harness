@@ -13,6 +13,9 @@ import { registerUploadedImage } from './lib/assets.js'
 import { updateCharacterRecord, updateShotRecord } from './lib/shot.js'
 import { ElysiumError, resolveProjectFile } from './lib/store.js'
 import { createFactoryService, FACTORY_TOOL, serveFactoryArtifact } from './lib/factory.js'
+import { createComfyUiService } from './comfyui/service.js'
+import { episodeCreate, episodeGet, episodeList, episodeUpdate } from './lib/episodes.js'
+import { createProductionService } from './lib/production.js'
 
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools']
@@ -71,7 +74,7 @@ function sendError(res, error) {
   })
 }
 
-function attachRoutes(ctx, config, generation, factory, fence) {
+function attachRoutes(ctx, config, generation, factory, production, comfy, fence) {
   const routes = new Map([
     ['/project.list', projectList],
     ['/project.get', projectGet],
@@ -85,6 +88,24 @@ function attachRoutes(ctx, config, generation, factory, fence) {
     ['/shot.retry', (_config, body) => generation.retryShot(body.projectId, body.shotId)],
     ['/char.generate_image', (_config, body) => generation.submitCharacter(body.projectId, body.characterId)],
     ['/factory.execute', (_config, body) => factory.execute(body)],
+    ['/episode.list', episodeList],
+    ['/episode.create', episodeCreate],
+    ['/episode.get', episodeGet],
+    ['/episode.update', episodeUpdate],
+    ['/production.start', (_config, body) => production.start(body)],
+    ['/production.pause', (_config, body) => production.pause(body)],
+    ['/production.resume', (_config, body) => production.resume(body)],
+    ['/production.status', (_config, body) => production.status(body)],
+    ['/production.retry', (_config, body) => production.retry(body)],
+    ['/review.approve', (_config, body) => production.approve(body)],
+    ['/comfyui.state', () => comfy.state()],
+    ['/comfyui.save', (_config, body) => comfy.saveSettings(body)],
+    ['/comfyui.inspect', (_config, body) => comfy.inspect(body.template, body.query)],
+    ['/comfyui.scan', (_config, body) => comfy.scan(body)],
+    ['/comfyui.import', (_config, body) => comfy.importTemplate(body)],
+    ['/comfyui.remove_template', (_config, body) => comfy.removeTemplate(body.id)],
+    ['/comfyui.register_lora', (_config, body) => comfy.registerLora(body)],
+    ['/comfyui.remove_lora', (_config, body) => comfy.removeLora(body.name)],
   ])
 
   const disposeApi = ctx.webServer.register({
@@ -196,13 +217,17 @@ function attachRoutes(ctx, config, generation, factory, fence) {
 }
 
 export function apply(ctx, config = {}, fence = (_request) => false) {
-  const generation = createGenerationService(ctx, config)
-  const factory = createFactoryService(ctx, config)
+  const comfy = createComfyUiService(config)
+  const generation = createGenerationService(ctx, config, comfy)
+  const factory = createFactoryService(ctx, config, comfy)
+  const production = createProductionService(ctx, config, comfy)
   const register = (scope) => scope.effect(
     () => {
-      const disposeRoutes = attachRoutes(scope, config, generation, factory, fence)
+      const disposeRoutes = attachRoutes(scope, config, generation, factory, production, comfy, fence)
+      void production.resumeAll().catch(error => scope.logger?.warn?.(`[elysium] production recovery: ${error?.message || error}`))
       return () => {
         generation.dispose()
+        production.dispose()
         disposeRoutes()
       }
     },
@@ -216,19 +241,34 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
   }
   const factoryTool = defineTool({
     name: FACTORY_TOOL,
-    description: 'AI 成人短剧工厂。固定 VMP V1：12 镜、2 个六锚点视频块、成片不少于 40 秒。Elysium 持久化生产状态并通过 dsh-comfyui 调用远程工作流；支持续跑、单项重试、QC 和人工验收。',
+    description: '极乐世界短剧生产工具。创建项目单集、保存动态六锚点规划、自动生产、恢复、精确重试、查询状态和人工验收。旧 VMP 生产单继续兼容。',
     parameters: {
-      action: { type: 'string', required: true, description: 'list | create | check | status | run | job | retry | artifact | approve' },
+      action: { type: 'string', required: true, description: '旧流程：list/create/check/status/run/job/retry/artifact/approve；新流程：episode_create/episode_list/episode_get/episode_update/production_start/production_pause/production_resume/production_status/production_retry/review_approve' },
       spec: { type: 'string', description: '生产单文件名，如 beach-story.json' },
-      episode: { type: 'object', additionalProperties: true, description: 'create 使用的完整 vmp-1 生产单，必须正好包含 shot-01..shot-12' },
+      episode: { type: 'object', additionalProperties: true, description: 'create 使用的完整 vmp-1 生产单，必须正好包含 shot-01 和 shot-02' },
       stage: { type: 'string', description: 'run 使用：images | video | final | all' },
       job_id: { type: 'string', description: 'job 使用的本机任务 ID' },
       episode_id: { type: 'string', description: 'sync 使用的单集 ID' },
       artifact: { type: 'string', description: 'sync 使用：final | qc | review' },
-      target: { type: 'string', description: 'retry 使用：shot-01..shot-12 | block-01 | block-02 | final' },
+      target: { type: 'string', description: 'retry 使用：shot-01 | shot-02 | block-01 | block-02 | final' },
       confirm_authorized_adults: { type: 'boolean', description: '付费图片/视频生成前必须为 true' },
       reviewer: { type: 'string', description: 'approve 使用的审核人标识' },
       confirm_human_review_passed: { type: 'boolean', description: '完整观看成片并确认通过后才可为 true' },
+      projectId: { type: 'string', description: '新流程项目 ID' },
+      episodeId: { type: 'string', description: '新流程单集 ID' },
+      title: { type: 'string', description: '单集标题' },
+      sourceText: { type: 'string', description: '故事原文或想法' },
+      targetDurationSec: { type: 'number', description: '目标时长，20 到 600 秒' },
+      profile: { type: 'string', description: 'preview 或 final' },
+      budget: { type: 'number', description: '生产预算' },
+      stylePrompt: { type: 'string', description: '统一画面风格' },
+      castPrompt: { type: 'string', description: '统一人物设定' },
+      negativePrompt: { type: 'string', description: '负面提示词' },
+      plan: { type: 'object', additionalProperties: true, description: '动态章节规划；每章正好六个锚点' },
+      updates: { type: 'object', additionalProperties: true, description: '单集更新字段' },
+      taskId: { type: 'string', description: '精确重试的任务 ID' },
+      confirmAuthorizedContent: { type: 'boolean', description: '本次单集付费生成授权' },
+      confirmHumanReviewPassed: { type: 'boolean', description: '新流程人工终审确认' },
     },
     output: {
       schema: { type: 'string' },
@@ -236,7 +276,21 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
     },
     async execute(args) {
       try {
-        return JSON.stringify(await factory.execute(args || {}), null, 2)
+        const input = args || {}
+        const handlers = {
+          episode_create: () => episodeCreate(config, input),
+          episode_list: () => episodeList(config, input),
+          episode_get: () => episodeGet(config, input),
+          episode_update: () => episodeUpdate(config, input),
+          production_start: () => production.start(input),
+          production_pause: () => production.pause(input),
+          production_resume: () => production.resume(input),
+          production_status: () => production.status(input),
+          production_retry: () => production.retry(input),
+          review_approve: () => production.approve(input),
+        }
+        const handler = handlers[input.action]
+        return JSON.stringify(await (handler ? handler() : factory.execute(input)), null, 2)
       } catch (error) {
         return JSON.stringify({ ok: false, code: error?.code || 'FACTORY_ERROR', message: error?.message || String(error) }, null, 2)
       }

@@ -207,17 +207,23 @@ async function checkModels(baseUrl, graph) {
   return errors
 }
 
-async function ingestMedia(baseUrl, graph, slot, filePath) {
+async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map()) {
   if (!filePath) {
     throw Object.assign(new Error('MEDIA_MISSING'), { code: 'MEDIA_MISSING' })
   }
   if (!fs.existsSync(filePath)) {
     throw Object.assign(new Error(`MEDIA_MISSING:${filePath}`), { code: 'MEDIA_MISSING', path: filePath })
   }
-  const buf = fs.readFileSync(filePath)
   const nodeId = slotTargetsSafe(slot)[0]?.node
   const node = nodeId ? graph[String(nodeId)] : null
   const cls = node?.class_type || ''
+  const absolutePath = path.resolve(filePath)
+  const cached = uploadCache.get(absolutePath)
+  if (cached && cls !== 'ETN_LoadImageBase64' && !cls.toLowerCase().includes('base64')) {
+    injectSlot(graph, slot, cached.name)
+    return { ...cached, slot: slot.key, reused: true }
+  }
+  const buf = fs.readFileSync(filePath)
   if (cls === 'ETN_LoadImageBase64' || cls.toLowerCase().includes('base64')) {
     injectSlot(graph, slot, buf.toString('base64'))
     return { mode: 'base64', bytes: buf.length, slot: slot.key }
@@ -225,7 +231,9 @@ async function ingestMedia(baseUrl, graph, slot, filePath) {
   const uploaded = await uploadImage(baseUrl, filePath, buf, path.basename(filePath))
   const name = uploaded.subfolder ? `${uploaded.subfolder}/${uploaded.name}` : uploaded.name
   injectSlot(graph, slot, name)
-  return { mode: 'upload', name, bytes: buf.length, slot: slot.key }
+  const meta = { mode: 'upload', name, bytes: buf.length }
+  uploadCache.set(absolutePath, meta)
+  return { ...meta, slot: slot.key, reused: false }
 }
 
 async function ingestImage(baseUrl, graph, slot, imagePath) {
@@ -306,10 +314,11 @@ export async function generate(opts) {
   const MEDIA = new Set(['image', 'video', 'audio'])
   let imageMeta = null
   const mediaMeta = []
+  const uploadCache = new Map()
   for (const slot of Object.values(slots)) {
     if (!MEDIA.has(slot.type) || provided[slot.key] == null || provided[slot.key] === '') continue
     try {
-      const meta = await ingestMedia(baseUrl, graph, slot, provided[slot.key])
+      const meta = await ingestMedia(baseUrl, graph, slot, provided[slot.key], uploadCache)
       mediaMeta.push(meta)
       if (slot.type === 'image' && !imageMeta) imageMeta = meta
     } catch (e) {

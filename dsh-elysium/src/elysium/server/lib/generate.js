@@ -2,9 +2,7 @@ import { projectGet } from './project.js'
 import { registerGeneratedAsset } from './assets.js'
 import { updateCharacterRecord, updateShotRecord } from './shot.js'
 import { ElysiumError, resolveProjectFile } from './store.js'
-
-const GENERATE_TOOL = '_dsh_external_dsh_comfyui_generate'
-const JOB_TOOL = '_dsh_external_dsh_comfyui_job'
+import { createComfyUiService } from '../comfyui/service.js'
 
 const DEFAULT_MODELS = {
   characterImage: { template: 'anima-txt2img', args: { width: 768, height: 1024 } },
@@ -24,26 +22,8 @@ function modelConfig(config, key) {
   }
 }
 
-function parseToolResult(value) {
-  if (typeof value !== 'string') return value
-  try {
-    return JSON.parse(value)
-  } catch {
-    throw new ElysiumError('COMFYUI_INVALID_RESPONSE', 'dsh-comfyui returned invalid JSON', 502)
-  }
-}
-
-async function callTool(ctx, name, args) {
-  const tool = ctx.tools?.get?.(name)
-  if (!tool) {
-    throw new ElysiumError(
-      'COMFYUI_UNAVAILABLE',
-      'dsh-comfyui is not enabled in the current DSH profile',
-      503,
-    )
-  }
-  const controller = new AbortController()
-  const result = parseToolResult(await tool.execute(args, { signal: controller.signal }))
+async function callComfy(comfy, method, args) {
+  const result = await comfy[method](args)
   if (!result?.ok) {
     throw new ElysiumError(result?.code || 'COMFYUI_ERROR', result?.message || 'ComfyUI request failed', 502)
   }
@@ -68,7 +48,7 @@ function shotPrompt(shot, key) {
   return String(shot[key] || [shot.description, shot.camera].filter(Boolean).join(', ')).trim()
 }
 
-export function createGenerationService(ctx, config) {
+export function createGenerationService(ctx, config, comfy = createComfyUiService(config)) {
   const monitors = new Map()
   const submissions = new Set()
   let disposed = false
@@ -78,7 +58,7 @@ export function createGenerationService(ctx, config) {
     const running = (async () => {
       try {
         while (!disposed) {
-          const result = await callTool(ctx, JOB_TOOL, { job_id: jobId, action: 'wait', wait_s: 5 })
+          const result = await callComfy(comfy, 'job', { job_id: jobId, action: 'wait', wait_s: 5 })
           if (result.status === 'running') continue
           await complete(firstOutput(result, kind))
           return
@@ -105,7 +85,7 @@ export function createGenerationService(ctx, config) {
     try {
       const model = modelConfig(config, 'characterImage')
       if (!model.template) throw new ElysiumError('MODEL_NOT_CONFIGURED', 'Character image template is not configured')
-      const result = await callTool(ctx, GENERATE_TOOL, {
+      const result = await callComfy(comfy, 'generate', {
         ...model.args,
         template: model.template,
         prompt: characterPrompt(character),
@@ -181,7 +161,7 @@ export function createGenerationService(ctx, config) {
       const image = stage === 'video'
         ? await resolveProjectFile(config, projectId, shot.imagePath)
         : await referenceImage(projectId, shot, model)
-      const result = await callTool(ctx, GENERATE_TOOL, {
+      const result = await callComfy(comfy, 'generate', {
         ...model.args,
         template: model.template,
         prompt: shotPrompt(shot, stage === 'video' ? 'videoPrompt' : 'imagePrompt'),

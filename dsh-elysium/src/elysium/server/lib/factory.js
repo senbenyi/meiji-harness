@@ -4,11 +4,14 @@ import { copyFile, mkdir, readdir, realpath, stat } from 'node:fs/promises'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { ElysiumError, readJson, workspaceRoot, writeJsonAtomic } from './store.js'
+import { createComfyUiService } from '../comfyui/service.js'
 
 export const FACTORY_TOOL = '_dsh_external_dsh_elysium_factory'
-const GENERATE_TOOL = '_dsh_external_dsh_comfyui_generate'
-const JOB_TOOL = '_dsh_external_dsh_comfyui_job'
-const SHOT_IDS = Array.from({ length: 12 }, (_, index) => `shot-${String(index + 1).padStart(2, '0')}`)
+const SHOT_COUNT = 2
+const BLOCK_COUNT = 2
+const ANCHORS_PER_BLOCK = 6
+const MINIMUM_DURATION_SECONDS = 40
+const SHOT_IDS = Array.from({ length: SHOT_COUNT }, (_, index) => `shot-${String(index + 1).padStart(2, '0')}`)
 const BLOCK_IDS = ['block-01', 'block-02']
 const running = new Map()
 
@@ -19,7 +22,7 @@ function fail(code, message, status = 400) {
 function safeEpisodeId(value) {
   const id = String(value || '').trim()
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
-    fail('INVALID_EPISODE_ID', 'episode_id 只允许小写字母、数字和单个连字符分段')
+    fail('INVALID_EPISODE_ID', 'episode_id 无效')
   }
   return id
 }
@@ -44,13 +47,13 @@ export function validateEpisodeSpec(value) {
   for (const key of ['fictional_adults_only', 'all_participants_18_or_older', 'consensual_content', 'rights_confirmed']) {
     if (value.compliance?.[key] !== true) fail('COMPLIANCE_REQUIRED', `compliance.${key} 必须明确为 true`)
   }
-  if (!Array.isArray(value.shots) || value.shots.length !== 12) fail('INVALID_SPEC', 'VMP V1 固定需要 12 镜')
+  if (!Array.isArray(value.shots) || value.shots.length !== SHOT_COUNT) fail('INVALID_SPEC', `固定需要 ${SHOT_COUNT} 镜`)
   value.shots.forEach((shot, index) => {
     if (!shot || typeof shot !== 'object' || shot.id !== SHOT_IDS[index]) fail('INVALID_SPEC', `第 ${index + 1} 镜 id 必须是 ${SHOT_IDS[index]}`)
     requiredText(shot.image_prompt, `${shot.id}.image_prompt`)
     requiredText(shot.video_prompt, `${shot.id}.video_prompt`)
   })
-  return { episode_id: episodeId, title: value.title.trim(), profile: value.profile, seed: value.seed, shots: 12, blocks: 2, minimum_duration_seconds: 40 }
+  return { episode_id: episodeId, title: value.title.trim(), profile: value.profile, seed: value.seed, shots: SHOT_COUNT, blocks: BLOCK_COUNT, minimum_duration_seconds: MINIMUM_DURATION_SECONDS }
 }
 
 function factoryRoot(config) {
@@ -78,14 +81,14 @@ function initialState(spec) {
     episode_id: spec.episode_id,
     status: 'ready',
     stage: 'ready',
-    contract: { shots: 12, blocks: 2, minimum_duration_seconds: 40 },
+    contract: { shots: SHOT_COUNT, blocks: BLOCK_COUNT, minimum_duration_seconds: MINIMUM_DURATION_SECONDS },
     created_at: stamp,
     updated_at: stamp,
     images: SHOT_IDS.map(id => ({ id, status: 'pending', job_id: null, path: null, error: null })),
-    blocks: BLOCK_IDS.map((id, index) => ({ id, shots: SHOT_IDS.slice(index * 6, index * 6 + 6), status: 'pending', job_id: null, path: null, error: null })),
+    blocks: BLOCK_IDS.map((id, index) => ({ id, shots: [SHOT_IDS[index]], status: 'pending', job_id: null, path: null, error: null })),
     final: { status: 'pending', path: null, qc_path: null, duration_seconds: null, error: null },
     review: null,
-    events: [{ at: stamp, type: 'created', message: '12 镜生产单已创建' }],
+    events: [{ at: stamp, type: 'created', message: '2 镜、2 视频生产单已创建' }],
   }
 }
 
@@ -126,20 +129,15 @@ async function saveState(p, state) {
   await writeJsonAtomic(p.state, state)
 }
 
-async function callTool(ctx, name, args) {
-  const tool = ctx.tools?.get?.(name)
-  if (!tool) fail('COMFYUI_UNAVAILABLE', 'dsh-comfyui 未安装或未启用', 503)
-  let result = await tool.execute(args, { signal: new AbortController().signal })
-  if (typeof result === 'string') {
-    try { result = JSON.parse(result) } catch { fail('COMFYUI_INVALID_RESPONSE', 'dsh-comfyui 返回了无效 JSON', 502) }
-  }
+async function callComfy(comfy, method, args) {
+  const result = await comfy[method](args)
   if (!result?.ok) fail(result?.code || 'COMFYUI_ERROR', result?.message || 'ComfyUI 请求失败', 502)
   return result
 }
 
-async function waitJob(ctx, jobId, kind) {
+async function waitJob(comfy, jobId, kind) {
   for (;;) {
-    const result = await callTool(ctx, JOB_TOOL, { job_id: jobId, action: 'wait', wait_s: 20 })
+    const result = await callComfy(comfy, 'job', { job_id: jobId, action: 'wait', wait_s: 20 })
     if (result.status === 'running') continue
     const output = result.outputs?.find(item => item.kind === kind) || result.outputs?.[0]
     if (!output?.path) fail('NO_OUTPUT', `ComfyUI 没有返回 ${kind} 产物`, 502)
@@ -174,9 +172,9 @@ function imageArgs(spec, shot, index) {
   }
 }
 
-function blockArgs(spec, blockIndex, imagePaths) {
+function blockArgs(spec, blockIndex, imagePath) {
   const final = spec.profile === 'final'
-  const shots = spec.shots.slice(blockIndex * 6, blockIndex * 6 + 6)
+  const shot = spec.shots[blockIndex]
   const args = {
     template: 'wan22-remix-long',
     negative: spec.negative_prompt,
@@ -187,10 +185,10 @@ function blockArgs(spec, blockIndex, imagePaths) {
     seed: (spec.seed + 100 + blockIndex) >>> 0,
     wait_s: 0,
   }
-  shots.forEach((shot, index) => {
-    args[`image_${index + 1}`] = imagePaths[index]
+  for (let index = 0; index < ANCHORS_PER_BLOCK; index += 1) {
+    args[`image_${index + 1}`] = imagePath
     args[`prompt_${index + 1}`] = shot.video_prompt
-  })
+  }
   return args
 }
 
@@ -244,22 +242,22 @@ async function assemble(config, blockPaths, destination) {
   return durationOf(config, destination)
 }
 
-async function generateImages(ctx, loaded) {
+async function generateImages(comfy, loaded) {
   const { p, spec, state } = loaded
   state.stage = 'images'
   await saveState(p, state)
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = 0; index < SHOT_COUNT; index += 1) {
     const item = state.images[index]
     if (item.status === 'ready' && item.path && await stat(item.path).catch(() => null)) continue
     item.status = 'submitting'
     item.error = null
     await saveState(p, state)
     try {
-      const submitted = await callTool(ctx, GENERATE_TOOL, imageArgs(spec, spec.shots[index], index))
+      const submitted = await callComfy(comfy, 'generate', imageArgs(spec, spec.shots[index], index))
       item.job_id = submitted.job_id
       item.status = 'running'
       await saveState(p, state)
-      item.path = await stableCopy(await waitJob(ctx, submitted.job_id, 'image'), path.join(p.images, `${item.id}.png`), ['.png', '.jpg', '.jpeg', '.webp'])
+      item.path = await stableCopy(await waitJob(comfy, submitted.job_id, 'image'), path.join(p.images, `${item.id}.png`), ['.png', '.jpg', '.jpeg', '.webp'])
       item.status = 'ready'
       addEvent(state, 'image_ready', item.id)
       await saveState(p, state)
@@ -272,24 +270,24 @@ async function generateImages(ctx, loaded) {
   }
 }
 
-async function generateBlocks(ctx, loaded) {
+async function generateBlocks(comfy, loaded) {
   const { p, spec, state } = loaded
   state.stage = 'video'
   await saveState(p, state)
-  for (let index = 0; index < 2; index += 1) {
+  for (let index = 0; index < BLOCK_COUNT; index += 1) {
     const item = state.blocks[index]
     if (item.status === 'ready' && item.path && await stat(item.path).catch(() => null)) continue
-    const imagePaths = state.images.slice(index * 6, index * 6 + 6).map(image => image.path)
-    if (imagePaths.some(value => !value)) fail('IMAGES_REQUIRED', `${item.id} 缺少六张镜头图`, 409)
+    const imagePath = state.images[index]?.path
+    if (!imagePath) fail('IMAGES_REQUIRED', `${item.id} 缺少对应镜头图`, 409)
     item.status = 'submitting'
     item.error = null
     await saveState(p, state)
     try {
-      const submitted = await callTool(ctx, GENERATE_TOOL, blockArgs(spec, index, imagePaths))
+      const submitted = await callComfy(comfy, 'generate', blockArgs(spec, index, imagePath))
       item.job_id = submitted.job_id
       item.status = 'running'
       await saveState(p, state)
-      item.path = await stableCopy(await waitJob(ctx, submitted.job_id, 'video'), path.join(p.blocks, `${item.id}.mp4`), ['.mp4', '.mov', '.webm', '.mkv'])
+      item.path = await stableCopy(await waitJob(comfy, submitted.job_id, 'video'), path.join(p.blocks, `${item.id}.mp4`), ['.mp4', '.mov', '.webm', '.mkv'])
       item.status = 'ready'
       addEvent(state, 'block_ready', item.id)
       await saveState(p, state)
@@ -314,9 +312,9 @@ async function makeFinal(config, loaded) {
     const destination = path.join(p.final, 'final.mp4')
     const duration = await assemble(config, blockPaths, destination)
     const qc = {
-      passed: duration >= 40,
+      passed: duration >= MINIMUM_DURATION_SECONDS,
       duration_seconds: Number(duration.toFixed(3)),
-      minimum_duration_seconds: 40,
+      minimum_duration_seconds: MINIMUM_DURATION_SECONDS,
       resolution: '720x1280',
       fps: 24,
       video_codec: 'h264',
@@ -324,8 +322,8 @@ async function makeFinal(config, loaded) {
     }
     const qcPath = path.join(p.final, 'qc-report.json')
     await writeJsonAtomic(qcPath, qc)
-    state.final = { status: qc.passed ? 'qc_passed' : 'failed', path: destination, qc_path: qcPath, duration_seconds: qc.duration_seconds, error: qc.passed ? null : '成片时长不足 40 秒' }
-    if (!qc.passed) fail('QC_DURATION_FAILED', '成片时长不足 40 秒', 422)
+    state.final = { status: qc.passed ? 'qc_passed' : 'failed', path: destination, qc_path: qcPath, duration_seconds: qc.duration_seconds, error: qc.passed ? null : `成片时长不足 ${MINIMUM_DURATION_SECONDS} 秒` }
+    if (!qc.passed) fail('QC_DURATION_FAILED', `成片时长不足 ${MINIMUM_DURATION_SECONDS} 秒`, 422)
     state.status = 'qc_passed'
     state.stage = 'review'
     addEvent(state, 'qc_passed', `成片时长 ${qc.duration_seconds} 秒`)
@@ -338,11 +336,11 @@ async function makeFinal(config, loaded) {
   }
 }
 
-async function executeRun(ctx, config, episodeId, stage) {
+async function executeRun(comfy, config, episodeId, stage) {
   const loaded = await loadEpisode(config, episodeId)
   try {
-    if (stage === 'images' || stage === 'all') await generateImages(ctx, loaded)
-    if (stage === 'video' || stage === 'all') await generateBlocks(ctx, loaded)
+    if (stage === 'images' || stage === 'all') await generateImages(comfy, loaded)
+    if (stage === 'video' || stage === 'all') await generateBlocks(comfy, loaded)
     if (stage === 'final' || stage === 'all') await makeFinal(config, loaded)
     if (stage !== 'final' && stage !== 'all') {
       loaded.state.status = 'ready'
@@ -370,14 +368,14 @@ async function listEpisodes(config) {
     } catch { /* malformed directories stay off the production list */ }
   }
   specs.sort((a, b) => a.episode_id.localeCompare(b.episode_id))
-  return { ok: true, contract: { shots: 12, blocks: 2, minimum_duration_seconds: 40 }, specs }
+  return { ok: true, contract: { shots: SHOT_COUNT, blocks: BLOCK_COUNT, minimum_duration_seconds: MINIMUM_DURATION_SECONDS }, specs }
 }
 
 function requestedEpisodeId(args) {
   return safeEpisodeId(args.episode_id || String(args.spec || '').replace(/\.json$/, ''))
 }
 
-export function createFactoryService(ctx, config = {}) {
+export function createFactoryService(ctx, config = {}, comfy = createComfyUiService(config)) {
   async function execute(args = {}) {
     const action = String(args.action || 'list')
     if (action === 'list') return listEpisodes(config)
@@ -422,10 +420,10 @@ export function createFactoryService(ctx, config = {}) {
       const target = String(args.target || '')
       const image = loaded.state.images.find(item => item.id === target)
       const block = loaded.state.blocks.find(item => item.id === target)
-      if (!image && !block && target !== 'final') fail('INVALID_RETRY_TARGET', 'target 必须是 shot-01..shot-12、block-01、block-02 或 final')
+      if (!image && !block && target !== 'final') fail('INVALID_RETRY_TARGET', 'target 必须是 shot-01、shot-02、block-01、block-02 或 final')
       if (image) {
         Object.assign(image, { status: 'pending', job_id: null, path: null, error: null })
-        Object.assign(loaded.state.blocks[Math.floor(loaded.state.images.indexOf(image) / 6)], { status: 'pending', job_id: null, path: null, error: null })
+        Object.assign(loaded.state.blocks[loaded.state.images.indexOf(image)], { status: 'pending', job_id: null, path: null, error: null })
       }
       if (block) Object.assign(block, { status: 'pending', job_id: null, path: null, error: null })
       loaded.state.final = { status: 'pending', path: null, qc_path: null, duration_seconds: null, error: null }
@@ -447,7 +445,7 @@ export function createFactoryService(ctx, config = {}) {
     loaded.state.job_id = jobId
     addEvent(loaded.state, 'run_started', stage)
     await saveState(loaded.p, loaded.state)
-    void executeRun(ctx, config, episodeId, stage)
+    void executeRun(comfy, config, episodeId, stage)
     return { ok: true, accepted: true, job: { id: jobId, episode_id: episodeId, status: 'running', stage } }
   }
   return { execute }

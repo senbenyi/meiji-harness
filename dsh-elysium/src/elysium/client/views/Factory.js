@@ -13,7 +13,7 @@ const EMPTY_DRAFT = JSON.stringify({
     consensual_content: true,
     rights_confirmed: true,
   },
-  shots: Array.from({ length: 12 }, (_, index) => ({
+  shots: Array.from({ length: 2 }, (_, index) => ({
     id: `shot-${String(index + 1).padStart(2, '0')}`,
     image_prompt: `第 ${index + 1} 镜的构图、人物动作、场景和光线`,
     video_prompt: `第 ${index + 1} 镜的动作延续和运镜`,
@@ -108,7 +108,7 @@ export function createFactory(React, api) {
     const inspect = async action => {
       if (!requireSpec()) return
       const result = await call({ action, spec: selected })
-      if (result) setMessage(action === 'check' ? '生产单和 12 镜合同检查通过。' : '已刷新生产状态。')
+      if (result) setMessage(action === 'check' ? '生产单和 2 镜、2 视频合同检查通过。' : '已刷新生产状态。')
     }
 
     const start = async () => {
@@ -199,7 +199,7 @@ export function createFactory(React, api) {
       h('div', { className: 'tf-header' },
         h('div', null,
           h('div', { className: 'tf-title' }, 'AI 成人短剧工厂'),
-          h('div', { className: 'tf-card-meta' }, '固定 12 镜 · 2 个视频块 · 成片 ≥40 秒 · 模型全部远程执行'),
+          h('div', { className: 'tf-card-meta' }, '固定 2 镜 · 2 个视频 · 成片 ≥40 秒 · 模型全部远程执行'),
         ),
         h('button', { className: 'tf-btn tf-btn-ghost', disabled: busy, onClick: refreshList }, '刷新'),
       ),
@@ -224,8 +224,8 @@ export function createFactory(React, api) {
           ))),
           selectedSpec ? h('div', { className: 'tf-factory-contract' },
             h('span', null, `${selectedSpec.episode_id}`),
-            h('span', null, '12 镜'),
-            h('span', null, '2 块'),
+            h('span', null, '2 镜'),
+            h('span', null, '2 个视频'),
             h('span', null, '≥40 秒'),
           ) : null,
           h('div', { className: 'tf-btn-row' },
@@ -240,14 +240,14 @@ export function createFactory(React, api) {
             job?.status === 'running' ? '生产中…' : '启动完整生产',
           ),
           details?.state?.progress ? h('div', { className: 'tf-factory-contract' },
-            h('span', null, `镜头图 ${details.state.progress.images_ready}/12`),
+            h('span', null, `镜头图 ${details.state.progress.images_ready}/2`),
             h('span', null, `视频块 ${details.state.progress.blocks_ready}/2`),
             h('span', null, details.state.final?.duration_seconds ? `成片 ${details.state.final.duration_seconds}s` : '成片待生成'),
           ) : null,
           h('div', { className: 'tf-btn-row' },
             h('select', { className: 'tf-input', value: retryTarget, onChange: event => setRetryTarget(event.target.value) },
               h('option', { value: '' }, '选择重试目标'),
-              Array.from({ length: 12 }, (_, index) => h('option', { key: index, value: `shot-${String(index + 1).padStart(2, '0')}` }, `镜头 ${index + 1}`)),
+              Array.from({ length: 2 }, (_, index) => h('option', { key: index, value: `shot-${String(index + 1).padStart(2, '0')}` }, `镜头 ${index + 1}`)),
               h('option', { value: 'block-01' }, '视频块 1'),
               h('option', { value: 'block-02' }, '视频块 2'),
               h('option', { value: 'final' }, '最终成片'),
@@ -278,7 +278,7 @@ export function createFactory(React, api) {
       ),
       h('details', { className: 'tf-factory-panel tf-factory-create' },
         h('summary', null, '新建生产单（JSON）'),
-        h('p', { className: 'tf-card-meta' }, '聊天框也可调用 Elysium 工具创建。必须填写 shot-01 到 shot-12，每镜包含 image_prompt 与 video_prompt。'),
+        h('p', { className: 'tf-card-meta' }, '聊天框也可调用 Elysium 工具创建。必须填写 shot-01 和 shot-02，每镜分别生成一个视频。'),
         h('textarea', { className: 'tf-textarea tf-factory-json', value: draft, onChange: event => setDraft(event.target.value) }),
         h('button', { className: 'tf-btn', disabled: busy, onClick: create }, '校验并创建'),
       ),

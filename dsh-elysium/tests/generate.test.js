@@ -50,13 +50,11 @@ test('generates a shot image and copies the ComfyUI output into project assets',
   const { config, projectId, directory } = await fixture(t)
   const output = path.join(config.workspace, 'comfy-output.png')
   await writeFile(output, 'fake png')
-  const tools = new Map([
-    ['_dsh_external_dsh_comfyui_generate', { execute: async () => JSON.stringify({ ok: true, job_id: 'job-1' }) }],
-    ['_dsh_external_dsh_comfyui_job', { execute: async () => JSON.stringify({
-      ok: true, status: 'success', outputs: [{ kind: 'image', path: output }],
-    }) }],
-  ])
-  const service = createGenerationService({ tools: { get: name => tools.get(name) } }, config)
+  const comfy = {
+    generate: async () => ({ ok: true, job_id: 'job-1' }),
+    job: async () => ({ ok: true, status: 'success', outputs: [{ kind: 'image', path: output }] }),
+  }
+  const service = createGenerationService({}, config, comfy)
   t.after(() => service.dispose())
 
   const queued = await service.submitShotImage(projectId, 'shot-001')
@@ -70,9 +68,11 @@ test('generates a shot image and copies the ComfyUI output into project assets',
   assert.equal(await readFile(path.join(directory, shot.imagePath), 'utf8'), 'fake png')
 })
 
-test('persists a useful failed state when dsh-comfyui is unavailable', async (t) => {
+test('persists a useful failed state when the internal ComfyUI driver fails', async (t) => {
   const { config, projectId } = await fixture(t)
-  const service = createGenerationService({ tools: { get: () => undefined } }, config)
+  const service = createGenerationService({}, config, {
+    generate: async () => ({ ok: false, code: 'COMFYUI_UNAVAILABLE', message: 'ComfyUI tunnel is unavailable' }),
+  })
   t.after(() => service.dispose())
 
   await assert.rejects(
@@ -82,7 +82,7 @@ test('persists a useful failed state when dsh-comfyui is unavailable', async (t)
   const data = await projectGet(config, { projectId })
   assert.equal(data.shots[0].status, 'failed')
   assert.equal(data.shots[0].failedStage, 'image')
-  assert.match(data.shots[0].lastError, /not enabled/)
+  assert.match(data.shots[0].lastError, /tunnel is unavailable/)
 })
 
 test('preserves the original failure when reconciling an interrupted submission', async (t) => {
@@ -98,7 +98,7 @@ test('preserves the original failure when reconciling an interrupted submission'
     failedStage: null,
     lastError: 'HTTP POST /upload/image: fetch failed',
   }])
-  const service = createGenerationService({ tools: { get: () => undefined } }, config)
+  const service = createGenerationService({}, config, {})
   t.after(() => service.dispose())
 
   await service.batchStatus(projectId)
@@ -123,12 +123,10 @@ test('does not reconcile an in-flight video submission as interrupted', async (t
     lastError: 'HTTP POST /upload/image: fetch failed',
   }])
   let rejectSubmission
-  const tools = new Map([
-    ['_dsh_external_dsh_comfyui_generate', {
-      execute: () => new Promise((resolve, reject) => { rejectSubmission = reject }),
-    }],
-  ])
-  const service = createGenerationService({ tools: { get: name => tools.get(name) } }, config)
+  const comfy = {
+    generate: () => new Promise((resolve, reject) => { rejectSubmission = reject }),
+  }
+  const service = createGenerationService({}, config, comfy)
   t.after(() => service.dispose())
 
   const submission = service.submitShotVideo(projectId, 'shot-001').catch(error => error)
@@ -164,13 +162,11 @@ test('allows video retry after three historical failures when a first frame exis
     retryCount: 3,
     lastError: 'previous failure',
   }])
-  const tools = new Map([
-    ['_dsh_external_dsh_comfyui_generate', { execute: async () => JSON.stringify({ ok: true, job_id: 'job-video' }) }],
-    ['_dsh_external_dsh_comfyui_job', { execute: async () => JSON.stringify({
-      ok: true, status: 'success', outputs: [{ kind: 'video', path: output }],
-    }) }],
-  ])
-  const service = createGenerationService({ tools: { get: name => tools.get(name) } }, config)
+  const comfy = {
+    generate: async () => ({ ok: true, job_id: 'job-video' }),
+    job: async () => ({ ok: true, status: 'success', outputs: [{ kind: 'video', path: output }] }),
+  }
+  const service = createGenerationService({}, config, comfy)
   t.after(() => service.dispose())
 
   await service.retryShot(projectId, 'shot-001')

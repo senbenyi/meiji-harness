@@ -21,7 +21,7 @@ function episode(id = 'factory-test') {
       consensual_content: true,
       rights_confirmed: true,
     },
-    shots: Array.from({ length: 12 }, (_, index) => ({
+    shots: Array.from({ length: 2 }, (_, index) => ({
       id: `shot-${String(index + 1).padStart(2, '0')}`,
       image_prompt: `image ${index + 1}`,
       video_prompt: `motion ${index + 1}`,
@@ -38,16 +38,16 @@ async function eventually(fn) {
   throw new Error('factory did not settle')
 }
 
-test('VMP contract rejects anything other than 12 ordered shots and explicit compliance', () => {
+test('VMP contract rejects anything other than two ordered shots and explicit compliance', () => {
   const valid = episode()
   assert.equal(validateEpisodeSpec(valid).blocks, 2)
   assert.equal(validateEpisodeSpec(episode('beach-story')).episode_id, 'beach-story')
   assert.throws(() => validateEpisodeSpec(episode('Bad/Story')), /episode_id/)
-  assert.throws(() => validateEpisodeSpec({ ...valid, shots: valid.shots.slice(0, 11) }), /12 镜/)
+  assert.throws(() => validateEpisodeSpec({ ...valid, shots: valid.shots.slice(0, 1) }), /2 镜/)
   assert.throws(() => validateEpisodeSpec({ ...valid, compliance: { ...valid.compliance, rights_confirmed: false } }), /rights_confirmed/)
 })
 
-test('factory persists 12 images, two six-anchor blocks, QC and human approval', async () => {
+test('factory persists two images, two videos, QC and human approval', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'elysium-factory-'))
   const sourceDir = path.join(root, 'mock-output')
   await import('node:fs/promises').then(fs => fs.mkdir(sourceDir, { recursive: true }))
@@ -63,41 +63,32 @@ test('factory persists 12 images, two six-anchor blocks, QC and human approval',
 
   let sequence = 0
   const jobs = new Map()
-  const ctx = {
-    tools: {
-      get(name) {
-        if (name.endsWith('_generate')) {
-          return { async execute(args) {
-            const id = `job-${++sequence}`
-            jobs.set(id, args.template === 'qwen-image-t2i'
-              ? { kind: 'image', path: image, args }
-              : { kind: 'video', path: video, args })
-            return JSON.stringify({ ok: true, job_id: id, status: 'running' })
-          } }
-        }
-        if (name.endsWith('_job')) {
-          return { async execute(args) {
-            const job = jobs.get(args.job_id)
-            return JSON.stringify({ ok: true, status: 'success', outputs: [job] })
-          } }
-        }
-        return null
-      },
+  const comfy = {
+    async generate(args) {
+      const id = `job-${++sequence}`
+      jobs.set(id, args.template === 'qwen-image-t2i'
+        ? { kind: 'image', path: image, args }
+        : { kind: 'video', path: video, args })
+      return { ok: true, job_id: id, status: 'running' }
+    },
+    async job(args) {
+      return { ok: true, status: 'success', outputs: [jobs.get(args.job_id)] }
     },
   }
-  const factory = createFactoryService(ctx, { workspace: root, ffmpeg, ffprobe })
+  const factory = createFactoryService({}, { workspace: root, ffmpeg, ffprobe }, comfy)
   const spec = episode()
   await factory.execute({ action: 'create', episode: spec })
   await assert.rejects(factory.execute({ action: 'run', spec: `${spec.episode_id}.json` }), /付费生成前/)
   await factory.execute({ action: 'run', spec: `${spec.episode_id}.json`, stage: 'all', confirm_authorized_adults: true })
   const done = await eventually(() => factory.execute({ action: 'status', spec: `${spec.episode_id}.json` }))
   assert.equal(done.state.status, 'qc_passed')
-  assert.equal(done.state.progress.images_ready, 12)
+  assert.equal(done.state.progress.images_ready, 2)
   assert.equal(done.state.progress.blocks_ready, 2)
   assert.equal(done.state.final.duration_seconds, 41.25)
   const videoJobs = [...jobs.values()].filter(job => job.kind === 'video')
   assert.equal(videoJobs.length, 2)
   assert.deepEqual(Object.keys(videoJobs[0].args).filter(key => /^image_\d$/.test(key)), ['image_1', 'image_2', 'image_3', 'image_4', 'image_5', 'image_6'])
+  assert.deepEqual(new Set(Array.from({ length: 6 }, (_, index) => videoJobs[0].args[`image_${index + 1}`])).size, 1)
 
   await factory.execute({
     action: 'approve',

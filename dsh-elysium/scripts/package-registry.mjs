@@ -37,6 +37,8 @@ const files = [
   'lib/client-editor.js.map',
   'lib/client-mermaid.js',
   'lib/client-mermaid.js.map',
+  'templates',
+  'skills',
   'README.md',
 ]
 
@@ -50,7 +52,7 @@ for (const file of files) {
   }
   const target = join(out, file)
   mkdirSync(dirname(target), { recursive: true })
-  cpSync(source, target)
+  cpSync(source, target, { recursive: true })
 }
 console.log(`registry/ assembled (${files.length} files)`)
 console.log('next: dsh registry install ./registry && dsh registry enable dsh-external/dsh-elysium')

@@ -2,7 +2,7 @@
   "id": "dsh-external/dsh-elysium",
   "version": "0.2.0",
   "main": "./lib/index.js",
-  "description": "AI 成人短剧工厂：通过 dsh-comfyui 调度远程工作流，固定 12 镜、2 个六锚点视频块和不少于 40 秒成片",
+  "description": "单插件 AI 成人短剧工厂：内置远程 ComfyUI 工作流驱动，固定 2 镜、2 个长视频和不少于 40 秒成片",
   "engines": {
     "dsh": ">=0.1.2-alpha.3"
   },

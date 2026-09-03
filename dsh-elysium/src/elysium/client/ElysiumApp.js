@@ -1,138 +1,47 @@
-import { createUseProject } from './hooks/useProject.js'
-import { createUsePolling } from './hooks/usePolling.js'
-import { createConfirmDialog, createProjectDialog } from './components/Modal.js'
-import { createDashboard } from './views/Dashboard.js'
-import { createExportPanel } from './views/ExportPanel.js'
-import { createFactory } from './views/Factory.js'
-import { createProjectList } from './views/ProjectList.js'
-import { createShotBoard } from './views/ShotBoard.js'
-import { createShotDetail } from './views/ShotDetail.js'
+import { createStudio } from './views/Studio.js'
+import { createComfyUiSettings } from './views/ComfyUiSettings.js'
 
 export function createElysiumApp(React, api) {
-  const { createElement: h, useCallback, useEffect, useState } = React
-  const useProject = createUseProject(React, api)
-  const usePolling = createUsePolling(React)
-  const ProjectList = createProjectList(React)
-  const Dashboard = createDashboard(React, api)
-  const ShotBoard = createShotBoard(React, api)
-  const ShotDetail = createShotDetail(React, api)
-  const ExportPanel = createExportPanel(React)
-  const Factory = createFactory(React, api)
-  const ProjectDialog = createProjectDialog(React)
-  const ConfirmDialog = createConfirmDialog(React)
+  const { createElement: h, useCallback, useState } = React
+  const Studio = createStudio(React, api)
+  const ComfyUiSettings = createComfyUiSettings(React, api)
 
   return function ElysiumApp({ ctx, tab }) {
     const meta = tab?.meta || {}
-    const [view, setView] = useState(meta.view || 'factory')
-    const [projectId, setProjectId] = useState(meta.projectId || null)
-    const [extra, setExtra] = useState(meta.extra || {})
-    const [dialog, setDialog] = useState(null)
-    const data = useProject(view, projectId)
-    const hasQueued = Boolean(data.plan?.characters?.some(item => item.imageStatus === 'image_queued')
-      || data.plan?.shots?.some(item => item.status === 'image_queued' || item.status === 'video_queued'))
-    usePolling(view !== 'list' && Boolean(projectId) && hasQueued, data.refreshGeneration)
+    const [view, setView] = useState(meta.view === 'comfyui' ? 'comfyui' : 'studio')
+    const [selection, setSelection] = useState({
+      projectId: meta.projectId || null,
+      episodeId: meta.episodeId || null,
+    })
 
-    const navigate = useCallback((nextView, nextProjectId, nextExtra) => {
-      setView(nextView)
-      if (nextProjectId !== undefined) {
-        if (nextProjectId !== projectId) data.clearPlan()
-        setProjectId(nextProjectId)
-      }
-      const next = nextExtra || {}
-      setExtra(next)
+    const updateMeta = useCallback((nextView, nextSelection = selection) => {
       ctx?.get?.('betterSidebar')?.updateTab?.(tab?.id, {
-        meta: {
-          view: nextView,
-          projectId: nextProjectId === undefined ? projectId : nextProjectId,
-          extra: next,
-        },
+        meta: { view: nextView, projectId: nextSelection.projectId, episodeId: nextSelection.episodeId },
       })
-    }, [ctx, tab?.id, projectId, data.clearPlan])
+    }, [ctx, tab?.id, selection])
 
-    useEffect(() => {
-      if (view !== 'list' && data.missingProject) navigate('list', null)
-    }, [view, data.missingProject, navigate])
-
-    const onCreate = () => setDialog({ kind: 'create' })
-    const onDelete = project => setDialog({ kind: 'delete', project })
-
-    let page
-    if (view === 'factory') {
-      page = h(Factory)
-    } else if (view !== 'list' && data.loading && !data.plan) {
-      page = h('div', { className: 'tf-empty' }, '正在加载…')
-    } else if (view === 'dashboard') {
-      page = h(Dashboard, {
-        projectId, plan: data.plan, busy: data.busy, navigate,
-        onImportCharacterImage: data.importCharacterImage,
-      })
-    } else if (view === 'shots') {
-      page = h(ShotBoard, {
-        projectId, plan: data.plan, busy: data.busy, navigate,
-        onImportImage: data.importShotImage,
-        onGenerateVideo: data.generateShotVideo,
-        onRetry: data.retryShot,
-      })
-    } else if (view === 'shot') {
-      page = h(ShotDetail, {
-        projectId,
-        shotId: extra.shotId,
-        plan: data.plan,
-        busy: data.busy,
-        navigate,
-        onUpdate: data.updateShot,
-        onImportImage: data.importShotImage,
-        onGenerateVideo: data.generateShotVideo,
-        onRetry: data.retryShot,
-      })
-    } else if (view === 'export') {
-      page = h(ExportPanel, { projectId, plan: data.plan, navigate })
-    } else {
-      page = h(ProjectList, {
-        projects: data.projects,
-        loading: data.loading,
-        busy: data.busy,
-        onSelect: id => navigate('dashboard', id),
-        onCreate,
-        onDelete,
-      })
+    const switchView = next => {
+      setView(next)
+      updateMeta(next)
     }
 
-    let modal = null
-    if (dialog?.kind === 'create') {
-      modal = h(ProjectDialog, {
-        busy: data.busy,
-        onClose: () => setDialog(null),
-        onSubmit: async input => {
-          if (await data.createProject(input)) setDialog(null)
-        },
+    const onSelection = useCallback((projectId, episodeId) => {
+      const next = { projectId, episodeId }
+      setSelection(current => {
+        if (current.projectId === projectId && current.episodeId === episodeId) return current
+        updateMeta('studio', next)
+        return next
       })
-    } else if (dialog?.kind === 'delete') {
-      modal = h(ConfirmDialog, {
-        title: '删除项目',
-        message: `确认删除项目「${dialog.project.title}」？项目文件和资产会一并删除。`,
-        busy: data.busy,
-        onClose: () => setDialog(null),
-        onConfirm: async () => {
-          if (await data.deleteProject(dialog.project.id)) setDialog(null)
-        },
-      })
-    }
+    }, [updateMeta])
 
-    return h('div', { className: 'tf-root' },
-      h('div', { className: 'tf-modebar' },
-        h('button', {
-          className: `tf-btn tf-btn-ghost${view === 'factory' ? ' tf-btn-active' : ''}`,
-          onClick: () => navigate('factory', null),
-        }, '生产工厂'),
-        h('button', {
-          className: `tf-btn tf-btn-ghost${view !== 'factory' ? ' tf-btn-active' : ''}`,
-          onClick: () => navigate('list', null),
-        }, '素材项目'),
+    return h('div', { className: 'tf-root ely-root' },
+      h('div', { className: 'tf-modebar ely-modebar' },
+        h('button', { className: `tf-btn tf-btn-ghost${view === 'studio' ? ' tf-btn-active' : ''}`, onClick: () => switchView('studio') }, '项目与单集'),
+        h('button', { className: `tf-btn tf-btn-ghost${view === 'comfyui' ? ' tf-btn-active' : ''}`, onClick: () => switchView('comfyui') }, '模型设置'),
       ),
-      data.error ? h('div', { className: 'tf-error' }, data.error) : null,
-      page,
-      modal,
+      view === 'comfyui'
+        ? h(ComfyUiSettings)
+        : h(Studio, { initialProjectId: selection.projectId, initialEpisodeId: selection.episodeId, onSelection }),
     )
   }
 }
