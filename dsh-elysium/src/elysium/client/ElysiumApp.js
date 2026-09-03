@@ -9,10 +9,7 @@ export function createElysiumApp(React, api) {
   return function ElysiumApp({ ctx, tab }) {
     const meta = tab?.meta || {}
     const [view, setView] = useState(meta.view === 'comfyui' ? 'comfyui' : 'studio')
-    const [selection, setSelection] = useState({
-      projectId: meta.projectId || null,
-      episodeId: meta.episodeId || null,
-    })
+    const [selection, setSelection] = useState({ projectId: meta.projectId || null, episodeId: meta.episodeId || null })
 
     const updateMeta = useCallback((nextView, nextSelection = selection) => {
       ctx?.get?.('betterSidebar')?.updateTab?.(tab?.id, {
@@ -35,12 +32,18 @@ export function createElysiumApp(React, api) {
     }, [updateMeta])
 
     return h('div', { className: 'tf-root ely-root' },
-      h('div', { className: 'tf-modebar ely-modebar' },
-        h('button', { className: `tf-btn tf-btn-ghost${view === 'studio' ? ' tf-btn-active' : ''}`, onClick: () => switchView('studio') }, '项目与单集'),
-        h('button', { className: `tf-btn tf-btn-ghost${view === 'comfyui' ? ' tf-btn-active' : ''}`, onClick: () => switchView('comfyui') }, '模型设置'),
+      h('header', { className: 'ely-appbar' },
+        h('div', { className: 'ely-brand' },
+          h('span', null, 'E'),
+          h('div', null, h('strong', null, '极乐世界'), h('small', null, 'ELYSIUM STUDIO')),
+        ),
+        h('nav', { className: 'ely-view-switch' },
+          h('button', { className: view === 'studio' ? 'is-active' : '', onClick: () => switchView('studio') }, '制作'),
+          h('button', { className: view === 'comfyui' ? 'is-active' : '', onClick: () => switchView('comfyui') }, '模型'),
+        ),
       ),
       view === 'comfyui'
-        ? h(ComfyUiSettings)
+        ? h('div', { className: 'ely-settings-wrap' }, h(ComfyUiSettings))
         : h(Studio, { initialProjectId: selection.projectId, initialEpisodeId: selection.episodeId, onSelection }),
     )
   }

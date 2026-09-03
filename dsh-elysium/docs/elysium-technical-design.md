@@ -31,7 +31,7 @@
 | `running Map` | 重启后执行态丢失 | 持久化任务队列并启动恢复 |
 | 手动逐阶段运行 | 人工介入过多 | 依赖驱动的自动调度 |
 
-当前插件没有 Qwen Image Edit 工作流合同。后续关键帧阶段上线前，必须导入并通过远端预检；不能用 `anima-i2i` 冒充。
+插件已从模型仓库引入 Qwen Image Edit 2509 工作流合同。正式生产前仍须通过远端节点和模型预检；不能用 `anima-i2i` 冒充。
 
 ## 3. 总体结构
 
@@ -68,13 +68,10 @@ Episode Orchestrator
 ```text
 elysium-workspace/projects/<projectId>/
   project.json
-  assets/
-    index.json
-    characters/<assetVersion files>
-    scenes/<assetVersion files>
   episodes/<episodeId>/
     episode.json
     script.json
+    assets.json
     plan.json
     state.json
     tasks.json
@@ -174,29 +171,14 @@ succeeded → stale
 
 ## 8. 服务端模块
 
-目标目录：
+P0 实现目录：
 
 ```text
 server/
-  domain/
-    schema.js             # 实体校验和 schema 迁移
-    dependency.js         # inputHash 与失效传播
-    state-machine.js      # 状态转换守卫
-  repository/
-    project-store.js
-    episode-store.js
-    artifact-store.js
-  production/
-    orchestrator.js       # 调度、暂停、恢复
-    task-runner.js        # 重试、预算、问题归集
-    producer-agent.js     # 文本规划适配器
-    stages/
-      assets.js
-      start-frame.js
-      keyframes.js
-      chapter.js
-      final.js
-    qc.js
+  lib/
+    episodes.js           # 单集 schema、存储、任务图与依赖失效
+    production.js         # 调度、恢复、重试、模型阶段、合成与 QC
+    factory.js            # 旧 VMP V1 兼容入口
   comfyui/                # 保留现有合同驱动
 ```
 
@@ -262,7 +244,7 @@ server/
 ### P0-2：模型阶段
 
 - 接入定妆和起始帧 T2I。
-- 导入并预检真实 Qwen Image Edit 合同，再接入 5 张后续关键帧。
+- 预检已引入的 Qwen Image Edit 2509 合同，再生成 5 张后续关键帧。
 - 动态提交每章六锚点 Wan2.2 Remix。
 - 接入产物版本、技术 QC、自动重试和复用。
 

@@ -55,7 +55,7 @@ async function waitForOutput(comfy, jobId, kind) {
 }
 
 function taskStage(type) {
-  return ({ start_frame: 'start_frame', keyframe: 'keyframes', chapter: 'chapters', final: 'final' })[type] || type
+  return ({ asset: 'assets', start_frame: 'start_frame', keyframe: 'keyframes', chapter: 'chapters', final: 'final' })[type] || type
 }
 
 function modelSettings(config, key, fallbackTemplate, fallbackArgs) {
@@ -92,6 +92,16 @@ function relativeToProject(loaded, absolutePath) {
 
 async function submitRemoteTask(comfy, config, loaded, task) {
   const { episode, plan } = loaded
+  if (task.type === 'asset') {
+    const asset = loaded.assets.find(item => item.id === task.entityId)
+    const model = modelSettings(config, 'characterImage', 'qwen-image-t2i', imageSettings(episode))
+    const prompt = [episode.stylePrompt, asset?.prompt || episode.castPrompt || episode.sourceText].filter(Boolean).join('。')
+    const submitted = await callComfy(comfy, 'generate', {
+      ...model.args, template: model.template, prompt, negative: episode.negativePrompt,
+      seed: parseInt(task.inputHash.slice(0, 8), 16), wait_s: 0,
+    })
+    return { jobId: submitted.job_id, kind: 'image', directory: loaded.p.assetArtifacts, allowed: ['.png', '.jpg', '.jpeg', '.webp'] }
+  }
   if (task.type === 'start_frame' || task.type === 'keyframe') {
     const { chapter, anchor } = findAnchor(plan, task.entityId)
     const first = task.type === 'start_frame'
@@ -104,6 +114,9 @@ async function submitRemoteTask(comfy, config, loaded, task) {
       const previousTask = loaded.tasks.find(item => item.id === `anchor:${previous.id}`)
       if (!previousTask?.path) fail('DEPENDENCY_MISSING', `${anchor.id} 缺少上一张关键帧`, 409)
       args.image = path.join(loaded.projectDirectory, previousTask.path)
+      const castTask = loaded.tasks.find(item => item.id === 'asset:cast-main')
+      if (!castTask?.path) fail('DEPENDENCY_MISSING', `${anchor.id} 缺少角色定妆图`, 409)
+      args.character_image = path.join(loaded.projectDirectory, castTask.path)
     }
     const submitted = await callComfy(comfy, 'generate', args)
     return { jobId: submitted.job_id, kind: 'image', directory: loaded.p.anchors, allowed: ['.png', '.jpg', '.jpeg', '.webp'] }
@@ -233,7 +246,7 @@ async function runOneTask(comfy, config, projectId, episodeId, taskId) {
       remote = {
         jobId: task.remoteJobId,
         kind: task.type === 'chapter' ? 'video' : 'image',
-        directory: task.type === 'chapter' ? loaded.p.chapters : loaded.p.anchors,
+        directory: task.type === 'chapter' ? loaded.p.chapters : task.type === 'asset' ? loaded.p.assetArtifacts : loaded.p.anchors,
         allowed: task.type === 'chapter' ? ['.mp4', '.mov', '.webm', '.mkv'] : ['.png', '.jpg', '.jpeg', '.webp'],
       }
     } else {
@@ -281,7 +294,14 @@ async function runEpisode(comfy, config, projectId, episodeId) {
     for (;;) {
       const loaded = await loadEpisode(config, projectId, episodeId)
       if (loaded.state.status === 'paused' || loaded.state.status === 'needs_attention' || loaded.state.status === 'approved') return
-      if (loaded.tasks.every(task => task.status === 'succeeded')) return
+      if (loaded.tasks.every(task => task.status === 'succeeded')) {
+        if (loaded.state.final?.path && loaded.state.status !== 'approved') {
+          loaded.state.status = 'awaiting_review'
+          loaded.state.activeStage = 'review'
+          await saveEpisode(loaded)
+        }
+        return
+      }
       const task = loaded.tasks.find(item => ['pending', 'queued', 'running'].includes(item.status) && dependenciesDone(loaded.tasks, item))
       if (!task) {
         loaded.state.status = 'needs_attention'
@@ -328,6 +348,7 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
     const result = await withEpisodeLock(body.projectId, body.episodeId, async () => {
       const loaded = await loadEpisode(config, body.projectId, body.episodeId)
       if (loaded.state.status === 'approved') fail('ALREADY_APPROVED', '当前成片已经验收；修改上游后才能重新生产', 409)
+      if (loaded.state.status === 'awaiting_review') fail('REVIEW_PENDING', '当前成片正在等待人工终审', 409)
       if (loaded.state.status === 'needs_attention' && loaded.tasks.some(task => task.status === 'needs_attention')) {
         fail('ISSUE_UNRESOLVED', '请先处理需要人工介入的问题', 409)
       }
@@ -355,6 +376,7 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
       const loaded = await loadEpisode(config, body.projectId, body.episodeId)
       if (!loaded.state.authorizedAt) fail('AUTHORIZATION_REQUIRED', '该单集尚未获得生产授权')
       if (loaded.state.status === 'needs_attention') fail('ISSUE_UNRESOLVED', '请先处理需要人工介入的问题', 409)
+      if (loaded.state.status === 'awaiting_review' || loaded.state.status === 'approved') fail('REVIEW_PENDING', '当前成片不需要继续生产', 409)
       loaded.state.status = 'running'
       await saveEpisode(loaded)
       return { ok: true, accepted: true, state: loaded.state }
@@ -364,8 +386,9 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
   }
 
   async function retry(body = {}) {
-    return withEpisodeLock(body.projectId, body.episodeId, async () => {
+    const result = await withEpisodeLock(body.projectId, body.episodeId, async () => {
       const loaded = await loadEpisode(config, body.projectId, body.episodeId)
+      if (loaded.state.status === 'running') fail('EPISODE_BUSY', '生产运行中，不能重置任务', 409)
       const target = loaded.tasks.find(task => task.id === body.taskId)
       if (!target) fail('TASK_NOT_FOUND', `任务不存在：${body.taskId}`, 404)
       const reset = new Set([target.id])
@@ -387,12 +410,16 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
         task.error = null
       }
       loaded.issues.forEach(issue => { if (reset.has(issue.taskId)) issue.status = 'resolved' })
-      loaded.state.status = 'ready'
+      const shouldResume = Boolean(loaded.state.authorizedAt)
+      loaded.state.status = shouldResume ? 'running' : 'ready'
       loaded.state.approval = null
-      if (affected.has('final')) loaded.state.final = null
+      if (reset.has('final')) loaded.state.final = null
       await saveEpisode(loaded)
-      return { ok: true, reset: [...reset], state: loaded.state }
+      return { ok: true, reset: [...reset], state: loaded.state, shouldResume }
     })
+    if (result.shouldResume && !disposed) void launch(comfy, config, body.projectId, body.episodeId)
+    const { shouldResume: _shouldResume, ...response } = result
+    return response
   }
 
   async function approve(body = {}) {
@@ -438,6 +465,7 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
       }
       loaded.state.status = 'ready'
       loaded.state.approval = null
+      if (affected.has('final')) loaded.state.final = null
       await saveEpisode(loaded)
       return { ok: true, adopted: version, invalidated: [...affected].filter(id => id !== task.id) }
     })

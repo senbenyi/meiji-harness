@@ -14,6 +14,17 @@ test('Qwen production template exposes text-to-image contract', async () => {
   assert.equal(workflow['10'].class_type, 'SaveImage')
 })
 
+test('Qwen Image Edit contract accepts one reference image for continuation frames', async () => {
+  const contract = await json('qwen-image-edit.contract.json')
+  const workflow = await json('qwen-image-edit.json')
+  assert.equal(contract.capabilities.mode.includes('i2i'), true)
+  assert.equal(contract.slots.image.node, '1')
+  assert.equal(contract.slots.character_image.node, '14')
+  assert.equal(contract.slots.prompt.node, '10')
+  assert.equal(workflow['5'].class_type, 'NunchakuQwenImageDiTLoader')
+  assert.equal(workflow['13'].class_type, 'SaveImage')
+})
+
 test('Wan production template wires six ordered story anchors', async () => {
   const contract = await json('wan22-remix-long.contract.json')
   const workflow = await json('wan22-remix-long.json')

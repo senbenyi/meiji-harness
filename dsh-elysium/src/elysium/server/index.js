@@ -245,7 +245,7 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
     name: FACTORY_TOOL,
     description: '极乐世界短剧生产工具。创建项目单集、保存动态六锚点规划、自动生产、恢复、精确重试、查询状态和人工验收。旧 VMP 生产单继续兼容。',
     parameters: {
-      action: { type: 'string', required: true, description: '旧流程：list/create/check/status/run/job/retry/artifact/approve；新流程：episode_create/episode_list/episode_get/episode_update/production_start/production_pause/production_resume/production_status/production_retry/review_approve' },
+      action: { type: 'string', required: true, description: '新流程：project_list/project_create/project_get、episode_create/episode_list/episode_get/episode_update、production_start/production_pause/production_resume/production_status/production_retry、artifact_adopt/issue_resolve/review_approve；旧 VMP 动作继续兼容' },
       spec: { type: 'string', description: '生产单文件名，如 beach-story.json' },
       episode: { type: 'object', additionalProperties: true, description: 'create 使用的完整 vmp-1 生产单，必须正好包含 shot-01 和 shot-02' },
       stage: { type: 'string', description: 'run 使用：images | video | final | all' },
@@ -267,6 +267,8 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
       castPrompt: { type: 'string', description: '统一人物设定' },
       negativePrompt: { type: 'string', description: '负面提示词' },
       plan: { type: 'object', additionalProperties: true, description: '动态章节规划；每章正好六个锚点' },
+      script: { type: 'object', additionalProperties: true, description: '结构化剧本' },
+      assets: { type: 'array', items: { type: 'object', additionalProperties: true }, description: '角色与场景资产定义' },
       updates: { type: 'object', additionalProperties: true, description: '单集更新字段' },
       taskId: { type: 'string', description: '精确重试的任务 ID' },
       issueId: { type: 'string', description: '待处理问题 ID' },
@@ -283,6 +285,9 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
       try {
         const input = args || {}
         const handlers = {
+          project_list: () => projectList(config),
+          project_create: () => projectCreate(config, input),
+          project_get: () => projectGet(config, input),
           episode_create: () => episodeCreate(config, input),
           episode_list: () => episodeList(config, input),
           episode_get: () => episodeGet(config, input),

@@ -1,0 +1,34 @@
+{
+  "id": "qwen-image-edit",
+  "_bundleVersion": 2,
+  "title": "Qwen Image Edit 2509 Keyframe",
+  "workflow": "qwen-image-edit.json",
+  "prompt_style": "natural_zh",
+  "prompt_hint": "Describe the next coherent frame. Preserve character identity, clothing, scene continuity and composition intent.",
+  "media": {"in": ["image", "text"], "out": ["image"]},
+  "capabilities": {
+    "mode": ["i2i", "keyframe"],
+    "can": ["prompt", "negative", "image_input", "character_reference", "size", "seed"],
+    "cannot": ["t2i", "video", "audio"],
+    "style": []
+  },
+  "slots": {
+    "prompt": {"key": "prompt", "type": "text", "required": true, "node": "10", "field": "prompt"},
+    "negative": {"key": "negative", "type": "text", "required": false, "node": "9", "field": "prompt"},
+    "image": {"key": "image", "type": "image", "required": true, "node": "1", "field": "image"},
+    "character_image": {"key": "character_image", "type": "image", "required": true, "node": "14", "field": "image"},
+    "width": {"key": "width", "type": "number", "required": false, "injects": [{"node": "2", "field": "width"}, {"node": "15", "field": "width"}]},
+    "height": {"key": "height", "type": "number", "required": false, "injects": [{"node": "2", "field": "height"}, {"node": "15", "field": "height"}]},
+    "steps": {"key": "steps", "type": "number", "required": false, "node": "11", "field": "steps"},
+    "cfg": {"key": "cfg", "type": "number", "required": false, "node": "11", "field": "cfg"},
+    "denoise": {"key": "denoise", "type": "number", "required": false, "node": "11", "field": "denoise"},
+    "seed": {"key": "seed", "type": "seed", "required": false, "node": "11", "field": "seed"}
+  },
+  "loras": [],
+  "models": {
+    "clip": {"key": "clip", "node": "3", "field": "clip_name"},
+    "clip_type": {"key": "clip_type", "node": "3", "field": "type"},
+    "vae": {"key": "vae", "node": "4", "field": "vae_name"}
+  },
+  "notes": "Imported from llm-ai-model/workflows/image-edit-qwen/workflow_api.json. Requires NunchakuQwenImageDiTLoader, TextEncodeQwenImageEditPlus and the Qwen Image Edit 2509 model on remote ComfyUI."
+}

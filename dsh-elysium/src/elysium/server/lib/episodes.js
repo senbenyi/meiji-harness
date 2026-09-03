@@ -40,10 +40,13 @@ export function episodePaths(projectDirectory, episodeId) {
   return {
     dir,
     episode: path.join(dir, 'episode.json'),
+    script: path.join(dir, 'script.json'),
+    assets: path.join(dir, 'assets.json'),
     plan: path.join(dir, 'plan.json'),
     state: path.join(dir, 'state.json'),
     tasks: path.join(dir, 'tasks.json'),
     issues: path.join(dir, 'issues.json'),
+    assetArtifacts: path.join(dir, 'artifacts', 'assets'),
     anchors: path.join(dir, 'artifacts', 'anchors'),
     chapters: path.join(dir, 'artifacts', 'chapters'),
     final: path.join(dir, 'artifacts', 'final'),
@@ -102,7 +105,27 @@ function validatePlan(value, episodeId) {
       anchors,
     }
   })
-  return { schemaVersion: 'elysium-plan-2', episodeId, source: value.source === 'producer-agent' ? 'producer-agent' : 'edited', chapters }
+  const source = value.source === 'producer-agent' ? 'producer-agent' : value.source === 'auto-draft' ? 'auto-draft' : 'edited'
+  return { schemaVersion: 'elysium-plan-2', episodeId, source, chapters }
+}
+
+function defaultScript(episode, plan) {
+  return {
+    schemaVersion: 'elysium-script-2',
+    source: 'auto-draft',
+    synopsis: episode.sourceText,
+    scenes: plan.chapters.map(chapter => ({ id: `scene-${String(chapter.order).padStart(2, '0')}`, title: chapter.title, summary: chapter.anchors.map(anchor => anchor.imagePrompt).join('\n') })),
+  }
+}
+
+function defaultAssets(episode) {
+  const assets = [{
+    id: 'cast-main', type: 'character', name: '主要角色',
+    prompt: episode.castPrompt || `${episode.sourceText}。生成主要成年角色的统一定妆图。`,
+    status: 'prompt_ready',
+  }]
+  if (episode.stylePrompt) assets.push({ id: 'scene-style', type: 'scene', name: '统一场景风格', prompt: episode.stylePrompt, status: 'prompt_ready' })
+  return assets
 }
 
 export function hashInputs(value) {
@@ -114,12 +137,22 @@ export function buildTasks(episode, plan, previous = []) {
   const tasks = []
   const add = (task) => {
     const prior = old.get(task.id)
-    tasks.push(prior?.inputHash === task.inputHash ? { ...task, ...prior, inputHash: task.inputHash } : task)
+    tasks.push(prior?.inputHash === task.inputHash
+      ? { ...task, ...prior, inputHash: task.inputHash }
+      : { ...task, versions: [...(prior?.versions || [])] })
   }
+  const castPrompt = episode.castPrompt || `${episode.sourceText}。生成主要成年角色的统一定妆图。`
+  add({
+    id: 'asset:cast-main', type: 'asset', entityId: 'cast-main', dependencies: [],
+    inputHash: hashInputs({ type: 'asset', castPrompt, stylePrompt: episode.stylePrompt }),
+    status: 'pending', attempt: 0, maxAttempts: 2, remoteJobId: null, path: null, error: null,
+  })
   for (const chapter of plan.chapters) {
     chapter.anchors.forEach((anchor, index) => {
       const type = index === 0 ? 'start_frame' : 'keyframe'
-      const dependencyIds = index === 0 ? [] : [`anchor:${chapter.anchors[index - 1].id}`]
+      const dependencyIds = index === 0
+        ? ['asset:cast-main']
+        : [`anchor:${chapter.anchors[index - 1].id}`, 'asset:cast-main']
       add({
         id: `anchor:${anchor.id}`,
         type,
@@ -203,27 +236,31 @@ export async function episodeCreate(config, body = {}) {
     updatedAt: stamp,
   }
   const plan = validatePlan(body.plan || defaultPlan(body, episodeId, targetDurationSec), episodeId)
+  const script = body.script && typeof body.script === 'object' ? { ...body.script, source: body.script.source || 'producer-agent' } : defaultScript(episode, plan)
+  const assets = Array.isArray(body.assets) ? body.assets.map(item => ({ ...item })) : defaultAssets(episode)
   const state = initialState(episode)
   const tasks = buildTasks(episode, plan)
-  await Promise.all([p.anchors, p.chapters, p.final].map(dir => mkdir(dir, { recursive: true })))
+  await Promise.all([p.assetArtifacts, p.anchors, p.chapters, p.final].map(dir => mkdir(dir, { recursive: true })))
   await Promise.all([
     writeJsonAtomic(p.episode, episode),
+    writeJsonAtomic(p.script, script),
+    writeJsonAtomic(p.assets, assets),
     writeJsonAtomic(p.plan, plan),
     writeJsonAtomic(p.state, state),
     writeJsonAtomic(p.tasks, tasks),
     writeJsonAtomic(p.issues, []),
   ])
-  return { ok: true, episode, plan, state, tasks, issues: [] }
+  return { ok: true, episode, script, assets, plan, state, tasks, issues: [] }
 }
 
 export async function loadEpisode(config, projectId, episodeId) {
   const projectDirectory = await ensureProjectExists(config, safeId(projectId, 'projectId'))
   const p = episodePaths(projectDirectory, episodeId)
   if (!(await stat(p.dir).catch(() => null))) fail('EPISODE_NOT_FOUND', `单集不存在：${episodeId}`, 404)
-  const [episode, plan, state, tasks, issues] = await Promise.all([
-    readJson(p.episode), readJson(p.plan), readJson(p.state), readJson(p.tasks, []), readJson(p.issues, []),
+  const [episode, script, assets, plan, state, tasks, issues] = await Promise.all([
+    readJson(p.episode), readJson(p.script, null), readJson(p.assets, []), readJson(p.plan), readJson(p.state), readJson(p.tasks, []), readJson(p.issues, []),
   ])
-  return { p, projectDirectory, episode, plan, state, tasks, issues }
+  return { p, projectDirectory, episode, script: script || defaultScript(episode, plan), assets, plan, state, tasks, issues }
 }
 
 export async function saveEpisode(loaded) {
@@ -231,6 +268,8 @@ export async function saveEpisode(loaded) {
   loaded.episode.updatedAt = now()
   await Promise.all([
     writeJsonAtomic(loaded.p.episode, loaded.episode),
+    writeJsonAtomic(loaded.p.script, loaded.script),
+    writeJsonAtomic(loaded.p.assets, loaded.assets),
     writeJsonAtomic(loaded.p.plan, loaded.plan),
     writeJsonAtomic(loaded.p.state, loaded.state),
     writeJsonAtomic(loaded.p.tasks, loaded.tasks),
@@ -240,7 +279,7 @@ export async function saveEpisode(loaded) {
 
 export async function episodeGet(config, body = {}) {
   const loaded = await loadEpisode(config, body.projectId, body.episodeId)
-  return { ok: true, episode: loaded.episode, plan: loaded.plan, state: loaded.state, tasks: loaded.tasks, issues: loaded.issues }
+  return { ok: true, episode: loaded.episode, script: loaded.script, assets: loaded.assets, plan: loaded.plan, state: loaded.state, tasks: loaded.tasks, issues: loaded.issues }
 }
 
 export async function episodeList(config, body = {}) {
@@ -265,6 +304,15 @@ export async function episodeUpdate(config, body = {}) {
     const loaded = await loadEpisode(config, body.projectId, body.episodeId)
     if (['running', 'queued'].includes(loaded.state.status)) fail('EPISODE_BUSY', '生产运行中，不能修改上游输入', 409)
     const patch = body.updates && typeof body.updates === 'object' ? body.updates : {}
+    const previousProductionInput = JSON.stringify({
+      sourceText: loaded.episode.sourceText,
+      targetDurationSec: loaded.episode.targetDurationSec,
+      profile: loaded.episode.profile,
+      stylePrompt: loaded.episode.stylePrompt,
+      castPrompt: loaded.episode.castPrompt,
+      negativePrompt: loaded.episode.negativePrompt,
+      plan: loaded.plan,
+    })
     if (patch.sourceText !== undefined) loaded.episode.sourceText = text(patch.sourceText, 'sourceText')
     if (patch.title !== undefined) loaded.episode.title = text(patch.title, 'title', 120)
     if (patch.profile !== undefined) loaded.episode.profile = patch.profile === 'final' ? 'final' : 'preview'
@@ -276,16 +324,47 @@ export async function episodeUpdate(config, body = {}) {
       if (!Number.isFinite(duration) || duration < TARGET_MIN || duration > TARGET_MAX) fail('VALIDATION_ERROR', 'targetDurationSec 超出范围')
       loaded.episode.targetDurationSec = duration
     }
-    if (patch.plan !== undefined) loaded.plan = validatePlan(patch.plan, loaded.episode.id)
-    loaded.tasks = buildTasks(loaded.episode, loaded.plan, loaded.tasks).map(task => {
-      if (task.status === 'succeeded' && loaded.tasks.find(item => item.id === task.id)?.inputHash !== task.inputHash) return { ...task, status: 'stale' }
-      return task
+    if (patch.plan !== undefined) {
+      loaded.plan = validatePlan(patch.plan, loaded.episode.id)
+    } else if (loaded.plan.source === 'auto-draft' && ['sourceText', 'targetDurationSec', 'stylePrompt', 'castPrompt'].some(key => patch[key] !== undefined)) {
+      loaded.plan = validatePlan(defaultPlan(loaded.episode, loaded.episode.id, loaded.episode.targetDurationSec), loaded.episode.id)
+      loaded.plan.source = 'auto-draft'
+    }
+    if (patch.script && typeof patch.script === 'object') loaded.script = { ...patch.script, source: patch.script.source || 'edited' }
+    else if (loaded.script?.source === 'auto-draft' && (patch.sourceText !== undefined || patch.plan !== undefined)) loaded.script = defaultScript(loaded.episode, loaded.plan)
+    if (Array.isArray(patch.assets)) loaded.assets = patch.assets.map(item => ({ ...item }))
+    else if (patch.castPrompt !== undefined || patch.stylePrompt !== undefined) loaded.assets = defaultAssets(loaded.episode)
+    const nextProductionInput = JSON.stringify({
+      sourceText: loaded.episode.sourceText,
+      targetDurationSec: loaded.episode.targetDurationSec,
+      profile: loaded.episode.profile,
+      stylePrompt: loaded.episode.stylePrompt,
+      castPrompt: loaded.episode.castPrompt,
+      negativePrompt: loaded.episode.negativePrompt,
+      plan: loaded.plan,
     })
-    loaded.state.status = 'ready'
-    loaded.state.activeStage = 'story'
-    loaded.state.approval = null
+    if (previousProductionInput !== nextProductionInput) {
+      loaded.tasks = buildTasks(loaded.episode, loaded.plan, loaded.tasks)
+      let invalidated = true
+      while (invalidated) {
+        invalidated = false
+        for (const task of loaded.tasks) {
+          if (task.status !== 'succeeded') continue
+          if (task.dependencies.some(id => loaded.tasks.find(item => item.id === id)?.status !== 'succeeded')) {
+            task.status = 'pending'
+            task.remoteJobId = null
+            task.error = null
+            invalidated = true
+          }
+        }
+      }
+      loaded.state.status = 'ready'
+      loaded.state.activeStage = 'story'
+      loaded.state.approval = null
+      if (loaded.tasks.find(task => task.id === 'final')?.status !== 'succeeded') loaded.state.final = null
+    }
     await saveEpisode(loaded)
-    return { ok: true, episode: loaded.episode, plan: loaded.plan, state: loaded.state, tasks: loaded.tasks, issues: loaded.issues }
+    return { ok: true, episode: loaded.episode, script: loaded.script, assets: loaded.assets, plan: loaded.plan, state: loaded.state, tasks: loaded.tasks, issues: loaded.issues }
   })
 }
 

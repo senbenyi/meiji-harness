@@ -37,8 +37,26 @@ function copyBundledTemplates(target) {
   fs.mkdirSync(target, { recursive: true })
   const source = bundledTemplatesDir()
   if (!fs.existsSync(source) || path.resolve(source) === path.resolve(target)) return
+  const upgradedWorkflows = new Set()
+  for (const name of fs.readdirSync(source).filter(file => file.endsWith('.contract.json'))) {
+    const sourcePath = path.join(source, name)
+    const destination = path.join(target, name)
+    const bundled = JSON.parse(fs.readFileSync(sourcePath, 'utf8'))
+    const installed = fs.existsSync(destination) ? JSON.parse(fs.readFileSync(destination, 'utf8')) : null
+    const bundledVersion = Number(bundled._bundleVersion || 0)
+    const installedVersion = Number(installed?._bundleVersion || 0)
+    if (!installed || bundledVersion > installedVersion) {
+      fs.copyFileSync(sourcePath, destination)
+      const workflow = String(bundled.workflow || '')
+      if (workflow && path.basename(workflow) === workflow && fs.existsSync(path.join(source, workflow))) {
+        fs.copyFileSync(path.join(source, workflow), path.join(target, workflow))
+        upgradedWorkflows.add(workflow)
+      }
+    }
+  }
   for (const name of fs.readdirSync(source)) {
     if (!name.endsWith('.json')) continue
+    if (upgradedWorkflows.has(name)) continue
     const destination = path.join(target, name)
     if (!fs.existsSync(destination)) fs.copyFileSync(path.join(source, name), destination)
   }
