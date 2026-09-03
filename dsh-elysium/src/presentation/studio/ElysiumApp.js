@@ -73,7 +73,7 @@ export function createElysiumApp(React, api) {
       pendingView ? Modal(h, {
         title: '放弃未保存修改？',
         onClose: () => setPendingView(''),
-        children: h('p', { className: 'tf-confirm-message' }, `${view === 'comfyui' ? '设置' : '当前内容'}还有未保存修改。离开后这些修改将丢失。`),
+        children: h('p', { className: 'tf-confirm-message' }, `${view === 'comfyui' ? '自定义设置' : '当前内容'}还有未保存修改。离开后这些修改将丢失。`),
         actions: [
           h('button', { key: 'cancel', className: 'tf-btn tf-btn-ghost', onClick: () => setPendingView('') }, '继续编辑'),
           h('button', { key: 'discard', className: 'tf-btn tf-btn-danger-solid', onClick: discardAndSwitch }, '放弃并离开'),

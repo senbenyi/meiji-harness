@@ -88,7 +88,8 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
     await click(baseSave)
     assert.equal(state.baseUrl, 'http://gpu.example:8188')
 
-    await click(button('自定义工作流'))
+    const customRow = [...document.querySelectorAll('.tf-workflow-row')].find(item => item.textContent.includes('自定义工作流'))
+    await click(customRow.querySelector('.tf-workflow-toggle'))
     const note = document.querySelector('.tf-workflow-body textarea')
     await change(note, '新注释')
     assert.equal(button('保存注释').disabled, false)
@@ -97,7 +98,6 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
     await change(note, '已保存注释')
     await click(button('保存注释'))
     assert.equal(state.templates.find(item => item.id === 'custom').user_note, '已保存注释')
-    const customRow = [...document.querySelectorAll('.tf-workflow-row')].find(item => item.textContent.includes('自定义工作流'))
     await click(customRow.querySelector('.tf-workflow-actions .tf-btn'))
     assert.match(document.body.textContent, /缺少模型：missing\.safetensors/)
 
@@ -137,10 +137,10 @@ test('settings buttons distinguish testing, drafts, saving, deleting and repeate
 
     const savedSummary = [...document.querySelectorAll('.tf-settings-item > summary')].find(item => item.textContent.includes('saved.safetensors'))
     savedSummary.parentElement.open = true
-    await click(button('移除自定义配置'))
+    await click(savedSummary.parentElement.querySelector('.tf-link-danger'))
     await click(button('取消'))
     assert.ok(state.loras.some(item => item.name === 'saved.safetensors'))
-    await click(button('移除自定义配置'))
+    await click(savedSummary.parentElement.querySelector('.tf-link-danger'))
     await click(button('确认删除'))
     assert.ok(!state.loras.some(item => item.name === 'saved.safetensors'))
     assert.ok(dirtyStates.includes(true) && dirtyStates.at(-1) === false)
