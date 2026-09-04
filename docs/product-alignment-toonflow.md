@@ -184,174 +184,36 @@
    run_mvp.py
 ```
 
-#### 组件一：导演配置 `director.yaml`
+#### 实现状态：已落地（2026-09-04）
 
-存放位置：`llm-ai-model/workflows/mvp/director.yaml`
+导演配置、Skill 入口、两阶段提示词、跑通示例已在 `llm-ai-model` 仓库实现并通过校验，不再是设计草案。本节只做导航，具体规则以对应文件为准（避免和实现分叉后没人维护两份）：
 
-```yaml
-# 视觉风格
-style:
-  genre: "都市情感"                    # 类型基调
-  visual_tone: "电影质感，暖色调，浅景深"  # 画面风格关键词
-  lighting: "自然光为主，夜景用霓虹补光"
+| 组件 | 文件 |
+|---|---|
+| 导演配置 | `llm-ai-model/workflows/mvp/director.yaml` |
+| Skill 入口 | `llm-ai-model/.dsh/skills/mvp-director/SKILL.md` |
+| 第一阶段提示词（场景拆解） | `llm-ai-model/.dsh/skills/mvp-director/prompts/scene-breakdown.md` |
+| 第二阶段提示词（镜头分配） | `llm-ai-model/.dsh/skills/mvp-director/prompts/shot-assignment.md` |
+| 跑通示例（剧本→scenes→episode） | `llm-ai-model/.dsh/skills/mvp-director/examples/` |
 
-# 镜头语言默认值
-camera:
-  default_angle: "eye-level"           # 默认机位
-  close_up_ratio: 0.4                  # 特写镜头占比目标
-  motion_preference: "slow dolly, gentle pan"  # 偏好运镜
-  forbidden_motions:                   # 禁用运镜
-    - "shaky cam"
-    - "rapid zoom"
+**设计来源**：方法论蒸馏自 `/Users/mac/ai/Toonflow-app` 的真实技能包（`production_execution_director_plan.md` 导演规划、`production_execution_storyboard_panel.md` 分镜写入、`production_skills/storyboard_prompt_techniques.md` 提示词技法），不是本文档早期草稿里手造的字段。字段口径以此为准：台词条数/字数如实统计、情绪浓度 0-10、过渡先判断必要性再决定是否写（不为凑数硬造过场）、image_prompt 按首帧识别原则取静止定格态、同场景角色左右位置与朝向必须锁定。
 
-# 节奏控制
-pacing:
-  target_duration_seconds: 60          # 单集目标时长
-  shots_per_episode: 12                # 固定 12 镜头
-  dialogue_chars_per_second: 4         # 对白节奏基准
-  emotion_curve: "hook → build → climax → resolve"
+**刻意偏离源项目的两处**（写在 `director.yaml` 文末）：
+1. `image_prompt` 保留光影描述——Toonflow 靠场景参考图承担光影，本仓库每个 shot 只有 `cast.jpg` 角色参考，没有场景图，光影必须写进文本。
+2. 不做 `@图N` 多资产编号绑定——Toonflow 有完整资产库，本仓库 MVP 只有单一角色一致性参考，没有绑定的落地对象。
 
-# 转场偏好
-transitions:
-  preferred:
-    - "动作桥接"       # 上一镜动作延续到下一镜
-    - "情绪接力"       # 情绪递进过渡
-    - "空间连接"       # 同场景不同角度
-  avoid:
-    - "硬切无关联场景"
-    - "跳轴"
+**已验证**：`scripts/mvp/run_mvp.py --spec <episode.json> --stage check` 对 `examples/episode.example.json` 返回 `ok:true`；把 shots 砍到 11 个再跑，验证器准确拒绝（`shots 必须固定包含 12 镜`），证明校验真实生效。`check` 阶段只做结构校验和依赖文件存在性检查，不碰 GPU，符合 `llm-ai-model/CLAUDE.md` 的授权边界。
 
-# 一致性约束
-consistency:
-  cast_prompt_template: >
-    {character_name}: {age}岁{gender}, {appearance}, {clothing}
-  negative_prompt_base: >
-    cartoon, 3d render, low quality, blurry, deformed hands,
-    extra limbs, watermark, text, logo, child, minor
-```
-
-#### 组件二：场景拆解（第一阶段输出）
-
-Skill 读取剧本文本 + director.yaml → 输出 `scenes.json`
-
-```json
-{
-  "title": "屋顶重逢",
-  "total_scenes": 4,
-  "scenes": [
-    {
-      "id": "scene-01",
-      "summary": "女主在天台独自等待，手机反复亮起又熄灭",
-      "characters": ["女主"],
-      "location": "天台",
-      "time_of_day": "黄昏",
-      "emotion_start": "焦虑",
-      "emotion_end": "期待",
-      "emotion_intensity": 4,
-      "estimated_duration_seconds": 12,
-      "dialogue_count": 0,
-      "transition_to_next": "动作桥接：女主转身 → 下一镜男主出现"
-    },
-    {
-      "id": "scene-02",
-      "summary": "男主推门上天台，两人四目相对",
-      "characters": ["女主", "男主"],
-      "location": "天台",
-      "time_of_day": "黄昏",
-      "emotion_start": "期待",
-      "emotion_end": "震动",
-      "emotion_intensity": 7,
-      "estimated_duration_seconds": 18,
-      "dialogue_count": 2,
-      "transition_to_next": "情绪接力：震动 → 回忆闪回"
-    }
-  ]
-}
-```
-
-**拆解规则（写入 Skill 提示词）：**
-- 每个场景标注在场角色（防角色消失）
-- 情绪强度 0-10，相邻场景变化不超过 4
-- 估算时长总和 = director.yaml 中 target_duration_seconds ± 10%
-- 转场必须从 director.yaml 的 preferred 列表中选择
-
-#### 组件三：镜头分配（第二阶段输出）
-
-Skill 读取 scenes.json + director.yaml → 输出 `episode.json`（vmp-1 schema）
-
-**分配规则：**
-- 总共 12 个 shot，按场景时长比例分配
-- 每个 shot 生成 `image_prompt`（关键帧描述）和 `video_prompt`（运镜动作）
-- image_prompt 注入 director.yaml 的 visual_tone + lighting
-- video_prompt 注入 director.yaml 的 camera motion_preference
-- cast_prompt 按 director.yaml 的 cast_prompt_template 拼接所有角色
-- negative_prompt 使用 director.yaml 的 negative_prompt_base
-
-**镜头类型分配逻辑：**
-
-| 叙事位置 | 镜头类型 | 用途 |
-|---|---|---|
-| shot-01 | 建立镜头（wide/establishing） | 交代场景 |
-| shot-02~03 | 中景 → 近景 | 引入角色 |
-| shot-04~06 | 交叉特写 | 对话/互动 |
-| shot-07~09 | 动态跟拍 | 情节推进 |
-| shot-10~11 | 特写 | 情绪高潮 |
-| shot-12 | 远景/留白 | 收束 |
-
-实际分配根据 scenes.json 的情绪曲线动态调整，以上为默认模板。
-
-#### 组件四：Skill 实现
-
-位置：`llm-ai-model/.dsh/skills/mvp-director/`
-
-```
-.dsh/skills/mvp-director/
-├── SKILL.md              # Skill 入口定义
-├── prompts/
-│   ├── scene-breakdown.md    # 第一阶段：剧本→场景 的 LLM 提示词
-│   └── shot-assignment.md    # 第二阶段：场景→镜头 的 LLM 提示词
-└── examples/
-    ├── scenes.example.json   # 场景拆解示例
-    └── episode.example.json  # 最终输出示例（复用现有 vmp-1 示例）
-```
-
-**SKILL.md 核心逻辑：**
-
-```markdown
-## 触发条件
-用户提供剧本文本并要求"导演分镜"或"生成 episode"
-
-## 执行步骤
-1. 读取 workflows/mvp/director.yaml
-2. 第一阶段：将剧本 + director.yaml 传入 scene-breakdown.md 提示词
-   → 输出 scenes.json，验证：角色在场、情绪连续、时长合理
-3. 第二阶段：将 scenes.json + director.yaml 传入 shot-assignment.md 提示词
-   → 输出 episode.json，验证：符合 vmp-1 schema、12 shot、compliance 字段
-4. 将 episode.json 写入 workflows/mvp/episodes/{episode_id}.json
-5. 报告完成，提示用户可执行 run_mvp.py
-
-## 输出状态
-- scenes.json → 中间产物，保留在 workflows/mvp/episodes/ 供审查
-- episode.json → 最终产物，直接被 run_mvp.py 消费
-```
-
-#### 验证清单
-
-导演 Skill 输出的 episode.json 必须通过以下检查才能交付：
+**验证清单**（`episode.json` 必须满足，已由 `run_mvp.py --stage check` 强制执行，非人工自查）：
 
 | 检查项 | 规则 |
 |---|---|
 | schema_version | 必须为 `"vmp-1"` |
 | episode_id | 匹配 `^mvp-[a-z0-9]+(?:-[a-z0-9]+)*$` |
-| shots 数量 | 恰好 12 |
-| shot ID 连续性 | shot-01 到 shot-12 |
-| image_prompt | 每条 ≥ 20 字符 |
-| video_prompt | 每条 ≥ 20 字符，包含运镜标签 |
-| cast_prompt | ≥ 40 字符，包含所有在场角色 |
-| negative_prompt | ≥ 20 字符 |
-| compliance | 四个字段全部为 `true` |
-| 情绪连续性 | 相邻 shot 的情绪不跳跃（来自 scenes.json） |
-| 角色在场 | 每个场景的角色在对应 shot 的 image_prompt 中出现 |
+| shots 数量 | 恰好 12，ID 连续 shot-01~12 |
+| cast_prompt / negative_prompt | 非空字符串 |
+| compliance | 四个字段全部显式为 `true` |
+| image_prompt / video_prompt | 按 shot-assignment.md 的首帧识别原则、忠实性自检表生成 |
 
 #### 不做的事
 

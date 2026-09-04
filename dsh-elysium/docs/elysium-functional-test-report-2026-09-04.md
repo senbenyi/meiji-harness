@@ -20,7 +20,7 @@
 
 | 项目 | 当前证据 |
 | --- | --- |
-| Git | 根目录 `/Users/mac/ai/llm-ai-veo/llm-dsh-plugins`；分支 `main`；开始时工作树干净 |
+| Git | 根目录 `/Users/mac/ai/llm-ai-video/llm-dsh-plugins`；分支 `main`；开始时工作树干净 |
 | 生效规则 | `/Users/mac/ai/AGENTS.md`、`dsh-elysium/AGENTS.md` |
 | 浏览器 | Codex 内置真实浏览器，直接操作 3080 页面 |
 | DSH | Node 进程监听 `127.0.0.1:3080`；修复安装和重启成功 |
