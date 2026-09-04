@@ -193,12 +193,15 @@ async function durationOf(config, file) {
 async function assemble(config, episode, sources, destination) {
   if (sources.length === 0) fail('CHAPTERS_REQUIRED', '生成成片前必须完成章节视频', 409)
   await mkdir(path.dirname(destination), { recursive: true })
+  const sourceDurations = await Promise.all(sources.map(file => durationOf(config, file)))
+  const sourceDuration = sourceDurations.reduce((total, duration) => total + duration, 0)
+  const timelineScale = episode.targetDurationSec / sourceDuration
   const landscape = episode.aspectRatio === '16:9'
   const width = landscape ? 1280 : 720
   const height = landscape ? 720 : 1280
   const filters = sources.map((_, index) => `[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v${index}]`)
   filters.push(`${sources.map((_, index) => `[v${index}]`).join('')}concat=n=${sources.length}:v=1:a=0[joined]`)
-  filters.push(`[joined]minterpolate=fps=24:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,trim=duration=${episode.targetDurationSec},setpts=PTS-STARTPTS,format=yuv420p[outv]`)
+  filters.push(`[joined]setpts=${timelineScale.toFixed(9)}*PTS,minterpolate=fps=24:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,trim=duration=${episode.targetDurationSec},setpts=PTS-STARTPTS,format=yuv420p[outv]`)
   const args = ['-y', ...sources.flatMap(file => ['-i', file]), '-filter_complex', filters.join(';'), '-map', '[outv]', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-movflags', '+faststart', destination]
   await runProcess(String(config.ffmpeg || 'ffmpeg'), args)
   return durationOf(config, destination)

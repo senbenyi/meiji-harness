@@ -147,7 +147,8 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
   await Promise.all([writeFile(image, 'image'), writeFile(video, 'video')])
   const ffmpeg = path.join(workspace, 'fake-ffmpeg.sh')
   const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
-  await writeFile(ffmpeg, '#!/bin/sh\nfor last do :; done\nprintf video > "$last"\n')
+  const ffmpegArgs = path.join(workspace, 'ffmpeg-args.txt')
+  await writeFile(ffmpeg, `#!/bin/sh\nprintf '%s\\n' "$@" > "${ffmpegArgs}"\nfor last do :; done\nprintf video > "$last"\n`)
   await writeFile(ffprobe, '#!/bin/sh\nprintf "21.5\\n"\n')
   await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
 
@@ -181,6 +182,9 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
   const editedFrames = submissions.filter(args => args.template === 'qwen-image-edit')
   assert.equal(editedFrames.length, 5)
   assert.equal(editedFrames.every(args => args.image && args.character_image), true)
+  const ffmpegCommand = await readFile(ffmpegArgs, 'utf8')
+  assert.match(ffmpegCommand, /setpts=0\.930232558\*PTS,minterpolate=/)
+  assert.match(ffmpegCommand, /trim=duration=20/)
 
   await production.approve({ projectId, episodeId: body.episodeId, reviewer: 'qa.user', confirmHumanReviewPassed: true })
   const approved = await production.status({ projectId, episodeId: body.episodeId })
