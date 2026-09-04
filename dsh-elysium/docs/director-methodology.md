@@ -80,7 +80,7 @@
 - `castPrompt`：对每个出场角色套用 `consistency.castPromptTemplate`，覆盖全部出现过的角色，
   定妆表口径（分开站立、中性背景、正面全身、固定外貌与服装，不要叙事场景）。
 - `negativePrompt`：缺省取 `consistency.negativePromptBase`。
-- 合规字段涉及非自愿情节时必须中止并向用户说明，**不得为通过校验而勾 true**。
+- 合规字段涉及未成年或非自愿情节时必须中止并向用户说明，**不得为通过校验而勾 true**。
 
 ## 与源方法论的差异（刻意取舍，不是遗漏）
 

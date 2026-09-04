@@ -100,6 +100,7 @@ function stateOf(creation, director, fallback) {
 }
 
 export function createCreationService(config = {}, planner = null) {
+  const syncFlights = new Map()
   /**
    * 建项目 + 固化导演 + 初始化创作记录，一次完成。
    *
@@ -275,7 +276,7 @@ export function createCreationService(config = {}, planner = null) {
    * 单集 ID 由**首次**同步的剧情指纹派生后固定；之后改剧情走 `episodeUpdate`，让既有的
    * 依赖失效机制保留未受影响的已付费素材。
    */
-  async function syncToProduction(body = {}) {
+  async function performSyncToProduction(body = {}) {
     const projectId = safeId(body.projectId, 'projectId')
     const prepared = await withCreationLock(projectId, async () => {
       const { projectDirectory, creation } = await loadCreation(config, projectId)
@@ -352,6 +353,20 @@ export function createCreationService(config = {}, planner = null) {
       }).catch(() => {})
       void projectDirectory
       throw error
+    }
+  }
+
+  /** 同一项目的并发同步共享一次 Producer Agent 调用；落盘幂等仍由 storyHash/episodeId 保证。 */
+  async function syncToProduction(body = {}) {
+    const projectId = safeId(body.projectId, 'projectId')
+    const active = syncFlights.get(projectId)
+    if (active) return active
+    const operation = performSyncToProduction(body)
+    syncFlights.set(projectId, operation)
+    try {
+      return await operation
+    } finally {
+      if (syncFlights.get(projectId) === operation) syncFlights.delete(projectId)
     }
   }
 

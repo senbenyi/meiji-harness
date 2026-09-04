@@ -6,7 +6,7 @@ const EMPTY_DRAFT = JSON.stringify({
   profile: 'preview',
   seed: 88666,
   cast_prompt: '虚构成年角色的统一外貌、服装和画面风格',
-  negative_prompt: '畸形肢体，水印，字幕',
+  negative_prompt: '未成年人，非自愿，侵权素材，畸形肢体，水印，字幕',
   compliance: {
     fictional_adults_only: true,
     all_participants_18_or_older: true,

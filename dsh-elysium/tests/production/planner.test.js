@@ -77,6 +77,30 @@ test('uses a model routing change made after the planner service starts', async 
   assert.equal(request.maxTokens, 8192)
 })
 
+test('uses a supplied director profile in both planning prompts', async () => {
+  const prompts = []
+  let call = 0
+  const ctx = { llm: { async *stream(request) {
+    prompts.push(request.messages[0].content[0].text)
+    yield { type: 'text-delta', index: 0, text: call++ === 0 ? scenesResponse() : response(1) }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  } } }
+  await createPlannerService(ctx).plan({
+    episodeId: 'episode-director', sourceText: '故事。', targetDurationSec: 20,
+    directorProfile: {
+      style: { genre: '纪实', visualTone: '粗粝低饱和', lighting: '自然光' },
+      camera: { motionPreference: 'handheld follow', forbiddenMotions: ['rapid zoom'] },
+      pacing: { emotionScale: '0 到 10', maxAdjacentEmotionDelta: 4 },
+      transitions: { preferred: ['动作衔接'], avoid: ['无关硬切'] },
+      consistency: {},
+    },
+  })
+  assert.match(prompts[0], /相邻场景情绪落差超过 4/)
+  assert.match(prompts[0], /动作衔接/)
+  assert.match(prompts[1], /handheld follow/)
+  assert.match(prompts[1], /纪实，粗粝低饱和，自然光/)
+})
+
 test('accepts validated JSON when Qwen exposes it only as reasoning output', async () => {
   let call = 0
   const ctx = { llm: { async *stream() {

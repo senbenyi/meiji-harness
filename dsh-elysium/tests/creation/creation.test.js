@@ -336,6 +336,18 @@ test('确认后同步一次建一个单集，重复点击不重复建', async (t
   assert.ok(await stat(path.join(episodesDir, first.episodeId, 'plan.json')))
 })
 
+test('并发同步共享一次 Producer Agent 调用', async (t) => {
+  const { service, planner, projectId } = await fixture(t)
+  await runAllSteps(service, projectId)
+  const compiled = await service.compileStory({ projectId })
+  const storyHash = compiled.creation.storyHash
+  await service.approveStory({ projectId, storyHash, compliance: COMPLIANCE })
+
+  const results = await Promise.all(Array.from({ length: 4 }, () => service.syncToProduction({ projectId, storyHash })))
+  assert.equal(planner.calls.length, 1)
+  assert.deepEqual([...new Set(results.map(result => result.episodeId))].length, 1)
+})
+
 test('同步把导演参数、时长与合规声明带给 Producer Agent', async (t) => {
   const { service, projectId, planner } = await fixture(t)
   await runAllSteps(service, projectId)
