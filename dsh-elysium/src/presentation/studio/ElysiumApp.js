@@ -69,7 +69,7 @@ export function createElysiumApp(React, api) {
       ),
       view === 'comfyui'
         ? h('div', { className: 'ely-settings-wrap' }, h(ComfyUiSettings, { onDirty: setSettingsDirty }))
-        : h(Studio, { initialProjectId: selection.projectId, initialEpisodeId: selection.episodeId, onSelection, onDirty: setStudioDirty }),
+        : h(Studio, { ctx, initialProjectId: selection.projectId, initialEpisodeId: selection.episodeId, onSelection, onDirty: setStudioDirty }),
       pendingView ? Modal(h, {
         title: '放弃未保存修改？',
         onClose: () => setPendingView(''),

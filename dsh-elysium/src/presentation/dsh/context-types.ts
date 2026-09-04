@@ -287,12 +287,72 @@ export interface SidebarSessionList {
   jobsBySession?: Readonly<Record<string, readonly SidebarJobView[]>>
 }
 
+/**
+ * One part of a prompt the client submits (mirror of the runtime
+ * `PromptContentPart`). Image bytes are base64 in `data`; the Host promotes
+ * them to durable attachment references.
+ */
+export type SidebarPromptContentPart =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'image'; readonly mediaType: string; readonly data: string; readonly name?: string }
+
+/**
+ * The behavior verbs of one materialized session (mirror of the runtime
+ * `ISession`). Only what this plugin drives is restated: sending a prompt,
+ * pinning an explicit title, and executing a slash-command line — the three
+ * calls the creation entry needs to seed a director conversation.
+ *
+ * The concrete runtime returns a `RemoteResult` discriminated union; it is
+ * mirrored as `unknown` here because this plugin only branches on throw vs
+ * resolve, and restating the protocol's result algebra would couple this
+ * declaration graph to `@deepseek-ai/dsh-typert-protocol`.
+ */
+export interface SidebarSessionFace {
+  readonly sessionId: string
+  /** Send a prompt into the session ('queue' appends a turn; 'steer' interrupts). */
+  prompt(
+    content: readonly SidebarPromptContentPart[],
+    mode: 'queue' | 'steer',
+    signal?: AbortSignal,
+    requestId?: string,
+  ): Promise<unknown>
+  /** Set the explicit user title (pins it against automatic regeneration). */
+  rename(title: string): Promise<unknown>
+  /** Execute one slash-command line against the session's agent (skill loading). */
+  command(line: string): Promise<unknown>
+}
+
+/** The stable per-session binding (mirror of the runtime `SessionBinding`). */
+export interface SidebarSessionBinding {
+  readonly sessionId: string
+  readonly session: SidebarSessionFace
+}
+
 /** The client sessions service face (only the list feed is needed). */
 export interface SidebarSessionsService {
   list: {
     getSnapshot(): SidebarSessionList
     subscribe(fn: () => void): () => void
   }
+  /**
+   * Create or adopt a Session on the Host (mirror of the runtime
+   * ISessions.create). `cwd` selects the project whose `.dsh/skills` the new
+   * session can see, so the creation entry must always pass it; a
+   * caller-preallocated `sessionId` makes a lost response replayable — the
+   * retry adopts the same identity instead of minting a second conversation.
+   * Optional so older hosts and test fakes degrade to "cannot create".
+   */
+  create?(options?: { workspaceId?: string; cwd?: string; sessionId?: string }): Promise<string>
+  /**
+   * Resolve the stable binding behind one session (mirror of the runtime
+   * ISessions.binding) — the seat carrying the behavior verbs above.
+   */
+  binding?(id: string): SidebarSessionBinding | undefined
+  /**
+   * Fork a session from a completed-turn prefix (mirror of the runtime
+   * ISessions.fork).
+   */
+  fork?(options: { sessionId: string; atSeq?: number; increaseTitle?: boolean }): Promise<string>
   /**
    * Select a listed session as current (mirror of the runtime ISessions.open)
    * — used to jump back to the main agent from the topology root node.

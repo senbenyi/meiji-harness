@@ -1,4 +1,5 @@
 import { createConfirmDialog, Modal } from '../../components/Modal.js'
+import { openCreationSession } from '../../creation-session.js'
 
 const EMPTY_DRAFT = { title: '', sourceText: '', targetDurationSec: 10, aspectRatio: '9:16', profile: 'preview', budget: '', stylePrompt: '', castPrompt: '' }
 
@@ -23,6 +24,11 @@ const PROJECT_VIEWS = [
   ['all', '全部'], ['running', '进行中'], ['attention', '待处理'], ['done', '已完成'],
 ]
 const EPISODE_PAGE_SIZE = 25
+const CREATION_STATUS = {
+  director_selected: '等待创建会话', conversation_created: '等待加载 Skill', skill_loaded: '准备创作',
+  story_developing: '剧情创作中', story_ready: '剧情待汇总', awaiting_story_approval: '等待剧情确认',
+  story_approved: '剧情已确认', syncing_to_production: '正在写入制作流程', production_ready: '已进入制作',
+}
 
 function matchesView(status, view) {
   if (view === 'running') return ['running', 'queued'].includes(status)
@@ -139,7 +145,7 @@ export function createStudio(React, api) {
     return h('label', { className: 'ely-field' }, h('span', { className: 'ely-field-label' }, label), children, hint ? h('small', null, hint) : null)
   }
 
-  return function Studio({ initialProjectId, initialEpisodeId, onSelection, onDirty }) {
+  return function Studio({ ctx, initialProjectId, initialEpisodeId, onSelection, onDirty }) {
     const [projects, setProjects] = useState([])
     const [projectsLoading, setProjectsLoading] = useState(true)
     const [episodeLoading, setEpisodeLoading] = useState(false)
@@ -167,6 +173,10 @@ export function createStudio(React, api) {
     const [reviewer, setReviewer] = useState('')
     const [showProjectForm, setShowProjectForm] = useState(false)
     const [projectTitle, setProjectTitle] = useState('')
+    const [directors, setDirectors] = useState([])
+    const [creativeDraft, setCreativeDraft] = useState({ title: '', directorId: '' })
+    const [creationState, setCreationState] = useState(null)
+    const [creationLoading, setCreationLoading] = useState(false)
     const [projectToDelete, setProjectToDelete] = useState(null)
     const [pendingNavigation, setPendingNavigation] = useState(null)
     const [draft, setDraft] = useState({ ...EMPTY_DRAFT })
@@ -181,6 +191,7 @@ export function createStudio(React, api) {
     const activeTasks = (episode?.tasks || []).filter(task => ['running', 'queued'].includes(task.status)).length
     const editorDirty = !!editor && JSON.stringify(editor.draft) !== editor.original
     const draftDirty = storyFingerprint(draft) !== storyFingerprint(EMPTY_DRAFT)
+    const creativeDraftDirty = !!creativeDraft.title.trim()
     const storyValid = !!episode?.episode?.title.trim() && !!episode?.episode?.sourceText.trim() && Number(episode?.episode?.targetDurationSec) >= 10 && Number(episode?.episode?.targetDurationSec) <= 600
     const storyDraftValid = editor?.stage !== 'story' || (!!editor.draft.title.trim() && !!editor.draft.sourceText.trim() && Number(editor.draft.targetDurationSec) >= 10 && Number(editor.draft.targetDurationSec) <= 600)
     const draftValid = !!draft.title.trim() && !!draft.sourceText.trim() && Number(draft.targetDurationSec) >= 10 && Number(draft.targetDurationSec) <= 600
@@ -225,7 +236,7 @@ export function createStudio(React, api) {
     const episodePages = Math.max(1, Math.ceil(filteredEpisodes.length / EPISODE_PAGE_SIZE))
     const pagedEpisodes = filteredEpisodes.slice((episodePage - 1) * EPISODE_PAGE_SIZE, episodePage * EPISODE_PAGE_SIZE)
 
-    useEffect(() => { onDirty?.(editorDirty || draftDirty) }, [editorDirty, draftDirty, onDirty])
+    useEffect(() => { onDirty?.(editorDirty || draftDirty || creativeDraftDirty) }, [editorDirty, draftDirty, creativeDraftDirty, onDirty])
     useEffect(() => { setReviewWatched(false); setReviewed(false) }, [episode?.state?.final?.path])
     useEffect(() => { try { window.sessionStorage.setItem('elysium.projectView', projectView) } catch {} }, [projectView])
     useEffect(() => { try { window.sessionStorage.setItem('elysium.projectQuery', projectQuery) } catch {} }, [projectQuery])
@@ -271,6 +282,15 @@ export function createStudio(React, api) {
       setEpisodeLoading(false)
     }, [call, projectId, episodeIdToOpen, episode?.episode?.id, episode?.episode?.projectId, workspaceView])
 
+    const loadCreation = useCallback(async (id = projectId) => {
+      if (!id) { setCreationState(null); return null }
+      setCreationLoading(true)
+      const result = await call('/creation.get_state', { projectId: id }, true)
+      setCreationState(result)
+      setCreationLoading(false)
+      return result
+    }, [call, projectId])
+
     const refresh = useCallback(async (quiet = true) => {
       if (!projectId || !selectedEpisodeId) return
       const result = await call('/production.status', { projectId, episodeId: selectedEpisodeId }, quiet)
@@ -285,6 +305,23 @@ export function createStudio(React, api) {
 
     useEffect(() => { void loadProjects() }, [])
     useEffect(() => { void loadEpisodes(projectId) }, [projectId, episodeIdToOpen])
+    useEffect(() => {
+      if (selectedProject?.kind === 'creative') void loadCreation(selectedProject.id)
+      else setCreationState(null)
+    }, [selectedProject?.id, selectedProject?.kind])
+    useEffect(() => {
+      if (workspaceView !== 'creative-create' || directors.length) return
+      void call('/director.list', {}, true).then(result => {
+        const items = result?.directors || []
+        setDirectors(items)
+        setCreativeDraft(current => ({ ...current, directorId: current.directorId || items[0]?.id || '' }))
+      })
+    }, [workspaceView, directors.length, call])
+    useEffect(() => {
+      if (selectedProject?.kind !== 'creative' || !projectId || creationState?.creation?.status === 'production_ready') return undefined
+      const timer = window.setInterval(() => void loadCreation(projectId), 3000)
+      return () => window.clearInterval(timer)
+    }, [selectedProject?.kind, projectId, creationState?.creation?.status, loadCreation])
     useEffect(() => { onSelection?.(projectId || null, selectedEpisodeId || null) }, [projectId, selectedEpisodeId, onSelection])
     useEffect(() => {
       if (!['running', 'queued'].includes(episode?.state?.status)) return undefined
@@ -299,6 +336,105 @@ export function createStudio(React, api) {
       setProjectTitle(''); setShowProjectForm(false); await loadProjects(); setProjectId(result.project.id); setEpisodeIdToOpen(''); setEpisode(null); setWorkspaceView('create')
     }
 
+    const runSessionSetup = async state => openCreationSession({
+      ctx,
+      sidebar: ctx?.get?.('betterSidebar') || ctx?.betterSidebar,
+      project: state.project || selectedProject,
+      creation: state.creation,
+      director: state.director || directors.find(item => item.id === creativeDraft.directorId),
+      openingPrompt: state.openingPrompt,
+      skill: state.skill,
+      bindSession: body => api.fetchJson('/creation.bind_session', body),
+    })
+
+    const createCreativeProject = async () => {
+      const title = creativeDraft.title.trim()
+      const director = directors.find(item => item.id === creativeDraft.directorId)
+      if (!title || !director || busyRef.current) return
+      busyRef.current = true
+      setBusy(true); setError(''); setMessage('')
+      let created
+      try {
+        created = await api.fetchJson('/creation.create_project', { title, directorId: director.id })
+        setProjectId(created.project.id)
+        setEpisodeIdToOpen('')
+        setEpisode(null)
+        setWorkspaceView('project')
+        setCreativeDraft({ title: '', directorId: director.id })
+        await loadProjects()
+        await runSessionSetup({ ...created, director })
+      } catch (reason) {
+        setError(created
+          ? `项目已保存，但创作会话尚未就绪：${reason.message || String(reason)}。可在项目页重试。`
+          : (reason.message || String(reason)))
+        if (created) {
+          await loadProjects()
+          await loadCreation(created.project.id)
+        }
+      } finally {
+        busyRef.current = false
+        setBusy(false)
+      }
+    }
+
+    const openCreativeConversation = async () => {
+      if (!creationState || busyRef.current) return
+      busyRef.current = true
+      setBusy(true); setError(''); setMessage('')
+      try { await runSessionSetup(creationState) }
+      catch (reason) { setError(reason.message || String(reason)) }
+      finally { busyRef.current = false; setBusy(false) }
+    }
+
+    const approveAndSyncStory = async () => {
+      const creation = creationState?.creation
+      if (!creation?.storyHash || busyRef.current) return
+      busyRef.current = true
+      setBusy(true); setError(''); setMessage('')
+      try {
+        if (!creation.approval) {
+          await api.fetchJson('/creation.approve_story', {
+            projectId,
+            storyHash: creation.storyHash,
+            compliance: creation.storyDraft?.compliance,
+            confirmedBy: 'user',
+          })
+        }
+        const synced = await api.fetchJson('/creation.sync_to_production', { projectId, storyHash: creation.storyHash })
+        const detail = await api.fetchJson('/episode.get', { projectId, episodeId: synced.episodeId })
+        setCreationState(synced)
+        setEpisode(detail)
+        setEpisodeIdToOpen(synced.episodeId)
+        setActiveStage('story')
+        setWorkspaceView('episode')
+        await loadProjects()
+        setMessage('剧情已确认并写入制作流程')
+      } catch (reason) {
+        setError(`剧情确认结果已保留；写入制作流程可重试：${reason.message || String(reason)}`)
+        await loadCreation(projectId)
+      } finally {
+        busyRef.current = false
+        setBusy(false)
+      }
+    }
+
+    const reopenCreativeStory = async () => {
+      const result = await call('/creation.reopen_story', { projectId, reason: '用户从界面退回创作' })
+      if (!result) return
+      setCreationState(result)
+      setMessage('剧情已退回创作；已有产物未删除')
+      await openCreationSession({
+        ctx,
+        sidebar: ctx?.get?.('betterSidebar') || ctx?.betterSidebar,
+        project: selectedProject,
+        creation: result.creation,
+        director: result.director,
+        openingPrompt: creationState?.openingPrompt,
+        skill: creationState?.skill,
+        bindSession: body => api.fetchJson('/creation.bind_session', body),
+      }).catch(reason => setError(reason.message || String(reason)))
+    }
+
     const navigateSafely = (label, action) => {
       if (editorDirty || draftDirty) return setPendingNavigation({ label, action })
       action()
@@ -308,6 +444,7 @@ export function createStudio(React, api) {
       const action = pendingNavigation?.action
       setPendingNavigation(null)
       setDraft({ ...EMPTY_DRAFT })
+      setCreativeDraft(current => ({ title: '', directorId: current.directorId }))
       setEditor(null)
       action?.()
     }
@@ -669,13 +806,82 @@ export function createStudio(React, api) {
       h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy || editorDirty || draftDirty || !batchPauseCount, onClick: () => void runBulk('pause') }, `暂停 (${batchPauseCount})`),
     ) : null
 
+    const renderCreativeCreate = () => {
+      const selected = directors.find(item => item.id === creativeDraft.directorId)
+      return h('section', { className: 'ely-create ely-creative-create' },
+        h('button', { className: 'ely-back-link', onClick: () => openOverview('all') }, '‹ 返回总览'),
+        h('header', { className: 'ely-create-head' }, h('div', null,
+          h('span', { className: 'ely-kicker' }, '导演人格 + DeepSeek + Skill'),
+          h('h1', null, '创建创新项目'),
+          h('p', null, '选择固定导演流派，由对话逐步完成剧情，再由你明确确认后进入制作。'))),
+        h('div', { className: 'ely-create-form' },
+          h(Field, { label: '项目名称' }, h('input', {
+            className: 'tf-input', type: 'text', autoFocus: true, maxLength: 120, value: creativeDraft.title,
+            placeholder: '例如：雾港来信', onChange: event => setCreativeDraft(current => ({ ...current, title: event.target.value })),
+          })),
+          h('fieldset', { className: 'ely-director-picker' },
+            h('legend', null, '选择导演'),
+            directors.length ? directors.map(director => h('label', { key: director.id, className: creativeDraft.directorId === director.id ? 'is-selected' : '' },
+              h('input', { type: 'radio', name: 'director', value: director.id, checked: creativeDraft.directorId === director.id, onChange: () => setCreativeDraft(current => ({ ...current, directorId: director.id })) }),
+              h('span', null, h('strong', null, director.schoolName), h('small', null, director.inspiredBy)),
+              h('p', null, director.summary),
+              h('div', null, ...(director.styleTags || []).map(tag => h('em', { key: tag }, tag))),
+            )) : h('div', { className: 'ely-hub-empty' }, '正在读取导演配置…')),
+          selected ? h('aside', { className: 'ely-director-notice' }, h('strong', null, '风格说明'), h('p', null, selected.disclaimer)) : null,
+          h('div', { className: 'ely-create-actions' }, h('button', {
+            className: 'ely-btn ely-btn-primary', disabled: busy || !creativeDraft.title.trim() || !selected,
+            onClick: createCreativeProject,
+          }, busy ? '正在创建…' : '创建并进入创作')),
+        ),
+      )
+    }
+
+    const renderCreativeProject = () => {
+      const creation = creationState?.creation
+      const draftStory = creation?.storyDraft
+      const completed = creation?.steps?.filter(step => step.status === 'confirmed').length || 0
+      const canApprove = creation?.status === 'awaiting_story_approval'
+      const canSync = creation?.status === 'story_approved'
+      const ready = creation?.status === 'production_ready'
+      return h('section', { className: 'ely-project-detail ely-creative-project' },
+        h('button', { className: 'ely-back-link', onClick: () => openOverview('all') }, '‹ 返回总览'),
+        h('header', { className: 'ely-project-detail-head' }, h('div', null,
+          h('span', { className: 'ely-kicker' }, '创新项目'),
+          h('h1', { title: selectedProject?.title }, selectedProject?.title || '未命名'),
+          h('p', null, creationLoading && !creation ? '正在读取创作状态…' : `${creationState?.director?.schoolName || '导演'} · ${CREATION_STATUS[creation?.status] || creation?.status || '待恢复'}`)),
+          h('div', null,
+            h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy || !creationState, onClick: openCreativeConversation }, creation?.conversationId ? '打开创作会话' : '创建创作会话'),
+            h('button', { className: 'ely-btn ely-btn-secondary', title: `删除 ${selectedProject?.title || ''}`, onClick: () => setProjectToDelete(selectedProject) }, '删除'))),
+        creation ? h('section', { className: 'ely-creation-progress' },
+          h('div', null, h('strong', null, `第 ${creation.currentStep}/15 步`), h('span', null, `${completed}/15 已确认`)),
+          h('div', { className: 'ely-progress-track' }, h('i', { style: { width: `${Math.round((completed / 15) * 100)}%` } })),
+          h('ol', null, ...(creation.steps || []).map(step => h('li', { key: step.index, className: `is-${step.status}` }, h('span', null, step.index), h('strong', null, step.label), h('small', null, step.status === 'confirmed' ? '已确认' : step.status === 'draft' ? '待确认' : '未开始')))),
+        ) : null,
+        draftStory ? h('section', { className: 'ely-story-preview' },
+          h('header', null, h('div', null, h('span', null, '结构化剧情预览'), h('h2', null, draftStory.logline || selectedProject.title)),
+            h('small', null, `版本 ${creation.storyVersion} · ${draftStory.durationSec} 秒 · ${draftStory.chapterCount} 章`)),
+          h('p', null, draftStory.synopsis),
+          h('dl', null,
+            h('dt', null, '角色'), h('dd', null, (draftStory.characters || []).map(item => `${item.name}（${item.age}岁）`).join('、')),
+            h('dt', null, '场景'), h('dd', null, (draftStory.scenes || []).map(item => item.title).join('、')),
+            h('dt', null, '导演备注'), h('dd', null, draftStory.directorNotes || '—')),
+          h('div', { className: 'ely-story-preview-actions' },
+            (canApprove || canSync) ? h('button', { className: 'ely-btn ely-btn-primary', disabled: busy, onClick: approveAndSyncStory }, busy ? '正在写入…' : canApprove ? '确认剧情并进入制作' : '重试写入制作流程') : null,
+            ready && creation.sync?.episodeId ? h('button', { className: 'ely-btn ely-btn-primary', onClick: () => chooseEpisode(projectId, creation.sync.episodeId) }, '进入制作流程') : null,
+            creation.approval ? h('button', { className: 'ely-btn ely-btn-secondary', disabled: busy, onClick: reopenCreativeStory }, '退回剧情创作') : null),
+        ) : h('section', { className: 'ely-creative-empty' }, h('strong', null, '在 DeepSeek 会话中逐步创作'), h('p', null, '每一步都会保存到项目；刷新页面或 Harness 重启后可继续。'), h('button', { className: 'ely-btn ely-btn-primary', disabled: busy || !creationState, onClick: openCreativeConversation }, creation?.conversationId ? '继续创作' : '创建会话并开始')),
+      )
+    }
+
     const renderOverview = () => {
       const visibleIds = visibleProjectRows.map(row => row.project.id)
       const allVisibleSelected = visibleIds.length && visibleIds.every(id => selectedProjectIds.includes(id))
       const queueLabel = projectView === 'running' ? '生产中队列' : '待处理队列'
       return h('section', { className: 'ely-hub' },
         h('header', { className: 'ely-hub-head' }, h('div', null, h('h1', null, '总览')),
-          h('button', { className: 'ely-btn ely-btn-primary', onClick: () => setShowProjectForm(true) }, '新建')),
+          h('div', { className: 'ely-new-actions' },
+            h('button', { className: 'ely-btn ely-btn-secondary', onClick: () => setShowProjectForm(true) }, '普通项目'),
+            h('button', { className: 'ely-btn ely-btn-primary', onClick: () => navigateSafely('创建创新项目', () => { setProjectId(''); setWorkspaceView('creative-create') }) }, '创新项目'))),
         h('input', { className: 'tf-input ely-hub-search', type: 'search', value: projectQuery, placeholder: '搜索名称或单集', 'aria-label': '搜索名称或单集', onChange: event => setProjectQuery(event.target.value) }),
         projectView !== 'all' && projectView !== 'done'
           ? h('div', { className: 'ely-queue' },
@@ -697,6 +903,7 @@ export function createStudio(React, api) {
     }
 
     const renderProject = () => {
+      if (selectedProject?.kind === 'creative') return renderCreativeProject()
       const summary = projectProductionSummary(currentEpisodes)
       return h('section', { className: 'ely-project-detail' },
         h('button', { className: 'ely-back-link', onClick: () => openOverview('all') }, '‹ 返回总览'),
@@ -726,7 +933,8 @@ export function createStudio(React, api) {
       h('main', { className: 'ely-workspace' },
         (error || message) && !episode ? h('div', { className: `ely-toast ${error ? 'is-error' : 'is-success'}`, role: error ? 'alert' : 'status' }, h('span', null, error || message), h('button', { 'aria-label': '关闭提示', onClick: () => { setError(''); setMessage('') } }, '×')) : null,
         projectsLoading || (episodeLoading && workspaceView === 'episode') ? h('section', { className: 'ely-zero', role: 'status' }, h('span', { className: 'ely-loading-ring' }), h('h1', null, '正在打开'))
-          : workspaceView === 'overview' || !projectId ? renderOverview()
+          : workspaceView === 'creative-create' ? renderCreativeCreate()
+            : workspaceView === 'overview' || !projectId ? renderOverview()
             : workspaceView === 'project' ? renderProject()
               : workspaceView === 'create' ? renderCreateEpisode()
                 : !episode ? renderProject()

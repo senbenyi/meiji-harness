@@ -623,6 +623,18 @@ export function createBetterSidebarService(store: SidebarStore): BetterSidebarSe
         tab = result.tab
         next = applyDedupe(state, result.tab, descriptor)
         if (result.patch !== undefined) next = { ...next, ...result.patch }
+        // `createTab` never sees the seed (its contract takes only the state),
+        // so a seed carrying custom state would be dropped for every
+        // descriptor that mints its own tab — the exact case a caller needs
+        // when it opens a `single` tab AT a specific subject (a project id).
+        // Patch the landed tab so the meta rides the persisted state, and
+        // carry it on the tab handed to the lifecycle callbacks. This applies
+        // to a focus as much as a creation: re-opening a single tab for a
+        // DIFFERENT subject must re-point it, not silently keep the old one.
+        if (seed.meta !== undefined) {
+          tab = { ...tab, meta: seed.meta }
+          next = patchTab(next, tab.id, { meta: seed.meta })
+        }
       } else {
         tab = {
           id: seed.id ?? seed.type,

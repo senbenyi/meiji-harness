@@ -122,9 +122,6 @@ function normalizeCharacter(raw, position) {
   if (!Number.isInteger(age)) {
     fail('CHARACTER_AGE_REQUIRED', `characters[${position}].age 必须是具体的整数年龄，不接受「二十岁左右」这类模糊表述`, 422)
   }
-  if (age < 18) {
-    fail('CHARACTER_AGE_REQUIRED', `characters[${position}].age 必须不小于 18；未成年角色不予创作`, 422)
-  }
   return {
     id: String(item.id || `char-${String(position + 1).padStart(2, '0')}`),
     name: requireText(item.name, `characters[${position}].name`, 60),

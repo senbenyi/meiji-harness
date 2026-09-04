@@ -166,9 +166,15 @@ export function createCreationService(config = {}, planner = null) {
 
   /** 读取完整创作状态。Skill 每次接续前先读这里，不依赖对话记忆。 */
   async function getState(body = {}) {
-    const { creation } = await loadCreation(config, body.projectId)
+    const { projectDirectory, creation } = await loadCreation(config, body.projectId)
     const { director, fallback } = resolveDirector(creation)
-    return stateOf(creation, director, fallback)
+    const project = await readJson(path.join(projectDirectory, 'project.json'))
+    return {
+      ...stateOf(creation, director, fallback),
+      project,
+      openingPrompt: composeOpeningPrompt(director, project, TOTAL_STEPS),
+      skill: director.skill,
+    }
   }
 
   /** 保存一步的草稿结果；`expectedRevision` 不匹配时拒绝，避免多标签页互相覆盖。 */
@@ -304,7 +310,7 @@ export function createCreationService(config = {}, planner = null) {
     const episodeInput = { ...input, aspectRatio, profile: body.profile === 'final' ? 'final' : 'preview' }
 
     try {
-      const planned = await planner.plan({ ...episodeInput, episodeId })
+      const planned = await planner.plan({ ...episodeInput, episodeId, directorProfile: profile })
       if (planned.plan.chapters.length !== draft.chapterCount) {
         fail(
           'CHAPTER_COUNT_MISMATCH',

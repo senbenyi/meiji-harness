@@ -97,20 +97,20 @@ function normalizeResult(value, body, chapterCount, scenes) {
   }
 }
 
-function sceneBreakdownPrompt(body) {
+function sceneBreakdownPrompt(body, profile) {
   return `/no_think
 你是短剧导演。第一阶段只忠实拆分故事，不创作新剧情，也不设计镜头。
 
 只输出一个 JSON 对象：
 {"synopsis":"忠实梗概","scenes":[{"title":"场名","summary":"本场完整剧情","characters":["角色"],"location":"地点","timeOfDay":"时段","dialogueCount":0,"dialogueChars":0,"emotionStart":"起始情绪","emotionEnd":"结束情绪","emotionIntensity":0,"notes":{"emotionalBeat":"情感砸点","consistencyAnchor":"角色服装道具连续性","spatial":"人物位置朝向与距离","ambientSound":"具体环境音源","pitfall":"易错点"},"transitionToNext":"仅必要时填写具体过渡"}]}
 
-规则：场次覆盖全部故事且顺序不变；台词条数和字数如实统计；情绪强度为 ${DIRECTOR_PROFILE.pacing.emotionScale}，相邻场景情绪落差超过 ${DIRECTOR_PROFILE.pacing.maxAdjacentEmotionDelta} 时在 pitfall 说明剧本依据；环境音只写可听见的声源，不写配乐；仅在必要时使用 ${DIRECTOR_PROFILE.transitions.preferred.join('、')}，不需要过渡时省略 transitionToNext；禁止 ${DIRECTOR_PROFILE.transitions.avoid.join('、')}。
+规则：场次覆盖全部故事且顺序不变；台词条数和字数如实统计；情绪强度为 ${profile.pacing.emotionScale}，相邻场景情绪落差超过 ${profile.pacing.maxAdjacentEmotionDelta} 时在 pitfall 说明剧本依据；环境音只写可听见的声源，不写配乐；仅在必要时使用 ${profile.transitions.preferred.join('、')}，不需要过渡时省略 transitionToNext；禁止 ${profile.transitions.avoid.join('、')}。
 
 故事：
 ${body.sourceText}`
 }
 
-function plannerPrompt(body, scenes, chapterCount, chapterOffset, totalChapters, continuity) {
+function plannerPrompt(body, scenes, chapterCount, chapterOffset, totalChapters, continuity, profile) {
   const first = chapterOffset + 1
   const last = chapterOffset + chapterCount
   return `/no_think
@@ -122,7 +122,7 @@ function plannerPrompt(body, scenes, chapterCount, chapterOffset, totalChapters,
 3. 每章第一个锚点是独立文生图起始帧；后五个是连续关键帧。
 4. chapters 必须忠实覆盖下方 scenes，sceneIds 标明来源场景；不得添加 scenes 没有的剧情、人物或道具。
 5. 每个 imagePrompt 是动作开始前的静止首帧，只描述可见主体、动作起点、场景、构图、光线、角色左右位置/朝向和连续状态。严禁复制整篇故事或写占位描述。
-6. 每个 motionPrompt 从首帧出发，描述人物动作、情绪推进和克制运镜；优先 ${DIRECTOR_PROFILE.camera.motionPreference}，禁止 ${DIRECTOR_PROFILE.camera.forbiddenMotions.join('、')}；人物换位或转向必须写出衔接动作。
+6. 每个 motionPrompt 从首帧出发，描述人物动作、情绪推进和克制运镜；优先 ${profile.camera.motionPreference}，禁止 ${profile.camera.forbiddenMotions.join('、')}；人物换位或转向必须写出衔接动作。
 7. 相邻锚点必须有明确叙事推进；章节之间必须衔接上一章结尾的时间、地点、服装、道具和人物状态。
 8. 每章 soundPrompt 用英文描述本章可见动作对应的环境声和拟音；不得要求对白、旁白、配音或音乐。
 9. 输出画幅为 ${body.aspectRatio === '16:9' ? '16:9 横屏' : '9:16 竖屏'}；不要写字幕、水印、帧率或与该画幅冲突的技术参数。
@@ -132,7 +132,7 @@ JSON 结构：
 {"synopsis":"一句话梗概","castPrompt":"角色定妆表提示","chapters":[{"title":"章节名","summary":"本章发生的具体事件","sceneIds":["scene-01"],"soundPrompt":"English environmental sound and Foley prompt","anchors":[{"imagePrompt":"具体首帧画面","motionPrompt":"具体动作与运镜"}]}]}
 
 目标时长：${body.targetDurationSec} 秒
-画面风格：${body.stylePrompt || `${DIRECTOR_PROFILE.style.genre}，${DIRECTOR_PROFILE.style.visualTone}，${DIRECTOR_PROFILE.style.lighting}`}
+画面风格：${body.stylePrompt || `${profile.style.genre}，${profile.style.visualTone}，${profile.style.lighting}`}
 人物补充：${body.castPrompt || '从故事中识别全部主要成年角色'}
 已审核场景拆解（唯一剧情来源）：
 ${JSON.stringify(scenes)}
@@ -169,7 +169,11 @@ export function createPlannerService(ctx, config = {}) {
       if (!raw.trim()) fail('PLANNER_EMPTY', 'Qwen3.8 没有返回规划')
       return extractJson(raw)
     }
-    const breakdown = await requestJson(sceneBreakdownPrompt(body))
+    // 导演可以覆盖全局方法论参数；创新项目入口通过 body.directorProfile 传入合并结果。
+    const profile = body.directorProfile && typeof body.directorProfile === 'object'
+      ? body.directorProfile
+      : DIRECTOR_PROFILE
+    const breakdown = await requestJson(sceneBreakdownPrompt(body, profile))
     const scenes = normalizeScenes(breakdown)
     const chapterCount = Math.max(1, Math.ceil(Number(body.targetDurationSec ?? 10) / CHAPTER_SECONDS))
     const chapters = []
@@ -178,7 +182,7 @@ export function createPlannerService(ctx, config = {}) {
     let continuity = ''
     for (let offset = 0; offset < chapterCount; offset += CHAPTERS_PER_CALL) {
       const batchSize = Math.min(CHAPTERS_PER_CALL, chapterCount - offset)
-      const batch = await requestJson(plannerPrompt(body, scenes, batchSize, offset, chapterCount, continuity))
+      const batch = await requestJson(plannerPrompt(body, scenes, batchSize, offset, chapterCount, continuity, profile))
       if (!Array.isArray(batch?.chapters) || batch.chapters.length !== batchSize) {
         fail('PLANNER_OUTPUT_INVALID', `Qwen3.8 本批应返回 ${batchSize} 章，实际返回 ${batch?.chapters?.length ?? 0} 章`)
       }
