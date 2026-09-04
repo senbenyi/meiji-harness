@@ -30,10 +30,22 @@ export function validateProjectCreate(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw new ElysiumError('VALIDATION_ERROR', 'Request body must be an object')
   }
-  return {
+  const result = {
     title: requiredText(body.title, 'title', 120),
     description: optionalText(body.description, 'description', 2000)?.trim() || '',
   }
+  // 创新项目才带导演；缺省视为传统项目，老项目读到 kind 为 undefined 时同样按传统处理。
+  if (body.kind !== undefined) {
+    if (body.kind !== 'creative' && body.kind !== 'classic') {
+      throw new ElysiumError('VALIDATION_ERROR', 'kind must be "creative" or "classic"')
+    }
+    result.kind = body.kind
+  }
+  if (result.kind === 'creative') {
+    result.directorId = requiredText(body.directorId, 'directorId', 64)
+    result.directorVersion = requiredText(body.directorVersion, 'directorVersion', 32)
+  }
+  return result
 }
 
 export function validateShotUpdates(updates) {

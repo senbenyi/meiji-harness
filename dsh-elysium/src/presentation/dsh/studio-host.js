@@ -18,6 +18,8 @@ import { createComfyUiService } from '../../infrastructure/comfyui/service.js'
 import { episodeCreate, episodeGet, episodeList, episodeUpdate } from '../../application/episode-service.js'
 import { createProductionService } from '../../application/production-service.js'
 import { createPlannerService } from '../../application/planning-service.js'
+import { createCreationService } from '../../application/creation-service.js'
+import { DIRECTORS_VERSION, listDirectors } from '../../application/directors.js'
 
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'llm']
@@ -103,7 +105,14 @@ function sendError(res, error) {
   })
 }
 
+function hasSuppliedPlan(value) {
+  return Boolean(value && typeof value === 'object' && Array.isArray(value.chapters))
+}
+
 async function createPlannedEpisode(config, planner, body) {
+  // 调用方已经给出规划时不再重跑 Producer Agent：否则传入的 plan 会被 `{...body, ...planned}`
+  // 静默覆盖，调用方拿到的是一份自己没要过的规划。
+  if (hasSuppliedPlan(body.plan)) return episodeCreate(config, body)
   const planned = await planner.plan(body)
   return episodeCreate(config, { ...body, ...planned })
 }
@@ -111,6 +120,8 @@ async function createPlannedEpisode(config, planner, body) {
 async function updatePlannedEpisode(config, planner, body) {
   const updates = body.updates && typeof body.updates === 'object' ? body.updates : {}
   const current = await episodeGet(config, body)
+  // 同上：显式给了 plan 就以调用方的为准，除非明确要求 replan。
+  if (hasSuppliedPlan(updates.plan) && body.replan !== true) return episodeUpdate(config, body)
   const needsReplan = body.replan === true
     || ['sourceText', 'targetDurationSec', 'stylePrompt', 'castPrompt', 'aspectRatio']
       .some(key => updates[key] !== undefined && updates[key] !== current.episode[key])
@@ -126,7 +137,7 @@ async function planSavedEpisode(config, planner, body) {
   return episodeUpdate(config, { ...body, updates: planned })
 }
 
-function attachRoutes(ctx, config, generation, factory, production, planner, comfy, fence) {
+function attachRoutes(ctx, config, generation, factory, production, planner, comfy, creation, fence) {
   const routes = new Map([
     ['/project.list', projectList],
     ['/project.get', projectGet],
@@ -153,6 +164,18 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
     ['/artifact.adopt', (_config, body) => production.adopt(body)],
     ['/issue.resolve', (_config, body) => production.resolveIssue(body)],
     ['/review.approve', (_config, body) => production.approve(body)],
+    // 创新项目入口。approve_story / sync_to_production / reopen_story 只在这里暴露，
+    // 不进聊天工具的 action 表——模型物理上无法自我批准或自行写入制作流程。
+    ['/director.list', () => ({ ok: true, catalogVersion: DIRECTORS_VERSION, directors: listDirectors() })],
+    ['/creation.create_project', (_config, body) => creation.createProject(body)],
+    ['/creation.bind_session', (_config, body) => creation.bindSession(body)],
+    ['/creation.get_state', (_config, body) => creation.getState(body)],
+    ['/creation.save_step', (_config, body) => creation.saveStep(body)],
+    ['/creation.confirm_step', (_config, body) => creation.confirmStep(body)],
+    ['/creation.compile_story', (_config, body) => creation.compileStory(body)],
+    ['/creation.approve_story', (_config, body) => creation.approveStory(body)],
+    ['/creation.sync_to_production', (_config, body) => creation.syncToProduction(body)],
+    ['/creation.reopen_story', (_config, body) => creation.reopenStory(body)],
     ['/comfyui.state', () => comfy.state()],
     ['/comfyui.test', (_config, body) => comfy.testConnection(body)],
     ['/comfyui.save', (_config, body) => comfy.saveSettings(body)],
@@ -298,9 +321,10 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
   const factory = createFactoryService(ctx, config, comfy)
   const production = createProductionService(ctx, config, comfy)
   const planner = createPlannerService(ctx, config)
+  const creation = createCreationService(config, planner)
   const register = (scope) => scope.effect(
     () => {
-      const disposeRoutes = attachRoutes(scope, config, generation, factory, production, planner, comfy, fence)
+      const disposeRoutes = attachRoutes(scope, config, generation, factory, production, planner, comfy, creation, fence)
       void production.resumeAll().catch(error => scope.logger?.warn?.(`[elysium] production recovery: ${error?.message || error}`))
       return () => {
         generation.dispose()
@@ -364,6 +388,10 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
       note: { type: 'string', description: '工作流或 LoRA 使用说明' },
       comfyArgs: { type: 'object', additionalProperties: true, description: 'comfyui_generate 的完整合同参数；先执行 comfyui_inspect' },
       comfySettings: { type: 'object', additionalProperties: true, description: 'comfyui_save 的设置补丁' },
+      index: { type: 'number', description: '创作步骤序号，1 到 15' },
+      value: { type: 'object', additionalProperties: true, description: '创作步骤结果；数组结果放在 items 字段里' },
+      items: { type: 'array', items: { type: 'object', additionalProperties: true }, description: '创作步骤的数组结果（角色、场景、章节、分镜、环境音）' },
+      expectedRevision: { type: 'number', description: '保存创作步骤时的乐观锁修订号' },
     },
     output: {
       schema: { type: 'string' },
@@ -388,6 +416,17 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
           artifact_adopt: () => production.adopt(input),
           issue_resolve: () => production.resolveIssue(input),
           review_approve: () => production.approve(input),
+          // 创作阶段：只读与草稿写。批准、同步和退回定稿不在这里，必须由用户在界面上做。
+          creation_list_directors: () => ({ ok: true, catalogVersion: DIRECTORS_VERSION, directors: listDirectors() }),
+          creation_get_state: () => creation.getState(input),
+          creation_save_step: () => creation.saveStep({
+            projectId: input.projectId,
+            index: input.index,
+            value: Array.isArray(input.items) ? input.items : input.value,
+            expectedRevision: input.expectedRevision,
+          }),
+          creation_confirm_step: () => creation.confirmStep(input),
+          creation_compile_story: () => creation.compileStory(input),
           comfyui_state: () => comfy.state(),
           comfyui_inspect: () => comfy.inspect(input.template, input.query),
           comfyui_generate: () => comfy.generate({ ...(input.comfyArgs || {}), template: input.template || input.comfyArgs?.template }),

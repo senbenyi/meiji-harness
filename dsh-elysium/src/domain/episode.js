@@ -28,6 +28,31 @@ export function now() {
   return new Date().toISOString()
 }
 
+/** 单集必须显式确认的四项内容合规。 */
+export const COMPLIANCE_FIELDS = ['fictional_adults_only', 'all_participants_18_or_older', 'consensual_content', 'rights_confirmed']
+
+/**
+ * 校验单集的合规声明。
+ *
+ * 空对象保持既有行为（老单集与传统入口的草稿），一旦带了任何一项就必须四项俱全且为
+ * true——半勾选比不勾选更危险，不能只存不校验。
+ *
+ * @param value - 待校验的 compliance 对象。
+ * @param options.required - 为 true 时空对象也拒绝（创新项目入口走这条）。
+ */
+export function validateCompliance(value, { required = false } = {}) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  const declared = COMPLIANCE_FIELDS.some(key => source[key] !== undefined)
+  if (!declared) {
+    if (required) fail('COMPLIANCE_REQUIRED', '必须显式确认全部四项内容合规后才能继续', 422)
+    return {}
+  }
+  for (const key of COMPLIANCE_FIELDS) {
+    if (source[key] !== true) fail('COMPLIANCE_REQUIRED', `compliance.${key} 必须明确为 true`, 422)
+  }
+  return Object.fromEntries(COMPLIANCE_FIELDS.map(key => [key, true]))
+}
+
 export function aspectRatioOf(value, stylePrompt = '') {
   if (value === '16:9' || value === '9:16') return value
   return /(?:^|\D)16\s*[:：]\s*9(?:\D|$)/.test(stylePrompt) ? '16:9' : '9:16'

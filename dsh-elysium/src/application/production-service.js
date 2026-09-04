@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process'
 import { createComfyUiService } from '../infrastructure/comfyui/service.js'
 import { ElysiumError, listProjectIds, writeJsonAtomic } from '../infrastructure/persistence/store.js'
 import { buildTasks, episodeGet, episodeList, loadEpisode, saveEpisode, withEpisodeLock } from './episode-service.js'
+import { COMPLIANCE_FIELDS, validateCompliance } from '../domain/episode.js'
 
 const runners = new Map()
 
@@ -414,6 +415,27 @@ function assertAuthorization(body) {
   }
 }
 
+/**
+ * 付费授权时固化合规声明。
+ *
+ * 单集已有声明就再校验一遍（防手改文件）；没有声明而调用方带了，就写进单集——
+ * 这样授权记录始终能追溯到具体的四项确认，而不只是一个布尔。
+ */
+function applyAuthorizationCompliance(loaded, body) {
+  const declared = COMPLIANCE_FIELDS.some(key => loaded.episode.compliance?.[key] !== undefined)
+  if (declared) {
+    loaded.episode.compliance = validateCompliance(loaded.episode.compliance)
+  } else if (body.compliance !== undefined) {
+    loaded.episode.compliance = validateCompliance(body.compliance, { required: true })
+  }
+  loaded.state.authorization = {
+    confirmAuthorizedContent: true,
+    compliance: { ...loaded.episode.compliance },
+    authorizedBy: String(body.authorizedBy || '').trim() || null,
+    authorizedAt: loaded.state.authorizedAt || now(),
+  }
+}
+
 function ensureAudioTask(loaded) {
   if (loaded.tasks.some(task => task.id === 'audio')) return false
   loaded.tasks = buildTasks(loaded.episode, loaded.plan, loaded.tasks)
@@ -452,6 +474,7 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
       }
       loaded.state.status = 'running'
       loaded.state.authorizedAt = loaded.state.authorizedAt || now()
+      applyAuthorizationCompliance(loaded, body)
       loaded.state.approval = null
       await saveEpisode(loaded)
       return { ok: true, accepted: true, state: loaded.state }

@@ -82,7 +82,15 @@ export async function projectCreate(config, body = {}) {
   }
 
   const now = new Date().toISOString()
-  const project = { id, title: input.title, description: input.description, createdAt: now, updatedAt: now }
+  const project = {
+    id,
+    title: input.title,
+    description: input.description,
+    ...(input.kind ? { kind: input.kind } : {}),
+    ...(input.directorId ? { directorId: input.directorId, directorVersion: input.directorVersion } : {}),
+    createdAt: now,
+    updatedAt: now,
+  }
   try {
     await Promise.all([
       mkdir(path.join(dir, 'assets', 'characters'), { recursive: true }),

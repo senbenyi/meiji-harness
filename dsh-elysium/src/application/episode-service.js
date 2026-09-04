@@ -16,6 +16,7 @@ import {
   now,
   safeId,
   text,
+  validateCompliance,
   validatePlan,
 } from '../domain/episode.js'
 
@@ -87,7 +88,7 @@ export async function episodeCreate(config, body = {}) {
     stylePrompt,
     castPrompt: String(body.castPrompt || '').trim(),
     negativePrompt: String(body.negativePrompt || '').trim(),
-    compliance: body.compliance && typeof body.compliance === 'object' ? { ...body.compliance } : {},
+    compliance: validateCompliance(body.compliance),
     createdAt: stamp,
     updatedAt: stamp,
   }
@@ -185,6 +186,7 @@ export async function episodeUpdate(config, body = {}) {
     if (patch.stylePrompt !== undefined) loaded.episode.stylePrompt = String(patch.stylePrompt || '').trim()
     if (patch.castPrompt !== undefined) loaded.episode.castPrompt = String(patch.castPrompt || '').trim()
     if (patch.negativePrompt !== undefined) loaded.episode.negativePrompt = String(patch.negativePrompt || '').trim()
+    if (patch.compliance !== undefined) loaded.episode.compliance = validateCompliance(patch.compliance)
     if (patch.targetDurationSec !== undefined) {
       const duration = Number(patch.targetDurationSec)
       if (!Number.isFinite(duration) || duration < TARGET_MIN || duration > TARGET_MAX) fail('VALIDATION_ERROR', 'targetDurationSec 超出范围')
