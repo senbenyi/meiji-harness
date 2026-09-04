@@ -115,6 +115,24 @@ test('accepts validated JSON when Qwen exposes it only as reasoning output', asy
   assert.equal(result.plan.chapters[0].anchors.length, 6)
 })
 
+test('asks Qwen to repair a wrong chapter count once', async () => {
+  const prompts = []
+  let call = 0
+  const ctx = { llm: { async *stream(request) {
+    prompts.push(request.messages[0].content[0].text)
+    const outputs = [scenesResponse(), response(2), response(1)]
+    yield { type: 'text-delta', index: 0, text: outputs[call++] }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  } } }
+  const result = await createPlannerService(ctx).plan({
+    episodeId: 'episode-repair', sourceText: '十秒单章故事。', targetDurationSec: 10,
+  })
+
+  assert.equal(result.plan.chapters.length, 1)
+  assert.equal(prompts.length, 3)
+  assert.match(prompts[2], /chapters 必须正好 1 章/)
+})
+
 test('rejects malformed planner output instead of silently creating a fake draft', async () => {
   let call = 0
   const ctx = { llm: { async *stream() {

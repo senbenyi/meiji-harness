@@ -139,6 +139,14 @@ ${JSON.stringify(scenes)}
 ${continuity ? `上一批最后状态：${continuity}\n本批第一章必须从这个状态自然接续。` : ''}`
 }
 
+function chapterCountRepairPrompt(raw, expected) {
+  return `/no_think
+你上一版 JSON 的 chapters 数量错误。请只修正数量并重新输出完整 JSON：chapters 必须正好 ${expected} 章，每章仍必须正好 ${ANCHORS_PER_CHAPTER} 个 anchors，并忠实覆盖原有剧情。不要解释，不要 Markdown。
+
+上一版 JSON：
+${JSON.stringify(raw)}`
+}
+
 export function createPlannerService(ctx, config = {}) {
   async function plan(body) {
     const provider = String(config.planner?.provider || 'qwen38-local')
@@ -182,7 +190,10 @@ export function createPlannerService(ctx, config = {}) {
     let continuity = ''
     for (let offset = 0; offset < chapterCount; offset += CHAPTERS_PER_CALL) {
       const batchSize = Math.min(CHAPTERS_PER_CALL, chapterCount - offset)
-      const batch = await requestJson(plannerPrompt(body, scenes, batchSize, offset, chapterCount, continuity, profile))
+      let batch = await requestJson(plannerPrompt(body, scenes, batchSize, offset, chapterCount, continuity, profile))
+      if (!Array.isArray(batch?.chapters) || batch.chapters.length !== batchSize) {
+        batch = await requestJson(chapterCountRepairPrompt(batch, batchSize))
+      }
       if (!Array.isArray(batch?.chapters) || batch.chapters.length !== batchSize) {
         fail('PLANNER_OUTPUT_INVALID', `Qwen3.8 本批应返回 ${batchSize} 章，实际返回 ${batch?.chapters?.length ?? 0} 章`)
       }
