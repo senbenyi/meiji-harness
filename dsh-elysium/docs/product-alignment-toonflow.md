@@ -159,42 +159,43 @@
 
 #### 设计原则
 
-- 对齐 MVP 管线（vmp-1 schema，12 shot），这是正向生产的主线
-- 不引入新基础设施，用 LLM Skill + 配置文件实现
-- 产出直接被 `llm-ai-model/scripts/mvp/run_mvp.py` 消费，无需中间转换
+- 两阶段导演纪律（先忠实拆解、再分配画面）是正向生产的主线
+- 不引入新基础设施，方法论用配置 + 提示词实现
+- 产出直接进入插件的 `plan.json`（动态章节 × 6 锚点），无需中间转换
 
 #### 整体流程
 
 ```
-剧本文本 + director.yaml
+故事文本 + director-profile
         ↓
-   [导演 Skill]
+  [Producer Agent]
         ↓
   ┌─────┴─────┐
-  │  第一阶段  │  剧本 → 场景拆解
-  │  scene     │  输出 scenes.json
+  │  第一阶段  │  故事 → 场景拆解
+  │  scene     │  输出 scenes
   └─────┬─────┘
         ↓
   ┌─────┴─────┐
-  │  第二阶段  │  场景 → 12 镜头分配
-  │  shot      │  输出 episode.json (vmp-1)
+  │  第二阶段  │  场景 → 章节与锚点分配
+  │  chapter   │  输出 plan (elysium-plan-2)
   └─────┬─────┘
         ↓
-   MVP 管线消费
-   run_mvp.py
+  Episode Orchestrator
+  production-service
 ```
 
-#### 实现状态：已落地（2026-09-04）
+#### 实现状态：已落地并归位插件（2026-09-04）
 
-导演配置、Skill 入口、两阶段提示词、跑通示例已在 `llm-ai-model` 仓库实现并通过校验，不再是设计草案。本节只做导航，具体规则以对应文件为准（避免和实现分叉后没人维护两份）：
+早期实现在 `llm-ai-model` 仓库（`mvp-director` Skill + `director.yaml`，面向固定 12 镜的 `vmp-1`）。
+业务能力归位后，该实现已从模型仓库删除，方法论与执行都在本插件内。本节只做导航，具体规则以对应
+文件为准（避免和实现分叉后没人维护两份）：
 
 | 组件 | 文件 |
 |---|---|
-| 导演配置 | `llm-ai-model/workflows/mvp/director.yaml` |
-| Skill 入口 | `llm-ai-model/.dsh/skills/mvp-director/SKILL.md` |
-| 第一阶段提示词（场景拆解） | `llm-ai-model/.dsh/skills/mvp-director/prompts/scene-breakdown.md` |
-| 第二阶段提示词（镜头分配） | `llm-ai-model/.dsh/skills/mvp-director/prompts/shot-assignment.md` |
-| 跑通示例（剧本→scenes→episode） | `llm-ai-model/.dsh/skills/mvp-director/examples/` |
+| 导演配置 | `src/application/director-profile.js` |
+| 两阶段提示词与校验 | `src/application/planning-service.js` |
+| 方法论与红线（设计依据） | `docs/director-methodology.md` |
+| 操作入口 Skill | `.dsh/skills/elysium-director/SKILL.md`（仓库根） |
 
 **设计来源**：方法论蒸馏自 `/Users/mac/ai/Toonflow-app` 的真实技能包（`production_execution_director_plan.md` 导演规划、`production_execution_storyboard_panel.md` 分镜写入、`production_skills/storyboard_prompt_techniques.md` 提示词技法），不是本文档早期草稿里手造的字段。字段口径以此为准：台词条数/字数如实统计、情绪浓度 0-10、过渡先判断必要性再决定是否写（不为凑数硬造过场）、image_prompt 按首帧识别原则取静止定格态、同场景角色左右位置与朝向必须锁定。
 

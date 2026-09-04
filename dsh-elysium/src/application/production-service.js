@@ -485,6 +485,8 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
   }
 
   async function retry(body = {}) {
+    const activeRunner = runners.get(runnerKey(body.projectId, body.episodeId))
+    if (activeRunner) await activeRunner.catch(() => {})
     const result = await withEpisodeLock(body.projectId, body.episodeId, async () => {
       const loaded = await loadEpisode(config, body.projectId, body.episodeId)
       if (loaded.state.status === 'running') fail('EPISODE_BUSY', '生产运行中，不能重置任务', 409)

@@ -23,11 +23,12 @@ async function fixture(t, targetDurationSec = 20) {
   return { workspace, projectId: project.project.id, body }
 }
 
-async function eventually(check, timeout = 3000) {
+async function eventually(check, timeout = 10000) {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
     const result = await check()
-    if (!['running', 'queued'].includes(result.state.status)) return result
+    const activeTask = result.tasks?.some(task => ['running', 'queued'].includes(task.status))
+    if (!['running', 'queued'].includes(result.state.status) && !activeTask) return result
     await new Promise(resolve => setTimeout(resolve, 10))
   }
   throw new Error('production did not settle')
