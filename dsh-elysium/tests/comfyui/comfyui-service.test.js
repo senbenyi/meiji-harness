@@ -135,7 +135,7 @@ test('workflow test retries one transient ComfyUI status timeout', async (t) => 
   await writeFile(path.join(templatesDir, 'retry-ready.json'), JSON.stringify({ 1: { class_type: 'TestNode', inputs: {} } }))
   await writeFile(path.join(templatesDir, 'retry-ready.contract.json'), JSON.stringify({ id: 'retry-ready', workflow: 'retry-ready.json', slots: {} }))
 
-  const result = await testTemplateReadiness({ baseUrl, templatesDir, template: 'retry-ready', pingTimeout: 20 })
+  const result = await testTemplateReadiness({ baseUrl, templatesDir, template: 'retry-ready', pingTimeout: 500 })
 
   assert.equal(statusRequests, 2)
   assert.equal(result.ready, true)

@@ -30,7 +30,7 @@ try {
 } catch { /* no running web process */ }
 for (const value of output.trim().split(/\s+/).filter(Boolean)) {
   const command = execFileSync('ps', ['-p', value, '-o', 'command='], { encoding: 'utf8' }).trim()
-  if (!/dsh\/lib\/bin\.js web(?:\s|$)/.test(command)) throw new Error(`port 3080 is occupied by a non-DSH process (${value})`)
+  if (!/(?:dsh\/lib\/bin\.js|(?:^|\s)\S*\/dsh) web(?:\s|$)/.test(command)) throw new Error(`port 3080 is occupied by a non-DSH process (${value})`)
   process.kill(Number(value), 'SIGTERM')
   for (let attempt = 0; attempt < 30; attempt += 1) {
     try { process.kill(Number(value), 0) } catch { break }
@@ -41,7 +41,7 @@ for (const value of output.trim().split(/\s+/).filter(Boolean)) {
 const child = spawn(dshBin(), ['web', '--no-open'], { cwd: resolve(root, '..'), detached: true, stdio: 'ignore' })
 child.unref()
 let ready = false
-for (let attempt = 0; attempt < 30; attempt += 1) {
+for (let attempt = 0; attempt < 300; attempt += 1) {
   try {
     const response = await fetch('http://127.0.0.1:3080/elysium/api/project.list', {
       method: 'POST',

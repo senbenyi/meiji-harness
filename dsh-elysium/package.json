@@ -76,7 +76,7 @@
     "watch": "tsdown --watch",
     "prepare": "tsdown",
     "test": "npm run test:elysium",
-    "test:elysium": "node --test tests/*/*.test.js",
+    "test:elysium": "node --test --test-concurrency=1 tests/*/*.test.js",
     "check:consumer-types": "bash scripts/check-consumer-types.sh",
     "check:source-imports": "node scripts/check-source-imports.mjs",
     "update:official-nodes": "node scripts/update-official-nodes.mjs"
