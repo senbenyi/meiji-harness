@@ -92,6 +92,8 @@
 
 仓库外证据目录：`/Users/mac/Downloads/elysium-e2e-20260904`
 
+完整目录说明见 `docs/elysium-artifact-locations.md`。
+
 - 原插件成片：`雾港来信-final.mp4`（10.000 秒，尾部被截断，用于缺陷复现）
 - 修复后真实素材验证成片：`雾港来信-final-timescaled-validation.mp4`
 - 修复前抽帧：`07-contact-sheet.jpg`
