@@ -68,6 +68,7 @@ test('creates dynamic chapters with one start frame and five continuation frames
   assert.equal(created.tasks.filter(task => task.type === 'start_frame').length, 3)
   assert.equal(created.tasks.filter(task => task.type === 'keyframe').length, 15)
   assert.equal(created.tasks.filter(task => task.type === 'chapter').length, 3)
+  assert.deepEqual(created.tasks.find(task => task.type === 'audio').dependencies, ['final'])
   for (const chapter of created.plan.chapters) {
     assert.equal(chapter.anchors.length, 6)
     assert.equal(chapter.anchors[0].role, 'start')
@@ -149,7 +150,7 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
   const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
   const ffmpegArgs = path.join(workspace, 'ffmpeg-args.txt')
   await writeFile(ffmpeg, `#!/bin/sh\nprintf '%s\\n' "$@" > "${ffmpegArgs}"\nfor last do :; done\nprintf video > "$last"\n`)
-  await writeFile(ffprobe, '#!/bin/sh\nprintf "21.5\\n"\n')
+  await writeFile(ffprobe, '#!/bin/sh\ncase "$*" in *stream=codec_name*) printf "aac\\n";; *) printf "21.5\\n";; esac\n')
   await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
 
   const submissions = []
@@ -158,7 +159,7 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
     async generate(args) {
       submissions.push(args)
       const id = `job-${submissions.length}`
-      jobs.set(id, args.template === 'wan22-remix-long' ? { kind: 'video', path: video } : { kind: 'image', path: image })
+      jobs.set(id, ['wan22-remix-long', 'mmaudio'].includes(args.template) ? { kind: 'video', path: video } : { kind: 'image', path: image })
       return { ok: true, job_id: id }
     },
     async job(args) {
@@ -182,9 +183,13 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
   const editedFrames = submissions.filter(args => args.template === 'qwen-image-edit')
   assert.equal(editedFrames.length, 5)
   assert.equal(editedFrames.every(args => args.image && args.character_image), true)
+  const audioSubmission = submissions.find(args => args.template === 'mmaudio')
+  assert.ok(audioSubmission?.video)
+  assert.match(audioSubmission.prompt, /环境声和拟音/)
   const ffmpegCommand = await readFile(ffmpegArgs, 'utf8')
   assert.match(ffmpegCommand, /setpts=0\.930232558\*PTS,minterpolate=/)
   assert.match(ffmpegCommand, /trim=duration=20/)
+  assert.equal(finished.state.final.qc.audioCodec, 'aac')
 
   await production.approve({ projectId, episodeId: body.episodeId, reviewer: 'qa.user', confirmHumanReviewPassed: true })
   const approved = await production.status({ projectId, episodeId: body.episodeId })
@@ -205,6 +210,48 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
   assert.equal(changed.tasks.filter(task => task.id !== 'asset:cast-main').every(task => task.status === 'pending'), true)
 })
 
+test('migrates an awaiting-review silent episode and generates its audio task', async t => {
+  const { workspace, projectId, body } = await fixture(t)
+  const config = { workspace }
+  const ready = await createReadyEpisode(config, body)
+  const episodeDirectory = path.join(workspace, 'projects', projectId, 'episodes', body.episodeId)
+  const silent = path.join(episodeDirectory, 'artifacts', 'final', 'legacy-silent.mp4')
+  await writeFile(silent, 'silent')
+  const legacyTasks = ready.tasks
+    .filter(task => task.id !== 'audio')
+    .map(task => ({ ...task, status: 'succeeded', path: task.id === 'final' ? 'artifacts/final/legacy-silent.mp4' : task.path }))
+  await writeFile(path.join(episodeDirectory, 'tasks.json'), JSON.stringify(legacyTasks))
+  await writeFile(path.join(episodeDirectory, 'state.json'), JSON.stringify({
+    ...ready.state,
+    status: 'awaiting_review',
+    authorizedAt: new Date().toISOString(),
+    final: { path: 'artifacts/final/legacy-silent.mp4' },
+  }))
+
+  const generated = path.join(workspace, 'audio.mp4')
+  await writeFile(generated, 'audio')
+  const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
+  await writeFile(ffprobe, '#!/bin/sh\ncase "$*" in *stream=codec_name*) printf "aac\\n";; *) printf "20\\n";; esac\n')
+  await chmod(ffprobe, 0o755)
+  const requiredSlots = Object.fromEntries([
+    'prompt', 'image', 'character_image', 'video',
+    ...Array.from({ length: 6 }, (_, index) => `image_${index + 1}`),
+    ...Array.from({ length: 6 }, (_, index) => `prompt_${index + 1}`),
+  ].map(slot => [slot, {}]))
+  const comfy = {
+    async inspect() { return { ok: true, slots: requiredSlots } },
+    async generate(args) { assert.equal(args.template, 'mmaudio'); return { ok: true, job_id: 'audio-job' } },
+    async job() { return { ok: true, status: 'success', outputs: [{ kind: 'video', path: generated }] } },
+  }
+  const production = createProductionService({}, { workspace, ffprobe }, comfy)
+  t.after(() => production.dispose())
+  await production.start({ projectId, episodeId: body.episodeId, confirmAuthorizedContent: true })
+  const finished = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
+  assert.equal(finished.state.status, 'awaiting_review')
+  assert.equal(finished.tasks.find(task => task.id === 'audio').status, 'succeeded')
+  assert.equal(finished.state.final.qc.audioCodec, 'aac')
+})
+
 test('retry resumes an authorized production instead of leaving pending tasks stuck', async t => {
   const { workspace, projectId, body } = await fixture(t)
   const image = path.join(workspace, 'remote.png')
@@ -213,7 +260,7 @@ test('retry resumes an authorized production instead of leaving pending tasks st
   const ffmpeg = path.join(workspace, 'fake-ffmpeg.sh')
   const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
   await writeFile(ffmpeg, '#!/bin/sh\nfor last do :; done\nprintf video > "$last"\n')
-  await writeFile(ffprobe, '#!/bin/sh\nprintf "21.5\\n"\n')
+  await writeFile(ffprobe, '#!/bin/sh\ncase "$*" in *stream=codec_name*) printf "aac\\n";; *) printf "21.5\\n";; esac\n')
   await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
 
   let failedEditAttempts = 0
@@ -226,7 +273,7 @@ test('retry resumes an authorized production instead of leaving pending tasks st
         return { ok: false, code: 'SLOT_UNKNOWN', message: 'Unknown slots: character_image' }
       }
       const id = `job-${++sequence}`
-      jobs.set(id, args.template === 'wan22-remix-long' ? { kind: 'video', path: video } : { kind: 'image', path: image })
+      jobs.set(id, ['wan22-remix-long', 'mmaudio'].includes(args.template) ? { kind: 'video', path: video } : { kind: 'image', path: image })
       return { ok: true, job_id: id }
     },
     async job(args) {

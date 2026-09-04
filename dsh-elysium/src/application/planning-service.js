@@ -1,5 +1,6 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm/message'
 import { ElysiumError } from '../infrastructure/persistence/store.js'
+import { DIRECTOR_PROFILE } from './director-profile.js'
 
 const ANCHORS_PER_CHAPTER = 6
 const CHAPTER_SECONDS = 20
@@ -20,7 +21,33 @@ function extractJson(raw) {
   fail('PLANNER_OUTPUT_INVALID', 'Qwen3.8 返回的规划不是有效 JSON，请重新规划')
 }
 
-function normalizeResult(value, body, chapterCount) {
+function normalizeScenes(value) {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.scenes) || value.scenes.length === 0) {
+    fail('PLANNER_OUTPUT_INVALID', 'Qwen3.8 未返回 scenes 数组')
+  }
+  return value.scenes.map((scene, index) => {
+    const id = `scene-${String(index + 1).padStart(2, '0')}`
+    const summary = String(scene.summary || '').trim()
+    if (!summary) fail('PLANNER_OUTPUT_INVALID', `${id} 缺少剧情摘要`)
+    return {
+      id,
+      title: String(scene.title || `第 ${index + 1} 场`).trim(),
+      summary,
+      characters: Array.isArray(scene.characters) ? scene.characters.map(item => String(item).trim()).filter(Boolean) : [],
+      location: String(scene.location || '').trim(),
+      timeOfDay: String(scene.timeOfDay || '').trim(),
+      dialogueCount: Math.max(0, Number(scene.dialogueCount) || 0),
+      dialogueChars: Math.max(0, Number(scene.dialogueChars) || 0),
+      emotionStart: String(scene.emotionStart || '').trim(),
+      emotionEnd: String(scene.emotionEnd || '').trim(),
+      emotionIntensity: Math.min(10, Math.max(0, Number(scene.emotionIntensity) || 0)),
+      notes: scene.notes && typeof scene.notes === 'object' ? { ...scene.notes } : {},
+      ...(String(scene.transitionToNext || '').trim() ? { transitionToNext: String(scene.transitionToNext).trim() } : {}),
+    }
+  })
+}
+
+function normalizeResult(value, body, chapterCount, scenes) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.chapters)) {
     fail('PLANNER_OUTPUT_INVALID', 'Qwen3.8 未返回 chapters 数组')
   }
@@ -32,11 +59,17 @@ function normalizeResult(value, body, chapterCount) {
       fail('PLANNER_OUTPUT_INVALID', `第 ${chapterIndex + 1} 章必须包含 ${ANCHORS_PER_CHAPTER} 个画面锚点`)
     }
     const chapterId = `chapter-${String(chapterIndex + 1).padStart(2, '0')}`
+    const sceneIds = Array.isArray(chapter.sceneIds) ? chapter.sceneIds.map(item => String(item)).filter(id => scenes.some(scene => scene.id === id)) : []
+    const soundPrompt = String(chapter.soundPrompt || '').trim()
+    if (!sceneIds.length) fail('PLANNER_OUTPUT_INVALID', `${chapterId} 缺少有效 sceneIds，无法验证剧情覆盖`)
+    if (!soundPrompt) fail('PLANNER_OUTPUT_INVALID', `${chapterId} 缺少 soundPrompt，无法生成完整声音`)
     return {
       id: chapterId,
       order: chapterIndex + 1,
       title: String(chapter.title || `第 ${chapterIndex + 1} 章`).trim(),
       summary: String(chapter.summary || '').trim(),
+      sceneIds,
+      soundPrompt,
       anchors: chapter.anchors.map((anchor, anchorIndex) => ({
         id: `${chapterId}-anchor-${String(anchorIndex + 1).padStart(2, '0')}`,
         order: anchorIndex + 1,
@@ -50,11 +83,7 @@ function normalizeResult(value, body, chapterCount) {
     schemaVersion: 'elysium-script-2',
     source: 'producer-agent',
     synopsis: String(value.synopsis || body.sourceText).trim(),
-    scenes: chapters.map((chapter, index) => ({
-      id: `scene-${String(index + 1).padStart(2, '0')}`,
-      title: chapter.title,
-      summary: chapter.summary,
-    })),
+    scenes,
   }
   const castPrompt = String(value.castPrompt || body.castPrompt || '').trim()
     || '根据故事中的全部成年角色生成定妆设定表：每名角色分开站立，中性背景，正面全身，清晰面部、发型、体态和服装细节，不要叙事场景。'
@@ -68,7 +97,20 @@ function normalizeResult(value, body, chapterCount) {
   }
 }
 
-function plannerPrompt(body, chapterCount, chapterOffset, totalChapters, continuity) {
+function sceneBreakdownPrompt(body) {
+  return `/no_think
+你是短剧导演。第一阶段只忠实拆分故事，不创作新剧情，也不设计镜头。
+
+只输出一个 JSON 对象：
+{"synopsis":"忠实梗概","scenes":[{"title":"场名","summary":"本场完整剧情","characters":["角色"],"location":"地点","timeOfDay":"时段","dialogueCount":0,"dialogueChars":0,"emotionStart":"起始情绪","emotionEnd":"结束情绪","emotionIntensity":0,"notes":{"emotionalBeat":"情感砸点","consistencyAnchor":"角色服装道具连续性","spatial":"人物位置朝向与距离","ambientSound":"具体环境音源","pitfall":"易错点"},"transitionToNext":"仅必要时填写具体过渡"}]}
+
+规则：场次覆盖全部故事且顺序不变；台词条数和字数如实统计；情绪强度为 ${DIRECTOR_PROFILE.pacing.emotionScale}，相邻场景情绪落差超过 ${DIRECTOR_PROFILE.pacing.maxAdjacentEmotionDelta} 时在 pitfall 说明剧本依据；环境音只写可听见的声源，不写配乐；仅在必要时使用 ${DIRECTOR_PROFILE.transitions.preferred.join('、')}，不需要过渡时省略 transitionToNext；禁止 ${DIRECTOR_PROFILE.transitions.avoid.join('、')}。
+
+故事：
+${body.sourceText}`
+}
+
+function plannerPrompt(body, scenes, chapterCount, chapterOffset, totalChapters, continuity) {
   const first = chapterOffset + 1
   const last = chapterOffset + chapterCount
   return `/no_think
@@ -78,20 +120,22 @@ function plannerPrompt(body, chapterCount, chapterOffset, totalChapters, continu
 1. 只输出一个 JSON 对象，不要 Markdown，不要解释。
 2. 整集共 ${totalChapters} 章；本次只输出全片第 ${first} 至 ${last} 章，chapters 必须正好 ${chapterCount} 章；每章必须正好 ${ANCHORS_PER_CHAPTER} 个 anchors。
 3. 每章第一个锚点是独立文生图起始帧；后五个是连续关键帧。
-4. 每个 imagePrompt 只描述该画面可见的主体、动作、场景、构图、光线和连续状态。严禁复制整篇故事，严禁用“第几个画面”等占位描述。
-5. 每个 motionPrompt 描述从当前帧到下一状态的主体动作和镜头运动，不能使用空泛重复句。
-6. 相邻锚点必须有明确叙事推进；章节之间必须衔接上一章结尾的时间、地点、服装、道具和人物状态。
-7. 输出画幅为 ${body.aspectRatio === '16:9' ? '16:9 横屏' : '9:16 竖屏'}；不要写字幕、水印、帧率或与该画幅冲突的技术参数。
-8. castPrompt 必须是角色定妆设定表提示：所有主要成年角色分开站立、中性背景、正面全身，固定外貌与服装，不要叙事场景。
+4. chapters 必须忠实覆盖下方 scenes，sceneIds 标明来源场景；不得添加 scenes 没有的剧情、人物或道具。
+5. 每个 imagePrompt 是动作开始前的静止首帧，只描述可见主体、动作起点、场景、构图、光线、角色左右位置/朝向和连续状态。严禁复制整篇故事或写占位描述。
+6. 每个 motionPrompt 从首帧出发，描述人物动作、情绪推进和克制运镜；优先 ${DIRECTOR_PROFILE.camera.motionPreference}，禁止 ${DIRECTOR_PROFILE.camera.forbiddenMotions.join('、')}；人物换位或转向必须写出衔接动作。
+7. 相邻锚点必须有明确叙事推进；章节之间必须衔接上一章结尾的时间、地点、服装、道具和人物状态。
+8. 每章 soundPrompt 用英文描述本章可见动作对应的环境声和拟音；不得要求对白、旁白、配音或音乐。
+9. 输出画幅为 ${body.aspectRatio === '16:9' ? '16:9 横屏' : '9:16 竖屏'}；不要写字幕、水印、帧率或与该画幅冲突的技术参数。
+10. castPrompt 必须是角色定妆设定表提示：所有主要成年角色分开站立、中性背景、正面全身，固定外貌与服装，不要叙事场景。
 
 JSON 结构：
-{"synopsis":"一句话梗概","castPrompt":"角色定妆表提示","chapters":[{"title":"章节名","summary":"本章发生的具体事件","anchors":[{"imagePrompt":"具体画面","motionPrompt":"具体动作与运镜"}]}]}
+{"synopsis":"一句话梗概","castPrompt":"角色定妆表提示","chapters":[{"title":"章节名","summary":"本章发生的具体事件","sceneIds":["scene-01"],"soundPrompt":"English environmental sound and Foley prompt","anchors":[{"imagePrompt":"具体首帧画面","motionPrompt":"具体动作与运镜"}]}]}
 
 目标时长：${body.targetDurationSec} 秒
-画面风格：${body.stylePrompt || '写实电影感，保持人物与场景连续'}
+画面风格：${body.stylePrompt || `${DIRECTOR_PROFILE.style.genre}，${DIRECTOR_PROFILE.style.visualTone}，${DIRECTOR_PROFILE.style.lighting}`}
 人物补充：${body.castPrompt || '从故事中识别全部主要成年角色'}
-故事：
-${body.sourceText}
+已审核场景拆解（唯一剧情来源）：
+${JSON.stringify(scenes)}
 ${continuity ? `上一批最后状态：${continuity}\n本批第一章必须从这个状态自然接续。` : ''}`
 }
 
@@ -101,16 +145,10 @@ export function createPlannerService(ctx, config = {}) {
     const model = String(config.planner?.model || 'qwen3.8-27b-video-prompt')
     const llm = ctx.llm || ctx.get?.('llm')
     if (!llm?.stream) fail('PLANNER_UNAVAILABLE', 'Qwen3.8 规划服务未加载', 424)
-    const chapterCount = Math.max(1, Math.ceil(Number(body.targetDurationSec ?? 10) / CHAPTER_SECONDS))
-    const chapters = []
-    let synopsis = ''
-    let castPrompt = ''
-    let continuity = ''
-    for (let offset = 0; offset < chapterCount; offset += CHAPTERS_PER_CALL) {
-      const batchSize = Math.min(CHAPTERS_PER_CALL, chapterCount - offset)
+    async function requestJson(prompt) {
       const message = createUserMessage({
         source: { kind: 'plugin', plugin: '@dsh-external/dsh-elysium' },
-        content: [{ type: 'text', text: plannerPrompt(body, batchSize, offset, chapterCount, continuity) }],
+        content: [{ type: 'text', text: prompt }],
       })
       let output = ''
       let reasoning = ''
@@ -129,7 +167,18 @@ export function createPlannerService(ctx, config = {}) {
       }
       const raw = output.trim() ? output : reasoning
       if (!raw.trim()) fail('PLANNER_EMPTY', 'Qwen3.8 没有返回规划')
-      const batch = extractJson(raw)
+      return extractJson(raw)
+    }
+    const breakdown = await requestJson(sceneBreakdownPrompt(body))
+    const scenes = normalizeScenes(breakdown)
+    const chapterCount = Math.max(1, Math.ceil(Number(body.targetDurationSec ?? 10) / CHAPTER_SECONDS))
+    const chapters = []
+    let synopsis = ''
+    let castPrompt = ''
+    let continuity = ''
+    for (let offset = 0; offset < chapterCount; offset += CHAPTERS_PER_CALL) {
+      const batchSize = Math.min(CHAPTERS_PER_CALL, chapterCount - offset)
+      const batch = await requestJson(plannerPrompt(body, scenes, batchSize, offset, chapterCount, continuity))
       if (!Array.isArray(batch?.chapters) || batch.chapters.length !== batchSize) {
         fail('PLANNER_OUTPUT_INVALID', `Qwen3.8 本批应返回 ${batchSize} 章，实际返回 ${batch?.chapters?.length ?? 0} 章`)
       }
@@ -138,7 +187,7 @@ export function createPlannerService(ctx, config = {}) {
       chapters.push(...batch.chapters)
       continuity = String(batch.chapters.at(-1)?.summary || '')
     }
-    return normalizeResult({ synopsis, castPrompt, chapters }, body, chapterCount)
+    return normalizeResult({ synopsis: synopsis || breakdown.synopsis, castPrompt, chapters }, body, chapterCount, scenes)
   }
 
   return { plan }

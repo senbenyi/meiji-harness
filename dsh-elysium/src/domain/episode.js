@@ -71,7 +71,14 @@ export function defaultPlan(input, episodeId, targetDurationSec) {
         motionPrompt: `${motion}；动作从“${purpose}”自然发展到下一叙事状态。`,
       }
     })
-    return { id: chapterId, order: chapterIndex + 1, title: `第 ${chapterIndex + 1} 章`, summary, anchors }
+    return {
+      id: chapterId,
+      order: chapterIndex + 1,
+      title: `第 ${chapterIndex + 1} 章`,
+      summary,
+      soundPrompt: `${summary}。生成与画面动作同步的环境声和拟音，不要对白、旁白或音乐。`,
+      anchors,
+    }
   })
   return { schemaVersion: 'elysium-plan-2', episodeId, source: 'auto-draft', chapters }
 }
@@ -108,6 +115,8 @@ export function validatePlan(value, episodeId) {
       order: chapterIndex + 1,
       title: String(chapter.title || `第 ${chapterIndex + 1} 章`).trim(),
       summary: String(chapter.summary || '').trim(),
+      sceneIds: Array.isArray(chapter.sceneIds) ? chapter.sceneIds.map(item => String(item).trim()).filter(Boolean) : [],
+      soundPrompt: String(chapter.soundPrompt || '').trim(),
       anchors,
     }
   })
@@ -188,6 +197,16 @@ export function buildTasks(episode, plan, previous = []) {
     dependencies: plan.chapters.map(chapter => `chapter:${chapter.id}`),
     inputHash: hashInputs({ type: 'final', chapters: plan.chapters.map(chapter => chapter.id), profile: episode.profile }),
     status: 'pending', attempt: 0, maxAttempts: 1, remoteJobId: null, path: null, error: null,
+  })
+  add({
+    id: 'audio', type: 'audio', entityId: episode.id,
+    dependencies: ['final'],
+    inputHash: hashInputs({
+      type: 'audio',
+      finalInputHash: tasks.find(task => task.id === 'final').inputHash,
+      soundPrompts: plan.chapters.map(chapter => chapter.soundPrompt || chapter.summary || ''),
+    }),
+    status: 'pending', attempt: 0, maxAttempts: 2, remoteJobId: null, path: null, error: null,
   })
   return tasks
 }

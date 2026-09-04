@@ -87,10 +87,11 @@ function editableStageValue(detail, stage) {
 function statusMeta(status) { return STATUS[status] || [status || '未知', 'neutral'] }
 function visibleStage(stage) { return STAGES.some(item => item.key === stage) ? stage : ['review', 'approved'].includes(stage) ? 'final' : 'story' }
 function taskLabel(task) {
-  return ({ asset: '人物定妆', start_frame: '章节起始帧', keyframe: '连续关键帧', chapter: '长视频章节', final: '最终成片' })[task.type] || task.type
+  return ({ asset: '人物定妆', start_frame: '章节起始帧', keyframe: '连续关键帧', chapter: '长视频章节', final: '静音成片', audio: '同步音效成片' })[task.type] || task.type
 }
 function tasksForStage(tasks, stage) {
   const type = { start_frame: 'start_frame', keyframes: 'keyframe', chapters: 'chapter', final: 'final' }[stage]
+  if (stage === 'final') return (tasks || []).filter(task => ['final', 'audio'].includes(task.type))
   return type ? (tasks || []).filter(task => task.type === type) : []
 }
 function stageState(detail, stage, index) {
@@ -507,8 +508,8 @@ export function createStudio(React, api) {
       const placeholder = ['needs_attention', 'failed'].includes(task.status) ? '生成失败' : task.status === 'running' ? '生成中' : '等待生成'
       return h('article', { className: `ely-artifact is-${task.type} is-${tone}${url ? '' : ' is-empty'}`, key: task.id },
         h('div', { className: 'ely-artifact-preview' },
-          url && !['chapter', 'final'].includes(task.type) ? h('img', { src: url, alt: task.entityId }) : null,
-          url && ['chapter', 'final'].includes(task.type) ? h('video', { src: url, controls: true, preload: 'metadata' }) : null,
+          url && !['chapter', 'final', 'audio'].includes(task.type) ? h('img', { src: url, alt: task.entityId }) : null,
+          url && ['chapter', 'final', 'audio'].includes(task.type) ? h('video', { src: url, controls: true, preload: 'metadata' }) : null,
           !url ? h('div', { className: 'ely-artifact-placeholder' }, h('span', null, placeholder)) : null,
           h('span', { className: 'ely-artifact-number' }, String(index + 1).padStart(2, '0')),
         ),
@@ -591,6 +592,7 @@ export function createStudio(React, api) {
             h('strong', null, `章节 ${String(chapterIndex + 1).padStart(2, '0')}`),
             h(Field, { label: '标题' }, h('input', { className: 'tf-input', maxLength: 120, value: chapter.title || '', onChange: event => updateEditor(current => ({ ...current, chapters: current.chapters.map((item, itemIndex) => itemIndex === chapterIndex ? { ...item, title: event.target.value } : item) })) })),
             h(Field, { label: '内容' }, h('textarea', { className: 'tf-textarea', maxLength: 20000, value: chapter.summary || '', onChange: event => updateEditor(current => ({ ...current, chapters: current.chapters.map((item, itemIndex) => itemIndex === chapterIndex ? { ...item, summary: event.target.value } : item) })) })),
+            h(Field, { label: '环境音与拟音（英文）' }, h('textarea', { className: 'tf-textarea', maxLength: 2000, value: chapter.soundPrompt || '', onChange: event => updateEditor(current => ({ ...current, chapters: current.chapters.map((item, itemIndex) => itemIndex === chapterIndex ? { ...item, soundPrompt: event.target.value } : item) })) })),
             h('div', { className: 'ely-anchor-edit-list' }, chapter.anchors.map((anchor, anchorIndex) => h('div', { key: anchor.id },
               h('span', null, String(anchorIndex + 1).padStart(2, '0')),
               h(Field, { label: '画面' }, h('textarea', { className: 'tf-textarea', value: anchor.imagePrompt || '', onChange: event => updateEditor(current => ({ ...current, chapters: current.chapters.map((item, itemIndex) => itemIndex === chapterIndex ? { ...item, anchors: item.anchors.map((entry, entryIndex) => entryIndex === anchorIndex ? { ...entry, imagePrompt: event.target.value } : entry) } : item) })) })),
@@ -601,7 +603,7 @@ export function createStudio(React, api) {
           storyLocked ? h('div', { className: 'ely-inline-notice' }, '生产中；暂停后可修改') : null,
           value.source === 'producer-agent' ? null : h('div', { className: 'ely-callout' }, '草稿规划 · 保存故事后自动规划'),
           h('div', { className: 'ely-chapter-list' }, value.chapters.map((chapter, chapterIndex) => h('article', { className: 'ely-chapter', key: chapter.id },
-            h('header', null, h('span', null, `章节 ${String(chapterIndex + 1).padStart(2, '0')}`), h('h3', null, chapter.title), h('small', null, `${chapter.anchors.length} 个画面锚点`)),
+            h('header', null, h('span', null, `章节 ${String(chapterIndex + 1).padStart(2, '0')}`), h('h3', null, chapter.title), h('small', null, `${chapter.anchors.length} 个画面锚点 · ${chapter.soundPrompt ? '音效已规划' : '缺少音效规划'}`)),
             h('div', { className: 'ely-anchor-list' }, chapter.anchors.map((anchor, index) => h('div', { className: 'ely-anchor-row', key: anchor.id },
               h('span', { className: 'ely-anchor-index' }, String(index + 1).padStart(2, '0')),
               h('div', null, h('small', null, index === 0 ? '文生图 · 起始帧' : '图生图 · 连续关键帧'), h('p', null, anchor.imagePrompt)),
@@ -611,7 +613,7 @@ export function createStudio(React, api) {
         const finalUrl = api.mediaUrl(projectId, episode.state.final.path)
         body = h('div', { className: 'ely-final' },
           h('div', { className: 'ely-final-player' }, h('video', { src: finalUrl, controls: true, preload: 'metadata', onEnded: () => setReviewWatched(true) })),
-          h('div', { className: 'ely-final-meta' }, h('div', null, h('span', null, '技术质检'), h('strong', null, `${episode.state.final.qc?.durationSec || '—'} 秒`), h('small', null, `目标 ${episode.episode.targetDurationSec} 秒`)), h(StatusPill, { status: episode.state.status })),
+          h('div', { className: 'ely-final-meta' }, h('div', null, h('span', null, '技术质检'), h('strong', null, `${episode.state.final.qc?.durationSec || '—'} 秒`), h('small', null, `目标 ${episode.episode.targetDurationSec} 秒 · 音轨 ${episode.state.final.qc?.audioCodec || '缺失'}`)), h(StatusPill, { status: episode.state.status })),
           episode.state.status === 'awaiting_review' ? h('div', { className: 'ely-review' }, h('h3', null, '人工终审'), h('p', null, '完整播放后，确认连续性、人物一致性和内容完整性'),
             h(Field, { label: '审核人' }, h('input', { className: 'tf-input', maxLength: 120, placeholder: '输入审核人标识', value: reviewer, onChange: event => setReviewer(event.target.value) })),
             h('label', { className: `ely-check${reviewWatched ? '' : ' is-disabled'}` }, h('input', { type: 'checkbox', disabled: !reviewWatched, checked: reviewed, onChange: event => setReviewed(event.target.checked) }), h('span', null, reviewWatched ? '确认成片通过' : '完整播放后可确认')),

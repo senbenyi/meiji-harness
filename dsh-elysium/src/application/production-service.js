@@ -5,7 +5,7 @@ import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { createComfyUiService } from '../infrastructure/comfyui/service.js'
 import { ElysiumError, listProjectIds, writeJsonAtomic } from '../infrastructure/persistence/store.js'
-import { episodeGet, episodeList, loadEpisode, saveEpisode, withEpisodeLock } from './episode-service.js'
+import { buildTasks, episodeGet, episodeList, loadEpisode, saveEpisode, withEpisodeLock } from './episode-service.js'
 
 const runners = new Map()
 
@@ -55,7 +55,7 @@ async function waitForOutput(comfy, jobId, kind) {
 }
 
 function taskStage(type) {
-  return ({ asset: 'assets', start_frame: 'start_frame', keyframe: 'keyframes', chapter: 'chapters', final: 'final' })[type] || type
+  return ({ asset: 'assets', start_frame: 'start_frame', keyframe: 'keyframes', chapter: 'chapters', final: 'final', audio: 'final' })[type] || type
 }
 
 function modelSettings(config, key, fallbackTemplate, fallbackArgs) {
@@ -76,6 +76,7 @@ async function preflightContracts(comfy, config) {
       ...Array.from({ length: 6 }, (_, index) => `image_${index + 1}`),
       ...Array.from({ length: 6 }, (_, index) => `prompt_${index + 1}`),
     ]],
+    ['finalAudio', 'mmaudio', ['video', 'prompt']],
   ]
   for (const [key, fallback, required] of checks) {
     const template = modelSettings(config, key, fallback, {}).template
@@ -161,6 +162,24 @@ async function submitRemoteTask(comfy, config, loaded, task) {
     const submitted = await callComfy(comfy, 'generate', args)
     return { jobId: submitted.job_id, kind: 'video', directory: loaded.p.chapters, allowed: ['.mp4', '.mov', '.webm', '.mkv'] }
   }
+  if (task.type === 'audio') {
+    const finalTask = loaded.tasks.find(item => item.id === 'final')
+    if (!finalTask?.path) fail('DEPENDENCY_MISSING', '生成同步音效前缺少静音成片', 409)
+    const model = modelSettings(config, 'finalAudio', 'mmaudio', { duration: episode.targetDurationSec, steps: 25 })
+    const soundPrompts = plan.chapters.map(chapter => String(chapter.soundPrompt || '').trim()).filter(Boolean)
+    const prompt = soundPrompts.join('; ').slice(0, 2000)
+      || 'cinematic environmental ambience and synchronized natural action sounds matching the visible scene'
+    const submitted = await callComfy(comfy, 'generate', {
+      ...model.args,
+      template: model.template,
+      video: path.join(loaded.projectDirectory, finalTask.path),
+      prompt,
+      negative: 'speech, dialogue, voice-over, music, distortion, clipping',
+      seed: parseInt(task.inputHash.slice(0, 8), 16),
+      wait_s: 0,
+    })
+    return { jobId: submitted.job_id, kind: 'video', directory: loaded.p.final, allowed: ['.mp4'] }
+  }
   fail('TASK_TYPE_INVALID', `未知任务类型：${task.type}`)
 }
 
@@ -190,6 +209,25 @@ async function durationOf(config, file) {
   })
 }
 
+async function audioCodecOf(config, file) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(String(config.ffprobe || 'ffprobe'), [
+      '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name',
+      '-of', 'default=nw=1:nk=1', file,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', chunk => { stdout += String(chunk) })
+    child.stderr.on('data', chunk => { stderr += String(chunk) })
+    child.once('error', error => reject(new ElysiumError('FFPROBE_MISSING', error.message, 500)))
+    child.once('close', code => {
+      const codec = stdout.trim().split(/\s+/)[0] || ''
+      if (code === 0 && codec) resolve(codec)
+      else reject(new ElysiumError('QC_AUDIO_MISSING', stderr.trim() || '最终成片缺少音轨', 422))
+    })
+  })
+}
+
 async function assemble(config, episode, sources, destination) {
   if (sources.length === 0) fail('CHAPTERS_REQUIRED', '生成成片前必须完成章节视频', 409)
   await mkdir(path.dirname(destination), { recursive: true })
@@ -213,8 +251,14 @@ async function executeFinal(config, loaded, task) {
     if (!chapterTask?.path) fail('DEPENDENCY_MISSING', `缺少章节视频：${chapter.id}`, 409)
     return path.join(loaded.projectDirectory, chapterTask.path)
   })
-  const destination = path.join(loaded.p.final, `final-${Date.now()}.mp4`)
-  const duration = await assemble(config, loaded.episode, sources, destination)
+  const destination = path.join(loaded.p.final, `silent-${Date.now()}.mp4`)
+  await assemble(config, loaded.episode, sources, destination)
+  return { path: relativeToProject(loaded, destination) }
+}
+
+async function validateAudioFinal(config, loaded, destination) {
+  const duration = await durationOf(config, destination)
+  const audioCodec = await audioCodecOf(config, destination)
   const tolerance = Math.max(2, loaded.episode.targetDurationSec * 0.05)
   const durationDelta = Math.abs(duration - loaded.episode.targetDurationSec)
   const landscape = loaded.episode.aspectRatio === '16:9'
@@ -223,7 +267,7 @@ async function executeFinal(config, loaded, task) {
     durationSec: Number(duration.toFixed(3)),
     targetDurationSec: loaded.episode.targetDurationSec,
     durationToleranceSec: Number(tolerance.toFixed(3)),
-    resolution: landscape ? '1280x720' : '720x1280', fps: 24, codec: 'h264', checkedAt: now(),
+    resolution: landscape ? '1280x720' : '720x1280', fps: 25, codec: 'h264', audioCodec, checkedAt: now(),
   }
   const qcPath = path.join(loaded.p.final, `qc-${Date.now()}.json`)
   await writeJsonAtomic(qcPath, qc)
@@ -266,9 +310,6 @@ async function runOneTask(comfy, config, projectId, episodeId, taskId) {
       task.path = result.path
       task.error = null
       task.versions = [...(task.versions || []), { path: result.path, inputHash: task.inputHash, createdAt: now() }]
-      loaded.state.final = result
-      loaded.state.status = 'awaiting_review'
-      loaded.state.activeStage = 'review'
       await saveEpisode(loaded)
       return
     }
@@ -282,9 +323,9 @@ async function runOneTask(comfy, config, projectId, episodeId, taskId) {
     if (task.remoteJobId) {
       remote = {
         jobId: task.remoteJobId,
-        kind: task.type === 'chapter' ? 'video' : 'image',
-        directory: task.type === 'chapter' ? loaded.p.chapters : task.type === 'asset' ? loaded.p.assetArtifacts : loaded.p.anchors,
-        allowed: task.type === 'chapter' ? ['.mp4', '.mov', '.webm', '.mkv'] : ['.png', '.jpg', '.jpeg', '.webp'],
+        kind: ['chapter', 'audio'].includes(task.type) ? 'video' : 'image',
+        directory: task.type === 'audio' ? loaded.p.final : task.type === 'chapter' ? loaded.p.chapters : task.type === 'asset' ? loaded.p.assetArtifacts : loaded.p.anchors,
+        allowed: task.type === 'audio' ? ['.mp4'] : task.type === 'chapter' ? ['.mp4', '.mov', '.webm', '.mkv'] : ['.png', '.jpg', '.jpeg', '.webp'],
       }
     } else {
       remote = await submitRemoteTask(comfy, config, loaded, task)
@@ -299,11 +340,17 @@ async function runOneTask(comfy, config, projectId, episodeId, taskId) {
     loaded = await loadEpisode(config, projectId, episodeId)
     task = loaded.tasks.find(item => item.id === taskId)
     const relativePath = relativeToProject(loaded, destination)
+    const finalResult = task.type === 'audio' ? await validateAudioFinal(config, loaded, destination) : null
     task.status = 'succeeded'
     task.path = relativePath
     task.remoteJobId = null
     task.error = null
     task.versions = [...(task.versions || []), { path: relativePath, inputHash: task.inputHash, createdAt: now() }]
+    if (finalResult) {
+      loaded.state.final = finalResult
+      loaded.state.status = 'awaiting_review'
+      loaded.state.activeStage = 'review'
+    }
     await saveEpisode(loaded)
   } catch (error) {
     loaded = await loadEpisode(config, projectId, episodeId)
@@ -367,6 +414,15 @@ function assertAuthorization(body) {
   }
 }
 
+function ensureAudioTask(loaded) {
+  if (loaded.tasks.some(task => task.id === 'audio')) return false
+  loaded.tasks = buildTasks(loaded.episode, loaded.plan, loaded.tasks)
+  loaded.state.final = null
+  loaded.state.approval = null
+  if (loaded.state.status === 'awaiting_review') loaded.state.status = 'ready'
+  return true
+}
+
 function sha256File(file) {
   return new Promise((resolve, reject) => {
     const hash = createHash('sha256')
@@ -389,6 +445,7 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
       const loaded = await loadEpisode(config, body.projectId, body.episodeId)
       if (loaded.plan?.source === 'auto-draft') fail('PLAN_REQUIRED', '请先完成自动规划再开始生产', 409)
       if (loaded.state.status === 'approved') fail('ALREADY_APPROVED', '当前成片已经验收；修改上游后才能重新生产', 409)
+      ensureAudioTask(loaded)
       if (loaded.state.status === 'awaiting_review') fail('REVIEW_PENDING', '当前成片正在等待人工终审', 409)
       if (loaded.state.status === 'needs_attention' && loaded.tasks.some(task => task.status === 'needs_attention')) {
         fail('ISSUE_UNRESOLVED', '请先处理需要人工介入的问题', 409)
@@ -416,6 +473,7 @@ export function createProductionService(ctx, config = {}, comfy = createComfyUiS
     const result = await withEpisodeLock(body.projectId, body.episodeId, async () => {
       const loaded = await loadEpisode(config, body.projectId, body.episodeId)
       if (!loaded.state.authorizedAt) fail('AUTHORIZATION_REQUIRED', '该单集尚未获得生产授权')
+      ensureAudioTask(loaded)
       if (loaded.state.status === 'needs_attention') fail('ISSUE_UNRESOLVED', '请先处理需要人工介入的问题', 409)
       if (loaded.state.status === 'awaiting_review' || loaded.state.status === 'approved') fail('REVIEW_PENDING', '当前成片不需要继续生产', 409)
       loaded.state.status = 'running'

@@ -43,3 +43,14 @@ test('Wan production template wires six ordered story anchors', async () => {
     }
   })
 })
+
+test('MMAudio production template accepts a video and emits a video with audio', async () => {
+  const contract = await json('mmaudio.contract.json')
+  const workflow = await json('mmaudio.json')
+  assert.equal(contract.capabilities.mode.includes('video_audio'), true)
+  assert.equal(contract.slots.video.node, '1')
+  assert.equal(contract.slots.prompt.node, '4')
+  assert.deepEqual(contract.media.out, ['video', 'audio'])
+  assert.equal(workflow['4'].class_type, 'MMAudioSampler')
+  assert.deepEqual(workflow['5'].inputs.audio, ['4', 0])
+})

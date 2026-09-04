@@ -21,8 +21,9 @@ Elysium 持久化单集、任务和生产状态，
 `comfyui_*` 动作，不再注册第二组聊天工具。
 
 生产顺序为：Qwen3.8 剧本与分镜规划 → 角色定妆图 → 每章文生图起始帧 →
-5 张连续关键帧 → 六锚点章节视频 → 24fps、H.264 成片。支持 9:16 和 16:9；
-合成时使用运动插帧并精确裁切目标时长，时长偏差超过 QC 容差时不会进入人审。
+5 张连续关键帧 → 六锚点章节视频 → 静音拼接 → MMAudio 同步环境音与拟音 → 25fps、H.264 成片。
+支持 9:16 和 16:9；合成时使用运动插帧并精确裁切目标时长，缺少音轨或时长偏差超过
+QC 容差时不会进入人审。MMAudio 不生成对白、旁白、配音或音乐。
 
 产品需求见 `docs/elysium-product-requirements.md`，代码结构和实施边界见
 `docs/elysium-technical-design.md`。
@@ -111,7 +112,7 @@ TypeScript 服务；`check:source-imports`、`typecheck` 和 `pnpm list` 才是�
 默认数据目录为 `./elysium-workspace`。可通过 `workspace` 修改路径，通过
 `comfyui.baseUrl` 配置隧道地址。Qwen3.8 规划模型通过 `planner.provider`、
 `planner.model` 和 `planner.maxTokens` 配置；托管生产使用 `models.characterImage`、
-`models.startFrame`、`models.keyframeImage` 和 `models.chapterVideo`；旧素材工作台继续使用
+`models.startFrame`、`models.keyframeImage`、`models.chapterVideo` 和 `models.finalAudio`；旧素材工作台继续使用
 `models.shotImage` 与 `models.shotVideo`，两套入口都保留。工作流合同保存在
 `templates/comfyui/`，运行时复制到 Elysium 工作区后管理；远程生成驱动与侧栏能力均已
 内置，不需要额外安装配套插件。

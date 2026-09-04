@@ -31,6 +31,7 @@ function routingFromState(value) {
       startFrame: saved.stages?.startFrame || 'qwen-image-t2i',
       keyframeImage: saved.stages?.keyframeImage || 'qwen-image-edit',
       chapterVideo: saved.stages?.chapterVideo || 'wan22-remix-long',
+      finalAudio: saved.stages?.finalAudio || 'mmaudio',
       shotImage: saved.stages?.shotImage || 'qwen-image-t2i',
       shotVideo: saved.stages?.shotVideo || 'wan22-remix-long',
     },
@@ -270,6 +271,7 @@ export function createComfyUiSettings(React, api) {
       const modes = templateModes(template)
       if (key === 'keyframeImage') return modes.some(mode => ['i2i', 'keyframe', 'image'].includes(mode))
       if (key === 'chapterVideo') return modes.some(mode => ['long_video', 'six_anchor', 'video'].includes(mode))
+      if (key === 'finalAudio') return modes.some(mode => ['video_audio', 'audio'].includes(mode))
       if (key === 'shotVideo') return modes.some(mode => ['i2v', 'long_video', 'video'].includes(mode))
       return modes.some(mode => ['t2i', 'image'].includes(mode))
     })
@@ -302,7 +304,7 @@ export function createComfyUiSettings(React, api) {
       ),
 
       h('details', { className: 'tf-settings-section tf-model-routing', open: true },
-        h('summary', { className: 'tf-settings-summary' }, h('span', null, '模型路由'), h('span', { className: 'tf-settings-count' }, `文本、图片、视频${modelsDirty ? ' · 未保存' : ''}`)),
+        h('summary', { className: 'tf-settings-summary' }, h('span', null, '模型路由'), h('span', { className: 'tf-settings-count' }, `文本、图片、视频、音频${modelsDirty ? ' · 未保存' : ''}`)),
         h('div', { className: 'tf-settings-body tf-model-routing-body' },
           h('div', { className: 'tf-model-group' },
             h('div', { className: 'tf-model-group-title' }, '文本规划模型'),
@@ -331,6 +333,7 @@ export function createComfyUiSettings(React, api) {
               h(ModelSelect, { stage: 'startFrame', label: '章节起始帧' }),
               h(ModelSelect, { stage: 'keyframeImage', label: '连续关键帧' }),
               h(ModelSelect, { stage: 'chapterVideo', label: '章节长视频' }),
+              h(ModelSelect, { stage: 'finalAudio', label: '成片同步音效' }),
               h(ModelSelect, { stage: 'shotImage', label: '单镜图片' }),
               h(ModelSelect, { stage: 'shotVideo', label: '单镜视频' }),
             ),

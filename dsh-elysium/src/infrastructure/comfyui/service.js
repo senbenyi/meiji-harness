@@ -62,6 +62,7 @@ const MODEL_STAGE_DEFAULTS = {
   startFrame: 'qwen-image-t2i',
   keyframeImage: 'qwen-image-edit',
   chapterVideo: 'wan22-remix-long',
+  finalAudio: 'mmaudio',
   shotImage: 'qwen-image-t2i',
   shotVideo: 'wan22-remix-long',
 }

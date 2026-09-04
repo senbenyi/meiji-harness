@@ -143,7 +143,8 @@ succeeded → stale
 | start_frame | 每章第 1 锚点、采用资产 | `qwen-image-t2i` | 每章起始帧版本 |
 | keyframes | 起始帧、采用资产、后续锚点 | `qwen-image-edit` | 每章 5 张后续关键帧 |
 | chapter | 6 张有序锚点、6 段动作提示词 | `wan22-remix-long` | 章节视频版本 |
-| final | 所有采用章节 | 拼接、24fps 运动插帧、目标画幅标准化、精确时长裁切 | 成片版本与 QC |
+| final | 所有采用章节 | 拼接、24fps 运动插帧、目标画幅标准化、精确时长裁切 | 静音成片 |
+| audio | 静音成片 | MMAudio 生成同步环境音与拟音，25fps 输出并检查音轨及时长 | 有声成片与 QC |
 | review | 当前成片 | 人工完整观看 | 哈希绑定的验收记录 |
 
 规划规则：

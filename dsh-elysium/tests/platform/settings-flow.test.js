@@ -11,6 +11,7 @@ function initialState() {
     templates: [
       { id: 'builtin', title: '内置工作流', removable: false, user_note: '', capabilities: { mode: ['image'] } },
       { id: 'custom', title: '自定义工作流', removable: true, user_note: '原注释', capabilities: { mode: ['video'] } },
+      { id: 'mmaudio', title: '同步音效', removable: false, user_note: '', capabilities: { mode: ['video_audio', 'audio'] } },
     ],
     loras: [{ name: 'saved.safetensors', triggerWords: 'saved', mode: 'both', note: '', usedBy: [], on_server: true, in_registry: true }],
     availableLoras: ['saved.safetensors', 'new.safetensors'],
@@ -18,7 +19,7 @@ function initialState() {
       planner: { provider: 'qwen38-local', model: 'qwen3.8-27b-video-prompt', maxTokens: 4096 },
       stages: {
         characterImage: 'builtin', startFrame: 'builtin', keyframeImage: 'builtin',
-        chapterVideo: 'custom', shotImage: 'builtin', shotVideo: 'custom',
+        chapterVideo: 'custom', finalAudio: 'mmaudio', shotImage: 'builtin', shotVideo: 'custom',
       },
     },
     textProviders: [
