@@ -54,9 +54,9 @@
 
 ```text
 P0  判据契约 + 样本集        离线，0 GPU        ── 定义"什么叫坏文件"      ✅ 已完成
-P1  模型侧闸门 + receipt     llm-ai-model       ── 堵住假成功的源头
+P1  模型侧闸门 + receipt     llm-ai-model       ── 堵住假成功的源头        ✅ 已完成
 P2  目录契约 + 零上传        双侧，契约先行      ── 统一事实源的物理基础    ✅ 已完成
-P3  插件侧闸门 + receipt 消费 dsh-elysium        ── 编排层不再盲信 succeeded
+P3  插件侧闸门 + 自产 receipt dsh-elysium       ── 编排层不再盲信 succeeded  ✅ 已完成
 P4  单意图端到端基线         联调              ── ★ 决策门
 ────────────────────────────────────────────────
 P5  能力注册与默认路由       llm-ai-model       ── 未验证能力标 disabled
