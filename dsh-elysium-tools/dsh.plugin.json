@@ -1,6 +1,6 @@
 {
   "id": "dsh-external/dsh-elysium-tools",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "main": "./lib/index.js",
   "description": "直接调用 llm-ai-model 脚本的独立工具插件",
   "engines": {
@@ -10,7 +10,9 @@
     "tools": [
       "model_generate_image",
       "model_generate_long_video",
-      "model_generate_minimax_h3_video",
+      "model_generate_minimax_h3_t2va",
+      "model_generate_minimax_h3_fl2va",
+      "model_generate_minimax_h3_ref2va",
       "model_interpolate_video",
       "model_upscale_video",
       "model_add_video_audio",

@@ -46,15 +46,22 @@
 调用 model_generate_long_video，角色图片使用 /root/autodl-fs/artifacts/projects/tool-<image-job>/assets/characters/img.png，prompts 依次为“缓慢转身”“走向窗边”“回头看向镜头”，preset 使用 long_mvp_preview。
 ```
 
-### `model_generate_minimax_h3_video`
+### MiniMax H3 三个独立工具
 
-使用 DaSiWa MiniMax H3 生成同步音视频。`t2va` 只需要提示词；`fl2va` 还必须提供
-`image_path`；`ref2va` 至少提供 `image_path`、`video_path`、`audio_path` 中的一项。
-参考文件必须位于服务器共享 artifacts 目录。分辨率、时长、采样步数和编码参数由
-服务端使用生产默认值。
+| 工具 | 脚本 | 输入 |
+|---|---|---|
+| `model_generate_minimax_h3_t2va` | `generate_minimax_h3_t2va.sh` | `prompt` |
+| `model_generate_minimax_h3_fl2va` | `generate_minimax_h3_fl2va.sh` | `prompt`、`image_path` |
+| `model_generate_minimax_h3_ref2va` | `generate_minimax_h3_ref2va.sh` | `prompt`，另至少一项参考图、视频或音频 |
+
+均支持 `seed`（默认 666），无需 `mode` 参数。参考字段为 `image_path`、
+`video_path`、`audio_path`，文件必须位于服务器共享 artifacts 目录。
+分辨率、时长、采样步数和编码参数使用服务端默认值。
+三个脚本固定模式，共用 `generate_minimax_h3.sh` 执行逻辑；旧脚本保留兼容，
+原 `model_generate_minimax_h3_video` 工具由这三个工具替代。
 
 ```text
-调用 model_generate_minimax_h3_video，mode 使用 t2va，生成一艘纸船在晨光水面缓慢前进并带有自然水声的视频，seed 使用 666。
+调用 model_generate_minimax_h3_t2va，生成一艘纸船在晨光水面缓慢前进并带有自然水声的视频，seed 使用 666。
 ```
 
 ### `model_interpolate_video`

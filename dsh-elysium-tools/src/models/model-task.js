@@ -183,7 +183,7 @@ async function buildModelExecution(jobId, capability, params) {
     }
     const output = join(projectRoot, 'output', 'minimax-h3.mp4')
     const command = [
-      'bash', join(endpointRoot, 'generate_minimax_h3.sh'), '--mode', mode,
+      'bash', join(endpointRoot, `generate_minimax_h3_${mode}.sh`),
       '--prompt-file', prompt, '--output', output,
       '--run-id', jobId, '--seed', String(params.seed),
     ]
