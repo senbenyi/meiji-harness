@@ -739,10 +739,10 @@ export function createStudio(React, api) {
           storyLocked ? h('div', { className: 'ely-inline-notice' }, '生产中；暂停后可修改') : null,
           value.source === 'producer-agent' ? null : h('div', { className: 'ely-callout' }, '草稿规划 · 保存故事后自动规划'),
           h('div', { className: 'ely-chapter-list' }, value.chapters.map((chapter, chapterIndex) => h('article', { className: 'ely-chapter', key: chapter.id },
-            h('header', null, h('span', null, `章节 ${String(chapterIndex + 1).padStart(2, '0')}`), h('h3', null, chapter.title), h('small', null, `${chapter.anchors.length} 个画面锚点 · ${chapter.soundPrompt ? '音效已规划' : '缺少音效规划'}`)),
+            h('header', null, h('span', null, `章节 ${String(chapterIndex + 1).padStart(2, '0')}`), h('h3', null, chapter.title), h('small', null, `1 张首帧 · ${chapter.anchors.length} 段动作提示词 · ${chapter.soundPrompt ? '音效已规划' : '缺少音效规划'}`)),
             h('div', { className: 'ely-anchor-list' }, chapter.anchors.map((anchor, index) => h('div', { className: 'ely-anchor-row', key: anchor.id },
               h('span', { className: 'ely-anchor-index' }, String(index + 1).padStart(2, '0')),
-              h('div', null, h('small', null, index === 0 ? '文生图 · 起始帧' : '图生图 · 连续关键帧'), h('p', null, anchor.imagePrompt)),
+              h('div', null, h('small', null, index === 0 ? 'IP-Adapter · 人物一致性首帧' : 'SVI2Pro · 连续动作段'), h('p', null, index === 0 ? anchor.imagePrompt : anchor.motionPrompt)),
             ))),
           ))))
       } else if (activeStage === 'final' && episode.state.final) {

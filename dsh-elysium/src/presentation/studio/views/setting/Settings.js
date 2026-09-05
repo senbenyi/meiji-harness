@@ -269,7 +269,7 @@ export function createComfyUiSettings(React, api) {
     const stageTemplates = key => templates.filter(template => {
       const modes = templateModes(template)
       if (key === 'startFrame') return modes.some(mode => ['i2i', 'keyframe', 'identity_reference'].includes(mode))
-      if (key === 'chapterVideo') return modes.some(mode => ['long_video', 'six_anchor', 'video'].includes(mode))
+      if (key === 'chapterVideo') return modes.some(mode => ['long_video', 'svi_continuity', 'video'].includes(mode))
       if (key === 'finalAudio') return modes.some(mode => ['video_audio', 'audio'].includes(mode))
       if (key === 'shotVideo') return modes.some(mode => ['i2v', 'long_video', 'video'].includes(mode))
       return modes.some(mode => ['t2i', 'image'].includes(mode))

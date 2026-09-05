@@ -112,7 +112,7 @@ TypeScript 服务；`check:source-imports`、`typecheck` 和 `pnpm list` 才是�
 默认数据目录为 `./elysium-workspace`。可通过 `workspace` 修改路径，通过
 `comfyui.baseUrl` 配置隧道地址。Qwen3.8 规划模型通过 `planner.provider`、
 `planner.model` 和 `planner.maxTokens` 配置；托管生产使用 `models.characterImage`、
-`models.startFrame`、`models.keyframeImage`、`models.chapterVideo` 和 `models.finalAudio`；旧素材工作台继续使用
+`models.startFrame`、`models.chapterVideo` 和 `models.finalAudio`；旧素材工作台继续使用
 `models.shotImage` 与 `models.shotVideo`，两套入口都保留。工作流合同保存在
 `templates/comfyui/`，运行时复制到 Elysium 工作区后管理；远程生成驱动与侧栏能力均已
 内置，不需要额外安装配套插件。

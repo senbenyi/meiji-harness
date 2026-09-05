@@ -22,3 +22,12 @@ dsh plugin --profile web add --workspace-root ./registry
 `dsh-elysium-tools` 是独立安装的 Function Call 工具插件，直接调用服务器上的 `llm-ai-model` 脚本，
 提供图片、视频、后处理、工作流和任务查询工具，
 详见 [dsh-elysium-tools/README.md](./dsh-elysium-tools/README.md)。
+
+## 服务器部署
+
+从本机一次完成 `llm-ai-model` 脚本/工作流同步、两个插件构建打包、服务器注册和
+Harness 重启；部署过程不运行测试：
+
+```sh
+/usr/bin/env bash /Users/mac/ai/llm-ai-veo/llm-dsh-plugins/scripts/deploy.sh
+```

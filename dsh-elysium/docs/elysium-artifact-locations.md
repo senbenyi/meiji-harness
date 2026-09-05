@@ -53,7 +53,7 @@ project-mtmebbz4-ivxi8x/
         ├── tasks.json
         └── artifacts/
             ├── assets/       # 角色资产
-            ├── anchors/      # 起始帧和连续关键帧
+            ├── anchors/      # 每章人物一致性起始帧
             ├── chapters/     # 章节视频
             └── final/        # 最终成片和 QC 文件
 ```
@@ -72,7 +72,7 @@ project-mtmebbz4-ivxi8x/
 
 文件：`cast-main-1788493931774.png`
 
-### 起始帧和连续关键帧
+### 人物一致性起始帧
 
 目录：
 
@@ -80,7 +80,7 @@ project-mtmebbz4-ivxi8x/
 /Users/mac/.dsh/profiles/web/data/elysium/projects/project-mtmebbz4-ivxi8x/episodes/episode-mtmebhxg/artifacts/anchors
 ```
 
-当前共有 6 张图片：`chapter-01-anchor-01` 至 `chapter-01-anchor-06`。第一张是起始帧，后五张是连续关键帧。
+每章只保存一张起始帧，例如 `chapter-01-anchor-01`；其余五段连续性由 SVI2Pro latent 延续，不再单独生成关键帧图片。
 
 ### 章节视频
 

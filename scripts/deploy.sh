@@ -34,13 +34,13 @@ done
 echo '[1/4] 本地构建并打包'
 (
   cd "$CORE_ROOT"
-  pnpm install --frozen-lockfile
+  pnpm install --frozen-lockfile --ignore-scripts
   pnpm build
   node scripts/package-registry.mjs
 )
 (
   cd "$TOOLS_ROOT"
-  pnpm install --frozen-lockfile
+  pnpm install --frozen-lockfile --ignore-scripts
   pnpm build
   pnpm package:registry
 )
@@ -69,10 +69,21 @@ done
   echo '[FAIL] DeepSeek Harness 尚未安装' >&2
   exit 1
 }
-install -d -m 0755 "$core_dest" "$tools_dest" "$project_dest/scripts/workflow"
+install -d -m 0755 "$core_dest" "$tools_dest" "$project_dest/scripts" \
+  "$project_dest/config" "$project_dest/.dsh" "$project_dest/docs" "$project_dest/workflows"
 REMOTE
 rsync -az --delete -e "$SSH_TRANSPORT" \
-  "$MODEL_ROOT/scripts/workflow/" "$TARGET:$PROJECT_DEST/scripts/workflow/"
+  "$MODEL_ROOT/scripts/" "$TARGET:$PROJECT_DEST/scripts/"
+rsync -az --delete -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/config/" "$TARGET:$PROJECT_DEST/config/"
+rsync -az --delete -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/.dsh/" "$TARGET:$PROJECT_DEST/.dsh/"
+rsync -az --delete -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/docs/" "$TARGET:$PROJECT_DEST/docs/"
+rsync -az --delete -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/workflows/" "$TARGET:$PROJECT_DEST/workflows/"
+rsync -az -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/AGENTS.md" "$TARGET:$PROJECT_DEST/"
 rsync -az --delete -e "$SSH_TRANSPORT" \
   "$CORE_ROOT/registry/" "$TARGET:$CORE_DEST/"
 rsync -az --delete -e "$SSH_TRANSPORT" \
@@ -92,6 +103,8 @@ dsh_bin="$harness_root/app/node_modules/.bin/dsh"
   echo '[FAIL] workflow_adult_short_video 发布失败' >&2
   exit 1
 }
+rm -rf -- "$core_dest/node_modules"
+ln -s "$harness_root/app/node_modules" "$core_dest/node_modules"
 "$node_root/bin/node" --check "$core_dest/lib/index.js"
 "$node_root/bin/node" --check "$tools_dest/lib/index.js"
 for source_file in "$tools_dest"/lib/models/*.js "$tools_dest"/lib/workflows/*.js; do

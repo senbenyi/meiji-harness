@@ -119,9 +119,9 @@ function plannerPrompt(body, scenes, chapterCount, chapterOffset, totalChapters,
 硬性要求：
 1. 只输出一个 JSON 对象，不要 Markdown，不要解释。
 2. 整集共 ${totalChapters} 章；本次只输出全片第 ${first} 至 ${last} 章，chapters 必须正好 ${chapterCount} 章；每章必须正好 ${ANCHORS_PER_CHAPTER} 个 anchors。
-3. 每章第一个锚点是独立文生图起始帧；后五个是连续关键帧。
+3. 每章第一个 anchor 定义人物一致性首帧；后五个 anchor 只定义 SVI2Pro 连续动作段，不单独生成图片。
 4. chapters 必须忠实覆盖下方 scenes，sceneIds 标明来源场景；不得添加 scenes 没有的剧情、人物或道具。
-5. 每个 imagePrompt 是动作开始前的静止首帧，只描述可见主体、动作起点、场景、构图、光线、角色左右位置/朝向和连续状态。严禁复制整篇故事或写占位描述。
+5. 第一个 imagePrompt 是实际首帧提示词；后续 imagePrompt 只描述对应动作段开始时的可见状态，严禁复制整篇故事或写占位描述。
 6. 每个 motionPrompt 从首帧出发，描述人物动作、情绪推进和克制运镜；优先 ${profile.camera.motionPreference}，禁止 ${profile.camera.forbiddenMotions.join('、')}；人物换位或转向必须写出衔接动作。
 7. 相邻锚点必须有明确叙事推进；章节之间必须衔接上一章结尾的时间、地点、服装、道具和人物状态。
 8. 每章 soundPrompt 用英文描述本章可见动作对应的环境声和拟音；不得要求对白、旁白、配音或音乐。

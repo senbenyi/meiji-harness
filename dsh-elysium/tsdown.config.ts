@@ -338,6 +338,7 @@ export default [
     target: 'es2024',
     fixedExtension: false,
     dts: false,
+    deps: { alwaysBundle: ['schemastery', 'ws'] },
     // clean stays off: the build script removes lib/ wholesale before tsc, so
     // a tsdown clean here would wipe the lib/types declarations tsc just
     // emitted (and `watch` must never touch them).

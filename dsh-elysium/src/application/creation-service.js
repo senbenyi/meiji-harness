@@ -270,7 +270,7 @@ export function createCreationService(config = {}, planner = null) {
    * 把定稿剧情幂等写入制作流程。
    *
    * 不直接手写 plan.json：剧情编译成故事文本后交给 Producer Agent 生成规划，再用剧情里的
-   * 章节数与环境音提示做校验与覆盖。六锚点、去重和场景覆盖率的硬校验因此仍由既有的
+   * 章节数与环境音提示做校验与覆盖。六段提示词、去重和场景覆盖率的硬校验因此仍由既有的
    * `validatePlan` / `normalizeResult` 执行。
    *
    * 单集 ID 由**首次**同步的剧情指纹派生后固定；之后改剧情走 `episodeUpdate`，让既有的
