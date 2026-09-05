@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 readonly REPO_ROOT
+MODEL_ROOT="$(cd -- "$REPO_ROOT/../llm-ai-model" && pwd)"
+readonly MODEL_ROOT
 readonly PLUGIN_ROOT="$REPO_ROOT/dsh-elysium-tools"
 readonly TARGET=veo-comfyui
 readonly PROJECT_DEST=/root/autodl-tmp/project
@@ -23,6 +25,8 @@ for command_name in git pnpm rsync ssh; do
   command -v "$command_name" >/dev/null || fail "本机缺少命令：$command_name"
 done
 [[ -s "$PLUGIN_ROOT/package.json" ]] || fail "插件目录无效：$PLUGIN_ROOT"
+[[ -x "$MODEL_ROOT/scripts/workflow/image_to_final_video.sh" ]] || \
+  fail "工作流入口不存在或不可执行：$MODEL_ROOT/scripts/workflow/image_to_final_video.sh"
 
 echo '[1/4] 本地构建并打包'
 (
@@ -32,7 +36,7 @@ echo '[1/4] 本地构建并打包'
   pnpm package:registry
 )
 
-echo '[2/4] 发布插件包到服务器'
+echo '[2/4] 发布工作流入口与插件包到服务器'
 ssh "${SSH_OPTIONS[@]}" "$TARGET" bash -s -- "$PROJECT_DEST" "$HARNESS_ROOT" "$PLUGIN_DEST" <<'REMOTE'
 set -Eeuo pipefail
 project_dest="$1"
@@ -51,16 +55,14 @@ for endpoint in \
     exit 1
   }
 done
-[[ -x "$project_dest/scripts/workflow/image_to_final_video.sh" ]] || {
-  echo '[FAIL] workflow_image_to_final_video 入口不存在，请先部署 llm-ai-model' >&2
-  exit 1
-}
 [[ -x "$harness_root/app/node_modules/.bin/dsh" ]] || {
   echo '[FAIL] DeepSeek Harness 尚未安装' >&2
   exit 1
 }
-install -d -m 0755 "$plugin_dest"
+install -d -m 0755 "$plugin_dest" "$project_dest/scripts/workflow"
 REMOTE
+rsync -az --delete -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/scripts/workflow/" "$TARGET:$PROJECT_DEST/scripts/workflow/"
 rsync -az --delete -e "$SSH_TRANSPORT" \
   "$PLUGIN_ROOT/registry/" "$TARGET:$PLUGIN_DEST/"
 
@@ -73,6 +75,10 @@ plugin_dest="$3"
 node_root="$harness_root/runtime/node-v24.20.0-linux-x64"
 dsh_bin="$harness_root/app/node_modules/.bin/dsh"
 
+[[ -x "$project_dest/scripts/workflow/image_to_final_video.sh" ]] || {
+  echo '[FAIL] workflow_image_to_final_video 发布失败' >&2
+  exit 1
+}
 "$node_root/bin/node" --check "$plugin_dest/lib/index.js"
 for source_file in "$plugin_dest"/lib/models/*.js "$plugin_dest"/lib/workflows/*.js; do
   "$node_root/bin/node" --check "$source_file"
