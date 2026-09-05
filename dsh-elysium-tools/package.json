@@ -1,0 +1,27 @@
+{
+  "name": "@dsh-external/dsh-elysium-tools",
+  "version": "0.3.0",
+  "description": "Independent DeepSeek Harness tools backed by llm-ai-model Model API.",
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.js",
+    "package:registry": "node scripts/package-registry.mjs"
+  },
+  "license": "MIT"
+}

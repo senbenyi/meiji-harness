@@ -1,0 +1,23 @@
+{
+  "id": "dsh-external/dsh-elysium-tools",
+  "version": "0.3.0",
+  "main": "./lib/index.js",
+  "description": "独立 Model API 工具插件",
+  "engines": {
+    "dsh": ">=0.1.2-alpha.3"
+  },
+  "contributes": {
+    "tools": [
+      "model_generate_image",
+      "model_edit_image",
+      "model_generate_video",
+      "model_generate_long_video",
+      "model_interpolate_video",
+      "model_upscale_video",
+      "model_add_video_audio",
+      "model_job_status",
+      "model_job_result",
+      "workflow_image_to_final_video"
+    ]
+  }
+}
