@@ -35,6 +35,8 @@ export interface ElysiumConfig {
     baseUrl?: string
     templatesDir?: string
     outputDir?: string
+    /** Local path that is the same directory ComfyUI serves as its input/. Set it only when the filesystem is genuinely shared; empty keeps the HTTP upload path. */
+    sharedInputRoot?: string
   }
   /** Local post-production executables. Media generation itself remains remote. */
   ffmpeg?: string
@@ -65,7 +67,8 @@ export const Config: z<ElysiumConfig> = z.object({
     baseUrl: z.string().default('http://127.0.0.1:8189'),
     templatesDir: z.string().default(''),
     outputDir: z.string().default(''),
-  }).default({ baseUrl: 'http://127.0.0.1:8189', templatesDir: '', outputDir: '' }),
+    sharedInputRoot: z.string().default(''),
+  }).default({ baseUrl: 'http://127.0.0.1:8189', templatesDir: '', outputDir: '', sharedInputRoot: '' }),
   ffmpeg: z.string().default('ffmpeg'),
   ffprobe: z.string().default('ffprobe'),
   readLimit: z.number().step(1).min(1).default(512 * 1024),

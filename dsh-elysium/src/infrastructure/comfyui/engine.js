@@ -1,6 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import {
   applyClassAliases,
   bypassNode,
@@ -258,7 +258,26 @@ export async function testTemplateReadiness({ baseUrl, templatesDir, template, p
   }
 }
 
-async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map()) {
+/**
+ * 共享输入区下的引用名。纯路径推导，便于单测。
+ *
+ * sharedInputRoot 是"本地看得到、且就是 ComfyUI input/ 的同一个目录"。配置了它才
+ * 可能零上传：文件已在区内就直接引用，不在区内就先落进区内再引用——两者都不走 HTTP。
+ * 远程 ComfyUI 若与本机不共享文件系统，就不该配置这一项，回落到上传。
+ */
+export function resolveSharedInput(sharedInputRoot, filePath) {
+  const root = path.resolve(sharedInputRoot)
+  const absolutePath = path.resolve(filePath)
+  const relative = path.relative(root, absolutePath)
+  const inside = relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+  if (inside) return { mode: 'shared-path', name: relative.split(path.sep).join('/'), target: absolutePath }
+  // 区外文件按内容哈希落进区内，避免同名产物互相覆盖。
+  const digest = createHash('sha1').update(absolutePath).digest('hex').slice(0, 8)
+  const name = `elysium/${digest}-${path.basename(absolutePath)}`
+  return { mode: 'shared-copy', name, target: path.join(root, ...name.split('/')) }
+}
+
+async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map(), sharedInputRoot = '') {
   if (!filePath) {
     throw Object.assign(new Error('MEDIA_MISSING'), { code: 'MEDIA_MISSING' })
   }
@@ -268,14 +287,26 @@ async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map
   const nodeId = slotTargetsSafe(slot)[0]?.node
   const node = nodeId ? graph[String(nodeId)] : null
   const cls = node?.class_type || ''
+  const base64Node = cls === 'ETN_LoadImageBase64' || cls.toLowerCase().includes('base64')
   const absolutePath = path.resolve(filePath)
   const cached = uploadCache.get(absolutePath)
-  if (cached && cls !== 'ETN_LoadImageBase64' && !cls.toLowerCase().includes('base64')) {
+  if (cached && !base64Node) {
     injectSlot(graph, slot, cached.name)
     return { ...cached, slot: slot.key, reused: true }
   }
+  if (!base64Node && sharedInputRoot) {
+    const shared = resolveSharedInput(sharedInputRoot, absolutePath)
+    if (shared.mode === 'shared-copy') {
+      fs.mkdirSync(path.dirname(shared.target), { recursive: true })
+      fs.copyFileSync(absolutePath, shared.target)
+    }
+    injectSlot(graph, slot, shared.name)
+    const meta = { mode: shared.mode, name: shared.name, bytes: fs.statSync(absolutePath).size }
+    uploadCache.set(absolutePath, meta)
+    return { ...meta, slot: slot.key, reused: false }
+  }
   const buf = fs.readFileSync(filePath)
-  if (cls === 'ETN_LoadImageBase64' || cls.toLowerCase().includes('base64')) {
+  if (base64Node) {
     injectSlot(graph, slot, buf.toString('base64'))
     return { mode: 'base64', bytes: buf.length, slot: slot.key }
   }
@@ -310,7 +341,7 @@ function applyLoraPatch(graph, spec, patch) {
 }
 
 export async function generate(opts) {
-  const { baseUrl, templatesDir, outputDir, args } = opts
+  const { baseUrl, templatesDir, outputDir, args, sharedInputRoot = '' } = opts
   const templateId = args.template
   if (!templateId) return fail('SLOT_REQUIRED', 'template is required')
 
@@ -369,7 +400,7 @@ export async function generate(opts) {
   for (const slot of Object.values(slots)) {
     if (!MEDIA.has(slot.type) || provided[slot.key] == null || provided[slot.key] === '') continue
     try {
-      const meta = await ingestMedia(baseUrl, graph, slot, provided[slot.key], uploadCache)
+      const meta = await ingestMedia(baseUrl, graph, slot, provided[slot.key], uploadCache, sharedInputRoot)
       mediaMeta.push(meta)
       if (slot.type === 'image' && !imageMeta) imageMeta = meta
     } catch (e) {

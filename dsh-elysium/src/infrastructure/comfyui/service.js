@@ -140,10 +140,13 @@ export function resolveComfyUiConfig(config = {}) {
   fs.mkdirSync(outputDir, { recursive: true })
   const settings = loadSettings(templatesDir)
   applyModelRouting(config, settings.modelRouting)
+  // 共享输入区：配置了才走零上传旁路，留空保持既有的 HTTP 上传。
+  const sharedInputRootRaw = String(settings.sharedInputRoot || comfyui.sharedInputRoot || '')
   return {
     baseUrl: String(settings.baseUrl || comfyui.baseUrl || 'http://127.0.0.1:8189').replace(/\/$/, ''),
     templatesDir,
     outputDir,
+    sharedInputRoot: sharedInputRootRaw ? path.resolve(sharedInputRootRaw) : '',
   }
 }
 

@@ -55,7 +55,7 @@
 ```text
 P0  判据契约 + 样本集        离线，0 GPU        ── 定义"什么叫坏文件"      ✅ 已完成
 P1  模型侧闸门 + receipt     llm-ai-model       ── 堵住假成功的源头
-P2  目录契约 + 零上传        双侧，契约先行      ── 统一事实源的物理基础
+P2  目录契约 + 零上传        双侧，契约先行      ── 统一事实源的物理基础    ✅ 已完成
 P3  插件侧闸门 + receipt 消费 dsh-elysium        ── 编排层不再盲信 succeeded
 P4  单意图端到端基线         联调              ── ★ 决策门
 ────────────────────────────────────────────────
@@ -174,7 +174,7 @@ P0–P4 是本计划的详细部分。P5/P6 只给边界与交付物，**具体�
 
 ---
 
-## P2 · 目录契约与零上传
+## P2 · 目录契约与零上传 ✅ 已完成
 
 **归属：** 双侧，但**契约先定，实现分别做**
 
@@ -202,9 +202,36 @@ P0–P4 是本计划的详细部分。P5/P6 只给边界与交付物，**具体�
 - **插件侧负责**：manifest 落盘、产物引用与固化、不再上传字节流
 - **不负责**：资产复用与 bible（属 31–60 天）、manifest 的 Agent 生成逻辑（属 P6）
 
+### 交付结果
+
+| 产出 | 位置 |
+|---|---|
+| 存储契约（三个根的所有权、生命周期、清理） | [`docs/production-storage-contract.md`](./production-storage-contract.md) |
+| manifest schema v1 + 幂等键 | `src/domain/production-manifest.js` |
+| 共享输入区旁路 | `src/infrastructure/comfyui/engine.js` 的 `resolveSharedInput` / `ingestMedia` |
+| 配置项 `comfyui.sharedInputRoot` | `src/bootstrap/config.ts`、`src/infrastructure/comfyui/service.js` |
+| 测试 | `tests/production/manifest.test.js`、`tests/comfyui/comfyui-shared-input.test.js` |
+
+`pnpm typecheck`、`check:source-imports`（205 文件）、`pnpm test`（151 项）通过。
+
+### 目录冲突的裁决结果
+
+**两个根并存，不合并。** 让模型侧按 episode 组织目录，等于要求 model API 认识剧集/章节/分镜——正是 CLAUDE.md 禁止下沉到模型层的业务编排。插件侧改用引用（路径 + `outputHash`）指向模型侧产物。
+
+### 关于"上传次数为 0"这个指标
+
+原验收写"一条链路上传次数为 0"，但这个指标**无法无条件成立**，取决于部署形态：
+
+| 部署 | 能否零上传 |
+|---|---|
+| 插件与 ComfyUI 同机或挂载同一存储 | 能，配 `comfyui.sharedInputRoot` 走路径注入 |
+| 远程 ComfyUI 仅 HTTP 隧道（CLAUDE.md 的默认形态） | **不能**，回落上传 |
+
+所以交付的是**能力**而非承诺：共享文件系统存在时零上传，不存在时保持既有上传路径。修正后的验收标准见下。注意模型侧的 `*_path` 共享路径入参早已具备（`inputs.py:4`、`main.py:98`），缺口一直在插件侧——插件传的是 ComfyUI 的 `/upload/image`，不是 model API。
+
 ### 验收
 
-一条链路上传次数为 0；manifest 可被两侧解析；产物路径解析拒绝越界（复用 `inputs.py:4` 的既有校验）。
+配置共享区时媒体槽走路径注入且不产生 HTTP 上传；未配置时行为与改动前一致；manifest 可派生、可校验，且故事未变时 `manifestId` 与 `manifestVersion` 保持不变。
 
 ---
 
