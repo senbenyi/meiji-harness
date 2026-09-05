@@ -1,7 +1,12 @@
 const MODEL_API_BASE_URL = 'http://127.0.0.1:8010/v1'
 const POLL_INTERVAL_MS = 2000
 
-export const IMAGE_TIMEOUT_MS = 41 * 60 * 1000
+export const MODEL_TIMEOUTS = Object.freeze({
+  image: 41 * 60 * 1000,
+  video: 71 * 60 * 1000,
+  longVideo: 151 * 60 * 1000,
+  postprocess: 121 * 60 * 1000,
+})
 
 export class ModelApiError extends Error {
   constructor(code, message, status = 500) {
@@ -18,10 +23,10 @@ function detailOf(value) {
   return ''
 }
 
-async function requestJson(url, options = {}) {
+export async function requestJson(path, options = {}) {
   let response
   try {
-    response = await fetch(url, options)
+    response = await fetch(`${MODEL_API_BASE_URL}${path}`, options)
   } catch (error) {
     if (options.signal?.aborted) throw error
     throw new ModelApiError('MODEL_API_UNREACHABLE', `Model API 不可用：${error?.message || error}`, 503)
@@ -33,46 +38,59 @@ async function requestJson(url, options = {}) {
   return value
 }
 
-export function createModelApiService() {
-  async function generateImage(input = {}, signal) {
-    const prompt = String(input.prompt || '').trim()
-    if (!prompt) throw new ModelApiError('VALIDATION_ERROR', '请提供文生图提示词', 400)
-    const preset = input.preset || 'standard'
-    if (!['fast', 'standard'].includes(preset)) {
-      throw new ModelApiError('VALIDATION_ERROR', 'preset 只能是 fast 或 standard', 400)
-    }
-    const seed = input.seed ?? 666
-    if (!Number.isSafeInteger(seed) || seed < 0) {
-      throw new ModelApiError('VALIDATION_ERROR', 'seed 必须是非负整数', 400)
-    }
+export function submitJson(path, body, signal) {
+  return requestJson(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+}
 
-    const submitted = await requestJson(`${MODEL_API_BASE_URL}/images/generations`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt, preset, seed }),
-      signal,
-    })
-    const deadline = Date.now() + IMAGE_TIMEOUT_MS
-    while (Date.now() < deadline) {
-      signal?.throwIfAborted()
-      const job = await requestJson(`${MODEL_API_BASE_URL}/jobs/${submitted.job_id}`, { signal })
-      if (job.status === 'succeeded') {
-        return {
-          job_id: job.job_id,
-          status: job.status,
-          path: job.result.path,
-          size_bytes: job.result.size_bytes,
-          sha256: job.result.sha256,
-        }
-      }
-      if (job.status === 'failed') {
-        throw new ModelApiError('MODEL_GENERATION_FAILED', job.error || '图片生成失败')
-      }
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
-    }
-    throw new ModelApiError('MODEL_GENERATION_TIMEOUT', '图片生成超时', 504)
+export function submitForm(path, fields, signal) {
+  const body = new FormData()
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== null && value !== '') body.append(key, String(value))
   }
+  return requestJson(path, { method: 'POST', body, signal })
+}
 
-  return { generateImage }
+export function getJob(jobId, signal) {
+  return requestJson(`/jobs/${jobId}`, { signal })
+}
+
+export function completedResult(job) {
+  if (job.status !== 'succeeded' || !job.result) {
+    throw new ModelApiError('MODEL_JOB_NOT_READY', `任务尚未成功：${job.status}`, 409)
+  }
+  return {
+    job_id: job.job_id,
+    status: job.status,
+    path: job.result.path,
+    size_bytes: job.result.size_bytes,
+    sha256: job.result.sha256,
+    result_url: `/v1/jobs/${job.job_id}/result`,
+    ...(job.result.receipt_path ? { receipt_path: job.result.receipt_path } : {}),
+    ...(job.result.contract_version ? { contract_version: job.result.contract_version } : {}),
+  }
+}
+
+export async function waitForJob(jobId, signal, timeoutMs) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    signal?.throwIfAborted()
+    const job = await getJob(jobId, signal)
+    if (job.status === 'succeeded') return completedResult(job)
+    if (job.status === 'failed') {
+      throw new ModelApiError('MODEL_GENERATION_FAILED', job.error || '模型任务失败')
+    }
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+  }
+  throw new ModelApiError('MODEL_GENERATION_TIMEOUT', '模型任务超时', 504)
+}
+
+export async function submitAndWait(submit, signal, timeoutMs) {
+  const accepted = await submit()
+  return waitForJob(accepted.job_id, signal, timeoutMs)
 }
 
