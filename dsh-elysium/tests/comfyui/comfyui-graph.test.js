@@ -53,39 +53,38 @@ describe('graph', () => {
 })
 
 describe('contracts', () => {
-  it('lists three anima templates', () => {
+  it('lists the two production image templates', () => {
     const list = listTemplates(templatesDir)
-    assert.deepEqual(list.map((t) => t.id).filter(id => id.startsWith('anima-')).sort(), ['anima-i2i', 'anima-i2i-multi-out', 'anima-txt2img'])
-    const t2i = list.find((t) => t.id === 'anima-txt2img')
-    assert.ok(t2i.cannot.includes('upscale'))
-    assert.ok(t2i.lora_slots.some((s) => s.startsWith('quality')))
+    assert.deepEqual(list.map((t) => t.id).filter(id => id.startsWith('realvisxl-')).sort(), ['realvisxl-ipadapter', 'realvisxl-t2i'])
+    const t2i = list.find((t) => t.id === 'realvisxl-t2i')
+    assert.ok(t2i.cannot.includes('video'))
     assert.deepEqual(t2i.media.out, ['image'])
   })
 
-  it('ships the Elysium Wan2.2 short-video contract', () => {
-    const info = inspectTemplate(templatesDir, 'wan22-remix-short')
+  it('ships the Elysium Wan2.2 long-video contract', () => {
+    const info = inspectTemplate(templatesDir, 'wan22-remix-long')
     assert.deepEqual(info.media.in, ['image', 'text'])
     assert.deepEqual(info.media.out, ['video'])
     assert.equal(info.slots.image.required, true)
-    assert.equal(info.slots.prompt.required, true)
+    assert.equal(info.slots.prompt_1.required, true)
     assert.ok(info.capabilities.mode.includes('i2v'))
     assert.ok(info.capabilities.cannot.includes('t2v'))
   })
 
   it('keeps the bundled Wan2.2 workflow aligned with the model workspace when present', () => {
-    const source = path.join(templatesDir, '..', '..', '..', 'llm-ai-model', 'workflows', 'video-generate-wan22-remix', 'workflow_short_api.json')
+    const source = path.join(templatesDir, '..', '..', '..', '..', 'llm-ai-model', 'workflows', 'video-generate-wan22-remix', 'workflow_long_api.json')
     if (!fs.existsSync(source)) return
     assert.equal(
-      fs.readFileSync(path.join(templatesDir, 'wan22-remix-short.json'), 'utf8'),
+      fs.readFileSync(path.join(templatesDir, 'wan22-remix-long.json'), 'utf8'),
       fs.readFileSync(source, 'utf8'),
     )
   })
 
-  it('inspects i2i required image slot', () => {
-    const info = inspectTemplate(templatesDir, 'anima-i2i')
-    assert.equal(info.slots.image.required, true)
+  it('inspects IP-Adapter required reference slot', () => {
+    const info = inspectTemplate(templatesDir, 'realvisxl-ipadapter')
+    assert.equal(info.slots.reference.required, true)
     assert.equal(info.prompt_style, 'natural_en')
-    assert.equal(info.loras.length, 2)
+    assert.equal(info.loras.length, 0)
   })
 })
 

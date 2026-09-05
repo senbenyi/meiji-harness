@@ -192,27 +192,22 @@ export function buildTasks(episode, plan, previous = []) {
     status: 'pending', attempt: 0, maxAttempts: 2, remoteJobId: null, path: null, error: null,
   })
   for (const chapter of plan.chapters) {
-    chapter.anchors.forEach((anchor, index) => {
-      const type = index === 0 ? 'start_frame' : 'keyframe'
-      const dependencyIds = index === 0
-        ? ['asset:cast-main']
-        : [`anchor:${chapter.anchors[index - 1].id}`, 'asset:cast-main']
-      add({
-        id: `anchor:${anchor.id}`,
-        type,
-        entityId: anchor.id,
-        chapterId: chapter.id,
-        dependencies: dependencyIds,
-        inputHash: hashInputs({ type, anchor, stylePrompt: episode.stylePrompt, castPrompt: episode.castPrompt }),
-        status: 'pending', attempt: 0, maxAttempts: 2, remoteJobId: null, path: null, error: null,
-      })
+    const anchor = chapter.anchors[0]
+    add({
+      id: `anchor:${anchor.id}`,
+      type: 'start_frame',
+      entityId: anchor.id,
+      chapterId: chapter.id,
+      dependencies: ['asset:cast-main'],
+      inputHash: hashInputs({ type: 'start_frame', anchor, stylePrompt: episode.stylePrompt, castPrompt: episode.castPrompt }),
+      status: 'pending', attempt: 0, maxAttempts: 2, remoteJobId: null, path: null, error: null,
     })
     add({
       id: `chapter:${chapter.id}`,
       type: 'chapter',
       entityId: chapter.id,
       chapterId: chapter.id,
-      dependencies: chapter.anchors.map(anchor => `anchor:${anchor.id}`),
+      dependencies: [`anchor:${anchor.id}`],
       inputHash: hashInputs({ type: 'chapter', anchors: chapter.anchors, profile: episode.profile }),
       status: 'pending', attempt: 0, maxAttempts: 2, remoteJobId: null, path: null, error: null,
     })

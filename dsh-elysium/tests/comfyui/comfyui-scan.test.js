@@ -74,9 +74,9 @@ describe('scan', () => {
     assert.equal((r.contract.loras || []).length, 0)
   })
 
-  it('still lists the three hand-written anima templates', () => {
+  it('lists only the current hand-written production templates', () => {
     const list = listTemplates(templatesDir)
-    assert.deepEqual(list.map((t) => t.id).filter(id => id.startsWith('anima-')).sort(), ['anima-i2i', 'anima-i2i-multi-out', 'anima-txt2img'])
+    assert.deepEqual(list.map((t) => t.id).sort(), ['mmaudio', 'realvisxl-ipadapter', 'realvisxl-t2i', 'wan22-remix-long'])
   })
 })
 

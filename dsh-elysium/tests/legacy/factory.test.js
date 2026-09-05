@@ -67,7 +67,7 @@ test('factory persists two images, two videos, QC and human approval', async () 
   const comfy = {
     async generate(args) {
       const id = `job-${++sequence}`
-      jobs.set(id, args.template === 'qwen-image-t2i'
+      jobs.set(id, args.template === 'realvisxl-t2i'
         ? { kind: 'image', path: image, args }
         : { kind: 'video', path: video, args })
       return { ok: true, job_id: id, status: 'running' }
@@ -88,8 +88,8 @@ test('factory persists two images, two videos, QC and human approval', async () 
   assert.equal(done.state.final.duration_seconds, 41.25)
   const videoJobs = [...jobs.values()].filter(job => job.kind === 'video')
   assert.equal(videoJobs.length, 2)
-  assert.deepEqual(Object.keys(videoJobs[0].args).filter(key => /^image_\d$/.test(key)), ['image_1', 'image_2', 'image_3', 'image_4', 'image_5', 'image_6'])
-  assert.deepEqual(new Set(Array.from({ length: 6 }, (_, index) => videoJobs[0].args[`image_${index + 1}`])).size, 1)
+  assert.equal(videoJobs[0].args.image, image)
+  assert.equal(Object.keys(videoJobs[0].args).filter(key => /^prompt_\d$/.test(key)).length, 6)
 
   await factory.execute({
     action: 'approve',

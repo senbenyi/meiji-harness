@@ -160,13 +160,13 @@ async function stableCopy(source, destination, extensions) {
 function imageArgs(spec, shot, index) {
   const final = spec.profile === 'final'
   return {
-    template: 'qwen-image-t2i',
+    template: 'realvisxl-t2i',
     prompt: `${spec.cast_prompt}. ${shot.image_prompt}`,
     negative: spec.negative_prompt,
     width: final ? 1024 : 720,
     height: final ? 1536 : 1280,
     steps: final ? 28 : 20,
-    cfg: final ? 3.5 : 2.5,
+    cfg: final ? 6 : 5,
     seed: (spec.seed + index) >>> 0,
     wait_s: 0,
   }
@@ -177,6 +177,7 @@ function blockArgs(spec, blockIndex, imagePath) {
   const shot = spec.shots[blockIndex]
   const args = {
     template: 'wan22-remix-long',
+    image: imagePath,
     negative: spec.negative_prompt,
     width: final ? 432 : 352,
     height: final ? 768 : 624,
@@ -186,7 +187,6 @@ function blockArgs(spec, blockIndex, imagePath) {
     wait_s: 0,
   }
   for (let index = 0; index < ANCHORS_PER_BLOCK; index += 1) {
-    args[`image_${index + 1}`] = imagePath
     args[`prompt_${index + 1}`] = shot.video_prompt
   }
   return args

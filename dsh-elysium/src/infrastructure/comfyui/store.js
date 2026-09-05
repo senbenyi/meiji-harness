@@ -2,18 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { listTemplates, loadContracts } from './templates.js'
 
-const DEFAULT_LORA_META = {
-  'anima-base-1-masterpiece-v51.safetensors': {
-    triggerWords: 'masterpiece, best quality, very aesthetic',
-    mode: 'both',
-    note: '画质 LoRA。触发词会写进正向提示词。',
-  },
-  'anima-turbo-lora-v0.2.safetensors': {
-    triggerWords: 'turbo',
-    mode: 'model-only',
-    note: '加速用，只加载模型、不要把 turbo 写进画面描述。',
-  },
-}
+const DEFAULT_LORA_META = {}
 
 export function settingsFile(templatesDir) {
   return path.join(templatesDir, 'user-settings.json')
@@ -67,7 +56,7 @@ function normalizeModelRouting(input) {
       }
     : null
   const stages = {}
-  for (const key of ['characterImage', 'startFrame', 'keyframeImage', 'chapterVideo', 'shotImage', 'shotVideo']) {
+  for (const key of ['characterImage', 'startFrame', 'chapterVideo', 'shotImage', 'shotVideo']) {
     const template = String(input.stages?.[key] || '').trim()
     if (template) stages[key] = template
   }

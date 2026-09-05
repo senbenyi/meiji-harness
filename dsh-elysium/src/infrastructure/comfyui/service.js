@@ -60,14 +60,22 @@ function normalizeBaseUrl(value) {
 }
 
 const MODEL_STAGE_DEFAULTS = {
-  characterImage: 'qwen-image-t2i',
-  startFrame: 'qwen-image-t2i',
-  keyframeImage: 'qwen-image-edit',
+  characterImage: 'realvisxl-t2i',
+  startFrame: 'realvisxl-ipadapter',
   chapterVideo: 'wan22-remix-long',
   finalAudio: 'mmaudio',
-  shotImage: 'qwen-image-t2i',
+  shotImage: 'realvisxl-t2i',
   shotVideo: 'wan22-remix-long',
 }
+
+const RETIRED_BUNDLED_TEMPLATES = [
+  'anima-i2i-multi-out',
+  'anima-i2i',
+  'anima-txt2img',
+  'qwen-image-edit',
+  'qwen-image-t2i',
+  'wan22-remix-short',
+]
 
 function applyModelRouting(config, routing = {}) {
   const planner = routing.planner
@@ -108,6 +116,10 @@ function copyBundledTemplates(target) {
   fs.mkdirSync(target, { recursive: true })
   const source = bundledTemplatesDir()
   if (!fs.existsSync(source) || path.resolve(source) === path.resolve(target)) return
+  for (const id of RETIRED_BUNDLED_TEMPLATES) {
+    fs.rmSync(path.join(target, `${id}.contract.json`), { force: true })
+    fs.rmSync(path.join(target, `${id}.json`), { force: true })
+  }
   const upgradedWorkflows = new Set()
   for (const name of fs.readdirSync(source).filter(file => file.endsWith('.contract.json'))) {
     const sourcePath = path.join(source, name)
@@ -135,17 +147,18 @@ function copyBundledTemplates(target) {
 
 export function resolveComfyUiConfig(config = {}) {
   const comfyui = config.comfyui && typeof config.comfyui === 'object' ? config.comfyui : {}
-  const workspace = path.resolve(String(config.workspace || './elysium-workspace'))
-  const templatesDir = path.resolve(String(comfyui.templatesDir || path.join(workspace, 'comfyui', 'templates')))
-  const outputDir = path.resolve(String(comfyui.outputDir || path.join(workspace, 'comfyui', 'output')))
+  const environmentWorkspace = String(process.env.ELYSIUM_WORKSPACE || '').trim()
+  const workspace = path.resolve(environmentWorkspace || String(config.workspace || './elysium-workspace'))
+  const templatesDir = path.resolve(String(process.env.ELYSIUM_TEMPLATES_DIR || (environmentWorkspace ? path.join(workspace, 'comfyui', 'templates') : comfyui.templatesDir) || path.join(workspace, 'comfyui', 'templates')))
+  const outputDir = path.resolve(String(process.env.ELYSIUM_OUTPUT_DIR || (environmentWorkspace ? path.join(workspace, 'comfyui', 'output') : comfyui.outputDir) || path.join(workspace, 'comfyui', 'output')))
   copyBundledTemplates(templatesDir)
   fs.mkdirSync(outputDir, { recursive: true })
   const settings = loadSettings(templatesDir)
   applyModelRouting(config, settings.modelRouting)
   // 共享输入区：配置了才走零上传旁路，留空保持既有的 HTTP 上传。
-  const sharedInputRootRaw = String(settings.sharedInputRoot || comfyui.sharedInputRoot || '')
+  const sharedInputRootRaw = String(process.env.ELYSIUM_SHARED_INPUT_ROOT || settings.sharedInputRoot || comfyui.sharedInputRoot || '')
   return {
-    baseUrl: String(settings.baseUrl || comfyui.baseUrl || 'http://127.0.0.1:8189').replace(/\/$/, ''),
+    baseUrl: String(process.env.COMFYUI_URL || settings.baseUrl || comfyui.baseUrl || 'http://127.0.0.1:8189').replace(/\/$/, ''),
     templatesDir,
     outputDir,
     sharedInputRoot: sharedInputRootRaw ? path.resolve(sharedInputRootRaw) : '',

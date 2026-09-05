@@ -27,12 +27,11 @@ function routingFromState(value) {
       maxTokens: Number(saved.planner?.maxTokens || 4096),
     },
     stages: {
-      characterImage: saved.stages?.characterImage || 'qwen-image-t2i',
-      startFrame: saved.stages?.startFrame || 'qwen-image-t2i',
-      keyframeImage: saved.stages?.keyframeImage || 'qwen-image-edit',
+      characterImage: saved.stages?.characterImage || 'realvisxl-t2i',
+      startFrame: saved.stages?.startFrame || 'realvisxl-ipadapter',
       chapterVideo: saved.stages?.chapterVideo || 'wan22-remix-long',
       finalAudio: saved.stages?.finalAudio || 'mmaudio',
-      shotImage: saved.stages?.shotImage || 'qwen-image-t2i',
+      shotImage: saved.stages?.shotImage || 'realvisxl-t2i',
       shotVideo: saved.stages?.shotVideo || 'wan22-remix-long',
     },
   }
@@ -269,7 +268,7 @@ export function createComfyUiSettings(React, api) {
     const templateModes = template => template.capabilities?.mode || []
     const stageTemplates = key => templates.filter(template => {
       const modes = templateModes(template)
-      if (key === 'keyframeImage') return modes.some(mode => ['i2i', 'keyframe', 'image'].includes(mode))
+      if (key === 'startFrame') return modes.some(mode => ['i2i', 'keyframe', 'identity_reference'].includes(mode))
       if (key === 'chapterVideo') return modes.some(mode => ['long_video', 'six_anchor', 'video'].includes(mode))
       if (key === 'finalAudio') return modes.some(mode => ['video_audio', 'audio'].includes(mode))
       if (key === 'shotVideo') return modes.some(mode => ['i2v', 'long_video', 'video'].includes(mode))
@@ -331,7 +330,6 @@ export function createComfyUiSettings(React, api) {
             h('div', { className: 'tf-model-grid' },
               h(ModelSelect, { stage: 'characterImage', label: '角色定妆图' }),
               h(ModelSelect, { stage: 'startFrame', label: '章节起始帧' }),
-              h(ModelSelect, { stage: 'keyframeImage', label: '连续关键帧' }),
               h(ModelSelect, { stage: 'chapterVideo', label: '章节长视频' }),
               h(ModelSelect, { stage: 'finalAudio', label: '成片同步音效' }),
               h(ModelSelect, { stage: 'shotImage', label: '单镜图片' }),

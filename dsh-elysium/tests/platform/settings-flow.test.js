@@ -18,7 +18,7 @@ function initialState() {
     modelRouting: {
       planner: { provider: 'qwen38-local', model: 'qwen3.8-27b-video-prompt', maxTokens: 4096 },
       stages: {
-        characterImage: 'builtin', startFrame: 'builtin', keyframeImage: 'builtin',
+        characterImage: 'builtin', startFrame: 'builtin',
         chapterVideo: 'custom', finalAudio: 'mmaudio', shotImage: 'builtin', shotVideo: 'custom',
       },
     },

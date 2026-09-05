@@ -14,14 +14,14 @@ DeepSeek Harness 的单插件 AI 短剧生产工厂，内置单集工作台、Co
 - `ctx.betterSidebar` 页签与文件查看器扩展服务
 
 Elysium 持久化单集、任务和生产状态，
-由 Elysium 内部驱动调用远程 Qwen T2I、Qwen Image Edit 和 Wan2.2 Remix；本机只做
+由 Elysium 内部驱动调用远程 RealVisXL、IP-Adapter 和 Wan2.2 Remix v3；本机只做
 产物归档、FFmpeg 标准化拼接、FFprobe 时长 QC 和人工验收记录。
 
 原 ComfyUI 插件的检查、生成、任务恢复、模板和 LoRA 管理能力统一为该工具下的
 `comfyui_*` 动作，不再注册第二组聊天工具。
 
 生产顺序为：Qwen3.8 剧本与分镜规划 → 角色定妆图 → 每章文生图起始帧 →
-5 张连续关键帧 → 六锚点章节视频 → 静音拼接 → MMAudio 同步环境音与拟音 → 25fps、H.264 成片。
+人物一致性首帧 → SVI2Pro 连续章节视频 → 静音拼接 → MMAudio 同步环境音与拟音 → 25fps、H.264 成片。
 支持 9:16 和 16:9；合成时使用运动插帧并精确裁切目标时长，缺少音轨或时长偏差超过
 QC 容差时不会进入人审。MMAudio 不生成对白、旁白、配音或音乐。
 

@@ -14,7 +14,7 @@
   },
   "2": {
     "inputs": {
-      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "clip_name": "nsfw_wan_umt5-xxl_fp8_scaled.safetensors",
       "type": "wan",
       "device": "default"
     },
@@ -43,7 +43,7 @@
   },
   "20": {
     "inputs": {
-      "unet_name": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "unet_name": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v3.0.safetensors",
       "weight_dtype": "fp8_e4m3fn"
     },
     "class_type": "UNETLoader",
@@ -201,7 +201,7 @@
   },
   "405": {
     "inputs": {
-      "unet_name": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "unet_name": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v3.0.safetensors",
       "weight_dtype": "fp8_e4m3fn"
     },
     "class_type": "UNETLoader",
@@ -323,7 +323,7 @@
     "inputs": {
       "frame_rate": 16,
       "loop_count": 0,
-      "filename_prefix": "elysium/video-block",
+      "filename_prefix": "2026-08-30/20260830_182358_SVI_Pro",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -918,7 +918,7 @@
       "high_noise_mid_strength": 0,
       "low_noise_start_strength": 0,
       "low_noise_mid_strength": 0,
-      "low_noise_end_strength": 0.85,
+      "low_noise_end_strength": 0,
       "structural_repulsion_boost": 1.49,
       "enable_middle_frame": false,
       "positive": [
@@ -936,13 +936,7 @@
       "start_image": [
         "10",
         0
-      ],
-      "enable_start_frame": true,
-      "end_image": [
-        "9002",
-        0
-      ],
-      "enable_end_frame": true
+      ]
     },
     "class_type": "WanAdvancedI2V",
     "_meta": {
@@ -972,7 +966,7 @@
       "high_noise_mid_strength": 0,
       "low_noise_start_strength": 0,
       "low_noise_mid_strength": 0,
-      "low_noise_end_strength": 0.85,
+      "low_noise_end_strength": 0,
       "structural_repulsion_boost": 1.5,
       "enable_middle_frame": false,
       "positive": [
@@ -988,19 +982,13 @@
         0
       ],
       "start_image": [
-        "9002",
+        "10",
         0
       ],
       "prev_latent": [
         "398",
         0
-      ],
-      "enable_start_frame": true,
-      "end_image": [
-        "9003",
-        0
-      ],
-      "enable_end_frame": true
+      ]
     },
     "class_type": "WanAdvancedI2V",
     "_meta": {
@@ -1030,7 +1018,7 @@
       "high_noise_mid_strength": 0,
       "low_noise_start_strength": 0,
       "low_noise_mid_strength": 0,
-      "low_noise_end_strength": 0.85,
+      "low_noise_end_strength": 0,
       "structural_repulsion_boost": 1.5,
       "enable_middle_frame": false,
       "positive": [
@@ -1046,19 +1034,13 @@
         0
       ],
       "start_image": [
-        "9005",
+        "10",
         0
       ],
       "prev_latent": [
         "491",
         0
-      ],
-      "enable_start_frame": true,
-      "end_image": [
-        "9006",
-        0
-      ],
-      "enable_end_frame": true
+      ]
     },
     "class_type": "WanAdvancedI2V",
     "_meta": {
@@ -1104,15 +1086,13 @@
         0
       ],
       "start_image": [
-        "9006",
+        "10",
         0
       ],
       "prev_latent": [
         "512",
         0
-      ],
-      "enable_start_frame": true,
-      "enable_end_frame": false
+      ]
     },
     "class_type": "WanAdvancedI2V",
     "_meta": {
@@ -1142,7 +1122,7 @@
       "high_noise_mid_strength": 0,
       "low_noise_start_strength": 0,
       "low_noise_mid_strength": 0,
-      "low_noise_end_strength": 0.85,
+      "low_noise_end_strength": 0,
       "structural_repulsion_boost": 1.5,
       "enable_middle_frame": false,
       "positive": [
@@ -1158,19 +1138,13 @@
         0
       ],
       "start_image": [
-        "9003",
+        "10",
         0
       ],
       "prev_latent": [
         "438",
         0
-      ],
-      "enable_start_frame": true,
-      "end_image": [
-        "9004",
-        0
-      ],
-      "enable_end_frame": true
+      ]
     },
     "class_type": "WanAdvancedI2V",
     "_meta": {
@@ -1200,7 +1174,7 @@
       "high_noise_mid_strength": 0,
       "low_noise_start_strength": 0,
       "low_noise_mid_strength": 0,
-      "low_noise_end_strength": 0.85,
+      "low_noise_end_strength": 0,
       "structural_repulsion_boost": 1.5,
       "enable_middle_frame": false,
       "positive": [
@@ -1216,68 +1190,17 @@
         0
       ],
       "start_image": [
-        "9004",
+        "10",
         0
       ],
       "prev_latent": [
         "457",
         0
-      ],
-      "enable_start_frame": true,
-      "end_image": [
-        "9005",
-        0
-      ],
-      "enable_end_frame": true
+      ]
     },
     "class_type": "WanAdvancedI2V",
     "_meta": {
       "title": "Wan Advanced I2V (Ultimate)"
-    }
-  },
-  "9002": {
-    "inputs": {
-      "image": "anchor-02.png"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Story keyframe 2"
-    }
-  },
-  "9003": {
-    "inputs": {
-      "image": "anchor-03.png"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Story keyframe 3"
-    }
-  },
-  "9004": {
-    "inputs": {
-      "image": "anchor-04.png"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Story keyframe 4"
-    }
-  },
-  "9005": {
-    "inputs": {
-      "image": "anchor-05.png"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Story keyframe 5"
-    }
-  },
-  "9006": {
-    "inputs": {
-      "image": "anchor-06.png"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Story keyframe 6"
     }
   }
 }

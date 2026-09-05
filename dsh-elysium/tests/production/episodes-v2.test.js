@@ -102,12 +102,12 @@ test('defaults new episodes to ten seconds and enforces the lower bound', async 
   )
 })
 
-test('creates dynamic chapters with one start frame and five continuation frames', async t => {
+test('creates dynamic chapters with one identity-consistent start frame each', async t => {
   const { workspace, body } = await fixture(t, 41)
   const created = await episodeCreate({ workspace }, body)
   assert.equal(created.plan.chapters.length, 3)
   assert.equal(created.tasks.filter(task => task.type === 'start_frame').length, 3)
-  assert.equal(created.tasks.filter(task => task.type === 'keyframe').length, 15)
+  assert.equal(created.tasks.filter(task => task.type === 'keyframe').length, 0)
   assert.equal(created.tasks.filter(task => task.type === 'chapter').length, 3)
   assert.deepEqual(created.tasks.find(task => task.type === 'audio').dependencies, ['final'])
   for (const chapter of created.plan.chapters) {
@@ -155,16 +155,16 @@ test('rejects repeated full-story prompts before any image task is created', asy
   await assert.rejects(episodeCreate({ workspace }, { ...body, plan: repeated }), /存在完全重复的画面提示/)
 })
 
-test('rejects an incompatible image-edit contract before submitting paid work', async t => {
+test('rejects an incompatible IP-Adapter contract before submitting paid work', async t => {
   const { workspace, projectId, body } = await fixture(t)
   await createReadyEpisode({ workspace }, body)
   let submissions = 0
   const comfy = {
     async inspect(template) {
-      if (template === 'qwen-image-edit') return { ok: true, slots: { prompt: {}, image: {} } }
+      if (template === 'realvisxl-ipadapter') return { ok: true, slots: { prompt: {} } }
       if (template === 'wan22-remix-long') {
         return { ok: true, slots: Object.fromEntries([
-          ...Array.from({ length: 6 }, (_, index) => [`image_${index + 1}`, {}]),
+          ['image', {}],
           ...Array.from({ length: 6 }, (_, index) => [`prompt_${index + 1}`, {}]),
         ]) }
       }
@@ -177,12 +177,12 @@ test('rejects an incompatible image-edit contract before submitting paid work', 
 
   await assert.rejects(
     production.start({ projectId, episodeId: body.episodeId, confirmAuthorizedContent: true }),
-    /缺少输入槽：character_image/,
+    /缺少输入槽：reference/,
   )
   assert.equal(submissions, 0)
 })
 
-test('runs start frame, five edited keyframes, six-anchor video and final review', async t => {
+test('runs one identity start frame, SVI video and final review', async t => {
   const { workspace, projectId, body } = await fixture(t)
   const image = path.join(workspace, 'remote.png')
   const video = path.join(workspace, 'remote.mp4')
@@ -217,13 +217,13 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
 
   assert.equal(finished.state.status, 'awaiting_review')
   assert.equal(finished.tasks.filter(task => task.type === 'start_frame' && task.status === 'succeeded').length, 1)
-  assert.equal(finished.tasks.filter(task => task.type === 'keyframe' && task.status === 'succeeded').length, 5)
+  assert.equal(finished.tasks.filter(task => task.type === 'keyframe').length, 0)
   const chapterSubmission = submissions.find(args => args.template === 'wan22-remix-long')
   assert.ok(chapterSubmission)
-  assert.equal(new Set(Array.from({ length: 6 }, (_, index) => chapterSubmission[`image_${index + 1}`])).size, 6)
-  const editedFrames = submissions.filter(args => args.template === 'qwen-image-edit')
-  assert.equal(editedFrames.length, 5)
-  assert.equal(editedFrames.every(args => args.image && args.character_image), true)
+  assert.ok(chapterSubmission.image)
+  const identityFrames = submissions.filter(args => args.template === 'realvisxl-ipadapter')
+  assert.equal(identityFrames.length, 1)
+  assert.equal(identityFrames.every(args => args.reference), true)
   const audioSubmission = submissions.find(args => args.template === 'mmaudio')
   assert.ok(audioSubmission?.video)
   assert.match(audioSubmission.prompt, /环境声和拟音/)
@@ -277,8 +277,7 @@ test('migrates an awaiting-review silent episode and generates its audio task', 
   await writeFile(ffprobe, probeStub(20))
   await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
   const requiredSlots = Object.fromEntries([
-    'prompt', 'image', 'character_image', 'video',
-    ...Array.from({ length: 6 }, (_, index) => `image_${index + 1}`),
+    'prompt', 'reference', 'image', 'video',
     ...Array.from({ length: 6 }, (_, index) => `prompt_${index + 1}`),
   ].map(slot => [slot, {}]))
   const comfy = {
@@ -311,9 +310,9 @@ test('retry resumes an authorized production instead of leaving pending tasks st
   const jobs = new Map()
   const comfy = {
     async generate(args) {
-      if (args.template === 'qwen-image-edit' && failedEditAttempts < 2) {
+      if (args.template === 'realvisxl-ipadapter' && failedEditAttempts < 2) {
         failedEditAttempts += 1
-        return { ok: false, code: 'SLOT_UNKNOWN', message: 'Unknown slots: character_image' }
+        return { ok: false, code: 'SLOT_UNKNOWN', message: 'Unknown slots: reference' }
       }
       const id = `job-${++sequence}`
       jobs.set(id, ['wan22-remix-long', 'mmaudio'].includes(args.template) ? { kind: 'video', path: video } : { kind: 'image', path: image })
@@ -332,7 +331,7 @@ test('retry resumes an authorized production instead of leaving pending tasks st
   const failed = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
   assert.equal(failed.state.status, 'needs_attention')
 
-  const retried = await production.retry({ projectId, episodeId: body.episodeId, taskId: 'anchor:chapter-01-anchor-02' })
+  const retried = await production.retry({ projectId, episodeId: body.episodeId, taskId: 'anchor:chapter-01-anchor-01' })
   assert.equal(retried.state.status, 'running')
   const finished = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
   assert.equal(finished.state.status, 'awaiting_review')

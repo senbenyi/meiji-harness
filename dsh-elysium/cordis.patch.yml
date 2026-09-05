@@ -10,21 +10,18 @@
           outputDir: '/Users/mac/.dsh/profiles/web/data/elysium/comfyui/output'
         models:
           characterImage:
-            template: 'qwen-image-t2i'
+            template: 'realvisxl-t2i'
             args:
               width: 768
               height: 1024
           startFrame:
-            template: 'qwen-image-t2i'
-            args: {}
-          keyframeImage:
-            template: 'qwen-image-edit'
+            template: 'realvisxl-ipadapter'
             args: {}
           chapterVideo:
             template: 'wan22-remix-long'
             args: {}
           shotImage:
-            template: 'qwen-image-t2i'
+            template: 'realvisxl-t2i'
             args:
               width: 1280
               height: 720

@@ -5,9 +5,9 @@ import { ElysiumError, resolveProjectFile } from '../infrastructure/persistence/
 import { createComfyUiService } from '../infrastructure/comfyui/service.js'
 
 const DEFAULT_MODELS = {
-  characterImage: { template: 'anima-txt2img', args: { width: 768, height: 1024 } },
-  shotImage: { template: 'anima-txt2img', args: { width: 1280, height: 720 } },
-  shotVideo: { template: '', args: {} },
+  characterImage: { template: 'realvisxl-t2i', args: { width: 768, height: 1152 } },
+  shotImage: { template: 'realvisxl-ipadapter', args: { width: 1216, height: 832 }, useReferenceImage: true },
+  shotVideo: { template: 'wan22-remix-long', args: {} },
 }
 
 function modelConfig(config, key) {
@@ -18,7 +18,9 @@ function modelConfig(config, key) {
     args: configured.args && typeof configured.args === 'object' && !Array.isArray(configured.args)
       ? { ...fallback.args, ...configured.args }
       : { ...fallback.args },
-    useReferenceImage: configured.useReferenceImage === true,
+    useReferenceImage: configured.useReferenceImage == null
+      ? fallback.useReferenceImage === true
+      : configured.useReferenceImage === true,
   }
 }
 
@@ -161,11 +163,17 @@ export function createGenerationService(ctx, config, comfy = createComfyUiServic
       const image = stage === 'video'
         ? await resolveProjectFile(config, projectId, shot.imagePath)
         : await referenceImage(projectId, shot, model)
+      const prompt = shotPrompt(shot, stage === 'video' ? 'videoPrompt' : 'imagePrompt')
+      const generationArgs = stage === 'video'
+        ? {
+            image,
+            ...Object.fromEntries(Array.from({ length: 6 }, (_, index) => [`prompt_${index + 1}`, prompt])),
+          }
+        : { prompt, ...(image ? { reference: image } : {}) }
       const result = await callComfy(comfy, 'generate', {
         ...model.args,
         template: model.template,
-        prompt: shotPrompt(shot, stage === 'video' ? 'videoPrompt' : 'imagePrompt'),
-        ...(image ? { image } : {}),
+        ...generationArgs,
         wait_s: 0,
       })
       const queued = await updateShotRecord(config, projectId, shotId, current => ({

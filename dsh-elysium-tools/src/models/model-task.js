@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { copyFile, mkdir, open, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { dirname, extname, isAbsolute, join, relative } from 'node:path'
 
@@ -71,6 +71,16 @@ async function promptFile(jobId, name, value) {
   return path
 }
 
+async function promptListFile(jobId, name, value) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 6 ||
+      value.some(item => !String(item || '').trim())) {
+    throw new ModelTaskError('MODEL_INPUT_INVALID', `${name} 必须包含 1..6 条非空提示词`, 422)
+  }
+  const path = join(jobRoot(jobId), 'input', name)
+  await writeJson(path, { prompts: value.map(item => String(item).trim()) })
+  return path
+}
+
 async function runCommand(command, environment, logPath, signal, timeoutMs) {
   signal?.throwIfAborted()
   await mkdir(dirname(logPath), { recursive: true })
@@ -135,54 +145,17 @@ async function buildModelExecution(jobId, capability, params) {
     }
   }
 
-  if (capability === 'image-edit') {
-    if (!['create', 'remake', 'watermark_cleanup'].includes(params.operation)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'operation 不受支持', 422)
-    }
-    if (params.operation === 'create' && params.image_path) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'create 不接受 image_path', 422)
-    }
-    if (params.operation === 'watermark_cleanup' && String(params.prompt || '').trim()) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'watermark_cleanup 使用内置提示词', 422)
-    }
-    const output = join(projectRoot, 'output', 'edited.jpg')
-    const command = [
-      'bash', join(endpointRoot, 'edit_image.sh'), '--operation', params.operation,
-      '--output', output, '--run-id', jobId, '--seed', String(params.seed),
-    ]
-    if (params.operation !== 'create') {
-      command.push('--input', await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path'))
-    }
-    if (params.operation !== 'watermark_cleanup') {
-      command.push('--positive-prompt-file', await promptFile(jobId, 'prompt.txt', params.prompt))
-      command.push('--negative-prompt-file', join(PROJECT_ROOT, 'workflows', 'image-edit-qwen', 'negative.txt'))
-    }
-    return { command, environment, output }
-  }
-
-  if (capability === 'video-generate') {
-    const command = [
-      'bash', join(endpointRoot, 'generate_video_single.sh'),
-      '--input', await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path'),
-      '--preset', params.preset, '--seed', String(params.seed), '--run-id', jobId,
-    ]
-    if (String(params.prompt || '').trim()) {
-      command.push('--positive-prompt', await promptFile(jobId, 'positive.txt', params.prompt))
-    }
-    return { command, environment, output: join(projectRoot, 'assets', 'shots', 'shot-01.mp4') }
-  }
-
   if (capability === 'video-generate-long') {
-    const character = join(projectRoot, 'assets', 'characters', 'img.png')
-    const previous = join(projectRoot, 'assets', 'shots', 'shot-01.mp4')
-    await mkdir(dirname(character), { recursive: true })
-    await mkdir(dirname(previous), { recursive: true })
-    await copyFile(await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path'), character)
-    await copyFile(await artifactPath(params.previous_video_path, VIDEO_SUFFIXES, 'previous_video_path'), previous)
+    const image = await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path')
+    const prompts = await promptListFile(jobId, 'video-prompts.json', params.prompts)
     return {
-      command: ['bash', join(endpointRoot, 'generate_video_long.sh')],
+      command: [
+        'bash', join(endpointRoot, 'generate_video_long.sh'), '--input', image,
+        '--prompt-file', prompts, '--preset', params.preset, '--segments', String(params.prompts.length),
+        '--seed', String(params.seed), '--run-id', jobId,
+      ],
       environment,
-      output: join(projectRoot, 'output', 'final.mp4'),
+      output: join(projectRoot, 'assets', 'shots', 'shot-01.mp4'),
     }
   }
 
@@ -222,18 +195,27 @@ async function buildModelExecution(jobId, capability, params) {
 }
 
 async function buildWorkflowExecution(jobId, params) {
-  const image = await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path')
+  if (params.authorized_adults !== true) {
+    throw new ModelTaskError('MODEL_INPUT_INVALID', '必须确认素材仅包含虚拟或已授权成年人', 422)
+  }
+  const imagePrompt = await promptFile(jobId, 'image-prompt.txt', params.image_prompt)
+  const videoPrompts = await promptListFile(jobId, 'video-prompts.json', params.video_prompts)
   const command = [
-    'bash', join(PROJECT_ROOT, 'scripts', 'workflow', 'image_to_final_video.sh'),
-    '--input', image, '--preset', params.preset, '--seed', String(params.seed), '--run-id', jobId,
+    'bash', join(PROJECT_ROOT, 'scripts', 'workflow', 'adult_short_video.sh'),
+    '--image-prompt-file', imagePrompt, '--video-prompt-file', videoPrompts,
+    '--preset', params.preset, '--segments', String(params.video_prompts.length),
+    '--seed', String(params.seed), '--run-id', jobId, '--confirm-authorized-adults',
   ]
-  if (String(params.video_prompt || '').trim()) {
-    command.push('--video-prompt-file', await promptFile(jobId, 'video-prompt.txt', params.video_prompt))
+  if (String(params.reference_path || '').trim()) {
+    command.push('--reference', await artifactPath(params.reference_path, IMAGE_SUFFIXES, 'reference_path'))
   }
   if (String(params.audio_prompt || '').trim()) {
     command.push('--audio-prompt-file', await promptFile(jobId, 'audio-prompt.txt', params.audio_prompt))
   }
-  const projectId = `tool-${jobId}`
+  if (String(params.dialogue || '').trim()) {
+    command.push('--dialogue-file', await promptFile(jobId, 'dialogue.txt', params.dialogue))
+  }
+  const projectId = `production-${jobId}`
   return {
     command,
     environment: {
@@ -249,7 +231,7 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
   const jobId = randomBytes(16).toString('hex')
   const statusPath = join(jobRoot(jobId), 'status.json')
   const status = { job_id: jobId, capability, status: 'running', created_at: now(), started_at: now() }
-  if (workflow) status.workflow = 'image-to-final-video'
+  if (workflow) status.workflow = 'adult-short-video'
   await writeJson(statusPath, status)
   try {
     const execution = workflow
@@ -284,7 +266,7 @@ export function runModelTask(capability, params, signal, timeoutMs) {
 }
 
 export function runWorkflowTask(params, signal, timeoutMs) {
-  return execute('workflow-image-to-final-video', params, signal, timeoutMs, true)
+  return execute('workflow-adult-short-video', params, signal, timeoutMs, true)
 }
 
 export async function getJob(jobId) {

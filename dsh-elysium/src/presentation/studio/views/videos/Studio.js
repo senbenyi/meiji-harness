@@ -9,9 +9,8 @@ const STAGES = [
   { key: 'assets', label: '资产', short: '03' },
   { key: 'plan', label: '规划', short: '04' },
   { key: 'start_frame', label: '起始帧', short: '05' },
-  { key: 'keyframes', label: '关键帧', short: '06' },
-  { key: 'chapters', label: '章节', short: '07' },
-  { key: 'final', label: '成片', short: '08' },
+  { key: 'chapters', label: '章节', short: '06' },
+  { key: 'final', label: '成片', short: '07' },
 ]
 
 const STATUS = {
@@ -93,10 +92,10 @@ function editableStageValue(detail, stage) {
 function statusMeta(status) { return STATUS[status] || [status || '未知', 'neutral'] }
 function visibleStage(stage) { return STAGES.some(item => item.key === stage) ? stage : ['review', 'approved'].includes(stage) ? 'final' : 'story' }
 function taskLabel(task) {
-  return ({ asset: '人物定妆', start_frame: '章节起始帧', keyframe: '连续关键帧', chapter: '长视频章节', final: '静音成片', audio: '同步音效成片' })[task.type] || task.type
+  return ({ asset: '人物定妆', start_frame: '章节起始帧', chapter: '长视频章节', final: '静音成片', audio: '同步音效成片' })[task.type] || task.type
 }
 function tasksForStage(tasks, stage) {
-  const type = { start_frame: 'start_frame', keyframes: 'keyframe', chapters: 'chapter', final: 'final' }[stage]
+  const type = { start_frame: 'start_frame', chapters: 'chapter', final: 'final' }[stage]
   if (stage === 'final') return (tasks || []).filter(task => ['final', 'audio'].includes(task.type))
   return type ? (tasks || []).filter(task => task.type === type) : []
 }

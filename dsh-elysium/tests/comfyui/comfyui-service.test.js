@@ -15,8 +15,8 @@ test('internal ComfyUI runtime seeds bundled workflows into the Elysium workspac
 
   assert.equal(runtime.baseUrl, 'http://127.0.0.1:8189')
   assert.match(runtime.templatesDir, /elysium-comfyui-/)
-  const contract = JSON.parse(await readFile(path.join(runtime.templatesDir, 'qwen-image-t2i.contract.json'), 'utf8'))
-  assert.equal(contract.id, 'qwen-image-t2i')
+  const contract = JSON.parse(await readFile(path.join(runtime.templatesDir, 'realvisxl-t2i.contract.json'), 'utf8'))
+  assert.equal(contract.id, 'realvisxl-t2i')
 })
 
 test('internal ComfyUI settings persist without a second plugin', async (t) => {
@@ -46,15 +46,15 @@ test('model routing lists registered text models and updates the live config', a
   assert.equal(initial.textProviders[1].error, 'not configured')
   await service.saveSettings({ modelRouting: {
     planner: { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192 },
-    stages: { characterImage: 'anima-txt2img', chapterVideo: 'wan22-remix-long' },
+    stages: { characterImage: 'realvisxl-t2i', chapterVideo: 'wan22-remix-long' },
   } })
   assert.deepEqual(config.planner, { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192 })
-  assert.equal(config.models.characterImage.template, 'anima-txt2img')
+  assert.equal(config.models.characterImage.template, 'realvisxl-t2i')
 
   const restartedConfig = { workspace, comfyui: { baseUrl: 'http://127.0.0.1:9' }, planner: {}, models: {} }
   createComfyUiService(restartedConfig, llm)
   assert.deepEqual(restartedConfig.planner, { provider: 'openai', model: 'gpt-5.5', maxTokens: 8192 })
-  assert.equal(restartedConfig.models.characterImage.template, 'anima-txt2img')
+  assert.equal(restartedConfig.models.characterImage.template, 'realvisxl-t2i')
 })
 
 test('connection test validates a draft URL without saving it', async (t) => {
@@ -148,9 +148,9 @@ test('bundled workflows are protected and offline LoRA availability stays unknow
 
   const state = await service.state()
 
-  assert.ok(state.templates.some(item => item.id === 'qwen-image-t2i' && item.removable === false))
+  assert.ok(state.templates.some(item => item.id === 'realvisxl-t2i' && item.removable === false))
   assert.ok(state.loras.every(item => item.on_server === null))
-  await assert.rejects(service.removeTemplate('qwen-image-t2i'), error => error.code === 'BUNDLED_TEMPLATE')
+  await assert.rejects(service.removeTemplate('realvisxl-t2i'), error => error.code === 'BUNDLED_TEMPLATE')
 })
 
 test('newer bundled contracts upgrade stale runtime templates together with their workflow', async (t) => {
@@ -158,17 +158,17 @@ test('newer bundled contracts upgrade stale runtime templates together with thei
   t.after(() => rm(workspace, { recursive: true, force: true }))
   const config = { workspace, comfyui: { baseUrl: 'http://127.0.0.1:8189' } }
   const runtime = resolveComfyUiConfig(config)
-  const contractPath = path.join(runtime.templatesDir, 'qwen-image-edit.contract.json')
-  const workflowPath = path.join(runtime.templatesDir, 'qwen-image-edit.json')
+  const contractPath = path.join(runtime.templatesDir, 'wan22-remix-long.contract.json')
+  const workflowPath = path.join(runtime.templatesDir, 'wan22-remix-long.json')
 
-  await writeFile(contractPath, JSON.stringify({ id: 'qwen-image-edit', _bundleVersion: 1, workflow: 'qwen-image-edit.json', slots: {} }))
+  await writeFile(contractPath, JSON.stringify({ id: 'wan22-remix-long', _bundleVersion: 2, workflow: 'wan22-remix-long.json', slots: {} }))
   await writeFile(workflowPath, JSON.stringify({ stale: true }))
   resolveComfyUiConfig(config)
 
   const contract = JSON.parse(await readFile(contractPath, 'utf8'))
   const workflow = JSON.parse(await readFile(workflowPath, 'utf8'))
-  assert.equal(contract._bundleVersion, 2)
-  assert.equal(contract.slots.character_image.node, '14')
-  assert.equal(workflow['14'].class_type, 'LoadImage')
+  assert.equal(contract._bundleVersion, 3)
+  assert.equal(contract.slots.image.node, '10')
+  assert.equal(workflow['20'].inputs.unet_name.includes('v3.0'), true)
   assert.equal(workflow.stale, undefined)
 })

@@ -42,7 +42,7 @@ function previewsOf(loaded) {
       kind: ['chapter', 'final', 'audio'].includes(task.type) ? 'video' : 'image',
       path: task.path,
       // 重做单个镜头要用它，用户看到的是"重做这一镜"，不是任务 id。
-      redoable: ['start_frame', 'keyframe', 'chapter'].includes(task.type),
+      redoable: ['start_frame', 'chapter'].includes(task.type),
     }))
   return {
     artifacts,

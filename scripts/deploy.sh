@@ -25,8 +25,8 @@ for command_name in git pnpm rsync ssh; do
   command -v "$command_name" >/dev/null || fail "本机缺少命令：$command_name"
 done
 [[ -s "$PLUGIN_ROOT/package.json" ]] || fail "插件目录无效：$PLUGIN_ROOT"
-[[ -x "$MODEL_ROOT/scripts/workflow/image_to_final_video.sh" ]] || \
-  fail "工作流入口不存在或不可执行：$MODEL_ROOT/scripts/workflow/image_to_final_video.sh"
+[[ -x "$MODEL_ROOT/scripts/workflow/adult_short_video.sh" ]] || \
+  fail "工作流入口不存在或不可执行：$MODEL_ROOT/scripts/workflow/adult_short_video.sh"
 
 echo '[1/4] 本地构建并打包'
 (
@@ -48,8 +48,8 @@ plugin_dest="$3"
   exit 1
 }
 for endpoint in \
-  edit_image.sh generate_image.sh generate_video_audio.sh generate_video_long.sh \
-  generate_video_single.sh interpolate_video.sh upscale_video.sh; do
+  generate_dialogue.sh generate_image.sh generate_video_audio.sh generate_video_long.sh \
+  interpolate_video.sh upscale_video.sh; do
   [[ -x "$project_dest/scripts/endpoint/$endpoint" ]] || {
     echo "[FAIL] 模型入口不存在：$project_dest/scripts/endpoint/$endpoint" >&2
     exit 1
@@ -75,8 +75,8 @@ plugin_dest="$3"
 node_root="$harness_root/runtime/node-v24.20.0-linux-x64"
 dsh_bin="$harness_root/app/node_modules/.bin/dsh"
 
-[[ -x "$project_dest/scripts/workflow/image_to_final_video.sh" ]] || {
-  echo '[FAIL] workflow_image_to_final_video 发布失败' >&2
+[[ -x "$project_dest/scripts/workflow/adult_short_video.sh" ]] || {
+  echo '[FAIL] workflow_adult_short_video 发布失败' >&2
   exit 1
 }
 "$node_root/bin/node" --check "$plugin_dest/lib/index.js"

@@ -6,15 +6,13 @@ import { createModelTools, createWorkflowTools } from '../src/index.js'
 test('registers the model and workflow tools declared by the manifest', async () => {
   const expected = [
     'model_generate_image',
-    'model_edit_image',
-    'model_generate_video',
     'model_generate_long_video',
     'model_interpolate_video',
     'model_upscale_video',
     'model_add_video_audio',
     'model_job_status',
     'model_job_result',
-    'workflow_image_to_final_video',
+    'workflow_adult_short_video',
   ]
   const manifest = JSON.parse(await readFile(new URL('../dsh.plugin.json', import.meta.url), 'utf8'))
   assert.deepEqual(

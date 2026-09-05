@@ -106,9 +106,9 @@ test('status 返回界面需要的字段，且不外露章节与锚点术语', a
 test('重做单镜转发到生产层的局部重试', async t => {
   const { oneline, production } = await fixture(t)
   const created = await oneline.submit({ sourceText: SOURCE })
-  await oneline.redo({ projectId: created.projectId, episodeId: created.episodeId, taskId: 'anchor:chapter-01-anchor-02' })
+  await oneline.redo({ projectId: created.projectId, episodeId: created.episodeId, taskId: 'anchor:chapter-01-anchor-01' })
   assert.equal(production.calls.retry.length, 1)
-  assert.equal(production.calls.retry[0].taskId, 'anchor:chapter-01-anchor-02')
+  assert.equal(production.calls.retry[0].taskId, 'anchor:chapter-01-anchor-01')
   await assert.rejects(() => oneline.redo({ projectId: created.projectId, episodeId: created.episodeId }), /请指定要重做的镜头/)
 })
 

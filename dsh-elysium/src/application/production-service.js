@@ -56,7 +56,7 @@ async function waitForOutput(comfy, jobId, kind) {
 }
 
 function taskStage(type) {
-  return ({ asset: 'assets', start_frame: 'start_frame', keyframe: 'keyframes', chapter: 'chapters', final: 'final', audio: 'final' })[type] || type
+  return ({ asset: 'assets', start_frame: 'start_frame', chapter: 'chapters', final: 'final', audio: 'final' })[type] || type
 }
 
 function modelSettings(config, key, fallbackTemplate, fallbackArgs) {
@@ -70,11 +70,10 @@ function modelSettings(config, key, fallbackTemplate, fallbackArgs) {
 async function preflightContracts(comfy, config) {
   if (typeof comfy.inspect !== 'function') return
   const checks = [
-    ['characterImage', 'qwen-image-t2i', ['prompt']],
-    ['startFrame', 'qwen-image-t2i', ['prompt']],
-    ['keyframeImage', 'qwen-image-edit', ['prompt', 'image', 'character_image']],
+    ['characterImage', 'realvisxl-t2i', ['prompt']],
+    ['startFrame', 'realvisxl-ipadapter', ['prompt', 'reference']],
     ['chapterVideo', 'wan22-remix-long', [
-      ...Array.from({ length: 6 }, (_, index) => `image_${index + 1}`),
+      'image',
       ...Array.from({ length: 6 }, (_, index) => `prompt_${index + 1}`),
     ]],
     ['finalAudio', 'mmaudio', ['video', 'prompt']],
@@ -93,9 +92,9 @@ async function preflightContracts(comfy, config) {
 function imageSettings(episode) {
   const landscape = episode.aspectRatio === '16:9'
   if (episode.profile === 'final') {
-    return { width: landscape ? 1536 : 864, height: landscape ? 864 : 1536, steps: 28, cfg: 3.5 }
+    return { width: landscape ? 1216 : 832, height: landscape ? 832 : 1216, steps: 30, cfg: 6 }
   }
-  return { width: landscape ? 1280 : 720, height: landscape ? 720 : 1280, steps: 20, cfg: 2.5 }
+  return { width: landscape ? 1152 : 768, height: landscape ? 768 : 1152, steps: 20, cfg: 5 }
 }
 
 function videoSettings(episode) {
@@ -122,7 +121,7 @@ async function submitRemoteTask(comfy, config, loaded, task) {
   const { episode, plan } = loaded
   if (task.type === 'asset') {
     const asset = loaded.assets.find(item => item.id === task.entityId)
-    const model = modelSettings(config, 'characterImage', 'qwen-image-t2i', imageSettings(episode))
+    const model = modelSettings(config, 'characterImage', 'realvisxl-t2i', imageSettings(episode))
     const prompt = [episode.stylePrompt, asset?.prompt || episode.castPrompt || episode.sourceText].filter(Boolean).join('。')
     const submitted = await callComfy(comfy, 'generate', {
       ...model.args, template: model.template, prompt, negative: episode.negativePrompt,
@@ -130,22 +129,15 @@ async function submitRemoteTask(comfy, config, loaded, task) {
     })
     return { jobId: submitted.job_id, kind: 'image', directory: loaded.p.assetArtifacts, allowed: ['.png', '.jpg', '.jpeg', '.webp'] }
   }
-  if (task.type === 'start_frame' || task.type === 'keyframe') {
-    const { chapter, anchor } = findAnchor(plan, task.entityId)
-    const first = task.type === 'start_frame'
+  if (task.type === 'start_frame') {
+    const { anchor } = findAnchor(plan, task.entityId)
     const defaults = imageSettings(episode)
-    const model = modelSettings(config, first ? 'startFrame' : 'keyframeImage', first ? 'qwen-image-t2i' : 'qwen-image-edit', defaults)
+    const model = modelSettings(config, 'startFrame', 'realvisxl-ipadapter', defaults)
     const prompt = [episode.castPrompt, episode.stylePrompt, anchor.imagePrompt].filter(Boolean).join('。')
     const args = { ...model.args, template: model.template, prompt, negative: episode.negativePrompt, seed: parseInt(task.inputHash.slice(0, 8), 16), wait_s: 0 }
-    if (!first) {
-      const previous = chapter.anchors[anchor.order - 2]
-      const previousTask = loaded.tasks.find(item => item.id === `anchor:${previous.id}`)
-      if (!previousTask?.path) fail('DEPENDENCY_MISSING', `${anchor.id} 缺少上一张关键帧`, 409)
-      args.image = path.join(loaded.projectDirectory, previousTask.path)
-      const castTask = loaded.tasks.find(item => item.id === 'asset:cast-main')
-      if (!castTask?.path) fail('DEPENDENCY_MISSING', `${anchor.id} 缺少角色定妆图`, 409)
-      args.character_image = path.join(loaded.projectDirectory, castTask.path)
-    }
+    const castTask = loaded.tasks.find(item => item.id === 'asset:cast-main')
+    if (!castTask?.path) fail('DEPENDENCY_MISSING', `${anchor.id} 缺少角色定妆图`, 409)
+    args.reference = path.join(loaded.projectDirectory, castTask.path)
     const submitted = await callComfy(comfy, 'generate', args)
     return { jobId: submitted.job_id, kind: 'image', directory: loaded.p.anchors, allowed: ['.png', '.jpg', '.jpeg', '.webp'] }
   }
@@ -154,10 +146,10 @@ async function submitRemoteTask(comfy, config, loaded, task) {
     if (!chapter) fail('CHAPTER_NOT_FOUND', `找不到章节：${task.entityId}`, 404)
     const model = modelSettings(config, 'chapterVideo', 'wan22-remix-long', videoSettings(episode))
     const args = { ...model.args, template: model.template, negative: episode.negativePrompt, seed: parseInt(task.inputHash.slice(0, 8), 16), wait_s: 0 }
+    const anchorTask = loaded.tasks.find(item => item.id === `anchor:${chapter.anchors[0].id}`)
+    if (!anchorTask?.path) fail('DEPENDENCY_MISSING', `${chapter.id} 缺少起始帧`, 409)
+    args.image = path.join(loaded.projectDirectory, anchorTask.path)
     chapter.anchors.forEach((anchor, index) => {
-      const anchorTask = loaded.tasks.find(item => item.id === `anchor:${anchor.id}`)
-      if (!anchorTask?.path) fail('DEPENDENCY_MISSING', `${chapter.id} 缺少锚点 ${anchor.id}`, 409)
-      args[`image_${index + 1}`] = path.join(loaded.projectDirectory, anchorTask.path)
       args[`prompt_${index + 1}`] = anchor.motionPrompt
     })
     const submitted = await callComfy(comfy, 'generate', args)

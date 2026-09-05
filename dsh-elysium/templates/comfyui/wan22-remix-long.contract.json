@@ -1,23 +1,19 @@
 {
   "id": "wan22-remix-long",
-  "title": "Wan2.2 Remix SVI Six-Anchor Block",
+  "_bundleVersion": 3,
+  "title": "Wan2.2 Remix NSFW v3 SVI Continuous Block",
   "workflow": "wan22-remix-long.json",
   "prompt_style": "natural_zh",
-  "prompt_hint": "Exactly six ordered motion prompts. Each prompt describes the motion and camera transition between adjacent adult-story keyframes.",
+  "prompt_hint": "Exactly six ordered motion prompts using one identity anchor image and SVI latent continuity.",
   "media": { "in": ["image", "text"], "out": ["video"] },
   "capabilities": {
-    "mode": ["i2v", "long_video", "six_anchor"],
-    "can": ["six_images", "six_prompts", "negative", "size", "seed", "video"],
+    "mode": ["i2v", "long_video", "svi_continuity"],
+    "can": ["image", "six_prompts", "negative", "size", "seed", "video"],
     "cannot": ["t2i", "i2i", "audio", "arbitrary_segment_count"],
     "style": []
   },
   "slots": {
-    "image_1": { "key": "image_1", "type": "image", "required": true, "node": "10", "field": "image" },
-    "image_2": { "key": "image_2", "type": "image", "required": true, "node": "9002", "field": "image" },
-    "image_3": { "key": "image_3", "type": "image", "required": true, "node": "9003", "field": "image" },
-    "image_4": { "key": "image_4", "type": "image", "required": true, "node": "9004", "field": "image" },
-    "image_5": { "key": "image_5", "type": "image", "required": true, "node": "9005", "field": "image" },
-    "image_6": { "key": "image_6", "type": "image", "required": true, "node": "9006", "field": "image" },
+    "image": { "key": "image", "type": "image", "required": true, "node": "10", "field": "image" },
     "prompt_1": { "key": "prompt_1", "type": "text", "required": true, "node": "21", "field": "text" },
     "prompt_2": { "key": "prompt_2", "type": "text", "required": true, "node": "563", "field": "text" },
     "prompt_3": { "key": "prompt_3", "type": "text", "required": true, "node": "566", "field": "text" },
@@ -54,5 +50,5 @@
     "clip_type": { "key": "clip_type", "node": "2", "field": "type" },
     "vae": { "key": "vae", "node": "3", "field": "vae_name" }
   },
-  "notes": "Fixed six-segment SVI workflow. All six uploaded keyframes are wired as start/end anchors. Remote preflight remains authoritative for custom nodes and model files."
+  "notes": "Pinned Wan2.2 Remix NSFW v3 high/low models with SVI2Pro latent continuity. One identity anchor drives six ordered segments."
 }

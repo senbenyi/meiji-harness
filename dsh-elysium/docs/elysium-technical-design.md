@@ -13,7 +13,7 @@
 可保留：
 
 - `src/infrastructure/comfyui/`：模板扫描、参数注入、远程提交、任务恢复和产物下载。
-- `templates/comfyui/`：`qwen-image-t2i` 与 `wan22-remix-long` 合同。
+- `templates/comfyui/`：`realvisxl-t2i`、`realvisxl-ipadapter` 与 `wan22-remix-long` 合同。
 - `src/infrastructure/persistence/store.js`：目录约束、原子 JSON 写入和安全文件解析。
 - `src/application/asset-service.js`：生成产物与上传素材归档。
 - `src/application/legacy-factory-service.js`：FFmpeg 拼接、FFprobe 时长检查和成片哈希人审的兼容实现。
@@ -27,11 +27,11 @@
 | `Factory.js` | 用户手写 JSON，独立于项目 | 并入单集工作台 |
 | `projects/` 与 `factory/` 双存储 | 项目、单集和产物无法统一追踪 | 一个项目下管理多个单集 |
 | 固定 2 镜、2 章节 | 无法按目标时长规划 | 章节数量动态计算 |
-| 每章重复同一张图 6 次 | 不是真实六锚点长视频 | 1 张起始帧 + 5 张后续关键帧 |
+| 旧六锚点输入 | 与当前 SVI2Pro 契约不一致 | 1 张人物一致性首帧 + 6 段动作提示词 |
 | `running Map` | 重启后执行态丢失 | 持久化任务队列并启动恢复 |
 | 手动逐阶段运行 | 人工介入过多 | 依赖驱动的自动调度 |
 
-插件已从模型仓库引入 Qwen Image Edit 2509 工作流合同。正式生产前仍须通过远端节点和模型预检；不能用 `anima-i2i` 冒充。
+插件工作流合同与模型仓库保持同步。正式生产前仍须通过远端节点和模型预检。
 
 ## 3. 总体结构
 
@@ -48,9 +48,9 @@ Episode Orchestrator
   ├─ 自动重试与问题汇总
   └─ 版本采用与来源追踪
         │
-        ├─ Qwen T2I：定妆图、章节起始帧
-        ├─ Qwen Image Edit：后续关键帧
-        ├─ Wan2.2 Remix：六锚点长视频章节
+        ├─ RealVisXL：成年角色定妆图
+        ├─ IP-Adapter：人物一致性章节首帧
+        ├─ Wan2.2 Remix v3 + SVI2Pro：连续长视频章节
         └─ FFmpeg / FFprobe：成片与技术 QC
 ```
 
@@ -99,7 +99,7 @@ elysium-workspace/projects/<projectId>/
 约束：
 
 - 每章恰好 6 个有序锚点；第 1 个 `role=start`，其余 5 个 `role=continuation`。
-- 起始帧属于六锚点，不额外增加模型输入。
+- 每章只生成一张人物一致性起始帧；其余连续性由 SVI2Pro latent 延续。
 - 所有生成产物只新增版本；`adoptedVersionId` 决定当前采用版本。
 - `inputHash` 由模板版本、提示词、参数、种子和上游采用版本计算，用于复用与失效判断。
 
@@ -138,11 +138,10 @@ succeeded → stale
 | --- | --- | --- | --- |
 | story | 用户故事、时长、风格 | 校验并保存 | `episode.json` |
 | script | 故事 | Producer Agent 生成并校验结构 | `script.json` |
-| assets | 剧本、风格 | 提取资产；Qwen T2I 生成定妆/场景图 | 采用的资产版本 |
+| assets | 剧本、风格 | 提取资产；RealVisXL 生成定妆/场景图 | 采用的资产版本 |
 | plan | 剧本、目标时长 | 生成叙事镜头、锚点和动态章节 | `plan.json` |
-| start_frame | 每章第 1 锚点、采用资产 | `qwen-image-t2i` | 每章起始帧版本 |
-| keyframes | 起始帧、采用资产、后续锚点 | `qwen-image-edit` | 每章 5 张后续关键帧 |
-| chapter | 6 张有序锚点、6 段动作提示词 | `wan22-remix-long` | 章节视频版本 |
+| start_frame | 每章第 1 锚点、采用资产 | `realvisxl-ipadapter` | 人物一致性起始帧 |
+| chapter | 起始帧、6 段动作提示词 | `wan22-remix-long` | SVI2Pro 连续章节视频 |
 | final | 所有采用章节 | 拼接、24fps 运动插帧、目标画幅标准化、精确时长裁切 | 静音成片 |
 | audio | 静音成片 | MMAudio 生成同步环境音与拟音，25fps 输出并检查音轨及时长 | 有声成片与 QC |
 | review | 当前成片 | 人工完整观看 | 哈希绑定的验收记录 |
@@ -265,13 +264,13 @@ src/
 - 建立单集级锁、任务队列和启动恢复。
 - 旧 `projects/`、`factory/` 数据只读保留，不自动删除或覆盖。
 
-完成条件：动态章节、六锚点和局部失效可用纯数据测试验证。
+完成条件：动态章节、单首帧 SVI 连续性和局部失效可用纯数据测试验证。
 
 ### P0-2：模型阶段
 
 - 接入定妆和起始帧 T2I。
-- 预检已引入的 Qwen Image Edit 2509 合同，再生成 5 张后续关键帧。
-- 动态提交每章六锚点 Wan2.2 Remix。
+- 预检 RealVisXL 与 IP-Adapter 合同，再生成每章人物一致性首帧。
+- 动态提交每章单首帧、六段提示词的 Wan2.2 Remix v3 + SVI2Pro。
 - 接入产物版本、技术 QC、自动重试和复用。
 
 完成条件：测试桩能跑通多章节；真实 ComfyUI 验证需单独授权 GPU 成本。
