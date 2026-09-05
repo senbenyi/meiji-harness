@@ -1,0 +1,29 @@
+{
+  "id": "realvisxl-t2i",
+  "_bundleVersion": 1,
+  "title": "RealVisXL V5.0 Text-to-Image",
+  "workflow": "realvisxl-t2i.json",
+  "prompt_style": "natural_en",
+  "prompt_hint": "Describe one coherent fictional adult shot, composition, lighting and camera.",
+  "media": {"in": ["text"], "out": ["image"]},
+  "capabilities": {
+    "mode": ["t2i"],
+    "can": ["prompt", "negative", "size", "seed", "image"],
+    "cannot": ["i2i", "video", "audio"],
+    "style": ["photorealistic"]
+  },
+  "slots": {
+    "prompt": {"key": "prompt", "type": "text", "required": true, "node": "2", "field": "text"},
+    "negative": {"key": "negative", "type": "text", "required": false, "node": "3", "field": "text"},
+    "width": {"key": "width", "type": "number", "required": false, "node": "4", "field": "width"},
+    "height": {"key": "height", "type": "number", "required": false, "node": "4", "field": "height"},
+    "steps": {"key": "steps", "type": "number", "required": false, "node": "5", "field": "steps"},
+    "cfg": {"key": "cfg", "type": "number", "required": false, "node": "5", "field": "cfg"},
+    "seed": {"key": "seed", "type": "seed", "required": false, "node": "5", "field": "seed"}
+  },
+  "loras": [],
+  "models": {
+    "checkpoint": {"key": "checkpoint", "node": "1", "field": "ckpt_name"}
+  },
+  "notes": "Production SDXL first-frame workflow using the pinned RealVisXL V5.0 FP16 checkpoint."
+}
