@@ -7,6 +7,7 @@ test('registers the model and workflow tools declared by the manifest', async ()
   const expected = [
     'model_generate_image',
     'model_generate_long_video',
+    'model_generate_minimax_h3_video',
     'model_interpolate_video',
     'model_upscale_video',
     'model_add_video_audio',

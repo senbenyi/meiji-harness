@@ -46,6 +46,17 @@
 调用 model_generate_long_video，角色图片使用 /root/autodl-fs/artifacts/projects/tool-<image-job>/assets/characters/img.png，prompts 依次为“缓慢转身”“走向窗边”“回头看向镜头”，preset 使用 long_mvp_preview。
 ```
 
+### `model_generate_minimax_h3_video`
+
+使用 DaSiWa MiniMax H3 生成同步音视频。`t2va` 只需要提示词；`fl2va` 还必须提供
+`image_path`；`ref2va` 至少提供 `image_path`、`video_path`、`audio_path` 中的一项。
+参考文件必须位于服务器共享 artifacts 目录。分辨率、时长、采样步数和编码参数由
+服务端使用生产默认值。
+
+```text
+调用 model_generate_minimax_h3_video，mode 使用 t2va，生成一艘纸船在晨光水面缓慢前进并带有自然水声的视频，seed 使用 666。
+```
+
 ### `model_interpolate_video`
 
 对视频插帧，提高帧率和运动流畅度。

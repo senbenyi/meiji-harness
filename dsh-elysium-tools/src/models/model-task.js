@@ -9,6 +9,7 @@ const ARTIFACTS_ROOT = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/
 const STATE_ROOT = process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/elysium-tools'
 const IMAGE_SUFFIXES = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 const VIDEO_SUFFIXES = new Set(['.mp4', '.mov', '.mkv', '.webm'])
+const AUDIO_SUFFIXES = new Set(['.wav', '.mp3', '.flac', '.m4a', '.ogg'])
 
 export const MODEL_TIMEOUTS = Object.freeze({
   image: 41 * 60 * 1000,
@@ -156,6 +157,46 @@ async function buildModelExecution(jobId, capability, params) {
       ],
       environment,
       output: join(projectRoot, 'assets', 'shots', 'shot-01.mp4'),
+    }
+  }
+
+  if (capability === 'video-generate-minimax-h3') {
+    const mode = String(params.mode || '').toLowerCase()
+    const prompt = await promptFile(jobId, 'minimax-h3-prompt.txt', params.prompt)
+    if (!['t2va', 'fl2va', 'ref2va'].includes(mode)) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 'mode 必须是 t2va、fl2va 或 ref2va', 422)
+    }
+    const image = String(params.image_path || '').trim()
+      ? await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path') : null
+    const video = String(params.video_path || '').trim()
+      ? await artifactPath(params.video_path, VIDEO_SUFFIXES, 'video_path') : null
+    const audio = String(params.audio_path || '').trim()
+      ? await artifactPath(params.audio_path, AUDIO_SUFFIXES, 'audio_path') : null
+    if (mode === 't2va' && (image || video || audio)) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 't2va 不接受参考媒体', 422)
+    }
+    if (mode === 'fl2va' && (!image || video || audio)) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 'fl2va 只接受且必须提供 image_path', 422)
+    }
+    if (mode === 'ref2va' && !image && !video && !audio) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 'ref2va 至少需要一个参考媒体', 422)
+    }
+    const output = join(projectRoot, 'output', 'minimax-h3.mp4')
+    const command = [
+      'bash', join(endpointRoot, 'generate_minimax_h3.sh'), '--mode', mode,
+      '--prompt-file', prompt, '--output', output,
+      '--run-id', jobId, '--seed', String(params.seed),
+    ]
+    if (image) command.push('--image', image)
+    if (video) command.push('--video', video)
+    if (audio) command.push('--audio', audio)
+    return {
+      command,
+      environment: {
+        ...environment,
+        MINIMAX_H3_COMFYUI_URL: process.env.MINIMAX_H3_COMFYUI_URL || 'http://127.0.0.1:6016',
+      },
+      output,
     }
   }
 

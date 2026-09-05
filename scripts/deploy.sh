@@ -59,7 +59,7 @@ tools_dest="$4"
 }
 for endpoint in \
   generate_dialogue.sh generate_image.sh generate_video_audio.sh generate_video_long.sh \
-  interpolate_video.sh upscale_video.sh; do
+  generate_minimax_h3.sh interpolate_video.sh upscale_video.sh; do
   [[ -x "$project_dest/scripts/endpoint/$endpoint" ]] || {
     echo "[FAIL] 模型入口不存在：$project_dest/scripts/endpoint/$endpoint" >&2
     exit 1
