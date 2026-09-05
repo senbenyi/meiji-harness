@@ -17,6 +17,7 @@ import { createFactoryService, FACTORY_TOOL, serveFactoryArtifact } from '../../
 import { createComfyUiService } from '../../infrastructure/comfyui/service.js'
 import { episodeCreate, episodeGet, episodeList, episodeUpdate } from '../../application/episode-service.js'
 import { createProductionService } from '../../application/production-service.js'
+import { createOnelineService } from '../../application/oneline-service.js'
 import { createPlannerService } from '../../application/planning-service.js'
 import { createCreationService } from '../../application/creation-service.js'
 import { DIRECTORS_VERSION, listDirectors } from '../../application/directors.js'
@@ -137,7 +138,7 @@ async function planSavedEpisode(config, planner, body) {
   return episodeUpdate(config, { ...body, updates: planned })
 }
 
-function attachRoutes(ctx, config, generation, factory, production, planner, comfy, creation, fence) {
+function attachRoutes(ctx, config, generation, factory, production, planner, comfy, creation, oneline, fence) {
   const routes = new Map([
     ['/project.list', projectList],
     ['/project.get', projectGet],
@@ -176,7 +177,16 @@ function attachRoutes(ctx, config, generation, factory, production, planner, com
     ['/creation.approve_story', (_config, body) => creation.approveStory(body)],
     ['/creation.sync_to_production', (_config, body) => creation.syncToProduction(body)],
     ['/creation.reopen_story', (_config, body) => creation.reopenStory(body)],
+    // 一句话入口。oneline.approve 只在这里暴露，不进聊天工具 action 表——
+    // 人工终审必须由用户在界面上做，模型不能自我批准。
+    ['/oneline.submit', (_config, body) => oneline.submit(body)],
+    ['/oneline.authorize', (_config, body) => oneline.authorize(body)],
+    ['/oneline.status', (_config, body) => oneline.status(body)],
+    ['/oneline.redo', (_config, body) => oneline.redo(body)],
+    ['/oneline.approve', (_config, body) => oneline.approve(body)],
     ['/comfyui.state', () => comfy.state()],
+    ['/comfyui.transfer_stats', () => comfy.transferStats()],
+    ['/comfyui.reset_transfer_stats', () => comfy.resetTransferStats()],
     ['/comfyui.test', (_config, body) => comfy.testConnection(body)],
     ['/comfyui.save', (_config, body) => comfy.saveSettings(body)],
     ['/comfyui.inspect', (_config, body) => comfy.inspect(body.template, body.query)],
@@ -322,9 +332,10 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
   const production = createProductionService(ctx, config, comfy)
   const planner = createPlannerService(ctx, config)
   const creation = createCreationService(config, planner)
+  const oneline = createOnelineService(config, planner, production)
   const register = (scope) => scope.effect(
     () => {
-      const disposeRoutes = attachRoutes(scope, config, generation, factory, production, planner, comfy, creation, fence)
+      const disposeRoutes = attachRoutes(scope, config, generation, factory, production, planner, comfy, creation, oneline, fence)
       void production.resumeAll().catch(error => scope.logger?.warn?.(`[elysium] production recovery: ${error?.message || error}`))
       return () => {
         generation.dispose()
@@ -344,7 +355,7 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
     name: FACTORY_TOOL,
     description: '极乐世界单插件短剧生产工具。创建项目单集、规划、自动生产、恢复、精确重试、人工验收，以及内置 ComfyUI 的检查、生成、任务、模板和 LoRA 管理。',
     parameters: {
-      action: { type: 'string', required: true, description: '短剧动作；内置驱动动作：comfyui_state/comfyui_inspect/comfyui_generate/comfyui_job/comfyui_scan/comfyui_import/comfyui_remove_template/comfyui_save/comfyui_register_lora/comfyui_remove_lora；旧 VMP 动作继续兼容' },
+      action: { type: 'string', required: true, description: '短剧动作；一句话入口：oneline_submit/oneline_status/oneline_redo（授权与终审不在此处，必须由用户在界面完成）；内置驱动动作：comfyui_state/comfyui_inspect/comfyui_generate/comfyui_job/comfyui_scan/comfyui_import/comfyui_remove_template/comfyui_save/comfyui_register_lora/comfyui_remove_lora；旧 VMP 动作继续兼容' },
       spec: { type: 'string', description: '生产单文件名，如 beach-story.json' },
       episode: { type: 'object', additionalProperties: true, description: 'create 使用的完整 vmp-1 生产单，必须正好包含 shot-01 和 shot-02' },
       stage: { type: 'string', description: 'run 使用：images | video | final | all' },
@@ -427,6 +438,10 @@ export function apply(ctx, config = {}, fence = (_request) => false) {
           }),
           creation_confirm_step: () => creation.confirmStep(input),
           creation_compile_story: () => creation.compileStory(input),
+          // 一句话入口：只开放提交与查询。授权与终审是界面动作，不在这里。
+          oneline_submit: () => oneline.submit(input),
+          oneline_status: () => oneline.status(input),
+          oneline_redo: () => oneline.redo(input),
           comfyui_state: () => comfy.state(),
           comfyui_inspect: () => comfy.inspect(input.template, input.query),
           comfyui_generate: () => comfy.generate({ ...(input.comfyArgs || {}), template: input.template || input.comfyArgs?.template }),

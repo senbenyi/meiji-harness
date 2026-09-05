@@ -259,6 +259,29 @@ export async function testTemplateReadiness({ baseUrl, templatesDir, template, p
 }
 
 /**
+ * 媒体入料计数。P4 基线要回答"这条链路上传了几次"，而 ingestMedia 的返回值不落盘，
+ * 所以在这里累计。进程级、非持久化，基线跑之前先 reset。
+ */
+const transferStats = { upload: 0, base64: 0, sharedPath: 0, sharedCopy: 0, reused: 0, bytes: 0 }
+
+export function getTransferStats() {
+  return { ...transferStats }
+}
+
+export function resetTransferStats() {
+  for (const key of Object.keys(transferStats)) transferStats[key] = 0
+}
+
+function countTransfer(mode, bytes = 0, reused = false) {
+  if (reused) transferStats.reused += 1
+  else if (mode === 'upload') transferStats.upload += 1
+  else if (mode === 'base64') transferStats.base64 += 1
+  else if (mode === 'shared-path') transferStats.sharedPath += 1
+  else if (mode === 'shared-copy') transferStats.sharedCopy += 1
+  transferStats.bytes += Number(bytes) || 0
+}
+
+/**
  * 共享输入区下的引用名。纯路径推导，便于单测。
  *
  * sharedInputRoot 是"本地看得到、且就是 ComfyUI input/ 的同一个目录"。配置了它才
@@ -292,6 +315,7 @@ async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map
   const cached = uploadCache.get(absolutePath)
   if (cached && !base64Node) {
     injectSlot(graph, slot, cached.name)
+    countTransfer(cached.mode, 0, true)
     return { ...cached, slot: slot.key, reused: true }
   }
   if (!base64Node && sharedInputRoot) {
@@ -303,11 +327,13 @@ async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map
     injectSlot(graph, slot, shared.name)
     const meta = { mode: shared.mode, name: shared.name, bytes: fs.statSync(absolutePath).size }
     uploadCache.set(absolutePath, meta)
+    countTransfer(meta.mode, meta.bytes)
     return { ...meta, slot: slot.key, reused: false }
   }
   const buf = fs.readFileSync(filePath)
   if (base64Node) {
     injectSlot(graph, slot, buf.toString('base64'))
+    countTransfer('base64', buf.length)
     return { mode: 'base64', bytes: buf.length, slot: slot.key }
   }
   const uploaded = await uploadImage(baseUrl, filePath, buf, path.basename(filePath))
@@ -315,6 +341,7 @@ async function ingestMedia(baseUrl, graph, slot, filePath, uploadCache = new Map
   injectSlot(graph, slot, name)
   const meta = { mode: 'upload', name, bytes: buf.length }
   uploadCache.set(absolutePath, meta)
+  countTransfer('upload', buf.length)
   return { ...meta, slot: slot.key, reused: false }
 }
 

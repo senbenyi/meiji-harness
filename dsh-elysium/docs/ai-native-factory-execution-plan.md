@@ -57,10 +57,10 @@ P0  判据契约 + 样本集        离线，0 GPU        ── 定义"什么�
 P1  模型侧闸门 + receipt     llm-ai-model       ── 堵住假成功的源头        ✅ 已完成
 P2  目录契约 + 零上传        双侧，契约先行      ── 统一事实源的物理基础    ✅ 已完成
 P3  插件侧闸门 + 自产 receipt dsh-elysium       ── 编排层不再盲信 succeeded  ✅ 已完成
-P4  单意图端到端基线         联调              ── ★ 决策门
+P4  单意图端到端基线         联调              ── ★ 决策门              ◐ 代码就绪，待实跑
 ────────────────────────────────────────────────
-P5  能力注册与默认路由       llm-ai-model       ── 未验证能力标 disabled
-P6  一句话 MVP               skills + 单页      ── 待 P4 实测数据后细化
+P5  能力注册与默认路由       llm-ai-model       ── 未验证能力不派单        ◐ 代码就绪
+P6  一句话 MVP               skills + 入口      ── 两处人工确认            ◐ 代码就绪
 ```
 
 P0–P4 是本计划的详细部分。P5/P6 只给边界与交付物，**具体拆解等 P4 的实测数据**——上游方案的判断是对的：在闸门数据出来前细化 UI 就是围绕错误的复杂度打转。
@@ -290,7 +290,7 @@ P0–P4 是本计划的详细部分。P5/P6 只给边界与交付物，**具体�
 
 ---
 
-## P4 · 单意图端到端基线 ★ 决策门
+## P4 · 单意图端到端基线 ★ 决策门 ◐ 代码就绪，待实跑
 
 **归属：** 联调，需要真实 GPU 环境
 
@@ -316,24 +316,79 @@ P0–P4 是本计划的详细部分。P5/P6 只给边界与交付物，**具体�
 
 **未通过则回到 P1–P3 修复，不进入 P5/P6。**
 
+### 交付结果（代码就绪，尚未实跑）
+
+| 产出 | 位置 |
+|---|---|
+| 基线执行器（HTTP 驱动，量测不改功能） | `scripts/baseline-run.mjs` |
+| 执行手册与报告解读 | [`docs/p4-baseline-runbook.md`](./p4-baseline-runbook.md) |
+| 媒体入料计数（回答"上传了几次"） | `engine.js` 的 `getTransferStats`；路由 `/comfyui.transfer_stats` |
+
+基线打的是**正在运行的 dsh web 的 HTTP 接口**，不是直接 import 服务——规划要走宿主的
+LLM，只有真实服务进程里才有。报告里 `pass: null` 表示该部署形态下不适用（例如未配置
+共享区时的零上传），**不等于通过**。
+
 ---
 
-## P5 · 能力注册与默认路由（待 P4 数据）
+## P5 · 能力注册与默认路由 ◐ 代码就绪
 
 **归属：** `llm-ai-model` / `capabilities.py:11`
 
-- **负责**：给每个能力加可用性状态，未经真实输出验证的一律 `disabled`；路由依据显存、时长、队列、历史失败率、QC 分数
+- **负责**：给每个能力加可用性状态，未经真实输出验证的一律不派单；路由依据显存、时长、队列、历史失败率、QC 分数
 - **不负责**：把模型名称暴露给用户；未验证前承诺对白/配音/音乐
+
+### 交付结果（代码就绪）
+
+| 产出 | 位置 |
+|---|---|
+| 能力状态、准入检查、统计与档位选择 | `services/model_api/routing.py` |
+| 七个能力的 `status` 字段 | `services/model_api/capabilities.py` |
+| 派单准入 + `/v1/routes` | `services/model_api/main.py` |
+| 成败与耗时记入统计 | `services/model_api/jobs.py` |
+
+两个刻意的取舍：
+
+- **七个能力默认全是 `unverified`。** 上游要求"安装文件或 API 路由存在不等于可用"，
+  而目前没有任何能力通过真实输出验证。P4 基线靠 `MODEL_API_ALLOW_UNVERIFIED=1` 跑起来，
+  拿到证据后再逐个标 `verified`。默认标成 `verified` 才是不诚实的。
+- **`presets` 留空。** 档位的显存与耗时画像必须来自 P4 实测，凭空填数字会让路由按假数据降档。
+  留空时 `choose_preset` 回落到请求值或默认值。
 
 ---
 
-## P6 · 一句话 MVP（待 P4 数据）
+## P6 · 一句话 MVP ◐ 代码就绪
 
 **归属：** `.dsh/skills` + `dsh-elysium/src/presentation`
 
-- **负责**：一句话入口、六状态内部机、单页进度与结果视图
+- **负责**：一句话入口、六状态投影、进度与结果查询
 - **不负责**：`approve_consent` / `approve_final` **必须是界面按钮或宿主事件**，不进聊天工具 action 表——防止模型自我批准
 - **前置**：P4 决策门通过
+
+### 交付结果（代码就绪）
+
+| 产出 | 位置 |
+|---|---|
+| 六状态对外投影 | `src/domain/production-state.js` |
+| 一句话服务（提交/授权/查询/重做/验收） | `src/application/oneline-service.js` |
+| HTTP 路由 + 聊天动作 | `src/presentation/dsh/studio-host.js` |
+| Skill | `.dsh/skills/elysium-oneline/SKILL.md` |
+
+**自我批准的防线落在两层**：`oneline.authorize` 与 `oneline.approve` 只有 HTTP 路由，
+聊天工具的 handler 表里只有 `oneline_submit`/`oneline_status`/`oneline_redo`。模型不是
+"不该"批准，而是**没有可调用的动作**。Skill 里也写明这两处只能引导用户去界面完成。
+
+### 与计划的一处偏离
+
+计划写"六状态**内部机**"，实际做的是**六状态投影**（`publicStateOf`），内部状态机
+（draft/ready/running/paused/needs_attention/awaiting_review/approved）保持不动。
+
+原因：内部机承载着依赖调度、崩溃恢复和幂等，替换它的风险远大于多一层映射，而对外
+契约（用户看到六个状态、只在两处被打断）投影完全能满足。另外 `paused` 是用户动作，
+不在六状态里但必须如实透出——否则界面会把"已暂停"显示成"生产中"。
+
+遗留：**单页进度视图（UI）没有做。** 现有 Studio 是八个页面，删并页面属于 P6 的
+"通过基线后再决定哪些页面删除、合并或仅放入专业模式"，需要 P4 数据支撑。当前一句话
+链路通过 `/elysium/api/oneline.*` 可用，但还没有配套的单页界面。
 
 ---
 

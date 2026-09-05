@@ -6,6 +6,8 @@ import {
   fetchOfficialClasses,
   generate as runGeneration,
   getJob,
+  getTransferStats,
+  resetTransferStats,
   inspectTemplate,
   listLoraFiles,
   ping,
@@ -156,6 +158,9 @@ export function createComfyUiService(config = {}, llm) {
 
   return {
     runtime,
+    // P4 基线用：回答"这条链路上传了几次"。
+    transferStats: () => ({ ok: true, sharedInputRoot: runtime().sharedInputRoot, stats: getTransferStats() }),
+    resetTransferStats: () => { resetTransferStats(); return { ok: true } },
     async generate(args = {}) {
       return runGeneration({ ...runtime(), args })
     },
