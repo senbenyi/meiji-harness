@@ -7,6 +7,47 @@ import { projectCreate } from '../../src/application/project-service.js'
 import { episodeCreate, episodeGet, episodeUpdate } from '../../src/application/episode-service.js'
 import { createProductionService } from '../../src/application/production-service.js'
 
+// 桩要能表达"一段健康媒体"：接入健康闸门后，产物不再只看文件是否存在。
+// 这些测试验的是编排与依赖调度，不是画质，所以用桩而不是真实 ffmpeg。
+const STUB_FRAMES = 24
+
+function probeStub(durationSec) {
+  const streams = '{"streams":[{"codec_type":"video","width":720,"height":1280,"avg_frame_rate":"24/1"},'
+    + '{"codec_type":"audio","codec_name":"aac","sample_rate":"44100"}],'
+    + '"format":{"duration":"' + durationSec + '"}}'
+  return '#!/bin/sh\n'
+    + 'case "$*" in\n'
+    + '  *stream=codec_name*) printf "aac\\n" ;;\n'
+    + "  *-show_streams*) printf '%s\\n' '" + streams + "' ;;\n"
+    + '  *) printf "' + durationSec + '\\n" ;;\n'
+    + 'esac\n'
+}
+
+// 全黑帧的桩值取自真实测量：signalstats 是 limited range，纯黑 Y=16 而非 0。
+const BLACK_FRAME = { ymin: 16, ymax: 16, yavg: 16, ydif: 0, entropy: 0 }
+const HEALTHY_FRAME = { ymin: 30, ymax: 209, yavg: 125.6, ydif: 4.2, entropy: 0.39 }
+
+function ffmpegStub(argsFile, frame = HEALTHY_FRAME) {
+  return '#!/bin/sh\n'
+    + 'case "$*" in\n'
+    + '  *metadata=mode=print*)\n'
+    + '    i=0\n'
+    + '    while [ $i -lt ' + STUB_FRAMES + ' ]; do\n'
+    + '      printf "frame:%s\\n" "$i"\n'
+    + '      printf "lavfi.signalstats.YMIN=' + frame.ymin + '\\nlavfi.signalstats.YMAX=' + frame.ymax + '\\n"\n'
+    + '      printf "lavfi.signalstats.YAVG=' + frame.yavg + '\\nlavfi.signalstats.YDIF=' + frame.ydif + '\\n"\n'
+    + '      printf "lavfi.entropy.normalized_entropy.normal.Y=' + frame.entropy + '\\n"\n'
+    + '      i=$((i+1))\n'
+    + '    done\n'
+    + '    exit 0 ;;\n'
+    + '  *ebur128*) printf "I:  -24.0 LUFS\\n" >&2 ; exit 0 ;;\n'
+    + '  *silencedetect*) exit 0 ;;\n'
+    + 'esac\n'
+    + (argsFile ? 'printf "%s\\n" "$@" > "' + argsFile + '"\n' : '')
+    + 'for last do :; done\n'
+    + 'printf video > "$last"\n'
+}
+
 async function fixture(t, targetDurationSec = 20) {
   const workspace = await mkdtemp(path.join(tmpdir(), 'elysium-v2-'))
   t.after(() => rm(workspace, { recursive: true, force: true }))
@@ -150,8 +191,8 @@ test('runs start frame, five edited keyframes, six-anchor video and final review
   const ffmpeg = path.join(workspace, 'fake-ffmpeg.sh')
   const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
   const ffmpegArgs = path.join(workspace, 'ffmpeg-args.txt')
-  await writeFile(ffmpeg, `#!/bin/sh\nprintf '%s\\n' "$@" > "${ffmpegArgs}"\nfor last do :; done\nprintf video > "$last"\n`)
-  await writeFile(ffprobe, '#!/bin/sh\ncase "$*" in *stream=codec_name*) printf "aac\\n";; *) printf "21.5\\n";; esac\n')
+  await writeFile(ffmpeg, ffmpegStub(ffmpegArgs))
+  await writeFile(ffprobe, probeStub(21.5))
   await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
 
   const submissions = []
@@ -231,9 +272,11 @@ test('migrates an awaiting-review silent episode and generates its audio task', 
 
   const generated = path.join(workspace, 'audio.mp4')
   await writeFile(generated, 'audio')
+  const ffmpeg = path.join(workspace, 'fake-ffmpeg.sh')
   const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
-  await writeFile(ffprobe, '#!/bin/sh\ncase "$*" in *stream=codec_name*) printf "aac\\n";; *) printf "20\\n";; esac\n')
-  await chmod(ffprobe, 0o755)
+  await writeFile(ffmpeg, ffmpegStub(null))
+  await writeFile(ffprobe, probeStub(20))
+  await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
   const requiredSlots = Object.fromEntries([
     'prompt', 'image', 'character_image', 'video',
     ...Array.from({ length: 6 }, (_, index) => `image_${index + 1}`),
@@ -244,7 +287,7 @@ test('migrates an awaiting-review silent episode and generates its audio task', 
     async generate(args) { assert.equal(args.template, 'mmaudio'); return { ok: true, job_id: 'audio-job' } },
     async job() { return { ok: true, status: 'success', outputs: [{ kind: 'video', path: generated }] } },
   }
-  const production = createProductionService({}, { workspace, ffprobe }, comfy)
+  const production = createProductionService({}, { workspace, ffmpeg, ffprobe }, comfy)
   t.after(() => production.dispose())
   await production.start({ projectId, episodeId: body.episodeId, confirmAuthorizedContent: true })
   const finished = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
@@ -260,8 +303,8 @@ test('retry resumes an authorized production instead of leaving pending tasks st
   await Promise.all([writeFile(image, 'image'), writeFile(video, 'video')])
   const ffmpeg = path.join(workspace, 'fake-ffmpeg.sh')
   const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
-  await writeFile(ffmpeg, '#!/bin/sh\nfor last do :; done\nprintf video > "$last"\n')
-  await writeFile(ffprobe, '#!/bin/sh\ncase "$*" in *stream=codec_name*) printf "aac\\n";; *) printf "21.5\\n";; esac\n')
+  await writeFile(ffmpeg, ffmpegStub(null))
+  await writeFile(ffprobe, probeStub(21.5))
   await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
 
   let failedEditAttempts = 0
@@ -295,4 +338,33 @@ test('retry resumes an authorized production instead of leaving pending tasks st
   const finished = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
   assert.equal(finished.state.status, 'awaiting_review')
   assert.equal(finished.tasks.every(task => task.status === 'succeeded'), true)
+})
+
+test('全黑产物不得放行，任务应进入 needs_attention 并留下可重试的失败判据', async t => {
+  const { workspace, projectId, body } = await fixture(t)
+  const image = path.join(workspace, 'remote.png')
+  await writeFile(image, 'image')
+  const ffmpeg = path.join(workspace, 'fake-ffmpeg.sh')
+  const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
+  // 远端会报 success，产物也非空——旧闸门（存在且非空）会直接放行。
+  await writeFile(ffmpeg, ffmpegStub(null, BLACK_FRAME))
+  await writeFile(ffprobe, probeStub(21.5))
+  await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
+
+  const comfy = {
+    async generate() { return { ok: true, job_id: 'black-job' } },
+    async job() { return { ok: true, status: 'success', outputs: [{ kind: 'image', path: image }] } },
+  }
+  const config = { workspace, ffmpeg, ffprobe }
+  await createReadyEpisode(config, body)
+  const production = createProductionService({}, config, comfy)
+  t.after(() => production.dispose())
+  await production.start({ projectId, episodeId: body.episodeId, confirmAuthorizedContent: true })
+  const finished = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
+
+  assert.equal(finished.state.status, 'needs_attention')
+  assert.equal(finished.tasks.some(task => task.status === 'succeeded'), false)
+  const issue = finished.issues.find(item => item.code === 'QC_GATE_FAILED')
+  assert.ok(issue, '必须留下 QC_GATE_FAILED 记录')
+  assert.match(issue.message, /image\.not-flat|image\.not-dark|image\.dynamic-range/)
 })
