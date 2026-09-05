@@ -1,6 +1,6 @@
 # dsh-elysium-tools
 
-独立的 DeepSeek Harness Model API 工具插件。安装后可在 Harness 对话中用一句话调用图片、视频和任务查询能力。
+独立的 DeepSeek Harness Model API 工具插件。安装后可在 Harness 对话中用一句话调用图片、视频、工作流和任务查询能力。
 
 ## 使用前说明
 
@@ -167,6 +167,9 @@
 
 从起始图片生成单段视频，并依次完成 2 倍插帧、720/1280 超分和环境音合成，最终返回
 `output/final.mp4`。
+
+工作流与模型任务共用同一 Job 系统；断线后可继续使用 `model_job_status` 和
+`model_job_result` 查询。
 
 | 参数 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
