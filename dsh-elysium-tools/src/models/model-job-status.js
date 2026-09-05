@@ -1,9 +1,9 @@
-import { getJob } from './model-api.js'
+import { getJob } from './model-task.js'
 
 export function createModelJobStatusTool() {
   return {
     name: 'model_job_status',
-    description: '查询 Model API 任务状态。',
+    description: '查询模型任务状态。',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -25,4 +25,3 @@ export function createModelJobStatusTool() {
     execute: (args, exec) => getJob(args.job_id, exec?.signal),
   }
 }
-

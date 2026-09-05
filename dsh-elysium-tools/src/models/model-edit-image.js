@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitForm } from './model-api.js'
+import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
 import { completedModelTool } from './model-tool.js'
 
 export function createModelEditImageTool() {
@@ -15,16 +15,11 @@ export function createModelEditImageTool() {
       },
       required: ['operation'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitForm('/images/edits', {
+    execute: (args, signal) => runModelTask('image-edit', {
         operation: args.operation,
         image_path: args.image_path,
         prompt: args.prompt,
         seed: args.seed ?? 666,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.image,
-    ),
+      }, signal, MODEL_TIMEOUTS.image),
   })
 }
-

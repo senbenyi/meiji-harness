@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitForm } from './model-api.js'
+import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
 import { completedModelTool } from './model-tool.js'
 
 export function createModelUpscaleVideoTool() {
@@ -15,16 +15,11 @@ export function createModelUpscaleVideoTool() {
       },
       required: ['video_path'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitForm('/videos/upscales', {
+    execute: (args, signal) => runModelTask('video-upscale', {
         video_path: args.video_path,
         resolution: args.resolution ?? 720,
         max_resolution: args.max_resolution ?? 1280,
         batch_size: args.batch_size ?? 5,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.postprocess,
-    ),
+      }, signal, MODEL_TIMEOUTS.postprocess),
   })
 }
-

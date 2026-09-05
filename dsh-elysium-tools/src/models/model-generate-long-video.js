@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitForm } from './model-api.js'
+import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
 import { completedModelTool } from './model-tool.js'
 
 export function createModelGenerateLongVideoTool() {
@@ -13,14 +13,9 @@ export function createModelGenerateLongVideoTool() {
       },
       required: ['image_path', 'previous_video_path'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitForm('/videos/long-generations', {
+    execute: (args, signal) => runModelTask('video-generate-long', {
         image_path: args.image_path,
         previous_video_path: args.previous_video_path,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.longVideo,
-    ),
+      }, signal, MODEL_TIMEOUTS.longVideo),
   })
 }
-

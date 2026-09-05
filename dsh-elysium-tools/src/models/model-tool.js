@@ -7,11 +7,8 @@ export const COMPLETED_RESULT_SCHEMA = {
     path: { type: 'string' },
     size_bytes: { type: 'number' },
     sha256: { type: 'string' },
-    result_url: { type: 'string' },
-    receipt_path: { type: 'string' },
-    contract_version: { type: 'string' },
   },
-  required: ['job_id', 'status', 'path', 'size_bytes', 'sha256', 'result_url'],
+  required: ['job_id', 'status', 'path', 'size_bytes', 'sha256'],
 }
 
 export function completedModelTool({ name, description, timeoutMs, parameters, execute }) {
@@ -35,4 +32,3 @@ export function completedModelTool({ name, description, timeoutMs, parameters, e
     execute: (args, exec) => execute(args, exec?.signal),
   }
 }
-

@@ -1,10 +1,10 @@
-import { completedResult, getJob } from './model-api.js'
+import { completedResult, getJob } from './model-task.js'
 import { COMPLETED_RESULT_SCHEMA } from './model-tool.js'
 
 export function createModelJobResultTool() {
   return {
     name: 'model_job_result',
-    description: '取得已成功 Model API 任务的产物路径、大小与哈希。',
+    description: '取得已成功模型任务的产物路径、大小与哈希。',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -21,4 +21,3 @@ export function createModelJobResultTool() {
     execute: async (args, exec) => completedResult(await getJob(args.job_id, exec?.signal)),
   }
 }
-

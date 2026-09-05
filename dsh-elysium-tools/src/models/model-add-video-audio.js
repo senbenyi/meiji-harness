@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitForm } from './model-api.js'
+import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
 import { completedModelTool } from './model-tool.js'
 
 export function createModelAddVideoAudioTool() {
@@ -15,16 +15,11 @@ export function createModelAddVideoAudioTool() {
       },
       required: ['video_path'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitForm('/videos/audio-generations', {
+    execute: (args, signal) => runModelTask('video-audio', {
         video_path: args.video_path,
         prompt: args.prompt,
         steps: args.steps ?? 25,
         seed: args.seed ?? 42,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.postprocess,
-    ),
+      }, signal, MODEL_TIMEOUTS.postprocess),
   })
 }
-

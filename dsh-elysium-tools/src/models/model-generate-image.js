@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitJson } from './model-api.js'
+import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
 import { completedModelTool } from './model-tool.js'
 
 export function createModelGenerateImageTool() {
@@ -14,15 +14,10 @@ export function createModelGenerateImageTool() {
       },
       required: ['prompt'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitJson('/images/generations', {
+    execute: (args, signal) => runModelTask('image-generate', {
         prompt: String(args.prompt || '').trim(),
         preset: args.preset || 'standard',
         seed: args.seed ?? 666,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.image,
-    ),
+      }, signal, MODEL_TIMEOUTS.image),
   })
 }
-

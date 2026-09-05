@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitForm } from './model-api.js'
+import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
 import { completedModelTool } from './model-tool.js'
 
 export function createModelInterpolateVideoTool() {
@@ -13,14 +13,9 @@ export function createModelInterpolateVideoTool() {
       },
       required: ['video_path'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitForm('/videos/interpolations', {
+    execute: (args, signal) => runModelTask('video-interpolate', {
         video_path: args.video_path,
         multiplier: args.multiplier ?? 2,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.postprocess,
-    ),
+      }, signal, MODEL_TIMEOUTS.postprocess),
   })
 }
-

@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitJson } from '../models/model-api.js'
+import { MODEL_TIMEOUTS, runWorkflowTask } from '../models/model-task.js'
 import { completedModelTool } from '../models/model-tool.js'
 
 export function createWorkflowImageToFinalVideoTool() {
@@ -16,16 +16,12 @@ export function createWorkflowImageToFinalVideoTool() {
       },
       required: ['image_path'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitJson('/workflows/image-to-final-video/runs', {
+    execute: (args, signal) => runWorkflowTask({
         image_path: args.image_path,
         video_prompt: args.video_prompt,
         audio_prompt: args.audio_prompt,
         preset: args.preset || 'fast',
         seed: args.seed ?? 666,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.workflow,
-    ),
+      }, signal, MODEL_TIMEOUTS.workflow),
   })
 }

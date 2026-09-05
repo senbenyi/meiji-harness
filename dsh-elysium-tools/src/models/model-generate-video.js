@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS, submitAndWait, submitForm } from './model-api.js'
+import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
 import { completedModelTool } from './model-tool.js'
 
 export function createModelGenerateVideoTool() {
@@ -15,16 +15,11 @@ export function createModelGenerateVideoTool() {
       },
       required: ['image_path'],
     },
-    execute: (args, signal) => submitAndWait(
-      () => submitForm('/videos/generations', {
+    execute: (args, signal) => runModelTask('video-generate', {
         image_path: args.image_path,
         prompt: args.prompt,
         preset: args.preset || 'fast',
         seed: args.seed ?? 666,
-      }, signal),
-      signal,
-      MODEL_TIMEOUTS.video,
-    ),
+      }, signal, MODEL_TIMEOUTS.video),
   })
 }
-

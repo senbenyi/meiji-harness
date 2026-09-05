@@ -1,12 +1,14 @@
 # dsh-elysium-tools
 
-独立的 DeepSeek Harness Model API 工具插件。安装后可在 Harness 对话中用一句话调用图片、视频、工作流和任务查询能力。
+独立的 DeepSeek Harness Function Call 工具插件。安装后可在 Harness 对话中用一句话调用图片、视频、工作流和任务查询能力。
+
+调用链为 `Harness → dsh-elysium-tools → llm-ai-model/scripts/endpoint|workflow`，不依赖额外 HTTP 服务。
 
 ## 使用前说明
 
 - 可以直接说“调用 `工具名`……”，也可以只描述目标，让 Harness 选择工具。
 - `image_path`、`video_path` 和 `previous_video_path` 必须是服务器共享产物目录 `/root/autodl-fs/artifacts/` 内已有文件的绝对路径，不能传本机路径或网址。
-- 生成和处理工具会等待任务完成，成功后返回 `job_id`、产物绝对路径、文件大小和 SHA-256。
+- 生成和处理工具会直接执行服务器脚本并等待完成，成功后返回 `job_id`、产物绝对路径、文件大小和 SHA-256。
 - `seed` 相同不保证不同模型或工作流版本产生完全相同的结果。
 
 ## 工具使用
@@ -47,11 +49,11 @@
 一句话示例：
 
 ```text
-调用 model_edit_image，operation 使用 remake，输入图片 /root/autodl-fs/artifacts/projects/api-<job_id>/assets/characters/img.png，保持人物身份并改成电影灯光，seed 使用 666。
+调用 model_edit_image，operation 使用 remake，输入图片 /root/autodl-fs/artifacts/projects/tool-<job_id>/assets/characters/img.png，保持人物身份并改成电影灯光，seed 使用 666。
 ```
 
 ```text
-调用 model_edit_image 清理图片 /root/autodl-fs/artifacts/projects/api-<job_id>/assets/characters/img.png 的水印，operation 使用 watermark_cleanup。
+调用 model_edit_image 清理图片 /root/autodl-fs/artifacts/projects/tool-<job_id>/assets/characters/img.png 的水印，operation 使用 watermark_cleanup。
 ```
 
 ### `model_generate_video`
@@ -68,7 +70,7 @@
 一句话示例：
 
 ```text
-调用 model_generate_video，使用图片 /root/autodl-fs/artifacts/projects/api-<job_id>/output/edited.jpg，镜头缓慢推进，人物自然眨眼，preset 使用 fast，seed 使用 666。
+调用 model_generate_video，使用图片 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/edited.jpg，镜头缓慢推进，人物自然眨眼，preset 使用 fast，seed 使用 666。
 ```
 
 ### `model_generate_long_video`
@@ -83,7 +85,7 @@
 一句话示例：
 
 ```text
-调用 model_generate_long_video，角色图片使用 /root/autodl-fs/artifacts/projects/api-<image-job>/output/edited.jpg，接着视频 /root/autodl-fs/artifacts/projects/api-<video-job>/assets/shots/shot-01.mp4 继续生成。
+调用 model_generate_long_video，角色图片使用 /root/autodl-fs/artifacts/projects/tool-<image-job>/output/edited.jpg，接着视频 /root/autodl-fs/artifacts/projects/tool-<video-job>/assets/shots/shot-01.mp4 继续生成。
 ```
 
 ### `model_interpolate_video`
@@ -98,7 +100,7 @@
 一句话示例：
 
 ```text
-调用 model_interpolate_video，把 /root/autodl-fs/artifacts/projects/api-<job_id>/output/final.mp4 做 2 倍插帧。
+调用 model_interpolate_video，把 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/final.mp4 做 2 倍插帧。
 ```
 
 ### `model_upscale_video`
@@ -115,7 +117,7 @@
 一句话示例：
 
 ```text
-调用 model_upscale_video，把 /root/autodl-fs/artifacts/projects/api-<job_id>/output/interpolated.mp4 超分，resolution 使用 720，max_resolution 使用 1280，batch_size 使用 5。
+调用 model_upscale_video，把 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/interpolated.mp4 超分，resolution 使用 720，max_resolution 使用 1280，batch_size 使用 5。
 ```
 
 ### `model_add_video_audio`
@@ -132,7 +134,7 @@
 一句话示例：
 
 ```text
-调用 model_add_video_audio，为 /root/autodl-fs/artifacts/projects/api-<job_id>/output/upscaled.mp4 添加雨声、脚步声和衣物摩擦声，steps 使用 25，seed 使用 42。
+调用 model_add_video_audio，为 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/upscaled.mp4 添加雨声、脚步声和衣物摩擦声，steps 使用 25，seed 使用 42。
 ```
 
 ### `model_job_status`
@@ -151,7 +153,7 @@
 
 ### `model_job_result`
 
-取得成功任务的产物元数据，包括服务器路径、文件大小、SHA-256 和结果下载接口。任务尚未成功时会返回错误。
+取得成功任务的产物元数据，包括服务器路径、文件大小和 SHA-256。任务尚未成功时会返回错误。
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
@@ -168,7 +170,7 @@
 从起始图片生成单段视频，并依次完成 2 倍插帧、720/1280 超分和环境音合成，最终返回
 `output/final.mp4`。
 
-工作流与模型任务共用同一 Job 系统；断线后可继续使用 `model_job_status` 和
+工作流与模型任务共用插件本地任务记录；断线后可继续使用 `model_job_status` 和
 `model_job_result` 查询。
 
 | 参数 | 必填 | 默认值 | 说明 |
@@ -182,20 +184,19 @@
 一句话示例：
 
 ```text
-调用 workflow_image_to_final_video，使用图片 /root/autodl-fs/artifacts/projects/api-<job_id>/assets/characters/img.png，镜头缓慢推进、人物自然眨眼，添加雨声和脚步声，preset 使用 fast，seed 使用 666。
+调用 workflow_image_to_final_video，使用图片 /root/autodl-fs/artifacts/projects/tool-<job_id>/assets/characters/img.png，镜头缓慢推进、人物自然眨眼，添加雨声和脚步声，preset 使用 fast，seed 使用 666。
 ```
 
 ## 源码职责
 
-- `src/models/`：直接调用模型能力的 Harness 工具，每个工具一个文件。
-- `src/workflows/`：调用 Workflow API 的多步骤媒体工作流 Harness 工具。
+- `src/models/`：直接调用 `scripts/endpoint/` 的 Harness 工具，每个工具一个文件。
+- `src/workflows/`：直接调用 `scripts/workflow/` 的多步骤媒体工作流 Harness 工具。
 - `src/index.js`：插件身份、导出和注册。
 
 ## 安装
 
 ```sh
 pnpm install
-pnpm test
 pnpm build
 pnpm package:registry
 dsh plugin --profile web add --workspace-root ./registry

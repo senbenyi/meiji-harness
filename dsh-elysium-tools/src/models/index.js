@@ -19,7 +19,7 @@ export {
   createModelJobStatusTool,
   createModelUpscaleVideoTool,
 }
-export { ModelApiError, completedResult, getJob, waitForJob } from './model-api.js'
+export { ModelTaskError, completedResult, getJob, runModelTask, runWorkflowTask } from './model-task.js'
 
 export function createModelTools() {
   return [
@@ -34,4 +34,3 @@ export function createModelTools() {
     createModelJobResultTool(),
   ]
 }
-
