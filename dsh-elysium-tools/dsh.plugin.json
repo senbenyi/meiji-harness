@@ -1,0 +1,13 @@
+{
+  "id": "dsh-external/dsh-elysium-tools",
+  "version": "0.1.0",
+  "main": "./lib/index.js",
+  "description": "独立 Model API 工具插件",
+  "engines": {
+    "dsh": ">=0.1.2-alpha.3"
+  },
+  "contributes": {
+    "tools": ["model_generate_image"]
+  }
+}
+
