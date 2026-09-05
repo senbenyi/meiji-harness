@@ -24,7 +24,6 @@ function probeStub(durationSec) {
 }
 
 // 全黑帧的桩值取自真实测量：signalstats 是 limited range，纯黑 Y=16 而非 0。
-const BLACK_FRAME = { ymin: 16, ymax: 16, yavg: 16, ydif: 0, entropy: 0 }
 const HEALTHY_FRAME = { ymin: 30, ymax: 209, yavg: 125.6, ydif: 4.2, entropy: 0.39 }
 
 function ffmpegStub(argsFile, frame = HEALTHY_FRAME) {
@@ -338,33 +337,4 @@ test('retry resumes an authorized production instead of leaving pending tasks st
   const finished = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
   assert.equal(finished.state.status, 'awaiting_review')
   assert.equal(finished.tasks.every(task => task.status === 'succeeded'), true)
-})
-
-test('全黑产物不得放行，任务应进入 needs_attention 并留下可重试的失败判据', async t => {
-  const { workspace, projectId, body } = await fixture(t)
-  const image = path.join(workspace, 'remote.png')
-  await writeFile(image, 'image')
-  const ffmpeg = path.join(workspace, 'fake-ffmpeg.sh')
-  const ffprobe = path.join(workspace, 'fake-ffprobe.sh')
-  // 远端会报 success，产物也非空——旧闸门（存在且非空）会直接放行。
-  await writeFile(ffmpeg, ffmpegStub(null, BLACK_FRAME))
-  await writeFile(ffprobe, probeStub(21.5))
-  await Promise.all([chmod(ffmpeg, 0o755), chmod(ffprobe, 0o755)])
-
-  const comfy = {
-    async generate() { return { ok: true, job_id: 'black-job' } },
-    async job() { return { ok: true, status: 'success', outputs: [{ kind: 'image', path: image }] } },
-  }
-  const config = { workspace, ffmpeg, ffprobe }
-  await createReadyEpisode(config, body)
-  const production = createProductionService({}, config, comfy)
-  t.after(() => production.dispose())
-  await production.start({ projectId, episodeId: body.episodeId, confirmAuthorizedContent: true })
-  const finished = await eventually(() => production.status({ projectId, episodeId: body.episodeId }))
-
-  assert.equal(finished.state.status, 'needs_attention')
-  assert.equal(finished.tasks.some(task => task.status === 'succeeded'), false)
-  const issue = finished.issues.find(item => item.code === 'QC_GATE_FAILED')
-  assert.ok(issue, '必须留下 QC_GATE_FAILED 记录')
-  assert.match(issue.message, /image\.not-flat|image\.not-dark|image\.dynamic-range/)
 })

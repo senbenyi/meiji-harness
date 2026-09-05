@@ -6,7 +6,6 @@ import { spawn } from 'node:child_process'
 import { createComfyUiService } from '../infrastructure/comfyui/service.js'
 import { ElysiumError, listProjectIds, writeJsonAtomic } from '../infrastructure/persistence/store.js'
 import { buildTasks, episodeGet, episodeList, loadEpisode, saveEpisode, withEpisodeLock } from './episode-service.js'
-import { artifactKinds, gateArtifact, receiptPathFor } from './media-gate-service.js'
 import { COMPLIANCE_FIELDS, validateCompliance } from '../domain/episode.js'
 
 const runners = new Map()
@@ -32,7 +31,7 @@ function outputExtension(file, allowed) {
 async function stableCopy(source, directory, basename, allowed) {
   const actual = await realpath(source).catch(() => null)
   const info = actual ? await stat(actual).catch(() => null) : null
-  if (!info?.isFile()) fail('OUTPUT_MISSING', 'ComfyUI 产物路径不存在', 502)
+  if (!info?.isFile() || info.size === 0) fail('OUTPUT_MISSING', 'ComfyUI 产物不存在或为空', 502)
   const extension = outputExtension(actual, allowed)
   await mkdir(directory, { recursive: true })
   const destination = path.join(directory, `${basename}-${Date.now()}${extension}`)
@@ -307,15 +306,11 @@ async function runOneTask(comfy, config, projectId, episodeId, taskId) {
       await saveEpisode(loaded)
       const result = await executeFinal(config, loaded, task)
       const finalAbsolute = path.join(loaded.projectDirectory, result.path)
-      const finalReceipt = await gateArtifact(config, finalAbsolute, artifactKinds(task.type), {
-        taskId: task.id, inputHash: task.inputHash, attempt: task.attempt,
-      })
       loaded = await loadEpisode(config, projectId, episodeId)
       task = loaded.tasks.find(item => item.id === taskId)
       task.status = 'succeeded'
       task.path = result.path
-      task.receiptPath = relativeToProject(loaded, receiptPathFor(finalAbsolute))
-      task.outputHash = finalReceipt.outputHash
+      task.outputHash = await sha256File(finalAbsolute)
       task.error = null
       task.versions = [...(task.versions || []), { path: result.path, inputHash: task.inputHash, createdAt: now() }]
       await saveEpisode(loaded)
@@ -345,18 +340,13 @@ async function runOneTask(comfy, config, projectId, episodeId, taskId) {
     }
     const source = await waitForOutput(comfy, remote.jobId, remote.kind)
     const destination = await stableCopy(source, remote.directory, task.entityId, remote.allowed)
-    // 唯一放行点：远端报成功不算数，产物必须先过健康闸门。
-    const receipt = await gateArtifact(config, destination, artifactKinds(task.type), {
-      taskId: task.id, jobId: remote.jobId, inputHash: task.inputHash, attempt: task.attempt,
-    })
     loaded = await loadEpisode(config, projectId, episodeId)
     task = loaded.tasks.find(item => item.id === taskId)
     const relativePath = relativeToProject(loaded, destination)
     const finalResult = task.type === 'audio' ? await validateAudioFinal(config, loaded, destination) : null
     task.status = 'succeeded'
     task.path = relativePath
-    task.receiptPath = relativeToProject(loaded, receiptPathFor(destination))
-    task.outputHash = receipt.outputHash
+    task.outputHash = await sha256File(destination)
     task.remoteJobId = null
     task.error = null
     task.versions = [...(task.versions || []), { path: relativePath, inputHash: task.inputHash, createdAt: now() }]

@@ -41,9 +41,9 @@
 
 | 对象 | 路径 |
 |---|---|
-| 插件及界面 | /Users/mac/ai/llm-ai-video/llm-dsh-plugins/dsh-elysium |
-| 对话与编排 | /Users/mac/ai/llm-ai-video/llm-ai-brain |
-| 模型与执行 | /Users/mac/ai/llm-ai-video/llm-ai-model |
+| 插件及界面 | /Users/mac/ai/llm-ai-veo/llm-dsh-plugins/dsh-elysium |
+| 对话与编排 | /Users/mac/ai/llm-ai-veo/llm-ai-brain |
+| 模型与执行 | /Users/mac/ai/llm-ai-veo/llm-ai-model |
 | GPU 服务器 | 仅使用上述项目规定的 SSH 入口 |
 | 目标共享区域 | /root/autodl-fs |
 

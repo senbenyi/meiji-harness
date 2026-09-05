@@ -16,8 +16,3 @@ pnpm test
 node scripts/package-registry.mjs
 dsh plugin --profile web add --workspace-root ./registry
 ```
-
-## dsh-elysium-tools
-
-`dsh-elysium-tools` 是独立安装的 Model API 工具插件，提供图片、视频、后处理、工作流和任务查询工具，
-详见 [dsh-elysium-tools/README.md](./dsh-elysium-tools/README.md)。

@@ -1,5 +1,0 @@
-# dsh-elysium-tools bundle patch
-- insert:
-    - id: dsh-elysium-tools
-      name: '@dsh-external/dsh-elysium-tools'
-
