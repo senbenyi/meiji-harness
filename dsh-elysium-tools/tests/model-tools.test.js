@@ -12,6 +12,8 @@ import {
   createModelJobStatusTool,
   createModelTools,
   createModelUpscaleVideoTool,
+  createWorkflowImageToFinalVideoTool,
+  createWorkflowTools,
 } from '../src/index.js'
 
 const JOB_ID = 'a'.repeat(32)
@@ -41,7 +43,7 @@ async function executeCompleted(tool, args) {
   }
 }
 
-test('registers exactly the nine model tools declared by the manifest', async () => {
+test('registers the model and workflow tools declared by the manifest', async () => {
   const expected = [
     'model_generate_image',
     'model_edit_image',
@@ -52,9 +54,13 @@ test('registers exactly the nine model tools declared by the manifest', async ()
     'model_add_video_audio',
     'model_job_status',
     'model_job_result',
+    'workflow_image_to_final_video',
   ]
   const manifest = JSON.parse(await readFile(new URL('../dsh.plugin.json', import.meta.url), 'utf8'))
-  assert.deepEqual(createModelTools().map(tool => tool.name), expected)
+  assert.deepEqual(
+    [...createModelTools(), ...createWorkflowTools()].map(tool => tool.name),
+    expected,
+  )
   assert.deepEqual(manifest.contributes.tools, expected)
 })
 
@@ -169,3 +175,25 @@ test('failed jobs surface the Model API error', async () => {
   }
 })
 
+test('workflow_image_to_final_video maps one request and waits for the final artifact', async () => {
+  const { calls, result } = await executeCompleted(
+    createWorkflowImageToFinalVideoTool(),
+    {
+      image_path: '/artifacts/input.png',
+      video_prompt: 'slow camera push',
+      audio_prompt: 'rain and footsteps',
+      preset: 'standard',
+      seed: 11,
+    },
+  )
+  assert.equal(calls[0].url, 'http://127.0.0.1:8010/v1/workflows/image-to-final-video/runs')
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    image_path: '/artifacts/input.png',
+    video_prompt: 'slow camera push',
+    audio_prompt: 'rain and footsteps',
+    preset: 'standard',
+    seed: 11,
+  })
+  assert.equal(calls[1].url, `http://127.0.0.1:8010/v1/jobs/${JOB_ID}`)
+  assert.equal(result.path, COMPLETED_JOB.result.path)
+})

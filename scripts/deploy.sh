@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 readonly REPO_ROOT
+MODEL_ROOT="$(cd -- "$REPO_ROOT/../llm-ai-model" && pwd)"
+readonly MODEL_ROOT
 readonly PLUGIN_ROOT="$REPO_ROOT/dsh-elysium-tools"
 readonly TARGET=veo-comfyui
 readonly PROJECT_DEST=/root/autodl-tmp/project
@@ -23,6 +25,9 @@ for command_name in git pnpm rsync ssh; do
   command -v "$command_name" >/dev/null || fail "本机缺少命令：$command_name"
 done
 [[ -s "$PLUGIN_ROOT/package.json" ]] || fail "插件目录无效：$PLUGIN_ROOT"
+[[ -s "$MODEL_ROOT/services/model_api/main.py" ]] || fail "Model API 目录无效：$MODEL_ROOT"
+[[ -x "$MODEL_ROOT/scripts/workflow/image_to_final_video.sh" ]] || \
+  fail 'workflow_image_to_final_video 后端入口不存在或不可执行'
 
 echo '[1/4] 本地构建并打包'
 (
@@ -32,7 +37,7 @@ echo '[1/4] 本地构建并打包'
   pnpm package:registry
 )
 
-echo '[2/4] 发布插件包到服务器'
+echo '[2/4] 发布 Workflow API 与插件包到服务器'
 ssh "${SSH_OPTIONS[@]}" "$TARGET" bash -s -- "$PROJECT_DEST" "$HARNESS_ROOT" "$PLUGIN_DEST" <<'REMOTE'
 set -Eeuo pipefail
 project_dest="$1"
@@ -43,16 +48,25 @@ plugin_dest="$3"
   echo '[FAIL] Harness 启动脚本不存在，请先部署 llm-ai-model' >&2
   exit 1
 }
+[[ -x "$project_dest/scripts/boot/run_model_api.sh" ]] || {
+  echo '[FAIL] Model API 启动脚本不存在，请先部署 llm-ai-model' >&2
+  exit 1
+}
 [[ -x "$harness_root/app/node_modules/.bin/dsh" ]] || {
   echo '[FAIL] DeepSeek Harness 尚未安装' >&2
   exit 1
 }
 install -d -m 0755 "$plugin_dest"
+install -d -m 0755 "$project_dest/scripts/workflow" "$project_dest/services/model_api"
 REMOTE
+rsync -az --delete -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/scripts/workflow/" "$TARGET:$PROJECT_DEST/scripts/workflow/"
+rsync -az --delete --exclude='__pycache__/' -e "$SSH_TRANSPORT" \
+  "$MODEL_ROOT/services/model_api/" "$TARGET:$PROJECT_DEST/services/model_api/"
 rsync -az --delete -e "$SSH_TRANSPORT" \
   "$PLUGIN_ROOT/registry/" "$TARGET:$PLUGIN_DEST/"
 
-echo '[3/4] 服务器注册插件并重启 Harness'
+echo '[3/4] 服务器重启 Model API、注册插件并重启 Harness'
 ssh "${SSH_OPTIONS[@]}" "$TARGET" bash -s -- "$PROJECT_DEST" "$HARNESS_ROOT" "$PLUGIN_DEST" <<'REMOTE'
 set -Eeuo pipefail
 project_dest="$1"
@@ -62,10 +76,11 @@ node_root="$harness_root/runtime/node-v24.20.0-linux-x64"
 dsh_bin="$harness_root/app/node_modules/.bin/dsh"
 
 "$node_root/bin/node" --check "$plugin_dest/lib/index.js"
-for source_file in "$plugin_dest"/lib/models/*.js; do
+for source_file in "$plugin_dest"/lib/models/*.js "$plugin_dest"/lib/workflows/*.js; do
   "$node_root/bin/node" --check "$source_file"
 done
 
+bash "$project_dest/scripts/boot/run_model_api.sh" --restart
 env \
   PATH="$node_root/bin:$PATH" \
   DSH_HOME="$harness_root/home" \
@@ -77,6 +92,8 @@ echo '[4/4] 验证服务'
 ssh "${SSH_OPTIONS[@]}" "$TARGET" bash -s <<'REMOTE'
 set -Eeuo pipefail
 curl -fsS http://127.0.0.1:8010/health/ready >/dev/null
+curl -fsS http://127.0.0.1:8010/openapi.json | \
+  grep -Fq '"/v1/workflows/image-to-final-video/runs"'
 curl -fsS http://127.0.0.1:3080/ >/dev/null
 curl -fsS -X POST -H 'content-type: application/json' -d '{}' \
   http://127.0.0.1:3080/elysium/api/director.list >/dev/null

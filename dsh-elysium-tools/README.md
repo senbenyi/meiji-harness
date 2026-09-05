@@ -163,10 +163,29 @@
 调用 model_job_result，取得任务 c97be71c64474c228fc0fe29c2ff7da8 的结果。
 ```
 
+### `workflow_image_to_final_video`
+
+从起始图片生成单段视频，并依次完成 2 倍插帧、720/1280 超分和环境音合成，最终返回
+`output/final.mp4`。
+
+| 参数 | 必填 | 默认值 | 说明 |
+|---|---|---|---|
+| `image_path` | 是 | - | 起始图片绝对路径 |
+| `video_prompt` | 否 | 工作流默认提示词 | 视频动作、镜头和场景描述 |
+| `audio_prompt` | 否 | 模型默认提示词 | 环境音和拟音描述 |
+| `preset` | 否 | `fast` | `fast` 或 `standard` |
+| `seed` | 否 | `666` | 视频生成随机种子 |
+
+一句话示例：
+
+```text
+调用 workflow_image_to_final_video，使用图片 /root/autodl-fs/artifacts/projects/api-<job_id>/assets/characters/img.png，镜头缓慢推进、人物自然眨眼，添加雨声和脚步声，preset 使用 fast，seed 使用 666。
+```
+
 ## 源码职责
 
 - `src/models/`：直接调用模型能力的 Harness 工具，每个工具一个文件。
-- `src/workflows/`：直接查看、校验或运行 ComfyUI workflow 的 Harness 工具。
+- `src/workflows/`：调用 Workflow API 的多步骤媒体工作流 Harness 工具。
 - `src/index.js`：插件身份、导出和注册。
 
 ## 安装

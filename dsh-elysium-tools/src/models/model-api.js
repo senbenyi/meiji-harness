@@ -6,6 +6,7 @@ export const MODEL_TIMEOUTS = Object.freeze({
   video: 71 * 60 * 1000,
   longVideo: 151 * 60 * 1000,
   postprocess: 121 * 60 * 1000,
+  workflow: 451 * 60 * 1000,
 })
 
 export class ModelApiError extends Error {
@@ -93,4 +94,3 @@ export async function submitAndWait(submit, signal, timeoutMs) {
   const accepted = await submit()
   return waitForJob(accepted.job_id, signal, timeoutMs)
 }
-
