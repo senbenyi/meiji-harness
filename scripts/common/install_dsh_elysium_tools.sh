@@ -22,9 +22,10 @@ if [[ "${1:-}" == --prepare ]]; then
 fi
 
 # 注册前检查产物和配置；失败时保留运行中的服务。
-for file in "$tools_dir/lib/index.js" "$tools_dir"/lib/{functions,workflows}/*.js; do
+node --check "$tools_dir/lib/index.js"
+while IFS= read -r -d '' file; do
   node --check "$file"
-done
+done < <(find "$tools_dir/lib" -type f -name '*.js' -print0)
 python3 scripts/common/config_loader.py check config/harness-settings.yaml --harness-root "$HARNESS_ROOT"
 "$dsh" plugin --profile web add --workspace-root "$tools_dir"
 bash scripts/common/start_harness.sh --restart

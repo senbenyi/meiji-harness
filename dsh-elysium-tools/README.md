@@ -169,7 +169,11 @@
 
 ## 源码职责
 
-- `src/functions/`：直接调用 `scripts/endpoint/` 的 Harness 工具，每个工具一个文件。
+- `src/functions/endpoint/`：生成与后处理工具，与 `scripts/endpoint/` 一一对应。
+- `src/functions/jobs/`：插件任务状态、结果查询。
+- `src/functions/comfyui/`：ComfyUI 队列、任务状态、结果和取消。
+- `src/functions/common/`：任务执行、结果封装和诊断，不注册工具。
+- `src/functions/index.js`：模型工具汇总与导出。
 - `src/workflows/`：保留内部工作流执行器，不向 Harness 注册。
 - `src/index.js`：插件身份、导出和注册。
 
