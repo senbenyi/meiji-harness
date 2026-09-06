@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 TOOLS_ROOT="$REPO_ROOT/dsh-elysium-tools"
-HARNESS_FILES=(config/harness-settings.yaml config/harness-agent.md config/system-prompt.yaml scripts/common/config_loader.py scripts/install_dsh_elysium_tools.sh scripts/start_harness.sh scripts/start_tunnel_qwen.sh)
+HARNESS_FILES=(config/harness-settings.yaml config/harness-agent.md config/system-prompt.yaml config/ssh_config scripts/common/config_loader.py scripts/install_dsh_elysium_tools.sh scripts/start_harness.sh scripts/start_tunnel_qwen.sh)
 runtime_settings="$(python3 "$REPO_ROOT/scripts/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
 eval "$runtime_settings"
 

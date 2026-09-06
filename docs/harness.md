@@ -19,7 +19,7 @@ bash scripts/start_harness.sh --restart
 bash scripts/start_harness.sh --stop
 ```
 
-启动时自动检查 Qwen API，必要时通过服务器上的 `ssh veo-qwen38` 别名建立通道；使用 `BatchMode=yes`，认证失败直接报错。
+启动时自动检查 Qwen API，必要时通过 `config/ssh_config` 中的 `veo-qwen38` 别名建立通道；使用服务器现有密钥和 `BatchMode=yes`，认证失败直接报错。
 
 从本仓库根目录发布工具插件：
 

@@ -34,6 +34,7 @@ done
 
 echo "[TUNNEL] 127.0.0.1:$QWEN_API_LOCAL_PORT -> $QWEN_SSH_TARGET:127.0.0.1:$QWEN_API_REMOTE_PORT"
 ssh -f -N \
+  -F "$REPO_ROOT/config/ssh_config" \
   -o BatchMode=yes \
   -o StrictHostKeyChecking=accept-new \
   -o ConnectTimeout=10 \
