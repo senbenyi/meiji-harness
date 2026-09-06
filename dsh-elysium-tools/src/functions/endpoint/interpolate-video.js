@@ -4,7 +4,7 @@ import { completedModelTool } from '../common/tool.js'
 export function createModelInterpolateVideoTool() {
   return completedModelTool({
     name: 'model_interpolate_video',
-    description: '对视频插帧，等待任务完成后返回产物路径。',
+    description: '对视频插帧，等待任务完成后返回产物路径。会使帧数翻倍，同时需要超分时必须排在超分之后。',
     timeoutMs: MODEL_TIMEOUTS.postprocess,
     parameters: {
       properties: {

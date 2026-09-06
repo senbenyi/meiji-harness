@@ -92,7 +92,7 @@
 
 ### `model_interpolate_video`
 
-对视频插帧，提高帧率和运动流畅度。
+对视频插帧，提高帧率和运动流畅度。会使帧数翻倍；同时需要超分时排在 `model_upscale_video` 之后。
 
 | 参数 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
@@ -102,24 +102,24 @@
 一句话示例：
 
 ```text
-调用 model_interpolate_video，把 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/final.mp4 做 2 倍插帧。
+调用 model_interpolate_video，把 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/upscaled.mp4 做 2 倍插帧。
 ```
 
 ### `model_upscale_video`
 
-放大视频分辨率。
+放大视频分辨率。耗时与输入帧数成正比；同时需要插帧时排在 `model_interpolate_video` 之前。
 
 | 参数 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
 | `video_path` | 是 | - | 输入视频绝对路径 |
 | `resolution` | 否 | `720` | 目标短边，必须是偶数 |
 | `max_resolution` | 否 | `1280` | 最大长边，必须是偶数；`0` 表示不限制 |
-| `batch_size` | 否 | `5` | 必须满足 `4n+1`，例如 `1`、`5`、`9` |
+| `batch_size` | 否 | `21` | 必须满足 `4n+1`，例如 `1`、`5`、`21` |
 
 一句话示例：
 
 ```text
-调用 model_upscale_video，把 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/interpolated.mp4 超分，resolution 使用 720，max_resolution 使用 1280，batch_size 使用 5。
+调用 model_upscale_video，把 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/combined.mp4 超分，resolution 使用 720，max_resolution 使用 1280。
 ```
 
 ### `model_generate_video_audio`
