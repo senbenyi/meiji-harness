@@ -7,7 +7,7 @@
 ## 技能选择
 - 普通聊天中的剧本、分镜、提示词：`elysium-shot-design`。
 - 项目内逐步创作或修改创作步骤：`elysium-story`。
-- 已有剧本推进项目生产：`elysium-director`；一句话直接成片：`elysium-oneline`。
+- 已有剧本推进项目生产：`elysium-director`；
 - 单项生成、后处理或工具工作流：`elysium-media-task`。
 - 按需读取对应技能；查询或续做沿用原入口和任务标识，不重新提交生产。
 
@@ -18,3 +18,4 @@
 - 交付完成内容、产物路径、验证结果及待处理问题。区分方案、已提交、生成中、已完成和已验收；未查看的画面与声音标记待验收。
 - 调试阶段逐次展示工具返回的实际输入、输出、debug 调用链、ComfyUI prompt_id、artifact_id 和 view_url；缺失字段明确写未返回，不自行拼接或省略失败阶段。localhost URL 标注仅服务器本机可访问。
 - 尺寸、画幅、格式和画面描述必须有实测或查看依据；提示词不能当作实际画面描述。
+- 使用 media_info 和 validation 报告规格与验收；not_run 不算通过。失败先读 failed_stage、node_errors 和 retry_scope；retryable 为 null 时不擅自重试。详细排查按 diagnostic_path 读取完整记录。

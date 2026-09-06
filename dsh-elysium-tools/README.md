@@ -198,3 +198,15 @@ dsh plugin --profile web add --workspace-root ./registry
 - 元数据缺失返回 null 和原因；本地混音成片没有 ComfyUI 原生产物，原始阶段产物仍在列表中。
 
 访问地址默认使用实际 ComfyUI 地址。需要从浏览器访问时，在服务器启动环境设置 `COMFYUI_PUBLIC_URL`、`MINIMAX_H3_PUBLIC_URL` 为对应服务已配置的代理地址；不提供时 localhost 链接仅在服务器本机有效，不代表已开放公网。元数据同时保存在产物旁的 `.comfyui.json` 文件中；旧产物不会凭空补出 ID 或 URL。
+
+### 诊断与验收
+
+- `trace_id` 串联整个任务；工作流阶段用 `span_id` 区分，未创建独立子任务时 `parent_job_id` 为 null。
+- `stage`、`failed_stage`、`timings` 展示准备、执行、产物检查及总耗时；`debug.stage_timings` 是各阶段已记录事件间的耗时，不等同于纯 GPU 推理耗时。
+- `debug.resolved_config` 包含模型选择来源、配置/适配器哈希、生效参数与工作流哈希；`code_version` 返回插件版本和执行代码哈希。
+- `debug.comfyui_status`、`debug.node_errors` 返回原始状态与失败节点；完整请求、响应、堆栈保存为文件，通过 `request_path`、`response_path`、`diagnostic_path` 读取。
+- `media_info` 来自 ffprobe：宽高、实际宽高比、时长、帧率、编码与音轨信息。`FFPROBE_BIN` 可指定程序；缺少程序或探测失败时不会声称规格已验证。
+- `validation` 分别报告文件存在、非空、媒体探测、尺寸匹配、完整解码和人工验收。完整解码及人工验收当前为 not_run；没有明确输出尺寸时不猜测规格匹配。
+- `warnings` 明确元数据缺失、地址仅本机可用、探测失败或尺寸不符。`retryable` 为 null 表示尚不能判断；已有 prompt_id 时先查原任务，不自动整链重跑。
+
+工具返回摘要；`debug.diagnostic_path` 保留完整诊断快照，`debug.media_probe_path` 保留探测结果。只记录任务参数，不输出进程的完整环境变量。

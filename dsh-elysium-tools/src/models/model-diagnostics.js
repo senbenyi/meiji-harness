@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
+import { extname } from 'node:path'
 
 const runFile = promisify(execFile)
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -33,16 +34,22 @@ export function summarizeMedia(probe) {
 }
 
 export async function inspectMedia(path, reportPath) {
+  let probe
   try {
     const { stdout } = await runFile(process.env.FFPROBE_BIN || 'ffprobe', [
       '-v', 'error', '-show_streams', '-show_format', '-of', 'json', path,
     ], { timeout: 15_000, maxBuffer: 2 * 1024 * 1024 })
-    const probe = JSON.parse(stdout)
+    probe = JSON.parse(stdout)
     await writeFile(reportPath, `${JSON.stringify(probe, null, 2)}\n`, { mode: 0o600 })
     if (!probe.streams?.length) throw new Error('ffprobe 未返回媒体流')
-    return { media_info: summarizeMedia(probe), media_probe: 'passed', warnings: [] }
+    const media = summarizeMedia(probe)
+    const audioOnly = ['.mp3', '.wav', '.flac', '.m4a', '.ogg'].includes(extname(path).toLowerCase())
+    if (audioOnly ? !(media.has_audio && media.sample_rate > 0 && media.channels > 0) : !(media.width > 0 && media.height > 0)) {
+      throw new Error('ffprobe 未识别到有效的画面尺寸或音频采样信息')
+    }
+    return { media_info: media, media_probe: 'passed', warnings: [] }
   } catch (error) {
-    await writeFile(reportPath, `${JSON.stringify({ error: error.message, code: error.code, stderr: error.stderr }, null, 2)}\n`, { mode: 0o600 })
+    await writeFile(reportPath, `${JSON.stringify({ error: error.message, code: error.code, stderr: error.stderr, probe }, null, 2)}\n`, { mode: 0o600 })
     return { media_info: null, media_probe: error.code === 'ENOENT' ? 'not_run' : 'failed',
       warnings: [error.code === 'ENOENT' ? 'FFPROBE_UNAVAILABLE' : 'MEDIA_PROBE_FAILED'] }
   }

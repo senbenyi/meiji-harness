@@ -32,3 +32,13 @@ dsh plugin --profile web add --workspace-root ./registry
 ```sh
 /usr/bin/env bash scripts/deploy_dsh_elysium_tools.sh
 ```
+
+更新核心插件（包括右侧侧栏）时，单独执行：
+
+```sh
+/usr/bin/env bash scripts/deploy_dsh_elysium.sh
+```
+
+该脚本构建并上传 `dsh-elysium`，同步启动配置、注册核心插件并重启 Harness，
+最后检查首页与核心插件 API。它不运行测试，也不构建工具插件或上传模型代码。
+配置读取 `config/harness-settings.yaml`；执行前停止核心插件的开发监听器，完成后刷新浏览器验收。
