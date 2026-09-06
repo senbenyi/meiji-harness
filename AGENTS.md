@@ -2,10 +2,10 @@
 
 ## 项目结构与模块组织
 
-- `dsh-elysium/` 是 Harness 核心插件：`src/` 包含应用服务、ComfyUI 基础设施和 React 界面；`tests/` 存放领域测试；`templates/` 和 `docs/` 存放配套资源与文档。
 - `dsh-elysium-tools/` 是函数调用工具插件：工具位于 `src/functions/` 和 `src/workflows/`，测试位于 `tests/`。
+- `dsh-elysium-ui/` 是独立导演设置插件，只提供 Harness 原生设置页面，不注册生成工具。
 - 每个包都有独立的清单和构建脚本。只编辑源码，不直接修改生成目录 `lib/` 或 `registry/`。
-- 根目录 `scripts/` 存放部署脚本。修改核心插件前先阅读 `dsh-elysium/AGENTS.md`，其局部规则优先适用。
+- 根目录 `scripts/` 存放部署脚本。
 
 ## 构建、测试与开发命令
 
@@ -14,11 +14,9 @@
 - `pnpm install --frozen-lockfile --ignore-scripts`：按锁文件安装依赖，不执行生命周期构建脚本。
 - `pnpm test`：运行当前包的 Node.js 测试套件。
 - `pnpm build`：生成可分发的构建产物。
-- 仅核心插件：`pnpm dev:ui` 监听前端修改；`pnpm dev:server` 监听服务端修改并重启 DSH。复用已有监听进程。
-- 仅核心插件：`pnpm typecheck` 检查 TypeScript；`node scripts/package-registry.mjs` 组装 registry 包。
-- 仅工具插件：`pnpm package:registry` 组装 registry 包。
+- `pnpm package:registry` 组装 registry 包。
 
-构建与测试应串行执行，因为核心插件构建会删除 `lib/`。仅在获准完整交付核心插件时运行 `pnpm release:local`；它会测试、构建、安装并重启 Harness。
+构建与测试应串行执行；构建、部署和重启须获得授权。
 
 ## 代码风格与命名约定
 
@@ -26,7 +24,7 @@
 
 ## 测试规范
 
-主要测试套件使用 `node:test` 和 `node:assert/strict`。测试文件命名为 `*.test.js`，核心插件按领域组织测试。根据需要补充聚焦行为的回归测试。当前未配置覆盖率数值门槛。交接时分别说明静态检查、测试、打包、运行时检查和 GPU E2E 的实际结果。
+主要测试套件使用 `node:test` 和 `node:assert/strict`。测试文件命名为 `*.test.js`。根据需要补充聚焦行为的回归测试。当前未配置覆盖率数值门槛。交接时分别说明静态检查、测试、打包、运行时检查和 GPU E2E 的实际结果。
 
 ## 提交与合并请求规范
 

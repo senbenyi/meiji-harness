@@ -51,9 +51,10 @@ dsh-better-sidebar:
     git: true
   agentOpenTools: true
 
-# Elysium 侧栏宽度；配置变化时覆盖旧宽度，仍受 280px 最小宽度限制。
-dsh-elysium:
-  defaultWidthPercent: 7.5
+# 新 UI 的导演设置；部署时以项目配置覆盖界面保存值。
+dsh-elysium-ui:
+  enabled: true
+  directors: [] # 每项包含 id、name、prompt。
 
 # 忙碌时回车发送引导消息。
 ui-conversation:
