@@ -25,9 +25,10 @@ dsh plugin --profile web add --workspace-root ./registry
 
 ## 服务器部署
 
-从本机一次完成 `llm-ai-model` 脚本/工作流同步、两个插件构建打包、服务器注册和
-Harness 重启；部署过程不运行测试：
+从仓库根目录执行，完成 `dsh-elysium-tools` 构建打包、上传、服务器注册和
+Harness 重启；部署过程不运行测试。服务器需已安装 Harness 和模型运行环境。
+此脚本仅部署工具插件，`dsh-elysium` 和 `llm-ai-model` 需分别部署。
 
 ```sh
-/usr/bin/env bash /Users/mac/ai/llm-ai-veo/llm-dsh-plugins/scripts/deploy.sh
+/usr/bin/env bash scripts/deploy_dsh-elysium_tools.sh
 ```
