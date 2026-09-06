@@ -53,4 +53,5 @@ rsync -az --delete -e "${SSH[*]}" "$TOOLS_ROOT/registry/" "$TARGET:$TOOLS_DEST/"
 echo '[4/4] 应用配置并重启'
 "${SSH[@]}" "$TARGET" "cd '$PLUGIN_DEST' && bash scripts/common/install_dsh_elysium_tools.sh"
 
-echo '[DONE] 插件和提示词已更新，Harness 已重启并通过健康检查'
+bash "$REPO_ROOT/scripts/common/start_tunnel_harness.sh"
+echo "[DONE] 插件和提示词已更新：http://127.0.0.1:$HARNESS_LOCAL_PORT/"

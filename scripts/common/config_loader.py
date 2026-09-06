@@ -19,6 +19,7 @@ except ImportError:
 def write_harness_settings(mode, config):
     settings = yaml.safe_load(config.read_text())
     runtime = settings.pop("harness-runtime")
+    runtime.setdefault("HARNESS_LOCAL_PORT", 23080)
     settings.pop("harness-customization", None)
     patterns = {
         "HARNESS_ROOT": r"/[A-Za-z0-9._/-]+",
@@ -30,6 +31,7 @@ def write_harness_settings(mode, config):
         "QWEN_API_LOCAL_PORT": r"[0-9]+",
         "QWEN_API_REMOTE_PORT": r"[0-9]+",
         "HARNESS_WEB_PORT": r"[0-9]+",
+        "HARNESS_LOCAL_PORT": r"[0-9]+",
     }
     for key, pattern in patterns.items():
         value = str(runtime[key])

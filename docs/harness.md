@@ -29,11 +29,13 @@ bash scripts/deploy_dsh_elysium_tools.sh
 
 先上传 `.dsh/`、`config/`、`scripts/`，再本地构建并上传产物。
 随后进入服务器部署目录，执行 `scripts/common/install_dsh_elysium_tools.sh`，完成注册、配置覆盖、重启和检查。
+最后在本机建立访问隧道，并检查 `http://127.0.0.1:23080/`。
 
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
 启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；关闭工作目录指令扫描。
 新对话加载 Elysium preset 和上述指令；已有对话不自动切换 preset。
-本地联合隧道使用 `../llm-ai-brain/app/start_tunnel_harness_comfyui.sh`。
+服务器重启后，可在本仓库单独恢复本地通道：`bash scripts/common/start_tunnel_harness.sh`。
+本地端口读取 `harness-runtime.HARNESS_LOCAL_PORT`，默认 `23080`。
 
 视频工具：`model_generate_video`，`mode` 为 `text`（文字生成视频）、`image`（图片生成视频）、`reference`（参考素材生成视频）。执行模型由路由配置决定。
 
