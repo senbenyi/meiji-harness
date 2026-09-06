@@ -1,5 +1,5 @@
-import { getJob } from './model-task.js'
-import { renderToolDebug } from './model-tool.js'
+import { getJob } from './task.js'
+import { renderToolDebug } from './tool.js'
 
 export function createModelJobStatusTool() {
   return {

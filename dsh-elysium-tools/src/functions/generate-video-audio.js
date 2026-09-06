@@ -1,9 +1,9 @@
-import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
-import { completedModelTool } from './model-tool.js'
+import { MODEL_TIMEOUTS, runModelTask } from './task.js'
+import { completedModelTool } from './tool.js'
 
-export function createModelAddVideoAudioTool() {
+export function createModelGenerateVideoAudioTool() {
   return completedModelTool({
-    name: 'model_add_video_audio',
+    name: 'model_generate_video_audio',
     description: '为视频生成并合成环境音，等待任务完成后返回产物路径。',
     timeoutMs: MODEL_TIMEOUTS.postprocess,
     parameters: {

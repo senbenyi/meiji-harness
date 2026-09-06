@@ -35,9 +35,7 @@ bash scripts/deploy_dsh_elysium_tools.sh
 新对话加载 Elysium preset 和上述指令；已有对话不自动切换 preset。
 本地联合隧道使用 `../llm-ai-brain/app/start_tunnel_harness_comfyui.sh`。
 
-MiniMax H3 工具：`model_generate_minimax_h3_t2va`、`model_generate_minimax_h3_fl2va`、
-`model_generate_minimax_h3_ref2va`；模式参数见工具定义。
-示例：调用 `model_generate_minimax_h3_t2va`，生成晨光水面的纸船视频，带自然水声，seed 为 666。
+视频工具：`model_generate_video`，`mode` 为 `text`（文字生成视频）、`image`（图片生成视频）、`reference`（参考素材生成视频）。执行模型由路由配置决定。
 
 检查服务与实际安装的工具清单：
 

@@ -1,10 +1,10 @@
-import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
-import { completedModelTool } from './model-tool.js'
+import { MODEL_TIMEOUTS, runModelTask } from './task.js'
+import { completedModelTool } from './tool.js'
 
-export function createModelGenerateLongVideoTool() {
+export function createModelGenerateVideoLongTool() {
   return completedModelTool({
-    name: 'model_generate_long_video',
-    description: '根据角色图片和 1..6 段提示词执行 Wan2.2 Remix v3 + SVI2Pro。',
+    name: 'model_generate_video_long',
+    description: '根据角色图片和 1..6 段提示词生成连续长视频，执行模型由路由配置决定。',
     timeoutMs: MODEL_TIMEOUTS.longVideo,
     parameters: {
       properties: {

@@ -1,8 +1,8 @@
 # dsh-elysium-tools
 
-独立的 DeepSeek Harness Function Call 工具插件。安装后可在 Harness 对话中用一句话调用图片、视频、工作流和任务查询能力。
+独立的 DeepSeek Harness Function Call 工具插件。安装后可在 Harness 对话中用一句话调用图片、视频、对白和任务查询能力。
 
-调用链为 `Harness → dsh-elysium-tools → llm-ai-model/scripts/endpoint|workflow`，不依赖额外 HTTP 服务。
+调用链为 `Harness → dsh-elysium-tools → llm-ai-model/scripts/endpoint`，不依赖额外 HTTP 服务。
 
 ## 使用前说明
 
@@ -12,6 +12,19 @@
 - `seed` 相同不保证不同模型或工作流版本产生完全相同的结果。
 
 ## 工具使用
+
+7 个能力工具与 endpoint 一一对应；`model_job_status`、`model_job_result` 仅负责查询。
+
+| 工具 | Endpoint |
+|---|---|
+| `model_generate_image` | `generate_image.sh` |
+| `model_generate_video` | `generate_video.sh` |
+| `model_generate_video_long` | `generate_video_long.sh` |
+| `model_generate_video_audio` | `generate_video_audio.sh` |
+| `model_generate_dialogue` | `generate_dialogue.sh` |
+| `model_interpolate_video` | `interpolate_video.sh` |
+| `model_upscale_video` | `upscale_video.sh` |
+
 
 ### `model_generate_image`
 
@@ -29,7 +42,7 @@
 调用 model_generate_image，生成一张电影感的雨夜东京街头照片，霓虹灯倒映在路面，preset 使用 standard，seed 使用 666。
 ```
 
-### `model_generate_long_video`
+### `model_generate_video_long`
 
 使用角色锚点图片和 1..6 段提示词执行 Wan2.2 Remix v3 + SVI2Pro。
 
@@ -43,26 +56,24 @@
 一句话示例：
 
 ```text
-调用 model_generate_long_video，角色图片使用 /root/autodl-fs/artifacts/projects/tool-<image-job>/assets/characters/img.png，prompts 依次为“缓慢转身”“走向窗边”“回头看向镜头”，preset 使用 long_mvp_preview。
+调用 model_generate_video_long，角色图片使用 /root/autodl-fs/artifacts/projects/tool-<image-job>/assets/characters/img.png，prompts 依次为“缓慢转身”“走向窗边”“回头看向镜头”，preset 使用 long_mvp_preview。
 ```
 
-### MiniMax H3 三个独立工具
+### `model_generate_video`
 
-| 工具 | 脚本 | 输入 |
+对应 `generate_video.sh`，必填 `mode`、`prompt`，可选 `seed`（默认 666）。
+
+| mode | 作用 | 参考参数 |
 |---|---|---|
-| `model_generate_minimax_h3_t2va` | `generate_video.sh --mode text`（文字生成带声音的视频） | `prompt` |
-| `model_generate_minimax_h3_fl2va` | `generate_video.sh --mode image`（图片生成带声音的视频） | `prompt`、`image_path` |
-| `model_generate_minimax_h3_ref2va` | `generate_video.sh --mode reference`（参考图片、视频或音频生成音视频） | `prompt`，另至少一项参考图、视频或音频 |
+| `text` | 文字生成视频 | 不接受参考素材 |
+| `image` | 起始图片生成视频 | 必填 `image_path` |
+| `reference` | 参考素材生成视频 | `image_path`、`video_path`、`audio_path` 至少一项 |
 
-均支持 `seed`（默认 666），无需 `mode` 参数。参考字段为 `image_path`、
-`video_path`、`audio_path`，文件必须位于服务器共享 artifacts 目录。
-分辨率、时长、采样步数和编码参数使用服务端默认值。
-三个工具共用能力入口 `generate_video.sh`，仅传入生成模式；具体提供商由模型项目的 `models_routes.yaml` 和 `scripts/factory/providers/` 决定，默认 MiniMax H3。
-原 `model_generate_minimax_h3_video` 工具由这三个工具替代。
+执行模型由 `models_routes.yaml` 决定；声音支持、尺寸和时长以执行模型为准。
 
-```text
-调用 model_generate_minimax_h3_t2va，生成一艘纸船在晨光水面缓慢前进并带有自然水声的视频，seed 使用 666。
-```
+### `model_generate_dialogue`
+
+对应 `generate_dialogue.sh`。必填 `text`（对白文本），可选 `language`（默认 `zh`）、`seed`（默认 42），返回音频产物。
 
 ### `model_interpolate_video`
 
@@ -96,7 +107,7 @@
 调用 model_upscale_video，把 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/interpolated.mp4 超分，resolution 使用 720，max_resolution 使用 1280，batch_size 使用 5。
 ```
 
-### `model_add_video_audio`
+### `model_generate_video_audio`
 
 为视频生成并合成同步环境音和拟音；不负责对白 TTS 或配乐生成。
 
@@ -110,7 +121,7 @@
 一句话示例：
 
 ```text
-调用 model_add_video_audio，为 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/upscaled.mp4 添加雨声、脚步声和衣物摩擦声，steps 使用 25，seed 使用 42。
+调用 model_generate_video_audio，为 /root/autodl-fs/artifacts/projects/tool-<job_id>/output/upscaled.mp4 添加雨声、脚步声和衣物摩擦声，steps 使用 25，seed 使用 42。
 ```
 
 ### `model_job_status`
@@ -141,35 +152,10 @@
 调用 model_job_result，取得任务 c97be71c64474c228fc0fe29c2ff7da8 的结果。
 ```
 
-### `workflow_adult_short_video`
-
-执行唯一生产链：RealVisXL 首帧、IP-Adapter 人物一致性、Wan2.2 Remix v3、
-SVI2Pro、RIFE、SeedVR2、MMAudio 和可选 FishAudio，返回 `output/final.mp4`。
-
-工作流与模型任务共用插件本地任务记录；断线后可继续使用 `model_job_status` 和
-`model_job_result` 查询。
-
-| 参数 | 必填 | 默认值 | 说明 |
-|---|---|---|---|
-| `image_prompt` | 是 | - | 成年人物首帧提示词 |
-| `video_prompts` | 是 | - | 1..6 条连续视频提示词 |
-| `reference_path` | 否 | - | 虚拟或已授权成年人物参考图 |
-| `audio_prompt` | 否 | 模型默认提示词 | 环境音和拟音描述 |
-| `dialogue` | 否 | - | FishAudio 对白文本 |
-| `preset` | 否 | `fast` | `fast` 或 `standard` |
-| `seed` | 否 | `666` | 视频生成随机种子 |
-| `authorized_adults` | 是 | - | 必须为 `true` |
-
-一句话示例：
-
-```text
-调用 workflow_adult_short_video，首帧为 25 岁虚拟成年女性的写实电影画面，video_prompts 依次为“缓慢转身”“走向窗边”“回头看向镜头”，添加室内环境音和对白“今晚的月色真美”，preset 使用 fast，seed 使用 666，authorized_adults 为 true。
-```
-
 ## 源码职责
 
-- `src/models/`：直接调用 `scripts/endpoint/` 的 Harness 工具，每个工具一个文件。
-- `src/workflows/`：直接调用 `scripts/workflow/` 的多步骤媒体工作流 Harness 工具。
+- `src/functions/`：直接调用 `scripts/endpoint/` 的 Harness 工具，每个工具一个文件。
+- `src/workflows/`：保留内部工作流执行器，不向 Harness 注册。
 - `src/index.js`：插件身份、导出和注册。
 
 ## 安装

@@ -1,14 +1,13 @@
-import { createModelTools } from './models/index.js'
-import { createWorkflowTools } from './workflows/index.js'
+import { createModelTools } from './functions/index.js'
 
-export * from './models/index.js'
+export * from './functions/index.js'
 export * from './workflows/index.js'
 
 export const name = '@dsh-external/dsh-elysium-tools'
 export const inject = ['tools']
 
 export function apply(ctx) {
-  const tools = [...createModelTools(), ...createWorkflowTools()]
+  const tools = createModelTools()
   for (const tool of tools) {
     if (typeof ctx.effect === 'function' && typeof ctx.tools?.register === 'function') {
       ctx.effect(() => ctx.tools.register(tool), `@dsh-external/dsh-elysium-tools: ${tool.name} tool`)

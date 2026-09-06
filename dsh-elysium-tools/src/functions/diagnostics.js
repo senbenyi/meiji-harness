@@ -9,7 +9,7 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 
 export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'))
-  const names = ['model-task.js', 'model-tool.js', 'model-diagnostics.js']
+  const names = ['task.js', 'tool.js', 'diagnostics.js']
   const sources = await Promise.all(names.map(name => readFile(new URL(name, import.meta.url))))
   return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat(sources)) }
 }

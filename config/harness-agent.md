@@ -8,7 +8,7 @@
 - 普通聊天中的剧本、分镜、提示词：`elysium-shot-design`。
 - 项目内逐步创作或修改创作步骤：`elysium-story`。
 - 已有剧本推进项目生产：`elysium-director`；
-- 单项生成、后处理或工具工作流：`elysium-media-task`。
+- 单项生成、对白、后处理或组合媒体任务：`elysium-media-task`。
 - 按需读取对应技能；查询或续做沿用原入口和任务标识，不重新提交生产。
 
 ## 执行与交付

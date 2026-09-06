@@ -32,30 +32,36 @@ const audio = join(artifacts, 'reference.mp3')
 await writeFile(image, 'test image')
 await writeFile(audio, 'test audio')
 
-for (const mode of ['t2va', 'fl2va', 'ref2va']) {
+for (const mode of ['text', 'image', 'reference']) {
   test(`${mode} routes through the video capability and preserves prompt/media`, async () => {
-    const tool = createModelTools().find(t => t.name === `model_generate_minimax_h3_${mode}`)
-    assert.equal(tool.parameters.properties.mode, undefined)
-    if (mode === 'fl2va') assert.ok(tool.parameters.required.includes('image_path'))
-    const args = { prompt: '你好，今天阳光很好。', seed: 123, mode: 'invalid' }
-    if (mode === 'fl2va') args.image_path = image
-    if (mode === 'ref2va') args.audio_path = audio
+    const tool = createModelTools().find(t => t.name === 'model_generate_video')
+    assert.deepEqual(tool.parameters.properties.mode.enum, ['text', 'image', 'reference'])
+    const args = { prompt: '你好，今天阳光很好。', seed: 123, mode }
+    if (mode === 'image') args.image_path = image
+    if (mode === 'reference') args.audio_path = audio
     const result = await tool.execute(args)
     assert.equal(result.status, 'succeeded')
     const command = (await readFile(`${result.path}.args`, 'utf8')).trim().split('\n')
-    assert.equal(command[command.indexOf('--mode') + 1], { t2va: 'text', fl2va: 'image', ref2va: 'reference' }[mode])
+    assert.equal(command[command.indexOf('--mode') + 1], { text: 'text', image: 'image', reference: 'reference' }[mode])
     assert.equal(command.filter(arg => arg === '--mode').length, 1)
     assert.equal(command.some(arg => arg === '--provider' || arg.startsWith('--provider=')), false)
     assert.equal(command[command.indexOf('--seed') + 1], '123')
     assert.equal((await readFile(command[command.indexOf('--prompt-file') + 1], 'utf8')).trim(), args.prompt)
-    if (mode === 'fl2va') assert.equal(command[command.indexOf('--input') + 1], image)
-    if (mode === 'ref2va') assert.equal(command[command.indexOf('--audio') + 1], audio)
+    if (mode === 'image') assert.equal(command[command.indexOf('--input') + 1], image)
+    if (mode === 'reference') assert.equal(command[command.indexOf('--audio') + 1], audio)
   })
 }
 
 test('reference modes reject missing media before running the endpoint', async () => {
-  for (const mode of ['fl2va', 'ref2va']) {
-    const tool = createModelTools().find(t => t.name === `model_generate_minimax_h3_${mode}`)
-    await assert.rejects(tool.execute({ prompt: 'hello' }), error => error.code === 'MODEL_INPUT_INVALID')
+  for (const mode of ['image', 'reference']) {
+    const tool = createModelTools().find(t => t.name === 'model_generate_video')
+    await assert.rejects(tool.execute({ mode, prompt: 'hello' }), error => error.code === 'MODEL_INPUT_INVALID')
+  }
+})
+
+test('video rejects missing or unknown modes', async () => {
+  const tool = createModelTools().find(t => t.name === 'model_generate_video')
+  for (const mode of [undefined, 'invalid']) {
+    await assert.rejects(tool.execute({ mode, prompt: 'hello' }), error => error.code === 'MODEL_INPUT_INVALID')
   }
 })

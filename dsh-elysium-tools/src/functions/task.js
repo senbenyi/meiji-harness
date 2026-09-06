@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs'
 import { mkdir, open, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { codeVersion, inspectMedia, retryAdvice, traceDiagnostics } from './model-diagnostics.js'
+import { codeVersion, inspectMedia, retryAdvice, traceDiagnostics } from './diagnostics.js'
 import { dirname, extname, isAbsolute, join, relative } from 'node:path'
 
 const PROJECT_ROOT = process.env.LLM_AI_MODEL_ROOT || '/root/autodl-tmp/project'
@@ -179,11 +179,11 @@ async function buildModelExecution(jobId, capability, params) {
     }
   }
 
-  if (capability === 'video-generate-minimax-h3') {
+  if (capability === 'video-generate') {
     const mode = String(params.mode || '').toLowerCase()
-    const prompt = await promptFile(jobId, 'minimax-h3-prompt.txt', params.prompt)
-    if (!['t2va', 'fl2va', 'ref2va'].includes(mode)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'mode 必须是 t2va、fl2va 或 ref2va', 422)
+    const prompt = await promptFile(jobId, 'video-prompt.txt', params.prompt)
+    if (!['text', 'image', 'reference'].includes(mode)) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 'mode 必须是 text、image 或 reference', 422)
     }
     const image = String(params.image_path || '').trim()
       ? await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path') : null
@@ -191,18 +191,18 @@ async function buildModelExecution(jobId, capability, params) {
       ? await artifactPath(params.video_path, VIDEO_SUFFIXES, 'video_path') : null
     const audio = String(params.audio_path || '').trim()
       ? await artifactPath(params.audio_path, AUDIO_SUFFIXES, 'audio_path') : null
-    if (mode === 't2va' && (image || video || audio)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 't2va 不接受参考媒体', 422)
+    if (mode === 'text' && (image || video || audio)) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 'text 不接受参考媒体', 422)
     }
-    if (mode === 'fl2va' && (!image || video || audio)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'fl2va 只接受且必须提供 image_path', 422)
+    if (mode === 'image' && (!image || video || audio)) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 'image 只接受且必须提供 image_path', 422)
     }
-    if (mode === 'ref2va' && !image && !video && !audio) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'ref2va 至少需要一个参考媒体', 422)
+    if (mode === 'reference' && !image && !video && !audio) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', 'reference 至少需要一个参考媒体', 422)
     }
-    const output = join(projectRoot, 'output', 'minimax-h3.mp4')
+    const output = join(projectRoot, 'output', 'video.mp4')
     const command = [
-      'bash', join(endpointRoot, 'generate_video.sh'), '--mode', { t2va: 'text', fl2va: 'image', ref2va: 'reference' }[mode],
+      'bash', join(endpointRoot, 'generate_video.sh'), '--mode', mode,
       '--prompt-file', prompt, '--output', output,
       '--run-id', jobId, '--seed', String(params.seed),
     ]
@@ -215,6 +215,17 @@ async function buildModelExecution(jobId, capability, params) {
         ...environment,
         MINIMAX_H3_COMFYUI_URL: process.env.MINIMAX_H3_COMFYUI_URL || 'http://127.0.0.1:6016',
       },
+      output,
+    }
+  }
+
+  if (capability === 'dialogue-generate') {
+    const text = await promptFile(jobId, 'dialogue.txt', params.text)
+    const output = join(projectRoot, 'output', 'dialogue.mp3')
+    return {
+      command: ['bash', join(endpointRoot, 'generate_dialogue.sh'), '--text-file', text,
+        '--language', params.language, '--seed', String(params.seed), '--output', output],
+      environment,
       output,
     }
   }

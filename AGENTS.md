@@ -3,7 +3,7 @@
 ## 项目结构与模块组织
 
 - `dsh-elysium/` 是 Harness 核心插件：`src/` 包含应用服务、ComfyUI 基础设施和 React 界面；`tests/` 存放领域测试；`templates/` 和 `docs/` 存放配套资源与文档。
-- `dsh-elysium-tools/` 是函数调用工具插件：工具位于 `src/models/` 和 `src/workflows/`，测试位于 `tests/`。
+- `dsh-elysium-tools/` 是函数调用工具插件：工具位于 `src/functions/` 和 `src/workflows/`，测试位于 `tests/`。
 - 每个包都有独立的清单和构建脚本。只编辑源码，不直接修改生成目录 `lib/` 或 `registry/`。
 - 根目录 `scripts/` 存放部署脚本。修改核心插件前先阅读 `dsh-elysium/AGENTS.md`，其局部规则优先适用。
 
@@ -22,7 +22,7 @@
 
 ## 代码风格与命名约定
 
-遵循相邻代码风格：两空格缩进、ES 模块、单引号字符串，通常不加分号。函数使用 camelCase，React 组件使用 PascalCase，工具文件使用含义明确的 kebab-case 名称。工具标识使用 snake_case，例如 `model_generate_minimax_h3_t2va`。保持导出、参数定义与 `dsh.plugin.json` 注册信息一致。两个包均未提供 lint/format 脚本，避免无关格式化。
+遵循相邻代码风格：两空格缩进、ES 模块、单引号字符串，通常不加分号。函数使用 camelCase，React 组件使用 PascalCase，工具文件使用含义明确的 kebab-case 名称。工具标识使用 snake_case，例如 `model_generate_video`。保持导出、参数定义与 `dsh.plugin.json` 注册信息一致。两个包均未提供 lint/format 脚本，避免无关格式化。
 
 ## 测试规范
 

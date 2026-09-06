@@ -1,5 +1,5 @@
-import { MODEL_TIMEOUTS, runModelTask } from './model-task.js'
-import { completedModelTool } from './model-tool.js'
+import { MODEL_TIMEOUTS, runModelTask } from './task.js'
+import { completedModelTool } from './tool.js'
 
 export function createModelGenerateImageTool() {
   return completedModelTool({

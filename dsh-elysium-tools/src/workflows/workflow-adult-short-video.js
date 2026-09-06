@@ -1,5 +1,5 @@
-import { MODEL_TIMEOUTS, runWorkflowTask } from '../models/model-task.js'
-import { completedModelTool } from '../models/model-tool.js'
+import { MODEL_TIMEOUTS, runWorkflowTask } from '../functions/task.js'
+import { completedModelTool } from '../functions/tool.js'
 
 export function createWorkflowAdultShortVideoTool() {
   return completedModelTool({

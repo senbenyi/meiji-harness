@@ -1,4 +1,4 @@
-import { withToolContext } from './model-task.js'
+import { withToolContext } from './task.js'
 
 export const renderToolDebug = (args, value) => {
   const output = value.debug ? { ...value, debug: { ...value.debug,
