@@ -107,6 +107,7 @@ export function resolveSidebarConfig(config: ElysiumConfig | undefined): Resolve
 
 /** Schemastery schema for the user-facing preferences (validated by the settings service). */
 export const PrefsSchema: z<SidebarPrefs> = z.object({
+  defaultWidthPercent: z.number().min(1).max(100).default(SIDEBAR_PREFS_DEFAULTS.defaultWidthPercent),
   autoOpenSubagent: z.boolean().default(true),
   autoOpenJobs: z.boolean().default(true),
   editorExplorer: z.boolean().default(false),

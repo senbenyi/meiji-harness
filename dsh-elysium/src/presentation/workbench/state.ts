@@ -9,7 +9,7 @@
  * divides the space row- or column-wise with fractional sizes. All tree
  * operations are pure functions over the node, unit-tested in tests/state.spec.ts.
  */
-import { SIDEBAR_PREFS_DEFAULTS, WIDTH_PERCENT_DEFAULT, type SidebarPrefs } from '../../shared/sidebar-preferences.ts'
+import { SIDEBAR_PREFS_DEFAULTS, type SidebarPrefs } from '../../shared/sidebar-preferences.ts'
 import { isNarrowWidth } from './breakpoints.ts'
 
 /**
@@ -865,6 +865,7 @@ const STORAGE_PREFIX = 'dsh-sidebar:v1'
  * the others (last drag wins).
  */
 const GLOBAL_WIDTH_KEY = 'dsh-sidebar:v1:width'
+const WIDTH_SETTING_KEY = 'dsh-sidebar:v1:width-percent'
 
 /** Clamp one width to the contract and the current viewport (mirror of {@link setWidth}). */
 function clampWidth(width: number): number {
@@ -977,7 +978,7 @@ function loadState(sessionId: string, prefs: SidebarPrefs): SidebarState {
   const viewport = typeof window !== 'undefined' ? window.innerWidth : undefined
   const width = globalWidth ?? (viewport === undefined
     ? PANEL_DEFAULT
-    : defaultWidthFor(viewport, WIDTH_PERCENT_DEFAULT))
+    : defaultWidthFor(viewport, prefs.defaultWidthPercent))
   const panelOpen = viewport === undefined || !isNarrowWidth(viewport)
   const seed: DefaultSeed = prefs.tabsEnabled['editor'] === false ? 'none' : 'editor-home'
   return makeDefaultState(width, panelOpen, seed)
@@ -1232,6 +1233,21 @@ export class SidebarStore {
    * re-render with the new values immediately.
    */
   setPrefs(prefs: SidebarPrefs): void {
+    let widthChanged = prefs.defaultWidthPercent !== this.prefs.defaultWidthPercent
+    try {
+      const previous = localStorage.getItem(WIDTH_SETTING_KEY)
+      widthChanged = previous !== String(prefs.defaultWidthPercent)
+      localStorage.setItem(WIDTH_SETTING_KEY, String(prefs.defaultWidthPercent))
+    } catch { /* Without storage, compare the in-memory setting. */ }
+    if (widthChanged && typeof window !== 'undefined') {
+      const width = defaultWidthFor(window.innerWidth, prefs.defaultWidthPercent)
+      writeGlobalWidth(width)
+      for (const [id, state] of this.bySession) {
+        this.bySession.set(id, { ...state, width })
+      }
+      const id = this.snapshot.sessionId
+      if (id !== undefined) this.snapshot = { ...this.snapshot, state: this.bySession.get(id) }
+    }
     this.prefs = { ...prefs }
     this.snapshot = { ...this.snapshot, prefs: this.prefs }
     this.notify()

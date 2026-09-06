@@ -49,8 +49,11 @@ dsh-better-sidebar:
   tabsEnabled:
     browser: true
     git: true
-  defaultWidthPercent: 15
   agentOpenTools: true
+
+# Elysium 侧栏宽度；配置变化时覆盖旧宽度，仍受 280px 最小宽度限制。
+dsh-elysium:
+  defaultWidthPercent: 15
 
 # 忙碌时回车发送引导消息。
 ui-conversation:

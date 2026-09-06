@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # 在服务器部署目录执行；--prepare 仅检查环境并创建产物目录。
-REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 [[ "$#" -eq 0 || ( "$#" -eq 1 && "$1" == --prepare ) ]] || {
   echo 'Usage: install_dsh_elysium_tools.sh [--prepare]' >&2; exit 1;
@@ -27,6 +27,6 @@ for file in "$tools_dir/lib/index.js" "$tools_dir"/lib/{models,workflows}/*.js; 
 done
 python3 scripts/common/config_loader.py check config/harness-settings.yaml --harness-root "$HARNESS_ROOT"
 "$dsh" plugin --profile web add --workspace-root "$tools_dir"
-bash scripts/start_harness.sh --restart
+bash scripts/common/start_harness.sh --restart
 curl -fsS --max-time 5 "http://127.0.0.1:$HARNESS_WEB_PORT/" >/dev/null
 echo '[DONE] 插件已安装，Harness 已重启并通过健康检查'

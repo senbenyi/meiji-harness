@@ -12,6 +12,8 @@ export const SIDEBAR_PREFS_NS = 'dsh-elysium'
 
 /** User-facing side card preferences. */
 export interface SidebarPrefs {
+  /** Initial width; changing this setting resets the saved drag width once. */
+  defaultWidthPercent: number
   /**
    * Whether the sidebar auto-activates (opens the panel) and expands the
    * Subagent page when the current conversation spawns a new subagent.
@@ -138,6 +140,7 @@ export const WIDTH_PERCENT_DEFAULT = 35
 
 /** Fallback prefs used whenever the settings document is unreachable or malformed. */
 export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
+  defaultWidthPercent: WIDTH_PERCENT_DEFAULT,
   autoOpenSubagent: true,
   autoOpenJobs: true,
   editorExplorer: false,

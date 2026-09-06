@@ -14,9 +14,9 @@
 在服务器脚本目录执行：
 
 ```bash
-bash scripts/start_harness.sh
-bash scripts/start_harness.sh --restart
-bash scripts/start_harness.sh --stop
+bash scripts/common/start_harness.sh
+bash scripts/common/start_harness.sh --restart
+bash scripts/common/start_harness.sh --stop
 ```
 
 启动时自动检查 Qwen API，必要时通过 `config/ssh_config` 中的 `veo-qwen38` 别名建立通道；使用服务器现有密钥和 `BatchMode=yes`，认证失败直接报错。
@@ -28,7 +28,7 @@ bash scripts/deploy_dsh_elysium_tools.sh
 ```
 
 先上传 `.dsh/`、`config/`、`scripts/`，再本地构建并上传产物。
-随后进入服务器部署目录，执行 `scripts/install_dsh_elysium_tools.sh`，完成注册、配置覆盖、重启和检查。
+随后进入服务器部署目录，执行 `scripts/common/install_dsh_elysium_tools.sh`，完成注册、配置覆盖、重启和检查。
 
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
 启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；关闭工作目录指令扫描。

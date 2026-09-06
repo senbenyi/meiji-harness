@@ -29,6 +29,10 @@ export function parsePrefs(value: unknown): SidebarPrefs {
   if (value === null || typeof value !== 'object') return { ...SIDEBAR_PREFS_DEFAULTS }
   const record = value as Record<string, unknown>
   return {
+    defaultWidthPercent: typeof record.defaultWidthPercent === 'number'
+      && Number.isFinite(record.defaultWidthPercent)
+      && record.defaultWidthPercent >= 1 && record.defaultWidthPercent <= 100
+      ? record.defaultWidthPercent : SIDEBAR_PREFS_DEFAULTS.defaultWidthPercent,
     autoOpenSubagent: typeof record.autoOpenSubagent === 'boolean'
       ? record.autoOpenSubagent
       : SIDEBAR_PREFS_DEFAULTS.autoOpenSubagent,

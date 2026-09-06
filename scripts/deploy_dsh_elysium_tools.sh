@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 TOOLS_ROOT="$REPO_ROOT/dsh-elysium-tools"
-HARNESS_FILES=(config/harness-settings.yaml config/harness-agent.md config/system-prompt.yaml config/ssh_config scripts/common/config_loader.py scripts/install_dsh_elysium_tools.sh scripts/start_harness.sh scripts/start_tunnel_qwen.sh)
+HARNESS_FILES=(config/harness-settings.yaml config/harness-agent.md config/system-prompt.yaml config/ssh_config scripts/common/config_loader.py scripts/common/install_dsh_elysium_tools.sh scripts/common/start_harness.sh scripts/common/start_tunnel_qwen.sh)
 runtime_settings="$(python3 "$REPO_ROOT/scripts/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
 eval "$runtime_settings"
 
@@ -30,7 +30,7 @@ echo '[1/4] 上传 .dsh、config、scripts'
 rsync -az --delete --exclude='__pycache__/' -e "${SSH[*]}" \
   "$REPO_ROOT/.dsh" "$REPO_ROOT/config" "$REPO_ROOT/scripts" "$TARGET:$PLUGIN_DEST/"
 
-"${SSH[@]}" "$TARGET" "cd '$PLUGIN_DEST' && bash scripts/install_dsh_elysium_tools.sh --prepare"
+"${SSH[@]}" "$TARGET" "cd '$PLUGIN_DEST' && bash scripts/common/install_dsh_elysium_tools.sh --prepare"
 
 # 2. 本地构建工具插件。
 echo '[2/4] 构建并打包'
@@ -47,6 +47,6 @@ rsync -az --delete -e "${SSH[*]}" "$TOOLS_ROOT/registry/" "$TARGET:$TOOLS_DEST/"
 
 # 4. 服务器注册插件、应用配置、重启并检查服务。
 echo '[4/4] 应用配置并重启'
-"${SSH[@]}" "$TARGET" "cd '$PLUGIN_DEST' && bash scripts/install_dsh_elysium_tools.sh"
+"${SSH[@]}" "$TARGET" "cd '$PLUGIN_DEST' && bash scripts/common/install_dsh_elysium_tools.sh"
 
 echo '[DONE] 插件和提示词已更新，Harness 已重启并通过健康检查'

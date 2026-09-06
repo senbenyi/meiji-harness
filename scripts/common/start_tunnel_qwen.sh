@@ -5,7 +5,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
-readonly REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+readonly REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 readonly CONFIG="$REPO_ROOT/config/harness-settings.yaml"
 [[ -s "$CONFIG" ]] || { echo "[FAIL] 缺少配置：$CONFIG" >&2; exit 1; }
 runtime_settings="$(python3 "$REPO_ROOT/scripts/common/config_loader.py" shell "$CONFIG")"
