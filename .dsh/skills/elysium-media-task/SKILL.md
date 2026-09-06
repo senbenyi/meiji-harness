@@ -9,6 +9,8 @@ description: 执行单项图像、视频、环境音、插帧、超分、对白�
 
 下表用于匹配任务；仅调用本轮实际提供的工具，参数以其定义为准。
 
+生成通过注册工具进入 `llm-ai-model/scripts/endpoint`，模型由 factory 路由。工具缺失时报告缺口，不通过 Bash 扫描旧生产目录、调用底层脚本或手工提交 ComfyUI 工作流绕过。
+
 | 需求与输入 | 工具 |
 |---|---|
 | 文字生成图片 | `model_generate_image` |

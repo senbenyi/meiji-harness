@@ -86,6 +86,11 @@ harness-customization:
   agent:
     base: standard
     patches:
+      - id: skill-filesystem
+        config:
+          # 技能不依赖会话 cwd，旧会话和不同工作区均可发现。
+          customSkillDirs:
+            - /root/autodl-tmp/project/harness/.dsh/skills
       - id: persona
         disabled: true # 使用 system-prompt.yaml，避免被 standard 遮蔽。
       - id: agent-instructions
