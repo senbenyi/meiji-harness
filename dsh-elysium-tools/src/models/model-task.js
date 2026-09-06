@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { mkdir, open, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { dirname, extname, isAbsolute, join, relative } from 'node:path'
 
 const PROJECT_ROOT = process.env.LLM_AI_MODEL_ROOT || '/root/autodl-tmp/project'
@@ -10,6 +11,16 @@ const STATE_ROOT = process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/ely
 const IMAGE_SUFFIXES = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 const VIDEO_SUFFIXES = new Set(['.mp4', '.mov', '.mkv', '.webm'])
 const AUDIO_SUFFIXES = new Set(['.wav', '.mp3', '.flac', '.m4a', '.ogg'])
+const toolContext = new AsyncLocalStorage()
+export const withToolContext = (name, input, run) => toolContext.run({ tool: name, input }, run)
+
+async function readTrace(path) {
+  const text = await readFile(path, 'utf8').catch(error => {
+    if (error.code === 'ENOENT') return ''
+    throw error
+  })
+  return text.split('\n').filter(Boolean).map(line => JSON.parse(line))
+}
 
 export const MODEL_TIMEOUTS = Object.freeze({
   image: 41 * 60 * 1000,
@@ -84,6 +95,13 @@ async function promptListFile(jobId, name, value) {
 
 async function runCommand(command, environment, logPath, signal, timeoutMs) {
   signal?.throwIfAborted()
+  const script = await stat(command[1]).catch(error => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (!script?.isFile()) {
+    throw new ModelTaskError('MODEL_EXECUTOR_MISSING', `模型执行入口未部署：${command[1]}`)
+  }
   await mkdir(dirname(logPath), { recursive: true })
   const log = await open(logPath, 'a')
   try {
@@ -271,17 +289,31 @@ async function buildWorkflowExecution(jobId, params) {
 async function execute(capability, params, signal, timeoutMs, workflow = false) {
   const jobId = randomBytes(16).toString('hex')
   const statusPath = join(jobRoot(jobId), 'status.json')
+  const logPath = join(jobRoot(jobId), 'execution.log')
+  const tracePath = join(jobRoot(jobId), 'trace.jsonl')
   const status = { job_id: jobId, capability, status: 'running', created_at: now(), started_at: now() }
+  status.debug = {
+    plugin: '@dsh-external/dsh-elysium-tools', ...toolContext.getStore(),
+    effective_input: params, log_path: logPath, trace_path: tracePath, chain: [],
+  }
   if (workflow) status.workflow = 'adult-short-video'
   await writeJson(statusPath, status)
   try {
     const execution = workflow
       ? await buildWorkflowExecution(jobId, params)
       : await buildModelExecution(jobId, capability, params)
-    await runCommand(execution.command, execution.environment, join(jobRoot(jobId), 'execution.log'), signal, timeoutMs)
-    const outputInfo = await stat(execution.output)
-    if (!outputInfo.isFile() || outputInfo.size === 0) {
-      throw new ModelTaskError('MODEL_OUTPUT_MISSING', '模型执行完成但没有有效输出文件')
+    execution.environment.MODEL_TRACE_FILE = tracePath
+    status.debug.command = execution.command
+    status.debug.expected_output = execution.output
+    await writeJson(statusPath, status)
+    await runCommand(execution.command, execution.environment, logPath, signal, timeoutMs)
+    status.debug.chain = await readTrace(tracePath)
+    const outputInfo = await stat(execution.output).catch(error => {
+      if (error.code === 'ENOENT') return null
+      throw error
+    })
+    if (!outputInfo?.isFile() || outputInfo.size === 0) {
+      throw new ModelTaskError('MODEL_OUTPUT_MISSING', `模型执行完成但没有有效输出文件：${execution.output}`)
     }
     status.status = 'succeeded'
     status.finished_at = now()
@@ -290,15 +322,29 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
       size_bytes: outputInfo.size,
       sha256: await sha256File(execution.output),
     }
+    const artifacts = status.debug.chain.filter(event => event.stage === 'comfyui-output')
+    const primary = artifacts.findLast(event => event.local_path === execution.output)
+    status.result.comfyui_artifacts = artifacts
+    status.result.comfyui_prompt_id = primary?.prompt_id ?? null
+    status.result.comfyui_artifact_id = primary?.artifact_id ?? null
+    status.result.comfyui_view_url = primary?.view_url ?? null
+    status.result.comfyui_metadata_status = primary ? 'available' : workflow ? 'local-final-see-stage-artifacts' : 'not-reported-by-executor'
     await writeJson(statusPath, status)
     return completedResult(status)
   } catch (error) {
+    const failure = error instanceof ModelTaskError ? error
+      : new ModelTaskError('MODEL_GENERATION_FAILED', String(error?.message || error))
     status.status = 'failed'
     status.finished_at = now()
-    status.error = String(error?.message || error).slice(0, 500)
+    status.error_code = failure.code
+    status.error = failure.message.slice(0, 500)
+    status.debug.chain = await readTrace(tracePath).catch(() => status.debug.chain)
+    await mkdir(dirname(logPath), { recursive: true })
+    await writeFile(logPath, `\n[FAIL] ${status.error}\n`, { flag: 'a' })
     await writeJson(statusPath, status)
-    if (error instanceof ModelTaskError) throw error
-    throw new ModelTaskError('MODEL_GENERATION_FAILED', status.error)
+    failure.job_id = jobId
+    failure.message = `${status.error}；job_id: ${jobId}；日志：${logPath}`
+    throw failure
   }
 }
 
@@ -324,5 +370,5 @@ export function completedResult(job) {
   if (job.status !== 'succeeded' || !job.result) {
     throw new ModelTaskError('MODEL_JOB_NOT_READY', `任务尚未成功：${job.status}`, 409)
   }
-  return { job_id: job.job_id, status: job.status, ...job.result }
+  return { job_id: job.job_id, status: job.status, ...job.result, debug: job.debug }
 }

@@ -1,5 +1,5 @@
 import { completedResult, getJob } from './model-task.js'
-import { COMPLETED_RESULT_SCHEMA } from './model-tool.js'
+import { COMPLETED_RESULT_SCHEMA, renderToolDebug } from './model-tool.js'
 
 export function createModelJobResultTool() {
   return {
@@ -13,10 +13,7 @@ export function createModelJobResultTool() {
     },
     output: {
       schema: COMPLETED_RESULT_SCHEMA,
-      render: (_args, value) => [{
-        type: 'text',
-        text: `任务产物：${value.path}\nsize: ${value.size_bytes}\nsha256: ${value.sha256}`,
-      }],
+      render: renderToolDebug,
     },
     execute: async (args, exec) => completedResult(await getJob(args.job_id, exec?.signal)),
   }

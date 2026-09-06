@@ -13,7 +13,7 @@
     }
   },
   "files": [
-    "lib/index.js",
+    "lib",
     "cordis.patch.yml",
     "dsh.plugin.json",
     "README.md"

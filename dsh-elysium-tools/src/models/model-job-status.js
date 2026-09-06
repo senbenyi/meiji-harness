@@ -1,4 +1,5 @@
 import { getJob } from './model-task.js'
+import { renderToolDebug } from './model-tool.js'
 
 export function createModelJobStatusTool() {
   return {
@@ -20,7 +21,7 @@ export function createModelJobStatusTool() {
         },
         required: ['job_id', 'status'],
       },
-      render: (_args, value) => [{ type: 'text', text: `任务 ${value.job_id}：${value.status}` }],
+      render: renderToolDebug,
     },
     execute: (args, exec) => getJob(args.job_id, exec?.signal),
   }
