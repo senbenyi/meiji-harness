@@ -43,7 +43,7 @@
 | 资产自动发现（从剧本提取需求） | ❌ 缺失 | — |
 | 批量资产生成 | ❌ 缺失 | — |
 | 提示词生成 & 润色 | ⚠️ 部分 | brain: `run_video_analyze.py` 从视频反推提示词（非正向） |
-| 多模型支持 | ⚠️ 部分 | model: factory/route.sh 有路由框架，仅启用 qwen-t2i |
+| 多模型支持 | ⚠️ 部分 | model: factory/route.py 按 models_routes.yaml 选择提供商 |
 | 场景/道具图生成 | ❌ 缺失 | — |
 | 图片资产管理 | ❌ 缺失 | — |
 

@@ -15,9 +15,8 @@ process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 after(() => rm(root, { recursive: true, force: true }))
 const { createModelTools } = await import('../src/index.js')
 
-// Stub each server endpoint to verify routing and arguments without a model checkout or GPU.
-for (const mode of ['t2va', 'fl2va', 'ref2va']) {
-  await writeFile(join(endpoints, `generate_minimax_h3_${mode}.sh`), `#!/usr/bin/env bash
+// Stub the capability endpoint without a model checkout or GPU.
+await writeFile(join(endpoints, 'generate_video.sh'), `#!/usr/bin/env bash
 set -eu
 args=("$@")
 output=''
@@ -26,17 +25,15 @@ while (($#)); do
 done
 mkdir -p "$(dirname "$output")"
 printf 'test artifact' > "$output"
-printf '${mode}' > "$output.endpoint"
 printf '%s\\n' "\${args[@]}" > "$output.args"
 `)
-}
 const image = join(artifacts, 'reference.png')
 const audio = join(artifacts, 'reference.mp3')
 await writeFile(image, 'test image')
 await writeFile(audio, 'test audio')
 
 for (const mode of ['t2va', 'fl2va', 'ref2va']) {
-  test(`${mode} routes through its fixed-mode script and preserves prompt/media`, async () => {
+  test(`${mode} routes through the video capability and preserves prompt/media`, async () => {
     const tool = createModelTools().find(t => t.name === `model_generate_minimax_h3_${mode}`)
     assert.equal(tool.parameters.properties.mode, undefined)
     if (mode === 'fl2va') assert.ok(tool.parameters.required.includes('image_path'))
@@ -46,11 +43,12 @@ for (const mode of ['t2va', 'fl2va', 'ref2va']) {
     const result = await tool.execute(args)
     assert.equal(result.status, 'succeeded')
     const command = (await readFile(`${result.path}.args`, 'utf8')).trim().split('\n')
-    assert.equal(await readFile(`${result.path}.endpoint`, 'utf8'), mode)
-    assert.equal(command.some(arg => arg === '--mode' || arg.startsWith('--mode=')), false)
+    assert.equal(command[command.indexOf('--mode') + 1], { t2va: 'text', fl2va: 'image', ref2va: 'reference' }[mode])
+    assert.equal(command.filter(arg => arg === '--mode').length, 1)
+    assert.equal(command.some(arg => arg === '--provider' || arg.startsWith('--provider=')), false)
     assert.equal(command[command.indexOf('--seed') + 1], '123')
     assert.equal((await readFile(command[command.indexOf('--prompt-file') + 1], 'utf8')).trim(), args.prompt)
-    if (mode === 'fl2va') assert.equal(command[command.indexOf('--image') + 1], image)
+    if (mode === 'fl2va') assert.equal(command[command.indexOf('--input') + 1], image)
     if (mode === 'ref2va') assert.equal(command[command.indexOf('--audio') + 1], audio)
   })
 }

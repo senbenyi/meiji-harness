@@ -140,7 +140,7 @@ async function buildModelExecution(jobId, capability, params) {
     const prompt = String(params.prompt || '').trim()
     if (!prompt) throw new ModelTaskError('MODEL_INPUT_INVALID', 'prompt 不能为空', 422)
     return {
-      command: ['bash', join(endpointRoot, 'generate_image.sh'), '--preset', params.preset, '--seed', String(params.seed), '--', prompt],
+      command: ['bash', join(endpointRoot, 'generate_image.sh'), '--preset', params.preset, '--seed', String(params.seed), '--prompt', prompt],
       environment,
       output: join(projectRoot, 'assets', 'characters', 'img.png'),
     }
@@ -183,11 +183,11 @@ async function buildModelExecution(jobId, capability, params) {
     }
     const output = join(projectRoot, 'output', 'minimax-h3.mp4')
     const command = [
-      'bash', join(endpointRoot, `generate_minimax_h3_${mode}.sh`),
+      'bash', join(endpointRoot, 'generate_video.sh'), '--mode', { t2va: 'text', fl2va: 'image', ref2va: 'reference' }[mode],
       '--prompt-file', prompt, '--output', output,
       '--run-id', jobId, '--seed', String(params.seed),
     ]
-    if (image) command.push('--image', image)
+    if (image) command.push('--input', image)
     if (video) command.push('--video', video)
     if (audio) command.push('--audio', audio)
     return {
