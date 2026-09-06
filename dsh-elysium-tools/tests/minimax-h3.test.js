@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { spawnSync } from 'node:child_process'
 
 const root = await realpath(await mkdtemp(join(tmpdir(), 'h3-tools-test-')))
 const endpoints = join(root, 'scripts', 'endpoint')
@@ -16,8 +15,9 @@ process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 after(() => rm(root, { recursive: true, force: true }))
 const { createModelTools } = await import('../src/index.js')
 
-// Exercise tool -> task builder -> real mode wrapper, replacing GPU execution only.
-await writeFile(join(endpoints, 'generate_minimax_h3.sh'), `#!/usr/bin/env bash
+// Stub each server endpoint to verify routing and arguments without a model checkout or GPU.
+for (const mode of ['t2va', 'fl2va', 'ref2va']) {
+  await writeFile(join(endpoints, `generate_minimax_h3_${mode}.sh`), `#!/usr/bin/env bash
 set -eu
 args=("$@")
 output=''
@@ -26,11 +26,9 @@ while (($#)); do
 done
 mkdir -p "$(dirname "$output")"
 printf 'test artifact' > "$output"
+printf '${mode}' > "$output.endpoint"
 printf '%s\\n' "\${args[@]}" > "$output.args"
 `)
-for (const mode of ['t2va', 'fl2va', 'ref2va']) {
-  await copyFile(new URL(`../../../llm-ai-model/scripts/endpoint/generate_minimax_h3_${mode}.sh`, import.meta.url),
-    join(endpoints, `generate_minimax_h3_${mode}.sh`))
 }
 const image = join(artifacts, 'reference.png')
 const audio = join(artifacts, 'reference.mp3')
@@ -48,13 +46,12 @@ for (const mode of ['t2va', 'fl2va', 'ref2va']) {
     const result = await tool.execute(args)
     assert.equal(result.status, 'succeeded')
     const command = (await readFile(`${result.path}.args`, 'utf8')).trim().split('\n')
-    assert.deepEqual(command.slice(0, 2), ['--mode', mode])
+    assert.equal(await readFile(`${result.path}.endpoint`, 'utf8'), mode)
+    assert.equal(command.some(arg => arg === '--mode' || arg.startsWith('--mode=')), false)
     assert.equal(command[command.indexOf('--seed') + 1], '123')
     assert.equal((await readFile(command[command.indexOf('--prompt-file') + 1], 'utf8')).trim(), args.prompt)
     if (mode === 'fl2va') assert.equal(command[command.indexOf('--image') + 1], image)
     if (mode === 'ref2va') assert.equal(command[command.indexOf('--audio') + 1], audio)
-    const override = spawnSync('bash', [join(endpoints, `generate_minimax_h3_${mode}.sh`), '--mode=t2va'])
-    assert.equal(override.status, 2)
   })
 }
 

@@ -46,7 +46,7 @@ test('uses the configured Qwen provider and returns six concrete anchors per cha
   })
 
   assert.equal(requests[1].provider, 'qwen38-local')
-  assert.equal(requests[1].model, 'qwen3.8-27b-video-prompt')
+  assert.equal(requests[1].model, 'qwen3.8-27b-elysium')
   assert.match(requests[0].messages[0].content[0].text, /第一阶段只忠实拆分故事/)
   assert.match(requests[1].messages[0].content[0].text, /16:9 横屏/)
   assert.match(requests[1].messages[0].content[0].text, /已审核场景拆解/)

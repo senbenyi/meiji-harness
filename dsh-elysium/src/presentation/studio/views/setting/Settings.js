@@ -23,7 +23,7 @@ function routingFromState(value) {
   return {
     planner: {
       provider: saved.planner?.provider || 'qwen38-local',
-      model: saved.planner?.model || 'qwen3.8-27b-video-prompt',
+      model: saved.planner?.model || 'qwen3.8-27b-elysium',
       maxTokens: Number(saved.planner?.maxTokens || 4096),
     },
     stages: {

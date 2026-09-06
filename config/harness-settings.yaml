@@ -1,0 +1,93 @@
+# 启动与隧道参数
+harness-runtime:
+  HARNESS_ROOT: /root/autodl-tmp/wan22-harness # Harness 安装目录
+  PLUGINS_ROOT: /root/autodl-tmp/project/harness # 本项目部署目录
+  PROJECT_ROOT: /root/autodl-tmp/project/harness # 对话工作目录，加载本目录 .dsh 技能
+  COMFYUI_INPUT_ROOT: /root/ComfyUI/input # 共享输入目录
+  QWEN_SSH_TARGET: veo-qwen38 # 使用服务器 SSH 配置中的地址、端口和密钥
+  QWEN_API_LOCAL_PORT: 18000 # Harness 服务器上的隧道入口
+  QWEN_API_REMOTE_PORT: 8000 # Qwen 服务器上的 API 端口
+  QWEN_MODEL_ID: qwen3.8-27b-elysium
+  HARNESS_WEB_PORT: 3080
+
+# 界面主题跟随系统
+ui-theme:
+  preference: system
+
+# 模型服务；密钥从环境变量读取
+llm-pi-ai:
+  providers:
+    qwen-token-plan-cn:
+      apiKeyEnv: QWEN_TOKEN_PLAN_CN_API_KEY
+    qwen38-local:
+      displayName: qwen3.8-27b-elysium
+      api: openai-completions
+      # __QWEN_*__ 占位符在部署时由运行参数替换。
+      baseURL: http://127.0.0.1:__QWEN_API_LOCAL_PORT__/v1
+      compat:
+        supportsDeveloperRole: false
+        maxTokensField: max_tokens
+        thinkingFormat: qwen-chat-template
+      models:
+        - id: __QWEN_MODEL_ID__
+          name: qwen3.8-27b-elysium
+          contextWindow: 65536
+          maxTokens: 4096
+          reasoningEfforts:
+            'off':
+            high: high
+          input:
+            - text
+      apiKeyEnv: QWEN38_LOCAL_API_KEY
+
+# 新会话默认使用的模型。
+agent-default-model:
+  provider: qwen38-local
+  model: __QWEN_MODEL_ID__
+
+# 侧栏标签、宽度与工具入口。
+dsh-better-sidebar:
+  tabsEnabled:
+    browser: true
+    git: true
+  defaultWidthPercent: 25
+  agentOpenTools: true
+
+# 忙碌时回车发送引导消息。
+ui-conversation:
+  busyEnter: steer
+
+# 默认权限预设：完全访问。
+permission:
+  defaultPreset: danger-full-access
+
+# 欢迎提示版本与默认代理预设。
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+agent-presets:
+  default: elysium
+
+# 启动前生成并完整覆盖配置；不写入会话、工作区数据和密钥。
+harness-customization:
+  # 相对本配置目录；启动时读取并覆盖 Harness 对应配置。
+  systemPromptFile: system-prompt.yaml
+  instructionsFile: harness-agent.md
+  # 用户层插件配置；整份覆盖 web profile 的 cordis.patch.yml。
+  profile:
+    - insert:
+        - id: dsh-image-preview
+          name: dsh-image-preview
+    - id: system-prompt
+  # 基于安装版本的 standard 生成独立 preset；patch 按 id 替换对应字段。
+  agent:
+    base: standard
+    patches:
+      - id: persona
+        disabled: true # 使用 system-prompt.yaml，避免被 standard 遮蔽。
+      - id: agent-instructions
+        config:
+          maxBytes: 65536
+          projectRootMarkers: [.git]
+          # 仅加载由 harness-agent.md 生成的全局指令。
+          instructionFileCandidates: []
+          localInstructionFileCandidates: []

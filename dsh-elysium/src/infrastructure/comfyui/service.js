@@ -93,7 +93,7 @@ function currentModelRouting(config) {
   return {
     planner: {
       provider: String(config.planner?.provider || 'qwen38-local'),
-      model: String(config.planner?.model || 'qwen3.8-27b-video-prompt'),
+      model: String(config.planner?.model || 'qwen3.8-27b-elysium'),
       maxTokens: Number(config.planner?.maxTokens || 4096),
     },
     stages: Object.fromEntries(Object.entries(MODEL_STAGE_DEFAULTS).map(([key, fallback]) => [key, String(config.models?.[key]?.template || fallback)])),

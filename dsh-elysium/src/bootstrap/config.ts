@@ -60,9 +60,9 @@ export const Config: z<ElysiumConfig> = z.object({
   models: z.dict(z.any()).default({}),
   planner: z.object({
     provider: z.string().default('qwen38-local'),
-    model: z.string().default('qwen3.8-27b-video-prompt'),
+    model: z.string().default('qwen3.8-27b-elysium'),
     maxTokens: z.number().step(1).min(512).max(32768).default(4096),
-  }).default({ provider: 'qwen38-local', model: 'qwen3.8-27b-video-prompt', maxTokens: 4096 }),
+  }).default({ provider: 'qwen38-local', model: 'qwen3.8-27b-elysium', maxTokens: 4096 }),
   comfyui: z.object({
     baseUrl: z.string().default('http://127.0.0.1:8189'),
     templatesDir: z.string().default(''),

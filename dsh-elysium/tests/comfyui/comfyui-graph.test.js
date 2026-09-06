@@ -71,13 +71,15 @@ describe('contracts', () => {
     assert.ok(info.capabilities.cannot.includes('t2v'))
   })
 
-  it('keeps the bundled Wan2.2 workflow aligned with the model workspace when present', () => {
-    const source = path.join(templatesDir, '..', '..', '..', '..', 'llm-ai-model', 'workflows', 'video-generate-wan22-remix', 'workflow_long_api.json')
-    if (!fs.existsSync(source)) return
-    assert.equal(
-      fs.readFileSync(path.join(templatesDir, 'wan22-remix-long.json'), 'utf8'),
-      fs.readFileSync(source, 'utf8'),
-    )
+  it('maps Wan2.2 contract slots to bundled workflow inputs', () => {
+    const graph = JSON.parse(fs.readFileSync(path.join(templatesDir, 'wan22-remix-long.json'), 'utf8'))
+    const info = inspectTemplate(templatesDir, 'wan22-remix-long')
+    for (const slot of Object.values(info.slots)) {
+      for (const input of slot.injects || [slot]) {
+        assert.ok(graph[input.node], `Missing node ${input.node}`)
+        assert.ok(Object.hasOwn(graph[input.node].inputs, input.field), `Missing input ${input.node}.${input.field}`)
+      }
+    }
   })
 
   it('inspects IP-Adapter required reference slot', () => {

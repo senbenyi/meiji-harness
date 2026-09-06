@@ -16,14 +16,14 @@ function initialState() {
     loras: [{ name: 'saved.safetensors', triggerWords: 'saved', mode: 'both', note: '', usedBy: [], on_server: true, in_registry: true }],
     availableLoras: ['saved.safetensors', 'new.safetensors'],
     modelRouting: {
-      planner: { provider: 'qwen38-local', model: 'qwen3.8-27b-video-prompt', maxTokens: 4096 },
+      planner: { provider: 'qwen38-local', model: 'qwen3.8-27b-elysium', maxTokens: 4096 },
       stages: {
         characterImage: 'builtin', startFrame: 'builtin',
         chapterVideo: 'custom', finalAudio: 'mmaudio', shotImage: 'builtin', shotVideo: 'custom',
       },
     },
     textProviders: [
-      { id: 'qwen38-local', name: 'Qwen Local', models: [{ id: 'qwen3.8-27b-video-prompt', name: 'Qwen 3.8' }] },
+      { id: 'qwen38-local', name: 'Qwen Local', models: [{ id: 'qwen3.8-27b-elysium', name: 'Qwen 3.8' }] },
       { id: 'openai', name: 'OpenAI', models: [{ id: 'gpt-5.4', name: 'GPT-5.4' }, { id: 'gpt-5.5', name: 'GPT-5.5' }] },
     ],
   }

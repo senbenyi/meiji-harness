@@ -25,10 +25,10 @@ dsh plugin --profile web add --workspace-root ./registry
 
 ## 服务器部署
 
-从仓库根目录执行，完成 `dsh-elysium-tools` 构建打包、上传、服务器注册和
-Harness 重启；部署过程不运行测试。服务器需已安装 Harness 和模型运行环境。
-此脚本仅部署工具插件，`dsh-elysium` 和 `llm-ai-model` 需分别部署。
+从仓库根目录执行：先上传配置和脚本，再本地构建并上传插件产物，最后在服务器部署目录执行安装、重启和检查脚本。部署过程不运行测试。
+此脚本独立部署工具插件、Harness 配置和技能，路径读取 `config/harness-settings.yaml`，无需本地模型仓库。
+服务器上的 Harness、Elysium 核心插件和模型服务需预先安装。
 
 ```sh
-/usr/bin/env bash scripts/deploy_dsh-elysium_tools.sh
+/usr/bin/env bash scripts/deploy_dsh_elysium_tools.sh
 ```
