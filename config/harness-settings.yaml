@@ -10,10 +10,6 @@ harness-runtime:
   QWEN_MODEL_ID: qwen3.8-27b-video-prompt # API 实际 ID；界面名称仍为 qwen3.8-27b-elysium
   HARNESS_WEB_PORT: 3080
 
-# 界面主题跟随系统
-ui-theme:
-  preference: system
-
 # 模型服务；密钥从环境变量读取
 llm-pi-ai:
   providers:
@@ -39,6 +35,9 @@ llm-pi-ai:
           input:
             - text
       apiKeyEnv: QWEN38_LOCAL_API_KEY
+# 界面主题跟随系统
+ui-theme:
+  preference: system
 
 # 新会话默认使用的模型。
 agent-default-model:
@@ -50,7 +49,7 @@ dsh-better-sidebar:
   tabsEnabled:
     browser: true
     git: true
-  defaultWidthPercent: 25
+  defaultWidthPercent: 15
   agentOpenTools: true
 
 # 忙碌时回车发送引导消息。
