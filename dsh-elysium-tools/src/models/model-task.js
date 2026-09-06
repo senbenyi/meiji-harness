@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs'
 import { mkdir, open, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { codeVersion, inspectMedia, retryAdvice, traceDiagnostics } from './model-diagnostics.js'
 import { dirname, extname, isAbsolute, join, relative } from 'node:path'
 
 const PROJECT_ROOT = process.env.LLM_AI_MODEL_ROOT || '/root/autodl-tmp/project'
@@ -291,11 +292,19 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
   const statusPath = join(jobRoot(jobId), 'status.json')
   const logPath = join(jobRoot(jobId), 'execution.log')
   const tracePath = join(jobRoot(jobId), 'trace.jsonl')
+  const diagnosticPath = join(jobRoot(jobId), 'diagnostics.json')
+  const started = performance.now()
+  let phaseStarted = started
   const status = { job_id: jobId, capability, status: 'running', created_at: now(), started_at: now() }
-  status.debug = {
+  status.debug = JSON.parse(JSON.stringify({
     plugin: '@dsh-external/dsh-elysium-tools', ...toolContext.getStore(),
-    effective_input: params, log_path: logPath, trace_path: tracePath, chain: [],
-  }
+    effective_input: params, log_path: logPath, trace_path: tracePath, diagnostic_path: diagnosticPath, chain: [],
+  }))
+  status.trace_id = jobId
+  status.parent_job_id = null // Workflow stages share this job; they are traced as spans, not invented child jobs.
+  status.stage = 'prepare'
+  status.timings = {}
+  status.code_version = await codeVersion()
   if (workflow) status.workflow = 'adult-short-video'
   await writeJson(statusPath, status)
   try {
@@ -303,10 +312,18 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
       ? await buildWorkflowExecution(jobId, params)
       : await buildModelExecution(jobId, capability, params)
     execution.environment.MODEL_TRACE_FILE = tracePath
+    execution.environment.MODEL_TRACE_ID = jobId
     status.debug.command = execution.command
     status.debug.expected_output = execution.output
+    status.timings.prepare_ms = Math.round(performance.now() - phaseStarted)
+    phaseStarted = performance.now()
+    status.stage = 'execute'
     await writeJson(statusPath, status)
     await runCommand(execution.command, execution.environment, logPath, signal, timeoutMs)
+    status.timings.execute_ms = Math.round(performance.now() - phaseStarted)
+    phaseStarted = performance.now()
+    status.stage = 'inspect-output'
+    await writeJson(statusPath, status)
     status.debug.chain = await readTrace(tracePath)
     const outputInfo = await stat(execution.output).catch(error => {
       if (error.code === 'ENOENT') return null
@@ -323,12 +340,37 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
       sha256: await sha256File(execution.output),
     }
     const artifacts = status.debug.chain.filter(event => event.stage === 'comfyui-output')
-    const primary = artifacts.findLast(event => event.local_path === execution.output)
+    const outputPath = await realpath(execution.output)
+    let primary
+    for (const artifact of artifacts) {
+      if (await realpath(artifact.local_path).catch(() => null) === outputPath) primary = artifact
+    }
     status.result.comfyui_artifacts = artifacts
     status.result.comfyui_prompt_id = primary?.prompt_id ?? null
     status.result.comfyui_artifact_id = primary?.artifact_id ?? null
     status.result.comfyui_view_url = primary?.view_url ?? null
     status.result.comfyui_metadata_status = primary ? 'available' : workflow ? 'local-final-see-stage-artifacts' : 'not-reported-by-executor'
+    status.debug.media_probe_path = join(jobRoot(jobId), 'media-probe.json')
+    const inspection = await inspectMedia(execution.output, status.debug.media_probe_path)
+    status.result.media_info = inspection.media_info
+    status.result.validation = {
+      file_exists: 'passed', nonempty: 'passed', media_probe: inspection.media_probe,
+      full_decode: 'not_run', specification_match: 'not_run', human_review: 'not_run',
+    }
+    const requested = status.debug.chain.findLast(item => item.stage === 'executor-config' && item.span_id === primary?.span_id)?.parameters
+    if (inspection.media_info && requested?.width && requested?.height) {
+      status.result.validation.specification_match = inspection.media_info.width === requested.width && inspection.media_info.height === requested.height ? 'passed' : 'failed'
+    }
+    status.result.warnings = inspection.warnings
+    if (status.result.validation.specification_match === 'failed') status.result.warnings.push('OUTPUT_DIMENSIONS_MISMATCH')
+    if (!primary && !workflow) status.result.warnings.push('COMFYUI_METADATA_MISSING')
+    if (primary?.url_scope === 'server-local') status.result.warnings.push('COMFYUI_URL_SERVER_LOCAL')
+    status.stage = 'completed'
+    status.timings.inspect_ms = Math.round(performance.now() - phaseStarted)
+    status.timings.total_ms = Math.round(performance.now() - started)
+    status.finished_at = now()
+    Object.assign(status.debug, traceDiagnostics(status.debug.chain))
+    await writeJson(diagnosticPath, status)
     await writeJson(statusPath, status)
     return completedResult(status)
   } catch (error) {
@@ -338,11 +380,19 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
     status.finished_at = now()
     status.error_code = failure.code
     status.error = failure.message.slice(0, 500)
+    status.failed_stage = status.stage
+    status.stage = 'failed'
+    status.timings.failed_stage_ms = Math.round(performance.now() - phaseStarted)
+    status.timings.total_ms = Math.round(performance.now() - started)
     status.debug.chain = await readTrace(tracePath).catch(() => status.debug.chain)
+    Object.assign(status.debug, traceDiagnostics(status.debug.chain))
+    Object.assign(status, retryAdvice(failure.code, status.debug.chain))
     await mkdir(dirname(logPath), { recursive: true })
     await writeFile(logPath, `\n[FAIL] ${status.error}\n`, { flag: 'a' })
     await writeJson(statusPath, status)
+    await writeJson(diagnosticPath, status)
     failure.job_id = jobId
+    failure.debug = status.debug
     failure.message = `${status.error}；job_id: ${jobId}；日志：${logPath}`
     throw failure
   }
@@ -359,7 +409,12 @@ export function runWorkflowTask(params, signal, timeoutMs) {
 export async function getJob(jobId) {
   if (!/^[0-9a-f]{32}$/.test(jobId || '')) throw new ModelTaskError('MODEL_JOB_NOT_FOUND', '任务不存在', 404)
   try {
-    return JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
+    const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
+    if (job.status === 'running' && job.debug?.trace_path) {
+      job.debug.chain = await readTrace(job.debug.trace_path).catch(() => job.debug.chain || [])
+      Object.assign(job.debug, traceDiagnostics(job.debug.chain))
+    }
+    return job
   } catch (error) {
     if (error?.code === 'ENOENT') throw new ModelTaskError('MODEL_JOB_NOT_FOUND', '任务不存在', 404)
     throw error
@@ -370,5 +425,6 @@ export function completedResult(job) {
   if (job.status !== 'succeeded' || !job.result) {
     throw new ModelTaskError('MODEL_JOB_NOT_READY', `任务尚未成功：${job.status}`, 409)
   }
-  return { job_id: job.job_id, status: job.status, ...job.result, debug: job.debug }
+  return { job_id: job.job_id, status: job.status, trace_id: job.trace_id, parent_job_id: job.parent_job_id,
+    stage: job.stage, timings: job.timings, code_version: job.code_version, ...job.result, debug: job.debug }
 }

@@ -53,7 +53,7 @@ dsh-better-sidebar:
 
 # Elysium 侧栏宽度；配置变化时覆盖旧宽度，仍受 280px 最小宽度限制。
 dsh-elysium:
-  defaultWidthPercent: 15
+  defaultWidthPercent: 7.5
 
 # 忙碌时回车发送引导消息。
 ui-conversation:

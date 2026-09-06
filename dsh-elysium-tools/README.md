@@ -186,3 +186,15 @@ pnpm build
 pnpm package:registry
 dsh plugin --profile web add --workspace-root ./registry
 ```
+
+## 调试输出
+
+所有工具的文本结果展示实际 `input` 和 `output`。生成任务额外返回 `debug`：插件/工具名、原始与生效输入、执行命令、路由配置、provider、ComfyUI 提交与产物事件，以及日志和 trace 路径。查询工具读取已保存结果，不重新生成。
+
+- `comfyui_prompt_id`：ComfyUI 原生任务 ID，与工具 `job_id` 不同。
+- `comfyui_artifact_id`：由服务地址、prompt_id、输出节点/位置及文件信息计算的稳定 SHA-256 标识，不是 ComfyUI 原生字段。
+- `comfyui_view_url`：原始产物 `/view` 地址，文件名和目录经过 URL 编码。
+- `comfyui_artifacts`：工作流各阶段的产物及原始文件描述，包含 `url_scope`。
+- 元数据缺失返回 null 和原因；本地混音成片没有 ComfyUI 原生产物，原始阶段产物仍在列表中。
+
+访问地址默认使用实际 ComfyUI 地址。需要从浏览器访问时，在服务器启动环境设置 `COMFYUI_PUBLIC_URL`、`MINIMAX_H3_PUBLIC_URL` 为对应服务已配置的代理地址；不提供时 localhost 链接仅在服务器本机有效，不代表已开放公网。元数据同时保存在产物旁的 `.comfyui.json` 文件中；旧产物不会凭空补出 ID 或 URL。
