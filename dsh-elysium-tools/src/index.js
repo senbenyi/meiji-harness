@@ -1,8 +1,8 @@
 import { createModelTools } from './functions/index.js'
-import { createComfyuiTaskQueueTool } from './functions/task-queue.js'
-import { createComfyuiTaskStatusTool } from './functions/task-status.js'
-import { createComfyuiTaskResultTool } from './functions/task-result.js'
-import { createComfyuiTaskCancelTool } from './functions/task-cancel.js'
+import { createComfyuiTaskQueueTool } from './functions/comfyui/task-queue.js'
+import { createComfyuiTaskStatusTool } from './functions/comfyui/task-status.js'
+import { createComfyuiTaskResultTool } from './functions/comfyui/task-result.js'
+import { createComfyuiTaskCancelTool } from './functions/comfyui/task-cancel.js'
 
 export * from './functions/index.js'
 export * from './workflows/index.js'

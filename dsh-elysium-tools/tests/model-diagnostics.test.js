@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { inspectMedia, retryAdvice, summarizeMedia, traceDiagnostics } from '../src/functions/diagnostics.js'
+import { inspectMedia, retryAdvice, summarizeMedia, traceDiagnostics } from '../src/functions/common/diagnostics.js'
 
 test('media dimensions are measured and never relabeled as 9:16', () => {
   const result = summarizeMedia({ format: { format_name: 'mov,mp4', duration: '5.2' }, streams: [

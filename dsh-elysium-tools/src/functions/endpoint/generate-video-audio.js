@@ -1,5 +1,5 @@
-import { MODEL_TIMEOUTS, runModelTask } from './task.js'
-import { completedModelTool } from './tool.js'
+import { MODEL_TIMEOUTS, runModelTask } from '../common/task.js'
+import { completedModelTool } from '../common/tool.js'
 
 export function createModelGenerateVideoAudioTool() {
   return completedModelTool({
