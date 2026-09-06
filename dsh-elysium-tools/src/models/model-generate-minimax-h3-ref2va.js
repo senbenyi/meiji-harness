@@ -4,7 +4,7 @@ import { completedModelTool } from './model-tool.js'
 export function createModelGenerateMiniMaxH3REF2VATool() {
   return completedModelTool({
     name: 'model_generate_minimax_h3_ref2va',
-    description: 'MiniMax H3 参考生音视频：至少提供参考图、视频或音频中的一项，结合提示词生成带音轨的视频。',
+    description: 'MiniMax H3 REF2VA（参考图片、视频或音频生成音视频，至少提供一项参考素材）。',
     timeoutMs: MODEL_TIMEOUTS.video,
     parameters: {
       properties: {

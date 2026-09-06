@@ -50,14 +50,14 @@
 
 | 工具 | 脚本 | 输入 |
 |---|---|---|
-| `model_generate_minimax_h3_t2va` | `generate_minimax_h3_t2va.sh` | `prompt` |
-| `model_generate_minimax_h3_fl2va` | `generate_minimax_h3_fl2va.sh` | `prompt`、`image_path` |
-| `model_generate_minimax_h3_ref2va` | `generate_minimax_h3_ref2va.sh` | `prompt`，另至少一项参考图、视频或音频 |
+| `model_generate_minimax_h3_t2va` | `generate_minimax_h3_t2va.sh`（文字生成带声音的视频） | `prompt` |
+| `model_generate_minimax_h3_fl2va` | `generate_minimax_h3_fl2va.sh`（图片生成带声音的视频） | `prompt`、`image_path` |
+| `model_generate_minimax_h3_ref2va` | `generate_minimax_h3_ref2va.sh`（参考图片、视频或音频生成音视频） | `prompt`，另至少一项参考图、视频或音频 |
 
 均支持 `seed`（默认 666），无需 `mode` 参数。参考字段为 `image_path`、
 `video_path`、`audio_path`，文件必须位于服务器共享 artifacts 目录。
 分辨率、时长、采样步数和编码参数使用服务端默认值。
-三个脚本固定模式，共用 `generate_minimax_h3.sh` 执行逻辑；旧脚本保留兼容，
+三个脚本固定模式，共用 `generate_minimax_h3.sh`（统一入口：T2VA 文字生成音视频、FL2VA 图片生成音视频、REF2VA 参考图片/视频/音频生成音视频）。
 原 `model_generate_minimax_h3_video` 工具由这三个工具替代。
 
 ```text
