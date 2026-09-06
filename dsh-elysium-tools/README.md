@@ -35,7 +35,7 @@
 | `comfyui_task_result` | `task_result.sh` |
 | `comfyui_task_cancel` | `task_cancel.sh` |
 
-必填 `server: production|minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址由模型项目 `config/autodl-server.yaml` 的 `comfyui` 配置读取。
+必填 `server: production|minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址由模型项目 `config/comfyui.yaml` 读取。
 
 取消仅针对排队任务；运行中的任务不会全局中断。产物返回派生 ID 与访问 URL，不代表媒体已验收。实例本机 URL 不保证客户端可访问。
 
@@ -84,7 +84,7 @@
 | `image` | 起始图片生成视频 | 必填 `image_path` |
 | `reference` | 参考素材生成视频 | `image_path`、`video_path`、`audio_path` 至少一项 |
 
-执行模型由 `models_routes.yaml` 决定；声音支持、尺寸和时长以执行模型为准。
+执行模型由 `routes.yaml` 决定；声音支持、尺寸和时长以执行模型为准。
 
 ### `model_generate_dialogue`
 
