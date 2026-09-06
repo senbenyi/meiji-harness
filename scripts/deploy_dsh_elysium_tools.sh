@@ -20,6 +20,7 @@ for command_name in pnpm rsync ssh; do
   command -v "$command_name" >/dev/null || fail "本机缺少命令：$command_name"
 done
 [[ -s "$TOOLS_ROOT/package.json" ]] || fail '工具插件目录不存在'
+[[ -d "$REPO_ROOT/.dsh" ]] || fail '.dsh 目录不存在'
 
 for file in "${HARNESS_FILES[@]}"; do
   [[ -s "$REPO_ROOT/$file" ]] || fail "文件不存在或为空：$file"
@@ -27,8 +28,11 @@ done
 
 echo '[1/4] 上传 .dsh、config、scripts'
 "${SSH[@]}" "$TARGET" "install -d -m 0755 '$PLUGIN_DEST'"
+# 镜像同步技能，删除服务器上本地已移除的文件。
+rsync -az --delete -e "${SSH[*]}" \
+  "$REPO_ROOT/.dsh/" "$TARGET:$PLUGIN_DEST/.dsh/"
 rsync -az --delete --exclude='__pycache__/' -e "${SSH[*]}" \
-  "$REPO_ROOT/.dsh" "$REPO_ROOT/config" "$REPO_ROOT/scripts" "$TARGET:$PLUGIN_DEST/"
+  "$REPO_ROOT/config" "$REPO_ROOT/scripts" "$TARGET:$PLUGIN_DEST/"
 
 "${SSH[@]}" "$TARGET" "cd '$PLUGIN_DEST' && bash scripts/common/install_dsh_elysium_tools.sh --prepare"
 

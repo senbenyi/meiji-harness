@@ -20,6 +20,7 @@ HARNESS_FILES=(
   scripts/common/config_loader.py scripts/common/start_harness.sh scripts/common/start_tunnel_qwen.sh
 )
 [[ -s "$CORE_ROOT/package.json" ]] || fail '核心插件目录不存在'
+[[ -d "$REPO_ROOT/.dsh" ]] || fail '.dsh 目录不存在'
 for file in "${HARNESS_FILES[@]}"; do
   [[ -s "$REPO_ROOT/$file" ]] || fail "文件不存在或为空：$file"
 done
@@ -50,6 +51,9 @@ echo '[2/4] 构建并打包 dsh-elysium（不运行测试）'
 
 echo '[3/4] 上传核心插件和启动配置'
 "${SSH[@]}" "$TARGET" "install -d -m 0755 '$CORE_DEST' '$PLUGINS_ROOT'"
+# 镜像同步技能，删除服务器上本地已移除的文件。
+rsync -az --delete -e "${SSH[*]}" \
+  "$REPO_ROOT/.dsh/" "$TARGET:$PLUGINS_ROOT/.dsh/"
 # 保留服务器依赖链接，仅同步核心插件产物。
 rsync -az --delete --exclude='node_modules' -e "${SSH[*]}" \
   "$CORE_ROOT/registry/" "$TARGET:$CORE_DEST/"
