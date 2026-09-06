@@ -9,7 +9,7 @@ export function createWorkflowAdultShortVideoTool() {
     parameters: {
       properties: {
         image_prompt: { type: 'string', description: '成年人物首帧提示词。' },
-        video_prompts: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 6, description: '1..6 段连续视频提示词。' },
+        video_prompts: { type: 'array', items: { type: 'string' }, description: '1..6 段连续视频提示词。' },
         reference_path: { type: 'string', description: '可选：共享 artifacts 中的虚拟或已授权成年人物参考图。' },
         audio_prompt: { type: 'string', description: '可选：环境音与拟音描述。' },
         dialogue: { type: 'string', description: '可选：FishAudio 对白文本。' },
