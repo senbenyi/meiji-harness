@@ -4,7 +4,7 @@ import { completedModelTool } from '../common/tool.js'
 export function createModelGenerateVideoAudioTool() {
   return completedModelTool({
     name: 'model_generate_video_audio',
-    description: '为视频生成并合成环境音，等待任务完成后返回产物路径。',
+    description: '按需生成或替换环境音；已有满意音轨时不要调用。当前输出 25fps，需要补帧时先执行本工具。',
     timeoutMs: MODEL_TIMEOUTS.postprocess,
     parameters: {
       properties: {

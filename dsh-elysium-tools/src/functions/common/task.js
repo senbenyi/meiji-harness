@@ -84,10 +84,10 @@ async function promptFile(jobId, name, value) {
   return path
 }
 
-async function promptListFile(jobId, name, value) {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 6 ||
-      value.some(item => !String(item || '').trim())) {
-    throw new ModelTaskError('MODEL_INPUT_INVALID', `${name} 必须包含 1..6 条非空提示词`, 422)
+async function promptListFile(jobId, name, value, maximum = 6) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > maximum ||
+      value.some(item => typeof item !== 'string' || !item.trim())) {
+    throw new ModelTaskError('MODEL_INPUT_INVALID', `${name} 必须包含非空提示词列表（最多 ${maximum} 条）`, 422)
   }
   const path = join(jobRoot(jobId), 'input', name)
   await writeJson(path, { prompts: value.map(item => String(item).trim()) })
@@ -150,6 +150,7 @@ async function buildModelExecution(jobId, capability, params) {
   const projectId = `tool-${jobId}`
   const projectRoot = join(ARTIFACTS_ROOT, projectId)
   const environment = {
+    PROJECT_ID: projectId,
     MVP_PROJECT_ID: projectId,
     ARTIFACTS_ROOT,
     COMFYUI_URL: process.env.COMFYUI_URL || 'http://127.0.0.1:6006',
@@ -166,13 +167,21 @@ async function buildModelExecution(jobId, capability, params) {
   }
 
   if (capability === 'video-generate-long') {
+    if (!Array.isArray(params.prompts) || params.prompts.length < 2 ||
+        !Number.isInteger(params.duration) || params.duration <= 15 || params.duration < params.prompts.length || params.duration > params.prompts.length * 15) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', '长视频总时长必须超过 15 秒，提供至少 2 段提示词且每段不超过 15 秒', 422)
+    }
+    if (!['long_fast', 'long_standard', 'long_vertical_standard', 'long_vertical_preview'].includes(params.preset)) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', '长视频 preset 无效；默认使用 long_vertical_preview，不支持旧的 long_mvp 档位', 422)
+    }
     const image = await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path')
-    const prompts = await promptListFile(jobId, 'video-prompts.json', params.prompts)
+    const prompts = await promptListFile(jobId, 'video-prompts.json', params.prompts, Infinity)
     return {
       command: [
         'bash', join(endpointRoot, 'generate_video_long.sh'), '--input', image,
         '--prompt-file', prompts, '--preset', params.preset, '--segments', String(params.prompts.length),
         '--seed', String(params.seed), '--run-id', jobId,
+        '--duration', String(params.duration),
       ],
       environment,
       output: join(projectRoot, 'assets', 'shots', 'shot-01.mp4'),
@@ -180,6 +189,9 @@ async function buildModelExecution(jobId, capability, params) {
   }
 
   if (capability === 'video-generate') {
+    if (!Number.isInteger(params.duration) || params.duration < 1 || params.duration > 15) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', '短视频时长必须为 1..15 秒；超过 15 秒请使用 model_generate_video_long', 422)
+    }
     const mode = String(params.mode || '').toLowerCase()
     const prompt = await promptFile(jobId, 'video-prompt.txt', params.prompt)
     if (!['text', 'image', 'reference'].includes(mode)) {
@@ -205,6 +217,7 @@ async function buildModelExecution(jobId, capability, params) {
       'bash', join(endpointRoot, 'generate_video.sh'), '--mode', mode,
       '--prompt-file', prompt, '--output', output,
       '--run-id', jobId, '--seed', String(params.seed),
+      '--duration', String(params.duration),
     ]
     if (image) command.push('--input', image)
     if (video) command.push('--video', video)

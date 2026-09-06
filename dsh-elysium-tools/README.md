@@ -59,24 +59,21 @@
 
 ### `model_generate_video_long`
 
-使用角色锚点图片和 1..6 段提示词执行 Wan2.2 Remix v3 + SVI2Pro。
+生成超过 15 秒的长视频，当前默认 MiniMax H3，以前段末帧续接下一段。总时长必须明确传入；默认保留原生帧率和音轨。
 
 | 参数 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
-| `image_path` | 是 | - | 角色锚点图片绝对路径 |
-| `prompts` | 是 | - | 1..6 条连续视频提示词 |
-| `preset` | 否 | `long_mvp_preview` | `long_mvp_preview` 或 `long_mvp_final` |
+| `image_path` | 是 | - | 起始图片绝对路径，使用本次图片工具返回值 |
+| `prompts` | 是 | - | 至少 2 条连续分镜提示词，H3 不再限制最多 6 段 |
+| `duration` | 否 | max(20, 段数×5) | 总秒数，必须超过 15；均分后每段 1..15 秒 |
+| `preset` | 否 | `long_vertical_preview` | 竖版 preview/standard；横版 `long_fast`/`long_standard`，采样设置以服务器为准 |
 | `seed` | 否 | `666` | 随机种子 |
 
-一句话示例：
-
-```text
-调用 model_generate_video_long，角色图片使用 /root/autodl-fs/artifacts/projects/tool-<image-job>/assets/characters/img.png，prompts 依次为“缓慢转身”“走向窗边”“回头看向镜头”，preset 使用 long_mvp_preview。
-```
+一分钟示例：`duration: 60`，12 条提示词（每段 5 秒），或 6 条提示词（每段 10 秒）。更多片段受服务器任务超时和实际算力限制；产物时长、音画衔接需要验收。
 
 ### `model_generate_video`
 
-对应 `generate_video.sh`，必填 `mode`、`prompt`，可选 `seed`（默认 666）。
+对应 `generate_video.sh`，生成 1..15 秒短视频（包含 15 秒）。必填 `mode`、`prompt`；`duration` 默认 5 秒，`seed` 默认 666。
 
 | mode | 作用 | 参考参数 |
 |---|---|---|
@@ -84,7 +81,7 @@
 | `image` | 起始图片生成视频 | 必填 `image_path` |
 | `reference` | 参考素材生成视频 | `image_path`、`video_path`、`audio_path` 至少一项 |
 
-执行模型由 `routes.yaml` 决定；声音支持、尺寸和时长以执行模型为准。
+执行模型由 `routes.yaml` 决定；声音支持、尺寸及更严格的单段上限以执行模型为准。
 
 ### `model_generate_dialogue`
 

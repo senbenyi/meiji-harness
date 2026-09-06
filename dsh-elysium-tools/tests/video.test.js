@@ -65,3 +65,48 @@ test('video rejects missing or unknown modes', async () => {
     await assert.rejects(tool.execute({ mode, prompt: 'hello' }), error => error.code === 'MODEL_INPUT_INVALID')
   }
 })
+
+test('short video accepts 15 seconds and rejects longer or invalid durations', async () => {
+  const tool = createModelTools().find(t => t.name === 'model_generate_video')
+  const result = await tool.execute({ mode: 'text', prompt: 'Paper boat', duration: 15 })
+  const command = (await readFile(`${result.path}.args`, 'utf8')).trim().split('\n')
+  assert.equal(command[command.indexOf('--duration') + 1], '15')
+  for (const duration of [0, 16, 1.5, '15']) {
+    await assert.rejects(tool.execute({ mode: 'text', prompt: 'Paper boat', duration }), { code: 'MODEL_INPUT_INVALID' })
+  }
+})
+
+test('long video passes total duration and current preset to the endpoint project directory', async () => {
+  await writeFile(join(endpoints, 'generate_video_long.sh'), `#!/usr/bin/env bash
+set -eu
+output="$ARTIFACTS_ROOT/$PROJECT_ID/assets/shots/shot-01.mp4"
+mkdir -p "$(dirname "$output")"
+printf 'video' > "$output"
+printf '%s\\n' "$@" > "$output.args"
+`)
+  const tool = createModelTools().find(t => t.name === 'model_generate_video_long')
+  const args = { image_path: image, prompts: Array(12).fill('Paper boat drifts'), duration: 60 }
+  const result = await tool.execute(args)
+  assert.match(result.path, /tool-[^/]+\/assets\/shots\/shot-01.mp4$/)
+  const command = (await readFile(`${result.path}.args`, 'utf8')).trim().split('\n')
+  assert.equal(command[command.indexOf('--duration') + 1], '60')
+  assert.equal(command[command.indexOf('--segments') + 1], '12')
+  assert.equal(command[command.indexOf('--preset') + 1], 'long_vertical_preview')
+  for (const duration of [15, 0, 181]) {
+    await assert.rejects(tool.execute({ ...args, duration }), { code: 'MODEL_INPUT_INVALID' })
+  }
+  await assert.rejects(tool.execute({ ...args, preset: 'long_mvp_preview' }), { code: 'MODEL_INPUT_INVALID' })
+  await assert.rejects(tool.execute({ ...args, prompts: Array(17).fill('Boat'), duration: 16 }), { code: 'MODEL_INPUT_INVALID' })
+})
+
+test('image output uses the same PROJECT_ID as the model script', async () => {
+  await writeFile(join(endpoints, 'generate_image.sh'), `#!/usr/bin/env bash
+set -eu
+output="$ARTIFACTS_ROOT/$PROJECT_ID/assets/characters/img.png"
+mkdir -p "$(dirname "$output")"
+printf 'image' > "$output"
+`)
+  const tool = createModelTools().find(t => t.name === 'model_generate_image')
+  const result = await tool.execute({ prompt: 'Paper boat' })
+  assert.match(result.path, /tool-[^/]+\/assets\/characters\/img.png$/)
+})

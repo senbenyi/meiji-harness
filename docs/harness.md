@@ -39,6 +39,10 @@ bash scripts/deploy_dsh_elysium_tools.sh
 
 视频工具：`model_generate_video`，`mode` 为 `text`（文字生成视频）、`image`（图片生成视频）、`reference`（参考素材生成视频）。执行模型由路由配置决定。
 
+短视频 `duration` 为 1..15 秒；长视频 `model_generate_video_long` 的 `duration` 为超过 15 秒的总时长。当前默认 MiniMax H3，60 秒建议 12 段×5 秒，默认竖版档位为 `long_vertical_preview`。具体参数见 [工具说明](../dsh-elysium-tools/README.md)。
+
+插件通过 `PROJECT_ID` 对齐模型输出目录，不能把公共 `project-id` 目录中的图片当作本次产物。部署此版本须同步模型脚本、插件和 `.dsh/skills`，否则总时长参数与旧执行器不匹配。Qwen 当前声明仅支持文本，不能靠修改工具说明获得视觉验收能力。
+
 检查服务与实际安装的工具清单：
 
 ```bash
