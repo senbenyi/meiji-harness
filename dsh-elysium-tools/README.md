@@ -26,6 +26,21 @@
 | `model_upscale_video` | `upscale_video.sh` |
 
 
+### ComfyUI 任务管理
+
+| 工具 | `scripts/comfyui/` 入口 |
+|---|---|
+| `comfyui_task_queue` | `task_queue.sh` |
+| `comfyui_task_status` | `task_status.sh` |
+| `comfyui_task_result` | `task_result.sh` |
+| `comfyui_task_cancel` | `task_cancel.sh` |
+
+必填 `server: production|minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址由模型项目 `config/autodl-server.yaml` 的 `comfyui` 配置读取。
+
+取消仅针对排队任务；运行中的任务不会全局中断。产物返回派生 ID 与访问 URL，不代表媒体已验收。实例本机 URL 不保证客户端可访问。
+
+部署需同时更新模型项目的脚本与配置，以及工具插件；仅更新插件不能补齐服务器脚本。
+
 ### `model_generate_image`
 
 根据文字生成图片。

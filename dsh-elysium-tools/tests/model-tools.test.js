@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
-import { createModelTools } from '../src/index.js'
+import { createModelTools, createComfyuiTools, apply } from '../src/index.js'
 
-test('registers only endpoint and job query tools declared by the manifest', async () => {
+test('registers endpoint, job query and ComfyUI tools declared by the manifest', async () => {
   const expected = [
     'model_generate_image',
     'model_generate_video_long',
@@ -20,11 +20,15 @@ test('registers only endpoint and job query tools declared by the manifest', asy
     createModelTools().map(tool => tool.name),
     expected,
   )
-  assert.deepEqual(manifest.contributes.tools, expected)
+  const all = [...expected, ...createComfyuiTools().map(tool => tool.name)]
+  assert.deepEqual(manifest.contributes.tools, all)
+  const registered = []
+  apply({ tools: { register: tool => registered.push(tool.name) } })
+  assert.deepEqual(registered, all)
 })
 
 test('all tools expose function-call schemas and local executors', () => {
-  for (const tool of createModelTools()) {
+  for (const tool of [...createModelTools(), ...createComfyuiTools()]) {
     assert.equal(tool.parameters.type, 'object')
     assert.equal(typeof tool.execute, 'function')
   }
