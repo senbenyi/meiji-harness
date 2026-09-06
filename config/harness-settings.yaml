@@ -7,7 +7,7 @@ harness-runtime:
   QWEN_SSH_TARGET: veo-qwen38 # 地址、端口和密钥路径见 ssh_config
   QWEN_API_LOCAL_PORT: 18000 # Harness 服务器上的隧道入口
   QWEN_API_REMOTE_PORT: 8000 # Qwen 服务器上的 API 端口
-  QWEN_MODEL_ID: qwen3.8-27b-video-prompt # API 实际 ID；界面名称仍为 qwen3.8-27b-elysium
+  QWEN_MODEL_ID: qwen3.8-27b-elysium # 与 Qwen 服务端 --alias 保持一致
   HARNESS_WEB_PORT: 3080
   HARNESS_LOCAL_PORT: 23080 # 本机浏览器通过 SSH 隧道访问
 
