@@ -1,4 +1,4 @@
-# 仓库贡献指南
+# llm-dsh-plugins
 deepseek harness 插件集合仓库；
 
 ## 编码任务
@@ -11,6 +11,7 @@ deepseek harness 插件集合仓库；
 ## 项目结构
 - 函数工具插件：`dsh-elysium-tools/` 
 - 页面展示插件`dsh-elysium-ui/` 
+- 废弃插件`dsh-elysium/`
 
 ## 构建、开发命令
 - `pnpm install --frozen-lockfile --ignore-scripts`：按锁文件安装依赖，不执行生命周期构建脚本。
