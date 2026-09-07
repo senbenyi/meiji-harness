@@ -382,6 +382,7 @@ async function execute(capability, params, signal, timeoutMs, workflow = false, 
         throw new ModelTaskError('MODEL_OUTPUT_INVALID', '合片未通过解码与规格验证')
       }
       Object.assign(status.result.validation, report.validation)
+      if (workflow === 'video') status.result.shots = report.shots || []
       status.result.comfyui_metadata_status = workflow ? 'local-final-see-stage-artifacts' : 'not-applicable-local-concat'
     }
     const requested = status.debug.chain.findLast(item => item.stage === 'executor-config' && item.span_id === primary?.span_id)?.parameters

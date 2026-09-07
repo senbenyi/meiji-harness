@@ -15,9 +15,11 @@
 
 默认只注册 `workflow_generate_video`、`workflow_resume_video`、`model_job_status`、`model_job_result`。服务端显式设置 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 时才额外注册下方原子与 ComfyUI 工具，仅供测试；模型不能通过工具参数打开该开关。
 
-`workflow_generate_video` 必填目标总秒数 `duration`。新生成提供有序 `prompts`，长视频另需 `image_path` 或 `image_prompt`；两种首帧来源不能同时提供。已有片段提供有序 `video_paths`，不能混入生成参数。例如 12 个已完成的 15 秒 MP4，传 `duration: 180` 和 12 个真实返回路径，由工作流完成合片。
+`workflow_generate_video` 必填目标总秒数 `duration`。多镜头优先提供有序 `shots`，每镜有唯一 `id`、整数秒 `duration`、完整 `prompt`（reuse除外），总时长严格求和。15秒三个镜头须保留三个5秒镜头，不能压成单镜头。`mode` 支持 `independent`（默认，文生或起始图）、`reference`（图/视频/音频参考）、`continue`（前镜裁剪后末帧续拍）、`reuse`（已有视频，可指定剪辑起点 `in_point`）。生成镜头每段1..15秒；素材分别用 `image_path`、`video_path`、`audio_path` 绑定到镜头。reference当前每类最多一个文件；声音参考不承诺口型准确。
 
-查询使用原 `job_id`。失败原因处理后，调用 `workflow_resume_video(job_id)` 复用原输入与有效步骤。输入变化须创建新任务。缺少明确存活进程但仍有锁时报告需运维核对，不自动重提 GPU 任务。第一版提供原片交付，额外配音、补帧、超分及多参考视频编辑尚未接入生产入口。
+`shots` 不能与旧参数混用。旧 `prompts` 兼容单镜头及明确的连续长镜头，长镜头另需 `image_path` 或 `image_prompt`。旧 `video_paths` 保留按序合片。H3原生24 fps生成，最终统一480×854、30 fps、H.264；异规格来源先转换后拼接，声音统一AAC/48kHz/双声道，无声镜头补静音。H3与Wan原子入口保持各自模型帧率，生产规划固定H3路径。
+
+查询使用原 `job_id`。失败原因处理后，调用 `workflow_resume_video(job_id)` 复用原输入与有效镜头步骤。原输入、参考素材内容或运行规格变化须创建新任务。返回的 `shots` 包含镜号、时长与素材路径；新任务可混用生成与reuse镜头，只重做人工未采用部分。缺少明确存活进程但仍有锁时报告需运维核对，不自动重提GPU任务。额外配音、混音、字幕、运动插帧和超分未自动加入生产；内容完全由人工审片，生成成功不等于作品通过。
 
 ## 原子测试工具
 

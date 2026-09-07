@@ -3,7 +3,7 @@ import { withToolContext } from './task.js'
 export const renderToolDebug = (args, value) => {
   if (args.detail === true) return [{ type: 'text', text: JSON.stringify(value) }]
   if (value.status === 'succeeded' && value.result) value = { ...value, ...value.result }
-  const keys = ['job_id', 'status', 'stage', 'path', 'size_bytes', 'sha256', 'media_info', 'validation',
+  const keys = ['job_id', 'status', 'stage', 'path', 'size_bytes', 'sha256', 'media_info', 'validation', 'shots',
     'warnings', 'error_code', 'error', 'failed_stage', 'retryable', 'retry_scope']
   const output = Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
   if (value.comfyui_metadata_status === 'published-final') {
@@ -41,6 +41,7 @@ export const COMPLETED_RESULT_SCHEMA = {
     code_version: { type: 'object', additionalProperties: true },
     media_info: { oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }] },
     validation: { type: 'object', additionalProperties: true },
+    shots: { type: 'array', items: { type: 'object', additionalProperties: true } },
     warnings: { type: 'array', items: { type: 'string' } },
   },
   required: ['job_id', 'status', 'path', 'size_bytes', 'sha256'],
