@@ -11,6 +11,7 @@
       "model_generate_image",
       "model_generate_video_long",
       "model_generate_video",
+      "model_concat_video",
       "model_generate_dialogue",
       "model_interpolate_video",
       "model_upscale_video",

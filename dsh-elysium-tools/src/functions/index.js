@@ -2,6 +2,7 @@ import { createModelGenerateVideoAudioTool } from './endpoint/generate-video-aud
 import { createModelGenerateImageTool } from './endpoint/generate-image.js'
 import { createModelGenerateVideoLongTool } from './endpoint/generate-video-long.js'
 import { createModelGenerateVideoTool } from './endpoint/generate-video.js'
+import { createModelConcatVideoTool } from './endpoint/concat-video.js'
 import { createModelGenerateDialogueTool } from './endpoint/generate-dialogue.js'
 import { createModelInterpolateVideoTool } from './endpoint/interpolate-video.js'
 import { createModelJobResultTool } from './jobs/job-result.js'
@@ -13,6 +14,7 @@ export {
   createModelGenerateImageTool,
   createModelGenerateVideoLongTool,
   createModelGenerateVideoTool,
+  createModelConcatVideoTool,
   createModelGenerateDialogueTool,
   createModelInterpolateVideoTool,
   createModelJobResultTool,
@@ -26,6 +28,7 @@ export function createModelTools() {
     createModelGenerateImageTool(),
     createModelGenerateVideoLongTool(),
     createModelGenerateVideoTool(),
+    createModelConcatVideoTool(),
     createModelGenerateDialogueTool(),
     createModelInterpolateVideoTool(),
     createModelUpscaleVideoTool(),

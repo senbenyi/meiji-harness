@@ -20,6 +20,7 @@
 | `model_generate_image` | `generate_image.sh` |
 | `model_generate_video` | `generate_video.sh` |
 | `model_generate_video_long` | `generate_video_long.sh` |
+| `model_concat_video` | `concat_video.sh`（已有 MP4 按顺序合片，CPU） |
 | `model_generate_video_audio` | `generate_video_audio.sh` |
 | `model_generate_dialogue` | `generate_dialogue.sh` |
 | `model_interpolate_video` | `interpolate_video.sh` |
@@ -72,6 +73,8 @@
 一分钟示例：`duration: 60`，12 条提示词（每段 5 秒），或 6 条提示词（每段 10 秒）。更多片段受服务器任务超时和实际算力限制；产物时长、音画衔接需要验收。
 
 ### `model_generate_video`
+
+多段独立生成后，使用 `model_concat_video`，传入按镜头顺序排列的 `video_paths`（各任务返回的 MP4 `path`）。该工具保留原音轨，要求各段编码、画幅、帧率与音轨规格一致；返回单个成片路径及解码、规格验证。片段完成不等于完整视频交付，不需要重新生成已有片段。发布与验收见 [Harness 文档](../docs/harness.md)。
 
 对应 `generate_video.sh`，生成 1..15 秒短视频（包含 15 秒）。必填 `mode`、`prompt`；`duration` 默认 5 秒，`seed` 默认 666。
 

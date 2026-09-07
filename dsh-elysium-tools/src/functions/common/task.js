@@ -166,6 +166,31 @@ async function buildModelExecution(jobId, capability, params) {
     }
   }
 
+  if (capability === 'video-concat') {
+    if (!Array.isArray(params.video_paths) || params.video_paths.length < 2) {
+      throw new ModelTaskError('MODEL_INPUT_INVALID', '合片至少需要两个按镜头顺序排列的 MP4 路径', 422)
+    }
+    const videos = []
+    for (const path of params.video_paths) {
+      if (typeof path !== 'string') throw new ModelTaskError('MODEL_INPUT_INVALID', 'video_paths 必须为 MP4 路径列表', 422)
+      try {
+        videos.push(await artifactPath(path, new Set(['.mp4']), 'video_paths'))
+      } catch (error) {
+        if (error.code === 'ENOENT') throw new ModelTaskError('MODEL_INPUT_INVALID', '合片输入文件不存在', 422)
+        throw error
+      }
+    }
+    const inputs = join(jobRoot(jobId), 'input', 'concat-inputs.json')
+    await mkdir(dirname(inputs), { recursive: true })
+    await writeJson(inputs, videos)
+    const output = join(projectRoot, 'output', 'final.mp4')
+    return {
+      command: ['bash', join(endpointRoot, 'concat_video.sh'), '--inputs-file', inputs, '--output', output],
+      environment,
+      output,
+    }
+  }
+
   if (capability === 'video-generate-long') {
     if (!Array.isArray(params.prompts) || params.prompts.length < 2 ||
         !Number.isInteger(params.duration) || params.duration <= 15 || params.duration < params.prompts.length || params.duration > params.prompts.length * 15) {
@@ -381,13 +406,21 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
       file_exists: 'passed', nonempty: 'passed', media_probe: inspection.media_probe,
       full_decode: 'not_run', specification_match: 'not_run', human_review: 'not_run',
     }
+    if (capability === 'video-concat') {
+      const report = JSON.parse(await readFile(`${execution.output}.validation.json`, 'utf8'))
+      if (report.validation?.full_decode !== 'passed' || report.validation?.specification_match !== 'passed') {
+        throw new ModelTaskError('MODEL_OUTPUT_INVALID', '合片未通过解码与规格验证')
+      }
+      Object.assign(status.result.validation, report.validation)
+      status.result.comfyui_metadata_status = 'not-applicable-local-concat'
+    }
     const requested = status.debug.chain.findLast(item => item.stage === 'executor-config' && item.span_id === primary?.span_id)?.parameters
     if (inspection.media_info && requested?.width && requested?.height) {
       status.result.validation.specification_match = inspection.media_info.width === requested.width && inspection.media_info.height === requested.height ? 'passed' : 'failed'
     }
     status.result.warnings = inspection.warnings
     if (status.result.validation.specification_match === 'failed') status.result.warnings.push('OUTPUT_DIMENSIONS_MISMATCH')
-    if (!primary && !workflow) status.result.warnings.push('COMFYUI_METADATA_MISSING')
+    if (!primary && !workflow && capability !== 'video-concat') status.result.warnings.push('COMFYUI_METADATA_MISSING')
     if (primary?.url_scope === 'server-local') status.result.warnings.push('COMFYUI_URL_SERVER_LOCAL')
     status.stage = 'completed'
     status.timings.inspect_ms = Math.round(performance.now() - phaseStarted)
