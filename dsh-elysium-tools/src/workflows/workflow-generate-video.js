@@ -34,7 +34,7 @@ export function createWorkflowGenerateVideoTool() {
     }, required: ['duration'] }, output,
     execute: async (args, exec) => {
       exec?.signal?.throwIfAborted()
-      return waitVideoJob(await startVideoJob(args), exec?.signal)
+      return waitVideoJob(await startVideoJob(args, exec), exec?.signal)
     },
   }
 }
@@ -45,6 +45,6 @@ export function createWorkflowResumeVideoTool() {
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     output, execute: async (args, exec) => {
       exec?.signal?.throwIfAborted()
-      return waitVideoJob(await resumeVideoJob(args.job_id), exec?.signal)
+      return waitVideoJob(await resumeVideoJob(args.job_id, exec), exec?.signal)
     } }
 }

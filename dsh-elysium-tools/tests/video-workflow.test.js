@@ -34,7 +34,10 @@ async function wait(jobId) {
 test('production tool waits and delivers 12 concatenated clips without model polling', { skip: !available }, async () => {
   const clip = join(artifacts, 'clip.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:r=24:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clip])
-  const queued = await generate.execute({ duration: 12, video_paths: Array(12).fill(clip) })
+  const queued = await generate.execute({ duration: 12, video_paths: Array(12).fill(clip) },
+    { agent: { session: { id: 'media-session' } }, callId: 'media-call' })
+  const { findVideoCall } = await import('../src/jobs/call-index.js')
+  assert.equal(await findVideoCall('media-session', 'media-call'), queued.job_id)
   assert.equal(queued.status, 'succeeded')
   assert.ok(queued.path.endsWith('/final.mp4'))
   assert.equal((await resume.execute({ job_id: queued.job_id })).job_id, queued.job_id)

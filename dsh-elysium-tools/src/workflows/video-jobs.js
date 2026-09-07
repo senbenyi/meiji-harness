@@ -4,6 +4,7 @@ import { mkdir, open, readFile, realpath, stat, writeFile, unlink, rename } from
 import { isAbsolute, join, relative, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getJob, ModelTaskError } from '../functions/common/task.js'
+import { bindVideoCall } from '../jobs/call-index.js'
 
 const stateRoot = process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/elysium-tools'
 const artifactsRoot = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects'
@@ -40,18 +41,20 @@ export async function validateVideoPlan(args) {
   }
 }
 
-export async function startVideoJob(args) {
+export async function startVideoJob(args, exec) {
   await validateVideoPlan(args)
   const jobId = randomBytes(16).toString('hex')
   const directory = join(stateRoot, 'jobs', jobId)
   await mkdir(join(directory, 'input'), { recursive: true })
   await writeFile(join(directory, 'input/request.json'), JSON.stringify(args), { mode: 0o600 })
+  await bindVideoCall(jobId, exec)
   return launch(jobId)
 }
 
-export async function resumeVideoJob(jobId) {
+export async function resumeVideoJob(jobId, exec) {
   const job = await getJob(jobId)
   if (job.capability !== 'workflow-video') throw invalid('只能恢复视频工作流；原子产物请按顺序导入新工作流')
+  await bindVideoCall(jobId, exec)
   if (job.status === 'succeeded') return { job_id: jobId, status: job.status }
   return launch(jobId)
 }

@@ -1,6 +1,6 @@
 // Harness 浏览器模块格式；React 由宿主提供，无需打包旧插件。
 window.__ModuleLoader__.load({
-  id: 'dsh-external/dsh-elysium-ui',
+  id: 'elysium-ui/settings',
   factory: (require) => {
     const React = require('react')
     const { createElement: h, useState, useSyncExternalStore } = React
@@ -91,8 +91,4 @@ window.__ModuleLoader__.load({
       },
     }
   },
-})
-window.__ModuleLoader__.load({
-  id: 'dsh-elysium-ui',
-  factory: require => require('dsh-external/dsh-elysium-ui'),
 })

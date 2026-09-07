@@ -1,8 +1,12 @@
 {
   "id": "dsh-external/dsh-elysium-ui",
   "version": "0.1.0",
-  "description": "极乐世界：导演设置",
+  "description": "极乐世界：媒体任务卡与导演设置",
   "main": "./lib/index.js",
-  "engines": { "dsh": ">=0.1.2-alpha.3" },
-  "client": { "main": "./lib/client.js" }
+  "engines": {
+    "dsh": ">=0.1.2-alpha.3"
+  },
+  "client": {
+    "main": "./lib/client.js"
+  }
 }

@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { apply, Settings, validateSettings } from '../src/index.js'
+import { clientSource } from '../scripts/client-source.mjs'
 
 test('host registers only director settings and validates stored entries', () => {
   const registrations = []
@@ -18,14 +19,12 @@ test('host registers only director settings and validates stored entries', () =>
 
 async function fixture() {
   const bundles = new Map()
-  runInNewContext(await readFile(new URL('../src/client.js', import.meta.url), 'utf8'), {
+  runInNewContext(clientSource(), {
     window: { __ModuleLoader__: { load: entry => bundles.set(entry.id, entry.factory) } },
     structuredClone, crypto: { randomUUID: () => 'director-test' },
   })
-  const client = bundles.get('dsh-external/dsh-elysium-ui')(name => {
-    assert.equal(name, 'react')
-    return React
-  })
+  const load = name => name === 'react' ? React : bundles.get(name)(load)
+  const client = load('dsh-external/dsh-elysium-ui')
   let snapshot = { status: 'ready', writable: true, revision: 1,
     value: { enabled: true, directors: [] } }
   const listeners = new Set()
@@ -50,8 +49,8 @@ async function fixture() {
   client.apply({
     settingsScope: { bind: spec => { assert.equal(spec.namespace, 'dsh-elysium-ui'); return scope } },
     slots: {
-      inject: (slot, run) => { assert.equal(slot, 'settings.section'); run() },
-      register: (options, component) => pages.push({ options, component }),
+      inject: (_slot, run) => run(),
+      register: (options, component) => { if (options.name === 'settings.section') pages.push({ options, component }) },
     },
   })
   assert.equal(pages.length, 1)
