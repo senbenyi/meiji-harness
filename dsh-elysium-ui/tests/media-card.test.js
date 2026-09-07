@@ -4,6 +4,9 @@ import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/client-source.mjs'
+import { readFileSync } from 'node:fs'
+
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
 async function fixture(responses, block = {}) {
   const bundles = new Map(), cache = new Map(), timers = new Map(), requests = [], slots = []
@@ -24,7 +27,9 @@ async function fixture(responses, block = {}) {
     if (!cache.has(name)) cache.set(name, bundles.get(name)(require))
     return cache.get(name)
   }
-  require('elysium-ui/media-card').apply({ slots: { inject: (_, run) => run(), register: (spec, component) => slots.push({ spec, component }) } })
+  require(pkg.name).apply({ settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
+    if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
+  } } })
   assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video'])
   let view
   await act(async () => { view = create(React.createElement(slots[0].component, { sessionId: 'session', callId: 'call', block })) })

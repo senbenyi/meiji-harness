@@ -6,6 +6,9 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { apply, Settings, validateSettings } from '../src/index.js'
 import { clientSource } from '../scripts/client-source.mjs'
+import { readFileSync } from 'node:fs'
+
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
 test('host registers only director settings and validates stored entries', () => {
   const registrations = []
@@ -24,7 +27,7 @@ async function fixture() {
     structuredClone, crypto: { randomUUID: () => 'director-test' },
   })
   const load = name => name === 'react' ? React : bundles.get(name)(load)
-  const client = load('dsh-external/dsh-elysium-ui')
+  const client = load(pkg.name)
   let snapshot = { status: 'ready', writable: true, revision: 1,
     value: { enabled: true, directors: [] } }
   const listeners = new Set()
