@@ -190,7 +190,7 @@
 主配置为仓库根目录 `config/harness-settings.yaml`；系统提示词和对话指令分别读取同目录的 `system-prompt.yaml`、`harness-agent.md`。
 `scripts/common/config_loader.py` 生成设置、profile、Agent preset 和项目指令。
 执行仓库根目录的 `bash scripts/deploy_dsh_elysium_tools.sh` 会同步配置和启动链路，
-在本地构建并上传产物，再于服务器目录执行 `scripts/install_dsh_elysium_tools.sh` 安装、重启与检查；启动前备份并完整覆盖配置，保留会话与项目数据。
+部署入口在本地构建并上传产物，再自动调用服务器的 `scripts/common/install_plugin.sh tools` 安装、重启与检查；启动前备份并完整覆盖配置，保留会话与项目数据。
 新对话加载默认 Agent 和 `harness-agent.md` 内容，项目指令发现沿用标准模式；已有对话不自动切换 Agent。
 
 ```sh
