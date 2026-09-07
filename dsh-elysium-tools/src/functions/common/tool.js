@@ -2,11 +2,16 @@ import { withToolContext } from './task.js'
 
 export const renderToolDebug = (args, value) => {
   if (args.detail === true) return [{ type: 'text', text: JSON.stringify(value) }]
+  if (value.status === 'succeeded' && value.result) value = { ...value, ...value.result }
   const keys = ['job_id', 'status', 'stage', 'path', 'size_bytes', 'sha256', 'media_info', 'validation',
     'warnings', 'error_code', 'error', 'failed_stage', 'retryable', 'retry_scope']
   const output = Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
+  if (value.comfyui_metadata_status === 'published-final') {
+    output.comfyui_view_url = value.comfyui_view_url
+    delete output.path
+  }
   if (value.workflow && typeof value.workflow === 'object') output.progress = { stage: value.workflow.stage, status: value.workflow.status }
-  if (value.debug) {
+  if (value.debug && value.status !== 'succeeded') {
     output.diagnostic_path = value.debug.diagnostic_path
     output.log_path = value.debug.log_path
     if (value.debug.node_errors?.length) output.node_errors = value.debug.node_errors

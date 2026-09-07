@@ -34,7 +34,8 @@ window.__ModuleLoader__.load({
         return () => { active = false; controller.abort(); clearTimeout(timer) }
       }, [sessionId, callId, block?.kind, block?.isError, attempt])
       let video
-      if (job.has_video) {
+      if (job.status === 'succeeded' && job.comfyui_view_url) video = job.comfyui_view_url
+      else if (job.has_video) {
         try { video = mediaUrl('video', sessionId, callId) } catch { /* Read error explains unavailable service. */ }
       }
       const info = job.media_info
@@ -48,7 +49,7 @@ window.__ModuleLoader__.load({
         info ? h('p', null, `${info.duration_seconds} 秒 · ${info.width}×${info.height} · ${info.frame_rate} fps`) : null,
         job.status === 'succeeded' ? h('p', null, job.validation?.full_decode === 'passed' && job.validation?.specification_match === 'passed' ? '文件与规格检查通过' : '文件检查状态请查看详情',
           job.validation?.human_review === 'passed' ? ' · 已人工验收' : ' · 画面和声音尚未人工验收') : null,
-        video ? h('a', { href: mediaUrl('video', sessionId, callId, true), download: 'video.mp4' }, '下载视频') : null,
+        video ? h('a', { href: job.comfyui_view_url || mediaUrl('video', sessionId, callId, true), target: '_blank', rel: 'noopener noreferrer' }, '打开视频') : null,
         h('details', null, h('summary', null, '任务详情'),
           job.job_id ? h('p', null, '任务 ID：', h('code', null, job.job_id)) : null,
           inspect ? h('button', { onClick: inspect }, '查看执行记录') : null))

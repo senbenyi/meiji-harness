@@ -54,6 +54,16 @@ test('same card progresses to playable result and stops polling', async () => {
     assert.equal(f.requests.length, 2)
   } finally { await f.close() }
 })
+
+test('completed card plays and opens the ComfyUI tunnel URL directly', async () => {
+  const url = 'http://127.0.0.1:6016/view?filename=final.mp4&subfolder=elysium/test&type=output'
+  const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
+  try {
+    assert.equal(f.view.root.findByType('video').props.src, url)
+    assert.equal(f.view.root.findByType('a').props.href, url)
+    assert.equal(f.timers.size, 0)
+  } finally { await f.close() }
+})
 test('refresh can recover a completed job even when the tool block is still running', async () => {
   const f = await fixture([{ status: 'succeeded', has_video: true }])
   try { assert.equal(f.view.root.findAllByType('video').length, 1); assert.equal(f.timers.size, 0) }

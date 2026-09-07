@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { codeVersion, inspectMedia, retryAdvice, traceDiagnostics } from './diagnostics.js'
 import { dirname, extname, isAbsolute, join, relative } from 'node:path'
+import { publishVideo } from '../../workflows/video-publication.js'
 
 const PROJECT_ROOT = process.env.LLM_AI_MODEL_ROOT || '/root/autodl-tmp/project'
 const ARTIFACTS_ROOT = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects'
@@ -391,6 +392,10 @@ async function execute(capability, params, signal, timeoutMs, workflow = false, 
     if (status.result.validation.specification_match === 'failed') status.result.warnings.push('OUTPUT_DIMENSIONS_MISMATCH')
     if (!primary && !workflow && capability !== 'video-concat') status.result.warnings.push('COMFYUI_METADATA_MISSING')
     if (primary?.url_scope === 'server-local') status.result.warnings.push('COMFYUI_URL_SERVER_LOCAL')
+    if (workflow === 'video') {
+      status.stage = 'publish'
+      await publishVideo(status)
+    }
     status.stage = 'completed'
     status.timings.inspect_ms = Math.round(performance.now() - phaseStarted)
     status.timings.total_ms = Math.round(performance.now() - started)
@@ -437,6 +442,7 @@ export async function getJob(jobId) {
   try {
     const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
     if (job.capability === 'workflow-video') {
+      await publishVideo(job)
       job.workflow = await readFile(join(ARTIFACTS_ROOT, `production-${jobId}`, 'workflow/state.json'), 'utf8')
         .then(JSON.parse).catch(() => null)
     }

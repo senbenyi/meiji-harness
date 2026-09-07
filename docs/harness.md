@@ -39,6 +39,8 @@ bash scripts/deploy_dsh_elysium_ui.sh
 UI 包声明 `dsh.client` 时必须通过 `exports["./client"]` 导出浏览器入口，同时保留服务端根入口和 `./package.json` 导出供 Harness 解析。缺少客户端导出会导致整个 Harness 启动失败；部署前的 UI 测试覆盖这三个入口的解析。
 浏览器 bundle 必须通过 `__ModuleLoader__.load` 注册与 `package.json.name` 完全一致的模块名（包括 `@`）；设置与媒体卡测试均从该包名加载入口，避免内部模块测试通过但插件无法激活。
 
+成片播放通过 ComfyUI 隧道：视频工作流将验证后的最终 MP4 原子复制到 MiniMax H3 的 `output/elysium/<job_id>/<sha256>.mp4`，返回 `comfyui_view_url`，默认 `http://127.0.0.1:6016/view?...&type=output`。用户须保持本机 6016 隧道连接；此 URL 面向用户浏览器，不是服务器回连地址。可用 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 和 `MINIMAX_H3_COMFYUI_OUTPUT_ROOT` 覆盖浏览器地址及服务器输出目录。工具默认结果不展示成片文件路径或成功任务日志路径；内部路径保留用于恢复和诊断。任务卡播放、打开视频和回复链接使用同一 URL。查询已有成功视频任务时会按需发布原成片，无需重新生成；这会额外保存一份最终 MP4。发布需同时部署 tools、UI 和配置，历史回复中的旧链接不会自动改写。
+
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
 启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；项目指令发现沿用标准模式。
 新对话加载 Elysium preset 和上述指令；已有对话不自动切换 preset。

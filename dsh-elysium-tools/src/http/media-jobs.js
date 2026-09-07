@@ -20,6 +20,7 @@ export function jobSummary(job) {
     stage: job.status === 'failed' ? job.failed_stage : job.workflow?.stage || job.stage,
     error: job.error, retryable: job.retryable, retry_scope: job.retry_scope,
     media_info: job.result?.media_info, validation: job.result?.validation,
+    comfyui_view_url: job.result?.comfyui_view_url,
     has_video: job.status === 'succeeded' && Boolean(job.result?.path) }
 }
 const json = (res, status, data) => {
