@@ -4,6 +4,11 @@
   "description": "极乐世界：媒体任务卡与导演设置",
   "type": "module",
   "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
   "engines": {
     "node": ">=20"
   },

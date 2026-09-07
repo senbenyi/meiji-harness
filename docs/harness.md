@@ -36,6 +36,8 @@ bash scripts/deploy_dsh_elysium_ui.sh
 
 远端生产依赖安装使用直连，仅在安装子进程内清除代理环境并设置 `NO_PROXY=*`，避免继承失效的 `127.0.0.1:7890` 代理；不修改服务器全局代理或 Harness 运行环境。
 
+UI 包声明 `dsh.client` 时必须通过 `exports["./client"]` 导出浏览器入口，同时保留服务端根入口和 `./package.json` 导出供 Harness 解析。缺少客户端导出会导致整个 Harness 启动失败；部署前的 UI 测试覆盖这三个入口的解析。
+
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
 启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；项目指令发现沿用标准模式。
 新对话加载 Elysium preset 和上述指令；已有对话不自动切换 preset。
