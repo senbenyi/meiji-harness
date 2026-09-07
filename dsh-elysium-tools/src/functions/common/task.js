@@ -303,41 +303,7 @@ async function buildModelExecution(jobId, capability, params) {
   throw new ModelTaskError('MODEL_CAPABILITY_UNKNOWN', `未注册模型能力：${capability}`, 400)
 }
 
-async function buildWorkflowExecution(jobId, params) {
-  if (params.authorized_adults !== true) {
-    throw new ModelTaskError('MODEL_INPUT_INVALID', '必须确认素材仅包含虚拟或已授权成年人', 422)
-  }
-  const imagePrompt = await promptFile(jobId, 'image-prompt.txt', params.image_prompt)
-  const videoPrompts = await promptListFile(jobId, 'video-prompts.json', params.video_prompts)
-  const command = [
-    'bash', join(PROJECT_ROOT, 'scripts', 'workflow', 'adult_short_video.sh'),
-    '--image-prompt-file', imagePrompt, '--video-prompt-file', videoPrompts,
-    '--preset', params.preset, '--segments', String(params.video_prompts.length),
-    '--seed', String(params.seed), '--run-id', jobId, '--confirm-authorized-adults',
-  ]
-  if (String(params.reference_path || '').trim()) {
-    command.push('--reference', await artifactPath(params.reference_path, IMAGE_SUFFIXES, 'reference_path'))
-  }
-  if (String(params.audio_prompt || '').trim()) {
-    command.push('--audio-prompt-file', await promptFile(jobId, 'audio-prompt.txt', params.audio_prompt))
-  }
-  if (String(params.dialogue || '').trim()) {
-    command.push('--dialogue-file', await promptFile(jobId, 'dialogue.txt', params.dialogue))
-  }
-  const projectId = `production-${jobId}`
-  return {
-    command,
-    environment: {
-      MVP_PROJECT_ID: projectId,
-      ARTIFACTS_ROOT,
-      COMFYUI_URL: process.env.COMFYUI_URL || 'http://127.0.0.1:6006',
-    },
-    output: join(ARTIFACTS_ROOT, projectId, 'output', 'final.mp4'),
-  }
-}
-
-async function execute(capability, params, signal, timeoutMs, workflow = false) {
-  const jobId = randomBytes(16).toString('hex')
+async function execute(capability, params, signal, timeoutMs, workflow = false, jobId = randomBytes(16).toString('hex')) {
   const statusPath = join(jobRoot(jobId), 'status.json')
   const logPath = join(jobRoot(jobId), 'execution.log')
   const tracePath = join(jobRoot(jobId), 'trace.jsonl')
@@ -354,12 +320,15 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
   status.stage = 'prepare'
   status.timings = {}
   status.code_version = await codeVersion()
-  if (workflow) status.workflow = 'adult-short-video'
+  if (workflow) status.workflow = 'video'
   await writeJson(statusPath, status)
   try {
-    const execution = workflow
-      ? await buildWorkflowExecution(jobId, params)
-      : await buildModelExecution(jobId, capability, params)
+    const execution = workflow === 'video' ? {
+      command: ['bash', join(PROJECT_ROOT, 'scripts/workflow/generate_video.sh'),
+        '--request-file', join(jobRoot(jobId), 'input/request.json'), '--run-id', jobId],
+      environment: { ARTIFACTS_ROOT },
+      output: join(ARTIFACTS_ROOT, `production-${jobId}`, 'output/final.mp4'),
+    } : await buildModelExecution(jobId, capability, params)
     execution.environment.MODEL_TRACE_FILE = tracePath
     execution.environment.MODEL_TRACE_ID = jobId
     status.debug.command = execution.command
@@ -406,13 +375,13 @@ async function execute(capability, params, signal, timeoutMs, workflow = false) 
       file_exists: 'passed', nonempty: 'passed', media_probe: inspection.media_probe,
       full_decode: 'not_run', specification_match: 'not_run', human_review: 'not_run',
     }
-    if (capability === 'video-concat') {
+    if (capability === 'video-concat' || workflow === 'video') {
       const report = JSON.parse(await readFile(`${execution.output}.validation.json`, 'utf8'))
       if (report.validation?.full_decode !== 'passed' || report.validation?.specification_match !== 'passed') {
         throw new ModelTaskError('MODEL_OUTPUT_INVALID', '合片未通过解码与规格验证')
       }
       Object.assign(status.result.validation, report.validation)
-      status.result.comfyui_metadata_status = 'not-applicable-local-concat'
+      status.result.comfyui_metadata_status = workflow ? 'local-final-see-stage-artifacts' : 'not-applicable-local-concat'
     }
     const requested = status.debug.chain.findLast(item => item.stage === 'executor-config' && item.span_id === primary?.span_id)?.parameters
     if (inspection.media_info && requested?.width && requested?.height) {
@@ -459,14 +428,18 @@ export function runModelTask(capability, params, signal, timeoutMs) {
   return execute(capability, params, signal, timeoutMs)
 }
 
-export function runWorkflowTask(params, signal, timeoutMs) {
-  return execute('workflow-adult-short-video', params, signal, timeoutMs, true)
+export function executeVideoWorkflowJob(jobId, params) {
+  return execute('workflow-video', params, undefined, MODEL_TIMEOUTS.workflow, 'video', jobId)
 }
 
 export async function getJob(jobId) {
   if (!/^[0-9a-f]{32}$/.test(jobId || '')) throw new ModelTaskError('MODEL_JOB_NOT_FOUND', '任务不存在', 404)
   try {
     const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
+    if (job.capability === 'workflow-video') {
+      job.workflow = await readFile(join(ARTIFACTS_ROOT, `production-${jobId}`, 'workflow/state.json'), 'utf8')
+        .then(JSON.parse).catch(() => null)
+    }
     if (job.status === 'running' && job.debug?.trace_path) {
       job.debug.chain = await readTrace(job.debug.trace_path).catch(() => job.debug.chain || [])
       Object.assign(job.debug, traceDiagnostics(job.debug.chain))

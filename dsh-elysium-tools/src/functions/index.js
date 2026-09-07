@@ -21,7 +21,7 @@ export {
   createModelJobStatusTool,
   createModelUpscaleVideoTool,
 }
-export { ModelTaskError, completedResult, getJob, runModelTask, runWorkflowTask } from './common/task.js'
+export { ModelTaskError, completedResult, getJob, runModelTask } from './common/task.js'
 
 export function createModelTools() {
   return [

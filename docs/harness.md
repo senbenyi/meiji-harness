@@ -41,19 +41,17 @@ bash scripts/deploy_dsh_elysium_tools.sh
 
 `harness-customization.agent.metadata` 生成 `$DSH_HOME/.agent-presets/elysium/preset.yml`，设置页显示“极乐世界”及短剧能力描述，预设 ID 仍为 `elysium`。生成器同时校验名称和描述，写入前生成全部配置，原文件保存为 `.previous`。
 
-创作由 `elysium-shot-design` 组织故事、角色、对白和分镜；制作由 `elysium-media-task` 组合现有媒体工具，复用素材并按任务 ID 续做。已授权制作不在创作阶段停下，咨询也不会直接触发生成。默认交付原片，声音、插帧和超分按需求追加；对白音频不代表已混音或对口型，未查看媒体不标记人工验收通过。
+创作由 `elysium-shot-design` 组织故事、角色、对白和分镜；制作由 `elysium-media-task` 整理输入并提交视频工作流，复用素材并按任务 ID 续做。已授权制作不在创作阶段停下，咨询也不会直接触发生成。默认交付原片，声音、插帧和超分按需求追加；对白音频不代表已混音或对口型，未查看媒体不标记人工验收通过。
 
 本地配置回归：`python3 -m unittest discover -s tests -p 'test_harness_settings.py'`。发布后需核对设置页名称与描述、新会话标准工具及媒体工具清单、技能发现；生成链路另做授权验收。
 服务器重启后，可在本仓库单独恢复本地通道：`bash scripts/common/start_tunnel_harness.sh`。
 本地端口读取 `harness-runtime.HARNESS_LOCAL_PORT`，默认 `23080`。
 
-视频工具：`model_generate_video`，`mode` 为 `text`（文字生成视频）、`image`（图片生成视频）、`reference`（参考素材生成视频）。执行模型由路由配置决定。
+视频生产统一使用 `workflow_generate_video`。默认注册创建、恢复、状态查询、结果获取四个工具；服务端 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 仅用于原子能力测试。原子失败不能作为生产工作流的降级路径。
 
-已有片段合片：`model_concat_video` 接收按镜头顺序排列的 `video_paths`（共享 artifacts 内的 MP4）。执行 `concat_video.sh`，只用 CPU FFmpeg，保留音轨并检查规格、总时长和完整解码；失败时复用片段重试合片。独立片段成功不等于成片完成，最终交付合片返回的 `path` 和 `validation`。输入规格须一致，不自动转码。发布需同步模型入口、插件及技能配置，并在新会话确认工具已注册。
+工作流后台返回任务 ID，新生成使用目标总时长与分镜，已有素材使用有序 MP4 路径；由服务端生成或复用、合片并验证后返回 `final.mp4`。失败用 `workflow_resume_video` 复用原任务步骤。第一版保留原音轨和规格，不自动追加后期处理。参数见 [工具说明](../dsh-elysium-tools/README.md)。
 
-短视频 `duration` 为 1..15 秒；长视频 `model_generate_video_long` 的 `duration` 为超过 15 秒的总时长。当前默认 MiniMax H3，60 秒建议 12 段×5 秒，默认竖版档位为 `long_vertical_preview`。具体参数见 [工具说明](../dsh-elysium-tools/README.md)。
-
-插件通过 `PROJECT_ID` 对齐模型输出目录，不能把公共 `project-id` 目录中的图片当作本次产物。部署此版本须同步模型脚本、插件和 `.dsh/skills`，否则总时长参数与旧执行器不匹配。Qwen 当前声明仅支持文本，不能靠修改工具说明获得视觉验收能力。
+发布须同步模型脚本、插件、配置及 `.dsh/skills`，并在新会话核对生产工具注册。不照搬作者桌面工作流的25步和720p配置。
 
 检查服务与实际安装的工具清单：
 

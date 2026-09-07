@@ -1,4 +1,5 @@
 import { createModelTools } from './functions/index.js'
+import { createWorkflowTools } from './workflows/index.js'
 import { createComfyuiTaskQueueTool } from './functions/comfyui/task-queue.js'
 import { createComfyuiTaskStatusTool } from './functions/comfyui/task-status.js'
 import { createComfyuiTaskResultTool } from './functions/comfyui/task-result.js'
@@ -16,7 +17,9 @@ export function createComfyuiTools() {
 }
 
 export function apply(ctx) {
-  const tools = [...createModelTools(), ...createComfyuiTools()]
+  const tools = [...createWorkflowTools(), ...createModelTools().filter(tool =>
+    process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' || ['model_job_status', 'model_job_result'].includes(tool.name)),
+    ...(process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]
   for (const tool of tools) {
     if (typeof ctx.effect === 'function' && typeof ctx.tools?.register === 'function') {
       ctx.effect(() => ctx.tools.register(tool), `@dsh-external/dsh-elysium-tools: ${tool.name} tool`)

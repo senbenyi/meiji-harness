@@ -1,7 +1,7 @@
-import { createWorkflowAdultShortVideoTool } from './workflow-adult-short-video.js'
+import { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool } from './workflow-generate-video.js'
 
-export { createWorkflowAdultShortVideoTool }
+export { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool }
 
 export function createWorkflowTools() {
-  return [createWorkflowAdultShortVideoTool()]
+  return [createWorkflowGenerateVideoTool(), createWorkflowResumeVideoTool()]
 }

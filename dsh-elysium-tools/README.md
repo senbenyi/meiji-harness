@@ -2,18 +2,26 @@
 
 极乐世界 AI 成人短剧的 DeepSeek Harness Function Call 工具插件。配合标准模式的文件、检索、计划和工作流能力，提供角色与场景图片、视频、对白、声音及任务查询。预设和创作流程见 [Harness 说明](../docs/harness.md#极乐世界预设)。
 
-调用链为 `Harness → dsh-elysium-tools → llm-ai-model/scripts/endpoint`，不依赖额外 HTTP 服务。
+生产调用链为 `Harness → workflow_generate_video → scripts/workflow/generate_video.sh → endpoint → factory`，不依赖额外 HTTP 服务。
 
 ## 使用前说明
 
 - 可以直接说“调用 `工具名`……”，也可以只描述目标，让 Harness 选择工具。
 - `image_path`、`reference_path` 和 `video_path` 必须是服务器共享产物目录 `/root/autodl-fs/artifacts/` 内已有文件的绝对路径，不能传本机路径或网址。
-- 生成和处理工具会直接执行服务器脚本并等待完成，成功后返回 `job_id`、产物绝对路径、文件大小和 SHA-256。
+- 工作流后台执行，先返回 `job_id` 和 `queued`；查询成功后获取成片路径、文件大小、SHA-256 和验收结果。原子测试工具仍同步等待。
 - `seed` 相同不保证不同模型或工作流版本产生完全相同的结果。
 
-## 工具使用
+## 生产工具
 
-7 个能力工具与 endpoint 一一对应；`model_job_status`、`model_job_result` 仅负责查询。
+默认只注册 `workflow_generate_video`、`workflow_resume_video`、`model_job_status`、`model_job_result`。服务端显式设置 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 时才额外注册下方原子与 ComfyUI 工具，仅供测试；模型不能通过工具参数打开该开关。
+
+`workflow_generate_video` 必填目标总秒数 `duration`。新生成提供有序 `prompts`，长视频另需 `image_path` 或 `image_prompt`；两种首帧来源不能同时提供。已有片段提供有序 `video_paths`，不能混入生成参数。例如 12 个已完成的 15 秒 MP4，传 `duration: 180` 和 12 个真实返回路径，由工作流完成合片。
+
+查询使用原 `job_id`。失败原因处理后，调用 `workflow_resume_video(job_id)` 复用原输入与有效步骤。输入变化须创建新任务。缺少明确存活进程但仍有锁时报告需运维核对，不自动重提 GPU 任务。第一版提供原片交付，额外配音、补帧、超分及多参考视频编辑尚未接入生产入口。
+
+## 原子测试工具
+
+以下能力工具与 endpoint 一一对应；生产工作流内部复用这些入口，生产会话不直接调用。
 
 | 工具 | Endpoint |
 |---|---|
@@ -74,7 +82,7 @@
 
 ### `model_generate_video`
 
-多段独立生成后，使用 `model_concat_video`，传入按镜头顺序排列的 `video_paths`（各任务返回的 MP4 `path`）。该工具保留原音轨，要求各段编码、画幅、帧率与音轨规格一致；返回单个成片路径及解码、规格验证。片段完成不等于完整视频交付，不需要重新生成已有片段。发布与验收见 [Harness 文档](../docs/harness.md)。
+原子合片测试可调用 `model_concat_video`；生产必须将已有片段交给 `workflow_generate_video`。合片保留原音轨，要求编码、画幅、帧率与音轨规格一致。发布与验收见 [Harness 文档](../docs/harness.md)。
 
 对应 `generate_video.sh`，生成 1..15 秒短视频（包含 15 秒）。必填 `mode`、`prompt`；`duration` 默认 5 秒，`seed` 默认 666。
 

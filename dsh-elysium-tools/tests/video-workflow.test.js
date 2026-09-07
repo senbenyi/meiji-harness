@@ -1,0 +1,87 @@
+import assert from 'node:assert/strict'
+import { after, test } from 'node:test'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { mkdir, mkdtemp, realpath, rm, stat, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { setTimeout as sleep } from 'node:timers/promises'
+
+const run = promisify(execFile)
+const root = await realpath(await mkdtemp(join(tmpdir(), 'workflow-test-')))
+const artifacts = join(root, 'artifacts')
+await mkdir(artifacts)
+process.env.ARTIFACTS_ROOT = artifacts
+process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'jobs')
+process.env.LLM_AI_MODEL_ROOT = fileURLToPath(new URL('../../../llm-ai-model', import.meta.url))
+const { createWorkflowTools, getJob, completedResult } = await import('../src/index.js')
+const [generate, resume] = createWorkflowTools()
+after(() => rm(root, { recursive: true, force: true }))
+let available = true
+try { await run('ffmpeg', ['-version']); await run('ffprobe', ['-version']) } catch { available = false }
+
+async function wait(jobId) {
+  for (let i = 0; i < 150; i++) {
+    const job = await getJob(jobId)
+    const lock = join(root, 'jobs/jobs', jobId, 'worker.lock')
+    if (['succeeded', 'failed'].includes(job.status) && !await stat(lock).catch(() => null)) return job
+    await sleep(100)
+  }
+  throw new Error('Workflow did not finish')
+}
+
+test('production workflow runs in background and completes 12 clips without generation', { skip: !available }, async () => {
+  const clip = join(artifacts, 'clip.mp4')
+  await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:r=24:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clip])
+  const queued = await generate.execute({ duration: 12, video_paths: Array(12).fill(clip) })
+  assert.equal(queued.status, 'queued')
+  assert.equal(queued.path, undefined)
+  assert.equal((await resume.execute({ job_id: queued.job_id })).job_id, queued.job_id)
+  const job = await wait(queued.job_id)
+  assert.equal(job.status, 'succeeded', job.error)
+  const result = completedResult(job)
+  assert.equal(result.validation.full_decode, 'passed')
+  assert.equal(result.validation.specification_match, 'passed')
+  assert.equal(job.workflow.steps.generate, undefined)
+  assert.ok(Math.abs(result.media_info.duration_seconds - 12) < 0.5)
+  const before = await stat(result.path)
+  await resume.execute({ job_id: queued.job_id })
+  assert.equal((await stat(result.path)).mtimeMs, before.mtimeMs)
+  const report = JSON.parse(await readFile(`${result.path}.validation.json`, 'utf8'))
+  assert.equal(report.inputs.length, 12)
+})
+
+test('wrong final duration fails and does not deliver a successful partial result', { skip: !available }, async () => {
+  const clip = join(artifacts, 'wrong.mp4')
+  await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
+  const queued = await generate.execute({ duration: 180, video_paths: [clip] })
+  const job = await wait(queued.job_id)
+  assert.equal(job.status, 'failed')
+  assert.throws(() => completedResult(job), { code: 'MODEL_JOB_NOT_READY' })
+  assert.equal(await stat(join(artifacts, `production-${queued.job_id}`, 'output/final.mp4')).catch(() => null), null)
+})
+
+test('invalid generation plans fail before a background task starts', async () => {
+  for (const args of [{ duration: 180, prompts: ['one'] }, { duration: 180, prompts: Array(12).fill('one') },
+    { duration: 10, video_paths: [] }, { duration: 10, prompts: ['one'], video_paths: ['a.mp4'] }]) {
+    await assert.rejects(generate.execute(args), { code: 'MODEL_INPUT_INVALID' })
+  }
+})
+
+test('workflow survives submitting process exit and failed validation resumes under the same ID', { skip: !available }, async () => {
+  const clip = join(artifacts, 'resume.mp4')
+  await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
+  const source = new URL('../src/index.js', import.meta.url).href
+  const script = `const { createWorkflowTools } = await import(${JSON.stringify(source)}); console.log(JSON.stringify(await createWorkflowTools()[0].execute(${JSON.stringify({ duration: 1, video_paths: [clip] })})))`
+  const { stdout } = await run(process.execPath, ['--input-type=module', '-e', script], {
+    env: { ...process.env, FFPROBE_BIN: join(root, 'unavailable-ffprobe') },
+  })
+  const submitted = JSON.parse(stdout)
+  assert.equal((await wait(submitted.job_id)).status, 'failed')
+  const continued = await resume.execute({ job_id: submitted.job_id })
+  assert.equal(continued.job_id, submitted.job_id)
+  const job = await wait(submitted.job_id)
+  assert.equal(job.status, 'succeeded', job.error)
+  assert.equal(job.result.validation.full_decode, 'passed')
+})

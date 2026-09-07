@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
-import { createModelTools, createComfyuiTools, apply } from '../src/index.js'
+import { createModelTools, createComfyuiTools, createWorkflowTools, apply } from '../src/index.js'
 
 test('registers endpoint, job query and ComfyUI tools declared by the manifest', async () => {
   const expected = [
@@ -21,15 +21,27 @@ test('registers endpoint, job query and ComfyUI tools declared by the manifest',
     createModelTools().map(tool => tool.name),
     expected,
   )
-  const all = [...expected, ...createComfyuiTools().map(tool => tool.name)]
+  const workflows = createWorkflowTools().map(tool => tool.name)
+  const all = [...workflows, ...expected, ...createComfyuiTools().map(tool => tool.name)]
   assert.deepEqual(manifest.contributes.tools, all)
   const registered = []
-  apply({ tools: { register: tool => registered.push(tool.name) } })
-  assert.deepEqual(registered, all)
+  const previous = process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS
+  try {
+    delete process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS
+    apply({ tools: { register: tool => registered.push(tool.name) } })
+    assert.deepEqual(registered, [...workflows, 'model_job_status', 'model_job_result'])
+    registered.length = 0
+    process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS = '1'
+    apply({ tools: { register: tool => registered.push(tool.name) } })
+    assert.deepEqual(registered, all)
+  } finally {
+    if (previous === undefined) delete process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS
+    else process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS = previous
+  }
 })
 
 test('all tools expose function-call schemas and local executors', () => {
-  for (const tool of [...createModelTools(), ...createComfyuiTools()]) {
+  for (const tool of [...createWorkflowTools(), ...createModelTools(), ...createComfyuiTools()]) {
     assert.equal(tool.parameters.type, 'object')
     assert.equal(typeof tool.execute, 'function')
   }
