@@ -49,7 +49,7 @@ bash scripts/deploy_dsh_elysium_tools.sh
 
 视频生产统一使用 `workflow_generate_video`。默认注册创建、恢复、状态查询、结果获取四个工具；服务端 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 仅用于原子能力测试。原子失败不能作为生产工作流的降级路径。
 
-工作流后台返回任务 ID，新生成使用目标总时长与分镜，已有素材使用有序 MP4 路径；由服务端生成或复用、合片并验证后返回 `final.mp4`。失败用 `workflow_resume_video` 复用原任务步骤。第一版保留原音轨和规格，不自动追加后期处理。参数见 [工具说明](../dsh-elysium-tools/README.md)。
+工作流由独立进程执行，工具在程序内等待终态并返回结果，新生成使用目标总时长与分镜，已有素材使用有序 MP4 路径；由服务端生成或复用、合片并验证后返回 `final.mp4`。失败用 `workflow_resume_video` 复用原任务步骤。第一版保留原音轨和规格，不自动追加后期处理。参数见 [工具说明](../dsh-elysium-tools/README.md)。
 
 发布须同步模型脚本、插件、配置及 `.dsh/skills`，并在新会话核对生产工具注册。不照搬作者桌面工作流的25步和720p配置。
 
@@ -64,8 +64,10 @@ ssh veo-comfyui 'jq .contributes.tools /root/autodl-tmp/wan22-harness/home/profi
 
 ### 上下文成本
 
-采用 [OpenAI function calling 建议](https://developers.openai.com/api/docs/guides/function-calling)：减少首轮工具、保留简洁明确的参数、将固定流程交给代码。当前 Qwen 的 Chat Completions 路由不添加 Responses 专用 `tool_search` / `defer_loading` 字段；本版保留通用工具，先精简自定义重复指令、Skill 和结果输出；未实现动态工具搜索。
+采用 [OpenAI function calling 建议](https://developers.openai.com/api/docs/guides/function-calling)：减少首轮工具、保留简洁明确的参数、将固定流程交给代码。当前 Qwen 的 Chat Completions 路由不添加 Responses 专用 `tool_search` / `defer_loading` 字段；本版通过原生 `system-prompt/assemble` 扩展点和 `elysium_load_tools` 普通函数实现按组加载，不修改上游 Harness。
 
-极乐世界继承的通用工具不因 token 优化而禁用；默认媒体插件仍只开放四个生产工具。工具目录规模仍需在同一预设内通过 Harness 支持的按需发现机制优化，不能直接添加不兼容的 API 参数。部署后以新会话 request/header 核对工具与上下文，不使用删减能力时得到的7工具或86.1%字符降幅作为验收结果。
+极乐世界继承的通用工具不因 token 优化而禁用；默认媒体插件提供四个生产工具和一个加载工具。文件、Shell、规划、子代理、通用编排五组的定义与对应工具说明延迟加载；模型可见简短目录，其他未知工具及所有权限/计划策略保留。以成功的加载工具结果重建已加载列表，恢复会话后继续可用，组内权限受限或已移除工具不会重新开放。Code Mode 和其他预设保持原协议。部署后以新会话 request/header 核对工具与上下文。
 
 任务结果默认渲染紧凑摘要，不重复请求输入或整条诊断链；状态/结果工具的 `detail: true` 保留完整诊断。原始状态文件与产物不裁剪。发布后用同一短视频请求比较首轮输入、未缓存输入、cacheReadTokens、输出与模型调用轮数；字符统计只能衡量上下文体积，不能代替模型 tokenizer 或实测 token。缓存读取与未缓存输入分开报告。
+
+生成和恢复工具等待终态再交给模型，等待发生在程序中，不增加模型请求。停止等待不会杀掉独立生产进程；按错误中的 job_id 查询原任务。关闭会话后自动推送通知尚未接入，此时需要用户恢复会话查询。缓存前缀可能在首次加载工具组时变化；本会话不反复卸载已加载工具，实际延迟和 token 收益仍须同模型 A/B 验证。

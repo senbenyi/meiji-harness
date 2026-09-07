@@ -8,6 +8,7 @@
   },
   "contributes": {
     "tools": [
+      "elysium_load_tools",
       "workflow_generate_video",
       "workflow_resume_video",
       "model_generate_image",

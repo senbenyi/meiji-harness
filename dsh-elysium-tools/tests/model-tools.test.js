@@ -22,17 +22,17 @@ test('registers endpoint, job query and ComfyUI tools declared by the manifest',
     expected,
   )
   const workflows = createWorkflowTools().map(tool => tool.name)
-  const all = [...workflows, ...expected, ...createComfyuiTools().map(tool => tool.name)]
+  const all = ['elysium_load_tools', ...workflows, ...expected, ...createComfyuiTools().map(tool => tool.name)]
   assert.deepEqual(manifest.contributes.tools, all)
   const registered = []
   const previous = process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS
   try {
     delete process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS
-    apply({ tools: { register: tool => registered.push(tool.name) } })
-    assert.deepEqual(registered, [...workflows, 'model_job_status', 'model_job_result'])
+    apply({ on() {}, tools: { register: tool => registered.push(tool.name) } })
+    assert.deepEqual(registered, ['elysium_load_tools', ...workflows, 'model_job_status', 'model_job_result'])
     registered.length = 0
     process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS = '1'
-    apply({ tools: { register: tool => registered.push(tool.name) } })
+    apply({ on() {}, tools: { register: tool => registered.push(tool.name) } })
     assert.deepEqual(registered, all)
   } finally {
     if (previous === undefined) delete process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS

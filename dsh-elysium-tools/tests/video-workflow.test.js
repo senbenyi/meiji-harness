@@ -31,12 +31,12 @@ async function wait(jobId) {
   throw new Error('Workflow did not finish')
 }
 
-test('production workflow runs in background and completes 12 clips without generation', { skip: !available }, async () => {
+test('production tool waits and delivers 12 concatenated clips without model polling', { skip: !available }, async () => {
   const clip = join(artifacts, 'clip.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:r=24:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clip])
   const queued = await generate.execute({ duration: 12, video_paths: Array(12).fill(clip) })
-  assert.equal(queued.status, 'queued')
-  assert.equal(queued.path, undefined)
+  assert.equal(queued.status, 'succeeded')
+  assert.ok(queued.path.endsWith('/final.mp4'))
   assert.equal((await resume.execute({ job_id: queued.job_id })).job_id, queued.job_id)
   const job = await wait(queued.job_id)
   assert.equal(job.status, 'succeeded', job.error)
@@ -72,8 +72,8 @@ test('invalid generation plans fail before a background task starts', async () =
 test('workflow survives submitting process exit and failed validation resumes under the same ID', { skip: !available }, async () => {
   const clip = join(artifacts, 'resume.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
-  const source = new URL('../src/index.js', import.meta.url).href
-  const script = `const { createWorkflowTools } = await import(${JSON.stringify(source)}); console.log(JSON.stringify(await createWorkflowTools()[0].execute(${JSON.stringify({ duration: 1, video_paths: [clip] })})))`
+  const source = new URL('../src/workflows/video-jobs.js', import.meta.url).href
+  const script = `const { startVideoJob } = await import(${JSON.stringify(source)}); console.log(JSON.stringify(await startVideoJob(${JSON.stringify({ duration: 1, video_paths: [clip] })})))`
   const { stdout } = await run(process.execPath, ['--input-type=module', '-e', script], {
     env: { ...process.env, FFPROBE_BIN: join(root, 'unavailable-ffprobe') },
   })

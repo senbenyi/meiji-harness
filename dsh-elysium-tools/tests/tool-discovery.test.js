@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { createToolDiscoveryTool, loadedToolNames, projectTools, TOOL_GROUPS } from '../src/tool-discovery.js'
+const tool = name => ({ name, description: name, parameters: { type: 'object' } })
+const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
+const agent = events => ({ session: { header: { agentPreset: 'elysium' }, events } })
+const events = names => [{ type: 'tool/call', data: { name: 'elysium_load_tools', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
+test('defers schemas and guidance without mutating source, policies or contexts', () => {
+  const input = assembly(), before = JSON.stringify(input), result = projectTools(input, agent([]))
+  assert.ok(!result.tools.some(t => t.name === 'bash'))
+  assert.ok(result.tools.some(t => t.name === 'workflow_generate_video'))
+  assert.ok(result.tools.some(t => t.name === 'report'))
+  assert.ok(result.sections.some(s => s.name === 'plan:policy'))
+  assert.ok(!result.sections.some(s => s.name === 'tool:bash'))
+  assert.match(result.sections.at(-1).text, /shell/)
+  assert.equal(result.contexts, input.contexts)
+  assert.equal(JSON.stringify(input), before)
+})
+test('loads scoped tools with original guidance, resumes durably and isolates sessions', async () => {
+  const input = assembly(), loader = createToolDiscoveryTool({ tools: { schemas: () => input.tools.filter(t => t.name !== 'pwsh') } })
+  const value = await loader.execute({ groups: ['shell'] }, { agent: agent([]) })
+  assert.ok(value.loaded_tools.includes('bash'))
+  assert.ok(!value.loaded_tools.includes('pwsh'))
+  const result = projectTools(input, agent(JSON.parse(JSON.stringify(events(value.loaded_tools)))))
+  assert.equal(result.tools.find(t => t.name === 'bash'), input.tools.find(t => t.name === 'bash'))
+  assert.ok(result.sections.some(s => s.name === 'tool:jobs'))
+  assert.ok(!result.tools.some(t => t.name === 'read'))
+  assert.ok(!projectTools(input, agent([])).tools.some(t => t.name === 'bash'))
+})
+test('failed loads and user messages grant nothing; removed tools stay absent', () => {
+  const failed = events(['bash']); failed[1].data.message.content[0].isError = true
+  assert.equal(loadedToolNames(failed).size, 0)
+  assert.equal(loadedToolNames([{ type: 'user/message', data: { loaded_tools: ['bash'] } }]).size, 0)
+  const input = assembly(); input.tools = input.tools.filter(t => t.name !== 'bash')
+  assert.ok(!projectTools(input, agent(events(['bash']))).tools.some(t => t.name === 'bash'))
+})
+test('preserves standard and Code Mode protocols', () => {
+  const input = assembly(), standard = projectTools(input, { session: { header: { agentPreset: 'standard' } } })
+  assert.deepEqual(standard.tools, input.tools.filter(t => t.name !== 'elysium_load_tools'))
+  assert.equal(standard.sections, input.sections)
+  const code = { ...input, tools: [tool('run_code')] }
+  assert.deepEqual(projectTools(code, agent([])), code)
+})
+test('rejects invalid or unavailable loads', async () => {
+  const loader = createToolDiscoveryTool({ tools: { schemas: () => [] } })
+  for (const groups of [[], ['missing'], ['shell']]) await assert.rejects(loader.execute({ groups }, { agent: agent([]) }))
+  await assert.rejects(loader.execute({ groups: ['shell'] }, {}))
+})
+
+test('production wait returns final result without model polling and preserves failed status', async () => {
+  const { waitVideoJob } = await import('../src/workflows/workflow-generate-video.js')
+  const job = { job_id: 'a'.repeat(32) }
+  const sequence = [{ ...job, status: 'running' }, { ...job, status: 'succeeded', result: { path: '/final.mp4', validation: { full_decode: 'passed' } } }]
+  let sleeps = 0
+  const result = await waitVideoJob(job, undefined, async () => sequence.shift(), async () => { sleeps++ })
+  assert.equal(result.path, '/final.mp4'); assert.equal(sleeps, 1)
+  const failed = { ...job, status: 'failed', error_code: 'FAILED', retryable: false }
+  assert.equal(await waitVideoJob(job, undefined, async () => failed), failed)
+  const controller = new AbortController(); controller.abort()
+  await assert.rejects(waitVideoJob(job, controller.signal, async () => { throw new Error('must not read') }), /job_id: a{32}/)
+})

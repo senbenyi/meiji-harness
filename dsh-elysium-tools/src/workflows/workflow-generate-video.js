@@ -1,12 +1,29 @@
 import { startVideoJob, resumeVideoJob } from './video-jobs.js'
 import { renderToolDebug } from '../functions/common/tool.js'
+import { getJob, completedResult, MODEL_TIMEOUTS } from '../functions/common/task.js'
+import { setTimeout } from 'node:timers/promises'
+
+export async function waitVideoJob(job, signal, read = getJob, pause = setTimeout) {
+  try {
+    for (;;) {
+      signal?.throwIfAborted()
+      const current = await read(job.job_id)
+      if (current.status === 'succeeded') return completedResult(current)
+      if (current.status === 'failed') return current
+      await pause(2000, undefined, { signal })
+    }
+  } catch (error) {
+    throw new Error(`等待任务中断；job_id: ${job.job_id}；用 model_job_status 查询原任务，勿重新生成。${error.message}`, { cause: error })
+  }
+}
 
 const output = { schema: { type: 'object', properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
 
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '视频生产唯一入口：生成短片或连续长片，或复用已有片段合片。后台执行并返回任务 ID；用 model_job_status/model_job_result 查询，成片验证通过才成功。保留原音轨和规格，不自动补帧、超分或追加声音。',
+    description: '视频生产唯一入口：生成或合片，程序等待完成并返回成片与验证结果，无需轮询。中断后按原 job_id 查询。保留原音轨和规格。',
+    timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     parameters: { type: 'object', additionalProperties: false, properties: {
       duration: { type: 'integer', minimum: 1, description: '目标总秒数，最终按实际文件验收。' },
       prompts: { type: 'array', minItems: 1, items: { type: 'string' }, description: '新生成时按顺序填写；不超过15秒一条，长视频至少两条，每段1..15秒。' },
@@ -15,12 +32,19 @@ export function createWorkflowGenerateVideoTool() {
       video_paths: { type: 'array', minItems: 1, items: { type: 'string' }, description: '已有 MP4 按镜头顺序复用；不能与生成输入混用，不重新生成。' },
       seed: { type: 'integer', minimum: 0, maximum: 4294967295, description: '默认666。' },
     }, required: ['duration'] }, output,
-    execute: args => startVideoJob(args),
+    execute: async (args, exec) => {
+      exec?.signal?.throwIfAborted()
+      return waitVideoJob(await startVideoJob(args), exec?.signal)
+    },
   }
 }
 
 export function createWorkflowResumeVideoTool() {
   return { name: 'workflow_resume_video', description: '恢复原视频工作流，复用有效步骤，保留原输入和任务 ID；先查询失败原因。已成功或正在执行的任务不重复启动。',
     parameters: { type: 'object', additionalProperties: false, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
-    output, execute: args => resumeVideoJob(args.job_id) }
+    timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
+    output, execute: async (args, exec) => {
+      exec?.signal?.throwIfAborted()
+      return waitVideoJob(await resumeVideoJob(args.job_id), exec?.signal)
+    } }
 }

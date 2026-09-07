@@ -8,7 +8,7 @@
 
 - 可以直接说“调用 `工具名`……”，也可以只描述目标，让 Harness 选择工具。
 - `image_path`、`reference_path` 和 `video_path` 必须是服务器共享产物目录 `/root/autodl-fs/artifacts/` 内已有文件的绝对路径，不能传本机路径或网址。
-- 工作流后台执行，先返回 `job_id` 和 `queued`；查询成功后获取成片路径、文件大小、SHA-256 和验收结果。原子测试工具仍同步等待。
+- 工作流由独立进程执行，工具在程序内等待完成并返回 `job_id`、成片路径和验收结果；失败返回原因。等待中断不取消后台生产，用原任务 ID 查询或恢复，不重新提交。
 - `seed` 相同不保证不同模型或工作流版本产生完全相同的结果。
 
 ## 生产工具
@@ -223,3 +223,5 @@ dsh plugin --profile web add --workspace-root ./registry
 - `warnings` 明确元数据缺失、地址仅本机可用、探测失败或尺寸不符。`retryable` 为 null 表示尚不能判断；已有 prompt_id 时先查原任务，不自动整链重跑。
 
 工具返回摘要；`debug.diagnostic_path` 保留完整诊断快照，`debug.media_probe_path` 保留探测结果。只记录任务参数，不输出进程的完整环境变量。
+
+通用工具及其说明在极乐世界内通过 `elysium_load_tools` 按组加载，保留原注册和权限执行链，详见 [上下文说明](../docs/harness.md#上下文成本)。
