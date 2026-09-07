@@ -20,6 +20,10 @@ pnpm package:registry
 
 独立安装 `registry/`；工具插件部署脚本不负责部署本 UI。
 
+## 服务器部署
+
+在仓库根目录执行 `bash scripts/deploy_dsh_elysium_ui.sh`，发布到 `veo-comfyui` 并重启远端 Harness，访问本地隧道 `http://127.0.0.1:23080/`。媒体任务卡还需要最新工具插件；完整顺序、Python 环境和配置覆盖范围见 [部署说明](../docs/harness.md)。
+
 ## 本机部署
 
 在仓库根目录执行：

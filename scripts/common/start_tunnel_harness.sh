@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 # 本机浏览器入口；服务器重启后重新运行即可恢复通道。
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-runtime_settings="$(python3 "$REPO_ROOT/scripts/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
+runtime_settings="$("${PYTHON_BIN:-python3}" "$REPO_ROOT/scripts/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
 eval "$runtime_settings"
 target=veo-comfyui
 forward="127.0.0.1:$HARNESS_LOCAL_PORT:127.0.0.1:$HARNESS_WEB_PORT"

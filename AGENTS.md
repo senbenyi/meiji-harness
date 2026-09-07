@@ -29,8 +29,8 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 
 ## 部署与安全
 
-- 工具插件部署入口：`scripts/deploy_dsh_elysium_tools.sh`，目标服务器为 `ssh veo-comfyui`。
-- 部署先镜像同步 `.dsh/`、`config/`、`scripts/`，再本地构建并上传插件；安装、应用配置和重启在服务器执行。
+- 远程部署入口：`scripts/deploy_dsh_elysium_tools.sh` 和 `scripts/deploy_dsh_elysium_ui.sh`，目标服务器为 `ssh veo-comfyui`。
+- 部署先检查远端环境并完成本地测试、构建和打包，再镜像同步 `.dsh/`、`config/`、`scripts/` 和插件；安装、应用配置和重启在服务器执行。
 - `config/harness-settings.yaml` 管理运行设置，`config/harness-agent.md` 定义通用指令，`config/system-prompt.yaml` 定义系统提示词；任务操作细节放在技能中。
 - 构建、部署和重启按用户授权执行；镜像同步会删除远端对应目录中本地已移除的文件。
 - 区分测试、构建、部署与运行验收；未验证的链路不标记为可用。

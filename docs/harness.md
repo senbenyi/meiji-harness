@@ -21,15 +21,18 @@ bash scripts/common/start_harness.sh --stop
 
 启动时自动检查 Qwen API，必要时通过 `config/ssh_config` 中的 `veo-qwen38` 别名建立通道；使用服务器现有密钥和 `BatchMode=yes`，认证失败直接报错。
 
-从本仓库根目录发布工具插件：
+从本仓库根目录分别发布工具和 UI 插件（媒体任务卡需要两者）：
 
 ```bash
 bash scripts/deploy_dsh_elysium_tools.sh
+bash scripts/deploy_dsh_elysium_ui.sh
 ```
 
-先上传 `.dsh/`、`config/`、`scripts/`，再本地构建并上传产物。
-随后进入服务器部署目录，执行 `scripts/common/install_dsh_elysium_tools.sh`，完成注册、配置覆盖、重启和检查。
+两个入口共用 `scripts/common/deploy_plugin.sh`：先检查远端环境，完成本地依赖安装、测试、构建和打包，成功后再上传 `.dsh/`、`config/`、`scripts/` 与对应插件产物。镜像同步会删除目标目录中本地已移除的文件，但保留远端插件的 `node_modules` 依赖链接。
+随后自动调用服务器的 `scripts/common/install_plugin.sh tools|ui`，校验产物及依赖、注册插件、覆盖配置、重启和检查。每个入口单独发布一个插件并重启一次；UI 复用 Harness 已安装的宿主依赖，不上传 macOS 的 `node_modules`。
 最后在本机建立访问隧道，并检查 `http://127.0.0.1:23080/`。
+
+本机需要 Git、pnpm、rsync、SSH、curl、lsof 和安装了 PyYAML 的 Python；默认 `python3`，可通过 `PYTHON_BIN` 指定，例如 `PYTHON_BIN=/opt/miniconda3/bin/python3.13 bash scripts/deploy_dsh_elysium_ui.sh`。HTTP 检查不替代浏览器验收：发布后刷新页面，检查任务卡、视频播放与下载。只需本机实例时使用 [UI 本机部署](../dsh-elysium-ui/README.md#本机部署)。
 
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
 启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；项目指令发现沿用标准模式。
