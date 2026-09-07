@@ -2,11 +2,11 @@
 
 Harness 对话内媒体任务卡，以及设置 → 极乐世界 → 导演设置。
 
-- 启用开关控制导演管理界面的显示。
+- 启用开关控制导演管理界面和后续请求中的已保存导演目录。
 - 新增、修改、删除导演名称和提示词，点击保存后写入 Harness 原生设置。
 - 保存带版本检查；其他页面修改后需重新加载，避免覆盖。
-- 不注册聊天工具、生成接口、项目工作台或 ComfyUI 驱动；媒体状态和视频流由工具插件提供。
-- 导演提示词仅保存配置，当前不自动注入对话。
+- 仅注册只读工具 `elysium_read_director`，不注册生成接口、项目工作台或 ComfyUI 驱动；媒体状态和视频流由工具插件提供。
+- 宿主通过原生 `system-prompt/assemble` 向 `elysium` 提供导演 ID、名称和版本索引，不注入正文；长视频或连续剧创作选定后由AI按ID读取一个导演，版本未变且内容仍在上下文时复用。短视频直接生成不读取导演，长篇未指定导演时使用默认叙事方法。保存不调用模型、不生成视频；关闭或删除后读取失败，其他preset不暴露此工具。
 
 配置命名空间为 `dsh-elysium-ui`，字段为 `enabled` 和 `directors`。
 部署脚本完整覆盖 Harness 设置时，应在 `config/harness-settings.yaml` 中管理同名配置，否则界面保存值会被覆盖。
@@ -38,7 +38,7 @@ bash scripts/deploy_dsh_elysium_ui_local.sh
 
 ## 模块边界
 
-- `src/index.js`：宿主设置注册。
+- `src/index.js`：设置注册、Elysium 导演索引及只读加载工具。
 - `src/client/index.js`：浏览器插件入口，仅组合功能。
 - `src/client/settings/directors.js`：导演设置及原生设置版本冲突处理。
 - `src/client/media/api.js`：同源状态/媒体 URL 与 HTTP 读取。

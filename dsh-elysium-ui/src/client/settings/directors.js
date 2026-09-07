@@ -34,6 +34,7 @@ window.__ModuleLoader__.load({
       }
       return h('form', { onSubmit: save },
         h('h3', null, '导演设置'),
+        h('p', null, '短视频直接生成，无需导演。创作长视频或连续剧时，可说“使用××导演”。保存不会生成，修改用于后续创作。'),
         h('fieldset', { disabled: busy || !writable, style: { border: 0, padding: 0 } },
           directors.length ? null : h('p', null, '暂无导演'),
           ...directors.map(row => h('fieldset', { key: row.id, style: { marginBottom: 16 } },

@@ -8,7 +8,7 @@ import { bindVideoCall } from '../jobs/call-index.js'
 
 const stateRoot = process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/elysium-tools'
 const artifactsRoot = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects'
-const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', message, 422)
+const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 
 async function writeStatus(directory, value) {
   const path = join(directory, 'status.json')

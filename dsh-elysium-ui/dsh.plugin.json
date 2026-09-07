@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "极乐世界：媒体任务卡与导演设置",
   "main": "./lib/index.js",
+  "contributes": {
+    "tools": ["elysium_read_director"]
+  },
   "engines": {
     "dsh": ">=0.1.2-alpha.3"
   },

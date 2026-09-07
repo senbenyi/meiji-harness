@@ -96,6 +96,22 @@ test('refresh can recover a completed job even when the tool block is still runn
   try { assert.equal(f.view.root.findAllByType('video').length, 1); assert.equal(f.timers.size, 0) }
   finally { await f.close() }
 })
+test('new shot validation errors do not appear as running jobs', async () => {
+  const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] 镜头时长之和必须等于 duration' }] })
+  try {
+    assert.equal(f.view.root.findAllByType('section').length, 0)
+    assert.equal(f.requests.length, 0)
+    assert.equal(f.timers.size, 0)
+    assert.match(JSON.stringify(f.view.toJSON()), /未创建任务/)
+  } finally { await f.close() }
+})
+test('per-shot stages identify the current shot without claiming review passed', async () => {
+  const f = await fixture([{ status: 'running', stage: 's02:render' }])
+  try {
+    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /镜头 s02：整理镜头/)
+    assert.equal(f.view.root.findAllByType('video').length, 0)
+  } finally { await f.close() }
+})
 test('network interruption reconnects, whereas expired credentials stop polling', async () => {
   const f = await fixture([new Error('disconnected'), { httpError: 401, error: '请刷新页面' }])
   try {
