@@ -32,8 +32,18 @@ bash scripts/deploy_dsh_elysium_tools.sh
 最后在本机建立访问隧道，并检查 `http://127.0.0.1:23080/`。
 
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
-启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；关闭工作目录指令扫描。
+启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；项目指令发现沿用标准模式。
 新对话加载 Elysium preset 和上述指令；已有对话不自动切换 preset。
+
+### 极乐世界预设
+
+从服务器已安装版本的 `standard/agent.cordis.yml` 生成，保留标准模式的文件、Shell、检索、计划、目标、子代理、工作流及上下文管理配置。只覆盖 persona 与技能目录；通用工具以实际安装和会话权限为准。
+
+`harness-customization.agent.metadata` 生成 `$DSH_HOME/.agent-presets/elysium/preset.yml`，设置页显示“极乐世界”及短剧能力描述，预设 ID 仍为 `elysium`。生成器同时校验名称和描述，写入前生成全部配置，原文件保存为 `.previous`。
+
+创作由 `elysium-shot-design` 组织故事、角色、对白和分镜；制作由 `elysium-media-task` 组合现有媒体工具，复用素材并按任务 ID 续做。已授权制作不在创作阶段停下，咨询也不会直接触发生成。默认交付原片，声音、插帧和超分按需求追加；对白音频不代表已混音或对口型，未查看媒体不标记人工验收通过。
+
+本地配置回归：`python3 -m unittest discover -s tests -p 'test_harness_settings.py'`。发布后需核对设置页名称与描述、新会话标准工具及媒体工具清单、技能发现；生成链路另做授权验收。
 服务器重启后，可在本仓库单独恢复本地通道：`bash scripts/common/start_tunnel_harness.sh`。
 本地端口读取 `harness-runtime.HARNESS_LOCAL_PORT`，默认 `23080`。
 

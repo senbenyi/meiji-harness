@@ -1,6 +1,6 @@
 # dsh-elysium-tools
 
-独立的 DeepSeek Harness Function Call 工具插件。安装后可在 Harness 对话中用一句话调用图片、视频、对白和任务查询能力。
+极乐世界 AI 成人短剧的 DeepSeek Harness Function Call 工具插件。配合标准模式的文件、检索、计划和工作流能力，提供角色与场景图片、视频、对白、声音及任务查询。预设和创作流程见 [Harness 说明](../docs/harness.md#极乐世界预设)。
 
 调用链为 `Harness → dsh-elysium-tools → llm-ai-model/scripts/endpoint`，不依赖额外 HTTP 服务。
 
@@ -180,7 +180,7 @@
 `scripts/common/config_loader.py` 生成设置、profile、Agent preset 和项目指令。
 执行仓库根目录的 `bash scripts/deploy_dsh_elysium_tools.sh` 会同步配置和启动链路，
 在本地构建并上传产物，再于服务器目录执行 `scripts/common/install_dsh_elysium_tools.sh` 安装、重启与检查；启动前备份并完整覆盖配置，保留会话与项目数据。
-新对话加载默认 Agent 和 `harness-agent.md` 内容，不扫描工作目录指令；已有对话不自动切换 Agent。
+新对话加载默认 Agent 和 `harness-agent.md` 内容，项目指令发现沿用标准模式；已有对话不自动切换 Agent。
 
 ```sh
 pnpm install

@@ -4,7 +4,7 @@ import { completedModelTool } from '../common/tool.js'
 export function createModelGenerateImageTool() {
   return completedModelTool({
     name: 'model_generate_image',
-    description: '根据文本提示词生成图片，等待任务完成后返回产物路径。',
+    description: '根据文本生成角色设定图、场景图或短剧镜头首帧，等待完成后返回真实图片路径，可交给视频工具继续生成。此工具不接收参考图。',
     timeoutMs: MODEL_TIMEOUTS.image,
     parameters: {
       properties: {

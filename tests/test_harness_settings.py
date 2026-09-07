@@ -30,6 +30,8 @@ class HarnessSettingsTest(unittest.TestCase):
 - id: shell
   name: '@deepseek-ai/dsh-tool-bash'
   disabled: !!js process.platform === 'win32'
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
 """)
 
     def test_apply_replaces_configuration_and_preserves_session_data(self):
@@ -55,10 +57,12 @@ class HarnessSettingsTest(unittest.TestCase):
         tree = yaml.compose(preset.read_text())
         self.assertEqual(dict((k.value, v.value) for k, v in tree.value[0].value)["disabled"], "true")
         self.assertEqual(dict((k.value, v.tag) for k, v in tree.value[2].value)["disabled"], "tag:yaml.org,2002:js")
-        instruction_config = next(v for k, v in tree.value[1].value if k.value == "config")
-        candidates = {k.value: v.value for k, v in instruction_config.value}
-        self.assertEqual(candidates["instructionFileCandidates"], [])
-        self.assertEqual(candidates["localInstructionFileCandidates"], [])
+        source = self.root / "app/node_modules/@deepseek-ai/dsh/config/agent-presets/standard/agent.cordis.yml"
+        original = yaml.compose(source.read_text())
+        for index in (1, 2):
+            self.assertEqual(yaml.serialize(tree.value[index]), yaml.serialize(original.value[index]))
+        metadata = yaml.safe_load((preset.parent / "preset.yml").read_text())
+        self.assertEqual(metadata, yaml.safe_load(self.config.read_text())["harness-customization"]["agent"]["metadata"])
         expected = {p: p.read_bytes() for p in loader.harness_files(self.config, self.root)}
         loader.apply_harness(self.config, self.root)
         self.assertEqual(expected, {p: p.read_bytes() for p in expected})
@@ -95,6 +99,17 @@ class HarnessSettingsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             loader.apply_harness(invalid, self.root)
         self.assertFalse((self.root / "home").exists())
+
+    def test_invalid_metadata_fails_before_any_write(self):
+        for value in (None, {}, {"name": "极乐世界", "description": " "}):
+            with self.subTest(value=value):
+                data = yaml.safe_load(self.config.read_text())
+                data["harness-customization"]["agent"]["metadata"] = value
+                invalid = self.root / "invalid.yaml"
+                invalid.write_text(yaml.safe_dump(data))
+                with self.assertRaises(ValueError):
+                    loader.apply_harness(invalid, self.root)
+                self.assertFalse((self.root / "home").exists())
 
 
 if __name__ == "__main__":

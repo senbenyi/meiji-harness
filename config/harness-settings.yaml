@@ -85,6 +85,9 @@ harness-customization:
   # 基于安装版本的 standard 生成独立 preset；patch 按 id 替换对应字段。
   agent:
     base: standard
+    metadata:
+      name: 极乐世界
+      description: 基于标准模式，保留文件编辑、Shell、检索、Skills、计划、目标、子代理和工作流；专注 AI 成人短剧的剧本分镜、角色素材、视频、对白与声音制作及任务续做。
     patches:
       - id: skill-filesystem
         config:
@@ -93,10 +96,3 @@ harness-customization:
             - /root/autodl-tmp/project/harness/.dsh/skills
       - id: persona
         disabled: true # 使用 system-prompt.yaml，避免被 standard 遮蔽。
-      - id: agent-instructions
-        config:
-          maxBytes: 65536
-          projectRootMarkers: [.git]
-          # 仅加载由 harness-agent.md 生成的全局指令。
-          instructionFileCandidates: []
-          localInstructionFileCandidates: []

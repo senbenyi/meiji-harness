@@ -68,6 +68,10 @@ def harness_files(config, root):
             raise ValueError("Agent preset 名称无效")
     if preset == base:
         raise ValueError("自定义 preset 不能与内置 preset 同名")
+    metadata = agent["metadata"]
+    if not isinstance(metadata, dict) or any(not isinstance(metadata.get(key), str) or not metadata[key].strip()
+                                             for key in ("name", "description")):
+        raise ValueError("Agent metadata 必须包含非空 name 和 description")
     source = root / "app/node_modules/@deepseek-ai/dsh/config/agent-presets" / base / "agent.cordis.yml"
     tree = yaml.compose(source.read_text())
     if not isinstance(tree, yaml.SequenceNode):
@@ -97,6 +101,7 @@ def harness_files(config, root):
         home / "settings.yaml": output.getvalue(),
         home / "profiles/web/cordis.patch.yml": yaml.safe_dump(profile, allow_unicode=True, sort_keys=False),
         home / ".agent-presets" / preset / "agent.cordis.yml": yaml.serialize(tree, allow_unicode=True),
+        home / ".agent-presets" / preset / "preset.yml": yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False),
         home / "AGENTS.md": instructions,
     }
 

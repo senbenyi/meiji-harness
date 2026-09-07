@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-elysium-tools",
   "version": "0.4.0",
-  "description": "DeepSeek Harness function-call tools backed by llm-ai-model scripts.",
+  "description": "极乐世界 AI 成人短剧媒体工具，配合 DeepSeek Harness 标准模式完成素材生成、声音制作与任务续做。",
   "type": "module",
   "main": "lib/index.js",
   "engines": {
