@@ -28,8 +28,8 @@ bash scripts/deploy_dsh_elysium_tools.sh
 bash scripts/deploy_dsh_elysium_ui.sh
 ```
 
-两个入口共用 `scripts/common/deploy_plugin.sh`：先检查远端环境，完成本地依赖安装、测试、构建和打包，成功后再上传 `.dsh/`、`config/`、`scripts/` 与对应插件产物。镜像同步会删除目标目录中本地已移除的文件，但保留远端插件的 `node_modules` 依赖链接。
-随后自动调用服务器的 `scripts/common/install_plugin.sh tools|ui`，校验产物及依赖、注册插件、覆盖配置、重启和检查。每个入口单独发布一个插件并重启一次；UI 复用 Harness 已安装的宿主依赖，不上传 macOS 的 `node_modules`。
+两个入口共用 `scripts/common/deploy_plugin.sh`：先检查远端环境，完成本地依赖安装、测试、构建和打包，成功后再上传 `.dsh/`、`config/`、`scripts/` 与对应插件产物。镜像同步会删除目标目录中本地已移除的文件，但保留远端插件的 `node_modules`。
+随后自动调用服务器的 `scripts/common/install_plugin.sh tools|ui`，校验产物及依赖、注册插件、覆盖配置、重启和检查。每个入口单独发布一个插件并重启一次。声明了生产依赖的插件必须携带 `pnpm-lock.yaml`，服务器使用 pnpm 按锁文件安装生产依赖并禁用生命周期脚本，因此需要访问锁文件中的包下载地址。UI 不依赖宿主传递依赖的目录布局，也不上传 macOS 的 `node_modules`；旧版宿主依赖链接会被移除，仅删除链接本身。依赖安装或模块加载失败时不会继续注册和重启。
 最后在本机建立访问隧道，并检查 `http://127.0.0.1:23080/`。
 
 本机需要 Git、pnpm、rsync、SSH、curl、lsof 和安装了 PyYAML 的 Python；默认 `python3`，可通过 `PYTHON_BIN` 指定，例如 `PYTHON_BIN=/opt/miniconda3/bin/python3.13 bash scripts/deploy_dsh_elysium_ui.sh`。HTTP 检查不替代浏览器验收：发布后刷新页面，检查任务卡、视频播放与下载。只需本机实例时使用 [UI 本机部署](../dsh-elysium-ui/README.md#本机部署)。

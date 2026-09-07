@@ -13,13 +13,24 @@ export DSH_HOME="$HARNESS_ROOT/home"
 dsh="$HARNESS_ROOT/app/node_modules/.bin/dsh"
 plugin_dir="$HARNESS_ROOT/packages/dsh-elysium-$kind-registry"
 [[ -x "$dsh" ]] || fail 'Harness 尚未安装'
-[[ ! -e "$plugin_dir/node_modules" || -L "$plugin_dir/node_modules" ]] || fail '插件 node_modules 是真实目录，请先核对依赖布局'
 if [[ "${2:-}" == --prepare ]]; then
   install -d -m 0755 "$plugin_dir"
   exit 0
 fi
-# 复用已安装 Harness 的依赖（UI 的 schemastery），不上传本机 node_modules。
-ln -sfn "$HARNESS_ROOT/app/node_modules" "$plugin_dir/node_modules"
+# 迁移旧部署创建的宿主链接，只删除链接本身，保留宿主依赖。
+if [[ -L "$plugin_dir/node_modules" ]]; then
+  [[ "$(readlink "$plugin_dir/node_modules")" == "$HARNESS_ROOT/app/node_modules" ]] || fail '插件 node_modules 指向未知目录，请先核对'
+  unlink "$plugin_dir/node_modules"
+fi
+if node --input-type=module - "$plugin_dir/package.json" <<'JS'
+import { readFileSync } from 'node:fs'
+const pkg = JSON.parse(readFileSync(process.argv[2], 'utf8'))
+process.exit(Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).length ? 0 : 1)
+JS
+then
+  [[ -s "$plugin_dir/pnpm-lock.yaml" ]] || fail '插件生产依赖缺少 pnpm-lock.yaml，请重新打包部署'
+  (cd "$plugin_dir" && CI=true pnpm install --prod --frozen-lockfile --ignore-scripts)
+fi
 node --check "$plugin_dir/lib/index.js"
 while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$plugin_dir/lib" -type f -name '*.js' -print0)
 [[ "$kind" != ui || -s "$plugin_dir/lib/client.js" ]] || fail 'UI 浏览器产物缺失'

@@ -39,7 +39,7 @@ echo '[3/4] 上传配置、技能及插件'
 rsync -az --delete -e "${SSH[*]}" "$REPO_ROOT/.dsh/" "$TARGET:$PLUGINS_ROOT/.dsh/"
 rsync -az --delete --exclude='__pycache__/' -e "${SSH[*]}" "$REPO_ROOT/config" "$REPO_ROOT/scripts" "$TARGET:$PLUGINS_ROOT/"
 "${SSH[@]}" "$TARGET" "cd '$PLUGINS_ROOT' && bash scripts/common/install_plugin.sh '$kind' --prepare"
-# node_modules 是远端宿主依赖链接，不参与本机产物镜像。
+# node_modules 由远端安装器管理，不参与本机产物镜像。
 rsync -az --delete --exclude='node_modules' -e "${SSH[*]}" "$PACKAGE_ROOT/registry/" "$TARGET:$DEST/"
 
 echo '[4/4] 注册插件、应用配置并重启'
