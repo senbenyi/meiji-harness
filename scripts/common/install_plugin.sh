@@ -29,7 +29,14 @@ process.exit(Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).l
 JS
 then
   [[ -s "$plugin_dir/pnpm-lock.yaml" ]] || fail '插件生产依赖缺少 pnpm-lock.yaml，请重新打包部署'
-  (cd "$plugin_dir" && CI=true pnpm install --prod --frozen-lockfile --ignore-scripts)
+  (
+    cd "$plugin_dir"
+    # GPU 主机直接下载，避免继承登录环境中失效的本机代理；仅影响此子进程。
+    unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+    export NO_PROXY='*' no_proxy='*'
+    export npm_config_proxy='' npm_config_https_proxy='' NPM_CONFIG_PROXY='' NPM_CONFIG_HTTPS_PROXY=''
+    CI=true pnpm install --prod --frozen-lockfile --ignore-scripts
+  )
 fi
 node --check "$plugin_dir/lib/index.js"
 while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$plugin_dir/lib" -type f -name '*.js' -print0)

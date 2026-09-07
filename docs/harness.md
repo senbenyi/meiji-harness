@@ -34,6 +34,8 @@ bash scripts/deploy_dsh_elysium_ui.sh
 
 本机需要 Git、pnpm、rsync、SSH、curl、lsof 和安装了 PyYAML 的 Python；默认 `python3`，可通过 `PYTHON_BIN` 指定，例如 `PYTHON_BIN=/opt/miniconda3/bin/python3.13 bash scripts/deploy_dsh_elysium_ui.sh`。HTTP 检查不替代浏览器验收：发布后刷新页面，检查任务卡、视频播放与下载。只需本机实例时使用 [UI 本机部署](../dsh-elysium-ui/README.md#本机部署)。
 
+远端生产依赖安装使用直连，仅在安装子进程内清除代理环境并设置 `NO_PROXY=*`，避免继承失效的 `127.0.0.1:7890` 代理；不修改服务器全局代理或 Harness 运行环境。
+
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
 启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；项目指令发现沿用标准模式。
 新对话加载 Elysium preset 和上述指令；已有对话不自动切换 preset。

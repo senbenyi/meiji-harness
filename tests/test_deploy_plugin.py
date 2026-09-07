@@ -138,6 +138,22 @@ echo 'module.exports = {}' > node_modules/schemastery/index.js''')
         self.assertFalse((plugin / 'node_modules').is_symlink())
         self.assertFalse((host_modules / 'schemastery').exists())
 
+    def test_dependency_download_does_not_inherit_dead_proxy(self):
+        plugin, _ = self.prepare_installer()
+        (plugin / 'pnpm-lock.yaml').write_text('fixture')
+        for key in ('http_proxy', 'https_proxy', 'all_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY',
+                    'npm_config_proxy', 'npm_config_https_proxy', 'NPM_CONFIG_PROXY', 'NPM_CONFIG_HTTPS_PROXY'):
+            self.env[key] = 'http://127.0.0.1:7890'
+        self.mock('pnpm', '''
+for key in http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY; do
+  [[ -z "${!key:-}" ]] || exit 99
+done
+[[ "$NO_PROXY" == '*' && "$no_proxy" == '*' ]] || exit 98
+exit 9''')
+        result = self.run_installer()
+        self.assertEqual(result.returncode, 9, result.stderr)
+        self.assertFalse(self.log.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
