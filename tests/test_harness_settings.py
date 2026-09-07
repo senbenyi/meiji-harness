@@ -34,6 +34,22 @@ class HarnessSettingsTest(unittest.TestCase):
   name: '@deepseek-ai/dsh-skill-filesystem'
 """)
 
+        # Include actual standard entry IDs; preserve unrelated tagged entries above.
+        with source.open("a") as f:
+            for entry in ("tool-bash", "tool-pwsh", "tool-fs", "tool-fs-search", "tool-jobs", "tool-goal", "planning", "delegation", "tool-todo", "compaction", "tool-skill", "tool-ask-user", "tool-web"):
+                f.write(f"- id: {entry}\n  name: fixture-{entry}\n")
+
+    def test_elysium_preserves_general_tools_and_context_services(self):
+        files = loader.harness_files(self.config, self.root)
+        target = self.root / "home/.agent-presets/elysium/agent.cordis.yml"
+        tree = yaml.compose(files[target])
+        entries = {dict((k.value, v.value) for k, v in row.value)["id"]:
+                   dict((k.value, v.value) for k, v in row.value) for row in tree.value}
+        for entry in ("tool-bash", "tool-pwsh", "tool-fs", "tool-fs-search", "tool-jobs", "tool-goal", "planning", "delegation", "tool-todo"):
+            self.assertNotIn("disabled", entries[entry])
+        for entry in ("compaction", "tool-skill", "tool-ask-user", "tool-web"):
+            self.assertNotIn("disabled", entries[entry])
+
     def test_apply_replaces_configuration_and_preserves_session_data(self):
         home = self.root / "home"
         home.mkdir()

@@ -8,7 +8,7 @@ export function createModelJobStatusTool() {
     parameters: {
       type: 'object',
       additionalProperties: false,
-      properties: { job_id: { type: 'string', description: '32 位任务 ID。' } },
+      properties: { job_id: { type: 'string', description: '32 位任务 ID。' }, detail: { type: 'boolean', description: '仅排错时返回完整诊断，默认 false。' } },
       required: ['job_id'],
     },
     output: {

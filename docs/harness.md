@@ -37,13 +37,13 @@ bash scripts/deploy_dsh_elysium_tools.sh
 
 ### 极乐世界预设
 
-从服务器已安装版本的 `standard/agent.cordis.yml` 生成，保留标准模式的文件、Shell、检索、计划、目标、子代理、工作流及上下文管理配置。只覆盖 persona 与技能目录；通用工具以实际安装和会话权限为准。
+从服务器已安装版本的 `standard/agent.cordis.yml` 生成极乐世界自定义预设，完整保留文件、Shell、检索、计划、目标、子代理、通用工作流及上下文管理。仅覆盖身份和技能目录；通用任务与媒体生产均在极乐世界中完成，无需切换预设。
 
 `harness-customization.agent.metadata` 生成 `$DSH_HOME/.agent-presets/elysium/preset.yml`，设置页显示“极乐世界”及短剧能力描述，预设 ID 仍为 `elysium`。生成器同时校验名称和描述，写入前生成全部配置，原文件保存为 `.previous`。
 
-创作由 `elysium-shot-design` 组织故事、角色、对白和分镜；制作由 `elysium-media-task` 整理输入并提交视频工作流，复用素材并按任务 ID 续做。已授权制作不在创作阶段停下，咨询也不会直接触发生成。默认交付原片，声音、插帧和超分按需求追加；对白音频不代表已混音或对口型，未查看媒体不标记人工验收通过。
+仅复杂创作加载 `elysium-shot-design`；媒体生产直接按工具参数提交、复用和续做，无独立生产 Skill。已授权制作不在创作阶段停下，咨询也不会直接触发生成。默认交付原片，声音、插帧和超分按需求追加；对白音频不代表已混音或对口型，未查看媒体不标记人工验收通过。
 
-本地配置回归：`python3 -m unittest discover -s tests -p 'test_harness_settings.py'`。发布后需核对设置页名称与描述、新会话标准工具及媒体工具清单、技能发现；生成链路另做授权验收。
+本地配置回归：`python3 -m unittest discover -s tests -p 'test_harness_settings.py'`。发布后需核对设置页名称与描述、新会话通用工具及媒体工具清单、技能发现；生成链路另做授权验收。
 服务器重启后，可在本仓库单独恢复本地通道：`bash scripts/common/start_tunnel_harness.sh`。
 本地端口读取 `harness-runtime.HARNESS_LOCAL_PORT`，默认 `23080`。
 
@@ -61,3 +61,11 @@ ssh veo-comfyui 'jq .contributes.tools /root/autodl-tmp/wan22-harness/home/profi
 ```
 
 撤销插件变更时，使用已知可用版本重新发布，分别验证 Harness 与 ComfyUI；不删除模型。
+
+### 上下文成本
+
+采用 [OpenAI function calling 建议](https://developers.openai.com/api/docs/guides/function-calling)：减少首轮工具、保留简洁明确的参数、将固定流程交给代码。当前 Qwen 的 Chat Completions 路由不添加 Responses 专用 `tool_search` / `defer_loading` 字段；本版保留通用工具，先精简自定义重复指令、Skill 和结果输出；未实现动态工具搜索。
+
+极乐世界继承的通用工具不因 token 优化而禁用；默认媒体插件仍只开放四个生产工具。工具目录规模仍需在同一预设内通过 Harness 支持的按需发现机制优化，不能直接添加不兼容的 API 参数。部署后以新会话 request/header 核对工具与上下文，不使用删减能力时得到的7工具或86.1%字符降幅作为验收结果。
+
+任务结果默认渲染紧凑摘要，不重复请求输入或整条诊断链；状态/结果工具的 `detail: true` 保留完整诊断。原始状态文件与产物不裁剪。发布后用同一短视频请求比较首轮输入、未缓存输入、cacheReadTokens、输出与模型调用轮数；字符统计只能衡量上下文体积，不能代替模型 tokenizer 或实测 token。缓存读取与未缓存输入分开报告。

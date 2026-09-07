@@ -87,7 +87,7 @@ harness-customization:
     base: standard
     metadata:
       name: 极乐世界
-      description: 基于标准模式，保留文件编辑、Shell、检索、Skills、计划、目标、子代理和工作流；专注 AI 成人短剧的剧本分镜、角色素材、视频、对白与声音制作及任务续做。
+      description: 保留完整通用能力的 AI 短剧助手：文件、Shell、检索、计划、目标、子代理、创作及媒体工作流。
     patches:
       - id: skill-filesystem
         config:

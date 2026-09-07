@@ -1,11 +1,17 @@
 import { withToolContext } from './task.js'
 
 export const renderToolDebug = (args, value) => {
-  const output = value.debug ? { ...value, debug: { ...value.debug,
-    chain: value.debug.chain?.map(({ stage, span_id, timestamp, capability, provider, prompt_id, executor }) =>
-      ({ stage, span_id, timestamp, capability, provider, prompt_id, executor })),
-  } } : value
-  return [{ type: 'text', text: JSON.stringify({ input: args, output }, null, 2) }]
+  if (args.detail === true) return [{ type: 'text', text: JSON.stringify(value) }]
+  const keys = ['job_id', 'status', 'stage', 'path', 'size_bytes', 'sha256', 'media_info', 'validation',
+    'warnings', 'error_code', 'error', 'failed_stage', 'retryable', 'retry_scope']
+  const output = Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
+  if (value.workflow && typeof value.workflow === 'object') output.progress = { stage: value.workflow.stage, status: value.workflow.status }
+  if (value.debug) {
+    output.diagnostic_path = value.debug.diagnostic_path
+    output.log_path = value.debug.log_path
+    if (value.debug.node_errors?.length) output.node_errors = value.debug.node_errors
+  }
+  return [{ type: 'text', text: JSON.stringify(output) }]
 }
 
 export const COMPLETED_RESULT_SCHEMA = {
