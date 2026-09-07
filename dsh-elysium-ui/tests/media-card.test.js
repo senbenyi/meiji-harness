@@ -43,25 +43,52 @@ test('same card progresses to playable result and stops polling', async () => {
     job_id: 'a', media_info: { duration_seconds: 8, width: 640, height: 384, frame_rate: 24 }, validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' } }])
   try {
     assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /生成视频/)
+    assert.equal(f.view.root.findAllByType('video').length, 0)
+    assert.equal(f.view.root.findByProps({ role: 'progressbar' }).props['aria-label'], '视频生成中')
+    assert.equal(f.view.root.findAllByType('animateTransform').length, 1)
     await f.tick()
     const video = f.view.root.findByType('video')
+    assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
     assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(video.props.controls, true)
     assert.ok(!video.props.src.includes('3080'))
-    assert.match(f.view.root.findByType('a').props.href, /download=1/)
+    assert.equal(f.view.root.findAllByType('a').length, 0)
     assert.equal(f.timers.size, 0)
     assert.match(JSON.stringify(f.view.toJSON()), /尚未人工验收/)
     assert.equal(f.requests.length, 2)
   } finally { await f.close() }
 })
 
-test('completed card plays and opens the ComfyUI tunnel URL directly', async () => {
-  const url = 'http://127.0.0.1:6016/view?filename=final.mp4&subfolder=elysium/test&type=output'
+test('completed card plays below task details without a separate link', async () => {
+  const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
   const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
   try {
     assert.equal(f.view.root.findByType('video').props.src, url)
-    assert.equal(f.view.root.findByType('a').props.href, url)
+    assert.equal(f.view.root.findAllByType('a').length, 0)
+    const children = f.view.root.findByType('section').children
+    assert.ok(children.findIndex(child => child.type === 'video') > children.findIndex(child => child.type === 'details'))
     assert.equal(f.timers.size, 0)
+  } finally { await f.close() }
+})
+
+test('a completed tool result plays without polling the media service', async () => {
+  const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&type=output'
+  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
+  try {
+    assert.equal(f.view.root.findByType('video').props.src, url)
+    assert.equal(f.requests.length, 0)
+    assert.equal(f.timers.size, 0)
+  } finally { await f.close() }
+})
+
+test('rejected arguments show a compact record without a task card or polling', async () => {
+  const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: 短视频一条提示词；长视频至少两条且每段 1..15 秒' }] })
+  try {
+    assert.equal(f.view.root.findAllByType('section').length, 0)
+    assert.equal(f.view.root.findByType('summary').children.join(''), '视频参数校验未通过（未创建任务）')
+    assert.equal(f.requests.length, 0)
+    assert.equal(f.timers.size, 0)
+    assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
   } finally { await f.close() }
 })
 test('refresh can recover a completed job even when the tool block is still running', async () => {

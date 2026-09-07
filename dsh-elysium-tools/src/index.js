@@ -19,7 +19,7 @@ export function createComfyuiTools() {
 }
 
 export function apply(ctx) {
-  registerMediaRoutes(ctx)
+  ctx.inject(['webServer'], mediaContext => registerMediaRoutes(mediaContext))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => projectTools(await next(), context.agent))
   const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools().filter(tool =>
     process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' || ['model_job_status', 'model_job_result'].includes(tool.name)),

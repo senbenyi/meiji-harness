@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { createReadStream } from 'node:fs'
 import { copyFile, mkdir, realpath, rename, stat, unlink } from 'node:fs/promises'
 import { isAbsolute, join, relative } from 'node:path'
 
@@ -15,9 +16,24 @@ export async function publishVideo(job, {
   if (!rel || rel.startsWith('..') || isAbsolute(rel) || !source.endsWith('.mp4')) throw new Error('Invalid final video path')
   const info = await stat(source)
   if (!info.isFile() || !info.size || info.size !== job.result.size_bytes) throw new Error('Invalid final video size')
-  const url = new URL('view', publicUrl.replace(/\/?$/, '/'))
+  const url = new URL('api/view', publicUrl.replace(/\/?$/, '/'))
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid ComfyUI public URL')
-  const subfolder = `elysium/${job.job_id}`, filename = `${job.result.sha256}.mp4`
+  let subfolder = `elysium/${job.job_id}`, filename = `${job.result.sha256}.mp4`
+  // Single-shot finals can reuse the exact ComfyUI output; never substitute a clip for a composed final.
+  for (const artifact of job.result.comfyui_artifacts || []) {
+    if (artifact.type !== 'output' || !artifact.filename?.endsWith('.mp4') || artifact.server_url !== 'http://127.0.0.1:6016') continue
+    const candidate = join(outputRoot, artifact.subfolder || '', artifact.filename)
+    const candidateRel = relative(outputRoot, candidate)
+    if (candidateRel.startsWith('..') || isAbsolute(candidateRel)) continue
+    const candidateInfo = await stat(candidate).catch(error => { if (error.code !== 'ENOENT') throw error })
+    if (!candidateInfo?.isFile() || candidateInfo.size !== info.size) continue
+    const hash = createHash('sha256')
+    for await (const chunk of createReadStream(candidate)) hash.update(chunk)
+    if (hash.digest('hex') !== job.result.sha256) continue
+    subfolder = artifact.subfolder || ''
+    filename = artifact.filename
+    break
+  }
   const directory = join(outputRoot, subfolder), target = join(directory, filename)
   const existing = await stat(target).catch(error => { if (error.code !== 'ENOENT') throw error })
   if (!existing?.isFile() || existing.size !== info.size) {
@@ -28,7 +44,7 @@ export async function publishVideo(job, {
       await rename(temporary, target)
     } finally { await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error }) }
   }
-  url.search = new URLSearchParams({ filename, subfolder, type: 'output' }).toString()
+  url.search = new URLSearchParams({ filename, type: 'output', subfolder, format: 'video/mp4' }).toString()
   job.result.comfyui_view_url = url.href
   job.result.comfyui_metadata_status = 'published-final'
 }

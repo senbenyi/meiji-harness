@@ -6,6 +6,24 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createMediaHandler, byteRange } from '../src/http/media-jobs.js'
 import { bindVideoCall, findVideoCall } from '../src/jobs/call-index.js'
+import { apply } from '../src/index.js'
+
+test('media routes wait for webServer and inject browser configuration when it becomes available', () => {
+  let activate
+  apply({ on() {}, tools: { register() {} }, inject(dependencies, callback) {
+    assert.deepEqual(dependencies, ['webServer'])
+    activate = callback
+  } })
+  const routes = [], listeners = new Map()
+  activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
+    on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video'])
+  const rows = []
+  listeners.get('webserver/index-inject')(rows)
+  assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
+  assert.equal(rows[0].value.base, '/plugins/dsh-elysium/media')
+  assert.ok(rows[0].value.token)
+})
 
 test('call mapping survives reads and never uses an arbitrary client job/path', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-index-')), previous = process.env.ELYSIUM_TOOLS_STATE_ROOT

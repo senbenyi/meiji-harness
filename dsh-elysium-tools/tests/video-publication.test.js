@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
@@ -19,7 +19,8 @@ test('publish final movie for ComfyUI and expose one URL without server paths; r
     await publishVideo(job, options)
     const url = new URL(job.result.comfyui_view_url)
     assert.equal(url.origin, 'http://127.0.0.1:6016')
-    assert.equal(url.pathname, '/view')
+    assert.equal(url.pathname, '/api/view')
+    assert.equal(url.searchParams.get('format'), 'video/mp4')
     assert.equal(url.searchParams.get('type'), 'output')
     const target = join(options.outputRoot, url.searchParams.get('subfolder'), url.searchParams.get('filename'))
     assert.equal(await readFile(target, 'utf8'), content)
@@ -33,6 +34,16 @@ test('publish final movie for ComfyUI and expose one URL without server paths; r
     assert.equal(JSON.parse(renderToolDebug({}, job)[0].text).comfyui_view_url, url.href)
     assert.equal(JSON.parse(renderToolDebug({}, job)[0].text).path, undefined)
     assert.equal(jobSummary(job).comfyui_view_url, url.href)
+    const originalFolder = `minimax-h3/jobs/${job.job_id}`
+    await mkdir(join(options.outputRoot, originalFolder), { recursive: true })
+    await writeFile(join(options.outputRoot, originalFolder, 't2va_00001_audio.mp4'), content)
+    job.result.comfyui_artifacts = [{ server_url: 'http://127.0.0.1:6016', type: 'output', filename: 't2va_00001_audio.mp4', subfolder: originalFolder }]
+    await publishVideo(job, options)
+    assert.equal(new URL(job.result.comfyui_view_url).searchParams.get('filename'), 't2va_00001_audio.mp4')
+    assert.equal(new URL(job.result.comfyui_view_url).searchParams.get('subfolder'), originalFolder)
+    await writeFile(join(options.outputRoot, originalFolder, 't2va_00001_audio.mp4'), 'x'.repeat(content.length))
+    await publishVideo(job, options)
+    assert.equal(job.result.comfyui_view_url, url.href) // Same-sized intermediate footage is not the final movie.
     await assert.rejects(publishVideo({ ...job, job_id: '../escape' }, options), /identity/)
     await assert.rejects(publishVideo({ ...job, result: { ...job.result, size_bytes: 1 } }, options), /size/)
   } finally { await rm(root, { recursive: true, force: true }) }

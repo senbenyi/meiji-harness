@@ -43,7 +43,7 @@ bash scripts/deploy_dsh_elysium_ui_local.sh
 - `src/client/settings/directors.js`：导演设置及原生设置版本冲突处理。
 - `src/client/media/api.js`：同源状态/媒体 URL 与 HTTP 读取。
 - `src/client/media/model.js`：工具结果兼容解析与阶段文案。
-- `src/client/media/card.js`：原生 `tool.call.toolview` 卡片、轮询生命周期、播放器及打开视频链接。
+- `src/client/media/card.js`：原生 `tool.call.toolview` 卡片、轮询生命周期、卡片内播放器。
 - `scripts/client-source.mjs`：声明模块顺序，测试与构建共用；React 由宿主提供，避免再引入框架副本。
 
 构建将浏览器模块合并到兼容原发布入口的 `lib/client.js`。业务卡片只注册视频创建/恢复工具，不接管整个聊天流、上下文注入或其他工具卡片。复用宿主会话与调用 ID，不在浏览器重建工具调用拓扑。导演设置仍独立工作；媒体接口不可用时卡片显示连接错误。
@@ -54,7 +54,7 @@ bash scripts/deploy_dsh_elysium_ui_local.sh
 
 卡片每3秒读取状态；网络失败退避到最多30秒；完成/失败停止轮询；卸载中止请求并清理计时器。刷新/回到原对话后重新查询持久关联。运行态只显示真实阶段，不编造百分比。服务器重启后页面凭据失效会要求刷新。旧完成调用可从宿主已加载的原会话工具结果找回任务 ID。
 
-视频优先使用 tools 返回的 `comfyui_view_url`，默认经本机 6016 隧道直连 ComfyUI `/view`；播放器与打开视频使用同一地址，无需公网。tools 将最终成片发布到 ComfyUI 输出目录，内部文件路径不进入默认交付。旧版 tools 的同源视频接口保留兼容，支持 Range 与 HEAD。访问边界沿用单用户 Harness 与 ComfyUI 隧道，不提供多租户权限管理。
+视频优先使用 tools 返回的 `comfyui_view_url`，默认经本机 6016 隧道直连 ComfyUI `/api/view`；播放器放在任务详情下方，不展示独立链接，无需公网。tools 将最终成片发布到 ComfyUI 输出目录，内部文件路径不进入默认交付。旧版 tools 的同源视频接口保留兼容，支持 Range 与 HEAD。访问边界沿用单用户 Harness 与 ComfyUI 隧道，不提供多租户权限管理。
 
 第一版不增加 GPU 生成调用，不自动恢复失败任务，不提供未实现的取消按钮。失败展示原因并保留执行记录；关闭浏览器后后台生产继续，返回后刷新卡片，未实现操作系统/站外完成通知。停止模型等待也不等于取消 GPU 任务。
 

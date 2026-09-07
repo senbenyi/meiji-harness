@@ -9,7 +9,14 @@ window.__ModuleLoader__.load({
           if (result.job_id && result.status) return result
         } catch { /* The generic result remains available in details. */ }
       }
-      if (block?.isError) return { status: 'interrupted' }
+      if (block?.isError) {
+        const error = (block.content || []).filter(item => item.type === 'text').map(item => item.text).join('\n')
+        // These validation errors occur before startVideoJob creates any job or worker.
+        if (/短视频一条提示词|包含未支持的工作流参数|duration 必须为正整数|提供非空分镜提示词|已有视频列表不能为空|长视频需要首帧/.test(error)) {
+          return { status: 'rejected', error }
+        }
+        return { status: 'interrupted' }
+      }
       return { status: 'pending' }
     }
     const stages = { queued: '排队中', generate: '生成视频', image: '生成首帧', finalize: '整理并检查成片', completed: '已完成' }

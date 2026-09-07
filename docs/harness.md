@@ -39,7 +39,9 @@ bash scripts/deploy_dsh_elysium_ui.sh
 UI 包声明 `dsh.client` 时必须通过 `exports["./client"]` 导出浏览器入口，同时保留服务端根入口和 `./package.json` 导出供 Harness 解析。缺少客户端导出会导致整个 Harness 启动失败；部署前的 UI 测试覆盖这三个入口的解析。
 浏览器 bundle 必须通过 `__ModuleLoader__.load` 注册与 `package.json.name` 完全一致的模块名（包括 `@`）；设置与媒体卡测试均从该包名加载入口，避免内部模块测试通过但插件无法激活。
 
-成片播放通过 ComfyUI 隧道：视频工作流将验证后的最终 MP4 原子复制到 MiniMax H3 的 `output/elysium/<job_id>/<sha256>.mp4`，返回 `comfyui_view_url`，默认 `http://127.0.0.1:6016/view?...&type=output`。用户须保持本机 6016 隧道连接；此 URL 面向用户浏览器，不是服务器回连地址。可用 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 和 `MINIMAX_H3_COMFYUI_OUTPUT_ROOT` 覆盖浏览器地址及服务器输出目录。工具默认结果不展示成片文件路径或成功任务日志路径；内部路径保留用于恢复和诊断。任务卡播放、打开视频和回复链接使用同一 URL。查询已有成功视频任务时会按需发布原成片，无需重新生成；这会额外保存一份最终 MP4。发布需同时部署 tools、UI 和配置，历史回复中的旧链接不会自动改写。
+媒体 HTTP 路由通过 `ctx.inject(['webServer'], ...)` 等待宿主服务后注册，同时注入页面配置；不能在插件启动时读不到服务就永久跳过。短视频参数校验失败、尚未创建任务时，只显示折叠的提交记录，不渲染任务卡或轮询。实际任务生成中显示视频占位框、加载动画和“拼命加载中”，完成后原位替换播放器；失败或连接异常停止加载展示。
+
+成片在任务卡“任务详情”下方直接播放，生成时同位置显示加载框；回复不再展示独立链接。播放地址使用 ComfyUI 的 `/api/view` 和真实 `filename`、`subfolder`、`type=output`、`format=video/mp4`。单镜头输出与最终成片大小及 SHA-256 一致时直接复用原 ComfyUI 文件；合片或无匹配文件时发布最终 MP4 到 `output/elysium/<job_id>/<sha256>.mp4`。默认浏览器地址为 `http://127.0.0.1:6016`，用户须保持该隧道连接；可用 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 和 `MINIMAX_H3_COMFYUI_OUTPUT_ROOT` 覆盖地址及输出目录。内部路径保留用于恢复与诊断，已有成功任务查询时可复用原片补全地址。需同时部署 tools、UI 和配置，旧回复不会自动改写。
 
 启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
 启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；项目指令发现沿用标准模式。
