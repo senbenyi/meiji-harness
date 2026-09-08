@@ -22,14 +22,14 @@ pnpm package:registry
 
 ## 服务器部署
 
-在仓库根目录执行 `bash scripts/deploy_dsh_elysium_ui.sh`，发布到 `veo-comfyui` 并重启远端 Harness，访问本地隧道 `http://127.0.0.1:23080/`。媒体任务卡还需要最新工具插件；完整顺序、Python 环境和配置覆盖范围见 [部署说明](../docs/harness.md)。
+在仓库根目录执行 `bash app/deploy_dsh_elysium_ui.sh`，发布到 `veo-comfyui` 并重启远端 Harness，访问本地隧道 `http://127.0.0.1:23080/`。媒体任务卡还需要最新工具插件；完整顺序、Python 环境和配置覆盖范围见 [部署说明](../docs/harness.md)。
 
 ## 本机部署
 
 在仓库根目录执行：
 
 ```sh
-bash scripts/deploy_dsh_elysium_ui_local.sh
+bash app/deploy_dsh_elysium_ui_local.sh
 ```
 
 需要 Node.js 20+、pnpm 和已安装的 `dsh`。脚本依次安装依赖、测试、构建、打包，注册到本机 `web` profile，重启本机 Harness 并检查 HTTP。默认使用 `~/.dsh`，可通过绝对路径 `DSH_HOME` 指定已有 Harness 配置目录；保留现有设置。

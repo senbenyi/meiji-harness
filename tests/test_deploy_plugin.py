@@ -22,19 +22,19 @@ class DeployPluginTests(unittest.TestCase):
                         DEPLOY_TEST_ROOT=str(self.root), DEPLOY_TEST_LOG=str(self.log))
         for name in ("deploy_dsh_elysium_tools.sh", "deploy_dsh_elysium_ui.sh",
                      "common/deploy_plugin.sh"):
-            dest = self.root / "scripts" / name
+            dest = self.root / "app" / name
             dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(SOURCE / "scripts" / name, dest)
+            shutil.copyfile(SOURCE / "app" / name, dest)
         for name in ("config/harness-settings.yaml", "config/harness-agent.md",
                      "config/system-prompt.yaml", "config/ssh_config",
-                     "scripts/common/config_loader.py", "scripts/common/install_plugin.sh",
-                     "scripts/common/start_harness.sh", "scripts/common/start_tunnel_qwen.sh",
+                     "app/common/config_loader.py", "app/common/install_plugin.sh",
+                     "app/common/start_harness.sh", "app/common/start_tunnel_qwen.sh",
                      "dsh-elysium-ui/package.json", "dsh-elysium-tools/package.json"):
             file = self.root / name
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text("fixture\n")
         (self.root / ".dsh").mkdir()
-        (self.root / "scripts/common/start_tunnel_harness.sh").write_text(
+        (self.root / "app/common/start_tunnel_harness.sh").write_text(
             'echo "tunnel $PYTHON_BIN" >> "$DEPLOY_TEST_LOG"\n')
         self.mock("git", 'echo "$DEPLOY_TEST_ROOT"')
         self.mock("fixture-python", "printf '%s\\n' HARNESS_ROOT=/remote/harness PLUGINS_ROOT=/remote/plugins HARNESS_LOCAL_PORT=23080")
@@ -50,7 +50,7 @@ class DeployPluginTests(unittest.TestCase):
         file.chmod(0o755)
 
     def run_deploy(self, kind, *args):
-        return subprocess.run(["bash", str(self.root / f"scripts/deploy_dsh_elysium_{kind}.sh"), *args],
+        return subprocess.run(["bash", str(self.root / f"app/deploy_dsh_elysium_{kind}.sh"), *args],
                               env=self.env, capture_output=True, text=True)
 
     def test_both_entries_build_before_upload_and_preserve_remote_dependencies(self):
@@ -83,7 +83,7 @@ class DeployPluginTests(unittest.TestCase):
         self.assertFalse(self.log.exists())
 
     def prepare_installer(self):
-        shutil.copyfile(SOURCE / 'scripts/common/install_plugin.sh', self.root / 'scripts/common/install_plugin.sh')
+        shutil.copyfile(SOURCE / 'app/common/install_plugin.sh', self.root / 'app/common/install_plugin.sh')
         harness = self.root / 'harness'
         runtime = harness / 'runtime/node-v24.20.0-linux-x64/bin'
         runtime.mkdir(parents=True)
@@ -103,7 +103,7 @@ class DeployPluginTests(unittest.TestCase):
         return plugin, host_modules
 
     def run_installer(self):
-        return subprocess.run(['bash', str(self.root / 'scripts/common/install_plugin.sh'), 'ui'],
+        return subprocess.run(['bash', str(self.root / 'app/common/install_plugin.sh'), 'ui'],
                               env=self.env, capture_output=True, text=True)
 
     def test_installer_removes_only_old_link_and_requires_lock(self):

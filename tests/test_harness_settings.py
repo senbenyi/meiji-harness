@@ -8,7 +8,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("config_loader", ROOT / "scripts/common/config_loader.py")
+spec = importlib.util.spec_from_file_location("config_loader", ROOT / "app/common/config_loader.py")
 loader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(loader)
 
@@ -88,7 +88,7 @@ class HarnessSettingsTest(unittest.TestCase):
         self.assertFalse((self.root / "home").exists())
 
     def test_default_config_path_from_other_working_directory(self):
-        subprocess.run([sys.executable, str(ROOT / "scripts/common/config_loader.py"),
+        subprocess.run([sys.executable, str(ROOT / "app/common/config_loader.py"),
                         "check", "--harness-root", str(self.root)],
                        cwd=self.root, check=True, stdout=subprocess.DEVNULL)
         self.assertFalse((self.root / "home").exists())

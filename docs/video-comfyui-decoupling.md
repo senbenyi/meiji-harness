@@ -30,7 +30,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 在 `dsh-elysium-tools` 运行 `pnpm test`、`pnpm build`、`pnpm package:registry`（构建与测试串行）。测试包含：原图导出一致性、时间基准、镜头连线、模拟 HTTP 生命周期、丢响应恢复、终止失败后显式重试，以及模型仓库路径不存在时的生产调用。模拟 HTTP 不等于真实节点执行；真实 ComfyUI 与媒体验收单独记录。
 
-本次不接入 SwarmUI，不变更 6006，不部署节点，不自动重启服务器。插件构建产物需要按现有部署流程安装后，Harness 服务才使用新版本。
+本次不接入 SwarmUI，不变更 6006 实例，不部署节点。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
 
 ## C-MMH3-18 适配
 
@@ -46,4 +46,6 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 - 文生一秒 + 末帧续拍一秒：`prompt_id=0b4283aa-6484-4056-b382-570d99404e60`。两秒成片 480×854、30fps、H.264/AAC，完整解码通过；SHA-256 `9cf13a02688d62bfc622963b4682c2293fc8cb767204b393a371b33015d9ec7f`。
 - 补齐逐镜输出后的有声/无声混合素材裁剪合片：`prompt_id=12755c8c-ffb9-48c8-b426-e26fe5d3e4fd`。两秒成片及两个独立一秒镜头均经 HTTP 取回；独立音视频时长、规格及完整解码通过；SHA-256 `4285cfe3214914bafa4605d680306500a1f3de44521eb7750a85719988d02946`。
 - 测试进程 `LLM_AI_MODEL_ROOT` 指向不存在的目录，未挂载服务器目录，通过临时 SSH HTTP 转发访问。该转发不是永久服务入口。
-- 以上不代表 Harness 已安装新版插件、内容审片、长片规模或 SwarmUI 验收。
+- 新版插件安装后直接调用 Harness profile 中的工具包：`LLM_AI_MODEL_ROOT` 指向不存在的目录，复用素材的一秒任务 `prompt_id=68761a35-e3e4-4b0a-a52e-e8f98b631acc` 成功；逐镜与成片下载、独立音视频时长、规格及完整解码通过，恢复调用保持原任务 ID。部署时 50 项测试通过，Harness 3080 与现有本地 23080 入口均返回 HTTP 200。部署脚本最后新建隧道步骤因 23080 已占用退出；现有 SSH 隧道继续使用。
+- 本地旧工作流目录及对应编排测试已删除；导出器迁至 `scripts/comfyui/export_h3_api.py`。旧 `app/start_comfyui.sh` 已删除，启动入口继续调用 `start_comfyui_minimax.sh`。
+- 以上不代表 Harness 自然语言对话、内容审片、长片规模或 SwarmUI 验收。

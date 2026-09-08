@@ -9,7 +9,7 @@
 | [`config/harness-agent.md`](../config/harness-agent.md) | 对话指令 |
 | [`config/ssh_config`](../config/ssh_config) | Qwen 服务器 SSH 配置 |
 | [`.dsh/skills/`](../.dsh/skills) | 按需加载的创作技能 |
-| [`scripts/common/config_loader.py`](../scripts/common/config_loader.py) | 配置解析与应用 |
+| [`app/common/config_loader.py`](../app/common/config_loader.py) | 配置解析与应用 |
 
 服务器部署目录：`/root/autodl-tmp/project/harness`。
 远端 `127.0.0.1:3080`；本地隧道 `127.0.0.1:23080`。
@@ -17,9 +17,9 @@
 ## 服务管理
 
 ```bash
-bash scripts/common/start_harness.sh            # 启动
-bash scripts/common/start_harness.sh --restart   # 重启
-bash scripts/common/start_harness.sh --stop      # 停止
+bash app/common/start_harness.sh            # 启动
+bash app/common/start_harness.sh --restart   # 重启
+bash app/common/start_harness.sh --stop      # 停止
 ```
 
 启动时检查 Qwen API，必要时通过 `config/ssh_config` 建立隧道；使用服务器现有密钥和 `BatchMode=yes`。
@@ -31,11 +31,11 @@ Qwen 隧道脚本重复执行会复用健康通道；重建前先验证 SSH 和�
 从仓库根目录分别发布工具和 UI 插件：
 
 ```bash
-bash scripts/deploy_dsh_elysium_tools.sh
-bash scripts/deploy_dsh_elysium_ui.sh
+bash app/deploy_dsh_elysium_tools.sh
+bash app/deploy_dsh_elysium_ui.sh
 ```
 
-流程：检查远端环境 → 本地安装、测试、构建、打包 → 镜像同步 `.dsh/`、`config/`、`scripts/` 和插件产物 → 服务器安装、注册、覆盖配置、重启 → 本机建隧道并检查。
+流程：检查远端环境 → 本地安装、测试、构建、打包 → 镜像同步 `.dsh/`、`config/`、`app/` 和插件产物 → 服务器安装、注册、覆盖配置、重启 → 本机建隧道并检查。
 
 镜像同步删除远端已移除文件，保留 `node_modules`。声明生产依赖的插件须携带 `pnpm-lock.yaml`；服务器用 pnpm 按锁文件安装并禁用生命周期脚本。依赖安装或模块加载失败时不继续注册和重启。
 
@@ -43,9 +43,9 @@ bash scripts/deploy_dsh_elysium_ui.sh
 
 本机需要：Git、pnpm、rsync、SSH、curl、lsof、Python 3 + PyYAML。可通过 `PYTHON_BIN` 指定 Python 路径。
 
-恢复本地隧道：`bash scripts/common/start_tunnel_harness.sh`，端口读取 `harness-runtime.HARNESS_LOCAL_PORT`。
+恢复本地隧道：`bash app/common/start_tunnel_harness.sh`，端口读取 `harness-runtime.HARNESS_LOCAL_PORT`。
 
-独立隧道入口：`bash scripts/start_tunnel_harness.sh [SSH目标]`（从 `llm-ai-brain/app/` 迁入），默认连接 `veo-comfyui`，映射本地 `23080` 到远端 `3080`；可用 `WAN22_HARNESS_LOCAL_PORT`、`WAN22_HARNESS_PORT` 覆盖端口。
+独立隧道入口：`bash app/open_tunnel_harness.sh [SSH目标]`（从 `llm-ai-brain/app/` 迁入），默认连接 `veo-comfyui`，映射本地 `23080` 到远端 `3080`；可用 `WAN22_HARNESS_LOCAL_PORT`、`WAN22_HARNESS_PORT` 覆盖端口。
 
 ## 极乐世界预设
 
