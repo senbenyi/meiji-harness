@@ -44,7 +44,10 @@ export function comfyuiTaskTool(action, description) {
         return { ok: true, prompt_id: args.prompt_id, server: args.server,
           status: history?.status?.status_str === 'error' ? 'failed' : history?.status?.completed ? 'succeeded'
             : running ? 'running' : pending ? 'queued' : 'not_found',
-          ...(action === 'result' ? { history } : { messages: history?.status?.messages || [] }) }
+          ...(action === 'result' ? { history, artifacts: Object.entries(history?.outputs || {}).flatMap(([node, output]) =>
+            Object.values(output).flat().filter(file => file?.filename && file.type === 'output').map((file, index) => ({
+              ...file, artifact_id: `${args.prompt_id}:${node}:${index}`, view_url: client.viewUrl(file),
+            }))) } : { messages: history?.status?.messages || [] }) }
       } catch (error) {
         return { ok: false, error: { type: error.code || 'COMFYUI_REQUEST_FAILED', message: error.message } }
       }

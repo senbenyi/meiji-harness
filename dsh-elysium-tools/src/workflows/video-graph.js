@@ -115,12 +115,15 @@ export function buildVideoGraph(plan, media, templates, jobId, settings = VIDEO_
     const rendered = join(frames, p + 'frames_', 'ImageBatch')
     previous = frames.at(-1)
     allImages.push(rendered)
-    const silence = add(p + 'silence', 'EmptyAudio', { duration: shot.duration, sample_rate: 48000, channels: 2 })
+    const silence = add(p + 'silence', 'EmptyAudio', { duration: shot.duration + (audio ? start : 0), sample_rate: 48000, channels: 2 })
     if (audio) {
       audio = add(p + 'audio_pad', 'AudioConcat', { audio1: audio, audio2: silence, direction: 'after' })
       audio = add(p + 'audio_trim', 'TrimAudioDuration', { audio, start_index: start, duration: shot.duration })
     } else audio = silence
     allAudio.push(audio)
+    graph[p + 'save'] = structuredClone(templates.text.save_video)
+    Object.assign(graph[p + 'save'].inputs, { images: rendered, audio, frame_rate: settings.outputFps,
+      filename_prefix: `elysium/${jobId}/shots/${shot.id}` })
   }
   const output = structuredClone(templates.text.save_video)
   Object.assign(output.inputs, { images: join(allImages, 'concat_video_', 'ImageBatch'),

@@ -81,6 +81,17 @@ test('invalid generation plans fail before a background task starts', async () =
   }
 })
 
+test('an audio tail cannot make a mismatched video pass the container-duration check', { skip: !available }, async () => {
+  const clip = join(artifacts, 'audio-tail.mp4')
+  await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
+  backend.controls.audioTail = 0.3
+  try {
+    const result = await generate.execute({ duration: 1, video_paths: [clip] })
+    assert.equal(result.status, 'failed')
+    assert.match(result.error, /规格验证/)
+  } finally { backend.controls.audioTail = 0 }
+})
+
 test('three five-second shots preserve their contract and validate references before generation', async () => {
   const image = join(artifacts, 'character.png')
   const audio = join(artifacts, 'voice.wav')
@@ -128,6 +139,10 @@ test('shot reuse renders mixed frame rates and audio layouts through the HTTP ta
   assert.ok(Math.abs(Number(audio.duration) - Number(video.duration)) < 0.1)
   assert.equal(result.validation.human_review, 'not_run')
   assert.deepEqual(result.shots.map(s => s.id), ['selected-a', 'selected-b'])
+  for (const shot of result.shots) {
+    assert.ok((await stat(shot.path)).size > 0)
+    assert.equal(new URL(shot.comfyui_view_url).origin, backend.url)
+  }
   const report = JSON.parse(await readFile(`${result.path}.validation.json`, 'utf8'))
   assert.deepEqual(report.shots.map(s => s.id), ['selected-a', 'selected-b'])
 })

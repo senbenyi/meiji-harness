@@ -82,9 +82,14 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     await client.download(descriptor, candidate)
     const inspection = await inspectMedia(candidate, join(directory, 'media-probe.json'))
     const m = inspection.media_info, settings = prepared.settings
+    const measured = await readJson(join(directory, 'media-probe.json'))
+    const videoDuration = Number(measured?.streams?.find(s => s.codec_type === 'video')?.duration)
+    const audioDuration = Number(measured?.streams?.find(s => s.codec_type === 'audio')?.duration)
     if (!m || m.width !== settings.outputWidth || m.height !== settings.outputHeight ||
         Math.abs(m.frame_rate - settings.outputFps) > 0.001 || m.video_codec !== 'h264' ||
-        !m.has_audio || Math.abs(m.duration_seconds - plan.duration) > Math.max(0.5, prepared.shots.length * 0.05)) {
+        !m.has_audio || m.audio_codec !== 'aac' || !Number.isFinite(videoDuration) || !Number.isFinite(audioDuration) ||
+        Math.abs(audioDuration - videoDuration) > 0.15 ||
+        Math.abs(videoDuration - plan.duration) > Math.max(0.5, prepared.shots.length * 0.05)) {
       throw new Error('成片未通过时长、画幅、帧率或音视频规格验证')
     }
     // Local binaries only verify the downloaded artifact; generation/editing run in ComfyUI.
@@ -94,11 +99,20 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     const sha256 = await digest(output), size = (await stat(output)).size
     const viewUrl = client.viewUrl(descriptor, process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL || client.url.href)
     const artifact = { ...descriptor, server_url: client.url.href, prompt_id: promptId, view_url: viewUrl, local_path: output }
+    const shots = []
+    for (const [index, shot] of prepared.shots.entries()) {
+      const file = Object.values(history.outputs?.[`s${index}_save`] || {}).flat().find(v => v?.filename?.endsWith('.mp4') && v.type === 'output')
+      if (!file) throw new Error(`缺少镜头 ${shot.id} 的可复用产物`)
+      const path = join(artifactsRoot, `production-${jobId}`, 'shots', `${shot.id}.mp4`)
+      await client.download(file, path)
+      shots.push({ id: shot.id, duration: shot.duration, path,
+        comfyui_view_url: client.viewUrl(file, process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL || client.url.href) })
+    }
     status.result = { path: output, size_bytes: size, sha256, media_info: m,
       validation: { file_exists: 'passed', nonempty: 'passed', media_probe: 'passed', full_decode: 'passed',
         specification_match: 'passed', human_review: 'not_run' },
-      shots: prepared.shots.map(s => ({ id: s.id, duration: s.duration })), warnings: [],
-      comfyui_prompt_id: promptId, comfyui_artifact_id: `${promptId}:final`, comfyui_view_url: viewUrl,
+      shots, warnings: [],
+      comfyui_prompt_id: promptId, comfyui_artifact_id: createHash('sha256').update(JSON.stringify([client.url.href, promptId, 'final', descriptor])).digest('hex'), comfyui_view_url: viewUrl,
       comfyui_metadata_status: 'comfyui-final', comfyui_artifacts: [artifact] }
     status.status = 'succeeded'
     status.stage = 'completed'

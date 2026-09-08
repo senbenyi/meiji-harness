@@ -7,6 +7,7 @@ import { join } from 'node:path'
 // Protocol fixture, not a substitute for a real ComfyUI graph execution test.
 export async function mockComfy(directory) {
   const history = {}, prompts = []
+  const controls = { audioTail: 0 }
   const schemas = JSON.parse(await readFile(new URL('./comfy-schema.json', import.meta.url), 'utf8'))
   const server = createServer(async (req, res) => {
     try {
@@ -27,12 +28,19 @@ export async function mockComfy(directory) {
         prompts.push(request)
         const count = ([node]) => graph[node].class_type === 'ImageBatch'
           ? count(graph[node].inputs.image1) + count(graph[node].inputs.image2) : graph[node].inputs.length
-        const fps = graph.final.inputs.frame_rate, duration = count(graph.final.inputs.images) / fps
-        const path = join(directory, `${id}.mp4`)
-        await promisify(execFile)('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `color=c=blue:s=480x854:r=${fps}:d=${duration}`,
-          '-f', 'lavfi', '-i', `sine=frequency=440:duration=${duration}`, '-c:v', 'libx264', '-c:a', 'aac', '-y', path])
+        const outputs = {}
+        for (const [nodeId, node] of Object.entries(graph)) {
+          if (node.class_type !== 'DaSiWa_EnhancedVideoCombine') continue
+          const fps = node.inputs.frame_rate, duration = count(node.inputs.images) / fps
+          const filename = `${id}-${duration}.mp4`, path = join(directory, filename)
+          if (!Object.values(outputs).some(o => o.videos[0].filename === filename)) {
+            await promisify(execFile)('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `color=c=blue:s=480x854:r=${fps}:d=${duration}`,
+              '-f', 'lavfi', '-i', `sine=frequency=440:duration=${duration + controls.audioTail}`, '-c:v', 'libx264', '-c:a', 'aac', '-y', path])
+          }
+          outputs[nodeId] = { videos: [{ filename, subfolder: '', type: 'output' }] }
+        }
         history[id] = { prompt: [0, id, graph, request.extra_data], status: { status_str: 'success', completed: true },
-          outputs: { final: { videos: [{ filename: `${id}.mp4`, subfolder: '', type: 'output' }] } } }
+          outputs }
         res.end(JSON.stringify({ prompt_id: id })); return
       }
       if (url.pathname === '/history') { res.end(JSON.stringify(history)); return }
@@ -45,6 +53,6 @@ export async function mockComfy(directory) {
     } catch (error) { res.writeHead(500).end(JSON.stringify({ error: error.message })) }
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  return { url: `http://127.0.0.1:${server.address().port}`, prompts,
+  return { url: `http://127.0.0.1:${server.address().port}`, prompts, controls,
     close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections() }) }
 }

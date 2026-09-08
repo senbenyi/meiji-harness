@@ -2,12 +2,12 @@
 
 极乐世界 AI 成人短剧的 DeepSeek Harness Function Call 工具插件。配合标准模式的文件、检索、计划和工作流能力，提供角色与场景图片、视频、对白、声音及任务查询。预设和创作流程见 [Harness 说明](../docs/harness.md#极乐世界预设)。
 
-生产调用链为 `Harness → workflow_generate_video → scripts/workflow/generate_video.sh → endpoint → factory`，不依赖额外 HTTP 服务。
+生产调用链为 `Harness → workflow_generate_video → ComfyUI HTTP → C-MMH3-18 兼容 API 图`。工作流随插件打包，运行时不读取模型项目脚本。配置、恢复语义与适配边界见 [解耦说明](../docs/video-comfyui-decoupling.md)。
 
 ## 使用前说明
 
 - 可以直接说“调用 `工具名`……”，也可以只描述目标，让 Harness 选择工具。
-- `image_path`、`reference_path` 和 `video_path` 必须是服务器共享产物目录 `/root/autodl-fs/artifacts/` 内已有文件的绝对路径，不能传本机路径或网址。
+- 生产工具素材路径必须是 Harness 本机 `ARTIFACTS_ROOT` 内已有文件的绝对路径；插件通过 HTTP 上传到 ComfyUI，无需挂载远端目录。旧原子测试工具仍按各自共享路径要求执行。
 - 工作流由独立进程执行，工具在程序内等待完成并返回 `job_id`、成片路径和验收结果；失败返回原因。等待中断不取消后台生产，用原任务 ID 查询或恢复，不重新提交。
 - `seed` 相同不保证不同模型或工作流版本产生完全相同的结果。
 
@@ -17,13 +17,13 @@
 
 `workflow_generate_video` 必填目标总秒数 `duration`。多镜头优先提供有序 `shots`，每镜有唯一 `id`、整数秒 `duration`、完整 `prompt`（reuse除外），总时长严格求和。15秒三个镜头须保留三个5秒镜头，不能压成单镜头。`mode` 支持 `independent`（默认，文生或起始图）、`reference`（图/视频/音频参考）、`continue`（前镜裁剪后末帧续拍）、`reuse`（已有视频，可指定剪辑起点 `in_point`）。生成镜头每段1..15秒；素材分别用 `image_path`、`video_path`、`audio_path` 绑定到镜头。reference当前每类最多一个文件；声音参考不承诺口型准确。
 
-`shots` 不能与旧参数混用。旧 `prompts` 兼容单镜头及明确的连续长镜头，长镜头另需 `image_path` 或 `image_prompt`。旧 `video_paths` 保留按序合片。H3原生24 fps生成，最终统一480×854、30 fps、H.264；异规格来源先转换后拼接，声音统一AAC/48kHz/双声道，无声镜头补静音。H3与Wan原子入口保持各自模型帧率，生产规划固定H3路径。
+`shots` 不能与旧参数混用。旧 `prompts` 兼容单镜头及明确的连续长镜头，长镜头另需 `image_path` 或 `image_prompt`。旧 `video_paths` 保留按序合片。H3原生24 fps生成，最终统一480×854、30 fps、H.264；异规格来源先转换后拼接，声音使用AAC、双声道并对齐镜头时长，无声镜头补静音。H3与Wan原子入口保持各自模型帧率，生产规划固定H3路径。
 
-查询使用原 `job_id`。失败原因处理后，调用 `workflow_resume_video(job_id)` 复用原输入与有效镜头步骤。原输入、参考素材内容或运行规格变化须创建新任务。返回的 `shots` 包含镜号、时长与素材路径；新任务可混用生成与reuse镜头，只重做人工未采用部分。缺少明确存活进程但仍有锁时报告需运维核对，不自动重提GPU任务。额外配音、混音、字幕、运动插帧和超分未自动加入生产；内容完全由人工审片，生成成功不等于作品通过。
+查询使用原 `job_id`。失败原因处理后，调用 `workflow_resume_video(job_id)` 复用原输入及 ComfyUI 提交记录；下载/验收失败不重生成，确认执行失败才重新提交，节点缓存复用取决于 ComfyUI 状态。原输入、参考素材内容或运行规格变化须创建新任务。返回的 `shots` 包含镜号、时长与素材路径；新任务可混用生成与reuse镜头，只重做人工未采用部分。缺少明确存活进程但仍有锁时报告需运维核对，不自动重提GPU任务。额外配音、混音、字幕、运动插帧和超分未自动加入生产；内容完全由人工审片，生成成功不等于作品通过。
 
 ## 原子测试工具
 
-以下能力工具与 endpoint 一一对应；生产工作流内部复用这些入口，生产会话不直接调用。
+以下旧原子测试工具仍与 endpoint 一一对应；新的生产工作流不再调用这些入口。
 
 | 工具 | Endpoint |
 |---|---|
@@ -39,18 +39,18 @@
 
 ### ComfyUI 任务管理
 
-| 工具 | `scripts/comfyui/` 入口 |
+| 工具 | HTTP 接口 |
 |---|---|
-| `comfyui_task_queue` | `task_queue.sh` |
-| `comfyui_task_status` | `task_status.sh` |
-| `comfyui_task_result` | `task_result.sh` |
-| `comfyui_task_cancel` | `task_cancel.sh` |
+| `comfyui_task_queue` | `/queue` |
+| `comfyui_task_status` | `/queue`、`/history/{prompt_id}` |
+| `comfyui_task_result` | `/history/{prompt_id}` |
+| `comfyui_task_cancel` | `/queue` 定向删除 |
 
-必填 `server: production|minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址由模型项目 `config/comfyui.yaml` 读取。
+必填 `server: production|minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址读取 `COMFYUI_URL` 或 `MINIMAX_H3_COMFYUI_URL`。
 
 取消仅针对排队任务；运行中的任务不会全局中断。产物返回派生 ID 与访问 URL，不代表媒体已验收。实例本机 URL 不保证客户端可访问。
 
-部署需同时更新模型项目的脚本与配置，以及工具插件；仅更新插件不能补齐服务器脚本。
+生产链路只需更新工具插件并配置 ComfyUI 地址；旧原子测试工具仍依赖模型项目部署。
 
 ### `model_generate_image`
 
@@ -184,7 +184,7 @@
 - `src/functions/comfyui/`：ComfyUI 队列、任务状态、结果和取消。
 - `src/functions/common/`：任务执行、结果封装和诊断，不注册工具。
 - `src/functions/index.js`：模型工具汇总与导出。
-- `src/workflows/`：保留内部工作流执行器，不向 Harness 注册。
+- `src/workflows/`：生产工具、后台任务、标准 ComfyUI 图编译与 HTTP 执行。
 - `src/index.js`：插件身份、导出和注册。
 
 ## 安装
