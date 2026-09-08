@@ -1,5 +1,3 @@
-import { registerProjectRoutes } from './projects/http.js'
-import { createSaveBriefTool, projectContext } from './projects/store.js'
 import { createModelTools } from './functions/index.js'
 import { createWorkflowTools } from './workflows/index.js'
 import { createComfyuiTaskQueueTool } from './functions/comfyui/task-queue.js'
@@ -21,10 +19,9 @@ export function createComfyuiTools() {
 }
 
 export function apply(ctx) {
-  ctx.inject(['webServer', 'apiProxy'], projectContext => registerProjectRoutes(projectContext))
   ctx.inject(['webServer'], mediaContext => registerMediaRoutes(mediaContext))
-  ctx.on('system-prompt/assemble', async (_assembly, context, next) => projectContext(projectTools(await next(), context.agent), context.agent))
-  const tools = [createSaveBriefTool(), createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools().filter(tool =>
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => projectTools(await next(), context.agent))
+  const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools().filter(tool =>
     process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' || ['model_job_status', 'model_job_result'].includes(tool.name)),
     ...(process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]
   for (const tool of tools) {

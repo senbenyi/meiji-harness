@@ -80,7 +80,3 @@ python3 -m unittest discover -s tests -p 'test_harness_settings.py'
 ssh veo-comfyui 'curl -fsS http://127.0.0.1:3080/ >/dev/null'
 ssh veo-comfyui 'jq .contributes.tools /root/autodl-tmp/wan22-harness/home/profiles/web/node_modules/@dsh-external/dsh-elysium-tools/dsh.plugin.json'
 ```
-
-## 短剧项目
-
-单用户实例支持“一项目一部短剧、一个主创作会话”。侧边栏“我的短剧”创建和打开项目，创作会话中管理素材、制作记录与已采用成片。目录、删除语义及运行验收见 [短剧项目](drama-projects.md)。

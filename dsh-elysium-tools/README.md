@@ -4,8 +4,6 @@
 
 生产调用链为 `Harness → workflow_generate_video → scripts/workflow/generate_video.sh → endpoint → factory`，不依赖额外 HTTP 服务。
 
-单用户短剧项目通过宿主 HTTP 接口管理，项目内提供 `drama_save_brief` 保存已定要求；会话、任务与成片关联见 [短剧项目](../docs/drama-projects.md)。
-
 ## 使用前说明
 
 - 可以直接说“调用 `工具名`……”，也可以只描述目标，让 Harness 选择工具。
@@ -15,7 +13,7 @@
 
 ## 生产工具
 
-默认生产与查询工具为 `workflow_generate_video`、`workflow_resume_video`、`model_job_status`、`model_job_result`。服务端显式设置 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 时才额外注册下方原子与 ComfyUI 工具，仅供测试；模型不能通过工具参数打开该开关。
+默认只注册 `workflow_generate_video`、`workflow_resume_video`、`model_job_status`、`model_job_result`。服务端显式设置 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 时才额外注册下方原子与 ComfyUI 工具，仅供测试；模型不能通过工具参数打开该开关。
 
 `workflow_generate_video` 必填目标总秒数 `duration`。多镜头优先提供有序 `shots`，每镜有唯一 `id`、整数秒 `duration`、完整 `prompt`（reuse除外），总时长严格求和。15秒三个镜头须保留三个5秒镜头，不能压成单镜头。`mode` 支持 `independent`（默认，文生或起始图）、`reference`（图/视频/音频参考）、`continue`（前镜裁剪后末帧续拍）、`reuse`（已有视频，可指定剪辑起点 `in_point`）。生成镜头每段1..15秒；素材分别用 `image_path`、`video_path`、`audio_path` 绑定到镜头。reference当前每类最多一个文件；声音参考不承诺口型准确。
 

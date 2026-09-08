@@ -1,4 +1,3 @@
-import { bindProjectJob, assertProjectJob, sessionProject } from '../projects/store.js'
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { mkdir, open, readFile, realpath, stat, writeFile, unlink, rename } from 'node:fs/promises'
@@ -81,19 +80,16 @@ async function validateShots(shots, duration) {
 }
 
 export async function startVideoJob(args, exec) {
-  await sessionProject(exec?.agent?.session)
   await validateVideoPlan(args)
   const jobId = randomBytes(16).toString('hex')
   const directory = join(stateRoot, 'jobs', jobId)
   await mkdir(join(directory, 'input'), { recursive: true })
   await writeFile(join(directory, 'input/request.json'), JSON.stringify(args), { mode: 0o600 })
-  await bindProjectJob(jobId, exec, args)
   await bindVideoCall(jobId, exec)
   return launch(jobId)
 }
 
 export async function resumeVideoJob(jobId, exec) {
-  await assertProjectJob(jobId, exec)
   const job = await getJob(jobId)
   if (job.capability !== 'workflow-video') throw invalid('只能恢复视频工作流；原子产物请按顺序导入新工作流')
   await bindVideoCall(jobId, exec)

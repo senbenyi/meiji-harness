@@ -4,7 +4,6 @@ window.__ModuleLoader__.load({
     apply(ctx) {
       require('elysium-ui/settings').apply(ctx)
       require('elysium-ui/media-card').apply(ctx)
-      require('elysium-ui/projects').apply(ctx)
     },
   }),
 })
