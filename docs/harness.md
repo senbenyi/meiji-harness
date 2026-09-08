@@ -1,99 +1,82 @@
 # Harness 运行
 
-- 配置：[`config/harness-settings.yaml`](../config/harness-settings.yaml)。
-- 系统提示词：[`config/system-prompt.yaml`](../config/system-prompt.yaml)。
-- 对话指令：[`config/harness-agent.md`](../config/harness-agent.md)。
-- 解析器：[`scripts/common/config_loader.py`](../scripts/common/config_loader.py)。
-- 技能：[.dsh/skills](../.dsh/skills)，随项目部署。
-- 服务器部署与对话工作目录：`/root/autodl-tmp/project/harness`。
-- 服务：远端 `127.0.0.1:3080`；本地隧道 `127.0.0.1:23080`。
+## 配置文件
 
-部署要求服务器已安装 Harness；本项目独立同步配置、启动脚本和技能。
-安装目录、部署目录、对话工作目录与共享输入目录均读取 `harness-runtime`。
+| 文件 | 用途 |
+|---|---|
+| [`config/harness-settings.yaml`](../config/harness-settings.yaml) | 运行参数、模型、UI、Agent preset |
+| [`config/system-prompt.yaml`](../config/system-prompt.yaml) | 系统提示词 persona |
+| [`config/harness-agent.md`](../config/harness-agent.md) | 对话指令 |
+| [`config/ssh_config`](../config/ssh_config) | Qwen 服务器 SSH 配置 |
+| [`.dsh/skills/`](../.dsh/skills) | 按需加载的创作技能 |
+| [`scripts/common/config_loader.py`](../scripts/common/config_loader.py) | 配置解析与应用 |
 
-在服务器脚本目录执行：
+服务器部署目录：`/root/autodl-tmp/project/harness`。
+远端 `127.0.0.1:3080`；本地隧道 `127.0.0.1:23080`。
+
+## 服务管理
 
 ```bash
-bash scripts/common/start_harness.sh
-bash scripts/common/start_harness.sh --restart
-bash scripts/common/start_harness.sh --stop
+bash scripts/common/start_harness.sh            # 启动
+bash scripts/common/start_harness.sh --restart   # 重启
+bash scripts/common/start_harness.sh --stop      # 停止
 ```
 
-启动时自动检查 Qwen API，必要时通过 `config/ssh_config` 中的 `veo-qwen38` 别名建立通道；使用服务器现有密钥和 `BatchMode=yes`，认证失败直接报错。
+启动时检查 Qwen API，必要时通过 `config/ssh_config` 建立隧道；使用服务器现有密钥和 `BatchMode=yes`。
 
-从本仓库根目录分别发布工具和 UI 插件（媒体任务卡需要两者）：
+## 部署
+
+从仓库根目录分别发布工具和 UI 插件：
 
 ```bash
 bash scripts/deploy_dsh_elysium_tools.sh
 bash scripts/deploy_dsh_elysium_ui.sh
 ```
 
-两个入口共用 `scripts/common/deploy_plugin.sh`：先检查远端环境，完成本地依赖安装、测试、构建和打包，成功后再上传 `.dsh/`、`config/`、`scripts/` 与对应插件产物。镜像同步会删除目标目录中本地已移除的文件，但保留远端插件的 `node_modules`。
-随后自动调用服务器的 `scripts/common/install_plugin.sh tools|ui`，校验产物及依赖、注册插件、覆盖配置、重启和检查。每个入口单独发布一个插件并重启一次。声明了生产依赖的插件必须携带 `pnpm-lock.yaml`，服务器使用 pnpm 按锁文件安装生产依赖并禁用生命周期脚本，因此需要访问锁文件中的包下载地址。UI 不依赖宿主传递依赖的目录布局，也不上传 macOS 的 `node_modules`；旧版宿主依赖链接会被移除，仅删除链接本身。依赖安装或模块加载失败时不会继续注册和重启。
-最后在本机建立访问隧道，并检查 `http://127.0.0.1:23080/`。
+流程：检查远端环境 → 本地安装、测试、构建、打包 → 镜像同步 `.dsh/`、`config/`、`scripts/` 和插件产物 → 服务器安装、注册、覆盖配置、重启 → 本机建隧道并检查。
 
-本机需要 Git、pnpm、rsync、SSH、curl、lsof 和安装了 PyYAML 的 Python；默认 `python3`，可通过 `PYTHON_BIN` 指定，例如 `PYTHON_BIN=/opt/miniconda3/bin/python3.13 bash scripts/deploy_dsh_elysium_ui.sh`。HTTP 检查不替代浏览器验收：发布后刷新页面，检查任务卡、视频播放与下载。只需本机实例时使用 [UI 本机部署](../dsh-elysium-ui/README.md#本机部署)。
+镜像同步删除远端已移除文件，保留 `node_modules`。声明生产依赖的插件须携带 `pnpm-lock.yaml`；服务器用 pnpm 按锁文件安装并禁用生命周期脚本。依赖安装或模块加载失败时不继续注册和重启。
 
-远端生产依赖安装使用直连，仅在安装子进程内清除代理环境并设置 `NO_PROXY=*`，避免继承失效的 `127.0.0.1:7890` 代理；不修改服务器全局代理或 Harness 运行环境。
+发布后刷新页面验收任务卡、视频播放与下载；HTTP 检查不替代浏览器验收。
 
-UI 包声明 `dsh.client` 时必须通过 `exports["./client"]` 导出浏览器入口，同时保留服务端根入口和 `./package.json` 导出供 Harness 解析。缺少客户端导出会导致整个 Harness 启动失败；部署前的 UI 测试覆盖这三个入口的解析。
-浏览器 bundle 必须通过 `__ModuleLoader__.load` 注册与 `package.json.name` 完全一致的模块名（包括 `@`）；设置与媒体卡测试均从该包名加载入口，避免内部模块测试通过但插件无法激活。
+本机需要：Git、pnpm、rsync、SSH、curl、lsof、Python 3 + PyYAML。可通过 `PYTHON_BIN` 指定 Python 路径。
 
-媒体 HTTP 路由通过 `ctx.inject(['webServer'], ...)` 等待宿主服务后注册，同时注入页面配置；不能在插件启动时读不到服务就永久跳过。短视频参数校验失败、尚未创建任务时，只显示折叠的提交记录，不渲染任务卡或轮询。实际任务生成中显示视频占位框、加载动画和“拼命加载中”，完成后原位替换播放器；失败或连接异常停止加载展示。
+恢复本地隧道：`bash scripts/common/start_tunnel_harness.sh`，端口读取 `harness-runtime.HARNESS_LOCAL_PORT`。
 
-成片在任务卡“任务详情”下方直接播放，生成时同位置显示加载框；回复不再展示独立链接。播放地址使用 ComfyUI 的 `/api/view` 和真实 `filename`、`subfolder`、`type=output`、`format=video/mp4`。单镜头输出与最终成片大小及 SHA-256 一致时直接复用原 ComfyUI 文件；合片或无匹配文件时发布最终 MP4 到 `output/elysium/<job_id>/<sha256>.mp4`。默认浏览器地址为 `http://127.0.0.1:6016`，用户须保持该隧道连接；可用 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 和 `MINIMAX_H3_COMFYUI_OUTPUT_ROOT` 覆盖地址及输出目录。内部路径保留用于恢复与诊断，已有成功任务查询时可复用原片补全地址。需同时部署 tools、UI 和配置，旧回复不会自动改写。
+## 极乐世界预设
 
-启动前备份并覆盖设置、profile、Agent preset 和项目指令，保留会话与项目数据。
-启动时将 `harness-agent.md` 写入 Harness 固定入口 `$DSH_HOME/AGENTS.md`；项目指令发现沿用标准模式。
-新对话加载 Elysium preset 和上述指令；已有对话不自动切换 preset。
+从 `standard/agent.cordis.yml` 生成自定义预设，完整保留文件、Shell、检索、计划、目标、子代理等通用能力。仅覆盖身份和技能目录。
 
-### 极乐世界预设
+### 技能分流
 
-从服务器已安装版本的 `standard/agent.cordis.yml` 生成极乐世界自定义预设，完整保留文件、Shell、检索、计划、目标、子代理、通用工作流及上下文管理。仅覆盖身份和技能目录；通用任务与媒体生产均在极乐世界中完成，无需切换预设。
+- **creation-video**：一次生成完成、无需合成，通常 ≤15s
+- **creation-drama**：多段生成后合成，通常 >15s
 
-`harness-customization.agent.metadata` 生成 `$DSH_HOME/.agent-presets/elysium/preset.yml`，设置页显示“极乐世界”及短剧能力描述，预设 ID 仍为 `elysium`。生成器同时校验名称和描述，写入前生成全部配置，原文件保存为 `.previous`。
+以是否需要合成为准；常驻指令只负责分流，制作细节按需加载。
 
-保留两个独立技能：视频创作加载 `creation-video/SKILL.md`，负责一次生成完成、无需多段合成的视频，通常不超过15秒；短剧创作加载 `creation-drama/SKILL.md`，负责多个视频的剧情分镜、逐段制作、连续性、合成与改稿复用，通常超过15秒。15秒仅作默认分流依据，最终按是否需要多个视频合成判断；单次生成中的多个镜头仍属于视频。短剧单段沿用项目决定，不反复规划或同时加载两个技能。常驻指令只负责分流；短剧制作细节及疑难案例分别按需读取。已读内容可能留在历史上下文中；导演正文不常驻。
+### 导演
 
-导演设置经 UI 插件宿主的 `system-prompt/assemble` 接入 `elysium` 会话，每次只输出ID、名称及内容哈希版本，不输出提示词正文。用户选定后调用只读工具 `elysium_read_director` 按ID取最新正文；相同版本仍在上下文时复用，版本变化或上下文丢失时重新读取。短剧未指定导演时采用默认叙事方法；视频创作不读取导演，不叠加其他导演。关闭开关后不再提供已保存目录；其他preset不受影响。导演偏好不扩大授权，保存不改变已有任务或成片。部署配置完整覆盖设置前，须将需要保留的导演同步到 `config/harness-settings.yaml`。
+经 UI 插件的 `system-prompt/assemble` 接入会话，每次只输出 ID、名称和版本哈希。用户选定后调用 `elysium_read_director` 按 ID 取最新正文；相同版本复用，变化时重新读取。部署配置完整覆盖前，须将需保留的导演同步到 `config/harness-settings.yaml`。
 
-人工反馈按镜号记录采用/待改，修改镜头创建新任务，未变镜头用真实路径复用；同动作续拍需检查前镜末帧依赖。未收到人工反馈不记为通过。字幕、混音、插帧和超分仅按需求与实际工具能力追加；对白音频不代表已混音或对口型。
+### 视频生产
 
-本地配置回归：`python3 -m unittest discover -s tests -p 'test_harness_settings.py'`。发布后需核对设置页名称与描述、新会话通用工具及媒体工具清单、技能发现；生成链路另做授权验收。
-服务器重启后，可在本仓库单独恢复本地通道：`bash scripts/common/start_tunnel_harness.sh`。
-本地端口读取 `harness-runtime.HARNESS_LOCAL_PORT`，默认 `23080`。
+统一使用 `workflow_generate_video`，注册创建、恢复、状态查询、结果获取四个工具。多镜头用 `shots` 绑定每镜参数；独立生成、参考生成、末帧续拍和 reuse 可组合。失败用 `workflow_resume_video` 复用原任务；人工改稿新建任务。
 
-视频生产统一使用 `workflow_generate_video`。默认注册创建、恢复、状态查询、结果获取四个工具；服务端 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 仅用于原子能力测试。原子失败不能作为生产工作流的降级路径。
+H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。成片在任务卡直接播放；播放地址使用 ComfyUI `/api/view`。
 
-工作流由独立进程执行，工具在程序内等待终态。多镜头用 `shots` 绑定每镜时长、完整提示词和真实参考素材；独立生成、参考生成、末帧续拍和reuse已有镜头可组合，返回最终文件与逐镜路径。15秒也可分三个5秒镜头；校验失败不得通过缩短时长、删除镜头或简化角色要求绕过。失败用 `workflow_resume_video` 复用原任务步骤；人工改稿则新建任务，已采用镜头用reuse保留。
+### 上下文成本
 
-H3原生24 fps生成，交付为480×854、30 fps、H.264；先逐镜统一尺寸、帧率和AAC音轨，再拼接。已有技术检查仅防文件和时长错误，不做角色、口型、声音或剧情的自动验收，人工状态保持未验收。字幕、混音、超分等不自动追加。参数见 [工具说明](../dsh-elysium-tools/README.md)。模型脚本、工具源码及Harness指令须一起部署；只改配置或只更新Skill不能得到新链路。
+默认媒体插件提供四个生产工具和一个加载工具。通用工具不因 token 优化而禁用；文件、Shell、规划、子代理、编排五组延迟加载。任务结果默认渲染紧凑摘要；`detail: true` 保留完整诊断。
 
-任务卡的逐镜进度与新参数拒绝标记需要同步UI插件；新错误使用稳定的 `MODEL_INPUT_INVALID` 标记，避免参数失败且未建任务时显示成后台等待。源码变更不代表已打包或部署。
+## 配置验证
 
-发布须同步模型脚本、插件、配置及 `.dsh/skills`，并在新会话核对生产工具注册。不照搬作者桌面工作流的25步和720p配置。
+```bash
+python3 -m unittest discover -s tests -p 'test_harness_settings.py'
+```
 
-检查服务与实际安装的工具清单：
+检查远端服务与工具清单：
 
 ```bash
 ssh veo-comfyui 'curl -fsS http://127.0.0.1:3080/ >/dev/null'
 ssh veo-comfyui 'jq .contributes.tools /root/autodl-tmp/wan22-harness/home/profiles/web/node_modules/@dsh-external/dsh-elysium-tools/dsh.plugin.json'
 ```
-
-撤销插件变更时，使用已知可用版本重新发布，分别验证 Harness 与 ComfyUI；不删除模型。
-
-### 上下文成本
-
-采用 [OpenAI function calling 建议](https://developers.openai.com/api/docs/guides/function-calling)：减少首轮工具、保留简洁明确的参数、将固定流程交给代码。当前 Qwen 的 Chat Completions 路由不添加 Responses 专用 `tool_search` / `defer_loading` 字段；本版通过原生 `system-prompt/assemble` 扩展点和 `elysium_load_tools` 普通函数实现按组加载，不修改上游 Harness。
-
-极乐世界继承的通用工具不因 token 优化而禁用；默认媒体插件提供四个生产工具和一个加载工具。文件、Shell、规划、子代理、通用编排五组的定义与对应工具说明延迟加载；模型可见简短目录，其他未知工具及所有权限/计划策略保留。以成功的加载工具结果重建已加载列表，恢复会话后继续可用，组内权限受限或已移除工具不会重新开放。Code Mode 和其他预设保持原协议。部署后以新会话 request/header 核对工具与上下文。
-
-任务结果默认渲染紧凑摘要，不重复请求输入或整条诊断链；状态/结果工具的 `detail: true` 保留完整诊断。原始状态文件与产物不裁剪。发布后用同一短视频请求比较首轮输入、未缓存输入、cacheReadTokens、输出与模型调用轮数；字符统计只能衡量上下文体积，不能代替模型 tokenizer 或实测 token。缓存读取与未缓存输入分开报告。
-
-生成和恢复工具等待终态再交给模型，等待发生在程序中，不增加模型请求。停止等待不会杀掉独立生产进程；按错误中的 job_id 查询原任务。关闭会话后自动推送通知尚未接入，此时需要用户恢复会话查询。缓存前缀可能在首次加载工具组时变化；本会话不反复卸载已加载工具，实际延迟和 token 收益仍须同模型 A/B 验证。
-
-### 对话内媒体任务卡
-
-`dsh-elysium-ui` 通过原生 `tool.call.toolview` 插槽展示视频创建/恢复任务，保留导演设置。工具插件持久化调用关联并提供带页面凭据的只读状态/视频流接口；UI 定时查询不经过模型，不增加 token。播放器使用同源路径，避免服务器端口与本地隧道端口不一致。需要工具插件和 UI 插件一起发布，旧 UI 单独更新模型脚本不会得到任务卡。
-
-刷新后按会话和工具调用 ID 恢复后台状态；失败不自动重跑，完成可直接播放和下载。详细模块边界、兼容和验收见 [UI 插件说明](../dsh-elysium-ui/README.md#模块边界)。
