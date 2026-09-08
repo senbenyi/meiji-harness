@@ -39,6 +39,35 @@ class HarnessSettingsTest(unittest.TestCase):
             for entry in ("tool-bash", "tool-pwsh", "tool-fs", "tool-fs-search", "tool-jobs", "tool-goal", "planning", "delegation", "tool-todo", "compaction", "tool-skill", "tool-ask-user", "tool-web"):
                 f.write(f"- id: {entry}\n  name: fixture-{entry}\n")
 
+    def test_runtime_addresses_are_required_and_render_custom_hosts(self):
+        import contextlib
+        import io
+        data = yaml.safe_load(self.config.read_text())
+        config = self.root / "settings.yaml"
+        for key in ("MINIMAX_H3_COMFYUI_URL", "HARNESS_LOCAL_PORT", "ARTIFACTS_ROOT"):
+            original = data["harness-runtime"].pop(key)
+            config.write_text(yaml.safe_dump(data))
+            with self.assertRaises(KeyError):
+                loader.write_harness_settings("shell", config)
+            data["harness-runtime"][key] = ""
+            config.write_text(yaml.safe_dump(data))
+            with self.assertRaises(ValueError):
+                loader.write_harness_settings("shell", config)
+            data["harness-runtime"][key] = original
+        data["harness-runtime"]["QWEN_LOCAL_HOST"] = "qwen.test"
+        data["harness-runtime"]["QWEN_API_LOCAL_PORT"] = 19800
+        data["harness-runtime"]["PLUGINS_ROOT"] = "/configured/plugins"
+        config.write_text(yaml.safe_dump(data))
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            loader.write_harness_settings("render", config)
+        self.assertIn("http://qwen.test:19800/v1", output.getvalue())
+        for name in ("system-prompt.yaml", "harness-agent.md"):
+            (self.root / name).write_text((ROOT / "config" / name).read_text())
+        files = loader.harness_files(config, self.root)
+        self.assertIn("/configured/plugins/.dsh/skills", "\n".join(files.values()))
+        self.assertNotIn("__PLUGINS_ROOT__", "\n".join(files.values()))
+
     def test_elysium_preserves_general_tools_and_context_services(self):
         files = loader.harness_files(self.config, self.root)
         target = self.root / "home/.agent-presets/elysium/agent.cordis.yml"

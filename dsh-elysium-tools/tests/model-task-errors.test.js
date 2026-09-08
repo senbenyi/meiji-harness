@@ -1,3 +1,4 @@
+process.env.MINIMAX_H3_COMFYUI_URL = 'http://comfy.test:19016'
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'

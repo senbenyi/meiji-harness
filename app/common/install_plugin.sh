@@ -5,10 +5,10 @@ fail() { echo "[FAIL] $1" >&2; exit 1; }
 kind="$1"
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
-export PATH="/root/miniconda3/bin:$PATH"
-runtime_settings="$(python3 app/common/config_loader.py shell config/harness-settings.yaml)"
+runtime_settings="$("${PYTHON_BIN:-python3}" app/common/config_loader.py shell config/harness-settings.yaml)"
 eval "$runtime_settings"
-export PATH="$HARNESS_ROOT/runtime/node-v24.20.0-linux-x64/bin:$PATH"
+export PYTHON_BIN="$HARNESS_PYTHON"
+export PATH="$(dirname -- "$HARNESS_PYTHON"):$HARNESS_ROOT/runtime/node-v24.20.0-linux-x64/bin:$PATH"
 export DSH_HOME="$HARNESS_ROOT/home"
 dsh="$HARNESS_ROOT/app/node_modules/.bin/dsh"
 plugin_dir="$HARNESS_ROOT/packages/dsh-elysium-$kind-registry"
@@ -45,7 +45,7 @@ node --input-type=module - "$plugin_dir/lib/index.js" <<'JS'
 import { pathToFileURL } from 'node:url'
 await import(pathToFileURL(process.argv[2]).href)
 JS
-python3 app/common/config_loader.py check config/harness-settings.yaml --harness-root "$HARNESS_ROOT"
+"${PYTHON_BIN:-python3}" app/common/config_loader.py check config/harness-settings.yaml --harness-root "$HARNESS_ROOT"
 "$dsh" plugin --profile web add --workspace-root "$plugin_dir"
 node --input-type=module - "$DSH_HOME/profiles/web/package.json" "@dsh-external/dsh-elysium-$kind" <<'JS'
 import { readFileSync } from 'node:fs'
@@ -53,5 +53,5 @@ const profile = JSON.parse(readFileSync(process.argv[2], 'utf8')), name = proces
 if (!profile.dependencies?.[name] || !profile.dsh?.profile?.bundles?.includes(name)) throw new Error('插件未正确注册到 web profile')
 JS
 bash app/common/start_harness.sh --restart
-curl -fsS --max-time 5 "http://127.0.0.1:$HARNESS_WEB_PORT/" >/dev/null
+curl -fsS --max-time 5 "http://$HARNESS_HOST:$HARNESS_WEB_PORT/" >/dev/null
 echo "[DONE] dsh-elysium-$kind 已注册，Harness HTTP 健康检查通过"

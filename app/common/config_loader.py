@@ -9,6 +9,7 @@ import shlex
 import sys
 import shutil
 import tempfile
+from urllib.parse import urlsplit
 
 try:
     import yaml
@@ -19,7 +20,6 @@ except ImportError:
 def write_harness_settings(mode, config):
     settings = yaml.safe_load(config.read_text())
     runtime = settings.pop("harness-runtime")
-    runtime.setdefault("HARNESS_LOCAL_PORT", 23080)
     settings.pop("harness-customization", None)
     patterns = {
         "HARNESS_ROOT": r"/[A-Za-z0-9._/-]+",
@@ -33,7 +33,24 @@ def write_harness_settings(mode, config):
         "HARNESS_WEB_PORT": r"[0-9]+",
         "HARNESS_LOCAL_PORT": r"[0-9]+",
     }
+    for key in ("HARNESS_SSH_TARGET", "HARNESS_HOST", "HARNESS_LOCAL_HOST", "QWEN_LOCAL_HOST", "QWEN_REMOTE_HOST", "LOCAL_HARNESS_HOST"):
+        patterns[key] = r"[A-Za-z0-9][A-Za-z0-9._-]*"
+    for key in ("HARNESS_PYTHON", "MINIMAX_H3_COMFYUI_OUTPUT_ROOT", "ARTIFACTS_ROOT", "ELYSIUM_TOOLS_STATE_ROOT", "LLM_AI_MODEL_ROOT", "LOCAL_DSH_HOME"):
+        patterns[key] = r"/[A-Za-z0-9._/-]+"
+    patterns["LOCAL_HARNESS_PORT"] = r"[0-9]+"
+    for key in ("MINIMAX_H3_COMFYUI_URL", "MINIMAX_H3_COMFYUI_PUBLIC_URL"):
+        value = runtime[key]
+        if not isinstance(value, str) or not value or value != value.strip():
+            raise ValueError(f"{key} 缺失或为空")
+        url = urlsplit(value)
+        if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password or url.query or url.fragment or any(c.isspace() for c in value):
+            raise ValueError(f"{key} 必须为不含凭据、查询参数的 HTTP(S) 地址")
+        if url.port is not None and not 1 <= url.port <= 65535:
+            raise ValueError(f"{key} 端口无效")
+        patterns[key] = r"[A-Za-z0-9:/._~-]+"
     for key, pattern in patterns.items():
+        if type(runtime[key]) not in (str, int):
+            raise ValueError(f"{key} 缺失或类型无效")
         value = str(runtime[key])
         if not re.fullmatch(pattern, value):
             raise ValueError(f"{key} 格式无效")
@@ -45,7 +62,7 @@ def write_harness_settings(mode, config):
         print(f"DSH_PERMISSION_MODE={shlex.quote(settings['permission']['defaultPreset'])}")
     else:
         rendered = yaml.safe_dump(settings, allow_unicode=True, sort_keys=False)
-        for key in ("QWEN_API_LOCAL_PORT", "QWEN_MODEL_ID"):
+        for key in ("QWEN_API_LOCAL_PORT", "QWEN_MODEL_ID", "QWEN_LOCAL_HOST", "PLUGINS_ROOT"):
             rendered = rendered.replace(f"__{key}__", str(runtime[key]))
         sys.stdout.write(rendered)
 
@@ -59,7 +76,9 @@ def harness_files(config, root):
     with contextlib.redirect_stdout(output):
         write_harness_settings("render", config)
     settings = yaml.safe_load(output.getvalue())
-    custom = yaml.safe_load(config.read_text())["harness-customization"]
+    document = yaml.safe_load(config.read_text())
+    custom = yaml.safe_load(yaml.safe_dump(document["harness-customization"]).replace(
+        "__PLUGINS_ROOT__", document["harness-runtime"]["PLUGINS_ROOT"]))
     agent = custom["agent"]
     preset = settings["agent-presets"]["default"]
     base = agent["base"]

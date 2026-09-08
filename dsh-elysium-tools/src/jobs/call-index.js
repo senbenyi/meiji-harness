@@ -1,8 +1,9 @@
+import { requiredConfig } from '../config.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const root = () => process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/elysium-tools'
+const root = () => requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
 const valid = value => typeof value === 'string' && value.length > 0 && value.length <= 256
 const file = (sessionId, callId) => {
   if (!valid(sessionId) || !valid(callId)) throw new Error('Invalid call identity')

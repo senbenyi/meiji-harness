@@ -1,3 +1,4 @@
+import { requiredConfig } from '../config.js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
@@ -38,8 +39,9 @@ function sources(plan) {
 }
 
 export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 * 60_000 } = {}) {
-  const stateRoot = process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/elysium-tools'
-  const artifactsRoot = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects'
+  const publicUrl = requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')
+  const stateRoot = requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
+  const artifactsRoot = requiredConfig('ARTIFACTS_ROOT')
   const directory = join(stateRoot, 'jobs', jobId), output = join(artifactsRoot, `production-${jobId}`, 'output/final.mp4')
   const statusPath = join(directory, 'status.json'), submissionPath = join(directory, 'comfyui-submission.json')
   const client = new ComfyClient(undefined, signal), started = Date.now()
@@ -97,7 +99,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
       '-map', '0:v:0', '-map', '0:a:0', '-f', 'null', '-'], { timeout: 300_000, maxBuffer: 1024 * 1024 })
     await rename(candidate, output)
     const sha256 = await digest(output), size = (await stat(output)).size
-    const viewUrl = client.viewUrl(descriptor, process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL || client.url.href)
+    const viewUrl = client.viewUrl(descriptor, publicUrl)
     const artifact = { ...descriptor, server_url: client.url.href, prompt_id: promptId, view_url: viewUrl, local_path: output }
     const shots = []
     for (const [index, shot] of prepared.shots.entries()) {
@@ -106,7 +108,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
       const path = join(artifactsRoot, `production-${jobId}`, 'shots', `${shot.id}.mp4`)
       await client.download(file, path)
       shots.push({ id: shot.id, duration: shot.duration, path,
-        comfyui_view_url: client.viewUrl(file, process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL || client.url.href) })
+        comfyui_view_url: client.viewUrl(file, publicUrl) })
     }
     status.result = { path: output, size_bytes: size, sha256, media_info: m,
       validation: { file_exists: 'passed', nonempty: 'passed', media_probe: 'passed', full_decode: 'passed',

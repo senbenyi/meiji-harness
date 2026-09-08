@@ -1,3 +1,4 @@
+import { requiredConfig } from '../config.js'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { open, realpath } from 'node:fs/promises'
 import { extname, relative, isAbsolute } from 'node:path'
@@ -28,7 +29,7 @@ const json = (res, status, data) => {
   res.end(JSON.stringify(data))
 }
 export function createMediaHandler({ token, readJob = getJob, findCall = findVideoCall, getSession = () => undefined,
-  artifactsRoot = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects' }) {
+  artifactsRoot = requiredConfig('ARTIFACTS_ROOT') }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')

@@ -8,9 +8,11 @@ for command_name in node pnpm dsh lsof ps curl; do
 done
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 UI_ROOT="$REPO_ROOT/dsh-elysium-ui"
-export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
+runtime_settings="$(python3 "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
+eval "$runtime_settings"
+export DSH_HOME="$LOCAL_DSH_HOME"
 [[ "$DSH_HOME" == /* ]] || fail 'DSH_HOME 必须是绝对路径'
-PORT=3080
+PORT="$LOCAL_HARNESS_PORT"
 LOG_FILE="$DSH_HOME/logs/dsh-elysium-ui-local.log"
 [[ -f "$UI_ROOT/package.json" ]] || fail '找不到 dsh-elysium-ui'
 node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)' || fail '需要 Node.js 20+'
@@ -64,13 +66,13 @@ done
 [[ -z "$(listener_pids)" ]] || fail "端口 $PORT 未释放，请检查已有启动管理器"
 (
   cd "$REPO_ROOT"
-  exec nohup dsh web --host 127.0.0.1 --port "$PORT" --no-open
+  exec nohup dsh web --host "$LOCAL_HARNESS_HOST" --port "$PORT" --no-open
 ) >>"$LOG_FILE" 2>&1 </dev/null &
 harness_pid=$!
 for _ in {1..30}; do
   kill -0 "$harness_pid" 2>/dev/null || fail "Harness 已退出，查看日志：$LOG_FILE"
-  if curl -fsS --max-time 2 "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
-    echo "[DONE] 本机 UI 插件已安装，HTTP 检查通过：http://127.0.0.1:$PORT/"
+  if curl -fsS --max-time 2 "http://$LOCAL_HARNESS_HOST:$PORT/" >/dev/null 2>&1; then
+    echo "[DONE] 本机 UI 插件已安装，HTTP 检查通过：http://$LOCAL_HARNESS_HOST:$PORT/"
     echo '请刷新页面，打开 设置 → 极乐世界 → 导演设置 完成界面验收'
     exit 0
   fi

@@ -9,17 +9,18 @@ import { renderToolDebug } from '../src/functions/common/tool.js'
 import { jobSummary } from '../src/http/media-jobs.js'
 
 test('publish final movie for ComfyUI and expose one URL without server paths; reuse on later reads', async () => {
+  process.env.MINIMAX_H3_COMFYUI_URL = 'http://internal-comfy.test:19016'
   const root = await mkdtemp(join(tmpdir(), 'video-publication-'))
   try {
     const path = join(root, 'final.mp4'), content = 'validated final movie'
     await writeFile(path, content)
     const job = { job_id: 'a'.repeat(32), capability: 'workflow-video', status: 'succeeded',
       result: { path, size_bytes: Buffer.byteLength(content), sha256: createHash('sha256').update(content).digest('hex') } }
-    const options = { artifactsRoot: root, outputRoot: join(root, 'comfy-output'), publicUrl: 'http://127.0.0.1:6016/' }
+    const options = { artifactsRoot: root, outputRoot: join(root, 'comfy-output'), publicUrl: 'https://media.test/comfy/' }
     await publishVideo(job, options)
     const url = new URL(job.result.comfyui_view_url)
-    assert.equal(url.origin, 'http://127.0.0.1:6016')
-    assert.equal(url.pathname, '/api/view')
+    assert.equal(url.origin, 'https://media.test')
+    assert.equal(url.pathname, '/comfy/api/view')
     assert.equal(url.searchParams.get('format'), 'video/mp4')
     assert.equal(url.searchParams.get('type'), 'output')
     const target = join(options.outputRoot, url.searchParams.get('subfolder'), url.searchParams.get('filename'))
@@ -37,7 +38,7 @@ test('publish final movie for ComfyUI and expose one URL without server paths; r
     const originalFolder = `minimax-h3/jobs/${job.job_id}`
     await mkdir(join(options.outputRoot, originalFolder), { recursive: true })
     await writeFile(join(options.outputRoot, originalFolder, 't2va_00001_audio.mp4'), content)
-    job.result.comfyui_artifacts = [{ server_url: 'http://127.0.0.1:6016', type: 'output', filename: 't2va_00001_audio.mp4', subfolder: originalFolder }]
+    job.result.comfyui_artifacts = [{ server_url: 'http://internal-comfy.test:19016', type: 'output', filename: 't2va_00001_audio.mp4', subfolder: originalFolder }]
     await publishVideo(job, options)
     assert.equal(new URL(job.result.comfyui_view_url).searchParams.get('filename'), 't2va_00001_audio.mp4')
     assert.equal(new URL(job.result.comfyui_view_url).searchParams.get('subfolder'), originalFolder)

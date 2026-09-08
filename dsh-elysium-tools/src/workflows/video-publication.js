@@ -1,3 +1,4 @@
+import { requiredConfig } from '../config.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { copyFile, mkdir, realpath, rename, stat, unlink } from 'node:fs/promises'
@@ -5,9 +6,9 @@ import { isAbsolute, join, relative } from 'node:path'
 
 // Publish the validated final movie, never an intermediate ComfyUI clip.
 export async function publishVideo(job, {
-  artifactsRoot = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects',
-  outputRoot = process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT || join(process.env.MINIMAX_H3_COMFYUI_ROOT || '/root/autodl-tmp/ComfyUI-minimax-h3', 'output'),
-  publicUrl = process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL || 'http://127.0.0.1:6016',
+  artifactsRoot = requiredConfig('ARTIFACTS_ROOT'),
+  outputRoot = requiredConfig('MINIMAX_H3_COMFYUI_OUTPUT_ROOT'),
+  publicUrl = requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url'),
 } = {}) {
   if (job.capability !== 'workflow-video' || job.status !== 'succeeded') return
   if (!/^[0-9a-f]{32}$/.test(job.job_id) || !/^[0-9a-f]{64}$/.test(job.result?.sha256 || '')) throw new Error('Invalid video publication identity')
@@ -21,7 +22,7 @@ export async function publishVideo(job, {
   let subfolder = `elysium/${job.job_id}`, filename = `${job.result.sha256}.mp4`
   // Single-shot finals can reuse the exact ComfyUI output; never substitute a clip for a composed final.
   for (const artifact of job.result.comfyui_artifacts || []) {
-    if (artifact.type !== 'output' || !artifact.filename?.endsWith('.mp4') || artifact.server_url !== 'http://127.0.0.1:6016') continue
+    if (artifact.type !== 'output' || !artifact.filename?.endsWith('.mp4') || artifact.server_url?.replace(/\/+$/, '') !== requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')) continue
     const candidate = join(outputRoot, artifact.subfolder || '', artifact.filename)
     const candidateRel = relative(outputRoot, candidate)
     if (candidateRel.startsWith('..') || isAbsolute(candidateRel)) continue

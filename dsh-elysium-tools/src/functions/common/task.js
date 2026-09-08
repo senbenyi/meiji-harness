@@ -1,3 +1,4 @@
+import { requiredConfig } from '../../config.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { mkdir, open, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
@@ -8,9 +9,9 @@ import { dirname, extname, isAbsolute, join, relative } from 'node:path'
 import { publishVideo } from '../../workflows/video-publication.js'
 import { executeComfyVideo } from '../../workflows/video-execution.js'
 
-const PROJECT_ROOT = process.env.LLM_AI_MODEL_ROOT || '/root/autodl-tmp/project'
-const ARTIFACTS_ROOT = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects'
-const STATE_ROOT = process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/elysium-tools'
+const PROJECT_ROOT = () => requiredConfig('LLM_AI_MODEL_ROOT')
+const ARTIFACTS_ROOT = () => requiredConfig('ARTIFACTS_ROOT')
+const STATE_ROOT = () => requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
 const IMAGE_SUFFIXES = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 const VIDEO_SUFFIXES = new Set(['.mp4', '.mov', '.mkv', '.webm'])
 const AUDIO_SUFFIXES = new Set(['.wav', '.mp3', '.flac', '.m4a', '.ogg'])
@@ -47,7 +48,7 @@ function now() {
 }
 
 function jobRoot(jobId) {
-  return join(STATE_ROOT, 'jobs', jobId)
+  return join(STATE_ROOT(), 'jobs', jobId)
 }
 
 async function writeJson(path, value) {
@@ -65,10 +66,10 @@ async function sha256File(path) {
 
 async function artifactPath(value, suffixes, field) {
   if (!isAbsolute(value || '')) throw new ModelTaskError('MODEL_INPUT_INVALID', `${field} 必须是绝对路径`, 422)
-  const [root, path] = await Promise.all([realpath(ARTIFACTS_ROOT), realpath(value)])
+  const [root, path] = await Promise.all([realpath(ARTIFACTS_ROOT()), realpath(value)])
   const child = relative(root, path)
   if (!child || child.startsWith('..') || isAbsolute(child)) {
-    throw new ModelTaskError('MODEL_INPUT_INVALID', `${field} 必须位于 ${ARTIFACTS_ROOT}`, 422)
+    throw new ModelTaskError('MODEL_INPUT_INVALID', `${field} 必须位于 ${ARTIFACTS_ROOT()}`, 422)
   }
   const info = await stat(path)
   if (!info.isFile() || info.size === 0 || !suffixes.has(extname(path).toLowerCase())) {
@@ -109,7 +110,7 @@ async function runCommand(command, environment, logPath, signal, timeoutMs) {
   const log = await open(logPath, 'a')
   try {
     const child = spawn(command[0], command.slice(1), {
-      cwd: PROJECT_ROOT,
+      cwd: PROJECT_ROOT(),
       env: { ...process.env, ...environment },
       stdio: ['ignore', log.fd, log.fd],
     })
@@ -148,15 +149,16 @@ async function runCommand(command, environment, logPath, signal, timeoutMs) {
 }
 
 async function buildModelExecution(jobId, capability, params) {
-  const endpointRoot = join(PROJECT_ROOT, 'scripts', 'endpoint')
+  const endpointRoot = join(PROJECT_ROOT(), 'scripts', 'endpoint')
   const projectId = `tool-${jobId}`
-  const projectRoot = join(ARTIFACTS_ROOT, projectId)
+  const projectRoot = join(ARTIFACTS_ROOT(), projectId)
   const environment = {
     PROJECT_ID: projectId,
     MVP_PROJECT_ID: projectId,
-    ARTIFACTS_ROOT,
-    COMFYUI_URL: process.env.COMFYUI_URL || 'http://127.0.0.1:6006',
+    ARTIFACTS_ROOT: ARTIFACTS_ROOT(),
   }
+
+  if (capability !== 'video-concat') environment.MINIMAX_H3_COMFYUI_URL = requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
 
   if (capability === 'image-generate') {
     const prompt = String(params.prompt || '').trim()
@@ -251,10 +253,7 @@ async function buildModelExecution(jobId, capability, params) {
     if (audio) command.push('--audio', audio)
     return {
       command,
-      environment: {
-        ...environment,
-        MINIMAX_H3_COMFYUI_URL: process.env.MINIMAX_H3_COMFYUI_URL || 'http://127.0.0.1:6016',
-      },
+      environment,
       output,
     }
   }
@@ -434,7 +433,7 @@ export async function getJob(jobId) {
     const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
     if (job.capability === 'workflow-video' && job.backend !== 'comfyui') {
       await publishVideo(job)
-      job.workflow = await readFile(join(ARTIFACTS_ROOT, `production-${jobId}`, 'workflow/state.json'), 'utf8')
+      job.workflow = await readFile(join(ARTIFACTS_ROOT(), `production-${jobId}`, 'workflow/state.json'), 'utf8')
         .then(JSON.parse).catch(() => null)
     }
     if (job.status === 'running' && job.debug?.trace_path) {

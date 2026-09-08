@@ -8,7 +8,7 @@ readonly SCRIPT_DIR
 readonly REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 readonly CONFIG="$REPO_ROOT/config/harness-settings.yaml"
 [[ -s "$CONFIG" ]] || { echo "[FAIL] 缺少配置：$CONFIG" >&2; exit 1; }
-runtime_settings="$(python3 "$REPO_ROOT/app/common/config_loader.py" shell "$CONFIG")"
+runtime_settings="$("${PYTHON_BIN:-python3}" "$REPO_ROOT/app/common/config_loader.py" shell "$CONFIG")"
 eval "$runtime_settings"
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
@@ -17,7 +17,7 @@ for name in curl lsof ps ssh; do
 done
 ssh_options=(-F "$REPO_ROOT/config/ssh_config" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 qwen_ready() {
-  curl -fsS --max-time 5 "http://127.0.0.1:$QWEN_API_LOCAL_PORT/v1/models" 2>/dev/null | \
+  curl -fsS --max-time 5 "http://$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT/v1/models" 2>/dev/null | \
     grep -Fq "\"id\":\"$QWEN_MODEL_ID\""
 }
 
@@ -25,15 +25,15 @@ listener_pids="$(lsof -nP -tiTCP:"$QWEN_API_LOCAL_PORT" -sTCP:LISTEN 2>/dev/null
 while IFS= read -r pid; do
   [[ -n "$pid" ]] || continue
   command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-  [[ "$command_line" == *ssh* && "$command_line" == *"127.0.0.1:$QWEN_API_LOCAL_PORT:127.0.0.1:$QWEN_API_REMOTE_PORT"* ]] || \
+  [[ "$command_line" == *ssh* && "$command_line" == *"$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT:$QWEN_REMOTE_HOST:$QWEN_API_REMOTE_PORT"* ]] || \
     fail "端口 $QWEN_API_LOCAL_PORT 被其他程序占用：PID $pid"
 done <<<"$listener_pids"
 if [[ -n "$listener_pids" ]] && qwen_ready; then
-  echo "[REUSE] Qwen3.8 可访问：http://127.0.0.1:$QWEN_API_LOCAL_PORT/v1"
+  echo "[REUSE] Qwen3.8 可访问：http://$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT/v1"
   exit 0
 fi
 ssh "${ssh_options[@]}" "$QWEN_SSH_TARGET" \
-  "curl -fsS --max-time 5 'http://127.0.0.1:$QWEN_API_REMOTE_PORT/v1/models'" | \
+  "curl -fsS --max-time 5 'http://$QWEN_REMOTE_HOST:$QWEN_API_REMOTE_PORT/v1/models'" | \
   grep -Fq "\"id\":\"$QWEN_MODEL_ID\"" || fail 'Qwen SSH 或模型 API 预检失败，未停止旧通道'
 
 while IFS= read -r pid; do
@@ -48,17 +48,17 @@ done
 [[ -z "$(lsof -nP -tiTCP:"$QWEN_API_LOCAL_PORT" -sTCP:LISTEN 2>/dev/null || true)" ]] || \
   fail "旧通道未能释放端口 $QWEN_API_LOCAL_PORT"
 
-echo "[TUNNEL] 127.0.0.1:$QWEN_API_LOCAL_PORT -> $QWEN_SSH_TARGET:127.0.0.1:$QWEN_API_REMOTE_PORT"
+echo "[TUNNEL] $QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT -> $QWEN_SSH_TARGET:$QWEN_REMOTE_HOST:$QWEN_API_REMOTE_PORT"
 ssh -f -N "${ssh_options[@]}" \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=20 \
   -o ServerAliveCountMax=3 \
-  -L "127.0.0.1:$QWEN_API_LOCAL_PORT:127.0.0.1:$QWEN_API_REMOTE_PORT" \
+  -L "$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT:$QWEN_REMOTE_HOST:$QWEN_API_REMOTE_PORT" \
   "$QWEN_SSH_TARGET"
 
 for _ in {1..20}; do
   if qwen_ready; then
-    echo "[DONE] Qwen3.8 可访问：http://127.0.0.1:$QWEN_API_LOCAL_PORT/v1"
+    echo "[DONE] Qwen3.8 可访问：http://$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT/v1"
     exit 0
   fi
   sleep 0.5

@@ -46,7 +46,7 @@
 | `comfyui_task_result` | `/history/{prompt_id}` |
 | `comfyui_task_cancel` | `/queue` 定向删除 |
 
-必填 `server: production|minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址读取 `COMFYUI_URL` 或 `MINIMAX_H3_COMFYUI_URL`。
+必填 `server: minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址必须由配置提供 `MINIMAX_H3_COMFYUI_URL`；缺失或非法时直接报错。
 
 取消仅针对排队任务；运行中的任务不会全局中断。产物返回派生 ID 与访问 URL，不代表媒体已验收。实例本机 URL 不保证客户端可访问。
 
@@ -212,7 +212,7 @@ dsh plugin --profile web add --workspace-root ./registry
 - `comfyui_artifacts`：工作流各阶段的产物及原始文件描述，包含 `url_scope`。
 - 元数据缺失返回 null 和原因；本地混音成片没有 ComfyUI 原生产物，原始阶段产物仍在列表中。
 
-访问地址默认使用实际 ComfyUI 地址。需要从浏览器访问时，在服务器启动环境设置 `COMFYUI_PUBLIC_URL`、`MINIMAX_H3_PUBLIC_URL` 为对应服务已配置的代理地址；不提供时 localhost 链接仅在服务器本机有效，不代表已开放公网。元数据同时保存在产物旁的 `.comfyui.json` 文件中；旧产物不会凭空补出 ID 或 URL。
+内部 API 和浏览器产物地址必须分别配置 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`，由 `config/harness-settings.yaml` 启动时注入。地址不互相回退，缺失或非法时直接报错。产物旁仍保存 `.comfyui.json` 元数据；旧产物不会自动补出 ID 或 URL。
 
 ### 诊断与验收
 

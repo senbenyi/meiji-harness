@@ -1,3 +1,4 @@
+import { requiredConfig } from '../config.js'
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { mkdir, open, readFile, realpath, stat, writeFile, unlink, rename } from 'node:fs/promises'
@@ -6,8 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { getJob, ModelTaskError } from '../functions/common/task.js'
 import { bindVideoCall } from '../jobs/call-index.js'
 
-const stateRoot = process.env.ELYSIUM_TOOLS_STATE_ROOT || '/root/autodl-tmp/elysium-tools'
-const artifactsRoot = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects'
+const stateRoot = () => requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
+const artifactsRoot = () => requiredConfig('ARTIFACTS_ROOT')
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 
 async function writeStatus(directory, value) {
@@ -35,7 +36,7 @@ export async function validateVideoPlan(args) {
     if ('image_path' in args && 'image_prompt' in args) throw invalid('image_path 与 image_prompt 二选一')
     if (args.duration > 15 && !args.image_path && !args.image_prompt) throw invalid('长视频需要首帧或首帧提示词')
   }
-  const root = await realpath(artifactsRoot)
+  const root = await realpath(artifactsRoot())
   for (const value of [...(clips || []), ...('image_path' in args ? [args.image_path] : [])]) {
     if (typeof value !== 'string' || !isAbsolute(value)) throw invalid('素材必须为绝对路径')
     const path = await realpath(value).catch(() => { throw invalid('素材文件不存在') })
@@ -47,7 +48,7 @@ export async function validateVideoPlan(args) {
 
 async function validateShots(shots, duration) {
   if (!Array.isArray(shots) || !shots.length) throw invalid('shots 必须为非空镜头列表')
-  const root = await realpath(artifactsRoot)
+  const root = await realpath(artifactsRoot())
   const ids = new Set()
   const mediaTypes = { image_path: ['.png', '.jpg', '.jpeg', '.webp'], video_path: ['.mp4', '.mov', '.webm', '.mkv'], audio_path: ['.wav', '.mp3', '.flac', '.m4a', '.ogg'] }
   for (const [index, shot] of shots.entries()) {
@@ -82,7 +83,7 @@ async function validateShots(shots, duration) {
 export async function startVideoJob(args, exec) {
   await validateVideoPlan(args)
   const jobId = randomBytes(16).toString('hex')
-  const directory = join(stateRoot, 'jobs', jobId)
+  const directory = join(stateRoot(), 'jobs', jobId)
   await mkdir(join(directory, 'input'), { recursive: true })
   await writeFile(join(directory, 'input/request.json'), JSON.stringify(args), { mode: 0o600 })
   await bindVideoCall(jobId, exec)
@@ -95,13 +96,13 @@ export async function resumeVideoJob(jobId, exec) {
   await bindVideoCall(jobId, exec)
   if (job.status === 'succeeded') return { job_id: jobId, status: job.status }
   if (job.status === 'failed' && job.backend === 'comfyui') {
-    await writeFile(join(stateRoot, 'jobs', jobId, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
+    await writeFile(join(stateRoot(), 'jobs', jobId, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
   }
   return launch(jobId)
 }
 
 async function launch(jobId) {
-  const directory = join(stateRoot, 'jobs', jobId)
+  const directory = join(stateRoot(), 'jobs', jobId)
   const lockPath = join(directory, 'worker.lock')
   let lock
   try { lock = await open(lockPath, 'wx', 0o600) } catch (error) {

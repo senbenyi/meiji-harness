@@ -9,6 +9,7 @@ import { bindVideoCall, findVideoCall } from '../src/jobs/call-index.js'
 import { apply } from '../src/index.js'
 
 test('media routes wait for webServer and inject browser configuration when it becomes available', () => {
+  process.env.ARTIFACTS_ROOT = tmpdir()
   let activate
   apply({ on() {}, tools: { register() {} }, inject(dependencies, callback) {
     assert.deepEqual(dependencies, ['webServer'])

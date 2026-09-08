@@ -10,7 +10,7 @@ export function comfyuiTaskTool(action, description) {
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
-        server: { type: 'string', enum: ['production', 'minimax-h3'], description: '任务所属实例，必须与生成任务返回的服务一致。' },
+        server: { type: 'string', enum: ['minimax-h3'], description: '任务所属实例，必须与生成任务返回的服务一致。' },
         ...(action === 'queue' ? {} : {
           prompt_id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,128}$', description: 'ComfyUI 原生任务 ID，不是 model_job_status 的 job_id。' },
         }),
@@ -22,7 +22,7 @@ export function comfyuiTaskTool(action, description) {
       render: (input, output) => [{ type: 'text', text: JSON.stringify({ input, output }, null, 2) }],
     },
     async execute(args, exec) {
-      if (!['production', 'minimax-h3'].includes(args.server) ||
+      if (!['minimax-h3'].includes(args.server) ||
           (action !== 'queue' && !/^[A-Za-z0-9_-]{1,128}$/.test(args.prompt_id || '')) ||
           Object.keys(args).some(key => !['server', ...(action === 'queue' ? [] : ['prompt_id'])].includes(key))) {
         throw new Error('ComfyUI 任务参数无效')

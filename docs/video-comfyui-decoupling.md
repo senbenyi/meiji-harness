@@ -8,8 +8,8 @@
 
 配置：
 
-- `MINIMAX_H3_COMFYUI_URL`：服务地址，默认 `http://127.0.0.1:6016`。
-- `MINIMAX_H3_COMFYUI_PUBLIC_URL`：浏览器可访问的产物服务地址；未设置时使用服务地址，不会自动建立公网入口。
+- `MINIMAX_H3_COMFYUI_URL`：服务地址，必须显式配置。
+- `MINIMAX_H3_COMFYUI_PUBLIC_URL`：浏览器可访问的产物服务地址，必须显式配置，不回退到内部请求地址。
 - `ARTIFACTS_ROOT`：Harness 本机素材与下载目录。输入仍为该目录内的真实文件，经过 HTTP 上传后变成 ComfyUI input 文件名。
 - `ELYSIUM_TOOLS_STATE_ROOT`：Harness 本机持久化任务目录。
 - `FFMPEG_BIN`、`FFPROBE_BIN`：本机验收工具；缺失时不宣称媒体验收成功。
@@ -30,7 +30,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 在 `dsh-elysium-tools` 运行 `pnpm test`、`pnpm build`、`pnpm package:registry`（构建与测试串行）。测试包含：原图导出一致性、时间基准、镜头连线、模拟 HTTP 生命周期、丢响应恢复、终止失败后显式重试，以及模型仓库路径不存在时的生产调用。模拟 HTTP 不等于真实节点执行；真实 ComfyUI 与媒体验收单独记录。
 
-本次不接入 SwarmUI，不变更 6006 实例，不部署节点。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
+当前仅保留 `minimax-h3` 服务（6016），6006 已删除；尚未接入 SwarmUI。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
 
 ## C-MMH3-18 适配
 
@@ -49,3 +49,11 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 - 新版插件安装后直接调用 Harness profile 中的工具包：`LLM_AI_MODEL_ROOT` 指向不存在的目录，复用素材的一秒任务 `prompt_id=68761a35-e3e4-4b0a-a52e-e8f98b631acc` 成功；逐镜与成片下载、独立音视频时长、规格及完整解码通过，恢复调用保持原任务 ID。部署时 50 项测试通过，Harness 3080 与现有本地 23080 入口均返回 HTTP 200。部署脚本最后新建隧道步骤因 23080 已占用退出；现有 SSH 隧道继续使用。
 - 本地旧工作流目录及对应编排测试已删除；导出器迁至 `scripts/comfyui/export_h3_api.py`。旧 `app/start_comfyui.sh` 已删除，启动入口继续调用 `start_comfyui_minimax.sh`。
 - 以上不代表 Harness 自然语言对话、内容审片、长片规模或 SwarmUI 验收。
+
+## 地址配置约束
+
+`config/harness-settings.yaml` 的 `harness-runtime` 是 Harness 部署配置入口。启动器校验并传入服务地址、产物目录、任务目录和可选原子工具使用的模型项目路径。插件源码没有服务地址或服务器目录兜底；缺失、空值、非法配置会报错。纯本地拼接不要求 ComfyUI 地址。
+
+内部 API 与浏览器产物地址分别配置为 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`。SSH 目标、监听主机和端口也由配置读取。更换地址后须重新应用配置并重启 Harness 才对运行进程生效；本次配置改造未执行远程部署或服务重启。
+
+模型仓库独立读取自己的 `config/comfyui.yaml`、`config/runtime.yaml` 和 `config/paths.yaml`，Harness 不读取模型仓库配置。`production` 实例标识已移除，旧调用须改用 `minimax-h3`。

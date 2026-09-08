@@ -5,9 +5,9 @@ set -Eeuo pipefail
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 runtime_settings="$("${PYTHON_BIN:-python3}" "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
 eval "$runtime_settings"
-target=veo-comfyui
-forward="127.0.0.1:$HARNESS_LOCAL_PORT:127.0.0.1:$HARNESS_WEB_PORT"
-url="http://127.0.0.1:$HARNESS_LOCAL_PORT/"
+target="$HARNESS_SSH_TARGET"
+forward="$HARNESS_LOCAL_HOST:$HARNESS_LOCAL_PORT:$HARNESS_HOST:$HARNESS_WEB_PORT"
+url="http://$HARNESS_LOCAL_HOST:$HARNESS_LOCAL_PORT/"
 ssh_options=(-o BatchMode=yes -o ConnectTimeout=10)
 socket="${TMPDIR:-/tmp}/elysium-harness-${UID}-${HARNESS_LOCAL_PORT}.sock"
 
@@ -20,7 +20,7 @@ for command_name in ssh curl lsof; do
   command -v "$command_name" >/dev/null || fail "缺少命令：$command_name"
 done
 ssh "${ssh_options[@]}" "$target" \
-  "curl -fsS --max-time 5 'http://127.0.0.1:$HARNESS_WEB_PORT/' >/dev/null" || fail '远端 Harness 未就绪或 SSH 连接失败'
+  "curl -fsS --max-time 5 'http://$HARNESS_HOST:$HARNESS_WEB_PORT/' >/dev/null" || fail '远端 Harness 未就绪或 SSH 连接失败'
 
 # 使用专属 SSH 控制连接识别并复用通道，不依赖读取系统进程参数。
 if [[ -n "$(listeners)" ]]; then

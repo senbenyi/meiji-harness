@@ -1,3 +1,4 @@
+import { requiredConfig } from '../../config.js'
 import { openAsBlob } from 'node:fs'
 import { createWriteStream } from 'node:fs'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
@@ -18,8 +19,8 @@ export const readJson = path => readFile(path, 'utf8').then(JSON.parse).catch(er
 })
 
 export function comfyUrl(server = 'minimax-h3') {
-  return server === 'minimax-h3' ? process.env.MINIMAX_H3_COMFYUI_URL || 'http://127.0.0.1:6016'
-    : process.env.COMFYUI_URL || 'http://127.0.0.1:6006'
+  if (server !== 'minimax-h3') throw new Error(`未知 ComfyUI 实例：${server}`)
+  return requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
 }
 
 export class ComfyClient {
