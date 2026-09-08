@@ -55,13 +55,13 @@ window.__ModuleLoader__.load({
         h('details', null, h('summary', null, '任务详情'),
           job.job_id ? h('p', null, '任务 ID：', h('code', null, job.job_id)) : null,
           inspect ? h('button', { onClick: inspect }, '查看执行记录') : null),
-        loading ? h('div', { role: 'progressbar', 'aria-label': '视频生成中', style: { aspectRatio: '5 / 3', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: '#8881', borderRadius: 8, marginTop: 12 } },
+        loading ? h('div', { role: 'progressbar', 'aria-label': '视频生成中', style: { padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: '#8881', borderRadius: 8, marginTop: 12 } },
           h('svg', { width: 36, height: 36, viewBox: '0 0 40 40', 'aria-hidden': true },
             h('circle', { cx: 20, cy: 20, r: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 3, strokeDasharray: '70 31' },
               h('animateTransform', { attributeName: 'transform', type: 'rotate', from: '0 20 20', to: '360 20 20', dur: '1s', repeatCount: 'indefinite' }))),
           h('span', null, '拼命加载中')) : null,
         video ? h('video', { key: video + attempt, src: video, controls: true, preload: 'metadata',
-          onError: () => setPlaybackError(true), style: { width: '100%', display: 'block', borderRadius: 8, marginTop: 12 } }) : null,
+          onError: () => setPlaybackError(true), style: { width: 'auto', height: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block', borderRadius: 8, marginTop: 12 } }) : null,
         playbackError ? h('p', { role: 'alert' }, '视频加载失败，可重新连接或下载查看。', h('button', { onClick: () => setAttempt(n => n + 1) }, '重试播放')) : null)
     }
     return { apply(ctx) {
