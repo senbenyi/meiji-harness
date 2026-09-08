@@ -43,6 +43,8 @@ bash scripts/deploy_dsh_elysium_ui.sh
 
 恢复本地隧道：`bash scripts/common/start_tunnel_harness.sh`，端口读取 `harness-runtime.HARNESS_LOCAL_PORT`。
 
+独立隧道入口：`bash scripts/start_tunnel_harness.sh [SSH目标]`（从 `llm-ai-brain/app/` 迁入），默认连接 `veo-comfyui`，映射本地 `23080` 到远端 `3080`；可用 `WAN22_HARNESS_LOCAL_PORT`、`WAN22_HARNESS_PORT` 覆盖端口。
+
 ## 极乐世界预设
 
 从 `standard/agent.cordis.yml` 生成自定义预设，完整保留文件、Shell、检索、计划、目标、子代理等通用能力。仅覆盖身份和技能目录。
