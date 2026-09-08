@@ -11,8 +11,10 @@ import { apply } from '../src/index.js'
 test('media routes wait for webServer and inject browser configuration when it becomes available', () => {
   let activate
   apply({ on() {}, tools: { register() {} }, inject(dependencies, callback) {
-    assert.deepEqual(dependencies, ['webServer'])
-    activate = callback
+    if (dependencies.length === 1) {
+      assert.deepEqual(dependencies, ['webServer'])
+      activate = callback
+    } else assert.deepEqual(dependencies, ['webServer', 'apiProxy'])
   } })
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,

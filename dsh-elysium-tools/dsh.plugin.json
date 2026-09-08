@@ -8,6 +8,7 @@
   },
   "contributes": {
     "tools": [
+      "drama_save_brief",
       "elysium_load_tools",
       "workflow_generate_video",
       "workflow_resume_video",
