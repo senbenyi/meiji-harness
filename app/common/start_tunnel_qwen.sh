@@ -15,7 +15,7 @@ fail() { echo "[FAIL] $1" >&2; exit 1; }
 for name in curl lsof ps ssh; do
   command -v "$name" >/dev/null 2>&1 || fail "缺少命令：$name"
 done
-ssh_options=(-F "$REPO_ROOT/config/ssh_config" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
+ssh_options=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 qwen_ready() {
   curl -fsS --max-time 5 "http://$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT/v1/models" 2>/dev/null | \
     grep -Fq "\"id\":\"$QWEN_MODEL_ID\""

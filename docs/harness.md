@@ -7,7 +7,6 @@
 | [`config/harness-settings.yaml`](../config/harness-settings.yaml) | 运行参数、模型、UI、Agent preset |
 | [`config/system-prompt.yaml`](../config/system-prompt.yaml) | 系统提示词 persona |
 | [`config/harness-agent.md`](../config/harness-agent.md) | 对话指令 |
-| [`config/ssh_config`](../config/ssh_config) | Qwen 服务器 SSH 配置 |
 | [`.dsh/skills/`](../.dsh/skills) | 按需加载的创作技能 |
 | [`app/common/config_loader.py`](../app/common/config_loader.py) | 配置解析与应用 |
 
@@ -22,7 +21,9 @@ bash app/common/start_harness.sh --restart   # 重启
 bash app/common/start_harness.sh --stop      # 停止
 ```
 
-启动时检查 Qwen API，必要时通过 `config/ssh_config` 建立隧道；使用服务器现有密钥和 `BatchMode=yes`。
+启动时检查 Qwen API，必要时通过 `QWEN_SSH_TARGET` 指定的 SSH 别名建立隧道；别名由执行机器的 `~/.ssh/config` 管理，使用服务器现有密钥和 `BatchMode=yes`。项目不再分发 SSH 配置。
+
+Harness 服务器须能直接执行 `ssh -o BatchMode=yes veo-qwen38 true`；Mac 的别名配置不会自动同步到服务器。部署目标同样读取 `HARNESS_SSH_TARGET`，由本机系统 SSH 配置解析。
 
 Qwen 隧道脚本重复执行会复用健康通道；重建前先验证 SSH 和远端模型 API，预检失败时保留旧通道。
 

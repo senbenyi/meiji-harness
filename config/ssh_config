@@ -1,7 +1,0 @@
-# Harness 服务器使用现有密钥连接 Qwen；不保存私钥。
-Host veo-qwen38
-    HostName connect.westd.seetacloud.com
-    User root
-    Port 34728
-    IdentityFile ~/.ssh/id_ed25519
-    BatchMode yes

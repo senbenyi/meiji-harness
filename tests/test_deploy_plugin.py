@@ -26,7 +26,7 @@ class DeployPluginTests(unittest.TestCase):
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(SOURCE / "app" / name, dest)
         for name in ("config/harness-settings.yaml", "config/harness-agent.md",
-                     "config/system-prompt.yaml", "config/ssh_config",
+                     "config/system-prompt.yaml",
                      "app/common/config_loader.py", "app/common/install_plugin.sh",
                      "app/common/start_harness.sh", "app/common/start_tunnel_qwen.sh",
                      "dsh-elysium-ui/package.json", "dsh-elysium-tools/package.json"):
@@ -37,7 +37,7 @@ class DeployPluginTests(unittest.TestCase):
         (self.root / "app/common/start_tunnel_harness.sh").write_text(
             'echo "tunnel $PYTHON_BIN" >> "$DEPLOY_TEST_LOG"\n')
         self.mock("git", 'echo "$DEPLOY_TEST_ROOT"')
-        self.mock("fixture-python", "printf '%s\\n' HARNESS_ROOT=/remote/harness PLUGINS_ROOT=/remote/plugins HARNESS_LOCAL_PORT=23080")
+        self.mock("fixture-python", "printf '%s\\n' HARNESS_ROOT=/remote/harness PLUGINS_ROOT=/remote/plugins HARNESS_LOCAL_PORT=23080 HARNESS_LOCAL_HOST=localhost HARNESS_SSH_TARGET=fixture-host HARNESS_PYTHON=/configured/python")
         self.env["PYTHON_BIN"] = str(self.bin / "fixture-python")
         for command in ("ssh", "rsync", "pnpm"):
             self.mock(command, f'echo "{command} $PWD $*" >> "$DEPLOY_TEST_LOG"\n'
@@ -88,7 +88,7 @@ class DeployPluginTests(unittest.TestCase):
         runtime = harness / 'runtime/node-v24.20.0-linux-x64/bin'
         runtime.mkdir(parents=True)
         (runtime / 'node').symlink_to(shutil.which('node'))
-        self.mock('python3', f"echo 'HARNESS_ROOT={harness}'")
+        self.mock('fixture-python', f"printf '%s\\n' HARNESS_ROOT={harness} HARNESS_PYTHON={self.bin / 'fixture-python'} HARNESS_HOST=localhost HARNESS_WEB_PORT=3080")
         host_modules = harness / 'app/node_modules'
         (host_modules / '.bin').mkdir(parents=True)
         dsh = host_modules / '.bin/dsh'

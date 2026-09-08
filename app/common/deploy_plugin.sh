@@ -17,7 +17,7 @@ TARGET="$HARNESS_SSH_TARGET"
 DEST="$HARNESS_ROOT/packages/dsh-elysium-$kind-registry"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10)
 [[ -s "$PACKAGE_ROOT/package.json" && -d "$REPO_ROOT/.dsh" ]] || fail '插件或技能目录不存在'
-for file in config/harness-settings.yaml config/harness-agent.md config/system-prompt.yaml config/ssh_config \
+for file in config/harness-settings.yaml config/harness-agent.md config/system-prompt.yaml \
   app/common/config_loader.py app/common/install_plugin.sh app/common/start_harness.sh app/common/start_tunnel_qwen.sh app/common/start_tunnel_harness.sh; do
   [[ -s "$REPO_ROOT/$file" ]] || fail "缺少文件：$file"
 done
