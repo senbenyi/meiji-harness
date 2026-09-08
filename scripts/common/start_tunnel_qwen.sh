@@ -15,13 +15,29 @@ fail() { echo "[FAIL] $1" >&2; exit 1; }
 for name in curl lsof ps ssh; do
   command -v "$name" >/dev/null 2>&1 || fail "缺少命令：$name"
 done
+ssh_options=(-F "$REPO_ROOT/config/ssh_config" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
+qwen_ready() {
+  curl -fsS --max-time 5 "http://127.0.0.1:$QWEN_API_LOCAL_PORT/v1/models" 2>/dev/null | \
+    grep -Fq "\"id\":\"$QWEN_MODEL_ID\""
+}
 
 listener_pids="$(lsof -nP -tiTCP:"$QWEN_API_LOCAL_PORT" -sTCP:LISTEN 2>/dev/null || true)"
 while IFS= read -r pid; do
   [[ -n "$pid" ]] || continue
   command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-  [[ "$command_line" == *ssh* && "$command_line" == *"127.0.0.1:$QWEN_API_LOCAL_PORT:"* ]] || \
+  [[ "$command_line" == *ssh* && "$command_line" == *"127.0.0.1:$QWEN_API_LOCAL_PORT:127.0.0.1:$QWEN_API_REMOTE_PORT"* ]] || \
     fail "端口 $QWEN_API_LOCAL_PORT 被其他程序占用：PID $pid"
+done <<<"$listener_pids"
+if [[ -n "$listener_pids" ]] && qwen_ready; then
+  echo "[REUSE] Qwen3.8 可访问：http://127.0.0.1:$QWEN_API_LOCAL_PORT/v1"
+  exit 0
+fi
+ssh "${ssh_options[@]}" "$QWEN_SSH_TARGET" \
+  "curl -fsS --max-time 5 'http://127.0.0.1:$QWEN_API_REMOTE_PORT/v1/models'" | \
+  grep -Fq "\"id\":\"$QWEN_MODEL_ID\"" || fail 'Qwen SSH 或模型 API 预检失败，未停止旧通道'
+
+while IFS= read -r pid; do
+  [[ -n "$pid" ]] || continue
   echo "[TUNNEL] 停止旧通道：PID $pid"
   kill "$pid"
 done <<<"$listener_pids"
@@ -33,11 +49,7 @@ done
   fail "旧通道未能释放端口 $QWEN_API_LOCAL_PORT"
 
 echo "[TUNNEL] 127.0.0.1:$QWEN_API_LOCAL_PORT -> $QWEN_SSH_TARGET:127.0.0.1:$QWEN_API_REMOTE_PORT"
-ssh -f -N \
-  -F "$REPO_ROOT/config/ssh_config" \
-  -o BatchMode=yes \
-  -o StrictHostKeyChecking=accept-new \
-  -o ConnectTimeout=10 \
+ssh -f -N "${ssh_options[@]}" \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=20 \
   -o ServerAliveCountMax=3 \
@@ -45,8 +57,7 @@ ssh -f -N \
   "$QWEN_SSH_TARGET"
 
 for _ in {1..20}; do
-  if curl -fsS --max-time 5 "http://127.0.0.1:$QWEN_API_LOCAL_PORT/v1/models" 2>/dev/null | \
-      grep -Fq "\"id\":\"$QWEN_MODEL_ID\""; then
+  if qwen_ready; then
     echo "[DONE] Qwen3.8 可访问：http://127.0.0.1:$QWEN_API_LOCAL_PORT/v1"
     exit 0
   fi

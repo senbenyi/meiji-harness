@@ -24,6 +24,8 @@ bash scripts/common/start_harness.sh --stop      # 停止
 
 启动时检查 Qwen API，必要时通过 `config/ssh_config` 建立隧道；使用服务器现有密钥和 `BatchMode=yes`。
 
+Qwen 隧道脚本重复执行会复用健康通道；重建前先验证 SSH 和远端模型 API，预检失败时保留旧通道。
+
 ## 部署
 
 从仓库根目录分别发布工具和 UI 插件：
