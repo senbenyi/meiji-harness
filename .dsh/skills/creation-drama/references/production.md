@@ -1,4 +1,4 @@
-# 多镜头制作与改稿
+# 短剧分段制作、合成与改稿
 
 - 用 workflow_generate_video 的 shots；镜头duration之和等于目标总长，保留镜号、人物、对白和素材。以当前schema与有效配置为准；旧版不支持时报告缺口，不缩短任务或绕过生产入口。
 - independent/reference用于独立切镜，continue延续前镜动作，reuse使用已选素材。H3参考当前每类最多一个文件；模型生成帧率与交付帧率分开处理。
