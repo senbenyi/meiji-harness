@@ -1,0 +1,404 @@
+{
+  "LoadVideo": {
+    "input": {
+      "required": {
+        "file": [
+          "COMBO",
+          {
+            "multiselect": false,
+            "options": [
+              "fixture.mp4"
+            ],
+            "video_upload": true
+          }
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "GetVideoComponents": {
+    "input": {
+      "required": {
+        "video": [
+          "VIDEO",
+          {
+            "tooltip": "The video to extract components from."
+          }
+        ]
+      }
+    },
+    "output": [
+      "IMAGE",
+      "AUDIO",
+      "FLOAT",
+      "COMBO",
+      "COMBO"
+    ]
+  },
+  "ImageScale": {
+    "input": {
+      "required": {
+        "image": [
+          "IMAGE"
+        ],
+        "upscale_method": [
+          [
+            "nearest-exact",
+            "bilinear",
+            "area",
+            "bicubic",
+            "lanczos"
+          ]
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 512,
+            "min": 0,
+            "max": 16384,
+            "step": 1
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 512,
+            "min": 0,
+            "max": 16384,
+            "step": 1
+          }
+        ],
+        "crop": [
+          [
+            "disabled",
+            "center"
+          ]
+        ]
+      }
+    },
+    "output": [
+      "IMAGE"
+    ]
+  },
+  "ImageFromBatch": {
+    "input": {
+      "required": {
+        "image": [
+          "IMAGE",
+          {}
+        ],
+        "batch_index": [
+          "INT",
+          {
+            "default": 0,
+            "min": -16384,
+            "max": 16384
+          }
+        ],
+        "length": [
+          "INT",
+          {
+            "default": 1,
+            "min": 1,
+            "max": 4096
+          }
+        ]
+      }
+    },
+    "output": [
+      "IMAGE"
+    ]
+  },
+  "ImageBatch": {
+    "input": {
+      "required": {
+        "image1": [
+          "IMAGE"
+        ],
+        "image2": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "IMAGE"
+    ]
+  },
+  "EmptyAudio": {
+    "input": {
+      "required": {
+        "duration": [
+          "FLOAT",
+          {
+            "tooltip": "Duration of the empty audio clip in seconds",
+            "default": 60.0,
+            "min": 0.0,
+            "max": 18446744073709551615,
+            "step": 0.01
+          }
+        ],
+        "sample_rate": [
+          "INT",
+          {
+            "tooltip": "Sample rate of the empty audio clip.",
+            "advanced": true,
+            "default": 44100,
+            "min": 1,
+            "max": 192000
+          }
+        ],
+        "channels": [
+          "INT",
+          {
+            "tooltip": "Number of audio channels (1 for mono, 2 for stereo).",
+            "advanced": true,
+            "default": 2,
+            "min": 1,
+            "max": 2
+          }
+        ]
+      }
+    },
+    "output": [
+      "AUDIO"
+    ]
+  },
+  "AudioConcat": {
+    "input": {
+      "required": {
+        "audio1": [
+          "AUDIO",
+          {}
+        ],
+        "audio2": [
+          "AUDIO",
+          {}
+        ],
+        "direction": [
+          "COMBO",
+          {
+            "tooltip": "Whether to append audio2 after or before audio1.",
+            "default": "after",
+            "multiselect": false,
+            "options": [
+              "after",
+              "before"
+            ]
+          }
+        ]
+      }
+    },
+    "output": [
+      "AUDIO"
+    ]
+  },
+  "TrimAudioDuration": {
+    "input": {
+      "required": {
+        "audio": [
+          "AUDIO",
+          {}
+        ],
+        "start_index": [
+          "FLOAT",
+          {
+            "tooltip": "Start time in seconds, can be negative to count from the end (supports sub-seconds).",
+            "default": 0.0,
+            "min": -18446744073709551615,
+            "max": 18446744073709551615,
+            "step": 0.01
+          }
+        ],
+        "duration": [
+          "FLOAT",
+          {
+            "tooltip": "Duration in seconds",
+            "default": 60.0,
+            "min": 0.0,
+            "step": 0.01
+          }
+        ]
+      }
+    },
+    "output": [
+      "AUDIO"
+    ]
+  },
+  "DaSiWa_EnhancedVideoCombine": {
+    "input": {
+      "required": {
+        "images": [
+          "IMAGE",
+          {
+            "description": "Frames to encode as a video."
+          }
+        ],
+        "frame_rate": [
+          "FLOAT",
+          {
+            "default": 24.0,
+            "min": 0.1,
+            "max": 240.0,
+            "step": 0.01
+          }
+        ],
+        "codec": [
+          [
+            "Auto",
+            "AV1",
+            "VP9",
+            "H.265 (HEVC)",
+            "H.264"
+          ],
+          {
+            "default": "Auto",
+            "description": "Auto prefers browser-compatible 8-bit AV1/WebM, then VP9 and H.264 fallbacks. Choose H.265 explicitly when required."
+          }
+        ],
+        "container": [
+          [
+            "Auto",
+            "WebM",
+            "MKV",
+            "MP4",
+            "Animated WebP",
+            "Animated AVIF"
+          ],
+          {
+            "default": "Auto",
+            "description": "Auto tries video containers only. Select Animated WebP or Animated AVIF manually; these image animations ignore codec selection and cannot include audio."
+          }
+        ],
+        "bit_depth": [
+          [
+            "Auto",
+            "8-bit",
+            "10-bit"
+          ],
+          {
+            "default": "Auto"
+          }
+        ],
+        "quality": [
+          "INT",
+          {
+            "default": 20,
+            "min": 0,
+            "max": 51,
+            "description": "Encoding quality for every encoder. 0 is no compression (largest files); higher values increase compression and reduce quality. 20 is the recommended default."
+          }
+        ],
+        "log_level": [
+          [
+            "Standard",
+            "Verbose"
+          ],
+          {
+            "default": "Standard",
+            "description": "Legacy workflow compatibility; logging is always concise."
+          }
+        ],
+        "pingpong": [
+          "BOOLEAN",
+          {
+            "default": false,
+            "description": "Append the interior frames in reverse order for seamless forward/reverse playback."
+          }
+        ],
+        "save_metadata": [
+          "BOOLEAN",
+          {
+            "default": true,
+            "description": "Embed ComfyUI prompt and workflow metadata for workflow-aware video loaders."
+          }
+        ],
+        "filename_prefix": [
+          "STRING",
+          {
+            "default": "video_%date:hhmmss%",
+            "description": "Output path/name prefix. Supports %date% and formatted dates such as video/%date:yyyy-MM-dd%/%date:hhmmss%."
+          }
+        ],
+        "save_output": [
+          "BOOLEAN",
+          {
+            "default": true
+          }
+        ],
+        "pass_frames": [
+          "BOOLEAN",
+          {
+            "default": false,
+            "description": "Return the encoded frame sequence for downstream processing."
+          }
+        ],
+        "crop_to_audio": [
+          "BOOLEAN",
+          {
+            "default": false,
+            "description": "When audio is connected, end the output video at the audio duration."
+          }
+        ],
+        "audio_codec": [
+          [
+            "Auto",
+            "AAC",
+            "Opus",
+            "MP3"
+          ],
+          {
+            "default": "Auto",
+            "description": "Audio codec. Auto uses Opus for WebM and AAC for MKV/MP4."
+          }
+        ],
+        "audio_bitrate": [
+          [
+            "64k",
+            "96k",
+            "128k",
+            "160k",
+            "192k",
+            "256k",
+            "320k"
+          ],
+          {
+            "default": "192k",
+            "description": "Target bitrate for the connected audio stream."
+          }
+        ],
+        "save_first_frame": [
+          "BOOLEAN",
+          {
+            "default": false,
+            "description": "Write the first frame as a PNG beside the encoded video."
+          }
+        ],
+        "save_last_frame": [
+          "BOOLEAN",
+          {
+            "default": false,
+            "description": "Write the last frame as a PNG beside the encoded video."
+          }
+        ]
+      },
+      "optional": {
+        "audio": [
+          "AUDIO",
+          {
+            "description": "Optional ComfyUI audio to mux into the encoded video."
+          }
+        ]
+      },
+      "hidden": {
+        "prompt": "PROMPT",
+        "extra_pnginfo": "EXTRA_PNGINFO"
+      }
+    },
+    "output": [
+      "IMAGE",
+      "STRING"
+    ]
+  }
+}

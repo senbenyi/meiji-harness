@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { codeVersion, inspectMedia, retryAdvice, traceDiagnostics } from './diagnostics.js'
 import { dirname, extname, isAbsolute, join, relative } from 'node:path'
 import { publishVideo } from '../../workflows/video-publication.js'
+import { executeComfyVideo } from '../../workflows/video-execution.js'
 
 const PROJECT_ROOT = process.env.LLM_AI_MODEL_ROOT || '/root/autodl-tmp/project'
 const ARTIFACTS_ROOT = process.env.ARTIFACTS_ROOT || '/root/autodl-fs/artifacts/projects'
@@ -304,7 +305,7 @@ async function buildModelExecution(jobId, capability, params) {
   throw new ModelTaskError('MODEL_CAPABILITY_UNKNOWN', `未注册模型能力：${capability}`, 400)
 }
 
-async function execute(capability, params, signal, timeoutMs, workflow = false, jobId = randomBytes(16).toString('hex')) {
+async function execute(capability, params, signal, timeoutMs, jobId = randomBytes(16).toString('hex')) {
   const statusPath = join(jobRoot(jobId), 'status.json')
   const logPath = join(jobRoot(jobId), 'execution.log')
   const tracePath = join(jobRoot(jobId), 'trace.jsonl')
@@ -321,15 +322,9 @@ async function execute(capability, params, signal, timeoutMs, workflow = false, 
   status.stage = 'prepare'
   status.timings = {}
   status.code_version = await codeVersion()
-  if (workflow) status.workflow = 'video'
   await writeJson(statusPath, status)
   try {
-    const execution = workflow === 'video' ? {
-      command: ['bash', join(PROJECT_ROOT, 'scripts/workflow/generate_video.sh'),
-        '--request-file', join(jobRoot(jobId), 'input/request.json'), '--run-id', jobId],
-      environment: { ARTIFACTS_ROOT },
-      output: join(ARTIFACTS_ROOT, `production-${jobId}`, 'output/final.mp4'),
-    } : await buildModelExecution(jobId, capability, params)
+    const execution = await buildModelExecution(jobId, capability, params)
     execution.environment.MODEL_TRACE_FILE = tracePath
     execution.environment.MODEL_TRACE_ID = jobId
     status.debug.command = execution.command
@@ -368,7 +363,7 @@ async function execute(capability, params, signal, timeoutMs, workflow = false, 
     status.result.comfyui_prompt_id = primary?.prompt_id ?? null
     status.result.comfyui_artifact_id = primary?.artifact_id ?? null
     status.result.comfyui_view_url = primary?.view_url ?? null
-    status.result.comfyui_metadata_status = primary ? 'available' : workflow ? 'local-final-see-stage-artifacts' : 'not-reported-by-executor'
+    status.result.comfyui_metadata_status = primary ? 'available' : 'not-reported-by-executor'
     status.debug.media_probe_path = join(jobRoot(jobId), 'media-probe.json')
     const inspection = await inspectMedia(execution.output, status.debug.media_probe_path)
     status.result.media_info = inspection.media_info
@@ -376,14 +371,13 @@ async function execute(capability, params, signal, timeoutMs, workflow = false, 
       file_exists: 'passed', nonempty: 'passed', media_probe: inspection.media_probe,
       full_decode: 'not_run', specification_match: 'not_run', human_review: 'not_run',
     }
-    if (capability === 'video-concat' || workflow === 'video') {
+    if (capability === 'video-concat') {
       const report = JSON.parse(await readFile(`${execution.output}.validation.json`, 'utf8'))
       if (report.validation?.full_decode !== 'passed' || report.validation?.specification_match !== 'passed') {
         throw new ModelTaskError('MODEL_OUTPUT_INVALID', '合片未通过解码与规格验证')
       }
       Object.assign(status.result.validation, report.validation)
-      if (workflow === 'video') status.result.shots = report.shots || []
-      status.result.comfyui_metadata_status = workflow ? 'local-final-see-stage-artifacts' : 'not-applicable-local-concat'
+      status.result.comfyui_metadata_status = 'not-applicable-local-concat'
     }
     const requested = status.debug.chain.findLast(item => item.stage === 'executor-config' && item.span_id === primary?.span_id)?.parameters
     if (inspection.media_info && requested?.width && requested?.height) {
@@ -391,12 +385,8 @@ async function execute(capability, params, signal, timeoutMs, workflow = false, 
     }
     status.result.warnings = inspection.warnings
     if (status.result.validation.specification_match === 'failed') status.result.warnings.push('OUTPUT_DIMENSIONS_MISMATCH')
-    if (!primary && !workflow && capability !== 'video-concat') status.result.warnings.push('COMFYUI_METADATA_MISSING')
+    if (!primary && capability !== 'video-concat') status.result.warnings.push('COMFYUI_METADATA_MISSING')
     if (primary?.url_scope === 'server-local') status.result.warnings.push('COMFYUI_URL_SERVER_LOCAL')
-    if (workflow === 'video') {
-      status.stage = 'publish'
-      await publishVideo(status)
-    }
     status.stage = 'completed'
     status.timings.inspect_ms = Math.round(performance.now() - phaseStarted)
     status.timings.total_ms = Math.round(performance.now() - started)
@@ -434,15 +424,15 @@ export function runModelTask(capability, params, signal, timeoutMs) {
   return execute(capability, params, signal, timeoutMs)
 }
 
-export function executeVideoWorkflowJob(jobId, params) {
-  return execute('workflow-video', params, undefined, MODEL_TIMEOUTS.workflow, 'video', jobId)
+export async function executeVideoWorkflowJob(jobId, params) {
+  return completedResult(await executeComfyVideo(jobId, params))
 }
 
 export async function getJob(jobId) {
   if (!/^[0-9a-f]{32}$/.test(jobId || '')) throw new ModelTaskError('MODEL_JOB_NOT_FOUND', '任务不存在', 404)
   try {
     const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
-    if (job.capability === 'workflow-video') {
+    if (job.capability === 'workflow-video' && job.backend !== 'comfyui') {
       await publishVideo(job)
       job.workflow = await readFile(join(ARTIFACTS_ROOT, `production-${jobId}`, 'workflow/state.json'), 'utf8')
         .then(JSON.parse).catch(() => null)

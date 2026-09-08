@@ -6,7 +6,7 @@ export const renderToolDebug = (args, value) => {
   const keys = ['job_id', 'status', 'stage', 'path', 'size_bytes', 'sha256', 'media_info', 'validation', 'shots',
     'warnings', 'error_code', 'error', 'failed_stage', 'retryable', 'retry_scope']
   const output = Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
-  if (value.comfyui_metadata_status === 'published-final') {
+  if (['published-final', 'comfyui-final'].includes(value.comfyui_metadata_status)) {
     output.comfyui_view_url = value.comfyui_view_url
     delete output.path
   }

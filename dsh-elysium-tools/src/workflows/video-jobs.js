@@ -94,6 +94,9 @@ export async function resumeVideoJob(jobId, exec) {
   if (job.capability !== 'workflow-video') throw invalid('只能恢复视频工作流；原子产物请按顺序导入新工作流')
   await bindVideoCall(jobId, exec)
   if (job.status === 'succeeded') return { job_id: jobId, status: job.status }
+  if (job.status === 'failed' && job.backend === 'comfyui') {
+    await writeFile(join(stateRoot, 'jobs', jobId, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
+  }
   return launch(jobId)
 }
 

@@ -1,7 +1,6 @@
-import { execFile } from 'node:child_process'
-import { join } from 'node:path'
+import { ComfyClient, comfyUrl } from './client.js'
 
-// 固定脚本映射，参数以 argv 传入；不允许模型执行任意命令或指定任意 URL。
+// 固定后端映射；工具参数不接受任意 URL。
 export function comfyuiTaskTool(action, description) {
   const name = `comfyui_task_${action}`
   return {
@@ -29,26 +28,26 @@ export function comfyuiTaskTool(action, description) {
         throw new Error('ComfyUI 任务参数无效')
       }
       exec?.signal?.throwIfAborted()
-      const root = process.env.LLM_AI_MODEL_ROOT || '/root/autodl-tmp/project'
-      const script = join(root, 'scripts', 'comfyui', `task_${action}.sh`)
-      const argv = [script, '--server', args.server]
-      if (action !== 'queue') argv.push('--prompt-id', args.prompt_id)
-      return new Promise((resolve) => {
-        execFile('bash', argv, { cwd: root, signal: exec?.signal, timeout: 60_000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout) => {
-          let output
-          try {
-            output = JSON.parse(stdout)
-            if (typeof output.ok !== 'boolean') throw new Error('missing ok')
-            if (error && output.ok) throw error
-          } catch {
-            output = { ok: false, error: { type: error?.code || 'INVALID_RESPONSE',
-              message: error?.name === 'AbortError' ? '调用已中止；不代表远端任务已取消。' : '任务管理脚本执行失败或未返回有效 JSON，请检查入口部署和 Python 依赖。' } }
-          }
-          output.debug = { ...output.debug, tool: name, input: args,
-            chain: [{ stage: 'tool', tool: name }, { stage: 'script', path: script }, ...(output.debug?.chain || [])] }
-          resolve(output)
-        })
-      })
+      const client = new ComfyClient(comfyUrl(args.server), exec?.signal)
+      try {
+        const queue = await client.request('queue')
+        if (action === 'queue') return { ok: true, server: args.server, ...queue }
+        const history = (await client.request(`history/${args.prompt_id}`))[args.prompt_id]
+        const running = queue.queue_running?.some(item => item[1] === args.prompt_id)
+        const pending = queue.queue_pending?.some(item => item[1] === args.prompt_id)
+        if (action === 'cancel') {
+          // /interrupt affects the running queue globally. Never race another job.
+          if (running) return { ok: false, error: { type: 'RUNNING_CANCEL_UNSUPPORTED', message: '原生中断接口不能安全定向取消运行中任务；本次未中断。' } }
+          if (pending) await client.request('queue', { delete: [args.prompt_id] })
+          return { ok: true, prompt_id: args.prompt_id, status: pending ? 'cancel_requested' : history ? 'finished' : 'not_found' }
+        }
+        return { ok: true, prompt_id: args.prompt_id, server: args.server,
+          status: history?.status?.status_str === 'error' ? 'failed' : history?.status?.completed ? 'succeeded'
+            : running ? 'running' : pending ? 'queued' : 'not_found',
+          ...(action === 'result' ? { history } : { messages: history?.status?.messages || [] }) }
+      } catch (error) {
+        return { ok: false, error: { type: error.code || 'COMFYUI_REQUEST_FAILED', message: error.message } }
+      }
     },
   }
 }

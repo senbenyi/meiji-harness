@@ -5,8 +5,8 @@ import { promisify } from 'node:util'
 import { mkdir, mkdtemp, realpath, rm, stat, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { mockComfy } from './helpers/comfy-server.js'
 
 const run = promisify(execFile)
 const root = await realpath(await mkdtemp(join(tmpdir(), 'workflow-test-')))
@@ -15,11 +15,14 @@ await mkdir(artifacts)
 process.env.ARTIFACTS_ROOT = artifacts
 process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = join(root, 'comfy-output')
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'jobs')
-process.env.LLM_AI_MODEL_ROOT = fileURLToPath(new URL('../../../llm-ai-model', import.meta.url))
+process.env.LLM_AI_MODEL_ROOT = join(root, 'model-repository-does-not-exist')
+const backend = await mockComfy(root)
+process.env.MINIMAX_H3_COMFYUI_URL = backend.url
+process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url
 const { createWorkflowTools, getJob, completedResult } = await import('../src/index.js')
 const [generate, resume] = createWorkflowTools()
 const { validateVideoPlan } = await import('../src/workflows/video-jobs.js')
-after(() => rm(root, { recursive: true, force: true }))
+after(async () => { await backend.close(); await rm(root, { recursive: true, force: true }) })
 let available = true
 try { await run('ffmpeg', ['-version']); await run('ffprobe', ['-version']) } catch { available = false }
 
@@ -43,22 +46,22 @@ test('production tool waits and delivers 12 concatenated clips without model pol
   assert.equal(queued.status, 'succeeded')
   assert.ok(queued.path.endsWith('/final.mp4'))
   const playback = new URL(queued.comfyui_view_url)
-  assert.equal(playback.port, '6016')
-  const published = join(process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT, playback.searchParams.get('subfolder'), playback.searchParams.get('filename'))
-  assert.deepEqual(await readFile(published), await readFile(queued.path))
+  assert.equal(playback.origin, backend.url)
+  assert.deepEqual(Buffer.from(await (await fetch(playback)).arrayBuffer()), await readFile(queued.path))
   assert.equal((await resume.execute({ job_id: queued.job_id })).job_id, queued.job_id)
   const job = await wait(queued.job_id)
   assert.equal(job.status, 'succeeded', job.error)
   const result = completedResult(job)
   assert.equal(result.validation.full_decode, 'passed')
   assert.equal(result.validation.specification_match, 'passed')
-  assert.equal(job.workflow.steps.generate, undefined)
+  assert.equal(job.backend, 'comfyui')
+  assert.equal(backend.prompts.length, 1)
   assert.ok(Math.abs(result.media_info.duration_seconds - 12) < 0.5)
   const before = await stat(result.path)
   await resume.execute({ job_id: queued.job_id })
   assert.equal((await stat(result.path)).mtimeMs, before.mtimeMs)
   const report = JSON.parse(await readFile(`${result.path}.validation.json`, 'utf8'))
-  assert.equal(report.inputs.length, 12)
+  assert.equal(report.shots.length, 12)
 })
 
 test('wrong final duration fails and does not deliver a successful partial result', { skip: !available }, async () => {
@@ -107,7 +110,7 @@ test('three five-second shots preserve their contract and validate references be
   }
 })
 
-test('shot reuse renders mixed frame rates and audio layouts through the real Python workflow', { skip: !available }, async () => {
+test('shot reuse renders mixed frame rates and audio layouts through the HTTP task contract', { skip: !available }, async () => {
   const silent = join(artifacts, 'silent.mp4'), voiced = join(artifacts, 'voiced.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=2', '-c:v', 'libx264', silent])
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=96x64:r=25:d=1', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-c:v', 'libx264', '-c:a', 'aac', voiced])

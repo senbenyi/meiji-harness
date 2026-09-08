@@ -1,0 +1,277 @@
+{
+  "load_diffusion_model": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "DasiwaMinimaxH3_dasiwaHybrid4turboV1.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2586"
+    }
+  },
+  "load_text_encoder": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2587"
+    }
+  },
+  "load_video_vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2584"
+    }
+  },
+  "load_audio_vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2585"
+    }
+  },
+  "director": {
+    "class_type": "MiniMaxH3Director",
+    "inputs": {
+      "mode": "T2VA",
+      "prompt": "",
+      "width": 480,
+      "height": 864,
+      "duration": 5,
+      "ref_image_size": "match",
+      "timeline_data": "{\"version\": 1, \"resolution\": {\"input_scaling\": \"Auto\"}, \"items\": [], \"prompt_blocks\": []}",
+      "builder_state": "",
+      "frame_rate": 24,
+      "fl2va_model": [
+        "load_diffusion_model",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2730"
+    }
+  },
+  "lora": {
+    "class_type": "DaSiWa_LTX2LoraLoader",
+    "inputs": {
+      "model": [
+        "director",
+        5
+      ],
+      "clip": [
+        "load_text_encoder",
+        0
+      ],
+      "stack_data": "[{\"on\":true,\"lora\":\"None\",\"str\":1,\"vs\":1,\"as\":1},{\"on\":true,\"lora\":\"None\",\"str\":1,\"vs\":1,\"as\":1},{\"on\":true,\"lora\":\"None\",\"str\":1,\"vs\":1,\"as\":1},{\"on\":true,\"lora\":\"None\",\"str\":1,\"vs\":1,\"as\":1},{\"on\":true,\"lora\":\"None\",\"str\":1,\"vs\":1,\"as\":1},{\"on\":true,\"lora\":\"None\",\"str\":1,\"vs\":1,\"as\":1},{\"on\":true,\"lora\":\"None\",\"str\":1,\"vs\":1,\"as\":1}]",
+      "model_type": "Basic",
+      "use_cache": false
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2678"
+    }
+  },
+  "conditioning": {
+    "class_type": "MiniMaxH3DirectorGuide",
+    "inputs": {
+      "clip": [
+        "lora",
+        1
+      ],
+      "vae": [
+        "load_video_vae",
+        0
+      ],
+      "audio_vae": [
+        "load_audio_vae",
+        0
+      ],
+      "guide": [
+        "director",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2700"
+    }
+  },
+  "sigma_shift": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "lora",
+        0
+      ],
+      "shift_video": 10,
+      "shift_audio": 5
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2692"
+    }
+  },
+  "attention": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "sigma_shift",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2720"
+    }
+  },
+  "guider": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "attention",
+        0
+      ],
+      "conditioning": [
+        "conditioning",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2667"
+    }
+  },
+  "scheduler": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "lora",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 4,
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2679"
+    }
+  },
+  "sampler": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2598"
+    }
+  },
+  "noise": {
+    "class_type": "DaSiWa_SeedControl",
+    "inputs": {
+      "seed_value": 666,
+      "seed_control_state": "{\"mode\":\"fixed\",\"recent\":[]}"
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2739"
+    }
+  },
+  "sample": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "noise",
+        1
+      ],
+      "guider": [
+        "guider",
+        0
+      ],
+      "sampler": [
+        "sampler",
+        0
+      ],
+      "sigmas": [
+        "scheduler",
+        0
+      ],
+      "latent_image": [
+        "conditioning",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2668"
+    }
+  },
+  "decode_video": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "sample",
+        0
+      ],
+      "vae": [
+        "load_video_vae",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2671"
+    }
+  },
+  "decode_audio": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "sample",
+        0
+      ],
+      "vae": [
+        "load_audio_vae",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2669"
+    }
+  },
+  "save_video": {
+    "class_type": "DaSiWa_EnhancedVideoCombine",
+    "inputs": {
+      "images": [
+        "decode_video",
+        0
+      ],
+      "audio": [
+        "decode_audio",
+        0
+      ],
+      "frame_rate": [
+        "director",
+        8
+      ],
+      "codec": "H.264",
+      "container": "MP4",
+      "bit_depth": "8-bit",
+      "quality": 21,
+      "log_level": "Standard",
+      "pingpong": false,
+      "save_metadata": true,
+      "filename_prefix": "elysium/video",
+      "save_output": true,
+      "pass_frames": false,
+      "crop_to_audio": false,
+      "audio_codec": "AAC",
+      "audio_bitrate": "192k",
+      "save_first_frame": false,
+      "save_last_frame": false
+    },
+    "_meta": {
+      "title": "C-MMH3-18 / 2568"
+    }
+  }
+}
