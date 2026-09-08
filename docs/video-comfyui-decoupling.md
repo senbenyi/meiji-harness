@@ -30,7 +30,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 在 `dsh-elysium-tools` 运行 `pnpm test`、`pnpm build`、`pnpm package:registry`（构建与测试串行）。测试包含：原图导出一致性、时间基准、镜头连线、模拟 HTTP 生命周期、丢响应恢复、终止失败后显式重试，以及模型仓库路径不存在时的生产调用。模拟 HTTP 不等于真实节点执行；真实 ComfyUI 与媒体验收单独记录。
 
-当前仅保留 `minimax-h3` 服务（6016），6006 已删除；尚未接入 SwarmUI。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
+当前仅保留 `minimax-h3` 服务（6016），旧实例已删除；尚未接入 SwarmUI。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
 
 ## C-MMH3-18 适配
 
