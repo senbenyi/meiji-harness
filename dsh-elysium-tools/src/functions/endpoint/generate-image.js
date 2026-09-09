@@ -1,4 +1,4 @@
-import { MODEL_TIMEOUTS } from '../common/task.js'
+import { MODEL_TIMEOUTS } from '../../jobs/contracts.js'
 import { runMediaJob } from '../../workflows/media-jobs.js'
 import { completedModelTool } from '../common/tool.js'
 

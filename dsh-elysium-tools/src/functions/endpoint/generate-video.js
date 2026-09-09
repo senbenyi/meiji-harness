@@ -1,6 +1,6 @@
-import { MODEL_TIMEOUTS, ModelTaskError } from '../common/task.js'
+import { MODEL_TIMEOUTS, ModelTaskError } from '../../jobs/contracts.js'
 import { startVideoJob } from '../../workflows/video-jobs.js'
-import { waitVideoJob } from '../../workflows/workflow-generate-video.js'
+import { waitJob } from '../../jobs/wait.js'
 import { completedModelTool } from '../common/tool.js'
 
 export function createModelGenerateVideoTool() {
@@ -30,7 +30,7 @@ export function createModelGenerateVideoTool() {
       const duration = args.duration ?? 5
       const shot = { id: 'shot-1', mode: args.mode === 'reference' ? 'reference' : 'independent',
         prompt: args.prompt, duration, ...Object.fromEntries(media.map(key => [key, args[key]])) }
-      const result = await waitVideoJob(await startVideoJob({ duration, shots: [shot], seed: args.seed ?? 666 }, exec), signal)
+      const result = await waitJob(await startVideoJob({ duration, shots: [shot], seed: args.seed ?? 666 }, exec), signal)
       if (result.status === 'failed') throw new ModelTaskError(result.error_code || 'MODEL_JOB_FAILED', `任务 ${result.job_id} 失败：${result.error}`, 500)
       return result
     },

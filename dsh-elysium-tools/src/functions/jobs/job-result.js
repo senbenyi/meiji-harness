@@ -1,4 +1,4 @@
-import { completedResult, getJob } from '../common/task.js'
+import { completedResult, getJob } from '../../jobs/query.js'
 import { COMPLETED_RESULT_SCHEMA, renderToolDebug } from '../common/tool.js'
 
 export function createModelJobResultTool() {

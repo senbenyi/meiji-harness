@@ -13,7 +13,7 @@
 
 ## 生产工具
 
-默认只注册 `workflow_generate_video`、`workflow_resume_video`、`model_job_status`、`model_job_result`。服务端显式设置 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 时才额外注册下方原子与 ComfyUI 工具，仅供测试；模型不能通过工具参数打开该开关。
+默认注册 `workflow_generate_video`、`workflow_resume_video`、`model_generate_image`、`model_concat_video`、`model_job_resume`、`model_job_status`、`model_job_result` 及按需发现工具 `elysium_load_tools`。服务端显式设置 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 时额外注册兼容视频入口和 ComfyUI 任务工具，仅供测试；模型不能通过工具参数打开该开关。
 
 `workflow_generate_video` 必填目标总秒数 `duration`。多镜头优先提供有序 `shots`，每镜有唯一 `id`、整数秒 `duration`、完整 `prompt`（reuse除外），总时长严格求和。15秒三个镜头须保留三个5秒镜头，不能压成单镜头。`mode` 支持 `independent`（默认，文生或起始图）、`reference`（图/视频/音频参考）、`continue`（前镜裁剪后末帧续拍）、`reuse`（已有视频，可指定剪辑起点 `in_point`）。生成镜头每段1..15秒；素材分别用 `image_path`、`video_path`、`audio_path` 绑定到镜头。reference当前每类最多一个文件；声音参考不承诺口型准确。
 
@@ -122,13 +122,17 @@
 
 ## 源码职责
 
-- `src/functions/endpoint/`：图片、视频与合片工具入口。
-- `src/functions/jobs/`：插件任务状态、结果查询。
-- `src/functions/comfyui/`：ComfyUI 队列、任务状态、结果和取消。
-- `src/functions/common/`：任务执行、结果封装和诊断，不注册工具。
-- `src/functions/index.js`：模型工具汇总与导出。
-- `src/workflows/`：生产工具、后台任务、标准 ComfyUI 图编译与 HTTP 执行。
-- `src/index.js`：插件身份、导出和注册。
+- `src/index.js`、`tool-discovery.js`：插件注册与会话工具发现。
+- `src/functions/endpoint/`、`functions/jobs/`：工具参数适配、状态和结果查询入口。
+- `src/functions/comfyui/`：HTTP 客户端及原生队列、状态、结果、取消工具。
+- `src/functions/common/`：工具结果渲染、文件哈希和诊断；`task.js` 保留兼容导出。
+- `src/jobs/`：任务创建、会话绑定、启动锁、提交记录、等待、状态读取和旧产物兼容。
+- `src/workflows/*-plan.js`：业务输入校验；`*-graph.js` 与 `video-workflow.js`：执行图与可视化图。
+- `src/workflows/comfy-execution.js`：公共快照恢复、提交与等待；`video-execution.js`、`media-execution.js`：业务编排。
+- `src/media/probe.js`、`src/workflows/*-artifacts.js`、`video-validation.js`：素材探测、下载及产物验收。
+- `src/http/media-jobs.js`：会话绑定后的状态、预览和下载路由。
+
+完整调用路径、外部节点边界及重构验证见 [执行链路](../docs/tools-execution-chain.md)。
 
 ## 安装
 
@@ -147,27 +151,17 @@ dsh plugin --profile web add --workspace-root ./registry
 
 ## 调试输出
 
-所有工具的文本结果展示实际 `input` 和 `output`。生成任务额外返回 `debug`：插件/工具名、原始与生效输入、ComfyUI 提交与产物事件，以及诊断文件路径。查询工具读取已保存结果，不重新生成。
+工具默认返回交付或失败摘要，完整调试信息按 `renderToolDebug` 的调试开关展示。`path` 是 Harness 本机可复用素材路径；`comfyui_view_url` 是原始输出的浏览器访问地址。
 
-- `comfyui_prompt_id`：ComfyUI 原生任务 ID，与工具 `job_id` 不同。
-- `comfyui_artifact_id`：由服务地址、prompt_id、输出节点/位置及文件信息计算的稳定 SHA-256 标识，不是 ComfyUI 原生字段。
-- `comfyui_view_url`：原始产物 `/view` 地址，文件名和目录经过 URL 编码。
-- `comfyui_artifacts`：工作流各阶段的产物及原始文件描述，包含 `url_scope`。
-- 元数据缺失返回 null 和原因。
+- `job_id`：插件任务 ID；`comfyui_prompt_id`：ComfyUI 原生任务 ID，两者不能混用。
+- `comfyui_artifact_id`：视频成片按服务地址、prompt_id、最终节点和文件描述计算的 SHA-256；不是 ComfyUI 原生字段，图片和合片不保证提供。
+- `comfyui_artifacts`：原始文件描述；视频成片额外保留服务地址、浏览地址和本地路径，逐镜结果在 `shots` 中。
+- `stage`、`failed_stage`：插件准备、提交、排队、执行或产物验收阶段；不等同于单个节点或纯 GPU 推理耗时。
+- `media_info` 来自 FFprobe；成功结果的 `validation.full_decode`、`specification_match` 为 `passed`，`human_review` 仍为 `not_run`。
 
-内部 API 和浏览器产物地址必须分别配置 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`，由 `config/harness-settings.yaml` 启动时注入。地址不互相回退，缺失或非法时直接报错。产物旁仍保存 `.comfyui.json` 元数据；旧产物不会自动补出 ID 或 URL。
+内部 API 与浏览器地址分别使用 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`，不互相回退。任务目录保存工作流快照、提交记录、ComfyUI 历史和媒体探测报告；视频另存 `diagnostics.json`、`execution.log` 及成片旁的 `.validation.json`。当前 HTTP 链路不生成 `.comfyui.json` 旁文件，旧产物兼容逻辑独立保留。
 
-### 诊断与验收
-
-- `trace_id` 串联整个任务；工作流阶段用 `span_id` 区分，未创建独立子任务时 `parent_job_id` 为 null。
-- `stage`、`failed_stage`、`timings` 展示准备、执行、产物检查及总耗时；`debug.stage_timings` 是各阶段已记录事件间的耗时，不等同于纯 GPU 推理耗时。
-- `debug.resolved_config` 包含模型选择来源、配置/适配器哈希、生效参数与工作流哈希；`code_version` 返回插件版本和执行代码哈希。
-- `debug.comfyui_status`、`debug.node_errors` 返回原始状态与失败节点；完整请求、响应、堆栈保存为文件，通过 `request_path`、`response_path`、`diagnostic_path` 读取。
-- `media_info` 来自 ffprobe：宽高、实际宽高比、时长、帧率、编码与音轨信息。`FFPROBE_BIN` 可指定程序；缺少程序或探测失败时不会声称规格已验证。
-- `validation` 分别报告文件存在、非空、媒体探测、尺寸匹配、完整解码和人工验收。完整解码及人工验收当前为 not_run；没有明确输出尺寸时不猜测规格匹配。
-- `warnings` 明确元数据缺失、地址仅本机可用、探测失败或尺寸不符。`retryable` 为 null 表示尚不能判断；已有 prompt_id 时先查原任务，不自动整链重跑。
-
-工具返回摘要；`debug.diagnostic_path` 保留完整诊断快照，`debug.media_probe_path` 保留探测结果。只记录任务参数，不输出进程的完整环境变量。
+恢复先查询原任务；提交结果不明时停止，下载或验收失败不重复推理。错误与诊断字段以任务实际保存内容为准，不承诺尚未采集的节点级耗时或推理质量。
 
 通用工具及其说明在极乐世界内通过 `elysium_load_tools` 按组加载，保留原注册和权限执行链，详见 [上下文说明](../docs/harness.md#上下文成本)。
 

@@ -3,7 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { open, realpath } from 'node:fs/promises'
 import { extname, relative, isAbsolute } from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import { getJob } from '../functions/common/task.js'
+import { getJob } from '../jobs/query.js'
 import { findVideoCall } from '../jobs/call-index.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'

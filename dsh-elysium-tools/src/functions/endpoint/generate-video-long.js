@@ -1,6 +1,6 @@
-import { MODEL_TIMEOUTS, ModelTaskError } from '../common/task.js'
+import { MODEL_TIMEOUTS, ModelTaskError } from '../../jobs/contracts.js'
 import { startVideoJob } from '../../workflows/video-jobs.js'
-import { waitVideoJob } from '../../workflows/workflow-generate-video.js'
+import { waitJob } from '../../jobs/wait.js'
 import { completedModelTool } from '../common/tool.js'
 
 export function createModelGenerateVideoLongTool() {
@@ -24,7 +24,7 @@ export function createModelGenerateVideoLongTool() {
         || (args.preset !== undefined && !['long_fast', 'long_standard', 'long_vertical_standard', 'long_vertical_preview'].includes(args.preset))) {
         throw new ModelTaskError('MODEL_INPUT_INVALID', '长视频需要首帧、超过 15 秒的整数时长和有效预设', 422)
       }
-      const result = await waitVideoJob(await startVideoJob({ duration, prompts: args.prompts,
+      const result = await waitJob(await startVideoJob({ duration, prompts: args.prompts,
         image_path: args.image_path, seed: args.seed ?? 666 }, exec), signal)
       if (result.status === 'failed') throw new ModelTaskError(result.error_code || 'MODEL_JOB_FAILED', `任务 ${result.job_id} 失败：${result.error}`, 500)
       return result

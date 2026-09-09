@@ -16,9 +16,9 @@
 
 `video-graph.js` 按执行单元分流：一个生成片段使用 `workflow_generate_video`；多个片段或已有视频剪辑使用 `workflow_director_video`。一次生成内的多个镜头不拆成多段。两份源图位于模型项目 `workflows/video-generate-minimax-h3/`，作者参考图仍为 `workflows/video-generate-minimax-h3/template/C-MMH3-18.json`。
 
-节点类型、控件参数、生成分支连线和操作模板从可视化图导出。插件按片段数展开模板并绑定提示词、时长、素材、随机种子和输出路径；续接及按时间取帧的展开由 `video-graph.js` 完成。源图中的时间映射是可展开的 ComfyUI 原生子图，不需要新装执行节点。可选参考、首帧等模板在源图中禁用，插件选择时才实例化。
+节点类型、控件参数、生成分支连线和操作模板从可视化图导出。插件按片段数展开模板并绑定提示词、时长、素材、随机种子和输出路径；续接及按时间取帧的展开由 `video-graph.js` 完成。时间映射由自定义 `ElysiumSelectFrames` 节点按索引一次取帧，并返回选取后的真实末帧；模型仓库的 `app/deploy_workflows.sh` 部署 `scripts/common/comfyui/elysium_media.py`。首次安装或更新该节点后须按授权在队列空闲时重启 ComfyUI。可选参考、首帧等模板在源图中禁用，插件选择时才实例化。
 
-`video-execution.js` 保存 `comfyui-workflow.json`（执行图、请求、选中的工作流与规格）以及 `comfyui-workflow-ui.json`（本次实际展开的可视化图）。后者以 `extra_data.extra_pnginfo.workflow` 随 `/prompt` 提交，可从 ComfyUI 历史加载，节点 ID 与执行图一致。恢复时复用原始快照，不用新模板重建已提交任务；旧任务没有 UI 快照时仍按原 API 图恢复。
+`comfy-execution.js` 供视频及图片／合片编排共用，保存 `comfyui-workflow.json`（执行图、请求、选中的工作流与规格）以及 `comfyui-workflow-ui.json`（本次实际展开的可视化图）。后者以 `extra_data.extra_pnginfo.workflow` 随 `/prompt` 提交，可从 ComfyUI 历史加载，节点 ID 与执行图一致。恢复时复用原始快照，不用新模板重建已提交任务；旧任务没有 UI 快照时仍按原 API 图恢复。
 
 开发时在模型仓库运行 `python3 scripts/common/comfyui/build_video_workflows.py`，自动更新相邻插件的 `src/workflows/templates/workflow_*.json`；`--check` 只检查同步状态。运行时只读取插件包内模板。修改源图后需重新导出、测试并按授权发布。
 
@@ -34,9 +34,11 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 ## 验证
 
-在 `dsh-elysium-tools` 运行 `pnpm test`、`pnpm build`、`pnpm package:registry`（构建与测试串行）。测试包含：原图导出一致性、时间基准、镜头连线、模拟 HTTP 生命周期、丢响应恢复、终止失败后显式重试，以及模型仓库路径不存在时的生产调用。模拟 HTTP 不等于真实节点执行；真实 ComfyUI 与媒体验收单独记录。
+本地回归在 `dsh-elysium-tools` 运行 `pnpm test`。按授权发布时再运行 `pnpm build`、`pnpm package:registry`（构建与测试串行）。测试包含：原图导出一致性、时间基准、镜头连线、模拟 HTTP 生命周期、丢响应恢复、终止失败后显式重试，以及模型仓库路径不存在时的生产调用。模拟 HTTP 不等于真实节点执行；真实 ComfyUI 与媒体验收单独记录。
 
-当前所有 ComfyUI 能力入口统一使用 `minimax-h3` 服务配置（6016），插件的图片、视频与合片入口均使用 ComfyUI 工作流；尚未接入 SwarmUI。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
+本次职责重构与核对记录见 [执行链路](tools-execution-chain.md)；重构代码尚未构建或部署。
+
+当前所有 ComfyUI 能力入口统一使用 `minimax-h3` 服务配置（6016），插件的图片、视频与合片入口均使用 ComfyUI 工作流；尚未接入 SwarmUI。此前部署与重启情况见下方带日期的实测记录。
 
 ## C-MMH3-18 适配
 
@@ -44,7 +46,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 保留作者 Director、LoRA、SigmaShift/Attention、Guider/Sampler、音视频解码、EnhancedVideoCombine 主链，节点 `_meta.source_id` 对应生产可视化源图的节点 ID。服务器缺少 `ModelPreviewOverrideKJ`、`ModelPatchTorchSettings`，兼容图旁路它们；原图已关闭的非生产分支不提交，不增加节点。原图的 pruned int8 模型、res_multistep/25步配置按当前服务器已有 4Turbo 模型适配为 Euler/4步/shift 10/5，并保留已有编码器/VAE 文件名。这是显式兼容版本，不声称与原图原样运行等价。
 
-续拍使用作者 Guide 所调用的原生 `MiniMaxH3ImageToVideo` 接收上一镜真实末帧；Director 本身没有 IMAGE socket。24fps 生成到30fps交付按时间选择帧，不能直接改导出帧率。静态图大小与内存随帧数增长，短片通过不代表任意长片已验证。
+续拍使用作者 Guide 所调用的原生 `MiniMaxH3ImageToVideo` 接收上一镜真实末帧；Director 本身没有 IMAGE socket。24fps 生成到30fps交付按时间选择帧，不能直接改导出帧率。取帧节点数量按镜头增长，帧索引列表与解码张量内存仍随帧数增长，短片通过不代表任意长片已验证。
 
 ## 2026-09-08 实测记录
 
@@ -58,7 +60,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 ## 地址配置约束
 
-`config/harness-settings.yaml` 的 `harness-runtime` 是 Harness 部署配置入口。启动器校验并传入服务地址、产物目录、任务目录和可选原子工具使用的模型项目路径。插件源码没有服务地址或服务器目录兜底；缺失、空值、非法配置会报错。纯本地拼接不要求 ComfyUI 地址。
+`config/harness-settings.yaml` 的 `harness-runtime` 是 Harness 部署配置入口。启动器校验并传入服务地址、产物目录、任务目录和可选原子工具使用的模型项目路径。插件源码没有服务地址或服务器目录兜底；缺失、空值、非法配置会报错。当前合片同样通过 ComfyUI，必须提供服务地址。
 
 内部 API 与浏览器产物地址分别配置为 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`。SSH 目标、监听主机和端口也由配置读取。更换地址后须重新应用配置并重启 Harness 才对运行进程生效；本次配置改造未执行远程部署或服务重启。
 

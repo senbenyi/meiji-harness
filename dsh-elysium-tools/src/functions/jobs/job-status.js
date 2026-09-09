@@ -1,4 +1,4 @@
-import { getJob } from '../common/task.js'
+import { getJob } from '../../jobs/query.js'
 import { renderToolDebug } from '../common/tool.js'
 
 export function createModelJobStatusTool() {

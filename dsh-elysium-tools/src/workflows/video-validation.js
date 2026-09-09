@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readJson } from '../functions/comfyui/client.js'
+import { readJson } from '../jobs/json.js'
 import { inspectMedia } from '../functions/common/diagnostics.js'
 
 const run = promisify(execFile)

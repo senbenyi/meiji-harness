@@ -41,7 +41,7 @@ export async function mockMedia(directory) {
       }
       if (url.pathname === '/queue') { res.end(JSON.stringify({ queue_running: [], queue_pending: [] })); return }
       if (url.pathname.startsWith('/history')) { const id = url.pathname.split('/')[2]; res.end(JSON.stringify(id ? history[id] ? { [id]: history[id] } : {} : history)); return }
-      if (url.pathname === '/view') { res.end(await readFile(join(directory, url.searchParams.get('filename')))); return }
+      if (url.pathname === '/view') { res.end(controls.corruptOutput ? Buffer.from('corrupt media') : await readFile(join(directory, url.searchParams.get('filename')))); return }
       res.writeHead(404); res.end('{}')
     } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })) }
   })

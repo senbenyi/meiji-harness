@@ -1,21 +1,9 @@
 import { startVideoJob, resumeVideoJob } from './video-jobs.js'
 import { renderToolDebug } from '../functions/common/tool.js'
-import { getJob, completedResult, MODEL_TIMEOUTS } from '../functions/common/task.js'
-import { setTimeout } from 'node:timers/promises'
+import { MODEL_TIMEOUTS } from '../jobs/contracts.js'
+import { waitJob } from '../jobs/wait.js'
 
-export async function waitVideoJob(job, signal, read = getJob, pause = setTimeout) {
-  try {
-    for (;;) {
-      signal?.throwIfAborted()
-      const current = await read(job.job_id)
-      if (current.status === 'succeeded') return completedResult(current)
-      if (current.status === 'failed') return current
-      await pause(2000, undefined, { signal })
-    }
-  } catch (error) {
-    throw new Error(`等待任务中断；job_id: ${job.job_id}；用 model_job_status 查询原任务，勿重新生成。${error.message}`, { cause: error })
-  }
-}
+export { waitJob as waitVideoJob } from '../jobs/wait.js'
 
 const output = { schema: { type: 'object', properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
 
@@ -47,7 +35,7 @@ export function createWorkflowGenerateVideoTool() {
     }, required: ['duration'] }, output,
     execute: async (args, exec) => {
       exec?.signal?.throwIfAborted()
-      return waitVideoJob(await startVideoJob(args, exec), exec?.signal)
+      return waitJob(await startVideoJob(args, exec), exec?.signal)
     },
   }
 }
@@ -58,6 +46,6 @@ export function createWorkflowResumeVideoTool() {
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     output, execute: async (args, exec) => {
       exec?.signal?.throwIfAborted()
-      return waitVideoJob(await resumeVideoJob(args.job_id, exec), exec?.signal)
+      return waitJob(await resumeVideoJob(args.job_id, exec), exec?.signal)
     } }
 }

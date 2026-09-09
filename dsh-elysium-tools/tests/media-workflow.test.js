@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test, after } from 'node:test'
-import { mkdtemp, mkdir, realpath, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
@@ -66,4 +66,26 @@ test('native concat preserves order, source dimensions, fps, duration and silent
   assert.equal('audio' in request.prompt['7'].inputs, false)
   const { stdout } = await run('ffmpeg', ['-v', 'error', '-i', result.path, '-vf', "select='eq(n,0)+eq(n,24)',scale=1:1", '-vsync', '0', '-frames:v', '2', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'], { encoding: 'buffer' })
   assert.ok(stdout[0] > stdout[2]); assert.ok(stdout[5] > stdout[3])
+})
+
+test('corrupt image is not delivered and recovery downloads the original prompt without inference', async () => {
+  backend.controls.corruptOutput = true
+  let id
+  try {
+    await assert.rejects(image.execute({ prompt: 'Keep the original image' }), error => {
+      id = error.message.match(/[0-9a-f]{32}/)?.[0]
+      return Boolean(id)
+    })
+  } finally { backend.controls.corruptOutput = false }
+  const failed = await getJob(id)
+  assert.equal(failed.status, 'failed')
+  assert.equal(failed.failed_stage, 'inspect-output')
+  assert.equal(await stat(join(artifacts, `production-${id}`, 'output/final.png')).catch(() => null), null)
+  const count = backend.prompts.length
+  const result = await resume.execute({ job_id: id })
+  assert.equal(result.status, 'succeeded')
+  assert.equal(result.job_id, id)
+  assert.equal(result.comfyui_prompt_id, failed.comfyui_prompt_id)
+  assert.equal(result.validation.full_decode, 'passed')
+  assert.equal(backend.prompts.length, count)
 })
