@@ -1,0 +1,94 @@
+# 启动与隧道参数
+harness-runtime:
+  HARNESS_PYTHON: /root/miniconda3/bin/python3
+  HARNESS_SSH_TARGET: veo-comfyui
+  HARNESS_HOST: 127.0.0.1
+  HARNESS_LOCAL_HOST: 127.0.0.1
+  QWEN_LOCAL_HOST: 127.0.0.1
+  QWEN_REMOTE_HOST: 127.0.0.1
+  MINIMAX_H3_COMFYUI_URL: http://127.0.0.1:6016
+  MINIMAX_H3_COMFYUI_PUBLIC_URL: http://127.0.0.1:6016
+  MINIMAX_H3_COMFYUI_OUTPUT_ROOT: /root/autodl-tmp/ComfyUI-minimax-h3/output
+  ARTIFACTS_ROOT: /root/autodl-fs/artifacts/projects
+  ELYSIUM_TOOLS_STATE_ROOT: /root/autodl-tmp/elysium-tools
+  LOCAL_DSH_HOME: /Users/mac/.dsh
+  LOCAL_HARNESS_HOST: 127.0.0.1
+  LOCAL_HARNESS_PORT: 3080
+  HARNESS_ROOT: /root/autodl-tmp/wan22-harness
+  PLUGINS_ROOT: /root/autodl-tmp/project/harness
+  PROJECT_ROOT: /root/autodl-tmp/project/harness
+  COMFYUI_INPUT_ROOT: /root/autodl-tmp/ComfyUI-minimax-h3/input
+  QWEN_SSH_TARGET: veo-qwen38
+  QWEN_API_LOCAL_PORT: 18000
+  QWEN_API_REMOTE_PORT: 8000
+  QWEN_MODEL_ID: qwen3.8-27b-elysium
+  HARNESS_WEB_PORT: 3080
+  HARNESS_LOCAL_PORT: 23080
+
+# 模型服务
+llm-pi-ai:
+  providers:
+    qwen-token-plan-cn:
+      apiKeyEnv: QWEN_TOKEN_PLAN_CN_API_KEY
+    qwen38-local:
+      displayName: qwen3.8-27b-elysium
+      api: openai-completions
+      baseURL: http://__QWEN_LOCAL_HOST__:__QWEN_API_LOCAL_PORT__/v1
+      compat:
+        supportsDeveloperRole: false
+        maxTokensField: max_tokens
+        thinkingFormat: qwen-chat-template
+      models:
+        - id: __QWEN_MODEL_ID__
+          name: qwen3.8-27b-elysium
+          contextWindow: 65536
+          maxTokens: 4096
+          reasoningEfforts:
+            'off':
+            high: high
+          input:
+            - text
+      apiKeyEnv: QWEN38_LOCAL_API_KEY
+
+ui-theme:
+  preference: system
+
+agent-default-model:
+  provider: qwen38-local
+  model: __QWEN_MODEL_ID__
+
+dsh-better-sidebar:
+  tabsEnabled:
+    browser: true
+    git: true
+  agentOpenTools: true
+
+dsh-elysium-ui:
+  enabled: true
+  directors: []
+
+ui-conversation:
+  busyEnter: steer
+
+permission:
+  defaultPreset: danger-full-access
+
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+agent-presets:
+  default: elysium
+
+# 启动前生成并覆盖配置；不写入会话、工作区数据和密钥。
+harness-customization:
+  profile:
+    - insert:
+        - id: dsh-image-preview
+          name: dsh-image-preview
+    - id: dsh-elysium-tools
+      config:
+        comfyUrl: __MINIMAX_H3_COMFYUI_URL__
+        publicUrl: __MINIMAX_H3_COMFYUI_PUBLIC_URL__
+        artifactsRoot: __ARTIFACTS_ROOT__
+        stateRoot: __ELYSIUM_TOOLS_STATE_ROOT__
+        legacyOutputRoot: __MINIMAX_H3_COMFYUI_OUTPUT_ROOT__
+        python: __HARNESS_PYTHON__

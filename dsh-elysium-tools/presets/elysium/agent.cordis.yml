@@ -1,0 +1,14 @@
+# Reuse the host's standard tools; keep only Elysium-specific configuration here.
+- id: elysium-standard
+  name: ./standard.mjs
+  config:
+    patches:
+      - id: persona
+        config:
+          text: !!js >-
+            process.getBuiltinModule('node:fs').readFileSync(new URL('./persona.md', baseUrl), 'utf8')
+            + '\n' + process.getBuiltinModule('node:fs').readFileSync(new URL('./instructions.md', baseUrl), 'utf8')
+      - id: skill-filesystem
+        config:
+          customSkillDirs:
+            - !!js process.getBuiltinModule('node:url').fileURLToPath(new URL('./skills/', baseUrl))
