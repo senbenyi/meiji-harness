@@ -6,7 +6,7 @@
 |---|---|
 | [`app/config/harness-settings.yaml`](../app/config/harness-settings.yaml) | 运行参数、模型、UI、Agent preset |
 | [`.dsh/.agent-presets/elysium/persona.md`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/persona.md) | 随包提供的 Elysium 人格 |
-| [`.dsh/.agent-presets/elysium/instructions.md`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/instructions.md) | Elysium 会话协作指令 |
+| [`.dsh/.agent-presets/elysium/rules.md`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/rules.md) | Elysium 会话协作指令 |
 | [`.dsh/.agent-presets/elysium/skills/`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/skills) | 随包提供的创作技能 |
 | [`app/common/config_loader.py`](../app/common/config_loader.py) | 配置解析与应用 |
 

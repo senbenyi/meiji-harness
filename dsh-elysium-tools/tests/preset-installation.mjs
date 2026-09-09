@@ -33,23 +33,13 @@ try {
   const standardPath = join(host, 'node_modules/@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml')
   const standardText = await readFile(standardPath, 'utf8')
   const standard = yaml.load(standardText, { schema })
-  const adapter = await import(pathToFileURL(join(presetRoot, 'elysium/standard.mjs')))
   const { Group } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis-plugin-loader')))
-  let rows
-  await adapter.apply({
-    fiber: { entry: { parent: { tree: { import: name => import(pathToFileURL(require.resolve(name))) } } } },
-    agentPresets: { readComposition: async id => { assert.equal(id, 'standard'); return standardText } },
-    loader: { builtins: { group: Group } },
-    plugin: (plugin, config) => { assert.equal(plugin, Group); rows = config; return { await: async () => {} } },
-  }, interpolate(ctx, composition[0].config))
+  const rows = composition
+  assert.equal(rows.length, standard.length)
   for (const row of standard) {
     if (!['persona', 'skill-filesystem'].includes(row.id)) assert.deepEqual(rows.find(item => item.id === row.id), row)
   }
   assert.equal(await readFile(standardPath, 'utf8'), standardText)
-  await assert.rejects(adapter.apply({
-    fiber: { entry: { parent: { tree: { import: name => import(pathToFileURL(require.resolve(name))) } } } },
-    agentPresets: { readComposition: async () => '[]' },
-  }, interpolate(ctx, composition[0].config)), /patch failed/)
   const persona = interpolate(ctx, rows.find(row => row.id === 'persona').config)
   const skills = interpolate(ctx, rows.find(row => row.id === 'skill-filesystem').config)
   assert.match(persona.text, /极乐世界/); assert.match(persona.text, /workflow_generate_video/)
@@ -63,12 +53,10 @@ try {
   const loader = runtime.plugin(Loader, { baseUrl: ctx.baseUrl })
   await loader.await()
   runtime.loader.builtins.group = Group
-  runtime.reflect.provide('agentPresets', { readComposition: async () => standardText })
   const active = new Map()
   class TestTree extends EntryTree {
     write() {} // Same read-only persistence policy as Harness PresetTree.
     import(name) {
-      if (name === './standard.mjs') return adapter
       if (name === 'cordis:group') return Group
       if (name.startsWith('@deepseek-ai/dsh-')) return {
         apply(ctx, config) {
@@ -80,9 +68,16 @@ try {
       return import(pathToFileURL(require.resolve(name)))
     }
   }
-  const tree = new TestTree(runtime)
+  let tree
+  const mount = runtime.plugin({
+    inject: ['loader'],
+    async apply(ctx) {
+      tree = new TestTree(ctx)
+      await tree.root.update(structuredClone(composition))
+    },
+  })
   try {
-    await tree.root.update(composition)
+    await mount.await()
     assert.match(active.get('persona').text, /极乐世界/)
     assert.deepEqual(active.get('skill-filesystem').customSkillDirs, [join(presetRoot, 'elysium/skills/')])
     assert.ok(active.has(process.platform === 'win32' ? 'tool-pwsh' : 'tool-bash'))
@@ -91,6 +86,7 @@ try {
     assert.ok(tree.store.delegation.subgroup)
   } finally {
     await tree.root.stop()
+    await mount.dispose()
     await loader.dispose()
   }
   assert.equal(active.size, 0)

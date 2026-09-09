@@ -8,7 +8,7 @@
 
 | 环节 | 代码路径 | 责任与边界 |
 | --- | --- | --- |
-| Harness 会话 | `index.js`、`tool-discovery.js`；包内 `.dsh/.agent-presets/elysium/instructions.md`、`.dsh/.agent-presets/elysium/skills/creation-*` | 注册生产工具、按会话加载通用工具；Harness 保留权限和工具调用执行权 |
+| Harness 会话 | `index.js`、`tool-discovery.js`；包内 `.dsh/.agent-presets/elysium/rules.md`、`.dsh/.agent-presets/elysium/skills/creation-*` | 注册生产工具、按会话加载通用工具；Harness 保留权限和工具调用执行权 |
 | 工具参数 | `functions/endpoint/`、`workflows/workflow-generate-video.js` | 默认值与兼容入口转换；镜头时长、提示词及素材不能被静默缩减 |
 | 输入校验 | `workflows/video-plan.js`、`media-plan.js` | 视频镜头模式、种子、总时长、素材类型及 artifacts 路径边界；不提交任务 |
 | 创建与恢复 | `jobs/create.js`、`call-index.js`、`launch.js`、`launch-lock.py`、`wait.js` | 保存请求，绑定会话调用，串行启动后台 worker，等待原任务 |
@@ -81,7 +81,7 @@ git diff --check
 
 ## 随包提供 Elysium 会话能力
 
-`.dsh/.agent-presets/elysium/` 包含原生 Agent composition、显示元数据、人格、协作指令及创作技能。安装后复制到 `$DSH_HOME/.agent-presets/elysium/`，由 Harness 默认发现；bundle 不再注册额外预设目录。`agent.cordis.yml` 仅保留两处差异，由 `standard.mjs` 读取当前 Harness 的 standard 并应用原生补丁，通过原生分组挂载且不写回文件，保留权限执行链、平台条件和隔离分组，仅替换人格与追加包内技能目录。
+`.dsh/.agent-presets/elysium/` 包含原生 Agent composition、显示元数据、人格、协作指令及创作技能。安装后复制到 `$DSH_HOME/.agent-presets/elysium/`，由 Harness 默认发现；bundle 不再注册额外预设目录。`agent.cordis.yml` 直接声明原生 standard 工具、平台条件和隔离分组，仅替换人格与技能目录；不使用自定义加载脚本。Harness 升级后可核对标准预设差异。
 
 `app/config/` 只供可选部署使用。部署器首次复制包内预设，已有同名预设保留；不写全局 AGENTS.md。手动安装按插件 README 复制目录。
 

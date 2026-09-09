@@ -1,3 +1,4 @@
+# 本机现有配置快照；覆盖前核对主机后续改动。
 # 精简控制：通过硬性约束减少输出长度。
 - id: compaction-basic
   config:
@@ -15,11 +16,9 @@
       4. Output only key findings, code changes, and final conclusions.
       5. Skip intermediate reasoning unless explicitly requested.
 
-# 对应 ~/.dsh/profiles/web/cordis.patch.yml；已保留当前本机其他配置。
+# 安装插件后覆盖 ~/.dsh/profiles/web/cordis.patch.yml。
+# comfyUrl 供 Harness 访问，publicUrl 供浏览器访问；6016 需已有 ComfyUI 或隧道。
 - id: dsh-elysium-tools
   config:
     comfyUrl: http://127.0.0.1:6016
     publicUrl: http://127.0.0.1:6016
-    python: python3
-    ffmpeg: ffmpeg
-    ffprobe: ffprobe
