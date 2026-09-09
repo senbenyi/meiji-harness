@@ -35,7 +35,7 @@ export function projectTools(assembly, agent) {
   if (!isElysium(agent) || assembly.tools.some(tool => tool.name === 'run_code')) {
     return { ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'elysium_load_tools') }
   }
-  const loaded = loadedToolNames(agent.session.events)
+  const loaded = loadedToolNames(agent.session.snapshotEvents())
   const tools = assembly.tools.filter(tool => !deferred.has(tool.name) || loaded.has(tool.name))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))

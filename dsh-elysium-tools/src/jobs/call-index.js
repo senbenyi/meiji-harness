@@ -26,9 +26,10 @@ export async function findVideoCall(sessionId, callId, session) {
   }
   // Older completed calls have no index: use only the host's authoritative paired result.
   if (session?.id !== sessionId) return null
-  const calls = session.events.filter(e => e.type === 'tool/call' && e.data.callId === callId)
+  const events = session.snapshotEvents()
+  const calls = events.filter(e => e.type === 'tool/call' && e.data.callId === callId)
   if (!calls.some(e => ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume', 'model_character_view', 'model_character_sheet'].includes(e.data.name))) return null
-  for (const event of session.events) {
+  for (const event of events) {
     if (event.type !== 'tool/result') continue
     for (const block of event.data.message?.content || []) {
       if (block.type !== 'tool-result' || block.toolCallId !== callId || block.isError) continue

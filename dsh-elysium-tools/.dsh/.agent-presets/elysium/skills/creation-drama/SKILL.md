@@ -16,6 +16,7 @@ description: 分段生成后合成的短剧创作，支持 AI 自动、导演引
 
 ## 制作与改稿
 
+- 已有确认的分镜 JSON 时，workflow_generate_video 只传 plan_path（本地 artifacts 绝对路径或 ssh://服务器别名/共享目录/分镜.json），由插件读取，禁止重抄或省略镜头 prompt。素材放在分镜同目录或子目录；不要同时传其他字段。
 - 用 workflow_generate_video 的 shots；每镜给镜号、时长、完整人设、场景、动作和镜头运动，duration 之和等于目标总长。按当前 schema 提交，缺能力说明影响，不绕入口。
 - independent/reference 用于独立切镜，continue 延续前镜动作，reuse 保留选定素材；reference 当前每类最多一个真实文件。缺资产不生成无关视频取图，生成与交付帧率分开处理。
 - 未约定候选数时每镜一个，不无限重抽或自动审片。角色设定、真实参考和人工采用分开记录；文字、seed 不代表身份锁定，声音参考不保证口型。

@@ -10,9 +10,10 @@ const output = { schema: { type: 'object', properties: { job_id: { type: 'string
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '视频生产唯一入口：多镜头用 shots 保留各镜时长、完整提示词和真实参考素材；独立、续拍、参考生成及已有镜头可组合。程序等待完成，返回待人工审片的成片。校验失败不得缩短时长或删减分镜。',
+    description: '视频生产唯一入口：已有分镜文件仅传 plan_path，插件原样读取，不要让模型重抄长 JSON。否则多镜头用 shots 保留各镜时长、完整提示词和真实参考素材。自动选择导演工作流，等待完成并返回成片；校验失败不得缩短时长或删减分镜。',
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     parameters: { type: 'object', additionalProperties: false, properties: {
+      plan_path: { type: 'string', description: '单独使用：artifacts 内本地 JSON 绝对路径，或 ssh://服务器别名/共享目录/分镜.json（需本机 SSH 可访问）。文件内容为完整 duration/shots 请求，素材位于同目录或子目录。不要同时传 duration/shots 或其他字段。' },
       duration: { type: 'integer', minimum: 1, description: '目标总秒数，最终按实际文件验收。' },
       shots: { type: 'array', minItems: 1, description: '优先用于多镜头；总时长等于各镜 duration 之和，可少于或等于15秒。不能与旧 prompts/image_path/image_prompt/video_paths 混用。', items: {
         type: 'object', additionalProperties: false, required: ['id', 'duration'], properties: {
@@ -32,7 +33,7 @@ export function createWorkflowGenerateVideoTool() {
       image_prompt: { type: 'string', description: '可选首帧生成提示词，与 image_path 二选一。' },
       video_paths: { type: 'array', minItems: 1, items: { type: 'string' }, description: '已有 MP4 按镜头顺序复用；不能与生成输入混用，不重新生成。' },
       seed: { type: 'integer', minimum: 0, maximum: 4294967295, description: '默认666。' },
-    }, required: ['duration'] }, output,
+    }, anyOf: [{ required: ['duration'] }, { required: ['plan_path'] }] }, output,
     execute: async (args, exec) => {
       exec?.signal?.throwIfAborted()
       return waitJob(await startVideoJob(args, exec), exec?.signal)

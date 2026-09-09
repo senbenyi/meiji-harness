@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createToolDiscoveryTool, loadedToolNames, projectTools, TOOL_GROUPS } from '../src/tool-discovery.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
 const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
-const agent = events => ({ session: { header: { agentPreset: 'elysium' }, events } })
+const agent = events => ({ session: { header: { agentPreset: 'elysium' }, snapshotEvents: () => events } })
 const events = names => [{ type: 'tool/call', data: { name: 'elysium_load_tools', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
 test('defers schemas and guidance without mutating source, policies or contexts', () => {
   const input = assembly(), before = JSON.stringify(input), result = projectTools(input, agent([]))
