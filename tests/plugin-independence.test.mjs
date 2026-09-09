@@ -53,10 +53,12 @@ for (const kinds of [['tools'], ['ui'], ['tools', 'ui']]) {
       const load = name => name === 'react' ? {} : modules.get(name)(load)
       for (const kind of kinds) load(`@dsh-external/dsh-elysium-${kind}`).apply({
         settingsScope: { bind: () => ({}) },
+        uiConversation: { events: { register(definition) { assert.equal(definition.kind, 'elysium-media-results') } } },
         slots: { inject: (_, run) => run(), register(spec) { slots.push(spec) } },
       })
       assert.equal(new Set(slots.map(slot => `${slot.name}:${slot.key || slot.id}`)).size, slots.length)
       assert.equal(slots.filter(slot => slot.name === 'tool.call.toolview').length, kinds.includes('tools') ? 7 : 0)
+      assert.equal(slots.filter(slot => slot.name === 'conversation.chat.turnTail').length, kinds.includes('tools') ? 1 : 0)
       assert.equal(slots.filter(slot => slot.name === 'settings.section').length, kinds.includes('ui') ? 1 : 0)
       if (kinds.includes('ui')) {
         settings.set('dsh-elysium-ui', { enabled: true, directors: [{ id: 'a', name: 'A', prompt: 'P' }] })

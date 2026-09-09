@@ -27,13 +27,13 @@ async function fixture(responses, block = {}) {
     if (!cache.has(name)) cache.set(name, bundles.get(name)(require))
     return cache.get(name)
   }
-  require(pkg.name).apply({ settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
+  require(pkg.name).apply({ uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
   assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume'])
   let view
-  await act(async () => { view = create(React.createElement(slots[0].component, { sessionId: 'session', callId: 'call', block })) })
-  return { view, requests, timers,
+  await act(async () => { view = create(React.createElement(require('elysium-tools/media-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
+  return { view, requests, timers, definition: require('elysium-tools/media-results').definition,
     tick: async () => act(async () => { const [id, run] = timers.entries().next().value; timers.delete(id); await run() }),
     close: async () => act(async () => view.unmount()) }
 }
@@ -48,6 +48,8 @@ test('same card progresses to playable result and stops polling', async () => {
     assert.equal(f.view.root.findAllByType('animateTransform').length, 1)
     await f.tick()
     const video = f.view.root.findByType('video')
+    assert.equal(f.view.root.findByProps({ 'aria-label': '媒体加载中' }).props.role, 'progressbar')
+    await act(async () => video.props.onLoadedData())
     assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
     assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(video.props.controls, false)
@@ -59,14 +61,14 @@ test('same card progresses to playable result and stops polling', async () => {
   } finally { await f.close() }
 })
 
-test('completed card plays below task details without a separate link', async () => {
+test('completed card puts preview before task details without a separate link', async () => {
   const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
   const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
   try {
     assert.equal(f.view.root.findByType('video').props.src, url)
     assert.equal(f.view.root.findAllByType('a').length, 0)
     const children = f.view.root.findByType('section').children
-    assert.ok(children.findIndex(child => child.type === 'video') > children.findIndex(child => child.type === 'details'))
+    assert.ok(children.findIndex(child => child.type === 'div') < children.findIndex(child => child.type === 'details'))
     assert.equal(f.timers.size, 0)
   } finally { await f.close() }
 })
@@ -208,19 +210,20 @@ test('a second 401 stops recovery instead of looping', async () => {
   } finally { await f.close() }
 })
 
-test('portrait video stays a thumbnail and opens a dismissible player', async () => {
+test('portrait video fills a compact card and opens a dismissible player', async () => {
   const f = await fixture([{ status: 'succeeded', has_video: true, media_info: { width: 480, height: 854 } }])
   try {
     const thumbnail = f.view.root.findByType('video')
-    assert.equal(thumbnail.props.style.maxWidth, 160)
-    assert.equal(thumbnail.props.style.maxHeight, 180)
+    assert.equal(f.view.root.findByType('section').props.style.maxWidth, 300)
+    assert.equal(thumbnail.props.style.width, '100%')
+    assert.equal(thumbnail.props.style.height, '100%')
     assert.equal(thumbnail.props.style.objectFit, 'contain')
     await act(async () => thumbnail.props.onClick())
     const modal = f.view.root.findByType('dialog')
     assert.equal(modal.findByType('video').props.controls, true)
     await act(async () => modal.findByType('button').props.onClick())
     assert.equal(f.view.root.findAllByType('dialog').length, 0)
-    await act(async () => f.view.root.findByProps({ children: '放大查看' }).props.onClick())
+    await act(async () => f.view.root.findByProps({ 'aria-label': '放大查看' }).props.onClick())
     await act(async () => f.view.root.findByType('dialog').props.onClose())
     assert.equal(f.view.root.findAllByType('video').length, 1)
   } finally { await f.close() }
@@ -235,5 +238,28 @@ test('same-origin playback recovers a token rotated after status polling', async
     assert.match(f.view.root.findByType('video').props.src, /t=rotated/)
     assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
     assert.equal(f.requests.length, 4)
+  } finally { await f.close() }
+})
+
+
+test('history replay restores only successful media for its own turn', async () => {
+  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: 'http://localhost/view' }) }] })
+  try {
+    const d = f.definition
+    let state = d.start({}, { event: { data: { turn: 2 } } })
+    const call = { type: 'tool/call', data: { turn: 2, callId: 'media', name: 'workflow_generate_video' } }
+    state = d.update({ state }, { event: call })
+    const block = { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded' }) }] }
+    const result = { type: 'tool/result', surfaceOp: 'append', seq: 12, data: { turn: 2, message: { source: { callId: 'media' }, content: [block] } } }
+    assert.equal(d.match(result).role, 'update')
+    assert.equal(d.match({ ...result, surfaceOp: 'replace' }), null)
+    state = d.update({ state }, { event: result })
+    assert.equal(d.buildLocationData({ state }, 'turn').turn, 2)
+    assert.equal(state.results.length, 1)
+    assert.equal(state.results[0].callId, 'media')
+    state = d.update({ state }, { event: result })
+    assert.equal(state.results.length, 1)
+    const next = d.start({}, { event: { data: { turn: 3 } } })
+    assert.equal(d.update({ state: next }, { event: result }).results.length, 0)
   } finally { await f.close() }
 })
