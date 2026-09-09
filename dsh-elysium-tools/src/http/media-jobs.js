@@ -20,6 +20,7 @@ export function jobSummary(job) {
   const image = job.result?.media_kind === 'image' || ['.png', '.jpg', '.jpeg', '.webp'].includes(extname(job.result?.path || '').toLowerCase()) || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)
   return { job_id: job.job_id, status: job.status,
     stage: job.status === 'failed' ? job.failed_stage : job.workflow?.stage || job.stage,
+    error_code: job.error_code, remote_status: job.remote_status,
     error: job.error, retryable: job.retryable, retry_scope: job.retry_scope,
     media_info: job.result?.media_info, validation: job.result?.validation,
     comfyui_view_url: job.result?.comfyui_view_url,

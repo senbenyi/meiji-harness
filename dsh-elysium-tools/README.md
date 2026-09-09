@@ -28,3 +28,5 @@ dsh plugin --profile web add --workspace-root ./registry
 重新加载 Harness，新会话选择“极乐世界”。素材放在 `~/.dsh/elysium/artifacts`（使用自定义 DSH_HOME 时随之调整），输入绝对路径；中断后查询、恢复原任务。
 
 导演分镜文件可直接传给 `workflow_generate_video`：`{"plan_path":"ssh://veo-comfyui/root/autodl-fs/productions/episode/plan.json"}`。需本机 SSH 可访问；JSON 保存完整 `duration`、`shots`，参考素材放在同目录或子目录，用相对路径引用。也支持 artifacts 内的本地 JSON；不要同时传其他参数。
+
+三视图保留为角色档案；镜头声明 `image_role: "character-sheet"`，`image_path` 指向原图，`image_crop: {"x":0,"y":0,"width":512,"height":947}` 指定单人视角。坐标按实际图片填写，插件裁切后上传，原图不变；不保证模型绝不生成重复人物。

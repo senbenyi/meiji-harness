@@ -5,9 +5,8 @@ description: 用 Qwen3.8 下载并反推已授权的剧集视频 URL，为 DeepS
 
 # Qwen3.8 视频反推
 
-> **状态：规格文档，当前不可执行。** 下文依赖的 `workflows/qwen38/scripts/run_pipeline.sh`
-> 在本仓库与 `llm-ai-model` 的全部 git 历史中从未存在过。反推能力属于本插件的业务能力，
-> 实现落地前，本文件只作为待实现规格；不要按下文命令直接执行，也不要声称已完成反推。
+> **状态：规格文档，流水线已可执行。** `workflows/qwen38/scripts/run_pipeline.sh` 已在
+> `llm-ai-brain` 实现。本文件作为行为规格参考；Harness Skill 包装尚未随插件分发。
 
 用唯一入口处理视频，同时让用户看到每个阶段正在做什么、实际结果和下一步。
 

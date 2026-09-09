@@ -8,10 +8,13 @@ import { executeComfyVideo } from './video-execution.js'
 const jobId = process.argv[2]
 if (!/^[0-9a-f]{32}$/.test(jobId || '')) throw new Error('Invalid job ID')
 const directory = join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', jobId)
+const controller = new AbortController()
+for (const name of ['SIGTERM', 'SIGINT']) process.once(name, () => controller.abort(
+  Object.assign(new Error('本地处理已停止；远端任务未取消，恢复时核对原 prompt_id'), { code: 'LOCAL_WORKER_STOPPED' })))
 try {
   const request = JSON.parse(await readFile(join(directory, 'input/request.json'), 'utf8'))
-  if (request.capability) await executeComfyMedia(jobId, request)
-  else await executeComfyVideo(jobId, request)
+  if (request.capability) await executeComfyMedia(jobId, request, { signal: controller.signal })
+  else await executeComfyVideo(jobId, request, { signal: controller.signal })
 } catch (error) {
   const statusPath = join(directory, 'status.json')
   const status = await readJson(statusPath) || { job_id: jobId }

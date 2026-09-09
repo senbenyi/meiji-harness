@@ -1,5 +1,6 @@
+import { workerAlive } from './worker-owner.js'
 import { requiredConfig } from '../config.js'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { traceDiagnostics } from '../functions/common/diagnostics.js'
 import { join } from 'node:path'
 import { publishVideo } from './legacy-video.js'
@@ -32,6 +33,18 @@ export async function getJob(jobId) {
     if (job.status === 'running' && job.debug?.trace_path) {
       job.debug.chain = await readTrace(job.debug.trace_path).catch(() => job.debug.chain || [])
       Object.assign(job.debug, traceDiagnostics(job.debug.chain))
+    }
+    if (job.backend === 'comfyui' && ['queued', 'running'].includes(job.status)) {
+      try {
+        if (job.status === 'queued' && Date.now() - (await stat(join(jobRoot(jobId), 'status.json'))).mtimeMs < 60_000) return job
+        if (!await workerAlive(join(jobRoot(jobId), 'worker.lock'), jobId)) {
+          const latest = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
+          if (latest.status !== job.status || latest.stage !== job.stage) return latest
+          job.failed_stage = job.stage
+          job.status = 'failed'; job.stage = 'failed'; job.error_code = 'WORKER_NOT_RUNNING'
+          job.error = '本地处理进程已停止；远端状态请按原 prompt_id 核对，使用恢复工具继续，勿重新生成。'
+        }
+      } catch { /* Unknown process identity does not authorize declaring it stopped. */ }
     }
     return job
   } catch (error) {

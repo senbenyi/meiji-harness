@@ -9,9 +9,9 @@ import { collectMediaArtifacts } from './media-artifacts.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './comfy-execution.js'
 import { buildMediaGraph } from './media-graph.js'
 
-export async function executeComfyMedia(jobId, plan) {
+export async function executeComfyMedia(jobId, plan, { signal } = {}) {
   const directory = join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', jobId)
-  const statusPath = join(directory, 'status.json'), client = new ComfyClient()
+  const statusPath = join(directory, 'status.json'), client = new ComfyClient(undefined, signal)
   const status = { job_id: jobId, capability: 'workflow-media', backend: 'comfyui', status: 'running', stage: 'prepare', created_at: new Date().toISOString(), debug: { effective_input: plan } }
   await saveJson(statusPath, status)
   try {
@@ -33,8 +33,10 @@ export async function executeComfyMedia(jobId, plan) {
     status.stage = 'inspect-output'
     await saveJson(statusPath, status)
     status.result = await collectMediaArtifacts(client, history, prepared, jobId, directory, promptId)
+    signal?.throwIfAborted()
     status.status = 'succeeded'; status.stage = 'completed'
   } catch (error) {
+    if (signal?.aborted) error = signal.reason
     status.failed_stage = status.stage; status.stage = 'failed'; status.status = 'failed'
     status.error_code = error.code || 'MODEL_GENERATION_FAILED'; status.error = error.message.slice(0, 1500)
     status.retry_scope = 'query-existing-comfyui-prompt-before-retry'

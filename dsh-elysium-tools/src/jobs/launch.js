@@ -1,15 +1,14 @@
 import { requiredConfig, runtimeConfig, workerEnvironment } from '../config.js'
-import { execFile, spawn } from 'node:child_process'
-import { promisify } from 'node:util'
-import { open, readFile, stat, writeFile, unlink } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { open, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { workerAlive } from './worker-owner.js'
 import { getJob } from './query.js'
 import { ModelTaskError } from './contracts.js'
 import { saveJson } from './json.js'
 
 const stateRoot = () => requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
-const run = promisify(execFile)
 const writeStatus = (directory, value) => saveJson(join(directory, 'status.json'), value)
 
 export async function launch(jobId, capability = 'workflow-video', retryFailed = false) {
@@ -40,30 +39,7 @@ async function launchLocked(jobId, capability, retryFailed) {
   let lock
   try { lock = await open(lockPath, 'wx', 0o600) } catch (error) {
     if (error.code !== 'EEXIST') throw error
-    const pid = Number(await readFile(lockPath, 'utf8'))
-    let alive = true
-    try {
-      if (!Number.isInteger(pid) || pid <= 0) {
-        if (Date.now() - (await stat(lockPath)).mtimeMs < 60_000) throw new Error('worker starting')
-        alive = false
-      } else {
-        process.kill(pid, 0)
-        if (process.platform === 'linux') {
-          const argv = (await readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0')
-          alive = argv.some((arg, index) => arg.endsWith('/video-worker.js') && argv[index + 1] === jobId)
-        } else {
-          const { stdout } = await run('ps', ['-p', String(pid), '-o', 'command='], { timeout: 5000 })
-          alive = stdout.includes(`/video-worker.js ${jobId}`)
-        }
-      }
-    } catch (error) {
-      let gone = error.code === 'ESRCH'
-      if (!gone && Number.isInteger(pid) && pid > 0) {
-        try { process.kill(pid, 0) } catch (probeError) { gone = probeError.code === 'ESRCH' }
-      }
-      if (gone) alive = false
-      else throw new ModelTaskError('WORKFLOW_RECOVERY_REQUIRED', '原 worker 身份未确认，暂不接管任务', 409)
-    }
+    const alive = await workerAlive(lockPath, jobId)
     if (alive) return { job_id: jobId, status: (await getJob(jobId)).status }
     // Only a confirmed dead owner is reclaimed. The submission journal still
     // decides whether to query the original prompt, recover a lost POST, or stop.

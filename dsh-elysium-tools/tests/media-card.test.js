@@ -268,3 +268,11 @@ test('history replay restores media for its own turn', async () => {
     assert.equal(d.update({ state: empty }, { event: { ...result, data: { ...result.data, message: { ...result.data.message, content: [rejected] } } } }).results.length, 0)
   } finally { await f.close() }
 })
+
+test('remote completion with local transfer failure is not labeled generation failure', async () => {
+  const f = await fixture([{status:'failed',remote_status:'succeeded',error:'连接中断'}])
+  try {
+    assert.match(JSON.stringify(f.view.toJSON()),/成片待回传/)
+    assert.doesNotMatch(JSON.stringify(f.view.toJSON()),/生成失败/)
+  } finally { await f.close() }
+})

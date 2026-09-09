@@ -5,8 +5,8 @@ description: 复用已有 Qwen3.8 artifact 的 source/source.mp4，在提示词�
 
 # Qwen3.8 既有视频重新反推
 
-> **状态：规格文档，当前不可执行。** 与 [qwen38-video-reverse](../qwen38-video-reverse/SKILL.md)
-> 依赖同一个尚未实现的 `run_pipeline.sh`。实现落地前只作为待实现规格。
+> **状态：规格文档，流水线已可执行。** `run_pipeline.sh` 已在 `llm-ai-brain` 实现（支持
+> `--source-video` 复用模式）。本文件作为行为规格参考；Harness Skill 包装尚未随插件分发。
 
 复用已经归档的授权源视频，按当前提示词重新执行完整分析、42 帧提取、生产包生成和契约校验。旧 run 必须保持不变。
 

@@ -9,6 +9,7 @@ import { codeVersion } from '../functions/common/diagnostics.js'
 import { collectVideoArtifacts } from './video-artifacts.js'
 import { probeVideoInput } from '../media/probe.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './comfy-execution.js'
+import { prepareVideoReferences } from './video-reference.js'
 
 function sources(plan) {
   return [...new Set([...(plan.video_paths || []), plan.image_path,
@@ -29,19 +30,21 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
   await saveJson(statusPath, status)
   try {
     const prepared = await prepareComfyWorkflow(directory, client, plan, async () => {
+      const { effective, references } = await prepareVideoReferences(plan, join(directory, 'references'), signal)
       const media = {}, reused = new Set(plan.video_paths || (plan.shots || []).filter(s => s.mode === 'reuse').map(s => s.video_path))
-      for (const path of sources(plan)) {
+      for (const path of sources(effective)) {
         const sha256 = await sha256File(path)
         media[path] = { sha256, ...(reused.has(path) ? await probeVideoInput(path) : {}) }
         media[path].name = await client.upload(path, `${jobId}-${sha256}${extname(path).toLowerCase()}`)
       }
-      return { ...buildVideoGraph(plan, media, await loadVideoTemplates(), jobId), media, plan,
+      return { ...buildVideoGraph(effective, media, await loadVideoTemplates(), jobId), media, plan, references,
         server_url: client.url.href }
     })
     const { promptId, history } = await runComfyWorkflow(directory, client, prepared, status, timeoutMs)
     status.stage = 'inspect-output'
     await saveJson(statusPath, status)
     status.result = await collectVideoArtifacts(client, history, prepared, jobId, directory, output, promptId)
+    signal?.throwIfAborted()
     status.status = 'succeeded'
     status.stage = 'completed'
     status.timings = { total_ms: Date.now() - started }
@@ -51,6 +54,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     await saveJson(status.debug.diagnostic_path, status)
     return status
   } catch (error) {
+    if (signal?.aborted) error = signal.reason
     status.failed_stage = status.stage
     status.stage = 'failed'
     status.status = 'failed'

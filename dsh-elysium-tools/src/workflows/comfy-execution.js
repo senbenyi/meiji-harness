@@ -39,6 +39,8 @@ export async function runComfyWorkflow(directory, client, prepared, status, time
     if (error.history) await saveJson(join(directory, 'comfyui-history.json'), error.history)
     throw error
   })
+  status.remote_status = 'succeeded'
+  await saveJson(statusPath, status)
   await saveJson(join(directory, 'comfyui-history.json'), history)
   return { promptId, history }
 }

@@ -1,14 +1,15 @@
 import { requiredConfig } from '../../config.js'
 import { openAsBlob } from 'node:fs'
 import { createWriteStream } from 'node:fs'
-import { mkdir, rename } from 'node:fs/promises'
+import { mkdir, rename, stat, unlink } from 'node:fs/promises'
 import { dirname, basename } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout as pause } from 'node:timers/promises'
 import { submitComfyPrompt } from '../../jobs/comfy-submission.js'
 
-export { readJson, saveJson } from '../../jobs/json.js'
+import { readJson, saveJson } from '../../jobs/json.js'
+export { readJson, saveJson }
 
 export function comfyUrl(server = 'minimax-h3') {
   if (server !== 'minimax-h3') throw new Error(`未知 ComfyUI 实例：${server}`)
@@ -52,7 +53,11 @@ export class ComfyClient {
 
   async validate(graph) {
     const types = [...new Set(Object.values(graph).map(node => node.class_type))]
-    const schemas = Object.assign({}, ...await Promise.all(types.map(type => this.request(`object_info/${encodeURIComponent(type)}`))))
+    const schemas = {}
+    // Bound concurrent channels when ComfyUI is accessed through an SSH tunnel.
+    for (let i = 0; i < types.length; i += 4) {
+      Object.assign(schemas, ...await Promise.all(types.slice(i, i + 4).map(type => this.request(`object_info/${encodeURIComponent(type)}`))))
+    }
     for (const [id, node] of Object.entries(graph)) {
       const schema = schemas[node.class_type]
       if (!schema) throw new Error(`ComfyUI 缺少节点：${node.class_type}`)
@@ -121,10 +126,29 @@ export class ComfyClient {
 
   async download(descriptor, path) {
     await mkdir(dirname(path), { recursive: true })
-    const response = await fetch(this.viewUrl(descriptor), { signal: this.signal
-      ? AbortSignal.any([this.signal, AbortSignal.timeout(600_000)]) : AbortSignal.timeout(600_000) })
-    if (!response.ok || !response.body) throw new Error(`ComfyUI 下载失败：${response.status}`)
-    await pipeline(Readable.fromWeb(response.body), createWriteStream(`${path}.download`, { mode: 0o600 }))
-    await rename(`${path}.download`, path)
+    const url = this.viewUrl(descriptor), partial = `${path}.download`, metadata = `${partial}.json`
+    const saved = await readJson(metadata)
+    const offset = saved?.url === url && saved?.etag && !saved.etag.startsWith('W/')
+      ? (await stat(partial).catch(() => null))?.size || 0 : 0
+    const response = await fetch(url, { headers: offset ? { Range: `bytes=${offset}-`, 'If-Range': saved.etag } : {},
+      signal: this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(600_000)]) : AbortSignal.timeout(600_000) })
+    if (!response.ok || !response.body) {
+      if (response.status === 416) await unlink(metadata).catch(() => {})
+      await response.body?.cancel()
+      throw new Error(`ComfyUI 下载失败：${response.status}`)
+    }
+    const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(response.headers.get('content-range') || '')
+    if (response.status === 206 && (!offset || !range || Number(range[1]) !== offset ||
+      response.headers.get('etag') !== saved.etag || Number(range[3]) !== saved.total || Number(range[2]) !== saved.total - 1)) {
+      await response.body.cancel()
+      await unlink(metadata).catch(() => {})
+      throw new Error('ComfyUI 下载范围不匹配；下次恢复将重新读取完整文件')
+    }
+    const total = response.status === 206 ? Number(range[3]) : Number(response.headers.get('content-length')) || null
+    await saveJson(metadata, { url, etag: response.headers.get('etag'), total })
+    await pipeline(Readable.fromWeb(response.body), createWriteStream(partial, { mode: 0o600, flags: response.status === 206 ? 'a' : 'w' }))
+    if (total !== null && (await stat(partial)).size !== total) throw new Error('ComfyUI 下载文件长度不完整')
+    await rename(partial, path)
+    await unlink(metadata)
   }
 }

@@ -41,7 +41,7 @@ async function validateShots(shots, duration) {
   const ids = new Set()
   const mediaTypes = { image_path: ['.png', '.jpg', '.jpeg', '.webp'], video_path: ['.mp4', '.mov', '.webm', '.mkv'], audio_path: ['.wav', '.mp3', '.flac', '.m4a', '.ogg'] }
   for (const [index, shot] of shots.entries()) {
-    if (!shot || typeof shot !== 'object' || Array.isArray(shot) || Object.keys(shot).some(k => !['id', 'duration', 'mode', 'prompt', 'seed', 'in_point', ...Object.keys(mediaTypes)].includes(k))) throw invalid('镜头包含未支持的字段')
+    if (!shot || typeof shot !== 'object' || Array.isArray(shot) || Object.keys(shot).some(k => !['id', 'duration', 'mode', 'prompt', 'seed', 'in_point', 'image_role', 'image_crop', ...Object.keys(mediaTypes)].includes(k))) throw invalid('镜头包含未支持的字段')
     if (typeof shot.id !== 'string' || !/^[A-Za-z0-9_-]{1,48}$/.test(shot.id) || ids.has(shot.id)) throw invalid('镜号须为唯一的 1..48 位字母、数字、下划线或连字符')
     ids.add(shot.id)
     const mode = shot.mode === undefined ? 'independent' : shot.mode
@@ -49,6 +49,16 @@ async function validateShots(shots, duration) {
     if (!Number.isInteger(shot.duration) || shot.duration < 1 || (mode !== 'reuse' && shot.duration > 15)) throw invalid('生成镜头须为 1..15 秒，复用镜头须为正整数秒')
     if ('seed' in shot && (!Number.isInteger(shot.seed) || shot.seed < 0 || shot.seed > 2 ** 32 - 1)) throw invalid('镜头 seed 必须为 uint32')
     const media = Object.keys(mediaTypes).filter(k => k in shot)
+    if ('image_role' in shot && (!shot.image_path || !['character-sheet', 'single-view', 'scene'].includes(shot.image_role))) throw invalid('image_role 需要 image_path，且为 character-sheet、single-view 或 scene')
+    if (shot.image_role === 'character-sheet' && !shot.image_crop) throw invalid('角色三视图必须通过 image_crop 选择单人视角')
+    if ('image_crop' in shot) {
+      const crop = shot.image_crop
+      if (!shot.image_path || !crop || typeof crop !== 'object' || Array.isArray(crop) ||
+        Object.keys(crop).some(k => !['x', 'y', 'width', 'height'].includes(k)) ||
+        !['x', 'y', 'width', 'height'].every(k => Number.isSafeInteger(crop[k]) && crop[k] >= (k === 'x' || k === 'y' ? 0 : 1))) {
+        throw invalid('image_crop 需要 image_path 和整数像素 x/y/width/height；起点非负，宽高为正')
+      }
+    }
     if (mode === 'reuse') {
       if (media.length !== 1 || media[0] !== 'video_path' || 'prompt' in shot || 'seed' in shot) throw invalid('reuse 仅接受已有 video_path，不接受提示词或种子')
     } else {

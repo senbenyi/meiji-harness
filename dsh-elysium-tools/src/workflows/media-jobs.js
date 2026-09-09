@@ -22,7 +22,7 @@ export async function resumeMediaJob(id, exec) {
   const job = await getJob(id)
   if (job.capability === 'workflow-video') return waitJob(await resumeVideoJob(id, exec), exec?.signal)
   if (job.capability !== 'workflow-media' || job.backend !== 'comfyui') throw new ModelTaskError('MODEL_INPUT_INVALID', '仅可恢复 ComfyUI 媒体任务', 422)
+  const result = job.status === 'succeeded' ? job : await launch(id, 'workflow-media', job.status === 'failed')
   await bindVideoCall(id, exec)
-  if (job.status === 'succeeded') return waitJob(job, exec?.signal)
-  return waitJob(await launch(id, 'workflow-media', job.status === 'failed'), exec?.signal)
+  return waitJob(result, exec?.signal)
 }

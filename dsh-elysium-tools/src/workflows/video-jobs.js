@@ -22,7 +22,8 @@ export async function startVideoJob(args, exec) {
 export async function resumeVideoJob(jobId, exec) {
   const job = await getJob(jobId)
   if (job.capability !== 'workflow-video') throw invalid('只能恢复视频工作流；原子产物请按顺序导入新工作流')
+  const result = job.status === 'succeeded' ? { job_id: jobId, status: job.status }
+    : await launch(jobId, 'workflow-video', job.status === 'failed' && job.backend === 'comfyui')
   await bindVideoCall(jobId, exec)
-  if (job.status === 'succeeded') return { job_id: jobId, status: job.status }
-  return launch(jobId, 'workflow-video', job.status === 'failed' && job.backend === 'comfyui')
+  return result
 }

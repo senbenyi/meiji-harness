@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { execFile } from 'node:child_process'
@@ -165,7 +166,14 @@ test('workflow survives submitting process exit and failed validation resumes un
   })
   const submitted = JSON.parse(stdout)
   assert.equal((await wait(submitted.job_id)).status, 'failed')
-  const continued = await resume.execute({ job_id: submitted.job_id })
+  const continued = await resume.execute({ job_id: submitted.job_id }, {
+    agent: { session: { id: 'resume-session' } },
+    get callId() {
+      const status = JSON.parse(readFileSync(join(root, 'jobs/jobs', submitted.job_id, 'status.json'), 'utf8'))
+      assert.notEqual(status.status, 'failed', 'new call must never bind to the old failed state')
+      return 'resume-call'
+    },
+  })
   assert.equal(continued.job_id, submitted.job_id)
   const job = await wait(submitted.job_id)
   assert.equal(job.status, 'succeeded', job.error)
@@ -197,9 +205,12 @@ test('corrupt reusable shot prevents successful final publication and can resume
   finally { backend.controls.corruptShot = false }
   await wait(result.job_id)
   assert.equal(result.status, 'failed')
+  assert.equal(result.remote_status, 'succeeded')
   assert.equal(await stat(join(artifacts, `production-${result.job_id}`, 'output/final.mp4')).catch(() => null), null)
   const before = backend.prompts.length
+  const downloads = backend.controls.downloads.length
   const recovered = await resume.execute({ job_id: result.job_id })
+  assert.equal(backend.controls.downloads.length - downloads, 1, 'reuse verified final, download only failed shot')
   assert.equal(recovered.status, 'succeeded')
   assert.equal(recovered.shots[0].validation.full_decode, 'passed')
   assert.equal(backend.prompts.length, before)

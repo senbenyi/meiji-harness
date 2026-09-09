@@ -7,7 +7,7 @@ import { join } from 'node:path'
 // Protocol fixture, not a substitute for a real ComfyUI graph execution test.
 export async function mockComfy(directory) {
   const history = {}, prompts = []
-  const controls = { audioTail: 0, corruptShot: false }
+  const controls = { audioTail: 0, corruptShot: false, downloads: [] }
   const schemas = JSON.parse(await readFile(new URL('./comfy-schema.json', import.meta.url), 'utf8'))
   schemas.ElysiumSelectFrames = { input: { required: { images: ['IMAGE'], indices: ['STRING'] } }, output: ['IMAGE', 'IMAGE'] }
   const server = createServer(async (req, res) => {
@@ -51,6 +51,7 @@ export async function mockComfy(directory) {
         res.end(JSON.stringify(history[id] ? { [id]: history[id] } : {})); return
       }
       if (url.pathname === '/view') {
+        controls.downloads.push(url.searchParams.get('filename') + '/' + url.searchParams.get('subfolder'))
         res.end(controls.corruptShot && /^s\d+_save$/.test(url.searchParams.get('subfolder'))
           ? 'invalid video' : await readFile(join(directory, url.searchParams.get('filename')))); return
       }

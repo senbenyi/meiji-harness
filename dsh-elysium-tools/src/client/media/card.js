@@ -81,7 +81,7 @@ window.__ModuleLoader__.load({
           busy ? h('div', { className: 'elysium-placeholder', role: 'progressbar', 'aria-label': loading ? `${title}生成中` : '媒体加载中' },
             h('span', { className: 'elysium-spinner', 'aria-hidden': true }),
             h('span', { role: 'status', 'aria-live': 'polite' }, loading ? label(job) : '加载预览')) : null,
-          !video && !busy ? h('div', { className: 'elysium-placeholder' }, job.status === 'failed' ? '生成失败' : '预览暂不可用') : null,
+          !video && !busy ? h('div', { className: 'elysium-placeholder' }, job.status === 'failed' ? label(job) : '预览暂不可用') : null,
           video && kind === 'video' && mediaReady ? h('button', { className: 'elysium-control elysium-play', 'aria-label': '播放视频', onClick: () => setExpanded(true) }, icon('play')) : null,
           video && kind === 'video' ? h('button', { className: 'elysium-control elysium-expand', 'aria-label': '放大查看', title: '放大查看', onClick: () => setExpanded(true) }, icon('expand')) : null,
           download ? h('a', { className: 'elysium-control elysium-download', href: download, download: true, 'aria-label': `下载${title}`, title: `下载${title}` }, icon('download')) : null),
