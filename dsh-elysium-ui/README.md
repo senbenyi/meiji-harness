@@ -9,7 +9,7 @@ Harness 对话内媒体任务卡，以及设置 → 极乐世界 → 导演设�
 - 宿主通过原生 `system-prompt/assemble` 向 `elysium` 提供导演 ID、名称和版本索引，不注入正文；长视频或连续剧创作选定后由AI按ID读取一个导演，版本未变且内容仍在上下文时复用。短视频直接生成不读取导演，长篇未指定导演时使用默认叙事方法。保存不调用模型、不生成视频；关闭或删除后读取失败，其他preset不暴露此工具。
 
 配置命名空间为 `dsh-elysium-ui`，字段为 `enabled` 和 `directors`。
-部署脚本完整覆盖 Harness 设置时，应在 `config/harness-settings.yaml` 中管理同名配置，否则界面保存值会被覆盖。
+部署脚本完整覆盖 Harness 设置时，应在 `app/config/harness-settings.yaml` 中管理同名配置，否则界面保存值会被覆盖。
 
 ```sh
 pnpm install --frozen-lockfile --ignore-scripts

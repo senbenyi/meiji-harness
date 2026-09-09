@@ -1,4 +1,4 @@
-import { requiredConfig } from '../config.js'
+import { requiredConfig, withConfig } from '../config.js'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { open, realpath } from 'node:fs/promises'
 import { extname, relative, isAbsolute } from 'node:path'
@@ -85,11 +85,12 @@ export function createMediaHandler({ token, readJob = getJob, findCall = findVid
     }
   }
 }
-export function registerMediaRoutes(ctx) {
+export function registerMediaRoutes(ctx, runtime) {
   const server = ctx.get?.('webServer')
   if (!server) return // CLI tools do not require a Web server.
   const token = randomBytes(32).toString('hex')
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE } }))
-  const handler = createMediaHandler({ token, getSession: id => ctx.get('sessions')?.get(id) })
+  const handle = createMediaHandler({ token, getSession: id => ctx.get('sessions')?.get(id) })
+  const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of ['status', 'video', 'image', 'credentials']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
 }

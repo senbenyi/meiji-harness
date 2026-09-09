@@ -5,7 +5,7 @@ fail() { echo "[FAIL] $1" >&2; exit 1; }
 kind="$1"
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
-runtime_settings="$("${PYTHON_BIN:-python3}" app/common/config_loader.py shell config/harness-settings.yaml)"
+runtime_settings="$("${PYTHON_BIN:-python3}" app/common/config_loader.py shell app/config/harness-settings.yaml)"
 eval "$runtime_settings"
 export PYTHON_BIN="$HARNESS_PYTHON"
 export PATH="$(dirname -- "$HARNESS_PYTHON"):$HARNESS_ROOT/runtime/node-v24.20.0-linux-x64/bin:$PATH"
@@ -45,7 +45,7 @@ node --input-type=module - "$plugin_dir/lib/index.js" <<'JS'
 import { pathToFileURL } from 'node:url'
 await import(pathToFileURL(process.argv[2]).href)
 JS
-"${PYTHON_BIN:-python3}" app/common/config_loader.py check config/harness-settings.yaml --harness-root "$HARNESS_ROOT"
+"${PYTHON_BIN:-python3}" app/common/config_loader.py check app/config/harness-settings.yaml --harness-root "$HARNESS_ROOT"
 "$dsh" plugin --profile web add --workspace-root "$plugin_dir"
 node --input-type=module - "$DSH_HOME/profiles/web/package.json" "@dsh-external/dsh-elysium-$kind" <<'JS'
 import { readFileSync } from 'node:fs'

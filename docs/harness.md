@@ -4,10 +4,10 @@
 
 | 文件 | 用途 |
 |---|---|
-| [`config/harness-settings.yaml`](../config/harness-settings.yaml) | 运行参数、模型、UI、Agent preset |
-| [`config/system-prompt.yaml`](../config/system-prompt.yaml) | 系统提示词 persona |
-| [`config/harness-agent.md`](../config/harness-agent.md) | 对话指令 |
-| [`.dsh/skills/`](../.dsh/skills) | 按需加载的创作技能 |
+| [`app/config/harness-settings.yaml`](../app/config/harness-settings.yaml) | 运行参数、模型、UI、Agent preset |
+| [`presets/elysium/persona.md`](../dsh-elysium-tools/presets/elysium/persona.md) | 随包提供的 Elysium 人格 |
+| [`presets/elysium/instructions.md`](../dsh-elysium-tools/presets/elysium/instructions.md) | Elysium 会话协作指令 |
+| [`presets/elysium/skills/`](../dsh-elysium-tools/presets/elysium/skills) | 随包提供的创作技能 |
 | [`app/common/config_loader.py`](../app/common/config_loader.py) | 配置解析与应用 |
 
 服务器部署目录：`/root/autodl-tmp/project/harness`。
@@ -36,7 +36,7 @@ bash app/deploy_dsh_elysium_tools.sh
 bash app/deploy_dsh_elysium_ui.sh
 ```
 
-流程：检查远端环境 → 本地安装、测试、构建、打包 → 镜像同步 `.dsh/`、`config/`、`app/` 和插件产物 → 服务器安装、注册、覆盖配置、重启 → 本机建隧道并检查。
+流程：检查远端环境 → 本地安装、测试、构建、打包 → 镜像同步 `app/`（含 `app/config/`）和插件产物（含 preset 与技能） → 服务器安装、注册、覆盖配置、重启 → 本机建隧道并检查。
 
 镜像同步删除远端已移除文件，保留 `node_modules`。声明生产依赖的插件须携带 `pnpm-lock.yaml`；服务器用 pnpm 按锁文件安装并禁用生命周期脚本。依赖安装或模块加载失败时不继续注册和重启。
 
@@ -46,7 +46,7 @@ bash app/deploy_dsh_elysium_ui.sh
 
 恢复本地隧道：`bash app/open_tunnel_harness.sh`。脚本分别检查、建立或复用 Harness 和 ComfyUI 通道；已有 `23080` 通道不会跳过 `6016` 检查。
 
-SSH 目标与端口读取 `config/harness-settings.yaml` 的 `harness-runtime`，入口不接受参数。Harness 使用 `HARNESS_LOCAL_PORT` → `HARNESS_WEB_PORT`；ComfyUI 从 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 与 `MINIMAX_H3_COMFYUI_URL` 读取转发地址。浏览器地址为回环地址时建立 SSH 通道，其他地址只检查可访问性。配置解析需要 PyYAML，可通过 `PYTHON_BIN` 指定已有 Python 环境。
+SSH 目标与端口读取 `app/config/harness-settings.yaml` 的 `harness-runtime`，入口不接受参数。Harness 使用 `HARNESS_LOCAL_PORT` → `HARNESS_WEB_PORT`；ComfyUI 从 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 与 `MINIMAX_H3_COMFYUI_URL` 读取转发地址。浏览器地址为回环地址时建立 SSH 通道，其他地址只检查可访问性。配置解析需要 PyYAML，可通过 `PYTHON_BIN` 指定已有 Python 环境。
 
 ## 极乐世界预设
 
@@ -61,7 +61,7 @@ SSH 目标与端口读取 `config/harness-settings.yaml` 的 `harness-runtime`�
 
 ### 导演
 
-经 UI 插件的 `system-prompt/assemble` 接入会话，每次只输出 ID、名称和版本哈希。用户选定后调用 `elysium_read_director` 按 ID 取最新正文；相同版本复用，变化时重新读取。部署配置完整覆盖前，须将需保留的导演同步到 `config/harness-settings.yaml`。
+经 UI 插件的 `system-prompt/assemble` 接入会话，每次只输出 ID、名称和版本哈希。用户选定后调用 `elysium_read_director` 按 ID 取最新正文；相同版本复用，变化时重新读取。部署配置完整覆盖前，须将需保留的导演同步到 `app/config/harness-settings.yaml`。
 
 ### 视频生产
 

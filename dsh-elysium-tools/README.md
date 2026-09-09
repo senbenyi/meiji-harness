@@ -7,13 +7,13 @@
 ## 使用前说明
 
 - 可以直接说“调用 `工具名`……”，也可以只描述目标，让 Harness 选择工具。
-- 生产工具素材路径必须是 Harness 本机 `ARTIFACTS_ROOT` 内已有文件的绝对路径；插件通过 HTTP 上传到 ComfyUI，无需挂载远端目录。
+- 生产工具素材路径必须是 Harness 本机 `artifactsRoot` 内已有文件的绝对路径；插件通过 HTTP 上传到 ComfyUI，无需挂载远端目录。
 - 工作流由独立进程执行，工具在程序内等待完成并返回 `job_id`、成片路径和验收结果；失败返回原因。等待中断不取消后台生产，用原任务 ID 查询或恢复，不重新提交。
 - `seed` 相同不保证不同模型或工作流版本产生完全相同的结果。
 
 ## 生产工具
 
-默认注册 `workflow_generate_video`、`workflow_resume_video`、`model_generate_image`、`model_concat_video`、`model_job_resume`、`model_job_status`、`model_job_result` 及按需发现工具 `elysium_load_tools`。服务端显式设置 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1` 时额外注册兼容视频入口和 ComfyUI 任务工具，仅供测试；模型不能通过工具参数打开该开关。
+默认注册 `workflow_generate_video`、`workflow_resume_video`、`model_generate_image`、`model_concat_video`、`model_job_resume`、`model_job_status`、`model_job_result` 及按需发现工具 `elysium_load_tools`。插件设置 `enableAtomicTools: true`（兼容 `ELYSIUM_ENABLE_ATOMIC_TOOLS=1`）时额外注册兼容视频入口和 ComfyUI 任务工具，仅供测试；模型不能通过工具参数打开该开关。
 
 `workflow_generate_video` 必填目标总秒数 `duration`。多镜头优先提供有序 `shots`，每镜有唯一 `id`、整数秒 `duration`、完整 `prompt`（reuse除外），总时长严格求和。15秒三个镜头须保留三个5秒镜头，不能压成单镜头。`mode` 支持 `independent`（默认，文生或起始图）、`reference`（图/视频/音频参考）、`continue`（前镜裁剪后末帧续拍）、`reuse`（已有视频，可指定剪辑起点 `in_point`）。生成镜头每段1..15秒；素材分别用 `image_path`、`video_path`、`audio_path` 绑定到镜头。reference当前每类最多一个文件；声音参考不承诺口型准确。
 
@@ -42,7 +42,7 @@
 | `comfyui_task_result` | `/history/{prompt_id}` |
 | `comfyui_task_cancel` | `/queue` 定向删除 |
 
-必填 `server: minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址必须由配置提供 `MINIMAX_H3_COMFYUI_URL`；缺失或非法时直接报错。
+必填 `server: minimax-h3`；除队列查询外，必填原生 `prompt_id`，不能传插件 `job_id`。地址必须由插件配置 `comfyUrl` 提供（兼容 `MINIMAX_H3_COMFYUI_URL`）；缺失或非法时直接报错。
 
 取消仅针对排队任务；运行中的任务不会全局中断。产物返回派生 ID 与访问 URL，不代表媒体已验收。实例本机 URL 不保证客户端可访问。
 
@@ -134,20 +134,53 @@
 
 完整调用路径、外部节点边界及重构验证见 [执行链路](../docs/tools-execution-chain.md)。
 
-## 安装
+## 独立安装配置
 
-主配置为仓库根目录 `config/harness-settings.yaml`；系统提示词和对话指令分别读取同目录的 `system-prompt.yaml`、`harness-agent.md`。
-`app/common/config_loader.py` 生成设置、profile、Agent preset 和项目指令。
-执行仓库根目录的 `bash app/deploy_dsh_elysium_tools.sh` 会同步配置和启动链路，
-部署入口在本地构建并上传产物，再自动调用服务器的 `app/common/install_plugin.sh tools` 安装、重启与检查；启动前备份并完整覆盖配置，保留会话与项目数据。
-新对话加载默认 Agent 和 `harness-agent.md` 内容，项目指令发现沿用标准模式；已有对话不自动切换 Agent。
+插件通过 Cordis 的 `apply(ctx, config)` 接收配置，`src/config.js` 定义默认值与校验。包内 `cordis.patch.yml` 注册空配置；请在安装机器的 `$DSH_HOME/profiles/web/cordis.patch.yml`（默认 `~/.dsh/profiles/web/cordis.patch.yml`）按相同 id 覆盖：
+
+```yaml
+- id: dsh-elysium-tools
+  config:
+    comfyUrl: http://127.0.0.1:6016
+    publicUrl: http://127.0.0.1:6016
+    # 可选，本机绝对路径，不使用 ~。
+    # artifactsRoot: /Users/your-name/.dsh/elysium/artifacts
+    # stateRoot: /Users/your-name/.dsh/elysium/tasks
+    python: python3
+    ffmpeg: ffmpeg
+    ffprobe: ffprobe
+    enableAtomicTools: false
+```
+
+`comfyUrl` 是 Harness 可达的 ComfyUI HTTP 地址，`publicUrl` 是浏览器可达的地址，须分别填写。示例需要本机 ComfyUI 或已有隧道；远端服务填写实际可达地址，插件不建立 SSH 隧道。
+
+`artifactsRoot`、`stateRoot` 默认位于 `$DSH_HOME/elysium/artifacts`、`$DSH_HOME/elysium/tasks`，DSH_HOME 未设置则使用 `~/.dsh`。首次调用自动创建目录；输入素材放在 artifactsRoot 下。恢复旧任务保持原目录和后端地址。
+
+本机需要 Node.js、Python 3、FFmpeg、FFprobe；程序配置可以是命令名或绝对路径。`legacyOutputRoot` 仅用于历史非 HTTP 视频任务，新任务不需要服务器目录挂载。
+
+优先级为插件显式配置 → 旧环境变量 → 本机目录／程序默认值。地址没有默认值，显式空值或非法值报错。环境变量兼容 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`、`ARTIFACTS_ROOT`、`ELYSIUM_TOOLS_STATE_ROOT`、`MINIMAX_H3_COMFYUI_OUTPUT_ROOT`、`HARNESS_PYTHON`、`FFMPEG_BIN`、`FFPROBE_BIN` 与 `ELYSIUM_ENABLE_ATOMIC_TOOLS`。
+
+修改配置后重新加载插件或重启 Harness；已启动 worker 保持原配置。插件不修改宿主全局环境变量。工具可独立调用；会话媒体卡片需配套安装 `dsh-elysium-ui`，安装包自带 Elysium preset、人格、指令和创作技能；默认模型和权限仍由 Harness 管理。
+
+源码发布时按授权执行：
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm test
 pnpm build
 pnpm package:registry
 dsh plugin --profile web add --workspace-root ./registry
 ```
+
+安装并重新加载 Harness 后，在新会话中选择“极乐世界”即可使用包内人格、协作指令和 `creation-video`／`creation-drama` 技能；不需要复制仓库 `app/config/`、`.dsh/` 或修改全局 AGENTS.md。插件不强制切换现有会话或宿主默认模型。需要默认使用 Elysium 时，在 Harness 设置中选择它为默认 Agent preset。
+
+包内 `presets/elysium/agent.cordis.yml` 只声明人格和技能目录两处差异；`standard.mjs` 在运行时读取宿主 standard，通过原生分组加载工具，不复制标准工具配置、不写回宿主预设，用户定制建议在 Harness 中复制成另一个 preset。若安装机器自行覆盖 `agent-presets.config.roots`，需保留包提供的 preset 根目录。
+
+Node.js 最低 20.16，包路径解析使用其 `process.getBuiltinModule`。完整交付包必须包含 `presets/`，registry 打包脚本已包含该目录。
+
+## 服务器部署
+
+`app/config/harness-settings.yaml` 仅是这套部署的配置来源。部署器只生成宿主 settings 与 profile 的 `dsh-elysium-tools.config`，不生成 Elysium preset、全局 AGENTS.md 或 persona；独立安装不需要这些脚本。部署仍按授权完成安装、配置覆盖和重启。
 
 ## 调试输出
 
@@ -159,7 +192,7 @@ dsh plugin --profile web add --workspace-root ./registry
 - `stage`、`failed_stage`：插件准备、提交、排队、执行或产物验收阶段；不等同于单个节点或纯 GPU 推理耗时。
 - `media_info` 来自 FFprobe；成功结果的 `validation.full_decode`、`specification_match` 为 `passed`，`human_review` 仍为 `not_run`。
 
-内部 API 与浏览器地址分别使用 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`，不互相回退。任务目录保存工作流快照、提交记录、ComfyUI 历史和媒体探测报告；视频另存 `diagnostics.json`、`execution.log` 及成片旁的 `.validation.json`。当前 HTTP 链路不生成 `.comfyui.json` 旁文件，旧产物兼容逻辑独立保留。
+内部 API 与浏览器地址分别使用插件配置 `comfyUrl`、`publicUrl`，不互相回退。任务目录保存工作流快照、提交记录、ComfyUI 历史和媒体探测报告；视频另存 `diagnostics.json`、`execution.log` 及成片旁的 `.validation.json`。当前 HTTP 链路不生成 `.comfyui.json` 旁文件，旧产物兼容逻辑独立保留。
 
 恢复先查询原任务；提交结果不明时停止，下载或验收失败不重复推理。错误与诊断字段以任务实际保存内容为准，不承诺尚未采集的节点级耗时或推理质量。
 

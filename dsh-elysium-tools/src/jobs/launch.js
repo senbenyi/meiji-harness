@@ -1,4 +1,4 @@
-import { requiredConfig } from '../config.js'
+import { requiredConfig, runtimeConfig, workerEnvironment } from '../config.js'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { open, readFile, stat, writeFile, unlink } from 'node:fs/promises'
@@ -14,7 +14,7 @@ const writeStatus = (directory, value) => saveJson(join(directory, 'status.json'
 
 export async function launch(jobId, capability = 'workflow-video', retryFailed = false) {
   const directory = join(stateRoot(), 'jobs', jobId)
-  const guard = spawn(process.env.HARNESS_PYTHON || process.env.PYTHON_BIN || 'python3',
+  const guard = spawn(runtimeConfig().HARNESS_PYTHON || process.env.PYTHON_BIN || 'python3',
     [fileURLToPath(new URL('./launch-lock.py', import.meta.url)), join(directory, 'launch.lock')],
     { stdio: ['pipe', 'pipe', 'pipe'] })
   const closed = new Promise(resolve => { guard.once('close', resolve) })
@@ -68,18 +68,18 @@ async function launchLocked(jobId, capability, retryFailed) {
   }
   try {
     if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
-    await writeStatus(directory, { job_id: jobId, capability, status: 'queued', stage: 'queued' })
+    await writeStatus(directory, { job_id: jobId, capability, backend: 'comfyui', status: 'queued', stage: 'queued' })
     const log = await open(join(directory, 'worker.log'), 'a')
     try {
       const child = spawn(process.execPath, [fileURLToPath(new URL('../workflows/video-worker.js', import.meta.url)), jobId],
-        { detached: true, stdio: ['ignore', log.fd, log.fd], env: process.env })
+        { detached: true, stdio: ['ignore', log.fd, log.fd], env: workerEnvironment() })
       await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject) })
       await lock.writeFile(String(child.pid))
       child.unref()
     } finally { await log.close() }
     return { job_id: jobId, status: 'queued' }
   } catch (error) {
-    await writeStatus(directory, { job_id: jobId, capability, status: 'failed', error: error.message })
+    await writeStatus(directory, { job_id: jobId, capability, backend: 'comfyui', status: 'failed', error: error.message })
     await unlink(lockPath).catch(() => {})
     throw error
   } finally { await lock.close() }

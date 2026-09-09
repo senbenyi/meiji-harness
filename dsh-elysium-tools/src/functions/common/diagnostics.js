@@ -1,3 +1,4 @@
+import { runtimeConfig } from '../../config.js'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -44,7 +45,7 @@ export function summarizeMedia(probe) {
 export async function inspectMedia(path, reportPath) {
   let probe
   try {
-    const { stdout } = await runFile(process.env.FFPROBE_BIN || 'ffprobe', [
+    const { stdout } = await runFile(runtimeConfig().FFPROBE_BIN || 'ffprobe', [
       '-v', 'error', '-show_streams', '-show_format', '-of', 'json', path,
     ], { timeout: 15_000, maxBuffer: 2 * 1024 * 1024 })
     probe = JSON.parse(stdout)

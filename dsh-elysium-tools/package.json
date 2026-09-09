@@ -5,7 +5,7 @@
   "type": "module",
   "main": "lib/index.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.16"
   },
   "dsh": {
     "bundle": {
@@ -16,7 +16,8 @@
     "lib",
     "cordis.patch.yml",
     "dsh.plugin.json",
-    "README.md"
+    "README.md",
+    "presets"
   ],
   "scripts": {
     "build": "node build-scripts/build.mjs",

@@ -4,12 +4,15 @@ import { bindVideoCall } from '../jobs/call-index.js'
 import { createJob } from '../jobs/create.js'
 import { launch } from '../jobs/launch.js'
 import { validateVideoPlan } from './video-plan.js'
+import { requiredConfig } from '../config.js'
 
 export { validateVideoPlan, launch }
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 
 export async function startVideoJob(args, exec) {
   await validateVideoPlan(args)
+  requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
+  requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')
   const jobId = await createJob(args, exec)
   return launch(jobId)
 }

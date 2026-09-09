@@ -25,15 +25,13 @@ class DeployPluginTests(unittest.TestCase):
             dest = self.root / "app" / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(SOURCE / "app" / name, dest)
-        for name in ("config/harness-settings.yaml", "config/harness-agent.md",
-                     "config/system-prompt.yaml",
+        for name in ("app/config/harness-settings.yaml",
                      "app/common/config_loader.py", "app/common/install_plugin.sh",
                      "app/common/start_harness.sh", "app/common/start_tunnel_qwen.sh",
                      "dsh-elysium-ui/package.json", "dsh-elysium-tools/package.json"):
             file = self.root / name
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text("fixture\n")
-        (self.root / ".dsh").mkdir()
         (self.root / "app/common/start_tunnel_harness.sh").write_text(
             'echo "tunnel $PYTHON_BIN" >> "$DEPLOY_TEST_LOG"\n')
         self.mock("git", 'echo "$DEPLOY_TEST_ROOT"')
@@ -64,6 +62,9 @@ class DeployPluginTests(unittest.TestCase):
                 self.assertIn(f"pnpm {self.root}/dsh-elysium-{kind} test", log)
                 self.assertIn(f"/remote/harness/packages/dsh-elysium-{kind}-registry/", log)
                 self.assertIn("--exclude=node_modules", log)
+                self.assertIn(f"{self.root}/app fixture-host:/remote/plugins/", log)
+                self.assertNotIn(f"{self.root}/config", log)
+                self.assertNotIn(f"{self.root}/.dsh", log)
                 self.assertIn(f"install_plugin.sh '{kind}' --prepare", log)
                 self.assertIn(f"tunnel {self.env['PYTHON_BIN']}", log)
 

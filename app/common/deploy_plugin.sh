@@ -11,13 +11,13 @@ export PYTHON_BIN="${PYTHON_BIN:-python3}"
 command -v "$PYTHON_BIN" >/dev/null || fail "本机缺少 Python：$PYTHON_BIN"
 REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 PACKAGE_ROOT="$REPO_ROOT/dsh-elysium-$kind"
-runtime_settings="$("$PYTHON_BIN" "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
+runtime_settings="$("$PYTHON_BIN" "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/app/config/harness-settings.yaml")"
 eval "$runtime_settings"
 TARGET="$HARNESS_SSH_TARGET"
 DEST="$HARNESS_ROOT/packages/dsh-elysium-$kind-registry"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10)
-[[ -s "$PACKAGE_ROOT/package.json" && -d "$REPO_ROOT/.dsh" ]] || fail '插件或技能目录不存在'
-for file in config/harness-settings.yaml config/harness-agent.md config/system-prompt.yaml \
+[[ -s "$PACKAGE_ROOT/package.json" ]] || fail '插件目录不存在'
+for file in app/config/harness-settings.yaml \
   app/common/config_loader.py app/common/install_plugin.sh app/common/start_harness.sh app/common/start_tunnel_qwen.sh app/common/start_tunnel_harness.sh; do
   [[ -s "$REPO_ROOT/$file" ]] || fail "缺少文件：$file"
 done
@@ -36,8 +36,7 @@ echo "[2/4] 测试、构建并打包 dsh-elysium-$kind"
 
 echo '[3/4] 上传配置、技能及插件'
 "${SSH[@]}" "$TARGET" "install -d -m 0755 '$PLUGINS_ROOT'"
-rsync -az --delete -e "${SSH[*]}" "$REPO_ROOT/.dsh/" "$TARGET:$PLUGINS_ROOT/.dsh/"
-rsync -az --delete --exclude='__pycache__/' -e "${SSH[*]}" "$REPO_ROOT/config" "$REPO_ROOT/app" "$TARGET:$PLUGINS_ROOT/"
+rsync -az --delete --exclude='__pycache__/' -e "${SSH[*]}" "$REPO_ROOT/app" "$TARGET:$PLUGINS_ROOT/"
 "${SSH[@]}" "$TARGET" "cd '$PLUGINS_ROOT' && PYTHON_BIN='$HARNESS_PYTHON' bash app/common/install_plugin.sh '$kind' --prepare"
 # node_modules 由远端安装器管理，不参与本机产物镜像。
 rsync -az --delete --exclude='node_modules' -e "${SSH[*]}" "$PACKAGE_ROOT/registry/" "$TARGET:$DEST/"

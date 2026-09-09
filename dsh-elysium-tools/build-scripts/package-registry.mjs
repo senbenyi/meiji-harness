@@ -1,7 +1,7 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-const files = ['package.json', 'cordis.patch.yml', 'dsh.plugin.json', 'lib', 'README.md']
+const files = ['package.json', 'cordis.patch.yml', 'dsh.plugin.json', 'lib', 'presets', 'README.md']
 
 rmSync('registry', { recursive: true, force: true })
 mkdirSync('registry', { recursive: true })

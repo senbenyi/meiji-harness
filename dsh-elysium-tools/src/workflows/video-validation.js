@@ -1,3 +1,4 @@
+import { runtimeConfig } from '../config.js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { readJson } from '../jobs/json.js'
@@ -16,7 +17,7 @@ export async function validateVideoArtifact(path, duration, settings, report, to
       Math.abs(audioDuration - videoDuration) > 0.15 || Math.abs(videoDuration - duration) > tolerance) {
     throw new Error('产物未通过时长、画幅、帧率或音视频规格验证')
   }
-  await run(process.env.FFMPEG_BIN || 'ffmpeg', ['-v', 'error', '-xerror', '-nostdin', '-i', path,
+  await run(runtimeConfig().FFMPEG_BIN || 'ffmpeg', ['-v', 'error', '-xerror', '-nostdin', '-i', path,
     '-map', '0:v:0', '-map', '0:a:0', '-f', 'null', '-'], { timeout: 300_000, maxBuffer: 1024 * 1024 })
   return media
 }

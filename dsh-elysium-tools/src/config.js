@@ -1,7 +1,9 @@
-import { isAbsolute } from 'node:path'
+import { isAbsolute, join } from 'node:path'
+import { homedir } from 'node:os'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 export function requiredConfig(name, kind = 'path') {
-  const value = process.env[name]
+  const value = runtimeConfig()[name]
   if (typeof value !== 'string' || !value.trim() || value !== value.trim()) throw new Error(`缺少或无效配置：${name}`)
   if (kind === 'path' && !isAbsolute(value)) throw new Error(`${name} 必须为绝对路径`)
   if (kind === 'url') {
@@ -12,4 +14,49 @@ export function requiredConfig(name, kind = 'path') {
     return value.replace(/\/+$/, '')
   }
   return value
+}
+
+// Cordis config belongs to a plugin instance, never to the host process globally.
+const context = new AsyncLocalStorage()
+const fields = {
+  comfyUrl: ['MINIMAX_H3_COMFYUI_URL', 'url'],
+  publicUrl: ['MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url'],
+  artifactsRoot: ['ARTIFACTS_ROOT', 'path'],
+  stateRoot: ['ELYSIUM_TOOLS_STATE_ROOT', 'path'],
+  legacyOutputRoot: ['MINIMAX_H3_COMFYUI_OUTPUT_ROOT', 'path'],
+  python: ['HARNESS_PYTHON', 'command'],
+  ffmpeg: ['FFMPEG_BIN', 'command'],
+  ffprobe: ['FFPROBE_BIN', 'command'],
+}
+
+export const runtimeConfig = () => context.getStore() || process.env
+export const withConfig = (config, callback) => context.run(config, callback)
+
+export function resolveConfig(config = {}) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('插件 config 必须为对象')
+  for (const key of Object.keys(config)) {
+    if (!Object.hasOwn(fields, key) && key !== 'enableAtomicTools') throw new Error(`未知插件配置：${key}`)
+  }
+  const home = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'elysium')
+  const defaults = { artifactsRoot: join(home, 'artifacts'), stateRoot: join(home, 'tasks'),
+    python: process.env.PYTHON_BIN || 'python3', ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' }
+  const resolved = {}
+  for (const [key, [name, kind]] of Object.entries(fields)) {
+    const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]
+    if (value === undefined) continue
+    resolved[name] = value
+    resolved[name] = withConfig(resolved, () => requiredConfig(name, kind))
+  }
+  if (config.enableAtomicTools !== undefined && typeof config.enableAtomicTools !== 'boolean') throw new Error('enableAtomicTools 必须为布尔值')
+  resolved.ELYSIUM_ENABLE_ATOMIC_TOOLS = (config.enableAtomicTools ?? (process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1')) ? '1' : '0'
+  return Object.freeze(resolved)
+}
+
+export function workerEnvironment() {
+  const env = { ...process.env }
+  for (const name of [...Object.values(fields).map(([name]) => name), 'ELYSIUM_ENABLE_ATOMIC_TOOLS']) {
+    delete env[name]
+    if (runtimeConfig()[name] !== undefined) env[name] = runtimeConfig()[name]
+  }
+  return env
 }

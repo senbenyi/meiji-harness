@@ -68,60 +68,25 @@ def write_harness_settings(mode, config):
 
 
 def harness_files(config, root):
-    """先生成全部内容并验证，再由 apply 写入；保留 preset 的 !!js 标签。"""
+    """生成部署设置与 profile；Elysium preset 和技能由插件包提供。"""
     import contextlib
     import io
 
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         write_harness_settings("render", config)
-    settings = yaml.safe_load(output.getvalue())
     document = yaml.safe_load(config.read_text())
-    custom = yaml.safe_load(yaml.safe_dump(document["harness-customization"]).replace(
-        "__PLUGINS_ROOT__", document["harness-runtime"]["PLUGINS_ROOT"]))
-    agent = custom["agent"]
-    preset = settings["agent-presets"]["default"]
-    base = agent["base"]
-    for name in (preset, base):
-        if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", name):
-            raise ValueError("Agent preset 名称无效")
-    if preset == base:
-        raise ValueError("自定义 preset 不能与内置 preset 同名")
-    metadata = agent["metadata"]
-    if not isinstance(metadata, dict) or any(not isinstance(metadata.get(key), str) or not metadata[key].strip()
-                                             for key in ("name", "description")):
-        raise ValueError("Agent metadata 必须包含非空 name 和 description")
-    source = root / "app/node_modules/@deepseek-ai/dsh/config/agent-presets" / base / "agent.cordis.yml"
-    tree = yaml.compose(source.read_text())
-    if not isinstance(tree, yaml.SequenceNode):
-        raise ValueError("Agent preset 必须是列表")
-    # patch 与 Cordis 一致：替换顶层字段，config 不做深合并。
-    for patch in agent.get("patches", []):
-        matches = [row for row in tree.value if isinstance(row, yaml.MappingNode)
-                   and any(k.value == "id" and v.value == patch["id"] for k, v in row.value)]
-        if len(matches) != 1:
-            raise ValueError(f"Agent patch 未匹配唯一条目：{patch['id']}")
-        row = matches[0]
-        row.value = [(k, v) for k, v in row.value if k.value not in patch]
-        row.value.extend(yaml.compose(yaml.safe_dump(patch)).value)
+    customization = yaml.safe_dump(document["harness-customization"])
+    for key, value in document["harness-runtime"].items():
+        customization = customization.replace(f"__{key}__", str(value))
+    custom = yaml.safe_load(customization)
     profile = custom["profile"]
     if not isinstance(profile, list):
         raise ValueError("profile 必须是列表")
-    prompt = yaml.safe_load((config.parent / custom["systemPromptFile"]).read_text())
-    if not isinstance(prompt, dict) or not isinstance(prompt.get("persona"), str):
-        raise ValueError("系统提示词必须包含 persona 文本")
-    matches = [row for row in profile if row.get("id") == "system-prompt"]
-    if len(matches) != 1:
-        raise ValueError("profile 必须包含唯一 system-prompt 条目")
-    matches[0]["config"] = prompt
-    instructions = (config.parent / custom["instructionsFile"]).read_text()
     home = root / "home"
     return {
         home / "settings.yaml": output.getvalue(),
         home / "profiles/web/cordis.patch.yml": yaml.safe_dump(profile, allow_unicode=True, sort_keys=False),
-        home / ".agent-presets" / preset / "agent.cordis.yml": yaml.serialize(tree, allow_unicode=True),
-        home / ".agent-presets" / preset / "preset.yml": yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False),
-        home / "AGENTS.md": instructions,
     }
 
 
@@ -142,14 +107,14 @@ def apply_harness(config, root, check=False):
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
-    print("[CONFIG] Harness 设置、profile、Agent 和项目指令已覆盖")
+    print("[CONFIG] Harness 部署设置与 profile 已覆盖")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("shell", "render", "check", "apply"))
     parser.add_argument("config", nargs="?", type=Path,
-                        default=Path(__file__).resolve().parents[2] / "config/harness-settings.yaml")
+                        default=Path(__file__).resolve().parents[2] / "app/config/harness-settings.yaml")
     parser.add_argument("--harness-root", type=Path)
     args = parser.parse_args()
     if args.mode in {"check", "apply"}:

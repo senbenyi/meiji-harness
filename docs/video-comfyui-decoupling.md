@@ -60,7 +60,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 ## 地址配置约束
 
-`config/harness-settings.yaml` 的 `harness-runtime` 是 Harness 部署配置入口。启动器校验并传入服务地址、产物目录、任务目录和可选原子工具使用的模型项目路径。插件源码没有服务地址或服务器目录兜底；缺失、空值、非法配置会报错。当前合片同样通过 ComfyUI，必须提供服务地址。
+`app/config/harness-settings.yaml` 的 `harness-runtime` 是 Harness 部署配置入口。部署器将工具运行值写入 profile 的插件节点 config；独立安装按插件 README 配置，无需部署器。地址必须填写，本机目录有默认值，非法配置会报错。当前合片同样通过 ComfyUI，必须提供服务地址。
 
 内部 API 与浏览器产物地址分别配置为 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`。SSH 目标、监听主机和端口也由配置读取。更换地址后须重新应用配置并重启 Harness 才对运行进程生效；本次配置改造未执行远程部署或服务重启。
 

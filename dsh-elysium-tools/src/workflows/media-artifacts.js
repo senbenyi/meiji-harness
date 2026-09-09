@@ -1,3 +1,4 @@
+import { runtimeConfig } from '../config.js'
 import { sha256File } from '../functions/common/file-hash.js'
 import { stat, rename } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -16,7 +17,7 @@ export async function collectMediaArtifacts(client, history, prepared, jobId, di
   await client.download(descriptor, candidate)
   const info = await probeMedia(candidate, join(directory, 'media-probe.json'))
   if (info.width !== expected.width || info.height !== expected.height || (expected.kind === 'video' && (Math.abs(info.duration_seconds - expected.duration_seconds) > 0.15 || Math.abs(info.frame_rate - expected.frame_rate) > 0.001 || info.has_audio !== expected.has_audio))) throw new Error('产物尺寸、时长、帧率或音轨不匹配')
-  await run(process.env.FFMPEG_BIN || 'ffmpeg', ['-v', 'error', '-xerror', '-nostdin', '-i', candidate, '-f', 'null', '-'], { timeout: 300000 })
+  await run(runtimeConfig().FFMPEG_BIN || 'ffmpeg', ['-v', 'error', '-xerror', '-nostdin', '-i', candidate, '-f', 'null', '-'], { timeout: 300000 })
   await rename(candidate, output)
   return { path: output, size_bytes: (await stat(output)).size, sha256: await sha256File(output), media_kind: expected.kind, media_info: info, warnings: [],
     validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' },

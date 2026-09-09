@@ -18,26 +18,7 @@ class HarnessSettingsTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.config = ROOT / "config/harness-settings.yaml"
-        source = self.root / "app/node_modules/@deepseek-ai/dsh/config/agent-presets/standard/agent.cordis.yml"
-        source.parent.mkdir(parents=True)
-        source.write_text("""- id: persona
-  name: '@deepseek-ai/dsh-persona'
-  config: {text: old}
-- id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
-  config: {maxBytes: 1}
-- id: shell
-  name: '@deepseek-ai/dsh-tool-bash'
-  disabled: !!js process.platform === 'win32'
-- id: skill-filesystem
-  name: '@deepseek-ai/dsh-skill-filesystem'
-""")
-
-        # Include actual standard entry IDs; preserve unrelated tagged entries above.
-        with source.open("a") as f:
-            for entry in ("tool-bash", "tool-pwsh", "tool-fs", "tool-fs-search", "tool-jobs", "tool-goal", "planning", "delegation", "tool-todo", "compaction", "tool-skill", "tool-ask-user", "tool-web"):
-                f.write(f"- id: {entry}\n  name: fixture-{entry}\n")
+        self.config = ROOT / "app/config/harness-settings.yaml"
 
     def test_runtime_addresses_are_required_and_render_custom_hosts(self):
         import contextlib
@@ -62,22 +43,8 @@ class HarnessSettingsTest(unittest.TestCase):
         with contextlib.redirect_stdout(output):
             loader.write_harness_settings("render", config)
         self.assertIn("http://qwen.test:19800/v1", output.getvalue())
-        for name in ("system-prompt.yaml", "harness-agent.md"):
-            (self.root / name).write_text((ROOT / "config" / name).read_text())
         files = loader.harness_files(config, self.root)
-        self.assertIn("/configured/plugins/.dsh/skills", "\n".join(files.values()))
         self.assertNotIn("__PLUGINS_ROOT__", "\n".join(files.values()))
-
-    def test_elysium_preserves_general_tools_and_context_services(self):
-        files = loader.harness_files(self.config, self.root)
-        target = self.root / "home/.agent-presets/elysium/agent.cordis.yml"
-        tree = yaml.compose(files[target])
-        entries = {dict((k.value, v.value) for k, v in row.value)["id"]:
-                   dict((k.value, v.value) for k, v in row.value) for row in tree.value}
-        for entry in ("tool-bash", "tool-pwsh", "tool-fs", "tool-fs-search", "tool-jobs", "tool-goal", "planning", "delegation", "tool-todo"):
-            self.assertNotIn("disabled", entries[entry])
-        for entry in ("compaction", "tool-skill", "tool-ask-user", "tool-web"):
-            self.assertNotIn("disabled", entries[entry])
 
     def test_apply_replaces_configuration_and_preserves_session_data(self):
         home = self.root / "home"
@@ -94,20 +61,16 @@ class HarnessSettingsTest(unittest.TestCase):
         self.assertNotIn("harness-runtime", actual)
         self.assertNotIn("__QWEN_", settings.read_text())
         self.assertEqual(session.read_text(), "unchanged")
-        self.assertEqual((home / "AGENTS.md").read_text(), (ROOT / "config/harness-agent.md").read_text())
+        self.assertFalse((home / "AGENTS.md").exists())
+        self.assertFalse((home / ".agent-presets").exists())
         profile = yaml.safe_load((home / "profiles/web/cordis.patch.yml").read_text())
-        prompt = next(row["config"] for row in profile if row.get("id") == "system-prompt")
-        self.assertEqual(prompt, yaml.safe_load((ROOT / "config/system-prompt.yaml").read_text()))
-        preset = home / ".agent-presets/elysium/agent.cordis.yml"
-        tree = yaml.compose(preset.read_text())
-        self.assertEqual(dict((k.value, v.value) for k, v in tree.value[0].value)["disabled"], "true")
-        self.assertEqual(dict((k.value, v.tag) for k, v in tree.value[2].value)["disabled"], "tag:yaml.org,2002:js")
-        source = self.root / "app/node_modules/@deepseek-ai/dsh/config/agent-presets/standard/agent.cordis.yml"
-        original = yaml.compose(source.read_text())
-        for index in (1, 2):
-            self.assertEqual(yaml.serialize(tree.value[index]), yaml.serialize(original.value[index]))
-        metadata = yaml.safe_load((preset.parent / "preset.yml").read_text())
-        self.assertEqual(metadata, yaml.safe_load(self.config.read_text())["harness-customization"]["agent"]["metadata"])
+        plugin = next(row["config"] for row in profile if row.get("id") == "dsh-elysium-tools")
+        runtime = yaml.safe_load(self.config.read_text())["harness-runtime"]
+        self.assertEqual(plugin["comfyUrl"], runtime["MINIMAX_H3_COMFYUI_URL"])
+        self.assertEqual(plugin["artifactsRoot"], runtime["ARTIFACTS_ROOT"])
+        self.assertEqual(plugin["python"], runtime["HARNESS_PYTHON"])
+        self.assertNotIn("__", str(plugin))
+        self.assertFalse(any(row.get("id") == "system-prompt" for row in profile))
         expected = {p: p.read_bytes() for p in loader.harness_files(self.config, self.root)}
         loader.apply_harness(self.config, self.root)
         self.assertEqual(expected, {p: p.read_bytes() for p in expected})
@@ -122,39 +85,24 @@ class HarnessSettingsTest(unittest.TestCase):
                        cwd=self.root, check=True, stdout=subprocess.DEVNULL)
         self.assertFalse((self.root / "home").exists())
 
-    def test_missing_source_fails_before_any_write(self):
+    def test_invalid_profile_fails_before_any_write(self):
         data = yaml.safe_load(self.config.read_text())
-        for key in ("instructionsFile", "systemPromptFile"):
-            with self.subTest(key=key):
-                custom = data["harness-customization"]
-                for source in ("instructionsFile", "systemPromptFile"):
-                    custom[source] = str(ROOT / "config" / ("harness-agent.md" if source == "instructionsFile" else "system-prompt.yaml"))
-                custom[key] = "missing-file"
-                config = self.root / "settings.yaml"
-                config.write_text(yaml.safe_dump(data))
-                with self.assertRaises(FileNotFoundError):
-                    loader.apply_harness(config, self.root)
-                self.assertFalse((self.root / "home").exists())
-
-    def test_invalid_patch_fails_before_any_write(self):
-        data = yaml.safe_load(self.config.read_text())
-        data["harness-customization"]["agent"]["patches"].append({"id": "missing", "disabled": True})
-        invalid = self.root / "invalid.yaml"
-        invalid.write_text(yaml.safe_dump(data))
+        data["harness-customization"]["profile"] = "invalid"
+        config = self.root / "invalid.yaml"
+        config.write_text(yaml.safe_dump(data))
         with self.assertRaises(ValueError):
-            loader.apply_harness(invalid, self.root)
+            loader.apply_harness(config, self.root)
         self.assertFalse((self.root / "home").exists())
 
-    def test_invalid_metadata_fails_before_any_write(self):
-        for value in (None, {}, {"name": "极乐世界", "description": " "}):
-            with self.subTest(value=value):
-                data = yaml.safe_load(self.config.read_text())
-                data["harness-customization"]["agent"]["metadata"] = value
-                invalid = self.root / "invalid.yaml"
-                invalid.write_text(yaml.safe_dump(data))
-                with self.assertRaises(ValueError):
-                    loader.apply_harness(invalid, self.root)
-                self.assertFalse((self.root / "home").exists())
+    def test_deploy_preserves_user_instructions_and_presets(self):
+        home = self.root / "home"
+        preset = home / ".agent-presets/elysium/agent.cordis.yml"
+        preset.parent.mkdir(parents=True)
+        preset.write_text("user preset")
+        (home / "AGENTS.md").write_text("user instructions")
+        loader.apply_harness(self.config, self.root)
+        self.assertEqual(preset.read_text(), "user preset")
+        self.assertEqual((home / "AGENTS.md").read_text(), "user instructions")
 
 
 if __name__ == "__main__":

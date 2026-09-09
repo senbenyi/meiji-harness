@@ -25,7 +25,7 @@ export async function getJob(jobId) {
   try {
     const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
     if (job.capability === 'workflow-video' && job.backend !== 'comfyui') {
-      await publishVideo(job)
+      if (job.status === 'succeeded') await publishVideo(job)
       job.workflow = await readFile(join(ARTIFACTS_ROOT(), `production-${jobId}`, 'workflow/state.json'), 'utf8')
         .then(JSON.parse).catch(() => null)
     }

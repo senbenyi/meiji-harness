@@ -2,3 +2,14 @@
 - insert:
     - id: dsh-elysium-tools
       name: '@dsh-external/dsh-elysium-tools'
+      # 在安装机器的 web profile cordis.patch.yml 中按相同 id 覆盖配置。
+      # comfyUrl/publicUrl 必须分别填写；本机目录默认在 DSH_HOME/elysium 下。
+      # 示例与完整字段见本插件 README 的“独立安装配置”。
+      config: {}
+# The profile directory resolves the installed package, including workspace links.
+- id: agent-presets
+  config:
+    default: standard
+    roots:
+      - path: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@dsh-external/dsh-elysium-tools/package.json')), 'presets')
+        trust: system

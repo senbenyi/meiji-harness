@@ -8,7 +8,7 @@
 
 | 环节 | 代码路径 | 责任与边界 |
 | --- | --- | --- |
-| Harness 会话 | `index.js`、`tool-discovery.js`；仓库 `config/harness-agent.md`、`.dsh/skills/creation-*` | 注册生产工具、按会话加载通用工具；Harness 保留权限和工具调用执行权 |
+| Harness 会话 | `index.js`、`tool-discovery.js`；包内 `presets/elysium/instructions.md`、`presets/elysium/skills/creation-*` | 注册生产工具、按会话加载通用工具；Harness 保留权限和工具调用执行权 |
 | 工具参数 | `functions/endpoint/`、`workflows/workflow-generate-video.js` | 默认值与兼容入口转换；镜头时长、提示词及素材不能被静默缩减 |
 | 输入校验 | `workflows/video-plan.js`、`media-plan.js` | 视频镜头模式、种子、总时长、素材类型及 artifacts 路径边界；不提交任务 |
 | 创建与恢复 | `jobs/create.js`、`call-index.js`、`launch.js`、`launch-lock.py`、`wait.js` | 保存请求，绑定会话调用，串行启动后台 worker，等待原任务 |
@@ -70,3 +70,19 @@ python3 -B scripts/common/comfyui/build_image_concat_workflows.py --check
 # llm-dsh-plugins
 git diff --check
 ```
+
+## 独立插件配置
+
+配置定义与校验在插件 `src/config.js`，通过 Cordis 节点接入，见 [独立安装配置](../dsh-elysium-tools/README.md#独立安装配置)。工具及 HTTP 回调使用对应实例的配置上下文，worker 显式继承配置；不修改宿主环境。
+
+新任务排队时标记 `backend: comfyui`，避免误入旧发布逻辑而要求服务器输出目录。独立实例回归清除旧环境变量，覆盖并发图片／视频任务、图片验收失败后的原 prompt 恢复、会话状态和媒体下载。使用模拟 ComfyUI 与本机媒体工具，不代表真实推理或本机 Harness 已安装验收。
+
+独立配置改造后：工具测试 62 项、配置／部署／隧道测试 20 项通过；未构建、安装、部署或重启服务。
+
+## 随包提供 Elysium 会话能力
+
+`presets/elysium/` 包含原生 Agent composition、显示元数据、人格、协作指令及创作技能。bundle patch 通过安装 profile 的模块解析定位包内 preset 根目录；不依赖仓库位置。`agent.cordis.yml` 仅保留两处差异，由 `standard.mjs` 读取当前 Harness 的 standard 并应用原生补丁，通过原生分组挂载且不写回文件，保留权限执行链、平台条件和隔离分组，仅替换人格与追加包内技能目录。
+
+`app/config/` 只供可选部署使用；部署器不再生成用户 preset、全局人格和 AGENTS.md，也不再同步仓库 `.dsh/`。现有用户文件保留，包内 preset 根目录在默认用户目录之前被发现。
+
+迁移验证：将 package.json、bundle patch 和 presets 复制至含空格的临时包目录，在独立 profile 中模拟 workspace 链接，使用已安装 Harness 的原生解析、插值和 preset 发现器验证，没有引用原仓库 app/config 或 .dsh。复查命令：`node dsh-elysium-tools/tests/preset-installation.mjs /path/to/installed/dsh`。另用原生 Loader/Group 验证补丁求值、平台条件、嵌套分组及卸载，并确认标准预设未被写回；叶子工具使用探针替身，不调用真实模型或外部服务。这不是实际安装、服务重启或自然语言生成验收。

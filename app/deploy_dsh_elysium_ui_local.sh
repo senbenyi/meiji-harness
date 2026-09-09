@@ -8,7 +8,7 @@ for command_name in node pnpm dsh lsof ps curl; do
 done
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 UI_ROOT="$REPO_ROOT/dsh-elysium-ui"
-runtime_settings="$(python3 "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/config/harness-settings.yaml")"
+runtime_settings="$(python3 "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/app/config/harness-settings.yaml")"
 eval "$runtime_settings"
 export DSH_HOME="$LOCAL_DSH_HOME"
 [[ "$DSH_HOME" == /* ]] || fail 'DSH_HOME 必须是绝对路径'
