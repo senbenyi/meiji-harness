@@ -72,7 +72,7 @@ window.__ModuleLoader__.load({
     }
     return { apply(ctx) {
       ctx.slots.inject('tool.call.toolview', () => {
-        for (const key of ['workflow_generate_video', 'workflow_resume_video']) ctx.slots.register({ name: 'tool.call.toolview', key }, VideoTaskCard)
+        for (const key of ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long']) ctx.slots.register({ name: 'tool.call.toolview', key }, VideoTaskCard)
       })
     } }
   },

@@ -82,7 +82,7 @@ export class ComfyClient {
     }
   }
 
-  async submit(graph, jobId, path, retryFailed = false) {
+  async submit(graph, jobId, path, retryFailed = false, workflow) {
     let saved = await readJson(path)
     if (saved && saved.server_url !== this.url.href) throw new Error('原任务属于其他后端；恢复时必须使用原地址')
     if (saved?.prompt_id && retryFailed) {
@@ -105,7 +105,7 @@ export class ComfyClient {
       saved = { server_url: this.url.href, submitting: true, job_id: jobId }
       await saveJson(path, saved)
       let result
-      try { result = await this.request('prompt', { prompt: graph, client_id: jobId, extra_data: { elysium_job_id: jobId } }) } catch (error) {
+      try { result = await this.request('prompt', { prompt: graph, client_id: jobId, extra_data: { elysium_job_id: jobId, ...(workflow ? { extra_pnginfo: { workflow } } : {}) } }) } catch (error) {
         // Only an explicit validation rejection proves that nothing was enqueued.
         if (error.node_errors) await saveJson(path, { server_url: this.url.href, rejected: true })
         throw error

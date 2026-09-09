@@ -62,6 +62,6 @@ export function completedModelTool({ name, description, timeoutMs, parameters, e
       schema: COMPLETED_RESULT_SCHEMA,
       render: renderToolDebug,
     },
-    execute: (args, exec) => withToolContext(name, args, () => execute(args, exec?.signal)),
+    execute: (args, exec) => withToolContext(name, args, () => execute(args, exec?.signal, exec)),
   }
 }

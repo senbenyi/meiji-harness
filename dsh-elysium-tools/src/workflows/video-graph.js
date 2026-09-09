@@ -1,15 +1,28 @@
 import { readFile } from 'node:fs/promises'
 
-// Packaged with the plugin: no model-repository or ComfyUI filesystem access.
-export const VIDEO_SETTINGS = {
-  width: 480, height: 864, fps: 24, steps: 4,
-  outputWidth: 480, outputHeight: 854, outputFps: 30,
+import { executionWorkflow } from './video-workflow.js'
+
+const workflowNames = ['workflow_generate_video', 'workflow_director_video']
+export async function loadVideoTemplates() {
+  return Object.fromEntries(await Promise.all(workflowNames.map(async name => [name,
+    JSON.parse(await readFile(new URL(`./templates/${name}.json`, import.meta.url), 'utf8')),
+  ])))
+}
+export const VIDEO_SETTINGS = (await loadVideoTemplates()).workflow_generate_video.settings
+
+export function selectVideoWorkflow(shots) {
+  return shots.length === 1 && shots[0].mode !== 'reuse' ? 'workflow_generate_video' : 'workflow_director_video'
 }
 
-export async function loadVideoTemplates() {
-  return Object.fromEntries(await Promise.all(['text', 'image', 'reference', 'first-frame'].map(async mode => [mode,
-    JSON.parse(await readFile(new URL(`./templates/${mode === 'first-frame' ? mode : `h3-${mode}`}.json`, import.meta.url), 'utf8')),
-  ])))
+function components(bundle) {
+  return Object.fromEntries(Object.entries(bundle.workflow.extra.harness.components).map(([name, mapping]) => {
+    const reverse = Object.fromEntries(Object.entries(mapping).map(([key, value]) => [value, key]))
+    const graph = Object.fromEntries(Object.entries(mapping).map(([key, value]) => [key, structuredClone(bundle.graph[value])]))
+    for (const node of Object.values(graph)) for (const [key, value] of Object.entries(node.inputs)) {
+      if (Array.isArray(value) && reverse[value[0]]) node.inputs[key] = [reverse[value[0]], value[1]]
+    }
+    return [name, graph]
+  }))
 }
 
 export function videoShots(plan, media) {
@@ -37,9 +50,16 @@ export function frameIndices(seconds, outputFps, { fps, timestamps }, start = 0)
   })
 }
 
-export function buildVideoGraph(plan, media, templates, jobId, settings = VIDEO_SETTINGS) {
-  const graph = {}, shots = videoShots(plan, media)
-  const add = (id, class_type, inputs) => { graph[id] = { class_type, inputs }; return [id, 0] }
+export function buildVideoGraph(plan, media, workflows, jobId) {
+  const graph = {}, shots = videoShots(plan, media), workflowName = selectVideoWorkflow(shots)
+  const bundle = workflows[workflowName], settings = bundle.settings, templates = components(bundle)
+  const add = (id, class_type, inputs) => {
+    const prototype = bundle.graph[bundle.workflow.extra.harness.operations[class_type]]
+    if (!prototype) throw new Error(`Missing workflow operation: ${class_type}`)
+    graph[id] = structuredClone(prototype)
+    Object.assign(graph[id].inputs, inputs)
+    return [id, 0]
+  }
   const clone = (template, prefix) => {
     for (const [id, node] of Object.entries(structuredClone(template))) {
       for (const [key, value] of Object.entries(node.inputs)) {
@@ -55,7 +75,7 @@ export function buildVideoGraph(plan, media, templates, jobId, settings = VIDEO_
       for (let i = 0; i < links.length; i += 2) next.push(i + 1 === links.length ? links[i] :
         add(`${prefix}${level}_${i}`, type, type === 'ImageBatch'
           ? { image1: links[i], image2: links[i + 1] }
-          : { audio1: links[i], audio2: links[i + 1], direction: 'after' }))
+          : { audio1: links[i], audio2: links[i + 1] }))
       links = next
       level++
     }
@@ -65,8 +85,7 @@ export function buildVideoGraph(plan, media, templates, jobId, settings = VIDEO_
   if (plan.image_prompt) {
     clone(templates['first-frame'], 'first_')
     graph.first_2.inputs.text = plan.image_prompt
-    Object.assign(graph.first_4.inputs, { width: 768, height: 1152 })
-    Object.assign(graph.first_5.inputs, { steps: 20, cfg: 5, seed: plan.seed ?? 666 })
+    graph.first_5.inputs.seed = plan.seed ?? 666
     delete graph.first_7
     firstFrame = ['first_6', 0]
   }
@@ -90,9 +109,12 @@ export function buildVideoGraph(plan, media, templates, jobId, settings = VIDEO_
         id: `reference-${kind}`, type: kind, value: media[shot[kind + '_path']].name, slot: 0, order, enabled: true,
         ...(kind === 'video' ? { media_mode: 'video_audio' } : {}),
       }))
+      const timeline = JSON.parse(director.timeline_data)
+      const builder = { version: 2, mode: director.mode, duration: shot.duration, prompt_mode: 'simple', simple_prompt: shot.prompt }
       Object.assign(director, { prompt: shot.prompt, width: settings.width, height: settings.height,
         duration: shot.duration, frame_rate: settings.fps,
-        timeline_data: JSON.stringify({ version: 1, resolution: { input_scaling: 'Auto' }, items, prompt_blocks: [] }) })
+        builder_state: JSON.stringify(builder),
+        timeline_data: JSON.stringify({ ...timeline, items, prompt_blocks: [], builder_state: builder }) })
       graph[p + 'scheduler'].inputs.steps = settings.steps
       graph[p + 'noise'].inputs.seed_value = shot.seed ?? plan.seed ?? 666
       delete graph[p + 'save_video']
@@ -108,16 +130,15 @@ export function buildVideoGraph(plan, media, templates, jobId, settings = VIDEO_
       audio = [p + 'decode_audio', 0]
       timing = { fps: settings.fps }
     }
-    images = add(p + 'resize', 'ImageScale', { image: images, upscale_method: 'lanczos',
-      width: settings.outputWidth, height: settings.outputHeight, crop: 'center' })
+    images = add(p + 'resize', 'ImageScale', { image: images })
     const indices = frameIndices(shot.duration, settings.outputFps, timing, start)
-    const frames = indices.map((batch_index, i) => add(`${p}frame_${i}`, 'ImageFromBatch', { image: images, batch_index, length: 1 }))
+    const frames = indices.map((batch_index, i) => add(`${p}frame_${i}`, 'ImageFromBatch', { image: images, batch_index }))
     const rendered = join(frames, p + 'frames_', 'ImageBatch')
     previous = frames.at(-1)
     allImages.push(rendered)
-    const silence = add(p + 'silence', 'EmptyAudio', { duration: shot.duration + (audio ? start : 0), sample_rate: 48000, channels: 2 })
+    const silence = add(p + 'silence', 'EmptyAudio', { duration: shot.duration + (audio ? start : 0) })
     if (audio) {
-      audio = add(p + 'audio_pad', 'AudioConcat', { audio1: audio, audio2: silence, direction: 'after' })
+      audio = add(p + 'audio_pad', 'AudioConcat', { audio1: audio, audio2: silence })
       audio = add(p + 'audio_trim', 'TrimAudioDuration', { audio, start_index: start, duration: shot.duration })
     } else audio = silence
     allAudio.push(audio)
@@ -130,5 +151,5 @@ export function buildVideoGraph(plan, media, templates, jobId, settings = VIDEO_
     audio: join(allAudio, 'concat_audio_', 'AudioConcat'), frame_rate: settings.outputFps,
     filename_prefix: `elysium/${jobId}/final` })
   graph.final = output
-  return { graph, shots }
+  return { graph, shots, workflowName, settings, workflow: executionWorkflow(graph, bundle.workflow) }
 }

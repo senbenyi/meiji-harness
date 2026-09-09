@@ -6,7 +6,7 @@ import { createReadStream } from 'node:fs'
 import { mkdir, rename, stat, writeFile } from 'node:fs/promises'
 import { join, extname } from 'node:path'
 import { ComfyClient, readJson, saveJson } from '../functions/comfyui/client.js'
-import { buildVideoGraph, loadVideoTemplates, VIDEO_SETTINGS } from './video-graph.js'
+import { buildVideoGraph, loadVideoTemplates } from './video-graph.js'
 import { codeVersion, inspectMedia } from '../functions/common/diagnostics.js'
 
 const run = promisify(execFile)
@@ -60,15 +60,17 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
         media[path].name = await client.upload(path, `${jobId}-${sha256}${extname(path).toLowerCase()}`)
       }
       prepared = { ...buildVideoGraph(plan, media, await loadVideoTemplates(), jobId), media, plan,
-        settings: VIDEO_SETTINGS, server_url: client.url.href }
+        server_url: client.url.href }
       await client.validate(prepared.graph)
       await saveJson(join(directory, 'comfyui-workflow.json'), prepared)
     }
     if (JSON.stringify(prepared.plan) !== JSON.stringify(plan) || prepared.server_url !== client.url.href) throw new Error('恢复请求或后端与原任务不一致')
+    if (prepared.workflow) await saveJson(join(directory, 'comfyui-workflow-ui.json'), prepared.workflow)
+    status.workflow_name = prepared.workflowName
     status.stage = 'submit'
     await saveJson(statusPath, status)
     const resume = await readJson(join(directory, 'resume-request.json'))
-    const promptId = await client.submit(prepared.graph, jobId, submissionPath, resume?.retry_failed === true)
+    const promptId = await client.submit(prepared.graph, jobId, submissionPath, resume?.retry_failed === true, prepared.workflow)
     await saveJson(join(directory, 'resume-request.json'), { retry_failed: false })
     status.comfyui_prompt_id = promptId
     status.debug.chain.push({ stage: 'comfyui-submitted', server_url: client.url.href, prompt_id: promptId })

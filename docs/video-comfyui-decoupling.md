@@ -1,6 +1,6 @@
 # 视频生产与模型脚本解耦
 
-当前链路：`Harness → workflow_generate_video → ComfyUI HTTP → C-MMH3-18 兼容 API 图 → 最终 MP4`。
+当前链路：`Harness → workflow_generate_video → 自动选择 generate/director 工作流 → ComfyUI HTTP → 最终 MP4`。
 
 ## 运行边界
 
@@ -14,7 +14,13 @@
 - `ELYSIUM_TOOLS_STATE_ROOT`：Harness 本机持久化任务目录。
 - `FFMPEG_BIN`、`FFPROBE_BIN`：本机验收工具；缺失时不宣称媒体验收成功。
 
-`video-graph.js` 根据分镜展开标准节点图；`video-execution.js` 保存请求、图、提交 ID、历史及验证结果；`functions/comfyui/client.js` 承担传输与后端协议。模板随插件分发；模型项目 `workflows/video-production/` 保存作者原文件及三种 API 导出。
+`video-graph.js` 按执行单元分流：一个生成片段使用 `workflow_generate_video`；多个片段或已有视频剪辑使用 `workflow_director_video`。一次生成内的多个镜头不拆成多段。两份源图位于模型项目 `workflows/video-generate-minimax-h3/`，作者参考图仍为 `workflows/video-generate-minimax-h3/template/C-MMH3-18.json`。
+
+节点类型、控件参数、生成分支连线和操作模板从可视化图导出。插件按片段数展开模板并绑定提示词、时长、素材、随机种子和输出路径；续接及按时间取帧的展开由 `video-graph.js` 完成。源图中的时间映射是可展开的 ComfyUI 原生子图，不需要新装执行节点。可选参考、首帧等模板在源图中禁用，插件选择时才实例化。
+
+`video-execution.js` 保存 `comfyui-workflow.json`（执行图、请求、选中的工作流与规格）以及 `comfyui-workflow-ui.json`（本次实际展开的可视化图）。后者以 `extra_data.extra_pnginfo.workflow` 随 `/prompt` 提交，可从 ComfyUI 历史加载，节点 ID 与执行图一致。恢复时复用原始快照，不用新模板重建已提交任务；旧任务没有 UI 快照时仍按原 API 图恢复。
+
+开发时在模型仓库运行 `python3 scripts/comfyui/export_h3_api.py`，自动更新相邻插件的 `src/workflows/templates/workflow_*.json`；`--check` 只检查同步状态。运行时只读取插件包内模板。修改源图后需重新导出、测试并按授权发布。
 
 ## 状态与恢复
 
@@ -34,9 +40,9 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 ## C-MMH3-18 适配
 
-作者原文件 SHA-256 为 `5ebbc15a9d49b179b93c1291fa027b0d36aff8098d20d0eea88c9f9be9c04914`。原文件完整保留；开发时运行模型项目 `scripts/comfyui/export_h3_api.py` 生成三种 API 图，再同步至插件 `src/workflows/templates/`；一致性由测试检查。
+作者原文件 SHA-256 为 `5ebbc15a9d49b179b93c1291fa027b0d36aff8098d20d0eea88c9f9be9c04914`。原文件完整保留；现在以两份生产可视化图为导出来源；原始作者图只作参考，不由导出脚本手写重建。源图与插件导出的同步、实际执行图与可视化快照的连线一致性由测试检查。
 
-保留作者 Director、LoRA、SigmaShift/Attention、Guider/Sampler、音视频解码、EnhancedVideoCombine 主链，节点 `_meta.title` 标明作者节点 ID。服务器缺少 `ModelPreviewOverrideKJ`、`ModelPatchTorchSettings`，兼容图旁路它们；原图已关闭的分块、潜空间超分、插帧、水印等分支不提交，不增加节点。作者 8Turbo/8步/shift 12/3 配置按当前服务器已有 4Turbo 模型适配为 Euler/4步/shift 10/5，并保留已有编码器/VAE 文件名。这是显式兼容版本，不声称与原图原样运行等价。
+保留作者 Director、LoRA、SigmaShift/Attention、Guider/Sampler、音视频解码、EnhancedVideoCombine 主链，节点 `_meta.source_id` 对应生产可视化源图的节点 ID。服务器缺少 `ModelPreviewOverrideKJ`、`ModelPatchTorchSettings`，兼容图旁路它们；原图已关闭的分块、潜空间超分、插帧、水印等分支不提交，不增加节点。原图的 pruned int8 模型、res_multistep/25步配置按当前服务器已有 4Turbo 模型适配为 Euler/4步/shift 10/5，并保留已有编码器/VAE 文件名。这是显式兼容版本，不声称与原图原样运行等价。
 
 续拍使用作者 Guide 所调用的原生 `MiniMaxH3ImageToVideo` 接收上一镜真实末帧；Director 本身没有 IMAGE socket。24fps 生成到30fps交付按时间选择帧，不能直接改导出帧率。静态图大小与内存随帧数增长，短片通过不代表任意长片已验证。
 

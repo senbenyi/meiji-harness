@@ -1,10 +1,12 @@
-import { MODEL_TIMEOUTS, runModelTask } from '../common/task.js'
+import { MODEL_TIMEOUTS, ModelTaskError } from '../common/task.js'
+import { startVideoJob } from '../../workflows/video-jobs.js'
+import { waitVideoJob } from '../../workflows/workflow-generate-video.js'
 import { completedModelTool } from '../common/tool.js'
 
 export function createModelGenerateVideoTool() {
   return completedModelTool({
     name: 'model_generate_video',
-    description: '生成不超过 15 秒的短视频：文字、起始图片或参考素材生成；超过 15 秒使用 model_generate_video_long。模型由路由决定，默认保留原生帧率和音轨。',
+    description: '生成不超过 15 秒的短视频：文字、起始图片或参考素材生成；超过 15 秒使用 model_generate_video_long。通过 ComfyUI 可视化工作流生成，交付规格取工作流，保留音轨。',
     timeoutMs: MODEL_TIMEOUTS.video,
     parameters: {
       properties: {
@@ -18,9 +20,19 @@ export function createModelGenerateVideoTool() {
       },
       required: ['mode', 'prompt'],
     },
-    execute: (args, signal) => runModelTask('video-generate', {
-      mode: args.mode, prompt: args.prompt, duration: args.duration ?? 5, image_path: args.image_path,
-      video_path: args.video_path, audio_path: args.audio_path, seed: args.seed ?? 666,
-    }, signal, MODEL_TIMEOUTS.video),
+    execute: async (args, signal, exec) => {
+      const media = ['image_path', 'video_path', 'audio_path'].filter(key => args[key] !== undefined)
+      if (!['text', 'image', 'reference'].includes(args.mode)
+        || (args.mode === 'text' && media.length)
+        || (args.mode === 'image' && (media.length !== 1 || media[0] !== 'image_path'))) {
+        throw new ModelTaskError('MODEL_INPUT_INVALID', 'mode 与参考素材不匹配', 422)
+      }
+      const duration = args.duration ?? 5
+      const shot = { id: 'shot-1', mode: args.mode === 'reference' ? 'reference' : 'independent',
+        prompt: args.prompt, duration, ...Object.fromEntries(media.map(key => [key, args[key]])) }
+      const result = await waitVideoJob(await startVideoJob({ duration, shots: [shot], seed: args.seed ?? 666 }, exec), signal)
+      if (result.status === 'failed') throw new ModelTaskError(result.error_code || 'MODEL_JOB_FAILED', `任务 ${result.job_id} 失败：${result.error}`, 500)
+      return result
+    },
   })
 }

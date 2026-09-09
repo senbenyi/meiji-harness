@@ -19,9 +19,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "node build-scripts/build.mjs",
     "test": "node --test tests/*.test.js",
-    "package:registry": "node scripts/package-registry.mjs"
+    "package:registry": "node build-scripts/package-registry.mjs"
   },
   "license": "MIT"
 }

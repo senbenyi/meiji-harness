@@ -11,8 +11,8 @@ export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'))
   const names = ['task.js', 'tool.js', 'diagnostics.js', '../comfyui/client.js',
     '../../workflows/video-graph.js', '../../workflows/video-execution.js',
-    ...['text', 'image', 'reference'].map(mode => `../../workflows/templates/h3-${mode}.json`),
-    '../../workflows/templates/first-frame.json']
+    '../../workflows/video-workflow.js',
+    ...['workflow_generate_video', 'workflow_director_video'].map(name => `../../workflows/templates/${name}.json`)]
   const sources = await Promise.all(names.map(name => readFile(new URL(name, import.meta.url))))
   return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat(sources)) }
 }

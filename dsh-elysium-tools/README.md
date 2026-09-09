@@ -2,7 +2,7 @@
 
 极乐世界 AI 成人短剧的 DeepSeek Harness Function Call 工具插件。配合标准模式的文件、检索、计划和工作流能力，提供角色与场景图片、视频、对白、声音及任务查询。预设和创作流程见 [Harness 说明](../docs/harness.md#极乐世界预设)。
 
-生产调用链为 `Harness → workflow_generate_video → ComfyUI HTTP → C-MMH3-18 兼容 API 图`。工作流随插件打包，运行时不读取模型项目脚本。配置、恢复语义与适配边界见 [解耦说明](../docs/video-comfyui-decoupling.md)。
+生产调用链为 `Harness → workflow_generate_video → 自动选择 workflow_generate_video / workflow_director_video → ComfyUI HTTP`。工作流随插件打包，运行时不读取模型项目脚本。配置、恢复语义与适配边界见 [解耦说明](../docs/video-comfyui-decoupling.md)。
 
 ## 使用前说明
 
