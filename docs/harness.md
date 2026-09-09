@@ -5,9 +5,9 @@
 | 文件 | 用途 |
 |---|---|
 | [`app/config/harness-settings.yaml`](../app/config/harness-settings.yaml) | 运行参数、模型、UI、Agent preset |
-| [`presets/elysium/persona.md`](../dsh-elysium-tools/presets/elysium/persona.md) | 随包提供的 Elysium 人格 |
-| [`presets/elysium/instructions.md`](../dsh-elysium-tools/presets/elysium/instructions.md) | Elysium 会话协作指令 |
-| [`presets/elysium/skills/`](../dsh-elysium-tools/presets/elysium/skills) | 随包提供的创作技能 |
+| [`.dsh/.agent-presets/elysium/persona.md`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/persona.md) | 随包提供的 Elysium 人格 |
+| [`.dsh/.agent-presets/elysium/instructions.md`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/instructions.md) | Elysium 会话协作指令 |
+| [`.dsh/.agent-presets/elysium/skills/`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/skills) | 随包提供的创作技能 |
 | [`app/common/config_loader.py`](../app/common/config_loader.py) | 配置解析与应用 |
 
 服务器部署目录：`/root/autodl-tmp/project/harness`。

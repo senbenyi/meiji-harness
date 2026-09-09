@@ -52,6 +52,10 @@ import { readFileSync } from 'node:fs'
 const profile = JSON.parse(readFileSync(process.argv[2], 'utf8')), name = process.argv[3]
 if (!profile.dependencies?.[name] || !profile.dsh?.profile?.bundles?.includes(name)) throw new Error('插件未正确注册到 web profile')
 JS
+if [[ "$kind" == tools && ! -e "$DSH_HOME/.agent-presets/elysium" ]]; then
+  install -d -m 0755 "$DSH_HOME/.agent-presets"
+  cp -R "$plugin_dir/.dsh/.agent-presets/elysium" "$DSH_HOME/.agent-presets/"
+fi
 bash app/common/start_harness.sh --restart
 curl -fsS --max-time 5 "http://$HARNESS_HOST:$HARNESS_WEB_PORT/" >/dev/null
 echo "[DONE] dsh-elysium-$kind 已注册，Harness HTTP 健康检查通过"

@@ -7,7 +7,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "dsh-elysium-tools"
-PRESET = PACKAGE / "presets/elysium"
+PRESET = PACKAGE / ".dsh/.agent-presets/elysium"
 
 
 class PackagedPresetTests(unittest.TestCase):
@@ -23,8 +23,8 @@ class PackagedPresetTests(unittest.TestCase):
         self.assertTrue((PRESET / "standard.mjs").is_file())
 
     def test_package_contains_persona_instructions_and_skills(self):
-        self.assertIn("presets", json.loads((PACKAGE / "package.json").read_text())["files"])
-        self.assertIn("'presets'", (PACKAGE / "build-scripts/package-registry.mjs").read_text())
+        self.assertIn(".dsh", json.loads((PACKAGE / "package.json").read_text())["files"])
+        self.assertIn("'.dsh'", (PACKAGE / "build-scripts/package-registry.mjs").read_text())
         self.assertEqual(yaml.safe_load((PRESET / "preset.yml").read_text())["name"], "极乐世界")
         for relative in ("persona.md", "instructions.md", "skills/creation-video/SKILL.md",
                          "skills/creation-drama/SKILL.md"):

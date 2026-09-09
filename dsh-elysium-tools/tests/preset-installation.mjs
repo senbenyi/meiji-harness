@@ -1,5 +1,5 @@
 // Run with the installed Harness package directory. No build, install or live-profile writes.
-import { mkdtemp, cp, mkdir, rm, readFile, symlink, realpath } from 'node:fs/promises'
+import { mkdtemp, cp, mkdir, rm, readFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
@@ -15,24 +15,25 @@ const schema = yaml.DEFAULT_SCHEMA.extend([new yaml.Type('tag:yaml.org,2002:js',
 const source = fileURLToPath(new URL('../', import.meta.url))
 const root = await realpath(await mkdtemp(join(tmpdir(), 'elysium detached ')))
 try {
-  const pkg = join(root, 'installed package'), profile = join(root, 'profile')
-  await mkdir(pkg); await mkdir(join(profile, 'node_modules/@dsh-external'), { recursive: true })
+  const pkg = join(root, 'installed package'), home = join(root, 'host home')
+  await mkdir(pkg)
   const manifest = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'))
-  assert.ok(manifest.files.includes('presets'))
-  for (const file of ['package.json', 'cordis.patch.yml', 'presets']) await cp(join(source, file), join(pkg, file), { recursive: true })
-  await symlink(pkg, join(profile, 'node_modules/@dsh-external/dsh-elysium-tools'))
+  assert.ok(manifest.files.includes('.dsh'))
+  for (const file of ['package.json', 'cordis.patch.yml', '.dsh']) await cp(join(source, file), join(pkg, file), { recursive: true })
   const patch = yaml.load(await readFile(join(pkg, 'cordis.patch.yml'), 'utf8'), { schema })
-  const config = interpolate({ baseUrl: pathToFileURL(join(profile, 'cordis.yml')).href }, patch.find(row => row.id === 'agent-presets').config)
-  assert.equal(config.roots[0].path, join(pkg, 'presets'))
-  const presets = await discoverPresets(config.roots, pathToFileURL(join(host, 'lib/bin.js')).href)
-  assert.equal(presets[0].trust, 'system');
+  assert.ok(!patch.some(row => row.id === 'agent-presets'))
+  await cp(join(pkg, '.dsh'), home, { recursive: true })
+  await rm(pkg, { recursive: true }) // The copied preset must not resolve assets from the package.
+  const presetRoot = join(home, '.agent-presets')
+  const presets = await discoverPresets([{ path: presetRoot, trust: 'user' }], pathToFileURL(join(host, 'lib/bin.js')).href)
+  assert.equal(presets[0].trust, 'user');
   assert.equal(presets.length, 1); assert.equal(presets[0].id, 'elysium'); assert.equal(presets[0].broken, undefined)
   const composition = yaml.load(await readFile(presets[0].path, 'utf8'), { schema })
-  const ctx = { baseUrl: pathToFileURL(join(pkg, 'presets/elysium/')).href }
+  const ctx = { baseUrl: pathToFileURL(join(presetRoot, 'elysium/')).href }
   const standardPath = join(host, 'node_modules/@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml')
   const standardText = await readFile(standardPath, 'utf8')
   const standard = yaml.load(standardText, { schema })
-  const adapter = await import(pathToFileURL(join(pkg, 'presets/elysium/standard.mjs')))
+  const adapter = await import(pathToFileURL(join(presetRoot, 'elysium/standard.mjs')))
   const { Group } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis-plugin-loader')))
   let rows
   await adapter.apply({
@@ -83,7 +84,7 @@ try {
   try {
     await tree.root.update(composition)
     assert.match(active.get('persona').text, /极乐世界/)
-    assert.deepEqual(active.get('skill-filesystem').customSkillDirs, [join(pkg, 'presets/elysium/skills/')])
+    assert.deepEqual(active.get('skill-filesystem').customSkillDirs, [join(presetRoot, 'elysium/skills/')])
     assert.ok(active.has(process.platform === 'win32' ? 'tool-pwsh' : 'tool-bash'))
     assert.ok(!active.has(process.platform === 'win32' ? 'tool-bash' : 'tool-pwsh'))
     assert.ok(active.has('tool-subagent')); assert.ok(active.has('plan-mode'))
@@ -95,5 +96,5 @@ try {
   assert.equal(active.size, 0)
   assert.equal(await readFile(standardPath, 'utf8'), standardText)
   assert.deepEqual(yaml.load(await readFile(presets[0].path, 'utf8'), { schema }), composition)
-  console.log('PASS: relocated package discovered by native Harness; persona, instructions and skills resolve without app/config or repository .dsh')
+  console.log('PASS: copied host preset discovered by native Harness; persona, instructions and skills resolve after source package removal')
 } finally { await rm(root, { recursive: true, force: true }) }

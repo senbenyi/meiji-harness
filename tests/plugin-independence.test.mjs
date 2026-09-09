@@ -26,11 +26,12 @@ for (const kinds of [['tools'], ['ui'], ['tools', 'ui']]) {
         const name = `dsh-elysium-${kind}`, source = join(repo, name), dest = join(root, name)
         await mkdir(dest)
         const scriptDir = kind === 'tools' ? 'build-scripts' : 'scripts'
-        for (const path of ['src', scriptDir, 'config', 'package.json', 'cordis.patch.yml', ...(kind === 'tools' ? ['presets'] : [])]) {
+        const configDir = kind === 'tools' ? '.dsh' : 'config'
+        for (const path of ['src', scriptDir, configDir, 'package.json', 'cordis.patch.yml']) {
           await cp(join(source, path), join(dest, path), { recursive: true })
         }
         const pkg = JSON.parse(await readFile(join(dest, 'package.json'), 'utf8'))
-        assert.ok(pkg.files.includes('config'))
+        assert.ok(pkg.files.includes(configDir))
         assert.ok(pkg.files.includes('lib'))
         assert.equal(pkg.exports['./client'], './lib/client.js')
         assert.equal(pkg.dsh.client.platform, 'web')

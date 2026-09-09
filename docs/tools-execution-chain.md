@@ -8,7 +8,7 @@
 
 | 环节 | 代码路径 | 责任与边界 |
 | --- | --- | --- |
-| Harness 会话 | `index.js`、`tool-discovery.js`；包内 `presets/elysium/instructions.md`、`presets/elysium/skills/creation-*` | 注册生产工具、按会话加载通用工具；Harness 保留权限和工具调用执行权 |
+| Harness 会话 | `index.js`、`tool-discovery.js`；包内 `.dsh/.agent-presets/elysium/instructions.md`、`.dsh/.agent-presets/elysium/skills/creation-*` | 注册生产工具、按会话加载通用工具；Harness 保留权限和工具调用执行权 |
 | 工具参数 | `functions/endpoint/`、`workflows/workflow-generate-video.js` | 默认值与兼容入口转换；镜头时长、提示词及素材不能被静默缩减 |
 | 输入校验 | `workflows/video-plan.js`、`media-plan.js` | 视频镜头模式、种子、总时长、素材类型及 artifacts 路径边界；不提交任务 |
 | 创建与恢复 | `jobs/create.js`、`call-index.js`、`launch.js`、`launch-lock.py`、`wait.js` | 保存请求，绑定会话调用，串行启动后台 worker，等待原任务 |
@@ -81,15 +81,15 @@ git diff --check
 
 ## 随包提供 Elysium 会话能力
 
-`presets/elysium/` 包含原生 Agent composition、显示元数据、人格、协作指令及创作技能。bundle patch 通过安装 profile 的模块解析定位包内 preset 根目录；不依赖仓库位置。`agent.cordis.yml` 仅保留两处差异，由 `standard.mjs` 读取当前 Harness 的 standard 并应用原生补丁，通过原生分组挂载且不写回文件，保留权限执行链、平台条件和隔离分组，仅替换人格与追加包内技能目录。
+`.dsh/.agent-presets/elysium/` 包含原生 Agent composition、显示元数据、人格、协作指令及创作技能。安装后复制到 `$DSH_HOME/.agent-presets/elysium/`，由 Harness 默认发现；bundle 不再注册额外预设目录。`agent.cordis.yml` 仅保留两处差异，由 `standard.mjs` 读取当前 Harness 的 standard 并应用原生补丁，通过原生分组挂载且不写回文件，保留权限执行链、平台条件和隔离分组，仅替换人格与追加包内技能目录。
 
-`app/config/` 只供可选部署使用；部署器不再生成用户 preset、全局人格和 AGENTS.md，也不再同步仓库 `.dsh/`。现有用户文件保留，包内 preset 根目录在默认用户目录之前被发现。
+`app/config/` 只供可选部署使用。部署器首次复制包内预设，已有同名预设保留；不写全局 AGENTS.md。手动安装按插件 README 复制目录。
 
-迁移验证：将 package.json、bundle patch 和 presets 复制至含空格的临时包目录，在独立 profile 中模拟 workspace 链接，使用已安装 Harness 的原生解析、插值和 preset 发现器验证，没有引用原仓库 app/config 或 .dsh。复查命令：`node dsh-elysium-tools/tests/preset-installation.mjs /path/to/installed/dsh`。另用原生 Loader/Group 验证补丁求值、平台条件、嵌套分组及卸载，并确认标准预设未被写回；叶子工具使用探针替身，不调用真实模型或外部服务。这不是实际安装、服务重启或自然语言生成验收。
+迁移验证：把包内 `.dsh/` 复制到临时宿主目录后删除临时插件包，使用已安装 Harness 的原生发现器验证资源独立加载。复查命令：`node dsh-elysium-tools/tests/preset-installation.mjs /path/to/installed/dsh`。另用原生 Loader/Group 验证补丁求值、平台条件、嵌套分组及卸载，并确认标准预设未被写回；叶子工具使用探针替身，不调用真实模型或外部服务。这不是实际安装、服务重启或自然语言生成验收。
 
 ## 两个插件独立交付
 
-媒体卡片、状态接口与生成工具统一由 tools 包提供；UI 包仅负责导演管理和按需读取，在普通 Harness 预设也可使用。两包分别提供 `config/` 示例，不依赖仓库部署目录。`app/config/` 的地址、模型选择、权限和隧道配置仅用于特定部署。
+媒体卡片、状态接口与生成工具统一由 tools 包提供；UI 包仅负责导演管理和按需读取，在普通 Harness 预设也可使用。tools 提供与宿主对应的 `.dsh/` 配置，UI 提供 `config/` 示例，不依赖仓库部署目录。`app/config/` 的地址、模型选择、权限和隧道配置仅用于特定部署。
 
 复查：`node --test tests/plugin-independence.test.mjs`。测试将源码和包配置复制到独立临时目录，分别加载 tools、UI 和两者组合，检查服务端工具、客户端入口及插槽是否冲突。只提供声明的第三方依赖，不链接另一个插件。此验证不替代真实安装、浏览器和 GPU 验收。
 

@@ -1,8 +1,0 @@
-# Merge into $DSH_HOME/profiles/web/cordis.patch.yml after installation.
-- id: dsh-elysium-tools
-  config:
-    comfyUrl: http://127.0.0.1:6016
-    publicUrl: http://127.0.0.1:6016
-    python: python3
-    ffmpeg: ffmpeg
-    ffprobe: ffprobe

@@ -1,6 +1,6 @@
 # dsh-elysium-tools
 
-Harness 图片与视频生成插件，自带任务卡和创作预设，可独立安装。
+Harness 图片与视频生成插件，自带任务卡和创作预设。
 
 ## 安装
 
@@ -14,14 +14,18 @@ pnpm package:registry
 dsh plugin --profile web add --workspace-root ./registry
 ```
 
-## 配置
+## 覆盖配置
 
-将 [连接配置](config/cordis.patch.example.yml) 合并到 `~/.dsh/profiles/web/cordis.patch.yml`；设置了 `DSH_HOME` 时使用该目录。
+[.dsh/profiles/web/cordis.patch.yml](.dsh/profiles/web/cordis.patch.yml) 对应主机 `~/.dsh/profiles/web/cordis.patch.yml`，已保留当前本机其他配置；ComfyUI 地址已填 `http://127.0.0.1:6016`，需确保该地址可访问。
 
-填写 `comfyUrl`（Harness 可访问）和 `publicUrl`（浏览器可访问）。默认使用 `python3`、`ffmpeg`、`ffprobe`，素材目录为 `$DSH_HOME/elysium/artifacts`（默认 `~/.dsh/elysium/artifacts`）。
+预设目录 `.dsh/.agent-presets/elysium/` 对应主机 `~/.dsh/.agent-presets/elysium/`。安装插件后复制：
 
-模型沿用 Harness 设置；需要新增时参考 [模型配置示例](config/harness-settings.example.yaml)。
+```sh
+mkdir -p "${DSH_HOME:-$HOME/.dsh}/.agent-presets"
+cp -R .dsh/.agent-presets/elysium "${DSH_HOME:-$HOME/.dsh}/.agent-presets/"
+cp .dsh/profiles/web/cordis.patch.yml "${DSH_HOME:-$HOME/.dsh}/profiles/web/cordis.patch.yml"
+```
 
-## 使用
+主机配置后续有改动时，先合并再覆盖。模型沿用主机已有设置。
 
-配置后重新加载 Harness，新会话选择“极乐世界”，描述生成目标。输入素材放在上述素材目录，使用绝对路径；中断后查询、恢复原任务，避免重复生成。
+重新加载 Harness，新会话选择“极乐世界”。素材放在 `~/.dsh/elysium/artifacts`（设置 DSH_HOME 时使用该目录），输入绝对路径；中断后查询、恢复原任务。
