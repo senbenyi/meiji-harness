@@ -101,7 +101,7 @@ export async function resumeVideoJob(jobId, exec) {
   return launch(jobId)
 }
 
-async function launch(jobId) {
+export async function launch(jobId, capability = 'workflow-video') {
   const directory = join(stateRoot(), 'jobs', jobId)
   const lockPath = join(directory, 'worker.lock')
   let lock
@@ -117,7 +117,7 @@ async function launch(jobId) {
     return { job_id: jobId, status: (await getJob(jobId)).status }
   }
   try {
-    await writeStatus(directory, { job_id: jobId, capability: 'workflow-video', status: 'queued', stage: 'queued' })
+    await writeStatus(directory, { job_id: jobId, capability, status: 'queued', stage: 'queued' })
     const log = await open(join(directory, 'worker.log'), 'a')
     try {
       const child = spawn(process.execPath, [fileURLToPath(new URL('./video-worker.js', import.meta.url)), jobId],
@@ -128,7 +128,7 @@ async function launch(jobId) {
     } finally { await log.close() }
     return { job_id: jobId, status: 'queued' }
   } catch (error) {
-    await writeStatus(directory, { job_id: jobId, capability: 'workflow-video', status: 'failed', error: error.message })
+    await writeStatus(directory, { job_id: jobId, capability, status: 'failed', error: error.message })
     await unlink(lockPath).catch(() => {})
     throw error
   } finally { await lock.close() }

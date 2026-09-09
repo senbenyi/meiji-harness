@@ -59,7 +59,7 @@
 | 参数 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
 | `prompt` | 是 | - | 画面描述 |
-| `preset` | 否 | `standard` | `fast` 或 `standard` |
+| `preset` | 否 | `standard` | 仅 `standard`，`fast` 已移除 |
 | `seed` | 否 | `666` | 随机种子 |
 
 一句话示例：
@@ -227,3 +227,5 @@ dsh plugin --profile web add --workspace-root ./registry
 工具返回摘要；`debug.diagnostic_path` 保留完整诊断快照，`debug.media_probe_path` 保留探测结果。只记录任务参数，不输出进程的完整环境变量。
 
 通用工具及其说明在极乐世界内通过 `elysium_load_tools` 按组加载，保留原注册和权限执行链，详见 [上下文说明](../docs/harness.md#上下文成本)。
+
+图片工具支持可选 `image_path` 人物参考图；图片与合片默认可见，直接提交可视化 ComfyUI 工作流。`model_job_resume` 按原 job_id 恢复图片、视频和合片任务；导演工作流已输出成片时无需再次合片。图片默认 standard（832×1216、30 步），会话卡片支持预览与下载。

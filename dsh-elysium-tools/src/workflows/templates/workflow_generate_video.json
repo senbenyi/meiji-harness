@@ -3700,8 +3700,8 @@
           }
         },
         "widgets_values": [
-          768,
-          1152,
+          832,
+          1216,
           1
         ],
         "title": "library_first_frame_4 · Empty Latent Image"
@@ -3783,8 +3783,8 @@
         "widgets_values": [
           666,
           "fixed",
-          20,
-          5,
+          30,
+          6.0,
           "dpmpp_2m_sde",
           "karras",
           1
@@ -25544,8 +25544,8 @@
     "library_first_frame_4": {
       "class_type": "EmptyLatentImage",
       "inputs": {
-        "width": 768,
-        "height": 1152,
+        "width": 832,
+        "height": 1216,
         "batch_size": 1
       },
       "_meta": {
@@ -25557,8 +25557,8 @@
       "class_type": "KSampler",
       "inputs": {
         "seed": 666,
-        "steps": 20,
-        "cfg": 5,
+        "steps": 30,
+        "cfg": 6.0,
         "sampler_name": "dpmpp_2m_sde",
         "scheduler": "karras",
         "denoise": 1,

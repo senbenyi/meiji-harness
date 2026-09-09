@@ -1,10 +1,11 @@
-import { MODEL_TIMEOUTS, runModelTask } from '../common/task.js'
+import { MODEL_TIMEOUTS } from '../common/task.js'
+import { runMediaJob } from '../../workflows/media-jobs.js'
 import { completedModelTool } from '../common/tool.js'
 
 export function createModelConcatVideoTool() {
   return completedModelTool({
     name: 'model_concat_video',
-    description: '将已有 MP4 按镜头顺序合为一个成片，保留原音轨；不重新生成。要求编码、尺寸、帧率及音轨规格一致，返回成片路径和解码、时长验证结果。分段生成完成后必须调用此工具才能交付完整视频。',
+    description: '将已有 MP4 按镜头顺序合为一个成片，保留原音轨；不重新生成。要求编码、尺寸、帧率及音轨规格一致，返回成片路径和解码、时长验证结果。导演工作流已经合成的成片无需再次合并。',
     timeoutMs: MODEL_TIMEOUTS.postprocess,
     parameters: {
       properties: {
@@ -12,6 +13,6 @@ export function createModelConcatVideoTool() {
       },
       required: ['video_paths'],
     },
-    execute: (args, signal) => runModelTask('video-concat', { video_paths: args.video_paths }, signal, MODEL_TIMEOUTS.postprocess),
+    execute: (args, signal, exec) => runMediaJob('video-concat', { video_paths: args.video_paths }, exec),
   })
 }

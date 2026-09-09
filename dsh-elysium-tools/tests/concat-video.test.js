@@ -15,8 +15,9 @@ process.env.LLM_AI_MODEL_ROOT = process.env.TEST_MODEL_ROOT || fileURLToPath(new
 process.env.ARTIFACTS_ROOT = artifacts
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 after(() => rm(root, { recursive: true, force: true }))
-const { createModelTools } = await import('../src/index.js')
-const tool = createModelTools().find(t => t.name === 'model_concat_video')
+const { runModelTask } = await import('../src/index.js')
+// Legacy CLI compatibility is checked separately from the native plugin workflow.
+const tool = { execute: args => runModelTask('video-concat', args, undefined, 60000) }
 let available = true
 try {
   await run('ffmpeg', ['-version'])

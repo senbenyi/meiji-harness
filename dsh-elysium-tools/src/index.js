@@ -22,7 +22,7 @@ export function apply(ctx) {
   ctx.inject(['webServer'], mediaContext => registerMediaRoutes(mediaContext))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => projectTools(await next(), context.agent))
   const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools().filter(tool =>
-    process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' || ['model_job_status', 'model_job_result'].includes(tool.name)),
+    process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' || ['model_generate_image', 'model_concat_video', 'model_job_status', 'model_job_result'].includes(tool.name)),
     ...(process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]
   for (const tool of tools) {
     if (typeof ctx.effect === 'function' && typeof ctx.tools?.register === 'function') {

@@ -6,7 +6,7 @@ window.__ModuleLoader__.load({
         try {
           const value = JSON.parse(item.text)
           const result = value.output || value
-          if (result.job_id && result.status) return result
+          if (result.job_id && result.status) return { ...result, media_kind: result.media_kind || (/\.(png|jpe?g|webp)(?:[?&#]|$)/i.test(result.path || result.comfyui_view_url || '') ? 'image' : 'video') }
         } catch { /* The generic result remains available in details. */ }
       }
       if (block?.isError) {

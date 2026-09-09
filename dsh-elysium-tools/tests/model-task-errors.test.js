@@ -10,8 +10,9 @@ after(() => rm(root, { recursive: true, force: true }))
 process.env.LLM_AI_MODEL_ROOT = root
 process.env.ARTIFACTS_ROOT = join(root, 'artifacts')
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
-const { createModelTools, getJob } = await import('../src/index.js')
-const tool = createModelTools().find(item => item.name === 'model_generate_image')
+const { createModelTools, getJob, runModelTask } = await import('../src/index.js')
+// Keep the legacy Shell executor's diagnostics covered separately.
+const tool = { execute: args => runModelTask('image-generate', { ...args, preset: 'standard', seed: 666 }, undefined, 60000) }
 
 for (const [label, script, code] of [
   ['missing endpoint', null, 'MODEL_EXECUTOR_MISSING'],

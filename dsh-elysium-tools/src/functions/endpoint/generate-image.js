@@ -1,23 +1,26 @@
-import { MODEL_TIMEOUTS, runModelTask } from '../common/task.js'
+import { MODEL_TIMEOUTS } from '../common/task.js'
+import { runMediaJob } from '../../workflows/media-jobs.js'
 import { completedModelTool } from '../common/tool.js'
 
 export function createModelGenerateImageTool() {
   return completedModelTool({
     name: 'model_generate_image',
-    description: '根据文本生成角色设定图、场景图或短剧镜头首帧，等待完成后返回真实图片路径，可交给视频工具继续生成。此工具不接收参考图。',
+    description: '根据文本生成角色设定图、场景图或短剧镜头首帧，等待完成后返回真实图片路径，可交给视频工具继续生成。可选参考图保持人物外观，通过 ComfyUI 可视化工作流生成。',
     timeoutMs: MODEL_TIMEOUTS.image,
     parameters: {
       properties: {
         prompt: { type: 'string', description: '要生成的画面描述。' },
-        preset: { type: 'string', enum: ['fast', 'standard'], description: '生成档位，默认 fast。' },
-        seed: { type: 'number', description: '随机种子，默认 666。' },
+        preset: { type: 'string', enum: ['standard'], description: '仅支持 standard。' },
+        image_path: { type: 'string', description: '可选，artifacts 下人物参考图绝对路径。' },
+        seed: { type: 'integer', minimum: 0, description: '随机种子，默认 666。' },
       },
       required: ['prompt'],
     },
-    execute: (args, signal) => runModelTask('image-generate', {
-        prompt: String(args.prompt || '').trim(),
-        preset: args.preset || 'fast',
+    execute: (args, signal, exec) => runMediaJob('image-generate', {
+        prompt: args.prompt,
+        preset: args.preset ?? 'standard',
+        ...(args.image_path !== undefined ? { image_path: args.image_path } : {}),
         seed: args.seed ?? 666,
-      }, signal, MODEL_TIMEOUTS.image),
+      }, exec),
   })
 }

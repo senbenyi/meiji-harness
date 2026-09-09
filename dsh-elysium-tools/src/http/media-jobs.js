@@ -17,12 +17,15 @@ export function byteRange(header, size) {
   return { start, end }
 }
 export function jobSummary(job) {
+  const image = job.result?.media_kind === 'image' || ['.png', '.jpg', '.jpeg', '.webp'].includes(extname(job.result?.path || '').toLowerCase()) || job.capability === 'image-generate' || job.debug?.effective_input?.capability === 'image-generate'
   return { job_id: job.job_id, status: job.status,
     stage: job.status === 'failed' ? job.failed_stage : job.workflow?.stage || job.stage,
     error: job.error, retryable: job.retryable, retry_scope: job.retry_scope,
     media_info: job.result?.media_info, validation: job.result?.validation,
     comfyui_view_url: job.result?.comfyui_view_url,
-    has_video: job.status === 'succeeded' && Boolean(job.result?.path) }
+    media_kind: image ? 'image' : 'video',
+    has_image: job.status === 'succeeded' && image && Boolean(job.result?.path),
+    has_video: job.status === 'succeeded' && Boolean(job.result?.path) && !image }
 }
 const json = (res, status, data) => {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
@@ -47,10 +50,12 @@ export function createMediaHandler({ token, readJob = getJob, findCall = findVid
         throw error
       }
       if (url.pathname === `${MEDIA_ROUTE}/status`) return json(res, 200, jobSummary(job))
-      if (url.pathname !== `${MEDIA_ROUTE}/video` || job.status !== 'succeeded' || !job.result?.path) return json(res, 404, { error: '成片尚不可用' })
+      if (![`${MEDIA_ROUTE}/video`, `${MEDIA_ROUTE}/image`].includes(url.pathname) || job.status !== 'succeeded' || !job.result?.path) return json(res, 404, { error: '成片尚不可用' })
       const root = await realpath(artifactsRoot), path = await realpath(job.result.path)
-      const rel = relative(root, path)
-      if (!rel || rel.startsWith('..') || isAbsolute(rel) || extname(path).toLowerCase() !== '.mp4') return json(res, 403, { error: 'Invalid artifact' })
+      const rel = relative(root, path), image = url.pathname.endsWith('/image')
+      const extension = extname(path).toLowerCase()
+      const mime = image ? { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[extension] : extension === '.mp4' ? 'video/mp4' : null
+      if (!rel || rel.startsWith('..') || isAbsolute(rel) || !mime) return json(res, 403, { error: 'Invalid artifact' })
       const handle = await open(path, 'r')
       try {
         const stat = await handle.stat()
@@ -59,10 +64,10 @@ export function createMediaHandler({ token, readJob = getJob, findCall = findVid
         try { range = byteRange(req.headers.range, stat.size) } catch {
           res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` }); res.end(); return
         }
-        const headers = { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, no-store',
+        const headers = { 'Content-Type': mime, 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, no-store',
           'X-Content-Type-Options': 'nosniff', 'Content-Length': range ? range.end - range.start + 1 : stat.size }
         if (range) headers['Content-Range'] = `bytes ${range.start}-${range.end}/${stat.size}`
-        if (url.searchParams.get('download') === '1') headers['Content-Disposition'] = 'attachment; filename="video.mp4"'
+        if (url.searchParams.get('download') === '1') headers['Content-Disposition'] = `attachment; filename="media${extension}"`
         res.writeHead(range ? 206 : 200, headers)
         if (req.method === 'HEAD') res.end()
         else await pipeline(handle.createReadStream({ ...range, autoClose: false }), res)
@@ -79,5 +84,5 @@ export function registerMediaRoutes(ctx) {
   const token = randomBytes(32).toString('hex')
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE } }))
   const handler = createMediaHandler({ token, getSession: id => ctx.get('sessions')?.get(id) })
-  for (const suffix of ['status', 'video']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
+  for (const suffix of ['status', 'video', 'image']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
 }

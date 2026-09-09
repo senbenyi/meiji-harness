@@ -18,7 +18,7 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video'])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image'])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
@@ -76,4 +76,23 @@ test('Range syntax covers suffix, open end and invalid requests', () => {
   assert.deepEqual(byteRange('bytes=-3', 10), { start: 7, end: 9 })
   assert.deepEqual(byteRange('bytes=8-', 10), { start: 8, end: 9 })
   for (const value of ['bytes=-0', 'bytes=4-2', 'bytes=0-1,4-5', 'bytes=-', 'garbage']) assert.throws(() => byteRange(value, 10))
+})
+
+test('image endpoint serves only trusted job images with the correct MIME type', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'image-http-')), path = join(root, 'final.png')
+  await writeFile(path, 'image-bytes')
+  const job = { status: 'succeeded', result: { path, media_kind: 'image' } }
+  const server = createServer(createMediaHandler({ token: 't', artifactsRoot: root, findCall: async () => 'id', readJob: async () => job }))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`, query = '?t=t&session=s&call=c'
+  try {
+    const response = await fetch(base + '/image' + query)
+    assert.equal(response.headers.get('content-type'), 'image/png')
+    assert.equal(await response.text(), 'image-bytes')
+    assert.equal((await fetch(base + '/video' + query)).status, 403)
+    const summary = await (await fetch(base + '/status' + query)).json()
+    assert.equal(summary.has_image, true); assert.equal(summary.has_video, false)
+    await symlink('/etc/hosts', join(root, 'escape.png')); job.result.path = join(root, 'escape.png')
+    assert.equal((await fetch(base + '/image' + query)).status, 403)
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

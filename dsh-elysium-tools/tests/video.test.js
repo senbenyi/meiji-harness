@@ -86,15 +86,3 @@ test('long video uses the director workflow and preserves total duration', async
   await assert.rejects(tool.execute({ ...args, preset: 'long_mvp_preview' }), { code: 'MODEL_INPUT_INVALID' })
   await assert.rejects(tool.execute({ ...args, prompts: Array(17).fill('Boat'), duration: 16 }), { code: 'MODEL_INPUT_INVALID' })
 })
-
-test('image output uses the same PROJECT_ID as the model script', async () => {
-  await writeFile(join(endpoints, 'generate_image.sh'), `#!/usr/bin/env bash
-set -eu
-output="$ARTIFACTS_ROOT/$PROJECT_ID/assets/characters/img.png"
-mkdir -p "$(dirname "$output")"
-printf 'image' > "$output"
-`)
-  const tool = createModelTools().find(t => t.name === 'model_generate_image')
-  const result = await tool.execute({ prompt: 'Paper boat' })
-  assert.match(result.path, /tool-[^/]+\/assets\/characters\/img.png$/)
-})

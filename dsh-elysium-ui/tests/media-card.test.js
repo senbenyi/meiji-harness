@@ -30,7 +30,7 @@ async function fixture(responses, block = {}) {
   require(pkg.name).apply({ settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
-  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video'])
+  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume'])
   let view
   await act(async () => { view = create(React.createElement(slots[0].component, { sessionId: 'session', callId: 'call', block })) })
   return { view, requests, timers,
@@ -85,7 +85,7 @@ test('rejected arguments show a compact record without a task card or polling', 
   const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: 短视频一条提示词；长视频至少两条且每段 1..15 秒' }] })
   try {
     assert.equal(f.view.root.findAllByType('section').length, 0)
-    assert.equal(f.view.root.findByType('summary').children.join(''), '视频参数校验未通过（未创建任务）')
+    assert.equal(f.view.root.findByType('summary').children.join(''), '媒体参数校验未通过（未创建任务）')
     assert.equal(f.requests.length, 0)
     assert.equal(f.timers.size, 0)
     assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
@@ -167,5 +167,17 @@ test('interrupted session recovers original job and falls back when ComfyUI is u
     assert.equal(f.requests.length, 1)
     assert.match(f.requests[0].url, /\/status\?/)
     assert.equal(f.timers.size, 0)
+  } finally { await f.close() }
+})
+
+test('image result renders a picture with download and same-origin fallback', async () => {
+  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'image', status: 'succeeded', media_kind: 'image', comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.png', media_info: { width: 832, height: 1216 } }) }] })
+  try {
+    assert.equal(f.view.root.findAllByType('video').length, 0)
+    assert.equal(f.view.root.findByType('img').props.alt, '生成图片')
+    assert.match(f.view.root.findByType('a').props.href, /image\?.*download=1/)
+    await act(async () => f.view.root.findByType('img').props.onError())
+    assert.match(f.view.root.findByType('img').props.src, /^\/plugins\/dsh-elysium\/media\/image\?/)
+    assert.ok(!JSON.stringify(f.view.toJSON()).includes('null 秒'))
   } finally { await f.close() }
 })

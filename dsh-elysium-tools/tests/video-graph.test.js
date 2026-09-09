@@ -93,10 +93,10 @@ test('reference, first-frame generation and reuse all have faithful visual execu
   ]) {
     const result = buildVideoGraph(plan, media, templates, 'variants')
     if (plan.image_prompt) {
-      assert.equal(result.graph.first_4.inputs.width, 768)
-      assert.equal(result.graph.first_4.inputs.height, 1152)
-      assert.equal(result.graph.first_5.inputs.steps, 20)
-      assert.equal(result.graph.first_5.inputs.cfg, 5)
+      assert.equal(result.graph.first_4.inputs.width, 832)
+      assert.equal(result.graph.first_4.inputs.height, 1216)
+      assert.equal(result.graph.first_5.inputs.steps, 30)
+      assert.equal(result.graph.first_5.inputs.cfg, 6)
     }
     assert.deepEqual(visualGraph(result.workflow), Object.fromEntries(Object.entries(result.graph).map(([id, n]) => [id, { class_type: n.class_type, inputs: n.inputs }])))
   }

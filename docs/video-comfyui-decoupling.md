@@ -67,3 +67,5 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 2026-09-09 现场只读核验：6016 的 `/object_info` 返回 964 个节点，但旧原子能力模板所需 FishS2TTS、RIFE、SeedVR2 加载/超分、MMAudio 与 VHS 节点缺失。此为节点契约差异，不是地址回退或能力入口被删除；本次未安装节点或执行 GPU 生成。
 
 兼容视频工具 `model_generate_video` 和 `model_generate_video_long` 同样调用 ComfyUI 后台任务，保留会话卡片绑定与恢复能力；不再运行 Shell 视频入口。长视频旧 preset 名称仅作兼容，规格取可视化工作流。
+
+图片与已有视频合片已迁移为同类 ComfyUI 后台任务，源图分别位于模型仓库 `workflows/image-generate-sdxl/` 与 `workflows/video-concat/`，通过 `export_media_api.py` 导出。图片取消 fast，仅保留 standard，并同步视频首帧组件。新增 `model_job_resume` 和图片媒体回传；语音、插帧、超分、音效不在此次迁移范围。

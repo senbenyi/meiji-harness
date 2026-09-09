@@ -11,6 +11,7 @@
       "elysium_load_tools",
       "workflow_generate_video",
       "workflow_resume_video",
+      "model_job_resume",
       "model_generate_image",
       "model_generate_video_long",
       "model_generate_video",
