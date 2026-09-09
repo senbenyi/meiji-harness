@@ -1,3 +1,4 @@
+import { serverMedia, serverPath } from '../media/server-media.js'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { requiredConfig } from '../config.js'
@@ -21,7 +22,8 @@ const directions = {
 async function imageJob(id) {
   const job = await getJob(id)
   if (job.status !== 'succeeded' || job.result?.media_kind !== 'image') throw invalid('必须使用已成功生成的图片任务')
-  if (await sha256File(job.result.path) !== job.result.sha256) throw invalid('参考图片已被修改，请重新确认角色')
+  const sha = serverPath(job.result.path) ? (await serverMedia({operation:'check',path:serverPath(job.result.path)})).sha256 : await sha256File(job.result.path)
+  if (sha !== job.result.sha256) throw invalid('参考图片已被修改，请重新确认角色')
   return job
 }
 

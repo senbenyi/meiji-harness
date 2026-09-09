@@ -10,6 +10,7 @@ import { getJob } from '../src/jobs/query.js'
 
 const root = await realpath(await mkdtemp(join(tmpdir(), 'character-test-')))
 const backend = await mockMedia(root)
+process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 const config = resolveConfig({ comfyUrl: backend.url, publicUrl: backend.url, artifactsRoot: join(root, 'artifacts'), stateRoot: join(root, 'state') })
 await mkdir(config.ARTIFACTS_ROOT)
 after(async () => { await backend.close(); await rm(root, { recursive: true, force: true }) })

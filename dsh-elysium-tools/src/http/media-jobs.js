@@ -25,8 +25,8 @@ export function jobSummary(job) {
     media_info: job.result?.media_info, validation: job.result?.validation,
     comfyui_view_url: job.result?.comfyui_view_url,
     media_kind: image ? 'image' : 'video',
-    has_image: job.status === 'succeeded' && image && Boolean(job.result?.path),
-    has_video: job.status === 'succeeded' && Boolean(job.result?.path) && !image }
+    has_image: job.status === 'succeeded' && image && Boolean(job.result?.comfyui_view_url || job.result?.path),
+    has_video: job.status === 'succeeded' && Boolean(job.result?.comfyui_view_url || job.result?.path) && !image }
 }
 const json = (res, status, data) => {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
@@ -59,6 +59,9 @@ export function createMediaHandler({ token, readJob = getJob, findCall = findVid
       }
       if (url.pathname === `${MEDIA_ROUTE}/status`) return json(res, 200, jobSummary(job))
       if (![`${MEDIA_ROUTE}/video`, `${MEDIA_ROUTE}/image`].includes(url.pathname) || job.status !== 'succeeded' || !job.result?.path) return json(res, 404, { error: '成片尚不可用' })
+      if (job.result.comfyui_view_url) {
+        res.writeHead(302, { Location: job.result.comfyui_view_url, 'Cache-Control': 'no-store' }); res.end(); return
+      }
       const root = await realpath(artifactsRoot), path = await realpath(job.result.path)
       const rel = relative(root, path), image = url.pathname.endsWith('/image')
       const extension = extname(path).toLowerCase()

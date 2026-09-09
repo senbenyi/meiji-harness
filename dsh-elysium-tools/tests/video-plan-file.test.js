@@ -29,15 +29,15 @@ test('file input preserves prompts and timing, snapshots references and selects 
   assert.equal(graph.graph.s0_director.inputs.duration + graph.graph.s1_director.inputs.duration, 20)
 })
 
-test('SSH plan copies only referenced assets once and leaves the source unchanged', async () => {
+test('SSH plan reads only JSON and retains server asset paths and leaves the source unchanged', async () => {
   const calls = []
   const resolved = await resolveVideoPlan({ plan_path: 'ssh://veo-comfyui/root/productions/ep/plan.json' }, undefined,
     async (host, path, target) => {
       calls.push([host, path])
       await copyFile(join(source, path.endsWith('.json') ? 'plan.json' : 'reference.png'), target)
     })
-  await validateVideoPlan(resolved)
-  assert.deepEqual(calls, [['veo-comfyui', '/root/productions/ep/plan.json'], ['veo-comfyui', '/root/productions/ep/reference.png']])
+  assert.equal(resolved.shots[0].image_path, 'ssh://veo-comfyui/root/productions/ep/reference.png')
+  assert.deepEqual(calls, [['veo-comfyui', '/root/productions/ep/plan.json']])
   assert.deepEqual(JSON.parse(await readFile(join(source, 'plan.json'), 'utf8')), plan)
 })
 

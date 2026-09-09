@@ -22,7 +22,7 @@ window.__ModuleLoader__.load({
     const stages = { prepare: '准备素材', submit: '提交任务', queued: '排队中', execute: '工作流执行中', reconcile: '核对原任务', 'inspect-output': '校验产物', generate: '生成视频', image: '生成首帧', start: '准备衔接画面', render: '整理镜头', finalize: '整理成片', completed: '已完成' }
     function label(job) {
       if (job.status === 'succeeded') return '已完成'
-      if (job.status === 'failed') return job.remote_status === 'succeeded' ? '成片待回传' : job.error_code === 'LOCAL_WORKER_STOPPED' || job.error_code === 'WORKER_NOT_RUNNING' ? '本地处理已停止' : '任务未完成'
+      if (job.status === 'failed') return job.remote_status === 'succeeded' ? '产物待校验' : job.error_code === 'LOCAL_WORKER_STOPPED' || job.error_code === 'WORKER_NOT_RUNNING' ? '本地处理已停止' : '任务未完成'
       if (job.status === 'interrupted') return '等待已中断，正在核对后台任务'
       if (job.status === 'pending') return '正在创建任务'
       if (job.status === 'rejected') return '参数未通过，未创建任务'

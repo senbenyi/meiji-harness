@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -8,6 +9,9 @@ import { promisify } from 'node:util'
 export async function mockMedia(directory) {
   const schemas = JSON.parse(await readFile(new URL('./media-schema.json', import.meta.url), 'utf8'))
   const prompts = [], history = {}, uploads = {}, controls = { fail: false }
+  const originalFiles = new Map()
+  let corrupt = false
+  Object.defineProperty(controls, 'corruptOutput', { get:()=>corrupt, set:value=>{corrupt=value;if(!value){for(const [path,bytes] of originalFiles)writeFileSync(path,bytes);originalFiles.clear()}} })
   const run = promisify(execFile)
   const server = createServer(async (req, res) => {
     try {
@@ -35,6 +39,7 @@ export async function mockMedia(directory) {
             await writeFile(list, paths.map(p => `file '${p}'`).join('\n'))
             await run('ffmpeg', ['-v', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', path])
           }
+          if (controls.corruptOutput) { originalFiles.set(path,await readFile(path));await writeFile(path,'corrupt media') }
           history[id] = { prompt: [0, id, g, request.extra_data], status: { completed: true, status_str: 'success' }, outputs: { '7': { [image ? 'images' : 'videos']: [{ filename: name, type: 'output', subfolder: '' }] } } }
         }
         res.end(JSON.stringify({ prompt_id: id })); return

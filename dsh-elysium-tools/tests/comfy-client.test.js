@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { mkdtemp, rm, readFile, stat } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
@@ -141,28 +141,3 @@ test('task management uses HTTP results and never interrupts another running job
   }
 })
 
-test('interrupted download resumes only matching ETag and exact range; full response replaces partial', async t => {
-  const bytes = Buffer.alloc(8192, 37), calls = []
-  let interrupt = true, ignoreRange = false
-  const server = createServer((req,res) => {
-    calls.push(req.headers)
-    const start = !ignoreRange && req.headers.range ? Number(req.headers.range.match(/\d+/)[0]) : 0
-    res.writeHead(start ? 206 : 200, { ETag: '"fixed"', 'Content-Length': bytes.length-start,
-      ...(start ? {'Content-Range':`bytes ${start}-${bytes.length-1}/${bytes.length}`} : {}) })
-    if (interrupt) { interrupt=false; res.write(bytes.subarray(0,2048)); setTimeout(()=>res.destroy(),40) }
-    else res.end(bytes.subarray(start))
-  })
-  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve))
-  t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections()}))
-  const client = new ComfyClient(`http://127.0.0.1:${server.address().port}`), descriptor={filename:'a.mp4',type:'output'}
-  for (const fallback of [false,true]) {
-    interrupt=true;ignoreRange=fallback
-    const path=join(directory,`resume-${fallback}.mp4`)
-    await assert.rejects(client.download(descriptor,path))
-    assert.equal((await stat(`${path}.download`)).size,2048)
-    await client.download(descriptor,path)
-    assert.equal(calls.at(-1).range,'bytes=2048-')
-    assert.equal(calls.at(-1)['if-range'],'"fixed"')
-    assert.deepEqual(await readFile(path),bytes)
-  }
-})

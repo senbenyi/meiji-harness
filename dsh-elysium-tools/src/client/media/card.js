@@ -15,12 +15,11 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [attempt, setAttempt] = useState(0)
       const [playbackError, setPlaybackError] = useState(false)
-      const [useRemoteMedia, setUseRemoteMedia] = useState(false)
       useEffect(() => {
         if (fallback.status === 'rejected') return
         let active = true, timer, failures = 0
         const controller = new AbortController()
-        setJob(fromBlock(block)); setError(''); setPlaybackError(false); setUseRemoteMedia(false)
+        setJob(fromBlock(block)); setError(''); setPlaybackError(false)
         if (fallback.status === 'succeeded' && fallback.comfyui_view_url) return
         async function poll() {
           let delay = 3000
@@ -45,11 +44,11 @@ window.__ModuleLoader__.load({
       const kind = job.media_kind || (['model_generate_image', 'model_character_view', 'model_character_sheet'].includes(toolName) ? 'image' : 'video'), title = kind === 'image' ? '图片' : '视频'
       let video
       if (job.status === 'succeeded') {
-        if (useRemoteMedia) video = job.comfyui_view_url
+        if (job.comfyui_view_url) video = job.comfyui_view_url
         else try { video = mediaUrl(kind, sessionId, callId) } catch { video = job.comfyui_view_url }
       }
       let download
-      if (video) { try { download = mediaUrl(kind, sessionId, callId, true) } catch { /* Direct ComfyUI preview remains available. */ } }
+      if (video) { try { download = job.comfyui_view_url || mediaUrl(kind, sessionId, callId, true) } catch { /* Direct ComfyUI preview remains available. */ } }
       useEffect(() => { setMediaReady(false) }, [video, attempt])
       if (fallback.status === 'rejected') return h('details', { 'aria-label': '媒体提交记录' },
         h('summary', null, '媒体参数校验未通过（未创建任务）'),
@@ -68,13 +67,11 @@ window.__ModuleLoader__.load({
             onLoadedData: () => setMediaReady(true), onLoad: () => setMediaReady(true),
             ...(kind === 'image' ? { alt: '生成图片' } : { controls: false, muted: true, preload: 'metadata' }),
           onError: async () => {
-            if (!useRemoteMedia) try {
+            if (job.comfyui_view_url) { setPlaybackError(true); return }
+            try {
               const current = await readStatus(sessionId, callId)
               if (mediaUrl(kind, sessionId, callId) !== video) { setJob(current); setPlaybackError(false); return }
             } catch { /* Report a playback failure if credentials cannot be recovered. */ }
-            if (!useRemoteMedia && job.comfyui_view_url && video !== job.comfyui_view_url) {
-              setUseRemoteMedia(true); return
-            }
             setPlaybackError(true)
           }
           }) : null,

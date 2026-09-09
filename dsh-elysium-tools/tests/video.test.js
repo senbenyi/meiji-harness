@@ -15,7 +15,7 @@ process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 const backend = await mockComfy(root)
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url
 process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url
-process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = join(root, 'comfy-output')
+process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 after(async () => { await backend.close(); await rm(root, { recursive: true, force: true }) })
 const { createModelTools } = await import('../src/index.js')
 

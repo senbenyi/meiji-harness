@@ -1,3 +1,4 @@
+import { serverMedia, serverPath } from '../media/server-media.js'
 import { sha256File } from '../functions/common/file-hash.js'
 import { join, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +19,11 @@ export async function executeComfyMedia(jobId, plan, { signal } = {}) {
     const prepared = await prepareComfyWorkflow(directory, client, plan, async () => {
       const media = {}, paths = plan.capability === 'image-generate' ? [plan.params.image_path].filter(Boolean) : plan.capability === 'image-compose' ? plan.params.views.map(v => v.path) : plan.params.video_paths
       for (const path of new Set(paths)) {
+        if (serverPath(path)) {
+          const value = await serverMedia({ operation: 'input', path: serverPath(path) }, signal)
+          media[path] = { info: value.media_info, name: value.name }
+          continue
+        }
         const sha = await sha256File(path)
         media[path] = { info: await probeMedia(path, join(directory, `input-${sha}.json`)), name: await client.upload(path, `${jobId}-${sha}${extname(path)}`) }
       }

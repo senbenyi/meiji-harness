@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
@@ -43,7 +43,7 @@ test('independent plugin instances run workers, recover media and serve session 
   const videoBackend = await mockComfy(root), imageBackend = await mockMedia(root)
   t.after(() => videoBackend.close()); t.after(() => imageBackend.close())
   const config = (backend, name) => ({ comfyUrl: backend.url, publicUrl: backend.url,
-    artifactsRoot: join(root, name, 'artifacts'), stateRoot: join(root, name, 'state'),
+    serverOutputRoot: root, artifactsRoot: join(root, name, 'artifacts'), stateRoot: join(root, name, 'state'),
     python: 'python3', ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' })
   const video = install(config(videoBackend, 'video')), image = install(config(imageBackend, 'image'))
   imageBackend.controls.corruptOutput = true
@@ -53,7 +53,7 @@ test('independent plugin instances run workers, recover media and serve session 
     image.tools.get('model_generate_image').execute({ prompt: 'independent image' }, exec).catch(error => error),
   ])
   assert.equal(movie.status, 'succeeded', movie.error)
-  assert.ok(movie.path.startsWith(join(root, 'video/artifacts')))
+  assert.ok(movie.server_path.startsWith(await realpath(root)))
   assert.ok(failed instanceof Error)
   const id = failed.message.match(/[0-9a-f]{32}/)?.[0]
   assert.ok(id)
@@ -61,7 +61,7 @@ test('independent plugin instances run workers, recover media and serve session 
   const picture = await image.tools.get('model_job_resume').execute({ job_id: id }, exec)
   assert.equal(picture.status, 'succeeded')
   assert.equal(picture.job_id, id)
-  assert.ok(picture.path.startsWith(join(root, 'image/artifacts')))
+  assert.ok(picture.server_path.startsWith(await realpath(root)))
   assert.equal(imageBackend.prompts.length, 1)
   for (const [plugin, expected] of [[video, movie], [image, picture]]) {
     const server = createServer((req, res) => plugin.routes.get(new URL(req.url, 'http://local').pathname)(req, res))

@@ -14,7 +14,7 @@ const root = await realpath(await mkdtemp(join(tmpdir(), 'workflow-test-')))
 const artifacts = join(root, 'artifacts')
 await mkdir(artifacts)
 process.env.ARTIFACTS_ROOT = artifacts
-process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = join(root, 'comfy-output')
+process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'jobs')
 const backend = await mockComfy(root)
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url
@@ -44,7 +44,7 @@ test('production tool waits and delivers 12 concatenated clips without model pol
   const { findVideoCall } = await import('../src/jobs/call-index.js')
   assert.equal(await findVideoCall('media-session', 'media-call'), queued.job_id)
   assert.equal(queued.status, 'succeeded')
-  assert.ok(queued.path.endsWith('/final.mp4'))
+  assert.ok(queued.server_path.includes('/final/'))
   const playback = new URL(queued.comfyui_view_url)
   assert.equal(playback.origin, backend.url)
   assert.deepEqual(Buffer.from(await (await fetch(playback)).arrayBuffer()), await readFile(queued.path))
@@ -65,7 +65,7 @@ test('production tool waits and delivers 12 concatenated clips without model pol
   const before = await stat(result.path)
   await resume.execute({ job_id: queued.job_id })
   assert.equal((await stat(result.path)).mtimeMs, before.mtimeMs)
-  const report = JSON.parse(await readFile(`${result.path}.validation.json`, 'utf8'))
+  const report = JSON.parse(await readFile(join(root, 'jobs/jobs', result.job_id, 'validation.json'), 'utf8'))
   assert.equal(report.shots.length, 12)
 })
 
@@ -152,7 +152,7 @@ test('shot reuse renders mixed frame rates and audio layouts through the HTTP ta
     assert.ok((await stat(shot.path)).size > 0)
     assert.equal(new URL(shot.comfyui_view_url).origin, backend.url)
   }
-  const report = JSON.parse(await readFile(`${result.path}.validation.json`, 'utf8'))
+  const report = JSON.parse(await readFile(join(root, 'jobs/jobs', result.job_id, 'validation.json'), 'utf8'))
   assert.deepEqual(report.shots.map(s => s.id), ['selected-a', 'selected-b'])
 })
 
@@ -185,7 +185,6 @@ test('dead or reused worker PID recovers the original prompt without resubmittin
   const original = await wait(result.job_id), directory = join(root, 'jobs/jobs', result.job_id)
   const before = backend.prompts.length
   for (const pid of [2147483647, process.pid]) {
-    await rm(result.path)
     await writeFile(join(directory, 'status.json'), JSON.stringify({ ...original, status: 'running', stage: 'execute' }))
     await writeFile(join(directory, 'worker.lock'), String(pid))
     const results = await Promise.allSettled([resume.execute({ job_id: result.job_id }), resume.execute({ job_id: result.job_id })])
@@ -210,7 +209,7 @@ test('corrupt reusable shot prevents successful final publication and can resume
   const before = backend.prompts.length
   const downloads = backend.controls.downloads.length
   const recovered = await resume.execute({ job_id: result.job_id })
-  assert.equal(backend.controls.downloads.length - downloads, 1, 'reuse verified final, download only failed shot')
+  assert.equal(backend.controls.downloads.length - downloads, 0, 'validate on server without downloading artifacts')
   assert.equal(recovered.status, 'succeeded')
   assert.equal(recovered.shots[0].validation.full_decode, 'passed')
   assert.equal(backend.prompts.length, before)

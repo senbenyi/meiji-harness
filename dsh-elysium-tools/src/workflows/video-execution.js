@@ -9,7 +9,7 @@ import { codeVersion } from '../functions/common/diagnostics.js'
 import { collectVideoArtifacts } from './video-artifacts.js'
 import { probeVideoInput } from '../media/probe.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './comfy-execution.js'
-import { prepareVideoReferences } from './video-reference.js'
+import { serverMedia, serverPath } from '../media/server-media.js'
 
 function sources(plan) {
   return [...new Set([...(plan.video_paths || []), plan.image_path,
@@ -30,14 +30,19 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
   await saveJson(statusPath, status)
   try {
     const prepared = await prepareComfyWorkflow(directory, client, plan, async () => {
-      const { effective, references } = await prepareVideoReferences(plan, join(directory, 'references'), signal)
       const media = {}, reused = new Set(plan.video_paths || (plan.shots || []).filter(s => s.mode === 'reuse').map(s => s.video_path))
-      for (const path of sources(effective)) {
+      for (const path of sources(plan)) {
+        if (serverPath(path)) {
+          const value = await serverMedia({ operation: 'input', path: serverPath(path), timestamps: reused.has(path) }, signal)
+          const info = value.media_info, timestamps = value.timestamps
+          media[path] = { sha256: value.sha256, name: value.name, ...(timestamps ? { duration: Number(value.probe.streams.find(s => s.codec_type === 'video')?.duration), fps: info.frame_rate, hasAudio: info.has_audio, timestamps: timestamps.map(t => t-timestamps[0]) } : {}) }
+          continue
+        }
         const sha256 = await sha256File(path)
         media[path] = { sha256, ...(reused.has(path) ? await probeVideoInput(path) : {}) }
         media[path].name = await client.upload(path, `${jobId}-${sha256}${extname(path).toLowerCase()}`)
       }
-      return { ...buildVideoGraph(effective, media, await loadVideoTemplates(), jobId), media, plan, references,
+      return { ...buildVideoGraph(plan, media, await loadVideoTemplates(), jobId), media, plan,
         server_url: client.url.href }
     })
     const { promptId, history } = await runComfyWorkflow(directory, client, prepared, status, timeoutMs)
@@ -49,7 +54,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     status.stage = 'completed'
     status.timings = { total_ms: Date.now() - started }
     status.finished_at = new Date().toISOString()
-    await saveJson(`${output}.validation.json`, { shots: status.result.shots, validation: status.result.validation })
+    await saveJson(join(directory, 'validation.json'), { shots: status.result.shots, validation: status.result.validation })
     await saveJson(statusPath, status)
     await saveJson(status.debug.diagnostic_path, status)
     return status

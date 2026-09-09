@@ -11,6 +11,7 @@ const root = await realpath(await mkdtemp(join(tmpdir(), 'native-media-'))), art
 await mkdir(artifacts)
 process.env.ARTIFACTS_ROOT = artifacts; process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 const backend = await mockMedia(root)
+process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url; process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url
 const { createModelTools, createWorkflowTools, getJob, apply } = await import('../src/index.js')
 const image = createModelTools().find(t => t.name === 'model_generate_image'), concat = createModelTools().find(t => t.name === 'model_concat_video')

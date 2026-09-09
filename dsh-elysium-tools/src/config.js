@@ -23,6 +23,10 @@ const fields = {
   publicUrl: ['MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url'],
   artifactsRoot: ['ARTIFACTS_ROOT', 'path'],
   stateRoot: ['ELYSIUM_TOOLS_STATE_ROOT', 'path'],
+  serverHost: ['COMFYUI_SSH_HOST', 'command'],
+  serverPython: ['COMFYUI_SERVER_PYTHON', 'command'],
+  serverInputRoot: ['COMFYUI_INPUT_ROOT', 'path'],
+  serverOutputRoot: ['MINIMAX_H3_COMFYUI_OUTPUT_ROOT', 'path'],
   legacyOutputRoot: ['MINIMAX_H3_COMFYUI_OUTPUT_ROOT', 'path'],
   python: ['HARNESS_PYTHON', 'command'],
   ffmpeg: ['FFMPEG_BIN', 'command'],
@@ -42,6 +46,7 @@ export function resolveConfig(config = {}) {
     python: process.env.PYTHON_BIN || 'python3', ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' }
   const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
+    if (key === 'legacyOutputRoot' && resolved[name] !== undefined) continue
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]
     if (value === undefined) continue
     resolved[name] = value

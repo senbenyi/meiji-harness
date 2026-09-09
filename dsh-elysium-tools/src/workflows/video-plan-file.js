@@ -44,6 +44,11 @@ export async function resolveVideoPlan(args, signal, fetchRemote = async (host, 
     const path = host ? posix.resolve(parent, value) : await realpath(resolve(parent, value))
     if (!within(parent, path) || (host && !/^\/[A-Za-z0-9_./-]+$/.test(path))) throw invalid('分镜素材必须位于分镜文件所在目录内')
     if (assets.has(path)) return assets.get(path).local_path
+    if (host) {
+      const remote = `ssh://${host}${path}`
+      assets.set(path, { source_path: path, local_path: remote })
+      return remote
+    }
     const target = join(directory, `asset-${assets.size}${posix.extname(path).toLowerCase()}`)
     if (host) await fetchRemote(host, path, target)
     else await copyFile(path, target)

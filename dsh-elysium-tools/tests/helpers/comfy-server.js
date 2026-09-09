@@ -1,7 +1,8 @@
+import { writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile } from 'node:fs/promises'
+import { readFile, mkdir, copyFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 // Protocol fixture, not a substitute for a real ComfyUI graph execution test.
@@ -10,6 +11,9 @@ export async function mockComfy(directory) {
   const controls = { audioTail: 0, corruptShot: false, downloads: [] }
   const schemas = JSON.parse(await readFile(new URL('./comfy-schema.json', import.meta.url), 'utf8'))
   schemas.ElysiumSelectFrames = { input: { required: { images: ['IMAGE'], indices: ['STRING'] } }, output: ['IMAGE', 'IMAGE'] }
+  const originalFiles = new Map()
+  let corrupt = false
+  Object.defineProperty(controls, 'corruptShot', { get:()=>corrupt, set:value=>{corrupt=value;if(!value){for(const [path,bytes] of originalFiles)writeFileSync(path,bytes);originalFiles.clear()}} })
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -39,6 +43,9 @@ export async function mockComfy(directory) {
             await promisify(execFile)('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `color=c=blue:s=480x854:r=${fps}:d=${duration}`,
               '-f', 'lavfi', '-i', `sine=frequency=440:duration=${duration + controls.audioTail}`, '-c:v', 'libx264', '-c:a', 'aac', '-y', path])
           }
+          await mkdir(join(directory,nodeId), {recursive:true})
+          await copyFile(path,join(directory,nodeId,filename))
+          if (controls.corruptShot && /^s\d+_save$/.test(nodeId)) { const target=join(directory,nodeId,filename);originalFiles.set(target,await readFile(target));writeFileSync(target,'invalid video') }
           outputs[nodeId] = { videos: [{ filename, subfolder: nodeId, type: 'output' }] }
         }
         history[id] = { prompt: [0, id, graph, request.extra_data], status: { status_str: 'success', completed: true },
