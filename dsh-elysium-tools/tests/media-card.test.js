@@ -40,13 +40,15 @@ async function fixture(responses, block = {}) {
 
 test('same card progresses to playable result and stops polling', async () => {
   const f = await fixture([{ status: 'running', stage: 'generate' }, { status: 'succeeded', has_video: true,
-    job_id: 'a', media_info: { duration_seconds: 8, width: 640, height: 384, frame_rate: 24 }, validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' } }])
+    job_id: 'a', media_info: { duration_seconds: 8, width: 640, height: 384, frame_rate: 24 }, validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' } }], { argsRaw: JSON.stringify({ width: 640, height: 384 }) })
   try {
     assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /生成视频/)
     assert.equal(f.view.root.findAllByType('video').length, 0)
     assert.equal(f.view.root.findByProps({ role: 'progressbar' }).props['aria-label'], '视频生成中')
-    assert.equal(f.view.root.findAllByType('animateTransform').length, 1)
+    assert.equal(f.view.root.findAllByProps({ className: 'elysium-spinner' }).length, 1)
+    const previewRatio = f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio
     await f.tick()
+    assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, previewRatio)
     const video = f.view.root.findByType('video')
     assert.equal(f.view.root.findByProps({ 'aria-label': '媒体加载中' }).props.role, 'progressbar')
     await act(async () => video.props.onLoadedData())
@@ -54,21 +56,22 @@ test('same card progresses to playable result and stops polling', async () => {
     assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(video.props.controls, false)
     assert.ok(!video.props.src.includes('3080'))
-    assert.equal(f.view.root.findAllByType('a').length, 0)
+    assert.equal(f.view.root.findByType('a').props['aria-label'], '下载视频')
     assert.equal(f.timers.size, 0)
-    assert.match(JSON.stringify(f.view.toJSON()), /尚未人工验收/)
+    assert.doesNotMatch(JSON.stringify(f.view.toJSON()), /文件与规格检查通过|人工验收/)
     assert.equal(f.requests.length, 2)
   } finally { await f.close() }
 })
 
-test('completed card puts preview before task details without a separate link', async () => {
+test('completed card puts preview above metadata with an accessible download', async () => {
   const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
   const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
   try {
     assert.equal(f.view.root.findByType('video').props.src, url)
-    assert.equal(f.view.root.findAllByType('a').length, 0)
+    assert.equal(f.view.root.findByType('a').props['aria-label'], '下载视频')
     const children = f.view.root.findByType('section').children
-    assert.ok(children.findIndex(child => child.type === 'div') < children.findIndex(child => child.type === 'details'))
+    assert.equal(children[0].props.className, 'elysium-preview')
+    assert.equal(children[1].props.className, 'elysium-info')
     assert.equal(f.timers.size, 0)
   } finally { await f.close() }
 })
@@ -150,7 +153,7 @@ test('ComfyUI playback failure falls back to same-origin media, then reports fai
     assert.match(video.props.src, /session=session&call=call/)
     assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
     await act(async () => video.props.onError())
-    assert.match(JSON.stringify(f.view.toJSON()), /视频加载失败/)
+    assert.match(JSON.stringify(f.view.toJSON()), /预览加载失败/)
     assert.equal(f.requests.length, 1)
     await act(async () => f.view.root.findByProps({ children: '重试播放' }).props.onClick())
     assert.equal(f.view.root.findByType('video').props.src, url)
@@ -163,7 +166,7 @@ test('interrupted session recovers original job and falls back when ComfyUI is u
     comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.mp4' }],
   { isError: true, content: [{ type: 'text', text: 'The tool call was interrupted; outcome unknown.' }] })
   try {
-    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /已完成/)
+    assert.equal(f.view.root.findByType('video').props.src, 'http://127.0.0.1:6016/view?filename=final.mp4')
     await act(async () => f.view.root.findByType('video').props.onError())
     assert.match(f.view.root.findByType('video').props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(f.requests.length, 1)
@@ -215,10 +218,9 @@ test('portrait video fills a compact card and opens a dismissible player', async
   try {
     const thumbnail = f.view.root.findByType('video')
     assert.equal(f.view.root.findByType('section').props.style.maxWidth, 300)
-    assert.equal(thumbnail.props.style.width, '100%')
-    assert.equal(thumbnail.props.style.height, '100%')
-    assert.equal(thumbnail.props.style.objectFit, 'contain')
-    await act(async () => thumbnail.props.onClick())
+    assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '480 / 854')
+    await act(async () => thumbnail.props.onLoadedData())
+    await act(async () => f.view.root.findByProps({ 'aria-label': '播放视频' }).props.onClick())
     const modal = f.view.root.findByType('dialog')
     assert.equal(modal.findByType('video').props.controls, true)
     await act(async () => modal.findByType('button').props.onClick())

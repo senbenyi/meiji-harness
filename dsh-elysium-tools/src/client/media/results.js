@@ -36,7 +36,7 @@ window.__ModuleLoader__.load({
           return results.length ? results : null
         },
       }, ({ matched, sessionId }) => h('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 } },
-        matched.map(item => h(MediaTaskCard, { key: item.callId, sessionId, callId: item.callId, block: item.block })))))
+        matched.map((item, index) => h(MediaTaskCard, { ordinal: matched.length > 1 ? index + 1 : undefined, key: item.callId, sessionId, callId: item.callId, block: item.block })))))
     } }
   },
 })
