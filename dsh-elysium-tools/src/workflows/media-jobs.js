@@ -26,6 +26,5 @@ export async function resumeMediaJob(id, exec) {
   if (job.capability !== 'workflow-media' || job.backend !== 'comfyui') throw new ModelTaskError('MODEL_INPUT_INVALID', '仅可恢复 ComfyUI 媒体任务', 422)
   await bindVideoCall(id, exec)
   if (job.status === 'succeeded') return waitVideoJob(job, exec?.signal)
-  if (job.status === 'failed') await saveJson(join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', id, 'resume-request.json'), { retry_failed: true })
-  return waitVideoJob(await launch(id, 'workflow-media'), exec?.signal)
+  return waitVideoJob(await launch(id, 'workflow-media', job.status === 'failed'), exec?.signal)
 }

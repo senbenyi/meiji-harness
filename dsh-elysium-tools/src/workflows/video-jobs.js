@@ -97,13 +97,10 @@ export async function resumeVideoJob(jobId, exec) {
   if (job.capability !== 'workflow-video') throw invalid('只能恢复视频工作流；原子产物请按顺序导入新工作流')
   await bindVideoCall(jobId, exec)
   if (job.status === 'succeeded') return { job_id: jobId, status: job.status }
-  if (job.status === 'failed' && job.backend === 'comfyui') {
-    await writeFile(join(stateRoot(), 'jobs', jobId, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
-  }
-  return launch(jobId)
+  return launch(jobId, 'workflow-video', job.status === 'failed' && job.backend === 'comfyui')
 }
 
-export async function launch(jobId, capability = 'workflow-video') {
+export async function launch(jobId, capability = 'workflow-video', retryFailed = false) {
   const directory = join(stateRoot(), 'jobs', jobId)
   const guard = spawn(process.env.HARNESS_PYTHON || process.env.PYTHON_BIN || 'python3',
     [fileURLToPath(new URL('./launch-lock.py', import.meta.url)), join(directory, 'launch.lock')],
@@ -117,11 +114,11 @@ export async function launch(jobId, capability = 'workflow-video') {
       guard.once('exit', () => reject(new ModelTaskError('WORKFLOW_RECOVERY_REQUIRED', '任务正在启动或启动锁不可用，请稍后查询原任务', 409)))
       guard.stdout.once('data', resolve)
     })
-    return await launchLocked(jobId, capability)
+    return await launchLocked(jobId, capability, retryFailed)
   } finally { guard.stdin.end(); await closed }
 }
 
-async function launchLocked(jobId, capability) {
+async function launchLocked(jobId, capability, retryFailed) {
   const directory = join(stateRoot(), 'jobs', jobId)
   const lockPath = join(directory, 'worker.lock')
   let lock
@@ -158,6 +155,7 @@ async function launchLocked(jobId, capability) {
     lock = await open(lockPath, 'wx', 0o600)
   }
   try {
+    if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
     await writeStatus(directory, { job_id: jobId, capability, status: 'queued', stage: 'queued' })
     const log = await open(join(directory, 'worker.log'), 'a')
     try {
