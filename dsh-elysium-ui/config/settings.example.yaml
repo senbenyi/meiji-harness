@@ -1,0 +1,7 @@
+# Optional: merge into $DSH_HOME/settings.yaml, or use the settings page.
+dsh-elysium-ui:
+  enabled: true
+  directors:
+    - id: narrative
+      name: 叙事导演
+      prompt: 关注人物动机、叙事节奏与镜头衔接；仅在用户请求相关创作时使用。
