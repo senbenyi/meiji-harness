@@ -22,13 +22,12 @@ class PackagedPresetTests(unittest.TestCase):
                           for row in patches], ["persona", "skill-filesystem"])
         self.assertTrue((PRESET / "standard.mjs").is_file())
 
-    def test_package_contains_persona_instructions_and_skill_references(self):
+    def test_package_contains_persona_instructions_and_skills(self):
         self.assertIn("presets", json.loads((PACKAGE / "package.json").read_text())["files"])
         self.assertIn("'presets'", (PACKAGE / "build-scripts/package-registry.mjs").read_text())
         self.assertEqual(yaml.safe_load((PRESET / "preset.yml").read_text())["name"], "极乐世界")
         for relative in ("persona.md", "instructions.md", "skills/creation-video/SKILL.md",
-                         "skills/creation-drama/SKILL.md", "skills/creation-drama/references/production.md",
-                         "skills/creation-drama/references/director-cases.md"):
+                         "skills/creation-drama/SKILL.md"):
             self.assertTrue((PRESET / relative).is_file(), relative)
         self.assertFalse((ROOT / "app/config/harness-agent.md").exists())
         self.assertFalse((ROOT / "app/config/system-prompt.yaml").exists())
