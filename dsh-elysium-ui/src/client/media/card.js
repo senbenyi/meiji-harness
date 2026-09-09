@@ -9,11 +9,12 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [attempt, setAttempt] = useState(0)
       const [playbackError, setPlaybackError] = useState(false)
+      const [useHarnessMedia, setUseHarnessMedia] = useState(false)
       useEffect(() => {
         if (fallback.status === 'rejected') return
         let active = true, timer, failures = 0
         const controller = new AbortController()
-        setJob(fromBlock(block)); setError(''); setPlaybackError(false)
+        setJob(fromBlock(block)); setError(''); setPlaybackError(false); setUseHarnessMedia(false)
         if (fallback.status === 'succeeded' && fallback.comfyui_view_url) return
         async function poll() {
           let delay = 3000
@@ -39,8 +40,8 @@ window.__ModuleLoader__.load({
         h('summary', null, '视频参数校验未通过（未创建任务）'),
         h('p', null, fallback.error), inspect ? h('button', { onClick: inspect }, '查看执行记录') : null)
       let video
-      if (job.status === 'succeeded' && job.comfyui_view_url) video = job.comfyui_view_url
-      else if (job.has_video) {
+      if (job.status === 'succeeded' && job.comfyui_view_url && !useHarnessMedia) video = job.comfyui_view_url
+      else if (job.has_video || useHarnessMedia) {
         try { video = mediaUrl('video', sessionId, callId) } catch { /* Read error explains unavailable service. */ }
       }
       const info = job.media_info
@@ -61,7 +62,12 @@ window.__ModuleLoader__.load({
               h('animateTransform', { attributeName: 'transform', type: 'rotate', from: '0 20 20', to: '360 20 20', dur: '1s', repeatCount: 'indefinite' }))),
           h('span', null, '拼命加载中')) : null,
         video ? h('video', { key: video + attempt, src: video, controls: true, preload: 'metadata',
-          onError: () => setPlaybackError(true), style: { width: 'auto', height: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block', borderRadius: 8, marginTop: 12 } }) : null,
+          onError: () => {
+            if (!useHarnessMedia && job.comfyui_view_url) {
+              try { mediaUrl('video', sessionId, callId); setUseHarnessMedia(true); return } catch { /* Show the playback error when the media service is unavailable. */ }
+            }
+            setPlaybackError(true)
+          }, style: { width: 'auto', height: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block', borderRadius: 8, marginTop: 12 } }) : null,
         playbackError ? h('p', { role: 'alert' }, '视频加载失败，可重新连接或下载查看。', h('button', { onClick: () => setAttempt(n => n + 1) }, '重试播放')) : null)
     }
     return { apply(ctx) {

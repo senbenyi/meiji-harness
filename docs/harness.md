@@ -44,9 +44,9 @@ bash app/deploy_dsh_elysium_ui.sh
 
 本机需要：Git、pnpm、rsync、SSH、curl、lsof、Python 3 + PyYAML。可通过 `PYTHON_BIN` 指定 Python 路径。
 
-恢复本地隧道：`bash app/common/start_tunnel_harness.sh`，端口读取 `harness-runtime.HARNESS_LOCAL_PORT`。
+恢复本地隧道：`bash app/open_tunnel_harness.sh`。脚本分别检查、建立或复用 Harness 和 ComfyUI 通道；已有 `23080` 通道不会跳过 `6016` 检查。
 
-独立隧道入口：`bash app/open_tunnel_harness.sh [SSH目标]`（从 `llm-ai-brain/app/` 迁入），默认连接 `veo-comfyui`，映射本地 `23080` 到远端 `3080`；可用 `WAN22_HARNESS_LOCAL_PORT`、`WAN22_HARNESS_PORT` 覆盖端口。
+SSH 目标与端口读取 `config/harness-settings.yaml` 的 `harness-runtime`，入口不接受参数。Harness 使用 `HARNESS_LOCAL_PORT` → `HARNESS_WEB_PORT`；ComfyUI 从 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 与 `MINIMAX_H3_COMFYUI_URL` 读取转发地址。浏览器地址为回环地址时建立 SSH 通道，其他地址只检查可访问性。配置解析需要 PyYAML，可通过 `PYTHON_BIN` 指定已有 Python 环境。
 
 ## 极乐世界预设
 
@@ -67,7 +67,9 @@ bash app/deploy_dsh_elysium_ui.sh
 
 统一使用 `workflow_generate_video`，注册创建、恢复、状态查询、结果获取四个工具。多镜头用 `shots` 绑定每镜参数；独立生成、参考生成、末帧续拍和 reuse 可组合。失败用 `workflow_resume_video` 复用原任务；人工改稿新建任务。
 
-H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。成片在任务卡直接播放；播放地址使用 ComfyUI `/api/view`。
+H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。成片在任务卡直接播放；优先通过 ComfyUI 视频地址播放，加载失败自动回退到 Harness 同源媒体接口；两者均失败时显示重试。会话中断后仍按原会话与调用 ID 查询后台任务，不重新生成。
+
+验收：正常连接时检查 ComfyUI「资产」内的成片与 Harness 视频卡；仅让浏览器无法访问 ComfyUI 时，视频卡应改用 Harness 媒体接口播放；重新打开中断会话，已完成任务应恢复成片。ComfyUI 当前资产列表按任务分组，封面可能为 `shot-1`，展开后查看 `final`。
 
 ### 上下文成本
 
