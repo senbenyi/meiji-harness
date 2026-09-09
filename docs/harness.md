@@ -27,22 +27,7 @@ Harness 服务器须能直接执行 `ssh -o BatchMode=yes veo-qwen38 true`；Mac
 
 Qwen 隧道脚本重复执行会复用健康通道；重建前先验证 SSH 和远端模型 API，预检失败时保留旧通道。
 
-## 部署
-
-从仓库根目录分别发布工具和 UI 插件：
-
-```bash
-bash app/deploy_dsh_elysium_tools.sh
-bash app/deploy_dsh_elysium_ui.sh
-```
-
-流程：检查远端环境 → 本地安装、测试、构建、打包 → 镜像同步 `app/`（含 `app/config/`）和插件产物（含 preset 与技能） → 服务器安装、注册、覆盖配置、重启 → 本机建隧道并检查。
-
-镜像同步删除远端已移除文件，保留 `node_modules`。声明生产依赖的插件须携带 `pnpm-lock.yaml`；服务器用 pnpm 按锁文件安装并禁用生命周期脚本。依赖安装或模块加载失败时不继续注册和重启。
-
-发布后刷新页面验收任务卡、视频播放与下载；HTTP 检查不替代浏览器验收。
-
-本机需要：Git、pnpm、rsync、SSH、curl、lsof、Python 3 + PyYAML。可通过 `PYTHON_BIN` 指定 Python 路径。
+## 本地隧道
 
 恢复本地隧道：`bash app/open_tunnel_harness.sh`。脚本分别检查、建立或复用 Harness 和 ComfyUI 通道；已有 `23080` 通道不会跳过 `6016` 检查。
 

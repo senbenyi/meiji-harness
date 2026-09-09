@@ -20,11 +20,9 @@ class DeployPluginTests(unittest.TestCase):
         self.log = self.root / "commands.log"
         self.env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
                         DEPLOY_TEST_ROOT=str(self.root), DEPLOY_TEST_LOG=str(self.log))
-        for name in ("deploy_dsh_elysium_tools.sh", "deploy_dsh_elysium_ui.sh",
-                     "common/deploy_plugin.sh"):
-            dest = self.root / "app" / name
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(SOURCE / "app" / name, dest)
+        dest = self.root / "app/common/deploy_plugin.sh"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(SOURCE / "app/common/deploy_plugin.sh", dest)
         for name in ("app/config/harness-settings.yaml",
                      "app/common/config_loader.py", "app/common/install_plugin.sh",
                      "app/common/start_harness.sh", "app/common/start_tunnel_qwen.sh",
@@ -48,10 +46,10 @@ class DeployPluginTests(unittest.TestCase):
         file.chmod(0o755)
 
     def run_deploy(self, kind, *args):
-        return subprocess.run(["bash", str(self.root / f"app/deploy_dsh_elysium_{kind}.sh"), *args],
+        return subprocess.run(["bash", str(self.root / "app/common/deploy_plugin.sh"), kind, *args],
                               env=self.env, capture_output=True, text=True)
 
-    def test_both_entries_build_before_upload_and_preserve_remote_dependencies(self):
+    def test_both_kinds_build_before_upload_and_preserve_remote_dependencies(self):
         for kind in ("tools", "ui"):
             with self.subTest(kind=kind):
                 self.log.write_text("")
