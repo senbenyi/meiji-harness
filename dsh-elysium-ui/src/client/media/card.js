@@ -1,9 +1,14 @@
 window.__ModuleLoader__.load({
   id: 'elysium-ui/media-card', factory: require => {
-    const { createElement: h, useEffect, useState } = require('react')
+    const { createElement: h, useEffect, useState, useRef } = require('react')
     const { readStatus, mediaUrl } = require('elysium-ui/media-api')
     const { fromBlock, label } = require('elysium-ui/media-model')
     function MediaTaskCard({ sessionId, callId, block, inspect }) {
+      const [expanded, setExpanded] = useState(false)
+      const dialog = useRef(null)
+      useEffect(() => {
+        if (expanded) dialog.current?.showModal()
+      }, [expanded])
       const fallback = fromBlock(block)
       const [job, setJob] = useState(fallback)
       const [error, setError] = useState('')
@@ -64,13 +69,23 @@ window.__ModuleLoader__.load({
             h('circle', { cx: 20, cy: 20, r: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 3, strokeDasharray: '70 31' },
               h('animateTransform', { attributeName: 'transform', type: 'rotate', from: '0 20 20', to: '360 20 20', dur: '1s', repeatCount: 'indefinite' }))),
           h('span', null, '拼命加载中')) : null,
-        video ? h(kind === 'image' ? 'img' : 'video', { key: video + attempt, src: video, ...(kind === 'image' ? { alt: '生成图片' } : { controls: true, preload: 'metadata' }),
-          onError: () => {
+        video ? h(kind === 'image' ? 'img' : 'video', { key: video + attempt, src: video, ...(kind === 'image' ? { alt: '生成图片' } : { controls: false, muted: true, preload: 'metadata', onClick: () => setExpanded(true) }),
+          onError: async () => {
             if (!useHarnessMedia && job.comfyui_view_url) {
               try { mediaUrl(kind, sessionId, callId); setUseHarnessMedia(true); return } catch { /* Show the playback error when the media service is unavailable. */ }
             }
+            try {
+              const current = await readStatus(sessionId, callId)
+              if (mediaUrl(kind, sessionId, callId) !== video) { setJob(current); setPlaybackError(false); return }
+            } catch { /* Report a playback failure if credentials cannot be recovered. */ }
             setPlaybackError(true)
-          }, style: { width: 'auto', height: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block', borderRadius: 8, marginTop: 12 } }) : null,
+          }, style: { width: 'auto', height: 'auto', maxWidth: kind === 'video' ? 160 : '100%', maxHeight: kind === 'video' ? 180 : undefined, cursor: kind === 'video' ? 'pointer' : undefined, objectFit: 'contain', display: 'block', borderRadius: 8, marginTop: 12 } }) : null,
+        video && kind === 'video' ? h('button', { onClick: () => setExpanded(true), style: { marginTop: 8 } }, '放大查看') : null,
+        expanded && video && kind === 'video' ? h('dialog', { ref: dialog, 'aria-label': '视频预览', onClose: () => setExpanded(false),
+          style: { maxWidth: '90vw', maxHeight: '90vh', padding: 12, borderRadius: 12 },
+          onClick: event => { if (event.target === event.currentTarget) setExpanded(false) } },
+          h('button', { autoFocus: true, onClick: () => setExpanded(false) }, '关闭'),
+          h('video', { src: video, controls: true, autoPlay: true, style: { display: 'block', maxWidth: '85vw', maxHeight: '80vh', marginTop: 8 } })) : null,
         kind === 'image' && download ? h('a', { href: download, download: true }, '下载产物') : null,
         playbackError ? h('p', { role: 'alert' }, `${title}加载失败，可重新连接或下载查看。`, h('button', { onClick: () => setAttempt(n => n + 1) }, '重试播放')) : null)
     }

@@ -18,7 +18,7 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image'])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials'])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
@@ -54,6 +54,17 @@ test('authenticated same-origin endpoint serves bounded range streams and surviv
   const query = '?t=test-token&session=s&call=c'
   try {
     assert.equal((await fetch(base + '/status')).status, 401)
+    assert.equal((await fetch(base + '/credentials')).status, 403)
+    const headers = { 'X-Elysium-Media-Refresh': '1' }
+    assert.equal((await fetch(base + '/credentials', { method: 'OPTIONS', headers })).status, 405)
+    assert.equal((await fetch(base + '/credentials', { headers: { ...headers, 'Sec-Fetch-Site': 'cross-site' } })).status, 403)
+    const refresh = await fetch(base + '/credentials', { headers })
+    assert.equal(refresh.headers.get('access-control-allow-origin'), null)
+    assert.equal(refresh.headers.get('cache-control'), 'no-store')
+    const credentials = await refresh.json()
+    assert.equal(credentials.token, 'test-token')
+    assert.equal((await fetch(base + '/status?t=stale&session=s&call=c')).status, 401)
+    assert.equal((await fetch(base + '/status?t=' + credentials.token + '&session=s&call=c')).status, 200)
     assert.equal((await fetch(base + '/status' + query, { method: 'POST' })).status, 405)
     assert.equal((await (await fetch(base + '/status' + query)).json()).stage, 'generate')
     assert.equal((await fetch(base + '/video' + query)).status, 404)

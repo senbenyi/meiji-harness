@@ -50,7 +50,7 @@ test('same card progresses to playable result and stops polling', async () => {
     const video = f.view.root.findByType('video')
     assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
     assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
-    assert.equal(video.props.controls, true)
+    assert.equal(video.props.controls, false)
     assert.ok(!video.props.src.includes('3080'))
     assert.equal(f.view.root.findAllByType('a').length, 0)
     assert.equal(f.timers.size, 0)
@@ -113,7 +113,7 @@ test('per-shot stages identify the current shot without claiming review passed',
   } finally { await f.close() }
 })
 test('network interruption reconnects, whereas expired credentials stop polling', async () => {
-  const f = await fixture([new Error('disconnected'), { httpError: 401, error: '请刷新页面' }])
+  const f = await fixture([new Error('disconnected'), { httpError: 401, error: '请刷新页面' }, { httpError: 403 }])
   try {
     assert.match(JSON.stringify(f.view.toJSON()), /disconnected/)
     await f.tick()
@@ -140,7 +140,7 @@ test('unmount aborts the request and removes pending polling timers', async () =
 
 test('ComfyUI playback failure falls back to same-origin media, then reports failure without looping', async () => {
   const url = 'http://127.0.0.1:6016/view?filename=final.mp4&type=output'
-  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
+  const f = await fixture([{ status: 'succeeded', has_video: true }], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
   try {
     await act(async () => f.view.root.findByType('video').props.onError())
     const video = f.view.root.findByType('video')
@@ -149,7 +149,7 @@ test('ComfyUI playback failure falls back to same-origin media, then reports fai
     assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
     await act(async () => video.props.onError())
     assert.match(JSON.stringify(f.view.toJSON()), /视频加载失败/)
-    assert.equal(f.requests.length, 0)
+    assert.equal(f.requests.length, 1)
     await act(async () => f.view.root.findByProps({ children: '重试播放' }).props.onClick())
     assert.equal(f.view.root.findByType('video').props.src, url)
     assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
@@ -179,5 +179,61 @@ test('image result renders a picture with download and same-origin fallback', as
     await act(async () => f.view.root.findByType('img').props.onError())
     assert.match(f.view.root.findByType('img').props.src, /^\/plugins\/dsh-elysium\/media\/image\?/)
     assert.ok(!JSON.stringify(f.view.toJSON()).includes('null 秒'))
+  } finally { await f.close() }
+})
+
+
+test('expired page credentials recover the original job with one retry', async () => {
+  const f = await fixture([{ httpError: 401 }, { token: 'fresh', base: '/plugins/dsh-elysium/media' },
+    { status: 'succeeded', has_video: true, job_id: 'original' }])
+  try {
+    assert.equal(f.requests.length, 3)
+    assert.match(f.requests[0].url, /t=test/)
+    assert.equal(f.requests[1].url, '/plugins/dsh-elysium/media/credentials')
+    assert.equal(f.requests[1].options.headers['X-Elysium-Media-Refresh'], '1')
+    assert.match(f.requests[2].url, /session=session&call=call&t=fresh/)
+    assert.match(f.view.root.findByType('video').props.src, /t=fresh/)
+    assert.equal(f.timers.size, 0)
+    assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
+  } finally { await f.close() }
+})
+
+test('a second 401 stops recovery instead of looping', async () => {
+  const f = await fixture([{ httpError: 401 }, { token: 'fresh', base: '/plugins/dsh-elysium/media' },
+    { httpError: 401, error: '凭据不可用' }])
+  try {
+    assert.equal(f.requests.length, 3)
+    assert.equal(f.timers.size, 0)
+    assert.match(JSON.stringify(f.view.toJSON()), /凭据不可用/)
+  } finally { await f.close() }
+})
+
+test('portrait video stays a thumbnail and opens a dismissible player', async () => {
+  const f = await fixture([{ status: 'succeeded', has_video: true, media_info: { width: 480, height: 854 } }])
+  try {
+    const thumbnail = f.view.root.findByType('video')
+    assert.equal(thumbnail.props.style.maxWidth, 160)
+    assert.equal(thumbnail.props.style.maxHeight, 180)
+    assert.equal(thumbnail.props.style.objectFit, 'contain')
+    await act(async () => thumbnail.props.onClick())
+    const modal = f.view.root.findByType('dialog')
+    assert.equal(modal.findByType('video').props.controls, true)
+    await act(async () => modal.findByType('button').props.onClick())
+    assert.equal(f.view.root.findAllByType('dialog').length, 0)
+    await act(async () => f.view.root.findByProps({ children: '放大查看' }).props.onClick())
+    await act(async () => f.view.root.findByType('dialog').props.onClose())
+    assert.equal(f.view.root.findAllByType('video').length, 1)
+  } finally { await f.close() }
+})
+
+
+test('same-origin playback recovers a token rotated after status polling', async () => {
+  const f = await fixture([{ status: 'succeeded', has_video: true }, { httpError: 401 },
+    { token: 'rotated', base: '/plugins/dsh-elysium/media' }, { status: 'succeeded', has_video: true }])
+  try {
+    await act(async () => f.view.root.findByType('video').props.onError())
+    assert.match(f.view.root.findByType('video').props.src, /t=rotated/)
+    assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
+    assert.equal(f.requests.length, 4)
   } finally { await f.close() }
 })

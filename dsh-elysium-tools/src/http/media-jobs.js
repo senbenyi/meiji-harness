@@ -36,6 +36,13 @@ export function createMediaHandler({ token, readJob = getJob, findCall = findVid
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
+      if (url.pathname === `${MEDIA_ROUTE}/credentials`) {
+        if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' })
+        // A custom header requires CORS preflight; this route never grants CORS access.
+        if (req.headers['x-elysium-media-refresh'] !== '1' ||
+          (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return json(res, 403, { error: 'Same-origin request required' })
+        return json(res, 200, { token, base: MEDIA_ROUTE })
+      }
       const supplied = Buffer.from(url.searchParams.get('t') || '')
       const expected = Buffer.from(token)
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
@@ -84,5 +91,5 @@ export function registerMediaRoutes(ctx) {
   const token = randomBytes(32).toString('hex')
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE } }))
   const handler = createMediaHandler({ token, getSession: id => ctx.get('sessions')?.get(id) })
-  for (const suffix of ['status', 'video', 'image']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
+  for (const suffix of ['status', 'video', 'image', 'credentials']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
 }
