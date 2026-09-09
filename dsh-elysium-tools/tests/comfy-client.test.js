@@ -78,6 +78,21 @@ test('deleted prompt stops waiting and never authorizes a duplicate submission',
   assert.equal(await client.submit({}, 'job', path, true), 'deleted')
 })
 
+test('poll timeout recovers the original prompt without submission and honors cancellation', async () => {
+  const controller = new AbortController(), client = new ComfyClient('http://example.invalid', controller.signal)
+  let reads = 0
+  client.request = async route => {
+    assert.equal(route, 'history/original')
+    if (++reads === 1) throw new DOMException('timeout', 'TimeoutError')
+    return { original: { status: { completed: true } } }
+  }
+  const stages = []
+  await client.wait('original', 1000, async (_, stage) => stages.push(stage), 1)
+  assert.deepEqual(stages, ['reconcile'])
+  client.request = async () => { controller.abort(); throw new DOMException('timeout', 'TimeoutError') }
+  await assert.rejects(client.wait('original', 1000, undefined, 1), { name: 'AbortError' })
+})
+
 test('task management uses HTTP results and never interrupts another running job', async () => {
   const mutations = []
   const server = createServer(async (req, res) => {

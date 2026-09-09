@@ -67,7 +67,7 @@ test('completed card puts preview above metadata with an accessible download', a
   const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
   const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
   try {
-    assert.equal(f.view.root.findByType('video').props.src, url)
+    assert.match(f.view.root.findByType('video').props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(f.view.root.findByType('a').props['aria-label'], '下载视频')
     const children = f.view.root.findByType('section').children
     assert.equal(children[0].props.className, 'elysium-preview')
@@ -80,7 +80,7 @@ test('a completed tool result plays without polling the media service', async ()
   const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&type=output'
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
   try {
-    assert.equal(f.view.root.findByType('video').props.src, url)
+    assert.match(f.view.root.findByType('video').props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(f.requests.length, 0)
     assert.equal(f.timers.size, 0)
   } finally { await f.close() }
@@ -143,31 +143,28 @@ test('unmount aborts the request and removes pending polling timers', async () =
   assert.equal(f.requests[0].options.signal.aborted, true)
 })
 
-test('ComfyUI playback failure falls back to same-origin media, then reports failure without looping', async () => {
+test('same-origin playback failure falls back to ComfyUI once, then reports failure without looping', async () => {
   const url = 'http://127.0.0.1:6016/view?filename=final.mp4&type=output'
   const f = await fixture([{ status: 'succeeded', has_video: true }], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
   try {
     await act(async () => f.view.root.findByType('video').props.onError())
     const video = f.view.root.findByType('video')
-    assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
-    assert.match(video.props.src, /session=session&call=call/)
+    assert.equal(video.props.src, url)
     assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
     await act(async () => video.props.onError())
     assert.match(JSON.stringify(f.view.toJSON()), /预览加载失败/)
     assert.equal(f.requests.length, 1)
     await act(async () => f.view.root.findByProps({ children: '重试播放' }).props.onClick())
-    assert.equal(f.view.root.findByType('video').props.src, url)
+    assert.match(f.view.root.findByType('video').props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
   } finally { await f.close() }
 })
 
-test('interrupted session recovers original job and falls back when ComfyUI is unreachable', async () => {
+test('interrupted session recovers original job and uses its downloaded artifact', async () => {
   const f = await fixture([{ status: 'succeeded', job_id: 'original', has_video: true,
     comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.mp4' }],
   { isError: true, content: [{ type: 'text', text: 'The tool call was interrupted; outcome unknown.' }] })
   try {
-    assert.equal(f.view.root.findByType('video').props.src, 'http://127.0.0.1:6016/view?filename=final.mp4')
-    await act(async () => f.view.root.findByType('video').props.onError())
     assert.match(f.view.root.findByType('video').props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(f.requests.length, 1)
     assert.match(f.requests[0].url, /\/status\?/)
@@ -175,13 +172,12 @@ test('interrupted session recovers original job and falls back when ComfyUI is u
   } finally { await f.close() }
 })
 
-test('image result renders a picture with download and same-origin fallback', async () => {
+test('image result renders a picture with same-origin preview and download', async () => {
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'image', status: 'succeeded', media_kind: 'image', comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.png', media_info: { width: 832, height: 1216 } }) }] })
   try {
     assert.equal(f.view.root.findAllByType('video').length, 0)
     assert.equal(f.view.root.findByType('img').props.alt, '生成图片')
     assert.match(f.view.root.findByType('a').props.href, /image\?.*download=1/)
-    await act(async () => f.view.root.findByType('img').props.onError())
     assert.match(f.view.root.findByType('img').props.src, /^\/plugins\/dsh-elysium\/media\/image\?/)
     assert.ok(!JSON.stringify(f.view.toJSON()).includes('null 秒'))
   } finally { await f.close() }
