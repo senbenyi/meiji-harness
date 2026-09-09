@@ -4,26 +4,19 @@ set -Eeuo pipefail
 fail() { echo "[FAIL] $1" >&2; exit 1; }
 [[ "$#" -eq 1 && ( "$1" == tools || "$1" == ui ) ]] || fail 'Usage: deploy_plugin.sh tools|ui'
 kind="$1"
-for command_name in git pnpm rsync ssh; do
+for command_name in node pnpm dsh lsof ps curl python3; do
   command -v "$command_name" >/dev/null || fail "本机缺少命令：$command_name"
 done
-export PYTHON_BIN="${PYTHON_BIN:-python3}"
-command -v "$PYTHON_BIN" >/dev/null || fail "本机缺少 Python：$PYTHON_BIN"
-REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 PACKAGE_ROOT="$REPO_ROOT/dsh-elysium-$kind"
-runtime_settings="$("$PYTHON_BIN" "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/app/config/harness-settings.yaml")"
+runtime_settings="$(python3 "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/app/config/harness-settings.yaml")"
 eval "$runtime_settings"
-TARGET="$HARNESS_SSH_TARGET"
-DEST="$HARNESS_ROOT/packages/dsh-elysium-$kind-registry"
-SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10)
+export DSH_HOME="$LOCAL_DSH_HOME"
 [[ -s "$PACKAGE_ROOT/package.json" ]] || fail '插件目录不存在'
-for file in app/config/harness-settings.yaml \
-  app/common/config_loader.py app/common/install_plugin.sh app/common/start_harness.sh app/common/start_tunnel_qwen.sh app/common/start_tunnel_harness.sh; do
-  [[ -s "$REPO_ROOT/$file" ]] || fail "缺少文件：$file"
-done
+[[ "$DSH_HOME" == /* && -w "$DSH_HOME" ]] || fail "本机 DSH_HOME 不可写：$DSH_HOME"
 
-echo '[1/4] 检查远端环境'
-"${SSH[@]}" "$TARGET" "test -x '$HARNESS_ROOT/app/node_modules/.bin/dsh' && test -x '$HARNESS_ROOT/runtime/node-v24.20.0-linux-x64/bin/node'"
+echo '[1/4] 检查本机 Harness 环境'
+node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)' || fail '需要 Node.js 20+'
 
 echo "[2/4] 测试、构建并打包 dsh-elysium-$kind"
 (
@@ -34,16 +27,18 @@ echo "[2/4] 测试、构建并打包 dsh-elysium-$kind"
   pnpm package:registry
 )
 
-echo '[3/4] 上传配置、技能及插件'
-"${SSH[@]}" "$TARGET" "install -d -m 0755 '$PLUGINS_ROOT'"
-rsync -az --delete --exclude='__pycache__/' -e "${SSH[*]}" "$REPO_ROOT/app" "$TARGET:$PLUGINS_ROOT/"
-"${SSH[@]}" "$TARGET" "cd '$PLUGINS_ROOT' && PYTHON_BIN='$HARNESS_PYTHON' bash app/common/install_plugin.sh '$kind' --prepare"
-# node_modules 由远端安装器管理，不参与本机产物镜像。
-rsync -az --delete --exclude='node_modules' -e "${SSH[*]}" "$PACKAGE_ROOT/registry/" "$TARGET:$DEST/"
+echo '[3/4] 注册到本机 Harness web profile'
+dsh plugin --profile web add --workspace-root "$PACKAGE_ROOT/registry"
+node --input-type=module - "$DSH_HOME/profiles/web/package.json" "@dsh-external/dsh-elysium-$kind" <<'JS'
+import { readFileSync } from 'node:fs'
+const profile = JSON.parse(readFileSync(process.argv[2], 'utf8')), name = process.argv[3]
+if (!profile.dependencies?.[name] || !profile.dsh?.profile?.bundles?.includes(name)) throw new Error('插件未正确注册到本机 web profile')
+JS
+if [[ "$kind" == tools && ! -e "$DSH_HOME/.agent-presets/elysium" ]]; then
+  mkdir -p "$DSH_HOME/.agent-presets"
+  cp -R "$PACKAGE_ROOT/registry/.dsh/.agent-presets/elysium" "$DSH_HOME/.agent-presets/"
+fi
 
-echo '[4/4] 注册插件、应用配置并重启'
-"${SSH[@]}" "$TARGET" "cd '$PLUGINS_ROOT' && PYTHON_BIN='$HARNESS_PYTHON' bash app/common/install_plugin.sh '$kind'"
-# 隧道复用本机 Python 选择，远端安装器独立配置 Python。
-bash "$REPO_ROOT/app/common/start_tunnel_harness.sh"
-echo "[DONE] dsh-elysium-$kind 已发布：http://$HARNESS_LOCAL_HOST:$HARNESS_LOCAL_PORT/"
-echo 'HTTP 健康检查不替代浏览器任务卡和媒体播放验收，请刷新页面检查。'
+echo '[4/4] 重启本机 Harness 并检查 HTTP'
+bash "$REPO_ROOT/app/common/start_harness.sh" --restart
+echo "[DONE] dsh-elysium-$kind 已发布：http://$LOCAL_HARNESS_HOST:$LOCAL_HARNESS_PORT/"

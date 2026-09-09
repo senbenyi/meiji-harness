@@ -1,8 +1,8 @@
+import contextlib
 import importlib.util
+import io
 from pathlib import Path
 import tempfile
-import subprocess
-import sys
 import unittest
 
 import yaml
@@ -20,102 +20,34 @@ class HarnessSettingsTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.config = ROOT / "app/config/harness-settings.yaml"
 
-    def test_runtime_addresses_are_required_and_render_custom_hosts(self):
-        import contextlib
-        import io
+    def output(self, mode, config=None):
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            loader.write_harness_settings(mode, config or self.config)
+        return stream.getvalue()
+
+    def test_shell_exports_local_harness_and_remote_model_tunnels(self):
+        output = self.output("shell")
+        for key in ("LOCAL_DSH_HOME", "LOCAL_HARNESS_PORT", "COMFYUI_SSH_TARGET", "QWEN_SSH_TARGET"):
+            self.assertIn(key + "=", output)
+        for key in ("HARNESS_ROOT", "HARNESS_SSH_TARGET", "HARNESS_LOCAL_PORT", "PLUGINS_ROOT", "PROJECT_ROOT"):
+            self.assertNotIn(key + "=", output)
+
+    def test_render_targets_local_qwen_and_removes_runtime_sections(self):
+        output = self.output("render")
+        self.assertIn("http://127.0.0.1:18000/v1", output)
+        self.assertNotIn("harness-runtime", output)
+        self.assertNotIn("harness-customization", output)
+
+    def test_required_http_and_local_values_are_validated(self):
         data = yaml.safe_load(self.config.read_text())
-        config = self.root / "settings.yaml"
-        for key in ("MINIMAX_H3_COMFYUI_URL", "HARNESS_LOCAL_PORT", "ARTIFACTS_ROOT"):
-            original = data["harness-runtime"].pop(key)
-            config.write_text(yaml.safe_dump(data))
-            with self.assertRaises(KeyError):
-                loader.write_harness_settings("shell", config)
-            data["harness-runtime"][key] = ""
-            config.write_text(yaml.safe_dump(data))
+        for key in ("MINIMAX_H3_COMFYUI_URL", "LOCAL_HARNESS_PORT", "LOCAL_DSH_HOME"):
+            broken = yaml.safe_load(yaml.safe_dump(data))
+            broken["harness-runtime"][key] = ""
+            path = self.root / f"{key}.yaml"
+            path.write_text(yaml.safe_dump(broken))
             with self.assertRaises(ValueError):
-                loader.write_harness_settings("shell", config)
-            data["harness-runtime"][key] = original
-        data["harness-runtime"]["QWEN_LOCAL_HOST"] = "qwen.test"
-        data["harness-runtime"]["QWEN_API_LOCAL_PORT"] = 19800
-        data["harness-runtime"]["PLUGINS_ROOT"] = "/configured/plugins"
-        config.write_text(yaml.safe_dump(data))
-        output = io.StringIO()
-        with contextlib.redirect_stdout(output):
-            loader.write_harness_settings("render", config)
-        self.assertIn("http://qwen.test:19800/v1", output.getvalue())
-        files = loader.harness_files(config, self.root)
-        self.assertNotIn("__PLUGINS_ROOT__", "\n".join(files.values()))
-
-    def test_apply_replaces_configuration_and_preserves_session_data(self):
-        home = self.root / "home"
-        home.mkdir()
-        settings = home / "settings.yaml"
-        settings.write_text("obsolete: true\n")
-        session = home / "session.jsonl"
-        session.write_text("unchanged")
-        loader.apply_harness(self.config, self.root)
-        self.assertEqual(settings.with_suffix('.yaml.previous').read_text(), "obsolete: true\n")
-        actual = yaml.safe_load(settings.read_text())
-        self.assertNotIn("obsolete", actual)
-        self.assertNotIn("harness-customization", actual)
-        self.assertNotIn("harness-runtime", actual)
-        self.assertNotIn("__QWEN_", settings.read_text())
-        self.assertEqual(session.read_text(), "unchanged")
-        self.assertFalse((home / "AGENTS.md").exists())
-        self.assertFalse((home / ".agent-presets").exists())
-        profile = yaml.safe_load((home / "profiles/web/cordis.patch.yml").read_text())
-        plugin = next(row["config"] for row in profile if row.get("id") == "dsh-elysium-tools")
-        runtime = yaml.safe_load(self.config.read_text())["harness-runtime"]
-        self.assertEqual(plugin["comfyUrl"], runtime["MINIMAX_H3_COMFYUI_URL"])
-        self.assertEqual(plugin["artifactsRoot"], runtime["ARTIFACTS_ROOT"])
-        self.assertEqual(plugin["python"], runtime["HARNESS_PYTHON"])
-        self.assertNotIn("__", str(plugin))
-        self.assertFalse(any(row.get("id") == "system-prompt" for row in profile))
-        expected = {p: p.read_bytes() for p in loader.harness_files(self.config, self.root)}
-        loader.apply_harness(self.config, self.root)
-        self.assertEqual(expected, {p: p.read_bytes() for p in expected})
-
-    def test_ui_only_deployment_does_not_require_tools_and_preserves_directors(self):
-        home = self.root / "home"
-        profile = home / "profiles/web"
-        profile.mkdir(parents=True)
-        (profile / "package.json").write_text('{"dependencies":{"@dsh-external/dsh-elysium-ui":"*"}}')
-        directors = {"enabled": True, "directors": [{"id": "a", "name": "A", "prompt": "P"}]}
-        (home / "settings.yaml").write_text(yaml.safe_dump({"dsh-elysium-ui": directors}))
-        files = loader.harness_files(self.config, self.root)
-        settings = yaml.safe_load(files[home / "settings.yaml"])
-        self.assertEqual(settings["dsh-elysium-ui"], directors)
-        self.assertNotIn("agent-presets", settings)
-        self.assertEqual(yaml.safe_load(files[profile / "cordis.patch.yml"]), [])
-
-    def test_check_does_not_write(self):
-        loader.apply_harness(self.config, self.root, check=True)
-        self.assertFalse((self.root / "home").exists())
-
-    def test_default_config_path_from_other_working_directory(self):
-        subprocess.run([sys.executable, str(ROOT / "app/common/config_loader.py"),
-                        "check", "--harness-root", str(self.root)],
-                       cwd=self.root, check=True, stdout=subprocess.DEVNULL)
-        self.assertFalse((self.root / "home").exists())
-
-    def test_invalid_profile_fails_before_any_write(self):
-        data = yaml.safe_load(self.config.read_text())
-        data["harness-customization"]["profile"] = "invalid"
-        config = self.root / "invalid.yaml"
-        config.write_text(yaml.safe_dump(data))
-        with self.assertRaises(ValueError):
-            loader.apply_harness(config, self.root)
-        self.assertFalse((self.root / "home").exists())
-
-    def test_deploy_preserves_user_instructions_and_presets(self):
-        home = self.root / "home"
-        preset = home / ".agent-presets/elysium/agent.cordis.yml"
-        preset.parent.mkdir(parents=True)
-        preset.write_text("user preset")
-        (home / "AGENTS.md").write_text("user instructions")
-        loader.apply_harness(self.config, self.root)
-        self.assertEqual(preset.read_text(), "user preset")
-        self.assertEqual((home / "AGENTS.md").read_text(), "user instructions")
+                loader.write_harness_settings("shell", path)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# 在 Harness 服务器执行；通过 SSH 别名免交互建立后台通道。
+# 在本机执行；连接远端 Qwen API，供本机 Harness 使用。
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
