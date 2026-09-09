@@ -2,6 +2,8 @@
 
 Harness 图片与视频生成插件，自带任务卡和“极乐世界”预设。
 
+角色三视图使用 `character-reference` 技能：正面确认 → 参考生成侧面／背面 → 验收拼接。ComfyUI 需额外安装 `xinsir-openpose-sdxl-1.0.safetensors`；普通图片、视频不受影响。
+
 ## 1. 安装插件
 
 需要 Harness、Node.js 20.16+、Python 3、FFmpeg、FFprobe，以及具备所需模型和节点的 ComfyUI。在本插件目录执行：
