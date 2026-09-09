@@ -77,13 +77,3 @@ export function traceDiagnostics(chain) {
     node_errors: chain.flatMap(item => item.node_errors || []),
   }
 }
-
-export function retryAdvice(code, chain) {
-  if (code === 'MODEL_INPUT_INVALID' || code === 'MODEL_EXECUTOR_MISSING') {
-    return { retryable: false, retry_scope: 'fix-input-or-deployment-first' }
-  }
-  if (chain.some(item => item.prompt_id)) {
-    return { retryable: null, retry_scope: 'query-existing-comfyui-prompt-before-retry' }
-  }
-  return { retryable: null, retry_scope: 'inspect-failed-stage-before-retry' }
-}

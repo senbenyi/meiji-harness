@@ -31,7 +31,7 @@ export function createWorkflowGenerateVideoTool() {
           id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,48}$', description: '唯一镜号，返回素材与进度按此关联。' },
           duration: { type: 'integer', minimum: 1, description: '本镜目标秒数；生成镜头最多15秒。' },
           mode: { type: 'string', enum: ['independent', 'continue', 'reference', 'reuse'], description: '默认independent：文生或起始图；continue：续接前镜末帧；reference：图片/视频/音频参考；reuse：复用已有视频。切镜用independent或reference。' },
-          prompt: { type: 'string', description: '生成时完整保留角色、服装、构图、动作、对白与声音要求；reuse不接受。' },
+          prompt: { type: 'string', description: '生成时完整保留角色、服装、构图、动作与声音要求；reuse不接受。' },
           image_path: { type: 'string', description: '真实角色/场景图片；independent中作为首帧，reference中作为参考。' },
           video_path: { type: 'string', description: 'reference的视频参考，或reuse要选用的已有镜头。' },
           audio_path: { type: 'string', description: '仅reference接受，声音参考不等于口型保证。' },

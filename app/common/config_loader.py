@@ -35,7 +35,7 @@ def write_harness_settings(mode, config):
     }
     for key in ("HARNESS_SSH_TARGET", "HARNESS_HOST", "HARNESS_LOCAL_HOST", "QWEN_LOCAL_HOST", "QWEN_REMOTE_HOST", "LOCAL_HARNESS_HOST"):
         patterns[key] = r"[A-Za-z0-9][A-Za-z0-9._-]*"
-    for key in ("HARNESS_PYTHON", "MINIMAX_H3_COMFYUI_OUTPUT_ROOT", "ARTIFACTS_ROOT", "ELYSIUM_TOOLS_STATE_ROOT", "LLM_AI_MODEL_ROOT", "LOCAL_DSH_HOME"):
+    for key in ("HARNESS_PYTHON", "MINIMAX_H3_COMFYUI_OUTPUT_ROOT", "ARTIFACTS_ROOT", "ELYSIUM_TOOLS_STATE_ROOT", "LOCAL_DSH_HOME"):
         patterns[key] = r"/[A-Za-z0-9._/-]+"
     patterns["LOCAL_HARNESS_PORT"] = r"[0-9]+"
     for key in ("MINIMAX_H3_COMFYUI_URL", "MINIMAX_H3_COMFYUI_PUBLIC_URL"):

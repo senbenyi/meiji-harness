@@ -1,6 +1,6 @@
 import { requiredConfig } from '../config.js'
-import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { sha256File } from '../functions/common/file-hash.js'
 import { copyFile, mkdir, realpath, rename, stat, unlink } from 'node:fs/promises'
 import { isAbsolute, join, relative } from 'node:path'
 
@@ -28,9 +28,7 @@ export async function publishVideo(job, {
     if (candidateRel.startsWith('..') || isAbsolute(candidateRel)) continue
     const candidateInfo = await stat(candidate).catch(error => { if (error.code !== 'ENOENT') throw error })
     if (!candidateInfo?.isFile() || candidateInfo.size !== info.size) continue
-    const hash = createHash('sha256')
-    for await (const chunk of createReadStream(candidate)) hash.update(chunk)
-    if (hash.digest('hex') !== job.result.sha256) continue
+    if (await sha256File(candidate) !== job.result.sha256) continue
     subfolder = artifact.subfolder || ''
     filename = artifact.filename
     break

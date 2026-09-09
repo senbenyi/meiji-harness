@@ -10,7 +10,6 @@ import { mockMedia } from './helpers/media-server.js'
 const root = await realpath(await mkdtemp(join(tmpdir(), 'native-media-'))), artifacts = join(root, 'artifacts')
 await mkdir(artifacts)
 process.env.ARTIFACTS_ROOT = artifacts; process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
-process.env.LLM_AI_MODEL_ROOT = join(root, 'no-model-checkout')
 const backend = await mockMedia(root)
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url; process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url
 const { createModelTools, createWorkflowTools, getJob, apply } = await import('../src/index.js')

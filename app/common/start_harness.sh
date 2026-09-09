@@ -88,7 +88,6 @@ install -d -m 0750 "$harness_root/logs" "$harness_root/tmp"
       ARTIFACTS_ROOT="$ARTIFACTS_ROOT" \
       ELYSIUM_TOOLS_STATE_ROOT="$ELYSIUM_TOOLS_STATE_ROOT" \
       HARNESS_PYTHON="$HARNESS_PYTHON" \
-      LLM_AI_MODEL_ROOT="$LLM_AI_MODEL_ROOT" \
       ELYSIUM_WORKSPACE="$harness_root/data/elysium" \
       ELYSIUM_SHARED_INPUT_ROOT="$COMFYUI_INPUT_ROOT" \
       npm_config_cache="$harness_root/cache/npm" \

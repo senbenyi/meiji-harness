@@ -4,7 +4,7 @@
 
 ## 运行边界
 
-生产路径只需要工具插件、可访问的 ComfyUI、Harness 本机素材/状态目录和用于素材探测、成片验收的 FFmpeg/FFprobe。不需要 `LLM_AI_MODEL_ROOT`、模型项目 Python、Shell 入口或 ComfyUI 服务器目录挂载；本地二进制不承担生成、剪辑、拼接。
+生产路径只需要工具插件、可访问的 ComfyUI、Harness 本机素材/状态目录和用于素材探测、成片验收的 FFmpeg/FFprobe。不需要 模型项目脚本入口或 ComfyUI 服务器目录挂载；本地二进制不承担生成、剪辑、拼接。
 
 配置：
 
@@ -30,19 +30,19 @@ POST `/prompt` 前持久化提交意图，返回后保存原 `prompt_id`。丢�
 
 ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除指定排队 ID，不使用全局 `/interrupt`；返回 `cancel_requested` 不冒充运行中任务已取消。
 
-旧任务保留原有结果读取兼容。显式启用的原子测试工具仍保留旧 endpoint 路径，默认生产入口不调用它们；此次没有迁移对白、插帧、超分等独立能力。
+旧任务保留原有结果读取兼容。插件仅保留图片、视频、合片及任务管理入口。
 
 ## 验证
 
 在 `dsh-elysium-tools` 运行 `pnpm test`、`pnpm build`、`pnpm package:registry`（构建与测试串行）。测试包含：原图导出一致性、时间基准、镜头连线、模拟 HTTP 生命周期、丢响应恢复、终止失败后显式重试，以及模型仓库路径不存在时的生产调用。模拟 HTTP 不等于真实节点执行；真实 ComfyUI 与媒体验收单独记录。
 
-当前所有 ComfyUI 能力入口统一使用 `minimax-h3` 服务配置（6016），图片、视频、语音、插帧、超分和音效路由均保留；尚未接入 SwarmUI。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
+当前所有 ComfyUI 能力入口统一使用 `minimax-h3` 服务配置（6016），插件的图片、视频与合片入口均使用 ComfyUI 工作流；尚未接入 SwarmUI。新版插件已按现有部署流程安装并重启 Harness；ComfyUI 未重启。
 
 ## C-MMH3-18 适配
 
 作者原文件 SHA-256 为 `5ebbc15a9d49b179b93c1291fa027b0d36aff8098d20d0eea88c9f9be9c04914`。原文件完整保留；现在以两份生产可视化图为导出来源；原始作者图只作参考，不由导出脚本手写重建。源图与插件导出的同步、实际执行图与可视化快照的连线一致性由测试检查。
 
-保留作者 Director、LoRA、SigmaShift/Attention、Guider/Sampler、音视频解码、EnhancedVideoCombine 主链，节点 `_meta.source_id` 对应生产可视化源图的节点 ID。服务器缺少 `ModelPreviewOverrideKJ`、`ModelPatchTorchSettings`，兼容图旁路它们；原图已关闭的分块、潜空间超分、插帧、水印等分支不提交，不增加节点。原图的 pruned int8 模型、res_multistep/25步配置按当前服务器已有 4Turbo 模型适配为 Euler/4步/shift 10/5，并保留已有编码器/VAE 文件名。这是显式兼容版本，不声称与原图原样运行等价。
+保留作者 Director、LoRA、SigmaShift/Attention、Guider/Sampler、音视频解码、EnhancedVideoCombine 主链，节点 `_meta.source_id` 对应生产可视化源图的节点 ID。服务器缺少 `ModelPreviewOverrideKJ`、`ModelPatchTorchSettings`，兼容图旁路它们；原图已关闭的非生产分支不提交，不增加节点。原图的 pruned int8 模型、res_multistep/25步配置按当前服务器已有 4Turbo 模型适配为 Euler/4步/shift 10/5，并保留已有编码器/VAE 文件名。这是显式兼容版本，不声称与原图原样运行等价。
 
 续拍使用作者 Guide 所调用的原生 `MiniMaxH3ImageToVideo` 接收上一镜真实末帧；Director 本身没有 IMAGE socket。24fps 生成到30fps交付按时间选择帧，不能直接改导出帧率。静态图大小与内存随帧数增长，短片通过不代表任意长片已验证。
 
@@ -51,8 +51,8 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 - 三种 H3 模式及续拍图通过 `6016` 在线节点 schema 检查；REF2VA 素材生成质量仍未验收。
 - 文生一秒 + 末帧续拍一秒：`prompt_id=0b4283aa-6484-4056-b382-570d99404e60`。两秒成片 480×854、30fps、H.264/AAC，完整解码通过；SHA-256 `9cf13a02688d62bfc622963b4682c2293fc8cb767204b393a371b33015d9ec7f`。
 - 补齐逐镜输出后的有声/无声混合素材裁剪合片：`prompt_id=12755c8c-ffb9-48c8-b426-e26fe5d3e4fd`。两秒成片及两个独立一秒镜头均经 HTTP 取回；独立音视频时长、规格及完整解码通过；SHA-256 `4285cfe3214914bafa4605d680306500a1f3de44521eb7750a85719988d02946`。
-- 测试进程 `LLM_AI_MODEL_ROOT` 指向不存在的目录，未挂载服务器目录，通过临时 SSH HTTP 转发访问。该转发不是永久服务入口。
-- 新版插件安装后直接调用 Harness profile 中的工具包：`LLM_AI_MODEL_ROOT` 指向不存在的目录，复用素材的一秒任务 `prompt_id=68761a35-e3e4-4b0a-a52e-e8f98b631acc` 成功；逐镜与成片下载、独立音视频时长、规格及完整解码通过，恢复调用保持原任务 ID。部署时 50 项测试通过，Harness 3080 与现有本地 23080 入口均返回 HTTP 200。部署脚本最后新建隧道步骤因 23080 已占用退出；现有 SSH 隧道继续使用。
+- 测试进程未配置模型项目目录，未挂载服务器目录，通过临时 SSH HTTP 转发访问。该转发不是永久服务入口。
+- 新版插件安装后直接调用 Harness profile 中的工具包：未依赖模型项目目录，复用素材的一秒任务 `prompt_id=68761a35-e3e4-4b0a-a52e-e8f98b631acc` 成功；逐镜与成片下载、独立音视频时长、规格及完整解码通过，恢复调用保持原任务 ID。部署时 50 项测试通过，Harness 3080 与现有本地 23080 入口均返回 HTTP 200。部署脚本最后新建隧道步骤因 23080 已占用退出；现有 SSH 隧道继续使用。
 - 本地旧工作流目录及对应编排测试已删除；导出器迁至 `scripts/common/comfyui/build_video_workflows.py`。旧 `app/start_comfyui.sh` 已删除，启动入口继续调用 `start_comfyui_minimax.sh`。
 - 以上不代表 Harness 自然语言对话、内容审片、长片规模或 SwarmUI 验收。
 
@@ -64,8 +64,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 模型仓库独立读取自己的 `config/comfyui.yaml`、`config/runtime.yaml` 和 `config/paths.yaml`，Harness 不读取模型仓库配置。`production` 实例标识已移除，旧调用须改用 `minimax-h3`。
 
-2026-09-09 现场只读核验：6016 的 `/object_info` 返回 964 个节点，但旧原子能力模板所需 FishS2TTS、RIFE、SeedVR2 加载/超分、MMAudio 与 VHS 节点缺失。此为节点契约差异，不是地址回退或能力入口被删除；本次未安装节点或执行 GPU 生成。
 
 兼容视频工具 `model_generate_video` 和 `model_generate_video_long` 同样调用 ComfyUI 后台任务，保留会话卡片绑定与恢复能力；不再运行 Shell 视频入口。长视频旧 preset 名称仅作兼容，规格取可视化工作流。
 
-图片与已有视频合片已迁移为同类 ComfyUI 后台任务，源图分别位于模型仓库 `workflows/image-generate-sdxl/` 与 `workflows/video-concat/`，通过 `scripts/common/comfyui/build_image_concat_workflows.py` 导出。图片取消 fast，仅保留 standard，并同步视频首帧组件。新增 `model_job_resume` 和图片媒体回传；语音、插帧、超分、音效不在此次迁移范围。
+图片与已有视频合片已迁移为同类 ComfyUI 后台任务，源图分别位于模型仓库 `workflows/image-generate-sdxl/` 与 `workflows/video-concat/`，通过 `scripts/common/comfyui/build_image_concat_workflows.py` 导出。图片取消 fast，仅保留 standard，并同步视频首帧组件。新增 `model_job_resume` 和图片媒体回传。

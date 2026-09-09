@@ -1,5 +1,3 @@
-import { withToolContext } from './task.js'
-
 export const renderToolDebug = (args, value) => {
   if (args.detail === true) return [{ type: 'text', text: JSON.stringify(value) }]
   if (value.status === 'succeeded' && value.result) value = { ...value, ...value.result }
@@ -62,6 +60,6 @@ export function completedModelTool({ name, description, timeoutMs, parameters, e
       schema: COMPLETED_RESULT_SCHEMA,
       render: renderToolDebug,
     },
-    execute: (args, exec) => withToolContext(name, args, () => execute(args, exec?.signal, exec)),
+    execute: (args, exec) => execute(args, exec?.signal, exec),
   }
 }

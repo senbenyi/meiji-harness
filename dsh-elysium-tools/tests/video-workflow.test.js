@@ -15,7 +15,6 @@ await mkdir(artifacts)
 process.env.ARTIFACTS_ROOT = artifacts
 process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = join(root, 'comfy-output')
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'jobs')
-process.env.LLM_AI_MODEL_ROOT = join(root, 'model-repository-does-not-exist')
 const backend = await mockComfy(root)
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url
 process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url

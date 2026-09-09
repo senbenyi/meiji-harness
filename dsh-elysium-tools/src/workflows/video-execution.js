@@ -2,7 +2,7 @@ import { requiredConfig } from '../config.js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
+import { sha256File } from '../functions/common/file-hash.js'
 import { mkdir, rename, stat, writeFile } from 'node:fs/promises'
 import { join, extname } from 'node:path'
 import { ComfyClient, readJson, saveJson } from '../functions/comfyui/client.js'
@@ -11,12 +11,6 @@ import { codeVersion } from '../functions/common/diagnostics.js'
 import { validateVideoArtifact } from './video-validation.js'
 
 const run = promisify(execFile)
-async function digest(path) {
-  const hash = createHash('sha256')
-  for await (const bytes of createReadStream(path)) hash.update(bytes)
-  return hash.digest('hex')
-}
-
 async function probeInput(path) {
   const { stdout } = await run(process.env.FFPROBE_BIN || 'ffprobe', [
     '-v', 'error', '-show_streams', '-show_format', '-of', 'json', path,
@@ -56,7 +50,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     if (!prepared) {
       const media = {}, reused = new Set(plan.video_paths || (plan.shots || []).filter(s => s.mode === 'reuse').map(s => s.video_path))
       for (const path of sources(plan)) {
-        const sha256 = await digest(path)
+        const sha256 = await sha256File(path)
         media[path] = { sha256, ...(reused.has(path) ? await probeInput(path) : {}) }
         media[path].name = await client.upload(path, `${jobId}-${sha256}${extname(path).toLowerCase()}`)
       }
@@ -106,7 +100,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
         comfyui_view_url: client.viewUrl(file, publicUrl) })
     }
     await rename(candidate, output)
-    const sha256 = await digest(output), size = (await stat(output)).size
+    const sha256 = await sha256File(output), size = (await stat(output)).size
     status.result = { path: output, size_bytes: size, sha256, media_info: m,
       validation: { file_exists: 'passed', nonempty: 'passed', media_probe: 'passed', full_decode: 'passed',
         specification_match: 'passed', human_review: 'not_run' },

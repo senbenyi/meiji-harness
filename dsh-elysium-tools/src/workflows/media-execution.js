@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
+import { sha256File } from '../functions/common/file-hash.js'
 import { stat, rename } from 'node:fs/promises'
 import { join, extname } from 'node:path'
 import { execFile } from 'node:child_process'
@@ -10,11 +9,6 @@ import { inspectMedia } from '../functions/common/diagnostics.js'
 import { buildMediaGraph } from './media-graph.js'
 
 const run = promisify(execFile)
-async function digest(path) {
-  const hash = createHash('sha256')
-  for await (const data of createReadStream(path)) hash.update(data)
-  return hash.digest('hex')
-}
 async function probe(path, report) {
   const result = await inspectMedia(path, report)
   if (!result.media_info) throw new Error('无法验证素材规格')
@@ -41,7 +35,7 @@ export async function executeComfyMedia(jobId, plan) {
     if (!prepared) {
       const media = {}, paths = plan.capability === 'image-generate' ? [plan.params.image_path].filter(Boolean) : plan.params.video_paths
       for (const path of new Set(paths)) {
-        const sha = await digest(path)
+        const sha = await sha256File(path)
         media[path] = { info: await probe(path, join(directory, `input-${sha}.json`)), name: await client.upload(path, `${jobId}-${sha}${extname(path)}`) }
       }
       prepared = { ...await buildMediaGraph(plan, media, jobId), server_url: client.url.href }
@@ -71,7 +65,7 @@ export async function executeComfyMedia(jobId, plan) {
     if (info.width !== expected.width || info.height !== expected.height || (expected.kind === 'video' && (Math.abs(info.duration_seconds - expected.duration_seconds) > 0.15 || Math.abs(info.frame_rate - expected.frame_rate) > 0.001 || info.has_audio !== expected.has_audio))) throw new Error('产物尺寸、时长、帧率或音轨不匹配')
     await run(process.env.FFMPEG_BIN || 'ffmpeg', ['-v', 'error', '-xerror', '-nostdin', '-i', candidate, '-f', 'null', '-'], { timeout: 300000 })
     await rename(candidate, output)
-    status.result = { path: output, size_bytes: (await stat(output)).size, sha256: await digest(output), media_kind: expected.kind, media_info: info, warnings: [],
+    status.result = { path: output, size_bytes: (await stat(output)).size, sha256: await sha256File(output), media_kind: expected.kind, media_info: info, warnings: [],
       validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' },
       comfyui_prompt_id: promptId, comfyui_view_url: client.viewUrl(descriptor, requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')),
       comfyui_metadata_status: 'comfyui-final', comfyui_artifacts: [{ ...descriptor, prompt_id: promptId }] }

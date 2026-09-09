@@ -10,7 +10,6 @@ const endpoints = join(root, 'scripts', 'endpoint')
 const artifacts = join(root, 'artifacts')
 await mkdir(endpoints, { recursive: true })
 await mkdir(artifacts)
-process.env.LLM_AI_MODEL_ROOT = root
 process.env.ARTIFACTS_ROOT = artifacts
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 const backend = await mockComfy(root)

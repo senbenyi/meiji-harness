@@ -2,7 +2,7 @@
   "id": "dsh-external/dsh-elysium-tools",
   "version": "0.4.0",
   "main": "./lib/index.js",
-  "description": "极乐世界 AI 成人短剧媒体工具：角色与场景图片、视频、对白、环境音、按需增强及任务查询，配合标准模式使用。",
+  "description": "极乐世界 AI 成人短剧媒体工具：角色与场景图片、视频及任务查询，配合标准模式使用。",
   "engines": {
     "dsh": ">=0.1.2-alpha.3"
   },
@@ -16,10 +16,6 @@
       "model_generate_video_long",
       "model_generate_video",
       "model_concat_video",
-      "model_generate_dialogue",
-      "model_interpolate_video",
-      "model_upscale_video",
-      "model_generate_video_audio",
       "model_job_status",
       "model_job_result",
       "comfyui_task_queue",

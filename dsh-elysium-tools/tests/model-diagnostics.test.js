@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { inspectMedia, retryAdvice, summarizeMedia, traceDiagnostics } from '../src/functions/common/diagnostics.js'
+import { inspectMedia, summarizeMedia, traceDiagnostics } from '../src/functions/common/diagnostics.js'
 
 test('media dimensions are measured and never relabeled as 9:16', () => {
   const result = summarizeMedia({ format: { format_name: 'mov,mp4', duration: '5.2' }, streams: [
@@ -34,14 +34,11 @@ test('unavailable probe is not reported as validation passed', async () => {
   }
 })
 
-test('stage timing and retry advice preserve existing prompt evidence', () => {
+test('stage timing preserves existing prompt evidence', () => {
   const chain = [
     { stage: 'route', span_id: 's1', capability: 'text-to-video', timestamp: '2026-09-06T00:00:00Z' },
     { stage: 'comfyui-status', span_id: 's1', prompt_id: 'p1', timestamp: '2026-09-06T00:00:03Z', node_errors: [{ node_id: '7' }] },
   ]
   assert.equal(traceDiagnostics(chain).stage_timings[0].recorded_duration_ms, 3000)
   assert.deepEqual(traceDiagnostics(chain).node_errors, [{ node_id: '7' }])
-  assert.equal(retryAdvice('MODEL_GENERATION_TIMEOUT', chain).retryable, null)
-  assert.match(retryAdvice('MODEL_GENERATION_TIMEOUT', chain).retry_scope, /query-existing/)
-  assert.equal(retryAdvice('MODEL_EXECUTOR_MISSING', []).retryable, false)
 })

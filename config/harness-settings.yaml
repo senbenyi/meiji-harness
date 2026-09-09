@@ -11,7 +11,6 @@ harness-runtime:
   MINIMAX_H3_COMFYUI_OUTPUT_ROOT: /root/autodl-tmp/ComfyUI-minimax-h3/output
   ARTIFACTS_ROOT: /root/autodl-fs/artifacts/projects
   ELYSIUM_TOOLS_STATE_ROOT: /root/autodl-tmp/elysium-tools
-  LLM_AI_MODEL_ROOT: /root/autodl-tmp/project
   LOCAL_DSH_HOME: /Users/mac/.dsh
   LOCAL_HARNESS_HOST: 127.0.0.1
   LOCAL_HARNESS_PORT: 3080
