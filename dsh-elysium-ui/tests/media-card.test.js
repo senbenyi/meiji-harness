@@ -137,3 +137,35 @@ test('unmount aborts the request and removes pending polling timers', async () =
   assert.equal(f.timers.size, 0)
   assert.equal(f.requests[0].options.signal.aborted, true)
 })
+
+test('ComfyUI playback failure falls back to same-origin media, then reports failure without looping', async () => {
+  const url = 'http://127.0.0.1:6016/view?filename=final.mp4&type=output'
+  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
+  try {
+    await act(async () => f.view.root.findByType('video').props.onError())
+    const video = f.view.root.findByType('video')
+    assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
+    assert.match(video.props.src, /session=session&call=call/)
+    assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
+    await act(async () => video.props.onError())
+    assert.match(JSON.stringify(f.view.toJSON()), /视频加载失败/)
+    assert.equal(f.requests.length, 0)
+    await act(async () => f.view.root.findByProps({ children: '重试播放' }).props.onClick())
+    assert.equal(f.view.root.findByType('video').props.src, url)
+    assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
+  } finally { await f.close() }
+})
+
+test('interrupted session recovers original job and falls back when ComfyUI is unreachable', async () => {
+  const f = await fixture([{ status: 'succeeded', job_id: 'original', has_video: true,
+    comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.mp4' }],
+  { isError: true, content: [{ type: 'text', text: 'The tool call was interrupted; outcome unknown.' }] })
+  try {
+    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /已完成/)
+    await act(async () => f.view.root.findByType('video').props.onError())
+    assert.match(f.view.root.findByType('video').props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
+    assert.equal(f.requests.length, 1)
+    assert.match(f.requests[0].url, /\/status\?/)
+    assert.equal(f.timers.size, 0)
+  } finally { await f.close() }
+})
