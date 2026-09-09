@@ -26,3 +26,11 @@ test('completed output preserves actual media and review status', () => {
     validation: { full_decode: 'passed', human_review: 'not_run' }, warnings: ['review pending'] }
   assert.deepEqual(JSON.parse(renderToolDebug({}, value)[0].text), value)
 })
+
+test('image result retains the exact local reference path alongside its preview', () => {
+  const value = { status: 'succeeded', job_id: 'c'.repeat(32), media_kind: 'image',
+    path: '/artifacts/image.png', comfyui_metadata_status: 'comfyui-final', comfyui_view_url: 'http://comfy/view?filename=image.png' }
+  const output = JSON.parse(renderToolDebug({}, value)[0].text)
+  assert.equal(output.path, value.path)
+  assert.equal(output.comfyui_view_url, value.comfyui_view_url)
+})

@@ -1,6 +1,7 @@
 import { requiredConfig } from '../config.js'
 import { randomBytes } from 'node:crypto'
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { promisify } from 'node:util'
 import { mkdir, open, readFile, realpath, stat, writeFile, unlink, rename } from 'node:fs/promises'
 import { isAbsolute, join, relative, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,6 +11,7 @@ import { bindVideoCall } from '../jobs/call-index.js'
 const stateRoot = () => requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
 const artifactsRoot = () => requiredConfig('ARTIFACTS_ROOT')
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
+const run = promisify(execFile)
 
 async function writeStatus(directory, value) {
   const path = join(directory, 'status.json')
@@ -133,9 +135,20 @@ async function launchLocked(jobId, capability) {
         alive = false
       } else {
         process.kill(pid, 0)
+        if (process.platform === 'linux') {
+          const argv = (await readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0')
+          alive = argv.some((arg, index) => arg.endsWith('/video-worker.js') && argv[index + 1] === jobId)
+        } else {
+          const { stdout } = await run('ps', ['-p', String(pid), '-o', 'command='], { timeout: 5000 })
+          alive = stdout.includes(`/video-worker.js ${jobId}`)
+        }
       }
     } catch (error) {
-      if (error.code === 'ESRCH') alive = false
+      let gone = error.code === 'ESRCH'
+      if (!gone && Number.isInteger(pid) && pid > 0) {
+        try { process.kill(pid, 0) } catch (probeError) { gone = probeError.code === 'ESRCH' }
+      }
+      if (gone) alive = false
       else throw new ModelTaskError('WORKFLOW_RECOVERY_REQUIRED', '原 worker 身份未确认，暂不接管任务', 409)
     }
     if (alive) return { job_id: jobId, status: (await getJob(jobId)).status }

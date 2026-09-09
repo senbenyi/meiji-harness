@@ -168,3 +168,37 @@ test('workflow survives submitting process exit and failed validation resumes un
   assert.equal(job.status, 'succeeded', job.error)
   assert.equal(job.result.validation.full_decode, 'passed')
 })
+
+test('dead or reused worker PID recovers the original prompt without resubmitting', { skip: !available }, async () => {
+  const result = await generate.execute({ duration: 1, prompts: ['recover original'] })
+  const original = await wait(result.job_id), directory = join(root, 'jobs/jobs', result.job_id)
+  const before = backend.prompts.length
+  for (const pid of [2147483647, process.pid]) {
+    await rm(result.path)
+    await writeFile(join(directory, 'status.json'), JSON.stringify({ ...original, status: 'running', stage: 'execute' }))
+    await writeFile(join(directory, 'worker.lock'), String(pid))
+    const results = await Promise.allSettled([resume.execute({ job_id: result.job_id }), resume.execute({ job_id: result.job_id })])
+    assert.ok(results.some(r => r.status === 'fulfilled' && r.value.status === 'succeeded'))
+    for (const r of results) if (r.status === 'rejected') assert.equal(r.reason.code, 'WORKFLOW_RECOVERY_REQUIRED')
+    const recovered = await wait(result.job_id)
+    assert.equal(recovered.comfyui_prompt_id, original.comfyui_prompt_id)
+    assert.equal(backend.prompts.length, before)
+    assert.ok((await stat(result.path)).size > 0)
+  }
+})
+
+test('corrupt reusable shot prevents successful final publication and can resume without inference', { skip: !available }, async () => {
+  backend.controls.corruptShot = true
+  let result
+  try { result = await generate.execute({ duration: 1, prompts: ['validate shot'] }) }
+  finally { backend.controls.corruptShot = false }
+  await wait(result.job_id)
+  assert.equal(result.status, 'failed')
+  assert.equal(await stat(join(artifacts, `production-${result.job_id}`, 'output/final.mp4')).catch(() => null), null)
+  const before = backend.prompts.length
+  const recovered = await resume.execute({ job_id: result.job_id })
+  assert.equal(recovered.status, 'succeeded')
+  assert.equal(recovered.shots[0].validation.full_decode, 'passed')
+  assert.equal(backend.prompts.length, before)
+  await wait(result.job_id)
+})

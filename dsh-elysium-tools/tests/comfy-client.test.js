@@ -56,6 +56,28 @@ test('validation catches incompatible socket types before submission', async () 
     b: { class_type: 'Sink', inputs: { audio: ['a', 0] } } }), /连线类型不匹配/)
 })
 
+test('wait distinguishes queue stages and tolerates a completion snapshot race', async () => {
+  const client = new ComfyClient('http://example.invalid'), stages = []
+  let histories = 0
+  client.request = async route => {
+    if (route === 'history/p') return ++histories === 4 ? { p: { status: { completed: true } } } : {}
+    return { queue_pending: histories === 1 ? [[0, 'p']] : [], queue_running: histories === 2 ? [[0, 'p']] : [] }
+  }
+  await client.wait('p', 1000, async (_, stage) => stages.push(stage), 1)
+  assert.deepEqual(stages, ['queued', 'execute', 'reconcile'])
+})
+
+test('deleted prompt stops waiting and never authorizes a duplicate submission', async () => {
+  const client = new ComfyClient('http://example.invalid'), path = join(directory, 'deleted.json')
+  await saveJson(path, { server_url: client.url.href, prompt_id: 'deleted' })
+  client.request = async route => {
+    assert.notEqual(route, 'prompt')
+    return route === 'queue' ? { queue_pending: [], queue_running: [] } : {}
+  }
+  await assert.rejects(client.wait('deleted', 1000, undefined, 1), { code: 'COMFYUI_TASK_NOT_FOUND' })
+  assert.equal(await client.submit({}, 'job', path, true), 'deleted')
+})
+
 test('task management uses HTTP results and never interrupts another running job', async () => {
   const mutations = []
   const server = createServer(async (req, res) => {
