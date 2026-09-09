@@ -54,6 +54,10 @@ export function buildVideoGraph(plan, media, workflows, jobId) {
   const graph = {}, shots = videoShots(plan, media), workflowName = selectVideoWorkflow(shots)
   const bundle = workflows[workflowName], settings = bundle.settings, templates = components(bundle)
   if (settings.fps !== 24) throw new Error('H3 模型时间基准必须为 24 fps；交付帧率请修改 outputFps')
+  const frames = shots.reduce((sum, shot) => sum + Math.round(shot.duration * settings.outputFps), 0)
+  if (Math.abs(frames / settings.outputFps - plan.duration) > (shots.length / 2 + 1) / settings.outputFps + 0.01) {
+    throw new Error('素材总时长与 duration 不符，请明确选用镜头及剪辑时长')
+  }
   const add = (id, class_type, inputs) => {
     const prototype = bundle.graph[bundle.workflow.extra.harness.operations[class_type]]
     if (!prototype) throw new Error(`Missing workflow operation: ${class_type}`)

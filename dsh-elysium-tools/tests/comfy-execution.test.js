@@ -20,3 +20,24 @@ test('recovery keeps an old API snapshot without rebuilding or requiring a visua
   await assert.rejects(prepareComfyWorkflow(directory, { ...client, url: new URL('http://localhost:6017/') }, saved.plan, prepare), /恢复请求或后端/)
   assert.deepEqual(await readJson(join(directory, 'comfyui-workflow.json')), saved)
 })
+
+test('failed execution retains the original node history and prompt identity', async t => {
+  const { ComfyClient } = await import('../src/functions/comfyui/client.js')
+  const { runComfyWorkflow } = await import('../src/workflows/comfy-execution.js')
+  const directory = await mkdtemp(join(tmpdir(), 'comfy-failed-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const history = { status: { completed: false, status_str: 'error', messages: [
+    ['execution_error', { node_id: 's0_decode_video', exception_message: 'decoder failed' }],
+  ] }, outputs: {} }
+  const client = new ComfyClient('http://localhost:6016')
+  client.request = async route => {
+    if (route === 'prompt') return { prompt_id: 'original' }
+    assert.equal(route, 'history/original')
+    return { original: history }
+  }
+  const status = { job_id: 'job' }
+  await assert.rejects(runComfyWorkflow(directory, client, { graph: {}, workflowName: 'workflow_generate_video' }, status, 1000), { code: 'COMFYUI_EXECUTION_FAILED' })
+  assert.deepEqual(await readJson(join(directory, 'comfyui-history.json')), history)
+  assert.equal((await readJson(join(directory, 'status.json'))).comfyui_prompt_id, 'original')
+  assert.equal((await readJson(join(directory, 'comfyui-submission.json'))).prompt_id, 'original')
+})

@@ -42,7 +42,7 @@ window.__ModuleLoader__.load({
         poll()
         return () => { active = false; controller.abort(); clearTimeout(timer) }
       }, [sessionId, callId, block, attempt])
-      const kind = job.media_kind || (toolName === 'model_generate_image' ? 'image' : 'video'), title = kind === 'image' ? '图片' : '视频'
+      const kind = job.media_kind || (['model_generate_image', 'model_character_view', 'model_character_sheet'].includes(toolName) ? 'image' : 'video'), title = kind === 'image' ? '图片' : '视频'
       let video
       if (job.status === 'succeeded' && job.comfyui_view_url && !useHarnessMedia) video = job.comfyui_view_url
       else if (job.has_video || job.has_image || useHarnessMedia) {
@@ -104,7 +104,7 @@ window.__ModuleLoader__.load({
     return { MediaTaskCard, apply(ctx) {
       require('elysium-tools/media-styles').apply()
       ctx.slots.inject('tool.call.toolview', () => {
-        for (const key of ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume']) ctx.slots.register({ name: 'tool.call.toolview', key }, props => fromBlock(props.block).status === 'succeeded'
+        for (const key of ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume', 'model_character_view', 'model_character_sheet']) ctx.slots.register({ name: 'tool.call.toolview', key }, props => fromBlock(props.block).status === 'succeeded'
           ? h('span', { style: { fontSize: 13, opacity: 0.65 } }, '媒体已生成 · 作品见本轮回复下方')
           : h(MediaTaskCard, props))
       })

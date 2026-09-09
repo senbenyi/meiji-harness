@@ -17,7 +17,7 @@ export function byteRange(header, size) {
   return { start, end }
 }
 export function jobSummary(job) {
-  const image = job.result?.media_kind === 'image' || ['.png', '.jpg', '.jpeg', '.webp'].includes(extname(job.result?.path || '').toLowerCase()) || job.capability === 'image-generate' || job.debug?.effective_input?.capability === 'image-generate'
+  const image = job.result?.media_kind === 'image' || ['.png', '.jpg', '.jpeg', '.webp'].includes(extname(job.result?.path || '').toLowerCase()) || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)
   return { job_id: job.job_id, status: job.status,
     stage: job.status === 'failed' ? job.failed_stage : job.workflow?.stage || job.stage,
     error: job.error, retryable: job.retryable, retry_scope: job.retry_scope,

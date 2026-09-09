@@ -14,6 +14,10 @@ const writeStatus = (directory, value) => saveJson(join(directory, 'status.json'
 
 export async function launch(jobId, capability = 'workflow-video', retryFailed = false) {
   const directory = join(stateRoot(), 'jobs', jobId)
+  return withLaunchLock(directory, () => launchLocked(jobId, capability, retryFailed))
+}
+
+export async function withLaunchLock(directory, callback) {
   const guard = spawn(runtimeConfig().HARNESS_PYTHON || process.env.PYTHON_BIN || 'python3',
     [fileURLToPath(new URL('./launch-lock.py', import.meta.url)), join(directory, 'launch.lock')],
     { stdio: ['pipe', 'pipe', 'pipe'] })
@@ -26,7 +30,7 @@ export async function launch(jobId, capability = 'workflow-video', retryFailed =
       guard.once('exit', () => reject(new ModelTaskError('WORKFLOW_RECOVERY_REQUIRED', '任务正在启动或启动锁不可用，请稍后查询原任务', 409)))
       guard.stdout.once('data', resolve)
     })
-    return await launchLocked(jobId, capability, retryFailed)
+    return await callback()
   } finally { guard.stdin.end(); await closed }
 }
 

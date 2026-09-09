@@ -20,6 +20,7 @@ export async function collectMediaArtifacts(client, history, prepared, jobId, di
   await run(runtimeConfig().FFMPEG_BIN || 'ffmpeg', ['-v', 'error', '-xerror', '-nostdin', '-i', candidate, '-f', 'null', '-'], { timeout: 300000 })
   await rename(candidate, output)
   return { path: output, size_bytes: (await stat(output)).size, sha256: await sha256File(output), media_kind: expected.kind, media_info: info, warnings: [],
+    ...(prepared.plan.params.character ? { character: prepared.plan.params.character } : {}),
     validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' },
     comfyui_prompt_id: promptId, comfyui_view_url: client.viewUrl(descriptor, requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')),
     comfyui_metadata_status: 'comfyui-final', comfyui_artifacts: [{ ...descriptor, prompt_id: promptId }] }

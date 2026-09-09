@@ -24,12 +24,11 @@ window.__ModuleLoader__.load({
 .elysium-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .elysium-heading strong { font-size: 14px; font-weight: 500; }
 .elysium-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; color: var(--media-muted); font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; }
-.elysium-details { font-size: 12px; overflow-wrap: anywhere; }
+.elysium-details { flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; }
 .elysium-details > summary { cursor: pointer; list-style: none; color: var(--media-muted); }
 .elysium-details > summary::-webkit-details-marker { display: none; }
 .elysium-details > summary::after { content: '⌄'; display: inline-block; margin-left: 4px; }
 .elysium-details[open] > summary::after { transform: rotate(180deg); }
-.elysium-details[open] { flex-basis: 100%; }
 .elysium-details p { margin: 8px 0 0; font-size: 12px; }
 .elysium-text-button { padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .elysium-error { margin: 8px 0 0; font-size: 12px; color: var(--media-muted); overflow-wrap: anywhere; }

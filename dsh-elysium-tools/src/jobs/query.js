@@ -44,6 +44,7 @@ export function completedResult(job) {
   if (job.status !== 'succeeded' || !job.result) {
     throw new ModelTaskError('MODEL_JOB_NOT_READY', `任务尚未成功：${job.status}`, 409)
   }
-  return { job_id: job.job_id, status: job.status, trace_id: job.trace_id, parent_job_id: job.parent_job_id,
+  const output = { job_id: job.job_id, status: job.status, trace_id: job.trace_id, parent_job_id: job.parent_job_id,
     stage: job.stage, timings: job.timings, code_version: job.code_version, ...job.result, debug: job.debug }
+  return Object.fromEntries(Object.entries(output).filter(([, value]) => value !== undefined))
 }

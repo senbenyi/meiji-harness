@@ -84,7 +84,9 @@ export class ComfyClient {
     while (Date.now() < deadline) {
       const entry = (await this.request(`history/${encodeURIComponent(promptId)}`))[promptId]
       if (entry?.status?.status_str === 'error' || entry?.status?.messages?.some(([type]) => ['execution_error', 'execution_interrupted'].includes(type))) {
-        throw new Error(`ComfyUI 执行失败：${JSON.stringify(entry.status.messages)}`)
+        throw Object.assign(new Error(`ComfyUI 执行失败：${JSON.stringify(entry.status.messages)}`), {
+          code: 'COMFYUI_EXECUTION_FAILED', history: entry,
+        })
       }
       if (entry?.status?.completed) return entry
       const queue = await this.request('queue')

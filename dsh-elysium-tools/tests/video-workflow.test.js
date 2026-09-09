@@ -68,12 +68,16 @@ test('production tool waits and delivers 12 concatenated clips without model pol
   assert.equal(report.shots.length, 12)
 })
 
-test('wrong final duration fails and does not deliver a successful partial result', { skip: !available }, async () => {
+test('wrong source duration fails before submitting any ComfyUI task', { skip: !available }, async () => {
   const clip = join(artifacts, 'wrong.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
+  const before = backend.prompts.length
   const queued = await generate.execute({ duration: 180, video_paths: [clip] })
   const job = await wait(queued.job_id)
   assert.equal(job.status, 'failed')
+  assert.equal(job.failed_stage, 'prepare')
+  assert.match(job.error, /素材总时长/)
+  assert.equal(backend.prompts.length, before)
   assert.throws(() => completedResult(job), { code: 'MODEL_JOB_NOT_READY' })
   assert.equal(await stat(join(artifacts, `production-${queued.job_id}`, 'output/final.mp4')).catch(() => null), null)
 })

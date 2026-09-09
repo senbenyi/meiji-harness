@@ -1,5 +1,6 @@
 import { sha256File } from '../functions/common/file-hash.js'
 import { join, extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { requiredConfig } from '../config.js'
 import { ComfyClient } from '../functions/comfyui/client.js'
 import { saveJson } from '../jobs/json.js'
@@ -15,10 +16,16 @@ export async function executeComfyMedia(jobId, plan) {
   await saveJson(statusPath, status)
   try {
     const prepared = await prepareComfyWorkflow(directory, client, plan, async () => {
-      const media = {}, paths = plan.capability === 'image-generate' ? [plan.params.image_path].filter(Boolean) : plan.params.video_paths
+      const media = {}, paths = plan.capability === 'image-generate' ? [plan.params.image_path].filter(Boolean) : plan.capability === 'image-compose' ? plan.params.views.map(v => v.path) : plan.params.video_paths
       for (const path of new Set(paths)) {
         const sha = await sha256File(path)
         media[path] = { info: await probeMedia(path, join(directory, `input-${sha}.json`)), name: await client.upload(path, `${jobId}-${sha}${extname(path)}`) }
+      }
+      if (plan.capability === 'image-generate' && plan.params.character) {
+        const view = plan.params.character.view
+        if (!['front', 'side', 'back'].includes(view)) throw new Error('Invalid character view')
+        const path = fileURLToPath(new URL(`./templates/poses/${view}.png`, import.meta.url))
+        media.pose = { name: await client.upload(path, `character-${view}-${await sha256File(path)}.png`) }
       }
       return { ...await buildMediaGraph(plan, media, jobId), server_url: client.url.href }
     })

@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
     const { createElement: h } = require('react')
     const { MediaTaskCard } = require('elysium-tools/media-card')
     const { fromBlock } = require('elysium-tools/media-model')
-    const tools = new Set(['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume'])
+    const tools = new Set(['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume', 'model_character_view', 'model_character_sheet'])
     // Rebuild from native conversation events, including history replay after refresh.
     const definition = {
       kind: 'elysium-media-results',
@@ -18,7 +18,7 @@ window.__ModuleLoader__.load({
           ? { ...state, calls: new Set([...state.calls, String(event.data.callId)]) } : state
         const callId = String(event.data.message.source.callId)
         const block = event.data.message.content[0]
-        if (!state.calls.has(callId) || fromBlock(block).status !== 'succeeded') return state
+        if (!state.calls.has(callId) || fromBlock(block).status === 'rejected') return state
         return { ...state, results: [...state.results.filter(item => item.callId !== callId), { callId, block, seq: event.seq }] }
       },
       buildLocationData: ({ state }, scope, previous) => {

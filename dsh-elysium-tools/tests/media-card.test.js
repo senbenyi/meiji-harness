@@ -30,7 +30,7 @@ async function fixture(responses, block = {}) {
   require(pkg.name).apply({ uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
-  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume'])
+  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video', 'model_generate_video', 'model_generate_video_long', 'model_generate_image', 'model_concat_video', 'model_job_resume', 'model_character_view', 'model_character_sheet'])
   let view
   await act(async () => { view = create(React.createElement(require('elysium-tools/media-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
   return { view, requests, timers, definition: require('elysium-tools/media-results').definition,
@@ -244,7 +244,7 @@ test('same-origin playback recovers a token rotated after status polling', async
 })
 
 
-test('history replay restores only successful media for its own turn', async () => {
+test('history replay restores media for its own turn', async () => {
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: 'http://localhost/view' }) }] })
   try {
     const d = f.definition
@@ -263,5 +263,12 @@ test('history replay restores only successful media for its own turn', async () 
     assert.equal(state.results.length, 1)
     const next = d.start({}, { event: { data: { turn: 3 } } })
     assert.equal(d.update({ state: next }, { event: result }).results.length, 0)
+    const interrupted = { isError: true, content: [{ type: 'text', text: 'The tool call was interrupted; outcome unknown.' }] }
+    state = d.update({ state }, { event: { ...result, data: { ...result.data, message: { ...result.data.message, content: [interrupted] } } } })
+    assert.equal(state.results.length, 1)
+    assert.equal(state.results[0].block, interrupted)
+    const rejected = { isError: true, content: [{ type: 'text', text: '[MODEL_INPUT_INVALID] duration 必须为正整数' }] }
+    const empty = d.update({ state: next }, { event: call })
+    assert.equal(d.update({ state: empty }, { event: { ...result, data: { ...result.data, message: { ...result.data.message, content: [rejected] } } } }).results.length, 0)
   } finally { await f.close() }
 })
