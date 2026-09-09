@@ -36,8 +36,22 @@ try {
   const { Group } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis-plugin-loader')))
   const rows = composition
   assert.equal(rows.length, standard.length)
+  async function normalized(row) {
+    const result = structuredClone(row)
+    if (row.group) result.config = await Promise.all(row.config.map(normalized))
+    else {
+      const module = await import(pathToFileURL(require.resolve(row.name)))
+      const Config = module.default?.Config || module.Config
+      if (Config) {
+        const validated = Config['~standard'].validate(row.config || {})
+        assert.ok(!validated.issues, row.id)
+        result.config = validated.value
+      }
+    }
+    return result
+  }
   for (const row of standard) {
-    if (!['persona', 'skill-filesystem'].includes(row.id)) assert.deepEqual(rows.find(item => item.id === row.id), row)
+    if (!['persona', 'skill-filesystem'].includes(row.id)) assert.deepEqual(await normalized(rows.find(item => item.id === row.id)), await normalized(row))
   }
   assert.equal(await readFile(standardPath, 'utf8'), standardText)
   const persona = interpolate(ctx, rows.find(row => row.id === 'persona').config)
