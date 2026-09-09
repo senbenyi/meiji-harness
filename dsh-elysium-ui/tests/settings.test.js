@@ -20,7 +20,7 @@ test('host registers only director settings and validates stored entries', () =>
   assert.throws(() => validateSettings({ directors: [1, 2].map(() => ({ id: 'a', name: 'A', prompt: 'B' })) }), /重复/)
 })
 
-test('director context reads live settings only for Elysium and preserves other assembly data', async () => {
+test('director context reads live settings for any Harness preset and preserves other assembly data', async () => {
   let hook
   let reads = 0
   let settings = { enabled: true, directors: [{ id: 'a', name: '叙事导演', prompt: '关注人物动机' }] }
@@ -32,8 +32,8 @@ test('director context reads live settings only for Elysium and preserves other 
   const base = { sections: [{ name: 'policy', text: '原有规则' }], tools: [{ name: 'existing' }] }
   const context = { agent: { session: { header: { agentPreset: 'elysium' } } } }
   assert.equal(reads, 0)
-  assert.equal(await hook(null, { agent: {} }, async () => base), base)
-  assert.equal(reads, 0)
+  assert.equal((await hook(null, { agent: {} }, async () => base)).sections.length, 2)
+  assert.equal(reads, 1)
   const first = await hook(null, context, async () => base)
   assert.equal(first.tools, base.tools)
   assert.deepEqual(first.sections[0], base.sections[0])
@@ -88,7 +88,10 @@ test('director loading returns only the requested live version and rejects unava
   settings.enabled = false
   await assert.rejects(registered.execute({ id: 'b' }, exec), /未启用/)
   assert.deepEqual((await hook(null, exec, async () => assembly)).tools, [{ name: 'existing' }])
-  await assert.rejects(registered.execute({ id: 'b' }, { agent: {} }), /仅适用/)
+  await assert.rejects(registered.execute({ id: 'b' }, { agent: {} }), /未启用/)
+  settings.enabled = true
+  assert.equal((await registered.execute({ id: 'b' }, { agent: { session: { header: { agentPreset: 'standard' } } } })).prompt, b.prompt)
+  settings.enabled = false
   assert.deepEqual((await hook(null, { agent: {} }, async () => assembly)).tools, [{ name: 'existing' }])
   assert.equal(assembly.tools.length, 2)
 })

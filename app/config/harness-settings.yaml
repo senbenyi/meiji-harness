@@ -50,9 +50,6 @@ llm-pi-ai:
             - text
       apiKeyEnv: QWEN38_LOCAL_API_KEY
 
-ui-theme:
-  preference: system
-
 agent-default-model:
   provider: qwen38-local
   model: __QWEN_MODEL_ID__
@@ -63,27 +60,18 @@ dsh-better-sidebar:
     git: true
   agentOpenTools: true
 
-dsh-elysium-ui:
-  enabled: true
-  directors: []
-
 ui-conversation:
   busyEnter: steer
 
 permission:
   defaultPreset: danger-full-access
 
-ui-onboarding:
-  welcomeNoticeVersion: 2026-08-13.1
 agent-presets:
   default: elysium
 
 # 启动前生成并覆盖配置；不写入会话、工作区数据和密钥。
 harness-customization:
   profile:
-    - insert:
-        - id: dsh-image-preview
-          name: dsh-image-preview
     - id: dsh-elysium-tools
       config:
         comfyUrl: __MINIMAX_H3_COMFYUI_URL__

@@ -5,7 +5,6 @@ export const name = '@dsh-external/dsh-elysium-ui'
 export const inject = ['settings', 'tools']
 export const namespace = 'dsh-elysium-ui'
 const loaderName = 'elysium_read_director'
-const isElysium = agent => agent?.session?.header?.agentPreset === 'elysium'
 const version = director => createHash('sha256').update(JSON.stringify(director)).digest('hex').slice(0, 16)
 
 export function createDirectorTool(ctx) {
@@ -18,8 +17,7 @@ export function createDirectorTool(ctx) {
       properties: Object.fromEntries(['id', 'name', 'version', 'prompt'].map(key => [key, { type: 'string' }])),
       required: ['id', 'name', 'version', 'prompt'] },
     render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-    execute: async (args, exec) => {
-      if (!isElysium(exec?.agent)) throw new Error('导演读取仅适用于极乐世界预设')
+    execute: async args => {
       const settings = ctx.settings.get(namespace)
       if (!settings?.enabled) throw new Error('导演管理未启用')
       const director = settings.directors?.find(row => row.id === args.id)
@@ -54,10 +52,8 @@ export function apply(ctx) {
   const register = () => ctx.tools.register(createDirectorTool(ctx))
   if (typeof ctx.effect === 'function') ctx.effect(register, `${namespace}: director reader`)
   else register()
-  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+  ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const assembly = await next()
-    if (!isElysium(context.agent)) return assembly.tools.some(tool => tool.name === loaderName)
-      ? { ...assembly, tools: assembly.tools.filter(tool => tool.name !== loaderName) } : assembly
     const settings = ctx.settings.get(namespace)
     const sections = assembly.sections.filter(section => section.name !== 'elysium:directors')
     if (settings?.enabled && settings.directors?.length) {

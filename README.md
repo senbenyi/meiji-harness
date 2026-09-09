@@ -1,9 +1,9 @@
 # llm-dsh-plugins
 
-工具插件连同 Elysium preset、人格、指令和创作技能，可以独立安装到本地或服务器，配置方式见 [独立安装配置](dsh-elysium-tools/README.md#独立安装配置)。下方 `app/` 脚本是服务器部署方案，不是插件运行前提。
+两个插件可分别完整安装到本地或服务器，互不依赖。工具包自带媒体卡片、Elysium preset、人格、指令和创作技能；UI 包独立提供导演管理。配置方式见 [独立安装配置](dsh-elysium-tools/README.md#独立安装配置)。下方 `app/` 脚本是服务器部署方案，不是插件运行前提。
 
 - [dsh-elysium-ui](./dsh-elysium-ui/README.md)：Harness 原生导演设置页面。
-- [dsh-elysium-tools](./dsh-elysium-tools/README.md)：Endpoint 能力工具及任务查询。
+- [dsh-elysium-tools](./dsh-elysium-tools/README.md)：生成工具、任务查询与媒体卡片。
 
 ## 工具插件部署
 

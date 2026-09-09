@@ -40,7 +40,7 @@ then
 fi
 node --check "$plugin_dir/lib/index.js"
 while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$plugin_dir/lib" -type f -name '*.js' -print0)
-[[ "$kind" != ui || -s "$plugin_dir/lib/client.js" ]] || fail 'UI 浏览器产物缺失'
+[[ -s "$plugin_dir/lib/client.js" ]] || fail '插件浏览器产物缺失'
 node --input-type=module - "$plugin_dir/lib/index.js" <<'JS'
 import { pathToFileURL } from 'node:url'
 await import(pathToFileURL(process.argv[2]).href)

@@ -1,8 +1,8 @@
 # dsh-elysium-tools
 
-极乐世界 AI 成人短剧的 DeepSeek Harness Function Call 工具插件。配合标准模式的文件、检索、计划和工作流能力，提供角色与场景图片、视频及任务查询。预设和创作流程见 [Harness 说明](../docs/harness.md#极乐世界预设)。
+极乐世界 AI 成人短剧的 DeepSeek Harness Function Call 工具插件。配合标准模式的文件、检索、计划和工作流能力，提供角色与场景图片、视频及任务查询。创作流程随包提供在 `presets/elysium/skills/`。
 
-生产调用链为 `Harness → workflow_generate_video → 自动选择 workflow_generate_video / workflow_director_video → ComfyUI HTTP`。工作流随插件打包，运行时不读取模型项目脚本。配置、恢复语义与适配边界见 [解耦说明](../docs/video-comfyui-decoupling.md)。
+生产调用链为 `Harness → workflow_generate_video → 自动选择 workflow_generate_video / workflow_director_video → ComfyUI HTTP`。工作流随插件打包，运行时不读取模型项目脚本。连接配置见下文“独立安装配置”。
 
 ## 使用前说明
 
@@ -80,7 +80,7 @@
 
 ### `model_generate_video`
 
-已有片段合片调用 `model_concat_video`；导演工作流已返回成片时无需重复合片。合片保留原音轨，要求编码、画幅、帧率与音轨规格一致。发布与验收见 [Harness 文档](../docs/harness.md)。
+已有片段合片调用 `model_concat_video`；导演工作流已返回成片时无需重复合片。合片保留原音轨，要求编码、画幅、帧率与音轨规格一致。交付以返回的产物校验结果为准。
 
 对应 ComfyUI 视频工作流，生成 1..15 秒短视频（包含 15 秒）。必填 `mode`、`prompt`；`duration` 默认 5 秒，`seed` 默认 666。
 
@@ -132,9 +132,15 @@
 - `src/media/probe.js`、`src/workflows/*-artifacts.js`、`video-validation.js`：素材探测、下载及产物验收。
 - `src/http/media-jobs.js`：会话绑定后的状态、预览和下载路由。
 
-完整调用路径、外部节点边界及重构验证见 [执行链路](../docs/tools-execution-chain.md)。
+ComfyUI 服务须预装工作流所需模型与节点；插件通过 HTTP 提交和接收任务。
 
 ## 独立安装配置
+
+完整安装包自带生成工具、媒体卡片、预设、技能和配置示例，不依赖 UI 插件或仓库 `app/`。安装交付包：`dsh plugin --profile web add --workspace-root /absolute/path/to/package`，随后重新加载 Harness。
+
+[config/cordis.patch.example.yml](config/cordis.patch.example.yml) 提供工具连接配置；[config/harness-settings.example.yaml](config/harness-settings.example.yaml) 提供可选的 Qwen 兼容模型接入和默认预设配置。按本机情况合并到宿主配置，不要整份覆盖已有设置。已有可用模型时无需配置另一个模型；权限由宿主用户选择。
+
+媒体卡片随 Web 客户端入口加载，生成、轮询、预览和下载不需要其他插件。CLI 返回任务结果及产物地址。
 
 插件通过 Cordis 的 `apply(ctx, config)` 接收配置，`src/config.js` 定义默认值与校验。包内 `cordis.patch.yml` 注册空配置；请在安装机器的 `$DSH_HOME/profiles/web/cordis.patch.yml`（默认 `~/.dsh/profiles/web/cordis.patch.yml`）按相同 id 覆盖：
 
@@ -160,7 +166,7 @@
 
 优先级为插件显式配置 → 旧环境变量 → 本机目录／程序默认值。地址没有默认值，显式空值或非法值报错。环境变量兼容 `MINIMAX_H3_COMFYUI_URL`、`MINIMAX_H3_COMFYUI_PUBLIC_URL`、`ARTIFACTS_ROOT`、`ELYSIUM_TOOLS_STATE_ROOT`、`MINIMAX_H3_COMFYUI_OUTPUT_ROOT`、`HARNESS_PYTHON`、`FFMPEG_BIN`、`FFPROBE_BIN` 与 `ELYSIUM_ENABLE_ATOMIC_TOOLS`。
 
-修改配置后重新加载插件或重启 Harness；已启动 worker 保持原配置。插件不修改宿主全局环境变量。工具可独立调用；会话媒体卡片需配套安装 `dsh-elysium-ui`，安装包自带 Elysium preset、人格、指令和创作技能；默认模型和权限仍由 Harness 管理。
+修改配置后重新加载插件或重启 Harness；已启动 worker 保持原配置。插件不修改宿主全局环境变量。工具可独立调用；会话媒体卡片、状态接口与播放器均由本包提供，不需要 `dsh-elysium-ui`，安装包自带 Elysium preset、人格、指令和创作技能；默认模型和权限仍由 Harness 管理。
 
 源码发布时按授权执行：
 
@@ -196,6 +202,6 @@ Node.js 最低 20.16，包路径解析使用其 `process.getBuiltinModule`。完
 
 恢复先查询原任务；提交结果不明时停止，下载或验收失败不重复推理。错误与诊断字段以任务实际保存内容为准，不承诺尚未采集的节点级耗时或推理质量。
 
-通用工具及其说明在极乐世界内通过 `elysium_load_tools` 按组加载，保留原注册和权限执行链，详见 [上下文说明](../docs/harness.md#上下文成本)。
+通用工具及其说明在极乐世界内通过 `elysium_load_tools` 按组加载，保留原注册和权限执行链。
 
 图片工具支持可选 `image_path` 人物参考图；图片与合片默认可见，直接提交可视化 ComfyUI 工作流。`model_job_resume` 按原 job_id 恢复图片、视频和合片任务；导演工作流已输出成片时无需再次合片。图片默认 standard（832×1216、30 步），会话卡片支持预览与下载。

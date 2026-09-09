@@ -61,13 +61,13 @@ SSH 目标与端口读取 `app/config/harness-settings.yaml` 的 `harness-runtim
 
 ### 导演
 
-经 UI 插件的 `system-prompt/assemble` 接入会话，每次只输出 ID、名称和版本哈希。用户选定后调用 `elysium_read_director` 按 ID 取最新正文；相同版本复用，变化时重新读取。部署配置完整覆盖前，须将需保留的导演同步到 `app/config/harness-settings.yaml`。
+经 UI 插件的 `system-prompt/assemble` 接入会话，每次只输出 ID、名称和版本哈希。用户选定后调用 `elysium_read_director` 按 ID 取最新正文；相同版本复用，变化时重新读取。导演管理在普通预设中也可独立使用；部署时保留已安装 UI 插件的导演设置，除非部署配置显式覆盖该字段。
 
 ### 视频生产
 
 统一使用 `workflow_generate_video`，注册创建、恢复、状态查询、结果获取四个工具。多镜头用 `shots` 绑定每镜参数；独立生成、参考生成、末帧续拍和 reuse 可组合。失败用 `workflow_resume_video` 复用原任务；人工改稿新建任务。
 
-H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。成片在任务卡直接播放；优先通过 ComfyUI 视频地址播放，加载失败自动回退到 Harness 同源媒体接口；两者均失败时显示重试。会话中断后仍按原会话与调用 ID 查询后台任务，不重新生成。
+H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。工具包自带媒体任务卡，不需额外安装 UI 或图片预览插件。成片在任务卡直接播放；优先通过 ComfyUI 视频地址播放，加载失败自动回退到 Harness 同源媒体接口；两者均失败时显示重试。会话中断后仍按原会话与调用 ID 查询后台任务，不重新生成。
 
 验收：正常连接时检查 ComfyUI「资产」内的成片与 Harness 视频卡；仅让浏览器无法访问 ComfyUI 时，视频卡应改用 Harness 媒体接口播放；重新打开中断会话，已完成任务应恢复成片。ComfyUI 当前资产列表按任务分组，封面可能为 `shot-1`，展开后查看 `final`。
 

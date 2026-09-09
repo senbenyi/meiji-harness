@@ -1,10 +1,12 @@
 {
   "id": "dsh-external/dsh-elysium-ui",
   "version": "0.1.0",
-  "description": "极乐世界：媒体任务卡与导演设置",
+  "description": "极乐世界：独立导演设置与提示词读取",
   "main": "./lib/index.js",
   "contributes": {
-    "tools": ["elysium_read_director"]
+    "tools": [
+      "elysium_read_director"
+    ]
   },
   "engines": {
     "dsh": ">=0.1.2-alpha.3"

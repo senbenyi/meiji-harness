@@ -3,7 +3,6 @@ window.__ModuleLoader__.load({
     inject: ['slots', 'settingsScope'],
     apply(ctx) {
       require('elysium-ui/settings').apply(ctx)
-      require('elysium-ui/media-card').apply(ctx)
     },
   }),
 })

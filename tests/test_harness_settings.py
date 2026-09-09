@@ -75,6 +75,19 @@ class HarnessSettingsTest(unittest.TestCase):
         loader.apply_harness(self.config, self.root)
         self.assertEqual(expected, {p: p.read_bytes() for p in expected})
 
+    def test_ui_only_deployment_does_not_require_tools_and_preserves_directors(self):
+        home = self.root / "home"
+        profile = home / "profiles/web"
+        profile.mkdir(parents=True)
+        (profile / "package.json").write_text('{"dependencies":{"@dsh-external/dsh-elysium-ui":"*"}}')
+        directors = {"enabled": True, "directors": [{"id": "a", "name": "A", "prompt": "P"}]}
+        (home / "settings.yaml").write_text(yaml.safe_dump({"dsh-elysium-ui": directors}))
+        files = loader.harness_files(self.config, self.root)
+        settings = yaml.safe_load(files[home / "settings.yaml"])
+        self.assertEqual(settings["dsh-elysium-ui"], directors)
+        self.assertNotIn("agent-presets", settings)
+        self.assertEqual(yaml.safe_load(files[profile / "cordis.patch.yml"]), [])
+
     def test_check_does_not_write(self):
         loader.apply_harness(self.config, self.root, check=True)
         self.assertFalse((self.root / "home").exists())

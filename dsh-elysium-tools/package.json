@@ -10,6 +10,13 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-tool"
+      ],
+      "platform": "web"
     }
   },
   "files": [
@@ -17,12 +24,22 @@
     "cordis.patch.yml",
     "dsh.plugin.json",
     "README.md",
-    "presets"
+    "presets",
+    "config"
   ],
   "scripts": {
     "build": "node build-scripts/build.mjs",
     "test": "node --test tests/*.test.js",
     "package:registry": "node build-scripts/package-registry.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "react": "18.2.0",
+    "react-test-renderer": "18.2.0"
+  }
 }

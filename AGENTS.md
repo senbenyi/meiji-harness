@@ -3,8 +3,8 @@
 DeepSeek Harness 插件、运行配置与部署脚本。
 
 ## 项目结构
-- `dsh-elysium-tools/` — 工具注册、参数处理与任务调用。
-- `dsh-elysium-ui/` — 页面与设置界面。
+- `dsh-elysium-tools/` — 工具注册、参数处理、任务调用与媒体卡片。
+- `dsh-elysium-ui/` — 独立导演设置界面与提示词读取，不依赖工具插件。
 - `dsh-elysium/` — 已废弃的旧插件，未经明确要求不修改或删除。
 - `app/config/` — 可选服务器部署的运行参数与宿主设置。
 - `dsh-elysium-tools/presets/elysium/` — 随包安装的 Agent preset、人格、协作指令和创作技能。

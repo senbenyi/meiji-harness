@@ -23,5 +23,8 @@
       "comfyui_task_result",
       "comfyui_task_cancel"
     ]
+  },
+  "client": {
+    "main": "./lib/client.js"
   }
 }

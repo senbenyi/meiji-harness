@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 
-const files = ['package.json', 'pnpm-lock.yaml', 'dsh.plugin.json', 'cordis.patch.yml', 'lib', 'README.md']
+const files = ['package.json', 'pnpm-lock.yaml', 'dsh.plugin.json', 'cordis.patch.yml', 'lib', 'README.md', 'config']
 for (const file of files) {
   if (!existsSync(file)) throw new Error(`缺少 ${file}，请先运行 pnpm build`)
 }

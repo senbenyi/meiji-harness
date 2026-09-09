@@ -2,6 +2,7 @@
 """解析并应用 Harness 配置。"""
 
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -84,8 +85,22 @@ def harness_files(config, root):
     if not isinstance(profile, list):
         raise ValueError("profile 必须是列表")
     home = root / "home"
+    settings = yaml.safe_load(output.getvalue())
+    manifest = home / "profiles/web/package.json"
+    if manifest.exists():
+        installed = json.loads(manifest.read_text()).get("dependencies", {})
+        if "@dsh-external/dsh-elysium-tools" not in installed:
+            profile = [row for row in profile if row.get("id") != "dsh-elysium-tools"]
+            if settings.get("agent-presets", {}).get("default") == "elysium":
+                settings.pop("agent-presets")
+        # Director entries belong to the UI's user settings, not deployment defaults.
+        current = home / "settings.yaml"
+        if "@dsh-external/dsh-elysium-ui" in installed and current.exists() and "dsh-elysium-ui" not in settings:
+            previous = yaml.safe_load(current.read_text()) or {}
+            if "dsh-elysium-ui" in previous:
+                settings["dsh-elysium-ui"] = previous["dsh-elysium-ui"]
     return {
-        home / "settings.yaml": output.getvalue(),
+        home / "settings.yaml": yaml.safe_dump(settings, allow_unicode=True, sort_keys=False),
         home / "profiles/web/cordis.patch.yml": yaml.safe_dump(profile, allow_unicode=True, sort_keys=False),
     }
 

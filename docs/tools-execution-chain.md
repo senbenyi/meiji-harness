@@ -86,3 +86,11 @@ git diff --check
 `app/config/` 只供可选部署使用；部署器不再生成用户 preset、全局人格和 AGENTS.md，也不再同步仓库 `.dsh/`。现有用户文件保留，包内 preset 根目录在默认用户目录之前被发现。
 
 迁移验证：将 package.json、bundle patch 和 presets 复制至含空格的临时包目录，在独立 profile 中模拟 workspace 链接，使用已安装 Harness 的原生解析、插值和 preset 发现器验证，没有引用原仓库 app/config 或 .dsh。复查命令：`node dsh-elysium-tools/tests/preset-installation.mjs /path/to/installed/dsh`。另用原生 Loader/Group 验证补丁求值、平台条件、嵌套分组及卸载，并确认标准预设未被写回；叶子工具使用探针替身，不调用真实模型或外部服务。这不是实际安装、服务重启或自然语言生成验收。
+
+## 两个插件独立交付
+
+媒体卡片、状态接口与生成工具统一由 tools 包提供；UI 包仅负责导演管理和按需读取，在普通 Harness 预设也可使用。两包分别提供 `config/` 示例，不依赖仓库部署目录。`app/config/` 的地址、模型选择、权限和隧道配置仅用于特定部署。
+
+复查：`node --test tests/plugin-independence.test.mjs`。测试将源码和包配置复制到独立临时目录，分别加载 tools、UI 和两者组合，检查服务端工具、客户端入口及插槽是否冲突。只提供声明的第三方依赖，不链接另一个插件。此验证不替代真实安装、浏览器和 GPU 验收。
+
+从旧版本升级两包时，应同时更新已安装的 UI 包：旧 UI 客户端仍包含媒体卡片，新版只由 tools 注册。
