@@ -33,10 +33,13 @@ test('call mapping survives reads and never uses an arbitrary client job/path', 
     await bindVideoCall('a'.repeat(32), { agent: { session: { id: 'session-one' } }, callId: 'call-one' })
     assert.equal(await findVideoCall('session-one', 'call-one'), 'a'.repeat(32))
     assert.equal(await findVideoCall('session-two', 'call-one'), null)
-    const session = { id: 'old', events: [{ type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'c' } },
+    const session = { id: 'old', snapshotEvents: () => [{ type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'c' } },
       { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'c', content: [{ type: 'text', text: JSON.stringify({ job_id: 'b'.repeat(32) }) }] }] } } }] }
     assert.equal(await findVideoCall('old', 'c', session), 'b'.repeat(32))
     assert.equal(await findVideoCall('other', 'c', session), null)
+    assert.equal(await findVideoCall('preparing', 'c', { id: 'preparing', snapshotEvents: () => [
+      { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'c' } },
+    ] }), null)
   } finally {
     if (previous === undefined) delete process.env.ELYSIUM_TOOLS_STATE_ROOT
     else process.env.ELYSIUM_TOOLS_STATE_ROOT = previous
