@@ -21,6 +21,10 @@ test('character views bind the exact front image, reuse completed jobs and rejec
   await assert.rejects(characterView({ view: 'side', description }))
   assert.equal(backend.prompts.length, 0)
   front = await characterView({ view: 'front', description })
+  const frontGraph = backend.prompts.at(-1).prompt
+  assert.equal(frontGraph['12'].inputs.control_net_name, 'xinsir-openpose-sdxl-1.0.safetensors')
+  assert.deepEqual(frontGraph['5'].inputs.positive, ['13', 0])
+  assert.match(frontGraph['11'].inputs.image, /^character-front-/)
   side = await characterView({ view: 'side', description, reference_job_id: front.job_id })
   const before = backend.prompts.length
   assert.equal((await characterView({ view: 'side', description, reference_job_id: front.job_id })).job_id, side.job_id)
@@ -35,6 +39,8 @@ test('character views bind the exact front image, reuse completed jobs and rejec
     const graph = backend.prompts.find(p => p.client_id === result.job_id).prompt
     assert.equal(graph['8'].class_type, 'LoadImage')
     assert.equal(graph['10'].inputs.image[0], '8')
+    assert.match(graph['11'].inputs.image, new RegExp(`^character-${result.character.view}-`))
+    assert.deepEqual(graph['13'].inputs.image, ['11', 0])
     assert.deepEqual(result, JSON.parse(JSON.stringify(result)))
   }
 }))

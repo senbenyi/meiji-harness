@@ -2,7 +2,7 @@
 
 Harness 图片与视频生成插件，自带任务卡和“极乐世界”预设。
 
-角色三视图使用 `character-reference` 技能：正面确认 → 参考生成侧面／背面 → 验收拼接。ComfyUI 需额外安装 `xinsir-openpose-sdxl-1.0.safetensors`；普通图片、视频不受影响。
+角色三视图使用 `character-reference` 技能：正面确认 → 参考生成侧面／背面 → 验收拼接。将 [姿态模型](https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0) 的 `diffusion_pytorch_model.safetensors` 重命名为 `xinsir-openpose-sdxl-1.0.safetensors`，放入 ComfyUI 的 `models/controlnet/`。普通图片、视频无需此模型。
 
 ## 1. 安装插件
 
