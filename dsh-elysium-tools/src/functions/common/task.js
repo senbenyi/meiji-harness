@@ -12,9 +12,7 @@ import { executeComfyVideo } from '../../workflows/video-execution.js'
 const PROJECT_ROOT = () => requiredConfig('LLM_AI_MODEL_ROOT')
 const ARTIFACTS_ROOT = () => requiredConfig('ARTIFACTS_ROOT')
 const STATE_ROOT = () => requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
-const IMAGE_SUFFIXES = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 const VIDEO_SUFFIXES = new Set(['.mp4', '.mov', '.mkv', '.webm'])
-const AUDIO_SUFFIXES = new Set(['.wav', '.mp3', '.flac', '.m4a', '.ogg'])
 const toolContext = new AsyncLocalStorage()
 export const withToolContext = (name, input, run) => toolContext.run({ tool: name, input }, run)
 
@@ -87,16 +85,6 @@ async function promptFile(jobId, name, value) {
   return path
 }
 
-async function promptListFile(jobId, name, value, maximum = 6) {
-  if (!Array.isArray(value) || value.length < 1 || value.length > maximum ||
-      value.some(item => typeof item !== 'string' || !item.trim())) {
-    throw new ModelTaskError('MODEL_INPUT_INVALID', `${name} 必须包含非空提示词列表（最多 ${maximum} 条）`, 422)
-  }
-  const path = join(jobRoot(jobId), 'input', name)
-  await writeJson(path, { prompts: value.map(item => String(item).trim()) })
-  return path
-}
-
 async function runCommand(command, environment, logPath, signal, timeoutMs) {
   signal?.throwIfAborted()
   const script = await stat(command[1]).catch(error => {
@@ -158,105 +146,7 @@ async function buildModelExecution(jobId, capability, params) {
     ARTIFACTS_ROOT: ARTIFACTS_ROOT(),
   }
 
-  if (capability !== 'video-concat') environment.MINIMAX_H3_COMFYUI_URL = requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
-
-  if (capability === 'image-generate') {
-    const prompt = String(params.prompt || '').trim()
-    if (!prompt) throw new ModelTaskError('MODEL_INPUT_INVALID', 'prompt 不能为空', 422)
-    return {
-      command: ['bash', join(endpointRoot, 'generate_image.sh'), '--preset', params.preset, '--seed', String(params.seed), '--prompt', prompt],
-      environment,
-      output: join(projectRoot, 'assets', 'characters', 'img.png'),
-    }
-  }
-
-  if (capability === 'video-concat') {
-    if (!Array.isArray(params.video_paths) || params.video_paths.length < 2) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', '合片至少需要两个按镜头顺序排列的 MP4 路径', 422)
-    }
-    const videos = []
-    for (const path of params.video_paths) {
-      if (typeof path !== 'string') throw new ModelTaskError('MODEL_INPUT_INVALID', 'video_paths 必须为 MP4 路径列表', 422)
-      try {
-        videos.push(await artifactPath(path, new Set(['.mp4']), 'video_paths'))
-      } catch (error) {
-        if (error.code === 'ENOENT') throw new ModelTaskError('MODEL_INPUT_INVALID', '合片输入文件不存在', 422)
-        throw error
-      }
-    }
-    const inputs = join(jobRoot(jobId), 'input', 'concat-inputs.json')
-    await mkdir(dirname(inputs), { recursive: true })
-    await writeJson(inputs, videos)
-    const output = join(projectRoot, 'output', 'final.mp4')
-    return {
-      command: ['bash', join(endpointRoot, 'concat_video.sh'), '--inputs-file', inputs, '--output', output],
-      environment,
-      output,
-    }
-  }
-
-  if (capability === 'video-generate-long') {
-    if (!Array.isArray(params.prompts) || params.prompts.length < 2 ||
-        !Number.isInteger(params.duration) || params.duration <= 15 || params.duration < params.prompts.length || params.duration > params.prompts.length * 15) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', '长视频总时长必须超过 15 秒，提供至少 2 段提示词且每段不超过 15 秒', 422)
-    }
-    if (!['long_fast', 'long_standard', 'long_vertical_standard', 'long_vertical_preview'].includes(params.preset)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', '长视频 preset 无效；默认使用 long_vertical_preview，不支持旧的 long_mvp 档位', 422)
-    }
-    const image = await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path')
-    const prompts = await promptListFile(jobId, 'video-prompts.json', params.prompts, Infinity)
-    return {
-      command: [
-        'bash', join(endpointRoot, 'generate_video_long.sh'), '--input', image,
-        '--prompt-file', prompts, '--preset', params.preset, '--segments', String(params.prompts.length),
-        '--seed', String(params.seed), '--run-id', jobId,
-        '--duration', String(params.duration),
-      ],
-      environment,
-      output: join(projectRoot, 'assets', 'shots', 'shot-01.mp4'),
-    }
-  }
-
-  if (capability === 'video-generate') {
-    if (!Number.isInteger(params.duration) || params.duration < 1 || params.duration > 15) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', '短视频时长必须为 1..15 秒；超过 15 秒请使用 model_generate_video_long', 422)
-    }
-    const mode = String(params.mode || '').toLowerCase()
-    const prompt = await promptFile(jobId, 'video-prompt.txt', params.prompt)
-    if (!['text', 'image', 'reference'].includes(mode)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'mode 必须是 text、image 或 reference', 422)
-    }
-    const image = String(params.image_path || '').trim()
-      ? await artifactPath(params.image_path, IMAGE_SUFFIXES, 'image_path') : null
-    const video = String(params.video_path || '').trim()
-      ? await artifactPath(params.video_path, VIDEO_SUFFIXES, 'video_path') : null
-    const audio = String(params.audio_path || '').trim()
-      ? await artifactPath(params.audio_path, AUDIO_SUFFIXES, 'audio_path') : null
-    if (mode === 'text' && (image || video || audio)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'text 不接受参考媒体', 422)
-    }
-    if (mode === 'image' && (!image || video || audio)) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'image 只接受且必须提供 image_path', 422)
-    }
-    if (mode === 'reference' && !image && !video && !audio) {
-      throw new ModelTaskError('MODEL_INPUT_INVALID', 'reference 至少需要一个参考媒体', 422)
-    }
-    const output = join(projectRoot, 'output', 'video.mp4')
-    const command = [
-      'bash', join(endpointRoot, 'generate_video.sh'), '--mode', mode,
-      '--prompt-file', prompt, '--output', output,
-      '--run-id', jobId, '--seed', String(params.seed),
-      '--duration', String(params.duration),
-    ]
-    if (image) command.push('--input', image)
-    if (video) command.push('--video', video)
-    if (audio) command.push('--audio', audio)
-    return {
-      command,
-      environment,
-      output,
-    }
-  }
+  environment.MINIMAX_H3_COMFYUI_URL = requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
 
   if (capability === 'dialogue-generate') {
     const text = await promptFile(jobId, 'dialogue.txt', params.text)
@@ -370,21 +260,13 @@ async function execute(capability, params, signal, timeoutMs, jobId = randomByte
       file_exists: 'passed', nonempty: 'passed', media_probe: inspection.media_probe,
       full_decode: 'not_run', specification_match: 'not_run', human_review: 'not_run',
     }
-    if (capability === 'video-concat') {
-      const report = JSON.parse(await readFile(`${execution.output}.validation.json`, 'utf8'))
-      if (report.validation?.full_decode !== 'passed' || report.validation?.specification_match !== 'passed') {
-        throw new ModelTaskError('MODEL_OUTPUT_INVALID', '合片未通过解码与规格验证')
-      }
-      Object.assign(status.result.validation, report.validation)
-      status.result.comfyui_metadata_status = 'not-applicable-local-concat'
-    }
     const requested = status.debug.chain.findLast(item => item.stage === 'executor-config' && item.span_id === primary?.span_id)?.parameters
     if (inspection.media_info && requested?.width && requested?.height) {
       status.result.validation.specification_match = inspection.media_info.width === requested.width && inspection.media_info.height === requested.height ? 'passed' : 'failed'
     }
     status.result.warnings = inspection.warnings
     if (status.result.validation.specification_match === 'failed') status.result.warnings.push('OUTPUT_DIMENSIONS_MISMATCH')
-    if (!primary && capability !== 'video-concat') status.result.warnings.push('COMFYUI_METADATA_MISSING')
+    if (!primary) status.result.warnings.push('COMFYUI_METADATA_MISSING')
     if (primary?.url_scope === 'server-local') status.result.warnings.push('COMFYUI_URL_SERVER_LOCAL')
     status.stage = 'completed'
     status.timings.inspect_ms = Math.round(performance.now() - phaseStarted)

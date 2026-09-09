@@ -12,7 +12,7 @@ process.env.ARTIFACTS_ROOT = join(root, 'artifacts')
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 const { createModelTools, getJob, runModelTask } = await import('../src/index.js')
 // Keep the legacy Shell executor's diagnostics covered separately.
-const tool = { execute: args => runModelTask('image-generate', { ...args, preset: 'standard', seed: 666 }, undefined, 60000) }
+const tool = { execute: args => runModelTask('dialogue-generate', { ...args, language: 'zh', seed: 666 }, undefined, 60000) }
 
 for (const [label, script, code] of [
   ['missing endpoint', null, 'MODEL_EXECUTOR_MISSING'],
@@ -22,10 +22,10 @@ for (const [label, script, code] of [
   test(`${label} returns a queryable failed job and log`, async () => {
     if (script !== null) {
       await mkdir(join(root, 'scripts/endpoint'), { recursive: true })
-      await writeFile(join(root, 'scripts/endpoint/generate_image.sh'), script)
+      await writeFile(join(root, 'scripts/endpoint/generate_dialogue.sh'), script)
     }
     let failure
-    await assert.rejects(tool.execute({ prompt: 'a paper boat' }), error => {
+    await assert.rejects(tool.execute({ text: 'hello' }), error => {
       failure = error
       return error.code === code
     })

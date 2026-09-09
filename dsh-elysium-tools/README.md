@@ -27,10 +27,10 @@
 
 | 工具 | Endpoint |
 |---|---|
-| `model_generate_image` | `generate_image.sh` |
-| `model_generate_video` | `generate_video.sh` |
-| `model_generate_video_long` | `generate_video_long.sh` |
-| `model_concat_video` | `concat_video.sh`（已有 MP4 按顺序合片，CPU） |
+| `model_generate_image` | ComfyUI 图片工作流 |
+| `model_generate_video` | ComfyUI 视频工作流 |
+| `model_generate_video_long` | ComfyUI 导演工作流 |
+| `model_concat_video` | ComfyUI 合片工作流 |
 | `model_generate_video_audio` | `generate_video_audio.sh` |
 | `model_generate_dialogue` | `generate_dialogue.sh` |
 | `model_interpolate_video` | `interpolate_video.sh` |
@@ -84,9 +84,9 @@
 
 ### `model_generate_video`
 
-原子合片测试可调用 `model_concat_video`；生产必须将已有片段交给 `workflow_generate_video`。合片保留原音轨，要求编码、画幅、帧率与音轨规格一致。发布与验收见 [Harness 文档](../docs/harness.md)。
+已有片段合片调用 `model_concat_video`；导演工作流已返回成片时无需重复合片。合片保留原音轨，要求编码、画幅、帧率与音轨规格一致。发布与验收见 [Harness 文档](../docs/harness.md)。
 
-对应 `generate_video.sh`，生成 1..15 秒短视频（包含 15 秒）。必填 `mode`、`prompt`；`duration` 默认 5 秒，`seed` 默认 666。
+对应 ComfyUI 视频工作流，生成 1..15 秒短视频（包含 15 秒）。必填 `mode`、`prompt`；`duration` 默认 5 秒，`seed` 默认 666。
 
 | mode | 作用 | 参考参数 |
 |---|---|---|
