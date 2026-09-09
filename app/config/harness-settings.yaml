@@ -8,7 +8,6 @@ harness-runtime:
   QWEN_REMOTE_HOST: 127.0.0.1
   MINIMAX_H3_COMFYUI_URL: http://127.0.0.1:6016
   MINIMAX_H3_COMFYUI_PUBLIC_URL: http://127.0.0.1:6016
-  MINIMAX_H3_COMFYUI_OUTPUT_ROOT: /root/autodl-tmp/ComfyUI-minimax-h3/output
   ARTIFACTS_ROOT: /root/autodl-fs/artifacts/projects
   ELYSIUM_TOOLS_STATE_ROOT: /root/autodl-tmp/elysium-tools
   LOCAL_DSH_HOME: /Users/mac/.dsh
@@ -17,7 +16,6 @@ harness-runtime:
   HARNESS_ROOT: /root/autodl-tmp/wan22-harness
   PLUGINS_ROOT: /root/autodl-tmp/project/harness
   PROJECT_ROOT: /root/autodl-tmp/project/harness
-  COMFYUI_INPUT_ROOT: /root/autodl-tmp/ComfyUI-minimax-h3/input
   QWEN_SSH_TARGET: veo-qwen38
   QWEN_API_LOCAL_PORT: 18000
   QWEN_API_REMOTE_PORT: 8000
@@ -78,5 +76,4 @@ harness-customization:
         publicUrl: __MINIMAX_H3_COMFYUI_PUBLIC_URL__
         artifactsRoot: __ARTIFACTS_ROOT__
         stateRoot: __ELYSIUM_TOOLS_STATE_ROOT__
-        legacyOutputRoot: __MINIMAX_H3_COMFYUI_OUTPUT_ROOT__
         python: __HARNESS_PYTHON__

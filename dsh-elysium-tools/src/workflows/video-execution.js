@@ -1,7 +1,6 @@
 import { requiredConfig } from '../config.js'
-import { sha256File } from '../functions/common/file-hash.js'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { join, extname } from 'node:path'
+import { join } from 'node:path'
 import { ComfyClient } from '../functions/comfyui/client.js'
 import { saveJson } from '../jobs/json.js'
 import { buildVideoGraph, loadVideoTemplates } from './video-graph.js'
@@ -9,7 +8,7 @@ import { codeVersion } from '../functions/common/diagnostics.js'
 import { collectVideoArtifacts } from './video-artifacts.js'
 import { probeVideoInput } from '../media/probe.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './comfy-execution.js'
-import { serverMedia, serverPath } from '../media/server-media.js'
+import { mediaReference } from '../media/http-media.js'
 
 function sources(plan) {
   return [...new Set([...(plan.video_paths || []), plan.image_path,
@@ -31,15 +30,8 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     const prepared = await prepareComfyWorkflow(directory, client, plan, async () => {
       const media = {}, reused = new Set(plan.video_paths || (plan.shots || []).filter(s => s.mode === 'reuse').map(s => s.video_path))
       for (const path of sources(plan)) {
-        if (serverPath(path)) {
-          const value = await serverMedia({ operation: 'input', path: serverPath(path), timestamps: reused.has(path) }, signal)
-          const info = value.media_info, timestamps = value.timestamps
-          media[path] = { sha256: value.sha256, name: value.name, ...(timestamps ? { duration: Number(value.probe.streams.find(s => s.codec_type === 'video')?.duration), fps: info.frame_rate, hasAudio: info.has_audio, timestamps: timestamps.map(t => t-timestamps[0]) } : {}) }
-          continue
-        }
-        const sha256 = await sha256File(path)
-        media[path] = { sha256, ...(reused.has(path) ? await probeVideoInput(path) : {}) }
-        media[path].name = await client.upload(path, `${jobId}-${sha256}${extname(path).toLowerCase()}`)
+        const reference = mediaReference(path)
+        media[path] = { name: reference.name, ...(reused.has(path) ? await probeVideoInput(reference.url) : {}) }
       }
       return { ...buildVideoGraph(plan, media, await loadVideoTemplates(), jobId), media, plan,
         server_url: client.url.href }
@@ -47,7 +39,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     const { promptId, history } = await runComfyWorkflow(directory, client, prepared, status, timeoutMs)
     status.stage = 'inspect-output'
     await saveJson(statusPath, status)
-    status.result = await collectVideoArtifacts(client, history, prepared, jobId, directory, promptId)
+    status.result = await collectVideoArtifacts(client, history, prepared, promptId)
     signal?.throwIfAborted()
     status.status = 'succeeded'
     status.stage = 'completed'

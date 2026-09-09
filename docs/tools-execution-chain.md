@@ -1,6 +1,6 @@
 # 工具执行链路与职责
 
-本次重构集中在 `dsh-elysium-tools/src/`，不改变工具名、参数 schema、工作流模板、任务 ID、状态文件名及产物目录。模型仓库、ComfyUI 引擎及 UI 仅核对，没有修改或部署。
+当前实现保留工具名、任务 ID 与工作流恢复机制；媒体仅通过 HTTP 引用，不上传、下载或保存副本。详见 [HTTP 媒体约定](media-http-only.md)。下方历史验证数据按原记录保留，不代表本次修改已部署。
 
 ## 从会话到产物
 
@@ -10,28 +10,28 @@
 | --- | --- | --- |
 | Harness 会话 | `index.js`、`tool-discovery.js`；包内 `.dsh/.agent-presets/elysium/rules.md`、`.dsh/.agent-presets/elysium/skills/creation-*` | 注册生产工具、按会话加载通用工具；Harness 保留权限和工具调用执行权 |
 | 工具参数 | `functions/endpoint/`、`workflows/workflow-generate-video.js` | 默认值与兼容入口转换；镜头时长、提示词及素材不能被静默缩减 |
-| 输入校验 | `workflows/video-plan.js`、`media-plan.js` | 视频镜头模式、种子、总时长、素材类型及 artifacts 路径边界；不提交任务 |
+| 输入校验 | `workflows/video-plan.js`、`media-plan.js` | 视频镜头模式、种子、总时长、ComfyUI HTTP 素材引用边界；不提交任务 |
 | 创建与恢复 | `jobs/create.js`、`call-index.js`、`launch.js`、`launch-lock.py`、`wait.js` | 保存请求，绑定会话调用，串行启动后台 worker，等待原任务 |
 | worker 分发 | `workflows/video-worker.js` | 按持久化请求分发视频或图片／合片执行；保留原路径供存活进程识别 |
 | 工作流选择 | `workflows/video-graph.js`、`media-graph.js` | 单生成镜头用 generate，多镜头或 reuse 用 director；图片按是否带参考图选择模板，合片用 concat |
-| 图与素材 | `workflows/video-workflow.js`、`templates/`、`media/probe.js` | 探测真实素材、上传，绑定模板参数，生成相同节点 ID 的 API 图与可视化图 |
+| 图与素材 | `workflows/video-workflow.js`、`templates/`、`media/probe.js` | 通过 HTTP 读取必要输入信息、复用后端引用，绑定模板参数，生成相同节点 ID 的 API 图与可视化图 |
 | 公共执行 | `workflows/comfy-execution.js`、`video-execution.js`、`media-execution.js` | 快照复用、准备／提交／等待／验收阶段编排；不在插件内实现模型采样 |
-| HTTP 与提交记录 | `functions/comfyui/client.js`、`jobs/comfy-submission.js`、`json.js` | 上传、schema 检查、`/prompt`、队列／历史查询及 `/view` 下载；提交意图和 prompt_id 持久化 |
+| HTTP 与提交记录 | `functions/comfyui/client.js`、`jobs/comfy-submission.js`、`json.js` | schema 检查、`/prompt`、队列／历史查询及 `/view` 地址构造；提交意图和 prompt_id 持久化 |
 | 远端执行 | ComfyUI `main.py`、`execution.py`、`comfy/samplers.py` 及节点实现 | 取队列、依赖调度、缓存、节点执行与模型采样 |
 | 解码与导出 | VAE、`ElysiumSelectFrames`、`ImageScale`、音频节点、`DaSiWa_EnhancedVideoCombine` | ComfyUI 内完成解码、按时间裁剪／取帧、缩放、音轨整理和 FFmpeg 编码封装 |
-| 插件验收 | `workflows/video-artifacts.js`、`media-artifacts.js`、`video-validation.js`、`media/probe.js` | 下载候选文件，探测规格及完整解码；视频逐镜和成片均通过后才交付最终结果 |
-| 回传展示 | `jobs/query.js`、`functions/common/tool.js`、`http/media-jobs.js`；UI `src/client/media/` | 返回摘要、按可信会话绑定查询状态，提供预览／下载及同源播放回退 |
+| 插件验收 | `workflows/video-artifacts.js`、`media-artifacts.js` | 从最终节点 history 构造 HTTP 地址；不拉取产物或声称完整解码通过 |
+| 回传展示 | `jobs/query.js`、`functions/common/tool.js`、`http/media-jobs.js`；UI `src/client/media/` | 返回摘要、按可信会话绑定查询状态，提供 HTTP 预览与认证重定向，无本地文件回退 |
 
-`functions/common/task.js`、`workflows/video-publication.js` 保留旧导入路径的薄导出；内部消费者直接依赖所属模块。旧非 ComfyUI 视频的读取／发布兼容保留在 `jobs/query.js` 与 `legacy-video.js`，不接入新任务执行。
+`functions/common/task.js` 保留工具公共导出；旧媒体文件复制发布和本地文件回传实现已删除。
 
 ## 恢复与交付契约
 
 - `ELYSIUM_TOOLS_STATE_ROOT/jobs/<job_id>/` 保留 `input/request.json`、`status.json`、`worker.lock`、`launch.lock`、`comfyui-workflow.json`、`comfyui-submission.json`、`resume-request.json` 等原文件名。
-- 重构后恢复仍使用原请求、服务地址和已保存执行图；旧快照缺少可视化图时不重建、不重新上传素材。
+- 重构后恢复仍使用原请求、服务地址和已保存执行图；旧快照缺少可视化图时不重建、不补传素材。
 - POST 前记录提交意图；响应丢失时按插件任务 ID 查原队列与历史。结果不明不重提；显式恢复且确认原 prompt 执行失败后才能重提。
-- 下载或验收失败只恢复下载／验收；等待中断不取消后台任务。存活 worker 不重复启动，无法确认进程身份时不抢占锁。
-- `ARTIFACTS_ROOT/production-<job_id>/output/final.*` 保持不变；视频逐镜位于 `shots/<shot_id>.mp4`。生成成功仍须人工审片，`human_review` 保持 `not_run`。
-- 图片／合片和视频保留各自验收规格，尤其合片允许无音轨，不能套用视频生产必须有 AAC 音轨的约束。
+- HTTP 查询失败后恢复原任务查询；等待中断不取消后台任务。存活 worker 不重复启动，无法确认进程身份时不抢占锁。
+- 输出与逐镜 `path` 均为 HTTP 地址，插件不创建媒体产物目录。生成成功仍须人工审片，验收字段保持 `not_run`。
+- 工作流仍保留图片／合片和视频的生成规格；插件不通过下载产物验证规格。
 
 ## 外部路径核对
 
@@ -75,7 +75,7 @@ git diff --check
 
 配置定义与校验在插件 `src/config.js`，通过 Cordis 节点接入，见 [独立安装配置](../dsh-elysium-tools/README.md#独立安装配置)。工具及 HTTP 回调使用对应实例的配置上下文，worker 显式继承配置；不修改宿主环境。
 
-新任务排队时标记 `backend: comfyui`，避免误入旧发布逻辑而要求服务器输出目录。独立实例回归清除旧环境变量，覆盖并发图片／视频任务、图片验收失败后的原 prompt 恢复、会话状态和媒体下载。使用模拟 ComfyUI 与本机媒体工具，不代表真实推理或本机 Harness 已安装验收。
+新任务排队时标记 `backend: comfyui`，避免误入旧发布逻辑而要求服务器输出目录。独立实例回归清除旧环境变量，覆盖并发图片／视频任务、图片执行失败后的原任务恢复、会话状态和 HTTP 重定向。使用模拟 ComfyUI 与本机媒体工具，不代表真实推理或本机 Harness 已安装验收。
 
 独立配置改造后：工具测试 62 项、配置／部署／隧道测试 20 项通过；未构建、安装、部署或重启服务。
 

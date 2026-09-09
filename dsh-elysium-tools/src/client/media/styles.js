@@ -19,7 +19,6 @@ window.__ModuleLoader__.load({
 .elysium-control:focus-visible, .elysium-details > summary:focus-visible, .elysium-text-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .elysium-play { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; }
 .elysium-expand { bottom: 10px; right: 10px; }
-.elysium-download { bottom: 10px; right: 46px; }
 .elysium-info { padding: 10px 4px 4px; }
 .elysium-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .elysium-heading strong { font-size: 14px; font-weight: 500; }
@@ -36,7 +35,7 @@ window.__ModuleLoader__.load({
 .elysium-dialog::backdrop { background: #000b; backdrop-filter: blur(4px); }
 .elysium-dialog video { display: block; max-width: 88vw; max-height: 88vh; border-radius: 8px; }
 .elysium-close { top: 12px; right: 12px; z-index: 1; border-radius: 50%; }
-@media (hover: hover) { .elysium-expand, .elysium-download { opacity: 0; transition: opacity .15s; } .elysium-preview:hover .elysium-control, .elysium-preview:focus-within .elysium-control { opacity: 1; } }
+@media (hover: hover) { .elysium-expand { opacity: 0; transition: opacity .15s; } .elysium-preview:hover .elysium-control, .elysium-preview:focus-within .elysium-control { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .elysium-spinner { animation: none; } .elysium-control { transition: none; } }
 `
       document.head.appendChild(style)

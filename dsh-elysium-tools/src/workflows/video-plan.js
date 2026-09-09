@@ -1,10 +1,6 @@
-import { serverMedia, serverPath } from '../media/server-media.js'
-import { requiredConfig, runtimeConfig } from '../config.js'
-import { realpath, stat } from 'node:fs/promises'
-import { isAbsolute, relative, extname } from 'node:path'
+import { mediaReference } from '../media/http-media.js'
 import { ModelTaskError } from '../jobs/contracts.js'
 
-const artifactsRoot = () => requiredConfig('ARTIFACTS_ROOT')
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 
 export async function validateVideoPlan(args) {
@@ -26,23 +22,13 @@ export async function validateVideoPlan(args) {
     if (args.image_prompt !== undefined && (typeof args.image_prompt !== 'string' || !args.image_prompt.trim())) throw invalid('image_prompt 不能为空')
     if ('image_path' in args && 'image_prompt' in args) throw invalid('image_path 与 image_prompt 二选一')
   }
-  const root = await realpath(artifactsRoot())
   for (const value of [...(clips || []), ...('image_path' in args ? [args.image_path] : [])]) {
-    if (args.duration > 15 && runtimeConfig().COMFYUI_SSH_HOST && !serverPath(value)) throw invalid('短剧素材必须提前放在服务器目录')
-    if (serverPath(value)) { await serverMedia({ operation: 'check', path: serverPath(value) }).catch(error => { throw invalid(error.message) }); continue }
-    if (typeof value !== 'string' || !isAbsolute(value)) throw invalid('素材必须为绝对路径')
-    const path = await realpath(value).catch(() => { throw invalid('素材文件不存在') })
-    const rel = relative(root, path)
-    const suffixes = clips ? ['.mp4'] : ['.png', '.jpg', '.jpeg', '.webp']
-    const serverRel = !runtimeConfig().COMFYUI_SSH_HOST && runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT ? relative(await realpath(runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT),path) : '..'
-    const inServer = serverRel && !serverRel.startsWith('..') && !isAbsolute(serverRel)
-    if (((!rel || rel.startsWith('..') || isAbsolute(rel)) && !inServer) || !suffixes.includes(extname(path).toLowerCase()) || !(await stat(path)).isFile()) throw invalid('素材须为 artifacts 内的有效图片或 MP4')
+    try { mediaReference(value, clips ? ['.mp4'] : ['.png', '.jpg', '.jpeg', '.webp']) } catch (error) { throw invalid(error.message) }
   }
 }
 
 async function validateShots(shots, duration) {
   if (!Array.isArray(shots) || !shots.length) throw invalid('shots 必须为非空镜头列表')
-  const root = await realpath(artifactsRoot())
   const ids = new Set()
   const mediaTypes = { image_path: ['.png', '.jpg', '.jpeg', '.webp'], video_path: ['.mp4', '.mov', '.webm', '.mkv'], audio_path: ['.wav', '.mp3', '.flac', '.m4a', '.ogg'] }
   for (const [index, shot] of shots.entries()) {
@@ -53,7 +39,6 @@ async function validateShots(shots, duration) {
     if (!['independent', 'reference', 'continue', 'reuse'].includes(mode)) throw invalid('镜头 mode 无效')
     if (!Number.isInteger(shot.duration) || shot.duration < 1 || (mode !== 'reuse' && shot.duration > 15)) throw invalid('生成镜头须为 1..15 秒，复用镜头须为正整数秒')
     if ('seed' in shot && (!Number.isInteger(shot.seed) || shot.seed < 0 || shot.seed > 2 ** 32 - 1)) throw invalid('镜头 seed 必须为 uint32')
-    if (shots.length > 1 && runtimeConfig().COMFYUI_SSH_HOST && Object.keys(mediaTypes).some(k => k in shot && !serverPath(shot[k]))) throw invalid(`镜头 ${shot.id} 的素材必须提前放在服务器目录`)
     const media = Object.keys(mediaTypes).filter(k => k in shot)
     if ('image_role' in shot && (!shot.image_path || !['character-sheet', 'single-view', 'scene'].includes(shot.image_role))) throw invalid('image_role 需要 image_path，且为 character-sheet、single-view 或 scene')
     if (shot.image_role === 'character-sheet') throw invalid('三视图仅作角色档案；开拍前请提供已经确认的单人参考素材')
@@ -69,15 +54,7 @@ async function validateShots(shots, duration) {
     }
     if ('in_point' in shot && (typeof shot.in_point !== 'number' || !Number.isFinite(shot.in_point) || shot.in_point < 0)) throw invalid('in_point 必须为非负有限秒数')
     for (const kind of media) {
-      if (serverPath(shot[kind])) {
-        if (!mediaTypes[kind].includes(extname(serverPath(shot[kind])).toLowerCase())) throw invalid('服务器素材类型不匹配')
-        await serverMedia({ operation: 'check', path: serverPath(shot[kind]) }).catch(error => { throw invalid(`镜头 ${shot.id} 的 ${kind}：${error.message}`) })
-        continue
-      }
-      if (typeof shot[kind] !== 'string' || !isAbsolute(shot[kind])) throw invalid(`${kind} 必须为绝对路径`)
-      const path = await realpath(shot[kind]).catch(() => { throw invalid('素材文件不存在') })
-      const rel = relative(root, path)
-      if (!rel || rel.startsWith('..') || isAbsolute(rel) || !mediaTypes[kind].includes(extname(path).toLowerCase()) || !(await stat(path)).isFile()) throw invalid(`${kind} 必须为 artifacts 内支持类型的素材`)
+      try { mediaReference(shot[kind], mediaTypes[kind]) } catch (error) { throw invalid(`${kind}: ${error.message}`) }
     }
   }
   if (shots.reduce((sum, s) => sum + s.duration, 0) !== duration) throw invalid('镜头时长之和必须等于 duration；不得自动缩短或删减镜头')

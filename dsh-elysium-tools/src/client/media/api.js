@@ -1,10 +1,9 @@
 window.__ModuleLoader__.load({
   id: 'elysium-tools/media-api', factory: () => {
-    function mediaUrl(kind, sessionId, callId, download = false) {
+    function mediaUrl(kind, sessionId, callId) {
       const config = window.__ELYSIUM_MEDIA__
       if (!config?.token) throw new Error('媒体服务未加载，请刷新页面或检查媒体服务')
       const query = new URLSearchParams({ session: sessionId, call: callId, t: config.token })
-      if (download) query.set('download', '1')
       // Relative to the page origin: SSH tunnel ports must never be hard-coded.
       return `${config.base}/${kind}?${query}`
     }

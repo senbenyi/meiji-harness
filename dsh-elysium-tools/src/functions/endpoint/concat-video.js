@@ -9,7 +9,7 @@ export function createModelConcatVideoTool() {
     timeoutMs: MODEL_TIMEOUTS.concat,
     parameters: {
       properties: {
-        video_paths: { type: 'array', minItems: 2, items: { type: 'string' }, description: '按镜头顺序排列的共享 artifacts 内 MP4 绝对路径，使用已完成任务返回的 path。' },
+        video_paths: { type: 'array', minItems: 2, items: { type: 'string' }, description: '按镜头顺序排列的ComfyUI HTTP view 视频地址，使用已完成任务返回的 path。' },
       },
       required: ['video_paths'],
     },

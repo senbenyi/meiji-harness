@@ -10,7 +10,6 @@ import { getJob } from '../src/jobs/query.js'
 
 const root = await realpath(await mkdtemp(join(tmpdir(), 'character-test-')))
 const backend = await mockMedia(root)
-process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 const config = resolveConfig({ comfyUrl: backend.url, publicUrl: backend.url, artifactsRoot: join(root, 'artifacts'), stateRoot: join(root, 'state') })
 await mkdir(config.ARTIFACTS_ROOT)
 after(async () => { await backend.close(); await rm(root, { recursive: true, force: true }) })
@@ -25,7 +24,7 @@ test('character views bind the exact front image, reuse completed jobs and rejec
   const frontGraph = backend.prompts.at(-1).prompt
   assert.equal(frontGraph['12'].inputs.control_net_name, 'xinsir-openpose-sdxl-1.0.safetensors')
   assert.deepEqual(frontGraph['5'].inputs.positive, ['13', 0])
-  assert.match(frontGraph['11'].inputs.image, /^character-front-/)
+  assert.match(frontGraph['11'].inputs.image, /^elysium\/poses\/front\.png \[input\]$/)
   side = await characterView({ view: 'side', description, reference_job_id: front.job_id })
   const before = backend.prompts.length
   assert.equal((await characterView({ view: 'side', description, reference_job_id: front.job_id })).job_id, side.job_id)
@@ -34,13 +33,13 @@ test('character views bind the exact front image, reuse completed jobs and rejec
   await assert.rejects(characterView({ view: 'back', description, reference_job_id: side.job_id }), /最初确认/)
   back = await characterView({ view: 'back', description, reference_job_id: front.job_id })
   for (const result of [side, back]) {
-    assert.equal(result.character.reference_sha256, front.sha256)
+    assert.equal(result.character.reference_artifact_id, front.comfyui_artifact_id)
     const request = JSON.parse(await readFile(join(root, 'state/jobs', result.job_id, 'input/request.json')))
     assert.equal(request.params.image_path, front.path)
     const graph = backend.prompts.find(p => p.client_id === result.job_id).prompt
     assert.equal(graph['8'].class_type, 'LoadImage')
     assert.equal(graph['10'].inputs.image[0], '8')
-    assert.match(graph['11'].inputs.image, new RegExp(`^character-${result.character.view}-`))
+    assert.match(graph['11'].inputs.image, new RegExp(`^elysium/poses/${result.character.view}`))
     assert.deepEqual(graph['13'].inputs.image, ['11', 0])
     assert.deepEqual(result, JSON.parse(JSON.stringify(result)))
   }
@@ -73,8 +72,8 @@ test('composition enforces view identity, validates crops and has no inference n
   assert.equal(backend.prompts.length, count)
   const result = await characterSheet(args)
   assert.equal(result.media_kind, 'image')
-  assert.equal(result.media_info.width, 2496)
-  assert.equal(result.media_info.height, 1216)
+  assert.equal(result.media_info, undefined)
+  assert.equal(result.validation.specification_match, 'not_run')
   assert.equal(result.validation.human_review, 'not_run')
   assert.deepEqual(result.character.source_jobs, [front.job_id, side.job_id, back.job_id])
   const graph = backend.prompts.at(-1).prompt

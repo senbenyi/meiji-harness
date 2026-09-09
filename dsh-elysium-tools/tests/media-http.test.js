@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createServer } from 'node:http'
-import { mkdtemp, writeFile, rm, symlink } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { createMediaHandler, byteRange } from '../src/http/media-jobs.js'
+import { createMediaHandler } from '../src/http/media-jobs.js'
 import { bindVideoCall, findVideoCall } from '../src/jobs/call-index.js'
 import { apply } from '../src/index.js'
 
@@ -46,67 +46,37 @@ test('call mapping survives reads and never uses an arbitrary client job/path', 
     await rm(root, { recursive: true, force: true })
   }
 })
-test('authenticated same-origin endpoint serves bounded range streams and survives refresh', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'media-http-')), path = join(root, 'final.mp4')
-  await writeFile(path, '0123456789')
-  let job = { job_id: 'a'.repeat(32), status: 'running', workflow: { stage: 'generate' } }
-  const handler = createMediaHandler({ token: 'test-token', artifactsRoot: root, findCall: async (s,c) => s === 's' && c === 'c' ? job.job_id : null, readJob: async () => job })
-  const server = createServer(handler)
+test('authenticated media routes redirect HTTP URLs and never serve local files', async () => {
+  let job = { job_id: 'a'.repeat(32), status: 'running', stage: 'generate' }
+  const server = createServer(createMediaHandler({ token: 't', findCall: async (s, c) => s === 's' && c === 'c' ? job.job_id : null, readJob: async () => job }))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`
-  const query = '?t=test-token&session=s&call=c'
+  const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`, query = '?t=t&session=s&call=c'
+  const get = (path, options = {}) => fetch(base + path + query, { redirect: 'manual', ...options })
   try {
     assert.equal((await fetch(base + '/status')).status, 401)
     assert.equal((await fetch(base + '/credentials')).status, 403)
     const headers = { 'X-Elysium-Media-Refresh': '1' }
-    assert.equal((await fetch(base + '/credentials', { method: 'OPTIONS', headers })).status, 405)
     assert.equal((await fetch(base + '/credentials', { headers: { ...headers, 'Sec-Fetch-Site': 'cross-site' } })).status, 403)
-    const refresh = await fetch(base + '/credentials', { headers })
-    assert.equal(refresh.headers.get('access-control-allow-origin'), null)
-    assert.equal(refresh.headers.get('cache-control'), 'no-store')
-    const credentials = await refresh.json()
-    assert.equal(credentials.token, 'test-token')
-    assert.equal((await fetch(base + '/status?t=stale&session=s&call=c')).status, 401)
-    assert.equal((await fetch(base + '/status?t=' + credentials.token + '&session=s&call=c')).status, 200)
-    assert.equal((await fetch(base + '/status' + query, { method: 'POST' })).status, 405)
-    assert.equal((await (await fetch(base + '/status' + query)).json()).stage, 'generate')
-    assert.equal((await fetch(base + '/video' + query)).status, 404)
-    job = { ...job, status: 'succeeded', result: { path, media_info: { duration_seconds: 8 } } }
-    const status = await (await fetch(base + '/status' + query)).json()
-    assert.equal(status.has_video, true); assert.equal(status.path, undefined)
-    const ranged = await fetch(base + '/video' + query, { headers: { Range: 'bytes=2-4' } })
-    assert.equal(ranged.status, 206); assert.equal(await ranged.text(), '234')
-    assert.equal(ranged.headers.get('content-range'), 'bytes 2-4/10')
-    assert.equal((await fetch(base + '/video' + query, { headers: { Range: 'bytes=11-' } })).status, 416)
-    const head = await fetch(base + '/video' + query + '&download=1', { method: 'HEAD' })
-    assert.match(head.headers.get('content-disposition'), /attachment/)
-    assert.equal(await head.text(), '')
-    await symlink('/etc/hosts', join(root, 'escape.mp4')); job.result.path = join(root, 'escape.mp4')
-    assert.equal((await fetch(base + '/video' + query)).status, 403)
-    assert.equal((await (await fetch(base + '/status?t=test-token&session=other&call=c')).json()).status, 'pending')
-  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
-})
-test('Range syntax covers suffix, open end and invalid requests', () => {
-  assert.deepEqual(byteRange('bytes=-3', 10), { start: 7, end: 9 })
-  assert.deepEqual(byteRange('bytes=8-', 10), { start: 8, end: 9 })
-  for (const value of ['bytes=-0', 'bytes=4-2', 'bytes=0-1,4-5', 'bytes=-', 'garbage']) assert.throws(() => byteRange(value, 10))
-})
-
-test('image endpoint serves only trusted job images with the correct MIME type', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'image-http-')), path = join(root, 'final.png')
-  await writeFile(path, 'image-bytes')
-  const job = { status: 'succeeded', result: { path, media_kind: 'image' } }
-  const server = createServer(createMediaHandler({ token: 't', artifactsRoot: root, findCall: async () => 'id', readJob: async () => job }))
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`, query = '?t=t&session=s&call=c'
-  try {
-    const response = await fetch(base + '/image' + query)
-    assert.equal(response.headers.get('content-type'), 'image/png')
-    assert.equal(await response.text(), 'image-bytes')
-    assert.equal((await fetch(base + '/video' + query)).status, 403)
-    const summary = await (await fetch(base + '/status' + query)).json()
-    assert.equal(summary.has_image, true); assert.equal(summary.has_video, false)
-    await symlink('/etc/hosts', join(root, 'escape.png')); job.result.path = join(root, 'escape.png')
-    assert.equal((await fetch(base + '/image' + query)).status, 403)
-  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+    assert.equal((await (await fetch(base + '/credentials', { headers })).json()).token, 't')
+    assert.equal((await get('/status', { method: 'POST' })).status, 405)
+    assert.equal((await get('/video')).status, 404)
+    for (const kind of ['image', 'video']) {
+      const url = `https://comfy.test/view?filename=final.${kind === 'image' ? 'png' : 'mp4'}&type=output`
+      job = { ...job, status: 'succeeded', result: { media_kind: kind, comfyui_view_url: url } }
+      assert.equal((await (await get('/status')).json())[`has_${kind}`], true)
+      for (const method of ['GET', 'HEAD']) {
+        const response = await get('/' + kind, { method })
+        assert.equal(response.status, 302)
+        assert.equal(response.headers.get('location'), url)
+        assert.equal(response.headers.get('content-disposition'), null)
+        assert.equal(await response.text(), '')
+      }
+      assert.equal((await get('/' + (kind === 'image' ? 'video' : 'image'))).status, 404)
+    }
+    job.result = { path: '/etc/hosts', media_kind: 'video' }
+    assert.equal((await get('/video')).status, 404)
+    assert.equal((await (await get('/status')).json()).has_video, false)
+    job.result.comfyui_view_url = 'file:///etc/hosts'
+    assert.equal((await get('/video')).status, 403)
+  } finally { await new Promise(resolve => server.close(resolve)) }
 })

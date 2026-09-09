@@ -56,19 +56,19 @@ test('same card progresses to playable result and stops polling', async () => {
     assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(video.props.controls, false)
     assert.ok(!video.props.src.includes('3080'))
-    assert.equal(f.view.root.findByType('a').props['aria-label'], '下载视频')
+    assert.equal(f.view.root.findAllByType('a').length, 0)
     assert.equal(f.timers.size, 0)
     assert.doesNotMatch(JSON.stringify(f.view.toJSON()), /文件与规格检查通过|人工验收/)
     assert.equal(f.requests.length, 2)
   } finally { await f.close() }
 })
 
-test('completed card puts preview above metadata with an accessible download', async () => {
+test('completed card puts preview above metadata without download controls', async () => {
   const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
   const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
   try {
     assert.match(f.view.root.findByType('video').props.src, /^http:\/\/127.0.0.1:6016\//)
-    assert.equal(f.view.root.findByType('a').props['aria-label'], '下载视频')
+    assert.equal(f.view.root.findAllByType('a').length, 0)
     const children = f.view.root.findByType('section').children
     assert.equal(children[0].props.className, 'elysium-preview')
     assert.equal(children[1].props.className, 'elysium-info')
@@ -168,12 +168,12 @@ test('interrupted session recovers original job and uses its server URL', async 
   } finally { await f.close() }
 })
 
-test('image result renders a picture with server preview and download', async () => {
+test('image result renders a picture with HTTP preview only', async () => {
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'image', status: 'succeeded', media_kind: 'image', comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.png', media_info: { width: 832, height: 1216 } }) }] })
   try {
     assert.equal(f.view.root.findAllByType('video').length, 0)
     assert.equal(f.view.root.findByType('img').props.alt, '生成图片')
-    assert.equal(f.view.root.findByType('a').props.href, 'http://127.0.0.1:6016/view?filename=final.png')
+    assert.equal(f.view.root.findAllByType('a').length, 0)
     assert.equal(f.view.root.findByType('img').props.src, 'http://127.0.0.1:6016/view?filename=final.png')
     assert.ok(!JSON.stringify(f.view.toJSON()).includes('null 秒'))
   } finally { await f.close() }

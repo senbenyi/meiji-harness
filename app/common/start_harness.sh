@@ -83,7 +83,6 @@ install -d -m 0750 "$harness_root/logs" "$harness_root/tmp"
       DSH_PERMISSION_MODE="$DSH_PERMISSION_MODE" \
       QWEN38_LOCAL_API_KEY=local-vllm \
       ELYSIUM_WORKSPACE="$harness_root/data/elysium" \
-      ELYSIUM_SHARED_INPUT_ROOT="$COMFYUI_INPUT_ROOT" \
       npm_config_cache="$harness_root/cache/npm" \
       TMPDIR="$harness_root/tmp" \
       "$dsh_bin" web --host "$HARNESS_HOST" --port "$port" --no-open

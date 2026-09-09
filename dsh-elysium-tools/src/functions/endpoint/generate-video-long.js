@@ -10,7 +10,7 @@ export function createModelGenerateVideoLongTool() {
     timeoutMs: MODEL_TIMEOUTS.longVideo,
     parameters: {
       properties: {
-        image_path: { type: 'string', description: '共享 artifacts 目录下的角色图片绝对路径。' },
+        image_path: { type: 'string', description: '已配置 ComfyUI HTTP view 角色图片地址。' },
         prompts: { type: 'array', minItems: 2, items: { type: 'string' }, description: '至少 2 段连续提示词，一条对应一段；建议按每段约 5 秒规划。' },
         duration: { type: 'integer', minimum: 16, description: '总秒数，默认 max(20, 段数×5)；均分至各段，每段最多 15 秒。总时长受段数、服务器单段限制和任务超时约束。' },
         preset: { type: 'string', enum: ['long_fast', 'long_standard', 'long_vertical_standard', 'long_vertical_preview'], description: '兼容旧预设名称，默认 long_vertical_preview；画幅和采样参数统一取可视化工作流。' },

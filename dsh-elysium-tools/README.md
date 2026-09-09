@@ -6,9 +6,7 @@ Harness 图片与视频生成插件，自带任务卡和“极乐世界”预设
 
 ## 1. 安装插件
 
-当前 SDXL 三视图分支仍会出现服装和姿态偏差，必须逐图确认；不适合无人验收的标准三视图生产。
-
-需要 Harness、Node.js 20.16+、Python 3、FFmpeg、FFprobe，以及具备所需模型和节点的 ComfyUI。在本插件目录执行：
+需要 Harness、Node.js 20.16+、Python 3、FFprobe，以及具备所需模型和节点的 ComfyUI。在本插件目录执行：
 
 ```sh
 pnpm install --frozen-lockfile --ignore-scripts
@@ -20,15 +18,7 @@ dsh plugin --profile web add --workspace-root ./registry
 
 ## 2. 手动复制配置
 
-1. 核对 `.dsh/profiles/web/cordis.patch.yml` 中 ComfyUI 地址、SSH 主机及服务器目录。
+1. 核对 `.dsh/profiles/web/cordis.patch.yml` 中 ComfyUI 的 HTTP 服务与浏览器访问地址。
 2. 将 `.dsh/.agent-presets/elysium/` 完整复制到 `~/.dsh/.agent-presets/elysium/`。
 
-## 3. 重新加载
 
-重新加载 Harness，新会话选择“极乐世界”。短剧素材提前放在服务器分镜目录；中断后查询、恢复原任务。
-
-导演分镜文件可直接传给 `workflow_generate_video`：`{"plan_path":"ssh://veo-comfyui/root/autodl-fs/productions/episode/plan.json"}`。需本机 SSH 可访问；JSON 保存完整 `duration`、`shots`，参考素材放在同目录或子目录，用相对路径引用。也支持 artifacts 内的本地 JSON；不要同时传其他参数。
-
-短剧开拍前，全部参考素材必须准备好并放入服务器分镜目录。每镜绑定已确认的单人参考／场景首帧及所需音频；缺素材就停止，不自动补图或裁切三视图。
-
-配置中的 `serverHost` 是 SSH 别名，`serverPython` 是服务器 Python，`serverOutputRoot`／`serverInputRoot` 是 ComfyUI 的输出／输入目录。插件在服务器校验文件，只返回元数据和 `publicUrl` 产物地址；Harness 不保存视频副本。若 Harness 与 ComfyUI 在同机，省略 `serverHost`。

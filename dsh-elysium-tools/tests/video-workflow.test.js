@@ -14,9 +14,9 @@ const root = await realpath(await mkdtemp(join(tmpdir(), 'workflow-test-')))
 const artifacts = join(root, 'artifacts')
 await mkdir(artifacts)
 process.env.ARTIFACTS_ROOT = artifacts
-process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'jobs')
 const backend = await mockComfy(root)
+const view = path => `${backend.url}/view?${new URLSearchParams({filename: path.split('/').at(-1), subfolder: 'artifacts', type: 'output'})}`
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url
 process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url
 const { createWorkflowTools, getJob, completedResult } = await import('../src/index.js')
@@ -39,21 +39,21 @@ async function wait(jobId) {
 test('production tool waits and delivers 12 concatenated clips without model polling', { skip: !available }, async () => {
   const clip = join(artifacts, 'clip.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:r=24:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clip])
-  const queued = await generate.execute({ duration: 12, video_paths: Array(12).fill(clip) },
+  const queued = await generate.execute({ duration: 12, video_paths: Array(12).fill(view(clip)) },
     { agent: { session: { id: 'media-session' } }, callId: 'media-call' })
   const { findVideoCall } = await import('../src/jobs/call-index.js')
   assert.equal(await findVideoCall('media-session', 'media-call'), queued.job_id)
   assert.equal(queued.status, 'succeeded')
-  assert.ok(queued.server_path.includes('/final/'))
+  assert.equal(queued.server_path, undefined)
+  assert.equal(queued.path, queued.comfyui_view_url)
   const playback = new URL(queued.comfyui_view_url)
   assert.equal(playback.origin, backend.url)
-  assert.deepEqual(Buffer.from(await (await fetch(playback)).arrayBuffer()), await readFile(queued.path))
   assert.equal((await resume.execute({ job_id: queued.job_id })).job_id, queued.job_id)
   const job = await wait(queued.job_id)
   assert.equal(job.status, 'succeeded', job.error)
   const result = completedResult(job)
-  assert.equal(result.validation.full_decode, 'passed')
-  assert.equal(result.validation.specification_match, 'passed')
+  assert.equal(result.validation.full_decode, 'not_run')
+  assert.equal(result.validation.specification_match, 'not_run')
   assert.equal(job.backend, 'comfyui')
   assert.equal(backend.prompts.length, 1)
   assert.equal(job.workflow_name, 'workflow_director_video')
@@ -61,10 +61,10 @@ test('production tool waits and delivers 12 concatenated clips without model pol
   assert.equal(savedWorkflow.extra.harness.name, 'workflow_director_video')
   assert.deepEqual(backend.prompts[0].extra_data.extra_pnginfo.workflow, savedWorkflow)
   assert.equal(savedWorkflow.nodes.find(n => n.id === 'final').type, 'DaSiWa_EnhancedVideoCombine')
-  assert.ok(Math.abs(result.media_info.duration_seconds - 12) < 0.5)
-  const before = await stat(result.path)
+  assert.equal(result.media_info, undefined)
+  const before = backend.prompts.length
   await resume.execute({ job_id: queued.job_id })
-  assert.equal((await stat(result.path)).mtimeMs, before.mtimeMs)
+  assert.equal(backend.prompts.length, before)
   const report = JSON.parse(await readFile(join(root, 'jobs/jobs', result.job_id, 'validation.json'), 'utf8'))
   assert.equal(report.shots.length, 12)
 })
@@ -73,7 +73,7 @@ test('wrong source duration fails before submitting any ComfyUI task', { skip: !
   const clip = join(artifacts, 'wrong.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
   const before = backend.prompts.length
-  const queued = await generate.execute({ duration: 180, video_paths: [clip] })
+  const queued = await generate.execute({ duration: 180, video_paths: [view(clip)] })
   const job = await wait(queued.job_id)
   assert.equal(job.status, 'failed')
   assert.equal(job.failed_stage, 'prepare')
@@ -90,14 +90,14 @@ test('invalid generation plans fail before a background task starts', async () =
   }
 })
 
-test('an audio tail cannot make a mismatched video pass the container-duration check', { skip: !available }, async () => {
+test('HTTP result does not claim output specification validation', { skip: !available }, async () => {
   const clip = join(artifacts, 'audio-tail.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
   backend.controls.audioTail = 0.3
   try {
-    const result = await generate.execute({ duration: 1, video_paths: [clip] })
-    assert.equal(result.status, 'failed')
-    assert.match(result.error, /规格验证/)
+    const result = await generate.execute({ duration: 1, video_paths: [view(clip)] })
+    assert.equal(result.status, 'succeeded')
+    assert.equal(result.validation.specification_match, 'not_run')
   } finally { backend.controls.audioTail = 0 }
 })
 
@@ -107,8 +107,8 @@ test('three five-second shots preserve their contract and validate references be
   await writeFile(image, 'fixture')
   await writeFile(audio, 'fixture')
   const plan = { duration: 15, shots: [
-    { id: 's01', duration: 5, prompt: 'A深蓝衬衫：明天你还会来吗？', image_path: image },
-    { id: 's02', duration: 5, prompt: 'B米白针织衫：会，我答应过你。', mode: 'reference', image_path: image, audio_path: audio },
+    { id: 's01', duration: 5, prompt: 'A深蓝衬衫：明天你还会来吗？', image_path: view(image) },
+    { id: 's02', duration: 5, prompt: 'B米白针织衫：会，我答应过你。', mode: 'reference', image_path: view(image), audio_path: view(audio) },
     { id: 's03', duration: 5, prompt: '接续动作', mode: 'continue' },
   ] }
   const original = structuredClone(plan)
@@ -135,8 +135,8 @@ test('shot reuse renders mixed frame rates and audio layouts through the HTTP ta
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=2', '-c:v', 'libx264', silent])
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=96x64:r=25:d=1', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-c:v', 'libx264', '-c:a', 'aac', voiced])
   const result = await generate.execute({ duration: 2, shots: [
-    { id: 'selected-a', mode: 'reuse', video_path: silent, in_point: 1, duration: 1 },
-    { id: 'selected-b', mode: 'reuse', video_path: voiced, duration: 1 },
+    { id: 'selected-a', mode: 'reuse', video_path: view(silent), in_point: 1, duration: 1 },
+    { id: 'selected-b', mode: 'reuse', video_path: view(voiced), duration: 1 },
   ] })
   assert.equal(result.status, 'succeeded', result.error)
   const { stdout } = await run('ffprobe', ['-v', 'error', '-show_streams', '-of', 'json', result.path])
@@ -149,7 +149,7 @@ test('shot reuse renders mixed frame rates and audio layouts through the HTTP ta
   assert.equal(result.validation.human_review, 'not_run')
   assert.deepEqual(result.shots.map(s => s.id), ['selected-a', 'selected-b'])
   for (const shot of result.shots) {
-    assert.ok((await stat(shot.path)).size > 0)
+    assert.equal(shot.path, shot.comfyui_view_url)
     assert.equal(new URL(shot.comfyui_view_url).origin, backend.url)
   }
   const report = JSON.parse(await readFile(join(root, 'jobs/jobs', result.job_id, 'validation.json'), 'utf8'))
@@ -160,7 +160,7 @@ test('workflow survives submitting process exit and failed validation resumes un
   const clip = join(artifacts, 'resume.mp4')
   await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=64x64:r=24:d=1', '-c:v', 'libx264', clip])
   const source = new URL('../src/workflows/video-jobs.js', import.meta.url).href
-  const script = `const { startVideoJob } = await import(${JSON.stringify(source)}); console.log(JSON.stringify(await startVideoJob(${JSON.stringify({ duration: 1, video_paths: [clip] })})))`
+  const script = `const { startVideoJob } = await import(${JSON.stringify(source)}); console.log(JSON.stringify(await startVideoJob(${JSON.stringify({ duration: 1, video_paths: [view(clip)] })})))`
   const { stdout } = await run(process.execPath, ['--input-type=module', '-e', script], {
     env: { ...process.env, FFPROBE_BIN: join(root, 'unavailable-ffprobe') },
   })
@@ -177,7 +177,7 @@ test('workflow survives submitting process exit and failed validation resumes un
   assert.equal(continued.job_id, submitted.job_id)
   const job = await wait(submitted.job_id)
   assert.equal(job.status, 'succeeded', job.error)
-  assert.equal(job.result.validation.full_decode, 'passed')
+  assert.equal(job.result.validation.full_decode, 'not_run')
 })
 
 test('dead or reused worker PID recovers the original prompt without resubmitting', { skip: !available }, async () => {
@@ -188,30 +188,34 @@ test('dead or reused worker PID recovers the original prompt without resubmittin
     await writeFile(join(directory, 'status.json'), JSON.stringify({ ...original, status: 'running', stage: 'execute' }))
     await writeFile(join(directory, 'worker.lock'), String(pid))
     const results = await Promise.allSettled([resume.execute({ job_id: result.job_id }), resume.execute({ job_id: result.job_id })])
-    assert.ok(results.some(r => r.status === 'fulfilled' && r.value.status === 'succeeded'))
+    if (pid === process.pid && results.every(r => r.status === 'rejected' && r.reason.code === 'WORKFLOW_RECOVERY_REQUIRED')) {
+      // Sandboxed macOS may deny ps; an unknown owner must never be reclaimed.
+      assert.equal(await readFile(join(directory, 'worker.lock'), 'utf8'), String(pid))
+      assert.equal(backend.prompts.length, before)
+      continue
+    }
+    assert.ok(results.some(r => r.status === 'fulfilled' && r.value.status === 'succeeded'), JSON.stringify(results, (_, value) => value instanceof Error ? { message: value.message, code: value.code } : value))
     for (const r of results) if (r.status === 'rejected') assert.equal(r.reason.code, 'WORKFLOW_RECOVERY_REQUIRED')
     const recovered = await wait(result.job_id)
     assert.equal(recovered.comfyui_prompt_id, original.comfyui_prompt_id)
     assert.equal(backend.prompts.length, before)
-    assert.ok((await stat(result.path)).size > 0)
+    assert.equal(result.path, result.comfyui_view_url)
   }
 })
 
-test('corrupt reusable shot prevents successful final publication and can resume without inference', { skip: !available }, async () => {
+test('output collection and resume never fetch media or claim to decode it', { skip: !available }, async () => {
   backend.controls.corruptShot = true
+  const before = backend.controls.downloads.length
   let result
-  try { result = await generate.execute({ duration: 1, prompts: ['validate shot'] }) }
+  try { result = await generate.execute({ duration: 1, prompts: ['HTTP only'] }) }
   finally { backend.controls.corruptShot = false }
-  await wait(result.job_id)
-  assert.equal(result.status, 'failed')
-  assert.equal(result.remote_status, 'succeeded')
-  assert.equal(await stat(join(artifacts, `production-${result.job_id}`, 'output/final.mp4')).catch(() => null), null)
-  const before = backend.prompts.length
-  const downloads = backend.controls.downloads.length
+  assert.equal(result.status, 'succeeded')
+  assert.equal(result.validation.full_decode, 'not_run')
+  assert.equal(result.shots[0].validation.full_decode, 'not_run')
+  const prompts = backend.prompts.length
   const recovered = await resume.execute({ job_id: result.job_id })
-  assert.equal(backend.controls.downloads.length - downloads, 0, 'validate on server without downloading artifacts')
-  assert.equal(recovered.status, 'succeeded')
-  assert.equal(recovered.shots[0].validation.full_decode, 'passed')
-  assert.equal(backend.prompts.length, before)
-  await wait(result.job_id)
+  assert.equal(recovered.path, result.path)
+  assert.equal(backend.prompts.length, prompts)
+  assert.equal(backend.controls.downloads.length, before)
+  assert.deepEqual(await readFile(join(root, 'jobs/jobs', result.job_id, 'status.json'), 'utf8').then(JSON.parse).then(j=>j.result), (await getJob(result.job_id)).result)
 })

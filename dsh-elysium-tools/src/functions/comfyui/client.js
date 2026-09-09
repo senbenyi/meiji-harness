@@ -1,6 +1,4 @@
 import { requiredConfig } from '../../config.js'
-import { openAsBlob } from 'node:fs'
-import { basename } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { submitComfyPrompt } from '../../jobs/comfy-submission.js'
 
@@ -23,7 +21,7 @@ export class ComfyClient {
     const signal = this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout)
     const response = await fetch(new URL(path, this.url), {
       method: body === undefined ? 'GET' : 'POST', signal,
-      ...(body instanceof FormData ? { body } : body === undefined ? {} : {
+      ...(body === undefined ? {} : {
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       }),
     })
@@ -35,16 +33,6 @@ export class ComfyClient {
       throw error
     }
     return result
-  }
-
-  async upload(path, name) {
-    const form = new FormData()
-    form.set('image', await openAsBlob(path), name || basename(path))
-    form.set('type', 'input')
-    form.set('overwrite', 'false')
-    const result = await this.request('upload/image', form, 600_000)
-    if (!result.name || result.type !== 'input') throw new Error('ComfyUI 上传未返回 input 文件')
-    return result.subfolder ? `${result.subfolder}/${result.name}` : result.name
   }
 
   async validate(graph) {
@@ -68,7 +56,8 @@ export class ComfyClient {
           if (!type || (spec[0] !== type && !(spec[0] === 'FLOAT' && type === 'INT'))) throw new Error(`${id}.${key} 连线类型不匹配`)
         } else {
           const choices = Array.isArray(spec[0]) ? spec[0] : spec[1]?.options
-          if (choices && !choices.includes(value)) throw new Error(`${id}.${key} 不支持值 ${value}`)
+          const mediaReference = ['LoadImage', 'LoadVideo'].includes(node.class_type) && ['image', 'file'].includes(key) && typeof value === 'string' && / \[(input|output)\]$/.test(value)
+          if (choices && !choices.includes(value) && !mediaReference) throw new Error(`${id}.${key} 不支持值 ${value}`)
           if (typeof value === 'number' && (value < (spec[1]?.min ?? -Infinity) || value > (spec[1]?.max ?? Infinity))) throw new Error(`${id}.${key} 超出节点范围`)
         }
       }

@@ -11,7 +11,7 @@ export function createModelGenerateImageTool() {
       properties: {
         prompt: { type: 'string', description: '要生成的画面描述。' },
         preset: { type: 'string', enum: ['standard'], description: '仅支持 standard。' },
-        image_path: { type: 'string', description: '可选，artifacts 下人物参考图绝对路径。' },
+        image_path: { type: 'string', description: '可选，已配置 ComfyUI HTTP view 人物参考图地址。' },
         seed: { type: 'integer', minimum: 0, description: '随机种子，默认 666。' },
       },
       required: ['prompt'],

@@ -1,7 +1,7 @@
 import { mockComfy } from './helpers/comfy-server.js'
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -15,14 +15,11 @@ process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 const backend = await mockComfy(root)
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url
 process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url
-process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 after(async () => { await backend.close(); await rm(root, { recursive: true, force: true }) })
 const { createModelTools } = await import('../src/index.js')
 
-const image = join(artifacts, 'reference.png')
-const audio = join(artifacts, 'reference.mp3')
-await writeFile(image, 'test image')
-await writeFile(audio, 'test audio')
+const image = `${backend.url}/view?filename=reference.png&type=output`
+const audio = `${backend.url}/view?filename=reference.mp3&type=output`
 
 for (const mode of ['text', 'image', 'reference']) {
   test(`${mode} routes through the video capability and preserves prompt/media`, async () => {

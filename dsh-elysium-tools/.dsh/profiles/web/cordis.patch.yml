@@ -22,7 +22,3 @@
   config:
     comfyUrl: http://127.0.0.1:6016
     publicUrl: http://127.0.0.1:6016
-    serverHost: veo-comfyui
-    serverPython: /root/autodl-tmp/venvs/comfyui-minimax-h3/bin/python
-    serverOutputRoot: /root/autodl-tmp/ComfyUI-minimax-h3/output
-    serverInputRoot: /root/autodl-tmp/ComfyUI-minimax-h3/input

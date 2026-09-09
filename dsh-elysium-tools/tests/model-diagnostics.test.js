@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import test from 'node:test'
-import { inspectMedia, summarizeMedia, traceDiagnostics } from '../src/functions/common/diagnostics.js'
+import { summarizeMedia, traceDiagnostics } from '../src/functions/common/diagnostics.js'
 
 test('media dimensions are measured and never relabeled as 9:16', () => {
   const result = summarizeMedia({ format: { format_name: 'mov,mp4', duration: '5.2' }, streams: [
@@ -14,24 +11,6 @@ test('media dimensions are measured and never relabeled as 9:16', () => {
   assert.equal(result.duration_seconds, 5.2)
   assert.equal(result.frame_rate, 24000 / 1001)
   assert.equal(result.has_audio, true)
-})
-
-test('unavailable probe is not reported as validation passed', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'media-probe-'))
-  const previous = process.env.FFPROBE_BIN
-  try {
-    process.env.FFPROBE_BIN = join(root, 'missing-ffprobe')
-    const report = join(root, 'probe.json')
-    const result = await inspectMedia(join(root, 'not-media.mp4'), report)
-    assert.equal(result.media_probe, 'not_run')
-    assert.equal(result.media_info, null)
-    assert.ok(result.warnings.includes('FFPROBE_UNAVAILABLE'))
-    assert.equal(JSON.parse(await readFile(report, 'utf8')).code, 'ENOENT')
-  } finally {
-    if (previous === undefined) delete process.env.FFPROBE_BIN
-    else process.env.FFPROBE_BIN = previous
-    await rm(root, { recursive: true, force: true })
-  }
 })
 
 test('stage timing preserves existing prompt evidence', () => {

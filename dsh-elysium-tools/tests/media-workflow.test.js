@@ -11,9 +11,8 @@ const root = await realpath(await mkdtemp(join(tmpdir(), 'native-media-'))), art
 await mkdir(artifacts)
 process.env.ARTIFACTS_ROOT = artifacts; process.env.ELYSIUM_TOOLS_STATE_ROOT = join(root, 'state')
 const backend = await mockMedia(root)
-process.env.MINIMAX_H3_COMFYUI_OUTPUT_ROOT = root
 process.env.MINIMAX_H3_COMFYUI_URL = backend.url; process.env.MINIMAX_H3_COMFYUI_PUBLIC_URL = backend.url
-const { createModelTools, createWorkflowTools, getJob, apply } = await import('../src/index.js')
+const { createModelTools, createWorkflowTools, getJob } = await import('../src/index.js')
 const image = createModelTools().find(t => t.name === 'model_generate_image'), concat = createModelTools().find(t => t.name === 'model_concat_video')
 const resume = createWorkflowTools().find(t => t.name === 'model_job_resume')
 const { findVideoCall } = await import('../src/jobs/call-index.js')
@@ -24,7 +23,7 @@ let picture
 test('image and reference image use standard visual workflow and survive resume', async () => {
   picture = await image.execute({ prompt: 'A paper boat', seed: 9 }, { agent: { session: { id: 's' } }, callId: 'c' })
   assert.deepEqual(picture, JSON.parse(JSON.stringify(picture)), 'Harness requires lossless JSON tool output')
-  assert.equal(picture.media_kind, 'image'); assert.equal(picture.media_info.width, 832); assert.equal(picture.media_info.height, 1216)
+  assert.equal(picture.media_kind, 'image'); assert.equal(picture.media_info, undefined); assert.equal(picture.validation.full_decode, 'not_run')
   assert.equal(await findVideoCall('s', 'c'), picture.job_id)
   assert.equal(backend.prompts[0].prompt['5'].inputs.steps, 30)
   assert.equal(backend.prompts[0].prompt['5'].inputs.seed, 9)
@@ -38,7 +37,7 @@ test('image and reference image use standard visual workflow and survive resume'
   assert.equal(ref.status, 'succeeded')
   assert.deepEqual(ref, JSON.parse(JSON.stringify(ref)))
   assert.equal(backend.prompts.at(-1).extra_data.extra_pnginfo.workflow.extra.harness.name, 'workflow_generate_image_reference')
-  assert.match(backend.prompts.at(-1).prompt['8'].inputs.image, /\.png$/)
+  assert.match(backend.prompts.at(-1).prompt['8'].inputs.image, /\.png \[output\]$/)
   const { validateVideoPlan } = await import('../src/workflows/video-jobs.js')
   await validateVideoPlan({ duration: 5, image_path: picture.path, prompts: ['Boat drifts'] })
 })
@@ -60,13 +59,13 @@ test('confirmed failed image resumes under the same job ID', async () => {
 test('native concat preserves order, source dimensions, fps, duration and silent audio layout', async () => {
   const paths = []
   for (const color of ['red', 'blue']) {
-    const path = join(artifacts, color + '.mp4'); paths.push(path)
+    const path = join(artifacts, color + '.mp4'); paths.push(`${backend.url}/view?filename=${color}.mp4&subfolder=artifacts&type=output`)
     await run('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `color=c=${color}:s=64x64:r=24:d=1`, '-c:v', 'libx264', path])
   }
   const result = await concat.execute({ video_paths: paths })
   assert.deepEqual(result, JSON.parse(JSON.stringify(result)))
-  assert.equal(result.media_info.width, 64); assert.equal(result.media_info.frame_rate, 24)
-  assert.equal(result.media_info.has_audio, false); assert.equal(result.media_info.duration_seconds, 2)
+  assert.equal(result.media_info, undefined)
+  assert.equal(result.validation.specification_match, 'not_run')
   const request = backend.prompts.at(-1)
   assert.equal(request.extra_data.extra_pnginfo.workflow.extra.harness.name, 'workflow_concat_video')
   assert.equal('audio' in request.prompt['7'].inputs, false)
@@ -74,24 +73,19 @@ test('native concat preserves order, source dimensions, fps, duration and silent
   assert.ok(stdout[0] > stdout[2]); assert.ok(stdout[5] > stdout[3])
 })
 
-test('corrupt image is not delivered and recovery downloads the original prompt without inference', async () => {
+test('image results do not fetch bytes, save files or claim validation', async () => {
   backend.controls.corruptOutput = true
-  let id
-  try {
-    await assert.rejects(image.execute({ prompt: 'Keep the original image' }), error => {
-      id = error.message.match(/[0-9a-f]{32}/)?.[0]
-      return Boolean(id)
-    })
-  } finally { backend.controls.corruptOutput = false }
-  const failed = await getJob(id)
-  assert.equal(failed.status, 'failed')
-  assert.equal(failed.failed_stage, 'inspect-output')
-  assert.equal(await stat(join(artifacts, `production-${id}`, 'output/final.png')).catch(() => null), null)
-  const count = backend.prompts.length
-  const result = await resume.execute({ job_id: id })
+  const before = backend.controls.views.length
+  let result
+  try { result = await image.execute({ prompt: 'Keep the HTTP result' }) }
+  finally { backend.controls.corruptOutput = false }
   assert.equal(result.status, 'succeeded')
-  assert.equal(result.job_id, id)
-  assert.equal(result.comfyui_prompt_id, failed.comfyui_prompt_id)
-  assert.equal(result.validation.full_decode, 'passed')
+  assert.equal(result.validation.full_decode, 'not_run')
+  assert.equal(result.size_bytes, undefined)
+  assert.equal(result.sha256, undefined)
+  assert.equal(await stat(join(artifacts, `production-${result.job_id}`, 'output/final.png')).catch(() => null), null)
+  const count = backend.prompts.length
+  assert.equal((await resume.execute({ job_id: result.job_id })).path, result.path)
   assert.equal(backend.prompts.length, count)
+  assert.equal(backend.controls.views.length, before)
 })

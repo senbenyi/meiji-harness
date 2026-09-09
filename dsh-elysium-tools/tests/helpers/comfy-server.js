@@ -17,10 +17,6 @@ export async function mockComfy(directory) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
-      if (url.pathname === '/upload/image') {
-        for await (const _ of req) { /* consume multipart body */ }
-        res.end(JSON.stringify({ name: 'fixture.mp4', type: 'input' })); return
-      }
       if (url.pathname.startsWith('/object_info/')) {
         const type = decodeURIComponent(url.pathname.split('/').at(-1))
         res.end(JSON.stringify(schemas[type] ? { [type]: schemas[type] } : {})); return
@@ -60,7 +56,7 @@ export async function mockComfy(directory) {
       if (url.pathname === '/view') {
         controls.downloads.push(url.searchParams.get('filename') + '/' + url.searchParams.get('subfolder'))
         res.end(controls.corruptShot && /^s\d+_save$/.test(url.searchParams.get('subfolder'))
-          ? 'invalid video' : await readFile(join(directory, url.searchParams.get('filename')))); return
+          ? 'invalid video' : await readFile(join(directory, url.searchParams.get('subfolder') || '', url.searchParams.get('filename')))); return
       }
       res.writeHead(404).end('{}')
     } catch (error) { res.writeHead(500).end(JSON.stringify({ error: error.message })) }

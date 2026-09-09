@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { readJson, saveJson } from '../jobs/json.js'
 
-// Recovery uses the saved graph, never current templates or newly uploaded inputs.
+// Recovery uses the saved graph, never current templates or changed media references.
 export async function prepareComfyWorkflow(directory, client, plan, prepare) {
   const path = join(directory, 'comfyui-workflow.json')
   let prepared = await readJson(path)

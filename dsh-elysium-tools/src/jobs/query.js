@@ -3,7 +3,6 @@ import { requiredConfig } from '../config.js'
 import { readFile, stat } from 'node:fs/promises'
 import { traceDiagnostics } from '../functions/common/diagnostics.js'
 import { join } from 'node:path'
-import { publishVideo } from './legacy-video.js'
 import { ModelTaskError } from './contracts.js'
 
 const ARTIFACTS_ROOT = () => requiredConfig('ARTIFACTS_ROOT')
@@ -26,7 +25,6 @@ export async function getJob(jobId) {
   try {
     const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
     if (job.capability === 'workflow-video' && job.backend !== 'comfyui') {
-      if (job.status === 'succeeded') await publishVideo(job)
       job.workflow = await readFile(join(ARTIFACTS_ROOT(), `production-${jobId}`, 'workflow/state.json'), 'utf8')
         .then(JSON.parse).catch(() => null)
     }

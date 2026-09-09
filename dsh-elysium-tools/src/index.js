@@ -29,7 +29,6 @@ export function apply(ctx, config = {}) {
     ...(runtime.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]
   for (const definition of tools) {
     const tool = { ...definition, execute: (...args) => withConfig(runtime, async () => {
-      await mkdir(runtime.ARTIFACTS_ROOT, { recursive: true })
       await mkdir(runtime.ELYSIUM_TOOLS_STATE_ROOT, { recursive: true })
       return definition.execute(...args)
     }) }
