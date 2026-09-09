@@ -7,7 +7,8 @@ import { mkdir, rename, stat, writeFile } from 'node:fs/promises'
 import { join, extname } from 'node:path'
 import { ComfyClient, readJson, saveJson } from '../functions/comfyui/client.js'
 import { buildVideoGraph, loadVideoTemplates } from './video-graph.js'
-import { codeVersion, inspectMedia } from '../functions/common/diagnostics.js'
+import { codeVersion } from '../functions/common/diagnostics.js'
+import { validateVideoArtifact } from './video-validation.js'
 
 const run = promisify(execFile)
 async function digest(path) {
@@ -76,7 +77,9 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     status.debug.chain.push({ stage: 'comfyui-submitted', server_url: client.url.href, prompt_id: promptId })
     status.stage = 'execute'
     await saveJson(statusPath, status)
-    const history = await client.wait(promptId, timeoutMs)
+    const history = await client.wait(promptId, timeoutMs, async (_, stage) => {
+      if (status.stage !== stage) { status.stage = stage; await saveJson(statusPath, status) }
+    })
     await saveJson(join(directory, 'comfyui-history.json'), history)
     const descriptor = Object.values(history.outputs?.final || {}).flat().find(v => v?.filename?.endsWith('.mp4') && v.type === 'output')
     if (!descriptor) throw new Error('ComfyUI 没有返回最终节点的 MP4，不能用中间片段交付')
@@ -84,23 +87,9 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     await saveJson(statusPath, status)
     const candidate = output.replace(/\.mp4$/, '.candidate.mp4')
     await client.download(descriptor, candidate)
-    const inspection = await inspectMedia(candidate, join(directory, 'media-probe.json'))
-    const m = inspection.media_info, settings = prepared.settings
-    const measured = await readJson(join(directory, 'media-probe.json'))
-    const videoDuration = Number(measured?.streams?.find(s => s.codec_type === 'video')?.duration)
-    const audioDuration = Number(measured?.streams?.find(s => s.codec_type === 'audio')?.duration)
-    if (!m || m.width !== settings.outputWidth || m.height !== settings.outputHeight ||
-        Math.abs(m.frame_rate - settings.outputFps) > 0.001 || m.video_codec !== 'h264' ||
-        !m.has_audio || m.audio_codec !== 'aac' || !Number.isFinite(videoDuration) || !Number.isFinite(audioDuration) ||
-        Math.abs(audioDuration - videoDuration) > 0.15 ||
-        Math.abs(videoDuration - plan.duration) > Math.max(0.5, prepared.shots.length * 0.05)) {
-      throw new Error('成片未通过时长、画幅、帧率或音视频规格验证')
-    }
-    // Local binaries only verify the downloaded artifact; generation/editing run in ComfyUI.
-    await run(process.env.FFMPEG_BIN || 'ffmpeg', ['-v', 'error', '-xerror', '-nostdin', '-i', candidate,
-      '-map', '0:v:0', '-map', '0:a:0', '-f', 'null', '-'], { timeout: 300_000, maxBuffer: 1024 * 1024 })
-    await rename(candidate, output)
-    const sha256 = await digest(output), size = (await stat(output)).size
+    const settings = prepared.settings
+    const m = await validateVideoArtifact(candidate, plan.duration, settings, join(directory, 'media-probe.json'),
+      (prepared.shots.length / 2 + 1) / settings.outputFps + 0.01)
     const viewUrl = client.viewUrl(descriptor, publicUrl)
     const artifact = { ...descriptor, server_url: client.url.href, prompt_id: promptId, view_url: viewUrl, local_path: output }
     const shots = []
@@ -108,10 +97,16 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
       const file = Object.values(history.outputs?.[`s${index}_save`] || {}).flat().find(v => v?.filename?.endsWith('.mp4') && v.type === 'output')
       if (!file) throw new Error(`缺少镜头 ${shot.id} 的可复用产物`)
       const path = join(artifactsRoot, `production-${jobId}`, 'shots', `${shot.id}.mp4`)
-      await client.download(file, path)
+      const shotCandidate = path.replace(/\.mp4$/, '.candidate.mp4')
+      await client.download(file, shotCandidate)
+      const media_info = await validateVideoArtifact(shotCandidate, shot.duration, settings, join(directory, `shot-${shot.id}-probe.json`))
+      await rename(shotCandidate, path)
       shots.push({ id: shot.id, duration: shot.duration, path,
+        media_info, validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' },
         comfyui_view_url: client.viewUrl(file, publicUrl) })
     }
+    await rename(candidate, output)
+    const sha256 = await digest(output), size = (await stat(output)).size
     status.result = { path: output, size_bytes: size, sha256, media_info: m,
       validation: { file_exists: 'passed', nonempty: 'passed', media_probe: 'passed', full_decode: 'passed',
         specification_match: 'passed', human_review: 'not_run' },

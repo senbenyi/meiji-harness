@@ -8,7 +8,7 @@ import { publishVideo } from '../src/workflows/video-publication.js'
 import { renderToolDebug } from '../src/functions/common/tool.js'
 import { jobSummary } from '../src/http/media-jobs.js'
 
-test('publish final movie for ComfyUI and expose one URL without server paths; reuse on later reads', async () => {
+test('publish final movie and retain the reusable path without diagnostic logs', async () => {
   process.env.MINIMAX_H3_COMFYUI_URL = 'http://internal-comfy.test:19016'
   const root = await mkdtemp(join(tmpdir(), 'video-publication-'))
   try {
@@ -30,10 +30,10 @@ test('publish final movie for ComfyUI and expose one URL without server paths; r
     assert.equal((await stat(target)).mtimeMs, before.mtimeMs)
     const rendered = JSON.parse(renderToolDebug({}, { ...job, ...job.result, debug: { log_path: '/private/log' } })[0].text)
     assert.equal(rendered.comfyui_view_url, url.href)
-    assert.equal(rendered.path, undefined)
+    assert.equal(rendered.path, path)
     assert.equal(rendered.log_path, undefined)
     assert.equal(JSON.parse(renderToolDebug({}, job)[0].text).comfyui_view_url, url.href)
-    assert.equal(JSON.parse(renderToolDebug({}, job)[0].text).path, undefined)
+    assert.equal(JSON.parse(renderToolDebug({}, job)[0].text).path, path)
     assert.equal(jobSummary(job).comfyui_view_url, url.href)
     const originalFolder = `minimax-h3/jobs/${job.job_id}`
     await mkdir(join(options.outputRoot, originalFolder), { recursive: true })

@@ -117,16 +117,24 @@ export class ComfyClient {
     return saved.prompt_id
   }
 
-  async wait(promptId, timeoutMs, onProgress = async () => {}) {
+  async wait(promptId, timeoutMs, onProgress = async () => {}, pollMs = 2000) {
     const deadline = Date.now() + timeoutMs
+    let missing = 0
     while (Date.now() < deadline) {
       const entry = (await this.request(`history/${encodeURIComponent(promptId)}`))[promptId]
       if (entry?.status?.status_str === 'error' || entry?.status?.messages?.some(([type]) => ['execution_error', 'execution_interrupted'].includes(type))) {
         throw new Error(`ComfyUI 执行失败：${JSON.stringify(entry.status.messages)}`)
       }
       if (entry?.status?.completed) return entry
-      await onProgress(promptId)
-      await pause(2000, undefined, { signal: this.signal })
+      const queue = await this.request('queue')
+      const running = queue.queue_running?.some(item => item[1] === promptId)
+      const pending = queue.queue_pending?.some(item => item[1] === promptId)
+      missing = entry || running || pending ? 0 : missing + 1
+      // History and queue are separate snapshots. Confirm absence across polls
+      // before reporting loss; absence never authorizes a new submission.
+      if (missing >= 3) throw Object.assign(new Error(`原任务已不在队列或历史中，可能已取消或历史已清理；请核对 prompt_id: ${promptId}，禁止自动重提`), { code: 'COMFYUI_TASK_NOT_FOUND' })
+      await onProgress(promptId, running ? 'execute' : pending ? 'queued' : 'reconcile')
+      await pause(pollMs, undefined, { signal: this.signal })
     }
     throw new Error(`等待超时；远端任务可能仍在执行，恢复时查询原 prompt_id: ${promptId}`)
   }

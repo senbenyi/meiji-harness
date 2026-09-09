@@ -20,7 +20,7 @@
 
 `video-execution.js` 保存 `comfyui-workflow.json`（执行图、请求、选中的工作流与规格）以及 `comfyui-workflow-ui.json`（本次实际展开的可视化图）。后者以 `extra_data.extra_pnginfo.workflow` 随 `/prompt` 提交，可从 ComfyUI 历史加载，节点 ID 与执行图一致。恢复时复用原始快照，不用新模板重建已提交任务；旧任务没有 UI 快照时仍按原 API 图恢复。
 
-开发时在模型仓库运行 `python3 scripts/comfyui/export_h3_api.py`，自动更新相邻插件的 `src/workflows/templates/workflow_*.json`；`--check` 只检查同步状态。运行时只读取插件包内模板。修改源图后需重新导出、测试并按授权发布。
+开发时在模型仓库运行 `python3 scripts/common/comfyui/build_video_workflows.py`，自动更新相邻插件的 `src/workflows/templates/workflow_*.json`；`--check` 只检查同步状态。运行时只读取插件包内模板。修改源图后需重新导出、测试并按授权发布。
 
 ## 状态与恢复
 
@@ -53,7 +53,7 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 - 补齐逐镜输出后的有声/无声混合素材裁剪合片：`prompt_id=12755c8c-ffb9-48c8-b426-e26fe5d3e4fd`。两秒成片及两个独立一秒镜头均经 HTTP 取回；独立音视频时长、规格及完整解码通过；SHA-256 `4285cfe3214914bafa4605d680306500a1f3de44521eb7750a85719988d02946`。
 - 测试进程 `LLM_AI_MODEL_ROOT` 指向不存在的目录，未挂载服务器目录，通过临时 SSH HTTP 转发访问。该转发不是永久服务入口。
 - 新版插件安装后直接调用 Harness profile 中的工具包：`LLM_AI_MODEL_ROOT` 指向不存在的目录，复用素材的一秒任务 `prompt_id=68761a35-e3e4-4b0a-a52e-e8f98b631acc` 成功；逐镜与成片下载、独立音视频时长、规格及完整解码通过，恢复调用保持原任务 ID。部署时 50 项测试通过，Harness 3080 与现有本地 23080 入口均返回 HTTP 200。部署脚本最后新建隧道步骤因 23080 已占用退出；现有 SSH 隧道继续使用。
-- 本地旧工作流目录及对应编排测试已删除；导出器迁至 `scripts/comfyui/export_h3_api.py`。旧 `app/start_comfyui.sh` 已删除，启动入口继续调用 `start_comfyui_minimax.sh`。
+- 本地旧工作流目录及对应编排测试已删除；导出器迁至 `scripts/common/comfyui/build_video_workflows.py`。旧 `app/start_comfyui.sh` 已删除，启动入口继续调用 `start_comfyui_minimax.sh`。
 - 以上不代表 Harness 自然语言对话、内容审片、长片规模或 SwarmUI 验收。
 
 ## 地址配置约束
@@ -68,4 +68,4 @@ ComfyUI 队列、状态、结果、取消工具也改为 HTTP。取消仅删除�
 
 兼容视频工具 `model_generate_video` 和 `model_generate_video_long` 同样调用 ComfyUI 后台任务，保留会话卡片绑定与恢复能力；不再运行 Shell 视频入口。长视频旧 preset 名称仅作兼容，规格取可视化工作流。
 
-图片与已有视频合片已迁移为同类 ComfyUI 后台任务，源图分别位于模型仓库 `workflows/image-generate-sdxl/` 与 `workflows/video-concat/`，通过 `export_media_api.py` 导出。图片取消 fast，仅保留 standard，并同步视频首帧组件。新增 `model_job_resume` 和图片媒体回传；语音、插帧、超分、音效不在此次迁移范围。
+图片与已有视频合片已迁移为同类 ComfyUI 后台任务，源图分别位于模型仓库 `workflows/image-generate-sdxl/` 与 `workflows/video-concat/`，通过 `scripts/common/comfyui/build_image_concat_workflows.py` 导出。图片取消 fast，仅保留 standard，并同步视频首帧组件。新增 `model_job_resume` 和图片媒体回传；语音、插帧、超分、音效不在此次迁移范围。

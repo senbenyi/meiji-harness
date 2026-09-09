@@ -19,7 +19,7 @@ window.__ModuleLoader__.load({
       }
       return { status: 'pending' }
     }
-    const stages = { queued: '排队中', generate: '生成视频', image: '生成首帧', start: '准备衔接画面', render: '整理镜头', finalize: '整理成片', completed: '已完成' }
+    const stages = { prepare: '准备素材', submit: '提交任务', queued: '排队中', execute: '工作流执行中', reconcile: '核对原任务', 'inspect-output': '校验产物', generate: '生成视频', image: '生成首帧', start: '准备衔接画面', render: '整理镜头', finalize: '整理成片', completed: '已完成' }
     function label(job) {
       if (job.status === 'succeeded') return '已完成'
       if (job.status === 'failed') return '生成失败'

@@ -57,7 +57,9 @@ export async function executeComfyMedia(jobId, plan) {
     await saveJson(join(directory, 'resume-request.json'), { retry_failed: false })
     status.comfyui_prompt_id = promptId; status.stage = 'execute'
     await saveJson(statusPath, status)
-    const history = await client.wait(promptId, 2 * 60 * 60 * 1000)
+    const history = await client.wait(promptId, 2 * 60 * 60 * 1000, async (_, stage) => {
+      if (status.stage !== stage) { status.stage = stage; await saveJson(statusPath, status) }
+    })
     await saveJson(join(directory, 'comfyui-history.json'), history)
     const expected = prepared.expected, extension = expected.kind === 'image' ? '.png' : '.mp4'
     const descriptor = Object.values(history.outputs?.['7'] || {}).flat().find(v => v?.filename?.endsWith(extension) && v.type === 'output')

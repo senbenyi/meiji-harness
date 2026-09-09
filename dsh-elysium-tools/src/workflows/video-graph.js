@@ -53,6 +53,7 @@ export function frameIndices(seconds, outputFps, { fps, timestamps }, start = 0)
 export function buildVideoGraph(plan, media, workflows, jobId) {
   const graph = {}, shots = videoShots(plan, media), workflowName = selectVideoWorkflow(shots)
   const bundle = workflows[workflowName], settings = bundle.settings, templates = components(bundle)
+  if (settings.fps !== 24) throw new Error('H3 模型时间基准必须为 24 fps；交付帧率请修改 outputFps')
   const add = (id, class_type, inputs) => {
     const prototype = bundle.graph[bundle.workflow.extra.harness.operations[class_type]]
     if (!prototype) throw new Error(`Missing workflow operation: ${class_type}`)
@@ -132,9 +133,8 @@ export function buildVideoGraph(plan, media, workflows, jobId) {
     }
     images = add(p + 'resize', 'ImageScale', { image: images })
     const indices = frameIndices(shot.duration, settings.outputFps, timing, start)
-    const frames = indices.map((batch_index, i) => add(`${p}frame_${i}`, 'ImageFromBatch', { image: images, batch_index }))
-    const rendered = join(frames, p + 'frames_', 'ImageBatch')
-    previous = frames.at(-1)
+    const rendered = add(p + 'select_frames', 'ElysiumSelectFrames', { images, indices: JSON.stringify(indices) })
+    previous = [p + 'select_frames', 1]
     allImages.push(rendered)
     const silence = add(p + 'silence', 'EmptyAudio', { duration: shot.duration + (audio ? start : 0) })
     if (audio) {

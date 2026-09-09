@@ -33,8 +33,8 @@ test('three-shot graph retains prompts, per-shot durations, references, real las
   assert.equal(graph.s0_director.inputs.frame_rate, 24)
   assert.equal(graph.final.inputs.frame_rate, 30)
   assert.equal(graph.s2_conditioning.class_type, 'MiniMaxH3ImageToVideo')
-  assert.deepEqual(graph.s2_conditioning.inputs.first_frame, ['s1_frame_149', 0])
-  assert.equal(graph.s1_frame_149.inputs.batch_index, 119)
+  assert.deepEqual(graph.s2_conditioning.inputs.first_frame, ['s1_select_frames', 1])
+  assert.equal(JSON.parse(graph.s1_select_frames.inputs.indices).at(-1), 119)
   assert.equal(JSON.parse(graph.s1_director.inputs.timeline_data).items[0].value, 'uploaded.mp4')
   assert.ok(!JSON.stringify(graph).includes('/local/'))
   assert.ok(graph.final.inputs.audio)
@@ -49,10 +49,24 @@ test('reuse fails if a requested cut exceeds source footage', () => {
     { a: { name: 'a.mp4', duration: 1, fps: 24 } }, templates, 'test'), /时长不足/)
 })
 
-test('generation and final-output dimensions preserve the current runtime configuration', async () => {
-  const runtime = await readFile(new URL('../../../llm-ai-model/config/runtime.yaml', import.meta.url), 'utf8')
-  assert.ok(runtime.includes(`resolution: [${VIDEO_SETTINGS.width}, ${VIDEO_SETTINGS.height}]`))
-  assert.ok(runtime.includes(`resolution: [${VIDEO_SETTINGS.outputWidth}, ${VIDEO_SETTINGS.outputHeight}]`))
+test('generation and delivery settings come from the visual workflow', () => {
+  const graph = templates.workflow_generate_video.graph
+  assert.equal(VIDEO_SETTINGS.width, graph.s0_director.inputs.width)
+  assert.equal(VIDEO_SETTINGS.height, graph.s0_director.inputs.height)
+  assert.equal(VIDEO_SETTINGS.outputWidth, graph.s0_resize.inputs.width)
+  assert.equal(VIDEO_SETTINGS.outputHeight, graph.s0_resize.inputs.height)
+  assert.equal(VIDEO_SETTINGS.outputFps, graph.final.inputs.frame_rate)
+})
+
+test('long video graph grows by shots, preserving every presentation timestamp', () => {
+  const shots = Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, duration: 5, prompt: `shot ${i}` }))
+  const { graph } = buildVideoGraph({ duration: 60, shots }, {}, templates, 'long')
+  assert.ok(Object.keys(graph).length < 400)
+  assert.ok(!Object.values(graph).some(n => n.class_type === 'ImageFromBatch'))
+  for (let i = 0; i < shots.length; i++) assert.deepEqual(JSON.parse(graph[`s${i}_select_frames`].inputs.indices), frameIndices(5, 30, { fps: 24 }))
+  const changed = structuredClone(templates)
+  changed.workflow_generate_video.settings.fps = 30
+  assert.throws(() => buildVideoGraph({ duration: 5, prompts: ['A'] }, {}, changed, 'bad-fps'), /24 fps/)
 })
 
 function visualGraph(workflow) {

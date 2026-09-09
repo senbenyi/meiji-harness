@@ -8,7 +8,6 @@ export const renderToolDebug = (args, value) => {
   const output = Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
   if (['published-final', 'comfyui-final'].includes(value.comfyui_metadata_status)) {
     output.comfyui_view_url = value.comfyui_view_url
-    delete output.path
   }
   if (value.workflow && typeof value.workflow === 'object') output.progress = { stage: value.workflow.stage, status: value.workflow.status }
   if (value.debug && value.status !== 'succeeded') {
