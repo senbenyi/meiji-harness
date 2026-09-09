@@ -46,7 +46,7 @@ export function resolveConfig(config = {}) {
     python: process.env.PYTHON_BIN || 'python3', ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' }
   const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
-    if (key === 'legacyOutputRoot' && resolved[name] !== undefined) continue
+    if (key === 'legacyOutputRoot' && (config.serverOutputRoot !== undefined || config.legacyOutputRoot === undefined)) continue
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]
     if (value === undefined) continue
     resolved[name] = value

@@ -20,12 +20,12 @@ dsh plugin --profile web add --workspace-root ./registry
 
 ## 2. 手动复制配置
 
-1. 确认 `.dsh/profiles/web/cordis.patch.yml` 中两个 ComfyUI 地址可用。
+1. 核对 `.dsh/profiles/web/cordis.patch.yml` 中 ComfyUI 地址、SSH 主机及服务器目录。
 2. 将 `.dsh/.agent-presets/elysium/` 完整复制到 `~/.dsh/.agent-presets/elysium/`。
 
 ## 3. 重新加载
 
-重新加载 Harness，新会话选择“极乐世界”。素材放在 `~/.dsh/elysium/artifacts`（使用自定义 DSH_HOME 时随之调整），输入绝对路径；中断后查询、恢复原任务。
+重新加载 Harness，新会话选择“极乐世界”。短剧素材提前放在服务器分镜目录；中断后查询、恢复原任务。
 
 导演分镜文件可直接传给 `workflow_generate_video`：`{"plan_path":"ssh://veo-comfyui/root/autodl-fs/productions/episode/plan.json"}`。需本机 SSH 可访问；JSON 保存完整 `duration`、`shots`，参考素材放在同目录或子目录，用相对路径引用。也支持 artifacts 内的本地 JSON；不要同时传其他参数。
 

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { saveJson } from '../jobs/json.js'
 import { serverMedia } from '../media/server-media.js'
 
-export async function collectVideoArtifacts(client, history, prepared, jobId, directory, output, promptId) {
+export async function collectVideoArtifacts(client, history, prepared, jobId, directory, promptId) {
   const publicUrl = requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')
   const inspect = async (node, duration, tolerance) => {
     const descriptor = Object.values(history.outputs?.[node] || {}).flat().find(v => v?.filename?.endsWith('.mp4') && v.type === 'output')
@@ -25,7 +25,8 @@ export async function collectVideoArtifacts(client, history, prepared, jobId, di
   const shots = []
   for (const [i, shot] of prepared.shots.entries()) shots.push({ id: shot.id, duration: shot.duration,
     ...await inspect(`s${i}_save`, shot.duration, 1/prepared.settings.outputFps+0.01) })
-  return { ...final, media_kind: 'video', shots, warnings: [], comfyui_prompt_id: promptId,
+  const { descriptor, ...published } = final
+  return { ...published, media_kind: 'video', shots, warnings: [], comfyui_prompt_id: promptId,
     comfyui_artifact_id: createHash('sha256').update(JSON.stringify([client.url.href, promptId, 'final', final.descriptor])).digest('hex'),
     comfyui_metadata_status: 'comfyui-final', comfyui_artifacts: [{ ...final.descriptor, server_url: client.url.href, prompt_id: promptId, view_url: final.comfyui_view_url }] }
 }

@@ -13,6 +13,7 @@ const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INP
 export async function startVideoJob(args, exec) {
   args = await resolveVideoPlan(args, exec?.signal)
   await validateVideoPlan(args)
+  requiredConfig('MINIMAX_H3_COMFYUI_OUTPUT_ROOT')
   requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
   requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')
   const jobId = await createJob(args, exec)

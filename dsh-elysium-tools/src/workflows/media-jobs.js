@@ -11,6 +11,7 @@ import { validateMediaPlan } from './media-plan.js'
 export async function runMediaJob(capability, params, exec) {
   const plan = { capability, params }
   await validateMediaPlan(plan)
+  requiredConfig('MINIMAX_H3_COMFYUI_OUTPUT_ROOT')
   requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
   requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')
   const id = await createJob(plan, exec)

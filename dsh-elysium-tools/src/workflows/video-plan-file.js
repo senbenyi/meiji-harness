@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdir, mkdtemp, readFile, realpath, copyFile, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, posix } from 'node:path'
-import { requiredConfig } from '../config.js'
+import { requiredConfig, runtimeConfig } from '../config.js'
 import { sha256File } from '../functions/common/file-hash.js'
 import { ModelTaskError } from '../jobs/contracts.js'
 
@@ -22,6 +22,7 @@ export async function resolveVideoPlan(args, signal, fetchRemote = async (host, 
     const match = /^ssh:\/\/([A-Za-z0-9][A-Za-z0-9_.-]*)(\/[A-Za-z0-9_./-]+\.json)$/.exec(source)
     if (!match || match[2].split('/').includes('..')) throw invalid('远端分镜须为 ssh://服务器别名/绝对路径.json，不接受凭据或命令字符')
     host = match[1]
+    if (runtimeConfig().COMFYUI_SSH_HOST && host !== runtimeConfig().COMFYUI_SSH_HOST) throw invalid('分镜主机必须与配置的 ComfyUI SSH 主机一致')
     sourcePath = match[2]
   } else {
     if (!isAbsolute(source) || !source.endsWith('.json')) throw invalid('本地分镜须为 artifacts 内的绝对 JSON 路径')

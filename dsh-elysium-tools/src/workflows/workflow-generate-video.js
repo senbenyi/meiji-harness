@@ -10,7 +10,7 @@ const output = { schema: { type: 'object', properties: { job_id: { type: 'string
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '视频生产唯一入口：已有分镜文件仅传 plan_path，插件原样读取，不要让模型重抄长 JSON。否则多镜头用 shots 保留各镜时长、完整提示词和真实参考素材。自动选择导演工作流，等待完成并返回成片；校验失败不得缩短时长或删减分镜。',
+    description: '视频生产唯一入口：已有分镜文件仅传 plan_path，插件原样读取，不要让模型重抄长 JSON。否则多镜头用 shots 保留各镜时长、完整提示词和真实参考素材。短剧开拍前必须备齐服务器素材；不会临时补图或裁切。自动选择导演工作流，等待服务器校验并返回播放 URL；校验失败不得缩短时长或删减分镜。',
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     parameters: { type: 'object', additionalProperties: false, properties: {
       plan_path: { type: 'string', description: '单独使用：artifacts 内本地 JSON 绝对路径，或 ssh://服务器别名/共享目录/分镜.json（需本机 SSH 可访问）。文件内容为完整 duration/shots 请求，素材位于同目录或子目录。不要同时传 duration/shots 或其他字段。' },
@@ -21,7 +21,7 @@ export function createWorkflowGenerateVideoTool() {
           duration: { type: 'integer', minimum: 1, description: '本镜目标秒数；生成镜头最多15秒。' },
           mode: { type: 'string', enum: ['independent', 'continue', 'reference', 'reuse'], description: '默认independent：文生或起始图；continue：续接前镜末帧；reference：图片/视频/音频参考；reuse：复用已有视频。切镜用independent或reference。' },
           prompt: { type: 'string', description: '生成时完整保留角色、服装、构图、动作与声音要求；reuse不接受。' },
-          image_path: { type: 'string', description: '真实角色/场景图片；independent中作为首帧，reference中作为参考。' },
+          image_path: { type: 'string', description: '开拍前已确认的角色/场景图片；服务器素材使用 ssh://已配置主机/绝对路径，plan_path 文件内可使用相对路径。independent为首帧，reference为参考。' },
           image_role: { type: 'string', enum: ['character-sheet', 'single-view', 'scene'], description: '只接受开拍前已确认的单人参考 single-view 或场景首帧 scene；character-sheet 会拒绝进入推理。' },
           video_path: { type: 'string', description: 'reference的视频参考，或reuse要选用的已有镜头。' },
           audio_path: { type: 'string', description: '仅reference接受，声音参考不等于口型保证。' },

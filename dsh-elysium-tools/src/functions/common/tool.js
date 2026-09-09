@@ -25,6 +25,7 @@ export const COMPLETED_RESULT_SCHEMA = {
     job_id: { type: 'string' },
     status: { type: 'string' },
     path: { type: 'string' },
+    server_path: { type: 'string' },
     size_bytes: { type: 'number' },
     sha256: { type: 'string' },
     comfyui_prompt_id: { oneOf: [{ type: 'string' }, { type: 'null' }] },

@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 
 request = json.loads(base64.b64decode(sys.argv[1]))
 root = pathlib.Path(request['output_root']).resolve()
@@ -38,9 +39,18 @@ if request.get('timestamps'):
     frames = json.loads(subprocess.check_output([request['ffprobe'], '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'frame=best_effort_timestamp_time', '-of', 'json', str(path)], timeout=120))
     result['timestamps'] = [float(frame['best_effort_timestamp_time']) for frame in frames['frames']]
 if operation == 'input':
-    target = pathlib.Path(request['input_root']) / ('elysium-' + result['sha256'] + path.suffix.lower())
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.resolve() != path:
-        shutil.copyfile(path, target)
-    result['name'] = target.name
+    input_root = pathlib.Path(request['input_root']).resolve()
+    if path.is_relative_to(input_root):
+        result['name'] = path.relative_to(input_root).as_posix()
+    else:
+        input_root.mkdir(parents=True, exist_ok=True)
+        target = input_root / ('elysium-' + result['sha256'] + path.suffix.lower())
+        with tempfile.NamedTemporaryFile(dir=input_root, delete=False) as temporary:
+            temporary_path = pathlib.Path(temporary.name)
+        try:
+            shutil.copyfile(path, temporary_path)
+            temporary_path.replace(target)
+        finally:
+            temporary_path.unlink(missing_ok=True)
+        result['name'] = target.name
 print(json.dumps(result))

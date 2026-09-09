@@ -19,8 +19,7 @@ function sources(plan) {
 export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 * 60_000 } = {}) {
   requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')
   const stateRoot = requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
-  const artifactsRoot = requiredConfig('ARTIFACTS_ROOT')
-  const directory = join(stateRoot, 'jobs', jobId), output = join(artifactsRoot, `production-${jobId}`, 'output/final.mp4')
+  const directory = join(stateRoot, 'jobs', jobId)
   const statusPath = join(directory, 'status.json')
   const client = new ComfyClient(undefined, signal), started = Date.now()
   const status = { job_id: jobId, capability: 'workflow-video', backend: 'comfyui', trace_id: jobId,
@@ -48,7 +47,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     const { promptId, history } = await runComfyWorkflow(directory, client, prepared, status, timeoutMs)
     status.stage = 'inspect-output'
     await saveJson(statusPath, status)
-    status.result = await collectVideoArtifacts(client, history, prepared, jobId, directory, output, promptId)
+    status.result = await collectVideoArtifacts(client, history, prepared, jobId, directory, promptId)
     signal?.throwIfAborted()
     status.status = 'succeeded'
     status.stage = 'completed'

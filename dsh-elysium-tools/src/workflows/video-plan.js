@@ -25,16 +25,16 @@ export async function validateVideoPlan(args) {
     if (args.duration <= 15 ? args.prompts.length !== 1 : args.prompts.length < 2 || args.duration < args.prompts.length || args.duration > args.prompts.length * 15) throw invalid('多镜头请使用 shots 明确各镜时长；不得缩短总时长或删减镜头以绕过校验')
     if (args.image_prompt !== undefined && (typeof args.image_prompt !== 'string' || !args.image_prompt.trim())) throw invalid('image_prompt 不能为空')
     if ('image_path' in args && 'image_prompt' in args) throw invalid('image_path 与 image_prompt 二选一')
-    if (args.duration > 15 && !args.image_path && !args.image_prompt) throw invalid('长视频需要首帧或首帧提示词')
   }
   const root = await realpath(artifactsRoot())
   for (const value of [...(clips || []), ...('image_path' in args ? [args.image_path] : [])]) {
+    if (args.duration > 15 && runtimeConfig().COMFYUI_SSH_HOST && !serverPath(value)) throw invalid('短剧素材必须提前放在服务器目录')
     if (serverPath(value)) { await serverMedia({ operation: 'check', path: serverPath(value) }).catch(error => { throw invalid(error.message) }); continue }
     if (typeof value !== 'string' || !isAbsolute(value)) throw invalid('素材必须为绝对路径')
     const path = await realpath(value).catch(() => { throw invalid('素材文件不存在') })
     const rel = relative(root, path)
     const suffixes = clips ? ['.mp4'] : ['.png', '.jpg', '.jpeg', '.webp']
-    const serverRel = runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT ? relative(await realpath(runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT),path) : '..'
+    const serverRel = !runtimeConfig().COMFYUI_SSH_HOST && runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT ? relative(await realpath(runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT),path) : '..'
     const inServer = serverRel && !serverRel.startsWith('..') && !isAbsolute(serverRel)
     if (((!rel || rel.startsWith('..') || isAbsolute(rel)) && !inServer) || !suffixes.includes(extname(path).toLowerCase()) || !(await stat(path)).isFile()) throw invalid('素材须为 artifacts 内的有效图片或 MP4')
   }

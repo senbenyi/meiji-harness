@@ -26,7 +26,7 @@ export async function validateMediaPlan({ capability, params }) {
     if (typeof path !== 'string' || !isAbsolute(path)) throw invalid('素材必须为绝对路径')
     const resolved = await realpath(path).catch(() => { throw invalid('素材不存在') })
     const rel = relative(root, resolved), extensions = capability !== 'video-concat' ? ['.png', '.jpg', '.jpeg', '.webp'] : ['.mp4']
-    const outputRoot = runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT
+    const outputRoot = !runtimeConfig().COMFYUI_SSH_HOST && runtimeConfig().MINIMAX_H3_COMFYUI_OUTPUT_ROOT
     const serverRel = outputRoot ? relative(await realpath(outputRoot), resolved) : '..'
     const inServer = serverRel && !serverRel.startsWith('..') && !isAbsolute(serverRel)
     if (((!rel || rel.startsWith('..') || isAbsolute(rel)) && !inServer) || !extensions.includes(extname(resolved).toLowerCase()) || !(await stat(resolved)).isFile()) throw invalid('素材必须为 artifacts 内支持格式的文件')
