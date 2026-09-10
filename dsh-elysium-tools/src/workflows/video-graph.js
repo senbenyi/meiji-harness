@@ -8,8 +8,6 @@ export async function loadVideoTemplates() {
     JSON.parse(await readFile(new URL(`./templates/${name}.json`, import.meta.url), 'utf8')),
   ])))
 }
-export const VIDEO_SETTINGS = (await loadVideoTemplates()).workflow_generate_video.settings
-
 export function selectVideoWorkflow(shots) {
   return shots.length === 1 && shots[0].mode !== 'reuse' ? 'workflow_generate_video' : 'workflow_director_video'
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
-import { buildVideoGraph, frameIndices, loadVideoTemplates, VIDEO_SETTINGS } from '../src/workflows/video-graph.js'
+import { buildVideoGraph, frameIndices, loadVideoTemplates } from '../src/workflows/video-graph.js'
 
 const templates = await loadVideoTemplates()
 
@@ -50,12 +50,12 @@ test('reuse fails if a requested cut exceeds source footage', () => {
 })
 
 test('generation and delivery settings come from the visual workflow', () => {
-  const graph = templates.workflow_generate_video.graph
-  assert.equal(VIDEO_SETTINGS.width, graph.s0_director.inputs.width)
-  assert.equal(VIDEO_SETTINGS.height, graph.s0_director.inputs.height)
-  assert.equal(VIDEO_SETTINGS.outputWidth, graph.s0_resize.inputs.width)
-  assert.equal(VIDEO_SETTINGS.outputHeight, graph.s0_resize.inputs.height)
-  assert.equal(VIDEO_SETTINGS.outputFps, graph.final.inputs.frame_rate)
+  const { settings, graph } = templates.workflow_generate_video
+  assert.equal(settings.width, graph.s0_director.inputs.width)
+  assert.equal(settings.height, graph.s0_director.inputs.height)
+  assert.equal(settings.outputWidth, graph.s0_resize.inputs.width)
+  assert.equal(settings.outputHeight, graph.s0_resize.inputs.height)
+  assert.equal(settings.outputFps, graph.final.inputs.frame_rate)
 })
 
 test('long video graph grows by shots, preserving every presentation timestamp', () => {
