@@ -38,6 +38,9 @@ export async function executeComfyMedia(jobId, plan, { signal } = {}) {
     status.failed_stage = status.stage; status.stage = 'failed'; status.status = 'failed'
     status.error_code = error.code || 'MODEL_GENERATION_FAILED'; status.error = error.message.slice(0, 1500)
     status.retry_scope = 'query-existing-comfyui-prompt-before-retry'
+    status.finished_at = new Date().toISOString()
+    await saveJson(statusPath, status)
+    throw error
   }
   status.finished_at = new Date().toISOString()
   await saveJson(statusPath, status)
