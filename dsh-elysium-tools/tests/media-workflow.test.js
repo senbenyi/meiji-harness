@@ -23,6 +23,7 @@ let picture
 test('image and reference image use standard visual workflow and survive resume', async () => {
   picture = await image.execute({ prompt: 'A paper boat', seed: 9 }, { agent: { session: { id: 's' } }, callId: 'c' })
   assert.deepEqual(picture, JSON.parse(JSON.stringify(picture)), 'Harness requires lossless JSON tool output')
+  for (const key of image.output.schema.required) assert.ok(Object.hasOwn(picture, key), `Image output missing required ${key}`)
   assert.equal(picture.media_kind, 'image'); assert.equal(picture.media_info, undefined); assert.equal(picture.validation.full_decode, 'not_run')
   assert.equal(await findVideoCall('s', 'c'), picture.job_id)
   assert.equal(backend.prompts[0].prompt['5'].inputs.steps, 30)
@@ -64,6 +65,7 @@ test('native concat preserves order, source dimensions, fps, duration and silent
   }
   const result = await concat.execute({ video_paths: paths })
   assert.deepEqual(result, JSON.parse(JSON.stringify(result)))
+  for (const key of concat.output.schema.required) assert.ok(Object.hasOwn(result, key), `Concat output missing required ${key}`)
   assert.equal(result.media_info, undefined)
   assert.equal(result.validation.specification_match, 'not_run')
   const request = backend.prompts.at(-1)

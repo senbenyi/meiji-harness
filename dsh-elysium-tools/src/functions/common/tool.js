@@ -44,7 +44,7 @@ export const COMPLETED_RESULT_SCHEMA = {
     shots: { type: 'array', items: { type: 'object', additionalProperties: true } },
     warnings: { type: 'array', items: { type: 'string' } },
   },
-  required: ['job_id', 'status', 'path', 'size_bytes', 'sha256'],
+  required: ['job_id', 'status', 'path'],
 }
 
 export function completedModelTool({ name, description, timeoutMs, parameters, execute }) {

@@ -219,3 +219,11 @@ test('output collection and resume never fetch media or claim to decode it', { s
   assert.equal(backend.controls.downloads.length, before)
   assert.deepEqual(await readFile(join(root, 'jobs/jobs', result.job_id, 'status.json'), 'utf8').then(JSON.parse).then(j=>j.result), (await getJob(result.job_id)).result)
 })
+
+test('legacy first-frame prompts remain short-only and long requests require existing images', async () => {
+  const before = backend.prompts.length
+  await assert.rejects(generate.execute({ duration: 20, prompts: ['First', 'Next'], image_prompt: 'A paper boat' }), { code: 'MODEL_INPUT_INVALID' })
+  await validateVideoPlan({ duration: 15, prompts: ['First'], image_prompt: 'A paper boat' })
+  await validateVideoPlan({ duration: 20, prompts: ['First', 'Next'], image_path: view('boat.png') })
+  assert.equal(backend.prompts.length, before)
+})

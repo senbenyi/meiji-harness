@@ -10,7 +10,7 @@ const output = { schema: { type: 'object', properties: { job_id: { type: 'string
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '视频生产入口（单镜头或多镜头，不含跨镜头角色一致性保证）：已有分镜文件仅传 plan_path，插件原样读取，不要让模型重抄长 JSON。多镜头用 shots 保留各镜时长、完整提示词和真实参考素材。本工具不做角色资产冻结与自动一致性校验；需要跨镜头/跨集角色一致性的短剧批量生产，使用独立的 drama_orchestrator.py（llm-ai-model/workflows/drama-production/，当前为人机协作精修阶段），不要用本工具直接批量拍摄整集短剧。素材必须提前备齐，不会临时补图或裁切。自动选择导演工作流，等待服务器校验并返回播放 URL；校验失败不得缩短时长或删减分镜。',
+    description: '视频生产入口（单镜头或多镜头，不含跨镜头角色一致性保证）：已有分镜文件仅传 plan_path，插件原样读取，不要让模型重抄长 JSON。多镜头用 shots 保留各镜时长、完整提示词和真实参考素材。本工具不做角色资产冻结与自动一致性校验；需要跨镜头/跨集角色一致性的短剧批量生产，使用独立的 drama_orchestrator.py（llm-ai-model/workflows/drama-production/，当前为人机协作精修阶段），不要用本工具直接批量拍摄整集短剧。多镜头素材必须提前备齐，不会临时补图或裁切。按镜头选择生成或导演工作流，等待 ComfyUI 完成并核对最终节点 history 后返回播放 URL；输出完整解码、规格匹配和人工验收均未执行。任务失败不得缩短时长或删减分镜。',
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     parameters: { type: 'object', additionalProperties: false, properties: {
       plan_path: { type: 'string', description: '单独使用：HTTP(S) 分镜 JSON 地址。内容为完整 duration/shots 请求，素材使用 ComfyUI HTTP view 地址。不要同时传 duration/shots 或其他字段。' },
@@ -30,8 +30,8 @@ export function createWorkflowGenerateVideoTool() {
         },
       } },
       prompts: { type: 'array', minItems: 1, items: { type: 'string' }, description: '新生成时按顺序填写；不超过15秒一条，长视频至少两条，每段1..15秒。' },
-      image_path: { type: 'string', description: '可选已有首帧 ComfyUI HTTP view 地址。长视频须提供它或 image_prompt。' },
-      image_prompt: { type: 'string', description: '可选首帧生成提示词，与 image_path 二选一。' },
+      image_path: { type: 'string', description: '已有首帧 ComfyUI HTTP view 地址。旧 prompts 输入超过15秒时必填，不可用 image_prompt 替代。' },
+      image_prompt: { type: 'string', description: '仅用于不超过15秒的旧 prompts 输入，生成首帧；与 image_path 二选一，长视频不接受。' },
       video_paths: { type: 'array', minItems: 1, items: { type: 'string' }, description: '已有 MP4 按镜头顺序复用；不能与生成输入混用，不重新生成。' },
       seed: { type: 'integer', minimum: 0, maximum: 4294967295, description: '默认666。' },
     }, anyOf: [{ required: ['duration'] }, { required: ['plan_path'] }] }, output,
