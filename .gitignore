@@ -36,5 +36,6 @@ comfyui-output/
 *.tgz
 
 # editor
+.idea/
 .vscode/
 *.swp
