@@ -8,10 +8,9 @@
 | [`.dsh/.agent-presets/elysium/persona.md`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/persona.md) | 随包提供的 Elysium 人格 |
 | [`.dsh/.agent-presets/elysium/rules.md`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/rules.md) | Elysium 会话协作指令 |
 | [`.dsh/.agent-presets/elysium/skills/`](../dsh-elysium-tools/.dsh/.agent-presets/elysium/skills) | 随包提供的创作技能 |
-| [`app/common/config_loader.py`](../app/common/config_loader.py) | 配置解析与应用 |
+| [`app/common/config_loader.py`](../app/common/config_loader.py) | 本机运行与模型隧道配置解析 |
 
-服务器部署目录：`/root/autodl-tmp/project/harness`。
-远端 `127.0.0.1:3080`；本地隧道 `127.0.0.1:23080`。
+Harness 只在本机运行：`http://127.0.0.1:3080/`。远端服务器不再安装或启动 Harness。
 
 ## 服务管理
 
@@ -21,17 +20,24 @@ bash app/common/start_harness.sh --restart   # 重启
 bash app/common/start_harness.sh --stop      # 停止
 ```
 
-启动时检查 Qwen API，必要时通过 `QWEN_SSH_TARGET` 指定的 SSH 别名建立隧道；别名由执行机器的 `~/.ssh/config` 管理，使用服务器现有密钥和 `BatchMode=yes`。项目不再分发 SSH 配置。
-
-Harness 服务器须能直接执行 `ssh -o BatchMode=yes veo-qwen38 true`；Mac 的别名配置不会自动同步到服务器。部署目标同样读取 `HARNESS_SSH_TARGET`，由本机系统 SSH 配置解析。
+启动时检查 Qwen API 与 ComfyUI，必要时通过本机 `~/.ssh/config` 的 `veo-qwen38` 和 `veo-comfyui` 别名建立隧道。项目不分发 SSH 配置。
 
 Qwen 隧道脚本重复执行会复用健康通道；重建前先验证 SSH 和远端模型 API，预检失败时保留旧通道。
 
-## 本地隧道
+## 模型服务隧道
 
-恢复本地隧道：`bash app/open_tunnel_harness.sh`。脚本分别检查、建立或复用 Harness 和 ComfyUI 通道；已有 `23080` 通道不会跳过 `6016` 检查。
+恢复 ComfyUI：`bash app/open_tunnel_comfyui.sh`。Qwen 隧道由本机 Harness 启动脚本检查和恢复。Harness 本身不使用 SSH 隧道。
 
-SSH 目标与端口读取 `app/config/harness-settings.yaml` 的 `harness-runtime`，入口不接受参数。Harness 使用 `HARNESS_LOCAL_PORT` → `HARNESS_WEB_PORT`；ComfyUI 从 `MINIMAX_H3_COMFYUI_PUBLIC_URL` 与 `MINIMAX_H3_COMFYUI_URL` 读取转发地址。浏览器地址为回环地址时建立 SSH 通道，其他地址只检查可访问性。配置解析需要 PyYAML，可通过 `PYTHON_BIN` 指定已有 Python 环境。
+SSH 目标与端口读取 `app/config/harness-settings.yaml`。ComfyUI 使用本机 `6016`，Qwen API 使用本机 `18000`。配置解析需要 PyYAML，可通过 `PYTHON_BIN` 指定本机 Python。
+
+## 本机安装
+
+```bash
+bash app/deploy_dsh_elysium_tools_local.sh
+bash app/deploy_dsh_elysium_ui_local.sh
+```
+
+两个入口均在本机测试、构建、打包、注册 web profile，随后重启本机 Harness；不会向远端同步插件或 Harness 配置。
 
 ## 极乐世界预设
 
@@ -52,9 +58,9 @@ SSH 目标与端口读取 `app/config/harness-settings.yaml` 的 `harness-runtim
 
 统一使用 `workflow_generate_video`，注册创建、恢复、状态查询、结果获取四个工具。多镜头用 `shots` 绑定每镜参数；独立生成、参考生成、末帧续拍和 reuse 可组合。失败用 `workflow_resume_video` 复用原任务；人工改稿新建任务。
 
-H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。工具包自带媒体任务卡，不需额外安装 UI 或图片预览插件。成片在任务卡直接播放；优先通过 ComfyUI 视频地址播放，加载失败自动回退到 Harness 同源媒体接口；两者均失败时显示重试。会话中断后仍按原会话与调用 ID 查询后台任务，不重新生成。
+H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。工具包自带媒体任务卡。成片通过 ComfyUI HTTP 地址播放；会话中断后仍按原会话与调用 ID 查询本机任务状态，不重新生成。
 
-验收：正常连接时检查 ComfyUI「资产」内的成片与 Harness 视频卡；仅让浏览器无法访问 ComfyUI 时，视频卡应改用 Harness 媒体接口播放；重新打开中断会话，已完成任务应恢复成片。ComfyUI 当前资产列表按任务分组，封面可能为 `shot-1`，展开后查看 `final`。
+验收：正常连接时检查 ComfyUI「资产」内的成片与 Harness 视频卡；浏览器无法访问 ComfyUI 时应明确显示预览失败，不创建本地媒体副本；重新打开中断会话，已完成任务应恢复 HTTP 地址。ComfyUI 当前资产列表按任务分组，封面可能为 `shot-1`，展开后查看 `final`。
 
 ### 上下文成本
 
@@ -66,9 +72,9 @@ H3 原生 24 fps 生成，交付 480×854、30 fps、H.264。工具包自带媒�
 python3 -m unittest discover -s tests -p 'test_harness_settings.py'
 ```
 
-检查远端服务与工具清单：
+检查本机服务与工具清单：
 
 ```bash
-ssh veo-comfyui 'curl -fsS http://127.0.0.1:3080/ >/dev/null'
-ssh veo-comfyui 'jq .contributes.tools /root/autodl-tmp/wan22-harness/home/profiles/web/node_modules/@dsh-external/dsh-elysium-tools/dsh.plugin.json'
+curl -fsS http://127.0.0.1:3080/ >/dev/null
+jq .contributes.tools ~/.dsh/profiles/web/node_modules/@dsh-external/dsh-elysium-tools/dsh.plugin.json
 ```

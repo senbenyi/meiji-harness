@@ -38,6 +38,7 @@ printf '%s' '{"dependencies":{"@dsh-external/dsh-elysium-tools":"link:x","@dsh-e
         self.env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
                         DEPLOY_TEST_ROOT=str(self.root), DEPLOY_TEST_LOG=str(self.log))
         (self.root / "home").mkdir()
+        (self.root / "home/.agent-presets/elysium").mkdir(parents=True)
 
     def mock(self, name, body):
         path = self.bin / name

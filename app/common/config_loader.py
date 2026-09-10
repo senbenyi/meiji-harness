@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""解析并应用 Harness 配置。"""
+"""解析本机 Harness 与远端模型隧道配置。"""
 
 import argparse
 from pathlib import Path

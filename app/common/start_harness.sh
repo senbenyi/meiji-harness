@@ -11,7 +11,11 @@ action="${1:-start}"
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
 listeners() { lsof -nP -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true; }
-web_ready() { curl -fsS --max-time 3 "http://$LOCAL_HARNESS_HOST:$port/" >/dev/null 2>&1; }
+web_ready() {
+  local code
+  code="$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' "http://$LOCAL_HARNESS_HOST:$port/" 2>/dev/null || true)"
+  [[ "$code" =~ ^[1-5][0-9][0-9]$ ]]
+}
 check_listeners() {
   local pid command_line
   while IFS= read -r pid; do
@@ -45,9 +49,16 @@ if web_ready && [[ "$action" == start ]]; then
 fi
 bash "$REPO_ROOT/app/common/start_tunnel_qwen.sh"
 bash "$REPO_ROOT/app/common/start_tunnel_comfyui.sh"
+if [[ "$action" == start && -n "$(listeners)" ]]; then
+  for _ in {1..30}; do
+    if web_ready; then echo "[OK] 本机 Harness 与模型隧道均已运行：http://$LOCAL_HARNESS_HOST:$port/"; exit 0; fi
+    sleep 1
+  done
+  fail "本机 Harness 已监听但 HTTP 未就绪，查看 $log_file"
+fi
 [[ "$action" != --restart ]] || stop_harness
 mkdir -p "$DSH_HOME/logs"
-nohup env QWEN38_LOCAL_API_KEY=local-vllm dsh web --host "$LOCAL_HARNESS_HOST" --port "$port" --no-open \
+nohup env QWEN38_LOCAL_API_KEY=local-vllm dsh --profile web --host "$LOCAL_HARNESS_HOST" --port "$port" --no-open \
   >>"$log_file" 2>&1 </dev/null &
 harness_pid=$!
 for _ in {1..30}; do

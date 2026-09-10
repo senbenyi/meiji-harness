@@ -23,6 +23,7 @@ PY
 url="$MINIMAX_H3_COMFYUI_PUBLIC_URL"
 remote_url="$MINIMAX_H3_COMFYUI_URL"
 socket="${TMPDIR:-/tmp}/elysium-comfyui-${UID}-${local_port}.sock"
+legacy_socket="${TMPDIR:-/tmp}/elysium-harness-${UID}-${local_port}.sock"
 listeners() { lsof -nP -tiTCP:"$local_port" -sTCP:LISTEN 2>/dev/null || true; }
 ready() { curl -fsS --connect-timeout 2 --max-time 5 "$url/queue" >/dev/null 2>&1; }
 
@@ -33,8 +34,13 @@ if [[ -n "$(listeners)" ]]; then
     echo "[OK] ComfyUI 隧道已可用：$url"
     exit 0
   fi
-  ssh -S "$socket" -O check "$target" >/dev/null 2>&1 || fail "端口 $local_port 被其他连接或程序占用"
-  ssh -S "$socket" -O exit "$target"
+  if ssh -S "$socket" -O check "$target" >/dev/null 2>&1; then
+    ssh -S "$socket" -O exit "$target"
+  elif ssh -S "$legacy_socket" -O check "$target" >/dev/null 2>&1; then
+    ssh -S "$legacy_socket" -O exit "$target"
+  else
+    fail "端口 $local_port 被其他连接或程序占用"
+  fi
   for _ in {1..20}; do [[ -z "$(listeners)" ]] && break; sleep 0.1; done
   [[ -z "$(listeners)" ]] || fail '旧 ComfyUI 隧道未退出'
 fi
