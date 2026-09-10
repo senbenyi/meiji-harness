@@ -16,9 +16,12 @@ for name in curl lsof ps ssh; do
   command -v "$name" >/dev/null 2>&1 || fail "缺少命令：$name"
 done
 ssh_options=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
+model_present() {
+  "${PYTHON_BIN:-python3}" -c 'import json,sys; target=sys.argv[1]; data=json.load(sys.stdin); raise SystemExit(0 if target in {item.get("id") for item in data.get("data", [])} else 1)' "$QWEN_MODEL_ID"
+}
 qwen_ready() {
   curl -fsS --max-time 5 "http://$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT/v1/models" 2>/dev/null | \
-    grep -Fq "\"id\":\"$QWEN_MODEL_ID\""
+    model_present
 }
 
 listener_pids="$(lsof -nP -tiTCP:"$QWEN_API_LOCAL_PORT" -sTCP:LISTEN 2>/dev/null || true)"
@@ -34,7 +37,7 @@ if [[ -n "$listener_pids" ]] && qwen_ready; then
 fi
 ssh "${ssh_options[@]}" "$QWEN_SSH_TARGET" \
   "curl -fsS --max-time 5 'http://$QWEN_REMOTE_HOST:$QWEN_API_REMOTE_PORT/v1/models'" | \
-  grep -Fq "\"id\":\"$QWEN_MODEL_ID\"" || fail 'Qwen SSH 或模型 API 预检失败，未停止旧通道'
+  model_present || fail 'Qwen SSH 或模型 API 预检失败，未停止旧通道'
 
 while IFS= read -r pid; do
   [[ -n "$pid" ]] || continue
