@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { summarizeMedia, traceDiagnostics } from '../src/functions/common/diagnostics.js'
+import { codeVersion, summarizeMedia, traceDiagnostics } from '../src/functions/common/diagnostics.js'
+
+test('execution fingerprint includes the current execution modules', async () => {
+  assert.match((await codeVersion()).executor_sha256, /^[0-9a-f]{64}$/)
+})
 
 test('media dimensions are measured and never relabeled as 9:16', () => {
   const result = summarizeMedia({ format: { format_name: 'mov,mp4', duration: '5.2' }, streams: [

@@ -5,13 +5,15 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 
 export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'))
+  // Keep this explicit list aligned with every workflows/jobs module that participates in execution.
   const names = ['tool.js', 'diagnostics.js', '../comfyui/client.js', '../../config.js',
     ...['contracts.js', 'create.js', 'json.js', 'launch.js', 'launch-lock.py', 'query.js', 'wait.js',
-      'comfy-submission.js', 'call-index.js'].map(name => `../../jobs/${name}`),
+      'comfy-submission.js', 'call-index.js', 'worker-owner.js'].map(name => `../../jobs/${name}`),
     '../../media/probe.js', '../../media/http-media.js',
     ...['comfy-execution', 'video-plan', 'media-plan', 'video-jobs', 'media-jobs', 'video-worker',
       'video-graph', 'media-graph', 'video-execution', 'media-execution', 'video-workflow',
-      'video-artifacts', 'media-artifacts'].map(name => `../../workflows/${name}.js`),
+      'video-artifacts', 'media-artifacts', 'video-plan-file', 'character', 'workflow-generate-video',
+      'index'].map(name => `../../workflows/${name}.js`),
     ...['workflow_generate_video', 'workflow_director_video', 'workflow_generate_image',
       'workflow_generate_image_reference', 'workflow_concat_video'].map(name => `../../workflows/templates/${name}.json`)]
   const sources = await Promise.all(names.map(name => readFile(new URL(name, import.meta.url))))
