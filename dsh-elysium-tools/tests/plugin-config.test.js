@@ -50,7 +50,7 @@ test('independent plugin instances run workers, recover media and serve session 
   const exec = { agent: { session: { id: 'session' } }, callId: 'call' }
   const [movie, failed] = await Promise.all([
     video.tools.get('workflow_generate_video').execute({ duration: 1, prompts: ['independent worker'] }, exec),
-    image.tools.get('model_generate_image').execute({ prompt: 'independent image' }, exec).catch(error => error),
+    image.tools.get('workflow_generate_image').execute({ prompt: 'independent image' }, exec).catch(error => error),
   ])
   assert.equal(movie.status, 'succeeded', movie.error)
   assert.equal(movie.server_path, undefined)

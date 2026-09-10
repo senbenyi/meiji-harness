@@ -24,8 +24,7 @@ export function apply(ctx, config = {}) {
   const runtime = resolveConfig(config)
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => registerMediaRoutes(mediaContext, runtime)))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => projectTools(await next(), context.agent))
-  const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools().filter(tool =>
-    runtime.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' || ['model_generate_image', 'model_concat_video', 'model_job_status', 'model_job_result'].includes(tool.name)),
+  const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools(),
     ...(runtime.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]
   for (const definition of tools) {
     const tool = { ...definition, execute: (...args) => withConfig(runtime, async () => {

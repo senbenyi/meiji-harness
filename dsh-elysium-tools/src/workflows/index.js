@@ -1,9 +1,10 @@
 import { resumeMediaJob } from './media-jobs.js'
 import { createCharacterTools } from './character.js'
 import { renderToolDebug } from '../functions/common/tool.js'
+import { createWorkflowGenerateImageTool } from './workflow-generate-image.js'
 import { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool } from './workflow-generate-video.js'
 
-export { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool }
+export { createWorkflowGenerateImageTool, createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool }
 
 export function createWorkflowTools() {
   return [createWorkflowGenerateVideoTool(), createWorkflowResumeVideoTool(), ...createCharacterTools(), {
@@ -11,5 +12,5 @@ export function createWorkflowTools() {
     parameters: { type: 'object', properties: { job_id: { type: 'string' } }, required: ['job_id'], additionalProperties: false },
     output: { schema: { type: 'object', properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug },
     execute: (args, exec) => resumeMediaJob(args.job_id, exec),
-  }]
+  }, createWorkflowGenerateImageTool()]
 }
