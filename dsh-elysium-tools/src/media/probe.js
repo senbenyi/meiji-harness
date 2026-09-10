@@ -6,12 +6,15 @@ import { mediaReference } from './http-media.js'
 
 const run = promisify(execFile)
 
-export async function probeVideoInput(path) {
+export async function probeVideoInput(path, data) {
   path = mediaReference(path).url
-  const { stdout } = await run(runtimeConfig().FFPROBE_BIN || 'ffprobe', [
-    '-protocol_whitelist', 'http,https,tcp,tls,crypto', '-v', 'error', '-show_streams', '-show_format', '-of', 'json', path,
-  ], { timeout: 30_000, maxBuffer: 4 * 1024 * 1024 })
-  const data = JSON.parse(stdout), video = data.streams.find(s => s.codec_type === 'video')
+  if (!data) {
+    const { stdout } = await run(runtimeConfig().FFPROBE_BIN || 'ffprobe', [
+      '-protocol_whitelist', 'http,https,tcp,tls,crypto', '-v', 'error', '-show_streams', '-show_format', '-of', 'json', path,
+    ], { timeout: 30_000, maxBuffer: 4 * 1024 * 1024 })
+    data = JSON.parse(stdout)
+  }
+  const video = data.streams.find(s => s.codec_type === 'video')
   const [n, d] = String(video?.avg_frame_rate).split('/').map(Number)
   const duration = Number(video?.duration), fps = n / d
   if (!video || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(fps) || fps <= 0) throw new Error('素材没有有效的视频时长与帧率')
@@ -32,7 +35,7 @@ export async function probeMedia(path) {
   const data = JSON.parse(stdout), info = summarizeMedia(data)
   if (!(info.width > 0) || !(info.height > 0)) throw new Error('无法读取 HTTP 素材尺寸')
   if (new URL(path).searchParams.get('filename')?.endsWith('.mp4')) {
-    const timing = await probeVideoInput(path)
+    const timing = await probeVideoInput(path, data)
     info.duration_seconds = timing.duration
     const audio = data.streams.find(s => s.codec_type === 'audio')
     if (audio && (!Number.isFinite(Number(audio.duration)) || Math.abs(Number(audio.duration) - info.duration_seconds) > 0.15)) throw new Error('音轨与视频时长不一致')
