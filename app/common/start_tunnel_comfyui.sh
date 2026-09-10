@@ -8,20 +8,27 @@ target="$COMFYUI_SSH_TARGET"
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
 [[ "$#" -eq 0 ]] || fail '本脚本不接受参数'
-for command_name in ssh curl lsof; do command -v "$command_name" >/dev/null || fail "缺少命令：$command_name"; done
+command -v curl >/dev/null || fail '缺少命令：curl'
 
-read -r local_host local_port remote_host remote_port <<<"$("${PYTHON_BIN:-python3}" - "$MINIMAX_H3_COMFYUI_PUBLIC_URL" "$MINIMAX_H3_COMFYUI_URL" <<'PY'
+read -r mode local_host local_port remote_host remote_port <<<"$("${PYTHON_BIN:-python3}" - "$MINIMAX_H3_COMFYUI_PUBLIC_URL" "$MINIMAX_H3_COMFYUI_URL" <<'PY'
 import sys
 from urllib.parse import urlsplit
 public, internal = map(urlsplit, sys.argv[1:])
 if public.hostname not in ('127.0.0.1', 'localhost'):
-    raise SystemExit('公网 ComfyUI 地址无需 SSH 隧道')
-print(public.hostname, public.port or (443 if public.scheme == 'https' else 80),
+    print('direct')
+    raise SystemExit(0)
+print('tunnel', public.hostname, public.port or (443 if public.scheme == 'https' else 80),
       internal.hostname, internal.port or (443 if internal.scheme == 'https' else 80))
 PY
 )"
 url="$MINIMAX_H3_COMFYUI_PUBLIC_URL"
 remote_url="$MINIMAX_H3_COMFYUI_URL"
+if [[ "$mode" == direct ]]; then
+  curl -fsS --connect-timeout 2 --max-time 5 "$url/queue" >/dev/null || fail '公网 ComfyUI 不可访问'
+  echo "[OK] ComfyUI 公网地址已可用：$url"
+  exit 0
+fi
+for command_name in ssh lsof; do command -v "$command_name" >/dev/null || fail "缺少命令：$command_name"; done
 socket="${TMPDIR:-/tmp}/elysium-comfyui-${UID}-${local_port}.sock"
 legacy_socket="${TMPDIR:-/tmp}/elysium-harness-${UID}-${local_port}.sock"
 listeners() { lsof -nP -tiTCP:"$local_port" -sTCP:LISTEN 2>/dev/null || true; }

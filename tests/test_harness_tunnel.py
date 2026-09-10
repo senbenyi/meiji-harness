@@ -28,7 +28,7 @@ class ComfyuiTunnelTests(unittest.TestCase):
         self.mock("fixture-python", '''if [[ "$1" == - ]]; then exec "$TEST_PYTHON" "$@"; fi
 cat <<CONFIG
 COMFYUI_SSH_TARGET=fixture-host
-MINIMAX_H3_COMFYUI_PUBLIC_URL=http://127.0.0.1:6016
+MINIMAX_H3_COMFYUI_PUBLIC_URL=${PUBLIC_URL:-http://127.0.0.1:6016}
 MINIMAX_H3_COMFYUI_URL=http://127.0.0.1:6016
 CONFIG''')
         self.mock("lsof", '''[[ -f "$TUNNEL_ROOT/6016" ]] || exit 1
@@ -78,6 +78,13 @@ done''')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("端口 6016 被其他连接或程序占用", result.stderr)
         self.assertNotIn("-O exit", self.log.read_text())
+
+    def test_public_url_is_checked_without_ssh(self):
+        self.env["PUBLIC_URL"] = "https://comfy.example.test"
+        result = self.run_tunnel()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("公网地址已可用", result.stdout)
+        self.assertNotIn("ssh ", self.log.read_text())
 
 
 if __name__ == "__main__":
