@@ -45,10 +45,14 @@ bash app/deploy_dsh_elysium_ui_local.sh
 
 ### 技能分流
 
-- **creation-video**：一次生成完成、无需合成，通常 ≤15s
-- **creation-drama**：多段生成后合成，通常 >15s
+- **creation-video**：视频一次生成完成、无需合成
+- **creation-drama**：视频多段生成后合成
 
-以是否需要合成为准；常驻指令只负责分流，制作细节按需加载。
+视频以是否需要合成为准；常驻指令只负责分流，制作细节按需加载。
+
+普通单张图片（含人物肖像、场景图、镜头首帧）使用 `workflow_generate_image`；只有用户明确要求角色视图或三视图时才使用 `character-reference`。图片成功后等待用户后续指令，不自行追加角色图或视频。依据为随包 [rules.md](../dsh-elysium-tools/.dsh/.agent-presets/elysium/rules.md) 及图片、角色工具描述。
+
+[安装脚本](../app/common/deploy_plugin.sh) 仅在 `$DSH_HOME/.agent-presets/elysium` 不存在时复制随包预设；已有目录不会随重新构建或安装自动更新。规则修复部署时需核对并同步安装目录中的对应规则，保留用户其他定制，再在新会话确认生效。
 
 ### 导演
 

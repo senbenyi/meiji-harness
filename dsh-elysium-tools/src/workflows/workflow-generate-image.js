@@ -5,7 +5,7 @@ import { runMediaJob } from './media-jobs.js'
 export function createWorkflowGenerateImageTool() {
   return completedModelTool({
     name: 'workflow_generate_image',
-    description: '根据文本生成角色设定图、场景图或短剧镜头首帧，等待完成后返回真实图片路径，可交给视频工具继续生成。可选参考图保持人物外观，通过 ComfyUI 可视化工作流生成。',
+    description: '根据文本生成单张图片，包括人物肖像、场景图或镜头首帧，通过 ComfyUI 工作流生成并等待完成，返回服务器图片 URL。可选参考图提供人物外观条件，一致性需人工验收。普通人物图片使用本工具；完成后等待用户后续指令，不自行追加角色视图或视频。',
     timeoutMs: MODEL_TIMEOUTS.image,
     parameters: {
       properties: {

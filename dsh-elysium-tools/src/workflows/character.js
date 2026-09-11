@@ -87,7 +87,7 @@ export async function characterSheet(args, exec) {
 export function createCharacterTools() {
   const id = { type: 'string', pattern: '^[a-f0-9]{32}$' }
   return [completedModelTool({ name: 'model_character_view',
-    description: '角色三视图：先生成 front，用户确认后绑定 reference_job_id 生成一个 side/back。description 只写固定外观服装，每次保持完全一致。side/back 默认复用原任务；仅用户要求重做时 retry=true，每视角最多三次。不代表视觉验收通过。',
+    description: '仅用于用户明确要求的角色视图或三视图；普通人物肖像、场景图或镜头首帧使用 workflow_generate_image，不作为其完成后的追加步骤。角色三视图先生成 front，用户确认后绑定 reference_job_id 生成一个 side/back。description 只写固定外观服装，每次保持完全一致。side/back 默认复用原任务；仅用户要求重做时 retry=true，每视角最多三次。不代表视觉验收通过。',
     timeoutMs: 41 * 60_000, parameters: { properties: { reference_job_id: id, description: { type: 'string' },
       view: { type: 'string', enum: ['front', 'side', 'back'] }, retry: { type: 'boolean' } }, required: ['description', 'view'] },
     execute: (args, _signal, exec) => characterView(args, exec) }),
