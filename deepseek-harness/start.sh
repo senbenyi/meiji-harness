@@ -103,7 +103,7 @@ cd "$OPERATOR_ROOT"
 : >"$PROXY_LOG_FILE"
 [[ "$action" != --restart ]] || "$QWEN_TUNNEL_ENTRY"
 nohup setpriv --reuid="$SERVICE_UID" --regid="$SERVICE_GID" --init-groups \
-  env DSH_HOME="$DSH_HOME" DSH_PERMISSION_MODE=workspace-write QWEN38_LOCAL_API_KEY=local-vllm \
+  env HOME="$OPERATOR_ROOT" DSH_HOME="$DSH_HOME" DSH_PERMISSION_MODE=workspace-write QWEN38_LOCAL_API_KEY=local-vllm \
   "$DSH_BIN" --profile web --patch "$SECURITY_PATCH" \
   --host 127.0.0.1 --port "$HARNESS_PORT" --no-open \
   --trusted-host "$TRUSTED_HOST" >>"$LOG_FILE" 2>&1 </dev/null &

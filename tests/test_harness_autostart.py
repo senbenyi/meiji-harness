@@ -24,6 +24,7 @@ class HarnessAutostartTest(unittest.TestCase):
         self.assertIn('"$HOME_ROOT/operator-security.patch.yml"', deploy)
         self.assertIn('OPERATOR_ROOT="$HARNESS_ROOT/operator-workspace"', start)
         self.assertIn('cd "$OPERATOR_ROOT"', start)
+        self.assertIn('env HOME="$OPERATOR_ROOT" DSH_HOME="$DSH_HOME"', start)
         self.assertIn('setpriv --reuid="$SERVICE_UID" --regid="$SERVICE_GID" --init-groups', start)
         self.assertIn('ps -p "$pid" -o args=', start)
         self.assertNotIn('/proc/$pid/cmdline', start)

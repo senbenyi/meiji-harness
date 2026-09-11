@@ -29,7 +29,9 @@
   ],
   "scripts": {
     "build": "node build-scripts/build.mjs",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test tests/*.test.js && python3 -m unittest tests/test_runpod_workflow_sync.py",
+    "workflow:sync": "python3 scripts/sync_runpod_video_workflows.py --sync",
+    "workflow:check": "python3 scripts/sync_runpod_video_workflows.py --check",
     "package:registry": "node build-scripts/package-registry.mjs"
   },
   "license": "MIT",

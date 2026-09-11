@@ -4,6 +4,8 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 
 ## 项目结构
 - `dsh-elysium-tools/` — 工具注册、参数处理、任务调用与媒体卡片。
+- `dsh-elysium-tools/src/workflows/templates/runpod/` — MiniMax H3 五套 UI/API 图及绑定的唯一事实源。
+- `dsh-elysium-tools/scripts/sync_runpod_video_workflows.py` — 从 RunPod 同步并编译五套工作流。
 - `dsh-elysium-ui/` — 独立导演设置界面与提示词读取，不依赖工具插件。
 - `app/config/` — 本机 Harness、远端模型服务地址与隧道设置。
 - `dsh-elysium-tools/.dsh/.agent-presets/elysium/` — 随包安装的 Agent preset、人格、协作指令和创作技能。

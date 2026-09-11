@@ -24,12 +24,14 @@ port_in_use() {
   node -e 'const net=require("node:net"); const server=net.createServer(); server.once("error", () => process.exit(0)); server.listen(Number(process.argv[1]), process.argv[2], () => server.close(() => process.exit(1)));' "$LOCAL_PORT" "$LOCAL_HOST"
 }
 running_pid() {
+  local command_line
   [[ -s "$PID_FILE" ]] || return 1
   local pid
   pid="$(cat "$PID_FILE")"
   [[ "$pid" =~ ^[0-9]+$ ]] || return 1
   kill -0 "$pid" 2>/dev/null || return 1
-  tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Fq "$FORWARD"
+  command_line="$(ps -p "$pid" -o args= 2>/dev/null)" || return 1
+  [[ "$command_line" == *"$FORWARD"* ]] || return 1
   printf '%s\n' "$pid"
 }
 stop() {
@@ -50,7 +52,7 @@ if [[ "$action" == --stop ]]; then
   stop
   exit 0
 fi
-for name in curl node ssh; do
+for name in curl node ps ssh; do
   command -v "$name" >/dev/null || fail "缺少命令：$name"
 done
 [[ -s "$SSH_CONFIG" ]] || fail "缺少 Qwen SSH 配置：$SSH_CONFIG"
