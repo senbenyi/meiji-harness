@@ -15,6 +15,7 @@ readonly PROXY_LOG_FILE="$HARNESS_ROOT/logs/proxy.log"
 readonly PROXY_PASSWORD_FILE="$HARNESS_ROOT/config/proxy-password"
 readonly HARNESS_TOKEN_FILE="$HARNESS_ROOT/config/harness-token"
 readonly PROXY_ENTRY="$HARNESS_ROOT/app/proxy.mjs"
+readonly QWEN_TUNNEL_ENTRY="$HARNESS_ROOT/qwen-tunnel.sh"
 
 umask 077
 export PATH="$NODE_ROOT/bin:$HARNESS_ROOT/app/node_modules/.bin:$PATH"
@@ -55,6 +56,7 @@ stop_pid() {
 stop() {
   stop_pid "$PROXY_PID_FILE" proxy.mjs
   stop_pid "$HARNESS_PID_FILE" "$DSH_BIN"
+  "$QWEN_TUNNEL_ENTRY" --stop
 }
 
 action="${1:-start}"
@@ -63,6 +65,7 @@ action="${1:-start}"
 [[ -x "$DSH_BIN" ]] || fail "Harness 未安装：$DSH_BIN"
 [[ -s "$PROXY_PASSWORD_FILE" ]] || fail '代理密码不存在，请重新执行 deploy.sh'
 [[ -s "$PROXY_ENTRY" ]] || fail '代理入口不存在，请重新执行 deploy.sh'
+[[ -x "$QWEN_TUNNEL_ENTRY" ]] || fail 'Qwen 隧道入口不存在，请重新执行 deploy.sh'
 install -d -m 0750 "$HARNESS_ROOT/logs"
 
 if [[ "$action" == --stop ]]; then
@@ -72,7 +75,10 @@ if [[ "$action" == --stop ]]; then
 fi
 if [[ "$action" == --restart ]]; then
   stop
-elif running_pid "$HARNESS_PID_FILE" "$DSH_BIN" >/dev/null && \
+else
+  "$QWEN_TUNNEL_ENTRY"
+fi
+if [[ "$action" != --restart ]] && running_pid "$HARNESS_PID_FILE" "$DSH_BIN" >/dev/null && \
   running_pid "$PROXY_PID_FILE" proxy.mjs >/dev/null && harness_ready && proxy_ready; then
   echo "[OK] Harness 已运行：http://127.0.0.1:$PUBLIC_PORT/"
   exit 0
@@ -81,7 +87,8 @@ fi
 cd /workspace
 : >"$LOG_FILE"
 : >"$PROXY_LOG_FILE"
-nohup env DSH_HOME="$DSH_HOME" "$DSH_BIN" --profile web \
+[[ "$action" != --restart ]] || "$QWEN_TUNNEL_ENTRY"
+nohup env DSH_HOME="$DSH_HOME" QWEN38_LOCAL_API_KEY=local-vllm "$DSH_BIN" --profile web \
   --host 127.0.0.1 --port "$HARNESS_PORT" --no-open \
   --trusted-host "$TRUSTED_HOST" >>"$LOG_FILE" 2>&1 </dev/null &
 harness_pid=$!

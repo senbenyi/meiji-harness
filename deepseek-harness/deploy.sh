@@ -32,6 +32,7 @@ for path in \
   "$HARNESS_ROOT/config/settings.yaml" \
   "$HARNESS_ROOT/config/comfyui-autostart.py" \
   "$HARNESS_ROOT/config/proxy.mjs" \
+  "$HARNESS_ROOT/qwen-tunnel.sh" \
   "$HARNESS_ROOT/start.sh"; do
   [[ -s "$path" ]] || fail "部署文件不存在：$path"
 done
@@ -110,7 +111,7 @@ fi
 
 install -d -m 0755 "$AUTOSTART_ROOT"
 install -m 0644 "$HARNESS_ROOT/config/comfyui-autostart.py" "$AUTOSTART_ROOT/__init__.py"
-chmod 0750 "$HARNESS_ROOT/start.sh"
+chmod 0750 "$HARNESS_ROOT/start.sh" "$HARNESS_ROOT/qwen-tunnel.sh"
 
 "$HARNESS_ROOT/start.sh" --restart
 node --version

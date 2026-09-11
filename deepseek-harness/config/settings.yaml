@@ -3,3 +3,29 @@ agent-presets:
 
 permission:
   defaultPreset: danger-full-access
+
+llm-pi-ai:
+  providers:
+    qwen38-local:
+      displayName: qwen3.8-27b-elysium
+      api: openai-completions
+      baseURL: http://127.0.0.1:18000/v1
+      compat:
+        supportsDeveloperRole: false
+        maxTokensField: max_tokens
+        thinkingFormat: qwen-chat-template
+      models:
+        - id: qwen3.8-27b-elysium
+          name: qwen3.8-27b-elysium
+          contextWindow: 65536
+          maxTokens: 4096
+          reasoningEfforts:
+            'off':
+            high: high
+          input:
+            - text
+      apiKeyEnv: QWEN38_LOCAL_API_KEY
+
+agent-default-model:
+  provider: qwen38-local
+  model: qwen3.8-27b-elysium
