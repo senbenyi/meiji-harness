@@ -43,10 +43,12 @@ test('mode-specific inputs reject old and foreign contracts before submission', 
   await assert.rejects(validateVideoPlan({ mode: 'r2va', prompt: 'x', reference_image_1: view('one'), reference_image_2: 'https://foreign.test/view?filename=x.png' }), /已配置的 ComfyUI/)
 }))
 
-test('dynamic RunPod sockets and empty model choices pass schema validation', async () => {
+test('dynamic RunPod sockets, model choices and resolutions pass schema validation', async () => {
   const client = new ComfyClient('https://pod.test')
   client.request = async () => ({ Dynamic: { input: { required: { values: ['COMFY_AUTOGROW_V3'] }, optional: { model: [[ ]] } }, output: ['IMAGE'] } })
   await client.validate({ a: { class_type: 'Dynamic', inputs: { 'values.a': 1, model: 'runpod-managed.safetensors' } } })
+  client.request = async () => ({ 'ComfyUI-PerfectVideoResolution': { input: { required: { resolution: [['WAN only']] } }, output: ['INT'] } })
+  await client.validate({ a: { class_type: 'ComfyUI-PerfectVideoResolution', inputs: { resolution: 'Native — 864×1184' } } })
 })
 
 test('history output uses only the workflow final node and keeps review unverified', async () => {

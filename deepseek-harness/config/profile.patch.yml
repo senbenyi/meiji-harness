@@ -1,4 +1,3 @@
 - id: dsh-elysium-tools
   config:
     comfyUrl: http://127.0.0.1:8188
-    publicUrl: https://36we4j3zo503js-8188.proxy.runpod.net

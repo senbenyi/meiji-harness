@@ -60,7 +60,8 @@ export class ComfyClient {
         } else {
           const choices = Array.isArray(spec[0]) ? spec[0] : spec[1]?.options
           const mediaReference = ['LoadImage', 'LoadVideo'].includes(node.class_type) && ['image', 'file'].includes(key) && typeof value === 'string' && / \[(input|output)\]$/.test(value)
-          if (choices?.length && !choices.includes(value) && !mediaReference) throw new Error(`${id}.${key} 不支持值 ${value}`)
+          const dynamicResolution = node.class_type === 'ComfyUI-PerfectVideoResolution' && key === 'resolution'
+          if (choices?.length && !choices.includes(value) && !mediaReference && !dynamicResolution) throw new Error(`${id}.${key} 不支持值 ${value}`)
           if (typeof value === 'number' && (value < (spec[1]?.min ?? -Infinity) || value > (spec[1]?.max ?? Infinity))) throw new Error(`${id}.${key} 超出节点范围`)
         }
       }
