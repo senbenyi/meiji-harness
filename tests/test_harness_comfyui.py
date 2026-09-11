@@ -52,6 +52,7 @@ fi""", prefix="NAMES=(MiniMaxH3-Turbo-T2VA-Qwen3.5.json MiniMaxH3-Turbo-I2VA-Qwe
         self.assertIn("/queue", log)
         self.assertIn("/userdata", log)
         self.assertIn("/object_info/MiniMaxH3ImageToVideo", log)
+        self.assertNotIn("AILab_QwenVL", log)
         self.assertNotIn("ssh", log)
 
     def test_missing_workflow_fails_readiness(self):

@@ -15,7 +15,7 @@ done
 count="$(curl -fsS --connect-timeout 3 --max-time 15 "$COMFYUI_URL/userdata?dir=workflows&recurse=true&split=false&full_info=true" \
   | "${PYTHON_BIN:-python3}" -c 'import json,sys; names={x["path"] for x in json.load(sys.stdin)}; expected={"minimax/MiniMaxH3-Turbo-T2VA-Qwen3.5.json","minimax/MiniMaxH3-Turbo-I2VA-Qwen3.5.json","minimax/MiniMaxH3-Turbo-FL2VA-Qwen3.5.json","minimax/MiniMaxH3-Turbo-FL2VA-Loop-Qwen3.5.json","minimax/MiniMaxH3-Turbo-R2VA-Qwen3.5.json"}; print(len(expected & names))')"
 [[ "$count" == 5 ]] || fail "RunPod 未提供完整五份 H3 工作流：$count/5"
-for node in MiniMaxH3ImageToVideo MiniMaxH3ReferenceToVideo AILab_QwenVL_PromptEnhancer AILab_QwenVL_Advanced VHS_VideoCombine; do
+for node in MiniMaxH3ImageToVideo MiniMaxH3ReferenceToVideo VHS_VideoCombine; do
   curl -fsS --connect-timeout 3 --max-time 15 "$COMFYUI_URL/object_info/$node" \
     | NODE_NAME="$node" "${PYTHON_BIN:-python3}" -c 'import json,os,sys; data=json.load(sys.stdin); raise SystemExit(0 if os.environ["NODE_NAME"] in data else 1)' \
     || fail "RunPod 缺少工作流节点：$node"

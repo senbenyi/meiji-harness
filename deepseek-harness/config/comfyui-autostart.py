@@ -4,7 +4,11 @@ import subprocess
 
 
 subprocess.Popen(
-    ["bash", "/workspace/harness/start.sh"],
+    [
+        "bash",
+        "-c",
+        "until bash /workspace/harness/start.sh; do sleep 15; done",
+    ],
     stdin=subprocess.DEVNULL,
     stdout=subprocess.DEVNULL,
     stderr=subprocess.DEVNULL,

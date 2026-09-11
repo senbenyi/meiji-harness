@@ -748,9 +748,6 @@
           10,
           "10Eros_Max_h3_TURBO-hybrid_beta3_int8_convrot_skip_edges.safetensors",
           8,
-          "Qwen3.5-9B-Defiant-Fable-Heretic",
-          "🔄 MiniMax H3 NSFW FL2VA (10s)",
-          "None",
           "euler",
           "simple",
           6,
@@ -763,9 +760,6 @@
           "value_1": 10,
           "unet_name": "10Eros_Max_h3_TURBO-hybrid_beta3_int8_convrot_skip_edges.safetensors",
           "steps": 8,
-          "model_name": "Qwen3.5-9B-Defiant-Fable-Heretic",
-          "preset_prompt": "🔄 MiniMax H3 NSFW FL2VA (10s)",
-          "camera_tag": "None",
           "sampler_name": "euler",
           "scheduler": "simple",
           "shift_video": 6,
@@ -1165,8 +1159,7 @@
               "name": "first_frame",
               "type": "IMAGE",
               "linkIds": [
-                195,
-                493
+                195
               ],
               "pos": [
                 -2453.435546875,
@@ -1178,8 +1171,7 @@
               "name": "last_frame",
               "type": "IMAGE",
               "linkIds": [
-                196,
-                494
+                196
               ],
               "pos": [
                 -2453.435546875,
@@ -1196,42 +1188,6 @@
               "pos": [
                 -2453.435546875,
                 4884
-              ]
-            },
-            {
-              "id": "4555fb06-26ed-472c-927e-55b93f0266da",
-              "name": "model_name",
-              "type": "COMBO",
-              "linkIds": [
-                495
-              ],
-              "pos": [
-                -2453.435546875,
-                4904
-              ]
-            },
-            {
-              "id": "e025e4c5-ac76-4da5-af49-b22f91eadfc1",
-              "name": "preset_prompt",
-              "type": "COMBO",
-              "linkIds": [
-                496
-              ],
-              "pos": [
-                -2453.435546875,
-                4924
-              ]
-            },
-            {
-              "id": "c370200c-4880-4769-b0d7-f7f6650ab64c",
-              "name": "camera_tag",
-              "type": "COMBO",
-              "linkIds": [
-                497
-              ],
-              "pos": [
-                -2453.435546875,
-                4944
               ]
             },
             {
@@ -1605,7 +1561,7 @@
                   "widget": {
                     "name": "prompt"
                   },
-                  "link": 498
+                  "link": 492
                 },
                 {
                   "localized_name": "width",
@@ -2340,139 +2296,6 @@
               "bgcolor": "#335"
             },
             {
-              "id": 229,
-              "type": "AILab_QwenVL_Advanced",
-              "pos": [
-                -2052.296890575463,
-                3969.4904116053835
-              ],
-              "size": [
-                340,
-                536
-              ],
-              "flags": {},
-              "order": 22,
-              "mode": 0,
-              "inputs": [
-                {
-                  "localized_name": "image",
-                  "name": "image",
-                  "shape": 7,
-                  "type": "IMAGE",
-                  "link": 493
-                },
-                {
-                  "localized_name": "image2",
-                  "name": "image2",
-                  "shape": 7,
-                  "type": "IMAGE",
-                  "link": 494
-                },
-                {
-                  "localized_name": "video",
-                  "name": "video",
-                  "shape": 7,
-                  "type": "IMAGE",
-                  "link": null
-                },
-                {
-                  "localized_name": "model_name",
-                  "name": "model_name",
-                  "type": "COMBO",
-                  "widget": {
-                    "name": "model_name"
-                  },
-                  "link": 495
-                },
-                {
-                  "localized_name": "preset_prompt",
-                  "name": "preset_prompt",
-                  "type": "COMBO",
-                  "widget": {
-                    "name": "preset_prompt"
-                  },
-                  "link": 496
-                },
-                {
-                  "localized_name": "camera_tag",
-                  "name": "camera_tag",
-                  "type": "COMBO",
-                  "widget": {
-                    "name": "camera_tag"
-                  },
-                  "link": 497
-                },
-                {
-                  "localized_name": "custom_prompt",
-                  "name": "custom_prompt",
-                  "type": "STRING",
-                  "widget": {
-                    "name": "custom_prompt"
-                  },
-                  "link": 492
-                }
-              ],
-              "outputs": [
-                {
-                  "localized_name": "RESPONSE",
-                  "name": "RESPONSE",
-                  "type": "STRING",
-                  "links": [
-                    498,
-                    499
-                  ]
-                }
-              ],
-              "properties": {
-                "cnr_id": "ComfyUI-QwenVL-Mod",
-                "ver": "9abf364fc3acd1ea93ed18fec343295050398881",
-                "Node name for S&R": "AILab_QwenVL_Advanced",
-                "aux_id": "huchukato/ComfyUI-QwenVL-Mod"
-              },
-              "widgets_values": [
-                "Qwen3.5-4B-heretic-v2",
-                "None (FP16)",
-                "auto",
-                false,
-                "auto",
-                "🖼️ Detailed Description",
-                "None",
-                "",
-                8192,
-                0.6,
-                0.9,
-                1,
-                1,
-                false,
-                2306480760,
-                "randomize",
-                false,
-                16
-              ],
-              "widgets_values_named": {
-                "model_name": "Qwen3.5-4B-heretic-v2",
-                "quantization": "None (FP16)",
-                "attention_mode": "auto",
-                "use_torch_compile": false,
-                "device": "auto",
-                "preset_prompt": "🖼️ Detailed Description",
-                "camera_tag": "None",
-                "custom_prompt": "",
-                "max_tokens": 8192,
-                "temperature": 0.6,
-                "top_p": 0.9,
-                "num_beams": 1,
-                "repetition_penalty": 1,
-                "keep_model_loaded": false,
-                "seed": 2306480760,
-                "control_after_generate": "randomize",
-                "keep_last_prompt": false,
-                "frame_count": 16
-              },
-              "color": "#28403f",
-              "bgcolor": "#374539"
-            },
-            {
               "id": 228,
               "type": "MiniMaxH3DiffAidSparsePatch",
               "pos": [
@@ -3109,7 +2932,7 @@
             {
               "id": 463,
               "origin_id": -10,
-              "origin_slot": 11,
+              "origin_slot": 8,
               "target_id": 202,
               "target_slot": 0,
               "type": "COMBO"
@@ -3125,7 +2948,7 @@
             {
               "id": 466,
               "origin_id": -10,
-              "origin_slot": 12,
+              "origin_slot": 9,
               "target_id": 9,
               "target_slot": 1,
               "type": "COMBO"
@@ -3133,7 +2956,7 @@
             {
               "id": 467,
               "origin_id": -10,
-              "origin_slot": 13,
+              "origin_slot": 10,
               "target_id": 203,
               "target_slot": 1,
               "type": "FLOAT"
@@ -3141,7 +2964,7 @@
             {
               "id": 468,
               "origin_id": -10,
-              "origin_slot": 14,
+              "origin_slot": 11,
               "target_id": 203,
               "target_slot": 2,
               "type": "FLOAT"
@@ -3174,61 +2997,13 @@
               "id": 492,
               "origin_id": -10,
               "origin_slot": 0,
-              "target_id": 229,
-              "target_slot": 6,
-              "type": "STRING"
-            },
-            {
-              "id": 493,
-              "origin_id": -10,
-              "origin_slot": 5,
-              "target_id": 229,
-              "target_slot": 0,
-              "type": "IMAGE"
-            },
-            {
-              "id": 494,
-              "origin_id": -10,
-              "origin_slot": 6,
-              "target_id": 229,
-              "target_slot": 1,
-              "type": "IMAGE"
-            },
-            {
-              "id": 495,
-              "origin_id": -10,
-              "origin_slot": 8,
-              "target_id": 229,
-              "target_slot": 3,
-              "type": "COMBO"
-            },
-            {
-              "id": 496,
-              "origin_id": -10,
-              "origin_slot": 9,
-              "target_id": 229,
-              "target_slot": 4,
-              "type": "COMBO"
-            },
-            {
-              "id": 497,
-              "origin_id": -10,
-              "origin_slot": 10,
-              "target_id": 229,
-              "target_slot": 5,
-              "type": "COMBO"
-            },
-            {
-              "id": 498,
-              "origin_id": 229,
-              "origin_slot": 0,
               "target_id": 104,
               "target_slot": 4,
               "type": "STRING"
             },
             {
               "id": 499,
-              "origin_id": 229,
+              "origin_id": -10,
               "origin_slot": 0,
               "target_id": -20,
               "target_slot": 3,
@@ -4115,43 +3890,6 @@
         "source_id": "n105_203"
       }
     },
-    "n105_229": {
-      "class_type": "AILab_QwenVL_Advanced",
-      "inputs": {
-        "model_name": "Qwen3.5-9B-Defiant-Fable-Heretic",
-        "quantization": "None (FP16)",
-        "attention_mode": "auto",
-        "use_torch_compile": false,
-        "device": "auto",
-        "preset_prompt": "🔄 MiniMax H3 NSFW FL2VA (10s)",
-        "camera_tag": "None",
-        "custom_prompt": [
-          "n227",
-          0
-        ],
-        "max_tokens": 8192,
-        "temperature": 0.6,
-        "top_p": 0.9,
-        "num_beams": 1,
-        "repetition_penalty": 1,
-        "keep_model_loaded": false,
-        "seed": 2306480760,
-        "keep_last_prompt": false,
-        "frame_count": 16,
-        "image": [
-          "n226",
-          2
-        ],
-        "image2": [
-          "n226",
-          3
-        ]
-      },
-      "_meta": {
-        "title": "AILab_QwenVL_Advanced",
-        "source_id": "n105_229"
-      }
-    },
     "n105_111": {
       "class_type": "PrimitiveFloat",
       "inputs": {
@@ -4179,10 +3917,7 @@
     "n105_104": {
       "class_type": "MiniMaxH3ImageToVideo",
       "inputs": {
-        "prompt": [
-          "n105_229",
-          0
-        ],
+        "prompt": "",
         "width": [
           "n226",
           0
@@ -4391,10 +4126,7 @@
     "n137": {
       "class_type": "easy showAnything",
       "inputs": {
-        "anything": [
-          "n105_229",
-          0
-        ]
+        "anything": ""
       },
       "_meta": {
         "title": "QWEN3VL GENERATED PROMPT",
@@ -4431,8 +4163,12 @@
   "bindings": {
     "prompt": [
       {
-        "node": "n105_229",
-        "input": "custom_prompt"
+        "node": "n105_104",
+        "input": "prompt"
+      },
+      {
+        "node": "n137",
+        "input": "anything"
       }
     ],
     "media": {
