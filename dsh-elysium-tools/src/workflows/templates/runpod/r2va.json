@@ -2,7 +2,7 @@
   "mode": "r2va",
   "source": {
     "path": "minimax/MiniMaxH3-Turbo-R2VA.json",
-    "sha256": "01edf67ed635912035085d3fd7d34b2c8282f976aa73ca00f4fa63b3a557e4fb"
+    "sha256": "0a6688394f8aef6947596a8e3c14f30da2425b6f06d2436f6e479943aaac5852"
   },
   "workflow": {
     "id": "b25965af-2005-4e6d-b188-e9c5ea0224c8",

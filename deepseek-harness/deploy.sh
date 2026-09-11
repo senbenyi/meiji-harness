@@ -46,6 +46,8 @@ id -u "$SERVICE_USER" >/dev/null 2>&1 || \
 readonly SERVICE_GROUP="$(id -gn "$SERVICE_USER")"
 install -d -m 0750 "$HARNESS_ROOT/runtime" "$APP_ROOT" "$CACHE_ROOT/npm" "$HARNESS_ROOT/downloads"
 install -d -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0750 "$HOME_ROOT" "$LOG_ROOT" "$OPERATOR_ROOT"
+chown root:"$SERVICE_GROUP" "$HARNESS_ROOT/runtime" "$APP_ROOT" "$PACKAGE_ROOT"
+chmod 0750 "$HARNESS_ROOT/runtime" "$APP_ROOT" "$PACKAGE_ROOT"
 
 if [[ ! -x "$NODE_ROOT/bin/node" ]]; then
   archive="$HARNESS_ROOT/downloads/$NODE_ARCHIVE"
@@ -60,6 +62,8 @@ if [[ ! -x "$NODE_ROOT/bin/node" ]]; then
   mv "$staging" "$NODE_ROOT"
   trap - EXIT
 fi
+chown root:"$SERVICE_GROUP" "$NODE_ROOT"
+chmod 0750 "$NODE_ROOT"
 
 export PATH="$NODE_ROOT/bin:$PATH"
 export DSH_HOME="$HOME_ROOT"
@@ -105,6 +109,8 @@ readonly DSH_BIN="$APP_ROOT/node_modules/.bin/dsh"
 "$DSH_BIN" plugin --profile web add --workspace-root "$PACKAGE_ROOT/dsh-elysium-ui"
 install -m 0640 "$HARNESS_ROOT/config/profile.patch.yml" "$HOME_ROOT/profiles/web/cordis.patch.yml"
 install -m 0640 "$HARNESS_ROOT/config/settings.yaml" "$HOME_ROOT/settings.yaml"
+install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0640 \
+  "$HARNESS_ROOT/config/operator-security.patch.yml" "$HOME_ROOT/operator-security.patch.yml"
 if [[ ! -s "$PROXY_PASSWORD_FILE" ]]; then
   umask 077
   openssl rand -base64 24 >"$PROXY_PASSWORD_FILE"

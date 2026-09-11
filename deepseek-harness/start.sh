@@ -16,7 +16,7 @@ readonly PROXY_PASSWORD_FILE="$HARNESS_ROOT/config/proxy-password"
 readonly HARNESS_TOKEN_FILE="$HARNESS_ROOT/config/harness-token"
 readonly PROXY_ENTRY="$HARNESS_ROOT/app/proxy.mjs"
 readonly QWEN_TUNNEL_ENTRY="$HARNESS_ROOT/qwen-tunnel.sh"
-readonly SECURITY_PATCH="$HARNESS_ROOT/config/operator-security.patch.yml"
+readonly SECURITY_PATCH="$DSH_HOME/operator-security.patch.yml"
 readonly OPERATOR_ROOT="$HARNESS_ROOT/operator-workspace"
 readonly SERVICE_USER=harness
 
@@ -36,13 +36,14 @@ proxy_ready() {
   [[ "$(http_code "http://127.0.0.1:$PUBLIC_PORT/")" == 401 ]]
 }
 running_pid() {
-  local pid_file="$1" expected="$2"
+  local pid_file="$1" expected="$2" command_line
   [[ -s "$pid_file" ]] || return 1
   local pid
   pid="$(cat "$pid_file")"
   [[ "$pid" =~ ^[0-9]+$ ]] || return 1
   kill -0 "$pid" 2>/dev/null || return 1
-  tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Fq "$expected"
+  command_line="$(ps -p "$pid" -o args= 2>/dev/null)" || return 1
+  [[ "$command_line" == *"$expected"* ]] || return 1
   printf '%s\n' "$pid"
 }
 stop_pid() {
@@ -65,7 +66,9 @@ stop() {
 action="${1:-start}"
 [[ "$action" == start || "$action" == --restart || "$action" == --stop ]] || \
   fail 'Usage: start.sh [--restart|--stop]'
-command -v setpriv >/dev/null || fail '缺少命令：setpriv'
+for command_name in ps setpriv; do
+  command -v "$command_name" >/dev/null || fail "缺少命令：$command_name"
+done
 [[ -x "$DSH_BIN" ]] || fail "Harness 未安装：$DSH_BIN"
 id -u "$SERVICE_USER" >/dev/null 2>&1 || fail "Harness 运行用户不存在：$SERVICE_USER"
 readonly SERVICE_UID="$(id -u "$SERVICE_USER")"

@@ -2,7 +2,7 @@
   "mode": "fl2va",
   "source": {
     "path": "minimax/MiniMaxH3-Turbo-FL2VA.json",
-    "sha256": "d5cde38e6aedd00584177ba5debc9b87f6a039dacf6cfb4409c2c860777a5acd"
+    "sha256": "4debbf4bf4b858ee4fa857d4b734952d972d942c9f1fabcdf381706a68165eb8"
   },
   "workflow": {
     "id": "c0033410-f90d-46e0-9e2a-7228d5a7b623",
