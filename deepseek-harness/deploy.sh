@@ -16,19 +16,23 @@ readonly PACKAGE_ROOT="$HARNESS_ROOT/packages"
 readonly CACHE_ROOT="$HARNESS_ROOT/cache"
 readonly LOG_ROOT="$HARNESS_ROOT/logs"
 readonly AUTOSTART_ROOT=/workspace/runpod-slim/ComfyUI/custom_nodes/harness-autostart
+readonly COMFYUI_ROOT=/workspace/runpod-slim
 readonly PROXY_PASSWORD_FILE="$HARNESS_ROOT/config/proxy-password"
+readonly OPERATOR_ROOT="$HARNESS_ROOT/operator-workspace"
+readonly SERVICE_USER=harness
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
 
 ((EUID == 0)) || fail '请使用 root 执行'
 [[ "$(uname -m)" == x86_64 ]] || fail '固定 Node.js 包仅支持 x86_64'
-for command_name in curl install openssl sha256sum tar; do
+for command_name in chown curl id install openssl sha256sum tar useradd; do
   command -v "$command_name" >/dev/null || fail "缺少命令：$command_name"
 done
 for path in \
   "$PACKAGE_ROOT/dsh-elysium-tools/package.json" \
   "$PACKAGE_ROOT/dsh-elysium-ui/package.json" \
   "$HARNESS_ROOT/config/profile.patch.yml" \
+  "$HARNESS_ROOT/config/operator-security.patch.yml" \
   "$HARNESS_ROOT/config/settings.yaml" \
   "$HARNESS_ROOT/config/comfyui-autostart.py" \
   "$HARNESS_ROOT/config/proxy.mjs" \
@@ -37,8 +41,11 @@ for path in \
   [[ -s "$path" ]] || fail "部署文件不存在：$path"
 done
 
-install -d -m 0750 "$HARNESS_ROOT/runtime" "$APP_ROOT" "$HOME_ROOT" \
-  "$CACHE_ROOT/npm" "$HARNESS_ROOT/downloads" "$LOG_ROOT"
+id -u "$SERVICE_USER" >/dev/null 2>&1 || \
+  useradd --system --no-create-home --home-dir "$HOME_ROOT" --shell /usr/sbin/nologin "$SERVICE_USER"
+readonly SERVICE_GROUP="$(id -gn "$SERVICE_USER")"
+install -d -m 0750 "$HARNESS_ROOT/runtime" "$APP_ROOT" "$CACHE_ROOT/npm" "$HARNESS_ROOT/downloads"
+install -d -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0750 "$HOME_ROOT" "$LOG_ROOT" "$OPERATOR_ROOT"
 
 if [[ ! -x "$NODE_ROOT/bin/node" ]]; then
   archive="$HARNESS_ROOT/downloads/$NODE_ARCHIVE"
@@ -108,9 +115,12 @@ if [[ ! -e "$HOME_ROOT/.agent-presets/elysium" ]]; then
   cp -R "$PACKAGE_ROOT/dsh-elysium-tools/.dsh/.agent-presets/elysium" \
     "$HOME_ROOT/.agent-presets/"
 fi
+chown -R "$SERVICE_USER:$SERVICE_GROUP" "$HOME_ROOT"
 
 install -d -m 0755 "$AUTOSTART_ROOT"
 install -m 0644 "$HARNESS_ROOT/config/comfyui-autostart.py" "$AUTOSTART_ROOT/__init__.py"
+chown root:root "$COMFYUI_ROOT"
+chmod 0750 "$COMFYUI_ROOT"
 chmod 0750 "$HARNESS_ROOT/start.sh" "$HARNESS_ROOT/qwen-tunnel.sh"
 
 "$HARNESS_ROOT/start.sh" --restart

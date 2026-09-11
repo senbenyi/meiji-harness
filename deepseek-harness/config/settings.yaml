@@ -2,7 +2,7 @@ agent-presets:
   default: elysium
 
 permission:
-  defaultPreset: danger-full-access
+  defaultPreset: workspace-write
 
 llm-pi-ai:
   providers:

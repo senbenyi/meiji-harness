@@ -16,6 +16,9 @@ readonly PROXY_PASSWORD_FILE="$HARNESS_ROOT/config/proxy-password"
 readonly HARNESS_TOKEN_FILE="$HARNESS_ROOT/config/harness-token"
 readonly PROXY_ENTRY="$HARNESS_ROOT/app/proxy.mjs"
 readonly QWEN_TUNNEL_ENTRY="$HARNESS_ROOT/qwen-tunnel.sh"
+readonly SECURITY_PATCH="$HARNESS_ROOT/config/operator-security.patch.yml"
+readonly OPERATOR_ROOT="$HARNESS_ROOT/operator-workspace"
+readonly SERVICE_USER=harness
 
 umask 077
 export PATH="$NODE_ROOT/bin:$HARNESS_ROOT/app/node_modules/.bin:$PATH"
@@ -62,9 +65,17 @@ stop() {
 action="${1:-start}"
 [[ "$action" == start || "$action" == --restart || "$action" == --stop ]] || \
   fail 'Usage: start.sh [--restart|--stop]'
+command -v setpriv >/dev/null || fail '缺少命令：setpriv'
 [[ -x "$DSH_BIN" ]] || fail "Harness 未安装：$DSH_BIN"
+id -u "$SERVICE_USER" >/dev/null 2>&1 || fail "Harness 运行用户不存在：$SERVICE_USER"
+readonly SERVICE_UID="$(id -u "$SERVICE_USER")"
+readonly SERVICE_GID="$(id -g "$SERVICE_USER")"
+[[ -d "$OPERATOR_ROOT" ]] || fail "Harness 工作目录不存在：$OPERATOR_ROOT"
+setpriv --reuid="$SERVICE_UID" --regid="$SERVICE_GID" --init-groups \
+  test -w "$OPERATOR_ROOT" || fail "Harness 工作目录不可写：$OPERATOR_ROOT"
 [[ -s "$PROXY_PASSWORD_FILE" ]] || fail '代理密码不存在，请重新执行 deploy.sh'
 [[ -s "$PROXY_ENTRY" ]] || fail '代理入口不存在，请重新执行 deploy.sh'
+[[ -s "$SECURITY_PATCH" ]] || fail '运用端安全配置不存在，请重新执行 deploy.sh'
 [[ -x "$QWEN_TUNNEL_ENTRY" ]] || fail 'Qwen 隧道入口不存在，请重新执行 deploy.sh'
 install -d -m 0750 "$HARNESS_ROOT/logs"
 
@@ -84,11 +95,13 @@ if [[ "$action" != --restart ]] && running_pid "$HARNESS_PID_FILE" "$DSH_BIN" >/
   exit 0
 fi
 
-cd /workspace
+cd "$OPERATOR_ROOT"
 : >"$LOG_FILE"
 : >"$PROXY_LOG_FILE"
 [[ "$action" != --restart ]] || "$QWEN_TUNNEL_ENTRY"
-nohup env DSH_HOME="$DSH_HOME" QWEN38_LOCAL_API_KEY=local-vllm "$DSH_BIN" --profile web \
+nohup setpriv --reuid="$SERVICE_UID" --regid="$SERVICE_GID" --init-groups \
+  env DSH_HOME="$DSH_HOME" DSH_PERMISSION_MODE=workspace-write QWEN38_LOCAL_API_KEY=local-vllm \
+  "$DSH_BIN" --profile web --patch "$SECURITY_PATCH" \
   --host 127.0.0.1 --port "$HARNESS_PORT" --no-open \
   --trusted-host "$TRUSTED_HOST" >>"$LOG_FILE" 2>&1 </dev/null &
 harness_pid=$!

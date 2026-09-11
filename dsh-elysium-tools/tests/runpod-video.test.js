@@ -17,12 +17,25 @@ const plans = {
   r2va: { mode: 'r2va', prompt: 'references', reference_image_1: view('one'), reference_image_2: view('two') },
 }
 
+const assertUiLinks = workflow => {
+  for (const container of [workflow, ...workflow.definitions.subgraphs]) {
+    const nodes = new Set(container.nodes.map(node => node.id))
+    for (const link of container.links) {
+      const [origin, target] = Array.isArray(link) ? [link[1], link[3]] : [link.origin_id, link.target_id]
+      assert.ok(origin === -10 || nodes.has(origin), `missing UI link origin ${origin}`)
+      assert.ok(target === -20 || nodes.has(target), `missing UI link target ${target}`)
+    }
+  }
+}
+
 test('five modes keep the RunPod graph and patch only declared user bindings', async () => withConfig({ COMFYUI_URL: base }, async () => {
   assert.deepEqual(VIDEO_MODES, Object.keys(plans))
   for (const [mode, plan] of Object.entries(plans)) {
     await validateVideoPlan(plan)
     const bundle = await loadVideoTemplate(mode)
     const prepared = await buildVideoGraph(plan, 'job')
+    assert.doesNotMatch(JSON.stringify(bundle), /Qwen3\.5|AILab_QwenVL/i, mode)
+    assertUiLinks(bundle.workflow)
     const uiNodes = [...bundle.workflow.nodes, ...bundle.workflow.definitions.subgraphs.flatMap(subgraph => subgraph.nodes)]
     assert.equal(Object.values(bundle.graph).some(node => node.class_type?.startsWith('AILab_QwenVL')), false, mode)
     assert.equal(uiNodes.some(node => node.type?.startsWith('AILab_QwenVL')), false, mode)
