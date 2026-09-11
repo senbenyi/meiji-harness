@@ -32,6 +32,7 @@ for path in \
   "$PACKAGE_ROOT/dsh-elysium-tools/package.json" \
   "$PACKAGE_ROOT/dsh-elysium-ui/package.json" \
   "$HARNESS_ROOT/config/profile.patch.yml" \
+  "$HARNESS_ROOT/config/operator-agent.cordis.yml" \
   "$HARNESS_ROOT/config/operator-security.patch.yml" \
   "$HARNESS_ROOT/config/settings.yaml" \
   "$HARNESS_ROOT/config/comfyui-autostart.py" \
@@ -121,6 +122,9 @@ if [[ ! -e "$HOME_ROOT/.agent-presets/elysium" ]]; then
   cp -R "$PACKAGE_ROOT/dsh-elysium-tools/.dsh/.agent-presets/elysium" \
     "$HOME_ROOT/.agent-presets/"
 fi
+install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0640 \
+  "$HARNESS_ROOT/config/operator-agent.cordis.yml" \
+  "$HOME_ROOT/.agent-presets/elysium/agent.cordis.yml"
 chown -R "$SERVICE_USER:$SERVICE_GROUP" "$HOME_ROOT"
 
 install -d -m 0755 "$AUTOSTART_ROOT"

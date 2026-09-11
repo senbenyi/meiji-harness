@@ -1,0 +1,14 @@
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: !!js >-
+      process.getBuiltinModule('node:fs').readFileSync(new URL('./persona.md', baseUrl), 'utf8') + '\n' + process.getBuiltinModule('node:fs').readFileSync(new URL('./rules.md', baseUrl), 'utf8')
+
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+  config:
+    customSkillDirs:
+      - !!js process.getBuiltinModule('node:url').fileURLToPath(new URL('./skills/', baseUrl))
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'

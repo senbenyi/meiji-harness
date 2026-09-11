@@ -17,11 +17,13 @@ class HarnessAutostartTest(unittest.TestCase):
         tunnel = (ROOT / "deepseek-harness/qwen-tunnel.sh").read_text()
         settings = (ROOT / "deepseek-harness/config/settings.yaml").read_text()
         security = (ROOT / "deepseek-harness/config/operator-security.patch.yml").read_text()
+        operator_agent = (ROOT / "deepseek-harness/config/operator-agent.cordis.yml").read_text()
 
         self.assertIn("useradd --system --no-create-home", deploy)
         self.assertIn('chown root:"$SERVICE_GROUP" "$HARNESS_ROOT/runtime" "$APP_ROOT" "$PACKAGE_ROOT"', deploy)
         self.assertIn('chown root:"$SERVICE_GROUP" "$NODE_ROOT"', deploy)
         self.assertIn('"$HOME_ROOT/operator-security.patch.yml"', deploy)
+        self.assertIn('"$HOME_ROOT/.agent-presets/elysium/agent.cordis.yml"', deploy)
         self.assertIn('OPERATOR_ROOT="$HARNESS_ROOT/operator-workspace"', start)
         self.assertIn('cd "$OPERATOR_ROOT"', start)
         self.assertIn('env HOME="$OPERATOR_ROOT" DSH_HOME="$DSH_HOME"', start)
@@ -38,6 +40,10 @@ class HarnessAutostartTest(unittest.TestCase):
         self.assertIn("id: ui-permission", security)
         self.assertIn("id: tool-bash", security)
         self.assertNotIn("disabled: false", security)
+        self.assertIn("id: tool-skill", operator_agent)
+        for tool in ("tool-bash", "tool-pwsh", "tool-fs", "tool-fs-search", "tool-jobs",
+                     "tool-subagent", "tool-web"):
+            self.assertNotIn(f"id: {tool}", operator_agent)
 
 
 if __name__ == "__main__":
