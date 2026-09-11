@@ -9,13 +9,10 @@ export async function codeVersion() {
   const names = ['tool.js', 'diagnostics.js', '../comfyui/client.js', '../../config.js',
     ...['contracts.js', 'create.js', 'json.js', 'launch.js', 'launch-lock.py', 'query.js', 'wait.js',
       'comfy-submission.js', 'call-index.js', 'worker-owner.js'].map(name => `../../jobs/${name}`),
-    '../../media/probe.js', '../../media/http-media.js',
-    ...['comfy-execution', 'video-plan', 'media-plan', 'video-jobs', 'media-jobs', 'video-worker',
-      'video-graph', 'media-graph', 'video-execution', 'media-execution', 'video-workflow',
-      'video-artifacts', 'media-artifacts', 'video-plan-file', 'character', 'workflow-generate-video',
-      'index'].map(name => `../../workflows/${name}.js`),
-    ...['workflow_generate_video', 'workflow_director_video', 'workflow_generate_image',
-      'workflow_generate_image_reference', 'workflow_concat_video'].map(name => `../../workflows/templates/${name}.json`)]
+    '../../media/http-media.js',
+    ...['comfy-execution', 'video-plan', 'video-jobs', 'video-worker', 'video-graph',
+      'video-execution', 'video-artifacts', 'workflow-generate-video', 'index'].map(name => `../../workflows/${name}.js`),
+    ...['t2va', 'i2va', 'fl2va', 'fl2va-loop', 'r2va'].map(name => `../../workflows/templates/runpod/${name}.json`)]
   const sources = await Promise.all(names.map(name => readFile(new URL(name, import.meta.url))))
   return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat(sources)) }
 }

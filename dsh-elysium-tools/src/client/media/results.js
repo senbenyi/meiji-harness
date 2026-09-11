@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
     const { createElement: h } = require('react')
     const { MediaTaskCard } = require('elysium-tools/media-card')
     const { fromBlock } = require('elysium-tools/media-model')
-    const tools = new Set(['workflow_generate_video', 'workflow_generate_image', 'workflow_resume_video', 'model_job_resume', 'model_character_view', 'model_character_sheet'])
+    const tools = new Set(['workflow_generate_video', 'workflow_resume_video'])
     // Rebuild from native conversation events, including history replay after refresh.
     const definition = {
       kind: 'elysium-media-results',

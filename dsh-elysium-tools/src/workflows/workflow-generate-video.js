@@ -1,4 +1,5 @@
 import { startVideoJob, resumeVideoJob } from './video-jobs.js'
+import { VIDEO_MODES } from './video-plan.js'
 import { renderToolDebug } from '../functions/common/tool.js'
 import { MODEL_TIMEOUTS } from '../jobs/contracts.js'
 import { waitJob } from '../jobs/wait.js'
@@ -6,35 +7,21 @@ import { waitJob } from '../jobs/wait.js'
 export { waitJob as waitVideoJob } from '../jobs/wait.js'
 
 const output = { schema: { type: 'object', properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
+const media = description => ({ type: 'string', description: `${description}，必须是当前 RunPod 的 ComfyUI /view URL。` })
 
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '视频生产入口（单镜头或多镜头，不含跨镜头角色一致性保证）：已有分镜文件仅传 plan_path，插件原样读取，不要让模型重抄长 JSON。多镜头用 shots 保留各镜时长、完整提示词和真实参考素材。本工具不做角色资产冻结与自动一致性校验；需要跨镜头/跨集角色一致性的短剧批量生产，使用独立的 drama_orchestrator.py（llm-ai-model/workflows/drama-production/，当前为人机协作精修阶段），不要用本工具直接批量拍摄整集短剧。多镜头素材必须提前备齐，不会临时补图或裁切。按镜头选择生成或导演工作流，等待 ComfyUI 完成并核对最终节点 history 后返回播放 URL；输出完整解码、规格匹配和人工验收均未执行。任务失败不得缩短时长或删减分镜。',
+    description: '使用 RunPod 现有 MiniMax H3 工作流生成视频。仅支持 t2va、i2va、fl2va、fl2va-loop、r2va；工作流内模型、参数、帧率和后处理保持 RunPod 原值。',
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
-    parameters: { type: 'object', additionalProperties: false, properties: {
-      plan_path: { type: 'string', description: '单独使用：HTTP(S) 分镜 JSON 地址。内容为完整 duration/shots 请求，素材使用 ComfyUI HTTP view 地址。不要同时传 duration/shots 或其他字段。' },
-      duration: { type: 'integer', minimum: 1, description: '目标总秒数，最终按实际文件验收。' },
-      shots: { type: 'array', minItems: 1, description: '优先用于多镜头；总时长等于各镜 duration 之和，可少于或等于15秒。不能与旧 prompts/image_path/image_prompt/video_paths 混用。', items: {
-        type: 'object', additionalProperties: false, required: ['id', 'duration'], properties: {
-          id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,48}$', description: '唯一镜号，返回素材与进度按此关联。' },
-          duration: { type: 'integer', minimum: 1, description: '本镜目标秒数；生成镜头最多15秒。' },
-          mode: { type: 'string', enum: ['independent', 'continue', 'reference', 'reuse'], description: '默认independent：文生或起始图；continue：续接前镜末帧；reference：图片/视频/音频参考；reuse：复用已有视频。切镜用independent或reference。' },
-          prompt: { type: 'string', description: '生成时完整保留角色、服装、构图、动作与声音要求；reuse不接受。' },
-          image_path: { type: 'string', description: '开拍前已确认的角色/场景图片；素材使用 ComfyUI HTTP view 地址，plan_path 文件内可使用相对路径。independent为首帧，reference为参考。' },
-          image_role: { type: 'string', enum: ['character-sheet', 'single-view', 'scene'], description: '只接受开拍前已确认的单人参考 single-view 或场景首帧 scene；character-sheet 会拒绝进入推理。' },
-          video_path: { type: 'string', description: 'reference的视频参考，或reuse要选用的已有镜头。' },
-          audio_path: { type: 'string', description: '仅reference接受，声音参考不等于口型保证。' },
-          seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
-          in_point: { type: 'number', minimum: 0, description: '仅reuse：剪辑起点秒数，默认0；选取后续duration秒。' },
-        },
-      } },
-      prompts: { type: 'array', minItems: 1, items: { type: 'string' }, description: '新生成时按顺序填写；不超过15秒一条，长视频至少两条，每段1..15秒。' },
-      image_path: { type: 'string', description: '已有首帧 ComfyUI HTTP view 地址。旧 prompts 输入超过15秒时必填，不可用 image_prompt 替代。' },
-      image_prompt: { type: 'string', description: '仅用于不超过15秒的旧 prompts 输入，生成首帧；与 image_path 二选一，长视频不接受。' },
-      video_paths: { type: 'array', minItems: 1, items: { type: 'string' }, description: '已有 MP4 按镜头顺序复用；不能与生成输入混用，不重新生成。' },
-      seed: { type: 'integer', minimum: 0, maximum: 4294967295, description: '默认666。' },
-    }, anyOf: [{ required: ['duration'] }, { required: ['plan_path'] }] }, output,
+    parameters: { type: 'object', additionalProperties: false, required: ['mode', 'prompt'], properties: {
+      mode: { type: 'string', enum: VIDEO_MODES },
+      prompt: { type: 'string', minLength: 1 },
+      first_frame: media('I2VA/FL2VA 首帧'),
+      last_frame: media('FL2VA 尾帧'),
+      reference_image_1: media('R2VA 第一张参考图'),
+      reference_image_2: media('R2VA 第二张参考图'),
+    } }, output,
     execute: async (args, exec) => {
       exec?.signal?.throwIfAborted()
       return waitJob(await startVideoJob(args, exec), exec?.signal)
@@ -43,10 +30,10 @@ export function createWorkflowGenerateVideoTool() {
 }
 
 export function createWorkflowResumeVideoTool() {
-  return { name: 'workflow_resume_video', description: '恢复原视频工作流，复用有效步骤，保留原输入和任务 ID；先查询失败原因。已成功或正在执行的任务不重复启动。',
+  return { name: 'workflow_resume_video', description: '恢复原 RunPod 视频任务；复用已保存的 API 图和 prompt_id，不重新创建任务。',
     parameters: { type: 'object', additionalProperties: false, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
-    timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
-    output, execute: async (args, exec) => {
+    timeoutMs: MODEL_TIMEOUTS.workflow + 60_000, output,
+    execute: async (args, exec) => {
       exec?.signal?.throwIfAborted()
       return waitJob(await resumeVideoJob(args.job_id, exec), exec?.signal)
     } }

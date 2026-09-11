@@ -16,9 +16,4 @@
       4. Output only key findings, code changes, and final conclusions.
       5. Skip intermediate reasoning unless explicitly requested.
 
-# 安装插件后覆盖 ~/.dsh/profiles/web/cordis.patch.yml。
-# comfyUrl 供 Harness 访问，publicUrl 供浏览器访问；6016 需已有 ComfyUI 或隧道。
-- id: dsh-elysium-tools
-  config:
-    comfyUrl: http://127.0.0.1:6016
-    publicUrl: http://127.0.0.1:6016
+# ComfyUI 地址由本机启动配置中的 COMFYUI_URL 注入，不在 profile 重复维护。

@@ -26,9 +26,10 @@ class PackagedPresetTests(unittest.TestCase):
         self.assertIn(".dsh", json.loads((PACKAGE / "package.json").read_text())["files"])
         self.assertIn("'.dsh'", (PACKAGE / "build-scripts/package-registry.mjs").read_text())
         self.assertEqual(yaml.safe_load((PRESET / "preset.yml").read_text())["name"], "极乐世界")
-        for relative in ("persona.md", "rules.md", "skills/creation-video/SKILL.md",
-                         "skills/creation-drama/SKILL.md"):
+        for relative in ("persona.md", "rules.md", "skills/creation-video/SKILL.md"):
             self.assertTrue((PRESET / relative).is_file(), relative)
+        self.assertFalse((PRESET / "skills/creation-drama").exists())
+        self.assertFalse((PRESET / "skills/character-reference").exists())
         self.assertFalse((ROOT / "app/config/harness-agent.md").exists())
         self.assertFalse((ROOT / "app/config/system-prompt.yaml").exists())
 

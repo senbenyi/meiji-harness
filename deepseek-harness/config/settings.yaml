@@ -1,0 +1,5 @@
+agent-presets:
+  default: elysium
+
+permission:
+  defaultPreset: danger-full-access

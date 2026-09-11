@@ -30,7 +30,7 @@ async function fixture(responses, block = {}) {
   require(pkg.name).apply({ uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
-  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_generate_image', 'workflow_resume_video', 'model_job_resume', 'model_character_view', 'model_character_sheet'])
+  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video'])
   let view
   await act(async () => { view = create(React.createElement(require('elysium-tools/media-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
   return { view, requests, timers, definition: require('elysium-tools/media-results').definition,
@@ -39,10 +39,10 @@ async function fixture(responses, block = {}) {
 }
 
 test('same card progresses to playable result and stops polling', async () => {
-  const f = await fixture([{ status: 'running', stage: 'generate' }, { status: 'succeeded', has_video: true,
+  const f = await fixture([{ status: 'running', stage: 'execute' }, { status: 'succeeded', has_video: true,
     job_id: 'a', media_info: { duration_seconds: 8, width: 640, height: 384, frame_rate: 24 }, validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' } }], { argsRaw: JSON.stringify({ width: 640, height: 384 }) })
   try {
-    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /生成视频/)
+    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /工作流执行中/)
     assert.equal(f.view.root.findAllByType('video').length, 0)
     assert.equal(f.view.root.findByProps({ role: 'progressbar' }).props['aria-label'], '视频生成中')
     assert.equal(f.view.root.findAllByProps({ className: 'elysium-spinner' }).length, 1)
@@ -64,10 +64,10 @@ test('same card progresses to playable result and stops polling', async () => {
 })
 
 test('completed card puts preview above metadata without download controls', async () => {
-  const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
+  const url = 'https://pod.test/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
   const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
   try {
-    assert.match(f.view.root.findByType('video').props.src, /^http:\/\/127.0.0.1:6016\//)
+    assert.match(f.view.root.findByType('video').props.src, /^https:\/\/pod\.test\//)
     assert.equal(f.view.root.findAllByType('a').length, 0)
     const children = f.view.root.findByType('section').children
     assert.equal(children[0].props.className, 'elysium-preview')
@@ -77,17 +77,17 @@ test('completed card puts preview above metadata without download controls', asy
 })
 
 test('a completed tool result plays without polling the media service', async () => {
-  const url = 'http://127.0.0.1:6016/api/view?filename=final.mp4&type=output'
+  const url = 'https://pod.test/view?filename=final.mp4&type=output'
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
   try {
-    assert.match(f.view.root.findByType('video').props.src, /^http:\/\/127.0.0.1:6016\//)
+    assert.match(f.view.root.findByType('video').props.src, /^https:\/\/pod\.test\//)
     assert.equal(f.requests.length, 0)
     assert.equal(f.timers.size, 0)
   } finally { await f.close() }
 })
 
 test('rejected arguments show a compact record without a task card or polling', async () => {
-  const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: 短视频一条提示词；长视频至少两条且每段 1..15 秒' }] })
+  const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] i2va 缺少 first_frame' }] })
   try {
     assert.equal(f.view.root.findAllByType('section').length, 0)
     assert.equal(f.view.root.findByType('summary').children.join(''), '媒体参数校验未通过（未创建任务）')
@@ -101,8 +101,8 @@ test('refresh can recover a completed job even when the tool block is still runn
   try { assert.equal(f.view.root.findAllByType('video').length, 1); assert.equal(f.timers.size, 0) }
   finally { await f.close() }
 })
-test('new shot validation errors do not appear as running jobs', async () => {
-  const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] 镜头时长之和必须等于 duration' }] })
+test('mode validation errors do not appear as running jobs', async () => {
+  const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] i2va 缺少 first_frame' }] })
   try {
     assert.equal(f.view.root.findAllByType('section').length, 0)
     assert.equal(f.requests.length, 0)
@@ -110,10 +110,10 @@ test('new shot validation errors do not appear as running jobs', async () => {
     assert.match(JSON.stringify(f.view.toJSON()), /未创建任务/)
   } finally { await f.close() }
 })
-test('per-shot stages identify the current shot without claiming review passed', async () => {
-  const f = await fixture([{ status: 'running', stage: 's02:render' }])
+test('execution stage reports video generation without claiming review passed', async () => {
+  const f = await fixture([{ status: 'running', stage: 'execute' }])
   try {
-    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /镜头 s02：整理镜头/)
+    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /工作流执行中/)
     assert.equal(f.view.root.findAllByType('video').length, 0)
   } finally { await f.close() }
 })
@@ -144,7 +144,7 @@ test('unmount aborts the request and removes pending polling timers', async () =
 })
 
 test('server URL playback failure reports once and retries the same URL without local fallback', async () => {
-  const url='http://127.0.0.1:6016/view?filename=final.mp4'
+  const url='https://pod.test/view?filename=final.mp4'
   const f=await fixture([], {content:[{type:'text',text:JSON.stringify({job_id:'a',status:'succeeded',comfyui_view_url:url})}]})
   try {
     assert.equal(f.view.root.findByType('video').props.src,url)
@@ -158,27 +158,15 @@ test('server URL playback failure reports once and retries the same URL without 
 
 test('interrupted session recovers original job and uses its server URL', async () => {
   const f = await fixture([{ status: 'succeeded', job_id: 'original', has_video: true,
-    comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.mp4' }],
+    comfyui_view_url: 'https://pod.test/view?filename=final.mp4' }],
   { isError: true, content: [{ type: 'text', text: 'The tool call was interrupted; outcome unknown.' }] })
   try {
-    assert.match(f.view.root.findByType('video').props.src, /^http:\/\/127.0.0.1:6016\//)
+    assert.match(f.view.root.findByType('video').props.src, /^https:\/\/pod\.test\//)
     assert.equal(f.requests.length, 1)
     assert.match(f.requests[0].url, /\/status\?/)
     assert.equal(f.timers.size, 0)
   } finally { await f.close() }
 })
-
-test('image result renders a picture with HTTP preview only', async () => {
-  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'image', status: 'succeeded', media_kind: 'image', comfyui_view_url: 'http://127.0.0.1:6016/view?filename=final.png', media_info: { width: 832, height: 1216 } }) }] })
-  try {
-    assert.equal(f.view.root.findAllByType('video').length, 0)
-    assert.equal(f.view.root.findByType('img').props.alt, '生成图片')
-    assert.equal(f.view.root.findAllByType('a').length, 0)
-    assert.equal(f.view.root.findByType('img').props.src, 'http://127.0.0.1:6016/view?filename=final.png')
-    assert.ok(!JSON.stringify(f.view.toJSON()).includes('null 秒'))
-  } finally { await f.close() }
-})
-
 
 test('expired page credentials recover the original job with one retry', async () => {
   const f = await fixture([{ httpError: 401 }, { token: 'fresh', base: '/plugins/dsh-elysium/media' },

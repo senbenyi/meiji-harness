@@ -26,10 +26,11 @@ class HarnessSettingsTest(unittest.TestCase):
             loader.write_harness_settings(mode, config or self.config)
         return stream.getvalue()
 
-    def test_shell_exports_local_harness_and_remote_model_tunnels(self):
+    def test_shell_exports_local_harness_runpod_and_qwen_tunnel(self):
         output = self.output("shell")
-        for key in ("LOCAL_DSH_HOME", "LOCAL_HARNESS_PORT", "COMFYUI_SSH_TARGET", "QWEN_SSH_TARGET"):
+        for key in ("LOCAL_DSH_HOME", "LOCAL_HARNESS_PORT", "COMFYUI_URL", "QWEN_SSH_TARGET"):
             self.assertIn(key + "=", output)
+        self.assertNotIn("COMFYUI_SSH_TARGET=", output)
         for key in ("HARNESS_ROOT", "HARNESS_SSH_TARGET", "HARNESS_LOCAL_PORT", "PLUGINS_ROOT", "PROJECT_ROOT"):
             self.assertNotIn(key + "=", output)
 
@@ -41,7 +42,7 @@ class HarnessSettingsTest(unittest.TestCase):
 
     def test_required_http_and_local_values_are_validated(self):
         data = yaml.safe_load(self.config.read_text())
-        for key in ("MINIMAX_H3_COMFYUI_URL", "LOCAL_HARNESS_PORT", "LOCAL_DSH_HOME"):
+        for key in ("COMFYUI_URL", "LOCAL_HARNESS_PORT", "LOCAL_DSH_HOME"):
             broken = yaml.safe_load(yaml.safe_dump(data))
             broken["harness-runtime"][key] = ""
             path = self.root / f"{key}.yaml"

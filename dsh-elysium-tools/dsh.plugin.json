@@ -2,7 +2,7 @@
   "id": "dsh-external/dsh-elysium-tools",
   "version": "0.4.0",
   "main": "./lib/index.js",
-  "description": "极乐世界 AI 成人短剧媒体工具：角色与场景图片、视频及任务查询，配合标准模式使用。",
+  "description": "RunPod MiniMax H3 五模式视频生成与任务查询工具。",
   "engines": {
     "dsh": ">=0.1.2-alpha.3"
   },
@@ -11,10 +11,6 @@
       "elysium_load_tools",
       "workflow_generate_video",
       "workflow_resume_video",
-      "model_character_view",
-      "model_character_sheet",
-      "model_job_resume",
-      "workflow_generate_image",
       "model_job_status",
       "model_job_result",
       "comfyui_task_queue",

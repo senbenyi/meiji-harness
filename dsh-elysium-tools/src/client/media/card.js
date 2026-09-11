@@ -41,7 +41,7 @@ window.__ModuleLoader__.load({
         poll()
         return () => { active = false; controller.abort(); clearTimeout(timer) }
       }, [sessionId, callId, block, attempt])
-      const kind = job.media_kind || (['workflow_generate_image', 'model_character_view', 'model_character_sheet'].includes(toolName) ? 'image' : 'video'), title = kind === 'image' ? '图片' : '视频'
+      const kind = 'video', title = '视频'
       let video
       if (job.status === 'succeeded') {
         if (job.comfyui_view_url) video = job.comfyui_view_url
@@ -61,9 +61,9 @@ window.__ModuleLoader__.load({
         h('path', { d: { play: 'M9 5 19 12 9 19Z', expand: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5', close: 'm6 6 12 12M18 6 6 18' }[name] }))
       return h('section', { 'aria-label': `${title}任务`, className: 'elysium-card', style: { maxWidth: height > width ? 300 : 560 } },
         h('div', { className: 'elysium-preview', style: { aspectRatio: `${width} / ${height}` } },
-          video ? h(kind === 'image' ? 'img' : 'video', { key: video + attempt, src: video,
+          video ? h('video', { key: video + attempt, src: video,
             onLoadedData: () => setMediaReady(true), onLoad: () => setMediaReady(true),
-            ...(kind === 'image' ? { alt: '生成图片' } : { controls: false, muted: true, preload: 'metadata' }),
+            controls: false, muted: true, preload: 'metadata',
           onError: async () => {
             if (job.comfyui_view_url) { setPlaybackError(true); return }
             try {
@@ -77,12 +77,12 @@ window.__ModuleLoader__.load({
             h('span', { className: 'elysium-spinner', 'aria-hidden': true }),
             h('span', { role: 'status', 'aria-live': 'polite' }, loading ? label(job) : '加载预览')) : null,
           !video && !busy ? h('div', { className: 'elysium-placeholder' }, job.status === 'failed' ? label(job) : '预览暂不可用') : null,
-          video && kind === 'video' && mediaReady ? h('button', { className: 'elysium-control elysium-play', 'aria-label': '播放视频', onClick: () => setExpanded(true) }, icon('play')) : null,
-          video && kind === 'video' ? h('button', { className: 'elysium-control elysium-expand', 'aria-label': '放大查看', title: '放大查看', onClick: () => setExpanded(true) }, icon('expand')) : null),
+          video && mediaReady ? h('button', { className: 'elysium-control elysium-play', 'aria-label': '播放视频', onClick: () => setExpanded(true) }, icon('play')) : null,
+          video ? h('button', { className: 'elysium-control elysium-expand', 'aria-label': '放大查看', title: '放大查看', onClick: () => setExpanded(true) }, icon('expand')) : null),
         h('div', { className: 'elysium-info' },
           h('div', { className: 'elysium-heading' }, h('strong', null, ordinal ? `${title} ${String(ordinal).padStart(2, '0')}` : title)),
           h('div', { className: 'elysium-meta' },
-            info ? h('span', null, kind === 'image' ? `${info.width} × ${info.height}` : `${info.duration_seconds} 秒 · ${info.width} × ${info.height} · ${info.frame_rate} fps`) : null,
+            info ? h('span', null, `${info.duration_seconds} 秒 · ${info.width} × ${info.height} · ${info.frame_rate} fps`) : null,
             h('details', { className: 'elysium-details' }, h('summary', null, '详情'),
               info?.has_audio !== undefined ? h('p', null, info.has_audio ? '含音频' : '无音频') : null,
               job.job_id ? h('p', null, '任务 ID：', h('code', null, job.job_id)) : null,
@@ -90,7 +90,7 @@ window.__ModuleLoader__.load({
           error ? h('p', { className: 'elysium-error', role: 'alert' }, error, ' ', h('button', { className: 'elysium-text-button', onClick: () => setAttempt(n => n + 1) }, '重新连接')) : null,
           job.status === 'failed' ? h('p', { className: 'elysium-error', role: 'alert' }, job.error || '任务失败，可查看执行记录。') : null,
           playbackError ? h('p', { className: 'elysium-error', role: 'alert' }, '预览加载失败 ', h('button', { className: 'elysium-text-button', onClick: () => setAttempt(n => n + 1) }, '重试播放')) : null),
-        expanded && video && kind === 'video' ? h('dialog', { ref: dialog, className: 'elysium-dialog', 'aria-label': '视频预览', onClose: () => setExpanded(false),
+        expanded && video ? h('dialog', { ref: dialog, className: 'elysium-dialog', 'aria-label': '视频预览', onClose: () => setExpanded(false),
           onClick: event => { if (event.target === event.currentTarget) setExpanded(false) } },
           h('button', { autoFocus: true, className: 'elysium-control elysium-close', 'aria-label': '关闭', onClick: () => setExpanded(false) }, icon('close')),
           h('video', { src: video, controls: true, controlsList: 'nodownload', autoPlay: true })) : null)
@@ -98,7 +98,7 @@ window.__ModuleLoader__.load({
     return { MediaTaskCard, apply(ctx) {
       require('elysium-tools/media-styles').apply()
       ctx.slots.inject('tool.call.toolview', () => {
-        for (const key of ['workflow_generate_video', 'workflow_generate_image', 'workflow_resume_video', 'model_job_resume', 'model_character_view', 'model_character_sheet']) ctx.slots.register({ name: 'tool.call.toolview', key }, props => fromBlock(props.block).status === 'succeeded'
+        for (const key of ['workflow_generate_video', 'workflow_resume_video']) ctx.slots.register({ name: 'tool.call.toolview', key }, props => fromBlock(props.block).status === 'succeeded'
           ? h('span', { style: { fontSize: 13, opacity: 0.65 } }, '媒体已生成 · 作品见本轮回复下方')
           : h(MediaTaskCard, props))
       })

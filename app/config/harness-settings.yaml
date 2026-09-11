@@ -1,10 +1,8 @@
 # 启动与隧道参数
 harness-runtime:
-  COMFYUI_SSH_TARGET: veo-comfyui
   QWEN_LOCAL_HOST: 127.0.0.1
   QWEN_REMOTE_HOST: 127.0.0.1
-  MINIMAX_H3_COMFYUI_URL: http://127.0.0.1:6016
-  MINIMAX_H3_COMFYUI_PUBLIC_URL: http://127.0.0.1:6016
+  COMFYUI_URL: https://36we4j3zo503js-8188.proxy.runpod.net
   LOCAL_DSH_HOME: /Users/mac/.dsh
   LOCAL_HARNESS_HOST: 127.0.0.1
   LOCAL_HARNESS_PORT: 3080
@@ -62,5 +60,4 @@ harness-customization:
   profile:
     - id: dsh-elysium-tools
       config:
-        comfyUrl: __MINIMAX_H3_COMFYUI_URL__
-        publicUrl: __MINIMAX_H3_COMFYUI_PUBLIC_URL__
+        comfyUrl: __COMFYUI_URL__

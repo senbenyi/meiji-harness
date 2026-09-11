@@ -57,7 +57,7 @@ try {
   const persona = interpolate(ctx, rows.find(row => row.id === 'persona').config)
   const skills = interpolate(ctx, rows.find(row => row.id === 'skill-filesystem').config)
   assert.match(persona.text, /极乐世界/); assert.match(persona.text, /workflow_generate_video/)
-  for (const name of ['creation-video', 'creation-drama']) assert.match(await readFile(join(skills.customSkillDirs[0], name, 'SKILL.md'), 'utf8'), /name:/)
+  assert.match(await readFile(join(skills.customSkillDirs[0], 'creation-video/SKILL.md'), 'utf8'), /name:/)
   for (const id of ['tool-bash', 'tool-pwsh', 'tool-fs', 'tool-fs-search', 'tool-jobs', 'tool-goal', 'planning', 'delegation', 'tool-todo', 'compaction', 'tool-skill', 'tool-ask-user', 'tool-web']) assert.ok(rows.some(row => row.id === id), id)
   // Exercise the actual Loader/Group lifecycle; leaf tools are probes (no shell/network/model calls).
   const { Context } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis')))

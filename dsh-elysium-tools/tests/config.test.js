@@ -4,18 +4,18 @@ import { requiredConfig } from '../src/config.js'
 import { comfyUrl, ComfyClient } from '../src/functions/comfyui/client.js'
 
 test('missing, empty and invalid addresses fail before any request; removed instance is rejected', () => {
-  const previous = process.env.MINIMAX_H3_COMFYUI_URL
+  const previous = process.env.COMFYUI_URL
   const originalFetch = globalThis.fetch
   let calls = 0
   globalThis.fetch = () => { calls++; throw new Error('unexpected request') }
   try {
-    delete process.env.MINIMAX_H3_COMFYUI_URL
-    assert.throws(() => new ComfyClient(), /MINIMAX_H3_COMFYUI_URL/)
+    delete process.env.COMFYUI_URL
+    assert.throws(() => new ComfyClient(), /COMFYUI_URL/)
     for (const value of ['', ' ', 'ftp://comfy.test', 'http://user:pass@comfy.test', 'http://comfy.test:99999', 'http://comfy.test/?key=secret']) {
-      process.env.MINIMAX_H3_COMFYUI_URL = value
-      assert.throws(() => new ComfyClient(), /MINIMAX_H3_COMFYUI_URL/)
+      process.env.COMFYUI_URL = value
+      assert.throws(() => new ComfyClient(), /COMFYUI_URL/)
     }
-    process.env.MINIMAX_H3_COMFYUI_URL = 'https://comfy.test:19443/backend/'
+    process.env.COMFYUI_URL = 'https://comfy.test:19443/backend/'
     assert.equal(comfyUrl(), 'https://comfy.test:19443/backend')
     assert.equal(new ComfyClient().url.href, 'https://comfy.test:19443/backend/')
     assert.throws(() => comfyUrl('production'), /未知 ComfyUI/)
@@ -23,8 +23,8 @@ test('missing, empty and invalid addresses fail before any request; removed inst
     assert.equal(calls, 0)
   } finally {
     globalThis.fetch = originalFetch
-    if (previous === undefined) delete process.env.MINIMAX_H3_COMFYUI_URL
-    else process.env.MINIMAX_H3_COMFYUI_URL = previous
+    if (previous === undefined) delete process.env.COMFYUI_URL
+    else process.env.COMFYUI_URL = previous
   }
 })
 

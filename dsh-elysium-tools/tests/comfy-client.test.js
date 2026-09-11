@@ -124,8 +124,8 @@ test('task management uses HTTP results and never interrupts another running job
       : { done: { status: { completed: true, status_str: 'success' }, outputs: { final: { videos: [{ filename: 'movie.mp4', type: 'output' }] } } } }))
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  const previous = process.env.MINIMAX_H3_COMFYUI_URL
-  process.env.MINIMAX_H3_COMFYUI_URL = `http://127.0.0.1:${server.address().port}`
+  const previous = process.env.COMFYUI_URL
+  process.env.COMFYUI_URL = `http://127.0.0.1:${server.address().port}`
   try {
     const result = await comfyuiTaskTool('result', '').execute({ server: 'minimax-h3', prompt_id: 'done' })
     assert.equal(result.status, 'succeeded')
@@ -135,9 +135,8 @@ test('task management uses HTTP results and never interrupts another running job
     await comfyuiTaskTool('cancel', '').execute({ server: 'minimax-h3', prompt_id: 'pending' })
     assert.deepEqual(mutations, [['/queue', { delete: ['pending'] }]])
   } finally {
-    if (previous === undefined) delete process.env.MINIMAX_H3_COMFYUI_URL
-    else process.env.MINIMAX_H3_COMFYUI_URL = previous
+    if (previous === undefined) delete process.env.COMFYUI_URL
+    else process.env.COMFYUI_URL = previous
     await new Promise(resolve => { server.close(resolve); server.closeAllConnections() })
   }
 })
-

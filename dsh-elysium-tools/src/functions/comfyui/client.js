@@ -7,7 +7,7 @@ export { readJson, saveJson }
 
 export function comfyUrl(server = 'minimax-h3') {
   if (server !== 'minimax-h3') throw new Error(`未知 ComfyUI 实例：${server}`)
-  return requiredConfig('MINIMAX_H3_COMFYUI_URL', 'url')
+  return requiredConfig('COMFYUI_URL', 'url')
 }
 
 export class ComfyClient {
@@ -45,19 +45,22 @@ export class ComfyClient {
     for (const [id, node] of Object.entries(graph)) {
       const schema = schemas[node.class_type]
       if (!schema) throw new Error(`ComfyUI 缺少节点：${node.class_type}`)
-      for (const key of Object.keys(schema.input?.required || {})) {
-        if (!(key in node.inputs)) throw new Error(`${id} 缺少输入 ${key}`)
+      const required = schema.input?.required || {}, optional = schema.input?.optional || {}
+      const dynamic = Object.entries({ ...required, ...optional }).filter(([, spec]) => spec[0] === 'COMFY_AUTOGROW_V3').map(([key]) => key)
+      for (const key of Object.keys(required)) {
+        if (!(key in node.inputs) && !(dynamic.includes(key) && Object.keys(node.inputs).some(name => name.startsWith(`${key}.`)))) throw new Error(`${id} 缺少输入 ${key}`)
       }
       for (const [key, value] of Object.entries(node.inputs)) {
-        const spec = schema.input?.required?.[key] || schema.input?.optional?.[key]
+        const root = dynamic.find(name => key.startsWith(`${name}.`))
+        const spec = required[key] || optional[key] || (root ? ['*'] : undefined)
         if (!spec) throw new Error(`${id} 存在未支持输入 ${key}`)
         if (Array.isArray(value)) {
           const source = graph[value[0]], type = schemas[source?.class_type]?.output?.[value[1]]
-          if (!type || (spec[0] !== type && !(spec[0] === 'FLOAT' && type === 'INT'))) throw new Error(`${id}.${key} 连线类型不匹配`)
+          if (!type || (spec[0] !== '*' && spec[0] !== type && !(spec[0] === 'FLOAT' && type === 'INT'))) throw new Error(`${id}.${key} 连线类型不匹配`)
         } else {
           const choices = Array.isArray(spec[0]) ? spec[0] : spec[1]?.options
           const mediaReference = ['LoadImage', 'LoadVideo'].includes(node.class_type) && ['image', 'file'].includes(key) && typeof value === 'string' && / \[(input|output)\]$/.test(value)
-          if (choices && !choices.includes(value) && !mediaReference) throw new Error(`${id}.${key} 不支持值 ${value}`)
+          if (choices?.length && !choices.includes(value) && !mediaReference) throw new Error(`${id}.${key} 不支持值 ${value}`)
           if (typeof value === 'number' && (value < (spec[1]?.min ?? -Infinity) || value > (spec[1]?.max ?? Infinity))) throw new Error(`${id}.${key} 超出节点范围`)
         }
       }
@@ -102,9 +105,9 @@ export class ComfyClient {
     throw new Error(`等待超时；远端任务可能仍在执行，恢复时查询原 prompt_id: ${promptId}`)
   }
 
-  viewUrl(descriptor, publicUrl = this.url.href) {
+  viewUrl(descriptor) {
     if (!descriptor?.filename || descriptor.type !== 'output') throw new Error('无有效 ComfyUI output 产物')
-    const url = new URL('view', publicUrl.replace(/\/?$/, '/'))
+    const url = new URL('view', this.url)
     url.search = new URLSearchParams({ filename: descriptor.filename, subfolder: descriptor.subfolder || '', type: 'output' }).toString()
     return url.href
   }

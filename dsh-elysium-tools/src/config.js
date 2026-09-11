@@ -19,8 +19,7 @@ export function requiredConfig(name, kind = 'path') {
 // Cordis config belongs to a plugin instance, never to the host process globally.
 const context = new AsyncLocalStorage()
 const fields = {
-  comfyUrl: ['MINIMAX_H3_COMFYUI_URL', 'url'],
-  publicUrl: ['MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url'],
+  comfyUrl: ['COMFYUI_URL', 'url'],
   artifactsRoot: ['ARTIFACTS_ROOT', 'path'],
   stateRoot: ['ELYSIUM_TOOLS_STATE_ROOT', 'path'],
   python: ['HARNESS_PYTHON', 'command'],

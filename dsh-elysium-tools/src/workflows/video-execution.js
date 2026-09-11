@@ -1,24 +1,16 @@
-import { requiredConfig } from '../config.js'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import { requiredConfig } from '../config.js'
 import { ComfyClient } from '../functions/comfyui/client.js'
 import { saveJson } from '../jobs/json.js'
-import { buildVideoGraph, loadVideoTemplates } from './video-graph.js'
 import { codeVersion } from '../functions/common/diagnostics.js'
+import { buildVideoGraph } from './video-graph.js'
 import { collectVideoArtifacts } from './video-artifacts.js'
-import { probeVideoInput } from '../media/probe.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './comfy-execution.js'
-import { mediaReference } from '../media/http-media.js'
-
-function sources(plan) {
-  return [...new Set([...(plan.video_paths || []), plan.image_path,
-    ...(plan.shots || []).flatMap(s => [s.image_path, s.video_path, s.audio_path])].filter(Boolean))]
-}
 
 export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 * 60_000 } = {}) {
-  requiredConfig('MINIMAX_H3_COMFYUI_PUBLIC_URL', 'url')
-  const stateRoot = requiredConfig('ELYSIUM_TOOLS_STATE_ROOT')
-  const directory = join(stateRoot, 'jobs', jobId)
+  const directory = join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', jobId)
   const statusPath = join(directory, 'status.json')
   const client = new ComfyClient(undefined, signal), started = Date.now()
   const status = { job_id: jobId, capability: 'workflow-video', backend: 'comfyui', trace_id: jobId,
@@ -27,15 +19,9 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
       diagnostic_path: join(directory, 'diagnostics.json'), log_path: join(directory, 'execution.log') } }
   await saveJson(statusPath, status)
   try {
-    const prepared = await prepareComfyWorkflow(directory, client, plan, async () => {
-      const media = {}, reused = new Set(plan.video_paths || (plan.shots || []).filter(s => s.mode === 'reuse').map(s => s.video_path))
-      for (const path of sources(plan)) {
-        const reference = mediaReference(path)
-        media[path] = { name: reference.name, ...(reused.has(path) ? await probeVideoInput(reference.url) : {}) }
-      }
-      return { ...buildVideoGraph(plan, media, await loadVideoTemplates(), jobId), media, plan,
-        server_url: client.url.href }
-    })
+    const prepared = await prepareComfyWorkflow(directory, client, plan, async () => ({
+      ...await buildVideoGraph(plan, jobId), plan, server_url: client.url.href,
+    }))
     const { promptId, history } = await runComfyWorkflow(directory, client, prepared, status, timeoutMs)
     status.stage = 'inspect-output'
     await saveJson(statusPath, status)
@@ -45,7 +31,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     status.stage = 'completed'
     status.timings = { total_ms: Date.now() - started }
     status.finished_at = new Date().toISOString()
-    await saveJson(join(directory, 'validation.json'), { shots: status.result.shots, validation: status.result.validation })
+    await saveJson(join(directory, 'validation.json'), status.result.validation)
     await saveJson(statusPath, status)
     await saveJson(status.debug.diagnostic_path, status)
     return status

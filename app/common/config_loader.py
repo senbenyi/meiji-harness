@@ -19,7 +19,6 @@ def write_harness_settings(mode, config):
     runtime = settings.pop("harness-runtime")
     settings.pop("harness-customization", None)
     patterns = {
-        "COMFYUI_SSH_TARGET": r"[A-Za-z0-9_][A-Za-z0-9._-]*(?:@[A-Za-z0-9._-]+)?",
         "QWEN_SSH_TARGET": r"[A-Za-z0-9_][A-Za-z0-9._-]*(?:@[A-Za-z0-9._-]+)?",
         "QWEN_MODEL_ID": r"[A-Za-z0-9._-]+",
         "QWEN_API_LOCAL_PORT": r"[0-9]+",
@@ -30,7 +29,7 @@ def write_harness_settings(mode, config):
         patterns[key] = r"[A-Za-z0-9][A-Za-z0-9._-]*"
     for key in ("LOCAL_DSH_HOME",):
         patterns[key] = r"/[A-Za-z0-9._/-]+"
-    for key in ("MINIMAX_H3_COMFYUI_URL", "MINIMAX_H3_COMFYUI_PUBLIC_URL"):
+    for key in ("COMFYUI_URL",):
         value = runtime[key]
         if not isinstance(value, str) or not value or value != value.strip():
             raise ValueError(f"{key} 缺失或为空")
@@ -54,7 +53,7 @@ def write_harness_settings(mode, config):
         print(f"DSH_PERMISSION_MODE={shlex.quote(settings['permission']['defaultPreset'])}")
     else:
         rendered = yaml.safe_dump(settings, allow_unicode=True, sort_keys=False)
-        for key in ("QWEN_API_LOCAL_PORT", "QWEN_MODEL_ID", "QWEN_LOCAL_HOST"):
+        for key in ("QWEN_API_LOCAL_PORT", "QWEN_MODEL_ID", "QWEN_LOCAL_HOST", "COMFYUI_URL"):
             rendered = rendered.replace(f"__{key}__", str(runtime[key]))
         sys.stdout.write(rendered)
 
