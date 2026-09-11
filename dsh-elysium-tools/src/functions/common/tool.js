@@ -1,8 +1,8 @@
 export const renderToolDebug = (args, value) => {
   if (args.detail === true) return [{ type: 'text', text: JSON.stringify(value) }]
   if (value.status === 'succeeded' && value.result) value = { ...value, ...value.result }
-  const keys = ['job_id', 'status', 'stage', 'path', 'size_bytes', 'sha256', 'media_info', 'validation', 'shots',
-    'media_kind', 'character', 'warnings', 'error_code', 'error', 'failed_stage', 'retryable', 'retry_scope']
+  const keys = ['job_id', 'status', 'stage', 'path', 'size_bytes', 'sha256', 'media_info', 'validation',
+    'media_kind', 'warnings', 'error_code', 'error', 'failed_stage', 'retryable', 'retry_scope']
   const output = Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
   if (['published-final', 'comfyui-final'].includes(value.comfyui_metadata_status)) {
     output.comfyui_view_url = value.comfyui_view_url
@@ -20,7 +20,6 @@ export const COMPLETED_RESULT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    character: { type: 'object', additionalProperties: true },
     media_kind: { type: 'string' },
     job_id: { type: 'string' },
     status: { type: 'string' },
@@ -41,7 +40,6 @@ export const COMPLETED_RESULT_SCHEMA = {
     code_version: { type: 'object', additionalProperties: true },
     media_info: { oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }] },
     validation: { type: 'object', additionalProperties: true },
-    shots: { type: 'array', items: { type: 'object', additionalProperties: true } },
     warnings: { type: 'array', items: { type: 'string' } },
   },
   required: ['job_id', 'status', 'path'],

@@ -57,7 +57,7 @@ for (const kinds of [['tools'], ['ui'], ['tools', 'ui']]) {
         slots: { inject: (_, run) => run(), register(spec) { slots.push(spec) } },
       })
       assert.equal(new Set(slots.map(slot => `${slot.name}:${slot.key || slot.id}`)).size, slots.length)
-      assert.equal(slots.filter(slot => slot.name === 'tool.call.toolview').length, kinds.includes('tools') ? 9 : 0)
+      assert.equal(slots.filter(slot => slot.name === 'tool.call.toolview').length, kinds.includes('tools') ? 2 : 0)
       assert.equal(slots.filter(slot => slot.name === 'conversation.chat.turnTail').length, kinds.includes('tools') ? 1 : 0)
       assert.equal(slots.filter(slot => slot.name === 'settings.section').length, kinds.includes('ui') ? 1 : 0)
       if (kinds.includes('ui')) {
