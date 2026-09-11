@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { mediaReference } from '../media/http-media.js'
 
 export async function loadVideoTemplate(mode) {
-  return JSON.parse(await readFile(new URL(`./templates/runpod/${mode}.json`, import.meta.url), 'utf8'))
+  return JSON.parse(await readFile(new URL(`./templates/minimax-h3/${mode}.json`, import.meta.url), 'utf8'))
 }
 
 export async function buildVideoGraph(plan, jobId) {

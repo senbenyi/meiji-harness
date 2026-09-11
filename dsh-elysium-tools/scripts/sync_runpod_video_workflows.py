@@ -7,7 +7,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTORY = ROOT / 'src/workflows/templates/runpod'
+DIRECTORY = ROOT / 'src/workflows/templates/minimax-h3'
 DEFAULT_URL = 'https://36we4j3zo503js-8188.proxy.runpod.net'
 WORKFLOWS = {
     't2va': {'file': 'MiniMaxH3-Turbo-T2VA.json', 'macros': [105], 'mirrors': [137], 'media': {}},

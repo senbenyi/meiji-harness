@@ -16,7 +16,7 @@ dsh plugin --profile web add --workspace-root ./registry
 
 ## 2. 同步 RunPod 工作流
 
-`src/workflows/templates/runpod/` 是五套 MiniMax H3 UI/API 图及 Harness 绑定的唯一事实源。同步和只读核验命令：
+`src/workflows/templates/minimax-h3/` 是五套 MiniMax H3 UI/API 图及 Harness 绑定的唯一事实源。同步和只读核验命令：
 
 ```sh
 pnpm workflow:sync

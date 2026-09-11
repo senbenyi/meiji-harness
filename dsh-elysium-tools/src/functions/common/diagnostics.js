@@ -12,7 +12,7 @@ export async function codeVersion() {
     '../../media/http-media.js',
     ...['comfy-execution', 'video-plan', 'video-jobs', 'video-worker', 'video-graph',
       'video-execution', 'video-artifacts', 'workflow-generate-video', 'index'].map(name => `../../workflows/${name}.js`),
-    ...['t2va', 'i2va', 'fl2va', 'fl2va-loop', 'r2va'].map(name => `../../workflows/templates/runpod/${name}.json`)]
+    ...['t2va', 'i2va', 'fl2va', 'fl2va-loop', 'r2va'].map(name => `../../workflows/templates/minimax-h3/${name}.json`)]
   const sources = await Promise.all(names.map(name => readFile(new URL(name, import.meta.url))))
   return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat(sources)) }
 }
