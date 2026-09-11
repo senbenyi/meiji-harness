@@ -15,7 +15,7 @@ readonly FORWARD="$LOCAL_HOST:$LOCAL_PORT:$REMOTE_HOST:$REMOTE_PORT"
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
 model_present() {
-  node -e 'let body=""; process.stdin.on("data", chunk => body += chunk); process.stdin.on("end", () => { const target=process.argv[1]; const data=JSON.parse(body); process.exit(data.data?.some(item => item.id === target) ? 0 : 1); });' "$MODEL_ID"
+  node -e 'let body=""; process.stdin.on("data", chunk => body += chunk); process.stdin.on("end", () => { try { const data=JSON.parse(body); process.exit(data.data?.some(item => item.id === process.argv[1]) ? 0 : 1); } catch { process.exit(1); } });' "$MODEL_ID"
 }
 qwen_ready() {
   curl -fsS --max-time 5 "http://$LOCAL_HOST:$LOCAL_PORT/v1/models" 2>/dev/null | model_present
