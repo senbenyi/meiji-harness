@@ -71,7 +71,8 @@ await withLaunchLock(join(directory,'runner.lock'),async()=>{
    anchors[shot.role]={url:client.viewUrl(descriptor),prompt_id:prompt,source_job_id:receipt.job_id}
    await saveJson(join(directory,'anchors.json'),anchors)
   }
-  await saveJson(join(directory,'progress.json'),{completed:shot.number,total:120,last_job_id:receipt.job_id,updated_at:new Date().toISOString(),run_elapsed_ms:Date.now()-started})
+  const priorProgress=await readJson(join(directory,'progress.json'))
+  await saveJson(join(directory,'progress.json'),{completed:Math.max(priorProgress?.completed||0,shot.number),checked_shot:shot.number,total:120,last_job_id:receipt.job_id,updated_at:new Date().toISOString(),run_elapsed_ms:Date.now()-started})
   console.log(`${shot.id} done ${receipt.job_id} server_ms=${receipt.result.server_execution_ms}`)
  }
 })
