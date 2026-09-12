@@ -27,7 +27,7 @@ async function fixture(responses, block = {}) {
     if (!cache.has(name)) cache.set(name, bundles.get(name)(require))
     return cache.get(name)
   }
-  require(pkg.name).apply({ uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
+  require(pkg.name).apply({ effect: run => run(), inputTriggers: { registerSource: () => () => {} }, uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
   assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video'])
@@ -83,6 +83,34 @@ test('a completed tool result plays without polling the media service', async ()
     assert.match(f.view.root.findByType('video').props.src, /^https:\/\/pod\.test\//)
     assert.equal(f.requests.length, 0)
     assert.equal(f.timers.size, 0)
+  } finally { await f.close() }
+})
+
+test('completed preview uses specification dimensions and actual job details without media_info', async () => {
+  const job = { job_id: '6e050097ab7b37578357ff0e111dc53d', status: 'succeeded',
+    comfyui_view_url: 'https://pod.test/view?filename=final.mp4', timings: { total_ms: 33123 }, profile: 'preview',
+    specification: { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' } }
+  for (const block of [null, { content: [{ type: 'text', text: JSON.stringify(job) }] }]) {
+    const f = await fixture(block ? [] : [job], block || {})
+    try {
+      assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '384 / 512')
+      const details = f.view.root.findByProps({ className: 'elysium-details' }).findAllByType('p').flatMap(p => p.children.filter(child => typeof child === 'string')).join('\n')
+      assert.match(JSON.stringify(f.view.toJSON()), /6e050097ab7b37578357ff0e111dc53d/)
+      assert.match(details, /任务耗时：33.1 秒/)
+      assert.match(details, /生成规格：预览档、384×512、约 3 秒视频、8 步、带音频/)
+      await act(async () => f.view.root.findByType('video').props.onLoadedMetadata({ currentTarget: { videoWidth: 640, videoHeight: 360 } }))
+      assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '640 / 360')
+      assert.equal(f.view.root.findByType('section').props.style.maxWidth, 560)
+    } finally { await f.close() }
+  }
+})
+
+test('missing task metadata does not invent duration or generation specifications', async () => {
+  const f = await fixture([{ status: 'succeeded', comfyui_view_url: 'https://pod.test/view?filename=old.mp4' }])
+  try {
+    assert.doesNotMatch(JSON.stringify(f.view.toJSON()), /任务耗时|生成规格/)
+    await act(async () => f.view.root.findByType('video').props.onLoadedMetadata({ currentTarget: { videoWidth: 384, videoHeight: 512 } }))
+    assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '384 / 512')
   } finally { await f.close() }
 })
 

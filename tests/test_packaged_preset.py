@@ -38,13 +38,16 @@ class PackagedPresetTests(unittest.TestCase):
             with self.subTest(preset=preset_id):
                 self.assertEqual(yaml.safe_load((PRESETS_DIR / preset_id / "preset.yml").read_text())["name"], expected_name)
 
-    def test_elysium_presets_contain_persona_and_skills(self):
+    def test_elysium_presets_contain_persona_and_command_rules(self):
         for preset_id in ELYSIUM_PRESETS:
             preset_dir = PRESETS_DIR / preset_id
             with self.subTest(preset=preset_id):
-                for relative in ("persona.md", "rules.md", "skills/creation-preview/SKILL.md", "skills/creation-regular/SKILL.md", "skills/creation-hd/SKILL.md"):
+                for relative in ("persona.md", "rules.md"):
                     self.assertTrue((preset_dir / relative).is_file(), f"{preset_id}/{relative}")
-                self.assertFalse((preset_dir / "skills/creation-video").exists())
+                for name in ("creation-video", "creation-preview", "creation-regular", "creation-hd"):
+                    self.assertFalse((preset_dir / "skills" / name).exists())
+                for command in ("/预览创作", "/常规创作", "/高清创作"):
+                    self.assertIn(command, (preset_dir / "rules.md").read_text())
 
     def test_no_legacy_files(self):
         self.assertFalse((ROOT / "app/config/harness-agent.md").exists())

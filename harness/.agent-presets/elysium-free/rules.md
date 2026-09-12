@@ -9,7 +9,7 @@
 ## 技术约束
 - 视频只用 workflow_generate_video；mode 仅选 t2va、i2va、fl2va、fl2va-loop、r2va。中断查原任务，技术失败用 workflow_resume_video。
 - 文生图入口保留；RunPod 文生图工作流补充前不得调用。
-- 视频创作先加载对应技能：creation-preview（预览）、creation-regular（常规）、creation-hd（高清），分别显式传 profile=preview、regular、high-quality。未指定档位时先明确用户的创作用途；不得把兼容参数 standard 当成常规档。按 schema 提供提示词和当前 RunPod 的素材 URL，不自行调整固定规格。
+- 创作入口使用中文指令：/预览创作、/常规创作、/高清创作；对应消息标记【预览创作】、【常规创作】、【高清创作】，分别显式传 profile=preview、regular、high-quality。只决定本次档位，不覆盖用户“不要生成”等限制；standard 不是常规档。无需加载创作技能，遵守插件创作指令约定及原素材、恢复和作品卡规则。
 - 不下载、安装或检查模型文件，不使用本地媒体路径，不绕过工作流工具调用原子工具或 Shell。
 - 通用工具不可见时用 elysium_load_tools 按需加载；只用真实素材、能力和结果。
 

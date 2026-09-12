@@ -39,7 +39,7 @@ preset.yml            # 名称、描述、排序（order 字段，数字越小�
 agent.cordis.yml      # 插件组合（cordis composition）
 persona.md            # 人设提示词（elysium-* 独有）
 rules.md              # 行为规则（elysium-* 独有）
-skills/               # 技能文档（elysium-* 独有）
+skills/               # 可选技能目录；视频创作改用插件中文指令
 ```
 
 ## 部署
@@ -112,3 +112,5 @@ agent-presets:
 - 插件不允许上传、下载、保存文件方法
 - 插件中媒体、视频、图片一律使用服务器 URL
 - Harness 只在本机运行；远端服务器只保留模型服务
+
+视频创作在 Harness 输入 `/`，依次选择 **预览创作、常规创作、高清创作**，填写创作内容后发送。菜单直接显示中文用途，详见 [三档指令与全链路](docs/implement/实施-视频创作三档入口与全链路.md)。

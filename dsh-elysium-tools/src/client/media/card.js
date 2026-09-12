@@ -2,10 +2,11 @@ window.__ModuleLoader__.load({
   id: 'elysium-tools/media-card', factory: require => {
     const { createElement: h, useEffect, useState, useRef } = require('react')
     const { readStatus, mediaUrl } = require('elysium-tools/media-api')
-    const { fromBlock, label } = require('elysium-tools/media-model')
+    const { fromBlock, label, specificationLabel } = require('elysium-tools/media-model')
     function MediaTaskCard({ sessionId, callId, block, inspect, toolName, ordinal }) {
       const [expanded, setExpanded] = useState(false)
       const [mediaReady, setMediaReady] = useState(false)
+      const [dimensions, setDimensions] = useState(null)
       const dialog = useRef(null)
       useEffect(() => {
         if (expanded) dialog.current?.showModal()
@@ -55,7 +56,10 @@ window.__ModuleLoader__.load({
       let args = {}
       try { args = JSON.parse(block?.call?.argsRaw || block?.argsRaw || '{}') } catch { /* Dimensions arrive with the result if arguments are incomplete. */ }
       const info = job.media_info
-      const width = info?.width || args.width || 480, height = info?.height || args.height || 854
+      const actual = dimensions?.src === video ? dimensions : null
+      const width = actual?.width || info?.width || job.specification?.width || args.width || 480
+      const height = actual?.height || info?.height || job.specification?.height || args.height || 854
+      const specification = specificationLabel(job)
       const loading = !video && !error && ['pending', 'queued', 'running'].includes(job.status)
       const busy = loading || (video && !mediaReady && !playbackError)
       const icon = name => h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: name === 'play' ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
@@ -63,6 +67,10 @@ window.__ModuleLoader__.load({
       return h('section', { 'aria-label': `${title}任务`, className: 'elysium-card', style: { maxWidth: height > width ? 300 : 560 } },
         h('div', { className: 'elysium-preview', style: { aspectRatio: `${width} / ${height}` } },
           video ? h('video', { key: video + attempt, src: video,
+            onLoadedMetadata: event => {
+              const { videoWidth, videoHeight } = event.currentTarget
+              if (videoWidth > 0 && videoHeight > 0) setDimensions({ src: video, width: videoWidth, height: videoHeight })
+            },
             onLoadedData: () => setMediaReady(true), onLoad: () => setMediaReady(true),
             controls: false, muted: true, preload: 'metadata',
           onError: async () => {
@@ -85,8 +93,9 @@ window.__ModuleLoader__.load({
           h('div', { className: 'elysium-meta' },
             info ? h('span', null, `${info.duration_seconds} 秒 · ${info.width} × ${info.height} · ${info.frame_rate} fps`) : null,
             h('details', { className: 'elysium-details' }, h('summary', null, '详情'),
-              info?.has_audio !== undefined ? h('p', null, info.has_audio ? '含音频' : '无音频') : null,
               job.job_id ? h('p', null, '任务 ID：', h('code', null, job.job_id)) : null,
+              Number.isFinite(job.timings?.total_ms) ? h('p', null, `任务耗时：${(job.timings.total_ms / 1000).toFixed(1)} 秒`) : null,
+              specification ? h('p', null, `生成规格：${specification}`) : null,
               inspect ? h('button', { className: 'elysium-text-button', onClick: inspect }, '执行记录') : null)),
           error ? h('p', { className: 'elysium-error', role: 'alert' }, error, ' ', h('button', { className: 'elysium-text-button', onClick: () => setAttempt(n => n + 1) }, '重新连接')) : null,
           job.status === 'failed' ? h('p', { className: 'elysium-error', role: 'alert' }, job.error || '任务失败，可查看执行记录。') : null,

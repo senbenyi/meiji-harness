@@ -4,9 +4,17 @@ import { createServer } from 'node:http'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { createMediaHandler } from '../src/http/media-jobs.js'
+import { createMediaHandler, jobSummary } from '../src/http/media-jobs.js'
 import { bindVideoCall, findVideoCall } from '../src/jobs/call-index.js'
 import { apply } from '../src/index.js'
+
+test('status summary carries timing and generation specification to recovered cards', () => {
+  const timings = { total_ms: 33123 }, specification = { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' }
+  const summary = jobSummary({ job_id: 'job', status: 'succeeded', timings, result: { profile: 'preview', specification } })
+  assert.deepEqual(summary.timings, timings)
+  assert.deepEqual(summary.specification, specification)
+  assert.equal(summary.profile, 'preview')
+})
 
 test('media routes wait for webServer and inject browser configuration when it becomes available', () => {
   process.env.ARTIFACTS_ROOT = tmpdir()

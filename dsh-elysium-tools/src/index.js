@@ -8,6 +8,7 @@ import { createComfyuiTaskResultTool } from './functions/comfyui/task-result.js'
 import { createComfyuiTaskCancelTool } from './functions/comfyui/task-cancel.js'
 import { createToolDiscoveryTool, projectTools } from './tool-discovery.js'
 import { registerMediaRoutes } from './http/media-jobs.js'
+import { creationInstructions } from './creation-instructions.js'
 
 export * from './functions/index.js'
 export * from './workflows/index.js'
@@ -23,7 +24,11 @@ export function createComfyuiTools() {
 export function apply(ctx, config = {}) {
   const runtime = resolveConfig(config)
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => registerMediaRoutes(mediaContext, runtime)))
-  ctx.on('system-prompt/assemble', async (_assembly, context, next) => projectTools(await next(), context.agent))
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+    const assembly = projectTools(await next(), context.agent)
+    return { ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
+      { name: 'elysium:creation-commands', text: creationInstructions }] }
+  })
   const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools(),
     ...(runtime.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]
   for (const definition of tools) {

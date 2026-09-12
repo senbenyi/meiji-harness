@@ -11,7 +11,7 @@ const require = createRequire(join(host, 'package.json'))
 const { FileSystemSkillProvider } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-skill-filesystem')))
 const source = process.argv[3] || fileURLToPath(new URL('../../harness/.agent-presets/', import.meta.url))
 const root = await mkdtemp(join(tmpdir(), 'elysium detached '))
-const profiles = { 'creation-preview': 'preview', 'creation-regular': 'regular', 'creation-hd': 'high-quality' }
+const retired = ['creation-video', 'creation-preview', 'creation-regular', 'creation-hd']
 try {
   for (const role of ['elysium-director', 'elysium-free', 'elysium-teaching']) {
     const preset = join(root, role)
@@ -23,16 +23,11 @@ try {
     try {
       const entries = await provider.list({ cwd: root })
       assert.ok(Array.isArray(entries))
-      assert.deepEqual(entries.map(entry => entry.name).sort(), Object.keys(profiles).sort())
-      for (const entry of entries) {
-        const skill = await provider.get(entry, {})
-        assert.match(skill.content, new RegExp(`profile="${profiles[entry.name]}"`))
-        assert.match(skill.content, /workflow_resume_video/)
-      }
+      assert.ok(entries.every(entry => !retired.includes(entry.name)))
       assert.deepEqual(warnings, [])
       const rules = await readFile(join(preset, 'rules.md'), 'utf8')
-      for (const name of Object.keys(profiles)) assert.ok(rules.includes(name))
+      for (const name of ['预览创作', '常规创作', '高清创作']) assert.ok(rules.includes('/' + name))
     } finally { await provider.dispose() }
   }
-  console.log('PASS: native Harness discovers and loads exactly three creation skills in all copied creative presets')
+  console.log('PASS: native Harness no longer discovers retired creation skills; copied presets retain Chinese command rules')
 } finally { await rm(root, { recursive: true, force: true }) }
