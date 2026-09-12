@@ -21,3 +21,13 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 - `pnpm test`：运行当前插件的测试。
 - `pnpm build`：生成可分发的构建产物。
 - `pnpm package:registry`：组装 registry 包。
+
+
+## Remote Hosts
+
+| Alias | 连接 | Role |
+|---|---|---|
+| `veo-comfyui` | `ssh veo-comfyui` | Image/video models, ComfyUI |
+| `veo-qwen38` | `ssh veo-qwen38` | Qwen3.8 inference |
+
+更换服务先检查 `~/.ssh/config`。
