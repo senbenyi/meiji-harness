@@ -24,3 +24,20 @@ COMFYUI_URL=https://36we4j3zo503js-8188.proxy.runpod.net node scripts/third-cup-
 ```
 
 将两个10都改为120继续全片。完成镜头复用原回执；失败只恢复对应镜头。超过重试预算或提交结果不明时，查原回执和队列，不能删除回执重新开始。Python需要Pillow；上述路径是本机已安装运行环境，未给服务器增加依赖。
+
+## Harness 项目数据与本机交付
+
+“项目”标签页中的“第三杯咖啡”（ID `0853b1fa`）已包含 4 锚点、6 幕、120 个已完成镜头和 2 份交付。导入快照为 `project-import.json`，原始制作资料及回执保持不变。刷新 Harness 页面后即可查看。
+
+成片和字幕通过独立本机服务提供，无需复制文件。服务只允许两份登记文件，绑定 `127.0.0.1:3081`。在仓库根目录运行以下命令可启动（前台运行；保持终端打开）：
+
+```sh
+python3 scripts/third-cup-delivery-server.py
+```
+
+本轮已用当前用户的 `launchctl submit` 启动后台作业 `local.elysium.third-cup-delivery`，无需重复启动；停止命令为 `launchctl remove local.elysium.third-cup-delivery`。它未安装登录自启配置，注销或重启后需要重新启动。日志位于 `~/.dsh/logs/third-cup-delivery.log`。
+
+- 成片：<http://127.0.0.1:3081/third-cup/film.mp4>
+- 字幕：<http://127.0.0.1:3081/third-cup/subtitles.srt>
+
+这些 URL 只供本机访问，不能作为跨设备分享链接。素材视频和角色参考图继续引用原服务器地址。

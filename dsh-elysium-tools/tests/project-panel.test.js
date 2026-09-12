@@ -122,3 +122,17 @@ test('material filters reset pagination and propagate canonical profile and kind
   assert.equal(view.root.findAllByType('article').length, 1)
   await act(async () => view.unmount())
 })
+
+test('extracted anchor image takes precedence over its source video in anchors and storyboard', async () => {
+  const project = emptyProject()
+  project.anchors = [{ role: 'lin', label: '林夏', description: '', source: { type: 'job', job_id: 'b'.repeat(32) }, image_url: 'https://files.test/lin.png' }]
+  project.acts = [{ title: '第一幕', shots: [{ index: 1, role: 'lin', action: '', subtitle: '', mode: 'i2va', job_id: null, status: 'pending', notes: '' }] }]
+  const f = fixture(project)
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, back() {} })) })
+  assert.equal(view.root.findByType('img').props.src, 'https://files.test/lin.png')
+  await click(view, '分镜')
+  assert.equal(view.root.findByType('img').props.src, 'https://files.test/lin.png')
+  assert.equal(f.requests.filter(request => request.url.startsWith('/media/status')).length, 0)
+  await act(async () => view.unmount())
+})

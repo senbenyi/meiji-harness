@@ -1,0 +1,1300 @@
+{
+  "id": "0853b1fa",
+  "title": "第三杯咖啡",
+  "profile": "preview",
+  "created_at": 1789205038679,
+  "updated_at": 1789205038685,
+  "anchors": [
+    {
+      "role": "scene",
+      "label": "咖啡馆",
+      "description": "An intimate ordinary East Asian cafe with warm amber lamps, a rainy large window, a small wooden table and plain ceramic coffee cups. No people visible.",
+      "source": {
+        "type": "job",
+        "job_id": "aa34df4cfdee9127d36e7f88af72c628"
+      },
+      "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=scene_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+    },
+    {
+      "role": "lin",
+      "label": "林夏",
+      "description": "Lin Xia, a fictional 28-year-old East Asian woman with shoulder-length straight black hair and a beige trench coat over a cream top, natural understated makeup. Medium close-up, alone at a wooden table inside a warm amber-lit cafe beside a rain-streaked window.",
+      "source": {
+        "type": "job",
+        "job_id": "310987b5d2724e2783d7324adb1145db"
+      },
+      "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+    },
+    {
+      "role": "chen",
+      "label": "陈默",
+      "description": "Chen Mo, a fictional 30-year-old East Asian man with neat short straight black hair, clean shaven, dark charcoal suit and pale grey shirt. Medium close-up, alone inside a warm amber-lit cafe beside a rain-streaked window.",
+      "source": {
+        "type": "job",
+        "job_id": "86a9a3599124448c32fb529d55558780"
+      },
+      "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=chen_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+    },
+    {
+      "role": "zhou",
+      "label": "周予",
+      "description": "Zhou Yu, a fictional 29-year-old East Asian man with slightly wavy black hair, clean shaven, a white shirt and dark navy barista apron. Medium close-up, alone at the wooden counter inside a warm amber-lit cafe.",
+      "source": {
+        "type": "job",
+        "job_id": "712957b7eb3f51fdbc75777f7b6c06d1"
+      },
+      "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=zhou_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+    }
+  ],
+  "acts": [
+    {
+      "title": "最后一次见面",
+      "shots": [
+        {
+          "index": 1,
+          "role": "scene",
+          "action": "Rain trickles down a cafe window at night; a small empty wooden table has two ceramic coffee cups. Slow gentle push toward the table.",
+          "subtitle": "《第三杯咖啡》",
+          "mode": "t2va",
+          "job_id": "aa34df4cfdee9127d36e7f88af72c628",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 2,
+          "role": "lin",
+          "action": "Sitting beside the rainy cafe window, she slowly turns from the window toward the camera, eyes thoughtful.",
+          "subtitle": "林夏，明早离开这座城。",
+          "mode": "t2va",
+          "job_id": "310987b5d2724e2783d7324adb1145db",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 3,
+          "role": "chen",
+          "action": "Standing inside the cafe doorway, he slowly lowers his eyes and tightens his grip on an old envelope.",
+          "subtitle": "陈默，迟到的前任。",
+          "mode": "t2va",
+          "job_id": "86a9a3599124448c32fb529d55558780",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 4,
+          "role": "zhou",
+          "action": "Standing behind the cafe counter, he dries a white cup with a cloth and looks toward the window.",
+          "subtitle": "周予，把心事藏进咖啡里。",
+          "mode": "t2va",
+          "job_id": "712957b7eb3f51fdbc75777f7b6c06d1",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 5,
+          "role": "lin",
+          "action": "She gently rests her hand on the handle of a small suitcase beside her chair, then looks up.",
+          "subtitle": "林夏：明天早上，我就走了。",
+          "mode": "i2va",
+          "job_id": "7c6cbdec7b8fbad104743f2cfd56e95f",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 6,
+          "role": "zhou",
+          "action": "He pauses wiping the cup, slowly lowering the cloth, looking quietly off camera.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "3b98fe127c373ba9272db1033ecdaf23",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 7,
+          "role": "lin",
+          "action": "She gives a small reassuring smile and slowly releases her suitcase handle.",
+          "subtitle": "林夏：来喝最后一杯。",
+          "mode": "i2va",
+          "job_id": "2f5265f63bbc4bdbcb6de1a6823c99af",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 8,
+          "role": "scene",
+          "action": "Rain runs down the window behind the two coffee cups; steam rises gently from one cup.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "4f8880d4393aa92755e77c3126b0565c",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 9,
+          "role": "chen",
+          "action": "He takes one hesitant step forward and raises his gaze, as if recognizing someone he has missed.",
+          "subtitle": "陈默：小夏。",
+          "mode": "i2va",
+          "job_id": "70fff0ea68a5ed8e88785b8ec384662e",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 10,
+          "role": "lin",
+          "action": "Her smile fades; she slowly turns her eyes toward the doorway and stills.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "8667f65cb9983fbefa2a57d2a6de059f",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 11,
+          "role": "zhou",
+          "action": "He notices the doorway and carefully puts his cup down on the counter.",
+          "subtitle": "周予：店还没关。",
+          "mode": "i2va",
+          "job_id": "11e4954c31752dd244ddf6e265b8b03f",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 12,
+          "role": "chen",
+          "action": "He inclines his head politely, then looks past the camera with nervous anticipation.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "a126a18127ad866bb930d0afe107d9f6",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 13,
+          "role": "lin",
+          "action": "She looks down at the table and gently moves a cup a few centimeters aside.",
+          "subtitle": "林夏：坐吧。",
+          "mode": "i2va",
+          "job_id": "64e55868d4450ade003efd36a8f0ffb9",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 14,
+          "role": "scene",
+          "action": "Two cups sit apart on the wooden table; a soft human shadow moves across the tabletop.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "93ea189cdf290256884ae62266a18141",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 15,
+          "role": "chen",
+          "action": "He slowly sits on a cafe chair, keeping the old envelope in his hands.",
+          "subtitle": "陈默：我听说你要走。",
+          "mode": "i2va",
+          "job_id": "186d2e9853863a97ab2854a0d8e3b0fd",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 16,
+          "role": "lin",
+          "action": "She meets the off-camera gaze steadily, then gives one small nod.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "7d9420952bae68e99c5596741352bead",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 17,
+          "role": "zhou",
+          "action": "He turns back to the counter and reaches for a third empty coffee cup.",
+          "subtitle": "周予：我去添一杯。",
+          "mode": "i2va",
+          "job_id": "9367716062ae278c248746d38da0e2cb",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 18,
+          "role": "scene",
+          "action": "Rainy cafe window, warm reflected lamps, steam drifting between two cups. Camera holds steady.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "57496ddadd25b0e33f50593a4498d6ea",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 19,
+          "role": "chen",
+          "action": "He takes a breath and begins to open the old envelope, careful hesitant hands.",
+          "subtitle": "陈默：有样东西，一直想还给你。",
+          "mode": "i2va",
+          "job_id": "e2e165794f340321e506a92036b97484",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 20,
+          "role": "lin",
+          "action": "Her eyes follow his hands off camera, her expression guarded but curious.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "22b66aac8f2b40b36ce91f85a97a9fb3",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        }
+      ]
+    },
+    {
+      "title": "安排好的未来",
+      "shots": [
+        {
+          "index": 21,
+          "role": "chen",
+          "action": "He slowly removes a small old photograph from the envelope and holds it toward someone off camera; image on photo is indistinct.",
+          "subtitle": "陈默：那年，你说想看海。",
+          "mode": "i2va",
+          "job_id": "491246ed58600bc6a2439b63a36077ea",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 22,
+          "role": "lin",
+          "action": "She lowers her gaze, a restrained nostalgic smile briefly softening her face.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "ddc7f8070df2aac2a9f0ea765bf3d2eb",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 23,
+          "role": "scene",
+          "action": "An old indistinct photograph rests between two coffee cups on a wooden cafe table. Slow push in.",
+          "subtitle": "林夏：后来，还是没去。",
+          "mode": "i2va",
+          "job_id": "97f9fdb8356354ee7de8ecbb9fddbc65",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 24,
+          "role": "chen",
+          "action": "He looks down with regret, pressing his lips together before looking up again.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "343a9cbc95655ad9a4e8281f7c81521d",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 25,
+          "role": "chen",
+          "action": "He carefully smooths the edge of the old envelope on the table with one hand.",
+          "subtitle": "陈默：那时候工作太忙。",
+          "mode": "i2va",
+          "job_id": "b8b7f940c20b972af49ee23b2990b37a",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 26,
+          "role": "lin",
+          "action": "She slowly stirs her coffee once, looking at the cup rather than the person opposite.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "6a95d2c608831f5a3e06d4b015093f0e",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 27,
+          "role": "lin",
+          "action": "She stops stirring and lifts her eyes, calm and slightly hurt.",
+          "subtitle": "林夏：你总说，等忙完。",
+          "mode": "i2va",
+          "job_id": "4e2ed89d9e4051307b45d8a1cdeee027",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 28,
+          "role": "chen",
+          "action": "He nods quickly, then steadies himself as though rehearsing an apology.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "46ee3fb8ad8b3f45bd30c0c247420539",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 29,
+          "role": "chen",
+          "action": "He puts the envelope down decisively and leans slightly forward, hopeful.",
+          "subtitle": "陈默：这一次不一样。",
+          "mode": "i2va",
+          "job_id": "192cb6fdf68426fd85ae0f4b9c611710",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 30,
+          "role": "lin",
+          "action": "She tilts her head a little, listening without smiling.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "73c3737a7490139e8662714d099380dc",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 31,
+          "role": "chen",
+          "action": "He counts one point on his fingers, eager but restrained, looking off camera.",
+          "subtitle": "陈默：房子、工作，我都安排好了。",
+          "mode": "i2va",
+          "job_id": "13e230c3880edae7a8ecbc2820354feb",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 32,
+          "role": "lin",
+          "action": "Her brows tighten almost imperceptibly; she draws her hands back into her lap.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "cd95c6a646fd46e00b3e46b9fa8d5543",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 33,
+          "role": "chen",
+          "action": "He gives a hopeful small smile and gestures gently toward an empty chair beside him.",
+          "subtitle": "陈默：你留下来，我们重新开始。",
+          "mode": "i2va",
+          "job_id": "bbc81488dcf7e4e48c03e39258326da5",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 34,
+          "role": "scene",
+          "action": "Two cups on a cafe table remain separated by an old photograph; steam slowly fades.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "e8610bd9bb534292eaa326d5fe6e090d",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 35,
+          "role": "lin",
+          "action": "She takes a slow breath and looks directly toward the person opposite, visibly searching for words.",
+          "subtitle": "林夏：你安排的工作……",
+          "mode": "i2va",
+          "job_id": "8039d59438796566db470c072f9c2fee",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 36,
+          "role": "chen",
+          "action": "He gives an encouraging nod, smiling as if sure his plan is welcome.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "6978d5cd263a4eb468d1e04271c23df7",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 37,
+          "role": "lin",
+          "action": "She lowers her eyes, then firmly lifts them again, the smile gone.",
+          "subtitle": "林夏：可我没说过，我想做那个。",
+          "mode": "i2va",
+          "job_id": "362b7c335692611f8c311a04dd308004",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 38,
+          "role": "chen",
+          "action": "His smile falters; he sits back slightly, surprised.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "c2f6ed119882e92ac0e6e36dd7fb7ce3",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 39,
+          "role": "zhou",
+          "action": "Behind the counter he stops beside the third cup, looking toward the seated pair off camera.",
+          "subtitle": "周予听见了那句“安排好了”。",
+          "mode": "i2va",
+          "job_id": "94c131565f90a9743786246405e97843",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 40,
+          "role": "scene",
+          "action": "A third empty cup waits alone on the warm wooden cafe counter. Gentle lateral camera movement.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "930e02fa9b56b82ee31194a01132a0d0",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        }
+      ]
+    },
+    {
+      "title": "第三杯咖啡",
+      "shots": [
+        {
+          "index": 41,
+          "role": "zhou",
+          "action": "He lifts a white cup from the counter with both hands and takes a careful small step forward.",
+          "subtitle": "周予：咖啡来了。",
+          "mode": "i2va",
+          "job_id": "97e4a303e1ec6aeae81e87a307044cb6",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 42,
+          "role": "scene",
+          "action": "A hand in a white sleeve slowly places a third white coffee cup beside two cups on a wooden cafe table.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "7e32fa316ff09764c1f9bccf981ca1ae",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 43,
+          "role": "lin",
+          "action": "She glances toward the new cup and gives a grateful gentle nod off camera.",
+          "subtitle": "林夏：谢谢。",
+          "mode": "i2va",
+          "job_id": "86883babab58da3cc357ccd9ded0177f",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 44,
+          "role": "chen",
+          "action": "He follows the arriving cup with his eyes, then looks up with growing suspicion.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "614cdc4ba23f38656098bb45544ee0c6",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 45,
+          "role": "chen",
+          "action": "He shifts slightly in his chair, lips tightening, watching someone standing off camera.",
+          "subtitle": "陈默：你记得她喝什么？",
+          "mode": "i2va",
+          "job_id": "c04815182def02a45635d41071ef5bc6",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 46,
+          "role": "zhou",
+          "action": "He gives a quiet matter-of-fact nod, holding his cloth loosely at his side.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "4df1dbe8ac4986403232dd4be951ebb2",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 47,
+          "role": "zhou",
+          "action": "He looks down at the cup, then slowly raises his eyes with a gentle smile.",
+          "subtitle": "周予：不加糖，少一点奶。",
+          "mode": "i2va",
+          "job_id": "0f2cb352d411d883517800bcb62570a9",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 48,
+          "role": "lin",
+          "action": "She looks between two people off camera, sensing the change in atmosphere.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "925b27b6897608dd26fbada1f64554f0",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 49,
+          "role": "chen",
+          "action": "He looks away for a moment, jaw tense, then turns back with a restrained questioning expression.",
+          "subtitle": "陈默：你们很熟。",
+          "mode": "i2va",
+          "job_id": "a2eca54932294591b44f347033a6b9f4",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 50,
+          "role": "scene",
+          "action": "Three coffee cups form a small triangle on the wooden table; rain reflected in the dark window.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "cd26a8aa2cc718732739f6523589dd63",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 51,
+          "role": "zhou",
+          "action": "He straightens slightly, gathering courage, his expression honest rather than confrontational.",
+          "subtitle": "周予：她加班的时候，经常来。",
+          "mode": "i2va",
+          "job_id": "e13d62335b92717ff58b688e496b6ebb",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 52,
+          "role": "lin",
+          "action": "She gently places her palm on the table, asking for calm with a small downward gesture.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "c6aa56cf22e76ed19b454a5e48576fe1",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 53,
+          "role": "lin",
+          "action": "She looks toward someone off camera with a restrained warning glance.",
+          "subtitle": "林夏：只是喝咖啡。",
+          "mode": "i2va",
+          "job_id": "ca8138e60da2d249509922845cfe2620",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 54,
+          "role": "zhou",
+          "action": "He briefly looks down, then raises his eyes, deciding to say something difficult.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "7c4967dae767f1a05a88635bfd383b24",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 55,
+          "role": "zhou",
+          "action": "He holds eye contact off camera and slowly releases the cloth from his clenched hand.",
+          "subtitle": "周予：对你，也许是。",
+          "mode": "i2va",
+          "job_id": "7f0d50b7740d8d3e839cb04049a55591",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 56,
+          "role": "lin",
+          "action": "Her eyes widen slightly; she becomes still, surprised by his honesty.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "a5f99552e6c660fd8b43b6e7bd247e26",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 57,
+          "role": "zhou",
+          "action": "He takes a steady breath, his small smile giving way to serious vulnerability.",
+          "subtitle": "周予：对我，不止。",
+          "mode": "i2va",
+          "job_id": "a94bbad02804cfa84a05d09c40ff4f35",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 58,
+          "role": "chen",
+          "action": "He glances sharply toward someone off camera, then deliberately restrains his reaction.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "ea69fbb3eeda90e7f81f4ae3ea558215",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 59,
+          "role": "zhou",
+          "action": "He looks gently toward the woman off camera, with a small sad smile.",
+          "subtitle": "周予：我不是今天才想留住你。",
+          "mode": "i2va",
+          "job_id": "1685890c9eae919d466d8761ea7113a6",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 60,
+          "role": "scene",
+          "action": "Steam from the third cup curls upward between the other two cups. Camera slowly pushes in.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "bf46c7c397f8e3988fb6c9999c2c292b",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        }
+      ]
+    },
+    {
+      "title": "两种挽留",
+      "shots": [
+        {
+          "index": 61,
+          "role": "lin",
+          "action": "She slowly looks down, absorbing the confession, fingertips resting still on the table.",
+          "subtitle": "林夏：为什么现在才说？",
+          "mode": "i2va",
+          "job_id": "78ae0728c270e272e1030c4c44ff9bce",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 62,
+          "role": "zhou",
+          "action": "He touches the pocket of his dark apron, hesitant.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "db95ee9d5004237030660c9b6c68a31d",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 63,
+          "role": "zhou",
+          "action": "He draws a folded plain letter from his apron pocket and holds it close without offering it yet.",
+          "subtitle": "周予：我以为，陪着就够了。",
+          "mode": "i2va",
+          "job_id": "7063fb92262b2ada61abec45aa8567c0",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 64,
+          "role": "chen",
+          "action": "He gives a brief incredulous look and shifts forward in his chair.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "996a611abfea04c0590fdcf8ea884829",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 65,
+          "role": "chen",
+          "action": "He raises one open hand in a restrained questioning gesture, looking off camera.",
+          "subtitle": "陈默：她现在需要的是未来。",
+          "mode": "i2va",
+          "job_id": "2657f608526cdf2e0328df2423e84e5c",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 66,
+          "role": "zhou",
+          "action": "He lowers the letter, his face becoming serious as he meets the other mans gaze off camera.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "b76dd69ceb17ee75dd1ad1f5e09c26ff",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 67,
+          "role": "zhou",
+          "action": "He gestures once toward the woman off camera, asking for her to be heard.",
+          "subtitle": "周予：你说的未来，问过她吗？",
+          "mode": "i2va",
+          "job_id": "9e64e67c5b59fa628f4e788dd227b6e1",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 68,
+          "role": "chen",
+          "action": "He draws back slightly, then looks toward the woman rather than his rival.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "5dc8cbf5fd9d1ec190a2ae578ce45aed",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 69,
+          "role": "chen",
+          "action": "He touches his chest with one hand, wounded but sincere.",
+          "subtitle": "陈默：我只是想把最好的给她。",
+          "mode": "i2va",
+          "job_id": "25859084be461c295a1d9eed54ae9b26",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 70,
+          "role": "lin",
+          "action": "She watches silently, her expression growing weary; she slowly closes her eyes for one brief moment.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "25d55a7f8fc32d2e3ab10b00e22ae19a",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 71,
+          "role": "zhou",
+          "action": "He places the folded letter on the table, then takes his hand away.",
+          "subtitle": "周予：我也想让她留下。",
+          "mode": "i2va",
+          "job_id": "e3e11c8d65c61ed5b332961092cd9357",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 72,
+          "role": "scene",
+          "action": "A folded letter and an old photograph lie beside three cups on a cafe table. Slow overhead movement.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "4115b315e6b77da3f6a8604720777bd2",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 73,
+          "role": "chen",
+          "action": "He looks down at the letter and then away, swallowing a reply.",
+          "subtitle": "陈默：所以，你和我有什么不同？",
+          "mode": "i2va",
+          "job_id": "a8094d14d4cf2f833948084041bf6814",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 74,
+          "role": "zhou",
+          "action": "He starts to gesture, then stops, realizing the question has touched a nerve.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "e46b6aa46544f03789fcfae0ee475dc1",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 75,
+          "role": "lin",
+          "action": "She gently gathers the photograph and folded letter into a neat stack, steady deliberate hands.",
+          "subtitle": "林夏：够了。",
+          "mode": "i2va",
+          "job_id": "41c6b24659e9b7307b265cf5cef5d06b",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 76,
+          "role": "scene",
+          "action": "Three cups are motionless on the table, with a neat stack of paper beside them. Rain outside softens.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "7ed11d4a06c51ef6e2c8d66ca181b007",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 77,
+          "role": "lin",
+          "action": "She raises her head slowly, looking firm and composed, both hands resting on the table.",
+          "subtitle": "林夏：我不是一道选择题。",
+          "mode": "i2va",
+          "job_id": "a022d043480cf10f47e3bc3cfaf3cd38",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 78,
+          "role": "chen",
+          "action": "His tense expression relaxes into discomfort; he looks down.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "7658d315a02a090ce97a8c35818b926e",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 79,
+          "role": "zhou",
+          "action": "He lowers his eyes and takes a small step back from the table.",
+          "subtitle": "周予：对不起。",
+          "mode": "i2va",
+          "job_id": "97ec5250cb3681bdb6b7ebe2e205e203",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 80,
+          "role": "lin",
+          "action": "She takes a deep calming breath and looks toward the window.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "6eb623e10103ae79e364439fdd8a787d",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        }
+      ]
+    },
+    {
+      "title": "她想去的地方",
+      "shots": [
+        {
+          "index": 81,
+          "role": "lin",
+          "action": "She turns back from the window, eyes steady and determined.",
+          "subtitle": "林夏：你们都在问，我选谁。",
+          "mode": "i2va",
+          "job_id": "2c343307a49b88109ac5c25af1e869bd",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 82,
+          "role": "scene",
+          "action": "Rain stops on the cafe window; a clear droplet slides past the reflected warm light.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "1a82a7fb44c173270f06000b52b095c0",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 83,
+          "role": "lin",
+          "action": "She gestures gently toward herself, then lets her hand settle on the table.",
+          "subtitle": "林夏：可没人问，我想去哪。",
+          "mode": "i2va",
+          "job_id": "0c1debd2175b0e0d01f92d7c63cc2999",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 84,
+          "role": "chen",
+          "action": "He looks up slowly, now listening rather than preparing a reply.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "6a5e2944c1f7fcef8e850e6aef8bcf64",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 85,
+          "role": "lin",
+          "action": "She gives a small, newly confident smile and reaches for her suitcase handle.",
+          "subtitle": "林夏：那份工作，我等了三年。",
+          "mode": "i2va",
+          "job_id": "3780bd7fd5c980edee66ad186603dd71",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 86,
+          "role": "zhou",
+          "action": "He nods faintly, his expression softening with recognition.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "e802e507381ae029eded33bd82ca81ee",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 87,
+          "role": "lin",
+          "action": "She looks down briefly, then raises her eyes with quiet resolve.",
+          "subtitle": "林夏：不是为了躲开谁。",
+          "mode": "i2va",
+          "job_id": "a854237b0f5ab632f5dfb525e14661de",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 88,
+          "role": "scene",
+          "action": "The old photograph sits beside a coffee cup; a folded letter is left unopened beside it.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "f6603b0cb0a6ec4822b12d60262214b7",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 89,
+          "role": "lin",
+          "action": "She opens her palm gently as if explaining something simple and deeply important.",
+          "subtitle": "林夏：是想看看，我能走多远。",
+          "mode": "i2va",
+          "job_id": "28c6da95742f7980ef3fd5c50544a963",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 90,
+          "role": "chen",
+          "action": "He rubs the edge of the envelope with his thumb, reflecting on what he has heard.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "cfec4356b06c50f662e0549020838687",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 91,
+          "role": "chen",
+          "action": "He slowly nods, then looks up with a sincere apologetic expression.",
+          "subtitle": "陈默：我以为，替你安排就是爱。",
+          "mode": "i2va",
+          "job_id": "951f96ba47193c432907e48fc87e1142",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 92,
+          "role": "lin",
+          "action": "She listens with a small sad smile, her eyes kind but firm.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "b07ee450dd2e498d39df230039540e48",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 93,
+          "role": "chen",
+          "action": "He places the envelope down and releases it completely, both hands retreating.",
+          "subtitle": "陈默：原来，我一直没学会问。",
+          "mode": "i2va",
+          "job_id": "8e23db22c9ef33900107d08c3fab7d23",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 94,
+          "role": "zhou",
+          "action": "He looks at his letter, then slides it a little closer to himself rather than insisting she take it.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "90d3261ee6de838e89e503ac2f35503d",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 95,
+          "role": "zhou",
+          "action": "He looks toward the woman off camera and gives a quiet supportive nod.",
+          "subtitle": "周予：去吧。到了，报个平安。",
+          "mode": "i2va",
+          "job_id": "8997f0a2f0d90b58b79b863c794f9dc3",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 96,
+          "role": "lin",
+          "action": "Relief softens her face; she exhales and smiles with moist eyes.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "69854b582042ecc91f8c9b02aeba7d90",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 97,
+          "role": "lin",
+          "action": "She slowly rises from her cafe chair, one hand holding the suitcase handle.",
+          "subtitle": "林夏：谢谢你们，终于听我说完。",
+          "mode": "i2va",
+          "job_id": "81170f0fe4e29c71905a3d7c05d18705",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 98,
+          "role": "chen",
+          "action": "He rises a little from his chair and then steps to one side, leaving a clear path.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "c970f5a458af09843a8b26ed2955c0c5",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 99,
+          "role": "zhou",
+          "action": "He turns toward the counter and reaches for a plain takeaway cup.",
+          "subtitle": "周予：等一下，路上喝。",
+          "mode": "i2va",
+          "job_id": "5fee2b84a0809d30916ef1536419b2e6",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 100,
+          "role": "scene",
+          "action": "Three coffee cups on the table in a quiet cafe; rain has stopped outside. Gentle pull back.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "85701297629506747d8fc578e1732778",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        }
+      ]
+    },
+    {
+      "title": "第三杯以后",
+      "shots": [
+        {
+          "index": 101,
+          "role": "zhou",
+          "action": "He places a lid on a plain takeaway coffee cup, carefully pressing its edge.",
+          "subtitle": "周予：还是不加糖。",
+          "mode": "i2va",
+          "job_id": "c9a7041e4af28432b8ae6a57a133fcca",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 102,
+          "role": "lin",
+          "action": "She accepts a plain takeaway cup from off camera with both hands and smiles softly.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "8f3ea7bc359f17abce46e387c8936167",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 103,
+          "role": "chen",
+          "action": "He steps aside near the cafe entrance and gives a small bittersweet smile.",
+          "subtitle": "陈默：这次，不说让你留下了。",
+          "mode": "i2va",
+          "job_id": "5ead4a57ae1c6f0879483ccbd09f5e24",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 104,
+          "role": "lin",
+          "action": "She looks toward him off camera and gives a slow appreciative nod.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "467b2c0ff8cb288dd3edabac69c2e42e",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 105,
+          "role": "chen",
+          "action": "He lifts one hand in a small farewell gesture, then lets it fall naturally.",
+          "subtitle": "陈默：祝你，一路顺风。",
+          "mode": "i2va",
+          "job_id": "10c51dd9c895eee74d176b8a496c8388",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 106,
+          "role": "scene",
+          "action": "The cafe doorway stands open toward a wet quiet street, reflections shimmering after the rain.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "4b459d222609d41ff8dd41917254b5b8",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 107,
+          "role": "lin",
+          "action": "Holding the takeaway cup, she turns her head for one final look back, then faces forward.",
+          "subtitle": "林夏：你们也是。",
+          "mode": "i2va",
+          "job_id": "e6219ac062ab3ec41b65aa22ba01dd60",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 108,
+          "role": "zhou",
+          "action": "He remains still behind the counter, watching someone leave off camera with a restrained smile.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "07671044020086e9d2f7df04bba2223e",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 109,
+          "role": "scene",
+          "action": "Three empty cups remain on a wooden cafe table; warm lights reflect in the now dry window.",
+          "subtitle": "有些告别，不是为了谁回来。",
+          "mode": "i2va",
+          "job_id": "2a678989f66510f8eba87d84603ae219",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 110,
+          "role": "chen",
+          "action": "He looks toward the empty doorway, then lowers his gaze with a small accepting smile.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "dde8ca26abbb4544f618023c8760065a",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 111,
+          "role": "zhou",
+          "action": "He carefully gathers one empty cup from the counter and slowly sets it aside.",
+          "subtitle": "是为了让一个人，真正出发。",
+          "mode": "i2va",
+          "job_id": "5b1767067970c6903465a6ed2437e74c",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 112,
+          "role": "scene",
+          "action": "Pale dawn light slowly brightens the quiet cafe window and the three cups on the table.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "9f8031bb8e1d3dbb5b992e12129c0958",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 113,
+          "role": "lin",
+          "action": "Close-up of her face near a window; soft early morning light moves across her face as she looks outward.",
+          "subtitle": "清晨，去往另一座城。",
+          "mode": "i2va",
+          "job_id": "cf74e1c9679e915bc9d246095085b310",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 114,
+          "role": "lin",
+          "action": "She looks down at her phone held low, her expression thoughtful and hopeful.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "437e7c2acc4abd3ffac55aecb5b16f39",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 115,
+          "role": "lin",
+          "action": "She gently taps her phone once with her thumb and pauses with a small smile.",
+          "subtitle": "林夏：我出发了。",
+          "mode": "i2va",
+          "job_id": "e21c15c8e9afa742c3a1acbd3821190c",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 116,
+          "role": "scene",
+          "action": "Sunlight glints on the cafe window, the quiet table and cups now lit softly by morning.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "2dba5788fa49381a40af1ed9bd9ba883",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 117,
+          "role": "lin",
+          "action": "She types a brief message on her phone, then lifts her gaze, smiling to herself.",
+          "subtitle": "林夏：等我安顿好，请你喝咖啡。",
+          "mode": "i2va",
+          "job_id": "842afcf47d25bc55e5cdc7579185db5f",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 118,
+          "role": "lin",
+          "action": "She turns toward the window with a relaxed, hopeful smile and slowly lowers her phone.",
+          "subtitle": "",
+          "mode": "i2va",
+          "job_id": "b4a9c66e62ddb044b8df852dc3c8fba6",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。字幕为空时，成片延续前一句。"
+        },
+        {
+          "index": 119,
+          "role": "scene",
+          "action": "Three empty coffee cups on the wooden table; camera slowly pulls back into the quiet cafe.",
+          "subtitle": "收件人，没有出现在画面里。",
+          "mode": "i2va",
+          "job_id": "185771ccbfe48cf8261cff66b7c14663",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        },
+        {
+          "index": 120,
+          "role": "scene",
+          "action": "Hold on three cups in gentle morning light, a quiet calm final composition.",
+          "subtitle": "《第三杯咖啡》 · 完",
+          "mode": "i2va",
+          "job_id": "3972484f7933c41ca55f998fdd752a5d",
+          "status": "succeeded",
+          "notes": "原片73帧；成片取72帧，3秒。"
+        }
+      ]
+    }
+  ],
+  "deliverables": [
+    {
+      "type": "film",
+      "label": "第三杯咖啡 · 六分钟预览（384×512 · 24fps · 静音中文字幕）",
+      "url": "http://127.0.0.1:3081/third-cup/film.mp4",
+      "duration_sec": 360,
+      "frame_count": 8640,
+      "size_bytes": 30976621,
+      "created_at": 1789197140971
+    },
+    {
+      "type": "subtitle",
+      "label": "第三杯咖啡 · 中文字幕 SRT",
+      "url": "http://127.0.0.1:3081/third-cup/subtitles.srt",
+      "duration_sec": 360,
+      "size_bytes": 4344,
+      "created_at": 1789197140971
+    }
+  ]
+}
