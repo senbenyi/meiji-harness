@@ -1,0 +1,27 @@
+{
+  "captured_at_utc": "2026-09-12T07:23:52.947302+00:00",
+  "status": "pending_user_review",
+  "note": "Initial review-document snapshot hashes; later review edits should be recorded as new revisions. This file does not cover itself. Production evidence remains in the separately hashed frozen archive.",
+  "files": [
+    {
+      "path": "docs/products/产品001-第三杯咖啡首版审查档案.md",
+      "sha256": "d3be37867e664247f1c7f70ff8acd092e8d12f62b79a80244247b08b7b95af99",
+      "bytes": 19215
+    },
+    {
+      "path": "docs/products/third-cup-v1/问题清单与审查结论.md",
+      "sha256": "4f82539182954a9d21890f56d37be7e0908bcc7ed38a0c9545fb441ba944107f",
+      "bytes": 4617
+    },
+    {
+      "path": "docs/products/third-cup-v1/逐镜审查表.md",
+      "sha256": "40278c10dca50e4b76e7258eef04f9adecc923da2b644cef7501e05d6d8cae0a",
+      "bytes": 30059
+    },
+    {
+      "path": "docs/products/third-cup-v1/冻结清单.json",
+      "sha256": "fc97d1fd05d6d5d40c488bff9c92c69fd79564b1b8386c310e780c48fb3b94a8",
+      "bytes": 197864
+    }
+  ]
+}

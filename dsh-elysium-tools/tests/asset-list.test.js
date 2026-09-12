@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { mkdtemp, mkdir, writeFile, utimes, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createServer } from 'node:http'
+import { withConfig } from '../src/config.js'
+import { createMediaHandler } from '../src/http/media-jobs.js'
+
+test('assets require authentication, paginate successful jobs by mtime and accept validated job identity', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-assets-'))
+  const handler = createMediaHandler({ token: 'secret' })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_TOOLS_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`
+  try {
+    assert.deepEqual(await (await fetch(base + '/list?t=secret')).json(), { items: [], total: 0, has_more: false })
+    for (let i = 1; i <= 3; i++) {
+      const id = String(i).repeat(32), path = join(root, 'jobs', id, 'status.json')
+      await mkdir(join(root, 'jobs', id), { recursive: true })
+      await writeFile(path, JSON.stringify({ job_id: id, status: i === 3 ? 'running' : 'succeeded', result: { comfyui_view_url: 'https://model.test/view' } }))
+      await utimes(path, i, i)
+    }
+    assert.equal((await fetch(base + '/list')).status, 401)
+    const first = await (await fetch(base + '/list?t=secret&limit=1')).json()
+    assert.equal(first.total, 2); assert.equal(first.has_more, true)
+    assert.equal(first.items[0].job_id, '2'.repeat(32)); assert.equal(first.items[0].created_at, 2000)
+    const second = await (await fetch(base + '/list?t=secret&limit=1&offset=1')).json()
+    assert.equal(second.items[0].job_id, '1'.repeat(32)); assert.equal(second.has_more, false)
+    assert.equal((await fetch(base + '/list?t=secret&offset=-1')).status, 400)
+    assert.equal((await fetch(base + '/status?t=secret&job=../bad')).status, 400)
+    assert.equal((await (await fetch(base + '/status?t=secret&job=' + '1'.repeat(32))).json()).status, 'succeeded')
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})

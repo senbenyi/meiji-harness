@@ -1,0 +1,193 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "i2va",
+    "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Lin Xia, a fictional 28-year-old East Asian woman with shoulder-length straight black hair and a beige trench coat over a cream top, natural understated makeup. Medium close-up, alone at a wooden table inside a warm amber-lit cafe beside a rain-streaked window. Close-up of her face near a window; soft early morning light moves across her face as she looks outward. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+    "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  "job_id": "cf74e1c9679e915bc9d246095085b310",
+  "result": {
+    "job_id": "cf74e1c9679e915bc9d246095085b310",
+    "status": "succeeded",
+    "trace_id": "cf74e1c9679e915bc9d246095085b310",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "clock": "performance.now",
+      "total_ms": 30915.7745,
+      "stages": {
+        "prepare.graph": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1.238790999999999,
+          "max_ms": 1.238790999999999,
+          "last_start_ms": 4.967791999999999,
+          "last_end_ms": 6.206582999999998
+        },
+        "http.GET.object_info": {
+          "count": 19,
+          "failed": 0,
+          "total_ms": 7333.519249000001,
+          "max_ms": 762.206167,
+          "last_start_ms": 1550.705042,
+          "last_end_ms": 1959.69225
+        },
+        "prepare.validate": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1954.520834,
+          "max_ms": 1954.520834,
+          "last_start_ms": 6.2145829999999975,
+          "last_end_ms": 1960.735417
+        },
+        "prepare": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1957.617833,
+          "max_ms": 1957.617833,
+          "last_start_ms": 4.838124999999998,
+          "last_end_ms": 1962.455958
+        },
+        "http.POST.prompt": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 497.39016700000025,
+          "max_ms": 497.39016700000025,
+          "last_start_ms": 1965.3295,
+          "last_end_ms": 2462.7196670000003
+        },
+        "submit": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 500.535167,
+          "max_ms": 500.535167,
+          "last_start_ms": 1963.863875,
+          "last_end_ms": 2464.399042
+        },
+        "http.GET.history": {
+          "count": 10,
+          "failed": 0,
+          "total_ms": 5978.230875999994,
+          "max_ms": 1482.1739169999992,
+          "last_start_ms": 30573.658875,
+          "last_end_ms": 30909.664375
+        },
+        "http.GET.queue": {
+          "count": 9,
+          "failed": 0,
+          "total_ms": 4456.114125999997,
+          "max_ms": 1307.2592919999988,
+          "last_start_ms": 28164.398708,
+          "last_end_ms": 28573.183875
+        },
+        "poll.sleep.execute": {
+          "count": 9,
+          "failed": 0,
+          "total_ms": 18007.387292000007,
+          "max_ms": 2001.741582999999,
+          "last_start_ms": 28573.204625,
+          "last_end_ms": 30573.639792
+        },
+        "wait.history": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 28443.598749999997,
+          "max_ms": 28443.598749999997,
+          "last_start_ms": 2466.3045420000003,
+          "last_end_ms": 30909.903292
+        },
+        "remote": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 28950.663875000002,
+          "max_ms": 28950.663875000002,
+          "last_start_ms": 1962.480792,
+          "last_end_ms": 30913.144667
+        },
+        "output.inspect": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 0.6526669999984733,
+          "max_ms": 0.6526669999984733,
+          "last_start_ms": 30914.027458,
+          "last_end_ms": 30914.680125
+        },
+        "output.persist-validation": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 0.949083999999857,
+          "max_ms": 0.949083999999857,
+          "last_start_ms": 30914.719833,
+          "last_end_ms": 30915.668917
+        }
+      }
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "c089d00280b7794a11e12aaf9c59a53d7628ac4b8b0c397f1f1e3f6f5d62f1f2"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Fcf74e1c9679e915bc9d246095085b310%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Fcf74e1c9679e915bc9d246095085b310%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "i2va",
+    "server_execution_ms": 27036,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "7a486286-37f7-4131-9401-bfe9a57d97e4",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "d97b147a00833021acd7ecfb2819b2c75bf57e1a6eeedc868a73da7f4524b2ae",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/cf74e1c9679e915bc9d246095085b310/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "fullpath": "/workspace/runpod-slim/ComfyUI/output/elysium/cf74e1c9679e915bc9d246095085b310/preview/final_00001-audio.mp4",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "7a486286-37f7-4131-9401-bfe9a57d97e4",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Fcf74e1c9679e915bc9d246095085b310%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "i2va",
+        "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Lin Xia, a fictional 28-year-old East Asian woman with shoulder-length straight black hair and a beige trench coat over a cream top, natural understated makeup. Medium close-up, alone at a wooden table inside a warm amber-lit cafe beside a rain-streaked window. Close-up of her face near a window; soft early morning light moves across her face as she looks outward. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+        "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "7a486286-37f7-4131-9401-bfe9a57d97e4"
+        }
+      ],
+      "diagnostic_path": "/Users/mac/.dsh/elysium/tasks/jobs/cf74e1c9679e915bc9d246095085b310/diagnostics.json",
+      "log_path": "/Users/mac/.dsh/elysium/tasks/jobs/cf74e1c9679e915bc9d246095085b310/execution.log"
+    }
+  }
+}

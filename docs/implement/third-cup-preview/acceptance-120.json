@@ -1,0 +1,1058 @@
+{
+  "shots": [
+    {
+      "shot": "shot-001",
+      "job_id": "aa34df4cfdee9127d36e7f88af72c628",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 23468,
+      "local_chain_ms": 27393
+    },
+    {
+      "shot": "shot-002",
+      "job_id": "310987b5d2724e2783d7324adb1145db",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 34195,
+      "local_chain_ms": 37943
+    },
+    {
+      "shot": "shot-003",
+      "job_id": "86a9a3599124448c32fb529d55558780",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 34395,
+      "local_chain_ms": 38564
+    },
+    {
+      "shot": "shot-004",
+      "job_id": "712957b7eb3f51fdbc75777f7b6c06d1",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 33881,
+      "local_chain_ms": 37488
+    },
+    {
+      "shot": "shot-005",
+      "job_id": "7c6cbdec7b8fbad104743f2cfd56e95f",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 39932,
+      "local_chain_ms": 43898
+    },
+    {
+      "shot": "shot-006",
+      "job_id": "3b98fe127c373ba9272db1033ecdaf23",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25832,
+      "local_chain_ms": 35280
+    },
+    {
+      "shot": "shot-007",
+      "job_id": "2f5265f63bbc4bdbcb6de1a6823c99af",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27100,
+      "local_chain_ms": 35664
+    },
+    {
+      "shot": "shot-008",
+      "job_id": "4f8880d4393aa92755e77c3126b0565c",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26686,
+      "local_chain_ms": 34301
+    },
+    {
+      "shot": "shot-009",
+      "job_id": "70fff0ea68a5ed8e88785b8ec384662e",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25153,
+      "local_chain_ms": 31856
+    },
+    {
+      "shot": "shot-010",
+      "job_id": "8667f65cb9983fbefa2a57d2a6de059f",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25566,
+      "local_chain_ms": 31621
+    },
+    {
+      "shot": "shot-011",
+      "job_id": "11e4954c31752dd244ddf6e265b8b03f",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25755,
+      "local_chain_ms": 29328
+    },
+    {
+      "shot": "shot-012",
+      "job_id": "a126a18127ad866bb930d0afe107d9f6",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 24574,
+      "local_chain_ms": 27456
+    },
+    {
+      "shot": "shot-013",
+      "job_id": "64e55868d4450ade003efd36a8f0ffb9",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25906,
+      "local_chain_ms": 29597
+    },
+    {
+      "shot": "shot-014",
+      "job_id": "93ea189cdf290256884ae62266a18141",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25944,
+      "local_chain_ms": 30091
+    },
+    {
+      "shot": "shot-015",
+      "job_id": "186d2e9853863a97ab2854a0d8e3b0fd",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26256,
+      "local_chain_ms": 31128
+    },
+    {
+      "shot": "shot-016",
+      "job_id": "7d9420952bae68e99c5596741352bead",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26923,
+      "local_chain_ms": 29793.760458
+    },
+    {
+      "shot": "shot-017",
+      "job_id": "9367716062ae278c248746d38da0e2cb",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26384,
+      "local_chain_ms": 32050.923916000003
+    },
+    {
+      "shot": "shot-018",
+      "job_id": "57496ddadd25b0e33f50593a4498d6ea",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27039,
+      "local_chain_ms": 34294.218833
+    },
+    {
+      "shot": "shot-019",
+      "job_id": "e2e165794f340321e506a92036b97484",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25660,
+      "local_chain_ms": 29350.099166
+    },
+    {
+      "shot": "shot-020",
+      "job_id": "22b66aac8f2b40b36ce91f85a97a9fb3",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25601,
+      "local_chain_ms": 43346.697792000006
+    },
+    {
+      "shot": "shot-021",
+      "job_id": "491246ed58600bc6a2439b63a36077ea",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26150,
+      "local_chain_ms": 30942.976125
+    },
+    {
+      "shot": "shot-022",
+      "job_id": "ddc7f8070df2aac2a9f0ea765bf3d2eb",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26926,
+      "local_chain_ms": 32701.888333000003
+    },
+    {
+      "shot": "shot-023",
+      "job_id": "97f9fdb8356354ee7de8ecbb9fddbc65",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26574,
+      "local_chain_ms": 30939.481874999998
+    },
+    {
+      "shot": "shot-024",
+      "job_id": "343a9cbc95655ad9a4e8281f7c81521d",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26851,
+      "local_chain_ms": 30543.329667
+    },
+    {
+      "shot": "shot-025",
+      "job_id": "b8b7f940c20b972af49ee23b2990b37a",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 28259,
+      "local_chain_ms": 31807.902417
+    },
+    {
+      "shot": "shot-026",
+      "job_id": "6a95d2c608831f5a3e06d4b015093f0e",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26703,
+      "local_chain_ms": 33821.668417
+    },
+    {
+      "shot": "shot-027",
+      "job_id": "4e2ed89d9e4051307b45d8a1cdeee027",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25906,
+      "local_chain_ms": 30758.1425
+    },
+    {
+      "shot": "shot-028",
+      "job_id": "46ee3fb8ad8b3f45bd30c0c247420539",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26018,
+      "local_chain_ms": 31262.237541000002
+    },
+    {
+      "shot": "shot-029",
+      "job_id": "192cb6fdf68426fd85ae0f4b9c611710",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25864,
+      "local_chain_ms": 29578.4535
+    },
+    {
+      "shot": "shot-030",
+      "job_id": "73c3737a7490139e8662714d099380dc",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26164,
+      "local_chain_ms": 29205.710708
+    },
+    {
+      "shot": "shot-031",
+      "job_id": "13e230c3880edae7a8ecbc2820354feb",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25673,
+      "local_chain_ms": 29474.71575
+    },
+    {
+      "shot": "shot-032",
+      "job_id": "cd95c6a646fd46e00b3e46b9fa8d5543",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25787,
+      "local_chain_ms": 30949.587208
+    },
+    {
+      "shot": "shot-033",
+      "job_id": "bbc81488dcf7e4e48c03e39258326da5",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25568,
+      "local_chain_ms": 30700.421291
+    },
+    {
+      "shot": "shot-034",
+      "job_id": "e8610bd9bb534292eaa326d5fe6e090d",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26197,
+      "local_chain_ms": 30152.608833
+    },
+    {
+      "shot": "shot-035",
+      "job_id": "8039d59438796566db470c072f9c2fee",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25286,
+      "local_chain_ms": 30334.277458999997
+    },
+    {
+      "shot": "shot-036",
+      "job_id": "6978d5cd263a4eb468d1e04271c23df7",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25440,
+      "local_chain_ms": 30089.706083
+    },
+    {
+      "shot": "shot-037",
+      "job_id": "362b7c335692611f8c311a04dd308004",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25384,
+      "local_chain_ms": 29624.866708
+    },
+    {
+      "shot": "shot-038",
+      "job_id": "c2f6ed119882e92ac0e6e36dd7fb7ce3",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26673,
+      "local_chain_ms": 34185.00425
+    },
+    {
+      "shot": "shot-039",
+      "job_id": "94c131565f90a9743786246405e97843",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25988,
+      "local_chain_ms": 30506.553709
+    },
+    {
+      "shot": "shot-040",
+      "job_id": "930e02fa9b56b82ee31194a01132a0d0",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25839,
+      "local_chain_ms": 30929.652458
+    },
+    {
+      "shot": "shot-041",
+      "job_id": "97e4a303e1ec6aeae81e87a307044cb6",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26254,
+      "local_chain_ms": 29238.962041
+    },
+    {
+      "shot": "shot-042",
+      "job_id": "7e32fa316ff09764c1f9bccf981ca1ae",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26585,
+      "local_chain_ms": 31300.185667
+    },
+    {
+      "shot": "shot-043",
+      "job_id": "86883babab58da3cc357ccd9ded0177f",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27316,
+      "local_chain_ms": 33713.693958
+    },
+    {
+      "shot": "shot-044",
+      "job_id": "614cdc4ba23f38656098bb45544ee0c6",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27246,
+      "local_chain_ms": 35142.918375
+    },
+    {
+      "shot": "shot-045",
+      "job_id": "c04815182def02a45635d41071ef5bc6",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26030,
+      "local_chain_ms": 31307.616916
+    },
+    {
+      "shot": "shot-046",
+      "job_id": "4df1dbe8ac4986403232dd4be951ebb2",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25535,
+      "local_chain_ms": 29382.66475
+    },
+    {
+      "shot": "shot-047",
+      "job_id": "0f2cb352d411d883517800bcb62570a9",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25942,
+      "local_chain_ms": 32529.8235
+    },
+    {
+      "shot": "shot-048",
+      "job_id": "925b27b6897608dd26fbada1f64554f0",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25911,
+      "local_chain_ms": 31128.951875
+    },
+    {
+      "shot": "shot-049",
+      "job_id": "a2eca54932294591b44f347033a6b9f4",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25738,
+      "local_chain_ms": 31110.215416
+    },
+    {
+      "shot": "shot-050",
+      "job_id": "cd26a8aa2cc718732739f6523589dd63",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25755,
+      "local_chain_ms": 29545.428917
+    },
+    {
+      "shot": "shot-051",
+      "job_id": "e13d62335b92717ff58b688e496b6ebb",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25851,
+      "local_chain_ms": 31278.129792
+    },
+    {
+      "shot": "shot-052",
+      "job_id": "c6aa56cf22e76ed19b454a5e48576fe1",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25872,
+      "local_chain_ms": 32821.488792
+    },
+    {
+      "shot": "shot-053",
+      "job_id": "ca8138e60da2d249509922845cfe2620",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25702,
+      "local_chain_ms": 29356.429042
+    },
+    {
+      "shot": "shot-054",
+      "job_id": "7c4967dae767f1a05a88635bfd383b24",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25561,
+      "local_chain_ms": 30065.820292
+    },
+    {
+      "shot": "shot-055",
+      "job_id": "7f0d50b7740d8d3e839cb04049a55591",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25476,
+      "local_chain_ms": 31427.415292
+    },
+    {
+      "shot": "shot-056",
+      "job_id": "a5f99552e6c660fd8b43b6e7bd247e26",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26090,
+      "local_chain_ms": 30399.209499999997
+    },
+    {
+      "shot": "shot-057",
+      "job_id": "a94bbad02804cfa84a05d09c40ff4f35",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25537,
+      "local_chain_ms": 36148.600207999996
+    },
+    {
+      "shot": "shot-058",
+      "job_id": "ea69fbb3eeda90e7f81f4ae3ea558215",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25481,
+      "local_chain_ms": 30267.203125
+    },
+    {
+      "shot": "shot-059",
+      "job_id": "1685890c9eae919d466d8761ea7113a6",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25565,
+      "local_chain_ms": 29827.037375
+    },
+    {
+      "shot": "shot-060",
+      "job_id": "bf46c7c397f8e3988fb6c9999c2c292b",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25766,
+      "local_chain_ms": 29280.489334
+    },
+    {
+      "shot": "shot-061",
+      "job_id": "78ae0728c270e272e1030c4c44ff9bce",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25834,
+      "local_chain_ms": 33274.339415999995
+    },
+    {
+      "shot": "shot-062",
+      "job_id": "db95ee9d5004237030660c9b6c68a31d",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27791,
+      "local_chain_ms": 32010.892709
+    },
+    {
+      "shot": "shot-063",
+      "job_id": "7063fb92262b2ada61abec45aa8567c0",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27438,
+      "local_chain_ms": 32466.148792
+    },
+    {
+      "shot": "shot-064",
+      "job_id": "996a611abfea04c0590fdcf8ea884829",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25609,
+      "local_chain_ms": 29141.432708
+    },
+    {
+      "shot": "shot-065",
+      "job_id": "2657f608526cdf2e0328df2423e84e5c",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25267,
+      "local_chain_ms": 31955.17425
+    },
+    {
+      "shot": "shot-066",
+      "job_id": "b76dd69ceb17ee75dd1ad1f5e09c26ff",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 24997,
+      "local_chain_ms": 30320.037334
+    },
+    {
+      "shot": "shot-067",
+      "job_id": "9e64e67c5b59fa628f4e788dd227b6e1",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25116,
+      "local_chain_ms": 28691.490333
+    },
+    {
+      "shot": "shot-068",
+      "job_id": "5dc8cbf5fd9d1ec190a2ae578ce45aed",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25239,
+      "local_chain_ms": 30471.32525
+    },
+    {
+      "shot": "shot-069",
+      "job_id": "25859084be461c295a1d9eed54ae9b26",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25420,
+      "local_chain_ms": 30575.993625
+    },
+    {
+      "shot": "shot-070",
+      "job_id": "25d55a7f8fc32d2e3ab10b00e22ae19a",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26665,
+      "local_chain_ms": 32673.102124999998
+    },
+    {
+      "shot": "shot-071",
+      "job_id": "e3e11c8d65c61ed5b332961092cd9357",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25155,
+      "local_chain_ms": 29383.363459
+    },
+    {
+      "shot": "shot-072",
+      "job_id": "4115b315e6b77da3f6a8604720777bd2",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26937,
+      "local_chain_ms": 30296.456875
+    },
+    {
+      "shot": "shot-073",
+      "job_id": "a8094d14d4cf2f833948084041bf6814",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26353,
+      "local_chain_ms": 30577.473041999998
+    },
+    {
+      "shot": "shot-074",
+      "job_id": "e46b6aa46544f03789fcfae0ee475dc1",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25661,
+      "local_chain_ms": 31206.219709
+    },
+    {
+      "shot": "shot-075",
+      "job_id": "41c6b24659e9b7307b265cf5cef5d06b",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26106,
+      "local_chain_ms": 29822.618625000003
+    },
+    {
+      "shot": "shot-076",
+      "job_id": "7ed11d4a06c51ef6e2c8d66ca181b007",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 30422,
+      "local_chain_ms": 35325.155249999996
+    },
+    {
+      "shot": "shot-077",
+      "job_id": "a022d043480cf10f47e3bc3cfaf3cd38",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27542,
+      "local_chain_ms": 31959.565125
+    },
+    {
+      "shot": "shot-078",
+      "job_id": "7658d315a02a090ce97a8c35818b926e",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25448,
+      "local_chain_ms": 30241.458125
+    },
+    {
+      "shot": "shot-079",
+      "job_id": "97ec5250cb3681bdb6b7ebe2e205e203",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25503,
+      "local_chain_ms": 32689.66375
+    },
+    {
+      "shot": "shot-080",
+      "job_id": "6eb623e10103ae79e364439fdd8a787d",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25159,
+      "local_chain_ms": 31057.428750000003
+    },
+    {
+      "shot": "shot-081",
+      "job_id": "2c343307a49b88109ac5c25af1e869bd",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27617,
+      "local_chain_ms": 31006.093375
+    },
+    {
+      "shot": "shot-082",
+      "job_id": "1a82a7fb44c173270f06000b52b095c0",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26357,
+      "local_chain_ms": 30502.002458
+    },
+    {
+      "shot": "shot-083",
+      "job_id": "0c1debd2175b0e0d01f92d7c63cc2999",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25382,
+      "local_chain_ms": 28399.228
+    },
+    {
+      "shot": "shot-084",
+      "job_id": "6a5e2944c1f7fcef8e850e6aef8bcf64",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25041,
+      "local_chain_ms": 29877.956416999998
+    },
+    {
+      "shot": "shot-085",
+      "job_id": "3780bd7fd5c980edee66ad186603dd71",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 24321,
+      "local_chain_ms": 27774.979416
+    },
+    {
+      "shot": "shot-086",
+      "job_id": "e802e507381ae029eded33bd82ca81ee",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25097,
+      "local_chain_ms": 30307.908459000002
+    },
+    {
+      "shot": "shot-087",
+      "job_id": "a854237b0f5ab632f5dfb525e14661de",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25171,
+      "local_chain_ms": 31433.231249999997
+    },
+    {
+      "shot": "shot-088",
+      "job_id": "f6603b0cb0a6ec4822b12d60262214b7",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25273,
+      "local_chain_ms": 30564.245667
+    },
+    {
+      "shot": "shot-089",
+      "job_id": "28c6da95742f7980ef3fd5c50544a963",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25218,
+      "local_chain_ms": 30233.963499999998
+    },
+    {
+      "shot": "shot-090",
+      "job_id": "cfec4356b06c50f662e0549020838687",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25033,
+      "local_chain_ms": 29313.516083
+    },
+    {
+      "shot": "shot-091",
+      "job_id": "951f96ba47193c432907e48fc87e1142",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25243,
+      "local_chain_ms": 32485.192792
+    },
+    {
+      "shot": "shot-092",
+      "job_id": "b07ee450dd2e498d39df230039540e48",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26447,
+      "local_chain_ms": 31931.617917
+    },
+    {
+      "shot": "shot-093",
+      "job_id": "8e23db22c9ef33900107d08c3fab7d23",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26419,
+      "local_chain_ms": 32142.025209
+    },
+    {
+      "shot": "shot-094",
+      "job_id": "90d3261ee6de838e89e503ac2f35503d",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26174,
+      "local_chain_ms": 32051.928083000003
+    },
+    {
+      "shot": "shot-095",
+      "job_id": "8997f0a2f0d90b58b79b863c794f9dc3",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25936,
+      "local_chain_ms": 30003.436374999997
+    },
+    {
+      "shot": "shot-096",
+      "job_id": "69854b582042ecc91f8c9b02aeba7d90",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25387,
+      "local_chain_ms": 29365.711
+    },
+    {
+      "shot": "shot-097",
+      "job_id": "81170f0fe4e29c71905a3d7c05d18705",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25418,
+      "local_chain_ms": 30154.569375
+    },
+    {
+      "shot": "shot-098",
+      "job_id": "c970f5a458af09843a8b26ed2955c0c5",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25364,
+      "local_chain_ms": 28455.755
+    },
+    {
+      "shot": "shot-099",
+      "job_id": "5fee2b84a0809d30916ef1536419b2e6",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25434,
+      "local_chain_ms": 33676.537208999995
+    },
+    {
+      "shot": "shot-100",
+      "job_id": "85701297629506747d8fc578e1732778",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26856,
+      "local_chain_ms": 29740.140832999998
+    },
+    {
+      "shot": "shot-101",
+      "job_id": "c9a7041e4af28432b8ae6a57a133fcca",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26685,
+      "local_chain_ms": 31664.038542000002
+    },
+    {
+      "shot": "shot-102",
+      "job_id": "8f3ea7bc359f17abce46e387c8936167",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25169,
+      "local_chain_ms": 31421.272708
+    },
+    {
+      "shot": "shot-103",
+      "job_id": "5ead4a57ae1c6f0879483ccbd09f5e24",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25026,
+      "local_chain_ms": 29188.275834
+    },
+    {
+      "shot": "shot-104",
+      "job_id": "467b2c0ff8cb288dd3edabac69c2e42e",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26595,
+      "local_chain_ms": 31545.327291
+    },
+    {
+      "shot": "shot-105",
+      "job_id": "10c51dd9c895eee74d176b8a496c8388",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25863,
+      "local_chain_ms": 30013.912875
+    },
+    {
+      "shot": "shot-106",
+      "job_id": "4b459d222609d41ff8dd41917254b5b8",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25461,
+      "local_chain_ms": 31860.100374999998
+    },
+    {
+      "shot": "shot-107",
+      "job_id": "e6219ac062ab3ec41b65aa22ba01dd60",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25757,
+      "local_chain_ms": 30985.710208
+    },
+    {
+      "shot": "shot-108",
+      "job_id": "07671044020086e9d2f7df04bba2223e",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25345,
+      "local_chain_ms": 28984.903083
+    },
+    {
+      "shot": "shot-109",
+      "job_id": "2a678989f66510f8eba87d84603ae219",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25043,
+      "local_chain_ms": 31069.222583000002
+    },
+    {
+      "shot": "shot-110",
+      "job_id": "dde8ca26abbb4544f618023c8760065a",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25920,
+      "local_chain_ms": 30642.767708
+    },
+    {
+      "shot": "shot-111",
+      "job_id": "5b1767067970c6903465a6ed2437e74c",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25818,
+      "local_chain_ms": 32956.6235
+    },
+    {
+      "shot": "shot-112",
+      "job_id": "9f8031bb8e1d3dbb5b992e12129c0958",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25516,
+      "local_chain_ms": 30802.094708
+    },
+    {
+      "shot": "shot-113",
+      "job_id": "cf74e1c9679e915bc9d246095085b310",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27036,
+      "local_chain_ms": 30915.7745
+    },
+    {
+      "shot": "shot-114",
+      "job_id": "437e7c2acc4abd3ffac55aecb5b16f39",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26166,
+      "local_chain_ms": 32543.89875
+    },
+    {
+      "shot": "shot-115",
+      "job_id": "e21c15c8e9afa742c3a1acbd3821190c",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25658,
+      "local_chain_ms": 29802.092166000002
+    },
+    {
+      "shot": "shot-116",
+      "job_id": "2dba5788fa49381a40af1ed9bd9ba883",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 25149,
+      "local_chain_ms": 28562.474125
+    },
+    {
+      "shot": "shot-117",
+      "job_id": "842afcf47d25bc55e5cdc7579185db5f",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26202,
+      "local_chain_ms": 29072.435125
+    },
+    {
+      "shot": "shot-118",
+      "job_id": "b4a9c66e62ddb044b8df852dc3c8fba6",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 26449,
+      "local_chain_ms": 30699.017874999998
+    },
+    {
+      "shot": "shot-119",
+      "job_id": "185771ccbfe48cf8261cff66b7c14663",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27380,
+      "local_chain_ms": 31764.404416999998
+    },
+    {
+      "shot": "shot-120",
+      "job_id": "3972484f7933c41ca55f998fdd752a5d",
+      "frames": 72,
+      "seconds": 3.0,
+      "server_execution_ms": 27982,
+      "local_chain_ms": 31210.982208999998
+    }
+  ],
+  "film": "/Users/mac/ai/llm-dsh-plugins/out/third-cup-preview/第三杯咖啡-六分钟预览.mp4",
+  "film_probe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640015",
+        "width": 384,
+        "height": 512,
+        "coded_width": 384,
+        "coded_height": 512,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 21,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "bt709",
+        "color_primaries": "bt709",
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "refs": 4,
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "24/1",
+        "avg_frame_rate": "24/1",
+        "time_base": "1/12288",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 4423680,
+        "duration": "360.000000",
+        "bit_rate": "686048",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "8640",
+        "nb_read_frames": "8640",
+        "extradata_size": 49,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc62.28.100 libx264"
+        }
+      }
+    ],
+    "format": {
+      "filename": "/Users/mac/ai/llm-dsh-plugins/out/third-cup-preview/第三杯咖啡-六分钟预览.mp4",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "360.000000",
+      "size": "30976621",
+      "bit_rate": "688369",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf62.12.100"
+      }
+    }
+  },
+  "edit_wall_seconds": 3585.472009897232,
+  "server_sum_ms": 3155783,
+  "verified_unique_jobs": 120,
+  "full_decode": "passed",
+  "audio": "silent; Chinese subtitles burned in"
+}

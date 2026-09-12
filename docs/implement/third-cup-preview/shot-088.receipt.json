@@ -1,0 +1,193 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "i2va",
+    "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. An intimate ordinary East Asian cafe with warm amber lamps, a rainy large window, a small wooden table and plain ceramic coffee cups. No people visible. The old photograph sits beside a coffee cup; a folded letter is left unopened beside it. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+    "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=scene_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  "job_id": "f6603b0cb0a6ec4822b12d60262214b7",
+  "result": {
+    "job_id": "f6603b0cb0a6ec4822b12d60262214b7",
+    "status": "succeeded",
+    "trace_id": "f6603b0cb0a6ec4822b12d60262214b7",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "clock": "performance.now",
+      "total_ms": 30564.245667,
+      "stages": {
+        "prepare.graph": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1.4536249999999988,
+          "max_ms": 1.4536249999999988,
+          "last_start_ms": 3.269708999999999,
+          "last_end_ms": 4.723333999999998
+        },
+        "http.GET.object_info": {
+          "count": 19,
+          "failed": 0,
+          "total_ms": 8275.252831,
+          "max_ms": 1197.608167,
+          "last_start_ms": 1783.4409170000001,
+          "last_end_ms": 2200.0245840000002
+        },
+        "prepare.validate": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 2196.1265,
+          "max_ms": 2196.1265,
+          "last_start_ms": 4.732541999999999,
+          "last_end_ms": 2200.859042
+        },
+        "prepare": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 2199.434416,
+          "max_ms": 2199.434416,
+          "last_start_ms": 3.100833999999999,
+          "last_end_ms": 2202.53525
+        },
+        "http.POST.prompt": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 906.645,
+          "max_ms": 906.645,
+          "last_start_ms": 2206.145125,
+          "last_end_ms": 3112.790125
+        },
+        "submit": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 909.3690410000004,
+          "max_ms": 909.3690410000004,
+          "last_start_ms": 2204.060959,
+          "last_end_ms": 3113.4300000000003
+        },
+        "http.GET.history": {
+          "count": 9,
+          "failed": 0,
+          "total_ms": 5906.906126999997,
+          "max_ms": 1656.5271670000002,
+          "last_start_ms": 30040.435625000002,
+          "last_end_ms": 30559.677042
+        },
+        "http.GET.queue": {
+          "count": 8,
+          "failed": 0,
+          "total_ms": 5526.693418000004,
+          "max_ms": 1709.4781670000011,
+          "last_start_ms": 27635.571709,
+          "last_end_ms": 28038.639167
+        },
+        "poll.sleep.execute": {
+          "count": 8,
+          "failed": 0,
+          "total_ms": 16010.590584999998,
+          "max_ms": 2001.796958,
+          "last_start_ms": 28038.7045,
+          "last_end_ms": 30040.355834
+        },
+        "wait.history": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 27445.826083,
+          "max_ms": 27445.826083,
+          "last_start_ms": 3113.952667,
+          "last_end_ms": 30559.77875
+        },
+        "remote": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 28359.414042,
+          "max_ms": 28359.414042,
+          "last_start_ms": 2202.55875,
+          "last_end_ms": 30561.972792
+        },
+        "output.inspect": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 0.584500000000844,
+          "max_ms": 0.584500000000844,
+          "last_start_ms": 30562.676459,
+          "last_end_ms": 30563.260959
+        },
+        "output.persist-validation": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 0.8461660000029951,
+          "max_ms": 0.8461660000029951,
+          "last_start_ms": 30563.336459,
+          "last_end_ms": 30564.182625
+        }
+      }
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "c089d00280b7794a11e12aaf9c59a53d7628ac4b8b0c397f1f1e3f6f5d62f1f2"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Ff6603b0cb0a6ec4822b12d60262214b7%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Ff6603b0cb0a6ec4822b12d60262214b7%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "i2va",
+    "server_execution_ms": 25273,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "23e90d4d-ffe4-4239-a224-4b776c099574",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "c480783f2e515f9323776306d17e45b9d624f59dfd8f1395ad6e7022483f09c4",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/f6603b0cb0a6ec4822b12d60262214b7/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "fullpath": "/workspace/runpod-slim/ComfyUI/output/elysium/f6603b0cb0a6ec4822b12d60262214b7/preview/final_00001-audio.mp4",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "23e90d4d-ffe4-4239-a224-4b776c099574",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Ff6603b0cb0a6ec4822b12d60262214b7%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "i2va",
+        "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. An intimate ordinary East Asian cafe with warm amber lamps, a rainy large window, a small wooden table and plain ceramic coffee cups. No people visible. The old photograph sits beside a coffee cup; a folded letter is left unopened beside it. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+        "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=scene_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "23e90d4d-ffe4-4239-a224-4b776c099574"
+        }
+      ],
+      "diagnostic_path": "/Users/mac/.dsh/elysium/tasks/jobs/f6603b0cb0a6ec4822b12d60262214b7/diagnostics.json",
+      "log_path": "/Users/mac/.dsh/elysium/tasks/jobs/f6603b0cb0a6ec4822b12d60262214b7/execution.log"
+    }
+  }
+}
