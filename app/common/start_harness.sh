@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-runtime_settings="$("${PYTHON_BIN:-python3}" "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/harness/config/harness-settings.yaml")"
+runtime_settings="$("${PYTHON_BIN:-python3}" "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/harness/config/settings.yaml")"
 eval "$runtime_settings"
 export DSH_HOME="$LOCAL_DSH_HOME"
 export DSH_AGENTS_HOME="$DSH_HOME/agents"

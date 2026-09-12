@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 readonly HARNESS_ROOT=/workspace/harness
+readonly CONFIG_LOADER="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/app/common/config_loader.py"
 readonly NODE_VERSION=24.20.0
 readonly NODE_ARCHIVE="node-v${NODE_VERSION}-linux-x64.tar.xz"
 readonly NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ARCHIVE}"
@@ -25,9 +26,10 @@ fail() { echo "[FAIL] $1" >&2; exit 1; }
 
 ((EUID == 0)) || fail '请使用 root 执行'
 [[ "$(uname -m)" == x86_64 ]] || fail '固定 Node.js 包仅支持 x86_64'
-for command_name in chown curl id install openssl sha256sum tar useradd; do
+for command_name in chown curl id install openssl python3 sha256sum tar useradd; do
   command -v "$command_name" >/dev/null || fail "缺少命令：$command_name"
 done
+rendered_settings="$(python3 "$CONFIG_LOADER" render "$HARNESS_ROOT/config/settings.yaml")"
 for path in \
   "$PACKAGE_ROOT/dsh-elysium-tools/package.json" \
   "$PACKAGE_ROOT/dsh-elysium-ui/package.json" \
@@ -112,7 +114,8 @@ readonly DSH_BIN="$APP_ROOT/node_modules/.bin/dsh"
 "$DSH_BIN" plugin --profile web add --workspace-root "$PACKAGE_ROOT/dsh-elysium-tools"
 "$DSH_BIN" plugin --profile web add --workspace-root "$PACKAGE_ROOT/dsh-elysium-ui"
 install -m 0640 "$HARNESS_ROOT/config/profile.patch.yml" "$HOME_ROOT/profiles/web/cordis.patch.yml"
-install -m 0640 "$HARNESS_ROOT/config/settings.yaml" "$HOME_ROOT/settings.yaml"
+(umask 027; printf '%s\n' "$rendered_settings" > "$HOME_ROOT/settings.yaml")
+chmod 0640 "$HOME_ROOT/settings.yaml"
 install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0640 \
   "$HARNESS_ROOT/config/operator-security.patch.yml" "$HOME_ROOT/operator-security.patch.yml"
 if [[ ! -s "$PROXY_PASSWORD_FILE" ]]; then

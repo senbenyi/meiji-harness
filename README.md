@@ -9,13 +9,12 @@ dsh-elysium-tools/          工具插件：视频生成、任务查询、媒体�
 dsh-elysium-ui/             UI 插件：导演设置页面与提示词读取
 harness/                    部署与运行时配置
   ├── .agent-presets/       四套 Agent 预设
-  ├── config/               Harness 配置模板
+  ├── config/               Harness 设置、启动与隧道配置
   ├── deploy.sh             服务器部署脚本（需要 root）
   ├── start.sh              启动/重启 Harness 服务
   └── qwen-tunnel.sh        Qwen 模型隧道
 app/
-  ├── common/               本地部署、启动、配置解析脚本
-  └── config/               本机 Harness 设置与隧道配置
+  └── common/               本地部署、启动、配置解析脚本
 tests/                      单元测试
 ```
 
@@ -92,7 +91,9 @@ sudo bash harness/deploy.sh
 
 ### settings.yaml（用户级设置）
 
-位于 `$DSH_HOME/settings.yaml`，仓库模板：`harness/config/settings.yaml`。
+运行配置位于 `$DSH_HOME/settings.yaml`。仓库统一配置源为 `harness/config/settings.yaml`，包含本机启动参数、隧道、模型和界面设置，默认权限为 `danger-full-access`。
+
+仓库配置含模板占位符及 `harness-runtime`、`harness-customization`，不能直接复制为运行配置。使用 `python3 app/common/config_loader.py render` 生成运行配置（需要 PyYAML）；本机脚本通过同一解析器的 `shell` 模式读取启动参数。旧部署入口也使用此解析器，因此需保留仓库中 `app/common/config_loader.py` 的相对位置。
 
 ```yaml
 agent-presets:

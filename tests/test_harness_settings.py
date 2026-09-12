@@ -18,7 +18,7 @@ class HarnessSettingsTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.config = ROOT / "harness/config/harness-settings.yaml"
+        self.config = ROOT / "harness/config/settings.yaml"
 
     def output(self, mode, config=None):
         stream = io.StringIO()
@@ -39,6 +39,8 @@ class HarnessSettingsTest(unittest.TestCase):
         self.assertIn("http://127.0.0.1:18000/v1", output)
         self.assertNotIn("harness-runtime", output)
         self.assertNotIn("harness-customization", output)
+        self.assertNotIn("__QWEN_", output)
+        self.assertEqual(yaml.safe_load(output)["permission"]["defaultPreset"], "danger-full-access")
 
     def test_required_http_and_local_values_are_validated(self):
         data = yaml.safe_load(self.config.read_text())

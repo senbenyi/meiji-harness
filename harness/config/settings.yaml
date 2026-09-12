@@ -1,22 +1,31 @@
-agent-presets:
-  default: elysium-teaching
-  includeShippedRoot: false
+# 启动与隧道参数
+harness-runtime:
+  QWEN_LOCAL_HOST: 127.0.0.1
+  QWEN_REMOTE_HOST: 127.0.0.1
+  COMFYUI_URL: https://36we4j3zo503js-8188.proxy.runpod.net
+  LOCAL_DSH_HOME: /Users/mac/.dsh
+  LOCAL_HARNESS_HOST: 127.0.0.1
+  LOCAL_HARNESS_PORT: 3080
+  QWEN_SSH_TARGET: veo-qwen38
+  QWEN_API_LOCAL_PORT: 18000
+  QWEN_API_REMOTE_PORT: 8000
+  QWEN_MODEL_ID: qwen3.8-27b-elysium
 
-permission:
-  defaultPreset: workspace-write
-
+# 模型服务
 llm-pi-ai:
   providers:
+    qwen-token-plan-cn:
+      apiKeyEnv: QWEN_TOKEN_PLAN_CN_API_KEY
     qwen38-local:
       displayName: qwen3.8-27b-elysium
       api: openai-completions
-      baseURL: http://127.0.0.1:18000/v1
+      baseURL: http://__QWEN_LOCAL_HOST__:__QWEN_API_LOCAL_PORT__/v1
       compat:
         supportsDeveloperRole: false
         maxTokensField: max_tokens
         thinkingFormat: qwen-chat-template
       models:
-        - id: qwen3.8-27b-elysium
+        - id: __QWEN_MODEL_ID__
           name: qwen3.8-27b-elysium
           contextWindow: 65536
           maxTokens: 4096
@@ -29,4 +38,29 @@ llm-pi-ai:
 
 agent-default-model:
   provider: qwen38-local
-  model: qwen3.8-27b-elysium
+  model: __QWEN_MODEL_ID__
+
+dsh-better-sidebar:
+  tabsEnabled:
+    browser: true
+    git: true
+  agentOpenTools: true
+
+ui-conversation:
+  busyEnter: steer
+
+permission:
+  defaultPreset: danger-full-access
+
+agent-presets:
+  default: elysium-teaching
+  includeShippedRoot: false
+
+# 按 id 同步到本机 profile 的配置；config_loader.py render 不输出此段。
+harness-customization:
+  profile:
+    - id: command-feedback
+      disabled: true
+    - id: dsh-elysium-tools
+      config:
+        comfyUrl: __COMFYUI_URL__

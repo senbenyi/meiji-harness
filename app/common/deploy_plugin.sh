@@ -9,7 +9,7 @@ for command_name in node pnpm dsh lsof ps curl python3; do
 done
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 PACKAGE_ROOT="$REPO_ROOT/dsh-elysium-$kind"
-runtime_settings="$(python3 "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/harness/config/harness-settings.yaml")"
+runtime_settings="$(python3 "$REPO_ROOT/app/common/config_loader.py" shell "$REPO_ROOT/harness/config/settings.yaml")"
 eval "$runtime_settings"
 export DSH_HOME="$LOCAL_DSH_HOME"
 [[ -s "$PACKAGE_ROOT/package.json" ]] || fail '插件目录不存在'
