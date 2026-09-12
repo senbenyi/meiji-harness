@@ -1,0 +1,68 @@
+# MiniMax H3 性能对照（2026-09-12）
+
+## 结论
+
+- 本次提前卸载模型没有缩短 VAE 解码耗时，不加入默认工作流。
+- INT8 QK 的完整视频耗时减少 20.35 秒（3.89%），但两组 GPU 功率条件不同，不能认定为可重复的软件收益。交替内核测试显示约 13.42% 的内核耗时下降，不能换算成整段视频的同等收益。
+- 保持 Spectrum offline smoothing replay。它是 transformer-free 重放，不能把进度条的两段执行理解为两次完整模型推理。
+- 本次保持正式模板和服务配置不变。优先稳定 GPU 功率条件，再决定是否把 INT8 QK 设为默认；没有证据支持同规格视频降至一分钟。
+
+## 环境与方法
+
+通过 `ssh veo-comfyui` 连接 RTX 3090 24GB；Torch 2.10.0+cu130、ComfyUI 0.34.6。没有重启服务、取消用户任务或调整 GPU 功率。
+
+等待用户队列清空后，复用已完成 prompt `400431ed-a936-4cc8-9b69-26e8034366d2` 的篮球场景图进行测试。这不是重新执行用户先前的任务 `7540378ccc30d42fec289a00169964e1`。
+
+完整对照固定 10 秒、864×1184、8 步 Euler/simple、同一提示词、同一模型、种子 `833238321491843`，保留 Spectrum、DiffAid、FFN chunks=2 和 RIFE。两组文本编码均命中缓存，采样均实际执行。唯一推理参数差异为 `int8_qk=false/true`；`int8_pv=false`。测试输出使用独立文件前缀，不经过 Harness 聊天任务创建流程。
+
+端到端时间来自 ComfyUI history 的 `execution_start` / `execution_success`。节点耗时来自同一客户端的 WebSocket `executing` 事件间隔，包含该节点内部加载、回调与重放开销，不等于纯 CUDA 内核时间。
+
+## 实测
+
+| 项目 | 基线 | 对照 | 解释 |
+|---|---:|---:|---|
+| 缓存 latent 解码测试整段 | 78.248 秒 | 卸载模型后 87.730 秒 | 本次增加 9.482 秒 |
+| 其中 VAEDecode 节点 | 77.586 秒 | 85.367 秒 | 对照包括重新加载 VAE |
+| 完整视频 | 522.641 秒 | INT8 QK 502.292 秒 | 观察到减少 3.89% |
+| 采样节点 | 425.855 秒 | 403.065 秒 | 减少 5.35%，包含重放 |
+| 视频解码 | 77.547 秒 | 79.685 秒 | 没有加速 |
+| RIFE | 6.951 秒 | 7.013 秒 | 基本一致 |
+| 音频解码 | 1.162 秒 | 1.023 秒 | 占比很小 |
+| 编码及音轨合成 | 10.669 秒 | 10.952 秒 | 基本一致 |
+
+VAE 测试在已完成任务之后插入现有 `VRAM_Debug` 透传节点，确认两组采样器均命中缓存。对照依次调用卸载所有模型、清空缓存，释放约 10.59GB 显存。它不是完整采样后首次解码的严格同状态复现；同时两组功率也有差异。因此结果只支持“不据此启用卸载”，不能证明所有场景下卸载都无效。
+
+| GPU 记录（每 2 秒采样） | 完整 BF16 | 完整 INT8 QK |
+|---|---:|---:|
+| 平均功率上限 | 229.4W | 241.9W |
+| 功率上限范围 | 210–310W | 210–310W |
+| 平均实际功率 | 219.6W | 230.9W |
+| 平均 SM 频率 | 994.0MHz | 1045.5MHz |
+
+以上平均值包括加载、解码和编码阶段，不是仅采样阶段指标。INT8 组平均功率上限高约 5.45%，属于对照混杂因素，不能通过简单比例“校正”得出软件净收益。采样中观察到 `SW Power Cap: Active`；当次检查温度降频未激活。功率上限在任务内部变化，具体控制方未确认。
+
+补充内核测试：队列空闲后，在独立进程使用 BF16 随机 Q/K/V、72824 tokens、56 heads、head_dim=128、融合 QKV 的跨步视图、tau=1.0。预热后交替 BF16/INT8 和 INT8/BF16 顺序，每种 6 次，中位数为 0.58790 / 0.50900 秒，内核耗时减少 13.42%。这使用合成输入及默认 sink 参数，不是实际层输入回放，也不是画质评估。
+
+两份完整输出均成功，ffprobe 验证为 H.264、864×1184、48fps、485 帧、10.104 秒，AAC 音轨 10.08 秒。浏览器能播放并显示篮球场景。没有进行盲评或验证画质等价。
+
+## 复查位置
+
+服务器测试脚本：`/tmp/h3_perf_compare.py`、`/tmp/h3_full_compare.py`、`/tmp/h3_kernel_compare.py`、`/tmp/h3_perf_summary.py`。
+
+服务器原始结果和 GPU CSV：`/tmp/h3-perf-20260912/`（临时目录，可能被清理）。
+
+| 测试 | ComfyUI prompt ID |
+|---|---|
+| VAE 基线 | `c9ce9af3-d87e-47ec-8721-8f39c6d1084c` |
+| VAE 卸载 | `2580c920-2690-422f-8bc3-bff92679dc93` |
+| 完整 BF16 | `b67c0185-63fe-41a5-8907-66cea549d851` |
+| 完整 INT8 QK | `bc16ac42-4ac5-4817-a13d-0c3880061063` |
+
+视频保留在服务器 `ComfyUI/output/benchmarks/h3-perf-20260912/`，文件为 `full_bf16_00001-audio.mp4` 和 `full_int8_qk_00001-audio.mp4`。
+
+## 调研依据
+
+- [Sol Attention 实现与适用硬件](https://github.com/Saganaki22/ComfyUI-sol-attn)：主要作者基准并非本机 3090，不能直接套用倍数。
+- [Spectrum offline smoothing replay](https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3#offline-smoothing-replay)：transformer-free 重放机制。
+- [VAE 共存与卸载对照案例](https://github.com/Comfy-Org/ComfyUI/issues/15484)：其他硬件上的改善是本次实验动机，不是本机收益证据。
+- [MotionCache / FastVAE 作者测试](https://github.com/Mozer/ComfyUI-MiniMax-H3-MotionCache-FastVAE)：批处理 VAE 并不保证更快，不据名称安装或宣称收益。

@@ -1,5 +1,113 @@
 # llm-dsh-plugins
 
+DeepSeek Harness 插件、Agent 预设与部署脚本。
 
-- [dsh-elysium-ui](./dsh-elysium-ui/README.md)：Harness 原生导演设置页面。
-- [dsh-elysium-tools](./dsh-elysium-tools/README.md)：生成工具、任务查询与媒体卡片。
+## 项目结构
+
+```
+dsh-elysium-tools/          工具插件：视频生成、任务查询、媒体卡片
+dsh-elysium-ui/             UI 插件：导演设置页面与提示词读取
+harness/                    部署与运行时配置
+  ├── .agent-presets/       四套 Agent 预设
+  ├── config/               Harness 配置模板
+  ├── deploy.sh             服务器部署脚本（需要 root）
+  ├── start.sh              启动/重启 Harness 服务
+  └── qwen-tunnel.sh        Qwen 模型隧道
+app/
+  ├── common/               本地部署、启动、配置解析脚本
+  └── config/               本机 Harness 设置与隧道配置
+tests/                      单元测试
+```
+
+## 插件
+
+- **[dsh-elysium-tools](./dsh-elysium-tools/README.md)** — MiniMax H3 视频生成工具，提供 `t2va`、`i2va`、`fl2va`、`fl2va-loop`、`r2va` 五种模式及任务恢复。
+- **[dsh-elysium-ui](./dsh-elysium-ui/README.md)** — 独立导演设置界面，不依赖工具插件。
+
+## 预设模式
+
+| 顺序 | ID | 名称 | 说明 |
+|------|------|------|------|
+| 1 | `elysium-teaching` | 极乐世界 · 教学 | 新手引导，逐步教学（**默认**） |
+| 2 | `elysium-free` | 极乐世界 · 自由 | 全功能开放，最少确认 |
+| 3 | `elysium-director` | 极乐世界 · 导演 | AI 短剧创作，剧本策划、分镜设计 |
+| 4 | `elysium-standard` | 标准模式 | Harness 原生编码 Agent |
+
+预设文件位于 `harness/.agent-presets/`，每个预设包含：
+
+```
+preset.yml            # 名称、描述、排序（order 字段，数字越小越靠前）
+agent.cordis.yml      # 插件组合（cordis composition）
+persona.md            # 人设提示词（elysium-* 独有）
+rules.md              # 行为规则（elysium-* 独有）
+skills/               # 技能文档（elysium-* 独有）
+```
+
+## 部署
+
+### 本地部署
+
+```sh
+# 部署工具插件（跳过 ComfyUI 检查）
+SKIP_COMFYUI_CHECK=1 bash app/common/deploy_plugin.sh tools
+
+# 部署 UI 插件
+bash app/common/deploy_plugin.sh ui
+
+# 启动/重启/停止 Harness
+SKIP_COMFYUI_CHECK=1 bash app/common/start_harness.sh --restart
+bash app/common/start_harness.sh --stop
+```
+
+### 服务器部署
+
+```sh
+sudo bash harness/deploy.sh
+```
+
+完整流程包括安装 Node.js/dsh/pnpm、注册插件、应用配置、复制预设、启动服务。
+
+服务器部署时 `elysium-teaching` 的 `agent.cordis.yml` 会被 `harness/config/operator-agent.cordis.yml` 覆盖，仅保留 persona、skill-filesystem、tool-skill（禁用 bash/subagent 等危险工具）。
+
+## Harness 配置
+
+插件安装后需要两项配置才能正确显示 4 个预设并隐藏内置模式。部署脚本会自动应用，手动配置参考以下说明。
+
+### cordis.patch.yml（插件级配置）
+
+部署到 `$DSH_HOME/profiles/web/cordis.patch.yml`，仓库模板：`harness/config/profile.patch.yml`。
+
+```yaml
+- id: agent-presets
+  config:
+    default: elysium-teaching
+    includeShippedRoot: false    # 隐藏内置预设（PTC、极简、创造）
+
+- id: dsh-elysium-tools
+  config:
+    comfyUrl: http://127.0.0.1:8188
+```
+
+> `includeShippedRoot` 是插件级配置，**只在 `cordis.patch.yml` 中生效**，写在 `settings.yaml` 无效。
+
+### settings.yaml（用户级设置）
+
+位于 `$DSH_HOME/settings.yaml`，仓库模板：`harness/config/settings.yaml`。
+
+```yaml
+agent-presets:
+  default: elysium-teaching
+```
+
+## Remote Hosts
+
+| Alias | 连接 | Role |
+|---|---|---|
+| `veo-comfyui` | `ssh veo-comfyui` | Image/video models, ComfyUI |
+| `veo-qwen38` | `ssh veo-qwen38` | Qwen3.8 inference |
+
+## 铁律
+
+- 插件不允许上传、下载、保存文件方法
+- 插件中媒体、视频、图片一律使用服务器 URL
+- Harness 只在本机运行；远端服务器只保留模型服务

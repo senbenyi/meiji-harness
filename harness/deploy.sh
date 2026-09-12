@@ -41,7 +41,7 @@ for path in \
   "$HARNESS_ROOT/start.sh"; do
   [[ -s "$path" ]] || fail "部署文件不存在：$path"
 done
-for preset in standard elysium-teaching elysium-free elysium-director; do
+for preset in elysium-standard elysium-teaching elysium-free elysium-director; do
   [[ -d "$HARNESS_ROOT/.agent-presets/$preset" ]] || fail "预设目录不存在：$HARNESS_ROOT/.agent-presets/$preset"
 done
 
@@ -121,7 +121,7 @@ if [[ ! -s "$PROXY_PASSWORD_FILE" ]]; then
 fi
 chmod 0600 "$PROXY_PASSWORD_FILE"
 install -d -m 0750 "$HOME_ROOT/.agent-presets"
-for preset in standard elysium-teaching elysium-free elysium-director; do
+for preset in elysium-standard elysium-teaching elysium-free elysium-director; do
   if [[ ! -e "$HOME_ROOT/.agent-presets/$preset" ]]; then
     cp -R "$HARNESS_ROOT/.agent-presets/$preset" \
       "$HOME_ROOT/.agent-presets/"

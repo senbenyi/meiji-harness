@@ -13,7 +13,7 @@ ELYSIUM_PRESETS = {
     "elysium-director": "极乐世界 · 导演",
 }
 
-ALL_PRESETS = {"standard": "标准模式", **ELYSIUM_PRESETS}
+ALL_PRESETS = {"elysium-standard": "标准模式", **ELYSIUM_PRESETS}
 
 
 class PackagedPresetTests(unittest.TestCase):
