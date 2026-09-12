@@ -42,8 +42,9 @@ class PackagedPresetTests(unittest.TestCase):
         for preset_id in ELYSIUM_PRESETS:
             preset_dir = PRESETS_DIR / preset_id
             with self.subTest(preset=preset_id):
-                for relative in ("persona.md", "rules.md", "skills/creation-video/SKILL.md"):
+                for relative in ("persona.md", "rules.md", "skills/creation-preview/SKILL.md", "skills/creation-regular/SKILL.md", "skills/creation-hd/SKILL.md"):
                     self.assertTrue((preset_dir / relative).is_file(), f"{preset_id}/{relative}")
+                self.assertFalse((preset_dir / "skills/creation-video").exists())
 
     def test_no_legacy_files(self):
         self.assertFalse((ROOT / "app/config/harness-agent.md").exists())

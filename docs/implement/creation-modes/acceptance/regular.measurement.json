@@ -1,0 +1,166 @@
+{
+  "job_id": "07702fdc5a1f9c995def6b5b7eb7193c",
+  "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200",
+  "server_ms": 61931,
+  "events": [
+    {
+      "type": "execution_start",
+      "data": {
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200",
+        "timestamp": 1789190057838
+      },
+      "received_ms": 1789190057847.0938
+    },
+    {
+      "type": "execution_cached",
+      "data": {
+        "nodes": [
+          "n105_15",
+          "n105_6",
+          "n105_215",
+          "n105_216",
+          "n105_217",
+          "n105_218",
+          "n105_222",
+          "n105_206",
+          "n105_13",
+          "n105_11",
+          "n105_155",
+          "n105_9",
+          "n105_24"
+        ],
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200",
+        "timestamp": 1789190057845
+      },
+      "received_ms": 1789190057847.326
+    },
+    {
+      "type": "executing",
+      "data": {
+        "node": "n105_104",
+        "display_node": "n105_104",
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200"
+      },
+      "received_ms": 1789190057847.5647
+    },
+    {
+      "type": "executing",
+      "data": {
+        "node": "n105_16",
+        "display_node": "n105_16",
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200"
+      },
+      "received_ms": 1789190062869.0222
+    },
+    {
+      "type": "executing",
+      "data": {
+        "node": "n105_14",
+        "display_node": "n105_14",
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200"
+      },
+      "received_ms": 1789190062870.3428
+    },
+    {
+      "type": "executing",
+      "data": {
+        "node": "n105_23",
+        "display_node": "n105_23",
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200"
+      },
+      "received_ms": 1789190103813.3806
+    },
+    {
+      "type": "executing",
+      "data": {
+        "node": "n105_10",
+        "display_node": "n105_10",
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200"
+      },
+      "received_ms": 1789190104330.5232
+    },
+    {
+      "type": "executing",
+      "data": {
+        "node": "n126",
+        "display_node": "n126",
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200"
+      },
+      "received_ms": 1789190117964.1123
+    },
+    {
+      "type": "execution_success",
+      "data": {
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200",
+        "timestamp": 1789190119769
+      },
+      "received_ms": 1789190119770.3909
+    }
+  ],
+  "node_timings": [
+    {
+      "node": "n105_104",
+      "elapsed_ms": 5021.458
+    },
+    {
+      "node": "n105_16",
+      "elapsed_ms": 1.321
+    },
+    {
+      "node": "n105_14",
+      "elapsed_ms": 40943.038
+    },
+    {
+      "node": "n105_23",
+      "elapsed_ms": 517.143
+    },
+    {
+      "node": "n105_10",
+      "elapsed_ms": 13633.589
+    },
+    {
+      "node": "n126",
+      "elapsed_ms": 1804.888
+    }
+  ],
+  "probe": {
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 576,
+        "height": 768,
+        "r_frame_rate": "24/1",
+        "duration": "5.166667",
+        "nb_frames": "124"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "duration": "5.152000",
+        "nb_frames": "162"
+      }
+    ],
+    "format": {
+      "duration": "5.166667"
+    }
+  },
+  "full_decode": "passed",
+  "real_sampling": true,
+  "real_conditioning": true,
+  "audio_volume": [
+    "[Parsed_volumedetect_0 @ 0x5913dff8a0c0] mean_volume: -44.5 dB",
+    "[Parsed_volumedetect_0 @ 0x5913dff8a0c0] max_volume: -13.1 dB"
+  ],
+  "local_chain_ms": 71634,
+  "new_generations": 1,
+  "timing_method": "Adjacent server-local WebSocket node events, final node ending at history success timestamp; approximate wall times including model movement.",
+  "review": {
+    "video_played_to_end": true,
+    "motion": "Picks up envelope, looks down, unfolds it, looks up and smiles.",
+    "limitations": "Envelope shape changes while unfolding; detailed hands and subjective audio quality remain for user review.",
+    "user_quality_acceptance": "pending"
+  }
+}

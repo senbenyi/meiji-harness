@@ -4,6 +4,9 @@ import { withConfig } from '../src/config.js'
 import { buildVideoGraph, loadVideoTemplate } from '../src/workflows/video-graph.js'
 import { validateVideoPlan } from '../src/workflows/video-plan.js'
 import { createWorkflowGenerateVideoTool } from '../src/workflows/workflow-generate-video.js'
+import { collectVideoArtifacts } from '../src/workflows/video-artifacts.js'
+import { ComfyClient } from '../src/functions/comfyui/client.js'
+import { VIDEO_MODES, MODE_MEDIA } from '../src/workflows/video-plan.js'
 
 test('preview is aligned, keeps joint audio and removes all interpolation dependencies', async () => {
   const plan = { profile: 'preview', mode: 't2va', prompt: 'An adult opens a door.' }
@@ -21,6 +24,35 @@ test('preview is aligned, keeps joint audio and removes all interpolation depend
   const standard = await buildVideoGraph({ mode: 't2va', prompt: plan.prompt, profile: 'standard' }, 'shot')
   assert.equal(standard.graph.n126.inputs.frame_rate, 48)
 })
+
+test('regular uses aligned five-second graph, keeps image conditioning and reports its own profile', async () => withConfig({ COMFYUI_URL: 'https://pod.test' }, async () => {
+  const plan = { profile: 'regular', mode: 'i2va', prompt: 'The adult waves.', first_frame: 'https://pod.test/view?filename=anchor.png&type=output' }
+  await validateVideoPlan(plan)
+  const p = await buildVideoGraph(plan, 'shot')
+  assert.deepEqual([p.specification.width, p.specification.height, p.specification.frames, p.specification.fps, p.specification.steps], [576, 768, 124, 24, 8])
+  assert.equal(p.specification.seconds, 124 / 24)
+  assert.deepEqual(p.graph.n105_104.inputs.first_frame, ['preview_image', 0])
+  assert.deepEqual(p.graph.n126.inputs.images, ['n105_10', 0])
+  assert.deepEqual(p.graph.n126.inputs.audio, ['n105_23', 0])
+  assert.equal(p.workflow, undefined)
+  const result = await collectVideoArtifacts(new ComfyClient('https://pod.test'), { outputs: { n126: { gifs: [{ filename: 'final.mp4', type: 'output' }] } } }, p, 'prompt')
+  assert.equal(result.profile, 'regular')
+  for (const args of [{ ...plan, preview_variant: 'low-resolution' }, { profile: 'regular', mode: 'fl2va', prompt: 'x' }]) await assert.rejects(validateVideoPlan(args))
+}))
+
+test('high-quality preserves every original native workflow and legacy standard routing', async () => withConfig({ COMFYUI_URL: 'https://pod.test' }, async () => {
+  for (const mode of VIDEO_MODES) {
+    const plan = { mode, prompt: 'Two adults meet.', ...Object.fromEntries(MODE_MEDIA[mode].map(name => [name, `https://pod.test/view?filename=${name}.png&type=output`])) }
+    await validateVideoPlan({ ...plan, profile: 'high-quality' })
+    const original = await buildVideoGraph(plan, 'shot')
+    assert.deepEqual(await buildVideoGraph({ ...plan, profile: 'standard' }, 'shot'), original)
+    const high = await buildVideoGraph({ ...plan, profile: 'high-quality' }, 'shot')
+    assert.deepEqual(high.graph, original.graph)
+    assert.deepEqual(high.workflow, original.workflow)
+    assert.equal(high.profile, 'high-quality')
+    assert.equal(high.graph.n126.inputs.frame_rate, 48)
+  }
+}))
 
 test('preview I2V uses the existing remote image reference and rejects unsupported modes', async () => withConfig({ COMFYUI_URL: 'https://pod.test' }, async () => {
   const plan = { profile: 'preview', mode: 'i2va', prompt: 'The adult waves.', first_frame: 'https://pod.test/view?filename=anchor.png&type=output&subfolder=preview' }

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "mode": "t2va",
+    "prompt": "一位三十来岁的亚洲男子坐在咖啡馆靠窗的位置，桌上放着一杯冒着热气的咖啡和牛皮纸信封。他低头拿起信封，仔细阅读，然后抬起头露出温暖的微笑，眼神明亮。背景虚化，柔和的自然光从窗户洒进来，咖啡馆里其他顾客模糊可见，环境安静舒适。",
+    "profile": "regular"
+  },
+  "job_id": "07702fdc5a1f9c995def6b5b7eb7193c",
+  "result": {
+    "job_id": "07702fdc5a1f9c995def6b5b7eb7193c",
+    "status": "succeeded",
+    "trace_id": "07702fdc5a1f9c995def6b5b7eb7193c",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "total_ms": 71634
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "b404f85f001a11c3ddef0a2b13a99aadf731fff201c23703f12561aaa4b6431c"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F07702fdc5a1f9c995def6b5b7eb7193c%2Fregular&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F07702fdc5a1f9c995def6b5b7eb7193c%2Fregular&type=output",
+    "media_kind": "video",
+    "mode": "t2va",
+    "server_execution_ms": 61931,
+    "profile": "regular",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 576,
+      "height": 768,
+      "frames": 124,
+      "fps": 24,
+      "seconds": 5.166666666666667,
+      "requested_seconds": 5,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "1f8b342da71ad08d58f59fea6cb77dd762fe7dcff9b427fc48e46ae4eb3133cd",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/07702fdc5a1f9c995def6b5b7eb7193c/regular",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "fullpath": "/workspace/runpod-slim/ComfyUI/output/elysium/07702fdc5a1f9c995def6b5b7eb7193c/regular/final_00001-audio.mp4",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F07702fdc5a1f9c995def6b5b7eb7193c%2Fregular&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "mode": "t2va",
+        "prompt": "一位三十来岁的亚洲男子坐在咖啡馆靠窗的位置，桌上放着一杯冒着热气的咖啡和牛皮纸信封。他低头拿起信封，仔细阅读，然后抬起头露出温暖的微笑，眼神明亮。背景虚化，柔和的自然光从窗户洒进来，咖啡馆里其他顾客模糊可见，环境安静舒适。",
+        "profile": "regular"
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "46724583-c912-4c2b-81b1-1f16c7087200"
+        }
+      ],
+      "diagnostic_path": "/Users/mac/.dsh/elysium/tasks/jobs/07702fdc5a1f9c995def6b5b7eb7193c/diagnostics.json",
+      "log_path": "/Users/mac/.dsh/elysium/tasks/jobs/07702fdc5a1f9c995def6b5b7eb7193c/execution.log"
+    }
+  }
+}

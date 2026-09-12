@@ -62,7 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("shell", "render"))
     parser.add_argument("config", nargs="?", type=Path,
-                        default=Path(__file__).resolve().parents[2] / "app/config/harness-settings.yaml")
+                        default=Path(__file__).resolve().parents[2] / "harness/config/harness-settings.yaml")
     args = parser.parse_args()
     write_harness_settings(args.mode, args.config)
 

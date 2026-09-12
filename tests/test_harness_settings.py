@@ -18,7 +18,7 @@ class HarnessSettingsTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.config = ROOT / "app/config/harness-settings.yaml"
+        self.config = ROOT / "harness/config/harness-settings.yaml"
 
     def output(self, mode, config=None):
         stream = io.StringIO()

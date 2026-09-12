@@ -20,7 +20,7 @@ class DeployPluginTests(unittest.TestCase):
         script = self.root / "app/common/deploy_plugin.sh"
         script.parent.mkdir(parents=True)
         shutil.copyfile(SOURCE / "app/common/deploy_plugin.sh", script)
-        for name in ("app/config/harness-settings.yaml", "app/common/config_loader.py",
+        for name in ("harness/config/harness-settings.yaml", "app/common/config_loader.py",
                      "app/common/start_harness.sh", "dsh-elysium-ui/package.json",
                      "dsh-elysium-tools/package.json"):
             path = self.root / name

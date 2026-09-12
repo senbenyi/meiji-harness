@@ -1,5 +1,5 @@
 import { startVideoJob, resumeVideoJob } from './video-jobs.js'
-import { VIDEO_MODES } from './video-plan.js'
+import { VIDEO_MODES, VIDEO_PROFILES } from './video-plan.js'
 import { renderToolDebug } from '../functions/common/tool.js'
 import { MODEL_TIMEOUTS } from '../jobs/contracts.js'
 import { waitJob } from '../jobs/wait.js'
@@ -12,12 +12,12 @@ const media = description => ({ type: 'string', description: `${description}，�
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '失败或断网时保留原任务，不得通过改提示词重新生成。自动重试耗尽后停止调用，等待用户要求恢复。standard 保留原工作流；preview 用于低分辨率短镜头快速预览，仅支持 t2va、i2va，返回实际规格。',
+    description: '视频创作统一入口：preview 预览创作、regular 常规创作、high-quality 高清创作。失败或断网保留原任务，禁止改提示词或档位重新生成；自动重试耗尽后等待用户要求恢复。standard 是原工作流兼容参数，不是常规创作。',
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     parameters: { type: 'object', additionalProperties: false, required: ['mode', 'prompt'], properties: {
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
-      profile: { type: 'string', enum: ['standard', 'preview'], description: '默认 standard；短剧草稿选择 preview，约 3 秒、384×512，不插帧。' },
+      profile: { type: 'string', enum: VIDEO_PROFILES, description: '技能必须显式选择：preview=384×512约3秒；regular=576×768约5秒，二者8步24fps无插帧且仅支持t2va/i2va；high-quality=原生规格五模式，保留各自采样和RIFE。省略或standard兼容原工作流。高清不表示新增超分。' },
       preview_variant: { type: 'string', enum: ['default', 'low-resolution'], description: '仅用于 preview。省略或 default 保持已验证的 384×512；仅在用户明确选择低分辨率候选时使用 low-resolution（288×384），仍为 73 帧、24fps、8 步。' },
       prompt: { type: 'string', minLength: 1 },
       first_frame: media('I2VA/FL2VA 首帧'),

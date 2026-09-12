@@ -4,6 +4,12 @@ Harness RunPod MiniMax H3 视频生成插件。提供 `t2va`、`i2va`、`fl2va`�
 
 预设模式、部署方式和 Harness 配置见 [项目 README](../README.md)。
 
+## 三档创作入口
+
+Harness 创作 preset 使用 `creation-preview`（预览）、`creation-regular`（常规）、`creation-hd`（高清），旧 `creation-video` 已移除。三者分别调用同一工具的 `profile=preview`、`regular`、`high-quality`。省略 profile 或使用 `standard` 兼容原生规格流程，不等同于新常规档。
+
+完整技能路径、规格、恢复方式与验收见 [三档入口与全链路](../docs/implement/实施-视频创作三档入口与全链路.md)。
+
 ## 短剧快速预览
 
 调用 `workflow_generate_video` 时增加 `profile: "preview"`，支持 `t2va` 或带 `first_frame` 服务器图片 URL 的 `i2va`。当前预览为 H3、384×512、73 帧、24fps、8 步，约 3.04 秒，保留联合音频并跳过 RIFE。省略 profile 或使用 `standard` 恢复原工作流。

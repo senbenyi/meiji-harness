@@ -2,11 +2,12 @@ import { readFile } from 'node:fs/promises'
 import { mediaReference } from '../media/http-media.js'
 
 // A small override of the existing H3 graph; submission/recovery stays shared.
-export async function buildPreviewGraph(plan, jobId, bundle) {
-  const config = JSON.parse(await readFile(new URL('./profiles/preview.json', import.meta.url), 'utf8'))
+export async function buildProfileGraph(plan, jobId, bundle) {
+  const profile = plan.profile === 'regular' ? 'regular' : 'preview'
+  const config = JSON.parse(await readFile(new URL(`./profiles/${profile}.json`, import.meta.url), 'utf8'))
   const lowResolution = plan.preview_variant === 'low-resolution'
   if (lowResolution) Object.assign(config, JSON.parse(await readFile(new URL('./profiles/preview-low-resolution.json', import.meta.url), 'utf8')))
-  const profileName = lowResolution ? 'preview-low-resolution' : 'preview'
+  const profileName = lowResolution ? 'preview-low-resolution' : profile
   const graph = structuredClone(bundle.graph)
   const width = Math.ceil(config.width / 32) * 32, height = Math.ceil(config.height / 32) * 32
   const requestedFrames = Math.max(5, Math.round(config.requested_seconds * config.fps))
@@ -28,7 +29,7 @@ export async function buildPreviewGraph(plan, jobId, bundle) {
   }
   visit('n126')
   return { graph: Object.fromEntries(Object.entries(graph).filter(([id]) => needed.has(id))),
-    mode: plan.mode, workflowName: `${profileName}-${plan.mode}`, outputNode: 'n126', source: bundle.source,
+    profile, mode: plan.mode, workflowName: `${profileName}-${plan.mode}`, outputNode: 'n126', source: bundle.source,
     specification: { backend: config.backend, width, height, frames, fps: config.fps, seconds: frames / config.fps,
       ...(lowResolution ? { preview_variant: 'low-resolution' } : {}),
       requested_seconds: config.requested_seconds, steps: config.steps, audio: 'joint-generation-and-decoding', interpolation: false } }

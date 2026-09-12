@@ -1,5 +1,7 @@
 # AI 短剧快速预览流程
 
+> 当前三档技能入口和完整调用链见 [视频创作三档入口与全链路](实施-视频创作三档入口与全链路.md)。本文保留预览专项验收记录。
+
 2026-09-12 实施并完成有限验收。目标是缩短镜头迭代等待，允许降低规格，不是替代最终制作画质。
 
 ## 结果与样片
@@ -135,7 +137,7 @@ flowchart TD
 ```
 
 - [preview 配置](../../dsh-elysium-tools/src/workflows/profiles/preview.json)：独立小配置，不复制项目或原五套标准图。
-- [预览图构建](../../dsh-elysium-tools/src/workflows/video-preview.js)：复用 T2VA 基础图，I2VA 只增加原生 LoadImage / first_frame；裁掉最终输出不依赖的分支。返回正确 API 图，不附带不匹配的原高清 UI 图。
+- [预览图构建](../../dsh-elysium-tools/src/workflows/video-profile.js)：复用 T2VA 基础图，I2VA 只增加原生 LoadImage / first_frame；裁掉最终输出不依赖的分支。返回正确 API 图，不附带不匹配的原高清 UI 图。
 - [工具入口](../../dsh-elysium-tools/src/workflows/workflow-generate-video.js)及[本机单镜脚本](../../dsh-elysium-tools/scripts/preview-shot.mjs)。
 - 本次可复查的执行图：[镜头 01](implement-drama-preview/acceptance/shot-01.api.json)、[镜头 02](implement-drama-preview/acceptance/shot-02.api.json)、[镜头 03](implement-drama-preview/acceptance/shot-03.api.json)。它们是 API 快照，不是新增的一套独立服务。
 - 原调用链和高清基线仍见 [服务器流程图](../research/调研-H3服务器执行流程与耗时.md)；原性能报告不覆盖、不改写。
