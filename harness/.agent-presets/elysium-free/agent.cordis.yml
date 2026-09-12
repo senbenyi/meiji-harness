@@ -10,6 +10,7 @@
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
   config:
+    agentsHome: !!js process.getBuiltinModule('node:url').fileURLToPath(new URL('../../agents/', baseUrl))
     customSkillDirs:
       - !!js process.getBuiltinModule('node:url').fileURLToPath(new URL('./skills/', baseUrl))
 

@@ -158,3 +158,81 @@ flowchart TD
 5. **替代后端：**H3 已达标，因此没有下载/安装/测试 LTX；不能声称 LTX 兼容性已验证。
 
 本轮到此停止选型和参数扫描，后续可以直接用 preview 推进故事分镜。
+
+
+## 后续提速候选：288×384（2026-09-12，待用户确认）
+
+**默认配置未改变。** `profile: "preview"` 仍为 384×512、73 帧、24fps、8 步、有声、无 RIFE。新增的低分辨率档只能显式选择，画质与动作是否可接受由用户确认后再决定是否设为默认。本轮只新增 **1 次**真实生成，没有用满两次额度，没有缩短时长、换模型、叠加 LoRA、安装框架或扫描参数。
+
+### 为什么没有测试四步
+
+重新核对 [INT8 转换作者说明](https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot)、[Beta3 版本说明](https://huggingface.co/TenStrip/10Eros-Max/blob/d973927444b0ffe18f4c9d9945e2d0ccec04bc29/README.md)和[当前作者说明](https://huggingface.co/TenStrip/10Eros-Max/blob/main/README.md)：Beta3 当时推荐 multires/simple 或 er_sde/simple、6 步；当前四步建议对应后续 Beta5。没有找到当前 Beta3 INT8 权重明确支持四步的版本对应依据。因此四步支持记为“未确认”，不等同于证明四步绝对无法运行；本轮不冒充已支持，也不进行四步试跑，继续原 Euler/simple、8 步。
+
+服务器实际文件仍为 `10Eros_Max_h3_TURBO-hybrid_beta3_int8_convrot_skip_edges.safetensors`，22,513,576,472 字节；头部元数据只说明 H3 LoRA merge，不能证明四步支持或准确融合比例。
+
+### 本次怎么比较
+
+复用用户任务 `6e050097ab7b37578357ff0e111dc53d` 的中文咖啡馆提示词、种子 `833238321491842`、模型、73 帧、24fps、8 步、音频及全部补丁。执行图比对确认只改变宽高和输出保存位置。服务器节点要求宽高为 32 的倍数，288×384 符合约束；可执行不等于低规格位于模型的典型训练分布内。
+
+| 项目 | 已验证默认档 | 本次可选低分辨率档 |
+|---|---:|---:|
+| 尺寸 | 384×512 | 288×384 |
+| 帧数 / 帧率 / 时长 / 步数 | 73 / 24fps / 3.041667 秒 / 8 | 相同 |
+| 服务器执行 | 29.112 秒 | **19.354 秒** |
+| 本机插件任务链 | 33.123 秒 | **34.938 秒** |
+| 服务器计时外的任务链耗时 | 4.011 秒 | 15.584 秒 |
+| 结果 | 已验证，继续保留 | 生成成功，待用户判断画质和动作 |
+
+本次服务器比历史记录少 9.758 秒，约 **33.5%**，但本机任务链多 1.815 秒，**不能宣称本次用户等待时间也缩短了**。根据两端时间戳，候选约 12.252 秒发生在服务器开始前，3.332 秒发生在服务器完成后；前者包含本机准备、节点校验、请求传输和可能的排队，后者包含轮询及回收。这些子项未分别计时，不能直接把全部差值归为网络抖动。
+
+这不是同期交替对照，不能把单次差值当成可保证的收益。候选执行期间采集到的 GPU 功率上限为 310W；历史 29.1 秒任务没有对应功率记录。两次都复用了部分 Loader 对象，候选的条件编码 `n105_104` 和采样 `n105_14` 均未命中缓存，没有为了绕过缓存修改提示词或种子。
+
+### 本次阶段耗时
+
+| 阶段 | 节点 | 约耗时 |
+|---|---|---:|
+| 文本条件编码与初始 latent 准备 | `n105_104` | 5.631 秒 |
+| 引导器准备 | `n105_16` | 0.001 秒 |
+| 视频与音频联合采样，含原补丁及重放 | `n105_14` | **7.859 秒** |
+| 音频 VAE 解码 | `n105_23` | 0.439 秒 |
+| 视频 VAE 解码 | `n105_10` | **4.937 秒** |
+| MP4 编码封装至服务器完成 | `n126` | 0.480 秒 |
+
+总时间取 ComfyUI history 的 `execution_start` 至 `execution_success`；节点时间取服务器本机 WebSocket 相邻 `executing` 事件接收时间，最后一个节点以 history 成功时间收尾，因此是含回调、加载和调度的近似墙钟时间，不是纯 GPU 内核计时。另有约 0.006 秒初始开销和舍入差异。本次联合采样约占总耗时 40.6%，不能沿用旧高清流程的 81.5%，也不能据此倒推出历史 29.1 秒任务的阶段比例。
+
+### 视频与观察结果
+
+- [播放低分辨率候选](https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Ff84e7f9938450877a83754e7b63e25b4%2Fpreview-low-resolution&type=output)。
+- [播放原 384×512 对照视频](https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F6e050097ab7b37578357ff0e111dc53d%2Fpreview&type=output)。
+- 候选任务 ID：`f84e7f9938450877a83754e7b63e25b4`；ComfyUI prompt ID：`4b81a04d-33f8-42f0-aedf-dd869f0e9829`。
+- 服务器 ffprobe 确认 288×384、73 帧、24fps、3.041667 秒及 AAC 音轨；完整解码通过，浏览器播放至结束。
+- 检查第 0、18、36、54、72 帧，能看到拿起信封、低头看、抬头微笑，人物和场景可辨认。观察到手指细节偏软；信封仍封着，没有表现出取出信纸阅读。这些是候选自身观察，未做同帧画质评分。
+- 音轨不是全静音，均值约 -41.5dB、峰值约 -8.7dB；文件可解码不等于听感合格。主观音质、噪声和同步效果由用户播放确认，本轮未声称听感验收通过。
+
+### 如何选择与恢复
+
+在 Harness 中明确要求“使用低分辨率候选预览，288×384，保持三秒”。工具参数为：
+
+```json
+{
+  "profile": "preview",
+  "preview_variant": "low-resolution",
+  "mode": "t2va",
+  "prompt": "你的镜头描述"
+}
+```
+
+省略 `preview_variant` 或设为 `default` 即回到已验证的 384×512 预览；省略 `profile` 则回到原 standard 工作流。候选也沿用原 I2VA 图构建入口，但本轮只实测了 T2VA，不能把本次结果视为低分辨率 I2VA 的实测证明。失败继续恢复原 `job_id`，不能通过改档位给原失败任务重新建视频。
+
+低分辨率覆盖值在 [preview-low-resolution.json](../../dsh-elysium-tools/src/workflows/profiles/preview-low-resolution.json)，只设置宽高，其他设置继承原 preview。工具 schema 已增加显式选项，返回规格包含 `preview_variant`；默认调用结果保持原样。
+
+本轮附件与前三镜验收分开，位于 `docs/implement/implement-drama-preview/candidate-low-resolution/`：
+
+| 文件 | 用途 |
+|---|---|
+| [request.json](implement-drama-preview/candidate-low-resolution/request.json) | 本次候选提示词和所选档位 |
+| [workflow.api.json](implement-drama-preview/candidate-low-resolution/workflow.api.json) | 实际候选节点图，便于核对只改了宽高 |
+| [receipt.json](implement-drama-preview/candidate-low-resolution/receipt.json) | 原任务 ID 和生成结果，恢复时使用 |
+| [measurement.json](implement-drama-preview/candidate-low-resolution/measurement.json) | 本次耗时、原始节点事件、媒体规格、缓存状态和观察结论 |
+
+修改前备份位于 `/Users/mac/.dsh/backups/preview-candidate-20260912-130107/`，含原文件校验值和 29.1 秒任务证据。原 `preview.json` 内容未改。67 项 JavaScript 测试及 2 项工作流 Python 测试通过；构建和 registry 打包通过，已安装 registry 的 schema 与默认/候选图构建均核验。检查结束时本机 Harness 已由另一处在打包后启动，HTTP 返回预期的未登录 401，本轮没有启动重复实例；候选自然语言选参未另行实测。未新增第二次生成，未改变默认值，后续等待用户对候选效果的判断。
