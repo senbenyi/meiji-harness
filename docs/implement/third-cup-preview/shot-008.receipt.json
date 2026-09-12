@@ -1,0 +1,9 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "i2va",
+    "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. An intimate ordinary East Asian cafe with warm amber lamps, a rainy large window, a small wooden table and plain ceramic coffee cups. No people visible. Rain runs down the window behind the two coffee cups; steam rises gently from one cup. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+    "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=scene_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  "job_id": "4f8880d4393aa92755e77c3126b0565c"
+}
