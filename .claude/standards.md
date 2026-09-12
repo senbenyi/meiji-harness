@@ -4,13 +4,16 @@
 
 ## 1. 插件结构
 
-两个插件（dsh-elysium-tools、dsh-elysium-ui）完全独立，不允许交叉依赖。
+项目仅包含 dsh-elysium-tools 插件。
 
 ```
-dsh-elysium-{name}/
+dsh-elysium-tools/
 ├── src/                # 源代码
 │   ├── index.js        # 插件入口，导出 name / inject / apply
-│   └── client/         # 客户端组件（React）
+│   ├── http/           # 媒体查询、下载代理与分镜 CRUD
+│   └── client/         # React.createElement，无 JSX
+│       ├── media/      # 媒体卡片
+│       └── panel/      # 资产侧栏与分镜管理
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
 │   ├── client-source.mjs # 客户端模块拼接
@@ -27,7 +30,9 @@ dsh-elysium-{name}/
 **规则**：
 - 构建脚本目录统一命名为 `scripts/`。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
-- 新增客户端模块后须同步更新 `client-source.mjs` 的模块列表。
+- 新增客户端模块（含 `panel/`）后须同步更新 `scripts/client-source.mjs` 的模块列表，依赖在前、`index.js` 最后。
+- `panel/` 使用 `load(name, (require, exports) => { ... })` 定义模块；拼接脚本适配宿主的 `{ id, factory }` 注册格式，不引入 bundler。
+- 媒体及分镜端点共用注入 token，客户端通过 `mediaUrl()` 构建带凭据的 URL。用户下载流式代理上游，不保存媒体文件；分镜 JSON 使用临时文件加 rename 原子写入。
 
 ## 2. 预设结构
 
@@ -71,14 +76,12 @@ harness/deploy.sh          # 服务器部署（需 root）
 ## 4. 测试
 
 ```
-tests/                     # 项目级测试（跨插件、部署、配置）
+tests/                     # 项目级测试（部署、配置、预设）
 dsh-elysium-tools/tests/   # 工具插件单元测试
-dsh-elysium-ui/tests/      # UI 插件单元测试
 ```
 
 **规则**：
 - Node.js 测试用 `node --test`，Python 测试用 `unittest`。
-- 项目级测试包含 `plugin-independence.test.mjs`，验证两个插件的独立性。
 - 新增工具/功能必须有对应测试。
 
 ## 5. 铁律

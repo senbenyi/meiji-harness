@@ -26,7 +26,7 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials'])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', ...['list', 'get', 'create', 'update', 'delete'].map(suffix => `/plugins/dsh-elysium/storyboard/${suffix}`)])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
@@ -68,6 +68,7 @@ test('authenticated media routes redirect HTTP URLs and never serve local files'
     assert.equal((await (await fetch(base + '/credentials', { headers })).json()).token, 't')
     assert.equal((await get('/status', { method: 'POST' })).status, 405)
     assert.equal((await get('/video')).status, 404)
+    assert.equal((await fetch(base + '/download?t=t&session=missing&call=missing')).status, 404)
     for (const kind of ['image', 'video']) {
       const url = `https://comfy.test/view?filename=final.${kind === 'image' ? 'png' : 'mp4'}&type=output`
       job = { ...job, status: 'succeeded', result: { media_kind: kind, comfyui_view_url: url } }
@@ -87,4 +88,27 @@ test('authenticated media routes redirect HTTP URLs and never serve local files'
     job.result.comfyui_view_url = 'file:///etc/hosts'
     assert.equal((await get('/video')).status, 403)
   } finally { await new Promise(resolve => server.close(resolve)) }
+})
+
+test('download proxies bytes with attachment headers and rejects upstream failure', async () => {
+  let status = 200
+  const upstream = createServer((req, res) => { res.writeHead(status, { 'Content-Type': 'video/mp4', 'Content-Length': '5' }); res.end('video') })
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
+  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
+  const server = createServer(createMediaHandler({ token: 't', findCall: async () => job.job_id, readJob: async () => job }))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const url = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media/download?session=s&call=c&t=t`
+  try {
+    const response = await fetch(url)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('location'), null)
+    assert.match(response.headers.get('content-disposition'), /attachment; filename="elysium-.*\.mp4"/)
+    assert.equal(await response.text(), 'video')
+    assert.equal((await fetch(url, { method: 'HEAD' })).headers.get('content-length'), '5')
+    assert.equal((await fetch(url.replace('t=t', 't=bad'))).status, 401)
+    status = 500
+    assert.equal((await fetch(url)).status, 502)
+    job.status = 'running'
+    assert.equal((await fetch(url)).status, 404)
+  } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
 })

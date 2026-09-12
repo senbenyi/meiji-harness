@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
-[[ "$#" -eq 1 && ( "$1" == tools || "$1" == ui ) ]] || fail 'Usage: deploy_plugin.sh tools|ui'
+[[ "$#" -eq 1 && "$1" == tools ]] || fail 'Usage: deploy_plugin.sh tools'
 kind="$1"
 for command_name in node pnpm dsh lsof ps curl python3; do
   command -v "$command_name" >/dev/null || fail "本机缺少命令：$command_name"

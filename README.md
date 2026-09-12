@@ -5,8 +5,7 @@ DeepSeek Harness 插件、Agent 预设与部署脚本。
 ## 项目结构
 
 ```
-dsh-elysium-tools/          工具插件：视频生成、任务查询、媒体卡片
-dsh-elysium-ui/             UI 插件：导演设置页面与提示词读取
+dsh-elysium-tools/          工具插件：视频生成、媒体卡片、资产面板、分镜管理
 harness/                    部署与运行时配置
   ├── .agent-presets/       四套 Agent 预设
   ├── config/               Harness 设置、启动与隧道配置
@@ -21,7 +20,16 @@ tests/                      单元测试
 ## 插件
 
 - **[dsh-elysium-tools](./dsh-elysium-tools/README.md)** — MiniMax H3 视频生成工具，提供 `t2va`、`i2va`、`fl2va`、`fl2va-loop`、`r2va` 五种模式及任务恢复。
-- **[dsh-elysium-ui](./dsh-elysium-ui/README.md)** — 独立导演设置界面，不依赖工具插件。
+
+## 下载、资产与分镜
+
+视频卡片加载完成后，标题行可点击下载按钮。文件由本机服务流式代理，浏览器不必直连内网 ComfyUI；插件不落盘媒体文件。
+
+右上角“资产面板”可展开或收起右侧栏，默认宽度为窗口的 10%（至少 180px），拖拽左边缘可调宽，面板状态随浏览器保存。资产页按最近完成时间列出成功任务，支持滚动加载和下载。
+
+“分镜”页可新建、删除分镜，编辑标题、镜头名称、提示词和备注，关联任务 ID、设置状态，并上移、下移、替换或移除镜头。文字编辑失焦时保存；按钮操作立即保存。导演提示词直接维护在 `harness/.agent-presets/elysium-director/persona.md`。
+
+接口、存储与验收说明见 [产品闭环修复实施记录](docs/implement/实施-产品闭环修复.md)。
 
 ## 预设模式
 
@@ -51,9 +59,6 @@ teaching/free/director 的 `agent.cordis.yml` 均通过符号链接指向 `_base
 ```sh
 # 部署工具插件（跳过 ComfyUI 检查）
 SKIP_COMFYUI_CHECK=1 bash app/common/deploy_plugin.sh tools
-
-# 部署 UI 插件
-bash app/common/deploy_plugin.sh ui
 
 # 启动/重启/停止 Harness
 SKIP_COMFYUI_CHECK=1 bash app/common/start_harness.sh --restart

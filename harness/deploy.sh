@@ -32,7 +32,6 @@ done
 rendered_settings="$(python3 "$CONFIG_LOADER" render "$HARNESS_ROOT/config/settings.yaml")"
 for path in \
   "$PACKAGE_ROOT/dsh-elysium-tools/package.json" \
-  "$PACKAGE_ROOT/dsh-elysium-ui/package.json" \
   "$HARNESS_ROOT/config/profile.patch.yml" \
   "$HARNESS_ROOT/config/operator-agent.cordis.yml" \
   "$HARNESS_ROOT/config/operator-security.patch.yml" \
@@ -107,12 +106,10 @@ if [[ "$installed_proxy_version" != "$HTTP_PROXY_VERSION" ]]; then
   npm install --prefix "$APP_ROOT" --save-exact "http-proxy@$HTTP_PROXY_VERSION"
 fi
 export PATH="$APP_ROOT/node_modules/.bin:$PATH"
-(cd "$PACKAGE_ROOT/dsh-elysium-ui" && pnpm install --prod --frozen-lockfile --ignore-scripts)
 install -m 0640 "$HARNESS_ROOT/config/proxy.mjs" "$APP_ROOT/proxy.mjs"
 
 readonly DSH_BIN="$APP_ROOT/node_modules/.bin/dsh"
 "$DSH_BIN" plugin --profile web add --workspace-root "$PACKAGE_ROOT/dsh-elysium-tools"
-"$DSH_BIN" plugin --profile web add --workspace-root "$PACKAGE_ROOT/dsh-elysium-ui"
 install -m 0640 "$HARNESS_ROOT/config/profile.patch.yml" "$HOME_ROOT/profiles/web/cordis.patch.yml"
 (umask 027; printf '%s\n' "$rendered_settings" > "$HOME_ROOT/settings.yaml")
 chmod 0640 "$HOME_ROOT/settings.yaml"

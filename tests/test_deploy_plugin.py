@@ -21,7 +21,7 @@ class DeployPluginTests(unittest.TestCase):
         script.parent.mkdir(parents=True)
         shutil.copyfile(SOURCE / "app/common/deploy_plugin.sh", script)
         for name in ("harness/config/settings.yaml", "app/common/config_loader.py",
-                     "app/common/start_harness.sh", "dsh-elysium-ui/package.json",
+                     "app/common/start_harness.sh",
                      "dsh-elysium-tools/package.json"):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -32,7 +32,7 @@ class DeployPluginTests(unittest.TestCase):
         self.mock("pnpm", 'echo "pnpm $PWD $*" >> "$DEPLOY_TEST_LOG"; [[ "${FAIL_TESTS:-}" != 1 || "$1" != test ]]')
         self.mock("dsh", '''echo "dsh $*" >> "$DEPLOY_TEST_LOG"
 mkdir -p "$DEPLOY_TEST_ROOT/home/profiles/web"
-printf '%s' '{"dependencies":{"@dsh-external/dsh-elysium-tools":"link:x","@dsh-external/dsh-elysium-ui":"link:y"},"dsh":{"profile":{"bundles":["@dsh-external/dsh-elysium-tools","@dsh-external/dsh-elysium-ui"]}}}' > "$DEPLOY_TEST_ROOT/home/profiles/web/package.json"''')
+printf '%s' '{"dependencies":{"@dsh-external/dsh-elysium-tools":"link:x"},"dsh":{"profile":{"bundles":["@dsh-external/dsh-elysium-tools"]}}}' > "$DEPLOY_TEST_ROOT/home/profiles/web/package.json"''')
         for name in ("lsof", "ps", "curl"):
             self.mock(name, "exit 0")
         self.env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
@@ -54,8 +54,8 @@ printf '%s' '{"dependencies":{"@dsh-external/dsh-elysium-tools":"link:x","@dsh-e
         return subprocess.run(["bash", str(self.root / "app/common/deploy_plugin.sh"), kind, *args],
                               env=self.env, capture_output=True, text=True)
 
-    def test_both_plugins_build_register_locally_and_restart_local_harness(self):
-        for kind in ("tools", "ui"):
+    def test_tools_plugin_build_register_locally_and_restart_local_harness(self):
+        for kind in ("tools",):
             with self.subTest(kind=kind):
                 self.log.write_text("")
                 result = self.run_deploy(kind)

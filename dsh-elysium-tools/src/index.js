@@ -7,6 +7,7 @@ import { createComfyuiTaskStatusTool } from './functions/comfyui/task-status.js'
 import { createComfyuiTaskResultTool } from './functions/comfyui/task-result.js'
 import { createComfyuiTaskCancelTool } from './functions/comfyui/task-cancel.js'
 import { createToolDiscoveryTool, projectTools } from './tool-discovery.js'
+import { registerStoryboardRoutes } from './http/storyboard.js'
 import { registerMediaRoutes } from './http/media-jobs.js'
 import { creationInstructions } from './creation-instructions.js'
 
@@ -23,7 +24,10 @@ export function createComfyuiTools() {
 
 export function apply(ctx, config = {}) {
   const runtime = resolveConfig(config)
-  ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => registerMediaRoutes(mediaContext, runtime)))
+  ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
+    const token = registerMediaRoutes(mediaContext, runtime)
+    registerStoryboardRoutes(mediaContext, runtime, token)
+  }))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = projectTools(await next(), context.agent)
     return { ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),

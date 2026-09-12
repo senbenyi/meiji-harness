@@ -56,7 +56,7 @@ test('same card progresses to playable result and stops polling', async () => {
     assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
     assert.equal(video.props.controls, false)
     assert.ok(!video.props.src.includes('3080'))
-    assert.equal(f.view.root.findAllByType('a').length, 0)
+    assert.match(f.view.root.findByProps({ 'aria-label': '下载视频' }).props.href, /media\/download\?/)
     assert.equal(f.timers.size, 0)
     assert.doesNotMatch(JSON.stringify(f.view.toJSON()), /文件与规格检查通过|人工验收/)
     assert.equal(f.requests.length, 2)

@@ -63,7 +63,7 @@ window.__ModuleLoader__.load({
       const loading = !video && !error && ['pending', 'queued', 'running'].includes(job.status)
       const busy = loading || (video && !mediaReady && !playbackError)
       const icon = name => h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: name === 'play' ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
-        h('path', { d: { play: 'M9 5 19 12 9 19Z', expand: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5', close: 'm6 6 12 12M18 6 6 18' }[name] }))
+        h('path', { d: { download: 'M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2', play: 'M9 5 19 12 9 19Z', expand: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5', close: 'm6 6 12 12M18 6 6 18' }[name] }))
       return h('section', { 'aria-label': `${title}任务`, className: 'elysium-card', style: { maxWidth: height > width ? 300 : 560 } },
         h('div', { className: 'elysium-preview', style: { aspectRatio: `${width} / ${height}` } },
           video ? h('video', { key: video + attempt, src: video,
@@ -89,7 +89,8 @@ window.__ModuleLoader__.load({
           video && mediaReady ? h('button', { className: 'elysium-control elysium-play', 'aria-label': '播放视频', onClick: () => setExpanded(true) }, icon('play')) : null,
           video ? h('button', { className: 'elysium-control elysium-expand', 'aria-label': '放大查看', title: '放大查看', onClick: () => setExpanded(true) }, icon('expand')) : null),
         h('div', { className: 'elysium-info' },
-          h('div', { className: 'elysium-heading' }, h('strong', null, ordinal ? `${title} ${String(ordinal).padStart(2, '0')}` : title)),
+          h('div', { className: 'elysium-heading' }, h('strong', null, ordinal ? `${title} ${String(ordinal).padStart(2, '0')}` : title),
+            video && mediaReady ? h('a', { href: mediaUrl('download', sessionId, callId), download: '', className: 'elysium-download', 'aria-label': '下载视频', title: '下载视频' }, icon('download')) : null),
           h('div', { className: 'elysium-meta' },
             info ? h('span', null, `${info.duration_seconds} 秒 · ${info.width} × ${info.height} · ${info.frame_rate} fps`) : null,
             h('details', { className: 'elysium-details' }, h('summary', null, '详情'),
@@ -103,7 +104,7 @@ window.__ModuleLoader__.load({
         expanded && video ? h('dialog', { ref: dialog, className: 'elysium-dialog', 'aria-label': '视频预览', onClose: () => setExpanded(false),
           onClick: event => { if (event.target === event.currentTarget) setExpanded(false) } },
           h('button', { autoFocus: true, className: 'elysium-control elysium-close', 'aria-label': '关闭', onClick: () => setExpanded(false) }, icon('close')),
-          h('video', { src: video, controls: true, controlsList: 'nodownload', autoPlay: true })) : null)
+          h('video', { src: video, controls: true, autoPlay: true })) : null)
     }
     return { MediaTaskCard, apply(ctx) {
       require('elysium-tools/media-styles').apply()

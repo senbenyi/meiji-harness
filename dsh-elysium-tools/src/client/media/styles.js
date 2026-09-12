@@ -7,6 +7,8 @@ window.__ModuleLoader__.load({
       const style = document.createElement('style')
       style.id = id
       style.textContent = `
+.elysium-download { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--media-muted); cursor: pointer; text-decoration: none; }
+.elysium-download:hover { color: var(--dsw-alias-label-primary, #fff); }
 .elysium-card { --media-muted: var(--dsw-alias-label-secondary, #a3a3a3); box-sizing: border-box; width: 100%; margin: 8px 0; padding: 8px; border: 1px solid var(--dsw-alias-border-l2, #ffffff1a); border-radius: 16px; color: var(--dsw-alias-label-primary, inherit); font: inherit; font-size: 13px; line-height: 1.5; }
 .elysium-preview { position: relative; overflow: hidden; border-radius: 10px; background: var(--dsw-alias-interactive-bg-hover, #8881); }
 .elysium-preview > video, .elysium-preview > img { display: block; width: 100%; height: 100%; object-fit: contain; }
