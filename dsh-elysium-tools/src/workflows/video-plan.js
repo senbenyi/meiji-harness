@@ -21,7 +21,7 @@ export async function validateVideoPlan(args) {
   if (args.profile !== undefined && !VIDEO_PROFILES.includes(args.profile)) throw invalid(`profile 仅支持 ${VIDEO_PROFILES.join('、')}`)
   if (['preview', 'regular'].includes(args.profile) && !['t2va', 'i2va'].includes(args.mode)) throw invalid(`${args.profile} 仅支持 t2va、i2va`)
   if (args.preview_variant !== undefined && (args.profile !== 'preview' || !['default', 'low-resolution'].includes(args.preview_variant))) throw invalid('preview_variant 仅用于 preview，支持 default、low-resolution')
-  if (args.duration_seconds !== undefined && (args.profile !== 'regular' || !Number.isFinite(args.duration_seconds) || args.duration_seconds <= 0 || args.duration_seconds > 15)) throw invalid('duration_seconds 仅用于 regular，必须大于 0 且不超过 15 秒')
+  if (args.duration_seconds !== undefined && (args.profile !== 'regular' || !Number.isFinite(args.duration_seconds) || args.duration_seconds <= 0)) throw invalid('duration_seconds 仅用于 regular，必须为大于 0 的有限数值；生成帧数范围由 H3 节点校验')
   const allowed = new Set(['mode', 'prompt', 'profile', 'preview_variant', 'duration_seconds', ...required])
   if (Object.keys(args).some(key => !allowed.has(key))) throw invalid(`${args.mode} 包含未支持参数`)
   for (const name of required) {

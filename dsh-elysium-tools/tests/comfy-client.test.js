@@ -74,6 +74,34 @@ test('validation catches incompatible socket types before submission', async () 
     b: { class_type: 'Sink', inputs: { audio: ['a', 0] } } }), /连线类型不匹配/)
 })
 
+test('one slow schema does not block the other three channels from checking later types', async () => {
+  const client = new ComfyClient('http://example.invalid'), seen = []
+  let release
+  const slow = new Promise(resolve => { release = resolve })
+  client.request = async route => {
+    const type = route.split('/')[1]
+    seen.push(type)
+    if (type === 'Type0') await slow
+    return { [type]: { input: {}, output: [] } }
+  }
+  const graph = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [String(i), { class_type: `Type${i}`, inputs: {} }]))
+  const validation = client.validate(graph)
+  try {
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(seen.length, 10)
+  } finally { release(); await validation }
+})
+
+test('completed history returns without queue requests or another polling sleep', async () => {
+  const client = new ComfyClient('http://example.invalid')
+  client.request = async route => {
+    assert.equal(route, 'history/done')
+    return { done: { status: { completed: true } } }
+  }
+  await client.wait('done', 1000)
+  assert.ok(!Object.keys(client.timing.snapshot().stages).some(key => key.startsWith('poll.sleep.')))
+})
+
 test('wait distinguishes queue stages and tolerates a completion snapshot race', async () => {
   const client = new ComfyClient('http://example.invalid'), stages = []
   let histories = 0

@@ -8,7 +8,7 @@ export async function codeVersion() {
   // Keep this explicit list aligned with every workflows/jobs module that participates in execution.
   const names = ['tool.js', 'diagnostics.js', '../comfyui/client.js', '../../config.js',
     ...['contracts.js', 'create.js', 'json.js', 'launch.js', 'launch-lock.py', 'query.js', 'wait.js',
-      'comfy-submission.js', 'call-index.js', 'worker-owner.js'].map(name => `../../jobs/${name}`),
+      'comfy-submission.js', 'call-index.js', 'worker-owner.js', 'timing.js'].map(name => `../../jobs/${name}`),
     '../../media/http-media.js',
     ...['comfy-execution', 'video-plan', 'video-jobs', 'video-worker', 'video-graph',
       'video-execution', 'video-artifacts', 'workflow-generate-video', 'index'].map(name => `../../workflows/${name}.js`),

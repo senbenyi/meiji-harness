@@ -7,7 +7,7 @@ export async function prepareComfyWorkflow(directory, client, plan, prepare) {
   let prepared = await readJson(path)
   if (!prepared) {
     prepared = await prepare()
-    await client.validate(prepared.graph)
+    await client.timing.measure('prepare.validate', () => client.validate(prepared.graph))
     await saveJson(path, prepared)
   }
   if (JSON.stringify(prepared.plan) !== JSON.stringify(plan) || prepared.server_url !== client.url.href) {
@@ -23,19 +23,19 @@ export async function runComfyWorkflow(directory, client, prepared, status, time
   status.stage = 'submit'
   await saveJson(statusPath, status)
   const resume = await readJson(join(directory, 'resume-request.json'))
-  const promptId = await client.submit(prepared.graph, status.job_id,
-    join(directory, 'comfyui-submission.json'), resume?.retry_failed === true, prepared.workflow)
+  const promptId = await client.timing.measure('submit', () => client.submit(prepared.graph, status.job_id,
+    join(directory, 'comfyui-submission.json'), resume?.retry_failed === true, prepared.workflow))
   await saveJson(join(directory, 'resume-request.json'), { retry_failed: false })
   status.comfyui_prompt_id = promptId
   status.debug?.chain?.push({ stage: 'comfyui-submitted', server_url: client.url.href, prompt_id: promptId })
   status.stage = 'execute'
   await saveJson(statusPath, status)
-  const history = await client.wait(promptId, timeoutMs, async (_, stage) => {
+  const history = await client.timing.measure('wait.history', () => client.wait(promptId, timeoutMs, async (_, stage) => {
     if (status.stage !== stage) {
       status.stage = stage
       await saveJson(statusPath, status)
     }
-  }).catch(async error => {
+  })).catch(async error => {
     if (error.history) await saveJson(join(directory, 'comfyui-history.json'), error.history)
     throw error
   })

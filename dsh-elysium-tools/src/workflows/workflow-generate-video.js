@@ -3,6 +3,7 @@ import { VIDEO_MODES, VIDEO_PROFILES } from './video-plan.js'
 import { renderToolDebug } from '../functions/common/tool.js'
 import { MODEL_TIMEOUTS } from '../jobs/contracts.js'
 import { waitJob } from '../jobs/wait.js'
+import { createTiming } from '../jobs/timing.js'
 
 export { waitJob as waitVideoJob } from '../jobs/wait.js'
 
@@ -17,8 +18,8 @@ export function createWorkflowGenerateVideoTool() {
     parameters: { type: 'object', additionalProperties: false, required: ['mode', 'prompt'], properties: {
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
-      profile: { type: 'string', enum: VIDEO_PROFILES, description: '必须显式选择：preview=384×512约3秒；regular=576×768单次最长约15秒，默认5秒，可传duration_seconds，二者8步24fps无插帧且仅支持t2va/i2va；high-quality=原生规格五模式，保留各自采样和RIFE。省略或standard兼容原工作流。高清不表示新增超分。' },
-      duration_seconds: { type: 'number', exclusiveMinimum: 0, maximum: 15, description: '仅用于 regular，单次生成的请求时长（秒），默认5秒，最长15秒；不要自动拆分拼接。按H3帧数对齐，15秒请求实际约15.08秒，结果返回实际时长。' },
+      profile: { type: 'string', enum: VIDEO_PROFILES, description: '必须显式选择：preview=384×512约3秒；regular=576×768单次生成，默认5秒，时长遵循H3节点范围，可传duration_seconds，二者8步24fps无插帧且仅支持t2va/i2va；high-quality=原生规格五模式，保留各自采样和RIFE。省略或standard兼容原工作流。高清不表示新增超分。' },
+      duration_seconds: { type: 'number', exclusiveMinimum: 0, description: '仅用于 regular，单次生成的请求时长（秒），默认5秒；按当前H3节点的帧数上下限校验，不额外硬卡15秒，不自动拆分拼接。训练范围约5–15秒，更长未测试，不主动延长。按H3帧数对齐，15秒请求实际约15.08秒，结果返回实际时长。' },
       preview_variant: { type: 'string', enum: ['default', 'low-resolution'], description: '仅用于 preview。省略或 default 保持已验证的 384×512；仅在用户明确选择低分辨率候选时使用 low-resolution（288×384），仍为 73 帧、24fps、8 步。' },
       prompt: { type: 'string', minLength: 1 },
       first_frame: media('I2VA/FL2VA 首帧'),
@@ -27,8 +28,11 @@ export function createWorkflowGenerateVideoTool() {
       reference_image_2: media('R2VA 第二张参考图'),
     } }, output,
     execute: async (args, exec) => {
+      const timing = createTiming()
       exec?.signal?.throwIfAborted()
-      return waitJob(await startVideoJob(args, exec), exec?.signal)
+      const job = await timing.measure('job.start', () => startVideoJob(args, exec))
+      const result = await timing.measure('job.wait', () => waitJob(job, exec?.signal, undefined, undefined, timing))
+      return { ...result, tool_timings: timing.snapshot() }
     },
   }
 }
@@ -38,7 +42,10 @@ export function createWorkflowResumeVideoTool() {
     parameters: { type: 'object', additionalProperties: false, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000, output,
     execute: async (args, exec) => {
+      const timing = createTiming()
       exec?.signal?.throwIfAborted()
-      return waitJob(await resumeVideoJob(args.job_id, exec), exec?.signal)
+      const job = await timing.measure('job.resume', () => resumeVideoJob(args.job_id, exec))
+      const result = await timing.measure('job.wait', () => waitJob(job, exec?.signal, undefined, undefined, timing))
+      return { ...result, tool_timings: timing.snapshot() }
     } }
 }

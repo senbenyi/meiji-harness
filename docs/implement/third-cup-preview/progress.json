@@ -1,7 +1,8 @@
 {
-  "completed": 7,
+  "completed": 31,
+  "checked_shot": 31,
   "total": 120,
-  "last_job_id": "2f5265f63bbc4bdbcb6de1a6823c99af",
-  "updated_at": "2026-09-12T06:10:02.331Z",
-  "run_elapsed_ms": 123460
+  "last_job_id": "13e230c3880edae7a8ecbc2820354feb",
+  "updated_at": "2026-09-12T06:23:50.483Z",
+  "run_elapsed_ms": 690311
 }

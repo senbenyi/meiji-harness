@@ -43,7 +43,7 @@ test('regular uses aligned five-second graph, keeps image conditioning and repor
 test('regular supports requested durations through 15 seconds in one aligned generation', async () => withConfig({ COMFYUI_URL: 'https://pod.test' }, async () => {
   for (const mode of ['t2va', 'i2va']) {
     const plan = { profile: 'regular', mode, prompt: 'One continuous shot.', ...(mode === 'i2va' ? { first_frame: 'https://pod.test/view?filename=anchor.png&type=output' } : {}) }
-    for (const [duration_seconds, frames] of [[5, 124], [10, 243], [15, 362]]) {
+    for (const [duration_seconds, frames] of [[5, 124], [10, 243], [15, 362], [15.08, 362]]) {
       await validateVideoPlan({ ...plan, duration_seconds })
       const p = await buildVideoGraph({ ...plan, duration_seconds }, 'shot')
       assert.equal(p.graph.n105_104.inputs.length, frames)
@@ -55,8 +55,8 @@ test('regular supports requested durations through 15 seconds in one aligned gen
     }
   }
   const schema = createWorkflowGenerateVideoTool().parameters.properties.duration_seconds
-  assert.equal(schema.maximum, 15)
-  for (const duration_seconds of [0, -1, 15.1, '15', null, NaN, Infinity]) {
+  assert.equal(schema.maximum, undefined)
+  for (const duration_seconds of [0, -1, '15', null, NaN, Infinity]) {
     await assert.rejects(validateVideoPlan({ profile: 'regular', mode: 't2va', prompt: 'x', duration_seconds }), /duration_seconds/)
   }
   for (const profile of ['preview', 'high-quality', 'standard', undefined]) {

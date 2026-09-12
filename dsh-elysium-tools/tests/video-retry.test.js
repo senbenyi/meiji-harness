@@ -42,6 +42,9 @@ test('prepare, lost POST response and polling recover inside one job with exactl
   assert.equal(result.result.comfyui_prompt_id, 'original')
   assert.equal(posts, 1)
   assert.deepEqual(delays, [2000, 4000, 8000, 16000])
+  assert.equal(result.timings.clock, 'performance.now')
+  assert.equal(result.timings.stages['reconnect.backoff'].count, 4)
+  assert.equal(result.timings.stages['prepare.validate'].failed, 2)
   assert.deepEqual(await readdir(join(root, 'jobs')), [id])
 }))
 
@@ -55,6 +58,7 @@ test('persistent outage stops after five retries without submission or new jobs'
   assert.equal(attempts, 6)
   assert.deepEqual(delays, [2000, 4000, 8000, 16000, 30000])
   assert.equal(status.status, 'failed')
+  assert.equal(status.timings.stages['reconnect.backoff'].count, 5)
   assert.match(status.recovery_instruction, /等待用户/)
   assert.deepEqual(await readdir(join(root, 'jobs')), [id])
 }))

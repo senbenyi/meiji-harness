@@ -36,7 +36,7 @@ if (!profile.dependencies?.[name] || !profile.dsh?.profile?.bundles?.includes(na
 JS
 if [[ "$kind" == tools ]]; then
   mkdir -p "$DSH_HOME/.agent-presets"
-  for preset in elysium-standard elysium-teaching elysium-free elysium-director; do
+  for preset in _base elysium-standard elysium-teaching elysium-free elysium-director; do
     if [[ ! -e "$DSH_HOME/.agent-presets/$preset" ]]; then
       cp -R "$REPO_ROOT/harness/.agent-presets/$preset" "$DSH_HOME/.agent-presets/"
     fi

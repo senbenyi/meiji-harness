@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { clientSource } from '../build-scripts/client-source.mjs'
+import { clientSource } from '../scripts/client-source.mjs'
 import { creationInstructions } from '../src/creation-instructions.js'
 
 function load() {

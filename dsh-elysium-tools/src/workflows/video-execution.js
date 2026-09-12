@@ -9,11 +9,12 @@ import { codeVersion } from '../functions/common/diagnostics.js'
 import { buildVideoGraph } from './video-graph.js'
 import { collectVideoArtifacts } from './video-artifacts.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './comfy-execution.js'
+import { createTiming } from '../jobs/timing.js'
 
 export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 * 60_000, pause = setTimeout } = {}) {
   const directory = join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', jobId)
   const statusPath = join(directory, 'status.json')
-  const client = new ComfyClient(undefined, signal), started = Date.now()
+  const timing = createTiming(), client = new ComfyClient(undefined, signal, timing)
   const status = { job_id: jobId, capability: 'workflow-video', backend: 'comfyui', trace_id: jobId,
     parent_job_id: null, status: 'running', stage: 'prepare', created_at: new Date().toISOString(),
     code_version: await codeVersion(), debug: { effective_input: plan, chain: [],
@@ -21,19 +22,19 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
   await saveJson(statusPath, status)
   for (let attempt = 0; ; attempt++) try {
     status.stage = 'prepare'
-    const prepared = await prepareComfyWorkflow(directory, client, plan, async () => ({
-      ...await buildVideoGraph(plan, jobId), plan, server_url: client.url.href,
-    }))
-    const { promptId, history } = await runComfyWorkflow(directory, client, prepared, status, timeoutMs)
+    const prepared = await timing.measure('prepare', () => prepareComfyWorkflow(directory, client, plan, async () => ({
+      ...await timing.measure('prepare.graph', () => buildVideoGraph(plan, jobId)), plan, server_url: client.url.href,
+    })))
+    const { promptId, history } = await timing.measure('remote', () => runComfyWorkflow(directory, client, prepared, status, timeoutMs))
     status.stage = 'inspect-output'
     await saveJson(statusPath, status)
-    status.result = await collectVideoArtifacts(client, history, prepared, promptId)
+    status.result = await timing.measure('output.inspect', () => collectVideoArtifacts(client, history, prepared, promptId))
     signal?.throwIfAborted()
     status.status = 'succeeded'
     status.stage = 'completed'
-    status.timings = { total_ms: Date.now() - started }
     status.finished_at = new Date().toISOString()
-    await saveJson(join(directory, 'validation.json'), status.result.validation)
+    await timing.measure('output.persist-validation', () => saveJson(join(directory, 'validation.json'), status.result.validation))
+    status.timings = timing.snapshot()
     await saveJson(statusPath, status)
     await saveJson(status.debug.diagnostic_path, status)
     return status
@@ -44,7 +45,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
       status.stage = 'reconnecting'
       status.retry_attempt = attempt + 1
       await saveJson(statusPath, status)
-      try { await pause(Math.min(30000, 2000 * 2 ** attempt), undefined, { signal }) } catch { error = signal.reason }
+      try { await timing.measure('reconnect.backoff', () => pause(Math.min(30000, 2000 * 2 ** attempt), undefined, { signal })) } catch { error = signal.reason }
       if (!signal?.aborted) continue
     }
     status.failed_stage = status.stage
@@ -55,6 +56,7 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     status.recovery_instruction = '自动重试已停止。保留此 job_id，等待用户要求恢复；禁止改提示词重新生成或连续调用恢复工具。'
     status.retry_scope = 'query-existing-comfyui-prompt-before-retry'
     status.finished_at = new Date().toISOString()
+    status.timings = timing.snapshot()
     await mkdir(directory, { recursive: true })
     await writeFile(status.debug.log_path, status.error + '\n', { flag: 'a' })
     await saveJson(statusPath, status)

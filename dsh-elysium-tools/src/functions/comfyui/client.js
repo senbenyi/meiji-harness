@@ -1,6 +1,7 @@
 import { requiredConfig } from '../../config.js'
 import { setTimeout as pause } from 'node:timers/promises'
 import { submitComfyPrompt } from '../../jobs/comfy-submission.js'
+import { createTiming } from '../../jobs/timing.js'
 
 import { readJson, saveJson } from '../../jobs/json.js'
 export { readJson, saveJson }
@@ -11,13 +12,18 @@ export function comfyUrl(server = 'minimax-h3') {
 }
 
 export class ComfyClient {
-  constructor(url = comfyUrl(), signal) {
+  constructor(url = comfyUrl(), signal, timing = createTiming()) {
     this.url = new URL(url.replace(/\/?$/, '/'))
     if (!['http:', 'https:'].includes(this.url.protocol)) throw new Error('ComfyUI URL 必须为 HTTP(S)')
     this.signal = signal
+    this.timing = timing
   }
 
   async request(path, body, timeout = 60_000) {
+    return this.timing.measure(`http.${body === undefined ? 'GET' : 'POST'}.${path.split('/')[0]}`, () => this.requestJson(path, body, timeout))
+  }
+
+  async requestJson(path, body, timeout) {
     const signal = this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout)
     const response = await fetch(new URL(path, this.url), {
       method: body === undefined ? 'GET' : 'POST', signal,
@@ -39,10 +45,18 @@ export class ComfyClient {
   async validate(graph) {
     const types = [...new Set(Object.values(graph).map(node => node.class_type))]
     const schemas = {}
-    // Bound concurrent channels when ComfyUI is accessed through an SSH tunnel.
-    for (let i = 0; i < types.length; i += 4) {
-      Object.assign(schemas, ...await Promise.all(types.slice(i, i + 4).map(type => this.request(`object_info/${encodeURIComponent(type)}`))))
-    }
+    // Keep four channels busy without waiting for the slowest request in each batch.
+    const pending = types.values()
+    let failure
+    await Promise.all(Array.from({ length: Math.min(4, types.length) }, async () => {
+      try {
+        for (const type of pending) {
+          if (failure) break
+          Object.assign(schemas, await this.request(`object_info/${encodeURIComponent(type)}`))
+        }
+      } catch (error) { failure ||= error }
+    }))
+    if (failure) throw failure
     for (const [id, node] of Object.entries(graph)) {
       const schema = schemas[node.class_type]
       if (!schema) throw new Error(`ComfyUI 缺少节点：${node.class_type}`)
@@ -74,9 +88,9 @@ export class ComfyClient {
   }
 
   async wait(promptId, timeoutMs, onProgress = async () => {}, pollMs = 2000) {
-    const deadline = Date.now() + timeoutMs
+    const deadline = performance.now() + timeoutMs
     let missing = 0
-    while (Date.now() < deadline) {
+    while (performance.now() < deadline) {
       this.signal?.throwIfAborted()
       const entry = (await this.request(`history/${encodeURIComponent(promptId)}`))[promptId]
       const queue = !entry?.status?.completed && entry?.status?.status_str !== 'error' ? await this.request('queue') : undefined
@@ -92,8 +106,9 @@ export class ComfyClient {
       // History and queue are separate snapshots. Confirm absence across polls
       // before reporting loss; absence never authorizes a new submission.
       if (missing >= 3) throw Object.assign(new Error(`原任务已不在队列或历史中，可能已取消或历史已清理；请核对 prompt_id: ${promptId}，禁止自动重提`), { code: 'COMFYUI_TASK_NOT_FOUND' })
-      await onProgress(promptId, running ? 'execute' : pending ? 'queued' : 'reconcile')
-      await pause(pollMs, undefined, { signal: this.signal })
+      const stage = running ? 'execute' : pending ? 'queued' : 'reconcile'
+      await onProgress(promptId, stage)
+      await this.timing.measure(`poll.sleep.${stage}`, () => pause(pollMs, undefined, { signal: this.signal }))
     }
     throw new Error(`等待超时；远端任务可能仍在执行，恢复时查询原 prompt_id: ${promptId}`)
   }

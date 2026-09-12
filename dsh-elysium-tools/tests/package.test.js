@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { clientSource } from '../build-scripts/client-source.mjs'
+import { clientSource } from '../scripts/client-source.mjs'
 
 test('browser bundle registers the exact package name required by Harness', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))

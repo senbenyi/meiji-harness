@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 DATA=ROOT/'docs/implement/third-cup-preview'
 OUT=ROOT/'out/third-cup-preview'
 FONT='/System/Library/Fonts/Supplemental/Arial Unicode.ttf'
-p=argparse.ArgumentParser();p.add_argument('--limit',type=int,default=10);args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--limit',type=int,default=10);p.add_argument('--wait',action='store_true');args=p.parse_args()
 assert 1<=args.limit<=120
 OUT.mkdir(parents=True,exist_ok=True)
 manifest=json.loads((DATA/'manifest.json').read_text())
@@ -16,7 +16,12 @@ def run(command):return subprocess.run(command,check=True,capture_output=True,te
 def probe(path):return json.loads(run(['ffprobe','-v','error','-count_frames','-show_streams','-show_format','-of','json',str(path)]).stdout)
 for shot in manifest['shots'][:args.limit]:
  if shot['subtitle']:subtitle=shot['subtitle']
- receipt=json.loads((DATA/(shot['id']+'.receipt.json')).read_text())
+ receipt_path=DATA/(shot['id']+'.receipt.json')
+ deadline=time.time()+600
+ while args.wait and (not receipt_path.exists() or json.loads(receipt_path.read_text()).get('result',{}).get('status')!='succeeded'):
+  if time.time()>deadline:raise RuntimeError(f"{shot['id']}: not ready after 10 minutes; inspect original job, do not recreate")
+  time.sleep(3)
+ receipt=json.loads(receipt_path.read_text())
  assert receipt['result']['status']=='succeeded'
  result=receipt['result']; dest=OUT/(shot['id']+'.mp4')
  expected={'job_id':receipt['job_id'],'url':result['comfyui_view_url'],'subtitle':subtitle,'frames':72,'fps':24}

@@ -25,7 +25,7 @@ for (const kinds of [['tools'], ['ui'], ['tools', 'ui']]) {
       for (const kind of kinds) {
         const name = `dsh-elysium-${kind}`, source = join(repo, name), dest = join(root, name)
         await mkdir(dest)
-        const scriptDir = kind === 'tools' ? 'build-scripts' : 'scripts'
+        const scriptDir = 'scripts'
         const configDir = kind === 'tools' ? '.dsh' : 'config'
         for (const path of ['src', scriptDir, configDir, 'package.json', 'cordis.patch.yml']) {
           await cp(join(source, path), join(dest, path), { recursive: true })
