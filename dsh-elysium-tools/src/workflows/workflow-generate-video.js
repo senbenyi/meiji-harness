@@ -18,6 +18,7 @@ export function createWorkflowGenerateVideoTool() {
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
       profile: { type: 'string', enum: ['standard', 'preview'], description: '默认 standard；短剧草稿选择 preview，约 3 秒、384×512，不插帧。' },
+      preview_variant: { type: 'string', enum: ['default', 'low-resolution'], description: '仅用于 preview。省略或 default 保持已验证的 384×512；仅在用户明确选择低分辨率候选时使用 low-resolution（288×384），仍为 73 帧、24fps、8 步。' },
       prompt: { type: 'string', minLength: 1 },
       first_frame: media('I2VA/FL2VA 首帧'),
       last_frame: media('FL2VA 尾帧'),

@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { withConfig } from '../src/config.js'
 import { buildVideoGraph, loadVideoTemplate } from '../src/workflows/video-graph.js'
 import { validateVideoPlan } from '../src/workflows/video-plan.js'
+import { createWorkflowGenerateVideoTool } from '../src/workflows/workflow-generate-video.js'
 
 test('preview is aligned, keeps joint audio and removes all interpolation dependencies', async () => {
   const plan = { profile: 'preview', mode: 't2va', prompt: 'An adult opens a door.' }
@@ -30,3 +31,23 @@ test('preview I2V uses the existing remote image reference and rejects unsupport
   await assert.rejects(validateVideoPlan({ profile: 'preview', mode: 'r2va', prompt: 'x' }), /preview/)
   await assert.rejects(validateVideoPlan({ profile: 'fast', mode: 't2va', prompt: 'x' }), /profile/)
 }))
+
+test('low-resolution candidate changes only dimensions and output location; default stays identical', async () => {
+  const plan = { profile: 'preview', mode: 't2va', prompt: 'An adult opens a door.' }
+  const baseline = await buildVideoGraph(plan, 'shot')
+  assert.deepEqual(await buildVideoGraph({ ...plan, preview_variant: 'default' }, 'shot'), baseline)
+  const candidate = { ...plan, preview_variant: 'low-resolution' }
+  await validateVideoPlan(candidate)
+  const p = await buildVideoGraph(candidate, 'shot')
+  assert.deepEqual([p.specification.width, p.specification.height, p.specification.frames, p.specification.steps], [288, 384, 73, 8])
+  assert.equal(p.specification.preview_variant, 'low-resolution')
+  const expected = structuredClone(baseline.graph)
+  Object.assign(expected.n105_104.inputs, { width: 288, height: 384 })
+  expected.n126.inputs.filename_prefix = 'elysium/shot/preview-low-resolution/final'
+  assert.deepEqual(p.graph, expected, 'seed, prompt, audio, sampler and patches must not change')
+  const schema = createWorkflowGenerateVideoTool().parameters.properties.preview_variant
+  assert.deepEqual(schema.enum, ['default', 'low-resolution'])
+  for (const args of [{ ...candidate, profile: 'standard' }, { ...candidate, preview_variant: '4-step' }]) {
+    await assert.rejects(validateVideoPlan(args), /preview_variant/)
+  }
+})

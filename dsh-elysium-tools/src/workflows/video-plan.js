@@ -19,7 +19,8 @@ export async function validateVideoPlan(args) {
   const required = MODE_MEDIA[args.mode]
   if (args.profile !== undefined && !['standard', 'preview'].includes(args.profile)) throw invalid('profile 仅支持 standard、preview')
   if (args.profile === 'preview' && !['t2va', 'i2va'].includes(args.mode)) throw invalid('preview 仅支持 t2va、i2va')
-  const allowed = new Set(['mode', 'prompt', 'profile', ...required])
+  if (args.preview_variant !== undefined && (args.profile !== 'preview' || !['default', 'low-resolution'].includes(args.preview_variant))) throw invalid('preview_variant 仅用于 preview，支持 default、low-resolution')
+  const allowed = new Set(['mode', 'prompt', 'profile', 'preview_variant', ...required])
   if (Object.keys(args).some(key => !allowed.has(key))) throw invalid(`${args.mode} 包含未支持参数`)
   for (const name of required) {
     if (!(name in args)) throw invalid(`${args.mode} 缺少 ${name}`)

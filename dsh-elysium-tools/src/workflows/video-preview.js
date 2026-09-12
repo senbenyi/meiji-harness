@@ -4,6 +4,9 @@ import { mediaReference } from '../media/http-media.js'
 // A small override of the existing H3 graph; submission/recovery stays shared.
 export async function buildPreviewGraph(plan, jobId, bundle) {
   const config = JSON.parse(await readFile(new URL('./profiles/preview.json', import.meta.url), 'utf8'))
+  const lowResolution = plan.preview_variant === 'low-resolution'
+  if (lowResolution) Object.assign(config, JSON.parse(await readFile(new URL('./profiles/preview-low-resolution.json', import.meta.url), 'utf8')))
+  const profileName = lowResolution ? 'preview-low-resolution' : 'preview'
   const graph = structuredClone(bundle.graph)
   const width = Math.ceil(config.width / 32) * 32, height = Math.ceil(config.height / 32) * 32
   const requestedFrames = Math.max(5, Math.round(config.requested_seconds * config.fps))
@@ -14,7 +17,7 @@ export async function buildPreviewGraph(plan, jobId, bundle) {
     graph.preview_image = { class_type: 'LoadImage', inputs: { image: mediaReference(plan.first_frame, ['.png', '.jpg', '.jpeg', '.webp']).name } }
     graph.n105_104.inputs.first_frame = ['preview_image', 0]
   }
-  Object.assign(graph.n126.inputs, { images: ['n105_10', 0], frame_rate: config.fps, filename_prefix: `elysium/${jobId}/preview/final` })
+  Object.assign(graph.n126.inputs, { images: ['n105_10', 0], frame_rate: config.fps, filename_prefix: `elysium/${jobId}/${profileName}/final` })
   const needed = new Set()
   function visit(id) {
     if (needed.has(id)) return
@@ -25,7 +28,8 @@ export async function buildPreviewGraph(plan, jobId, bundle) {
   }
   visit('n126')
   return { graph: Object.fromEntries(Object.entries(graph).filter(([id]) => needed.has(id))),
-    mode: plan.mode, workflowName: `preview-${plan.mode}`, outputNode: 'n126', source: bundle.source,
+    mode: plan.mode, workflowName: `${profileName}-${plan.mode}`, outputNode: 'n126', source: bundle.source,
     specification: { backend: config.backend, width, height, frames, fps: config.fps, seconds: frames / config.fps,
+      ...(lowResolution ? { preview_variant: 'low-resolution' } : {}),
       requested_seconds: config.requested_seconds, steps: config.steps, audio: 'joint-generation-and-decoding', interpolation: false } }
 }
