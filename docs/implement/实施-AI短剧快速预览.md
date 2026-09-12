@@ -23,7 +23,34 @@
 - 三次 history 均确认 `n105_104` 条件编码与 `n105_14` 采样未命中缓存，发生真实生成。
 - 首次是**本轮首次执行**，不是容器冷启动。Loader 对象已有缓存，但每条不同提示词均重新编码；未测全新服务器启动、下载和首次加载成本。
 
-机器可读的 [验收记录](implement-drama-preview/acceptance/acceptance.json)、三条请求和原始回执都保留在 `implement-drama-preview`。回执保留执行时的原始验证字段，后续人工/文件检查单独记录，不回写伪装成工具自动验证。
+## 验收附件怎么读
+
+这 10 个 JSON 文件是本次三镜头样片的验收档案，不是 10 个视频，也不是 Harness 每次对话都必须读取的配置。视频和角色参考图保存在服务器上，文件中只记录它们的 URL。附件目录为 `docs/implement/implement-drama-preview/acceptance/`。
+
+文件数量来自：**1 份总验收汇总 + 3 个镜头 × 每镜头 3 份记录 = 10 份**。
+
+| 文件 | 通俗说明 | 什么时候看 |
+|---|---|---|
+| [acceptance.json](implement-drama-preview/acceptance/acceptance.json) | 整个样片的验收成绩单：三个镜头的耗时、实际规格、真实采样记录、视频链接，以及成片信息 | 想知道是否达标、用了多久、成片在哪里时，先看它 |
+| [shot-01.request.json](implement-drama-preview/acceptance/shot-01.request.json) | 第一镜的创作要求：咖啡馆建立场景，使用文字生成视频 | 查看或参考第一镜的提示词 |
+| [shot-01.api.json](implement-drama-preview/acceptance/shot-01.api.json) | 第一镜实际提交的 ComfyUI 节点图，包含模型、参数和节点连接 | 技术排查第一镜到底怎么生成 |
+| [shot-01.receipt.json](implement-drama-preview/acceptance/shot-01.receipt.json) | 第一镜的执行回执：原请求、任务 ID 和返回结果 | 找回第一镜任务或查看输出链接 |
+| [shot-02.request.json](implement-drama-preview/acceptance/shot-02.request.json) | 第二镜的创作要求：女角色推信封，使用第一镜提取的角色图作为起始画面 | 查看动作提示词和参考图 URL |
+| [shot-02.api.json](implement-drama-preview/acceptance/shot-02.api.json) | 第二镜实际提交的 ComfyUI 节点图，包含图片输入连接 | 排查第二镜的参数和图生视频流程 |
+| [shot-02.receipt.json](implement-drama-preview/acceptance/shot-02.receipt.json) | 第二镜的执行回执 | 找回第二镜任务或查看输出链接 |
+| [shot-03.request.json](implement-drama-preview/acceptance/shot-03.request.json) | 第三镜的创作要求：男角色抬头微笑，使用第二镜最后一帧作为起始画面 | 查看反应镜头提示词和参考图 URL |
+| [shot-03.api.json](implement-drama-preview/acceptance/shot-03.api.json) | 第三镜实际提交的 ComfyUI 节点图 | 排查第三镜的参数和执行流程 |
+| [shot-03.receipt.json](implement-drama-preview/acceptance/shot-03.receipt.json) | 第三镜的执行回执 | 找回第三镜任务或查看输出链接 |
+
+同一个镜头的关系是：`request` 说明“要生成什么”，插件把请求转换成 `api` 节点图并提交，`receipt` 记录“哪个任务执行了、返回了什么”；三个镜头完成后，`acceptance.json` 汇总验收结果。
+
+**日常使用 Harness 不需要手动编辑这些文件。** 阅读本文的结果表和播放样片即可；需要查详细证据时，先看 `acceptance.json`，再按镜头查看请求和回执，只有排查节点参数时才需要看 `api.json`。API 文件是已执行工作流的快照，不是 ComfyUI 可视化编辑器的 UI 工作流文件，也不会随当前默认配置自动更新。
+
+验收汇总中的 `server_ms` 是服务器执行毫秒数（除以 1000 得到秒），`local_chain_ms` 是本机插件任务链耗时；`real_sampling` 表示采样确实执行，`final.url` 是成片地址。`job_id` 是本机逻辑视频任务 ID，`prompt_id` 是 ComfyUI 一次执行的 ID。`wall_to_film_seconds` 包括镜头间检查和操作等待，不等于三个镜头的计算时间之和。
+
+回执保留执行时的原始验证字段，其中 `not_run` 表示插件当时没有自动执行该项检查，不表示视频生成失败。后续文件解码、规格核对和人工观看的结论分别记录在验收汇总和本文，不回写成工具自动验证。
+
+下方脚本示例使用 `request` 和 `receipt`：已有回执用于恢复或查询原任务，已完成任务不会重新生成。制作新镜头时应使用新的请求文件和回执路径，保留本次验收原件。删除这些附件不会影响 Harness 的日常生成，但会丢失本次验收证据和脚本找回任务的回执；它们也不包含模型、媒体文件或完整服务器备份。
 
 ## 入口：沿用原工具，仅切换 profile
 
@@ -61,8 +88,8 @@
 ```sh
 COMFYUI_URL=https://36we4j3zo503js-8188.proxy.runpod.net \
 node dsh-elysium-tools/scripts/preview-shot.mjs \
-  docs/implement/ai-drama-preview/acceptance/shot-01.request.json \
-  docs/implement/ai-drama-preview/acceptance/shot-01.receipt.json
+  docs/implement/implement-drama-preview/acceptance/shot-01.request.json \
+  docs/implement/implement-drama-preview/acceptance/shot-01.receipt.json
 ```
 
 回执存在时恢复/查询原 job；已完成的回执直接返回结果，不重新生成。新镜头使用新的请求文件及回执路径。回执绑定原请求，不能换提示词复用同一回执。
