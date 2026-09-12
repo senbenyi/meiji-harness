@@ -1,0 +1,201 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "i2va",
+    "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Lin Xia, a fictional 28-year-old East Asian woman with shoulder-length straight black hair and a beige trench coat over a cream top, natural understated makeup. Medium close-up, alone at a wooden table inside a warm amber-lit cafe beside a rain-streaked window. She slowly stirs her coffee once, looking at the cup rather than the person opposite. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+    "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  "job_id": "6a95d2c608831f5a3e06d4b015093f0e",
+  "result": {
+    "job_id": "6a95d2c608831f5a3e06d4b015093f0e",
+    "status": "succeeded",
+    "trace_id": "6a95d2c608831f5a3e06d4b015093f0e",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "clock": "performance.now",
+      "total_ms": 33821.668417,
+      "stages": {
+        "prepare.graph": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1.4424579999999985,
+          "max_ms": 1.4424579999999985,
+          "last_start_ms": 3.900124999999999,
+          "last_end_ms": 5.342582999999998
+        },
+        "http.GET.object_info": {
+          "count": 19,
+          "failed": 0,
+          "total_ms": 13632.449248,
+          "max_ms": 3759.3039999999996,
+          "last_start_ms": 5.494707999999999,
+          "last_end_ms": 3764.798708
+        },
+        "prepare.validate": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 3760.051833,
+          "max_ms": 3760.051833,
+          "last_start_ms": 5.352666999999997,
+          "last_end_ms": 3765.4045
+        },
+        "prepare": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 3763.0165,
+          "max_ms": 3763.0165,
+          "last_start_ms": 3.705582999999997,
+          "last_end_ms": 3766.722083
+        },
+        "http.POST.prompt": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 485.0469579999999,
+          "max_ms": 485.0469579999999,
+          "last_start_ms": 3769.1745,
+          "last_end_ms": 4254.221458
+        },
+        "submit": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 487.7028749999995,
+          "max_ms": 487.7028749999995,
+          "last_start_ms": 3768.025833,
+          "last_end_ms": 4255.728708
+        },
+        "http.GET.history": {
+          "count": 10,
+          "failed": 0,
+          "total_ms": 7165.2323769999975,
+          "max_ms": 1433.0669589999998,
+          "last_start_ms": 33358.349208,
+          "last_end_ms": 33815.275292
+        },
+        "http.GET.queue": {
+          "count": 9,
+          "failed": 0,
+          "total_ms": 4377.629959000003,
+          "max_ms": 723.1998750000021,
+          "last_start_ms": 30813.76575,
+          "last_end_ms": 31355.170083
+        },
+        "poll.sleep.execute": {
+          "count": 8,
+          "failed": 0,
+          "total_ms": 16010.846041000004,
+          "max_ms": 2001.7591249999996,
+          "last_start_ms": 27673.505625,
+          "last_end_ms": 29674.889792
+        },
+        "poll.sleep.reconcile": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 2001.6002089999965,
+          "max_ms": 2001.6002089999965,
+          "last_start_ms": 31356.660333,
+          "last_end_ms": 33358.260541999996
+        },
+        "wait.history": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 29558.217375000004,
+          "max_ms": 29558.217375000004,
+          "last_start_ms": 4257.174958,
+          "last_end_ms": 33815.392333
+        },
+        "remote": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 30051.558208000002,
+          "max_ms": 30051.558208000002,
+          "last_start_ms": 3766.741792,
+          "last_end_ms": 33818.3
+        },
+        "output.inspect": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 0.804374999999709,
+          "max_ms": 0.804374999999709,
+          "last_start_ms": 33819.888,
+          "last_end_ms": 33820.692375
+        },
+        "output.persist-validation": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 0.8316670000058366,
+          "max_ms": 0.8316670000058366,
+          "last_start_ms": 33820.780125,
+          "last_end_ms": 33821.611792
+        }
+      }
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "c089d00280b7794a11e12aaf9c59a53d7628ac4b8b0c397f1f1e3f6f5d62f1f2"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F6a95d2c608831f5a3e06d4b015093f0e%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F6a95d2c608831f5a3e06d4b015093f0e%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "i2va",
+    "server_execution_ms": 26703,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "5c9c4be1-0d57-4abc-82ed-53a79553caed",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "76bc77c573301b5f6e8a051859471ceb18c36cecf6b3d6fd99ea61fdb56341c9",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/6a95d2c608831f5a3e06d4b015093f0e/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "fullpath": "/workspace/runpod-slim/ComfyUI/output/elysium/6a95d2c608831f5a3e06d4b015093f0e/preview/final_00001-audio.mp4",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "5c9c4be1-0d57-4abc-82ed-53a79553caed",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F6a95d2c608831f5a3e06d4b015093f0e%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "i2va",
+        "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Lin Xia, a fictional 28-year-old East Asian woman with shoulder-length straight black hair and a beige trench coat over a cream top, natural understated makeup. Medium close-up, alone at a wooden table inside a warm amber-lit cafe beside a rain-streaked window. She slowly stirs her coffee once, looking at the cup rather than the person opposite. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+        "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "5c9c4be1-0d57-4abc-82ed-53a79553caed"
+        }
+      ],
+      "diagnostic_path": "/Users/mac/.dsh/elysium/tasks/jobs/6a95d2c608831f5a3e06d4b015093f0e/diagnostics.json",
+      "log_path": "/Users/mac/.dsh/elysium/tasks/jobs/6a95d2c608831f5a3e06d4b015093f0e/execution.log"
+    }
+  }
+}

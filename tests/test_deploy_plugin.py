@@ -38,6 +38,9 @@ printf '%s' '{"dependencies":{"@dsh-external/dsh-elysium-tools":"link:x","@dsh-e
         self.env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
                         DEPLOY_TEST_ROOT=str(self.root), DEPLOY_TEST_LOG=str(self.log))
         (self.root / "home").mkdir()
+        base = self.root / "harness/.agent-presets/_base"
+        base.mkdir(parents=True)
+        (base / "agent.cordis.yml").write_text("shared config\n")
         for preset in ("elysium-standard", "elysium-teaching", "elysium-free", "elysium-director"):
             (self.root / f"harness/.agent-presets/{preset}").mkdir(parents=True, exist_ok=True)
             (self.root / f"home/.agent-presets/{preset}").mkdir(parents=True, exist_ok=True)
@@ -70,6 +73,20 @@ printf '%s' '{"dependencies":{"@dsh-external/dsh-elysium-tools":"link:x","@dsh-e
         log = self.log.read_text()
         self.assertNotIn(" build", log)
         self.assertNotIn("dsh plugin", log)
+
+    def test_new_presets_keep_resolvable_shared_config_and_existing_presets(self):
+        for preset in ("elysium-teaching", "elysium-free", "elysium-director"):
+            (self.root / f"home/.agent-presets/{preset}").rmdir()
+            (self.root / f"harness/.agent-presets/{preset}/agent.cordis.yml").symlink_to("../_base/agent.cordis.yml")
+        existing = self.root / "home/.agent-presets/elysium-standard/agent.cordis.yml"
+        existing.write_text("local config\n")
+        result = self.run_deploy("tools")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for preset in ("elysium-teaching", "elysium-free", "elysium-director"):
+            config = self.root / f"home/.agent-presets/{preset}/agent.cordis.yml"
+            self.assertTrue(config.is_symlink())
+            self.assertEqual(config.read_text(), "shared config\n")
+        self.assertEqual(existing.read_text(), "local config\n")
 
     def test_extra_arguments_fail_before_external_commands(self):
         result = self.run_deploy("tools", "--unexpected")

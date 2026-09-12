@@ -1,0 +1,86 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "i2va",
+    "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Chen Mo, a fictional 30-year-old East Asian man with neat short straight black hair, clean shaven, dark charcoal suit and pale grey shirt. Medium close-up, alone inside a warm amber-lit cafe beside a rain-streaked window. He takes one hesitant step forward and raises his gaze, as if recognizing someone he has missed. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+    "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=chen_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  "job_id": "70fff0ea68a5ed8e88785b8ec384662e",
+  "result": {
+    "job_id": "70fff0ea68a5ed8e88785b8ec384662e",
+    "status": "succeeded",
+    "trace_id": "70fff0ea68a5ed8e88785b8ec384662e",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "total_ms": 31856
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "083c318b24b0d3788be11726b571dc57945a3c52de8a971507da5b8cc86d879e"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F70fff0ea68a5ed8e88785b8ec384662e%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F70fff0ea68a5ed8e88785b8ec384662e%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "i2va",
+    "server_execution_ms": 25153,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "12654d13-9efe-4fd5-9c96-90d0727e3b21",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "5bf0c6ac27b81e726418eeee99349d7293098da3ba35b9bd778007448a9a3842",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/70fff0ea68a5ed8e88785b8ec384662e/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "fullpath": "/workspace/runpod-slim/ComfyUI/output/elysium/70fff0ea68a5ed8e88785b8ec384662e/preview/final_00001-audio.mp4",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "12654d13-9efe-4fd5-9c96-90d0727e3b21",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F70fff0ea68a5ed8e88785b8ec384662e%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "i2va",
+        "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Chen Mo, a fictional 30-year-old East Asian man with neat short straight black hair, clean shaven, dark charcoal suit and pale grey shirt. Medium close-up, alone inside a warm amber-lit cafe beside a rain-streaked window. He takes one hesitant step forward and raises his gaze, as if recognizing someone he has missed. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+        "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=chen_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "12654d13-9efe-4fd5-9c96-90d0727e3b21"
+        }
+      ],
+      "diagnostic_path": "/Users/mac/.dsh/elysium/tasks/jobs/70fff0ea68a5ed8e88785b8ec384662e/diagnostics.json",
+      "log_path": "/Users/mac/.dsh/elysium/tasks/jobs/70fff0ea68a5ed8e88785b8ec384662e/execution.log"
+    }
+  }
+}

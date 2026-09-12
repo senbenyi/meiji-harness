@@ -1,0 +1,231 @@
+{
+  "job_id": "602dee7b108d64fea5c2e48bb6d4fda0",
+  "status": "succeeded",
+  "trace_id": "602dee7b108d64fea5c2e48bb6d4fda0",
+  "parent_job_id": null,
+  "stage": "completed",
+  "timings": {
+    "clock": "performance.now",
+    "total_ms": 34608.645416,
+    "stages": {
+      "prepare.graph": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 1.1477499999999985,
+        "max_ms": 1.1477499999999985,
+        "last_start_ms": 3.4280410000000003,
+        "last_end_ms": 4.575790999999999
+      },
+      "http.GET.object_info": {
+        "count": 18,
+        "failed": 0,
+        "total_ms": 15232.947041000001,
+        "max_ms": 1750.8075419999998,
+        "last_start_ms": 3244.6011660000004,
+        "last_end_ms": 4249.414708
+      },
+      "prepare.validate": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 4245.568832999999,
+        "max_ms": 4245.568832999999,
+        "last_start_ms": 4.584375000000001,
+        "last_end_ms": 4250.153208
+      },
+      "prepare": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 4249.55025,
+        "max_ms": 4249.55025,
+        "last_start_ms": 3.309750000000001,
+        "last_end_ms": 4252.860000000001
+      },
+      "http.POST.prompt": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 657.3700420000005,
+        "max_ms": 657.3700420000005,
+        "last_start_ms": 4255.389166,
+        "last_end_ms": 4912.759208
+      },
+      "submit": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 659.603959,
+        "max_ms": 659.603959,
+        "last_start_ms": 4254.176166,
+        "last_end_ms": 4913.780125
+      },
+      "http.GET.history": {
+        "count": 11,
+        "failed": 0,
+        "total_ms": 6179.343959999998,
+        "max_ms": 1200.3958339999954,
+        "last_start_ms": 33405.568541,
+        "last_end_ms": 34605.964374999996
+      },
+      "http.GET.queue": {
+        "count": 10,
+        "failed": 0,
+        "total_ms": 3495.232957000004,
+        "max_ms": 433.19904099999985,
+        "last_start_ms": 31128.305915999998,
+        "last_end_ms": 31404.089375
+      },
+      "poll.sleep.queued": {
+        "count": 3,
+        "failed": 0,
+        "total_ms": 6004.320457000001,
+        "max_ms": 2001.9285410000002,
+        "last_start_ms": 11670.359958,
+        "last_end_ms": 13671.862540999999
+      },
+      "poll.sleep.execute": {
+        "count": 7,
+        "failed": 0,
+        "total_ms": 14007.039335000007,
+        "max_ms": 2001.7866670000003,
+        "last_start_ms": 31404.107041,
+        "last_end_ms": 33405.513583
+      },
+      "wait.history": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 29691.062583,
+        "max_ms": 29691.062583,
+        "last_start_ms": 4914.991333,
+        "last_end_ms": 34606.053916
+      },
+      "remote": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 30354.616958000002,
+        "max_ms": 30354.616958000002,
+        "last_start_ms": 4252.882958,
+        "last_end_ms": 34607.499916
+      },
+      "output.inspect": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.4329580000048736,
+        "max_ms": 0.4329580000048736,
+        "last_start_ms": 34607.8135,
+        "last_end_ms": 34608.246458
+      },
+      "output.persist-validation": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.3005830000038259,
+        "max_ms": 0.3005830000038259,
+        "last_start_ms": 34608.336375,
+        "last_end_ms": 34608.636958
+      }
+    }
+  },
+  "code_version": {
+    "plugin_version": "0.4.0",
+    "executor_sha256": "28a166d00c3871d887c5527ce75f886a1ed54e699f0ec3ba6d0c81f37685a16c"
+  },
+  "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F602dee7b108d64fea5c2e48bb6d4fda0%2Fpreview-low-resolution&type=output",
+  "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F602dee7b108d64fea5c2e48bb6d4fda0%2Fpreview-low-resolution&type=output",
+  "media_kind": "video",
+  "mode": "t2va",
+  "server_execution_ms": 18497,
+  "profile": "preview",
+  "specification": {
+    "backend": "minimax-h3",
+    "width": 288,
+    "height": 384,
+    "frames": 73,
+    "fps": 24,
+    "seconds": 3.0416666666666665,
+    "preview_variant": "low-resolution",
+    "requested_seconds": 3,
+    "steps": 8,
+    "audio": "joint-generation-and-decoding",
+    "interpolation": false
+  },
+  "source_workflow": {
+    "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+    "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+  },
+  "warnings": [],
+  "comfyui_prompt_id": "26713f46-dd33-4452-b7ce-47182aa964e2",
+  "validation": {
+    "location": "comfyui-history",
+    "full_decode": "not_run",
+    "specification_match": "not_run",
+    "human_review": "not_run"
+  },
+  "comfyui_artifact_id": "ad4249ef44303362178f7105dd4334935e35ac0292a8575e7b762380076db8c1",
+  "comfyui_metadata_status": "comfyui-final",
+  "comfyui_artifacts": [
+    {
+      "filename": "final_00001-audio.mp4",
+      "subfolder": "elysium/602dee7b108d64fea5c2e48bb6d4fda0/preview-low-resolution",
+      "type": "output",
+      "format": "video/h264-mp4",
+      "frame_rate": 24,
+      "workflow": "final_00001.png",
+      "fullpath": "/workspace/runpod-slim/ComfyUI/output/elysium/602dee7b108d64fea5c2e48bb6d4fda0/preview-low-resolution/final_00001-audio.mp4",
+      "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+      "prompt_id": "26713f46-dd33-4452-b7ce-47182aa964e2",
+      "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F602dee7b108d64fea5c2e48bb6d4fda0%2Fpreview-low-resolution&type=output"
+    }
+  ],
+  "debug": {
+    "effective_input": {
+      "mode": "t2va",
+      "prompt": "一位三十来岁的亚洲男子坐在咖啡馆靠窗的位置，桌上放着一杯冒着热气的咖啡和牛皮纸信封。他低头拿起信封，仔细阅读，然后抬起头露出温暖的微笑，眼神明亮。背景虚化，柔和的自然光从窗户洒进来，咖啡馆里其他顾客模糊可见，环境安静舒适。",
+      "profile": "preview",
+      "preview_variant": "low-resolution"
+    },
+    "chain": [
+      {
+        "stage": "comfyui-submitted",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "26713f46-dd33-4452-b7ce-47182aa964e2"
+      }
+    ],
+    "diagnostic_path": "/Users/mac/.dsh/elysium/tasks/jobs/602dee7b108d64fea5c2e48bb6d4fda0/diagnostics.json",
+    "log_path": "/Users/mac/.dsh/elysium/tasks/jobs/602dee7b108d64fea5c2e48bb6d4fda0/execution.log"
+  },
+  "tool_timings": {
+    "clock": "performance.now",
+    "total_ms": 36166.897083,
+    "stages": {
+      "job.start": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 25.401125,
+        "max_ms": 25.401125,
+        "last_start_ms": 0.024915999999997496,
+        "last_end_ms": 25.426040999999998
+      },
+      "local.read-status": {
+        "count": 19,
+        "failed": 0,
+        "total_ms": 120.41449799999711,
+        "max_ms": 10.345291000001453,
+        "last_start_ms": 36166.051750000006,
+        "last_end_ms": 36166.558958
+      },
+      "local.sleep": {
+        "count": 18,
+        "failed": 0,
+        "total_ms": 36020.114997,
+        "max_ms": 2001.4025410000004,
+        "last_start_ms": 34164.870708,
+        "last_end_ms": 36166.040708
+      },
+      "job.wait": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 36141.403249999996,
+        "max_ms": 36141.403249999996,
+        "last_start_ms": 25.441832999999995,
+        "last_end_ms": 36166.845083
+      }
+    }
+  }
+}

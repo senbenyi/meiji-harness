@@ -1,0 +1,17 @@
+{
+  "method": "每镜抽查0、1、2秒画面；本地片段完整解码。非逐帧主观质量评分。",
+  "chapters": [
+    {
+      "chapter": 1,
+      "shots": "001–020",
+      "status": "preview_usable",
+      "observations": [
+        "三位角色服装、发型与面部基本可辨",
+        "转头、握行李箱、擦杯、坐下、拿信封等动作出现",
+        "咖啡杯数量不严格，部分镜头景别重复",
+        "第20镜出现画外手部，作为预览道具/遮挡缺陷记录"
+      ],
+      "contact_sheet": "out/third-cup-preview/review-01.png"
+    }
+  ]
+}
