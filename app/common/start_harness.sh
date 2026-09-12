@@ -49,7 +49,9 @@ if web_ready && [[ "$action" == start ]]; then
   exit 0
 fi
 bash "$REPO_ROOT/app/common/start_tunnel_qwen.sh"
-bash "$REPO_ROOT/app/common/check_comfyui.sh"
+if [[ "${SKIP_COMFYUI_CHECK:-}" != 1 ]]; then
+  bash "$REPO_ROOT/app/common/check_comfyui.sh"
+fi
 if [[ "$action" == start && -n "$(listeners)" ]]; then
   for _ in {1..30}; do
     if web_ready; then echo "[OK] 本机 Harness 与模型服务均已运行：http://$LOCAL_HARNESS_HOST:$port/"; exit 0; fi

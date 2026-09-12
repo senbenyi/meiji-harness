@@ -1,3 +1,8 @@
+- id: agent-presets
+  config:
+    default: elysium-teaching
+    includeShippedRoot: false
+
 - id: dsh-elysium-tools
   config:
     comfyUrl: http://127.0.0.1:8188
