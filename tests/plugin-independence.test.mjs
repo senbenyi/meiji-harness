@@ -12,7 +12,7 @@ for (const kinds of [['tools'], ['ui'], ['tools', 'ui']]) {
   test(`detached packages: ${kinds.join(' + ')}`, async () => {
     const root = await mkdtemp(join(tmpdir(), 'elysium independent '))
     try {
-      const tools = new Map(), hooks = [], settings = new Map(), modules = new Map(), slots = []
+      const tools = new Map(), hooks = [], settings = new Map(), modules = new Map(), slots = [], inputSources = []
       const ctx = {
         tools: { register(tool) { assert.ok(!tools.has(tool.name)); tools.set(tool.name, tool) } },
         settings: {
@@ -26,12 +26,12 @@ for (const kinds of [['tools'], ['ui'], ['tools', 'ui']]) {
         const name = `dsh-elysium-${kind}`, source = join(repo, name), dest = join(root, name)
         await mkdir(dest)
         const scriptDir = 'scripts'
-        const configDir = kind === 'tools' ? '.dsh' : 'config'
-        for (const path of ['src', scriptDir, configDir, 'package.json', 'cordis.patch.yml']) {
+        const configDirs = kind === 'ui' ? ['config'] : []
+        for (const path of ['src', scriptDir, ...configDirs, 'package.json', 'cordis.patch.yml']) {
           await cp(join(source, path), join(dest, path), { recursive: true })
         }
         const pkg = JSON.parse(await readFile(join(dest, 'package.json'), 'utf8'))
-        assert.ok(pkg.files.includes(configDir))
+        for (const configDir of configDirs) assert.ok(pkg.files.includes(configDir))
         assert.ok(pkg.files.includes('lib'))
         assert.equal(pkg.exports['./client'], './lib/client.js')
         assert.equal(pkg.dsh.client.platform, 'web')
@@ -52,10 +52,13 @@ for (const kinds of [['tools'], ['ui'], ['tools', 'ui']]) {
       }
       const load = name => name === 'react' ? {} : modules.get(name)(load)
       for (const kind of kinds) load(`@dsh-external/dsh-elysium-${kind}`).apply({
+        effect: run => run(),
+        inputTriggers: { registerSource(source) { inputSources.push(source) } },
         settingsScope: { bind: () => ({}) },
         uiConversation: { events: { register(definition) { assert.equal(definition.kind, 'elysium-media-results') } } },
         slots: { inject: (_, run) => run(), register(spec) { slots.push(spec) } },
       })
+      assert.deepEqual(inputSources.map(source => source.name), kinds.includes('tools') ? ['创作指令'] : [])
       assert.equal(new Set(slots.map(slot => `${slot.name}:${slot.key || slot.id}`)).size, slots.length)
       assert.equal(slots.filter(slot => slot.name === 'tool.call.toolview').length, kinds.includes('tools') ? 2 : 0)
       assert.equal(slots.filter(slot => slot.name === 'conversation.chat.turnTail').length, kinds.includes('tools') ? 1 : 0)

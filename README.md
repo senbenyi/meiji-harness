@@ -42,6 +42,8 @@ rules.md              # 行为规则（elysium-* 独有）
 skills/               # 可选技能目录；视频创作改用插件中文指令
 ```
 
+teaching/free/director 的 `agent.cordis.yml` 均通过符号链接指向 `_base/agent.cordis.yml`，共享配置只需修改这一处。标准预设保持独立；默认不创建空 `skills/` 目录。部署 tools 时会一并复制 `_base`，已有配置保留。
+
 ## 部署
 
 ### 本地部署

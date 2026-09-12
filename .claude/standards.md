@@ -25,7 +25,7 @@ dsh-elysium-{name}/
 ```
 
 **规则**：
-- 构建脚本目录统一命名为 `scripts/`，不使用 `build-scripts/`。
+- 构建脚本目录统一命名为 `scripts/`。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
 - 新增客户端模块后须同步更新 `client-source.mjs` 的模块列表。
 
