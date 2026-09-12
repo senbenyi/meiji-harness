@@ -19,7 +19,7 @@ window.__ModuleLoader__.load({
       }
       return { status: 'pending' }
     }
-    const stages = { prepare: '准备素材', submit: '提交任务', queued: '排队中', execute: '工作流执行中', reconcile: '核对原任务', 'inspect-output': '校验产物', completed: '已完成' }
+    const stages = { reconnecting: '连接中断，正在重试原视频', prepare: '准备素材', submit: '提交任务', queued: '排队中', execute: '工作流执行中', reconcile: '核对原任务', 'inspect-output': '校验产物', completed: '已完成' }
     function label(job) {
       if (job.status === 'succeeded') return '已完成'
       if (job.status === 'failed') return job.remote_status === 'succeeded' ? '产物待校验' : job.error_code === 'LOCAL_WORKER_STOPPED' || job.error_code === 'WORKER_NOT_RUNNING' ? '本地处理已停止' : '任务未完成'

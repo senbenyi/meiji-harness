@@ -25,6 +25,7 @@ export class ComfyClient {
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       }),
     })
+    if ([408, 429, 502, 503, 504].includes(response.status)) throw Object.assign(new Error(`ComfyUI ${path}: HTTP ${response.status}`), { status: response.status })
     const result = await response.json()
     if (!response.ok || result.error) {
       const error = new Error(`ComfyUI ${path}: ${JSON.stringify(result)}`)
@@ -76,18 +77,9 @@ export class ComfyClient {
     const deadline = Date.now() + timeoutMs
     let missing = 0
     while (Date.now() < deadline) {
-      let entry, queue
-      try {
-        entry = (await this.request(`history/${encodeURIComponent(promptId)}`))[promptId]
-        if (!entry?.status?.completed && entry?.status?.status_str !== 'error') queue = await this.request('queue')
-      } catch (error) {
-        this.signal?.throwIfAborted()
-        if (error.name !== 'TimeoutError' && !(error instanceof TypeError && error.message === 'fetch failed')) throw error
-        // Read-only polling can recover without changing the original submission.
-        await onProgress(promptId, 'reconcile')
-        await pause(pollMs, undefined, { signal: this.signal })
-        continue
-      }
+      this.signal?.throwIfAborted()
+      const entry = (await this.request(`history/${encodeURIComponent(promptId)}`))[promptId]
+      const queue = !entry?.status?.completed && entry?.status?.status_str !== 'error' ? await this.request('queue') : undefined
       if (entry?.status?.status_str === 'error' || entry?.status?.messages?.some(([type]) => ['execution_error', 'execution_interrupted'].includes(type))) {
         throw Object.assign(new Error(`ComfyUI 执行失败：${JSON.stringify(entry.status.messages)}`), {
           code: 'COMFYUI_EXECUTION_FAILED', history: entry,

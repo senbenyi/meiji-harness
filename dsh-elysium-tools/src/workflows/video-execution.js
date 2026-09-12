@@ -1,3 +1,4 @@
+import { setTimeout } from 'node:timers/promises'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -9,7 +10,7 @@ import { buildVideoGraph } from './video-graph.js'
 import { collectVideoArtifacts } from './video-artifacts.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './comfy-execution.js'
 
-export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 * 60_000 } = {}) {
+export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 * 60_000, pause = setTimeout } = {}) {
   const directory = join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', jobId)
   const statusPath = join(directory, 'status.json')
   const client = new ComfyClient(undefined, signal), started = Date.now()
@@ -18,7 +19,8 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     code_version: await codeVersion(), debug: { effective_input: plan, chain: [],
       diagnostic_path: join(directory, 'diagnostics.json'), log_path: join(directory, 'execution.log') } }
   await saveJson(statusPath, status)
-  try {
+  for (let attempt = 0; ; attempt++) try {
+    status.stage = 'prepare'
     const prepared = await prepareComfyWorkflow(directory, client, plan, async () => ({
       ...await buildVideoGraph(plan, jobId), plan, server_url: client.url.href,
     }))
@@ -37,11 +39,20 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     return status
   } catch (error) {
     if (signal?.aborted) error = signal.reason
+    const transient = error.name === 'TimeoutError' || error instanceof TypeError && error.message === 'fetch failed' || [408, 429, 502, 503, 504].includes(error.status)
+    if (!signal?.aborted && transient && attempt < 5) {
+      status.stage = 'reconnecting'
+      status.retry_attempt = attempt + 1
+      await saveJson(statusPath, status)
+      try { await pause(Math.min(30000, 2000 * 2 ** attempt), undefined, { signal }) } catch { error = signal.reason }
+      if (!signal?.aborted) continue
+    }
     status.failed_stage = status.stage
     status.stage = 'failed'
     status.status = 'failed'
     status.error_code = error.code || 'MODEL_GENERATION_FAILED'
     status.error = error.message.slice(0, 1000)
+    status.recovery_instruction = '自动重试已停止。保留此 job_id，等待用户要求恢复；禁止改提示词重新生成或连续调用恢复工具。'
     status.retry_scope = 'query-existing-comfyui-prompt-before-retry'
     status.finished_at = new Date().toISOString()
     await mkdir(directory, { recursive: true })

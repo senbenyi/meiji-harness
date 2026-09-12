@@ -29,4 +29,4 @@ python3 -m unittest tests/test_runpod_workflow_sync.py
 ## 3. 手动复制配置
 
 1. 在 `app/config/harness-settings.yaml` 中手工维护唯一的 `COMFYUI_URL`；API 和 `/view` 共用该地址。
-2. 将 `.dsh/.agent-presets/elysium/` 完整复制到 `~/.dsh/.agent-presets/elysium/`。
+2. 将 `.dsh/.agent-presets/elysium-teaching/`（及 `elysium-free/`、`elysium-director/`）完整复制到 `~/.dsh/.agent-presets/`。

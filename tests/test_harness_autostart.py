@@ -23,7 +23,7 @@ class HarnessAutostartTest(unittest.TestCase):
         self.assertIn('chown root:"$SERVICE_GROUP" "$HARNESS_ROOT/runtime" "$APP_ROOT" "$PACKAGE_ROOT"', deploy)
         self.assertIn('chown root:"$SERVICE_GROUP" "$NODE_ROOT"', deploy)
         self.assertIn('"$HOME_ROOT/operator-security.patch.yml"', deploy)
-        self.assertIn('"$HOME_ROOT/.agent-presets/elysium/agent.cordis.yml"', deploy)
+        self.assertIn('"$HOME_ROOT/.agent-presets/elysium-teaching/agent.cordis.yml"', deploy)
         self.assertIn('OPERATOR_ROOT="$HARNESS_ROOT/operator-workspace"', start)
         self.assertIn('cd "$OPERATOR_ROOT"', start)
         self.assertIn('env HOME="$OPERATOR_ROOT" DSH_HOME="$DSH_HOME"', start)

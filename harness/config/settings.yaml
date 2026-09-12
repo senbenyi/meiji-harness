@@ -1,5 +1,6 @@
 agent-presets:
-  default: elysium
+  default: elysium-teaching
+  includeShippedRoot: false
 
 permission:
   defaultPreset: workspace-write

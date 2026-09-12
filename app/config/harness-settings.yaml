@@ -53,7 +53,8 @@ permission:
   defaultPreset: danger-full-access
 
 agent-presets:
-  default: elysium
+  default: elysium-teaching
+  includeShippedRoot: false
 
 # 启动前生成并覆盖配置；不写入会话、工作区数据和密钥。
 harness-customization:

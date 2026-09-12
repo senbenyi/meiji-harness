@@ -8,7 +8,7 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 - `dsh-elysium-tools/scripts/sync_runpod_video_workflows.py` — 从 RunPod 同步并编译五套工作流。
 - `dsh-elysium-ui/` — 独立导演设置界面与提示词读取，不依赖工具插件。
 - `app/config/` — 本机 Harness、远端模型服务地址与隧道设置。
-- `dsh-elysium-tools/.dsh/.agent-presets/elysium/` — 随包安装的 Agent preset、人格、协作指令和创作技能。
+- `dsh-elysium-tools/.dsh/.agent-presets/` — 随包安装的三套 Agent preset（elysium-teaching 教学、elysium-free 自由、elysium-director 导演），含人格、协作指令和创作技能。
 - `app/` — 部署入口；`app/common/` 提供配置解析、安装、启动和隧道脚本。
 
 ## 铁律

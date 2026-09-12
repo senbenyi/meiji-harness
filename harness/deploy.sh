@@ -117,14 +117,16 @@ if [[ ! -s "$PROXY_PASSWORD_FILE" ]]; then
   openssl rand -base64 24 >"$PROXY_PASSWORD_FILE"
 fi
 chmod 0600 "$PROXY_PASSWORD_FILE"
-if [[ ! -e "$HOME_ROOT/.agent-presets/elysium" ]]; then
-  install -d -m 0750 "$HOME_ROOT/.agent-presets"
-  cp -R "$PACKAGE_ROOT/dsh-elysium-tools/.dsh/.agent-presets/elysium" \
-    "$HOME_ROOT/.agent-presets/"
-fi
+install -d -m 0750 "$HOME_ROOT/.agent-presets"
+for preset in standard elysium-teaching elysium-free elysium-director; do
+  if [[ ! -e "$HOME_ROOT/.agent-presets/$preset" ]]; then
+    cp -R "$PACKAGE_ROOT/dsh-elysium-tools/.dsh/.agent-presets/$preset" \
+      "$HOME_ROOT/.agent-presets/"
+  fi
+done
 install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0640 \
   "$HARNESS_ROOT/config/operator-agent.cordis.yml" \
-  "$HOME_ROOT/.agent-presets/elysium/agent.cordis.yml"
+  "$HOME_ROOT/.agent-presets/elysium-teaching/agent.cordis.yml"
 chown -R "$SERVICE_USER:$SERVICE_GROUP" "$HOME_ROOT"
 
 install -d -m 0755 "$AUTOSTART_ROOT"

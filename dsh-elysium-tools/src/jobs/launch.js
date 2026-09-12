@@ -16,9 +16,9 @@ export async function launch(jobId, capability = 'workflow-video', retryFailed =
   return withLaunchLock(directory, () => launchLocked(jobId, capability, retryFailed))
 }
 
-export async function withLaunchLock(directory, callback) {
+export async function withLaunchLock(directory, callback, wait = false) {
   const guard = spawn(runtimeConfig().HARNESS_PYTHON || process.env.PYTHON_BIN || 'python3',
-    [fileURLToPath(new URL('./launch-lock.py', import.meta.url)), join(directory, 'launch.lock')],
+    [fileURLToPath(new URL('./launch-lock.py', import.meta.url)), join(directory, 'launch.lock'), ...(wait ? ['wait'] : [])],
     { stdio: ['pipe', 'pipe', 'pipe'] })
   const closed = new Promise(resolve => { guard.once('close', resolve) })
   guard.stdin.on('error', () => {})

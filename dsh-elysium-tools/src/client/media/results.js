@@ -12,14 +12,20 @@ window.__ModuleLoader__.load({
         if (event.type === 'tool/call' || (event.type === 'tool/result' && event.surfaceOp === 'append')) return { id: String(event.data.turn), role: 'update' }
         return null
       },
-      start: (_context, match) => ({ turn: match.event.data.turn, calls: new Set(), results: [] }),
+      start: (_context, match, reader) => ({ turn: match.event.data.turn, calls: new Set(), results: [],
+        seen: new Set(reader?.previous('elysium-media-results')?.state.seen || []), inherited: new Set(reader?.previous('elysium-media-results')?.state.seen || []) }),
       update: ({ state }, { event }) => {
         if (event.type === 'tool/call') return tools.has(event.data.name)
           ? { ...state, calls: new Set([...state.calls, String(event.data.callId)]) } : state
         const callId = String(event.data.message.source.callId)
         const block = event.data.message.content[0]
         if (!state.calls.has(callId) || fromBlock(block).status === 'rejected') return state
-        return { ...state, results: [...state.results.filter(item => item.callId !== callId), { callId, block, seq: event.seq }] }
+        const jobId = fromBlock(block).job_id
+        if (jobId && state.inherited.has(jobId)) return state
+        const existing = state.results.find(item => item.callId === callId || jobId && item.jobId === jobId)
+        const item = { callId, block, jobId: jobId || existing?.jobId, seq: existing?.seq ?? event.seq }
+        return { ...state, seen: new Set([...state.seen, ...(jobId ? [jobId] : [])]),
+          results: existing ? state.results.map(value => value === existing ? item : value) : [...state.results, item] }
       },
       buildLocationData: ({ state }, scope, previous) => {
         if (scope !== 'turn' || !state) return null
@@ -36,7 +42,7 @@ window.__ModuleLoader__.load({
           return results.length ? results : null
         },
       }, ({ matched, sessionId }) => h('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 } },
-        matched.map((item, index) => h(MediaTaskCard, { ordinal: matched.length > 1 ? index + 1 : undefined, key: item.callId, sessionId, callId: item.callId, block: item.block })))))
+        matched.map((item, index) => h(MediaTaskCard, { ordinal: matched.length > 1 ? index + 1 : undefined, key: item.jobId || item.callId, sessionId, callId: item.callId, block: item.block })))))
     } }
   },
 })

@@ -9,11 +9,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "dsh-elysium-tools"
 PRESETS_DIR = PACKAGE / ".dsh/.agent-presets"
 
-PRESET_SPECS = {
-    "elysium": "极乐世界 · 教学",
+ELYSIUM_PRESETS = {
+    "elysium-teaching": "极乐世界 · 教学",
     "elysium-free": "极乐世界 · 自由",
     "elysium-director": "极乐世界 · 导演",
 }
+
+ALL_PRESETS = {"standard": "标准模式", **ELYSIUM_PRESETS}
 
 
 class PackagedPresetTests(unittest.TestCase):
@@ -29,17 +31,21 @@ class PackagedPresetTests(unittest.TestCase):
         self.assertFalse((preset_dir / "standard.mjs").exists())
 
     def test_all_presets_use_native_plugins(self):
-        for preset_id in PRESET_SPECS:
+        for preset_id in ALL_PRESETS:
             with self.subTest(preset=preset_id):
                 self._assert_composition_uses_native_plugins(PRESETS_DIR / preset_id)
 
-    def test_all_presets_contain_required_files(self):
+    def test_all_presets_have_correct_names(self):
         self.assertIn(".dsh", json.loads((PACKAGE / "package.json").read_text())["files"])
         self.assertIn("'.dsh'", (PACKAGE / "build-scripts/package-registry.mjs").read_text())
-        for preset_id, expected_name in PRESET_SPECS.items():
+        for preset_id, expected_name in ALL_PRESETS.items():
+            with self.subTest(preset=preset_id):
+                self.assertEqual(yaml.safe_load((PRESETS_DIR / preset_id / "preset.yml").read_text())["name"], expected_name)
+
+    def test_elysium_presets_contain_persona_and_skills(self):
+        for preset_id in ELYSIUM_PRESETS:
             preset_dir = PRESETS_DIR / preset_id
             with self.subTest(preset=preset_id):
-                self.assertEqual(yaml.safe_load((preset_dir / "preset.yml").read_text())["name"], expected_name)
                 for relative in ("persona.md", "rules.md", "skills/creation-video/SKILL.md"):
                     self.assertTrue((preset_dir / relative).is_file(), f"{preset_id}/{relative}")
 

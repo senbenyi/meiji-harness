@@ -34,9 +34,13 @@ import { readFileSync } from 'node:fs'
 const profile = JSON.parse(readFileSync(process.argv[2], 'utf8')), name = process.argv[3]
 if (!profile.dependencies?.[name] || !profile.dsh?.profile?.bundles?.includes(name)) throw new Error('插件未正确注册到本机 web profile')
 JS
-if [[ "$kind" == tools && ! -e "$DSH_HOME/.agent-presets/elysium" ]]; then
+if [[ "$kind" == tools ]]; then
   mkdir -p "$DSH_HOME/.agent-presets"
-  cp -R "$PACKAGE_ROOT/registry/.dsh/.agent-presets/elysium" "$DSH_HOME/.agent-presets/"
+  for preset in standard elysium-teaching elysium-free elysium-director; do
+    if [[ ! -e "$DSH_HOME/.agent-presets/$preset" ]]; then
+      cp -R "$PACKAGE_ROOT/registry/.dsh/.agent-presets/$preset" "$DSH_HOME/.agent-presets/"
+    fi
+  done
 fi
 
 echo '[4/4] 重启本机 Harness 并检查 HTTP'

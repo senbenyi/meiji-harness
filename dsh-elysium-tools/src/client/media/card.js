@@ -28,7 +28,8 @@ window.__ModuleLoader__.load({
             if (!active) return
             const value = current.status === 'pending' && fallback.status !== 'pending' ? fallback : current
             setJob(value); setError(''); failures = 0
-            if (['succeeded', 'failed'].includes(value.status)) return
+            if (value.status === 'succeeded') return
+            if (value.status === 'failed') delay = 30000
             if (value.status === 'interrupted') { setError('无法关联后台任务，请查看详情中的任务 ID'); return }
           } catch (err) {
             if (!active) return

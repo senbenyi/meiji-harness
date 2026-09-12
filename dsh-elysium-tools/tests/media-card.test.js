@@ -131,7 +131,7 @@ test('failed production stays failed and does not trigger generation or claim su
   try {
     assert.match(JSON.stringify(f.view.toJSON()), /generation failed/)
     assert.equal(f.view.root.findAllByType('video').length, 0)
-    assert.equal(f.timers.size, 0)
+    assert.equal(f.timers.size, 1)
     assert.ok(f.requests.every(r => r.url.includes('/status?')))
   } finally { await f.close() }
 })
@@ -258,5 +258,43 @@ test('remote completion with local transfer failure is not labeled generation fa
   try {
     assert.match(JSON.stringify(f.view.toJSON()),/产物待校验/)
     assert.doesNotMatch(JSON.stringify(f.view.toJSON()),/生成失败/)
+  } finally { await f.close() }
+})
+
+test('resume calls merge by job identity within a turn and remain on the original card across turns and replay', async () => {
+  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: 'http://localhost/view' }) }] })
+  try {
+    for (let replay = 0; replay < 2; replay++) {
+      const d = f.definition
+      let state = d.start({}, { event: { data: { turn: 1 } } })
+      const apply = (state, callId, jobId, turn) => {
+        state = d.update({ state }, { event: { type: 'tool/call', data: { name: 'workflow_resume_video', callId, turn } } })
+        return d.update({ state }, { event: { type: 'tool/result', seq: 10 + turn, data: { turn, message: { source: { callId }, content: [{ content: [{ type: 'text', text: JSON.stringify({ job_id: jobId, status: 'failed' }) }] }] } } } })
+      }
+      state = apply(state, 'first', 'a', 1)
+      state = apply(state, 'resume', 'a', 1)
+      assert.equal(state.results.length, 1)
+      assert.equal(state.results[0].callId, 'resume')
+      let next = d.start({}, { event: { data: { turn: 2 } } }, { previous: () => ({ state }) })
+      next = apply(next, 'later-resume', 'a', 2)
+      assert.equal(next.results.length, 0)
+      next = apply(next, 'new-video', 'b', 2)
+      assert.equal(next.results.length, 1)
+      assert.equal(next.results[0].jobId, 'b')
+    }
+  } finally { await f.close() }
+})
+
+test('failed original card observes a later resume and completion without adding cards', async () => {
+  const f = await fixture([{ status: 'failed', job_id: 'a' }, { status: 'running', job_id: 'a', stage: 'reconnecting' },
+    { status: 'succeeded', job_id: 'a', comfyui_view_url: 'https://pod.test/view?filename=final.mp4' }])
+  try {
+    await f.tick()
+    assert.match(JSON.stringify(f.view.toJSON()), /正在重试原视频/)
+    await f.tick()
+    assert.equal(f.view.root.findAllByType('section').length, 1)
+    assert.equal(f.view.root.findAllByType('video').length, 1)
+    assert.equal(f.timers.size, 0)
+    assert.ok(f.requests.every(r => r.url.includes('/status?')))
   } finally { await f.close() }
 })

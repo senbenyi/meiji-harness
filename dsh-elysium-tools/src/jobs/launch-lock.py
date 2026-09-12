@@ -6,6 +6,6 @@ import fcntl
 import sys
 
 with open(sys.argv[1], "a") as lock:
-    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    fcntl.flock(lock, fcntl.LOCK_EX | (0 if sys.argv[2:] == ["wait"] else fcntl.LOCK_NB))
     print("locked", flush=True)
     sys.stdin.buffer.read()
