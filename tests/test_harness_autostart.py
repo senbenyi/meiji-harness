@@ -7,17 +7,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class HarnessAutostartTest(unittest.TestCase):
     def test_retries_until_harness_starts(self):
-        source = (ROOT / "deepseek-harness/config/comfyui-autostart.py").read_text()
+        source = (ROOT / "harness/config/comfyui-autostart.py").read_text()
 
         self.assertIn("until bash /workspace/harness/start.sh; do sleep 15; done", source)
 
     def test_harness_is_confined_to_an_unprivileged_workspace(self):
-        deploy = (ROOT / "deepseek-harness/deploy.sh").read_text()
-        start = (ROOT / "deepseek-harness/start.sh").read_text()
-        tunnel = (ROOT / "deepseek-harness/qwen-tunnel.sh").read_text()
-        settings = (ROOT / "deepseek-harness/config/settings.yaml").read_text()
-        security = (ROOT / "deepseek-harness/config/operator-security.patch.yml").read_text()
-        operator_agent = (ROOT / "deepseek-harness/config/operator-agent.cordis.yml").read_text()
+        deploy = (ROOT / "harness/deploy.sh").read_text()
+        start = (ROOT / "harness/start.sh").read_text()
+        tunnel = (ROOT / "harness/qwen-tunnel.sh").read_text()
+        settings = (ROOT / "harness/config/settings.yaml").read_text()
+        security = (ROOT / "harness/config/operator-security.patch.yml").read_text()
+        operator_agent = (ROOT / "harness/config/operator-agent.cordis.yml").read_text()
 
         self.assertIn("useradd --system --no-create-home", deploy)
         self.assertIn('chown root:"$SERVICE_GROUP" "$HARNESS_ROOT/runtime" "$APP_ROOT" "$PACKAGE_ROOT"', deploy)

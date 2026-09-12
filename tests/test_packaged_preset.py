@@ -1,13 +1,11 @@
 """Check that the shipped Elysium compositions retain native agent capabilities."""
-import json
 from pathlib import Path
 import unittest
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "dsh-elysium-tools"
-PRESETS_DIR = PACKAGE / ".dsh/.agent-presets"
+PRESETS_DIR = ROOT / "harness/.agent-presets"
 
 ELYSIUM_PRESETS = {
     "elysium-teaching": "极乐世界 · 教学",
@@ -36,8 +34,6 @@ class PackagedPresetTests(unittest.TestCase):
                 self._assert_composition_uses_native_plugins(PRESETS_DIR / preset_id)
 
     def test_all_presets_have_correct_names(self):
-        self.assertIn(".dsh", json.loads((PACKAGE / "package.json").read_text())["files"])
-        self.assertIn("'.dsh'", (PACKAGE / "build-scripts/package-registry.mjs").read_text())
         for preset_id, expected_name in ALL_PRESETS.items():
             with self.subTest(preset=preset_id):
                 self.assertEqual(yaml.safe_load((PRESETS_DIR / preset_id / "preset.yml").read_text())["name"], expected_name)

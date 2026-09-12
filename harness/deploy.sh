@@ -41,6 +41,9 @@ for path in \
   "$HARNESS_ROOT/start.sh"; do
   [[ -s "$path" ]] || fail "部署文件不存在：$path"
 done
+for preset in standard elysium-teaching elysium-free elysium-director; do
+  [[ -d "$HARNESS_ROOT/.agent-presets/$preset" ]] || fail "预设目录不存在：$HARNESS_ROOT/.agent-presets/$preset"
+done
 
 id -u "$SERVICE_USER" >/dev/null 2>&1 || \
   useradd --system --no-create-home --home-dir "$HOME_ROOT" --shell /usr/sbin/nologin "$SERVICE_USER"
@@ -120,10 +123,12 @@ chmod 0600 "$PROXY_PASSWORD_FILE"
 install -d -m 0750 "$HOME_ROOT/.agent-presets"
 for preset in standard elysium-teaching elysium-free elysium-director; do
   if [[ ! -e "$HOME_ROOT/.agent-presets/$preset" ]]; then
-    cp -R "$PACKAGE_ROOT/dsh-elysium-tools/.dsh/.agent-presets/$preset" \
+    cp -R "$HARNESS_ROOT/.agent-presets/$preset" \
       "$HOME_ROOT/.agent-presets/"
   fi
 done
+# 服务器运维模式：用精简 composition 替换教学预设的 agent.cordis.yml，
+# 仅保留 persona、skill-filesystem、tool-skill，禁用 bash/subagent 等危险工具。
 install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0640 \
   "$HARNESS_ROOT/config/operator-agent.cordis.yml" \
   "$HOME_ROOT/.agent-presets/elysium-teaching/agent.cordis.yml"

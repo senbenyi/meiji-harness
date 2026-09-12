@@ -38,7 +38,7 @@ if [[ "$kind" == tools ]]; then
   mkdir -p "$DSH_HOME/.agent-presets"
   for preset in standard elysium-teaching elysium-free elysium-director; do
     if [[ ! -e "$DSH_HOME/.agent-presets/$preset" ]]; then
-      cp -R "$PACKAGE_ROOT/registry/.dsh/.agent-presets/$preset" "$DSH_HOME/.agent-presets/"
+      cp -R "$REPO_ROOT/harness/.agent-presets/$preset" "$DSH_HOME/.agent-presets/"
     fi
   done
 fi

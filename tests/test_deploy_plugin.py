@@ -38,7 +38,8 @@ printf '%s' '{"dependencies":{"@dsh-external/dsh-elysium-tools":"link:x","@dsh-e
         self.env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
                         DEPLOY_TEST_ROOT=str(self.root), DEPLOY_TEST_LOG=str(self.log))
         (self.root / "home").mkdir()
-        for preset in ("standard", "elysium-teaching", "elysium-free", "elysium-director"):
+        for preset in ("elysium-standard", "elysium-teaching", "elysium-free", "elysium-director"):
+            (self.root / f"harness/.agent-presets/{preset}").mkdir(parents=True, exist_ok=True)
             (self.root / f"home/.agent-presets/{preset}").mkdir(parents=True, exist_ok=True)
 
     def mock(self, name, body):

@@ -24,8 +24,7 @@
     "lib",
     "cordis.patch.yml",
     "dsh.plugin.json",
-    "README.md",
-    ".dsh"
+    "README.md"
   ],
   "scripts": {
     "build": "node build-scripts/build.mjs",
