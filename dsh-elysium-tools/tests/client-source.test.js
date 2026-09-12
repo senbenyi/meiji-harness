@@ -21,8 +21,8 @@ test('panel conversion loads exports with no newline, LF, CRLF and trailing whit
       runInNewContext(clientSource(), { window: { __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } } })
       const require = name => { if (name === 'react') return {}; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
       assert.equal(typeof require('elysium-tools/asset-panel').apply, 'function')
-      assert.equal(typeof require('elysium-tools/asset-list').AssetList, 'function')
-      assert.equal(typeof require('elysium-tools/storyboard').StoryboardList, 'function')
+      assert.equal(typeof require('elysium-tools/asset-list').MaterialList, 'function')
+      assert.equal(typeof require('elysium-tools/project').ProjectList, 'function')
       assert.equal(typeof require('elysium-tools/panel-styles').apply, 'function')
     }
   } finally { await rm(root, { recursive: true, force: true }) }

@@ -25,7 +25,7 @@ export const json = (res, status, data) => {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
   res.end(JSON.stringify(data))
 }
-export async function listAssets(offset, limit) {
+export async function listAssets(offset, limit, filters = {}) {
   const root = join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs')
   const entries = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
   const items = []
@@ -34,7 +34,7 @@ export async function listAssets(offset, limit) {
     const path = join(root, entry.name, 'status.json')
     try {
       const job = JSON.parse(await readFile(path, 'utf8'))
-      if (job.status === 'succeeded') items.push({ ...jobSummary(job), created_at: (await stat(path)).mtimeMs })
+      if (job.status === 'succeeded' && (!filters.profile || (jobSummary(job).profile === 'hd' ? 'high-quality' : jobSummary(job).profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || jobSummary(job).media_kind === filters.media_kind)) items.push({ ...jobSummary(job), created_at: (await stat(path)).mtimeMs })
     } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
   }
   items.sort((a, b) => b.created_at - a.created_at || a.job_id.localeCompare(b.job_id))
@@ -44,7 +44,7 @@ export function authenticated(url, token) {
   const supplied = Buffer.from(url.searchParams.get('t') || ''), expected = Buffer.from(token)
   return supplied.length === expected.length && timingSafeEqual(supplied, expected)
 }
-export function createMediaHandler({ token, storyboardBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
+export function createMediaHandler({ token, projectBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -53,14 +53,16 @@ export function createMediaHandler({ token, storyboardBase, readJob = getJob, fi
         // A custom header requires CORS preflight; this route never grants CORS access.
         if (req.headers['x-elysium-media-refresh'] !== '1' ||
           (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return json(res, 403, { error: 'Same-origin request required' })
-        return json(res, 200, { token, base: MEDIA_ROUTE, storyboardBase })
+        return json(res, 200, { token, base: MEDIA_ROUTE, projectBase })
       }
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' })
       if (url.pathname === `${MEDIA_ROUTE}/list`) {
         const limit = Number(url.searchParams.get('limit') ?? 50), offset = Number(url.searchParams.get('offset') ?? 0)
         if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(offset) || offset < 0) return json(res, 400, { error: 'Invalid pagination' })
-        return json(res, 200, await listAssets(offset, Math.min(limit, 200)))
+        const profile = url.searchParams.get('profile') || '', media_kind = url.searchParams.get('media_kind') || ''
+        if (profile && !['preview', 'regular', 'high-quality', 'hd'].includes(profile) || media_kind && !['video', 'image'].includes(media_kind)) return json(res, 400, { error: 'Invalid filters' })
+        return json(res, 200, await listAssets(offset, Math.min(limit, 200), { profile, media_kind }))
       }
       const jobId = url.searchParams.get('job')
       if (jobId !== null && !/^[a-f0-9]{32}$/.test(jobId)) return json(res, 400, { error: 'Invalid job identity' })
@@ -100,12 +102,12 @@ export function createMediaHandler({ token, storyboardBase, readJob = getJob, fi
     }
   }
 }
-export function registerMediaRoutes(ctx, runtime, storyboardBase) {
+export function registerMediaRoutes(ctx, runtime, projectBase) {
   const server = ctx.get?.('webServer')
   if (!server) return // CLI tools do not require a Web server.
   const token = randomBytes(32).toString('hex')
-  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, storyboardBase } }))
-  const handle = createMediaHandler({ token, storyboardBase, getSession: id => ctx.get('sessions')?.get(id) })
+  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase } }))
+  const handle = createMediaHandler({ token, projectBase, getSession: id => ctx.get('sessions')?.get(id) })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
   return token

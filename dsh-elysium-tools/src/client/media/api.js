@@ -32,7 +32,7 @@ window.__ModuleLoader__.load({
       }
       return value
     }
-    const storyboardUrl = (kind, params) => mediaUrl(kind, null, null, params, 'storyboardBase')
-    return { mediaUrl, readStatus, storyboardUrl }
+    const projectUrl = (kind, params) => mediaUrl(kind, null, null, params, 'projectBase')
+    return { mediaUrl, readStatus, projectUrl }
   },
 })

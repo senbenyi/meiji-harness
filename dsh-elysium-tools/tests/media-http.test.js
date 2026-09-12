@@ -26,13 +26,13 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', ...['list', 'get', 'create', 'update', 'delete'].map(suffix => `/plugins/dsh-elysium/storyboard/${suffix}`)])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', ...['list', 'get', 'create', 'update', 'delete', 'import'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`)])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
   assert.equal(rows[0].value.base, '/plugins/dsh-elysium/media')
   assert.ok(rows[0].value.token)
-  assert.equal(rows[0].value.storyboardBase, '/plugins/dsh-elysium/storyboard')
+  assert.equal(rows[0].value.projectBase, '/plugins/dsh-elysium/project')
 })
 
 test('call mapping survives reads and never uses an arbitrary client job/path', async () => {
@@ -127,7 +127,7 @@ test('preview proxy forwards Range and HEAD, preserves 206/416, and never redire
   })
   await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
   const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
-  const server = createServer(createMediaHandler({ token: 't', readJob: async () => job, storyboardBase: '/plugins/dsh-elysium/storyboard' }))
+  const server = createServer(createMediaHandler({ token: 't', readJob: async () => job, projectBase: '/plugins/dsh-elysium/project' }))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`, url = `${base}/video?t=t&job=${job.job_id}`
   try {
@@ -141,6 +141,6 @@ test('preview proxy forwards Range and HEAD, preserves 206/416, and never redire
     response = await fetch(url, { method: 'HEAD' })
     assert.equal(response.status, 200); assert.equal(response.headers.get('content-length'), '5'); assert.equal(await response.text(), '')
     response = await fetch(`${base}/credentials`, { headers: { 'X-Elysium-Media-Refresh': '1' } })
-    assert.equal((await response.json()).storyboardBase, '/plugins/dsh-elysium/storyboard')
+    assert.equal((await response.json()).projectBase, '/plugins/dsh-elysium/project')
   } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
 })

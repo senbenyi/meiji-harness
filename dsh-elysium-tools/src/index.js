@@ -7,7 +7,7 @@ import { createComfyuiTaskStatusTool } from './functions/comfyui/task-status.js'
 import { createComfyuiTaskResultTool } from './functions/comfyui/task-result.js'
 import { createComfyuiTaskCancelTool } from './functions/comfyui/task-cancel.js'
 import { createToolDiscoveryTool, projectTools } from './tool-discovery.js'
-import { registerStoryboardRoutes, STORYBOARD_ROUTE } from './http/storyboard.js'
+import { registerProjectRoutes, PROJECT_ROUTE } from './http/project.js'
 import { registerMediaRoutes } from './http/media-jobs.js'
 import { creationInstructions } from './creation-instructions.js'
 
@@ -25,8 +25,8 @@ export function createComfyuiTools() {
 export function apply(ctx, config = {}) {
   const runtime = resolveConfig(config)
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
-    const token = registerMediaRoutes(mediaContext, runtime, STORYBOARD_ROUTE)
-    registerStoryboardRoutes(mediaContext, runtime, token)
+    const token = registerMediaRoutes(mediaContext, runtime, PROJECT_ROUTE)
+    registerProjectRoutes(mediaContext, runtime, token)
   }))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = projectTools(await next(), context.agent)

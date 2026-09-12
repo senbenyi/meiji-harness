@@ -10,10 +10,10 @@
 dsh-elysium-tools/
 ├── src/                # 源代码
 │   ├── index.js        # 插件入口，导出 name / inject / apply
-│   ├── http/           # 媒体查询、下载代理与分镜 CRUD
+│   ├── http/           # 媒体查询、下载代理与项目 CRUD（project.js）
 │   └── client/         # React.createElement，无 JSX
 │       ├── media/      # 媒体卡片
-│       └── panel/      # 资产侧栏与分镜管理
+│       └── panel/      # 素材侧栏与项目管理（project.js：锚点、分镜、交付）
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
 │   ├── client-source.mjs # 客户端模块拼接
@@ -32,7 +32,7 @@ dsh-elysium-tools/
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
 - 新增客户端模块（含 `panel/`）后须同步更新 `scripts/client-source.mjs` 的模块列表，依赖在前、`index.js` 最后。
 - `panel/` 使用 `load(name, (require, exports) => { ... })` 定义模块；拼接脚本适配宿主的 `{ id, factory }` 注册格式，不引入 bundler。
-- 媒体及分镜端点共用注入 token，客户端通过 `mediaUrl()` 构建带凭据的 URL。用户下载流式代理上游，不保存媒体文件；分镜 JSON 使用临时文件加 rename 原子写入。
+- 媒体及项目端点共用注入 token，客户端通过 `mediaUrl()` 构建带凭据的 URL。用户下载流式代理上游，不保存媒体文件；项目 JSON 使用临时文件加 rename 原子写入。
 
 ## 2. 预设结构
 
