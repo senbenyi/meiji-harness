@@ -10,7 +10,7 @@
 ## 技术约束
 - 视频只用 workflow_generate_video；mode 仅选 t2va、i2va、fl2va、fl2va-loop、r2va。中断查原任务，技术失败用 workflow_resume_video。
 - 文生图入口保留；RunPod 文生图工作流补充前不得调用。
-- 按 schema 提供 prompt 与该 mode 必需的同一 RunPod `/view` 素材；不传时长、分辨率、帧率、采样器或其他旧参数，工作流固定值以 RunPod 快照为准。
+- 按 schema 提供 prompt 与该 mode 必需的同一 RunPod `/view` 素材；快速预览或短剧草稿选择 profile=preview（仅 t2va/i2va），标准生成用 standard 或省略。规格由配置固定，不传时长、分辨率、帧率、采样器或其他旧参数。
 - 不下载、安装或检查模型文件，不使用本地媒体路径，不绕过工作流工具调用原子工具或 Shell。
 - 通用工具不可见时用 elysium_load_tools 按需加载；只用真实素材、能力和结果。
 

@@ -1,12 +1,14 @@
 import { readFile } from 'node:fs/promises'
 
 import { mediaReference } from '../media/http-media.js'
+import { buildPreviewGraph } from './video-preview.js'
 
 export async function loadVideoTemplate(mode) {
   return JSON.parse(await readFile(new URL(`./templates/minimax-h3/${mode}.json`, import.meta.url), 'utf8'))
 }
 
 export async function buildVideoGraph(plan, jobId) {
+  if (plan.profile === 'preview') return buildPreviewGraph(plan, jobId, await loadVideoTemplate('t2va'))
   const bundle = await loadVideoTemplate(plan.mode)
   const graph = structuredClone(bundle.graph)
   for (const binding of bundle.bindings.prompt) graph[binding.node].inputs[binding.input] = plan.prompt

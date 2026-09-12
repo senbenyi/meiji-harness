@@ -12,11 +12,12 @@ const media = description => ({ type: 'string', description: `${description}，�
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '失败或断网时保留原任务，不得通过改提示词重新生成。自动重试耗尽后停止调用，等待用户要求恢复。使用 RunPod 现有 MiniMax H3 工作流生成视频。仅支持 t2va、i2va、fl2va、fl2va-loop、r2va；工作流内模型、参数、帧率和后处理保持 RunPod 原值。',
+    description: '失败或断网时保留原任务，不得通过改提示词重新生成。自动重试耗尽后停止调用，等待用户要求恢复。standard 保留原工作流；preview 用于低分辨率短镜头快速预览，仅支持 t2va、i2va，返回实际规格。',
     timeoutMs: MODEL_TIMEOUTS.workflow + 60_000,
     parameters: { type: 'object', additionalProperties: false, required: ['mode', 'prompt'], properties: {
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
+      profile: { type: 'string', enum: ['standard', 'preview'], description: '默认 standard；短剧草稿选择 preview，约 3 秒、384×512，不插帧。' },
       prompt: { type: 'string', minLength: 1 },
       first_frame: media('I2VA/FL2VA 首帧'),
       last_frame: media('FL2VA 尾帧'),

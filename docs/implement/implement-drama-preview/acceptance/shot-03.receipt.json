@@ -1,0 +1,85 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "i2va",
+    "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=reaction-anchor.png&subfolder=preview-drama&type=output",
+    "prompt": "Continue from the supplied image with the same two fictional adult friends in their thirties at the cafe, identical faces and clothing. A reaction shot: Chen, the adult man in the dark blue shirt, stops looking down at the red envelope, slowly lifts his head to look at Lin, then gives a small relieved smile and nod. Lin, the adult woman with the black bob and mustard cardigan, gently withdraws her hand and smiles back. A subtle slow camera push toward Chen, natural restrained acting, continuous realistic motion, warm daylight, no dialogue, no music, no on-screen text."
+  },
+  "job_id": "3da69cae09aedb76e9920c812d746162",
+  "result": {
+    "job_id": "3da69cae09aedb76e9920c812d746162",
+    "status": "succeeded",
+    "trace_id": "3da69cae09aedb76e9920c812d746162",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "total_ms": 34747
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "7ecd8f2b3354f10d9f633869091fb4db4c809b86b59f235d328059afd4606373"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F3da69cae09aedb76e9920c812d746162%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F3da69cae09aedb76e9920c812d746162%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "i2va",
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "4480daaa-e926-4d87-b732-6234201bb9e2",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "d6a05829b1675b892481df92017d8afa62e78850027d39d4efc081e88e405d57",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/3da69cae09aedb76e9920c812d746162/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "fullpath": "/workspace/runpod-slim/ComfyUI/output/elysium/3da69cae09aedb76e9920c812d746162/preview/final_00001-audio.mp4",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "4480daaa-e926-4d87-b732-6234201bb9e2",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F3da69cae09aedb76e9920c812d746162%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "i2va",
+        "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=reaction-anchor.png&subfolder=preview-drama&type=output",
+        "prompt": "Continue from the supplied image with the same two fictional adult friends in their thirties at the cafe, identical faces and clothing. A reaction shot: Chen, the adult man in the dark blue shirt, stops looking down at the red envelope, slowly lifts his head to look at Lin, then gives a small relieved smile and nod. Lin, the adult woman with the black bob and mustard cardigan, gently withdraws her hand and smiles back. A subtle slow camera push toward Chen, natural restrained acting, continuous realistic motion, warm daylight, no dialogue, no music, no on-screen text."
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "4480daaa-e926-4d87-b732-6234201bb9e2"
+        }
+      ],
+      "diagnostic_path": "/Users/mac/.dsh/elysium/tasks/jobs/3da69cae09aedb76e9920c812d746162/diagnostics.json",
+      "log_path": "/Users/mac/.dsh/elysium/tasks/jobs/3da69cae09aedb76e9920c812d746162/execution.log"
+    }
+  }
+}

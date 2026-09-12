@@ -9,5 +9,5 @@ description: 使用 RunPod 现有 MiniMax H3 五种模式整理提示词、生�
 
 - 只补关键缺项，用当前 Harness 模型整理一版可直接提交给 MiniMax H3 的最终提示词；明确主体、动作、场景、镜头和声音，按 schema 执行。
 - 图片素材必须是当前 RunPod 的 ComfyUI `/view` URL；不使用本地路径，不下载或检查模型文件。
-- 不传工作流未公开的参数；模型、时长、分辨率、帧率、采样器和后处理保持 RunPod 快照原值。
+- 不传工作流未公开的参数。标准生成使用 profile=standard（或省略），保持 RunPod 快照原值；用户要求快速预览、短剧草稿时使用 profile=preview，仅支持 t2va/i2va，读取返回的实际规格，不自行追加 Turbo LoRA 或调整采样器。
 - 改稿只改指定部分；咨询或保存不生成，任务成功不等于人工验收通过。
