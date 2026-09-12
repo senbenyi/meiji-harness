@@ -2,7 +2,7 @@ window.__ModuleLoader__.load({
   id: 'elysium-tools/creation-commands', factory: () => {
     const commands = [
       { name: '预览创作', description: '快速看构图和动作，生成约 3 秒预览' },
-      { name: '常规创作', description: '清晰度与速度兼顾，生成约 5 秒短镜头' },
+      { name: '常规创作', description: '清晰度与速度兼顾，单次生成最长约 15 秒视频' },
       { name: '高清创作', description: '更高分辨率，适合正式制作，等待较长' },
     ]
     function claim(command) {

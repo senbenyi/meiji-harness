@@ -15,19 +15,19 @@ await withConfig(resolveConfig(), async () => {
   const guard = `${resolve(receiptPath)}.lock`
   await mkdir(guard, { recursive: true })
   await withLaunchLock(guard, async () => {
-  const saved = await readJson(receiptPath)
-  if (saved && JSON.stringify(saved.request) !== JSON.stringify(request)) throw new Error('Receipt belongs to another shot; use its original request')
-  await validateVideoPlan(request)
-  requiredConfig('COMFYUI_URL', 'url')
-  const jobId = saved?.job_id || await createJob(request)
-  // Persist identity before starting a worker: interrupted submissions retain the same job.
-  if (!saved) await saveJson(receiptPath, { request, job_id: jobId })
-  const status = await readJson(join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', jobId, 'status.json'))
-  const job = status ? await resumeVideoJob(jobId) : await launch(jobId)
-  console.log(JSON.stringify(job))
-  const result = await waitJob(job)
-  await saveJson(receiptPath, { request, job_id: jobId, result })
-  console.log(JSON.stringify(result))
-  if (result.status !== 'succeeded') process.exitCode = 1
+    const saved = await readJson(receiptPath)
+    if (saved && JSON.stringify(saved.request) !== JSON.stringify(request)) throw new Error('Receipt belongs to another shot; use its original request')
+    await validateVideoPlan(request)
+    requiredConfig('COMFYUI_URL', 'url')
+    const jobId = saved?.job_id || await createJob(request)
+    // Persist identity before starting a worker: interrupted submissions retain the same job.
+    if (!saved) await saveJson(receiptPath, { request, job_id: jobId })
+    const status = await readJson(join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs', jobId, 'status.json'))
+    const job = status ? await resumeVideoJob(jobId) : await launch(jobId)
+    console.log(JSON.stringify(job))
+    const result = await waitJob(job)
+    await saveJson(receiptPath, { request, job_id: jobId, result })
+    console.log(JSON.stringify(result))
+    if (result.status !== 'succeeded') process.exitCode = 1
   })
 })

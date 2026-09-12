@@ -10,7 +10,8 @@ export async function buildProfileGraph(plan, jobId, bundle) {
   const profileName = lowResolution ? 'preview-low-resolution' : profile
   const graph = structuredClone(bundle.graph)
   const width = Math.ceil(config.width / 32) * 32, height = Math.ceil(config.height / 32) * 32
-  const requestedFrames = Math.max(5, Math.round(config.requested_seconds * config.fps))
+  const requestedSeconds = profile === 'regular' ? plan.duration_seconds ?? config.requested_seconds : config.requested_seconds
+  const requestedFrames = Math.max(5, Math.round(requestedSeconds * config.fps))
   const frames = requestedFrames + (5 - requestedFrames % 17 + 17) % 17
   Object.assign(graph.n105_104.inputs, { prompt: plan.prompt, width, height, length: frames })
   graph.n105_9.inputs.steps = config.steps
@@ -32,5 +33,5 @@ export async function buildProfileGraph(plan, jobId, bundle) {
     profile, mode: plan.mode, workflowName: `${profileName}-${plan.mode}`, outputNode: 'n126', source: bundle.source,
     specification: { backend: config.backend, width, height, frames, fps: config.fps, seconds: frames / config.fps,
       ...(lowResolution ? { preview_variant: 'low-resolution' } : {}),
-      requested_seconds: config.requested_seconds, steps: config.steps, audio: 'joint-generation-and-decoding', interpolation: false } }
+      requested_seconds: requestedSeconds, steps: config.steps, audio: 'joint-generation-and-decoding', interpolation: false } }
 }
