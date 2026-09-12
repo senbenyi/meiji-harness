@@ -43,3 +43,20 @@ test('storyboards authenticate every route and persist validated atomic CRUD wit
     assert.deepEqual(await (await request('list')).json(), [])
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
+
+test('create retries a colliding ID without overwriting the existing storyboard', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-collision-')), ids = ['aaaaaaaa', 'aaaaaaaa', 'bbbbbbbb']
+  const handler = createStoryboardHandler({ token: 't', newId: () => ids.shift() })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_TOOLS_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const url = `http://127.0.0.1:${server.address().port}${STORYBOARD_ROUTE}/create?t=t`
+  try {
+    for (const title of ['原分镜', '新分镜']) {
+      const response = await fetch(url, { method: 'POST', body: JSON.stringify({ title }) })
+      assert.equal(response.status, 201)
+      assert.equal((await response.json()).id, title === '原分镜' ? 'aaaaaaaa' : 'bbbbbbbb')
+    }
+    const original = JSON.parse(await readFile(join(root, 'storyboards/aaaaaaaa/manifest.json'), 'utf8'))
+    assert.equal(original.title, '原分镜')
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})

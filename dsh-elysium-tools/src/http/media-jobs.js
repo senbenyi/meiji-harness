@@ -44,7 +44,7 @@ export function authenticated(url, token) {
   const supplied = Buffer.from(url.searchParams.get('t') || ''), expected = Buffer.from(token)
   return supplied.length === expected.length && timingSafeEqual(supplied, expected)
 }
-export function createMediaHandler({ token, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
+export function createMediaHandler({ token, storyboardBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -53,7 +53,7 @@ export function createMediaHandler({ token, readJob = getJob, findCall = findVid
         // A custom header requires CORS preflight; this route never grants CORS access.
         if (req.headers['x-elysium-media-refresh'] !== '1' ||
           (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return json(res, 403, { error: 'Same-origin request required' })
-        return json(res, 200, { token, base: MEDIA_ROUTE })
+        return json(res, 200, { token, base: MEDIA_ROUTE, storyboardBase })
       }
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' })
@@ -81,31 +81,31 @@ export function createMediaHandler({ token, readJob = getJob, findCall = findVid
       if (!(download && (summary.has_video || summary.has_image) || url.pathname === `${MEDIA_ROUTE}/video` && summary.has_video || url.pathname === `${MEDIA_ROUTE}/image` && summary.has_image)) return json(res, 404, { error: '媒体尚不可用' })
       const target = new URL(job.result.comfyui_view_url)
       if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) return json(res, 403, { error: 'Invalid media URL' })
-      if (download) {
-        const upstream = await fetch(target, { method: req.method, signal: AbortSignal.timeout(120_000) })
-        if (!upstream.ok) { await upstream.body?.cancel(); return json(res, 502, { error: '媒体下载失败，请稍后重试' }) }
-        const headers = { 'Content-Disposition': `attachment; filename="elysium-${job.job_id}.${summary.media_kind === 'image' ? 'png' : 'mp4'}"`,
-          'Content-Type': upstream.headers.get('content-type') || 'application/octet-stream', 'Cache-Control': 'no-store' }
-        if (upstream.headers.has('content-length') && !upstream.headers.has('content-encoding')) headers['Content-Length'] = upstream.headers.get('content-length')
-        res.writeHead(200, headers)
-        if (req.method === 'HEAD' || !upstream.body) return res.end()
-        await pipeline(Readable.fromWeb(upstream.body), res)
-        return
+      const requestHeaders = { 'Accept-Encoding': 'identity' }
+      if (!download && req.headers.range) requestHeaders.Range = req.headers.range
+      if (!download && req.headers['if-range']) requestHeaders['If-Range'] = req.headers['if-range']
+      const upstream = await fetch(target, { method: req.method, headers: requestHeaders, signal: AbortSignal.timeout(120_000) })
+      if (!upstream.ok && upstream.status !== 416) { await upstream.body?.cancel(); return json(res, 502, { error: '媒体读取失败，请稍后重试' }) }
+      const headers = { 'Content-Type': upstream.headers.get('content-type') || 'application/octet-stream', 'Cache-Control': 'no-store' }
+      if (download) headers['Content-Disposition'] = `attachment; filename="elysium-${job.job_id}.${summary.media_kind === 'image' ? 'png' : 'mp4'}"`
+      for (const name of ['content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified']) {
+        if (upstream.headers.has(name) && !(name === 'content-length' && upstream.headers.has('content-encoding'))) headers[name] = upstream.headers.get(name)
       }
-      res.writeHead(302, { Location: target.href, 'Cache-Control': 'no-store' })
-      res.end()
+      res.writeHead(upstream.status, headers)
+      if (req.method === 'HEAD' || !upstream.body) return res.end()
+      await pipeline(Readable.fromWeb(upstream.body), res)
     } catch {
       if (!res.headersSent) json(res, 503, { error: '暂时无法读取任务，请稍后重试' })
       else res.destroy()
     }
   }
 }
-export function registerMediaRoutes(ctx, runtime) {
+export function registerMediaRoutes(ctx, runtime, storyboardBase) {
   const server = ctx.get?.('webServer')
   if (!server) return // CLI tools do not require a Web server.
   const token = randomBytes(32).toString('hex')
-  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE } }))
-  const handle = createMediaHandler({ token, getSession: id => ctx.get('sessions')?.get(id) })
+  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, storyboardBase } }))
+  const handle = createMediaHandler({ token, storyboardBase, getSession: id => ctx.get('sessions')?.get(id) })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
   return token

@@ -1,9 +1,9 @@
 window.__ModuleLoader__.load('elysium-tools/storyboard', (require, exports) => {
   const { createElement: h, useState, useEffect, useRef } = require('react')
-  const { mediaUrl } = require('elysium-tools/media-api')
+  const { storyboardUrl } = require('elysium-tools/media-api')
   const { assetUrl, relativeTime } = require('elysium-tools/asset-list')
   async function request(action, body, params = {}) {
-    const url = mediaUrl(action, null, null, params).replace('/media/', '/storyboard/')
+    const url = storyboardUrl(action, params)
     const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) })
     const value = await response.json()
     if (!response.ok) throw new Error(value.error || '分镜操作失败')
@@ -32,7 +32,7 @@ window.__ModuleLoader__.load('elysium-tools/storyboard', (require, exports) => {
       return () => { active = false }
     }, [jobId])
     if (error) return h('p', { role: 'alert' }, error)
-    return job?.has_video ? h('video', { className: 'elysium-asset-thumb', src: job.comfyui_view_url, preload: 'metadata', controls: true }) : job?.has_image ? h('img', { className: 'elysium-asset-thumb', src: job.comfyui_view_url, alt: '镜头图片' }) : h('p', null, jobId ? '暂无可播放产物' : '尚未关联素材')
+    return job?.has_video ? h('video', { className: 'elysium-asset-thumb', src: assetUrl('video', jobId), preload: 'metadata', controls: true }) : job?.has_image ? h('img', { className: 'elysium-asset-thumb', src: assetUrl('image', jobId), alt: '镜头图片' }) : h('p', null, jobId ? '暂无可播放产物' : '尚未关联素材')
   }
   function StoryboardDetail({ id, back }) {
     const [board, setBoard] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false)
@@ -87,7 +87,7 @@ window.__ModuleLoader__.load('elysium-tools/storyboard', (require, exports) => {
       items.map(item => h('article', { className: 'elysium-asset-item', key: item.id },
         h('button', { onClick: () => setSelected(item.id), disabled: busy }, item.title),
         h('p', null, `${item.shot_count} 镜头 · ${item.completed_count} 已完成 · ${relativeTime(item.updated_at)}`),
-        h('button', { disabled: busy, onClick: () => run(async () => { await deleteStoryboard(item.id); await refresh() }) }, '删除分镜'))))
+        h('button', { disabled: busy, onClick: () => { if (window.confirm(`删除分镜“${item.title}”？此操作无法撤销。`)) run(async () => { await deleteStoryboard(item.id); await refresh() }) } }, '删除分镜'))))
   }
   Object.assign(exports, { fetchStoryboards, fetchStoryboard, createStoryboard, updateStoryboard, deleteStoryboard, StoryboardList, StoryboardDetail })
 })

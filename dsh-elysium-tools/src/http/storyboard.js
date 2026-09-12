@@ -34,7 +34,7 @@ async function bodyJson(req) {
     return value
   } catch { throw invalid('JSON 对象无效') }
 }
-export function createStoryboardHandler({ token }) {
+export function createStoryboardHandler({ token, newId = () => randomBytes(4).toString('hex') }) {
   let writes = Promise.resolve()
   return async (req, res) => {
     try {
@@ -73,9 +73,12 @@ export function createStoryboardHandler({ token }) {
         let value
         if (action === 'create') {
           const title = titleValue(body.title), now = Date.now()
-          value = { id: randomBytes(4).toString('hex'), title, created_at: now, updated_at: now, shots: [] }
+          value = { id: newId(), title, created_at: now, updated_at: now, shots: [] }
           await mkdir(root, { recursive: true })
-          await mkdir(join(root, value.id))
+          for (;;) {
+            try { await mkdir(join(root, value.id)); break }
+            catch (error) { if (error.code !== 'EEXIST') throw error; value.id = newId() }
+          }
         } else {
           value = await read(body.id)
           if (body.title !== undefined) value.title = titleValue(body.title)

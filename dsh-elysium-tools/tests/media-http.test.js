@@ -32,6 +32,7 @@ test('media routes wait for webServer and inject browser configuration when it b
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
   assert.equal(rows[0].value.base, '/plugins/dsh-elysium/media')
   assert.ok(rows[0].value.token)
+  assert.equal(rows[0].value.storyboardBase, '/plugins/dsh-elysium/storyboard')
 })
 
 test('call mapping survives reads and never uses an arbitrary client job/path', async () => {
@@ -54,7 +55,9 @@ test('call mapping survives reads and never uses an arbitrary client job/path', 
     await rm(root, { recursive: true, force: true })
   }
 })
-test('authenticated media routes redirect HTTP URLs and never serve local files', async () => {
+test('authenticated media routes proxy HTTP URLs and never serve local files', async () => {
+  const upstream = createServer((req, res) => { res.writeHead(200, { 'Content-Type': req.url.includes('.png') ? 'image/png' : 'video/mp4' }); res.end('media') })
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
   let job = { job_id: 'a'.repeat(32), status: 'running', stage: 'generate' }
   const server = createServer(createMediaHandler({ token: 't', findCall: async (s, c) => s === 's' && c === 'c' ? job.job_id : null, readJob: async () => job }))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -70,15 +73,15 @@ test('authenticated media routes redirect HTTP URLs and never serve local files'
     assert.equal((await get('/video')).status, 404)
     assert.equal((await fetch(base + '/download?t=t&session=missing&call=missing')).status, 404)
     for (const kind of ['image', 'video']) {
-      const url = `https://comfy.test/view?filename=final.${kind === 'image' ? 'png' : 'mp4'}&type=output`
+      const url = `http://127.0.0.1:${upstream.address().port}/view?filename=final.${kind === 'image' ? 'png' : 'mp4'}&type=output`
       job = { ...job, status: 'succeeded', result: { media_kind: kind, comfyui_view_url: url } }
       assert.equal((await (await get('/status')).json())[`has_${kind}`], true)
       for (const method of ['GET', 'HEAD']) {
         const response = await get('/' + kind, { method })
-        assert.equal(response.status, 302)
-        assert.equal(response.headers.get('location'), url)
+        assert.equal(response.status, 200)
+        assert.equal(response.headers.get('location'), null)
         assert.equal(response.headers.get('content-disposition'), null)
-        assert.equal(await response.text(), '')
+        assert.equal(await response.text(), method === 'HEAD' ? '' : 'media')
       }
       assert.equal((await get('/' + (kind === 'image' ? 'video' : 'image'))).status, 404)
     }
@@ -87,7 +90,7 @@ test('authenticated media routes redirect HTTP URLs and never serve local files'
     assert.equal((await (await get('/status')).json()).has_video, false)
     job.result.comfyui_view_url = 'file:///etc/hosts'
     assert.equal((await get('/video')).status, 403)
-  } finally { await new Promise(resolve => server.close(resolve)) }
+  } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
 })
 
 test('download proxies bytes with attachment headers and rejects upstream failure', async () => {
@@ -110,5 +113,34 @@ test('download proxies bytes with attachment headers and rejects upstream failur
     assert.equal((await fetch(url)).status, 502)
     job.status = 'running'
     assert.equal((await fetch(url)).status, 404)
+  } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
+})
+
+test('preview proxy forwards Range and HEAD, preserves 206/416, and never redirects browsers', async () => {
+  const received = []
+  const upstream = createServer((req, res) => {
+    received.push(req.headers)
+    const invalid = req.headers.range === 'bytes=99-'
+    res.writeHead(invalid ? 416 : req.headers.range ? 206 : 200, { 'Content-Type': 'video/mp4', 'Content-Length': invalid ? '0' : req.headers.range ? '3' : '5',
+      'Accept-Ranges': 'bytes', ...(req.headers.range ? { 'Content-Range': invalid ? 'bytes */5' : 'bytes 1-3/5' } : {}) })
+    res.end(invalid ? '' : req.headers.range ? 'ide' : 'video')
+  })
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
+  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
+  const server = createServer(createMediaHandler({ token: 't', readJob: async () => job, storyboardBase: '/plugins/dsh-elysium/storyboard' }))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`, url = `${base}/video?t=t&job=${job.job_id}`
+  try {
+    let response = await fetch(url, { headers: { Range: 'bytes=1-3', 'If-Range': '"v1"' }, redirect: 'manual' })
+    assert.equal(response.status, 206); assert.equal(response.headers.get('location'), null)
+    assert.equal(response.headers.get('content-range'), 'bytes 1-3/5'); assert.equal(response.headers.get('accept-ranges'), 'bytes')
+    assert.equal(await response.text(), 'ide')
+    assert.equal(received[0].range, 'bytes=1-3'); assert.equal(received[0]['if-range'], '"v1"')
+    response = await fetch(url, { headers: { Range: 'bytes=99-' } })
+    assert.equal(response.status, 416); assert.equal(response.headers.get('content-range'), 'bytes */5')
+    response = await fetch(url, { method: 'HEAD' })
+    assert.equal(response.status, 200); assert.equal(response.headers.get('content-length'), '5'); assert.equal(await response.text(), '')
+    response = await fetch(`${base}/credentials`, { headers: { 'X-Elysium-Media-Refresh': '1' } })
+    assert.equal((await response.json()).storyboardBase, '/plugins/dsh-elysium/storyboard')
   } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
 })

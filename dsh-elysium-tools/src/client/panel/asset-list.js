@@ -34,7 +34,7 @@ window.__ModuleLoader__.load('elysium-tools/asset-list', (require, exports) => {
     }, [items, more, error, busy])
     return h('div', null,
       items.map((item, index) => h('article', { key: item.job_id, className: 'elysium-asset-item' },
-        item.has_video ? h('video', { className: 'elysium-asset-thumb', src: item.comfyui_view_url, preload: 'metadata', controls: true }) : item.has_image ? h('img', { className: 'elysium-asset-thumb', src: item.comfyui_view_url, alt: '生成图片' }) : null,
+        item.has_video ? h('video', { className: 'elysium-asset-thumb', src: assetUrl('video', item.job_id), preload: 'metadata', controls: true }) : item.has_image ? h('img', { className: 'elysium-asset-thumb', src: assetUrl('image', item.job_id), alt: '生成图片' }) : null,
         h('div', null, `${index + 1}. ${specificationLabel(item) || '已完成资产'}`), h('small', null, relativeTime(item.created_at)), ' ',
         item.has_video || item.has_image ? h('a', { href: assetUrl('download', item.job_id), download: '' }, '下载') : null)),
       error ? h('p', { role: 'alert' }, error) : null,

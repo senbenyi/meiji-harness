@@ -1,14 +1,14 @@
 window.__ModuleLoader__.load({
   id: 'elysium-tools/media-api', factory: () => {
-    function mediaUrl(kind, sessionId, callId, params = {}) {
+    function mediaUrl(kind, sessionId, callId, params = {}, baseKey = 'base') {
       const config = window.__ELYSIUM_MEDIA__
-      if (!config?.token) throw new Error('媒体服务未加载，请刷新页面或检查媒体服务')
+      if (!config?.token || !config[baseKey]) throw new Error('媒体服务未加载，请刷新页面或检查媒体服务')
       const query = new URLSearchParams(params)
       if (sessionId) query.set('session', sessionId)
       if (callId) query.set('call', callId)
       query.set('t', config.token)
       // Relative to the page origin: SSH tunnel ports must never be hard-coded.
-      return `${config.base}/${kind}?${query}`
+      return `${config[baseKey]}/${kind}?${query}`
     }
     async function readStatus(sessionId, callId, signal, retry = true) {
       const response = await fetch(mediaUrl('status', sessionId, callId), { signal, cache: 'no-store', credentials: 'same-origin' })
@@ -32,6 +32,7 @@ window.__ModuleLoader__.load({
       }
       return value
     }
-    return { mediaUrl, readStatus }
+    const storyboardUrl = (kind, params) => mediaUrl(kind, null, null, params, 'storyboardBase')
+    return { mediaUrl, readStatus, storyboardUrl }
   },
 })
