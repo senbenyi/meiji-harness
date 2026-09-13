@@ -23,4 +23,3 @@ try {
 } finally {
   await unlink(join(directory, 'worker.lock')).catch(() => {})
 }
-// 职责：作为独立进程读取视频请求，执行任务并释放 worker 锁。

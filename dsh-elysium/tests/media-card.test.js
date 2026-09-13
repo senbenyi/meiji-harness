@@ -40,7 +40,7 @@ async function fixture(responses, block = {}) {
 
 test('same card progresses to playable result and stops polling', async () => {
   const f = await fixture([{ status: 'running', stage: 'execute' }, { status: 'succeeded', has_video: true,
-    job_id: 'a', media_info: { duration_seconds: 8, width: 640, height: 384, frame_rate: 24 }, validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' } }], { argsRaw: JSON.stringify({ width: 640, height: 384 }) })
+    job_id: 'a', validation: { full_decode: 'passed', specification_match: 'passed', human_review: 'not_run' } }], { argsRaw: JSON.stringify({ width: 640, height: 384 }) })
   try {
     assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /工作流执行中/)
     assert.equal(f.view.root.findAllByType('video').length, 0)
@@ -222,7 +222,7 @@ test('a second 401 stops recovery instead of looping', async () => {
 })
 
 test('portrait video fills a compact card and opens a dismissible player', async () => {
-  const f = await fixture([{ status: 'succeeded', has_video: true, media_info: { width: 480, height: 854 } }])
+  const f = await fixture([{ status: 'succeeded', has_video: true, specification: { width: 480, height: 854 } }])
   try {
     const thumbnail = f.view.root.findByType('video')
     assert.equal(f.view.root.findByType('section').props.style.maxWidth, 300)

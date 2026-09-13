@@ -28,7 +28,7 @@ export function createModelJobStatusTool() {
 export function createModelJobResultTool() {
   return {
     name: 'model_job_result',
-    description: '取得已成功模型任务的产物路径、大小与哈希。',
+    description: '取得已成功模型任务的服务器媒体 URL 与结果元数据。',
     parameters: {
       type: 'object',
       additionalProperties: false,

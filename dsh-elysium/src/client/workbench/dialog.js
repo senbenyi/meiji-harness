@@ -1,5 +1,6 @@
 // 职责：提供工作台共用的对话框、编辑器与焦点锁定。
-window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => { const exports = {}
+window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
+  const exports = {}
   const { createElement: h, useEffect, useRef, useState } = require('react')
   function trapFocus(event, root) {
     if (event.key !== 'Tab' || !root) return
@@ -51,5 +52,5 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => { const
         h('button', { disabled: busy, onClick: () => { close(); pending() } }, '放弃修改'), h('button', { onClick: () => setPending(null) }, '继续编辑')) : null)
   }
   Object.assign(exports, { Dialog, Editor, trapFocus })
-return exports
+  return exports
 } })

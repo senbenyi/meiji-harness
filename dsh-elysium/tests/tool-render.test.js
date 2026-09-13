@@ -24,7 +24,10 @@ test('completed output preserves actual media and review status', () => {
   const value = { job_id: 'b'.repeat(32), status: 'succeeded',
     comfyui_metadata_status: 'comfyui-final', comfyui_view_url: 'http://comfy/view?filename=final.mp4',
     validation: { full_decode: 'passed', human_review: 'not_run' }, warnings: ['review pending'] }
-  assert.deepEqual(JSON.parse(renderToolDebug({}, value)[0].text), value)
+  assert.deepEqual(JSON.parse(renderToolDebug({}, value)[0].text), {
+    job_id: value.job_id, status: value.status, comfyui_view_url: value.comfyui_view_url,
+    validation: value.validation, warnings: value.warnings,
+  })
 })
 
 test('image result exposes only its server preview URL', () => {

@@ -1,5 +1,6 @@
 // 职责：调用项目 HTTP 端点，不包含视图状态。
-window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => { const exports = {}
+window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
+  const exports = {}
   function projectUrl(action, params = {}) {
     const config = window.__ELYSIUM_MEDIA__
     if (!config?.token || !config.projectBase) throw new Error('项目服务未加载，请刷新页面或检查服务')
@@ -20,5 +21,5 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => { 
   const deleteProject = id => request('delete', { id })
   const importMaterial = (id, jobId, as = 'anchor', role) => request('import', { id, job_id: jobId, as, ...(role ? { role } : {}) })
   Object.assign(exports, { fetchProjects, fetchProject, createProject, updateProject, deleteProject, importMaterial })
-return exports
+  return exports
 } })

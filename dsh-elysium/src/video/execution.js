@@ -65,4 +65,3 @@ export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 *
     throw error
   }
 }
-// 职责：执行单个视频任务，持久化阶段、诊断、重连和最终产物。

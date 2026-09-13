@@ -20,4 +20,3 @@ export async function extractReference({ client, projectId, shotId, source, defi
   const descriptor = result.outputs?.['4']?.images?.[0]
   return { url: client.viewUrl(descriptor), prompt_id: promptId, source_job_id: source.job_id, source_shot_id: shotId, frame_index: definition.frame_index }
 }
-// 职责：通过 ComfyUI 从成功视频中提取指定帧，生成后续镜头使用的服务器锚点。

@@ -1,5 +1,6 @@
 // 职责：注册并编排项目与素材工作台的导航、持久化和生命周期。
-window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => { const exports = {}
+window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
+  const exports = {}
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { ProjectList } = require('elysium/projects')
   const { trapFocus } = require('elysium/dialog')
@@ -52,5 +53,5 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => { co
     })
   }
   Object.assign(exports, { Workbench, WorkbenchToggle, apply })
-return exports
+  return exports
 } })

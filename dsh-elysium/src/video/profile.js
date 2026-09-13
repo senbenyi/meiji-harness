@@ -36,4 +36,3 @@ export async function buildProfileGraph(plan, jobId, bundle) {
       ...(lowResolution ? { preview_variant: 'low-resolution' } : {}),
       requested_seconds: requestedSeconds, steps: config.steps, audio: 'joint-generation-and-decoding', interpolation: false } }
 }
-// 职责：把 preview 和 regular 档位配置应用到 H3 基础图。

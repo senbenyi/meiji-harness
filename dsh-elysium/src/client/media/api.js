@@ -36,4 +36,3 @@ window.__ModuleLoader__.load({
     return { mediaUrl, readStatus }
   },
 })
-// 职责：构建经过认证的媒体 URL，并读取媒体任务状态。

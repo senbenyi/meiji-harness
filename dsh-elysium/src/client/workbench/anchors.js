@@ -1,5 +1,6 @@
 // 职责：展示、编辑和替换项目角色与场景锚点。
-window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => { const exports = {}
+window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
+  const exports = {}
   const { createElement: h, useState } = require('react')
   const { Dialog, Editor } = require('elysium/dialog')
   const { MaterialList } = require('elysium/materials')
@@ -29,5 +30,5 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => { cons
       } }) : null)
   }
   Object.assign(exports, { AnchorView })
-return exports
+  return exports
 } })

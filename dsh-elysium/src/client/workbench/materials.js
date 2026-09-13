@@ -1,5 +1,6 @@
 // 职责：查询、筛选、预览并选择服务器素材。
-window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => { const exports = {}
+window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
+  const exports = {}
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { mediaUrl } = require('elysium/media-api')
   const { specificationLabel } = require('elysium/media-task-state')
@@ -64,5 +65,5 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => { co
       importJob ? h(require('elysium/project-picker').ProjectPicker, { jobId: importJob, close: () => setImportJob(null) }) : null)
   }
   Object.assign(exports, { MaterialList, fetchAssets, assetUrl, relativeTime, assetTitle })
-return exports
+  return exports
 } })

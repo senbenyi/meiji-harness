@@ -22,4 +22,3 @@ export async function buildVideoGraph(plan, jobId) {
     workflowName: plan.profile === 'high-quality' ? `high-quality-${plan.mode}` : plan.mode, workflow: bundle.workflow,
     outputNode: output.node, source: bundle.source }
 }
-// 职责：读取冻结视频模板并按请求填充提示词、素材与输出绑定。

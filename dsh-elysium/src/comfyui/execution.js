@@ -1,6 +1,5 @@
 // 职责：准备、提交并等待单次 ComfyUI 视频工作流。
 import { join } from 'node:path'
-// 职责：准备、提交并等待已冻结的 ComfyUI 工作流。
 import { readJson, saveJson } from '../jobs/store.js'
 
 // Recovery uses the saved graph, never current templates or changed media references.

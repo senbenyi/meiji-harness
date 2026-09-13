@@ -80,4 +80,3 @@ export async function runProduction(manifest, options = {}) {
     return { project_id: manifest.project_id, completed, target: limit, total: manifest.shots.length, directory }
   }, true)
 }
-// 职责：按清单顺序执行视频镜头，复用回执并持久化锚点与进度。

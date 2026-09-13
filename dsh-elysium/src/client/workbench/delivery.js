@@ -1,5 +1,6 @@
 // 职责：展示项目交付物规格，并提供服务器预览与下载入口。
-window.__ModuleLoader__.load({ id: 'elysium/delivery', factory: require => { const exports = {}
+window.__ModuleLoader__.load({ id: 'elysium/delivery', factory: require => {
+  const exports = {}
   const { createElement: h, useState } = require('react')
   const { assetUrl, relativeTime } = require('elysium/materials')
   function deliveryUrl(item) {
@@ -37,5 +38,5 @@ window.__ModuleLoader__.load({ id: 'elysium/delivery', factory: require => { con
       })))
   }
   Object.assign(exports, { DeliveryView, deliveryUrl, formatSize })
-return exports
+  return exports
 } })

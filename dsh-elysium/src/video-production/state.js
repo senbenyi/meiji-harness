@@ -29,4 +29,3 @@ export async function finishAttempt(path, attempts, status, now = () => new Date
 }
 
 export const saveProgress = (directory, value) => saveJson(join(directory, 'progress.json'), value)
-// 职责：管理批量视频生产的冻结清单、镜头回执、锚点和进度路径。

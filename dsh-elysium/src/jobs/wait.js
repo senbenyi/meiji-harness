@@ -16,4 +16,3 @@ export async function waitJob(job, signal, read = getJob, pause = setTimeout, ti
     throw new Error(`已停止等待，后台与远端任务未取消；job_id: ${job.job_id}；用 model_job_status 查询原任务，勿重新生成。${error.message}`, { cause: error })
   }
 }
-// 职责：轮询本地任务直至成功、失败或用户停止等待。

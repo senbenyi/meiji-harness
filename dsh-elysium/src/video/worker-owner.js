@@ -37,4 +37,3 @@ export async function workerAlive(lockPath, jobId) {
   }
   return alive
 }
-// 职责：校验 worker 锁中的进程是否仍是当前视频任务所有者。

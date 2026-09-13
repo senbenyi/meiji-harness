@@ -76,4 +76,3 @@ export async function resolveShotRequest(manifest, shot, anchors) {
   await validateVideoPlan(request)
   return request
 }
-// 职责：读取、校验批量视频清单，并将锚点引用解析为单镜请求。

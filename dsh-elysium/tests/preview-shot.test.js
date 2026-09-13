@@ -18,7 +18,7 @@ async function fixture(t){
 }
 test('completed receipt reuses its job without starting another worker or making a network request',async t=>{
  const f=await fixture(t),id='a'.repeat(32),directory=join(f.state,'jobs',id)
- await mkdir(directory);await writeFile(join(directory,'status.json'),JSON.stringify({job_id:id,capability:'workflow-video',backend:'comfyui',status:'succeeded',result:{path:'https://example.invalid/video.mp4'}}))
+ await mkdir(directory);await writeFile(join(directory,'status.json'),JSON.stringify({job_id:id,capability:'workflow-video',backend:'comfyui',status:'succeeded',result:{comfyui_view_url:'https://example.invalid/video.mp4'}}))
  await writeFile(f.receipt,JSON.stringify({request,job_id:id}))
  await exec(process.execPath,[script,f.input,f.receipt],{env:f.env})
  const result=JSON.parse(await readFile(f.receipt,'utf8'))
@@ -28,7 +28,7 @@ test('completed receipt reuses its job without starting another worker or making
 test('receipt cannot be reused for a different shot',async t=>{
  const f=await fixture(t);const original={request:{...request,prompt:'Different shot'},job_id:'b'.repeat(32)}
  await writeFile(f.receipt,JSON.stringify(original))
- await assert.rejects(exec(process.execPath,[script,f.input,f.receipt],{env:f.env}),/Receipt belongs to another shot/)
+ await assert.rejects(exec(process.execPath,[script,f.input,f.receipt],{env:f.env}),/回执属于不同镜头/)
  assert.deepEqual(JSON.parse(await readFile(f.receipt,'utf8')),original);assert.deepEqual(await readdir(join(f.state,'jobs')),[])
 })
 test('invalid request fails before allocating a job or receipt',async t=>{
