@@ -13,7 +13,7 @@
 node harness/scripts/install.mjs
 ```
 
-脚本在本机不存在 `dsh` 时安装 Harness，将 `harness/.dsh/` 逐项覆盖到 `~/.dsh/`，然后构建并安装 `dsh-elysium` 插件依赖。插件装配由 Web profile 配置直接管理，本机其他 `.dsh` 文件不会被删除。
+脚本在本机不存在 `dsh` 时安装 Harness，将 `harness/.dsh/` 中的托管配置覆盖到 `~/.dsh/`，但不复制凭据和环境变量模板；随后构建并安装 `dsh-elysium` 插件依赖。本机其他 `.dsh` 文件不会被删除。
 
 ## 启动
 
@@ -26,8 +26,9 @@ node harness/scripts/start.mjs
 - `harness/.dsh/settings.yaml`：Harness 与模型服务地址。
 - `harness/.dsh/profiles/web/`：Web profile 和插件装配配置。
 - `harness/.dsh/.agent-presets/`：标准、教学、自由和导演模式。
-- `harness/.dsh/.env`、`.credentials.yaml`：本机环境变量与凭据。
+- `harness/.dsh/.env.example`：本机环境变量模板；复制为 `.env` 后填写实际值。
+- `~/.dsh/.credentials.yaml`：Harness 在本机生成的凭据，不进入仓库。
 
-凭据读取优先级为：启动进程环境变量、`.credentials.yaml`、项目目录 `.env`、DSH 主目录 `.env`。
+凭据读取优先级为：启动进程环境变量、`~/.dsh/.credentials.yaml`、项目目录 `.env`、DSH 主目录 `.env`。
 
 远端 ComfyUI 和 Qwen 运维见 [RunPod 说明](../runpod/README.md)。

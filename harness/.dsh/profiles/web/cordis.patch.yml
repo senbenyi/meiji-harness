@@ -1,9 +1,3 @@
-# 精简控制：通过硬性约束减少输出长度。
-- id: compaction-basic
-  config:
-    # 回复长度的硬性限制（Token 数），防止啰嗦。
-    maxResponseTokens: 1000
-
 - id: system-prompt
   config:
     persona: >-
@@ -15,9 +9,13 @@
       4. 仅输出关键发现、代码变更及最终结论。
       5. 除非明确要求，否则跳过中间推理过程。
 
+# Web 端不收集会话反馈。
+- id: command-feedback
+  disabled: true
+
 # 插件通过服务器 URL 访问 ComfyUI，不使用本地媒体地址。
 - insert:
     - id: dsh-elysium
       name: '@dsh-external/dsh-elysium'
       config:
-        comfyUrl: https://36we4j3zo503js-8188.proxy.runpod.net
+        comfyUrl: !!js process.env.COMFYUI_URL

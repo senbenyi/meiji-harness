@@ -27,6 +27,7 @@ comfyui-output/
 .env
 .env.*.local
 .env.local
+harness/.dsh/.credentials.yaml
 
 # misc caches
 .cache/

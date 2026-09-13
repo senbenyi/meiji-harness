@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync } from 'node:fs'
-import { cp, mkdir, readdir } from 'node:fs/promises'
+import { chmod, cp, mkdir, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -21,10 +21,15 @@ const hasCommand = name => (process.env.PATH || '').split(delimiter).some(direct
 // 1. 仅在本机不存在 dsh 命令时安装 DeepSeek Harness。
 if (!hasCommand('dsh')) run('pnpm', ['add', '-g', '@deepseek-ai/dsh'])
 
-// 2. 逐项覆盖项目管理的 .dsh 内容，不删除本机已有的其他文件。
+// 2. 覆盖项目管理的配置；凭据始终由本机 Harness 管理。
 await mkdir(target, { recursive: true })
 for (const entry of await readdir(source)) {
+  if (entry === '.credentials.yaml' || entry === '.env.example') continue
   await cp(join(source, entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
+}
+for (const name of ['.env', '.credentials.yaml']) {
+  const sensitiveFile = join(target, name)
+  if (existsSync(sensitiveFile)) await chmod(sensitiveFile, 0o600)
 }
 
 // 3. 构建 registry 包并将工具插件安装为本机 Web profile 依赖。
