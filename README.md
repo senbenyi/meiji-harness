@@ -53,19 +53,18 @@ rules.md              # 行为规则（elysium-* 独有）
 skills/               # 可选技能目录；视频创作改用插件中文指令
 ```
 
-teaching/free/director 的 `agent.cordis.yml` 均通过符号链接指向 `_base/agent.cordis.yml`，共享配置只需修改这一处。标准预设保持独立；默认不创建空 `skills/` 目录。部署 tools 时会一并复制 `_base`，已有配置保留。
+teaching/free/director 的 `agent.cordis.yml` 均通过符号链接指向 `_base/agent.cordis.yml`，共享配置只需修改这一处。标准预设保持独立；默认不创建空 `skills/` 目录。部署时同步项目管理的五个 preset，其他本机 preset 保留。
 
 ## 部署
 
 ### 本地部署
 
 ```sh
-# 部署工具插件（跳过 ComfyUI 检查）
-SKIP_COMFYUI_CHECK=1 bash app/common/deploy_plugin.sh tools
+# 从全新或已有 DSH_HOME 安装插件、设置、web profile 配置和全部 preset
+bash app/deploy_dsh_elysium_tools_local.sh
 
-# 启动/重启/停止 Harness
-SKIP_COMFYUI_CHECK=1 bash app/common/start_harness.sh --restart
-bash app/common/start_harness.sh --stop
+# 安装脚本不启动服务；安装完成后手动启动
+dsh web
 ```
 
 ## Harness 配置
@@ -76,7 +75,7 @@ bash app/common/start_harness.sh --stop
 
 运行配置位于 `$DSH_HOME/settings.yaml`。仓库统一配置源为 `harness/config/settings.yaml`，包含本机启动参数、隧道、模型和界面设置，默认权限为 `danger-full-access`。
 
-仓库配置含模板占位符及 `harness-runtime`、`harness-customization`，不能直接复制为运行配置。使用 `bash app/common/config_loader.sh render` 生成运行配置；本机脚本通过同一解析器的 `shell` 模式读取启动参数。
+仓库配置含模板占位符及 `harness-runtime`、`harness-customization`，不能直接复制为运行配置。部署脚本通过 `config_loader.sh render` 生成用户设置，并通过 `profile` 模式生成 web profile 覆盖；`shell` 模式供其他本机脚本读取启动参数。
 
 ```yaml
 agent-presets:

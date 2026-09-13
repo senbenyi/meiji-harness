@@ -25,6 +25,14 @@ test('render mode targets local Qwen and removes private sections', () => {
   assert.match(result.stdout, /defaultPreset: danger-full-access/)
 })
 
+test('profile mode renders only project-owned web profile overrides', () => {
+  const result = run('profile')
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /^# 禁用命令执行反馈组件。\n- id: command-feedback/m)
+  assert.match(result.stdout, /comfyUrl: https:\/\/36we4j3zo503js-8188\.proxy\.runpod\.net/)
+  assert.doesNotMatch(result.stdout, /harness-customization|harness-runtime|publicUrl|__COMFYUI_URL__/)
+})
+
 test('required URL, port and local path values are validated', async () => {
   const source = await readFile(config, 'utf8'), directory = await mkdtemp(join(tmpdir(), 'elysium-settings-'))
   for (const key of ['COMFYUI_URL', 'LOCAL_HARNESS_PORT', 'LOCAL_DSH_HOME']) {
