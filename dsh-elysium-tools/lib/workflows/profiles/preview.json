@@ -1,8 +1,0 @@
-{
-  "backend": "minimax-h3",
-  "width": 384,
-  "height": 512,
-  "requested_seconds": 3,
-  "fps": 24,
-  "steps": 8
-}
