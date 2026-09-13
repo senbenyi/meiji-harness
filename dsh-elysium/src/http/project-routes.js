@@ -9,7 +9,7 @@ const actions = ['list', 'get', 'create', 'update', 'delete', 'import']
 
 export function createProjectHandler(options) {
   const { token } = options
-  const store = createProjectStore(options)
+  const store = options.projectStore || createProjectStore(options)
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -32,10 +32,10 @@ export function createProjectHandler(options) {
   }
 }
 
-export function registerProjectRoutes(ctx, runtime, token) {
+export function registerProjectRoutes(ctx, runtime, token, projectStore) {
   const server = ctx.get?.('webServer')
   if (!server) return
-  const handle = createProjectHandler({ token })
+  const handle = createProjectHandler({ token, projectStore })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of actions) ctx.effect(() => server.register({ kind: 'exact', path: `${PROJECT_ROUTE}/${suffix}`, handler }), `elysium project ${suffix}`)
 }

@@ -9,7 +9,7 @@ import { jobSummary, listAssets } from '../assets/catalog.js'
 import { authenticated, json } from './shared.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'
-export function createMediaHandler({ token, projectBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
+export function createMediaHandler({ token, projectBase, directorBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -18,7 +18,7 @@ export function createMediaHandler({ token, projectBase, readJob = getJob, findC
         // A custom header requires CORS preflight; this route never grants CORS access.
         if (req.headers['x-elysium-media-refresh'] !== '1' ||
           (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return json(res, 403, { error: 'Same-origin request required' })
-        return json(res, 200, { token, base: MEDIA_ROUTE, projectBase })
+        return json(res, 200, { token, base: MEDIA_ROUTE, projectBase, directorBase })
       }
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' })
@@ -69,12 +69,12 @@ export function createMediaHandler({ token, projectBase, readJob = getJob, findC
     }
   }
 }
-export function registerMediaRoutes(ctx, runtime, projectBase) {
+export function registerMediaRoutes(ctx, runtime, projectBase, directorBase) {
   const server = ctx.get?.('webServer')
   if (!server) return // CLI tools do not require a Web server.
   const token = randomBytes(32).toString('hex')
-  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase } }))
-  const handle = createMediaHandler({ token, projectBase, getSession: id => ctx.get('sessions')?.get(id) })
+  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase, directorBase } }))
+  const handle = createMediaHandler({ token, projectBase, directorBase, getSession: id => ctx.get('sessions')?.get(id) })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
   return token

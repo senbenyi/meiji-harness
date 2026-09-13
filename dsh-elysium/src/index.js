@@ -4,7 +4,10 @@ import { resolveConfig, withConfig } from './config.js'
 import { createComfyuiTools, createModelTools, createWorkflowTools } from './tools/index.js'
 import { createToolDiscoveryTool, projectTools } from './tools/discovery.js'
 import { registerProjectRoutes, PROJECT_ROUTE } from './http/project-routes.js'
+import { registerDirectorRoutes, DIRECTOR_ROUTE } from './http/director-routes.js'
 import { registerMediaRoutes } from './http/media-routes.js'
+import { createDirectorStore } from './directors/store.js'
+import { createProjectStore } from './projects/store.js'
 import { creationInstructions } from './prompts/creation.js'
 
 export * from './tools/index.js'
@@ -15,8 +18,11 @@ export const inject = ['tools', 'systemPrompt']
 export function apply(ctx, config = {}) {
   const runtime = resolveConfig(config)
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
-    const token = registerMediaRoutes(mediaContext, runtime, PROJECT_ROUTE)
-    registerProjectRoutes(mediaContext, runtime, token)
+    const directors = createDirectorStore()
+    const projects = createProjectStore({ directorExists: name => directors.has(name) })
+    const token = registerMediaRoutes(mediaContext, runtime, PROJECT_ROUTE, DIRECTOR_ROUTE)
+    registerProjectRoutes(mediaContext, runtime, token, projects)
+    registerDirectorRoutes(mediaContext, runtime, token, directors, projects)
   }))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = projectTools(await next(), context.agent)
