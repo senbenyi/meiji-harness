@@ -4,16 +4,25 @@
 
 ## 1. 插件结构
 
-项目仅包含 dsh-elysium-tools 插件。
+项目仅包含 dsh-elysium 插件。
 
 ```
-dsh-elysium-tools/
+dsh-elysium/
 ├── src/                # 源代码
 │   ├── index.js        # 插件入口，导出 name / inject / apply
-│   ├── http/           # 媒体查询、下载代理与项目 CRUD（project.js）
+│   ├── tools/          # Harness 工具定义与按需发现
+│   ├── jobs/           # 通用任务持久化、查询、诊断与进程锁
+│   ├── comfyui/        # ComfyUI 客户端、提交、执行与媒体引用
+│   ├── video/          # 视频计划、工作流、任务服务及 worker
+│   ├── video-production/ # 多镜头视频生产编排
+│   ├── projects/       # 项目领域校验与持久化
+│   ├── assets/         # 素材目录查询
+│   ├── http/           # 媒体与项目 HTTP 路由适配
+│   ├── prompts/        # 系统提示词片段
 │   └── client/         # React.createElement，无 JSX
-│       ├── media/      # 媒体卡片
-│       └── panel/      # 素材侧栏与项目管理（project.js：锚点、分镜、交付）
+│       ├── commands/   # 创作命令
+│       ├── media/      # 会话媒体状态与卡片
+│       └── workbench/  # 素材、项目、锚点、分镜与交付工作台
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
 │   ├── client-source.mjs # 客户端模块拼接
@@ -22,16 +31,15 @@ dsh-elysium-tools/
 ├── lib/                # 构建产物（git-ignored）
 ├── registry/           # 发布产物（git-ignored）
 ├── package.json
-├── cordis.patch.yml
-├── dsh.plugin.json
 └── README.md
 ```
 
 **规则**：
 - 构建脚本目录统一命名为 `scripts/`。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
-- 新增客户端模块（含 `panel/`）后须同步更新 `scripts/client-source.mjs` 的模块列表，依赖在前、`index.js` 最后。
-- `panel/` 使用 `load(name, (require, exports) => { ... })` 定义模块；拼接脚本适配宿主的 `{ id, factory }` 注册格式，不引入 bundler。
+- 插件 Cordis 装配统一位于 `harness/.dsh/profiles/web/cordis.patch.yml`，插件包不自带 Harness 运行配置。
+- 新增客户端模块（含 `workbench/`）后须同步更新 `scripts/client-source.mjs` 的模块列表，依赖在前、`index.js` 最后。
+- `workbench/` 使用 `load(name, (require, exports) => { ... })` 定义模块；拼接脚本适配宿主的 `{ id, factory }` 注册格式，不引入 bundler。
 - 媒体及项目端点共用注入 token，客户端通过 `mediaUrl()` 构建带凭据的 URL。用户下载流式代理上游，不保存媒体文件；项目 JSON 使用临时文件加 rename 原子写入。
 
 ## 2. 预设结构
@@ -79,7 +87,7 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 
 ```
 tests/                     # 项目级测试（部署、配置、预设）
-dsh-elysium-tools/tests/   # 工具插件单元测试
+dsh-elysium/tests/         # 插件单元测试
 ```
 
 **规则**：

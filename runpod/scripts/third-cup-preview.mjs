@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
-import { ComfyClient } from '../../dsh-elysium-tools/src/functions/comfyui/client.js'
-import { readJson, saveJson } from '../../dsh-elysium-tools/src/jobs/json.js'
-import { withLaunchLock } from '../../dsh-elysium-tools/src/jobs/launch.js'
+import { ComfyClient } from '../../dsh-elysium/src/comfyui/client.js'
+import { readJson, saveJson } from '../../dsh-elysium/src/jobs/store.js'
+import { withLaunchLock } from '../../dsh-elysium/src/jobs/lock.js'
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)))
 const directory=join(root,'docs/implement/third-cup-preview')
 const manifest=JSON.parse(await readFile(join(directory,'manifest.json'),'utf8'))
@@ -37,7 +37,7 @@ await withLaunchLock(join(directory,'runner.lock'),async()=>{
    attempts.push({started_at:new Date().toISOString()});await saveJson(`${base}.attempts.json`,attempts)
    console.log(`${shot.id} ${shot.role}: attempt ${attempts.length}`)
    try {
-    const result=await exec(process.execPath,[join(root,'dsh-elysium-tools/scripts/preview-shot.mjs'),`${base}.request.json`,`${base}.receipt.json`],{cwd:root,env:process.env,maxBuffer:8*1024*1024})
+    const result=await exec(process.execPath,[join(root,'dsh-elysium/scripts/preview-shot.mjs'),`${base}.request.json`,`${base}.receipt.json`],{cwd:root,env:process.env,maxBuffer:8*1024*1024})
     await writeFile(`${base}.log`,result.stdout+result.stderr)
    } catch(error) {
     await writeFile(`${base}.log`,`${error.stdout||''}\n${error.stderr||error.message}`)

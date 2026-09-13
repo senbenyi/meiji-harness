@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-const root = new URL('../', import.meta.url).pathname
+const root = new URL('../../', import.meta.url).pathname
 const localScript = name => readFile(join(root, 'harness/scripts', name), 'utf8')
 const serverScript = name => readFile(join(root, 'runpod/scripts', name), 'utf8')
 
@@ -11,7 +11,7 @@ test('local scripts install and start Harness without invoking server operations
   const install = await localScript('install.mjs'), start = await localScript('start.mjs')
   assert.match(install, /pnpm.*@deepseek-ai\/dsh/s)
   assert.match(install, /package:registry/)
-  assert.match(install, /dsh.*plugin.*--profile.*web/s)
+  assert.match(install, /pnpm.*add.*--workspace-root.*registry/s)
   assert.match(start, /execFileSync\('dsh', \['web'\]/)
   for (const source of [install, start]) assert.doesNotMatch(source, /comfyui\.mjs|tunnel\.mjs|ssh|system_stats/)
 })

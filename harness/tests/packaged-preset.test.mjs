@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { access, readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const root = new URL('../', import.meta.url).pathname, presets = `${root}harness/.dsh/.agent-presets`
+const root = new URL('../../', import.meta.url).pathname, presets = `${root}harness/.dsh/.agent-presets`
 const names = { 'elysium-standard': '标准模式', 'elysium-teaching': '极乐世界 · 教学', 'elysium-free': '极乐世界 · 自由', 'elysium-director': '极乐世界 · 导演' }
 test('all packaged presets retain native capabilities and names', async () => {
   for (const [id, name] of Object.entries(names)) {

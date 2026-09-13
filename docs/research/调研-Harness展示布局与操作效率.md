@@ -172,9 +172,9 @@
 
 ## 8. 代码定位
 
-- [asset-panel.js](../../dsh-elysium-tools/src/client/panel/asset-panel.js)：面板入口、宽度与顶层切换。首次默认宽度为视口的 10% 且至少 180 像素，与本次已保存的约 793 像素不同。
-- [panel-styles.js](../../dsh-elysium-tools/src/client/panel/panel-styles.js)：固定侧栏、单一滚动区、媒体 160 像素限高、按钮与表单样式。
-- [asset-list.js](../../dsh-elysium-tools/src/client/panel/asset-list.js)：每批 50 条、媒体元素、规格标题、筛选，以及列表尾部项目选择器。
-- [project.js](../../dsh-elysium-tools/src/client/panel/project.js)：`Field` 失焦保存；`ShotPreview` 单镜查询；`AnchorView` 尾部选择器；`StoryboardView` 默认全展开；`DeliveryView` 文字下载条目；项目与子页局部状态。
+- [asset-panel.js](../../dsh-elysium/src/client/workbench/index.js)：面板入口、宽度与顶层切换。首次默认宽度为视口的 10% 且至少 180 像素，与本次已保存的约 793 像素不同。
+- [panel-styles.js](../../dsh-elysium/src/client/workbench/styles.js)：固定侧栏、单一滚动区、媒体 160 像素限高、按钮与表单样式。
+- [asset-list.js](../../dsh-elysium/src/client/workbench/materials.js)：每批 50 条、媒体元素、规格标题、筛选，以及列表尾部项目选择器。
+- [project.js](../../dsh-elysium/src/client/workbench/projects.js)：`Field` 失焦保存；`ShotPreview` 单镜查询；`AnchorView` 尾部选择器；`StoryboardView` 默认全展开；`DeliveryView` 文字下载条目；项目与子页局部状态。
 
 本次仅新增调查文档，未修改界面、业务数据或部署配置。

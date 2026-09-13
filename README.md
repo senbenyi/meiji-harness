@@ -64,7 +64,7 @@ Harness 只在本机运行，远端服务器只提供 Qwen、ComfyUI 等模型�
 
 - [Harness 本机安装与配置](harness/README.md)
 - [RunPod 模型服务运维](runpod/README.md)
-- [Elysium 工具插件开发](dsh-elysium-tools/README.md)
+- [Elysium 工具插件开发](dsh-elysium/README.md)
 - [视频创作三档入口与全链路](docs/implement/实施-视频创作三档入口与全链路.md)
 - [AI 短剧快速预览](docs/implement/实施-AI短剧快速预览.md)
 - [创作工作台体验优化设计](docs/design/设计-创作工作台体验优化.md)

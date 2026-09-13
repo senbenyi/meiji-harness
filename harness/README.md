@@ -13,7 +13,7 @@
 node harness/scripts/install.mjs
 ```
 
-脚本在本机不存在 `dsh` 时安装 Harness，将 `harness/.dsh/` 逐项覆盖到 `~/.dsh/`，然后构建并注册 `dsh-elysium-tools`。本机其他 `.dsh` 文件不会被删除。
+脚本在本机不存在 `dsh` 时安装 Harness，将 `harness/.dsh/` 逐项覆盖到 `~/.dsh/`，然后构建并安装 `dsh-elysium` 插件依赖。插件装配由 Web profile 配置直接管理，本机其他 `.dsh` 文件不会被删除。
 
 ## 启动
 

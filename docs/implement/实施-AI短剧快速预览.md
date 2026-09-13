@@ -89,7 +89,7 @@
 
 ```sh
 COMFYUI_URL=https://36we4j3zo503js-8188.proxy.runpod.net \
-node dsh-elysium-tools/scripts/preview-shot.mjs \
+node dsh-elysium/scripts/preview-shot.mjs \
   docs/implement/implement-drama-preview/acceptance/shot-01.request.json \
   docs/implement/implement-drama-preview/acceptance/shot-01.receipt.json
 ```
@@ -136,9 +136,9 @@ flowchart TD
     J --> K["三镜头在服务器按顺序拼接及播放"]
 ```
 
-- [preview 配置](../../dsh-elysium-tools/src/workflows/profiles/preview.json)：独立小配置，不复制项目或原五套标准图。
-- [预览图构建](../../dsh-elysium-tools/src/workflows/video-profile.js)：复用 T2VA 基础图，I2VA 只增加原生 LoadImage / first_frame；裁掉最终输出不依赖的分支。返回正确 API 图，不附带不匹配的原高清 UI 图。
-- [工具入口](../../dsh-elysium-tools/src/workflows/workflow-generate-video.js)及[本机单镜脚本](../../dsh-elysium-tools/scripts/preview-shot.mjs)。
+- [preview 配置](../../dsh-elysium/src/video/profiles/preview.json)：独立小配置，不复制项目或原五套标准图。
+- [预览图构建](../../dsh-elysium/src/video/profile.js)：复用 T2VA 基础图，I2VA 只增加原生 LoadImage / first_frame；裁掉最终输出不依赖的分支。返回正确 API 图，不附带不匹配的原高清 UI 图。
+- [工具入口](../../dsh-elysium/src/tools/video.js)及[本机单镜脚本](../../dsh-elysium/scripts/preview-shot.mjs)。
 - 本次可复查的执行图：[镜头 01](implement-drama-preview/acceptance/shot-01.api.json)、[镜头 02](implement-drama-preview/acceptance/shot-02.api.json)、[镜头 03](implement-drama-preview/acceptance/shot-03.api.json)。它们是 API 快照，不是新增的一套独立服务。
 - 原调用链和高清基线仍见 [服务器流程图](../research/调研-H3服务器执行流程与耗时.md)；原性能报告不覆盖、不改写。
 
@@ -226,7 +226,7 @@ flowchart TD
 
 省略 `preview_variant` 或设为 `default` 即回到已验证的 384×512 预览；省略 `profile` 则回到原 standard 工作流。候选也沿用原 I2VA 图构建入口，但本轮只实测了 T2VA，不能把本次结果视为低分辨率 I2VA 的实测证明。失败继续恢复原 `job_id`，不能通过改档位给原失败任务重新建视频。
 
-低分辨率覆盖值在 [preview-low-resolution.json](../../dsh-elysium-tools/src/workflows/profiles/preview-low-resolution.json)，只设置宽高，其他设置继承原 preview。工具 schema 已增加显式选项，返回规格包含 `preview_variant`；默认调用结果保持原样。
+低分辨率覆盖值在 [preview-low-resolution.json](../../dsh-elysium/src/video/profiles/preview-low-resolution.json)，只设置宽高，其他设置继承原 preview。工具 schema 已增加显式选项，返回规格包含 `preview_variant`；默认调用结果保持原样。
 
 本轮附件与前三镜验收分开，位于 `docs/implement/implement-drama-preview/candidate-low-resolution/`：
 

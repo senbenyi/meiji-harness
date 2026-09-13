@@ -1,8 +1,0 @@
-# dsh-elysium-tools bundle patch
-- insert:
-    - id: dsh-elysium-tools
-      name: '@dsh-external/dsh-elysium-tools'
-      # 在安装机器的 web profile cordis.patch.yml 中按相同 id 覆盖配置。
-      # comfyUrl 必须填写；本机目录默认在 DSH_HOME/elysium 下。
-      # 手动复制方式见本插件 README。
-      config: {}

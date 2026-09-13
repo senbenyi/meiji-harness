@@ -1,0 +1,40 @@
+{
+  "name": "@dsh-external/dsh-elysium",
+  "version": "0.4.0",
+  "description": "Elysium 视频创作、任务管理与项目工作台插件。",
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": ">=20.16"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-tool",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ],
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.js",
+    "workflow:sync": "node scripts/workflow-sync.mjs --sync",
+    "workflow:check": "node scripts/workflow-sync.mjs --check",
+    "package:registry": "node scripts/package-registry.mjs"
+  },
+  "license": "MIT",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "react": "18.2.0",
+    "react-test-renderer": "18.2.0"
+  }
+}
