@@ -5,7 +5,8 @@ import { withConfig } from '../config.js'
 import { randomBytes } from 'node:crypto'
 import { getJob } from '../jobs/query.js'
 import { findVideoCall } from '../video/call-binding.js'
-import { jobSummary, listAssets } from '../assets/catalog.js'
+import { openLocalMedia, byteRange } from '../assets/local-media.js'
+import { jobSummary, availableJobSummary, listAssets } from '../assets/catalog.js'
 import { authenticated, json } from './shared.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'
@@ -44,10 +45,24 @@ export function createMediaHandler({ token, projectBase, directorBase, readJob =
         if (error.code === 'MODEL_JOB_NOT_FOUND') return missing()
         throw error
       }
-      if (url.pathname === `${MEDIA_ROUTE}/status`) return json(res, 200, jobSummary(job))
+      if (url.pathname === `${MEDIA_ROUTE}/status`) return json(res, 200, await availableJobSummary(job))
       const summary = jobSummary(job)
       const download = url.pathname === `${MEDIA_ROUTE}/download`
-      if (!(download && (summary.has_video || summary.has_image) || url.pathname === `${MEDIA_ROUTE}/video` && summary.has_video || url.pathname === `${MEDIA_ROUTE}/image` && summary.has_image)) return json(res, 404, { error: '媒体尚不可用' })
+      if (!(download && summary.has_download || url.pathname === `${MEDIA_ROUTE}/video` && summary.has_video || url.pathname === `${MEDIA_ROUTE}/image` && summary.has_image)) return json(res, 404, { error: '媒体尚不可用' })
+      if (job.result?.local_media_path !== undefined) {
+        const media = await openLocalMedia(job)
+        try {
+          const headers = { 'Content-Type': media.contentType, 'Content-Length': media.size, 'Accept-Ranges': 'bytes', 'ETag': media.etag, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
+          if (download) headers['Content-Disposition'] = `attachment; filename="${media.path.split('/').at(-1)}"`
+          const range = req.headers.range && (!req.headers['if-range'] || req.headers['if-range'] === media.etag) ? byteRange(req.headers.range, media.size) : undefined
+          if (range === null) { res.writeHead(416, { ...headers, 'Content-Length': 0, 'Content-Range': `bytes */${media.size}` }); return res.end() }
+          if (range) { headers['Content-Range'] = `bytes ${range.first}-${range.last}/${media.size}`; headers['Content-Length'] = range.last - range.first + 1 }
+          res.writeHead(range ? 206 : 200, headers)
+          if (req.method === 'HEAD' || !media.size) return res.end()
+          await pipeline(media.handle.createReadStream({ autoClose: false, ...(range ? { start: range.first, end: range.last } : {}) }), res)
+          return
+        } finally { await media.handle.close() }
+      }
       const target = new URL(job.result.comfyui_view_url)
       if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) return json(res, 403, { error: 'Invalid media URL' })
       const requestHeaders = { 'Accept-Encoding': 'identity' }
@@ -63,7 +78,8 @@ export function createMediaHandler({ token, projectBase, directorBase, readJob =
       res.writeHead(upstream.status, headers)
       if (req.method === 'HEAD' || !upstream.body) return res.end()
       await pipeline(Readable.fromWeb(upstream.body), res)
-    } catch {
+    } catch (error) {
+      if (!res.headersSent && error.status) return json(res, error.status, { error: error.message })
       if (!res.headersSent) json(res, 503, { error: '暂时无法读取任务，请稍后重试' })
       else res.destroy()
     }

@@ -2,7 +2,7 @@
 
 import { existsSync } from 'node:fs'
 import { chmod, cp, mkdir, readdir } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { dshHome, installStorage, verifyMedia } from './storage-template.mjs'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -12,11 +12,14 @@ const scriptsRoot = dirname(fileURLToPath(import.meta.url))
 const harnessRoot = resolve(scriptsRoot, '..')
 const repoRoot = resolve(harnessRoot, '..')
 const source = join(harnessRoot, '.dsh')
-const target = join(homedir(), '.dsh')
+const target = dshHome()
 const plugin = join(repoRoot, 'dsh-elysium')
 const webProfile = join(target, 'profiles', 'web')
 const run = (command, args, options = {}) => execFileSync(command, args, { stdio: 'inherit', ...options })
 const hasCommand = name => (process.env.PATH || '').split(delimiter).some(directory => existsSync(join(directory, name)))
+
+const manifests = await verifyMedia(join(source, 'storages', 'elysium'))
+for (const manifest of manifests) if (manifest.missing?.length) console.warn(`模板保留 ${manifest.missing.length} 项缺失记录；已有媒体可离线浏览，详情见 media/${manifest.id}/manifest.json`)
 
 // 1. 仅在本机不存在 dsh 命令时安装 DeepSeek Harness。
 if (!hasCommand('dsh')) run('pnpm', ['add', '-g', '@deepseek-ai/dsh'])
@@ -25,6 +28,10 @@ if (!hasCommand('dsh')) run('pnpm', ['add', '-g', '@deepseek-ai/dsh'])
 await mkdir(target, { recursive: true })
 for (const entry of await readdir(source)) {
   if (entry === '.credentials.yaml' || entry === '.env.example') continue
+  if (entry === 'storages') {
+    for (const storage of await readdir(join(source, entry))) await installStorage(join(source, entry, storage), join(target, entry, storage))
+    continue
+  }
   await cp(join(source, entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
 }
 for (const name of ['.env', '.credentials.yaml']) {

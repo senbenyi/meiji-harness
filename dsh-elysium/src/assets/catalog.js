@@ -1,6 +1,7 @@
 // 职责：从本地任务状态组装素材摘要，并按筛选与分页返回可用产物。
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import { openLocalMedia } from './local-media.js'
 import { requiredConfig } from '../config.js'
 
 export function jobSummary(job) {
@@ -12,9 +13,19 @@ export function jobSummary(job) {
     validation: job.result?.validation,
     timings: job.timings, profile: job.result?.profile, specification: job.result?.specification,
     comfyui_view_url: job.result?.comfyui_view_url,
-    media_kind: image ? 'image' : 'video',
-    has_image: job.status === 'succeeded' && image && Boolean(job.result?.comfyui_view_url),
-    has_video: job.status === 'succeeded' && Boolean(job.result?.comfyui_view_url) && !image }
+    media_kind: job.result?.media_kind === 'file' ? 'file' : image ? 'image' : 'video',
+    has_download: job.status === 'succeeded' && Boolean(job.result?.local_media_path || job.result?.comfyui_view_url),
+    has_image: job.status === 'succeeded' && image && Boolean(job.result?.local_media_path || job.result?.comfyui_view_url),
+    has_video: job.status === 'succeeded' && Boolean(job.result?.local_media_path || job.result?.comfyui_view_url) && !image && job.result?.media_kind !== 'file' }
+}
+
+export async function availableJobSummary(job) {
+  const summary = jobSummary(job)
+  if (job.result?.local_media_path !== undefined) {
+    try { const media = await openLocalMedia(job); await media.handle.close() }
+    catch (error) { return { ...summary, has_image: false, has_video: false, has_download: false, media_error: error.message } }
+  }
+  return summary
 }
 
 export function assetSummary(job) {
@@ -31,7 +42,7 @@ export async function listAssets(offset, limit, filters = {}) {
     const path = join(root, entry.name, 'status.json')
     try {
       const job = JSON.parse(await readFile(path, 'utf8'))
-      const summary = assetSummary(job)
+      const summary = { ...assetSummary(job), ...await availableJobSummary(job) }
       if (filters.q && ![job.job_id, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
       if (job.status === 'succeeded' && (!filters.profile || (summary.profile === 'hd' ? 'high-quality' : summary.profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || summary.media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })
     } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }

@@ -1,0 +1,198 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "i2va",
+    "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Zhou Yu, a fictional 29-year-old East Asian man with slightly wavy black hair, clean shaven, a white shirt and dark navy barista apron. Medium close-up, alone at the wooden counter inside a warm amber-lit cafe. He straightens slightly, gathering courage, his expression honest rather than confrontational. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+    "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=zhou_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  "job_id": "e13d62335b92717ff58b688e496b6ebb",
+  "result": {
+    "job_id": "e13d62335b92717ff58b688e496b6ebb",
+    "status": "succeeded",
+    "trace_id": "e13d62335b92717ff58b688e496b6ebb",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "clock": "performance.now",
+      "total_ms": 31278.129792,
+      "stages": {
+        "prepare.graph": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 4.359583000000001,
+          "max_ms": 4.359583000000001,
+          "last_start_ms": 10.556125000000002,
+          "last_end_ms": 14.915708000000002
+        },
+        "http.GET.object_info": {
+          "count": 19,
+          "failed": 0,
+          "total_ms": 7402.426706999999,
+          "max_ms": 700.115959,
+          "last_start_ms": 1584.155417,
+          "last_end_ms": 1970.2069999999999
+        },
+        "prepare.validate": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1955.936208,
+          "max_ms": 1955.936208,
+          "last_start_ms": 14.933750000000003,
+          "last_end_ms": 1970.869958
+        },
+        "prepare": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1962.761792,
+          "max_ms": 1962.761792,
+          "last_start_ms": 9.842208,
+          "last_end_ms": 1972.604
+        },
+        "http.POST.prompt": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 609.7710000000002,
+          "max_ms": 609.7710000000002,
+          "last_start_ms": 1975.0881669999999,
+          "last_end_ms": 2584.859167
+        },
+        "submit": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 611.4124999999999,
+          "max_ms": 611.4124999999999,
+          "last_start_ms": 1974.013625,
+          "last_end_ms": 2585.426125
+        },
+        "http.GET.history": {
+          "count": 9,
+          "failed": 0,
+          "total_ms": 8496.900459,
+          "max_ms": 3707.8102919999983,
+          "last_start_ms": 30856.535207999998,
+          "last_end_ms": 31272.401583
+        },
+        "http.GET.queue": {
+          "count": 8,
+          "failed": 0,
+          "total_ms": 4176.582540999999,
+          "max_ms": 781.8744580000002,
+          "last_start_ms": 28096.82275,
+          "last_end_ms": 28853.236291999998
+        },
+        "poll.sleep.execute": {
+          "count": 7,
+          "failed": 0,
+          "total_ms": 14008.463583,
+          "max_ms": 2001.5023330000004,
+          "last_start_ms": 25678.584667,
+          "last_end_ms": 27679.6905
+        },
+        "poll.sleep.reconcile": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 2001.575832999999,
+          "max_ms": 2001.575832999999,
+          "last_start_ms": 28854.9125,
+          "last_end_ms": 30856.488332999998
+        },
+        "wait.history": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 28686.527083,
+          "max_ms": 28686.527083,
+          "last_start_ms": 2586.020167,
+          "last_end_ms": 31272.54725
+        },
+        "remote": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 29302.417667,
+          "max_ms": 29302.417667,
+          "last_start_ms": 1972.6322499999999,
+          "last_end_ms": 31275.049917
+        },
+        "output.inspect": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 0.7509580000005371,
+          "max_ms": 0.7509580000005371,
+          "last_start_ms": 31275.939875,
+          "last_end_ms": 31276.690833
+        },
+        "output.persist-validation": {
+          "count": 1,
+          "failed": 0,
+          "total_ms": 1.2737080000006245,
+          "max_ms": 1.2737080000006245,
+          "last_start_ms": 31276.750249999997,
+          "last_end_ms": 31278.023957999998
+        }
+      }
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "c089d00280b7794a11e12aaf9c59a53d7628ac4b8b0c397f1f1e3f6f5d62f1f2"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Fe13d62335b92717ff58b688e496b6ebb%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Fe13d62335b92717ff58b688e496b6ebb%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "i2va",
+    "server_execution_ms": 25851,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "f60dc597-c3d0-4461-80ab-dbbb85b9d5e7",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "4dbbf99e246992859a5109f3b846d5e783f1d0dceb4d8b3a0b97a8eb8bb1da59",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/e13d62335b92717ff58b688e496b6ebb/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "f60dc597-c3d0-4461-80ab-dbbb85b9d5e7",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Fe13d62335b92717ff58b688e496b6ebb%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "i2va",
+        "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Zhou Yu, a fictional 29-year-old East Asian man with slightly wavy black hair, clean shaven, a white shirt and dark navy barista apron. Medium close-up, alone at the wooden counter inside a warm amber-lit cafe. He straightens slightly, gathering courage, his expression honest rather than confrontational. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+        "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=zhou_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "f60dc597-c3d0-4461-80ab-dbbb85b9d5e7"
+        }
+      ]
+    }
+  }
+}

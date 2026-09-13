@@ -1,0 +1,81 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "t2va",
+    "prompt": "Zhou Yu, a fictional 29-year-old East Asian man with slightly wavy black hair, clean shaven, a white shirt and dark navy barista apron. Medium close-up, alone at the wooden counter inside a warm amber-lit cafe. Standing behind the cafe counter, he dries a white cup with a cloth and looks toward the window. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music."
+  },
+  "job_id": "712957b7eb3f51fdbc75777f7b6c06d1",
+  "result": {
+    "job_id": "712957b7eb3f51fdbc75777f7b6c06d1",
+    "status": "succeeded",
+    "trace_id": "712957b7eb3f51fdbc75777f7b6c06d1",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "total_ms": 37488
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "083c318b24b0d3788be11726b571dc57945a3c52de8a971507da5b8cc86d879e"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F712957b7eb3f51fdbc75777f7b6c06d1%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F712957b7eb3f51fdbc75777f7b6c06d1%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "t2va",
+    "server_execution_ms": 33881,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "ad2e5f95-070b-4c7f-93b5-a1b674ac896a",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "7b736a0c6fd986cb33e689d6393f13b11d082a21e002c7b61a66951678a4ec79",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/712957b7eb3f51fdbc75777f7b6c06d1/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "ad2e5f95-070b-4c7f-93b5-a1b674ac896a",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F712957b7eb3f51fdbc75777f7b6c06d1%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "t2va",
+        "prompt": "Zhou Yu, a fictional 29-year-old East Asian man with slightly wavy black hair, clean shaven, a white shirt and dark navy barista apron. Medium close-up, alone at the wooden counter inside a warm amber-lit cafe. Standing behind the cafe counter, he dries a white cup with a cloth and looks toward the window. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music."
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "ad2e5f95-070b-4c7f-93b5-a1b674ac896a"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "@dsh-external/dsh-elysium-tools",
+  "version": "0.4.0",
+  "description": "通过 DeepSeek Harness 调用 RunPod 现有 MiniMax H3 五模式工作流。",
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": ">=20.16"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-tool",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ],
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.js && python3 -m unittest tests/test_runpod_workflow_sync.py",
+    "workflow:sync": "python3 scripts/sync_runpod_video_workflows.py --sync",
+    "workflow:check": "python3 scripts/sync_runpod_video_workflows.py --check",
+    "package:registry": "node scripts/package-registry.mjs"
+  },
+  "license": "MIT",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "react": "18.2.0",
+    "react-test-renderer": "18.2.0"
+  }
+}

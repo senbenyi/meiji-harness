@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({ id: 'elysium/shot-preview', factory: require => {
   const { createElement: h, useEffect, useState } = require('react')
   const { assetUrl } = require('elysium/media-api')
   const previews = new Map()
-  function ShotPreview({ jobId }) {
+  function ShotPreview({ jobId, imageOnly = false }) {
     const [job, setJob] = useState(null), [error, setError] = useState(''), [retry, setRetry] = useState(0)
     useEffect(() => {
       let active = true
@@ -28,7 +28,8 @@ window.__ModuleLoader__.load({ id: 'elysium/shot-preview', factory: require => {
     if (!jobId) return h('p', { className: 'elysium-empty' }, '尚未关联素材')
     if (error) return h('div', { role: 'alert' }, error, h('button', { onClick: () => setRetry(value => value + 1) }, '重试预览'))
     if (!job) return h('p', { role: 'status' }, '正在加载预览…')
-    return job.has_video ? h('video', { className: 'elysium-workbench-preview', src: assetUrl('video', jobId), preload: 'metadata', controls: true, onError: () => setError('预览加载失败') }) : job.has_image ? h('img', { className: 'elysium-workbench-preview', src: assetUrl('image', jobId), alt: '镜头图片', onError: () => setError('图片加载失败') }) : h('div', null, h('p', null, '暂无可播放产物'), h('button', { onClick: () => setRetry(value => value + 1) }, '刷新状态'))
+    if (job.media_error || job.error) return h('p', { role: 'alert' }, job.media_error || job.error)
+    return job.has_video && !imageOnly ? h('video', { className: 'elysium-workbench-preview', src: assetUrl('video', jobId), preload: 'metadata', controls: true, onError: () => setError('预览加载失败') }) : job.has_image ? h('img', { className: 'elysium-workbench-preview', src: assetUrl('image', jobId), alt: '镜头图片', onError: () => setError('图片加载失败') }) : h('div', null, h('p', null, '暂无可播放产物'), h('button', { onClick: () => setRetry(value => value + 1) }, '刷新状态'))
   }
   Object.assign(exports, { ShotPreview })
   return exports

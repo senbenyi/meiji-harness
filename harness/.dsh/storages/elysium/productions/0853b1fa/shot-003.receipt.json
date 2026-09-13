@@ -1,0 +1,81 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "t2va",
+    "prompt": "Chen Mo, a fictional 30-year-old East Asian man with neat short straight black hair, clean shaven, dark charcoal suit and pale grey shirt. Medium close-up, alone inside a warm amber-lit cafe beside a rain-streaked window. Standing inside the cafe doorway, he slowly lowers his eyes and tightens his grip on an old envelope. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music."
+  },
+  "job_id": "86a9a3599124448c32fb529d55558780",
+  "result": {
+    "job_id": "86a9a3599124448c32fb529d55558780",
+    "status": "succeeded",
+    "trace_id": "86a9a3599124448c32fb529d55558780",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "total_ms": 38564
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "083c318b24b0d3788be11726b571dc57945a3c52de8a971507da5b8cc86d879e"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F86a9a3599124448c32fb529d55558780%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F86a9a3599124448c32fb529d55558780%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "t2va",
+    "server_execution_ms": 34395,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "f9c05118-4c13-42ee-ac61-b736b06f6dae",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "d8f2c01a1285c6fbddf916ee0c1f3cc1a2eb48bfbc9481e9f4b919ccb8da4e50",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/86a9a3599124448c32fb529d55558780/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "f9c05118-4c13-42ee-ac61-b736b06f6dae",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F86a9a3599124448c32fb529d55558780%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "t2va",
+        "prompt": "Chen Mo, a fictional 30-year-old East Asian man with neat short straight black hair, clean shaven, dark charcoal suit and pale grey shirt. Medium close-up, alone inside a warm amber-lit cafe beside a rain-streaked window. Standing inside the cafe doorway, he slowly lowers his eyes and tightens his grip on an old envelope. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music."
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "f9c05118-4c13-42ee-ac61-b736b06f6dae"
+        }
+      ]
+    }
+  }
+}

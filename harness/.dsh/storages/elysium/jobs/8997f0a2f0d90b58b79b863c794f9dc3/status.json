@@ -1,0 +1,151 @@
+{
+  "job_id": "8997f0a2f0d90b58b79b863c794f9dc3",
+  "status": "succeeded",
+  "stage": "completed",
+  "timings": {
+    "clock": "performance.now",
+    "total_ms": 30003.436374999997,
+    "stages": {
+      "prepare.graph": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 1.2637500000000017,
+        "max_ms": 1.2637500000000017,
+        "last_start_ms": 3.027291999999999,
+        "last_end_ms": 4.291042000000001
+      },
+      "http.GET.object_info": {
+        "count": 19,
+        "failed": 0,
+        "total_ms": 7273.663540999998,
+        "max_ms": 850.864,
+        "last_start_ms": 1701.685125,
+        "last_end_ms": 1964.447458
+      },
+      "prepare.validate": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 1960.742959,
+        "max_ms": 1960.742959,
+        "last_start_ms": 4.301833000000002,
+        "last_end_ms": 1965.044792
+      },
+      "prepare": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 1963.47775,
+        "max_ms": 1963.47775,
+        "last_start_ms": 2.919542,
+        "last_end_ms": 1966.397292
+      },
+      "http.POST.prompt": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 475.51125,
+        "max_ms": 475.51125,
+        "last_start_ms": 1968.53825,
+        "last_end_ms": 2444.0495
+      },
+      "submit": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 477.82224999999994,
+        "max_ms": 477.82224999999994,
+        "last_start_ms": 1967.536292,
+        "last_end_ms": 2445.358542
+      },
+      "http.GET.history": {
+        "count": 9,
+        "failed": 0,
+        "total_ms": 5768.049457999997,
+        "max_ms": 1714.9787499999984,
+        "last_start_ms": 29381.769,
+        "last_end_ms": 29998.150125
+      },
+      "http.GET.queue": {
+        "count": 8,
+        "failed": 0,
+        "total_ms": 5768.990249999997,
+        "max_ms": 1719.3349579999995,
+        "last_start_ms": 25661.760667,
+        "last_end_ms": 27381.095624999998
+      },
+      "poll.sleep.execute": {
+        "count": 8,
+        "failed": 0,
+        "total_ms": 16013.303334,
+        "max_ms": 2003.0503750000007,
+        "last_start_ms": 27381.118833,
+        "last_end_ms": 29381.714708
+      },
+      "wait.history": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 27551.733417,
+        "max_ms": 27551.733417,
+        "last_start_ms": 2446.5245,
+        "last_end_ms": 29998.257917
+      },
+      "remote": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 28034.711791,
+        "max_ms": 28034.711791,
+        "last_start_ms": 1966.424417,
+        "last_end_ms": 30001.136208
+      },
+      "output.inspect": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.5608339999998861,
+        "max_ms": 0.5608339999998861,
+        "last_start_ms": 30001.910458,
+        "last_end_ms": 30002.471292
+      },
+      "output.persist-validation": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.8330000000023574,
+        "max_ms": 0.8330000000023574,
+        "last_start_ms": 30002.507416999997,
+        "last_end_ms": 30003.340417
+      }
+    }
+  },
+  "result": {
+    "media_kind": "video",
+    "local_media_path": "media/third-cup/shots/095.mp4",
+    "profile": "preview",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F8997f0a2f0d90b58b79b863c794f9dc3%2Fpreview&type=output",
+    "specification": {
+      "width": 384,
+      "height": 512,
+      "fps": 24,
+      "frames": 72,
+      "seconds": 3,
+      "audio": "none"
+    },
+    "source_specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "variant": "edited-72-frames",
+    "provenance": "productions/0853b1fa/shot-095.receipt.json"
+  },
+  "debug": {
+    "effective_input": {
+      "profile": "preview",
+      "mode": "i2va",
+      "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Zhou Yu, a fictional 29-year-old East Asian man with slightly wavy black hair, clean shaven, a white shirt and dark navy barista apron. Medium close-up, alone at the wooden counter inside a warm amber-lit cafe. He looks toward the woman off camera and gives a quiet supportive nod. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+      "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=zhou_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+    }
+  }
+}

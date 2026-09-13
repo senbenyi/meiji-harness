@@ -1,63 +1,42 @@
 #!/usr/bin/env node
 
-import { homedir } from 'node:os'
+// 职责：启动当前 DSH_HOME 的 Harness；只读取配置，不复制存储模板。
 import { join } from 'node:path'
 import { closeSync, openSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { execFileSync, spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
+import { dshHome } from './storage-template.mjs'
 
-// 本机启动入口；服务器模型服务由独立脚本人工管理。
-const dshHome = join(homedir(), '.dsh')
+const home = dshHome(), port = process.env.DSH_PORT
+if (port !== undefined && (!/^\d+$/.test(port) || Number(port) > 65535)) throw new Error('DSH_PORT 必须为 0–65535 的端口号')
 const tunnelScript = fileURLToPath(new URL('./tunnel.mjs', import.meta.url))
-const logDirectory = join(dshHome, 'logs')
-const harnessLog = join(logDirectory, 'harness-local.log')
-
-// 获取指定端口的监听进程。
-const listenerPids = port => {
-  try {
-    return execFileSync('lsof', [`-tiTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
-  } catch (error) {
-    if (error.status !== 1) throw error
-    return []
-  }
+if (process.env.DSH_SKIP_TUNNEL !== '1') {
+  try { execFileSync(process.execPath, [tunnelScript, 'qwen'], { stdio: 'inherit' }) }
+  catch { console.warn('Qwen 隧道启动失败，继续启动 Harness') }
 }
-
-// 终止端口上的旧进程并等待端口释放。
-const stopListeners = async (port, name) => {
-  const pids = listenerPids(port)
-  if (!pids.length) return
-  console.log(`正在重启 ${name}`)
-  for (const pid of pids) process.kill(Number(pid), 'SIGKILL')
-  for (let attempt = 0; attempt < 10 && listenerPids(port).length; attempt += 1) await delay(100)
-  if (listenerPids(port).length) throw new Error(`${name} 旧进程未能退出`)
-}
-
-await stopListeners(18000, 'Qwen 隧道')
-try {
-  execFileSync(process.execPath, [tunnelScript, 'qwen'], { stdio: 'inherit' })
-} catch {
-  console.warn('Qwen 隧道启动失败，继续启动 Harness')
-}
-
-await stopListeners(3080, 'Harness')
+const logDirectory = join(home, 'logs'), harnessLog = join(logDirectory, 'harness-local.log')
 await mkdir(logDirectory, { recursive: true })
 const log = openSync(harnessLog, 'a')
-const harness = spawn('dsh', ['web'], {
-  detached: true,
-  env: { ...process.env, DSH_AGENTS_HOME: join(dshHome, 'agents'), DSH_HOME: dshHome },
-  stdio: ['ignore', log, log],
+const harness = spawn('dsh', ['web', ...(process.env.DSH_NO_OPEN === '1' ? ['--no-open'] : []), ...(port === undefined ? [] : ['--port', port])], {
+  detached: true, env: { ...process.env, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home }, stdio: ['ignore', log, log],
 })
+let spawnError
+harness.on('error', error => { spawnError = error })
 harness.unref()
 closeSync(log)
 
-for (let attempt = 0; attempt < 100 && !listenerPids(3080).length; attempt += 1) {
+// 从本次启动进程读取实际监听地址，避免依赖默认端口或终止其他实例。
+for (let attempt = 0; attempt < 300; attempt++) {
+  if (spawnError) throw spawnError
   if (harness.exitCode !== null) throw new Error(`Harness 启动失败，退出码 ${harness.exitCode}；查看 ${harnessLog}`)
+  try {
+    const listeners = execFileSync('lsof', ['-a', '-p', String(harness.pid), '-iTCP', '-sTCP:LISTEN', '-Fn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    const actualPort = /^n.*:(\d+)$/m.exec(listeners)?.[1]
+    if (actualPort) { console.log(`Harness 已在后台启动：http://127.0.0.1:${actualPort}/（PID：${harness.pid}；日志：${harnessLog}）`); process.exit(0) }
+  } catch (error) { if (error.status !== 1) throw error }
   await delay(100)
 }
-if (!listenerPids(3080).length) {
-  process.kill(harness.pid, 'SIGKILL')
-  throw new Error(`Harness 启动超时；查看 ${harnessLog}`)
-}
-console.log(`Harness 已在后台启动：http://127.0.0.1:3080/（日志：${harnessLog}）`)
+process.kill(harness.pid, 'SIGTERM')
+throw new Error(`Harness 启动超时；查看 ${harnessLog}`)

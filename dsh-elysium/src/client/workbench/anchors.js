@@ -37,7 +37,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
       h('div', { className: 'elysium-toolbar' }, h(IconButton, { name: 'plus', label: '添加锚点', disabled: busy || Boolean(creating), onClick: startCreate })),
       creating ? h(AnchorCreateForm, { initial: creating, busy, guard, cancel: () => setCreating(null), save: anchor => save({ anchors: [...project.anchors, anchor] }) }) : null,
       h('div', { className: 'elysium-anchor-grid' }, project.anchors.map((anchor, index) => h('article', { key: anchor.role, className: 'elysium-anchor-card' },
-        h('div', { className: 'elysium-anchor-thumb' }, anchor.image_url ? h('img', { src: anchor.image_url, alt: anchor.label, loading: 'lazy' }) : h(Icon, { name: 'eye' })),
+        h('div', { className: 'elysium-anchor-thumb' }, anchor.image_url ? h('img', { src: anchor.image_url, alt: anchor.label, loading: 'lazy' }) : anchor.source?.job_id ? h(ShotPreview, { jobId: anchor.source.job_id, imageOnly: true }) : h(Icon, { name: 'eye' })),
         h('div', { className: 'elysium-anchor-copy' }, h('h3', null, anchor.label || anchor.role), anchor.description ? h('p', null, anchor.description) : null),
         h('div', { className: 'elysium-card-actions' }, h(IconButton, { name: 'eye', label: `查看参考素材 ${anchor.label || anchor.role}`, onClick: () => setInspecting(anchor) }),
           h(IconButton, { name: 'edit', label: `编辑锚点 ${anchor.label || anchor.role}`, disabled: busy, onClick: () => setEditing({ ...anchor, index }) }),

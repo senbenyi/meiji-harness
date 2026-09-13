@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promise
 import { join } from 'node:path'
 import { requiredConfig } from '../config.js'
 import { getJob } from '../jobs/query.js'
-import { jobSummary } from '../assets/catalog.js'
+import { availableJobSummary } from '../assets/catalog.js'
 import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, titleValue, validJobId, validProjectId } from './schema.js'
 import { invalidRequest } from '../http/shared.js'
 
@@ -14,6 +14,7 @@ export function projectSummary(value) {
   const completed = value.deliverables.length > 0 && shots.every(shot => shot.status === 'succeeded')
   const stage = value.deliverables.length > 0 && completed ? 'deliverables' : shots.length ? shots.some(shot => shot.status !== 'succeeded') ? 'acts' : 'deliverables' : !value.anchors.length ? 'anchors' : 'acts'
   return {
+    cover_job_id: value.anchors.find(anchor => !anchor.image_url && anchor.source?.job_id)?.source.job_id || null,
     cover_url: value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
     id: value.id, title: value.title, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
     status: active ? 'active' : completed ? 'completed' : 'todo', stage,
@@ -27,7 +28,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
   const names = { materials: 'materials.json', anchors: 'anchors.json', acts: 'storyboard.json', deliverables: 'deliverables.json' }
   const metadataOf = ({ materials, anchors, acts, deliverables, ...metadata }) => metadata
   const materialIdsOf = value => [...new Set([...(value.materials || []),
-    ...value.anchors.map(anchor => anchor.source?.job_id), ...value.acts.flatMap(act => act.shots.map(shot => shot.job_id))].filter(validJobId))]
+    ...(value.deliverables || []).map(item => item.job_id), ...value.anchors.map(anchor => anchor.source?.job_id), ...value.acts.flatMap(act => act.shots.map(shot => shot.job_id))].filter(validJobId))]
   let operations = Promise.resolve()
 
   async function writeJson(path, value) {
@@ -117,11 +118,11 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
         if (body.deliverables !== undefined) { value.deliverables = deliverablesValue(body.deliverables); sections.push('deliverables') }
         if (action === 'import') {
           if (body.as !== 'anchor' || !validJobId(body.job_id)) throw invalidRequest('素材引入参数无效')
-          const job = await readJob(body.job_id), summary = jobSummary(job)
-          if (!(summary.has_image || summary.has_video) || !serverUrl(job.result.comfyui_view_url)) throw invalidRequest('素材尚不可用')
+          const job = await readJob(body.job_id), summary = await availableJobSummary(job)
+          if (!(summary.has_image || summary.has_video) || !job.result.local_media_path && !serverUrl(job.result.comfyui_view_url)) throw invalidRequest('素材尚不可用')
           const role = body.role || `material-${body.job_id}`
           const previous = value.anchors.find(anchor => anchor.role === role)
-          const anchor = { role, label: previous?.label || '素材锚点', description: previous?.description || '', source: { type: 'material', job_id: body.job_id }, image_url: summary.has_image ? job.result.comfyui_view_url : '' }
+          const anchor = { role, label: previous?.label || '素材锚点', description: previous?.description || '', source: { type: 'material', job_id: body.job_id }, image_url: summary.has_image && !job.result.local_media_path ? job.result.comfyui_view_url : '' }
           value.anchors = anchorsValue(previous ? value.anchors.map(item => item.role === role ? anchor : item) : [...value.anchors, anchor])
           sections.push('anchors')
         }

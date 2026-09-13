@@ -1,0 +1,81 @@
+{
+  "request": {
+    "profile": "preview",
+    "mode": "t2va",
+    "prompt": "An intimate ordinary East Asian cafe with warm amber lamps, a rainy large window, a small wooden table and plain ceramic coffee cups. No people visible. Rain trickles down a cafe window at night; a small empty wooden table has two ceramic coffee cups. Slow gentle push toward the table. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music."
+  },
+  "job_id": "aa34df4cfdee9127d36e7f88af72c628",
+  "result": {
+    "job_id": "aa34df4cfdee9127d36e7f88af72c628",
+    "status": "succeeded",
+    "trace_id": "aa34df4cfdee9127d36e7f88af72c628",
+    "parent_job_id": null,
+    "stage": "completed",
+    "timings": {
+      "total_ms": 27393
+    },
+    "code_version": {
+      "plugin_version": "0.4.0",
+      "executor_sha256": "b404f85f001a11c3ddef0a2b13a99aadf731fff201c23703f12561aaa4b6431c"
+    },
+    "path": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Faa34df4cfdee9127d36e7f88af72c628%2Fpreview&type=output",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Faa34df4cfdee9127d36e7f88af72c628%2Fpreview&type=output",
+    "media_kind": "video",
+    "mode": "t2va",
+    "server_execution_ms": 23468,
+    "profile": "preview",
+    "specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "source_workflow": {
+      "path": "minimax/MiniMaxH3-Turbo-T2VA.json",
+      "sha256": "cce4f9ba3ef365d3d226b2dc5d67a65ade42d9f74916174c626a87985c625c23"
+    },
+    "warnings": [],
+    "comfyui_prompt_id": "3980d183-a773-4cca-a171-6428a8a896c3",
+    "validation": {
+      "location": "comfyui-history",
+      "full_decode": "not_run",
+      "specification_match": "not_run",
+      "human_review": "not_run"
+    },
+    "comfyui_artifact_id": "779598a84cd04a192f24d51f69dc63b8a24bb02aeed28580e648d3c5242e28c7",
+    "comfyui_metadata_status": "comfyui-final",
+    "comfyui_artifacts": [
+      {
+        "filename": "final_00001-audio.mp4",
+        "subfolder": "elysium/aa34df4cfdee9127d36e7f88af72c628/preview",
+        "type": "output",
+        "format": "video/h264-mp4",
+        "frame_rate": 24,
+        "workflow": "final_00001.png",
+        "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+        "prompt_id": "3980d183-a773-4cca-a171-6428a8a896c3",
+        "view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Faa34df4cfdee9127d36e7f88af72c628%2Fpreview&type=output"
+      }
+    ],
+    "debug": {
+      "effective_input": {
+        "profile": "preview",
+        "mode": "t2va",
+        "prompt": "An intimate ordinary East Asian cafe with warm amber lamps, a rainy large window, a small wooden table and plain ceramic coffee cups. No people visible. Rain trickles down a cafe window at night; a small empty wooden table has two ceramic coffee cups. Slow gentle push toward the table. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music."
+      },
+      "chain": [
+        {
+          "stage": "comfyui-submitted",
+          "server_url": "https://36we4j3zo503js-8188.proxy.runpod.net/",
+          "prompt_id": "3980d183-a773-4cca-a171-6428a8a896c3"
+        }
+      ]
+    }
+  }
+}

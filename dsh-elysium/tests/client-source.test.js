@@ -68,7 +68,7 @@ test('workbench actions use compact icons without low-value placeholder copy', (
   assert.doesNotMatch(source, /更多操作 \$\{item\.title\}/)
   assert.match(source, /name: 'minus', label: `删除项目 \$\{item\.title\}`/)
   assert.match(source, /className: 'elysium-project-open', role: 'button'/)
-  assert.match(source, /className: 'elysium-project-open'[^\n]+\n\s+h\('h2', null, item\.title\),\n\s+item\.cover_url/)
+  assert.match(source, /className: 'elysium-project-open'[^\n]+\n\s+h\('h2', null, item\.title\),\n\s+item\.cover_job_id/)
   assert.match(source, /\.elysium-project-open > img \{[^}]*height:112px;[^}]*object-fit:cover/)
   assert.match(source, /\.elysium-anchor-card \{[^}]*grid-template-columns:64px minmax\(0,1fr\) 30px/)
   assert.match(source, /\.elysium-anchor-thumb \{[^}]*width:64px; height:64px/)

@@ -1,0 +1,15 @@
+{
+  "job_id": "34271c9824437bacb94b15452da3c6eb",
+  "status": "succeeded",
+  "stage": "completed",
+  "origin": "template-asset-registration",
+  "result": {
+    "media_kind": "file",
+    "local_media_path": "media/third-cup/deliverables/subtitles.srt",
+    "profile": "preview",
+    "specification": {
+      "format": "srt",
+      "encoding": "utf-8"
+    }
+  }
+}

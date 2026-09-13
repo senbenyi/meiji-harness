@@ -211,3 +211,14 @@ test('anchor image takes precedence over source video and storyboard does not fe
   assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 0)
   await act(async () => view.unmount())
 })
+
+test('job-backed local anchor previews use authenticated image routes', async () => {
+  const project = emptyProject()
+  project.anchors = [{ role:'lin', label:'林夏', description:'', source:{type:'job',job_id:'b'.repeat(32)}, image_url:'' }]
+  const f = fixture(project)
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/anchors').AnchorView,{project,save(){},run(){}})) })
+  assert.equal(view.root.findByType('img').props.src,`/media/image?job=${'b'.repeat(32)}&t=t`)
+  assert.equal(f.requests.filter(request => request.url.startsWith('/media/status')).length,1)
+  await act(async () => view.unmount())
+})

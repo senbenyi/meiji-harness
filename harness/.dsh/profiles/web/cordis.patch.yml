@@ -25,7 +25,7 @@
 - id: ui-permission
   disabled: true
 
-# 插件通过服务器 URL 访问 ComfyUI，不使用本地媒体地址。
+# 生成使用 ComfyUI URL；模板媒体由插件从存储目录提供同源访问。
 - insert:
     - id: dsh-elysium
       name: '@dsh-external/dsh-elysium'

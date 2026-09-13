@@ -1,0 +1,17 @@
+{
+  "job_id": "11637293d188f83874464306f6b4ff08",
+  "status": "failed",
+  "stage": "template-import",
+  "failed_stage": "template-import",
+  "error_code": "TEMPLATE_MEDIA_MISSING",
+  "error": "本地参考图缺失；未生成替代图片",
+  "retryable": false,
+  "result": {
+    "media_kind": "image",
+    "local_media_path": "media/third-cup/anchors/lin.png",
+    "profile": "preview",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
+    "source_job_id": "310987b5d2724e2783d7324adb1145db",
+    "provenance": "productions/0853b1fa/shot-002.reference.submission.json"
+  }
+}

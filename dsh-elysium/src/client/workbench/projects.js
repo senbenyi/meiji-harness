@@ -5,6 +5,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const { IconButton } = require('elysium/dialog')
   const { fetchProject, fetchProjects, createProject, deleteProject, updateProject } = require('elysium/project-api')
   const { fetchDirectors } = require('elysium/director-api')
+  const { ShotPreview } = require('elysium/shot-preview')
   const { AnchorView } = require('elysium/anchors')
   const { StoryboardView } = require('elysium/storyboard')
   const { DeliveryView } = require('elysium/delivery')
@@ -56,6 +57,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
     const shots = shotsOf(project)
     return h('div', { className: 'elysium-project-detail' },
       h('div', { className: 'elysium-project-heading' }, h(IconButton, { name: 'back', label: '返回项目', disabled: busy, onClick: () => navigate(back) }), h('h1', null, project?.title || '项目'), h('span', { role: 'status' }, busy ? '保存中…' : saved ? '已保存' : '')),
+      project ? h('p', { className: 'elysium-compact-meta' }, `${project.director || '导演未指定'} · ${profiles.find(([value]) => value === project.profile)?.[1] || project.profile} · ${project.anchors.length} 锚点 · ${project.acts.length} 幕 · ${shots.filter(shot => shot.status === 'succeeded').length}/${shots.length} 镜完成 · ${project.deliverables.length} 份交付`) : null,
       h(ProjectSteps, { active: activeTab, project, navigate: go }),
       error ? h('p', { role: 'alert' }, error, !project ? h('button', { onClick: () => { setError(''); setReload(value => value + 1) } }, '重试') : null) : null,
       project ? h('div', { className: 'elysium-project-stage' },
@@ -94,8 +96,8 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
       !busy && !error && visible.length ? h('div', { className: 'elysium-project-grid' }, visible.map(item => h('article', { className: 'elysium-material-card elysium-project-card', key: item.id },
             h('div', { className: 'elysium-project-open', role: 'button', tabIndex: 0, 'aria-label': `打开项目 ${item.title}`, onClick: () => selectProject(item.id, item.stage || null), onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectProject(item.id, item.stage || null) } } },
               h('h2', null, item.title),
-              item.cover_url ? h('img', { src: item.cover_url, loading: 'lazy', alt: item.title }) : h('div', { className: 'elysium-video-placeholder' }, item.title.slice(0, 1)),
-              h('p', { className: 'elysium-compact-meta' }, progress(item))),
+              item.cover_job_id ? h(ShotPreview, { jobId: item.cover_job_id, imageOnly: true }) : item.cover_url ? h('img', { src: item.cover_url, loading: 'lazy', alt: item.title }) : h('div', { className: 'elysium-video-placeholder' }, item.title.slice(0, 1)),
+              h('p', { className: 'elysium-compact-meta' }, `${item.director || '导演未指定'} · ${profiles.find(([value]) => value === item.profile)?.[1] || item.profile} · ${item.completed_count}/${item.shot_count} 镜 · ${progress(item)}`)),
             h('div', { className: 'elysium-card-actions' },
               h(IconButton, { name: 'minus', label: `删除项目 ${item.title}`, disabled: busy, onClick: () => { if (window.confirm(`删除项目“${item.title}”？此操作无法撤销。`)) run(async () => { await deleteProject(item.id); await refresh() }) } }))))) : null)
   }
