@@ -8,13 +8,13 @@ const root = () => requiredConfig('ELYSIUM_STATE_ROOT')
 const valid = value => typeof value === 'string' && value.length > 0 && value.length <= 256
 const file = (sessionId, callId) => {
   if (!valid(sessionId) || !valid(callId)) throw new Error('Invalid call identity')
-  return join(root(), 'calls', createHash('sha256').update(JSON.stringify([sessionId, callId])).digest('hex') + '.json')
+  return join(root(), 'runtime', 'calls', createHash('sha256').update(JSON.stringify([sessionId, callId])).digest('hex') + '.json')
 }
 export async function bindVideoCall(jobId, exec) {
   if (!exec?.agent || !exec.callId) return
   const sessionId = exec.agent.session.id
   const target = file(sessionId, exec.callId)
-  await mkdir(join(root(), 'calls'), { recursive: true })
+  await mkdir(join(root(), 'runtime', 'calls'), { recursive: true })
   const temporary = `${target}.${randomUUID()}.tmp`
   await writeFile(temporary, JSON.stringify({ session_id: sessionId, call_id: exec.callId, job_id: jobId }), { mode: 0o600 })
   await rename(temporary, target)

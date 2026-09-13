@@ -3,7 +3,6 @@ import { setTimeout } from 'node:timers/promises'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { requiredConfig } from '../config.js'
 import { ComfyClient } from '../comfyui/client.js'
 import { saveJson } from '../jobs/store.js'
 import { codeVersion } from '../jobs/diagnostics.js'
@@ -11,12 +10,13 @@ import { buildVideoGraph } from './graph.js'
 import { collectVideoArtifacts } from './artifacts.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from '../comfyui/execution.js'
 import { createTiming } from '../jobs/timing.js'
+import { projectJobRoot } from '../jobs/paths.js'
 
-export async function executeComfyVideo(jobId, plan, { signal, timeoutMs = 451 * 60_000, pause = setTimeout } = {}) {
-  const directory = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'jobs', jobId)
+export async function executeComfyVideo(projectId, jobId, plan, { signal, timeoutMs = 451 * 60_000, pause = setTimeout } = {}) {
+  const directory = projectJobRoot(projectId, jobId)
   const statusPath = join(directory, 'status.json')
   const timing = createTiming(), client = new ComfyClient(undefined, signal, timing)
-  const status = { job_id: jobId, capability: 'workflow-video', backend: 'comfyui', trace_id: jobId,
+  const status = { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'comfyui', trace_id: jobId,
     parent_job_id: null, status: 'running', stage: 'prepare', created_at: new Date().toISOString(),
     code_version: await codeVersion(), debug: { effective_input: plan, chain: [],
       diagnostic_path: join(directory, 'diagnostics.json'), log_path: join(directory, 'execution.log') } }

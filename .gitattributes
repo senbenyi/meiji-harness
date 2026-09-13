@@ -1,1 +1,1 @@
-harness/.dsh/storages/elysium/media/third-cup/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+harness/.dsh/storages/elysium/projects/0853b1fa/media/**/*.mp4 filter=lfs diff=lfs merge=lfs -text

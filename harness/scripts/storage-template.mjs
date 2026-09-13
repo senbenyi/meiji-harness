@@ -12,13 +12,17 @@ export function dshHome(value = process.env.DSH_HOME) {
 }
 
 export async function verifyMedia(root) {
-  const media = join(root, 'media'), manifests = []
-  for (const entry of await readdir(media, { withFileTypes: true })) {
+  const projects = join(root, 'projects'), manifests = []
+  for (const entry of await readdir(projects, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
-    const manifest = JSON.parse(await readFile(join(media, entry.name, 'manifest.json'), 'utf8'))
+    const project = join(projects, entry.name), manifestPath = join(project, 'media', 'manifest.json')
+    let manifest
+    try { manifest = JSON.parse(await readFile(manifestPath, 'utf8')) }
+    catch (error) { if (error.code === 'ENOENT') continue; throw error }
+    if (manifest.project_id !== entry.name) throw new Error('模板媒体项目归属无效')
     for (const record of manifest.files) {
-      if (!record.path.startsWith(`media/${entry.name}/`) || record.path.split('/').some(part => part === '..') || /[%\\]/.test(record.path)) throw new Error('模板媒体路径无效')
-      const path = await realpath(join(root, record.path)), location = relative(await realpath(root), path)
+      if (!record.path.startsWith('media/') || record.path.split('/').some(part => part === '..') || /[%\\]/.test(record.path)) throw new Error('模板媒体路径无效')
+      const path = await realpath(join(project, record.path)), location = relative(await realpath(project), path)
       if (location === '..' || location.startsWith(`..${sep}`) || isAbsolute(location)) throw new Error('模板媒体路径越界')
       const hash = createHash('sha256'); let size = 0, first = true
       for await (const chunk of createReadStream(path)) {
@@ -36,7 +40,7 @@ async function exists(path) {
   try { await lstat(path); return true } catch (error) { if (error.code === 'ENOENT') return false; throw error }
 }
 
-// 项目、任务、生产记录、媒体集合各自作为不可覆盖的初始化单元。
+// 每个项目是包含 JSON、任务、生产记录与媒体的不可覆盖初始化单元。
 export async function installStorage(source, target) {
   await mkdir(target, { recursive: true })
   for (const entry of await readdir(source, { withFileTypes: true })) {
@@ -44,7 +48,7 @@ export async function installStorage(source, target) {
     const destination = join(target, entry.name)
     if (!await exists(destination)) { await cp(join(source, entry.name), destination, { recursive: true, force: false, errorOnExist: true }); continue }
     if ((await lstat(destination)).isSymbolicLink()) throw new Error('目标存储不允许符号链接')
-    if (entry.isDirectory() && ['projects', 'jobs', 'productions', 'media'].includes(entry.name)) {
+    if (entry.isDirectory() && ['projects', 'runtime'].includes(entry.name)) {
       for (const child of await readdir(join(source, entry.name))) {
         if (!await exists(join(destination, child))) await cp(join(source, entry.name, child), join(destination, child), { recursive: true, force: false, errorOnExist: true })
       }

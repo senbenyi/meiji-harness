@@ -1,0 +1,152 @@
+{
+  "job_id": "b8b7f940c20b972af49ee23b2990b37a",
+  "project_id": "0853b1fa",
+  "status": "succeeded",
+  "stage": "completed",
+  "timings": {
+    "clock": "performance.now",
+    "total_ms": 31807.902417,
+    "stages": {
+      "prepare.graph": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 1.242750000000001,
+        "max_ms": 1.242750000000001,
+        "last_start_ms": 5.491958999999998,
+        "last_end_ms": 6.734708999999999
+      },
+      "http.GET.object_info": {
+        "count": 19,
+        "failed": 0,
+        "total_ms": 9291.184626000004,
+        "max_ms": 753.172292,
+        "last_start_ms": 1984.625125,
+        "last_end_ms": 2412.004625
+      },
+      "prepare.validate": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 2405.782584,
+        "max_ms": 2405.782584,
+        "last_start_ms": 6.7425,
+        "last_end_ms": 2412.525084
+      },
+      "prepare": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 2408.2216670000003,
+        "max_ms": 2408.2216670000003,
+        "last_start_ms": 5.3786249999999995,
+        "last_end_ms": 2413.600292
+      },
+      "http.POST.prompt": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 420.5861249999998,
+        "max_ms": 420.5861249999998,
+        "last_start_ms": 2415.541459,
+        "last_end_ms": 2836.127584
+      },
+      "submit": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 423.857833,
+        "max_ms": 423.857833,
+        "last_start_ms": 2414.606209,
+        "last_end_ms": 2838.464042
+      },
+      "http.GET.history": {
+        "count": 9,
+        "failed": 0,
+        "total_ms": 4353.566998000004,
+        "max_ms": 765.0617910000001,
+        "last_start_ms": 31391.467459,
+        "last_end_ms": 31804.360625
+      },
+      "http.GET.queue": {
+        "count": 8,
+        "failed": 0,
+        "total_ms": 8602.893794000001,
+        "max_ms": 3457.3365840000006,
+        "last_start_ms": 28670.8245,
+        "last_end_ms": 29390.943834
+      },
+      "poll.sleep.execute": {
+        "count": 8,
+        "failed": 0,
+        "total_ms": 16006.405833,
+        "max_ms": 2001.9443329999995,
+        "last_start_ms": 29390.9605,
+        "last_end_ms": 31391.415292
+      },
+      "wait.history": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 28964.166959,
+        "max_ms": 28964.166959,
+        "last_start_ms": 2840.2822499999997,
+        "last_end_ms": 31804.449209
+      },
+      "remote": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 29392.752792,
+        "max_ms": 29392.752792,
+        "last_start_ms": 2413.627125,
+        "last_end_ms": 31806.379917
+      },
+      "output.inspect": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.4290000000000873,
+        "max_ms": 0.4290000000000873,
+        "last_start_ms": 31806.9175,
+        "last_end_ms": 31807.3465
+      },
+      "output.persist-validation": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.47779200000150013,
+        "max_ms": 0.47779200000150013,
+        "last_start_ms": 31807.37475,
+        "last_end_ms": 31807.852542
+      }
+    }
+  },
+  "result": {
+    "media_kind": "video",
+    "local_media_path": "media/shots/025.mp4",
+    "profile": "preview",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2Fb8b7f940c20b972af49ee23b2990b37a%2Fpreview&type=output",
+    "specification": {
+      "width": 384,
+      "height": 512,
+      "fps": 24,
+      "frames": 72,
+      "seconds": 3,
+      "audio": "none"
+    },
+    "source_specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "variant": "edited-72-frames",
+    "provenance": "production/shot-025.receipt.json"
+  },
+  "debug": {
+    "effective_input": {
+      "profile": "preview",
+      "mode": "i2va",
+      "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Chen Mo, a fictional 30-year-old East Asian man with neat short straight black hair, clean shaven, dark charcoal suit and pale grey shirt. Medium close-up, alone inside a warm amber-lit cafe beside a rain-streaked window. He carefully smooths the edge of the old envelope on the table with one hand. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+      "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=chen_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+    }
+  }
+}

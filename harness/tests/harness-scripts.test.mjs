@@ -18,6 +18,7 @@ test('local scripts install dependencies and start the Qwen tunnel before Harnes
   assert.match(start, /new URL\('\.\/tunnel\.mjs', import\.meta\.url\)/)
   assert.match(start, /execFileSync\(process\.execPath, \[tunnelScript, 'qwen'\]/)
   assert.match(start, /Qwen 隧道启动失败，继续启动 Harness/)
+  assert.match(start, /execFileSync\('lsof', \['-nP'/)
   assert.match(start, /String\(harness.pid\)/)
   assert.match(start, /spawn\('dsh', \['web'/)
   assert.match(start, /detached: true/)

@@ -2,7 +2,7 @@
 import { constants } from 'node:fs'
 import { open, realpath, readFile } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'
-import { requiredConfig } from '../config.js'
+import { projectRoot, validProjectId } from '../jobs/paths.js'
 
 const formats = { '.png': ['image', 'image/png'], '.jpg': ['image', 'image/jpeg'], '.jpeg': ['image', 'image/jpeg'], '.webp': ['image', 'image/webp'], '.mp4': ['video', 'video/mp4'], '.srt': ['file', 'application/x-subrip; charset=utf-8'] }
 const failure = (status, message) => Object.assign(new Error(message), { status })
@@ -10,16 +10,17 @@ const inside = (root, path) => { const name = relative(root, path); return name 
 
 export function localMediaValue(result) {
   const path = result?.local_media_path
-  if (typeof path !== 'string' || !/^media\/[a-zA-Z0-9_-]+\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+$/.test(path) || path.split('/').some(part => part === '.' || part === '..')) throw failure(403, '本地媒体路径无效')
+  if (typeof path !== 'string' || !/^media\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+$/.test(path) || path.split('/').some(part => part === '.' || part === '..')) throw failure(403, '本地媒体路径无效')
   const format = formats[extname(path).toLowerCase()]
   if (!format || result.media_kind !== format[0]) throw failure(403, '本地媒体类型无效')
   return { path, kind: format[0], contentType: format[1] }
 }
 
 export async function openLocalMedia(job) {
-  const value = localMediaValue(job.result), root = await realpath(requiredConfig('ELYSIUM_STATE_ROOT'))
+  if (!validProjectId(job.project_id)) throw failure(403, '本地媒体缺少项目归属')
+  const value = localMediaValue(job.result), root = await realpath(projectRoot(job.project_id))
   try {
-    const manifestPath = await realpath(join(root, 'media', value.path.split('/')[1], 'manifest.json'))
+    const manifestPath = await realpath(join(root, 'media', 'manifest.json'))
     if (!inside(root, manifestPath)) throw failure(403, '本地媒体登记越界')
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
     const record = manifest.files?.find(item => item.path === value.path && item.job_id === job.job_id)

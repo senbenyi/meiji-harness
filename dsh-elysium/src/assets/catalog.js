@@ -34,18 +34,22 @@ export function assetSummary(job) {
 }
 
 export async function listAssets(offset, limit, filters = {}) {
-  const root = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'jobs')
-  const entries = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
+  const root = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects')
+  const projects = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
   const items = []
-  for (const entry of entries) {
-    if (!entry.isDirectory() || !/^[a-f0-9]{32}$/.test(entry.name)) continue
-    const path = join(root, entry.name, 'status.json')
-    try {
-      const job = JSON.parse(await readFile(path, 'utf8'))
-      const summary = { ...assetSummary(job), ...await availableJobSummary(job) }
-      if (filters.q && ![job.job_id, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
-      if (job.status === 'succeeded' && (!filters.profile || (summary.profile === 'hd' ? 'high-quality' : summary.profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || summary.media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })
-    } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
+  for (const project of projects) {
+    if (!project.isDirectory() || !/^[a-f0-9]{8}$/.test(project.name)) continue
+    const jobs = await readdir(join(root, project.name, 'jobs'), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
+    for (const entry of jobs) {
+      if (!entry.isDirectory() || !/^[a-f0-9]{32}$/.test(entry.name)) continue
+      const path = join(root, project.name, 'jobs', entry.name, 'status.json')
+      try {
+        const job = JSON.parse(await readFile(path, 'utf8')); job.project_id ||= project.name
+        const summary = { ...assetSummary(job), ...await availableJobSummary(job) }
+        if (filters.q && ![job.job_id, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
+        if (job.status === 'succeeded' && (!filters.profile || (summary.profile === 'hd' ? 'high-quality' : summary.profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || summary.media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })
+      } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
+    }
   }
   items.sort((a, b) => b.created_at - a.created_at || a.job_id.localeCompare(b.job_id))
   return { items: items.slice(offset, offset + limit), total: items.length, has_more: offset + limit < items.length }

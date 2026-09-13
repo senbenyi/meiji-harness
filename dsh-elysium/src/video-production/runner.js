@@ -14,11 +14,11 @@ import { resolveShotRequest } from './manifest.js'
 import { extractReference } from './reference-frame.js'
 import { finishAttempt, initializeProduction, productionDirectory, readAnchors, saveAnchors, saveProgress, shotPaths } from './state.js'
 
-export async function executeVideoShot(request, receiptPath, signal) {
+export async function executeVideoShot(projectId, request, receiptPath, signal) {
   const saved = await readJson(receiptPath)
   if (saved && JSON.stringify(saved.request) !== JSON.stringify(request)) throw new Error('回执属于不同镜头；必须使用原请求')
   await validateVideoPlan(request)
-  const jobId = saved?.job_id || await createJob(request)
+  const jobId = saved?.job_id || await createJob(projectId, request)
   if (!saved) await saveJson(receiptPath, { request, job_id: jobId })
   let current
   try { current = await getJob(jobId) } catch (error) { if (error.code !== 'MODEL_JOB_NOT_FOUND') throw error }
@@ -54,7 +54,7 @@ export async function runProduction(manifest, options = {}) {
         await saveJson(paths.attempts, attempts)
         log(`${shot.id}: 第 ${attempts.length} 次执行`)
         try {
-          receipt = await execute(request, paths.receipt, options.signal)
+          receipt = await execute(manifest.project_id, request, paths.receipt, options.signal)
           await saveJson(paths.receipt, receipt)
           await finishAttempt(paths.attempts, attempts, receipt.result?.status || 'interrupted')
         } catch (error) {

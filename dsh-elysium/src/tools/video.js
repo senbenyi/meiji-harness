@@ -8,7 +8,7 @@ import { createTiming } from '../jobs/timing.js'
 export { waitJob as waitVideoJob } from '../jobs/wait.js'
 
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
-const output = { schema: { type: 'object', properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
+const output = { schema: { type: 'object', properties: { project_id: { type: 'string' }, job_id: { type: 'string' }, status: { type: 'string' } }, required: ['project_id', 'job_id', 'status'] }, render: renderToolDebug }
 const media = description => ({ type: 'string', description: `${description}，必须是当前 RunPod 的 ComfyUI /view URL。` })
 
 export function createWorkflowGenerateVideoTool() {
@@ -16,7 +16,8 @@ export function createWorkflowGenerateVideoTool() {
     name: 'workflow_generate_video',
     description: '视频创作统一入口：preview 预览创作、regular 常规创作、high-quality 高清创作。失败或断网保留原任务，禁止改提示词或档位重新生成；自动重试耗尽后等待用户要求恢复。standard 是原工作流兼容参数，不是常规创作。',
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
-    parameters: { type: 'object', additionalProperties: false, required: ['mode', 'prompt'], properties: {
+    parameters: { type: 'object', additionalProperties: false, required: ['project_id', 'mode', 'prompt'], properties: {
+      project_id: { type: 'string', pattern: '^[a-f0-9]{8}$', description: '任务所属项目 ID。' },
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
       profile: { type: 'string', enum: VIDEO_PROFILES, description: '必须显式选择：preview=384×512约3秒；regular=576×768单次生成，默认5秒，时长遵循H3节点范围，可传duration_seconds，二者8步24fps无插帧且仅支持t2va/i2va；high-quality=原生规格五模式，保留各自采样和RIFE。省略或standard兼容原工作流。高清不表示新增超分。' },

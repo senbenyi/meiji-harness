@@ -1,12 +1,10 @@
 // 职责：读取本地任务状态并组装已完成结果。
 import { workerAlive } from '../video/worker-owner.js'
-import { requiredConfig } from '../config.js'
 import { readFile, stat } from 'node:fs/promises'
 import { traceDiagnostics } from './diagnostics.js'
 import { join } from 'node:path'
 import { ModelTaskError } from './errors.js'
-
-const STATE_ROOT = () => requiredConfig('ELYSIUM_STATE_ROOT')
+import { findJobRoot } from './paths.js'
 
 async function readTrace(path) {
   const text = await readFile(path, 'utf8').catch(error => {
@@ -16,23 +14,22 @@ async function readTrace(path) {
   return text.split('\n').filter(Boolean).map(line => JSON.parse(line))
 }
 
-function jobRoot(jobId) {
-  return join(STATE_ROOT(), 'jobs', jobId)
-}
-
 export async function getJob(jobId) {
   if (!/^[0-9a-f]{32}$/.test(jobId || '')) throw new ModelTaskError('MODEL_JOB_NOT_FOUND', '任务不存在', 404)
   try {
-    const job = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
+    const located = await findJobRoot(jobId)
+    if (!located) throw new ModelTaskError('MODEL_JOB_NOT_FOUND', '任务不存在', 404)
+    const job = JSON.parse(await readFile(join(located.directory, 'status.json'), 'utf8'))
+    job.project_id ||= located.projectId
     if (job.status === 'running' && job.debug?.trace_path) {
       job.debug.chain = await readTrace(job.debug.trace_path).catch(() => job.debug.chain || [])
       Object.assign(job.debug, traceDiagnostics(job.debug.chain))
     }
     if (job.backend === 'comfyui' && ['queued', 'running'].includes(job.status)) {
       try {
-        if (job.status === 'queued' && Date.now() - (await stat(join(jobRoot(jobId), 'status.json'))).mtimeMs < 60_000) return job
-        if (!await workerAlive(join(jobRoot(jobId), 'worker.lock'), jobId)) {
-          const latest = JSON.parse(await readFile(join(jobRoot(jobId), 'status.json'), 'utf8'))
+        if (job.status === 'queued' && Date.now() - (await stat(join(located.directory, 'status.json'))).mtimeMs < 60_000) return job
+        if (!await workerAlive(join(located.directory, 'worker.lock'), jobId)) {
+          const latest = JSON.parse(await readFile(join(located.directory, 'status.json'), 'utf8'))
           if (latest.status !== job.status || latest.stage !== job.stage) return latest
           job.failed_stage = job.stage
           job.status = 'failed'; job.stage = 'failed'; job.error_code = 'WORKER_NOT_RUNNING'

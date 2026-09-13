@@ -1,0 +1,152 @@
+{
+  "job_id": "4e2ed89d9e4051307b45d8a1cdeee027",
+  "project_id": "0853b1fa",
+  "status": "succeeded",
+  "stage": "completed",
+  "timings": {
+    "clock": "performance.now",
+    "total_ms": 30758.1425,
+    "stages": {
+      "prepare.graph": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 1.4742080000000009,
+        "max_ms": 1.4742080000000009,
+        "last_start_ms": 3.833584000000002,
+        "last_end_ms": 5.307792000000003
+      },
+      "http.GET.object_info": {
+        "count": 19,
+        "failed": 0,
+        "total_ms": 8441.364875000001,
+        "max_ms": 805.6375000000002,
+        "last_start_ms": 1799.5610000000001,
+        "last_end_ms": 2200.642167
+      },
+      "prepare.validate": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 2195.895417,
+        "max_ms": 2195.895417,
+        "last_start_ms": 5.316542000000002,
+        "last_end_ms": 2201.211959
+      },
+      "prepare": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 2198.987333,
+        "max_ms": 2198.987333,
+        "last_start_ms": 3.5934589999999993,
+        "last_end_ms": 2202.580792
+      },
+      "http.POST.prompt": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 475.57620799999995,
+        "max_ms": 475.57620799999995,
+        "last_start_ms": 2205.579542,
+        "last_end_ms": 2681.15575
+      },
+      "submit": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 477.7199999999998,
+        "max_ms": 477.7199999999998,
+        "last_start_ms": 2204.2531670000003,
+        "last_end_ms": 2681.973167
+      },
+      "http.GET.history": {
+        "count": 10,
+        "failed": 0,
+        "total_ms": 5443.834583,
+        "max_ms": 862.2819999999992,
+        "last_start_ms": 30349.023167,
+        "last_end_ms": 30754.648
+      },
+      "http.GET.queue": {
+        "count": 9,
+        "failed": 0,
+        "total_ms": 4617.717208999999,
+        "max_ms": 1007.9833330000001,
+        "last_start_ms": 27339.445292,
+        "last_end_ms": 28347.428625
+      },
+      "poll.sleep.execute": {
+        "count": 9,
+        "failed": 0,
+        "total_ms": 18008.939290000002,
+        "max_ms": 2001.7469579999997,
+        "last_start_ms": 28347.445334,
+        "last_end_ms": 30348.961709
+      },
+      "wait.history": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 28071.927708000003,
+        "max_ms": 28071.927708000003,
+        "last_start_ms": 2682.844209,
+        "last_end_ms": 30754.771917000002
+      },
+      "remote": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 28554.098041,
+        "max_ms": 28554.098041,
+        "last_start_ms": 2202.608459,
+        "last_end_ms": 30756.7065
+      },
+      "output.inspect": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.30558300000120653,
+        "max_ms": 0.30558300000120653,
+        "last_start_ms": 30757.253167,
+        "last_end_ms": 30757.55875
+      },
+      "output.persist-validation": {
+        "count": 1,
+        "failed": 0,
+        "total_ms": 0.5408339999994496,
+        "max_ms": 0.5408339999994496,
+        "last_start_ms": 30757.576125,
+        "last_end_ms": 30758.116959
+      }
+    }
+  },
+  "result": {
+    "media_kind": "video",
+    "local_media_path": "media/shots/027.mp4",
+    "profile": "preview",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=final_00001-audio.mp4&subfolder=elysium%2F4e2ed89d9e4051307b45d8a1cdeee027%2Fpreview&type=output",
+    "specification": {
+      "width": 384,
+      "height": 512,
+      "fps": 24,
+      "frames": 72,
+      "seconds": 3,
+      "audio": "none"
+    },
+    "source_specification": {
+      "backend": "minimax-h3",
+      "width": 384,
+      "height": 512,
+      "frames": 73,
+      "fps": 24,
+      "seconds": 3.0416666666666665,
+      "requested_seconds": 3,
+      "steps": 8,
+      "audio": "joint-generation-and-decoding",
+      "interpolation": false
+    },
+    "variant": "edited-72-frames",
+    "provenance": "production/shot-027.receipt.json"
+  },
+  "debug": {
+    "effective_input": {
+      "profile": "preview",
+      "mode": "i2va",
+      "prompt": "Continue the reference image, preserve the same face, hairstyle, clothing and cafe design. Lin Xia, a fictional 28-year-old East Asian woman with shoulder-length straight black hair and a beige trench coat over a cream top, natural understated makeup. Medium close-up, alone at a wooden table inside a warm amber-lit cafe beside a rain-streaked window. She stops stirring and lifts her eyes, calm and slightly hurt. Realistic cinematic romantic drama, restrained natural acting, gentle motion, one continuous three-second shot, stable anatomy and wardrobe, no cuts, no subtitles or text in the image. No dialogue, no music.",
+      "first_frame": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+    }
+  }
+}

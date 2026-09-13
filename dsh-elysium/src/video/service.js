@@ -10,13 +10,14 @@ import { launch } from './launcher.js'
 import { withLaunchLock } from '../jobs/lock.js'
 import { validateVideoPlan } from './plan.js'
 import { requiredConfig } from '../config.js'
+import { validProjectId } from '../jobs/paths.js'
 
 export { validateVideoPlan, launch }
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 
 async function withVideoSessionLock(exec, callback) {
   if (!exec?.agent?.session) return callback()
-  const directory = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'sessions', createHash('sha256').update(exec.agent.session.id).digest('hex'))
+  const directory = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'runtime', 'sessions', createHash('sha256').update(exec.agent.session.id).digest('hex'))
   await mkdir(directory, { recursive: true })
   return withLaunchLock(directory, callback, true)
 }
@@ -26,8 +27,9 @@ export async function startVideoJob(args, exec) {
 }
 
 async function startVideoJobLocked(args, exec) {
-  const { new_video = false, ...plan } = args
+  const { new_video = false, project_id: projectId, ...plan } = args
   if (typeof new_video !== 'boolean') throw invalid('new_video 必须为布尔值')
+  if (!validProjectId(projectId)) throw invalid('project_id 必须为 8 位项目 ID')
   await validateVideoPlan(plan)
   requiredConfig('COMFYUI_URL', 'url')
   if (!new_video && exec?.agent?.session) {
@@ -39,10 +41,10 @@ async function startVideoJobLocked(args, exec) {
       const job = await getJob(previous)
       if (job.status === 'succeeded') break
       await bindVideoCall(previous, exec)
-      return { job_id: previous, status: job.status }
+      return { job_id: previous, project_id: job.project_id, status: job.status }
     }
   }
-  const jobId = await createJob(plan)
+  const jobId = await createJob(projectId, plan)
   await bindVideoCall(jobId, exec)
   return launch(jobId)
 }
@@ -61,9 +63,9 @@ async function resumeVideoJobLocked(jobId, exec) {
     if (event.type !== 'tool/call' || event.data.name !== 'workflow_resume_video' || event.data.callId === exec.callId) continue
     if (await findVideoCall(session.id, event.data.callId, session) !== jobId) continue
     await bindVideoCall(jobId, exec)
-    return { job_id: jobId, status: job.status }
+    return { job_id: jobId, project_id: job.project_id, status: job.status }
   }
-  const result = job.status === 'succeeded' ? { job_id: jobId, status: job.status }
+  const result = job.status === 'succeeded' ? { job_id: jobId, project_id: job.project_id, status: job.status }
     : await launch(jobId, 'workflow-video', job.status === 'failed' && job.backend === 'comfyui')
   await bindVideoCall(jobId, exec)
   return result

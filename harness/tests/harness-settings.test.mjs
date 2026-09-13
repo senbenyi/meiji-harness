@@ -18,7 +18,7 @@ test('Web profile keeps runtime addresses and disabled commands explicit', () =>
   assert.match(profile, /id: session-log-download\s+disabled: true/)
   assert.match(profile, /id: permission\s+isolate:\s+commands: true/)
   assert.match(profile, /id: ui-permission\s+disabled: true/)
-  assert.match(profile, /id: agent-presets\s+config:\s+includeShippedRoot: false/)
+  assert.match(profile, /id: agent-presets\s+config:\s+default: elysium-teaching\s+includeShippedRoot: false/)
   assert.match(profile, /comfyUrl: !!js process\.env\.COMFYUI_URL/)
   assert.doesNotMatch(profile, /maxResponseTokens|proxy\.runpod\.net/)
 })

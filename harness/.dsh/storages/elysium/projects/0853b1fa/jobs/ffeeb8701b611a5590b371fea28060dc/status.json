@@ -1,0 +1,18 @@
+{
+  "job_id": "ffeeb8701b611a5590b371fea28060dc",
+  "project_id": "0853b1fa",
+  "status": "failed",
+  "stage": "template-import",
+  "failed_stage": "template-import",
+  "error_code": "TEMPLATE_MEDIA_MISSING",
+  "error": "本地参考图缺失；未生成替代图片",
+  "retryable": false,
+  "result": {
+    "media_kind": "image",
+    "local_media_path": "media/anchors/chen.png",
+    "profile": "preview",
+    "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=chen_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
+    "source_job_id": "86a9a3599124448c32fb529d55558780",
+    "provenance": "production/shot-003.reference.submission.json"
+  }
+}
