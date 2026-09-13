@@ -15,6 +15,8 @@ test('local scripts install and start Harness without invoking server operations
   assert.match(install, /entry === '\.credentials\.yaml'/)
   assert.match(install, /entry === '\.env\.example'/)
   assert.match(install, /chmod\(sensitiveFile, 0o600\)/)
+  assert.match(start, /createConnection\(\{ host: '127\.0\.0\.1', port: 3080 \}\)/)
+  assert.match(start, /if \(harnessRunning\)/)
   assert.match(start, /execFileSync\('dsh', \['web'\]/)
   for (const source of [install, start]) assert.doesNotMatch(source, /comfyui\.mjs|tunnel\.mjs|ssh|system_stats/)
 })
