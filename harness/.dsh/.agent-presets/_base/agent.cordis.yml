@@ -42,8 +42,10 @@
 - id: tool-skill
   name: '@deepseek-ai/dsh-tool-skill'
 
+# 保留目标工具，但不向用户暴露 /goal 指令。
 - id: command-goal
   name: '@deepseek-ai/dsh-command-goal'
+  disabled: true
 
 - id: tool-goal
   name: '@deepseek-ai/dsh-tool-goal'

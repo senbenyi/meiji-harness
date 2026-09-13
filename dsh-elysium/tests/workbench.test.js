@@ -8,17 +8,18 @@ import { clientSource } from '../scripts/client-source.mjs'
 function fixture() {
   const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
   const modules = new Map(), cache = new Map()
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
-    document: { addEventListener() {}, removeEventListener() {} }, localStorage: { getItem() {}, setItem() {} },
+  runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
+    document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem() {}, setItem() {} },
     fetch: async url => ({ ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : { items: [], total: 0 } }) })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require }
 }
 test('full workbench enters project, retains selected shot across tab switch and closes', async () => {
-  const f = fixture(); let view, toggle
-  await act(async () => { view = create(React.createElement(f.require('elysium/workbench').Workbench, { toggleRoot: { render: x => { toggle = x } } })) })
-  await act(async () => toggle.props.onClick())
-  await act(async () => view.root.findByProps({ 'aria-label': '继续制作 项目' }).props.onClick())
+  const f = fixture(); let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/workbench').Workbench)) })
+  await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
+  assert.equal(view.root.findAllByProps({ 'aria-label': '继续制作 项目' }).length, 0)
+  await act(async () => view.root.findByProps({ 'aria-label': '打开项目 项目' }).props.onClick())
   assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 1)
   await act(async () => view.root.findByProps({ 'aria-label': '镜 001' }).props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '素材').props.onClick())

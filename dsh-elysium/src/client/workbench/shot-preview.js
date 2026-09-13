@@ -2,7 +2,7 @@
 window.__ModuleLoader__.load({ id: 'elysium/shot-preview', factory: require => {
   const exports = {}
   const { createElement: h, useEffect, useState } = require('react')
-  const { assetUrl } = require('elysium/materials')
+  const { assetUrl } = require('elysium/media-api')
   const previews = new Map()
   function ShotPreview({ jobId }) {
     const [job, setJob] = useState(null), [error, setError] = useState(''), [retry, setRetry] = useState(0)

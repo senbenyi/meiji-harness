@@ -33,7 +33,7 @@ async function fixture(responses, block = {}) {
   assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video'])
   let view
   await act(async () => { view = create(React.createElement(require('elysium/media-task-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
-  return { view, requests, timers, definition: require('elysium/conversation-results').definition,
+  return { view, requests, timers, definition: require('elysium/media-task-card').definition,
     tick: async () => act(async () => { const [id, run] = timers.entries().next().value; timers.delete(id); await run() }),
     close: async () => act(async () => view.unmount()) }
 }

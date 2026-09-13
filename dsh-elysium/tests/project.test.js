@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createServer } from 'node:http'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
@@ -19,10 +19,15 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.deepEqual(await (await request('list')).json(), [])
     assert.equal((await request('create')).status, 405)
     assert.equal((await request('create', { title: ' ' })).status, 400)
-    let response = await request('create', { title: '测试项目', profile: 'preview' })
+    assert.equal((await request('create', { title: '测试项目', profile: 'preview' })).status, 400)
+    assert.equal((await request('create', { title: '测试项目', profile: 'preview', director: '不存在的导演' })).status, 400)
+    let response = await request('create', { title: '测试项目', profile: 'preview', director: '张艺谋' })
     assert.equal(response.status, 201)
     const board = await response.json(), id = board.id
     assert.match(id, /^[a-f0-9]{8}$/)
+    assert.deepEqual(board.materials, [])
+    let summary = (await (await request('list')).json())[0]
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'anchors'); assert.equal(summary.director, '张艺谋')
     const shot = { index: 99, role: 'lin', action: '人物走入画面', subtitle: '', mode: 't2va', job_id: 'a'.repeat(32), status: 'succeeded', notes: '已确认' }
     response = await request('update', { id, acts: [{ title: '第一幕', shots: [shot, { ...shot, action: 'B' }] }] })
     assert.equal(response.status, 200)
@@ -30,17 +35,76 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.equal((await request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, job_id: '../secret' }] }] })).status, 400)
     assert.equal((await request('delete', { id: '../bad' })).status, 400)
     assert.equal((await request('get', undefined, '&id=../../bad')).status, 400)
-    const summary = (await (await request('list')).json())[0]
+    summary = (await (await request('list')).json())[0]
     assert.equal(summary.shot_count, 2); assert.equal(summary.completed_count, 2)
-    await Promise.all([request('update', { id, title: '新标题' }), request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, job_id: null, status: 'pending' }] }] })])
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'deliverables'); assert.equal(summary.deliverable_count, 0)
+    await request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, status: 'running' }] }] })
+    summary = (await (await request('list')).json())[0]
+    assert.equal(summary.status, 'active'); assert.equal(summary.stage, 'acts')
+    await request('update', { id, acts: [{ title: '第一幕', shots: [shot] }], deliverables: [{ type: 'film', label: '成品', job_id: 'a'.repeat(32) }] })
+    summary = (await (await request('list')).json())[0]
+    assert.equal(summary.status, 'completed'); assert.equal(summary.stage, 'deliverables')
+    await Promise.all([request('update', { id, title: '新标题', director: '王家卫' }), request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, job_id: null, status: 'pending' }] }] })])
     handler = createProjectHandler({ token: 't' })
     const restored = await (await request('get', undefined, `&id=${id}`)).json()
-    assert.equal(restored.title, '新标题'); assert.equal(restored.acts[0].shots[0].job_id, null)
-    assert.deepEqual(JSON.parse(await readFile(join(root, 'projects', id, 'project.json'), 'utf8')), restored)
-    assert.deepEqual(await readdir(join(root, 'projects', id)), ['project.json'])
+    assert.equal(restored.title, '新标题'); assert.equal(restored.director, '王家卫'); assert.equal(restored.acts[0].shots[0].job_id, null)
+    assert.deepEqual(restored.materials, ['a'.repeat(32)])
+    const directory = join(root, 'projects', id)
+    const metadata = JSON.parse(await readFile(join(directory, 'project.json'), 'utf8'))
+    assert.deepEqual(metadata, Object.fromEntries(Object.entries(restored).filter(([key]) => !['materials', 'anchors', 'acts', 'deliverables'].includes(key))))
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), restored.materials)
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'anchors.json'), 'utf8')), restored.anchors)
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'storyboard.json'), 'utf8')), restored.acts)
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'deliverables.json'), 'utf8')), restored.deliverables)
+    assert.deepEqual((await readdir(directory)).sort(), ['anchors.json', 'deliverables.json', 'materials.json', 'project.json', 'storyboard.json'])
     assert.equal((await request('delete', { id })).status, 200)
     assert.equal((await request('get', undefined, `&id=${id}`)).status, 404)
     assert.deepEqual(await (await request('list')).json(), [])
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})
+
+test('reading a monolithic project safely migrates it into separate project files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-project-migration-')), id = '1234abcd'
+  const directory = join(root, 'projects', id)
+  const job = 'a'.repeat(32)
+  const legacy = { id, title: '旧项目', profile: 'preview', created_at: 1, updated_at: 2,
+    anchors: [{ role: 'lin', label: '林', description: '', source: { type: 'material', job_id: job }, image_url: '' }],
+    acts: [{ title: '第一幕', shots: [] }], deliverables: [] }
+  const migrated = { ...legacy, materials: [job] }
+  await mkdir(directory, { recursive: true })
+  await writeFile(join(directory, 'project.json'), JSON.stringify(legacy))
+  const handler = createProjectHandler({ token: 't' })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/get?t=t&id=${id}`)
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), migrated)
+    assert.deepEqual((await readdir(directory)).sort(), ['anchors.json', 'deliverables.json', 'materials.json', 'project.json', 'storyboard.json'])
+    const metadata = JSON.parse(await readFile(join(directory, 'project.json'), 'utf8'))
+    assert.deepEqual(metadata, Object.fromEntries(Object.entries(legacy).filter(([key]) => !['anchors', 'acts', 'deliverables'].includes(key))))
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), [job])
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'anchors.json'), 'utf8')), legacy.anchors)
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'storyboard.json'), 'utf8')), legacy.acts)
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'deliverables.json'), 'utf8')), legacy.deliverables)
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})
+
+test('reading a four-file project creates its missing material index from existing references', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-material-migration-')), id = '2345bcde', job = 'b'.repeat(32)
+  const directory = join(root, 'projects', id)
+  const metadata = { id, title: '四文件项目', profile: 'preview', created_at: 1, updated_at: 2 }
+  const anchors = [], acts = [{ title: '第一幕', shots: [{ index: 1, role: '', action: '', subtitle: '', mode: 't2va', job_id: job, status: 'succeeded', notes: '' }] }], deliverables = []
+  await mkdir(directory, { recursive: true })
+  await Promise.all([['project.json', metadata], ['anchors.json', anchors], ['storyboard.json', acts], ['deliverables.json', deliverables]].map(([name, value]) => writeFile(join(directory, name), JSON.stringify(value))))
+  const handler = createProjectHandler({ token: 't' })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/get?t=t&id=${id}`)
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), { ...metadata, materials: [job], anchors, acts, deliverables })
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), [job])
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
 
@@ -52,7 +116,7 @@ test('create retries a colliding ID without overwriting the existing project', a
   const url = `http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/create?t=t`
   try {
     for (const title of ['原分镜', '新分镜']) {
-      const response = await fetch(url, { method: 'POST', body: JSON.stringify({ title, profile: 'preview' }) })
+      const response = await fetch(url, { method: 'POST', body: JSON.stringify({ title, profile: 'preview', director: '陈凯歌' }) })
       assert.equal(response.status, 201)
       assert.equal((await response.json()).id, title === '原分镜' ? 'aaaaaaaa' : 'bbbbbbbb')
     }
@@ -68,19 +132,22 @@ test('project imports reference media, replaces roles, rejects invalid anchors a
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/${action}?t=t`, { method: 'POST', body: JSON.stringify(body) })
   try {
-    const project = await (await request('create', { title: '锚点项目', profile: 'hd' })).json(), id = project.id
-    assert.equal(project.profile, 'hd'); assert.deepEqual(project.deliverables, [])
+    const project = await (await request('create', { title: '锚点项目', profile: 'hd', director: '姜文' })).json(), id = project.id
+    assert.equal(project.profile, 'hd'); assert.deepEqual(project.materials, []); assert.deepEqual(project.deliverables, [])
     let response = await request('import', { id, as: 'anchor', job_id: 'a'.repeat(32) })
     assert.equal(response.status, 200)
     const first = await response.json()
     assert.equal(first.anchors[0].source.job_id, 'a'.repeat(32))
+    assert.deepEqual(first.materials, ['a'.repeat(32)])
     response = await request('import', { id, as: 'anchor', job_id: 'b'.repeat(32), role: first.anchors[0].role })
     const replaced = await response.json()
     assert.equal(replaced.anchors.length, 1); assert.equal(replaced.anchors[0].source.job_id, 'b'.repeat(32))
+    assert.deepEqual(replaced.materials, ['a'.repeat(32), 'b'.repeat(32)])
     assert.equal(replaced.profile, 'hd'); assert.deepEqual(replaced.acts, [])
     assert.equal((await request('update', { id, anchors: [replaced.anchors[0], replaced.anchors[0]] })).status, 400)
     assert.equal((await request('update', { id, anchors: [{ ...replaced.anchors[0], image_url: 'file:///etc/passwd' }] })).status, 400)
     assert.equal((await request('import', { id, as: 'anchor', job_id: '../bad' })).status, 400)
+    assert.equal((await request('update', { id, materials: ['../bad'] })).status, 400)
     const film = { type: 'film', label: '成片', job_id: 'a'.repeat(32), duration_sec: 360, frame_count: 8640, size_bytes: 31 * 1024 * 1024 }
     const subtitle = { type: 'subtitle', label: '字幕', url: 'https://files.test/subtitle.srt' }
     response = await request('update', { id, deliverables: [film, subtitle] })
@@ -88,8 +155,9 @@ test('project imports reference media, replaces roles, rejects invalid anchors a
     assert.deepEqual((await response.json()).deliverables, [film, subtitle])
     assert.equal((await request('update', { id, deliverables: [{ ...subtitle, url: 'file:///tmp/subtitle.srt' }] })).status, 400)
     assert.equal((await request('update', { id, deliverables: [{ ...film, size_bytes: -1 }] })).status, 400)
-    const persisted = JSON.parse(await readFile(join(root, 'projects', id, 'project.json'), 'utf8'))
-    assert.deepEqual(persisted.deliverables, [film, subtitle])
-    assert.equal(persisted.anchors[0].source.job_id, 'b'.repeat(32))
+    const directory = join(root, 'projects', id)
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), ['a'.repeat(32), 'b'.repeat(32)])
+    assert.deepEqual(JSON.parse(await readFile(join(directory, 'deliverables.json'), 'utf8')), [film, subtitle])
+    assert.equal(JSON.parse(await readFile(join(directory, 'anchors.json'), 'utf8'))[0].source.job_id, 'b'.repeat(32))
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

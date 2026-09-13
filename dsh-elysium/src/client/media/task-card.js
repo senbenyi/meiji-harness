@@ -1,9 +1,39 @@
-// 职责：展示单个视频任务的进度、产物、诊断与播放器。
+// 职责：展示视频任务，并从会话事件恢复当前轮次的媒体结果。
 window.__ModuleLoader__.load({
   id: 'elysium/media-task-card', factory: require => {
     const { createElement: h, useEffect, useState, useRef } = require('react')
     const { readStatus, mediaUrl } = require('elysium/media-api')
     const { fromBlock, label, specificationLabel } = require('elysium/media-task-state')
+    const tools = new Set(['workflow_generate_video', 'workflow_resume_video'])
+    // Rebuild from native conversation events, including history replay after refresh.
+    const definition = {
+      kind: 'elysium-media-results',
+      match: event => {
+        if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
+        if (event.type === 'tool/call' || (event.type === 'tool/result' && event.surfaceOp === 'append')) return { id: String(event.data.turn), role: 'update' }
+        return null
+      },
+      start: (_context, match, reader) => ({ turn: match.event.data.turn, calls: new Set(), results: [],
+        seen: new Set(reader?.previous('elysium-media-results')?.state.seen || []), inherited: new Set(reader?.previous('elysium-media-results')?.state.seen || []) }),
+      update: ({ state }, { event }) => {
+        if (event.type === 'tool/call') return tools.has(event.data.name)
+          ? { ...state, calls: new Set([...state.calls, String(event.data.callId)]) } : state
+        const callId = String(event.data.message.source.callId)
+        const block = event.data.message.content[0]
+        if (!state.calls.has(callId) || fromBlock(block).status === 'rejected') return state
+        const jobId = fromBlock(block).job_id
+        if (jobId && state.inherited.has(jobId)) return state
+        const existing = state.results.find(item => item.callId === callId || jobId && item.jobId === jobId)
+        const item = { callId, block, jobId: jobId || existing?.jobId, seq: existing?.seq ?? event.seq }
+        return { ...state, seen: new Set([...state.seen, ...(jobId ? [jobId] : [])]),
+          results: existing ? state.results.map(value => value === existing ? item : value) : [...state.results, item] }
+      },
+      buildLocationData: ({ state }, scope, previous) => {
+        if (scope !== 'turn' || !state) return null
+        if (previous?.value === state.results) return previous
+        return { kind: 'turn', turn: state.turn, key: 'elysium-media-results', value: state.results }
+      },
+    }
     function MediaTaskCard({ sessionId, callId, block, inspect, toolName, ordinal }) {
       const [expanded, setExpanded] = useState(false)
       const [mediaReady, setMediaReady] = useState(false)
@@ -105,13 +135,22 @@ window.__ModuleLoader__.load({
           h('button', { autoFocus: true, className: 'elysium-control elysium-close', 'aria-label': '关闭', onClick: () => setExpanded(false) }, icon('close')),
           h('video', { src: video, controls: true, autoPlay: true })) : null)
     }
-    return { MediaTaskCard, apply(ctx) {
+    return { MediaTaskCard, definition, apply(ctx) {
       require('elysium/media-styles').apply()
       ctx.slots.inject('tool.call.toolview', () => {
         for (const key of ['workflow_generate_video', 'workflow_resume_video']) ctx.slots.register({ name: 'tool.call.toolview', key }, props => fromBlock(props.block).status === 'succeeded'
           ? h('span', { style: { fontSize: 13, opacity: 0.65 } }, '媒体已生成 · 作品见本轮回复下方')
           : h(MediaTaskCard, props))
       })
+      ctx.uiConversation.events.register(definition)
+      ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register({
+        name: 'conversation.chat.turnTail',
+        select: owner => {
+          const results = (owner.turn.data.get('elysium-media-results') || []).filter(item => item.seq <= owner.seq)
+          return results.length ? results : null
+        },
+      }, ({ matched, sessionId }) => h('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 } },
+        matched.map((item, index) => h(MediaTaskCard, { ordinal: matched.length > 1 ? index + 1 : undefined, key: item.jobId || item.callId, sessionId, callId: item.callId, block: item.block })))))
     } }
   },
 })

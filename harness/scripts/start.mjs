@@ -2,13 +2,17 @@
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { closeSync, openSync } from 'node:fs'
+import { mkdir } from 'node:fs/promises'
+import { execFileSync, spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 // 本机启动入口；服务器模型服务由独立脚本人工管理。
 const dshHome = join(homedir(), '.dsh')
 const tunnelScript = fileURLToPath(new URL('./tunnel.mjs', import.meta.url))
+const logDirectory = join(dshHome, 'logs')
+const harnessLog = join(logDirectory, 'harness-local.log')
 
 // 获取指定端口的监听进程。
 const listenerPids = port => {
@@ -38,7 +42,22 @@ try {
 }
 
 await stopListeners(3080, 'Harness')
-execFileSync('dsh', ['web'], {
+await mkdir(logDirectory, { recursive: true })
+const log = openSync(harnessLog, 'a')
+const harness = spawn('dsh', ['web'], {
+  detached: true,
   env: { ...process.env, DSH_AGENTS_HOME: join(dshHome, 'agents'), DSH_HOME: dshHome },
-  stdio: 'inherit',
+  stdio: ['ignore', log, log],
 })
+harness.unref()
+closeSync(log)
+
+for (let attempt = 0; attempt < 100 && !listenerPids(3080).length; attempt += 1) {
+  if (harness.exitCode !== null) throw new Error(`Harness 启动失败，退出码 ${harness.exitCode}；查看 ${harnessLog}`)
+  await delay(100)
+}
+if (!listenerPids(3080).length) {
+  process.kill(harness.pid, 'SIGKILL')
+  throw new Error(`Harness 启动超时；查看 ${harnessLog}`)
+}
+console.log(`Harness 已在后台启动：http://127.0.0.1:3080/（日志：${harnessLog}）`)

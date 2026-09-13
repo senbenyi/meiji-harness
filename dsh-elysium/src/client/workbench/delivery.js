@@ -2,7 +2,8 @@
 window.__ModuleLoader__.load({ id: 'elysium/delivery', factory: require => {
   const exports = {}
   const { createElement: h, useState } = require('react')
-  const { assetUrl, relativeTime } = require('elysium/materials')
+  const { assetUrl } = require('elysium/media-api')
+  const { Icon, IconButton } = require('elysium/dialog')
   function deliveryUrl(item) {
     if (item.job_id) return assetUrl('download', item.job_id)
     try {
@@ -25,18 +26,17 @@ window.__ModuleLoader__.load({ id: 'elysium/delivery', factory: require => {
       h('section', { className: 'elysium-delivery-preview' },
         !project.deliverables.length ? h('p', { className: 'elysium-empty' }, `尚无交付物 · ${project.acts.flatMap(act => act.shots).filter(shot => shot.status === 'succeeded').length} 镜已完成`) : !item ? h('p', { className: 'elysium-empty' }, '选择成片，开始审看') : null,
         item ? h('div', null, h('h2', null, item.label), error ? h('p', { role: 'alert' }, '成片预览加载失败', h('button', { onClick: () => setError(false) }, '重试预览')) : url ? h('video', { key: url, className: 'elysium-workbench-preview', src: item.job_id ? assetUrl('video', item.job_id) : url, controls: true, preload: 'metadata', onError: () => setError(true) }) : h('p', { role: 'alert' }, '缺少可播放的服务器地址')) : null),
-      h('section', null, h('h2', null, '交付文件'), project.deliverables.map((item, index) => {
+      h('section', null, project.deliverables.map((item, index) => {
         const url = deliveryUrl(item), specs = []
         if (Number.isFinite(item.duration_sec)) specs.push(`${item.duration_sec}秒`)
         if (Number.isFinite(item.frame_count)) specs.push(`${item.frame_count}帧`)
         if (Number.isFinite(item.size_bytes)) specs.push(formatSize(item.size_bytes))
         return h('article', { key: index, className: 'elysium-asset-item' },
-          h('strong', null, `${isSubtitle(item) ? '字幕' : '成片'} · ${item.label}`), h('p', null, specs.join(' · ') || '规格未提供'),
-          item.created_at ? h('small', null, relativeTime(item.created_at)) : null,
-          !isSubtitle(item) && url ? h('button', { onClick: () => { setSelected(index); setError(false) } }, '审看成片') : null,
-          url ? h('a', { href: url, download: '', target: '_blank', rel: 'noopener noreferrer' }, '下载') : h('p', { role: 'alert' }, '缺少可下载的服务器地址'))
+          h('strong', null, `${isSubtitle(item) ? '字幕' : '成片'} · ${item.label}`), specs.length ? h('p', { className: 'elysium-compact-meta' }, specs.join(' · ')) : null,
+          url ? h('div', { className: 'elysium-card-actions' }, !isSubtitle(item) ? h(IconButton, { name: 'eye', label: `审看成片 ${item.label}`, onClick: () => { setSelected(index); setError(false) } }) : null,
+            h('a', { href: url, download: '', target: '_blank', rel: 'noopener noreferrer', className: 'elysium-icon-link', 'aria-label': `下载 ${item.label}`, title: '下载' }, h(Icon, { name: 'download' }))) : h('p', { role: 'alert' }, '缺少可下载的服务器地址'))
       })))
   }
-  Object.assign(exports, { DeliveryView, deliveryUrl, formatSize })
+  Object.assign(exports, { DeliveryView, deliveryUrl })
   return exports
 } })

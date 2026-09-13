@@ -1,4 +1,4 @@
-// 职责：封装媒体与项目 HTTP 地址及客户端请求。
+// 职责：封装媒体地址、状态请求与跨视图共用的媒体展示值。
 window.__ModuleLoader__.load({
   id: 'elysium/media-api', factory: () => {
     function mediaUrl(kind, sessionId, callId, params = {}, baseKey = 'base') {
@@ -33,6 +33,11 @@ window.__ModuleLoader__.load({
       }
       return value
     }
-    return { mediaUrl, readStatus }
+    const assetUrl = (kind, job) => mediaUrl(kind, null, null, { job })
+    function relativeTime(time) {
+      const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000))
+      return !Number.isFinite(minutes) ? '时间未记录' : minutes < 1 ? '刚刚' : minutes < 60 ? `${minutes} 分钟前` : minutes < 1440 ? `${Math.floor(minutes / 60)} 小时前` : `${Math.floor(minutes / 1440)} 天前`
+    }
+    return { mediaUrl, readStatus, assetUrl, relativeTime }
   },
 })

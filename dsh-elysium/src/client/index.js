@@ -4,7 +4,6 @@ window.__ModuleLoader__.load({
     inject: ['slots', 'uiConversation', 'inputTriggers'],
     apply(ctx) {
       require('elysium/media-task-card').apply(ctx)
-      require('elysium/conversation-results').apply(ctx)
       require('elysium/creation-commands').apply(ctx)
       require('elysium/workbench').apply(ctx)
     },

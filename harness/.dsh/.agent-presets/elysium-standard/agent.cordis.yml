@@ -77,10 +77,11 @@
 
 # ── 目标 ────────────────────────────────────────────────────────────────────
 
-# 目标服务和会话驱动保留在主机平面，供 Gateway 解析；人工命令和面向模型的工具注册到
-# 本预设的 scope 层。
+# 目标服务和会话驱动保留在主机平面，供 Gateway 解析；面向模型的工具注册到本预设的
+# scope 层，面向用户的 /goal 指令保持禁用。
 - id: command-goal
   name: '@deepseek-ai/dsh-command-goal'
+  disabled: true
 
 - id: tool-goal
   name: '@deepseek-ai/dsh-tool-goal'

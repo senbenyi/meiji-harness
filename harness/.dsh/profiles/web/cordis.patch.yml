@@ -13,6 +13,18 @@
 - id: command-feedback
   disabled: true
 
+# Web 端不提供会话日志导出。
+- id: session-log-download
+  disabled: true
+
+# 权限由部署固定，禁止注册 /permission 指令或显示权限切换界面。
+- id: permission
+  isolate:
+    commands: true
+
+- id: ui-permission
+  disabled: true
+
 # 插件通过服务器 URL 访问 ComfyUI，不使用本地媒体地址。
 - insert:
     - id: dsh-elysium

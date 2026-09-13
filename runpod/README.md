@@ -2,64 +2,8 @@
 
 `runpod/` 只负责远端模型服务运维和 RunPod 生产脚本。
 
-## 两台服务器与 SSH 密钥
 
-不要混用两台服务器或共用同一个 `IdentityFile`：
 
-| SSH 别名 | 平台 | 职责 | 本机私钥 |
-| --- | --- | --- | --- |
-| `veo-comfyui` | RunPod | ComfyUI，远端端口 `8188` | `~/.ssh/id_ed25519_veo_comfyui` |
-| `veo-qwen38` | AutoDL | Qwen3.8，远端端口 `8000` | `~/.ssh/id_ed25519_veo_qwen38` |
-
-私钥不得写入仓库、聊天或服务器配置页面；平台只配置对应的 `.pub` 公钥。公钥末尾的备注不参与认证，平台表单不接受备注时可只复制前两段：
-
-```sh
-awk '{print $1, $2}' ~/.ssh/id_ed25519_veo_comfyui.pub | pbcopy
-awk '{print $1, $2}' ~/.ssh/id_ed25519_veo_qwen38.pub | pbcopy
-```
-
-### 新电脑配置顺序
-
-先检查密钥是否存在，不要覆盖已有私钥：
-
-```sh
-ls -l ~/.ssh/id_ed25519_veo_comfyui ~/.ssh/id_ed25519_veo_qwen38
-```
-
-缺少时分别生成独立密钥：
-
-```sh
-ssh-keygen -t ed25519 -N '' -C veo-comfyui -f ~/.ssh/id_ed25519_veo_comfyui
-ssh-keygen -t ed25519 -N '' -C veo-qwen38 -f ~/.ssh/id_ed25519_veo_qwen38
-```
-
-从各平台当前实例的连接页面取得实际主机、用户和端口，在 `~/.ssh/config` 配置：
-
-```sshconfig
-Host veo-comfyui
-    HostName ssh.runpod.io
-    User <RUNPOD_SSH_USER>
-    IdentityFile ~/.ssh/id_ed25519_veo_comfyui
-    IdentitiesOnly yes
-    ServerAliveInterval 20
-    ServerAliveCountMax 3
-
-Host veo-qwen38
-    HostName <AUTODL_SSH_HOST>
-    User root
-    Port <AUTODL_SSH_PORT>
-    IdentityFile ~/.ssh/id_ed25519_veo_qwen38
-    IdentitiesOnly yes
-    ServerAliveInterval 20
-    ServerAliveCountMax 3
-```
-
-设置权限：
-
-```sh
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/config ~/.ssh/id_ed25519_veo_comfyui ~/.ssh/id_ed25519_veo_qwen38
-```
 
 将 `id_ed25519_veo_comfyui.pub` 添加到 RunPod SSH Public Keys，将 `id_ed25519_veo_qwen38.pub` 添加到 AutoDL SSH 公钥。新公钥不会自动进入已经运行的旧容器时，需在平台 Web Terminal 写入该容器的 `~/.ssh/authorized_keys`，或按平台规则重启、重新部署实例。
 

@@ -12,8 +12,11 @@ test('Harness settings are directly deployable without render-only sections', ()
   assert.doesNotMatch(settings, /__[A-Z0-9_]+__|harness-runtime:|harness-customization:/)
 })
 
-test('Web profile keeps runtime addresses and feedback policy explicit', () => {
+test('Web profile keeps runtime addresses and disabled commands explicit', () => {
   assert.match(profile, /id: command-feedback\s+disabled: true/)
+  assert.match(profile, /id: session-log-download\s+disabled: true/)
+  assert.match(profile, /id: permission\s+isolate:\s+commands: true/)
+  assert.match(profile, /id: ui-permission\s+disabled: true/)
   assert.match(profile, /comfyUrl: !!js process\.env\.COMFYUI_URL/)
   assert.doesNotMatch(profile, /maxResponseTokens|proxy\.runpod\.net/)
 })

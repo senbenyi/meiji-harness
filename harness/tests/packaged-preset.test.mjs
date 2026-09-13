@@ -8,6 +8,7 @@ test('all packaged presets retain native capabilities and names', async () => {
   for (const [id, name] of Object.entries(names)) {
     const directory = `${presets}/${id}`, composition = await readFile(`${directory}/agent.cordis.yml`, 'utf8'), preset = await readFile(`${directory}/preset.yml`, 'utf8')
     for (const capability of ['persona', 'skill-filesystem', 'tool-fs', 'planning', 'delegation', 'compaction']) assert.match(composition, new RegExp(`id: ${capability}`))
+    assert.match(composition, /id: command-goal\s+name: '@deepseek-ai\/dsh-command-goal'\s+disabled: true/)
     assert.doesNotMatch(composition, /^  name: (?!['"]?(?:@deepseek-ai\/|cordis:))/m)
     assert.match(composition, /id: delegation[\s\S]*?isolate:/)
     assert.match(preset, new RegExp(`name: ['"]?${name.replace('·', '·')}['"]?`))

@@ -11,6 +11,8 @@ function fixture(initial) {
   runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
     fetch: async (url, options) => {
       requests.push({ url, options })
+      if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
+      if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
       if (url.startsWith('/project/update')) project = { ...project, ...JSON.parse(options.body) }
       if (url.startsWith('/project/import')) {
         const body = JSON.parse(options.body)
@@ -23,7 +25,7 @@ function fixture(initial) {
   return { require, requests, project: () => project }
 }
 const emptyProject = () => ({ id: 'abcdef12', title: '项目', profile: 'preview', anchors: [], acts: [], deliverables: [] })
-const click = (view, text, index = 0) => act(async () => view.root.findAllByType('button').filter(button => button.children.join('') === text)[index].props.onClick())
+const click = (view, text, index = 0) => act(async () => view.root.findAllByType('button').filter(button => button.children.join('') === text || button.props['aria-label'] === text || button.props['aria-label']?.startsWith(`${text} `))[index].props.onClick())
 async function edit(view, label, value) {
   const field = () => view.root.findAll(node => ['input', 'textarea'].includes(node.type) && node.props['aria-label'] === label)[0]
   await act(async () => field().props.onChange({ target: { value } }))
@@ -32,17 +34,20 @@ async function edit(view, label, value) {
 
 test('anchors use explicit save, rename linked roles and only import after confirmation', async () => {
   const project = emptyProject()
-  project.acts = [{ title: '幕', shots: [{ role: 'lin' }] }]
+  project.acts = [{ title: '幕', shots: [{ role: 'role-1' }] }]
   const f = fixture(project)
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
   await click(view, '添加锚点')
+  assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 0)
   assert.equal(f.project().anchors.length, 0)
-  for (const [label, value] of [['锚点名称', '林夏'], ['锚点描述', '米色风衣'], ['锚点角色 ID', 'lin']]) {
+  assert.equal(view.root.findAllByProps({ 'aria-label': '锚点角色 ID' }).length, 0)
+  for (const [label, value] of [['锚点名称', '林夏'], ['锚点描述', '米色风衣']]) {
     await act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
   }
-  await click(view, '保存')
+  await act(async () => view.root.findByProps({ className: 'elysium-anchor-create' }).props.onSubmit({ preventDefault() {} }))
   assert.equal(f.project().anchors[0].label, '林夏')
+  assert.equal(f.project().anchors[0].role, 'role-1')
   await click(view, '编辑锚点')
   await act(async () => view.root.findByProps({ 'aria-label': '锚点角色 ID' }).props.onChange({ target: { value: 'lin-updated' } }))
   await click(view, '保存')
@@ -53,6 +58,43 @@ test('anchors use explicit save, rename linked roles and only import after confi
   await click(view, '使用此素材')
   assert.equal(f.project().anchors[0].source.job_id, 'b'.repeat(32))
   assert.equal(f.project().anchors[0].description, '米色风衣')
+  await click(view, '添加锚点')
+  await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '未保存' } }))
+  await click(view, '取消添加锚点')
+  assert.equal(f.project().anchors.length, 1)
+  await act(async () => view.unmount())
+})
+
+test('new project uses the inline production flow and advances directly to anchors', async () => {
+  const f = fixture(emptyProject())
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectList)) })
+  await click(view, '新建项目')
+  assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 0)
+  assert.deepEqual(view.root.findAllByType('button').filter(button => ['项目', '锚点', '分镜', '成品'].includes(button.props['aria-label'])).map(button => button.props['aria-label']), ['项目', '锚点', '分镜', '成品'])
+  assert.equal(view.root.findAllByType('option')[0].children.join(''), '选导演')
+  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').children.join(''), '下一步')
+  await act(async () => view.root.findByProps({ 'aria-label': '项目名称' }).props.onChange({ target: { value: '新项目' } }))
+  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, true)
+  await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '张艺谋' } }))
+  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
+  assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), true)
+  assert.equal(f.project().director, '张艺谋')
+  assert.equal(view.root.findByProps({ 'aria-label': '锚点' }).props['aria-current'], 'step')
+  await click(view, '返回项目')
+  await act(async () => view.root.findByProps({ 'aria-label': '打开项目 新项目' }).props.onClick())
+  await click(view, '项目')
+  assert.equal(view.root.findByProps({ 'aria-label': '项目导演' }).props.value, '张艺谋')
+  await act(async () => view.unmount())
+})
+
+test('existing project persists director immediately when leaving project settings', async () => {
+  const f = fixture({ ...emptyProject(), director: '张艺谋' })
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: 'abcdef12', viewState: { projectTab: 'project' }, back() {} })) })
+  await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '王家卫' } }))
+  assert.equal(f.project().director, '王家卫')
+  assert.equal(JSON.parse(f.requests.findLast(request => request.url.startsWith('/project/update')).options.body).director, '王家卫')
   await act(async () => view.unmount())
 })
 
@@ -66,8 +108,9 @@ test('storyboard paginates 120 shots, requests only selected preview and saves e
   await click(view, '分镜')
   assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 30)
   assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 0)
-  await act(async () => view.root.findByProps({ 'aria-label': '搜索镜头' }).props.onChange({ target: { value: '120' } }))
-  assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 1)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '搜索镜头' }).length, 0)
+  for (let page = 0; page < 3; page++) await click(view, '下一页')
+  assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 30)
   await act(async () => view.root.findByProps({ 'aria-label': '镜 120' }).props.onClick())
   assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 1)
   await click(view, '编辑镜头')
@@ -93,7 +136,7 @@ test('delivery view renders film specs and server subtitle links without fetchin
   const f = fixture(project)
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
-  await click(view, '交付')
+  await click(view, '成品')
   const links = view.root.findAllByType('a')
   assert.equal(links.length, 2)
   assert.equal(links[0].props.href, '/media/download?job=' + 'a'.repeat(32) + '&t=t')

@@ -1,7 +1,19 @@
-// 职责：提供工作台共用的对话框、编辑器与焦点锁定。
+// 职责：提供工作台共用的图标控件、对话框、编辑器与焦点锁定。
 window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
   const exports = {}
   const { createElement: h, useEffect, useRef, useState } = require('react')
+  const iconPaths = {
+    back: 'M19 12H5m7-7-7 7 7 7', chevronLeft: 'm15 18-6-6 6-6', chevronRight: 'm9 18 6-6-6-6',
+    clear: 'm6 6 12 12M18 6 6 18', close: 'm6 6 12 12M18 6 6 18', download: 'M12 3v12m0 0-4-4m4 4 4-4M4 19h16',
+    edit: 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Zm10-14 4 4', eye: 'M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+    minus: 'M5 12h14', more: 'M5 12h.01M12 12h.01M19 12h.01', plus: 'M12 5v14M5 12h14', refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7',
+  }
+  function Icon({ name }) {
+    return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, h('path', { d: iconPaths[name] }))
+  }
+  function IconButton({ name, label, className = '', title = label, ...props }) {
+    return h('button', { ...props, type: 'button', className: `elysium-icon-button${className ? ` ${className}` : ''}`, 'aria-label': label, title }, h(Icon, { name }))
+  }
   function trapFocus(event, root) {
     if (event.key !== 'Tab' || !root) return
     const nodes = [...root.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"],summary')].filter(node => node.getClientRects().length)
@@ -23,7 +35,7 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
     }
     return h('div', { className: 'elysium-dialog-backdrop', onKeyDown: keyDown },
       h('section', { className: 'elysium-dialog', role: 'dialog', 'aria-modal': true, 'aria-label': title, tabIndex: -1, ref: root },
-        h('header', null, h('h2', null, title), h('button', { disabled: busy, onClick: close, 'aria-label': '关闭对话框' }, '关闭')),
+        h('header', null, h('h2', null, title), h(IconButton, { name: 'close', label: '关闭对话框', disabled: busy, onClick: close })),
         h('div', { className: 'elysium-dialog-body' }, children),
         h('footer', null, footer, h('button', { disabled: busy, onClick: close }, '取消'))))
   }
@@ -51,6 +63,6 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
       pending ? h(Dialog, { title: '有未保存的修改', busy, close: () => setPending(null), footer: h('button', { disabled: busy, onClick: () => submit(() => { close(); pending() }) }, '保存并继续') },
         h('button', { disabled: busy, onClick: () => { close(); pending() } }, '放弃修改'), h('button', { onClick: () => setPending(null) }, '继续编辑')) : null)
   }
-  Object.assign(exports, { Dialog, Editor, trapFocus })
+  Object.assign(exports, { Dialog, Editor, Icon, IconButton })
   return exports
 } })

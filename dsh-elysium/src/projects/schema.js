@@ -1,4 +1,4 @@
-// 职责：校验并规范化项目标题、档位、锚点、分镜与交付物字段。
+// 职责：校验并规范化项目、素材、锚点、分镜与交付物字段。
 import { invalidRequest } from '../http/shared.js'
 
 export const validProjectId = id => typeof id === 'string' && /^[a-f0-9]{8}$/.test(id)
@@ -16,6 +16,16 @@ export function titleValue(title) {
 export function profileValue(value) {
   if (!['preview', 'regular', 'high-quality', 'hd'].includes(value)) throw invalidRequest('档次无效')
   return value
+}
+
+export function directorValue(value) {
+  if (typeof value !== 'string' || !value.trim() || value.length > 80) throw invalidRequest('请选择有效导演')
+  return value.trim()
+}
+
+export function materialsValue(values) {
+  if (!Array.isArray(values) || values.length > 1000 || values.some(value => !validJobId(value))) throw invalidRequest('素材列表无效')
+  return [...new Set(values)]
 }
 
 export function anchorsValue(anchors) {
