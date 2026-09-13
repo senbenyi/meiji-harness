@@ -6,11 +6,18 @@ import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/client-source.mjs'
 
 function fixture(initial) {
-  let project = initial
+  let project = initial, directors = [
+    { name: '张艺谋', style: '视觉叙事', works: ['红高粱', '活着', '英雄', '十面埋伏', '悬崖之上'] },
+    { name: '王家卫', style: '都市情绪', works: ['阿飞正传', '重庆森林', '花样年华', '2046', '一代宗师'] },
+  ]
   const modules = new Map(), cache = new Map(), requests = []
-  runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
+  runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
     fetch: async (url, options) => {
       requests.push({ url, options })
+      if (url.startsWith('/director/list')) return { ok: true, json: async () => structuredClone(directors) }
+      if (url.startsWith('/director/create')) { const director = JSON.parse(options.body); directors = [...directors, director]; return { ok: true, json: async () => structuredClone(director) } }
+      if (url.startsWith('/director/reorder')) { const { names } = JSON.parse(options.body); directors = names.map(name => directors.find(item => item.name === name)); return { ok: true, json: async () => structuredClone(directors) } }
+      if (url.startsWith('/director/delete')) { const { name } = JSON.parse(options.body); directors = directors.filter(item => item.name !== name); return { ok: true, json: async () => ({ deleted: true }) } }
       if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
       if (url.startsWith('/project/update')) project = { ...project, ...JSON.parse(options.body) }
@@ -22,7 +29,7 @@ function fixture(initial) {
       return { ok: true, json: async () => structuredClone(result) }
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
-  return { require, requests, project: () => project }
+  return { require, requests, project: () => project, directors: () => directors }
 }
 const emptyProject = () => ({ id: 'abcdef12', title: '项目', profile: 'preview', anchors: [], acts: [], deliverables: [] })
 const click = (view, text, index = 0) => act(async () => view.root.findAllByType('button').filter(button => button.children.join('') === text || button.props['aria-label'] === text || button.props['aria-label']?.startsWith(`${text} `))[index].props.onClick())
@@ -95,6 +102,35 @@ test('existing project persists director immediately when leaving project settin
   await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '王家卫' } }))
   assert.equal(f.project().director, '王家卫')
   assert.equal(JSON.parse(f.requests.findLast(request => request.url.startsWith('/project/update')).options.body).director, '王家卫')
+  await act(async () => view.unmount())
+})
+
+test('director tab adds and deletes directors inline', async () => {
+  const f = fixture(emptyProject())
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/directors').DirectorList)) })
+  assert.equal(view.root.findAllByType('article').length, 2)
+  await click(view, '添加导演')
+  assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 0)
+  for (const [label, value] of [['导演名称', '毕赣'], ['导演风格', '梦境与长镜头'], ['TOP5作品', '1、路边野餐  2、地球最后的夜晚 3、破碎太阳之心 4、狂野时代 5、金刚经']]) await act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
+  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
+  assert.equal(f.directors().some(item => item.name === '毕赣'), true)
+  assert.deepEqual(f.directors().find(item => item.name === '毕赣').works, ['路边野餐', '地球最后的夜晚', '破碎太阳之心', '狂野时代', '金刚经'])
+  await click(view, '删除导演', 2)
+  assert.equal(f.directors().some(item => item.name === '毕赣'), false)
+  await act(async () => view.unmount())
+})
+
+test('director cards persist drag sorting', async () => {
+  const f = fixture(emptyProject())
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/directors').DirectorList)) })
+  let cards = view.root.findAllByType('article')
+  await act(async () => cards[0].props.onDragStart({ dataTransfer: {} }))
+  cards = view.root.findAllByType('article')
+  await act(async () => cards[1].props.onDrop({ preventDefault() {}, clientY: 90, currentTarget: { getBoundingClientRect: () => ({ top: 0, height: 100 }) } }))
+  assert.deepEqual(f.directors().map(item => item.name), ['王家卫', '张艺谋'])
+  assert.equal(f.requests.some(request => request.url.startsWith('/director/reorder')), true)
   await act(async () => view.unmount())
 })
 

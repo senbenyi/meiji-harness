@@ -32,8 +32,8 @@ export function resolveConfig(config = {}) {
   for (const key of Object.keys(config)) {
     if (!Object.hasOwn(fields, key) && key !== 'enableAtomicTools') throw new Error(`未知插件配置：${key}`)
   }
-  const home = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'elysium')
-  const defaults = { stateRoot: join(home, 'tasks') }
+  const home = process.env.DSH_HOME || join(homedir(), '.dsh')
+  const defaults = { stateRoot: join(home, 'storages', 'elysium') }
   const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]

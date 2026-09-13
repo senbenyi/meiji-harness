@@ -26,13 +26,14 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', ...['list', 'get', 'create', 'update', 'delete', 'import'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`)])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', ...['list', 'get', 'create', 'update', 'delete', 'import'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`), ...['list', 'create', 'reorder', 'delete'].map(suffix => `/plugins/dsh-elysium/director/${suffix}`)])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
   assert.equal(rows[0].value.base, '/plugins/dsh-elysium/media')
   assert.ok(rows[0].value.token)
   assert.equal(rows[0].value.projectBase, '/plugins/dsh-elysium/project')
+  assert.equal(rows[0].value.directorBase, '/plugins/dsh-elysium/director')
 })
 
 test('call mapping survives reads and never uses an arbitrary client job/path', async () => {

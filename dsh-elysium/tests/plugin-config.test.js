@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 import { resolveConfig, withConfig, requiredConfig, workerEnvironment } from '../src/config.js'
 
 for (const key of ['COMFYUI_URL', 'ELYSIUM_STATE_ROOT']) delete process.env[key]
 
 test('plugin config uses one ComfyUI URL and isolates concurrent calls', async () => {
+  assert.equal(resolveConfig({ comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'elysium'))
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' },
     { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 },
     { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig(config))

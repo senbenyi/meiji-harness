@@ -1,0 +1,42 @@
+[
+  {
+    "role": "scene",
+    "label": "咖啡馆",
+    "description": "An intimate ordinary East Asian cafe with warm amber lamps, a rainy large window, a small wooden table and plain ceramic coffee cups. No people visible.",
+    "source": {
+      "type": "job",
+      "job_id": "aa34df4cfdee9127d36e7f88af72c628"
+    },
+    "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=scene_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  {
+    "role": "lin",
+    "label": "林夏",
+    "description": "Lin Xia, a fictional 28-year-old East Asian woman with shoulder-length straight black hair and a beige trench coat over a cream top, natural understated makeup. Medium close-up, alone at a wooden table inside a warm amber-lit cafe beside a rain-streaked window.",
+    "source": {
+      "type": "job",
+      "job_id": "310987b5d2724e2783d7324adb1145db"
+    },
+    "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  {
+    "role": "chen",
+    "label": "陈默",
+    "description": "Chen Mo, a fictional 30-year-old East Asian man with neat short straight black hair, clean shaven, dark charcoal suit and pale grey shirt. Medium close-up, alone inside a warm amber-lit cafe beside a rain-streaked window.",
+    "source": {
+      "type": "job",
+      "job_id": "86a9a3599124448c32fb529d55558780"
+    },
+    "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=chen_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  },
+  {
+    "role": "zhou",
+    "label": "周予",
+    "description": "Zhou Yu, a fictional 29-year-old East Asian man with slightly wavy black hair, clean shaven, a white shirt and dark navy barista apron. Medium close-up, alone at the wooden counter inside a warm amber-lit cafe.",
+    "source": {
+      "type": "job",
+      "job_id": "712957b7eb3f51fdbc75777f7b6c06d1"
+    },
+    "image_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=zhou_00001_.png&subfolder=third-cup-preview%2Freferences&type=output"
+  }
+]

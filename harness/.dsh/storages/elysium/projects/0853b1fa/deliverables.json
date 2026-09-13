@@ -1,0 +1,19 @@
+[
+  {
+    "type": "film",
+    "label": "第三杯咖啡 · 六分钟预览（384×512 · 24fps · 静音中文字幕）",
+    "url": "http://127.0.0.1:3081/third-cup/film.mp4",
+    "duration_sec": 360,
+    "frame_count": 8640,
+    "size_bytes": 30976621,
+    "created_at": 1789197140971
+  },
+  {
+    "type": "subtitle",
+    "label": "第三杯咖啡 · 中文字幕 SRT",
+    "url": "http://127.0.0.1:3081/third-cup/subtitles.srt",
+    "duration_sec": 360,
+    "size_bytes": 4344,
+    "created_at": 1789197140971
+  }
+]
