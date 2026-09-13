@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { projectSummary } from '../src/projects/store.js'
 import { withConfig } from '../src/config.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 
@@ -160,4 +161,10 @@ test('project imports reference media, replaces roles, rejects invalid anchors a
     assert.deepEqual(JSON.parse(await readFile(join(directory, 'deliverables.json'), 'utf8')), [film, subtitle])
     assert.equal(JSON.parse(await readFile(join(directory, 'anchors.json'), 'utf8'))[0].source.job_id, 'b'.repeat(32))
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})
+
+test('remote cover remains available when another anchor references a video job', () => {
+  const summary = projectSummary({id:'abcdef12',title:'cover',profile:'preview',anchors:[{source:{job_id:'a'.repeat(32)},image_url:''},{image_url:'https://example.test/cover.png'}],acts:[],deliverables:[]})
+  assert.equal(summary.cover_url,'https://example.test/cover.png')
+  assert.equal(summary.cover_job_id,null)
 })

@@ -14,7 +14,7 @@ export function projectSummary(value) {
   const completed = value.deliverables.length > 0 && shots.every(shot => shot.status === 'succeeded')
   const stage = value.deliverables.length > 0 && completed ? 'deliverables' : shots.length ? shots.some(shot => shot.status !== 'succeeded') ? 'acts' : 'deliverables' : !value.anchors.length ? 'anchors' : 'acts'
   return {
-    cover_job_id: value.anchors.find(anchor => !anchor.image_url && anchor.source?.job_id)?.source.job_id || null,
+    cover_job_id: value.anchors.some(anchor => serverUrl(anchor.image_url)) ? null : value.anchors.find(anchor => anchor.source?.job_id)?.source.job_id || null,
     cover_url: value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
     id: value.id, title: value.title, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
     status: active ? 'active' : completed ? 'completed' : 'todo', stage,
