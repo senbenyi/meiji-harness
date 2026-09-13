@@ -79,9 +79,9 @@ test('panels use authenticated preview URLs and deletion requires explicit confi
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
   await act(async () => { view = create(React.createElement(require('elysium/materials').MaterialList)) })
-  assert.equal(view.root.findAllByType('video').length, 0)
-  await act(async () => view.root.findAllByType('button').find(x => x.props['aria-label']?.startsWith('查看素材 视频')).props.onClick())
   assert.equal(view.root.findByType('video').props.src, `${mediaBase}/video?job=${'a'.repeat(32)}&t=t`)
+  await act(async () => view.root.findAllByType('button').find(x => x.props['aria-label']?.startsWith('查看素材 视频')).props.onClick())
+  assert.equal(view.root.findAllByType('video').find(node => node.props.controls).props.src, `${mediaBase}/video?job=${'a'.repeat(32)}&t=t`)
   assert.equal(view.root.findByType('img').props.src, `${mediaBase}/image?job=${'b'.repeat(32)}&t=t`)
   await act(async () => view.unmount())
   await act(async () => { view = create(React.createElement(require('elysium/projects').ProjectList)) })

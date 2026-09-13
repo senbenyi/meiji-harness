@@ -6,6 +6,14 @@ import { spawnSync } from 'node:child_process'
 const target = process.argv[2]
 if (target !== 'qwen') throw new Error('Usage: node harness/scripts/tunnel.mjs qwen')
 
+try {
+  const response = await fetch('http://127.0.0.1:18000/v1/models', { signal: AbortSignal.timeout(1000) })
+  if (response.ok) {
+    console.log('Qwen 隧道已在运行：http://127.0.0.1:18000/v1')
+    process.exit(0)
+  }
+} catch {}
+
 const result = spawnSync('ssh', [
   '-f', '-N',
   '-o', 'BatchMode=yes',

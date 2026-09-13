@@ -53,7 +53,7 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
     function renderField([key, label, type]) {
       const props = { 'aria-label': label, value: draft[key] || '', disabled: busy, onChange: e => setDraft({ ...draft, [key]: e.target.value }) }
       return h('label', { className: 'elysium-field', key }, h('span', null, label), Array.isArray(type)
-        ? h('select', props, h('option', { value: '' }, '请选择'), type.map(([value, text]) => h('option', { key: value, value }, text)))
+        ? h('select', props, h('option', { value: '' }, '选择'), type.map(([value, text]) => h('option', { key: value, value }, text)))
         : h(type === 'textarea' ? 'textarea' : 'input', { ...props, rows: 3 }))
     }
     return h(Dialog, { title, busy, close: () => leave(close), footer: h('button', { className: 'elysium-primary', disabled: busy, onClick: () => submit() }, busy ? '保存中…' : '保存') },

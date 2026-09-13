@@ -21,6 +21,8 @@ node harness/scripts/install.mjs
 node harness/scripts/start.mjs
 ```
 
+重复执行时会复用健康的 Qwen 隧道和已运行的本机 Harness，不会再次占用 `18000` 或 `3080`。
+
 ## 配置
 
 - `harness/.dsh/settings.yaml`：Harness 与模型服务地址。

@@ -62,3 +62,18 @@ test('material filter changes abort old reads and late results cannot replace cu
   await act(async () => view.unmount())
   assert.equal(pending[1].signal.aborted, true)
 })
+
+test('material list renders a playable thumbnail for video-only assets', async () => {
+  const modules = new Map(), cache = new Map(), jobId = 'a'.repeat(32)
+  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController, setTimeout, clearTimeout,
+    fetch: async () => ({ ok: true, json: async () => ({ items: [{ job_id: jobId, has_video: true, has_image: false, title: '视频素材' }], total: 1 }) }) })
+  const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
+  let view
+  await act(async () => { view = create(React.createElement(require('elysium/materials').MaterialList)) })
+  const video = view.root.findByType('video')
+  assert.equal(video.props.src, `/media/video?job=${jobId}&t=t`)
+  assert.equal(video.props.preload, 'metadata')
+  assert.equal(video.props.muted, true)
+  assert.equal(view.root.findAllByProps({ className: 'elysium-video-placeholder' }).length, 0)
+  await act(async () => view.unmount())
+})

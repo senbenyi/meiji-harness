@@ -74,7 +74,7 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-shot-list { min-height:0; display:flex; flex-direction:column; overflow:hidden; }
 .elysium-toolbar { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; padding:0 0 12px; flex:none; }
 .elysium-toolbar input { flex:1 1 180px; width:auto; }
-.elysium-toolbar select { flex:1 1 96px; width:auto; max-width:150px; }
+.elysium-toolbar select { flex:0 1 auto; width:auto; max-width:120px; }
 .elysium-toolbar [role=status] { margin-right:auto; color:var(--dsw-alias-label-tertiary,#888); font-size:12px; }
 .elysium-shot-rows { overflow:auto; min-height:0; flex:1; }
 .elysium-panel .elysium-shot-row { display:grid; grid-template-columns:32px 12px 64px minmax(0,1fr); gap:8px; align-items:center; text-align:left; width:100%; height:48px; border:0; border-bottom:1px solid #8883; border-radius:0; }
@@ -92,7 +92,9 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-shot-copy h3 { margin:12px 0 2px; font-size:12px; color:var(--dsw-alias-label-secondary,#aaa); }
 .elysium-shot-copy p { margin:0; }
 .elysium-panel .elysium-workbench-preview { display:block; width:100%; max-height:420px; object-fit:contain; background:#111; margin:12px 0; }
-.elysium-pagination { display:flex; gap:8px; align-items:center; padding:12px 0; flex-wrap:wrap; flex:none; }
+.elysium-pagination { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:12px 0; flex-wrap:wrap; flex:none; }
+.elysium-pagination-meta,.elysium-pagination-actions { display:flex; gap:8px; align-items:center; white-space:nowrap; }
+.elysium-panel .elysium-pagination-meta select { width:72px; min-width:72px; }
 .elysium-empty { text-align:center; padding:40px 16px; color:var(--dsw-alias-label-tertiary,#888); }
 .elysium-field { display:block; margin-bottom:14px; }
 .elysium-field span { display:block; margin:0 2px 6px; color:var(--dsw-alias-label-secondary,#aaa); font-size:12px; font-weight:500; }
@@ -104,10 +106,11 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 @container elysium-panel (max-width:600px) { .elysium-panel-body { padding:8px; } .elysium-panel button { min-height:36px; } .elysium-toolbar input { width:100%; } .elysium-shot-row { font-size:12px; } }
 
 .elysium-materials { display:flex; flex-direction:column; min-height:0; height:100%; }
-.elysium-material-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; overflow:auto; align-content:start; min-height:0; flex:1; padding-right:2px; scrollbar-width:thin; }
+.elysium-materials > .elysium-toolbar select { flex:none; width:86px; }
+.elysium-material-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; overflow:auto; align-content:start; min-height:0; flex:1; padding-right:2px; scrollbar-width:thin; }
 .elysium-material-card { box-sizing:border-box; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:12px; padding:10px; min-width:0; display:flex; flex-direction:column; gap:7px; overflow:hidden; background:var(--dsw-alias-bg-layer-3,#303030); transition:background var(--ds-transition-duration-fast,120ms) var(--ds-ease-in-out,ease),border-color var(--ds-transition-duration-fast,120ms) var(--ds-ease-in-out,ease); }
 .elysium-material-card:hover { background:var(--dsw-alias-interactive-bg-hover,#8882); border-color:var(--dsw-alias-label-dimmed,var(--dsw-alias-border-l3,#8888)); }
-.elysium-material-card > img,.elysium-card-open img { width:100%; height:180px; object-fit:contain; background:var(--dsw-alias-bg-layer-2,#202020); border-radius:8px; }
+.elysium-material-card > img,.elysium-card-open img,.elysium-card-open video { width:100%; height:auto; aspect-ratio:3/4; object-fit:contain; background:var(--dsw-alias-bg-layer-2,#202020); border-radius:8px; }
 .elysium-panel .elysium-card-open { padding:0; border:0; text-align:left; }
 .elysium-project-card { position:relative; padding:10px; }
 .elysium-project-open { display:flex; flex-direction:column; gap:7px; cursor:pointer; outline:0; }

@@ -16,6 +16,17 @@ if (process.env.DSH_SKIP_TUNNEL !== '1') {
   try { execFileSync(process.execPath, [tunnelScript, 'qwen'], { stdio: 'inherit' }) }
   catch { console.warn('Qwen 隧道启动失败，继续启动 Harness') }
 }
+const harnessPort = port ?? '3080'
+if (harnessPort !== '0') {
+  try {
+    const response = await fetch(`http://127.0.0.1:${harnessPort}/`, { signal: AbortSignal.timeout(1000) })
+    const body = await response.text()
+    if (response.status === 401 && body.includes('dsh web authentication required')) {
+      console.log(`Harness 已在运行：http://127.0.0.1:${harnessPort}/`)
+      process.exit(0)
+    }
+  } catch {}
+}
 const logDirectory = join(home, 'logs'), harnessLog = join(logDirectory, 'harness-local.log')
 await mkdir(logDirectory, { recursive: true })
 const log = openSync(harnessLog, 'a')
