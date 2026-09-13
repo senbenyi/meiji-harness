@@ -1,45 +1,42 @@
 window.__ModuleLoader__.load('elysium-tools/asset-panel', (require, exports) => {
-  const { createElement: h, useState, useEffect } = require('react')
+  const { createElement: h, useState, useEffect, useRef } = require('react')
   const { ProjectList } = require('elysium-tools/project')
+  const { trapFocus } = require('elysium-tools/dialog')
   const { MaterialList } = require('elysium-tools/asset-list')
-  const clamp = width => Math.max(180, Math.min(width, window.innerWidth / 2))
   function PanelToggle({ collapsed, onClick }) {
-    return h('button', { className: 'elysium-panel-toggle', onClick, 'aria-expanded': !collapsed, 'aria-label': '切换素材与项目面板' }, collapsed ? '素材与项目面板' : '收起面板')
+    return h('button', { className: 'elysium-panel-toggle', onClick, 'aria-expanded': !collapsed, 'aria-label': '打开创作工作台' }, '创作工作台')
   }
   function AssetPanel({ toggleRoot }) {
     const [state, setState] = useState(() => {
       let saved = {}
-      try { saved = JSON.parse(localStorage.getItem('elysium-panel-state')) || {} } catch { /* Use defaults when browser storage is unavailable. */ }
-      return { collapsed: saved.collapsed !== false, width: clamp(Number.isFinite(saved.width) ? saved.width : Math.max(window.innerWidth * .1, 180)), activeTab: ['projects', 'storyboard'].includes(saved.activeTab) ? 'projects' : 'materials' }
+      try { saved = JSON.parse(localStorage.getItem('elysium-workbench')) || {} } catch {}
+      return { open: false, activeTab: saved.activeTab || 'projects', selected: saved.selected || null, projectTab: saved.projectTab || null, materials: {}, projects: saved.projects || {} }
     })
-    const [dragging, setDragging] = useState(false)
+    const root = useRef(null), trigger = useRef(null), guard = useRef(null)
+    const change = patch => setState(value => ({ ...value, ...patch }))
+    const navigate = action => guard.current ? guard.current(action) : action()
     useEffect(() => {
-      try { localStorage.setItem('elysium-panel-state', JSON.stringify(state)) } catch { /* The panel still works without persistence. */ }
-      const previous = document.body.style.paddingRight
-      if (!state.collapsed) document.body.style.paddingRight = `${state.width}px`
-      return () => { document.body.style.paddingRight = previous }
-    }, [state])
+      try { localStorage.setItem('elysium-workbench', JSON.stringify({ activeTab: state.activeTab, selected: state.selected, projectTab: state.projectTab, projects: Object.fromEntries(Object.entries(state.projects).map(([id, value]) => [id, { selected: value.selected, selectedJob: value.selectedJob, tab: value.tab }])) })) } catch {}
+    }, [state.activeTab, state.selected, state.projectTab, state.projects])
     useEffect(() => {
-      const resize = () => setState(value => ({ ...value, width: clamp(value.width) }))
-      window.addEventListener('resize', resize)
-      return () => window.removeEventListener('resize', resize)
-    }, [])
-    useEffect(() => {
-      if (!dragging) return
-      const previous = document.body.style.userSelect
-      document.body.style.userSelect = 'none'
-      const move = event => setState(value => ({ ...value, width: clamp(window.innerWidth - event.clientX) }))
-      const stop = () => setDragging(false)
-      document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop)
-      return () => { document.body.style.userSelect = previous; document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop) }
-    }, [dragging])
-    useEffect(() => { toggleRoot.render(h(PanelToggle, { collapsed: state.collapsed, onClick: () => setState(value => ({ ...value, collapsed: !value.collapsed })) })) }, [state.collapsed])
-    if (state.collapsed) return null
-    return h('aside', { className: 'elysium-panel', style: { width: state.width }, 'aria-label': '创作素材与项目面板' },
-      h('div', { className: 'elysium-panel-resize', onMouseDown: event => { event.preventDefault(); setDragging(true) } }),
-      h('div', { className: 'elysium-panel-header', role: 'tablist' },
-        ['materials', 'projects'].map(tab => h('button', { key: tab, role: 'tab', 'aria-selected': state.activeTab === tab, className: state.activeTab === tab ? 'elysium-panel-tab elysium-panel-tab-active' : 'elysium-panel-tab', onClick: () => setState(value => ({ ...value, activeTab: tab })) }, tab === 'materials' ? '素材' : '项目'))),
-      h('div', { className: 'elysium-panel-body' }, state.activeTab === 'materials' ? h(MaterialList) : h(ProjectList)))
+      if (!state.open) return
+      document.querySelectorAll?.('.elysium-card video').forEach(video => video.pause())
+      trigger.current = document.activeElement
+      root.current?.focus()
+      const pause = () => document.querySelectorAll?.('.elysium-panel video').forEach(video => video.pause())
+      const visibility = () => { if (document.hidden) pause() }
+      document.addEventListener('visibilitychange', visibility)
+      return () => { pause(); document.removeEventListener('visibilitychange', visibility); trigger.current?.focus?.() }
+    }, [state.open])
+    useEffect(() => { toggleRoot.render(h(PanelToggle, { collapsed: !state.open, onClick: () => navigate(() => change({ open: !state.open })) })) }, [state.open])
+    if (!state.open) return null
+    return h('section', { className: 'elysium-panel', 'aria-label': '创作工作台', role: 'dialog', 'aria-modal': true, tabIndex: -1, ref: root, onKeyDown: event => { if (event.key === 'Escape') { event.stopPropagation(); navigate(() => change({ open: false })) } else trapFocus(event, root.current) } },
+      h('header', { className: 'elysium-panel-header' }, h('strong', null, '创作工作台'),
+        ['projects', 'materials'].map(tab => h('button', { key: tab, role: 'tab', 'aria-selected': state.activeTab === tab, onClick: () => navigate(() => change({ activeTab: tab })) }, tab === 'materials' ? '素材' : '项目')),
+        h('button', { className: 'elysium-return', onClick: () => navigate(() => change({ open: false })) }, '返回聊天')),
+      h('div', { className: 'elysium-panel-body' }, state.activeTab === 'materials'
+        ? h(MaterialList, { viewState: state.materials, onViewState: materials => change({ materials }) })
+        : h(ProjectList, { viewState: state, onViewState: change, guard, navigate })))
   }
   function apply(ctx) {
     if (typeof document === 'undefined') return

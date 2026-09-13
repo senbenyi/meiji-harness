@@ -21,6 +21,8 @@ readonly OPERATOR_ROOT="$HARNESS_ROOT/operator-workspace"
 readonly SERVICE_USER=harness
 
 umask 077
+export HARNESS_PROXY_AUTH_DISABLED=0
+[[ ! -f "$HARNESS_ROOT/config/basic-auth-disabled" ]] || export HARNESS_PROXY_AUTH_DISABLED=1
 export PATH="$NODE_ROOT/bin:$HARNESS_ROOT/app/node_modules/.bin:$PATH"
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
@@ -33,7 +35,13 @@ harness_ready() {
   [[ "$code" =~ ^[1-4][0-9][0-9]$ ]]
 }
 proxy_ready() {
-  [[ "$(http_code "http://127.0.0.1:$PUBLIC_PORT/")" == 401 ]]
+  local code
+  code="$(http_code "http://127.0.0.1:$PUBLIC_PORT/")"
+  if [[ "$HARNESS_PROXY_AUTH_DISABLED" == 1 ]]; then
+    [[ "$code" == 200 || "$code" == 303 ]]
+  else
+    [[ "$code" == 401 ]]
+  fi
 }
 running_pid() {
   local pid_file="$1" expected="$2" command_line

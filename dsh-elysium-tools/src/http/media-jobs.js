@@ -25,6 +25,10 @@ export const json = (res, status, data) => {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
   res.end(JSON.stringify(data))
 }
+export function assetSummary(job) {
+  const prompt = typeof job.debug?.effective_input?.prompt === 'string' ? job.debug.effective_input.prompt.trim() : ''
+  return { ...jobSummary(job), prompt_excerpt: prompt.slice(0, 500) }
+}
 export async function listAssets(offset, limit, filters = {}) {
   const root = join(requiredConfig('ELYSIUM_TOOLS_STATE_ROOT'), 'jobs')
   const entries = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
@@ -34,7 +38,9 @@ export async function listAssets(offset, limit, filters = {}) {
     const path = join(root, entry.name, 'status.json')
     try {
       const job = JSON.parse(await readFile(path, 'utf8'))
-      if (job.status === 'succeeded' && (!filters.profile || (jobSummary(job).profile === 'hd' ? 'high-quality' : jobSummary(job).profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || jobSummary(job).media_kind === filters.media_kind)) items.push({ ...jobSummary(job), created_at: (await stat(path)).mtimeMs })
+      const summary = assetSummary(job)
+      if (filters.q && ![job.job_id, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
+      if (job.status === 'succeeded' && (!filters.profile || (jobSummary(job).profile === 'hd' ? 'high-quality' : jobSummary(job).profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || jobSummary(job).media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })
     } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
   }
   items.sort((a, b) => b.created_at - a.created_at || a.job_id.localeCompare(b.job_id))
@@ -60,9 +66,11 @@ export function createMediaHandler({ token, projectBase, readJob = getJob, findC
       if (url.pathname === `${MEDIA_ROUTE}/list`) {
         const limit = Number(url.searchParams.get('limit') ?? 50), offset = Number(url.searchParams.get('offset') ?? 0)
         if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(offset) || offset < 0) return json(res, 400, { error: 'Invalid pagination' })
+        const q = (url.searchParams.get('q') || '').trim()
+        if (q.length > 200) return json(res, 400, { error: '搜索内容最多 200 字' })
         const profile = url.searchParams.get('profile') || '', media_kind = url.searchParams.get('media_kind') || ''
         if (profile && !['preview', 'regular', 'high-quality', 'hd'].includes(profile) || media_kind && !['video', 'image'].includes(media_kind)) return json(res, 400, { error: 'Invalid filters' })
-        return json(res, 200, await listAssets(offset, Math.min(limit, 200), { profile, media_kind }))
+        return json(res, 200, await listAssets(offset, Math.min(limit, 200), { profile, media_kind, q }))
       }
       const jobId = url.searchParams.get('job')
       if (jobId !== null && !/^[a-f0-9]{32}$/.test(jobId)) return json(res, 400, { error: 'Invalid job identity' })

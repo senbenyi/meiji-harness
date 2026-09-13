@@ -9,45 +9,38 @@ function fixture() {
   const modules = new Map(), cache = new Map(), listeners = new Map(), storage = new Map()
   const document = { body: { style: { paddingRight: '7px', userSelect: 'text' } },
     addEventListener: (name, run) => listeners.set(name, run), removeEventListener: name => listeners.delete(name) }
-  runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: { token: 'token', base: '/plugins/dsh-elysium/media', projectBase: '/plugins/dsh-elysium/project' },
+  runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { innerWidth: 2000, __ELYSIUM_MEDIA__: { token: 'token', base: '/plugins/dsh-elysium/media', projectBase: '/plugins/dsh-elysium/project' },
     __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, document, URLSearchParams,
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
-    fetch: async () => ({ ok: true, json: async () => ({ items: [], has_more: false }) }) })
+    fetch: async url => ({ ok: true, json: async () => url.includes('/project/') ? [] : ({ items: [], has_more: false }) }) })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require, document, listeners, storage }
 }
 
-test('panel restores state, clamps drag width and restores body styles on collapse and unmount', async () => {
+test('workbench opens without changing host layout, preserves navigation and cleans listeners', async () => {
   const f = fixture(), { AssetPanel } = f.require('elysium-tools/asset-panel')
   let toggle, view
-  const toggleRoot = { render: element => { toggle = element } }
-  await act(async () => { view = create(React.createElement(AssetPanel, { toggleRoot })) })
+  await act(async () => { view = create(React.createElement(AssetPanel, { toggleRoot: { render: value => { toggle = value } } })) })
   assert.equal(view.toJSON(), null)
   await act(async () => toggle.props.onClick())
-  assert.equal(view.root.findByType('aside').props.style.width, 200)
-  assert.equal(f.document.body.style.paddingRight, '200px')
-  await act(async () => view.root.findByProps({ className: 'elysium-panel-resize' }).props.onMouseDown({ preventDefault() {} }))
-  assert.equal(f.document.body.style.userSelect, 'none')
-  await act(async () => f.listeners.get('mousemove')({ clientX: 100 }))
-  assert.equal(view.root.findByType('aside').props.style.width, 1000)
-  await act(async () => f.listeners.get('mouseup')())
-  assert.equal(f.document.body.style.userSelect, 'text')
-  await act(async () => view.unmount())
+  assert.equal(view.root.findByProps({ 'aria-label': '创作工作台' }).props.role, 'dialog')
   assert.equal(f.document.body.style.paddingRight, '7px')
-  await act(async () => { view = create(React.createElement(AssetPanel, { toggleRoot })) })
-  assert.equal(view.root.findByType('aside').props.style.width, 1000)
+  await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '素材').props.onClick())
+  await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '返回聊天').props.onClick())
+  assert.equal(view.toJSON(), null)
   await act(async () => toggle.props.onClick())
-  assert.equal(f.document.body.style.paddingRight, '7px')
+  assert.equal(view.root.findAllByType('button').find(x => x.children.join('') === '素材').props['aria-selected'], true)
   await act(async () => view.unmount())
   assert.equal(f.listeners.size, 0)
+  assert.equal(f.document.body.style.paddingRight, '7px')
 })
 
 test('panels use authenticated preview URLs and deletion requires explicit confirmation', async () => {
   const modules = new Map(), cache = new Map(), requests = [], confirmations = []
   let confirmed = false, deleted = false
   const mediaBase = '/tunnel/media/plugins/dsh-elysium/media', projectBase = '/custom/projects'
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: mediaBase, projectBase },
-    __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: message => { confirmations.push(message); return confirmed } }, URLSearchParams,
+  runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: mediaBase, projectBase },
+    __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: message => { confirmations.push(message); return confirmed } }, document: {}, URLSearchParams,
     fetch: async (url, options) => {
       requests.push({ url, options })
       if (url.startsWith(mediaBase)) return { ok: true, json: async () => ({ has_more: false, items: [
@@ -61,6 +54,8 @@ test('panels use authenticated preview URLs and deletion requires explicit confi
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
   await act(async () => { view = create(React.createElement(require('elysium-tools/asset-list').MaterialList)) })
+  assert.equal(view.root.findAllByType('video').length, 0)
+  await act(async () => view.root.findAllByType('button').find(x => x.props['aria-label']?.startsWith('查看素材 视频')).props.onClick())
   assert.equal(view.root.findByType('video').props.src, `${mediaBase}/video?job=${'a'.repeat(32)}&t=t`)
   assert.equal(view.root.findByType('img').props.src, `${mediaBase}/image?job=${'b'.repeat(32)}&t=t`)
   await act(async () => view.unmount())

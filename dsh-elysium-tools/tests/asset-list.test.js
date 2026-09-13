@@ -18,7 +18,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     for (let i = 1; i <= 3; i++) {
       const id = String(i).repeat(32), path = join(root, 'jobs', id, 'status.json')
       await mkdir(join(root, 'jobs', id), { recursive: true })
-      await writeFile(path, JSON.stringify({ job_id: id, status: i === 3 ? 'running' : 'succeeded', result: { profile: i === 1 ? 'preview' : 'hd', media_kind: i === 1 ? 'image' : 'video', comfyui_view_url: 'https://model.test/view' } }))
+      await writeFile(path, JSON.stringify({ job_id: id, debug: { effective_input: { prompt: i === 1 ? '林在咖啡馆' : '雨夜街道', secret: 'not-exported' } }, status: i === 3 ? 'running' : 'succeeded', result: { profile: i === 1 ? 'preview' : 'hd', media_kind: i === 1 ? 'image' : 'video', comfyui_view_url: 'https://model.test/view' } }))
       await utimes(path, i, i)
     }
     assert.equal((await fetch(base + '/list')).status, 401)
@@ -30,6 +30,11 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     const filtered = await (await fetch(base + '/list?t=secret&profile=preview&media_kind=image&limit=1')).json()
     assert.equal(filtered.total, 1); assert.equal(filtered.items[0].job_id, '1'.repeat(32)); assert.equal(filtered.has_more, false)
     assert.equal((await fetch(base + '/list?t=secret&profile=bad')).status, 400)
+    const search = await (await fetch(base + '/list?t=secret&q=' + encodeURIComponent('咖啡') + '&limit=1')).json()
+    assert.equal(search.total, 1)
+    assert.equal(search.items[0].prompt_excerpt, '林在咖啡馆')
+    assert.equal(search.items[0].debug, undefined)
+    assert.equal((await fetch(base + '/list?t=secret&q=' + 'a'.repeat(201))).status, 400)
     const second = await (await fetch(base + '/list?t=secret&limit=1&offset=1')).json()
     assert.equal(second.items[0].job_id, '1'.repeat(32)); assert.equal(second.has_more, false)
     assert.equal((await fetch(base + '/list?t=secret&offset=-1')).status, 400)

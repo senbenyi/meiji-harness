@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { createReadStream, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { createServer } from 'node:http'
 import httpProxy from 'http-proxy'
 
@@ -12,7 +13,7 @@ const harnessCookie = `dsh-auth-${createHash('sha256').update(publicHost).digest
 const proxy = httpProxy.createProxyServer({ target: process.env.HARNESS_TARGET, ws: true, xfwd: true })
 
 function authorized(request) {
-  return request.headers.authorization === expected
+  return process.env.HARNESS_PROXY_AUTH_DISABLED === '1' || request.headers.authorization === expected
 }
 
 function hasHarnessCookie(request) {
@@ -42,8 +43,28 @@ proxy.on('error', (_error, _request, response) => {
   }
 })
 
+const deliveryRoot = process.env.HARNESS_DELIVERY_ROOT || '/workspace/harness/deliverables/third-cup'
+const deliveries = {
+  '/third-cup/film.mp4': { file: '第三杯咖啡-六分钟预览.mp4', type: 'video/mp4' },
+  '/third-cup/subtitles.srt': { file: 'subtitles.srt', type: 'application/x-subrip; charset=utf-8' },
+}
+
 const server = createServer((request, response) => {
   if (!authorized(request)) return reject(response)
+  const delivery = deliveries[request.url?.split('?')[0]]
+  if (delivery) {
+    if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405, { Allow: 'GET, HEAD' }); return response.end() }
+    const path = join(deliveryRoot, delivery.file)
+    let size
+    try { size = statSync(path).size } catch { response.writeHead(404); return response.end('Delivery not found\n') }
+    response.writeHead(200, { 'Content-Type': delivery.type, 'Content-Length': size,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(delivery.file)}`, 'X-Content-Type-Options': 'nosniff' })
+    if (request.method === 'HEAD') return response.end()
+    const stream = createReadStream(path)
+    stream.on('error', () => response.destroy())
+    response.on('close', () => stream.destroy())
+    return stream.pipe(response)
+  }
   prepareRequest(request)
   proxy.web(request, response)
 })

@@ -85,7 +85,7 @@ export function createProjectHandler({ token, readJob = getJob, newId = () => ra
           try {
             const value = await read(entry.name)
             const shots = value.acts.flatMap(act => act.shots)
-            items.push({ id: value.id, title: value.title, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at, anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length })
+            items.push({ cover_url: value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null, id: value.id, title: value.title, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at, anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length })
           } catch (error) { if (error.code !== 'ENOENT') throw error }
         }
         return json(res, 200, items.sort((a, b) => b.updated_at - a.updated_at))

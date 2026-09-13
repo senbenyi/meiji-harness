@@ -8,7 +8,7 @@ import { clientSource } from '../scripts/client-source.mjs'
 function fixture(initial) {
   let project = initial
   const modules = new Map(), cache = new Map(), requests = []
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, URLSearchParams, URL,
+  runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
     fetch: async (url, options) => {
       requests.push({ url, options })
       if (url.startsWith('/project/update')) project = { ...project, ...JSON.parse(options.body) }
@@ -30,59 +30,56 @@ async function edit(view, label, value) {
   await act(async () => field().props.onBlur())
 }
 
-test('project detail adds anchors, edits descriptions, selects materials and renames linked roles', async () => {
+test('anchors use explicit save, rename linked roles and only import after confirmation', async () => {
   const project = emptyProject()
-  project.acts = [{ title: '第一幕', shots: [{ role: 'role-1' }] }]
+  project.acts = [{ title: '幕', shots: [{ role: 'lin' }] }]
   const f = fixture(project)
   let view
-  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: 'abcdef12', back() {} })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
   await click(view, '添加锚点')
-  assert.equal(f.project().anchors.length, 1)
-  await edit(view, '锚点名称', '林夏')
-  await edit(view, '锚点描述', '米色风衣')
-  await edit(view, '锚点角色 ID', 'lin')
-  assert.equal(f.project().acts[0].shots[0].role, 'lin')
-  await click(view, '从素材选择')
-  await click(view, '选择')
+  assert.equal(f.project().anchors.length, 0)
+  for (const [label, value] of [['锚点名称', '林夏'], ['锚点描述', '米色风衣'], ['锚点角色 ID', 'lin']]) {
+    await act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
+  }
+  await click(view, '保存')
+  assert.equal(f.project().anchors[0].label, '林夏')
+  await click(view, '编辑锚点')
+  await act(async () => view.root.findByProps({ 'aria-label': '锚点角色 ID' }).props.onChange({ target: { value: 'lin-updated' } }))
+  await click(view, '保存')
+  assert.equal(f.project().acts[0].shots[0].role, 'lin-updated')
+  await click(view, '选择参考素材')
+  await act(async () => view.root.findAllByType('button').find(x => x.props['aria-label']?.startsWith('查看素材')).props.onClick())
+  assert.equal(f.requests.filter(x => x.url.startsWith('/project/import')).length, 0)
+  await click(view, '使用此素材')
   assert.equal(f.project().anchors[0].source.job_id, 'b'.repeat(32))
   assert.equal(f.project().anchors[0].description, '米色风衣')
-  assert.equal(view.root.findByType('img').props.src, '/media/image?job=' + 'b'.repeat(32) + '&t=t')
-  assert.ok(f.requests.every(request => request.url.includes('t=t')))
   await act(async () => view.unmount())
 })
 
-test('storyboard groups acts, links anchors, edits and reorders shots and distinguishes retake from replacement', async () => {
+test('storyboard paginates 120 shots, requests only selected preview and saves explicit edits', async () => {
   const project = emptyProject()
-  project.anchors = [{ role: 'lin', label: '林夏', description: '风衣', source: { job_id: 'b'.repeat(32) }, image_url: '' }]
-  const shot = { index: 1, role: 'lin', action: 'A', subtitle: '', mode: 't2va', status: 'succeeded', job_id: 'a'.repeat(32), notes: '' }
-  project.acts = [{ title: '第一幕', shots: [shot, { ...shot, action: 'B', job_id: null }] }]
+  project.anchors = [{ role: 'lin', label: '林', description: '', image_url: 'https://files.test/lin.png' }]
+  project.acts = Array.from({ length: 6 }, (_, a) => ({ title: `幕${a}`, shots: Array.from({ length: 20 }, (_, i) => ({ index: a * 20 + i + 1, role: 'lin', action: `动作${a}-${i}`, subtitle: '', mode: 't2va', job_id: 'a'.repeat(32), status: 'succeeded', notes: '' })) }))
   const f = fixture(project)
   let view
-  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
   await click(view, '分镜')
-  assert.equal(view.root.findAllByProps({ className: 'elysium-shot-role' }).length, 2)
-  assert.ok(view.root.findAllByType('img').some(image => image.props.src.includes('job=' + 'b'.repeat(32))))
-  await click(view, '↓')
-  assert.deepEqual(f.project().acts[0].shots.map(shot => shot.action), ['B', 'A'])
-  await click(view, '重拍', 1)
-  assert.equal(f.project().acts[0].shots[1].job_id, 'a'.repeat(32)); assert.equal(f.project().acts[0].shots[1].status, 'pending')
-  assert.match(f.project().acts[0].shots[1].notes, /待重拍/)
-  await click(view, '替换', 1)
-  assert.equal(f.project().acts[0].shots[1].job_id, null)
-  await edit(view, '动作描述', '转身')
-  await edit(view, '字幕', '你好')
-  assert.equal(f.project().acts[0].shots[0].subtitle, '你好')
-  await click(view, '添加镜头')
-  assert.equal(f.project().acts[0].shots.length, 3)
-  await click(view, '移除')
-  assert.equal(f.project().acts[0].shots.length, 2)
-  await edit(view, '幕标题', '重逢')
-  await act(async () => view.root.findByProps({ className: 'elysium-act-header' }).props.onClick())
-  assert.equal(view.root.findAllByProps({ className: 'elysium-shot' }).length, 0)
-  await click(view, '添加幕')
-  assert.equal(f.project().acts.length, 2)
-  await click(view, '删除幕')
-  assert.equal(f.project().acts.length, 1)
+  assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 30)
+  assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 0)
+  await act(async () => view.root.findByProps({ 'aria-label': '搜索镜头' }).props.onChange({ target: { value: '120' } }))
+  assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 1)
+  await act(async () => view.root.findByProps({ 'aria-label': '镜 120' }).props.onClick())
+  assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 1)
+  await click(view, '编辑镜头')
+  await act(async () => view.root.findByProps({ 'aria-label': '字幕' }).props.onChange({ target: { value: '你好' } }))
+  assert.equal(f.project().acts[5].shots[19].subtitle, '')
+  await click(view, '保存')
+  assert.equal(f.project().acts[5].shots[19].subtitle, '你好')
+  await click(view, '标记待重拍')
+  assert.equal(f.project().acts[5].shots[19].job_id, 'a'.repeat(32))
+  assert.equal(f.project().acts[5].shots[19].status, 'pending')
+  await click(view, '解除素材关联')
+  assert.equal(f.project().acts[5].shots[19].job_id, null)
   await act(async () => view.unmount())
 })
 
@@ -95,7 +92,7 @@ test('delivery view renders film specs and server subtitle links without fetchin
   ]
   const f = fixture(project)
   let view
-  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
   await click(view, '交付')
   const links = view.root.findAllByType('a')
   assert.equal(links.length, 2)
@@ -123,16 +120,15 @@ test('material filters reset pagination and propagate canonical profile and kind
   await act(async () => view.unmount())
 })
 
-test('extracted anchor image takes precedence over its source video in anchors and storyboard', async () => {
+test('anchor image takes precedence over source video and storyboard does not fetch anchor previews', async () => {
   const project = emptyProject()
-  project.anchors = [{ role: 'lin', label: '林夏', description: '', source: { type: 'job', job_id: 'b'.repeat(32) }, image_url: 'https://files.test/lin.png' }]
-  project.acts = [{ title: '第一幕', shots: [{ index: 1, role: 'lin', action: '', subtitle: '', mode: 'i2va', job_id: null, status: 'pending', notes: '' }] }]
+  project.anchors = [{ role: 'lin', label: '林', description: '', source: { job_id: 'b'.repeat(32) }, image_url: 'https://files.test/lin.png' }]
+  project.acts = [{ title: '幕', shots: [{ role: 'lin', action: '', subtitle: '', mode: 'i2va', job_id: null, status: 'pending', notes: '' }] }]
   const f = fixture(project)
   let view
-  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium-tools/project').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
   assert.equal(view.root.findByType('img').props.src, 'https://files.test/lin.png')
   await click(view, '分镜')
-  assert.equal(view.root.findByType('img').props.src, 'https://files.test/lin.png')
-  assert.equal(f.requests.filter(request => request.url.startsWith('/media/status')).length, 0)
+  assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 0)
   await act(async () => view.unmount())
 })
