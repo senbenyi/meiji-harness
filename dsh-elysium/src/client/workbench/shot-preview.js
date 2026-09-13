@@ -1,5 +1,5 @@
 // 职责：按任务 ID 读取并显示单个镜头的服务器预览。
-window.__ModuleLoader__.load('elysium/shot-preview', (require, exports) => {
+window.__ModuleLoader__.load({ id: 'elysium/shot-preview', factory: require => { const exports = {}
   const { createElement: h, useEffect, useState } = require('react')
   const { assetUrl } = require('elysium/materials')
   const previews = new Map()
@@ -30,4 +30,5 @@ window.__ModuleLoader__.load('elysium/shot-preview', (require, exports) => {
     return job.has_video ? h('video', { className: 'elysium-workbench-preview', src: assetUrl('video', jobId), preload: 'metadata', controls: true, onError: () => setError('预览加载失败') }) : job.has_image ? h('img', { className: 'elysium-workbench-preview', src: assetUrl('image', jobId), alt: '镜头图片', onError: () => setError('图片加载失败') }) : h('div', null, h('p', null, '暂无可播放产物'), h('button', { onClick: () => setRetry(value => value + 1) }, '刷新状态'))
   }
   Object.assign(exports, { ShotPreview })
-})
+return exports
+} })

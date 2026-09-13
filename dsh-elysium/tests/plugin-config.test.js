@@ -3,7 +3,7 @@ import { test } from 'node:test'
 
 import { resolveConfig, withConfig, requiredConfig, workerEnvironment } from '../src/config.js'
 
-for (const key of ['COMFYUI_URL', 'ELYSIUM_STATE_ROOT', 'FFPROBE_BIN']) delete process.env[key]
+for (const key of ['COMFYUI_URL', 'ELYSIUM_STATE_ROOT']) delete process.env[key]
 
 test('plugin config uses one ComfyUI URL and isolates concurrent calls', async () => {
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' },

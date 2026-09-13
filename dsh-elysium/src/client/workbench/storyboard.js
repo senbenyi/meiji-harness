@@ -1,5 +1,5 @@
 // 职责：管理分镜筛选、排序、编辑、素材关联与单镜预览。
-window.__ModuleLoader__.load('elysium/storyboard', (require, exports) => {
+window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => { const exports = {}
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { Editor } = require('elysium/dialog')
   const statuses = { pending: '待生成', queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败' }
@@ -79,4 +79,5 @@ window.__ModuleLoader__.load('elysium/storyboard', (require, exports) => {
       } }) : null)
   }
   Object.assign(exports, { StoryboardView })
-})
+return exports
+} })

@@ -50,10 +50,10 @@ test('rejects invalid or unavailable loads', async () => {
 test('production wait returns final result without model polling and preserves failed status', async () => {
   const { waitVideoJob } = await import('../src/tools/video.js')
   const job = { job_id: 'a'.repeat(32) }
-  const sequence = [{ ...job, status: 'running' }, { ...job, status: 'succeeded', result: { path: '/final.mp4', validation: { full_decode: 'passed' } } }]
+  const sequence = [{ ...job, status: 'running' }, { ...job, status: 'succeeded', result: { comfyui_view_url: 'https://comfy/view?filename=final.mp4', validation: { full_decode: 'passed' } } }]
   let sleeps = 0
   const result = await waitVideoJob(job, undefined, async () => sequence.shift(), async () => { sleeps++ })
-  assert.equal(result.path, '/final.mp4'); assert.equal(sleeps, 1)
+  assert.equal(result.comfyui_view_url, 'https://comfy/view?filename=final.mp4'); assert.equal(sleeps, 1)
   const failed = { ...job, status: 'failed', error_code: 'FAILED', retryable: false }
   assert.equal(await waitVideoJob(job, undefined, async () => failed), failed)
   const controller = new AbortController(); controller.abort()

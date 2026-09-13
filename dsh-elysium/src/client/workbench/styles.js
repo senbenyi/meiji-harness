@@ -1,5 +1,5 @@
 // 职责：注入项目与素材工作台的布局和交互样式。
-window.__ModuleLoader__.load('elysium/workbench-styles', (require, exports) => {
+window.__ModuleLoader__.load({ id: 'elysium/workbench-styles', factory: require => { const exports = {}
   exports.apply = () => {
     const style = document.createElement('style')
     style.textContent = `
@@ -94,4 +94,5 @@ window.__ModuleLoader__.load('elysium/workbench-styles', (require, exports) => {
     document.head.appendChild(style)
     return () => style.remove()
   }
-})
+return exports
+} })

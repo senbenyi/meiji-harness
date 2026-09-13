@@ -30,16 +30,15 @@ window.__ModuleLoader__.load({
       return stages[job.stage] || (job.status === 'queued' ? '排队中' : '制作中')
     }
     function specificationLabel(job) {
-      const spec = job.specification, info = job.media_info
+      const spec = job.specification
       const parts = [], profile = { preview: '预览档', regular: '常规档', 'high-quality': '高清档', standard: '原工作流' }[job.profile]
       if (profile) parts.push(profile)
-      const width = info?.width || spec?.width, height = info?.height || spec?.height
+      const width = spec?.width, height = spec?.height
       if (width && height) parts.push(`${width}×${height}`)
-      const seconds = info?.duration_seconds ?? spec?.seconds
+      const seconds = spec?.seconds
       if (Number.isFinite(seconds)) parts.push(`约 ${Number(seconds.toFixed(1))} 秒视频`)
       if (Number.isFinite(spec?.steps)) parts.push(`${spec.steps} 步`)
-      if (info?.has_audio !== undefined) parts.push(info.has_audio ? '带音频' : '无音频')
-      else if (spec?.audio === 'joint-generation-and-decoding') parts.push('带音频')
+      if (spec?.audio === 'joint-generation-and-decoding') parts.push('带音频')
       return parts.join('、')
     }
     return { fromBlock, label, specificationLabel }

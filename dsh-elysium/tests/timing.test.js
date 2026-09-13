@@ -17,11 +17,11 @@ test('local completion returns immediately and waiting records the unchanged int
   const timing = createTiming()
   let reads = 0, sleeps = 0
   const result = await waitJob({ job_id: 'job' }, undefined, async () => ++reads === 1
-    ? { status: 'running' } : { status: 'succeeded', result: { path: 'https://server/video' } }, async ms => {
+    ? { status: 'running' } : { status: 'succeeded', result: { comfyui_view_url: 'https://server/video' } }, async ms => {
     assert.equal(ms, 2000)
     sleeps++
   }, timing)
-  assert.equal(result.path, 'https://server/video')
+  assert.equal(result.comfyui_view_url, 'https://server/video')
   assert.equal(sleeps, 1)
   assert.equal(timing.snapshot().stages['local.read-status'].count, 2)
   assert.equal(timing.snapshot().stages['local.sleep'].count, 1)

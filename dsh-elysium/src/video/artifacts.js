@@ -9,7 +9,7 @@ export async function collectVideoArtifacts(client, history, prepared, promptId)
   const messages = history.status?.messages || []
   const started = messages.find(([type]) => type === 'execution_start')?.[1]?.timestamp
   const finished = messages.find(([type]) => type === 'execution_success')?.[1]?.timestamp
-  return { path: url, comfyui_view_url: url, media_kind: 'video', mode: prepared.mode,
+  return { comfyui_view_url: url, media_kind: 'video', mode: prepared.mode,
     ...(Number.isFinite(started) && Number.isFinite(finished) ? { server_execution_ms: finished - started } : {}),
     profile: prepared.profile || prepared.plan?.profile || (prepared.specification ? 'preview' : 'standard'),
     ...(prepared.specification ? { specification: prepared.specification } : {}),
@@ -19,4 +19,3 @@ export async function collectVideoArtifacts(client, history, prepared, promptId)
     comfyui_metadata_status: 'comfyui-final',
     comfyui_artifacts: [{ ...descriptor, server_url: client.url.href, prompt_id: promptId, view_url: url }] }
 }
-// 职责：从 ComfyUI 历史中选取最终视频并组装可交付的服务器 URL 元数据。

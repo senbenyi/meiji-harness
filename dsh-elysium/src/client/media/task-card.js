@@ -56,10 +56,9 @@ window.__ModuleLoader__.load({
         h('p', null, fallback.error), inspect ? h('button', { onClick: inspect }, '查看执行记录') : null)
       let args = {}
       try { args = JSON.parse(block?.call?.argsRaw || block?.argsRaw || '{}') } catch { /* Dimensions arrive with the result if arguments are incomplete. */ }
-      const info = job.media_info
       const actual = dimensions?.src === video ? dimensions : null
-      const width = actual?.width || info?.width || job.specification?.width || args.width || 480
-      const height = actual?.height || info?.height || job.specification?.height || args.height || 854
+      const width = actual?.width || job.specification?.width || args.width || 480
+      const height = actual?.height || job.specification?.height || args.height || 854
       const specification = specificationLabel(job)
       const loading = !video && !error && ['pending', 'queued', 'running'].includes(job.status)
       const busy = loading || (video && !mediaReady && !playbackError)
@@ -93,7 +92,6 @@ window.__ModuleLoader__.load({
           h('div', { className: 'elysium-heading' }, h('strong', null, ordinal ? `${title} ${String(ordinal).padStart(2, '0')}` : title),
             video && mediaReady ? h('a', { href: mediaUrl('download', sessionId, callId), download: '', className: 'elysium-download', 'aria-label': '下载视频', title: '下载视频' }, icon('download')) : null),
           h('div', { className: 'elysium-meta' },
-            info ? h('span', null, `${info.duration_seconds} 秒 · ${info.width} × ${info.height} · ${info.frame_rate} fps`) : null,
             h('details', { className: 'elysium-details' }, h('summary', null, '详情'),
               job.job_id ? h('p', null, '任务 ID：', h('code', null, job.job_id)) : null,
               Number.isFinite(job.timings?.total_ms) ? h('p', null, `任务耗时：${(job.timings.total_ms / 1000).toFixed(1)} 秒`) : null,

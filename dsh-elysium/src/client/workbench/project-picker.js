@@ -1,5 +1,5 @@
 // 职责：让用户选择项目，并将已选素材导入为项目锚点。
-window.__ModuleLoader__.load('elysium/project-picker', (require, exports) => {
+window.__ModuleLoader__.load({ id: 'elysium/project-picker', factory: require => { const exports = {}
   const { createElement: h, useEffect, useState } = require('react')
   const { Dialog } = require('elysium/dialog')
   const { fetchProjects, importMaterial } = require('elysium/project-api')
@@ -18,4 +18,5 @@ window.__ModuleLoader__.load('elysium/project-picker', (require, exports) => {
       error ? h('p', { role: 'alert' }, error) : null)
   }
   Object.assign(exports, { ProjectPicker })
-})
+return exports
+} })

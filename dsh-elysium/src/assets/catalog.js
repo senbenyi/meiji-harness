@@ -9,7 +9,7 @@ export function jobSummary(job) {
     stage: job.status === 'failed' ? job.failed_stage : job.workflow?.stage || job.stage,
     error_code: job.error_code, remote_status: job.remote_status,
     error: job.error, retryable: job.retryable, retry_scope: job.retry_scope,
-    media_info: job.result?.media_info, validation: job.result?.validation,
+    validation: job.result?.validation,
     timings: job.timings, profile: job.result?.profile, specification: job.result?.specification,
     comfyui_view_url: job.result?.comfyui_view_url,
     media_kind: image ? 'image' : 'video',

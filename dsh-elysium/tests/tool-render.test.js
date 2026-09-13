@@ -21,16 +21,16 @@ test('default output keeps delivery and failure evidence without duplicating pro
 })
 
 test('completed output preserves actual media and review status', () => {
-  const value = { job_id: 'b'.repeat(32), status: 'succeeded', path: '/output/final.mp4',
-    media_info: { duration_seconds: 10.125, width: 640, height: 384 },
+  const value = { job_id: 'b'.repeat(32), status: 'succeeded',
+    comfyui_metadata_status: 'comfyui-final', comfyui_view_url: 'http://comfy/view?filename=final.mp4',
     validation: { full_decode: 'passed', human_review: 'not_run' }, warnings: ['review pending'] }
   assert.deepEqual(JSON.parse(renderToolDebug({}, value)[0].text), value)
 })
 
-test('image result retains the exact local reference path alongside its preview', () => {
+test('image result exposes only its server preview URL', () => {
   const value = { status: 'succeeded', job_id: 'c'.repeat(32), media_kind: 'image',
-    path: '/artifacts/image.png', comfyui_metadata_status: 'comfyui-final', comfyui_view_url: 'http://comfy/view?filename=image.png' }
+    comfyui_metadata_status: 'comfyui-final', comfyui_view_url: 'http://comfy/view?filename=image.png' }
   const output = JSON.parse(renderToolDebug({}, value)[0].text)
-  assert.equal(output.path, value.path)
   assert.equal(output.comfyui_view_url, value.comfyui_view_url)
+  assert.ok(!Object.hasOwn(output, 'path'))
 })

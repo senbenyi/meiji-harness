@@ -22,7 +22,6 @@ const context = new AsyncLocalStorage()
 const fields = {
   comfyUrl: ['COMFYUI_URL', 'url'],
   stateRoot: ['ELYSIUM_STATE_ROOT', 'path'],
-  ffprobe: ['FFPROBE_BIN', 'command'],
 }
 
 export const runtimeConfig = () => context.getStore() || process.env
@@ -34,7 +33,7 @@ export function resolveConfig(config = {}) {
     if (!Object.hasOwn(fields, key) && key !== 'enableAtomicTools') throw new Error(`未知插件配置：${key}`)
   }
   const home = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'elysium')
-  const defaults = { stateRoot: join(home, 'tasks'), ffprobe: 'ffprobe' }
+  const defaults = { stateRoot: join(home, 'tasks') }
   const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]

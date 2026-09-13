@@ -1,5 +1,5 @@
 // 职责：编排项目列表与详情页，将锚点、分镜和交付视图组合为项目工作流。
-window.__ModuleLoader__.load('elysium/projects', (require, exports) => {
+window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => { const exports = {}
   const { createElement: h, useEffect, useRef, useState } = require('react')
   const { Editor } = require('elysium/dialog')
   const { relativeTime } = require('elysium/materials')
@@ -57,4 +57,5 @@ window.__ModuleLoader__.load('elysium/projects', (require, exports) => {
       } }) : null)
   }
   Object.assign(exports, { ProjectList, ProjectDetail })
-})
+return exports
+} })

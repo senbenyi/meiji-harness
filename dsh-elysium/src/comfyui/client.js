@@ -4,9 +4,6 @@ import { setTimeout as pause } from 'node:timers/promises'
 import { submitComfyPrompt } from './submission.js'
 import { createTiming } from '../jobs/timing.js'
 
-import { readJson, saveJson } from '../jobs/store.js'
-export { readJson, saveJson }
-
 export function comfyUrl(server = 'minimax-h3') {
   if (server !== 'minimax-h3') throw new Error(`未知 ComfyUI 实例：${server}`)
   return requiredConfig('COMFYUI_URL', 'url')

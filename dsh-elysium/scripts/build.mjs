@@ -5,5 +5,7 @@ import { clientSource } from './client-source.mjs'
 rmSync('lib', { recursive: true, force: true })
 mkdirSync('lib', { recursive: true })
 cpSync('src', 'lib', { recursive: true })
+rmSync('lib/client', { recursive: true, force: true })
+rmSync('lib/video-production', { recursive: true, force: true })
 writeFileSync('lib/client.js', clientSource())
 console.log('built lib/ from src/')
