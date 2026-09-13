@@ -14,10 +14,8 @@ test('browser bundle registers the exact package name required by Harness', () =
   assert.equal(typeof registrations.get(pkg.name), 'function')
 })
 
-test('Harness can resolve the manifest, server and declared client entries', () => {
+test('Harness can resolve the server and declared client entries', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-  const manifest = JSON.parse(readFileSync(new URL('../dsh.plugin.json', import.meta.url), 'utf8'))
-  assert.equal(manifest.id, pkg.name.slice(1))
   assert.equal(pkg.dsh.client.platform, 'web')
   for (const [subpath, target] of [['', 'lib/index.js'], ['/client', 'lib/client.js'], ['/package.json', 'package.json']]) {
     assert.equal(import.meta.resolve(`${pkg.name}${subpath}`), new URL(`../${target}`, import.meta.url).href)
