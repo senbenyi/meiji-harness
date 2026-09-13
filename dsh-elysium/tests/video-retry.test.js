@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, rm, readdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
@@ -13,9 +13,12 @@ import { bindVideoCall, findVideoCall } from '../src/video/call-binding.js'
 import { readJson, saveJson } from '../src/jobs/store.js'
 
 const plan = { mode: 't2va', prompt: 'A woman cooking in a kitchen.' }
+const project = 'abcd1234'
 async function fixture(t, run) {
   const root = await mkdtemp(join(tmpdir(), 'video-retry-'))
   t.after(() => rm(root, { recursive: true, force: true }))
+  await mkdir(join(root, 'projects', project), { recursive: true })
+  await writeFile(join(root, 'projects', project, 'project.json'), '{}')
   return withConfig({ COMFYUI_URL: 'https://comfy.test', ELYSIUM_STATE_ROOT: root }, () => run(root))
 }
 
@@ -34,9 +37,9 @@ test('prepare, lost POST response and polling recover inside one job with exactl
     if (++polls === 1) throw new DOMException('timeout', 'TimeoutError')
     return { original: { status: { completed: true }, outputs: { [outputNode]: { videos: [{ filename: 'final.mp4', type: 'output' }] } } } }
   })
-  const result = await executeComfyVideo(id, plan, { pause: async ms => {
+  const result = await executeComfyVideo(project, id, plan, { pause: async ms => {
     delays.push(ms)
-    assert.equal((await readJson(join(root, 'jobs', id, 'status.json'))).stage, 'reconnecting')
+    assert.equal((await readJson(join(root, 'projects', project, 'jobs', id, 'status.json'))).stage, 'reconnecting')
   } })
   assert.equal(result.status, 'succeeded')
   assert.equal(result.result.comfyui_prompt_id, 'original')
@@ -45,7 +48,7 @@ test('prepare, lost POST response and polling recover inside one job with exactl
   assert.equal(result.timings.clock, 'performance.now')
   assert.equal(result.timings.stages['reconnect.backoff'].count, 4)
   assert.equal(result.timings.stages['prepare.validate'].failed, 2)
-  assert.deepEqual(await readdir(join(root, 'jobs')), [id])
+  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
 }))
 
 test('persistent outage stops after five retries without submission or new jobs', async t => fixture(t, async root => {
@@ -53,42 +56,42 @@ test('persistent outage stops after five retries without submission or new jobs'
   t.mock.method(ComfyClient.prototype, 'validate', async () => { attempts++; throw new TypeError('fetch failed') })
   t.mock.method(ComfyClient.prototype, 'submit', () => assert.fail('must not submit'))
   const id = 'b'.repeat(32), delays = []
-  await assert.rejects(executeComfyVideo(id, plan, { pause: async ms => delays.push(ms) }), /fetch failed/)
-  const status = await readJson(join(root, 'jobs', id, 'status.json'))
+  await assert.rejects(executeComfyVideo(project, id, plan, { pause: async ms => delays.push(ms) }), /fetch failed/)
+  const status = await readJson(join(root, 'projects', project, 'jobs', id, 'status.json'))
   assert.equal(attempts, 6)
   assert.deepEqual(delays, [2000, 4000, 8000, 16000, 30000])
   assert.equal(status.status, 'failed')
   assert.equal(status.timings.stages['reconnect.backoff'].count, 5)
   assert.match(status.recovery_instruction, /等待用户/)
-  assert.deepEqual(await readdir(join(root, 'jobs')), [id])
+  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
 }))
 
 test('cancellation during backoff stops the same job immediately', async t => fixture(t, async root => {
   const controller = new AbortController(), id = 'c'.repeat(32)
   let attempts = 0
   t.mock.method(ComfyClient.prototype, 'validate', async () => { attempts++; throw new TypeError('fetch failed') })
-  await assert.rejects(executeComfyVideo(id, plan, { signal: controller.signal, pause: async () => {
+  await assert.rejects(executeComfyVideo(project, id, plan, { signal: controller.signal, pause: async () => {
     controller.abort(); throw controller.signal.reason
   } }), { name: 'AbortError' })
   assert.equal(attempts, 1)
-  assert.equal((await readJson(join(root, 'jobs', id, 'status.json'))).status, 'failed')
+  assert.equal((await readJson(join(root, 'projects', project, 'jobs', id, 'status.json'))).status, 'failed')
 }))
 
 test('changed prompt and concurrent repeat calls reuse the failed job; repeated resume in one turn cannot relaunch', async t => fixture(t, async root => {
   const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'first' } }]
   const session = { id: 'session', snapshotEvents: () => events }
   const exec = callId => ({ agent: { session }, callId })
-  const id = await createJob(plan)
+  const id = await createJob(project, plan)
   await bindVideoCall(id, exec('first'))
-  await saveJson(join(root, 'jobs', id, 'status.json'), { job_id: id, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
-  const repeated = await Promise.all(['second', 'third'].map(callId => startVideoJob({ ...plan, prompt: 'Changed by the model.' }, exec(callId))))
+  await saveJson(join(root, 'projects', project, 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
+  const repeated = await Promise.all(['second', 'third'].map(callId => startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec(callId))))
   assert.ok(repeated.every(job => job.job_id === id))
   assert.equal(await findVideoCall(session.id, 'second'), id)
   events.push({ type: 'tool/call', data: { name: 'workflow_resume_video', callId: 'resume' } })
   await bindVideoCall(id, exec('resume'))
   assert.equal((await resumeVideoJob(id, exec('repeat-resume'))).job_id, id)
-  assert.deepEqual(await readdir(join(root, 'jobs')), [id])
-  assert.equal(await readJson(join(root, 'jobs', id, 'worker.lock')), null)
+  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
+  assert.equal(await readJson(join(root, 'projects', project, 'jobs', id, 'worker.lock')), null)
 }))
 
 test('HTTP gateway failures are retryable even when the response is HTML; validation failures are not retried', async t => fixture(t, async () => {
@@ -96,6 +99,6 @@ test('HTTP gateway failures are retryable even when the response is HTML; valida
   await assert.rejects(new ComfyClient().request('object_info/CLIPLoader'), { status: 502 })
   let validation = 0
   t.mock.method(ComfyClient.prototype, 'validate', async () => { validation++; throw new Error('invalid graph') })
-  await assert.rejects(executeComfyVideo('d'.repeat(32), plan, { pause: () => assert.fail('validation errors must stop') }), /invalid graph/)
+  await assert.rejects(executeComfyVideo(project, 'd'.repeat(32), plan, { pause: () => assert.fail('validation errors must stop') }), /invalid graph/)
   assert.equal(validation, 1)
 }))

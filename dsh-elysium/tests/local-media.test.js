@@ -9,25 +9,26 @@ import { withConfig } from '../src/config.js'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/http/media-routes.js'
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), 'elysium-local-')), id = 'a'.repeat(32)
-  const job = { job_id: id, status: 'succeeded', result: { media_kind: 'video', local_media_path: 'media/test/clip.mp4', comfyui_view_url: 'https://invalid.example/video' } }
-  await mkdir(join(root, 'media/test'), { recursive: true })
-  const records = ['clip.mp4', 'image.png', 'subtitles.srt'].map(name => ({ path: `media/test/${name}`, job_id: id, size_bytes: 10 }))
-  for (const record of records) await writeFile(join(root, record.path), '0123456789')
-  const save = () => writeFile(join(root, 'media/test/manifest.json'), JSON.stringify({ files: records }))
+  const root = await mkdtemp(join(tmpdir(), 'elysium-local-')), id = 'a'.repeat(32), projectId = 'b'.repeat(8)
+  const project = join(root, 'projects', projectId)
+  const job = { job_id: id, project_id: projectId, status: 'succeeded', result: { media_kind: 'video', local_media_path: 'media/clip.mp4', comfyui_view_url: 'https://invalid.example/video' } }
+  await mkdir(join(project, 'media'), { recursive: true })
+  const records = ['clip.mp4', 'image.png', 'subtitles.srt'].map(name => ({ path: `media/${name}`, job_id: id, size_bytes: 10 }))
+  for (const record of records) await writeFile(join(project, record.path), '0123456789')
+  const save = () => writeFile(join(project, 'media/manifest.json'), JSON.stringify({ project_id: projectId, files: records }))
   await save()
   const handler = createMediaHandler({ token: 'test', readJob: async () => job })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
   const url = kind => `http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}/${kind}?job=${id}&t=test`
-  return { root, job, records, save, url, get: (kind, options) => fetch(url(kind), options) }
+  return { root, project, job, records, save, url, get: (kind, options) => fetch(url(kind), options) }
 }
 
 test('local image/video/subtitle GET and HEAD use authenticated routes and prefer local bytes', async t => {
   const f = await fixture(t)
   for (const [file, kind, type, endpoint] of [['image.png', 'image', 'image/png', 'image'], ['clip.mp4', 'video', 'video/mp4', 'video'], ['subtitles.srt', 'file', 'application/x-subrip; charset=utf-8', 'download']]) {
-    Object.assign(f.job.result, { local_media_path: `media/test/${file}`, media_kind: kind })
+    Object.assign(f.job.result, { local_media_path: `media/${file}`, media_kind: kind })
     const status = await (await f.get('status')).json()
     assert.equal(status.has_download, true)
     assert.equal(status.has_video, kind === 'video'); assert.equal(status.has_image, kind === 'image')
@@ -69,17 +70,17 @@ test('local registration rejects traversal, encoded paths, unregistered files an
     const status = await (await f.get('status')).json()
     assert.equal(status.has_video, false); assert.ok(status.media_error)
   }
-  f.job.result.local_media_path = 'media/test/clip.mp4'
-  await rm(join(f.root, 'media/test/clip.mp4'))
+  f.job.result.local_media_path = 'media/clip.mp4'
+  await rm(join(f.project, 'media/clip.mp4'))
   assert.equal((await f.get('video')).status, 404)
   assert.match((await (await f.get('status')).json()).media_error, /缺失/)
   const outside = await mkdtemp(join(tmpdir(), 'elysium-outside-'))
   t.after(() => rm(outside, { recursive: true, force: true }))
   await writeFile(join(outside, 'clip.mp4'), '0123456789')
-  await symlink(join(outside, 'clip.mp4'), join(f.root, 'media/test/clip.mp4'))
+  await symlink(join(outside, 'clip.mp4'), join(f.project, 'media/clip.mp4'))
   assert.equal((await f.get('video')).status, 403)
-  await symlink(outside, join(f.root, 'media/test/escape'))
-  f.records.push({ path: 'media/test/escape/clip.mp4', job_id: f.job.job_id, size_bytes: 10 }); await f.save()
-  f.job.result.local_media_path = 'media/test/escape/clip.mp4'
+  await symlink(outside, join(f.project, 'media/escape'))
+  f.records.push({ path: 'media/escape/clip.mp4', job_id: f.job.job_id, size_bytes: 10 }); await f.save()
+  f.job.result.local_media_path = 'media/escape/clip.mp4'
   assert.equal((await f.get('video')).status, 403)
 })

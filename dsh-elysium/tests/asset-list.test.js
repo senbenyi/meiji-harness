@@ -15,10 +15,12 @@ test('assets require authentication, paginate successful jobs by mtime and accep
   const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`
   try {
     assert.deepEqual(await (await fetch(base + '/list?t=secret')).json(), { items: [], total: 0, has_more: false })
+    const project = 'a'.repeat(8)
     for (let i = 1; i <= 3; i++) {
-      const id = String(i).repeat(32), path = join(root, 'jobs', id, 'status.json')
-      await mkdir(join(root, 'jobs', id), { recursive: true })
-      await writeFile(path, JSON.stringify({ job_id: id, debug: { effective_input: { prompt: i === 1 ? '林在咖啡馆' : '雨夜街道', secret: 'not-exported' } }, status: i === 3 ? 'running' : 'succeeded', result: { profile: i === 1 ? 'preview' : 'hd', media_kind: i === 1 ? 'image' : 'video', comfyui_view_url: 'https://model.test/view' } }))
+      const id = String(i).repeat(32), path = join(root, 'projects', project, 'jobs', id, 'status.json')
+      await mkdir(join(root, 'projects', project, 'jobs', id, 'input'), { recursive: true })
+      await writeFile(join(root, 'projects', project, 'jobs', id, 'input/request.json'), '{}')
+      await writeFile(path, JSON.stringify({ job_id: id, project_id: project, debug: { effective_input: { prompt: i === 1 ? '林在咖啡馆' : '雨夜街道', secret: 'not-exported' } }, status: i === 3 ? 'running' : 'succeeded', result: { profile: i === 1 ? 'preview' : 'hd', media_kind: i === 1 ? 'image' : 'video', comfyui_view_url: 'https://model.test/view' } }))
       await utimes(path, i, i)
     }
     assert.equal((await fetch(base + '/list')).status, 401)

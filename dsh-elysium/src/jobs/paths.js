@@ -21,7 +21,7 @@ export async function findJobRoot(jobId) {
   for (const entry of entries) {
     if (!entry.isDirectory() || !validProjectId(entry.name)) continue
     const directory = projectJobRoot(entry.name, jobId)
-    try { await access(join(directory, 'input/request.json')); return { directory, projectId: entry.name } }
+    try { await access(directory); return { directory, projectId: entry.name } }
     catch (error) { if (error.code !== 'ENOENT') throw error }
   }
   return null

@@ -39,6 +39,7 @@ async function startVideoJobLocked(args, exec) {
       const previous = await findVideoCall(session.id, call.data.callId, session)
       if (!previous) continue
       const job = await getJob(previous)
+      if (job.project_id !== projectId) continue
       if (job.status === 'succeeded') break
       await bindVideoCall(previous, exec)
       return { job_id: previous, project_id: job.project_id, status: job.status }

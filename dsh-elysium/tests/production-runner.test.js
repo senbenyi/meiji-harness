@@ -11,7 +11,7 @@ const configured = callback => withConfig({ COMFYUI_URL: 'https://example.invali
 
 const manifest = () => validateProductionManifest({
   version: 1,
-  project_id: 'sample-001',
+  project_id: 'abcd1234',
   profile: 'preview',
   shots: [
     { id: 'shot-001', request: { mode: 't2va', prompt: 'An empty cafe.' }, media: {}, produces_anchor: { id: 'scene', frame_index: 36 } },
@@ -38,7 +38,7 @@ test('resolved request uses the root profile and server anchor URL', async () =>
 
 test('runner persists receipts, anchors and progress and reuses completed shots', async t => {
   const stateRoot = await fixture(t), calls = [], references = [], historyReads = []
-  const executeShot = async request => {
+  const executeShot = async (_projectId, request) => {
     calls.push(request)
     const job_id = String(calls.length).padStart(32, '0')
     return { request, job_id, result: { status: 'succeeded', comfyui_prompt_id: job_id, comfyui_view_url: `https://example.invalid/view?filename=${job_id}.mp4&type=output` } }
@@ -55,7 +55,7 @@ test('runner persists receipts, anchors and progress and reuses completed shots'
   assert.equal((await configured(() => runProduction(value, options))).completed, 2)
   assert.equal(calls.length, 2);assert.equal(references.length, 1)
   assert.equal(historyReads.length, 2)
-  const root = join(stateRoot, 'productions', value.project_id)
+  const root = join(stateRoot, 'projects', value.project_id, 'production')
   const progress = JSON.parse(await readFile(join(root, 'progress.json'), 'utf8'))
   assert.deepEqual({ completed: progress.completed, total: progress.total, checked_shot: progress.checked_shot }, { completed: 2, total: 2, checked_shot: 'shot-002' })
   const second = JSON.parse(await readFile(join(root, 'shots', 'shot-002.receipt.json'), 'utf8'))
@@ -63,8 +63,8 @@ test('runner persists receipts, anchors and progress and reuses completed shots'
 })
 
 test('runner refuses changed manifests for an existing project state', async t => {
-  const stateRoot = await fixture(t), value = validateProductionManifest({ version: 1, project_id: 'immutable', profile: 'preview', shots: [{ id: 'one', request: { mode: 't2va', prompt: 'x' }, media: {} }] })
-  const options = { stateRoot, executeShot: async request => ({ request, job_id: 'a'.repeat(32), result: { status: 'succeeded' } }), log: () => {} }
+  const stateRoot = await fixture(t), value = validateProductionManifest({ version: 1, project_id: '1234abcd', profile: 'preview', shots: [{ id: 'one', request: { mode: 't2va', prompt: 'x' }, media: {} }] })
+  const options = { stateRoot, executeShot: async (_projectId, request) => ({ request, job_id: 'a'.repeat(32), result: { status: 'succeeded' } }), log: () => {} }
   await configured(() => runProduction(value, options))
   await assert.rejects(configured(() => runProduction({ ...value, max_attempts: 4 }, options)), /禁止修改清单/)
 })

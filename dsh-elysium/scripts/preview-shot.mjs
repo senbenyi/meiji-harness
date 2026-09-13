@@ -5,8 +5,8 @@ import { resolveConfig, withConfig, requiredConfig } from '../src/config.js'
 import { withLaunchLock } from '../src/jobs/lock.js'
 import { executeVideoShot } from '../src/video-production/runner.js'
 
-const [requestPath, receiptPath] = process.argv.slice(2)
-if (!requestPath || !receiptPath) throw new Error('Usage: COMFYUI_URL=... node scripts/preview-shot.mjs request.json receipt.json')
+const [projectId, requestPath, receiptPath] = process.argv.slice(2)
+if (!projectId || !requestPath || !receiptPath) throw new Error('Usage: COMFYUI_URL=... node scripts/preview-shot.mjs project_id request.json receipt.json')
 const request = JSON.parse(await readFile(requestPath, 'utf8'))
 if (request.profile !== 'preview') throw new Error('This entry requires profile=preview')
 await withConfig(resolveConfig(), async () => {
@@ -14,7 +14,7 @@ await withConfig(resolveConfig(), async () => {
   await mkdir(guard, { recursive: true })
   await withLaunchLock(guard, async () => {
     requiredConfig('COMFYUI_URL', 'url')
-    const receipt = await executeVideoShot(request, receiptPath)
+    const receipt = await executeVideoShot(projectId, request, receiptPath)
     console.log(JSON.stringify(receipt.result))
     if (receipt.result.status !== 'succeeded') process.exitCode = 1
   })
