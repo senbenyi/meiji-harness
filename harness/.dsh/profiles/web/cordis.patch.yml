@@ -25,6 +25,11 @@
 - id: ui-permission
   disabled: true
 
+# 只发现本机维护的四个 Elysium 预设，不合并 DSH 内置预设。
+- id: agent-presets
+  config:
+    includeShippedRoot: false
+
 # 生成使用 ComfyUI URL；模板媒体由插件从存储目录提供同源访问。
 - insert:
     - id: dsh-elysium

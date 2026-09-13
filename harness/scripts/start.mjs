@@ -32,7 +32,7 @@ for (let attempt = 0; attempt < 300; attempt++) {
   if (spawnError) throw spawnError
   if (harness.exitCode !== null) throw new Error(`Harness 启动失败，退出码 ${harness.exitCode}；查看 ${harnessLog}`)
   try {
-    const listeners = execFileSync('lsof', ['-a', '-p', String(harness.pid), '-iTCP', '-sTCP:LISTEN', '-Fn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    const listeners = execFileSync('lsof', ['-nP', '-a', '-p', String(harness.pid), '-iTCP', '-sTCP:LISTEN', '-Fn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
     const actualPort = /^n.*:(\d+)$/m.exec(listeners)?.[1]
     if (actualPort) { console.log(`Harness 已在后台启动：http://127.0.0.1:${actualPort}/（PID：${harness.pid}；日志：${harnessLog}）`); process.exit(0) }
   } catch (error) { if (error.status !== 1) throw error }

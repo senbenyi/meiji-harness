@@ -46,7 +46,6 @@ ui-conversation:
 permission:
   defaultPreset: danger-full-access
 
-# 默认显示教学预设，并隐藏 Harness 自带根预设。
+# 默认显示教学预设。
 agent-presets:
   default: elysium-teaching
-  includeShippedRoot: false
