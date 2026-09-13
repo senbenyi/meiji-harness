@@ -106,6 +106,8 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
           try { await mkdir(join(root(), value.id)); break }
           catch (error) { if (error.code !== 'EEXIST') throw error; value.id = newId() }
         }
+        await Promise.all(['jobs', 'production', 'media'].map(name => mkdir(join(root(), value.id, name))))
+        await writeJson(join(root(), value.id, 'media', 'manifest.json'), { version: 1, project_id: value.id, complete: false, files: [], missing: [] })
       } else {
         value = await load(body.id)
         sections = []

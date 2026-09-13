@@ -26,7 +26,7 @@ async function fixture(t) {
 }
 
 test('manifest rejects forward anchor references and unknown fields', () => {
-  const value = { version: 1, project_id: 'bad', profile: 'preview', shots: [{ id: 'one', request: { mode: 'i2va', prompt: 'x' }, media: { first_frame: { anchor: 'later' } } }] }
+  const value = { version: 1, project_id: 'deadbeef', profile: 'preview', shots: [{ id: 'one', request: { mode: 'i2va', prompt: 'x' }, media: { first_frame: { anchor: 'later' } } }] }
   assert.throws(() => validateProductionManifest(value), /尚未产出的锚点/)
   assert.throws(() => validateProductionManifest({ ...value, extra: true }), /未知字段 extra/)
 })

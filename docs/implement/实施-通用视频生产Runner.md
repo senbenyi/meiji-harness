@@ -9,7 +9,7 @@
 ```json
 {
   "version": 1,
-  "project_id": "sample-001",
+  "project_id": "abcd1234",
   "profile": "preview",
   "max_attempts": 3,
   "shots": [
@@ -38,6 +38,6 @@ ELYSIUM_STATE_ROOT=/absolute/local/state \
 node dsh-elysium/scripts/production-runner.mjs /absolute/project/manifest.json
 ```
 
-第二个可选参数限制本次核对到前 N 镜。状态位于 `ELYSIUM_STATE_ROOT/productions/<project_id>/`，包含冻结清单、逐镜回执、尝试记录、ComfyUI history、锚点和进度。重复运行会复用已成功任务；失败任务沿用同一 `job_id` 恢复。提交状态不明或本地等待中断时停止并保留原任务，不据此自动创建新任务。
+第二个可选参数限制本次核对到前 N 镜。状态位于 `ELYSIUM_STATE_ROOT/projects/<project_id>/production/`，任务位于同项目的 `jobs/`，包含冻结清单、逐镜回执、尝试记录、ComfyUI history、锚点和进度。重复运行会复用已成功任务；失败任务沿用同一 `job_id` 恢复。提交状态不明或本地等待中断时停止并保留原任务，不据此自动创建新任务。
 
 同一 `project_id` 开始执行后禁止修改清单。需要变更生成请求时应使用新的项目 ID，避免新请求错误复用旧回执。

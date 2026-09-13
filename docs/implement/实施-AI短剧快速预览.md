@@ -90,6 +90,7 @@
 ```sh
 COMFYUI_URL=https://36we4j3zo503js-8188.proxy.runpod.net \
 node dsh-elysium/scripts/preview-shot.mjs \
+  0853b1fa \
   docs/implement/implement-drama-preview/acceptance/shot-01.request.json \
   docs/implement/implement-drama-preview/acceptance/shot-01.receipt.json
 ```

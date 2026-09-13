@@ -1,6 +1,7 @@
 // 职责：读取、校验并规范化多镜头视频生产清单。
 import { readFile } from 'node:fs/promises'
 import { MODE_MEDIA, VIDEO_MODES, VIDEO_PROFILES, validateVideoPlan } from '../video/plan.js'
+import { validProjectId } from '../jobs/paths.js'
 
 const fail = message => { throw new Error(`生产清单无效：${message}`) }
 const object = value => value && typeof value === 'object' && !Array.isArray(value)
@@ -22,7 +23,7 @@ export function validateProductionManifest(value) {
   if (!object(value)) fail('根节点必须为对象')
   exactKeys(value, ['version', 'project_id', 'profile', 'max_attempts', 'shots'], '根节点')
   if (value.version !== 1) fail('version 必须为 1')
-  identifier(value.project_id, 'project_id')
+  if (!validProjectId(value.project_id)) fail('project_id 必须为 8 位项目 ID')
   if (!VIDEO_PROFILES.includes(value.profile)) fail(`profile 仅支持 ${VIDEO_PROFILES.join('、')}`)
   const maxAttempts = value.max_attempts ?? 3
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) fail('max_attempts 必须为 1..10 的整数')

@@ -27,6 +27,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     const first = await (await fetch(base + '/list?t=secret&limit=1')).json()
     assert.equal(first.total, 2); assert.equal(first.has_more, true)
     assert.equal(first.items[0].job_id, '2'.repeat(32)); assert.equal(first.items[0].created_at, 2000)
+    assert.equal(first.items[0].project_id, project)
     assert.equal(first.items[0].profile, 'hd')
     assert.equal((await (await fetch(base + '/list?t=secret&profile=high-quality')).json()).total, 1)
     const filtered = await (await fetch(base + '/list?t=secret&profile=preview&media_kind=image&limit=1')).json()
