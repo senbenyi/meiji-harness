@@ -7,7 +7,7 @@ export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'))
   // Keep this explicit list aligned with every workflows/jobs module that participates in execution.
   const names = ['tool.js', 'diagnostics.js', '../comfyui/client.js', '../../config.js',
-    ...['contracts.js', 'create.js', 'json.js', 'launch.js', 'launch-lock.py', 'query.js', 'wait.js',
+    ...['contracts.js', 'create.js', 'json.js', 'launch.js', 'query.js', 'wait.js',
       'comfy-submission.js', 'call-index.js', 'worker-owner.js', 'timing.js'].map(name => `../../jobs/${name}`),
     '../../media/http-media.js',
     ...['comfy-execution', 'video-plan', 'video-jobs', 'video-worker', 'video-graph',

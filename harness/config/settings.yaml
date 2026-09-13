@@ -1,26 +1,33 @@
-# 启动与隧道参数
+# 仅供 app/common 本机脚本读取；config_loader.sh render 会移除本段。
 harness-runtime:
+  # Qwen 服务经 SSH 转发后在本机监听；远端模型服务只监听其回环地址。
   QWEN_LOCAL_HOST: 127.0.0.1
   QWEN_REMOTE_HOST: 127.0.0.1
+  # RunPod ComfyUI 的 HTTP(S) 服务地址，插件不读取服务器本地文件。
   COMFYUI_URL: https://36we4j3zo503js-8188.proxy.runpod.net
+  # 本机 Harness 的数据目录与监听地址。
   LOCAL_DSH_HOME: /Users/mac/.dsh
   LOCAL_HARNESS_HOST: 127.0.0.1
   LOCAL_HARNESS_PORT: 3080
+  # SSH 别名及 Qwen 本地转发端口、远端服务端口和模型 ID。
   QWEN_SSH_TARGET: veo-qwen38
   QWEN_API_LOCAL_PORT: 18000
   QWEN_API_REMOTE_PORT: 8000
   QWEN_MODEL_ID: qwen3.8-27b-elysium
 
-# 模型服务
+# Harness 模型提供方；双下划线占位符由 config_loader.sh render 替换。
 llm-pi-ai:
   providers:
+    # 使用环境变量中的 API Key，不在仓库保存凭据。
     qwen-token-plan-cn:
       apiKeyEnv: QWEN_TOKEN_PLAN_CN_API_KEY
+    # 通过本机 SSH 转发访问远端 Qwen OpenAI 兼容接口。
     qwen38-local:
       displayName: qwen3.8-27b-elysium
       api: openai-completions
       baseURL: http://__QWEN_LOCAL_HOST__:__QWEN_API_LOCAL_PORT__/v1
       compat:
+        # 适配 Qwen chat template 与 openai-completions 参数约定。
         supportsDeveloperRole: false
         maxTokensField: max_tokens
         thinkingFormat: qwen-chat-template
@@ -36,31 +43,38 @@ llm-pi-ai:
             - text
       apiKeyEnv: QWEN38_LOCAL_API_KEY
 
+# 新会话默认使用经本机转发的 Qwen 模型。
 agent-default-model:
   provider: qwen38-local
   model: __QWEN_MODEL_ID__
 
+# 显示浏览器/Git 标签，并允许 Agent 主动打开工具界面。
 dsh-better-sidebar:
   tabsEnabled:
     browser: true
     git: true
   agentOpenTools: true
 
+# Agent 忙碌时按 Enter 将新消息作为 steer 发送。
 ui-conversation:
   busyEnter: steer
 
+# 本机开发 Harness 默认权限；不要复制到远端模型服务器。
 permission:
   defaultPreset: danger-full-access
 
+# 默认显示教学预设，并隐藏 Harness 自带根预设。
 agent-presets:
   default: elysium-teaching
   includeShippedRoot: false
 
-# 按 id 同步到本机 profile 的配置；config_loader.py render 不输出此段。
+# 需按 id 同步到本机 web profile；config_loader.sh render 不输出本段。
 harness-customization:
   profile:
+    # 禁用命令执行反馈组件。
     - id: command-feedback
       disabled: true
+    # 插件仅通过服务器 URL 访问 ComfyUI 媒体。
     - id: dsh-elysium-tools
       config:
         comfyUrl: __COMFYUI_URL__

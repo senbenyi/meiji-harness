@@ -41,5 +41,5 @@ SKIP_COMFYUI_CHECK=1 bash app/common/deploy_plugin.sh tools
 ```sh
 pnpm workflow:sync       # 从 RunPod ComfyUI 同步 UI 图，编译 API 图并更新 SHA-256
 pnpm workflow:check      # 只读核验，不修改文件
-python3 -m unittest tests/test_runpod_workflow_sync.py
+node --test tests/runpod-workflow-sync.test.js
 ```

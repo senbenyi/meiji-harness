@@ -3,12 +3,12 @@ import { test } from 'node:test'
 
 import { resolveConfig, withConfig, requiredConfig, workerEnvironment } from '../src/config.js'
 
-for (const key of ['COMFYUI_URL', 'ARTIFACTS_ROOT', 'ELYSIUM_TOOLS_STATE_ROOT', 'HARNESS_PYTHON', 'FFPROBE_BIN']) delete process.env[key]
+for (const key of ['COMFYUI_URL', 'ARTIFACTS_ROOT', 'ELYSIUM_TOOLS_STATE_ROOT', 'FFPROBE_BIN']) delete process.env[key]
 
 test('plugin config uses one ComfyUI URL and isolates concurrent calls', async () => {
   assert.ok(resolveConfig().ARTIFACTS_ROOT.endsWith('/elysium/artifacts'))
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' },
-    { stateRoot: 'relative' }, { python: null }, { ffprobe: 12 },
+    { stateRoot: 'relative' }, { ffprobe: 12 },
     { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig(config))
   const configs = ['/tmp/instance-a', '/tmp/instance-b'].map((artifactsRoot, index) => resolveConfig({
     comfyUrl: `https://pod-${index}.test`, artifactsRoot,

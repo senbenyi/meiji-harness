@@ -3,12 +3,17 @@
 DeepSeek Harness 插件、运行配置与部署脚本。
 
 ## 项目结构
-- `dsh-elysium-tools/` — 工具注册、参数处理、任务调用与媒体卡片。
-- `dsh-elysium-tools/src/workflows/templates/minimax-h3/` — MiniMax H3 五套 UI/API 图及绑定的唯一事实源。
-- `dsh-elysium-tools/scripts/sync_runpod_video_workflows.py` — 从 RunPod 同步并编译五套工作流。
-- `harness/config/` — 本机 Harness、远端模型服务地址与隧道设置。
-- `harness/.agent-presets/` — 四套 Agent preset（elysium-standard 标准、elysium-teaching 教学、elysium-free 自由、elysium-director 导演），含人格、协作指令和创作技能。
-- `app/` — 部署入口；`app/common/` 提供配置解析、安装、启动和隧道脚本。
+
+```text
+├── app — 部署入口
+│   └── common — 配置解析、安装、启动和隧道脚本
+├── harness/
+│   ├── config/ — 本机 Harness、远端模型服务地址与隧道设置
+│   └── .agent-presets/ — 四套 Agent preset（elysium-standard 标准、elysium-teaching 教学、elysium-free 自由、elysium-director 导演），含人格、协作指令和创作技能
+├── dsh-elysium-tools/ — 工具注册、参数处理、任务调用与媒体卡片
+│   ├── src/workflows/templates/minimax-h3/ — MiniMax H3 五套 UI/API 图及绑定的唯一事实源
+│   └── scripts/sync_runpod_video_workflows.mjs — 从 RunPod 同步并编译五套工作流
+```
 
 ## 铁律
 - 插件不允许上传、下载、保存文件方法

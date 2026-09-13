@@ -148,7 +148,7 @@ flowchart TD
 - 服务器冻结：`/workspace/runpod-slim/ComfyUI/user/default/preview-backups/20260912-035623/`，保留当时工作流副本、队列和运行信息。主模型、ComfyUI 环境及启动参数未更改。
 - 修改已测试、构建并打包到现有 registry；本机 web profile 原安装链接继续使用它。只重启本机 Harness，没有执行会连接其他主机的部署脚本，也未重启远程 ComfyUI。
 - 最小回退：请求切回 `profile=standard`，无需还原整个项目。若需要撤回代码，按 manifest/备份逐文件还原本轮改动并重新构建，保留之后的用户修改，勿使用全仓库 reset/clean。
-- 本轮验证：66 项 JavaScript 测试、2 项工作流 Python 测试、4 项预设测试通过；预设测试的 PyYAML 仅安装到本机 `/tmp/preview-test-deps`。标准五模式及提交找回/去重/重试测试通过；实际安装目录确认公开 preview 参数且能构建预览图，已完成镜头的回执恢复不会重生成。
+- 本轮验证：72 项测试通过。标准五模式及提交找回/去重/重试测试通过；实际安装目录确认公开 preview 参数且能构建预览图，已完成镜头的回执恢复不会重生成。
 - 本轮有限生成通过本机脚本调用同一插件任务链；没有额外让 Harness 的语言模型再生成一轮样片。自然语言选参稳定性未单独验收。
 
 ## 仍未验证的能力
@@ -237,4 +237,4 @@ flowchart TD
 | [receipt.json](implement-drama-preview/candidate-low-resolution/receipt.json) | 原任务 ID 和生成结果，恢复时使用 |
 | [measurement.json](implement-drama-preview/candidate-low-resolution/measurement.json) | 本次耗时、原始节点事件、媒体规格、缓存状态和观察结论 |
 
-修改前备份位于 `/Users/mac/.dsh/backups/preview-candidate-20260912-130107/`，含原文件校验值和 29.1 秒任务证据。原 `preview.json` 内容未改。67 项 JavaScript 测试及 2 项工作流 Python 测试通过；构建和 registry 打包通过，已安装 registry 的 schema 与默认/候选图构建均核验。检查结束时本机 Harness 已由另一处在打包后启动，HTTP 返回预期的未登录 401，本轮没有启动重复实例；候选自然语言选参未另行实测。未新增第二次生成，未改变默认值，后续等待用户对候选效果的判断。
+修改前备份位于 `/Users/mac/.dsh/backups/preview-candidate-20260912-130107/`，含原文件校验值和 29.1 秒任务证据。原 `preview.json` 内容未改。69 项测试通过；构建和 registry 打包通过，已安装 registry 的 schema 与默认/候选图构建均核验。检查结束时本机 Harness 已由另一处在打包后启动，HTTP 返回预期的未登录 401，本轮没有启动重复实例；候选自然语言选参未另行实测。未新增第二次生成，未改变默认值，后续等待用户对候选效果的判断。

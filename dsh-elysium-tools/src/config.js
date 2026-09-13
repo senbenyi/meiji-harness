@@ -22,7 +22,6 @@ const fields = {
   comfyUrl: ['COMFYUI_URL', 'url'],
   artifactsRoot: ['ARTIFACTS_ROOT', 'path'],
   stateRoot: ['ELYSIUM_TOOLS_STATE_ROOT', 'path'],
-  python: ['HARNESS_PYTHON', 'command'],
   ffprobe: ['FFPROBE_BIN', 'command'],
 }
 
@@ -35,8 +34,7 @@ export function resolveConfig(config = {}) {
     if (!Object.hasOwn(fields, key) && key !== 'enableAtomicTools') throw new Error(`未知插件配置：${key}`)
   }
   const home = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'elysium')
-  const defaults = { artifactsRoot: join(home, 'artifacts'), stateRoot: join(home, 'tasks'),
-    python: process.env.PYTHON_BIN || 'python3', ffprobe: 'ffprobe' }
+  const defaults = { artifactsRoot: join(home, 'artifacts'), stateRoot: join(home, 'tasks'), ffprobe: 'ffprobe' }
   const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]

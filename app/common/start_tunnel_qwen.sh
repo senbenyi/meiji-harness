@@ -8,7 +8,7 @@ readonly SCRIPT_DIR
 readonly REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 readonly CONFIG="$REPO_ROOT/harness/config/settings.yaml"
 [[ -s "$CONFIG" ]] || { echo "[FAIL] 缺少配置：$CONFIG" >&2; exit 1; }
-runtime_settings="$("${PYTHON_BIN:-python3}" "$REPO_ROOT/app/common/config_loader.py" shell "$CONFIG")"
+runtime_settings="$(bash "$REPO_ROOT/app/common/config_loader.sh" shell "$CONFIG")"
 eval "$runtime_settings"
 
 fail() { echo "[FAIL] $1" >&2; exit 1; }
@@ -17,7 +17,7 @@ for name in curl lsof ps ssh; do
 done
 ssh_options=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 model_present() {
-  "${PYTHON_BIN:-python3}" -c 'import json,sys; target=sys.argv[1]; data=json.load(sys.stdin); raise SystemExit(0 if target in {item.get("id") for item in data.get("data", [])} else 1)' "$QWEN_MODEL_ID"
+  node -e 'let body="";process.stdin.on("data",x=>body+=x).on("end",()=>process.exit(JSON.parse(body).data?.some(x=>x.id===process.argv[1])?0:1))' "$QWEN_MODEL_ID"
 }
 qwen_ready() {
   curl -fsS --max-time 5 "http://$QWEN_LOCAL_HOST:$QWEN_API_LOCAL_PORT/v1/models" 2>/dev/null | \

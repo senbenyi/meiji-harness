@@ -1,7 +1,8 @@
-import { requiredConfig, runtimeConfig, workerEnvironment } from '../config.js'
+import { requiredConfig, workerEnvironment } from '../config.js'
 import { spawn } from 'node:child_process'
-import { open, writeFile, unlink } from 'node:fs/promises'
+import { mkdir, open, readFile, rm, rename, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { workerAlive } from './worker-owner.js'
 import { getJob } from './query.js'
@@ -17,20 +18,42 @@ export async function launch(jobId, capability = 'workflow-video', retryFailed =
 }
 
 export async function withLaunchLock(directory, callback, wait = false) {
-  const guard = spawn(runtimeConfig().HARNESS_PYTHON || process.env.PYTHON_BIN || 'python3',
-    [fileURLToPath(new URL('./launch-lock.py', import.meta.url)), join(directory, 'launch.lock'), ...(wait ? ['wait'] : [])],
-    { stdio: ['pipe', 'pipe', 'pipe'] })
-  const closed = new Promise(resolve => { guard.once('close', resolve) })
-  guard.stdin.on('error', () => {})
-  guard.stderr.resume()
+  const lock = join(directory, 'launch.lock')
+  const token = `${process.pid}:${randomUUID()}`
   try {
-    await new Promise((resolve, reject) => {
-      guard.once('error', reject)
-      guard.once('exit', () => reject(new ModelTaskError('WORKFLOW_RECOVERY_REQUIRED', '任务正在启动或启动锁不可用，请稍后查询原任务', 409)))
-      guard.stdout.once('data', resolve)
-    })
+    await acquireLaunchLock(lock, token, wait)
     return await callback()
-  } finally { guard.stdin.end(); await closed }
+  } finally {
+    if (await readFile(join(lock, 'owner'), 'utf8').catch(() => '') === token) await rm(lock, { recursive: true })
+  }
+}
+
+const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
+const processAlive = pid => {
+  try { process.kill(pid, 0); return true } catch (error) { return error.code === 'EPERM' }
+}
+
+async function acquireLaunchLock(lock, token, wait) {
+  for (;;) {
+    try {
+      await mkdir(lock)
+      try { await writeFile(join(lock, 'owner'), token, { mode: 0o600 }) }
+      catch (error) { await rm(lock, { recursive: true, force: true }); throw error }
+      return
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error
+    }
+    const owner = await readFile(join(lock, 'owner'), 'utf8').catch(() => '')
+    const pid = Number(owner.split(':', 1)[0])
+    if (Number.isInteger(pid) && processAlive(pid)) {
+      if (wait) { await pause(50); continue }
+      throw new ModelTaskError('WORKFLOW_RECOVERY_REQUIRED', '任务正在启动，请稍后查询原任务', 409)
+    }
+    const stale = `${lock}.stale-${randomUUID()}`
+    try { await rename(lock, stale); await rm(stale, { recursive: true }) } catch (error) {
+      if (!['ENOENT', 'EEXIST'].includes(error.code)) throw error
+    }
+  }
 }
 
 async function launchLocked(jobId, capability, retryFailed) {

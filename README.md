@@ -6,12 +6,9 @@ DeepSeek Harness 插件、Agent 预设与部署脚本。
 
 ```
 dsh-elysium-tools/          工具插件：视频生成、媒体卡片、素材管理、项目管理
-harness/                    部署与运行时配置
+harness/                    本机运行配置
   ├── .agent-presets/       四套 Agent 预设
-  ├── config/               Harness 设置、启动与隧道配置
-  ├── deploy.sh             服务器部署脚本（需要 root）
-  ├── start.sh              启动/重启 Harness 服务
-  └── qwen-tunnel.sh        Qwen 模型隧道
+  └── config/               Harness 设置与模型服务配置
 app/
   └── common/               本地部署、启动、配置解析脚本
 tests/                      单元测试
@@ -35,7 +32,7 @@ tests/                      单元测试
 
 本次创作工作台改造尚未部署，线上仍为此前版本；验收覆盖与待验项见 [实施记录](docs/implement/实施-创作工作台体验优化.md)。
 
-远端 `veo-comfyui` 此前已按用户确认同步部署，可通过 [服务器 Harness](https://36we4j3zo503js-8888.proxy.runpod.net/) 使用原登录凭据访问。服务器已移除旧 UI 插件，包含四套预设与《第三杯咖啡》完整项目。两端数据为一次性同步，后续编辑不会自动同步；详见实施记录的“veo-comfyui 统一部署”。
+Harness 只在本机运行；远端主机仅提供 ComfyUI 和 Qwen 模型服务。
 
 ## 预设模式
 
@@ -71,42 +68,15 @@ SKIP_COMFYUI_CHECK=1 bash app/common/start_harness.sh --restart
 bash app/common/start_harness.sh --stop
 ```
 
-### 服务器部署
-
-```sh
-sudo bash harness/deploy.sh
-```
-
-完整流程包括安装 Node.js/dsh/pnpm、注册插件、应用配置、复制预设、启动服务。
-
-服务器部署时 `elysium-teaching` 的 `agent.cordis.yml` 会被 `harness/config/operator-agent.cordis.yml` 覆盖，仅保留 persona、skill-filesystem、tool-skill（禁用 bash/subagent 等危险工具）。
-
 ## Harness 配置
 
 插件安装后需要两项配置才能正确显示 4 个预设并隐藏内置模式。部署脚本会自动应用，手动配置参考以下说明。
-
-### cordis.patch.yml（插件级配置）
-
-部署到 `$DSH_HOME/profiles/web/cordis.patch.yml`，仓库模板：`harness/config/profile.patch.yml`。
-
-```yaml
-- id: agent-presets
-  config:
-    default: elysium-teaching
-    includeShippedRoot: false    # 隐藏内置预设（PTC、极简、创造）
-
-- id: dsh-elysium-tools
-  config:
-    comfyUrl: http://127.0.0.1:8188
-```
-
-> `includeShippedRoot` 是插件级配置，**只在 `cordis.patch.yml` 中生效**，写在 `settings.yaml` 无效。
 
 ### settings.yaml（用户级设置）
 
 运行配置位于 `$DSH_HOME/settings.yaml`。仓库统一配置源为 `harness/config/settings.yaml`，包含本机启动参数、隧道、模型和界面设置，默认权限为 `danger-full-access`。
 
-仓库配置含模板占位符及 `harness-runtime`、`harness-customization`，不能直接复制为运行配置。使用 `python3 app/common/config_loader.py render` 生成运行配置（需要 PyYAML）；本机脚本通过同一解析器的 `shell` 模式读取启动参数。旧部署入口也使用此解析器，因此需保留仓库中 `app/common/config_loader.py` 的相对位置。
+仓库配置含模板占位符及 `harness-runtime`、`harness-customization`，不能直接复制为运行配置。使用 `bash app/common/config_loader.sh render` 生成运行配置；本机脚本通过同一解析器的 `shell` 模式读取启动参数。
 
 ```yaml
 agent-presets:
