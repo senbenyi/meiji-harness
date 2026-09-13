@@ -36,10 +36,10 @@ dsh-elysium-tools/
 
 ## 2. 预设结构
 
-预设位于 `harness/.agent-presets/`。
+预设位于 `harness/.dsh/.agent-presets/`。
 
 ```
-harness/.agent-presets/
+harness/.dsh/.agent-presets/
 ├── _base/                  # 公共基础 cordis 配置
 │   └── agent.cordis.yml    # 共享模板（teaching/free/director 共用）
 ├── elysium-teaching/
@@ -63,15 +63,17 @@ harness/.agent-presets/
 ## 3. 部署与配置
 
 ```
-app/common/               # 本地部署脚本
-harness/config/            # Harness 配置模板
-harness/deploy.sh          # 服务器部署（需 root）
+harness/scripts/install.mjs # 本机 Harness 与插件安装入口
+harness/scripts/start.mjs   # 本机 Harness 启动入口
+runpod/scripts/comfyui.mjs  # 服务器 ComfyUI 生命周期管理
+runpod/scripts/tunnel.mjs   # 服务器模型隧道
+harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 ```
 
 **规则**：
-- `harness/config/settings.yaml` 使用 `__PLACEHOLDER__` 占位符，由 `config_loader.py` 渲染。
-- 部署脚本支持 `SKIP_COMFYUI_CHECK=1` 跳过 ComfyUI 检查。
-- 服务器部署用 `operator-agent.cordis.yml` 覆盖教学预设（安全限制）。
+- `harness/.dsh/` 逐项覆盖到本机 `~/.dsh/`，不删除本机其他文件。
+- 部署脚本不检查模型服务、SSH、端口或运行状态。
+- Harness 只在本机运行；远端服务器只保留模型服务。
 
 ## 4. 测试
 

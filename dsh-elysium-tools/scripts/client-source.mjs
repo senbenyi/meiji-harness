@@ -1,3 +1,4 @@
+// 职责：拼接客户端模块，并适配 Harness 的模块加载协议。
 import { readFileSync } from 'node:fs'
 const modules = ['media/api.js', 'media/model.js', 'media/styles.js', 'media/card.js', 'media/results.js', 'creation-commands.js', 'panel/panel-styles.js', 'panel/dialog.js', 'panel/asset-list.js', 'panel/project.js', 'panel/storyboard-view.js', 'panel/asset-panel.js', 'index.js']
 // The host supplies React and its module loader; concatenate definitions without bundling another runtime.

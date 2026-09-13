@@ -1,3 +1,4 @@
+// 职责：提交或恢复单镜头预览任务，并等待任务完成。
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { resolveConfig, withConfig, requiredConfig } from '../src/config.js'

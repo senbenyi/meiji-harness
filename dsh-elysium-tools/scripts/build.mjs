@@ -1,3 +1,4 @@
+// 职责：从 src/ 构建 lib/，并生成适配 Harness 的客户端代码。
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { clientSource } from './client-source.mjs'
 

@@ -9,7 +9,7 @@ const host = process.argv[2]
 if (!host) throw new Error('Usage: node tests/preset-installation.mjs /path/to/installed/dsh [preset-root]')
 const require = createRequire(join(host, 'package.json'))
 const { FileSystemSkillProvider } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-skill-filesystem')))
-const source = process.argv[3] || fileURLToPath(new URL('../../harness/.agent-presets/', import.meta.url))
+const source = process.argv[3] || fileURLToPath(new URL('../../harness/.dsh/.agent-presets/', import.meta.url))
 const root = await mkdtemp(join(tmpdir(), 'elysium detached '))
 const retired = ['creation-video', 'creation-preview', 'creation-regular', 'creation-hd']
 try {

@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
-import { ComfyClient } from '../dsh-elysium-tools/src/functions/comfyui/client.js'
-import { readJson, saveJson } from '../dsh-elysium-tools/src/jobs/json.js'
-import { withLaunchLock } from '../dsh-elysium-tools/src/jobs/launch.js'
+import { ComfyClient } from '../../dsh-elysium-tools/src/functions/comfyui/client.js'
+import { readJson, saveJson } from '../../dsh-elysium-tools/src/jobs/json.js'
+import { withLaunchLock } from '../../dsh-elysium-tools/src/jobs/launch.js'
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)))
 const directory=join(root,'docs/implement/third-cup-preview')
 const manifest=JSON.parse(await readFile(join(directory,'manifest.json'),'utf8'))

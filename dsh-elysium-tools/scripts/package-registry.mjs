@@ -1,3 +1,4 @@
+// 职责：校验构建产物，并组装 Registry 发布目录。
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 

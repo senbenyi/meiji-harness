@@ -5417,7 +5417,7 @@
       "sha256": "49c631cca24df73eaf68487b0857d4d4d4494f3e6411bf837374b284a583b509"
     },
     {
-      "path": "scripts/third-cup-preview.mjs",
+      "path": "runpod/scripts/third-cup-preview.mjs",
       "bytes": 5012,
       "sha256": "2231664abe331269f40e7f3d5dea1212dba15749280ab6f8264cf9868fc0cc0b"
     }

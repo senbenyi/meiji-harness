@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// 职责：从 RunPod 获取并编译工作流，校验或同步 MiniMax H3 工作流模板。
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'

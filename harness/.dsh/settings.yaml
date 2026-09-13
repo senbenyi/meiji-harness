@@ -1,21 +1,4 @@
-# 仅供 app/common 本机脚本读取；config_loader.sh render 会移除本段。
-harness-runtime:
-  # Qwen 服务经 SSH 转发后在本机监听；远端模型服务只监听其回环地址。
-  QWEN_LOCAL_HOST: 127.0.0.1
-  QWEN_REMOTE_HOST: 127.0.0.1
-  # RunPod ComfyUI 的 HTTP(S) 服务地址，插件不读取服务器本地文件。
-  COMFYUI_URL: https://36we4j3zo503js-8188.proxy.runpod.net
-  # 本机 Harness 的数据目录与监听地址。
-  LOCAL_DSH_HOME: /Users/mac/.dsh
-  LOCAL_HARNESS_HOST: 127.0.0.1
-  LOCAL_HARNESS_PORT: 3080
-  # SSH 别名及 Qwen 本地转发端口、远端服务端口和模型 ID。
-  QWEN_SSH_TARGET: veo-qwen38
-  QWEN_API_LOCAL_PORT: 18000
-  QWEN_API_REMOTE_PORT: 8000
-  QWEN_MODEL_ID: qwen3.8-27b-elysium
-
-# Harness 模型提供方；双下划线占位符由 config_loader.sh render 替换。
+# Harness 模型提供方。
 llm-pi-ai:
   providers:
     # 使用环境变量中的 API Key，不在仓库保存凭据。
@@ -25,14 +8,14 @@ llm-pi-ai:
     qwen38-local:
       displayName: qwen3.8-27b-elysium
       api: openai-completions
-      baseURL: http://__QWEN_LOCAL_HOST__:__QWEN_API_LOCAL_PORT__/v1
+      baseURL: http://127.0.0.1:18000/v1
       compat:
         # 适配 Qwen chat template 与 openai-completions 参数约定。
         supportsDeveloperRole: false
         maxTokensField: max_tokens
         thinkingFormat: qwen-chat-template
       models:
-        - id: __QWEN_MODEL_ID__
+        - id: qwen3.8-27b-elysium
           name: qwen3.8-27b-elysium
           contextWindow: 65536
           maxTokens: 4096
@@ -46,7 +29,7 @@ llm-pi-ai:
 # 新会话默认使用经本机转发的 Qwen 模型。
 agent-default-model:
   provider: qwen38-local
-  model: __QWEN_MODEL_ID__
+  model: qwen3.8-27b-elysium
 
 # 显示浏览器/Git 标签，并允许 Agent 主动打开工具界面。
 dsh-better-sidebar:
@@ -67,14 +50,3 @@ permission:
 agent-presets:
   default: elysium-teaching
   includeShippedRoot: false
-
-# 需按 id 同步到本机 web profile；config_loader.sh render 不输出本段。
-harness-customization:
-  profile:
-    # 禁用命令执行反馈组件。
-    - id: command-feedback
-      disabled: true
-    # 插件仅通过服务器 URL 访问 ComfyUI 媒体。
-    - id: dsh-elysium-tools
-      config:
-        comfyUrl: __COMFYUI_URL__
