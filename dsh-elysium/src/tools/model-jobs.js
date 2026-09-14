@@ -21,7 +21,7 @@ export function createModelJobStatusTool() {
       },
       render: renderToolDebug,
     },
-    execute: (args, exec) => getJob(args.job_id, exec?.signal),
+    execute: (args) => getJob(args.job_id),
   }
 }
 
@@ -36,6 +36,6 @@ export function createModelJobResultTool() {
       required: ['job_id'],
     },
     output: { schema: COMPLETED_RESULT_SCHEMA, render: renderToolDebug },
-    execute: async (args, exec) => completedResult(await getJob(args.job_id, exec?.signal)),
+    execute: async (args) => completedResult(await getJob(args.job_id)),
   }
 }

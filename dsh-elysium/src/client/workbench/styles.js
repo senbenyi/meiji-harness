@@ -165,8 +165,12 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-director-copy h2 { margin:0; }
 .elysium-director-copy p { margin:2px 0 7px; color:var(--dsw-alias-label-secondary,#aaa); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .elysium-director-copy ol { display:flex; flex-wrap:wrap; gap:4px 14px; margin:0; padding-left:20px; color:var(--dsw-alias-label-tertiary,#888); font-size:12px; }
-.elysium-delivery { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:24px; overflow:auto; }
+.elysium-delivery { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:24px; overflow:auto; align-items:start; align-content:start; }
+.elysium-delivery > section { min-width:0; overflow-wrap:anywhere; }
+.elysium-delivery .elysium-asset-item strong { display:block; white-space:normal; }
 .elysium-panel .elysium-delivery-preview .elysium-workbench-preview { max-height:65dvh; }
+.elysium-delivery .elysium-card-actions { flex-wrap:wrap; }
+.elysium-delivery .elysium-delivery-download { display:inline-flex; align-items:center; gap:6px; margin:0; padding:6px 10px; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:6px; text-decoration:none; }
 .elysium-asset-item a { display:inline-block; margin:8px; }
 .elysium-panel details { margin-top:8px; }
 .elysium-panel summary { cursor:pointer; min-height:36px; }

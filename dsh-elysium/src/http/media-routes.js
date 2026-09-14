@@ -81,7 +81,7 @@ export function createMediaHandler({ token, projectBase, directorBase, readJob =
     } catch (error) {
       if (!res.headersSent && error.status) return json(res, error.status, { error: error.message })
       if (!res.headersSent) json(res, 503, { error: '暂时无法读取任务，请稍后重试' })
-      else res.destroy()
+      else { console.error('[elysium] media stream interrupted:', error.message); res.destroy() }
     }
   }
 }

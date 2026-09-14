@@ -175,6 +175,9 @@ test('delivery view renders film specs and server subtitle links without fetchin
   await click(view, '成品')
   const links = view.root.findAllByType('a')
   assert.equal(links.length, 2)
+  assert.equal(view.root.findByType('video').props.src, '/media/video?job=' + 'a'.repeat(32) + '&t=t')
+  assert.equal(links[0].props['aria-label'], '下载视频 六分钟预览')
+  assert.equal(links[1].props['aria-label'], '下载字幕 字幕 SRT')
   assert.equal(links[0].props.href, '/media/download?job=' + 'a'.repeat(32) + '&t=t')
   assert.equal(links[1].props.href, 'https://files.test/subtitle.srt')
   assert.match(JSON.stringify(view.toJSON()), /360秒 · 8640帧 · 31MB/)
@@ -223,5 +226,31 @@ test('job-backed local anchor previews use authenticated image routes', async ()
   await act(async () => { view = create(React.createElement(f.require('elysium/anchors').AnchorView,{project,save(){},run(){}})) })
   assert.equal(view.root.findByType('img').props.src,`/media/image?job=${'b'.repeat(32)}&t=t`)
   assert.equal(f.requests.filter(request => request.url.startsWith('/media/status')).length,1)
+  await act(async () => view.unmount())
+})
+
+
+test('delivery selects the first playable film, plays only on request and handles subtitle-only projects', async () => {
+  const project = emptyProject(), f = fixture(project)
+  project.deliverables = [
+    { type:'subtitle', label:'字幕', url:'https://files.test/subtitle.srt' },
+    { type:'film', label:'无效成片', url:'file:///movie.mp4' },
+    { type:'film', label:'第一版', job_id:'a'.repeat(32) },
+    { type:'film', label:'第二版', url:'https://files.test/film.mp4' },
+  ]
+  const Component = f.require('elysium/delivery').DeliveryView
+  let view, plays = 0
+  await act(async () => { view = create(React.createElement(Component, { project }), { createNodeMock: element => element.type === 'video' ? { play: async () => { plays++ } } : null }) })
+  assert.equal(view.root.findByType('video').props.src,'/media/video?job='+'a'.repeat(32)+'&t=t')
+  assert.equal(plays,0)
+  await click(view,'播放成片 第二版')
+  assert.equal(view.root.findByType('video').props.src,'https://files.test/film.mp4')
+  assert.equal(plays,1)
+  await click(view,'播放成片 第二版')
+  assert.equal(plays,2)
+  await act(async () => view.update(React.createElement(Component, { project:{...project,deliverables:[project.deliverables[0]]} })))
+  assert.equal(view.root.findAllByType('video').length,0)
+  assert.match(JSON.stringify(view.toJSON()),/暂无可预览成片/)
+  assert.equal(view.root.findByType('a').props.href,'https://files.test/subtitle.srt')
   await act(async () => view.unmount())
 })
