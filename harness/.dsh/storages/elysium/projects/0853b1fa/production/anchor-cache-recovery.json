@@ -1,0 +1,46 @@
+[
+  {
+    "role": "scene",
+    "job_id": "42e3a59d38c42d500e3d428a2c2a444d",
+    "source_job_id": "aa34df4cfdee9127d36e7f88af72c628",
+    "source_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=scene_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
+    "size_bytes": 246952,
+    "sha256": "42e5d5bd292f20e3d3d3dfc09fa26fc749383d6686bbbfb9135fb99572ec651f",
+    "recovery": "Original PNG bytes extracted from local Chromium HTTP cache, from PNG signature through IEND; all chunk CRCs verified. Codex and Chrome copies are byte-identical.",
+    "matching_copies": 3,
+    "embedded_workflow_verified": true
+  },
+  {
+    "role": "lin",
+    "job_id": "11637293d188f83874464306f6b4ff08",
+    "source_job_id": "310987b5d2724e2783d7324adb1145db",
+    "source_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
+    "size_bytes": 243825,
+    "sha256": "c882103d94e4384e00f2e78d683f789eb60172bdb55f0e90ea7b7c47f7e80d47",
+    "recovery": "Original PNG bytes extracted from local Chromium HTTP cache, from PNG signature through IEND; all chunk CRCs verified. Codex and Chrome copies are byte-identical.",
+    "matching_copies": 3,
+    "embedded_workflow_verified": true
+  },
+  {
+    "role": "chen",
+    "job_id": "ffeeb8701b611a5590b371fea28060dc",
+    "source_job_id": "86a9a3599124448c32fb529d55558780",
+    "source_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=chen_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
+    "size_bytes": 225869,
+    "sha256": "37cba5c883d6cd8d89566f3e08fc317b24626d853ed07d8dca29dd1b9e310ee0",
+    "recovery": "Original PNG bytes extracted from local Chromium HTTP cache, from PNG signature through IEND; all chunk CRCs verified. Codex and Chrome copies are byte-identical.",
+    "matching_copies": 3,
+    "embedded_workflow_verified": true
+  },
+  {
+    "role": "zhou",
+    "job_id": "bc23f4c5cbccf849315ac678d2aba3a2",
+    "source_job_id": "712957b7eb3f51fdbc75777f7b6c06d1",
+    "source_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=zhou_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
+    "size_bytes": 265186,
+    "sha256": "4e2b4f85c22a03749f82f67765c2aab9363544cf798b8ab65d1d65392b7450bf",
+    "recovery": "Original PNG bytes extracted from local Chromium HTTP cache, from PNG signature through IEND; all chunk CRCs verified. Codex and Chrome copies are byte-identical.",
+    "matching_copies": 3,
+    "embedded_workflow_verified": true
+  }
+]

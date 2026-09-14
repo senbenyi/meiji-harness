@@ -1,18 +1,20 @@
 {
   "job_id": "11637293d188f83874464306f6b4ff08",
   "project_id": "0853b1fa",
-  "status": "failed",
-  "stage": "template-import",
-  "failed_stage": "template-import",
-  "error_code": "TEMPLATE_MEDIA_MISSING",
-  "error": "本地参考图缺失；未生成替代图片",
-  "retryable": false,
+  "status": "succeeded",
+  "stage": "completed",
   "result": {
     "media_kind": "image",
     "local_media_path": "media/anchors/lin.png",
     "profile": "preview",
     "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=lin_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
     "source_job_id": "310987b5d2724e2783d7324adb1145db",
-    "provenance": "production/shot-002.reference.submission.json"
+    "provenance": "production/shot-002.reference.submission.json",
+    "specification": {
+      "width": 384,
+      "height": 512,
+      "format": "png"
+    },
+    "recovery_record": "production/anchor-cache-recovery.json"
   }
 }

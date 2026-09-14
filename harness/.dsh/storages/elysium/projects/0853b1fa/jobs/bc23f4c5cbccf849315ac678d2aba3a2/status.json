@@ -1,18 +1,20 @@
 {
   "job_id": "bc23f4c5cbccf849315ac678d2aba3a2",
   "project_id": "0853b1fa",
-  "status": "failed",
-  "stage": "template-import",
-  "failed_stage": "template-import",
-  "error_code": "TEMPLATE_MEDIA_MISSING",
-  "error": "本地参考图缺失；未生成替代图片",
-  "retryable": false,
+  "status": "succeeded",
+  "stage": "completed",
   "result": {
     "media_kind": "image",
     "local_media_path": "media/anchors/zhou.png",
     "profile": "preview",
     "comfyui_view_url": "https://36we4j3zo503js-8188.proxy.runpod.net/view?filename=zhou_00001_.png&subfolder=third-cup-preview%2Freferences&type=output",
     "source_job_id": "712957b7eb3f51fdbc75777f7b6c06d1",
-    "provenance": "production/shot-004.reference.submission.json"
+    "provenance": "production/shot-004.reference.submission.json",
+    "specification": {
+      "width": 384,
+      "height": 512,
+      "format": "png"
+    },
+    "recovery_record": "production/anchor-cache-recovery.json"
   }
 }

@@ -19,7 +19,7 @@ const run = (command, args, options = {}) => execFileSync(command, args, { stdio
 const hasCommand = name => (process.env.PATH || '').split(delimiter).some(directory => existsSync(join(directory, name)))
 
 const manifests = await verifyMedia(join(source, 'storages', 'elysium'))
-for (const manifest of manifests) if (manifest.missing?.length) console.warn(`模板保留 ${manifest.missing.length} 项缺失记录；已有媒体可离线浏览，详情见 projects/${manifest.project_id}/media/manifest.json`)
+for (const manifest of manifests) console.log(`离线案例媒体校验通过：${manifest.files.length} 份；镜头版本：${manifest.shot_variant}`)
 
 // 1. 仅在本机不存在 dsh 命令时安装 DeepSeek Harness。
 if (!hasCommand('dsh')) run('pnpm', ['add', '-g', '@deepseek-ai/dsh'])

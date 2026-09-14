@@ -18,8 +18,17 @@ export async function verifyMedia(root) {
     const project = join(projects, entry.name), manifestPath = join(project, 'media', 'manifest.json')
     let manifest
     try { manifest = JSON.parse(await readFile(manifestPath, 'utf8')) }
-    catch (error) { if (error.code === 'ENOENT') continue; throw error }
+    catch (error) { if (error.code === 'ENOENT') throw new Error(`模板媒体清单缺失：${entry.name}`); throw error }
     if (manifest.project_id !== entry.name) throw new Error('模板媒体项目归属无效')
+    if (manifest.offline_complete !== true) throw new Error(`模板离线浏览素材不完整：${entry.name}`)
+    const read = name => readFile(join(project, name), 'utf8').then(JSON.parse)
+    const anchors = await read('anchors.json'), acts = await read('storyboard.json'), deliverables = await read('deliverables.json')
+    const jobs = [...anchors.map(anchor => anchor.source?.job_id), ...acts.flatMap(act => act.shots.map(shot => shot.job_id)), ...deliverables.map(item => item.job_id)]
+    for (const id of jobs) {
+      if (!id || !/^[a-f0-9]{32}$/.test(id)) throw new Error('模板素材任务引用无效')
+      const job = await read(`jobs/${id}/status.json`), records = manifest.files.filter(record => record.job_id === id)
+      if (job.status !== 'succeeded' || job.project_id !== entry.name || records.length !== 1 || records[0].path !== job.result?.local_media_path) throw new Error(`模板素材未完整登记：${id}`)
+    }
     for (const record of manifest.files) {
       if (!record.path.startsWith('media/') || record.path.split('/').some(part => part === '..') || /[%\\]/.test(record.path)) throw new Error('模板媒体路径无效')
       const path = await realpath(join(project, record.path)), location = relative(await realpath(project), path)

@@ -2190,6 +2190,66 @@
         "format": "srt",
         "encoding": "utf-8"
       }
+    },
+    {
+      "path": "media/anchors/scene.png",
+      "purpose": "anchor",
+      "role": "scene",
+      "job_id": "42e3a59d38c42d500e3d428a2c2a444d",
+      "size_bytes": 246952,
+      "sha256": "42e5d5bd292f20e3d3d3dfc09fa26fc749383d6686bbbfb9135fb99572ec651f",
+      "specification": {
+        "width": 384,
+        "height": 512,
+        "format": "png"
+      },
+      "provenance": "production/shot-001.reference.submission.json",
+      "recovery_record": "production/anchor-cache-recovery.json"
+    },
+    {
+      "path": "media/anchors/lin.png",
+      "purpose": "anchor",
+      "role": "lin",
+      "job_id": "11637293d188f83874464306f6b4ff08",
+      "size_bytes": 243825,
+      "sha256": "c882103d94e4384e00f2e78d683f789eb60172bdb55f0e90ea7b7c47f7e80d47",
+      "specification": {
+        "width": 384,
+        "height": 512,
+        "format": "png"
+      },
+      "provenance": "production/shot-002.reference.submission.json",
+      "recovery_record": "production/anchor-cache-recovery.json"
+    },
+    {
+      "path": "media/anchors/chen.png",
+      "purpose": "anchor",
+      "role": "chen",
+      "job_id": "ffeeb8701b611a5590b371fea28060dc",
+      "size_bytes": 225869,
+      "sha256": "37cba5c883d6cd8d89566f3e08fc317b24626d853ed07d8dca29dd1b9e310ee0",
+      "specification": {
+        "width": 384,
+        "height": 512,
+        "format": "png"
+      },
+      "provenance": "production/shot-003.reference.submission.json",
+      "recovery_record": "production/anchor-cache-recovery.json"
+    },
+    {
+      "path": "media/anchors/zhou.png",
+      "purpose": "anchor",
+      "role": "zhou",
+      "job_id": "bc23f4c5cbccf849315ac678d2aba3a2",
+      "size_bytes": 265186,
+      "sha256": "4e2b4f85c22a03749f82f67765c2aab9363544cf798b8ab65d1d65392b7450bf",
+      "specification": {
+        "width": 384,
+        "height": 512,
+        "format": "png"
+      },
+      "provenance": "production/shot-004.reference.submission.json",
+      "recovery_record": "production/anchor-cache-recovery.json"
     }
   ],
   "missing": [
@@ -3032,34 +3092,7 @@
       "job_id": "3972484f7933c41ca55f998fdd752a5d",
       "expected_frames": 73,
       "reason": "本机未找到73帧原片；已登记72帧真实剪辑版"
-    },
-    {
-      "purpose": "anchor",
-      "role": "scene",
-      "job_id": "42e3a59d38c42d500e3d428a2c2a444d",
-      "path": "media/anchors/scene.png",
-      "reason": "本地参考图缺失，历史 URL 仅作为来源记录"
-    },
-    {
-      "purpose": "anchor",
-      "role": "lin",
-      "job_id": "11637293d188f83874464306f6b4ff08",
-      "path": "media/anchors/lin.png",
-      "reason": "本地参考图缺失，历史 URL 仅作为来源记录"
-    },
-    {
-      "purpose": "anchor",
-      "role": "chen",
-      "job_id": "ffeeb8701b611a5590b371fea28060dc",
-      "path": "media/anchors/chen.png",
-      "reason": "本地参考图缺失，历史 URL 仅作为来源记录"
-    },
-    {
-      "purpose": "anchor",
-      "role": "zhou",
-      "job_id": "bc23f4c5cbccf849315ac678d2aba3a2",
-      "path": "media/anchors/zhou.png",
-      "reason": "本地参考图缺失，历史 URL 仅作为来源记录"
     }
-  ]
+  ],
+  "offline_complete": true
 }

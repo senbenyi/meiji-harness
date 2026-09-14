@@ -13,9 +13,9 @@ const root = new URL('../.dsh/storages/elysium/', import.meta.url).pathname
 const thirdCup = join(root, 'projects/0853b1fa')
 const read = path => readFile(path, 'utf8').then(JSON.parse)
 
-test('available third-cup template has verified real media, schemas and all 120 exact shot mappings', async () => {
+test('offline-complete third-cup template has verified real media, schemas and all 120 exact shot mappings', async () => {
   const [manifest] = await verifyMedia(root)
-  assert.equal(manifest.files.length, 122)
+  assert.equal(manifest.files.length, 126)
   const project = await read(join(root, 'projects/0853b1fa/project.json'))
   for (const [key, name, validate] of [['anchors', 'anchors', anchorsValue], ['acts', 'storyboard', actsValue], ['materials', 'materials', materialsValue], ['deliverables', 'deliverables', deliverablesValue]]) {
     project[key] = await read(join(root, `projects/0853b1fa/${name}.json`))
@@ -44,12 +44,26 @@ test('available third-cup template has verified real media, schemas and all 120 
   const spec = JSON.parse(execFileSync('ffprobe', ['-v','error','-select_streams','v:0','-show_entries','stream=width,height,r_frame_rate,nb_frames,duration','-of','json',join(thirdCup,film.path)], { encoding: 'utf8' })).streams[0]
   assert.deepEqual(spec, { width:384, height:512, r_frame_rate:'24/1', duration:'360.000000', nb_frames:'8640' })
   assert.equal(manifest.files.find(file => file.purpose === 'subtitle').sha256, 'b15ca54885e1a006145935bea3bebb9e787f4d01a0ea00b7fe91e30243ead5de')
-  assert.equal(manifest.complete, false); assert.equal(manifest.missing.filter(item => item.purpose === 'anchor').length, 4)
+  assert.equal(manifest.offline_complete, true); assert.equal(manifest.complete, false)
+  assert.equal(manifest.missing.filter(item => item.purpose === 'anchor').length, 0)
   assert.equal(manifest.missing.filter(item => item.purpose === 'original-shot').length, 120)
   for (const anchor of project.anchors) {
     assert.ok(!jobs.has(anchor.source.job_id)); assert.ok(project.materials.includes(anchor.source.job_id))
     const job = await read(join(thirdCup,'jobs',anchor.source.job_id,'status.json'))
-    assert.equal(job.error_code, 'TEMPLATE_MEDIA_MISSING')
+    assert.equal(job.status, 'succeeded'); assert.equal(job.result.media_kind, 'image')
+    const record = manifest.files.find(file => file.job_id === job.job_id)
+    assert.equal(record.purpose, 'anchor'); assert.deepEqual(record.specification, { width:384, height:512, format:'png' })
+    const png = await readFile(join(thirdCup,record.path))
+    assert.equal(png.subarray(1,4).toString(),'PNG')
+    let prompt
+    for (let offset=8; offset<png.length;) {
+      const size=png.readUInt32BE(offset), type=png.subarray(offset+4,offset+8).toString(), data=png.subarray(offset+8,offset+8+size)
+      if (type === 'tEXt' && data.subarray(0,7).toString() === 'prompt\0') prompt=JSON.parse(data.subarray(7).toString())
+      offset+=size+12
+    }
+    assert.equal(prompt['1'].inputs.file,`elysium/${job.result.source_job_id}/preview/final_00001-audio.mp4 [output]`)
+    assert.equal(prompt['3'].inputs.batch_index,36)
+    assert.equal(prompt['4'].inputs.filename_prefix,`third-cup-preview/references/${anchor.role}`)
   }
   assert.equal((await readdir(join(root,'projects'))).includes('1f7712c5'), false)
   assert.ok((await readdir(root)).includes('runtime'))
@@ -83,7 +97,7 @@ test('install validation rejects LFS pointers and unsafe DSH_HOME', async t => {
   assert.equal(dshHome(target), target)
 })
 
-test('offline HTTP traversal validates all 120 videos, film, subtitle and explicit missing anchors', async t => {
+test('offline HTTP traversal validates all 120 videos, film, subtitle and all four original anchors', async t => {
   const { createServer } = await import('node:http')
   const { createHash } = await import('node:crypto')
   const { createMediaHandler, MEDIA_ROUTE } = await import('../../dsh-elysium/src/http/media-routes.js')
@@ -103,8 +117,8 @@ test('offline HTTP traversal validates all 120 videos, film, subtitle and explic
     const base = `${origin}${MEDIA_ROUTE}`, query = `?t=offline-test&job=${record.job_id}`
     const status = await (await fetch(`${base}/status${query}`)).json()
     assert.equal(status.status,'succeeded'); assert.equal(status.has_download,true)
-    const endpoint = record.purpose === 'subtitle' ? 'download' : 'video'
-    assert.equal(status.has_video,endpoint === 'video')
+    const endpoint = record.purpose === 'subtitle' ? 'download' : record.purpose === 'anchor' ? 'image' : 'video'
+    assert.equal(status.has_video,endpoint === 'video'); assert.equal(status.has_image,endpoint === 'image')
     const response = await fetch(`${base}/${endpoint}${query}`)
     assert.equal(response.status,200)
     assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'),record.sha256)
@@ -113,10 +127,7 @@ test('offline HTTP traversal validates all 120 videos, film, subtitle and explic
     const partial = await fetch(`${base}/${endpoint}${query}`,{headers:{Range:'bytes=0-31'}})
     assert.equal(partial.status,206); assert.equal((await partial.arrayBuffer()).byteLength,32)
   }
-  for (const missing of manifest.missing.filter(item => item.purpose === 'anchor')) {
-    const status = await (await fetch(`${origin}${MEDIA_ROUTE}/status?t=offline-test&job=${missing.job_id}`)).json()
-    assert.equal(status.has_image,false); assert.match(status.media_error,/参考图缺失/)
-  }
+
 })
 
 
@@ -139,4 +150,18 @@ test('template JSON contains no absolute machine paths or credentials', async ()
     }
   }
   await walk(root)
+})
+
+// 发布前须拒绝页面必需素材缺失，即使清单中的其余文件都能通过哈希校验。
+test('installer rejects incomplete or unregistered case media', async t => {
+  const target = await mkdtemp(join(tmpdir(),'third-cup-incomplete-'))
+  t.after(() => rm(target,{recursive:true,force:true}))
+  await cp(root,target,{recursive:true})
+  const path=join(target,'projects/0853b1fa/media/manifest.json'), manifest=await read(path)
+  await writeFile(path,JSON.stringify({...manifest,offline_complete:false}))
+  await assert.rejects(verifyMedia(target),/离线浏览素材不完整/)
+  await writeFile(path,JSON.stringify({...manifest,files:manifest.files.filter(file=>file.purpose!=='anchor')}))
+  await assert.rejects(verifyMedia(target),/未完整登记/)
+  await rm(path)
+  await assert.rejects(verifyMedia(target),/媒体清单缺失/)
 })
