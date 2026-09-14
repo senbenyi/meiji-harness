@@ -3,13 +3,14 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
   const exports = {}
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { Editor, Icon, IconButton } = require('elysium/dialog')
+  const { updateShot } = require('elysium/project-api')
   const statuses = { pending: '待生成', queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败' }
-  function StoryboardView({ project, save, busy, viewState = {}, onViewState = () => {}, guard }) {
+  function StoryboardView({ project, save, run, busy, viewState = {}, onViewState = () => {}, guard }) {
     const [state, setState] = useState({ act: '', status: '', role: '', page: 0, selected: null, ...viewState })
     const [editing, setEditing] = useState(null), scroll = useRef(null), keyboard = useRef(false)
     const change = patch => { const next = { ...state, ...patch }; setState(next); onViewState(next) }
     useEffect(() => { if (scroll.current) scroll.current.scrollTop = state.scroll || 0 }, [])
-    const all = project.acts.flatMap((act, a) => act.shots.map((shot, i) => ({ shot, a, i, key: `${a}:${i}` }))).map((item, index) => ({ ...item, number: index + 1 }))
+    const all = project.acts.flatMap((act, a) => act.shots.map((shot, i) => ({ shot, a, i, key: shot.id }))).map((item, index) => ({ ...item, number: index + 1 }))
     const matches = item => (!state.status || item.shot.status === state.status) && (!state.role || item.shot.role === state.role)
     const filtered = all.filter(item => (state.act === '' || String(item.a) === state.act) && matches(item))
     const pages = Math.max(1, Math.ceil(filtered.length / 30)), page = Math.min(state.page, pages - 1)
@@ -19,17 +20,26 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
     const filter = patch => change({ ...patch, page: 0, selected: null, scroll: 0 })
     const actIndex = state.act === '' ? selected?.a ?? 0 : Number(state.act)
     const commitActs = async acts => save({ acts })
-    const patchShot = async patch => { const ok = await commitActs(project.acts.map((act, a) => a === selected.a ? { ...act, shots: act.shots.map((shot, i) => i === selected.i ? { ...shot, ...patch } : shot) } : act)); if (ok && 'job_id' in patch) change({ selectedJob: patch.job_id }); return ok }
+    const patchShot = async (patch, id = selected.shot.id) => {
+      const ok = await run(() => updateShot(project.id, 'update', { ...patch, id }))
+      if (ok && 'job_id' in patch) change({ selectedJob: patch.job_id })
+      return ok
+    }
     async function move(direction) {
-      const acts = project.acts.map((act, a) => ({ ...act, shots: [...act.shots] }))
-      const shots = acts[selected.a].shots, target = selected.i + direction
-      ;[shots[selected.i], shots[target]] = [shots[target], shots[selected.i]]
-      if (await commitActs(acts)) change({ selected: `${selected.a}:${target}`, selectedJob: shots[target].job_id })
+      await run(() => updateShot(project.id, 'move', { id: selected.shot.id, direction }))
     }
     async function remove() {
       if (!window.confirm(`移除镜 ${String(selected.number).padStart(3, '0')}？`)) return
-      const acts = project.acts.map((act, a) => a === selected.a ? { ...act, shots: act.shots.filter((_, i) => i !== selected.i) } : act)
-      if (await commitActs(acts)) change({ selected: null, selectedJob: undefined })
+      if (await run(() => updateShot(project.id, 'delete', { id: selected.shot.id }))) change({ selected: null, selectedJob: undefined })
+    }
+    async function addShot() {
+      let added
+      const ok = await run(async () => {
+        const value = await updateShot(project.id, 'add', { act_index: actIndex })
+        added = value.acts[actIndex].shots.at(-1)
+        return value
+      })
+      if (ok) change({ act: String(actIndex), status: '', role: '', selected: added.id, selectedJob: added.job_id, page: Math.floor(currentAct.shots.length / 30) })
     }
     const select = (label, key, options) => h('select', { 'aria-label': label, value: state[key], onChange: e => filter({ [key]: e.target.value }) }, options.map(([value, text]) => h('option', { key: value, value }, text)))
     const { ShotPreview } = require('elysium/shot-preview')
@@ -61,7 +71,7 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
         h('footer', { className: 'elysium-pagination' }, h('span', null, `${page + 1}/${pages}`), h(IconButton, { name: 'chevronLeft', label: '上一页', disabled: page === 0, onClick: () => change({ page: page - 1 }) }), h(IconButton, { name: 'chevronRight', label: '下一页', disabled: page + 1 === pages, onClick: () => change({ page: page + 1 }) }),
           currentAct ? h('details', { className: 'elysium-icon-menu' }, h('summary', { 'aria-label': '幕操作', title: '幕操作' }, h(Icon, { name: 'more' })), h('button', { disabled: busy, onClick: () => setEditing({ kind: 'act', title: currentAct.title }) }, '修改幕标题'),
             h('button', { disabled: busy, onClick: async () => { if (window.confirm(`删除幕“${currentAct.title}”及其中所有镜头？`) && await commitActs(project.acts.filter((_, a) => a !== actIndex))) filter({ act: '', selected: null }) } }, '删除幕'),
-            h('button', { disabled: busy, onClick: async () => { const shot = { index: 0, role: '', action: '', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }; if (await commitActs(project.acts.map((act, a) => a === actIndex ? { ...act, shots: [...act.shots, shot] } : act))) change({ act: String(actIndex), status: '', role: '', selected: `${actIndex}:${currentAct.shots.length}`, page: Math.floor(currentAct.shots.length / 30) }) } }, '添加镜头')) : null)),
+            h('button', { disabled: busy, onClick: addShot }, '添加镜头')) : null)),
       h('aside', { className: 'elysium-shot-detail' }, selected ? h('div', null,
         h('div', { className: 'elysium-shot-heading' }, h(IconButton, { name: 'back', label: '返回镜头列表', onClick: () => change({ selected: null }) }), h('h2', null, `镜 ${String(selected.number).padStart(3, '0')} · ${project.acts[selected.a].title}`),
           h('div', { className: 'elysium-panel-actions' }, h(IconButton, { name: 'chevronLeft', label: '上一镜', disabled: position <= 0, onClick: () => choose(filtered[position - 1]) }), h(IconButton, { name: 'chevronRight', label: '下一镜', disabled: position < 0 || position >= filtered.length - 1, onClick: () => choose(filtered[position + 1]) }))),
@@ -76,7 +86,12 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
           h('button', { disabled: busy || selected.i === project.acts[selected.a].shots.length - 1 || Boolean(state.role || state.status), onClick: () => move(1) }, '下移'), h('button', { disabled: busy, onClick: remove }, '移除镜头'))),
         h('details', null, h('summary', null, '技术详情'), h('p', null, `模式：${selected.shot.mode}`), h('p', null, `任务 ID：${selected.shot.job_id || '未关联'}`))) : h('p', { className: 'elysium-empty' }, '选择一个镜头，查看画面与详情')),
       editing ? h(Editor, { title: editing.kind === 'shot' ? '编辑镜头' : '编辑幕', initial: editing, fields: editing.kind === 'shot' ? shotFields : [['title', '幕标题']], guard, close: () => setEditing(null), save: async draft => {
-        if (editing.kind === 'shot') { const { kind, ...patch } = draft; patch.job_id = patch.job_id?.trim() || null; if (patch.job_id !== selected.shot.job_id) patch.status = 'pending'; return patchShot(patch) }
+        if (editing.kind === 'shot') {
+          const values = { ...draft, job_id: draft.job_id?.trim() || null }
+          if (values.job_id !== editing.job_id) values.status = 'pending'
+          const patch = Object.fromEntries(shotFields.map(([key]) => key).filter(key => values[key] !== editing[key]).map(key => [key, values[key]]))
+          return patchShot(patch, editing.id)
+        }
         return commitActs(editing.kind === 'new-act' ? [...project.acts, { title: draft.title, shots: [] }] : project.acts.map((act, a) => a === actIndex ? { ...act, title: draft.title } : act))
       } }) : null)
   }

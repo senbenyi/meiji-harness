@@ -6,7 +6,7 @@ import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const actions = ['list', 'get', 'create', 'update', 'delete', 'import']
+const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll']
 
 export function createProjectHandler(options) {
   const { token } = options
@@ -18,14 +18,24 @@ export function createProjectHandler(options) {
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       const action = url.pathname.slice(PROJECT_ROUTE.length + 1)
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
-      if (req.method !== (['list', 'get'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
+      if (req.method !== (['list', 'get', 'poll'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       if (action === 'list') return json(res, 200, await store.list())
-      if (action === 'get') {
+      if (action === 'get' || action === 'poll') {
         const id = url.searchParams.get('id')
         if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
+        if (action === 'poll') {
+          const since = Number(url.searchParams.get('since'))
+          if (!url.searchParams.has('since') || !url.searchParams.get('since').trim() || !Number.isSafeInteger(since) || since < 0) throw invalidRequest('变更时间无效')
+          return json(res, 200, { updated: await store.lastModified(id) > since })
+        }
         return json(res, 200, await store.read(id))
       }
       const body = await readJsonBody(req)
+      if (['update-anchor', 'update-shot'].includes(action)) {
+        if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) throw invalidRequest('对象参数无效')
+        const change = action === 'update-anchor' ? store.changeAnchor : store.changeShot
+        return json(res, 200, await change(body.id, body.action, body.data))
+      }
       return json(res, action === 'create' ? 201 : 200, await store.change(action, body))
     } catch (error) {
       const missing = ['ENOENT', 'MODEL_JOB_NOT_FOUND'].includes(error.code)

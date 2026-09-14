@@ -107,7 +107,10 @@ test('reading a four-file project creates its missing material index from existi
   try {
     const response = await fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/get?t=t&id=${id}`)
     assert.equal(response.status, 200)
-    assert.deepEqual(await response.json(), { ...metadata, materials: [job], anchors, acts, deliverables })
+    const result = await response.json()
+    assert.match(result.acts[0].shots[0].id, /^[a-f0-9]{8}$/)
+    acts[0].shots[0].id = result.acts[0].shots[0].id
+    assert.deepEqual(result, { ...metadata, materials: [job], anchors, acts, deliverables })
     assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), [job])
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

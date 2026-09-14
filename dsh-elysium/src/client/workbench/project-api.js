@@ -20,6 +20,9 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   const updateProject = (id, patch) => request('update', { ...patch, id })
   const deleteProject = id => request('delete', { id })
   const importMaterial = (id, jobId, as = 'anchor', role) => request('import', { id, job_id: jobId, as, ...(role ? { role } : {}) })
-  Object.assign(exports, { fetchProjects, fetchProject, createProject, updateProject, deleteProject, importMaterial })
+  const updateAnchor = (id, action, data) => request('update-anchor', { id, action, data })
+  const updateShot = (id, action, data) => request('update-shot', { id, action, data })
+  const pollProject = (id, since) => request('poll', null, { id, since })
+  Object.assign(exports, { fetchProjects, fetchProject, createProject, updateProject, deleteProject, importMaterial, updateAnchor, updateShot, pollProject })
   return exports
 } })

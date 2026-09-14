@@ -6,7 +6,7 @@ import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/client-source.mjs'
 
 function fixture() {
-  const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
+  const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
   const modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
     document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem() {}, setItem() {} },

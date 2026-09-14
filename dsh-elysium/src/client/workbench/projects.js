@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const exports = {}
   const { createElement: h, useEffect, useRef, useState } = require('react')
   const { IconButton } = require('elysium/dialog')
-  const { fetchProject, fetchProjects, createProject, deleteProject, updateProject } = require('elysium/project-api')
+  const { fetchProject, fetchProjects, createProject, deleteProject, updateProject, pollProject } = require('elysium/project-api')
   const { fetchDirectors } = require('elysium/director-api')
   const { ShotPreview } = require('elysium/shot-preview')
   const { AnchorView } = require('elysium/anchors')
@@ -27,10 +27,17 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
       'data-complete': complete[value] || undefined, onClick: () => navigate(value),
     }, h('span', { 'aria-hidden': true }, complete[value] ? '✓' : index + 1), h('b', null, label))))
   }
-  function ProjectForm({ initial, busy, submit, cancel, action, onDirectorChange }) {
+  function ProjectForm({ initial, busy, submit, cancel, action, onDirectorChange, guard }) {
     const [draft, setDraft] = useState(initial)
     const [directors, setDirectors] = useState([]), [directorError, setDirectorError] = useState('')
     useEffect(() => { let active = true; fetchDirectors().then(value => { if (active) setDirectors(value) }).catch(error => { if (active) setDirectorError(error.message) }); return () => { active = false } }, [])
+    const dirty = ['title', 'director', 'profile'].some(key => draft[key] !== initial[key])
+    useEffect(() => {
+      if (!guard || !dirty) return
+      const leave = next => { if (window.confirm('放弃未保存的项目信息？')) next() }
+      guard.current = leave
+      return () => { if (guard.current === leave) guard.current = null }
+    }, [dirty, guard])
     const save = async event => { event.preventDefault(); if (draft.title.trim() && draft.director) await submit(draft) }
     return h('form', { className: 'elysium-project-form', onSubmit: save },
       h('label', { className: 'elysium-field' }, h('span', null, '项目名称'), h('input', { autoFocus: true, 'aria-label': '项目名称', value: draft.title, disabled: busy, onChange: event => setDraft({ ...draft, title: event.target.value }) })),
@@ -41,16 +48,39 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
         h('button', { className: 'elysium-primary', type: 'submit', disabled: busy || !draft.title.trim() || !draft.director }, busy ? '保存中…' : action)))
   }
 
-  function ProjectDetail({ id, back, viewState = {}, onViewState = () => {}, guard, navigate = action => action() }) {
+  function ProjectDetail({ id, back, viewState = {}, onViewState = () => {}, guard: externalGuard, navigate = action => action() }) {
     const [project, setProject] = useState(null), [tab, setTab] = useState(viewState.projects?.[id]?.tab || viewState.projectTab || null)
     const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [reload, setReload] = useState(0)
-    const saving = useRef(false)
+    const saving = useRef(false), readVersion = useRef(0), localGuard = useRef(null)
+    const guard = externalGuard || localGuard
+    const [remoteUpdate, setRemoteUpdate] = useState(false)
     const go = value => navigate(() => { setTab(value); onViewState({ projectTab: value, projects: { ...viewState.projects, [id]: { ...viewState.projects?.[id], tab: value } } }) })
     useEffect(() => { let active = true; fetchProject(id).then(value => { if (active) { setProject(value); setTab(current => current || stageOf(value)) } }).catch(err => { if (active) setError(err.message) }); return () => { active = false } }, [id, reload])
+    // 串行轮询；保存或项目切换后丢弃迟到结果，编辑中的草稿保持原样。
+    useEffect(() => {
+      if (!project) return
+      let active = true, timer
+      const poll = async () => {
+        const version = readVersion.current
+        try {
+          if (saving.current) return
+          const result = await pollProject(id, project.updated_at || 0)
+          if (!active || saving.current || version !== readVersion.current || !result.updated) return
+          if (guard.current) { setRemoteUpdate(true); return }
+          const value = await fetchProject(id)
+          if (!active || saving.current || version !== readVersion.current) return
+          if (guard.current) { setRemoteUpdate(true); return }
+          setProject(value); setSaved(false); setRemoteUpdate(false)
+        } catch (err) { if (active && !saving.current && version === readVersion.current) setError(err.message) }
+        finally { if (active) timer = setTimeout(poll, 4000) }
+      }
+      timer = setTimeout(poll, 4000)
+      return () => { active = false; clearTimeout(timer) }
+    }, [id, project?.updated_at, guard])
     async function run(action) {
       if (saving.current) return false
-      saving.current = true; setBusy(true); setError(''); setSaved(false)
-      try { setProject(await action()); setSaved(true); return true } catch (err) { setError(err.message); return false } finally { saving.current = false; setBusy(false) }
+      saving.current = true; readVersion.current++; setBusy(true); setError(''); setSaved(false)
+      try { setProject(await action()); setSaved(true); setRemoteUpdate(false); return true } catch (err) { setError(err.message); return false } finally { saving.current = false; setBusy(false) }
     }
     const save = patch => run(() => updateProject(id, patch))
     const activeTab = tab || stageOf(project)
@@ -58,12 +88,13 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
     return h('div', { className: 'elysium-project-detail' },
       h('div', { className: 'elysium-project-heading' }, h(IconButton, { name: 'back', label: '返回项目', disabled: busy, onClick: () => navigate(back) }), h('h1', null, project?.title || '项目'), h('span', { role: 'status' }, busy ? '保存中…' : saved ? '已保存' : '')),
       project ? h('p', { className: 'elysium-compact-meta' }, `${project.director || '导演未指定'} · ${profiles.find(([value]) => value === project.profile)?.[1] || project.profile} · ${project.anchors.length} 锚点 · ${project.acts.length} 幕 · ${shots.filter(shot => shot.status === 'succeeded').length}/${shots.length} 镜完成 · ${project.deliverables.length} 份交付`) : null,
+      remoteUpdate ? h('p', { role: 'status' }, '项目已有新修改。请先保存或取消当前编辑，随后自动刷新。') : null,
       h(ProjectSteps, { active: activeTab, project, navigate: go }),
       error ? h('p', { role: 'alert' }, error, !project ? h('button', { onClick: () => { setError(''); setReload(value => value + 1) } }, '重试') : null) : null,
       project ? h('div', { className: 'elysium-project-stage' },
-        activeTab === 'project' ? h(ProjectForm, { key: project.updated_at, initial: { title: project.title, director: project.director || '', profile: project.profile === 'hd' ? 'high-quality' : project.profile }, busy, action: '下一步', onDirectorChange: director => save({ director }), submit: async draft => { if (await save(draft)) go('anchors') } })
+        activeTab === 'project' ? h(ProjectForm, { key: project.updated_at, initial: { title: project.title, director: project.director || '', profile: project.profile === 'hd' ? 'high-quality' : project.profile }, guard, busy, action: '下一步', onDirectorChange: director => save({ director }), submit: async draft => { if (await save(draft)) go('anchors') } })
           : activeTab === 'anchors' ? h(AnchorView, { project, save, run, busy, guard })
-            : activeTab === 'acts' ? h(StoryboardView, { project, save, busy, guard, viewState: viewState.projects?.[id], onViewState: value => onViewState({ projects: { ...viewState.projects, [id]: value } }) })
+            : activeTab === 'acts' ? h(StoryboardView, { project, save, run, busy, guard, viewState: viewState.projects?.[id], onViewState: value => onViewState({ projects: { ...viewState.projects, [id]: value } }) })
               : h(DeliveryView, { project }),
         activeTab === 'anchors' ? h('footer', { className: 'elysium-flow-next' }, h('button', { className: 'elysium-primary', disabled: busy || !project.anchors.length, onClick: () => go('acts') }, '继续到分镜')) : null,
         activeTab === 'acts' ? h('footer', { className: 'elysium-flow-next' }, h('button', { className: 'elysium-primary', disabled: busy || !shots.length, onClick: () => go('deliverables') }, '继续到成品')) : null) : h('p', { role: 'status' }, '加载中…'))

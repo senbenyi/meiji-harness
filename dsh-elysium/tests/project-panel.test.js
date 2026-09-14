@@ -10,6 +10,8 @@ function fixture(initial) {
     { name: '张艺谋', style: '视觉叙事', works: ['红高粱', '活着', '英雄', '十面埋伏', '悬崖之上'] },
     { name: '王家卫', style: '都市情绪', works: ['阿飞正传', '重庆森林', '花样年华', '2046', '一代宗师'] },
   ]
+  let nextShot = 0
+  for (const act of project.acts) for (const shot of act.shots) shot.id ??= `shot-${++nextShot}`
   const modules = new Map(), cache = new Map(), requests = []
   runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
     fetch: async (url, options) => {
@@ -20,7 +22,24 @@ function fixture(initial) {
       if (url.startsWith('/director/delete')) { const { name } = JSON.parse(options.body); directors = directors.filter(item => item.name !== name); return { ok: true, json: async () => ({ deleted: true }) } }
       if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
-      if (url.startsWith('/project/update')) project = { ...project, ...JSON.parse(options.body) }
+      if (url.startsWith('/project/update-anchor')) {
+        const { action, data } = JSON.parse(options.body)
+        if (action === 'add') project.anchors.push(data)
+        else {
+          project.anchors = project.anchors.map(anchor => anchor.role === data.role ? { ...anchor, ...data, role: data.new_role ?? data.role } : anchor)
+          if (data.new_role) for (const act of project.acts) for (const shot of act.shots) if (shot.role === data.role) shot.role = data.new_role
+        }
+      } else if (url.startsWith('/project/update-shot')) {
+        const { action, data } = JSON.parse(options.body)
+        if (action === 'add') project.acts[data.act_index].shots.push({ id: `shot-${++nextShot}`, role: '', action: '', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' })
+        else {
+          const shots = project.acts.find(act => act.shots.some(shot => shot.id === data.id)).shots
+          const index = shots.findIndex(shot => shot.id === data.id)
+          if (action === 'update') shots[index] = { ...shots[index], ...data }
+          if (action === 'delete') shots.splice(index, 1)
+          if (action === 'move') [shots[index], shots[index + data.direction]] = [shots[index + data.direction], shots[index]]
+        }
+      } else if (url.startsWith('/project/update')) project = { ...project, ...JSON.parse(options.body) }
       if (url.startsWith('/project/import')) {
         const body = JSON.parse(options.body)
         project = { ...project, anchors: project.anchors.map(anchor => anchor.role === body.role ? { ...anchor, source: { type: 'material', job_id: body.job_id } } : anchor) }
@@ -59,6 +78,7 @@ test('anchors use explicit save, rename linked roles and only import after confi
   await act(async () => view.root.findByProps({ 'aria-label': '锚点角色 ID' }).props.onChange({ target: { value: 'lin-updated' } }))
   await click(view, '保存')
   assert.equal(f.project().acts[0].shots[0].role, 'lin-updated')
+  assert.deepEqual(JSON.parse(f.requests.findLast(x => x.url.startsWith('/project/update-anchor')).options.body), { id: project.id, action: 'update', data: { role: 'role-1', new_role: 'lin-updated' } })
   await click(view, '选择参考素材')
   await act(async () => view.root.findAllByType('button').find(x => x.props['aria-label']?.startsWith('查看素材')).props.onClick())
   assert.equal(f.requests.filter(x => x.url.startsWith('/project/import')).length, 0)
@@ -154,6 +174,7 @@ test('storyboard paginates 120 shots, requests only selected preview and saves e
   assert.equal(f.project().acts[5].shots[19].subtitle, '')
   await click(view, '保存')
   assert.equal(f.project().acts[5].shots[19].subtitle, '你好')
+  assert.deepEqual(JSON.parse(f.requests.findLast(x => x.url.startsWith('/project/update-shot')).options.body), { id: project.id, action: 'update', data: { id: 'shot-120', subtitle: '你好' } })
   await click(view, '标记待重拍')
   assert.equal(f.project().acts[5].shots[19].job_id, 'a'.repeat(32))
   assert.equal(f.project().acts[5].shots[19].status, 'pending')
@@ -184,6 +205,28 @@ test('delivery view renders film specs and server subtitle links without fetchin
   assert.equal(f.requests.length, 1)
   const { deliveryUrl } = f.require('elysium/delivery')
   assert.equal(deliveryUrl({ url: 'javascript:alert(1)' }), null)
+  await act(async () => view.unmount())
+})
+
+test('panel adds, moves and deletes by shot ID while retaining selection after reorder', async () => {
+  const project = emptyProject()
+  project.acts = [{ title: '幕', shots: [] }]
+  const f = fixture(project)
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'acts' }, back() {} })) })
+  await click(view, '添加镜头')
+  await click(view, '添加镜头')
+  const second = f.project().acts[0].shots[1].id
+  await click(view, '上移')
+  assert.equal(f.project().acts[0].shots[0].id, second)
+  assert.equal(view.root.findByProps({ 'aria-label': '镜 001' }).props['aria-pressed'], true)
+  await click(view, '移除镜头')
+  assert.equal(f.project().acts[0].shots.length, 1)
+  const requests = f.requests.filter(x => x.url.startsWith('/project/update-shot')).map(x => JSON.parse(x.options.body))
+  assert.deepEqual(requests.map(x => x.action), ['add', 'add', 'move', 'delete'])
+  assert.deepEqual(requests[2].data, { id: second, direction: -1 })
+  assert.deepEqual(requests[3].data, { id: second })
+  assert.equal(f.requests.some(x => x.url.startsWith('/project/update?')), false)
   await act(async () => view.unmount())
 })
 

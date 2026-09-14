@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { requiredConfig } from '../config.js'
 import { getJob } from '../jobs/query.js'
 import { availableJobSummary } from '../assets/catalog.js'
-import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, titleValue, validJobId, validProjectId } from './schema.js'
+import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from './schema.js'
 import { invalidRequest } from '../http/shared.js'
 
 export function projectSummary(value) {
@@ -29,6 +29,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
   const metadataOf = ({ materials, anchors, acts, deliverables, ...metadata }) => metadata
   const materialIdsOf = value => [...new Set([...(value.materials || []),
     ...(value.deliverables || []).map(item => item.job_id), ...value.anchors.map(anchor => anchor.source?.job_id), ...value.acts.flatMap(act => act.shots.map(shot => shot.job_id))].filter(validJobId))]
+  const modifiedAt = new Map()
   let operations = Promise.resolve()
 
   async function writeJson(path, value) {
@@ -40,13 +41,29 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
   async function writeProject(directory, value, sections) {
     await Promise.all([...new Set(sections)].map(key => writeJson(join(directory, names[key]), value[key])))
     await writeJson(join(directory, 'project.json'), metadataOf(value))
+    modifiedAt.set(value.id, value.updated_at)
+  }
+
+  // 为旧镜头补稳定身份，排序和后续读取不改变已有 ID。
+  function ensureShotIds(acts) {
+    const ids = new Set(acts.flatMap(act => act.shots.map(shot => shot.id)).filter(Boolean))
+    let changed = false
+    for (const act of acts) for (const shot of act.shots) {
+      if (shot.id !== undefined) continue
+      let id
+      do { id = randomBytes(4).toString('hex') } while (ids.has(id))
+      shot.id = id; ids.add(id); changed = true
+    }
+    return changed
   }
 
   async function load(id) {
+    if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
     const directory = join(root(), id)
     const metadata = JSON.parse(await readFile(join(directory, 'project.json'), 'utf8'))
     if (['anchors', 'acts', 'deliverables'].some(key => Object.hasOwn(metadata, key))) {
       const value = { ...metadata, materials: metadata.materials || [], anchors: metadata.anchors || [], acts: metadata.acts || [], deliverables: metadata.deliverables || [] }
+      ensureShotIds(value.acts)
       value.materials = materialIdsOf(value)
       await writeProject(directory, value, ['materials', 'anchors', 'acts', 'deliverables'])
       return value
@@ -59,6 +76,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
       materials = materialIdsOf({ materials: [], anchors, acts })
       await writeJson(join(directory, names.materials), materials)
     }
+    if (ensureShotIds(acts)) await writeJson(join(directory, names.acts), acts)
     return { ...metadata, materials, anchors, acts, deliverables }
   }
 
@@ -94,6 +112,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
       if (action === 'delete') {
         await readFile(join(root(), body.id, 'project.json'))
         await rm(join(root(), body.id), { recursive: true, force: true })
+        modifiedAt.delete(body.id)
         return { deleted: true }
       }
       let value, sections
@@ -116,7 +135,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
         if (body.profile !== undefined) value.profile = profileValue(body.profile)
         if (body.materials !== undefined) { value.materials = materialsValue(body.materials); sections.push('materials') }
         if (body.anchors !== undefined) { value.anchors = anchorsValue(body.anchors); sections.push('anchors') }
-        if (body.acts !== undefined) { value.acts = actsValue(body.acts); sections.push('acts') }
+        if (body.acts !== undefined) { value.acts = actsValue(body.acts); ensureShotIds(value.acts); sections.push('acts') }
         if (body.deliverables !== undefined) { value.deliverables = deliverablesValue(body.deliverables); sections.push('deliverables') }
         if (action === 'import') {
           if (body.as !== 'anchor' || !validJobId(body.job_id)) throw invalidRequest('素材引入参数无效')
@@ -130,12 +149,80 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
         }
         const materials = materialIdsOf(value)
         if (materials.some((id, index) => id !== value.materials[index]) || materials.length !== value.materials.length) { value.materials = materials; sections.push('materials') }
-        value.updated_at = Date.now()
+        value.updated_at = Math.max(Date.now(), value.updated_at + 1)
       }
       await writeProject(join(root(), value.id), value, sections)
       return value
     })
   }
+
+  // 在同一队列中读取最新值、修改单个对象并持久化，避免旧数组覆盖其他对象。
+  function changeObject(id, mutate) {
+    return enqueue(async () => {
+      const value = await load(id)
+      const sections = mutate(value)
+      value.anchors = anchorsValue(value.anchors)
+      value.acts = actsValue(value.acts)
+      const materials = materialIdsOf(value)
+      if (materials.length !== value.materials.length || materials.some((item, i) => item !== value.materials[i])) {
+        value.materials = materials; sections.push('materials')
+      }
+      value.updated_at = Math.max(Date.now(), value.updated_at + 1)
+      await writeProject(join(root(), id), value, sections)
+      return value
+    })
+  }
+
+  const changeAnchor = (id, action, data) => changeObject(id, value => {
+    if (!['add', 'update', 'delete'].includes(action)) throw invalidRequest('锚点操作无效')
+    const index = value.anchors.findIndex(anchor => anchor.role === data.role)
+    if (action === 'add') value.anchors.push({ label: '', description: '', source: null, image_url: '', ...data })
+    else {
+      if (index < 0) throw invalidRequest('锚点不存在')
+      if (action === 'delete') value.anchors.splice(index, 1)
+      else {
+        const { new_role, ...patch } = data
+        value.anchors[index] = { ...value.anchors[index], ...patch, role: new_role ?? data.role }
+        if (new_role !== undefined && new_role !== data.role) {
+          for (const act of value.acts) for (const shot of act.shots) if (shot.role === data.role) shot.role = new_role
+          return ['anchors', 'acts']
+        }
+      }
+    }
+    return ['anchors']
+  })
+
+  const changeShot = (id, action, data) => changeObject(id, value => {
+    if (!['add', 'update', 'delete', 'move'].includes(action)) throw invalidRequest('镜头操作无效')
+    if (action === 'add') {
+      if (!Number.isInteger(data.act_index) || !value.acts[data.act_index]) throw invalidRequest('幕不存在')
+      value.acts[data.act_index].shots.push(shotValue({ role: '', action: '', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '', ...data, id: undefined }))
+      ensureShotIds(value.acts)
+    } else {
+      if (!validShotId(data.id)) throw invalidRequest('镜头 ID 无效')
+      const act = value.acts.find(act => act.shots.some(shot => shot.id === data.id))
+      if (!act) throw invalidRequest('镜头不存在')
+      const index = act.shots.findIndex(shot => shot.id === data.id)
+      if (action === 'update') act.shots[index] = { ...act.shots[index], ...data }
+      if (action === 'delete') act.shots.splice(index, 1)
+      if (action === 'move') {
+        if (![1, -1].includes(data.direction) || !act.shots[index + data.direction]) throw invalidRequest('移动方向无效或已到幕边界')
+        const target = index + data.direction
+        ;[act.shots[index], act.shots[target]] = [act.shots[target], act.shots[index]]
+      }
+    }
+    return ['acts']
+  })
+
+  // 冷启动从持久化元数据恢复标记，后续轮询复用本实例的成功写入记录。
+  const lastModified = id => enqueue(async () => {
+    if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
+    if (!modifiedAt.has(id)) {
+      const value = JSON.parse(await readFile(join(root(), id, 'project.json'), 'utf8'))
+      modifiedAt.set(id, value.updated_at)
+    }
+    return modifiedAt.get(id)
+  })
 
   const usesDirector = name => enqueue(async () => {
     const entries = await readdir(root(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
@@ -149,5 +236,5 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
     return false
   })
 
-  return { list, read, change, usesDirector }
+  return { list, read, change, changeAnchor, changeShot, lastModified, usesDirector }
 }

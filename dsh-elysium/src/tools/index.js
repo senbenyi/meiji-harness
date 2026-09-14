@@ -3,6 +3,8 @@ import { createModelJobResultTool, createModelJobStatusTool } from './model-jobs
 import { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool } from './video.js'
 import { createComfyuiTaskCancelTool, createComfyuiTaskQueueTool, createComfyuiTaskResultTool, createComfyuiTaskStatusTool } from './comfyui-tasks.js'
 
+export { createProjectTools } from './project.js'
+
 export { createModelJobResultTool, createModelJobStatusTool }
 export { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool }
 export { createComfyuiTaskCancelTool, createComfyuiTaskQueueTool, createComfyuiTaskResultTool, createComfyuiTaskStatusTool }
