@@ -13,10 +13,7 @@ export async function codeVersion() {
     ...['provider-loader', 'runtime', 'standard-adapter', 'schema', 'resolve', 'backend', 'connection'].map(name => `../../servers/${name}.js`),
     '../../config.js', '../../tools/output.js', '../../tools/video.js', '../../comfyui/client.js', '../../comfyui/submission.js',
     '../../comfyui/execution.js', '../../comfyui/media-reference.js',
-    ...['artifacts', 'call-binding', 'execution', 'launcher', 'plan', 'service', 'worker-owner', 'worker'].map(name => `../video/${name}.js`),
-    ...['graph', 'profile'].map(name => `../../comfyui/workflows/minimax-h3/${name}.js`),
-    ...['preview', 'regular', 'preview-low-resolution'].map(name => `../../comfyui/workflows/minimax-h3/profiles/${name}.json`),
-    ...['t2va', 'i2va', 'fl2va', 'fl2va-loop', 'r2va'].map(name => `../../comfyui/workflows/minimax-h3/templates/${name}.json`)]
+    ...['artifacts', 'call-binding', 'execution', 'launcher', 'plan', 'service', 'worker-owner', 'worker'].map(name => `../video/${name}.js`)]
   const provider = runtimeConfig().ELYSIUM_BACKEND?.provider
   const adapterSources = provider ? await Promise.all((await providerSourceFiles(provider)).map(url => readFile(url))) : []
   const sources = await Promise.all(names.map(name => readFile(new URL(name, import.meta.url))))

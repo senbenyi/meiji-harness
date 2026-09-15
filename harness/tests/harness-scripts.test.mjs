@@ -5,7 +5,6 @@ import { test } from 'node:test'
 
 const root = new URL('../../', import.meta.url).pathname
 const localScript = name => readFile(join(root, 'harness/scripts', name), 'utf8')
-const serverScript = name => readFile(join(root, 'runpod/scripts', name), 'utf8')
 
 test('local scripts install dependencies and start the Qwen tunnel before Harness', async () => {
   const install = await localScript('install.mjs'), start = await localScript('start.mjs')
@@ -31,13 +30,11 @@ test('local scripts install dependencies and start the Qwen tunnel before Harnes
   assert.doesNotMatch(start, /comfyui\.mjs|spawnSync\('ssh'|system_stats/)
 })
 
-test('server scripts expose only their explicit ComfyUI and Qwen commands', async () => {
-  const comfyui = await serverScript('comfyui.mjs'), tunnel = await serverScript('tunnel.mjs'), localTunnel = await localScript('tunnel.mjs')
-  assert.match(comfyui, /manageProvider\('runpod', action\)/)
-  const implementation = await readFile(join(root, 'dsh-elysium/src/servers/providers/runpod/service.mjs'), 'utf8')
-  for (const action of ['check', 'start', 'stop', 'restart']) assert.match(implementation, new RegExp(`'${action}'`))
-  assert.match(tunnel, /target !== 'qwen'/)
-  assert.match(tunnel, /harness\/scripts\/tunnel\.mjs/)
+test('service management and tunnels use public routing only', async () => {
+  const service = await readFile(join(root, 'dsh-elysium/scripts/server-service.mjs'), 'utf8')
+  const localTunnel = await localScript('tunnel.mjs')
+  assert.match(service, /manageProvider\(provider, action\)/)
+  assert.doesNotMatch(service, /workspace|spawn|fetch/)
   assert.match(localTunnel, /connectBackend/)
   assert.match(localTunnel, /'veo-qwen38'/)
   assert.doesNotMatch(localTunnel, /fetch\(|process\.kill/)

@@ -20,7 +20,6 @@ dsh-elysium/
 │   │   └── production/ # 多镜头生产编排（源码 CLI）
 │   ├── servers/        # 配置、连接、检查与平台适配器
 │   ├── comfyui/        # 公共 ComfyUI 协议
-│   │   └── workflows/minimax-h3/ # 图构建、档位配置与模板
 │   ├── http/           # 媒体与项目 HTTP 路由适配
 │   ├── prompts/        # 系统提示词片段
 │   └── client/         # React.createElement，无 JSX
@@ -40,6 +39,7 @@ dsh-elysium/
 
 **规则**：
 - 构建脚本目录统一命名为 `scripts/`。
+- 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/servers/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
 - 插件 Cordis 装配统一位于 `harness/.dsh/profiles/web/cordis.patch.yml`，插件包不自带 Harness 运行配置。
 - 新增客户端模块（含 `workbench/`）后须同步更新 `scripts/client-source.mjs` 的模块列表，依赖在前、`index.js` 最后。
@@ -77,8 +77,8 @@ harness/.dsh/.agent-presets/
 ```
 harness/scripts/install.mjs # 本机 Harness 与插件安装入口
 harness/scripts/start.mjs   # 本机 Harness 启动入口
-runpod/scripts/comfyui.mjs  # 服务器 ComfyUI 生命周期管理
-runpod/scripts/tunnel.mjs   # 服务器模型隧道
+dsh-elysium/scripts/server-service.mjs # 通用平台服务管理路由
+harness/scripts/tunnel.mjs # 本机模型隧道路由
 harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 ```
 
@@ -103,3 +103,5 @@ dsh-elysium/tests/         # 插件单元测试
 - 插件不允许上传、下载、保存文件方法。
 - 插件中媒体、视频、图片一律使用服务器 URL。
 - Harness 只在本机运行；远端服务器只保留模型服务。
+
+- 原有 Runpod H3 模板与完整 UI 元数据位于 `src/servers/providers/runpod/workflows/minimax-h3/`，迁移不得删字段或重写原始内容；公共同步脚本只负责平台路由。

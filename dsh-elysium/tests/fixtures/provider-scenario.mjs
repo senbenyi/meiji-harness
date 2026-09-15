@@ -5,7 +5,7 @@ import { readFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { apply } from './lib/index.js'
-import { buildVideoGraph } from './lib/comfyui/workflows/minimax-h3/graph.js'
+import { buildBackendGraph } from './lib/servers/runtime.js'
 import { startVideoJob, resumeVideoJob } from './lib/business/video/service.js'
 import { getJob } from './lib/business/jobs/query.js'
 import { createJob } from './lib/business/jobs/create.js'
@@ -16,7 +16,8 @@ import { readRegistry, writeRegistry } from './lib/servers/store.js'
 import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/tools/comfyui-tasks.js'
 import { runProduction } from './src/business/production/runner.js'
 import { validateProductionManifest } from './src/business/production/manifest.js'
-const provider = process.argv[2], services = [], jobs = [], schemas = {}
+const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}
+const buildVideoGraph = (plan, id) => buildBackendGraph({ provider, instance_id: 'fixture', deployment_id: 'one', service: 'comfyui', base_url: 'http://unselected.invalid', connection: { workload: 'minimax-h3' } }, plan, id)
 const state = process.env.ELYSIUM_STATE_ROOT
 const jobPath = (project, id) => join(state, 'projects', project, 'jobs', id)
 // 这里只模拟节点协议和回执，不声称验证了真实 GPU 模型或视频质量。
@@ -83,6 +84,7 @@ async function completed(project, id, expected = 'succeeded') {
   throw new Error(`Worker timeout ${id}: ${await readFile(join(jobPath(project, id), 'worker.log'), 'utf8')}`)
 }
 try {
+  for (const name of ['tests', 'legacy', 'resources']) await assert.rejects(access(`lib/servers/providers/${provider}/${name}`))
   const a = await model(), b = await model(), routes = new Map(), events = new Map()
   const context = { tools: { register() {} }, get: () => ({ register: route => routes.set(route.path, route.handler) }),
     inject: (_, fn) => fn(context), effect: fn => fn(), on: (event, fn) => events.set(event, fn) }
@@ -136,16 +138,16 @@ try {
   assert.equal(batch.completed, 2); assert.equal(b.posts, 1, 'batch and references remain on original server')
   const posts = a.posts
   await runProduction(manifest, { log() {} }); assert.equal(a.posts, posts, 'completed batch does not resubmit')
-  if (provider === 'autodl') {
-    await assert.rejects(access('src/servers/providers/runpod'))
-    await assert.rejects(access('lib/servers/providers/runpod'))
+  if (removed) {
+    await assert.rejects(access(`src/servers/providers/${removed}`))
+    await assert.rejects(access(`lib/servers/providers/${removed}`))
     const oldId = await createJob(projectId, { mode: 't2va', prompt: 'Old task' })
     const oldPath = jobPath(projectId, oldId)
-    await saveJson(join(oldPath, 'input/backend.json'), { ...resolveServer(), provider: 'runpod' })
+    await saveJson(join(oldPath, 'input/backend.json'), { ...resolveServer(), provider: removed })
     await saveJson(join(oldPath, 'status.json'), { job_id: oldId, project_id: projectId, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
     await assert.rejects(resumeVideoJob(oldId), { code: 'PROVIDER_UNAVAILABLE' })
     assert.equal((await getJob(oldId)).error_code, 'PROVIDER_UNAVAILABLE')
-    const registry = readRegistry(); await writeRegistry({ ...registry, servers: [...registry.servers, { ...record('old', { url: 'http://retired.invalid' }), provider: 'runpod' }] }, registry.revision)
+    const registry = readRegistry(); await writeRegistry({ ...registry, servers: [...registry.servers, { ...record('old', { url: 'http://retired.invalid' }), provider: removed }] }, registry.revision)
     assert.equal((await request('server/list')).servers.find(server => server.id === 'old').provider_available, false)
     await request(`project/get?id=${projectId}`)
     const trace = (await readFile(process.env.PROVIDER_TRACE, 'utf8')).trim().split('\n').map(JSON.parse)

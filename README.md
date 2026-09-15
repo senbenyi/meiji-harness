@@ -11,7 +11,6 @@ Harness 只在本机运行，远端服务器只提供 Qwen、ComfyUI 等模型�
 ```text
 harness/       # 本机 Harness 配置、安装与启动
 dsh-elysium/   # Elysium 创作插件
-runpod/        # 远端运维兼容入口与既有生产脚本
 docs/          # 调研、设计、计划与实施记录
 ```
 
@@ -27,9 +26,9 @@ src/
 │   ├── video/                # 单次视频任务、执行、worker 与恢复
 │   └── production/           # 多镜头生产清单、编排、回执与参考帧
 ├── servers/                  # 服务器发现、配置、连接与平台适配
-│   └── providers/            # Runpod 实现及其他平台预留目录
+│   └── providers/            # 平台实现及各自的工作流模板
+│       └── runpod/workflows/ # 原有 H3 图构建、档位配置和完整模板
 ├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
-│   └── workflows/minimax-h3/ # H3 图构建、档位配置及工作流模板
 ├── tools/                    # Harness 聊天工具入口
 ├── http/                     # HTTP 路由适配
 ├── client/                   # 创作工作台与聊天界面
@@ -97,7 +96,7 @@ src/
 ## 相关文档
 
 - [Harness 本机安装与配置](harness/README.md)
-- [RunPod 模型服务运维](runpod/README.md)
+- [Runpod 平台模块与运维](dsh-elysium/src/servers/providers/runpod/README.md)
 - [Elysium 工具插件开发](dsh-elysium/README.md)
 - [视频创作三档入口与全链路](docs/implement/实施-视频创作三档入口与全链路.md)
 - [AI 短剧快速预览](docs/implement/实施-AI短剧快速预览.md)

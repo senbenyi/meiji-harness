@@ -14,12 +14,10 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 ├── dsh-elysium/ — Elysium 创作插件
 │   ├── src/ — 工具、HTTP 接口、创作工作台与任务管理源码
 │   │   ├── business/ — 项目、导演、素材、任务、视频与多镜头生产业务
-│   │   ├── servers/ — 服务器配置、连接与平台适配
-│   │   └── comfyui/ — 公共协议及 workflows/minimax-h3 模型工作流
+│   │   ├── servers/ — 服务器配置、连接与平台适配；专属实现/测试/运维材料集中在 providers/<id>/
+│   │   └── comfyui/ — 公共 ComfyUI 协议；平台工作流位于各自 providers/<id>/workflows
 │   ├── scripts/ — 构建、打包、工作流同步与生产入口
 │   └── tests/ — 插件功能、工作台与视频生产测试
-├── runpod/ — 远端模型服务运维与生产脚本
-│   └── scripts/ — ComfyUI 管理、Qwen 隧道与《第三杯咖啡》预览入口
 └── docs/ — 项目文档与验收资料
     ├── design/ — 设计文档
     ├── plans/ — 实施计划

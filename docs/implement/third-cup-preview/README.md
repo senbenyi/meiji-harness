@@ -14,12 +14,12 @@
 - 前四镜的 `reference.api/submission.json`：通过既有API提参考帧的节点图与提交找回记录。
 - `acceptance-NNN.json`：前NNN镜的本地解码、规格、顺序和耗时验收，120对应完整成片。
 
-保留的制作入口为本地 `runpod/scripts/third-cup-preview.mjs`，调用既有插件单镜任务链与 ComfyUI API。旧剪辑和本机交付服务属于一次性工具，现已删除。
+旧制作入口已归档至 `dsh-elysium/src/servers/providers/runpod/legacy/third-cup-preview.mjs`，仅供审计，不再执行；当前生产入口为 `dsh-elysium/scripts/production-runner.mjs`。旧剪辑和本机交付服务属于一次性工具，现已删除。
 
 在本项目目录运行：
 
 ```sh
-COMFYUI_URL=https://36we4j3zo503js-8188.proxy.runpod.net node runpod/scripts/third-cup-preview.mjs 10
+# 旧制作命令已归档，当前生产请使用 production-runner.mjs 和项目级清单
 ```
 
 将 10 改为 120 可核对全片。完成镜头复用原回执；失败只恢复对应镜头。超过重试预算或提交结果不明时，查原回执和队列，不能删除回执重新开始。

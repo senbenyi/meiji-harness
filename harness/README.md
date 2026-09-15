@@ -33,4 +33,4 @@ node harness/scripts/start.mjs
 
 凭据读取优先级为：启动进程环境变量、`~/.dsh/.credentials.yaml`、项目目录 `.env`、DSH 主目录 `.env`。
 
-远端 ComfyUI 和 Qwen 运维见 [RunPod 说明](../runpod/README.md)。
+Runpod 平台运维见 [适配器说明](../dsh-elysium/src/servers/providers/runpod/README.md)。本机 Qwen 隧道统一使用 `node harness/scripts/tunnel.mjs qwen`，按服务器配置解析目标。

@@ -2,7 +2,11 @@
 import { access, readdir } from 'node:fs/promises'
 import { createStandardAdapter } from './standard-adapter.js'
 const root = new URL('./providers/', import.meta.url)
-const manual = createStandardAdapter({ id: 'manual', label: '通用手工连接' })
+// 旧手工连接明确路由到原工作流提供方，不复制模板；新平台必须提供自己的实现。
+const legacyWorkflowProvider = 'runpod'
+const manual = createStandardAdapter({ id: 'manual', label: '通用手工连接',
+  buildGraph: async (...args) => (await loadProvider(legacyWorkflowProvider)).buildGraph(...args) })
+manual.syncWorkflows = async args => (await loadProvider(legacyWorkflowProvider)).syncWorkflows(args)
 const methods = ['validate', 'connect', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource', 'manage']
 const unavailable = (id, reason) => Object.assign(new Error(`平台适配器 ${id} 不可用：${reason}`), { code: 'PROVIDER_UNAVAILABLE', status: 409 })
 export function validateProvider(adapter, id) {
@@ -33,12 +37,13 @@ export async function listProviders() {
 // 当前适配器源码进入任务指纹，缺失平台不会被静默略过。
 export async function providerSourceFiles(id) {
   await loadProvider(id)
-  if (id === 'manual') return []
+  if (id === 'manual') return providerSourceFiles(legacyWorkflowProvider)
   const directory = new URL(`${id}/`, root)
   async function files(base) {
     const result = []
     for (const entry of (await readdir(base, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       const url = new URL(entry.name + (entry.isDirectory() ? '/' : ''), base)
+      if (entry.isDirectory() && ['tests', 'legacy', 'resources'].includes(entry.name)) continue
       if (entry.isDirectory()) result.push(...await files(url))
       else if (/\.(js|mjs|json)$/.test(entry.name)) result.push(url)
     }

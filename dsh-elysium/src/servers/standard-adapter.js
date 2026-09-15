@@ -1,8 +1,6 @@
 // 职责：提供可跨平台复用的 ComfyUI/H3、SSH 和 Qwen 服务协议实现。
 import { ComfyClient } from '../comfyui/client.js'
-import { buildVideoGraph } from '../comfyui/workflows/minimax-h3/graph.js'
 import { ensureConnection } from './connection.js'
-import { withBackend } from './resolve.js'
 import { runtimeConfig } from '../config.js'
 export const standardServices = Object.freeze({ comfyui: { workload: 'minimax-h3' }, llm: { model: 'qwen3.8-27b-elysium' } })
 export function validateStandard(backend) {
@@ -12,12 +10,12 @@ export function validateStandard(backend) {
   if (backend.service === 'comfyui' && (service?.workload !== standardServices.comfyui.workload || service.api_key_env || service.model)) throw new Error('需要无额外认证的 minimax-h3 ComfyUI 服务')
   if (backend.service === 'llm' && (service?.model !== standardServices.llm.model || service.workload)) throw new Error('需要兼容的 qwen3.8-27b-elysium 服务')
 }
-export function createStandardAdapter({ id, label, validate = validateStandard, manage = async () => { throw Object.assign(new Error('该适配器未提供服务进程管理'), { code: 'PROVIDER_OPERATION_UNSUPPORTED', status: 422 }) } }) {
+export function createStandardAdapter({ id, label, validate = validateStandard, buildGraph = async () => { throw Object.assign(new Error('该平台未提供工作流模板'), { code: 'PROVIDER_OPERATION_UNSUPPORTED', status: 422 }) }, manage = async () => { throw Object.assign(new Error('该适配器未提供服务进程管理'), { code: 'PROVIDER_OPERATION_UNSUPPORTED', status: 422 }) } }) {
   const adapter = {
     apiVersion: 1, id, label, services: standardServices, validate, manage,
     connect: backend => ensureConnection(backend),
     createClient: (backend, { signal, timing } = {}) => new ComfyClient(backend.base_url, signal, timing),
-    buildGraph: (backend, plan, jobId) => withBackend(backend, () => buildVideoGraph(plan, jobId)),
+    buildGraph,
     llmSettings: backend => ({ route: 'qwen38-local', api: 'openai-completions', model: backend.connection?.model || standardServices.llm.model,
       base_url: backend.base_url, api_key_env: backend.connection?.api_key_env }),
     workflowSource: backend => backend.base_url,
