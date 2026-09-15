@@ -8,20 +8,19 @@
 - pnpm
 
 ## 安装
-
 ```sh
 node harness/scripts/install.mjs
 ```
 
-脚本在本机不存在 `dsh` 时安装 Harness，将 `harness/.dsh/` 中的托管配置覆盖到 `~/.dsh/`，但不复制凭据和环境变量模板；随后构建并安装 `dsh-elysium` 插件依赖。本机其他 `.dsh` 文件不会被删除。
-
 ## 启动
-
 ```sh
 node harness/scripts/start.mjs
 ```
 
-重复执行时会复用健康的 Qwen 隧道和已运行的本机 Harness，不会再次占用 `18000` 或 `3080`。
+## 隧道
+```sh
+node harness/scripts/tunnel.mjs qwen`
+```
 
 ## 配置
 
@@ -31,6 +30,6 @@ node harness/scripts/start.mjs
 - `harness/.dsh/.env.example`：本机环境变量模板；复制为 `.env` 后填写实际值。
 - `~/.dsh/.credentials.yaml`：Harness 在本机生成的凭据，不进入仓库。
 
-凭据读取优先级为：启动进程环境变量、`~/.dsh/.credentials.yaml`、项目目录 `.env`、DSH 主目录 `.env`。
+## 凭据
+启动环境、`~/.dsh/.credentials.yaml`、`.env` `.env`。
 
-Runpod 平台运维见 [适配器说明](../dsh-elysium/src/servers/providers/runpod/README.md)。本机 Qwen 隧道统一使用 `node harness/scripts/tunnel.mjs qwen`，按服务器配置解析目标。
