@@ -12,9 +12,9 @@ export function comfyuiTaskTool(action, description) {
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
-        server: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$', description: '任务所属实例，必须与生成任务返回的服务一致。' },
+        server: { type: 'string', description: '任务所属实例，必须与生成任务返回的服务一致。' },
         ...(action === 'queue' ? {} : {
-          prompt_id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,128}$', description: 'ComfyUI 原生任务 ID，不是 model_job_status 的 job_id。' },
+          prompt_id: { type: 'string', description: 'ComfyUI 原生任务 ID，不是 model_job_status 的 job_id。' },
         }),
       },
       required: action === 'queue' ? ['server'] : ['server', 'prompt_id'],

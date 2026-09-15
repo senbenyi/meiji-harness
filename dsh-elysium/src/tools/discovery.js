@@ -57,7 +57,7 @@ export function createToolDiscoveryTool(ctx) {
   return {
     name: 'elysium_load_tools', description: '按需加载通用工具组及其原始参数和说明，不执行任务。加载后在下一次请求直接调用原工具。',
     parameters: { type: 'object', additionalProperties: false, properties: {
-      groups: { type: 'array', minItems: 1, items: { type: 'string', enum: Object.keys(TOOL_GROUPS) } },
+      groups: { type: 'array', items: { type: 'string', enum: Object.keys(TOOL_GROUPS) } },
     }, required: ['groups'] },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       loaded_tools: { type: 'array', items: { type: 'string' } },

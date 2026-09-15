@@ -2,17 +2,17 @@
 import { projectSummary } from '../business/projects/store.js'
 
 const text = { type: 'string' }
-const projectId = { type: 'string', pattern: '^[a-f0-9]{8}$', description: '项目 ID，先读取再修改。' }
-const shotId = { type: 'string', pattern: '^[a-z0-9-]{1,40}$' }
+const projectId = { type: 'string', description: '项目 ID，先读取再修改。' }
+const shotId = { type: 'string' }
 const object = (properties, required = []) => ({ type: 'object', additionalProperties: false, properties, required })
 const info = { title: text, director: text, profile: { type: 'string', enum: ['preview', 'regular', 'high-quality', 'hd'] } }
 const anchorPatch = object({
   new_role: text, label: text, description: text, image_url: text,
-  source: { anyOf: [{ type: 'null' }, object({ type: { type: 'string', enum: ['job', 'material'] }, job_id: { type: 'string', pattern: '^[a-f0-9]{32}$' } }, ['type', 'job_id'])] },
+  source: { oneOf: [{ type: 'null' }, object({ type: { type: 'string', enum: ['job', 'material'] }, job_id: { type: 'string' } }, ['type', 'job_id'])] },
 })
 const shotPatch = object({
   role: text, action: text, subtitle: text, mode: text, notes: text,
-  job_id: { anyOf: [{ type: 'null' }, { type: 'string', pattern: '^[a-f0-9]{32}$' }] },
+  job_id: { oneOf: [{ type: 'null' }, { type: 'string' }] },
   status: { type: 'string', enum: ['pending', 'queued', 'running', 'succeeded', 'failed'] },
 })
 const outputSchema = { type: 'object', additionalProperties: true, properties: { id: projectId, title: text }, required: ['id', 'title'] }
@@ -38,7 +38,7 @@ export function createProjectTools(store) {
     },
     {
       name: 'project_update_shot', description: '操作单个镜头。新增需 act_index（从0开始），修改/删除/移动需 id；移动 direction 为±1。镜头动作描述放在 patch.action，只传需修改字段。',
-      parameters: object({ project_id: projectId, action: { type: 'string', enum: ['add', 'update', 'delete', 'move'] }, id: shotId, act_index: { type: 'integer', minimum: 0 }, direction: { type: 'integer', enum: [-1, 1] }, patch: shotPatch }, ['project_id', 'action']),
+      parameters: object({ project_id: projectId, action: { type: 'string', enum: ['add', 'update', 'delete', 'move'] }, id: shotId, act_index: { type: 'integer' }, direction: { type: 'integer', enum: [-1, 1] }, patch: shotPatch }, ['project_id', 'action']),
       output: { schema: outputSchema, render: renderProjectResult },
       execute: args => store.changeShot(args.project_id, args.action, { ...args.patch, id: args.id, act_index: args.act_index, direction: args.direction }),
     },
