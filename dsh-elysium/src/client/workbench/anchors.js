@@ -1,14 +1,14 @@
 // 职责：展示、编辑和替换项目角色与场景锚点。
 window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
   const exports = {}
-  const { createElement: h, useEffect, useState } = require('react')
+  const { createElement: h, Fragment, useEffect, useState } = require('react')
   const { Dialog, Icon, IconButton } = require('elysium/dialog')
   const { MaterialList } = require('elysium/materials')
   const { ShotPreview } = require('elysium/shot-preview')
   const { importMaterial, updateAnchor } = require('elysium/project-api')
   function AnchorCreateForm({ initial, busy, save, cancel, guard }) {
-    const [draft, setDraft] = useState(initial)
-    const dirty = draft.label !== initial.label || draft.description !== initial.description
+    const [draft, setDraft] = useState(initial), [selecting, setSelecting] = useState(false)
+    const dirty = draft.label !== initial.label || draft.description !== initial.description || draft.source !== initial.source
     const leave = action => { if (!dirty || window.confirm('放弃未保存的锚点？')) action() }
     useEffect(() => {
       if (!guard) return
@@ -20,11 +20,14 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
       const label = draft.label.trim()
       if (label && await save({ ...draft, label }) !== false) cancel()
     }
-    return h('form', { className: 'elysium-anchor-create', onSubmit: submit },
+    return h(Fragment, null, h('form', { className: 'elysium-anchor-create', onSubmit: submit },
       h('input', { autoFocus: true, 'aria-label': '锚点名称', placeholder: '锚点名称', value: draft.label, disabled: busy, onChange: event => setDraft({ ...draft, label: event.target.value }) }),
       h('textarea', { 'aria-label': '锚点描述', placeholder: '描述（可选）', rows: 1, value: draft.description, disabled: busy, onChange: event => setDraft({ ...draft, description: event.target.value }) }),
-      h('footer', null, h(IconButton, { name: 'close', label: '取消添加锚点', disabled: busy, onClick: () => leave(cancel) }),
-        h('button', { className: 'elysium-primary', type: 'submit', disabled: busy || !draft.label.trim() }, busy ? '保存中…' : '保存')))
+      h('footer', null, h(IconButton, { name: 'insert', label: '选择参考图片', disabled: busy, onClick: () => setSelecting(true) }), h(IconButton, { name: 'close', label: '取消添加锚点', disabled: busy, onClick: () => leave(cancel) }),
+        h('button', { className: 'elysium-primary', type: 'submit', disabled: busy || !draft.label.trim() }, busy ? '保存中…' : '保存')),
+      draft.source?.job_id ? h('div', { className: 'elysium-anchor-preview', style: { gridColumn: '1 / -1' } }, h(ShotPreview, { jobId: draft.source.job_id, imageOnly: true })) : null),
+      selecting ? h(Dialog, { title: '选择参考图片', busy, close: () => setSelecting(false) },
+        h(MaterialList, { imageOnly: true, onSelect: item => { if (!item.has_image) return false; setDraft({ ...draft, source: { type: 'material', job_id: item.job_id }, image_url: '' }); setSelecting(false) } })) : null)
   }
   // 职责：在参考图预览中编辑锚点名称和描述，并显式保存。
   function AnchorPreview({ anchor, busy, save, close, guard, replace }) {

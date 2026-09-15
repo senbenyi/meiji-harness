@@ -358,3 +358,26 @@ test('replacing a reference from preview preserves unsaved anchor text', async (
   assert.equal(f.project().anchors[0].source.job_id, 'b'.repeat(32))
   await act(async () => view.unmount())
 })
+
+
+test('new anchor selects an image into draft and only persists it on save', async () => {
+  const f = fixture(emptyProject())
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: 'abcdef12', viewState: { projectTab: 'anchors' }, back() {} })) })
+  await click(view, '添加锚点')
+  await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '新锚点' } }))
+  await click(view, '选择参考图片')
+  assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
+  assert.equal(new URL(f.requests.findLast(request => request.url.startsWith('/media/list')).url, 'http://localhost').searchParams.get('media_kind'), 'image')
+  await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())
+  await click(view, '使用此素材')
+  assert.equal(f.project().anchors.length, 0)
+  assert.equal(f.requests.filter(request => request.url.startsWith('/project/import')).length, 0)
+  assert.equal(view.root.findByProps({ 'aria-label': '锚点名称' }).props.value, '新锚点')
+  assert.ok(view.root.findAllByType('img').some(img => img.props.src === `/media/image?job=${'b'.repeat(32)}&t=t`))
+  await act(async () => view.root.findByProps({ className: 'elysium-anchor-create' }).props.onSubmit({ preventDefault() {} }))
+  assert.equal(f.project().anchors[0].label, '新锚点')
+  assert.deepEqual(f.project().anchors[0].source, { type: 'material', job_id: 'b'.repeat(32) })
+  assert.equal(view.root.findAllByProps({ className: 'elysium-anchor-create' }).length, 0)
+  await act(async () => view.unmount())
+})
