@@ -6,11 +6,25 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 
 ```text
 .
-├── harness/ — 本机 Harness 配置与 Agent presets
-├── dsh-elysium/ — 工具插件源码、工作流、构建脚本
-├── runpod/ — 远端模型服务与生产脚本
-├── tests/ — 部署与配置测试
-└── docs/ — 设计、计划、实施及产品文档
+├── .claude/ — 调研、计划、实施与进度规范
+├── harness/ — 本机 Harness 安装、启动与配置
+│   ├── .dsh/ — 托管配置、Agent presets 与存储模板
+│   ├── scripts/ — 安装、启动、隧道与存储模板脚本
+│   └── tests/ — Harness 脚本、配置与预设测试
+├── dsh-elysium/ — Elysium 创作插件
+│   ├── src/ — 工具、HTTP 接口、创作工作台与任务管理源码
+│   │   ├── video/ — 视频生成执行、档位配置与 MiniMax H3 工作流模板
+│   │   └── video-production/ — 通用视频生产编排、清单与状态管理
+│   ├── scripts/ — 构建、打包、工作流同步与生产入口
+│   └── tests/ — 插件功能、工作台与视频生产测试
+├── runpod/ — 远端模型服务运维与生产脚本
+│   └── scripts/ — ComfyUI 管理、Qwen 隧道与《第三杯咖啡》预览入口
+└── docs/ — 项目文档与验收资料
+    ├── design/ — 设计文档
+    ├── plans/ — 实施计划
+    ├── implement/ — 实施记录、制作资料与验收产物
+    ├── products/ — 产品资料与审查档案
+    └── research/ — 调研与代码审查报告
 ```
 
 ## 执行铁律
