@@ -1,6 +1,6 @@
 # RunPod 模型服务
 
-`runpod/` 只负责远端模型服务运维和 RunPod 生产脚本。
+`runpod/` 保留旧运维命令和冻结生产案例。完整平台实现位于 [providers/runpod](../dsh-elysium/src/servers/providers/runpod/README.md)，包括配置、连接、执行契约和服务进程管理。公共业务不依赖此目录。
 
 
 
@@ -57,11 +57,13 @@ node runpod/scripts/comfyui.mjs stop
 node runpod/scripts/comfyui.mjs restart
 ```
 
+上述命令转发到平台模块；也可使用 `node dsh-elysium/scripts/server-service.mjs runpod <action>`。进程管理只停止本模块通过 PID 文件登记且身份匹配的进程，已有外部启动进程须由原启动者管理。
+
 ComfyUI 目录为 `/workspace/runpod-slim/ComfyUI`，端口为 `8188`，日志写入 `/workspace/runpod-slim/comfyui.log`。
 
 ## Qwen 隧道
 
-在需要连接 Qwen 的服务器执行：
+旧命令保留为本机公共隧道入口的转发；建议在 Harness 所在本机执行：
 
 ```sh
 node runpod/scripts/tunnel.mjs qwen

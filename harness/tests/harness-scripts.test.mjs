@@ -33,12 +33,12 @@ test('local scripts install dependencies and start the Qwen tunnel before Harnes
 
 test('server scripts expose only their explicit ComfyUI and Qwen commands', async () => {
   const comfyui = await serverScript('comfyui.mjs'), tunnel = await serverScript('tunnel.mjs'), localTunnel = await localScript('tunnel.mjs')
-  for (const action of ['check', 'start', 'stop', 'restart']) assert.match(comfyui, new RegExp(`case '${action}'`))
-  assert.match(comfyui, /const root = '\/workspace\/runpod-slim'/)
-  assert.match(comfyui, /join\(root, 'ComfyUI'\)/)
+  assert.match(comfyui, /manageProvider\('runpod', action\)/)
+  const implementation = await readFile(join(root, 'dsh-elysium/src/servers/providers/runpod/service.mjs'), 'utf8')
+  for (const action of ['check', 'start', 'stop', 'restart']) assert.match(implementation, new RegExp(`'${action}'`))
   assert.match(tunnel, /target !== 'qwen'/)
-  assert.match(tunnel, /127\.0\.0\.1:18000:127\.0\.0\.1:8000/)
-  assert.match(localTunnel, /ensureConnection/ )
+  assert.match(tunnel, /harness\/scripts\/tunnel\.mjs/)
+  assert.match(localTunnel, /connectBackend/)
   assert.match(localTunnel, /'veo-qwen38'/)
   assert.doesNotMatch(localTunnel, /fetch\(|process\.kill/)
   assert.match(await localScript('install.mjs'), /entry === 'servers\.json'.*entry === 'servers\.example\.json'/)

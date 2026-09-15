@@ -1,7 +1,6 @@
 // 职责：定义 ComfyUI 原子任务查询工具，不承担视频生成编排。
 import { resolveServer } from '../servers/resolve.js'
-import { ensureConnection } from '../servers/connection.js'
-import { ComfyClient } from '../comfyui/client.js'
+import { createBackendClient } from '../servers/runtime.js'
 
 // 固定后端映射；工具参数不接受任意 URL。
 export function comfyuiTaskTool(action, description) {
@@ -32,8 +31,7 @@ export function comfyuiTaskTool(action, description) {
       }
       exec?.signal?.throwIfAborted()
       const backend = resolveServer('comfyui', args.server)
-      await ensureConnection(backend)
-      const client = new ComfyClient(backend.base_url, exec?.signal)
+      const client = await createBackendClient(backend, { signal: exec?.signal })
       try {
         const queue = await client.request('queue')
         if (action === 'queue') return { ok: true, server: args.server, ...queue }

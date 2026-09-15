@@ -1,4 +1,7 @@
 // 职责：提供共用页面 token 认证的手工服务器登记、检查与切换接口。
+import { listProviders } from '../servers/provider-loader.js'
+import { providerFor } from '../servers/runtime.js'
+import { backendFromServer } from '../servers/resolve.js'
 import { withConfig } from '../config.js'
 import { readRegistry, writeRegistry } from '../servers/store.js'
 import { validateRegistry } from '../servers/schema.js'
@@ -16,9 +19,10 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
       if (req.method !== (action === 'list' ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
-      if (action === 'list') return json(res, 200, { revision: registry.revision, active: registry.active, legacy: registry.revision === 0,
+      const providers = action === 'list' ? await listProviders() : []
+      if (action === 'list') return json(res, 200, { providers, revision: registry.revision, active: registry.active, legacy: registry.revision === 0,
         current_llm: currentLlm, pending_llm: registry.active.llm && registry.active.llm !== currentLlm ? registry.active.llm : null,
-        servers: registry.servers.map(server => ({ id: server.id, label: server.label, provider: server.provider, disabled: !!server.disabled,
+        servers: registry.servers.map(server => ({ id: server.id, label: server.label, provider: server.provider, provider_available: providers.some(provider => provider.id === server.provider && provider.available), disabled: !!server.disabled,
           services: Object.entries(server.services).map(([kind, service]) => ({ kind, transport: service.transport })) })) })
       const body = await readJsonBody(req)
       if (action === 'check') {
@@ -32,6 +36,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
         if (!server || !server.services) throw invalidRequest('需要服务器连接信息')
         for (const service of Object.values(server.services)) if (service?.transport === 'ssh') service.ssh_identity = '0'.repeat(64)
         validateRegistry({ ...registry, servers: [...registry.servers, server] })
+        for (const kind of Object.keys(server.services)) await providerFor(backendFromServer(server, kind))
         for (const service of Object.values(server.services)) if (service.transport === 'ssh') service.ssh_identity = identify(service.ssh_alias)
         const saved = await writeRegistry({ ...registry, servers: [...registry.servers, server] }, body.revision)
         return json(res, 201, { id: server.id, revision: saved.revision, message: '已登记。检查并设为默认后，新任务才使用此服务器。' })

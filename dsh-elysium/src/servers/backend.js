@@ -8,6 +8,7 @@ export async function readBackend(directory) {
   const urls = new Set(evidence.filter(Boolean).map(item => item.server_url ? httpUrl(item.server_url) : null))
   if (saved) {
     if (saved.service !== 'comfyui' || !saved.server_id || httpUrl(saved.base_url) !== saved.base_url) throw new Error('任务后端快照无效')
+    if (saved.provider_api_version !== undefined && !Number.isSafeInteger(saved.provider_api_version)) throw new Error('任务平台接口版本无效')
     urls.add(saved.base_url)
   }
   if (urls.size !== 1 || urls.has(null)) throw new Error('旧任务服务器归属缺失或冲突，禁止自动恢复')
@@ -16,4 +17,10 @@ export async function readBackend(directory) {
   const backend = { server_id: 'legacy-url', provider: 'manual', service: 'comfyui', base_url: [...urls][0], legacy: true }
   await saveJson(join(directory, 'input/backend.json'), backend)
   return backend
+}
+
+// 旧版隐含接口版本 1；对象字段顺序不应改变服务器身份。
+export function sameBackend(a, b) {
+  const sorted = value => value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, sorted(item)])) : value
+  return JSON.stringify(sorted({ ...a, provider_api_version: a.provider_api_version ?? 1 })) === JSON.stringify(sorted({ ...b, provider_api_version: b.provider_api_version ?? 1 }))
 }

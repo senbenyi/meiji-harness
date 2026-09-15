@@ -1,5 +1,7 @@
 // 职责：生成视频执行代码指纹，并汇总已持久化的执行跟踪。
 import { createHash } from 'node:crypto'
+import { runtimeConfig } from '../config.js'
+import { providerSourceFiles } from '../servers/provider-loader.js'
 import { readFile } from 'node:fs/promises'
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -8,12 +10,15 @@ export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'))
   // 显式列出所有参与视频执行的模块，避免指纹漏掉恢复语义变更。
   const names = ['diagnostics.js', 'errors.js', 'create.js', 'store.js', 'query.js', 'wait.js', 'timing.js',
+    ...['provider-loader', 'runtime', 'standard-adapter', 'schema', 'resolve', 'backend', 'connection'].map(name => `../servers/${name}.js`),
     '../config.js', '../tools/output.js', '../tools/video.js', '../comfyui/client.js', '../comfyui/submission.js',
     '../comfyui/execution.js', '../comfyui/media-reference.js',
     ...['artifacts', 'call-binding', 'execution', 'graph', 'launcher', 'plan', 'profile', 'service', 'worker-owner', 'worker'].map(name => `../video/${name}.js`),
     ...['t2va', 'i2va', 'fl2va', 'fl2va-loop', 'r2va'].map(name => `../video/templates/minimax-h3/${name}.json`)]
+  const provider = runtimeConfig().ELYSIUM_BACKEND?.provider
+  const adapterSources = provider ? await Promise.all((await providerSourceFiles(provider)).map(url => readFile(url))) : []
   const sources = await Promise.all(names.map(name => readFile(new URL(name, import.meta.url))))
-  return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat(sources)) }
+  return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat([...sources, ...adapterSources])) }
 }
 
 export function traceDiagnostics(chain) {

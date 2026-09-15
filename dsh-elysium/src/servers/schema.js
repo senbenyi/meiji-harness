@@ -26,7 +26,7 @@ export function validateRegistry(value) {
     if (!id(server.id) || ids.has(server.id)) fail('服务器 ID 无效或重复')
     ids.add(server.id)
     if (typeof server.label !== 'string' || !server.label.trim() || server.label.length > 120) fail('服务器名称无效')
-    if (!['manual', 'featurize', 'vast', 'runpod', 'autodl'].includes(server.provider) || server.connection_source !== 'manual') fail('仅支持手工登记服务器')
+    if (typeof server.provider !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(server.provider) || server.connection_source !== 'manual') fail('仅支持手工登记服务器')
     if (!id(server.instance_id) || !id(server.deployment_id)) fail('必须提供实例与部署身份')
     const identity = `${server.provider}:${server.instance_id}:${server.deployment_id}`
     if (identities.has(identity)) fail('实例部署身份重复')
@@ -50,8 +50,8 @@ export function validateRegistry(value) {
       if (endpoints.has(endpoint)) fail('服务地址重复，不能映射多个身份')
       endpoints.add(endpoint)
       if (service.api_key_env !== undefined && !/^[A-Z_][A-Z0-9_]*$/.test(service.api_key_env)) fail('只允许环境变量凭据引用')
-      if (kind === 'comfyui' && (service.api_key_env || service.model || service.workload !== 'minimax-h3')) fail('ComfyUI 仅支持无额外认证的 minimax-h3 工作流服务')
-      if (kind === 'llm' && (service.model !== 'qwen3.8-27b-elysium' || service.workload)) fail('LLM 目前仅支持兼容的 qwen3.8-27b-elysium 服务')
+      if (kind === 'comfyui' && (typeof service.workload !== 'string' || !service.workload)) fail('需要 ComfyUI 工作流能力标识')
+      if (kind === 'llm' && (typeof service.model !== 'string' || !service.model)) fail('需要 LLM 模型标识')
     }
   }
   for (const [kind, selected] of Object.entries(value.active)) {

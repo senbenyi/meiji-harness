@@ -29,3 +29,20 @@ export async function listProviders() {
   }
   return rows
 }
+
+// 当前适配器源码进入任务指纹，缺失平台不会被静默略过。
+export async function providerSourceFiles(id) {
+  await loadProvider(id)
+  if (id === 'manual') return []
+  const directory = new URL(`${id}/`, root)
+  async function files(base) {
+    const result = []
+    for (const entry of (await readdir(base, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+      const url = new URL(entry.name + (entry.isDirectory() ? '/' : ''), base)
+      if (entry.isDirectory()) result.push(...await files(url))
+      else if (/\.(js|mjs|json)$/.test(entry.name)) result.push(url)
+    }
+    return result
+  }
+  return files(directory)
+}

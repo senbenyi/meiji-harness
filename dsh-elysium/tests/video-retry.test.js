@@ -13,7 +13,7 @@ import { bindVideoCall, findVideoCall } from '../src/video/call-binding.js'
 import { readJson, saveJson } from '../src/jobs/store.js'
 
 async function executeComfyVideo(projectId, jobId, plan, options) {
-  await saveJson(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', jobId, 'input/backend.json'), { server_id: 'minimax-h3', provider: 'manual', service: 'comfyui', base_url: 'https://comfy.test' })
+  await saveJson(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', jobId, 'input/backend.json'), { server_id: 'minimax-h3', provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' })
   return executePinnedVideo(projectId, jobId, plan, options)
 }
 

@@ -7,9 +7,9 @@ import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/client-source.mjs'
 test('server UI preserves selection on failed switch, renders receipt and prevents selecting disabled targets', async () => {
   const modules = new Map(), cache = new Map(), calls = []
-  const data = { revision: 1, active: { comfyui: 'a' }, current_llm: 'text-a', pending_llm: 'text-b', servers: ['a', 'b', 'c'].map(id => ({ id, label: id.toUpperCase(), provider: 'manual', disabled: id === 'c', services: [{ kind: 'comfyui', transport: 'http' }] })) }
+  const data = { revision: 1, active: { comfyui: 'a' }, providers: [{ id: 'replacement', label: '新增平台', available: true, services: { comfyui: { workload: 'minimax-h3' } } }], current_llm: 'text-a', pending_llm: 'text-b', servers: ['a', 'b', 'c'].map(id => ({ id, label: id.toUpperCase(), provider: 'manual', disabled: false, provider_available: id !== 'c', services: [{ kind: 'comfyui', transport: 'http' }] })) }
   let failing = true
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/prefix/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
+  runInNewContext(clientSource(), { document: {}, window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/prefix/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
       calls.push(url); assert.match(url, /^\/prefix\/server\/.+\?t=token$/)
       if (url.includes('/switch')) {
@@ -34,5 +34,8 @@ test('server UI preserves selection on failed switch, renders receipt and preven
   assert.equal(button('使用 B 视频生成').props.disabled, true)
   assert.match(JSON.stringify(view.toJSON()), /新任务使用 B；旧任务继续 A/)
   assert.ok(calls.length >= 4)
+  await act(async () => button('添加视频生成 HTTP').props.onClick())
+  const choices = view.root.findByProps({ 'aria-label': '平台' }).findAllByType('option')
+  assert.deepEqual(choices.map(option => option.props.value), ['', 'replacement'])
   await act(async () => view.unmount())
 })

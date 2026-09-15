@@ -1,10 +1,9 @@
 // 职责：按生产清单顺序编排镜头生成、恢复与状态持久化。
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
-import { ensureConnection } from '../servers/connection.js'
-import { readBackend } from '../servers/backend.js'
+import { providerFor, createBackendClient } from '../servers/runtime.js'
+import { readBackend, sameBackend } from '../servers/backend.js'
 import { resolveServer, withBackend } from '../servers/resolve.js'
-import { ComfyClient } from '../comfyui/client.js'
 import { requiredConfig, runtimeConfig } from '../config.js'
 import { createJob } from '../jobs/create.js'
 import { readJson, saveJson } from '../jobs/store.js'
@@ -23,8 +22,8 @@ export async function executeVideoShot(projectId, request, receiptPath, signal) 
   if (saved && JSON.stringify(saved.request) !== JSON.stringify(request)) throw new Error('回执属于不同镜头；必须使用原请求')
   const pinned = runtimeConfig().ELYSIUM_BACKEND
   const backend = saved ? await readBackend(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', saved.job_id)) : pinned || resolveServer()
-  if (saved?.backend && JSON.stringify(saved.backend) !== JSON.stringify(backend)) throw new Error('镜头回执服务器与任务快照不一致')
-  if (pinned && JSON.stringify(pinned) !== JSON.stringify(backend)) throw new Error('镜头回执与本轮服务器不一致')
+  if (saved?.backend && !sameBackend(saved.backend, backend)) throw new Error('镜头回执服务器与任务快照不一致')
+  if (pinned && !sameBackend(pinned, backend)) throw new Error('镜头回执与本轮服务器不一致')
   return withBackend(backend, async () => {
     await validateVideoPlan(request)
     const jobId = saved?.job_id || await createJob(projectId, request)
@@ -52,8 +51,9 @@ export async function runProduction(manifest, options = {}) {
     let backend = await readJson(join(directory, 'input/backend.json'))
     if (!backend && await readJson(join(directory, 'manifest.json'))) throw new Error('旧批次缺少服务器快照，请核对原回执后迁移；禁止使用当前默认服务器恢复')
     backend ||= resolveServer()
-    await ensureConnection(backend)
-    const client = options.client || new ComfyClient(backend.base_url, options.signal)
+    const provider = await providerFor(backend)
+    backend = { ...backend, provider_api_version: provider.apiVersion }
+    const client = options.client || await createBackendClient(backend, { signal: options.signal })
     if (client.url?.href !== new URL(backend.base_url.replace(/\/?$/, '/')).href) throw new Error('生产客户端与本轮服务器不一致')
     await saveJson(join(directory, 'input/backend.json'), backend)
     return withBackend(backend, async () => {
@@ -65,7 +65,7 @@ export async function runProduction(manifest, options = {}) {
         const paths = shotPaths(directory, shot.id)
         const request = await resolveShotRequest(manifest, shot, anchors)
         let receipt = await readJson(paths.receipt)
-        if (receipt && JSON.stringify(receipt.backend) !== JSON.stringify(backend)) throw new Error('镜头回执与本轮服务器不一致')
+        if (receipt && (!receipt.backend || !sameBackend(receipt.backend, backend))) throw new Error('镜头回执与本轮服务器不一致')
         const attempts = await readJson(paths.attempts) || []
         while (receipt?.result?.status !== 'succeeded') {
           if (attempts.length >= manifest.max_attempts) throw new Error(`${shot.id}: 已耗尽 ${manifest.max_attempts} 次执行预算，请人工检查原回执`)

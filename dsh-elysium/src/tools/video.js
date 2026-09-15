@@ -9,7 +9,7 @@ export { waitJob as waitVideoJob } from '../jobs/wait.js'
 
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
 const output = { schema: { type: 'object', properties: { project_id: { type: 'string' }, job_id: { type: 'string' }, status: { type: 'string' } }, required: ['project_id', 'job_id', 'status'] }, render: renderToolDebug }
-const media = description => ({ type: 'string', description: `${description}，必须是当前 RunPod 的 ComfyUI /view URL。` })
+const media = description => ({ type: 'string', description: `${description}，必须是当前服务器的 ComfyUI /view URL。` })
 
 export function createWorkflowGenerateVideoTool() {
   return {
@@ -40,7 +40,7 @@ export function createWorkflowGenerateVideoTool() {
 }
 
 export function createWorkflowResumeVideoTool() {
-  return { name: 'workflow_resume_video', description: '仅在用户要求重试时调用一次；失败后停止，等待用户，不得连续调用或改用生成工具。恢复原 RunPod 视频任务；复用已保存的 API 图和 prompt_id，不重新创建任务。',
+  return { name: 'workflow_resume_video', description: '仅在用户要求重试时调用一次；失败后停止，等待用户，不得连续调用或改用生成工具。恢复原服务器的视频任务；复用已保存的 API 图和 prompt_id，不重新创建任务。',
     parameters: { type: 'object', additionalProperties: false, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000, output,
     execute: async (args, exec) => {

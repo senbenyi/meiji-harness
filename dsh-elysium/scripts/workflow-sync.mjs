@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-// 职责：从 RunPod 获取并编译工作流，校验或同步 MiniMax H3 工作流模板。
+// 职责：从选中平台获取并编译工作流，校验或同步 MiniMax H3 工作流模板。
+import { resolveServer } from '../src/servers/resolve.js'
+import { backendWorkflowSource } from '../src/servers/runtime.js'
+import { resolveConfig, withConfig } from '../src/config.js'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -7,7 +10,6 @@ import { fileURLToPath } from 'node:url'
 
 export const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 export const DIRECTORY = join(ROOT, 'src/video/templates/minimax-h3')
-export const DEFAULT_URL = 'https://36we4j3zo503js-8188.proxy.runpod.net'
 export const WORKFLOWS = {
   t2va: { file: 'MiniMaxH3-Turbo-T2VA.json', macros: [105], mirrors: [137], media: {} },
   i2va: { file: 'MiniMaxH3-Turbo-I2VA.json', macros: [105], mirrors: [137], media: { first_frame: 114 } },
@@ -181,11 +183,11 @@ async function main() {
   const check = args.includes('--check'), sync = args.includes('--sync')
   if (check === sync) throw new Error('choose exactly one of --check or --sync')
   const value = name => { const index = args.indexOf(name); return index < 0 ? undefined : args[index + 1] }
-  const url = value('--url') || DEFAULT_URL, output = value('--output-dir') || DIRECTORY
+  const url = value('--url') || await withConfig(resolveConfig(), () => backendWorkflowSource(resolveServer())), output = value('--output-dir') || DIRECTORY
   for await (const [mode, bundle] of build(url)) {
     const target = join(output, `${mode}.json`)
     if (check) {
-      if (JSON.stringify(JSON.parse(await readFile(target, 'utf8'))) !== JSON.stringify(bundle)) throw new Error(`RunPod workflow differs: ${target}`)
+      if (JSON.stringify(JSON.parse(await readFile(target, 'utf8'))) !== JSON.stringify(bundle)) throw new Error(`Server workflow differs: ${target}`)
     } else {
       await mkdir(dirname(target), { recursive: true })
       await writeFile(target, `${JSON.stringify(bundle, null, 2)}\n`)

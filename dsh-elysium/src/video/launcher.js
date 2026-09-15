@@ -1,5 +1,5 @@
 // 职责：在锁保护下启动或接管本地视频 worker。
-import { ensureConnection } from '../servers/connection.js'
+import { connectBackend } from '../servers/runtime.js'
 import { readBackend } from '../servers/backend.js'
 import { workerEnvironment } from '../config.js'
 import { spawn } from 'node:child_process'
@@ -38,7 +38,7 @@ async function launchLocked(jobId, capability, retryFailed) {
     lock = await open(lockPath, 'wx', 0o600)
   }
   try {
-    await ensureConnection(backend)
+    await connectBackend(backend)
     if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
     await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', server: backend, status: 'queued', stage: 'queued' })
     const log = await open(join(directory, 'worker.log'), 'a')
@@ -51,7 +51,7 @@ async function launchLocked(jobId, capability, retryFailed) {
     } finally { await log.close() }
     return { job_id: jobId, project_id: projectId, status: 'queued' }
   } catch (error) {
-    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', server: backend, status: 'failed', error: error.message })
+    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', server: backend, status: 'failed', error_code: error.code, error: error.message })
     await unlink(lockPath).catch(() => {})
     throw error
   } finally { await lock.close() }
