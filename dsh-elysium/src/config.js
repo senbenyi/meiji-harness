@@ -1,9 +1,10 @@
 // 职责：解析插件实例配置，并为异步执行链隔离运行时配置。
 import { isAbsolute, join } from 'node:path'
 import { homedir } from 'node:os'
-import { readRegistry } from './servers/store.js'
+import { readRegistry } from './servers/registry/store.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
+// 读取并校验必需配置；URL 统一去掉尾部斜杠。
 export function requiredConfig(name, kind = 'path') {
   const value = runtimeConfig()[name]
   if (typeof value !== 'string' || !value.trim() || value !== value.trim()) throw new Error(`缺少或无效配置：${name}`)
@@ -18,7 +19,7 @@ export function requiredConfig(name, kind = 'path') {
   return value
 }
 
-// Cordis config belongs to a plugin instance, never to the host process globally.
+// 每个插件实例的配置沿异步调用链传递，避免并发实例互相污染。
 const context = new AsyncLocalStorage()
 const fields = {
   comfyUrl: ['COMFYUI_URL', 'url'],
@@ -26,9 +27,12 @@ const fields = {
   serversFile: ['ELYSIUM_SERVERS_FILE', 'path'],
 }
 
+// 优先读取当前调用链的实例配置；未绑定时使用进程环境。
 export const runtimeConfig = () => context.getStore() || process.env
+// 为回调及其派生的异步操作绑定配置，不修改 process.env。
 export const withConfig = (config, callback) => context.run(config, callback)
 
+// 将插件配置转换为经过校验的、不可变的运行时配置。
 export function resolveConfig(config = {}) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('插件 config 必须为对象')
   for (const key of Object.keys(config)) {
@@ -41,7 +45,9 @@ export function resolveConfig(config = {}) {
   const registry = readRegistry(registryFile)
   const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
+    // 有服务器清单时，由清单解析目标地址，忽略旧的单地址配置。
     if (key === 'comfyUrl' && registry) continue
+    // 显式配置优先，其次为环境变量、默认值；显式无效值不自动回退。
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]
     if (value === undefined) continue
     resolved[name] = value
@@ -52,11 +58,13 @@ export function resolveConfig(config = {}) {
   return Object.freeze(resolved)
 }
 
+// 构造子进程环境，并清除当前实例未配置的插件字段，避免继承宿主旧值。
 export function workerEnvironment() {
+  const config = runtimeConfig()
   const env = { ...process.env }
   for (const name of [...Object.values(fields).map(([name]) => name), 'ELYSIUM_ENABLE_ATOMIC_TOOLS']) {
     delete env[name]
-    if (runtimeConfig()[name] !== undefined) env[name] = runtimeConfig()[name]
+    if (config[name] !== undefined) env[name] = config[name]
   }
   return env
 }

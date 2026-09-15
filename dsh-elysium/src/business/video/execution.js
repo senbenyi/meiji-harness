@@ -1,7 +1,7 @@
 // 职责：在单个任务内执行视频生成阶段，并处理有限网络重试。
-import { connectBackend, createBackendClient, buildBackendGraph } from '../../servers/runtime.js'
-import { readBackend } from '../../servers/backend.js'
-import { withBackend } from '../../servers/resolve.js'
+import { connectBackend, createBackendClient, buildBackendGraph } from '../../servers/runtime/index.js'
+import { readBackend } from '../../servers/runtime/backend.js'
+import { withBackend } from '../../servers/registry/resolve.js'
 import { runtimeConfig } from '../../config.js'
 import { setTimeout } from 'node:timers/promises'
 import { mkdir, writeFile } from 'node:fs/promises'

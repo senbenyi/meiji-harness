@@ -8,7 +8,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { applyLlmSelection } from './server-startup.mjs'
-import { readRegistry } from '../../dsh-elysium/src/servers/store.js'
+import { readRegistry } from '../../dsh-elysium/src/servers/registry/store.js'
 import { dshHome } from './storage-template.mjs'
 
 const home = dshHome(), port = process.env.DSH_PORT

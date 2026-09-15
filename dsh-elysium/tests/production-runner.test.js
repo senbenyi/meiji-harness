@@ -72,7 +72,7 @@ test('runner refuses changed manifests for an existing project state', async t =
 test('batch and resumed remaining shots stay on A when the default changes to B', async t => {
   const stateRoot = await fixture(t), seen = []
   const { comfyUrl } = await import('../src/comfyui/client.js')
-  const { writeRegistry } = await import('../src/servers/store.js')
+  const { writeRegistry } = await import('../src/servers/registry/store.js')
   const path = join(stateRoot, 'servers.json')
   const registry = { version: 1, revision: 0, active: { comfyui: 'a' }, servers: ['a', 'b'].map(id => ({
     id, label: id, provider: 'manual', connection_source: 'manual', instance_id: id, deployment_id: 'one',

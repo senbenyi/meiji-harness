@@ -18,7 +18,11 @@ dsh-elysium/
 │   │   ├── jobs/       # 任务持久化、查询、诊断与进程锁
 │   │   ├── video/      # 视频任务服务、执行与 worker
 │   │   └── production/ # 多镜头生产编排（源码 CLI）
-│   ├── servers/        # 配置、连接、检查与平台适配器
+│   ├── servers/        # 服务器模块
+│   │   ├── registry/   # 配置校验、持久化与目标解析
+│   │   ├── runtime/    # 平台加载、调度、检查与任务快照
+│   │   ├── transport/  # 连接建立与复用
+│   │   └── providers/  # 平台专属实现、模板、测试与材料
 │   ├── comfyui/        # 公共 ComfyUI 协议
 │   ├── http/           # 媒体与项目 HTTP 路由适配
 │   ├── prompts/        # 系统提示词片段

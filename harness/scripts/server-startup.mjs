@@ -5,9 +5,9 @@ import { delimiter, join } from 'node:path'
 import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { backendLlmSettings } from '../../dsh-elysium/src/servers/runtime.js'
-import { resolveServer } from '../../dsh-elysium/src/servers/resolve.js'
-import { readRegistry } from '../../dsh-elysium/src/servers/store.js'
+import { backendLlmSettings } from '../../dsh-elysium/src/servers/runtime/index.js'
+import { resolveServer } from '../../dsh-elysium/src/servers/registry/resolve.js'
+import { readRegistry } from '../../dsh-elysium/src/servers/registry/store.js'
 export function installedYaml() {
   const executable = (process.env.PATH || '').split(delimiter).map(directory => join(directory, 'dsh')).find(path => existsSync(path))
   if (!executable) throw new Error('请先安装本机 Harness')

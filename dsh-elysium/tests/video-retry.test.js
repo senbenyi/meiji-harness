@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { withConfig, requiredConfig } from '../src/config.js'
 import { ComfyClient } from '../src/comfyui/client.js'
 import { executeComfyVideo as executePinnedVideo } from '../src/business/video/execution.js'
-import { buildBackendGraph } from '../src/servers/runtime.js'
+import { buildBackendGraph } from '../src/servers/runtime/index.js'
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' }, plan, id)
 import { startVideoJob, resumeVideoJob } from '../src/business/video/service.js'
 import { createJob } from '../src/business/jobs/create.js'

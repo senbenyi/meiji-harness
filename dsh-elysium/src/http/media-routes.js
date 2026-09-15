@@ -1,5 +1,5 @@
 // 职责：提供素材列表、任务状态、媒体预览与下载的同源 HTTP 路由。
-import { connectBackend } from '../servers/runtime.js'
+import { connectBackend } from '../servers/runtime/index.js'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { withConfig } from '../config.js'

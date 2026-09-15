@@ -31,7 +31,7 @@ node dsh-elysium/scripts/server-service.mjs runpod restart
 
 ## 其他平台参考方法
 
-建立独立 `providers/<id>/index.js`，导出同版本契约，复制并修改本目录的组合模式和平台配置，不能导入本目录。兼容 ComfyUI、Qwen 的服务可复用 `../../standard-adapter.js`，并显式提供自己的 buildGraph；镜像路径、进程管理差异写在自己的模块中。公共客户端、项目和批次留在公共层；每个平台管理自己的模板、档位和图构建。
+建立独立 `providers/<id>/index.js`，导出同版本契约，复制并修改本目录的组合模式和平台配置，不能导入本目录。兼容 ComfyUI、Qwen 的服务可复用 `../../runtime/standard-adapter.js`，并显式提供自己的 buildGraph；镜像路径、进程管理差异写在自己的模块中。公共客户端、项目和批次留在公共层；每个平台管理自己的模板、档位和图构建。
 
 平台发现自动识别新的完整入口，前端不需要增加枚举。空目录不可调用，依赖损坏或版本不兼容明确报错。删除本目录后，已切换到其他已实现平台的业务仍可运行；原 Runpod 任务不会迁移，而是显示平台不可用。测试 AutoDL 实现只存在临时副本中，正式 AutoDL 尚未接入。
 

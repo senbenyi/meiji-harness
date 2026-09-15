@@ -4,9 +4,9 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { validateRegistry } from '../src/servers/schema.js'
-import { readRegistry, writeRegistry } from '../src/servers/store.js'
-import { resolveServer } from '../src/servers/resolve.js'
+import { validateRegistry } from '../src/servers/registry/schema.js'
+import { readRegistry, writeRegistry } from '../src/servers/registry/store.js'
+import { resolveServer } from '../src/servers/registry/resolve.js'
 import { withConfig, resolveConfig } from '../src/config.js'
 const fixture = () => ({ version: 1, revision: 0, active: { comfyui: 'a' }, servers: ['a', 'b'].map(id => ({ id, label: id, provider: 'manual', instance_id: id, deployment_id: 'one', connection_source: 'manual', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })) })
 test('registry validates identity, URL, SSH ports, service type and selected target', () => {

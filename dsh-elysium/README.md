@@ -13,7 +13,10 @@ src/
 │   ├── jobs/                 # 任务持久化、查询、诊断与进程锁
 │   ├── video/                # 单次视频任务、执行、worker 与恢复
 │   └── production/           # 多镜头生产清单、编排、回执与参考帧
-├── servers/                  # 服务器发现、配置、连接与平台适配
+├── servers/                  # 按 registry/runtime/transport/providers 分包
+│   ├── registry/             # 配置与目标解析
+│   ├── runtime/              # 平台加载、调度与任务归属
+│   ├── transport/            # 连接建立与复用
 │   └── providers/            # 平台实现及各自的工作流模板
 │       └── runpod/workflows/ # 原有 H3 图构建、档位配置和完整模板
 ├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
@@ -28,6 +31,32 @@ src/
 业务集中在 `business/`，各子模块保留职责边界；聊天工具和 HTTP 路由调用同一套业务代码。服务器选择由 `servers/` 负责，原有 H3 模板与实现由 Runpod 模块管理，其他平台提供自己的模板。`business/` 是插件内部源码包，不单独安装或发布。
 
 构建将 `src/` 复制到 `lib/`，客户端单独生成；`business/production/` 沿用源码 CLI 运行方式，不进入发布包。生产命令入口仍为 `scripts/production-runner.mjs`。目录迁移不改变项目与任务在存储中的路径。
+
+## 服务器模块职责
+
+```text
+servers/
+├── registry/              # 配置校验、持久化与目标解析
+│   ├── schema.js
+│   ├── store.js
+│   └── resolve.js
+├── runtime/               # 平台加载、调度与任务归属
+│   ├── index.js           # 统一平台调用入口
+│   ├── loader.js          # 模块发现与契约校验
+│   ├── check.js           # 服务检查及默认目标切换
+│   ├── backend.js         # 任务后端快照
+│   └── standard-adapter.js # 公共协议组合
+├── transport/             # 连接建立与复用
+│   └── connection.js
+└── providers/             # 各平台完整实现及其模板
+    ├── runpod/
+    ├── autodl/
+    ├── featurize/
+    ├── vast/
+    └── local/
+```
+
+业务执行通过 `servers/runtime/index.js` 调用平台，服务器清单及默认目标由 `registry/` 管理，连接由 `transport/` 管理。平台模板、档位、测试和历史材料继续完整保留在各自 `providers/<id>/` 中。
 
 ## 短剧快速预览
 

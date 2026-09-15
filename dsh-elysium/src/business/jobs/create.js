@@ -1,6 +1,6 @@
 // 职责：分配任务 ID 并持久化原始请求，不绑定 Harness 会话。
-import { providerFor } from '../../servers/runtime.js'
-import { resolveServer } from '../../servers/resolve.js'
+import { providerFor } from '../../servers/runtime/index.js'
+import { resolveServer } from '../../servers/registry/resolve.js'
 import { runtimeConfig } from '../../config.js'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'

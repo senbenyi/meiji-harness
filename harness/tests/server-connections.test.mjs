@@ -5,9 +5,9 @@ import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ensureConnection, portAvailable, sshIdentity } from '../../dsh-elysium/src/servers/connection.js'
+import { ensureConnection, portAvailable, sshIdentity } from '../../dsh-elysium/src/servers/transport/connection.js'
 import { withConfig } from '../../dsh-elysium/src/config.js'
-import { writeRegistry } from '../../dsh-elysium/src/servers/store.js'
+import { writeRegistry } from '../../dsh-elysium/src/servers/registry/store.js'
 import { applyLlmSelection, installedYaml } from '../scripts/server-startup.mjs'
 
 test('owned tunnel reuse, identity drift, port conflicts and disconnection preserve unrelated processes', async t => {

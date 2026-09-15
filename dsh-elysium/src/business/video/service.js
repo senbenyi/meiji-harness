@@ -1,6 +1,6 @@
 // 职责：校验、创建、复用和恢复会话中的视频任务。
-import { providerFor } from '../../servers/runtime.js'
-import { resolveServer, withBackend } from '../../servers/resolve.js'
+import { providerFor } from '../../servers/runtime/index.js'
+import { resolveServer, withBackend } from '../../servers/registry/resolve.js'
 import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'

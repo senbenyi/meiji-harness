@@ -20,6 +20,8 @@
 
 ## 已完成
 
+- **服务器职责分包** — `docs/implement/实施-服务器职责分包.md` — 2026-09-15 完成 registry/runtime/transport/providers 分包与 README 更新；155 项插件测试、16 项 Harness 测试、构建打包及发布指纹检查通过；模板 JSON 未改动。
+
 - **Runpod 集中管理** — `docs/implement/实施-Runpod集中管理.md` — 2026-09-15 完成：专属测试、旧运维/制作材料以及完整模板/档位/图构建/同步编译器归入 providers/runpod；按用户纠正恢复全部模板原始字段并逐字节验证；撤销根目录 runpod；155 项插件测试、16 项 Harness 测试、构建打包及删除平台验收通过。
 
 - **业务包集中** — `docs/implement/实施-业务包集中.md` — 2026-09-15 完成：六个业务目录归入 business，H3 工作流归入 comfyui/workflows/minimax-h3；README 与结构约定更新；两步插件测试各 154 通过、构建与发布包检查通过、Harness 全量 16 通过，测试隔离修正后 6 项复验通过。

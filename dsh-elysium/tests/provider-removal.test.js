@@ -16,7 +16,7 @@ for (const { provider, removed } of [{ provider: 'runpod' }, { provider: 'autodl
     await mkdir(join(root, 'src/servers/providers/autodl'), { recursive: true })
     // 独立测试实现仅组合公共协议，不引用或复制 Runpod；真实 AutoDL 目录仍只预留。
     await writeFile(join(root, 'src/servers/providers/autodl/index.js'), `
-import { createStandardAdapter } from '../../standard-adapter.js'
+import { createStandardAdapter } from '../../runtime/standard-adapter.js'
 import { appendFileSync } from 'node:fs'
 const adapter = createStandardAdapter({ id: 'autodl', label: 'AutoDL test fixture',
   buildGraph: (_backend, plan, jobId) => ({

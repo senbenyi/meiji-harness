@@ -1,9 +1,9 @@
 // 职责：按生产清单顺序编排镜头生成、恢复与状态持久化。
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
-import { providerFor, createBackendClient } from '../../servers/runtime.js'
-import { readBackend, sameBackend } from '../../servers/backend.js'
-import { resolveServer, withBackend } from '../../servers/resolve.js'
+import { providerFor, createBackendClient } from '../../servers/runtime/index.js'
+import { readBackend, sameBackend } from '../../servers/runtime/backend.js'
+import { resolveServer, withBackend } from '../../servers/registry/resolve.js'
 import { requiredConfig, runtimeConfig } from '../../config.js'
 import { createJob } from '../jobs/create.js'
 import { readJson, saveJson } from '../jobs/store.js'

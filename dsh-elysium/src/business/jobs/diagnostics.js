@@ -1,7 +1,7 @@
 // 职责：生成视频执行代码指纹，并汇总已持久化的执行跟踪。
 import { createHash } from 'node:crypto'
 import { runtimeConfig } from '../../config.js'
-import { providerSourceFiles } from '../../servers/provider-loader.js'
+import { providerSourceFiles } from '../../servers/runtime/loader.js'
 import { readFile } from 'node:fs/promises'
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -10,7 +10,7 @@ export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'))
   // 显式列出所有参与视频执行的模块，避免指纹漏掉恢复语义变更。
   const names = ['diagnostics.js', 'errors.js', 'create.js', 'store.js', 'query.js', 'wait.js', 'timing.js',
-    ...['provider-loader', 'runtime', 'standard-adapter', 'schema', 'resolve', 'backend', 'connection'].map(name => `../../servers/${name}.js`),
+    ...['runtime/loader', 'runtime/index', 'runtime/standard-adapter', 'registry/schema', 'registry/resolve', 'runtime/backend', 'transport/connection'].map(name => `../../servers/${name}.js`),
     '../../config.js', '../../tools/output.js', '../../tools/video.js', '../../comfyui/client.js', '../../comfyui/submission.js',
     '../../comfyui/execution.js', '../../comfyui/media-reference.js',
     ...['artifacts', 'call-binding', 'execution', 'launcher', 'plan', 'service', 'worker-owner', 'worker'].map(name => `../video/${name}.js`)]

@@ -16,8 +16,10 @@ export * from './tools/index.js'
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
 
+// 插件入口：解析实例配置，注册 Web 服务、工具及创作提示词。
 export function apply(ctx, config = {}) {
   const runtime = resolveConfig(config)
+  // 项目工具与 HTTP 路由共享存储，并随 Web 上下文一起释放。
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
     const directors = createDirectorStore()
     const projects = createProjectStore({ directorExists: name => directors.has(name) })
@@ -26,25 +28,30 @@ export function apply(ctx, config = {}) {
     registerProjectRoutes(mediaContext, runtime, token, projects)
     registerDirectorRoutes(mediaContext, runtime, token, directors, projects)
     for (const definition of createProjectTools(projects)) {
+      // 工具在注册后才被调用，执行时需重新绑定所属实例的配置。
       const tool = { ...definition, execute: (...args) => withConfig(runtime, () => definition.execute(...args)) }
       mediaContext.effect(() => ctx.tools.register(tool), `@dsh-external/dsh-elysium: ${tool.name} tool`)
     }
   }))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = projectTools(await next(), context.agent)
+    // 替换已有同名段落，确保创作指令只出现一次。
     return { ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
       { name: 'elysium:creation-commands', text: creationInstructions }] }
   })
   const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools(),
     ...(runtime.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]
   for (const definition of tools) {
+    // 普通工具执行时绑定实例配置，并按需创建状态目录。
     const tool = { ...definition, execute: (...args) => withConfig(runtime, async () => {
       await mkdir(runtime.ELYSIUM_STATE_ROOT, { recursive: true })
       return definition.execute(...args)
     }) }
-    if (typeof ctx.effect === 'function' && typeof ctx.tools?.register === 'function') {
+    if (typeof ctx.tools?.register !== 'function') continue
+    // 有生命周期管理时托管注销；否则直接注册。
+    if (typeof ctx.effect === 'function') {
       ctx.effect(() => ctx.tools.register(tool), `@dsh-external/dsh-elysium: ${tool.name} tool`)
-    } else if (typeof ctx.tools?.register === 'function') {
+    } else {
       ctx.tools.register(tool)
     }
   }

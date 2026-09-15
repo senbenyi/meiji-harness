@@ -14,7 +14,7 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 ├── dsh-elysium/ — Elysium 创作插件
 │   ├── src/ — 工具、HTTP 接口、创作工作台与任务管理源码
 │   │   ├── business/ — 项目、导演、素材、任务、视频与多镜头生产业务
-│   │   ├── servers/ — 服务器配置、连接与平台适配；专属实现/测试/运维材料集中在 providers/<id>/
+│   │   ├── servers/ — 按 registry/runtime/transport/providers 分包；平台专属内容集中在 providers/<id>/
 │   │   └── comfyui/ — 公共 ComfyUI 协议；平台工作流位于各自 providers/<id>/workflows
 │   ├── scripts/ — 构建、打包、工作流同步与生产入口
 │   └── tests/ — 插件功能、工作台与视频生产测试

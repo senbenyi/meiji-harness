@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // 职责：按服务器清单建立本机隧道，保留 qwen 旧入口，不接管无关进程。
-import { connectBackend } from '../../dsh-elysium/src/servers/runtime.js'
-import { sshIdentity } from '../../dsh-elysium/src/servers/connection.js'
-import { readRegistry } from '../../dsh-elysium/src/servers/store.js'
-import { resolveServer } from '../../dsh-elysium/src/servers/resolve.js'
+import { connectBackend } from '../../dsh-elysium/src/servers/runtime/index.js'
+import { sshIdentity } from '../../dsh-elysium/src/servers/transport/connection.js'
+import { readRegistry } from '../../dsh-elysium/src/servers/registry/store.js'
+import { resolveServer } from '../../dsh-elysium/src/servers/registry/resolve.js'
 const target = process.argv[2], kind = process.argv[3] || 'comfyui'
 if (!target) throw new Error('用法：node harness/scripts/tunnel.mjs qwen | <server-id> [comfyui|llm]')
 let backend

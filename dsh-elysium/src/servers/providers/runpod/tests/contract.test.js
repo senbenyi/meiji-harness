@@ -5,8 +5,8 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
-import { loadProvider, listProviders, validateProvider } from '../../../provider-loader.js'
-import { providerFor } from '../../../runtime.js'
+import { loadProvider, listProviders, validateProvider } from '../../../runtime/loader.js'
+import { providerFor } from '../../../runtime/index.js'
 
 test('Runpod exposes the complete contract; missing or incomplete adapters never fall back', async () => {
   const provider = await loadProvider('runpod')

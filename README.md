@@ -25,7 +25,10 @@ src/
 │   ├── jobs/                 # 任务持久化、查询、诊断与进程锁
 │   ├── video/                # 单次视频任务、执行、worker 与恢复
 │   └── production/           # 多镜头生产清单、编排、回执与参考帧
-├── servers/                  # 服务器发现、配置、连接与平台适配
+├── servers/                  # 按 registry/runtime/transport/providers 分包
+│   ├── registry/             # 配置与目标解析
+│   ├── runtime/              # 平台加载、调度与任务归属
+│   ├── transport/            # 连接建立与复用
 │   └── providers/            # 平台实现及各自的工作流模板
 │       └── runpod/workflows/ # 原有 H3 图构建、档位配置和完整模板
 ├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
