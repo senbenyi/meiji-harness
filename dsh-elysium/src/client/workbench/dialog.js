@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
     if (event.shiftKey && (document.activeElement === first || document.activeElement === root)) { event.preventDefault(); last.focus() }
     else if (!event.shiftKey && (document.activeElement === last || document.activeElement === root)) { event.preventDefault(); first.focus() }
   }
-  function Dialog({ title, close, busy, children, footer }) {
+  function Dialog({ title, close, busy, children, footer, showCancel = true }) {
     const root = useRef(null), previous = useRef(null)
     useEffect(() => {
       previous.current = document.activeElement
@@ -38,7 +38,7 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
       h('section', { className: 'elysium-dialog', role: 'dialog', 'aria-modal': true, 'aria-label': title, tabIndex: -1, ref: root },
         h('header', null, h('h2', null, title), h(IconButton, { name: 'close', label: '关闭对话框', disabled: busy, onClick: close })),
         h('div', { className: 'elysium-dialog-body' }, children),
-        h('footer', null, footer, h('button', { disabled: busy, onClick: close }, '取消'))))
+        h('footer', null, footer, showCancel ? h('button', { disabled: busy, onClick: close }, '取消') : null)))
   }
   function Editor({ title, initial, fields, save, close, guard }) {
     const [draft, setDraft] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState(''), [pending, setPending] = useState(null)

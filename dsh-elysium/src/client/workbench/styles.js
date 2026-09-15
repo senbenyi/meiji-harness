@@ -99,6 +99,7 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-shot-copy h3 { margin:12px 0 2px; font-size:12px; color:var(--dsw-alias-label-secondary,#aaa); }
 .elysium-shot-copy p { margin:0; }
 .elysium-panel .elysium-workbench-preview { display:block; width:100%; max-height:420px; object-fit:contain; background:#111; margin:12px 0; }
+.elysium-panel .elysium-anchor-preview .elysium-workbench-preview { width:auto; max-width:min(100%,300px); max-height:240px; margin:12px auto; }
 .elysium-pagination { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:12px 0; flex-wrap:wrap; flex:none; }
 .elysium-pagination-meta,.elysium-pagination-actions { display:flex; gap:8px; align-items:center; white-space:nowrap; }
 .elysium-panel .elysium-pagination-meta select { width:72px; min-width:72px; }
@@ -106,6 +107,7 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-field { display:block; margin-bottom:14px; }
 .elysium-field span { display:block; margin:0 2px 6px; color:var(--dsw-alias-label-secondary,#aaa); font-size:12px; font-weight:500; }
 .elysium-field select { width:100%; }
+.elysium-panel footer > .elysium-primary { margin-left:auto; order:1; }
 .elysium-panel .elysium-primary { background:var(--dsw-alias-interactive-bg-active,#8883); color:var(--dsw-alias-label-primary,#eee); border-color:var(--dsw-alias-border-l2,#8885); }
 .elysium-panel .elysium-primary:hover:not(:disabled) { background:var(--dsw-alias-interactive-bg-hover,#8882); border-color:var(--dsw-alias-border-l2,#8885); }
 @container elysium-panel (max-width:1279px) { .elysium-storyboard { grid-template-columns:minmax(0,1fr) 320px; } .elysium-acts { display:none; } }

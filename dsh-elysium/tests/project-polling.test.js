@@ -70,7 +70,7 @@ test('project settings draft survives a remote update and refreshes after leavin
   await act(async () => view.unmount())
 })
 
-for (const [tab, button, field] of [['anchors', '编辑锚点 林', '锚点描述'], ['anchors', '添加锚点', '锚点名称'], ['acts', '编辑镜头', '字幕']]) {
+for (const [tab, button, field] of [['anchors', '查看参考素材 林', '锚点描述'], ['anchors', '添加锚点', '锚点名称'], ['acts', '编辑镜头', '字幕']]) {
   test(`polling preserves unsaved ${button} content`, async () => {
     const f = fixture(), view = await mount(f, tab)
     if (tab === 'acts') await click(view, '镜 001')

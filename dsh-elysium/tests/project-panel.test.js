@@ -24,7 +24,8 @@ function fixture(initial) {
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
       if (url.startsWith('/project/update-anchor')) {
         const { action, data } = JSON.parse(options.body)
-        if (action === 'add') project.anchors.push(data)
+        if (action === 'delete') project.anchors = project.anchors.filter(anchor => anchor.role !== data.role)
+        else if (action === 'add') project.anchors.push(data)
         else {
           project.anchors = project.anchors.map(anchor => anchor.role === data.role ? { ...anchor, ...data, role: data.new_role ?? data.role } : anchor)
           if (data.new_role) for (const act of project.acts) for (const shot of act.shots) if (shot.role === data.role) shot.role = data.new_role
@@ -58,7 +59,7 @@ async function edit(view, label, value) {
   await act(async () => field().props.onBlur())
 }
 
-test('anchors use explicit save, rename linked roles and only import after confirmation', async () => {
+test('anchor preview edits name and description with explicit save and only imports after confirmation', async () => {
   const project = emptyProject()
   project.acts = [{ title: '幕', shots: [{ role: 'role-1' }] }]
   const f = fixture(project)
@@ -74,24 +75,36 @@ test('anchors use explicit save, rename linked roles and only import after confi
   await act(async () => view.root.findByProps({ className: 'elysium-anchor-create' }).props.onSubmit({ preventDefault() {} }))
   assert.equal(f.project().anchors[0].label, '林夏')
   assert.equal(f.project().anchors[0].role, 'role-1')
-  await click(view, '编辑锚点')
-  await act(async () => view.root.findByProps({ 'aria-label': '锚点角色 ID' }).props.onChange({ target: { value: 'lin-updated' } }))
+  assert.equal(view.root.findAllByType('button').filter(button => button.props['aria-label']?.startsWith('编辑锚点')).length, 0)
+  await click(view, '查看参考素材')
+  await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '林夏新名' } }))
+  await act(async () => view.root.findByProps({ 'aria-label': '锚点描述' }).props.onChange({ target: { value: '新的描述' } }))
+  assert.equal(f.project().anchors[0].label, '林夏')
   await click(view, '保存')
-  assert.equal(f.project().acts[0].shots[0].role, 'lin-updated')
-  assert.deepEqual(JSON.parse(f.requests.findLast(x => x.url.startsWith('/project/update-anchor')).options.body), { id: project.id, action: 'update', data: { role: 'role-1', new_role: 'lin-updated' } })
-  assert.equal(view.root.findByProps({ 'aria-label': '选择参考素材 林夏' }).findByType('path').props.d, 'M12 17V3m0 0-4 4m4-4 4 4M4 15v6h16v-6')
-  await click(view, '选择参考素材')
+  assert.equal(f.project().acts[0].shots[0].role, 'role-1')
+  assert.equal(f.project().anchors[0].label, '林夏新名')
+  assert.equal(f.project().anchors[0].description, '新的描述')
+  assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 0)
+  assert.deepEqual(JSON.parse(f.requests.findLast(x => x.url.startsWith('/project/update-anchor')).options.body), { id: project.id, action: 'update', data: { role: 'role-1', label: '林夏新名', description: '新的描述' } })
+  assert.equal(view.root.findByProps({ 'aria-label': '删除锚点 林夏新名' }).findByType('path').props.d, 'M5 12h14')
+  await click(view, '查看参考素材')
+  await click(view, '更换参考图片')
   assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
   assert.equal(new URL(f.requests.findLast(x => x.url.startsWith('/media/list')).url, 'http://localhost').searchParams.get('media_kind'), 'image')
   await act(async () => view.root.findAllByType('button').find(x => x.props['aria-label']?.startsWith('查看素材')).props.onClick())
   assert.equal(f.requests.filter(x => x.url.startsWith('/project/import')).length, 0)
   await click(view, '使用此素材')
   assert.equal(f.project().anchors[0].source.job_id, 'b'.repeat(32))
-  assert.equal(f.project().anchors[0].description, '米色风衣')
+  assert.equal(f.project().anchors[0].description, '新的描述')
+  await click(view, '保存')
   await click(view, '添加锚点')
   await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '未保存' } }))
   await click(view, '取消添加锚点')
   assert.equal(f.project().anchors.length, 1)
+  await click(view, '删除锚点')
+  assert.equal(f.project().anchors.length, 0)
+  assert.equal(view.root.findAllByProps({ className: 'elysium-anchor-card' }).length, 0)
+  assert.deepEqual(JSON.parse(f.requests.findLast(x => x.url.startsWith('/project/update-anchor')).options.body), { id: project.id, action: 'delete', data: { role: 'role-1' } })
   await act(async () => view.unmount())
 })
 
@@ -258,7 +271,7 @@ test('anchor image takes precedence over source video and storyboard does not fe
   const f = fixture(project)
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
-  assert.equal(view.root.findByType('img').props.src, 'https://files.test/lin.png')
+  assert.ok(view.root.findAllByType('img').some(img => img.props.src === 'https://files.test/lin.png'))
   await click(view, '分镜')
   assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 0)
   await act(async () => view.unmount())
@@ -297,5 +310,51 @@ test('delivery uses native controls, allows film selection and handles subtitle-
   assert.equal(view.root.findAllByType('video').length,0)
   assert.match(JSON.stringify(view.toJSON()),/暂无可预览成片/)
   assert.equal(view.root.findByType('a').props.href,'https://files.test/subtitle.srt')
+  await act(async () => view.unmount())
+})
+
+
+test('anchor preview retains draft after failed save and preserves reference fields', async () => {
+  const project = emptyProject(), guard = { current: null }
+  project.anchors = [{ role: 'lin', label: '林夏', description: '原描述', image_url: 'https://files.test/lin.png', source: null }]
+  const f = fixture(project)
+  let view, fail = true
+  await act(async () => { view = create(React.createElement(f.require('elysium/anchors').AnchorView, { project, busy: false, guard, run: async action => fail ? false : action() })) })
+  await click(view, '查看参考素材')
+  assert.ok(view.root.findAllByType('img').some(img => img.props.src === 'https://files.test/lin.png'))
+  await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '新名称' } }))
+  await click(view, '保存')
+  assert.match(view.root.findByProps({ role: 'alert' }).children.join(''), /保存失败/)
+  assert.equal(view.root.findByProps({ 'aria-label': '锚点名称' }).props.value, '新名称')
+  assert.equal(f.requests.length, 0)
+  fail = false
+  await click(view, '保存')
+  assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 0)
+  assert.equal(f.project().anchors[0].role, 'lin')
+  assert.equal(f.project().anchors[0].image_url, 'https://files.test/lin.png')
+  assert.equal(f.project().anchors[0].source, null)
+  assert.equal(f.project().anchors[0].description, '原描述')
+  await act(async () => view.unmount())
+  assert.equal(guard.current, null)
+})
+
+
+test('replacing a reference from preview preserves unsaved anchor text', async () => {
+  const project = emptyProject()
+  project.anchors = [{ role: 'lin', label: '林', description: '原描述', image_url: '', source: null }]
+  const f = fixture(project)
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/anchors').AnchorView, { project, busy: false, run: action => action() })) })
+  await click(view, '查看参考素材')
+  await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '未保存新名称' } }))
+  await click(view, '更换参考图片')
+  assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
+  await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())
+  await click(view, '使用此素材')
+  assert.equal(view.root.findByProps({ 'aria-label': '锚点名称' }).props.value, '未保存新名称')
+  assert.ok(view.root.findAllByType('img').some(img => img.props.src === `/media/image?job=${'b'.repeat(32)}&t=t`))
+  await click(view, '保存')
+  assert.equal(f.project().anchors[0].label, '未保存新名称')
+  assert.equal(f.project().anchors[0].source.job_id, 'b'.repeat(32))
   await act(async () => view.unmount())
 })
