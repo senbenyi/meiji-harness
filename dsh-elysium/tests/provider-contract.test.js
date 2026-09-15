@@ -31,12 +31,12 @@ test('Runpod exposes the complete contract; missing or incomplete adapters never
 test('Runpod lifecycle checks, starts, reuses, restarts and stops only its own simulated process', async t => {
   const root = await mkdtemp(join(tmpdir(), 'runpod-service-')); t.after(() => rm(root, { recursive: true, force: true }))
   await mkdir(join(root, 'ComfyUI')); await writeFile(join(root, 'comfyui_args.txt'), '--lowvram\n# comment\n')
-  let running = false, starts = 0, killed = [], foreign = false
+  let running = false, starts = 0, killed = [], foreign = false, wrongPort = false
   const command = `${root}/ComfyUI/.venv-cu130/bin/python main.py --port 8188`
   const system = {
     fetch: async url => { assert.equal(url, 'http://127.0.0.1:8188/system_stats'); return { ok: true } },
     spawn: (path, args) => { assert.equal(path, `${root}/ComfyUI/.venv-cu130/bin/python`); assert.ok(args.includes('--lowvram')); starts++; running = true; const child = new EventEmitter(); child.pid = 1234; child.unref = () => {}; queueMicrotask(() => child.emit('spawn')); return child },
-    spawnSync: () => ({ status: running ? 0 : 1, stdout: foreign ? 'unrelated process' : command }),
+    spawnSync: () => ({ status: running ? 0 : 1, stdout: foreign ? 'unrelated process' : wrongPort ? command + '0' : command }),
     kill: (pid, signal) => { assert.equal(signal, 'SIGTERM'); killed.push(pid); running = false }, pause: async () => {},
   }
   const provider = await loadProvider('runpod'), options = { root, system }
@@ -45,7 +45,9 @@ test('Runpod lifecycle checks, starts, reuses, restarts and stops only its own s
   assert.equal((await provider.manage('start', options)).status, 'running'); assert.equal(starts, 1)
   foreign = true
   await assert.rejects(provider.manage('stop', options), /身份不匹配/); assert.equal(killed.length, 0)
-  foreign = false
+  foreign = false; wrongPort = true
+  await assert.rejects(provider.manage('stop', options), /身份不匹配/); assert.equal(killed.length, 0)
+  wrongPort = false
   assert.equal((await provider.manage('restart', options)).status, 'started'); assert.equal(starts, 2)
   assert.equal((await provider.manage('stop', options)).status, 'stopped')
   assert.deepEqual(killed, [1234, 1234])

@@ -1,6 +1,6 @@
 // 职责：保存任务的不可变服务器快照；旧任务只按已保存的服务器证据恢复。
 import { join } from 'node:path'
-import { readJson, saveJson } from '../jobs/store.js'
+import { readJson, saveJson } from '../business/jobs/store.js'
 import { httpUrl } from './schema.js'
 export async function readBackend(directory) {
   const saved = await readJson(join(directory, 'input/backend.json'))

@@ -4,8 +4,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
-import { resolveShotRequest, validateProductionManifest } from '../src/video-production/manifest.js'
-import { runProduction } from '../src/video-production/runner.js'
+import { resolveShotRequest, validateProductionManifest } from '../src/business/video-production/manifest.js'
+import { runProduction } from '../src/business/video-production/runner.js'
 
 const configured = callback => withConfig({ COMFYUI_URL: 'https://example.invalid', ELYSIUM_STATE_ROOT: '/unused' }, callback)
 
@@ -91,7 +91,7 @@ test('batch and resumed remaining shots stay on A when the default changes to B'
     await runProduction(value, { executeShot, log: () => {} })
     assert.deepEqual(seen, ['http://a.test', 'http://a.test'])
     const receipt = join(stateRoot, 'projects', value.project_id, 'production/shots/two.receipt.json')
-    const { saveJson } = await import('../src/jobs/store.js')
+    const { saveJson } = await import('../src/business/jobs/store.js')
     const saved = JSON.parse(await readFile(receipt, 'utf8')); saved.backend.server_id = 'b'
     await saveJson(receipt, saved)
     await assert.rejects(runProduction(value, { executeShot, log: () => {} }), /回执与本轮服务器不一致/)

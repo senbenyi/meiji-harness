@@ -3,7 +3,7 @@ import { runtimeConfig } from '../config.js'
 import { resolveServer } from '../servers/resolve.js'
 import { setTimeout as pause } from 'node:timers/promises'
 import { submitComfyPrompt } from './submission.js'
-import { createTiming } from '../jobs/timing.js'
+import { createTiming } from '../business/jobs/timing.js'
 
 export function comfyUrl(server) {
   return server === undefined && runtimeConfig().ELYSIUM_BACKEND ? runtimeConfig().ELYSIUM_BACKEND.base_url : resolveServer('comfyui', server).base_url

@@ -5,8 +5,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createMediaHandler } from '../src/http/media-routes.js'
-import { jobSummary } from '../src/assets/catalog.js'
-import { bindVideoCall, findVideoCall } from '../src/video/call-binding.js'
+import { jobSummary } from '../src/business/assets/catalog.js'
+import { bindVideoCall, findVideoCall } from '../src/business/video/call-binding.js'
 import { apply } from '../src/index.js'
 
 test('status summary carries timing and generation specification to recovered cards', () => {

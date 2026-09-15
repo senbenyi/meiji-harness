@@ -1,7 +1,7 @@
 // 职责：将全局导演库适配为经过认证的 HTTP 路由。
 import { withConfig } from '../config.js'
-import { createDirectorStore } from '../directors/store.js'
-import { createProjectStore } from '../projects/store.js'
+import { createDirectorStore } from '../business/directors/store.js'
+import { createProjectStore } from '../business/projects/store.js'
 import { authenticated, json, readJsonBody } from './shared.js'
 
 export const DIRECTOR_ROUTE = '/plugins/dsh-elysium/director'

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { withConfig } from '../src/config.js'
-import { buildVideoGraph, loadVideoTemplate } from '../src/video/graph.js'
-import { validateVideoPlan } from '../src/video/plan.js'
+import { buildVideoGraph, loadVideoTemplate } from '../src/comfyui/workflows/minimax-h3/graph.js'
+import { validateVideoPlan } from '../src/business/video/plan.js'
 import { createWorkflowGenerateVideoTool } from '../src/tools/video.js'
-import { collectVideoArtifacts } from '../src/video/artifacts.js'
+import { collectVideoArtifacts } from '../src/business/video/artifacts.js'
 import { ComfyClient } from '../src/comfyui/client.js'
-import { VIDEO_MODES, MODE_MEDIA } from '../src/video/plan.js'
+import { VIDEO_MODES, MODE_MEDIA } from '../src/business/video/plan.js'
 
 test('preview is aligned, keeps joint audio and removes all interpolation dependencies', async () => {
   const plan = { profile: 'preview', mode: 't2va', prompt: 'An adult opens a door.' }

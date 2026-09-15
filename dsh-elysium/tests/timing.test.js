@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createTiming } from '../src/jobs/timing.js'
-import { waitJob } from '../src/jobs/wait.js'
+import { createTiming } from '../src/business/jobs/timing.js'
+import { waitJob } from '../src/business/jobs/wait.js'
 
 test('wall clock changes do not affect duration and failed calls retain timing', async t => {
   const timing = createTiming(), error = new Error('request failed')

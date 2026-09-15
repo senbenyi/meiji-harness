@@ -1,8 +1,8 @@
 // 职责：将项目存储操作适配为经过认证的 HTTP 路由。
 import { withConfig } from '../config.js'
-import { createProjectStore } from '../projects/store.js'
-import { createDirectorStore } from '../directors/store.js'
-import { validProjectId } from '../projects/schema.js'
+import { createProjectStore } from '../business/projects/store.js'
+import { createDirectorStore } from '../business/directors/store.js'
+import { validProjectId } from '../business/projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'

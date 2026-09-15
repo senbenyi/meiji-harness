@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { ComfyClient } from '../src/comfyui/client.js'
-import { readJson, saveJson } from '../src/jobs/store.js'
+import { readJson, saveJson } from '../src/business/jobs/store.js'
 import { comfyuiTaskTool } from '../src/tools/comfyui-tasks.js'
 
 const directory = await mkdtemp(join(tmpdir(), 'comfy-client-'))

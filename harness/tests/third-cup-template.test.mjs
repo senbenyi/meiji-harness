@@ -6,9 +6,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { dshHome, installStorage, verifyMedia } from '../scripts/storage-template.mjs'
-import { anchorsValue, actsValue, deliverablesValue, materialsValue, titleValue, directorValue, profileValue } from '../../dsh-elysium/src/projects/schema.js'
-import { projectSummary } from '../../dsh-elysium/src/projects/store.js'
-import { localMediaValue } from '../../dsh-elysium/src/assets/local-media.js'
+import { anchorsValue, actsValue, deliverablesValue, materialsValue, titleValue, directorValue, profileValue } from '../../dsh-elysium/src/business/projects/schema.js'
+import { projectSummary } from '../../dsh-elysium/src/business/projects/store.js'
+import { localMediaValue } from '../../dsh-elysium/src/business/assets/local-media.js'
 const root = new URL('../.dsh/storages/elysium/', import.meta.url).pathname
 const thirdCup = join(root, 'projects/0853b1fa')
 const read = path => readFile(path, 'utf8').then(JSON.parse)

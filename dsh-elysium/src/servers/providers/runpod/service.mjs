@@ -26,7 +26,7 @@ export async function manageService(action, { root = deployment.root, port = dep
       if (!Number.isSafeInteger(pid) || pid <= 1) throw new Error('服务 PID 记录无效，未操作进程')
       const result = system.spawnSync('ps', ['-p', String(pid), '-o', 'args='], { encoding: 'utf8' })
       if (result.status === 1) { await rm(pidFile, { force: true }); return null }
-      if (result.status !== 0 || !result.stdout.trim().startsWith(`${python} main.py `) || !result.stdout.includes(`--port ${port}`)) throw new Error('服务进程身份不匹配，未操作进程')
+      if (result.status !== 0 || !result.stdout.trim().startsWith(`${python} main.py `) || !new RegExp(`(?:^|\\s)--port ${port}(?:\\s|$)`).test(result.stdout)) throw new Error('服务进程身份不匹配，未操作进程')
       return pid
     }
     async function stop() {

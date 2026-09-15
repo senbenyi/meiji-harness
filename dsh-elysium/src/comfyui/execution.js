@@ -1,6 +1,6 @@
 // 职责：准备、提交并等待单次 ComfyUI 视频工作流。
 import { join } from 'node:path'
-import { readJson, saveJson } from '../jobs/store.js'
+import { readJson, saveJson } from '../business/jobs/store.js'
 
 // Recovery uses the saved graph, never current templates or changed media references.
 export async function prepareComfyWorkflow(directory, client, plan, prepare) {

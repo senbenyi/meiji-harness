@@ -2,8 +2,8 @@
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { resolveConfig, withConfig } from '../src/config.js'
-import { withLaunchLock } from '../src/jobs/lock.js'
-import { executeVideoShot } from '../src/video-production/runner.js'
+import { withLaunchLock } from '../src/business/jobs/lock.js'
+import { executeVideoShot } from '../src/business/video-production/runner.js'
 
 const [projectId, requestPath, receiptPath] = process.argv.slice(2)
 if (!projectId || !requestPath || !receiptPath) throw new Error('Usage: COMFYUI_URL=... node scripts/preview-shot.mjs project_id request.json receipt.json')

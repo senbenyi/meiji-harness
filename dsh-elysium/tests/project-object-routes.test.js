@@ -6,7 +6,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
-import { createProjectStore } from '../src/projects/store.js'
+import { createProjectStore } from '../src/business/projects/store.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 import { createProjectTools } from '../src/tools/project.js'
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { codeVersion, traceDiagnostics } from '../src/jobs/diagnostics.js'
+import { codeVersion, traceDiagnostics } from '../src/business/jobs/diagnostics.js'
 
 test('execution fingerprint includes the current execution modules', async () => {
   assert.match((await codeVersion()).executor_sha256, /^[0-9a-f]{64}$/)

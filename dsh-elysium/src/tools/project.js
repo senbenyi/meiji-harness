@@ -1,5 +1,5 @@
 // 职责：将同一个项目 Store 的读取、创建与对象级修改暴露为聊天工具。
-import { projectSummary } from '../projects/store.js'
+import { projectSummary } from '../business/projects/store.js'
 
 const text = { type: 'string' }
 const projectId = { type: 'string', pattern: '^[a-f0-9]{8}$', description: '项目 ID，先读取再修改。' }

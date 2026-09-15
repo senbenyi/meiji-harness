@@ -3,7 +3,7 @@ import { access, mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { withLaunchLock } from '../src/jobs/lock.js'
+import { withLaunchLock } from '../src/business/jobs/lock.js'
 
 test('launch lock rejects concurrent starts and serializes waiting sessions', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'elysium-lock-'))

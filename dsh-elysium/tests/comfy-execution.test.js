@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { prepareComfyWorkflow } from '../src/comfyui/execution.js'
-import { readJson, saveJson } from '../src/jobs/store.js'
+import { readJson, saveJson } from '../src/business/jobs/store.js'
 
 test('recovery keeps an old API snapshot without rebuilding or requiring a visual workflow', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'comfy-snapshot-'))

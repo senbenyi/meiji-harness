@@ -1,6 +1,6 @@
 // 职责：提供可跨平台复用的 ComfyUI/H3、SSH 和 Qwen 服务协议实现。
 import { ComfyClient } from '../comfyui/client.js'
-import { buildVideoGraph } from '../video/graph.js'
+import { buildVideoGraph } from '../comfyui/workflows/minimax-h3/graph.js'
 import { ensureConnection } from './connection.js'
 import { withBackend } from './resolve.js'
 import { runtimeConfig } from '../config.js'

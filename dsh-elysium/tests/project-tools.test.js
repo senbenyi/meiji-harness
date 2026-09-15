@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { apply, createProjectTools } from '../src/index.js'
-import { createProjectStore } from '../src/projects/store.js'
+import { createProjectStore } from '../src/business/projects/store.js'
 import { withConfig } from '../src/config.js'
 import { projectTools } from '../src/tools/discovery.js'
 

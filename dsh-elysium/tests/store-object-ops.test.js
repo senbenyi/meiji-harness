@@ -5,8 +5,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
-import { createProjectStore } from '../src/projects/store.js'
-import { actsValue, anchorValue, validShotId } from '../src/projects/schema.js'
+import { createProjectStore } from '../src/business/projects/store.js'
+import { actsValue, anchorValue, validShotId } from '../src/business/projects/schema.js'
 
 const shot = { role: 'lin', action: '走入画面', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }
 async function fixture(run) {

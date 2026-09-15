@@ -1,5 +1,5 @@
 // 职责：持久化 ComfyUI 提交身份，防止响应丢失时重复提交 GPU 任务。
-import { readJson, saveJson } from '../jobs/store.js'
+import { readJson, saveJson } from '../business/jobs/store.js'
 
 export async function submitComfyPrompt(client, graph, jobId, path, retryFailed = false, workflow) {
   let saved = await readJson(path)

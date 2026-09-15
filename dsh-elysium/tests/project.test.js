@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { projectSummary } from '../src/projects/store.js'
+import { projectSummary } from '../src/business/projects/store.js'
 import { withConfig } from '../src/config.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 

@@ -3,9 +3,9 @@ import { test } from 'node:test'
 
 import { withConfig } from '../src/config.js'
 import { ComfyClient } from '../src/comfyui/client.js'
-import { collectVideoArtifacts } from '../src/video/artifacts.js'
-import { buildVideoGraph, loadVideoTemplate } from '../src/video/graph.js'
-import { validateVideoPlan, VIDEO_MODES } from '../src/video/plan.js'
+import { collectVideoArtifacts } from '../src/business/video/artifacts.js'
+import { buildVideoGraph, loadVideoTemplate } from '../src/comfyui/workflows/minimax-h3/graph.js'
+import { validateVideoPlan, VIDEO_MODES } from '../src/business/video/plan.js'
 
 const base = 'https://pod.test'
 const view = name => `${base}/view?filename=${name}.png&subfolder=refs&type=output`

@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
-export const DIRECTORY = join(ROOT, 'src/video/templates/minimax-h3')
+export const DIRECTORY = join(ROOT, 'src/comfyui/workflows/minimax-h3/templates')
 export const WORKFLOWS = {
   t2va: { file: 'MiniMaxH3-Turbo-T2VA.json', macros: [105], mirrors: [137], media: {} },
   i2va: { file: 'MiniMaxH3-Turbo-I2VA.json', macros: [105], mirrors: [137], media: { first_frame: 114 } },

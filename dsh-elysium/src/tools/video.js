@@ -1,11 +1,11 @@
 // 职责：把视频生成与恢复服务适配为 Harness 工具。
-import { startVideoJob, resumeVideoJob } from '../video/service.js'
-import { VIDEO_MODES, VIDEO_PROFILES } from '../video/plan.js'
+import { startVideoJob, resumeVideoJob } from '../business/video/service.js'
+import { VIDEO_MODES, VIDEO_PROFILES } from '../business/video/plan.js'
 import { renderToolDebug } from './output.js'
-import { waitJob } from '../jobs/wait.js'
-import { createTiming } from '../jobs/timing.js'
+import { waitJob } from '../business/jobs/wait.js'
+import { createTiming } from '../business/jobs/timing.js'
 
-export { waitJob as waitVideoJob } from '../jobs/wait.js'
+export { waitJob as waitVideoJob } from '../business/jobs/wait.js'
 
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
 const output = { schema: { type: 'object', properties: { project_id: { type: 'string' }, job_id: { type: 'string' }, status: { type: 'string' } }, required: ['project_id', 'job_id', 'status'] }, render: renderToolDebug }
