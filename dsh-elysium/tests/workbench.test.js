@@ -5,11 +5,11 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/client-source.mjs'
 
-function fixture() {
+function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' } } = {}) {
   const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
   const modules = new Map(), cache = new Map()
-  runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
-    document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem() {}, setItem() {} },
+  runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
+    document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },
     fetch: async url => ({ ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : { items: [], total: 0 } }) })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require }
@@ -25,6 +25,22 @@ test('full workbench enters project, retains selected shot across tab switch and
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '素材').props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '项目').props.onClick())
   assert.ok(view.root.findByProps({ 'aria-label': '镜 001' }).props['aria-pressed'])
+  await act(async () => view.unmount())
+})
+
+test('sidebar restored to materials survives missing service config and can close', async () => {
+  const { require } = fixture({ saved: { activeTab: 'materials' }, media: null })
+  let view
+  await act(async () => {
+    view = create(React.createElement(require('elysium/workbench').Workbench))
+  })
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
+    assert.match(view.root.findByProps({ role: 'alert' }).children.join(''), /媒体服务未加载/)
+    assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props['aria-hidden'], false)
+    await act(async () => view.root.findByProps({ 'aria-label': '收起创作工作台' }).props.onClick())
+    assert.equal(view.root.findByProps({ 'aria-label': '打开创作工作台' }).props['aria-expanded'], false)
+  }
   await act(async () => view.unmount())
 })
 

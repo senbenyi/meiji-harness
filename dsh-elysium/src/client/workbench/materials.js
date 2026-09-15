@@ -38,7 +38,12 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
     useEffect(() => { if (input === state.q) return; const timer = setTimeout(() => change({ q: input, page: 0 }), 250); return () => clearTimeout(timer) }, [input, state.q])
     useEffect(() => {
       const controller = new AbortController(), request = ++sequence.current
-      const key = mediaUrl('list', null, null, { ...state, scroll: 0 })
+      let key
+      try { key = mediaUrl('list', null, null, { ...state, scroll: 0 }) }
+      catch (error) {
+        setError(error.message); setBusy(false)
+        return () => { ++sequence.current; controller.abort() }
+      }
       const cached = listCache.get(key)
       if (cached && Date.now() - cached.time < 30000) { setData(cached.value); setBusy(false); setError(''); return () => { ++sequence.current; controller.abort() } }
       setBusy(true); setError(''); setData(cached?.value || null)
