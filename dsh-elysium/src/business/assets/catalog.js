@@ -84,6 +84,13 @@ export async function listAssets(offset, limit, filters = {}) {
   const root = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects')
   const projects = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
   const items = []
+  const projectMaterials = new Set()
+  if (filters.source === 'project') for (const project of projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name))) {
+    const directory = join(root, project.name)
+    const materials = await readJson(join(directory, 'materials.json'))
+    const metadata = materials ? null : await readJson(join(directory, 'project.json'))
+    for (const id of materials || metadata?.materials || []) projectMaterials.add(id)
+  }
   const sources = projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name)).map(project => ({ directory: join(root, project.name, 'jobs'), projectId: project.name }))
   sources.push({ directory: join(requiredConfig('ELYSIUM_STATE_ROOT'), 'uploads') })
   for (const source of sources) {
@@ -94,6 +101,7 @@ export async function listAssets(offset, limit, filters = {}) {
       try {
         if (await readJson(join(source.directory, entry.name, 'asset-deleted.json'))) continue
         const job = JSON.parse(await readFile(path, 'utf8')); job.project_id ||= source.projectId
+        if (filters.source === 'creation' && !source.projectId || filters.source === 'import' && source.projectId || filters.source === 'project' && !projectMaterials.has(job.job_id)) continue
         const summary = { ...assetSummary(job), ...await availableJobSummary(job) }
         if (filters.q && ![job.job_id, job.title, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
         if (job.status === 'succeeded' && (!filters.profile || (summary.profile === 'hd' ? 'high-quality' : summary.profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || summary.media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })

@@ -20,7 +20,7 @@ function fixture(initial) {
       if (url.startsWith('/director/create')) { const director = JSON.parse(options.body); directors = [...directors, director]; return { ok: true, json: async () => structuredClone(director) } }
       if (url.startsWith('/director/reorder')) { const { names } = JSON.parse(options.body); directors = names.map(name => directors.find(item => item.name === name)); return { ok: true, json: async () => structuredClone(directors) } }
       if (url.startsWith('/director/delete')) { const { name } = JSON.parse(options.body); directors = directors.filter(item => item.name !== name); return { ok: true, json: async () => ({ deleted: true }) } }
-      if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
+      if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', cover_job_id: project.cover_job_id, anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
       if (url.startsWith('/project/update-anchor')) {
         const { action, data } = JSON.parse(options.body)
@@ -121,10 +121,21 @@ test('new project uses the inline production flow and advances directly to ancho
   assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, true)
   await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '张艺谋' } }))
   await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
+  assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), false)
+  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, true)
+  await click(view, '选择封面图片')
+  assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
+  await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())
+  await click(view, '使用此素材')
+  assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), false)
+  assert.equal(view.root.findByProps({ alt: '项目封面' }).props.src, `/media/image?job=${'b'.repeat(32)}&t=t`)
+  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
   assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), true)
+  assert.equal(JSON.parse(f.requests.find(request => request.url.startsWith('/project/create')).options.body).cover_job_id, 'b'.repeat(32))
   assert.equal(f.project().director, '张艺谋')
   assert.equal(view.root.findByProps({ 'aria-label': '锚点' }).props['aria-current'], 'step')
   await click(view, '返回项目')
+  assert.equal(view.root.findByType('img').props.src, `/media/image?job=${'b'.repeat(32)}&t=t`)
   await act(async () => view.root.findByProps({ 'aria-label': '打开项目 新项目' }).props.onClick())
   await click(view, '项目')
   assert.equal(view.root.findByProps({ 'aria-label': '项目导演' }).props.value, '张艺谋')
@@ -379,5 +390,22 @@ test('new anchor selects an image into draft and only persists it on save', asyn
   assert.equal(f.project().anchors[0].label, '新锚点')
   assert.deepEqual(f.project().anchors[0].source, { type: 'material', job_id: 'b'.repeat(32) })
   assert.equal(view.root.findAllByProps({ className: 'elysium-anchor-create' }).length, 0)
+  await act(async () => view.unmount())
+})
+
+// 更换封面只修改封面引用，不把素材变成项目锚点。
+test('project settings saves a replacement cover without altering anchors', async () => {
+  const project = { ...emptyProject(), director: '张艺谋', cover_job_id: 'a'.repeat(32) }
+  const f = fixture(project)
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'project' }, back() {} })) })
+  assert.equal(view.root.findByProps({ alt: '项目封面' }).props.src, `/media/image?job=${'a'.repeat(32)}&t=t`)
+  await click(view, '更换封面图片')
+  await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())
+  await click(view, '使用此素材')
+  assert.equal(f.project().cover_job_id, 'a'.repeat(32))
+  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
+  assert.equal(f.project().cover_job_id, 'b'.repeat(32))
+  assert.deepEqual(f.project().anchors, [])
   await act(async () => view.unmount())
 })

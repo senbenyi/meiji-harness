@@ -1,4 +1,4 @@
-// 职责：展示系统配置的四类模型、连接状态和连接操作。
+// 职责：展示自有模型的连接操作及无需连接的三方模型。
 load('elysium/servers', (require, exports) => {
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { serverRequest } = require('elysium/server-api')
@@ -35,7 +35,7 @@ load('elysium/servers', (require, exports) => {
       finally { setBusy(null) }
     }
     return h('section', { className: 'elysium-server-list', 'aria-label': '模型设置' },
-      h('h2', null, '模型'),
+      h('h2', null, '私有模型'),
       Object.entries(labels).map(([kind, label]) => {
         const entries = data?.models[kind] || [], id = selected[kind] || '', key = `${kind}:${id}`
         const connected = id === data?.selected[kind] && status[key] === true
@@ -45,6 +45,10 @@ load('elysium/servers', (require, exports) => {
             !entries.length ? h('option', { value: '' }, '') : entries.map(model => h('option', { key: model.id, value: model.id }, model.label))),
           entries.length ? h('button', { type: 'button', 'aria-label': `${connected ? '重新连接' : '连接'}${label}`, disabled: !!busy, onClick: () => connect(kind) }, busy === kind ? '连接中' : connected ? '重新连接' : '连接') : null)
       }),
+      data?.third_party ? h('section', { 'aria-label': '三方模型' }, h('h2', null, '三方模型'),
+        Object.entries(data.third_party).map(([kind, model]) => h('div', { key: kind, className: 'elysium-model-row' },
+          h('label', { htmlFor: `elysium-third-party-${kind}` }, `${labels[kind]}：`),
+          h('select', { id: `elysium-third-party-${kind}`, 'aria-label': `三方${labels[kind]}`, defaultValue: model.id }, h('option', { value: model.id }, model.label))))) : null,
       data?.pending_llm ? h('p', { role: 'status' }, '文本模型待重启生效') : null,
       error ? h('p', { role: 'alert' }, error) : null)
   }

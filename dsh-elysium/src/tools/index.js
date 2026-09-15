@@ -1,3 +1,4 @@
+import { createWorkflowGenerateImageTool, createWorkflowResumeImageTool } from './image.js'
 // 职责：组装并导出插件对 Harness 暴露的工具定义。
 import { createModelJobResultTool, createModelJobStatusTool } from './model-jobs.js'
 import { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool } from './video.js'
@@ -10,6 +11,6 @@ export { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool }
 export { createComfyuiTaskCancelTool, createComfyuiTaskQueueTool, createComfyuiTaskResultTool, createComfyuiTaskStatusTool }
 
 export const createModelTools = () => [createModelJobStatusTool(), createModelJobResultTool()]
-export const createWorkflowTools = () => [createWorkflowGenerateVideoTool(), createWorkflowResumeVideoTool()]
+export const createWorkflowTools = () => [createWorkflowGenerateImageTool(), createWorkflowResumeImageTool(), createWorkflowGenerateVideoTool(), createWorkflowResumeVideoTool()]
 export const createComfyuiTools = () => [createComfyuiTaskQueueTool(), createComfyuiTaskStatusTool(),
   createComfyuiTaskResultTool(), createComfyuiTaskCancelTool()]

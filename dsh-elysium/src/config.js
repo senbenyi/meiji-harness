@@ -25,6 +25,7 @@ const fields = {
   comfyUrl: ['COMFYUI_URL', 'url'],
   stateRoot: ['ELYSIUM_STATE_ROOT', 'path'],
   serversFile: ['ELYSIUM_SERVERS_FILE', 'path'],
+  byteplusFile: ['ELYSIUM_BYTEPLUS_FILE', 'path'],
 }
 // 模型清单由系统配置提供，图片工作流尚未配置时保持空列表。
 export const defaultModels = {
@@ -46,7 +47,7 @@ export function resolveConfig(config = {}) {
     if (!Object.hasOwn(fields, key) && !['enableAtomicTools', 'models'].includes(key)) throw new Error(`未知插件配置：${key}`)
   }
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
-  const defaults = { stateRoot: join(home, 'storages', 'elysium'), serversFile: join(home, 'servers.json') }
+  const defaults = { stateRoot: join(home, 'storages', 'elysium'), serversFile: join(home, 'servers.json'), byteplusFile: join(home, 'byteplus.json') }
   const registryFile = config.serversFile ?? process.env.ELYSIUM_SERVERS_FILE ?? defaults.serversFile
   withConfig({ ELYSIUM_SERVERS_FILE: registryFile }, () => requiredConfig('ELYSIUM_SERVERS_FILE'))
   const registry = readRegistry(registryFile)

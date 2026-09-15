@@ -9,7 +9,8 @@ import { registerServerRoutes, SERVER_ROUTE } from './http/server-routes.js'
 import { registerMediaRoutes } from './http/media-routes.js'
 import { createDirectorStore } from './business/directors/store.js'
 import { createProjectStore } from './business/projects/store.js'
-import { creationInstructions } from './prompts/creation.js'
+import { thirdPartyModels } from './servers/runtime/index.js'
+import { creationInstructions, thirdPartyCreationInstructions } from './prompts/creation.js'
 
 export * from './tools/index.js'
 
@@ -37,7 +38,7 @@ export function apply(ctx, config = {}) {
     const assembly = projectTools(await next(), context.agent)
     // 替换已有同名段落，确保创作指令只出现一次。
     return { ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
-      { name: 'elysium:creation-commands', text: creationInstructions }] }
+      { name: 'elysium:creation-commands', text: await withConfig(runtime, async () => await thirdPartyModels() ? thirdPartyCreationInstructions : creationInstructions) }] }
   })
   const tools = [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools(),
     ...(runtime.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1' ? createComfyuiTools() : [])]

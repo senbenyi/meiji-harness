@@ -1,6 +1,6 @@
 // 职责：提供共用页面 token 认证的手工服务器登记、检查与切换接口。
 import { listProviders } from '../servers/runtime/loader.js'
-import { providerFor, backendLlmSettings } from '../servers/runtime/index.js'
+import { providerFor, backendLlmSettings, thirdPartyModels } from '../servers/runtime/index.js'
 import { backendFromServer, resolveServer } from '../servers/registry/resolve.js'
 import { withConfig, runtimeConfig, defaultModels } from '../config.js'
 import { readRegistry, writeRegistry } from '../servers/registry/store.js'
@@ -20,7 +20,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
       if (req.method !== (['list', 'models'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
       const models = runtimeConfig().ELYSIUM_MODELS || defaultModels
-      if (action === 'models') return json(res, 200, { revision: registry.revision, models, selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+      if (action === 'models') return json(res, 200, { revision: registry.revision, models, third_party: await thirdPartyModels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
         const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
         return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
       })), pending_llm: !!registry.active.llm && registry.active.llm !== currentLlm })

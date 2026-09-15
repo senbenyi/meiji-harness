@@ -14,8 +14,8 @@ export function projectSummary(value) {
   const completed = value.deliverables.length > 0 && shots.every(shot => shot.status === 'succeeded')
   const stage = value.deliverables.length > 0 && completed ? 'deliverables' : shots.length ? shots.some(shot => shot.status !== 'succeeded') ? 'acts' : 'deliverables' : !value.anchors.length ? 'anchors' : 'acts'
   return {
-    cover_job_id: value.anchors.some(anchor => serverUrl(anchor.image_url)) ? null : value.anchors.find(anchor => anchor.source?.job_id)?.source.job_id || null,
-    cover_url: value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
+    cover_job_id: value.cover_job_id || (value.anchors.some(anchor => serverUrl(anchor.image_url)) ? null : value.anchors.find(anchor => anchor.source?.job_id)?.source.job_id || null),
+    cover_url: value.cover_job_id ? null : value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
     id: value.id, title: value.title, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
     status: active ? 'active' : completed ? 'completed' : 'todo', stage,
     anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length,
@@ -27,7 +27,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
   const root = () => join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects')
   const names = { materials: 'materials.json', anchors: 'anchors.json', acts: 'storyboard.json', deliverables: 'deliverables.json' }
   const metadataOf = ({ materials, anchors, acts, deliverables, ...metadata }) => metadata
-  const materialIdsOf = value => [...new Set([...(value.materials || []),
+  const materialIdsOf = value => [...new Set([...(value.materials || []), value.cover_job_id,
     ...(value.deliverables || []).map(item => item.job_id), ...value.anchors.map(anchor => anchor.source?.job_id), ...value.acts.flatMap(act => act.shots.map(shot => shot.job_id))].filter(validJobId))]
   const modifiedAt = new Map()
   let operations = Promise.resolve()
@@ -73,7 +73,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
     try { materials = JSON.parse(await readFile(join(directory, names.materials), 'utf8')) }
     catch (error) {
       if (error.code !== 'ENOENT') throw error
-      materials = materialIdsOf({ materials: [], anchors, acts })
+      materials = materialIdsOf({ ...metadata, materials: [], anchors, acts })
       await writeJson(join(directory, names.materials), materials)
     }
     if (ensureShotIds(acts)) await writeJson(join(directory, names.acts), acts)
@@ -92,6 +92,14 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
     const name = directorValue(value)
     if (!await directorExists(name)) throw invalidRequest('导演不存在，请先在导演库中添加')
     return name
+  }
+
+  // 封面只能引用已完成且仍可读取的图片素材。
+  async function checkedCover(jobId) {
+    if (!validJobId(jobId)) throw invalidRequest('封面素材 ID 无效')
+    const summary = await availableJobSummary(await readJob(jobId))
+    if (!summary.has_image) throw invalidRequest('封面只能使用可用的图片素材')
+    return jobId
   }
 
   const list = () => enqueue(async () => {
@@ -119,6 +127,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
       if (action === 'create') {
         const now = Date.now()
         value = { id: newId(), title: titleValue(body.title), director: await checkedDirector(body.director), profile: profileValue(body.profile), created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
+        if (body.cover_job_id !== undefined) { value.cover_job_id = await checkedCover(body.cover_job_id); value.materials = [value.cover_job_id] }
         sections = ['materials', 'anchors', 'acts', 'deliverables']
         await mkdir(root(), { recursive: true })
         for (;;) {
@@ -130,6 +139,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
       } else {
         value = await load(body.id)
         sections = []
+        if (body.cover_job_id !== undefined && body.cover_job_id !== value.cover_job_id) value.cover_job_id = await checkedCover(body.cover_job_id)
         if (body.title !== undefined) value.title = titleValue(body.title)
         if (body.director !== undefined) value.director = await checkedDirector(body.director)
         if (body.profile !== undefined) value.profile = profileValue(body.profile)

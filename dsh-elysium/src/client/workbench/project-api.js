@@ -16,7 +16,7 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   }
   const fetchProjects = () => request('list')
   const fetchProject = id => request('get', null, { id })
-  const createProject = (title, profile, director) => request('create', { title, profile, director })
+  const createProject = (title, profile, director, cover_job_id) => request('create', { title, profile, director, cover_job_id })
   const updateProject = (id, patch) => request('update', { ...patch, id })
   const deleteProject = id => request('delete', { id })
   const importMaterial = (id, jobId, as = 'anchor', role) => request('import', { id, job_id: jobId, as, ...(role ? { role } : {}) })

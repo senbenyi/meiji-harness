@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
         try {
           const value = JSON.parse(item.text)
           const result = value.output || value
-          if (result.job_id && result.status) return { ...result, media_kind: 'video' }
+          if (result.job_id && result.status) return { ...result, media_kind: result.media_kind || result.result?.media_kind || (result.capability === 'workflow-image' ? 'image' : 'video') }
         } catch { /* The generic result remains available in details. */ }
       }
       if (block?.isError) {

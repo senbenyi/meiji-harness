@@ -1,9 +1,9 @@
 // 职责：按生产清单顺序编排镜头生成、恢复与状态持久化。
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
-import { providerFor, createBackendClient } from '../../servers/runtime/index.js'
+import { providerFor, createBackendClient, resolveGenerationBackend } from '../../servers/runtime/index.js'
 import { readBackend, sameBackend } from '../../servers/runtime/backend.js'
-import { resolveServer, withBackend } from '../../servers/registry/resolve.js'
+import { withBackend } from '../../servers/registry/resolve.js'
 import { requiredConfig, runtimeConfig } from '../../config.js'
 import { createJob } from '../jobs/create.js'
 import { readJson, saveJson } from '../jobs/store.js'
@@ -21,7 +21,7 @@ export async function executeVideoShot(projectId, request, receiptPath, signal) 
   const saved = await readJson(receiptPath)
   if (saved && JSON.stringify(saved.request) !== JSON.stringify(request)) throw new Error('回执属于不同镜头；必须使用原请求')
   const pinned = runtimeConfig().ELYSIUM_BACKEND
-  const backend = saved ? await readBackend(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', saved.job_id)) : pinned || resolveServer()
+  const backend = saved ? await readBackend(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', saved.job_id)) : pinned || await resolveGenerationBackend('video')
   if (saved?.backend && !sameBackend(saved.backend, backend)) throw new Error('镜头回执服务器与任务快照不一致')
   if (pinned && !sameBackend(pinned, backend)) throw new Error('镜头回执与本轮服务器不一致')
   return withBackend(backend, async () => {
@@ -44,15 +44,16 @@ export async function runProduction(manifest, options = {}) {
   const limit = options.limit ?? manifest.shots.length
   if (!Number.isInteger(limit) || limit < 1 || limit > manifest.shots.length) throw new Error(`limit 必须为 1..${manifest.shots.length}`)
   const execute = options.executeShot || executeVideoShot
-  const createReference = options.extractReference || extractReference
+  let createReference = options.extractReference
   const log = options.log || console.log
   await mkdir(join(directory, 'runner'), { recursive: true })
   return withLaunchLock(join(directory, 'runner'), async () => {
     let backend = await readJson(join(directory, 'input/backend.json'))
     if (!backend && await readJson(join(directory, 'manifest.json'))) throw new Error('旧批次缺少服务器快照，请核对原回执后迁移；禁止使用当前默认服务器恢复')
-    backend ||= resolveServer()
+    backend ||= await resolveGenerationBackend('video')
     const provider = await providerFor(backend)
     backend = { ...backend, provider_api_version: provider.apiVersion }
+    createReference ||= provider.extractReference || extractReference
     const client = options.client || await createBackendClient(backend, { signal: options.signal })
     if (client.url?.href !== new URL(backend.base_url.replace(/\/?$/, '/')).href) throw new Error('生产客户端与本轮服务器不一致')
     await saveJson(join(directory, 'input/backend.json'), backend)

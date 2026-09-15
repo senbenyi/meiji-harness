@@ -40,7 +40,7 @@ async function launchLocked(jobId, capability, retryFailed) {
   try {
     await connectBackend(backend)
     if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
-    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', server: backend, status: 'queued', stage: 'queued' })
+    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: backend.provider === 'byteplus' ? 'byteplus' : 'comfyui', server: backend, status: 'queued', stage: 'queued' })
     const log = await open(join(directory, 'worker.log'), 'a')
     try {
       const child = spawn(process.execPath, [fileURLToPath(new URL('./worker.js', import.meta.url)), projectId, jobId],
@@ -51,7 +51,7 @@ async function launchLocked(jobId, capability, retryFailed) {
     } finally { await log.close() }
     return { job_id: jobId, project_id: projectId, status: 'queued' }
   } catch (error) {
-    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', server: backend, status: 'failed', error_code: error.code, error: error.message })
+    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: backend.provider === 'byteplus' ? 'byteplus' : 'comfyui', server: backend, status: 'failed', error_code: error.code, error: error.message })
     await unlink(lockPath).catch(() => {})
     throw error
   } finally { await lock.close() }

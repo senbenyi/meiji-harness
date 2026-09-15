@@ -29,7 +29,7 @@ export async function findVideoCall(sessionId, callId, session) {
   if (session?.id !== sessionId) return null
   const events = session.snapshotEvents()
   const calls = events.filter(e => e.type === 'tool/call' && e.data.callId === callId)
-  if (!calls.some(e => ['workflow_generate_video', 'workflow_resume_video'].includes(e.data.name))) return null
+  if (!calls.some(e => ['workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'].includes(e.data.name))) return null
   for (const event of events) {
     if (event.type !== 'tool/result') continue
     for (const block of event.data.message?.content || []) {

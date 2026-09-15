@@ -11,7 +11,7 @@ const methods = ['validate', 'connect', 'check', 'createClient', 'buildGraph', '
 const unavailable = (id, reason) => Object.assign(new Error(`平台适配器 ${id} 不可用：${reason}`), { code: 'PROVIDER_UNAVAILABLE', status: 409 })
 export function validateProvider(adapter, id) {
   if (adapter?.apiVersion !== 1 || adapter.id !== id || typeof adapter.label !== 'string' || !adapter.services ||
-    !Object.keys(adapter.services).length || Object.keys(adapter.services).some(kind => !['comfyui', 'llm'].includes(kind)) || methods.some(method => typeof adapter[method] !== 'function')) throw unavailable(id, '接口契约不完整或版本不兼容')
+    !Object.keys(adapter.services).length || Object.keys(adapter.services).some(kind => !['comfyui', 'llm', 'image', 'video'].includes(kind)) || methods.some(method => typeof adapter[method] !== 'function')) throw unavailable(id, '接口契约不完整或版本不兼容')
   return adapter
 }
 export async function loadProvider(id) {

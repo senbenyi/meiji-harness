@@ -5,15 +5,31 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/client-source.mjs'
 
-function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' } } = {}) {
+function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [] } = {}) {
   const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
   const modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
     document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },
-    fetch: async url => ({ ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : { items: [], total: 0 } }) })
+    fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : { items: [], total: 0 } } } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require }
 }
+test('material browser and image picker share source tabs and reset pagination on switch', async () => {
+  for (const imageOnly of [false, true]) {
+    const requests = [], changes = [], f = fixture({ requests }); let view
+    await act(async () => { view = create(React.createElement(f.require('elysium/materials').MaterialList, { imageOnly, viewState: { page: 2 }, onViewState: value => changes.push(value) })) })
+    assert.deepEqual(view.root.findAllByProps({ role: 'tab' }).map(tab => tab.children.join('')), ['创作素材', '项目素材', '导入素材'])
+    assert.equal(new URL(requests.at(-1), 'https://test').searchParams.get('source'), 'creation')
+    for (const [source, label] of [['project', '项目素材'], ['import', '导入素材']]) {
+      await act(async () => view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === label).props.onClick())
+      const query = new URL(requests.at(-1), 'https://test').searchParams
+      assert.equal(query.get('source'), source); assert.equal(query.get('offset'), '0')
+      if (imageOnly) assert.equal(query.get('media_kind'), 'image')
+      assert.equal(changes.at(-1).source, source); assert.equal(changes.at(-1).page, 0)
+    }
+    await act(async () => view.unmount())
+  }
+})
 test('full workbench enters project, retains selected shot across tab switch and closes', async () => {
   const f = fixture(); let view
   await act(async () => { view = create(React.createElement(f.require('elysium/workbench').Workbench)) })
@@ -191,6 +207,7 @@ test('material upload sends images and videos and refreshes the unfiltered libra
   assert.equal(uploads.length, 2)
   uploads.forEach((item, index) => { assert.equal(item.options.method, 'POST'); assert.equal(item.options.body, files[index]) })
   assert.equal(changes.at(-1).page, 0); assert.equal(changes.at(-1).profile, ''); assert.equal(changes.at(-1).media_kind, '')
+  assert.equal(changes.at(-1).source, 'import')
   assert.match(JSON.stringify(view.toJSON()), /参考.png/)
   await act(async () => view.root.findByProps({ 'aria-label': '查看素材 视频.mp4' }).props.onClick())
   assert.equal(view.root.findAllByType('button').filter(button => button.children.join('') === '用作项目锚点').length, 0)

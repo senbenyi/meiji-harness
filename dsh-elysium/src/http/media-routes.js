@@ -40,8 +40,10 @@ export function createMediaHandler({ token, projectBase, directorBase, serverBas
         const q = (url.searchParams.get('q') || '').trim()
         if (q.length > 200) return json(res, 400, { error: '搜索内容最多 200 字' })
         const profile = url.searchParams.get('profile') || '', media_kind = url.searchParams.get('media_kind') || ''
+        const source = url.searchParams.get('source') || ''
+        if (source && !['creation', 'project', 'import'].includes(source)) return json(res, 400, { error: 'Invalid source' })
         if (profile && !['preview', 'regular', 'high-quality', 'hd'].includes(profile) || media_kind && !['video', 'image'].includes(media_kind)) return json(res, 400, { error: 'Invalid filters' })
-        return json(res, 200, await listAssets(offset, Math.min(limit, 200), { profile, media_kind, q }))
+        return json(res, 200, await listAssets(offset, Math.min(limit, 200), { profile, media_kind, q, source }))
       }
       const jobId = url.searchParams.get('job')
       if (jobId !== null && !/^[a-f0-9]{32}$/.test(jobId)) return json(res, 400, { error: 'Invalid job identity' })

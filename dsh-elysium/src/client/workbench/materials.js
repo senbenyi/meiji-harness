@@ -29,7 +29,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       error ? h('p', { role: 'alert' }, error) : null)
   }
   function MaterialList({ onSelect, imageOnly = false, viewState = {}, onViewState = () => {} } = {}) {
-    const [state, setState] = useState({ profile: '', media_kind: '', q: '', page: 0, page_size: DEFAULT_PAGE_SIZE, ...viewState, ...(imageOnly ? { media_kind: 'image' } : {}) })
+    const [state, setState] = useState({ source: 'creation', profile: '', media_kind: '', q: '', page: 0, page_size: DEFAULT_PAGE_SIZE, ...viewState, ...(imageOnly ? { media_kind: 'image' } : {}) })
     const [input, setInput] = useState(state.q), [data, setData] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0)
     const [preview, setPreview] = useState(null), [importJob, setImportJob] = useState(null), [submitting, setSubmitting] = useState(false), [mediaError, setMediaError] = useState(false), [deleting, setDeleting] = useState(false), [uploading, setUploading] = useState(false), [uploadError, setUploadError] = useState('')
     const sequence = useRef(0), grid = useRef(null), fileInput = useRef(null)
@@ -47,11 +47,11 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       const cached = listCache.get(key)
       if (cached && Date.now() - cached.time < 30000) { setData(cached.value); setBusy(false); setError(''); return () => { ++sequence.current; controller.abort() } }
       setBusy(true); setError(''); setData(cached?.value || null)
-      fetchAssets(state.page * pageSize, pageSize, { profile: state.profile, media_kind: state.media_kind, q: state.q }, controller.signal).then(value => {
+      fetchAssets(state.page * pageSize, pageSize, { source: state.source, profile: state.profile, media_kind: state.media_kind, q: state.q }, controller.signal).then(value => {
         if (request === sequence.current) { listCache.set(key, { value, time: Date.now() }); if (listCache.size > 8) listCache.delete(listCache.keys().next().value); setData(value); if (grid.current) grid.current.scrollTop = state.scroll || 0 }
       }).catch(err => { if (!controller.signal.aborted && request === sequence.current) setError(err.message) }).finally(() => { if (request === sequence.current) setBusy(false) })
       return () => { ++sequence.current; controller.abort() }
-    }, [state.profile, state.media_kind, state.q, state.page, pageSize, retry])
+    }, [state.source, state.profile, state.media_kind, state.q, state.page, pageSize, retry])
     useEffect(() => { if (grid.current && data) grid.current.scrollTop = state.scroll || 0 }, [data])
     const select = (label, key, options) => h('select', { 'aria-label': label, value: state[key], onChange: event => change({ [key]: event.target.value, page: 0, scroll: 0 }) }, options.map(([value, text]) => h('option', { key: value, value }, text)))
     async function upload(event) {
@@ -67,7 +67,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
         }
       } catch (err) { setUploadError(err.message) } finally {
         listCache.clear(); setData(null); setInput('')
-        change({ page: 0, scroll: 0, profile: '', media_kind: imageOnly ? 'image' : '', q: '' })
+        change({ source: 'import', page: 0, scroll: 0, profile: '', media_kind: imageOnly ? 'image' : '', q: '' })
         setRetry(value => value + 1); setUploading(false)
       }
     }
@@ -91,6 +91,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       } catch (err) { setError(err.message) } finally { setDeleting(false) }
     }
     return h('div', { className: 'elysium-materials' },
+      h('div', { className: 'elysium-material-tabs', role: 'tablist', 'aria-label': '素材分类' }, [['creation', '创作素材'], ['project', '项目素材'], ['import', '导入素材']].map(([source, label]) => h('button', { key: source, type: 'button', role: 'tab', 'aria-selected': state.source === source, onClick: () => { setData(null); change({ source, page: 0, scroll: 0 }) } }, label))),
       h('div', { className: 'elysium-toolbar' },
         h(IconButton, { name: 'insert', label: imageOnly ? '导入图片素材' : '导入素材', disabled: uploading, onClick: () => fileInput.current.click() }),
         h('input', { type: 'file', ref: fileInput, hidden: true, multiple: true, accept: imageOnly ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4', 'aria-label': '选择导入文件', disabled: uploading, onChange: upload }),

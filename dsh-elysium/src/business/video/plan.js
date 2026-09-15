@@ -1,4 +1,6 @@
 // 职责：定义视频模式、档位与请求参数校验规则。
+import { runtimeConfig } from '../../config.js'
+import { providerFor } from '../../servers/runtime/index.js'
 import { mediaReference } from '../../comfyui/media-reference.js'
 import { ModelTaskError } from '../jobs/errors.js'
 
@@ -15,6 +17,8 @@ export const MODE_MEDIA = Object.freeze({
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 
 export async function validateVideoPlan(args) {
+  const backend = runtimeConfig().ELYSIUM_BACKEND
+  if (backend?.service === 'video') return (await providerFor(backend)).validatePlan(args, backend)
   if (!args || typeof args !== 'object' || Array.isArray(args)) throw invalid('参数必须为对象')
   if (!VIDEO_MODES.includes(args.mode)) throw invalid(`mode 仅支持：${VIDEO_MODES.join('、')}`)
   if (typeof args.prompt !== 'string' || !args.prompt.trim()) throw invalid('prompt 必须为非空字符串')

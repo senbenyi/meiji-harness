@@ -7,7 +7,7 @@ export async function readBackend(directory) {
   const evidence = await Promise.all(['comfyui-workflow.json', 'comfyui-submission.json'].map(name => readJson(join(directory, name))))
   const urls = new Set(evidence.filter(Boolean).map(item => item.server_url ? httpUrl(item.server_url) : null))
   if (saved) {
-    if (saved.service !== 'comfyui' || !saved.server_id || httpUrl(saved.base_url) !== saved.base_url) throw new Error('任务后端快照无效')
+    if (!['comfyui', 'image', 'video'].includes(saved.service) || !saved.server_id || httpUrl(saved.base_url) !== saved.base_url) throw new Error('任务后端快照无效')
     if (saved.provider_api_version !== undefined && !Number.isSafeInteger(saved.provider_api_version)) throw new Error('任务平台接口版本无效')
     urls.add(saved.base_url)
   }

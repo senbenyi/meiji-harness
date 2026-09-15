@@ -30,7 +30,7 @@ async function fixture(responses, block = {}) {
   require(pkg.name).apply({ effect: run => run(), inputTriggers: { registerSource: () => () => {} }, uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
-  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video'])
+  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'])
   let view
   await act(async () => { view = create(React.createElement(require('elysium/media-task-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
   return { view, requests, timers, definition: require('elysium/media-task-card').definition,
