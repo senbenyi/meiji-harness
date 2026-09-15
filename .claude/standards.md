@@ -11,12 +11,16 @@ dsh-elysium/
 ├── src/                # 源代码
 │   ├── index.js        # 插件入口，导出 name / inject / apply
 │   ├── tools/          # Harness 工具定义与按需发现
-│   ├── jobs/           # 通用任务持久化、查询、诊断与进程锁
-│   ├── comfyui/        # ComfyUI 客户端、提交、执行与媒体引用
-│   ├── video/          # 视频计划、工作流、任务服务及 worker
-│   ├── video-production/ # 多镜头视频生产编排
-│   ├── projects/       # 项目领域校验与持久化
-│   ├── assets/         # 素材目录查询
+│   ├── business/       # 内部业务包，随现有插件发布
+│   │   ├── projects/   # 项目领域校验与持久化
+│   │   ├── directors/  # 导演库
+│   │   ├── assets/     # 素材目录查询与访问校验
+│   │   ├── jobs/       # 任务持久化、查询、诊断与进程锁
+│   │   ├── video/      # 视频任务服务、执行与 worker
+│   │   └── production/ # 多镜头生产编排（源码 CLI）
+│   ├── servers/        # 配置、连接、检查与平台适配器
+│   ├── comfyui/        # 公共 ComfyUI 协议
+│   │   └── workflows/minimax-h3/ # 图构建、档位配置与模板
 │   ├── http/           # 媒体与项目 HTTP 路由适配
 │   ├── prompts/        # 系统提示词片段
 │   └── client/         # React.createElement，无 JSX

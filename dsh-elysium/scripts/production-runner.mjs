@@ -1,8 +1,8 @@
 // 职责：读取生产清单，并执行批量视频生产任务。
 import { resolve } from 'node:path'
 import { resolveConfig, withConfig } from '../src/config.js'
-import { loadProductionManifest } from '../src/business/video-production/manifest.js'
-import { runProduction } from '../src/business/video-production/runner.js'
+import { loadProductionManifest } from '../src/business/production/manifest.js'
+import { runProduction } from '../src/business/production/runner.js'
 
 const [manifestArgument, limitArgument] = process.argv.slice(2)
 if (!manifestArgument) throw new Error('用法：node scripts/production-runner.mjs <manifest.json> [limit]')

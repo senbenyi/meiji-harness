@@ -98,13 +98,16 @@ test('install validation rejects LFS pointers and unsafe DSH_HOME', async t => {
 })
 
 test('offline HTTP traversal validates all 120 videos, film, subtitle and all four original anchors', async t => {
+  const runtimeRoot = await mkdtemp(join(tmpdir(), 'elysium-http-template-'))
+  t.after(() => rm(runtimeRoot, { recursive: true, force: true }))
+  await cp(root, runtimeRoot, { recursive: true })
   const { createServer } = await import('node:http')
   const { createHash } = await import('node:crypto')
   const { createMediaHandler, MEDIA_ROUTE } = await import('../../dsh-elysium/src/http/media-routes.js')
   const { createProjectHandler, PROJECT_ROUTE } = await import('../../dsh-elysium/src/http/project-routes.js')
   const { withConfig } = await import('../../dsh-elysium/src/config.js')
   const media = createMediaHandler({ token: 'offline-test' }), project = createProjectHandler({ token: 'offline-test' })
-  const server = createServer((req,res) => withConfig({ ELYSIUM_STATE_ROOT:root }, () => (req.url.startsWith(PROJECT_ROUTE) ? project : media)(req,res)))
+  const server = createServer((req,res) => withConfig({ ELYSIUM_STATE_ROOT:runtimeRoot }, () => (req.url.startsWith(PROJECT_ROUTE) ? project : media)(req,res)))
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve))
   const origin = `http://127.0.0.1:${server.address().port}`, originalFetch = globalThis.fetch
   globalThis.fetch = (url,options) => { assert.equal(new URL(url).origin,origin,'外网访问被测试禁止'); return originalFetch(url,options) }

@@ -4,8 +4,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
-import { resolveShotRequest, validateProductionManifest } from '../src/business/video-production/manifest.js'
-import { runProduction } from '../src/business/video-production/runner.js'
+import { resolveShotRequest, validateProductionManifest } from '../src/business/production/manifest.js'
+import { runProduction } from '../src/business/production/runner.js'
 
 const configured = callback => withConfig({ COMFYUI_URL: 'https://example.invalid', ELYSIUM_STATE_ROOT: '/unused' }, callback)
 

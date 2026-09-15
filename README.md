@@ -6,6 +6,40 @@
 
 Harness 只在本机运行，远端服务器只提供 Qwen、ComfyUI 等模型服务。插件中的图片、视频和其他媒体统一使用服务器 URL，不上传、下载或保存媒体文件，也不读取远端服务器的本地路径。
 
+## 项目结构
+
+```text
+harness/       # 本机 Harness 配置、安装与启动
+dsh-elysium/   # Elysium 创作插件
+runpod/        # 远端运维兼容入口与既有生产脚本
+docs/          # 调研、设计、计划与实施记录
+```
+
+`dsh-elysium/` 的源码按业务、服务器和模型协议组织：
+
+```text
+src/
+├── business/                 # 内部业务包，随插件一起构建和发布
+│   ├── projects/             # 项目、锚点、分镜与交付数据
+│   ├── directors/            # 导演库
+│   ├── assets/               # 素材查询与访问校验
+│   ├── jobs/                 # 任务持久化、查询、诊断与进程锁
+│   ├── video/                # 单次视频任务、执行、worker 与恢复
+│   └── production/           # 多镜头生产清单、编排、回执与参考帧
+├── servers/                  # 服务器发现、配置、连接与平台适配
+│   └── providers/            # Runpod 实现及其他平台预留目录
+├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
+│   └── workflows/minimax-h3/ # H3 图构建、档位配置及工作流模板
+├── tools/                    # Harness 聊天工具入口
+├── http/                     # HTTP 路由适配
+├── client/                   # 创作工作台与聊天界面
+├── prompts/                  # 系统提示词
+├── config.js                 # 插件运行配置
+└── index.js                  # 插件装配入口
+```
+
+详细职责、构建和工作流同步见 [插件 README](dsh-elysium/README.md)。
+
 ## 核心功能
 
 - **多模式创作**：提供教学、自由和导演三种 Elysium 创作模式，以及 Harness 标准模式。

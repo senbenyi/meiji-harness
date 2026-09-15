@@ -14,8 +14,8 @@ import { resolveServer } from './lib/servers/resolve.js'
 import { backendLlmSettings, backendWorkflowSource } from './lib/servers/runtime.js'
 import { readRegistry, writeRegistry } from './lib/servers/store.js'
 import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/tools/comfyui-tasks.js'
-import { runProduction } from './src/business/video-production/runner.js'
-import { validateProductionManifest } from './src/business/video-production/manifest.js'
+import { runProduction } from './src/business/production/runner.js'
+import { validateProductionManifest } from './src/business/production/manifest.js'
 const provider = process.argv[2], services = [], jobs = [], schemas = {}
 const state = process.env.ELYSIUM_STATE_ROOT
 const jobPath = (project, id) => join(state, 'projects', project, 'jobs', id)
