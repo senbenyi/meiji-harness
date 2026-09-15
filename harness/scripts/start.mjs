@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// 职责：应用待生效模型选择并启动当前 DSH_HOME 的 Harness，不复制存储模板。
+// 职责：停止已有 Harness，应用待生效模型选择并启动当前 DSH_HOME 的 Harness，不复制存储模板。
 import { join } from 'node:path'
 import { closeSync, openSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
@@ -16,14 +16,39 @@ if (port !== undefined && (!/^\d+$/.test(port) || Number(port) > 65535)) throw n
 const tunnelScript = fileURLToPath(new URL('./tunnel.mjs', import.meta.url))
 const harnessPort = port ?? '3080'
 if (harnessPort !== '0') {
+  let running = false
   try {
     const response = await fetch(`http://127.0.0.1:${harnessPort}/`, { signal: AbortSignal.timeout(1000) })
     const body = await response.text()
-    if (response.status === 401 && body.includes('dsh web authentication required')) {
-      console.log(`Harness 已在运行：http://127.0.0.1:${harnessPort}/`)
-      process.exit(0)
-    }
+    running = response.status === 401 && body.includes('dsh web authentication required')
   } catch {}
+  if (running) {
+    console.log(`Harness 已在运行，正在停止并重新启动：http://127.0.0.1:${harnessPort}/`)
+    const pids = [...new Set(execFileSync('lsof', ['-nP', `-iTCP:${harnessPort}`, '-sTCP:LISTEN', '-t'], { encoding: 'utf8' }).trim().split(/\s+/).map(Number))]
+    // 先卸载托管旧进程的 launchd 服务，避免 KeepAlive 立即拉起并抢占端口。
+    if (process.platform === 'darwin') {
+      const services = execFileSync('launchctl', ['list'], { encoding: 'utf8' })
+      for (const line of services.trim().split('\n')) {
+        const [pid, , label] = line.trim().split(/\s+/)
+        if (pids.includes(Number(pid))) execFileSync('launchctl', ['bootout', `gui/${process.getuid()}/${label}`], { stdio: 'inherit' })
+      }
+    }
+    for (const pid of pids) {
+      try { process.kill(pid, 'SIGTERM') } catch (error) { if (error.code !== 'ESRCH') throw error }
+    }
+    // 等待旧进程退出后再应用模型配置；超时则强制终止。
+    for (let attempt = 0; ; attempt++) {
+      const alive = pids.filter(pid => {
+        try { process.kill(pid, 0); return true } catch (error) { if (error.code !== 'ESRCH') throw error; return false }
+      })
+      if (!alive.length) break
+      if (attempt === 50) for (const pid of alive) {
+        try { process.kill(pid, 'SIGKILL') } catch (error) { if (error.code !== 'ESRCH') throw error }
+      }
+      if (attempt === 100) throw new Error(`Harness 旧进程未退出：${alive.join(', ')}`)
+      await delay(100)
+    }
+  }
 }
 const registry = readRegistry()
 if (process.env.DSH_SKIP_TUNNEL !== '1') {
