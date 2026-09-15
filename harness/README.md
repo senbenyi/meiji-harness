@@ -21,7 +21,7 @@ node harness/scripts/tunnel.mjs qwen`
 ```
 
 ## 凭据
-环境、`~/.dsh/.credentials.yaml`、`.env` `.env`。
+环境、`~/.dsh/.credentials.yaml`、`.env`。
 
 ## 配置
 - `harness/.dsh/settings.yaml`：Harness 与模型服务地址。
