@@ -33,10 +33,8 @@ load('elysium/servers', (require, exports) => {
       const value = await serverRequest('register', { revision: data.revision, server: { id: draft.id, label: draft.label, provider: draft.provider, connection_source: 'manual', instance_id: draft.instance_id, deployment_id: draft.deployment_id, services: { [service]: connection } } })
       setReceipt(value.message); await refresh()
     }
-    return h('section', { className: 'elysium-server-list', 'aria-label': '服务器设置' },
-      h('h2', null, '服务器'),
-      h('p', null, '登记已运行的服务。默认切换只影响新任务，旧任务和批次继续使用原服务器。'),
-      data?.legacy ? h('p', null, '当前使用原有环境配置；登记清单后需检查并选择默认服务。') : null,
+    return h('section', { className: 'elysium-server-list', 'aria-label': '模型设置' },
+      h('h2', null, '模型'),
       data ? h('p', null, `聊天模型：${data.current_llm || '原启动配置'}${data.pending_llm ? `；下次启动：${data.pending_llm}` : ''}`) : null,
       h('button', { disabled: busy, onClick: () => refresh().catch(error => setError(error.message)) }, '刷新列表'),
       error ? h('p', { role: 'alert' }, error) : null,
