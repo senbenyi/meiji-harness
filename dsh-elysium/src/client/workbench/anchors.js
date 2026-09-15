@@ -41,10 +41,10 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
         h('div', { className: 'elysium-anchor-copy' }, h('h3', null, anchor.label || anchor.role), anchor.description ? h('p', null, anchor.description) : null),
         h('div', { className: 'elysium-card-actions' }, h(IconButton, { name: 'eye', label: `查看参考素材 ${anchor.label || anchor.role}`, onClick: () => setInspecting(anchor) }),
           h(IconButton, { name: 'edit', label: `编辑锚点 ${anchor.label || anchor.role}`, disabled: busy, onClick: () => setEditing(anchor) }),
-          h(IconButton, { name: 'refresh', label: `选择参考素材 ${anchor.label || anchor.role}`, disabled: busy, onClick: () => setSelecting(anchor) }))))),
+          h(IconButton, { name: 'insert', label: `选择参考素材 ${anchor.label || anchor.role}`, disabled: busy, onClick: () => setSelecting(anchor) }))))),
       inspecting ? h(Dialog, { title: inspecting.label || inspecting.role, close: () => setInspecting(null) }, inspecting.image_url ? h('img', { className: 'elysium-workbench-preview', src: inspecting.image_url, alt: inspecting.label }) : h(ShotPreview, { jobId: inspecting.source?.job_id }), inspecting.description ? h('p', null, inspecting.description) : null) : null,
       selecting ? h(Dialog, { title: `为「${selecting.label || selecting.role}」选择参考素材`, close: () => setSelecting(null), busy },
-        h(MaterialList, { viewState: { media_kind: 'image' }, onSelect: item => run(async () => { const value = await importMaterial(project.id, item.job_id, 'anchor', selecting.role); setSelecting(null); return value }) })) : null,
+        h(MaterialList, { imageOnly: true, onSelect: item => run(async () => { const value = await importMaterial(project.id, item.job_id, 'anchor', selecting.role); setSelecting(null); return value }) })) : null,
       editing ? h(Editor, { title: '编辑锚点', initial: editing, guard, fields: [['label', '锚点名称'], ['description', '锚点描述', 'textarea'], ['role', '锚点角色 ID', null, true], ['image_url', '参考图服务器 URL', null, true]], close: () => setEditing(null), save: draft => {
         const patch = Object.fromEntries(['label', 'description', 'image_url'].filter(key => draft[key] !== editing[key]).map(key => [key, draft[key]]))
         if (draft.role !== editing.role) patch.new_role = draft.role

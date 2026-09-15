@@ -46,6 +46,15 @@ test('director catalog seeds JSON, validates entries and protects directors used
 
     assert.equal((await request(PROJECT_ROUTE, 'create', { title: '项目', director: '未知导演', profile: 'preview' })).status, 400)
     assert.equal((await request(PROJECT_ROUTE, 'create', { title: '项目', director: custom.name, profile: 'preview' })).status, 201)
+    const edited = { ...custom, style: '新的风格', works: ['新的作品'] }
+    response = await request(DIRECTOR_ROUTE, 'update', edited)
+    assert.equal(response.status, 200); assert.deepEqual(await response.json(), edited)
+    const updated = await request(DIRECTOR_ROUTE, 'list').then(value => value.json())
+    assert.deepEqual(updated.find(item => item.name === custom.name), edited)
+    assert.deepEqual(updated.map(item => item.name), order)
+    assert.deepEqual(JSON.parse(await readFile(join(root, 'directors.json'), 'utf8')), updated)
+    assert.equal((await request(DIRECTOR_ROUTE, 'update', { ...edited, style: '' })).status, 400)
+    assert.equal((await request(DIRECTOR_ROUTE, 'update', { ...edited, name: '不存在' })).status, 400)
     response = await request(DIRECTOR_ROUTE, 'delete', { name: custom.name })
     assert.equal(response.status, 400); assert.equal((await response.json()).error, '该导演已被项目使用，不能删除')
     response = await request(DIRECTOR_ROUTE, 'delete', { name: '贾樟柯' })

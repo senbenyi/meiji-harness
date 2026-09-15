@@ -3,16 +3,16 @@ import { requiredConfig, runtimeConfig, withConfig } from '../../config.js'
 import { readRegistry } from './store.js'
 import { serviceUrl } from './schema.js'
 export function resolveServer(kind = 'comfyui', serverId) {
-  const serviceKind = ['image', 'video'].includes(kind) ? 'comfyui' : kind
+  const serviceKind = ['image', 'video'].includes(kind) ? 'comfyui' : kind === 'analysis' ? 'llm' : kind
   const registry = readRegistry()
   if (!registry) {
     if (kind === 'image') throw new Error('未配置图片模型')
-    if (serverId && serverId !== (kind === 'llm' ? 'legacy-qwen' : 'minimax-h3')) throw new Error(`${kind === 'llm' ? '未知聊天模型' : '未知 ComfyUI'}实例：${serverId}`)
-    if (kind === 'llm') return { server_id: 'legacy-qwen', provider: 'manual', provider_api_version: 1, service: kind, base_url: 'http://127.0.0.1:18000/v1', legacy: true,
+    if (serverId && serverId !== (serviceKind === 'llm' ? 'legacy-qwen' : 'minimax-h3')) throw new Error(`${serviceKind === 'llm' ? '未知文本模型' : '未知 ComfyUI'}实例：${serverId}`)
+    if (serviceKind === 'llm') return { server_id: 'legacy-qwen', provider: 'manual', provider_api_version: 1, service: serviceKind, base_url: 'http://127.0.0.1:18000/v1', legacy: true,
       connection: { model: 'qwen3.8-27b-elysium', api_key_env: 'QWEN38_LOCAL_API_KEY' } }
     return { server_id: 'minimax-h3', provider: 'manual', provider_api_version: 1, service: serviceKind, base_url: requiredConfig('COMFYUI_URL', 'url'), legacy: true }
   }
-  const selected = kind === 'comfyui' ? registry.active.video ?? registry.active.comfyui : registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : undefined)
+  const selected = kind === 'comfyui' ? registry.active.video ?? registry.active.comfyui : registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
   const server = registry.servers.find(item => item.id === (serverId ?? selected))
   if (!server?.services[serviceKind] || (!serverId && server.disabled)) throw new Error(`未配置可用的 ${kind} 服务器：${serverId || ''}`)
   return backendFromServer(server, serviceKind)

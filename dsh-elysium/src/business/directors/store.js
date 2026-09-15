@@ -59,6 +59,14 @@ export function createDirectorStore() {
     await write([...items, director])
     return director
   })
+  const update = value => enqueue(async () => {
+    const director = directorValue(value), items = await load()
+    const index = items.findIndex(item => item.name === director.name)
+    if (index < 0) throw invalidRequest('导演不存在')
+    items[index] = director
+    await write(items)
+    return director
+  })
   const reorder = names => enqueue(async () => {
     const items = await load()
     if (!Array.isArray(names) || names.length !== items.length || names.some(name => typeof name !== 'string') ||
@@ -79,5 +87,5 @@ export function createDirectorStore() {
     })
   }
 
-  return { list, has, create, reorder, remove }
+  return { list, has, create, update, reorder, remove }
 }

@@ -15,8 +15,9 @@ window.__ModuleLoader__.load({ id: 'elysium/director-api', factory: require => {
   }
   const fetchDirectors = () => request('list')
   const createDirector = director => request('create', director)
+  const updateDirector = director => request('update', director)
   const reorderDirectors = names => request('reorder', { names })
   const deleteDirector = name => request('delete', { name })
-  Object.assign(exports, { fetchDirectors, createDirector, reorderDirectors, deleteDirector })
+  Object.assign(exports, { fetchDirectors, createDirector, updateDirector, reorderDirectors, deleteDirector })
   return exports
 } })

@@ -23,3 +23,13 @@ test('plugin config uses one ComfyUI URL and isolates concurrent calls', async (
   assert.deepEqual(values, [['https://pod-0.test', '/tmp/instance-a'], ['https://pod-1.test', '/tmp/instance-b']])
   assert.equal(process.env.COMFYUI_URL, undefined)
 })
+
+// 分析模型默认复用 Qwen 清单，兼容已有三类模型配置。
+test('analysis defaults to Qwen and accepts an independent fixed catalog', () => {
+  const defaults = resolveConfig().ELYSIUM_MODELS
+  assert.deepEqual(defaults.analysis, defaults.llm)
+  const models = { llm: [], image: [], video: [] }
+  assert.deepEqual(resolveConfig({ models }).ELYSIUM_MODELS.analysis, defaults.analysis)
+  assert.deepEqual(resolveConfig({ models: { ...models, analysis: [] } }).ELYSIUM_MODELS.analysis, [])
+  assert.throws(() => resolveConfig({ models: { ...models, analysis: 'bad' } }))
+})

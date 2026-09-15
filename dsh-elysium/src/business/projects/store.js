@@ -140,7 +140,7 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
         if (action === 'import') {
           if (body.as !== 'anchor' || !validJobId(body.job_id)) throw invalidRequest('素材引入参数无效')
           const job = await readJob(body.job_id), summary = await availableJobSummary(job)
-          if (!(summary.has_image || summary.has_video) || !job.result.local_media_path && !serverUrl(job.result.comfyui_view_url)) throw invalidRequest('素材尚不可用')
+          if (!summary.has_image || !job.result.local_media_path && !serverUrl(job.result.comfyui_view_url)) throw invalidRequest('锚点只能使用可用的图片素材')
           const role = body.role || `material-${body.job_id}`
           const previous = value.anchors.find(anchor => anchor.role === role)
           const anchor = { role, label: previous?.label || '素材锚点', description: previous?.description || '', source: { type: 'material', job_id: body.job_id }, image_url: summary.has_image && !job.result.local_media_path ? job.result.comfyui_view_url : '' }

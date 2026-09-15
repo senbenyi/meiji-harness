@@ -1,38 +1,36 @@
-// 职责：展示系统配置的三类模型、连接状态和连接操作。
+// 职责：展示系统配置的四类模型、连接状态和连接操作。
 load('elysium/servers', (require, exports) => {
-  const { createElement: h, useState, useEffect } = require('react')
+  const { createElement: h, useState, useEffect, useRef } = require('react')
   const { serverRequest } = require('elysium/server-api')
-  const labels = { llm: '聊天模型', image: '图片模型', video: '视频模型' }
+  const labels = { llm: '文本模型', analysis: '分析模型', image: '图片模型', video: '视频模型' }
   function ServerList() {
+    const probes = useRef({})
     const [data, setData] = useState(null), [selected, setSelected] = useState({})
     const [status, setStatus] = useState({}), [error, setError] = useState(''), [busy, setBusy] = useState(null)
     useEffect(() => {
       const controller = new AbortController()
       serverRequest('models', null, controller.signal).then(value => {
         setData(value); setSelected(value.selected)
+        for (const kind of Object.keys(labels)) {
+          const id = value.selected[kind], key = `${kind}:${id}`
+          if (!id) continue
+          const probe = probes.current[kind] = new AbortController()
+          serverRequest('model-status', { kind, id }, probe.signal).then(value => {
+            if (!probe.signal.aborted) setStatus(current => ({ ...current, [key]: value.connected }))
+          }).catch(() => { if (!probe.signal.aborted) setStatus(current => ({ ...current, [key]: false })) })
+        }
       }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
-      return () => controller.abort()
+      return () => { controller.abort(); Object.values(probes.current).forEach(probe => probe.abort()) }
     }, [])
-    useEffect(() => {
-      if (!data) return
-      const controller = new AbortController()
-      for (const kind of Object.keys(labels)) {
-        const id = selected[kind], key = `${kind}:${id}`
-        if (!id || id !== data.selected[kind]) continue
-        serverRequest('model-status', { kind, id }, controller.signal).then(value => {
-          if (!controller.signal.aborted) setStatus(current => ({ ...current, [key]: value.connected }))
-        }).catch(() => { if (!controller.signal.aborted) setStatus(current => ({ ...current, [key]: false })) })
-      }
-      return () => controller.abort()
-    }, [data, selected])
     async function connect(kind) {
       if (busy) return
       const id = selected[kind], key = `${kind}:${id}`
+      probes.current[kind]?.abort()
       setBusy(kind); setError('')
       try {
         const value = await serverRequest('model-connect', { kind, id, revision: data.revision })
-        const updated = await serverRequest('models')
-        setData(updated); setStatus(current => ({ ...current, [key]: value.connected }))
+        setData(current => ({ ...current, revision: value.revision ?? current.revision, selected: { ...current.selected, [kind]: id }, pending_llm: kind === 'llm' ? value.pending : current.pending_llm }))
+        setStatus(current => ({ ...current, [key]: value.connected }))
       } catch (error) { setStatus(current => ({ ...current, [key]: false })); setError(error.message) }
       finally { setBusy(null) }
     }
@@ -41,15 +39,13 @@ load('elysium/servers', (require, exports) => {
       Object.entries(labels).map(([kind, label]) => {
         const entries = data?.models[kind] || [], id = selected[kind] || '', key = `${kind}:${id}`
         const connected = id === data?.selected[kind] && status[key] === true
-        const checking = !!id && id === data?.selected[kind] && status[key] === undefined
         return h('div', { key: kind, className: 'elysium-model-row' },
           h('label', { htmlFor: `elysium-model-${kind}` }, `${label}：`),
           h('select', { id: `elysium-model-${kind}`, 'aria-label': label, value: id, disabled: !!busy || !entries.length, onChange: event => { setSelected(current => ({ ...current, [kind]: event.target.value })); setError('') } },
             !entries.length ? h('option', { value: '' }, '') : entries.map(model => h('option', { key: model.id, value: model.id }, model.label))),
-          h('span', { role: 'status' }, !data ? '加载中' : !entries.length ? '未配置' : busy === kind ? '连接中' : checking ? '检查中' : connected ? '已连接' : '未连接'),
-          entries.length && !connected && !checking ? h('button', { type: 'button', 'aria-label': `连接${label}`, disabled: !!busy, onClick: () => connect(kind) }, '连接') : null)
+          entries.length ? h('button', { type: 'button', 'aria-label': `${connected ? '重新连接' : '连接'}${label}`, disabled: !!busy, onClick: () => connect(kind) }, busy === kind ? '连接中' : connected ? '重新连接' : '连接') : null)
       }),
-      data?.pending_llm ? h('p', { role: 'status' }, '聊天模型待重启生效') : null,
+      data?.pending_llm ? h('p', { role: 'status' }, '文本模型待重启生效') : null,
       error ? h('p', { role: 'alert' }, error) : null)
   }
   exports.ServerList = ServerList

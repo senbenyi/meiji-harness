@@ -21,7 +21,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
       const models = runtimeConfig().ELYSIUM_MODELS || defaultModels
       if (action === 'models') return json(res, 200, { revision: registry.revision, models, selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
-        const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : undefined)
+        const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
         return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
       })), pending_llm: !!registry.active.llm && registry.active.llm !== currentLlm })
       if (['model-status', 'model-connect'].includes(action)) {
@@ -32,7 +32,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
         if (action === 'model-status') {
           // 状态查询只探测现有地址，不建立 SSH 连接或切换默认目标。
           try {
-            const settings = body.kind === 'llm' ? await backendLlmSettings(backend) : null
+            const settings = backend.service === 'llm' ? await backendLlmSettings(backend) : null
             const key = settings?.api_key_env && (runtimeConfig()[settings.api_key_env] || process.env[settings.api_key_env])
             const response = await fetch(`${backend.base_url}/${settings ? 'models' : 'system_stats'}`, { signal: AbortSignal.timeout(5000), redirect: 'error', headers: key ? { Authorization: `Bearer ${key}` } : {} })
             const value = response.ok ? await response.json() : null

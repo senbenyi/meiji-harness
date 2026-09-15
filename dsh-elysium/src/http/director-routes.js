@@ -5,7 +5,7 @@ import { createProjectStore } from '../business/projects/store.js'
 import { authenticated, json, readJsonBody } from './shared.js'
 
 export const DIRECTOR_ROUTE = '/plugins/dsh-elysium/director'
-const actions = ['list', 'create', 'reorder', 'delete']
+const actions = ['list', 'create', 'update', 'reorder', 'delete']
 
 export function createDirectorHandler(options) {
   const { token } = options
@@ -21,6 +21,7 @@ export function createDirectorHandler(options) {
       if (action === 'list') return json(res, 200, await directors.list())
       const body = await readJsonBody(req)
       if (action === 'create') return json(res, 201, await directors.create(body))
+      if (action === 'update') return json(res, 200, await directors.update(body))
       if (action === 'reorder') return json(res, 200, await directors.reorder(body.names))
       return json(res, 200, await directors.remove(body.name, name => projects.usesDirector(name)))
     } catch (error) {

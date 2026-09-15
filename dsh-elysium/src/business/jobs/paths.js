@@ -16,6 +16,9 @@ export const projectJobRoot = (projectId, jobId) => {
 
 export async function findJobRoot(jobId) {
   if (!validJobId(jobId)) return null
+  const uploaded = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'uploads', jobId)
+  try { await access(join(uploaded, 'status.json')); return { directory: uploaded } }
+  catch (error) { if (error.code !== 'ENOENT') throw error }
   const projects = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects')
   const entries = await readdir(projects, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
   for (const entry of entries) {

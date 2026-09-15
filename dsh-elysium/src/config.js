@@ -29,6 +29,7 @@ const fields = {
 // 模型清单由系统配置提供，图片工作流尚未配置时保持空列表。
 export const defaultModels = {
   llm: [{ id: 'qwen38', label: 'Qwen3.8 27B' }],
+  analysis: [{ id: 'qwen38', label: 'Qwen3.8 27B' }],
   image: [],
   video: [{ id: 'minimax-h3', label: 'MiniMax H3' }],
 }
@@ -50,11 +51,13 @@ export function resolveConfig(config = {}) {
   withConfig({ ELYSIUM_SERVERS_FILE: registryFile }, () => requiredConfig('ELYSIUM_SERVERS_FILE'))
   const registry = readRegistry(registryFile)
   const resolved = {}
-  const models = config.models ?? defaultModels
-  if (!models || typeof models !== 'object' || Array.isArray(models) || Object.keys(models).some(key => !['llm', 'image', 'video'].includes(key))) throw new Error('模型清单无效')
-  for (const kind of ['llm', 'image', 'video']) {
+  const configuredModels = config.models ?? defaultModels
+  if (!configuredModels || typeof configuredModels !== 'object' || Array.isArray(configuredModels)) throw new Error('模型清单无效')
+  const models = { analysis: defaultModels.analysis, ...configuredModels }
+  if (Object.keys(models).some(key => !['llm', 'analysis', 'image', 'video'].includes(key))) throw new Error('模型清单无效')
+  for (const kind of ['llm', 'analysis', 'image', 'video']) {
     const ids = new Set()
-    if (!Array.isArray(models[kind])) throw new Error('模型清单必须包含聊天、图片和视频列表')
+    if (!Array.isArray(models[kind])) throw new Error('模型清单必须包含文本、分析、图片和视频列表')
     for (const model of models[kind]) {
       if (!model || Object.keys(model).some(key => !['id', 'label', 'server_id'].includes(key)) || !/^[A-Za-z0-9_-]+$/.test(model.id || '') || ids.has(model.id) || typeof model.label !== 'string' || !model.label.trim() || (model.server_id !== undefined && !/^[A-Za-z0-9_-]+$/.test(model.server_id))) throw new Error('模型配置项无效')
       ids.add(model.id)

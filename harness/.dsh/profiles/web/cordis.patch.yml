@@ -42,7 +42,12 @@
           llm:
             - id: qwen38
               label: Qwen3.8 27B
-          image: []
+          analysis:
+            - id: qwen38
+              label: Qwen3.8 27B
+          image:
+            - id: wan22
+              label: wan22
           video:
             - id: minimax-h3
               label: MiniMax H3

@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto'
 import { getJob } from '../business/jobs/query.js'
 import { findVideoCall } from '../business/video/call-binding.js'
 import { openLocalMedia, byteRange } from '../business/assets/local-media.js'
-import { jobSummary, availableJobSummary, listAssets } from '../business/assets/catalog.js'
+import { jobSummary, availableJobSummary, listAssets, deleteAsset, uploadAsset } from '../business/assets/catalog.js'
 import { authenticated, json } from './shared.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'
@@ -23,6 +23,16 @@ export function createMediaHandler({ token, projectBase, directorBase, serverBas
         return json(res, 200, { token, base: MEDIA_ROUTE, projectBase, directorBase, serverBase })
       }
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
+      if (url.pathname === `${MEDIA_ROUTE}/upload`) {
+        if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
+        return json(res, 201, await uploadAsset(req, url.searchParams.get('filename')))
+      }
+      if (url.pathname === `${MEDIA_ROUTE}/delete`) {
+        if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
+        const jobId = url.searchParams.get('job')
+        if (!/^[a-f0-9]{32}$/.test(jobId || '')) return json(res, 400, { error: 'Invalid job identity' })
+        return json(res, 200, await deleteAsset(jobId))
+      }
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' })
       if (url.pathname === `${MEDIA_ROUTE}/list`) {
         const limit = Number(url.searchParams.get('limit') ?? 50), offset = Number(url.searchParams.get('offset') ?? 0)
@@ -98,6 +108,6 @@ export function registerMediaRoutes(ctx, runtime, projectBase, directorBase, ser
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase, directorBase, serverBase } }))
   const handle = createMediaHandler({ token, projectBase, directorBase, serverBase, getSession: id => ctx.get('sessions')?.get(id) })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
-  for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
+  for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list', 'delete', 'upload']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
   return token
 }
