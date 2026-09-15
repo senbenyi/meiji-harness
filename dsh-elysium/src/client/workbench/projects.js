@@ -93,7 +93,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
     const activeTab = tab || stageOf(project)
     const shots = shotsOf(project)
     return h('div', { className: 'elysium-project-detail' },
-      h('div', { className: 'elysium-project-heading' }, h(IconButton, { name: 'back', label: '返回项目', disabled: busy, onClick: () => navigate(back) }), h('h1', null, project?.title || '项目'), h('span', { role: 'status' }, busy ? '保存中…' : saved ? '已保存' : '')),
+      h('div', { className: 'elysium-project-heading' }, h(IconButton, { name: 'back', label: '返回项目', disabled: busy, onClick: () => navigate(back) }), project?.cover_job_id ? h('div', { className: 'elysium-anchor-thumb' }, h('img', { src: assetUrl('image', project.cover_job_id), alt: '项目封面预览' })) : null, h('h1', null, project?.title || '项目'), h('span', { role: 'status' }, busy ? '保存中…' : saved ? '已保存' : '')),
       project ? h('p', { className: 'elysium-compact-meta' }, `${project.director || '导演未指定'} · ${profiles.find(([value]) => value === project.profile)?.[1] || project.profile} · ${project.anchors.length} 锚点 · ${project.acts.length} 幕 · ${shots.filter(shot => shot.status === 'succeeded').length}/${shots.length} 镜完成 · ${project.deliverables.length} 份交付`) : null,
       remoteUpdate ? h('p', { role: 'status' }, '项目已有新修改。请先保存或取消当前编辑，随后自动刷新。') : null,
       h(ProjectSteps, { active: activeTab, project, navigate: go }),
