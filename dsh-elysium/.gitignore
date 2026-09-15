@@ -1,4 +1,3 @@
 lib/
-registry/
+/registry/
 node_modules/
-
