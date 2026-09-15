@@ -37,3 +37,12 @@
       name: '@dsh-external/dsh-elysium'
       config:
         comfyUrl: !!js process.env.COMFYUI_URL
+        # 固定模型清单；连接地址沿用本机配置，图片模型暂不配置。
+        models:
+          llm:
+            - id: qwen38
+              label: Qwen3.8 27B
+          image: []
+          video:
+            - id: minimax-h3
+              label: MiniMax H3

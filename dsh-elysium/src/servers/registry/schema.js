@@ -19,7 +19,7 @@ export function serviceUrl(service) {
 export function validateRegistry(value) {
   keys(value, ['version', 'revision', 'active', 'servers'])
   if (value.version !== 1 || !Number.isSafeInteger(value.revision) || value.revision < 0 || !Array.isArray(value.servers)) fail('服务器配置版本无效')
-  keys(value.active, ['comfyui', 'llm'])
+  keys(value.active, ['comfyui', 'llm', 'image', 'video'])
   const ids = new Set(), ports = new Set(), endpoints = new Set(), identities = new Set()
   for (const server of value.servers) {
     keys(server, ['id', 'label', 'provider', 'connection_source', 'instance_id', 'deployment_id', 'disabled', 'services'])
@@ -57,7 +57,7 @@ export function validateRegistry(value) {
   for (const [kind, selected] of Object.entries(value.active)) {
     if (selected === null) continue
     const server = value.servers.find(item => item.id === selected)
-    if (!server?.services[kind] || server.disabled) fail(`默认 ${kind} 目标不存在或已停用`)
+    if (!server?.services[['image', 'video'].includes(kind) ? 'comfyui' : kind] || server.disabled) fail(`默认 ${kind} 目标不存在或已停用`)
   }
   return value
 }

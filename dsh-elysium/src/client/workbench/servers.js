@@ -1,59 +1,56 @@
-// 职责：展示手工登记服务器、检查结果、默认选择和下次启动生效的 LLM 选择。
+// 职责：展示系统配置的三类模型、连接状态和连接操作。
 load('elysium/servers', (require, exports) => {
   const { createElement: h, useState, useEffect } = require('react')
   const { serverRequest } = require('elysium/server-api')
-  const { Editor } = require('elysium/dialog')
-  const labels = { comfyui: '视频生成', llm: '聊天模型' }
-  function ServerList({ guard }) {
-    const [data, setData] = useState(null), [error, setError] = useState(''), [receipt, setReceipt] = useState('')
-    const [busy, setBusy] = useState(false), [editor, setEditor] = useState(null), [checks, setChecks] = useState({})
-    const refresh = async signal => setData(await serverRequest('list', null, signal))
-    useEffect(() => { const controller = new AbortController(); refresh(controller.signal).catch(error => { if (!controller.signal.aborted) setError(error.message) }); return () => controller.abort() }, [])
-    async function action(name, body) {
+  const labels = { llm: '聊天模型', image: '图片模型', video: '视频模型' }
+  function ServerList() {
+    const [data, setData] = useState(null), [selected, setSelected] = useState({})
+    const [status, setStatus] = useState({}), [error, setError] = useState(''), [busy, setBusy] = useState(null)
+    useEffect(() => {
+      const controller = new AbortController()
+      serverRequest('models', null, controller.signal).then(value => {
+        setData(value); setSelected(value.selected)
+      }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
+      return () => controller.abort()
+    }, [])
+    useEffect(() => {
+      if (!data) return
+      const controller = new AbortController()
+      for (const kind of Object.keys(labels)) {
+        const id = selected[kind], key = `${kind}:${id}`
+        if (!id || id !== data.selected[kind]) continue
+        serverRequest('model-status', { kind, id }, controller.signal).then(value => {
+          if (!controller.signal.aborted) setStatus(current => ({ ...current, [key]: value.connected }))
+        }).catch(() => { if (!controller.signal.aborted) setStatus(current => ({ ...current, [key]: false })) })
+      }
+      return () => controller.abort()
+    }, [data, selected])
+    async function connect(kind) {
       if (busy) return
-      setBusy(true); setError(''); setReceipt('')
+      const id = selected[kind], key = `${kind}:${id}`
+      setBusy(kind); setError('')
       try {
-        const value = await serverRequest(name, { ...body, revision: data.revision })
-        if (name === 'check') setChecks(current => ({ ...current, [`${body.id}:${body.service}`]: value.message }))
-        setReceipt(value.message || '操作完成。')
-        await refresh()
-      } catch (error) { setError(error.message) }
-      finally { setBusy(false) }
-    }
-    function registerForm(service, transport) {
-      setEditor({ service, transport })
-    }
-    async function register(draft) {
-      const { service, transport } = editor
-      const connection = transport === 'http' ? { transport, base_url: draft.base_url } : { transport, ssh_alias: draft.ssh_alias, remote_host: draft.remote_host, remote_port: Number(draft.remote_port), local_port: Number(draft.local_port), ...(service === 'llm' ? { api_path: '/v1' } : {}) }
-      const capability = data.providers.find(provider => provider.id === draft.provider && provider.available)?.services[service]
-      if (!capability) throw new Error('所选平台未实现该服务')
-      if (service === 'comfyui') connection.workload = capability.workload
-      else { connection.model = capability.model; if (draft.api_key_env) connection.api_key_env = draft.api_key_env }
-      const value = await serverRequest('register', { revision: data.revision, server: { id: draft.id, label: draft.label, provider: draft.provider, connection_source: 'manual', instance_id: draft.instance_id, deployment_id: draft.deployment_id, services: { [service]: connection } } })
-      setReceipt(value.message); await refresh()
+        const value = await serverRequest('model-connect', { kind, id, revision: data.revision })
+        const updated = await serverRequest('models')
+        setData(updated); setStatus(current => ({ ...current, [key]: value.connected }))
+      } catch (error) { setStatus(current => ({ ...current, [key]: false })); setError(error.message) }
+      finally { setBusy(null) }
     }
     return h('section', { className: 'elysium-server-list', 'aria-label': '模型设置' },
       h('h2', null, '模型'),
-      data ? h('p', null, `聊天模型：${data.current_llm || '原启动配置'}${data.pending_llm ? `；下次启动：${data.pending_llm}` : ''}`) : null,
-      h('button', { disabled: busy, onClick: () => refresh().catch(error => setError(error.message)) }, '刷新列表'),
-      error ? h('p', { role: 'alert' }, error) : null,
-      receipt ? h('p', { role: 'status' }, receipt) : null,
-      data?.servers.map(server => h('article', { key: server.id },
-        h('h3', null, server.label), h('p', null, `${server.id} · ${server.provider}${server.disabled ? ' · 已停用' : ''}${server.provider_available === false ? ' · 平台模块不可用' : ''}`),
-        server.services.map(({ kind, transport }) => h('div', { key: kind },
-          h('p', null, `${labels[kind]} · ${transport.toUpperCase()}${data.active[kind] === server.id ? kind === 'llm' && data.pending_llm ? ' · 待启动生效' : ' · 默认' : ''}`),
-          h('button', { disabled: busy || server.disabled || server.provider_available === false, onClick: () => action('check', { id: server.id, service: kind }) }, `检查 ${server.label} ${labels[kind]}`),
-          h('button', { disabled: busy || server.disabled || server.provider_available === false || data.active[kind] === server.id, onClick: () => action('switch', { id: server.id, service: kind }) }, `使用 ${server.label} ${labels[kind]}`),
-          checks[`${server.id}:${kind}`] ? h('p', null, checks[`${server.id}:${kind}`]) : null)),
-        h('button', { disabled: busy || Object.values(data.active).includes(server.id), onClick: () => action('set-enabled', { id: server.id, enabled: server.disabled }) }, server.disabled ? '重新启用' : '停用'))),
-      data?.providers?.some(provider => !provider.available) ? h('p', null, `未接入：${data.providers.filter(provider => !provider.available).map(provider => provider.label).join('、')}`) : null,
-      data ? h('div', null, h('h3', null, '手工登记'), ['comfyui', 'llm'].flatMap(service => ['http', 'ssh'].map(transport => h('button', { key: `${service}:${transport}`, disabled: busy, onClick: () => registerForm(service, transport) }, `添加${labels[service]} ${transport.toUpperCase()}`)))) : null,
-      editor ? h(Editor, { title: `登记${labels[editor.service]} ${editor.transport.toUpperCase()}`, guard, close: () => setEditor(null), save: register,
-        initial: { provider: data.providers?.find(provider => provider.available && provider.services[editor.service])?.id || '', remote_host: '127.0.0.1', remote_port: editor.service === 'llm' ? '8000' : '8188' },
-        fields: [['id', '服务器 ID'], ['label', '名称'], ['provider', '平台', (data.providers || []).filter(provider => provider.available && provider.services[editor.service]).map(provider => [provider.id, provider.label])], ['instance_id', '实例 ID'], ['deployment_id', '部署 ID'],
-          ...(editor.transport === 'http' ? [['base_url', '服务 URL']] : [['ssh_alias', '本机 SSH 别名'], ['remote_host', '远端监听地址'], ['remote_port', '远端端口'], ['local_port', '独立本地端口']]),
-          ...(editor.service === 'llm' ? [['api_key_env', 'API Key 环境变量名（可选）']] : [])] }) : null)
+      Object.entries(labels).map(([kind, label]) => {
+        const entries = data?.models[kind] || [], id = selected[kind] || '', key = `${kind}:${id}`
+        const connected = id === data?.selected[kind] && status[key] === true
+        const checking = !!id && id === data?.selected[kind] && status[key] === undefined
+        return h('div', { key: kind, className: 'elysium-model-row' },
+          h('label', { htmlFor: `elysium-model-${kind}` }, `${label}：`),
+          h('select', { id: `elysium-model-${kind}`, 'aria-label': label, value: id, disabled: !!busy || !entries.length, onChange: event => { setSelected(current => ({ ...current, [kind]: event.target.value })); setError('') } },
+            !entries.length ? h('option', { value: '' }, '') : entries.map(model => h('option', { key: model.id, value: model.id }, model.label))),
+          h('span', { role: 'status' }, !data ? '加载中' : !entries.length ? '未配置' : busy === kind ? '连接中' : checking ? '检查中' : connected ? '已连接' : '未连接'),
+          entries.length && !connected && !checking ? h('button', { type: 'button', 'aria-label': `连接${label}`, disabled: !!busy, onClick: () => connect(kind) }, '连接') : null)
+      }),
+      data?.pending_llm ? h('p', { role: 'status' }, '聊天模型待重启生效') : null,
+      error ? h('p', { role: 'alert' }, error) : null)
   }
   exports.ServerList = ServerList
 })

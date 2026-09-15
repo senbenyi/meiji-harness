@@ -1,41 +1,50 @@
-// 职责：验证服务器设置的真实模块拼接、失败状态与切换回执。
+// 职责：验证固定模型下拉列表、被动状态检查、连接失败和独立目标切换。
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/client-source.mjs'
-test('server UI preserves selection on failed switch, renders receipt and prevents selecting disabled targets', async () => {
+
+test('model panel leaves images empty, preserves active targets on failure and connects selected models', async () => {
   const modules = new Map(), cache = new Map(), calls = []
-  const data = { revision: 1, active: { comfyui: 'a' }, providers: [{ id: 'replacement', label: '新增平台', available: true, services: { comfyui: { workload: 'minimax-h3' } } }], current_llm: 'text-a', pending_llm: 'text-b', servers: ['a', 'b', 'c'].map(id => ({ id, label: id.toUpperCase(), provider: 'manual', disabled: false, provider_available: id !== 'c', services: [{ kind: 'comfyui', transport: 'http' }] })) }
+  const data = { revision: 1, models: { llm: [{ id: 'qwen', label: 'Qwen' }], image: [], video: [{ id: 'a', label: '视频 A' }, { id: 'b', label: '视频 B' }] }, selected: { llm: 'qwen', image: '', video: 'a' }, pending_llm: false }
   let failing = true
-  runInNewContext(clientSource(), { document: {}, window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/prefix/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
+  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/prefix/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
-      calls.push(url); assert.match(url, /^\/prefix\/server\/.+\?t=token$/)
-      if (url.includes('/switch')) {
-        assert.equal(JSON.parse(options.body).id, 'b')
+      const body = options.body && JSON.parse(options.body)
+      calls.push({ url, body }); assert.match(url, /^\/prefix\/server\/.+\?t=token$/)
+      if (url.includes('/model-status')) return { ok: true, json: async () => ({ connected: body.kind === 'video' }) }
+      if (url.includes('/model-connect')) {
         if (failing) return { ok: false, json: async () => ({ error: '模型检查失败' }) }
-        data.active.comfyui = 'b'; data.revision++
-        return { ok: true, json: async () => ({ message: '新任务使用 B；旧任务继续 A。' }) }
+        data.selected[body.kind] = body.id; data.revision++
+        if (body.kind === 'llm') data.pending_llm = true
+        return { ok: true, json: async () => ({ connected: true }) }
       }
       return { ok: true, json: async () => structuredClone(data) }
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
   await act(async () => { view = create(React.createElement(require('elysium/servers').ServerList)) })
-  const button = label => view.root.findAllByType('button').find(node => node.children.join('') === label)
-  assert.equal(button('使用 C 视频生成').props.disabled, true)
-  assert.match(JSON.stringify(view.toJSON()), /下次启动：text-b/)
-  await act(async () => button('使用 B 视频生成').props.onClick())
-  assert.equal(data.active.comfyui, 'a'); assert.equal(button('使用 A 视频生成').props.disabled, true)
+  assert.equal(view.root.findAllByType('select').length, 3)
+  const image = view.root.findByProps({ 'aria-label': '图片模型' })
+  assert.equal(image.props.disabled, true)
+  assert.deepEqual(image.findAllByType('option').map(option => option.children.join('')), [''])
+  assert.equal(view.root.findAllByProps({ 'aria-label': '连接视频模型' }).length, 0)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '连接聊天模型' }).length, 1)
+  assert.doesNotMatch(JSON.stringify(view.toJSON()), /手工登记|添加视频|添加聊天|未接入|刷新列表/)
+  assert.equal(calls.filter(call => call.url.includes('/model-connect')).length, 0)
+  await act(async () => view.root.findByProps({ 'aria-label': '视频模型' }).props.onChange({ target: { value: 'b' } }))
+  await act(async () => view.root.findByProps({ 'aria-label': '连接视频模型' }).props.onClick())
+  assert.equal(data.selected.video, 'a')
+  assert.equal(view.root.findByProps({ 'aria-label': '视频模型' }).props.value, 'b')
   assert.match(JSON.stringify(view.toJSON()), /模型检查失败/)
   failing = false
-  await act(async () => button('使用 B 视频生成').props.onClick())
-  assert.equal(button('使用 B 视频生成').props.disabled, true)
-  assert.match(JSON.stringify(view.toJSON()), /新任务使用 B；旧任务继续 A/)
-  assert.ok(calls.length >= 4)
-  await act(async () => button('添加视频生成 HTTP').props.onClick())
-  const choices = view.root.findByProps({ 'aria-label': '平台' }).findAllByType('option')
-  assert.deepEqual(choices.map(option => option.props.value), ['', 'replacement'])
+  await act(async () => view.root.findByProps({ 'aria-label': '连接视频模型' }).props.onClick())
+  assert.equal(data.selected.video, 'b')
+  assert.equal(data.selected.llm, 'qwen')
+  assert.equal(view.root.findAllByProps({ 'aria-label': '连接视频模型' }).length, 0)
+  await act(async () => view.root.findByProps({ 'aria-label': '连接聊天模型' }).props.onClick())
+  assert.match(JSON.stringify(view.toJSON()), /待重启生效/)
   await act(async () => view.unmount())
 })

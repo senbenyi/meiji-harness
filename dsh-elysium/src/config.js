@@ -26,6 +26,12 @@ const fields = {
   stateRoot: ['ELYSIUM_STATE_ROOT', 'path'],
   serversFile: ['ELYSIUM_SERVERS_FILE', 'path'],
 }
+// 模型清单由系统配置提供，图片工作流尚未配置时保持空列表。
+export const defaultModels = {
+  llm: [{ id: 'qwen38', label: 'Qwen3.8 27B' }],
+  image: [],
+  video: [{ id: 'minimax-h3', label: 'MiniMax H3' }],
+}
 
 // 优先读取当前调用链的实例配置；未绑定时使用进程环境。
 export const runtimeConfig = () => context.getStore() || process.env
@@ -36,7 +42,7 @@ export const withConfig = (config, callback) => context.run(config, callback)
 export function resolveConfig(config = {}) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('插件 config 必须为对象')
   for (const key of Object.keys(config)) {
-    if (!Object.hasOwn(fields, key) && key !== 'enableAtomicTools') throw new Error(`未知插件配置：${key}`)
+    if (!Object.hasOwn(fields, key) && !['enableAtomicTools', 'models'].includes(key)) throw new Error(`未知插件配置：${key}`)
   }
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   const defaults = { stateRoot: join(home, 'storages', 'elysium'), serversFile: join(home, 'servers.json') }
@@ -44,6 +50,17 @@ export function resolveConfig(config = {}) {
   withConfig({ ELYSIUM_SERVERS_FILE: registryFile }, () => requiredConfig('ELYSIUM_SERVERS_FILE'))
   const registry = readRegistry(registryFile)
   const resolved = {}
+  const models = config.models ?? defaultModels
+  if (!models || typeof models !== 'object' || Array.isArray(models) || Object.keys(models).some(key => !['llm', 'image', 'video'].includes(key))) throw new Error('模型清单无效')
+  for (const kind of ['llm', 'image', 'video']) {
+    const ids = new Set()
+    if (!Array.isArray(models[kind])) throw new Error('模型清单必须包含聊天、图片和视频列表')
+    for (const model of models[kind]) {
+      if (!model || Object.keys(model).some(key => !['id', 'label', 'server_id'].includes(key)) || !/^[A-Za-z0-9_-]+$/.test(model.id || '') || ids.has(model.id) || typeof model.label !== 'string' || !model.label.trim() || (model.server_id !== undefined && !/^[A-Za-z0-9_-]+$/.test(model.server_id))) throw new Error('模型配置项无效')
+      ids.add(model.id)
+    }
+  }
+  resolved.ELYSIUM_MODELS = structuredClone(models)
   for (const [key, [name, kind]] of Object.entries(fields)) {
     // 有服务器清单时，由清单解析目标地址，忽略旧的单地址配置。
     if (key === 'comfyUrl' && registry) continue

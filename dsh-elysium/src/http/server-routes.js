@@ -1,15 +1,15 @@
 // 职责：提供共用页面 token 认证的手工服务器登记、检查与切换接口。
 import { listProviders } from '../servers/runtime/loader.js'
-import { providerFor } from '../servers/runtime/index.js'
-import { backendFromServer } from '../servers/registry/resolve.js'
-import { withConfig } from '../config.js'
+import { providerFor, backendLlmSettings } from '../servers/runtime/index.js'
+import { backendFromServer, resolveServer } from '../servers/registry/resolve.js'
+import { withConfig, runtimeConfig, defaultModels } from '../config.js'
 import { readRegistry, writeRegistry } from '../servers/registry/store.js'
 import { validateRegistry } from '../servers/registry/schema.js'
 import { sshIdentity } from '../servers/transport/connection.js'
 import { checkServer, switchServer } from '../servers/runtime/check.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 export const SERVER_ROUTE = '/plugins/dsh-elysium/server'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled']
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect']
 export function createServerHandler({ token, currentLlm = null, check = checkServer, identify = sshIdentity }) {
   return async (req, res) => {
     try {
@@ -17,8 +17,34 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       const action = url.pathname.slice(SERVER_ROUTE.length + 1)
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
-      if (req.method !== (action === 'list' ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
+      if (req.method !== (['list', 'models'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
+      const models = runtimeConfig().ELYSIUM_MODELS || defaultModels
+      if (action === 'models') return json(res, 200, { revision: registry.revision, models, selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+        const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : undefined)
+        return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
+      })), pending_llm: !!registry.active.llm && registry.active.llm !== currentLlm })
+      if (['model-status', 'model-connect'].includes(action)) {
+        const body = await readJsonBody(req)
+        const model = models[body.kind]?.find(model => model.id === body.id)
+        if (!model) throw invalidRequest('模型未在系统配置中配置')
+        const backend = resolveServer(body.kind, model.server_id)
+        if (action === 'model-status') {
+          // 状态查询只探测现有地址，不建立 SSH 连接或切换默认目标。
+          try {
+            const settings = body.kind === 'llm' ? await backendLlmSettings(backend) : null
+            const key = settings?.api_key_env && (runtimeConfig()[settings.api_key_env] || process.env[settings.api_key_env])
+            const response = await fetch(`${backend.base_url}/${settings ? 'models' : 'system_stats'}`, { signal: AbortSignal.timeout(5000), redirect: 'error', headers: key ? { Authorization: `Bearer ${key}` } : {} })
+            const value = response.ok ? await response.json() : null
+            const connected = !!value && (!settings || value.data?.some(item => item.id === settings.model))
+            return json(res, 200, { connected: !!connected })
+          } catch { return json(res, 200, { connected: false }) }
+        }
+        const result = readRegistry()
+          ? await switchServer(body.kind, backend.server_id, body.revision, check)
+          : await check(body.kind, backend.server_id)
+        return json(res, 200, { ...result, connected: true, pending: body.kind === 'llm' && !!readRegistry() && backend.server_id !== currentLlm })
+      }
       const providers = action === 'list' ? await listProviders() : []
       if (action === 'list') return json(res, 200, { providers, revision: registry.revision, active: registry.active, legacy: registry.revision === 0,
         current_llm: currentLlm, pending_llm: registry.active.llm && registry.active.llm !== currentLlm ? registry.active.llm : null,
