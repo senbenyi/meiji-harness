@@ -1,10 +1,6 @@
 # Harness 本机运行
 `harness/` 只负责本机 Harness 的安装、启动和配置，不执行远端模型服务操作。
 
-## 环境要求
-- Node.js 20.16 或更高版本
-- pnpm
-
 ## 安装
 ```sh
 node harness/scripts/install.mjs

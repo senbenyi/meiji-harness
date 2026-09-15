@@ -4,43 +4,34 @@
 
 `llm-dsh-plugins` 是面向 AI 短剧创作的 DeepSeek Harness 插件仓库，包含 Elysium 创作预设、图片与视频工作流、任务管理和创作工作台。
 
-Harness 只在本机运行，远端服务器只提供 Qwen、ComfyUI 等模型服务。插件中的图片、视频和其他媒体统一使用服务器 URL，不上传、下载或保存媒体文件，也不读取远端服务器的本地路径。
-
 ## 项目结构
 
 ```text
-harness/       # 本机 Harness 配置、安装与启动
-dsh-elysium/   # Elysium 创作插件
 docs/          # 调研、设计、计划与实施记录
+harness/       # 本机 Harness 配置、安装与启动
+dsh-elysium
+    src/
+    ├── business/                 # 内部业务包，随插件一起构建和发布
+    │   ├── projects/             # 项目、锚点、分镜与交付数据
+    │   ├── directors/            # 导演库
+    │   ├── assets/               # 素材查询与访问校验
+    │   ├── jobs/                 # 任务持久化、查询、诊断与进程锁
+    │   ├── video/                # 单次视频任务、执行、worker 与恢复
+    │   └── production/           # 多镜头生产清单、编排、回执与参考帧
+    ├── servers/                  # 按 registry/runtime/transport/providers 分包
+    │   ├── registry/             # 配置与目标解析
+    │   ├── runtime/              # 平台加载、调度与任务归属
+    │   ├── transport/            # 连接建立与复用
+    │   └── providers/            # 平台实现及各自的工作流模板
+    │       └── runpod/workflows/ # 原有 H3 图构建、档位配置和完整模板
+    ├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
+    ├── tools/                    # Harness 聊天工具入口
+    ├── http/                     # HTTP 路由适配
+    ├── client/                   # 创作工作台与聊天界面
+    ├── prompts/                  # 系统提示词
+    ├── config.js                 # 插件运行配置
+    └── index.js                  # 插件装配入口
 ```
-
-`dsh-elysium/` 的源码按业务、服务器和模型协议组织：
-
-```text
-src/
-├── business/                 # 内部业务包，随插件一起构建和发布
-│   ├── projects/             # 项目、锚点、分镜与交付数据
-│   ├── directors/            # 导演库
-│   ├── assets/               # 素材查询与访问校验
-│   ├── jobs/                 # 任务持久化、查询、诊断与进程锁
-│   ├── video/                # 单次视频任务、执行、worker 与恢复
-│   └── production/           # 多镜头生产清单、编排、回执与参考帧
-├── servers/                  # 按 registry/runtime/transport/providers 分包
-│   ├── registry/             # 配置与目标解析
-│   ├── runtime/              # 平台加载、调度与任务归属
-│   ├── transport/            # 连接建立与复用
-│   └── providers/            # 平台实现及各自的工作流模板
-│       └── runpod/workflows/ # 原有 H3 图构建、档位配置和完整模板
-├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
-├── tools/                    # Harness 聊天工具入口
-├── http/                     # HTTP 路由适配
-├── client/                   # 创作工作台与聊天界面
-├── prompts/                  # 系统提示词
-├── config.js                 # 插件运行配置
-└── index.js                  # 插件装配入口
-```
-
-详细职责、构建和工作流同步见 [插件 README](dsh-elysium/README.md)。
 
 ## 核心功能
 
@@ -60,15 +51,6 @@ src/
 5. **交付**：登记成片或字幕的任务 ID、服务器 URL 与规格信息。
 
 ## 使用方法
-
-### 环境要求
-
-- Node.js 20.16 或更高版本
-- pnpm
-
-### 本地安装、部署与启动 Harness
-
-安装和启动命令统一见 [Harness 说明](harness/README.md)。
 
 ### 选择教学、自由或导演模式
 
@@ -91,10 +73,6 @@ src/
 | `/预览创作` | 快速检查构图和动作，生成约 3 秒预览 | `t2va`、`i2va` |
 | `/常规创作` | 兼顾清晰度和速度，时长按需 | `t2va`、`i2va` |
 | `/高清创作` | 使用原生高质量工作流，适合正式制作 | 五种 MiniMax H3 模式 |
-
-### 查看任务状态、结果及失败恢复
-
-任务提交后可在创作工作台查看状态和服务器结果 URL。失败任务保留原任务信息，可根据失败原因重试或继续恢复。
 
 ## 相关文档
 
