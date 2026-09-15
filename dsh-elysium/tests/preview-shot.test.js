@@ -20,6 +20,7 @@ async function fixture(t){
 test('completed receipt reuses its job without starting another worker or making a network request',async t=>{
  const f=await fixture(t),id='a'.repeat(32),directory=join(f.state,'projects',project,'jobs',id)
  await mkdir(join(directory,'input'),{recursive:true});await writeFile(join(directory,'input/request.json'),JSON.stringify(request));await writeFile(join(directory,'status.json'),JSON.stringify({job_id:id,project_id:project,capability:'workflow-video',backend:'comfyui',status:'succeeded',result:{comfyui_view_url:'https://example.invalid/video.mp4'}}))
+ await writeFile(join(directory,'input/backend.json'),JSON.stringify({server_id:'original',provider:'manual',service:'comfyui',base_url:'https://example.invalid'}))
  await writeFile(f.receipt,JSON.stringify({request,job_id:id}))
  await exec(process.execPath,[script,project,f.input,f.receipt],{env:f.env})
  const result=JSON.parse(await readFile(f.receipt,'utf8'))

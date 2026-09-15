@@ -17,6 +17,9 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench-styles', factory: require 
 .elysium-panel .elysium-panel-header button:hover { background:var(--dsw-alias-interactive-bg-hover,#8882); color:var(--dsw-alias-label-primary,#eee); }
 .elysium-panel .elysium-panel-header button[aria-selected=true] { background:var(--dsw-alias-interactive-bg-active,#8883); color:var(--dsw-alias-label-primary,#eee); }
 .elysium-panel-body { min-height:0; min-width:0; overflow:hidden; flex:1; padding:12px; display:flex; flex-direction:column; }
+.elysium-server-list { overflow-y:auto; min-height:0; flex:1; overflow-wrap:anywhere; }
+.elysium-server-list article { border-top:1px solid var(--dsw-alias-border-l1,#8883); padding:10px 0; }
+.elysium-server-list button { margin:3px 4px 3px 0; }
 .elysium-resize-handle { position:absolute; top:0; bottom:0; left:-4px; z-index:2; width:8px; cursor:col-resize; touch-action:none; }
 .elysium-resize-handle:hover,.elysium-resize-handle:active { background:var(--dsw-alias-interactive-bg-hover-accent,#8bcaff55); }
 body[data-elysium-sidebar-dragging] .elysium-panel { transition:none; will-change:transform; }

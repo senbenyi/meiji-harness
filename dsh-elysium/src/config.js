@@ -1,6 +1,7 @@
 // 职责：解析插件实例配置，并为异步执行链隔离运行时配置。
 import { isAbsolute, join } from 'node:path'
 import { homedir } from 'node:os'
+import { readRegistry } from './servers/store.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 export function requiredConfig(name, kind = 'path') {
@@ -22,6 +23,7 @@ const context = new AsyncLocalStorage()
 const fields = {
   comfyUrl: ['COMFYUI_URL', 'url'],
   stateRoot: ['ELYSIUM_STATE_ROOT', 'path'],
+  serversFile: ['ELYSIUM_SERVERS_FILE', 'path'],
 }
 
 export const runtimeConfig = () => context.getStore() || process.env
@@ -33,9 +35,13 @@ export function resolveConfig(config = {}) {
     if (!Object.hasOwn(fields, key) && key !== 'enableAtomicTools') throw new Error(`未知插件配置：${key}`)
   }
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
-  const defaults = { stateRoot: join(home, 'storages', 'elysium') }
+  const defaults = { stateRoot: join(home, 'storages', 'elysium'), serversFile: join(home, 'servers.json') }
+  const registryFile = config.serversFile ?? process.env.ELYSIUM_SERVERS_FILE ?? defaults.serversFile
+  withConfig({ ELYSIUM_SERVERS_FILE: registryFile }, () => requiredConfig('ELYSIUM_SERVERS_FILE'))
+  const registry = readRegistry(registryFile)
   const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
+    if (key === 'comfyUrl' && registry) continue
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]
     if (value === undefined) continue
     resolved[name] = value

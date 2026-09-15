@@ -28,7 +28,7 @@ test('local scripts install dependencies and start the Qwen tunnel before Harnes
   assert.match(start, /harness\.unref\(\)/)
   assert.match(start, /Harness 已在后台启动/)
   assert.doesNotMatch(install, /comfyui\.mjs|tunnel\.mjs|ssh|system_stats/)
-  assert.doesNotMatch(start, /comfyui\.mjs|ssh|system_stats/)
+  assert.doesNotMatch(start, /comfyui\.mjs|spawnSync\('ssh'|system_stats/)
 })
 
 test('server scripts expose only their explicit ComfyUI and Qwen commands', async () => {
@@ -38,10 +38,8 @@ test('server scripts expose only their explicit ComfyUI and Qwen commands', asyn
   assert.match(comfyui, /join\(root, 'ComfyUI'\)/)
   assert.match(tunnel, /target !== 'qwen'/)
   assert.match(tunnel, /127\.0\.0\.1:18000:127\.0\.0\.1:8000/)
-  assert.match(localTunnel, /BatchMode=yes/)
+  assert.match(localTunnel, /ensureConnection/ )
   assert.match(localTunnel, /'veo-qwen38'/)
-  assert.match(localTunnel, /spawnSync\('ssh'/)
-  assert.match(localTunnel, /127\.0\.0\.1:18000\/v1\/models/)
-  assert.match(localTunnel, /Qwen 隧道已在运行/)
-  assert.match(localTunnel, /process\.exit\(result\.status \?\? 1\)/)
+  assert.doesNotMatch(localTunnel, /fetch\(|process\.kill/)
+  assert.match(await localScript('install.mjs'), /entry === 'servers\.json'.*entry === 'servers\.example\.json'/)
 })

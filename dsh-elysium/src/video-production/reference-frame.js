@@ -1,13 +1,16 @@
 // 职责：解析分镜锚点并生成可复用的参考帧请求。
+import { mediaReference } from '../comfyui/media-reference.js'
 import { createHash } from 'node:crypto'
 import { saveJson } from '../jobs/store.js'
 
 export async function extractReference({ client, projectId, shotId, source, definition, paths }) {
-  const media = new URL(source.comfyui_view_url)
-  const filename = media.searchParams.get('filename'), subfolder = media.searchParams.get('subfolder') || ''
+  const reference = mediaReference(source.comfyui_view_url, ['.mp4', '.webm'])
+  const media = new URL(reference.url)
+  if (media.origin !== client.url.origin || media.pathname !== new URL('view', client.url).pathname) throw new Error('参考帧与生产服务器不一致')
+  const filename = media.searchParams.get('filename')
   if (!filename || media.searchParams.get('type') !== 'output') throw new Error(`${shotId}: 视频结果不是有效的 ComfyUI output URL`)
   const graph = {
-    '1': { class_type: 'LoadVideo', inputs: { file: `${subfolder}/${filename} [output]` } },
+    '1': { class_type: 'LoadVideo', inputs: { file: reference.name } },
     '2': { class_type: 'GetVideoComponents', inputs: { video: ['1', 0] } },
     '3': { class_type: 'ImageFromBatch', inputs: { image: ['2', 0], batch_index: definition.frame_index, length: 1 } },
     '4': { class_type: 'SaveImage', inputs: { images: ['3', 0], filename_prefix: `productions/${projectId}/references/${definition.id}` } },

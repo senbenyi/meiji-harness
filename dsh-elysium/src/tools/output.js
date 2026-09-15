@@ -5,6 +5,7 @@ export const renderToolDebug = (args, value) => {
   const keys = ['job_id', 'status', 'stage', 'validation',
     'media_kind', 'warnings', 'error_code', 'error', 'failed_stage', 'retryable', 'retry_scope', 'recovery_instruction']
   const output = Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
+  if (value.server) output.server = { server_id: value.server.server_id, provider: value.server.provider }
   if (['published-final', 'comfyui-final'].includes(value.comfyui_metadata_status)) {
     output.comfyui_view_url = value.comfyui_view_url
   }
@@ -29,6 +30,7 @@ export const COMPLETED_RESULT_SCHEMA = {
     comfyui_metadata_status: { type: 'string' },
     comfyui_artifacts: { type: 'array', items: { type: 'object', additionalProperties: true } },
     debug: { type: 'object', additionalProperties: true },
+    server: { type: 'object', additionalProperties: true },
     trace_id: { type: 'string' },
     parent_job_id: { oneOf: [{ type: 'string' }, { type: 'null' }] },
     stage: { type: 'string' },

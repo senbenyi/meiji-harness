@@ -1,4 +1,5 @@
 // 职责：校验、创建、复用和恢复会话中的视频任务。
+import { resolveServer, withBackend } from '../servers/resolve.js'
 import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -30,8 +31,6 @@ async function startVideoJobLocked(args, exec) {
   const { new_video = false, project_id: projectId, ...plan } = args
   if (typeof new_video !== 'boolean') throw invalid('new_video 必须为布尔值')
   if (!validProjectId(projectId)) throw invalid('project_id 必须为 8 位项目 ID')
-  await validateVideoPlan(plan)
-  requiredConfig('COMFYUI_URL', 'url')
   if (!new_video && exec?.agent?.session) {
     const session = exec.agent.session
     const calls = session.snapshotEvents().filter(event => event.type === 'tool/call' && ['workflow_generate_video', 'workflow_resume_video'].includes(event.data.name))
@@ -45,7 +44,9 @@ async function startVideoJobLocked(args, exec) {
       return { job_id: previous, project_id: job.project_id, status: job.status }
     }
   }
-  const jobId = await createJob(projectId, plan)
+  const backend = resolveServer()
+  await withBackend(backend, () => validateVideoPlan(plan))
+  const jobId = await createJob(projectId, plan, backend)
   await bindVideoCall(jobId, exec)
   return launch(jobId)
 }

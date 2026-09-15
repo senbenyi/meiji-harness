@@ -27,7 +27,7 @@ if (!hasCommand('dsh')) run('pnpm', ['add', '-g', '@deepseek-ai/dsh'])
 // 2. 覆盖项目管理的配置；凭据始终由本机 Harness 管理。
 await mkdir(target, { recursive: true })
 for (const entry of await readdir(source)) {
-  if (entry === '.credentials.yaml' || entry === '.env.example') continue
+  if (entry === '.credentials.yaml' || entry === '.env.example' || entry === 'servers.json' || entry === 'servers.example.json') continue
   if (entry === 'storages') {
     for (const storage of await readdir(join(source, entry))) await installStorage(join(source, entry, storage), join(target, entry, storage))
     continue

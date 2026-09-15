@@ -1,28 +1,14 @@
 #!/usr/bin/env node
-
-import { spawnSync } from 'node:child_process'
-
-// 服务器执行：建立到 Qwen 服务的 SSH 端口转发。
-const target = process.argv[2]
-if (target !== 'qwen') throw new Error('Usage: node harness/scripts/tunnel.mjs qwen')
-
-try {
-  const response = await fetch('http://127.0.0.1:18000/v1/models', { signal: AbortSignal.timeout(1000) })
-  if (response.ok) {
-    console.log('Qwen 隧道已在运行：http://127.0.0.1:18000/v1')
-    process.exit(0)
-  }
-} catch {}
-
-const result = spawnSync('ssh', [
-  '-f', '-N',
-  '-o', 'BatchMode=yes',
-  '-o', 'ConnectTimeout=10',
-  '-o', 'ExitOnForwardFailure=yes',
-  '-o', 'ServerAliveInterval=20',
-  '-L', '127.0.0.1:18000:127.0.0.1:8000',
-  'veo-qwen38',
-], { stdio: 'inherit' })
-
-if (result.status !== 0) process.exit(result.status ?? 1)
-console.log('Qwen 隧道已建立：http://127.0.0.1:18000/v1')
+// 职责：按服务器清单建立本机隧道，保留 qwen 旧入口，不接管无关进程。
+import { ensureConnection, sshIdentity } from '../../dsh-elysium/src/servers/connection.js'
+import { readRegistry } from '../../dsh-elysium/src/servers/store.js'
+import { resolveServer } from '../../dsh-elysium/src/servers/resolve.js'
+const target = process.argv[2], kind = process.argv[3] || 'comfyui'
+if (!target) throw new Error('用法：node harness/scripts/tunnel.mjs qwen | <server-id> [comfyui|llm]')
+let backend
+if (target === 'qwen' && !readRegistry()) {
+  backend = { server_id: 'legacy-qwen', instance_id: 'legacy', deployment_id: 'qwen', service: 'llm', base_url: 'http://127.0.0.1:18000/v1',
+    connection: { transport: 'ssh', ssh_alias: 'veo-qwen38', ssh_identity: sshIdentity('veo-qwen38'), remote_host: '127.0.0.1', remote_port: 8000, local_port: 18000, api_path: '/v1' } }
+} else backend = resolveServer(target === 'qwen' ? 'llm' : kind, target === 'qwen' ? undefined : target)
+await ensureConnection(backend)
+console.log(`连接已就绪：${backend.server_id} ${backend.base_url}`)

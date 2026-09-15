@@ -1,4 +1,8 @@
 // 职责：在单个任务内执行视频生成阶段，并处理有限网络重试。
+import { ensureConnection } from '../servers/connection.js'
+import { readBackend } from '../servers/backend.js'
+import { withBackend } from '../servers/resolve.js'
+import { runtimeConfig } from '../config.js'
 import { setTimeout } from 'node:timers/promises'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -12,11 +16,17 @@ import { prepareComfyWorkflow, runComfyWorkflow } from '../comfyui/execution.js'
 import { createTiming } from '../jobs/timing.js'
 import { projectJobRoot } from '../jobs/paths.js'
 
-export async function executeComfyVideo(projectId, jobId, plan, { signal, timeoutMs = 451 * 60_000, pause = setTimeout } = {}) {
+export async function executeComfyVideo(projectId, jobId, plan, options = {}) {
+  const backend = await readBackend(projectJobRoot(projectId, jobId))
+  await ensureConnection(backend)
+  return withBackend(backend, () => executePinnedVideo(projectId, jobId, plan, options))
+}
+
+async function executePinnedVideo(projectId, jobId, plan, { signal, timeoutMs = 451 * 60_000, pause = setTimeout } = {}) {
   const directory = projectJobRoot(projectId, jobId)
   const statusPath = join(directory, 'status.json')
   const timing = createTiming(), client = new ComfyClient(undefined, signal, timing)
-  const status = { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'comfyui', trace_id: jobId,
+  const status = { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'comfyui', server: runtimeConfig().ELYSIUM_BACKEND, trace_id: jobId,
     parent_job_id: null, status: 'running', stage: 'prepare', created_at: new Date().toISOString(),
     code_version: await codeVersion(), debug: { effective_input: plan, chain: [],
       diagnostic_path: join(directory, 'diagnostics.json'), log_path: join(directory, 'execution.log') } }

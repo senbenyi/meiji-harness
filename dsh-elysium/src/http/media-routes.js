@@ -1,4 +1,5 @@
 // 职责：提供素材列表、任务状态、媒体预览与下载的同源 HTTP 路由。
+import { ensureConnection } from '../servers/connection.js'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { withConfig } from '../config.js'
@@ -10,7 +11,7 @@ import { jobSummary, availableJobSummary, listAssets } from '../assets/catalog.j
 import { authenticated, json } from './shared.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'
-export function createMediaHandler({ token, projectBase, directorBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
+export function createMediaHandler({ token, projectBase, directorBase, serverBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -19,7 +20,7 @@ export function createMediaHandler({ token, projectBase, directorBase, readJob =
         // A custom header requires CORS preflight; this route never grants CORS access.
         if (req.headers['x-elysium-media-refresh'] !== '1' ||
           (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return json(res, 403, { error: 'Same-origin request required' })
-        return json(res, 200, { token, base: MEDIA_ROUTE, projectBase, directorBase })
+        return json(res, 200, { token, base: MEDIA_ROUTE, projectBase, directorBase, serverBase })
       }
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' })
@@ -65,6 +66,11 @@ export function createMediaHandler({ token, projectBase, directorBase, readJob =
       }
       const target = new URL(job.result.comfyui_view_url)
       if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) return json(res, 403, { error: 'Invalid media URL' })
+      if (job.server) {
+        const original = new URL(job.server.base_url.replace(/\/?$/, '/'))
+        if (target.origin !== original.origin || target.pathname !== new URL('view', original).pathname) return json(res, 403, { error: '素材与原任务服务器不一致' })
+        await ensureConnection(job.server)
+      }
       const requestHeaders = { 'Accept-Encoding': 'identity' }
       if (!download && req.headers.range) requestHeaders.Range = req.headers.range
       if (!download && req.headers['if-range']) requestHeaders['If-Range'] = req.headers['if-range']
@@ -85,12 +91,12 @@ export function createMediaHandler({ token, projectBase, directorBase, readJob =
     }
   }
 }
-export function registerMediaRoutes(ctx, runtime, projectBase, directorBase) {
+export function registerMediaRoutes(ctx, runtime, projectBase, directorBase, serverBase) {
   const server = ctx.get?.('webServer')
   if (!server) return // CLI tools do not require a Web server.
   const token = randomBytes(32).toString('hex')
-  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase, directorBase } }))
-  const handle = createMediaHandler({ token, projectBase, directorBase, getSession: id => ctx.get('sessions')?.get(id) })
+  ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase, directorBase, serverBase } }))
+  const handle = createMediaHandler({ token, projectBase, directorBase, serverBase, getSession: id => ctx.get('sessions')?.get(id) })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
   return token

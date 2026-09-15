@@ -1,5 +1,7 @@
 // 职责：定义 ComfyUI 原子任务查询工具，不承担视频生成编排。
-import { ComfyClient, comfyUrl } from '../comfyui/client.js'
+import { resolveServer } from '../servers/resolve.js'
+import { ensureConnection } from '../servers/connection.js'
+import { ComfyClient } from '../comfyui/client.js'
 
 // 固定后端映射；工具参数不接受任意 URL。
 export function comfyuiTaskTool(action, description) {
@@ -11,7 +13,7 @@ export function comfyuiTaskTool(action, description) {
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
-        server: { type: 'string', enum: ['minimax-h3'], description: '任务所属实例，必须与生成任务返回的服务一致。' },
+        server: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$', description: '任务所属实例，必须与生成任务返回的服务一致。' },
         ...(action === 'queue' ? {} : {
           prompt_id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,128}$', description: 'ComfyUI 原生任务 ID，不是 model_job_status 的 job_id。' },
         }),
@@ -23,13 +25,15 @@ export function comfyuiTaskTool(action, description) {
       render: (input, output) => [{ type: 'text', text: JSON.stringify({ input, output }, null, 2) }],
     },
     async execute(args, exec) {
-      if (!['minimax-h3'].includes(args.server) ||
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(args.server || '') ||
           (action !== 'queue' && !/^[A-Za-z0-9_-]{1,128}$/.test(args.prompt_id || '')) ||
           Object.keys(args).some(key => !['server', ...(action === 'queue' ? [] : ['prompt_id'])].includes(key))) {
         throw new Error('ComfyUI 任务参数无效')
       }
       exec?.signal?.throwIfAborted()
-      const client = new ComfyClient(comfyUrl(args.server), exec?.signal)
+      const backend = resolveServer('comfyui', args.server)
+      await ensureConnection(backend)
+      const client = new ComfyClient(backend.base_url, exec?.signal)
       try {
         const queue = await client.request('queue')
         if (action === 'queue') return { ok: true, server: args.server, ...queue }

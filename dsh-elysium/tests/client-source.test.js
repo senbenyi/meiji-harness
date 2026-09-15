@@ -10,6 +10,7 @@ test('client source directly registers every workbench module', () => {
   assert.equal(typeof require('elysium/workbench').apply, 'function')
   assert.equal(typeof require('elysium/materials').MaterialList, 'function')
   assert.equal(typeof require('elysium/projects').ProjectList, 'function')
+  assert.equal(typeof require('elysium/servers').ServerList, 'function')
   assert.equal(typeof require('elysium/directors').DirectorList, 'function')
   assert.equal(typeof require('elysium/workbench-styles').apply, 'function')
   assert.equal(typeof require('elysium/dialog').IconButton, 'function')

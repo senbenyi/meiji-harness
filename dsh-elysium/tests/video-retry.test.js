@@ -3,14 +3,19 @@ import test from 'node:test'
 import { mkdtemp, mkdir, rm, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { withConfig } from '../src/config.js'
+import { withConfig, requiredConfig } from '../src/config.js'
 import { ComfyClient } from '../src/comfyui/client.js'
-import { executeComfyVideo } from '../src/video/execution.js'
+import { executeComfyVideo as executePinnedVideo } from '../src/video/execution.js'
 import { buildVideoGraph } from '../src/video/graph.js'
 import { startVideoJob, resumeVideoJob } from '../src/video/service.js'
 import { createJob } from '../src/jobs/create.js'
 import { bindVideoCall, findVideoCall } from '../src/video/call-binding.js'
 import { readJson, saveJson } from '../src/jobs/store.js'
+
+async function executeComfyVideo(projectId, jobId, plan, options) {
+  await saveJson(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', jobId, 'input/backend.json'), { server_id: 'minimax-h3', provider: 'manual', service: 'comfyui', base_url: 'https://comfy.test' })
+  return executePinnedVideo(projectId, jobId, plan, options)
+}
 
 const plan = { mode: 't2va', prompt: 'A woman cooking in a kitchen.' }
 const project = 'abcd1234'

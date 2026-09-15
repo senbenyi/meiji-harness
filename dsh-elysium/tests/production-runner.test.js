@@ -47,7 +47,7 @@ test('runner persists receipts, anchors and progress and reuses completed shots'
     references.push(input)
     return { url: 'https://example.invalid/view?filename=scene.png&type=output', source_job_id: input.source.job_id }
   }
-  const client = { request: async path => { const id = path.split('/').at(-1);historyReads.push(id);return { [id]: { status: { completed: true } } } } }
+  const client = { url: new URL('https://example.invalid/'), request: async path => { const id = path.split('/').at(-1);historyReads.push(id);return { [id]: { status: { completed: true } } } } }
   const value = manifest(), options = { stateRoot, executeShot, extractReference, client, log: () => {} }
   assert.equal((await configured(() => runProduction(value, options))).completed, 2)
   assert.equal(calls.length, 2);assert.equal(references.length, 1)
@@ -67,4 +67,33 @@ test('runner refuses changed manifests for an existing project state', async t =
   const options = { stateRoot, executeShot: async (_projectId, request) => ({ request, job_id: 'a'.repeat(32), result: { status: 'succeeded' } }), log: () => {} }
   await configured(() => runProduction(value, options))
   await assert.rejects(configured(() => runProduction({ ...value, max_attempts: 4 }, options)), /禁止修改清单/)
+})
+
+test('batch and resumed remaining shots stay on A when the default changes to B', async t => {
+  const stateRoot = await fixture(t), seen = []
+  const { comfyUrl } = await import('../src/comfyui/client.js')
+  const { writeRegistry } = await import('../src/servers/store.js')
+  const path = join(stateRoot, 'servers.json')
+  const registry = { version: 1, revision: 0, active: { comfyui: 'a' }, servers: ['a', 'b'].map(id => ({
+    id, label: id, provider: 'manual', connection_source: 'manual', instance_id: id, deployment_id: 'one',
+    services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } },
+  })) }
+  const value = validateProductionManifest({ version: 1, project_id: '1234abcd', profile: 'preview', shots: ['one', 'two'].map(id => ({ id, request: { mode: 't2va', prompt: id }, media: {} })) })
+  await withConfig({ ELYSIUM_STATE_ROOT: stateRoot, ELYSIUM_SERVERS_FILE: path }, async () => {
+    await writeRegistry(registry, 0)
+    const executeShot = async (_id, request) => {
+      seen.push(comfyUrl())
+      if (seen.length === 1) await writeRegistry({ ...registry, active: { comfyui: 'b' } }, 1)
+      return { request, job_id: 'a'.repeat(32), result: { status: 'succeeded' } }
+    }
+    await runProduction(value, { executeShot, limit: 1, log: () => {} })
+    assert.equal(comfyUrl(), 'http://b.test')
+    await runProduction(value, { executeShot, log: () => {} })
+    assert.deepEqual(seen, ['http://a.test', 'http://a.test'])
+    const receipt = join(stateRoot, 'projects', value.project_id, 'production/shots/two.receipt.json')
+    const { saveJson } = await import('../src/jobs/store.js')
+    const saved = JSON.parse(await readFile(receipt, 'utf8')); saved.backend.server_id = 'b'
+    await saveJson(receipt, saved)
+    await assert.rejects(runProduction(value, { executeShot, log: () => {} }), /回执与本轮服务器不一致/)
+  })
 })

@@ -1,4 +1,6 @@
 // 职责：在锁保护下启动或接管本地视频 worker。
+import { ensureConnection } from '../servers/connection.js'
+import { readBackend } from '../servers/backend.js'
 import { workerEnvironment } from '../config.js'
 import { spawn } from 'node:child_process'
 import { open, writeFile, unlink } from 'node:fs/promises'
@@ -23,6 +25,7 @@ async function launchLocked(jobId, capability, retryFailed) {
   const located = await findJobRoot(jobId)
   if (!located) throw new Error('任务不存在')
   const { directory, projectId } = located
+  const backend = await readBackend(directory)
   const lockPath = join(directory, 'worker.lock')
   let lock
   try { lock = await open(lockPath, 'wx', 0o600) } catch (error) {
@@ -35,8 +38,9 @@ async function launchLocked(jobId, capability, retryFailed) {
     lock = await open(lockPath, 'wx', 0o600)
   }
   try {
+    await ensureConnection(backend)
     if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
-    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', status: 'queued', stage: 'queued' })
+    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', server: backend, status: 'queued', stage: 'queued' })
     const log = await open(join(directory, 'worker.log'), 'a')
     try {
       const child = spawn(process.execPath, [fileURLToPath(new URL('./worker.js', import.meta.url)), projectId, jobId],
@@ -47,7 +51,7 @@ async function launchLocked(jobId, capability, retryFailed) {
     } finally { await log.close() }
     return { job_id: jobId, project_id: projectId, status: 'queued' }
   } catch (error) {
-    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', status: 'failed', error: error.message })
+    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: 'comfyui', server: backend, status: 'failed', error: error.message })
     await unlink(lockPath).catch(() => {})
     throw error
   } finally { await lock.close() }

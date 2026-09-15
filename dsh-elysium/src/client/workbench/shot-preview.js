@@ -29,7 +29,8 @@ window.__ModuleLoader__.load({ id: 'elysium/shot-preview', factory: require => {
     if (error) return h('div', { role: 'alert' }, error, h('button', { onClick: () => setRetry(value => value + 1) }, '重试预览'))
     if (!job) return h('p', { role: 'status' }, '正在加载预览…')
     if (job.media_error || job.error) return h('p', { role: 'alert' }, job.media_error || job.error)
-    return job.has_video && !imageOnly ? h('video', { className: 'elysium-workbench-preview', src: assetUrl('video', jobId), preload: 'metadata', controls: true, onError: () => setError('预览加载失败') }) : job.has_image ? h('img', { className: 'elysium-workbench-preview', src: assetUrl('image', jobId), alt: '镜头图片', onError: () => setError('图片加载失败') }) : h('div', null, h('p', null, '暂无可播放产物'), h('button', { onClick: () => setRetry(value => value + 1) }, '刷新状态'))
+    const media = job.has_video && !imageOnly ? h('video', { className: 'elysium-workbench-preview', src: assetUrl('video', jobId), preload: 'metadata', controls: true, onError: () => setError('预览加载失败') }) : job.has_image ? h('img', { className: 'elysium-workbench-preview', src: assetUrl('image', jobId), alt: '镜头图片', onError: () => setError('图片加载失败') }) : h('div', null, h('p', null, '暂无可播放产物'), h('button', { onClick: () => setRetry(value => value + 1) }, '刷新状态'))
+    return h('div', null, media, !imageOnly && job.server?.server_id ? h('p', null, `服务器：${job.server.server_id}`) : null)
   }
   Object.assign(exports, { ShotPreview })
   return exports

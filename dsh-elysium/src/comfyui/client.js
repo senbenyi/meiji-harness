@@ -1,12 +1,12 @@
 // 职责：封装 ComfyUI HTTP 请求、图校验、任务等待与产物 URL 生成。
-import { requiredConfig } from '../config.js'
+import { runtimeConfig } from '../config.js'
+import { resolveServer } from '../servers/resolve.js'
 import { setTimeout as pause } from 'node:timers/promises'
 import { submitComfyPrompt } from './submission.js'
 import { createTiming } from '../jobs/timing.js'
 
-export function comfyUrl(server = 'minimax-h3') {
-  if (server !== 'minimax-h3') throw new Error(`未知 ComfyUI 实例：${server}`)
-  return requiredConfig('COMFYUI_URL', 'url')
+export function comfyUrl(server) {
+  return server === undefined && runtimeConfig().ELYSIUM_BACKEND ? runtimeConfig().ELYSIUM_BACKEND.base_url : resolveServer('comfyui', server).base_url
 }
 
 export class ComfyClient {
@@ -40,7 +40,7 @@ export class ComfyClient {
     return result
   }
 
-  async validate(graph) {
+  async validate(graph, { verifyModels = false } = {}) {
     const types = [...new Set(Object.values(graph).map(node => node.class_type))]
     const schemas = {}
     // Keep four channels busy without waiting for the slowest request in each batch.
@@ -72,6 +72,7 @@ export class ComfyClient {
           if (!type || (spec[0] !== '*' && spec[0] !== type && !(spec[0] === 'FLOAT' && type === 'INT'))) throw new Error(`${id}.${key} 连线类型不匹配`)
         } else {
           const choices = Array.isArray(spec[0]) ? spec[0] : spec[1]?.options
+          if (verifyModels && typeof value === 'string' && /\.(safetensors|ckpt|pt|pth|gguf)$/.test(value) && !choices?.length) throw new Error(`${id}.${key} 模型列表不可核验，未切换服务器`)
           const mediaReference = ['LoadImage', 'LoadVideo'].includes(node.class_type) && ['image', 'file'].includes(key) && typeof value === 'string' && / \[(input|output)\]$/.test(value)
           const dynamicResolution = node.class_type === 'ComfyUI-PerfectVideoResolution' && key === 'resolution'
           if (choices?.length && !choices.includes(value) && !mediaReference && !dynamicResolution) throw new Error(`${id}.${key} 不支持值 ${value}`)

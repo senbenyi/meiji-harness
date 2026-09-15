@@ -1,7 +1,6 @@
 // 职责：读取生产清单，并执行批量视频生产任务。
 import { resolve } from 'node:path'
-import { ComfyClient } from '../src/comfyui/client.js'
-import { requiredConfig, resolveConfig, withConfig } from '../src/config.js'
+import { resolveConfig, withConfig } from '../src/config.js'
 import { loadProductionManifest } from '../src/video-production/manifest.js'
 import { runProduction } from '../src/video-production/runner.js'
 
@@ -14,7 +13,6 @@ process.once('SIGINT', () => controller.abort(new Error('收到 SIGINT')))
 process.once('SIGTERM', () => controller.abort(new Error('收到 SIGTERM')))
 
 await withConfig(resolveConfig(), async () => {
-  const client = new ComfyClient(requiredConfig('COMFYUI_URL', 'url'), controller.signal)
-  const result = await runProduction(manifest, { client, limit, signal: controller.signal })
+  const result = await runProduction(manifest, { limit, signal: controller.signal })
   console.log(JSON.stringify(result, null, 2))
 })

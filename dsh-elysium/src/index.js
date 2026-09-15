@@ -5,6 +5,7 @@ import { createComfyuiTools, createModelTools, createProjectTools, createWorkflo
 import { createToolDiscoveryTool, projectTools } from './tools/discovery.js'
 import { registerProjectRoutes, PROJECT_ROUTE } from './http/project-routes.js'
 import { registerDirectorRoutes, DIRECTOR_ROUTE } from './http/director-routes.js'
+import { registerServerRoutes, SERVER_ROUTE } from './http/server-routes.js'
 import { registerMediaRoutes } from './http/media-routes.js'
 import { createDirectorStore } from './directors/store.js'
 import { createProjectStore } from './projects/store.js'
@@ -20,7 +21,8 @@ export function apply(ctx, config = {}) {
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
     const directors = createDirectorStore()
     const projects = createProjectStore({ directorExists: name => directors.has(name) })
-    const token = registerMediaRoutes(mediaContext, runtime, PROJECT_ROUTE, DIRECTOR_ROUTE)
+    const token = registerMediaRoutes(mediaContext, runtime, PROJECT_ROUTE, DIRECTOR_ROUTE, SERVER_ROUTE)
+    registerServerRoutes(mediaContext, runtime, token)
     registerProjectRoutes(mediaContext, runtime, token, projects)
     registerDirectorRoutes(mediaContext, runtime, token, directors, projects)
     for (const definition of createProjectTools(projects)) {
