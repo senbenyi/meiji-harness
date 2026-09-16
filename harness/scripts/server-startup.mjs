@@ -1,13 +1,11 @@
-// 职责：在 Harness 启动前将待生效 LLM 选择应用到原有 Qwen 路由，保留其他 settings 字段。
+// 职责：在 Harness 启动前将待生效 LLM 选择应用到已配置文本路由，保留其他 settings 字段。
 import { readFile, writeFile, rename, rm, open } from 'node:fs/promises'
 import { existsSync, realpathSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { backendLlmSettings } from '../../dsh-elysium/src/servers/runtime/index.js'
-import { resolveServer } from '../../dsh-elysium/src/servers/registry/resolve.js'
-import { readRegistry } from '../../dsh-elysium/src/servers/registry/store.js'
+import { backendLlmSettings, resolveServer, readRegistry } from '../../dsh-elysium/src/servers/runtime/index.js'
 export function installedYaml() {
   const executable = (process.env.PATH || '').split(delimiter).map(directory => join(directory, 'dsh')).find(path => existsSync(path))
   if (!executable) throw new Error('请先安装本机 Harness')
@@ -27,8 +25,8 @@ export async function applyLlmSelection(home, { yaml, processes = () => execFile
     const text = await readFile(path, 'utf8'), document = (yaml || installedYaml()).parseDocument(text)
     if (document.errors.length) throw new Error('settings.yaml 解析失败，未修改配置')
     const provider = ['llm-pi-ai', 'providers', settings.route], existing = document.getIn(provider)?.toJSON()
-    if (existing?.api !== settings.api || !existing.models?.some(model => model.id === settings.model)) throw new Error('现有 Qwen 路由不兼容，未修改 settings')
-    if (existing.headers && Object.keys(existing.headers).length) throw new Error('现有 Qwen 路由包含自定义 headers，请先核对凭据来源后再切换')
+    if (existing?.api !== settings.api || !existing.models?.some(model => model.id === settings.model)) throw new Error('现有文本路由不兼容，未修改 settings')
+    if (existing.headers && Object.keys(existing.headers).length) throw new Error('现有文本路由包含自定义 headers，请先核对凭据来源后再切换')
     document.setIn([...provider, 'baseURL'], settings.base_url)
     if (settings.api_key_env) document.setIn([...provider, 'apiKeyEnv'], settings.api_key_env)
     else document.deleteIn([...provider, 'apiKeyEnv'])

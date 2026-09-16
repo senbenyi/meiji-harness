@@ -1,16 +1,18 @@
 // 职责：按服务解析唯一默认目标，保留无清单安装的旧连接配置。
 import { requiredConfig, runtimeConfig, withConfig } from '../../config.js'
 import { readRegistry } from './store.js'
+import { providerDefinitions } from '../runtime/definitions.js'
+import { sshIdentity } from '../transport/connection.js'
 import { serviceUrl } from './schema.js'
 export function resolveServer(kind = 'comfyui', serverId) {
   const serviceKind = ['image', 'video'].includes(kind) ? 'comfyui' : kind === 'analysis' ? 'llm' : kind
   const registry = readRegistry()
   if (!registry) {
     if (kind === 'image') throw new Error('未配置图片模型')
-    if (serverId && serverId !== (serviceKind === 'llm' ? 'legacy-qwen' : 'minimax-h3')) throw new Error(`${serviceKind === 'llm' ? '未知文本模型' : '未知 ComfyUI'}实例：${serverId}`)
-    if (serviceKind === 'llm') return { server_id: 'legacy-qwen', provider: 'manual', provider_api_version: 1, service: serviceKind, base_url: 'http://127.0.0.1:18000/v1', legacy: true,
-      connection: { model: 'qwen3.8-27b-elysium', api_key_env: 'QWEN38_LOCAL_API_KEY' } }
-    return { server_id: 'minimax-h3', provider: 'manual', provider_api_version: 1, service: serviceKind, base_url: requiredConfig('COMFYUI_URL', 'url'), legacy: true }
+    const owner = providerDefinitions().find(item => item.legacy?.[serviceKind]), legacy = owner?.legacy[serviceKind]
+    if (!legacy || serverId && serverId !== legacy.server_id) throw new Error(`未知 ${serviceKind === 'comfyui' ? 'ComfyUI' : serviceKind} 实例：${serverId || ''}`)
+    const { url_env, ...backend } = legacy
+    return { ...backend, provider: owner.id, provider_api_version: 1, base_url: url_env ? requiredConfig(url_env, 'url') : backend.base_url, legacy: true }
   }
   const selected = kind === 'comfyui' ? registry.active.video ?? registry.active.comfyui : registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
   const server = registry.servers.find(item => item.id === (serverId ?? selected))
@@ -23,3 +25,13 @@ export function backendFromServer(server, kind) {
 }
 
 export const withBackend = (backend, callback) => withConfig({ ...runtimeConfig(), COMFYUI_URL: backend.base_url, ELYSIUM_BACKEND: backend }, callback)
+
+// 兼容命令和隧道参数由提供者声明，宿主只请求连接。
+export function legacyTunnelBackend(alias) {
+  const owner = providerDefinitions().find(item => item.legacy_tunnel?.alias === alias)
+  if (!owner) return null
+  const config = owner.legacy_tunnel
+  if (readRegistry()) return resolveServer(config.service)
+  const backend = resolveServer(config.service)
+  return { ...backend, instance_id: 'legacy', deployment_id: alias, connection: { ...config.connection, ssh_identity: sshIdentity(config.connection.ssh_alias) } }
+}

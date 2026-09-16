@@ -28,29 +28,15 @@ src/
 └── index.js                  # 插件装配入口
 ```
 
-## 服务器模块职责
+## 提供者边界
 
-```text
-servers/
-├── registry/              # 配置校验、持久化与目标解析
-│   ├── schema.js
-│   ├── store.js
-│   └── resolve.js
-├── runtime/               # 平台加载、调度与任务归属
-│   ├── index.js           # 统一平台调用入口
-│   ├── loader.js          # 模块发现与契约校验
-│   ├── check.js           # 服务检查及默认目标切换
-│   ├── backend.js         # 任务后端快照
-│   └── standard-adapter.js # 公共协议组合
-├── transport/             # 连接建立与复用
-│   └── connection.js
-└── providers/             # 各平台完整实现及其模板
-    ├── runpod/
-    ├── autodl/
-    ├── featurize/
-    ├── vast/
-    └── local/
-```
+外部代码只通过 `src/servers/runtime/index.js` 路由，不直接加载适配器或访问 registry/transport 内部模块。该入口提供后端选择、参数校验、执行、原任务恢复、连接检查、参考帧、配置安装和工作流同步能力。
+
+各 `src/servers/providers/<id>/` 拥有自己的 `index.js`、公开声明 `definition.json`、配置模板、能力说明、参数校验、API/部署实现和测试。当前实际实现包括 Runpod、BytePlus、百炼和手工连接兼容适配器；其余预留目录不表示可用。手工连接的历史工作流委托在自身声明中显式指定，并经过同一入口调用。
+
+`servers/registry` 负责通用登记与身份，`servers/transport` 负责通用连接，`comfyui/` 负责可复用协议；这些公共模块不包含厂商或模型专属分支。业务层只负责项目、任务和多镜头编排。实际凭据仍位于本机忽略文件中，不进入源码目录。
+
+新增提供者通过自己的目录声明配置、能力与渠道优先级，无需在业务、界面或 Harness 中添加厂商判断。`provider-boundary.test.js` 检查导入边界；`provider-removal.test.js` 验证物理删除提供者后的独立运行及旧任务拒绝误路由。
 
 ## 短剧快速预览
 
@@ -58,6 +44,16 @@ servers/
 - 支持 `t2va` 或带 `first_frame` 服务器图片 URL 的 `i2va`。
 - 当前预览为 H3、384×512、73 帧、24fps、8 步，约 3.04 秒。
 - 配置位于 `src/servers/providers/runpod/workflows/minimax-h3/profiles/preview.json`。
+
+## 三方视频渠道
+
+自有视频模型可连接时优先使用自有模型；否则在已启用渠道中优先选百炼，再选 BytePlus。两者配置独立，任务提交后固定后端，恢复不会切换供应商或再次付费提交。
+
+- 百炼：`bailianFile` / `ELYSIUM_BAILIAN_FILE`，默认 `$DSH_HOME/bailian.json`。模板位于 `src/servers/providers/bailian/config.example.json`；填写该工作空间的原生 DashScope `base_url` 和 `api_key` 后设置 `enabled: true`。
+- 万相 2.6：`t2va` 使用 `wan2.6-t2v`，`i2va` 使用 `wan2.6-i2v`；2–15 整数秒，720P/1080P，默认自动生成音频。文生视频比例取配置，图生视频比例随首帧；首帧支持 `job:图片素材ID`、HTTPS URL 和图片数据。不支持首尾帧、双参考图模式，不会静默丢弃素材。
+- BytePlus：继续使用原 `byteplusFile` / `ELYSIUM_BYTEPLUS_FILE`；其代码和凭据不与百炼共享。设 `enabled: false` 可停用该渠道。
+- 百炼关闭开关只影响新任务选择；已提交任务保留原 ID，可恢复查询、下载。未知提交结果禁止自动重发，需先核对供应商任务；任务查询及产物链接受供应商有效期限制。
+- 工作台显示各渠道启用状态及三方视频首选；API 密钥不进入任务快照和模型列表。
 
 ## 构建
 

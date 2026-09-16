@@ -46,3 +46,5 @@ __pycache__/
 
 # 三方模型本机凭据
 harness/.dsh/byteplus.json
+
+harness/.dsh/bailian.json

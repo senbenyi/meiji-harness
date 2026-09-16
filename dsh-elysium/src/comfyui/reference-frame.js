@@ -1,7 +1,7 @@
 // 职责：解析分镜锚点并生成可复用的参考帧请求。
-import { mediaReference } from '../../comfyui/media-reference.js'
+import { mediaReference } from './media-reference.js'
 import { createHash } from 'node:crypto'
-import { saveJson } from '../jobs/store.js'
+import { saveJson } from '../business/jobs/store.js'
 
 export async function extractReference({ client, projectId, shotId, source, definition, paths }) {
   const reference = mediaReference(source.comfyui_view_url, ['.mp4', '.webm'])

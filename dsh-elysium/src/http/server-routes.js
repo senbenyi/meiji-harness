@@ -1,12 +1,6 @@
 // 职责：提供共用页面 token 认证的手工服务器登记、检查与切换接口。
-import { listProviders } from '../servers/runtime/loader.js'
-import { providerFor, backendLlmSettings, thirdPartyModels } from '../servers/runtime/index.js'
-import { backendFromServer, resolveServer } from '../servers/registry/resolve.js'
+import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, backendFromServer, resolveServer, readRegistry, writeRegistry, validateRegistry, sshIdentity, checkServer, switchServer } from '../servers/runtime/index.js'
 import { withConfig, runtimeConfig, defaultModels } from '../config.js'
-import { readRegistry, writeRegistry } from '../servers/registry/store.js'
-import { validateRegistry } from '../servers/registry/schema.js'
-import { sshIdentity } from '../servers/transport/connection.js'
-import { checkServer, switchServer } from '../servers/runtime/check.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 export const SERVER_ROUTE = '/plugins/dsh-elysium/server'
 const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect']
@@ -20,7 +14,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
       if (req.method !== (['list', 'models'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
       const models = runtimeConfig().ELYSIUM_MODELS || defaultModels
-      if (action === 'models') return json(res, 200, { revision: registry.revision, models, third_party: await thirdPartyModels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+      if (action === 'models') return json(res, 200, { revision: registry.revision, models, third_party: await thirdPartyModels(), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
         const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
         return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
       })), pending_llm: !!registry.active.llm && registry.active.llm !== currentLlm })
@@ -30,15 +24,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
         if (!model) throw invalidRequest('模型未在系统配置中配置')
         const backend = resolveServer(body.kind, model.server_id)
         if (action === 'model-status') {
-          // 状态查询只探测现有地址，不建立 SSH 连接或切换默认目标。
-          try {
-            const settings = backend.service === 'llm' ? await backendLlmSettings(backend) : null
-            const key = settings?.api_key_env && (runtimeConfig()[settings.api_key_env] || process.env[settings.api_key_env])
-            const response = await fetch(`${backend.base_url}/${settings ? 'models' : 'system_stats'}`, { signal: AbortSignal.timeout(5000), redirect: 'error', headers: key ? { Authorization: `Bearer ${key}` } : {} })
-            const value = response.ok ? await response.json() : null
-            const connected = !!value && (!settings || value.data?.some(item => item.id === settings.model))
-            return json(res, 200, { connected: !!connected })
-          } catch { return json(res, 200, { connected: false }) }
+          return json(res, 200, { connected: await probeBackend(backend) })
         }
         const result = readRegistry()
           ? await switchServer(body.kind, backend.server_id, body.revision, check)
@@ -62,7 +48,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
         if (!server || !server.services) throw invalidRequest('需要服务器连接信息')
         for (const service of Object.values(server.services)) if (service?.transport === 'ssh') service.ssh_identity = '0'.repeat(64)
         validateRegistry({ ...registry, servers: [...registry.servers, server] })
-        for (const kind of Object.keys(server.services)) await providerFor(backendFromServer(server, kind))
+        for (const kind of Object.keys(server.services)) await validateBackend(backendFromServer(server, kind))
         for (const service of Object.values(server.services)) if (service.transport === 'ssh') service.ssh_identity = identify(service.ssh_alias)
         const saved = await writeRegistry({ ...registry, servers: [...registry.servers, server] }, body.revision)
         return json(res, 201, { id: server.id, revision: saved.revision, message: '已登记。检查并设为默认后，新任务才使用此服务器。' })

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import { loadProvider, listProviders, validateProvider } from '../../../runtime/loader.js'
-import { providerFor } from '../../../runtime/index.js'
+import { validateBackend } from '../../../runtime/index.js'
 
 test('Runpod exposes the complete contract; missing or incomplete adapters never fall back', async () => {
   const provider = await loadProvider('runpod')
@@ -18,9 +18,9 @@ test('Runpod exposes the complete contract; missing or incomplete adapters never
   await assert.rejects(loadProvider('autodl'), { code: 'PROVIDER_UNAVAILABLE' })
   await assert.rejects(loadProvider('../runpod'), { code: 'PROVIDER_UNAVAILABLE' })
   assert.throws(() => validateProvider({ ...provider, connect: undefined }, 'runpod'), /契约/)
-  await assert.rejects(providerFor({ provider: 'runpod', provider_api_version: 99, service: 'comfyui' }), { code: 'PROVIDER_VERSION_MISMATCH' })
+  await assert.rejects(validateBackend({ provider: 'runpod', provider_api_version: 99, service: 'comfyui' }), { code: 'PROVIDER_VERSION_MISMATCH' })
   const backend = { provider: 'runpod', instance_id: 'a', deployment_id: 'one', service: 'comfyui', base_url: 'http://fixture.test', connection: { transport: 'http', workload: 'minimax-h3' } }
-  await providerFor(backend)
+  await validateBackend(backend)
   const client = provider.createClient(backend)
   for (const method of ['submit', 'wait', 'request', 'viewUrl']) assert.equal(typeof client[method], 'function')
   const graph = await provider.buildGraph(backend, { profile: 'preview', mode: 't2va', prompt: 'A scene' }, 'test')

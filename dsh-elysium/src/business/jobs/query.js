@@ -25,7 +25,7 @@ export async function getJob(jobId) {
       job.debug.chain = await readTrace(job.debug.trace_path).catch(() => job.debug.chain || [])
       Object.assign(job.debug, traceDiagnostics(job.debug.chain))
     }
-    if (['comfyui', 'byteplus'].includes(job.backend) && ['queued', 'running'].includes(job.status)) {
+    if ((job.server?.provider || job.backend === 'comfyui') && ['queued', 'running'].includes(job.status)) {
       try {
         if (job.status === 'queued' && Date.now() - (await stat(join(located.directory, 'status.json'))).mtimeMs < 60_000) return job
         if (!await workerAlive(join(located.directory, 'worker.lock'), jobId)) {

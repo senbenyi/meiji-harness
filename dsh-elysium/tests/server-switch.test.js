@@ -50,7 +50,7 @@ test('LLM model checks preserve the old selection on failure and return next-sta
     registry.active = { llm: 'a' }
     for (const server of registry.servers) server.services = { llm: { transport: 'http', base_url: `http://${server.id}.test/v1`, model: 'qwen3.8-27b-elysium', api_key_env: 'TEST_LLM_KEY' } }
     await writeRegistry(registry, 0)
-    await assert.rejects(switchServer('llm', 'b', 1), /缺少配置的 Qwen/)
+    await assert.rejects(switchServer('llm', 'b', 1), /缺少配置的文本模型/)
     assert.equal(readRegistry().active.llm, 'a'); assert.equal(readRegistry().revision, 1)
     available = true
     const result = await switchServer('llm', 'b', 1)

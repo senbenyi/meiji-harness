@@ -8,7 +8,7 @@ import { clientSource } from '../scripts/client-source.mjs'
 
 test('model panel leaves images empty, preserves active targets on failure and connects selected models', async () => {
   const modules = new Map(), cache = new Map(), calls = []
-  const data = { revision: 1, models: { llm: [{ id: 'qwen', label: 'Qwen' }], analysis: [{ id: 'qwen', label: 'Qwen3.8 27B' }], image: [], video: [{ id: 'a', label: '视频 A' }, { id: 'b', label: '视频 B' }] }, selected: { llm: 'qwen', analysis: 'qwen', image: '', video: 'a' }, pending_llm: false }
+  const data = { revision: 1, models: { llm: [{ id: 'qwen', label: 'Qwen' }], analysis: [{ id: 'qwen', label: 'Qwen3.8 27B' }], image: [], video: [{ id: 'a', label: '视频 A' }, { id: 'b', label: '视频 B' }] }, selected: { llm: 'qwen', analysis: 'qwen', image: '', video: 'a' }, pending_llm: false, third_party_channels: [{ id: 'bailian', label: '百炼万相 2.6', enabled: true, preferred: true, models: ['wan2.6-t2v', 'wan2.6-i2v'] }, { id: 'byteplus', label: 'Seedance 2.0', enabled: false, preferred: false, models: [] }] }
   let failing = true
   runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/prefix/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
@@ -27,6 +27,10 @@ test('model panel leaves images empty, preserves active targets on failure and c
   let view
   await act(async () => { view = create(React.createElement(require('elysium/servers').ServerList)) })
   assert.equal(view.root.findAllByType('select').length, 4)
+  const channels = view.root.findByProps({ 'aria-label': '三方模型' })
+  assert.match(JSON.stringify(view.toJSON()), /三方视频首选/)
+  assert.match(JSON.stringify(view.toJSON()), /已关闭/)
+  assert.equal(channels.findAllByType('button').length, 0)
   const image = view.root.findByProps({ 'aria-label': '图片模型' })
   assert.equal(image.props.disabled, true)
   assert.deepEqual(image.findAllByType('option').map(option => option.children.join('')), [''])

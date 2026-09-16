@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { providerConfigNames, installProviderConfigs } from '../../dsh-elysium/src/servers/runtime/index.js'
 import { existsSync } from 'node:fs'
 import { chmod, cp, mkdir, readdir } from 'node:fs/promises'
 import { dshHome, installStorage, verifyMedia } from './storage-template.mjs'
@@ -27,15 +28,15 @@ if (!hasCommand('dsh')) run('pnpm', ['add', '-g', '@deepseek-ai/dsh'])
 // 2. 覆盖项目管理的配置；凭据始终由本机 Harness 管理。
 await mkdir(target, { recursive: true })
 for (const entry of await readdir(source)) {
-  if (entry === '.credentials.yaml' || entry === '.env.example' || entry === 'servers.json' || entry === 'servers.example.json' || entry === 'byteplus.json' || entry === 'byteplus.example.json') continue
+  if (entry === '.credentials.yaml' || entry === '.env.example' || entry === 'servers.json' || entry === 'servers.example.json' || providerConfigNames().includes(entry)) continue
   if (entry === 'storages') {
     for (const storage of await readdir(join(source, entry))) await installStorage(join(source, entry, storage), join(target, entry, storage))
     continue
   }
   await cp(join(source, entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
 }
-if (!existsSync(join(target, 'byteplus.json'))) await cp(join(source, 'byteplus.example.json'), join(target, 'byteplus.json'), { force: false })
-for (const name of ['.env', '.credentials.yaml', 'byteplus.json']) {
+await installProviderConfigs(target)
+for (const name of ['.env', '.credentials.yaml']) {
   const sensitiveFile = join(target, name)
   if (existsSync(sensitiveFile)) await chmod(sensitiveFile, 0o600)
 }

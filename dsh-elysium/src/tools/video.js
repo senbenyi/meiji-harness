@@ -9,7 +9,7 @@ export { waitJob as waitVideoJob } from '../business/jobs/wait.js'
 
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
 const output = { schema: { type: 'object', properties: { project_id: { type: 'string' }, job_id: { type: 'string' }, status: { type: 'string' } }, required: ['project_id', 'job_id', 'status'] }, render: renderToolDebug }
-const media = description => ({ type: 'string', description: `${description}，自有模型使用 ComfyUI /view URL；三方模型接受 HTTPS 图片 URL、asset:// 或 job:图片素材ID。` })
+const media = description => ({ type: 'string', description: `${description}，引用格式遵循当前后端的素材能力说明。` })
 
 export function createWorkflowGenerateVideoTool() {
   return {
@@ -20,9 +20,9 @@ export function createWorkflowGenerateVideoTool() {
       project_id: { type: 'string', description: '任务所属项目 ID。' },
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
-      profile: { type: 'string', enum: VIDEO_PROFILES, description: '档次由实际后端解释；三方按独立配置使用 Seedance，不套用 H3 规格。自有模型：preview=384×512约3秒；regular=576×768单次生成，默认5秒，时长遵循H3节点范围，可传duration_seconds，二者8步24fps无插帧且仅支持t2va/i2va；high-quality=原生规格五模式，保留各自采样和RIFE。省略或standard兼容原工作流。高清不表示新增超分。' },
-      duration_seconds: { type: 'number', exclusiveMinimum: 0, description: '三方 Seedance 为4至15整数秒，默认使用独立配置；自有模型仅用于 regular，默认5秒；按当前H3节点的帧数上下限校验，不额外硬卡15秒，不自动拆分拼接。训练范围约5–15秒，更长未测试，不主动延长。按H3帧数对齐，15秒请求实际约15.08秒，结果返回实际时长。' },
-      preview_variant: { type: 'string', enum: ['default', 'low-resolution'], description: '仅用于 preview。省略或 default 保持已验证的 384×512；仅在用户明确选择低分辨率候选时使用 low-resolution（288×384），仍为 73 帧、24fps、8 步。' },
+      profile: { type: 'string', enum: VIDEO_PROFILES, description: '创作档次；具体规格和支持模式由当前后端能力说明决定。' },
+      duration_seconds: { type: 'number', exclusiveMinimum: 0, description: '请求时长（秒）；支持范围和默认值由当前后端能力说明决定，结果返回实际时长。' },
+      preview_variant: { type: 'string', enum: ['default', 'low-resolution'], description: '预览变体；仅在当前后端支持且用户明确选择时使用。' },
       prompt: { type: 'string' },
       first_frame: media('I2VA/FL2VA 首帧'),
       last_frame: media('FL2VA 尾帧'),

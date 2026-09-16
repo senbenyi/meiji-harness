@@ -1,5 +1,5 @@
 // 职责：将图片生成、参考图编辑与原任务恢复适配为 Harness 工具。
-import { resolveGenerationBackend, providerFor } from '../servers/runtime/index.js'
+import { resolveGenerationBackend, validateBackendPlan } from '../servers/runtime/index.js'
 import { createJob } from '../business/jobs/create.js'
 import { launch } from '../business/video/launcher.js'
 import { getJob } from '../business/jobs/query.js'
@@ -8,9 +8,9 @@ import { bindVideoCall, findVideoCall } from '../business/video/call-binding.js'
 import { renderToolDebug } from './output.js'
 const output = { schema: { type: 'object', additionalProperties: true, properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
 export function createWorkflowGenerateImageTool() {
-  return { name: 'workflow_generate_image', description: '生成图片或使用 images 编辑/组合参考图。优先自有模型，未连接时使用三方 Seedream。图片可作为角色、场景锚点，结果等待人工验收。失败时保留原任务，不自动重发。', timeoutMs: 121 * 60 * 1000,
+  return { name: 'workflow_generate_image', description: '生成图片或使用 images 编辑/组合参考图。优先自有模型，未连接时使用已启用的三方图片渠道。图片可作为角色、场景锚点，结果等待人工验收。失败时保留原任务，不自动重发。', timeoutMs: 121 * 60 * 1000,
     parameters: { type: 'object', additionalProperties: false, required: ['project_id', 'prompt'], properties: {
-      project_id: { type: 'string' }, prompt: { type: 'string' }, images: { type: 'array', items: { type: 'string' }, description: '参考图片：job:素材ID、HTTPS URL、asset:// 或图片数据。' },
+      project_id: { type: 'string' }, prompt: { type: 'string' }, images: { type: 'array', items: { type: 'string' }, description: '参考图片格式由当前渠道能力说明决定。' },
       new_image: { type: 'boolean', description: '仅当用户明确要求另一张图片时设为true，失败禁止设为true。' } } }, output,
     async execute(args, exec) {
       const { project_id: projectId, new_image = false, ...plan } = args
@@ -25,8 +25,8 @@ export function createWorkflowGenerateImageTool() {
         await bindVideoCall(previous, exec)
         return current
       }
-      const backend = await resolveGenerationBackend('image'), provider = await providerFor(backend)
-      await provider.validatePlan(plan, backend)
+      const backend = await resolveGenerationBackend('image')
+      await validateBackendPlan(backend, plan)
       const jobId = await createJob(projectId, plan, backend)
       await bindVideoCall(jobId, exec)
       return waitJob(await launch(jobId, 'workflow-image'), exec?.signal)

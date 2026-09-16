@@ -45,10 +45,11 @@ load('elysium/servers', (require, exports) => {
             !entries.length ? h('option', { value: '' }, '') : entries.map(model => h('option', { key: model.id, value: model.id }, model.label))),
           entries.length ? h('button', { type: 'button', 'aria-label': `${connected ? '重新连接' : '连接'}${label}`, disabled: !!busy, onClick: () => connect(kind) }, busy === kind ? '连接中' : connected ? '重新连接' : '连接') : null)
       }),
-      data?.third_party ? h('section', { 'aria-label': '三方模型' }, h('h2', null, '三方模型'),
-        Object.entries(data.third_party).map(([kind, model]) => h('div', { key: kind, className: 'elysium-model-row' },
-          h('label', { htmlFor: `elysium-third-party-${kind}` }, `${labels[kind]}：`),
-          h('select', { id: `elysium-third-party-${kind}`, 'aria-label': `三方${labels[kind]}`, defaultValue: model.id }, h('option', { value: model.id }, model.label))))) : null,
+      data?.third_party_channels ? h('section', { 'aria-label': '三方模型' }, h('h2', null, '三方模型'),
+        data.third_party_channels.map(channel => h('div', { key: channel.id, className: 'elysium-model-row' },
+          h('span', null, channel.label),
+          h('span', null, channel.enabled ? channel.preferred ? '已启用 · 三方视频首选' : '已启用' : '已关闭'),
+          channel.models.length ? h('span', null, channel.models.join(' / ')) : null))) : null,
       data?.pending_llm ? h('p', { role: 'status' }, '文本模型待重启生效') : null,
       error ? h('p', { role: 'alert' }, error) : null)
   }

@@ -53,7 +53,7 @@ test('LLM selection only applies before startup, retains unrelated settings and 
 })
 
 test('reinstall preserves the actual server registry and credentials without running infrastructure commands', async t => {
-  const { mkdir, copyFile, chmod } = await import('node:fs/promises')
+  const { mkdir, copyFile, chmod, cp } = await import('node:fs/promises')
   const { execFile } = await import('node:child_process')
   const { promisify } = await import('node:util')
   const root = await mkdtemp(join(tmpdir(), 'server-install-')); t.after(() => rm(root, { recursive: true, force: true }))
@@ -61,17 +61,22 @@ test('reinstall preserves the actual server registry and credentials without run
   for (const directory of [scripts, join(source, 'storages/elysium/projects'), join(source, 'profiles/web'), target, bin, join(root, 'dsh-elysium')]) await mkdir(directory, { recursive: true })
   for (const name of ['install.mjs', 'storage-template.mjs']) await copyFile(new URL(`../scripts/${name}`, import.meta.url), join(scripts, name))
   for (const name of ['servers.json', 'servers.example.json', '.credentials.yaml']) await writeFile(join(source, name), 'template must not overwrite')
-  await copyFile(new URL('../.dsh/byteplus.example.json', import.meta.url), join(source, 'byteplus.example.json'))
+  await cp(new URL('../../dsh-elysium/src', import.meta.url), join(root, 'dsh-elysium/src'), { recursive: true })
+  await copyFile(new URL('../../dsh-elysium/package.json', import.meta.url), join(root, 'dsh-elysium/package.json'))
+  await writeFile(join(source, 'bailian.json'), 'live key must not be copied')
   await writeFile(join(target, 'servers.json'), 'private registry')
   await writeFile(join(target, '.credentials.yaml'), 'private credential')
   for (const name of ['dsh', 'pnpm']) { const path = join(bin, name); await writeFile(path, '#!/bin/sh\nexit 0\n'); await chmod(path, 0o755) }
   const env = { ...process.env, DSH_HOME: target, PATH: bin }
   await promisify(execFile)(process.execPath, [join(scripts, 'install.mjs')], { env })
   assert.equal(JSON.parse(await readFile(join(target, 'byteplus.json'), 'utf8')).enabled, true)
+  assert.equal(JSON.parse(await readFile(join(target, 'bailian.json'), 'utf8')).enabled, false)
+  await writeFile(join(target, 'bailian.json'), 'private bailian config')
   await writeFile(join(target, 'byteplus.json'), 'private third-party config')
   await promisify(execFile)(process.execPath, [join(scripts, 'install.mjs')], { env })
   assert.equal(await readFile(join(target, 'servers.json'), 'utf8'), 'private registry')
   assert.equal(await readFile(join(target, '.credentials.yaml'), 'utf8'), 'private credential')
   assert.equal(await readFile(join(target, 'byteplus.json'), 'utf8'), 'private third-party config')
+  assert.equal(await readFile(join(target, 'bailian.json'), 'utf8'), 'private bailian config')
   await assert.rejects(readFile(join(target, 'servers.example.json')), { code: 'ENOENT' })
 })

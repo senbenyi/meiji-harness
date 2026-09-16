@@ -9,7 +9,7 @@ import { mkdtemp, writeFile, readFile, readdir, rm, mkdir } from 'node:fs/promis
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../../../../config.js'
-import { resolveGenerationBackend, thirdPartyModels, providerFor } from '../../../runtime/index.js'
+import { resolveGenerationBackend, thirdPartyModels, validateBackend } from '../../../runtime/index.js'
 import { executeJob, validatePlan } from '../execution.js'
 import { bytePlusBackend } from '../config.js'
 import { saveJson } from '../../../../business/jobs/store.js'
@@ -65,7 +65,7 @@ test('own connected video wins; unavailable own video falls back; model listing 
     assert.equal(f.calls.length, 0)
     const original = bytePlusBackend('video')
     f.config.video.model = 'changed-model'; await writeFile(f.file, JSON.stringify(f.config))
-    await providerFor(original)
+    await validateBackend(original)
     assert.equal(original.connection.model, 'video-test')
   }) } finally { await f.close() }
 })

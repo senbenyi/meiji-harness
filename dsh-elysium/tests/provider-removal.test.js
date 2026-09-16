@@ -43,3 +43,46 @@ export default adapter
     await execute(process.execPath, ['scenario.mjs', provider, removed || ''], options)
   } catch (error) { throw new Error(`${error.message}\n${error.stdout || ''}\n${error.stderr || ''}`, { cause: error }) }
 })
+
+// 删除任何一个实现后，剩余渠道仍可发现、生成配置并通过同一入口路由。
+for (const removed of ['bailian', 'byteplus', 'manual']) test(`remaining providers work after physically deleting ${removed}`, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'provider-isolation-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  for (const name of ['src', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
+  await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
+  await writeFile(join(root, 'check.mjs'), `
+import assert from 'node:assert/strict'
+import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { resolveConfig, withConfig } from './src/config.js'
+import { listProviders, installProviderConfigs, providerConfigNames, resolveGenerationBackend, validateBackend, validateBackendPlan, thirdPartyChannels, thirdPartyModels } from './src/servers/runtime/index.js'
+const home = process.env.DSH_HOME
+await mkdir(home, { recursive: true })
+await installProviderConfigs(home)
+for (const file of providerConfigNames().filter(name => !name.includes('.example.'))) {
+  const config = JSON.parse(await readFile(home + '/' + file, 'utf8'))
+  config.enabled = true; config.api_key = 'fixture-secret'
+  await writeFile(home + '/' + file, JSON.stringify(config))
+}
+await withConfig(resolveConfig({ comfyUrl: 'http://127.0.0.1:1' }), async () => {
+  const providers = await listProviders()
+  assert.equal(providers.some(item => item.id === '${removed}'), false)
+  assert.ok(providers.filter(item => ['runpod', 'bailian', 'byteplus', 'manual'].includes(item.id)).every(item => item.available))
+  const backend = await resolveGenerationBackend('video', { probe: async () => false })
+  assert.equal(backend.provider, '${removed === 'bailian' ? 'byteplus' : 'bailian'}')
+  await validateBackend(backend)
+  const channels = await thirdPartyChannels()
+  assert.equal(channels.some(item => item.id === '${removed}'), false)
+  assert.doesNotMatch(JSON.stringify(await thirdPartyModels()), /fixture-secret/)
+  await assert.rejects(validateBackend({ ...backend, provider: '${removed}' }), { code: 'PROVIDER_UNAVAILABLE' })
+})
+`)
+  // BytePlus 模板可能没有模型 ID，测试只补公开模型字段，不改实现。
+  const example = join(root, 'src/servers/providers/byteplus/config.example.json')
+  if (removed !== 'byteplus') {
+    const { readFile } = await import('node:fs/promises')
+    const value = JSON.parse(await readFile(example, 'utf8'))
+    value.video.model = 'fixture-video'; value.image.model = 'fixture-image'
+    await writeFile(example, JSON.stringify(value))
+  }
+  await execute(process.execPath, ['check.mjs'], { cwd: root, env: { ...process.env, DSH_HOME: join(root, 'home'), ELYSIUM_SERVERS_FILE: join(root, 'absent.json') } })
+})

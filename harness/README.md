@@ -27,3 +27,7 @@ node harness/scripts/tunnel.mjs qwen`
 - `~/.dsh/.credentials.yaml`：Harness 在本机生成的凭据，不进入仓库。
 
 
+
+- `harness/.dsh/bailian.json`：独立百炼渠道配置，参照 `dsh-elysium/src/servers/providers/bailian/config.example.json` 创建；实际凭据文件忽略提交。
+- 启动脚本分别解析百炼和 BytePlus 配置：环境变量优先，其次仓库本地文件，最后 `$DSH_HOME` 文件。
+- 安装仅在目标缺少渠道配置时复制空模板，保留已有配置及凭据，并将权限设为 `0600`。

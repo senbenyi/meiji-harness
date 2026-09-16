@@ -1,7 +1,7 @@
 // 职责：解析插件实例配置，并为异步执行链隔离运行时配置。
 import { isAbsolute, join } from 'node:path'
 import { homedir } from 'node:os'
-import { readRegistry } from './servers/registry/store.js'
+import { readRegistry, providerConfigFields, providerConfigDefaults, providerDefaultModels } from './servers/runtime/index.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 // 读取并校验必需配置；URL 统一去掉尾部斜杠。
@@ -25,15 +25,10 @@ const fields = {
   comfyUrl: ['COMFYUI_URL', 'url'],
   stateRoot: ['ELYSIUM_STATE_ROOT', 'path'],
   serversFile: ['ELYSIUM_SERVERS_FILE', 'path'],
-  byteplusFile: ['ELYSIUM_BYTEPLUS_FILE', 'path'],
+  ...providerConfigFields(),
 }
 // 模型清单由系统配置提供，图片工作流尚未配置时保持空列表。
-export const defaultModels = {
-  llm: [{ id: 'qwen38', label: 'Qwen3.8 27B' }],
-  analysis: [{ id: 'qwen38', label: 'Qwen3.8 27B' }],
-  image: [],
-  video: [{ id: 'minimax-h3', label: 'MiniMax H3' }],
-}
+export const defaultModels = providerDefaultModels()
 
 // 优先读取当前调用链的实例配置；未绑定时使用进程环境。
 export const runtimeConfig = () => context.getStore() || process.env
@@ -47,7 +42,7 @@ export function resolveConfig(config = {}) {
     if (!Object.hasOwn(fields, key) && !['enableAtomicTools', 'models'].includes(key)) throw new Error(`未知插件配置：${key}`)
   }
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
-  const defaults = { stateRoot: join(home, 'storages', 'elysium'), serversFile: join(home, 'servers.json'), byteplusFile: join(home, 'byteplus.json') }
+  const defaults = { stateRoot: join(home, 'storages', 'elysium'), serversFile: join(home, 'servers.json'), ...providerConfigDefaults(home) }
   const registryFile = config.serversFile ?? process.env.ELYSIUM_SERVERS_FILE ?? defaults.serversFile
   withConfig({ ELYSIUM_SERVERS_FILE: registryFile }, () => requiredConfig('ELYSIUM_SERVERS_FILE'))
   const registry = readRegistry(registryFile)

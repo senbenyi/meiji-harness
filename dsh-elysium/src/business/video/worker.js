@@ -3,9 +3,7 @@ import { readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { readJson, saveJson } from '../jobs/store.js'
 import { projectJobRoot, validJobId, validProjectId } from '../jobs/paths.js'
-import { providerFor } from '../../servers/runtime/index.js'
-import { readBackend } from '../../servers/runtime/backend.js'
-import { executeComfyVideo } from './execution.js'
+import { executeBackendJob, readBackend } from '../../servers/runtime/index.js'
 
 const projectId = process.argv[2], jobId = process.argv[3]
 if (!validProjectId(projectId) || !validJobId(jobId)) throw new Error('Invalid project or job ID')
@@ -16,9 +14,7 @@ for (const name of ['SIGTERM', 'SIGINT']) process.once(name, () => controller.ab
 try {
   const request = JSON.parse(await readFile(join(directory, 'input/request.json'), 'utf8'))
   const backend = await readBackend(directory)
-  const provider = await providerFor(backend)
-  if (backend.service === 'comfyui') await executeComfyVideo(projectId, jobId, request, { signal: controller.signal })
-  else await provider.executeJob(projectId, jobId, request, backend, { signal: controller.signal })
+  await executeBackendJob(backend, projectId, jobId, request, { signal: controller.signal })
 } catch (error) {
   const statusPath = join(directory, 'status.json')
   const status = await readJson(statusPath) || { job_id: jobId, project_id: projectId }

@@ -1,9 +1,7 @@
 // 职责：按生产清单顺序编排镜头生成、恢复与状态持久化。
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
-import { providerFor, createBackendClient, resolveGenerationBackend } from '../../servers/runtime/index.js'
-import { readBackend, sameBackend } from '../../servers/runtime/backend.js'
-import { withBackend } from '../../servers/registry/resolve.js'
+import { validateBackend, extractBackendReference, createBackendClient, resolveGenerationBackend, readBackend, sameBackend, withBackend } from '../../servers/runtime/index.js'
 import { requiredConfig, runtimeConfig } from '../../config.js'
 import { createJob } from '../jobs/create.js'
 import { readJson, saveJson } from '../jobs/store.js'
@@ -14,7 +12,6 @@ import { waitJob } from '../jobs/wait.js'
 import { resumeVideoJob } from '../video/service.js'
 import { validateVideoPlan } from '../video/plan.js'
 import { resolveShotRequest } from './manifest.js'
-import { extractReference } from './reference-frame.js'
 import { finishAttempt, initializeProduction, productionDirectory, readAnchors, saveAnchors, saveProgress, shotPaths } from './state.js'
 
 export async function executeVideoShot(projectId, request, receiptPath, signal) {
@@ -51,9 +48,9 @@ export async function runProduction(manifest, options = {}) {
     let backend = await readJson(join(directory, 'input/backend.json'))
     if (!backend && await readJson(join(directory, 'manifest.json'))) throw new Error('旧批次缺少服务器快照，请核对原回执后迁移；禁止使用当前默认服务器恢复')
     backend ||= await resolveGenerationBackend('video')
-    const provider = await providerFor(backend)
+    const provider = await validateBackend(backend)
     backend = { ...backend, provider_api_version: provider.apiVersion }
-    createReference ||= provider.extractReference || extractReference
+    createReference ||= args => extractBackendReference(backend, args)
     const client = options.client || await createBackendClient(backend, { signal: options.signal })
     if (client.url?.href !== new URL(backend.base_url.replace(/\/?$/, '/')).href) throw new Error('生产客户端与本轮服务器不一致')
     await saveJson(join(directory, 'input/backend.json'), backend)

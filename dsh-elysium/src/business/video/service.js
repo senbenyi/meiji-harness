@@ -1,6 +1,5 @@
 // 职责：校验、创建、复用和恢复会话中的视频任务。
-import { providerFor, resolveGenerationBackend } from '../../servers/runtime/index.js'
-import { withBackend } from '../../servers/registry/resolve.js'
+import { validateBackend, resolveGenerationBackend, withBackend } from '../../servers/runtime/index.js'
 import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -46,7 +45,7 @@ async function startVideoJobLocked(args, exec) {
     }
   }
   const backend = await resolveGenerationBackend('video')
-  await providerFor(backend)
+  await validateBackend(backend)
   await withBackend(backend, () => validateVideoPlan(plan))
   const jobId = await createJob(projectId, plan, backend)
   await bindVideoCall(jobId, exec)

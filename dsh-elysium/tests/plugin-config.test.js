@@ -10,14 +10,15 @@ for (const key of ['COMFYUI_URL', 'ELYSIUM_STATE_ROOT']) delete process.env[key]
 test('plugin config uses one ComfyUI URL and isolates concurrent calls', async () => {
   assert.equal(resolveConfig({ comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'elysium'))
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' },
-    { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 },
+    { bailianFile: 'relative' }, { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 },
     { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig(config))
   const configs = ['/tmp/instance-a', '/tmp/instance-b'].map((stateRoot, index) => resolveConfig({
-    comfyUrl: `https://pod-${index}.test`, stateRoot,
+    comfyUrl: `https://pod-${index}.test`, stateRoot, bailianFile: join(stateRoot, 'bailian.json'),
   }))
   const values = await Promise.all(configs.map(config => withConfig(config, async () => {
     await new Promise(resolve => setImmediate(resolve))
     assert.equal(workerEnvironment().COMFYUI_URL, config.COMFYUI_URL)
+    assert.equal(workerEnvironment().ELYSIUM_BAILIAN_FILE, config.ELYSIUM_BAILIAN_FILE)
     return [requiredConfig('COMFYUI_URL', 'url'), requiredConfig('ELYSIUM_STATE_ROOT')]
   })))
   assert.deepEqual(values, [['https://pod-0.test', '/tmp/instance-a'], ['https://pod-1.test', '/tmp/instance-b']])

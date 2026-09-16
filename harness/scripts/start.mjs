@@ -2,18 +2,17 @@
 
 // 职责：停止已有 Harness，应用待生效模型选择并启动当前 DSH_HOME 的 Harness，不复制存储模板。
 import { join } from 'node:path'
-import { closeSync, existsSync, openSync } from 'node:fs'
+import { closeSync, openSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { execFileSync, spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { applyLlmSelection } from './server-startup.mjs'
-import { readRegistry } from '../../dsh-elysium/src/servers/registry/store.js'
+import { readRegistry, providerEnvironment, defaultTunnelAlias } from '../../dsh-elysium/src/servers/runtime/index.js'
 import { dshHome } from './storage-template.mjs'
 
 const home = dshHome(), port = process.env.DSH_PORT
-const projectBytePlusFile = fileURLToPath(new URL('../.dsh/byteplus.json', import.meta.url))
-const byteplusFile = process.env.ELYSIUM_BYTEPLUS_FILE ?? (existsSync(projectBytePlusFile) ? projectBytePlusFile : join(home, 'byteplus.json'))
+const providerEnv = providerEnvironment(home, fileURLToPath(new URL('../.dsh/', import.meta.url)))
 if (port !== undefined && (!/^\d+$/.test(port) || Number(port) > 65535)) throw new Error('DSH_PORT 必须为 0–65535 的端口号')
 const tunnelScript = fileURLToPath(new URL('./tunnel.mjs', import.meta.url))
 const harnessPort = port ?? '3080'
@@ -59,8 +58,8 @@ if (process.env.DSH_SKIP_TUNNEL !== '1') {
       if (service.transport === 'ssh' && registry.active[kind] === server.id) execFileSync(process.execPath, [tunnelScript, server.id, kind], { stdio: 'inherit' })
     }
   } else {
-    try { execFileSync(process.execPath, [tunnelScript, 'qwen'], { stdio: 'inherit' }) }
-    catch { console.warn('Qwen 隧道启动失败，继续启动 Harness') }
+    try { execFileSync(process.execPath, [tunnelScript, defaultTunnelAlias()], { stdio: 'inherit' }) }
+    catch { console.warn('默认文本隧道启动失败，继续启动 Harness') }
   }
 }
 const appliedLlm = await applyLlmSelection(home)
@@ -68,7 +67,7 @@ const logDirectory = join(home, 'logs'), harnessLog = join(logDirectory, 'harnes
 await mkdir(logDirectory, { recursive: true })
 const log = openSync(harnessLog, 'a')
 const harness = spawn('dsh', ['web', ...(process.env.DSH_NO_OPEN === '1' ? ['--no-open'] : []), ...(port === undefined ? [] : ['--port', port])], {
-  detached: true, env: { ...process.env, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home, ELYSIUM_BYTEPLUS_FILE: byteplusFile, ELYSIUM_LLM_SERVER_ID: appliedLlm?.server_id || '' }, stdio: ['ignore', log, log],
+  detached: true, env: { ...process.env, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home, ...providerEnv, ELYSIUM_LLM_SERVER_ID: appliedLlm?.server_id || '' }, stdio: ['ignore', log, log],
 })
 let spawnError
 harness.on('error', error => { spawnError = error })

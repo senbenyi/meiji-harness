@@ -1,6 +1,7 @@
 // 职责：保存任务的不可变服务器快照；旧任务只按已保存的服务器证据恢复。
 import { join } from 'node:path'
 import { readJson, saveJson } from '../../business/jobs/store.js'
+import { providerDefinitions } from './definitions.js'
 import { httpUrl } from '../registry/schema.js'
 export async function readBackend(directory) {
   const saved = await readJson(join(directory, 'input/backend.json'))
@@ -14,7 +15,9 @@ export async function readBackend(directory) {
   if (urls.size !== 1 || urls.has(null)) throw new Error('旧任务服务器归属缺失或冲突，禁止自动恢复')
   if (saved) return saved
   // 旧任务只绑定证据中的 URL，不关联可能已更换实例的当前默认记录。
-  const backend = { server_id: 'legacy-url', provider: 'manual', service: 'comfyui', base_url: [...urls][0], legacy: true }
+  const owner = providerDefinitions().find(item => item.legacy?.comfyui)
+  if (!owner) throw new Error('旧任务的兼容提供者未安装，禁止改用其他平台')
+  const backend = { server_id: 'legacy-url', provider: owner.id, service: 'comfyui', base_url: [...urls][0], legacy: true }
   await saveJson(join(directory, 'input/backend.json'), backend)
   return backend
 }

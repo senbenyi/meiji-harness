@@ -1,6 +1,5 @@
 // 职责：定义 ComfyUI 原子任务查询工具，不承担视频生成编排。
-import { resolveServer } from '../servers/registry/resolve.js'
-import { createBackendClient } from '../servers/runtime/index.js'
+import { resolveServer, createBackendClient } from '../servers/runtime/index.js'
 
 // 固定后端映射；工具参数不接受任意 URL。
 export function comfyuiTaskTool(action, description) {
