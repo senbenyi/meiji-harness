@@ -16,7 +16,7 @@ test('all endpoints authenticate before IO; registration stays manual and switch
   const server = createServer((req, res) => withConfig({ ELYSIUM_SERVERS_FILE: join(root, 'servers.json') }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
   const request = (action, body, token = 'test') => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=${token}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
-  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
+  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'third-party-select']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
   assert.equal(calls, 0)
   assert.equal((await request('register', { revision: 0, server: { ...record('unavailable'), provider: 'autodl' } })).status, 409)
   assert.equal((await request('register', { revision: 0, server: record('a') })).status, 201)

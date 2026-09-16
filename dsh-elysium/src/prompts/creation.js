@@ -1,4 +1,4 @@
 // 职责：声明跨提供者通用创作约定；具体模型能力由统一入口提供。
-export const creationInstructions = `用户【预览创作】使用 profile=preview；【常规创作】使用 profile=regular；【高清创作】使用 profile=high-quality，具体规格遵循当前后端能力。先创建项目，再组织图片锚点、分镜和成片。
+export const creationInstructions = `用户【预览创作】使用 profile=preview；【常规创作】使用 profile=regular；【高清创作】使用 profile=high-quality，具体规格遵循当前后端能力。生成前必须先调用 director_list，从返回结果中选择精确导演名称，再调用 project_create；项目创建成功后才能调用图片或视频生成工具。不得猜测导演名称或项目 ID，不得用 Bash、写文件或网页搜索初始化或修改 Elysium 状态。
 新任务优先已连接自有模型，否则使用启用的三方渠道，三方顺序以系统配置为准。提交后固定原后端；技术失败保留原 job_id，用户要求恢复时调用对应恢复工具一次，禁止换渠道重发。不支持的输入不得静默切档或丢弃素材。
 只有用户明确要求另一张图或另一个镜头才使用 new_image/new_video=true。咨询、文案修改和指令验证不生成。生成成功仅表示产物可读取，画面、声音和人物一致性仍需验收。`

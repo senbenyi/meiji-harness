@@ -1,7 +1,7 @@
 // 职责：组合并注册 Elysium 的工具、路由与系统提示词。
 import { mkdir } from 'node:fs/promises'
 import { resolveConfig, withConfig } from './config.js'
-import { createComfyuiTools, createModelTools, createProjectTools, createWorkflowTools } from './tools/index.js'
+import { createComfyuiTools, createDirectorTools, createModelTools, createProjectTools, createWorkflowTools } from './tools/index.js'
 import { createToolDiscoveryTool, projectTools } from './tools/discovery.js'
 import { registerProjectRoutes, PROJECT_ROUTE } from './http/project-routes.js'
 import { registerDirectorRoutes, DIRECTOR_ROUTE } from './http/director-routes.js'
@@ -28,7 +28,7 @@ export function apply(ctx, config = {}) {
     registerServerRoutes(mediaContext, runtime, token)
     registerProjectRoutes(mediaContext, runtime, token, projects)
     registerDirectorRoutes(mediaContext, runtime, token, directors, projects)
-    for (const definition of createProjectTools(projects)) {
+    for (const definition of [...createDirectorTools(directors), ...createProjectTools(projects)]) {
       // 工具在注册后才被调用，执行时需重新绑定所属实例的配置。
       const tool = { ...definition, execute: (...args) => withConfig(runtime, () => definition.execute(...args)) }
       mediaContext.effect(() => ctx.tools.register(tool), `@dsh-external/dsh-elysium: ${tool.name} tool`)

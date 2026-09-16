@@ -1,9 +1,9 @@
-// 职责：提供共用页面 token 认证的手工服务器登记、检查与切换接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, backendFromServer, resolveServer, readRegistry, writeRegistry, validateRegistry, sshIdentity, checkServer, switchServer } from '../servers/runtime/index.js'
+// 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
+import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, validateRegistry, sshIdentity, checkServer, switchServer } from '../servers/runtime/index.js'
 import { withConfig, runtimeConfig, defaultModels } from '../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 export const SERVER_ROUTE = '/plugins/dsh-elysium/server'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect']
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'third-party-select']
 export function createServerHandler({ token, currentLlm = null, check = checkServer, identify = sshIdentity }) {
   return async (req, res) => {
     try {
@@ -14,10 +14,18 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
       if (req.method !== (['list', 'models'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
       const models = runtimeConfig().ELYSIUM_MODELS || defaultModels
-      if (action === 'models') return json(res, 200, { revision: registry.revision, models, third_party: await thirdPartyModels(), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
-        const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
-        return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
-      })), pending_llm: !!registry.active.llm && registry.active.llm !== currentLlm })
+      if (action === 'models') {
+        const thirdParty = await thirdPartyModels()
+        return json(res, 200, { revision: registry.revision, models, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, registry), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+          const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
+          return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
+        })), pending_llm: !!registry.active.llm && registry.active.llm !== currentLlm })
+      }
+      if (action === 'third-party-select') {
+        const body = await readJsonBody(req)
+        if (!Number.isSafeInteger(body.revision) || body.revision < 0 || typeof body.id !== 'string') throw invalidRequest('三方模型选择参数无效')
+        return json(res, 200, await selectThirdPartyModel(body.kind, body.id, body.revision))
+      }
       if (['model-status', 'model-connect'].includes(action)) {
         const body = await readJsonBody(req)
         const model = models[body.kind]?.find(model => model.id === body.id)

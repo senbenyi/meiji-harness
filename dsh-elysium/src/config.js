@@ -46,6 +46,7 @@ export function resolveConfig(config = {}) {
   const registryFile = config.serversFile ?? process.env.ELYSIUM_SERVERS_FILE ?? defaults.serversFile
   withConfig({ ELYSIUM_SERVERS_FILE: registryFile }, () => requiredConfig('ELYSIUM_SERVERS_FILE'))
   const registry = readRegistry(registryFile)
+  const preferenceOnly = registry?.third_party && !registry.servers.length && !Object.keys(registry.active).length
   const resolved = {}
   const configuredModels = config.models ?? defaultModels
   if (!configuredModels || typeof configuredModels !== 'object' || Array.isArray(configuredModels)) throw new Error('模型清单无效')
@@ -62,7 +63,7 @@ export function resolveConfig(config = {}) {
   resolved.ELYSIUM_MODELS = structuredClone(models)
   for (const [key, [name, kind]] of Object.entries(fields)) {
     // 有服务器清单时，由清单解析目标地址，忽略旧的单地址配置。
-    if (key === 'comfyUrl' && registry) continue
+    if (key === 'comfyUrl' && registry && !preferenceOnly) continue
     // 显式配置优先，其次为环境变量、默认值；显式无效值不自动回退。
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name] ?? defaults[key]
     if (value === undefined) continue

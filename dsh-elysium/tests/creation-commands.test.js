@@ -43,4 +43,6 @@ test('menu selection only claims input; blank input, attachments and transport f
     assert.match(creationInstructions, new RegExp(`【${name}】[^；]*profile=${profile}`))
   }
   assert.match(creationInstructions, /验证不生成/)
+  assert.match(creationInstructions, /director_list[^\n]+project_create/)
+  assert.match(creationInstructions, /不得用 Bash、写文件或网页搜索/)
 })

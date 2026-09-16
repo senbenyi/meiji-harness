@@ -1,26 +1,26 @@
 // 职责：用本地供应商替身验证三方提交、原任务恢复、媒体持久化和自有优先。
 import test from 'node:test'
 import { spawnSync } from 'node:child_process'
-import { runProduction } from '../../../../business/production/runner.js'
-import { validateProductionManifest } from '../../../../business/production/manifest.js'
+import { runProduction } from '../src/business/production/runner.js'
+import { validateProductionManifest } from '../src/business/production/manifest.js'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { mkdtemp, writeFile, readFile, readdir, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { withConfig } from '../../../../config.js'
-import { resolveGenerationBackend, thirdPartyModels, validateBackend } from '../../../runtime/index.js'
-import { executeJob, validatePlan } from '../execution.js'
-import { bytePlusBackend } from '../config.js'
-import { saveJson } from '../../../../business/jobs/store.js'
-import { projectJobRoot } from '../../../../business/jobs/paths.js'
-import { openLocalMedia } from '../../../../business/assets/local-media.js'
-import { listAssets } from '../../../../business/assets/catalog.js'
-import { createMediaHandler } from '../../../../http/media-routes.js'
-import { createProjectHandler } from '../../../../http/project-routes.js'
-import { createJob } from '../../../../business/jobs/create.js'
-import { launch } from '../../../../business/video/launcher.js'
-import { waitJob } from '../../../../business/jobs/wait.js'
+import { withConfig } from '../src/config.js'
+import { resolveGenerationBackend, thirdPartyModels, validateBackend } from '../src/servers/runtime/index.js'
+import { executeJob, validatePlan } from '../src/servers/providers/byteplus/execution.js'
+import { bytePlusBackend } from '../src/servers/providers/byteplus/config.js'
+import { saveJson } from '../src/business/jobs/store.js'
+import { projectJobRoot } from '../src/business/jobs/paths.js'
+import { openLocalMedia } from '../src/business/assets/local-media.js'
+import { listAssets } from '../src/business/assets/catalog.js'
+import { createMediaHandler } from '../src/http/media-routes.js'
+import { createProjectHandler } from '../src/http/project-routes.js'
+import { createJob } from '../src/business/jobs/create.js'
+import { launch } from '../src/business/video/launcher.js'
+import { waitJob } from '../src/business/jobs/wait.js'
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7WQAAAAASUVORK5CYII=', 'base64')
 const video = Buffer.from('000000186674797069736f6d0000020069736f6d69736f32', 'hex')
@@ -61,7 +61,7 @@ test('own connected video wins; unavailable own video falls back; model listing 
     assert.equal((await resolveGenerationBackend('video', { probe: async () => false })).provider, 'byteplus')
     assert.equal((await resolveGenerationBackend('image')).service, 'image')
     const models = await thirdPartyModels()
-    assert.equal(models.video.label, 'Seedance 2.0'); assert.doesNotMatch(JSON.stringify(models), /secret|api_key/)
+    assert.equal(models.video[0].label, 'Seedance 2.0'); assert.doesNotMatch(JSON.stringify(models), /secret|api_key/)
     assert.equal(f.calls.length, 0)
     const original = bytePlusBackend('video')
     f.config.video.model = 'changed-model'; await writeFile(f.file, JSON.stringify(f.config))

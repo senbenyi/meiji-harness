@@ -11,6 +11,11 @@ node harness/scripts/install.mjs
 node harness/scripts/start.mjs
 ```
 
+## 开发修改生效
+```sh
+(cd dsh-elysium && pnpm build && pnpm package:registry) && DSH_NO_OPEN=1 node harness/scripts/start.mjs
+```
+
 ## 隧道
 ```sh
 node harness/scripts/tunnel.mjs qwen`

@@ -70,5 +70,5 @@ node harness/scripts/install.mjs
 ```sh
 pnpm workflow:sync       # 从当前选中平台的 ComfyUI 同步 UI 图，编译 API 图并更新 SHA-256
 pnpm workflow:check      # 只读核验，不修改文件
-node --test src/servers/providers/runpod/tests/h3-workflow-sync.test.js
+node --test tests/runpod-h3-workflow-sync.test.js
 ```

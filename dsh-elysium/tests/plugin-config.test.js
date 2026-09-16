@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 
 import { resolveConfig, withConfig, requiredConfig, workerEnvironment } from '../src/config.js'
 
 for (const key of ['COMFYUI_URL', 'ELYSIUM_STATE_ROOT']) delete process.env[key]
 
-test('plugin config uses one ComfyUI URL and isolates concurrent calls', async () => {
+test('plugin config uses one ComfyUI URL and isolates concurrent calls', async t => {
   assert.equal(resolveConfig({ comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'elysium'))
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' },
     { bailianFile: 'relative' }, { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 },
@@ -23,6 +24,11 @@ test('plugin config uses one ComfyUI URL and isolates concurrent calls', async (
   })))
   assert.deepEqual(values, [['https://pod-0.test', '/tmp/instance-a'], ['https://pod-1.test', '/tmp/instance-b']])
   assert.equal(process.env.COMFYUI_URL, undefined)
+  const root = await mkdtemp(join(tmpdir(), 'elysium-preference-only-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const serversFile = join(root, 'servers.json')
+  await writeFile(serversFile, JSON.stringify({ version: 1, revision: 1, active: {}, third_party: { video: 'byteplus:seedance2' }, servers: [] }))
+  assert.equal(resolveConfig({ serversFile, comfyUrl: 'https://legacy.test' }).COMFYUI_URL, 'https://legacy.test')
 })
 
 // 分析模型默认复用 Qwen 清单，兼容已有三类模型配置。

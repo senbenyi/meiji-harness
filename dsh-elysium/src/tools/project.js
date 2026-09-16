@@ -49,7 +49,7 @@ export function createProjectTools(store) {
       execute: args => store.change('update', { id: args.project_id, title: args.title, director: args.director, profile: args.profile }),
     },
     {
-      name: 'project_create', description: '创建空项目，导演必须已在导演库中；返回项目 ID。创建项目不会启动视频生成。',
+      name: 'project_create', description: '创建空项目；先调用 director_list，director 必须使用其返回的精确名称。返回项目 ID，不会启动视频生成。',
       parameters: object(info, ['title', 'director', 'profile']),
       output: { schema: outputSchema, render: renderProjectResult },
       execute: args => store.change('create', { title: args.title, director: args.director, profile: args.profile }),

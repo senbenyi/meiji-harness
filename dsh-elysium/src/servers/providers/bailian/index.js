@@ -16,7 +16,7 @@ export function createClient(backend, { signal } = {}) {
 }
 export default { id: 'bailian', label: '百炼万相', apiVersion: 1, services: { video: {} },
   guidance, generationBackend: bailianBackend,
-  channel() { const config = readBailian(); return { id: 'bailian', label: '百炼万相 2.6', enabled: !!config, models: config ? { video: { id: 'wan26', label: '百炼万相 2.6', model: config.video.text_model, model_ids: [config.video.text_model, config.video.image_model] } } : {} } },
+  channel() { const config = readBailian(), ready = config && [config.video.text_model, config.video.image_model].every(model => typeof model === 'string' && model.trim()); return { id: 'bailian', label: '百炼万相', enabled: !!config, models: ready ? { video: { id: 'wan26', label: 'Wan 2.6', model: config.video.text_model, model_ids: [config.video.text_model, config.video.image_model] } } : {} } },
   validate(backend) { if (backend.service !== 'video' || backend.connection?.text_model !== 'wan2.6-t2v' || backend.connection?.image_model !== 'wan2.6-i2v') throw new Error('百炼视频配置需使用 wan2.6-t2v 和 wan2.6-i2v') },
   connect() {}, check: async () => ({ ok: true, connection_required: false }), createClient,
   buildGraph: unsupported, llmSettings: unsupported, workflowSource: unsupported, manage: unsupported,

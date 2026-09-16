@@ -33,7 +33,8 @@ test('production callers use the sole runtime entry and contain no provider name
 test('providers own their declarations and never directly import sibling implementations', async () => {
   const directory = new URL('src/servers/providers/', root)
   for (const file of await sourceFiles(directory)) {
-    if (file.pathname.includes('/tests/') || file.pathname.includes('/legacy/') || file.pathname.includes('/resources/')) continue
+    assert.equal(file.pathname.includes('/tests/'), false, `${file.pathname}: provider tests must live in tests/`)
+    if (file.pathname.includes('/legacy/') || file.pathname.includes('/resources/')) continue
     const source = await readFile(file, 'utf8')
     const owner = relative(fileURLToPath(directory), fileURLToPath(file)).split('/')[0]
     for (const specifier of imports(source)) {

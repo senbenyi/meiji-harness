@@ -5,7 +5,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
-import { apply, createProjectTools } from '../src/index.js'
+import { apply, createDirectorTools, createProjectTools } from '../src/index.js'
+import { createDirectorStore } from '../src/business/directors/store.js'
 import { createProjectStore } from '../src/business/projects/store.js'
 import { withConfig } from '../src/config.js'
 import { projectTools } from '../src/tools/discovery.js'
@@ -14,10 +15,12 @@ test('chat tools read full objects, mutate one field and render compact mutation
   const root = await mkdtemp(join(tmpdir(), 'elysium-project-tools-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const store = createProjectStore(), definitions = createProjectTools(store)
+      const directors = createDirectorStore(), available = (await createDirectorTools(directors)[0].execute({})).directors
+      assert.deepEqual(available.map(item => item.name), ['张艺谋', '王家卫', '陈凯歌', '姜文', '贾樟柯'])
+      const store = createProjectStore({ directorExists: name => directors.has(name) }), definitions = createProjectTools(store)
       const tools = Object.fromEntries(definitions.map(tool => [tool.name, tool]))
       assert.equal(definitions.length, 5)
-      const project = await tools.project_create.execute({ title: '测试', director: '导演', profile: 'preview' })
+      const project = await tools.project_create.execute({ title: '测试', director: available[0].name, profile: 'preview' })
       const project_id = project.id
       await store.change('update', { id: project_id, acts: [{ title: '幕', shots: [] }] })
       await tools.project_update_anchor.execute({ project_id, action: 'add', role: 'lin', patch: { label: '林' } })
@@ -51,12 +54,14 @@ test('registered chat tools share HTTP project state and are disposed with the w
   const server = createServer((req, res) => routes.get(new URL(req.url, 'http://localhost').pathname)(req, res))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   try {
-    const project = await tools.get('project_create').execute({ title: '注册测试', director: '张艺谋', profile: 'preview' })
+    const { directors } = await tools.get('director_list').execute({})
+    const project = await tools.get('project_create').execute({ title: '注册测试', director: directors[0].name, profile: 'preview' })
     await tools.get('project_update_anchor').execute({ project_id: project.id, action: 'add', role: 'lin', patch: { description: '聊天保存' } })
     const value = await (await fetch(`http://127.0.0.1:${server.address().port}${projectBase}/get?t=${token}&id=${project.id}`)).json()
     assert.equal(value.anchors[0].description, '聊天保存')
     await assert.rejects(tools.get('project_create').execute({ title: '无效', director: '不存在', profile: 'preview' }), /导演不存在/)
     for (const dispose of disposers) dispose?.()
+    assert.equal(tools.has('director_list'), false)
     assert.equal(tools.has('project_read'), false)
     assert.equal(routes.size, 0)
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }

@@ -2,6 +2,7 @@
 import { loadProvider } from './loader.js'
 import { providerDefinitions } from './definitions.js'
 import { resolveServer } from '../registry/resolve.js'
+import { readRegistry, writeRegistry } from '../registry/store.js'
 import { runtimeConfig } from '../../config.js'
 async function adapterFor(backend) {
   const provider = await loadProvider(backend.provider)
@@ -33,7 +34,7 @@ export const manageProvider = async (id, action, options) => (await loadProvider
 // 唯一公共门面；外部代码不得导入内部 loader、registry、transport 或提供者实现。
 export { listProviders, providerSourceFiles, runtimeSourceFiles } from './loader.js'
 export { resolveServer, backendFromServer, withBackend, legacyTunnelBackend } from '../registry/resolve.js'
-export { readRegistry, writeRegistry } from '../registry/store.js'
+export { readRegistry, writeRegistry }
 export { validateRegistry, httpUrl, serviceUrl } from '../registry/schema.js'
 export { sshIdentity } from '../transport/connection.js'
 export { checkServer, switchServer } from './check.js'
@@ -68,14 +69,31 @@ async function channels() {
   }
   return result
 }
+const channelModels = (channel, kind) => {
+  const models = channel.models[kind]
+  return models ? Array.isArray(models) ? models : [models] : []
+}
+const modelKey = (channel, model) => `${channel.id}:${model.id}`
+function catalog(channelList) {
+  const result = {}
+  for (const channel of channelList) if (channel.enabled) for (const kind of Object.keys(channel.models)) {
+    const models = channelModels(channel, kind).map(model => ({ ...model, id: modelKey(channel, model), provider: channel.id }))
+    if (models.length) (result[kind] ||= []).push(...models)
+  }
+  return result
+}
+export function thirdPartySelection(models, registry = readRegistry()) {
+  return Object.fromEntries(['image', 'video'].map(kind => {
+    const entries = models?.[kind] || [], saved = registry?.third_party?.[kind]
+    return [kind, entries.some(model => model.id === saved) ? saved : entries[0]?.id || '']
+  }))
+}
 // 新任务优先自有模型；三方排序读取提供者声明，旧任务只认快照。
 export async function resolveGenerationBackend(kind, { probe } = {}) {
   if (runtimeConfig().ELYSIUM_BACKEND) return runtimeConfig().ELYSIUM_BACKEND
-  let third
-  for (const channel of await channels()) {
-    if (channel.enabled) third = await channel.provider.generationBackend(kind)
-    if (third) break
-  }
+  const channelList = await channels(), selected = thirdPartySelection(catalog(channelList))[kind]
+  const preferred = channelList.find(channel => channelModels(channel, kind).some(model => modelKey(channel, model) === selected))
+  const third = preferred && await preferred.provider.generationBackend(kind, selected.slice(selected.indexOf(':') + 1))
   if (!third) return resolveServer(kind)
   try {
     const own = resolveServer(kind), provider = await providerFor(own)
@@ -86,17 +104,23 @@ export async function resolveGenerationBackend(kind, { probe } = {}) {
   return third
 }
 export async function thirdPartyModels() {
-  const result = {}
-  for (const channel of await channels()) if (channel.enabled) for (const [kind, model] of Object.entries(channel.models)) result[kind] ||= model
+  const result = catalog(await channels())
   return Object.keys(result).length ? result : null
 }
 export async function thirdPartyChannels() {
-  let preferred = false
-  return (await channels()).map(({ id, label, enabled, models }) => {
-    const first = enabled && !!models.video && !preferred
-    preferred ||= first
-    return { id, label, enabled, preferred: first, models: Object.values(models).flatMap(model => model.model_ids || [model.model]).filter(Boolean) }
+  const channelList = await channels(), selected = thirdPartySelection(catalog(channelList)).video
+  return channelList.map(({ id, label, enabled, models }) => {
+    const preferred = channelModels({ models }, 'video').some(model => modelKey({ id }, model) === selected)
+    return { id, label, enabled, preferred, models: Object.values(models).flatMap(model => (Array.isArray(model) ? model : [model]).flatMap(item => item.model_ids || [item.model])).filter(Boolean) }
   })
+}
+export async function selectThirdPartyModel(kind, id, revision) {
+  if (!['image', 'video'].includes(kind)) throw Object.assign(new Error('三方模型类型无效'), { status: 400 })
+  const models = await thirdPartyModels()
+  if (!(models?.[kind] || []).some(model => model.id === id)) throw Object.assign(new Error('三方模型未配置或已关闭'), { status: 400 })
+  const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
+  const saved = await writeRegistry({ ...registry, third_party: { ...registry.third_party, [kind]: id } }, revision)
+  return { revision: saved.revision, selected: id, effect: 'new_jobs', message: '新任务的三方回退使用此模型；旧任务继续使用原模型。' }
 }
 export async function providerCreationInstructions() {
   const result = []

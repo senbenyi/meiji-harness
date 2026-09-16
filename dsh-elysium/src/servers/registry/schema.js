@@ -17,9 +17,13 @@ export function serviceUrl(service) {
     : httpUrl(`http://127.0.0.1:${service.local_port}${service.api_path || ''}`)
 }
 export function validateRegistry(value) {
-  keys(value, ['version', 'revision', 'active', 'servers'])
+  keys(value, ['version', 'revision', 'active', 'third_party', 'servers'])
   if (value.version !== 1 || !Number.isSafeInteger(value.revision) || value.revision < 0 || !Array.isArray(value.servers)) fail('服务器配置版本无效')
   keys(value.active, ['comfyui', 'llm', 'analysis', 'image', 'video'])
+  if (value.third_party !== undefined) {
+    keys(value.third_party, ['image', 'video'])
+    if (Object.values(value.third_party).some(value => !/^[a-z][a-z0-9_-]{0,63}:[A-Za-z0-9_-]+$/.test(value))) fail('三方模型选择无效')
+  }
   const ids = new Set(), ports = new Set(), endpoints = new Set(), identities = new Set()
   for (const server of value.servers) {
     keys(server, ['id', 'label', 'provider', 'connection_source', 'instance_id', 'deployment_id', 'disabled', 'services'])

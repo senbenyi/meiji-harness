@@ -6,19 +6,19 @@ import { spawnSync } from 'node:child_process'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { withConfig } from '../../../../config.js'
-import { resolveGenerationBackend, thirdPartyModels, thirdPartyChannels } from '../../../runtime/index.js'
-import { bailianBackend } from '../config.js'
-import { executeJob, validatePlan } from '../execution.js'
-import { saveJson, readJson } from '../../../../business/jobs/store.js'
-import { projectJobRoot } from '../../../../business/jobs/paths.js'
-import { openLocalMedia } from '../../../../business/assets/local-media.js'
-import { createJob } from '../../../../business/jobs/create.js'
-import { launch } from '../../../../business/video/launcher.js'
-import { waitJob } from '../../../../business/jobs/wait.js'
-import { runProduction } from '../../../../business/production/runner.js'
-import { validateProductionManifest } from '../../../../business/production/manifest.js'
-import { createServerHandler } from '../../../../http/server-routes.js'
+import { withConfig } from '../src/config.js'
+import { resolveGenerationBackend, thirdPartyModels, thirdPartyChannels } from '../src/servers/runtime/index.js'
+import { bailianBackend } from '../src/servers/providers/bailian/config.js'
+import { executeJob, validatePlan } from '../src/servers/providers/bailian/execution.js'
+import { saveJson, readJson } from '../src/business/jobs/store.js'
+import { projectJobRoot } from '../src/business/jobs/paths.js'
+import { openLocalMedia } from '../src/business/assets/local-media.js'
+import { createJob } from '../src/business/jobs/create.js'
+import { launch } from '../src/business/video/launcher.js'
+import { waitJob } from '../src/business/jobs/wait.js'
+import { runProduction } from '../src/business/production/runner.js'
+import { validateProductionManifest } from '../src/business/production/manifest.js'
+import { createServerHandler } from '../src/http/server-routes.js'
 
 const plan = { mode: 't2va', prompt: '清晨的海边', profile: 'regular' }
 async function fixture(t) {
@@ -62,7 +62,7 @@ test('private wins; Bailian is the first third-party video channel; disabled See
     f.byteplus.enabled = false; await saveJson(f.bpFile, f.byteplus)
     assert.equal((await resolveGenerationBackend('video')).provider, 'manual')
     f.config.enabled = true; await saveJson(f.file, f.config)
-    assert.equal((await thirdPartyModels()).video.id, 'wan26')
+    assert.deepEqual((await thirdPartyModels()).video.map(model => model.id), ['bailian:wan26'])
     const channels = await thirdPartyChannels()
     assert.equal(channels[0].preferred, true); assert.equal(channels[1].enabled, false)
     assert.doesNotMatch(JSON.stringify(channels), /secret|api_key|base_url/)
@@ -142,7 +142,6 @@ test('worker receives independent config and saved backend; production reuses lo
 
 test('HTTP model settings expose both channel switches without credentials or supplier calls', async t => {
   const f = await fixture(t)
-  f.byteplus.enabled = false; await saveJson(f.bpFile, f.byteplus)
   const handler = createServerHandler({ token: 't' })
   const web = createServer((req, res) => f.bind(() => handler(req, res)))
   await new Promise(resolve => web.listen(0, '127.0.0.1', resolve))
@@ -150,9 +149,13 @@ test('HTTP model settings expose both channel switches without credentials or su
     const response = await fetch(`http://127.0.0.1:${web.address().port}/plugins/dsh-elysium/server/models?t=t`)
     assert.equal(response.status, 200)
     const text = await response.text(), value = JSON.parse(text)
-    assert.equal(value.third_party.video.id, 'wan26')
-    assert.equal(value.third_party_channels[1].enabled, false)
+    assert.deepEqual(value.third_party.video.map(model => model.id), ['bailian:wan26', 'byteplus:seedance2'])
+    assert.equal(value.third_party_selected.video, 'bailian:wan26')
     assert.doesNotMatch(text, /fake-secret|old-secret|api_key|base_url/)
+    const selected = await fetch(`http://127.0.0.1:${web.address().port}/plugins/dsh-elysium/server/third-party-select?t=t`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'video', id: 'byteplus:seedance2', revision: 0 }) })
+    assert.equal(selected.status, 200)
+    assert.equal((await f.bind(() => resolveGenerationBackend('video', { probe: async () => true }))).provider, 'manual')
+    assert.equal((await f.bind(() => resolveGenerationBackend('video', { probe: async () => false }))).provider, 'byteplus')
     assert.equal(f.calls.length, 0)
   } finally { await new Promise(resolve => web.close(resolve)) }
 })

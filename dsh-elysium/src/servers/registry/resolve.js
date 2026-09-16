@@ -7,7 +7,8 @@ import { serviceUrl } from './schema.js'
 export function resolveServer(kind = 'comfyui', serverId) {
   const serviceKind = ['image', 'video'].includes(kind) ? 'comfyui' : kind === 'analysis' ? 'llm' : kind
   const registry = readRegistry()
-  if (!registry) {
+  const preferenceOnly = registry?.third_party && !registry.servers.length && !Object.keys(registry.active).length
+  if (!registry || preferenceOnly) {
     if (kind === 'image') throw new Error('未配置图片模型')
     const owner = providerDefinitions().find(item => item.legacy?.[serviceKind]), legacy = owner?.legacy[serviceKind]
     if (!legacy || serverId && serverId !== legacy.server_id) throw new Error(`未知 ${serviceKind === 'comfyui' ? 'ComfyUI' : serviceKind} 实例：${serverId || ''}`)

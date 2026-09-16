@@ -18,6 +18,8 @@ test('registry validates identity, URL, SSH ports, service type and selected tar
     v => v.servers[0].token = 'secret']) {
     const value = fixture(); mutate(value); assert.throws(() => validateRegistry(value))
   }
+  assert.equal(validateRegistry({ ...fixture(), third_party: { video: 'byteplus:seedance2' } }).third_party.video, 'byteplus:seedance2')
+  assert.throws(() => validateRegistry({ ...fixture(), third_party: { video: 'missing' } }))
 })
 test('registry is authoritative, CAS writes do not lose updates, identities remain immutable', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'servers-'))
