@@ -8,7 +8,14 @@ export const TOOL_GROUPS = {
 }
 const deferred = new Set(Object.values(TOOL_GROUPS).flatMap(group => group.names))
 const sectionTools = { 'tool:jobs': TOOL_GROUPS.shell.names, 'tool:goal': TOOL_GROUPS.planning.names }
-const isElysium = agent => agent?.session?.header?.agentPreset === 'elysium'
+export const ELYSIUM_AGENT_PRESETS = new Set(['elysium-teaching', 'elysium-free', 'elysium-director'])
+export const currentAgentPreset = agent => {
+  let preset = agent?.session?.header?.agentPreset
+  for (const event of agent?.session?.snapshotEvents?.() || []) if (event.type === 'agent-preset/selected') preset = event.data.agentPreset
+  return preset
+}
+export const isElysiumAgent = agent => ELYSIUM_AGENT_PRESETS.has(currentAgentPreset(agent))
+export const isElysiumFreeAgent = agent => currentAgentPreset(agent) === 'elysium-free'
 
 // Successful tool results are durable and replayed on resume/fork; user text cannot load tools.
 export function loadedToolNames(events = []) {
@@ -32,11 +39,12 @@ export function loadedToolNames(events = []) {
 }
 
 export function projectTools(assembly, agent) {
-  if (!isElysium(agent) || assembly.tools.some(tool => tool.name === 'run_code')) {
+  if (!isElysiumAgent(agent) || assembly.tools.some(tool => tool.name === 'run_code')) {
     return { ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'elysium_load_tools') }
   }
   const loaded = loadedToolNames(agent.session.snapshotEvents())
-  const tools = assembly.tools.filter(tool => !deferred.has(tool.name) || loaded.has(tool.name))
+  const free = isElysiumFreeAgent(agent)
+  const tools = assembly.tools.filter(tool => (!free || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || loaded.has(tool.name)))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))
   const catalog = Object.entries(TOOL_GROUPS).flatMap(([id, group]) => {
@@ -63,7 +71,7 @@ export function createToolDiscoveryTool(ctx) {
       loaded_tools: { type: 'array', items: { type: 'string' } },
     }, required: ['loaded_tools'] }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     execute: async (args, exec) => {
-      if (!isElysium(exec?.agent)) throw new Error('工具加载仅适用于极乐世界预设')
+      if (!isElysiumAgent(exec?.agent)) throw new Error('工具加载仅适用于极乐世界预设')
       if (!Array.isArray(args.groups) || !args.groups.length || args.groups.some(group => !Object.hasOwn(TOOL_GROUPS, group))) throw new Error('无效工具组')
       const available = new Set(ctx.tools.schemas(exec.agent).map(tool => tool.name))
       const names = [...new Set(args.groups.flatMap(group => TOOL_GROUPS[group].names))].filter(name => available.has(name))

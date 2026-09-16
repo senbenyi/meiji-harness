@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createToolDiscoveryTool, loadedToolNames, projectTools, TOOL_GROUPS } from '../src/tools/discovery.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
-const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
-const agent = events => ({ session: { header: { agentPreset: 'elysium' }, snapshotEvents: () => events } })
+const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'director_list', 'project_create', 'project_read', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
+const agent = (events, agentPreset = 'elysium-teaching') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
 const events = names => [{ type: 'tool/call', data: { name: 'elysium_load_tools', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
 test('defers schemas and guidance without mutating source, policies or contexts', () => {
   const input = assembly(), before = JSON.stringify(input), result = projectTools(input, agent([]))
@@ -40,6 +40,25 @@ test('preserves standard and Code Mode protocols', () => {
   assert.equal(standard.sections, input.sections)
   const code = { ...input, tools: [tool('run_code')] }
   assert.deepEqual(projectTools(code, agent([])), code)
+})
+test('recognizes every shipped Elysium mode by its real preset ID', () => {
+  for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
+    const result = projectTools(assembly(), agent([], id))
+    assert.ok(result.tools.some(tool => tool.name === 'elysium_load_tools'))
+    assert.ok(!result.tools.some(tool => tool.name === 'bash'))
+  }
+})
+test('free mode hides director and project tools but keeps direct generation', () => {
+  const result = projectTools(assembly(), agent([], 'elysium-free'))
+  assert.ok(result.tools.some(tool => tool.name === 'workflow_generate_video'))
+  assert.ok(!result.tools.some(tool => /^(director|project)_/.test(tool.name)))
+  assert.ok(projectTools(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'project_create'))
+})
+test('uses the current preset selection instead of the immutable creation header', () => {
+  const selected = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-free' } }], 'elysium-standard')
+  assert.ok(projectTools(assembly(), selected).tools.some(tool => tool.name === 'elysium_load_tools'))
+  const left = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-standard' } }], 'elysium-teaching')
+  assert.ok(!projectTools(assembly(), left).tools.some(tool => tool.name === 'elysium_load_tools'))
 })
 test('rejects invalid or unavailable loads', async () => {
   const loader = createToolDiscoveryTool({ tools: { schemas: () => [] } })

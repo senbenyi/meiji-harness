@@ -34,4 +34,20 @@ test('all tools expose function-call schemas and local executors', () => {
     assert.equal(tool.parameters.type, 'object')
     assert.equal(typeof tool.execute, 'function')
   }
+  for (const name of ['workflow_generate_image', 'workflow_generate_video']) {
+    const tool = createWorkflowTools().find(tool => tool.name === name)
+    assert.ok(!tool.parameters.required.includes('project_id'))
+  }
+})
+
+test('injects creation guidance only for the three Elysium modes', async () => {
+  let assemble
+  apply({ inject() {}, on: (name, listener) => { if (name === 'system-prompt/assemble') assemble = listener }, tools: { register() {} } })
+  const base = { tools: [], sections: [] }
+  const agent = agentPreset => ({ session: { header: { agentPreset }, snapshotEvents: () => [] } })
+  assert.deepEqual(await assemble({}, { agent: agent('elysium-standard') }, async () => base), base)
+  for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
+    const result = await assemble({}, { agent: agent(id) }, async () => base)
+    assert.deepEqual(result.sections.map(section => section.name), ['elysium:creation-commands'])
+  }
 })

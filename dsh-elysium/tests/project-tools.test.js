@@ -1,7 +1,7 @@
 // 职责：验证聊天工具的数据可见性、共享 Store 注册和实例配置隔离。
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
@@ -10,6 +10,7 @@ import { createDirectorStore } from '../src/business/directors/store.js'
 import { createProjectStore } from '../src/business/projects/store.js'
 import { withConfig } from '../src/config.js'
 import { projectTools } from '../src/tools/discovery.js'
+import { generationProjectId } from '../src/tools/generation-project.js'
 
 test('chat tools read full objects, mutate one field and render compact mutation results', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-project-tools-'))
@@ -19,10 +20,10 @@ test('chat tools read full objects, mutate one field and render compact mutation
       assert.deepEqual(available.map(item => item.name), ['张艺谋', '王家卫', '陈凯歌', '姜文', '贾樟柯'])
       const store = createProjectStore({ directorExists: name => directors.has(name) }), definitions = createProjectTools(store)
       const tools = Object.fromEntries(definitions.map(tool => [tool.name, tool]))
-      assert.equal(definitions.length, 5)
+      assert.equal(definitions.length, 6)
       const project = await tools.project_create.execute({ title: '测试', director: available[0].name, profile: 'preview' })
       const project_id = project.id
-      await store.change('update', { id: project_id, acts: [{ title: '幕', shots: [] }] })
+      await tools.project_update_act.execute({ project_id, action: 'add', title: '幕' })
       await tools.project_update_anchor.execute({ project_id, action: 'add', role: 'lin', patch: { label: '林' } })
       await tools.project_update_shot.execute({ project_id, action: 'add', act_index: 0, patch: { role: 'lin', action: '走路' } })
       const before = await tools.project_read.execute({ project_id })
@@ -37,7 +38,7 @@ test('chat tools read full objects, mutate one field and render compact mutation
       assert.equal(value.acts[0].shots[0].action, '走路')
       assert.deepEqual(JSON.parse(tools.project_update_shot.output.render({}, value)[0].text), { id: project_id, title: '新标题', anchor_count: 1, shot_count: 1 })
       await assert.rejects(tools.project_update_shot.execute({ project_id, action: 'update', patch: { subtitle: 'bad' } }), /ID/)
-      const visible = projectTools({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium' }, snapshotEvents: () => [] } })
+      const visible = projectTools({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } })
       assert.deepEqual(visible.tools, definitions)
     })
   } finally { await rm(root, { recursive: true, force: true }) }
@@ -65,4 +66,18 @@ test('registered chat tools share HTTP project state and are disposed with the w
     assert.equal(tools.has('project_read'), false)
     assert.equal(routes.size, 0)
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})
+
+test('free generation uses an internal workspace that is absent from project lists', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-free-project-'))
+  try {
+    await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+      const free = { agent: { session: { header: { agentPreset: 'elysium-free' }, snapshotEvents: () => [] } } }
+      assert.equal(await generationProjectId(undefined, free), '00000000')
+      assert.equal(await generationProjectId('abcd1234', free), '00000000')
+      assert.equal(await generationProjectId('abcd1234', { agent: { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } } }), 'abcd1234')
+      assert.equal(JSON.parse(await readFile(join(root, 'projects', '00000000', 'project.json'))).internal, 'free')
+      assert.deepEqual(await createProjectStore().list(), [])
+    })
+  } finally { await rm(root, { recursive: true, force: true }) }
 })

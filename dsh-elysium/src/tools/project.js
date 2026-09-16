@@ -37,6 +37,12 @@ export function createProjectTools(store) {
       execute: args => store.changeAnchor(args.project_id, args.action, { ...args.patch, role: args.role }),
     },
     {
+      name: 'project_update_act', description: '操作一幕。新增提供 title；修改/删除/移动提供 act_index（从0开始）；移动 direction 为±1。删除幕会同时删除其镜头。',
+      parameters: object({ project_id: projectId, action: { type: 'string', enum: ['add', 'update', 'delete', 'move'] }, act_index: { type: 'integer' }, direction: { type: 'integer', enum: [-1, 1] }, title: text }, ['project_id', 'action']),
+      output: { schema: outputSchema, render: renderProjectResult },
+      execute: args => store.changeAct(args.project_id, args.action, { act_index: args.act_index, direction: args.direction, title: args.title }),
+    },
+    {
       name: 'project_update_shot', description: '操作单个镜头。新增需 act_index（从0开始），修改/删除/移动需 id；移动 direction 为±1。镜头动作描述放在 patch.action，只传需修改字段。',
       parameters: object({ project_id: projectId, action: { type: 'string', enum: ['add', 'update', 'delete', 'move'] }, id: shotId, act_index: { type: 'integer' }, direction: { type: 'integer', enum: [-1, 1] }, patch: shotPatch }, ['project_id', 'action']),
       output: { schema: outputSchema, render: renderProjectResult },

@@ -2,7 +2,7 @@
 import { mkdir } from 'node:fs/promises'
 import { resolveConfig, withConfig } from './config.js'
 import { createComfyuiTools, createDirectorTools, createModelTools, createProjectTools, createWorkflowTools } from './tools/index.js'
-import { createToolDiscoveryTool, projectTools } from './tools/discovery.js'
+import { createToolDiscoveryTool, isElysiumAgent, projectTools } from './tools/discovery.js'
 import { registerProjectRoutes, PROJECT_ROUTE } from './http/project-routes.js'
 import { registerDirectorRoutes, DIRECTOR_ROUTE } from './http/director-routes.js'
 import { registerServerRoutes, SERVER_ROUTE } from './http/server-routes.js'
@@ -36,6 +36,7 @@ export function apply(ctx, config = {}) {
   }))
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = projectTools(await next(), context.agent)
+    if (!isElysiumAgent(context.agent)) return assembly
     // 替换已有同名段落，确保创作指令只出现一次。
     return { ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
       { name: 'elysium:creation-commands', text: await withConfig(runtime, async () => [creationInstructions, await providerCreationInstructions()].filter(Boolean).join('\n')) }] }

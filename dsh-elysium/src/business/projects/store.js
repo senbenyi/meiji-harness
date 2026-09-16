@@ -4,6 +4,7 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promise
 import { join } from 'node:path'
 import { requiredConfig } from '../../config.js'
 import { getJob } from '../jobs/query.js'
+import { FREE_PROJECT_ID } from '../jobs/paths.js'
 import { availableJobSummary } from '../assets/catalog.js'
 import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from './schema.js'
 import { invalidRequest } from '../../http/shared.js'
@@ -108,7 +109,9 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
     for (const entry of entries) {
       if (!entry.isDirectory() || !validProjectId(entry.name)) continue
       try {
-        items.push(projectSummary(await load(entry.name)))
+        const value = await load(entry.name)
+        if (value.internal === 'free') continue
+        items.push(projectSummary(value))
       } catch (error) { if (error.code !== 'ENOENT') throw error }
     }
     return items.sort((a, b) => b.updated_at - a.updated_at)
@@ -126,7 +129,8 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
       let value, sections
       if (action === 'create') {
         const now = Date.now()
-        value = { id: newId(), title: titleValue(body.title), director: await checkedDirector(body.director), profile: profileValue(body.profile), created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
+        do { value = { id: newId() } } while (value.id === FREE_PROJECT_ID)
+        value = { ...value, title: titleValue(body.title), director: await checkedDirector(body.director), profile: profileValue(body.profile), created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
         if (body.cover_job_id !== undefined) { value.cover_job_id = await checkedCover(body.cover_job_id); value.materials = [value.cover_job_id] }
         sections = ['materials', 'anchors', 'acts', 'deliverables']
         await mkdir(root(), { recursive: true })
@@ -202,6 +206,22 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
     return ['anchors']
   })
 
+  const changeAct = (id, action, data) => changeObject(id, value => {
+    if (!['add', 'update', 'delete', 'move'].includes(action)) throw invalidRequest('幕操作无效')
+    if (action === 'add') value.acts.push({ title: data.title, shots: [] })
+    else {
+      if (!Number.isInteger(data.act_index) || !value.acts[data.act_index]) throw invalidRequest('幕不存在')
+      if (action === 'update') value.acts[data.act_index].title = data.title
+      if (action === 'delete') value.acts.splice(data.act_index, 1)
+      if (action === 'move') {
+        if (![1, -1].includes(data.direction) || !value.acts[data.act_index + data.direction]) throw invalidRequest('移动方向无效或已到幕边界')
+        const target = data.act_index + data.direction
+        ;[value.acts[data.act_index], value.acts[target]] = [value.acts[target], value.acts[data.act_index]]
+      }
+    }
+    return ['acts']
+  })
+
   const changeShot = (id, action, data) => changeObject(id, value => {
     if (!['add', 'update', 'delete', 'move'].includes(action)) throw invalidRequest('镜头操作无效')
     if (action === 'add') {
@@ -246,5 +266,5 @@ export function createProjectStore({ readJob = getJob, newId = () => randomBytes
     return false
   })
 
-  return { list, read, change, changeAnchor, changeShot, lastModified, usesDirector }
+  return { list, read, change, changeAnchor, changeAct, changeShot, lastModified, usesDirector }
 }

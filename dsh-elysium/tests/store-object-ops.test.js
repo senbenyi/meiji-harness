@@ -60,6 +60,26 @@ test('shot IDs survive reordering, partial edits and reload, and moves stay with
   assert.equal((await createProjectStore().read(id)).acts[0].shots[1].id, first)
 }))
 
+test('act operations let an empty project build and reorder a storyboard', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-act-'))
+  try {
+    await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+      const store = createProjectStore()
+      const project = await store.change('create', { title: '项目', director: '导演', profile: 'preview' })
+      await store.changeAct(project.id, 'add', { title: '第一幕' })
+      await store.changeAct(project.id, 'add', { title: '第二幕' })
+      await store.changeShot(project.id, 'add', { act_index: 0, ...shot })
+      await store.changeAct(project.id, 'update', { act_index: 1, title: '结尾' })
+      const moved = await store.changeAct(project.id, 'move', { act_index: 1, direction: -1 })
+      assert.deepEqual(moved.acts.map(act => act.title), ['结尾', '第一幕'])
+      assert.equal(moved.acts[1].shots.length, 1)
+      await assert.rejects(store.changeAct(project.id, 'move', { act_index: 0, direction: -1 }), /边界/)
+      await store.changeAct(project.id, 'delete', { act_index: 0 })
+      assert.deepEqual((await store.read(project.id)).acts.map(act => act.title), ['第一幕'])
+    })
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('missing IDs migrate once for split and monolithic projects; legacy update remains usable', () => fixture(async (store, id, root) => {
   const directory = join(root, 'projects', id)
   const legacyActs = [{ title: '旧幕', shots: [{ index: 1, ...shot }] }]
