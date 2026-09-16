@@ -21,10 +21,11 @@ export async function workerAlive(lockPath, jobId) {
       process.kill(pid, 0)
       if (process.platform === 'linux') {
         const argv = (await readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0')
-        alive = argv.some((arg, index) => arg.endsWith('/video/worker.js') && argv[index + 1] === jobId)
+        alive = argv.some((arg, index) => arg.endsWith('/video/worker.js') && argv[index + 2] === jobId)
       } else {
-        const { stdout } = await run('ps', ['-p', String(pid), '-o', 'command='], { timeout: 5000 })
-        alive = stdout.includes(`/video/worker.js ${jobId}`)
+        // macOS 默认按终端宽度截断 command，任务 ID 位于长路径之后，必须读取完整命令行。
+        const { stdout } = await run('ps', ['-ww', '-p', String(pid), '-o', 'command='], { timeout: 5000 })
+        alive = new RegExp(`/video/worker\\.js\\s+[^\\s]+\\s+${jobId}(?:\\s|$)`).test(stdout)
       }
     }
   } catch (error) {

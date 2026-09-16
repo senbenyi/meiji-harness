@@ -17,6 +17,27 @@ export const currentAgentPreset = agent => {
 export const isElysiumAgent = agent => ELYSIUM_AGENT_PRESETS.has(currentAgentPreset(agent))
 export const isElysiumFreeAgent = agent => currentAgentPreset(agent) === 'elysium-free'
 
+function videoFailedThisTurn(events) {
+  const turnStart = events.findLastIndex(event => event.type === 'turn/start')
+  const calls = new Set()
+  for (const event of events.slice(turnStart + 1)) {
+    if (event.type === 'tool/call' && ['workflow_generate_video', 'workflow_resume_video'].includes(event.data.name)) calls.add(event.data.callId)
+    if (event.type !== 'tool/result') continue
+    for (const block of event.data.message?.content || []) {
+      if (block.type !== 'tool-result' || !calls.has(block.toolCallId)) continue
+      if (block.isError) return true
+      for (const item of block.content || []) {
+        if (item.type !== 'text') continue
+        try {
+          const value = JSON.parse(item.text), result = value.output || value
+          if (result.status === 'failed' || result.status === 'rejected') return true
+        } catch { /* Unrelated text is not a failed video result. */ }
+      }
+    }
+  }
+  return false
+}
+
 // Successful tool results are durable and replayed on resume/fork; user text cannot load tools.
 export function loadedToolNames(events = []) {
   const calls = new Set()
@@ -42,7 +63,10 @@ export function projectTools(assembly, agent) {
   if (!isElysiumAgent(agent) || assembly.tools.some(tool => tool.name === 'run_code')) {
     return { ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'elysium_load_tools') }
   }
-  const loaded = loadedToolNames(agent.session.snapshotEvents())
+  const events = agent.session.snapshotEvents()
+  if (videoFailedThisTurn(events)) return { ...assembly, tools: [], sections: [...assembly.sections,
+    { name: 'elysium:video-failed-stop', text: '视频任务已失败。本轮立即结束并报告失败；等待用户新消息明确要求重试，不得继续调用任何工具。' }] }
+  const loaded = loadedToolNames(events)
   const free = isElysiumFreeAgent(agent)
   const tools = assembly.tools.filter(tool => (!free || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || loaded.has(tool.name)))
   const visible = new Set(tools.map(tool => tool.name))

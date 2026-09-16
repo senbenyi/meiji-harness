@@ -123,7 +123,7 @@ window.__ModuleLoader__.load({
             video && mediaReady ? h('a', { href: mediaUrl('download', sessionId, callId), download: '', className: 'elysium-download', 'aria-label': `下载${title}`, title: `下载${title}` }, icon('download')) : null),
           h('div', { className: 'elysium-meta' },
             h('details', { className: 'elysium-details' }, h('summary', null, '详情'),
-              job.server?.server_id ? h('p', null, `服务器：${job.server.server_id} · ${job.server.provider || ''}`) : null,
+              job.server?.model ? h('p', null, `模型：${job.server.model}`) : null,
               job.job_id ? h('p', null, '任务 ID：', h('code', null, job.job_id)) : null,
               Number.isFinite(job.timings?.total_ms) ? h('p', null, `任务耗时：${(job.timings.total_ms / 1000).toFixed(1)} 秒`) : null,
               specification ? h('p', null, `生成规格：${specification}`) : null,

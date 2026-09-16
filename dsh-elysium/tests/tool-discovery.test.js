@@ -54,6 +54,17 @@ test('free mode hides director and project tools but keeps direct generation', (
   assert.ok(!result.tools.some(tool => /^(director|project)_/.test(tool.name)))
   assert.ok(projectTools(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'project_create'))
 })
+test('a failed video result removes every remaining tool for the current turn only', () => {
+  const failed = [{ type: 'turn/start', data: { turn: 1 } },
+    { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'video' } },
+    { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'video', content: [{ type: 'text', text: JSON.stringify({ job_id: 'a'.repeat(32), status: 'failed' }) }] }] } } }]
+  const stopped = projectTools(assembly(), agent(failed, 'elysium-free'))
+  assert.deepEqual(stopped.tools, [])
+  assert.match(stopped.sections.at(-1).text, /本轮立即结束/)
+  assert.ok(projectTools(assembly(), agent([...failed, { type: 'turn/start', data: { turn: 2 } }], 'elysium-free')).tools.some(tool => tool.name === 'workflow_generate_video'))
+  const rejected = structuredClone(failed); rejected[2].data.message.content[0].isError = true
+  assert.deepEqual(projectTools(assembly(), agent(rejected)).tools, [])
+})
 test('uses the current preset selection instead of the immutable creation header', () => {
   const selected = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-free' } }], 'elysium-standard')
   assert.ok(projectTools(assembly(), selected).tools.some(tool => tool.name === 'elysium_load_tools'))

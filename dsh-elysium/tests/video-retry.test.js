@@ -12,6 +12,7 @@ import { startVideoJob, resumeVideoJob } from '../src/business/video/service.js'
 import { createJob } from '../src/business/jobs/create.js'
 import { bindVideoCall, findVideoCall } from '../src/business/video/call-binding.js'
 import { readJson, saveJson } from '../src/business/jobs/store.js'
+import { userRequestedVideoRetry } from '../src/tools/video.js'
 
 async function executeComfyVideo(projectId, jobId, plan, options) {
   await saveJson(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', jobId, 'input/backend.json'), { server_id: 'minimax-h3', provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' })
@@ -20,6 +21,10 @@ async function executeComfyVideo(projectId, jobId, plan, options) {
 
 const plan = { mode: 't2va', prompt: 'A woman cooking in a kitchen.' }
 const project = 'abcd1234'
+const retryExec = text => ({ agent: { session: { snapshotEvents: () => [
+  { type: 'turn/start', data: { turn: 2 } },
+  { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text }] } },
+] } } })
 async function fixture(t, run) {
   const root = await mkdtemp(join(tmpdir(), 'video-retry-'))
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -72,6 +77,17 @@ test('persistent outage stops after five retries without submission or new jobs'
   assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
 }))
 
+test('video recovery requires an explicit retry request from the current user turn', () => {
+  assert.equal(userRequestedVideoRetry(retryExec('请重试刚才的视频')), true)
+  assert.equal(userRequestedVideoRetry(retryExec('继续恢复原任务')), true)
+  assert.equal(userRequestedVideoRetry(retryExec('生成一个新视频')), false)
+  assert.equal(userRequestedVideoRetry(retryExec('不要自动重试')), false)
+  assert.equal(userRequestedVideoRetry({ agent: { session: { snapshotEvents: () => [
+    { type: 'turn/start', data: { turn: 1 } },
+    { type: 'user/message', data: { source: { kind: 'plugin' }, content: [{ type: 'text', text: '重试' }] } },
+  ] } } }), false)
+})
+
 test('cancellation during backoff stops the same job immediately', async t => fixture(t, async root => {
   const controller = new AbortController(), id = 'c'.repeat(32)
   let attempts = 0
@@ -98,6 +114,20 @@ test('changed prompt and concurrent repeat calls reuse the failed job; repeated 
   assert.equal((await resumeVideoJob(id, exec('repeat-resume'))).job_id, id)
   assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
   assert.equal(await readJson(join(root, 'projects', project, 'jobs', id, 'worker.lock')), null)
+}))
+
+test('a repeated generation call in the same user turn reuses the succeeded video', async t => fixture(t, async root => {
+  const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'first' } }]
+  const session = { id: 'session', snapshotEvents: () => events }
+  const exec = callId => ({ agent: { session }, callId })
+  const id = await createJob(project, plan)
+  await bindVideoCall(id, exec('first'))
+  await saveJson(join(root, 'projects', project, 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', status: 'succeeded' })
+
+  const repeated = await startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec('second'))
+
+  assert.equal(repeated.job_id, id)
+  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
 }))
 
 test('HTTP gateway failures are retryable even when the response is HTML; validation failures are not retried', async t => fixture(t, async () => {

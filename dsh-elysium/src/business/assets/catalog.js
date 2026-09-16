@@ -11,7 +11,9 @@ import { requiredConfig } from '../../config.js'
 
 export function jobSummary(job) {
   const image = job.result?.media_kind === 'image' || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)
-  return { job_id: job.job_id, server: job.server ? { server_id: job.server.server_id, provider: job.server.provider } : undefined, project_id: job.project_id, status: job.status,
+  const mode = job.debug?.effective_input?.mode
+  const model = job.result?.model || (mode === 'i2va' ? job.server?.connection?.image_model : job.server?.connection?.text_model) || job.server?.connection?.model
+  return { job_id: job.job_id, server: job.server ? { server_id: job.server.server_id, provider: job.server.provider, ...(model ? { model } : {}) } : undefined, project_id: job.project_id, status: job.status,
     stage: job.status === 'failed' ? job.failed_stage : job.workflow?.stage || job.stage,
     error_code: job.error_code, remote_status: job.remote_status,
     error: job.error, retryable: job.retryable, retry_scope: job.retry_scope,

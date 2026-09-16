@@ -33,13 +33,15 @@ async function startVideoJobLocked(args, exec) {
   if (!validProjectId(projectId)) throw invalid('project_id 必须为 8 位项目 ID')
   if (!new_video && exec?.agent?.session) {
     const session = exec.agent.session
-    const calls = session.snapshotEvents().filter(event => event.type === 'tool/call' && ['workflow_generate_video', 'workflow_resume_video'].includes(event.data.name))
-    for (const call of calls.reverse()) {
+    const events = session.snapshotEvents()
+    const turnStart = events.findLastIndex(event => event.type === 'turn/start')
+    const calls = events.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'tool/call' && ['workflow_generate_video', 'workflow_resume_video'].includes(event.data.name))
+    for (const { event: call, index } of calls.reverse()) {
       const previous = await findVideoCall(session.id, call.data.callId, session)
       if (!previous) continue
       const job = await getJob(previous)
       if (job.project_id !== projectId) continue
-      if (job.status === 'succeeded') break
+      if (job.status === 'succeeded' && index <= turnStart) break
       await bindVideoCall(previous, exec)
       return { job_id: previous, project_id: job.project_id, status: job.status }
     }

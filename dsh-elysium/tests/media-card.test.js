@@ -89,6 +89,7 @@ test('a completed tool result plays without polling the media service', async ()
 test('completed preview uses specification dimensions and actual job details without media_info', async () => {
   const job = { job_id: '6e050097ab7b37578357ff0e111dc53d', status: 'succeeded',
     comfyui_view_url: 'https://pod.test/view?filename=final.mp4', timings: { total_ms: 33123 }, profile: 'preview',
+    server: { server_id: 'bailian', provider: 'bailian', model: 'wan2.6-t2v' },
     specification: { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' } }
   for (const block of [null, { content: [{ type: 'text', text: JSON.stringify(job) }] }]) {
     const f = await fixture(block ? [] : [job], block || {})
@@ -97,6 +98,8 @@ test('completed preview uses specification dimensions and actual job details wit
       const details = f.view.root.findByProps({ className: 'elysium-details' }).findAllByType('p').flatMap(p => p.children.filter(child => typeof child === 'string')).join('\n')
       assert.match(JSON.stringify(f.view.toJSON()), /6e050097ab7b37578357ff0e111dc53d/)
       assert.match(details, /任务耗时：33.1 秒/)
+      assert.match(details, /模型：wan2.6-t2v/)
+      assert.doesNotMatch(details, /服务器：/)
       assert.match(details, /生成规格：预览档、384×512、约 3 秒视频、8 步、带音频/)
       await act(async () => f.view.root.findByType('video').props.onLoadedMetadata({ currentTarget: { videoWidth: 640, videoHeight: 360 } }))
       assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '640 / 360')

@@ -3,6 +3,7 @@ import { access, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { requiredConfig } from '../../config.js'
 
+export const FREE_PROJECT_ID = '00000000'
 export const validProjectId = value => /^[a-f0-9]{8}$/.test(value || '')
 export const validJobId = value => /^[a-f0-9]{32}$/.test(value || '')
 export const projectRoot = projectId => {

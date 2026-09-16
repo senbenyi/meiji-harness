@@ -21,11 +21,11 @@ test('default output keeps delivery and failure evidence without duplicating pro
 })
 
 test('completed output preserves actual media and review status', () => {
-  const value = { job_id: 'b'.repeat(32), status: 'succeeded',
+  const value = { project_id: '1234abcd', job_id: 'b'.repeat(32), status: 'succeeded',
     comfyui_metadata_status: 'comfyui-final', comfyui_view_url: 'http://comfy/view?filename=final.mp4',
     validation: { full_decode: 'passed', human_review: 'not_run' }, warnings: ['review pending'] }
   assert.deepEqual(JSON.parse(renderToolDebug({}, value)[0].text), {
-    job_id: value.job_id, status: value.status, comfyui_view_url: value.comfyui_view_url,
+    project_id: value.project_id, job_id: value.job_id, status: value.status, comfyui_view_url: value.comfyui_view_url,
     validation: value.validation, warnings: value.warnings,
   })
 })
@@ -36,4 +36,12 @@ test('image result exposes only its server preview URL', () => {
   const output = JSON.parse(renderToolDebug({}, value)[0].text)
   assert.equal(output.comfyui_view_url, value.comfyui_view_url)
   assert.ok(!Object.hasOwn(output, 'path'))
+})
+
+test('failed provider output identifies the configured model', () => {
+  const value = { job_id: 'd'.repeat(32), status: 'failed', error: 'worker stopped',
+    debug: { effective_input: { mode: 't2va' } },
+    server: { server_id: 'bailian', provider: 'bailian', connection: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v' } } }
+  assert.deepEqual(JSON.parse(renderToolDebug({}, value)[0].text).server,
+    { server_id: 'bailian', provider: 'bailian', model: 'wan2.6-t2v' })
 })

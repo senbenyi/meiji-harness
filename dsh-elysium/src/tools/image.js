@@ -6,14 +6,16 @@ import { getJob } from '../business/jobs/query.js'
 import { waitJob } from '../business/jobs/wait.js'
 import { bindVideoCall, findVideoCall } from '../business/video/call-binding.js'
 import { renderToolDebug } from './output.js'
+import { generationProjectId } from './generation-project.js'
 const output = { schema: { type: 'object', additionalProperties: true, properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
 export function createWorkflowGenerateImageTool() {
   return { name: 'workflow_generate_image', description: '生成图片或使用 images 编辑/组合参考图。优先自有模型，未连接时使用已启用的三方图片渠道。图片可作为角色、场景锚点，结果等待人工验收。失败时保留原任务，不自动重发。', timeoutMs: 121 * 60 * 1000,
-    parameters: { type: 'object', additionalProperties: false, required: ['project_id', 'prompt'], properties: {
-      project_id: { type: 'string' }, prompt: { type: 'string' }, images: { type: 'array', items: { type: 'string' }, description: '参考图片格式由当前渠道能力说明决定。' },
+    parameters: { type: 'object', additionalProperties: false, required: ['prompt'], properties: {
+      project_id: { type: 'string', description: '教学和导演模式的项目 ID；自由模式省略。' }, prompt: { type: 'string' }, images: { type: 'array', items: { type: 'string' }, description: '参考图片格式由当前渠道能力说明决定。' },
       new_image: { type: 'boolean', description: '仅当用户明确要求另一张图片时设为true，失败禁止设为true。' } } }, output,
     async execute(args, exec) {
-      const { project_id: projectId, new_image = false, ...plan } = args
+      const { project_id, new_image = false, ...plan } = args
+      const projectId = await generationProjectId(project_id, exec)
       if (!/^[a-f0-9]{8}$/.test(projectId || '') || typeof new_image !== 'boolean') throw new Error('图片项目参数无效')
       const session = exec?.agent?.session
       if (!new_image && session) for (const call of session.snapshotEvents().filter(event => event.type === 'tool/call' && ['workflow_generate_image', 'workflow_resume_image'].includes(event.data.name)).reverse()) {

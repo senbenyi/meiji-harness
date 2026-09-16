@@ -7,6 +7,13 @@ import { createServer } from 'node:http'
 import { withConfig } from '../src/config.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 import { createMediaHandler } from '../src/http/media-routes.js'
+import { jobSummary } from '../src/business/assets/catalog.js'
+
+test('job status exposes the actual model instead of presenting the provider as a model', () => {
+  const summary = jobSummary({ status: 'running', debug: { effective_input: { mode: 't2va' } },
+    server: { server_id: 'bailian', provider: 'bailian', connection: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v' } } })
+  assert.deepEqual(summary.server, { server_id: 'bailian', provider: 'bailian', model: 'wan2.6-t2v' })
+})
 
 test('assets require authentication, paginate successful jobs by mtime and accept validated job identity', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-assets-'))
