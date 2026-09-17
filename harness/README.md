@@ -16,23 +16,13 @@ node harness/scripts/start.mjs
 (cd dsh-elysium && pnpm build && pnpm package:registry) && DSH_NO_OPEN=1 node harness/scripts/start.mjs
 ```
 
-## 隧道
-```sh
-node harness/scripts/tunnel.mjs qwen`
-```
-
 ## 凭据
-环境、`~/.dsh/.credentials.yaml`、`.env`。
+本机 Qwen 的固定 API Key 直接配置在 `settings.yaml`；其他 Harness 凭据使用进程环境或 `~/.dsh/.credentials.yaml`。
 
 ## 配置
 - `harness/.dsh/settings.yaml`：Harness 与模型服务地址。
 - `harness/.dsh/profiles/web/`：Web profile 和插件装配配置。
 - `harness/.dsh/.agent-presets/`：标准、教学、自由和导演模式。
-- `harness/.dsh/.env.example`：本机环境变量模板；复制为 `.env` 后填写实际值。
 - `~/.dsh/.credentials.yaml`：Harness 在本机生成的凭据，不进入仓库。
 
-
-
-- `harness/.dsh/bailian.json`：独立百炼渠道配置，参照 `dsh-elysium/src/servers/providers/bailian/config.example.json` 创建；实际凭据文件忽略提交。
-- 启动脚本分别解析百炼和 BytePlus 配置：环境变量优先，其次仓库本地文件，最后 `$DSH_HOME` 文件。
-- 安装仅在目标缺少渠道配置时复制空模板，保留已有配置及凭据，并将权限设为 `0600`。
+Elysium 的模型选择、服务器、提供者凭据和业务数据统一位于 `~/.elysium`，不由 Harness 安装或启动脚本读写。

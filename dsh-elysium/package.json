@@ -23,6 +23,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node scripts/test.mjs",
+    "migrate:home": "node scripts/migrate-home.mjs",
     "workflow:sync": "node scripts/workflow-sync.mjs --sync",
     "workflow:check": "node scripts/workflow-sync.mjs --check",
     "package:registry": "node scripts/package-registry.mjs"

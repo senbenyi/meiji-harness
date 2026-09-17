@@ -16,10 +16,6 @@ const invalid = message => { throw Object.assign(new Error(message), { status: 4
 const reference = value => typeof value === 'string' && (/^job:[a-f0-9]{32}$/.test(value) || /^asset:\/\/[^\s]+$/.test(value) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value) || (() => { try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password } catch { return false } })())
 export function validatePlan(plan, backend) {
   if (!plan || typeof plan.prompt !== 'string' || !plan.prompt.trim()) invalid('请填写非空提示词')
-  if (backend.service === 'image') {
-    if (Object.keys(plan).some(key => !['prompt', 'images'].includes(key)) || plan.images !== undefined && (!Array.isArray(plan.images) || !plan.images.length || plan.images.length > 9 || !plan.images.every(reference))) invalid('图片编辑参考图必须为 job:素材ID、HTTPS URL、asset:// 或图片数据，最多9张')
-    return
-  }
   if (!VIDEO_MODES.includes(plan.mode) || plan.profile !== undefined && !VIDEO_PROFILES.includes(plan.profile)) invalid('视频模式或档次无效')
   const required = MODE_MEDIA[plan.mode]
   if (Object.keys(plan).some(key => !['prompt', 'mode', 'profile', 'duration_seconds', ...required].includes(key))) invalid('三方视频包含未支持参数')
@@ -40,9 +36,6 @@ async function imageReference(value) {
   } finally { await media.handle.close() }
 }
 async function payload(plan, backend) {
-  if (backend.service === 'image') return { model: backend.connection.model, prompt: plan.prompt, size: backend.connection.size,
-    response_format: 'url', watermark: backend.connection.watermark ?? false,
-    ...(plan.images ? { image: await Promise.all(plan.images.map(imageReference)) } : {}) }
   const roles = { first_frame: 'first_frame', last_frame: 'last_frame', reference_image_1: 'reference_image', reference_image_2: 'reference_image' }
   return { model: backend.connection.model, content: [{ type: 'text', text: plan.prompt }, ...await Promise.all(MODE_MEDIA[plan.mode].map(async key => ({ type: 'image_url', role: roles[key], image_url: { url: await imageReference(plan[key]) } })))],
     duration: plan.duration_seconds ?? backend.connection.duration, resolution: backend.connection.resolution, ratio: backend.connection.ratio,
@@ -63,7 +56,7 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
   bytePlusKey(backend)
   const directory = projectJobRoot(projectId, jobId), journalPath = join(directory, 'byteplus-submission.json')
   const statusPath = join(directory, 'status.json'), client = createClient(backend, { signal })
-  const status = { job_id: jobId, project_id: projectId, capability: backend.service === 'image' ? 'workflow-image' : 'workflow-video', backend: 'byteplus', server: backend,
+  const status = { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'byteplus', server: backend,
     status: 'running', stage: 'prepare', debug: { effective_input: plan }, created_at: new Date().toISOString() }
   await saveJson(statusPath, status)
   try {
@@ -74,40 +67,37 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
       journal = { state: 'submitting', request_hash: createHash('sha256').update(JSON.stringify(request)).digest('hex') }
       await saveJson(journalPath, journal)
       status.stage = 'submit'; await saveJson(statusPath, status)
-      const response = await client.request(backend.service === 'image' ? 'images/generations' : 'contents/generations/tasks', request)
+      const response = await client.request('contents/generations/tasks', request)
       journal = { ...journal, state: 'submitted', response }
       await saveJson(journalPath, journal)
     }
     if (journal.state === 'submitting') throw Object.assign(new Error('供应商提交结果未知；禁止重发。请核对供应商任务并将原响应补入 byteplus-submission.json 后恢复'), { code: 'BYTEPLUS_SUBMISSION_UNKNOWN' })
     let result = journal.response
-    if (backend.service === 'video') {
-      if (!result.id) throw new Error('供应商未返回任务 ID，禁止重发')
-      status.remote_task_id = result.id; status.stage = 'poll'; await saveJson(statusPath, status)
-      const deadline = Date.now() + 60 * 60 * 1000
-      for (;;) {
-        signal?.throwIfAborted()
-        result = await client.request(`contents/generations/tasks/${encodeURIComponent(journal.response.id)}`)
-        await saveJson(join(directory, 'byteplus-result.json'), result)
-        if (result.status === 'succeeded') break
-        if (['failed', 'cancelled', 'expired'].includes(result.status)) throw Object.assign(new Error(`原供应商任务${result.status}，恢复不会创建新任务`), { code: 'BYTEPLUS_TASK_FAILED' })
-        if (Date.now() >= deadline) throw new Error('等待超时，请使用原任务 ID 恢复查询')
-        await sleep(5000, undefined, { signal })
-      }
+    if (!result.id) throw new Error('供应商未返回任务 ID，禁止重发')
+    status.remote_task_id = result.id; status.stage = 'poll'; await saveJson(statusPath, status)
+    const deadline = Date.now() + 60 * 60 * 1000
+    for (;;) {
+      signal?.throwIfAborted()
+      result = await client.request(`contents/generations/tasks/${encodeURIComponent(journal.response.id)}`)
+      await saveJson(join(directory, 'byteplus-result.json'), result)
+      if (result.status === 'succeeded') break
+      if (['failed', 'cancelled', 'expired'].includes(result.status)) throw Object.assign(new Error(`原供应商任务${result.status}，恢复不会创建新任务`), { code: 'BYTEPLUS_TASK_FAILED' })
+      if (Date.now() >= deadline) throw new Error('等待超时，请使用原任务 ID 恢复查询')
+      await sleep(5000, undefined, { signal })
     }
-    const url = backend.service === 'image' ? result.data?.[0]?.url : result.content?.video_url
+    const url = result.content?.video_url
     if (!url || !['http:', 'https:'].includes(new URL(url).protocol)) throw new Error('供应商缺少有效产物 URL')
     status.stage = 'download'; await saveJson(statusPath, status)
     const response = await fetch(url, { signal, redirect: 'error' })
     if (!response.ok) throw new Error(`产物下载失败：HTTP ${response.status}`)
-    const kind = backend.service, extension = kind === 'video' ? '.mp4' : response.headers.get('content-type')?.includes('png') ? '.png' : response.headers.get('content-type')?.includes('webp') ? '.webp' : '.jpg'
-    const path = `media/${jobId}${extension}`, file = join(projectRoot(projectId), path)
+    const path = `media/${jobId}.mp4`, file = join(projectRoot(projectId), path)
     await mkdir(join(projectRoot(projectId), 'media'), { recursive: true })
     const { pipeline } = await import('node:stream/promises'), { Readable } = await import('node:stream'), { createWriteStream } = await import('node:fs')
     try { await pipeline(Readable.fromWeb(response.body), createWriteStream(file + '.tmp', { mode: 0o600 })); await rename(file + '.tmp', file) }
     finally { await rm(file + '.tmp', { force: true }) }
-    status.result = { ...await registerMedia(projectId, jobId, path, kind), provider: 'byteplus', model: backend.connection.model,
+    status.result = { ...await registerMedia(projectId, jobId, path, 'video'), provider: 'byteplus', model: backend.connection.model,
       profile: plan.profile, remote_task_id: journal.response.id, duration_sec: result.duration ?? plan.duration_seconds ?? backend.connection.duration,
-      specification: kind === 'video' ? { resolution: backend.connection.resolution, ratio: backend.connection.ratio, audio: backend.connection.generate_audio } : { size: backend.connection.size } }
+      specification: { resolution: backend.connection.resolution, ratio: backend.connection.ratio, audio: backend.connection.generate_audio } }
     status.status = 'succeeded'; status.stage = 'completed'; status.finished_at = new Date().toISOString()
     await saveJson(statusPath, status)
     return status

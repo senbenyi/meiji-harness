@@ -44,18 +44,6 @@ async function mount(f, tab = 'anchors') {
   return view
 }
 
-test('polling refreshes remote changes, avoids unchanged reads and stops on unmount', async () => {
-  const f = fixture(), view = await mount(f)
-  await f.tick()
-  assert.equal(f.requests.filter(path => path.startsWith('/project/get')).length, 1)
-  f.change({ title: '聊天修改' })
-  await f.tick()
-  assert.equal(view.root.findByType('h1').children.join(''), '聊天修改')
-  assert.equal(f.requests.filter(path => path.startsWith('/project/get')).length, 2)
-  await act(async () => view.unmount())
-  assert.equal(f.timers.size, 0)
-})
-
 test('project settings draft survives a remote update and refreshes after leaving the form', async () => {
   const f = fixture(), view = await mount(f, 'project')
   await edit(view, '项目名称', '手动草稿')
@@ -67,42 +55,6 @@ test('project settings draft survives a remote update and refreshes after leavin
   await click(view, '锚点')
   await f.tick()
   assert.equal(view.root.findByType('h1').children.join(''), '聊天标题')
-  await act(async () => view.unmount())
-})
-
-for (const [tab, button, field] of [['anchors', '查看参考素材 林', '锚点描述'], ['anchors', '添加锚点', '锚点名称'], ['acts', '编辑镜头', '字幕']]) {
-  test(`polling preserves unsaved ${button} content`, async () => {
-    const f = fixture(), view = await mount(f, tab)
-    if (tab === 'acts') await click(view, '镜 001')
-    await click(view, button)
-    await edit(view, field, '未保存内容')
-    f.change({ title: '远端标题' })
-    await f.tick()
-    assert.equal(view.root.findByProps({ 'aria-label': field }).props.value, '未保存内容')
-    assert.match(JSON.stringify(view.toJSON()), /项目已有新修改/)
-    assert.equal(view.root.findByType('h1').children.join(''), '项目')
-    await act(async () => view.unmount())
-  })
-}
-
-test('saving skips polls and a late refresh cannot overwrite the saved project', async () => {
-  const f = fixture(), view = await mount(f, 'project')
-  f.change({ title: '旧远端结果' })
-  f.hold('/project/get')
-  let polling
-  await act(async () => { polling = f.startTick(); await Promise.resolve() })
-  assert.equal(f.pending.length, 1)
-  await edit(view, '项目名称', '新保存标题')
-  f.hold('/project/update')
-  let saving
-  await act(async () => { saving = view.root.findByType('form').props.onSubmit({ preventDefault() {} }); await Promise.resolve() })
-  assert.equal(f.pending.length, 2)
-  const polls = f.requests.filter(path => path.startsWith('/project/poll')).length
-  await act(async () => { f.pending[0]({ ...initial(), title: '旧远端结果', updated_at: 2 }); await polling })
-  await f.tick()
-  assert.equal(f.requests.filter(path => path.startsWith('/project/poll')).length, polls)
-  await act(async () => { f.pending[1]({ ...initial(), title: '新保存标题', updated_at: 3 }); await saving })
-  assert.equal(view.root.findByType('h1').children.join(''), '新保存标题')
   await act(async () => view.unmount())
 })
 

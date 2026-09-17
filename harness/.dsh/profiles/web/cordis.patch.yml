@@ -1,47 +1,29 @@
+# Web Profile 组合配置：定义插件装配、初始化参数与能力边界。
+
+# 系统提示词。
 - id: system-prompt
   config:
     persona: >-
       你是一个视频创作助手。每次回复简洁高效不超过 500 字，跳过中间推理过程，杜绝废话、冗余内容及不必要的解释。
 
-# Web 端不收集会话反馈。
-- id: command-feedback
-  disabled: true
+# Elysium 插件装配。
+- insert:
+    - id: dsh-elysium
+      name: '@dsh-external/dsh-elysium'
 
-# Web 端不提供会话日志导出。
-- id: session-log-download
-  disabled: true
-
-# 权限由部署固定，禁止注册 /permission 指令或显示权限切换界面。
-- id: permission
-  isolate:
-    commands: true
-
-- id: ui-permission
-  disabled: true
-
-# 只发现本机维护的四个 Elysium 预设，不合并 DSH 内置预设。
+# 预设来源策略：只发现本机维护的 Elysium 预设。
 - id: agent-presets
   config:
     default: elysium-teaching
     includeShippedRoot: false
 
-# 生成使用 ComfyUI URL；模板媒体由插件从存储目录提供同源访问。
-- insert:
-    - id: dsh-elysium
-      name: '@dsh-external/dsh-elysium'
-      config:
-        comfyUrl: !!js process.env.COMFYUI_URL
-        # 固定模型清单；连接地址沿用本机配置，图片模型暂不配置。
-        models:
-          llm:
-            - id: qwen38
-              label: Qwen3.8 27B
-          analysis:
-            - id: qwen38
-              label: Qwen3.8 27B
-          image:
-            - id: wan22
-              label: wan22
-          video:
-            - id: minimax-h3
-              label: MiniMax H3
+# Web 能力边界：关闭反馈、日志导出与权限切换。
+- id: command-feedback
+  disabled: true
+- id: session-log-download
+  disabled: true
+- id: permission
+  isolate:
+    commands: true
+- id: ui-permission
+  disabled: true

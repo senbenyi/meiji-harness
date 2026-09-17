@@ -7,6 +7,7 @@ export const TOOL_GROUPS = {
   orchestration: { description: '通用多代理工作流和 Ralph 循环（仅用户明确要求时）', names: ['workflow', 'ralph'] },
 }
 const deferred = new Set(Object.values(TOOL_GROUPS).flatMap(group => group.names))
+const alwaysVisible = new Set(['exit_plan_mode'])
 const sectionTools = { 'tool:jobs': TOOL_GROUPS.shell.names, 'tool:goal': TOOL_GROUPS.planning.names }
 export const ELYSIUM_AGENT_PRESETS = new Set(['elysium-teaching', 'elysium-free', 'elysium-director'])
 export const currentAgentPreset = agent => {
@@ -68,7 +69,7 @@ export function projectTools(assembly, agent) {
     { name: 'elysium:video-failed-stop', text: '视频任务已失败。本轮立即结束并报告失败；等待用户新消息明确要求重试，不得继续调用任何工具。' }] }
   const loaded = loadedToolNames(events)
   const free = isElysiumFreeAgent(agent)
-  const tools = assembly.tools.filter(tool => (!free || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || loaded.has(tool.name)))
+  const tools = assembly.tools.filter(tool => (!free || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))
   const catalog = Object.entries(TOOL_GROUPS).flatMap(([id, group]) => {

@@ -1,21 +1,25 @@
 // 职责：按服务解析唯一默认目标，保留无清单安装的旧连接配置。
 import { requiredConfig, runtimeConfig, withConfig } from '../../config.js'
 import { readRegistry } from './store.js'
+import { readSelection } from '../selection/store.js'
 import { providerDefinitions } from '../runtime/definitions.js'
 import { sshIdentity } from '../transport/connection.js'
 import { serviceUrl } from './schema.js'
 export function resolveServer(kind = 'comfyui', serverId) {
   const serviceKind = ['image', 'video'].includes(kind) ? 'comfyui' : kind === 'analysis' ? 'llm' : kind
   const registry = readRegistry()
-  const preferenceOnly = registry?.third_party && !registry.servers.length && !Object.keys(registry.active).length
-  if (!registry || preferenceOnly) {
+  if (!registry || !registry.servers.length) {
     if (kind === 'image') throw new Error('未配置图片模型')
     const owner = providerDefinitions().find(item => item.legacy?.[serviceKind]), legacy = owner?.legacy[serviceKind]
     if (!legacy || serverId && serverId !== legacy.server_id) throw new Error(`未知 ${serviceKind === 'comfyui' ? 'ComfyUI' : serviceKind} 实例：${serverId || ''}`)
     const { url_env, ...backend } = legacy
     return { ...backend, provider: owner.id, provider_api_version: 1, base_url: url_env ? requiredConfig(url_env, 'url') : backend.base_url, legacy: true }
   }
-  const selected = kind === 'comfyui' ? registry.active.video ?? registry.active.comfyui : registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
+  const selection = readSelection()
+  const selected = ['image', 'video'].includes(kind)
+    ? selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
+    : kind === 'comfyui' ? selection.selected.video ?? registry.active?.video ?? registry.active?.comfyui
+      : registry.active?.[kind] ?? (kind === 'analysis' ? registry.active?.llm : undefined)
   const server = registry.servers.find(item => item.id === (serverId ?? selected))
   if (!server?.services[serviceKind] || (!serverId && server.disabled)) throw new Error(`未配置可用的 ${kind} 服务器：${serverId || ''}`)
   return backendFromServer(server, serviceKind)

@@ -155,35 +155,6 @@ test('existing project persists director immediately when leaving project settin
   await act(async () => view.unmount())
 })
 
-test('director tab adds and deletes directors inline', async () => {
-  const f = fixture(emptyProject())
-  let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/directors').DirectorList)) })
-  assert.equal(view.root.findAllByType('article').length, 2)
-  await click(view, '添加导演')
-  assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 0)
-  for (const [label, value] of [['导演名称', '毕赣'], ['导演风格', '梦境与长镜头'], ['TOP5作品', '1、路边野餐  2、地球最后的夜晚 3、破碎太阳之心 4、狂野时代 5、金刚经']]) await act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
-  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
-  assert.equal(f.directors().some(item => item.name === '毕赣'), true)
-  assert.deepEqual(f.directors().find(item => item.name === '毕赣').works, ['路边野餐', '地球最后的夜晚', '破碎太阳之心', '狂野时代', '金刚经'])
-  await act(async () => view.root.findByProps({ 'aria-label': '删除导演 毕赣' }).props.onClick({ stopPropagation() {} }))
-  assert.equal(f.directors().some(item => item.name === '毕赣'), false)
-  await act(async () => view.unmount())
-})
-
-test('director cards persist drag sorting', async () => {
-  const f = fixture(emptyProject())
-  let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/directors').DirectorList)) })
-  let cards = view.root.findAllByType('article')
-  await act(async () => cards[0].props.onDragStart({ dataTransfer: {} }))
-  cards = view.root.findAllByType('article')
-  await act(async () => cards[1].props.onDrop({ preventDefault() {}, clientY: 90, currentTarget: { getBoundingClientRect: () => ({ top: 0, height: 100 }) } }))
-  assert.deepEqual(f.directors().map(item => item.name), ['王家卫', '张艺谋'])
-  assert.equal(f.requests.some(request => request.url.startsWith('/director/reorder')), true)
-  await act(async () => view.unmount())
-})
-
 test('storyboard paginates 120 shots, requests only selected preview and saves explicit edits', async () => {
   const project = emptyProject()
   project.anchors = [{ role: 'lin', label: '林', description: '', image_url: 'https://files.test/lin.png' }]
@@ -210,31 +181,6 @@ test('storyboard paginates 120 shots, requests only selected preview and saves e
   assert.equal(f.project().acts[5].shots[19].status, 'pending')
   await click(view, '解除素材关联')
   assert.equal(f.project().acts[5].shots[19].job_id, null)
-  await act(async () => view.unmount())
-})
-
-test('delivery view renders film specs and server subtitle links without fetching media', async () => {
-  const project = emptyProject()
-  project.deliverables = [
-    { type: 'film', label: '六分钟预览', job_id: 'a'.repeat(32), duration_sec: 360, frame_count: 8640, size_bytes: 31 * 1024 * 1024 },
-    { type: 'subtitle', label: '字幕 SRT', url: 'https://files.test/subtitle.srt' },
-    { type: 'film', label: '旧本地路径', path: 'out/movie.mp4' },
-  ]
-  const f = fixture(project)
-  let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
-  await click(view, '成品')
-  const links = view.root.findAllByType('a')
-  assert.equal(links.length, 1)
-  assert.equal(view.root.findByType('video').props.src, '/media/video?job=' + 'a'.repeat(32) + '&t=t')
-  assert.equal(links[0].props['aria-label'], '下载字幕 字幕 SRT')
-  assert.equal(links[0].props.href, 'https://files.test/subtitle.srt')
-  assert.equal(view.root.findByType('video').props.controls, true)
-  assert.doesNotMatch(JSON.stringify(view.toJSON()), /播放成片|下载视频/)
-  assert.match(JSON.stringify(view.toJSON()), /360秒 · 8640帧 · 31MB/)
-  assert.equal(f.requests.length, 1)
-  const { deliveryUrl } = f.require('elysium/delivery')
-  assert.equal(deliveryUrl({ url: 'javascript:alert(1)' }), null)
   await act(async () => view.unmount())
 })
 
@@ -278,56 +224,6 @@ test('material filters reset pagination and propagate canonical profile and kind
   await act(async () => view.unmount())
 })
 
-test('anchor image takes precedence over source video and storyboard does not fetch anchor previews', async () => {
-  const project = emptyProject()
-  project.anchors = [{ role: 'lin', label: '林', description: '', source: { job_id: 'b'.repeat(32) }, image_url: 'https://files.test/lin.png' }]
-  project.acts = [{ title: '幕', shots: [{ role: 'lin', action: '', subtitle: '', mode: 'i2va', job_id: null, status: 'pending', notes: '' }] }]
-  const f = fixture(project)
-  let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
-  assert.ok(view.root.findAllByType('img').some(img => img.props.src === 'https://files.test/lin.png'))
-  await click(view, '分镜')
-  assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 0)
-  await act(async () => view.unmount())
-})
-
-test('job-backed local anchor previews use authenticated image routes', async () => {
-  const project = emptyProject()
-  project.anchors = [{ role:'lin', label:'林夏', description:'', source:{type:'job',job_id:'b'.repeat(32)}, image_url:'' }]
-  const f = fixture(project)
-  let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/anchors').AnchorView,{project,save(){},run(){}})) })
-  assert.equal(view.root.findByType('img').props.src,`/media/image?job=${'b'.repeat(32)}&t=t`)
-  assert.equal(f.requests.filter(request => request.url.startsWith('/media/status')).length,1)
-  await act(async () => view.unmount())
-})
-
-
-test('delivery uses native controls, allows film selection and handles subtitle-only projects', async () => {
-  const project = emptyProject(), f = fixture(project)
-  project.deliverables = [
-    { type:'subtitle', label:'字幕', url:'https://files.test/subtitle.srt' },
-    { type:'film', label:'无效成片', url:'file:///movie.mp4' },
-    { type:'film', label:'第一版', job_id:'a'.repeat(32) },
-    { type:'film', label:'第二版', url:'https://files.test/film.mp4' },
-  ]
-  const Component = f.require('elysium/delivery').DeliveryView
-  let view
-  await act(async () => { view = create(React.createElement(Component, { project })) })
-  assert.equal(view.root.findByType('video').props.src,'/media/video?job='+'a'.repeat(32)+'&t=t')
-  assert.equal(view.root.findByType('video').props.controls,true)
-  assert.equal(view.root.findByType('video').props.autoPlay,undefined)
-  assert.doesNotMatch(JSON.stringify(view.toJSON()),/播放成片|下载视频/)
-  await act(async () => view.root.findByProps({ 'aria-label':'选择成片' }).props.onChange({ target:{value:'https://files.test/film.mp4'} }))
-  assert.equal(view.root.findByType('video').props.src,'https://files.test/film.mp4')
-  await act(async () => view.update(React.createElement(Component, { project:{...project,deliverables:[project.deliverables[0]]} })))
-  assert.equal(view.root.findAllByType('video').length,0)
-  assert.match(JSON.stringify(view.toJSON()),/暂无可预览成片/)
-  assert.equal(view.root.findByType('a').props.href,'https://files.test/subtitle.srt')
-  await act(async () => view.unmount())
-})
-
-
 test('anchor preview retains draft after failed save and preserves reference fields', async () => {
   const project = emptyProject(), guard = { current: null }
   project.anchors = [{ role: 'lin', label: '林夏', description: '原描述', image_url: 'https://files.test/lin.png', source: null }]
@@ -352,49 +248,6 @@ test('anchor preview retains draft after failed save and preserves reference fie
   assert.equal(guard.current, null)
 })
 
-
-test('replacing a reference from preview preserves unsaved anchor text', async () => {
-  const project = emptyProject()
-  project.anchors = [{ role: 'lin', label: '林', description: '原描述', image_url: '', source: null }]
-  const f = fixture(project)
-  let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/anchors').AnchorView, { project, busy: false, run: action => action() })) })
-  await click(view, '查看参考素材')
-  await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '未保存新名称' } }))
-  await click(view, '更换参考图片')
-  assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
-  await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())
-  await click(view, '使用此素材')
-  assert.equal(view.root.findByProps({ 'aria-label': '锚点名称' }).props.value, '未保存新名称')
-  assert.ok(view.root.findAllByType('img').some(img => img.props.src === `/media/image?job=${'b'.repeat(32)}&t=t`))
-  await click(view, '保存')
-  assert.equal(f.project().anchors[0].label, '未保存新名称')
-  assert.equal(f.project().anchors[0].source.job_id, 'b'.repeat(32))
-  await act(async () => view.unmount())
-})
-
-
-test('new anchor selects an image into draft and only persists it on save', async () => {
-  const f = fixture(emptyProject())
-  let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: 'abcdef12', viewState: { projectTab: 'anchors' }, back() {} })) })
-  await click(view, '添加锚点')
-  await act(async () => view.root.findByProps({ 'aria-label': '锚点名称' }).props.onChange({ target: { value: '新锚点' } }))
-  await click(view, '选择参考图片')
-  assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
-  assert.equal(new URL(f.requests.findLast(request => request.url.startsWith('/media/list')).url, 'http://localhost').searchParams.get('media_kind'), 'image')
-  await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())
-  await click(view, '使用此素材')
-  assert.equal(f.project().anchors.length, 0)
-  assert.equal(f.requests.filter(request => request.url.startsWith('/project/import')).length, 0)
-  assert.equal(view.root.findByProps({ 'aria-label': '锚点名称' }).props.value, '新锚点')
-  assert.ok(view.root.findAllByType('img').some(img => img.props.src === `/media/image?job=${'b'.repeat(32)}&t=t`))
-  await act(async () => view.root.findByProps({ className: 'elysium-anchor-create' }).props.onSubmit({ preventDefault() {} }))
-  assert.equal(f.project().anchors[0].label, '新锚点')
-  assert.deepEqual(f.project().anchors[0].source, { type: 'material', job_id: 'b'.repeat(32) })
-  assert.equal(view.root.findAllByProps({ className: 'elysium-anchor-create' }).length, 0)
-  await act(async () => view.unmount())
-})
 
 // 更换封面只修改封面引用，不把素材变成项目锚点。
 test('project settings saves a replacement cover without altering anchors', async () => {

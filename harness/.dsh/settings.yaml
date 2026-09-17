@@ -1,16 +1,14 @@
-# Harness 模型提供方。
+# 用户运行设置：配置已挂载插件的模型、默认项与界面偏好。
+
+# 模型提供方与模型目录。
 llm-pi-ai:
   providers:
-    # 使用环境变量中的 API Key，不在仓库保存凭据。
-    qwen-token-plan-cn:
-      apiKeyEnv: QWEN_TOKEN_PLAN_CN_API_KEY
-    # 通过本机 SSH 转发访问远端 Qwen OpenAI 兼容接口。
     qwen38-local:
       displayName: qwen3.8-27b-elysium
-      api: openai-completions
       baseURL: http://127.0.0.1:18000/v1
+      apiKey: local-vllm
+      api: openai-completions
       compat:
-        # 适配 Qwen chat template 与 openai-completions 参数约定。
         supportsDeveloperRole: false
         maxTokensField: max_tokens
         thinkingFormat: qwen-chat-template
@@ -24,13 +22,22 @@ llm-pi-ai:
             high: high
           input:
             - text
-      apiKeyEnv: QWEN38_LOCAL_API_KEY
 
+# 默认项。
 # 新会话默认使用经本机转发的 Qwen 模型。
 agent-default-model:
   provider: qwen38-local
   model: qwen3.8-27b-elysium
 
+# 本机开发 Harness 默认权限；不要复制到远端模型服务器。
+permission:
+  defaultPreset: danger-full-access
+
+# 默认显示教学预设。
+agent-presets:
+  default: elysium-teaching
+
+# 界面与交互偏好。
 # 显示浏览器/Git 标签，并允许 Agent 主动打开工具界面。
 dsh-better-sidebar:
   tabsEnabled:
@@ -41,11 +48,3 @@ dsh-better-sidebar:
 # Agent 忙碌时按 Enter 将新消息作为 steer 发送。
 ui-conversation:
   busyEnter: steer
-
-# 本机开发 Harness 默认权限；不要复制到远端模型服务器。
-permission:
-  defaultPreset: danger-full-access
-
-# 默认显示教学预设。
-agent-presets:
-  default: elysium-teaching

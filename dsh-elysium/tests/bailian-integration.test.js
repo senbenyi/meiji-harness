@@ -16,8 +16,6 @@ import { openLocalMedia } from '../src/business/assets/local-media.js'
 import { createJob } from '../src/business/jobs/create.js'
 import { launch } from '../src/business/video/launcher.js'
 import { waitJob } from '../src/business/jobs/wait.js'
-import { runProduction } from '../src/business/production/runner.js'
-import { validateProductionManifest } from '../src/business/production/manifest.js'
 import { createServerHandler } from '../src/http/server-routes.js'
 
 const plan = { mode: 't2va', prompt: '清晨的海边', profile: 'regular' }
@@ -41,14 +39,15 @@ async function fixture(t) {
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
-  const file = join(root, 'bailian.json'), bpFile = join(root, 'byteplus.json')
+  const file = join(root, 'bailian.json')
+  const bytePlusFile = join(root, 'byteplus.json')
   const config = { enabled: true, api_key: 'fake-secret', base_url: `http://127.0.0.1:${server.address().port}/api/v1`, video: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v', duration: 5, resolution: '720P', ratio: '9:16', prompt_extend: false, watermark: false } }
-  const byteplus = { enabled: true, api_key: 'old-secret', base_url: 'https://old.test/api/v3', image: { model: 'seedream' }, video: { model: 'seedance' } }
-  await saveJson(file, config); await saveJson(bpFile, byteplus)
-  const runtime = { ELYSIUM_STATE_ROOT: root, ELYSIUM_BAILIAN_FILE: file, ELYSIUM_BYTEPLUS_FILE: bpFile, ELYSIUM_SERVERS_FILE: join(root, 'absent.json'), COMFYUI_URL: 'http://127.0.0.1:1' }
+  await saveJson(file, config)
+  await saveJson(bytePlusFile, { enabled: true, base_url: 'https://old.test/api/v3', api_key: 'old-secret', video: { model: 'seedance', duration: 5, resolution: '720p', ratio: '9:16', generate_audio: true, watermark: false } })
+  const runtime = { ELYSIUM_STATE_ROOT: root, ELYSIUM_BAILIAN_FILE: file, ELYSIUM_BYTEPLUS_FILE: bytePlusFile, ELYSIUM_SERVERS_FILE: join(root, 'absent.json'), COMFYUI_URL: 'http://127.0.0.1:1' }
   await saveJson(join(root, 'projects/aaaaaaaa/project.json'), { id: 'aaaaaaaa', title: 'test', profile: 'regular', created_at: 1, updated_at: 1 })
   for (const name of ['anchors', 'materials', 'storyboard', 'deliverables']) await saveJson(join(root, `projects/aaaaaaaa/${name}.json`), [])
-  return { root, file, bpFile, config, byteplus, controls, calls, bind: action => withConfig(runtime, action) }
+  return { root, file, bytePlusFile, config, runtime, controls, calls, bind: action => withConfig(runtime, action) }
 }
 
 test('private wins; Bailian is the first third-party video channel; disabled Seedance is retained and never selected', async t => {
@@ -56,10 +55,9 @@ test('private wins; Bailian is the first third-party video channel; disabled See
   await f.bind(async () => {
     assert.equal((await resolveGenerationBackend('video', { probe: async () => true })).provider, 'manual')
     assert.equal((await resolveGenerationBackend('video', { probe: async () => false })).provider, 'bailian')
-    assert.equal((await resolveGenerationBackend('image')).provider, 'byteplus')
     f.config.enabled = false; await saveJson(f.file, f.config)
     assert.equal((await resolveGenerationBackend('video', { probe: async () => false })).provider, 'byteplus')
-    f.byteplus.enabled = false; await saveJson(f.bpFile, f.byteplus)
+    await saveJson(f.bytePlusFile, { enabled: false })
     assert.equal((await resolveGenerationBackend('video')).provider, 'manual')
     f.config.enabled = true; await saveJson(f.file, f.config)
     assert.deepEqual((await thirdPartyModels()).video.map(model => model.id), ['bailian:wan26'])
@@ -115,7 +113,7 @@ test('unsupported modes, extra references and invalid durations fail before subm
   })
 })
 
-test('worker receives independent config and saved backend; production reuses local image anchors and completed shots', async t => {
+test('worker receives independent config and saved backend', async t => {
   const f = await fixture(t)
   const sample = join(f.root, 'sample.mp4')
   const encoded = spawnSync('ffmpeg', ['-y', '-f', 'lavfi', '-i', 'color=c=red:s=32x32:r=2:d=1', '-pix_fmt', 'yuv420p', sample], { encoding: 'utf8' })
@@ -124,19 +122,6 @@ test('worker receives independent config and saved backend; production reuses lo
     const id = await createJob('aaaaaaaa', plan, bailianBackend('video'))
     const status = await waitJob(await launch(id, 'workflow-video'))
     assert.equal(status.status, 'succeeded', status.error); assert.equal(status.media_kind, 'video')
-    const manifest = validateProductionManifest({ version: 1, project_id: 'aaaaaaaa', profile: 'regular', shots: [
-      { id: 'one', request: { mode: 't2va', prompt: 'Scene' }, media: {}, produces_anchor: { id: 'scene', frame_index: 1 } },
-      { id: 'two', request: { mode: 'i2va', prompt: 'Continue' }, media: { first_frame: { anchor: 'scene' } } },
-    ] })
-    assert.equal((await runProduction(manifest, { log: () => {} })).completed, 2)
-    const submissions = f.calls.filter(call => call.method === 'POST')
-    assert.equal(submissions.length, 3)
-    assert.equal(submissions[2].body.model, 'wan2.6-i2v')
-    assert.match(submissions[2].body.input.img_url, /^data:image\/png;base64,/)
-    assert.equal(submissions[2].body.parameters.resolution, '720P')
-    assert.equal(submissions[2].body.parameters.size, undefined)
-    assert.equal((await runProduction(manifest, { log: () => {} })).completed, 2)
-    assert.equal(f.calls.filter(call => call.method === 'POST').length, 3)
   })
 })
 

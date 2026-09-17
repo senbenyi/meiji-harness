@@ -8,6 +8,8 @@ const events = names => [{ type: 'tool/call', data: { name: 'elysium_load_tools'
 test('defers schemas and guidance without mutating source, policies or contexts', () => {
   const input = assembly(), before = JSON.stringify(input), result = projectTools(input, agent([]))
   assert.ok(!result.tools.some(t => t.name === 'bash'))
+  assert.ok(result.tools.some(t => t.name === 'exit_plan_mode'))
+  assert.ok(!result.tools.some(t => t.name === 'todo_write'))
   assert.ok(result.tools.some(t => t.name === 'workflow_generate_video'))
   assert.ok(result.tools.some(t => t.name === 'report'))
   assert.ok(result.sections.some(s => s.name === 'plan:policy'))

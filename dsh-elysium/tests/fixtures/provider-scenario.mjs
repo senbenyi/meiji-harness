@@ -13,6 +13,8 @@ import { saveJson } from './lib/business/jobs/store.js'
 import { resolveServer } from './lib/servers/registry/resolve.js'
 import { backendLlmSettings, backendWorkflowSource } from './lib/servers/runtime/index.js'
 import { readRegistry, writeRegistry } from './lib/servers/registry/store.js'
+import { readSelection } from './lib/servers/selection/store.js'
+import { backendFromServer } from './lib/servers/registry/resolve.js'
 import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/tools/comfyui-tasks.js'
 import { runProduction } from './src/business/production/runner.js'
 import { validateProductionManifest } from './src/business/production/manifest.js'
@@ -100,10 +102,10 @@ try {
     llm: { transport: 'http', base_url: `${target.url}/v1`, model: 'qwen3.8-27b-elysium' } } })
   await request('server/register', { revision: 0, server: record('a', a) }, 201)
   await request('server/register', { revision: 1, server: record('b', b) }, 201)
-  const select = async (id, service = 'comfyui') => request('server/switch', { id, service, revision: readRegistry().revision })
-  await select('a'); await select('a', 'llm')
+  const select = async id => request('server/switch', { id, service: 'comfyui', revision: readRegistry().revision, selection_revision: readSelection().revision })
+  await select('a')
   assert.equal(a.posts, 0, 'health checks must not generate')
-  assert.equal((await backendLlmSettings(resolveServer('llm'))).base_url, `${a.url}/v1`)
+  assert.equal((await backendLlmSettings(backendFromServer(readRegistry().servers.find(server => server.id === 'a'), 'llm'))).base_url, `${a.url}/v1`)
   assert.equal(await backendWorkflowSource(resolveServer()), a.url)
   const project = await request('project/create', { title: 'Adapter isolation', profile: 'preview', director: '张艺谋' }, 201)
   const projectId = project.id
@@ -125,8 +127,7 @@ try {
   const switched = await startVideoJob({ project_id: projectId, mode: 't2va', profile: 'preview', prompt: 'A new scene on B.' })
   assert.ok((await completed(projectId, switched.job_id)).result.comfyui_view_url.startsWith(b.url))
   assert.equal(b.posts, 1)
-  await select('b', 'llm')
-  assert.equal((await backendLlmSettings(resolveServer('llm'))).base_url, `${b.url}/v1`)
+  assert.equal((await backendLlmSettings(backendFromServer(readRegistry().servers.find(server => server.id === 'b'), 'llm'))).base_url, `${b.url}/v1`)
   await select('a')
   const manifest = validateProductionManifest({ version: 1, project_id: projectId, profile: 'preview', max_attempts: 2, shots: [
     { id: 'first', request: { mode: 't2va', prompt: 'A quiet garden.' }, produces_anchor: { id: 'garden', frame_index: 0 } },
@@ -154,7 +155,7 @@ try {
     for (const name of ['connect', 'createClient', 'buildGraph']) assert.ok(trace.some(entry => entry.name === name && entry.pid !== process.pid), `${name} dispatched inside real worker`)
     for (const name of ['validate', 'check', 'llmSettings', 'workflowSource']) assert.ok(trace.some(entry => entry.name === name), `${name} dispatched`)
   }
-  console.log(`${provider}: build/import, registration/check/switch, real worker/recovery, atomic tasks, batch/reference, media, LLM and workflow source passed`)
+  console.log(`${provider}: build/import, registration/check/switch, real worker/recovery, atomic tasks, batch/reference, media and workflow source passed`)
 } finally {
   for (const { project, id } of jobs) {
     const pid = await readFile(join(jobPath(project, id), 'worker.lock'), 'utf8').then(Number, () => 0)

@@ -1,12 +1,7 @@
 {
-  "enabled": true,
+  "enabled": false,
   "base_url": "https://ark.ap-southeast.bytepluses.com/api/v3",
-  "api_key": "",
-  "image": {
-    "model": "",
-    "size": "2K",
-    "watermark": false
-  },
+  "api_key": "replace-with-byteplus-key",
   "video": {
     "model": "dreamina-seedance-2-0-260128",
     "duration": 5,

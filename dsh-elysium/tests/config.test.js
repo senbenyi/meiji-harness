@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { requiredConfig } from '../src/config.js'
+import { homedir, tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/config.js'
 import { comfyUrl, ComfyClient } from '../src/comfyui/client.js'
 
 test('missing, empty and invalid addresses fail before any request; removed instance is rejected', () => {
@@ -43,4 +46,34 @@ test('storage configuration rejects absent, empty and relative paths', () => {
     if (previous === undefined) delete process.env.ELYSIUM_STATE_ROOT
     else process.env.ELYSIUM_STATE_ROOT = previous
   }
+})
+
+test('plugin config validates fields and isolates concurrent calls', async t => {
+  assert.equal(resolveConfig({ comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, join(homedir(), '.elysium'))
+  for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' }, { bailianFile: 'relative' },
+    { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 }, { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig(config))
+  const configs = ['/tmp/instance-a', '/tmp/instance-b'].map((stateRoot, index) => resolveConfig({
+    comfyUrl: `https://pod-${index}.test`, stateRoot, bailianFile: join(stateRoot, 'bailian.json'),
+  }))
+  assert.deepEqual(await Promise.all(configs.map(config => withConfig(config, async () => {
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(workerEnvironment().ELYSIUM_BAILIAN_FILE, config.ELYSIUM_BAILIAN_FILE)
+    return [requiredConfig('COMFYUI_URL', 'url'), requiredConfig('ELYSIUM_STATE_ROOT')]
+  }))), [['https://pod-0.test', '/tmp/instance-a'], ['https://pod-1.test', '/tmp/instance-b']])
+  const root = await mkdtemp(join(tmpdir(), 'elysium-preference-only-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const serversFile = join(root, 'servers.json')
+  await writeFile(serversFile, JSON.stringify({ version: 1, revision: 1, active: {}, third_party: { video: 'byteplus:seedance2' }, servers: [] }))
+  assert.equal(resolveConfig({ serversFile, comfyUrl: 'https://legacy.test' }).COMFYUI_URL, 'https://legacy.test')
+})
+
+test('model defaults and independent provider paths reach workers', () => {
+  const defaults = resolveConfig().ELYSIUM_MODELS, models = { llm: [], image: [], video: [] }
+  assert.deepEqual(defaults.analysis, defaults.llm)
+  assert.deepEqual(resolveConfig({ models }).ELYSIUM_MODELS.analysis, defaults.analysis)
+  assert.throws(() => resolveConfig({ models: { ...models, analysis: 'bad' } }))
+  const config = resolveConfig({ home: '/tmp/elysium-home' })
+  assert.equal(config.ELYSIUM_BYTEPLUS_FILE, '/tmp/elysium-home/providers/byteplus.json')
+  assert.equal(config.ELYSIUM_BAILIAN_FILE, '/tmp/elysium-home/providers/bailian.json')
+  withConfig(config, () => assert.equal(workerEnvironment().ELYSIUM_HOME, '/tmp/elysium-home'))
 })

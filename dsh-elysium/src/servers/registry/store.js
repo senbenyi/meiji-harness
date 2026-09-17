@@ -6,7 +6,7 @@ import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { runtimeConfig } from '../../config.js'
 import { validateRegistry, serverIdentity, fail } from './schema.js'
-export const registryPath = () => runtimeConfig().ELYSIUM_SERVERS_FILE || join(runtimeConfig().DSH_HOME || process.env.DSH_HOME || join(homedir(), '.dsh'), 'servers.json')
+export const registryPath = () => runtimeConfig().ELYSIUM_SERVERS_FILE || join(runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || join(homedir(), '.elysium'), 'servers.json')
 export function readRegistry(path = registryPath()) {
   try { return validateRegistry(JSON.parse(readFileSync(path, 'utf8'))) }
   catch (error) { if (error.code === 'ENOENT') return null; throw error }
@@ -25,7 +25,8 @@ export async function writeRegistry(next, expectedRevision, path = registryPath(
       const updated = next.servers.find(server => server.id === old.id)
       if (!updated || serverIdentity(old) !== serverIdentity(updated)) fail('已登记连接身份不可删除或修改；请停用旧记录并登记新 ID')
     }
-    const saved = { ...next, revision: expectedRevision + 1 }
+    const { active, third_party, ...connectionOnly } = next
+    const saved = { ...connectionOnly, revision: expectedRevision + 1 }
     await writeFile(temporary, JSON.stringify(saved, null, 2), { mode: 0o600 })
     await rename(temporary, path)
     return saved

@@ -19,7 +19,7 @@ export function serviceUrl(service) {
 export function validateRegistry(value) {
   keys(value, ['version', 'revision', 'active', 'third_party', 'servers'])
   if (value.version !== 1 || !Number.isSafeInteger(value.revision) || value.revision < 0 || !Array.isArray(value.servers)) fail('服务器配置版本无效')
-  keys(value.active, ['comfyui', 'llm', 'analysis', 'image', 'video'])
+  if (value.active !== undefined) keys(value.active, ['comfyui', 'llm', 'analysis', 'image', 'video'])
   if (value.third_party !== undefined) {
     keys(value.third_party, ['image', 'video'])
     if (Object.values(value.third_party).some(value => !/^[a-z][a-z0-9_-]{0,63}:[A-Za-z0-9_-]+$/.test(value))) fail('三方模型选择无效')
@@ -58,7 +58,7 @@ export function validateRegistry(value) {
       if (kind === 'llm' && (typeof service.model !== 'string' || !service.model)) fail('需要 LLM 模型标识')
     }
   }
-  for (const [kind, selected] of Object.entries(value.active)) {
+  for (const [kind, selected] of Object.entries(value.active || {})) {
     if (selected === null) continue
     const server = value.servers.find(item => item.id === selected)
     if (!server?.services[['image', 'video'].includes(kind) ? 'comfyui' : kind === 'analysis' ? 'llm' : kind] || server.disabled) fail(`默认 ${kind} 目标不存在或已停用`)

@@ -1,13 +1,75 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createServer } from 'node:http'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { createMediaHandler } from '../src/http/media-routes.js'
+import { createMediaHandler, MEDIA_ROUTE } from '../src/http/media-routes.js'
 import { jobSummary } from '../src/business/assets/catalog.js'
 import { bindVideoCall, findVideoCall } from '../src/business/video/call-binding.js'
 import { apply } from '../src/index.js'
+import { withConfig } from '../src/config.js'
+import { mediaReference } from '../src/comfyui/media-reference.js'
+import { ComfyClient } from '../src/comfyui/client.js'
+
+const comfyConfig = { COMFYUI_URL: 'https://comfy.test/comfy/' }
+
+test('media references reuse only safe files from the configured backend', () => withConfig(comfyConfig, () => {
+  const reference = mediaReference('https://comfy.test/comfy/view?filename=图.png&subfolder=shots/01&type=output')
+  assert.equal(reference.name, 'shots/01/图.png [output]')
+  assert.equal(new URL(reference.url).origin, 'https://comfy.test')
+  assert.equal(ComfyClient.prototype.upload, undefined)
+  for (const value of ['/tmp/a.png', 'file:///tmp/a.png', 'ssh://host/root/a.png', 'https://foreign.test/view?filename=a.png',
+    'https://comfy.test/comfy/view?filename=../a.png', 'https://comfy.test/comfy/view?filename=a.png&subfolder=../outside',
+    'https://comfy.test/comfy/view?filename=a.png&type=temp']) assert.throws(() => mediaReference(value))
+}))
+
+async function localFixture(t) {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-local-')), id = 'a'.repeat(32), projectId = 'b'.repeat(8)
+  const project = join(root, 'projects', projectId)
+  const job = { job_id: id, project_id: projectId, status: 'succeeded', result: { media_kind: 'video', local_media_path: 'media/clip.mp4' } }
+  await mkdir(join(project, 'media'), { recursive: true })
+  const records = ['clip.mp4', 'image.png', 'subtitles.srt'].map(name => ({ path: `media/${name}`, job_id: id, size_bytes: 10 }))
+  for (const record of records) await writeFile(join(project, record.path), '0123456789')
+  const save = () => writeFile(join(project, 'media/manifest.json'), JSON.stringify({ project_id: projectId, files: records }))
+  await save()
+  const handler = createMediaHandler({ token: 'test', readJob: async () => job })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
+  const url = kind => `http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}/${kind}?job=${id}&t=test`
+  return { project, job, records, save, get: (kind, options) => fetch(url(kind), options) }
+}
+
+test('registered local media supports authenticated reads and byte ranges', async t => {
+  const f = await localFixture(t)
+  for (const [file, kind, endpoint] of [['image.png', 'image', 'image'], ['clip.mp4', 'video', 'video'], ['subtitles.srt', 'file', 'download']]) {
+    Object.assign(f.job.result, { local_media_path: `media/${file}`, media_kind: kind })
+    const response = await f.get(endpoint)
+    assert.equal(response.status, 200); assert.equal(await response.text(), '0123456789')
+    assert.equal((await f.get(endpoint, { method: 'HEAD' })).status, 200)
+  }
+  f.job.result = { media_kind: 'video', local_media_path: 'media/clip.mp4' }
+  for (const [range, body] of [['bytes=2-4', '234'], ['bytes=-3', '789'], ['bytes=8-', '89']]) {
+    const response = await f.get('video', { headers: { Range: range } })
+    assert.equal(response.status, 206); assert.equal(await response.text(), body)
+  }
+  for (const range of ['bytes=10-', 'bytes=4-2', 'bytes=0-1,3-4']) assert.equal((await f.get('video', { headers: { Range: range } })).status, 416)
+})
+
+test('local media rejects traversal, unregistered files and symlink escapes', async t => {
+  const f = await localFixture(t)
+  for (const path of ['/etc/hosts', '../clip.mp4', 'media/test/../../clip.mp4', 'media/test/%2e%2e/clip.mp4', 'file:///etc/hosts', 'media/test/no.mp4']) {
+    f.job.result.local_media_path = path
+    assert.equal((await f.get('video')).status, 403, path)
+  }
+  const outside = await mkdtemp(join(tmpdir(), 'elysium-outside-'))
+  t.after(() => rm(outside, { recursive: true, force: true }))
+  await writeFile(join(outside, 'clip.mp4'), '0123456789')
+  await rm(join(f.project, 'media/clip.mp4'))
+  await symlink(join(outside, 'clip.mp4'), join(f.project, 'media/clip.mp4'))
+  assert.equal((await f.get('video')).status, 403)
+})
 
 test('status summary carries timing and generation specification to recovered cards', () => {
   const timings = { total_ms: 33123 }, specification = { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' }

@@ -1,4 +1,4 @@
-// 职责：实现 BytePlus 图片与视频平台契约，不探测或管理远程连接。
+// 职责：实现 BytePlus 视频平台契约，不探测或管理远程连接。
 import { guidance } from './guidance.js'
 import { bytePlusKey, readBytePlus, bytePlusBackend } from './config.js'
 import { validatePlan, executeJob, extractReference } from './execution.js'
@@ -13,10 +13,10 @@ export function createClient(backend, { signal } = {}) {
     return response.json()
   } }
 }
-export default { id: 'byteplus', label: 'BytePlus 三方模型', apiVersion: 1, services: { image: {}, video: {} },
+export default { id: 'byteplus', label: 'BytePlus 三方模型', apiVersion: 1, services: { video: {} },
   guidance, generationBackend: bytePlusBackend,
-  channel() { const config = readBytePlus(), models = {}; if (config?.image.model.trim()) models.image = { id: 'seedream', label: 'Seedream', model: config.image.model }; if (config?.video.model.trim()) models.video = { id: 'seedance2', label: 'Seedance 2.0', model: config.video.model }; return { id: 'byteplus', label: 'BytePlus · Seedance 2.0 / Seedream', enabled: !!config, models } },
-  validate(backend) { if (!['image', 'video'].includes(backend.service) || !backend.connection?.model?.trim()) throw new Error('请在独立配置文件中填写三方模型 ID') },
+  channel() { const config = readBytePlus(), models = config ? { video: { id: 'seedance2', label: 'Seedance 2.0', model: config.video.model } } : {}; return { id: 'byteplus', label: 'BytePlus · Seedance 2.0', enabled: !!config, models } },
+  validate(backend) { if (backend.service !== 'video' || !backend.connection?.model?.trim()) throw new Error('BytePlus 视频模型配置无效') },
   connect() {}, check: async () => ({ ok: true, connection_required: false }), createClient,
   buildGraph: unsupported, llmSettings: unsupported, workflowSource: unsupported, manage: unsupported,
   validatePlan, executeJob, extractReference }

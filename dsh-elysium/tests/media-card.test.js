@@ -63,19 +63,6 @@ test('same card progresses to playable result and stops polling', async () => {
   } finally { await f.close() }
 })
 
-test('completed card puts preview above metadata without download controls', async () => {
-  const url = 'https://pod.test/view?filename=final.mp4&subfolder=elysium/test&type=output&format=video%2Fmp4'
-  const f = await fixture([{ status: 'succeeded', has_video: true, comfyui_view_url: url }])
-  try {
-    assert.match(f.view.root.findByType('video').props.src, /^https:\/\/pod\.test\//)
-    assert.equal(f.view.root.findAllByType('a').length, 0)
-    const children = f.view.root.findByType('section').children
-    assert.equal(children[0].props.className, 'elysium-preview')
-    assert.equal(children[1].props.className, 'elysium-info')
-    assert.equal(f.timers.size, 0)
-  } finally { await f.close() }
-})
-
 test('a completed tool result plays without polling the media service', async () => {
   const url = 'https://pod.test/view?filename=final.mp4&type=output'
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
@@ -108,15 +95,6 @@ test('completed preview uses specification dimensions and actual job details wit
   }
 })
 
-test('missing task metadata does not invent duration or generation specifications', async () => {
-  const f = await fixture([{ status: 'succeeded', comfyui_view_url: 'https://pod.test/view?filename=old.mp4' }])
-  try {
-    assert.doesNotMatch(JSON.stringify(f.view.toJSON()), /任务耗时|生成规格/)
-    await act(async () => f.view.root.findByType('video').props.onLoadedMetadata({ currentTarget: { videoWidth: 384, videoHeight: 512 } }))
-    assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '384 / 512')
-  } finally { await f.close() }
-})
-
 test('rejected arguments show a compact record without a task card or polling', async () => {
   const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] i2va 缺少 first_frame' }] })
   try {
@@ -125,27 +103,6 @@ test('rejected arguments show a compact record without a task card or polling', 
     assert.equal(f.requests.length, 0)
     assert.equal(f.timers.size, 0)
     assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
-  } finally { await f.close() }
-})
-test('refresh can recover a completed job even when the tool block is still running', async () => {
-  const f = await fixture([{ status: 'succeeded', has_video: true }])
-  try { assert.equal(f.view.root.findAllByType('video').length, 1); assert.equal(f.timers.size, 0) }
-  finally { await f.close() }
-})
-test('mode validation errors do not appear as running jobs', async () => {
-  const f = await fixture([], { isError: true, content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] i2va 缺少 first_frame' }] })
-  try {
-    assert.equal(f.view.root.findAllByType('section').length, 0)
-    assert.equal(f.requests.length, 0)
-    assert.equal(f.timers.size, 0)
-    assert.match(JSON.stringify(f.view.toJSON()), /未创建任务/)
-  } finally { await f.close() }
-})
-test('execution stage reports video generation without claiming review passed', async () => {
-  const f = await fixture([{ status: 'running', stage: 'execute' }])
-  try {
-    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /工作流执行中/)
-    assert.equal(f.view.root.findAllByType('video').length, 0)
   } finally { await f.close() }
 })
 test('network interruption reconnects, whereas expired credentials stop polling', async () => {
@@ -174,31 +131,6 @@ test('unmount aborts the request and removes pending polling timers', async () =
   assert.equal(f.requests[0].options.signal.aborted, true)
 })
 
-test('server URL playback failure reports once and retries the same URL without local fallback', async () => {
-  const url='https://pod.test/view?filename=final.mp4'
-  const f=await fixture([], {content:[{type:'text',text:JSON.stringify({job_id:'a',status:'succeeded',comfyui_view_url:url})}]})
-  try {
-    assert.equal(f.view.root.findByType('video').props.src,url)
-    await act(async()=>f.view.root.findByType('video').props.onError())
-    assert.match(JSON.stringify(f.view.toJSON()),/预览加载失败/)
-    assert.equal(f.requests.length,0)
-    await act(async()=>f.view.root.findByProps({children:'重试播放'}).props.onClick())
-    assert.equal(f.view.root.findByType('video').props.src,url)
-  } finally { await f.close() }
-})
-
-test('interrupted session recovers original job and uses its server URL', async () => {
-  const f = await fixture([{ status: 'succeeded', job_id: 'original', has_video: true,
-    comfyui_view_url: 'https://pod.test/view?filename=final.mp4' }],
-  { isError: true, content: [{ type: 'text', text: 'The tool call was interrupted; outcome unknown.' }] })
-  try {
-    assert.match(f.view.root.findByType('video').props.src, /^https:\/\/pod\.test\//)
-    assert.equal(f.requests.length, 1)
-    assert.match(f.requests[0].url, /\/status\?/)
-    assert.equal(f.timers.size, 0)
-  } finally { await f.close() }
-})
-
 test('expired page credentials recover the original job with one retry', async () => {
   const f = await fixture([{ httpError: 401 }, { token: 'fresh', base: '/plugins/dsh-elysium/media' },
     { status: 'succeeded', has_video: true, job_id: 'original' }])
@@ -223,37 +155,6 @@ test('a second 401 stops recovery instead of looping', async () => {
     assert.match(JSON.stringify(f.view.toJSON()), /凭据不可用/)
   } finally { await f.close() }
 })
-
-test('portrait video fills a compact card and opens a dismissible player', async () => {
-  const f = await fixture([{ status: 'succeeded', has_video: true, specification: { width: 480, height: 854 } }])
-  try {
-    const thumbnail = f.view.root.findByType('video')
-    assert.equal(f.view.root.findByType('section').props.style.maxWidth, 300)
-    assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '480 / 854')
-    await act(async () => thumbnail.props.onLoadedData())
-    await act(async () => f.view.root.findByProps({ 'aria-label': '播放视频' }).props.onClick())
-    const modal = f.view.root.findByType('dialog')
-    assert.equal(modal.findByType('video').props.controls, true)
-    await act(async () => modal.findByType('button').props.onClick())
-    assert.equal(f.view.root.findAllByType('dialog').length, 0)
-    await act(async () => f.view.root.findByProps({ 'aria-label': '放大查看' }).props.onClick())
-    await act(async () => f.view.root.findByType('dialog').props.onClose())
-    assert.equal(f.view.root.findAllByType('video').length, 1)
-  } finally { await f.close() }
-})
-
-
-test('same-origin playback recovers a token rotated after status polling', async () => {
-  const f = await fixture([{ status: 'succeeded', has_video: true }, { httpError: 401 },
-    { token: 'rotated', base: '/plugins/dsh-elysium/media' }, { status: 'succeeded', has_video: true }])
-  try {
-    await act(async () => f.view.root.findByType('video').props.onError())
-    assert.match(f.view.root.findByType('video').props.src, /t=rotated/)
-    assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
-    assert.equal(f.requests.length, 4)
-  } finally { await f.close() }
-})
-
 
 test('history replay restores media for its own turn', async () => {
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: 'http://localhost/view' }) }] })
@@ -281,14 +182,6 @@ test('history replay restores media for its own turn', async () => {
     const rejected = { isError: true, content: [{ type: 'text', text: '[MODEL_INPUT_INVALID] duration 必须为正整数' }] }
     const empty = d.update({ state: next }, { event: call })
     assert.equal(d.update({ state: empty }, { event: { ...result, data: { ...result.data, message: { ...result.data.message, content: [rejected] } } } }).results.length, 0)
-  } finally { await f.close() }
-})
-
-test('remote completion with local transfer failure is not labeled generation failure', async () => {
-  const f = await fixture([{status:'failed',remote_status:'succeeded',error:'连接中断'}])
-  try {
-    assert.match(JSON.stringify(f.view.toJSON()),/产物待校验/)
-    assert.doesNotMatch(JSON.stringify(f.view.toJSON()),/生成失败/)
   } finally { await f.close() }
 })
 

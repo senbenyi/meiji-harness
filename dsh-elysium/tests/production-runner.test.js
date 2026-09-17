@@ -73,17 +73,20 @@ test('batch and resumed remaining shots stay on A when the default changes to B'
   const stateRoot = await fixture(t), seen = []
   const { comfyUrl } = await import('../src/comfyui/client.js')
   const { writeRegistry } = await import('../src/servers/registry/store.js')
+  const { writeSelection } = await import('../src/servers/selection/store.js')
   const path = join(stateRoot, 'servers.json')
-  const registry = { version: 1, revision: 0, active: { comfyui: 'a' }, servers: ['a', 'b'].map(id => ({
+  const selectionPath = join(stateRoot, 'config.json')
+  const registry = { version: 1, revision: 0, servers: ['a', 'b'].map(id => ({
     id, label: id, provider: 'manual', connection_source: 'manual', instance_id: id, deployment_id: 'one',
     services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } },
   })) }
   const value = validateProductionManifest({ version: 1, project_id: '1234abcd', profile: 'preview', shots: ['one', 'two'].map(id => ({ id, request: { mode: 't2va', prompt: id }, media: {} })) })
-  await withConfig({ ELYSIUM_STATE_ROOT: stateRoot, ELYSIUM_SERVERS_FILE: path }, async () => {
+  await withConfig({ ELYSIUM_STATE_ROOT: stateRoot, ELYSIUM_SERVERS_FILE: path, ELYSIUM_CONFIG_FILE: selectionPath }, async () => {
     await writeRegistry(registry, 0)
+    await writeSelection({ version: 1, revision: 0, selected: { video: 'a' }, third_party: {} }, 0)
     const executeShot = async (_id, request) => {
       seen.push(comfyUrl())
-      if (seen.length === 1) await writeRegistry({ ...registry, active: { comfyui: 'b' } }, 1)
+      if (seen.length === 1) await writeSelection({ version: 1, revision: 1, selected: { video: 'b' }, third_party: {} }, 1)
       return { request, job_id: 'a'.repeat(32), result: { status: 'succeeded' } }
     }
     await runProduction(value, { executeShot, limit: 1, log: () => {} })

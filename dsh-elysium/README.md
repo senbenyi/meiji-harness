@@ -30,9 +30,9 @@ src/
 
 ## 提供者边界
 
-外部代码只通过 `src/servers/runtime/index.js` 路由，不直接加载适配器或访问 registry/transport 内部模块。该入口提供后端选择、参数校验、执行、原任务恢复、连接检查、参考帧、配置安装和工作流同步能力。
+外部代码只通过 `src/servers/runtime/index.js` 路由，不直接加载适配器或访问 registry/transport 内部模块。该入口提供后端选择、参数校验、执行、原任务恢复、连接检查、参考帧和工作流同步能力。
 
-各 `src/servers/providers/<id>/` 拥有自己的 `index.js`、公开声明 `definition.json`、配置模板、能力说明、参数校验、API/部署实现和测试。当前实际实现包括 Runpod、BytePlus、百炼和手工连接兼容适配器；其余预留目录不表示可用。手工连接的历史工作流委托在自身声明中显式指定，并经过同一入口调用。
+各 `src/servers/providers/<id>/` 拥有自己的 `index.js`、公开声明 `definition.json`、能力说明、参数校验、API/部署实现和测试；需要文件配置的提供者另带配置模板。当前实际实现包括 Runpod、BytePlus、百炼和手工连接兼容适配器；其余预留目录不表示可用。手工连接的历史工作流委托在自身声明中显式指定，并经过同一入口调用。
 
 `servers/registry` 负责通用登记与身份，`servers/transport` 负责通用连接，`comfyui/` 负责可复用协议；这些公共模块不包含厂商或模型专属分支。业务层只负责项目、任务和多镜头编排。实际凭据仍位于本机忽略文件中，不进入源码目录。
 
@@ -49,11 +49,21 @@ src/
 
 自有视频模型可连接时优先使用自有模型；否则在已启用渠道中优先选百炼，再选 BytePlus。两者配置独立，任务提交后固定后端，恢复不会切换供应商或再次付费提交。
 
-- 百炼：`bailianFile` / `ELYSIUM_BAILIAN_FILE`，默认 `$DSH_HOME/bailian.json`。模板位于 `src/servers/providers/bailian/config.example.json`；填写该工作空间的原生 DashScope `base_url` 和 `api_key` 后设置 `enabled: true`。
+- 百炼：`bailianFile` / `ELYSIUM_BAILIAN_FILE`，默认 `~/.elysium/providers/bailian.json`。模板位于 `src/servers/providers/bailian/config.example.json`；填写原生 DashScope `base_url` 和 `api_key` 后设置 `enabled: true`。
 - 万相 2.6：`t2va` 使用 `wan2.6-t2v`，`i2va` 使用 `wan2.6-i2v`；2–15 整数秒，720P/1080P，默认自动生成音频。文生视频比例取配置，图生视频比例随首帧；首帧支持 `job:图片素材ID`、HTTPS URL 和图片数据。不支持首尾帧、双参考图模式，不会静默丢弃素材。
-- BytePlus：继续使用原 `byteplusFile` / `ELYSIUM_BYTEPLUS_FILE`；其代码和凭据不与百炼共享。设 `enabled: false` 可停用该渠道。
+- BytePlus：仅提供 Seedance 视频渠道；默认读取 `~/.elysium/providers/byteplus.json`，模板位于 `src/servers/providers/byteplus/config.example.json`。
 - 百炼关闭开关只影响新任务选择；已提交任务保留原 ID，可恢复查询、下载。未知提交结果禁止自动重发，需先核对供应商任务；任务查询及产物链接受供应商有效期限制。
-- 工作台显示各渠道启用状态及三方视频首选；API 密钥不进入任务快照和模型列表。
+- 工作台只显示图片、视频及三方模型选择；API 密钥不进入任务快照和模型列表。
+
+## 本机配置边界
+
+`ELYSIUM_HOME` 默认 `~/.elysium`：`config.json` 保存新任务的图片、视频与三方模型选择，`servers.json` 只保存连接，`providers/` 保存各平台本机配置，其余目录保存项目、上传与运行数据。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
+
+旧安装可执行以下命令做一次非覆盖迁移；命令不会删除旧目录或覆盖已有目标文件：
+
+```sh
+pnpm migrate:home
+```
 
 ## 构建
 

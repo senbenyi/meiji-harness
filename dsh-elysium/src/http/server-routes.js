@@ -1,10 +1,10 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, validateRegistry, sshIdentity, checkServer, switchServer } from '../servers/runtime/index.js'
+import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer } from '../servers/runtime/index.js'
 import { withConfig, runtimeConfig, defaultModels } from '../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 export const SERVER_ROUTE = '/plugins/dsh-elysium/server'
 const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'third-party-select']
-export function createServerHandler({ token, currentLlm = null, check = checkServer, identify = sshIdentity }) {
+export function createServerHandler({ token, check = checkServer, identify = sshIdentity }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -13,13 +13,15 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
       if (req.method !== (['list', 'models'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
-      const models = runtimeConfig().ELYSIUM_MODELS || defaultModels
+      const selection = readSelection()
+      const configuredModels = runtimeConfig().ELYSIUM_MODELS || defaultModels
+      const models = Object.fromEntries(['image', 'video'].map(kind => [kind, configuredModels[kind] || []]))
       if (action === 'models') {
         const thirdParty = await thirdPartyModels()
-        return json(res, 200, { revision: registry.revision, models, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, registry), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
-          const active = registry.active[kind] ?? (kind === 'video' ? registry.active.comfyui : kind === 'analysis' ? registry.active.llm : undefined)
+        return json(res, 200, { revision: selection.revision, models, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+          const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
           return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
-        })), pending_llm: !!registry.active.llm && registry.active.llm !== currentLlm })
+        })) })
       }
       if (action === 'third-party-select') {
         const body = await readJsonBody(req)
@@ -37,11 +39,10 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
         const result = readRegistry()
           ? await switchServer(body.kind, backend.server_id, body.revision, check)
           : await check(body.kind, backend.server_id)
-        return json(res, 200, { ...result, connected: true, pending: body.kind === 'llm' && !!readRegistry() && backend.server_id !== currentLlm })
+        return json(res, 200, { ...result, connected: true })
       }
       const providers = action === 'list' ? await listProviders() : []
-      if (action === 'list') return json(res, 200, { providers, revision: registry.revision, active: registry.active, legacy: registry.revision === 0,
-        current_llm: currentLlm, pending_llm: registry.active.llm && registry.active.llm !== currentLlm ? registry.active.llm : null,
+      if (action === 'list') return json(res, 200, { providers, revision: registry.revision, selection_revision: selection.revision,
         servers: registry.servers.map(server => ({ id: server.id, label: server.label, provider: server.provider, provider_available: providers.some(provider => provider.id === server.provider && provider.available), disabled: !!server.disabled,
           services: Object.entries(server.services).map(([kind, service]) => ({ kind, transport: service.transport })) })) })
       const body = await readJsonBody(req)
@@ -49,8 +50,11 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
         if (!registry.servers.some(server => server.id === body.id && !server.disabled && server.services[body.service])) throw invalidRequest('目标不存在或已停用')
         return json(res, 200, await check(body.service, body.id))
       }
+      if (action === 'switch') {
+        if (!Number.isSafeInteger(body.selection_revision) || body.selection_revision < 0) throw invalidRequest('需要选择配置 revision')
+        return json(res, 200, await switchServer(body.service, body.id, body.selection_revision, check))
+      }
       if (!Number.isSafeInteger(body.revision) || body.revision < 0) throw invalidRequest('需要配置 revision')
-      if (action === 'switch') return json(res, 200, await switchServer(body.service, body.id, body.revision, check))
       if (action === 'register') {
         const server = structuredClone(body.server)
         if (!server || !server.services) throw invalidRequest('需要服务器连接信息')
@@ -62,6 +66,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
         return json(res, 201, { id: server.id, revision: saved.revision, message: '已登记。检查并设为默认后，新任务才使用此服务器。' })
       }
       if (typeof body.enabled !== 'boolean' || !registry.servers.some(server => server.id === body.id)) throw invalidRequest('停用参数无效')
+      if (!body.enabled && Object.values(selection.selected).includes(body.id)) throw invalidRequest('请先切换使用此连接的图片或视频模型')
       const saved = await writeRegistry({ ...registry, servers: registry.servers.map(server => server.id === body.id ? { ...server, disabled: !body.enabled } : server) }, body.revision)
       return json(res, 200, { revision: saved.revision, message: body.enabled ? '已启用。' : '已停用新任务选择；历史记录和原任务连接保留。' })
     } catch (error) {
@@ -73,7 +78,7 @@ export function createServerHandler({ token, currentLlm = null, check = checkSer
 export function registerServerRoutes(ctx, runtime, token) {
   const server = ctx.get?.('webServer')
   if (!server) return
-  const handle = createServerHandler({ token, currentLlm: process.env.ELYSIUM_LLM_SERVER_ID || null })
+  const handle = createServerHandler({ token })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of actions) ctx.effect(() => server.register({ kind: 'exact', path: `${SERVER_ROUTE}/${suffix}`, handler }), `elysium server ${suffix}`)
 }

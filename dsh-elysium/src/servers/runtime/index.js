@@ -3,6 +3,7 @@ import { loadProvider } from './loader.js'
 import { providerDefinitions } from './definitions.js'
 import { resolveServer } from '../registry/resolve.js'
 import { readRegistry, writeRegistry } from '../registry/store.js'
+import { readSelection, writeSelection } from '../selection/store.js'
 import { runtimeConfig } from '../../config.js'
 async function adapterFor(backend) {
   const provider = await loadProvider(backend.provider)
@@ -35,11 +36,12 @@ export const manageProvider = async (id, action, options) => (await loadProvider
 export { listProviders, providerSourceFiles, runtimeSourceFiles } from './loader.js'
 export { resolveServer, backendFromServer, withBackend, legacyTunnelBackend } from '../registry/resolve.js'
 export { readRegistry, writeRegistry }
+export { readSelection, writeSelection }
 export { validateRegistry, httpUrl, serviceUrl } from '../registry/schema.js'
 export { sshIdentity } from '../transport/connection.js'
 export { checkServer, switchServer } from './check.js'
 export { readBackend, sameBackend } from './backend.js'
-export { providerConfigFields, providerConfigDefaults, providerDefaultModels, providerConfigNames, installProviderConfigs, providerEnvironment } from './definitions.js'
+export { providerConfigFields, providerConfigDefaults, providerDefaultModels } from './definitions.js'
 
 export const validateBackend = async backend => ({ apiVersion: (await providerFor(backend)).apiVersion })
 export const validateBackendPlan = async (backend, plan) => (await adapterFor(backend)).validatePlan(plan, backend)
@@ -82,9 +84,9 @@ function catalog(channelList) {
   }
   return result
 }
-export function thirdPartySelection(models, registry = readRegistry()) {
+export function thirdPartySelection(models, selection = readSelection()) {
   return Object.fromEntries(['image', 'video'].map(kind => {
-    const entries = models?.[kind] || [], saved = registry?.third_party?.[kind]
+    const entries = models?.[kind] || [], saved = selection.third_party[kind]
     return [kind, entries.some(model => model.id === saved) ? saved : entries[0]?.id || '']
   }))
 }
@@ -118,8 +120,8 @@ export async function selectThirdPartyModel(kind, id, revision) {
   if (!['image', 'video'].includes(kind)) throw Object.assign(new Error('三方模型类型无效'), { status: 400 })
   const models = await thirdPartyModels()
   if (!(models?.[kind] || []).some(model => model.id === id)) throw Object.assign(new Error('三方模型未配置或已关闭'), { status: 400 })
-  const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
-  const saved = await writeRegistry({ ...registry, third_party: { ...registry.third_party, [kind]: id } }, revision)
+  const selection = readSelection()
+  const saved = await writeSelection({ ...selection, third_party: { ...selection.third_party, [kind]: id } }, revision)
   return { revision: saved.revision, selected: id, effect: 'new_jobs', message: '新任务的三方回退使用此模型；旧任务继续使用原模型。' }
 }
 export async function providerCreationInstructions() {

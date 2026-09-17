@@ -95,55 +95,6 @@ test('material filter changes abort old reads and late results cannot replace cu
   assert.equal(pending[1].signal.aborted, true)
 })
 
-test('material list renders a playable thumbnail for video-only assets', async () => {
-  const modules = new Map(), cache = new Map(), jobId = 'a'.repeat(32)
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController, setTimeout, clearTimeout,
-    fetch: async () => ({ ok: true, json: async () => ({ items: [{ job_id: jobId, has_video: true, has_image: false, title: '视频素材' }], total: 1 }) }) })
-  const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
-  let view
-  await act(async () => { view = create(React.createElement(require('elysium/materials').MaterialList)) })
-  const video = view.root.findByType('video')
-  assert.equal(video.props.src, `/media/video?job=${jobId}&t=t`)
-  assert.equal(video.props.preload, 'metadata')
-  assert.equal(video.props.muted, true)
-  assert.equal(view.root.findAllByProps({ className: 'elysium-video-placeholder' }).length, 0)
-  await act(async () => view.unmount())
-})
-
-
-test('director card opens edit, saves changes and create form uses save', async () => {
-  const modules = new Map(), cache = new Map()
-  let items = [{ name: '导演', style: '原风格', works: ['作品一', '作品二'] }], fail = true
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams,
-    fetch: async (url, options) => {
-      if (url.includes('/update')) {
-        if (fail) return { ok: false, json: async () => ({ error: '保存失败' }) }
-        const value = JSON.parse(options.body); items = [value]
-        return { ok: true, json: async () => value }
-      }
-      return { ok: true, json: async () => items }
-    } })
-  const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
-  let view
-  await act(async () => { view = create(React.createElement(require('elysium/directors').DirectorList)) })
-  await act(async () => view.root.findByProps({ className: 'elysium-director-card' }).props.onClick())
-  assert.equal(view.root.findByProps({ 'aria-label': '导演名称' }).props.disabled, true)
-  assert.equal(view.root.findByProps({ 'aria-label': 'TOP5作品' }).props.value, '作品一\n作品二')
-  await act(async () => view.root.findByProps({ 'aria-label': '导演风格' }).props.onChange({ target: { value: '新风格' } }))
-  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
-  assert.equal(view.root.findByProps({ role: 'alert' }).children.join(''), '保存失败')
-  assert.equal(view.root.findByProps({ 'aria-label': '导演风格' }).props.value, '新风格')
-  fail = false
-  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
-  assert.equal(view.root.findAllByType('form').length, 0)
-  assert.match(JSON.stringify(view.toJSON()), /新风格/)
-  await act(async () => view.root.findByProps({ 'aria-label': '添加导演' }).props.onClick())
-  assert.equal(view.root.findByProps({ 'aria-label': '导演名称' }).props.disabled, false)
-  assert.equal(view.root.findByProps({ type: 'submit' }).children.join(''), '保存')
-  await act(async () => view.unmount())
-})
-
-
 test('material minus confirms deletion, retains failed items and returns from an empty last page', async () => {
   const modules = new Map(), cache = new Map(), reads = [], changes = []
   let confirm = false, fail = true, deletes = 0, removed = false

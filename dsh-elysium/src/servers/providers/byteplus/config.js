@@ -1,31 +1,31 @@
-// 职责：读取独立三方模型配置，后端快照只保存公开参数。
+// 职责：读取独立 BytePlus 配置；任务快照只保存公开的视频参数。
 import { readFileSync } from 'node:fs'
-import { runtimeConfig, requiredConfig } from '../../../config.js'
+import { runtimeConfig } from '../../../config.js'
 
-export function readBytePlus() {
+export function readBytePlus({ includeDisabled = false } = {}) {
   const path = runtimeConfig().ELYSIUM_BYTEPLUS_FILE
   if (!path) return null
   let value
   try { value = JSON.parse(readFileSync(path, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return null; throw new Error('三方模型配置文件无效') }
-  if (!value || typeof value !== 'object' || typeof value.enabled !== 'boolean') throw new Error('三方模型 enabled 配置无效')
-  if (!value.enabled) return null
-  const url = new URL(value.base_url)
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('三方模型 API 地址无效')
-  for (const kind of ['image', 'video']) if (!value[kind] || typeof value[kind].model !== 'string') throw new Error(`三方${kind}模型配置无效`)
-  if (typeof value.api_key !== 'string') throw new Error('三方模型 api_key 配置无效')
+  catch (error) { if (error.code === 'ENOENT') return null; throw new Error('BytePlus 配置文件无效') }
+  if (!value || typeof value.enabled !== 'boolean') throw new Error('BytePlus enabled 配置无效')
+  if (!value.enabled && !includeDisabled) return null
+  let url
+  try { url = new URL(value.base_url) } catch { throw new Error('BytePlus API 地址无效') }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('BytePlus API 地址无效')
+  if (typeof value.api_key !== 'string' || !value.api_key.trim() || !value.video || typeof value.video !== 'object' || typeof value.video.model !== 'string' || !value.video.model.trim()) throw new Error('BytePlus api_key 或 video 配置无效')
   return value
 }
 export function bytePlusBackend(kind) {
   const config = readBytePlus()
-  if (!config) return null
+  if (!config || kind !== 'video') return null
+  const { model, duration, resolution, ratio, generate_audio, watermark } = config.video
   return { server_id: 'byteplus', provider: 'byteplus', provider_api_version: 1, service: kind,
-    base_url: config.base_url.replace(/\/+$/, ''), connection: { ...config[kind] } }
+    base_url: config.base_url.replace(/\/+$/, ''), connection: { model, duration, resolution, ratio, generate_audio, watermark } }
 }
 export function bytePlusKey(backend) {
-  requiredConfig('ELYSIUM_BYTEPLUS_FILE')
-  const config = readBytePlus()
-  if (!config?.api_key.trim()) throw new Error('请在三方模型独立配置文件中填写 api_key')
+  const config = readBytePlus({ includeDisabled: true })
+  if (!config?.api_key.trim()) throw new Error('请在 BytePlus 独立配置文件中填写 api_key')
   if (config.base_url.replace(/\/+$/, '') !== backend.base_url) throw new Error('原任务 API 地址与当前凭据配置不一致')
   return config.api_key
 }

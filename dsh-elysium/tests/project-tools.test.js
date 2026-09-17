@@ -11,6 +11,7 @@ import { createProjectStore } from '../src/business/projects/store.js'
 import { withConfig } from '../src/config.js'
 import { projectTools } from '../src/tools/discovery.js'
 import { generationProjectId } from '../src/tools/generation-project.js'
+import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 
 test('chat tools read full objects, mutate one field and render compact mutation results', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-project-tools-'))
@@ -80,4 +81,31 @@ test('free generation uses an internal workspace that is absent from project lis
       assert.deepEqual(await createProjectStore().list(), [])
     })
   } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('object routes authenticate and retain chat edits between panel saves', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-object-http-'))
+  const store = createProjectStore(), handler = createProjectHandler({ token: 't', projectStore: store })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}`
+  const request = (route, body) => fetch(`${base}/${route}?t=t`, { method: 'POST', body: JSON.stringify(body) })
+  try {
+    await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+      const tools = Object.fromEntries(createProjectTools(store).map(tool => [tool.name, tool]))
+      const project = await store.change('create', { title: '交叉编辑', director: '导演', profile: 'preview' }), id = project.id
+      await store.change('update', { id, acts: [{ title: '幕', shots: [] }] })
+      assert.equal((await fetch(`${base}/poll?id=${id}&since=0`)).status, 401)
+      assert.equal((await request('update-anchor', { id, action: 'add', data: { role: 'lin', label: '林' } })).status, 200)
+      await tools.project_update_shot.execute({ project_id: id, action: 'add', act_index: 0, patch: { role: 'lin', action: '走路' } })
+      const shotId = (await store.read(id)).acts[0].shots[0].id
+      await tools.project_update_shot.execute({ project_id: id, action: 'update', id: shotId, patch: { subtitle: '聊天字幕' } })
+      const response = await request('update-shot', { id, action: 'update', data: { id: shotId, notes: '手动备注' } })
+      const result = await response.json()
+      assert.equal(result.acts[0].shots[0].subtitle, '聊天字幕')
+      assert.equal(result.acts[0].shots[0].notes, '手动备注')
+      assert.equal(result.acts[0].shots[0].action, '走路')
+      assert.equal((await request('update-shot', { id: '../bad', action: 'add', data: { act_index: 0 } })).status, 400)
+    })
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

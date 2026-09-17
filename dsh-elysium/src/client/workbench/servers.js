@@ -2,7 +2,7 @@
 load('elysium/servers', (require, exports) => {
   const { createElement: h, useState, useEffect } = require('react')
   const { serverRequest } = require('elysium/server-api')
-  const labels = { llm: '文本模型', analysis: '分析模型', image: '图片模型', video: '视频模型' }
+  const labels = { image: '图片模型', video: '视频模型' }
   function ServerList() {
     const [data, setData] = useState(null), [selected, setSelected] = useState({}), [thirdPartySelected, setThirdPartySelected] = useState({})
     const [error, setError] = useState(''), [busy, setBusy] = useState(null)
@@ -19,7 +19,7 @@ load('elysium/servers', (require, exports) => {
       setBusy(kind); setError('')
       try {
         const value = await serverRequest('model-connect', { kind, id, revision: data.revision })
-        setData(current => ({ ...current, revision: value.revision ?? current.revision, selected: { ...current.selected, [kind]: id }, pending_llm: kind === 'llm' ? value.pending : current.pending_llm }))
+        setData(current => ({ ...current, revision: value.revision ?? current.revision, selected: { ...current.selected, [kind]: id } }))
       } catch (error) { setSelected(current => ({ ...current, [kind]: data.selected[kind] || '' })); setError(error.message) }
       finally { setBusy(null) }
     }

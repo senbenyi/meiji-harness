@@ -1,17 +1,5 @@
 {
   "models": {
-    "llm": [
-      {
-        "id": "qwen38",
-        "label": "Qwen3.8 27B"
-      }
-    ],
-    "analysis": [
-      {
-        "id": "qwen38",
-        "label": "Qwen3.8 27B"
-      }
-    ],
     "video": [
       {
         "id": "minimax-h3",

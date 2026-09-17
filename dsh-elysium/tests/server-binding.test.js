@@ -10,7 +10,8 @@ import { createJob } from '../src/business/jobs/create.js'
 import { readJson, saveJson } from '../src/business/jobs/store.js'
 import { readBackend } from '../src/servers/runtime/backend.js'
 import { withBackend, resolveServer } from '../src/servers/registry/resolve.js'
-import { writeRegistry, readRegistry } from '../src/servers/registry/store.js'
+import { writeRegistry } from '../src/servers/registry/store.js'
+import { writeSelection, readSelection } from '../src/servers/selection/store.js'
 import { executeComfyVideo } from '../src/business/video/execution.js'
 import { createComfyuiTaskStatusTool, createComfyuiTaskCancelTool } from '../src/tools/comfyui-tasks.js'
 import { mediaReference } from '../src/comfyui/media-reference.js'
@@ -33,14 +34,15 @@ test('A task survives a default switch to B even when preparation failed; identi
     t.after(() => new Promise(resolve => server.close(resolve)))
   }
   t.after(() => rm(root, { recursive: true, force: true }))
-  await withConfig({ ELYSIUM_STATE_ROOT: root, ELYSIUM_SERVERS_FILE: join(root, 'servers.json') }, async () => {
-    const registry = await writeRegistry({ version: 1, revision: 0, active: { comfyui: 'a' }, servers }, 0)
+  await withConfig({ ELYSIUM_STATE_ROOT: root, ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json') }, async () => {
+    await writeRegistry({ version: 1, revision: 0, servers }, 0)
+    await writeSelection({ version: 1, revision: 0, selected: { video: 'a' }, third_party: {} }, 0)
     const project = 'abcd1234', plan = { mode: 't2va', prompt: 'A scene' }
     await saveJson(join(root, 'projects', project, 'project.json'), {})
     const id = await createJob(project, plan), dir = join(root, 'projects', project, 'jobs', id)
     await assert.rejects(executeComfyVideo(project, id, plan), /缺少节点/)
     assert.equal(await readJson(join(dir, 'comfyui-workflow.json')), null)
-    await writeRegistry({ ...registry, active: { comfyui: 'b' } }, 1)
+    await writeSelection({ version: 1, revision: 1, selected: { video: 'b' }, third_party: {} }, 1)
     requests.a.length = 0
     await assert.rejects(executeComfyVideo(project, id, plan), /缺少节点/)
     assert.ok(requests.a.length > 0); assert.equal(requests.b.length, 0)
@@ -75,6 +77,6 @@ test('A task survives a default switch to B even when preparation failed; identi
     assert.equal((await readBackend(unknown)).base_url, 'http://a.test')
     await saveJson(join(unknown, 'comfyui-submission.json'), { server_url: 'http://b.test/' })
     await assert.rejects(readBackend(unknown), /冲突/)
-    assert.equal(readRegistry().active.comfyui, 'b')
+    assert.equal(readSelection().selected.video, 'b')
   })
 })

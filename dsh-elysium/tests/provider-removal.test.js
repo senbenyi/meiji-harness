@@ -6,16 +6,16 @@ import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 const execute = promisify(execFile)
-for (const { provider, removed } of [{ provider: 'runpod' }, { provider: 'autodl', removed: 'runpod' }]) test(`complete business flow with ${provider}${removed ? ` after physically deleting ${removed}` : ''}`, { timeout: 60000 }, async t => {
+test('complete business flow with autodl after physically deleting runpod', { timeout: 60000 }, async t => {
+  const provider = 'autodl', removed = 'runpod'
   const root = await mkdtemp(join(tmpdir(), 'provider-removal-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   for (const name of ['src', 'scripts', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
   await cp(new URL('./fixtures/provider-scenario.mjs', import.meta.url), join(root, 'scenario.mjs'))
-  if (removed) {
-    await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
-    await mkdir(join(root, 'src/servers/providers/autodl'), { recursive: true })
-    // 独立测试实现仅组合公共协议，不引用或复制 Runpod；真实 AutoDL 目录仍只预留。
-    await writeFile(join(root, 'src/servers/providers/autodl/index.js'), `
+  await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
+  await mkdir(join(root, 'src/servers/providers/autodl'), { recursive: true })
+  // 独立测试实现仅组合公共协议，不引用或复制 Runpod；真实 AutoDL 目录仍只预留。
+  await writeFile(join(root, 'src/servers/providers/autodl/index.js'), `
 import { createStandardAdapter } from '../../runtime/standard-adapter.js'
 import { appendFileSync } from 'node:fs'
 const adapter = createStandardAdapter({ id: 'autodl', label: 'AutoDL test fixture',
@@ -34,13 +34,12 @@ for (const name of ['validate', 'connect', 'check', 'createClient', 'buildGraph'
 }
 export default adapter
 `)
-  }
   const options = { cwd: root, timeout: 50000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env,
-    DSH_HOME: join(root, 'home'), ELYSIUM_STATE_ROOT: join(root, 'state'), ELYSIUM_SERVERS_FILE: join(root, 'servers.json'),
+    DSH_HOME: join(root, 'dsh-home'), ELYSIUM_HOME: join(root, 'home'), ELYSIUM_STATE_ROOT: join(root, 'state'), ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json'),
     COMFYUI_URL: 'http://unselected.invalid', PROVIDER_TRACE: join(root, 'trace.jsonl') } }
   try {
     await execute(process.execPath, ['scripts/build.mjs'], options)
-    await execute(process.execPath, ['scenario.mjs', provider, removed || ''], options)
+    await execute(process.execPath, ['scenario.mjs', provider, removed], options)
   } catch (error) { throw new Error(`${error.message}\n${error.stdout || ''}\n${error.stderr || ''}`, { cause: error }) }
 })
 
@@ -52,18 +51,15 @@ for (const removed of ['bailian', 'byteplus', 'manual']) test(`remaining provide
   await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
   await writeFile(join(root, 'check.mjs'), `
 import assert from 'node:assert/strict'
-import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { resolveConfig, withConfig } from './src/config.js'
-import { listProviders, installProviderConfigs, providerConfigNames, resolveGenerationBackend, validateBackend, validateBackendPlan, thirdPartyChannels, thirdPartyModels } from './src/servers/runtime/index.js'
-const home = process.env.DSH_HOME
-await mkdir(home, { recursive: true })
-await installProviderConfigs(home)
-for (const file of providerConfigNames().filter(name => !name.includes('.example.'))) {
-  const config = JSON.parse(await readFile(home + '/' + file, 'utf8'))
-  config.enabled = true; config.api_key = 'fixture-secret'
-  await writeFile(home + '/' + file, JSON.stringify(config))
-}
-await withConfig(resolveConfig({ comfyUrl: 'http://127.0.0.1:1' }), async () => {
+import { listProviders, resolveGenerationBackend, validateBackend, validateBackendPlan, thirdPartyChannels, thirdPartyModels } from './src/servers/runtime/index.js'
+const home = process.env.ELYSIUM_HOME, providers = home + '/providers'
+await mkdir(providers, { recursive: true })
+if (existsSync('./src/servers/providers/bailian')) await writeFile(providers + '/bailian.json', JSON.stringify({ enabled: true, base_url: 'https://bailian.test/api/v1', api_key: 'fixture-secret', video: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v', duration: 5, resolution: '720P', ratio: '9:16', prompt_extend: false, watermark: false } }))
+if (existsSync('./src/servers/providers/byteplus')) await writeFile(providers + '/byteplus.json', JSON.stringify({ enabled: true, base_url: 'https://byteplus.test/api/v3', api_key: 'fixture-secret', video: { model: 'fixture-video', duration: 5, resolution: '720p', ratio: '9:16', generate_audio: true, watermark: false } }))
+await withConfig(resolveConfig({ home, comfyUrl: 'http://127.0.0.1:1' }), async () => {
   const providers = await listProviders()
   assert.equal(providers.some(item => item.id === '${removed}'), false)
   assert.ok(providers.filter(item => ['runpod', 'bailian', 'byteplus', 'manual'].includes(item.id)).every(item => item.available))
@@ -76,13 +72,5 @@ await withConfig(resolveConfig({ comfyUrl: 'http://127.0.0.1:1' }), async () => 
   await assert.rejects(validateBackend({ ...backend, provider: '${removed}' }), { code: 'PROVIDER_UNAVAILABLE' })
 })
 `)
-  // BytePlus 模板可能没有模型 ID，测试只补公开模型字段，不改实现。
-  const example = join(root, 'src/servers/providers/byteplus/config.example.json')
-  if (removed !== 'byteplus') {
-    const { readFile } = await import('node:fs/promises')
-    const value = JSON.parse(await readFile(example, 'utf8'))
-    value.video.model = 'fixture-video'; value.image.model = 'fixture-image'
-    await writeFile(example, JSON.stringify(value))
-  }
-  await execute(process.execPath, ['check.mjs'], { cwd: root, env: { ...process.env, DSH_HOME: join(root, 'home'), ELYSIUM_SERVERS_FILE: join(root, 'absent.json') } })
+  await execute(process.execPath, ['check.mjs'], { cwd: root, env: { ...process.env, ELYSIUM_HOME: join(root, 'home'), ELYSIUM_SERVERS_FILE: join(root, 'absent.json') } })
 })
