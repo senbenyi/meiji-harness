@@ -1,12 +1,4 @@
 {
-  "models": {
-    "video": [
-      {
-        "id": "minimax-h3",
-        "label": "MiniMax H3"
-      }
-    ]
-  },
   "llm_route": "qwen38-local",
   "services": {
     "comfyui": {

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "paths": {
+    "state": ".",
+    "servers": "servers.json",
+    "selection": "config.json",
+    "providers": "providers"
+  },
+  "enableAtomicTools": false,
+  "models": {
+    "image": [],
+    "video": [
+      {
+        "id": "minimax-h3",
+        "label": "MiniMax H3"
+      }
+    ]
+  }
+}

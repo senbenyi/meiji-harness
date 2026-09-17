@@ -10,7 +10,7 @@ test('complete business flow with autodl after physically deleting runpod', { ti
   const provider = 'autodl', removed = 'runpod'
   const root = await mkdtemp(join(tmpdir(), 'provider-removal-'))
   t.after(() => rm(root, { recursive: true, force: true }))
-  for (const name of ['src', 'scripts', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
+  for (const name of ['src', 'scripts', 'config', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
   await cp(new URL('./fixtures/provider-scenario.mjs', import.meta.url), join(root, 'scenario.mjs'))
   await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
   await mkdir(join(root, 'src/servers/providers/autodl'), { recursive: true })
@@ -47,7 +47,7 @@ export default adapter
 for (const removed of ['bailian', 'byteplus', 'manual']) test(`remaining providers work after physically deleting ${removed}`, async t => {
   const root = await mkdtemp(join(tmpdir(), 'provider-isolation-'))
   t.after(() => rm(root, { recursive: true, force: true }))
-  for (const name of ['src', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
+  for (const name of ['src', 'config', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
   await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
   await writeFile(join(root, 'check.mjs'), `
 import assert from 'node:assert/strict'

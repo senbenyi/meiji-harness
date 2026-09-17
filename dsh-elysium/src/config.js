@@ -1,7 +1,8 @@
 // 职责：解析插件实例配置，并为异步执行链隔离运行时配置。
-import { isAbsolute, join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { isAbsolute, join, normalize, sep } from 'node:path'
 import { homedir } from 'node:os'
-import { readRegistry, providerConfigFields, providerConfigDefaults, providerDefaultModels } from './servers/runtime/index.js'
+import { readRegistry, providerConfigFields, providerConfigDefaults } from './servers/runtime/index.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 // 读取并校验必需配置；URL 统一去掉尾部斜杠。
@@ -29,8 +30,39 @@ const fields = {
   selectionFile: ['ELYSIUM_CONFIG_FILE', 'path'],
   ...providerConfigFields(),
 }
-// 模型清单由系统配置提供，图片工作流尚未配置时保持空列表。
-export const defaultModels = providerDefaultModels()
+const settingsFile = new URL('../config/settings.json', import.meta.url)
+const modelKinds = ['image', 'video']
+const relativePath = value => typeof value === 'string' && value.trim() === value && value && !isAbsolute(value)
+  && !normalize(value).split(sep).includes('..')
+
+export function readSettings(path = settingsFile) {
+  let value
+  try { value = JSON.parse(readFileSync(path, 'utf8')) } catch { throw new Error('Elysium settings.json 无效') }
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).some(key => !['version', 'paths', 'enableAtomicTools', 'models'].includes(key))
+    || value.version !== 1 || typeof value.enableAtomicTools !== 'boolean') throw new Error('Elysium settings.json 配置无效')
+  const paths = value.paths
+  if (!paths || typeof paths !== 'object' || Array.isArray(paths)
+    || Object.keys(paths).sort().join(',') !== 'providers,selection,servers,state'
+    || Object.values(paths).some(path => !relativePath(path))) throw new Error('Elysium settings.json 路径无效')
+  const models = value.models
+  if (!models || typeof models !== 'object' || Array.isArray(models)
+    || Object.keys(models).sort().join(',') !== modelKinds.slice().sort().join(',')) throw new Error('Elysium settings.json 模型清单无效')
+  for (const kind of modelKinds) {
+    const ids = new Set()
+    if (!Array.isArray(models[kind])) throw new Error('Elysium settings.json 模型清单无效')
+    for (const model of models[kind]) {
+      if (!model || Object.keys(model).some(key => !['id', 'label', 'server_id'].includes(key)) || !/^[A-Za-z0-9_-]+$/.test(model.id || '') || ids.has(model.id)
+        || typeof model.label !== 'string' || !model.label.trim() || (model.server_id !== undefined && !/^[A-Za-z0-9_-]+$/.test(model.server_id))) throw new Error('Elysium settings.json 模型配置项无效')
+      ids.add(model.id)
+    }
+  }
+  return structuredClone(value)
+}
+
+// 仓库托管的非敏感业务默认值；运行状态和凭据不从此文件读取。
+export const defaultSettings = readSettings()
+export const defaultModels = defaultSettings.models
 
 // 优先读取当前调用链的实例配置；未绑定时使用进程环境。
 export const runtimeConfig = () => context.getStore() || process.env
@@ -45,24 +77,26 @@ export function resolveConfig(config = {}) {
   }
   const home = config.home ?? process.env.ELYSIUM_HOME ?? join(homedir(), '.elysium')
   withConfig({ ELYSIUM_HOME: home }, () => requiredConfig('ELYSIUM_HOME'))
-  const defaults = { home, stateRoot: home, serversFile: join(home, 'servers.json'), selectionFile: join(home, 'config.json'), ...providerConfigDefaults(join(home, 'providers')) }
+  const settings = readSettings()
+  const defaults = { home, stateRoot: join(home, settings.paths.state), serversFile: join(home, settings.paths.servers), selectionFile: join(home, settings.paths.selection),
+    ...providerConfigDefaults(join(home, settings.paths.providers)) }
   const registryFile = config.serversFile ?? process.env.ELYSIUM_SERVERS_FILE ?? defaults.serversFile
   withConfig({ ELYSIUM_SERVERS_FILE: registryFile }, () => requiredConfig('ELYSIUM_SERVERS_FILE'))
   const registry = readRegistry(registryFile)
   const resolved = {}
-  const configuredModels = config.models ?? defaultModels
+  const configuredModels = config.models ?? settings.models
   if (!configuredModels || typeof configuredModels !== 'object' || Array.isArray(configuredModels)) throw new Error('模型清单无效')
-  const models = { analysis: defaultModels.analysis, ...configuredModels }
-  if (Object.keys(models).some(key => !['llm', 'analysis', 'image', 'video'].includes(key))) throw new Error('模型清单无效')
-  for (const kind of ['llm', 'analysis', 'image', 'video']) {
+  const models = structuredClone(configuredModels)
+  if (Object.keys(models).sort().join(',') !== modelKinds.slice().sort().join(',')) throw new Error('模型清单无效')
+  for (const kind of modelKinds) {
     const ids = new Set()
-    if (!Array.isArray(models[kind])) throw new Error('模型清单必须包含文本、分析、图片和视频列表')
+    if (!Array.isArray(models[kind])) throw new Error('模型清单必须包含图片和视频列表')
     for (const model of models[kind]) {
       if (!model || Object.keys(model).some(key => !['id', 'label', 'server_id'].includes(key)) || !/^[A-Za-z0-9_-]+$/.test(model.id || '') || ids.has(model.id) || typeof model.label !== 'string' || !model.label.trim() || (model.server_id !== undefined && !/^[A-Za-z0-9_-]+$/.test(model.server_id))) throw new Error('模型配置项无效')
       ids.add(model.id)
     }
   }
-  resolved.ELYSIUM_MODELS = structuredClone(models)
+  resolved.ELYSIUM_MODELS = models
   for (const [key, [name, kind]] of Object.entries(fields)) {
     // 有服务器清单时，由清单解析目标地址，忽略旧的单地址配置。
     if (key === 'comfyUrl' && registry?.servers.length) continue
@@ -73,7 +107,8 @@ export function resolveConfig(config = {}) {
     resolved[name] = withConfig(resolved, () => requiredConfig(name, kind))
   }
   if (config.enableAtomicTools !== undefined && typeof config.enableAtomicTools !== 'boolean') throw new Error('enableAtomicTools 必须为布尔值')
-  resolved.ELYSIUM_ENABLE_ATOMIC_TOOLS = (config.enableAtomicTools ?? (process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1')) ? '1' : '0'
+  const atomicTools = config.enableAtomicTools ?? (process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === undefined ? settings.enableAtomicTools : process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1')
+  resolved.ELYSIUM_ENABLE_ATOMIC_TOOLS = atomicTools ? '1' : '0'
   return Object.freeze(resolved)
 }
 

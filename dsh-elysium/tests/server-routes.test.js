@@ -47,7 +47,7 @@ test('fixed model catalog probes without connecting and failed selection cannot 
   const upstream = createServer((_req, res) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ system: {}, data: [{ id: 'qwen3.8-27b-elysium' }] })) })
   await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => upstream.close(resolve)))
   const servers = ['a', 'b'].map(id => { const server = record(id); server.services.comfyui.base_url = `http://127.0.0.1:${upstream.address().port}/${id}`; server.services.llm = { transport: 'http', base_url: `http://127.0.0.1:${upstream.address().port}/${id}/v1`, model: 'qwen3.8-27b-elysium' }; return server })
-  const config = { ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json'), ELYSIUM_MODELS: { llm: [], analysis: [], image: [], video: [{ id: 'model-a', label: '视频 A', server_id: 'a' }, { id: 'model-b', label: '视频 B', server_id: 'b' }] } }
+  const config = { ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json'), ELYSIUM_MODELS: { image: [], video: [{ id: 'model-a', label: '视频 A', server_id: 'a' }, { id: 'model-b', label: '视频 B', server_id: 'b' }] } }
   await withConfig(config, async () => {
     await writeRegistry({ version: 1, revision: 0, servers }, 0)
     await writeSelection({ version: 1, revision: 0, selected: { image: 'a', video: 'a' }, third_party: {} }, 0)

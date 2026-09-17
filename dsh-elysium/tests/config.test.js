@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/config.js'
+import { defaultSettings, readSettings, requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/config.js'
 import { comfyUrl, ComfyClient } from '../src/comfyui/client.js'
 
 test('missing, empty and invalid addresses fail before any request; removed instance is rejected', () => {
@@ -67,13 +67,19 @@ test('plugin config validates fields and isolates concurrent calls', async t => 
   assert.equal(resolveConfig({ serversFile, comfyUrl: 'https://legacy.test' }).COMFYUI_URL, 'https://legacy.test')
 })
 
-test('model defaults and independent provider paths reach workers', () => {
-  const defaults = resolveConfig().ELYSIUM_MODELS, models = { llm: [], image: [], video: [] }
-  assert.deepEqual(defaults.analysis, defaults.llm)
-  assert.deepEqual(resolveConfig({ models }).ELYSIUM_MODELS.analysis, defaults.analysis)
-  assert.throws(() => resolveConfig({ models: { ...models, analysis: 'bad' } }))
+test('repository settings provide model defaults and independent provider paths', async t => {
+  const defaults = resolveConfig().ELYSIUM_MODELS, models = { image: [], video: [] }
+  assert.deepEqual(defaults, defaultSettings.models)
+  assert.deepEqual(resolveConfig({ models }).ELYSIUM_MODELS, models)
+  assert.throws(() => resolveConfig({ models: { ...models, analysis: [] } }))
   const config = resolveConfig({ home: '/tmp/elysium-home' })
   assert.equal(config.ELYSIUM_BYTEPLUS_FILE, '/tmp/elysium-home/providers/byteplus.json')
   assert.equal(config.ELYSIUM_BAILIAN_FILE, '/tmp/elysium-home/providers/bailian.json')
   withConfig(config, () => assert.equal(workerEnvironment().ELYSIUM_HOME, '/tmp/elysium-home'))
+  const root = await mkdtemp(join(tmpdir(), 'elysium-settings-')); t.after(() => rm(root, { recursive: true, force: true }))
+  const file = join(root, 'settings.json')
+  await writeFile(file, JSON.stringify({ ...defaultSettings, paths: { ...defaultSettings.paths, providers: '../outside' } }))
+  assert.throws(() => readSettings(file), /路径无效/)
+  await writeFile(file, JSON.stringify({ ...defaultSettings, models: { image: [], video: [{ id: 'same', label: 'A' }, { id: 'same', label: 'B' }] } }))
+  assert.throws(() => readSettings(file), /模型配置项无效/)
 })

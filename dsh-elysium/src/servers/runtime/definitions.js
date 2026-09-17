@@ -14,8 +14,3 @@ export function providerConfigFields() {
 export function providerConfigDefaults(home) {
   return Object.fromEntries(providerDefinitions().filter(item => item.config).map(({ config }) => [config.field, join(home, config.file)]))
 }
-export function providerDefaultModels() {
-  const result = { llm: [], analysis: [], image: [], video: [] }
-  for (const item of providerDefinitions()) for (const [kind, models] of Object.entries(item.models || {})) result[kind].push(...models)
-  return result
-}

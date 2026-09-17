@@ -41,7 +41,7 @@ export { validateRegistry, httpUrl, serviceUrl } from '../registry/schema.js'
 export { sshIdentity } from '../transport/connection.js'
 export { checkServer, switchServer } from './check.js'
 export { readBackend, sameBackend } from './backend.js'
-export { providerConfigFields, providerConfigDefaults, providerDefaultModels } from './definitions.js'
+export { providerConfigFields, providerConfigDefaults } from './definitions.js'
 
 export const validateBackend = async backend => ({ apiVersion: (await providerFor(backend)).apiVersion })
 export const validateBackendPlan = async (backend, plan) => (await adapterFor(backend)).validatePlan(plan, backend)

@@ -57,7 +57,9 @@ src/
 
 ## 本机配置边界
 
-`ELYSIUM_HOME` 默认 `~/.elysium`：`config.json` 保存新任务的图片、视频与三方模型选择，`servers.json` 只保存连接，`providers/` 保存各平台本机配置，其余目录保存项目、上传与运行数据。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
+仓库中的 `config/settings.json` 是唯一的非敏感业务默认配置，可直接修改路径布局、原子工具开关以及图片/视频模型目录；修改后重新执行 `pnpm build && pnpm package:registry`。插件实例参数可临时覆盖其中的开关与模型目录。
+
+`ELYSIUM_HOME` 默认 `~/.elysium`：`config.json` 保存新任务的图片、视频与三方模型选择，`servers.json` 只保存连接，`providers/` 保存各平台本机配置，其余目录保存项目、上传与运行数据。这里的运行时 `config.json` 与仓库 `config/settings.json` 职责不同。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
 
 旧安装可执行以下命令做一次非覆盖迁移；命令不会删除旧目录或覆盖已有目标文件：
 
