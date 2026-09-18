@@ -17,6 +17,8 @@ export const currentAgentPreset = agent => {
 }
 export const isElysiumAgent = agent => ELYSIUM_AGENT_PRESETS.has(currentAgentPreset(agent))
 export const isElysiumFreeAgent = agent => currentAgentPreset(agent) === 'elysium-free'
+export const isElysiumStandaloneAgent = agent => ['elysium-free', 'elysium-teaching'].includes(currentAgentPreset(agent))
+export const isElysiumProjectAgent = agent => currentAgentPreset(agent) === 'elysium-director'
 
 function videoFailedThisTurn(events) {
   const turnStart = events.findLastIndex(event => event.type === 'turn/start')
@@ -73,8 +75,8 @@ export function projectTools(assembly, agent) {
   if (videoFailedThisTurn(events)) return { ...assembly, tools: [], sections: [...assembly.sections,
     { name: 'elysium:video-failed-stop', text: '视频任务已失败。本轮立即结束并报告失败；等待用户新消息明确要求重试，不得继续调用任何工具。' }] }
   const loaded = loadedToolNames(events)
-  const free = isElysiumFreeAgent(agent)
-  const tools = assembly.tools.filter(tool => (!free || tool.name === 'director_list' || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
+  const project = isElysiumProjectAgent(agent)
+  const tools = assembly.tools.filter(tool => (project || tool.name === 'director_list' || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))
   const catalog = Object.entries(TOOL_GROUPS).flatMap(([id, group]) => {

@@ -1,7 +1,7 @@
 // 职责：验证聊天工具的数据可见性、共享 Store 注册和实例配置隔离。
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
@@ -72,15 +72,19 @@ test('registered chat tools share HTTP project state and are disposed with the w
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
 
-test('free generation uses an internal workspace that is absent from project lists', async () => {
+test('free and teaching generation save tasks and media in an internal workspace absent from project lists', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-free-project-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const free = { agent: { session: { header: { agentPreset: 'elysium-free' }, snapshotEvents: () => [] } } }
-      assert.equal(await generationProjectId(undefined, free), '00000000')
-      assert.equal(await generationProjectId('abcd1234', free), '00000000')
+      for (const agentPreset of ['elysium-free', 'elysium-teaching']) {
+        const exec = { agent: { session: { header: { agentPreset }, snapshotEvents: () => [] } } }
+        assert.equal(await generationProjectId(undefined, exec), '00000000')
+        assert.equal(await generationProjectId('abcd1234', exec), '00000000')
+      }
       assert.equal(await generationProjectId('abcd1234', { agent: { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } } }), 'abcd1234')
       assert.equal(JSON.parse(await readFile(join(root, 'projects', '00000000', 'project.json'))).internal, 'free')
+      await access(join(root, 'projects', '00000000', 'jobs'))
+      await access(join(root, 'projects', '00000000', 'media'))
       assert.deepEqual(await createProjectStore().list(), [])
     })
   } finally { await rm(root, { recursive: true, force: true }) }

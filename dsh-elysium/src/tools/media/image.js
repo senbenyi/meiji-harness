@@ -6,7 +6,7 @@ const output = { schema: { type: 'object', additionalProperties: true, propertie
 export function createWorkflowGenerateImageTool() {
   return { name: 'workflow_generate_image', description: '生成图片或使用 images 编辑/组合参考图。优先自有模型，未连接时使用已启用的三方图片渠道。图片可作为角色、场景锚点，结果等待人工验收。失败时保留原任务，不自动重发。', timeoutMs: 121 * 60 * 1000,
     parameters: { type: 'object', additionalProperties: false, required: ['prompt'], properties: {
-      project_id: { type: 'string', description: '教学和导演模式的项目 ID；自由模式省略。' }, prompt: { type: 'string' }, images: { type: 'array', items: { type: 'string' }, description: '参考图片格式由当前渠道能力说明决定。' },
+      project_id: { type: 'string', description: '仅导演模式使用的项目 ID；自由和教学模式省略。' }, prompt: { type: 'string' }, images: { type: 'array', items: { type: 'string' }, description: '参考图片格式由当前渠道能力说明决定。' },
       preset: { type: 'string', enum: ['standard'], description: '自有图片工作流规格。' },
       image_path: { type: 'string', description: '兼容 main 分支的单张 ComfyUI 参考图片地址。' },
       seed: { type: 'integer', minimum: 0, maximum: 4294967295 },

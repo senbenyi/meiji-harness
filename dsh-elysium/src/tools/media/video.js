@@ -28,7 +28,7 @@ export function createWorkflowGenerateVideoTool() {
     description: '视频创作统一入口：当前后端可同时提供标准模式与兼容的多镜头导演计划。两类参数互斥；失败或断网保留原任务，禁止改提示词或档位重新生成。',
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
     parameters: { type: 'object', additionalProperties: false, required: [], properties: {
-      project_id: { type: 'string', description: '教学和导演模式的项目 ID；自由模式省略。' },
+      project_id: { type: 'string', description: '仅导演模式使用的项目 ID；自由和教学模式省略。' },
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
       profile: { type: 'string', enum: VIDEO_PROFILES, description: '创作档次；具体规格和支持模式由当前后端能力说明决定。' },
