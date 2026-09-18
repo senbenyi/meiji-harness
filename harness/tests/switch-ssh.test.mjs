@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parseSshCommand, updateHostBlock } from '../../scripts/switch-ssh.mjs'
+import { parseSshCommand, updateHostBlock } from '../../scripts/ssh.mjs'
 
 test('parseSshCommand accepts the provider SSH command and validates the port', () => {
   assert.deepEqual(parseSshCommand('ssh -p 52274 root@connect.westb.seetacloud.com'), {
