@@ -22,7 +22,7 @@ test('Harness can resolve the server and declared client entries', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   assert.equal(pkg.dsh.client.platform, 'web')
   assert.ok(pkg.files.includes('config'))
-  assert.equal(JSON.parse(readFileSync(new URL('../config/settings.json', import.meta.url), 'utf8')).version, 1)
+  assert.equal(JSON.parse(readFileSync(new URL('../config/defaults.json', import.meta.url), 'utf8')).version, 1)
   for (const [subpath, target] of [['', 'lib/index.js'], ['/client', 'lib/client.js'], ['/package.json', 'package.json']]) {
     assert.equal(import.meta.resolve(`${pkg.name}${subpath}`), new URL(`../${target}`, import.meta.url).href)
   }

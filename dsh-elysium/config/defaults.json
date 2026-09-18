@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "enableAtomicTools": false,
+  "models": {
+    "image": [],
+    "video": [
+      {
+        "id": "minimax-h3",
+        "label": "MiniMax H3"
+      }
+    ]
+  },
+  "chat": {
+    "id": "qwen3.8-27b-elysium",
+    "label": "qwen3.8",
+    "backend": {
+      "server_id": "legacy-qwen",
+      "provider": "manual",
+      "service": "llm",
+      "base_url": "http://127.0.0.1:18000/v1",
+      "connection": {
+        "model": "qwen3.8-27b-elysium"
+      }
+    },
+    "tunnel": {
+      "alias": "qwen",
+      "transport": "ssh",
+      "ssh_alias": "veo-qwen38",
+      "remote_host": "127.0.0.1",
+      "remote_port": 8000,
+      "local_port": 18000,
+      "api_path": "/v1"
+    }
+  },
+  "connections": {
+    "version": 1,
+    "revision": 0,
+    "servers": []
+  },
+  "selection": {
+    "version": 1,
+    "revision": 0,
+    "selected": {},
+    "third_party": {}
+  },
+  "providers": {}
+}

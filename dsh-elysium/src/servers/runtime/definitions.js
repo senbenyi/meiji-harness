@@ -14,3 +14,6 @@ export function providerConfigFields() {
 export function providerConfigDefaults(home) {
   return Object.fromEntries(providerDefinitions().filter(item => item.config).map(({ config }) => [config.field, join(home, config.file)]))
 }
+export function providerConfigSources() {
+  return providerDefinitions().filter(item => item.config).map(({ id, config }) => ({ id, field: config.field, env: config.env }))
+}

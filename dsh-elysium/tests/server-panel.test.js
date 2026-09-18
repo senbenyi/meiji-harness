@@ -8,7 +8,7 @@ import { clientSource } from '../scripts/client-source.mjs'
 
 test('model panel contains only categorized selectors and switches selected models', async () => {
   const modules = new Map(), cache = new Map(), calls = []
-  const data = { revision: 1, models: { image: [], video: [{ id: 'a', label: '视频 A' }, { id: 'b', label: '视频 B' }] }, selected: { image: '', video: 'a' }, chat_model: { id: 'qwen3.8-27b-elysium', label: 'qwen3.8-27b-elysium' },
+  const data = { revision: 1, models: { image: [], video: [{ id: 'a', label: '视频 A' }, { id: 'b', label: '视频 B' }] }, selected: { image: '', video: 'a' }, chat_model: { id: 'qwen3.8-27b-elysium', label: 'qwen3.8' },
     third_party: { video: [{ id: 'bailian:wan26', label: 'Wan 2.6' }, { id: 'byteplus:seedance2', label: 'Seedance 2.0' }] }, third_party_selected: { image: '', video: 'bailian:wan26' },
     third_party_channels: [{ id: 'bailian', label: '百炼万相', enabled: true, preferred: true, models: ['wan2.6-t2v', 'wan2.6-i2v'] }, { id: 'byteplus', label: 'Seedance 2.0', enabled: true, preferred: false, models: ['seedance'] }] }
   let failing = true, holding = false, release, chatFailing = true, chatHolding = false, releaseChat
@@ -36,9 +36,11 @@ test('model panel contains only categorized selectors and switches selected mode
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
   await act(async () => { view = create(React.createElement(require('elysium/servers').ServerList)) })
-  assert.equal(view.root.findAllByType('select').length, 4)
+  assert.equal(view.root.findAllByType('select').length, 5)
   assert.equal(view.root.findByProps({ 'aria-label': '模型设置' }).findAllByType('button').length, 1)
-  assert.equal(view.root.findByProps({ 'aria-label': '聊天模型' }).children.join(''), 'qwen3.8-27b-elysium')
+  const chat = view.root.findByProps({ 'aria-label': '聊天模型' })
+  assert.equal(chat.props.value, 'qwen3.8-27b-elysium')
+  assert.deepEqual(chat.findAllByType('option').map(option => option.children.join('')), ['qwen3.8'])
   assert.deepEqual(view.root.findByProps({ 'aria-label': '三方图片模型' }).findAllByType('option').map(option => option.children.join('')), ['未配置'])
   assert.deepEqual(view.root.findByProps({ 'aria-label': '三方视频模型' }).findAllByType('option').map(option => option.children.join('')), ['Wan 2.6', 'Seedance 2.0'])
   assert.doesNotMatch(JSON.stringify(view.toJSON()), /已启用|已关闭|三方视频首选|wan2\.6-t2v|wan2\.6-i2v/)

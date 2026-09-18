@@ -11,13 +11,13 @@
       "service": "llm",
       "base_url": "http://127.0.0.1:18000/v1",
       "connection": {
-        "model": "qwen3.8-27b-elysium",
-        "api_key_env": "QWEN38_LOCAL_API_KEY"
+        "model": "qwen3.8-27b-elysium"
       }
     }
   },
   "legacy_tunnel": {
     "alias": "qwen",
+    "label": "qwen3.8",
     "service": "llm",
     "connection": {
       "transport": "ssh",

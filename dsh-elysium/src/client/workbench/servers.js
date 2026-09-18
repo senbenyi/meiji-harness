@@ -45,7 +45,9 @@ load('elysium/servers', (require, exports) => {
     return h('section', { className: 'elysium-server-list', 'aria-label': '模型设置' },
       h('h2', null, '私有模型'),
       data?.chat_model ? h('div', { className: 'elysium-model-row' },
-        h('label', null, '聊天模型：'), h('span', { 'aria-label': '聊天模型' }, data.chat_model.label),
+        h('label', { htmlFor: 'elysium-model-chat' }, '聊天模型：'),
+        h('select', { id: 'elysium-model-chat', 'aria-label': '聊天模型', value: data.chat_model.id, disabled: busy === 'chat' },
+          h('option', { value: data.chat_model.id }, data.chat_model.label)),
         h('button', { type: 'button', disabled: busy === 'chat', onClick: connectChat }, busy === 'chat' ? '连接中…' : chatConnected ? '重新连接' : '连接')) : null,
       Object.entries(labels).map(([kind, label]) => {
         const entries = data?.models[kind] || [], id = selected[kind] || ''

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { defaultSettings, readSettings, requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/utils/config.js'
+import { defaultSettings, readDefaults, requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/utils/config.js'
 import { comfyUrl, ComfyClient } from '../src/comfyui/client.js'
 
 test('missing, empty and invalid addresses fail before any request; removed instance is rejected', () => {
@@ -49,40 +49,43 @@ test('storage configuration rejects absent, empty and relative paths', () => {
 })
 
 test('plugin config validates fields and isolates concurrent calls', async t => {
-  assert.equal(resolveConfig({ comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'elysium'))
+  const root = await mkdtemp(join(tmpdir(), 'elysium-preference-only-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const defaultHome = join(root, 'default-home')
+  assert.equal(resolveConfig({ home: defaultHome, comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, defaultHome)
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' }, { bailianFile: 'relative' },
-    { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 }, { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig(config))
-  const configs = ['/tmp/instance-a', '/tmp/instance-b'].map((stateRoot, index) => resolveConfig({
-    comfyUrl: `https://pod-${index}.test`, stateRoot, bailianFile: join(stateRoot, 'bailian.json'),
+    { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 }, { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig({ home: join(root, 'invalid'), ...config }))
+  const homes = [join(root, 'instance-a'), join(root, 'instance-b')]
+  const configs = homes.map((stateRoot, index) => resolveConfig({
+    home: stateRoot, comfyUrl: `https://pod-${index}.test`, stateRoot, bailianFile: join(stateRoot, 'bailian.json'),
   }))
   assert.deepEqual(await Promise.all(configs.map(config => withConfig(config, async () => {
     await new Promise(resolve => setImmediate(resolve))
-    assert.equal(workerEnvironment().ELYSIUM_BAILIAN_FILE, config.ELYSIUM_BAILIAN_FILE)
+    assert.equal(workerEnvironment().ELYSIUM_SETTINGS_FILE, config.ELYSIUM_SETTINGS_FILE)
     return [requiredConfig('COMFYUI_URL', 'url'), requiredConfig('ELYSIUM_STATE_ROOT')]
-  }))), [['https://pod-0.test', '/tmp/instance-a'], ['https://pod-1.test', '/tmp/instance-b']])
-  const root = await mkdtemp(join(tmpdir(), 'elysium-preference-only-'))
-  t.after(() => rm(root, { recursive: true, force: true }))
+  }))), [['https://pod-0.test', homes[0]], ['https://pod-1.test', homes[1]]])
   const serversFile = join(root, 'servers.json')
   await writeFile(serversFile, JSON.stringify({ version: 1, revision: 1, active: {}, third_party: { video: 'byteplus:seedance2' }, servers: [] }))
-  assert.equal(resolveConfig({ serversFile, comfyUrl: 'https://legacy.test' }).COMFYUI_URL, 'https://legacy.test')
+  assert.equal(resolveConfig({ home: root, settingsFile: join(root, 'settings.json'), serversFile, comfyUrl: 'https://legacy.test' }).COMFYUI_URL, 'https://legacy.test')
 })
 
-test('repository settings provide model defaults and independent provider paths', async t => {
-  const defaults = resolveConfig().ELYSIUM_MODELS, models = { image: [], video: [] }
-  assert.deepEqual(defaults, defaultSettings.models)
-  assert.deepEqual(resolveConfig({ models }).ELYSIUM_MODELS, models)
-  assert.deepEqual(resolveConfig({ models: { ...models, llm: [{ id: 'old', label: '旧文本模型' }], analysis: [] } }).ELYSIUM_MODELS, models)
-  assert.throws(() => resolveConfig({ models: { ...models, analysis: 'bad' } }))
-  const config = resolveConfig({ home: '/tmp/elysium-home' })
-  assert.equal(config.ELYSIUM_SERVERS_FILE, '/tmp/elysium-home/config/servers.json')
-  assert.equal(config.ELYSIUM_CONFIG_FILE, '/tmp/elysium-home/config/selection.json')
-  assert.equal(config.ELYSIUM_BYTEPLUS_FILE, '/tmp/elysium-home/config/providers/byteplus.json')
-  assert.equal(config.ELYSIUM_BAILIAN_FILE, '/tmp/elysium-home/config/providers/bailian.json')
-  withConfig(config, () => assert.equal(workerEnvironment().ELYSIUM_HOME, '/tmp/elysium-home'))
+test('repository defaults initialize the single runtime settings file', async t => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-settings-')); t.after(() => rm(root, { recursive: true, force: true }))
-  const file = join(root, 'settings.json')
-  await writeFile(file, JSON.stringify({ ...defaultSettings, paths: { ...defaultSettings.paths, providers: '../outside' } }))
-  assert.throws(() => readSettings(file), /路径无效/)
+  const defaults = resolveConfig({ home: root }).ELYSIUM_MODELS, models = { image: [], video: [] }
+  assert.deepEqual(defaults, defaultSettings.models)
+  assert.deepEqual(resolveConfig({ home: root, models }).ELYSIUM_MODELS, models)
+  assert.deepEqual(resolveConfig({ home: root, models: { ...models, llm: [{ id: 'old', label: '旧文本模型' }], analysis: [] } }).ELYSIUM_MODELS, models)
+  assert.throws(() => resolveConfig({ home: root, models: { ...models, analysis: 'bad' } }))
+  const config = resolveConfig({ home: root })
+  assert.equal(config.ELYSIUM_SETTINGS_FILE, join(root, 'config', 'settings.json'))
+  assert.equal(config.ELYSIUM_SERVERS_FILE, undefined)
+  assert.equal(config.ELYSIUM_CONFIG_FILE, undefined)
+  assert.equal(config.ELYSIUM_BYTEPLUS_FILE, undefined)
+  assert.equal(config.ELYSIUM_BAILIAN_FILE, undefined)
+  withConfig(config, () => assert.equal(workerEnvironment().ELYSIUM_HOME, root))
+  const file = join(root, 'defaults.json')
+  await writeFile(file, JSON.stringify({ ...defaultSettings, extra: true }))
+  assert.throws(() => readDefaults(file), /配置无效/)
   await writeFile(file, JSON.stringify({ ...defaultSettings, models: { image: [], video: [{ id: 'same', label: 'A' }, { id: 'same', label: 'B' }] } }))
-  assert.throws(() => readSettings(file), /模型配置项无效/)
+  assert.throws(() => readDefaults(file), /模型配置项无效/)
 })

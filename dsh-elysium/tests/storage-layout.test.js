@@ -9,9 +9,9 @@ import { selectionPath } from '../src/servers/selection/store.js'
 
 test('storage paths stay within config, pools, projects, runtime and uploads', () => {
   const root = '/tmp/elysium-layout'
-  withConfig({ ELYSIUM_HOME: root, ELYSIUM_STATE_ROOT: root }, () => {
-    assert.equal(registryPath(), join(root, 'config', 'servers.json'))
-    assert.equal(selectionPath(), join(root, 'config', 'selection.json'))
+  withConfig({ ELYSIUM_HOME: root, ELYSIUM_STATE_ROOT: root, ELYSIUM_SETTINGS_FILE: join(root, 'config', 'settings.json') }, () => {
+    assert.equal(registryPath(), join(root, 'config', 'settings.json'))
+    assert.equal(selectionPath(), join(root, 'config', 'settings.json'))
     assert.equal(poolsRoot(), join(root, 'pools'))
     assert.equal(projectsRoot(), join(root, 'projects'))
     assert.equal(runtimeRoot(), join(root, 'runtime'))

@@ -4,7 +4,7 @@ import { providerDefinitions } from './definitions.js'
 import { resolveServer } from '../registry/resolve.js'
 import { readRegistry, writeRegistry } from '../registry/store.js'
 import { readSelection, writeSelection } from '../selection/store.js'
-import { runtimeConfig } from '../../utils/config.js'
+import { runtimeConfig, runtimeSettings } from '../../utils/config.js'
 async function adapterFor(backend) {
   const provider = await loadProvider(backend.provider)
   if (backend.provider_api_version !== undefined && backend.provider_api_version !== provider.apiVersion) throw Object.assign(new Error('任务平台接口版本不兼容'), { code: 'PROVIDER_VERSION_MISMATCH', status: 409 })
@@ -41,7 +41,8 @@ export { validateRegistry, httpUrl, serviceUrl } from '../registry/schema.js'
 export { sshIdentity } from '../transport/connection.js'
 export { checkServer, switchServer } from './check.js'
 export { readBackend, sameBackend } from './backend.js'
-export { providerConfigFields, providerConfigDefaults } from './definitions.js'
+export { providerConfigFields, providerConfigDefaults, providerConfigSources } from './definitions.js'
+export { ensureSettings, readSettings, updateSettings, validateSettings } from '../settings/store.js'
 
 export const validateBackend = async backend => ({ apiVersion: (await providerFor(backend)).apiVersion })
 export const validateBackendPlan = async (backend, plan) => (await adapterFor(backend)).validatePlan(plan, backend)
@@ -140,8 +141,12 @@ export async function providerCreationInstructions() {
 }
 
 export function defaultTunnelModel() {
+  if (runtimeConfig().ELYSIUM_SETTINGS_FILE) {
+    const chat = runtimeSettings().chat
+    return { alias: chat.tunnel.alias, id: chat.id, label: chat.label }
+  }
   const owner = providerDefinitions().find(item => item.legacy_tunnel)
   const tunnel = owner?.legacy_tunnel, model = owner?.services?.[tunnel?.service]?.model
-  return tunnel && model ? { alias: tunnel.alias, id: model, label: model } : null
+  return tunnel && model ? { alias: tunnel.alias, id: model, label: tunnel.label || model } : null
 }
 export const defaultTunnelAlias = () => defaultTunnelModel()?.alias

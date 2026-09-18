@@ -65,7 +65,7 @@ test('fixed model catalog probes without connecting and failed selection cannot 
   const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
   const listed = await (await request('models')).json()
   assert.deepEqual(listed.models.image, [])
-  assert.deepEqual(listed.chat_model, { id: 'qwen3.8-27b-elysium', label: 'qwen3.8-27b-elysium' })
+  assert.deepEqual(listed.chat_model, { id: 'qwen3.8-27b-elysium', label: 'qwen3.8' })
   assert.doesNotMatch(JSON.stringify(listed.chat_model), /ssh|18000|8000|veo-qwen38/)
   assert.equal(listed.selected.video, 'model-a')
   assert.equal((await (await request('model-status', { kind: 'video', id: 'model-a' })).json()).connected, true)

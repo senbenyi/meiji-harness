@@ -36,6 +36,7 @@ export default adapter
 `)
   const options = { cwd: root, timeout: 50000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env,
     DSH_HOME: join(root, 'dsh-home'), ELYSIUM_HOME: join(root, 'home'), ELYSIUM_STATE_ROOT: join(root, 'state'), ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json'),
+    ELYSIUM_SETTINGS_FILE: join(root, 'home', 'config', 'settings.json'),
     COMFYUI_URL: 'http://unselected.invalid', PROVIDER_TRACE: join(root, 'trace.jsonl') } }
   try {
     await execute(process.execPath, ['scripts/build.mjs'], options)

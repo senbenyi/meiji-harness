@@ -9,7 +9,7 @@ src/
 ├── business/                 # 内部业务包，随插件一起构建和发布
 │   ├── projects/             # 项目、锚点、分镜与交付数据
 │   ├── directors/            # 导演库
-│   ├── assets/               # 素材查询与访问校验
+│   ├── assets/               # 素材库索引、查询与访问校验
 │   ├── jobs/                 # 任务持久化、查询、诊断与进程锁
 │   ├── video/                # 单次视频任务、执行、worker 与恢复
 │   └── production/           # 多镜头生产清单、编排、回执与参考帧
@@ -49,19 +49,19 @@ src/
 
 自有视频模型可连接时优先使用自有模型；否则在已启用渠道中优先选百炼，再选 BytePlus。两者配置独立，任务提交后固定后端，恢复不会切换供应商或再次付费提交。
 
-- 百炼：`bailianFile` / `ELYSIUM_BAILIAN_FILE`，默认 `$DSH_HOME/storages/elysium/config/providers/bailian.json`。模板位于 `src/servers/providers/bailian/config.example.json`；填写原生 DashScope `base_url` 和 `api_key` 后设置 `enabled: true`。
+- 百炼：运行配置位于 `$DSH_HOME/storages/elysium/config/settings.json` 的 `providers.bailian`。字段模板位于 `src/servers/providers/bailian/config.example.json`；填写原生 DashScope `base_url` 和 `api_key` 后设置 `enabled: true`。
 - 万相 2.6：`t2va` 使用 `wan2.6-t2v`，`i2va` 使用 `wan2.6-i2v`；2–15 整数秒，720P/1080P，默认自动生成音频。文生视频比例取配置，图生视频比例随首帧；首帧支持 `job:图片素材ID`、HTTPS URL 和图片数据。不支持首尾帧、双参考图模式，不会静默丢弃素材。
-- BytePlus：仅提供 Seedance 视频渠道；默认读取 `$DSH_HOME/storages/elysium/config/providers/byteplus.json`，模板位于 `src/servers/providers/byteplus/config.example.json`。
+- BytePlus：仅提供 Seedance 视频渠道；运行配置位于 `settings.json` 的 `providers.byteplus`，字段模板位于 `src/servers/providers/byteplus/config.example.json`。
 - 百炼关闭开关只影响新任务选择；已提交任务保留原 ID，可恢复查询、下载。未知提交结果禁止自动重发，需先核对供应商任务；任务查询及产物链接受供应商有效期限制。
 - 工作台只显示图片、视频及三方模型选择；API 密钥不进入任务快照和模型列表。
 
 ## 本机配置边界
 
-仓库中的 `config/settings.json` 是唯一的非敏感业务默认配置，可直接修改路径布局、原子工具开关以及图片/视频模型目录；修改后重新执行 `pnpm build && pnpm package:registry`。插件实例参数可临时覆盖其中的开关与模型目录。
+仓库中的 `config/defaults.json` 只负责初始化非敏感默认值。实际运行设置唯一保存到 `$DSH_HOME/storages/elysium/config/settings.json`，包括聊天模型与隧道、图片/视频模型目录、服务器连接、当前模型选择和三方渠道配置。该文件包含凭据，始终使用 `0600` 权限；浏览器接口不会返回密钥和 SSH 连接细节。插件实例参数可临时覆盖原子工具开关与模型目录。
 
-`ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`），根目录只承载五类数据：`config/` 保存服务器连接、模型选择和平台凭据，`pools/` 保存导演等跨项目主数据，`projects/` 保存项目拥有的业务、任务、生产回执与媒体，`runtime/` 保存跨会话索引和隧道，`uploads/` 保存用户导入原件。`config/selection.json` 与仓库 `config/settings.json` 职责不同。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
+`ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`），根目录只承载五类数据：`config/` 保存唯一的 `settings.json`，`pools/` 保存导演库和素材库索引等跨项目主数据，`projects/` 保存项目拥有的业务、任务、生产回执与媒体，`runtime/` 保存跨会话索引、隧道和迁移归档，`uploads/` 保存用户导入原件。`pools/materials.json` 仅记录全局素材的身份、来源和删除状态，媒体实体仍位于所属 `projects/` 或 `uploads/`；项目内的 `materials.json` 只是引用集合。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
 
-旧安装可执行以下命令做一次非覆盖迁移；命令不会覆盖已有目标文件，旧布局会移动到 `runtime/migrations/<timestamp>/`，避免继续形成第二个写入源：
+旧安装可执行以下命令做一次迁移；脚本将 `servers.json`、`selection.json` 和 `providers/*.json` 合并到 `settings.json`，复读校验后把旧文件移动到 `runtime/migrations/<timestamp>/settings-sources/`：
 
 ```sh
 pnpm migrate:home

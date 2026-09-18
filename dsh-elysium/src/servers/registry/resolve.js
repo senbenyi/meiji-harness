@@ -1,5 +1,5 @@
 // 职责：按服务解析唯一默认目标，保留无清单安装的旧连接配置。
-import { requiredConfig, runtimeConfig, withConfig } from '../../utils/config.js'
+import { requiredConfig, runtimeConfig, runtimeSettings, withConfig } from '../../utils/config.js'
 import { readRegistry } from './store.js'
 import { readSelection } from '../selection/store.js'
 import { providerDefinitions } from '../runtime/definitions.js'
@@ -10,6 +10,11 @@ export function resolveServer(kind = 'comfyui', serverId) {
   const registry = readRegistry()
   if (!registry || !registry.servers.length) {
     if (kind === 'image') throw new Error('未配置图片模型')
+    if (serviceKind === 'llm' && runtimeConfig().ELYSIUM_SETTINGS_FILE) {
+      const backend = runtimeSettings().chat.backend
+      if (serverId && serverId !== backend.server_id) throw new Error(`未知 llm 实例：${serverId}`)
+      return { ...structuredClone(backend), provider_api_version: 1, legacy: true }
+    }
     const owner = providerDefinitions().find(item => item.legacy?.[serviceKind]), legacy = owner?.legacy[serviceKind]
     if (!legacy || serverId && serverId !== legacy.server_id) throw new Error(`未知 ${serviceKind === 'comfyui' ? 'ComfyUI' : serviceKind} 实例：${serverId || ''}`)
     const { url_env, ...backend } = legacy
@@ -33,6 +38,14 @@ export const withBackend = (backend, callback) => withConfig({ ...runtimeConfig(
 
 // 兼容命令和隧道参数由提供者声明，宿主只请求连接。
 export function legacyTunnelBackend(alias) {
+  if (runtimeConfig().ELYSIUM_SETTINGS_FILE) {
+    const chat = runtimeSettings().chat
+    if (chat.tunnel.alias !== alias) return null
+    const registry = readRegistry()
+    if (registry?.servers.length) return resolveServer(chat.backend.service)
+    return { ...structuredClone(chat.backend), provider_api_version: 1, legacy: true, instance_id: 'legacy', deployment_id: alias,
+      connection: { ...chat.backend.connection, ...chat.tunnel, ssh_identity: sshIdentity(chat.tunnel.ssh_alias) } }
+  }
   const owner = providerDefinitions().find(item => item.legacy_tunnel?.alias === alias)
   if (!owner) return null
   const config = owner.legacy_tunnel

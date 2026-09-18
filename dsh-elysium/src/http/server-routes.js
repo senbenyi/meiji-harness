@@ -44,7 +44,7 @@ export function createServerHandler({ token, check = checkServer, identify = ssh
         if (action === 'model-status') {
           return json(res, 200, { connected: await probeBackend(backend) })
         }
-        const result = readRegistry()
+        const result = readRegistry()?.servers.length
           ? await switchServer(body.kind, backend.server_id, body.revision, check)
           : await check(body.kind, backend.server_id)
         return json(res, 200, { ...result, connected: true })

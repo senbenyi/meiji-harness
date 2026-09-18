@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 // 职责：将旧目录和混合配置无损归入 config、pools、projects、runtime、uploads 五类目录。
-import { access, chmod, cp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
+import { access, chmod, cp, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, parse, resolve, sep } from 'node:path'
+import { ensureSettings, readSettings } from '../src/servers/runtime/index.js'
 
 function safeHome(value, fallback, name) {
   const directory = resolve(value || fallback)
@@ -13,6 +14,9 @@ function safeHome(value, fallback, name) {
 }
 async function exists(file) {
   try { await access(file); return true } catch (error) { if (error.code === 'ENOENT') return false; throw error }
+}
+async function ensurePrivate(file) {
+  if (((await stat(file)).mode & 0o777) !== 0o600) await chmod(file, 0o600)
 }
 async function firstExisting(candidates) {
   for (const candidate of candidates) if (await exists(candidate)) return candidate
@@ -89,6 +93,7 @@ if (!await exists(selectionPath)) {
 
 const providersHome = join(configHome, 'providers')
 const providerFiles = []
+const providerSources = {}
 for (const entry of await readdir(new URL('../src/servers/providers/', import.meta.url), { withFileTypes: true })) {
   if (!entry.isDirectory()) continue
   let definition
@@ -98,10 +103,21 @@ for (const entry of await readdir(new URL('../src/servers/providers/', import.me
   if (!name) continue
   providerFiles.push(name)
   const target = join(providersHome, name)
+  providerSources[entry.name] = target
   const source = await firstExisting([target, join(configHome, name), join(targetHome, 'providers', name), join(legacyHome, 'providers', name), join(legacyHome, name), join(dshHome, name)])
   if (source && source !== target) await copyMissing(source, target)
-  if (await exists(target)) await chmod(target, 0o600)
+  if (await exists(target)) await ensurePrivate(target)
 }
+
+const settingsPath = join(configHome, 'settings.json')
+const defaults = JSON.parse(await readFile(new URL('../config/defaults.json', import.meta.url), 'utf8'))
+ensureSettings({ path: settingsPath, defaults, registryFile: registryPath, selectionFile: selectionPath, providerFiles: providerSources })
+readSettings(settingsPath)
+await ensurePrivate(settingsPath)
+
+await archive(registryPath, 'settings-sources/servers.json')
+await archive(selectionPath, 'settings-sources/selection.json')
+for (const [id, source] of Object.entries(providerSources)) await archive(source, join('settings-sources/providers', `${id}.json`))
 
 for (const [source, name] of [
   [join(targetHome, 'directors.json'), 'legacy-layout/directors.json'],
