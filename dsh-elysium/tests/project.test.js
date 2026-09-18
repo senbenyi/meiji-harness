@@ -50,10 +50,10 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'configuration'); assert.equal(summary.deliverable_count, 0)
     await request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, status: 'running' }] }] })
     summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'active'); assert.equal(summary.stage, 'configuration')
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'configuration')
     await request('update', { id, acts: [{ title: '第一幕', shots: [shot] }], deliverables: [{ type: 'film', label: '成品', job_id: 'a'.repeat(32) }] })
     summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'completed'); assert.equal(summary.stage, 'configuration')
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'configuration')
     await Promise.all([request('update', { id, title: '新标题', director: '王家卫' }), request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, job_id: null, status: 'pending' }] }] })])
     handler = createProjectHandler({ token: 't' })
     const restored = await (await request('get', undefined, `&id=${id}`)).json()
@@ -73,54 +73,6 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.equal((await request('delete', { id })).status, 200)
     assert.equal((await request('get', undefined, `&id=${id}`)).status, 404)
     assert.deepEqual(await (await request('list')).json(), [])
-  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
-})
-
-test('reading a monolithic project safely migrates it into separate project files', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'elysium-project-migration-')), id = '1234abcd'
-  const directory = join(root, 'projects', id)
-  const job = 'a'.repeat(32)
-  const legacy = { id, title: '旧项目', profile: 'preview', created_at: 1, updated_at: 2,
-    anchors: [{ role: 'lin', label: '林', description: '', source: { type: 'material', job_id: job }, image_url: '' }],
-    acts: [{ title: '第一幕', shots: [] }], deliverables: [] }
-  const migrated = { ...legacy, materials: [job] }
-  await mkdir(directory, { recursive: true })
-  await writeFile(join(directory, 'project.json'), JSON.stringify(legacy))
-  const handler = createProjectHandler({ token: 't' })
-  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  try {
-    const response = await fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/get?t=t&id=${id}`)
-    assert.equal(response.status, 200)
-    assert.deepEqual(await response.json(), migrated)
-    assert.deepEqual((await readdir(directory)).sort(), ['anchors.json', 'deliverables.json', 'materials.json', 'project.json', 'storyboard.json'])
-    const metadata = JSON.parse(await readFile(join(directory, 'project.json'), 'utf8'))
-    assert.deepEqual(metadata, Object.fromEntries(Object.entries(legacy).filter(([key]) => !['anchors', 'acts', 'deliverables'].includes(key))))
-    assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), [job])
-    assert.deepEqual(JSON.parse(await readFile(join(directory, 'anchors.json'), 'utf8')), legacy.anchors)
-    assert.deepEqual(JSON.parse(await readFile(join(directory, 'storyboard.json'), 'utf8')), legacy.acts)
-    assert.deepEqual(JSON.parse(await readFile(join(directory, 'deliverables.json'), 'utf8')), legacy.deliverables)
-  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
-})
-
-test('reading a four-file project creates its missing material index from existing references', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'elysium-material-migration-')), id = '2345bcde', job = 'b'.repeat(32)
-  const directory = join(root, 'projects', id)
-  const metadata = { id, title: '四文件项目', profile: 'preview', created_at: 1, updated_at: 2 }
-  const anchors = [], acts = [{ title: '第一幕', shots: [{ index: 1, role: '', action: '', subtitle: '', mode: 't2va', job_id: job, status: 'succeeded', notes: '' }] }], deliverables = []
-  await mkdir(directory, { recursive: true })
-  await Promise.all([['project.json', metadata], ['anchors.json', anchors], ['storyboard.json', acts], ['deliverables.json', deliverables]].map(([name, value]) => writeFile(join(directory, name), JSON.stringify(value))))
-  const handler = createProjectHandler({ token: 't' })
-  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  try {
-    const response = await fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/get?t=t&id=${id}`)
-    assert.equal(response.status, 200)
-    const result = await response.json()
-    assert.match(result.acts[0].shots[0].id, /^[a-f0-9]{8}$/)
-    acts[0].shots[0].id = result.acts[0].shots[0].id
-    assert.deepEqual(result, { ...metadata, materials: [job], anchors, acts, deliverables })
-    assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), [job])
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
 

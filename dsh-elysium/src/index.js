@@ -14,6 +14,7 @@ import { providerCreationInstructions } from './models/managers/runtime/index.js
 import { creationInstructions } from './tools/prompts/creation.js'
 import { createProjectWorkflow } from './server/projects/workflow.js'
 import { createProjectWorkflowTools } from './tools/project/workflow.js'
+import { statusError } from './utils/errors.js'
 
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
@@ -48,7 +49,12 @@ function registerWebFeatures(ctx, runtime) {
     registerDirectorRoutes(mediaContext, runtime, pageToken, directors, projects)
     for (const definition of [...createDirectorTools(directors), ...createProjectTools(projects), ...createProjectWorkflowTools(workflow)]) {
       // 将导演/项目工具绑定到当前插件实例的运行时配置。
-      const tool = { ...definition, execute: (...args) => withConfig(runtime, () => definition.execute(...args)) }
+      const tool = { ...definition, execute: (args, exec) => withConfig(runtime, async () => {
+        const sessionId = exec?.agent?.session?.id
+        const bound = sessionId && (await projects.list()).find(p => p.chat_session_id === sessionId)
+        if (bound && args.project_id && args.project_id !== bound.id) throw statusError(409, '当前会话仅能操作关联项目，请先在项目列表切换项目')
+        return definition.execute(args, exec)
+      }) }
       mediaContext.effect(() => ctx.tools.register(tool), `${effectPrefix}: ${tool.name} tool`)
     }
   }))
@@ -61,7 +67,11 @@ function registerPromptAssembly(ctx, runtime) {
     if (!isElysiumAgent(context.agent)) return assembly
     // 替换已有同名段落，确保创作指令只出现一次。
     return { ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
-        { name: 'elysium:creation-commands', text: await withConfig(runtime, async () => [creationInstructions, await providerCreationInstructions()].filter(Boolean).join('\n')) }] }
+        { name: 'elysium:creation-commands', text: await withConfig(runtime, async () => {
+          const sessionId = context.agent?.session?.id
+          const project = sessionId && (await createProjectStore().list()).find(p => p.chat_session_id === sessionId)
+          return [creationInstructions, await providerCreationInstructions(), project ? `当前会话关联项目 ID：${project.id}，名称：${JSON.stringify(project.title)}。用户提到本项目、修改剧情或分镜时，先 project_read 读取该项目最新内容，然后使用 project_edit_episode 保存对应集的修改。不可将历史其他项目作为目标。流程卡片下一步代表全剧人工审核，不可由聊天工具批准视频。` : ''].filter(Boolean).join('\n')
+        }) }] }
   })
 }
 

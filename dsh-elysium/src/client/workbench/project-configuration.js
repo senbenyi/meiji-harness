@@ -38,6 +38,7 @@ window.__ModuleLoader__.load({ id: 'elysium/project-configuration', factory: req
       h('p', null, '请配置项目素材。未选择的项目保留为空。'),
       h('label', { className: 'elysium-field' }, '项目模式', h('select', { 'aria-label': '项目模式', value: project.mode || 'director', disabled: busy, onChange: event => onChange({ ...project, mode: event.target.value }) }, [['director', '导演模式'], ['free', '自由模式'], ['teaching', '教学模式']].map(([value, label]) => h('option', { key: value, value }, label)))),
       h('label', { className: 'elysium-field' }, '创作需求', h('textarea', { 'aria-label': '创作需求', value: project.brief || '', disabled: busy, onChange: event => onChange({ ...project, brief: event.target.value }) })),
+      h('label', { className: 'elysium-field' }, '计划集数', h('input', { 'aria-label': '计划集数', type: 'number', min: 1, max: 100, value: project.episode_count || 1, disabled: busy, onChange: event => onChange({ ...project, episode_count: Number(event.target.value) }) }), h('small', null, '全剧共用素材，每集单独生成剧情、分镜和成片。')),
       h('h3', null, '人物'), choose('male', '男主', 'character'), choose('female', '女主', 'character'), choose('supporting', '配角', 'character', true),
       choose('props', '道具', 'prop', true), choose('scene', '场景', 'scene'),
       h('fieldset', { disabled: busy, className: 'elysium-selection elysium-theme-selection' }, h('legend', null, '题材（多选）'),

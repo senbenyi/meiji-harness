@@ -1,4 +1,5 @@
 // 职责：校验并规范化持久化的项目、素材、锚点、分镜与交付物字段。
+import { validEpisodeId } from './episodes.js'
 import { statusError } from '../../utils/errors.js'
 
 const invalidRequest = message => statusError(400, message)
@@ -95,8 +96,8 @@ export function actsValue(acts) {
   let index = 0
   const ids = new Set()
   return acts.map(act => {
-    if (!act || !textValue(act.title) || !Array.isArray(act.shots)) throw invalidRequest('幕字段无效')
-    return { title: act.title, shots: act.shots.map(shot => {
+    if (!act || (act.episode_id !== undefined && !validEpisodeId(act.episode_id)) || !textValue(act.title) || !Array.isArray(act.shots)) throw invalidRequest('幕字段无效')
+    return { ...(act.episode_id ? { episode_id: act.episode_id } : {}), title: act.title, shots: act.shots.map(shot => {
       const value = shotValue(shot)
       if (++index > 1000 || value.id !== undefined && ids.has(value.id)) throw invalidRequest('镜 ID 重复或超过 1000 镜')
       if (value.id !== undefined) ids.add(value.id)
@@ -108,10 +109,10 @@ export function actsValue(acts) {
 export function deliverablesValue(items) {
   if (!Array.isArray(items) || items.length > 1000) throw invalidRequest('交付列表无效')
   return items.map(item => {
-    if (!item || !['type', 'label'].every(key => textValue(item[key])) ||
+    if (!item || (item.episode_id !== undefined && !validEpisodeId(item.episode_id)) || !['type', 'label'].every(key => textValue(item[key])) ||
       !(validJobId(item.job_id) || serverUrl(item.url)) || (item.url !== undefined && !serverUrl(item.url)) ||
       (item.job_id !== undefined && !validJobId(item.job_id)) ||
       ['duration_sec', 'frame_count', 'size_bytes', 'created_at'].some(key => item[key] !== undefined && (!Number.isFinite(item[key]) || item[key] < 0))) throw invalidRequest('交付物需提供任务 ID 或服务器 URL，规格必须为非负数')
-    return Object.fromEntries(['type', 'label', 'job_id', 'url', 'duration_sec', 'frame_count', 'size_bytes', 'created_at'].filter(key => item[key] !== undefined).map(key => [key, item[key]]))
+    return Object.fromEntries(['episode_id', 'type', 'label', 'job_id', 'url', 'duration_sec', 'frame_count', 'size_bytes', 'created_at'].filter(key => item[key] !== undefined).map(key => [key, item[key]]))
   })
 }

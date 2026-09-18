@@ -29,11 +29,13 @@ export async function startVideoJob(args, exec, approvalToken) {
 }
 
 async function startVideoJobLocked(args, exec, approvalToken) {
-  const { new_video = false, project_id: projectId, ...plan } = args
+  const { new_video = false, project_id: projectId, episode_id: episodeId, ...plan } = args
   if (typeof new_video !== 'boolean') throw invalid('new_video 必须为布尔值')
   if (!validProjectId(projectId)) throw invalid('project_id 必须为 8 位项目 ID')
   const metadata = await readFile(join(projectsRoot(), projectId, 'project.json'), 'utf8').then(JSON.parse).catch(error => { if (error.code === 'ENOENT') return {}; throw error })
-  if (metadata.workflow && (!approvalToken || metadata.workflow.approval?.token !== approvalToken || metadata.workflow.approval.revision !== metadata.workflow.revision || !isDeepStrictEqual(metadata.workflow.approval.plan, plan))) throw invalid('请在项目页面审核当前分镜并点击提交，不能绕过人工审核')
+  const workflow = episodeId ? metadata.episodes?.find(item => item.id === episodeId)?.workflow : metadata.episodes?.length > 1 ? null : metadata.workflow
+  if (episodeId && !workflow || metadata.episodes?.length > 1 && !episodeId) throw invalid('请选择有效剧集并在项目页面审核提交')
+  if (metadata.workflow && (!approvalToken || workflow.approval?.token !== approvalToken || workflow.approval.revision !== workflow.revision || !isDeepStrictEqual(workflow.approval.plan, plan))) throw invalid('请在项目页面审核当前分镜并点击提交，不能绕过人工审核')
   if (!new_video && exec?.agent?.session) {
     const session = exec.agent.session
     const events = session.snapshotEvents()
@@ -49,7 +51,7 @@ async function startVideoJobLocked(args, exec, approvalToken) {
       return { job_id: previous, project_id: job.project_id, status: job.status }
     }
   }
-  const backend = metadata.workflow?.approval?.backend || await resolveGenerationBackend('video')
+  const backend = workflow?.approval?.backend || await resolveGenerationBackend('video')
   await validateBackend(backend)
   await withBackend(backend, () => validateVideoPlan(plan))
   const jobId = await createJob(projectId, plan, backend)

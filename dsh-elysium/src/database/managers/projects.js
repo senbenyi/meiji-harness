@@ -4,6 +4,7 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promise
 import { join } from 'node:path'
 import { projectsRoot } from '../paths.js'
 import { briefValue, configurationValue, modeValue, anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
+import { ensureEpisodes, episodeStage, newEpisode } from '../schemas/episodes.js'
 import { statusError } from '../../utils/errors.js'
 
 const FREE_PROJECT_ID = '00000000'
@@ -14,13 +15,14 @@ export function projectSummary(value) {
   const shots = value.acts.flatMap(act => act.shots)
   const active = shots.some(shot => ['queued', 'running'].includes(shot.status))
   const completed = value.deliverables.length > 0 && shots.every(shot => shot.status === 'succeeded')
+  const workflowStage = value.episodes ? episodeStage(value) : value.workflow?.stage
   const stage = value.deliverables.length > 0 && completed ? 'deliverables' : shots.length ? shots.some(shot => shot.status !== 'succeeded') ? 'acts' : 'deliverables' : !value.anchors.length ? 'anchors' : 'acts'
   return {
     cover_job_id: value.cover_job_id || (value.anchors.some(anchor => serverUrl(anchor.image_url)) ? null : value.anchors.find(anchor => anchor.source?.job_id)?.source.job_id || null),
     cover_url: value.cover_job_id ? null : value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
-    id: value.id, title: value.title, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
-    mode: value.mode || 'director', workflow: value.workflow,
-    status: value.workflow?.job_id && value.workflow?.stage !== 'complete' ? 'active' : value.workflow?.stage === 'complete' ? 'completed' : active ? 'active' : completed ? 'completed' : 'todo', stage: value.workflow?.stage || stage,
+    id: value.id, title: value.title, chat_session_id: value.chat_session_id || null, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
+    mode: value.mode || 'director', workflow: value.workflow, episode_count: value.episode_count || 1,
+    status: workflowStage ? workflowStage === 'complete' ? 'completed' : ['video', 'submitting', 'plot-generating', 'storyboard-generating', 'failed'].includes(workflowStage) ? 'active' : 'todo' : active ? 'active' : completed ? 'completed' : 'todo', stage: workflowStage || stage,
     anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length,
     deliverable_count: value.deliverables.length,
   }
@@ -42,6 +44,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
   }
 
   async function writeProject(directory, value, sections) {
+    if (value.episodes) sections = [...sections, 'acts', 'deliverables']
     await Promise.all([...new Set(sections)].map(key => writeJson(join(directory, names[key]), value[key])))
     await writeJson(join(directory, 'project.json'), metadataOf(value))
     modifiedAt.set(value.id, value.updated_at)
@@ -64,13 +67,6 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
     if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
     const directory = join(root(), id)
     const metadata = JSON.parse(await readFile(join(directory, 'project.json'), 'utf8'))
-    if (['anchors', 'acts', 'deliverables'].some(key => Object.hasOwn(metadata, key))) {
-      const value = { ...metadata, materials: metadata.materials || [], anchors: metadata.anchors || [], acts: metadata.acts || [], deliverables: metadata.deliverables || [] }
-      ensureShotIds(value.acts)
-      value.materials = materialIdsOf(value)
-      await writeProject(directory, value, ['materials', 'anchors', 'acts', 'deliverables'])
-      return value
-    }
     const [anchors, acts, deliverables] = await Promise.all(['anchors', 'acts', 'deliverables'].map(key => readFile(join(directory, names[key]), 'utf8').then(JSON.parse)))
     let materials
     try { materials = JSON.parse(await readFile(join(directory, names.materials), 'utf8')) }
@@ -80,7 +76,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
       await writeJson(join(directory, names.materials), materials)
     }
     if (ensureShotIds(acts)) await writeJson(join(directory, names.acts), acts)
-    return { ...metadata, materials, anchors, acts, deliverables }
+    return ensureEpisodes({ ...metadata, materials, anchors, acts, deliverables })
   }
 
   function enqueue(action) {
@@ -133,6 +129,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
         const now = Date.now()
         do { value = { id: newId() } } while (value.id === FREE_PROJECT_ID)
         value = { ...value, title: titleValue(body.title), director: body.director ? await checkedDirector(body.director) : null, profile: profileValue(body.profile || 'regular'), mode: modeValue(body.mode), brief: briefValue(body.brief || body.title), configuration: configurationValue(), workflow: { revision: 0, stage: 'configuration', plot: '', storyboard_revision: null, request: null, approval: null, job_id: null }, created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
+        value.episode_count = 1; value.episodes = [{ ...newEpisode(1), workflow: value.workflow }]
         if (body.cover_job_id !== undefined) { value.cover_job_id = await checkedCover(body.cover_job_id); value.materials = [value.cover_job_id] }
         sections = ['materials', 'anchors', 'acts', 'deliverables']
         await mkdir(root(), { recursive: true })
@@ -166,13 +163,14 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
           sections.push('anchors')
         }
         if (value.workflow && ['director', 'profile', 'mode', 'brief', 'anchors', 'acts'].some(key => body[key] !== undefined)) {
-          value.workflow.revision++; value.workflow.approval = null; value.workflow.request = null; value.workflow.storyboard_revision = null; value.workflow.job_id = null
+          for (const w of new Set([value.workflow, ...(value.episodes || []).map(episode => episode.workflow)])) { w.revision++; w.approval = null; w.request = null; w.storyboard_revision = null; w.job_id = null; w.plot_stale = Boolean(w.plot); w.stage = 'configuration' }
           if (['director', 'mode', 'brief', 'anchors'].some(key => body[key] !== undefined)) value.workflow.plot_stale = true
         }
         const materials = materialIdsOf(value)
         if (materials.some((id, index) => id !== value.materials[index]) || materials.length !== value.materials.length) { value.materials = materials; sections.push('materials') }
         value.updated_at = Math.max(Date.now(), value.updated_at + 1)
       }
+      ensureEpisodes(value)
       await writeProject(join(root(), value.id), value, sections)
       return value
     })
@@ -183,7 +181,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
     return enqueue(async () => {
       const value = await load(id)
       const sections = await mutate(value)
-      if (value.workflow && !workflowOperation) { value.workflow.revision++; value.workflow.approval = null; value.workflow.request = null; value.workflow.storyboard_revision = null; value.workflow.job_id = null }
+      if (value.workflow && !workflowOperation) { for (const w of new Set([value.workflow, ...(value.episodes || []).map(episode => episode.workflow)])) { w.revision++; w.approval = null; w.request = null; w.storyboard_revision = null; w.job_id = null; w.plot_stale = Boolean(w.plot); w.stage = 'configuration' } }
       value.anchors = anchorsValue(value.anchors)
       value.acts = actsValue(value.acts)
       const materials = materialIdsOf(value)

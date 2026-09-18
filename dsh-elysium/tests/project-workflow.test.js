@@ -61,6 +61,7 @@ test('selected material categories, single choice, novel paging and stale reques
     const context = await workflow.context(p.id, p.workflow.request.id, 's')
     assert.equal(context.reference_text.length, 12000); assert.equal(context.next_offset, 12000)
     assert.equal((await workflow.context(p.id, p.workflow.request.id, 's', 12000)).reference_text.length, 1000)
+    await workflow.action('cancel', { id: p.id, revision: 1 })
     await workflow.action('configure', { id: p.id, revision: 1, configuration: {} })
     await assert.rejects(workflow.complete({ id: p.id, request_id: p.workflow.request.id, plot: '迟到剧情' }, 's'), /过期/)
   }) } finally { await rm(root, { recursive: true, force: true }) }
@@ -107,7 +108,7 @@ test('single-shot API compilation preserves duration and snapshots the selected 
     let p = await store.change('create', { title: 'API 项目' })
     p = await store.transact(p.id, value => {
       value.workflow.plot = '成年情侣重逢。'; value.workflow.storyboard_revision = 0
-      value.acts = [{ title: '第一幕', shots: [{ id: 'one', role: '', mode: 'independent', duration: 5, action: '微笑', prompt: 'Couple smiling', subtitle: '', notes: '', job_id: null, status: 'pending' }] }]
+      value.acts = [{ episode_id: 'episode-1', title: '第一幕', shots: [{ id: 'one', role: '', mode: 'independent', duration: 5, action: '微笑', prompt: 'Couple smiling', subtitle: '', notes: '', job_id: null, status: 'pending' }] }]
       return ['acts']
     })
     p = await workflow.action('submit', { id: p.id, revision: 0 })
@@ -126,26 +127,69 @@ test('workflow overview opens isolated details, guards drafts and does not inter
   cache.set('elysium/delivery', { DeliveryView: () => React.createElement('div', null, '视频详情') })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   const { ProjectWorkflow } = require('elysium/project-generation')
-  const project = { id: '1234abcd', updated_at: 1, configuration: {}, workflow: { revision: 1, stage: 'plot', plot: '相遇。' }, acts: [], deliverables: [] }
+  const project = { id: '1234abcd', updated_at: 1, title: '故事', configuration: {}, workflow: { revision: 1, stage: 'plot', plot: '相遇。' }, episodes: [{ id: 'episode-1', title: '相遇', workflow: { revision: 1, stage: 'plot', plot: '相遇。' } }], acts: [], deliverables: [] }
   let view
   const render = value => React.createElement(ProjectWorkflow, { project: value, busy: false, run: async () => true })
   await act(async () => { view = create(render(project)) })
-  assert.equal(view.root.findAllByProps({ className: 'elysium-process-card' }).length, 4)
-  assert.equal(view.root.findByProps({ 'aria-label': '打开分镜详情' }).props.disabled, true)
-  await act(async () => view.root.findByProps({ 'aria-label': '打开剧情详情' }).props.onClick())
-  assert.equal(view.root.findAllByProps({ className: 'elysium-process-card' }).length, 0)
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 3)
+  await act(async () => view.root.findByProps({ 'aria-label': '打开第 1 集剧情' }).props.onClick())
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 0)
   assert.equal(view.root.findByProps({ 'aria-label': '剧情正文' }).props.value, '相遇。')
   await act(async () => view.root.findByProps({ 'aria-label': '剧情正文' }).props.onChange({ target: { value: '编辑中的剧情' } }))
-  const back = () => view.root.findByProps({ className: 'elysium-step-detail-header' }).findByType('button').props.onClick()
+  const back = () => view.root.findByProps({ className: 'elysium-app-navbar' }).findByType('button').props.onClick()
   await act(async () => back())
   assert.equal(view.root.findByProps({ 'aria-label': '剧情正文' }).props.value, '编辑中的剧情')
   allowLeave = true
   await act(async () => back())
-  assert.equal(view.root.findAllByProps({ className: 'elysium-process-card' }).length, 4)
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 3)
   await act(async () => view.update(render({ ...project, updated_at: 2, workflow: { ...project.workflow, stage: 'storyboard' } })))
-  assert.equal(view.root.findAllByProps({ className: 'elysium-process-card' }).length, 4)
-  await act(async () => view.root.findByProps({ 'aria-label': '打开剧情详情' }).props.onClick())
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 3)
+  await act(async () => view.root.findByProps({ 'aria-label': '打开第 1 集剧情' }).props.onClick())
   assert.equal(view.root.findByProps({ 'aria-label': '剧情正文' }).props.value, '相遇。')
   assert.ok(view.root.findByProps({ className: 'elysium-step-detail-footer' }))
   await act(async () => view.unmount())
+})
+
+test('episodes isolate requests, edits, approvals, duplicate submits and finished films', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'episodes-'))
+  try { await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+    const store = createProjectStore(), jobs = new Map(), calls = []
+    const workflow = createProjectWorkflow(store, { resolveBackend: async () => ({ service: 'comfyui' }), validatePlan: async () => {},
+      start: async args => { calls.push(args); const result = { job_id: String(calls.length).repeat(32), status: 'running' }; jobs.set(result.job_id, result); return result }, job: async id => jobs.get(id) })
+    let p = await store.change('create', { title: '三集恋爱故事' })
+    p = await workflow.action('configure', { id: p.id, revision: 0, configuration: {}, episode_count: 3 })
+    assert.equal(p.episodes.length, 3)
+    p = await workflow.action('request', { id: p.id, revision: p.workflow.revision, stage: 'plot', session_id: 'session' })
+    const requestId = p.workflow.request.id
+    assert.equal((await workflow.context(p.id, requestId, 'session')).episode_count, 3)
+    await assert.rejects(workflow.complete({ id: p.id, request_id: requestId, episodes: [{ id: 'episode-1', title: '相遇', plot: '相遇。' }] }, 'session'), /全部分集/)
+    p = await workflow.complete({ id: p.id, request_id: requestId, episodes: p.episodes.map((e, i) => ({ id: e.id, title: ['相遇', '约定', '重逢'][i], plot: `第${i + 1}集成年情侣的故事。` })) }, 'session')
+    const act = async (name, episodeId, body = {}) => { p = await workflow.action(name, { id: p.id, episode_id: episodeId, revision: p.episodes.find(e => e.id === episodeId).workflow.revision, ...body }); return p }
+    for (const id of ['episode-1', 'episode-2']) {
+      await act('request', id, { stage: 'storyboard', session_id: 'session' })
+      const req = p.episodes.find(e => e.id === id).workflow.request.id
+      await assert.rejects(workflow.complete({ id: p.id, request_id: req, episode_id: id === 'episode-1' ? 'episode-2' : 'episode-1', shots: [] }, 'session'), /剧集/)
+      p = await workflow.complete({ id: p.id, request_id: req, shots: [{ id: 's1', duration: 3, action: '微笑', prompt: '成年情侣相视微笑' }] }, 'session')
+    }
+    assert.equal(p.acts.length, 2); assert.notEqual(p.acts[0].shots[0].id, p.acts[1].shots[0].id)
+    const rev1 = p.episodes[0].workflow.revision
+    await Promise.all([workflow.action('submit', { id: p.id, episode_id: 'episode-1', revision: rev1 }), workflow.action('submit', { id: p.id, episode_id: 'episode-1', revision: rev1 })])
+    assert.equal(calls.length, 1); assert.equal(calls[0].episode_id, 'episode-1'); assert.equal(calls[0].shots.length, 1)
+    p = await store.read(p.id)
+    const approval = p.episodes[0].workflow.approval
+    await assert.rejects(startVideoJob({ project_id: p.id, episode_id: 'episode-2', ...approval.plan }, undefined, approval.token), /人工审核/)
+    await assert.rejects(startVideoJob({ project_id: p.id, ...approval.plan }, undefined, approval.token), /有效剧集/)
+    await act('edit', 'episode-2', { plot: '第二集修改后的剧情。', title: '新的约定' })
+    assert.equal(p.episodes[0].workflow.job_id, '1'.repeat(32)); assert.equal(p.episodes[0].workflow.revision, rev1)
+    jobs.set('1'.repeat(32), { job_id: '1'.repeat(32), status: 'succeeded' })
+    p = await workflow.refresh(p.id)
+    assert.equal(p.deliverables.length, 1); assert.equal(p.deliverables[0].episode_id, 'episode-1'); assert.equal(p.deliverables[0].label, '相遇')
+    assert.equal(p.episodes[1].title, '新的约定'); assert.equal(p.episodes[1].workflow.approval, null)
+    assert.equal(p.acts.find(a => a.episode_id === 'episode-2').shots[0].status, 'pending')
+    await assert.rejects(workflow.action('submit', { id: p.id, revision: p.workflow.revision }), /选择.*剧集/)
+    await assert.rejects(workflow.action('configure', { id: p.id, revision: p.workflow.revision, configuration: {}, episode_count: 1 }), /减少集数/)
+    p = await workflow.action('configure', { id: p.id, revision: p.workflow.revision, configuration: {}, episode_count: 3 })
+    assert.ok(p.episodes.every(e => e.workflow.plot_stale && !e.workflow.approval))
+    assert.equal(p.deliverables[0].episode_id, 'episode-1')
+  }) } finally { await rm(root, { recursive: true, force: true }) }
 })

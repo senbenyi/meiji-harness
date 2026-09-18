@@ -7,6 +7,7 @@ import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 
 const initial = () => ({ id: 'abcdef12', title: '项目', director: '张艺谋', profile: 'preview', updated_at: 1,
+  brief: '原需求', configuration: {}, episode_count: 1, workflow: { revision: 0, stage: 'configuration' }, episodes: [{ id: 'episode-1', title: '第 1 集', workflow: { revision: 0, stage: 'configuration' } }],
   anchors: [{ role: 'lin', label: '林', description: '', image_url: '', source: null }],
   acts: [{ title: '幕', shots: [{ id: 'shot-1', role: 'lin', action: '走路', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }] }], deliverables: [] })
 
@@ -21,6 +22,7 @@ function fixture() {
       requests.push(url)
       const path = new URL(url, 'http://localhost').pathname
       if (path === hold) return new Promise(resolve => pending.push(value => resolve(response(value))))
+      if (path === '/media/list') return response({ items: [], has_more: false })
       if (path === '/director/list') return response([{ name: '张艺谋' }])
       if (path === '/project/poll') return response({ updated: project.updated_at > Number(new URL(url, 'http://localhost').searchParams.get('since')) })
       if (path === '/project/update') project = { ...project, ...JSON.parse(options.body), updated_at: project.updated_at + 1 }
@@ -40,19 +42,19 @@ const click = (view, label) => act(async () => view.root.findAllByType('button')
 const edit = (view, label, value) => act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
 async function mount(f, tab = 'anchors') {
   let view
-  await act(async () => { view = create(React.createElement(f.Component, { id: 'abcdef12', viewState: { projectTab: tab }, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.Component, { id: 'abcdef12', viewState: { projects: { abcdef12: { navigation: { stack: [{ type: 'overview' }, ...(tab === 'project' ? [{ type: 'configuration' }] : [])] } } } }, back() {} })) })
   return view
 }
 
 test('project settings draft survives a remote update and refreshes after leaving the form', async () => {
   const f = fixture(), view = await mount(f, 'project')
-  await edit(view, '项目名称', '手动草稿')
+  await edit(view, '创作需求', '手动草稿')
   f.change({ title: '聊天标题' })
   await f.tick()
-  assert.equal(view.root.findByProps({ 'aria-label': '项目名称' }).props.value, '手动草稿')
+  assert.equal(view.root.findByProps({ 'aria-label': '创作需求' }).props.value, '手动草稿')
   assert.match(JSON.stringify(view.toJSON()), /项目已有新修改/)
   assert.equal(f.requests.filter(path => path.startsWith('/project/get')).length, 1)
-  await click(view, '锚点')
+  await click(view, '返回项目总览')
   await f.tick()
   assert.equal(view.root.findByType('h1').children.join(''), '聊天标题')
   await act(async () => view.unmount())

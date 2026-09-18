@@ -1,4 +1,4 @@
-// 职责：用项目、锚点、分镜、成品四步流程编排项目创建、列表与详情。
+// 职责：编排项目列表、创建入口与剧集工作台，统一项目读取和轮询。
 window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const exports = {}
   const { createElement: h, Fragment, useEffect, useRef, useState } = require('react')
@@ -8,27 +8,9 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const { MaterialList } = require('elysium/materials')
   const { assetUrl } = require('elysium/media-api')
   const { ShotPreview } = require('elysium/shot-preview')
-  const { AnchorView } = require('elysium/anchors')
-  const { StoryboardView } = require('elysium/storyboard')
-  const { DeliveryView } = require('elysium/delivery')
   const profiles = [['preview', '预览'], ['regular', '常规'], ['high-quality', '高清']]
-  const steps = [['project', '项目'], ['anchors', '锚点'], ['acts', '分镜'], ['deliverables', '成品']]
-  const statuses = [['todo', '待处理'], ['active', '进行中'], ['completed', '已完成']]
+  const statuses = [['all', '全部'], ['todo', '待处理'], ['active', '进行中'], ['completed', '已完成']]
 
-  const shotsOf = project => project?.acts.flatMap(act => act.shots) || []
-  const stageOf = project => {
-    const shots = shotsOf(project)
-    if (shots.length) return shots.some(shot => shot.status !== 'succeeded') ? 'acts' : 'deliverables'
-    return project?.anchors.length ? 'acts' : 'anchors'
-  }
-  function ProjectSteps({ active, project, navigate, creating = false }) {
-    const shots = shotsOf(project)
-    const complete = { project: Boolean(project), anchors: Boolean(project?.anchors.length), acts: Boolean(shots.length) && shots.every(shot => shot.status === 'succeeded'), deliverables: Boolean(project?.deliverables.length) }
-    return h('nav', { className: 'elysium-project-steps', 'aria-label': '制作流程' }, steps.map(([value, label], index) => h('button', {
-      key: value, type: 'button', disabled: creating && value !== 'project', 'aria-label': label, 'aria-current': active === value ? 'step' : undefined,
-      'data-complete': complete[value] || undefined, onClick: () => navigate(value),
-    }, h('span', { 'aria-hidden': true }, complete[value] ? '✓' : index + 1), h('b', null, label))))
-  }
   function ProjectForm({ initial, busy, submit, cancel, action, onDirectorChange, guard, requireCover = false }) {
     const [draft, setDraft] = useState(initial), [selectingCover, setSelectingCover] = useState(false)
     const [directors, setDirectors] = useState([]), [directorError, setDirectorError] = useState('')
@@ -56,13 +38,12 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   }
 
   function ProjectDetail({ id, back, viewState = {}, onViewState = () => {}, guard: externalGuard, navigate = action => action() }) {
-    const [project, setProject] = useState(null), [tab, setTab] = useState(viewState.projects?.[id]?.tab || viewState.projectTab || null)
+    const [project, setProject] = useState(null)
     const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [reload, setReload] = useState(0)
     const saving = useRef(false), readVersion = useRef(0), localGuard = useRef(null)
     const guard = externalGuard || localGuard
     const [remoteUpdate, setRemoteUpdate] = useState(false)
-    const go = value => navigate(() => { setTab(value); onViewState({ projectTab: value, projects: { ...viewState.projects, [id]: { ...viewState.projects?.[id], tab: value } } }) })
-    useEffect(() => { let active = true; fetchProject(id).then(value => { if (active) { setProject(value); setTab(current => current || stageOf(value)) } }).catch(err => { if (active) setError(err.message) }); return () => { active = false } }, [id, reload])
+    useEffect(() => { let active = true; fetchProject(id).then(value => { if (active) setProject(value) }).catch(err => { if (active) setError(err.message) }); return () => { active = false } }, [id, reload])
     // 串行轮询；保存或项目切换后丢弃迟到结果，编辑中的草稿保持原样。
     useEffect(() => {
       if (!project) return
@@ -89,56 +70,50 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
       saving.current = true; readVersion.current++; setBusy(true); setError(''); setSaved(false)
       try { setProject(await action()); setSaved(true); setRemoteUpdate(false); return true } catch (err) { setError(err.message); try { setProject(await fetchProject(id)) } catch {} return false } finally { saving.current = false; setBusy(false) }
     }
-    const save = patch => run(() => updateProject(id, patch))
-    const activeTab = tab || stageOf(project)
-    const shots = shotsOf(project)
-    return h('div', { className: 'elysium-project-detail' },
-      h('div', { className: 'elysium-project-heading' }, h(IconButton, { name: 'back', label: '返回项目', disabled: busy, onClick: () => navigate(back) }), project?.cover_job_id ? h('div', { className: 'elysium-anchor-thumb' }, h('img', { src: assetUrl('image', project.cover_job_id), alt: '项目封面预览' })) : null, h('h1', null, project?.title || '项目'), h('span', { role: 'status' }, busy ? '保存中…' : saved ? '已保存' : '')),
-      project ? h('p', { className: 'elysium-compact-meta' }, project.workflow ? `${{ director: '导演模式', free: '自由模式', teaching: '教学模式' }[project.mode] || '导演模式'} · ${shots.length} 个分镜 · ${project.deliverables.length} 份成片` : `${project.director || '导演未指定'} · ${profiles.find(([value]) => value === project.profile)?.[1] || project.profile} · ${project.anchors.length} 锚点 · ${project.acts.length} 幕 · ${shots.filter(shot => shot.status === 'succeeded').length}/${shots.length} 镜完成 · ${project.deliverables.length} 份交付`) : null,
-      remoteUpdate ? h('p', { role: 'status' }, '项目已有新修改。请先保存或取消当前编辑，随后自动刷新。') : null,
-      !project?.workflow ? h(ProjectSteps, { active: activeTab, project, navigate: go }) : null,
-      error ? h('p', { role: 'alert' }, error, !project ? h('button', { onClick: () => { setError(''); setReload(value => value + 1) } }, '重试') : null) : null,
-      project?.workflow ? h(require('elysium/project-generation').ProjectWorkflow, { project, busy, run, guard }) : project ? h('div', { className: 'elysium-project-stage' },
-        activeTab === 'project' ? h(ProjectForm, { key: project.updated_at, initial: { title: project.title, director: project.director || '', profile: project.profile === 'hd' ? 'high-quality' : project.profile, ...(project.cover_job_id ? { cover_job_id: project.cover_job_id } : {}) }, guard, busy, action: '下一步', onDirectorChange: director => save({ director }), submit: async draft => { if (await save(draft)) go('anchors') } })
-          : activeTab === 'anchors' ? h(AnchorView, { project, save, run, busy, guard })
-            : activeTab === 'acts' ? h(StoryboardView, { project, save, run, busy, guard, viewState: viewState.projects?.[id], onViewState: value => onViewState({ projects: { ...viewState.projects, [id]: value } }) })
-              : h(DeliveryView, { project }),
-        activeTab === 'anchors' ? h('footer', { className: 'elysium-flow-next' }, h('button', { className: 'elysium-primary', disabled: busy || !project.anchors.length, onClick: () => go('acts') }, '继续到分镜')) : null,
-        activeTab === 'acts' ? h('footer', { className: 'elysium-flow-next' }, h('button', { className: 'elysium-primary', disabled: busy || !shots.length, onClick: () => go('deliverables') }, '继续到成品')) : null) : h('p', { role: 'status' }, '加载中…'))
+    return h('div', { className: 'elysium-project-detail' }, project
+      ? h(require('elysium/project-generation').ProjectWorkflow, { project, busy, run, guard, error,
+        notice: remoteUpdate ? '项目已有新修改，请先保存或取消编辑。' : saved ? '已保存' : '', back: () => navigate(back),
+        viewState: viewState.projects?.[id]?.navigation,
+        onViewState: navigation => onViewState({ projects: { ...viewState.projects, [id]: { ...viewState.projects?.[id], navigation } } }) })
+      : h('div', null, h('button', { onClick: back }, '返回项目列表'), error ? h('p', { role: 'alert' }, error, h('button', { onClick: () => { setError(''); setReload(value => value + 1) } }, '重试')) : h('p', { role: 'status' }, '加载中…')))
   }
 
-  function ProjectList({ viewState = {}, onViewState = () => {}, guard, navigate = action => action() } = {}) {
+  function ProjectList({ viewState = {}, onViewState = () => {}, guard, navigate = action => action(), onSelect } = {}) {
     const [items, setItems] = useState([]), [selected, setSelectedLocal] = useState(viewState.selected || null), [creating, setCreating] = useState(false)
-    const [error, setError] = useState(''), [busy, setBusy] = useState(false), [query, setQuery] = useState(''), [statusTab, setStatusTab] = useState('todo')
-    const selectProject = (id, projectTab = null) => { setSelectedLocal(id); onViewState({ selected: id, projectTab }) }
+    const [error, setError] = useState(''), [busy, setBusy] = useState(false), [query, setQuery] = useState(''), [statusTab, setStatusTab] = useState('all')
+    const selectProject = (id, projectTab = null) => navigate(() => { if (onSelect) return onSelect(id); setSelectedLocal(id); onViewState({ selected: id, projectTab }) })
     const refresh = async () => setItems(await fetchProjects())
-    useEffect(() => { let active = true; if (!selected) { setBusy(true); fetchProjects().then(value => { if (active) setItems(value) }).catch(err => { if (active) setError(err.message) }).finally(() => { if (active) setBusy(false) }) } return () => { active = false } }, [selected])
+    useEffect(() => { let active = true, timer; const load = async () => {
+      try { const value = await fetchProjects(); if (active) setItems(value) } catch (err) { if (active) setError(err.message) }
+      finally { if (active) { setBusy(false); if (onSelect) timer = setTimeout(load, 4000) } }
+    }; if (!selected || onSelect) { setBusy(true); load() } return () => { active = false; clearTimeout(timer) } }, [selected, Boolean(onSelect)])
     async function run(action) {
       setBusy(true); setError('')
       try { await action(); return true } catch (err) { setError(err.message); return false } finally { setBusy(false) }
     }
     useEffect(() => { setSelectedLocal(viewState.selected || null); setCreating(false) }, [viewState.selected])
-    if (selected) return h(ProjectDetail, { key: selected, id: selected, viewState, onViewState, guard, navigate, back: () => selectProject(null) })
-    if (creating) return h('div', { className: 'elysium-project-setup' },
-      h(ProjectSteps, { active: 'project', project: null, creating: true, navigate: () => {} }),
+    if (selected && !onSelect) return h(ProjectDetail, { key: selected, id: selected, viewState, onViewState, guard, navigate, back: () => selectProject(null) })
+    const createForm = creating ? h(Dialog, { title: '新建项目', busy, close: () => setCreating(false) }, h('div', { className: 'elysium-project-setup' },
+      h('header', { className: 'elysium-app-navbar' }, h('button', { onClick: () => navigate(() => setCreating(false)) }, '‹ 项目列表'), h('h1', null, '新建项目')),
       error ? h('p', { role: 'alert' }, error) : null,
-      h(ProjectForm, { initial: { title: '', director: '', profile: 'regular' }, requireCover: false, busy, action: '下一步', cancel: () => setCreating(false), submit: draft => run(async () => { const project = await createProject(draft.title, draft.profile, draft.director, draft.cover_job_id); setCreating(false); selectProject(project.id, 'anchors') }) }))
+      h(ProjectForm, { initial: { title: '', director: '', profile: 'regular' }, requireCover: false, busy, action: '下一步', cancel: () => setCreating(false), submit: draft => run(async () => { const project = await createProject(draft.title, draft.profile, draft.director, draft.cover_job_id); setCreating(false); await refresh(); selectProject(project.id) }) }))) : null
     const filtered = items.filter(item => item.title.toLowerCase().includes(query.toLowerCase()))
-    const visible = filtered.filter(item => (item.status || 'todo') === statusTab)
-    const progress = item => item.workflow ? ({ configuration: '请配置项目素材', 'plot-generating': '剧情生成中', plot: '请查看剧情', 'storyboard-generating': '分镜生成中', storyboard: '请审核分镜', video: '视频生成中', complete: '成片已完成', failed: '任务待恢复' }[item.stage] || '制作中') : item.stage === 'anchors' ? '下一步：添加锚点' : item.stage === 'acts' ? item.shot_count ? `分镜 · ${item.completed_count}/${item.shot_count}` : '下一步：添加分镜' : item.deliverable_count ? `成品 · ${item.deliverable_count}` : '下一步：制作成品'
+    const visible = filtered.filter(item => statusTab === 'all' || (item.status || 'todo') === statusTab)
+    const progress = item => ({ configuration: '请配置素材', 'plot-generating': '剧情生成中', plot: '请查看剧情', 'storyboard-generating': '分镜生成中', storyboard: '请审核分镜', video: '视频生成中', complete: '成片已完成', failed: '任务待恢复' }[item.stage] || '制作中')
     return h('div', { className: 'elysium-project-home' },
+      createForm,
       h('div', { className: 'elysium-toolbar' }, h('input', { type: 'search', 'aria-label': '搜索项目', placeholder: '搜索', value: query, onChange: event => setQuery(event.target.value) }), h(IconButton, { name: 'plus', label: '新建项目', onClick: () => setCreating(true) })),
-      h('nav', { className: 'elysium-project-status-tabs', 'aria-label': '项目状态' }, statuses.map(([status, label]) => h('button', { key: status, type: 'button', 'aria-selected': statusTab === status, onClick: () => setStatusTab(status) }, h('span', null, label), h('b', null, items.filter(item => (item.status || 'todo') === status).length)))),
+      h('nav', { className: 'elysium-project-status-tabs', 'aria-label': '项目状态' }, statuses.map(([status, label]) => h('button', { key: status, type: 'button', 'aria-selected': statusTab === status, onClick: () => setStatusTab(status) }, h('span', null, label), h('b', null, items.filter(item => status === 'all' || (item.status || 'todo') === status).length)))),
       busy ? h('p', { role: 'status' }, '正在读取项目…') : null,
       error ? h('p', { role: 'alert' }, error, h('button', { onClick: () => run(refresh) }, '重试')) : null,
       !busy && !error && !visible.length ? h('p', { className: 'elysium-empty' }, '暂无数据') : null,
-      !busy && !error && visible.length ? h('div', { className: 'elysium-project-grid' }, visible.map(item => h('article', { className: 'elysium-material-card elysium-project-card', key: item.id },
-            h('div', { className: 'elysium-project-open', role: 'button', tabIndex: 0, 'aria-label': `打开项目 ${item.title}`, onClick: () => selectProject(item.id, item.stage || null), onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectProject(item.id, item.stage || null) } } },
+      !busy && !error && visible.length ? h('div', { className: 'elysium-project-grid' }, visible.map(item => h('article', { className: 'elysium-material-card elysium-project-card', 'data-selected': selected === item.id, key: item.id },
+            h('div', { className: 'elysium-project-open', role: 'button', tabIndex: 0, 'aria-pressed': selected === item.id, 'aria-label': `打开项目 ${item.title}`, onClick: () => selectProject(item.id, item.stage || null), onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectProject(item.id, item.stage || null) } } },
               h('h2', null, item.title),
               item.cover_job_id ? h(ShotPreview, { jobId: item.cover_job_id, imageOnly: true }) : item.cover_url ? h('img', { src: item.cover_url, loading: 'lazy', alt: item.title }) : h('div', { className: 'elysium-video-placeholder' }, item.title.slice(0, 1)),
-              h('p', { className: 'elysium-compact-meta' }, `${item.director || '导演未指定'} · ${profiles.find(([value]) => value === item.profile)?.[1] || item.profile} · ${item.completed_count}/${item.shot_count} 镜 · ${progress(item)}`)),
+              h('p', { className: 'elysium-compact-meta' }, `${item.director || '导演未指定'} · ${profiles.find(([value]) => value === item.profile)?.[1] || item.profile} · ${item.episode_count || 1} 集 · ${item.completed_count}/${item.shot_count} 镜 · ${progress(item)}`)),
             h('div', { className: 'elysium-card-actions' },
-              h(IconButton, { name: 'minus', label: `删除项目 ${item.title}`, disabled: busy, onClick: () => { if (window.confirm(`删除项目“${item.title}”？此操作无法撤销。`)) run(async () => { await deleteProject(item.id); await refresh() }) } }))))) : null)
+              h(IconButton, { name: 'minus', label: `删除项目 ${item.title}`, disabled: busy, onClick: () => { if (window.confirm(`删除项目“${item.title}”？此操作无法撤销。`)) run(async () => { await deleteProject(item.id); if (selected === item.id) selectProject(null); await refresh() }) } }))))) : null)
   }
   Object.assign(exports, { ProjectList, ProjectDetail })
   return exports

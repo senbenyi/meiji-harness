@@ -8,6 +8,7 @@ import { createServer } from 'node:http'
 import { apply, createDirectorTools, createProjectTools } from '../src/index.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
+import { createProjectWorkflow } from '../src/server/projects/workflow.js'
 import { withConfig } from '../src/config.js'
 import { projectTools } from '../src/tools/agent.js'
 import { generationProjectId } from '../src/tools/project/context.js'
@@ -113,4 +114,23 @@ test('object routes authenticate and retain chat edits between panel saves', asy
       assert.equal((await request('update-shot', { id: '../bad', action: 'add', data: { act_index: 0 } })).status, 400)
     })
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})
+
+test('bound project is injected into each turn and rejects tools targeting other projects', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-bound-tools-')), tools = new Map()
+  let assemble
+  try {
+    const project = await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+      const store = createProjectStore(), value = await store.change('create', { title: '专属项目' })
+      await createProjectWorkflow(store).action('bind-session', { id: value.id, session_id: 'dedicated-session' })
+      return value
+    })
+    const child = { get: () => ({ register: () => () => {} }), on() {}, effect: fn => fn() }
+    apply({ inject: (_deps, fn) => fn(child), on: (name, fn) => { if (name === 'system-prompt/assemble') assemble = fn }, tools: { register: t => tools.set(t.name, t) } }, { stateRoot: root })
+    const agent = { session: { id: 'dedicated-session', header: { agentPreset: 'elysium-creation' }, snapshotEvents: () => [] } }
+    const result = await assemble(null, { agent }, async () => ({ sections: [], tools: [] }))
+    assert.match(result.sections.find(s => s.name === 'elysium:creation-commands').text, new RegExp(`当前会话关联项目 ID：${project.id}`))
+    await assert.rejects(tools.get('project_read').execute({ project_id: '00000000' }, { agent }), /仅能操作关联项目/)
+    assert.equal((await tools.get('project_read').execute({ project_id: project.id }, { agent })).id, project.id)
+  } finally { await rm(root, { recursive: true, force: true }) }
 })

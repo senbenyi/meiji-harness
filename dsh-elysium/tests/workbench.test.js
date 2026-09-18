@@ -5,15 +5,18 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 
-function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [], status = { has_video: true } } = {}) {
-  const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
+function fixture({ saved = {}, width = 2000, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [], status = { has_video: true } } = {}) {
+  const project = { id: '12345678', title: '项目', workflow: { revision: 0, stage: 'storyboard' }, episodes: [{ id: 'episode-1', title: '第 1 集', workflow: { revision: 0, stage: 'storyboard', plot: '故事', storyboard_revision: 0 } }], anchors: [], acts: [{ episode_id: 'episode-1', title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
   const modules = new Map(), cache = new Map()
-  runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
-    document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },
+  const listeners = new Map(), properties = new Map(), storage = { saved }
+  const browser = { innerWidth: width, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) }
+  runInNewContext(clientSource(), { window: browser, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
+    document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty: (key, value) => properties.set(key, value), removeProperty: key => properties.delete(key) } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(storage.saved), setItem: (key, value) => { storage.saved = JSON.parse(value) } },
     fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : url.startsWith('/media/status') ? status
       : url.startsWith('/settings/models') ? { revision: 0, models: { image: [], video: [] }, selected: { image: '', video: '' } } : { items: [], total: 0 } } } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
-  return { require }
+  cache.set('elysium/project-generation', { ...require('elysium/project-generation'), selectProject: async id => id, watchSession: () => () => {} })
+  return { require, browser, listeners, properties, storage }
 }
 test('material browser and image picker share category tabs and reset pagination on switch', async () => {
   for (const imageOnly of [false, true]) {
@@ -55,33 +58,61 @@ test('workbench video previews load only after explicit playback', async () => {
   assert.equal(delivery.root.findAllByType('video').length, 1)
   await act(async () => delivery.unmount())
 })
-test('full workbench enters project, retains selected shot across tab switch and closes', async () => {
+test('permanent workbench enters project and retains selected shot across tab switch', async () => {
   const f = fixture(); let view
   await act(async () => { view = create(React.createElement(f.require('elysium/workbench').Workbench)) })
-  await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
   assert.equal(view.root.findAllByProps({ 'aria-label': '继续制作 项目' }).length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '打开项目 项目' }).props.onClick())
-  assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 1)
-  await act(async () => view.root.findByProps({ 'aria-label': '镜 001' }).props.onClick())
+  await act(async () => view.root.findByProps({ 'aria-label': '打开第 1 集分镜' }).props.onClick())
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-shot-row' }).length, 1)
+  await act(async () => view.root.findByProps({ 'aria-label': '编辑镜头 1' }).props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '素材').props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '项目').props.onClick())
-  assert.ok(view.root.findByProps({ 'aria-label': '镜 001' }).props['aria-pressed'])
+  assert.equal(view.root.findByProps({ 'aria-label': '画面动作' }).props.value, '走路')
   await act(async () => view.unmount())
 })
 
-test('sidebar restored to materials survives missing service config and can close', async () => {
+test('permanent workbench restored to materials survives missing service config', async () => {
   const { require } = fixture({ saved: { activeTab: 'materials' }, media: null })
   let view
   await act(async () => {
     view = create(React.createElement(require('elysium/workbench').Workbench))
   })
-  for (let cycle = 0; cycle < 2; cycle++) {
-    await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
-    assert.match(view.root.findByProps({ role: 'alert' }).children.join(''), /媒体服务未加载/)
-    assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props['aria-hidden'], false)
-    await act(async () => view.root.findByProps({ 'aria-label': '收起创作工作台' }).props.onClick())
-    assert.equal(view.root.findByProps({ 'aria-label': '打开创作工作台' }).props['aria-expanded'], false)
-  }
+  assert.match(view.root.findByProps({ role: 'alert' }).children.join(''), /媒体服务未加载/)
+  assert.notEqual(view.root.findByProps({ id: 'elysium-workbench-panel' }).props['aria-hidden'], true)
+  assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props.onKeyDown, undefined)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '收起创作工作台' }).length, 0)
+  await act(async () => view.unmount())
+})
+
+test('left workbench resizes in the drag direction, persists width and reserves chat space', async () => {
+  const f = fixture({ width: 1200 }); let view
+  const render = () => React.createElement(f.require('elysium/workbench').Workbench)
+  const handle = () => view.root.findByProps({ 'aria-label': '调整项目列表宽度' })
+  const pointer = { pointerId: 1, preventDefault() {}, currentTarget: { setPointerCapture() {}, releasePointerCapture() {} } }
+  await act(async () => { view = create(render()) })
+  assert.equal(f.properties.get('--elysium-list-width'), '250px')
+  await act(async () => handle().props.onPointerDown(pointer))
+  await act(async () => handle().props.onPointerMove({ ...pointer, clientX: 400 }))
+  await act(async () => handle().props.onPointerUp(pointer))
+  assert.equal(f.properties.get('--elysium-list-width'), '344px')
+  assert.equal(f.storage.saved.leftWidth, 344)
+  await act(async () => view.unmount())
+  assert.equal(f.properties.has('--elysium-list-width'), false)
+  await act(async () => { view = create(render()) })
+  assert.equal(f.properties.get('--elysium-list-width'), '344px')
+  await act(async () => handle().props.onPointerDown(pointer))
+  await act(async () => handle().props.onPointerMove({ ...pointer, clientX: 890 }))
+  await act(async () => handle().props.onPointerUp(pointer))
+  assert.equal(f.properties.get('--elysium-list-width'), '444px')
+  await act(async () => { f.browser.innerWidth = 390; f.listeners.get('resize')() })
+  assert.equal(f.properties.get('--elysium-list-width'), '0px')
+  assert.equal(view.root.findAllByProps({ role: 'separator' }).length, 0)
+  await act(async () => { f.browser.innerWidth = 1200; f.listeners.get('resize')() })
+  assert.equal(f.properties.get('--elysium-list-width'), '444px')
+  await act(async () => f.listeners.get('elysium:open-project')({ detail: { id: '12345678' } }))
+  assert.equal(f.properties.get('--elysium-list-width'), '444px')
+  assert.ok(view.root.findByProps({ 'aria-label': '打开第 1 集分镜' }))
   await act(async () => view.unmount())
 })
 
@@ -89,7 +120,6 @@ test('legacy servers tab restores as settings', async () => {
   const { require } = fixture({ saved: { activeTab: 'servers' }, media: { token: 't', base: '/media', projectBase: '/project', settingsBase: '/settings' } })
   let view
   await act(async () => { view = create(React.createElement(require('elysium/workbench').Workbench)) })
-  await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
   assert.ok(view.root.findByProps({ 'aria-label': '模型设置' }))
   assert.equal(view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === '设置').props['aria-selected'], true)
   await act(async () => view.unmount())
