@@ -9,6 +9,7 @@ const localScript = name => readFile(join(root, 'harness/scripts', name), 'utf8'
 test('install only copies Harness-owned configuration and installs the packaged plugin', async () => {
   const install = await localScript('install.mjs')
   assert.match(install, /pnpm.*@deepseek-ai\/dsh/s)
+  assert.match(install, /PNPM_HOME/)
   assert.match(install, /\['\.agent-presets', 'profiles', 'settings\.yaml'\]/)
   assert.match(install, /package:registry/)
   assert.match(install, /run\('pnpm', \['add', '--workspace-root', join\(plugin, 'registry'\)\]/)
@@ -19,6 +20,8 @@ test('start manages only the Harness process and never rewrites business or mode
   const start = await localScript('start.mjs')
   assert.match(start, /body\.includes\('dsh web authentication required'\)/)
   assert.match(start, /spawn\('dsh', \['web'/)
+  assert.match(start, /未找到 dsh 命令/)
+  assert.match(start, /PATH: pathWithPnpm/)
   assert.match(start, /DSH_AGENTS_HOME: join\(home, 'agents'\), DSH_HOME: home/)
   assert.match(start, /QWEN38_LOCAL_API_KEY: process\.env\.QWEN38_LOCAL_API_KEY \|\| 'local-vllm'/)
   assert.match(start, /detached: true/)

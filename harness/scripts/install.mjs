@@ -21,10 +21,15 @@ const source = join(harnessRoot, '.dsh')
 const target = dshHome()
 const plugin = join(repoRoot, 'dsh-elysium')
 const webProfile = join(target, 'profiles', 'web')
+const pnpmBin = process.env.PNPM_HOME || join(homedir(), process.platform === 'darwin' ? 'Library/pnpm' : '.local/share/pnpm')
+const pathWithPnpm = `${pnpmBin}${delimiter}${process.env.PATH || ''}`
 const run = (command, args, options = {}) => execFileSync(command, args, { stdio: 'inherit', ...options })
-const hasCommand = name => (process.env.PATH || '').split(delimiter).some(directory => existsSync(join(directory, name)))
+const hasCommand = name => pathWithPnpm.split(delimiter).some(directory => directory && existsSync(join(directory, name)))
 
-if (!hasCommand('dsh')) run('pnpm', ['add', '-g', '@deepseek-ai/dsh'])
+if (!hasCommand('dsh')) {
+  await mkdir(pnpmBin, { recursive: true })
+  run('pnpm', ['add', '-g', '@deepseek-ai/dsh'], { env: { ...process.env, PNPM_HOME: pnpmBin, PATH: pathWithPnpm } })
+}
 
 await mkdir(target, { recursive: true })
 for (const entry of ['.agent-presets', 'profiles', 'settings.yaml']) {

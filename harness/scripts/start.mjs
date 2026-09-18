@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 // 职责：停止同端口的本机 Harness，并使用当前 DSH_HOME 配置重新启动 Harness。
-import { join, isAbsolute, parse, resolve } from 'node:path'
+import { delimiter, join, isAbsolute, parse, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import { closeSync, openSync } from 'node:fs'
+import { closeSync, existsSync, openSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { execFileSync, spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -16,6 +16,9 @@ function dshHome(value = process.env.DSH_HOME) {
 
 const home = dshHome(), port = process.env.DSH_PORT
 if (port !== undefined && (!/^\d+$/.test(port) || Number(port) > 65535)) throw new Error('DSH_PORT 必须为 0–65535 的端口号')
+const pnpmBin = process.env.PNPM_HOME || join(homedir(), process.platform === 'darwin' ? 'Library/pnpm' : '.local/share/pnpm')
+const pathWithPnpm = `${pnpmBin}${delimiter}${process.env.PATH || ''}`
+if (!pathWithPnpm.split(delimiter).some(directory => directory && existsSync(join(directory, 'dsh')))) throw new Error('未找到 dsh 命令，请先运行 node harness/scripts/install.mjs')
 const harnessPort = port ?? '3080'
 if (harnessPort !== '0') {
   let running = false
@@ -54,7 +57,7 @@ const logDirectory = join(home, 'logs'), harnessLog = join(logDirectory, 'harnes
 await mkdir(logDirectory, { recursive: true })
 const log = openSync(harnessLog, 'w')
 const harness = spawn('dsh', ['web', ...(process.env.DSH_NO_OPEN === '1' ? ['--no-open'] : []), ...(port === undefined ? [] : ['--port', port])], {
-  detached: true, env: { ...process.env, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home, QWEN38_LOCAL_API_KEY: process.env.QWEN38_LOCAL_API_KEY || 'local-vllm' }, stdio: ['ignore', log, log],
+  detached: true, env: { ...process.env, PATH: pathWithPnpm, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home, QWEN38_LOCAL_API_KEY: process.env.QWEN38_LOCAL_API_KEY || 'local-vllm' }, stdio: ['ignore', log, log],
 })
 let spawnError
 harness.on('error', error => { spawnError = error })

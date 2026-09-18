@@ -46,7 +46,7 @@ export function updateHostBlock(config, alias, { hostname, port, user }) {
 async function main() {
   const [alias, command, ...extra] = process.argv.slice(2)
   if (!identities[alias] || !command || extra.length) {
-    throw new Error("用法：node scripts/ssh.mjs <veo-comfyui|veo-qwen38> 'ssh -p <端口> <用户>@<主机>'")
+    throw new Error("用法：node init/ssh.mjs <veo-comfyui|veo-qwen38> 'ssh -p <端口> <用户>@<主机>'")
   }
 
   const endpoint = parseSshCommand(command)
