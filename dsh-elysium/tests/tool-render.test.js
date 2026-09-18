@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
-import { createRuntimeTools } from '../src/tools/index.js'
+import { createRuntimeCallTools } from '../src/tools/index.js'
 
-const tools = new Map(createRuntimeTools({}).map(tool => [tool.name, tool]))
+const tools = new Map(createRuntimeCallTools({}).map(tool => [tool.name, tool]))
 const renderWorkcard = (args, value) => tools.get('call_tools_job_status').output.render(args, value)
 const workcard = JSON.parse(readFileSync(new URL('../config/workcard.json', import.meta.url), 'utf8'))
 

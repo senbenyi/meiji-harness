@@ -6,12 +6,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { apply } from '../src/index.js'
-import { createDirectorTools } from '../src/tools/project/director.js'
-import { createProjectTools } from '../src/tools/project/project.js'
+import { createCallToolsDirectorList } from '../src/tools/project/director.js'
+import { createCallToolsProject } from '../src/tools/project/project.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { withConfig } from '../src/config.js'
-import { projectAssemblyForAgent } from '../src/tools/agent/index.js'
+import { assembleCallToolsForAgent } from '../src/tools/agent/index.js'
 import { generationProjectId } from '../src/tools/project/context.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 
@@ -21,9 +21,9 @@ test('chat tools read full objects, mutate one field and render compact mutation
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
       const directors = createDirectorStore()
       await directors.create({ name: '测试导演', style: '测试风格', works: [] })
-      const available = (await createDirectorTools(directors)[0].execute({})).directors
+      const available = (await createCallToolsDirectorList(directors)[0].execute({})).directors
       assert.deepEqual(available.map(item => item.name), ['测试导演'])
-      const store = createProjectStore({ directorExists: name => directors.has(name) }), definitions = createProjectTools(store)
+      const store = createProjectStore({ directorExists: name => directors.has(name) }), definitions = createCallToolsProject(store)
       const tools = Object.fromEntries(definitions.map(tool => [tool.name, tool]))
       assert.equal(definitions.length, 4)
       const project = await tools.call_tools_project_create.execute({ title: '测试', director: available[0].name, profile: 'preview' })
@@ -44,7 +44,7 @@ test('chat tools read full objects, mutate one field and render compact mutation
       assert.equal(value.acts[0].shots[0].action, '走路')
       assert.deepEqual(JSON.parse(tools.call_tools_project_update.output.render({}, value)[0].text), { id: project_id, title: '新标题', anchor_count: 1, shot_count: 1 })
       await assert.rejects(tools.call_tools_project_update.execute({ project_id, target: 'shot', action: 'update', patch: { subtitle: 'bad' } }), /ID/)
-      const visible = projectAssemblyForAgent({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } })
+      const visible = assembleCallToolsForAgent({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } })
       assert.deepEqual(visible.tools, definitions)
     })
   } finally { await rm(root, { recursive: true, force: true }) }
@@ -102,7 +102,7 @@ test('object routes authenticate and retain chat edits between panel saves', asy
   const request = (route, body) => fetch(`${base}/${route}?t=t`, { method: 'POST', body: JSON.stringify(body) })
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const tools = Object.fromEntries(createProjectTools(store).map(tool => [tool.name, tool]))
+      const tools = Object.fromEntries(createCallToolsProject(store).map(tool => [tool.name, tool]))
       const project = await store.change('create', { title: '交叉编辑', director: '导演', profile: 'preview' }), id = project.id
       await store.change('update', { id, acts: [{ title: '幕', shots: [] }] })
       assert.equal((await fetch(`${base}/poll?id=${id}&since=0`)).status, 401)

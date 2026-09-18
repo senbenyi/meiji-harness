@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises'
 import { withConfig } from '../src/config.js'
 import { buildImageGraph } from '../src/models/providers/autodl/workflows/image/graph.js'
 import { normalizeImagePlan, validateImagePlan } from '../src/models/providers/autodl/workflows/image/plan.js'
-import { createRuntimeTools } from '../src/tools/index.js'
+import { createRuntimeCallTools } from '../src/tools/index.js'
 
 const backend = { provider: 'autodl', service: 'comfyui', base_url: 'http://127.0.0.1:8188' }
 const view = name => `http://127.0.0.1:8188/view?filename=${name}&type=output`
@@ -60,7 +60,7 @@ test('AutoDL builds text, reference, character and sheet image graphs', async ()
 }))
 
 test('character tools are no longer exposed to Harness', () => {
-  const names = createRuntimeTools({}).map(tool => tool.name)
+  const names = createRuntimeCallTools({}).map(tool => tool.name)
   assert.ok(!names.includes('model_character_view'))
   assert.ok(!names.includes('model_character_sheet'))
 })

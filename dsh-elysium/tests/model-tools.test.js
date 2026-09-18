@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { apply } from '../src/index.js'
-import { createRuntimeTools } from '../src/tools/index.js'
+import { createRuntimeCallTools } from '../src/tools/index.js'
 
 test('registers workflow and job query tools', async () => {
   const expected = ['call_tools_load',
@@ -12,14 +12,14 @@ test('registers workflow and job query tools', async () => {
     'call_tools_job_status',
     'call_tools_job_result',
   ]
-  assert.deepEqual(createRuntimeTools({}).map(tool => tool.name), expected)
+  assert.deepEqual(createRuntimeCallTools({}).map(tool => tool.name), expected)
   const registered = []
   apply({ inject() {}, on() {}, tools: { register: tool => registered.push(tool.name) } })
   assert.deepEqual(registered, expected)
 })
 
 test('all tools expose function-call schemas and local executors', () => {
-  const tools = createRuntimeTools({})
+  const tools = createRuntimeCallTools({})
   for (const tool of tools) {
     assert.equal(tool.parameters.type, 'object')
     assert.equal(typeof tool.execute, 'function')
