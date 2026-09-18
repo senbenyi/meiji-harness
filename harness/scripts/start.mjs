@@ -54,7 +54,7 @@ const logDirectory = join(home, 'logs'), harnessLog = join(logDirectory, 'harnes
 await mkdir(logDirectory, { recursive: true })
 const log = openSync(harnessLog, 'w')
 const harness = spawn('dsh', ['web', ...(process.env.DSH_NO_OPEN === '1' ? ['--no-open'] : []), ...(port === undefined ? [] : ['--port', port])], {
-  detached: true, env: { ...process.env, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home }, stdio: ['ignore', log, log],
+  detached: true, env: { ...process.env, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home, QWEN38_LOCAL_API_KEY: process.env.QWEN38_LOCAL_API_KEY || 'local-vllm' }, stdio: ['ignore', log, log],
 })
 let spawnError
 harness.on('error', error => { spawnError = error })

@@ -91,4 +91,5 @@
 - 2026-09-18：AutoDL provider、RealVisXL/SDXL 图片、角色三视图、五种 H3 模式、main 导演计划和工作流同步已落地。
 - `pnpm test`：181/181 通过；包含 AutoDL 模板字节校验、T2V、I2V、多镜头续接、物理删除 Runpod 和恢复防重复提交测试。
 - `pnpm build`、`pnpm package:registry`：通过；Registry 包含图片姿态 PNG、图片模板、五种 H3 模板和导演模板。
-- Qwen AutoDL 只读连接正常（此前本轮已核验）；ComfyUI 未完成真实核验。本机 `veo-comfyui` 仍解析为失效 RunPod，历史 AutoDL SSH 入口连接被拒绝，因此没有修改 `settings.json`、没有切换生产选择，也没有执行真实 T2I/T2V/I2V。
+- Qwen AutoDL 只读连接正常（此前本轮已核验）；私有模型运行目录已补入 RealVisXL/SDXL、MiniMax H3 和既有 qwen3.8，Harness 重启后 `/server/models` 回读及默认展示正确。ComfyUI 未完成真实核验，本机 `veo-comfyui` 仍解析为失效 RunPod，历史 AutoDL SSH 入口连接被拒绝；尚未登记或切换图片/视频服务器，也没有执行真实 T2I/T2V/I2V。
+- `qwen38-local` 已改用当前 `dsh-llm-pi-ai` 支持的 `apiKeyEnv`，Harness 启动环境提供本地占位凭据；重新安装并重启后，DSH headless 经默认模型真实调用返回 `QWEN38_OK`，原 `No API key for provider: qwen38-local` 已消除。

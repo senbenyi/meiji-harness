@@ -8,8 +8,8 @@ const ignore = await readFile(new URL('../../.gitignore', import.meta.url), 'utf
 
 test('Harness settings contain runtime values without composition controls', () => {
   assert.match(settings, /baseURL: http:\/\/127\.0\.0\.1:18000\/v1/)
-  assert.match(settings, /apiKey: local-vllm/)
-  assert.doesNotMatch(settings, /apiKeyEnv: local-vllm/)
+  assert.match(settings, /apiKeyEnv: QWEN38_LOCAL_API_KEY/)
+  assert.doesNotMatch(settings, /^\s+apiKey:/m)
   assert.match(settings, /default: elysium-teaching/)
   assert.doesNotMatch(settings, /includeShippedRoot/)
   assert.doesNotMatch(settings, /^\s*(?:-\s+)?(?:insert|disabled|isolate):/m)

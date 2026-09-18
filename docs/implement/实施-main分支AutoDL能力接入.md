@@ -15,9 +15,11 @@
 - `pnpm package:registry`：通过。
 - Harness 脚本测试：7/7 通过；安装脚本补充 workspace-root 参数后成功安装发布包。
 - Harness 已重启，`http://127.0.0.1:3080/` 返回预期鉴权响应。
+- 现有私有模型运行设置已补入 RealVisXL/SDXL 和 MiniMax H3；运行接口回读图片、视频、聊天三类分别为 RealVisXL/SDXL、MiniMax H3、qwen3.8。
 - 发布目录已检查包含姿态 PNG、图片模板、H3 五模式模板和导演模板。
 - Qwen 服务器只读连接正常；未重启或修改两台远端服务。
+- 修正 `qwen38-local` 对当前 `dsh-llm-pi-ai` 的凭据接入：provider 使用 `apiKeyEnv`，Harness 启动时注入本地模型占位凭据；通过 DSH headless 真实调用得到 `QWEN38_OK`，不再报 `No API key for provider`。
 
 ## 未完成的运行验收
 
-本机现有 `veo-comfyui` 指向已失效的 RunPod，历史 AutoDL ComfyUI SSH 入口也已拒绝连接；当前没有可验证的第二台 AutoDL 地址。因此没有写入本机 `settings.json`，避免把图片和视频新任务切换到不可达目标。拿到当前有效的 ComfyUI SSH 别名或 HTTP 地址后，还需完成：登记双服务器、切换 image/video、真实 T2I、T2V、I2V 和一次原任务恢复。
+本机现有 `veo-comfyui` 指向已失效的 RunPod，历史 AutoDL ComfyUI SSH 入口也已拒绝连接；当前没有可验证的第二台 AutoDL 地址。因此只更新了私有模型目录，没有登记或切换图片、视频服务器，避免把新任务切换到不可达目标。拿到当前有效的 ComfyUI SSH 别名或 HTTP 地址后，还需完成：登记双服务器、切换 image/video、真实 T2I、T2V、I2V 和一次原任务恢复。

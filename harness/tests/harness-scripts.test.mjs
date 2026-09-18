@@ -20,6 +20,7 @@ test('start manages only the Harness process and never rewrites business or mode
   assert.match(start, /body\.includes\('dsh web authentication required'\)/)
   assert.match(start, /spawn\('dsh', \['web'/)
   assert.match(start, /DSH_AGENTS_HOME: join\(home, 'agents'\), DSH_HOME: home/)
+  assert.match(start, /QWEN38_LOCAL_API_KEY: process\.env\.QWEN38_LOCAL_API_KEY \|\| 'local-vllm'/)
   assert.match(start, /detached: true/)
   assert.doesNotMatch(start, /dsh-elysium|servers\.json|applyLlm|tunnel|COMFYUI|ELYSIUM|loadEnvFile|\.dsh\/\.env/)
   for (const name of ['server-startup.mjs', 'storage-template.mjs', 'tunnel.mjs']) await assert.rejects(access(join(root, 'harness/scripts', name)), { code: 'ENOENT' })
