@@ -1,21 +1,26 @@
 // 职责：组合并注册 Elysium 的工具、路由与系统提示词。
 import { mkdir } from 'node:fs/promises'
+//config
 import { resolveConfig, withConfig } from './config.js'
-import { createComfyuiTools, createDirectorTools, createModelTools, createProjectTools, createWorkflowTools } from './tools/index.js'
-import { createToolDiscoveryTool } from './tools/core/discovery.js'
-import { isElysiumAgent, projectTools } from './tools/agent.js'
+//routes
 import { registerProjectRoutes, PROJECT_ROUTE } from './server/routes/projects.js'
 import { registerDirectorRoutes, DIRECTOR_ROUTE } from './server/routes/directors.js'
 import { registerSettingsRoutes, SETTINGS_ROUTE } from './server/routes/settings.js'
-import { registerMediaRoutes } from './server/routes/media.js'
-import { createDirectorStore } from './server/directors/service.js'
-import { createProjectStore } from './server/projects/service.js'
-import { providerCreationInstructions } from './models/managers/runtime/index.js'
+//prompts
 import { creationInstructions } from './tools/prompts/creation.js'
-
+//projects
+import { registerMediaRoutes } from './server/routes/media.js'
+import { createProjectStore } from './server/projects/service.js'
+import { createDirectorStore } from './server/directors/service.js'
+import { providerCreationInstructions } from './models/managers/runtime/index.js'
+// tools
+import { createToolDiscoveryTool } from './tools/core/discovery.js'
+import { isElysiumAgent, projectTools } from './tools/agent/index.js'
+import { createComfyuiTools, createDirectorTools, createModelTools, createProjectTools, createWorkflowTools } from './tools/index.js'
+//export
+export * from './tools/index.js'
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
-export * from './tools/index.js'
 const effectPrefix = '@dsh-external/dsh-elysium'
 
 /*

@@ -9,7 +9,7 @@ import { apply, createDirectorTools, createProjectTools } from '../src/index.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { withConfig } from '../src/config.js'
-import { projectTools } from '../src/tools/agent.js'
+import { projectTools } from '../src/tools/agent/index.js'
 import { generationProjectId } from '../src/tools/project/context.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 
