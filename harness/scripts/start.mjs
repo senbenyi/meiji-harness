@@ -52,7 +52,7 @@ if (harnessPort !== '0') {
 }
 const logDirectory = join(home, 'logs'), harnessLog = join(logDirectory, 'harness-local.log')
 await mkdir(logDirectory, { recursive: true })
-const log = openSync(harnessLog, 'a')
+const log = openSync(harnessLog, 'w')
 const harness = spawn('dsh', ['web', ...(process.env.DSH_NO_OPEN === '1' ? ['--no-open'] : []), ...(port === undefined ? [] : ['--port', port])], {
   detached: true, env: { ...process.env, DSH_AGENTS_HOME: join(home, 'agents'), DSH_HOME: home }, stdio: ['ignore', log, log],
 })
