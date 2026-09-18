@@ -2,14 +2,14 @@
 import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel } from '../../models/managers/runtime/index.js'
 import { withConfig, runtimeConfig, defaultModels } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
-export const SERVER_ROUTE = '/plugins/dsh-elysium/server'
+export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'
 const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select']
-export function createServerHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
+export function createSettingsHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
-      const action = url.pathname.slice(SERVER_ROUTE.length + 1)
+      const action = url.pathname.slice(SETTINGS_ROUTE.length + 1)
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
       if (req.method !== (['list', 'models'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
@@ -83,10 +83,10 @@ export function createServerHandler({ token, check = checkServer, identify = ssh
     }
   }
 }
-export function registerServerRoutes(ctx, runtime, token) {
+export function registerSettingsRoutes(ctx, runtime, token) {
   const server = ctx.get?.('webServer')
   if (!server) return
-  const handle = createServerHandler({ token })
+  const handle = createSettingsHandler({ token })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
-  for (const suffix of actions) ctx.effect(() => server.register({ kind: 'exact', path: `${SERVER_ROUTE}/${suffix}`, handler }), `elysium server ${suffix}`)
+  for (const suffix of actions) ctx.effect(() => server.register({ kind: 'exact', path: `${SETTINGS_ROUTE}/${suffix}`, handler }), `elysium settings ${suffix}`)
 }

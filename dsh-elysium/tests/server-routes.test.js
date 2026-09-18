@@ -6,16 +6,16 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
-import { createServerHandler, SERVER_ROUTE } from '../src/server/routes/settings.js'
+import { createSettingsHandler, SETTINGS_ROUTE } from '../src/server/routes/settings.js'
 const record = id => ({ id, label: id, provider: 'runpod', connection_source: 'manual', instance_id: id, deployment_id: 'one', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })
 test('all endpoints authenticate before IO; registration stays manual and switching is checked', async t => {
   const root = await mkdtemp(join(tmpdir(), 'server-http-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   let fail = false, calls = 0
-  const handler = createServerHandler({ token: 'test', check: async () => { calls++; if (fail) throw new Error('PRIVATE_API_KEY=secret'); return { ok: true } } })
+  const handler = createSettingsHandler({ token: 'test', check: async () => { calls++; if (fail) throw new Error('PRIVATE_API_KEY=secret'); return { ok: true } } })
   const server = createServer((req, res) => withConfig({ ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json') }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
-  const request = (action, body, token = 'test') => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=${token}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+  const request = (action, body, token = 'test') => fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/${action}?t=${token}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
   for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'tunnel-connect', 'third-party-select']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
   assert.equal(calls, 0)
   assert.equal((await request('register', { revision: 0, server: { ...record('autodl'), provider: 'autodl' } })).status, 201)
@@ -48,10 +48,10 @@ test('default private model selections remain visible after the model list reloa
     await writeRegistry({ version: 1, revision: 0, servers: [record('autodl-comfyui')] }, 0)
     await writeSelection({ version: 1, revision: 0, selected: {}, third_party: {} }, 0)
   })
-  const handler = createServerHandler({ token: 'test', check: async () => ({ ok: true }) })
+  const handler = createSettingsHandler({ token: 'test', check: async () => ({ ok: true }) })
   const server = createServer((req, res) => withConfig(config, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
-  const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+  const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
   assert.equal((await request('model-connect', { kind: 'image', id: 'realvisxl-sdxl', revision: 1 })).status, 200)
   assert.equal((await request('model-connect', { kind: 'video', id: 'minimax-h3', revision: 2 })).status, 200)
   const models = await (await request('models')).json()
@@ -76,13 +76,13 @@ test('fixed model catalog probes without connecting and failed selection cannot 
   let failing = true, checks = 0, tunnelFailing = true, tunnelChecks = 0
   const tunnel = { server_id: 'legacy-qwen', provider: 'manual', service: 'llm', base_url: 'http://127.0.0.1:18000/v1',
     connection: { transport: 'ssh', ssh_alias: 'fixture', local_port: 18000, remote_host: '127.0.0.1', remote_port: 8000 } }
-  const handler = createServerHandler({ token: 'test',
+  const handler = createSettingsHandler({ token: 'test',
     check: async (kind, id) => { checks++; assert.equal(kind, 'video'); assert.equal(id, 'b'); if (failing) throw new Error('private upstream error'); return { ok: true } },
     tunnelBackend: alias => { assert.equal(alias, 'qwen'); return tunnel },
     connect: async backend => { tunnelChecks++; assert.equal(backend, tunnel); if (tunnelFailing) throw new Error('PRIVATE_TUNNEL=secret'); return { ok: true } } })
   const server = createServer((req, res) => withConfig(config, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
-  const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+  const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
   const listed = await (await request('models')).json()
   assert.deepEqual(listed.models.image, [])
   assert.deepEqual(listed.chat_model, { id: 'qwen3.8-27b-elysium', label: 'qwen3.8' })

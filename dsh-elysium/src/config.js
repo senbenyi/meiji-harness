@@ -31,30 +31,43 @@ export const defaultModels = defaultSettings.models
 
 export const runtimeSettings = () => readRuntimeSettings(requiredConfig('ELYSIUM_SETTINGS_FILE'))
 
-// 将插件配置转换为经过校验的、不可变的运行时配置。
-export function resolveConfig(config = {}) {
-  validateSettings(defaultSettings)
+// 限定插件入口可接受的配置字段。
+function validatePluginConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('插件 config 必须为对象')
   for (const key of Object.keys(config)) {
     if (!Object.hasOwn(fields, key) && !['enableAtomicTools', 'models'].includes(key)) throw new Error(`未知插件配置：${key}`)
   }
-  const home = config.home ?? process.env.ELYSIUM_HOME ?? defaultElysiumHome()
+}
+
+// 校验数据根目录以及用户显式传入或环境继承的配置文件路径。
+function validateConfigPaths(config, home) {
   withConfig({ ELYSIUM_HOME: home }, () => requiredConfig('ELYSIUM_HOME'))
   for (const key of ['serversFile', 'selectionFile', ...Object.keys(providerConfigFields())]) {
     const [name, kind] = fields[key]
     const value = Object.hasOwn(config, key) ? config[key] : process.env[name]
     if (value !== undefined) withConfig({ [name]: value }, () => requiredConfig(name, kind))
   }
-  const defaults = { home, stateRoot: home, settingsFile: join(home, 'config', 'settings.json'), serversFile: join(home, 'config', 'servers.json'), selectionFile: join(home, 'config', 'selection.json'),
+}
+
+// 基于当前实例的 home 构造所有可回退的默认路径。
+function configDefaults(home) {
+  return { home, stateRoot: home, settingsFile: join(home, 'config', 'settings.json'), serversFile: join(home, 'config', 'servers.json'), selectionFile: join(home, 'config', 'selection.json'),
     ...providerConfigDefaults(join(home, 'config', 'providers')) }
+}
+
+// 定位统一 Settings 文件，完成初始化并返回其中的运行时设置。
+function resolveSettings(config, defaults) {
   const configuredSettingsFile = config.settingsFile ?? process.env.ELYSIUM_SETTINGS_FILE ?? defaults.settingsFile
   withConfig({ ELYSIUM_SETTINGS_FILE: configuredSettingsFile }, () => requiredConfig('ELYSIUM_SETTINGS_FILE'))
   const providerFiles = Object.fromEntries(providerConfigSources().map(({ id, field, env }) => [id, config[field] ?? process.env[env] ?? defaults[field]]))
   const settings = ensureSettings({ path: configuredSettingsFile, defaults: defaultSettings,
     registryFile: config.serversFile ?? process.env.ELYSIUM_SERVERS_FILE ?? defaults.serversFile,
     selectionFile: config.selectionFile ?? process.env.ELYSIUM_CONFIG_FILE ?? defaults.selectionFile, providerFiles })
-  const registry = settings.connections
-  const resolved = {}
+  return { configuredSettingsFile, settings }
+}
+
+// 校验图片和视频模型清单，并丢弃仅为旧版兼容保留的文本模型字段。
+function resolveModels(config, settings) {
   const configuredModels = config.models ?? settings.models
   if (!configuredModels || typeof configuredModels !== 'object' || Array.isArray(configuredModels)) throw new Error('模型清单无效')
   if (Object.keys(configuredModels).some(key => ![...modelKinds, 'llm', 'analysis'].includes(key))
@@ -68,7 +81,12 @@ export function resolveConfig(config = {}) {
       ids.add(model.id)
     }
   }
-  resolved.ELYSIUM_MODELS = models
+  return models
+}
+
+// 按“显式配置 -> 环境变量 -> 实例默认值”组装普通运行时字段。
+function resolveRuntimeFields(config, defaults, configuredSettingsFile, registry) {
+  const resolved = {}
   for (const [key, [name, kind]] of Object.entries(fields)) {
     if (['serversFile', 'selectionFile', ...Object.keys(providerConfigFields())].includes(key)) continue
     // 有服务器清单时，由清单解析目标地址，忽略旧的单地址配置。
@@ -79,9 +97,27 @@ export function resolveConfig(config = {}) {
     resolved[name] = value
     resolved[name] = withConfig(resolved, () => requiredConfig(name, kind))
   }
+  return resolved
+}
+
+// 解析 ComfyUI 原子工具开关，显式配置优先于环境变量和 Settings。
+function resolveAtomicTools(config, settings) {
   if (config.enableAtomicTools !== undefined && typeof config.enableAtomicTools !== 'boolean') throw new Error('enableAtomicTools 必须为布尔值')
   const atomicTools = config.enableAtomicTools ?? (process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === undefined ? settings.enableAtomicTools : process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1')
-  resolved.ELYSIUM_ENABLE_ATOMIC_TOOLS = atomicTools ? '1' : '0'
+  return atomicTools ? '1' : '0'
+}
+
+// 将插件配置转换为经过校验的、不可变的运行时配置。
+export function resolveConfig(config = {}) {
+  validateSettings(defaultSettings)
+  validatePluginConfig(config)
+  const home = config.home ?? process.env.ELYSIUM_HOME ?? defaultElysiumHome()
+  validateConfigPaths(config, home)
+  const defaults = configDefaults(home)
+  const { configuredSettingsFile, settings } = resolveSettings(config, defaults)
+  const resolved = resolveRuntimeFields(config, defaults, configuredSettingsFile, settings.connections)
+  resolved.ELYSIUM_MODELS = resolveModels(config, settings)
+  resolved.ELYSIUM_ENABLE_ATOMIC_TOOLS = resolveAtomicTools(config, settings)
   return Object.freeze(resolved)
 }
 

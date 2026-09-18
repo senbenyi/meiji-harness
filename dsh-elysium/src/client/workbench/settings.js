@@ -1,14 +1,14 @@
 // 职责：按模型类别提供简洁的私有与三方模型选择。
-load('elysium/servers', (require, exports) => {
+load('elysium/settings', (require, exports) => {
   const { createElement: h, useState, useEffect } = require('react')
-  const { serverRequest } = require('elysium/server-api')
+  const { settingsRequest } = require('elysium/settings-api')
   const labels = { image: '图片模型', video: '视频模型' }
-  function ServerList() {
+  function Settings() {
     const [data, setData] = useState(null), [selected, setSelected] = useState({}), [thirdPartySelected, setThirdPartySelected] = useState({})
     const [error, setError] = useState(''), [busy, setBusy] = useState(null), [chatConnected, setChatConnected] = useState(false)
     useEffect(() => {
       const controller = new AbortController()
-      serverRequest('models', null, controller.signal).then(value => {
+      settingsRequest('models', null, controller.signal).then(value => {
         setData(value); setSelected(value.selected); setThirdPartySelected(value.third_party_selected || {})
       }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
       return () => controller.abort()
@@ -17,7 +17,7 @@ load('elysium/servers', (require, exports) => {
       if (busy || !data?.chat_model) return
       setBusy('chat'); setError('')
       try {
-        const value = await serverRequest('tunnel-connect', { id: data.chat_model.id })
+        const value = await settingsRequest('tunnel-connect', { id: data.chat_model.id })
         setChatConnected(value.connected === true)
       } catch (error) { setError(error.message) }
       finally { setBusy(null) }
@@ -27,7 +27,7 @@ load('elysium/servers', (require, exports) => {
       setSelected(current => ({ ...current, [kind]: id }))
       setBusy(kind); setError('')
       try {
-        const value = await serverRequest('model-connect', { kind, id, revision: data.revision })
+        const value = await settingsRequest('model-connect', { kind, id, revision: data.revision })
         setData(current => ({ ...current, revision: value.revision ?? current.revision, selected: { ...current.selected, [kind]: id } }))
       } catch (error) { setSelected(current => ({ ...current, [kind]: data.selected[kind] || '' })); setError(error.message) }
       finally { setBusy(null) }
@@ -36,13 +36,13 @@ load('elysium/servers', (require, exports) => {
       if (busy || !id) return
       setBusy(`third:${kind}`); setError('')
       try {
-        const value = await serverRequest('third-party-select', { kind, id, revision: data.revision })
+        const value = await settingsRequest('third-party-select', { kind, id, revision: data.revision })
         setThirdPartySelected(current => ({ ...current, [kind]: id }))
         setData(current => ({ ...current, revision: value.revision }))
       } catch (error) { setError(error.message) }
       finally { setBusy(null) }
     }
-    return h('section', { className: 'elysium-server-list', 'aria-label': '模型设置' },
+    return h('section', { className: 'elysium-settings', 'aria-label': '模型设置' },
       h('h2', null, '私有模型'),
       data?.chat_model ? h('div', { className: 'elysium-model-row' },
         h('label', { htmlFor: 'elysium-model-chat' }, '聊天模型：'),
@@ -67,5 +67,5 @@ load('elysium/servers', (require, exports) => {
         })) : null,
       error ? h('p', { role: 'alert' }, error) : null)
   }
-  exports.ServerList = ServerList
+  exports.Settings = Settings
 })

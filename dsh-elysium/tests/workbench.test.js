@@ -10,7 +10,8 @@ function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase
   const modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
     document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },
-    fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : url.startsWith('/media/status') ? status : { items: [], total: 0 } } } })
+    fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : url.startsWith('/media/status') ? status
+      : url.startsWith('/settings/models') ? { revision: 0, models: { image: [], video: [] }, selected: { image: '', video: '' } } : { items: [], total: 0 } } } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require }
 }
@@ -74,6 +75,16 @@ test('sidebar restored to materials survives missing service config and can clos
     await act(async () => view.root.findByProps({ 'aria-label': '收起创作工作台' }).props.onClick())
     assert.equal(view.root.findByProps({ 'aria-label': '打开创作工作台' }).props['aria-expanded'], false)
   }
+  await act(async () => view.unmount())
+})
+
+test('legacy servers tab restores as settings', async () => {
+  const { require } = fixture({ saved: { activeTab: 'servers' }, media: { token: 't', base: '/media', projectBase: '/project', settingsBase: '/settings' } })
+  let view
+  await act(async () => { view = create(React.createElement(require('elysium/workbench').Workbench)) })
+  await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
+  assert.ok(view.root.findByProps({ 'aria-label': '模型设置' }))
+  assert.equal(view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === '设置').props['aria-selected'], true)
   await act(async () => view.unmount())
 })
 

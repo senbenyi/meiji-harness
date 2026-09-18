@@ -14,7 +14,7 @@ test('browser bundle registers the exact package name required by Harness', () =
   assert.equal(typeof registrations.get(pkg.name), 'function')
   const require = name => { if (name === 'react') return {}; if (!cache.has(name)) cache.set(name, registrations.get(name)(require)); return cache.get(name) }
   for (const [name, member] of [['elysium/workbench', 'apply'], ['elysium/materials', 'MaterialList'], ['elysium/projects', 'ProjectList'],
-    ['elysium/servers', 'ServerList'], ['elysium/directors', 'DirectorList']]) assert.equal(typeof require(name)[member], 'function')
+    ['elysium/settings', 'Settings'], ['elysium/directors', 'DirectorList']]) assert.equal(typeof require(name)[member], 'function')
   assert.equal(registrations.has('elysium/conversation-results'), false)
 })
 

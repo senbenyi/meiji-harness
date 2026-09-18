@@ -12,10 +12,10 @@ test('model panel contains only categorized selectors and switches selected mode
     third_party: { video: [{ id: 'bailian:wan26', label: 'Wan 2.6' }, { id: 'byteplus:seedance2', label: 'Seedance 2.0' }] }, third_party_selected: { image: '', video: 'bailian:wan26' },
     third_party_channels: [{ id: 'bailian', label: '百炼万相', enabled: true, preferred: true, models: ['wan2.6-t2v', 'wan2.6-i2v'] }, { id: 'byteplus', label: 'Seedance 2.0', enabled: true, preferred: false, models: ['seedance'] }] }
   let failing = true, holding = false, release, chatFailing = true, chatHolding = false, releaseChat
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/prefix/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
+  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', settingsBase: '/prefix/settings' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
       const body = options.body && JSON.parse(options.body)
-      calls.push({ url, body }); assert.match(url, /^\/prefix\/server\/.+\?t=token$/)
+      calls.push({ url, body }); assert.match(url, /^\/prefix\/settings\/.+\?t=token$/)
       if (url.includes('/tunnel-connect')) {
         if (chatFailing) return { ok: false, json: async () => ({ error: '隧道连接失败' }) }
         if (chatHolding) await new Promise(resolve => { releaseChat = resolve })
@@ -35,7 +35,7 @@ test('model panel contains only categorized selectors and switches selected mode
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
-  await act(async () => { view = create(React.createElement(require('elysium/servers').ServerList)) })
+  await act(async () => { view = create(React.createElement(require('elysium/settings').Settings)) })
   assert.equal(view.root.findAllByType('select').length, 5)
   assert.equal(view.root.findByProps({ 'aria-label': '模型设置' }).findAllByType('button').length, 1)
   const chat = view.root.findByProps({ 'aria-label': '聊天模型' })
@@ -89,7 +89,7 @@ test('model panel contains only categorized selectors and switches selected mode
 
 test('a single unselected private model remains actionable', async () => {
   const modules = new Map(), cache = new Map(), calls = []
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
+  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', settingsBase: '/settings' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
       const body = options?.body && JSON.parse(options.body); calls.push({ url, body })
       if (url.includes('/model-connect')) return { ok: true, json: async () => ({ connected: true, revision: 1 }) }
@@ -97,7 +97,7 @@ test('a single unselected private model remains actionable', async () => {
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
-  await act(async () => { view = create(React.createElement(require('elysium/servers').ServerList)) })
+  await act(async () => { view = create(React.createElement(require('elysium/settings').Settings)) })
   const image = view.root.findByProps({ 'aria-label': '图片模型' })
   assert.equal(image.props.value, '')
   assert.deepEqual(image.findAllByType('option').map(option => option.children.join('')), ['请选择模型', 'RealVisXL'])

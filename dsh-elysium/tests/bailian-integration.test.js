@@ -16,7 +16,7 @@ import { openLocalMedia } from '../src/server/media/local-media.js'
 import { createJob } from '../src/server/jobs/create.js'
 import { launch } from '../src/server/workflows/videos/launcher.js'
 import { waitJob } from '../src/server/jobs/wait.js'
-import { createServerHandler } from '../src/server/routes/settings.js'
+import { createSettingsHandler } from '../src/server/routes/settings.js'
 
 const plan = { mode: 't2va', prompt: '清晨的海边', profile: 'regular' }
 async function fixture(t) {
@@ -140,17 +140,17 @@ test('worker receives independent config and saved backend', async t => {
 
 test('HTTP model settings expose both channel switches without credentials or supplier calls', async t => {
   const f = await fixture(t)
-  const handler = createServerHandler({ token: 't' })
+  const handler = createSettingsHandler({ token: 't' })
   const web = createServer((req, res) => f.bind(() => handler(req, res)))
   await new Promise(resolve => web.listen(0, '127.0.0.1', resolve))
   try {
-    const response = await fetch(`http://127.0.0.1:${web.address().port}/plugins/dsh-elysium/server/models?t=t`)
+    const response = await fetch(`http://127.0.0.1:${web.address().port}/plugins/dsh-elysium/settings/models?t=t`)
     assert.equal(response.status, 200)
     const text = await response.text(), value = JSON.parse(text)
     assert.deepEqual(value.third_party.video.map(model => model.id), ['bailian:wan26', 'byteplus:seedance2'])
     assert.equal(value.third_party_selected.video, 'bailian:wan26')
     assert.doesNotMatch(text, /fake-secret|old-secret|api_key|base_url/)
-    const selected = await fetch(`http://127.0.0.1:${web.address().port}/plugins/dsh-elysium/server/third-party-select?t=t`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'video', id: 'byteplus:seedance2', revision: 0 }) })
+    const selected = await fetch(`http://127.0.0.1:${web.address().port}/plugins/dsh-elysium/settings/third-party-select?t=t`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'video', id: 'byteplus:seedance2', revision: 0 }) })
     assert.equal(selected.status, 200)
     assert.equal((await f.bind(() => resolveGenerationBackend('video', { probe: async () => true }))).provider, 'manual')
     assert.equal((await f.bind(() => resolveGenerationBackend('video', { probe: async () => false }))).provider, 'byteplus')
