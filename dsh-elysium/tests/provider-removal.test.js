@@ -53,7 +53,7 @@ for (const removed of ['bailian', 'byteplus', 'manual']) test(`remaining provide
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { resolveConfig, withConfig } from './src/config.js'
+import { resolveConfig, withConfig } from './src/utils/config.js'
 import { listProviders, resolveGenerationBackend, validateBackend, validateBackendPlan, thirdPartyChannels, thirdPartyModels } from './src/servers/runtime/index.js'
 const home = process.env.ELYSIUM_HOME, providers = home + '/providers'
 await mkdir(providers, { recursive: true })

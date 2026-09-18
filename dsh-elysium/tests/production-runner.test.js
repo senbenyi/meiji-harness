@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { withConfig } from '../src/config.js'
+import { withConfig } from '../src/utils/config.js'
 import { resolveShotRequest, validateProductionManifest } from '../src/business/production/manifest.js'
 import { runProduction } from '../src/business/production/runner.js'
 

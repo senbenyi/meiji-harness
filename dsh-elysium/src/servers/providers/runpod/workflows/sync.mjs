@@ -2,7 +2,7 @@
 // 职责：从选中平台获取并编译工作流，校验或同步 MiniMax H3 工作流模板。
 import { resolveServer } from '../../../registry/resolve.js'
 import { backendWorkflowSource } from '../../../runtime/index.js'
-import { resolveConfig, withConfig } from '../../../../config.js'
+import { resolveConfig, withConfig } from '../../../../utils/config.js'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'

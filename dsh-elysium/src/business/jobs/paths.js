@@ -1,7 +1,7 @@
 // 职责：将项目任务定位到所属项目目录，并按任务 ID 查找已有任务。
 import { access, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { requiredConfig } from '../../config.js'
+import { requiredConfig } from '../../utils/config.js'
 
 export const FREE_PROJECT_ID = '00000000'
 export const validProjectId = value => /^[a-f0-9]{8}$/.test(value || '')

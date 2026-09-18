@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { ComfyClient } from '../src/comfyui/client.js'
 import { readJson, saveJson } from '../src/business/jobs/store.js'
-import { comfyuiTaskTool } from '../src/tools/comfyui-tasks.js'
+import { comfyuiTaskTool } from '../src/harness/tasks.js'
 
 const directory = await mkdtemp(join(tmpdir(), 'comfy-client-'))
 after(() => rm(directory, { recursive: true, force: true }))

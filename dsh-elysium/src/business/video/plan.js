@@ -1,6 +1,6 @@
 // 职责：定义业务模式词汇，并将参数校验交给唯一平台入口。
 import { validateBackendPlan, resolveServer } from '../../servers/runtime/index.js'
-import { runtimeConfig } from '../../config.js'
+import { runtimeConfig } from '../../utils/config.js'
 
 export const VIDEO_MODES = Object.freeze(['t2va', 'i2va', 'fl2va', 'fl2va-loop', 'r2va'])
 export const VIDEO_PROFILES = Object.freeze(['preview', 'regular', 'high-quality', 'standard'])

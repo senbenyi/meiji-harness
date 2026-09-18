@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createToolDiscoveryTool, loadedToolNames, projectTools, TOOL_GROUPS } from '../src/tools/discovery.js'
+import { createToolDiscoveryTool } from '../src/harness/load.js'
+import { loadedToolNames, projectTools, TOOL_GROUPS } from '../src/utils/agent.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
 const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'director_list', 'project_create', 'project_read', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
 const agent = (events, agentPreset = 'elysium-teaching') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
@@ -80,7 +81,7 @@ test('rejects invalid or unavailable loads', async () => {
 })
 
 test('production wait returns final result without model polling and preserves failed status', async () => {
-  const { waitVideoJob } = await import('../src/tools/video.js')
+  const { waitVideoJob } = await import('../src/harness/video.js')
   const job = { job_id: 'a'.repeat(32) }
   const sequence = [{ ...job, status: 'running' }, { ...job, status: 'succeeded', result: { comfyui_view_url: 'https://comfy/view?filename=final.mp4', validation: { full_decode: 'passed' } } }]
   let sleeps = 0

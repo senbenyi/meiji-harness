@@ -1,6 +1,6 @@
 // 职责：分配任务 ID 并持久化原始请求，不绑定 Harness 会话。
 import { validateBackend, resolveServer } from '../../servers/runtime/index.js'
-import { runtimeConfig } from '../../config.js'
+import { runtimeConfig } from '../../utils/config.js'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import { readJson, saveJson } from './store.js'

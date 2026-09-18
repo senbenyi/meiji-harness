@@ -1,5 +1,5 @@
 // 职责：封装 ComfyUI HTTP 请求、图校验、任务等待与产物 URL 生成。
-import { runtimeConfig } from '../config.js'
+import { runtimeConfig } from '../utils/config.js'
 import { resolveServer } from '../servers/runtime/index.js'
 import { setTimeout as pause } from 'node:timers/promises'
 import { submitComfyPrompt } from './submission.js'

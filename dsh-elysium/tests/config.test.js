@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { defaultSettings, readSettings, requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/config.js'
+import { defaultSettings, readSettings, requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/utils/config.js'
 import { comfyUrl, ComfyClient } from '../src/comfyui/client.js'
 
 test('missing, empty and invalid addresses fail before any request; removed instance is rejected', () => {
@@ -71,7 +71,8 @@ test('repository settings provide model defaults and independent provider paths'
   const defaults = resolveConfig().ELYSIUM_MODELS, models = { image: [], video: [] }
   assert.deepEqual(defaults, defaultSettings.models)
   assert.deepEqual(resolveConfig({ models }).ELYSIUM_MODELS, models)
-  assert.throws(() => resolveConfig({ models: { ...models, analysis: [] } }))
+  assert.deepEqual(resolveConfig({ models: { ...models, llm: [{ id: 'old', label: '旧文本模型' }], analysis: [] } }).ELYSIUM_MODELS, models)
+  assert.throws(() => resolveConfig({ models: { ...models, analysis: 'bad' } }))
   const config = resolveConfig({ home: '/tmp/elysium-home' })
   assert.equal(config.ELYSIUM_BYTEPLUS_FILE, '/tmp/elysium-home/providers/byteplus.json')
   assert.equal(config.ELYSIUM_BAILIAN_FILE, '/tmp/elysium-home/providers/bailian.json')

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, utimes, rm, readdir } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
-import { withConfig } from '../src/config.js'
+import { withConfig } from '../src/utils/config.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 import { createMediaHandler } from '../src/http/media-routes.js'
 import { jobSummary } from '../src/business/assets/catalog.js'

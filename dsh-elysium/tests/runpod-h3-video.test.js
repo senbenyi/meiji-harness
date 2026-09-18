@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { withConfig } from '../src/config.js'
+import { withConfig } from '../src/utils/config.js'
 import { ComfyClient } from '../src/comfyui/client.js'
 import { collectVideoArtifacts } from '../src/business/video/artifacts.js'
 import { buildVideoGraph, loadVideoTemplate } from '../src/servers/providers/runpod/workflows/minimax-h3/graph.js'

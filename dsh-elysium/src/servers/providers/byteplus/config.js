@@ -1,6 +1,6 @@
 // 职责：读取独立 BytePlus 配置；任务快照只保存公开的视频参数。
 import { readFileSync } from 'node:fs'
-import { runtimeConfig } from '../../../config.js'
+import { runtimeConfig } from '../../../utils/config.js'
 
 export function readBytePlus({ includeDisabled = false } = {}) {
   const path = runtimeConfig().ELYSIUM_BYTEPLUS_FILE

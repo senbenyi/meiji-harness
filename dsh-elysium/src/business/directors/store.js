@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { requiredConfig } from '../../config.js'
+import { requiredConfig } from '../../utils/config.js'
 import { invalidRequest } from '../../http/shared.js'
 
 export const DEFAULT_DIRECTORS = [

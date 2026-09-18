@@ -7,7 +7,7 @@ import { findJobRoot } from '../jobs/paths.js'
 import { getJob } from '../jobs/query.js'
 import { readJson, saveJson } from '../jobs/store.js'
 import { invalidRequest } from '../../http/shared.js'
-import { requiredConfig } from '../../config.js'
+import { requiredConfig } from '../../utils/config.js'
 
 export function jobSummary(job) {
   const image = job.result?.media_kind === 'image' || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)

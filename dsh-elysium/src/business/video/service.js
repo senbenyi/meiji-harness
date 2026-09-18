@@ -10,7 +10,7 @@ import { createJob } from '../jobs/create.js'
 import { launch } from './launcher.js'
 import { withLaunchLock } from '../jobs/lock.js'
 import { validateVideoPlan } from './plan.js'
-import { requiredConfig } from '../../config.js'
+import { requiredConfig } from '../../utils/config.js'
 import { validProjectId } from '../jobs/paths.js'
 
 export { validateVideoPlan, launch }

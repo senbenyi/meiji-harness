@@ -8,7 +8,7 @@ import { validateRegistry } from '../src/servers/registry/schema.js'
 import { readRegistry, writeRegistry } from '../src/servers/registry/store.js'
 import { readSelection, writeSelection } from '../src/servers/selection/store.js'
 import { resolveServer } from '../src/servers/registry/resolve.js'
-import { withConfig, resolveConfig } from '../src/config.js'
+import { withConfig, resolveConfig } from '../src/utils/config.js'
 
 const fixture = () => ({ version: 1, revision: 0, servers: ['a', 'b'].map(id => ({ id, label: id, provider: 'manual', instance_id: id, deployment_id: 'one', connection_source: 'manual', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })) })
 

@@ -1,6 +1,6 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
 import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer } from '../servers/runtime/index.js'
-import { withConfig, runtimeConfig, defaultModels } from '../config.js'
+import { withConfig, runtimeConfig, defaultModels } from '../utils/config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 export const SERVER_ROUTE = '/plugins/dsh-elysium/server'
 const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'third-party-select']

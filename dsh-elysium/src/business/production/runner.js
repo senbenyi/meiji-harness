@@ -2,7 +2,7 @@
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { validateBackend, extractBackendReference, createBackendClient, resolveGenerationBackend, readBackend, sameBackend, withBackend } from '../../servers/runtime/index.js'
-import { requiredConfig, runtimeConfig } from '../../config.js'
+import { requiredConfig, runtimeConfig } from '../../utils/config.js'
 import { createJob } from '../jobs/create.js'
 import { readJson, saveJson } from '../jobs/store.js'
 import { launch } from '../video/launcher.js'

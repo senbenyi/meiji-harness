@@ -1,6 +1,6 @@
 // 职责：读取生产清单，并执行批量视频生产任务。
 import { resolve } from 'node:path'
-import { resolveConfig, withConfig } from '../src/config.js'
+import { resolveConfig, withConfig } from '../src/utils/config.js'
 import { loadProductionManifest } from '../src/business/production/manifest.js'
 import { runProduction } from '../src/business/production/runner.js'
 

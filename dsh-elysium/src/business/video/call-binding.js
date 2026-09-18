@@ -1,5 +1,5 @@
 // 职责：在 Harness 工具调用与本地视频任务之间建立可恢复索引。
-import { requiredConfig } from '../../config.js'
+import { requiredConfig } from '../../utils/config.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'

@@ -1,6 +1,6 @@
 // 职责：读取独立百炼配置；任务快照只保留公开的视频参数。
 import { readFileSync } from 'node:fs'
-import { runtimeConfig } from '../../../config.js'
+import { runtimeConfig } from '../../../utils/config.js'
 
 export function readBailian({ includeDisabled = false } = {}) {
   const path = runtimeConfig().ELYSIUM_BAILIAN_FILE

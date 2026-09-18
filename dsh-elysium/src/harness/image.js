@@ -5,8 +5,8 @@ import { launch } from '../business/video/launcher.js'
 import { getJob } from '../business/jobs/query.js'
 import { waitJob } from '../business/jobs/wait.js'
 import { bindVideoCall, findVideoCall } from '../business/video/call-binding.js'
-import { renderToolDebug } from './output.js'
-import { generationProjectId } from './generation-project.js'
+import { renderToolDebug } from '../utils/output.js'
+import { generationProjectId } from '../utils/project.js'
 const output = { schema: { type: 'object', additionalProperties: true, properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
 export function createWorkflowGenerateImageTool() {
   return { name: 'workflow_generate_image', description: '生成图片或使用 images 编辑/组合参考图。优先自有模型，未连接时使用已启用的三方图片渠道。图片可作为角色、场景锚点，结果等待人工验收。失败时保留原任务，不自动重发。', timeoutMs: 121 * 60 * 1000,

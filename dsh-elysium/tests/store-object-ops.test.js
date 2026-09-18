@@ -4,7 +4,7 @@ import test from 'node:test'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { withConfig } from '../src/config.js'
+import { withConfig } from '../src/utils/config.js'
 import { createProjectStore } from '../src/business/projects/store.js'
 import { actsValue, anchorValue, validShotId } from '../src/business/projects/schema.js'
 

@@ -8,9 +8,9 @@ import { createServer } from 'node:http'
 import { apply, createDirectorTools, createProjectTools } from '../src/index.js'
 import { createDirectorStore } from '../src/business/directors/store.js'
 import { createProjectStore } from '../src/business/projects/store.js'
-import { withConfig } from '../src/config.js'
-import { projectTools } from '../src/tools/discovery.js'
-import { generationProjectId } from '../src/tools/generation-project.js'
+import { withConfig } from '../src/utils/config.js'
+import { projectTools } from '../src/utils/agent.js'
+import { generationProjectId } from '../src/utils/project.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 
 test('chat tools read full objects, mutate one field and render compact mutation results', async () => {

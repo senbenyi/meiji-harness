@@ -1,7 +1,7 @@
 // 职责：提交或恢复单镜头预览任务，并等待任务完成。
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { resolveConfig, withConfig } from '../src/config.js'
+import { resolveConfig, withConfig } from '../src/utils/config.js'
 import { withLaunchLock } from '../src/business/jobs/lock.js'
 import { executeVideoShot } from '../src/business/production/runner.js'
 

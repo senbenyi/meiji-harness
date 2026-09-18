@@ -8,7 +8,7 @@ import { createMediaHandler, MEDIA_ROUTE } from '../src/http/media-routes.js'
 import { jobSummary } from '../src/business/assets/catalog.js'
 import { bindVideoCall, findVideoCall } from '../src/business/video/call-binding.js'
 import { apply } from '../src/index.js'
-import { withConfig } from '../src/config.js'
+import { withConfig } from '../src/utils/config.js'
 import { mediaReference } from '../src/comfyui/media-reference.js'
 import { ComfyClient } from '../src/comfyui/client.js'
 

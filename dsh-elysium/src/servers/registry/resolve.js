@@ -1,5 +1,5 @@
 // 职责：按服务解析唯一默认目标，保留无清单安装的旧连接配置。
-import { requiredConfig, runtimeConfig, withConfig } from '../../config.js'
+import { requiredConfig, runtimeConfig, withConfig } from '../../utils/config.js'
 import { readRegistry } from './store.js'
 import { readSelection } from '../selection/store.js'
 import { providerDefinitions } from '../runtime/definitions.js'

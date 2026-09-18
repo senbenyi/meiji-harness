@@ -1,8 +1,9 @@
 // 职责：组合并注册 Elysium 的工具、路由与系统提示词。
 import { mkdir } from 'node:fs/promises'
-import { resolveConfig, withConfig } from './config.js'
-import { createComfyuiTools, createDirectorTools, createModelTools, createProjectTools, createWorkflowTools } from './tools/index.js'
-import { createToolDiscoveryTool, isElysiumAgent, projectTools } from './tools/discovery.js'
+import { resolveConfig, withConfig } from './utils/config.js'
+import { createComfyuiTools, createDirectorTools, createModelTools, createProjectTools, createWorkflowTools } from './harness/index.js'
+import { createToolDiscoveryTool } from './harness/load.js'
+import { isElysiumAgent, projectTools } from './utils/agent.js'
 import { registerProjectRoutes, PROJECT_ROUTE } from './http/project-routes.js'
 import { registerDirectorRoutes, DIRECTOR_ROUTE } from './http/director-routes.js'
 import { registerServerRoutes, SERVER_ROUTE } from './http/server-routes.js'
@@ -12,7 +13,7 @@ import { createProjectStore } from './business/projects/store.js'
 import { providerCreationInstructions } from './servers/runtime/index.js'
 import { creationInstructions } from './prompts/creation.js'
 
-export * from './tools/index.js'
+export * from './harness/index.js'
 
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']

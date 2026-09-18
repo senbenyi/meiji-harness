@@ -1,6 +1,6 @@
 // 职责：在锁保护下启动或接管本地视频 worker。
 import { connectBackend, readBackend } from '../../servers/runtime/index.js'
-import { workerEnvironment } from '../../config.js'
+import { workerEnvironment } from '../../utils/config.js'
 import { spawn } from 'node:child_process'
 import { open, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'

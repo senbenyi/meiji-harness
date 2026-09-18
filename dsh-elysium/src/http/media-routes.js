@@ -2,7 +2,7 @@
 import { connectBackend } from '../servers/runtime/index.js'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { withConfig } from '../config.js'
+import { withConfig } from '../utils/config.js'
 import { randomBytes } from 'node:crypto'
 import { getJob } from '../business/jobs/query.js'
 import { findVideoCall } from '../business/video/call-binding.js'

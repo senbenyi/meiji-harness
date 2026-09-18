@@ -15,7 +15,7 @@ import { backendLlmSettings, backendWorkflowSource } from './lib/servers/runtime
 import { readRegistry, writeRegistry } from './lib/servers/registry/store.js'
 import { readSelection } from './lib/servers/selection/store.js'
 import { backendFromServer } from './lib/servers/registry/resolve.js'
-import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/tools/comfyui-tasks.js'
+import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/harness/tasks.js'
 import { runProduction } from './src/business/production/runner.js'
 import { validateProductionManifest } from './src/business/production/manifest.js'
 const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}

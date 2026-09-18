@@ -1,5 +1,5 @@
 // 职责：校验任务的本地媒体登记，并仅打开存储根内的受支持文件。
-import { requiredConfig } from '../../config.js'
+import { requiredConfig } from '../../utils/config.js'
 import { constants } from 'node:fs'
 import { open, realpath, readFile } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'

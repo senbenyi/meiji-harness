@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { projectSummary } from '../src/business/projects/store.js'
-import { withConfig } from '../src/config.js'
+import { withConfig } from '../src/utils/config.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 
 test('projects authenticate every route and persist validated atomic CRUD with normalized shot order', async () => {

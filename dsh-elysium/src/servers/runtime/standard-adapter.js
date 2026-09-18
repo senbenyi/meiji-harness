@@ -2,7 +2,7 @@
 import { ComfyClient } from '../../comfyui/client.js'
 import { ensureConnection } from '../transport/connection.js'
 import { validatePlan as validateProtocolPlan } from '../../comfyui/plan.js'
-import { runtimeConfig } from '../../config.js'
+import { runtimeConfig } from '../../utils/config.js'
 export const standardServices = Object.freeze({ comfyui: {}, llm: {} })
 export function validateStandard(backend, services = standardServices) {
   const service = backend.connection

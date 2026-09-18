@@ -4,7 +4,7 @@ import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import { runtimeConfig } from '../../config.js'
+import { runtimeConfig } from '../../utils/config.js'
 
 const fail = message => { throw Object.assign(new Error(message), { status: 400 }) }
 const id = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value)

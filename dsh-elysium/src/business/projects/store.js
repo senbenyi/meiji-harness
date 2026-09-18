@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { requiredConfig } from '../../config.js'
+import { requiredConfig } from '../../utils/config.js'
 import { getJob } from '../jobs/query.js'
 import { FREE_PROJECT_ID } from '../jobs/paths.js'
 import { availableJobSummary } from '../assets/catalog.js'

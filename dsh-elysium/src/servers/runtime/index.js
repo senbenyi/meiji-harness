@@ -4,7 +4,7 @@ import { providerDefinitions } from './definitions.js'
 import { resolveServer } from '../registry/resolve.js'
 import { readRegistry, writeRegistry } from '../registry/store.js'
 import { readSelection, writeSelection } from '../selection/store.js'
-import { runtimeConfig } from '../../config.js'
+import { runtimeConfig } from '../../utils/config.js'
 async function adapterFor(backend) {
   const provider = await loadProvider(backend.provider)
   if (backend.provider_api_version !== undefined && backend.provider_api_version !== provider.apiVersion) throw Object.assign(new Error('任务平台接口版本不兼容'), { code: 'PROVIDER_VERSION_MISMATCH', status: 409 })

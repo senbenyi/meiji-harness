@@ -5,7 +5,7 @@ import { createServer } from 'node:http'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { withConfig } from '../src/config.js'
+import { withConfig } from '../src/utils/config.js'
 import { createServerHandler, SERVER_ROUTE } from '../src/http/server-routes.js'
 const record = id => ({ id, label: id, provider: 'runpod', connection_source: 'manual', instance_id: id, deployment_id: 'one', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })
 test('all endpoints authenticate before IO; registration stays manual and switching is checked', async t => {

@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { isAbsolute, join, normalize, sep } from 'node:path'
 import { homedir } from 'node:os'
-import { readRegistry, providerConfigFields, providerConfigDefaults } from './servers/runtime/index.js'
+import { readRegistry, providerConfigFields, providerConfigDefaults } from '../servers/runtime/index.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 // 读取并校验必需配置；URL 统一去掉尾部斜杠。
@@ -30,7 +30,7 @@ const fields = {
   selectionFile: ['ELYSIUM_CONFIG_FILE', 'path'],
   ...providerConfigFields(),
 }
-const settingsFile = new URL('../config/settings.json', import.meta.url)
+const settingsFile = new URL('../../config/settings.json', import.meta.url)
 const modelKinds = ['image', 'video']
 const relativePath = value => typeof value === 'string' && value.trim() === value && value && !isAbsolute(value)
   && !normalize(value).split(sep).includes('..')
@@ -86,8 +86,9 @@ export function resolveConfig(config = {}) {
   const resolved = {}
   const configuredModels = config.models ?? settings.models
   if (!configuredModels || typeof configuredModels !== 'object' || Array.isArray(configuredModels)) throw new Error('模型清单无效')
-  const models = structuredClone(configuredModels)
-  if (Object.keys(models).sort().join(',') !== modelKinds.slice().sort().join(',')) throw new Error('模型清单无效')
+  if (Object.keys(configuredModels).some(key => ![...modelKinds, 'llm', 'analysis'].includes(key))
+    || ['llm', 'analysis'].some(kind => configuredModels[kind] !== undefined && !Array.isArray(configuredModels[kind]))) throw new Error('模型清单无效')
+  const models = Object.fromEntries(modelKinds.map(kind => [kind, structuredClone(configuredModels[kind])]))
   for (const kind of modelKinds) {
     const ids = new Set()
     if (!Array.isArray(models[kind])) throw new Error('模型清单必须包含图片和视频列表')

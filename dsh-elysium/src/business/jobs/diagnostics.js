@@ -1,6 +1,6 @@
 // 职责：生成视频执行代码指纹，并汇总已持久化的执行跟踪。
 import { createHash } from 'node:crypto'
-import { runtimeConfig } from '../../config.js'
+import { runtimeConfig } from '../../utils/config.js'
 import { providerSourceFiles, runtimeSourceFiles } from '../../servers/runtime/index.js'
 import { readFile } from 'node:fs/promises'
 
@@ -10,7 +10,7 @@ export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'))
   // 显式列出所有参与视频执行的模块，避免指纹漏掉恢复语义变更。
   const names = ['diagnostics.js', 'errors.js', 'create.js', 'store.js', 'query.js', 'wait.js', 'timing.js',
-    '../../config.js', '../../tools/output.js', '../../tools/video.js', '../../comfyui/client.js', '../../comfyui/submission.js',
+    '../../utils/config.js', '../../utils/output.js', '../../harness/video.js', '../../comfyui/client.js', '../../comfyui/submission.js',
     '../../comfyui/plan.js', '../../comfyui/reference-frame.js', '../../comfyui/execution.js', '../../comfyui/media-reference.js',
     ...['artifacts', 'call-binding', 'execution', 'launcher', 'plan', 'service', 'worker-owner', 'worker'].map(name => `../video/${name}.js`)]
   const provider = runtimeConfig().ELYSIUM_BACKEND?.provider
