@@ -52,7 +52,42 @@ export function shotValue(shot) {
   if (!shot || !['role', 'action', 'subtitle', 'mode', 'notes'].every(key => textValue(shot[key])) ||
     (shot.id !== undefined && !validShotId(shot.id)) ||
     !(shot.job_id === null || validJobId(shot.job_id)) || !['pending', 'queued', 'running', 'succeeded', 'failed'].includes(shot.status)) throw invalidRequest('镜字段无效')
-  return { ...(shot.id === undefined ? {} : { id: shot.id }), role: shot.role, action: shot.action, subtitle: shot.subtitle, mode: shot.mode, job_id: shot.job_id, status: shot.status, notes: shot.notes }
+  const extra = {}
+  for (const key of ['framing', 'camera', 'lighting', 'sound', 'prompt', 'reference_id', 'scene']) {
+    if (shot[key] !== undefined) { if (!textValue(shot[key])) throw invalidRequest('分镜描述无效'); extra[key] = shot[key] }
+  }
+  for (const key of ['characters', 'props']) if (shot[key] !== undefined) extra[key] = materialsValue(shot[key])
+  if (shot.duration !== undefined) { if (!Number.isInteger(shot.duration) || shot.duration < 1 || shot.duration > 15) throw invalidRequest('每镜时长为 1～15 秒'); extra.duration = shot.duration }
+  return { ...extra, ...(shot.id === undefined ? {} : { id: shot.id }), role: shot.role, action: shot.action, subtitle: shot.subtitle, mode: shot.mode, job_id: shot.job_id, status: shot.status, notes: shot.notes }
+}
+
+// 项目类型仅作分类，当前共用创作流程。
+export function modeValue(value = 'director') {
+  if (!['director', 'free', 'teaching'].includes(value)) throw invalidRequest('项目模式无效')
+  return value
+}
+export function briefValue(value) {
+  if (!textValue(value)) throw invalidRequest('创作需求最多 2 万字符')
+  return value.trim()
+}
+export function configurationValue(input = {}) {
+  const result = {}
+  for (const key of ['male', 'female', 'scene']) {
+    const value = input[key] ?? null
+    if (value !== null && !validJobId(value)) throw invalidRequest(`${key} 素材 ID 无效`)
+    result[key] = value
+  }
+  const theme = input.theme == null || input.theme === '' ? [] : Array.isArray(input.theme) ? input.theme : [input.theme]
+  result.theme = materialsValue(theme)
+  for (const key of ['supporting', 'props']) result[key] = materialsValue(input[key] ?? [])
+  result.director = input.director ? directorValue(input.director) : null
+  result.reference_text = input.reference_text ?? ''
+  if (typeof result.reference_text !== 'string' || result.reference_text.length > 100000) throw invalidRequest('参考文本最多 10 万字符，请导入需要改编的章节')
+  return result
+}
+export function plotValue(value) {
+  if (typeof value !== 'string' || !value.trim() || [...value.replace(/\s/g, '')].length > 200) throw invalidRequest('剧情需为 1～200 字（含标点，不含空白）')
+  return value.trim()
 }
 
 export function actsValue(acts) {

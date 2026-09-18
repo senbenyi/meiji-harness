@@ -108,7 +108,7 @@ test('anchor preview edits name and description with explicit save and only impo
   await act(async () => view.unmount())
 })
 
-test('new project uses the inline production flow and advances directly to anchors', async () => {
+test('new project uses the inline production flow and allows optional director and cover', async () => {
   const f = fixture(emptyProject())
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectList)) })
@@ -118,11 +118,10 @@ test('new project uses the inline production flow and advances directly to ancho
   assert.equal(view.root.findAllByType('option')[0].children.join(''), '选导演')
   assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').children.join(''), '下一步')
   await act(async () => view.root.findByProps({ 'aria-label': '项目名称' }).props.onChange({ target: { value: '新项目' } }))
-  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, true)
+  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, false)
   await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '张艺谋' } }))
-  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
   assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), false)
-  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, true)
+  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, false)
   await click(view, '选择封面图片')
   assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
   await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())

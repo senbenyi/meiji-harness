@@ -64,6 +64,11 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ width: state.width, activeTab: state.activeTab, materials: state.materials, selected: state.selected, projectTab: state.projectTab, projects: Object.fromEntries(Object.entries(state.projects).map(([id, value]) => [id, { selected: value.selected, selectedJob: value.selectedJob, tab: value.tab }])) })) } catch {}
     }, [state.width, state.activeTab, state.materials, state.selected, state.projectTab, state.projects])
     useEffect(() => {
+      const open = event => navigate(() => change({ open: true, visited: true, activeTab: 'projects', selected: event.detail.id, projectTab: 'configuration', width: Math.max(state.width, Math.min(560, window.innerWidth)) }))
+      window.addEventListener('elysium:open-project', open)
+      return () => window.removeEventListener('elysium:open-project', open)
+    }, [state.width])
+    useEffect(() => {
       const resizeViewport = () => setViewportWidth(window.innerWidth)
       window.addEventListener('resize', resizeViewport)
       return () => window.removeEventListener('resize', resizeViewport)

@@ -4,6 +4,11 @@ import { withConfig, runtimeConfig, defaultModels } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'
 const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select']
+function bindPrivateModels(models, registry) {
+  const fallback = (registry?.servers || []).filter(server => !server.disabled && server.services?.comfyui)
+  const serverId = fallback.length === 1 ? fallback[0].id : undefined
+  return Object.fromEntries(['image', 'video'].map(kind => [kind, (models[kind] || []).map(model => model.server_id || !serverId ? model : { ...model, server_id: serverId })]))
+}
 export function createSettingsHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
   return async (req, res) => {
     try {
@@ -15,14 +20,18 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       const registry = readRegistry() || { version: 1, revision: 0, active: {}, servers: [] }
       const selection = readSelection()
       const configuredModels = runtimeConfig().ELYSIUM_MODELS || defaultModels
-      const models = Object.fromEntries(['image', 'video'].map(kind => [kind, configuredModels[kind] || []]))
+      const models = bindPrivateModels(Object.fromEntries(['image', 'video'].map(kind => [kind, configuredModels[kind] || []])), registry)
       if (action === 'models') {
         const thirdParty = await thirdPartyModels()
         const tunnel = defaultTunnelModel(), chatModel = tunnel && { id: tunnel.id, label: tunnel.label }
-        return json(res, 200, { revision: selection.revision, models, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+        const selected = Object.fromEntries(['image', 'video'].map(kind => {
+          const entries = models[kind] || []
+          if (selection.selected[kind] === null) return [kind, '']
           const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
           return [kind, entries.find(model => model.server_id === active)?.id || '']
-        })) })
+        }))
+        const origin = Object.fromEntries(['image', 'video'].map(kind => [kind, selection.selected[kind] === null ? 'third' : selected[kind] ? 'own' : '']))
+        return json(res, 200, { revision: selection.revision, models, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected, origin })
       }
       if (action === 'tunnel-connect') {
         const body = await readJsonBody(req), tunnel = defaultTunnelModel()

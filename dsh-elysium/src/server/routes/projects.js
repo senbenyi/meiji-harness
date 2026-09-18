@@ -4,14 +4,16 @@ import { createProjectStore } from '../projects/service.js'
 import { createDirectorStore } from '../directors/service.js'
 import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
+import { createProjectWorkflow } from '../projects/workflow.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll']
+const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll', 'workflow']
 
 export function createProjectHandler(options) {
   const { token } = options
   const directors = options.directorStore || createDirectorStore()
   const store = options.projectStore || createProjectStore({ ...options, directorExists: name => directors.has(name) })
+  const workflow = options.workflow || createProjectWorkflow(store)
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -24,13 +26,15 @@ export function createProjectHandler(options) {
         const id = url.searchParams.get('id')
         if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
         if (action === 'poll') {
+          await workflow.refresh(id)
           const since = Number(url.searchParams.get('since'))
           if (!url.searchParams.has('since') || !url.searchParams.get('since').trim() || !Number.isSafeInteger(since) || since < 0) throw invalidRequest('变更时间无效')
           return json(res, 200, { updated: await store.lastModified(id) > since })
         }
-        return json(res, 200, await store.read(id))
+        return json(res, 200, await workflow.refresh(id))
       }
       const body = await readJsonBody(req)
+      if (action === 'workflow') return json(res, 200, await workflow.action(body.action, body))
       if (['update-anchor', 'update-shot'].includes(action)) {
         if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) throw invalidRequest('对象参数无效')
         const change = action === 'update-anchor' ? store.changeAnchor : store.changeShot
@@ -44,10 +48,10 @@ export function createProjectHandler(options) {
   }
 }
 
-export function registerProjectRoutes(ctx, runtime, token, projectStore) {
+export function registerProjectRoutes(ctx, runtime, token, projectStore, workflow) {
   const server = ctx.get?.('webServer')
   if (!server) return
-  const handle = createProjectHandler({ token, projectStore })
+  const handle = createProjectHandler({ token, projectStore, workflow })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
   for (const suffix of actions) ctx.effect(() => server.register({ kind: 'exact', path: `${PROJECT_ROUTE}/${suffix}`, handler }), `elysium project ${suffix}`)
 }

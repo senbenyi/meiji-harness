@@ -152,7 +152,7 @@ test('HTTP model settings expose both channel switches without credentials or su
     assert.doesNotMatch(text, /fake-secret|old-secret|api_key|base_url/)
     const selected = await fetch(`http://127.0.0.1:${web.address().port}/plugins/dsh-elysium/settings/third-party-select?t=t`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'video', id: 'byteplus:seedance2', revision: 0 }) })
     assert.equal(selected.status, 200)
-    assert.equal((await f.bind(() => resolveGenerationBackend('video', { probe: async () => true }))).provider, 'manual')
+    assert.equal((await f.bind(() => resolveGenerationBackend('video', { probe: async () => true }))).provider, 'byteplus')
     assert.equal((await f.bind(() => resolveGenerationBackend('video', { probe: async () => false }))).provider, 'byteplus')
     assert.equal(f.calls.length, 0)
   } finally { await new Promise(resolve => web.close(resolve)) }

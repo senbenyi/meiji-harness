@@ -1,5 +1,2 @@
-// 职责：为导演模式解析显式项目，或为自由、教学模式切换到不可见内部工作区。
-import { ensureFreeProject } from '../../server/jobs/create.js'
-import { isElysiumStandaloneAgent } from '../agent.js'
-
-export const generationProjectId = (projectId, exec) => isElysiumStandaloneAgent(exec?.agent) ? ensureFreeProject() : projectId
+// Explicit project identity for every project mode.
+export const generationProjectId = projectId => projectId

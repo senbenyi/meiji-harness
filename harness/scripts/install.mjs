@@ -7,6 +7,7 @@ import { homedir } from 'node:os'
 import { delimiter, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { migrateCreationPresets } from './migrate-creation-presets.mjs'
 
 function dshHome(value = process.env.DSH_HOME) {
   if (value === undefined) return join(homedir(), '.dsh')
@@ -35,6 +36,7 @@ await mkdir(target, { recursive: true })
 for (const entry of ['.agent-presets', 'profiles', 'settings.yaml']) {
   await cp(join(source, entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
 }
+await migrateCreationPresets(target)
 
 run('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], { cwd: plugin })
 run('pnpm', ['build'], { cwd: plugin })

@@ -14,7 +14,7 @@
 # 预设来源策略：只发现本机维护的 Elysium 预设。
 - id: agent-presets
   config:
-    default: elysium-teaching
+    default: elysium-creation
     includeShippedRoot: false
 
 # Web 能力边界：关闭反馈、日志导出与权限切换。
@@ -26,4 +26,8 @@
   isolate:
     commands: true
 - id: ui-permission
+  disabled: true
+
+# 模式归项目，关闭 Harness 会话层预设选择界面。
+- id: ui-agent-preset
   disabled: true

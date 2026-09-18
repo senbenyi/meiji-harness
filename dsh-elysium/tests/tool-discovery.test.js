@@ -51,12 +51,12 @@ test('recognizes every shipped Elysium mode by its real preset ID', () => {
     assert.ok(!result.tools.some(tool => tool.name === 'bash'))
   }
 })
-test('free and teaching modes expose read-only director selection, hide projects and keep direct generation', () => {
+test('legacy modes expose the same project creation tools', () => {
   for (const preset of ['elysium-free', 'elysium-teaching']) {
     const result = projectTools(assembly(), agent([], preset))
     assert.ok(result.tools.some(tool => tool.name === 'workflow_generate_video'))
     assert.ok(result.tools.some(tool => tool.name === 'director_list'))
-    assert.ok(!result.tools.some(tool => tool.name !== 'director_list' && /^(director|project)_/.test(tool.name)))
+    assert.ok(result.tools.some(tool => tool.name === 'project_create'))
   }
   assert.ok(projectTools(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'project_create'))
 })

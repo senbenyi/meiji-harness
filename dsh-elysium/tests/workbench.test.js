@@ -19,7 +19,7 @@ test('material browser and image picker share category tabs and reset pagination
   for (const imageOnly of [false, true]) {
     const requests = [], changes = [], f = fixture({ requests }); let view
     await act(async () => { view = create(React.createElement(f.require('elysium/materials').MaterialList, { imageOnly, viewState: { page: 2 }, onViewState: value => changes.push(value) })) })
-    assert.deepEqual(view.root.findAllByProps({ role: 'tab' }).map(tab => tab.children.join('')), imageOnly ? ['人物', '场景', '道具'] : ['人物', '场景', '道具', '主题', '导演'])
+    assert.deepEqual(view.root.findAllByProps({ role: 'tab' }).map(tab => tab.children.join('')), imageOnly ? ['人物', '场景', '道具'] : ['人物', '场景', '道具', '题材', '导演'])
     assert.equal(new URL(requests.at(-1), 'https://test').searchParams.get('category'), 'character')
     for (const [category, label] of [['scene', '场景'], ['prop', '道具']]) {
       await act(async () => view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === label).props.onClick())
@@ -27,6 +27,13 @@ test('material browser and image picker share category tabs and reset pagination
       assert.equal(query.get('category'), category); assert.equal(query.get('offset'), '0')
       if (imageOnly) assert.equal(query.get('media_kind'), 'image')
       assert.equal(changes.at(-1).category, category); assert.equal(changes.at(-1).page, 0)
+    }
+    if (!imageOnly) {
+      await act(async () => view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === '题材').props.onClick())
+      assert.equal(new URL(requests.at(-1), 'https://test').searchParams.get('category'), 'theme')
+      assert.ok(view.root.findByProps({ className: 'elysium-theme-grid' }))
+      assert.ok(view.root.findByProps({ 'aria-label': '新建题材' }))
+      assert.equal(view.root.findAllByProps({ 'aria-label': '档次' }).length, 0)
     }
     await act(async () => view.unmount())
   }

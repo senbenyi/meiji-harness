@@ -5,7 +5,7 @@ const text = { type: 'string' }
 const projectId = { type: 'string', description: '项目 ID，先读取再修改。' }
 const shotId = { type: 'string' }
 const object = (properties, required = []) => ({ type: 'object', additionalProperties: false, properties, required })
-const info = { title: text, director: text, profile: { type: 'string', enum: ['preview', 'regular', 'high-quality', 'hd'] } }
+const info = { title: text, brief: text, mode: { type: 'string', enum: ['director', 'free', 'teaching'] }, director: text, profile: { type: 'string', enum: ['preview', 'regular', 'high-quality', 'hd'] } }
 const anchorPatch = object({
   new_role: text, label: text, description: text, image_url: text,
   source: { oneOf: [{ type: 'null' }, object({ type: { type: 'string', enum: ['job', 'material'] }, job_id: { type: 'string' } }, ['type', 'job_id'])] },
@@ -52,13 +52,16 @@ export function createProjectTools(store) {
       name: 'project_update_info', description: '仅修改项目名称、导演或档次；不会替换角色和分镜。',
       parameters: object({ project_id: projectId, ...info }, ['project_id']),
       output: { schema: outputSchema, render: renderProjectResult },
-      execute: args => store.change('update', { id: args.project_id, title: args.title, director: args.director, profile: args.profile }),
+      execute: args => store.change('update', { id: args.project_id, title: args.title, brief: args.brief, mode: args.mode, director: args.director, profile: args.profile }),
     },
     {
-      name: 'project_create', description: '创建空项目；先调用 director_list，director 必须使用其返回的精确名称。返回项目 ID，不会启动视频生成。',
-      parameters: object(info, ['title', 'director', 'profile']),
-      output: { schema: outputSchema, render: renderProjectResult },
-      execute: args => store.change('create', { title: args.title, director: args.director, profile: args.profile }),
+      name: 'project_create', description: '收到视频创作需求立即创建项目并打开侧栏；不替用户选择素材或导演。创建后提示请配置项目素材并停止，等待页面下一步。',
+      parameters: object(info, ['title']),
+      output: { schema: outputSchema, render: (_args, value) => [{ type: 'text', text: JSON.stringify({ id: value.id, title: value.title, created_at: value.created_at, session_id: value.session_id, notice: '请配置项目素材' }) }] },
+      execute: async (args, exec) => {
+        const project = await store.change('create', args)
+        return store.transact(project.id, value => { value.session_id = exec?.agent?.session?.id || null; return [] })
+      },
     },
   ]
 }

@@ -27,7 +27,9 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.deepEqual(await (await request('list')).json(), [])
     assert.equal((await request('create')).status, 405)
     assert.equal((await request('create', { title: ' ' })).status, 400)
-    assert.equal((await request('create', { title: '测试项目', profile: 'preview' })).status, 400)
+    const empty = await request('create', { title: '空素材项目', profile: 'preview' })
+    assert.equal(empty.status, 201)
+    const optional = await empty.json(); assert.equal(optional.director, null); await request('delete', { id: optional.id })
     assert.equal((await request('create', { title: '测试项目', profile: 'preview', director: '不存在的导演' })).status, 400)
     let response = await request('create', { title: '测试项目', profile: 'preview', director: '张艺谋' })
     assert.equal(response.status, 201)
@@ -35,7 +37,7 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.match(id, /^[a-f0-9]{8}$/)
     assert.deepEqual(board.materials, [])
     let summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'anchors'); assert.equal(summary.director, '张艺谋')
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'configuration'); assert.equal(summary.director, '张艺谋')
     const shot = { index: 99, role: 'lin', action: '人物走入画面', subtitle: '', mode: 't2va', job_id: 'a'.repeat(32), status: 'succeeded', notes: '已确认' }
     response = await request('update', { id, acts: [{ title: '第一幕', shots: [shot, { ...shot, action: 'B' }] }] })
     assert.equal(response.status, 200)
@@ -45,13 +47,13 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.equal((await request('get', undefined, '&id=../../bad')).status, 400)
     summary = (await (await request('list')).json())[0]
     assert.equal(summary.shot_count, 2); assert.equal(summary.completed_count, 2)
-    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'deliverables'); assert.equal(summary.deliverable_count, 0)
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'configuration'); assert.equal(summary.deliverable_count, 0)
     await request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, status: 'running' }] }] })
     summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'active'); assert.equal(summary.stage, 'acts')
+    assert.equal(summary.status, 'active'); assert.equal(summary.stage, 'configuration')
     await request('update', { id, acts: [{ title: '第一幕', shots: [shot] }], deliverables: [{ type: 'film', label: '成品', job_id: 'a'.repeat(32) }] })
     summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'completed'); assert.equal(summary.stage, 'deliverables')
+    assert.equal(summary.status, 'completed'); assert.equal(summary.stage, 'configuration')
     await Promise.all([request('update', { id, title: '新标题', director: '王家卫' }), request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, job_id: null, status: 'pending' }] }] })])
     handler = createProjectHandler({ token: 't' })
     const restored = await (await request('get', undefined, `&id=${id}`)).json()

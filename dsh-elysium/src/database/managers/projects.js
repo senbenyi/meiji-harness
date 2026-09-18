@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { projectsRoot } from '../paths.js'
-import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
+import { briefValue, configurationValue, modeValue, anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
 import { statusError } from '../../utils/errors.js'
 
 const FREE_PROJECT_ID = '00000000'
@@ -19,7 +19,8 @@ export function projectSummary(value) {
     cover_job_id: value.cover_job_id || (value.anchors.some(anchor => serverUrl(anchor.image_url)) ? null : value.anchors.find(anchor => anchor.source?.job_id)?.source.job_id || null),
     cover_url: value.cover_job_id ? null : value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
     id: value.id, title: value.title, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
-    status: active ? 'active' : completed ? 'completed' : 'todo', stage,
+    mode: value.mode || 'director', workflow: value.workflow,
+    status: value.workflow?.job_id && value.workflow?.stage !== 'complete' ? 'active' : value.workflow?.stage === 'complete' ? 'completed' : active ? 'active' : completed ? 'completed' : 'todo', stage: value.workflow?.stage || stage,
     anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length,
     deliverable_count: value.deliverables.length,
   }
@@ -131,7 +132,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
       if (action === 'create') {
         const now = Date.now()
         do { value = { id: newId() } } while (value.id === FREE_PROJECT_ID)
-        value = { ...value, title: titleValue(body.title), director: await checkedDirector(body.director), profile: profileValue(body.profile), created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
+        value = { ...value, title: titleValue(body.title), director: body.director ? await checkedDirector(body.director) : null, profile: profileValue(body.profile || 'regular'), mode: modeValue(body.mode), brief: briefValue(body.brief || body.title), configuration: configurationValue(), workflow: { revision: 0, stage: 'configuration', plot: '', storyboard_revision: null, request: null, approval: null, job_id: null }, created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
         if (body.cover_job_id !== undefined) { value.cover_job_id = await checkedCover(body.cover_job_id); value.materials = [value.cover_job_id] }
         sections = ['materials', 'anchors', 'acts', 'deliverables']
         await mkdir(root(), { recursive: true })
@@ -146,7 +147,9 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
         sections = []
         if (body.cover_job_id !== undefined && body.cover_job_id !== value.cover_job_id) value.cover_job_id = await checkedCover(body.cover_job_id)
         if (body.title !== undefined) value.title = titleValue(body.title)
-        if (body.director !== undefined) value.director = await checkedDirector(body.director)
+        if (body.director !== undefined) value.director = body.director ? await checkedDirector(body.director) : null
+        if (body.mode !== undefined) value.mode = modeValue(body.mode)
+        if (body.brief !== undefined) value.brief = briefValue(body.brief)
         if (body.profile !== undefined) value.profile = profileValue(body.profile)
         if (body.materials !== undefined) { value.materials = materialsValue(body.materials); sections.push('materials') }
         if (body.anchors !== undefined) { value.anchors = anchorsValue(body.anchors); sections.push('anchors') }
@@ -162,6 +165,10 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
           value.anchors = anchorsValue(previous ? value.anchors.map(item => item.role === role ? anchor : item) : [...value.anchors, anchor])
           sections.push('anchors')
         }
+        if (value.workflow && ['director', 'profile', 'mode', 'brief', 'anchors', 'acts'].some(key => body[key] !== undefined)) {
+          value.workflow.revision++; value.workflow.approval = null; value.workflow.request = null; value.workflow.storyboard_revision = null; value.workflow.job_id = null
+          if (['director', 'mode', 'brief', 'anchors'].some(key => body[key] !== undefined)) value.workflow.plot_stale = true
+        }
         const materials = materialIdsOf(value)
         if (materials.some((id, index) => id !== value.materials[index]) || materials.length !== value.materials.length) { value.materials = materials; sections.push('materials') }
         value.updated_at = Math.max(Date.now(), value.updated_at + 1)
@@ -172,10 +179,11 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
   }
 
   // 在同一队列中读取最新值、修改单个对象并持久化，避免旧数组覆盖其他对象。
-  function changeObject(id, mutate) {
+  function changeObject(id, mutate, workflowOperation = false) {
     return enqueue(async () => {
       const value = await load(id)
-      const sections = mutate(value)
+      const sections = await mutate(value)
+      if (value.workflow && !workflowOperation) { value.workflow.revision++; value.workflow.approval = null; value.workflow.request = null; value.workflow.storyboard_revision = null; value.workflow.job_id = null }
       value.anchors = anchorsValue(value.anchors)
       value.acts = actsValue(value.acts)
       const materials = materialIdsOf(value)
@@ -267,5 +275,5 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
     return false
   })
 
-  return { list, read, change, changeAnchor, changeAct, changeShot, lastModified, usesDirector }
+  return { list, read, change, transact: (id, mutate) => changeObject(id, mutate, true), changeAnchor, changeAct, changeShot, lastModified, usesDirector }
 }

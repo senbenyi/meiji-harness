@@ -12,6 +12,8 @@ import { createDirectorStore } from './server/directors/service.js'
 import { createProjectStore } from './server/projects/service.js'
 import { providerCreationInstructions } from './models/managers/runtime/index.js'
 import { creationInstructions } from './tools/prompts/creation.js'
+import { createProjectWorkflow } from './server/projects/workflow.js'
+import { createProjectWorkflowTools } from './tools/project/workflow.js'
 
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
@@ -39,11 +41,12 @@ function registerWebFeatures(ctx, runtime) {
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
     const directors = createDirectorStore()
     const projects = createProjectStore({ directorExists: name => directors.has(name) })
+    const workflow = createProjectWorkflow(projects)
     const pageToken = registerMediaRoutes(mediaContext, runtime, PROJECT_ROUTE, DIRECTOR_ROUTE, SETTINGS_ROUTE)
     registerSettingsRoutes(mediaContext, runtime, pageToken)
-    registerProjectRoutes(mediaContext, runtime, pageToken, projects)
+    registerProjectRoutes(mediaContext, runtime, pageToken, projects, workflow)
     registerDirectorRoutes(mediaContext, runtime, pageToken, directors, projects)
-    for (const definition of [...createDirectorTools(directors), ...createProjectTools(projects)]) {
+    for (const definition of [...createDirectorTools(directors), ...createProjectTools(projects), ...createProjectWorkflowTools(workflow)]) {
       // 将导演/项目工具绑定到当前插件实例的运行时配置。
       const tool = { ...definition, execute: (...args) => withConfig(runtime, () => definition.execute(...args)) }
       mediaContext.effect(() => ctx.tools.register(tool), `${effectPrefix}: ${tool.name} tool`)

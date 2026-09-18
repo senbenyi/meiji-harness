@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { apply } from './lib/index.js'
 import { buildBackendGraph } from './lib/models/managers/runtime/index.js'
-import { startVideoJob, resumeVideoJob } from './lib/server/workflows/videos/service.js'
+import { startVideoJob as startApprovedJob, resumeVideoJob } from './lib/server/workflows/videos/service.js'
 import { getJob } from './lib/server/jobs/query.js'
 import { createJob } from './lib/server/jobs/create.js'
 import { saveJson } from './lib/database/json.js'
@@ -16,6 +16,15 @@ import { readRegistry, writeRegistry } from './lib/database/managers/registry.js
 import { readSelection } from './lib/database/managers/selection.js'
 import { backendFromServer } from './lib/models/managers/registry/resolve.js'
 import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/tools/task/comfyui.js'
+// The fixture supplies the same persisted human approval snapshot as the project submit route.
+async function startVideoJob(args) {
+  const { project_id, ...plan } = args
+  const path = join(process.env.ELYSIUM_STATE_ROOT, 'projects', project_id, 'project.json')
+  const project = JSON.parse(await readFile(path, 'utf8'))
+  project.workflow.approval = { revision: project.workflow.revision, token: 'fixture-human-approval', plan }
+  await saveJson(path, project)
+  return startApprovedJob(args, undefined, 'fixture-human-approval')
+}
 const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider, instance_id: 'fixture', deployment_id: 'one', service: 'comfyui', base_url: 'http://unselected.invalid', connection: { workload: 'minimax-h3' } }, plan, id)
 const state = process.env.ELYSIUM_STATE_ROOT

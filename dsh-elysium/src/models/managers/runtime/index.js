@@ -101,6 +101,11 @@ export async function resolveGenerationBackend(kind, { probe } = {}) {
   const channelList = await channels(), selected = thirdPartySelection(catalog(channelList))[kind]
   const preferred = channelList.find(channel => channelModels(channel, kind).some(model => modelKey(channel, model) === selected))
   const third = preferred && await preferred.provider.generationBackend(kind, selected.slice(selected.indexOf(':') + 1))
+  if (readSelection().selected[kind] === null) {
+    if (!third) return resolveServer(kind)
+    await validateBackend(third)
+    return third
+  }
   if (!third) return resolveServer(kind)
   try {
     const own = resolveServer(kind), provider = await providerFor(own)
@@ -126,8 +131,8 @@ export async function selectThirdPartyModel(kind, id, revision) {
   const models = await thirdPartyModels()
   if (!(models?.[kind] || []).some(model => model.id === id)) throw Object.assign(new Error('三方模型未配置或已关闭'), { status: 400 })
   const selection = readSelection()
-  const saved = await writeSelection({ ...selection, third_party: { ...selection.third_party, [kind]: id } }, revision)
-  return { revision: saved.revision, selected: id, effect: 'new_jobs', message: '新任务的三方回退使用此模型；旧任务继续使用原模型。' }
+  const saved = await writeSelection({ ...selection, selected: { ...selection.selected, [kind]: null }, third_party: { ...selection.third_party, [kind]: id } }, revision)
+  return { revision: saved.revision, selected: id, effect: 'new_jobs', message: '新任务使用此三方模型；旧任务继续使用原模型。' }
 }
 export async function providerCreationInstructions() {
   const result = []

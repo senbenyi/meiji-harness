@@ -1,7 +1,8 @@
 // 职责：校验、创建、复用和恢复会话中的视频任务。
 import { validateBackend, resolveGenerationBackend, withBackend } from '../../../models/managers/runtime/index.js'
 import { createHash } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
+import { isDeepStrictEqual } from 'node:util'
 import { join } from 'node:path'
 import { getJob } from '../../jobs/query.js'
 import { ModelTaskError } from '../../jobs/errors.js'
@@ -10,7 +11,7 @@ import { createJob } from '../../jobs/create.js'
 import { launch } from './launcher.js'
 import { withLaunchLock } from '../../jobs/lock.js'
 import { validateVideoPlan } from './plan.js'
-import { runtimeRoot } from '../../../database/paths.js'
+import { runtimeRoot, projectsRoot } from '../../../database/paths.js'
 import { validProjectId } from '../../jobs/paths.js'
 
 export { validateVideoPlan, launch }
@@ -23,14 +24,16 @@ async function withVideoSessionLock(exec, callback) {
   return withLaunchLock(directory, callback, true)
 }
 
-export async function startVideoJob(args, exec) {
-  return withVideoSessionLock(exec, () => startVideoJobLocked(args, exec))
+export async function startVideoJob(args, exec, approvalToken) {
+  return withVideoSessionLock(exec, () => startVideoJobLocked(args, exec, approvalToken))
 }
 
-async function startVideoJobLocked(args, exec) {
+async function startVideoJobLocked(args, exec, approvalToken) {
   const { new_video = false, project_id: projectId, ...plan } = args
   if (typeof new_video !== 'boolean') throw invalid('new_video 必须为布尔值')
   if (!validProjectId(projectId)) throw invalid('project_id 必须为 8 位项目 ID')
+  const metadata = await readFile(join(projectsRoot(), projectId, 'project.json'), 'utf8').then(JSON.parse).catch(error => { if (error.code === 'ENOENT') return {}; throw error })
+  if (metadata.workflow && (!approvalToken || metadata.workflow.approval?.token !== approvalToken || metadata.workflow.approval.revision !== metadata.workflow.revision || !isDeepStrictEqual(metadata.workflow.approval.plan, plan))) throw invalid('请在项目页面审核当前分镜并点击提交，不能绕过人工审核')
   if (!new_video && exec?.agent?.session) {
     const session = exec.agent.session
     const events = session.snapshotEvents()
@@ -46,12 +49,13 @@ async function startVideoJobLocked(args, exec) {
       return { job_id: previous, project_id: job.project_id, status: job.status }
     }
   }
-  const backend = await resolveGenerationBackend('video')
+  const backend = metadata.workflow?.approval?.backend || await resolveGenerationBackend('video')
   await validateBackend(backend)
   await withBackend(backend, () => validateVideoPlan(plan))
   const jobId = await createJob(projectId, plan, backend)
   await bindVideoCall(jobId, exec)
-  return launch(jobId)
+  try { return await launch(jobId) }
+  catch (error) { error.job_id = jobId; throw error }
 }
 
 export async function resumeVideoJob(jobId, exec) {

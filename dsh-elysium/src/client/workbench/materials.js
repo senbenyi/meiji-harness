@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
   const { Dialog, Editor, Icon, IconButton } = require('elysium/dialog')
   const { fetchProjects, importMaterial } = require('elysium/project-api')
   const { DirectorList } = require('elysium/directors')
-  const categories = [['character', '人物'], ['scene', '场景'], ['prop', '道具'], ['theme', '主题'], ['director', '导演']]
+  const categories = [['character', '人物'], ['scene', '场景'], ['prop', '道具'], ['theme', '题材'], ['director', '导演']]
   const DEFAULT_PAGE_SIZE = 6
   async function fetchAssets(offset = 0, limit = DEFAULT_PAGE_SIZE, filters = {}, signal) {
     const response = await fetch(mediaUrl('list', null, null, { offset, limit, ...filters }), { cache: 'no-store', credentials: 'same-origin', signal })
@@ -45,6 +45,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
     const [editing, setEditing] = useState(null)
     const sequence = useRef(0), grid = useRef(null), fileInput = useRef(null)
     const pageSize = Number(state.page_size) || DEFAULT_PAGE_SIZE
+    const isTheme = category === 'theme'
     const change = patch => { const next = { ...state, ...patch }; setState(next); onViewState(next) }
     useEffect(() => { if (input === state.q) return; const timer = setTimeout(() => change({ q: input, page: 0 }), 250); return () => clearTimeout(timer) }, [input, state.q])
     useEffect(() => {
@@ -88,8 +89,13 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       setSubmitting(true); setError('')
       try { if (await onSelect(preview) === false) throw new Error('素材写入失败，请重试'); setPreview(null) } catch (err) { setError(err.message) } finally { setSubmitting(false) }
     }
+    async function chooseItem(item) {
+      if (submitting) return
+      setSubmitting(true); setError('')
+      try { if (await onSelect(item) === false) throw new Error('素材写入失败，请重试') } catch (err) { setError(err.message) } finally { setSubmitting(false) }
+    }
     async function remove(item) {
-      if (deleting || !window.confirm(`删除素材“${assetTitle(item)}”？已有项目仍可使用此素材。`)) return
+      if (deleting || !window.confirm(`删除${isTheme ? '题材' : '素材'}“${assetTitle(item)}”？已有项目仍可使用此素材。`)) return
       setDeleting(true); setError('')
       try {
         const response = await fetch(mediaUrl('delete', null, null, { id: item.id || item.job_id }), { method: 'POST', credentials: 'same-origin', cache: 'no-store' })
@@ -102,22 +108,30 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
         else setRetry(value => value + 1)
       } catch (err) { setError(err.message) } finally { setDeleting(false) }
     }
+    const editorFields = isTheme || editing?.category === 'theme'
+      ? [['title', '题材名称']]
+      : [['title', '素材名称'], ['category', '素材分类', categories.filter(([value]) => value !== 'director')], ['description', '描述与连续性要求', 'textarea'], ['prompt', '图片生成提示词', 'textarea']]
     return h('div', { className: 'elysium-materials' },
       h('div', { className: 'elysium-toolbar' },
-        h(IconButton, { name: 'plus', label: '新建文字素材', onClick: () => setEditing({ title: '', category, description: '', prompt: '' }) }),
-        h(IconButton, { name: 'insert', label: imageOnly ? '导入图片素材' : '导入素材', disabled: uploading, onClick: () => fileInput.current.click() }),
-        h('input', { type: 'file', ref: fileInput, hidden: true, multiple: true, accept: imageOnly ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4', 'aria-label': '选择导入文件', disabled: uploading, onChange: upload }),
-        h('input', { type: 'search', 'aria-label': '搜索素材', placeholder: '搜索', value: input, onChange: e => setInput(e.target.value) }),
-        select('档次', 'profile', [['', '全部档次'], ['preview', '预览'], ['regular', '常规'], ['high-quality', '高清']]),
-        select('来源', 'source', [['', '全部来源'], ['creation', '创作素材'], ['project', '项目素材'], ['import', '导入素材']]),
-        imageOnly ? null : select('类型', 'media_kind', [['', '全部'], ['video', '视频'], ['image', '图片'], ['text', '文字']])),
+        h(IconButton, { name: 'plus', label: isTheme ? '新建题材' : '新建文字素材', onClick: () => setEditing({ title: '', category, description: '', prompt: '' }) }),
+        isTheme ? null : h(IconButton, { name: 'insert', label: imageOnly ? '导入图片素材' : '导入素材', disabled: uploading, onClick: () => fileInput.current.click() }),
+        isTheme ? null : h('input', { type: 'file', ref: fileInput, hidden: true, multiple: true, accept: imageOnly ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4', 'aria-label': '选择导入文件', disabled: uploading, onChange: upload }),
+        h('input', { type: 'search', 'aria-label': isTheme ? '搜索题材' : '搜索素材', placeholder: '搜索', value: input, onChange: e => setInput(e.target.value) }),
+        isTheme ? null : select('档次', 'profile', [['', '全部档次'], ['preview', '预览'], ['regular', '常规'], ['high-quality', '高清']]),
+        isTheme ? null : select('来源', 'source', [['', '全部来源'], ['creation', '创作素材'], ['project', '项目素材'], ['import', '导入素材']]),
+        isTheme || imageOnly ? null : select('类型', 'media_kind', [['', '全部'], ['video', '视频'], ['image', '图片'], ['text', '文字']])),
       error ? h('p', { role: 'alert' }, error, h('button', { onClick: () => { listCache.clear(); setRetry(x => x + 1) } }, '重试')) : null,
       uploadError ? h('p', { role: 'alert' }, uploadError) : null,
       uploading ? h('p', { role: 'status' }, '正在导入素材…') : null,
       busy ? h('div', { className: 'elysium-empty', role: 'status' }, '正在加载素材…') : null,
-      data?.items.length === 0 ? h('p', { className: 'elysium-empty' }, state.q || state.profile || state.media_kind ? '无匹配素材，请调整筛选条件' : '暂无已完成素材') : null,
-      h('div', { className: 'elysium-material-grid', ref: grid, onScroll: e => onViewState({ ...state, scroll: e.currentTarget.scrollTop }) },
-        data?.items.map(item => h('article', { key: item.id || item.job_id, className: 'elysium-material-card' },
+      data?.items.length === 0 ? h('p', { className: 'elysium-empty' }, state.q || state.profile || state.media_kind ? '无匹配素材，请调整筛选条件' : isTheme ? '暂无题材标签' : '暂无已完成素材') : null,
+      h('div', { className: isTheme ? 'elysium-theme-grid' : 'elysium-material-grid', ref: grid, onScroll: e => onViewState({ ...state, scroll: e.currentTarget.scrollTop }) },
+        isTheme
+          ? data?.items.map(item => h('article', { key: item.id || item.job_id, className: 'elysium-theme-tag' },
+            h('button', { type: 'button', className: 'elysium-theme-label', onClick: () => onSelect ? chooseItem(item) : setEditing(item), 'aria-label': `题材 ${assetTitle(item)}` }, assetTitle(item)),
+            h(IconButton, { name: 'edit', label: `编辑题材 ${assetTitle(item)}`, onClick: () => setEditing(item) }),
+            h(IconButton, { name: 'minus', label: `删除题材 ${assetTitle(item)}`, disabled: busy || deleting, onClick: () => remove(item) })))
+          : data?.items.map(item => h('article', { key: item.id || item.job_id, className: 'elysium-material-card' },
           h('button', { className: 'elysium-card-open', onClick: () => { setPreview(item); setMediaError(false) }, 'aria-label': `查看素材 ${assetTitle(item)}` },
             item.has_image ? h('img', { src: assetUrl('image', item.job_id, { preview: 1 }), alt: assetTitle(item), loading: 'lazy' }) : h('div', { className: 'elysium-video-placeholder', 'aria-hidden': true }, item.has_video ? '视频' : (item.description || '文字素材').slice(0, 120)),
             h('strong', null, assetTitle(item))), h('small', { className: 'elysium-compact-meta' }, `${specificationLabel(item) || (item.has_image ? '图片' : item.has_video ? '视频' : '文字')} · ${relativeTime(item.created_at)}`),
@@ -133,9 +147,9 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
         preview.prompt ? h('details', null, h('summary', null, '图片生成提示词'), h('p', null, preview.prompt)) : null,
         h('button', { onClick: async () => { try { await navigator.clipboard.writeText(`${assetTitle(preview)}\n素材编号：${preview.id || preview.job_id}\n${preview.description || preview.prompt_excerpt || ''}`) } catch { setError('复制失败，请手动选择文字复制') } } }, '复制参考信息'), error ? h('p', { role: 'alert' }, error) : null,
         preview.has_download ? h('a', { href: assetUrl('download', preview.job_id), download: '', className: 'elysium-icon-link', 'aria-label': '下载素材', title: '下载素材' }, h(Icon, { name: 'download' })) : null) : null,
-      editing ? h(Editor, { title: editing.id ? '编辑素材' : '新建文字素材', initial: editing, fields: [['title', '素材名称'], ['category', '素材分类', categories.filter(([value]) => value !== 'director')], ['description', '描述与连续性要求', 'textarea'], ['prompt', '图片生成提示词', 'textarea']], save: async draft => { await saveMaterial(draft); listCache.clear(); setRetry(value => value + 1) }, close: () => setEditing(null) }) : null,
+      editing ? h(Editor, { title: editing.category === 'theme' ? (editing.id ? '编辑题材' : '新建题材') : (editing.id ? '编辑素材' : '新建文字素材'), initial: editing, fields: editorFields, save: async draft => { await saveMaterial(draft); listCache.clear(); setRetry(value => value + 1) }, close: () => setEditing(null) }) : null,
       importJob ? h(ProjectPicker, { jobId: importJob, close: () => setImportJob(null) }) : null)
   }
-  Object.assign(exports, { MaterialList })
+  Object.assign(exports, { MaterialList, fetchAssets })
   return exports
 } })

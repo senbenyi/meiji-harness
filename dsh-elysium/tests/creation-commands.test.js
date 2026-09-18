@@ -39,15 +39,9 @@ test('menu selection only claims input; blank input, attachments and transport f
   }
   assert.equal(source.matchSpace({}, '/预览创作-extra'), undefined)
   assert.equal(await source.matchEnter({}, '/普通消息'), undefined)
-  for (const [name, profile] of names.map((name, i) => [name, ['preview', 'regular', 'high-quality'][i]])) {
-    assert.match(creationInstructions, new RegExp(`【${name}】[^；]*profile=${profile}`))
-  }
-  assert.match(creationInstructions, /验证不生成/)
-  assert.match(creationInstructions, /自由和教学模式[^\n]+省略 project_id[^\n]+director_list[^\n]+不得调用其他 director_ 或任何 project_ 工具[^\n]+任务和媒体[^\n]+不可见内部工作区/)
-  assert.match(creationInstructions, /只有导演模式[^\n]+director_list[^\n]+project_create/)
-  assert.match(creationInstructions, /project_read[^\n]+不得重复创建/)
-  assert.match(creationInstructions, /不得用 Bash、写文件或网页搜索/)
-  assert.match(creationInstructions, /一个视频或一个镜头[^\n]+不得自行拆成 prompts 或 shots/)
-  assert.match(creationInstructions, /preview 不传时长[^\n]+duration 和 shots[^\n]+唯一 id 与 duration[^\n]+禁止与 mode\/profile\/prompt 混用/)
-  assert.match(creationInstructions, /MODEL_INPUT_INVALID[^\n]+修正参数后仅重试一次/)
+  assert.match(creationInstructions, /所有视频创作请求都通过项目/)
+  assert.match(creationInstructions, /project_create/)
+  assert.match(creationInstructions, /请配置项目素材/)
+  assert.match(creationInstructions, /project_generation_complete/)
+  assert.match(creationInstructions, /人工审核点击提交/)
 })

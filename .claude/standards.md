@@ -77,10 +77,13 @@ harness/.dsh/.agent-presets/
 ```
 
 **规则**：
-- teaching/free/director 三个预设共享同一份 `agent.cordis.yml`，通过符号链接指向 `_base/agent.cordis.yml`。
+- creation/teaching/free/director 四个预设共享同一份 `agent.cordis.yml`，通过符号链接指向 `_base/agent.cordis.yml`。
 - 修改共享配置只改 `_base/agent.cordis.yml` 一处。
 - elysium-standard 保持独立配置（工具集不同）。
 - 预设目录不保留空 `skills/` 目录；仅在有实际技能文件时创建。
+
+- 新会话默认 elysium-creation，Harness 的 ui-agent-preset 界面关闭；旧预设保留用于历史会话恢复，行为统一。业务模式保存到项目 mode，默认 director。
+- 共享 persona 配置使用当前 Harness 要求的 prefix。
 
 ## 3. 部署与配置
 

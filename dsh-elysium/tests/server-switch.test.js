@@ -34,6 +34,22 @@ test('failed checks and stale selection revisions preserve the default; successf
   })
 })
 
+test('leaving a third-party video target writes own selection before connecting', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'leave-third-')); t.after(() => rm(root, { recursive: true, force: true }))
+  await withConfig({ ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json') }, async () => {
+    await writeRegistry(fixture(), 0)
+    await writeSelection({ version: 1, revision: 0, selected: { video: null }, third_party: { video: 'bailian:wan26' } }, 0)
+    let checks = 0
+    await assert.rejects(switchServer('video', 'a', 1, async () => { checks++; throw new Error('boot failed') }), /boot failed/)
+    assert.equal(checks, 1)
+    assert.equal(readSelection().selected.video, 'a')
+    const result = await switchServer('video', 'a', 1, async () => { checks++; return { ok: true } })
+    assert.equal(checks, 2)
+    assert.equal(result.ok, true)
+    assert.equal(readSelection().selected.video, 'a')
+  })
+})
+
 test('Harness text model selection is outside Elysium', async () => {
   await assert.rejects(switchServer('llm', 'text', 0), /只管理图片和视频/)
 })

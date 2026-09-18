@@ -152,14 +152,14 @@
       "id": "74cfe146a8ba3bcc24333fb421242f7d",
       "category": "prop",
       "title": "蓝色手机｜联系线索",
-      "description": "深蓝手机壳，圆角长方形，背面左上方两个镜头竖排，无商标。固定壳色与镜头位置；屏幕文字另做后期。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
-      "prompt": "Photorealistic product reference photo, one smartphone back view, dark blue plain case, rounded rectangle, two vertically aligned camera lenses at upper left, no branding, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+      "description": "深蓝手机外壳，圆角长方形，背面左上方方形多镜头模组，上半部有圆形指纹区。固定壳色、镜头模组与指纹区的位置；屏幕文字另做后期。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Product catalog photograph of exactly ONE SINGLE dark blue smartphone lying flat face down on an empty light gray table. Straight overhead top down view. Back of one device only, plain matte navy blue back, two small camera lenses vertically aligned in upper left corner. Flat lay, entire single rectangular device visible, no accessories, no other devices, no comparison, no collage, no reflections, no mirrors, realistic studio lighting, no logo."
     },
     {
       "id": "defe3201fd517c69bba538b9fb5924d8",
       "category": "prop",
       "title": "米白雨伞｜雨中相遇",
-      "description": "米白纯色圆顶伞面、黑色直伞杆、木色弯柄，无图案。固定伞面颜色、伞柄材质与持伞手。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "description": "米白纯色圆顶伞面、黑色直伞杆、木色弯柄，无图案。参考雨伞本体，展示支架不属于道具，拍摄使用时不带支架。固定伞面颜色、伞柄材质与持伞手。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
       "prompt": "Photorealistic product reference photo, one open ivory white dome umbrella, black shaft, curved wooden handle, plain fabric canopy, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
     },
     {
@@ -186,38 +186,32 @@
     {
       "id": "f94569d17f7498bfe6051806abc64b0b",
       "category": "theme",
-      "title": "霸道总裁爱上我",
-      "description": "人物：陆承川、林知夏；均为成年人。\n故事：咖啡馆偶遇后，两人在合作项目再次见面。陆习惯替人做决定，林坚持专业边界；一次错误安排导致信任破裂。陆公开承担责任并尊重林的选择，两人以平等关系开始交往。\n情感推进：偶遇→针锋相对→共同解难→越界争执→尊重与告白\n推荐场景：办公楼大厅、咖啡馆、江边夜景\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+      "title": "霸道总裁爱上我"
     },
     {
       "id": "6382e48615341d8b531c51b5a61deb4e",
       "category": "theme",
-      "title": "白马王子爱上灰姑娘",
-      "description": "人物：沈星远、苏小满；均为成年人。\n故事：沈在苏的手作店订礼物，隐瞒家境后逐渐成为朋友。身份曝光让苏怀疑所有帮助都来自怜悯。沈以真实身份参与她的创业计划，苏凭能力赢得订单，二人坦诚相爱。\n情感推进：相识→默契→身份揭晓→信任考验→独立选择\n推荐场景：书店、咖啡馆、屋顶餐厅\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+      "title": "白马王子爱上灰姑娘"
     },
     {
       "id": "6dde5de9dea3b259452df9e43117f431",
       "category": "theme",
-      "title": "乡村爱情故事",
-      "description": "人物：陈望野、许禾；均为成年人。\n故事：返乡经营农场的陈与乡村教师许共同筹备集市义卖。灌溉故障与误传消息引发争执，两人协作解决困难，在乡村公交站决定一起留下。\n情感推进：返乡→合作→误会→合力解决→承诺留下\n推荐场景：乡村院落、田间小路、乡镇集市、公交站\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+      "title": "乡村爱情故事"
     },
     {
       "id": "ffc6c2911dec40ff5fe478643fd0e150",
       "category": "theme",
-      "title": "青梅竹马重逢",
-      "description": "人物：陈望野、许禾；均为成年人。\n故事：成年后多年未见的两人在老公交站重逢。一封没寄出的信让彼此重新理解当年的离开。两人从回忆走向对当下生活的真实选择。\n情感推进：重逢→回忆线索→发现误解→说清遗憾→重新开始\n推荐场景：大学林荫路、乡村公交站、公园长椅\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+      "title": "青梅竹马重逢"
     },
     {
       "id": "1058da412175c9b8021e0691e34fdb43",
       "category": "theme",
-      "title": "契约恋爱成真",
-      "description": "人物：陆承川、林知夏；均为成年人。\n故事：两名成年单身者为应对家庭催促，约定短期扮演恋人，明确期限与边界。日常相处让感情变真，但谁都不愿先承认。到期时双方主动终止假约定，重新认真邀请对方约会。\n情感推进：约定→磨合→照顾→到期退缩→真实邀约\n推荐场景：咖啡馆、屋顶餐厅、雨天街角\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+      "title": "契约恋爱成真"
     },
     {
       "id": "107d7817ae5a1bf4d68682bf13cf1bff",
       "category": "theme",
-      "title": "都市职场双向奔赴",
-      "description": "人物：沈星远、苏小满；均为成年人。\n故事：苏的创业团队与沈的公司合作。两人互相欣赏却因工作分歧疏远；通过公开透明的沟通解决合作问题后，才在工作之外表达心意。\n情感推进：专业相识→互相支持→分歧→坦诚沟通→双向告白\n推荐场景：办公楼大厅、书店、江边夜景\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+      "title": "都市职场双向奔赴"
     }
   ],
   "directors": [

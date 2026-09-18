@@ -58,6 +58,28 @@ test('default private model selections remain visible after the model list reloa
   assert.deepEqual(models.selected, { image: 'realvisxl-sdxl', video: 'minimax-h3' })
 })
 
+test('a catalog without server_id still connects the sole ComfyUI video model', async t => {
+  const { writeRegistry } = await import('../src/database/managers/registry.js')
+  const { writeSelection, readSelection } = await import('../src/database/managers/selection.js')
+  const root = await mkdtemp(join(tmpdir(), 'bound-model-http-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const config = { ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'selection.json'), ELYSIUM_MODELS: { image: [{ id: 'realvisxl-sdxl', label: 'RealVisXL / SDXL' }], video: [{ id: 'minimax-h3', label: 'MiniMax H3' }] } }
+  await withConfig(config, async () => {
+    await writeRegistry({ version: 1, revision: 0, servers: [record('autodl-comfyui')] }, 0)
+    await writeSelection({ version: 1, revision: 0, selected: { image: 'autodl-comfyui', video: null }, third_party: { video: 'bailian:wan26' } }, 0)
+  })
+  const handler = createSettingsHandler({ token: 'test', check: async () => ({ ok: true }) })
+  const server = createServer((req, res) => withConfig(config, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
+  const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+  const listed = await (await request('models')).json()
+  assert.equal(listed.origin.video, 'third')
+  assert.equal(listed.selected.video, '')
+  assert.equal(listed.models.video[0].server_id, 'autodl-comfyui')
+  assert.equal((await request('model-connect', { kind: 'video', id: 'minimax-h3', revision: listed.revision })).status, 200)
+  assert.equal(withConfig(config, () => readSelection().selected.video), 'autodl-comfyui')
+})
+
 test('fixed model catalog probes without connecting and failed selection cannot replace active video or image targets', async t => {
   const { writeRegistry } = await import('../src/database/managers/registry.js')
   const { writeSelection, readSelection } = await import('../src/database/managers/selection.js')
