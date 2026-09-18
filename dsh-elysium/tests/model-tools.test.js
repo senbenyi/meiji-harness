@@ -38,6 +38,9 @@ test('all tools expose function-call schemas and local executors', () => {
     const tool = createWorkflowTools().find(tool => tool.name === name)
     assert.ok(!tool.parameters.required.includes('project_id'))
   }
+  const video = createWorkflowTools().find(tool => tool.name === 'workflow_generate_video')
+  assert.deepEqual(video.parameters.oneOf, [{ required: ['mode', 'prompt'] }, { required: ['duration'] }])
+  assert.equal(video.parameters.anyOf, undefined)
 })
 
 test('injects creation guidance only for the three Elysium modes', async () => {

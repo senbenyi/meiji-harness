@@ -51,10 +51,11 @@ test('recognizes every shipped Elysium mode by its real preset ID', () => {
     assert.ok(!result.tools.some(tool => tool.name === 'bash'))
   }
 })
-test('free mode hides director and project tools but keeps direct generation', () => {
+test('free mode exposes read-only director selection, hides project mutation and keeps direct generation', () => {
   const result = projectTools(assembly(), agent([], 'elysium-free'))
   assert.ok(result.tools.some(tool => tool.name === 'workflow_generate_video'))
-  assert.ok(!result.tools.some(tool => /^(director|project)_/.test(tool.name)))
+  assert.ok(result.tools.some(tool => tool.name === 'director_list'))
+  assert.ok(!result.tools.some(tool => tool.name !== 'director_list' && /^(director|project)_/.test(tool.name)))
   assert.ok(projectTools(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'project_create'))
 })
 test('a failed video result removes every remaining tool for the current turn only', () => {

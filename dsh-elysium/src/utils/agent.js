@@ -69,7 +69,7 @@ export function projectTools(assembly, agent) {
     { name: 'elysium:video-failed-stop', text: '视频任务已失败。本轮立即结束并报告失败；等待用户新消息明确要求重试，不得继续调用任何工具。' }] }
   const loaded = loadedToolNames(events)
   const free = isElysiumFreeAgent(agent)
-  const tools = assembly.tools.filter(tool => (!free || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
+  const tools = assembly.tools.filter(tool => (!free || tool.name === 'director_list' || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))
   const catalog = Object.entries(TOOL_GROUPS).flatMap(([id, group]) => {

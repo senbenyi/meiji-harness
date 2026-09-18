@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { loadProvider, listProviders } from '../src/servers/runtime/loader.js'
 import { validateBackend } from '../src/servers/runtime/index.js'
+import { ComfyClient } from '../src/comfyui/client.js'
 
 test('AutoDL exposes independent ComfyUI and Qwen contracts', async () => {
   const provider = await loadProvider('autodl')
@@ -24,4 +25,15 @@ test('AutoDL rejects mismatched workloads and cross-service declarations', async
   const base = { provider: 'autodl', instance_id: 'a', deployment_id: 'one', service: 'comfyui', base_url: 'http://fixture.test' }
   await assert.rejects(validateBackend({ ...base, connection: { transport: 'http', workload: 'other' } }), /ComfyUI/)
   await assert.rejects(validateBackend({ ...base, service: 'llm', connection: { transport: 'http', model: 'other' } }), /LLM/)
+})
+
+test('AutoDL readiness checks the requested image or video workflow', async t => {
+  const provider = await loadProvider('autodl'), graphs = []
+  const backend = { provider: 'autodl', instance_id: 'image-video', deployment_id: 'one', service: 'comfyui', base_url: 'http://fixture.test', connection: { transport: 'http', workload: 'minimax-h3' } }
+  t.mock.method(ComfyClient.prototype, 'request', async path => { assert.equal(path, 'system_stats'); return {} })
+  t.mock.method(ComfyClient.prototype, 'validate', async graph => { graphs.push(graph) })
+  await provider.check(backend, { kind: 'image' })
+  await provider.check(backend, { kind: 'video' })
+  assert.ok(Object.values(graphs[0]).some(node => Object.values(node.inputs).includes('RealVisXL_V5.0_fp16.safetensors')))
+  assert.ok(Object.values(graphs[1]).some(node => node.class_type === 'MiniMaxH3Director'))
 })

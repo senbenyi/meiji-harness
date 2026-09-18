@@ -44,7 +44,8 @@ export function createStandardAdapter({ id, label, services = standardServices, 
         const plans = Array.isArray(checkPlans) ? checkPlans : checkPlans[kind] || []
         for (const plan of plans) {
           const media = `${backend.base_url}/view?filename=check.png&type=input`
-          const { graph } = await adapter.buildGraph(backend, { ...plan, prompt: 'Connection check', first_frame: media, last_frame: media, reference_image_1: media, reference_image_2: media }, 'connection-check')
+          const input = plan.mode ? { ...plan, prompt: 'Connection check', first_frame: media, last_frame: media, reference_image_1: media, reference_image_2: media } : plan
+          const { graph } = await adapter.buildGraph(backend, input, 'connection-check')
           await client.validate(graph, { verifyModels: true })
         }
       }

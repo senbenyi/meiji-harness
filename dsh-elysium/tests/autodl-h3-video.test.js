@@ -33,7 +33,7 @@ test('AutoDL builds all current H3 graphs including T2V and I2V', async () => wi
     { mode: 'r2va', prompt: 'references', profile: 'standard', reference_image_1: media.reference_image_1, reference_image_2: media.reference_image_2 },
   ]
   for (const plan of plans) {
-    await validatePlan(plan)
+    if (['t2va', 'i2va'].includes(plan.mode)) await validatePlan(plan)
     const result = await adapter.buildGraph(backend, plan, 'a'.repeat(32))
     assert.equal(result.mode, plan.mode)
     assert.ok(result.graph[result.outputNode])
@@ -46,6 +46,11 @@ test('AutoDL routes ordinary T2V and I2V through the deployed director workflow'
   assert.deepEqual(toDirectorPlan({ mode: 'i2va', profile: 'regular', duration_seconds: 7, prompt: 'move', first_frame: view('first.png') }),
     { duration: 7, prompts: ['move'], image_path: view('first.png') })
   assert.equal(toDirectorPlan({ mode: 'fl2va', prompt: 'scene' }), null)
+})
+
+test('AutoDL rejects unverified standard modes and overlong single generations', async () => {
+  await assert.rejects(validatePlan({ mode: 'fl2va', prompt: 'scene', first_frame: view('first.png'), last_frame: view('last.png') }), /仅开放/)
+  await assert.rejects(validatePlan({ mode: 't2va', profile: 'regular', duration_seconds: 16, prompt: 'scene' }), /15 秒/)
 })
 
 test('AutoDL builds main director T2V, I2V, continue and per-shot outputs', async () => withConfig({ COMFYUI_URL: backend.base_url, ELYSIUM_BACKEND: backend }, async () => {

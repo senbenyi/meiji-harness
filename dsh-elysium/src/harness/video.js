@@ -52,7 +52,7 @@ export function createWorkflowGenerateVideoTool() {
         video_path: media('镜头视频'), audio_path: media('镜头音频'), seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
         in_point: { type: 'number', minimum: 0 },
       } } },
-    }, anyOf: [{ required: ['mode', 'prompt'] }, { required: ['duration'] }] }, output,
+    }, oneOf: [{ required: ['mode', 'prompt'] }, { required: ['duration'] }] }, output,
     execute: async (args, exec) => {
       const timing = createTiming()
       exec?.signal?.throwIfAborted()

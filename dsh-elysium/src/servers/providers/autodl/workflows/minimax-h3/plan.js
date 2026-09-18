@@ -11,7 +11,7 @@ export function isDirectorPlan(args) {
 
 export function toDirectorPlan(args) {
   if (isDirectorPlan(args) || !['t2va', 'i2va'].includes(args?.mode)) return null
-  const duration = args.profile === 'preview' ? 3 : Math.round(args.duration_seconds ?? 5)
+  const duration = args.profile === 'preview' ? 3 : Math.max(1, Math.round(args.duration_seconds ?? 5))
   return { duration, prompts: [args.prompt], ...(args.mode === 'i2va' ? { image_path: args.first_frame } : {}) }
 }
 
@@ -41,10 +41,13 @@ export async function validateDirectorPlan(args) {
 
 export async function validatePlan(args) {
   if (isDirectorPlan(args)) return validateDirectorPlan(args)
+  if (!['t2va', 'i2va'].includes(args?.mode)) throw invalid('当前 AutoDL 服务仅开放 t2va、i2va；其他标准模式尚未完成服务器兼容验收')
   if (['preview', 'regular'].includes(args?.profile) && !['t2va', 'i2va'].includes(args.mode)) throw invalid(`${args.profile} 仅支持 t2va、i2va`)
   if (args?.preview_variant !== undefined && (args.profile !== 'preview' || !['default', 'low-resolution'].includes(args.preview_variant))) throw invalid('preview_variant 仅用于 preview，支持 default、low-resolution')
   if (args?.duration_seconds !== undefined && (args.profile !== 'regular' || !Number.isFinite(args.duration_seconds) || args.duration_seconds <= 0)) throw invalid('duration_seconds 仅用于 regular，必须为大于 0 的有限数值')
-  return validateProtocolPlan(args)
+  const result = validateProtocolPlan(args)
+  if (toDirectorPlan(args).duration > 15) throw invalid('单次视频时长不能超过 15 秒')
+  return result
 }
 
 async function validateShots(shots, duration) {

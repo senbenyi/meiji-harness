@@ -43,8 +43,9 @@ test('menu selection only claims input; blank input, attachments and transport f
     assert.match(creationInstructions, new RegExp(`【${name}】[^；]*profile=${profile}`))
   }
   assert.match(creationInstructions, /验证不生成/)
-  assert.match(creationInstructions, /自由模式[^\n]+省略 project_id[^\n]+不得调用任何 director_ 或 project_ 工具/)
+  assert.match(creationInstructions, /自由模式[^\n]+省略 project_id[^\n]+director_list[^\n]+不得调用其他 director_ 或任何 project_ 工具/)
   assert.match(creationInstructions, /教学和导演模式[^\n]+director_list[^\n]+project_create/)
   assert.match(creationInstructions, /project_read[^\n]+不得重复创建/)
   assert.match(creationInstructions, /不得用 Bash、写文件或网页搜索/)
+  assert.match(creationInstructions, /preview 不传时长[^\n]+duration[^\n]+禁止与 mode\/profile\/prompt 混用/)
 })

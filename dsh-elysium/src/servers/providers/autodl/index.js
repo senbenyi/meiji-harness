@@ -26,10 +26,12 @@ const adapter = createStandardAdapter({
 
 const executeVideo = adapter.executeJob
 adapter.generateImage = true
-adapter.executeJob = (projectId, jobId, plan, backend, options) => withBackend(backend, () => isImagePlan(plan)
-  ? executeComfyImage(projectId, jobId, plan, backend, options)
-  : isDirectorPlan(plan) || toDirectorPlan(plan) ? executeDirectorVideo(projectId, jobId, toDirectorPlan(plan) || plan, backend, options)
-    : executeVideo(projectId, jobId, plan, backend, options))
+adapter.executeJob = (projectId, jobId, plan, backend, options) => withBackend(backend, () => {
+  if (isImagePlan(plan)) return executeComfyImage(projectId, jobId, plan, backend, options)
+  const director = toDirectorPlan(plan)
+  return isDirectorPlan(plan) || director ? executeDirectorVideo(projectId, jobId, director || plan, backend, options)
+    : executeVideo(projectId, jobId, plan, backend, options)
+})
 adapter.guidance = guidance
 adapter.creationGuidance = () => guidance
 adapter.syncWorkflows = async args => (await import('./workflows/sync.mjs')).main(args)
