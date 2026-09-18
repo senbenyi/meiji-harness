@@ -9,7 +9,7 @@ import { apply, createDirectorTools, createProjectTools } from '../src/index.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { withConfig } from '../src/config.js'
-import { projectTools } from '../src/tools/agent/index.js'
+import { projectAssemblyForAgent } from '../src/tools/agent/index.js'
 import { generationProjectId } from '../src/tools/project/context.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 
@@ -41,7 +41,7 @@ test('chat tools read full objects, mutate one field and render compact mutation
       assert.equal(value.acts[0].shots[0].action, '走路')
       assert.deepEqual(JSON.parse(tools.project_update_shot.output.render({}, value)[0].text), { id: project_id, title: '新标题', anchor_count: 1, shot_count: 1 })
       await assert.rejects(tools.project_update_shot.execute({ project_id, action: 'update', patch: { subtitle: 'bad' } }), /ID/)
-      const visible = projectTools({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } })
+      const visible = projectAssemblyForAgent({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } })
       assert.deepEqual(visible.tools, definitions)
     })
   } finally { await rm(root, { recursive: true, force: true }) }
