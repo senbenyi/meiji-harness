@@ -4,7 +4,7 @@ import { jobSummary } from '../../server/media/catalog.js'
 
 const workcard = JSON.parse(readFileSync(new URL('../../../config/workcard.json', import.meta.url), 'utf8'))
 
-export const withWorkcardOutput = definition => {
+export const createCallToolsWorkcard = definition => {
   const schema = workcard.schemas[workcard.tools[definition.name]]
   return schema ? { ...definition, output: { schema, render: renderWorkcard } } : definition
 }

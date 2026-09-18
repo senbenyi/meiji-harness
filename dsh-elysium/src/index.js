@@ -5,7 +5,7 @@ import { resolveConfig, withConfig } from './config.js'
 //server
 import { registerWebRoutes, createWebStores } from './server/index.js'
 // tools
-import { createRuntimeTools, createWebTools, projectAssemblyForAgent } from './tools/index.js'
+import { createCallToolsForAgent, createCallToolsRuntime, createCallToolsWeb } from './tools/index.js'
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
 const effectPrefix = '@dsh-external/dsh-elysium'
@@ -13,7 +13,7 @@ const effectPrefix = '@dsh-external/dsh-elysium'
 /*
  * 完整调用链：
  * Harness 启动 -> Cordis 加载插件 -> apply 解析配置并注册工具/routes/提示词钩子。
- * 每次模型请求前 -> system-prompt/assemble -> projectAssemblyForAgent 按 Agent 预设过滤工具 -> schema 发送给 LLM。
+ * 每次模型请求前 -> system-prompt/assemble -> createCallToolsForAgent 按 Agent 预设过滤工具 -> schema 发送给 LLM。
  * LLM 返回 tool-call -> AgentLoop 记录 tool/call -> ToolRuntime 按 name 查找定义并检查策略。
  * ToolRuntime 调用 definition.execute -> Elysium service/store/backend -> 返回原始 value。
  * ToolRuntime 执行 output.schema 校验和 output.render -> AgentLoop 记录 tool/result -> 下一轮模型读取结果。
@@ -37,7 +37,7 @@ function registerWebFeatures(ctx, runtime) {
 
 // 注册依赖 Web Store 的导演与项目工具，并让注销跟随 Web 生命周期。
 function registerWebTools(ctx, mediaContext, runtime, stores) {
-  for (const definition of createWebTools(stores)) {
+  for (const definition of createCallToolsWeb(stores)) {
     const tool = { ...definition, execute: (...args) => withConfig(runtime, () => definition.execute(...args)) }
     mediaContext.effect(() => ctx.tools.register(tool), `${effectPrefix}: ${tool.name} tool`)
   }
@@ -45,12 +45,12 @@ function registerWebTools(ctx, mediaContext, runtime, stores) {
 
 // 在每次模型请求前过滤当前 Agent 可见工具，并仅为 Elysium Agent 注入创作指令。
 function registerPromptAssembly(ctx) {
-  ctx.on('system-prompt/assemble', async (_assembly, context, next) => projectAssemblyForAgent(await next(), context.agent))
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => createCallToolsForAgent(await next(), context.agent))
 }
 
 // 注册基础工具，并保持工具定义的 schema、output 和执行策略不变。
 function registerRuntimeTools(ctx, runtime) {
-  const tools = createRuntimeTools(ctx)
+  const tools = createCallToolsRuntime(ctx)
   for (const definition of tools) registerTool(ctx, bindRuntimeTool(definition, runtime))
   ctx.logger?.info?.(`[elysium] ${tools.length} tools loaded`)
 }

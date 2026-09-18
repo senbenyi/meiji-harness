@@ -11,7 +11,7 @@ import { createCallToolsProject } from '../src/tools/project/project.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { withConfig } from '../src/config.js'
-import { assembleCallToolsForAgent } from '../src/tools/agent/index.js'
+import { createCallToolsForAgent } from '../src/tools/agent/index.js'
 import { generationProjectId } from '../src/tools/project/context.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 
@@ -44,7 +44,7 @@ test('chat tools read full objects, mutate one field and render compact mutation
       assert.equal(value.acts[0].shots[0].action, '走路')
       assert.deepEqual(JSON.parse(tools.call_tools_project_update.output.render({}, value)[0].text), { id: project_id, title: '新标题', anchor_count: 1, shot_count: 1 })
       await assert.rejects(tools.call_tools_project_update.execute({ project_id, target: 'shot', action: 'update', patch: { subtitle: 'bad' } }), /ID/)
-      const visible = assembleCallToolsForAgent({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } })
+      const visible = createCallToolsForAgent({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } })
       assert.deepEqual(visible.tools, definitions)
     })
   } finally { await rm(root, { recursive: true, force: true }) }

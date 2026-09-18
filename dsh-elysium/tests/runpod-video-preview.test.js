@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { withConfig } from '../src/config.js'
 import { buildVideoGraph, loadVideoTemplate } from '../src/models/providers/runpod/workflows/minimax-h3/graph.js'
 import { validatePlan as validateVideoPlan } from '../src/models/providers/runpod/plan.js'
-import { createWorkflowGenerateVideoTool } from '../src/tools/media/video.js'
+import { createCallToolsVideo } from '../src/tools/media/video.js'
 import { collectVideoArtifacts } from '../src/server/workflows/videos/artifacts.js'
 import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
 import { VIDEO_MODES, MODE_MEDIA } from '../src/server/workflows/videos/plan.js'
@@ -54,7 +54,7 @@ test('regular supports requested durations through 15 seconds in one aligned gen
       assert.equal(p.graph.n105_9.inputs.steps, 8)
     }
   }
-  const schema = createWorkflowGenerateVideoTool().parameters.properties.duration_seconds
+  const schema = createCallToolsVideo().parameters.properties.duration_seconds
   assert.equal(schema.maximum, undefined)
   for (const duration_seconds of [0, -1, '15', null, NaN, Infinity]) {
     await assert.rejects(validateVideoPlan({ profile: 'regular', mode: 't2va', prompt: 'x', duration_seconds }), /duration_seconds/)
@@ -101,7 +101,7 @@ test('low-resolution candidate changes only dimensions and output location; defa
   Object.assign(expected.n105_104.inputs, { width: 288, height: 384 })
   expected.n126.inputs.filename_prefix = 'elysium/shot/preview-low-resolution/final'
   assert.deepEqual(p.graph, expected, 'seed, prompt, audio, sampler and patches must not change')
-  const schema = createWorkflowGenerateVideoTool().parameters.properties.preview_variant
+  const schema = createCallToolsVideo().parameters.properties.preview_variant
   assert.deepEqual(schema.enum, ['default', 'low-resolution'])
   for (const args of [{ ...candidate, profile: 'standard' }, { ...candidate, preview_variant: '4-step' }]) {
     await assert.rejects(validateVideoPlan(args), /preview_variant/)

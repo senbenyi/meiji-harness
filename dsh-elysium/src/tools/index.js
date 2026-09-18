@@ -4,19 +4,27 @@ import { createCallToolsDirectorList } from './project/director.js'
 import { createCallToolsJobResult, createCallToolsJobStatus } from './task/model.js'
 import { createCallToolsVideo, createCallToolsVideoRecover } from './media/video.js'
 import { createCallToolsImage, createCallToolsImageRecover } from './media/image.js'
-import { assembleCallToolsForAgent, isElysiumAgent, TOOL_GROUPS, withWorkcardOutput } from './agent/index.js'
+import { createCallToolsForAgent, createCallToolsWorkcard, isElysiumAgent, TOOL_GROUPS } from './agent/index.js'
 
-export { assembleCallToolsForAgent }
+export { createCallToolsForAgent }
 // 组装与模型任务状态和结果查询相关的工具。
-const createJobCallTools = () => [createCallToolsJobStatus(), createCallToolsJobResult()]
-// 组装面向用户的图片、视频与角色工作流工具。
-const createMediaCallTools = () => [createCallToolsImage(), createCallToolsImageRecover(), createCallToolsVideo(), createCallToolsVideoRecover()]
+const createCallToolsJobs = () => [createCallToolsJobStatus(), createCallToolsJobResult()]
+// 组装面向用户的图片与视频工具。
+const createCallToolsMedia = () => [createCallToolsImage(), createCallToolsImageRecover(), createCallToolsVideo(), createCallToolsVideoRecover()]
 // 组装依赖 Web Store 的导演与项目工具。
-export const createWebCallTools = ({ projects, directors }) => [...createCallToolsDirectorList(directors), ...createCallToolsProject(projects)]
+export const createCallToolsWeb = ({ projects, directors }) => [...createCallToolsDirectorList(directors), ...createCallToolsProject(projects)]
 // 组装插件启动时注册的完整运行时工具清单。
-export const createRuntimeCallTools = ctx => [createCallToolsLoad(ctx), ...createMediaCallTools(), ...createJobCallTools()].map(withWorkcardOutput)
+export const createCallToolsRuntime = ctx => [createCallToolsLoad(ctx), ...createCallToolsMedia(), ...createCallToolsJobs()].map(createCallToolsWorkcard)
 
-// 创建通用工具组加载入口，只返回当前 Agent 已有权限使用的工具名称。
+/*
+ * 按需加载流程：
+ * 1. Agent 调用 call_tools_load 并选择 TOOL_GROUPS 中的工具组。
+ * 2. ctx.tools.schemas(exec.agent) 读取当前 Agent 已获授权的真实工具清单。
+ * 3. 请求组与授权清单取交集，只返回 loaded_tools 名称；此处不执行工具，也不扩大权限。
+ * 4. Harness 将本次 tool/call 和成功的 tool/result 写入会话事件。
+ * 5. 下一轮 system-prompt/assemble 由 loadedToolNames 恢复名称，createCallToolsForAgent 再把对应原始 Schema 和说明投影给模型。
+ * 因此“加载”本质是跨轮次恢复工具可见性，权限仍以 Harness 当前 Agent 的 Schema 为准。
+ */
 function createCallToolsLoad(ctx) {
   return {
     name: 'call_tools_load', description: '按需加载通用工具组及其原始参数和说明，不执行任务。加载后在下一次请求直接调用原工具。',
