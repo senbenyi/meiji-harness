@@ -4,35 +4,6 @@
 
 `llm-dsh-plugins` 是面向 AI 短剧创作的 DeepSeek Harness 插件仓库，包含 Elysium 创作预设、图片与视频工作流、任务管理和创作工作台。
 
-## 项目结构
-
-```text
-docs/          # 调研、设计、计划与实施记录
-harness/       # 本机 Harness 配置、安装与启动
-dsh-elysium
-    src/
-    ├── business/                 # 内部业务包，随插件一起构建和发布
-    │   ├── projects/             # 项目、锚点、分镜与交付数据
-    │   ├── directors/            # 导演库
-    │   ├── assets/               # 素材查询与访问校验
-    │   ├── jobs/                 # 任务持久化、查询、诊断与进程锁
-    │   ├── video/                # 单次视频任务、执行、worker 与恢复
-    │   └── production/           # 多镜头生产清单、编排、回执与参考帧
-    ├── servers/                  # 按 registry/runtime/transport/providers 分包
-    │   ├── registry/             # 配置与目标解析
-    │   ├── runtime/              # 平台加载、调度与任务归属
-    │   ├── transport/            # 连接建立与复用
-    │   └── providers/            # 平台实现及各自的工作流模板
-    │       └── runpod/workflows/ # 原有 H3 图构建、档位配置和完整模板
-    ├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
-    ├── tools/                    # Harness 聊天工具入口
-    ├── http/                     # HTTP 路由适配
-    ├── client/                   # 创作工作台与聊天界面
-    ├── prompts/                  # 系统提示词
-    ├── config.js                 # 插件运行配置
-    └── index.js                  # 插件装配入口
-```
-
 ## 核心功能
 
 - **多模式创作**：提供教学、自由和导演三种 Elysium 创作模式，以及 Harness 标准模式。
