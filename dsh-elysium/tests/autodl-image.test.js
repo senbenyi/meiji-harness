@@ -3,10 +3,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import { withConfig } from '../src/utils/config.js'
-import { buildImageGraph } from '../src/servers/providers/autodl/workflows/image/graph.js'
-import { normalizeImagePlan, validateImagePlan } from '../src/servers/providers/autodl/workflows/image/plan.js'
-import { createWorkflowTools } from '../src/harness/index.js'
+import { withConfig } from '../src/config.js'
+import { buildImageGraph } from '../src/models/providers/autodl/workflows/image/graph.js'
+import { normalizeImagePlan, validateImagePlan } from '../src/models/providers/autodl/workflows/image/plan.js'
+import { createWorkflowTools } from '../src/tools/index.js'
 
 const backend = { provider: 'autodl', service: 'comfyui', base_url: 'http://127.0.0.1:8188' }
 const view = name => `http://127.0.0.1:8188/view?filename=${name}&type=output`
@@ -24,7 +24,7 @@ test('AutoDL keeps main image and pose assets byte-identical', async () => {
     'poses/back.png': '5e72685465b6b69186463a30832f4e1435a854dcf569b5c905af9bc100fcec1d',
   }
   for (const [name, digest] of Object.entries(expected)) {
-    assert.equal(hash(await readFile(new URL(`../src/servers/providers/autodl/workflows/image/templates/${name}`, import.meta.url))), digest, name)
+    assert.equal(hash(await readFile(new URL(`../src/models/providers/autodl/workflows/image/templates/${name}`, import.meta.url))), digest, name)
   }
 })
 

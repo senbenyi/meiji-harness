@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { renderToolDebug } from '../src/utils/output.js'
+import { renderToolDebug } from '../src/tools/output.js'
 
 test('default output keeps delivery and failure evidence without duplicating prompts or trace', () => {
   const value = { job_id: 'a'.repeat(32), status: 'failed', failed_stage: 'generate',

@@ -106,7 +106,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       h('div', { className: 'elysium-material-grid', ref: grid, onScroll: e => onViewState({ ...state, scroll: e.currentTarget.scrollTop }) },
         data?.items.map(item => h('article', { key: item.job_id, className: 'elysium-material-card' },
           h('button', { className: 'elysium-card-open', onClick: () => { setPreview(item); setMediaError(false) }, 'aria-label': `查看素材 ${assetTitle(item)}` },
-            item.has_image ? h('img', { src: assetUrl('image', item.job_id), alt: assetTitle(item), loading: 'lazy' }) : h('video', { src: assetUrl('video', item.job_id), preload: 'metadata', muted: true, playsInline: true, 'aria-hidden': true }),
+            item.has_image ? h('img', { src: assetUrl('image', item.job_id), alt: assetTitle(item), loading: 'lazy' }) : h('div', { className: 'elysium-video-placeholder', 'aria-hidden': true }, '视频'),
             h('strong', null, assetTitle(item))), h('small', { className: 'elysium-compact-meta' }, `${specificationLabel(item) || (item.has_image ? '图片' : '视频')} · ${relativeTime(item.created_at)}`),
           h(IconButton, { name: 'minus', label: `删除素材 ${assetTitle(item)}`, disabled: busy || deleting, onClick: () => remove(item) })))),
       h('footer', { className: 'elysium-pagination' },

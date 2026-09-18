@@ -5,8 +5,8 @@ import { createServer } from 'node:http'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { withConfig } from '../src/utils/config.js'
-import { createServerHandler, SERVER_ROUTE } from '../src/http/server-routes.js'
+import { withConfig } from '../src/config.js'
+import { createServerHandler, SERVER_ROUTE } from '../src/server/routes/settings.js'
 const record = id => ({ id, label: id, provider: 'runpod', connection_source: 'manual', instance_id: id, deployment_id: 'one', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })
 test('all endpoints authenticate before IO; registration stays manual and switching is checked', async t => {
   const root = await mkdtemp(join(tmpdir(), 'server-http-'))
@@ -38,10 +38,30 @@ test('all endpoints authenticate before IO; registration stays manual and switch
   assert.equal((await request('delete', { id: 'a', revision: 5 })).status, 404)
 })
 
+test('default private model selections remain visible after the model list reloads', async t => {
+  const { writeRegistry } = await import('../src/database/managers/registry.js')
+  const { writeSelection } = await import('../src/database/managers/selection.js')
+  const root = await mkdtemp(join(tmpdir(), 'default-model-http-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const config = { ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'selection.json') }
+  await withConfig(config, async () => {
+    await writeRegistry({ version: 1, revision: 0, servers: [record('autodl-comfyui')] }, 0)
+    await writeSelection({ version: 1, revision: 0, selected: {}, third_party: {} }, 0)
+  })
+  const handler = createServerHandler({ token: 'test', check: async () => ({ ok: true }) })
+  const server = createServer((req, res) => withConfig(config, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
+  const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+  assert.equal((await request('model-connect', { kind: 'image', id: 'realvisxl-sdxl', revision: 1 })).status, 200)
+  assert.equal((await request('model-connect', { kind: 'video', id: 'minimax-h3', revision: 2 })).status, 200)
+  const models = await (await request('models')).json()
+  assert.deepEqual(models.selected, { image: 'realvisxl-sdxl', video: 'minimax-h3' })
+})
+
 test('fixed model catalog probes without connecting and failed selection cannot replace active video or image targets', async t => {
-  const { writeRegistry } = await import('../src/servers/registry/store.js')
-  const { writeSelection, readSelection } = await import('../src/servers/selection/store.js')
-  const { resolveServer } = await import('../src/servers/registry/resolve.js')
+  const { writeRegistry } = await import('../src/database/managers/registry.js')
+  const { writeSelection, readSelection } = await import('../src/database/managers/selection.js')
+  const { resolveServer } = await import('../src/models/managers/registry/resolve.js')
   const root = await mkdtemp(join(tmpdir(), 'fixed-model-http-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   const upstream = createServer((_req, res) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ system: {}, data: [{ id: 'qwen3.8-27b-elysium' }] })) })

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { codeVersion, traceDiagnostics } from '../src/business/jobs/diagnostics.js'
-import { createTiming } from '../src/business/jobs/timing.js'
-import { waitJob } from '../src/business/jobs/wait.js'
+import { codeVersion, traceDiagnostics } from '../src/server/jobs/diagnostics.js'
+import { createTiming } from '../src/server/jobs/timing.js'
+import { waitJob } from '../src/server/jobs/wait.js'
 
 test('execution metadata preserves fingerprint, prompt errors and monotonic timing', async t => {
   assert.match((await codeVersion()).executor_sha256, /^[0-9a-f]{64}$/)

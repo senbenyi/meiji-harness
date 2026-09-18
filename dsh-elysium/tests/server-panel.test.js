@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
-import { clientSource } from '../scripts/client-source.mjs'
+import { clientSource } from '../scripts/loader.js'
 
 test('model panel contains only categorized selectors and switches selected models', async () => {
   const modules = new Map(), cache = new Map(), calls = []

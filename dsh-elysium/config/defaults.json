@@ -5,13 +5,15 @@
     "image": [
       {
         "id": "realvisxl-sdxl",
-        "label": "RealVisXL / SDXL"
+        "label": "RealVisXL / SDXL",
+        "server_id": "autodl-comfyui"
       }
     ],
     "video": [
       {
         "id": "minimax-h3",
-        "label": "MiniMax H3"
+        "label": "MiniMax H3",
+        "server_id": "autodl-comfyui"
       }
     ]
   },

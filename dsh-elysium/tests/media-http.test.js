@@ -4,13 +4,14 @@ import { createServer } from 'node:http'
 import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { createMediaHandler, MEDIA_ROUTE } from '../src/http/media-routes.js'
-import { jobSummary } from '../src/business/assets/catalog.js'
-import { bindVideoCall, findVideoCall } from '../src/business/video/call-binding.js'
+import { setTimeout as delay } from 'node:timers/promises'
+import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
+import { jobSummary } from '../src/server/media/catalog.js'
+import { bindVideoCall, findVideoCall } from '../src/server/workflows/videos/call-binding.js'
 import { apply } from '../src/index.js'
-import { withConfig } from '../src/utils/config.js'
-import { mediaReference } from '../src/comfyui/media-reference.js'
-import { ComfyClient } from '../src/comfyui/client.js'
+import { withConfig } from '../src/config.js'
+import { mediaReference } from '../src/models/protocols/comfyui/media-reference.js'
+import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
 
 const comfyConfig = { COMFYUI_URL: 'https://comfy.test/comfy/' }
 
@@ -206,5 +207,26 @@ test('preview proxy forwards Range and HEAD, preserves 206/416, and never redire
     assert.equal(response.status, 200); assert.equal(response.headers.get('content-length'), '5'); assert.equal(await response.text(), '')
     response = await fetch(`${base}/credentials`, { headers: { 'X-Elysium-Media-Refresh': '1' } })
     assert.equal((await response.json()).projectBase, '/plugins/dsh-elysium/project')
+  } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
+})
+
+test('preview proxy cancels the upstream stream when the browser closes playback', async () => {
+  let closeUpstream
+  const upstreamClosed = new Promise(resolve => { closeUpstream = resolve })
+  const upstream = createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'video/mp4' })
+    res.write('video')
+    const timer = setInterval(() => res.write('video'), 20)
+    res.on('close', () => { clearInterval(timer); closeUpstream() })
+  })
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
+  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { media_kind: 'video', comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
+  const server = createServer(createMediaHandler({ token: 't', readJob: async () => job }))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}/video?t=t&job=${job.job_id}`)
+    assert.equal(response.status, 200)
+    await response.body.cancel()
+    assert.equal(await Promise.race([upstreamClosed.then(() => true), delay(500, false)]), true)
   } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
 })

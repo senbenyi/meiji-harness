@@ -4,11 +4,11 @@ import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { defaultSettings, withConfig } from '../src/utils/config.js'
-import { ensureSettings, readSettings } from '../src/servers/settings/store.js'
-import { readRegistry, writeRegistry } from '../src/servers/registry/store.js'
-import { readSelection, writeSelection } from '../src/servers/selection/store.js'
-import { legacyTunnelBackend } from '../src/servers/registry/resolve.js'
+import { defaultSettings, withConfig } from '../src/config.js'
+import { ensureSettings, readSettings } from '../src/database/managers/settings.js'
+import { readRegistry, writeRegistry } from '../src/database/managers/registry.js'
+import { readSelection, writeSelection } from '../src/database/managers/selection.js'
+import { legacyTunnelBackend } from '../src/models/managers/registry/resolve.js'
 
 const fixture = async t => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-unified-settings-'))

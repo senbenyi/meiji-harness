@@ -4,12 +4,19 @@ import { createServer } from 'node:http'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { projectSummary } from '../src/business/projects/store.js'
-import { withConfig } from '../src/utils/config.js'
-import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
+import { projectSummary } from '../src/database/managers/projects.js'
+import { withConfig } from '../src/config.js'
+import { createDirectorStore } from '../src/server/directors/service.js'
+import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
+
+const seedDirectors = (root, names) => withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+  const store = createDirectorStore()
+  for (const name of names) await store.create({ name, style: '测试风格', works: [] })
+})
 
 test('projects authenticate every route and persist validated atomic CRUD with normalized shot order', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-project-'))
+  await seedDirectors(root, ['张艺谋', '王家卫'])
   let handler = createProjectHandler({ token: 't' })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -117,6 +124,7 @@ test('reading a four-file project creates its missing material index from existi
 
 test('create retries a colliding ID without overwriting the existing project', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-collision-')), ids = ['aaaaaaaa', 'aaaaaaaa', 'bbbbbbbb']
+  await seedDirectors(root, ['陈凯歌'])
   const handler = createProjectHandler({ token: 't', newId: () => ids.shift() })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -134,6 +142,7 @@ test('create retries a colliding ID without overwriting the existing project', a
 
 test('project imports reference media, replaces roles, rejects invalid anchors and keeps unrelated fields', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-import-'))
+  await seedDirectors(root, ['姜文'])
   const handler = createProjectHandler({ token: 't', readJob: async job_id => ({ job_id, status: 'succeeded', result: { media_kind: 'image', comfyui_view_url: 'https://model.test/image.png' } }) })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -177,7 +186,7 @@ test('remote cover remains available when another anchor references a video job'
 
 // 封面校验、持久化和摘要读取不依赖锚点顺序或远程模型服务。
 test('selected image cover persists independently and rejects video or missing image files', async t => {
-  const { createProjectStore } = await import('../src/business/projects/store.js')
+  const { createProjectStore } = await import('../src/server/projects/service.js')
   const root = await mkdtemp(join(tmpdir(), 'project-cover-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   const image = 'c'.repeat(32), replacement = 'd'.repeat(32), video = 'e'.repeat(32), missing = 'f'.repeat(32)

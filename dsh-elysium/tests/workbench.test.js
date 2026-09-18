@@ -3,14 +3,14 @@ import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
-import { clientSource } from '../scripts/client-source.mjs'
+import { clientSource } from '../scripts/loader.js'
 
-function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [] } = {}) {
+function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [], status = { has_video: true } } = {}) {
   const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
   const modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
     document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },
-    fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : { items: [], total: 0 } } } })
+    fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : url.startsWith('/media/status') ? status : { items: [], total: 0 } } } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require }
 }
@@ -29,6 +29,23 @@ test('material browser and image picker share source tabs and reset pagination o
     }
     await act(async () => view.unmount())
   }
+})
+
+test('workbench video previews load only after explicit playback', async () => {
+  const f = fixture(), jobId = 'a'.repeat(32)
+  let shot, delivery
+  await act(async () => { shot = create(React.createElement(f.require('elysium/shot-preview').ShotPreview, { jobId })) })
+  assert.equal(shot.root.findAllByType('video').length, 0)
+  await act(async () => shot.root.findByProps({ 'aria-label': '播放镜头视频' }).props.onClick())
+  assert.equal(shot.root.findAllByType('video').length, 1)
+  await act(async () => shot.unmount())
+
+  const project = { acts: [], deliverables: [{ type: 'film', label: '成片', job_id: jobId }] }
+  await act(async () => { delivery = create(React.createElement(f.require('elysium/delivery').DeliveryView, { project })) })
+  assert.equal(delivery.root.findAllByType('video').length, 0)
+  await act(async () => delivery.root.findByProps({ 'aria-label': '播放成片 成片' }).props.onClick())
+  assert.equal(delivery.root.findAllByType('video').length, 1)
+  await act(async () => delivery.unmount())
 })
 test('full workbench enters project, retains selected shot across tab switch and closes', async () => {
   const f = fixture(); let view
@@ -160,7 +177,9 @@ test('material upload sends images and videos and refreshes the unfiltered libra
   assert.equal(changes.at(-1).page, 0); assert.equal(changes.at(-1).profile, ''); assert.equal(changes.at(-1).media_kind, '')
   assert.equal(changes.at(-1).source, 'import')
   assert.match(JSON.stringify(view.toJSON()), /参考.png/)
+  assert.equal(view.root.findAllByType('video').length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '查看素材 视频.mp4' }).props.onClick())
+  assert.equal(view.root.findAllByType('video').length, 1)
   assert.equal(view.root.findAllByType('button').filter(button => button.children.join('') === '用作项目锚点').length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '关闭对话框' }).props.onClick())
   fail = true

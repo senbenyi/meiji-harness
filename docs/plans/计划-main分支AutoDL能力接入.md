@@ -30,8 +30,8 @@
 2. `dsh-elysium/src/servers/providers/autodl/workflows/image/graph.js` — 新增：迁移 RealVisXL/SDXL、IPAdapter、OpenPose 和纯拼接图构建，输出路径绑定当前 job ID → AC-3。
 3. `dsh-elysium/src/servers/providers/autodl/workflows/image/execution.js`、`artifacts.js` — 新增：复用公共 ComfyUI 提交/恢复协议，写入图片任务状态并只返回服务器 URL → AC-2、AC-3、AC-6。
 4. `dsh-elysium/src/servers/providers/autodl/workflows/image/templates/`、`poses/` — 新增：从 `main` 原样迁移文生图、参考图、角色正/侧/背和三视图拼接模板及姿态资产，不删减原始字段 → AC-3。
-5. `dsh-elysium/src/harness/character.js`、`harness/index.js`、`utils/agent.js` — 新增/修改：恢复角色视图和三视图工具及按需发现，保持同一正面身份、视角绑定和最多三次尝试约束 → AC-3。
-6. `dsh-elysium/src/harness/image.js` — 修改：AutoDL 自有图片优先走 provider 图片执行；恢复任务继续使用原 backend 快照，不回退三方重发 → AC-2、AC-3、AC-6。
+5. `dsh-elysium/src/tools/media/character.js`、`tools/index.js`、`utils/agent.js` — 新增/修改：恢复角色视图和三视图工具及按需发现，保持同一正面身份、视角绑定和最多三次尝试约束 → AC-3。
+6. `dsh-elysium/src/tools/media/image.js` — 修改：AutoDL 自有图片优先走 provider 图片执行；恢复任务继续使用原 backend 快照，不回退三方重发 → AC-2、AC-3、AC-6。
 7. `dsh-elysium/tests/autodl-image.test.js`、`autodl-character.test.js` — 新增：覆盖纯文生图、参考图、角色视图、三视图拼接、失败恢复和服务器 URL → AC-3、AC-6。
 
 验证：运行图片和角色专项测试，模拟 ComfyUI 校验实际 graph、prompt identity、产物类型和恢复次数；模板逐字节/关键字段与 `main` 对照 → AC-2、AC-3。
@@ -41,7 +41,7 @@
 1. `dsh-elysium/src/servers/providers/autodl/workflows/minimax-h3/plan.js` — 新增：同时校验当前五种 H3 模式与 `main` 的 independent/continue/reference/reuse 导演计划 → AC-4。
 2. `dsh-elysium/src/servers/providers/autodl/workflows/minimax-h3/graph.js`、`workflow.js` — 新增：迁移 `main` 的单镜头/多镜头编译、`MiniMaxH3ImageToVideo` 图片条件、参考媒体、续接、复用、合片和交付帧率逻辑 → AC-4。
 3. `dsh-elysium/src/servers/providers/autodl/workflows/minimax-h3/templates/` — 新增：保存 AutoDL 自有的 T2VA、I2VA、FL2VA、FL2VA-loop、R2VA、单镜头和导演模板，不引用 Runpod 兄弟目录 → AC-2、AC-4。
-4. `dsh-elysium/src/harness/video.js` — 修改：在保留当前 `mode/profile` 参数的同时恢复 `main` 的多镜头计划入口；参数分支互斥且不静默降级 → AC-4。
+4. `dsh-elysium/src/tools/media/video.js` — 修改：在保留当前 `mode/profile` 参数的同时恢复 `main` 的多镜头计划入口；参数分支互斥且不静默降级 → AC-4。
 5. `dsh-elysium/src/business/video/plan.js` — 修改：保留公共模式词汇，把具体 H3/导演参数校验交给 AutoDL provider → AC-2、AC-4。
 6. `dsh-elysium/tests/autodl-h3-video.test.js`、`autodl-h3-director.test.js` — 新增：覆盖 T2VA、I2VA、首尾帧、参考图、多镜头续接、素材复用、音轨与合片 → AC-4。
 
@@ -67,7 +67,7 @@
 
 ### 阶段 6：构建、发布与真实端到端验收
 
-1. `dsh-elysium/package.json`、`scripts/package-registry.mjs` — 仅在现有自动发现未包含二进制姿态资产时修改：确保 AutoDL 源码、JSON 和姿态图进入发布包 → AC-2、AC-3、AC-4。
+1. `dsh-elysium/package.json`、`scripts/registry.mjs` — 仅在现有自动发现未包含二进制姿态资产时修改：确保 AutoDL 源码、JSON 和姿态图进入发布包 → AC-2、AC-3、AC-4。
 2. `dsh-elysium/README.md`、根 `README.md` — 修改：记录双 AutoDL 职责、配置切换和验证入口，不记录真实主机或凭据 → AC-5、AC-7。
 3. 执行 `pnpm test`、`pnpm build`、`pnpm package:registry` 和 Harness 测试，检查发布包中 AutoDL provider 完整且无 tests/legacy 泄漏 → AC-1～AC-7。
 4. 安装发布包并重启本机 Harness；不重启健康的远端模型服务 → AC-5、AC-6。

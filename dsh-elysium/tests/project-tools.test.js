@@ -6,19 +6,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { apply, createDirectorTools, createProjectTools } from '../src/index.js'
-import { createDirectorStore } from '../src/business/directors/store.js'
-import { createProjectStore } from '../src/business/projects/store.js'
-import { withConfig } from '../src/utils/config.js'
-import { projectTools } from '../src/utils/agent.js'
-import { generationProjectId } from '../src/utils/project.js'
-import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
+import { createDirectorStore } from '../src/server/directors/service.js'
+import { createProjectStore } from '../src/server/projects/service.js'
+import { withConfig } from '../src/config.js'
+import { projectTools } from '../src/tools/agent.js'
+import { generationProjectId } from '../src/tools/project/context.js'
+import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 
 test('chat tools read full objects, mutate one field and render compact mutation results', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-project-tools-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const directors = createDirectorStore(), available = (await createDirectorTools(directors)[0].execute({})).directors
-      assert.deepEqual(available.map(item => item.name), ['张艺谋', '王家卫', '陈凯歌', '姜文', '贾樟柯'])
+      const directors = createDirectorStore()
+      await directors.create({ name: '测试导演', style: '测试风格', works: [] })
+      const available = (await createDirectorTools(directors)[0].execute({})).directors
+      assert.deepEqual(available.map(item => item.name), ['测试导演'])
       const store = createProjectStore({ directorExists: name => directors.has(name) }), definitions = createProjectTools(store)
       const tools = Object.fromEntries(definitions.map(tool => [tool.name, tool]))
       assert.equal(definitions.length, 6)
@@ -50,6 +52,7 @@ test('registered chat tools share HTTP project state and are disposed with the w
   const tools = new Map(), routes = new Map(), listeners = new Map(), disposers = []
   const web = { register: route => { routes.set(route.path, route.handler); return () => routes.delete(route.path) } }
   const child = { get: name => name === 'webServer' ? web : undefined, on: (name, callback) => listeners.set(name, callback), effect: action => disposers.push(action()) }
+  await withConfig({ ELYSIUM_STATE_ROOT: root }, () => createDirectorStore().create({ name: '测试导演', style: '测试风格', works: [] }))
   apply({ inject: (_deps, callback) => callback(child), on() {}, tools: { register: tool => { tools.set(tool.name, tool); return () => tools.delete(tool.name) } } }, { stateRoot: root })
   const rows = []; listeners.get('webserver/index-inject')(rows)
   const { token, projectBase } = rows[0].value

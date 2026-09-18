@@ -48,7 +48,7 @@
 ## 相关文档
 
 - [Harness 本机安装与配置](harness/README.md)
-- [Runpod 平台模块与运维](dsh-elysium/src/servers/providers/runpod/README.md)
+- [Runpod 平台模块与运维](dsh-elysium/src/models/providers/runpod/README.md)
 - [Elysium 工具插件开发](dsh-elysium/README.md)
 - [视频创作三档入口与全链路](docs/implement/实施-视频创作三档入口与全链路.md)
 - [AI 短剧快速预览](docs/implement/实施-AI短剧快速预览.md)

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { withConfig } from '../src/utils/config.js'
-import { ComfyClient } from '../src/comfyui/client.js'
-import { collectVideoArtifacts } from '../src/business/video/artifacts.js'
-import { buildVideoGraph, loadVideoTemplate } from '../src/servers/providers/runpod/workflows/minimax-h3/graph.js'
-import { validateVideoPlan, VIDEO_MODES } from '../src/business/video/plan.js'
+import { withConfig } from '../src/config.js'
+import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
+import { collectVideoArtifacts } from '../src/server/workflows/videos/artifacts.js'
+import { buildVideoGraph, loadVideoTemplate } from '../src/models/providers/runpod/workflows/minimax-h3/graph.js'
+import { validateVideoPlan, VIDEO_MODES } from '../src/server/workflows/videos/plan.js'
 
 const base = 'https://pod.test'
 const view = name => `${base}/view?filename=${name}.png&subfolder=refs&type=output`

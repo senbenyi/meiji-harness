@@ -20,14 +20,16 @@ window.__ModuleLoader__.load({ id: 'elysium/delivery', factory: require => {
   }
   function DeliveryView({ project }) {
     const isSubtitle = item => ['subtitle', 'srt', 'vtt'].includes(item.type)
-    const [selected, setSelected] = useState(null), [error, setError] = useState(false)
+    const [selected, setSelected] = useState(null), [error, setError] = useState(false), [playing, setPlaying] = useState(null)
     const films = project.deliverables.filter(item => !isSubtitle(item) && deliveryUrl(item))
     const item = films.find(item => deliveryUrl(item) === selected) || films[0], url = item && deliveryUrl(item)
     return h('div', { className: 'elysium-delivery' },
       h('section', { className: 'elysium-delivery-preview' },
-        films.length > 1 ? h('select', { 'aria-label': '选择成片', value: url, onChange: event => { setSelected(event.target.value); setError(false) } }, films.map((film, index) => h('option', { key: index, value: deliveryUrl(film) }, film.label))) : null,
+        films.length > 1 ? h('select', { 'aria-label': '选择成片', value: url, onChange: event => { setSelected(event.target.value); setError(false); setPlaying(null) } }, films.map((film, index) => h('option', { key: index, value: deliveryUrl(film) }, film.label))) : null,
         !project.deliverables.length ? h('p', { className: 'elysium-empty' }, `尚无交付物 · ${project.acts.flatMap(act => act.shots).filter(shot => shot.status === 'succeeded').length} 镜已完成`) : !item ? h('p', { className: 'elysium-empty' }, '暂无可预览成片') : null,
-        item ? h('div', null, h('h2', null, item.label), error ? h('p', { role: 'alert' }, '成片预览加载失败', h('button', { onClick: () => setError(false) }, '重试预览')) : url ? h('video', { key: url, 'aria-label': `成片预览 ${item.label}`, className: 'elysium-workbench-preview', src: item.job_id ? assetUrl('video', item.job_id) : url, controls: true, preload: 'metadata', onError: () => setError(true) }) : h('p', { role: 'alert' }, '缺少可播放的服务器地址')) : null),
+        item ? h('div', null, h('h2', null, item.label), error ? h('p', { role: 'alert' }, '成片预览加载失败', h('button', { onClick: () => { setError(false); setPlaying(null) } }, '重试预览')) : url ? playing === url
+          ? h('video', { key: url, 'aria-label': `成片预览 ${item.label}`, className: 'elysium-workbench-preview', src: item.job_id ? assetUrl('video', item.job_id) : url, controls: true, autoPlay: true, onError: () => setError(true) })
+          : h('button', { onClick: () => setPlaying(url), 'aria-label': `播放成片 ${item.label}` }, '播放成片') : h('p', { role: 'alert' }, '缺少可播放的服务器地址')) : null),
       h('section', null, project.deliverables.map((item, index) => {
         const url = deliveryUrl(item), specs = []
         if (Number.isFinite(item.duration_sec)) specs.push(`${item.duration_sec}秒`)

@@ -2,10 +2,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { withConfig } from '../src/utils/config.js'
-import { poolsRoot, projectsRoot, runtimeRoot, uploadsRoot } from '../src/utils/storage-paths.js'
-import { registryPath } from '../src/servers/registry/store.js'
-import { selectionPath } from '../src/servers/selection/store.js'
+import { withConfig } from '../src/config.js'
+import { poolsRoot, projectsRoot, runtimeRoot, uploadsRoot } from '../src/database/paths.js'
+import { registryPath } from '../src/database/managers/registry.js'
+import { selectionPath } from '../src/database/managers/selection.js'
 
 test('storage paths stay within config, pools, projects, runtime and uploads', () => {
   const root = '/tmp/elysium-layout'

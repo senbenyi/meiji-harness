@@ -63,7 +63,7 @@ Harness 工具
 
 | `main` 能力 | 当前分支状态 | AutoDL 接入要求 |
 |---|---|---|
-| ComfyUI HTTP client、schema 校验、队列/history、避免重复提交 | 已迁入公共 `src/comfyui` 和 `src/harness/tasks.js` | 直接复用 |
+| ComfyUI HTTP client、schema 校验、队列/history、避免重复提交 | 已迁入公共 `src/comfyui` 和 `src/tools/task/comfyui.js` | 直接复用 |
 | job 创建、后台 worker、原任务恢复、媒体 URL | 已迁入 `src/business/jobs`、`src/business/video`、HTTP 路由 | 扩展为图片和 AutoDL 视频均可执行 |
 | 纯文生图 | 旧 RealVisXL/SDXL 模板已删除；当前自有 provider 不支持图片 | 在 AutoDL provider 恢复原图片 graph、执行与产物收集 |
 | 参考图生成/编辑 | 旧 RealVisXL + IPAdapter 模板已删除 | 恢复 `main` 原模板与媒体绑定，不以 Qwen Image/Wan 路线替代 |

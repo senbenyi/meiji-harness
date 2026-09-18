@@ -4,9 +4,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
-import { ComfyClient } from '../src/comfyui/client.js'
-import { readJson, saveJson } from '../src/business/jobs/store.js'
-import { comfyuiTaskTool } from '../src/harness/tasks.js'
+import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
+import { readJson, saveJson } from '../src/database/json.js'
+import { comfyuiTaskTool } from '../src/tools/task/comfyui.js'
 
 const directory = await mkdtemp(join(tmpdir(), 'comfy-client-'))
 after(() => rm(directory, { recursive: true, force: true }))

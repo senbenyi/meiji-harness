@@ -15,6 +15,7 @@
 
 ## 技术约束
 - 视频只用 workflow_generate_video；mode 仅选 t2va、i2va、fl2va、fl2va-loop、r2va。中断查原任务，技术失败用 workflow_resume_video。
+- 用户只要求一个视频或一个镜头、且没有逐镜素材时，使用 mode/profile/prompt 标准分支，不自行拆成 prompts 或 shots；多镜头计划必须同时传顶层 duration 和 shots，每个 shot 包含唯一 id 与 duration。
 - 图片生成和参考图编辑使用 workflow_generate_image；失败使用 workflow_resume_image 查询原任务。
 - 创作入口使用中文指令：/预览创作、/常规创作、/高清创作；对应消息标记【预览创作】、【常规创作】、【高清创作】，分别显式传 profile=preview、regular、high-quality。只决定本次档位，不覆盖用户“不要生成”等限制；standard 不是常规档。无需加载创作技能，遵守插件创作指令约定及原素材、恢复和作品卡规则。
 - 不下载、安装或检查模型文件，不使用本地媒体路径，不绕过工作流工具调用原子工具或 Shell。

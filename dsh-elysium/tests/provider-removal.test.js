@@ -12,11 +12,11 @@ test('complete business flow with autodl after physically deleting runpod', { ti
   t.after(() => rm(root, { recursive: true, force: true }))
   for (const name of ['src', 'scripts', 'config', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
   await cp(new URL('./fixtures/provider-scenario.mjs', import.meta.url), join(root, 'scenario.mjs'))
-  await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
-  await mkdir(join(root, 'src/servers/providers/autodl'), { recursive: true })
+  await rm(join(root, `src/models/providers/${removed}`), { recursive: true })
+  await mkdir(join(root, 'src/models/providers/autodl'), { recursive: true })
   // 独立测试实现仅组合公共协议，不引用或复制 Runpod；真实 AutoDL 目录仍只预留。
-  await writeFile(join(root, 'src/servers/providers/autodl/index.js'), `
-import { createStandardAdapter } from '../../runtime/standard-adapter.js'
+  await writeFile(join(root, 'src/models/providers/autodl/index.js'), `
+import { createStandardAdapter } from '../../managers/runtime/adapter.js'
 import { appendFileSync } from 'node:fs'
 const adapter = createStandardAdapter({ id: 'autodl', label: 'AutoDL test fixture',
   buildGraph: (_backend, plan, jobId) => ({
@@ -49,17 +49,17 @@ for (const removed of ['bailian', 'byteplus', 'manual']) test(`remaining provide
   const root = await mkdtemp(join(tmpdir(), 'provider-isolation-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   for (const name of ['src', 'config', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
-  await rm(join(root, `src/servers/providers/${removed}`), { recursive: true })
+  await rm(join(root, `src/models/providers/${removed}`), { recursive: true })
   await writeFile(join(root, 'check.mjs'), `
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { resolveConfig, withConfig } from './src/utils/config.js'
-import { listProviders, resolveGenerationBackend, validateBackend, validateBackendPlan, thirdPartyChannels, thirdPartyModels } from './src/servers/runtime/index.js'
+import { resolveConfig, withConfig } from './src/config.js'
+import { listProviders, resolveGenerationBackend, validateBackend, validateBackendPlan, thirdPartyChannels, thirdPartyModels } from './src/models/managers/runtime/index.js'
 const home = process.env.ELYSIUM_HOME, providers = home + '/config/providers'
 await mkdir(providers, { recursive: true })
-if (existsSync('./src/servers/providers/bailian')) await writeFile(providers + '/bailian.json', JSON.stringify({ enabled: true, base_url: 'https://bailian.test/api/v1', api_key: 'fixture-secret', video: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v', duration: 5, resolution: '720P', ratio: '9:16', prompt_extend: false, watermark: false } }))
-if (existsSync('./src/servers/providers/byteplus')) await writeFile(providers + '/byteplus.json', JSON.stringify({ enabled: true, base_url: 'https://byteplus.test/api/v3', api_key: 'fixture-secret', video: { model: 'fixture-video', duration: 5, resolution: '720p', ratio: '9:16', generate_audio: true, watermark: false } }))
+if (existsSync('./src/models/providers/bailian')) await writeFile(providers + '/bailian.json', JSON.stringify({ enabled: true, base_url: 'https://bailian.test/api/v1', api_key: 'fixture-secret', video: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v', duration: 5, resolution: '720P', ratio: '9:16', prompt_extend: false, watermark: false } }))
+if (existsSync('./src/models/providers/byteplus')) await writeFile(providers + '/byteplus.json', JSON.stringify({ enabled: true, base_url: 'https://byteplus.test/api/v3', api_key: 'fixture-secret', video: { model: 'fixture-video', duration: 5, resolution: '720p', ratio: '9:16', generate_audio: true, watermark: false } }))
 await withConfig(resolveConfig({ home, comfyUrl: 'http://127.0.0.1:1' }), async () => {
   const providers = await listProviders()
   assert.equal(providers.some(item => item.id === '${removed}'), false)

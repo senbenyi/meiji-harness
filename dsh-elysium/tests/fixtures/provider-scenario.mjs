@@ -5,19 +5,17 @@ import { readFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { apply } from './lib/index.js'
-import { buildBackendGraph } from './lib/servers/runtime/index.js'
-import { startVideoJob, resumeVideoJob } from './lib/business/video/service.js'
-import { getJob } from './lib/business/jobs/query.js'
-import { createJob } from './lib/business/jobs/create.js'
-import { saveJson } from './lib/business/jobs/store.js'
-import { resolveServer } from './lib/servers/registry/resolve.js'
-import { backendLlmSettings, backendWorkflowSource } from './lib/servers/runtime/index.js'
-import { readRegistry, writeRegistry } from './lib/servers/registry/store.js'
-import { readSelection } from './lib/servers/selection/store.js'
-import { backendFromServer } from './lib/servers/registry/resolve.js'
-import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/harness/tasks.js'
-import { runProduction } from './src/business/production/runner.js'
-import { validateProductionManifest } from './src/business/production/manifest.js'
+import { buildBackendGraph } from './lib/models/managers/runtime/index.js'
+import { startVideoJob, resumeVideoJob } from './lib/server/workflows/videos/service.js'
+import { getJob } from './lib/server/jobs/query.js'
+import { createJob } from './lib/server/jobs/create.js'
+import { saveJson } from './lib/database/json.js'
+import { resolveServer } from './lib/models/managers/registry/resolve.js'
+import { backendLlmSettings, backendWorkflowSource } from './lib/models/managers/runtime/index.js'
+import { readRegistry, writeRegistry } from './lib/database/managers/registry.js'
+import { readSelection } from './lib/database/managers/selection.js'
+import { backendFromServer } from './lib/models/managers/registry/resolve.js'
+import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/tools/task/comfyui.js'
 const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider, instance_id: 'fixture', deployment_id: 'one', service: 'comfyui', base_url: 'http://unselected.invalid', connection: { workload: 'minimax-h3' } }, plan, id)
 const state = process.env.ELYSIUM_STATE_ROOT
@@ -86,7 +84,7 @@ async function completed(project, id, expected = 'succeeded') {
   throw new Error(`Worker timeout ${id}: ${await readFile(join(jobPath(project, id), 'worker.log'), 'utf8')}`)
 }
 try {
-  for (const name of ['tests', 'legacy', 'resources']) await assert.rejects(access(`lib/servers/providers/${provider}/${name}`))
+  for (const name of ['tests', 'legacy', 'resources']) await assert.rejects(access(`lib/models/providers/${provider}/${name}`))
   const a = await model(), b = await model(), routes = new Map(), events = new Map()
   const context = { tools: { register() {} }, get: () => ({ register: route => routes.set(route.path, route.handler) }),
     inject: (_, fn) => fn(context), effect: fn => fn(), on: (event, fn) => events.set(event, fn) }
@@ -107,7 +105,8 @@ try {
   assert.equal(a.posts, 0, 'health checks must not generate')
   assert.equal((await backendLlmSettings(backendFromServer(readRegistry().servers.find(server => server.id === 'a'), 'llm'))).base_url, `${a.url}/v1`)
   assert.equal(await backendWorkflowSource(resolveServer()), a.url)
-  const project = await request('project/create', { title: 'Adapter isolation', profile: 'preview', director: '张艺谋' }, 201)
+  await request('director/create', { name: '测试导演', style: '测试风格', works: [] }, 201)
+  const project = await request('project/create', { title: 'Adapter isolation', profile: 'preview', director: '测试导演' }, 201)
   const projectId = project.id
   assert.match(projectId, /^[a-f0-9]{8}$/)
   a.failNext = true
@@ -128,20 +127,9 @@ try {
   assert.ok((await completed(projectId, switched.job_id)).result.comfyui_view_url.startsWith(b.url))
   assert.equal(b.posts, 1)
   assert.equal((await backendLlmSettings(backendFromServer(readRegistry().servers.find(server => server.id === 'b'), 'llm'))).base_url, `${b.url}/v1`)
-  await select('a')
-  const manifest = validateProductionManifest({ version: 1, project_id: projectId, profile: 'preview', max_attempts: 2, shots: [
-    { id: 'first', request: { mode: 't2va', prompt: 'A quiet garden.' }, produces_anchor: { id: 'garden', frame_index: 0 } },
-    { id: 'second', request: { mode: 'i2va', prompt: 'The camera moves slowly.' }, media: { first_frame: { anchor: 'garden' } } },
-  ] })
-  assert.equal((await runProduction(manifest, { limit: 1, log() {} })).completed, 1)
-  await select('b')
-  const batch = await runProduction(manifest, { log() {} })
-  assert.equal(batch.completed, 2); assert.equal(b.posts, 1, 'batch and references remain on original server')
-  const posts = a.posts
-  await runProduction(manifest, { log() {} }); assert.equal(a.posts, posts, 'completed batch does not resubmit')
   if (removed) {
-    await assert.rejects(access(`src/servers/providers/${removed}`))
-    await assert.rejects(access(`lib/servers/providers/${removed}`))
+    await assert.rejects(access(`src/models/providers/${removed}`))
+    await assert.rejects(access(`lib/models/providers/${removed}`))
     const oldId = await createJob(projectId, { mode: 't2va', prompt: 'Old task' })
     const oldPath = jobPath(projectId, oldId)
     await saveJson(join(oldPath, 'input/backend.json'), { ...resolveServer(), provider: removed })
@@ -155,7 +143,7 @@ try {
     for (const name of ['connect', 'createClient', 'buildGraph']) assert.ok(trace.some(entry => entry.name === name && entry.pid !== process.pid), `${name} dispatched inside real worker`)
     for (const name of ['validate', 'check', 'llmSettings', 'workflowSource']) assert.ok(trace.some(entry => entry.name === name), `${name} dispatched`)
   }
-  console.log(`${provider}: build/import, registration/check/switch, real worker/recovery, atomic tasks, batch/reference, media and workflow source passed`)
+  console.log(`${provider}: build/import, registration/check/switch, real worker/recovery, atomic tasks, media and workflow source passed`)
 } finally {
   for (const { project, id } of jobs) {
     const pid = await readFile(join(jobPath(project, id), 'worker.lock'), 'utf8').then(Number, () => 0)

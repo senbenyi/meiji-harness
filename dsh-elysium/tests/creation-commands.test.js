@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { clientSource } from '../scripts/client-source.mjs'
-import { creationInstructions } from '../src/prompts/creation.js'
+import { clientSource } from '../scripts/loader.js'
+import { creationInstructions } from '../src/tools/prompts/creation.js'
 
 function load() {
   const factories = new Map()
@@ -47,5 +47,7 @@ test('menu selection only claims input; blank input, attachments and transport f
   assert.match(creationInstructions, /教学和导演模式[^\n]+director_list[^\n]+project_create/)
   assert.match(creationInstructions, /project_read[^\n]+不得重复创建/)
   assert.match(creationInstructions, /不得用 Bash、写文件或网页搜索/)
-  assert.match(creationInstructions, /preview 不传时长[^\n]+duration[^\n]+禁止与 mode\/profile\/prompt 混用/)
+  assert.match(creationInstructions, /一个视频或一个镜头[^\n]+不得自行拆成 prompts 或 shots/)
+  assert.match(creationInstructions, /preview 不传时长[^\n]+duration 和 shots[^\n]+唯一 id 与 duration[^\n]+禁止与 mode\/profile\/prompt 混用/)
+  assert.match(creationInstructions, /MODEL_INPUT_INVALID[^\n]+修正参数后仅重试一次/)
 })

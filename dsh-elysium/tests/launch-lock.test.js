@@ -4,8 +4,8 @@ import { spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { withLaunchLock } from '../src/business/jobs/lock.js'
-import { workerAlive } from '../src/business/video/worker-owner.js'
+import { withLaunchLock } from '../src/server/jobs/lock.js'
+import { workerAlive } from '../src/server/workflows/videos/worker-owner.js'
 
 test('launch lock rejects concurrent starts and serializes waiting sessions', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'elysium-lock-'))
@@ -28,9 +28,9 @@ test('launch lock reclaims a dead owner and removes its lock directory', async (
 })
 
 test('worker identity reads the complete command line after a long script path', async t => {
-  const directory = await mkdtemp(join(tmpdir(), `elysium-${'x'.repeat(100)}-`)), video = join(directory, 'video')
-  const script = join(video, 'worker.js'), lock = join(directory, 'worker.lock'), jobId = 'a'.repeat(32)
-  await mkdir(video); await writeFile(script, 'setInterval(() => {}, 1000)')
+  const directory = await mkdtemp(join(tmpdir(), `elysium-${'x'.repeat(100)}-`)), videos = join(directory, 'server', 'workflows', 'videos')
+  const script = join(videos, 'worker.js'), lock = join(directory, 'worker.lock'), jobId = 'a'.repeat(32)
+  await mkdir(videos, { recursive: true }); await writeFile(script, 'setInterval(() => {}, 1000)')
   const child = spawn(process.execPath, [script, 'abcd1234', jobId], { stdio: 'ignore' })
   await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject) })
   t.after(async () => { try { child.kill('SIGTERM') } catch {}; await rm(directory, { recursive: true, force: true }) })

@@ -10,30 +10,34 @@
 dsh-elysium/
 ├── src/                # 源代码
 │   ├── index.js        # 插件入口，导出 name / inject / apply
-│   ├── tools/          # Harness 工具定义与按需发现
-│   ├── business/       # 内部业务包，随现有插件发布
-│   │   ├── projects/   # 项目领域校验与持久化
-│   │   ├── directors/  # 导演库
-│   │   ├── assets/     # 全局素材库索引、查询与访问校验
-│   │   ├── jobs/       # 任务持久化、查询、诊断与进程锁
-│   │   ├── video/      # 视频任务服务、执行与 worker
-│   │   └── production/ # 多镜头生产编排（源码 CLI）
-│   ├── servers/        # 服务器模块
-│   │   ├── registry/   # 配置校验、持久化与目标解析
-│   │   ├── runtime/    # 平台加载、调度、检查与任务快照
-│   │   ├── transport/  # 连接建立与复用
+│   ├── config.js       # 插件实例配置组合
+│   ├── client/         # React.createElement，无 JSX
+│   │   ├── api/        # Client 到 Server 的调用
+│   │   ├── commands/   # 创作命令
+│   │   ├── workcard/   # 会话任务状态与结果卡片
+│   │   └── workbench/  # 素材、项目、锚点、分镜与交付工作台
+│   ├── server/         # 后端业务与 HTTP 接口
+│   │   ├── routes/     # 媒体、项目、导演和设置接口
+│   │   ├── media/      # 素材查询与访问校验
+│   │   ├── projects/   # 项目领域校验
+│   │   ├── jobs/       # 任务生命周期、诊断与进程锁
+│   │   └── workflows/  # 图片、视频和短剧工作流
+│   ├── database/       # 数据路径、持久化 schema、原子 JSON 与集中数据管理器
+│   ├── tools/          # Harness 对外工具边界与按需发现
+│   │   ├── prompts/ # Harness 系统提示词片段
+│   │   ├── media/   # 图片、视频和角色工具适配
+│   │   ├── project/ # 项目和导演工具适配
+│   │   └── task/    # 模型任务和 ComfyUI 原生任务工具
+│   ├── models/         # 模型协议、平台和运行管理器
+│   │   ├── protocols/  # 公共模型协议
+│   │   ├── managers/   # 注册、运行、选择、设置和连接管理
 │   │   └── providers/  # 平台专属实现、模板、测试与材料
-│   ├── comfyui/        # 公共 ComfyUI 协议
-│   ├── http/           # 媒体与项目 HTTP 路由适配
-│   ├── prompts/        # 系统提示词片段
-│   └── client/         # React.createElement，无 JSX
-│       ├── commands/   # 创作命令
-│       ├── task-card/  # 会话任务状态与结果卡片
-│       └── workbench/  # 素材、项目、锚点、分镜与交付工作台
+│   └── utils/          # 无业务语义的上下文、错误和校验工具
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
-│   ├── client-source.mjs # 客户端模块拼接
-│   └── package-registry.mjs # 组装 registry/
+│   ├── loader.js        # 客户端模块拼接
+│   ├── deploy.mjs      # 同步或检查平台工作流
+│   └── registry.mjs       # 组装 registry/
 ├── tests/              # 单元测试
 ├── lib/                # 构建产物（git-ignored）
 ├── registry/           # 发布产物（git-ignored）
@@ -43,10 +47,12 @@ dsh-elysium/
 
 **规则**：
 - 构建脚本目录统一命名为 `scripts/`。
-- 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/servers/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
+- `src/index.js` 是唯一组合入口；Client 只调用 `server/routes/`，Harness 工具只位于 `src/tools/`。
+- 数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 不得出现项目、导演、素材、任务、模型或平台业务语义。
+- 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/models/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
 - 插件 Cordis 装配统一位于 `harness/.dsh/profiles/web/cordis.patch.yml`，插件包不自带 Harness 运行配置。
-- 新增客户端模块（含 `workbench/`）后须同步更新 `scripts/client-source.mjs` 的模块列表，依赖在前、`index.js` 最后。
+- 新增客户端模块（含 `workbench/`）后须同步更新 `scripts/loader.js` 的模块列表，依赖在前、`index.js` 最后。
 - `workbench/` 使用 `load(name, (require, exports) => { ... })` 定义模块；拼接脚本适配宿主的 `{ id, factory }` 注册格式，不引入 bundler。
 - 媒体及项目端点共用注入 token，客户端通过 `mediaUrl()` 构建带凭据的 URL。用户下载流式代理上游，不保存媒体文件；项目 JSON 使用临时文件加 rename 原子写入。
 
@@ -81,7 +87,6 @@ harness/.dsh/.agent-presets/
 ```
 harness/scripts/install.mjs # 本机 Harness 与插件安装入口
 harness/scripts/start.mjs   # 本机 Harness 启动入口
-dsh-elysium/scripts/server-service.mjs # 通用平台服务管理路由
 harness/scripts/tunnel.mjs # 本机模型隧道路由
 harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 ```
@@ -91,7 +96,7 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 - Elysium 的项目、任务、上传、导演、服务器、模型选择和平台配置统一位于 `$DSH_HOME/storages/elysium`；未显式覆盖的运行路径不得读写 `~/.elysium`。
 - Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`（导演库 `directors.json`、素材库索引 `materials.json`），项目拥有的任务、回执和媒体随项目归 `projects/`，跨会话索引和隧道归 `runtime/`，导入原件归 `uploads/`。
 - `pools/materials.json` 只保存全局素材的身份、来源和删除状态；媒体实体不复制，仍保留在所属 `projects/` 或 `uploads/`。各项目的 `materials.json` 只保存项目引用。
-- 一级目录路径统一由 `src/utils/storage-paths.js` 构造；业务模块不得自行拼接一级目录。`runtime/` 中的调用和会话索引参与任务恢复，不得视为可随意清空的缓存。
+- 一级目录路径统一由 `src/database/paths.js` 构造；业务模块不得自行拼接一级目录。`runtime/` 中的调用和会话索引参与任务恢复，不得视为可随意清空的缓存。
 - 部署脚本不检查模型服务、SSH、端口或运行状态。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 
@@ -112,4 +117,4 @@ dsh-elysium/tests/         # 插件单元测试
 - 插件中媒体、视频、图片一律使用服务器 URL。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 
-- 原有 Runpod H3 模板与完整 UI 元数据位于 `src/servers/providers/runpod/workflows/minimax-h3/`，迁移不得删字段或重写原始内容；公共同步脚本只负责平台路由。
+- 原有 Runpod H3 模板与完整 UI 元数据位于 `src/models/providers/runpod/workflows/minimax-h3/`，迁移不得删字段或重写原始内容；公共同步脚本只负责平台路由。

@@ -4,11 +4,11 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { withConfig } from '../src/utils/config.js'
-import { writeRegistry } from '../src/servers/registry/store.js'
-import { readSelection, writeSelection } from '../src/servers/selection/store.js'
-import { checkServer, switchServer } from '../src/servers/runtime/check.js'
-import { ComfyClient } from '../src/comfyui/client.js'
+import { withConfig } from '../src/config.js'
+import { writeRegistry } from '../src/database/managers/registry.js'
+import { readSelection, writeSelection } from '../src/database/managers/selection.js'
+import { checkServer, switchServer } from '../src/models/managers/runtime/check.js'
+import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
 
 const fixture = () => ({ version: 1, revision: 0, servers: ['a', 'b'].map(id => ({ id, label: id, provider: 'manual', connection_source: 'manual', instance_id: id, deployment_id: 'one', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })) })
 

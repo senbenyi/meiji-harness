@@ -4,10 +4,11 @@ import { mkdtemp, mkdir, writeFile, readFile, utimes, rm, readdir } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
-import { withConfig } from '../src/utils/config.js'
-import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
-import { createMediaHandler } from '../src/http/media-routes.js'
-import { jobSummary, listAssets } from '../src/business/assets/catalog.js'
+import { withConfig } from '../src/config.js'
+import { createDirectorStore } from '../src/server/directors/service.js'
+import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
+import { createMediaHandler } from '../src/server/routes/media.js'
+import { jobSummary, listAssets } from '../src/server/media/catalog.js'
 
 test('job status exposes the actual model instead of presenting the provider as a model', () => {
   const summary = jobSummary({ status: 'running', debug: { effective_input: { mode: 't2va' } },
@@ -87,6 +88,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
 
 test('uploaded images and videos preview locally, persist, delete and only images become anchors', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-upload-'))
+  await withConfig({ ELYSIUM_STATE_ROOT: root }, () => createDirectorStore().create({ name: '姜文', style: '测试风格', works: [] }))
   const media = createMediaHandler({ token: 't' }), projects = createProjectHandler({ token: 't' })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => req.url.startsWith(PROJECT_ROUTE) ? projects(req, res) : media(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))

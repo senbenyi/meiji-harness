@@ -2,9 +2,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { loadProvider, listProviders } from '../src/servers/runtime/loader.js'
-import { validateBackend } from '../src/servers/runtime/index.js'
-import { ComfyClient } from '../src/comfyui/client.js'
+import { loadProvider, listProviders } from '../src/models/managers/runtime/loader.js'
+import { validateBackend } from '../src/models/managers/runtime/index.js'
+import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
 
 test('AutoDL exposes independent ComfyUI and Qwen contracts', async () => {
   const provider = await loadProvider('autodl')
@@ -17,7 +17,7 @@ test('AutoDL exposes independent ComfyUI and Qwen contracts', async () => {
   await validateBackend(comfyui)
   await validateBackend(llm)
   assert.equal(provider.llmSettings(llm).model, 'qwen3.8-27b-elysium')
-  const source = await readFile(new URL('../src/servers/providers/autodl/index.js', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../src/models/providers/autodl/index.js', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /providers\/runpod|\.\.\/runpod|from ['"].*runpod/)
 })
 

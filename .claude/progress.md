@@ -22,6 +22,8 @@
 
 ## 已完成
 
+- **src 整体职责重构** — 2026-09-18 完成：源码按 client/server/database/tools/models/utils 重组，Database 集中数据入口且不反向依赖 Server，Utils 收敛为无业务语义通用代码，工具与图片工作流分离；190 项插件测试、10 项 Harness 测试、构建、Registry 打包、安装、重启与 3080 身份检查通过。实施记录：`docs/implement/实施-src整体职责重构.md`。
+
 - **聊天模型隧道连接** — 2026-09-18 完成：私有聊天模型改为下拉框且显示 `qwen3.8`，按需连接/重新连接均成功，Harness 启动不建隧道；底层 API ID 保持 `qwen3.8-27b-elysium`，远端未修改或重启。170 项插件测试、7 项 Harness 测试、构建、打包和真实连接验收通过。实施记录：`docs/implement/实施-聊天模型隧道连接.md`。
 
 - **素材库独立索引** — 2026-09-18 完成：`pools/materials.json` 作为全局素材库索引，项目引用与媒体实体保持原归属；真实索引 127 条（创作 124、导入 3）、权限 `0600`，Harness 已重启并通过运行核对。实施记录：`docs/implement/实施-素材库独立索引.md`。

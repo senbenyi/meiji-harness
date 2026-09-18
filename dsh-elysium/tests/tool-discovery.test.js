@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createToolDiscoveryTool } from '../src/harness/load.js'
-import { loadedToolNames, projectTools, TOOL_GROUPS } from '../src/utils/agent.js'
+import { createToolDiscoveryTool } from '../src/tools/load.js'
+import { loadedToolNames, projectTools, TOOL_GROUPS } from '../src/tools/agent.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
 const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'director_list', 'project_create', 'project_read', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
 const agent = (events, agentPreset = 'elysium-teaching') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
@@ -58,7 +58,7 @@ test('free mode exposes read-only director selection, hides project mutation and
   assert.ok(!result.tools.some(tool => tool.name !== 'director_list' && /^(director|project)_/.test(tool.name)))
   assert.ok(projectTools(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'project_create'))
 })
-test('a failed video result removes every remaining tool for the current turn only', () => {
+test('a failed video result removes every remaining tool for the current turn but input validation can retry once', () => {
   const failed = [{ type: 'turn/start', data: { turn: 1 } },
     { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'video' } },
     { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'video', content: [{ type: 'text', text: JSON.stringify({ job_id: 'a'.repeat(32), status: 'failed' }) }] }] } } }]
@@ -68,6 +68,14 @@ test('a failed video result removes every remaining tool for the current turn on
   assert.ok(projectTools(assembly(), agent([...failed, { type: 'turn/start', data: { turn: 2 } }], 'elysium-free')).tools.some(tool => tool.name === 'workflow_generate_video'))
   const rejected = structuredClone(failed); rejected[2].data.message.content[0].isError = true
   assert.deepEqual(projectTools(assembly(), agent(rejected)).tools, [])
+  const inputInvalid = structuredClone(rejected)
+  inputInvalid[2].data.message.content[0].content = [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] duration 参数无效' }]
+  assert.ok(projectTools(assembly(), agent(inputInvalid)).tools.some(tool => tool.name === 'workflow_generate_video'))
+  const secondInvalid = structuredClone(inputInvalid)
+  secondInvalid.push({ type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'video-2' } },
+    { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'video-2', isError: true,
+      content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] shots 参数无效' }] }] } } })
+  assert.deepEqual(projectTools(assembly(), agent(secondInvalid)).tools, [])
 })
 test('uses the current preset selection instead of the immutable creation header', () => {
   const selected = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-free' } }], 'elysium-standard')
@@ -82,7 +90,7 @@ test('rejects invalid or unavailable loads', async () => {
 })
 
 test('production wait returns final result without model polling and preserves failed status', async () => {
-  const { waitVideoJob } = await import('../src/harness/video.js')
+  const { waitVideoJob } = await import('../src/tools/media/video.js')
   const job = { job_id: 'a'.repeat(32) }
   const sequence = [{ ...job, status: 'running' }, { ...job, status: 'succeeded', result: { comfyui_view_url: 'https://comfy/view?filename=final.mp4', validation: { full_decode: 'passed' } } }]
   let sleeps = 0

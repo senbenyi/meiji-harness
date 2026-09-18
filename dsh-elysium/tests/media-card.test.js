@@ -3,7 +3,7 @@ import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
-import { clientSource } from '../scripts/client-source.mjs'
+import { clientSource } from '../scripts/loader.js'
 import { readFileSync } from 'node:fs'
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -33,7 +33,7 @@ async function fixture(responses, block = {}) {
   assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'])
   let view
   await act(async () => { view = create(React.createElement(require('elysium/media-task-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
-  return { view, requests, timers, definition: require('elysium/media-task-card').definition,
+  return { view, requests, timers, Card: require('elysium/media-task-card').MediaTaskCard, definition: require('elysium/media-task-card').definition,
     tick: async () => act(async () => { const [id, run] = timers.entries().next().value; timers.delete(id); await run() }),
     close: async () => act(async () => view.unmount()) }
 }
@@ -49,12 +49,13 @@ test('same card progresses to playable result and stops polling', async () => {
     const previewRatio = f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio
     await f.tick()
     assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, previewRatio)
+    assert.equal(f.view.root.findAllByType('video').length, 0)
+    assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
+    await act(async () => f.view.root.findByProps({ 'aria-label': '播放视频' }).props.onClick())
     const video = f.view.root.findByType('video')
-    assert.equal(f.view.root.findByProps({ 'aria-label': '媒体加载中' }).props.role, 'progressbar')
-    await act(async () => video.props.onLoadedData())
     assert.equal(f.view.root.findAllByProps({ role: 'progressbar' }).length, 0)
     assert.match(video.props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
-    assert.equal(video.props.controls, false)
+    assert.equal(video.props.controls, true)
     assert.ok(!video.props.src.includes('3080'))
     assert.match(f.view.root.findByProps({ 'aria-label': '下载视频' }).props.href, /media\/download\?/)
     assert.equal(f.timers.size, 0)
@@ -63,11 +64,14 @@ test('same card progresses to playable result and stops polling', async () => {
   } finally { await f.close() }
 })
 
-test('a completed tool result plays without polling the media service', async () => {
+test('a completed tool result waits for playback intent and stays on the media route', async () => {
   const url = 'https://pod.test/view?filename=final.mp4&type=output'
   const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded', comfyui_view_url: url }) }] })
   try {
-    assert.match(f.view.root.findByType('video').props.src, /^https:\/\/pod\.test\//)
+    assert.equal(f.view.root.findAllByType('video').length, 0)
+    await act(async () => f.view.root.findByProps({ 'aria-label': '播放视频' }).props.onClick())
+    assert.match(f.view.root.findByType('video').props.src, /^\/plugins\/dsh-elysium\/media\/video\?/)
+    assert.doesNotMatch(f.view.root.findByType('video').props.src, /pod\.test/)
     assert.equal(f.requests.length, 0)
     assert.equal(f.timers.size, 0)
   } finally { await f.close() }
@@ -88,6 +92,8 @@ test('completed preview uses specification dimensions and actual job details wit
       assert.match(details, /模型：wan2.6-t2v/)
       assert.doesNotMatch(details, /服务器：/)
       assert.match(details, /生成规格：预览档、384×512、约 3 秒视频、8 步、带音频/)
+      assert.equal(f.view.root.findAllByType('video').length, 0)
+      await act(async () => f.view.root.findByProps({ 'aria-label': '播放视频' }).props.onClick())
       await act(async () => f.view.root.findByType('video').props.onLoadedMetadata({ currentTarget: { videoWidth: 640, videoHeight: 360 } }))
       assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '640 / 360')
       assert.equal(f.view.root.findByType('section').props.style.maxWidth, 560)
@@ -140,6 +146,8 @@ test('expired page credentials recover the original job with one retry', async (
     assert.equal(f.requests[1].url, '/plugins/dsh-elysium/media/credentials')
     assert.equal(f.requests[1].options.headers['X-Elysium-Media-Refresh'], '1')
     assert.match(f.requests[2].url, /session=session&call=call&t=fresh/)
+    assert.equal(f.view.root.findAllByType('video').length, 0)
+    await act(async () => f.view.root.findByProps({ 'aria-label': '播放视频' }).props.onClick())
     assert.match(f.view.root.findByType('video').props.src, /t=fresh/)
     assert.equal(f.timers.size, 0)
     assert.equal(f.view.root.findAllByProps({ role: 'alert' }).length, 0)
@@ -217,8 +225,25 @@ test('failed original card observes a later resume and completion without adding
     assert.match(JSON.stringify(f.view.toJSON()), /正在重试原视频/)
     await f.tick()
     assert.equal(f.view.root.findAllByType('section').length, 1)
-    assert.equal(f.view.root.findAllByType('video').length, 1)
+    assert.equal(f.view.root.findAllByType('video').length, 0)
+    assert.equal(f.view.root.findAllByProps({ 'aria-label': '播放视频' }).length, 1)
     assert.equal(f.timers.size, 0)
     assert.ok(f.requests.every(r => r.url.includes('/status?')))
   } finally { await f.close() }
+})
+
+test('multiple completed cards create no video streams until one is played', async () => {
+  const f = await fixture([], { content: [{ type: 'text', text: JSON.stringify({ job_id: 'seed', status: 'succeeded', comfyui_view_url: 'https://pod.test/seed.mp4' }) }] })
+  let view
+  try {
+    const blocks = Array.from({ length: 8 }, (_, index) => ({ content: [{ type: 'text', text: JSON.stringify({ job_id: `job-${index}`, status: 'succeeded', comfyui_view_url: `https://pod.test/${index}.mp4` }) }] }))
+    await act(async () => { view = create(React.createElement(React.Fragment, null, blocks.map((block, index) => React.createElement(f.Card, { key: index, sessionId: 'session', callId: `call-${index}`, block })))) })
+    assert.equal(view.root.findAllByType('video').length, 0)
+    assert.equal(view.root.findAllByProps({ 'aria-label': '播放视频' }).length, 8)
+    await act(async () => view.root.findAllByProps({ 'aria-label': '播放视频' })[3].props.onClick())
+    assert.equal(view.root.findAllByType('video').length, 1)
+  } finally {
+    if (view) await act(async () => view.unmount())
+    await f.close()
+  }
 })
