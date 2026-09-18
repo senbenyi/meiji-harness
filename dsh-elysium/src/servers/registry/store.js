@@ -2,11 +2,10 @@
 import { readFileSync } from 'node:fs'
 import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import { runtimeConfig } from '../../utils/config.js'
+import { defaultElysiumHome, runtimeConfig } from '../../utils/config.js'
 import { validateRegistry, serverIdentity, fail } from './schema.js'
-export const registryPath = () => runtimeConfig().ELYSIUM_SERVERS_FILE || join(runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || join(homedir(), '.elysium'), 'servers.json')
+export const registryPath = () => runtimeConfig().ELYSIUM_SERVERS_FILE || join(runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || defaultElysiumHome(), 'servers.json')
 export function readRegistry(path = registryPath()) {
   try { return validateRegistry(JSON.parse(readFileSync(path, 'utf8'))) }
   catch (error) { if (error.code === 'ENOENT') return null; throw error }

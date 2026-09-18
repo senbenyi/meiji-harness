@@ -68,6 +68,8 @@ export const defaultModels = defaultSettings.models
 export const runtimeConfig = () => context.getStore() || process.env
 // 为回调及其派生的异步操作绑定配置，不修改 process.env。
 export const withConfig = (config, callback) => context.run(config, callback)
+// 默认将所有 Elysium 数据集中到 DSH_HOME/storages/elysium。
+export const defaultElysiumHome = () => join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'elysium')
 
 // 将插件配置转换为经过校验的、不可变的运行时配置。
 export function resolveConfig(config = {}) {
@@ -75,7 +77,7 @@ export function resolveConfig(config = {}) {
   for (const key of Object.keys(config)) {
     if (!Object.hasOwn(fields, key) && !['enableAtomicTools', 'models'].includes(key)) throw new Error(`未知插件配置：${key}`)
   }
-  const home = config.home ?? process.env.ELYSIUM_HOME ?? join(homedir(), '.elysium')
+  const home = config.home ?? process.env.ELYSIUM_HOME ?? defaultElysiumHome()
   withConfig({ ELYSIUM_HOME: home }, () => requiredConfig('ELYSIUM_HOME'))
   const settings = readSettings()
   const defaults = { home, stateRoot: join(home, settings.paths.state), serversFile: join(home, settings.paths.servers), selectionFile: join(home, settings.paths.selection),

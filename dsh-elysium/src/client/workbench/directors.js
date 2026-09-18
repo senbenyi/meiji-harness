@@ -21,6 +21,9 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
       const works = worksValue(draft.works)
       if (await run(async () => { const director = await (editing ? updateDirector : createDirector)({ name: draft.name, style: draft.style, works }); setItems(value => editing ? value.map(item => item.name === editing ? director : item) : [...value, director]) })) { setDraft(empty); setAdding(false); setEditing(null) }
     }
+    function edit(item) {
+      setEditing(item.name); setAdding(false); setDraft({ ...item, works: item.works.join('\n') }); setError('')
+    }
     async function drop(target, event) {
       event.preventDefault()
       const source = dragging
@@ -35,7 +38,7 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
       if (!await run(() => reorderDirectors(ordered.map(item => item.name)))) setItems(previous)
     }
     return h('div', { className: 'elysium-directors' },
-      h('div', { className: 'elysium-toolbar' }, h(IconButton, { name: adding || editing ? 'close' : 'plus', label: adding || editing ? '取消编辑导演' : '添加导演', disabled: busy, onClick: () => { setAdding(!adding && !editing); setEditing(null); setDraft(empty); setError('') } })),
+      h('div', { className: 'elysium-toolbar' }, h(IconButton, { name: adding || editing ? 'close' : 'plus', label: adding ? '取消添加导演' : editing ? '取消编辑导演' : '添加导演', disabled: busy, onClick: () => { setAdding(!adding && !editing); setEditing(null); setDraft(empty); setError('') } })),
       adding || editing ? h('form', { className: 'elysium-director-create', onSubmit: submit },
         h('input', { autoFocus: true, 'aria-label': '导演名称', placeholder: '导演名称', value: draft.name, disabled: busy || !!editing, onChange: event => setDraft({ ...draft, name: event.target.value }) }),
         h('input', { 'aria-label': '导演风格', placeholder: '导演风格', value: draft.style, disabled: busy, onChange: event => setDraft({ ...draft, style: event.target.value }) }),
@@ -44,9 +47,10 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
       error ? h('p', { role: 'alert' }, error, !items.length ? h('button', { onClick: () => run(refresh) }, '重试') : null) : null,
       busy && !items.length ? h('p', { role: 'status' }, '正在读取导演…') : null,
       h('div', { className: 'elysium-director-list' }, items.map(item =>
-        h('article', { className: 'elysium-director-card', key: item.name, draggable: !busy, 'data-dragging': dragging === item.name || undefined, title: '点击编辑，拖动排序', onClick: () => { if (busy) return; setEditing(item.name); setAdding(false); setDraft({ ...item, works: item.works.join('\n') }); setError('') }, onDragStart: event => { event.dataTransfer.effectAllowed = 'move'; setDragging(item.name) }, onDragOver: event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }, onDrop: event => drop(item.name, event), onDragEnd: () => setDragging(null) },
+        h('article', { className: 'elysium-director-card', key: item.name, draggable: !busy, 'data-dragging': dragging === item.name || undefined, title: '拖动排序', onDragStart: event => { event.dataTransfer.effectAllowed = 'move'; setDragging(item.name) }, onDragOver: event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }, onDrop: event => drop(item.name, event), onDragEnd: () => setDragging(null) },
           h('div', { className: 'elysium-director-copy' }, h('h2', null, item.name), h('p', null, item.style), h('ol', { 'aria-label': `${item.name} TOP5作品` }, item.works.map((work, index) => h('li', { key: `${index}-${work}` }, work)))),
-          h(IconButton, { name: 'minus', label: `删除导演 ${item.name}`, disabled: busy, onClick: event => { event.stopPropagation(); if (window.confirm(`删除导演“${item.name}”？`)) run(async () => { await deleteDirector(item.name); setItems(value => value.filter(director => director.name !== item.name)) }) } })))))
+          h('div', { className: 'elysium-director-actions' }, h(IconButton, { name: 'edit', label: `编辑导演 ${item.name}`, disabled: busy, onClick: () => edit(item) }),
+            h(IconButton, { name: 'minus', label: `删除导演 ${item.name}`, disabled: busy, onClick: () => { if (window.confirm(`删除导演“${item.name}”？`)) run(async () => { await deleteDirector(item.name); setItems(value => value.filter(director => director.name !== item.name)) }) } })))))
   }
   Object.assign(exports, { DirectorList, worksValue })
   return exports

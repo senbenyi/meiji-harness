@@ -88,6 +88,7 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 
 **规则**：
 - `harness/.dsh/` 逐项覆盖到本机 `~/.dsh/`，不删除本机其他文件。
+- Elysium 的项目、任务、上传、导演、服务器、模型选择和平台配置统一位于 `$DSH_HOME/storages/elysium`；未显式覆盖的运行路径不得读写 `~/.elysium`。
 - 部署脚本不检查模型服务、SSH、端口或运行状态。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 

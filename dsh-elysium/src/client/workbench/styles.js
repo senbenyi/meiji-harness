@@ -175,6 +175,7 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-director-copy h2 { margin:0; }
 .elysium-director-copy p { margin:2px 0 7px; color:var(--dsw-alias-label-secondary,#aaa); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .elysium-director-copy ol { display:flex; flex-wrap:wrap; gap:4px 14px; margin:0; padding-left:20px; color:var(--dsw-alias-label-tertiary,#888); font-size:12px; }
+.elysium-director-actions { display:flex; flex-direction:column; gap:2px; }
 .elysium-delivery { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:24px; overflow:auto; align-items:start; align-content:start; }
 .elysium-delivery > section { min-width:0; overflow-wrap:anywhere; }
 .elysium-delivery .elysium-asset-item strong { display:block; white-space:normal; }

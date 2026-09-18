@@ -49,7 +49,7 @@ test('storage configuration rejects absent, empty and relative paths', () => {
 })
 
 test('plugin config validates fields and isolates concurrent calls', async t => {
-  assert.equal(resolveConfig({ comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, join(homedir(), '.elysium'))
+  assert.equal(resolveConfig({ comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'elysium'))
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' }, { bailianFile: 'relative' },
     { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 }, { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig(config))
   const configs = ['/tmp/instance-a', '/tmp/instance-b'].map((stateRoot, index) => resolveConfig({

@@ -2,16 +2,15 @@
 import { readFileSync } from 'node:fs'
 import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import { runtimeConfig } from '../../utils/config.js'
+import { defaultElysiumHome, runtimeConfig } from '../../utils/config.js'
 
 const fail = message => { throw Object.assign(new Error(message), { status: 400 }) }
 const id = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value)
 const thirdPartyId = value => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}:[A-Za-z0-9_-]+$/.test(value)
 
 export const selectionPath = () => runtimeConfig().ELYSIUM_CONFIG_FILE
-  || join(runtimeConfig().ELYSIUM_STATE_ROOT || runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || join(homedir(), '.elysium'), 'config.json')
+  || join(runtimeConfig().ELYSIUM_STATE_ROOT || runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || defaultElysiumHome(), 'config.json')
 
 export function validateSelection(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)

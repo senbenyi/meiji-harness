@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-// 职责：将旧 DSH_HOME 中的 Elysium 数据复制到独立 ELYSIUM_HOME，不覆盖或删除现有数据。
-import { access, cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+// 职责：将旧 ~/.elysium 和 DSH_HOME 散落配置合并到 DSH_HOME/storages/elysium，冲突先备份且不删除目标独有数据。
+import { access, chmod, cp, lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { isAbsolute, join, parse, resolve } from 'node:path'
+import { dirname, isAbsolute, join, parse, relative, resolve } from 'node:path'
 
 function safeHome(value, fallback, name) {
   const path = resolve(value || fallback)
@@ -13,24 +13,43 @@ function safeHome(value, fallback, name) {
 async function exists(path) {
   try { await access(path); return true } catch (error) { if (error.code === 'ENOENT') return false; throw error }
 }
-async function copyMissing(source, target) {
-  if (!await exists(source) || await exists(target)) return false
-  await mkdir(resolve(target, '..'), { recursive: true })
-  await cp(source, target, { recursive: true, errorOnExist: true, force: false })
+const dshHome = safeHome(process.env.DSH_HOME, join(homedir(), '.dsh'), 'DSH_HOME')
+const sourceHome = safeHome(process.env.ELYSIUM_LEGACY_HOME, join(homedir(), '.elysium'), 'ELYSIUM_LEGACY_HOME')
+const targetHome = join(dshHome, 'storages', 'elysium')
+if (sourceHome === targetHome) throw new Error('旧 Elysium 目录与目标目录不能相同')
+await mkdir(targetHome, { recursive: true })
+
+let backupHome
+async function backup(target) {
+  backupHome ||= join(targetHome, '.migration-backups', new Date().toISOString().replaceAll(':', '-'))
+  const backupPath = join(backupHome, relative(targetHome, target))
+  if (!await exists(backupPath)) {
+    await mkdir(dirname(backupPath), { recursive: true })
+    await cp(target, backupPath, { recursive: true, errorOnExist: true, force: false })
+  }
+}
+async function merge(source, target) {
+  if (!await exists(source)) return false
+  const sourceStat = await lstat(source)
+  if (sourceStat.isDirectory()) {
+    if (await exists(target) && !(await lstat(target)).isDirectory()) throw new Error(`迁移路径类型冲突：${target}`)
+    await mkdir(target, { recursive: true })
+    for (const entry of await readdir(source)) await merge(join(source, entry), join(target, entry))
+    return true
+  }
+  if (await exists(target)) {
+    if ((await lstat(target)).isDirectory()) throw new Error(`迁移路径类型冲突：${target}`)
+    await backup(target)
+  } else await mkdir(dirname(target), { recursive: true })
+  await cp(source, target, { force: true })
   return true
 }
 
-const sourceHome = safeHome(process.env.DSH_HOME, join(homedir(), '.dsh'), 'DSH_HOME')
-const targetHome = safeHome(process.env.ELYSIUM_HOME, join(homedir(), '.elysium'), 'ELYSIUM_HOME')
-if (sourceHome === targetHome) throw new Error('DSH_HOME 与 ELYSIUM_HOME 不能相同')
-await mkdir(targetHome, { recursive: true })
-
-const legacyState = join(sourceHome, 'storages', 'elysium')
-if (await exists(legacyState)) for (const entry of await readdir(legacyState)) {
-  if (entry !== 'config.json' && await copyMissing(join(legacyState, entry), join(targetHome, entry))) console.log(`已复制 Elysium 数据：${entry}`)
+if (await exists(sourceHome)) for (const entry of await readdir(sourceHome)) {
+  if (await merge(join(sourceHome, entry), join(targetHome, entry))) console.log(`已合并旧 Elysium 数据：${entry}`)
 }
 
-const oldRegistryPath = join(sourceHome, 'servers.json'), registryPath = join(targetHome, 'servers.json'), configPath = join(targetHome, 'config.json')
+const oldRegistryPath = join(dshHome, 'servers.json'), registryPath = join(targetHome, 'servers.json'), configPath = join(targetHome, 'config.json')
 if (await exists(oldRegistryPath)) {
   const oldRegistry = JSON.parse(await readFile(oldRegistryPath, 'utf8'))
   if (!await exists(registryPath)) {
@@ -55,6 +74,11 @@ for (const entry of await readdir(new URL('../src/servers/providers/', import.me
   try { definition = JSON.parse(await readFile(new URL(`../src/servers/providers/${entry.name}/definition.json`, import.meta.url), 'utf8')) }
   catch (error) { if (error.code === 'ENOENT') continue; throw error }
   const name = definition.config?.file
-  if (name && await copyMissing(join(sourceHome, name), join(providers, name))) console.log(`已复制提供者配置：providers/${name}`)
+  const source = name && join(dshHome, name), target = name && join(providers, name)
+  if (name && await merge(source, target)) {
+    await chmod(target, 0o600)
+    console.log(`已合并提供者配置：providers/${name}`)
+  }
 }
-console.log(`迁移完成：${targetHome}；旧目录未修改。`)
+if (backupHome) console.log(`冲突文件已备份：${backupHome}`)
+console.log(`迁移完成：${targetHome}；旧目录未修改，目标独有数据已保留。`)

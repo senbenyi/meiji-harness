@@ -49,9 +49,9 @@ src/
 
 自有视频模型可连接时优先使用自有模型；否则在已启用渠道中优先选百炼，再选 BytePlus。两者配置独立，任务提交后固定后端，恢复不会切换供应商或再次付费提交。
 
-- 百炼：`bailianFile` / `ELYSIUM_BAILIAN_FILE`，默认 `~/.elysium/providers/bailian.json`。模板位于 `src/servers/providers/bailian/config.example.json`；填写原生 DashScope `base_url` 和 `api_key` 后设置 `enabled: true`。
+- 百炼：`bailianFile` / `ELYSIUM_BAILIAN_FILE`，默认 `$DSH_HOME/storages/elysium/providers/bailian.json`。模板位于 `src/servers/providers/bailian/config.example.json`；填写原生 DashScope `base_url` 和 `api_key` 后设置 `enabled: true`。
 - 万相 2.6：`t2va` 使用 `wan2.6-t2v`，`i2va` 使用 `wan2.6-i2v`；2–15 整数秒，720P/1080P，默认自动生成音频。文生视频比例取配置，图生视频比例随首帧；首帧支持 `job:图片素材ID`、HTTPS URL 和图片数据。不支持首尾帧、双参考图模式，不会静默丢弃素材。
-- BytePlus：仅提供 Seedance 视频渠道；默认读取 `~/.elysium/providers/byteplus.json`，模板位于 `src/servers/providers/byteplus/config.example.json`。
+- BytePlus：仅提供 Seedance 视频渠道；默认读取 `$DSH_HOME/storages/elysium/providers/byteplus.json`，模板位于 `src/servers/providers/byteplus/config.example.json`。
 - 百炼关闭开关只影响新任务选择；已提交任务保留原 ID，可恢复查询、下载。未知提交结果禁止自动重发，需先核对供应商任务；任务查询及产物链接受供应商有效期限制。
 - 工作台只显示图片、视频及三方模型选择；API 密钥不进入任务快照和模型列表。
 
@@ -59,7 +59,7 @@ src/
 
 仓库中的 `config/settings.json` 是唯一的非敏感业务默认配置，可直接修改路径布局、原子工具开关以及图片/视频模型目录；修改后重新执行 `pnpm build && pnpm package:registry`。插件实例参数可临时覆盖其中的开关与模型目录。
 
-`ELYSIUM_HOME` 默认 `~/.elysium`：`config.json` 保存新任务的图片、视频与三方模型选择，`servers.json` 只保存连接，`providers/` 保存各平台本机配置，其余目录保存项目、上传与运行数据。这里的运行时 `config.json` 与仓库 `config/settings.json` 职责不同。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
+`ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`）：`config.json` 保存新任务的图片、视频与三方模型选择，`servers.json` 只保存连接，`providers/` 保存各平台本机配置，其余目录保存项目、上传与运行数据。这里的运行时 `config.json` 与仓库 `config/settings.json` 职责不同。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
 
 旧安装可执行以下命令做一次非覆盖迁移；命令不会删除旧目录或覆盖已有目标文件：
 
