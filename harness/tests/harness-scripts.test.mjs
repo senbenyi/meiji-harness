@@ -11,7 +11,7 @@ test('install only copies Harness-owned configuration and installs the packaged 
   assert.match(install, /pnpm.*@deepseek-ai\/dsh/s)
   assert.match(install, /\['\.agent-presets', 'profiles', 'settings\.yaml'\]/)
   assert.match(install, /package:registry/)
-  assert.match(install, /run\('pnpm', \['add', join\(plugin, 'registry'\)\]/)
+  assert.match(install, /run\('pnpm', \['add', '--workspace-root', join\(plugin, 'registry'\)\]/)
   assert.doesNotMatch(install, /storage|servers\.json|providerConfig|bailian|byteplus|dsh-elysium\/src/)
 })
 

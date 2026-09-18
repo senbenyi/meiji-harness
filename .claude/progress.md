@@ -12,7 +12,7 @@
 
 ## 实施中
 
-- **main 分支 AutoDL 能力接入** — `docs/plans/计划-main分支AutoDL能力接入.md` — 阶段 1/6 完成（AutoDL 双服务契约、发现、路由与物理删除 Runpod 场景 14 项测试通过）；当前阶段 2/6：迁移 RealVisXL/SDXL 文生图与角色工作流。
+- **main 分支 AutoDL 能力接入** — `docs/plans/计划-main分支AutoDL能力接入.md` — 阶段 1–4 完成，阶段 6 的 181 项插件测试、7 项 Harness 测试、构建、Registry 打包、安装与 Harness 重启完成；阶段 5 和真实 T2I/T2V/I2V 验收待有效的 AutoDL ComfyUI 本机入口。当前 `veo-comfyui` 仍是失效 RunPod，历史 AutoDL 入口已拒绝连接；未改运行配置，避免把新任务切到不可达服务器。
 
 ## 待验收
 

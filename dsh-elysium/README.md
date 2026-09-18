@@ -1,6 +1,6 @@
 # dsh-elysium
 
-视频生成插件。提供 `t2va`、`i2va`、`fl2va`、`fl2va-loop`、`r2va` 五种模式及任务恢复。
+图片与视频生成插件。AutoDL provider 提供 RealVisXL/SDXL 文生图、参考图、角色三视图，以及 MiniMax H3 的 `t2va`、`i2va`、`fl2va`、`fl2va-loop`、`r2va` 和 main 兼容导演工作流；任务恢复固定原服务器和 prompt。
 
 ## 源码结构
 
@@ -18,7 +18,8 @@ src/
 │   ├── runtime/              # 平台加载、调度与任务归属
 │   ├── transport/            # 连接建立与复用
 │   └── providers/            # 平台实现及各自的工作流模板
-│       └── runpod/workflows/ # 原有 H3 图构建、档位配置和完整模板
+│       ├── autodl/workflows/ # AutoDL 图片、H3、导演图和同步编译器
+│       └── runpod/workflows/ # Runpod H3 图构建、档位配置和完整模板
 ├── comfyui/                  # 公共 ComfyUI 协议、提交与媒体引用
 ├── tools/                    # Harness 聊天工具入口
 ├── http/                     # HTTP 路由适配
@@ -32,7 +33,7 @@ src/
 
 外部代码只通过 `src/servers/runtime/index.js` 路由，不直接加载适配器或访问 registry/transport 内部模块。该入口提供后端选择、参数校验、执行、原任务恢复、连接检查、参考帧和工作流同步能力。
 
-各 `src/servers/providers/<id>/` 拥有自己的 `index.js`、公开声明 `definition.json`、能力说明、参数校验、API/部署实现和测试；需要文件配置的提供者另带配置模板。当前实际实现包括 Runpod、BytePlus、百炼和手工连接兼容适配器；其余预留目录不表示可用。手工连接的历史工作流委托在自身声明中显式指定，并经过同一入口调用。
+各 `src/servers/providers/<id>/` 拥有自己的 `index.js`、公开声明 `definition.json`、能力说明、参数校验、API/部署实现和测试；需要文件配置的提供者另带配置模板。当前实际实现包括 AutoDL、Runpod、BytePlus、百炼和手工连接兼容适配器。AutoDL 的模板和执行代码全部位于自身目录，不导入 Runpod；手工连接的历史工作流委托在自身声明中显式指定，并经过同一入口调用。
 
 `servers/registry` 负责通用登记与身份，`servers/transport` 负责通用连接，`comfyui/` 负责可复用协议；这些公共模块不包含厂商或模型专属分支。业务层只负责项目、任务和多镜头编排。实际凭据仍位于本机忽略文件中，不进入源码目录。
 
@@ -61,6 +62,8 @@ src/
 
 `ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`），根目录只承载五类数据：`config/` 保存唯一的 `settings.json`，`pools/` 保存导演库和素材库索引等跨项目主数据，`projects/` 保存项目拥有的业务、任务、生产回执与媒体，`runtime/` 保存跨会话索引、隧道和迁移归档，`uploads/` 保存用户导入原件。`pools/materials.json` 仅记录全局素材的身份、来源和删除状态，媒体实体仍位于所属 `projects/` 或 `uploads/`；项目内的 `materials.json` 只是引用集合。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
 
+AutoDL 保持两台服务器分工：ComfyUI 服务器同时承担图片和 H3 视频，Qwen 服务器承担 LLM。按 `src/servers/providers/autodl/server.example.json` 登记两个 server 后，将 `selection.selected.image` 与 `selection.selected.video` 指向 ComfyUI server；聊天配置继续指向 Qwen。真实主机、SSH 身份和凭据只保存在本机 `settings.json`/SSH 配置中，不写入仓库。切换只影响新任务，已有任务继续读取各自的 `input/backend.json` 快照。
+
 旧安装可执行以下命令做一次迁移；脚本将 `servers.json`、`selection.json` 和 `providers/*.json` 合并到 `settings.json`，复读校验后把旧文件移动到 `runtime/migrations/<timestamp>/settings-sources/`：
 
 ```sh
@@ -83,4 +86,5 @@ node harness/scripts/install.mjs
 pnpm workflow:sync       # 从当前选中平台的 ComfyUI 同步 UI 图，编译 API 图并更新 SHA-256
 pnpm workflow:check      # 只读核验，不修改文件
 node --test tests/runpod-h3-workflow-sync.test.js
+node scripts/workflow-sync.mjs --provider autodl --check
 ```

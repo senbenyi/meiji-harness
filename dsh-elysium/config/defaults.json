@@ -2,7 +2,12 @@
   "version": 1,
   "enableAtomicTools": false,
   "models": {
-    "image": [],
+    "image": [
+      {
+        "id": "realvisxl-sdxl",
+        "label": "RealVisXL / SDXL"
+      }
+    ],
     "video": [
       {
         "id": "minimax-h3",

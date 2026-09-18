@@ -25,9 +25,9 @@ export function userRequestedVideoRetry(exec) {
 export function createWorkflowGenerateVideoTool() {
   return {
     name: 'workflow_generate_video',
-    description: '视频创作统一入口：preview 预览创作、regular 常规创作、high-quality 高清创作。失败或断网保留原任务，禁止改提示词或档位重新生成；自动重试耗尽后等待用户要求恢复。standard 是原工作流兼容参数，不是常规创作。',
+    description: '视频创作统一入口：当前后端可同时提供标准模式与兼容的多镜头导演计划。两类参数互斥；失败或断网保留原任务，禁止改提示词或档位重新生成。',
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
-    parameters: { type: 'object', additionalProperties: false, required: ['mode', 'prompt'], properties: {
+    parameters: { type: 'object', additionalProperties: false, required: [], properties: {
       project_id: { type: 'string', description: '教学和导演模式的项目 ID；自由模式省略。' },
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
@@ -39,7 +39,20 @@ export function createWorkflowGenerateVideoTool() {
       last_frame: media('FL2VA 尾帧'),
       reference_image_1: media('R2VA 第一张参考图'),
       reference_image_2: media('R2VA 第二张参考图'),
-    } }, output,
+      duration: { type: 'integer', minimum: 1, description: 'main 导演计划总秒数；与 mode/profile 参数分支互斥。' },
+      prompts: { type: 'array', minItems: 1, items: { type: 'string' }, description: 'main 兼容单镜头或顺序分镜提示词。' },
+      image_path: media('main 兼容首帧图片'),
+      image_prompt: { type: 'string', description: 'main 兼容：先生成首帧再进行单镜头视频生成。' },
+      video_paths: { type: 'array', minItems: 1, items: media('main 兼容复用视频') },
+      seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
+      shots: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false, required: ['id', 'duration'], properties: {
+        id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,48}$' }, duration: { type: 'integer', minimum: 1 },
+        mode: { type: 'string', enum: ['independent', 'continue', 'reference', 'reuse'] }, prompt: { type: 'string' },
+        image_path: media('镜头图片'), image_role: { type: 'string', enum: ['character-sheet', 'single-view', 'scene'] },
+        video_path: media('镜头视频'), audio_path: media('镜头音频'), seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
+        in_point: { type: 'number', minimum: 0 },
+      } } },
+    }, anyOf: [{ required: ['mode', 'prompt'] }, { required: ['duration'] }] }, output,
     execute: async (args, exec) => {
       const timing = createTiming()
       exec?.signal?.throwIfAborted()

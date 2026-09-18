@@ -34,6 +34,6 @@ for (const entry of ['.agent-presets', 'profiles', 'settings.yaml']) {
 run('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], { cwd: plugin })
 run('pnpm', ['build'], { cwd: plugin })
 run('pnpm', ['package:registry'], { cwd: plugin })
-run('pnpm', ['add', join(plugin, 'registry')], { cwd: webProfile })
+run('pnpm', ['add', '--workspace-root', join(plugin, 'registry')], { cwd: webProfile })
 
 console.log('安装完成，请运行 node harness/scripts/start.mjs')
