@@ -9,7 +9,7 @@ import { bindVideoCall, findVideoCall } from '../videos/call-binding.js'
 export async function startImageJob(projectId, plan, newImage, exec) {
   if (!/^[a-f0-9]{8}$/.test(projectId || '') || typeof newImage !== 'boolean') throw new Error('图片项目参数无效')
   const session = exec?.agent?.session
-  if (!newImage && session) for (const call of session.snapshotEvents().filter(event => event.type === 'tool/call' && ['workflow_generate_image', 'workflow_resume_image'].includes(event.data.name)).reverse()) {
+  if (!newImage && session) for (const call of session.snapshotEvents().filter(event => event.type === 'tool/call' && ['call_tools_image', 'call_tools_image_recover', 'workflow_generate_image', 'workflow_resume_image'].includes(event.data.name)).reverse()) {
     const previous = await findVideoCall(session.id, call.data.callId, session)
     if (!previous) continue
     const current = await getJob(previous)

@@ -35,7 +35,7 @@ async function startVideoJobLocked(args, exec) {
     const session = exec.agent.session
     const events = session.snapshotEvents()
     const turnStart = events.findLastIndex(event => event.type === 'turn/start')
-    const calls = events.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'tool/call' && ['workflow_generate_video', 'workflow_resume_video'].includes(event.data.name))
+    const calls = events.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'tool/call' && ['call_tools_video', 'call_tools_video_recover', 'workflow_generate_video', 'workflow_resume_video'].includes(event.data.name))
     for (const { event: call, index } of calls.reverse()) {
       const previous = await findVideoCall(session.id, call.data.callId, session)
       if (!previous) continue
@@ -65,7 +65,7 @@ async function resumeVideoJobLocked(jobId, exec) {
   const events = session?.snapshotEvents() || []
   const turnStart = events.findLastIndex(event => event.type === 'turn/start')
   for (const event of events.slice(turnStart + 1)) {
-    if (event.type !== 'tool/call' || event.data.name !== 'workflow_resume_video' || event.data.callId === exec.callId) continue
+    if (event.type !== 'tool/call' || !['call_tools_video_recover', 'workflow_resume_video'].includes(event.data.name) || event.data.callId === exec.callId) continue
     if (await findVideoCall(session.id, event.data.callId, session) !== jobId) continue
     await bindVideoCall(jobId, exec)
     return { job_id: jobId, project_id: job.project_id, status: job.status }

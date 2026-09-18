@@ -21,14 +21,12 @@
   ],
   "mediaMetadataStatuses": ["published-final", "comfyui-final"],
   "tools": {
-    "workflow_generate_image": "job",
-    "workflow_resume_image": "job",
-    "workflow_generate_video": "projectJob",
-    "workflow_resume_video": "projectJob",
-    "model_character_view": "job",
-    "model_character_sheet": "job",
-    "model_job_status": "job",
-    "model_job_result": "completed"
+    "call_tools_image": "job",
+    "call_tools_image_recover": "job",
+    "call_tools_video": "projectJob",
+    "call_tools_video_recover": "projectJob",
+    "call_tools_job_status": "job",
+    "call_tools_job_result": "completed"
   },
   "schemas": {
     "job": {

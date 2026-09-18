@@ -5,7 +5,7 @@ export function videoFailedThisTurn(events) {
   const calls = new Set()
   let inputInvalidCount = 0
   for (const event of events.slice(turnStart + 1)) {
-    if (event.type === 'tool/call' && ['workflow_generate_video', 'workflow_resume_video'].includes(event.data.name)) calls.add(event.data.callId)
+    if (event.type === 'tool/call' && ['call_tools_video', 'call_tools_video_recover', 'workflow_generate_video', 'workflow_resume_video'].includes(event.data.name)) calls.add(event.data.callId)
     if (event.type !== 'tool/result') continue
     for (const block of event.data.message?.content || []) {
       if (block.type !== 'tool-result' || !calls.has(block.toolCallId)) continue
@@ -31,7 +31,7 @@ export function loadedToolNames(events = []) {
   const calls = new Set()
   const loaded = new Set()
   for (const event of events) {
-    if (event.type === 'tool/call' && event.data.name === 'elysium_load_tools') calls.add(event.data.callId)
+    if (event.type === 'tool/call' && ['call_tools_load', 'elysium_load_tools'].includes(event.data.name)) calls.add(event.data.callId)
     if (event.type !== 'tool/result') continue
     for (const block of event.data.message?.content || []) {
       if (block.type !== 'tool-result' || block.isError || !calls.has(block.toolCallId)) continue

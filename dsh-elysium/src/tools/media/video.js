@@ -20,9 +20,9 @@ export function userRequestedVideoRetry(exec) {
   return /(重试|恢复|继续|\bretry\b|\bresume\b|\bcontinue\b)/i.test(text)
 }
 
-export function createWorkflowGenerateVideoTool() {
+export function createCallToolsVideo() {
   return {
-    name: 'workflow_generate_video',
+    name: 'call_tools_video',
     description: '视频创作统一入口：当前后端可同时提供标准模式与兼容的多镜头导演计划。两类参数互斥；失败或断网保留原任务，禁止改提示词或档位重新生成。',
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
     parameters: { type: 'object', additionalProperties: false, required: [], properties: {
@@ -62,8 +62,8 @@ export function createWorkflowGenerateVideoTool() {
   }
 }
 
-export function createWorkflowResumeVideoTool() {
-  return { name: 'workflow_resume_video', description: '仅在用户要求重试时调用一次；失败后停止，等待用户，不得连续调用或改用生成工具。恢复原服务器的视频任务；复用已保存的 API 图和 prompt_id，不重新创建任务。',
+export function createCallToolsVideoRecover() {
+  return { name: 'call_tools_video_recover', description: '仅在用户要求重试时调用一次；失败后停止，等待用户，不得连续调用或改用生成工具。恢复原服务器的视频任务；复用已保存的 API 图和 prompt_id，不重新创建任务。',
     parameters: { type: 'object', additionalProperties: false, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
     execute: async (args, exec) => {

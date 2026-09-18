@@ -1,9 +1,9 @@
 // 职责：定义本地模型任务的状态与结果查询工具。
 import { completedResult, getJob } from '../../server/jobs/query.js'
 
-export function createModelJobStatusTool() {
+export function createCallToolsJobStatus() {
   return {
-    name: 'model_job_status',
+    name: 'call_tools_job_status',
     description: '查询模型任务状态。',
     parameters: {
       type: 'object',
@@ -15,9 +15,9 @@ export function createModelJobStatusTool() {
   }
 }
 
-export function createModelJobResultTool() {
+export function createCallToolsJobResult() {
   return {
-    name: 'model_job_result',
+    name: 'call_tools_job_result',
     description: '取得已成功模型任务的服务器媒体 URL 与结果元数据。',
     parameters: {
       type: 'object',

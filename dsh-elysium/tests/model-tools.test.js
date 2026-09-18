@@ -4,15 +4,13 @@ import { apply } from '../src/index.js'
 import { createRuntimeTools } from '../src/tools/index.js'
 
 test('registers workflow and job query tools', async () => {
-  const expected = ['elysium_load_tools',
-    'workflow_generate_image',
-    'workflow_resume_image',
-    'workflow_generate_video',
-    'workflow_resume_video',
-    'model_character_view',
-    'model_character_sheet',
-    'model_job_status',
-    'model_job_result',
+  const expected = ['call_tools_load',
+    'call_tools_image',
+    'call_tools_image_recover',
+    'call_tools_video',
+    'call_tools_video_recover',
+    'call_tools_job_status',
+    'call_tools_job_result',
   ]
   assert.deepEqual(createRuntimeTools({}).map(tool => tool.name), expected)
   const registered = []
@@ -26,11 +24,11 @@ test('all tools expose function-call schemas and local executors', () => {
     assert.equal(tool.parameters.type, 'object')
     assert.equal(typeof tool.execute, 'function')
   }
-  for (const name of ['workflow_generate_image', 'workflow_generate_video']) {
+  for (const name of ['call_tools_image', 'call_tools_video']) {
     const tool = tools.find(tool => tool.name === name)
     assert.ok(!tool.parameters.required.includes('project_id'))
   }
-  const video = tools.find(tool => tool.name === 'workflow_generate_video')
+  const video = tools.find(tool => tool.name === 'call_tools_video')
   assert.deepEqual(video.parameters.oneOf, [{ required: ['mode', 'prompt'] }, { required: ['duration'] }])
   assert.equal(video.parameters.anyOf, undefined)
 })

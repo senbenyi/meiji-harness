@@ -1,26 +1,25 @@
 // 职责：组装运行时与 Web 工具，并提供 Agent 投影入口；不公开具体工具工厂。
-import { createCharacterTools } from './media/character.js'
-import { createProjectTools } from './project/project.js'
-import { createDirectorTools } from './project/director.js'
-import { createModelJobResultTool, createModelJobStatusTool } from './task/model.js'
-import { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool } from './media/video.js'
-import { createWorkflowGenerateImageTool, createWorkflowResumeImageTool } from './media/image.js'
-import { isElysiumAgent, projectAssemblyForAgent, TOOL_GROUPS, withWorkcardOutput } from './agent/index.js'
+import { createCallToolsProject } from './project/project.js'
+import { createCallToolsDirectorList } from './project/director.js'
+import { createCallToolsJobResult, createCallToolsJobStatus } from './task/model.js'
+import { createCallToolsVideo, createCallToolsVideoRecover } from './media/video.js'
+import { createCallToolsImage, createCallToolsImageRecover } from './media/image.js'
+import { assembleCallToolsForAgent, isElysiumAgent, TOOL_GROUPS, withWorkcardOutput } from './agent/index.js'
 
-export { projectAssemblyForAgent }
+export { assembleCallToolsForAgent }
 // 组装与模型任务状态和结果查询相关的工具。
-const createModelTools = () => [createModelJobStatusTool(), createModelJobResultTool()]
+const createJobCallTools = () => [createCallToolsJobStatus(), createCallToolsJobResult()]
 // 组装面向用户的图片、视频与角色工作流工具。
-const createWorkflowTools = () => [createWorkflowGenerateImageTool(), createWorkflowResumeImageTool(), createWorkflowGenerateVideoTool(), createWorkflowResumeVideoTool(), ...createCharacterTools()]
+const createMediaCallTools = () => [createCallToolsImage(), createCallToolsImageRecover(), createCallToolsVideo(), createCallToolsVideoRecover()]
 // 组装依赖 Web Store 的导演与项目工具。
-export const createWebTools = ({ projects, directors }) => [...createDirectorTools(directors), ...createProjectTools(projects)]
+export const createWebCallTools = ({ projects, directors }) => [...createCallToolsDirectorList(directors), ...createCallToolsProject(projects)]
 // 组装插件启动时注册的完整运行时工具清单。
-export const createRuntimeTools = ctx => [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools()].map(withWorkcardOutput)
+export const createRuntimeCallTools = ctx => [createCallToolsLoad(ctx), ...createMediaCallTools(), ...createJobCallTools()].map(withWorkcardOutput)
 
 // 创建通用工具组加载入口，只返回当前 Agent 已有权限使用的工具名称。
-function createToolDiscoveryTool(ctx) {
+function createCallToolsLoad(ctx) {
   return {
-    name: 'elysium_load_tools', description: '按需加载通用工具组及其原始参数和说明，不执行任务。加载后在下一次请求直接调用原工具。',
+    name: 'call_tools_load', description: '按需加载通用工具组及其原始参数和说明，不执行任务。加载后在下一次请求直接调用原工具。',
     parameters: { type: 'object', additionalProperties: false, properties: {
         groups: { type: 'array', items: { type: 'string', enum: Object.keys(TOOL_GROUPS) } },
       }, required: ['groups'] },

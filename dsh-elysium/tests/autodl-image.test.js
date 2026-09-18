@@ -59,8 +59,8 @@ test('AutoDL builds text, reference, character and sheet image graphs', async ()
   assert.equal(sheet.outputNode, '7')
 }))
 
-test('character tools are registered with the workflow tools', () => {
+test('character tools are no longer exposed to Harness', () => {
   const names = createRuntimeTools({}).map(tool => tool.name)
-  assert.ok(names.includes('model_character_view'))
-  assert.ok(names.includes('model_character_sheet'))
+  assert.ok(!names.includes('model_character_view'))
+  assert.ok(!names.includes('model_character_sheet'))
 })

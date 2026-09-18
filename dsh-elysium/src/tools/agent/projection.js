@@ -14,21 +14,22 @@ export const TOOL_GROUPS = {
 const deferred = new Set(Object.values(TOOL_GROUPS).flatMap(group => group.names))
 const alwaysVisible = new Set(['exit_plan_mode'])
 const sectionTools = { 'tool:jobs': TOOL_GROUPS.shell.names, 'tool:goal': TOOL_GROUPS.planning.names }
+const projectTool = name => /^call_tools_(director|project)_/.test(name)
 const withCreationInstructions = assembly => ({ ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
   { name: 'elysium:creation-commands', text: creationInstructions }] })
 
 // 按预设、已加载工具和本轮失败状态生成本次请求实际可见的工具与提示词。
-export function projectAssemblyForAgent(assembly, agent) {
+export function assembleCallToolsForAgent(assembly, agent) {
   if (!isElysiumAgent(agent)) {
-    return { ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'elysium_load_tools') }
+    return { ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'call_tools_load') }
   }
-  if (assembly.tools.some(tool => tool.name === 'run_code')) return withCreationInstructions({ ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'elysium_load_tools') })
+  if (assembly.tools.some(tool => tool.name === 'run_code')) return withCreationInstructions({ ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'call_tools_load') })
   const events = agent.session.snapshotEvents()
   if (videoFailedThisTurn(events)) return withCreationInstructions({ ...assembly, tools: [], sections: [...assembly.sections,
     { name: 'elysium:video-failed-stop', text: '视频任务已失败。本轮立即结束并报告失败；等待用户新消息明确要求重试，不得继续调用任何工具。' }] })
   const loaded = loadedToolNames(events)
   const project = isElysiumProjectAgent(agent)
-  const tools = assembly.tools.filter(tool => (project || tool.name === 'director_list' || !/^(director|project)_/.test(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
+  const tools = assembly.tools.filter(tool => (project || tool.name === 'call_tools_director_list' || !projectTool(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))
   const catalog = Object.entries(TOOL_GROUPS).flatMap(([id, group]) => {
@@ -41,6 +42,6 @@ export function projectAssemblyForAgent(assembly, agent) {
     return !names.some(name => deferred.has(name)) || names.some(name => visible.has(name))
   })
   if (catalog.length) sections.push({ name: 'elysium:tool-discovery', text:
-    `通用能力仍可用；先用 elysium_load_tools 加载所需组，再调用原工具。无需切换预设。已加载工具在本会话保留。\n${catalog.join('\n')}` })
+    `通用能力仍可用；先用 call_tools_load 加载所需组，再调用原工具。无需切换预设。已加载工具在本会话保留。\n${catalog.join('\n')}` })
   return withCreationInstructions({ ...assembly, tools, sections })
 }

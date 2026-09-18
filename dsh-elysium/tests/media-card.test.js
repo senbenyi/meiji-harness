@@ -30,7 +30,8 @@ async function fixture(responses, block = {}) {
   require(pkg.name).apply({ effect: run => run(), inputTriggers: { registerSource: () => () => {} }, uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
-  assert.deepEqual(slots.map(s => s.spec.key), ['workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'])
+  assert.deepEqual(slots.map(s => s.spec.key), ['call_tools_video', 'call_tools_video_recover', 'call_tools_image', 'call_tools_image_recover',
+    'workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'])
   let view
   await act(async () => { view = create(React.createElement(require('elysium/media-task-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
   return { view, requests, timers, Card: require('elysium/media-task-card').MediaTaskCard, definition: require('elysium/media-task-card').definition,
@@ -169,7 +170,7 @@ test('history replay restores media for its own turn', async () => {
   try {
     const d = f.definition
     let state = d.start({}, { event: { data: { turn: 2 } } })
-    const call = { type: 'tool/call', data: { turn: 2, callId: 'media', name: 'workflow_generate_video' } }
+    const call = { type: 'tool/call', data: { turn: 2, callId: 'media', name: 'call_tools_video' } }
     state = d.update({ state }, { event: call })
     const block = { content: [{ type: 'text', text: JSON.stringify({ job_id: 'a', status: 'succeeded' }) }] }
     const result = { type: 'tool/result', surfaceOp: 'append', seq: 12, data: { turn: 2, message: { source: { callId: 'media' }, content: [block] } } }
@@ -200,7 +201,7 @@ test('resume calls merge by job identity within a turn and remain on the origina
       const d = f.definition
       let state = d.start({}, { event: { data: { turn: 1 } } })
       const apply = (state, callId, jobId, turn) => {
-        state = d.update({ state }, { event: { type: 'tool/call', data: { name: 'workflow_resume_video', callId, turn } } })
+        state = d.update({ state }, { event: { type: 'tool/call', data: { name: 'call_tools_video_recover', callId, turn } } })
         return d.update({ state }, { event: { type: 'tool/result', seq: 10 + turn, data: { turn, message: { source: { callId }, content: [{ content: [{ type: 'text', text: JSON.stringify({ job_id: jobId, status: 'failed' }) }] }] } } } })
       }
       state = apply(state, 'first', 'a', 1)

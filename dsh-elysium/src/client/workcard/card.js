@@ -4,7 +4,8 @@ window.__ModuleLoader__.load({
     const { createElement: h, useEffect, useState, useRef } = require('react')
     const { readStatus, mediaUrl } = require('elysium/media-api')
     const { fromBlock, label, specificationLabel } = require('elysium/media-task-state')
-    const tools = new Set(['workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'])
+    const tools = new Set(['call_tools_video', 'call_tools_video_recover', 'call_tools_image', 'call_tools_image_recover',
+      'workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'])
     // Rebuild from native conversation events, including history replay after refresh.
     const definition = {
       kind: 'elysium-media-results',
@@ -123,7 +124,7 @@ window.__ModuleLoader__.load({
     return { MediaTaskCard, definition, apply(ctx) {
       require('elysium/media-styles').apply()
       ctx.slots.inject('tool.call.toolview', () => {
-        for (const key of ['workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image']) ctx.slots.register({ name: 'tool.call.toolview', key }, props => fromBlock(props.block).status === 'succeeded'
+        for (const key of tools) ctx.slots.register({ name: 'tool.call.toolview', key }, props => fromBlock(props.block).status === 'succeeded'
           ? h('span', { style: { fontSize: 13, opacity: 0.65 } }, '媒体已生成 · 作品见本轮回复下方')
           : h(MediaTaskCard, props))
       })

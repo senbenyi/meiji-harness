@@ -100,7 +100,7 @@ test('cancellation during backoff stops the same job immediately', async t => fi
 }))
 
 test('changed prompt and concurrent repeat calls reuse the failed job; repeated resume in one turn cannot relaunch', async t => fixture(t, async root => {
-  const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'first' } }]
+  const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'call_tools_video', callId: 'first' } }]
   const session = { id: 'session', snapshotEvents: () => events }
   const exec = callId => ({ agent: { session }, callId })
   const id = await createJob(project, plan)
@@ -109,7 +109,7 @@ test('changed prompt and concurrent repeat calls reuse the failed job; repeated 
   const repeated = await Promise.all(['second', 'third'].map(callId => startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec(callId))))
   assert.ok(repeated.every(job => job.job_id === id))
   assert.equal(await findVideoCall(session.id, 'second'), id)
-  events.push({ type: 'tool/call', data: { name: 'workflow_resume_video', callId: 'resume' } })
+  events.push({ type: 'tool/call', data: { name: 'call_tools_video_recover', callId: 'resume' } })
   await bindVideoCall(id, exec('resume'))
   assert.equal((await resumeVideoJob(id, exec('repeat-resume'))).job_id, id)
   assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
@@ -117,7 +117,7 @@ test('changed prompt and concurrent repeat calls reuse the failed job; repeated 
 }))
 
 test('a repeated generation call in the same user turn reuses the succeeded video', async t => fixture(t, async root => {
-  const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'first' } }]
+  const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'call_tools_video', callId: 'first' } }]
   const session = { id: 'session', snapshotEvents: () => events }
   const exec = callId => ({ agent: { session }, callId })
   const id = await createJob(project, plan)

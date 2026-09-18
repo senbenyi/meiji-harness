@@ -13,6 +13,6 @@ export async function waitJob(job, signal, read = getJob, pause = setTimeout, ti
       await timing.measure('local.sleep', () => pause(2000, undefined, { signal }))
     }
   } catch (error) {
-    throw new Error(`已停止等待，后台与远端任务未取消；job_id: ${job.job_id}；用 model_job_status 查询原任务，勿重新生成。${error.message}`, { cause: error })
+    throw new Error(`已停止等待，后台与远端任务未取消；job_id: ${job.job_id}；用 call_tools_job_status 查询原任务，勿重新生成。${error.message}`, { cause: error })
   }
 }

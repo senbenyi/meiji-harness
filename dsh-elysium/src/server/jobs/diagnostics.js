@@ -13,7 +13,7 @@ export async function codeVersion() {
     '../../config.js', '../../tools/index.js', '../../tools/agent/workcard.js', '../../../config/workcard.json', '../../tools/media/video.js', '../../models/protocols/comfyui/client.js', '../../models/protocols/comfyui/submission.js',
     '../../models/protocols/comfyui/plan.js', '../../models/protocols/comfyui/reference-frame.js', '../../models/protocols/comfyui/execution.js', '../../models/protocols/comfyui/media-reference.js',
     ...['artifacts', 'call-binding', 'execution', 'launcher', 'plan', 'service', 'worker-owner', 'worker'].map(name => `../workflows/videos/${name}.js`),
-    ...['characters', 'service'].map(name => `../workflows/images/${name}.js`)]
+    '../workflows/images/service.js']
   const provider = runtimeConfig().ELYSIUM_BACKEND?.provider
   const adapterSources = provider ? await Promise.all((await providerSourceFiles(provider)).map(url => readFile(url))) : []
   const sources = await Promise.all([...names.map(name => new URL(name, import.meta.url)), ...await runtimeSourceFiles()].map(url => readFile(url)))

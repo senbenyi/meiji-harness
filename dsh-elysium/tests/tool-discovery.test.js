@@ -3,16 +3,16 @@ import { test } from 'node:test'
 import { createRuntimeTools } from '../src/tools/index.js'
 import { loadedToolNames, projectAssemblyForAgent, TOOL_GROUPS } from '../src/tools/agent/index.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
-const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'director_list', 'project_create', 'project_read', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
+const assembly = () => ({ tools: ['call_tools_load', 'call_tools_video', 'call_tools_director_list', 'call_tools_project_create', 'call_tools_project_read', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
 const agent = (events, agentPreset = 'elysium-teaching') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
-const events = names => [{ type: 'tool/call', data: { name: 'elysium_load_tools', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
-const discoveryTool = schemas => createRuntimeTools({ tools: { schemas } }).find(tool => tool.name === 'elysium_load_tools')
+const events = names => [{ type: 'tool/call', data: { name: 'call_tools_load', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
+const discoveryTool = schemas => createRuntimeTools({ tools: { schemas } }).find(tool => tool.name === 'call_tools_load')
 test('defers schemas and guidance without mutating source, policies or contexts', () => {
   const input = assembly(), before = JSON.stringify(input), result = projectAssemblyForAgent(input, agent([]))
   assert.ok(!result.tools.some(t => t.name === 'bash'))
   assert.ok(result.tools.some(t => t.name === 'exit_plan_mode'))
   assert.ok(!result.tools.some(t => t.name === 'todo_write'))
-  assert.ok(result.tools.some(t => t.name === 'workflow_generate_video'))
+  assert.ok(result.tools.some(t => t.name === 'call_tools_video'))
   assert.ok(result.tools.some(t => t.name === 'report'))
   assert.ok(result.sections.some(s => s.name === 'plan:policy'))
   assert.ok(!result.sections.some(s => s.name === 'tool:bash'))
@@ -41,7 +41,7 @@ test('failed loads and user messages grant nothing; removed tools stay absent', 
 })
 test('preserves standard and Code Mode protocols', () => {
   const input = assembly(), standard = projectAssemblyForAgent(input, { session: { header: { agentPreset: 'standard' } } })
-  assert.deepEqual(standard.tools, input.tools.filter(t => t.name !== 'elysium_load_tools'))
+  assert.deepEqual(standard.tools, input.tools.filter(t => t.name !== 'call_tools_load'))
   assert.equal(standard.sections, input.sections)
   const code = { ...input, tools: [tool('run_code')] }
   const projectedCode = projectAssemblyForAgent(code, agent([]))
@@ -51,43 +51,43 @@ test('preserves standard and Code Mode protocols', () => {
 test('recognizes every shipped Elysium mode by its real preset ID', () => {
   for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
     const result = projectAssemblyForAgent(assembly(), agent([], id))
-    assert.ok(result.tools.some(tool => tool.name === 'elysium_load_tools'))
+    assert.ok(result.tools.some(tool => tool.name === 'call_tools_load'))
     assert.ok(!result.tools.some(tool => tool.name === 'bash'))
   }
 })
 test('free and teaching modes expose read-only director selection, hide projects and keep direct generation', () => {
   for (const preset of ['elysium-free', 'elysium-teaching']) {
     const result = projectAssemblyForAgent(assembly(), agent([], preset))
-    assert.ok(result.tools.some(tool => tool.name === 'workflow_generate_video'))
-    assert.ok(result.tools.some(tool => tool.name === 'director_list'))
-    assert.ok(!result.tools.some(tool => tool.name !== 'director_list' && /^(director|project)_/.test(tool.name)))
+    assert.ok(result.tools.some(tool => tool.name === 'call_tools_video'))
+    assert.ok(result.tools.some(tool => tool.name === 'call_tools_director_list'))
+    assert.ok(!result.tools.some(tool => tool.name !== 'call_tools_director_list' && /^call_tools_(director|project)_/.test(tool.name)))
   }
-  assert.ok(projectAssemblyForAgent(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'project_create'))
+  assert.ok(projectAssemblyForAgent(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'call_tools_project_create'))
 })
 test('a failed video result removes every remaining tool for the current turn but input validation can retry once', () => {
   const failed = [{ type: 'turn/start', data: { turn: 1 } },
-    { type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'video' } },
+    { type: 'tool/call', data: { name: 'call_tools_video', callId: 'video' } },
     { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'video', content: [{ type: 'text', text: JSON.stringify({ job_id: 'a'.repeat(32), status: 'failed' }) }] }] } } }]
   const stopped = projectAssemblyForAgent(assembly(), agent(failed, 'elysium-free'))
   assert.deepEqual(stopped.tools, [])
   assert.match(stopped.sections.find(section => section.name === 'elysium:video-failed-stop').text, /本轮立即结束/)
-  assert.ok(projectAssemblyForAgent(assembly(), agent([...failed, { type: 'turn/start', data: { turn: 2 } }], 'elysium-free')).tools.some(tool => tool.name === 'workflow_generate_video'))
+  assert.ok(projectAssemblyForAgent(assembly(), agent([...failed, { type: 'turn/start', data: { turn: 2 } }], 'elysium-free')).tools.some(tool => tool.name === 'call_tools_video'))
   const rejected = structuredClone(failed); rejected[2].data.message.content[0].isError = true
   assert.deepEqual(projectAssemblyForAgent(assembly(), agent(rejected)).tools, [])
   const inputInvalid = structuredClone(rejected)
   inputInvalid[2].data.message.content[0].content = [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] duration 参数无效' }]
-  assert.ok(projectAssemblyForAgent(assembly(), agent(inputInvalid)).tools.some(tool => tool.name === 'workflow_generate_video'))
+  assert.ok(projectAssemblyForAgent(assembly(), agent(inputInvalid)).tools.some(tool => tool.name === 'call_tools_video'))
   const secondInvalid = structuredClone(inputInvalid)
-  secondInvalid.push({ type: 'tool/call', data: { name: 'workflow_generate_video', callId: 'video-2' } },
+  secondInvalid.push({ type: 'tool/call', data: { name: 'call_tools_video', callId: 'video-2' } },
     { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'video-2', isError: true,
       content: [{ type: 'text', text: 'Error: [MODEL_INPUT_INVALID] shots 参数无效' }] }] } } })
   assert.deepEqual(projectAssemblyForAgent(assembly(), agent(secondInvalid)).tools, [])
 })
 test('uses the current preset selection instead of the immutable creation header', () => {
   const selected = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-free' } }], 'elysium-standard')
-  assert.ok(projectAssemblyForAgent(assembly(), selected).tools.some(tool => tool.name === 'elysium_load_tools'))
+  assert.ok(projectAssemblyForAgent(assembly(), selected).tools.some(tool => tool.name === 'call_tools_load'))
   const left = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-standard' } }], 'elysium-teaching')
-  assert.ok(!projectAssemblyForAgent(assembly(), left).tools.some(tool => tool.name === 'elysium_load_tools'))
+  assert.ok(!projectAssemblyForAgent(assembly(), left).tools.some(tool => tool.name === 'call_tools_load'))
 })
 test('rejects invalid or unavailable loads', async () => {
   const loader = discoveryTool(() => [])
