@@ -1,6 +1,6 @@
 // 职责：将图片生成、参考图编辑与原任务恢复适配为 Harness 工具。
 import { resumeImageJob, startImageJob } from '../../server/workflows/images/service.js'
-import { renderToolDebug } from '../output.js'
+import { renderToolDebug } from '../core/output.js'
 import { generationProjectId } from '../project/context.js'
 const output = { schema: { type: 'object', additionalProperties: true, properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
 export function createWorkflowGenerateImageTool() {

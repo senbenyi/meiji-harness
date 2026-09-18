@@ -1,7 +1,7 @@
 // 职责：把角色视图与三视图工作流适配为 Harness 工具。
 import { characterSheet, characterView } from '../../server/workflows/images/characters.js'
 import { generationProjectId } from '../project/context.js'
-import { renderToolDebug } from '../output.js'
+import { renderToolDebug } from '../core/output.js'
 
 const output = { schema: { type: 'object', additionalProperties: true, properties: { job_id: { type: 'string' }, status: { type: 'string' } }, required: ['job_id', 'status'] }, render: renderToolDebug }
 

@@ -1,6 +1,7 @@
 // 职责：定义由 Harness 注册的通用工具组加载入口，不负责会话工具投影。
-import { isElysiumAgent, TOOL_GROUPS } from './agent.js'
+import { isElysiumAgent, TOOL_GROUPS } from '../agent.js'
 
+// 创建工具发现定义：校验请求组，并仅返回当前 Agent 本来就有权限使用的工具名称。
 export function createToolDiscoveryTool(ctx) {
   return {
     name: 'elysium_load_tools', description: '按需加载通用工具组及其原始参数和说明，不执行任务。加载后在下一次请求直接调用原工具。',

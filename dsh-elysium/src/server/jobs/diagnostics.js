@@ -10,7 +10,7 @@ export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'))
   // 显式列出所有参与视频执行的模块，避免指纹漏掉恢复语义变更。
   const names = ['diagnostics.js', 'errors.js', 'create.js', '../../database/json.js', 'query.js', 'wait.js', 'timing.js',
-    '../../config.js', '../../tools/output.js', '../../tools/media/video.js', '../../models/protocols/comfyui/client.js', '../../models/protocols/comfyui/submission.js',
+    '../../config.js', '../../tools/core/output.js', '../../tools/media/video.js', '../../models/protocols/comfyui/client.js', '../../models/protocols/comfyui/submission.js',
     '../../models/protocols/comfyui/plan.js', '../../models/protocols/comfyui/reference-frame.js', '../../models/protocols/comfyui/execution.js', '../../models/protocols/comfyui/media-reference.js',
     ...['artifacts', 'call-binding', 'execution', 'launcher', 'plan', 'service', 'worker-owner', 'worker'].map(name => `../workflows/videos/${name}.js`),
     ...['characters', 'service'].map(name => `../workflows/images/${name}.js`)]

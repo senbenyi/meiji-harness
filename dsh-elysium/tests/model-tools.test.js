@@ -3,6 +3,7 @@ import test from 'node:test'
 import { createModelTools, createComfyuiTools, createWorkflowTools, apply } from '../src/index.js'
 
 test('registers workflow, job query and ComfyUI tools', async () => {
+  const atomicRuntime = { ELYSIUM_ENABLE_ATOMIC_TOOLS: '1' }
   const expected = [
     'model_job_status',
     'model_job_result',
@@ -12,7 +13,8 @@ test('registers workflow, job query and ComfyUI tools', async () => {
     expected,
   )
   const workflows = createWorkflowTools().map(tool => tool.name)
-  const all = ['elysium_load_tools', ...workflows, ...expected, ...createComfyuiTools().map(tool => tool.name)]
+  const all = ['elysium_load_tools', ...workflows, ...expected, ...createComfyuiTools(atomicRuntime).map(tool => tool.name)]
+  assert.deepEqual(createComfyuiTools({ ELYSIUM_ENABLE_ATOMIC_TOOLS: '0' }), [])
   const registered = []
   const previous = process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS
   try {
@@ -30,7 +32,7 @@ test('registers workflow, job query and ComfyUI tools', async () => {
 })
 
 test('all tools expose function-call schemas and local executors', () => {
-  for (const tool of [...createWorkflowTools(), ...createModelTools(), ...createComfyuiTools()]) {
+  for (const tool of [...createWorkflowTools(), ...createModelTools(), ...createComfyuiTools({ ELYSIUM_ENABLE_ATOMIC_TOOLS: '1' })]) {
     assert.equal(tool.parameters.type, 'object')
     assert.equal(typeof tool.execute, 'function')
   }

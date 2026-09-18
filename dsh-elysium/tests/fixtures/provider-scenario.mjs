@@ -98,9 +98,9 @@ try {
   const record = (id, target) => ({ id, label: id, provider, connection_source: 'manual', instance_id: id, deployment_id: 'one', services: {
     comfyui: { transport: 'http', base_url: target.url, workload: 'minimax-h3' },
     llm: { transport: 'http', base_url: `${target.url}/v1`, model: 'qwen3.8-27b-elysium' } } })
-  await request('server/register', { revision: 0, server: record('a', a) }, 201)
-  await request('server/register', { revision: 1, server: record('b', b) }, 201)
-  const select = async id => request('server/switch', { id, service: 'comfyui', revision: readRegistry().revision, selection_revision: readSelection().revision })
+  await request('settings/register', { revision: 0, server: record('a', a) }, 201)
+  await request('settings/register', { revision: 1, server: record('b', b) }, 201)
+  const select = async id => request('settings/switch', { id, service: 'comfyui', revision: readRegistry().revision, selection_revision: readSelection().revision })
   await select('a')
   assert.equal(a.posts, 0, 'health checks must not generate')
   assert.equal((await backendLlmSettings(backendFromServer(readRegistry().servers.find(server => server.id === 'a'), 'llm'))).base_url, `${a.url}/v1`)
@@ -137,7 +137,7 @@ try {
     await assert.rejects(resumeVideoJob(oldId), { code: 'PROVIDER_UNAVAILABLE' })
     assert.equal((await getJob(oldId)).error_code, 'PROVIDER_UNAVAILABLE')
     const registry = readRegistry(); await writeRegistry({ ...registry, servers: [...registry.servers, { ...record('old', { url: 'http://retired.invalid' }), provider: removed }] }, registry.revision)
-    assert.equal((await request('server/list')).servers.find(server => server.id === 'old').provider_available, false)
+    assert.equal((await request('settings/list')).servers.find(server => server.id === 'old').provider_available, false)
     await request(`project/get?id=${projectId}`)
     const trace = (await readFile(process.env.PROVIDER_TRACE, 'utf8')).trim().split('\n').map(JSON.parse)
     for (const name of ['connect', 'createClient', 'buildGraph']) assert.ok(trace.some(entry => entry.name === name && entry.pid !== process.pid), `${name} dispatched inside real worker`)

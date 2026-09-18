@@ -1,4 +1,5 @@
-// 职责：定义工具返回值的精简渲染与完成任务 schema。
+// 职责：定义跨工具复用的精简输出渲染和完成结果 schema；不查询、修改或持久化任务。
+// 将内部任务结果裁剪为模型需要的稳定字段；detail=true 时保留完整调试结果。
 export const renderToolDebug = (args, value) => {
   if (args.detail === true) return [{ type: 'text', text: JSON.stringify(value) }]
   if (value.status === 'succeeded' && value.result) value = { ...value, ...value.result }
@@ -21,6 +22,7 @@ export const renderToolDebug = (args, value) => {
   return [{ type: 'text', text: JSON.stringify(output) }]
 }
 
+// 约束已完成媒体任务的公共输出结构，供工具定义复用。
 export const COMPLETED_RESULT_SCHEMA = {
   type: 'object',
   additionalProperties: false,

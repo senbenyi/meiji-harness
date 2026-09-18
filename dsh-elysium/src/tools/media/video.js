@@ -1,7 +1,7 @@
 // 职责：把视频生成与恢复服务适配为 Harness 工具。
 import { startVideoJob, resumeVideoJob } from '../../server/workflows/videos/service.js'
 import { VIDEO_MODES, VIDEO_PROFILES } from '../../server/workflows/videos/plan.js'
-import { renderToolDebug } from '../output.js'
+import { renderToolDebug } from '../core/output.js'
 import { waitJob } from '../../server/jobs/wait.js'
 import { createTiming } from '../../server/jobs/timing.js'
 import { generationProjectId } from '../project/context.js'

@@ -1,6 +1,6 @@
 // 职责：定义本地模型任务的状态与结果查询工具。
 import { completedResult, getJob } from '../../server/jobs/query.js'
-import { COMPLETED_RESULT_SCHEMA, renderToolDebug } from '../output.js'
+import { COMPLETED_RESULT_SCHEMA, renderToolDebug } from '../core/output.js'
 
 export function createModelJobStatusTool() {
   return {

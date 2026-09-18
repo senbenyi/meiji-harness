@@ -28,7 +28,6 @@ export function readDefaults(path = defaultsFile) {
 // 仓库托管的非敏感业务默认值；运行状态和凭据不从此文件读取。
 export const defaultSettings = JSON.parse(readFileSync(defaultsFile, 'utf8'))
 export const defaultModels = defaultSettings.models
-
 export const runtimeSettings = () => readRuntimeSettings(requiredConfig('ELYSIUM_SETTINGS_FILE'))
 
 // 限定插件入口可接受的配置字段。
