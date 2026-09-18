@@ -28,7 +28,7 @@ dsh-elysium/
 │   ├── prompts/        # 系统提示词片段
 │   └── client/         # React.createElement，无 JSX
 │       ├── commands/   # 创作命令
-│       ├── media/      # 会话媒体状态与卡片
+│       ├── task-card/  # 会话任务状态与结果卡片
 │       └── workbench/  # 素材、项目、锚点、分镜与交付工作台
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
@@ -89,6 +89,8 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 **规则**：
 - `harness/.dsh/` 逐项覆盖到本机 `~/.dsh/`，不删除本机其他文件。
 - Elysium 的项目、任务、上传、导演、服务器、模型选择和平台配置统一位于 `$DSH_HOME/storages/elysium`；未显式覆盖的运行路径不得读写 `~/.elysium`。
+- Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`，项目拥有的任务、回执和媒体随项目归 `projects/`，跨会话索引和隧道归 `runtime/`，导入原件归 `uploads/`。
+- 一级目录路径统一由 `src/utils/storage-paths.js` 构造；业务模块不得自行拼接一级目录。`runtime/` 中的调用和会话索引参与任务恢复，不得视为可随意清空的缓存。
 - 部署脚本不检查模型服务、SSH、端口或运行状态。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 

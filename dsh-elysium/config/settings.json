@@ -2,9 +2,9 @@
   "version": 1,
   "paths": {
     "state": ".",
-    "servers": "servers.json",
-    "selection": "config.json",
-    "providers": "providers"
+    "servers": "config/servers.json",
+    "selection": "config/selection.json",
+    "providers": "config/providers"
   },
   "enableAtomicTools": false,
   "models": {

@@ -2,9 +2,9 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { createServer } from 'node:net'
-import { registryPath } from '../registry/store.js'
+import { runtimeRoot } from '../../utils/storage-paths.js'
 export function sshIdentity(alias, exec = execFileSync) {
   const config = exec('ssh', ['-G', '--', alias], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] })
   // 连接身份包括 SSH 解析后的主机、用户、跳板和密钥路径，绝不读取密钥内容。
@@ -20,9 +20,10 @@ export async function portAvailable(port) {
   })
   await new Promise((resolve, reject) => probe.close(error => error ? reject(error) : resolve()))
 }
-export async function ensureConnection(backend, { identity = sshIdentity, run = spawnSync, available = portAvailable, directory = join(dirname(registryPath()), 'runtime', 'tunnels') } = {}) {
+export async function ensureConnection(backend, { identity = sshIdentity, run = spawnSync, available = portAvailable, directory } = {}) {
   const service = backend.connection
   if (service?.transport !== 'ssh') return
+  directory ||= join(runtimeRoot(), 'tunnels')
   if (!service.ssh_identity || service.ssh_identity !== identity(service.ssh_alias)) throw new Error('SSH 别名解析身份发生变化，请以新服务器 ID 重新登记')
   await mkdir(directory, { recursive: true, mode: 0o700 })
   const key = createHash('sha256').update(JSON.stringify([backend.server_id, backend.instance_id, backend.deployment_id, service])).digest('hex').slice(0, 20)

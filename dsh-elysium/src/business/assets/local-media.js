@@ -1,5 +1,5 @@
 // 职责：校验任务的本地媒体登记，并仅打开存储根内的受支持文件。
-import { requiredConfig } from '../../utils/config.js'
+import { uploadsRoot } from '../../utils/storage-paths.js'
 import { constants } from 'node:fs'
 import { open, realpath, readFile } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'
@@ -20,7 +20,7 @@ export function localMediaValue(result) {
 export async function openLocalMedia(job) {
   const uploaded = job.backend === 'upload' && validJobId(job.job_id)
   if (!uploaded && !validProjectId(job.project_id)) throw failure(403, '本地媒体缺少项目归属')
-  const value = localMediaValue(job.result), root = await realpath(uploaded ? join(requiredConfig('ELYSIUM_STATE_ROOT'), 'uploads', job.job_id) : projectRoot(job.project_id))
+  const value = localMediaValue(job.result), root = await realpath(uploaded ? join(uploadsRoot(), job.job_id) : projectRoot(job.project_id))
   try {
     const manifestPath = await realpath(join(root, 'media', 'manifest.json'))
     if (!inside(root, manifestPath)) throw failure(403, '本地媒体登记越界')

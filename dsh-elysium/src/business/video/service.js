@@ -10,7 +10,7 @@ import { createJob } from '../jobs/create.js'
 import { launch } from './launcher.js'
 import { withLaunchLock } from '../jobs/lock.js'
 import { validateVideoPlan } from './plan.js'
-import { requiredConfig } from '../../utils/config.js'
+import { runtimeRoot } from '../../utils/storage-paths.js'
 import { validProjectId } from '../jobs/paths.js'
 
 export { validateVideoPlan, launch }
@@ -18,7 +18,7 @@ const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INP
 
 async function withVideoSessionLock(exec, callback) {
   if (!exec?.agent?.session) return callback()
-  const directory = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'runtime', 'sessions', createHash('sha256').update(exec.agent.session.id).digest('hex'))
+  const directory = join(runtimeRoot(), 'sessions', createHash('sha256').update(exec.agent.session.id).digest('hex'))
   await mkdir(directory, { recursive: true })
   return withLaunchLock(directory, callback, true)
 }

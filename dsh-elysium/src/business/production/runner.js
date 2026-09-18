@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises'
 import { validateBackend, extractBackendReference, createBackendClient, resolveGenerationBackend, readBackend, sameBackend, withBackend } from '../../servers/runtime/index.js'
 import { requiredConfig, runtimeConfig } from '../../utils/config.js'
 import { createJob } from '../jobs/create.js'
+import { projectJobRoot } from '../jobs/paths.js'
 import { readJson, saveJson } from '../jobs/store.js'
 import { launch } from '../video/launcher.js'
 import { withLaunchLock } from '../jobs/lock.js'
@@ -18,7 +19,7 @@ export async function executeVideoShot(projectId, request, receiptPath, signal) 
   const saved = await readJson(receiptPath)
   if (saved && JSON.stringify(saved.request) !== JSON.stringify(request)) throw new Error('回执属于不同镜头；必须使用原请求')
   const pinned = runtimeConfig().ELYSIUM_BACKEND
-  const backend = saved ? await readBackend(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', saved.job_id)) : pinned || await resolveGenerationBackend('video')
+  const backend = saved ? await readBackend(projectJobRoot(projectId, saved.job_id)) : pinned || await resolveGenerationBackend('video')
   if (saved?.backend && !sameBackend(saved.backend, backend)) throw new Error('镜头回执服务器与任务快照不一致')
   if (pinned && !sameBackend(pinned, backend)) throw new Error('镜头回执与本轮服务器不一致')
   return withBackend(backend, async () => {

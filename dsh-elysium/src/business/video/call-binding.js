@@ -1,20 +1,19 @@
 // 职责：在 Harness 工具调用与本地视频任务之间建立可恢复索引。
-import { requiredConfig } from '../../utils/config.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { runtimeRoot } from '../../utils/storage-paths.js'
 
-const root = () => requiredConfig('ELYSIUM_STATE_ROOT')
 const valid = value => typeof value === 'string' && value.length > 0 && value.length <= 256
 const file = (sessionId, callId) => {
   if (!valid(sessionId) || !valid(callId)) throw new Error('Invalid call identity')
-  return join(root(), 'runtime', 'calls', createHash('sha256').update(JSON.stringify([sessionId, callId])).digest('hex') + '.json')
+  return join(runtimeRoot(), 'calls', createHash('sha256').update(JSON.stringify([sessionId, callId])).digest('hex') + '.json')
 }
 export async function bindVideoCall(jobId, exec) {
   if (!exec?.agent || !exec.callId) return
   const sessionId = exec.agent.session.id
   const target = file(sessionId, exec.callId)
-  await mkdir(join(root(), 'runtime', 'calls'), { recursive: true })
+  await mkdir(join(runtimeRoot(), 'calls'), { recursive: true })
   const temporary = `${target}.${randomUUID()}.tmp`
   await writeFile(temporary, JSON.stringify({ session_id: sessionId, call_id: exec.callId, job_id: jobId }), { mode: 0o600 })
   await rename(temporary, target)

@@ -7,7 +7,7 @@ import { findJobRoot } from '../jobs/paths.js'
 import { getJob } from '../jobs/query.js'
 import { readJson, saveJson } from '../jobs/store.js'
 import { invalidRequest } from '../../http/shared.js'
-import { requiredConfig } from '../../utils/config.js'
+import { projectsRoot, uploadsRoot } from '../../utils/storage-paths.js'
 
 export function jobSummary(job) {
   const image = job.result?.media_kind === 'image' || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)
@@ -55,7 +55,7 @@ export async function uploadAsset(req, filename) {
   const kinds = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image', '.mp4': 'video' }
   const kind = kinds[extension]
   if (!kind) throw invalidRequest('请选择 PNG、JPEG、WebP 图片或 MP4 视频')
-  const id = randomBytes(16).toString('hex'), root = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'uploads')
+  const id = randomBytes(16).toString('hex'), root = uploadsRoot()
   const temporary = join(root, `${id}.tmp`), path = `media/${id}${extension}`
   let size = 0, header = Buffer.alloc(0)
   await mkdir(join(temporary, 'media'), { recursive: true })
@@ -83,7 +83,7 @@ export async function uploadAsset(req, filename) {
 }
 
 export async function listAssets(offset, limit, filters = {}) {
-  const root = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects')
+  const root = projectsRoot()
   const projects = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
   const items = []
   const projectMaterials = new Set()
@@ -94,7 +94,7 @@ export async function listAssets(offset, limit, filters = {}) {
     for (const id of materials || metadata?.materials || []) projectMaterials.add(id)
   }
   const sources = projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name)).map(project => ({ directory: join(root, project.name, 'jobs'), projectId: project.name }))
-  sources.push({ directory: join(requiredConfig('ELYSIUM_STATE_ROOT'), 'uploads') })
+  sources.push({ directory: uploadsRoot() })
   for (const source of sources) {
     const jobs = await readdir(source.directory, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
     for (const entry of jobs) {

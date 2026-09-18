@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createServer } from 'node:http'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/utils/config.js'
@@ -28,7 +28,7 @@ test('director catalog seeds JSON, validates entries and protects directors used
     let response = await request(DIRECTOR_ROUTE, 'list')
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), DEFAULT_DIRECTORS)
-    assert.deepEqual(JSON.parse(await readFile(join(root, 'directors.json'), 'utf8')), DEFAULT_DIRECTORS)
+    assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'directors.json'), 'utf8')), DEFAULT_DIRECTORS)
 
     const custom = { name: '毕赣', style: '梦境、长镜头、诗意现实', works: ['路边野餐', '地球最后的夜晚', '破碎太阳之心', '狂野时代', '金刚经'] }
     response = await request(DIRECTOR_ROUTE, 'create', custom)
@@ -41,7 +41,7 @@ test('director catalog seeds JSON, validates entries and protects directors used
     const order = ['无作品导演', ...DEFAULT_DIRECTORS.map(item => item.name), '毕赣', '新导演']
     response = await request(DIRECTOR_ROUTE, 'reorder', { names: order })
     assert.equal(response.status, 200); assert.deepEqual((await response.json()).map(item => item.name), order)
-    assert.deepEqual(JSON.parse(await readFile(join(root, 'directors.json'), 'utf8')).map(item => item.name), order)
+    assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'directors.json'), 'utf8')).map(item => item.name), order)
     assert.equal((await request(DIRECTOR_ROUTE, 'reorder', { names: order.slice(1) })).status, 400)
 
     assert.equal((await request(PROJECT_ROUTE, 'create', { title: '项目', director: '未知导演', profile: 'preview' })).status, 400)
@@ -52,13 +52,16 @@ test('director catalog seeds JSON, validates entries and protects directors used
     const updated = await request(DIRECTOR_ROUTE, 'list').then(value => value.json())
     assert.deepEqual(updated.find(item => item.name === custom.name), edited)
     assert.deepEqual(updated.map(item => item.name), order)
-    assert.deepEqual(JSON.parse(await readFile(join(root, 'directors.json'), 'utf8')), updated)
+    assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'directors.json'), 'utf8')), updated)
     assert.equal((await request(DIRECTOR_ROUTE, 'update', { ...edited, style: '' })).status, 400)
     assert.equal((await request(DIRECTOR_ROUTE, 'update', { ...edited, name: '不存在' })).status, 400)
     response = await request(DIRECTOR_ROUTE, 'delete', { name: custom.name })
     assert.equal(response.status, 400); assert.equal((await response.json()).error, '该导演已被项目使用，不能删除')
     response = await request(DIRECTOR_ROUTE, 'delete', { name: '贾樟柯' })
     assert.equal(response.status, 200)
-    assert.equal((await request(DIRECTOR_ROUTE, 'list').then(value => value.json())).some(item => item.name === '贾樟柯'), false)
+    const final = await request(DIRECTOR_ROUTE, 'list').then(value => value.json())
+    assert.equal(final.some(item => item.name === '贾樟柯'), false)
+    assert.equal((await stat(join(root, 'pools', 'directors.json'))).mode & 0o777, 0o600)
+    assert.deepEqual(await withConfig({ ELYSIUM_STATE_ROOT: root }, () => createDirectorStore().list()), final)
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

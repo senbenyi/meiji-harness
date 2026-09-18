@@ -2,8 +2,9 @@
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { readJson, saveJson } from '../jobs/store.js'
+import { projectsRoot } from '../../utils/storage-paths.js'
 
-export const productionDirectory = (stateRoot, projectId) => join(stateRoot, 'projects', projectId, 'production')
+export const productionDirectory = (stateRoot, projectId) => join(projectsRoot(stateRoot), projectId, 'production')
 export const shotPaths = (directory, shotId) => ({
   receipt: join(directory, 'shots', `${shotId}.receipt.json`),
   attempts: join(directory, 'shots', `${shotId}.attempts.json`),

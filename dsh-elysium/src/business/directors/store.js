@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { requiredConfig } from '../../utils/config.js'
+import { poolsRoot } from '../../utils/storage-paths.js'
 import { invalidRequest } from '../../http/shared.js'
 
 export const DEFAULT_DIRECTORS = [
@@ -21,7 +21,7 @@ function directorValue(value) {
 }
 
 export function createDirectorStore() {
-  const root = () => requiredConfig('ELYSIUM_STATE_ROOT')
+  const root = poolsRoot
   const path = () => join(root(), 'directors.json')
   let operations = Promise.resolve()
 

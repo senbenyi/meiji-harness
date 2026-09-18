@@ -10,7 +10,7 @@ const id = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63
 const thirdPartyId = value => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}:[A-Za-z0-9_-]+$/.test(value)
 
 export const selectionPath = () => runtimeConfig().ELYSIUM_CONFIG_FILE
-  || join(runtimeConfig().ELYSIUM_STATE_ROOT || runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || defaultElysiumHome(), 'config.json')
+  || join(runtimeConfig().ELYSIUM_STATE_ROOT || runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || defaultElysiumHome(), 'config', 'selection.json')
 
 export function validateSelection(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)

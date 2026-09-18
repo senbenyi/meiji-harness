@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { requiredConfig } from '../../utils/config.js'
+import { projectsRoot } from '../../utils/storage-paths.js'
 import { getJob } from '../jobs/query.js'
 import { FREE_PROJECT_ID } from '../jobs/paths.js'
 import { availableJobSummary } from '../assets/catalog.js'
@@ -25,7 +25,7 @@ export function projectSummary(value) {
 }
 
 export function createProjectStore({ readJob = getJob, newId = () => randomBytes(4).toString('hex'), directorExists = async () => true } = {}) {
-  const root = () => join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects')
+  const root = projectsRoot
   const names = { materials: 'materials.json', anchors: 'anchors.json', acts: 'storyboard.json', deliverables: 'deliverables.json' }
   const metadataOf = ({ materials, anchors, acts, deliverables, ...metadata }) => metadata
   const materialIdsOf = value => [...new Set([...(value.materials || []), value.cover_job_id,

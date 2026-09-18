@@ -51,6 +51,7 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
           h('div', { className: 'elysium-director-copy' }, h('h2', null, item.name), h('p', null, item.style), h('ol', { 'aria-label': `${item.name} TOP5作品` }, item.works.map((work, index) => h('li', { key: `${index}-${work}` }, work)))),
           h('div', { className: 'elysium-director-actions' }, h(IconButton, { name: 'edit', label: `编辑导演 ${item.name}`, disabled: busy, onClick: () => edit(item) }),
             h(IconButton, { name: 'minus', label: `删除导演 ${item.name}`, disabled: busy, onClick: () => { if (window.confirm(`删除导演“${item.name}”？`)) run(async () => { await deleteDirector(item.name); setItems(value => value.filter(director => director.name !== item.name)) }) } })))))
+      )
   }
   Object.assign(exports, { DirectorList, worksValue })
   return exports
