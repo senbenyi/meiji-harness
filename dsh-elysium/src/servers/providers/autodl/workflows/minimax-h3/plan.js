@@ -9,6 +9,12 @@ export function isDirectorPlan(args) {
   return args?.duration !== undefined || args?.shots !== undefined || args?.prompts !== undefined || args?.video_paths !== undefined || args?.image_prompt !== undefined
 }
 
+export function toDirectorPlan(args) {
+  if (isDirectorPlan(args) || !['t2va', 'i2va'].includes(args?.mode)) return null
+  const duration = args.profile === 'preview' ? 3 : Math.round(args.duration_seconds ?? 5)
+  return { duration, prompts: [args.prompt], ...(args.mode === 'i2va' ? { image_path: args.first_frame } : {}) }
+}
+
 export async function validateDirectorPlan(args) {
   const allowed = new Set(['duration', 'shots', 'prompts', 'image_path', 'image_prompt', 'video_paths', 'seed'])
   if (Object.keys(args).some(key => !allowed.has(key))) throw invalid('包含未支持的工作流参数')

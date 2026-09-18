@@ -21,7 +21,7 @@ export function createServerHandler({ token, check = checkServer, identify = ssh
         const tunnel = defaultTunnelModel(), chatModel = tunnel && { id: tunnel.id, label: tunnel.label }
         return json(res, 200, { revision: selection.revision, models, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
           const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
-          return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
+          return [kind, entries.find(model => model.server_id === active)?.id || '']
         })) })
       }
       if (action === 'tunnel-connect') {

@@ -86,3 +86,22 @@ test('model panel contains only categorized selectors and switches selected mode
   assert.deepEqual(calls.at(-1).body, { kind: 'video', id: 'byteplus:seedance2', revision: 2 })
   await act(async () => view.unmount())
 })
+
+test('a single unselected private model remains actionable', async () => {
+  const modules = new Map(), cache = new Map(), calls = []
+  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', serverBase: '/server' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
+    fetch: async (url, options) => {
+      const body = options?.body && JSON.parse(options.body); calls.push({ url, body })
+      if (url.includes('/model-connect')) return { ok: true, json: async () => ({ connected: true, revision: 1 }) }
+      return { ok: true, json: async () => ({ revision: 0, models: { image: [{ id: 'image', label: 'RealVisXL' }], video: [] }, selected: { image: '', video: '' } }) }
+    } })
+  const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
+  let view
+  await act(async () => { view = create(React.createElement(require('elysium/servers').ServerList)) })
+  const image = view.root.findByProps({ 'aria-label': '图片模型' })
+  assert.equal(image.props.value, '')
+  assert.deepEqual(image.findAllByType('option').map(option => option.children.join('')), ['请选择模型', 'RealVisXL'])
+  await act(async () => image.props.onChange({ target: { value: 'image' } }))
+  assert.deepEqual(calls.find(call => call.url.includes('/model-connect')).body, { kind: 'image', id: 'image', revision: 0 })
+  await act(async () => view.unmount())
+})

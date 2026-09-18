@@ -82,3 +82,17 @@ test('empty connection list keeps the configured chat SSH tunnel and API model',
   assert.equal(backend.connection.model, 'qwen3.8-27b-elysium')
   assert.equal(backend.connection.api_key_env, undefined)
 })
+
+test('ComfyUI registry does not replace the configured chat SSH tunnel', async t => {
+  const files = await fixture(t)
+  const defaults = structuredClone(defaultSettings)
+  defaults.chat.tunnel.ssh_alias = 'localhost'
+  defaults.connections.servers.push({ id: 'comfy', label: 'ComfyUI', provider: 'autodl', connection_source: 'manual', instance_id: 'gpu', deployment_id: 'one', services: {
+    comfyui: { transport: 'http', base_url: 'http://comfy.test', workload: 'minimax-h3' },
+  } })
+  ensureSettings({ path: files.settings, defaults, registryFile: files.registry, selectionFile: files.selection })
+  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => legacyTunnelBackend('qwen'))
+  assert.equal(backend.server_id, 'legacy-qwen')
+  assert.equal(backend.connection.ssh_alias, 'localhost')
+  assert.equal(backend.connection.model, 'qwen3.8-27b-elysium')
+})

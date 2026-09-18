@@ -54,7 +54,8 @@ load('elysium/servers', (require, exports) => {
         return h('div', { key: kind, className: 'elysium-model-row' },
           h('label', { htmlFor: `elysium-model-${kind}` }, `${label}：`),
           h('select', { id: `elysium-model-${kind}`, 'aria-label': label, value: id, disabled: busy === kind || !entries.length, onChange: event => chooseOwn(kind, event.target.value) },
-            !entries.length ? h('option', { value: '' }, '未配置') : entries.map(model => h('option', { key: model.id, value: model.id }, model.label))))
+            !entries.length ? h('option', { value: '' }, '未配置') : [!id ? h('option', { key: 'choose', value: '' }, '请选择模型') : null,
+              ...entries.map(model => h('option', { key: model.id, value: model.id }, model.label))]))
       }),
       data?.third_party ? h('section', { 'aria-label': '三方模型' }, h('h2', null, '三方模型'),
         ['image', 'video'].map(kind => {

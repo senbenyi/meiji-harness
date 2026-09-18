@@ -29,7 +29,7 @@ export function createStandardAdapter({ id, label, services = standardServices, 
       const value = response.ok ? await response.json() : null
       return !!value && (!settings || value.data?.some(model => model.id === settings.model))
     },
-    async check(backend) {
+    async check(backend, { kind = backend.service } = {}) {
       await adapter.connect(backend)
       if (backend.service === 'llm') {
         const settings = adapter.llmSettings(backend), key = settings.api_key_env
@@ -41,7 +41,8 @@ export function createStandardAdapter({ id, label, services = standardServices, 
       } else {
         const client = adapter.createClient(backend, { signal: AbortSignal.timeout(30000) })
         await client.request('system_stats')
-        for (const plan of checkPlans) {
+        const plans = Array.isArray(checkPlans) ? checkPlans : checkPlans[kind] || []
+        for (const plan of plans) {
           const media = `${backend.base_url}/view?filename=check.png&type=input`
           const { graph } = await adapter.buildGraph(backend, { ...plan, prompt: 'Connection check', first_frame: media, last_frame: media, reference_image_1: media, reference_image_2: media }, 'connection-check')
           await client.validate(graph, { verifyModels: true })

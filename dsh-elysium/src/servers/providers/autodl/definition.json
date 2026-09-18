@@ -8,21 +8,17 @@
       "model": "qwen3.8-27b-elysium"
     }
   },
-  "check_plans": [
-    {
-      "mode": "t2va"
-    },
-    {
-      "mode": "i2va"
-    },
-    {
-      "mode": "fl2va"
-    },
-    {
-      "mode": "fl2va-loop"
-    },
-    {
-      "mode": "r2va"
-    }
-  ]
+  "check_plans": {
+    "image": [
+      {
+        "prompt": "Connection check"
+      }
+    ],
+    "video": [
+      {
+        "duration": 5,
+        "prompts": ["Connection check"]
+      }
+    ]
+  }
 }

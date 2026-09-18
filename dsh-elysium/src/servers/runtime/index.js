@@ -17,7 +17,7 @@ async function providerFor(backend) {
   return provider
 }
 export const connectBackend = async backend => (await providerFor(backend)).connect(backend)
-export const checkBackend = async backend => (await providerFor(backend)).check(backend)
+export const checkBackend = async (backend, options) => (await providerFor(backend)).check(backend, options)
 export async function createBackendClient(backend, options) {
   const provider = await providerFor(backend)
   await provider.connect(backend)

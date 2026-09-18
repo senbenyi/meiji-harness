@@ -9,7 +9,8 @@ import { executeComfyImage } from './workflows/image/execution.js'
 import { isImagePlan, normalizeImagePlan, validateImagePlan } from './workflows/image/plan.js'
 import { buildVideoGraph } from './workflows/minimax-h3/graph.js'
 import { executeDirectorVideo } from './workflows/minimax-h3/execution.js'
-import { isDirectorPlan, validatePlan as validateVideoPlan } from './workflows/minimax-h3/plan.js'
+import { buildVideoGraph as buildDirectorGraph, loadVideoTemplates } from './workflows/minimax-h3/director.js'
+import { isDirectorPlan, toDirectorPlan, validatePlan as validateVideoPlan } from './workflows/minimax-h3/plan.js'
 
 const definition = JSON.parse(readFileSync(new URL('./definition.json', import.meta.url), 'utf8'))
 const adapter = createStandardAdapter({
@@ -18,7 +19,7 @@ const adapter = createStandardAdapter({
   validatePlan: (plan, backend) => withBackend(backend, () => isImagePlan(plan) ? validateImagePlan(plan) : validateVideoPlan(plan)),
   buildGraph: (backend, plan, jobId) => withBackend(backend, () => {
     if (isImagePlan(plan)) return buildImageGraph(normalizeImagePlan(plan), {}, jobId)
-    if (isDirectorPlan(plan)) throw Object.assign(new Error('导演工作流由 AutoDL 专用执行器准备参考媒体'), { code: 'PROVIDER_OPERATION_UNSUPPORTED', status: 422 })
+    if (isDirectorPlan(plan)) return loadVideoTemplates().then(templates => buildDirectorGraph(plan, {}, templates, jobId))
     return buildVideoGraph(plan, jobId)
   }),
 })
@@ -27,7 +28,7 @@ const executeVideo = adapter.executeJob
 adapter.generateImage = true
 adapter.executeJob = (projectId, jobId, plan, backend, options) => withBackend(backend, () => isImagePlan(plan)
   ? executeComfyImage(projectId, jobId, plan, backend, options)
-  : isDirectorPlan(plan) ? executeDirectorVideo(projectId, jobId, plan, backend, options)
+  : isDirectorPlan(plan) || toDirectorPlan(plan) ? executeDirectorVideo(projectId, jobId, toDirectorPlan(plan) || plan, backend, options)
     : executeVideo(projectId, jobId, plan, backend, options))
 adapter.guidance = guidance
 adapter.creationGuidance = () => guidance

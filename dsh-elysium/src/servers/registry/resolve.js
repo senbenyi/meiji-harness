@@ -41,8 +41,6 @@ export function legacyTunnelBackend(alias) {
   if (runtimeConfig().ELYSIUM_SETTINGS_FILE) {
     const chat = runtimeSettings().chat
     if (chat.tunnel.alias !== alias) return null
-    const registry = readRegistry()
-    if (registry?.servers.length) return resolveServer(chat.backend.service)
     return { ...structuredClone(chat.backend), provider_api_version: 1, legacy: true, instance_id: 'legacy', deployment_id: alias,
       connection: { ...chat.backend.connection, ...chat.tunnel, ssh_identity: sshIdentity(chat.tunnel.ssh_alias) } }
   }

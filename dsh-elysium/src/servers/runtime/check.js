@@ -5,7 +5,7 @@ import { readSelection, writeSelection } from '../selection/store.js'
 import { checkBackend } from './index.js'
 export async function checkServer(kind, id) {
   if (!['comfyui', 'llm', 'analysis', 'image', 'video'].includes(kind)) throw new Error('未知服务类型')
-  return checkBackend(resolveServer(kind, id))
+  return checkBackend(resolveServer(kind, id), { kind })
 }
 export async function switchServer(kind, id, revision, check = checkServer) {
   const selectionKind = kind === 'comfyui' ? 'video' : kind
