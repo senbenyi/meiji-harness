@@ -33,11 +33,17 @@ window.__ModuleLoader__.load({
       }
       return value
     }
-    const assetUrl = (kind, job) => mediaUrl(kind, null, null, { job })
+    const assetUrl = (kind, job, params = {}) => mediaUrl(kind, null, null, { job, ...params })
     function relativeTime(time) {
       const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000))
       return !Number.isFinite(minutes) ? '时间未记录' : minutes < 1 ? '刚刚' : minutes < 60 ? `${minutes} 分钟前` : minutes < 1440 ? `${Math.floor(minutes / 60)} 小时前` : `${Math.floor(minutes / 1440)} 天前`
     }
-    return { mediaUrl, readStatus, assetUrl, relativeTime }
+    async function saveMaterial(value) {
+      const response = await fetch(mediaUrl(value.id ? 'update' : 'create'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || '素材保存失败')
+      return result
+    }
+    return { mediaUrl, readStatus, assetUrl, relativeTime, saveMaterial }
   },
 })

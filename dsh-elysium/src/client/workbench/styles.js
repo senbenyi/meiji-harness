@@ -116,12 +116,14 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 @container elysium-panel (max-width:600px) { .elysium-panel-body { padding:8px; } .elysium-panel button { min-height:36px; } .elysium-toolbar input { width:100%; } .elysium-shot-row { font-size:12px; } }
 
 .elysium-materials { display:flex; flex-direction:column; min-height:0; height:100%; }
+.elysium-materials > .elysium-materials { flex:1; min-height:0; }
+.elysium-material-card .elysium-video-placeholder { font-size:14px; font-weight:400; line-height:1.7; padding:12px; text-align:left; white-space:pre-line; overflow:hidden; }
 .elysium-materials > .elysium-toolbar select { flex:none; width:86px; }
-.elysium-material-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; overflow:auto; align-content:start; min-height:0; flex:1; padding-right:2px; scrollbar-width:thin; }
+.elysium-material-grid { display:grid; grid-auto-rows:max-content; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; overflow:auto; align-content:start; min-height:0; flex:1; padding-right:2px; scrollbar-width:thin; }
 .elysium-material-card { box-sizing:border-box; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:12px; padding:10px; min-width:0; display:flex; flex-direction:column; gap:7px; overflow:hidden; background:var(--dsw-alias-bg-layer-3,#303030); transition:background var(--ds-transition-duration-fast,120ms) var(--ds-ease-in-out,ease),border-color var(--ds-transition-duration-fast,120ms) var(--ds-ease-in-out,ease); }
 .elysium-material-card:hover { background:var(--dsw-alias-interactive-bg-hover,#8882); border-color:var(--dsw-alias-label-dimmed,var(--dsw-alias-border-l3,#8888)); }
-.elysium-material-card > img,.elysium-card-open img,.elysium-card-open video { width:100%; height:auto; aspect-ratio:3/4; object-fit:contain; background:var(--dsw-alias-bg-layer-2,#202020); border-radius:8px; }
-.elysium-panel .elysium-card-open { padding:0; border:0; text-align:left; }
+.elysium-material-card > img,.elysium-card-open img,.elysium-card-open video { display:block; width:100%; height:auto; aspect-ratio:3/4; object-fit:contain; background:var(--dsw-alias-bg-layer-2,#202020); border-radius:8px; }
+.elysium-panel .elysium-card-open { flex:none; display:block; height:auto; padding:0; border:0; text-align:left; }
 .elysium-project-card { position:relative; padding:10px; }
 .elysium-project-open { display:flex; flex-direction:column; gap:7px; cursor:pointer; outline:0; }
 .elysium-project-open:focus-visible { border-radius:8px; box-shadow:0 0 0 2px var(--dsw-alias-border-l4,var(--dsw-alias-brand-primary,#8bcaff)); }

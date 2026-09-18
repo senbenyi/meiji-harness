@@ -9,6 +9,7 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
 
   function DirectorList() {
     const [items, setItems] = useState([]), [adding, setAdding] = useState(false), [editing, setEditing] = useState(null), [draft, setDraft] = useState(empty), [dragging, setDragging] = useState(null)
+    const [query, setQuery] = useState('')
     const [busy, setBusy] = useState(false), [error, setError] = useState('')
     const refresh = async () => setItems(await fetchDirectors())
     useEffect(() => { let active = true; setBusy(true); fetchDirectors().then(value => { if (active) setItems(value) }).catch(err => { if (active) setError(err.message) }).finally(() => { if (active) setBusy(false) }); return () => { active = false } }, [])
@@ -19,7 +20,7 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
     async function submit(event) {
       event.preventDefault()
       const works = worksValue(draft.works)
-      if (await run(async () => { const director = await (editing ? updateDirector : createDirector)({ name: draft.name, style: draft.style, works }); setItems(value => editing ? value.map(item => item.name === editing ? director : item) : [...value, director]) })) { setDraft(empty); setAdding(false); setEditing(null) }
+      if (await run(async () => { const director = await (editing ? updateDirector : createDirector)({ name: draft.name, style: draft.style, works, sources: draft.sources }); setItems(value => editing ? value.map(item => item.name === editing ? director : item) : [...value, director]) })) { setDraft(empty); setAdding(false); setEditing(null) }
     }
     function edit(item) {
       setEditing(item.name); setAdding(false); setDraft({ ...item, works: item.works.join('\n') }); setError('')
@@ -38,17 +39,17 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
       if (!await run(() => reorderDirectors(ordered.map(item => item.name)))) setItems(previous)
     }
     return h('div', { className: 'elysium-directors' },
-      h('div', { className: 'elysium-toolbar' }, h(IconButton, { name: adding || editing ? 'close' : 'plus', label: adding ? '取消添加导演' : editing ? '取消编辑导演' : '添加导演', disabled: busy, onClick: () => { setAdding(!adding && !editing); setEditing(null); setDraft(empty); setError('') } })),
+      h('div', { className: 'elysium-toolbar' }, h('input', { type: 'search', 'aria-label': '搜索导演', placeholder: '搜索导演、作品或风格', value: query, onChange: event => setQuery(event.target.value) }), h(IconButton, { name: adding || editing ? 'close' : 'plus', label: adding ? '取消添加导演' : editing ? '取消编辑导演' : '添加导演', disabled: busy, onClick: () => { setAdding(!adding && !editing); setEditing(null); setDraft(empty); setError('') } })),
       adding || editing ? h('form', { className: 'elysium-director-create', onSubmit: submit },
         h('input', { autoFocus: true, 'aria-label': '导演名称', placeholder: '导演名称', value: draft.name, disabled: busy || !!editing, onChange: event => setDraft({ ...draft, name: event.target.value }) }),
         h('input', { 'aria-label': '导演风格', placeholder: '导演风格', value: draft.style, disabled: busy, onChange: event => setDraft({ ...draft, style: event.target.value }) }),
-        h('textarea', { 'aria-label': 'TOP5作品', placeholder: 'TOP5 作品，每行一部', rows: 5, value: draft.works, disabled: busy, onChange: event => setDraft({ ...draft, works: event.target.value }) }),
+        h('textarea', { 'aria-label': '代表作品', placeholder: '代表作品，每行一部', rows: 5, value: draft.works, disabled: busy, onChange: event => setDraft({ ...draft, works: event.target.value }) }),
         h('footer', null, h('button', { className: 'elysium-primary', type: 'submit', disabled: busy || !draft.name.trim() || !draft.style.trim() }, busy ? '保存中…' : '保存'))) : null,
       error ? h('p', { role: 'alert' }, error, !items.length ? h('button', { onClick: () => run(refresh) }, '重试') : null) : null,
       busy && !items.length ? h('p', { role: 'status' }, '正在读取导演…') : null,
-      h('div', { className: 'elysium-director-list' }, items.map(item =>
+      h('div', { className: 'elysium-director-list' }, items.filter(item => [item.name, item.style, ...item.works].some(text => text.toLowerCase().includes(query.toLowerCase()))).map(item =>
         h('article', { className: 'elysium-director-card', key: item.name, draggable: !busy, 'data-dragging': dragging === item.name || undefined, title: '拖动排序', onDragStart: event => { event.dataTransfer.effectAllowed = 'move'; setDragging(item.name) }, onDragOver: event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }, onDrop: event => drop(item.name, event), onDragEnd: () => setDragging(null) },
-          h('div', { className: 'elysium-director-copy' }, h('h2', null, item.name), h('p', null, item.style), h('ol', { 'aria-label': `${item.name} TOP5作品` }, item.works.map((work, index) => h('li', { key: `${index}-${work}` }, work)))),
+          h('div', { className: 'elysium-director-copy' }, h('h2', null, item.name), h('p', null, item.style), h('ol', { 'aria-label': `${item.name} 代表作品` }, item.works.map((work, index) => h('li', { key: `${index}-${work}` }, work))), item.sources?.map((url, index) => h('a', { key: url, href: url, target: '_blank', rel: 'noreferrer' }, `作品来源 ${index + 1} `))),
           h('div', { className: 'elysium-director-actions' }, h(IconButton, { name: 'edit', label: `编辑导演 ${item.name}`, disabled: busy, onClick: () => edit(item) }),
             h(IconButton, { name: 'minus', label: `删除导演 ${item.name}`, disabled: busy, onClick: () => { if (window.confirm(`删除导演“${item.name}”？`)) run(async () => { await deleteDirector(item.name); setItems(value => value.filter(director => director.name !== item.name)) }) } })))))
       )

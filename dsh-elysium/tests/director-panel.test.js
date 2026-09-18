@@ -37,7 +37,7 @@ test('director panel separates drag from edit and preserves server values and fa
 
   await act(async () => view.root.findByProps({ 'aria-label': '添加导演' }).props.onClick())
   assert.ok(view.root.findByProps({ 'aria-label': '取消添加导演' }))
-  for (const [label, value] of [['导演名称', '毕赣'], ['导演风格', '  梦境叙事  '], ['TOP5作品', '路边野餐\n地球最后的夜晚']]) {
+  for (const [label, value] of [['导演名称', '毕赣'], ['导演风格', '  梦境叙事  '], ['代表作品', '路边野餐\n地球最后的夜晚']]) {
     await act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
   }
   await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))

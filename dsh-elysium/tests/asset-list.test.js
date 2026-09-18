@@ -40,7 +40,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     assert.equal(first.items[0].profile, 'hd')
     const catalogPath = join(root, 'pools', 'materials.json')
     const catalog = JSON.parse(await readFile(catalogPath, 'utf8'))
-    assert.equal(catalog.version, 1)
+    assert.equal(catalog.version, 2)
     assert.deepEqual(catalog.materials.map(item => item.job_id).sort(), ['1'.repeat(32), '2'.repeat(32)])
     assert.ok(catalog.materials.every(item => item.source === 'creation' && item.project_id === project && !item.deleted))
     assert.equal((await (await fetch(base + '/list?t=secret&source=creation&limit=1')).json()).total, 2)
@@ -154,7 +154,7 @@ test('legacy per-job deletion markers migrate into the global material catalog',
     const result = await withConfig({ ELYSIUM_STATE_ROOT: root }, () => listAssets(0, 50))
     assert.equal(result.total, 0)
     assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'materials.json'), 'utf8')), {
-      version: 1, materials: [{ job_id: job, source: 'creation', project_id: project, deleted: true }],
+      version: 2, materials: [{ id: job, job_id: job, source: 'creation', project_id: project, deleted: true }],
     })
   } finally { await rm(root, { recursive: true, force: true }) }
 })

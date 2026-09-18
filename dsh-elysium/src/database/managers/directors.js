@@ -11,7 +11,7 @@ function directorValue(value) {
   if (!value || typeof value.name !== 'string' || !value.name.trim() || value.name.length > 80 ||
     typeof value.style !== 'string' || !value.style.trim() || value.style.length > 1000) throw invalidRequest('请填写导演名称和风格')
   const works = Array.isArray(value.works) ? value.works.map(String) : typeof value.works === 'string' ? [value.works] : []
-  return { name: value.name.trim(), style: value.style.trim(), works }
+  return { name: value.name.trim(), style: value.style.trim(), works, ...(value.archived ? { archived: true } : {}), ...(Array.isArray(value.sources) ? { sources: value.sources.filter(url => typeof url === 'string' && /^https:\/\//.test(url)) } : {}) }
 }
 
 export function createDirectorStore() {
@@ -45,7 +45,7 @@ export function createDirectorStore() {
     }
   }
 
-  const list = () => enqueue(load)
+  const list = () => enqueue(async () => (await load()).filter(item => !item.archived))
   const has = name => enqueue(async () => (await load()).some(item => item.name === name))
   const create = value => enqueue(async () => {
     const director = directorValue(value), items = await load()
@@ -57,17 +57,17 @@ export function createDirectorStore() {
     const director = directorValue(value), items = await load()
     const index = items.findIndex(item => item.name === director.name)
     if (index < 0) throw invalidRequest('导演不存在')
-    items[index] = director
+    items[index] = { ...items[index], ...director }
     await write(items)
     return director
   })
   const reorder = names => enqueue(async () => {
-    const items = await load()
+    const all = await load(), items = all.filter(item => !item.archived)
     if (!Array.isArray(names) || names.length !== items.length || names.some(name => typeof name !== 'string') ||
       new Set(names).size !== items.length || names.some(name => !items.some(item => item.name === name))) throw invalidRequest('导演排序无效')
     const byName = new Map(items.map(item => [item.name, item]))
     const ordered = names.map(name => byName.get(name))
-    await write(ordered)
+    await write([...ordered, ...all.filter(item => item.archived)])
     return ordered
   })
   const remove = async (name, inUse = async () => false) => {

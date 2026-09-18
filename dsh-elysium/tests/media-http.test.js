@@ -89,7 +89,7 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', '/plugins/dsh-elysium/media/delete', '/plugins/dsh-elysium/media/upload', ...['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select'].map(suffix => `/plugins/dsh-elysium/settings/${suffix}`), ...['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`), ...['list', 'create', 'update', 'reorder', 'delete'].map(suffix => `/plugins/dsh-elysium/director/${suffix}`)])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', '/plugins/dsh-elysium/media/delete', '/plugins/dsh-elysium/media/upload', '/plugins/dsh-elysium/media/create', '/plugins/dsh-elysium/media/update', ...['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select'].map(suffix => `/plugins/dsh-elysium/settings/${suffix}`), ...['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`), ...['list', 'create', 'update', 'reorder', 'delete'].map(suffix => `/plugins/dsh-elysium/director/${suffix}`)])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
@@ -229,4 +229,24 @@ test('preview proxy cancels the upstream stream when the browser closes playback
     await response.body.cancel()
     assert.equal(await Promise.race([upstreamClosed.then(() => true), delay(500, false)]), true)
   } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
+})
+
+test('ComfyUI material previews request server WebP while downloads retain the original image', async () => {
+  const seen = []
+  const upstream = createServer((req, res) => { seen.push(new URL(req.url, 'http://localhost')); res.writeHead(200, { 'Content-Type': req.url.includes('preview=') ? 'image/webp' : 'image/png' }); res.end('image') })
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
+  const job = { job_id: 'a'.repeat(32), backend: 'comfyui', status: 'succeeded', result: { media_kind: 'image', comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view?filename=test.png` } }
+  const handler = createMediaHandler({ token: 'test', readJob: async () => job })
+  const server = createServer(handler)
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  try {
+    const base = `http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}`
+    for (const [kind, format] of [['image', 'webp'], ['download', 'png']]) {
+      const response = await fetch(`${base}/${kind}?job=${job.job_id}&t=test&preview=1`)
+      assert.equal(response.headers.get('content-type'), `image/${format}`)
+      await response.text()
+    }
+    assert.equal(seen[0].searchParams.get('preview'), 'webp;75')
+    assert.equal(seen[1].searchParams.has('preview'), false)
+  } finally { await new Promise(resolve => server.close(resolve)); await new Promise(resolve => upstream.close(resolve)) }
 })

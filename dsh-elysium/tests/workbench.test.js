@@ -15,18 +15,18 @@ function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require }
 }
-test('material browser and image picker share source tabs and reset pagination on switch', async () => {
+test('material browser and image picker share category tabs and reset pagination on switch', async () => {
   for (const imageOnly of [false, true]) {
     const requests = [], changes = [], f = fixture({ requests }); let view
     await act(async () => { view = create(React.createElement(f.require('elysium/materials').MaterialList, { imageOnly, viewState: { page: 2 }, onViewState: value => changes.push(value) })) })
-    assert.deepEqual(view.root.findAllByProps({ role: 'tab' }).map(tab => tab.children.join('')), ['创作素材', '项目素材', '导入素材'])
-    assert.equal(new URL(requests.at(-1), 'https://test').searchParams.get('source'), 'creation')
-    for (const [source, label] of [['project', '项目素材'], ['import', '导入素材']]) {
+    assert.deepEqual(view.root.findAllByProps({ role: 'tab' }).map(tab => tab.children.join('')), imageOnly ? ['人物', '场景', '道具'] : ['人物', '场景', '道具', '主题', '导演'])
+    assert.equal(new URL(requests.at(-1), 'https://test').searchParams.get('category'), 'character')
+    for (const [category, label] of [['scene', '场景'], ['prop', '道具']]) {
       await act(async () => view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === label).props.onClick())
       const query = new URL(requests.at(-1), 'https://test').searchParams
-      assert.equal(query.get('source'), source); assert.equal(query.get('offset'), '0')
+      assert.equal(query.get('category'), category); assert.equal(query.get('offset'), '0')
       if (imageOnly) assert.equal(query.get('media_kind'), 'image')
-      assert.equal(changes.at(-1).source, source); assert.equal(changes.at(-1).page, 0)
+      assert.equal(changes.at(-1).category, category); assert.equal(changes.at(-1).page, 0)
     }
     await act(async () => view.unmount())
   }

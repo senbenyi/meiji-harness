@@ -5,7 +5,6 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
   const { ProjectList } = require('elysium/projects')
   const { MaterialList } = require('elysium/materials')
   const { Settings } = require('elysium/settings')
-  const { DirectorList } = require('elysium/directors')
   const STORAGE_KEY = 'elysium-workbench'
   const PANEL_MIN = 280
 
@@ -26,7 +25,7 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
       try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch {}
       const defaultWidth = Math.max(PANEL_MIN, Math.round(window.innerWidth * 0.15))
       const savedWidth = Number(saved.width)
-      return { open: false, visited: false, width: Number.isFinite(savedWidth) ? Math.max(PANEL_MIN, savedWidth) : defaultWidth, activeTab: saved.activeTab === 'servers' ? 'settings' : saved.activeTab || 'projects', selected: saved.selected || null, projectTab: saved.projectTab || null, materials: {}, projects: saved.projects || {} }
+      return { open: false, visited: false, width: Number.isFinite(savedWidth) ? Math.max(PANEL_MIN, savedWidth) : defaultWidth, activeTab: saved.activeTab === 'servers' ? 'settings' : saved.activeTab === 'directors' ? 'materials' : saved.activeTab || 'projects', selected: saved.selected || null, projectTab: saved.projectTab || null, materials: saved.activeTab === 'directors' ? { category: 'director' } : saved.materials || {}, projects: saved.projects || {} }
     })
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
     const narrow = viewportWidth < 768
@@ -62,8 +61,8 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
     }
 
     useEffect(() => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ width: state.width, activeTab: state.activeTab, selected: state.selected, projectTab: state.projectTab, projects: Object.fromEntries(Object.entries(state.projects).map(([id, value]) => [id, { selected: value.selected, selectedJob: value.selectedJob, tab: value.tab }])) })) } catch {}
-    }, [state.width, state.activeTab, state.selected, state.projectTab, state.projects])
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ width: state.width, activeTab: state.activeTab, materials: state.materials, selected: state.selected, projectTab: state.projectTab, projects: Object.fromEntries(Object.entries(state.projects).map(([id, value]) => [id, { selected: value.selected, selectedJob: value.selectedJob, tab: value.tab }])) })) } catch {}
+    }, [state.width, state.activeTab, state.materials, state.selected, state.projectTab, state.projects])
     useEffect(() => {
       const resizeViewport = () => setViewportWidth(window.innerWidth)
       window.addEventListener('resize', resizeViewport)
@@ -107,10 +106,10 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
           event.currentTarget.setPointerCapture?.(event.pointerId)
         }, onPointerMove: resize, onPointerUp: stopResize, onPointerCancel: stopResize }),
         h('header', { className: 'elysium-panel-header' },
-          h('div', { role: 'tablist', 'aria-label': '创作工作台视图' }, [['projects', '项目'], ['materials', '素材'], ['directors', '导演'], ['settings', '设置']].map(([tab, label]) => h('button', { key: tab, type: 'button', role: 'tab', 'aria-selected': state.activeTab === tab, onClick: () => navigate(() => change({ activeTab: tab })) }, label)))),
+          h('div', { role: 'tablist', 'aria-label': '创作工作台视图' }, [['projects', '项目'], ['materials', '素材'], ['settings', '设置']].map(([tab, label]) => h('button', { key: tab, type: 'button', role: 'tab', 'aria-selected': state.activeTab === tab, onClick: () => navigate(() => change({ activeTab: tab })) }, label)))),
         h('div', { className: 'elysium-panel-body' }, state.visited && (state.activeTab === 'materials'
           ? h(MaterialList, { viewState: state.materials, onViewState: materials => change({ materials }) })
-          : state.activeTab === 'settings' ? h(Settings, { guard }) : state.activeTab === 'directors' ? h(DirectorList) : h(ProjectList, { viewState: state, onViewState: change, guard, navigate })))))
+          : state.activeTab === 'settings' ? h(Settings, { guard }) : h(ProjectList, { viewState: state, onViewState: change, guard, navigate })))))
   }
 
   function apply(ctx) {

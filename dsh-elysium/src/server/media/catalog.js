@@ -42,9 +42,11 @@ export function assetSummary(job) {
 
 // 从素材库移除产物，保留任务与原文件供已有项目引用。
 export async function deleteAsset(jobId) {
-  const job = await getJob(jobId)
-  if (job.status !== 'succeeded') throw invalidRequest('只能删除已完成素材')
-  await syncMaterials((await discoverMaterials()).map(item => item.material))
+  const catalog = await syncMaterials((await discoverMaterials()).map(item => item.material))
+  if (!catalog.some(item => item.id === jobId || item.job_id === jobId)) {
+    const job = await getJob(jobId)
+    if (job.status !== 'succeeded') throw invalidRequest('只能删除已完成素材')
+  }
   return removeMaterial(jobId)
 }
 
@@ -109,7 +111,7 @@ async function discoverMaterials() {
 export async function listAssets(offset, limit, filters = {}) {
   const discovered = await discoverMaterials()
   const catalog = await syncMaterials(discovered.map(item => item.material))
-  const active = new Set(catalog.filter(item => !item.deleted).map(item => item.job_id))
+  const jobs = new Map(discovered.map(item => [item.job.job_id, item]))
   const projectMaterials = new Set()
   if (filters.source === 'project') {
     const projects = await readdir(projectsRoot(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
@@ -121,15 +123,18 @@ export async function listAssets(offset, limit, filters = {}) {
     }
   }
   const items = []
-  for (const { job, path, material } of discovered) {
-    if (!active.has(job.job_id)) continue
-    if (filters.source === 'creation' && material.source !== 'creation' || filters.source === 'import' && material.source !== 'import' || filters.source === 'project' && !projectMaterials.has(job.job_id)) continue
-    try {
-      const summary = { ...assetSummary(job), ...await availableJobSummary(job) }
-      if (filters.q && ![job.job_id, job.title, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
-      if (job.status === 'succeeded' && (!filters.profile || (summary.profile === 'hd' ? 'high-quality' : summary.profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || summary.media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })
-    } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
+  for (const material of catalog.filter(item => !item.deleted)) {
+    if (filters.category && material.category !== filters.category) continue
+    if (filters.source === 'creation' && material.source !== 'creation' || filters.source === 'import' && material.source !== 'import' || filters.source === 'project' && !projectMaterials.has(material.job_id)) continue
+    const found = jobs.get(material.job_id)
+    if (material.job_id && !found) continue
+    const summary = found ? { ...assetSummary(found.job), ...await availableJobSummary(found.job) } : { media_kind: 'text', has_image: false, has_video: false, has_download: false }
+    const item = { ...summary, ...material, created_at: material.created_at ?? (found ? (await stat(found.path)).mtimeMs : 0) }
+    if (filters.q && ![item.id, item.title, item.description, item.prompt, item.prompt_excerpt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
+    if (filters.profile && (summary.profile === 'hd' ? 'high-quality' : summary.profile) !== (filters.profile === 'hd' ? 'high-quality' : filters.profile)) continue
+    if (filters.media_kind && summary.media_kind !== filters.media_kind) continue
+    items.push(item)
   }
-  items.sort((a, b) => b.created_at - a.created_at || a.job_id.localeCompare(b.job_id))
+  items.sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id))
   return { items: items.slice(offset, offset + limit), total: items.length, has_more: offset + limit < items.length }
 }

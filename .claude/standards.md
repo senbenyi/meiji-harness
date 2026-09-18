@@ -95,7 +95,7 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 - `harness/.dsh/` 逐项覆盖到本机 `~/.dsh/`，不删除本机其他文件。
 - Elysium 的项目、任务、上传、导演、服务器、模型选择和平台配置统一位于 `$DSH_HOME/storages/elysium`；未显式覆盖的运行路径不得读写 `~/.elysium`。
 - Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`（导演库 `directors.json`、素材库索引 `materials.json`），项目拥有的任务、回执和媒体随项目归 `projects/`，跨会话索引和隧道归 `runtime/`，导入原件归 `uploads/`。
-- `pools/materials.json` 只保存全局素材的身份、来源和删除状态；媒体实体不复制，仍保留在所属 `projects/` 或 `uploads/`。各项目的 `materials.json` 只保存项目引用。
+- `pools/materials.json` 使用 version 2，保存全局素材 id、分类、名称、描述、提示词、来源和删除状态，可选 job_id 引用真实任务；兼容 version 1。文字素材不伪造任务。媒体实体不复制，生成素材引用服务器 URL，已有实体仍保留原归属。导演共用 `pools/directors.json`，归档项不展示但保留历史名称查询。各项目的 `materials.json` 只保存项目引用。
 - 一级目录路径统一由 `src/database/paths.js` 构造；业务模块不得自行拼接一级目录。`runtime/` 中的调用和会话索引参与任务恢复，不得视为可随意清空的缓存。
 - 部署脚本不检查模型服务、SSH、端口或运行状态。
 - Harness 只在本机运行；远端服务器只保留模型服务。

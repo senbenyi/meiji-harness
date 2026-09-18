@@ -8,9 +8,11 @@
 
 ## 待批准
 
-(无)
+
 
 ## 实施中
+
+- **恋爱短剧五类素材库** — 2026-09-19 用户已批准修改并要求启动 Harness；正在实施五类分类、26 张参考图与 14 条文字资料，生成支持按任务恢复，旧索引已备份。
 
 - **main 分支 AutoDL 能力接入** — `docs/plans/计划-main分支AutoDL能力接入.md` — 阶段 1–4 完成，阶段 6 的 181 项插件测试、7 项 Harness 测试、构建、Registry 打包、安装与 Harness 重启完成；私有模型运行目录已补入 RealVisXL/SDXL、MiniMax H3 和既有 qwen3.8，并经运行接口回读。qwen3.8 已按当前 provider 规范改用环境凭据引用，DSH 真实调用通过。服务器选择和真实 T2I/T2V/I2V 验收仍待有效的 AutoDL ComfyUI 本机入口；当前 `veo-comfyui` 仍是失效 RunPod，历史 AutoDL 入口已拒绝连接。
 

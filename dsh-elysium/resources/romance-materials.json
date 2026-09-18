@@ -1,0 +1,325 @@
+{
+  "version": 1,
+  "materials": [
+    {
+      "id": "ddb123b9e0f0f827faf2462390dbd8c1",
+      "category": "character",
+      "title": "陆承川｜都市总裁",
+      "description": "32岁成年男性，黑色短发侧分，棱角清晰，身形高挑；深海军蓝西装、白衬衫、黑皮鞋。外冷内热，习惯用行动关心他人。适合：职场爱情、契约恋爱。\n连续性：固定脸型、发型、衣服颜色与鞋款；每镜复用同一参考图和素材编号。此图是单视角人物设定，复杂转身需补充侧背视图。",
+      "prompt": "Photorealistic casting reference, one adult person only, 32 year old Chinese man, tall lean build, angular face, neatly side parted short black hair, navy blue tailored suit, white shirt, black leather shoes, standing naturally facing camera, full body head to toes visible, plain light gray studio background, soft even lighting, realistic anatomy, fully clothed, no text, no collage, no watermark."
+    },
+    {
+      "id": "35928ed1ca55d48f0785248e23b42652",
+      "category": "character",
+      "title": "林知夏｜独立职场女性",
+      "description": "28岁成年女性，黑色披肩直发，椭圆脸；米白衬衫、深灰长裤、黑色高跟鞋。理性有边界，面对不公平会主动争取。适合：双向奔赴、职场成长。\n连续性：固定脸型、发型、衣服颜色与鞋款；每镜复用同一参考图和素材编号。此图是单视角人物设定，复杂转身需补充侧背视图。",
+      "prompt": "Photorealistic casting reference, one adult person only, 28 year old Chinese woman, oval face, shoulder length straight black hair, ivory buttoned blouse, charcoal tailored trousers, black flat shoes, standing naturally facing camera, full body head to toes visible, plain light gray studio background, soft even lighting, realistic anatomy, fully clothed, no text, no collage, no watermark."
+    },
+    {
+      "id": "51091f2b00d2ef3412dcd18adb3fd655",
+      "category": "character",
+      "title": "沈星远｜温和富家公子",
+      "description": "29岁成年男性，黑色短发，温和笑容；米色针织开衫、白T恤、深蓝长裤、米白色运动鞋。尊重伴侣选择，不以财富解决一切。适合：白马王子与创业女孩。\n连续性：固定脸型、发型、衣服颜色与鞋款；每镜复用同一参考图和素材编号。此图是单视角人物设定，复杂转身需补充侧背视图。",
+      "prompt": "Photorealistic casting reference, one adult person only, 29 year old Chinese man, short wavy dark brown hair, warm smile, beige knit cardigan, white t shirt, dark blue trousers, white sneakers, standing naturally facing camera, full body head to toes visible, plain light gray studio background, soft even lighting, realistic anatomy, fully clothed, no text, no collage, no watermark."
+    },
+    {
+      "id": "e41884b1e47ab0794d4c688eedf913f2",
+      "category": "character",
+      "title": "苏小满｜创业女孩",
+      "description": "26岁成年女性，黑色低马尾，圆脸；浅蓝衬衫、卡其长裤、白帆布鞋。经营手作店，乐观认真，有清晰事业目标。适合：平凡相遇、共同成长。\n连续性：固定脸型、发型、衣服颜色与鞋款；每镜复用同一参考图和素材编号。此图是单视角人物设定，复杂转身需补充侧背视图。",
+      "prompt": "Photorealistic casting reference, one adult person only, 26 year old Chinese woman, round face, black hair in a low ponytail, light blue shirt, khaki trousers, white canvas shoes, standing naturally facing camera, full body head to toes visible, plain light gray studio background, soft even lighting, realistic anatomy, fully clothed, no text, no collage, no watermark."
+    },
+    {
+      "id": "d8e16d6102a54c580c32e47eb86a8923",
+      "category": "character",
+      "title": "陈望野｜返乡创业青年",
+      "description": "30岁成年男性，寸短黑发，健康小麦肤色；橄榄绿衬衫、深蓝牛仔裤、棕色工装靴。务实耐心，经营乡村农场。适合：乡村爱情、青梅重逢。\n连续性：固定脸型、发型、衣服颜色与鞋款；每镜复用同一参考图和素材编号。此图是单视角人物设定，复杂转身需补充侧背视图。",
+      "prompt": "Photorealistic casting reference, one adult person only, 30 year old Chinese man, short crew cut black hair, tanned skin, olive green work shirt, dark blue jeans, brown work boots, standing naturally facing camera, full body head to toes visible, plain light gray studio background, soft even lighting, realistic anatomy, fully clothed, no text, no collage, no watermark."
+    },
+    {
+      "id": "d1d85c2bca672a2174db8cb5409afda8",
+      "category": "character",
+      "title": "许禾｜乡村教师",
+      "description": "27岁成年女性，黑色披肩发；淡黄针织衫、深棕过膝裙、米色高跟鞋。温柔坚定，愿意长期扎根乡村。适合：乡村爱情、青梅重逢。\n连续性：固定脸型、发型、衣服颜色与鞋款；每镜复用同一参考图和素材编号。此图是单视角人物设定，复杂转身需补充侧背视图。",
+      "prompt": "Photorealistic casting reference, one adult person only, 27 year old Chinese woman, shoulder length black hair tucked behind ears, pale yellow cardigan, dark brown midi skirt, beige flat shoes, standing naturally facing camera, full body head to toes visible, plain light gray studio background, soft even lighting, realistic anatomy, fully clothed, no text, no collage, no watermark."
+    },
+    {
+      "id": "c16de305f6b73761ddc7d789a94861e0",
+      "category": "scene",
+      "title": "城市咖啡馆｜初次约会",
+      "description": "后方大窗，左侧木柜，中央一张双人圆桌与两把椅子；下午柔光，米白木色。适合初见、试探与和解。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, cozy modern Chinese city cafe interior, left large window, wooden cabinet on right, one round wooden table and two chairs in center, warm afternoon daylight, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "872ddc8759ff52595488c7608b50ba6b",
+      "category": "scene",
+      "title": "江边夜景｜坦白心意",
+      "description": "石栏杆沿画面左侧延伸，右侧步行道，远处跨江桥；蓝调夜色与暖路灯。适合告白、并肩散步。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, quiet riverside promenade in a Chinese city at blue hour, stone railing on left, paved walkway on right, distant illuminated bridge, warm street lamps, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "8789f9c3f3017d0a42021667d006f032",
+      "category": "scene",
+      "title": "屋顶餐厅｜纪念日晚餐",
+      "description": "前景双人餐桌，后方金属栏杆与城市天际线；夕阳暖光。适合正式约会、求婚前的对话。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, rooftop restaurant, one elegantly set table for two in foreground, glass railing, modern city skyline, golden sunset, understated romantic atmosphere, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "59888ca3a2f465f648885c394e7f235e",
+      "category": "scene",
+      "title": "办公楼大厅｜擦肩相遇",
+      "description": "右侧接待台，中央通道，后方玻璃门与高挑采光顶；白天明亮漫射光。适合职场初遇与等候。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, modern office lobby, reception desk on left, open central passage, glass elevator on right, bright diffuse daylight, polished gray stone floor, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "64be1f519fc8f3d6d6773c7a8620b996",
+      "category": "scene",
+      "title": "雨天街角｜共撑一伞",
+      "description": "左侧砖墙小店，右侧路口，湿地面有暖色倒影；傍晚细雨。适合避雨、误会后的追上。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, quiet Chinese city street corner in light rain at dusk, brick storefront on left, intersection on right, wet paving with warm reflections, cinematic realistic environment, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "ade5df2332c13be4a766c8ec0a4e8679",
+      "category": "scene",
+      "title": "公园长椅｜日常陪伴",
+      "description": "长椅位于左侧，右侧小路，背后绿树；春日上午自然光。适合闲聊、递礼物、关系升温。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, tranquil spring park, wooden bench right of center, path on left, green trees behind, soft morning sunshine, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "7a2132d63b330b50178a50dc5c4e458b",
+      "category": "scene",
+      "title": "街角书店｜偶然相逢",
+      "description": "两侧木书架，尽头高窗，中央留通道；暖灯加自然光。适合寻书、相同爱好与重逢。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, small independent bookshop interior, wooden shelves on both sides, tall window at end of central aisle, warm lamps and natural light, book spines without readable text, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "40b8a949b3b96f1d085844d59be68c41",
+      "category": "scene",
+      "title": "大学林荫路｜毕业后重逢",
+      "description": "笔直步道通向红砖教学楼，两侧高树；秋日午后光。人物设定为成年校友，适合怀旧重逢。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, university campus tree lined walkway, red brick academic building in distance, tall trees on both sides, early autumn afternoon sunlight, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "f5753b79f2c380371788048aff0bb341",
+      "category": "scene",
+      "title": "乡村院落｜一起做饭",
+      "description": "白墙灰瓦房屋围合，右侧绿植盆栽，中央木桌；傍晚暖光。适合家庭见面、日常相处。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, rural Chinese courtyard, white plaster house with gray tile roof on left, vegetable trellis on right, wooden table in center, warm evening light, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "a6aba713b117273f36ab1080e74af593",
+      "category": "scene",
+      "title": "田间小路｜归乡相遇",
+      "description": "土路从前景延伸到远处低山，两侧绿色稻田；清晨薄雾。适合返乡初遇、并肩走路。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, rural Chinese dirt path between green rice paddies, distant low hills, light morning mist, gentle sunrise, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "c26d9e68b034a0126798cda844c829f7",
+      "category": "scene",
+      "title": "乡镇集市｜热闹约会",
+      "description": "左右蔬果木摊，中央通道，远处低层瓦房；晴天自然光。适合挑礼物、生活化喜剧。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, small rural Chinese market before opening, wooden fruit and vegetable stalls on both sides, clear central walkway, low tiled buildings, bright natural daylight, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "f2560eea0d634982edd8eac18556a057",
+      "category": "scene",
+      "title": "乡村公交站｜等待与送别",
+      "description": "绿色站棚位于画面中部，前景乡道，背后田野；晚霞柔光。适合等候、送别与重逢。\n连续性：固定门窗、道路与主要家具相对位置；反打时保持人物视线与轴线一致。",
+      "prompt": "Photorealistic film location reference, wide establishing shot, quiet rural Chinese bus stop, simple green shelter on left, country road on right, farmland in distance, soft sunset sky, empty location, no people, no text, no watermark, realistic scale, natural cinematic lighting."
+    },
+    {
+      "id": "e46caaf2aa0d5043d32b953966130e5f",
+      "category": "prop",
+      "title": "银色戒指｜承诺信物",
+      "description": "单枚银色素圈，圆形截面，外壁光滑，无宝石、无刻字。固定金属色与圈宽；佩戴镜头明确同一只手指。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one simple polished silver band ring, rounded profile, no gemstone, no engraving, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "d5d230ebdbbe974c1e7f4c87a71b4cf9",
+      "category": "prop",
+      "title": "黑色腕表｜总裁配饰",
+      "description": "圆形黑表盘、银色表壳、黑色皮表带，主表盘带双小表盘，顶部 12 字刻度。固定表盘装饰和侧面按键位置；戴左腕；表盘朝向随手腕转动。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one wristwatch, round black dial, silver steel case, black leather strap, three hands, no logo, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "7bb2a8eefb6bcc557bd5c0a104604042",
+      "category": "prop",
+      "title": "棕色手袋｜通勤物件",
+      "description": "焦糖棕皮革方形小手袋，单条肩带，简洁金色搭扣，无品牌花纹。固定袋型与肩带长度。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one caramel brown leather rectangular handbag, single shoulder strap, simple gold clasp, no logo, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "74cfe146a8ba3bcc24333fb421242f7d",
+      "category": "prop",
+      "title": "蓝色手机｜联系线索",
+      "description": "深蓝手机壳，圆角长方形，背面左上方两个镜头竖排，无商标。固定壳色与镜头位置；屏幕文字另做后期。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one smartphone back view, dark blue plain case, rounded rectangle, two vertically aligned camera lenses at upper left, no branding, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "defe3201fd517c69bba538b9fb5924d8",
+      "category": "prop",
+      "title": "米白雨伞｜雨中相遇",
+      "description": "米白纯色圆顶伞面、黑色直伞杆、木色弯柄，无图案。固定伞面颜色、伞柄材质与持伞手。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one open ivory white dome umbrella, black shaft, curved wooden handle, plain fabric canopy, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "ec3159c220a74edac56bdb36bbf4ede4",
+      "category": "prop",
+      "title": "红色礼盒｜纪念日惊喜",
+      "description": "正方形哑光红纸盒，米白色缎带十字绑法，顶上蝴蝶结。固定盒盖尺寸；打开后保留同一缎带。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one square matte red gift box with ivory satin ribbon crossing top and one bow, lid closed, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "7305f1825af690df262c05e07ddd02fe",
+      "category": "prop",
+      "title": "白色咖啡杯｜约会桌面",
+      "description": "白色陶瓷直筒杯，单个C形把手，配白色圆碟，无图案。固定杯柄方向与剩余饮品量。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one white cylindrical ceramic coffee cup with C shaped handle on a matching white round saucer, no pattern, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "9a39f07879a8aad650dd1c6d26b6c9ab",
+      "category": "prop",
+      "title": "复古自行车｜乡间同行",
+      "description": "薄荷绿低跨车架、棕色车座和把套、前置藤编车篮、银色辐条轮。固定篮子、车架色与铃铛位置。\n使用：此图片作为固定道具参考，每个相关镜头复用同一素材编号；生成后检查结构与细节，参考图不能绝对保证模型不漂移。",
+      "prompt": "Photorealistic product reference photo, one vintage mint green step through bicycle, brown saddle and grips, wicker front basket, silver spokes, side view, both wheels fully visible, isolated on neutral light gray seamless background, entire object visible, soft studio lighting, realistic materials, no people, no text, no watermark."
+    },
+    {
+      "id": "f94569d17f7498bfe6051806abc64b0b",
+      "category": "theme",
+      "title": "霸道总裁爱上我",
+      "description": "人物：陆承川、林知夏；均为成年人。\n故事：咖啡馆偶遇后，两人在合作项目再次见面。陆习惯替人做决定，林坚持专业边界；一次错误安排导致信任破裂。陆公开承担责任并尊重林的选择，两人以平等关系开始交往。\n情感推进：偶遇→针锋相对→共同解难→越界争执→尊重与告白\n推荐场景：办公楼大厅、咖啡馆、江边夜景\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+    },
+    {
+      "id": "6382e48615341d8b531c51b5a61deb4e",
+      "category": "theme",
+      "title": "白马王子爱上灰姑娘",
+      "description": "人物：沈星远、苏小满；均为成年人。\n故事：沈在苏的手作店订礼物，隐瞒家境后逐渐成为朋友。身份曝光让苏怀疑所有帮助都来自怜悯。沈以真实身份参与她的创业计划，苏凭能力赢得订单，二人坦诚相爱。\n情感推进：相识→默契→身份揭晓→信任考验→独立选择\n推荐场景：书店、咖啡馆、屋顶餐厅\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+    },
+    {
+      "id": "6dde5de9dea3b259452df9e43117f431",
+      "category": "theme",
+      "title": "乡村爱情故事",
+      "description": "人物：陈望野、许禾；均为成年人。\n故事：返乡经营农场的陈与乡村教师许共同筹备集市义卖。灌溉故障与误传消息引发争执，两人协作解决困难，在乡村公交站决定一起留下。\n情感推进：返乡→合作→误会→合力解决→承诺留下\n推荐场景：乡村院落、田间小路、乡镇集市、公交站\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+    },
+    {
+      "id": "ffc6c2911dec40ff5fe478643fd0e150",
+      "category": "theme",
+      "title": "青梅竹马重逢",
+      "description": "人物：陈望野、许禾；均为成年人。\n故事：成年后多年未见的两人在老公交站重逢。一封没寄出的信让彼此重新理解当年的离开。两人从回忆走向对当下生活的真实选择。\n情感推进：重逢→回忆线索→发现误解→说清遗憾→重新开始\n推荐场景：大学林荫路、乡村公交站、公园长椅\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+    },
+    {
+      "id": "1058da412175c9b8021e0691e34fdb43",
+      "category": "theme",
+      "title": "契约恋爱成真",
+      "description": "人物：陆承川、林知夏；均为成年人。\n故事：两名成年单身者为应对家庭催促，约定短期扮演恋人，明确期限与边界。日常相处让感情变真，但谁都不愿先承认。到期时双方主动终止假约定，重新认真邀请对方约会。\n情感推进：约定→磨合→照顾→到期退缩→真实邀约\n推荐场景：咖啡馆、屋顶餐厅、雨天街角\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+    },
+    {
+      "id": "107d7817ae5a1bf4d68682bf13cf1bff",
+      "category": "theme",
+      "title": "都市职场双向奔赴",
+      "description": "人物：沈星远、苏小满；均为成年人。\n故事：苏的创业团队与沈的公司合作。两人互相欣赏却因工作分歧疏远；通过公开透明的沟通解决合作问题后，才在工作之外表达心意。\n情感推进：专业相识→互相支持→分歧→坦诚沟通→双向告白\n推荐场景：办公楼大厅、书店、江边夜景\n建议结构：按冲突与转折拆成 5–8 场，再根据动作、视线和情绪拆镜；每镜标明时长、景别、人物、动作、环境、运镜及转场。\n基调：温暖、平等、自愿的恋爱关系；人物的成长与选择有明确动机。"
+    }
+  ],
+  "directors": [
+    {
+      "name": "王家卫",
+      "works": [
+        "花样年华",
+        "重庆森林",
+        "春光乍泄",
+        "2046"
+      ],
+      "style": "风格归纳：重视时间、错过与含蓄情感，善用色彩、音乐、遮挡构图和人物间的距离。短剧可参考夜景色彩、停顿与未说出口的台词。",
+      "sources": [
+        "https://www.criterion.com/boxsets/4117-world-of-wong-kar-wai"
+      ]
+    },
+    {
+      "name": "李安",
+      "works": [
+        "饮食男女",
+        "理智与情感",
+        "卧虎藏龙",
+        "少年派的奇幻漂流"
+      ],
+      "style": "风格归纳：从家庭关系、身份与礼节中呈现情感冲突，表演细腻克制。短剧可参考餐桌调度、人物反应与表面平静下的情绪变化。",
+      "sources": [
+        "https://www.festival-cannes.com/en/p/ang-lee/"
+      ]
+    },
+    {
+      "name": "张艺谋",
+      "works": [
+        "我的父亲母亲",
+        "大红灯笼高高挂",
+        "活着",
+        "英雄"
+      ],
+      "style": "风格归纳：鲜明的色彩和空间构图，关注个人处境与情感选择。乡村恋爱可参考季节变化、远景中的等待和具有记忆意味的物件。",
+      "sources": [
+        "https://www.festival-cannes.com/en/p/yimou-zhang/"
+      ]
+    },
+    {
+      "name": "岩井俊二",
+      "works": [
+        "情书",
+        "花与爱丽丝",
+        "燕尾蝶"
+      ],
+      "style": "风格归纳：细腻的青春记忆与人物感受，常以自然光、环境细节和片段式回忆承载情绪。成年重逢题材可参考书信、空镜和含蓄对话。",
+      "sources": [
+        "https://news.ponycanyon.co.jp/2026/07/122904"
+      ]
+    },
+    {
+      "name": "是枝裕和",
+      "works": [
+        "无人知晓",
+        "如父如子",
+        "海街日记",
+        "小偷家族"
+      ],
+      "style": "风格归纳：观察日常生活、家庭与人与人的连接，节奏舒缓，重视真实表演和生活声音。短剧可参考共同做饭、走路、等待中的情感变化。",
+      "sources": [
+        "https://www.kore-eda.com/english/works.html"
+      ]
+    },
+    {
+      "name": "理查德·林克莱特",
+      "works": [
+        "爱在黎明破晓前",
+        "爱在日落黄昏时",
+        "爱在午夜降临前"
+      ],
+      "style": "风格归纳：通过持续的对话和并肩行走建立关系，关注时间如何改变人物。适合用连贯空间、自然节奏与互相倾听表现成年人的爱情。",
+      "sources": [
+        "https://www.criterion.com/boxsets/1237-the-before-trilogy"
+      ]
+    },
+    {
+      "name": "南希·迈耶斯",
+      "works": [
+        "恋爱假期",
+        "爱是妥协",
+        "偷听女人心"
+      ],
+      "style": "风格归纳：温暖明亮的生活空间、成熟关系中的幽默与自我成长。短剧可参考舒适室内调度、道具细节和轻快但有情绪依据的喜剧节奏。",
+      "sources": [
+        "https://www.sonypictures.com/movies/theholiday"
+      ]
+    },
+    {
+      "name": "诺拉·艾芙隆",
+      "works": [
+        "西雅图未眠夜",
+        "电子情书"
+      ],
+      "style": "风格归纳：都市生活中的浪漫巧合、机智对白与关系期待。适合用日常物件、通信线索和错位相遇推进爱情喜剧。",
+      "sources": [
+        "https://www.sonypictures.com/movies/sleeplessinseattle",
+        "https://www.paramountplus.com/movies/video/aomKaF5SPG9RZNkQDlfdDAbMMgConpox/"
+      ]
+    }
+  ]
+}

@@ -8,6 +8,6 @@ export function createDirectorTools(store) {
   return [{
     name: 'director_list', description: '列出导演库中可用的精确名称、风格和作品；创建项目前调用，不得猜测导演名称。',
     parameters: { type: 'object', additionalProperties: false, properties: {} }, output,
-    execute: async () => ({ directors: await store.list() }),
+    execute: async () => ({ directors: (await store.list()).map(({ name, style, works }) => ({ name, style, works })) }),
   }]
 }
