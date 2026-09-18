@@ -29,6 +29,7 @@ harness/.dsh/storages/
 .env.*.local
 .env.local
 harness/.dsh/.credentials.yaml
+init/.ssh/
 
 # misc caches
 .cache/
