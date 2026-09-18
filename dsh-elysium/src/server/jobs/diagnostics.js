@@ -1,6 +1,6 @@
 // 职责：生成视频执行代码指纹，并汇总已持久化的执行跟踪。
 import { createHash } from 'node:crypto'
-import { runtimeConfig } from '../../config.js'
+import { runtimeConfig, workcardConfig } from '../../config.js'
 import { providerSourceFiles, runtimeSourceFiles } from '../../models/managers/runtime/index.js'
 import { readFile } from 'node:fs/promises'
 
@@ -10,14 +10,14 @@ export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'))
   // 显式列出所有参与视频执行的模块，避免指纹漏掉恢复语义变更。
   const names = ['diagnostics.js', 'errors.js', 'create.js', '../../database/json.js', 'query.js', 'wait.js', 'timing.js',
-    '../../config.js', '../../tools/index.js', '../../tools/agent/workcard.js', '../../../config/workcard.json', '../../tools/media/video.js', '../../models/protocols/comfyui/client.js', '../../models/protocols/comfyui/submission.js',
+    '../../config.js', '../../tools/index.js', '../../tools/agent/workcard.js', '../../tools/media/video.js', '../../models/protocols/comfyui/client.js', '../../models/protocols/comfyui/submission.js',
     '../../models/protocols/comfyui/plan.js', '../../models/protocols/comfyui/reference-frame.js', '../../models/protocols/comfyui/execution.js', '../../models/protocols/comfyui/media-reference.js',
     ...['artifacts', 'call-binding', 'execution', 'launcher', 'plan', 'service', 'worker-owner', 'worker'].map(name => `../workflows/videos/${name}.js`),
     '../workflows/images/service.js']
   const provider = runtimeConfig().ELYSIUM_BACKEND?.provider
   const adapterSources = provider ? await Promise.all((await providerSourceFiles(provider)).map(url => readFile(url))) : []
   const sources = await Promise.all([...names.map(name => new URL(name, import.meta.url)), ...await runtimeSourceFiles()].map(url => readFile(url)))
-  return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat([...sources, ...adapterSources])) }
+  return { plugin_version: pkg.version, executor_sha256: hash(Buffer.concat([...sources, Buffer.from(JSON.stringify(workcardConfig)), ...adapterSources])) }
 }
 
 export function traceDiagnostics(chain) {

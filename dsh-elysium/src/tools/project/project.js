@@ -23,7 +23,7 @@ export function renderProjectResult(_args, value) {
   return [{ type: 'text', text: JSON.stringify({ id, title, anchor_count, shot_count }) }]
 }
 
-export function createCallToolsProject(store) {
+export function createCallToolsProjectActions(store) {
   return [
     {
       name: 'call_tools_project_list', description: '列出全部可见项目摘要，用于选择已有项目。',

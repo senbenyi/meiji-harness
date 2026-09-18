@@ -1,0 +1,22 @@
+{
+  "files": {
+    "description": "读取、编辑和搜索文件",
+    "names": ["read", "read_image", "write", "edit", "glob", "grep"]
+  },
+  "shell": {
+    "description": "Shell 与后台进程管理",
+    "names": ["bash", "pwsh", "job_list", "job_output", "job_kill"]
+  },
+  "planning": {
+    "description": "计划、目标和待办管理",
+    "names": ["create_goal", "get_goal", "update_goal", "exit_plan_mode", "todo_write"]
+  },
+  "agents": {
+    "description": "子代理协作",
+    "names": ["subagent", "subagent_fork", "list_agents", "send_message", "interrupt_agent"]
+  },
+  "orchestration": {
+    "description": "通用多代理工作流和 Ralph 循环（仅用户明确要求时）",
+    "names": ["workflow", "ralph"]
+  }
+}

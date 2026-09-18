@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { apply } from '../src/index.js'
 import { createCallToolsDirectorList } from '../src/tools/project/director.js'
-import { createCallToolsProject } from '../src/tools/project/project.js'
+import { createCallToolsProjectActions } from '../src/tools/project/project.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { withConfig } from '../src/config.js'
@@ -23,7 +23,7 @@ test('chat tools read full objects, mutate one field and render compact mutation
       await directors.create({ name: '测试导演', style: '测试风格', works: [] })
       const available = (await createCallToolsDirectorList(directors)[0].execute({})).directors
       assert.deepEqual(available.map(item => item.name), ['测试导演'])
-      const store = createProjectStore({ directorExists: name => directors.has(name) }), definitions = createCallToolsProject(store)
+      const store = createProjectStore({ directorExists: name => directors.has(name) }), definitions = createCallToolsProjectActions(store)
       const tools = Object.fromEntries(definitions.map(tool => [tool.name, tool]))
       assert.equal(definitions.length, 4)
       const project = await tools.call_tools_project_create.execute({ title: '测试', director: available[0].name, profile: 'preview' })
@@ -102,7 +102,7 @@ test('object routes authenticate and retain chat edits between panel saves', asy
   const request = (route, body) => fetch(`${base}/${route}?t=t`, { method: 'POST', body: JSON.stringify(body) })
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const tools = Object.fromEntries(createCallToolsProject(store).map(tool => [tool.name, tool]))
+      const tools = Object.fromEntries(createCallToolsProjectActions(store).map(tool => [tool.name, tool]))
       const project = await store.change('create', { title: '交叉编辑', director: '导演', profile: 'preview' }), id = project.id
       await store.change('update', { id, acts: [{ title: '幕', shots: [] }] })
       assert.equal((await fetch(`${base}/poll?id=${id}&since=0`)).status, 401)

@@ -1,19 +1,13 @@
 // 职责：根据 Agent 类型和会话状态投影本次请求可见的工具与提示词；不注册或执行工具。
+import { toolsConfig } from '../../config.js'
 import { loadedToolNames, videoFailedThisTurn } from './events.js'
 import { isElysiumAgent, isElysiumProjectAgent } from './presets.js'
 import { creationInstructions } from './creation.js'
 
-// 描述可按需加载的 Harness 通用工具组；这里只维护分组，不改变工具权限。
-export const TOOL_GROUPS = {
-  files: { description: '读取、编辑和搜索文件', names: ['read', 'read_image', 'write', 'edit', 'glob', 'grep'] },
-  shell: { description: 'Shell 与后台进程管理', names: ['bash', 'pwsh', 'job_list', 'job_output', 'job_kill'] },
-  planning: { description: '计划、目标和待办管理', names: ['create_goal', 'get_goal', 'update_goal', 'exit_plan_mode', 'todo_write'] },
-  agents: { description: '子代理协作', names: ['subagent', 'subagent_fork', 'list_agents', 'send_message', 'interrupt_agent'] },
-  orchestration: { description: '通用多代理工作流和 Ralph 循环（仅用户明确要求时）', names: ['workflow', 'ralph'] },
-}
-const deferred = new Set(Object.values(TOOL_GROUPS).flatMap(group => group.names))
+// 可按需加载的 Harness 通用工具组由发布配置声明；这里只消费配置，不改变工具权限。
+const deferred = new Set(Object.values(toolsConfig).flatMap(group => group.names))
 const alwaysVisible = new Set(['exit_plan_mode'])
-const sectionTools = { 'tool:jobs': TOOL_GROUPS.shell.names, 'tool:goal': TOOL_GROUPS.planning.names }
+const sectionTools = { 'tool:jobs': toolsConfig.shell.names, 'tool:goal': toolsConfig.planning.names }
 const projectTool = name => /^call_tools_(director|project)_/.test(name)
 const withCreationInstructions = assembly => ({ ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
   { name: 'elysium:creation-commands', text: creationInstructions }] })
@@ -32,7 +26,7 @@ export function createCallToolsForAgent(assembly, agent) {
   const tools = assembly.tools.filter(tool => (project || tool.name === 'call_tools_director_list' || !projectTool(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))
-  const catalog = Object.entries(TOOL_GROUPS).flatMap(([id, group]) => {
+  const catalog = Object.entries(toolsConfig).flatMap(([id, group]) => {
     const names = group.names.filter(name => available.has(name) && !visible.has(name))
     return names.length ? [`${id}: ${group.description} (${names.join(', ')})`] : []
   })

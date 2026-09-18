@@ -5,7 +5,7 @@ import { resolveConfig, withConfig } from './config.js'
 //server
 import { registerWebRoutes, createWebStores } from './server/index.js'
 // tools
-import { createCallToolsForAgent, createCallToolsRuntime, createCallToolsWeb } from './tools/index.js'
+import { createCallToolsForAgent, createCallToolsProject, createCallToolsRuntime } from './tools/index.js'
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
 const effectPrefix = '@dsh-external/dsh-elysium'
@@ -37,7 +37,7 @@ function registerWebFeatures(ctx, runtime) {
 
 // 注册依赖 Web Store 的导演与项目工具，并让注销跟随 Web 生命周期。
 function registerWebTools(ctx, mediaContext, runtime, stores) {
-  for (const definition of createCallToolsWeb(stores)) {
+  for (const definition of createCallToolsProject(stores)) {
     const tool = { ...definition, execute: (...args) => withConfig(runtime, () => definition.execute(...args)) }
     mediaContext.effect(() => ctx.tools.register(tool), `${effectPrefix}: ${tool.name} tool`)
   }

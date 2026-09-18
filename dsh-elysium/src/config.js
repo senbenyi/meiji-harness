@@ -1,4 +1,4 @@
-// 职责：解析插件实例配置，并为异步执行链隔离运行时配置。
+// 职责：集中加载仓库配置、解析插件实例配置，并为异步执行链隔离运行时配置。
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ensureSettings, providerConfigFields, providerConfigDefaults, providerConfigSources, readSettings as readRuntimeSettings, validateSettings } from './models/managers/runtime/index.js'
@@ -17,6 +17,8 @@ const fields = {
   ...providerConfigFields(),
 }
 const defaultsFile = new URL('../config/defaults.json', import.meta.url)
+const toolsFile = new URL('../config/tools.json', import.meta.url)
+const workcardFile = new URL('../config/workcard.json', import.meta.url)
 const modelKinds = ['image', 'video']
 
 export function readDefaults(path = defaultsFile) {
@@ -28,6 +30,8 @@ export function readDefaults(path = defaultsFile) {
 // 仓库托管的非敏感业务默认值；运行状态和凭据不从此文件读取。
 export const defaultSettings = JSON.parse(readFileSync(defaultsFile, 'utf8'))
 export const defaultModels = defaultSettings.models
+export const toolsConfig = JSON.parse(readFileSync(toolsFile, 'utf8'))
+export const workcardConfig = JSON.parse(readFileSync(workcardFile, 'utf8'))
 export const runtimeSettings = () => readRuntimeSettings(requiredConfig('ELYSIUM_SETTINGS_FILE'))
 
 // 限定插件入口可接受的配置字段。

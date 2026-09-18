@@ -1,12 +1,19 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import { toolsConfig } from '../src/config.js'
 import { createCallToolsRuntime } from '../src/tools/index.js'
-import { createCallToolsForAgent, loadedToolNames, TOOL_GROUPS } from '../src/tools/agent/index.js'
+import { createCallToolsForAgent, loadedToolNames } from '../src/tools/agent/index.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
-const assembly = () => ({ tools: ['call_tools_load', 'call_tools_video', 'call_tools_director_list', 'call_tools_project_create', 'call_tools_project_read', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
+const assembly = () => ({ tools: ['call_tools_load', 'call_tools_video', 'call_tools_director_list', 'call_tools_project_create', 'call_tools_project_read', 'report', ...Object.values(toolsConfig).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
 const agent = (events, agentPreset = 'elysium-teaching') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
 const events = names => [{ type: 'tool/call', data: { name: 'call_tools_load', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
 const discoveryTool = schemas => createCallToolsRuntime({ tools: { schemas } }).find(tool => tool.name === 'call_tools_load')
+test('loads tool groups and discovery schema from config', () => {
+  const config = JSON.parse(readFileSync(new URL('../config/tools.json', import.meta.url), 'utf8'))
+  assert.deepEqual(toolsConfig, config)
+  assert.deepEqual(discoveryTool(() => []).parameters.properties.groups.items.enum, Object.keys(config))
+})
 test('defers schemas and guidance without mutating source, policies or contexts', () => {
   const input = assembly(), before = JSON.stringify(input), result = createCallToolsForAgent(input, agent([]))
   assert.ok(!result.tools.some(t => t.name === 'bash'))
