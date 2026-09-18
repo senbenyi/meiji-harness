@@ -6,7 +6,7 @@ import { mkdtemp, readdir, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/utils/config.js'
-import { resolveGenerationBackend, thirdPartyModels, validateBackend } from '../src/servers/runtime/index.js'
+import { providerCreationInstructions, resolveGenerationBackend, thirdPartyChannels, thirdPartyModels, validateBackend } from '../src/servers/runtime/index.js'
 import { executeJob, validatePlan } from '../src/servers/providers/byteplus/execution.js'
 import { bytePlusBackend } from '../src/servers/providers/byteplus/config.js'
 import { saveJson } from '../src/business/jobs/store.js'
@@ -92,6 +92,19 @@ test('missing credentials fail before writing a paid submission journal', async 
     await assert.rejects(executeJob('aaaaaaaa', '5'.repeat(32), { mode: 't2va', prompt: 'test' }, backend), /api_key/)
     assert.equal(f.calls.length, 0)
     assert.equal((await readdir(join(f.root, 'projects', 'aaaaaaaa'))).includes('jobs'), false)
+  }) } finally { await f.close() }
+})
+
+test('invalid BytePlus config disables only its channel and does not break discovery', async () => {
+  const f = await fixture()
+  try { await f.bind(async () => {
+    f.config.api_key = ''; await saveJson(f.file, f.config)
+    assert.equal(await thirdPartyModels(), null)
+    const channel = (await thirdPartyChannels()).find(item => item.id === 'byteplus')
+    assert.equal(channel.enabled, false); assert.deepEqual(channel.models, [])
+    await providerCreationInstructions()
+    assert.equal((await resolveGenerationBackend('video', { probe: async () => true })).provider, 'manual')
+    assert.equal(f.calls.length, 0)
   }) } finally { await f.close() }
 })
 

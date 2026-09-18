@@ -5,7 +5,7 @@ load('elysium/servers', (require, exports) => {
   const labels = { image: '图片模型', video: '视频模型' }
   function ServerList() {
     const [data, setData] = useState(null), [selected, setSelected] = useState({}), [thirdPartySelected, setThirdPartySelected] = useState({})
-    const [error, setError] = useState(''), [busy, setBusy] = useState(null)
+    const [error, setError] = useState(''), [busy, setBusy] = useState(null), [chatConnected, setChatConnected] = useState(false)
     useEffect(() => {
       const controller = new AbortController()
       serverRequest('models', null, controller.signal).then(value => {
@@ -13,6 +13,15 @@ load('elysium/servers', (require, exports) => {
       }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
       return () => controller.abort()
     }, [])
+    async function connectChat() {
+      if (busy || !data?.chat_model) return
+      setBusy('chat'); setError('')
+      try {
+        const value = await serverRequest('tunnel-connect', { id: data.chat_model.id })
+        setChatConnected(value.connected === true)
+      } catch (error) { setError(error.message) }
+      finally { setBusy(null) }
+    }
     async function chooseOwn(kind, id) {
       if (busy || !id) return
       setSelected(current => ({ ...current, [kind]: id }))
@@ -35,6 +44,9 @@ load('elysium/servers', (require, exports) => {
     }
     return h('section', { className: 'elysium-server-list', 'aria-label': '模型设置' },
       h('h2', null, '私有模型'),
+      data?.chat_model ? h('div', { className: 'elysium-model-row' },
+        h('label', null, '聊天模型：'), h('span', { 'aria-label': '聊天模型' }, data.chat_model.label),
+        h('button', { type: 'button', disabled: busy === 'chat', onClick: connectChat }, busy === 'chat' ? '连接中…' : chatConnected ? '重新连接' : '连接')) : null,
       Object.entries(labels).map(([kind, label]) => {
         const entries = data?.models[kind] || [], id = selected[kind] || ''
         return h('div', { key: kind, className: 'elysium-model-row' },

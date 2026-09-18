@@ -1,13 +1,13 @@
 // 职责：从本地任务状态组装素材摘要，并按筛选与分页返回可用产物。
-import { readdir, readFile, stat, writeFile, mkdir, rename, rm, open } from 'node:fs/promises'
+import { readdir, readFile, stat, mkdir, rename, rm, open } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { join, extname, basename } from 'node:path'
 import { openLocalMedia } from './local-media.js'
-import { findJobRoot } from '../jobs/paths.js'
 import { getJob } from '../jobs/query.js'
 import { readJson, saveJson } from '../jobs/store.js'
 import { invalidRequest } from '../../http/shared.js'
 import { projectsRoot, uploadsRoot } from '../../utils/storage-paths.js'
+import { addMaterial, removeMaterial, syncMaterials } from './store.js'
 
 export function jobSummary(job) {
   const image = job.result?.media_kind === 'image' || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)
@@ -44,9 +44,8 @@ export function assetSummary(job) {
 export async function deleteAsset(jobId) {
   const job = await getJob(jobId)
   if (job.status !== 'succeeded') throw invalidRequest('只能删除已完成素材')
-  const { directory } = await findJobRoot(jobId)
-  await writeFile(join(directory, 'asset-deleted.json'), '{}', { mode: 0o600 })
-  return { deleted: true }
+  await syncMaterials((await discoverMaterials()).map(item => item.material))
+  return removeMaterial(jobId)
 }
 
 // 流式接收本地图片或视频，在文件与登记写完后发布到素材库。
@@ -78,37 +77,58 @@ export async function uploadAsset(req, filename) {
     await saveJson(join(temporary, 'media', 'manifest.json'), { files: [{ path, job_id: id, size_bytes: size }] })
     await saveJson(join(temporary, 'status.json'), job)
     await rename(temporary, join(root, id))
+    await addMaterial({ job_id: id, source: 'import' })
     return assetSummary(job)
   } finally { await rm(temporary, { recursive: true, force: true }) }
 }
 
-export async function listAssets(offset, limit, filters = {}) {
+async function discoverMaterials() {
   const root = projectsRoot()
   const projects = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
-  const items = []
-  const projectMaterials = new Set()
-  if (filters.source === 'project') for (const project of projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name))) {
-    const directory = join(root, project.name)
-    const materials = await readJson(join(directory, 'materials.json'))
-    const metadata = materials ? null : await readJson(join(directory, 'project.json'))
-    for (const id of materials || metadata?.materials || []) projectMaterials.add(id)
-  }
   const sources = projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name)).map(project => ({ directory: join(root, project.name, 'jobs'), projectId: project.name }))
   sources.push({ directory: uploadsRoot() })
+  const discovered = []
   for (const source of sources) {
     const jobs = await readdir(source.directory, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
     for (const entry of jobs) {
       if (!entry.isDirectory() || !/^[a-f0-9]{32}$/.test(entry.name)) continue
       const path = join(source.directory, entry.name, 'status.json')
       try {
-        if (await readJson(join(source.directory, entry.name, 'asset-deleted.json'))) continue
         const job = JSON.parse(await readFile(path, 'utf8')); job.project_id ||= source.projectId
-        if (filters.source === 'creation' && !source.projectId || filters.source === 'import' && source.projectId || filters.source === 'project' && !projectMaterials.has(job.job_id)) continue
-        const summary = { ...assetSummary(job), ...await availableJobSummary(job) }
-        if (filters.q && ![job.job_id, job.title, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
-        if (job.status === 'succeeded' && (!filters.profile || (summary.profile === 'hd' ? 'high-quality' : summary.profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || summary.media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })
+        if (job.status !== 'succeeded') continue
+        const deleted = await readJson(join(source.directory, entry.name, 'asset-deleted.json'))
+        discovered.push({ job, path, material: { job_id: job.job_id, source: source.projectId ? 'creation' : 'import',
+          ...(source.projectId ? { project_id: source.projectId } : {}),
+          ...(deleted ? { deleted: true } : {}) } })
       } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
     }
+  }
+  return discovered
+}
+
+export async function listAssets(offset, limit, filters = {}) {
+  const discovered = await discoverMaterials()
+  const catalog = await syncMaterials(discovered.map(item => item.material))
+  const active = new Set(catalog.filter(item => !item.deleted).map(item => item.job_id))
+  const projectMaterials = new Set()
+  if (filters.source === 'project') {
+    const projects = await readdir(projectsRoot(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
+    for (const project of projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name))) {
+      const directory = join(projectsRoot(), project.name)
+      const materials = await readJson(join(directory, 'materials.json'))
+      const metadata = materials ? null : await readJson(join(directory, 'project.json'))
+      for (const id of materials || metadata?.materials || []) projectMaterials.add(id)
+    }
+  }
+  const items = []
+  for (const { job, path, material } of discovered) {
+    if (!active.has(job.job_id)) continue
+    if (filters.source === 'creation' && material.source !== 'creation' || filters.source === 'import' && material.source !== 'import' || filters.source === 'project' && !projectMaterials.has(job.job_id)) continue
+    try {
+      const summary = { ...assetSummary(job), ...await availableJobSummary(job) }
+      if (filters.q && ![job.job_id, job.title, job.debug?.effective_input?.prompt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
+      if (job.status === 'succeeded' && (!filters.profile || (summary.profile === 'hd' ? 'high-quality' : summary.profile) === (filters.profile === 'hd' ? 'high-quality' : filters.profile)) && (!filters.media_kind || summary.media_kind === filters.media_kind)) items.push({ ...summary, created_at: (await stat(path)).mtimeMs })
+    } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
   }
   items.sort((a, b) => b.created_at - a.created_at || a.job_id.localeCompare(b.job_id))
   return { items: items.slice(offset, offset + limit), total: items.length, has_more: offset + limit < items.length }

@@ -16,7 +16,7 @@ test('all endpoints authenticate before IO; registration stays manual and switch
   const server = createServer((req, res) => withConfig({ ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json') }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
   const request = (action, body, token = 'test') => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=${token}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
-  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'third-party-select']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
+  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'tunnel-connect', 'third-party-select']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
   assert.equal(calls, 0)
   assert.equal((await request('register', { revision: 0, server: { ...record('unavailable'), provider: 'autodl' } })).status, 409)
   assert.equal((await request('register', { revision: 0, server: record('a') })).status, 201)
@@ -53,17 +53,31 @@ test('fixed model catalog probes without connecting and failed selection cannot 
     await writeSelection({ version: 1, revision: 0, selected: { image: 'a', video: 'a' }, third_party: {} }, 0)
   })
   const pinned = withConfig(config, () => resolveServer('video'))
-  let failing = true, checks = 0
-  const handler = createServerHandler({ token: 'test', check: async (kind, id) => { checks++; assert.equal(kind, 'video'); assert.equal(id, 'b'); if (failing) throw new Error('private upstream error'); return { ok: true } } })
+  let failing = true, checks = 0, tunnelFailing = true, tunnelChecks = 0
+  const tunnel = { server_id: 'legacy-qwen', provider: 'manual', service: 'llm', base_url: 'http://127.0.0.1:18000/v1',
+    connection: { transport: 'ssh', ssh_alias: 'fixture', local_port: 18000, remote_host: '127.0.0.1', remote_port: 8000 } }
+  const handler = createServerHandler({ token: 'test',
+    check: async (kind, id) => { checks++; assert.equal(kind, 'video'); assert.equal(id, 'b'); if (failing) throw new Error('private upstream error'); return { ok: true } },
+    tunnelBackend: alias => { assert.equal(alias, 'qwen'); return tunnel },
+    connect: async backend => { tunnelChecks++; assert.equal(backend, tunnel); if (tunnelFailing) throw new Error('PRIVATE_TUNNEL=secret'); return { ok: true } } })
   const server = createServer((req, res) => withConfig(config, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
   const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${SERVER_ROUTE}/${action}?t=test`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
   const listed = await (await request('models')).json()
   assert.deepEqual(listed.models.image, [])
+  assert.deepEqual(listed.chat_model, { id: 'qwen3.8-27b-elysium', label: 'qwen3.8-27b-elysium' })
+  assert.doesNotMatch(JSON.stringify(listed.chat_model), /ssh|18000|8000|veo-qwen38/)
   assert.equal(listed.selected.video, 'model-a')
   assert.equal((await (await request('model-status', { kind: 'video', id: 'model-a' })).json()).connected, true)
   assert.equal(checks, 0)
   assert.equal((await request('model-connect', { kind: 'image', id: 'unconfigured', revision: 1 })).status, 400)
+  assert.equal((await request('tunnel-connect', { id: 'other' })).status, 400)
+  assert.equal(tunnelChecks, 0)
+  const failedTunnel = await request('tunnel-connect', { id: 'qwen3.8-27b-elysium' })
+  assert.equal(failedTunnel.status, 503); assert.doesNotMatch(await failedTunnel.text(), /PRIVATE_TUNNEL|secret/)
+  tunnelFailing = false
+  assert.equal((await (await request('tunnel-connect', { id: 'qwen3.8-27b-elysium' })).json()).connected, true)
+  assert.equal(tunnelChecks, 2)
   assert.equal((await request('model-connect', { kind: 'video', id: 'model-b', revision: 1 })).status, 503)
   assert.equal(withConfig(config, () => readSelection().selected.video), 'a')
   failing = false

@@ -113,6 +113,19 @@ test('unsupported modes, extra references and invalid durations fail before subm
   })
 })
 
+test('invalid Bailian config disables only its channel and keeps BytePlus available', async t => {
+  const f = await fixture(t)
+  await f.bind(async () => {
+    f.config.api_key = ''; await saveJson(f.file, f.config)
+    assert.deepEqual((await thirdPartyModels()).video.map(model => model.id), ['byteplus:seedance2'])
+    const channels = await thirdPartyChannels()
+    assert.equal(channels.find(item => item.id === 'bailian').enabled, false)
+    assert.equal(channels.find(item => item.id === 'byteplus').enabled, true)
+    assert.equal((await resolveGenerationBackend('video', { probe: async () => false })).provider, 'byteplus')
+    assert.equal(f.calls.length, 0)
+  })
+})
+
 test('worker receives independent config and saved backend', async t => {
   const f = await fixture(t)
   const sample = join(f.root, 'sample.mp4')

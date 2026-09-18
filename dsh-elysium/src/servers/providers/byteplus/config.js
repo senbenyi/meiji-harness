@@ -1,19 +1,20 @@
 // 职责：读取独立 BytePlus 配置；任务快照只保存公开的视频参数。
 import { readFileSync } from 'node:fs'
 import { runtimeConfig } from '../../../utils/config.js'
+const invalidConfig = message => Object.assign(new Error(message), { code: 'PROVIDER_CONFIG_INVALID' })
 
 export function readBytePlus({ includeDisabled = false } = {}) {
   const path = runtimeConfig().ELYSIUM_BYTEPLUS_FILE
   if (!path) return null
   let value
   try { value = JSON.parse(readFileSync(path, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return null; throw new Error('BytePlus 配置文件无效') }
-  if (!value || typeof value.enabled !== 'boolean') throw new Error('BytePlus enabled 配置无效')
+  catch (error) { if (error.code === 'ENOENT') return null; throw invalidConfig('BytePlus 配置文件无效') }
+  if (!value || typeof value.enabled !== 'boolean') throw invalidConfig('BytePlus enabled 配置无效')
   if (!value.enabled && !includeDisabled) return null
   let url
-  try { url = new URL(value.base_url) } catch { throw new Error('BytePlus API 地址无效') }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('BytePlus API 地址无效')
-  if (typeof value.api_key !== 'string' || !value.api_key.trim() || !value.video || typeof value.video !== 'object' || typeof value.video.model !== 'string' || !value.video.model.trim()) throw new Error('BytePlus api_key 或 video 配置无效')
+  try { url = new URL(value.base_url) } catch { throw invalidConfig('BytePlus API 地址无效') }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw invalidConfig('BytePlus API 地址无效')
+  if (typeof value.api_key !== 'string' || !value.api_key.trim() || !value.video || typeof value.video !== 'object' || typeof value.video.model !== 'string' || !value.video.model.trim()) throw invalidConfig('BytePlus api_key 或 video 配置无效')
   return value
 }
 export function bytePlusBackend(kind) {

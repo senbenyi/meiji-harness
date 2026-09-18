@@ -1,10 +1,10 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer } from '../servers/runtime/index.js'
+import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel } from '../servers/runtime/index.js'
 import { withConfig, runtimeConfig, defaultModels } from '../utils/config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from './shared.js'
 export const SERVER_ROUTE = '/plugins/dsh-elysium/server'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'third-party-select']
-export function createServerHandler({ token, check = checkServer, identify = sshIdentity }) {
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select']
+export function createServerHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -18,10 +18,18 @@ export function createServerHandler({ token, check = checkServer, identify = ssh
       const models = Object.fromEntries(['image', 'video'].map(kind => [kind, configuredModels[kind] || []]))
       if (action === 'models') {
         const thirdParty = await thirdPartyModels()
-        return json(res, 200, { revision: selection.revision, models, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+        const tunnel = defaultTunnelModel(), chatModel = tunnel && { id: tunnel.id, label: tunnel.label }
+        return json(res, 200, { revision: selection.revision, models, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
           const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
           return [kind, (entries.find(model => model.server_id === active) || entries[0])?.id || '']
         })) })
+      }
+      if (action === 'tunnel-connect') {
+        const body = await readJsonBody(req), tunnel = defaultTunnelModel()
+        if (!tunnel || body.id !== tunnel.id) throw invalidRequest('聊天模型未在系统中配置')
+        const backend = tunnelBackend(tunnel.alias)
+        if (!backend) throw invalidRequest('聊天模型隧道未配置')
+        return json(res, 200, { ...await connect(backend), connected: true })
       }
       if (action === 'third-party-select') {
         const body = await readJsonBody(req)

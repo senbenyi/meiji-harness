@@ -67,7 +67,11 @@ async function channels() {
   const result = []
   for (const definition of providerDefinitions().filter(item => item.channel).sort((a, b) => a.priority - b.priority)) {
     const provider = await loadProvider(definition.id)
-    result.push({ provider, ...await provider.channel() })
+    try { result.push({ provider, ...await provider.channel() }) }
+    catch (error) {
+      if (error.code !== 'PROVIDER_CONFIG_INVALID') throw error
+      result.push({ provider, id: provider.id, label: provider.label, enabled: false, models: {} })
+    }
   }
   return result
 }
@@ -135,4 +139,9 @@ export async function providerCreationInstructions() {
   return result.join('\n')
 }
 
-export const defaultTunnelAlias = () => providerDefinitions().find(item => item.legacy_tunnel)?.legacy_tunnel.alias
+export function defaultTunnelModel() {
+  const owner = providerDefinitions().find(item => item.legacy_tunnel)
+  const tunnel = owner?.legacy_tunnel, model = owner?.services?.[tunnel?.service]?.model
+  return tunnel && model ? { alias: tunnel.alias, id: model, label: model } : null
+}
+export const defaultTunnelAlias = () => defaultTunnelModel()?.alias

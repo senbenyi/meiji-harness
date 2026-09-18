@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import { withConfig } from '../src/utils/config.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/http/project-routes.js'
 import { createMediaHandler } from '../src/http/media-routes.js'
-import { jobSummary } from '../src/business/assets/catalog.js'
+import { jobSummary, listAssets } from '../src/business/assets/catalog.js'
 
 test('job status exposes the actual model instead of presenting the provider as a model', () => {
   const summary = jobSummary({ status: 'running', debug: { effective_input: { mode: 't2va' } },
@@ -37,6 +37,11 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     assert.equal(first.items[0].job_id, '2'.repeat(32)); assert.equal(first.items[0].created_at, 2000)
     assert.equal(first.items[0].project_id, project)
     assert.equal(first.items[0].profile, 'hd')
+    const catalogPath = join(root, 'pools', 'materials.json')
+    const catalog = JSON.parse(await readFile(catalogPath, 'utf8'))
+    assert.equal(catalog.version, 1)
+    assert.deepEqual(catalog.materials.map(item => item.job_id).sort(), ['1'.repeat(32), '2'.repeat(32)])
+    assert.ok(catalog.materials.every(item => item.source === 'creation' && item.project_id === project && !item.deleted))
     assert.equal((await (await fetch(base + '/list?t=secret&source=creation&limit=1')).json()).total, 2)
     assert.equal((await (await fetch(base + '/list?t=secret&source=import')).json()).total, 0)
     await writeFile(join(root, 'projects', project, 'materials.json'), JSON.stringify(['1'.repeat(32)]))
@@ -71,6 +76,8 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     assert.equal(remaining.total, 1); assert.equal(remaining.has_more, false)
     assert.equal(remaining.items[0].job_id, '2'.repeat(32))
     assert.equal((await (await fetch(base + '/list?t=secret&profile=preview')).json()).total, 0)
+    assert.equal(JSON.parse(await readFile(catalogPath, 'utf8')).materials.find(item => item.job_id === '1'.repeat(32)).deleted, true)
+    await assert.rejects(readFile(join(root, 'projects', project, 'jobs', '1'.repeat(32), 'asset-deleted.json')), error => error.code === 'ENOENT')
     assert.equal(await readFile(statusPath, 'utf8'), before)
     assert.equal(await readFile(join(root, 'projects', project, 'jobs', '1'.repeat(32), 'input/request.json'), 'utf8'), '{}')
     assert.equal((await (await fetch(base + '/status?t=secret&job=' + '1'.repeat(32))).json()).has_image, true)
@@ -113,6 +120,10 @@ test('uploaded images and videos preview locally, persist, delete and only image
     assert.equal((await (await fetch(base + '/list?t=t&media_kind=image')).json()).total, 1)
     assert.equal((await (await fetch(base + '/list?t=t&q=' + encodeURIComponent('参考图'))).json()).total, 1)
     assert.deepEqual((await readdir(join(root, 'uploads'))).sort(), [image.job_id, video.job_id].sort())
+    const catalogPath = join(root, 'pools', 'materials.json')
+    const imported = JSON.parse(await readFile(catalogPath, 'utf8')).materials
+    assert.deepEqual(imported.map(item => item.job_id).sort(), [image.job_id, video.job_id].sort())
+    assert.ok(imported.every(item => item.source === 'import' && !item.deleted && item.project_id === undefined))
     const project = await (await projectRequest('create', { title: '图片锚点', director: '姜文', profile: 'preview' })).json()
     const inserted = await projectRequest('import', { id: project.id, as: 'anchor', job_id: image.job_id })
     assert.equal(inserted.status, 200)
@@ -125,6 +136,23 @@ test('uploaded images and videos preview locally, persist, delete and only image
     assert.equal((await projectRequest('import', { id: project.id, as: 'anchor', job_id: video.job_id, role: anchor.role })).status, 400)
     assert.equal((await fetch(base + '/delete?t=t&job=' + image.job_id, { method: 'POST' })).status, 200)
     assert.equal((await (await fetch(base + '/list?t=t')).json()).total, 1)
+    assert.equal(JSON.parse(await readFile(catalogPath, 'utf8')).materials.find(item => item.job_id === image.job_id).deleted, true)
     assert.equal((await fetch(base + '/image?t=t&job=' + image.job_id)).status, 200)
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})
+
+test('legacy per-job deletion markers migrate into the global material catalog', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-assets-legacy-delete-'))
+  const project = 'a'.repeat(8), job = '1'.repeat(32)
+  const directory = join(root, 'projects', project, 'jobs', job)
+  try {
+    await mkdir(directory, { recursive: true })
+    await writeFile(join(directory, 'status.json'), JSON.stringify({ job_id: job, project_id: project, status: 'succeeded', result: { media_kind: 'image', comfyui_view_url: 'https://model.test/view' } }))
+    await writeFile(join(directory, 'asset-deleted.json'), '{}')
+    const result = await withConfig({ ELYSIUM_STATE_ROOT: root }, () => listAssets(0, 50))
+    assert.equal(result.total, 0)
+    assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'materials.json'), 'utf8')), {
+      version: 1, materials: [{ job_id: job, source: 'creation', project_id: project, deleted: true }],
+    })
+  } finally { await rm(root, { recursive: true, force: true }) }
 })

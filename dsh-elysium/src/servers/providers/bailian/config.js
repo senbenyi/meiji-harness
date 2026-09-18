@@ -1,19 +1,20 @@
 // 职责：读取独立百炼配置；任务快照只保留公开的视频参数。
 import { readFileSync } from 'node:fs'
 import { runtimeConfig } from '../../../utils/config.js'
+const invalidConfig = message => Object.assign(new Error(message), { code: 'PROVIDER_CONFIG_INVALID' })
 
 export function readBailian({ includeDisabled = false } = {}) {
   const path = runtimeConfig().ELYSIUM_BAILIAN_FILE
   if (!path) return null
   let value
   try { value = JSON.parse(readFileSync(path, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return null; throw new Error('百炼配置文件无效') }
-  if (!value || typeof value.enabled !== 'boolean') throw new Error('百炼 enabled 配置无效')
+  catch (error) { if (error.code === 'ENOENT') return null; throw invalidConfig('百炼配置文件无效') }
+  if (!value || typeof value.enabled !== 'boolean') throw invalidConfig('百炼 enabled 配置无效')
   if (!value.enabled && !includeDisabled) return null
   let url
-  try { url = new URL(value.base_url) } catch { throw new Error('百炼 API 地址无效') }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('百炼 API 地址无效')
-  if (typeof value.api_key !== 'string' || !value.video || typeof value.video !== 'object') throw new Error('百炼 api_key 或 video 配置无效')
+  try { url = new URL(value.base_url) } catch { throw invalidConfig('百炼 API 地址无效') }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw invalidConfig('百炼 API 地址无效')
+  if (typeof value.api_key !== 'string' || !value.api_key.trim() || !value.video || typeof value.video !== 'object') throw invalidConfig('百炼 api_key 或 video 配置无效')
   return value
 }
 export function bailianBackend(kind) {
