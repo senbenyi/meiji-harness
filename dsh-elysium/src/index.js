@@ -6,8 +6,6 @@ import { resolveConfig, withConfig } from './config.js'
 import { registerWebRoutes, createWebStores } from './server/index.js'
 // tools
 import { createRuntimeTools, createWebTools, projectAssemblyForAgent } from './tools/index.js'
-//export 把模块的导出继续暴露给外部
-export * from './tools/index.js'
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
 const effectPrefix = '@dsh-external/dsh-elysium'
@@ -52,7 +50,7 @@ function registerPromptAssembly(ctx) {
 
 // 注册基础工具，并保持工具定义的 schema、output 和执行策略不变。
 function registerRuntimeTools(ctx, runtime) {
-  const tools = createRuntimeTools(ctx, runtime)
+  const tools = createRuntimeTools(ctx)
   for (const definition of tools) registerTool(ctx, bindRuntimeTool(definition, runtime))
   ctx.logger?.info?.(`[elysium] ${tools.length} tools loaded`)
 }

@@ -1,7 +1,6 @@
 // 职责：把视频生成与恢复服务适配为 Harness 工具。
 import { startVideoJob, resumeVideoJob } from '../../server/workflows/videos/service.js'
 import { VIDEO_MODES, VIDEO_PROFILES } from '../../server/workflows/videos/plan.js'
-import { renderToolDebug } from '../core/output.js'
 import { waitJob } from '../../server/jobs/wait.js'
 import { createTiming } from '../../server/jobs/timing.js'
 import { generationProjectId } from '../project/context.js'
@@ -10,7 +9,6 @@ import { ModelTaskError } from '../../server/jobs/errors.js'
 export { waitJob as waitVideoJob } from '../../server/jobs/wait.js'
 
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
-const output = { schema: { type: 'object', properties: { project_id: { type: 'string' }, job_id: { type: 'string' }, status: { type: 'string' } }, required: ['project_id', 'job_id', 'status'] }, render: renderToolDebug }
 const media = description => ({ type: 'string', description: `${description}，引用格式遵循当前后端的素材能力说明。` })
 
 export function userRequestedVideoRetry(exec) {
@@ -52,7 +50,7 @@ export function createWorkflowGenerateVideoTool() {
         video_path: media('镜头视频'), audio_path: media('镜头音频'), seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
         in_point: { type: 'number', minimum: 0 },
       } } },
-    }, oneOf: [{ required: ['mode', 'prompt'] }, { required: ['duration'] }] }, output,
+    }, oneOf: [{ required: ['mode', 'prompt'] }, { required: ['duration'] }] },
     execute: async (args, exec) => {
       const timing = createTiming()
       exec?.signal?.throwIfAborted()
@@ -67,7 +65,7 @@ export function createWorkflowGenerateVideoTool() {
 export function createWorkflowResumeVideoTool() {
   return { name: 'workflow_resume_video', description: '仅在用户要求重试时调用一次；失败后停止，等待用户，不得连续调用或改用生成工具。恢复原服务器的视频任务；复用已保存的 API 图和 prompt_id，不重新创建任务。',
     parameters: { type: 'object', additionalProperties: false, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
-    timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000, output,
+    timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
     execute: async (args, exec) => {
       if (!userRequestedVideoRetry(exec)) throw new ModelTaskError('MODEL_RETRY_CONFIRMATION_REQUIRED', '等待用户明确要求重试后才能恢复原视频任务', 409)
       const timing = createTiming()

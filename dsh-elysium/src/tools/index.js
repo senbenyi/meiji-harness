@@ -1,33 +1,39 @@
-// 职责：统一导出并组装工具、Agent 投影和创作提示，对插件入口隐藏具体工具清单。
+// 职责：组装运行时与 Web 工具，并提供 Agent 投影入口；不公开具体工具工厂。
 import { createCharacterTools } from './media/character.js'
-import { createDirectorTools } from './project/director.js'
 import { createProjectTools } from './project/project.js'
+import { createDirectorTools } from './project/director.js'
 import { createModelJobResultTool, createModelJobStatusTool } from './task/model.js'
 import { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool } from './media/video.js'
 import { createWorkflowGenerateImageTool, createWorkflowResumeImageTool } from './media/image.js'
-import { createComfyuiTaskCancelTool, createComfyuiTaskQueueTool, createComfyuiTaskResultTool, createComfyuiTaskStatusTool } from './task/comfyui.js'
-import { createToolDiscoveryTool } from './core/discovery.js'
-import { isElysiumAgent, projectAssemblyForAgent } from './agent/index.js'
-import { creationInstructions } from './prompts/creation.js'
+import { isElysiumAgent, projectAssemblyForAgent, TOOL_GROUPS, withWorkcardOutput } from './agent/index.js'
 
-// 工具基础能力、Agent 投影与创作提示。
-export { createToolDiscoveryTool, isElysiumAgent, projectAssemblyForAgent, creationInstructions }
-
-// 可独立复用的任务工具工厂。
-export { createDirectorTools, createProjectTools }
-export { createModelJobResultTool, createModelJobStatusTool }
-export { createWorkflowGenerateVideoTool, createWorkflowResumeVideoTool }
-export { createComfyuiTaskCancelTool, createComfyuiTaskQueueTool, createComfyuiTaskResultTool, createComfyuiTaskStatusTool }
-
+export { projectAssemblyForAgent }
 // 组装与模型任务状态和结果查询相关的工具。
-export const createModelTools = () => [createModelJobStatusTool(), createModelJobResultTool()]
+const createModelTools = () => [createModelJobStatusTool(), createModelJobResultTool()]
 // 组装面向用户的图片、视频与角色工作流工具。
-export const createWorkflowTools = () => [createWorkflowGenerateImageTool(), createWorkflowResumeImageTool(), createWorkflowGenerateVideoTool(), createWorkflowResumeVideoTool(), ...createCharacterTools()]
-// 原子工具关闭时返回空集合；开启时组装直接操作 ComfyUI 队列、状态、结果和取消能力的工具。
-export const createComfyuiTools = runtime => runtime.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1'
-  ? [createComfyuiTaskQueueTool(), createComfyuiTaskStatusTool(), createComfyuiTaskResultTool(), createComfyuiTaskCancelTool()]
-  : []
+const createWorkflowTools = () => [createWorkflowGenerateImageTool(), createWorkflowResumeImageTool(), createWorkflowGenerateVideoTool(), createWorkflowResumeVideoTool(), ...createCharacterTools()]
 // 组装依赖 Web Store 的导演与项目工具。
 export const createWebTools = ({ projects, directors }) => [...createDirectorTools(directors), ...createProjectTools(projects)]
 // 组装插件启动时注册的完整运行时工具清单。
-export const createRuntimeTools = (ctx, runtime) => [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools(), ...createComfyuiTools(runtime)]
+export const createRuntimeTools = ctx => [createToolDiscoveryTool(ctx), ...createWorkflowTools(), ...createModelTools()].map(withWorkcardOutput)
+
+// 创建通用工具组加载入口，只返回当前 Agent 已有权限使用的工具名称。
+function createToolDiscoveryTool(ctx) {
+  return {
+    name: 'elysium_load_tools', description: '按需加载通用工具组及其原始参数和说明，不执行任务。加载后在下一次请求直接调用原工具。',
+    parameters: { type: 'object', additionalProperties: false, properties: {
+        groups: { type: 'array', items: { type: 'string', enum: Object.keys(TOOL_GROUPS) } },
+      }, required: ['groups'] },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+          loaded_tools: { type: 'array', items: { type: 'string' } },
+        }, required: ['loaded_tools'] }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    execute: async (args, exec) => {
+      if (!isElysiumAgent(exec?.agent)) throw new Error('工具加载仅适用于极乐世界预设')
+      if (!Array.isArray(args.groups) || !args.groups.length || args.groups.some(group => !Object.hasOwn(TOOL_GROUPS, group))) throw new Error('无效工具组')
+      const available = new Set(ctx.tools.schemas(exec.agent).map(tool => tool.name))
+      const names = [...new Set(args.groups.flatMap(group => TOOL_GROUPS[group].names))].filter(name => available.has(name))
+      if (!names.length) throw new Error('本会话没有可用的该组工具；加载不会扩大权限')
+      return { loaded_tools: names }
+    },
+  }
+}

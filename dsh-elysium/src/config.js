@@ -34,7 +34,7 @@ export const runtimeSettings = () => readRuntimeSettings(requiredConfig('ELYSIUM
 function validatePluginConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('插件 config 必须为对象')
   for (const key of Object.keys(config)) {
-    if (!Object.hasOwn(fields, key) && !['enableAtomicTools', 'models'].includes(key)) throw new Error(`未知插件配置：${key}`)
+    if (!Object.hasOwn(fields, key) && key !== 'models') throw new Error(`未知插件配置：${key}`)
   }
 }
 
@@ -99,13 +99,6 @@ function resolveRuntimeFields(config, defaults, configuredSettingsFile, registry
   return resolved
 }
 
-// 解析 ComfyUI 原子工具开关，显式配置优先于环境变量和 Settings。
-function resolveAtomicTools(config, settings) {
-  if (config.enableAtomicTools !== undefined && typeof config.enableAtomicTools !== 'boolean') throw new Error('enableAtomicTools 必须为布尔值')
-  const atomicTools = config.enableAtomicTools ?? (process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === undefined ? settings.enableAtomicTools : process.env.ELYSIUM_ENABLE_ATOMIC_TOOLS === '1')
-  return atomicTools ? '1' : '0'
-}
-
 // 将插件配置转换为经过校验的、不可变的运行时配置。
 export function resolveConfig(config = {}) {
   validateSettings(defaultSettings)
@@ -116,7 +109,6 @@ export function resolveConfig(config = {}) {
   const { configuredSettingsFile, settings } = resolveSettings(config, defaults)
   const resolved = resolveRuntimeFields(config, defaults, configuredSettingsFile, settings.connections)
   resolved.ELYSIUM_MODELS = resolveModels(config, settings)
-  resolved.ELYSIUM_ENABLE_ATOMIC_TOOLS = resolveAtomicTools(config, settings)
   return Object.freeze(resolved)
 }
 
@@ -124,7 +116,8 @@ export function resolveConfig(config = {}) {
 export function workerEnvironment() {
   const config = runtimeConfig()
   const env = { ...process.env }
-  for (const name of [...Object.values(fields).map(([name]) => name), 'ELYSIUM_ENABLE_ATOMIC_TOOLS']) {
+  delete env.ELYSIUM_ENABLE_ATOMIC_TOOLS
+  for (const name of Object.values(fields).map(([name]) => name)) {
     delete env[name]
     if (config[name] !== undefined) env[name] = config[name]
   }

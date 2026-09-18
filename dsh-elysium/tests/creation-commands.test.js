@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import { clientSource } from '../scripts/loader.js'
-import { creationInstructions } from '../src/tools/prompts/creation.js'
+import { creationInstructions } from '../src/tools/agent/creation.js'
 
 function load() {
   const factories = new Map()

@@ -2,3 +2,4 @@
 export { ELYSIUM_AGENT_PRESETS, currentAgentPreset, isElysiumAgent, isElysiumFreeAgent, isElysiumStandaloneAgent, isElysiumProjectAgent } from './presets.js'
 export { loadedToolNames } from './events.js'
 export { TOOL_GROUPS, projectAssemblyForAgent } from './projection.js'
+export { renderWorkcard, withWorkcardOutput } from './workcard.js'

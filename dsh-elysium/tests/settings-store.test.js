@@ -72,6 +72,13 @@ test('invalid unified settings never fall back to legacy files', async t => {
   assert.throws(() => ensureSettings({ path: files.settings, defaults: defaultSettings, registryFile: files.registry }), /settings\.json/)
 })
 
+test('legacy atomic tool setting is accepted but removed from runtime settings', async t => {
+  const files = await fixture(t)
+  await writeFile(files.settings, JSON.stringify({ ...defaultSettings, enableAtomicTools: true }))
+  const settings = readSettings(files.settings)
+  assert.equal(Object.hasOwn(settings, 'enableAtomicTools'), false)
+})
+
 test('empty connection list keeps the configured chat SSH tunnel and API model', async t => {
   const files = await fixture(t)
   const defaults = structuredClone(defaultSettings)

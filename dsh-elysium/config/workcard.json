@@ -1,0 +1,77 @@
+{
+  "summaryFields": [
+    "project_id",
+    "job_id",
+    "status",
+    "server",
+    "stage",
+    "validation",
+    "media_kind",
+    "comfyui_view_url",
+    "warnings",
+    "error_code",
+    "error",
+    "failed_stage",
+    "retryable",
+    "retry_scope",
+    "recovery_instruction",
+    "diagnostic_path",
+    "log_path",
+    "node_errors"
+  ],
+  "mediaMetadataStatuses": ["published-final", "comfyui-final"],
+  "tools": {
+    "workflow_generate_image": "job",
+    "workflow_resume_image": "job",
+    "workflow_generate_video": "projectJob",
+    "workflow_resume_video": "projectJob",
+    "model_character_view": "job",
+    "model_character_sheet": "job",
+    "model_job_status": "job",
+    "model_job_result": "completed"
+  },
+  "schemas": {
+    "job": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "job_id": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["job_id", "status"]
+    },
+    "projectJob": {
+      "type": "object",
+      "properties": {
+        "project_id": { "type": "string" },
+        "job_id": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["project_id", "job_id", "status"]
+    },
+    "completed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "media_kind": { "type": "string" },
+        "job_id": { "type": "string" },
+        "status": { "type": "string" },
+        "comfyui_prompt_id": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+        "comfyui_artifact_id": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+        "comfyui_view_url": { "type": "string" },
+        "comfyui_metadata_status": { "type": "string" },
+        "comfyui_artifacts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "debug": { "type": "object", "additionalProperties": true },
+        "server": { "type": "object", "additionalProperties": true },
+        "trace_id": { "type": "string" },
+        "parent_job_id": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+        "stage": { "type": "string" },
+        "timings": { "type": "object", "additionalProperties": true },
+        "code_version": { "type": "object", "additionalProperties": true },
+        "validation": { "type": "object", "additionalProperties": true },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["job_id", "status", "comfyui_view_url"]
+    }
+  }
+}

@@ -9,21 +9,26 @@ import { invalidRequest } from '../http.js'
 import { projectsRoot, uploadsRoot } from '../../database/paths.js'
 import { addMaterial, removeMaterial, syncMaterials } from '../../database/managers/materials.js'
 
-export function jobSummary(job) {
-  const image = job.result?.media_kind === 'image' || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)
-  const mode = job.debug?.effective_input?.mode
-  const model = job.result?.model || (mode === 'i2va' ? job.server?.connection?.image_model : job.server?.connection?.text_model) || job.server?.connection?.model
+export function jobSummary(job, { mode: requestedMode, inferMediaKind = true } = {}) {
+  const result = job.result || job
+  const image = result.media_kind === 'image' || job.capability === 'image-generate' || ['image-generate', 'image-compose'].includes(job.debug?.effective_input?.capability)
+  const mode = requestedMode || job.debug?.effective_input?.mode
+  const model = result.model || job.model || (mode === 'i2va' ? job.server?.connection?.image_model : job.server?.connection?.text_model) || job.server?.connection?.model
   return { job_id: job.job_id, server: job.server ? { server_id: job.server.server_id, provider: job.server.provider, ...(model ? { model } : {}) } : undefined, project_id: job.project_id, status: job.status,
     stage: job.status === 'failed' ? job.failed_stage : job.workflow?.stage || job.stage,
+    failed_stage: job.failed_stage,
     error_code: job.error_code, remote_status: job.remote_status,
-    error: job.error, retryable: job.retryable, retry_scope: job.retry_scope,
-    validation: job.result?.validation,
-    timings: job.timings, profile: job.result?.profile, specification: job.result?.specification,
-    comfyui_view_url: job.result?.comfyui_view_url,
-    media_kind: job.result?.media_kind === 'file' ? 'file' : image ? 'image' : 'video',
-    has_download: job.status === 'succeeded' && Boolean(job.result?.local_media_path || job.result?.comfyui_view_url),
-    has_image: job.status === 'succeeded' && image && Boolean(job.result?.local_media_path || job.result?.comfyui_view_url),
-    has_video: job.status === 'succeeded' && Boolean(job.result?.local_media_path || job.result?.comfyui_view_url) && !image && job.result?.media_kind !== 'file' }
+    error: job.error, retryable: job.retryable, retry_scope: job.retry_scope, recovery_instruction: job.recovery_instruction,
+    validation: result.validation, warnings: result.warnings || job.warnings,
+    timings: job.timings, profile: result.profile, specification: result.specification,
+    comfyui_view_url: result.comfyui_view_url, comfyui_metadata_status: result.comfyui_metadata_status,
+    media_kind: result.media_kind === 'file' ? 'file' : result.media_kind || (inferMediaKind ? image ? 'image' : 'video' : undefined),
+    diagnostic_path: job.status === 'succeeded' ? undefined : job.debug?.diagnostic_path,
+    log_path: job.status === 'succeeded' ? undefined : job.debug?.log_path,
+    node_errors: job.status !== 'succeeded' && job.debug?.node_errors?.length ? job.debug.node_errors : undefined,
+    has_download: job.status === 'succeeded' && Boolean(result.local_media_path || result.comfyui_view_url),
+    has_image: job.status === 'succeeded' && image && Boolean(result.local_media_path || result.comfyui_view_url),
+    has_video: job.status === 'succeeded' && Boolean(result.local_media_path || result.comfyui_view_url) && !image && result.media_kind !== 'file' }
 }
 
 export async function availableJobSummary(job) {

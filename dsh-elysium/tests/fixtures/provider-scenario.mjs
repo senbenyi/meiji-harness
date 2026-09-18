@@ -15,7 +15,6 @@ import { backendLlmSettings, backendWorkflowSource } from './lib/models/managers
 import { readRegistry, writeRegistry } from './lib/database/managers/registry.js'
 import { readSelection } from './lib/database/managers/selection.js'
 import { backendFromServer } from './lib/models/managers/registry/resolve.js'
-import { createComfyuiTaskCancelTool, createComfyuiTaskStatusTool } from './lib/tools/task/comfyui.js'
 const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider, instance_id: 'fixture', deployment_id: 'one', service: 'comfyui', base_url: 'http://unselected.invalid', connection: { workload: 'minimax-h3' } }, plan, id)
 const state = process.env.ELYSIUM_STATE_ROOT
@@ -88,7 +87,7 @@ try {
   const a = await model(), b = await model(), routes = new Map(), events = new Map()
   const context = { tools: { register() {} }, get: () => ({ register: route => routes.set(route.path, route.handler) }),
     inject: (_, fn) => fn(context), effect: fn => fn(), on: (event, fn) => events.set(event, fn) }
-  apply(context, { enableAtomicTools: true })
+  apply(context)
   const rows = []; events.get('webserver/index-inject')(rows); const token = rows[0].value.token
   const url = await listen((req, res) => { const handler = routes.get(new URL(req.url, 'http://localhost').pathname); if (handler) handler(req, res); else { res.writeHead(404); res.end() } })
   const request = async (path, body, expected = 200) => {
@@ -120,9 +119,6 @@ try {
   assert.equal(result.server.provider, provider); assert.ok(result.result.comfyui_view_url.startsWith(a.url))
   const media = await fetch(`${url}/plugins/dsh-elysium/media/video?job=${initial.job_id}&t=${token}`)
   assert.equal(media.status, 200); assert.equal(await media.text(), 'fixture-media'); assert.equal(a.views, 1)
-  assert.equal((await createComfyuiTaskStatusTool().execute({ server: 'a', prompt_id: 'prompt-1' })).status, 'succeeded')
-  await createComfyuiTaskCancelTool().execute({ server: 'a', prompt_id: 'collision' })
-  assert.equal(a.pending.length, 0); assert.equal(b.pending.length, 1)
   const switched = await startVideoJob({ project_id: projectId, mode: 't2va', profile: 'preview', prompt: 'A new scene on B.' })
   assert.ok((await completed(projectId, switched.job_id)).result.comfyui_view_url.startsWith(b.url))
   assert.equal(b.posts, 1)

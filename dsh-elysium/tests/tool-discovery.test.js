@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createToolDiscoveryTool } from '../src/tools/core/discovery.js'
+import { createRuntimeTools } from '../src/tools/index.js'
 import { loadedToolNames, projectAssemblyForAgent, TOOL_GROUPS } from '../src/tools/agent/index.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
 const assembly = () => ({ tools: ['elysium_load_tools', 'workflow_generate_video', 'director_list', 'project_create', 'project_read', 'report', ...Object.values(TOOL_GROUPS).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
 const agent = (events, agentPreset = 'elysium-teaching') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
 const events = names => [{ type: 'tool/call', data: { name: 'elysium_load_tools', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
+const discoveryTool = schemas => createRuntimeTools({ tools: { schemas } }).find(tool => tool.name === 'elysium_load_tools')
 test('defers schemas and guidance without mutating source, policies or contexts', () => {
   const input = assembly(), before = JSON.stringify(input), result = projectAssemblyForAgent(input, agent([]))
   assert.ok(!result.tools.some(t => t.name === 'bash'))
@@ -21,7 +22,7 @@ test('defers schemas and guidance without mutating source, policies or contexts'
   assert.equal(JSON.stringify(input), before)
 })
 test('loads scoped tools with original guidance, resumes durably and isolates sessions', async () => {
-  const input = assembly(), loader = createToolDiscoveryTool({ tools: { schemas: () => input.tools.filter(t => t.name !== 'pwsh') } })
+  const input = assembly(), loader = discoveryTool(() => input.tools.filter(t => t.name !== 'pwsh'))
   const value = await loader.execute({ groups: ['shell'] }, { agent: agent([]) })
   assert.ok(value.loaded_tools.includes('bash'))
   assert.ok(!value.loaded_tools.includes('pwsh'))
@@ -89,7 +90,7 @@ test('uses the current preset selection instead of the immutable creation header
   assert.ok(!projectAssemblyForAgent(assembly(), left).tools.some(tool => tool.name === 'elysium_load_tools'))
 })
 test('rejects invalid or unavailable loads', async () => {
-  const loader = createToolDiscoveryTool({ tools: { schemas: () => [] } })
+  const loader = discoveryTool(() => [])
   for (const groups of [[], ['missing'], ['shell']]) await assert.rejects(loader.execute({ groups }, { agent: agent([]) }))
   await assert.rejects(loader.execute({ groups: ['shell'] }, {}))
 })

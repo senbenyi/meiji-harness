@@ -48,13 +48,15 @@ function validateChat(chat) {
 
 export function validateSettings(value) {
   exactKeys(value, ['version', 'enableAtomicTools', 'models', 'chat', 'connections', 'selection', 'providers'], 'Elysium settings.json 配置无效')
-  if (value.version !== 1 || typeof value.enableAtomicTools !== 'boolean') throw new Error('Elysium settings.json 配置无效')
-  validateModels(value.models)
-  validateChat(value.chat)
-  validateRegistry(value.connections)
-  validateSelection(value.selection)
-  if (!object(value.providers) || Object.entries(value.providers).some(([id, config]) => !/^[a-z][a-z0-9_-]*$/.test(id) || !object(config))) throw new Error('Elysium settings.json 平台配置无效')
-  return value
+  if (value.version !== 1 || Object.hasOwn(value, 'enableAtomicTools') && typeof value.enableAtomicTools !== 'boolean') throw new Error('Elysium settings.json 配置无效')
+  const normalized = { ...value }
+  delete normalized.enableAtomicTools
+  validateModels(normalized.models)
+  validateChat(normalized.chat)
+  validateRegistry(normalized.connections)
+  validateSelection(normalized.selection)
+  if (!object(normalized.providers) || Object.entries(normalized.providers).some(([id, config]) => !/^[a-z][a-z0-9_-]*$/.test(id) || !object(config))) throw new Error('Elysium settings.json 平台配置无效')
+  return normalized
 }
 
 export function readSettings(path) {

@@ -54,7 +54,7 @@ test('plugin config validates fields and isolates concurrent calls', async t => 
   const defaultHome = join(root, 'default-home')
   assert.equal(resolveConfig({ home: defaultHome, comfyUrl: 'https://pod.test' }).ELYSIUM_STATE_ROOT, defaultHome)
   for (const config of [{ comfyUrl: 'ftp://host' }, { publicUrl: 'https://duplicate.test' }, { bailianFile: 'relative' },
-    { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 }, { enableAtomicTools: '1' }, { typo: '/path' }]) assert.throws(() => resolveConfig({ home: join(root, 'invalid'), ...config }))
+    { artifactsRoot: '/obsolete' }, { stateRoot: 'relative' }, { ffprobe: 12 }, { enableAtomicTools: true }, { typo: '/path' }]) assert.throws(() => resolveConfig({ home: join(root, 'invalid'), ...config }))
   const homes = [join(root, 'instance-a'), join(root, 'instance-b')]
   const configs = homes.map((stateRoot, index) => resolveConfig({
     home: stateRoot, comfyUrl: `https://pod-${index}.test`, stateRoot, bailianFile: join(stateRoot, 'bailian.json'),

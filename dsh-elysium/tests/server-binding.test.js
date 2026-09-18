@@ -1,4 +1,4 @@
-// 职责：验证切换默认服务器后任务、原子查询与媒体引用不会串用。
+// 职责：验证切换默认服务器后任务与媒体引用不会串用。
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -13,7 +13,6 @@ import { withBackend, resolveServer } from '../src/models/managers/registry/reso
 import { writeRegistry } from '../src/database/managers/registry.js'
 import { writeSelection, readSelection } from '../src/database/managers/selection.js'
 import { executeComfyVideo } from '../src/server/workflows/videos/execution.js'
-import { createComfyuiTaskStatusTool, createComfyuiTaskCancelTool } from '../src/tools/task/comfyui.js'
 import { mediaReference } from '../src/models/protocols/comfyui/media-reference.js'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
 import { launch } from '../src/server/workflows/videos/launcher.js'
@@ -49,11 +48,6 @@ test('A task survives a default switch to B even when preparation failed; identi
     assert.equal((await readBackend(dir)).server_id, 'a')
     const next = await createJob(project, plan)
     assert.equal((await readBackend(join(root, 'projects', project, 'jobs', next))).server_id, 'b')
-    await createComfyuiTaskStatusTool().execute({ server: 'a', prompt_id: 'same' })
-    await createComfyuiTaskCancelTool().execute({ server: 'a', prompt_id: 'same' })
-    assert.ok(requests.a.some(([path, body]) => path === '/queue' && body.includes('same')))
-    assert.equal(requests.b.length, 0)
-    await assert.rejects(createComfyuiTaskStatusTool().execute({ server: 'minimax-h3', prompt_id: 'same' }), /未配置/)
     const media = `${servers[0].services.comfyui.base_url}/view?filename=same.mp4&type=output`
     assert.throws(() => withBackend(resolveServer(), () => mediaReference(media)), /属于/)
     assert.equal(jobSummary({ status: 'succeeded', result: { comfyui_view_url: media } }).comfyui_view_url, media)

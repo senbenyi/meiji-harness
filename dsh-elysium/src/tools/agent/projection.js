@@ -1,7 +1,7 @@
 // 职责：根据 Agent 类型和会话状态投影本次请求可见的工具与提示词；不注册或执行工具。
 import { loadedToolNames, videoFailedThisTurn } from './events.js'
 import { isElysiumAgent, isElysiumProjectAgent } from './presets.js'
-import { creationInstructions } from '../prompts/creation.js'
+import { creationInstructions } from './creation.js'
 
 // 描述可按需加载的 Harness 通用工具组；这里只维护分组，不改变工具权限。
 export const TOOL_GROUPS = {
