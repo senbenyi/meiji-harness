@@ -121,6 +121,6 @@ export function registerMediaRoutes(ctx, runtime, projectBase, directorBase, set
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase, directorBase, settingsBase } }))
   const handle = createMediaHandler({ token, projectBase, directorBase, settingsBase, getSession: id => ctx.get('sessions')?.get(id) })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
-  for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list', 'delete', 'upload']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
+  for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list', 'delete', 'upload', 'retry']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
   return token
 }

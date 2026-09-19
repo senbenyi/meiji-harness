@@ -25,7 +25,6 @@ export const MODE_MEDIA = Object.freeze({
  *   start(fields) → status               写入 running，自动附带 code_version
  *   save(status)                         保存进度（stage 等）
  *   succeed(status, result) / fail(status, error, { code, retry_scope, recovery_instruction })
- *   journal(name) / saveJournal(name, value)   任务目录内的提交日志与远端响应
  *   saveMedia(stream, { extension, kind }) → { media_kind, local_media_path }
  *   imageReference(value) → 'job:<id>' 转为 data URI，其他引用原样返回
  */
