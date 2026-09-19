@@ -1,6 +1,5 @@
 // 职责：读写 Elysium 新任务使用的模型选择，不保存服务器连接或平台凭据。
-import { readFileSync } from 'node:fs'
-import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFileSync, rename, rm, writeFile } from '../files.js'
 import { basename, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { runtimeConfig } from '../../utils/context.js'

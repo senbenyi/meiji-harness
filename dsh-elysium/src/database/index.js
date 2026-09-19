@@ -1,6 +1,7 @@
 // 职责：集中导出 Elysium 的路径、JSON 存储和各类数据管理器。
 export * from './paths.js'
 export * from './json.js'
+export * as files from './files.js'
 export * as materials from './managers/materials.js'
 export * as directors from './managers/directors.js'
 export * as projects from './managers/projects.js'

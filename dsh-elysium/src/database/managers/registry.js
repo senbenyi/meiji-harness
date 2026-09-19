@@ -1,6 +1,5 @@
 // 职责：读写本机服务器清单，以互斥文件和 revision 检查防止并发覆盖。
-import { readFileSync } from 'node:fs'
-import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFileSync, rename, rm, writeFile } from '../files.js'
 import { basename, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { runtimeConfig } from '../../utils/context.js'

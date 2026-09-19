@@ -1,6 +1,5 @@
 // 职责：校验并原子读写唯一运行设置文件，为各设置分区提供同一把文件锁。
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
-import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
+import { chmodSync, existsSync, mkdir, mkdirSync, open, readFileSync, rename, renameSync, rm, statSync, writeFile, writeFileSync } from '../files.js'
 import { dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { validateRegistry } from '../../worker/models/catalog/registry-schema.js'

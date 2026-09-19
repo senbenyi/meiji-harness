@@ -1,6 +1,6 @@
 // 职责：校验并持久化全局导演库。
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from '../files.js'
 import { join } from 'node:path'
 import { poolsRoot } from '../paths.js'
 import { statusError } from '../../utils/errors.js'

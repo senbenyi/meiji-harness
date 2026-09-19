@@ -1,5 +1,5 @@
 // 职责：以临时文件加原子替换读写本地 JSON 状态。
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from './files.js'
 import { randomUUID } from 'node:crypto'
 import { dirname } from 'node:path'
 
