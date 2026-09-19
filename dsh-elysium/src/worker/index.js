@@ -15,6 +15,6 @@ export { openLocalMedia } from './store/media.js'
 export { saveStatus } from './store/status.js'
 
 // 路由与模型设置：设置页的服务器、三方渠道与连接管理。
-export { thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel } from './routing/backends.js'
+export { thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel } from './routing/selection.js'
 export { VIDEO_MODES, listProviders, validateBackend, probeBackend, connectBackend, checkBackend, backendFromServer, resolveServer, legacyTunnelBackend,
   readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, defaultTunnelModel, updateSettings } from './models/index.js'

@@ -56,7 +56,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolveConfig, withConfig } from './src/config.js'
 import { listProviders, validateBackend, validateBackendPlan } from './src/worker/models/index.js'
-import { resolveGenerationBackend, thirdPartyChannels, thirdPartyModels } from './src/worker/routing/backends.js'
+import { resolveGenerationBackend, thirdPartyChannels, thirdPartyModels } from './src/worker/routing/selection.js'
 const home = process.env.ELYSIUM_HOME, providers = home + '/config/providers'
 await mkdir(providers, { recursive: true })
 if (existsSync('./src/worker/models/providers/bailian')) await writeFile(providers + '/bailian.json', JSON.stringify({ enabled: true, base_url: 'https://bailian.test/api/v1', api_key: 'fixture-secret', video: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v', duration: 5, resolution: '720P', ratio: '9:16', prompt_extend: false, watermark: false } }))
