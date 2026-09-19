@@ -12,7 +12,7 @@
 
 ## 实施中
 
-- **项目分镜自动生成闭环** — `docs/plans/计划-项目分镜自动生成闭环.md` — 2026-09-19 阶段 1 完成，结构化 LLM 专项 4/4 通过；正在执行阶段 2 分镜生成与原子初始化。
+- **项目分镜自动生成闭环** — `docs/plans/计划-项目分镜自动生成闭环.md` — 2026-09-19 阶段 1–2 完成，结构化生成、空分镜原子初始化及保护专项 13/13 通过；正在执行阶段 3 客户端向导衔接。
 
 - **main 分支 AutoDL 能力接入** — `docs/plans/计划-main分支AutoDL能力接入.md` — 阶段 1–4 完成，阶段 6 的 181 项插件测试、7 项 Harness 测试、构建、Registry 打包、安装与 Harness 重启完成；私有模型运行目录已补入 RealVisXL/SDXL、MiniMax H3 和既有 qwen3.8，并经运行接口回读。qwen3.8 已按当前 provider 规范改用环境凭据引用，DSH 真实调用通过。服务器选择和真实 T2I/T2V/I2V 验收仍待有效的 AutoDL ComfyUI 本机入口；当前 `veo-comfyui` 仍是失效 RunPod，历史 AutoDL 入口已拒绝连接。
 

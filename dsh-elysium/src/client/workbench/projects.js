@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const exports = {}
   const { createElement: h, Fragment, useEffect, useRef, useState } = require('react')
   const { Dialog, IconButton } = require('elysium/dialog')
-  const { fetchProject, fetchProjects, createProject, deleteProject, updateProject, pollProject } = require('elysium/project-api')
+  const { fetchProject, fetchProjects, createProject, deleteProject, updateProject, generateStoryboard, pollProject } = require('elysium/project-api')
   const { fetchDirectors } = require('elysium/director-api')
   const { MaterialList } = require('elysium/materials')
   const { assetUrl } = require('elysium/media-api')
@@ -56,6 +56,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   function ProjectDetail({ id, back, viewState = {}, onViewState = () => {}, guard: externalGuard, navigate = action => action() }) {
     const [project, setProject] = useState(null), [tab, setTab] = useState(viewState.projects?.[id]?.tab || viewState.projectTab || null)
     const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [reload, setReload] = useState(0)
+    const [generating, setGenerating] = useState(false)
     const saving = useRef(false), readVersion = useRef(0), localGuard = useRef(null)
     const guard = externalGuard || localGuard
     const [remoteUpdate, setRemoteUpdate] = useState(false)
@@ -88,6 +89,12 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
       try { setProject(await action()); setSaved(true); setRemoteUpdate(false); return true } catch (err) { setError(err.message); return false } finally { saving.current = false; setBusy(false) }
     }
     const save = patch => run(() => updateProject(id, patch))
+    const continueToStoryboard = async () => {
+      if (project.acts.length) return go('acts')
+      setGenerating(true)
+      try { if (await run(() => generateStoryboard(id))) go('acts') }
+      finally { setGenerating(false) }
+    }
     const activeTab = tab || stageOf(project)
     const shots = shotsOf(project)
     return h('div', { className: 'elysium-project-detail' },
@@ -101,7 +108,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
           : activeTab === 'anchors' ? h(AnchorView, { project, save, run, busy, guard })
             : activeTab === 'acts' ? h(StoryboardView, { project, save, run, busy, guard, viewState: viewState.projects?.[id], onViewState: value => onViewState({ projects: { ...viewState.projects, [id]: value } }) })
               : h(DeliveryView, { project }),
-        activeTab === 'anchors' ? h('footer', { className: 'elysium-flow-next' }, h('button', { className: 'elysium-primary', disabled: busy || !project.anchors.length, onClick: () => go('acts') }, '继续到分镜')) : null,
+        activeTab === 'anchors' ? h('footer', { className: 'elysium-flow-next' }, h('button', { className: 'elysium-primary', disabled: busy || !project.anchors.length, onClick: continueToStoryboard }, generating ? '正在生成分镜…' : '继续到分镜')) : null,
         activeTab === 'acts' ? h('footer', { className: 'elysium-flow-next' }, h('button', { className: 'elysium-primary', disabled: busy || !shots.length, onClick: () => go('deliverables') }, '继续到成品')) : null) : h('p', { role: 'status' }, '加载中…'))
   }
 

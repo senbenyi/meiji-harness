@@ -10,7 +10,7 @@ function fixture(initial) {
     { name: '张艺谋', style: '视觉叙事', works: ['红高粱', '活着', '英雄', '十面埋伏', '悬崖之上'] },
     { name: '王家卫', style: '都市情绪', works: ['阿飞正传', '重庆森林', '花样年华', '2046', '一代宗师'] },
   ]
-  let nextShot = 0
+  let nextShot = 0, storyboardError = ''
   for (const act of project.acts) for (const shot of act.shots) shot.id ??= `shot-${++nextShot}`
   const modules = new Map(), cache = new Map(), requests = []
   runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
@@ -22,6 +22,12 @@ function fixture(initial) {
       if (url.startsWith('/director/delete')) { const { name } = JSON.parse(options.body); directors = directors.filter(item => item.name !== name); return { ok: true, json: async () => ({ deleted: true }) } }
       if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', cover_job_id: project.cover_job_id, anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
+      if (url.startsWith('/project/generate-storyboard')) {
+        if (storyboardError) return { ok: false, json: async () => ({ error: storyboardError }) }
+        const role = project.anchors[0]?.role || ''
+        project.acts = [{ title: '自动分镜', shots: [{ id: `shot-${++nextShot}`, role, action: '人物在霓虹街头回头，近景跟拍', subtitle: '', mode: project.anchors[0]?.source?.job_id ? 'i2va' : 't2va', job_id: null, status: 'pending', notes: '' }] }]
+        return { ok: true, json: async () => structuredClone(project) }
+      }
       if (url.startsWith('/project/produce')) {
         const body = JSON.parse(options.body)
         for (const act of project.acts) for (const shot of act.shots) if (body.shot_ids.includes(shot.id)) { shot.job_id = shot.id.padEnd(32, 'a').slice(0, 32); shot.status = 'pending' }
@@ -59,7 +65,7 @@ function fixture(initial) {
       return { ok: true, json: async () => structuredClone(result) }
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
-  return { require, requests, project: () => project, directors: () => directors }
+  return { require, requests, project: () => project, directors: () => directors, failStoryboard: message => { storyboardError = message } }
 }
 const emptyProject = () => ({ id: 'abcdef12', title: '项目', profile: 'preview', anchors: [], acts: [], deliverables: [] })
 const click = (view, text, index = 0) => act(async () => view.root.findAllByType('button').filter(button => button.children.join('') === text || button.props['aria-label'] === text || button.props['aria-label']?.startsWith(`${text} `))[index].props.onClick())
@@ -162,6 +168,43 @@ test('existing project persists director immediately when leaving project settin
   await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '王家卫' } }))
   assert.equal(f.project().director, '王家卫')
   assert.equal(JSON.parse(f.requests.findLast(request => request.url.startsWith('/project/update')).options.body).director, '王家卫')
+  await act(async () => view.unmount())
+})
+
+test('continuing from anchors generates an empty storyboard before opening it and allows batch submission', async () => {
+  const project = emptyProject()
+  project.anchors = [{ role: 'lead', label: '女主', description: '', source: { type: 'material', job_id: 'b'.repeat(32) }, image_url: '' }]
+  const f = fixture(project)
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
+  await click(view, '继续到分镜')
+  assert.equal(f.requests.filter(request => request.url.startsWith('/project/generate-storyboard')).length, 1)
+  assert.equal(view.root.findByProps({ 'aria-label': '分镜' }).props['aria-current'], 'step')
+  assert.equal(f.project().acts[0].shots[0].action, '人物在霓虹街头回头，近景跟拍')
+  await click(view, '生成全部待处理镜头 (1)')
+  assert.deepEqual(JSON.parse(f.requests.findLast(request => request.url.startsWith('/project/produce')).options.body).shot_ids, ['shot-1'])
+  await act(async () => view.unmount())
+})
+
+test('continuing keeps an existing storyboard and a generation failure stays on anchors', async () => {
+  const existing = emptyProject()
+  existing.anchors = [{ role: 'lead', label: '女主', description: '', source: null, image_url: '' }]
+  existing.acts = [{ title: '原分镜', shots: [{ role: '', action: '原动作', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }] }]
+  let f = fixture(existing), view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: existing.id, viewState: { projectTab: 'anchors' }, back() {} })) })
+  await click(view, '继续到分镜')
+  assert.equal(f.requests.some(request => request.url.startsWith('/project/generate-storyboard')), false)
+  assert.equal(f.project().acts[0].title, '原分镜')
+  await act(async () => view.unmount())
+
+  const empty = emptyProject()
+  empty.anchors = [{ role: 'lead', label: '女主', description: '', source: null, image_url: '' }]
+  f = fixture(empty); f.failStoryboard('聊天模型暂时不可用')
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: empty.id, viewState: { projectTab: 'anchors' }, back() {} })) })
+  await click(view, '继续到分镜')
+  assert.equal(view.root.findByProps({ 'aria-label': '锚点' }).props['aria-current'], 'step')
+  assert.equal(view.root.findByProps({ role: 'alert' }).children[0], '聊天模型暂时不可用')
+  assert.deepEqual(f.project().acts, [])
   await act(async () => view.unmount())
 })
 
