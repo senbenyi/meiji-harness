@@ -1,3 +1,5 @@
+import { composeRemote } from '../../protocols/ssh-media/compose.js'
+import { extractTailFrameRemote } from '../../protocols/ssh-media/tail-frame.js'
 // 职责：组合 Runpod 的完整平台契约，供业务和其他平台参考；不依赖兄弟 provider。
 import { createStandardAdapter } from '../../managers/runtime/adapter.js'
 import { buildVideoGraph } from './workflows/minimax-h3/graph.js'
@@ -17,4 +19,6 @@ const adapter = createStandardAdapter({
 adapter.guidance = guidance
 adapter.creationGuidance = () => guidance
 adapter.syncWorkflows = async args => (await import('./workflows/sync.mjs')).main(args)
+adapter.compose = (backend, input) => composeRemote(backend, input, '/workspace/runpod-slim/ComfyUI/output')
+adapter.tailFrame = (backend, source) => extractTailFrameRemote(backend, source, '/workspace/runpod-slim/ComfyUI/output')
 export default adapter

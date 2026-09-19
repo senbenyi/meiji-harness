@@ -3,7 +3,7 @@ import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
-import { clientSource } from '../scripts/loader.js'
+import { testClientSource } from '../scripts/loader.js'
 
 function fixture(initial) {
   let project = initial, directors = [
@@ -13,14 +13,14 @@ function fixture(initial) {
   let nextShot = 0
   for (const act of project.acts) for (const shot of act.shots) shot.id ??= `shot-${++nextShot}`
   const modules = new Map(), cache = new Map(), requests = []
-  runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
+  runInNewContext(testClientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
     fetch: async (url, options) => {
       requests.push({ url, options })
       if (url.startsWith('/director/list')) return { ok: true, json: async () => structuredClone(directors) }
       if (url.startsWith('/director/create')) { const director = JSON.parse(options.body); directors = [...directors, director]; return { ok: true, json: async () => structuredClone(director) } }
       if (url.startsWith('/director/reorder')) { const { names } = JSON.parse(options.body); directors = names.map(name => directors.find(item => item.name === name)); return { ok: true, json: async () => structuredClone(directors) } }
       if (url.startsWith('/director/delete')) { const { name } = JSON.parse(options.body); directors = directors.filter(item => item.name !== name); return { ok: true, json: async () => ({ deleted: true }) } }
-      if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', cover_job_id: project.cover_job_id, anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
+      if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', episode_count: project.episode_count || 1, plot_summary: '咖啡馆重逢。', cover_job_id: project.cover_job_id, cover_kind: project.cover_job_id ? 'image' : null, anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
       if (url.startsWith('/project/update-anchor')) {
         const { action, data } = JSON.parse(options.body)
@@ -59,51 +59,64 @@ async function edit(view, label, value) {
   await act(async () => field().props.onBlur())
 }
 
-test('new project keeps the list visible and allows optional director and cover', async () => {
+test('project list keeps only in-progress and completed tabs and shows unfinished work as in progress', async () => {
+  const f = fixture(emptyProject())
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/project-list').ProjectList, { onSelect() {} })) })
+  assert.deepEqual(view.root.findByProps({ 'aria-label': '项目状态' }).findAllByType('button').map(button => button.findByType('span').children.join('')), ['进行中', '已完成'])
+  assert.ok(view.root.findByProps({ 'aria-label': '打开项目 项目' }))
+  assert.equal(view.root.findByProps({ className: 'elysium-project-cover elysium-project-cover-empty' }).type, 'div')
+  assert.equal(view.root.findByProps({ className: 'elysium-project-body' }).findByType('h2').children.join(''), '项目')
+  assert.equal(view.root.findByProps({ className: 'elysium-project-episodes' }).children.join(''), '1 集')
+  assert.equal(view.root.findByProps({ className: 'elysium-project-plot' }).children.join(''), '咖啡馆重逢。')
+  await act(async () => view.root.findByProps({ 'aria-label': '项目状态' }).findAllByType('button')[1].props.onClick())
+  assert.equal(view.root.findAllByProps({ 'aria-label': '打开项目 项目' }).length, 0)
+  await act(async () => view.unmount())
+})
+
+test('new project opens a centered dialog with title duration ratio style and script', async () => {
   const f = fixture(emptyProject())
   let view
   let selected
-  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectList, { onSelect: id => { selected = id } })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium/project-list').ProjectList, { onSelect: id => { selected = id } })) })
   await click(view, '新建项目')
   assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 1)
-  assert.deepEqual(view.root.findAllByType('button').filter(button => ['项目', '锚点', '分镜', '成品'].includes(button.props['aria-label'])).map(button => button.props['aria-label']), [])
-  assert.equal(view.root.findAllByType('option')[0].children.join(''), '选导演')
-  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').children.join(''), '下一步')
-  await act(async () => view.root.findByProps({ 'aria-label': '项目名称' }).props.onChange({ target: { value: '新项目' } }))
-  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, false)
-  await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '张艺谋' } }))
+  assert.equal(view.root.findByProps({ role: 'dialog' }).props.className, 'elysium-dialog elysium-create-project-dialog')
+  assert.deepEqual(view.root.findAllByType('option')[0].children.join(''), '选择导演风格')
+  assert.equal(view.root.findAllByProps({ className: 'elysium-primary' })[0].children.join(''), '创建')
+  await act(async () => view.root.findByProps({ 'aria-label': '标题' }).props.onChange({ target: { value: '新项目' } }))
+  await act(async () => view.root.findByProps({ 'aria-label': '总时长' }).props.onChange({ target: { value: '8' } }))
+  await act(async () => view.root.findByProps({ 'aria-label': '画幅' }).findAllByType('button')[1].props.onClick())
+  await act(async () => view.root.findByProps({ 'aria-label': '风格' }).props.onChange({ target: { value: '王家卫' } }))
+  await act(async () => { await view.root.findByProps({ 'aria-label': '导入剧本' }).props.onChange({ target: { files: [{ text: async () => '开场对白。' }] } }) })
+  assert.equal(view.root.findByProps({ 'aria-label': '剧本' }).props.value, '开场对白。')
   assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), false)
-  assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').props.disabled, false)
-  await click(view, '选择封面图片')
-  assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
-  await act(async () => view.root.findAllByType('button').find(button => button.props['aria-label']?.startsWith('查看素材')).props.onClick())
-  await click(view, '使用此素材')
-  assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), false)
-  assert.equal(view.root.findByProps({ alt: '项目封面' }).props.src, `/media/image?job=${'b'.repeat(32)}&t=t`)
   await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
-  assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), true)
-  assert.equal(JSON.parse(f.requests.find(request => request.url.startsWith('/project/create')).options.body).cover_job_id, 'b'.repeat(32))
-  assert.equal(f.project().director, '张艺谋')
-  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-section' }).length, 0)
+  const body = JSON.parse(f.requests.find(request => request.url.startsWith('/project/create')).options.body)
+  assert.deepEqual(body, { title: '新项目', director: '王家卫', duration_min: 8, aspect_ratio: '16:9', reference_text: '开场对白。' })
+  assert.equal(f.project().director, '王家卫')
   assert.equal(selected, f.project().id)
   assert.ok(view.root.findByProps({ 'aria-label': '打开项目 新项目' }))
   await act(async () => view.unmount())
 })
 
-test('material filters reset pagination and propagate canonical profile and kind parameters', async () => {
+test('material subcategory chips reset pagination without profile or kind dropdowns', async () => {
   const f = fixture(emptyProject())
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/materials').MaterialList)) })
-  await act(async () => view.root.findByProps({ 'aria-label': '档次' }).props.onChange({ target: { value: 'high-quality' } }))
-  await act(async () => view.root.findByProps({ 'aria-label': '类型' }).props.onChange({ target: { value: 'image' } }))
+  assert.equal(view.root.findAllByProps({ 'aria-label': '档次' }).length, 0)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '来源' }).length, 0)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
+  await act(async () => view.root.findAllByType('button').find(button => button.children.join('') === '热门漫剧').props.onClick())
   await act(async () => view.root.findByProps({ 'aria-label': '每页' }).props.onChange({ target: { value: '12' } }))
-  const queries = f.requests.map(request => new URL(request.url, 'https://app.test').searchParams)
-  assert.equal(queries.length, 4)
+  const queries = f.requests.filter(request => request.url.startsWith('/media/list')).map(request => new URL(request.url, 'https://app.test').searchParams)
+  assert.equal(queries.length, 3)
   assert.ok(queries.every(query => query.get('offset') === '0'))
-  assert.ok(queries.slice(0, 3).every(query => query.get('limit') === '6'))
-  assert.equal(queries[3].get('limit'), '12')
-  assert.equal(queries[3].get('profile'), 'high-quality')
-  assert.equal(queries[3].get('media_kind'), 'image')
+  assert.ok(queries.slice(0, 2).every(query => query.get('limit') === '6'))
+  assert.equal(queries[2].get('limit'), '12')
+  assert.equal(queries[2].get('subcategory'), '热门漫剧')
+  assert.equal(queries[2].get('profile'), null)
+  assert.equal(queries[2].get('media_kind'), null)
   assert.equal(view.root.findAllByType('article').length, 1)
   await act(async () => view.unmount())
 })

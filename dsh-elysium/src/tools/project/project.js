@@ -55,7 +55,7 @@ export function createProjectTools(store) {
       execute: args => store.change('update', { id: args.project_id, title: args.title, brief: args.brief, mode: args.mode, director: args.director, profile: args.profile }),
     },
     {
-      name: 'project_create', description: '收到视频创作需求立即创建项目并打开侧栏；不替用户选择素材或导演。创建后提示请配置项目素材并停止，等待页面下一步。',
+      name: 'project_create', description: '收到视频创作需求立即创建项目并打开侧栏；不替用户选择素材或导演。创建后提示请配置项目创作要求与素材并停止，等待页面下一步。',
       parameters: object(info, ['title']),
       output: { schema: outputSchema, render: (_args, value) => [{ type: 'text', text: JSON.stringify({ id: value.id, title: value.title, created_at: value.created_at, session_id: value.session_id, notice: '请配置项目素材' }) }] },
       execute: async (args, exec) => {

@@ -43,6 +43,17 @@ function registerWebFeatures(ctx, runtime) {
     const directors = createDirectorStore()
     const projects = createProjectStore({ directorExists: name => directors.has(name) })
     const workflow = createProjectWorkflow(projects)
+    mediaContext.effect(() => {
+      let busy = false
+      const tick = () => withConfig(runtime, async () => {
+        if (busy) return
+        busy = true
+        try { for (const p of await projects.list()) await workflow.production.refresh(p.id).catch(error => ctx.logger?.warn?.(error.message)) }
+        finally { busy = false }
+      }).catch(error => ctx.logger?.warn?.(error.message))
+      const timer = setInterval(tick, 4000); timer.unref?.(); tick()
+      return () => clearInterval(timer)
+    }, `${effectPrefix}: segment queue recovery`)
     const pageToken = registerMediaRoutes(mediaContext, runtime, PROJECT_ROUTE, DIRECTOR_ROUTE, SETTINGS_ROUTE)
     registerSettingsRoutes(mediaContext, runtime, pageToken)
     registerProjectRoutes(mediaContext, runtime, pageToken, projects, workflow)
@@ -70,7 +81,7 @@ function registerPromptAssembly(ctx, runtime) {
         { name: 'elysium:creation-commands', text: await withConfig(runtime, async () => {
           const sessionId = context.agent?.session?.id
           const project = sessionId && (await createProjectStore().list()).find(p => p.chat_session_id === sessionId)
-          return [creationInstructions, await providerCreationInstructions(), project ? `当前会话关联项目 ID：${project.id}，名称：${JSON.stringify(project.title)}。用户提到本项目、修改剧情或分镜时，先 project_read 读取该项目最新内容，然后使用 project_edit_episode 保存对应集的修改。不可将历史其他项目作为目标。流程卡片下一步代表全剧人工审核，不可由聊天工具批准视频。` : ''].filter(Boolean).join('\n')
+          return [creationInstructions, await providerCreationInstructions(), project ? `当前会话关联项目 ID：${project.id}，名称：${JSON.stringify(project.title)}。用户提到本项目、修改剧情或分镜时，先 project_read 读取该项目最新内容，然后使用 project_edit_segment 或 project_edit_production 保存对应 Scene/Segment 的修改。不可将历史其他项目作为目标。流程卡片下一步代表当前阶段所有 Segment 的人工审核，不可由聊天工具批准视频。` : ''].filter(Boolean).join('\n')
         }) }] }
   })
 }

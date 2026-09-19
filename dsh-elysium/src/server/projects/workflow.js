@@ -1,4 +1,5 @@
 // 职责：管理项目配置、AI 请求与回写、人工审核版本及视频交付。
+import { createProductionWorkflow } from './production.js'
 import { episodeCountValue, newEpisode, ensureEpisodes, episodeView, episodeStage } from '../../database/schemas/episodes.js'
 import { randomUUID } from 'node:crypto'
 import { briefValue, configurationValue, modeValue, plotValue, actsValue, titleValue } from '../../database/schemas/projects.js'
@@ -217,6 +218,7 @@ function createEpisodeWorkflow(store, dependencies = {}) {
 
 // 剧集作用域把单集工作流读写映射回项目，聚合数组只替换所属剧集。
 export function createProjectWorkflow(store, dependencies = {}) {
+  const production = createProductionWorkflow(store, dependencies)
   let queue = Promise.resolve()
   const serial = fn => { const next = queue.then(fn); queue = next.catch(() => {}); return next }
   const root = createEpisodeWorkflow(store, dependencies)
@@ -375,5 +377,10 @@ export function createProjectWorkflow(store, dependencies = {}) {
     if (['edit', 'request'].includes(name)) await store.transact(body.id, p => { p.reviewed_at = null; return [] })
     return get(body.id)
   }
-  return { context, complete: (body, sessionId) => serial(() => complete(body, sessionId)), refresh: id => serial(() => refresh(id)), action: (name, body) => serial(() => action(name, body)) }
+  return { production, context, complete: (body, sessionId) => serial(() => complete(body, sessionId)), refresh: async id => {
+    const p = await store.read(id)
+    if (p.production && (p.production.revision || p.production.queue || p.production.exports.length)) return production.refresh(id)
+    if (!p.episodes?.length) return p
+    return serial(() => refresh(id))
+  }, action: (name, body) => name.startsWith('production-') ? production.action(name.slice(11), body) : serial(() => action(name, body)) }
 }

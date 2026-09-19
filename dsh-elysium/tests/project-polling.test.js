@@ -4,6 +4,7 @@ import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
+import { initialProduction } from '../src/database/schemas/production.js'
 import { clientSource } from '../scripts/loader.js'
 
 const initial = () => ({ id: 'abcdef12', title: '项目', director: '张艺谋', profile: 'preview', updated_at: 1,
@@ -12,10 +13,10 @@ const initial = () => ({ id: 'abcdef12', title: '项目', director: '张艺谋',
   acts: [{ title: '幕', shots: [{ id: 'shot-1', role: 'lin', action: '走路', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }] }], deliverables: [] })
 
 function fixture() {
-  let project = initial(), hold = null, nextTimer = 0
+  let project = { ...initial(), production: initialProduction(initial()) }, hold = null, nextTimer = 0
   const modules = new Map(), cache = new Map(), timers = new Map(), requests = [], pending = []
   const response = value => ({ ok: true, json: async () => structuredClone(value) })
-  runInNewContext(clientSource(), { URLSearchParams, URL, AbortController,
+  runInNewContext(clientSource(), { URLSearchParams, URL, AbortController, structuredClone,
     setTimeout: (callback, delay) => { const id = ++nextTimer; timers.set(id, { callback, delay }); return id }, clearTimeout: id => timers.delete(id),
     document: {}, window: { confirm: () => true, __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: module => modules.set(module.id, module.factory) } },
     fetch: async (url, options) => {
@@ -31,7 +32,7 @@ function fixture() {
   })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return {
-    Component: require('elysium/projects').ProjectDetail, requests, pending, timers,
+    Component: require('elysium/project-detail').ProjectDetail, requests, pending, timers,
     change: patch => { project = { ...project, ...patch, updated_at: project.updated_at + 1 }; return project },
     hold: path => { hold = path },
     tick: async () => { const due = [...timers]; timers.clear(); await act(async () => { for (const [, timer] of due) { assert.equal(timer.delay, 4000); await timer.callback() } }) },
@@ -42,19 +43,19 @@ const click = (view, label) => act(async () => view.root.findAllByType('button')
 const edit = (view, label, value) => act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
 async function mount(f, tab = 'anchors') {
   let view
-  await act(async () => { view = create(React.createElement(f.Component, { id: 'abcdef12', viewState: { projects: { abcdef12: { navigation: { stack: [{ type: 'overview' }, ...(tab === 'project' ? [{ type: 'configuration' }] : [])] } } } }, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.Component, { id: 'abcdef12', viewState: { projects: { abcdef12: { navigation: { page: { type: tab === 'project' ? 'description' : 'overview' } } } } }, back() {} })) })
   return view
 }
 
 test('project settings draft survives a remote update and refreshes after leaving the form', async () => {
   const f = fixture(), view = await mount(f, 'project')
-  await edit(view, '创作需求', '手动草稿')
+  await edit(view, '创作要求', '手动草稿')
   f.change({ title: '聊天标题' })
   await f.tick()
-  assert.equal(view.root.findByProps({ 'aria-label': '创作需求' }).props.value, '手动草稿')
+  assert.equal(view.root.findByProps({ 'aria-label': '创作要求' }).props.value, '手动草稿')
   assert.match(JSON.stringify(view.toJSON()), /项目已有新修改/)
   assert.equal(f.requests.filter(path => path.startsWith('/project/get')).length, 1)
-  await click(view, '返回项目总览')
+  await click(view, '‹ 返回项目总览')
   await f.tick()
   assert.equal(view.root.findByType('h1').children.join(''), '聊天标题')
   await act(async () => view.unmount())

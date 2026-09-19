@@ -2,7 +2,7 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-const files = ['package.json', 'lib', 'config', 'README.md']
+const files = ['package.json', 'lib', 'config', 'resources/production-rules', 'README.md']
 
 for (const file of files) {
   if (!existsSync(file)) throw new Error(`missing ${file}; run pnpm build first`)

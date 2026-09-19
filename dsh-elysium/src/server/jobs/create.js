@@ -2,6 +2,7 @@
 import { validateBackend, resolveServer } from '../../models/managers/runtime/index.js'
 import { runtimeConfig } from '../../config.js'
 import { randomBytes } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { join } from 'node:path'
 import { readJson, saveJson } from '../../database/json.js'
 import { FREE_PROJECT_ID, projectJobRoot, projectRoot } from './paths.js'
@@ -30,11 +31,20 @@ export async function ensureFreeProject() {
   return freeSetups.get(root)
 }
 
-export async function createJob(projectId, plan, backend = runtimeConfig().ELYSIUM_BACKEND || resolveServer()) {
+export async function createJob(projectId, plan, backend = runtimeConfig().ELYSIUM_BACKEND || resolveServer(), reservedId) {
   await access(join(projectRoot(projectId), 'project.json'))
   const provider = await validateBackend(backend)
   backend = { ...backend, provider_api_version: provider.apiVersion }
-  const id = randomBytes(16).toString('hex')
+  const id = reservedId || randomBytes(16).toString('hex')
+  if (!/^[0-9a-f]{32}$/.test(id)) throw new Error('任务身份无效')
+  if (reservedId) {
+    const existing = await readJson(join(projectJobRoot(projectId, id), 'input/request.json'))
+    if (existing) {
+      const savedBackend = await readJson(join(projectJobRoot(projectId, id), 'input/backend.json'))
+      if (!isDeepStrictEqual(existing, plan) || !isDeepStrictEqual(savedBackend, backend)) throw new Error('已存在任务的输入或后端不能改变')
+      return id
+    }
+  }
   await saveJson(join(projectJobRoot(projectId, id), 'input/backend.json'), backend)
   await saveJson(join(projectJobRoot(projectId, id), 'input/request.json'), plan)
   return id

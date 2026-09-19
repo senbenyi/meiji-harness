@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createServer } from 'node:http'
-import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
+import { mkdtemp, mkdir, writeFile, rm, symlink, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -72,6 +73,36 @@ test('local media rejects traversal, unregistered files and symlink escapes', as
   assert.equal((await f.get('video')).status, 403)
 })
 
+test('video first frame is extracted and cached for list covers', async t => {
+  if (spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' }).status !== 0) { t.skip('ffmpeg unavailable'); return }
+  const root = await mkdtemp(join(tmpdir(), 'elysium-frame-')), id = 'a'.repeat(32), projectId = 'b'.repeat(8)
+  const project = join(root, 'projects', projectId), jobDir = join(project, 'jobs', id)
+  await mkdir(join(project, 'media'), { recursive: true })
+  await mkdir(jobDir, { recursive: true })
+  const sample = join(project, 'media/clip.mp4')
+  const encoded = spawnSync('ffmpeg', ['-y', '-f', 'lavfi', '-i', 'color=c=red:s=32x32:r=2:d=1', '-pix_fmt', 'yuv420p', sample], { encoding: 'utf8' })
+  assert.equal(encoded.status, 0, encoded.stderr)
+  const size = (await stat(sample)).size
+  await writeFile(join(project, 'media/manifest.json'), JSON.stringify({ project_id: projectId, files: [{ path: 'media/clip.mp4', job_id: id, size_bytes: size }] }))
+  const job = { job_id: id, project_id: projectId, status: 'succeeded', result: { media_kind: 'video', local_media_path: 'media/clip.mp4' } }
+  await writeFile(join(jobDir, 'status.json'), JSON.stringify(job))
+  const handler = createMediaHandler({ token: 'test', readJob: async () => job })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
+  const url = extra => `http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}/image?job=${id}&t=test${extra}`
+  assert.equal((await fetch(url(''))).status, 404)
+  const response = await fetch(url('&frame=first'))
+  assert.equal(response.status, 200)
+  assert.match(response.headers.get('content-type'), /png/)
+  const body = Buffer.from(await response.arrayBuffer())
+  assert.ok(body.length > 50)
+  assert.deepEqual([...body.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  const cached = await fetch(url('&frame=first'))
+  assert.equal(cached.status, 200)
+  assert.equal((await cached.arrayBuffer()).byteLength, body.length)
+})
+
 test('status summary carries timing and generation specification to recovered cards', () => {
   const timings = { total_ms: 33123 }, specification = { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' }
   const summary = jobSummary({ job_id: 'job', status: 'succeeded', timings, result: { profile: 'preview', specification } })
@@ -89,7 +120,7 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', '/plugins/dsh-elysium/media/delete', '/plugins/dsh-elysium/media/upload', '/plugins/dsh-elysium/media/create', '/plugins/dsh-elysium/media/update', ...['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select'].map(suffix => `/plugins/dsh-elysium/settings/${suffix}`), ...['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll', 'workflow'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`), ...['list', 'create', 'update', 'reorder', 'delete'].map(suffix => `/plugins/dsh-elysium/director/${suffix}`)])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/export-download', '/plugins/dsh-elysium/media/list', '/plugins/dsh-elysium/media/delete', '/plugins/dsh-elysium/media/upload', '/plugins/dsh-elysium/media/create', '/plugins/dsh-elysium/media/update', ...['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select'].map(suffix => `/plugins/dsh-elysium/settings/${suffix}`), ...['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll', 'workflow'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`), ...['list', 'create', 'update', 'reorder', 'delete'].map(suffix => `/plugins/dsh-elysium/director/${suffix}`)])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
@@ -249,4 +280,50 @@ test('ComfyUI material previews request server WebP while downloads retain the o
     assert.equal(seen[0].searchParams.get('preview'), 'webp;75')
     assert.equal(seen[1].searchParams.has('preview'), false)
   } finally { await new Promise(resolve => server.close(resolve)); await new Promise(resolve => upstream.close(resolve)) }
+})
+
+test('completed exports download through an authenticated project-owned stream', async t => {
+  const id = '12345678-1234-1234-1234-123456789abc'
+  let hits = 0, upstreamStatus = 200, connected = 0
+  const source = createServer((req, res) => {
+    hits++
+    assert.equal(req.headers.origin, undefined)
+    if (upstreamStatus === 302) { res.writeHead(302, { Location: 'http://unrelated.invalid/' }); return res.end() }
+    res.writeHead(upstreamStatus, { 'Content-Type': 'video/mp4', 'Content-Length': 10 })
+    res.end(req.method === 'HEAD' ? undefined : '0123456789')
+  })
+  await new Promise(resolve => source.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => source.close(resolve)))
+  const base = `http://127.0.0.1:${source.address().port}/`
+  const output = { id, title: '第1集', status: 'succeeded', backend: { base_url: base }, url: `${base}view?filename=final.mp4&subfolder=elysium/exports/${id}&type=output` }
+  const project = { id: '1234abcd', title: '书店/重逢', production: { exports: [output] } }
+  const handler = createMediaHandler({ token: 'test', readProject: async id => id === project.id ? project : { production: { exports: [] } }, connect: async () => { connected++ } })
+  const server = createServer(handler)
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => server.close(resolve)))
+  const url = `http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}/export-download?project=${project.id}&export=${id}&t=test`
+  assert.equal((await fetch(url.replace('t=test', 't=wrong'))).status, 401)
+  assert.equal((await fetch(url.replace(project.id, '../bad'))).status, 400)
+  assert.equal((await fetch(url.replace(project.id, 'ffffffff'))).status, 404)
+  output.status = 'pending'
+  assert.equal((await fetch(url)).status, 404)
+  output.status = 'succeeded'
+  const original = output.url
+  output.url = `http://unrelated.invalid/view?filename=final.mp4`
+  assert.equal((await fetch(url)).status, 403)
+  output.url = original.replace(`exports/${id}`, 'exports/another')
+  assert.equal((await fetch(url)).status, 403)
+  assert.equal(hits, 0); assert.equal(connected, 0)
+  output.url = original
+  const response = await fetch(url)
+  assert.equal(response.status, 200)
+  assert.equal(await response.text(), '0123456789')
+  assert.match(response.headers.get('content-disposition'), /attachment;/)
+  assert.ok(response.headers.get('content-disposition').includes(encodeURIComponent('书店_重逢-第1集.mp4')))
+  const head = await fetch(url, { method: 'HEAD' })
+  assert.equal(head.status, 200); assert.equal(await head.text(), '')
+  upstreamStatus = 500
+  assert.equal((await fetch(url)).status, 502)
+  upstreamStatus = 302
+  assert.equal((await fetch(url)).status, 503)
 })

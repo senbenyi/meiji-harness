@@ -3,14 +3,16 @@ import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
-import { clientSource } from '../scripts/loader.js'
+import { initialProduction, materialValues } from '../src/database/schemas/production.js'
+import { clientSource, testClientSource } from '../scripts/loader.js'
 
 function fixture({ saved = {}, width = 2000, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [], status = { has_video: true } } = {}) {
   const project = { id: '12345678', title: '项目', workflow: { revision: 0, stage: 'storyboard' }, episodes: [{ id: 'episode-1', title: '第 1 集', workflow: { revision: 0, stage: 'storyboard', plot: '故事', storyboard_revision: 0 } }], anchors: [], acts: [{ episode_id: 'episode-1', title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
+  project.production = { ...initialProduction(project), story: { scenes: [{ id: 'scene-a', title: '场景', description: '故事', duration: 5 }] }, segments: [{ id: 'segment-a', scene_id: 'scene-a', title: '片段', duration: 5, description: '故事', revision: 0, shots_revision: 0, materials: materialValues(), shots: [{ id: 'shot-a', start: 0, duration: 5, action: '走路' }], inputs: [], generations: [] }] }
   const modules = new Map(), cache = new Map()
   const listeners = new Map(), properties = new Map(), storage = { saved }
   const browser = { innerWidth: width, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name) }
-  runInNewContext(clientSource(), { window: browser, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
+  runInNewContext(clientSource(), { window: browser, URLSearchParams, URL, AbortController, structuredClone, setTimeout, clearTimeout,
     document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty: (key, value) => properties.set(key, value), removeProperty: key => properties.delete(key) } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(storage.saved), setItem: (key, value) => { storage.saved = JSON.parse(value) } },
     fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : url.startsWith('/media/status') ? status
       : url.startsWith('/settings/models') ? { revision: 0, models: { image: [], video: [] }, selected: { image: '', video: '' } } : { items: [], total: 0 } } } })
@@ -22,7 +24,7 @@ test('material browser and image picker share category tabs and reset pagination
   for (const imageOnly of [false, true]) {
     const requests = [], changes = [], f = fixture({ requests }); let view
     await act(async () => { view = create(React.createElement(f.require('elysium/materials').MaterialList, { imageOnly, viewState: { page: 2 }, onViewState: value => changes.push(value) })) })
-    assert.deepEqual(view.root.findAllByProps({ role: 'tab' }).map(tab => tab.children.join('')), imageOnly ? ['人物', '场景', '道具'] : ['人物', '场景', '道具', '题材', '导演'])
+    assert.deepEqual(view.root.findAllByProps({ role: 'tab' }).map(tab => tab.children.join('')), imageOnly ? ['人物', '场景', '道具'] : ['人物', '场景', '道具', '题材', '音乐', '视频', '导演'])
     assert.equal(new URL(requests.at(-1), 'https://test').searchParams.get('category'), 'character')
     for (const [category, label] of [['scene', '场景'], ['prop', '道具']]) {
       await act(async () => view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === label).props.onClick())
@@ -31,12 +33,14 @@ test('material browser and image picker share category tabs and reset pagination
       if (imageOnly) assert.equal(query.get('media_kind'), 'image')
       assert.equal(changes.at(-1).category, category); assert.equal(changes.at(-1).page, 0)
     }
+    assert.equal(view.root.findAllByProps({ 'aria-label': '档次' }).length, 0)
+    assert.equal(view.root.findAllByProps({ 'aria-label': '来源' }).length, 0)
+    assert.equal(view.root.findAllByProps({ 'aria-label': '类型' }).length, 0)
     if (!imageOnly) {
       await act(async () => view.root.findAllByProps({ role: 'tab' }).find(tab => tab.children.join('') === '题材').props.onClick())
       assert.equal(new URL(requests.at(-1), 'https://test').searchParams.get('category'), 'theme')
       assert.ok(view.root.findByProps({ className: 'elysium-theme-grid' }))
       assert.ok(view.root.findByProps({ 'aria-label': '新建题材' }))
-      assert.equal(view.root.findAllByProps({ 'aria-label': '档次' }).length, 0)
     }
     await act(async () => view.unmount())
   }
@@ -51,8 +55,11 @@ test('workbench video previews load only after explicit playback', async () => {
   assert.equal(shot.root.findAllByType('video').length, 1)
   await act(async () => shot.unmount())
 
+  const modules = new Map(), cache = new Map()
+  runInNewContext(testClientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout })
+  const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   const project = { acts: [], deliverables: [{ type: 'film', label: '成片', job_id: jobId }] }
-  await act(async () => { delivery = create(React.createElement(f.require('elysium/delivery').DeliveryView, { project })) })
+  await act(async () => { delivery = create(React.createElement(require('elysium/delivery').DeliveryView, { project })) })
   assert.equal(delivery.root.findAllByType('video').length, 0)
   await act(async () => delivery.root.findByProps({ 'aria-label': '播放成片 成片' }).props.onClick())
   assert.equal(delivery.root.findAllByType('video').length, 1)
@@ -63,9 +70,9 @@ test('permanent workbench enters project and retains selected shot across tab sw
   await act(async () => { view = create(React.createElement(f.require('elysium/workbench').Workbench)) })
   assert.equal(view.root.findAllByProps({ 'aria-label': '继续制作 项目' }).length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '打开项目 项目' }).props.onClick())
-  await act(async () => view.root.findByProps({ 'aria-label': '打开第 1 集分镜' }).props.onClick())
-  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-shot-row' }).length, 1)
-  await act(async () => view.root.findByProps({ 'aria-label': '编辑镜头 1' }).props.onClick())
+  await act(async () => view.root.findByProps({ 'aria-label': '打开片段分镜 1' }).props.onClick())
+  assert.equal(view.root.findAllByProps({ 'aria-label': '打开分镜 1' }).length, 1)
+  await act(async () => view.root.findByProps({ 'aria-label': '打开分镜 1' }).props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '素材').props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '项目').props.onClick())
   assert.equal(view.root.findByProps({ 'aria-label': '画面动作' }).props.value, '走路')
@@ -110,9 +117,59 @@ test('left workbench resizes in the drag direction, persists width and reserves 
   assert.equal(view.root.findAllByProps({ role: 'separator' }).length, 0)
   await act(async () => { f.browser.innerWidth = 1200; f.listeners.get('resize')() })
   assert.equal(f.properties.get('--elysium-list-width'), '444px')
+  const detail = () => view.root.findByProps({ 'aria-label': '调整项目详情宽度' })
+  await act(async () => detail().props.onPointerDown(pointer))
+  await act(async () => detail().props.onPointerMove({ ...pointer, clientX: 1200 - 360 }))
+  await act(async () => detail().props.onPointerUp(pointer))
+  assert.equal(f.properties.get('--elysium-detail-width'), '360px')
   await act(async () => f.listeners.get('elysium:open-project')({ detail: { id: '12345678' } }))
   assert.equal(f.properties.get('--elysium-list-width'), '444px')
-  assert.ok(view.root.findByProps({ 'aria-label': '打开第 1 集分镜' }))
+  assert.ok(view.root.findByProps({ 'aria-label': '打开片段分镜 1' }))
+  await act(async () => view.unmount())
+})
+
+test('project list collapses to the native rail width and only keeps titles', async () => {
+  const f = fixture({ width: 1400 }); let view
+  const render = () => React.createElement(f.require('elysium/workbench').Workbench)
+  await act(async () => { view = create(render()) })
+  assert.equal(f.properties.get('--elysium-list-width'), '250px')
+  assert.ok(view.root.findByProps({ 'aria-label': '搜索项目' }))
+  await act(async () => view.root.findByProps({ 'aria-label': '收起项目列表' }).props.onClick())
+  assert.equal(f.properties.get('--elysium-list-width'), '56px')
+  assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props['data-collapsed'], true)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '搜索项目' }).length, 0)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '新建项目' }).length, 0)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '调整项目列表宽度' }).length, 0)
+  assert.equal(view.root.findAllByProps({ role: 'tab' }).length, 0)
+  assert.ok(view.root.findByProps({ 'aria-label': '打开项目 项目' }))
+  assert.equal(f.storage.saved.listCollapsed, true)
+  await act(async () => view.unmount())
+  await act(async () => { view = create(render()) })
+  assert.equal(f.properties.get('--elysium-list-width'), '56px')
+  await act(async () => view.root.findByProps({ 'aria-label': '展开项目列表' }).props.onClick())
+  assert.equal(f.properties.get('--elysium-list-width'), '250px')
+  assert.ok(view.root.findByProps({ 'aria-label': '搜索项目' }))
+  await act(async () => view.root.findAllByType('button').find(tab => tab.children.join('') === '素材').props.onClick())
+  assert.ok(view.root.findByProps({ 'aria-label': '收起项目列表' }))
+  await act(async () => view.unmount())
+})
+
+test('project detail sits on the right and collapses to the native rail width', async () => {
+  const f = fixture({ width: 1400 }); let view
+  const render = () => React.createElement(f.require('elysium/workbench').Workbench)
+  await act(async () => { view = create(render()) })
+  assert.equal(f.properties.get('--elysium-detail-width'), '400px')
+  assert.ok(view.root.findByProps({ 'aria-label': '收起项目详情' }))
+  await act(async () => view.root.findByProps({ 'aria-label': '收起项目详情' }).props.onClick())
+  assert.equal(f.properties.get('--elysium-detail-width'), '56px')
+  assert.equal(view.root.findByProps({ 'aria-label': '当前项目详情' }).props['data-collapsed'], true)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '调整项目详情宽度' }).length, 0)
+  assert.equal(f.storage.saved.detailCollapsed, true)
+  await act(async () => view.unmount())
+  await act(async () => { view = create(render()) })
+  assert.equal(f.properties.get('--elysium-detail-width'), '56px')
+  await act(async () => view.root.findByProps({ 'aria-label': '展开项目详情' }).props.onClick())
+  assert.equal(f.properties.get('--elysium-detail-width'), '400px')
   await act(async () => view.unmount())
 })
 
@@ -149,7 +206,7 @@ test('material filter changes abort old reads and late results cannot replace cu
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
   await act(async () => { view = create(React.createElement(require('elysium/materials').MaterialList)) })
-  await act(async () => view.root.findByProps({ 'aria-label': '类型' }).props.onChange({ target: { value: 'image' } }))
+  await act(async () => view.root.findAllByType('button').find(button => button.children.join('') === '热门漫剧').props.onClick())
   assert.equal(pending[0].signal.aborted, true)
   await act(async () => pending[1].resolve({ items: [{ job_id: 'b'.repeat(32), has_image: true, title: '新结果' }], total: 1 }))
   await act(async () => pending[0].resolve({ items: [{ job_id: 'a'.repeat(32), has_video: true, title: '过期结果' }], total: 1 }))
@@ -222,8 +279,7 @@ test('material upload sends images and videos and refreshes the unfiltered libra
   const uploads = requests.filter(item => item.url.startsWith('/media/upload'))
   assert.equal(uploads.length, 2)
   uploads.forEach((item, index) => { assert.equal(item.options.method, 'POST'); assert.equal(item.options.body, files[index]) })
-  assert.equal(changes.at(-1).page, 0); assert.equal(changes.at(-1).profile, ''); assert.equal(changes.at(-1).media_kind, '')
-  assert.equal(changes.at(-1).source, 'import')
+  assert.equal(changes.at(-1).page, 0); assert.equal(changes.at(-1).q, '')
   assert.match(JSON.stringify(view.toJSON()), /参考.png/)
   assert.equal(view.root.findAllByType('video').length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '查看素材 视频.mp4' }).props.onClick())

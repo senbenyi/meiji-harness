@@ -12,6 +12,7 @@ import { launch } from './launcher.js'
 import { withLaunchLock } from '../../jobs/lock.js'
 import { validateVideoPlan } from './plan.js'
 import { runtimeRoot, projectsRoot } from '../../../database/paths.js'
+import { loadProduction } from '../../../database/managers/production.js'
 import { validProjectId } from '../../jobs/paths.js'
 
 export { validateVideoPlan, launch }
@@ -29,10 +30,19 @@ export async function startVideoJob(args, exec, approvalToken) {
 }
 
 async function startVideoJobLocked(args, exec, approvalToken) {
-  const { new_video = false, project_id: projectId, episode_id: episodeId, ...plan } = args
+  const { new_video = false, project_id: projectId, episode_id: episodeId, segment_id: segmentId, generation_id: generationId, ...plan } = args
   if (typeof new_video !== 'boolean') throw invalid('new_video 必须为布尔值')
   if (!validProjectId(projectId)) throw invalid('project_id 必须为 8 位项目 ID')
   const metadata = await readFile(join(projectsRoot(), projectId, 'project.json'), 'utf8').then(JSON.parse).catch(error => { if (error.code === 'ENOENT') return {}; throw error })
+  if (segmentId) {
+    const production = metadata.production_snapshot && await loadProduction(join(projectsRoot(), projectId), metadata.production_snapshot)
+    const item = production?.queue?.items.find(i => i.segment_id === segmentId && i.job_id === generationId)
+    if (production?.queue?.status !== 'running' || !item || item.token !== approvalToken || !isDeepStrictEqual(item.plan, plan)) throw invalid('片段生成需要当前已审核的 H3 输入')
+    const jobId = await createJob(projectId, plan, item.backend, generationId)
+    const existing = await getJob(jobId).catch(error => { if (error.code === 'MODEL_JOB_NOT_FOUND') return null; throw error })
+    if (existing?.status === 'succeeded') return { job_id: jobId, status: existing.status }
+    try { return await launch(jobId) } catch (error) { error.job_id = jobId; throw error }
+  }
   const workflow = episodeId ? metadata.episodes?.find(item => item.id === episodeId)?.workflow : metadata.episodes?.length > 1 ? null : metadata.workflow
   if (episodeId && !workflow || metadata.episodes?.length > 1 && !episodeId) throw invalid('请选择有效剧集并在项目页面审核提交')
   if (metadata.workflow && (!approvalToken || workflow.approval?.token !== approvalToken || workflow.approval.revision !== workflow.revision || !isDeepStrictEqual(workflow.approval.plan, plan))) throw invalid('请在项目页面审核当前分镜并点击提交，不能绕过人工审核')

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { act, create } from 'react-test-renderer'
-import { clientSource } from '../scripts/loader.js'
+import { testClientSource } from '../scripts/loader.js'
 
 const projectFixture = () => ({ id: '1234abcd', title: '三集故事', updated_at: 1, mode: 'director', episode_count: 3,
   workflow: { revision: 1, stage: 'storyboard' }, configuration: {}, selected_materials: [],
@@ -14,7 +14,7 @@ const projectFixture = () => ({ id: '1234abcd', title: '三集故事', updated_a
 
 test('episode cards drill into a shot, save only that episode and restore list scroll position', async () => {
   const modules = new Map(), cache = new Map(), actions = [], nodes = []
-  runInNewContext(clientSource(), { window: { confirm: () => true, __ELYSIUM_MEDIA__: { token: 't', base: '/media' }, __ModuleLoader__: { load: m => modules.set(m.id, m.factory) } }, URLSearchParams, URL })
+  runInNewContext(testClientSource(), { window: { confirm: () => true, __ELYSIUM_MEDIA__: { token: 't', base: '/media' }, __ModuleLoader__: { load: m => modules.set(m.id, m.factory) } }, URLSearchParams, URL })
   let project = projectFixture(), view
   cache.set('elysium/project-api', { workflowAction: async (id, action, body) => {
     actions.push({ id, action, body }); project = { ...project, updated_at: 2, acts: project.acts.map(a => a.episode_id === body.episode_id ? { ...a, shots: body.shots } : a) }; return project
@@ -49,7 +49,7 @@ test('episode cards drill into a shot, save only that episode and restore list s
 
 test('overview Next buttons require all episodes and submit the whole series', async () => {
   const modules = new Map(), cache = new Map(), calls = []
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media' }, __ModuleLoader__: { load: m => modules.set(m.id, m.factory) } }, URLSearchParams, URL })
+  runInNewContext(testClientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media' }, __ModuleLoader__: { load: m => modules.set(m.id, m.factory) } }, URLSearchParams, URL })
   cache.set('elysium/project-api', { workflowAction: async (id, action, body) => { calls.push({ id, action, body }); return project } })
   cache.set('elysium/project-generation', { generate: async (p, stage, episodeId) => { calls.push({ stage, episodeId }); return p } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }

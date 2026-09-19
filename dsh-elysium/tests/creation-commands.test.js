@@ -39,9 +39,9 @@ test('menu selection only claims input; blank input, attachments and transport f
   }
   assert.equal(source.matchSpace({}, '/预览创作-extra'), undefined)
   assert.equal(await source.matchEnter({}, '/普通消息'), undefined)
-  assert.match(creationInstructions, /所有视频创作请求都通过项目/)
+  assert.match(creationInstructions, /视频创作通过项目/)
   assert.match(creationInstructions, /project_create/)
-  assert.match(creationInstructions, /请配置项目素材/)
-  assert.match(creationInstructions, /project_generation_complete/)
-  assert.match(creationInstructions, /人工审核点击提交/)
+  assert.match(creationInstructions, /请配置项目创作要求与素材/)
+  assert.match(creationInstructions, /project_production_complete/)
+  assert.match(creationInstructions, /人工提交/)
 })

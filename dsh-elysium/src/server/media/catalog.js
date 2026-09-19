@@ -125,16 +125,38 @@ export async function listAssets(offset, limit, filters = {}) {
   const items = []
   for (const material of catalog.filter(item => !item.deleted)) {
     if (filters.category && material.category !== filters.category) continue
+    if (filters.subcategory && material.subcategory !== filters.subcategory) continue
     if (filters.source === 'creation' && material.source !== 'creation' || filters.source === 'import' && material.source !== 'import' || filters.source === 'project' && !projectMaterials.has(material.job_id)) continue
     const found = jobs.get(material.job_id)
     if (material.job_id && !found) continue
     const summary = found ? { ...assetSummary(found.job), ...await availableJobSummary(found.job) } : { media_kind: 'text', has_image: false, has_video: false, has_download: false }
     const item = { ...summary, ...material, created_at: material.created_at ?? (found ? (await stat(found.path)).mtimeMs : 0) }
-    if (filters.q && ![item.id, item.title, item.description, item.prompt, item.prompt_excerpt].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
+    if (filters.q && ![item.id, item.title, item.description, item.prompt, item.prompt_excerpt, item.subcategory, ...(item.tags || [])].some(text => typeof text === 'string' && text.toLowerCase().includes(filters.q.toLowerCase()))) continue
     if (filters.profile && (summary.profile === 'hd' ? 'high-quality' : summary.profile) !== (filters.profile === 'hd' ? 'high-quality' : filters.profile)) continue
     if (filters.media_kind && summary.media_kind !== filters.media_kind) continue
     items.push(item)
   }
   items.sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id))
-  return { items: items.slice(offset, offset + limit), total: items.length, has_more: offset + limit < items.length }
+  const grouped = collapseSets(items)
+  return { items: grouped.slice(offset, offset + limit), total: grouped.length, has_more: offset + limit < grouped.length }
+}
+
+function collapseSets(items) {
+  const order = [], sets = new Map()
+  for (const item of items) {
+    if (!item.set_id) { order.push(item); continue }
+    if (!sets.has(item.set_id)) {
+      const set = { ...item, views: [] }
+      sets.set(item.set_id, set)
+      order.push(set)
+    }
+    sets.get(item.set_id).views.push(item)
+  }
+  const rank = view => ['front', 'side', 'back'].indexOf(view)
+  for (const set of sets.values()) {
+    set.views.sort((a, b) => rank(a.view) - rank(b.view))
+    const front = set.views.find(item => item.view === 'front') || set.views[0]
+    Object.assign(set, front, { views: set.views, has_image: set.views.some(item => item.has_image), job_id: front.job_id })
+  }
+  return order
 }

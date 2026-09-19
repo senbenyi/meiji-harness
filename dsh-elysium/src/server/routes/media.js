@@ -7,13 +7,16 @@ import { randomBytes } from 'node:crypto'
 import { getJob } from '../jobs/query.js'
 import { findVideoCall } from '../workflows/videos/call-binding.js'
 import { openLocalMedia, byteRange } from '../media/local-media.js'
+import { openFirstFrame } from '../media/first-frame.js'
 import { jobSummary, availableJobSummary, listAssets, deleteAsset, uploadAsset } from '../media/catalog.js'
 import { addMaterial, updateMaterial } from '../../database/managers/materials.js'
-import { materialCategories } from '../../database/schemas/materials.js'
+import { materialCategories, materialSubcategories } from '../../database/schemas/materials.js'
 import { authenticated, json, readJsonBody } from '../http.js'
+import { createProjectStore } from '../projects/service.js'
+import { validProjectId } from '../projects/schema.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'
-export function createMediaHandler({ token, projectBase, directorBase, settingsBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
+export function createMediaHandler({ token, projectBase, directorBase, settingsBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined, readProject = id => createProjectStore().read(id), connect = connectBackend }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -34,8 +37,8 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
         const body = await readJsonBody(req)
         if (!materialCategories.includes(body.category) || typeof body.title !== 'string' || !body.title.trim()) return json(res, 400, { error: '请填写素材名称并选择分类' })
         if (url.pathname.endsWith('/update')) return json(res, 200, await updateMaterial(body.id, body))
-        const { title, description, prompt, category } = body
-        return json(res, 201, await addMaterial({ title, description, prompt, category, source: 'creation', created_at: Date.now() }))
+        const { title, description, prompt, category, subcategory, tags, view, set_id } = body
+        return json(res, 201, await addMaterial({ title, description, prompt, category, subcategory, tags, view, set_id, source: 'creation', created_at: Date.now() }))
       }
       if (url.pathname === `${MEDIA_ROUTE}/delete`) {
         if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
@@ -44,6 +47,32 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
         return json(res, 200, await deleteAsset(jobId))
       }
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' })
+      if (url.pathname === `${MEDIA_ROUTE}/export-download`) {
+        const projectId = url.searchParams.get('project'), exportId = url.searchParams.get('export')
+        if (!validProjectId(projectId) || !/^[a-f0-9-]{36}$/.test(exportId || '')) return json(res, 400, { error: '成片标识无效' })
+        let project
+        try { project = await readProject(projectId) } catch (error) { if (error.code === 'ENOENT') return json(res, 404, { error: '项目不存在' }); throw error }
+        const output = project.production?.exports.find(e => e.id === exportId)
+        if (!output || output.status !== 'succeeded' || !output.url) return json(res, 404, { error: '成片尚未完成或不存在' })
+        const target = new URL(output.url), base = output.backend?.base_url && new URL(output.backend.base_url.replace(/\/?$/, '/'))
+        if (!base || !['http:', 'https:'].includes(target.protocol) || target.username || target.password || target.origin !== base.origin || target.pathname !== new URL('view', base).pathname ||
+          target.searchParams.get('filename') !== 'final.mp4' || target.searchParams.get('subfolder') !== `elysium/exports/${exportId}` || target.searchParams.get('type') !== 'output') return json(res, 403, { error: '成片与合片服务器或导出记录不一致' })
+        await connect(output.backend)
+        const controller = new AbortController(), abort = () => { if (!res.writableEnded) controller.abort() }
+        res.once('close', abort)
+        try {
+          const upstream = await fetch(target, { method: req.method, redirect: 'error', headers: { 'Accept-Encoding': 'identity' }, signal: controller.signal })
+          if (!upstream.ok) { await upstream.body?.cancel(); return json(res, 502, { error: '成片读取失败，请稍后重试' }) }
+          const filename = `${project.title}-${output.title || `第${output.episode_number || 1}集`}`.replace(/[\\/:*?"<>|\x00-\x1f\x7f]/g, '_').slice(0, 140) + '.mp4'
+          const encoded = encodeURIComponent(filename).replace(/['()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+          const headers = { 'Content-Type': 'video/mp4', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': `attachment; filename="elysium-${exportId}.mp4"; filename*=UTF-8''${encoded}` }
+          if (upstream.headers.has('content-length') && !upstream.headers.has('content-encoding')) headers['Content-Length'] = upstream.headers.get('content-length')
+          res.writeHead(200, headers)
+          if (req.method === 'HEAD' || !upstream.body) return res.end()
+          await pipeline(Readable.fromWeb(upstream.body), res)
+          return
+        } finally { res.off('close', abort) }
+      }
       if (url.pathname === `${MEDIA_ROUTE}/list`) {
         const limit = Number(url.searchParams.get('limit') ?? 50), offset = Number(url.searchParams.get('offset') ?? 0)
         if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(offset) || offset < 0) return json(res, 400, { error: 'Invalid pagination' })
@@ -52,10 +81,12 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
         const profile = url.searchParams.get('profile') || '', media_kind = url.searchParams.get('media_kind') || ''
         const source = url.searchParams.get('source') || ''
         const category = url.searchParams.get('category') || ''
+        const subcategory = url.searchParams.get('subcategory') || ''
         if (category && !materialCategories.includes(category)) return json(res, 400, { error: 'Invalid category' })
+        if (subcategory && !(category ? materialSubcategories[category] : Object.values(materialSubcategories).flat()).includes(subcategory)) return json(res, 400, { error: 'Invalid subcategory' })
         if (source && !['creation', 'project', 'import'].includes(source)) return json(res, 400, { error: 'Invalid source' })
         if (profile && !['preview', 'regular', 'high-quality', 'hd'].includes(profile) || media_kind && !['video', 'image', 'text'].includes(media_kind)) return json(res, 400, { error: 'Invalid filters' })
-        return json(res, 200, await listAssets(offset, Math.min(limit, 200), { profile, media_kind, q, source, category }))
+        return json(res, 200, await listAssets(offset, Math.min(limit, 200), { profile, media_kind, q, source, category, subcategory }))
       }
       const jobId = url.searchParams.get('job')
       if (jobId !== null && !/^[a-f0-9]{32}$/.test(jobId)) return json(res, 400, { error: 'Invalid job identity' })
@@ -73,7 +104,25 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
       if (url.pathname === `${MEDIA_ROUTE}/status`) return json(res, 200, await availableJobSummary(job))
       const summary = jobSummary(job)
       const download = url.pathname === `${MEDIA_ROUTE}/download`
-      if (!(download && summary.has_download || url.pathname === `${MEDIA_ROUTE}/video` && summary.has_video || url.pathname === `${MEDIA_ROUTE}/image` && summary.has_image)) return json(res, 404, { error: '媒体尚不可用' })
+      const firstFrame = url.pathname === `${MEDIA_ROUTE}/image` && url.searchParams.get('frame') === 'first'
+      if (!(download && summary.has_download || url.pathname === `${MEDIA_ROUTE}/video` && summary.has_video || url.pathname === `${MEDIA_ROUTE}/image` && (summary.has_image || firstFrame && summary.has_video))) return json(res, 404, { error: '媒体尚不可用' })
+      if (firstFrame && summary.has_video) {
+        if (job.server && !job.result?.local_media_path) {
+          const target = new URL(job.result.comfyui_view_url)
+          if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) return json(res, 403, { error: 'Invalid media URL' })
+          const original = new URL(job.server.base_url.replace(/\/?$/, '/'))
+          if (target.origin !== original.origin || target.pathname !== new URL('view', original).pathname) return json(res, 403, { error: '素材与原任务服务器不一致' })
+          await connectBackend(job.server)
+        }
+        const media = await openFirstFrame(job)
+        try {
+          const headers = { 'Content-Type': media.contentType, 'Content-Length': media.size, 'ETag': media.etag, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff' }
+          res.writeHead(200, headers)
+          if (req.method === 'HEAD' || !media.size) return res.end()
+          await pipeline(media.handle.createReadStream({ autoClose: false }), res)
+          return
+        } finally { await media.handle.close() }
+      }
       if (job.result?.local_media_path !== undefined) {
         const media = await openLocalMedia(job)
         try {
@@ -129,6 +178,6 @@ export function registerMediaRoutes(ctx, runtime, projectBase, directorBase, set
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'global', name: '__ELYSIUM_MEDIA__', value: { token, base: MEDIA_ROUTE, projectBase, directorBase, settingsBase } }))
   const handle = createMediaHandler({ token, projectBase, directorBase, settingsBase, getSession: id => ctx.get('sessions')?.get(id) })
   const handler = (req, res) => withConfig(runtime, () => handle(req, res))
-  for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'list', 'delete', 'upload', 'create', 'update']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
+  for (const suffix of ['status', 'video', 'image', 'credentials', 'download', 'export-download', 'list', 'delete', 'upload', 'create', 'update']) ctx.effect(() => server.register({ kind: 'exact', path: `${MEDIA_ROUTE}/${suffix}`, handler }), `elysium media ${suffix}`)
   return token
 }

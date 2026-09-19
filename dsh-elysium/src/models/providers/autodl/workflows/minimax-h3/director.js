@@ -29,6 +29,7 @@ export function videoShots(plan, media) {
   if (plan.video_paths) return plan.video_paths.map((path, index) => ({
     id: `shot-${index + 1}`, mode: 'reuse', video_path: path, duration: media[path].duration,
   }))
+  if (plan.prompts.length === 1) return [{ id: 'shot-1', mode: 'independent', prompt: plan.prompts[0], duration: plan.duration, seed: plan.seed ?? 666, ...(plan.image_path ? { image_path: plan.image_path } : {}) }]
   const count = plan.prompts.length, seconds = Math.floor(plan.duration / count), remainder = plan.duration % count
   return plan.prompts.map((prompt, index) => ({
     id: `shot-${index + 1}`, mode: index ? 'continue' : 'independent', prompt,
@@ -51,7 +52,11 @@ export function frameIndices(seconds, outputFps, { fps, timestamps }, start = 0)
 
 export function buildVideoGraph(plan, media, workflows, jobId) {
   const graph = {}, shots = videoShots(plan, media), workflowName = selectVideoWorkflow(shots)
-  const bundle = workflows[workflowName], settings = bundle.settings, templates = components(bundle)
+  const bundle = workflows[workflowName], settings = { ...bundle.settings }, templates = components(bundle)
+  if (plan.aspect_ratio) {
+    const [w, h] = plan.aspect_ratio.split(':').map(Number), scale = Math.sqrt(settings.width * settings.height / (w * h))
+    settings.width = Math.ceil(w * scale / 32) * 32; settings.height = Math.ceil(h * scale / 32) * 32
+  }
   if (settings.fps !== 24) throw new Error('H3 模型时间基准必须为 24 fps；交付帧率请修改 outputFps')
   const frames = shots.reduce((sum, shot) => sum + Math.round(shot.duration * settings.outputFps), 0)
   if (Math.abs(frames / settings.outputFps - plan.duration) > (shots.length / 2 + 1) / settings.outputFps + 0.01) {

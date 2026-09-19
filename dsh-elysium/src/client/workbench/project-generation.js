@@ -1,8 +1,8 @@
 // 职责：桥接当前 Harness 会话，并展示按阶段执行的项目工作流。
 window.__ModuleLoader__.load({ id: 'elysium/project-generation', factory: require => {
-  const { createElement: h, useEffect } = require('react')
+  const { createElement: h, useEffect, useState } = require('react')
   const { workflowAction, fetchProject, fetchProjects } = require('elysium/project-api')
-  let sessions, workspaces, navigation
+  let sessions, workspaces, navigation, modelDirectories
   const mountedAt = Date.now(), opened = new Set()
   const openProject = id => window.dispatchEvent(new CustomEvent('elysium:open-project', { detail: { id } }))
   async function selectProject(id) {
@@ -42,7 +42,28 @@ window.__ModuleLoader__.load({ id: 'elysium/project-generation', factory: requir
     }, [value?.id, value?.created_at, sessionId])
     return value?.id ? h('button', { onClick: () => openProject(value.id) }, '请配置项目素材 · 打开项目') : null
   }
+  function StoryModel({ sessionId }) {
+    const [selection, setSelection] = useState(null)
+    useEffect(() => {
+      setSelection(null)
+      if (!sessionId || !modelDirectories) return
+      let unsubscribeModel
+      const connect = () => {
+        if (unsubscribeModel || !sessions?.scope(sessionId)) return
+        const directory = modelDirectories.directoryFor(sessionId)
+        const update = () => setSelection(directory.store.getSnapshot().current)
+        update()
+        unsubscribeModel = directory.store.subscribe(update)
+        directory.load().catch(() => {})
+      }
+      const unsubscribeSessions = sessions?.list.subscribe(connect)
+      connect()
+      return () => { unsubscribeSessions?.(); unsubscribeModel?.() }
+    }, [sessionId])
+    return h('p', { className: 'elysium-story-model' }, `剧情生成模型（当前会话）：${selection ? `${selection.provider} / ${selection.model}` : '等待会话模型加载'}`)
+  }
   function apply(ctx) {
+    modelDirectories = ctx.modelDirectories
     sessions = ctx.sessions
     workspaces = ctx.workspaces
     navigation = ctx.uiWorkspace
@@ -79,6 +100,16 @@ window.__ModuleLoader__.load({ id: 'elysium/project-generation', factory: requir
     } catch (error) { await workflowAction(project.id, 'cancel', { revision: requested.revision, ...(episodeId ? { episode_id: episodeId } : {}) }); throw error }
     return value
   }
-  const { ProjectWorkflow } = require('elysium/episode-workflow')
-  return { apply, generate, selectProject, watchSession, projectForSession, ProjectWorkflow, ProjectCreated }
+  async function generateProduction(project, stage, segmentId) {
+    const sessionId = sessions?.list.getSnapshot().current
+    if (project.chat_session_id !== sessionId) throw new Error('请先选择项目关联对话')
+    const conversation = sessions.scope(sessionId)?.get('conversation')
+    if (!conversation) throw new Error('项目对话尚未就绪')
+    const value = await workflowAction(project.id, 'production-request', { revision: project.production.revision, stage, segment_id: segmentId, session_id: sessionId })
+    try { await conversation.send(`执行项目 ${project.id} 的 ${stage} 阶段，request_id=${value.production.request.id}。项目目标总时长为 ${value.production.target_seconds} 秒；剧情和全量片段时长总和必须与目标一致。先 project_production_read，再按说明调用 project_production_complete 保存全部结果；仅执行当前阶段，不生成视频。`) }
+    catch (error) { await workflowAction(project.id, 'production-cancel-request', { revision: value.production.revision }); throw error }
+    return value
+  }
+  const { ProjectWorkflow } = require('elysium/production-workflow')
+  return { StoryModel, apply, generate, generateProduction, selectProject, watchSession, projectForSession, ProjectWorkflow, ProjectCreated }
 } })

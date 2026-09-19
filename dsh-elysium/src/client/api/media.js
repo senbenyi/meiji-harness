@@ -44,6 +44,33 @@ window.__ModuleLoader__.load({
       if (!response.ok) throw new Error(result.error || '素材保存失败')
       return result
     }
-    return { mediaUrl, readStatus, assetUrl, relativeTime, saveMaterial }
+    async function saveExport(project, output) {
+      const url = mediaUrl('export-download', null, null, { project: project.id, export: output.id })
+      const filename = `${project.title}-${output.title || `第${output.episode_number || 1}集`}`.replace(/[\\/:*?"<>|\x00-\x1f\x7f]/g, '_').slice(0, 140) + '.mp4'
+      let handle
+      if (window.showSaveFilePicker) {
+        try { handle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: 'MP4 视频', accept: { 'video/mp4': ['.mp4'] } }] }) }
+        catch (error) { if (error.name === 'AbortError') return ''; throw error }
+      }
+      const controller = new AbortController()
+      try {
+        const response = await fetch(url, { method: handle ? 'GET' : 'HEAD', credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+        if (!response.ok) {
+          const detail = handle ? await response.json().catch(() => ({})) : {}
+          throw new Error(detail.error || (response.status === 401 ? '页面凭据已失效，请刷新页面' : '成片下载失败，请稍后重试'))
+        }
+        if (handle) {
+          if (!response.body) throw new Error('未收到视频数据，请重试')
+          const writable = await handle.createWritable()
+          await response.body.pipeTo(writable)
+          return `已保存：${handle.name || filename}`
+        }
+        const link = document.createElement('a')
+        link.href = url; link.download = filename
+        document.body.appendChild(link); link.click(); link.remove()
+        return '已交给浏览器下载，请在下载列表查看。当前浏览器不支持选择保存路径，保存位置由浏览器下载设置决定。'
+      } catch (error) { controller.abort(); throw error }
+    }
+    return { mediaUrl, readStatus, assetUrl, relativeTime, saveMaterial, saveExport }
   },
 })

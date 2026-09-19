@@ -19,7 +19,8 @@
   },
   "files": [
     "lib",
-    "config"
+    "config",
+    "resources/production-rules"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

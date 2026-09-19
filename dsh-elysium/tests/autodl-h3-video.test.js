@@ -76,3 +76,15 @@ test('AutoDL builds main director T2V, I2V, continue and per-shot outputs', asyn
   assert.ok(result.graph.s1_save)
   assert.ok(result.graph.final)
 }))
+
+test('Segment prompt, fractional duration and aspect ratio reach the actual director graph', async () => {
+  const input = { profile: 'regular', mode: 't2va', prompt: 'Human reviewed exact prompt', duration_seconds: 4.5, aspect_ratio: '16:9' }
+  await validatePlan(input)
+  const plan = toDirectorPlan(input)
+  const value = buildDirectorGraph(plan, {}, await loadVideoTemplates(), 'a'.repeat(32))
+  const director = value.graph.s0_director.inputs
+  assert.equal(director.prompt, input.prompt)
+  assert.equal(director.duration, 4.5)
+  assert.ok(director.width > director.height)
+  assert.ok(Math.abs(director.width / director.height - 16 / 9) < .1)
+})

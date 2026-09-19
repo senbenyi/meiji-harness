@@ -70,11 +70,11 @@ test('selected material categories, single choice, novel paging and stale reques
 import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
-import { clientSource } from '../scripts/loader.js'
+import { clientSource, testClientSource } from '../scripts/loader.js'
 
 test('project UI keeps roles and cardinalities, sends next-step request into the active Harness session', async () => {
   const modules = new Map(), cache = new Map(), requests = [], sent = []
-  runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
+  runInNewContext(testClientSource(), { window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
     fetch: async (url, options) => {
       if (url.startsWith('/media/list')) return { ok: true, json: async () => ({ items: [], has_more: false }) }
       if (url.startsWith('/director/list')) return { ok: true, json: async () => [] }
@@ -121,31 +121,31 @@ test('single-shot API compilation preserves duration and snapshots the selected 
 
 test('workflow overview opens isolated details, guards drafts and does not interrupt overview on background updates', async () => {
   const modules = new Map(), cache = new Map(); let allowLeave = false
-  runInNewContext(clientSource(), { window: { confirm: () => allowLeave, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } } })
+  runInNewContext(clientSource(), { structuredClone, window: { confirm: () => allowLeave, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } } })
   cache.set('elysium/project-api', { workflowAction() {} })
   cache.set('elysium/project-configuration', { ProjectConfiguration: () => React.createElement('div', null, '配置表单') })
   cache.set('elysium/delivery', { DeliveryView: () => React.createElement('div', null, '视频详情') })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   const { ProjectWorkflow } = require('elysium/project-generation')
-  const project = { id: '1234abcd', updated_at: 1, title: '故事', configuration: {}, workflow: { revision: 1, stage: 'plot', plot: '相遇。' }, episodes: [{ id: 'episode-1', title: '相遇', workflow: { revision: 1, stage: 'plot', plot: '相遇。' } }], acts: [], deliverables: [] }
+  const project = { id: '1234abcd', updated_at: 1, title: '故事', configuration: {}, workflow: { revision: 1, stage: 'plot', plot: '相遇。' }, production: { revision: 0, original_request: '故事', style: '', aspect_ratio: '9:16', target_seconds: 15, story: { text: '相遇。', scenes: [{ id: 'scene-a', title: '相遇', description: '相遇。', duration: 15 }] }, segments: [], assets: [], exports: [], timeline: { clips: [] } }, acts: [], deliverables: [] }
   let view
   const render = value => React.createElement(ProjectWorkflow, { project: value, busy: false, run: async () => true })
   await act(async () => { view = create(render(project)) })
-  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 3)
-  await act(async () => view.root.findByProps({ 'aria-label': '打开第 1 集剧情' }).props.onClick())
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 1)
+  await act(async () => view.root.findByProps({ 'aria-label': '打开Scene 1' }).props.onClick())
   assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 0)
-  assert.equal(view.root.findByProps({ 'aria-label': '剧情正文' }).props.value, '相遇。')
-  await act(async () => view.root.findByProps({ 'aria-label': '剧情正文' }).props.onChange({ target: { value: '编辑中的剧情' } }))
+  assert.equal(view.root.findByProps({ 'aria-label': '场景剧情' }).props.value, '相遇。')
+  await act(async () => view.root.findByProps({ 'aria-label': '场景剧情' }).props.onChange({ target: { value: '编辑中的剧情' } }))
   const back = () => view.root.findByProps({ className: 'elysium-app-navbar' }).findByType('button').props.onClick()
   await act(async () => back())
-  assert.equal(view.root.findByProps({ 'aria-label': '剧情正文' }).props.value, '编辑中的剧情')
+  assert.equal(view.root.findByProps({ 'aria-label': '场景剧情' }).props.value, '编辑中的剧情')
   allowLeave = true
   await act(async () => back())
-  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 3)
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 1)
   await act(async () => view.update(render({ ...project, updated_at: 2, workflow: { ...project.workflow, stage: 'storyboard' } })))
-  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 3)
-  await act(async () => view.root.findByProps({ 'aria-label': '打开第 1 集剧情' }).props.onClick())
-  assert.equal(view.root.findByProps({ 'aria-label': '剧情正文' }).props.value, '相遇。')
+  assert.equal(view.root.findAllByProps({ className: 'elysium-episode-card' }).length, 1)
+  await act(async () => view.root.findByProps({ 'aria-label': '打开Scene 1' }).props.onClick())
+  assert.equal(view.root.findByProps({ 'aria-label': '场景剧情' }).props.value, '相遇。')
   assert.ok(view.root.findByProps({ className: 'elysium-step-detail-footer' }))
   await act(async () => view.unmount())
 })

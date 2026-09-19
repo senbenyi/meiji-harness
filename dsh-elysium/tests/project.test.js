@@ -61,7 +61,7 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.deepEqual(restored.materials, ['a'.repeat(32)])
     const directory = join(root, 'projects', id)
     const metadata = JSON.parse(await readFile(join(directory, 'project.json'), 'utf8'))
-    assert.deepEqual(metadata, Object.fromEntries(Object.entries(restored).filter(([key]) => !['materials', 'anchors', 'acts', 'deliverables'].includes(key))))
+    assert.deepEqual(metadata, Object.fromEntries(Object.entries(restored).filter(([key]) => !['materials', 'anchors', 'acts', 'deliverables', 'production'].includes(key))))
     assert.deepEqual(JSON.parse(await readFile(join(directory, 'materials.json'), 'utf8')), restored.materials)
     assert.deepEqual(JSON.parse(await readFile(join(directory, 'anchors.json'), 'utf8')), restored.anchors)
     assert.deepEqual(JSON.parse(await readFile(join(directory, 'storyboard.json'), 'utf8')), restored.acts)
@@ -91,6 +91,33 @@ test('create retries a colliding ID without overwriting the existing project', a
     }
     const original = JSON.parse(await readFile(join(root, 'projects/aaaaaaaa/project.json'), 'utf8'))
     assert.equal(original.title, '原分镜')
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
+})
+
+test('create stores duration aspect ratio episode count and imported script', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-create-spec-'))
+  await seedDirectors(root, ['王家卫'])
+  const handler = createProjectHandler({ token: 't' })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const request = body => fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/create?t=t`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  try {
+    assert.equal((await request({ title: '竖屏短剧', aspect_ratio: '4:3' })).status, 400)
+    assert.equal((await request({ title: '竖屏短剧', duration_min: 0 })).status, 400)
+    const response = await request({ title: '竖屏短剧', duration_min: 8, aspect_ratio: '9:16', episode_count: 4, director: '王家卫', reference_text: '开场。' })
+    assert.equal(response.status, 201)
+    const project = await response.json()
+    assert.equal(project.duration_min, 8)
+    assert.equal(project.aspect_ratio, '9:16')
+    assert.equal(project.episode_count, 4)
+    assert.equal(project.episodes.length, 4)
+    assert.equal(project.director, '王家卫')
+    assert.equal(project.configuration.director, '王家卫')
+    assert.equal(project.configuration.reference_text, '开场。')
+    const untitled = await (await request({ title: '聊天创建' })).json()
+    assert.equal(untitled.aspect_ratio, '9:16')
+    assert.equal(untitled.duration_min, null)
+    assert.equal(untitled.episode_count, 1)
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
 
@@ -136,6 +163,48 @@ test('remote cover remains available when another anchor references a video job'
   const summary = projectSummary({id:'abcdef12',title:'cover',profile:'preview',anchors:[{source:{job_id:'a'.repeat(32)},image_url:''},{image_url:'https://example.test/cover.png'}],acts:[],deliverables:[]})
   assert.equal(summary.cover_url,'https://example.test/cover.png')
   assert.equal(summary.cover_job_id,null)
+  assert.equal(summary.cover_kind,'image')
+})
+
+test('summary lists video cover, episode count and plot without episode structure', () => {
+  const summary = projectSummary({
+    id: 'abcdef12', title: '旧项目', profile: 'preview', episode_count: 3, brief: '备用摘要',
+    production: { revision: 1, stage: 'videos', story: { text: '雨中相遇。' }, segments: [{ generations: [{ id: 'a'.repeat(32), job_id: 'a'.repeat(32), status: 'succeeded' }], selected_generation: 'a'.repeat(32) }], exports: [] },
+    anchors: [], acts: [], deliverables: [],
+  })
+  assert.equal(summary.cover_job_id, 'a'.repeat(32))
+  assert.equal(summary.cover_kind, 'video')
+  assert.equal(summary.episode_count, 3)
+  assert.equal(summary.plot_summary, '雨中相遇。')
+})
+
+test('list and get keep projects that have no episode structure', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-list-'))
+  await seedDirectors(root, ['张艺谋'])
+  const handler = createProjectHandler({ token: 't' })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}`
+  const request = (action, body, query = '') => fetch(`${base}/${action}?t=t${query}`, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  try {
+    const created = await request('create', { title: '旧项目', profile: 'preview', director: '张艺谋', episode_count: 3, brief: '雨中相遇。' })
+    assert.equal(created.status, 201)
+    const project = await created.json()
+    const path = join(root, 'projects', project.id, 'project.json')
+    const metadata = JSON.parse(await readFile(path, 'utf8'))
+    delete metadata.episodes
+    await writeFile(path, JSON.stringify(metadata))
+    const listed = await (await request('list')).json()
+    assert.equal(listed.length, 1)
+    assert.equal(listed[0].title, '旧项目')
+    assert.equal(listed[0].episode_count, 3)
+    assert.equal(listed[0].plot_summary, '雨中相遇。')
+    const got = await request('get', undefined, `&id=${project.id}`)
+    assert.equal(got.status, 200)
+    const loaded = await got.json()
+    assert.equal(loaded.title, '旧项目')
+    assert.equal(loaded.episodes, undefined)
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
 
 // 封面校验、持久化和摘要读取不依赖锚点顺序或远程模型服务。

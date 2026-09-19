@@ -10,7 +10,9 @@ export async function buildProfileGraph(plan, jobId, bundle) {
   if (lowResolution) Object.assign(config, JSON.parse(await readFile(new URL('./profiles/preview-low-resolution.json', import.meta.url), 'utf8')))
   const profileName = lowResolution ? 'preview-low-resolution' : profile
   const graph = structuredClone(bundle.graph)
-  const width = Math.ceil(config.width / 32) * 32, height = Math.ceil(config.height / 32) * 32
+  const ratio = plan.aspect_ratio?.split(':').map(Number)
+  const scale = ratio ? Math.sqrt(config.width * config.height / (ratio[0] * ratio[1])) : null
+  const width = Math.ceil((ratio ? ratio[0] * scale : config.width) / 32) * 32, height = Math.ceil((ratio ? ratio[1] * scale : config.height) / 32) * 32
   const requestedSeconds = profile === 'regular' ? plan.duration_seconds ?? config.requested_seconds : config.requested_seconds
   const requestedFrames = Math.max(5, Math.round(requestedSeconds * config.fps))
   const frames = requestedFrames + (5 - requestedFrames % 17 + 17) % 17

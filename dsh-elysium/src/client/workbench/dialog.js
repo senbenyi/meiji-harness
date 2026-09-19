@@ -9,8 +9,14 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
     insert: 'M12 17V3m0 0-4 4m4-4 4 4M4 15v6h16v-6',
     minus: 'M5 12h14', more: 'M5 12h.01M12 12h.01M19 12h.01', plus: 'M12 5v14M5 12h14', refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7',
   }
+  const iconShapes = {
+    panelLeft: [['rect', { x: 3, y: 3, width: 18, height: 18, rx: 2.5 }], ['path', { d: 'M9 3v18' }]],
+    panelRight: [['rect', { x: 3, y: 3, width: 18, height: 18, rx: 2.5 }], ['path', { d: 'M15 3v18' }]],
+  }
   function Icon({ name }) {
-    return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, h('path', { d: iconPaths[name] }))
+    const shape = iconShapes[name]
+    return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+      ...(shape ? shape.map(([type, attrs], index) => h(type, { key: index, ...attrs })) : [h('path', { d: iconPaths[name] })]))
   }
   function IconButton({ name, label, className = '', title = label, ...props }) {
     return h('button', { ...props, type: 'button', className: `elysium-icon-button${className ? ` ${className}` : ''}`, 'aria-label': label, title }, h(Icon, { name }))
@@ -23,7 +29,7 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
     if (event.shiftKey && (document.activeElement === first || document.activeElement === root)) { event.preventDefault(); last.focus() }
     else if (!event.shiftKey && (document.activeElement === last || document.activeElement === root)) { event.preventDefault(); first.focus() }
   }
-  function Dialog({ title, close, busy, children, footer, showCancel = true }) {
+  function Dialog({ title, close, busy, children, footer, showCancel = true, className = '' }) {
     const root = useRef(null), previous = useRef(null)
     useEffect(() => {
       previous.current = document.activeElement
@@ -34,11 +40,13 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
       if (event.key === 'Escape') { event.stopPropagation(); if (!busy) close() }
       if (event.key === 'Tab') { event.stopPropagation(); trapFocus(event, root.current) }
     }
-    return h('div', { className: 'elysium-dialog-backdrop', onKeyDown: keyDown },
-      h('section', { className: 'elysium-dialog', role: 'dialog', 'aria-modal': true, 'aria-label': title, tabIndex: -1, ref: root },
+    const node = h('div', { className: 'elysium-dialog-backdrop', onKeyDown: keyDown },
+      h('section', { className: `elysium-dialog${className ? ` ${className}` : ''}`, role: 'dialog', 'aria-modal': true, 'aria-label': title, tabIndex: -1, ref: root },
         h('header', null, h('h2', null, title), h(IconButton, { name: 'close', label: '关闭对话框', disabled: busy, onClick: close })),
         h('div', { className: 'elysium-dialog-body' }, children),
-        h('footer', null, footer, showCancel ? h('button', { disabled: busy, onClick: close }, '取消') : null)))
+        h('footer', null, showCancel ? h('button', { disabled: busy, onClick: close }, '取消') : null, footer)))
+    try { if (typeof document !== 'undefined' && document.body) return require('react-dom').createPortal(node, document.body) } catch {}
+    return node
   }
   function Editor({ title, initial, fields, save, close, guard }) {
     const [draft, setDraft] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState(''), [pending, setPending] = useState(null)

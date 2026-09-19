@@ -70,8 +70,11 @@ export function updateMaterial(id, patch) {
     const materials = await load() || []
     const index = materials.findIndex(item => item.id === id && !item.deleted)
     if (index < 0) throw Object.assign(new Error('素材不存在'), { status: 404 })
-    const { title, description, prompt, category } = patch
-    materials[index] = materialValue({ ...materials[index], title, description, prompt, category })
+    const next = { ...materials[index] }
+    for (const key of ['title', 'description', 'prompt', 'category', 'subcategory', 'tags', 'view', 'set_id']) {
+      if (patch[key] !== undefined) next[key] = patch[key]
+    }
+    materials[index] = materialValue(next)
     await write(materials)
     return materials[index]
   })

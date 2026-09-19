@@ -22,6 +22,16 @@ export function profileValue(value) {
   return value
 }
 
+export function aspectRatioValue(value = '9:16') {
+  if (!['9:16', '16:9'].includes(value)) throw invalidRequest('分辨率须为 9:16 或 16:9')
+  return value
+}
+
+export function durationMinutesValue(value) {
+  if (!Number.isInteger(value) || value < 1 || value > 120) throw invalidRequest('总时长须为 1～120 分钟')
+  return value
+}
+
 export function directorValue(value) {
   if (typeof value !== 'string' || !value.trim() || value.length > 80) throw invalidRequest('请选择有效导演')
   return value.trim()

@@ -1,3 +1,5 @@
+import { composeRemote } from '../../protocols/ssh-media/compose.js'
+import { extractTailFrameRemote } from '../../protocols/ssh-media/tail-frame.js'
 // 职责：组合 AutoDL 双服务器契约；工作流实现由本 provider 自身提供。
 import { readFileSync } from 'node:fs'
 import { createStandardAdapter } from '../../managers/runtime/adapter.js'
@@ -35,4 +37,10 @@ adapter.executeJob = (projectId, jobId, plan, backend, options) => withBackend(b
 adapter.guidance = guidance
 adapter.creationGuidance = () => guidance
 adapter.syncWorkflows = async args => (await import('./workflows/sync.mjs')).main(args)
+adapter.compose = (backend, input) => composeRemote(backend, input, '/root/autodl-tmp/ComfyUI-minimax-h3/output', '/root/autodl-tmp/venvs/comfyui-minimax-h3/bin/python')
+adapter.tailFrame = (backend, source) => extractTailFrameRemote(backend, source, '/root/autodl-tmp/ComfyUI-minimax-h3/output', '/root/autodl-tmp/venvs/comfyui-minimax-h3/bin/python')
+adapter.describeVideo = async () => {
+  const template = (await loadVideoTemplates()).workflow_generate_video
+  return { model: Object.values(template.graph).find(n => n.class_type === 'UNETLoader')?.inputs.unet_name, note: '当前部署为 H3 Turbo 衍生模型，非官方 H3 Base；仅支持文字或单张首帧图输入。' }
+}
 export default adapter

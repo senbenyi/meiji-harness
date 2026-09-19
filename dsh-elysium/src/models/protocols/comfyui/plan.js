@@ -8,9 +8,10 @@ export function validatePlan(args) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) throw invalid('参数必须为对象')
   if (!VIDEO_MODES.includes(args.mode)) throw invalid(`mode 仅支持：${VIDEO_MODES.join('、')}`)
   if (typeof args.prompt !== 'string' || !args.prompt.trim()) throw invalid('prompt 必须为非空字符串')
+  if (args.aspect_ratio !== undefined && !['9:16', '16:9', '1:1', '3:4', '4:3', '21:9'].includes(args.aspect_ratio)) throw invalid('画幅无效')
   const required = MODE_MEDIA[args.mode]
   if (args.profile !== undefined && !VIDEO_PROFILES.includes(args.profile)) throw invalid(`profile 仅支持 ${VIDEO_PROFILES.join('、')}`)
-  const allowed = new Set(['mode', 'prompt', 'profile', 'preview_variant', 'duration_seconds', ...required])
+  const allowed = new Set(['mode', 'prompt', 'profile', 'preview_variant', 'duration_seconds', 'aspect_ratio', ...required])
   if (Object.keys(args).some(key => !allowed.has(key))) throw invalid(`${args.mode} 包含未支持参数`)
   for (const name of required) {
     if (!(name in args)) throw invalid(`${args.mode} 缺少 ${name}`)

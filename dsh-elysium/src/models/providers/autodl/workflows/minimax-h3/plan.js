@@ -11,8 +11,8 @@ export function isDirectorPlan(args) {
 
 export function toDirectorPlan(args) {
   if (isDirectorPlan(args) || !['t2va', 'i2va'].includes(args?.mode)) return null
-  const duration = args.profile === 'preview' ? 3 : Math.max(1, Math.round(args.duration_seconds ?? 5))
-  return { duration, prompts: [args.prompt], ...(args.mode === 'i2va' ? { image_path: args.first_frame } : {}) }
+  const duration = args.profile === 'preview' ? 3 : args.duration_seconds ?? 5
+  return { duration, ...(args.aspect_ratio ? { aspect_ratio: args.aspect_ratio } : {}), prompts: [args.prompt], ...(args.mode === 'i2va' ? { image_path: args.first_frame } : {}) }
 }
 
 export async function validateDirectorPlan(args) {

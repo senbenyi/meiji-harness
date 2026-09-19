@@ -155,3 +155,20 @@ export function defaultTunnelModel() {
   return tunnel && model ? { alias: tunnel.alias, id: model, label: tunnel.label || model } : null
 }
 export const defaultTunnelAlias = () => defaultTunnelModel()?.alias
+
+export async function composeBackend(backend, input) {
+  const provider = await providerFor(backend)
+  if (!provider.compose) throw new Error('当前平台未提供服务器合片能力')
+  await provider.connect(backend)
+  return provider.compose(backend, input)
+}
+export async function describeVideoBackend(backend) {
+  const provider = await providerFor(backend)
+  return provider.describeVideo ? provider.describeVideo() : { model: backend.model || provider.label, note: '实际模型由当前渠道提供' }
+}
+export async function extractBackendTailFrame(backend, source) {
+  const provider = await providerFor(backend)
+  if (!provider.tailFrame) throw new Error('上一段的视频平台尚未提供尾帧提取能力')
+  await provider.connect(backend)
+  return provider.tailFrame(backend, source)
+}

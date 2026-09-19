@@ -3,35 +3,71 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { projectsRoot } from '../paths.js'
-import { briefValue, configurationValue, modeValue, anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
-import { ensureEpisodes, episodeStage, newEpisode } from '../schemas/episodes.js'
+import { aspectRatioValue, briefValue, configurationValue, durationMinutesValue, modeValue, anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
+import { episodeCountValue, episodeStage, newEpisode } from '../schemas/episodes.js'
+import { initialProduction } from '../schemas/production.js'
+import { saveProduction, loadProduction } from './production.js'
 import { statusError } from '../../utils/errors.js'
 
 const FREE_PROJECT_ID = '00000000'
 const invalidRequest = message => statusError(400, message)
 const unavailableJob = async () => { throw new Error('项目素材校验服务未配置') }
 
+function plotSummary(value) {
+  return [value.production?.story?.text, value.workflow?.plot, value.episodes?.[0]?.workflow?.plot, value.production?.original_request, value.brief]
+    .find(item => typeof item === 'string' && item.trim())?.trim() || ''
+}
+
+function videoCoverJob(value) {
+  for (const item of value.production?.exports || []) if (item.status === 'succeeded' && validJobId(item.job_id)) return item.job_id
+  for (const segment of value.production?.segments || []) {
+    const selected = segment.generations?.find(item => item.id === segment.selected_generation)
+    if (selected?.status === 'succeeded' && validJobId(selected.job_id)) return selected.job_id
+    const ready = segment.generations?.find(item => item.status === 'succeeded' && validJobId(item.job_id))
+    if (ready) return ready.job_id
+  }
+  for (const item of value.deliverables || []) if (['film', 'video'].includes(item.type) && validJobId(item.job_id)) return item.job_id
+  for (const shot of (value.acts || []).flatMap(act => act.shots || [])) if (shot.status === 'succeeded' && validJobId(shot.job_id)) return shot.job_id
+  return null
+}
+
+function coverFields(value) {
+  if (value.cover_job_id) return { cover_job_id: value.cover_job_id, cover_url: null, cover_kind: 'image' }
+  const video = videoCoverJob(value)
+  if (video) return { cover_job_id: video, cover_url: null, cover_kind: 'video' }
+  const remote = (value.anchors || []).find(anchor => serverUrl(anchor.image_url))
+  if (remote) return { cover_job_id: null, cover_url: remote.image_url, cover_kind: 'image' }
+  const jobId = (value.anchors || []).find(anchor => validJobId(anchor.source?.job_id))?.source.job_id || null
+  return { cover_job_id: jobId, cover_url: null, cover_kind: jobId ? 'image' : null }
+}
+
 export function projectSummary(value) {
-  const shots = value.acts.flatMap(act => act.shots)
+  const shots = (value.acts || []).flatMap(act => act.shots || [])
+  const anchors = value.anchors || [], deliverables = value.deliverables || []
   const active = shots.some(shot => ['queued', 'running'].includes(shot.status))
-  const completed = value.deliverables.length > 0 && shots.every(shot => shot.status === 'succeeded')
-  const workflowStage = value.episodes ? episodeStage(value) : value.workflow?.stage
-  const stage = value.deliverables.length > 0 && completed ? 'deliverables' : shots.length ? shots.some(shot => shot.status !== 'succeeded') ? 'acts' : 'deliverables' : !value.anchors.length ? 'anchors' : 'acts'
+  const completed = deliverables.length > 0 && shots.every(shot => shot.status === 'succeeded')
+  const workflowStage = value.episodes?.length ? episodeStage(value) : value.workflow?.stage
+  const production = value.production, productionActive = production && (production.revision || production.segments.length || production.exports.length)
+  const productionComplete = production?.exports.some(e => e.status === 'succeeded' && e.source_revision === production.revision && e.timeline_revision === production.timeline.revision)
+    && !['running', 'paused', 'stopping'].includes(production.queue?.status)
+    && production.segments.every(s => !s.generations.some(g => g.created_at > production.exports.findLast(e => e.status === 'succeeded').created_at))
+  const stage = deliverables.length > 0 && completed ? 'deliverables' : shots.length ? shots.some(shot => shot.status !== 'succeeded') ? 'acts' : 'deliverables' : !anchors.length ? 'anchors' : 'acts'
   return {
-    cover_job_id: value.cover_job_id || (value.anchors.some(anchor => serverUrl(anchor.image_url)) ? null : value.anchors.find(anchor => anchor.source?.job_id)?.source.job_id || null),
-    cover_url: value.cover_job_id ? null : value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
+    ...coverFields(value),
     id: value.id, title: value.title, chat_session_id: value.chat_session_id || null, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
-    mode: value.mode || 'director', workflow: value.workflow, episode_count: value.episode_count || 1,
-    status: workflowStage ? workflowStage === 'complete' ? 'completed' : ['video', 'submitting', 'plot-generating', 'storyboard-generating', 'failed'].includes(workflowStage) ? 'active' : 'todo' : active ? 'active' : completed ? 'completed' : 'todo', stage: workflowStage || stage,
-    anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length,
-    deliverable_count: value.deliverables.length,
+    mode: value.mode || 'director', workflow: value.workflow, episode_count: value.episode_count || production?.export_episode_count || 1,
+    plot_summary: plotSummary(value),
+    status: productionActive ? productionComplete ? 'completed' : 'active' : workflowStage ? workflowStage === 'complete' ? 'completed' : ['video', 'submitting', 'plot-generating', 'storyboard-generating', 'failed'].includes(workflowStage) ? 'active' : 'todo' : active ? 'active' : completed ? 'completed' : 'todo', stage: workflowStage || stage,
+    segment_count: value.production?.segments.length || 0, production_stage: production?.stage || null, segment_video_count: production?.segments.filter(s => s.generations.some(g => g.status === 'succeeded')).length || 0,
+    anchor_count: anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length,
+    deliverable_count: deliverables.length,
   }
 }
 
 export function createProjectStore({ readJob = unavailableJob, summarizeJob = unavailableJob, newId = () => randomBytes(4).toString('hex'), directorExists = async () => true } = {}) {
   const root = projectsRoot
   const names = { materials: 'materials.json', anchors: 'anchors.json', acts: 'storyboard.json', deliverables: 'deliverables.json' }
-  const metadataOf = ({ materials, anchors, acts, deliverables, ...metadata }) => metadata
+  const metadataOf = ({ materials, anchors, acts, deliverables, production, ...metadata }) => metadata
   const materialIdsOf = value => [...new Set([...(value.materials || []), value.cover_job_id,
     ...(value.deliverables || []).map(item => item.job_id), ...value.anchors.map(anchor => anchor.source?.job_id), ...value.acts.flatMap(act => act.shots.map(shot => shot.job_id))].filter(validJobId))]
   const modifiedAt = new Map()
@@ -46,6 +82,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
   async function writeProject(directory, value, sections) {
     if (value.episodes) sections = [...sections, 'acts', 'deliverables']
     await Promise.all([...new Set(sections)].map(key => writeJson(join(directory, names[key]), value[key])))
+    if (value.production) value.production_snapshot = await saveProduction(directory, value.production)
     await writeJson(join(directory, 'project.json'), metadataOf(value))
     modifiedAt.set(value.id, value.updated_at)
   }
@@ -76,7 +113,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
       await writeJson(join(directory, names.materials), materials)
     }
     if (ensureShotIds(acts)) await writeJson(join(directory, names.acts), acts)
-    return ensureEpisodes({ ...metadata, materials, anchors, acts, deliverables })
+    return { ...metadata, materials, anchors, acts, deliverables, ...(metadata.production_snapshot ? { production: await loadProduction(directory, metadata.production_snapshot) } : {}) }
   }
 
   function enqueue(action) {
@@ -110,7 +147,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
         const value = await load(entry.name)
         if (value.internal === 'free') continue
         items.push(projectSummary(value))
-      } catch (error) { if (error.code !== 'ENOENT') throw error }
+      } catch (error) { if (error.code === 'ENOENT' || error.status === 409) continue; throw error }
     }
     return items.sort((a, b) => b.updated_at - a.updated_at)
   })
@@ -128,8 +165,12 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
       if (action === 'create') {
         const now = Date.now()
         do { value = { id: newId() } } while (value.id === FREE_PROJECT_ID)
-        value = { ...value, title: titleValue(body.title), director: body.director ? await checkedDirector(body.director) : null, profile: profileValue(body.profile || 'regular'), mode: modeValue(body.mode), brief: briefValue(body.brief || body.title), configuration: configurationValue(), workflow: { revision: 0, stage: 'configuration', plot: '', storyboard_revision: null, request: null, approval: null, job_id: null }, created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
-        value.episode_count = 1; value.episodes = [{ ...newEpisode(1), workflow: value.workflow }]
+        const director = body.director ? await checkedDirector(body.director) : null
+        const count = episodeCountValue(body.episode_count ?? 1)
+        value = { ...value, title: titleValue(body.title), director, profile: profileValue(body.profile || 'regular'), mode: modeValue(body.mode), brief: briefValue(body.brief || body.title), configuration: configurationValue({ director, reference_text: body.reference_text || '' }), aspect_ratio: aspectRatioValue(body.aspect_ratio), duration_min: body.duration_min == null ? null : durationMinutesValue(body.duration_min), workflow: { revision: 0, stage: 'configuration', plot: '', storyboard_revision: null, request: null, approval: null, job_id: null }, created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
+        value.schema_version = 3; value.production = initialProduction(value)
+        value.episode_count = count
+        value.episodes = count === 1 ? [{ ...newEpisode(1), workflow: value.workflow }] : Array.from({ length: count }, (_, index) => newEpisode(index + 1))
         if (body.cover_job_id !== undefined) { value.cover_job_id = await checkedCover(body.cover_job_id); value.materials = [value.cover_job_id] }
         sections = ['materials', 'anchors', 'acts', 'deliverables']
         await mkdir(root(), { recursive: true })
@@ -170,7 +211,6 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
         if (materials.some((id, index) => id !== value.materials[index]) || materials.length !== value.materials.length) { value.materials = materials; sections.push('materials') }
         value.updated_at = Math.max(Date.now(), value.updated_at + 1)
       }
-      ensureEpisodes(value)
       await writeProject(join(root(), value.id), value, sections)
       return value
     })
