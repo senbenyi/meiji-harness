@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
 import { writeRegistry } from '../src/database/managers/registry.js'
 import { readSelection, writeSelection } from '../src/database/managers/selection.js'
-import { checkServer, switchServer } from '../src/worker/models/managers/runtime/check.js'
+import { checkServer, switchServer } from '../src/worker/models/catalog/check.js'
 import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
 
 const fixture = () => ({ version: 1, revision: 0, servers: ['a', 'b'].map(id => ({ id, label: id, provider: 'manual', connection_source: 'manual', instance_id: id, deployment_id: 'one', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })) })

@@ -77,7 +77,7 @@ test('default private model selections remain visible after the model list reloa
 test('fixed model catalog probes without connecting and failed selection cannot replace active video or image targets', async t => {
   const { writeRegistry } = await import('../src/database/managers/registry.js')
   const { writeSelection, readSelection } = await import('../src/database/managers/selection.js')
-  const { resolveServer } = await import('../src/worker/models/managers/registry/resolve.js')
+  const { resolveServer } = await import('../src/worker/models/catalog/servers.js')
   const root = await mkdtemp(join(tmpdir(), 'fixed-model-http-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   const upstream = createServer((_req, res) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ system: {}, data: [{ id: 'qwen3.8-27b-elysium' }] })) })

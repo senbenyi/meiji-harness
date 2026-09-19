@@ -2,7 +2,6 @@
 import { guidance } from './guidance.js'
 import { bailianKey, readBailian, bailianBackend } from './config.js'
 import { validatePlan, executeJob } from './execution.js'
-import { extractReference } from './media.js'
 const unsupported = () => { throw Object.assign(new Error('百炼视频 API 不支持该操作'), { status: 422, code: 'PROVIDER_OPERATION_UNSUPPORTED' }) }
 export function createClient(backend, { signal } = {}) {
   return { url: new URL(backend.base_url + '/'), async request(path, body) {
@@ -24,4 +23,4 @@ export default { id: 'bailian', label: '百炼万相', apiVersion: 1, services: 
   validate(backend) { if (backend.service !== 'video' || backend.connection?.text_model !== 'wan2.6-t2v' || backend.connection?.image_model !== 'wan2.6-i2v') throw new Error('百炼视频配置需使用 wan2.6-t2v 和 wan2.6-i2v') },
   connect() {}, check: async () => ({ ok: true, connection_required: false }), createClient,
   buildGraph: unsupported, llmSettings: unsupported, workflowSource: unsupported, manage: unsupported,
-  validatePlan, executeJob, extractReference }
+  validatePlan, executeJob }

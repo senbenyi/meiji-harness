@@ -5,7 +5,9 @@ import { resolveConfig, withConfig } from './config.js'
 //server
 import { registerWebRoutes, createWebStores } from './server/index.js'
 // tools
-import { createCallToolsForAgent, createCallToolsProject, createCallToolsRuntime } from './tools/index.js'
+import { createCallToolsProject, createCallToolsRuntime } from './tools/index.js'
+// session
+import { createCallToolsForAgent } from './session/index.js'
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt']
 const effectPrefix = '@dsh-external/dsh-elysium'

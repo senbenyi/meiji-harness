@@ -36,7 +36,7 @@ test('failed execution retains the original node history and prompt identity', a
     return { original: history }
   }
   const status = { job_id: 'job', status: 'running' }
-  await assert.rejects(runComfyWorkflow(directory, client, { graph: {}, workflowName: 'workflow_generate_video' }, status, 1000), { code: 'COMFYUI_EXECUTION_FAILED' })
+  await assert.rejects(runComfyWorkflow({ directory, save: value => saveJson(join(directory, 'status.json'), value) }, client, { graph: {}, workflowName: 'workflow_generate_video' }, status, 1000), { code: 'COMFYUI_EXECUTION_FAILED' })
   assert.deepEqual(await readJson(join(directory, 'comfyui-history.json')), history)
   assert.equal((await readJson(join(directory, 'status.json'))).comfyui_prompt_id, 'original')
   assert.equal((await readJson(join(directory, 'comfyui-submission.json'))).prompt_id, 'original')

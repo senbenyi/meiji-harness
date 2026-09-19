@@ -4,8 +4,8 @@ import { spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { withLaunchLock } from '../src/worker/tasks/jobs/lock.js'
-import { workerAlive } from '../src/worker/tasks/runtime/worker-owner.js'
+import { withLaunchLock } from '../src/worker/store/lock.js'
+import { workerAlive } from '../src/worker/runner/owner.js'
 
 test('launch lock rejects concurrent starts and serializes waiting sessions', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'elysium-lock-'))

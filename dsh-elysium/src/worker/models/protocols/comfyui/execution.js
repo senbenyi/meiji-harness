@@ -1,7 +1,6 @@
-// 职责：准备、提交并等待单次 ComfyUI 视频工作流。
+// 职责：准备、提交并等待单次 ComfyUI 工作流；状态经调用方提供的 save 写入。
 import { join } from 'node:path'
 import { readJson, saveJson } from '../../../../database/json.js'
-import { saveStatus } from '../../../tasks/jobs/status.js'
 
 // Recovery uses the saved graph, never current templates or changed media references.
 export async function prepareComfyWorkflow(directory, client, plan, prepare) {
@@ -19,10 +18,10 @@ export async function prepareComfyWorkflow(directory, client, plan, prepare) {
   return prepared
 }
 
-export async function runComfyWorkflow(directory, client, prepared, status, timeoutMs) {
+export async function runComfyWorkflow({ directory, save }, client, prepared, status, timeoutMs) {
   status.workflow_name = prepared.workflowName
   status.stage = 'submit'
-  await saveStatus(directory, status)
+  await save(status)
   const resume = await readJson(join(directory, 'resume-request.json'))
   const promptId = await client.submit(prepared.graph, status.job_id,
     join(directory, 'comfyui-submission.json'), resume?.retry_failed === true, prepared.workflow)
@@ -30,18 +29,18 @@ export async function runComfyWorkflow(directory, client, prepared, status, time
   status.comfyui_prompt_id = promptId
   status.debug?.chain?.push({ stage: 'comfyui-submitted', server_url: client.url.href, prompt_id: promptId })
   status.stage = 'execute'
-  await saveStatus(directory, status)
+  await save(status)
   const history = await client.wait(promptId, timeoutMs, async (_, stage) => {
     if (status.stage !== stage) {
       status.stage = stage
-      await saveStatus(directory, status)
+      await save(status)
     }
   }).catch(async error => {
     if (error.history) await saveJson(join(directory, 'comfyui-history.json'), error.history)
     throw error
   })
   status.remote_status = 'succeeded'
-  await saveStatus(directory, status)
+  await save(status)
   await saveJson(join(directory, 'comfyui-history.json'), history)
   return { promptId, history }
 }

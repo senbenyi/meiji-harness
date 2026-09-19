@@ -16,7 +16,7 @@ test('complete business flow with autodl after physically deleting runpod', { ti
   await mkdir(join(root, 'src/worker/models/providers/autodl'), { recursive: true })
   // 独立测试实现仅组合公共协议，不引用或复制 Runpod；真实 AutoDL 目录仍只预留。
   await writeFile(join(root, 'src/worker/models/providers/autodl/index.js'), `
-import { createStandardAdapter } from '../../managers/runtime/adapter.js'
+import { createStandardAdapter } from '../../protocols/comfyui/adapter.js'
 import { appendFileSync } from 'node:fs'
 const adapter = createStandardAdapter({ id: 'autodl', label: 'AutoDL test fixture',
   buildGraph: (_backend, plan, jobId) => ({
@@ -55,7 +55,8 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolveConfig, withConfig } from './src/config.js'
-import { listProviders, resolveGenerationBackend, validateBackend, validateBackendPlan, thirdPartyChannels, thirdPartyModels } from './src/worker/models/managers/runtime/index.js'
+import { listProviders, validateBackend, validateBackendPlan } from './src/worker/models/index.js'
+import { resolveGenerationBackend, thirdPartyChannels, thirdPartyModels } from './src/worker/routing/backends.js'
 const home = process.env.ELYSIUM_HOME, providers = home + '/config/providers'
 await mkdir(providers, { recursive: true })
 if (existsSync('./src/worker/models/providers/bailian')) await writeFile(providers + '/bailian.json', JSON.stringify({ enabled: true, base_url: 'https://bailian.test/api/v1', api_key: 'fixture-secret', video: { text_model: 'wan2.6-t2v', image_model: 'wan2.6-i2v', duration: 5, resolution: '720P', ratio: '9:16', prompt_extend: false, watermark: false } }))

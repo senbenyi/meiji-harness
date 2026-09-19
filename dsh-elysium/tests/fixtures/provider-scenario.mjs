@@ -5,16 +5,18 @@ import { readFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { apply } from './lib/index.js'
-import { buildBackendGraph } from './lib/worker/models/managers/runtime/index.js'
-import { startVideoJob, resumeVideoJob } from './lib/worker/tasks/videos/service.js'
-import { getJob } from './lib/worker/tasks/jobs/query.js'
-import { createJob } from './lib/worker/tasks/jobs/create.js'
+import { buildBackendGraph } from './lib/worker/models/index.js'
+import { submitTask, retryTask } from './lib/worker/manager/manager.js'
+const startVideoJob = input => submitTask('video', input)
+const resumeVideoJob = id => retryTask(id, { kind: 'video', consent: true })
+import { getJob } from './lib/worker/runner/inspect.js'
+import { createJob } from './lib/worker/store/records.js'
 import { saveJson } from './lib/database/json.js'
-import { resolveServer } from './lib/worker/models/managers/registry/resolve.js'
-import { backendLlmSettings, backendWorkflowSource } from './lib/worker/models/managers/runtime/index.js'
+import { resolveServer } from './lib/worker/models/catalog/servers.js'
+import { backendLlmSettings, backendWorkflowSource } from './lib/worker/models/index.js'
 import { readRegistry, writeRegistry } from './lib/database/managers/registry.js'
 import { readSelection } from './lib/database/managers/selection.js'
-import { backendFromServer } from './lib/worker/models/managers/registry/resolve.js'
+import { backendFromServer } from './lib/worker/models/catalog/servers.js'
 const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider, instance_id: 'fixture', deployment_id: 'one', service: 'comfyui', base_url: 'http://unselected.invalid', connection: { workload: 'minimax-h3' } }, plan, id)
 const state = process.env.ELYSIUM_STATE_ROOT
@@ -126,7 +128,7 @@ try {
   if (removed) {
     await assert.rejects(access(`src/worker/models/providers/${removed}`))
     await assert.rejects(access(`lib/worker/models/providers/${removed}`))
-    const oldId = await createJob(projectId, { mode: 't2va', prompt: 'Old task' })
+    const oldId = await createJob(projectId, { mode: 't2va', prompt: 'Old task' }, resolveServer('video'))
     const oldPath = jobPath(projectId, oldId)
     await saveJson(join(oldPath, 'input/backend.json'), { ...resolveServer(), provider: removed })
     await saveJson(join(oldPath, 'status.json'), { job_id: oldId, project_id: projectId, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })

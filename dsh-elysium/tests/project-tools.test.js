@@ -11,7 +11,7 @@ import { createCallToolsProjectActions } from '../src/tools/project/project.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { withConfig } from '../src/config.js'
-import { createCallToolsForAgent } from '../src/tools/agent/index.js'
+import { createCallToolsForAgent } from '../src/session/index.js'
 import { generationProjectId } from '../src/tools/project/context.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 

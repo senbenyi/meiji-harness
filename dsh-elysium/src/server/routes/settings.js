@@ -1,5 +1,5 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel, updateSettings } from '../../worker/models/managers/runtime/index.js'
+import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel, updateSettings } from '../../worker/index.js'
 import { withConfig, runtimeConfig, runtimeSettings, defaultModels, defaultSettings } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'

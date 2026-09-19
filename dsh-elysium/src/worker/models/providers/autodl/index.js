@@ -1,7 +1,7 @@
 // 职责：组合 AutoDL 双服务器契约；工作流实现由本 provider 自身提供。
 import { readFileSync } from 'node:fs'
-import { createStandardAdapter } from '../../managers/runtime/adapter.js'
-import { withBackend } from '../../managers/registry/resolve.js'
+import { createStandardAdapter } from '../../protocols/comfyui/adapter.js'
+import { withBackend } from '../../catalog/servers.js'
 import { validateAutodl } from './config.js'
 import { guidance } from './guidance.js'
 import { buildImageGraph } from './workflows/image/graph.js'
@@ -31,12 +31,11 @@ adapter.preparePlan = (plan, quality) => {
   const normalized = normalizeImagePlan(plan)
   return normalized.capability === 'image-generate' ? { ...normalized, quality } : normalized
 }
-adapter.executeJob = (projectId, jobId, plan, backend, options) => withBackend(backend, () => {
-  if (isImagePlan(plan)) return executeComfyImage(projectId, jobId, plan, backend, options)
+adapter.executeJob = (plan, backend, ctx) => {
+  if (isImagePlan(plan)) return executeComfyImage(plan, backend, ctx)
   const director = toDirectorPlan(plan)
-  return isDirectorPlan(plan) || director ? executeDirectorVideo(projectId, jobId, director || plan, backend, options)
-    : executeVideo(projectId, jobId, plan, backend, options)
-})
+  return isDirectorPlan(plan) || director ? executeDirectorVideo(director || plan, backend, ctx) : executeVideo(plan, backend, ctx)
+}
 adapter.guidance = guidance
 adapter.creationGuidance = () => guidance
 adapter.syncWorkflows = async args => (await import('./workflows/sync.mjs')).main(args)

@@ -1,7 +1,7 @@
 // 职责：实现 BytePlus 视频平台契约，不探测或管理远程连接。
 import { guidance } from './guidance.js'
 import { bytePlusKey, readBytePlus, bytePlusBackend } from './config.js'
-import { validatePlan, executeJob, extractReference } from './execution.js'
+import { validatePlan, executeJob } from './execution.js'
 const unsupported = () => { throw Object.assign(new Error('三方 API 不支持 ComfyUI 或服务进程操作'), { status: 422, code: 'PROVIDER_OPERATION_UNSUPPORTED' }) }
 export function createClient(backend, { signal } = {}) {
   return { url: new URL(backend.base_url + '/'), async request(path, body) {
@@ -20,4 +20,4 @@ export default { id: 'byteplus', label: 'BytePlus 三方模型', apiVersion: 1, 
   validate(backend) { if (backend.service !== 'video' || !backend.connection?.model?.trim()) throw new Error('BytePlus 视频模型配置无效') },
   connect() {}, check: async () => ({ ok: true, connection_required: false }), createClient,
   buildGraph: unsupported, llmSettings: unsupported, workflowSource: unsupported, manage: unsupported,
-  validatePlan, executeJob, extractReference }
+  validatePlan, executeJob }

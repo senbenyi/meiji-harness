@@ -2,8 +2,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { loadProvider, listProviders } from '../src/worker/models/managers/runtime/loader.js'
-import { validateBackend } from '../src/worker/models/managers/runtime/index.js'
+import { loadProvider, listProviders } from '../src/worker/models/catalog/loader.js'
+import { validateBackend } from '../src/worker/models/index.js'
 import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
 
 test('AutoDL exposes independent ComfyUI and Qwen contracts', async () => {

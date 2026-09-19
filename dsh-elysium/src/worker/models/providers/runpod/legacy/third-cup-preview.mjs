@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
 import { ComfyClient } from '../../../protocols/comfyui/client.js'
 import { readJson, saveJson } from '../../../../../database/json.js'
-import { withLaunchLock } from '../../../../tasks/jobs/lock.js'
+import { withLaunchLock } from '../../../../store/lock.js'
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)))
 const directory=join(root,'docs/implement/third-cup-preview')
 const manifest=JSON.parse(await readFile(join(directory,'manifest.json'),'utf8'))

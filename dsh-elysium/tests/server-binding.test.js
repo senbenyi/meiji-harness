@@ -6,17 +6,17 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
-import { createJob } from '../src/worker/tasks/jobs/create.js'
+import { createJob } from '../src/worker/store/records.js'
 import { readJson, saveJson } from '../src/database/json.js'
-import { readBackend } from '../src/worker/models/managers/runtime/backend.js'
-import { withBackend, resolveServer } from '../src/worker/models/managers/registry/resolve.js'
+import { readBackend } from '../src/worker/models/catalog/backend.js'
+import { withBackend, resolveServer } from '../src/worker/models/catalog/servers.js'
 import { writeRegistry } from '../src/database/managers/registry.js'
 import { writeSelection, readSelection } from '../src/database/managers/selection.js'
-import { executeComfyVideo } from '../src/worker/tasks/videos/execution.js'
+import { executeTask } from '../src/worker/runner/execute.js'
 import { mediaReference } from '../src/worker/models/protocols/comfyui/media-reference.js'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
-import { launch } from '../src/worker/tasks/runtime/launcher.js'
-import { jobSummary } from '../src/worker/tasks/jobs/status.js'
+import { launch } from '../src/worker/runner/launcher.js'
+import { jobSummary } from '../src/worker/results/summary.js'
 
 test('A task survives a default switch to B even when preparation failed; identical prompt IDs remain scoped', async t => {
   const root = await mkdtemp(join(tmpdir(), 'binding-')), requests = { a: [], b: [] }
@@ -38,15 +38,15 @@ test('A task survives a default switch to B even when preparation failed; identi
     await writeSelection({ version: 1, revision: 0, selected: { video: 'a' }, third_party: {} }, 0)
     const project = 'abcd1234', plan = { mode: 't2va', prompt: 'A scene' }
     await saveJson(join(root, 'projects', project, 'project.json'), {})
-    const id = await createJob(project, plan), dir = join(root, 'projects', project, 'jobs', id)
-    await assert.rejects(executeComfyVideo(project, id, plan), /缺少节点/)
+    const id = await createJob(project, plan, resolveServer('video')), dir = join(root, 'projects', project, 'jobs', id)
+    await assert.rejects(executeTask(project, id), /缺少节点/)
     assert.equal(await readJson(join(dir, 'comfyui-workflow.json')), null)
     await writeSelection({ version: 1, revision: 1, selected: { video: 'b' }, third_party: {} }, 1)
     requests.a.length = 0
-    await assert.rejects(executeComfyVideo(project, id, plan), /缺少节点/)
+    await assert.rejects(executeTask(project, id), /缺少节点/)
     assert.ok(requests.a.length > 0); assert.equal(requests.b.length, 0)
     assert.equal((await readBackend(dir)).server_id, 'a')
-    const next = await createJob(project, plan)
+    const next = await createJob(project, plan, resolveServer('video'))
     assert.equal((await readBackend(join(root, 'projects', project, 'jobs', next))).server_id, 'b')
     const media = `${servers[0].services.comfyui.base_url}/view?filename=same.mp4&type=output`
     assert.throws(() => withBackend(resolveServer(), () => mediaReference(media)), /属于/)

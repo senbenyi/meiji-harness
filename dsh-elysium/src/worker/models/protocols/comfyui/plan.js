@@ -1,5 +1,5 @@
 // 职责：校验公共视频请求结构及 ComfyUI 素材引用；平台档位限制由提供者叠加。
-import { VIDEO_MODES, VIDEO_PROFILES, MODE_MEDIA } from '../../../tasks/videos/plan.js'
+import { VIDEO_MODES, VIDEO_PROFILES, MODE_MEDIA } from '../../contract.js'
 import { mediaReference } from './media-reference.js'
 import { ModelTaskError } from '../../../../utils/errors.js'
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)

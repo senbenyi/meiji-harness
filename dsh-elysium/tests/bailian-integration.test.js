@@ -7,16 +7,18 @@ import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
-import { resolveGenerationBackend, thirdPartyModels, thirdPartyChannels } from '../src/worker/models/managers/runtime/index.js'
+import { resolveGenerationBackend, thirdPartyModels, thirdPartyChannels } from '../src/worker/routing/backends.js'
 import { bailianBackend } from '../src/worker/models/providers/bailian/config.js'
 import { executeJob, validatePlan } from '../src/worker/models/providers/bailian/execution.js'
 import adapter from '../src/worker/models/providers/bailian/index.js'
 import { saveJson, readJson } from '../src/database/json.js'
-import { projectJobRoot } from '../src/worker/tasks/jobs/paths.js'
-import { openLocalMedia } from '../src/server/media/local-media.js'
-import { createJob } from '../src/worker/tasks/jobs/create.js'
-import { launch } from '../src/worker/tasks/runtime/launcher.js'
-import { waitJob } from '../src/worker/tasks/jobs/wait.js'
+import { projectJobRoot } from '../src/worker/store/paths.js'
+import { openLocalMedia } from '../src/worker/store/media.js'
+import { createJob } from '../src/worker/store/records.js'
+import { launch } from '../src/worker/runner/launcher.js'
+import { createTaskContext } from '../src/worker/runner/context.js'
+const run = (id, plan, backend) => executeJob(plan, backend, createTaskContext('aaaaaaaa', id))
+import { waitJob } from '../src/worker/runner/wait.js'
 import { createSettingsHandler } from '../src/server/routes/settings.js'
 
 const plan = { mode: 't2va', prompt: '清晨的海边', profile: 'regular' }
@@ -80,14 +82,14 @@ test('download failure resumes the pinned task even after the channel is disable
   await f.bind(async () => {
     const backend = bailianBackend('video'), id = '1'.repeat(32)
     f.controls.downloadFails = true
-    await assert.rejects(executeJob('aaaaaaaa', id, plan, backend), /下载失败/)
+    await assert.rejects(run(id, plan, backend), /下载失败/)
     assert.deepEqual(f.calls[0].body, { model: 'wan2.6-t2v', input: { prompt: plan.prompt }, parameters: { duration: 5, prompt_extend: false, watermark: false, size: '720*1280' } })
     f.config.enabled = false; f.config.video.resolution = '1080P'; await saveJson(f.file, f.config)
     f.controls.downloadFails = false
-    const status = await executeJob('aaaaaaaa', id, plan, backend)
+    const status = await run(id, plan, backend)
     assert.equal(status.status, 'succeeded'); assert.equal(status.result.specification.resolution, '720P')
     const media = await openLocalMedia(status); assert.deepEqual(await media.handle.readFile(), f.controls.video); await media.handle.close()
-    await assert.rejects(executeJob('aaaaaaaa', id, { ...plan, prompt: 'different' }, backend), { code: 'JOB_STATE_INVALID' })
+    await assert.rejects(run(id, { ...plan, prompt: 'different' }, backend), { code: 'JOB_STATE_INVALID' })
     assert.equal((await readJson(join(projectJobRoot('aaaaaaaa', id), 'status.json'))).status, 'succeeded')
     assert.equal(f.calls.filter(call => call.method === 'POST').length, 1)
     assert.doesNotMatch(await readFile(join(projectJobRoot('aaaaaaaa', id), 'status.json'), 'utf8'), /fake-secret/)
@@ -100,9 +102,9 @@ test('unknown submission, explicit rejection and failed remote task never create
     const backend = bailianBackend('video')
     for (const [id, http, expected] of [['2', 503, /结果未知/], ['3', 401, /被拒绝/], ['4', 200, /FAILED/]]) {
       f.controls.postStatus = http; f.controls.taskStatus = 'FAILED'
-      await assert.rejects(executeJob('aaaaaaaa', id.repeat(32), plan, backend))
+      await assert.rejects(run(id.repeat(32), plan, backend))
       const posts = f.calls.filter(call => call.method === 'POST').length
-      await assert.rejects(executeJob('aaaaaaaa', id.repeat(32), plan, backend), expected)
+      await assert.rejects(run(id.repeat(32), plan, backend), expected)
       assert.equal(f.calls.filter(call => call.method === 'POST').length, posts)
     }
   })
@@ -115,7 +117,7 @@ test('unsupported modes, extra references and invalid durations fail before subm
     for (const value of [{ ...plan, mode: 'r2va' }, { ...plan, duration_seconds: 1 }, { ...plan, duration_seconds: 2.5 }, { ...plan, last_frame: 'https://example.test/a.png' }, { ...plan, mode: 'i2va', first_frame: 'asset://old' }]) assert.throws(() => validatePlan(value, backend))
     validatePlan({ ...plan, duration_seconds: 2 }, backend); validatePlan({ ...plan, duration_seconds: 15 }, backend)
     f.config.api_key = ''; await saveJson(f.file, f.config)
-    await assert.rejects(executeJob('aaaaaaaa', '5'.repeat(32), plan, backend), /api_key/)
+    await assert.rejects(run('5'.repeat(32), plan, backend), /api_key/)
     assert.equal(await readJson(join(projectJobRoot('aaaaaaaa', '5'.repeat(32)), 'bailian-submission.json')), null)
     assert.equal(f.calls.length, 0)
   })

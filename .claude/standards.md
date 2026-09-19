@@ -21,22 +21,27 @@ dsh-elysium/
 │   │   ├── projects/   # 项目领域校验
 │   │   └── directors/  # 导演 Store
 │   ├── database/       # 数据路径、持久化 schema、原子 JSON 与集中数据管理器
-│   ├── tools/          # Harness 对外工具边界与按需发现
-│   │   ├── prompts/ # Harness 系统提示词片段
-│   │   ├── media/   # 图片、视频和角色工具适配
-│   │   ├── project/ # 项目和导演工具适配
-│   │   └── task/    # 模型任务和 ComfyUI 原生任务工具
-│   ├── worker/         # 异步任务、模型和 Worker 公共入口
-│   │   ├── tasks/      # 任务生命周期与图片、视频工作流
-│   │   │   ├── jobs/       # 创建、查询、状态机与结果汇总（status.js 唯一写入口）、锁、诊断和等待
-│   │   │   ├── images/     # 图片任务编排
-│   │   │   ├── videos/     # 视频任务编排
-│   │   │   ├── runtime/    # 通用 launcher 与 worker 进程
-│   │   │   └── bindings/   # Harness 调用与任务绑定
-│   │   └── models/     # 模型协议、平台和运行管理器
-│   │       ├── protocols/  # 公共模型协议
-│   │       ├── managers/   # 注册、运行、选择、设置和连接管理
-│   │       └── providers/  # 平台专属实现、模板、测试与材料
+│   ├── session/        # ① Harness 会话入口：预设识别、事件解析（加载/失败/重试意图）、每轮工具投影、创作提示词
+│   ├── tools/          # ② Harness 工具定义：只有参数 schema，执行调用 worker 门面
+│   │   ├── load.js  # call_tools_load 按需加载
+│   │   ├── media/   # 图片、视频生成与恢复
+│   │   ├── project/ # 项目和导演
+│   │   ├── task/    # 任务状态与结果查询
+│   │   └── workcard.js # 工具输出的工作卡摘要
+│   ├── worker/         # ③ 任务管理器与模型层
+│   │   ├── index.js    # 唯一门面：submitTask / retryTask / waitJob / getJob / 结果汇总 / 模型设置
+│   │   ├── manager/    # 流水线编排（受理→复用→路由→建档→启动）与复用/重试策略
+│   │   ├── intake/     # 受理：媒体工具名单、调用↔任务绑定、会话锁、项目归属
+│   │   ├── routing/    # 新任务路由：自有优先、三方回退、质量档位、计划校验
+│   │   ├── store/      # 存储：路径、任务记录、状态机（唯一写入口）、锁、媒体登记
+│   │   ├── runner/     # 执行：launcher、worker 进程、TaskContext、进程归属、等待
+│   │   ├── results/    # 汇总：结果摘要、代码指纹与诊断
+│   │   └── models/     # 模型层：只依赖 contract.js 与注入的 TaskContext
+│   │       ├── index.js    # 模型层唯一入口
+│   │       ├── contract.js # 业务词汇、Provider 接口、TaskContext
+│   │       ├── catalog/    # provider 加载、定义、服务器登记与选择、连接
+│   │       ├── protocols/  # 公共协议（ComfyUI runner、客户端、标准适配器）
+│   │       └── providers/  # 平台专属实现、模板、档位与材料
 │   └── utils/          # 跨模块共享的上下文、结构化错误和校验工具
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
@@ -52,8 +57,9 @@ dsh-elysium/
 
 **规则**：
 - 构建脚本目录统一命名为 `scripts/`。
-- `src/index.js` 是唯一组合入口；Client 只调用 `server/routes/`，Harness 工具只位于 `src/tools/`。
-- `src/server/` 只承载 Client 工作台 HTTP 边界与共享 Store；任务生命周期、工作流和 worker 进程只位于 `src/worker/tasks/`。
+- `src/index.js` 是唯一组合入口；Client 只调用 `server/routes/`，Harness 工具只位于 `src/tools/`，会话投影只位于 `src/session/`。
+- 依赖单向：session / tools / server → `worker/index.js` → manager → intake | routing | store | runner | results → `worker/models/index.js`；worker 不得导入 session、tools、server 或 client；models 不得导入 worker 上层，只经 contract 与 TaskContext 交互（`architecture-layout.test.js` 强制）。
+- `src/server/` 只承载 Client 工作台 HTTP 边界与共享 Store；任务生命周期、路由和执行只位于 `src/worker/`。
 - 数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 除共享结构化错误外，不得出现项目、导演、素材、任务、模型或平台业务语义。
 - 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/worker/models/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。

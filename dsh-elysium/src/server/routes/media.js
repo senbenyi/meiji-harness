@@ -1,18 +1,14 @@
 // 职责：提供素材列表、任务状态、媒体预览与下载的同源 HTTP 路由。
-import { connectBackend } from '../../worker/models/managers/runtime/index.js'
+import { connectBackend, findJobCall, getJob, jobSummary, openLocalMedia, retryTask } from '../../worker/index.js'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { withConfig } from '../../config.js'
 import { randomBytes } from 'node:crypto'
-import { getJob } from '../../worker/tasks/jobs/query.js'
-import { findJobCall } from '../../worker/tasks/bindings/call.js'
-import { openLocalMedia, byteRange } from '../media/local-media.js'
 import { availableJobSummary, listAssets, deleteAsset, uploadAsset } from '../media/catalog.js'
-import { jobSummary } from '../../worker/tasks/jobs/status.js'
-import { authenticated, json } from '../http.js'
+import { authenticated, byteRange, json } from '../http.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'
-export function createMediaHandler({ token, projectBase, directorBase, settingsBase, readJob = getJob, findCall = findJobCall, getSession = () => undefined }) {
+export function createMediaHandler({ token, projectBase, directorBase, settingsBase, readJob = getJob, findCall = findJobCall, retryJob = id => retryTask(id, { consent: true }), getSession = () => undefined }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -33,6 +29,15 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
         const jobId = url.searchParams.get('job')
         if (!/^[a-f0-9]{32}$/.test(jobId || '')) return json(res, 400, { error: 'Invalid job identity' })
         return json(res, 200, await deleteAsset(jobId))
+      }
+      // 工作卡人工重试：按会话调用定位原任务，点击即视为用户同意；只启动恢复，不等待完成。
+      if (url.pathname === `${MEDIA_ROUTE}/retry`) {
+        if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
+        const sessionId = url.searchParams.get('session'), callId = url.searchParams.get('call')
+        if (!sessionId || sessionId.length > 256 || !callId || callId.length > 256) return json(res, 400, { error: 'Invalid call identity' })
+        const id = await findCall(sessionId, callId, getSession(sessionId))
+        if (!id) return json(res, 404, { error: '没有可重试的任务' })
+        return json(res, 202, await retryJob(id))
       }
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' })
       if (url.pathname === `${MEDIA_ROUTE}/list`) {

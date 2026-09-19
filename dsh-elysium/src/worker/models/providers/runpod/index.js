@@ -1,7 +1,7 @@
 // 职责：组合 Runpod 的完整平台契约，供业务和其他平台参考；不依赖兄弟 provider。
-import { createStandardAdapter } from '../../managers/runtime/adapter.js'
+import { createStandardAdapter } from '../../protocols/comfyui/adapter.js'
 import { buildVideoGraph } from './workflows/minimax-h3/graph.js'
-import { withBackend } from '../../managers/registry/resolve.js'
+import { withBackend } from '../../catalog/servers.js'
 import { readFileSync } from 'node:fs'
 import { validatePlan } from './plan.js'
 import { guidance } from './guidance.js'

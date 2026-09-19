@@ -3,9 +3,11 @@ import { test } from 'node:test'
 
 import { withConfig } from '../src/config.js'
 import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
-import { collectVideoArtifacts } from '../src/worker/tasks/videos/artifacts.js'
+import { collectVideoArtifacts } from '../src/worker/models/protocols/comfyui/artifacts.js'
 import { buildVideoGraph, loadVideoTemplate } from '../src/worker/models/providers/runpod/workflows/minimax-h3/graph.js'
-import { validateVideoPlan, VIDEO_MODES } from '../src/worker/tasks/videos/plan.js'
+import { resolveServer, validateBackendPlan } from '../src/worker/models/index.js'
+const validateVideoPlan = plan => validateBackendPlan(resolveServer(), plan)
+import { VIDEO_MODES } from '../src/worker/models/contract.js'
 
 const base = 'https://pod.test'
 const view = name => `${base}/view?filename=${name}.png&subfolder=refs&type=output`

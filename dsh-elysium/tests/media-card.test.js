@@ -5,7 +5,7 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 import { readFileSync } from 'node:fs'
-import { mediaToolNames } from '../src/worker/tasks/bindings/call.js'
+import { mediaToolNames } from '../src/worker/intake/calls.js'
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
@@ -246,4 +246,18 @@ test('multiple completed cards create no video streams until one is played', asy
     if (view) await act(async () => view.unmount())
     await f.close()
   }
+})
+
+test('a failed card retries the original job once and resumes polling', async () => {
+  const f = await fixture([{ job_id: 'a', status: 'failed', error: '远端断开' }, { job_id: 'a', project_id: 'p', status: 'queued' }, { job_id: 'a', status: 'running', stage: 'execute' }])
+  try {
+    const button = f.view.root.findByProps({ className: 'elysium-text-button', children: '重试原任务' })
+    await act(async () => button.props.onClick())
+    const retry = f.requests[1]
+    assert.match(retry.url, /\/media\/retry\?session=session&call=call/)
+    assert.equal(retry.options.method, 'POST')
+    assert.match(f.requests[2].url, /\/media\/status\?/)
+    assert.match(f.view.root.findByProps({ role: 'status' }).children.join(''), /工作流执行中/)
+    assert.equal(f.view.root.findAllByProps({ children: '重试原任务' }).length, 0)
+  } finally { await f.close() }
 })

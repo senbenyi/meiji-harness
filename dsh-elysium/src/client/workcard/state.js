@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
       }
       if (block?.isError) {
         const error = (block.content || []).filter(item => item.type === 'text').map(item => item.text).join('\n')
-        // These validation errors occur before startVideoJob creates any job or worker.
+        // These validation errors occur before submitTask creates any job or worker.
         if (/MODEL_INPUT_INVALID|包含未支持的工作流参数/.test(error)) {
           return { status: 'rejected', error }
         }

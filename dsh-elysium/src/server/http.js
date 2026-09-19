@@ -31,3 +31,13 @@ export async function readJsonBody(req, limit = 2 * 1024 * 1024) {
     throw invalidRequest('JSON 对象无效')
   }
 }
+
+// 解析单段字节范围；非法或不可满足的范围返回 null。
+export function byteRange(header, size) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header)
+  if (!match || !size || !match[1] && !match[2]) return null
+  const first = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2]))
+  const last = match[1] && match[2] ? Math.min(Number(match[2]), size - 1) : size - 1
+  if (![first, last, Number(match[1] || 0), Number(match[2] || 0)].every(Number.isSafeInteger) || first >= size || first > last || !match[1] && Number(match[2]) === 0) return null
+  return { first, last }
+}

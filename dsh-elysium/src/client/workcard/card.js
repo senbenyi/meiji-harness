@@ -1,8 +1,8 @@
-// 职责：展示视频任务，并从会话事件恢复当前轮次的媒体结果。
+// 职责：展示图片与视频任务，从会话事件恢复当前轮次的媒体结果，并对失败任务提供人工重试。
 window.__ModuleLoader__.load({
   id: 'elysium/media-task-card', factory: require => {
     const { createElement: h, useEffect, useState, useRef } = require('react')
-    const { readStatus, mediaUrl } = require('elysium/media-api')
+    const { readStatus, retryJob, mediaUrl } = require('elysium/media-api')
     const { fromBlock, label, specificationLabel } = require('elysium/media-task-state')
     const tools = new Set(['call_tools_video', 'call_tools_video_recover', 'call_tools_image', 'call_tools_image_recover'])
     // Rebuild from native conversation events, including history replay after refresh.
@@ -47,6 +47,13 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [attempt, setAttempt] = useState(0)
       const [playbackError, setPlaybackError] = useState(false)
+      const [retrying, setRetrying] = useState(false)
+      async function retry() {
+        setRetrying(true); setError('')
+        try { setJob({ ...job, ...await retryJob(sessionId, callId), error: undefined }); setAttempt(n => n + 1) }
+        catch (err) { setError(err.message) }
+        finally { setRetrying(false) }
+      }
       useEffect(() => {
         if (fallback.status === 'rejected') return
         let active = true, timer, failures = 0
@@ -110,7 +117,8 @@ window.__ModuleLoader__.load({
               specification ? h('p', null, `生成规格：${specification}`) : null,
               inspect ? h('button', { className: 'elysium-text-button', onClick: inspect }, '执行记录') : null)),
           error ? h('p', { className: 'elysium-error', role: 'alert' }, error, ' ', h('button', { className: 'elysium-text-button', onClick: () => setAttempt(n => n + 1) }, '重新连接')) : null,
-          job.status === 'failed' ? h('p', { className: 'elysium-error', role: 'alert' }, job.error || '任务失败，可查看执行记录。') : null,
+          job.status === 'failed' ? h('p', { className: 'elysium-error', role: 'alert' }, job.error || '任务失败，可查看执行记录。', ' ',
+            h('button', { className: 'elysium-text-button', disabled: retrying, onClick: retry }, retrying ? '正在重试' : '重试原任务')) : null,
           playbackError ? h('p', { className: 'elysium-error', role: 'alert' }, '预览加载失败 ', h('button', { className: 'elysium-text-button', onClick: () => setAttempt(n => n + 1) }, '重试播放')) : null),
         expanded && video ? h('dialog', { ref: dialog, className: 'elysium-dialog', 'aria-label': `${title}预览`, onClose: () => setExpanded(false),
           onClick: event => { if (event.target === event.currentTarget) setExpanded(false) } },

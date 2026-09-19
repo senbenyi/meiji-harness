@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 职责：从 AutoDL ComfyUI 获取并编译工作流，校验或同步其自有 MiniMax H3 模板。
-import { resolveServer } from '../../../managers/registry/resolve.js'
-import { backendWorkflowSource } from '../../../managers/runtime/index.js'
+import { resolveServer } from '../../../catalog/servers.js'
+import { backendWorkflowSource } from '../../../index.js'
 import { resolveConfig, withConfig } from '../../../../../config.js'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdir, readFile, access } from 'node:fs/promises'
 import { relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-const root = new URL('../', import.meta.url), entry = new URL('src/worker/models/managers/runtime/index.js', root).href
+const root = new URL('../', import.meta.url), entry = new URL('src/worker/models/index.js', root).href
 async function sourceFiles(directory) {
   const files = []
   for (const item of await readdir(directory, { withFileTypes: true })) {
@@ -25,8 +25,8 @@ test('production callers use the sole runtime entry and contain no provider name
     for (const specifier of imports(source)) {
       if (!specifier.startsWith('.')) continue
       const target = new URL(specifier, file)
-      const dataSchema = file.pathname.includes('/src/database/') && target.pathname.endsWith('/schema.js')
-      if (!dataSchema && (target.pathname.includes('/src/worker/models/managers/') || target.pathname.includes('/src/worker/models/providers/'))) assert.equal(target.href, entry, `${file.pathname}: ${specifier}`)
+      const dataSchema = file.pathname.includes('/src/database/') && /\/models\/catalog\/[a-z]+-schema\.js$/.test(target.pathname)
+      if (!dataSchema && target.pathname.includes('/src/worker/models/')) assert.equal(target.href, entry, `${file.pathname}: ${specifier}`)
     }
   }
   await assert.rejects(access(new URL('../runpod/', root)), { code: 'ENOENT' })
@@ -49,14 +49,16 @@ test('providers own their declarations and never directly import sibling impleme
 })
 
 test('the public entry exposes operations, not raw provider instances or loaders', async () => {
-  const api = await import('../src/worker/models/managers/runtime/index.js')
+  const api = await import('../src/worker/models/index.js')
   assert.equal(api.providerFor, undefined)
   assert.equal(api.loadProvider, undefined)
-  for (const name of ['validateBackendPlan', 'executeBackendJob', 'extractBackendReference', 'resolveGenerationBackend', 'probeBackend', 'syncProviderWorkflows']) assert.equal(typeof api[name], 'function')
+  for (const name of ['validateBackendPlan', 'executeBackendJob', 'listChannels', 'channelBackend', 'probeBackend', 'syncProviderWorkflows']) assert.equal(typeof api[name], 'function')
+  assert.equal(api.resolveGenerationBackend, undefined, 'new-task routing lives in worker/routing')
+  for (const channel of await api.listChannels()) assert.equal(channel.provider, undefined)
 })
 
 test('routing internals do not hard-code provider identities or model specifications', async () => {
-  for (const file of await sourceFiles(new URL('src/worker/models/managers/', root))) {
+  for (const file of [...await sourceFiles(new URL('src/worker/models/catalog/', root)), ...await sourceFiles(new URL('src/worker/routing/', root))]) {
     const source = await readFile(file, 'utf8')
     assert.doesNotMatch(source, /\b(?:runpod|byteplus|bailian|seedance|seedream|autodl|wan2|qwen38|minimax-h3)\b/i, file.pathname)
     assert.doesNotMatch(source, /provider\s*:\s*['"]manual['"]/, file.pathname)

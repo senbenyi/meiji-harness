@@ -5,7 +5,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readJson } from '../src/database/json.js'
-import { failStatus, saveStatus, startStatus, succeedStatus } from '../src/worker/tasks/jobs/status.js'
+import { failStatus, saveStatus, startStatus, succeedStatus } from '../src/worker/store/status.js'
 
 test('job status follows queued → running → failed → queued → running → succeeded and protects success', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'job-status-'))

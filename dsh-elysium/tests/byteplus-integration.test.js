@@ -6,16 +6,19 @@ import { mkdtemp, readdir, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
-import { providerCreationInstructions, resolveGenerationBackend, thirdPartyChannels, thirdPartyModels, validateBackend } from '../src/worker/models/managers/runtime/index.js'
+import { providerCreationInstructions, validateBackend } from '../src/worker/models/index.js'
+import { resolveGenerationBackend, thirdPartyChannels, thirdPartyModels } from '../src/worker/routing/backends.js'
 import { executeJob, validatePlan } from '../src/worker/models/providers/byteplus/execution.js'
 import adapter from '../src/worker/models/providers/byteplus/index.js'
 import { bytePlusBackend } from '../src/worker/models/providers/byteplus/config.js'
 import { readJson, saveJson } from '../src/database/json.js'
-import { openLocalMedia } from '../src/server/media/local-media.js'
-import { createJob } from '../src/worker/tasks/jobs/create.js'
-import { projectJobRoot } from '../src/worker/tasks/jobs/paths.js'
-import { launch } from '../src/worker/tasks/runtime/launcher.js'
-import { waitJob } from '../src/worker/tasks/jobs/wait.js'
+import { openLocalMedia } from '../src/worker/store/media.js'
+import { createJob } from '../src/worker/store/records.js'
+import { projectJobRoot } from '../src/worker/store/paths.js'
+import { launch } from '../src/worker/runner/launcher.js'
+import { createTaskContext } from '../src/worker/runner/context.js'
+const run = (id, plan, backend) => executeJob(plan, backend, createTaskContext('aaaaaaaa', id))
+import { waitJob } from '../src/worker/runner/wait.js'
 
 const video = Buffer.from('000000186674797069736f6d0000020069736f6d69736f32', 'hex')
 async function fixture() {
@@ -71,20 +74,20 @@ test('video POSTs once, polls original remote ID and downloads locally; unknown 
   const f = await fixture()
   try { await f.bind(async () => {
     const backend = bytePlusBackend('video'), plan = { mode: 't2va', prompt: '短片', profile: 'preview' }, id = '3'.repeat(32)
-    const status = await executeJob('aaaaaaaa', id, plan, backend)
+    const status = await run(id, plan, backend)
     assert.equal(status.result.remote_task_id, 'remote-task')
     assert.equal(f.calls[0].body.generate_audio, true)
     assert.equal(f.calls[0].body.resolution, '720p')
-    await assert.rejects(executeJob('aaaaaaaa', id, plan, backend), { code: 'JOB_STATE_INVALID' })
+    await assert.rejects(run(id, plan, backend), { code: 'JOB_STATE_INVALID' })
     assert.equal((await readJson(join(projectJobRoot('aaaaaaaa', id), 'status.json'))).status, 'succeeded')
     assert.equal(f.calls.filter(call => call.method === 'POST').length, 1)
     assert.ok(f.calls.filter(call => call.method === 'GET').every(call => call.url.endsWith('/remote-task')))
     const media = await openLocalMedia(status)
     assert.deepEqual(await media.handle.readFile(), video); await media.handle.close()
     f.failGeneration(true)
-    await assert.rejects(executeJob('aaaaaaaa', '4'.repeat(32), plan, backend))
+    await assert.rejects(run('4'.repeat(32), plan, backend))
     const count = f.calls.length
-    await assert.rejects(executeJob('aaaaaaaa', '4'.repeat(32), plan, backend), /结果未知/)
+    await assert.rejects(run('4'.repeat(32), plan, backend), /结果未知/)
     assert.equal(f.calls.length, count)
     assert.throws(() => validatePlan({ ...plan, duration_seconds: 3 }, backend), /4至15/)
     assert.throws(() => validatePlan({ ...plan, mode: 'i2va', first_frame: 'http://localhost/private.png' }, backend), /图片引用/)
@@ -96,7 +99,7 @@ test('missing credentials fail before writing a paid submission journal', async 
   try { await f.bind(async () => {
     const backend = bytePlusBackend('video')
     f.config.api_key = ''; await saveJson(f.file, f.config)
-    await assert.rejects(executeJob('aaaaaaaa', '5'.repeat(32), { mode: 't2va', prompt: 'test' }, backend), /api_key/)
+    await assert.rejects(run('5'.repeat(32), { mode: 't2va', prompt: 'test' }, backend), /api_key/)
     assert.equal(f.calls.length, 0)
     assert.equal((await readdir(join(f.root, 'projects', 'aaaaaaaa'))).includes('jobs'), false)
   }) } finally { await f.close() }

@@ -6,9 +6,9 @@ import { randomUUID } from 'node:crypto'
 import { runtimeConfig } from '../../utils/context.js'
 import { defaultElysiumHome } from '../paths.js'
 import { readSettings, updateSettings } from './settings.js'
-import { validateSelection } from '../../worker/models/managers/selection/schema.js'
+import { validateSelection } from '../../worker/models/catalog/selection-schema.js'
 
-export { validateSelection } from '../../worker/models/managers/selection/schema.js'
+export { validateSelection } from '../../worker/models/catalog/selection-schema.js'
 const unified = path => path === runtimeConfig().ELYSIUM_SETTINGS_FILE || basename(path) === 'settings.json'
 export const selectionPath = () => runtimeConfig().ELYSIUM_SETTINGS_FILE || runtimeConfig().ELYSIUM_CONFIG_FILE
   || join(runtimeConfig().ELYSIUM_STATE_ROOT || runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || defaultElysiumHome(), 'config', 'selection.json')

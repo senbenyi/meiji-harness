@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { toolsConfig } from '../src/config.js'
 import { createCallToolsRuntime } from '../src/tools/index.js'
-import { createCallToolsForAgent, loadedToolNames } from '../src/tools/agent/index.js'
+import { createCallToolsForAgent, loadedToolNames } from '../src/session/index.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
 const assembly = () => ({ tools: ['call_tools_load', 'call_tools_video', 'call_tools_director_list', 'call_tools_project_create', 'call_tools_project_read', 'report', ...Object.values(toolsConfig).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
 const agent = (events, agentPreset = 'elysium-free') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
@@ -101,7 +101,7 @@ test('rejects invalid or unavailable loads', async () => {
 })
 
 test('production wait returns final result without model polling and preserves failed status', async () => {
-  const { waitJob } = await import('../src/worker/tasks/jobs/wait.js')
+  const { waitJob } = await import('../src/worker/runner/wait.js')
   const job = { job_id: 'a'.repeat(32) }
   const sequence = [{ ...job, status: 'running' }, { ...job, status: 'succeeded', result: { comfyui_view_url: 'https://comfy/view?filename=final.mp4', validation: { full_decode: 'passed' } } }]
   let sleeps = 0

@@ -1,21 +1,10 @@
-// 职责：把视频生成与恢复服务适配为 Harness 工具。
-import { startVideoJob, resumeVideoJob } from '../../worker/tasks/videos/service.js'
-import { VIDEO_MODES } from '../../worker/tasks/videos/plan.js'
-import { waitJob } from '../../worker/tasks/jobs/wait.js'
+// 职责：视频生成与原任务恢复的 Harness 工具定义；执行交给 worker 任务管理器。
+import { VIDEO_MODES, retryTask, submitTask, waitJob } from '../../worker/index.js'
+import { userRequestedRetry } from '../../session/index.js'
 import { generationProjectId } from '../project/context.js'
-import { ModelTaskError } from '../../utils/errors.js'
 
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
 const media = description => ({ type: 'string', description: `${description}，引用格式遵循当前后端的素材能力说明。` })
-
-export function userRequestedVideoRetry(exec) {
-  const events = exec?.agent?.session?.snapshotEvents?.() || []
-  const turnStart = events.findLastIndex(event => event.type === 'turn/start')
-  const text = events.slice(turnStart + 1).filter(event => event.type === 'user/message' && event.data.source?.kind === 'user')
-    .flatMap(event => event.data.content || []).filter(item => item.type === 'text').map(item => item.text).join('\n')
-  if (/(不要|不许|禁止|无需|别)\s*(自动)?\s*(重试|恢复|继续)/i.test(text)) return false
-  return /(重试|恢复|继续|\bretry\b|\bresume\b|\bcontinue\b)/i.test(text)
-}
 
 export function createCallToolsVideo() {
   return {
@@ -46,10 +35,8 @@ export function createCallToolsVideo() {
         in_point: { type: 'number', minimum: 0 },
       } } },
     }, oneOf: [{ required: ['mode', 'prompt'] }, { required: ['duration'] }] },
-    execute: async (args, exec) => {
-      exec?.signal?.throwIfAborted()
-      const projectId = await generationProjectId(args.project_id, exec)
-      const job = await startVideoJob({ ...args, project_id: projectId }, exec)
+    execute: async ({ project_id, new_video = false, ...plan }, exec) => {
+      const job = await submitTask('video', { ...plan, project_id: await generationProjectId(project_id, exec), new_task: new_video }, exec)
       return waitJob(job, exec?.signal)
     },
   }
@@ -60,9 +47,7 @@ export function createCallToolsVideoRecover() {
     parameters: { type: 'object', additionalProperties: false, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
     execute: async (args, exec) => {
-      if (!userRequestedVideoRetry(exec)) throw new ModelTaskError('MODEL_RETRY_CONFIRMATION_REQUIRED', '等待用户明确要求重试后才能恢复原视频任务', 409)
-      exec?.signal?.throwIfAborted()
-      const job = await resumeVideoJob(args.job_id, exec)
-      return waitJob(job, exec?.signal)
+      const consent = userRequestedRetry(exec?.agent?.session?.snapshotEvents?.())
+      return waitJob(await retryTask(args.job_id, { kind: 'video', exec, consent }), exec?.signal)
     } }
 }

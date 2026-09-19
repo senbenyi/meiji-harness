@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { ensureConnection } from '../src/worker/models/managers/transport/connection.js'
+import { ensureConnection } from '../src/worker/models/catalog/transport.js'
 
 const backend = identity => ({ server_id: 'qwen', instance_id: 'gpu', deployment_id: 'one', connection: {
   transport: 'ssh', ssh_alias: 'veo-qwen38', ssh_identity: identity, remote_host: '127.0.0.1', remote_port: 8000, local_port: 18000,

@@ -4,9 +4,9 @@ import { withConfig } from '../src/config.js'
 import { buildVideoGraph, loadVideoTemplate } from '../src/worker/models/providers/runpod/workflows/minimax-h3/graph.js'
 import { validatePlan as validateVideoPlan } from '../src/worker/models/providers/runpod/plan.js'
 import { createCallToolsVideo } from '../src/tools/media/video.js'
-import { collectVideoArtifacts } from '../src/worker/tasks/videos/artifacts.js'
+import { collectVideoArtifacts } from '../src/worker/models/protocols/comfyui/artifacts.js'
 import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
-import { VIDEO_MODES, MODE_MEDIA } from '../src/worker/tasks/videos/plan.js'
+import { VIDEO_MODES, MODE_MEDIA } from '../src/worker/models/contract.js'
 
 test('preview is aligned, keeps joint audio and removes all interpolation dependencies', async () => {
   const plan = { profile: 'preview', mode: 't2va', prompt: 'An adult opens a door.' }

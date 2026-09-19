@@ -5,18 +5,24 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig, requiredConfig } from '../src/config.js'
 import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
-import { executeComfyVideo as executePinnedVideo } from '../src/worker/tasks/videos/execution.js'
-import { buildBackendGraph } from '../src/worker/models/managers/runtime/index.js'
+import { executeTask } from '../src/worker/runner/execute.js'
+import { buildBackendGraph } from '../src/worker/models/index.js'
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' }, plan, id)
-import { startVideoJob, resumeVideoJob } from '../src/worker/tasks/videos/service.js'
-import { createJob } from '../src/worker/tasks/jobs/create.js'
-import { bindJobCall, findJobCall } from '../src/worker/tasks/bindings/call.js'
+import { submitTask, retryTask } from '../src/worker/manager/manager.js'
+import { resolveServer } from '../src/worker/models/index.js'
+const startVideoJob = (input, exec) => submitTask('video', input, exec)
+const resumeVideoJob = (id, exec) => retryTask(id, { kind: 'video', exec, consent: true })
+import { createJob } from '../src/worker/store/records.js'
+import { bindJobCall, findJobCall } from '../src/worker/intake/calls.js'
 import { readJson, saveJson } from '../src/database/json.js'
-import { userRequestedVideoRetry } from '../src/tools/media/video.js'
+import { userRequestedRetry } from '../src/session/index.js'
+const userRequestedVideoRetry = exec => userRequestedRetry(exec.agent.session.snapshotEvents())
 
 async function executeComfyVideo(projectId, jobId, plan, options) {
-  await saveJson(join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', jobId, 'input/backend.json'), { server_id: 'minimax-h3', provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' })
-  return executePinnedVideo(projectId, jobId, plan, options)
+  const input = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', jobId, 'input')
+  await saveJson(join(input, 'backend.json'), { server_id: 'minimax-h3', provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' })
+  await saveJson(join(input, 'request.json'), plan)
+  return executeTask(projectId, jobId, options)
 }
 
 const plan = { mode: 't2va', prompt: 'A woman cooking in a kitchen.' }
@@ -99,7 +105,7 @@ test('changed prompt and concurrent repeat calls reuse the failed job; repeated 
   const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'call_tools_video', callId: 'first' } }]
   const session = { id: 'session', snapshotEvents: () => events }
   const exec = callId => ({ agent: { session }, callId })
-  const id = await createJob(project, plan)
+  const id = await createJob(project, plan, resolveServer('video'))
   await bindJobCall(id, exec('first'))
   await saveJson(join(root, 'projects', project, 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
   const repeated = await Promise.all(['second', 'third'].map(callId => startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec(callId))))
@@ -116,7 +122,7 @@ test('a repeated generation call in the same user turn reuses the succeeded vide
   const events = [{ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'call_tools_video', callId: 'first' } }]
   const session = { id: 'session', snapshotEvents: () => events }
   const exec = callId => ({ agent: { session }, callId })
-  const id = await createJob(project, plan)
+  const id = await createJob(project, plan, resolveServer('video'))
   await bindJobCall(id, exec('first'))
   await saveJson(join(root, 'projects', project, 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', status: 'succeeded' })
 

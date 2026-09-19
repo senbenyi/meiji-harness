@@ -11,20 +11,34 @@ src/
 ├── client/                   # 浏览器 API、命令、任务卡与工作台
 ├── server/                   # Client 工作台 HTTP 路由与共享 Store
 ├── database/                 # 路径、原子 JSON 和集中数据管理器
-├── tools/                    # Harness 对外工具与提示词
-├── worker/                   # Worker 任务与模型运行边界
-│   ├── tasks/                # 任务、工作流、运行进程和调用绑定
-│   └── models/               # 协议、Provider 与运行管理器
+├── session/                  # Harness 会话入口：预设、事件、工具投影、提示词
+├── tools/                    # Harness 工具定义，执行交给 worker 门面
+├── worker/                   # 任务管理器（index.js 为唯一门面）
+│   ├── manager/              # 流水线编排与复用/重试策略
+│   ├── intake/ routing/      # 受理与会话绑定；新任务模型路由
+│   ├── store/ runner/        # 存储与状态机；worker 进程与 TaskContext
+│   ├── results/              # 结果汇总与诊断
+│   └── models/               # 模型层：contract、catalog、protocols、providers
 └── utils/                    # 无业务语义的通用代码
+```
+
+## 任务流程
+
+```
+会话 → session 投影可见工具 → call_tools_load（按需）→ call_tools_image / call_tools_video
+     → worker.submitTask：受理 → 会话内复用 → routing（自有优先、三方回退）→ store 建档 → runner 启动 worker 进程
+     → worker 进程：TaskContext → models.executeJob → 状态经 store 状态机写入、产物经 store 登记
+     → tools 等待结果 → results 汇总 → 工作卡渲染
+     → 失败：Agent 在用户明确要求后调用 *_recover，或工作卡「重试原任务」按钮 → worker.retryTask
 ```
 
 ## 提供者边界
 
-外部代码只通过 `src/worker/models/managers/runtime/index.js` 路由，不直接加载适配器或访问 registry/transport 内部模块。该入口提供后端选择、参数校验、执行、原任务恢复、连接检查、参考帧和工作流同步能力。
+模型层以外的代码只通过 `src/worker/models/index.js` 访问模型，不直接加载适配器或访问 catalog 内部模块；新任务的后端选择位于 `src/worker/routing/`。Provider 在 worker 进程内通过 `executeJob(plan, backend, ctx)` 执行，只经 `contract.js` 定义的 TaskContext 写状态、保存产物和读取参考图，不导入任务层模块。
 
 各 `src/worker/models/providers/<id>/` 拥有自己的 `index.js`、公开声明 `definition.json`、能力说明、参数校验、API/部署实现和测试；需要文件配置的提供者另带配置模板。当前实际实现包括 AutoDL、Runpod、BytePlus、百炼和手工连接兼容适配器。AutoDL 的模板和执行代码全部位于自身目录，不导入 Runpod；手工连接的历史工作流委托在自身声明中显式指定，并经过同一入口调用。
 
-`worker/models/managers/registry` 负责通用登记与身份，`worker/models/managers/transport` 负责通用连接，`worker/models/protocols/comfyui/` 负责可复用协议；这些公共模块不包含厂商或模型专属分支。业务层只负责项目、任务和多镜头编排。实际凭据仍位于本机忽略文件中，不进入源码目录。
+`worker/models/catalog/` 负责通用登记、身份与连接，`worker/models/protocols/comfyui/` 负责可复用协议与统一执行流程；这些公共模块不包含厂商或模型专属分支。业务层只负责项目、任务和多镜头编排。实际凭据仍位于本机忽略文件中，不进入源码目录。
 
 新增提供者通过自己的目录声明配置、能力与渠道优先级，无需在业务、界面或 Harness 中添加厂商判断。`provider-boundary.test.js` 检查导入边界；`provider-removal.test.js` 验证物理删除提供者后的独立运行及旧任务拒绝误路由。
 

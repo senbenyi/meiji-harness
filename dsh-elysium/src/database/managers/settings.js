@@ -3,8 +3,8 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, w
 import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { validateRegistry } from '../../worker/models/managers/registry/schema.js'
-import { validateSelection } from '../../worker/models/managers/selection/schema.js'
+import { validateRegistry } from '../../worker/models/catalog/registry-schema.js'
+import { validateSelection } from '../../worker/models/catalog/selection-schema.js'
 import { statusError } from '../../utils/errors.js'
 
 const object = value => value && typeof value === 'object' && !Array.isArray(value)

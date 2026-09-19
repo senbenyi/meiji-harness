@@ -6,8 +6,8 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
-import { jobSummary } from '../src/worker/tasks/jobs/status.js'
-import { bindJobCall, findJobCall } from '../src/worker/tasks/bindings/call.js'
+import { jobSummary } from '../src/worker/results/summary.js'
+import { bindJobCall, findJobCall } from '../src/worker/intake/calls.js'
 import { apply } from '../src/index.js'
 import { withConfig } from '../src/config.js'
 import { mediaReference } from '../src/worker/models/protocols/comfyui/media-reference.js'
@@ -229,4 +229,21 @@ test('preview proxy cancels the upstream stream when the browser closes playback
     await response.body.cancel()
     assert.equal(await Promise.race([upstreamClosed.then(() => true), delay(500, false)]), true)
   } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
+})
+
+test('workcard retry is POST-only, authenticated, scoped to the bound call and never waits', async t => {
+  const retried = []
+  const handler = createMediaHandler({ token: 'test', findCall: async (session, call) => session === 's' && call === 'c' ? 'a'.repeat(32) : null,
+    retryJob: async id => { retried.push(id); return { job_id: id, project_id: 'bbbbbbbb', status: 'queued' } } })
+  const server = createServer(handler)
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => server.close(resolve)))
+  const url = (query, token = 'test') => `http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}/retry?${query}&t=${token}`
+  assert.equal((await fetch(url('session=s&call=c'), { method: 'POST' })).status, 202)
+  assert.deepEqual(retried, ['a'.repeat(32)])
+  assert.equal((await fetch(url('session=s&call=c'))).status, 405)
+  assert.equal((await fetch(url('session=s&call=c', 'wrong'), { method: 'POST' })).status, 401)
+  assert.equal((await fetch(url('session=s&call=other'), { method: 'POST' })).status, 404)
+  assert.equal((await fetch(url('session=s'), { method: 'POST' })).status, 400)
+  assert.equal(retried.length, 1)
 })
