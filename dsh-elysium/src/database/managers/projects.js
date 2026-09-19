@@ -1,6 +1,6 @@
 // 职责：持久化项目 JSON，串行化变更，并执行素材引入的业务规则。
 import { randomBytes, randomUUID } from 'node:crypto'
-import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, rm, writeFile } from '../files.js'
 import { join } from 'node:path'
 import { projectsRoot } from '../paths.js'
 import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
