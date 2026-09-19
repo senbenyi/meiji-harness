@@ -1,6 +1,6 @@
 // 职责：按 WorkCard 配置为 Agent 工具附加输出结构，并将内部任务结果渲染为稳定字段。
 import { workcardConfig } from '../../config.js'
-import { jobSummary } from '../../server/media/catalog.js'
+import { jobSummary } from '../../worker/tasks/jobs/status.js'
 
 export const createCallToolsWorkcard = definition => {
   const schema = workcardConfig.schemas[workcardConfig.tools[definition.name]]

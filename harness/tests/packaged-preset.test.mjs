@@ -3,7 +3,7 @@ import { access, readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const root = new URL('../../', import.meta.url).pathname, presets = `${root}harness/.dsh/.agent-presets`
-const names = { 'elysium-standard': '标准模式', 'elysium-teaching': '极乐世界 · 教学', 'elysium-free': '极乐世界 · 自由', 'elysium-director': '极乐世界 · 导演' }
+const names = { 'elysium-standard': '标准模式', 'elysium-free': '极乐世界 · 自由', 'elysium-director': '极乐世界 · 导演' }
 test('all packaged presets retain native capabilities and names', async () => {
   for (const [id, name] of Object.entries(names)) {
     const directory = `${presets}/${id}`, composition = await readFile(`${directory}/agent.cordis.yml`, 'utf8'), preset = await readFile(`${directory}/preset.yml`, 'utf8')
@@ -17,10 +17,15 @@ test('all packaged presets retain native capabilities and names', async () => {
 })
 
 test('Elysium presets include persona and behavior rules', async () => {
-  for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
-    await access(`${presets}/${id}/persona.md`)
+  const contents = {}
+  for (const id of ['elysium-free', 'elysium-director']) {
+    const persona = await readFile(`${presets}/${id}/persona.md`, 'utf8')
     const rules = await readFile(`${presets}/${id}/rules.md`, 'utf8')
     assert.match(rules, /创作质量由系统设置统一控制/)
     assert.doesNotMatch(rules, /\/(?:预览创作|常规创作|高清创作)/)
+    contents[id] = { persona, commonRules: rules.split('\n').filter(line => !line.startsWith('# 极乐世界') && !line.includes('用户项目') && !line.includes('call_tools_project_')).join('\n') }
   }
+  assert.equal(contents['elysium-free'].persona, contents['elysium-director'].persona)
+  assert.equal(contents['elysium-free'].commonRules, contents['elysium-director'].commonRules)
+  await assert.rejects(access(`${presets}/elysium-teaching`))
 })

@@ -12,6 +12,8 @@
 
 ## 实施中
 
+- **Worker 任务管理器重构** — 6 阶段：①常量与命名 ②status 状态机与结果汇总 ③router 模型路由 ④manager 统一 submit/retry（图片对齐视频规则）+ 工作卡重试按钮 ⑤comfyui 执行迁入 protocols ⑥文档与架构测试。2026-09-19 阶段 1 完成：`MEDIA_TOOLS` 唯一名单位于 `worker/tasks/bindings/call.js`（客户端名单由测试比对）；`bindVideoCall/findVideoCall` → `bindJobCall/findJobCall`；删除 `workflow_*`、`elysium_load_tools` 旧工具名及 `waitVideoJob` 别名；预设 rules.md 的失效工具名同步为 `call_tools_*`。插件测试 192/192、Harness 10/10。2026-09-19 阶段 2 完成：新增 `worker/tasks/jobs/status.js`（`saveStatus` 流转校验、`startStatus/succeedStatus/failStatus`、`completedResult`、`jobSummary`），launcher、worker、ComfyUI 协议、AutoDL 图片/H3、百炼、BytePlus、上传与参考帧共 9 个写入方全部改经此入口；succeeded 为终态（修复重跑覆盖成功结果、worker 兜底覆盖成功、重试丢失 created_at）；新增 `job-status.test.js`。插件测试 193/193、Harness 10/10、构建通过。下一步：阶段 3。
+
 - **main 分支 AutoDL 能力接入** — `docs/plans/计划-main分支AutoDL能力接入.md` — 阶段 1–4 完成，阶段 6 的 181 项插件测试、7 项 Harness 测试、构建、Registry 打包、安装与 Harness 重启完成；私有模型运行目录已补入 RealVisXL/SDXL、MiniMax H3 和既有 qwen3.8，并经运行接口回读。qwen3.8 已按当前 provider 规范改用环境凭据引用，DSH 真实调用通过。服务器选择和真实 T2I/T2V/I2V 验收仍待有效的 AutoDL ComfyUI 本机入口；当前 `veo-comfyui` 仍是失效 RunPod，历史 AutoDL 入口已拒绝连接。
 
 ## 待验收

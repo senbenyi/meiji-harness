@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { projectJobRoot, projectRoot } from '../../../tasks/jobs/paths.js'
 import { getJob } from '../../../tasks/jobs/query.js'
 import { readJson, saveJson } from '../../../../database/json.js'
+import { saveStatus } from '../../../tasks/jobs/status.js'
 import { openLocalMedia } from '../../../../server/media/local-media.js'
 import { withLaunchLock } from '../../../tasks/jobs/lock.js'
 
@@ -41,6 +42,6 @@ export async function extractReference({ projectId, shotId, source, definition }
   await mkdir(join(projectRoot(projectId), 'media'), { recursive: true })
   const result = spawnSync('ffmpeg', ['-y', '-i', join(projectRoot(job.project_id), media.path), '-vf', `select=eq(n\\,${definition.frame_index})`, '-frames:v', '1', join(projectRoot(projectId), path)], { encoding: 'utf8' })
   if (result.status !== 0) throw new Error('本地参考帧提取失败；请检查 ffmpeg 和原视频')
-  await saveJson(join(projectJobRoot(projectId, jobId), 'status.json'), { job_id: jobId, project_id: projectId, status: 'succeeded', capability: 'image-compose', result: await registerMedia(projectId, jobId, path, 'image') })
+  await saveStatus(projectJobRoot(projectId, jobId), { job_id: jobId, project_id: projectId, status: 'succeeded', capability: 'image-compose', result: await registerMedia(projectId, jobId, path, 'image') })
   return reference
 }

@@ -5,6 +5,7 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 import { readFileSync } from 'node:fs'
+import { mediaToolNames } from '../src/worker/tasks/bindings/call.js'
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
@@ -30,8 +31,7 @@ async function fixture(responses, block = {}) {
   require(pkg.name).apply({ effect: run => run(), uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
-  assert.deepEqual(slots.map(s => s.spec.key), ['call_tools_video', 'call_tools_video_recover', 'call_tools_image', 'call_tools_image_recover',
-    'workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'])
+  assert.deepEqual(slots.map(s => s.spec.key), [...mediaToolNames('video'), ...mediaToolNames('image')])
   let view
   await act(async () => { view = create(React.createElement(require('elysium/media-task-card').MediaTaskCard, { sessionId: 'session', callId: 'call', block })) })
   return { view, requests, timers, Card: require('elysium/media-task-card').MediaTaskCard, definition: require('elysium/media-task-card').definition,

@@ -22,7 +22,7 @@ node harness/scripts/start.mjs
 ## 配置
 - `harness/.dsh/settings.yaml`：Harness 与模型服务地址。
 - `harness/.dsh/profiles/web/`：Web profile 和插件装配配置。
-- `harness/.dsh/.agent-presets/`：标准、教学、自由和导演模式。
+- `harness/.dsh/.agent-presets/`：标准、自由和导演模式；自由模式不创建用户项目，导演模式创建或复用用户项目。
 - `~/.dsh/.credentials.yaml`：Harness 在本机生成的凭据，不进入仓库。
 
 Elysium 的模型选择、服务器、提供者凭据和业务数据统一位于 `~/.elysium`，不由 Harness 安装或启动脚本读写。

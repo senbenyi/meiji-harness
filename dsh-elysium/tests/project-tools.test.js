@@ -75,15 +75,13 @@ test('registered chat tools share HTTP project state and are disposed with the w
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
 
-test('free and teaching generation save tasks and media in an internal workspace absent from project lists', async () => {
+test('free generation saves tasks and media in an internal workspace absent from project lists', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-free-project-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      for (const agentPreset of ['elysium-free', 'elysium-teaching']) {
-        const exec = { agent: { session: { header: { agentPreset }, snapshotEvents: () => [] } } }
-        assert.equal(await generationProjectId(undefined, exec), '00000000')
-        assert.equal(await generationProjectId('abcd1234', exec), '00000000')
-      }
+      const exec = { agent: { session: { header: { agentPreset: 'elysium-free' }, snapshotEvents: () => [] } } }
+      assert.equal(await generationProjectId(undefined, exec), '00000000')
+      assert.equal(await generationProjectId('abcd1234', exec), '00000000')
       assert.equal(await generationProjectId('abcd1234', { agent: { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } } }), 'abcd1234')
       assert.equal(JSON.parse(await readFile(join(root, 'projects', '00000000', 'project.json'))).internal, 'free')
       await access(join(root, 'projects', '00000000', 'jobs'))

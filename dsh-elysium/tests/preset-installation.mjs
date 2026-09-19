@@ -13,7 +13,7 @@ const source = process.argv[3] || fileURLToPath(new URL('../../harness/.dsh/.age
 const root = await mkdtemp(join(tmpdir(), 'elysium detached '))
 const retired = ['creation-video', 'creation-preview', 'creation-regular', 'creation-hd']
 try {
-  for (const role of ['elysium-director', 'elysium-free', 'elysium-teaching']) {
+  for (const role of ['elysium-director', 'elysium-free']) {
     const preset = join(root, role)
     await cp(join(source, role), preset, { recursive: true })
     const warnings = []

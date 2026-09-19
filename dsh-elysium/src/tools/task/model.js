@@ -1,5 +1,6 @@
 // 职责：定义本地模型任务的状态与结果查询工具。
-import { completedResult, getJob } from '../../worker/tasks/jobs/query.js'
+import { getJob } from '../../worker/tasks/jobs/query.js'
+import { completedResult } from '../../worker/tasks/jobs/status.js'
 
 export function createCallToolsJobStatus() {
   return {

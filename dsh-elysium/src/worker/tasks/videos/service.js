@@ -6,7 +6,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getJob } from '../jobs/query.js'
 import { ModelTaskError } from '../../../utils/errors.js'
-import { bindVideoCall, findVideoCall } from '../bindings/call.js'
+import { MEDIA_TOOLS, bindJobCall, findJobCall, mediaToolNames } from '../bindings/call.js'
 import { createJob } from '../jobs/create.js'
 import { launch } from '../runtime/launcher.js'
 import { withLaunchLock } from '../jobs/lock.js'
@@ -36,14 +36,14 @@ async function startVideoJobLocked(args, exec) {
     const session = exec.agent.session
     const events = session.snapshotEvents()
     const turnStart = events.findLastIndex(event => event.type === 'turn/start')
-    const calls = events.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'tool/call' && ['call_tools_video', 'call_tools_video_recover', 'workflow_generate_video', 'workflow_resume_video'].includes(event.data.name))
+    const calls = events.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'tool/call' && mediaToolNames('video').includes(event.data.name))
     for (const { event: call, index } of calls.reverse()) {
-      const previous = await findVideoCall(session.id, call.data.callId, session)
+      const previous = await findJobCall(session.id, call.data.callId, session)
       if (!previous) continue
       const job = await getJob(previous)
       if (job.project_id !== projectId) continue
       if (job.status === 'succeeded' && index <= turnStart) break
-      await bindVideoCall(previous, exec)
+      await bindJobCall(previous, exec)
       return { job_id: previous, project_id: job.project_id, status: job.status }
     }
   }
@@ -52,7 +52,7 @@ async function startVideoJobLocked(args, exec) {
   const prepared = await prepareBackendPlan(backend, plan, creationQuality())
   await withBackend(backend, () => validateVideoPlan(prepared))
   const jobId = await createJob(projectId, prepared, backend)
-  await bindVideoCall(jobId, exec)
+  await bindJobCall(jobId, exec)
   return launch(jobId)
 }
 
@@ -67,13 +67,13 @@ async function resumeVideoJobLocked(jobId, exec) {
   const events = session?.snapshotEvents() || []
   const turnStart = events.findLastIndex(event => event.type === 'turn/start')
   for (const event of events.slice(turnStart + 1)) {
-    if (event.type !== 'tool/call' || !['call_tools_video_recover', 'workflow_resume_video'].includes(event.data.name) || event.data.callId === exec.callId) continue
-    if (await findVideoCall(session.id, event.data.callId, session) !== jobId) continue
-    await bindVideoCall(jobId, exec)
+    if (event.type !== 'tool/call' || event.data.name !== MEDIA_TOOLS.video.recover || event.data.callId === exec.callId) continue
+    if (await findJobCall(session.id, event.data.callId, session) !== jobId) continue
+    await bindJobCall(jobId, exec)
     return { job_id: jobId, project_id: job.project_id, status: job.status }
   }
   const result = job.status === 'succeeded' ? { job_id: jobId, project_id: job.project_id, status: job.status }
     : await launch(jobId, 'workflow-video', job.status === 'failed' && job.backend === 'comfyui')
-  await bindVideoCall(jobId, exec)
+  await bindJobCall(jobId, exec)
   return result
 }

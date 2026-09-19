@@ -9,6 +9,7 @@ import { createClient } from './index.js'
 import { projectJobRoot, projectRoot } from '../../../tasks/jobs/paths.js'
 import { getJob } from '../../../tasks/jobs/query.js'
 import { readJson, saveJson } from '../../../../database/json.js'
+import { failStatus, saveStatus, startStatus, succeedStatus } from '../../../tasks/jobs/status.js'
 import { openLocalMedia } from '../../../../server/media/local-media.js'
 import { withLaunchLock } from '../../../tasks/jobs/lock.js'
 import { MODE_MEDIA, VIDEO_MODES, VIDEO_PROFILES } from '../../../tasks/videos/plan.js'
@@ -56,10 +57,8 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
   validatePlan(plan, backend)
   bytePlusKey(backend)
   const directory = projectJobRoot(projectId, jobId), journalPath = join(directory, 'byteplus-submission.json')
-  const statusPath = join(directory, 'status.json'), client = createClient(backend, { signal })
-  const status = { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'byteplus', server: backend,
-    status: 'running', stage: 'prepare', debug: { effective_input: plan }, created_at: new Date().toISOString() }
-  await saveJson(statusPath, status)
+  const client = createClient(backend, { signal })
+  const status = await startStatus(directory, { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'byteplus', server: backend, debug: { effective_input: plan } })
   try {
     let journal = await readJson(journalPath)
     if (!journal) {
@@ -67,7 +66,7 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
       // 提交开始即落盘；未知 POST 结果禁止自动重发，避免重复计费。
       journal = { state: 'submitting', request_hash: createHash('sha256').update(JSON.stringify(request)).digest('hex') }
       await saveJson(journalPath, journal)
-      status.stage = 'submit'; await saveJson(statusPath, status)
+      status.stage = 'submit'; await saveStatus(directory, status)
       const response = await client.request('contents/generations/tasks', request)
       journal = { ...journal, state: 'submitted', response }
       await saveJson(journalPath, journal)
@@ -75,7 +74,7 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
     if (journal.state === 'submitting') throw Object.assign(new Error('供应商提交结果未知；禁止重发。请核对供应商任务并将原响应补入 byteplus-submission.json 后恢复'), { code: 'BYTEPLUS_SUBMISSION_UNKNOWN' })
     let result = journal.response
     if (!result.id) throw new Error('供应商未返回任务 ID，禁止重发')
-    status.remote_task_id = result.id; status.stage = 'poll'; await saveJson(statusPath, status)
+    status.remote_task_id = result.id; status.stage = 'poll'; await saveStatus(directory, status)
     const deadline = Date.now() + 60 * 60 * 1000
     for (;;) {
       signal?.throwIfAborted()
@@ -88,7 +87,7 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
     }
     const url = result.content?.video_url
     if (!url || !['http:', 'https:'].includes(new URL(url).protocol)) throw new Error('供应商缺少有效产物 URL')
-    status.stage = 'download'; await saveJson(statusPath, status)
+    status.stage = 'download'; await saveStatus(directory, status)
     const response = await fetch(url, { signal, redirect: 'error' })
     if (!response.ok) throw new Error(`产物下载失败：HTTP ${response.status}`)
     const path = `media/${jobId}.mp4`, file = join(projectRoot(projectId), path)
@@ -96,16 +95,12 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
     const { pipeline } = await import('node:stream/promises'), { Readable } = await import('node:stream'), { createWriteStream } = await import('node:fs')
     try { await pipeline(Readable.fromWeb(response.body), createWriteStream(file + '.tmp', { mode: 0o600 })); await rename(file + '.tmp', file) }
     finally { await rm(file + '.tmp', { force: true }) }
-    status.result = { ...await registerMedia(projectId, jobId, path, 'video'), provider: 'byteplus', model: backend.connection.model,
+    const output = { ...await registerMedia(projectId, jobId, path, 'video'), provider: 'byteplus', model: backend.connection.model,
       quality: plan.quality, profile: plan.profile, remote_task_id: journal.response.id, duration_sec: result.duration ?? plan.duration_seconds ?? backend.connection.duration,
       specification: { resolution: plan.resolution ?? backend.connection.resolution, ratio: backend.connection.ratio, audio: backend.connection.generate_audio } }
-    status.status = 'succeeded'; status.stage = 'completed'; status.finished_at = new Date().toISOString()
-    await saveJson(statusPath, status)
-    return status
+    return succeedStatus(directory, status, output)
   } catch (error) {
-    status.status = 'failed'; status.failed_stage = status.stage; status.stage = 'failed'
-    status.error_code = error.code || 'BYTEPLUS_GENERATION_FAILED'; status.error = error.message
-    status.retry_scope = 'query-original-byteplus-task'; await saveJson(statusPath, status)
+    await failStatus(directory, status, error, { code: 'BYTEPLUS_GENERATION_FAILED', retry_scope: 'query-original-byteplus-task' })
     throw error
   }
 }
@@ -119,6 +114,6 @@ export async function extractReference({ projectId, shotId, source, definition }
   const path = `media/${jobId}.png`
   const result = spawnSync('ffmpeg', ['-y', '-i', join(projectRoot(job.project_id), media.path), '-vf', `select=eq(n\\,${definition.frame_index})`, '-frames:v', '1', join(projectRoot(projectId), path)], { encoding: 'utf8' })
   if (result.status !== 0) throw new Error('本地参考帧提取失败；请检查 ffmpeg 和原视频')
-  await saveJson(join(projectJobRoot(projectId, jobId), 'status.json'), { job_id: jobId, project_id: projectId, status: 'succeeded', capability: 'image-compose', result: await registerMedia(projectId, jobId, path, 'image') })
+  await saveStatus(projectJobRoot(projectId, jobId), { job_id: jobId, project_id: projectId, status: 'succeeded', capability: 'image-compose', result: await registerMedia(projectId, jobId, path, 'image') })
   return { url: `job:${jobId}`, source_job_id: source.job_id, source_shot_id: shotId, frame_index: definition.frame_index }
 }

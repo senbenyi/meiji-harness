@@ -30,7 +30,7 @@ src/
 
 ## 短剧快速预览
 
-- 调用 `workflow_generate_video(project_id, preview)`
+- 调用 `call_tools_video`，创作质量由系统设置控制
 - 支持 `t2va` 或带 `first_frame` 服务器图片 URL 的 `i2va`。
 - 当前预览为 H3、384×512、73 帧、24fps、8 步，约 3.04 秒。
 - 配置位于 `src/worker/models/providers/runpod/workflows/minimax-h3/profiles/preview.json`。

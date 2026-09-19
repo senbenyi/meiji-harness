@@ -1,4 +1,4 @@
-// 职责：在锁保护下启动或接管本地视频 worker。
+// 职责：在锁保护下启动或接管本地媒体任务 worker。
 import { connectBackend, readBackend } from '../../models/managers/runtime/index.js'
 import { workerEnvironment } from '../../../config.js'
 import { spawn } from 'node:child_process'
@@ -8,10 +8,8 @@ import { fileURLToPath } from 'node:url'
 import { workerAlive } from './worker-owner.js'
 import { getJob } from '../jobs/query.js'
 import { withLaunchLock } from '../jobs/lock.js'
-import { saveJson } from '../../../database/json.js'
 import { findJobRoot } from '../jobs/paths.js'
-
-const writeStatus = (directory, value) => saveJson(join(directory, 'status.json'), value)
+import { saveStatus } from '../jobs/status.js'
 
 export async function launch(jobId, capability = 'workflow-video', retryFailed = false) {
   const located = await findJobRoot(jobId)
@@ -36,10 +34,11 @@ async function launchLocked(jobId, capability, retryFailed) {
     await unlink(lockPath)
     lock = await open(lockPath, 'wx', 0o600)
   }
+  const identity = { job_id: jobId, project_id: projectId, capability, backend: backend.service === 'comfyui' ? 'comfyui' : backend.provider, server: backend }
   try {
     await connectBackend(backend)
     if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
-    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: backend.service === 'comfyui' ? 'comfyui' : backend.provider, server: backend, status: 'queued', stage: 'queued' })
+    await saveStatus(directory, { ...identity, status: 'queued', stage: 'queued' })
     const log = await open(join(directory, 'worker.log'), 'a')
     try {
       const child = spawn(process.execPath, [fileURLToPath(new URL('./worker.js', import.meta.url)), projectId, jobId],
@@ -50,7 +49,7 @@ async function launchLocked(jobId, capability, retryFailed) {
     } finally { await log.close() }
     return { job_id: jobId, project_id: projectId, status: 'queued' }
   } catch (error) {
-    await writeStatus(directory, { job_id: jobId, project_id: projectId, capability, backend: backend.service === 'comfyui' ? 'comfyui' : backend.provider, server: backend, status: 'failed', error_code: error.code, error: error.message })
+    await saveStatus(directory, { ...identity, status: 'failed', error_code: error.code, error: error.message })
     await unlink(lockPath).catch(() => {})
     throw error
   } finally { await lock.close() }

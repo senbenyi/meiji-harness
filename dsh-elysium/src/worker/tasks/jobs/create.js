@@ -9,7 +9,7 @@ import { access, mkdir } from 'node:fs/promises'
 
 const freeSetups = new Map()
 
-// 自由和教学模式使用不可见的内部工作区保存任务和媒体，不创建用户项目。
+// 自由模式使用不可见的内部工作区保存任务和媒体，不创建用户项目。
 export async function ensureFreeProject() {
   const root = projectRoot(FREE_PROJECT_ID)
   if (!freeSetups.has(root)) freeSetups.set(root, (async () => {

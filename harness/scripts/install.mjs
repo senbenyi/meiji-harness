@@ -2,7 +2,7 @@
 
 // 职责：安装 Harness、覆盖仓库托管的 Harness 配置，并安装 Elysium 插件包。
 import { existsSync } from 'node:fs'
-import { cp, mkdir } from 'node:fs/promises'
+import { cp, mkdir, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { delimiter, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -32,6 +32,7 @@ if (!hasCommand('dsh')) {
 }
 
 await mkdir(target, { recursive: true })
+await rm(join(target, '.agent-presets', 'elysium-teaching'), { recursive: true, force: true })
 for (const entry of ['.agent-presets', 'profiles', 'settings.yaml']) {
   await cp(join(source, entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
 }

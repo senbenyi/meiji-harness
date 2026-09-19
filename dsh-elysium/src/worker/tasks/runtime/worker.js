@@ -1,7 +1,8 @@
-// 职责：作为独立进程执行一个视频任务并写入最终状态。
+// 职责：作为独立进程执行一个图片或视频任务并写入最终状态。
 import { readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { readJson, saveJson } from '../../../database/json.js'
+import { readJson } from '../../../database/json.js'
+import { failStatus } from '../jobs/status.js'
 import { projectJobRoot, validJobId, validProjectId } from '../jobs/paths.js'
 import { executeBackendJob, readBackend } from '../../models/managers/runtime/index.js'
 
@@ -16,9 +17,9 @@ try {
   const backend = await readBackend(directory)
   await executeBackendJob(backend, projectId, jobId, request, { signal: controller.signal })
 } catch (error) {
-  const statusPath = join(directory, 'status.json')
-  const status = await readJson(statusPath) || { job_id: jobId, project_id: projectId }
-  if (status.status !== 'failed') await saveJson(statusPath, { ...status, status: 'failed', stage: 'failed', error_code: 'MODEL_GENERATION_FAILED', error: error.message })
+  // 执行器已写入终态时不覆盖：成功结果受保护，失败详情以执行器为准。
+  const status = await readJson(join(directory, 'status.json')) || { job_id: jobId, project_id: projectId }
+  if (!['failed', 'succeeded'].includes(status.status)) await failStatus(directory, status, error, { code: 'MODEL_GENERATION_FAILED' })
   console.error(error.message)
   process.exitCode = 1
 } finally {

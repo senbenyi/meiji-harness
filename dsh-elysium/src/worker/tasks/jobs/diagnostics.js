@@ -9,7 +9,7 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 export async function codeVersion() {
   const pkg = JSON.parse(await readFile(new URL('../../../../package.json', import.meta.url), 'utf8'))
   // 显式列出所有参与视频执行的模块，避免指纹漏掉恢复语义变更。
-  const names = ['diagnostics.js', '../../../utils/errors.js', 'create.js', '../../../database/json.js', 'query.js', 'wait.js',
+  const names = ['diagnostics.js', '../../../utils/errors.js', 'create.js', '../../../database/json.js', 'query.js', 'status.js', 'wait.js',
     '../../../config.js', '../../../tools/index.js', '../../../tools/agent/workcard.js', '../../../tools/media/video.js', '../../models/protocols/comfyui/client.js', '../../models/protocols/comfyui/submission.js',
     '../../models/protocols/comfyui/plan.js', '../../models/protocols/comfyui/reference-frame.js', '../../models/protocols/comfyui/execution.js', '../../models/protocols/comfyui/media-reference.js',
     ...['artifacts', 'execution', 'plan', 'service'].map(name => `../videos/${name}.js`),

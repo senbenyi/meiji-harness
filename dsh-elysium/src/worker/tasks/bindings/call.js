@@ -1,15 +1,22 @@
-// 职责：在 Harness 工具调用与本地视频任务之间建立可恢复索引。
+// 职责：定义媒体工具名单，并在 Harness 工具调用与本地媒体任务之间建立可恢复索引。
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { runtimeRoot } from '../../../database/paths.js'
+
+// 媒体工具唯一名单；generate 创建或复用任务，recover 恢复原任务。
+export const MEDIA_TOOLS = Object.freeze({
+  image: Object.freeze({ generate: 'call_tools_image', recover: 'call_tools_image_recover' }),
+  video: Object.freeze({ generate: 'call_tools_video', recover: 'call_tools_video_recover' }),
+})
+export const mediaToolNames = kind => kind ? Object.values(MEDIA_TOOLS[kind]) : Object.keys(MEDIA_TOOLS).flatMap(mediaToolNames)
 
 const valid = value => typeof value === 'string' && value.length > 0 && value.length <= 256
 const file = (sessionId, callId) => {
   if (!valid(sessionId) || !valid(callId)) throw new Error('Invalid call identity')
   return join(runtimeRoot(), 'calls', createHash('sha256').update(JSON.stringify([sessionId, callId])).digest('hex') + '.json')
 }
-export async function bindVideoCall(jobId, exec) {
+export async function bindJobCall(jobId, exec) {
   if (!exec?.agent || !exec.callId) return
   const sessionId = exec.agent.session.id
   const target = file(sessionId, exec.callId)
@@ -18,7 +25,7 @@ export async function bindVideoCall(jobId, exec) {
   await writeFile(temporary, JSON.stringify({ session_id: sessionId, call_id: exec.callId, job_id: jobId }), { mode: 0o600 })
   await rename(temporary, target)
 }
-export async function findVideoCall(sessionId, callId, session) {
+export async function findJobCall(sessionId, callId, session) {
   try {
     return JSON.parse(await readFile(file(sessionId, callId), 'utf8')).job_id
   } catch (error) {
@@ -28,7 +35,7 @@ export async function findVideoCall(sessionId, callId, session) {
   if (session?.id !== sessionId) return null
   const events = session.snapshotEvents()
   const calls = events.filter(e => e.type === 'tool/call' && e.data.callId === callId)
-  if (!calls.some(e => ['call_tools_video', 'call_tools_video_recover', 'call_tools_image', 'call_tools_image_recover', 'workflow_generate_video', 'workflow_resume_video', 'workflow_generate_image', 'workflow_resume_image'].includes(e.data.name))) return null
+  if (!calls.some(e => mediaToolNames().includes(e.data.name))) return null
   for (const event of events) {
     if (event.type !== 'tool/result') continue
     for (const block of event.data.message?.content || []) {

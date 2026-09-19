@@ -16,7 +16,7 @@ import { executeComfyVideo } from '../src/worker/tasks/videos/execution.js'
 import { mediaReference } from '../src/worker/models/protocols/comfyui/media-reference.js'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
 import { launch } from '../src/worker/tasks/runtime/launcher.js'
-import { jobSummary } from '../src/server/media/catalog.js'
+import { jobSummary } from '../src/worker/tasks/jobs/status.js'
 
 test('A task survives a default switch to B even when preparation failed; identical prompt IDs remain scoped', async t => {
   const root = await mkdtemp(join(tmpdir(), 'binding-')), requests = { a: [], b: [] }

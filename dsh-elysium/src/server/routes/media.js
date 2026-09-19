@@ -5,13 +5,14 @@ import { pipeline } from 'node:stream/promises'
 import { withConfig } from '../../config.js'
 import { randomBytes } from 'node:crypto'
 import { getJob } from '../../worker/tasks/jobs/query.js'
-import { findVideoCall } from '../../worker/tasks/bindings/call.js'
+import { findJobCall } from '../../worker/tasks/bindings/call.js'
 import { openLocalMedia, byteRange } from '../media/local-media.js'
-import { jobSummary, availableJobSummary, listAssets, deleteAsset, uploadAsset } from '../media/catalog.js'
+import { availableJobSummary, listAssets, deleteAsset, uploadAsset } from '../media/catalog.js'
+import { jobSummary } from '../../worker/tasks/jobs/status.js'
 import { authenticated, json } from '../http.js'
 
 export const MEDIA_ROUTE = '/plugins/dsh-elysium/media'
-export function createMediaHandler({ token, projectBase, directorBase, settingsBase, readJob = getJob, findCall = findVideoCall, getSession = () => undefined }) {
+export function createMediaHandler({ token, projectBase, directorBase, settingsBase, readJob = getJob, findCall = findJobCall, getSession = () => undefined }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')

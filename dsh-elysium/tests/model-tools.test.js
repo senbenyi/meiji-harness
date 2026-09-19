@@ -39,13 +39,13 @@ test('all tools expose function-call schemas and local executors', () => {
   assert.equal(video.parameters.anyOf, undefined)
 })
 
-test('injects creation guidance only for the three Elysium modes', async () => {
+test('injects creation guidance only for the two Elysium modes', async () => {
   let assemble
   apply({ inject() {}, on: (name, listener) => { if (name === 'system-prompt/assemble') assemble = listener }, tools: { register() {} } })
   const base = { tools: [], sections: [] }
   const agent = agentPreset => ({ session: { header: { agentPreset }, snapshotEvents: () => [] } })
   assert.deepEqual(await assemble({}, { agent: agent('elysium-standard') }, async () => base), base)
-  for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
+  for (const id of ['elysium-free', 'elysium-director']) {
     const result = await assemble({}, { agent: agent(id) }, async () => base)
     assert.deepEqual(result.sections.map(section => section.name), ['elysium:creation-policy'])
   }

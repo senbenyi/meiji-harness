@@ -10,9 +10,10 @@ import { providerCreationInstructions, resolveGenerationBackend, thirdPartyChann
 import { executeJob, validatePlan } from '../src/worker/models/providers/byteplus/execution.js'
 import adapter from '../src/worker/models/providers/byteplus/index.js'
 import { bytePlusBackend } from '../src/worker/models/providers/byteplus/config.js'
-import { saveJson } from '../src/database/json.js'
+import { readJson, saveJson } from '../src/database/json.js'
 import { openLocalMedia } from '../src/server/media/local-media.js'
 import { createJob } from '../src/worker/tasks/jobs/create.js'
+import { projectJobRoot } from '../src/worker/tasks/jobs/paths.js'
 import { launch } from '../src/worker/tasks/runtime/launcher.js'
 import { waitJob } from '../src/worker/tasks/jobs/wait.js'
 
@@ -74,7 +75,8 @@ test('video POSTs once, polls original remote ID and downloads locally; unknown 
     assert.equal(status.result.remote_task_id, 'remote-task')
     assert.equal(f.calls[0].body.generate_audio, true)
     assert.equal(f.calls[0].body.resolution, '720p')
-    await executeJob('aaaaaaaa', id, plan, backend)
+    await assert.rejects(executeJob('aaaaaaaa', id, plan, backend), { code: 'JOB_STATE_INVALID' })
+    assert.equal((await readJson(join(projectJobRoot('aaaaaaaa', id), 'status.json'))).status, 'succeeded')
     assert.equal(f.calls.filter(call => call.method === 'POST').length, 1)
     assert.ok(f.calls.filter(call => call.method === 'GET').every(call => call.url.endsWith('/remote-task')))
     const media = await openLocalMedia(status)

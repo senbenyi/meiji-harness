@@ -10,6 +10,7 @@ test('install only copies Harness-owned configuration and installs the packaged 
   const install = await localScript('install.mjs')
   assert.match(install, /pnpm.*@deepseek-ai\/dsh/s)
   assert.match(install, /PNPM_HOME/)
+  assert.match(install, /rm\(join\(target, '\.agent-presets', 'elysium-teaching'\), \{ recursive: true, force: true \}\)/)
   assert.match(install, /\['\.agent-presets', 'profiles', 'settings\.yaml'\]/)
   assert.match(install, /package:registry/)
   assert.match(install, /run\('pnpm', \['add', '--workspace-root', join\(plugin, 'registry'\)\]/)

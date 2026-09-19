@@ -28,7 +28,7 @@ dsh-elysium/
 │   │   └── task/    # 模型任务和 ComfyUI 原生任务工具
 │   ├── worker/         # 异步任务、模型和 Worker 公共入口
 │   │   ├── tasks/      # 任务生命周期与图片、视频工作流
-│   │   │   ├── jobs/       # 创建、查询、锁、诊断和等待
+│   │   │   ├── jobs/       # 创建、查询、状态机与结果汇总（status.js 唯一写入口）、锁、诊断和等待
 │   │   │   ├── images/     # 图片任务编排
 │   │   │   ├── videos/     # 视频任务编排
 │   │   │   ├── runtime/    # 通用 launcher 与 worker 进程
@@ -69,13 +69,12 @@ dsh-elysium/
 ```
 harness/.dsh/.agent-presets/
 ├── _base/                  # 公共基础 cordis 配置
-│   └── agent.cordis.yml    # 共享模板（teaching/free/director 共用）
-├── elysium-teaching/
+│   └── agent.cordis.yml    # 共享模板（free/director 共用）
+├── elysium-free/
 │   ├── preset.yml          # 名称、描述、排序
 │   ├── agent.cordis.yml    # → ../_base/agent.cordis.yml（符号链接）
 │   ├── persona.md          # 人设提示词
 │   └── rules.md            # 行为规则
-├── elysium-free/           # 同上结构
 ├── elysium-director/       # 同上结构
 └── elysium-standard/       # 独立 cordis（原生完整工具）
     ├── preset.yml
@@ -83,7 +82,8 @@ harness/.dsh/.agent-presets/
 ```
 
 **规则**：
-- teaching/free/director 三个预设共享同一份 `agent.cordis.yml`，通过符号链接指向 `_base/agent.cordis.yml`。
+- free/director 两个预设共享同一份 `agent.cordis.yml`，通过符号链接指向 `_base/agent.cordis.yml`。
+- free/director 使用相同的创作行为；free 保存到不可见内部工作区，director 创建或复用用户项目。
 - 修改共享配置只改 `_base/agent.cordis.yml` 一处。
 - elysium-standard 保持独立配置（工具集不同）。
 - 预设目录不保留空 `skills/` 目录；仅在有实际技能文件时创建。

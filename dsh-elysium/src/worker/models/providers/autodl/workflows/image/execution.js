@@ -1,9 +1,9 @@
 // 职责：在任务快照绑定的 AutoDL ComfyUI 上执行图片工作流并保留可恢复状态。
-import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createBackendClient } from '../../../../managers/runtime/index.js'
 import { projectJobRoot } from '../../../../../tasks/jobs/paths.js'
 import { saveJson } from '../../../../../../database/json.js'
+import { failStatus, saveStatus, startStatus, succeedStatus } from '../../../../../tasks/jobs/status.js'
 import { codeVersion } from '../../../../../tasks/jobs/diagnostics.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from '../../../../protocols/comfyui/execution.js'
 import { mediaReference } from '../../../../protocols/comfyui/media-reference.js'
@@ -14,13 +14,11 @@ import { probeImage } from './probe.js'
 
 export async function executeComfyImage(projectId, jobId, input, backend, { signal, timeoutMs = 121 * 60_000 } = {}) {
   const plan = normalizeImagePlan(input)
-  const directory = projectJobRoot(projectId, jobId), statusPath = join(directory, 'status.json')
+  const directory = projectJobRoot(projectId, jobId)
   const client = await createBackendClient(backend, { signal })
-  const status = { job_id: jobId, project_id: projectId, capability: 'workflow-image', backend: 'comfyui', server: backend,
-    trace_id: jobId, parent_job_id: null, status: 'running', stage: 'prepare', created_at: new Date().toISOString(),
-    code_version: await codeVersion(), debug: { effective_input: plan, chain: [],
-      diagnostic_path: join(directory, 'diagnostics.json'), log_path: join(directory, 'execution.log') } }
-  await saveJson(statusPath, status)
+  const status = await startStatus(directory, { job_id: jobId, project_id: projectId, capability: 'workflow-image', backend: 'comfyui', server: backend,
+    trace_id: jobId, parent_job_id: null, code_version: await codeVersion(), debug: { effective_input: plan, chain: [],
+      diagnostic_path: join(directory, 'diagnostics.json'), log_path: join(directory, 'execution.log') } })
   try {
     const prepared = await prepareComfyWorkflow(directory, client, plan, async () => {
       const media = {}, paths = plan.capability === 'image-generate'
@@ -36,24 +34,15 @@ export async function executeComfyImage(projectId, jobId, input, backend, { sign
     })
     const { promptId, history } = await runComfyWorkflow(directory, client, prepared, status, timeoutMs)
     status.stage = 'inspect-output'
-    await saveJson(statusPath, status)
-    status.result = await collectImageArtifacts(client, history, prepared, promptId)
+    await saveStatus(directory, status)
+    const result = await collectImageArtifacts(client, history, prepared, promptId)
     signal?.throwIfAborted()
-    status.status = 'succeeded'; status.stage = 'completed'; status.finished_at = new Date().toISOString()
-    await saveJson(join(directory, 'validation.json'), status.result.validation)
-    await saveJson(statusPath, status)
-    await saveJson(status.debug.diagnostic_path, status)
-    return status
+    await saveJson(join(directory, 'validation.json'), result.validation)
+    return succeedStatus(directory, status, result)
   } catch (error) {
     if (signal?.aborted) error = signal.reason
-    status.failed_stage = status.stage; status.stage = 'failed'; status.status = 'failed'
-    status.error_code = error.code || 'MODEL_GENERATION_FAILED'; status.error = error.message.slice(0, 1000)
-    status.recovery_instruction = '保留此 job_id，恢复时查询原 prompt_id；禁止修改提示词重建任务。'
-    status.retry_scope = 'query-existing-comfyui-prompt-before-retry'; status.finished_at = new Date().toISOString()
-    await mkdir(directory, { recursive: true })
-    await writeFile(status.debug.log_path, status.error + '\n', { flag: 'a' })
-    await saveJson(statusPath, status)
-    await saveJson(status.debug.diagnostic_path, status)
+    await failStatus(directory, status, error, { code: 'MODEL_GENERATION_FAILED', retry_scope: 'query-existing-comfyui-prompt-before-retry',
+      recovery_instruction: '保留此 job_id，恢复时查询原 prompt_id；禁止修改提示词重建任务。' })
     throw error
   }
 }

@@ -1,5 +1,6 @@
 // 职责：轮询本地任务状态，并在完成或超时时返回统一结果。
-import { getJob, completedResult } from './query.js'
+import { getJob } from './query.js'
+import { completedResult } from './status.js'
 import { setTimeout } from 'node:timers/promises'
 
 export async function waitJob(job, signal, read = getJob, pause = setTimeout) {

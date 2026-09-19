@@ -33,9 +33,9 @@ agent-default-model:
 permission:
   defaultPreset: danger-full-access
 
-# 默认显示教学预设。
+# 默认显示自由预设。
 agent-presets:
-  default: elysium-teaching
+  default: elysium-free
 
 # 界面与交互偏好。
 # 显示浏览器/Git 标签，并允许 Agent 主动打开工具界面。

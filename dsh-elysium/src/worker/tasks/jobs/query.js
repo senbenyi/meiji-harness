@@ -1,4 +1,4 @@
-// 职责：读取本地任务状态并组装已完成结果。
+// 职责：定位并读取本地任务状态，识别已停止的 worker。
 import { workerAlive } from '../runtime/worker-owner.js'
 import { readFile, stat } from 'node:fs/promises'
 import { traceDiagnostics } from './diagnostics.js'
@@ -42,13 +42,4 @@ export async function getJob(jobId) {
     if (error?.code === 'ENOENT') throw new ModelTaskError('MODEL_JOB_NOT_FOUND', '任务不存在', 404)
     throw error
   }
-}
-
-export function completedResult(job) {
-  if (job.status !== 'succeeded' || !job.result) {
-    throw new ModelTaskError('MODEL_JOB_NOT_READY', `任务尚未成功：${job.status}`, 409)
-  }
-  const output = { job_id: job.job_id, status: job.status, trace_id: job.trace_id, parent_job_id: job.parent_job_id,
-    stage: job.stage, server: job.server, code_version: job.code_version, ...job.result, debug: job.debug }
-  return Object.fromEntries(Object.entries(output).filter(([, value]) => value !== undefined))
 }

@@ -8,7 +8,8 @@ import { withConfig } from '../src/config.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 import { createMediaHandler } from '../src/server/routes/media.js'
-import { jobSummary, listAssets } from '../src/server/media/catalog.js'
+import { listAssets } from '../src/server/media/catalog.js'
+import { jobSummary } from '../src/worker/tasks/jobs/status.js'
 
 test('job status exposes the actual model instead of presenting the provider as a model', () => {
   const summary = jobSummary({ status: 'running', debug: { effective_input: { mode: 't2va' } },

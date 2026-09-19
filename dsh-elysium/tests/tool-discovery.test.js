@@ -6,7 +6,7 @@ import { createCallToolsRuntime } from '../src/tools/index.js'
 import { createCallToolsForAgent, loadedToolNames } from '../src/tools/agent/index.js'
 const tool = name => ({ name, description: name, parameters: { type: 'object' } })
 const assembly = () => ({ tools: ['call_tools_load', 'call_tools_video', 'call_tools_director_list', 'call_tools_project_create', 'call_tools_project_read', 'report', ...Object.values(toolsConfig).flatMap(g => g.names)].map(tool), sections: ['permissions', 'plan:policy', 'tool:bash', 'tool:read', 'tool:jobs', 'tool:goal'].map(name => ({ name, text: name })), contexts: [{ name: 'runtime', text: 'unchanged' }], variables: {} })
-const agent = (events, agentPreset = 'elysium-teaching') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
+const agent = (events, agentPreset = 'elysium-free') => ({ session: { header: { agentPreset }, snapshotEvents: () => events } })
 const events = names => [{ type: 'tool/call', data: { name: 'call_tools_load', callId: 'load' } }, { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'load', content: [{ type: 'text', text: JSON.stringify({ loaded_tools: names }) }] }] } } }]
 const discoveryTool = schemas => createCallToolsRuntime({ tools: { schemas } }).find(tool => tool.name === 'call_tools_load')
 test('loads tool groups and discovery schema from config', () => {
@@ -56,19 +56,17 @@ test('preserves standard and Code Mode protocols', () => {
   assert.ok(projectedCode.sections.some(section => section.name === 'elysium:creation-policy'))
 })
 test('recognizes every shipped Elysium mode by its real preset ID', () => {
-  for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
+  for (const id of ['elysium-free', 'elysium-director']) {
     const result = createCallToolsForAgent(assembly(), agent([], id))
     assert.ok(result.tools.some(tool => tool.name === 'call_tools_load'))
     assert.ok(!result.tools.some(tool => tool.name === 'bash'))
   }
 })
-test('free and teaching modes expose read-only director selection, hide projects and keep direct generation', () => {
-  for (const preset of ['elysium-free', 'elysium-teaching']) {
-    const result = createCallToolsForAgent(assembly(), agent([], preset))
-    assert.ok(result.tools.some(tool => tool.name === 'call_tools_video'))
-    assert.ok(result.tools.some(tool => tool.name === 'call_tools_director_list'))
-    assert.ok(!result.tools.some(tool => tool.name !== 'call_tools_director_list' && /^call_tools_(director|project)_/.test(tool.name)))
-  }
+test('free mode hides project tools while director mode exposes them', () => {
+  const result = createCallToolsForAgent(assembly(), agent([], 'elysium-free'))
+  assert.ok(result.tools.some(tool => tool.name === 'call_tools_video'))
+  assert.ok(result.tools.some(tool => tool.name === 'call_tools_director_list'))
+  assert.ok(!result.tools.some(tool => tool.name !== 'call_tools_director_list' && /^call_tools_(director|project)_/.test(tool.name)))
   assert.ok(createCallToolsForAgent(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'call_tools_project_create'))
 })
 test('a failed video result removes every remaining tool for the current turn but input validation can retry once', () => {
@@ -93,7 +91,7 @@ test('a failed video result removes every remaining tool for the current turn bu
 test('uses the current preset selection instead of the immutable creation header', () => {
   const selected = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-free' } }], 'elysium-standard')
   assert.ok(createCallToolsForAgent(assembly(), selected).tools.some(tool => tool.name === 'call_tools_load'))
-  const left = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-standard' } }], 'elysium-teaching')
+  const left = agent([{ type: 'agent-preset/selected', data: { agentPreset: 'elysium-standard' } }], 'elysium-free')
   assert.ok(!createCallToolsForAgent(assembly(), left).tools.some(tool => tool.name === 'call_tools_load'))
 })
 test('rejects invalid or unavailable loads', async () => {
@@ -103,14 +101,14 @@ test('rejects invalid or unavailable loads', async () => {
 })
 
 test('production wait returns final result without model polling and preserves failed status', async () => {
-  const { waitVideoJob } = await import('../src/tools/media/video.js')
+  const { waitJob } = await import('../src/worker/tasks/jobs/wait.js')
   const job = { job_id: 'a'.repeat(32) }
   const sequence = [{ ...job, status: 'running' }, { ...job, status: 'succeeded', result: { comfyui_view_url: 'https://comfy/view?filename=final.mp4', validation: { full_decode: 'passed' } } }]
   let sleeps = 0
-  const result = await waitVideoJob(job, undefined, async () => sequence.shift(), async () => { sleeps++ })
+  const result = await waitJob(job, undefined, async () => sequence.shift(), async () => { sleeps++ })
   assert.equal(result.comfyui_view_url, 'https://comfy/view?filename=final.mp4'); assert.equal(sleeps, 1)
   const failed = { ...job, status: 'failed', error_code: 'FAILED', retryable: false }
-  assert.equal(await waitVideoJob(job, undefined, async () => failed), failed)
+  assert.equal(await waitJob(job, undefined, async () => failed), failed)
   const controller = new AbortController(); controller.abort()
-  await assert.rejects(waitVideoJob(job, controller.signal, async () => { throw new Error('must not read') }), /job_id: a{32}/)
+  await assert.rejects(waitJob(job, controller.signal, async () => { throw new Error('must not read') }), /job_id: a{32}/)
 })

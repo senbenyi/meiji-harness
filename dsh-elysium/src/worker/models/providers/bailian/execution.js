@@ -11,6 +11,7 @@ import { createClient } from './index.js'
 import { imageReference, registerMedia } from './media.js'
 import { projectJobRoot, projectRoot } from '../../../tasks/jobs/paths.js'
 import { readJson, saveJson } from '../../../../database/json.js'
+import { failStatus, saveStatus, startStatus, succeedStatus } from '../../../tasks/jobs/status.js'
 import { VIDEO_PROFILES } from '../../../tasks/videos/plan.js'
 const invalid = message => { throw Object.assign(new Error(message), { status: 422, code: 'MODEL_INPUT_INVALID' }) }
 const sizes = {
@@ -40,12 +41,9 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
   validatePlan(plan, backend)
   bailianKey(backend)
   const directory = projectJobRoot(projectId, jobId), journalPath = join(directory, 'bailian-submission.json')
-  const statusPath = join(directory, 'status.json'), client = createClient(backend, { signal })
+  const client = createClient(backend, { signal })
   const requestHash = createHash('sha256').update(JSON.stringify({ plan, backend })).digest('hex')
-  const previous = await readJson(statusPath)
-  const status = { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'bailian', server: backend,
-    status: 'running', stage: 'prepare', debug: { effective_input: plan }, created_at: previous?.created_at || new Date().toISOString() }
-  await saveJson(statusPath, status)
+  const status = await startStatus(directory, { job_id: jobId, project_id: projectId, capability: 'workflow-video', backend: 'bailian', server: backend, debug: { effective_input: plan } })
   try {
     let journal = await readJson(journalPath)
     if (journal && journal.request_hash !== requestHash) throw new Error('原百炼任务参数不一致，禁止重新提交')
@@ -53,7 +51,7 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
       const request = await payload(plan, backend)
       journal = { state: 'submitting', request_hash: requestHash }
       await saveJson(journalPath, journal)
-      status.stage = 'submit'; await saveJson(statusPath, status)
+      status.stage = 'submit'; await saveStatus(directory, status)
       // 先落盘再付费提交；网络断开或5xx不能证明未创建任务，禁止自动重发。
       let response
       try { response = await client.request('services/aigc/video-generation/video-synthesis', request) }
@@ -71,7 +69,7 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
     if (journal.state === 'rejected') throw new Error(`百炼原提交被拒绝：HTTP ${journal.http_status}，恢复不会重新提交`)
     const taskId = journal.response?.output?.task_id
     if (!taskId) throw new Error('百炼未返回任务 ID，禁止重发')
-    status.remote_task_id = taskId; status.stage = 'poll'; await saveJson(statusPath, status)
+    status.remote_task_id = taskId; status.stage = 'poll'; await saveStatus(directory, status)
     const deadline = Date.now() + 60 * 60 * 1000
     let result
     for (;;) {
@@ -86,24 +84,20 @@ export async function executeJob(projectId, jobId, plan, backend, { signal, slee
     }
     const url = result.output.video_url
     if (!url || !['http:', 'https:'].includes(new URL(url).protocol)) throw new Error('百炼缺少有效产物 URL')
-    status.stage = 'download'; await saveJson(statusPath, status)
+    status.stage = 'download'; await saveStatus(directory, status)
     const response = await fetch(url, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(300000)]) : AbortSignal.timeout(300000), redirect: 'error' })
     if (!response.ok) throw new Error(`百炼产物下载失败：HTTP ${response.status}`)
     const path = `media/${jobId}.mp4`, file = join(projectRoot(projectId), path)
     await mkdir(join(projectRoot(projectId), 'media'), { recursive: true })
     try { await pipeline(Readable.fromWeb(response.body), createWriteStream(file + '.tmp', { mode: 0o600 })); await rename(file + '.tmp', file) }
     finally { await rm(file + '.tmp', { force: true }) }
-    status.result = { ...await registerMedia(projectId, jobId, path, 'video'), provider: 'bailian',
+    const output = { ...await registerMedia(projectId, jobId, path, 'video'), provider: 'bailian',
       model: plan.mode === 'i2va' ? backend.connection.image_model : backend.connection.text_model, quality: plan.quality, profile: plan.profile,
       remote_task_id: taskId, duration_sec: plan.duration_seconds ?? backend.connection.duration,
       specification: { resolution: plan.resolution ?? backend.connection.resolution, ratio: plan.mode === 'i2va' ? 'source-image' : backend.connection.ratio, audio: true } }
-    status.status = 'succeeded'; status.stage = 'completed'; status.finished_at = new Date().toISOString()
-    await saveJson(statusPath, status)
-    return status
+    return succeedStatus(directory, status, output)
   } catch (error) {
-    status.status = 'failed'; status.failed_stage = status.stage; status.stage = 'failed'
-    status.error_code = error.code || 'BAILIAN_GENERATION_FAILED'; status.error = error.message
-    status.retry_scope = 'query-original-bailian-task'; await saveJson(statusPath, status)
+    await failStatus(directory, status, error, { code: 'BAILIAN_GENERATION_FAILED', retry_scope: 'query-original-bailian-task' })
     throw error
   }
 }

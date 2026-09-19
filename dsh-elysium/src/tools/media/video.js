@@ -5,8 +5,6 @@ import { waitJob } from '../../worker/tasks/jobs/wait.js'
 import { generationProjectId } from '../project/context.js'
 import { ModelTaskError } from '../../utils/errors.js'
 
-export { waitJob as waitVideoJob } from '../../worker/tasks/jobs/wait.js'
-
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
 const media = description => ({ type: 'string', description: `${description}，引用格式遵循当前后端的素材能力说明。` })
 
@@ -25,7 +23,7 @@ export function createCallToolsVideo() {
     description: '视频创作统一入口：当前后端可同时提供标准模式与兼容的多镜头导演计划。两类参数互斥；失败或断网保留原任务，禁止改提示词或档位重新生成。',
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
     parameters: { type: 'object', additionalProperties: false, required: [], properties: {
-      project_id: { type: 'string', description: '仅导演模式使用的项目 ID；自由和教学模式省略。' },
+      project_id: { type: 'string', description: '仅导演模式使用的项目 ID；自由模式省略。' },
       new_video: { type: 'boolean', description: '仅当用户明确要求另一个视频时设为 true；失败重试禁止设置。默认复用未完成任务。' },
       mode: { type: 'string', enum: VIDEO_MODES },
       duration_seconds: { type: 'number', exclusiveMinimum: 0, description: '请求时长（秒）；支持范围和默认值由当前后端能力说明决定，结果返回实际时长。' },
