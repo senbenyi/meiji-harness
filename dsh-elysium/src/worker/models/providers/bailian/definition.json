@@ -1,0 +1,9 @@
+{
+  "config": {
+    "field": "bailianFile",
+    "env": "ELYSIUM_BAILIAN_FILE",
+    "file": "bailian.json"
+  },
+  "priority": 10,
+  "channel": true
+}

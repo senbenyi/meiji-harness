@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "revision": 0,
+  "servers": [
+    {
+      "id": "autodl-comfyui",
+      "label": "AutoDL 图片与 MiniMax H3",
+      "provider": "autodl",
+      "connection_source": "manual",
+      "instance_id": "replace-with-comfyui-instance-id",
+      "deployment_id": "replace-with-comfyui-deployment-id",
+      "services": {
+        "comfyui": {
+          "transport": "ssh",
+          "ssh_alias": "replace-with-comfyui-alias",
+          "ssh_identity": "replace-with-64-character-sha256-identity",
+          "remote_host": "127.0.0.1",
+          "remote_port": 6016,
+          "local_port": 6016,
+          "workload": "minimax-h3"
+        }
+      }
+    },
+    {
+      "id": "autodl-qwen38",
+      "label": "AutoDL Qwen3.8",
+      "provider": "autodl",
+      "connection_source": "manual",
+      "instance_id": "replace-with-qwen-instance-id",
+      "deployment_id": "replace-with-qwen-deployment-id",
+      "services": {
+        "llm": {
+          "transport": "ssh",
+          "ssh_alias": "veo-qwen38",
+          "ssh_identity": "replace-with-64-character-sha256-identity",
+          "remote_host": "127.0.0.1",
+          "remote_port": 8000,
+          "local_port": 18000,
+          "api_path": "/v1",
+          "model": "qwen3.8-27b-elysium"
+        }
+      }
+    }
+  ]
+}

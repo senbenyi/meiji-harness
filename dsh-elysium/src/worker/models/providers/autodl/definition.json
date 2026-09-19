@@ -1,0 +1,24 @@
+{
+  "llm_route": "qwen38-local",
+  "services": {
+    "comfyui": {
+      "workload": "minimax-h3"
+    },
+    "llm": {
+      "model": "qwen3.8-27b-elysium"
+    }
+  },
+  "check_plans": {
+    "image": [
+      {
+        "prompt": "Connection check"
+      }
+    ],
+    "video": [
+      {
+        "duration": 5,
+        "prompts": ["Connection check"]
+      }
+    ]
+  }
+}
