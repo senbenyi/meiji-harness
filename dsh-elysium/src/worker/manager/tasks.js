@@ -22,7 +22,7 @@ export const taskFile = id => {
 export function validateSubmission({ submission_id: submissionId, lane, project_id: projectId, tasks, channel }) {
   if (!submissionPattern.test(submissionId || '')) throw invalid('submission_id 无效')
   if (!lanePattern.test(lane?.id || '') || !['interactive', 'batch'].includes(lane?.priority)) throw invalid('泳道配置无效')
-  if (!validProjectId(projectId)) throw invalid('project_id 必须为 8 位项目 ID')
+  if (!validProjectId(projectId)) throw invalid('project_id 必须为时间项目 ID 或兼容的 8 位项目 ID')
   if (!Array.isArray(tasks) || !tasks.length) throw invalid('至少提交一个任务')
   if (channel !== undefined && (typeof channel !== 'string' || !channel || channel.length > 64)) throw invalid('channel 无效')
   for (const [index, task] of tasks.entries()) {

@@ -10,6 +10,7 @@ import { getJob } from './inspect.js'
 import { withLaunchLock } from '../store/lock.js'
 import { findJobRoot } from '../store/paths.js'
 import { saveStatus } from '../store/status.js'
+import { appendHistory } from '../store/history.js'
 
 export async function launch(jobId, capability = 'workflow-video', retryFailed = false) {
   const located = await findJobRoot(jobId)
@@ -41,6 +42,7 @@ async function launchLocked(jobId, capability, retryFailed) {
     await connectBackend(backend)
     if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
     await saveStatus(directory, { ...identity, status: 'queued', stage: 'queued' })
+    await appendHistory(directory, 'worker-dispatched', { retry_failed: retryFailed })
     const log = await open(join(directory, 'worker.log'), 'a')
     try {
       const child = spawn(process.execPath, [fileURLToPath(new URL('./process.js', import.meta.url)), projectId, jobId],
@@ -52,6 +54,7 @@ async function launchLocked(jobId, capability, retryFailed) {
     return { job_id: jobId, project_id: projectId, status: 'queued' }
   } catch (error) {
     await saveStatus(directory, { ...identity, status: 'failed', error_code: error.code, error: error.message })
+    await appendHistory(directory, 'dispatch-failed', { error_code: error.code, error: String(error.message).slice(0, 1000) })
     await unlink(lockPath).catch(() => {})
     throw error
   } finally { await lock.close() }

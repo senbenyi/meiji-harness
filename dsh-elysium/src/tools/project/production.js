@@ -24,7 +24,7 @@ export function createCallToolsProjectProduction(ctx) {
     name: 'call_tools_project_produce',
     description: '按给定顺序批量提交项目图片/视频任务。同一泳道严格保序，返回 Harness 后台 job_id，整批结束时会话会收到通知。',
     parameters: object({
-      project_id: { type: 'string', pattern: '^[a-f0-9]{8}$' },
+      project_id: { type: 'string', pattern: '^(?:[a-f0-9]{8}|[0-9]{17})$' },
       tasks: { type: 'array', minItems: 1, items: object({
         kind: { type: 'string', enum: ['image', 'video'] }, plan: { type: 'object', additionalProperties: true },
         binding: { type: 'object', additionalProperties: true },

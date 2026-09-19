@@ -109,7 +109,7 @@ try {
   await request('director/create', { name: '测试导演', style: '测试风格', works: [] }, 201)
   const project = await request('project/create', { title: 'Adapter isolation', profile: 'preview', director: '测试导演' }, 201)
   const projectId = project.id
-  assert.match(projectId, /^[a-f0-9]{8}$/)
+  assert.match(projectId, /^\d{17}$/)
   a.failNext = true
   const initial = await startVideoJob({ project_id: projectId, mode: 't2va', profile: 'preview', prompt: 'A quiet garden.' })
   await completed(projectId, initial.job_id, 'failed')

@@ -2,6 +2,7 @@
 
 // 任务管理：提交与恢复只返回句柄，等待由调用方决定（Agent 工具等待，工作卡按钮不等待）。
 export { submit, submitTask, retry, retryTask, cancel, cancelLane, pause, resume, getLane, removeProjectTasks } from './manager/manager.js'
+export { taskId } from './manager/tasks.js'
 export { registerSink } from './manager/sinks.js'
 export { createTaskDriver } from './driver/driver.js'
 export { waitJob } from './runner/wait.js'

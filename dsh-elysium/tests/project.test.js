@@ -32,7 +32,7 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     let response = await request('create', { title: '测试项目', profile: 'preview', director: '张艺谋' })
     assert.equal(response.status, 201)
     const board = await response.json(), id = board.id
-    assert.match(id, /^[a-f0-9]{8}$/)
+    assert.match(id, /^\d{17}$/)
     assert.deepEqual(board.materials, [])
     let summary = (await (await request('list')).json())[0]
     assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'anchors'); assert.equal(summary.director, '张艺谋')
@@ -122,7 +122,7 @@ test('reading a four-file project creates its missing material index from existi
 })
 
 test('create retries a colliding ID without overwriting the existing project', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'elysium-collision-')), ids = ['aaaaaaaa', 'aaaaaaaa', 'bbbbbbbb']
+  const root = await mkdtemp(join(tmpdir(), 'elysium-collision-')), ids = ['20260910143023456', '20260910143023456', '20260910143023457']
   await seedDirectors(root, ['陈凯歌'])
   const handler = createProjectHandler({ token: 't', newId: () => ids.shift() })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
@@ -132,9 +132,9 @@ test('create retries a colliding ID without overwriting the existing project', a
     for (const title of ['原分镜', '新分镜']) {
       const response = await fetch(url, { method: 'POST', body: JSON.stringify({ title, profile: 'preview', director: '陈凯歌' }) })
       assert.equal(response.status, 201)
-      assert.equal((await response.json()).id, title === '原分镜' ? 'aaaaaaaa' : 'bbbbbbbb')
+      assert.equal((await response.json()).id, title === '原分镜' ? '20260910143023456' : '20260910143023457')
     }
-    const original = JSON.parse(await readFile(join(root, 'projects/aaaaaaaa/project.json'), 'utf8'))
+    const original = JSON.parse(await readFile(join(root, 'projects/20260910143023456/project.json'), 'utf8'))
     assert.equal(original.title, '原分镜')
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
@@ -181,6 +181,20 @@ test('remote cover remains available when another anchor references a video job'
   const summary = projectSummary({id:'abcdef12',title:'cover',profile:'preview',anchors:[{source:{job_id:'a'.repeat(32)},image_url:''},{image_url:'https://example.test/cover.png'}],acts:[],deliverables:[]})
   assert.equal(summary.cover_url,'https://example.test/cover.png')
   assert.equal(summary.cover_job_id,null)
+})
+
+test('project produce route authenticates and accepts only project, shot and submission identities', async t => {
+  const calls = [], project = { id: 'abcdef12', acts: [] }
+  const handler = createProjectHandler({ token: 't', projectStore: { produce: async body => { calls.push(body); return { project, tasks: [] } } } })
+  const server = createServer(handler)
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => server.close(resolve)))
+  const url = token => `http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/produce${token ? `?t=${token}` : ''}`
+  const body = { project_id: project.id, shot_ids: ['shot-a'], submission_id: 'produce-route-001' }
+  assert.equal((await fetch(url(), { method: 'POST', body: JSON.stringify(body) })).status, 401)
+  assert.equal((await fetch(url('t'), { method: 'POST', body: JSON.stringify({ ...body, backend: 'comfyui' }) })).status, 400)
+  assert.equal((await fetch(url('t'), { method: 'POST', body: JSON.stringify(body) })).status, 202)
+  assert.deepEqual(calls, [body])
 })
 
 // 封面校验、持久化和摘要读取不依赖锚点顺序或远程模型服务。

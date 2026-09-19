@@ -6,7 +6,8 @@ import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'poll']
+const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'produce', 'retry', 'poll']
+const exactBody = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key))
 
 export function createProjectHandler(options) {
   const { token } = options
@@ -31,6 +32,14 @@ export function createProjectHandler(options) {
         return json(res, 200, await store.read(id))
       }
       const body = await readJsonBody(req)
+      if (action === 'produce') {
+        if (!exactBody(body, ['project_id', 'shot_ids', 'submission_id'])) throw invalidRequest('项目提交参数无效')
+        return json(res, 202, await store.produce(body))
+      }
+      if (action === 'retry') {
+        if (!exactBody(body, ['project_id', 'task_id'])) throw invalidRequest('任务恢复参数无效')
+        return json(res, 202, await store.retryShot(body))
+      }
       if (['update-anchor', 'update-shot'].includes(action)) {
         if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) throw invalidRequest('对象参数无效')
         const change = action === 'update-anchor' ? store.changeAnchor : store.changeShot

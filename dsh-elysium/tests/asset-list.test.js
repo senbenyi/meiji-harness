@@ -25,7 +25,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
   const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`
   try {
     assert.deepEqual(await (await fetch(base + '/list?t=secret')).json(), { items: [], total: 0, has_more: false })
-    const project = 'a'.repeat(8)
+    const project = '20260910143023456'
     for (let i = 1; i <= 3; i++) {
       const id = String(i).repeat(32), path = join(root, 'projects', 'jobs', id, 'status.json')
       await mkdir(join(root, 'projects', 'jobs', id, 'input'), { recursive: true })

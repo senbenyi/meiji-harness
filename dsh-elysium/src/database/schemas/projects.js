@@ -3,7 +3,7 @@ import { statusError } from '../../utils/errors.js'
 
 const invalidRequest = message => statusError(400, message)
 
-export const validProjectId = id => typeof id === 'string' && /^[a-f0-9]{8}$/.test(id)
+export const validProjectId = id => typeof id === 'string' && /^(?:[a-f0-9]{8}|\d{17})$/.test(id)
 export const validShotId = id => typeof id === 'string' && /^[a-z0-9-]{1,40}$/.test(id)
 export const validJobId = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value)
 export const serverUrl = value => {

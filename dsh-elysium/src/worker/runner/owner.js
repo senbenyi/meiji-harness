@@ -40,3 +40,15 @@ export async function workerAlive(lockPath, jobId) {
   }
   return alive
 }
+
+export async function stopWorker(lockPath, jobId, { timeout = 5000 } = {}) {
+  if (!await workerAlive(lockPath, jobId)) return
+  const pid = Number(await readFile(lockPath, 'utf8'))
+  process.kill(pid, 'SIGTERM')
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+    if (!await workerAlive(lockPath, jobId)) return
+  }
+  throw new ModelTaskError('WORKFLOW_RECOVERY_REQUIRED', '原 worker 未能安全停止，未重新派发任务', 409)
+}

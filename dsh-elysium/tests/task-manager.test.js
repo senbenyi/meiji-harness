@@ -10,7 +10,7 @@ import { submitTask, retryTask } from '../src/worker/manager/manager.js'
 import { bindActiveJobCall } from '../src/worker/intake/call-bindings.js'
 import { mediaInvocation } from '../src/session/index.js'
 
-const project = 'abcd1234'
+const project = '20260910143023456'
 const imageId = 'e'.repeat(32), videoId = 'f'.repeat(32)
 
 async function fixture(t, run) {

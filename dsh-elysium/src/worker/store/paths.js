@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { jobsRoot, projectsRoot, uploadsRoot } from '../../database/paths.js'
 
 export const FREE_PROJECT_ID = '00000000'
-export const validProjectId = value => /^[a-f0-9]{8}$/.test(value || '')
+export const validProjectId = value => /^(?:[a-f0-9]{8}|\d{17})$/.test(value || '')
 export const validJobId = value => /^[a-f0-9]{32}$/.test(value || '')
 export const projectRoot = projectId => {
   if (!validProjectId(projectId)) throw new Error('项目 ID 无效')

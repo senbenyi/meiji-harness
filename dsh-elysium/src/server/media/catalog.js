@@ -7,6 +7,7 @@ import { readJson, saveJson } from '../../database/json.js'
 import { invalidRequest } from '../http.js'
 import { jobsRoot, projectsRoot, uploadsRoot } from '../../database/paths.js'
 import { addMaterial, removeMaterial, syncMaterials } from '../../database/managers/materials.js'
+import { validProjectId } from '../projects/schema.js'
 
 export async function availableJobSummary(job) {
   const summary = jobSummary(job)
@@ -92,7 +93,7 @@ export async function listAssets(offset, limit, filters = {}) {
   const projectMaterials = new Set()
   if (filters.source === 'project') {
     const projects = await readdir(projectsRoot(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
-    for (const project of projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name))) {
+    for (const project of projects.filter(project => project.isDirectory() && validProjectId(project.name))) {
       const directory = join(projectsRoot(), project.name)
       const materials = await readJson(join(directory, 'materials.json'))
       const metadata = materials ? null : await readJson(join(directory, 'project.json'))

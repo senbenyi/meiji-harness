@@ -22,6 +22,16 @@ function fixture(initial) {
       if (url.startsWith('/director/delete')) { const { name } = JSON.parse(options.body); directors = directors.filter(item => item.name !== name); return { ok: true, json: async () => ({ deleted: true }) } }
       if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', cover_job_id: project.cover_job_id, anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
+      if (url.startsWith('/project/produce')) {
+        const body = JSON.parse(options.body)
+        for (const act of project.acts) for (const shot of act.shots) if (body.shot_ids.includes(shot.id)) { shot.job_id = shot.id.padEnd(32, 'a').slice(0, 32); shot.status = 'pending' }
+        return { ok: true, json: async () => ({ project: structuredClone(project), tasks: [] }) }
+      }
+      if (url.startsWith('/project/retry')) {
+        const body = JSON.parse(options.body)
+        for (const act of project.acts) for (const shot of act.shots) if (shot.job_id === body.task_id) shot.status = 'pending'
+        return { ok: true, json: async () => ({ project: structuredClone(project), job: { job_id: body.task_id, status: 'pending' } }) }
+      }
       if (url.startsWith('/project/update-anchor')) {
         const { action, data } = JSON.parse(options.body)
         if (action === 'delete') project.anchors = project.anchors.filter(anchor => anchor.role !== data.role)
@@ -203,6 +213,34 @@ test('panel adds, moves and deletes by shot ID while retaining selection after r
   assert.deepEqual(requests[2].data, { id: second, direction: -1 })
   assert.deepEqual(requests[3].data, { id: second })
   assert.equal(f.requests.some(x => x.url.startsWith('/project/update?')), false)
+  await act(async () => view.unmount())
+})
+
+test('storyboard submits one shot, retries a failed task, and batches only unclaimed shots', async () => {
+  const project = emptyProject()
+  project.acts = [{ title: '幕', shots: [
+    { id: 'shot-a', role: '', action: 'A', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' },
+    { id: 'shot-b', role: '', action: 'B', subtitle: '', mode: 't2va', job_id: 'b'.repeat(32), status: 'failed', notes: '' },
+    { id: 'shot-c', role: '', action: 'C', subtitle: '', mode: 't2va', job_id: 'c'.repeat(32), status: 'pending', notes: '' },
+  ] }]
+  const f = fixture(project)
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'acts' }, back() {} })) })
+  await act(async () => view.root.findByProps({ 'aria-label': '镜 001' }).props.onClick())
+  await click(view, '生成此镜')
+  let request = f.requests.findLast(item => item.url.startsWith('/project/produce'))
+  assert.deepEqual(JSON.parse(request.options.body).shot_ids, ['shot-a'])
+  assert.equal(f.project().acts[0].shots[0].status, 'pending')
+  assert.ok(f.project().acts[0].shots[0].job_id)
+  await act(async () => view.root.findByProps({ 'aria-label': '镜 002' }).props.onClick())
+  await click(view, '恢复此镜任务')
+  request = f.requests.findLast(item => item.url.startsWith('/project/retry'))
+  assert.deepEqual(JSON.parse(request.options.body), { project_id: project.id, task_id: 'b'.repeat(32) })
+  await act(async () => view.root.findByProps({ 'aria-label': '镜 001' }).props.onClick())
+  await click(view, '解除素材关联')
+  await click(view, '生成全部待处理镜头')
+  request = f.requests.findLast(item => item.url.startsWith('/project/produce'))
+  assert.deepEqual(JSON.parse(request.options.body).shot_ids, ['shot-a'])
   await act(async () => view.unmount())
 })
 

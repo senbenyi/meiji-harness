@@ -9,6 +9,10 @@ import { statusError } from '../../utils/errors.js'
 const FREE_PROJECT_ID = '00000000'
 const invalidRequest = message => statusError(400, message)
 const unavailableJob = async () => { throw new Error('项目素材校验服务未配置') }
+const timeProjectId = () => {
+  const now = new Date(), part = (value, width = 2) => String(value).padStart(width, '0')
+  return `${now.getFullYear()}${part(now.getMonth() + 1)}${part(now.getDate())}${part(now.getHours())}${part(now.getMinutes())}${part(now.getSeconds())}${part(now.getMilliseconds(), 3)}`
+}
 
 export function projectSummary(value) {
   const shots = value.acts.flatMap(act => act.shots)
@@ -25,7 +29,7 @@ export function projectSummary(value) {
   }
 }
 
-export function createProjectStore({ readJob = unavailableJob, summarizeJob = unavailableJob, removeTasks = async () => {}, newId = () => randomBytes(4).toString('hex'), directorExists = async () => true } = {}) {
+export function createProjectStore({ readJob = unavailableJob, summarizeJob = unavailableJob, removeTasks = async () => {}, newId = timeProjectId, directorExists = async () => true } = {}) {
   const root = projectsRoot
   const names = { materials: 'materials.json', anchors: 'anchors.json', acts: 'storyboard.json', deliverables: 'deliverables.json' }
   const metadataOf = ({ materials, anchors, acts, deliverables, ...metadata }) => metadata

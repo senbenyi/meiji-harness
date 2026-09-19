@@ -53,7 +53,7 @@ export async function saveDriver(driver) {
 }
 
 export async function selectNext(driver, statuses) {
-  if ([...statuses.values()].filter(status => ['queued', 'running'].includes(status)).length >= 1) return null
+  if ([...statuses.values()].filter(status => ['queued', 'running', 'unknown'].includes(status)).length >= 1) return null
   for (const priority of ['interactive', 'batch']) {
     const heads = new Map()
     for (const entry of driver.entries) {

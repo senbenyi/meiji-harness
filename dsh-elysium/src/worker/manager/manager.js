@@ -14,6 +14,8 @@ import { withLaunchLock } from '../store/lock.js'
 import { createJob } from '../store/records.js'
 import { jobRoot } from '../store/paths.js'
 import { saveStatus, terminalStatus } from '../store/status.js'
+import { appendHistory } from '../store/history.js'
+import { stopWorker } from '../runner/owner.js'
 import { CAPABILITIES, assertRetryAllowed, invalid, kindOf, resubmitFailed, retriedThisTurn, reusableTask } from './policy.js'
 import { loadDriver, saveDriver, withQueueLock } from './queue.js'
 import { jobReferences, listTasks, readTask, requestHash, taskFile, taskId, validateSubmission, writeTask } from './tasks.js'
@@ -210,6 +212,7 @@ export async function settle(taskIdValue) {
     const handler = task.binding?.type && sinkFor(task.binding.type)
     if (handler) await handler(job, task)
     await saveJson(join(directory, 'settled.json'), { status: job.status, finished_at: job.finished_at, settled_at: new Date().toISOString() })
+    await appendHistory(directory, 'settled', { status: job.status })
     await rm(join(directory, 'settle-error.json'), { force: true })
     return true
   } catch (error) {
@@ -235,6 +238,7 @@ async function retryLocked(jobId, kind, consent) {
   const pending = { job_id: jobId, project_id: job.project_id, capability: job.capability, backend: job.backend, server: job.server,
     status: 'pending', stage: 'pending', trace_id: job.trace_id, parent_job_id: job.parent_job_id, code_version: job.code_version }
   await withLaunchLock(jobRoot(jobId), () => saveStatus(jobRoot(jobId), pending), true)
+  await rm(join(jobRoot(jobId), 'recovery-required.json'), { force: true })
   driver.lanes[task.lane.id] ||= { priority: task.lane.priority, paused: false }
   if (!driver.entries.some(entry => entry.task_id === jobId)) driver.entries.push({ seq: task.seq, task_id: jobId, lane_id: task.lane.id })
   await saveDriver(driver)
@@ -242,7 +246,16 @@ async function retryLocked(jobId, kind, consent) {
 }
 
 export async function retry(jobId, { kind, consent = false } = {}) {
+  const observed = await getJob(jobId)
+  if (['queued', 'running'].includes(observed.status) && observed.recovery_required) {
+    if (!consent) throw new ModelTaskError('MODEL_RETRY_CONFIRMATION_REQUIRED', '恢复任务需要明确确认', 409)
+    const directory = jobRoot(jobId)
+    await appendHistory(directory, 'manual-recovery-requested', { reason: observed.recovery_reason })
+    await stopWorker(join(directory, 'worker.lock'), jobId)
+    await getJob(jobId)
+  }
   const result = await withQueueLock(() => retryLocked(jobId, kind, consent))
+  await appendHistory(jobRoot(jobId), 'retry-queued', { kind: kind || null })
   wake()
   return result
 }

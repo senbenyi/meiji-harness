@@ -32,9 +32,10 @@ async function reconcile(full) {
             origin: { task_id: task.task_id, submission_id: task.submission_id, lane_id: task.lane.id, seq: task.seq, binding: task.binding, project_id: task.project_id } })
         }
       }
-      const job = await getJob(task.task_id)
-      const settled = terminalStatus(job.status) && await readJson(join(jobRoot(task.task_id), 'settled.json'))
-      const closed = settled?.status === job.status && settled.finished_at === job.finished_at
+      let job
+      try { job = await getJob(task.task_id) } catch { /* 损坏记录保留在索引中，阻止错误接管但不终止其他对账。 */ }
+      const settled = job && terminalStatus(job.status) && await readJson(join(jobRoot(task.task_id), 'settled.json'))
+      const closed = job && settled?.status === job.status && settled.finished_at === job.finished_at
       if (!closed && !indexed.has(task.task_id)) {
         driver.entries.push({ seq: task.seq, task_id: task.task_id, lane_id: task.lane.id })
         driver.lanes[task.lane.id] ||= { priority: task.lane.priority, paused: false }
@@ -63,7 +64,10 @@ export async function driveOnce({ full = false } = {}) {
     }
     await saveDriver(driver)
     const current = new Map()
-    for (const entry of driver.entries) current.set(entry.task_id, (await getJob(entry.task_id)).status)
+    for (const entry of driver.entries) {
+      try { current.set(entry.task_id, (await getJob(entry.task_id)).status) }
+      catch { current.set(entry.task_id, 'unknown') }
+    }
     return selectNext(driver, current)
   })
   if (next) await dispatch(next.task_id)
