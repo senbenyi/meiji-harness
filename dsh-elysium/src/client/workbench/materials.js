@@ -29,7 +29,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       error ? h('p', { role: 'alert' }, error) : null)
   }
   function MaterialList({ onSelect, imageOnly = false, viewState = {}, onViewState = () => {} } = {}) {
-    const [state, setState] = useState({ source: 'creation', profile: '', media_kind: '', q: '', page: 0, page_size: DEFAULT_PAGE_SIZE, ...viewState, ...(imageOnly ? { media_kind: 'image' } : {}) })
+    const [state, setState] = useState({ source: 'creation', quality: '', media_kind: '', q: '', page: 0, page_size: DEFAULT_PAGE_SIZE, ...viewState, ...(imageOnly ? { media_kind: 'image' } : {}) })
     const [input, setInput] = useState(state.q), [data, setData] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0)
     const [preview, setPreview] = useState(null), [importJob, setImportJob] = useState(null), [submitting, setSubmitting] = useState(false), [mediaError, setMediaError] = useState(false), [deleting, setDeleting] = useState(false), [uploading, setUploading] = useState(false), [uploadError, setUploadError] = useState('')
     const sequence = useRef(0), grid = useRef(null), fileInput = useRef(null)
@@ -47,11 +47,11 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       const cached = listCache.get(key)
       if (cached && Date.now() - cached.time < 30000) { setData(cached.value); setBusy(false); setError(''); return () => { ++sequence.current; controller.abort() } }
       setBusy(true); setError(''); setData(cached?.value || null)
-      fetchAssets(state.page * pageSize, pageSize, { source: state.source, profile: state.profile, media_kind: state.media_kind, q: state.q }, controller.signal).then(value => {
+      fetchAssets(state.page * pageSize, pageSize, { source: state.source, quality: state.quality, media_kind: state.media_kind, q: state.q }, controller.signal).then(value => {
         if (request === sequence.current) { listCache.set(key, { value, time: Date.now() }); if (listCache.size > 8) listCache.delete(listCache.keys().next().value); setData(value); if (grid.current) grid.current.scrollTop = state.scroll || 0 }
       }).catch(err => { if (!controller.signal.aborted && request === sequence.current) setError(err.message) }).finally(() => { if (request === sequence.current) setBusy(false) })
       return () => { ++sequence.current; controller.abort() }
-    }, [state.source, state.profile, state.media_kind, state.q, state.page, pageSize, retry])
+    }, [state.source, state.quality, state.media_kind, state.q, state.page, pageSize, retry])
     useEffect(() => { if (grid.current && data) grid.current.scrollTop = state.scroll || 0 }, [data])
     const select = (label, key, options) => h('select', { 'aria-label': label, value: state[key], onChange: event => change({ [key]: event.target.value, page: 0, scroll: 0 }) }, options.map(([value, text]) => h('option', { key: value, value }, text)))
     async function upload(event) {
@@ -67,7 +67,7 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
         }
       } catch (err) { setUploadError(err.message) } finally {
         listCache.clear(); setData(null); setInput('')
-        change({ source: 'import', page: 0, scroll: 0, profile: '', media_kind: imageOnly ? 'image' : '', q: '' })
+        change({ source: 'import', page: 0, scroll: 0, quality: '', media_kind: imageOnly ? 'image' : '', q: '' })
         setRetry(value => value + 1); setUploading(false)
       }
     }
@@ -96,13 +96,13 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
         h(IconButton, { name: 'insert', label: imageOnly ? '导入图片素材' : '导入素材', disabled: uploading, onClick: () => fileInput.current.click() }),
         h('input', { type: 'file', ref: fileInput, hidden: true, multiple: true, accept: imageOnly ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4', 'aria-label': '选择导入文件', disabled: uploading, onChange: upload }),
         h('input', { type: 'search', 'aria-label': '搜索素材', placeholder: '搜索', value: input, onChange: e => setInput(e.target.value) }),
-        select('档次', 'profile', [['', '全部'], ['preview', '预览'], ['regular', '常规'], ['high-quality', '高清']]),
+        select('创作质量', 'quality', [['', '全部'], ['fast', '快速创作'], ['regular', '常规创作'], ['high', '高清创作']]),
         imageOnly ? null : select('类型', 'media_kind', [['', '全部'], ['video', '视频'], ['image', '图片']])),
       error ? h('p', { role: 'alert' }, error, h('button', { onClick: () => { listCache.clear(); setRetry(x => x + 1) } }, '重试')) : null,
       uploadError ? h('p', { role: 'alert' }, uploadError) : null,
       uploading ? h('p', { role: 'status' }, '正在导入素材…') : null,
       busy ? h('div', { className: 'elysium-empty', role: 'status' }, '正在加载素材…') : null,
-      data?.items.length === 0 ? h('p', { className: 'elysium-empty' }, state.q || state.profile || state.media_kind ? '无匹配素材，请调整筛选条件' : '暂无已完成素材') : null,
+      data?.items.length === 0 ? h('p', { className: 'elysium-empty' }, state.q || state.quality || state.media_kind ? '无匹配素材，请调整筛选条件' : '暂无已完成素材') : null,
       h('div', { className: 'elysium-material-grid', ref: grid, onScroll: e => onViewState({ ...state, scroll: e.currentTarget.scrollTop }) },
         data?.items.map(item => h('article', { key: item.job_id, className: 'elysium-material-card' },
           h('button', { className: 'elysium-card-open', onClick: () => { setPreview(item); setMediaError(false) }, 'aria-label': `查看素材 ${assetTitle(item)}` },

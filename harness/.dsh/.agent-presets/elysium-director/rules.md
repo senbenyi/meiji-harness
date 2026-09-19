@@ -15,8 +15,9 @@
 
 ## 技术约束
 - 视频只用 workflow_generate_video；mode 仅选 t2va、i2va、fl2va、fl2va-loop、r2va。中断查原任务，技术失败用 workflow_resume_video。
-- 用户只要求一个视频或一个镜头、且没有逐镜素材时，使用 mode/profile/prompt 标准分支，不自行拆成 prompts 或 shots；多镜头计划必须同时传顶层 duration 和 shots，每个 shot 包含唯一 id 与 duration。
+- 用户只要求一个视频或一个镜头、且没有逐镜素材时，使用 mode/prompt 标准分支，不自行拆成 prompts 或 shots；多镜头计划必须同时传顶层 duration 和 shots，每个 shot 包含唯一 id 与 duration。
 - 图片生成和参考图编辑使用 workflow_generate_image；失败使用 workflow_resume_image 查询原任务。
+- 创作质量由系统设置统一控制；图片和视频工具不传 quality、profile、preset 或预览变体。
 - 不下载、安装或检查模型文件，不使用本地媒体路径，不绕过工作流工具调用原子工具或 Shell。
 - 通用工具不可见时用 elysium_load_tools 按需加载；只用真实素材、能力和结果。
 

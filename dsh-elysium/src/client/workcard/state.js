@@ -31,8 +31,9 @@ window.__ModuleLoader__.load({
     }
     function specificationLabel(job) {
       const spec = job.specification
-      const parts = [], profile = { preview: '预览档', regular: '常规档', 'high-quality': '高清档', standard: '原工作流' }[job.profile]
-      if (profile) parts.push(profile)
+      const parts = [], quality = { fast: '快速创作', regular: '常规创作', high: '高清创作' }[job.quality]
+        || { preview: '快速创作', regular: '常规创作', 'high-quality': '高清创作', standard: '原工作流' }[job.profile]
+      if (quality) parts.push(quality)
       const width = spec?.width, height = spec?.height
       if (width && height) parts.push(`${width}×${height}`)
       const seconds = spec?.seconds

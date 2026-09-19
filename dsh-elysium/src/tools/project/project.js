@@ -5,7 +5,7 @@ const text = { type: 'string' }
 const projectId = { type: 'string', description: '项目 ID，先读取再修改。' }
 const shotId = { type: 'string' }
 const object = (properties, required = []) => ({ type: 'object', additionalProperties: false, properties, required })
-const info = { title: text, director: text, profile: { type: 'string', enum: ['preview', 'regular', 'high-quality', 'hd'] } }
+const info = { title: text, director: text }
 const anchorPatch = object({
   new_role: text, label: text, description: text, image_url: text,
   source: { oneOf: [{ type: 'null' }, object({ type: { type: 'string', enum: ['job', 'material'] }, job_id: { type: 'string' } }, ['type', 'job_id'])] },
@@ -52,7 +52,7 @@ export function createCallToolsProjectActions(store) {
       },
       output: { schema: outputSchema, render: renderProjectResult },
       execute: args => {
-        if (args.target === 'info') return store.change('update', { id: args.project_id, title: args.title, director: args.director, profile: args.profile })
+        if (args.target === 'info') return store.change('update', { id: args.project_id, title: args.title, director: args.director })
         if (args.target === 'anchor') return store.changeAnchor(args.project_id, args.action, { ...args.patch, role: args.role })
         if (args.target === 'act') return store.changeAct(args.project_id, args.action, { act_index: args.act_index, direction: args.direction, title: args.title })
         return store.changeShot(args.project_id, args.action, { ...args.patch, id: args.id, act_index: args.act_index, direction: args.direction })
@@ -60,9 +60,9 @@ export function createCallToolsProjectActions(store) {
     },
     {
       name: 'call_tools_project_create', description: '创建空项目；先调用 call_tools_director_list，director 必须使用其返回的精确名称。返回项目 ID，不会启动视频生成。',
-      parameters: object(info, ['title', 'director', 'profile']),
+      parameters: object(info, ['title', 'director']),
       output: { schema: outputSchema, render: renderProjectResult },
-      execute: args => store.change('create', { title: args.title, director: args.director, profile: args.profile }),
+      execute: args => store.change('create', { title: args.title, director: args.director }),
     },
   ]
 }

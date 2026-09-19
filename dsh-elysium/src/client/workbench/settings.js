@@ -3,13 +3,16 @@ load('elysium/settings', (require, exports) => {
   const { createElement: h, useState, useEffect } = require('react')
   const { settingsRequest } = require('elysium/settings-api')
   const labels = { image: '图片模型', video: '视频模型' }
+  const qualities = [['fast', '快速创作'], ['regular', '常规创作'], ['high', '高清创作']]
+  const qualityDescriptions = { fast: '优先速度，适合构图、动作和分镜预演', regular: '兼顾质量与等待时间，适合日常创作', high: '优先细节和稳定性，适合正式出片' }
   function Settings() {
     const [data, setData] = useState(null), [selected, setSelected] = useState({}), [thirdPartySelected, setThirdPartySelected] = useState({})
+    const [creation, setCreation] = useState(null)
     const [error, setError] = useState(''), [busy, setBusy] = useState(null), [chatConnected, setChatConnected] = useState(false)
     useEffect(() => {
       const controller = new AbortController()
       settingsRequest('models', null, controller.signal).then(value => {
-        setData(value); setSelected(value.selected); setThirdPartySelected(value.third_party_selected || {})
+        setData(value); setSelected(value.selected); setThirdPartySelected(value.third_party_selected || {}); setCreation(value.creation)
       }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
       return () => controller.abort()
     }, [])
@@ -20,6 +23,16 @@ load('elysium/settings', (require, exports) => {
         const value = await settingsRequest('tunnel-connect', { id: data.chat_model.id })
         setChatConnected(value.connected === true)
       } catch (error) { setError(error.message) }
+      finally { setBusy(null) }
+    }
+    async function chooseQuality(quality) {
+      if (busy || !creation) return
+      const previous = creation
+      setCreation({ ...creation, quality }); setBusy('quality'); setError('')
+      try {
+        const value = await settingsRequest('creation-quality', { quality, revision: creation.revision })
+        setCreation({ revision: value.revision, quality: value.quality })
+      } catch (error) { setCreation(previous); setError(error.message) }
       finally { setBusy(null) }
     }
     async function chooseOwn(kind, id) {
@@ -43,6 +56,12 @@ load('elysium/settings', (require, exports) => {
       finally { setBusy(null) }
     }
     return h('section', { className: 'elysium-settings', 'aria-label': '模型设置' },
+      h('h2', null, '创作设置'),
+      h('div', { className: 'elysium-model-row' },
+        h('label', { htmlFor: 'elysium-creation-quality' }, '创作质量：'),
+        h('select', { id: 'elysium-creation-quality', 'aria-label': '创作质量', value: creation?.quality || 'regular', disabled: busy === 'quality' || !creation, onChange: event => chooseQuality(event.target.value) },
+          qualities.map(([value, label]) => h('option', { key: value, value }, label))),
+        creation ? h('small', null, qualityDescriptions[creation.quality]) : null),
       h('h2', null, '私有模型'),
       data?.chat_model ? h('div', { className: 'elysium-model-row' },
         h('label', { htmlFor: 'elysium-model-chat' }, '聊天模型：'),

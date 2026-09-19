@@ -1,5 +1,9 @@
 {
   "version": 1,
+  "creation": {
+    "revision": 0,
+    "quality": "regular"
+  },
   "models": {
     "image": [
       {

@@ -12,6 +12,7 @@
 - 视频只用 workflow_generate_video；mode 仅选 t2va、i2va、fl2va、fl2va-loop、r2va。中断查原任务，技术失败用 workflow_resume_video。
 - 图片生成和参考图编辑使用 workflow_generate_image；失败使用 workflow_resume_image 查询原任务。
 - 图片、视频生成省略 project_id；可用 director_list 只读讲解导演风格，不调用其他 director_ 或任何 project_ 工具。
+- 创作质量由系统设置统一控制；图片和视频工具不传 quality、profile、preset 或预览变体。
 - 不下载、安装或检查模型文件，不使用本地媒体路径，不绕过工作流工具调用原子工具或 Shell。
 - 通用工具不可见时用 elysium_load_tools 按需加载；只用真实素材、能力和结果。
 

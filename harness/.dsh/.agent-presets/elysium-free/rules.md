@@ -9,8 +9,9 @@
 
 ## 技术约束
 - 视频只用 workflow_generate_video；mode 仅选 t2va、i2va、fl2va、fl2va-loop、r2va。中断查原任务，技术失败用 workflow_resume_video。
-- 标准视频只传 mode、profile、prompt 及该模式所需素材；preview 不传时长，duration 仅属于多镜头导演计划，禁止与 mode、profile、prompt 混用。
+- 标准视频只传 mode、prompt、可选 duration_seconds 及该模式所需素材；duration 仅属于多镜头导演计划，禁止与 mode、prompt 混用。
 - 图片生成和参考图编辑使用 workflow_generate_image；失败使用 workflow_resume_image 查询原任务。
+- 创作质量由系统设置统一控制；图片和视频工具不传 quality、profile、preset 或预览变体。
 - 不下载、安装或检查模型文件，不使用本地媒体路径，不绕过工作流工具调用原子工具或 Shell。
 - 创作与导演选择不加载 files 或 shell，不通过 Shell、文件或命令行查找导演；只用真实素材、能力和结果。
 

@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { projectsRoot } from '../paths.js'
-import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, profileValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
+import { anchorsValue, actsValue, deliverablesValue, directorValue, materialsValue, serverUrl, shotValue, titleValue, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
 import { statusError } from '../../utils/errors.js'
 
 const FREE_PROJECT_ID = '00000000'
@@ -18,7 +18,7 @@ export function projectSummary(value) {
   return {
     cover_job_id: value.cover_job_id || (value.anchors.some(anchor => serverUrl(anchor.image_url)) ? null : value.anchors.find(anchor => anchor.source?.job_id)?.source.job_id || null),
     cover_url: value.cover_job_id ? null : value.anchors.find(anchor => serverUrl(anchor.image_url))?.image_url || null,
-    id: value.id, title: value.title, director: value.director || null, profile: value.profile, created_at: value.created_at, updated_at: value.updated_at,
+    id: value.id, title: value.title, director: value.director || null, created_at: value.created_at, updated_at: value.updated_at,
     status: active ? 'active' : completed ? 'completed' : 'todo', stage,
     anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length,
     deliverable_count: value.deliverables.length,
@@ -131,7 +131,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
       if (action === 'create') {
         const now = Date.now()
         do { value = { id: newId() } } while (value.id === FREE_PROJECT_ID)
-        value = { ...value, title: titleValue(body.title), director: await checkedDirector(body.director), profile: profileValue(body.profile), created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
+        value = { ...value, title: titleValue(body.title), director: await checkedDirector(body.director), created_at: now, updated_at: now, materials: [], anchors: [], acts: [], deliverables: [] }
         if (body.cover_job_id !== undefined) { value.cover_job_id = await checkedCover(body.cover_job_id); value.materials = [value.cover_job_id] }
         sections = ['materials', 'anchors', 'acts', 'deliverables']
         await mkdir(root(), { recursive: true })
@@ -147,7 +147,6 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
         if (body.cover_job_id !== undefined && body.cover_job_id !== value.cover_job_id) value.cover_job_id = await checkedCover(body.cover_job_id)
         if (body.title !== undefined) value.title = titleValue(body.title)
         if (body.director !== undefined) value.director = await checkedDirector(body.director)
-        if (body.profile !== undefined) value.profile = profileValue(body.profile)
         if (body.materials !== undefined) { value.materials = materialsValue(body.materials); sections.push('materials') }
         if (body.anchors !== undefined) { value.anchors = anchorsValue(body.anchors); sections.push('anchors') }
         if (body.acts !== undefined) { value.acts = actsValue(body.acts); ensureShotIds(value.acts); sections.push('acts') }

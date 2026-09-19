@@ -16,11 +16,6 @@ export function titleValue(title) {
   return title.trim()
 }
 
-export function profileValue(value) {
-  if (!['preview', 'regular', 'high-quality', 'hd'].includes(value)) throw invalidRequest('档次无效')
-  return value
-}
-
 export function directorValue(value) {
   if (typeof value !== 'string' || !value.trim() || value.length > 80) throw invalidRequest('请选择有效导演')
   return value.trim()
