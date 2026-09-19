@@ -5,12 +5,11 @@ import { statusError } from '../../utils/errors.js'
 const invalidOutput = message => statusError(502, `分镜生成结果无效：${message}`)
 
 function storyboardSchema(roles) {
-  const text = maxLength => ({ type: 'string', maxLength })
   const shot = { type: 'object', additionalProperties: false, properties: {
-    role: { type: 'string', enum: ['', ...roles] }, action: { ...text(2000), minLength: 1 }, subtitle: text(1000), notes: text(1000),
+    role: { type: 'string', enum: ['', ...roles] }, action: { type: 'string' }, subtitle: { type: 'string' }, notes: { type: 'string' },
   }, required: ['role', 'action', 'subtitle', 'notes'] }
-  return { type: 'object', additionalProperties: false, properties: { acts: { type: 'array', minItems: 1, maxItems: 3, items: {
-    type: 'object', additionalProperties: false, properties: { title: { ...text(200), minLength: 1 }, shots: { type: 'array', minItems: 1, maxItems: 6, items: shot } }, required: ['title', 'shots'],
+  return { type: 'object', additionalProperties: false, properties: { acts: { type: 'array', items: {
+    type: 'object', additionalProperties: false, properties: { title: { type: 'string' }, shots: { type: 'array', items: shot } }, required: ['title', 'shots'],
   } } }, required: ['acts'] }
 }
 
@@ -33,6 +32,9 @@ export async function generateStoryboard(project, complete) {
     const referenced = validJobId(anchor?.source?.job_id) || serverUrl(anchor?.image_url)
     return { role, action, subtitle: typeof shot.subtitle === 'string' ? shot.subtitle.trim() : '', mode: referenced ? 'i2va' : 't2va', job_id: null, status: 'pending', notes: typeof shot.notes === 'string' ? shot.notes.trim() : '' }
   }) : [] }))
-  if (!acts.length || acts.some(act => !act.title || !act.shots.length) || total > 18) throw invalidOutput('幕或镜头数量无效')
+  if (!acts.length || acts.length > 3 || acts.some(act => !act.title || act.title.length > 200 || !act.shots.length || act.shots.length > 6
+    || act.shots.some(shot => shot.action.length > 2000 || shot.subtitle.length > 1000 || shot.notes.length > 1000)) || total > 18) {
+    throw invalidOutput('幕或镜头数量无效')
+  }
   return actsValue(acts)
 }

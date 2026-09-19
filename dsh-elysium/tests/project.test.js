@@ -206,6 +206,7 @@ test('project storyboard generation persists complete shots once and leaves fail
     calls++
     assert.equal(request.name, 'project_storyboard')
     assert.deepEqual(request.schema.properties.acts.items.properties.shots.items.properties.role.enum, ['', 'lead'])
+    assert.doesNotMatch(JSON.stringify(request.schema), /"(?:minLength|maxLength|minItems|maxItems)"/)
     if (fail) throw Object.assign(new Error('模型不可用'), { status: 503 })
     return { acts: [{ title: '第一幕', shots: [{ role: 'lead', action: '女主在东京街头回头，霓虹逆光近景', subtitle: '你来了', notes: '' }] }] }
   }

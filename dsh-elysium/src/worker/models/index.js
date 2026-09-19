@@ -27,7 +27,10 @@ export async function createBackendClient(backend, options) {
 export const buildBackendGraph = async (backend, plan, jobId) => (await providerFor(backend)).buildGraph(backend, plan, jobId)
 export const backendLlmSettings = async backend => (await providerFor(backend)).llmSettings(backend)
 export async function completeStructured(request, options) {
-  const backend = resolveServer('llm'), provider = await providerFor(backend)
+  const backend = runtimeConfig().ELYSIUM_SETTINGS_FILE
+    ? { ...structuredClone(runtimeSettings().chat.backend), provider_api_version: 1, legacy: true }
+    : resolveServer('llm')
+  const provider = await providerFor(backend)
   await provider.connect(backend)
   return requestStructured(provider.llmSettings(backend), request, options)
 }
