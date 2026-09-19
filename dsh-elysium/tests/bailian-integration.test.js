@@ -12,7 +12,7 @@ import { bailianBackend } from '../src/worker/models/providers/bailian/config.js
 import { executeJob, validatePlan } from '../src/worker/models/providers/bailian/execution.js'
 import adapter from '../src/worker/models/providers/bailian/index.js'
 import { saveJson, readJson } from '../src/database/json.js'
-import { projectJobRoot } from '../src/worker/store/paths.js'
+import { jobRoot } from '../src/worker/store/paths.js'
 import { openLocalMedia } from '../src/worker/store/media.js'
 import { createJob } from '../src/worker/store/records.js'
 import { launch } from '../src/worker/runner/launcher.js'
@@ -90,9 +90,9 @@ test('download failure resumes the pinned task even after the channel is disable
     assert.equal(status.status, 'succeeded'); assert.equal(status.result.specification.resolution, '720P')
     const media = await openLocalMedia(status); assert.deepEqual(await media.handle.readFile(), f.controls.video); await media.handle.close()
     await assert.rejects(run(id, { ...plan, prompt: 'different' }, backend), { code: 'JOB_STATE_INVALID' })
-    assert.equal((await readJson(join(projectJobRoot('aaaaaaaa', id), 'status.json'))).status, 'succeeded')
+    assert.equal((await readJson(join(jobRoot(id), 'status.json'))).status, 'succeeded')
     assert.equal(f.calls.filter(call => call.method === 'POST').length, 1)
-    assert.doesNotMatch(await readFile(join(projectJobRoot('aaaaaaaa', id), 'status.json'), 'utf8'), /fake-secret/)
+    assert.doesNotMatch(await readFile(join(jobRoot(id), 'status.json'), 'utf8'), /fake-secret/)
   })
 })
 
@@ -118,7 +118,7 @@ test('unsupported modes, extra references and invalid durations fail before subm
     validatePlan({ ...plan, duration_seconds: 2 }, backend); validatePlan({ ...plan, duration_seconds: 15 }, backend)
     f.config.api_key = ''; await saveJson(f.file, f.config)
     await assert.rejects(run('5'.repeat(32), plan, backend), /api_key/)
-    assert.equal(await readJson(join(projectJobRoot('aaaaaaaa', '5'.repeat(32)), 'bailian-submission.json')), null)
+    assert.equal(await readJson(join(jobRoot('5'.repeat(32)), 'bailian-submission.json')), null)
     assert.equal(f.calls.length, 0)
   })
 })

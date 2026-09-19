@@ -26,7 +26,7 @@ async function execute(plan, backend, ctx, { capability, prepare, collect, valid
   const { directory, signal } = ctx, pause = ctx.pause || setTimeout
   const client = await createBackendClient(backend, { signal })
   const status = await ctx.start({ capability, backend: 'comfyui', server: backend, trace_id: ctx.jobId, parent_job_id: null,
-    debug: { effective_input: plan, chain: [], diagnostic_path: join(directory, 'diagnostics.json'), log_path: join(directory, 'execution.log') } })
+    debug: { effective_input: plan, chain: [], diagnostic_path: 'diagnostics.json', log_path: 'execution.log' } })
   for (let attempt = 0; ; attempt++) try {
     status.stage = 'prepare'
     const prepared = await prepareComfyWorkflow(directory, client, plan, () => prepare(client))

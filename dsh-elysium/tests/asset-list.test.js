@@ -27,9 +27,9 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     assert.deepEqual(await (await fetch(base + '/list?t=secret')).json(), { items: [], total: 0, has_more: false })
     const project = 'a'.repeat(8)
     for (let i = 1; i <= 3; i++) {
-      const id = String(i).repeat(32), path = join(root, 'projects', project, 'jobs', id, 'status.json')
-      await mkdir(join(root, 'projects', project, 'jobs', id, 'input'), { recursive: true })
-      await writeFile(join(root, 'projects', project, 'jobs', id, 'input/request.json'), '{}')
+      const id = String(i).repeat(32), path = join(root, 'projects', 'jobs', id, 'status.json')
+      await mkdir(join(root, 'projects', 'jobs', id, 'input'), { recursive: true })
+      await writeFile(join(root, 'projects', 'jobs', id, 'input/request.json'), '{}')
       await writeFile(path, JSON.stringify({ job_id: id, project_id: project, debug: { effective_input: { prompt: i === 1 ? '林在咖啡馆' : '雨夜街道', secret: 'not-exported' } }, status: i === 3 ? 'running' : 'succeeded', result: { profile: i === 1 ? 'preview' : 'hd', media_kind: i === 1 ? 'image' : 'video', comfyui_view_url: 'https://model.test/view' } }))
       await utimes(path, i, i)
     }
@@ -46,6 +46,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     assert.ok(catalog.materials.every(item => item.source === 'creation' && item.project_id === project && !item.deleted))
     assert.equal((await (await fetch(base + '/list?t=secret&source=creation&limit=1')).json()).total, 2)
     assert.equal((await (await fetch(base + '/list?t=secret&source=import')).json()).total, 0)
+    await mkdir(join(root, 'projects', project), { recursive: true })
     await writeFile(join(root, 'projects', project, 'materials.json'), JSON.stringify(['1'.repeat(32)]))
     const linked = await (await fetch(base + '/list?t=secret&source=project&limit=1')).json()
     assert.equal(linked.total, 1); assert.equal(linked.items[0].job_id, '1'.repeat(32)); assert.equal(linked.has_more, false)
@@ -65,7 +66,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     assert.equal((await fetch(base + '/status?t=secret&job=../bad')).status, 400)
     assert.equal((await (await fetch(base + '/status?t=secret&job=' + '1'.repeat(32))).json()).status, 'succeeded')
     const deleteUrl = base + '/delete?t=secret&job=' + '1'.repeat(32)
-    const statusPath = join(root, 'projects', project, 'jobs', '1'.repeat(32), 'status.json')
+    const statusPath = join(root, 'projects', 'jobs', '1'.repeat(32), 'status.json')
     const before = await readFile(statusPath, 'utf8')
     assert.equal((await fetch(deleteUrl.replace('t=secret', 't=bad'), { method: 'POST' })).status, 401)
     assert.equal((await fetch(deleteUrl)).status, 405)
@@ -79,9 +80,9 @@ test('assets require authentication, paginate successful jobs by mtime and accep
     assert.equal(remaining.items[0].job_id, '2'.repeat(32))
     assert.equal((await (await fetch(base + '/list?t=secret&profile=preview')).json()).total, 0)
     assert.equal(JSON.parse(await readFile(catalogPath, 'utf8')).materials.find(item => item.job_id === '1'.repeat(32)).deleted, true)
-    await assert.rejects(readFile(join(root, 'projects', project, 'jobs', '1'.repeat(32), 'asset-deleted.json')), error => error.code === 'ENOENT')
+    await assert.rejects(readFile(join(root, 'projects', 'jobs', '1'.repeat(32), 'asset-deleted.json')), error => error.code === 'ENOENT')
     assert.equal(await readFile(statusPath, 'utf8'), before)
-    assert.equal(await readFile(join(root, 'projects', project, 'jobs', '1'.repeat(32), 'input/request.json'), 'utf8'), '{}')
+    assert.equal(await readFile(join(root, 'projects', 'jobs', '1'.repeat(32), 'input/request.json'), 'utf8'), '{}')
     assert.equal((await (await fetch(base + '/status?t=secret&job=' + '1'.repeat(32))).json()).has_image, true)
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
@@ -147,7 +148,7 @@ test('uploaded images and videos preview locally, persist, delete and only image
 test('legacy per-job deletion markers migrate into the global material catalog', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-assets-legacy-delete-'))
   const project = 'a'.repeat(8), job = '1'.repeat(32)
-  const directory = join(root, 'projects', project, 'jobs', job)
+  const directory = join(root, 'projects', 'jobs', job)
   try {
     await mkdir(directory, { recursive: true })
     await writeFile(join(directory, 'status.json'), JSON.stringify({ job_id: job, project_id: project, status: 'succeeded', result: { media_kind: 'image', comfyui_view_url: 'https://model.test/view' } }))

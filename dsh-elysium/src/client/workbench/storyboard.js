@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { Editor, Icon, IconButton } = require('elysium/dialog')
   const { updateShot } = require('elysium/project-api')
-  const statuses = { pending: '待生成', queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败' }
+  const statuses = { pending: '待生成', queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败', cancelled: '已取消' }
   function StoryboardView({ project, save, run, busy, viewState = {}, onViewState = () => {}, guard }) {
     const [state, setState] = useState({ act: '', status: '', role: '', page: 0, selected: null, ...viewState })
     const [editing, setEditing] = useState(null), scroll = useRef(null), keyboard = useRef(false)

@@ -75,7 +75,7 @@ test('registered chat tools share HTTP project state and are disposed with the w
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })
 
-test('free generation saves tasks and media in an internal workspace absent from project lists', async () => {
+test('free generation keeps project media but no project-local job directory in the hidden workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-free-project-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
@@ -84,7 +84,7 @@ test('free generation saves tasks and media in an internal workspace absent from
       assert.equal(await generationProjectId('abcd1234', exec), '00000000')
       assert.equal(await generationProjectId('abcd1234', { agent: { session: { header: { agentPreset: 'elysium-director' }, snapshotEvents: () => [] } } }), 'abcd1234')
       assert.equal(JSON.parse(await readFile(join(root, 'projects', '00000000', 'project.json'))).internal, 'free')
-      await access(join(root, 'projects', '00000000', 'jobs'))
+      await assert.rejects(access(join(root, 'projects', '00000000', 'jobs')), error => error.code === 'ENOENT')
       await access(join(root, 'projects', '00000000', 'media'))
       assert.deepEqual(await createProjectStore().list(), [])
     })

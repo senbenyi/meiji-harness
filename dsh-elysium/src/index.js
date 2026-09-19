@@ -8,9 +8,10 @@ import { createCallToolsForAgent } from './session/index.js'
 import { registerWebRoutes, createWebStores } from './server/index.js'
 // tools
 import { createCallToolsProject, createCallToolsRuntime } from './tools/index.js'
+import { createTaskDriver } from './worker/index.js'
 
 export const name = '@dsh-external/dsh-elysium'
-export const inject = ['tools', 'systemPrompt']
+export const inject = ['tools', 'systemPrompt', 'jobs']
 const effectPrefix = '@dsh-external/dsh-elysium'
 
 /*
@@ -32,6 +33,8 @@ export function apply(ctx, config = {}) {
 // 创建 Web 与聊天工具共享的 Store，并在同一 Web 生命周期中注册 routes 和工具。
 function registerWebFeatures(ctx, runtime) {
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
+    const driver = createTaskDriver({ execute: action => withConfig(runtime, action), logger: ctx.logger })
+    mediaContext.effect(() => { driver.start(); return () => driver.stop() }, `${effectPrefix}: task driver`)
     const stores = createWebStores()
     registerWebRoutes(mediaContext, runtime, stores)
     registerWebTools(ctx, mediaContext, runtime, stores)
@@ -40,7 +43,7 @@ function registerWebFeatures(ctx, runtime) {
 
 // 注册依赖 Web Store 的导演与项目工具，并让注销跟随 Web 生命周期。
 function registerWebTools(ctx, mediaContext, runtime, stores) {
-  for (const definition of createCallToolsProject(stores)) {
+  for (const definition of createCallToolsProject(stores, ctx)) {
     const tool = { ...definition, execute: (...args) => withConfig(runtime, () => definition.execute(...args)) }
     mediaContext.effect(() => ctx.tools.register(tool), `${effectPrefix}: ${tool.name} tool`)
   }

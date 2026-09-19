@@ -46,7 +46,7 @@ export function anchorsValue(anchors) {
 export function shotValue(shot) {
   if (!shot || !['role', 'action', 'subtitle', 'mode', 'notes'].every(key => textValue(shot[key])) ||
     (shot.id !== undefined && !validShotId(shot.id)) ||
-    !(shot.job_id === null || validJobId(shot.job_id)) || !['pending', 'queued', 'running', 'succeeded', 'failed'].includes(shot.status)) throw invalidRequest('镜字段无效')
+    !(shot.job_id === null || validJobId(shot.job_id)) || !['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'].includes(shot.status)) throw invalidRequest('镜字段无效')
   return { ...(shot.id === undefined ? {} : { id: shot.id }), role: shot.role, action: shot.action, subtitle: shot.subtitle, mode: shot.mode, job_id: shot.job_id, status: shot.status, notes: shot.notes }
 }
 

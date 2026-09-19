@@ -20,7 +20,7 @@ import { backendFromServer } from './lib/worker/models/catalog/servers.js'
 const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider, instance_id: 'fixture', deployment_id: 'one', service: 'comfyui', base_url: 'http://unselected.invalid', connection: { workload: 'minimax-h3' } }, plan, id)
 const state = process.env.ELYSIUM_STATE_ROOT
-const jobPath = (project, id) => join(state, 'projects', project, 'jobs', id)
+const jobPath = (project, id) => join(state, 'projects', 'jobs', id)
 // 这里只模拟节点协议和回执，不声称验证了真实 GPU 模型或视频质量。
 function addSchema(graph) {
   for (const node of Object.values(graph)) {
@@ -132,7 +132,8 @@ try {
     const oldPath = jobPath(projectId, oldId)
     await saveJson(join(oldPath, 'input/backend.json'), { ...resolveServer(), provider: removed })
     await saveJson(join(oldPath, 'status.json'), { job_id: oldId, project_id: projectId, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
-    await assert.rejects(resumeVideoJob(oldId), { code: 'PROVIDER_UNAVAILABLE' })
+    await resumeVideoJob(oldId)
+    await completed(projectId, oldId, 'failed')
     assert.equal((await getJob(oldId)).error_code, 'PROVIDER_UNAVAILABLE')
     const registry = readRegistry(); await writeRegistry({ ...registry, servers: [...registry.servers, { ...record('old', { url: 'http://retired.invalid' }), provider: removed }] }, registry.revision)
     assert.equal((await request('settings/list')).servers.find(server => server.id === 'old').provider_available, false)

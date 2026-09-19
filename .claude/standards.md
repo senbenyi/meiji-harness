@@ -28,9 +28,10 @@ dsh-elysium/
 │   │   ├── project/ # 项目和导演
 │   │   ├── card/    # 工具输出的工作卡摘要
 │   │   └── task/    # 任务状态与结果查询
-│   ├── worker/         # ③ 任务管理器与模型层
-│   │   ├── index.js    # 唯一门面：submitTask / retryTask / waitJob / getJob / 结果汇总 / 模型设置
-│   │   ├── manager/    # 流水线编排（受理→复用→路由→建档→启动）与复用/重试策略
+│   ├── worker/         # ③ 持久化任务驱动与模型层
+│   │   ├── index.js    # 唯一门面：提交/管理命令/驱动器/waitJob/getJob/结果汇总/模型设置
+│   │   ├── manager/    # 任务受理、持久化队列、派发、结算、回写与管理命令
+│   │   ├── driver/     # 对账、观察、结算与全局单并发派发循环
 │   │   ├── intake/     # 受理：媒体工具名单、调用↔任务绑定、会话锁、项目归属
 │   │   ├── routing/    # 新任务路由：自有优先、三方回退、质量档位、计划校验
 │   │   ├── store/      # 存储：路径、任务记录、状态机（唯一写入口）、锁、媒体登记
@@ -58,7 +59,7 @@ dsh-elysium/
 **规则**：
 - 构建脚本目录统一命名为 `scripts/`。
 - `src/index.js` 是唯一组合入口；Client 只调用 `server/routes/`，Harness 工具只位于 `src/tools/`，会话投影只位于 `src/session/`。
-- 依赖单向：session / tools / server → `worker/index.js` → manager → intake | routing | store | runner | results → `worker/models/index.js`；worker 不得导入 session、tools、server 或 client；models 不得导入 worker 上层，只经 contract 与 TaskContext 交互（`architecture-layout.test.js` 强制）。
+- 依赖单向：session / tools / server → `worker/index.js` → manager | driver → intake | routing | store | runner | results → `worker/models/index.js`；worker 不得导入 session、tools、server 或 client；models 不得导入 worker 上层，只经 contract 与 TaskContext 交互（`architecture-layout.test.js` 强制）。
 - `src/server/` 只承载 Client 工作台 HTTP 边界与共享 Store；任务生命周期、路由和执行只位于 `src/worker/`。
 - 数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 除共享结构化错误外，不得出现项目、导演、素材、任务、模型或平台业务语义。
 - 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/worker/models/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。

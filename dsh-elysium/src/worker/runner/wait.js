@@ -9,7 +9,7 @@ export async function waitJob(job, signal, read = getJob, pause = setTimeout) {
       signal?.throwIfAborted()
       const current = await read(job.job_id)
       if (current.status === 'succeeded') return completedResult(current)
-      if (current.status === 'failed') return current
+      if (['failed', 'cancelled'].includes(current.status)) return current
       await pause(2000, undefined, { signal })
     }
   } catch (error) {

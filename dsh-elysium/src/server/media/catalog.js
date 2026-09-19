@@ -5,7 +5,7 @@ import { join, extname, basename } from 'node:path'
 import { getJob, jobSummary, openLocalMedia, saveStatus } from '../../worker/index.js'
 import { readJson, saveJson } from '../../database/json.js'
 import { invalidRequest } from '../http.js'
-import { projectsRoot, uploadsRoot } from '../../database/paths.js'
+import { jobsRoot, projectsRoot, uploadsRoot } from '../../database/paths.js'
 import { addMaterial, removeMaterial, syncMaterials } from '../../database/managers/materials.js'
 
 export async function availableJobSummary(job) {
@@ -65,10 +65,7 @@ export async function uploadAsset(req, filename) {
 }
 
 async function discoverMaterials() {
-  const root = projectsRoot()
-  const projects = await readdir(root, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
-  const sources = projects.filter(project => project.isDirectory() && /^[a-f0-9]{8}$/.test(project.name)).map(project => ({ directory: join(root, project.name, 'jobs'), projectId: project.name }))
-  sources.push({ directory: uploadsRoot() })
+  const sources = [{ directory: jobsRoot(), creation: true }, { directory: uploadsRoot(), creation: false }]
   const discovered = []
   for (const source of sources) {
     const jobs = await readdir(source.directory, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
@@ -76,11 +73,11 @@ async function discoverMaterials() {
       if (!entry.isDirectory() || !/^[a-f0-9]{32}$/.test(entry.name)) continue
       const path = join(source.directory, entry.name, 'status.json')
       try {
-        const job = JSON.parse(await readFile(path, 'utf8')); job.project_id ||= source.projectId
+        const job = JSON.parse(await readFile(path, 'utf8'))
         if (job.status !== 'succeeded') continue
         const deleted = await readJson(join(source.directory, entry.name, 'asset-deleted.json'))
-        discovered.push({ job, path, material: { job_id: job.job_id, source: source.projectId ? 'creation' : 'import',
-          ...(source.projectId ? { project_id: source.projectId } : {}),
+        discovered.push({ job, path, material: { job_id: job.job_id, source: source.creation ? 'creation' : 'import',
+          ...(source.creation ? { project_id: job.project_id } : {}),
           ...(deleted ? { deleted: true } : {}) } })
       } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
     }

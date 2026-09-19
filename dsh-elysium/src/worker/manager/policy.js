@@ -23,6 +23,7 @@ export async function reusableTask(kind, projectId, invocation) {
 
 // 恢复前提：任务类型匹配，且用户已明确同意（Agent 需用户原话要求；工作卡按钮本身即同意）。
 export function assertRetryAllowed(job, kind, consent) {
+  if (!kind) throw invalid('无法识别任务类型')
   if (job.capability !== CAPABILITIES[kind]) throw invalid(kind === 'video' ? '只能恢复视频工作流；原子产物请按顺序导入新工作流' : '只能恢复图片任务')
   if (!consent) throw new ModelTaskError('MODEL_RETRY_CONFIRMATION_REQUIRED', '等待用户明确要求重试后才能恢复原任务', 409)
 }

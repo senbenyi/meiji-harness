@@ -67,7 +67,7 @@ window.__ModuleLoader__.load({
             if (!active) return
             const value = current.status === 'pending' && fallback.status !== 'pending' ? fallback : current
             setJob(value); setError(''); failures = 0
-            if (value.status === 'succeeded') return
+            if (['succeeded', 'cancelled'].includes(value.status)) return
             if (value.status === 'failed') delay = 30000
             if (value.status === 'interrupted') { setError('无法关联后台任务，请查看详情中的任务 ID'); return }
           } catch (err) {
@@ -104,7 +104,7 @@ window.__ModuleLoader__.load({
           busy ? h('div', { className: 'elysium-placeholder', role: 'progressbar', 'aria-label': loading ? `${title}生成中` : '媒体加载中' },
             h('span', { className: 'elysium-spinner', 'aria-hidden': true }),
             h('span', { role: 'status', 'aria-live': 'polite' }, loading ? label(job) : '加载预览')) : null,
-          !video && !busy ? h('div', { className: 'elysium-placeholder' }, job.status === 'failed' ? label(job) : '预览暂不可用') : null,
+          !video && !busy ? h('div', { className: 'elysium-placeholder' }, ['failed', 'cancelled'].includes(job.status) ? label(job) : '预览暂不可用') : null,
           video && kind === 'video' ? h('button', { className: 'elysium-control elysium-play', 'aria-label': '播放视频', onClick: () => setExpanded(true) }, icon('play')) : null,
           video && kind === 'image' ? h('button', { className: 'elysium-control elysium-expand', 'aria-label': '放大查看', title: '放大查看', onClick: () => setExpanded(true) }, icon('expand')) : null),
         h('div', { className: 'elysium-info' },

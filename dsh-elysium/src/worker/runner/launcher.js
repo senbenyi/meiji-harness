@@ -21,7 +21,9 @@ export async function launch(jobId, capability = 'workflow-video', retryFailed =
 async function launchLocked(jobId, capability, retryFailed) {
   const located = await findJobRoot(jobId)
   if (!located) throw new Error('任务不存在')
-  const { directory, projectId } = located
+  const { directory } = located
+  const current = await getJob(jobId)
+  const projectId = current.project_id
   const backend = await readBackend(directory)
   const lockPath = join(directory, 'worker.lock')
   let lock

@@ -1,5 +1,5 @@
 // 职责：为 worker 进程内的一次执行创建 TaskContext，把状态、媒体与参考图能力注入模型层。
-import { projectJobRoot } from '../store/paths.js'
+import { jobRoot } from '../store/paths.js'
 import { failStatus, saveStatus, startStatus, succeedStatus } from '../store/status.js'
 import { openLocalMedia, saveMedia } from '../store/media.js'
 import { codeVersion } from '../results/diagnostics.js'
@@ -9,7 +9,7 @@ import { getJob } from './inspect.js'
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', message, 422)
 
 export function createTaskContext(projectId, jobId, { signal, provider } = {}) {
-  const directory = projectJobRoot(projectId, jobId)
+  const directory = jobRoot(jobId)
   return {
     jobId, projectId, directory, signal,
     start: async fields => startStatus(directory, { job_id: jobId, project_id: projectId, ...fields, code_version: await codeVersion(provider) }),

@@ -24,6 +24,7 @@ window.__ModuleLoader__.load({
     function label(job) {
       if (job.status === 'succeeded') return '已完成'
       if (job.status === 'failed') return job.remote_status === 'succeeded' ? '产物待校验' : job.error_code === 'LOCAL_WORKER_STOPPED' || job.error_code === 'WORKER_NOT_RUNNING' ? '本地处理已停止' : '任务未完成'
+      if (job.status === 'cancelled') return '已取消'
       if (job.status === 'interrupted') return '等待已中断，正在核对后台任务'
       if (job.status === 'pending') return '正在创建任务'
       if (job.status === 'rejected') return '参数未通过，未创建任务'

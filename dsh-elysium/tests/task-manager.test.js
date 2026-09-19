@@ -18,7 +18,7 @@ async function fixture(t, run) {
   t.after(() => rm(root, { recursive: true, force: true }))
   await mkdir(join(root, 'projects', project), { recursive: true })
   await writeFile(join(root, 'projects', project, 'project.json'), '{}')
-  const job = (id, capability, status) => saveJson(join(root, 'projects', project, 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability, backend: 'comfyui', status })
+  const job = (id, capability, status) => saveJson(join(root, 'projects', 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability, backend: 'comfyui', status })
   return withConfig({ COMFYUI_URL: 'https://comfy.test', ELYSIUM_STATE_ROOT: root }, () => run({ root, job }))
 }
 
@@ -32,7 +32,7 @@ test('images follow the video reuse rule: failed or same-turn results are reused
   assert.equal((await submitTask('image', { project_id: project, prompt: 'changed' }, mediaInvocation(exec(current, 'again')))).job_id, imageId)
   await job(imageId, 'workflow-image', 'succeeded')
   assert.equal((await submitTask('image', { project_id: project, prompt: 'changed' }, mediaInvocation(exec(current, 'same-turn')))).job_id, imageId)
-  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [imageId])
+  assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [imageId])
   const later = session({ type: 'tool/call', data: { name: 'call_tools_image', callId: 'first' } }, { type: 'turn/start', data: { turn: 2 } })
   // 上一轮已成功的图片不复用：进入路由（本夹具未配置图片模型）。
   await assert.rejects(submitTask('image', { project_id: project, prompt: 'next' }, mediaInvocation(exec(later, 'next'))), /未配置图片模型/)
@@ -44,7 +44,7 @@ test('recovery requires consent and a matching task kind; succeeded tasks are re
   await assert.rejects(retryTask(imageId, { kind: 'image' }), { code: 'MODEL_RETRY_CONFIRMATION_REQUIRED' })
   await assert.rejects(retryTask(imageId, { kind: 'video', consent: true }), { code: 'MODEL_INPUT_INVALID' })
   assert.deepEqual(await retryTask(videoId, { consent: true }), { job_id: videoId, project_id: project, status: 'succeeded' })
-  await assert.rejects(readdir(join(root, 'projects', project, 'jobs', videoId, 'worker.lock')))
+  await assert.rejects(readdir(join(root, 'projects', 'jobs', videoId, 'worker.lock')))
 }))
 
 test('submission validates the task kind, project and new_task flag before routing', async t => fixture(t, async () => {

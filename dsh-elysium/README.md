@@ -13,8 +13,9 @@ src/
 ├── database/                 # 路径、原子 JSON 和集中数据管理器
 ├── session/                  # Harness 会话入口：预设、事件、工具投影、提示词
 ├── tools/                    # Harness 工具定义，执行交给 worker 门面
-├── worker/                   # 任务管理器（index.js 为唯一门面）
-│   ├── manager/              # 流水线编排与复用/重试策略
+├── worker/                   # 持久化任务驱动（index.js 为唯一门面）
+│   ├── manager/              # 受理、队列、派发、结算与管理命令
+│   ├── driver/               # 对账、观察、结算、全局单并发派发循环
 │   ├── intake/ routing/      # 受理与会话绑定；新任务模型路由
 │   ├── store/ runner/        # 存储与状态机；worker 进程与 TaskContext
 │   ├── results/              # 结果汇总与诊断
@@ -26,7 +27,8 @@ src/
 
 ```
 会话 → session 投影可见工具 → call_tools_load（按需）→ call_tools_image / call_tools_video
-     → worker.submitTask：受理 → 会话内复用 → routing（自有优先、三方回退）→ store 建档 → runner 启动 worker 进程
+     → worker.submitTask：会话内复用 → routing（自有优先、三方回退）→ tasks/ 记录 + pending Job + driver 索引
+     → driver：对账 → 结算 → 按泳道轮转选择 → 全局最多 1 个 runner 启动 worker 进程
      → worker 进程：TaskContext → models.executeJob → 状态经 store 状态机写入、产物经 store 登记
      → tools 等待结果 → results 汇总 → 工作卡渲染
      → 失败：Agent 在用户明确要求后调用 *_recover，或工作卡「重试原任务」按钮 → worker.retryTask
@@ -63,7 +65,7 @@ src/
 
 仓库中的 `config/defaults.json` 只负责初始化非敏感默认值。实际运行设置唯一保存到 `$DSH_HOME/storages/elysium/config/settings.json`，包括聊天模型与隧道、图片/视频模型目录、服务器连接、当前模型选择和三方渠道配置。该文件包含凭据，始终使用 `0600` 权限；浏览器接口不会返回密钥和 SSH 连接细节。插件实例参数可临时覆盖原子工具开关与模型目录。
 
-`ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`），根目录只承载五类数据：`config/` 保存唯一的 `settings.json`，`pools/` 保存导演库和素材库索引等跨项目主数据，`projects/` 保存项目拥有的业务、任务、生产回执与媒体，`runtime/` 保存跨会话索引、隧道和迁移归档，`uploads/` 保存用户导入原件。`pools/materials.json` 仅记录全局素材的身份、来源和删除状态，媒体实体仍位于所属 `projects/` 或 `uploads/`；项目内的 `materials.json` 只是引用集合。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
+`ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`），根目录只承载五类数据：`config/` 保存唯一的 `settings.json`，`pools/` 保存导演库和素材库索引等跨项目主数据，`projects/` 保存项目业务、任务记录和执行记录，`runtime/` 保存跨会话索引、驱动索引、隧道和迁移归档，`uploads/` 保存用户导入原件。生成任务的不可变请求记录位于 `projects/tasks/`，执行记录位于 `projects/jobs/`，可重建派发索引位于 `runtime/driver.json`；这三处都不是缓存，项目目录本身不再包含 `jobs/`。`pools/materials.json` 仅记录全局素材的身份、来源和删除状态，媒体实体仍位于所属 `projects/` 或 `uploads/`；项目内的 `materials.json` 只是引用集合。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
 
 AutoDL 保持两台服务器分工：ComfyUI 服务器同时承担图片和 H3 视频，Qwen 服务器承担 LLM。按 `src/worker/models/providers/autodl/server.example.json` 登记两个 server 后，将 `selection.selected.image` 与 `selection.selected.video` 指向 ComfyUI server；聊天配置继续指向 Qwen。真实主机、SSH 身份和凭据只保存在本机 `settings.json`/SSH 配置中，不写入仓库。切换只影响新任务，已有任务继续读取各自的 `input/backend.json` 快照。
 

@@ -13,7 +13,7 @@ const anchorPatch = object({
 const shotPatch = object({
   role: text, action: text, subtitle: text, mode: text, notes: text,
   job_id: { oneOf: [{ type: 'null' }, { type: 'string' }] },
-  status: { type: 'string', enum: ['pending', 'queued', 'running', 'succeeded', 'failed'] },
+  status: { type: 'string', enum: ['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'] },
 })
 const outputSchema = { type: 'object', additionalProperties: true, properties: { id: projectId, title: text }, required: ['id', 'title'] }
 const listSchema = { type: 'array', items: outputSchema }

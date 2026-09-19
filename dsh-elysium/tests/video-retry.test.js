@@ -19,7 +19,7 @@ import { mediaInvocation, userRequestedRetry } from '../src/session/index.js'
 const userRequestedVideoRetry = exec => userRequestedRetry(exec.agent.session.snapshotEvents())
 
 async function executeComfyVideo(projectId, jobId, plan, options) {
-  const input = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', projectId, 'jobs', jobId, 'input')
+  const input = join(requiredConfig('ELYSIUM_STATE_ROOT'), 'projects', 'jobs', jobId, 'input')
   await saveJson(join(input, 'backend.json'), { server_id: 'minimax-h3', provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' })
   await saveJson(join(input, 'request.json'), plan)
   return executeTask(projectId, jobId, options)
@@ -56,13 +56,13 @@ test('prepare, lost POST response and polling recover inside one job with exactl
   })
   const result = await executeComfyVideo(project, id, plan, { pause: async ms => {
     delays.push(ms)
-    assert.equal((await readJson(join(root, 'projects', project, 'jobs', id, 'status.json'))).stage, 'reconnecting')
+    assert.equal((await readJson(join(root, 'projects', 'jobs', id, 'status.json'))).stage, 'reconnecting')
   } })
   assert.equal(result.status, 'succeeded')
   assert.equal(result.result.comfyui_prompt_id, 'original')
   assert.equal(posts, 1)
   assert.deepEqual(delays, [2000, 4000, 8000, 16000])
-  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
+  assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [id])
 }))
 
 test('persistent outage stops after five retries without submission or new jobs', async t => fixture(t, async root => {
@@ -71,12 +71,12 @@ test('persistent outage stops after five retries without submission or new jobs'
   t.mock.method(ComfyClient.prototype, 'submit', () => assert.fail('must not submit'))
   const id = 'b'.repeat(32), delays = []
   await assert.rejects(executeComfyVideo(project, id, plan, { pause: async ms => delays.push(ms) }), /fetch failed/)
-  const status = await readJson(join(root, 'projects', project, 'jobs', id, 'status.json'))
+  const status = await readJson(join(root, 'projects', 'jobs', id, 'status.json'))
   assert.equal(attempts, 6)
   assert.deepEqual(delays, [2000, 4000, 8000, 16000, 30000])
   assert.equal(status.status, 'failed')
   assert.match(status.recovery_instruction, /等待用户/)
-  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
+  assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [id])
 }))
 
 test('video recovery requires an explicit retry request from the current user turn', () => {
@@ -98,7 +98,7 @@ test('cancellation during backoff stops the same job immediately', async t => fi
     controller.abort(); throw controller.signal.reason
   } }), { name: 'AbortError' })
   assert.equal(attempts, 1)
-  assert.equal((await readJson(join(root, 'projects', project, 'jobs', id, 'status.json'))).status, 'failed')
+  assert.equal((await readJson(join(root, 'projects', 'jobs', id, 'status.json'))).status, 'failed')
 }))
 
 test('changed prompt and concurrent repeat calls reuse the failed job; repeated resume in one turn cannot relaunch', async t => fixture(t, async root => {
@@ -107,15 +107,15 @@ test('changed prompt and concurrent repeat calls reuse the failed job; repeated 
   const exec = callId => ({ agent: { session }, callId })
   const id = await createJob(project, plan, resolveServer('video'))
   await bindJobCall(id, mediaInvocation(exec('first')))
-  await saveJson(join(root, 'projects', project, 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
+  await saveJson(join(root, 'projects', 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
   const repeated = await Promise.all(['second', 'third'].map(callId => startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec(callId))))
   assert.ok(repeated.every(job => job.job_id === id))
   assert.equal(await findJobCall(session.id, 'second'), id)
   events.push({ type: 'tool/call', data: { name: 'call_tools_video_recover', callId: 'resume' } })
   await bindJobCall(id, mediaInvocation(exec('resume')))
   assert.equal((await resumeVideoJob(id, exec('repeat-resume'))).job_id, id)
-  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
-  assert.equal(await readJson(join(root, 'projects', project, 'jobs', id, 'worker.lock')), null)
+  assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [id])
+  assert.equal(await readJson(join(root, 'projects', 'jobs', id, 'worker.lock')), null)
 }))
 
 test('a repeated generation call in the same user turn reuses the succeeded video', async t => fixture(t, async root => {
@@ -124,12 +124,12 @@ test('a repeated generation call in the same user turn reuses the succeeded vide
   const exec = callId => ({ agent: { session }, callId })
   const id = await createJob(project, plan, resolveServer('video'))
   await bindJobCall(id, mediaInvocation(exec('first')))
-  await saveJson(join(root, 'projects', project, 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', status: 'succeeded' })
+  await saveJson(join(root, 'projects', 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', status: 'succeeded' })
 
   const repeated = await startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec('second'))
 
   assert.equal(repeated.job_id, id)
-  assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
+  assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [id])
 }))
 
 test('HTTP gateway failures are retryable even when the response is HTML; validation failures are not retried', async t => fixture(t, async () => {

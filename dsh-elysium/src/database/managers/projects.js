@@ -25,7 +25,7 @@ export function projectSummary(value) {
   }
 }
 
-export function createProjectStore({ readJob = unavailableJob, summarizeJob = unavailableJob, newId = () => randomBytes(4).toString('hex'), directorExists = async () => true } = {}) {
+export function createProjectStore({ readJob = unavailableJob, summarizeJob = unavailableJob, removeTasks = async () => {}, newId = () => randomBytes(4).toString('hex'), directorExists = async () => true } = {}) {
   const root = projectsRoot
   const names = { materials: 'materials.json', anchors: 'anchors.json', acts: 'storyboard.json', deliverables: 'deliverables.json' }
   const metadataOf = ({ materials, anchors, acts, deliverables, ...metadata }) => metadata
@@ -123,6 +123,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
     return enqueue(async () => {
       if (action === 'delete') {
         await readFile(join(root(), body.id, 'project.json'))
+        await removeTasks(body.id)
         await rm(join(root(), body.id), { recursive: true, force: true })
         modifiedAt.delete(body.id)
         return { deleted: true }
@@ -139,7 +140,7 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
           try { await mkdir(join(root(), value.id)); break }
           catch (error) { if (error.code !== 'EEXIST') throw error; value.id = newId() }
         }
-        await Promise.all(['jobs', 'production', 'media'].map(name => mkdir(join(root(), value.id, name))))
+        await Promise.all(['production', 'media'].map(name => mkdir(join(root(), value.id, name))))
         await writeJson(join(root(), value.id, 'media', 'manifest.json'), { version: 1, project_id: value.id, complete: false, files: [], missing: [] })
       } else {
         value = await load(body.id)

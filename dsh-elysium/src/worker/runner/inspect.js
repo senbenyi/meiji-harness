@@ -2,9 +2,10 @@
 import { workerAlive } from './owner.js'
 import { readFile, stat } from 'node:fs/promises'
 import { traceDiagnostics } from '../results/diagnostics.js'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { ModelTaskError } from '../../utils/errors.js'
 import { findJobRoot } from '../store/paths.js'
+import { saveStatus } from '../store/status.js'
 
 async function readTrace(path) {
   const text = await readFile(path, 'utf8').catch(error => {
@@ -22,7 +23,8 @@ export async function getJob(jobId) {
     const job = JSON.parse(await readFile(join(located.directory, 'status.json'), 'utf8'))
     job.project_id ||= located.projectId
     if (job.status === 'running' && job.debug?.trace_path) {
-      job.debug.chain = await readTrace(job.debug.trace_path).catch(() => job.debug.chain || [])
+      const trace = isAbsolute(job.debug.trace_path) ? job.debug.trace_path : join(located.directory, job.debug.trace_path)
+      job.debug.chain = await readTrace(trace).catch(() => job.debug.chain || [])
       Object.assign(job.debug, traceDiagnostics(job.debug.chain))
     }
     if ((job.server?.provider || job.backend === 'comfyui') && ['queued', 'running'].includes(job.status)) {
@@ -34,6 +36,8 @@ export async function getJob(jobId) {
           job.failed_stage = job.stage
           job.status = 'failed'; job.stage = 'failed'; job.error_code = 'WORKER_NOT_RUNNING'
           job.error = '本地处理进程已停止；远端状态请按原 prompt_id 核对，使用恢复工具继续，勿重新生成。'
+          job.finished_at = new Date().toISOString()
+          await saveStatus(located.directory, job)
         }
       } catch { /* Unknown process identity does not authorize declaring it stopped. */ }
     }

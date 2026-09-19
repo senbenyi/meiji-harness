@@ -26,6 +26,7 @@
     "test": "node scripts/test.mjs",
     "workflow:sync": "node scripts/deploy.mjs --sync",
     "workflow:check": "node scripts/deploy.mjs --check",
+    "migrate:job-paths": "node scripts/migrate-job-paths.mjs",
     "package:registry": "node scripts/registry.mjs"
   },
   "license": "MIT",

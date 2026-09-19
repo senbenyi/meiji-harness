@@ -17,6 +17,7 @@ import { mediaReference } from '../src/worker/models/protocols/comfyui/media-ref
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
 import { launch } from '../src/worker/runner/launcher.js'
 import { jobSummary } from '../src/worker/results/summary.js'
+import { saveStatus } from '../src/worker/store/status.js'
 
 test('A task survives a default switch to B even when preparation failed; identical prompt IDs remain scoped', async t => {
   const root = await mkdtemp(join(tmpdir(), 'binding-')), requests = { a: [], b: [] }
@@ -38,16 +39,18 @@ test('A task survives a default switch to B even when preparation failed; identi
     await writeSelection({ version: 1, revision: 0, selected: { video: 'a' }, third_party: {} }, 0)
     const project = 'abcd1234', plan = { mode: 't2va', prompt: 'A scene' }
     await saveJson(join(root, 'projects', project, 'project.json'), {})
-    const id = await createJob(project, plan, resolveServer('video')), dir = join(root, 'projects', project, 'jobs', id)
+    const id = await createJob(project, plan, resolveServer('video')), dir = join(root, 'projects', 'jobs', id)
+    await saveStatus(dir, { job_id: id, project_id: project, capability: 'workflow-video', status: 'queued', stage: 'queued' })
     await assert.rejects(executeTask(project, id), /缺少节点/)
     assert.equal(await readJson(join(dir, 'comfyui-workflow.json')), null)
     await writeSelection({ version: 1, revision: 1, selected: { video: 'b' }, third_party: {} }, 1)
     requests.a.length = 0
+    await saveStatus(dir, { job_id: id, project_id: project, capability: 'workflow-video', status: 'queued', stage: 'queued' })
     await assert.rejects(executeTask(project, id), /缺少节点/)
     assert.ok(requests.a.length > 0); assert.equal(requests.b.length, 0)
     assert.equal((await readBackend(dir)).server_id, 'a')
     const next = await createJob(project, plan, resolveServer('video'))
-    assert.equal((await readBackend(join(root, 'projects', project, 'jobs', next))).server_id, 'b')
+    assert.equal((await readBackend(join(root, 'projects', 'jobs', next))).server_id, 'b')
     const media = `${servers[0].services.comfyui.base_url}/view?filename=same.mp4&type=output`
     assert.throws(() => withBackend(resolveServer(), () => mediaReference(media)), /属于/)
     assert.equal(jobSummary({ status: 'succeeded', result: { comfyui_view_url: media } }).comfyui_view_url, media)
@@ -62,9 +65,9 @@ test('A task survives a default switch to B even when preparation failed; identi
     mediaJob.result.comfyui_view_url = `${servers[1].services.comfyui.base_url}/view?filename=same.mp4&type=output`
     assert.equal((await fetch(mediaEndpoint)).status, 403)
     assert.equal(requests.b.length, 0)
-    const unknownId = 'f'.repeat(32), unknownJob = join(root, 'projects', project, 'jobs', unknownId)
+    const unknownId = 'f'.repeat(32), unknownJob = join(root, 'projects', 'jobs', unknownId)
     await saveJson(join(unknownJob, 'input/request.json'), plan)
-    await assert.rejects(launch(unknownId), /缺失/)
+    await assert.rejects(launch(unknownId), /任务不存在/)
     const unknown = join(root, 'unknown')
     await assert.rejects(readBackend(unknown), /缺失/)
     await saveJson(join(unknown, 'comfyui-workflow.json'), { server_url: 'http://a.test/' })

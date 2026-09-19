@@ -1,7 +1,9 @@
 // 职责：worker 唯一门面；session、tools 与 server 只通过此文件使用任务管理器、结果汇总和模型设置。
 
 // 任务管理：提交与恢复只返回句柄，等待由调用方决定（Agent 工具等待，工作卡按钮不等待）。
-export { submitTask, retryTask } from './manager/manager.js'
+export { submit, submitTask, retry, retryTask, cancel, cancelLane, pause, resume, getLane, removeProjectTasks } from './manager/manager.js'
+export { registerSink } from './manager/sinks.js'
+export { createTaskDriver } from './driver/driver.js'
 export { waitJob } from './runner/wait.js'
 export { getJob } from './runner/inspect.js'
 

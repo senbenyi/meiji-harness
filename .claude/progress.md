@@ -16,6 +16,8 @@
 
 ## 待验收
 
+- **持久化任务驱动** — `docs/implement/实施-持久化任务驱动.md` — 2026-09-19 阶段 0～6 完成：全局 Task/Job/Driver 存储、原子受理、全局单并发泳道驱动、恢复对账、至少一次 Sink 结算、Session 批量后台等待与项目回写已实现；实际 137/137 个 Job 可读，旧绝对路径迁移二次 dry-run 为 0；专项 9/9、插件 211/211、Harness 10/10、构建与 Registry 打包通过。因工作区存在并发 SSH 隧道改动，未将混合工作树安装到 Harness，待部署和真实生成验收。
+
 - **Worker 任务管理器重构** — `docs/implement/实施-Worker任务管理器重构.md` — 2026-09-19 按「session → tools → worker 门面 → manager → intake/routing/store/runner/results → models」重建结构：图片与视频共用 `submitTask/retryTask` 流水线，Provider 改为经 TaskContext 执行，三份 ComfyUI 执行器合并，工作卡新增「重试原任务」按钮与 `POST /media/retry`；依赖方向由架构测试强制。插件测试 199/199、Harness 10/10、构建与 Registry 打包通过；待本机安装后人工验收真实生成与工作卡重试。
 
 - **全局创作质量** — `docs/implement/实施-全局创作质量.md` — 2026-09-19 已将快速创作、常规创作、高清创作迁入设置并统一控制图片、视频和短剧；客户端命令目录与注册链路已彻底删除。专项测试 98/98、Harness 全量测试 10/10、构建和 Registry 打包通过；插件全量测试 191/192，唯一失败为沙箱禁止 `ps` 的既有环境限制。源码、构建产物和发布包残留扫描通过；本机安装被沙箱禁止写入 `~/.dsh`，待人工安装并重启验收。

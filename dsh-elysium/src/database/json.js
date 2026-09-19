@@ -1,11 +1,15 @@
 // 职责：以临时文件加原子替换读写本地 JSON 状态。
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { dirname } from 'node:path'
 
 export async function saveJson(path, value) {
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(`${path}.tmp`, JSON.stringify(value, null, 2), { mode: 0o600 })
-  await rename(`${path}.tmp`, path)
+  const temporary = `${path}.${randomUUID()}.tmp`
+  try {
+    await writeFile(temporary, JSON.stringify(value, null, 2), { mode: 0o600 })
+    await rename(temporary, path)
+  } finally { await rm(temporary, { force: true }) }
 }
 
 export const readJson = path => readFile(path, 'utf8').then(JSON.parse).catch(error => {

@@ -14,7 +14,7 @@ import { bytePlusBackend } from '../src/worker/models/providers/byteplus/config.
 import { readJson, saveJson } from '../src/database/json.js'
 import { openLocalMedia } from '../src/worker/store/media.js'
 import { createJob } from '../src/worker/store/records.js'
-import { projectJobRoot } from '../src/worker/store/paths.js'
+import { jobRoot } from '../src/worker/store/paths.js'
 import { launch } from '../src/worker/runner/launcher.js'
 import { createTaskContext } from '../src/worker/runner/context.js'
 const run = (id, plan, backend) => executeJob(plan, backend, createTaskContext('aaaaaaaa', id))
@@ -79,7 +79,7 @@ test('video POSTs once, polls original remote ID and downloads locally; unknown 
     assert.equal(f.calls[0].body.generate_audio, true)
     assert.equal(f.calls[0].body.resolution, '720p')
     await assert.rejects(run(id, plan, backend), { code: 'JOB_STATE_INVALID' })
-    assert.equal((await readJson(join(projectJobRoot('aaaaaaaa', id), 'status.json'))).status, 'succeeded')
+    assert.equal((await readJson(join(jobRoot(id), 'status.json'))).status, 'succeeded')
     assert.equal(f.calls.filter(call => call.method === 'POST').length, 1)
     assert.ok(f.calls.filter(call => call.method === 'GET').every(call => call.url.endsWith('/remote-task')))
     const media = await openLocalMedia(status)

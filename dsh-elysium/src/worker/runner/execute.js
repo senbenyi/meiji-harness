@@ -3,13 +3,13 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { readJson } from '../../database/json.js'
 import { failStatus } from '../store/status.js'
-import { projectJobRoot } from '../store/paths.js'
+import { jobRoot } from '../store/paths.js'
 import { executeBackendJob, readBackend } from '../models/index.js'
 import { createTaskContext } from './context.js'
 
 // pause 仅供测试注入退避等待。
 export async function executeTask(projectId, jobId, { signal, pause } = {}) {
-  const directory = projectJobRoot(projectId, jobId)
+  const directory = jobRoot(jobId)
   try {
     const request = JSON.parse(await readFile(join(directory, 'input/request.json'), 'utf8'))
     const backend = await readBackend(directory)
