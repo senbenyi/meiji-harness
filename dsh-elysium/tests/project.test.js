@@ -148,8 +148,8 @@ test('project imports reference media, replaces roles, rejects invalid anchors a
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const request = (action, body) => fetch(`http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}/${action}?t=t`, { method: 'POST', body: JSON.stringify(body) })
   try {
-    const project = await (await request('create', { title: '锚点项目', profile: 'hd', director: '姜文' })).json(), id = project.id
-    assert.equal(project.profile, 'hd'); assert.deepEqual(project.materials, []); assert.deepEqual(project.deliverables, [])
+    const project = await (await request('create', { title: '锚点项目', director: '姜文' })).json(), id = project.id
+    assert.equal(project.profile, undefined); assert.deepEqual(project.materials, []); assert.deepEqual(project.deliverables, [])
     let response = await request('import', { id, as: 'anchor', job_id: 'a'.repeat(32) })
     assert.equal(response.status, 200)
     const first = await response.json()
@@ -159,7 +159,7 @@ test('project imports reference media, replaces roles, rejects invalid anchors a
     const replaced = await response.json()
     assert.equal(replaced.anchors.length, 1); assert.equal(replaced.anchors[0].source.job_id, 'b'.repeat(32))
     assert.deepEqual(replaced.materials, ['a'.repeat(32), 'b'.repeat(32)])
-    assert.equal(replaced.profile, 'hd'); assert.deepEqual(replaced.acts, [])
+    assert.equal(replaced.profile, undefined); assert.deepEqual(replaced.acts, [])
     assert.equal((await request('update', { id, anchors: [replaced.anchors[0], replaced.anchors[0]] })).status, 400)
     assert.equal((await request('update', { id, anchors: [{ ...replaced.anchors[0], image_url: 'file:///etc/passwd' }] })).status, 400)
     assert.equal((await request('import', { id, as: 'anchor', job_id: '../bad' })).status, 400)

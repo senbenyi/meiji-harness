@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { ModelTaskError } from './errors.js'
+import { ModelTaskError } from '../../../utils/errors.js'
 
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
 const processAlive = pid => {

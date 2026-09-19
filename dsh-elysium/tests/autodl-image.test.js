@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises'
 import { withConfig } from '../src/config.js'
 import { buildImageGraph } from '../src/worker/models/providers/autodl/workflows/image/graph.js'
 import { normalizeImagePlan, validateImagePlan } from '../src/worker/models/providers/autodl/workflows/image/plan.js'
+import autodl from '../src/worker/models/providers/autodl/index.js'
 import { createCallToolsRuntime } from '../src/tools/index.js'
 
 const backend = { provider: 'autodl', service: 'comfyui', base_url: 'http://127.0.0.1:8188' }
@@ -53,6 +54,7 @@ test('AutoDL builds text, reference, character and sheet image graphs', async ()
 
   const paths = ['front.png', 'side.png', 'back.png'].map(view)
   const sheetPlan = { capability: 'image-compose', params: { views: paths.map(path => ({ path, crop: { x: 10, y: 20, width: 300, height: 900 } })) } }
+  assert.equal(autodl.preparePlan(sheetPlan, 'high').quality, undefined)
   validateImagePlan(sheetPlan)
   const sheet = await buildImageGraph(sheetPlan, Object.fromEntries(paths.map(path => [path, { name: `${new URL(path).searchParams.get('filename')} [output]`, info: { width: 1024, height: 1024 } }])), job)
   assert.equal(sheet.workflowName, 'workflow_character_sheet')
@@ -63,4 +65,16 @@ test('character tools are no longer exposed to Harness', () => {
   const names = createCallToolsRuntime({}).map(tool => tool.name)
   assert.ok(!names.includes('model_character_view'))
   assert.ok(!names.includes('model_character_sheet'))
+})
+
+test('global quality produces three distinct image specifications without changing prompt or seed', async () => {
+  const expected = { fast: [640, 960, 20], regular: [832, 1216, 30], high: [1024, 1536, 40] }
+  for (const [quality, [width, height, steps]] of Object.entries(expected)) {
+    const plan = { ...normalizeImagePlan({ prompt: 'same portrait', seed: 7 }), quality }
+    validateImagePlan(plan)
+    const built = await buildImageGraph(plan, {}, quality.repeat(32).slice(0, 32))
+    assert.deepEqual(built.specification, { width, height, steps })
+    assert.equal(built.graph['2'].inputs.text, 'same portrait')
+    assert.equal(built.graph['5'].inputs.seed, 7)
+  }
 })

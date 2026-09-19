@@ -29,12 +29,12 @@ test('source tree keeps client, server, database, tools, worker and generic util
   }
 })
 
-test('database is the centralized persistence module and utils stay business-free', async () => {
+test('database is centralized and non-error utils stay business-free', async () => {
   const database = await import('../src/database/index.js')
   for (const name of ['readJson', 'saveJson', 'storageRoot', 'materials', 'directors', 'projects', 'registry', 'selection', 'settings']) {
     assert.ok(database[name], name)
   }
-  for (const file of ['context.js', 'errors.js', 'validation.js']) {
+  for (const file of ['context.js', 'validation.js']) {
     const source = await readFile(new URL(`utils/${file}`, root), 'utf8')
     assert.doesNotMatch(source, /(?:project|director|material|job|workflow|provider|model)/i, file)
   }

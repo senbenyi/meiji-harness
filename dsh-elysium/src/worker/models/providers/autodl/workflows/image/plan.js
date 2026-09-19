@@ -1,6 +1,6 @@
 // 职责：规范化并校验 AutoDL 的 RealVisXL 图片生成和角色三视图计划。
 import { mediaReference } from '../../../../protocols/comfyui/media-reference.js'
-import { ModelTaskError } from '../../../../../tasks/jobs/errors.js'
+import { ModelTaskError } from '../../../../../../utils/errors.js'
 
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 

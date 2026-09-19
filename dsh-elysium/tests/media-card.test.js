@@ -91,7 +91,7 @@ test('completed preview uses specification dimensions and actual job details wit
       assert.match(JSON.stringify(f.view.toJSON()), /6e050097ab7b37578357ff0e111dc53d/)
       assert.match(details, /模型：wan2.6-t2v/)
       assert.doesNotMatch(details, /服务器：/)
-      assert.match(details, /生成规格：预览档、384×512、约 3 秒视频、8 步、带音频/)
+      assert.match(details, /生成规格：快速创作、384×512、约 3 秒视频、8 步、带音频/)
       assert.equal(f.view.root.findAllByType('video').length, 0)
       await act(async () => f.view.root.findByProps({ 'aria-label': '播放视频' }).props.onClick())
       await act(async () => f.view.root.findByType('video').props.onLoadedMetadata({ currentTarget: { videoWidth: 640, videoHeight: 360 } }))

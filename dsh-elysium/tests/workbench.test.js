@@ -176,7 +176,7 @@ test('material upload sends images and videos and refreshes the unfiltered libra
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   let view
-  await act(async () => { view = create(React.createElement(require('elysium/materials').MaterialList, { viewState: { page: 2, profile: 'preview', media_kind: 'image', q: '旧搜索' }, onViewState: value => changes.push(value) })) })
+  await act(async () => { view = create(React.createElement(require('elysium/materials').MaterialList, { viewState: { page: 2, quality: 'fast', media_kind: 'image', q: '旧搜索' }, onViewState: value => changes.push(value) })) })
   assert.match(view.root.findByProps({ type: 'file' }).props.accept, /\.mp4/)
   const files = [{ name: '参考.png' }, { name: '视频.mp4' }]
   const event = { target: { files, value: 'selected' } }
@@ -185,7 +185,7 @@ test('material upload sends images and videos and refreshes the unfiltered libra
   const uploads = requests.filter(item => item.url.startsWith('/media/upload'))
   assert.equal(uploads.length, 2)
   uploads.forEach((item, index) => { assert.equal(item.options.method, 'POST'); assert.equal(item.options.body, files[index]) })
-  assert.equal(changes.at(-1).page, 0); assert.equal(changes.at(-1).profile, ''); assert.equal(changes.at(-1).media_kind, '')
+  assert.equal(changes.at(-1).page, 0); assert.equal(changes.at(-1).quality, ''); assert.equal(changes.at(-1).media_kind, '')
   assert.equal(changes.at(-1).source, 'import')
   assert.match(JSON.stringify(view.toJSON()), /参考.png/)
   assert.equal(view.root.findAllByType('video').length, 0)

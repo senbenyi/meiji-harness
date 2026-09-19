@@ -101,8 +101,7 @@ test('low-resolution candidate changes only dimensions and output location; defa
   Object.assign(expected.n105_104.inputs, { width: 288, height: 384 })
   expected.n126.inputs.filename_prefix = 'elysium/shot/preview-low-resolution/final'
   assert.deepEqual(p.graph, expected, 'seed, prompt, audio, sampler and patches must not change')
-  const schema = createCallToolsVideo().parameters.properties.preview_variant
-  assert.deepEqual(schema.enum, ['default', 'low-resolution'])
+  assert.equal(createCallToolsVideo().parameters.properties.preview_variant, undefined)
   for (const args of [{ ...candidate, profile: 'standard' }, { ...candidate, preview_variant: '4-step' }]) {
     await assert.rejects(validateVideoPlan(args), /preview_variant/)
   }

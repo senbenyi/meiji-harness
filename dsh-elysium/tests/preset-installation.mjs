@@ -26,8 +26,9 @@ try {
       assert.ok(entries.every(entry => !retired.includes(entry.name)))
       assert.deepEqual(warnings, [])
       const rules = await readFile(join(preset, 'rules.md'), 'utf8')
-      for (const name of ['预览创作', '常规创作', '高清创作']) assert.ok(rules.includes('/' + name))
+      assert.ok(rules.includes('创作质量由系统设置统一控制'))
+      for (const name of ['预览创作', '常规创作', '高清创作']) assert.ok(!rules.includes('/' + name))
     } finally { await provider.dispose() }
   }
-  console.log('PASS: native Harness no longer discovers retired creation skills; copied presets retain Chinese command rules')
+  console.log('PASS: native Harness no longer discovers retired creation skills or creation commands')
 } finally { await rm(root, { recursive: true, force: true }) }

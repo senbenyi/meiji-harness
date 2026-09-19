@@ -1,6 +1,6 @@
 // 职责：由 main 分支模板构建 AutoDL RealVisXL、参考图和角色三视图 ComfyUI 图。
 import { readFile } from 'node:fs/promises'
-import { ModelTaskError } from '../../../../../tasks/jobs/errors.js'
+import { ModelTaskError } from '../../../../../../utils/errors.js'
 import { executionWorkflow } from '../workflow.js'
 
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)

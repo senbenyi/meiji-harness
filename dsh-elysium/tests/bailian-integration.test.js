@@ -10,6 +10,7 @@ import { withConfig } from '../src/config.js'
 import { resolveGenerationBackend, thirdPartyModels, thirdPartyChannels } from '../src/worker/models/managers/runtime/index.js'
 import { bailianBackend } from '../src/worker/models/providers/bailian/config.js'
 import { executeJob, validatePlan } from '../src/worker/models/providers/bailian/execution.js'
+import adapter from '../src/worker/models/providers/bailian/index.js'
 import { saveJson, readJson } from '../src/database/json.js'
 import { projectJobRoot } from '../src/worker/tasks/jobs/paths.js'
 import { openLocalMedia } from '../src/server/media/local-media.js'
@@ -66,6 +67,12 @@ test('private wins; Bailian is the first third-party video channel; disabled See
     assert.doesNotMatch(JSON.stringify(channels), /secret|api_key|base_url/)
     assert.equal(f.calls.length, 0)
   })
+})
+
+test('Bailian maps regular and high quality to real resolutions and rejects indistinguishable fast mode', () => {
+  assert.deepEqual(adapter.preparePlan({ mode: 't2va', prompt: 'x' }, 'regular'), { mode: 't2va', prompt: 'x', quality: 'regular', resolution: '720P' })
+  assert.deepEqual(adapter.preparePlan({ mode: 't2va', prompt: 'x' }, 'high'), { mode: 't2va', prompt: 'x', quality: 'high', resolution: '1080P' })
+  assert.throws(() => adapter.preparePlan({ mode: 't2va', prompt: 'x' }, 'fast'), error => error.code === 'PROVIDER_QUALITY_UNSUPPORTED')
 })
 
 test('download failure resumes the pinned task even after the channel is disabled; changed input cannot resubmit', async t => {

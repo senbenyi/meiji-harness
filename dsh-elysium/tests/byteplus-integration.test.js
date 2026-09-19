@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
 import { providerCreationInstructions, resolveGenerationBackend, thirdPartyChannels, thirdPartyModels, validateBackend } from '../src/worker/models/managers/runtime/index.js'
 import { executeJob, validatePlan } from '../src/worker/models/providers/byteplus/execution.js'
+import adapter from '../src/worker/models/providers/byteplus/index.js'
 import { bytePlusBackend } from '../src/worker/models/providers/byteplus/config.js'
 import { saveJson } from '../src/database/json.js'
 import { openLocalMedia } from '../src/server/media/local-media.js'
@@ -59,6 +60,10 @@ test('own connected video wins; unavailable own video falls back; model listing 
     await validateBackend(original)
     assert.equal(original.connection.model, 'video-test')
   }) } finally { await f.close() }
+})
+
+test('BytePlus maps global quality to paid request resolution before submission', () => {
+  assert.deepEqual(['fast', 'regular', 'high'].map(quality => adapter.preparePlan({ mode: 't2va', prompt: 'x' }, quality).resolution), ['480p', '720p', '1080p'])
 })
 
 test('video POSTs once, polls original remote ID and downloads locally; unknown submission cannot be repeated', async () => {

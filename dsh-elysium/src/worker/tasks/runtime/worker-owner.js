@@ -2,7 +2,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { readFile, stat } from 'node:fs/promises'
-import { ModelTaskError } from '../jobs/errors.js'
+import { ModelTaskError } from '../../../utils/errors.js'
 const run = promisify(execFile)
 
 export async function workerAlive(lockPath, jobId) {

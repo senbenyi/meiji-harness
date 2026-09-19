@@ -1,6 +1,6 @@
 // 职责：在公共协议校验上叠加本平台视频档位约束。
 import { validatePlan as validateProtocolPlan } from '../../protocols/comfyui/plan.js'
-import { ModelTaskError } from '../../../tasks/jobs/errors.js'
+import { ModelTaskError } from '../../../../utils/errors.js'
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 export async function validatePlan(args) {
   if (!args || typeof args !== 'object') return validateProtocolPlan(args)

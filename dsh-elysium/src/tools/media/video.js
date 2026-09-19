@@ -3,7 +3,7 @@ import { startVideoJob, resumeVideoJob } from '../../worker/tasks/videos/service
 import { VIDEO_MODES } from '../../worker/tasks/videos/plan.js'
 import { waitJob } from '../../worker/tasks/jobs/wait.js'
 import { generationProjectId } from '../project/context.js'
-import { ModelTaskError } from '../../worker/tasks/jobs/errors.js'
+import { ModelTaskError } from '../../utils/errors.js'
 
 export { waitJob as waitVideoJob } from '../../worker/tasks/jobs/wait.js'
 

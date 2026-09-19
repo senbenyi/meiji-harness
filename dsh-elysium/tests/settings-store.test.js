@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/pro
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { defaultSettings, withConfig } from '../src/config.js'
-import { ensureSettings, readSettings } from '../src/database/managers/settings.js'
+import { ensureSettings, readSettings, updateSettings } from '../src/database/managers/settings.js'
 import { readRegistry, writeRegistry } from '../src/database/managers/registry.js'
 import { readSelection, writeSelection } from '../src/database/managers/selection.js'
 import { legacyTunnelBackend } from '../src/worker/models/managers/registry/resolve.js'
@@ -102,4 +102,17 @@ test('ComfyUI registry does not replace the configured chat SSH tunnel', async t
   assert.equal(backend.server_id, 'legacy-qwen')
   assert.equal(backend.connection.ssh_alias, 'localhost')
   assert.equal(backend.connection.model, 'qwen3.8-27b-elysium')
+})
+
+test('legacy unified settings gains regular creation quality without losing sections', async t => {
+  const files = await fixture(t), legacy = structuredClone(defaultSettings)
+  delete legacy.creation
+  await writeFile(files.settings, JSON.stringify(legacy), { mode: 0o600 })
+  assert.deepEqual(readSettings(files.settings).creation, { revision: 0, quality: 'regular' })
+  await updateSettings(files.settings, settings => ({ ...settings, creation: { revision: 1, quality: 'high' } }))
+  const saved = readSettings(files.settings)
+  assert.deepEqual(saved.creation, { revision: 1, quality: 'high' })
+  assert.deepEqual(saved.models, legacy.models)
+  assert.deepEqual(saved.chat, legacy.chat)
+  assert.equal((await stat(files.settings)).mode & 0o777, 0o600)
 })

@@ -2,10 +2,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { withConfig } from '../src/config.js'
+import { defaultSettings, withConfig } from '../src/config.js'
 import { createSettingsHandler, SETTINGS_ROUTE } from '../src/server/routes/settings.js'
 const record = id => ({ id, label: id, provider: 'runpod', connection_source: 'manual', instance_id: id, deployment_id: 'one', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })
 test('all endpoints authenticate before IO; registration stays manual and switching is checked', async t => {
@@ -16,7 +16,7 @@ test('all endpoints authenticate before IO; registration stays manual and switch
   const server = createServer((req, res) => withConfig({ ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json') }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
   const request = (action, body, token = 'test') => fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/${action}?t=${token}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
-  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'tunnel-connect', 'third-party-select']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
+  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'tunnel-connect', 'third-party-select', 'creation-quality']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
   assert.equal(calls, 0)
   assert.equal((await request('register', { revision: 0, server: { ...record('autodl'), provider: 'autodl' } })).status, 201)
   assert.equal((await request('register', { revision: 1, server: record('a') })).status, 201)
@@ -36,6 +36,22 @@ test('all endpoints authenticate before IO; registration stays manual and switch
   assert.equal((await request('set-enabled', { id: 'b', enabled: false, revision: 3 })).status, 200)
   assert.equal((await request('check', { id: 'b', service: 'comfyui' })).status, 400)
   assert.equal((await request('delete', { id: 'a', revision: 5 })).status, 404)
+})
+
+test('creation quality uses its own revision and persists only valid global values', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'creation-quality-http-')), settings = join(root, 'settings.json')
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await writeFile(settings, JSON.stringify(defaultSettings), { mode: 0o600 })
+  const config = { ELYSIUM_SETTINGS_FILE: settings, ELYSIUM_MODELS: defaultSettings.models }
+  const handler = createSettingsHandler({ token: 'test' })
+  const server = createServer((req, res) => withConfig(config, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
+  const request = body => fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/creation-quality?t=test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  assert.equal((await request({ quality: 'high', revision: 0 })).status, 200)
+  assert.equal((await request({ quality: 'fast', revision: 0 })).status, 409)
+  assert.equal((await request({ quality: 'unknown', revision: 1 })).status, 400)
+  const models = await (await fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/models?t=test`)).json()
+  assert.deepEqual(models.creation, { quality: 'high', revision: 1 })
 })
 
 test('default private model selections remain visible after the model list reloads', async t => {

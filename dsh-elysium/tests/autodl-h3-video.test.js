@@ -76,3 +76,21 @@ test('AutoDL builds main director T2V, I2V, continue and per-shot outputs', asyn
   assert.ok(result.graph.s1_save)
   assert.ok(result.graph.final)
 }))
+
+test('global quality changes director specifications but preserves requested duration and shots', async () => withConfig({ COMFYUI_URL: backend.base_url, ELYSIUM_BACKEND: backend }, async () => {
+  const templates = await loadVideoTemplates(), image = view('character.png')
+  const expected = { fast: [384, 512, 4], regular: [576, 768, 8], high: [864, 1184, 8] }
+  for (const [quality, [width, height, steps]] of Object.entries(expected)) {
+    const plan = { quality, duration: 10, shots: [
+      { id: 'one', duration: 4, mode: 'independent', prompt: 'walk', image_path: image },
+      { id: 'two', duration: 6, mode: 'continue', prompt: 'turn' },
+    ] }
+    await validatePlan(plan)
+    const built = buildDirectorGraph(plan, { [image]: { name: 'character.png [output]' } }, templates, quality.repeat(32).slice(0, 32))
+    assert.deepEqual(built.shots.map(shot => [shot.id, shot.duration]), [['one', 4], ['two', 6]])
+    assert.deepEqual(built.specification, { width, height, fps: 30, seconds: 10, steps, audio: 'joint-generation-and-decoding' })
+    assert.equal(built.graph.s0_director.inputs.width, width)
+    assert.equal(built.graph.s0_resize.inputs.height, height)
+  }
+  assert.equal(toDirectorPlan({ mode: 't2va', quality: 'fast', duration_seconds: 7, prompt: 'scene' }).duration, 7)
+}))

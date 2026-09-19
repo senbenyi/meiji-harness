@@ -206,11 +206,11 @@ test('panel adds, moves and deletes by shot ID while retaining selection after r
   await act(async () => view.unmount())
 })
 
-test('material filters reset pagination and propagate canonical profile and kind parameters', async () => {
+test('material filters reset pagination and propagate canonical quality and kind parameters', async () => {
   const f = fixture(emptyProject())
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/materials').MaterialList)) })
-  await act(async () => view.root.findByProps({ 'aria-label': '档次' }).props.onChange({ target: { value: 'high-quality' } }))
+  await act(async () => view.root.findByProps({ 'aria-label': '创作质量' }).props.onChange({ target: { value: 'high' } }))
   await act(async () => view.root.findByProps({ 'aria-label': '类型' }).props.onChange({ target: { value: 'image' } }))
   await act(async () => view.root.findByProps({ 'aria-label': '每页' }).props.onChange({ target: { value: '12' } }))
   const queries = f.requests.map(request => new URL(request.url, 'https://app.test').searchParams)
@@ -218,7 +218,7 @@ test('material filters reset pagination and propagate canonical profile and kind
   assert.ok(queries.every(query => query.get('offset') === '0'))
   assert.ok(queries.slice(0, 3).every(query => query.get('limit') === '6'))
   assert.equal(queries[3].get('limit'), '12')
-  assert.equal(queries[3].get('profile'), 'high-quality')
+  assert.equal(queries[3].get('quality'), 'high')
   assert.equal(queries[3].get('media_kind'), 'image')
   assert.equal(view.root.findAllByType('article').length, 1)
   await act(async () => view.unmount())

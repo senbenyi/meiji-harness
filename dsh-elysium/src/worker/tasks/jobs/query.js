@@ -3,7 +3,7 @@ import { workerAlive } from '../runtime/worker-owner.js'
 import { readFile, stat } from 'node:fs/promises'
 import { traceDiagnostics } from './diagnostics.js'
 import { join } from 'node:path'
-import { ModelTaskError } from './errors.js'
+import { ModelTaskError } from '../../../utils/errors.js'
 import { findJobRoot } from './paths.js'
 
 async function readTrace(path) {

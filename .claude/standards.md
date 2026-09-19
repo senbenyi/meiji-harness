@@ -37,7 +37,7 @@ dsh-elysium/
 │   │       ├── protocols/  # 公共模型协议
 │   │       ├── managers/   # 注册、运行、选择、设置和连接管理
 │   │       └── providers/  # 平台专属实现、模板、测试与材料
-│   └── utils/          # 无业务语义的上下文、错误和校验工具
+│   └── utils/          # 跨模块共享的上下文、结构化错误和校验工具
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
 │   ├── loader.js        # 客户端模块拼接
@@ -54,7 +54,7 @@ dsh-elysium/
 - 构建脚本目录统一命名为 `scripts/`。
 - `src/index.js` 是唯一组合入口；Client 只调用 `server/routes/`，Harness 工具只位于 `src/tools/`。
 - `src/server/` 只承载 Client 工作台 HTTP 边界与共享 Store；任务生命周期、工作流和 worker 进程只位于 `src/worker/tasks/`。
-- 数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 不得出现项目、导演、素材、任务、模型或平台业务语义。
+- 数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 除共享结构化错误外，不得出现项目、导演、素材、任务、模型或平台业务语义。
 - 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/worker/models/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
 - 插件 Cordis 装配统一位于 `harness/.dsh/profiles/web/cordis.patch.yml`，插件包不自带 Harness 运行配置。

@@ -1,7 +1,7 @@
 // 职责：校验 AutoDL 当前五种 H3 模式和 main 分支导演计划，两类输入严格互斥。
 import { mediaReference } from '../../../../protocols/comfyui/media-reference.js'
 import { validatePlan as validateProtocolPlan } from '../../../../protocols/comfyui/plan.js'
-import { ModelTaskError } from '../../../../../tasks/jobs/errors.js'
+import { ModelTaskError } from '../../../../../../utils/errors.js'
 
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 

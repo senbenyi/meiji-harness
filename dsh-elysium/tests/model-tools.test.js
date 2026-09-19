@@ -29,6 +29,12 @@ test('all tools expose function-call schemas and local executors', () => {
     assert.ok(!tool.parameters.required.includes('project_id'))
   }
   const video = tools.find(tool => tool.name === 'call_tools_video')
+  assert.equal(video.parameters.properties.profile, undefined)
+  assert.equal(video.parameters.properties.quality, undefined)
+  assert.equal(video.parameters.properties.preview_variant, undefined)
+  const image = tools.find(tool => tool.name === 'call_tools_image')
+  assert.equal(image.parameters.properties.preset, undefined)
+  assert.equal(image.parameters.properties.quality, undefined)
   assert.deepEqual(video.parameters.oneOf, [{ required: ['mode', 'prompt'] }, { required: ['duration'] }])
   assert.equal(video.parameters.anyOf, undefined)
 })
