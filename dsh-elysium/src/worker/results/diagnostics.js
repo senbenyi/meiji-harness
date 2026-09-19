@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto'
 import { runtimeConfig, workcardConfig } from '../../config.js'
 import { providerSourceFiles } from '../models/index.js'
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile } from '../../database/files.js'
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 const src = new URL('../../', import.meta.url)

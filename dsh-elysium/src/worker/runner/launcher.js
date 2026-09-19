@@ -2,7 +2,7 @@
 import { connectBackend, readBackend } from '../models/index.js'
 import { workerEnvironment } from '../../config.js'
 import { spawn } from 'node:child_process'
-import { open, writeFile, unlink } from 'node:fs/promises'
+import { closeFile, open, unlink, writeFile, writeOpenedFile } from '../../database/files.js'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { workerAlive } from './owner.js'
@@ -48,14 +48,14 @@ async function launchLocked(jobId, capability, retryFailed) {
       const child = spawn(process.execPath, [fileURLToPath(new URL('./process.js', import.meta.url)), projectId, jobId],
         { detached: true, stdio: ['ignore', log.fd, log.fd], env: workerEnvironment() })
       await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject) })
-      await lock.writeFile(String(child.pid))
+      await writeOpenedFile(lock, String(child.pid))
       child.unref()
-    } finally { await log.close() }
+    } finally { await closeFile(log) }
     return { job_id: jobId, project_id: projectId, status: 'queued' }
   } catch (error) {
     await saveStatus(directory, { ...identity, status: 'failed', error_code: error.code, error: error.message })
     await appendHistory(directory, 'dispatch-failed', { error_code: error.code, error: String(error.message).slice(0, 1000) })
     await unlink(lockPath).catch(() => {})
     throw error
-  } finally { await lock.close() }
+  } finally { await closeFile(lock) }
 }

@@ -1,5 +1,5 @@
 // 职责：发现提供者的公开声明，供配置解析、安装与兼容迁移使用；不加载凭据。
-import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from '../../../database/files.js'
 import { join } from 'node:path'
 const root = new URL('../providers/', import.meta.url)
 export function providerDefinitions() {

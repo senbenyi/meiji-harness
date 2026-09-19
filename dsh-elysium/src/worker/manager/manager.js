@@ -1,6 +1,6 @@
 // 职责：持久化受理任务，并提供派发、结算、取消、暂停和人工重试命令；不编排业务顺序。
 import { createHash, randomBytes } from 'node:crypto'
-import { access, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { access, readFile, readdir, rm, writeFile } from '../../database/files.js'
 import { join } from 'node:path'
 import { readJson, saveJson } from '../../database/json.js'
 import { jobsRoot } from '../../database/paths.js'

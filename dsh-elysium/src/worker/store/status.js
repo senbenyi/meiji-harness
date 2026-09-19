@@ -1,5 +1,5 @@
 // 职责：任务状态机的唯一写入口。
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from '../../database/files.js'
 import { isAbsolute, join } from 'node:path'
 import { readJson, saveJson } from '../../database/json.js'
 import { ModelTaskError } from '../../utils/errors.js'

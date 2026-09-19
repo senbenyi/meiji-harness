@@ -2,7 +2,7 @@
 import { createStandardAdapter } from '../../protocols/comfyui/adapter.js'
 import { buildVideoGraph } from './workflows/minimax-h3/graph.js'
 import { withBackend } from '../../catalog/servers.js'
-import { readFileSync } from 'node:fs'
+import { readFileSync } from '../../../../database/files.js'
 import { validatePlan } from './plan.js'
 import { guidance } from './guidance.js'
 import { validateRunpod } from './config.js'

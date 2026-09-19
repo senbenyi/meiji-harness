@@ -1,5 +1,5 @@
 // 职责：组合并注册 Elysium 的工具、路由与系统提示词。
-import { mkdir } from 'node:fs/promises'
+import { mkdir } from './database/files.js'
 //config
 import { resolveConfig, withConfig } from './config.js'
 // session

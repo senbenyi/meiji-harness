@@ -1,5 +1,5 @@
 // 职责：记录本地 worker 活跃时间，并判断仍存活进程是否已失去进展信号。
-import { readFile } from 'node:fs/promises'
+import { readFile } from '../../database/files.js'
 import { join } from 'node:path'
 import { saveJson } from '../../database/json.js'
 

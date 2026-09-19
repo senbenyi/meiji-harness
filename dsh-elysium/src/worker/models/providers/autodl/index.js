@@ -1,5 +1,5 @@
 // 职责：组合 AutoDL 双服务器契约；工作流实现由本 provider 自身提供。
-import { readFileSync } from 'node:fs'
+import { readFileSync } from '../../../../database/files.js'
 import { createStandardAdapter } from '../../protocols/comfyui/adapter.js'
 import { withBackend } from '../../catalog/servers.js'
 import { validateAutodl } from './config.js'

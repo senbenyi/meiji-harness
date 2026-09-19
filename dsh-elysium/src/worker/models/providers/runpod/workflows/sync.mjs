@@ -4,7 +4,7 @@ import { resolveServer } from '../../../catalog/servers.js'
 import { backendWorkflowSource } from '../../../index.js'
 import { resolveConfig, withConfig } from '../../../../../config.js'
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from '../../../../../database/files.js'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 

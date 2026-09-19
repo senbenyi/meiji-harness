@@ -1,5 +1,5 @@
 // 职责：在当前 Runpod 镜像内管理本模块启动的 ComfyUI 进程，不管理云实例或 Harness。
-import { open, readFile, writeFile, rm } from 'node:fs/promises'
+import { closeFile, open, readFile, rm, writeFile } from '../../../../database/files.js'
 import { join, isAbsolute } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import { setTimeout } from 'node:timers/promises'
@@ -51,10 +51,10 @@ export async function manageService(action, { root = deployment.root, port = dep
         await writeFile(pidFile, String(child.pid), { mode: 0o600 })
         child.unref()
         return { status: 'started', pid: child.pid, log: logFile, url }
-      } finally { await log.close() }
+      } finally { await closeFile(log) }
     }
     if (action === 'stop') return await stop()
     if (action === 'restart') await stop()
     return await start()
-  } finally { await lock.close(); await rm(`${pidFile}.lock`, { force: true }) }
+  } finally { await closeFile(lock); await rm(`${pidFile}.lock`, { force: true }) }
 }

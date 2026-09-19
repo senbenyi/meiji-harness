@@ -1,5 +1,5 @@
 // 职责：持续对账任务、观察执行状态、串行结算并在全局单并发约束下派发下一个任务。
-import { access } from 'node:fs/promises'
+import { access } from '../../database/files.js'
 import { join } from 'node:path'
 import { readJson } from '../../database/json.js'
 import { dispatch, setDriverWake, settle } from '../manager/manager.js'

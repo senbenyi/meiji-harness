@@ -1,6 +1,6 @@
 // 职责：定位并读取本地任务状态，识别已停止的 worker。
 import { workerAlive } from './owner.js'
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, stat } from '../../database/files.js'
 import { traceDiagnostics } from '../results/diagnostics.js'
 import { isAbsolute, join } from 'node:path'
 import { ModelTaskError } from '../../utils/errors.js'

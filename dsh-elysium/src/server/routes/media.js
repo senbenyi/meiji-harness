@@ -1,5 +1,5 @@
 // 职责：提供素材列表、任务状态、媒体预览与下载的同源 HTTP 路由。
-import { connectBackend, findJobCall, getJob, jobSummary, openLocalMedia, retryTask } from '../../worker/index.js'
+import { closeLocalMedia, connectBackend, findJobCall, getJob, jobSummary, openLocalMedia, retryTask, streamLocalMedia } from '../../worker/index.js'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { withConfig } from '../../config.js'
@@ -79,9 +79,9 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
           if (range) { headers['Content-Range'] = `bytes ${range.first}-${range.last}/${media.size}`; headers['Content-Length'] = range.last - range.first + 1 }
           res.writeHead(range ? 206 : 200, headers)
           if (req.method === 'HEAD' || !media.size) return res.end()
-          await pipeline(media.handle.createReadStream({ autoClose: false, ...(range ? { start: range.first, end: range.last } : {}) }), res)
+          await pipeline(streamLocalMedia(media, range ? { start: range.first, end: range.last } : {}), res)
           return
-        } finally { await media.handle.close() }
+        } finally { await closeLocalMedia(media) }
       }
       const target = new URL(job.result.comfyui_view_url)
       if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) return json(res, 403, { error: 'Invalid media URL' })

@@ -1,6 +1,6 @@
 // 职责：生成、校验并不可变地保存任务原始记录。
 import { createHash, randomUUID } from 'node:crypto'
-import { link, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { link, mkdir, readFile, readdir, rm, writeFile } from '../../database/files.js'
 import { join } from 'node:path'
 import { tasksRoot } from '../../database/paths.js'
 import { ModelTaskError } from '../../utils/errors.js'

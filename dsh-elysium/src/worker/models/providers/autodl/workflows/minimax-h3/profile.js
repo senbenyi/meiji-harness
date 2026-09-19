@@ -1,5 +1,5 @@
 // 职责：加载视频档位配置，并编译预览与常规工作流。
-import { readFile } from 'node:fs/promises'
+import { readFile } from '../../../../../../database/files.js'
 import { mediaReference } from '../../../../protocols/comfyui/media-reference.js'
 
 // A small override of the existing H3 graph; submission/recovery stays shared.

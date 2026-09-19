@@ -1,5 +1,5 @@
 // 职责：在当前进程内执行一个已受理任务：读取请求与后端快照，创建 TaskContext 交给模型层，异常时兜底写入失败。
-import { readFile } from 'node:fs/promises'
+import { readFile } from '../../database/files.js'
 import { join } from 'node:path'
 import { readJson } from '../../database/json.js'
 import { failStatus } from '../store/status.js'

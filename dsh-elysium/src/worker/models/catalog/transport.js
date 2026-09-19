@@ -1,7 +1,7 @@
 // 职责：验证 SSH 别名的解析身份，只建立和复用本功能拥有的控制连接。
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmod, mkdir, readFile, readdir, rm, rmdir } from 'node:fs/promises'
+import { chmod, mkdir, readFile, readdir, rm, rmdir } from '../../../database/files.js'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'

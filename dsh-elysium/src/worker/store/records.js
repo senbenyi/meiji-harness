@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { saveJson } from '../../database/json.js'
 import { jobsRoot } from '../../database/paths.js'
 import { jobRoot, validJobId, validProjectId } from './paths.js'
-import { mkdir, rename, rm } from 'node:fs/promises'
+import { mkdir, rename, rm } from '../../database/files.js'
 
 export async function createJob(projectId, plan, backend, { id = randomBytes(16).toString('hex'), origin, capability } = {}) {
   if (!validProjectId(projectId)) throw new Error('项目 ID 无效')

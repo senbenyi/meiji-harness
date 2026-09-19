@@ -1,5 +1,5 @@
 // 职责：集中加载仓库配置、解析插件实例配置，并为异步执行链隔离运行时配置。
-import { readFileSync } from 'node:fs'
+import { readFileSync } from './database/files.js'
 import { join } from 'node:path'
 import { ensureSettings, providerConfigFields, providerConfigDefaults, providerConfigSources, readSettings as readRuntimeSettings, validateSettings } from './worker/models/index.js'
 import { defaultElysiumHome } from './database/paths.js'

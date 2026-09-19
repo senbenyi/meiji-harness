@@ -23,7 +23,7 @@ test('source tree follows session → tools → worker flow with client, server,
     'server/http.js', 'server/routes/media.js', 'server/routes/projects.js', 'server/routes/directors.js', 'server/routes/settings.js',
     'server/directors/service.js', 'server/projects/service.js',
     'session/index.js', 'worker/driver/driver.js', 'worker/manager/queue.js', 'worker/manager/tasks.js', 'worker/runner/process.js', 'worker/intake/call-bindings.js', 'worker/store/status.js',
-    'database/index.js', 'database/json.js', 'database/paths.js', 'database/schemas/projects.js', 'tools/index.js', 'tools/card/workcard.js', 'worker/models/protocols/comfyui/client.js',
+    'database/index.js', 'database/files.js', 'database/json.js', 'database/paths.js', 'database/schemas/projects.js', 'tools/index.js', 'tools/card/workcard.js', 'worker/models/protocols/comfyui/client.js',
     'worker/models/index.js', 'utils/context.js', 'utils/errors.js', 'utils/validation.js']) {
     assert.equal(await exists(new URL(file, root)), true, file)
   }
@@ -32,7 +32,7 @@ test('source tree follows session → tools → worker flow with client, server,
 
 test('database is centralized and non-error utils stay business-free', async () => {
   const database = await import('../src/database/index.js')
-  for (const name of ['readJson', 'saveJson', 'storageRoot', 'materials', 'directors', 'projects', 'registry', 'selection', 'settings']) {
+  for (const name of ['files', 'readJson', 'saveJson', 'storageRoot', 'materials', 'directors', 'projects', 'registry', 'selection', 'settings']) {
     assert.ok(database[name], name)
   }
   for (const file of ['context.js', 'validation.js']) {
@@ -43,6 +43,19 @@ test('database is centralized and non-error utils stay business-free', async () 
     for (const entry of await readdir(new URL(`database/${directory}/`, root))) {
       const source = await readFile(new URL(`database/${directory}/${entry}`, root), 'utf8')
       assert.doesNotMatch(source, /from ['"]\.\.\/\.\.\/server\//, `database/${directory}/${entry}`)
+    }
+  }
+})
+
+test('all source file access goes through database/files.js', async () => {
+  const sources = async directory => (await Promise.all((await readdir(directory, { withFileTypes: true })).map(entry => entry.isDirectory()
+    ? sources(new URL(`${entry.name}/`, directory)) : /\.m?js$/.test(entry.name) ? [new URL(entry.name, directory)] : []))).flat()
+  const gateway = new URL('database/files.js', root).pathname
+  for (const file of await sources(root)) {
+    const source = await readFile(file, 'utf8')
+    if (file.pathname !== gateway) assert.doesNotMatch(source, /['"]node:fs(?:\/promises)?['"]/, file.pathname)
+    if (!file.pathname.startsWith(new URL('database/', root).pathname)) {
+      assert.doesNotMatch(source, /\bmedia\.handle\b/, file.pathname)
     }
   }
 })

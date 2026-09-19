@@ -28,6 +28,8 @@
 
 ## 已完成
 
+- **文件访问集中化** — 2026-09-19 完成：`src/database/files.js` 成为源码唯一文件系统入口，Server、Worker、Models 和配置层的 40 个直接入口全部迁移，媒体真实句柄由 Database 托管；新增架构防漂移测试。专项 50/50、插件 220/220、构建、Registry 打包和差异检查通过。实施记录：`docs/implement/实施-文件访问集中化.md`。
+
 - **移除调用持久索引** — 2026-09-19 完成：运行中工具调用仅使用进程内关联，完成结果以 Harness 会话日志为事实源；删除 `runtime/calls` 的 24 个旧索引及全部读写逻辑。专项 38/38、插件 211/211、构建、Registry 打包、安装、Harness 重启和运行目录验证通过。实施记录：`docs/implement/实施-移除调用持久索引.md`。
 
 - **Worker 任务目录迁移** — 2026-09-19 完成：原 `server/jobs` 与 `server/workflows` 迁入 `src/worker/tasks`，删除无用耗时采集后保留 16 个文件，按 jobs、images、videos、runtime、bindings 分层，Server 仅保留 Client HTTP、路由和共享 Store；专项测试 45/45、全量测试 187/188，唯一失败为沙箱禁止 `ps`，语法与构建通过。实施记录：`docs/implement/实施-Worker任务目录迁移.md`。

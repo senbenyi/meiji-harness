@@ -1,6 +1,6 @@
 // 职责：为跨进程任务启动提供可等待、可回收的目录锁。
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from '../../database/files.js'
 import { join } from 'node:path'
 import { ModelTaskError } from '../../utils/errors.js'
 

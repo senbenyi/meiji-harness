@@ -1,5 +1,5 @@
 // 职责：由 main 分支模板构建 AutoDL RealVisXL、参考图和角色三视图 ComfyUI 图。
-import { readFile } from 'node:fs/promises'
+import { readFile } from '../../../../../../database/files.js'
 import { ModelTaskError } from '../../../../../../utils/errors.js'
 import { executionWorkflow } from '../workflow.js'
 

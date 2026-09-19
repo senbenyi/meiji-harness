@@ -1,5 +1,5 @@
 // 职责：校验 AutoDL 双服务器已有的 MiniMax H3 与 Qwen 服务声明。
-import { readFileSync } from 'node:fs'
+import { readFileSync } from '../../../../database/files.js'
 import { validateStandard } from '../../protocols/comfyui/adapter.js'
 const definition = JSON.parse(readFileSync(new URL('./definition.json', import.meta.url), 'utf8'))
 

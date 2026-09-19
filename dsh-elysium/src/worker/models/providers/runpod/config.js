@@ -1,5 +1,5 @@
 // 职责：声明当前 Runpod 镜像的部署约定和支持的模型服务。
-import { readFileSync } from 'node:fs'
+import { readFileSync } from '../../../../database/files.js'
 import { validateStandard } from '../../protocols/comfyui/adapter.js'
 const definition = JSON.parse(readFileSync(new URL('./definition.json', import.meta.url), 'utf8'))
 export const deployment = Object.freeze({ root: '/workspace/runpod-slim', port: 8188, venvSuffix: 'cu130' })

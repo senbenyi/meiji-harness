@@ -1,8 +1,8 @@
 // 职责：从本地任务状态组装素材摘要，并按筛选与分页返回可用产物。
-import { readdir, readFile, stat, mkdir, rename, rm, open } from 'node:fs/promises'
+import { closeFile, mkdir, open, readFile, readdir, rename, rm, stat, writeOpenedFile } from '../../database/files.js'
 import { randomBytes } from 'node:crypto'
 import { join, extname, basename } from 'node:path'
-import { getJob, jobSummary, openLocalMedia, saveStatus } from '../../worker/index.js'
+import { closeLocalMedia, getJob, jobSummary, openLocalMedia, saveStatus } from '../../worker/index.js'
 import { readJson, saveJson } from '../../database/json.js'
 import { invalidRequest } from '../http.js'
 import { jobsRoot, projectsRoot, uploadsRoot } from '../../database/paths.js'
@@ -12,7 +12,7 @@ import { validProjectId } from '../projects/schema.js'
 export async function availableJobSummary(job) {
   const summary = jobSummary(job)
   if (job.result?.local_media_path !== undefined) {
-    try { const media = await openLocalMedia(job); await media.handle.close() }
+    try { const media = await openLocalMedia(job); await closeLocalMedia(media) }
     catch (error) { return { ...summary, has_image: false, has_video: false, has_download: false, media_error: error.message } }
   }
   return summary
@@ -48,9 +48,9 @@ export async function uploadAsset(req, filename) {
         const bytes = Buffer.from(chunk); size += bytes.length
         if (size > 512 * 1024 * 1024) throw Object.assign(new Error('素材文件最多 512 MB'), { status: 413 })
         if (header.length < 12) header = Buffer.concat([header, bytes.subarray(0, 12 - header.length)])
-        await file.writeFile(bytes)
+        await writeOpenedFile(file, bytes)
       }
-    } finally { await file.close() }
+    } finally { await closeFile(file) }
     const valid = extension === '.png' ? header.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))
       : ['.jpg', '.jpeg'].includes(extension) ? header.subarray(0, 3).equals(Buffer.from('ffd8ff', 'hex'))
       : extension === '.webp' ? header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP'

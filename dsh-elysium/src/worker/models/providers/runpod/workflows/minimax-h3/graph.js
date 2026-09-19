@@ -1,5 +1,5 @@
 // 职责：按视频模式选择模板并应用用户绑定生成执行图。
-import { readFile } from 'node:fs/promises'
+import { readFile } from '../../../../../../database/files.js'
 
 import { mediaReference } from '../../../../protocols/comfyui/media-reference.js'
 import { buildProfileGraph } from './profile.js'

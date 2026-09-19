@@ -1,5 +1,5 @@
 // 职责：拥有手工连接的兼容约定；工作流通过公共入口显式委托。
-import { readFileSync } from 'node:fs'
+import { readFileSync } from '../../../../database/files.js'
 import { createStandardAdapter } from '../../protocols/comfyui/adapter.js'
 import { delegateProvider } from '../../index.js'
 const definition = JSON.parse(readFileSync(new URL('./definition.json', import.meta.url), 'utf8'))

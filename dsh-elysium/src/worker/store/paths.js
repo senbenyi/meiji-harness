@@ -1,5 +1,5 @@
 // 职责：校验任务身份，并定位全局执行记录或导入记录。
-import { access } from 'node:fs/promises'
+import { access } from '../../database/files.js'
 import { join } from 'node:path'
 import { jobsRoot, projectsRoot, uploadsRoot } from '../../database/paths.js'
 

@@ -1,5 +1,5 @@
 // 职责：受理侧的项目归属：自由与教学模式的任务写入不可见的内部工作区。
-import { mkdir } from 'node:fs/promises'
+import { mkdir } from '../../database/files.js'
 import { join } from 'node:path'
 import { readJson, saveJson } from '../../database/json.js'
 import { FREE_PROJECT_ID, projectRoot } from '../store/paths.js'

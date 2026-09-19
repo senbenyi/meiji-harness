@@ -1,7 +1,7 @@
 // 职责：为 worker 进程内的一次执行创建 TaskContext，把状态、媒体与参考图能力注入模型层。
 import { jobRoot } from '../store/paths.js'
 import { failStatus, saveStatus, startStatus, succeedStatus } from '../store/status.js'
-import { openLocalMedia, saveMedia } from '../store/media.js'
+import { closeLocalMedia, openLocalMedia, readLocalMedia, saveMedia } from '../store/media.js'
 import { codeVersion } from '../results/diagnostics.js'
 import { ModelTaskError } from '../../utils/errors.js'
 import { getJob } from './inspect.js'
@@ -29,6 +29,6 @@ async function imageReference(value) {
   const media = await openLocalMedia(job)
   try {
     if (media.size > 20 * 1024 * 1024) throw invalid('本地参考图片最多20 MB')
-    return `data:${media.contentType};base64,${(await media.handle.readFile()).toString('base64')}`
-  } finally { await media.handle.close() }
+    return `data:${media.contentType};base64,${(await readLocalMedia(media)).toString('base64')}`
+  } finally { await closeLocalMedia(media) }
 }

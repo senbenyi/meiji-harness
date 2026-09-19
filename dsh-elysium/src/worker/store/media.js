@@ -1,8 +1,7 @@
 // 职责：任务媒体的唯一存储入口：保存并登记产物，校验登记后只打开存储根内的受支持文件。
 import { uploadsRoot } from '../../database/paths.js'
 import { readJson, saveJson } from '../../database/json.js'
-import { constants, createWriteStream } from 'node:fs'
-import { mkdir, open, realpath, readFile, rename, rm, stat } from 'node:fs/promises'
+import { closeFile, constants, createWriteStream, managedFile, mkdir, open, readFile, realpath, rename, rm, stat, statOpenedFile } from '../../database/files.js'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { extname, join, relative, sep } from 'node:path'
@@ -36,16 +35,20 @@ export async function openLocalMedia(job) {
     if (!inside(root, path)) throw failure(403, '本地媒体路径越界')
     const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
     try {
-      const stat = await handle.stat()
+      const stat = await statOpenedFile(handle)
       if (!stat.isFile()) throw failure(403, '本地媒体不是普通文件')
       if (stat.size !== record.size_bytes) throw failure(409, '本地媒体大小与登记不符')
-      return { ...value, handle, size: stat.size, etag: `"${stat.size}-${stat.mtimeMs}"` }
-    } catch (error) { await handle.close(); throw error }
+      return { ...value, handle: managedFile(handle), size: stat.size, etag: `"${stat.size}-${stat.mtimeMs}"` }
+    } catch (error) { await closeFile(handle); throw error }
   } catch (error) {
     if (error.code === 'ENOENT') throw failure(404, '本地媒体文件或登记缺失，请重新安装完整模板')
     throw error
   }
 }
+
+export const readLocalMedia = ({ handle }) => handle.readFile()
+export const streamLocalMedia = ({ handle }, options) => handle.createReadStream({ autoClose: false, ...options })
+export const closeLocalMedia = ({ handle }) => handle.close()
 
 // 在项目媒体清单中登记产物；同一任务重复登记时替换旧记录。
 export async function registerMedia(projectId, jobId, path, kind) {

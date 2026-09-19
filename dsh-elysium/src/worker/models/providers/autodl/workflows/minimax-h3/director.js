@@ -1,5 +1,4 @@
-import { readFile } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
+import { readFile, readFileSync } from '../../../../../../database/files.js'
 
 // 职责：编译 main 分支 AutoDL H3 单镜头、多镜头、续接、参考、复用和合片图。
 import { executionWorkflow } from '../workflow.js'

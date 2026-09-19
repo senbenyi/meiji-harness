@@ -1,5 +1,5 @@
 // Local production runner: uses existing plugin jobs and ComfyUI APIs; never SSH.
-import { readFile, mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from '../../../../../database/files.js'
 import { resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'

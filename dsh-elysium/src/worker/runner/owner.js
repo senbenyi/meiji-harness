@@ -1,7 +1,7 @@
 // 职责：核验 worker 锁中的进程是否仍属于指定生成任务。
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, stat } from '../../database/files.js'
 import { ModelTaskError } from '../../utils/errors.js'
 const run = promisify(execFile)
 // worker 入口脚本；旧路径保留识别，升级前启动的 worker 不会被误判为已停止。

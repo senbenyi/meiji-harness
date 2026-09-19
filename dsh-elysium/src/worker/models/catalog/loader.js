@@ -1,5 +1,5 @@
 // 职责：发现独立平台模块并校验版本化契约，不静态引用具体平台或自动回退。
-import { access, readdir } from 'node:fs/promises'
+import { access, readdir } from '../../../database/files.js'
 import { providerDefinitions } from './definitions.js'
 const root = new URL('../providers/', import.meta.url)
 const methods = ['validatePlan', 'executeJob', 'validate', 'connect', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource', 'manage']

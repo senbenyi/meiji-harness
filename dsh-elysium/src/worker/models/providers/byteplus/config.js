@@ -1,5 +1,5 @@
 // 职责：读取独立 BytePlus 配置；任务快照只保存公开的视频参数。
-import { readFileSync } from 'node:fs'
+import { readFileSync } from '../../../../database/files.js'
 import { runtimeConfig } from '../../../../config.js'
 import { readSettings } from '../../../../database/managers/settings.js'
 const invalidConfig = message => Object.assign(new Error(message), { code: 'PROVIDER_CONFIG_INVALID' })

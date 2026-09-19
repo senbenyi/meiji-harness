@@ -20,7 +20,7 @@ dsh-elysium/
 │   │   ├── media/      # 素材查询与访问校验
 │   │   ├── projects/   # 项目领域校验
 │   │   └── directors/  # 导演 Store
-│   ├── database/       # 数据路径、持久化 schema、原子 JSON 与集中数据管理器
+│   ├── database/       # 唯一文件系统入口、数据路径、持久化 schema、原子 JSON 与集中数据管理器
 │   ├── session/        # ① Harness 会话入口：预设识别、事件解析（加载/失败/重试意图）、每轮工具投影、创作提示词
 │   ├── tools/          # ② Harness 工具定义：只有参数 schema，执行调用 worker 门面
 │   │   ├── load.js  # call_tools_load 按需加载
@@ -61,7 +61,7 @@ dsh-elysium/
 - `src/index.js` 是唯一组合入口；Client 只调用 `server/routes/`，Harness 工具只位于 `src/tools/`，会话投影只位于 `src/session/`。
 - 依赖单向：session / tools / server → `worker/index.js` → manager | driver → intake | routing | store | runner | results → `worker/models/index.js`；worker 不得导入 session、tools、server 或 client；models 不得导入 worker 上层，只经 contract 与 TaskContext 交互（`architecture-layout.test.js` 强制）。
 - `src/server/` 只承载 Client 工作台 HTTP 边界与共享 Store；任务生命周期、路由和执行只位于 `src/worker/`。
-- 数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 除共享结构化错误外，不得出现项目、导演、素材、任务、模型或平台业务语义。
+- 所有源码文件读取、保存和修改都必须经过 `src/database/files.js`；`src/database/` 外不得直接导入 `node:fs` 或操作原始文件句柄。数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 除共享结构化错误外，不得出现项目、导演、素材、任务、模型或平台业务语义。
 - 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/worker/models/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
 - 插件 Cordis 装配统一位于 `harness/.dsh/profiles/web/cordis.patch.yml`，插件包不自带 Harness 运行配置。

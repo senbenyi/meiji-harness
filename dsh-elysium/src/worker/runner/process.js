@@ -1,5 +1,5 @@
 // 职责：worker 独立进程入口：解析任务身份、转发停止信号，执行结束后释放 worker 锁。
-import { unlink } from 'node:fs/promises'
+import { unlink } from '../../database/files.js'
 import { join } from 'node:path'
 import { jobRoot, validJobId, validProjectId } from '../store/paths.js'
 import { executeTask } from './execute.js'
