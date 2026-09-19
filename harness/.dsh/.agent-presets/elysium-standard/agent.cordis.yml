@@ -23,7 +23,7 @@
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:
-    maxBytes: 65536
+    maxBytes: 1048576
 
 # ── Shell 工具 ──────────────────────────────────────────────────────────────
 

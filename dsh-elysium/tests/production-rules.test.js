@@ -19,7 +19,10 @@ test('production context selects only the current stage rules and injects the la
     const actual = [...context.instructions.matchAll(/^# (.+)$/gm)].map(match => match[1])
     assert.deepEqual(actual, headings)
     assert.doesNotMatch(context.instructions, /\{\{target_seconds\}\}/)
-    if (['story', 'segments'].includes(stage)) assert.match(context.instructions, /target_seconds=30/)
+    if (['story', 'segments'].includes(stage)) {
+      assert.match(context.instructions, /target_seconds=30/)
+      assert.match(context.instructions, /上下 30 秒/)
+    }
   }
   p.target_seconds = 45
   p.request.stage = 'story'
@@ -47,7 +50,7 @@ test('Registry ships standalone rules, reloads edits and reports missing stage r
     const deployed = join(root, 'registry')
     await rm(join(root, 'resources'), { recursive: true })
     const { loadProductionInstructions: load } = await import(pathToFileURL(join(deployed, 'lib/server/projects/production-rules.js')).href)
-    for (const stage of ['story', 'segments', 'shots', 'inputs']) {
+    for (const stage of ['story', 'story-segments', 'segments', 'shots', 'inputs']) {
       assert.equal(await load(stage, 30), await loadProductionInstructions(stage, 30))
     }
     await writeFile(join(deployed, 'resources/production-rules/story.md'), '# 已更新剧情规则\ntarget_seconds={{target_seconds}}')

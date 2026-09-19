@@ -27,6 +27,8 @@ test('Scene/Segment stages persist atomic versions and queue waits for each resu
     }
     await act('description', { requirements: '重逢', style: '暖色写实', aspect_ratio: '16:9', target_seconds: 10 })
     assert.equal(p.production.original_request, '成年恋人书店重逢')
+    await act('description', { original_request: '新的原始需求', requirements: '重逢', style: '暖色写实', aspect_ratio: '16:9', target_seconds: 10 })
+    assert.equal((await store.read(p.id)).production.original_request, '新的原始需求')
     await generate('story', { text: '书店重逢。', scenes: [{ id: 'scene-a', title: '书店', description: '相遇', duration: 10 }] })
     await generate('segments', { segments: [1, 2].map(i => ({ id: `segment-${i}`, scene_id: 'scene-a', title: `片段${i}`, duration: 5, description: '看向彼此', character_count: 2, use_previous_tail: false, tail_reason: i === 1 ? '第一段没有上一段' : '切到另一人物特写，独立起镜', materials: Object.fromEntries(mediaFields.map(k=>[k,{description:'参考描述',intent:'auto',asset_ids:[]}])) })) })
     await generate('shots', { segments: p.production.segments.map(s => ({ id: s.id, shots: [{ action: '微笑', duration: 2 }, { action: '走近', duration: 3 }] })) })
@@ -108,7 +110,7 @@ test('automatic episodes preserve every full segment in order and compose sequen
   }) } finally { await rm(root, { recursive: true, force: true }) }
 })
 
-test('30-second target rejects short AI story and segments without consuming the request', async () => {
+test('story and segments may differ from the project target by 30 seconds without consuming the request', async () => {
   const root = await mkdtemp(join(tmpdir(), 'production-duration-'))
   try { await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
     const store = createProjectStore(), flow = createProductionWorkflow(store)
@@ -120,21 +122,42 @@ test('30-second target rejects short AI story and segments without consuming the
     const context = await flow.context(p.id, requestId, 'session')
     assert.equal(context.target_seconds, 30); assert.equal(context.story, null)
     assert.match(context.instructions, /target_seconds=30/)
-    const result = { id: p.id, request_id: requestId, text: '重逢', scenes: [{ id: 'scene-a', description: '重逢', duration: 10 }] }
-    await assert.rejects(flow.complete(result, 'session'), /剧情总时长为 10 秒.*30 秒/)
+    assert.match(context.instructions, /上下 30 秒/)
+    const result = { id: p.id, request_id: requestId, text: '重逢', scenes: [{ id: 'scene-a', description: '重逢', duration: 70 }] }
+    await assert.rejects(flow.complete(result, 'session'), /剧情总时长为 70 秒.*30 秒/)
     p = await store.read(p.id)
     assert.equal(p.production.request.id, requestId); assert.equal(p.production.story.revision, 0)
-    result.scenes[0].duration = 30
+    result.scenes[0].duration = 10
     p = await flow.complete(result, 'session')
-    assert.equal(p.production.story.scenes[0].duration, 30)
+    assert.equal(p.production.story.scenes[0].duration, 10)
     await act('request', { stage: 'segments', session_id: 'session' })
     const s = { scene_id: 'scene-a', title: '重逢', description: '微笑', duration: 15, character_count: 2, use_previous_tail: false, tail_reason: '独立机位起镜', materials: Object.fromEntries(mediaFields.map(k => [k, { description: '具体描述', intent: 'auto', asset_ids: [] }])) }
     const segments = { id: p.id, request_id: p.production.request.id, segments: [s] }
-    await assert.rejects(flow.complete(segments, 'session'), /Segment总时长为 15 秒.*30 秒/)
+    await assert.rejects(flow.complete(segments, 'session'), /Segment 合计 15 秒.*10 秒/)
     assert.equal((await store.read(p.id)).production.segments.length, 0)
-    segments.segments.push({ ...s, title: '交谈' })
+    segments.segments = [{ ...s, duration: 5 }, { ...s, title: '交谈', duration: 5 }]
     p = await flow.complete(segments, 'session')
-    assert.equal(p.production.segments.reduce((n, s) => n + s.duration, 0), 30)
+    assert.equal(p.production.segments.reduce((n, s) => n + s.duration, 0), 10)
+    assert.equal(p.production.request, null)
+  }) } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('180-second target accepts 185-second story and matching segments', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'production-duration-slack-'))
+  try { await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+    const store = createProjectStore(), flow = createProductionWorkflow(store)
+    let p = await store.change('create', { title: '三分半容差' })
+    const act = async (name, body) => p = await flow.action(name, { id: p.id, revision: p.production.revision, ...body })
+    await act('description', { requirements: '书店重逢', style: '写实', aspect_ratio: '9:16', target_seconds: 180 })
+    await act('request', { stage: 'story', session_id: 'session' })
+    const over = { id: p.id, request_id: p.production.request.id, text: '过长', scenes: [{ id: 'scene-a', description: '过长', duration: 220 }] }
+    await assert.rejects(flow.complete(over, 'session'), /剧情总时长为 220 秒.*180 秒/)
+    p = await flow.complete({ id: p.id, request_id: p.production.request.id, text: '书店重逢。', scenes: [{ id: 'scene-a', description: '重逢', duration: 185 }] }, 'session')
+    assert.equal(p.production.story.scenes[0].duration, 185)
+    await act('request', { stage: 'segments', session_id: 'session' })
+    const make = duration => ({ scene_id: 'scene-a', title: '重逢', description: '微笑', duration, character_count: 2, use_previous_tail: false, tail_reason: '独立机位起镜', materials: Object.fromEntries(mediaFields.map(k => [k, { description: '具体描述', intent: 'auto', asset_ids: [] }])) })
+    p = await flow.complete({ id: p.id, request_id: p.production.request.id, segments: [...Array.from({ length: 12 }, () => make(15)), make(5)] }, 'session')
+    assert.equal(p.production.segments.reduce((n, s) => n + s.duration, 0), 185)
     assert.equal(p.production.request, null)
   }) } finally { await rm(root, { recursive: true, force: true }) }
 })

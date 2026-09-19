@@ -1,6 +1,6 @@
 // 职责：持久化审核输入并逐段执行，复用任务身份，失败暂停，重启继续。
 import { randomBytes, randomUUID } from 'node:crypto'
-import { currentInput, currentGeneration, invalidateTailDependents, fail } from '../../database/schemas/production.js'
+import { currentInput, currentGeneration, invalidateTailDependents, fail, replaceProductionRun } from '../../database/schemas/production.js'
 import { startVideoJob, resumeVideoJob } from '../workflows/videos/service.js'
 import { getJob } from '../jobs/query.js'
 import { resolveGenerationBackend, validateBackendPlan, extractBackendTailFrame } from '../../models/managers/runtime/index.js'
@@ -8,17 +8,18 @@ export function createSegmentQueue(store, dependencies = {}) {
   const start = dependencies.start || startVideoJob, resume = dependencies.resume || resumeVideoJob, job = dependencies.job || getJob
   const resolveBackend = dependencies.resolveBackend || (() => resolveGenerationBackend('video')), validate = dependencies.validatePlan || validateBackendPlan
   const tailFrame = dependencies.tailFrame || extractBackendTailFrame
-  async function submit(id, segmentId, force = false, expectedRevision) {
+  async function submit(id, segmentId, force = false, expectedRevision, restart = false) {
     const project = await store.read(id), p = project.production
     if (expectedRevision !== p.revision) fail('H3 输入已更新，请刷新后重新审核')
-    if (p.request) fail('请等待 AI 完成当前输入后再审核提交')
-    if (p.queue && ['running', 'paused', 'stopping'].includes(p.queue.status)) fail('已有队列，请先继续或结束该队列')
+    if (!restart && p.request) fail('请等待 AI 完成当前输入后再审核提交')
+    if (!restart && p.queue && ['running', 'paused', 'stopping'].includes(p.queue.status)) fail('已有队列，请先继续或结束该队列')
+    if (p.story.stale) fail('请先完成最新剧情')
     const segments = segmentId ? p.segments.filter(s => s.id === segmentId) : p.segments
     if (!segments.length) fail('没有可提交的 Segment')
     const items = []
     for (const s of segments) {
       const input = currentInput(s)
-      if (!input || s.materials_pending) fail(`${s.title} 的分镜、素材或 H3 输入尚未完成`)
+      if (!input || s.story_stale || s.materials_pending) fail(`${s.title} 的分镜、素材或 H3 输入尚未完成`)
       const previous = input.first_frame_source && p.segments[p.segments.indexOf(s) - 1]
       if (input.first_frame_source && previous?.id !== input.first_frame_source.segment_id) fail(`${s.title} 的上一段已变化，请重新生成 H3 输入`)
       const queuedPrevious = previous && items.find(item => item.segment_id === previous.id)
@@ -36,6 +37,7 @@ export function createSegmentQueue(store, dependencies = {}) {
     }
     return store.transact(id, value => {
       if (value.production.revision !== p.revision) fail('项目已变化，请重新审核')
+      if (restart) { replaceProductionRun(value.production); value.production.revision++ }
       value.production.queue = { id: randomUUID(), status: items.length ? 'running' : 'complete', cursor: 0, items, error: null, created_at: Date.now() }
       value.production.stage = items.length ? 'videos' : value.production.stage
       for (const item of items) {

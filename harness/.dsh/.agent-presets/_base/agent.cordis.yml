@@ -18,7 +18,7 @@
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:
-    maxBytes: 65536
+    maxBytes: 1048576
 
 - id: tool-bash
   name: '@deepseek-ai/dsh-tool-bash'

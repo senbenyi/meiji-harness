@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 
 const filesByStage = new Map([
   ['story', ['story.md', 'scenes.md']],
+  ['story-segments', ['story-segments.md', 'scenes.md']],
   ['segments', ['segments.md']],
   ['shots', ['shots.md']],
   ['inputs', ['h3-prompt.md']],

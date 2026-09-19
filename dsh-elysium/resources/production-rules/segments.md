@@ -7,9 +7,11 @@
 story.scenes、story.text、requirements、style、aspect_ratio、target_seconds 和 assets。保持既有场景身份、时长和剧情顺序。
 
 ## 输出
+本阶段支持分批，按程序附带的分批回写协议返回 batch_index 和当前批次的完整条目。下文关于全片时长和全部目标的约束，在所有批次合并后满足；批次边界不改变剧情、场景或剪辑意图。
 返回 segments，每段包含 scene_id/title/description/duration/character_count/start_state/end_state/use_previous_tail/tail_reason/materials。
+新 Segment 不提供 id，系统会生成永久 ID；后续分镜和 H3 输入阶段使用系统返回的 ID。
 
-- duration 为 4～15 的秒数数值，所有 Segment 的 duration 总和必须等于 target_seconds={{target_seconds}} 秒。各 Scene 下片段时长之和必须等于该 Scene 的 duration。
+- duration 为 4～15 的秒数数值。所有 Segment 的 duration 总和应约为 target_seconds={{target_seconds}} 秒，允许上下 30 秒，不必精确相等。各 Scene 下片段时长之和必须等于该 Scene 的 duration。
 - character_count 是出镜人物数量。
 - materials 必须含 characters/clothing/props/scene/music/ambience/dialogue 七个字段，每个值为 {description:"具体描述",intent:"auto",asset_ids:[]}。
 - 每个素材字段都需要可执行的描述；明确不需要时 intent:"none"。已指定素材用 intent:"specified" 和真实 asset_ids；空缺素材由 AI 在 description 补齐，不能留空或编造 ID。保持跨片段人物、服装、道具和风格一致。

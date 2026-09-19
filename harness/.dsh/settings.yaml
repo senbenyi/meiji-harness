@@ -15,8 +15,8 @@ llm-pi-ai:
       models:
         - id: qwen3.8-27b-elysium
           name: qwen3.8
-          contextWindow: 65536
-          maxTokens: 4096
+          contextWindow: 262144
+          maxTokens: 32768
           reasoningEfforts:
             'off':
             high: high

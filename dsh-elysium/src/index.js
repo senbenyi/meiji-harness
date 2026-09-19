@@ -43,6 +43,7 @@ function registerWebFeatures(ctx, runtime) {
     const directors = createDirectorStore()
     const projects = createProjectStore({ directorExists: name => directors.has(name) })
     const workflow = createProjectWorkflow(projects)
+    workflow.production.interruptPending().catch(error => ctx.logger?.warn?.(error.message))
     mediaContext.effect(() => {
       let busy = false
       const tick = () => withConfig(runtime, async () => {

@@ -7,6 +7,7 @@
 request.segment_ids、segments 的剧情/时长/素材/开始结束状态、story、style 和 aspect_ratio；使用尾帧的片段还包含 previous_segment 的结束状态。
 
 ## 输出
+本阶段支持分批，按程序附带的分批回写协议返回 batch_index 和当前批次的完整条目。下文关于全片时长和全部目标的约束，在所有批次合并后满足；批次边界不改变剧情、场景或剪辑意图。
 返回 segments:[{id,shots:[{duration,action,framing,camera,lighting,dialogue,sound}]}]。
 按 request.segment_ids 原顺序覆盖全部目标，id 原样照抄，不能以 scene_id 或自编编号替代。每段分镜的 duration 合计必须等于该段时长。
 

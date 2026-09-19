@@ -30,6 +30,25 @@ window.__ModuleLoader__.load({ id: 'elysium/project-generation', factory: requir
     let previous = sessions.list.getSnapshot().current
     return sessions.list.subscribe(() => { const current = sessions.list.getSnapshot().current; if (current !== previous) { previous = current; listener(current) } })
   }
+  function useProductionSession(sessionId) {
+    const [state, setState] = useState(null)
+    useEffect(() => {
+      setState(null)
+      let face, unsubscribe
+      const connect = () => {
+        const scope = sessionId && sessions?.scope(sessionId), next = scope && sessions.sessionOf?.(scope)
+        if (next === face) return
+        unsubscribe?.(); face = next
+        if (!face) { setState(null); return }
+        const update = () => { const s = face.getSnapshot(); setState({ running: s.running, error: s.lastAgentError, ready: s.openState === 'open' }) }
+        update(); unsubscribe = face.subscribe(update)
+      }
+      connect()
+      const unsubscribeList = sessions?.list.subscribe?.(connect)
+      return () => { unsubscribe?.(); unsubscribeList?.() }
+    }, [sessionId])
+    return state
+  }
   async function projectForSession(id) {
     return (await fetchProjects()).find(p => p.chat_session_id === id)?.id || null
   }
@@ -60,7 +79,25 @@ window.__ModuleLoader__.load({ id: 'elysium/project-generation', factory: requir
       connect()
       return () => { unsubscribeSessions?.(); unsubscribeModel?.() }
     }, [sessionId])
-    return h('p', { className: 'elysium-story-model' }, `剧情生成模型（当前会话）：${selection ? `${selection.provider} / ${selection.model}` : '等待会话模型加载'}`)
+    return h('p', { className: 'elysium-story-model' }, `大模型：${selection ? `${selection.provider} / ${selection.model}` : '等待会话模型加载'}`)
+  }
+  function VideoModel() {
+    const [label, setLabel] = useState('等待视频模型加载')
+    useEffect(() => {
+      let active = true
+      try {
+        require('elysium/settings-api').settingsRequest('models').then(value => {
+          if (!active) return
+          const origin = value.origin?.video
+          const id = origin === 'third' ? value.third_party_selected?.video : value.selected?.video
+          const models = origin === 'third' ? value.third_party?.video : value.models?.video
+          const item = (models || []).find(model => model.id === id)
+          setLabel(item?.label || item?.model || id || '未选择')
+        }).catch(() => { if (active) setLabel('未加载') })
+      } catch { if (active) setLabel('未加载') }
+      return () => { active = false }
+    }, [])
+    return h('p', { className: 'elysium-story-model' }, `大模型：${label}`)
   }
   function apply(ctx) {
     modelDirectories = ctx.modelDirectories
@@ -100,16 +137,45 @@ window.__ModuleLoader__.load({ id: 'elysium/project-generation', factory: requir
     } catch (error) { await workflowAction(project.id, 'cancel', { revision: requested.revision, ...(episodeId ? { episode_id: episodeId } : {}) }); throw error }
     return value
   }
-  async function generateProduction(project, stage, segmentId) {
+  async function generateProduction(project, stage, segmentId, restart = false) {
     const sessionId = sessions?.list.getSnapshot().current
     if (project.chat_session_id !== sessionId) throw new Error('请先选择项目关联对话')
     const conversation = sessions.scope(sessionId)?.get('conversation')
     if (!conversation) throw new Error('项目对话尚未就绪')
-    const value = await workflowAction(project.id, 'production-request', { revision: project.production.revision, stage, segment_id: segmentId, session_id: sessionId })
-    try { await conversation.send(`执行项目 ${project.id} 的 ${stage} 阶段，request_id=${value.production.request.id}。项目目标总时长为 ${value.production.target_seconds} 秒；剧情和全量片段时长总和必须与目标一致。先 project_production_read，再按说明调用 project_production_complete 保存全部结果；仅执行当前阶段，不生成视频。`) }
-    catch (error) { await workflowAction(project.id, 'production-cancel-request', { revision: value.production.revision }); throw error }
+    const current = restart ? await fetchProject(project.id) : project
+    const value = await workflowAction(project.id, 'production-request', { revision: current.production.revision, stage, ...(stage === 'story' ? { plan_segments: true } : {}), segment_id: segmentId, session_id: sessionId, restart })
+    try {
+      if (restart && sessions.sessionOf?.(sessions.scope(sessionId))?.getSnapshot().running) await conversation.cancel()
+      await conversation.send(productionMessage(value))
+    } catch (error) {
+      await workflowAction(project.id, 'production-request-error', { revision: value.production.revision, request_id: value.production.request.id, error: error.message }).catch(() => {})
+      throw error
+    }
+    return value
+  }
+  async function restartProductionAction(project, name, body = {}) {
+    const current = await fetchProject(project.id)
+    const value = await workflowAction(project.id, `production-${name}`, { revision: current.production.revision, ...body, restart: true })
+    const scope = current.production.request && sessions?.scope(current.chat_session_id)
+    if (scope && sessions.sessionOf?.(scope)?.getSnapshot().running) await scope.get('conversation').cancel()
+    return value
+  }
+  const productionMessage = project => `执行项目 ${project.id} 的 ${project.production.request.stage} 阶段，request_id=${project.production.request.id}。项目目标总时长为 ${project.production.target_seconds} 秒；剧情与 Segment 合计可在目标上下 30 秒内，不必精确相等。先 project_production_read。${project.production.request.plan_segments ? '本阶段同时规划剧情、Scene 和每个 Scene 内的 4～15 秒 Segment；按 read 返回的嵌套结构，一次调用 project_production_complete 返回完整 JSON，一并保存。' : '按 request.batch 分批调用 project_production_complete 返回完整 JSON。每批保存后重新 read，直到回执 request=null；中断则从已保存的下一批继续，不重复生成。'}仅执行当前阶段，不生成视频。`
+  async function resumeProduction(project) {
+    const sessionId = sessions?.list.getSnapshot().current
+    if (project.chat_session_id !== sessionId) throw new Error('请先选择项目关联对话')
+    const conversation = sessions.scope(sessionId)?.get('conversation')
+    if (!conversation) throw new Error('项目对话尚未就绪')
+    const current = await fetchProject(project.id)
+    if (!current.production?.request || current.production.request.session_id !== sessionId) throw new Error('当前没有可继续的生成请求，请刷新项目')
+    const value = await workflowAction(project.id, 'production-resume-request', { revision: current.production.revision, request_id: current.production.request.id, session_id: sessionId })
+    try { await conversation.send(productionMessage(value)) }
+    catch (error) {
+      await workflowAction(project.id, 'production-request-error', { revision: value.production.revision, request_id: value.production.request.id, error: error.message }).catch(() => {})
+      throw error
+    }
     return value
   }
   const { ProjectWorkflow } = require('elysium/production-workflow')
-  return { StoryModel, apply, generate, generateProduction, selectProject, watchSession, projectForSession, ProjectWorkflow, ProjectCreated }
+  return { StoryModel, VideoModel, apply, generate, generateProduction, resumeProduction, restartProductionAction, useProductionSession, selectProject, watchSession, projectForSession, ProjectWorkflow, ProjectCreated }
 } })

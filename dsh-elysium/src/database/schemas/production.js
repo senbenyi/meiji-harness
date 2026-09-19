@@ -4,6 +4,20 @@ import { statusError } from '../../utils/errors.js'
 export const fail = message => { throw statusError(409, message) }
 export const identity = prefix => `${prefix}-${randomUUID()}`
 export const text = value => typeof value === 'string' ? value.trim() : ''
+export const stageRun = (p, stage, status, error = null) => { (p.stage_runs ||= {})[stage] = { status, error, updated_at: Date.now() } }
+// 替换本地流程身份；已发往模型服务器的任务不再驱动新流程，历史产物保留。
+export function replaceProductionRun(p) {
+  if (p.request) { stageRun(p, p.request.stage, 'cancelled'); p.request = null }
+  if (p.queue && ['running', 'paused', 'stopping', 'interrupted'].includes(p.queue.status)) {
+    p.queue.status = 'cancelled'
+    for (const item of p.queue.items) if (['pending', 'running'].includes(item.status)) {
+      item.status = 'superseded'
+      const generation = p.segments.find(s => s.id === item.segment_id)?.generations.find(g => g.id === item.job_id)
+      if (generation) generation.status = 'superseded'
+    }
+  }
+  for (const output of p.exports) if (['pending', 'running', 'interrupted'].includes(output.status)) output.status = 'superseded'
+}
 export const mediaFields = ['characters', 'clothing', 'props', 'scene', 'music', 'ambience', 'dialogue']
 export const initialProduction = project => ({ revision: 0, stage: 'description', original_request: project.brief || project.title,
   requirements: [project.brief || project.title, project.configuration?.reference_text].filter(Boolean).join('\n\n参考剧情：\n'), aspect_ratio: project.aspect_ratio || '9:16', style: project.director || '', target_seconds: (project.duration_min || 1) * 60,

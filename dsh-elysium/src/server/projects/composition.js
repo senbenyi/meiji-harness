@@ -1,14 +1,14 @@
 // 职责：按总集数顺序分配完整片段，冻结每集输入并依次合片，保留历史版本。
 import { randomUUID } from 'node:crypto'
 import { composeBackend, resolveGenerationBackend } from '../../models/managers/runtime/index.js'
-import { currentInput, currentGeneration, fail } from '../../database/schemas/production.js'
+import { currentInput, currentGeneration, fail, replaceProductionRun } from '../../database/schemas/production.js'
 export function createComposition(store, dependencies = {}) {
   const compose = dependencies.compose || composeBackend
   async function submit(body) {
     const project = await store.read(body.id), p = project.production
     if (p.revision !== body.revision) fail('项目已变化，请刷新后重新提交')
-    if (p.request || p.story.stale || p.queue && ['running', 'paused', 'stopping'].includes(p.queue.status)) fail('请先完成当前制作任务')
-    if (p.exports.some(e => ['pending', 'running'].includes(e.status))) fail('已有合片任务正在执行')
+    if (p.story.stale || !body.restart && (p.request || p.queue && ['running', 'paused', 'stopping'].includes(p.queue.status))) fail('请先完成当前制作任务')
+    if (!body.restart && p.exports.some(e => ['pending', 'running'].includes(e.status))) fail('已有合片任务正在执行')
     const count = body.episode_count ?? p.export_episode_count ?? 1
     if (!Number.isInteger(count) || count < 1 || count > p.segments.length) fail('总集数须为 1 到有效片段数量之间的整数')
     const clips = p.segments.map(s => {
@@ -33,6 +33,7 @@ export function createComposition(store, dependencies = {}) {
     }
     return store.transact(body.id, value => {
       if (value.production.revision !== body.revision) fail('项目已变化，请重新审核')
+      if (body.restart) replaceProductionRun(value.production)
       value.production.export_episode_count = count; value.production.exports.push(...records); value.production.revision++
       return []
     })
