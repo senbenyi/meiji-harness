@@ -13,9 +13,9 @@ export const MEDIA_TOOLS = Object.freeze({
 export const mediaToolNames = kind => kind ? Object.values(MEDIA_TOOLS[kind]) : Object.keys(MEDIA_TOOLS).flatMap(mediaToolNames)
 
 // 同一会话的受理与恢复串行执行，避免并发调用重复建档。
-export async function withSessionLock(exec, callback) {
-  if (!exec?.agent?.session) return callback()
-  const directory = join(runtimeRoot(), 'sessions', createHash('sha256').update(exec.agent.session.id).digest('hex'))
+export async function withSessionLock(invocation, callback) {
+  if (!invocation?.sessionId) return callback()
+  const directory = join(runtimeRoot(), 'sessions', createHash('sha256').update(invocation.sessionId).digest('hex'))
   await mkdir(directory, { recursive: true })
   return withLaunchLock(directory, callback, true)
 }
@@ -25,38 +25,21 @@ const file = (sessionId, callId) => {
   if (!valid(sessionId) || !valid(callId)) throw new Error('Invalid call identity')
   return join(runtimeRoot(), 'calls', createHash('sha256').update(JSON.stringify([sessionId, callId])).digest('hex') + '.json')
 }
-export async function bindJobCall(jobId, exec) {
-  if (!exec?.agent || !exec.callId) return
-  const sessionId = exec.agent.session.id
-  const target = file(sessionId, exec.callId)
+export async function bindJobCall(jobId, invocation) {
+  if (!invocation?.sessionId || !invocation.callId) return
+  const target = file(invocation.sessionId, invocation.callId)
   await mkdir(join(runtimeRoot(), 'calls'), { recursive: true })
   const temporary = `${target}.${randomUUID()}.tmp`
-  await writeFile(temporary, JSON.stringify({ session_id: sessionId, call_id: exec.callId, job_id: jobId }), { mode: 0o600 })
+  await writeFile(temporary, JSON.stringify({ session_id: invocation.sessionId, call_id: invocation.callId, job_id: jobId }), { mode: 0o600 })
   await rename(temporary, target)
 }
-export async function findJobCall(sessionId, callId, session) {
+export async function findJobCall(sessionId, callId, history) {
   try {
     return JSON.parse(await readFile(file(sessionId, callId), 'utf8')).job_id
   } catch (error) {
     if (error.code !== 'ENOENT') throw error
   }
-  // Older completed calls have no index: use only the host's authoritative paired result.
-  if (session?.id !== sessionId) return null
-  const events = session.snapshotEvents()
-  const calls = events.filter(e => e.type === 'tool/call' && e.data.callId === callId)
-  if (!calls.some(e => mediaToolNames().includes(e.data.name))) return null
-  for (const event of events) {
-    if (event.type !== 'tool/result') continue
-    for (const block of event.data.message?.content || []) {
-      if (block.type !== 'tool-result' || block.toolCallId !== callId || block.isError) continue
-      for (const item of block.content || []) {
-        try {
-          const value = JSON.parse(item.text)
-          const id = value.job_id || value.output?.job_id
-          if (/^[a-f0-9]{32}$/.test(id)) return id
-        } catch { /* Non-JSON content has no trusted job identity. */ }
-      }
-    }
-  }
-  return null
+  // Older completed calls have no index: use only the host adapter's normalized paired result.
+  if (history?.sessionId !== sessionId) return null
+  return history.calls?.find(call => call.callId === callId)?.jobId || null
 }

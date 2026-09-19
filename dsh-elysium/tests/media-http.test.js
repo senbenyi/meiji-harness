@@ -8,6 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
 import { jobSummary } from '../src/worker/results/summary.js'
 import { bindJobCall, findJobCall } from '../src/worker/intake/calls.js'
+import { mediaInvocation, mediaSession } from '../src/session/index.js'
 import { apply } from '../src/index.js'
 import { withConfig } from '../src/config.js'
 import { mediaReference } from '../src/worker/models/protocols/comfyui/media-reference.js'
@@ -103,17 +104,17 @@ test('call mapping survives reads and never uses an arbitrary client job/path', 
   const root = await mkdtemp(join(tmpdir(), 'media-index-')), previous = process.env.ELYSIUM_STATE_ROOT
   process.env.ELYSIUM_STATE_ROOT = root
   try {
-    await bindJobCall('a'.repeat(32), { agent: { session: { id: 'session-one' } }, callId: 'call-one' })
+    await bindJobCall('a'.repeat(32), mediaInvocation({ agent: { session: { id: 'session-one' } }, callId: 'call-one' }))
     assert.equal(await findJobCall('session-one', 'call-one'), 'a'.repeat(32))
     assert.equal(await findJobCall('session-two', 'call-one'), null)
     const session = { id: 'old', snapshotEvents: () => [{ type: 'tool/call', data: { name: 'call_tools_video', callId: 'c' } },
       { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'c', content: [{ type: 'text', text: JSON.stringify({ job_id: 'b'.repeat(32) }) }] }] } } }] }
-    assert.equal(await findJobCall('old', 'c', session), 'b'.repeat(32))
-    assert.equal(await findJobCall('other', 'c', session), null)
-    assert.equal(await findJobCall('legacy', 'c', { id: 'legacy', snapshotEvents: () => session.snapshotEvents().map(event => event.type === 'tool/call' ? { ...event, data: { ...event.data, name: 'workflow_generate_video' } } : event) }), null)
-    assert.equal(await findJobCall('preparing', 'c', { id: 'preparing', snapshotEvents: () => [
+    assert.equal(await findJobCall('old', 'c', mediaSession(session)), 'b'.repeat(32))
+    assert.equal(await findJobCall('other', 'c', mediaSession(session)), null)
+    assert.equal(await findJobCall('legacy', 'c', mediaSession({ id: 'legacy', snapshotEvents: () => session.snapshotEvents().map(event => event.type === 'tool/call' ? { ...event, data: { ...event.data, name: 'workflow_generate_video' } } : event) })), null)
+    assert.equal(await findJobCall('preparing', 'c', mediaSession({ id: 'preparing', snapshotEvents: () => [
       { type: 'tool/call', data: { name: 'call_tools_video', callId: 'c' } },
-    ] }), null)
+    ] })), null)
   } finally {
     if (previous === undefined) delete process.env.ELYSIUM_STATE_ROOT
     else process.env.ELYSIUM_STATE_ROOT = previous

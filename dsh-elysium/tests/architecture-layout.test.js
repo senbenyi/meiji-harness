@@ -55,6 +55,8 @@ test('dependencies flow one way from the session entry through the worker facade
   const facade = new URL('worker/index.js', root).pathname
   for (const file of await sources(root)) {
     const path = file.pathname
+    const source = await readFile(file, 'utf8')
+    if (under(path, 'worker/')) assert.doesNotMatch(source, /snapshotEvents|agent\??\.session/, path)
     if (/\/providers\/[^/]+\/(?:legacy|resources)\//.test(path)) continue // 运维材料不进入运行包
     for (const target of await imports(file)) {
       if (under(path, 'worker/')) assert.ok(!['session/', 'tools/', 'server/', 'client/'].some(layer => under(target, layer)), `${path} → ${target}`)

@@ -1,6 +1,6 @@
 // 职责：视频生成与原任务恢复的 Harness 工具定义；执行交给 worker 任务管理器。
 import { VIDEO_MODES, retryTask, submitTask, waitJob } from '../../worker/index.js'
-import { userRequestedRetry } from '../../session/index.js'
+import { mediaInvocation, userRequestedRetry } from '../../session/index.js'
 import { generationProjectId } from '../project/context.js'
 
 const VIDEO_WORKFLOW_TIMEOUT_MS = 451 * 60 * 1000
@@ -36,7 +36,7 @@ export function createCallToolsVideo() {
       } } },
     }, oneOf: [{ required: ['mode', 'prompt'] }, { required: ['duration'] }] },
     execute: async ({ project_id, new_video = false, ...plan }, exec) => {
-      const job = await submitTask('video', { ...plan, project_id: await generationProjectId(project_id, exec), new_task: new_video }, exec)
+      const job = await submitTask('video', { ...plan, project_id: await generationProjectId(project_id, exec), new_task: new_video }, mediaInvocation(exec))
       return waitJob(job, exec?.signal)
     },
   }
@@ -48,6 +48,6 @@ export function createCallToolsVideoRecover() {
     timeoutMs: VIDEO_WORKFLOW_TIMEOUT_MS + 60_000,
     execute: async (args, exec) => {
       const consent = userRequestedRetry(exec?.agent?.session?.snapshotEvents?.())
-      return waitJob(await retryTask(args.job_id, { kind: 'video', exec, consent }), exec?.signal)
+      return waitJob(await retryTask(args.job_id, { kind: 'video', invocation: mediaInvocation(exec), consent }), exec?.signal)
     } }
 }

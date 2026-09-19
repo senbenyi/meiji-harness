@@ -3,6 +3,7 @@ import { connectBackend, findJobCall, getJob, jobSummary, openLocalMedia, retryT
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { withConfig } from '../../config.js'
+import { mediaSession } from '../../session/index.js'
 import { randomBytes } from 'node:crypto'
 import { availableJobSummary, listAssets, deleteAsset, uploadAsset } from '../media/catalog.js'
 import { authenticated, byteRange, json } from '../http.js'
@@ -35,7 +36,7 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
         if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
         const sessionId = url.searchParams.get('session'), callId = url.searchParams.get('call')
         if (!sessionId || sessionId.length > 256 || !callId || callId.length > 256) return json(res, 400, { error: 'Invalid call identity' })
-        const id = await findCall(sessionId, callId, getSession(sessionId))
+        const id = await findCall(sessionId, callId, mediaSession(getSession(sessionId)))
         if (!id) return json(res, 404, { error: '没有可重试的任务' })
         return json(res, 202, await retryJob(id))
       }
@@ -55,7 +56,7 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
       if (jobId !== null && !/^[a-f0-9]{32}$/.test(jobId)) return json(res, 400, { error: 'Invalid job identity' })
       const sessionId = url.searchParams.get('session'), callId = url.searchParams.get('call')
       if (!jobId && (!sessionId || sessionId.length > 256 || !callId || callId.length > 256)) return json(res, 400, { error: 'Invalid call identity' })
-      const id = jobId || await findCall(sessionId, callId, getSession(sessionId))
+      const id = jobId || await findCall(sessionId, callId, mediaSession(getSession(sessionId)))
       const missing = () => url.pathname === `${MEDIA_ROUTE}/status` && !jobId
         ? json(res, 200, { status: 'pending', has_video: false }) : json(res, 404, { error: '媒体尚不可用' })
       if (!id) return missing()

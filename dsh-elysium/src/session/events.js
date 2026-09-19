@@ -1,5 +1,5 @@
 // 职责：从不可变会话事件中还原工具加载、视频失败与用户重试意图；不决定最终可见工具。
-import { mediaToolNames } from '../worker/index.js'
+import { MEDIA_TOOLS, mediaToolNames } from '../worker/index.js'
 // 判断本轮视频工具是否已出现不可继续的失败；首次输入校验失败仍允许修正一次。
 export function videoFailedThisTurn(events) {
   const turnStart = events.findLastIndex(event => event.type === 'turn/start')
@@ -55,4 +55,28 @@ export function userRequestedRetry(events = []) {
     .flatMap(event => event.data.content || []).filter(item => item.type === 'text').map(item => item.text).join('\n')
   if (/(不要|不许|禁止|无需|别)\s*(自动)?\s*(重试|恢复|继续)/i.test(text)) return false
   return /(重试|恢复|继续|\bretry\b|\bresume\b|\bcontinue\b)/i.test(text)
+}
+
+const mediaTools = new Map(Object.entries(MEDIA_TOOLS).flatMap(([kind, tools]) => Object.entries(tools).map(([action, name]) => [name, { kind, action }])))
+
+// 将 Harness 工具事件归一化为 worker 可消费的媒体调用历史；只信任配对成功回执中的任务 ID。
+export function mediaCalls(events = []) {
+  const turnStart = events.findLastIndex(event => event.type === 'turn/start')
+  const calls = []
+  for (const [index, event] of events.entries()) {
+    const tool = event.type === 'tool/call' && mediaTools.get(event.data.name)
+    if (tool) calls.push({ callId: event.data.callId, ...tool, currentTurn: index > turnStart })
+    if (event.type !== 'tool/result') continue
+    for (const block of event.data.message?.content || []) {
+      const call = !block.isError && block.type === 'tool-result' && calls.find(item => item.callId === block.toolCallId)
+      if (!call) continue
+      for (const item of block.content || []) {
+        try {
+          const value = JSON.parse(item.text), jobId = value.job_id || value.output?.job_id
+          if (/^[a-f0-9]{32}$/.test(jobId)) call.jobId = jobId
+        } catch { /* Unrelated text has no trusted job identity. */ }
+      }
+    }
+  }
+  return calls
 }
