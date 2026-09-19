@@ -30,9 +30,30 @@ test('completed output preserves actual media and review status', () => {
     comfyui_metadata_status: 'comfyui-final', comfyui_view_url: 'http://comfy/view?filename=final.mp4',
     validation: { full_decode: 'passed', human_review: 'not_run' }, warnings: ['review pending'] }
   assert.deepEqual(JSON.parse(renderWorkcard({}, value)[0].text), {
-    project_id: value.project_id, job_id: value.job_id, status: value.status, comfyui_view_url: value.comfyui_view_url,
+    job_id: value.job_id, status: value.status, comfyui_view_url: value.comfyui_view_url,
     validation: value.validation, warnings: value.warnings,
   })
+})
+
+test('all media task tools share the extensible job output contract', () => {
+  assert.deepEqual(Object.keys(workcard.schemas), ['job'])
+  assert.equal(workcard.schemas.job.additionalProperties, true)
+  for (const name of ['call_tools_image', 'call_tools_image_recover', 'call_tools_video', 'call_tools_video_recover',
+    'call_tools_job_status', 'call_tools_job_result']) {
+    assert.equal(workcard.tools[name], 'job')
+    assert.deepEqual(tools.get(name).output.schema, workcard.schemas.job)
+  }
+  const values = [
+    { job_id: 'e'.repeat(32), status: 'succeeded', path: 'http://comfy/image.png', media_kind: 'image' },
+    { job_id: 'f'.repeat(32), status: 'succeeded', path: 'http://comfy/video.mp4', media_kind: 'video',
+      mode: 'director', quality: 'fast', specification: { seconds: 8 }, shots: [{ id: 'shot-1', duration: 8 }] },
+    { project_id: '00000000', job_id: '1'.repeat(32), status: 'failed', error: 'provider failed' },
+  ]
+  for (const value of values) {
+    assert.equal(typeof value.job_id, 'string')
+    assert.equal(typeof value.status, 'string')
+    assert.doesNotThrow(() => structuredClone(value))
+  }
 })
 
 test('image result exposes only its server preview URL', () => {

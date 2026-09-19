@@ -16,10 +16,13 @@ test('execution metadata preserves fingerprint and prompt errors', async () => {
 test('local wait reads and sleeps before returning completion', async () => {
   let reads = 0, sleeps = 0
   const result = await waitJob({ job_id: 'job' }, undefined, async () => ++reads === 1
-    ? { status: 'running' } : { status: 'succeeded', result: { comfyui_view_url: 'https://server/video' } }, async ms => {
+    ? { status: 'running' } : { job_id: 'job', project_id: '00000000', status: 'succeeded',
+      result: { path: 'https://server/video', comfyui_view_url: 'https://server/video', specification: { seconds: 8 } } }, async ms => {
     assert.equal(ms, 2000); sleeps++
   })
-  assert.equal(result.comfyui_view_url, 'https://server/video')
+  assert.deepEqual(result, { job_id: 'job', status: 'succeeded', path: 'https://server/video',
+    comfyui_view_url: 'https://server/video', specification: { seconds: 8 } })
+  assert.ok(!Object.hasOwn(result, 'project_id'))
   assert.equal(reads, 2)
   assert.equal(sleeps, 1)
 })
