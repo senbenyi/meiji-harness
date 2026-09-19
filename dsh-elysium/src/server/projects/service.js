@@ -1,9 +1,10 @@
 // 职责：组合项目持久化、任务查询与媒体可用性校验，供路由和 Harness 工具使用。
 import { createProjectStore as createStore } from '../../database/managers/projects.js'
-import { getJob, registerSink, removeProjectTasks, retry, submit, taskId } from '../../worker/index.js'
+import { completeStructured, getJob, registerSink, removeProjectTasks, retry, submit, taskId } from '../../worker/index.js'
 import { availableJobSummary } from '../media/catalog.js'
 import { serverUrl, validJobId, validProjectId, validShotId } from './schema.js'
 import { statusError } from '../../utils/errors.js'
+import { generateStoryboard } from './storyboard.js'
 
 export { projectSummary } from '../../database/managers/projects.js'
 const invalidRequest = message => statusError(400, message)
@@ -19,8 +20,13 @@ function productionPlan(shot, anchors) {
 }
 
 export function createProjectStore(options = {}) {
-  const { submitTasks = submit, retryTask = retry, ...storeOptions } = options
+  const { submitTasks = submit, retryTask = retry, complete = completeStructured, ...storeOptions } = options
   const store = createStore({ readJob: getJob, summarizeJob: availableJobSummary, removeTasks: removeProjectTasks, ...storeOptions })
+  store.generateStoryboard = async ({ id }) => {
+    const project = await store.read(id)
+    if (project.acts.length) return project
+    return store.initializeStoryboard(id, await generateStoryboard(project, complete))
+  }
   store.produce = async ({ project_id: projectId, shot_ids: shotIds, submission_id: submissionId }) => {
     if (!validProjectId(projectId)) throw invalidRequest('项目 ID 无效')
     if (!Array.isArray(shotIds) || !shotIds.length || shotIds.length > 1000 || shotIds.some(id => !validShotId(id)) || new Set(shotIds).size !== shotIds.length) throw invalidRequest('镜头 ID 列表无效')

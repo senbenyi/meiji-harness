@@ -5,6 +5,7 @@ import { resolveServer } from './catalog/servers.js'
 import { readRegistry, writeRegistry } from '../../database/managers/registry.js'
 import { readSelection, writeSelection } from '../../database/managers/selection.js'
 import { runtimeSettings, runtimeConfig } from '../../config.js'
+import { completeStructured as requestStructured } from './protocols/openai/completions.js'
 async function adapterFor(backend) {
   const provider = await loadProvider(backend.provider)
   if (backend.provider_api_version !== undefined && backend.provider_api_version !== provider.apiVersion) throw Object.assign(new Error('任务平台接口版本不兼容'), { code: 'PROVIDER_VERSION_MISMATCH', status: 409 })
@@ -25,6 +26,11 @@ export async function createBackendClient(backend, options) {
 }
 export const buildBackendGraph = async (backend, plan, jobId) => (await providerFor(backend)).buildGraph(backend, plan, jobId)
 export const backendLlmSettings = async backend => (await providerFor(backend)).llmSettings(backend)
+export async function completeStructured(request, options) {
+  const backend = resolveServer('llm'), provider = await providerFor(backend)
+  await provider.connect(backend)
+  return requestStructured(provider.llmSettings(backend), request, options)
+}
 export const backendWorkflowSource = async backend => {
   const provider = await providerFor(backend)
   await provider.connect(backend)

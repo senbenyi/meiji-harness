@@ -197,6 +197,45 @@ test('project produce route authenticates and accepts only project, shot and sub
   assert.deepEqual(calls, [body])
 })
 
+test('project storyboard generation persists complete shots once and leaves failures empty', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-storyboard-generation-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await seedDirectors(root, ['测试导演'])
+  let calls = 0, fail = false
+  const complete = async request => {
+    calls++
+    assert.equal(request.name, 'project_storyboard')
+    assert.deepEqual(request.schema.properties.acts.items.properties.shots.items.properties.role.enum, ['', 'lead'])
+    if (fail) throw Object.assign(new Error('模型不可用'), { status: 503 })
+    return { acts: [{ title: '第一幕', shots: [{ role: 'lead', action: '女主在东京街头回头，霓虹逆光近景', subtitle: '你来了', notes: '' }] }] }
+  }
+  const handler = createProjectHandler({ token: 't', complete })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => server.close(resolve)))
+  const base = `http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}`
+  const post = (action, body, token = 't') => fetch(`${base}/${action}?t=${token}`, { method: 'POST', body: JSON.stringify(body) })
+  const first = await (await post('create', { title: '东京故事', director: '测试导演' })).json()
+  await post('update-anchor', { id: first.id, action: 'add', data: { role: 'lead', label: '女主', description: '黑发', source: { type: 'material', job_id: 'a'.repeat(32) }, image_url: '' } })
+  assert.equal((await post('generate-storyboard', { id: first.id }, '')).status, 401)
+  assert.equal((await post('generate-storyboard', { id: first.id, replace: true })).status, 400)
+  let response = await post('generate-storyboard', { id: first.id })
+  assert.equal(response.status, 200)
+  const generated = await response.json(), shot = generated.acts[0].shots[0]
+  assert.equal(shot.role, 'lead'); assert.equal(shot.mode, 'i2va'); assert.equal(shot.status, 'pending'); assert.equal(shot.job_id, null)
+  assert.match(shot.id, /^[a-f0-9]{8}$/); assert.ok(shot.action)
+  assert.deepEqual(JSON.parse(await readFile(join(root, 'projects', first.id, 'storyboard.json'), 'utf8')), generated.acts)
+  response = await post('generate-storyboard', { id: first.id })
+  assert.equal(response.status, 200); assert.equal(calls, 1); assert.deepEqual((await response.json()).acts, generated.acts)
+
+  const second = await (await post('create', { title: '失败项目', director: '测试导演' })).json()
+  await post('update-anchor', { id: second.id, action: 'add', data: { role: 'lead', label: '女主', description: '', source: null, image_url: '' } })
+  fail = true
+  response = await post('generate-storyboard', { id: second.id })
+  assert.equal(response.status, 503)
+  assert.deepEqual(JSON.parse(await readFile(join(root, 'projects', second.id, 'storyboard.json'), 'utf8')), [])
+})
+
 // 封面校验、持久化和摘要读取不依赖锚点顺序或远程模型服务。
 test('selected image cover persists independently and rejects video or missing image files', async t => {
   const { createProjectStore } = await import('../src/server/projects/service.js')

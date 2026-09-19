@@ -6,7 +6,7 @@ import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'produce', 'retry', 'poll']
+const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'generate-storyboard', 'produce', 'retry', 'poll']
 const exactBody = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key))
 
 export function createProjectHandler(options) {
@@ -32,6 +32,10 @@ export function createProjectHandler(options) {
         return json(res, 200, await store.read(id))
       }
       const body = await readJsonBody(req)
+      if (action === 'generate-storyboard') {
+        if (!exactBody(body, ['id'])) throw invalidRequest('分镜生成参数无效')
+        return json(res, 200, await store.generateStoryboard(body))
+      }
       if (action === 'produce') {
         if (!exactBody(body, ['project_id', 'shot_ids', 'submission_id'])) throw invalidRequest('项目提交参数无效')
         return json(res, 202, await store.produce(body))

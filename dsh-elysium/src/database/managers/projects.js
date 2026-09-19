@@ -94,6 +94,20 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
 
   const read = id => enqueue(() => load(id))
 
+  const initializeStoryboard = (id, input) => {
+    if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
+    const acts = actsValue(input)
+    ensureShotIds(acts)
+    return enqueue(async () => {
+      const value = await load(id)
+      if (value.acts.length) return value
+      value.acts = acts
+      value.updated_at = Math.max(Date.now(), value.updated_at + 1)
+      await writeProject(join(root(), id), value, ['acts'])
+      return value
+    })
+  }
+
   async function checkedDirector(value) {
     const name = directorValue(value)
     if (!await directorExists(name)) throw invalidRequest('导演不存在，请先在导演库中添加')
@@ -271,5 +285,5 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
     return false
   })
 
-  return { list, read, change, changeAnchor, changeAct, changeShot, lastModified, usesDirector }
+  return { list, read, change, changeAnchor, changeAct, changeShot, initializeStoryboard, lastModified, usesDirector }
 }
