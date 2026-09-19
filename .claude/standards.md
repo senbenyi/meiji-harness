@@ -26,8 +26,8 @@ dsh-elysium/
 │   │   ├── load.js  # call_tools_load 按需加载
 │   │   ├── media/   # 图片、视频生成与恢复
 │   │   ├── project/ # 项目和导演
-│   │   ├── task/    # 任务状态与结果查询
-│   │   └── workcard.js # 工具输出的工作卡摘要
+│   │   ├── card/    # 工具输出的工作卡摘要
+│   │   └── task/    # 任务状态与结果查询
 │   ├── worker/         # ③ 任务管理器与模型层
 │   │   ├── index.js    # 唯一门面：submitTask / retryTask / waitJob / getJob / 结果汇总 / 模型设置
 │   │   ├── manager/    # 流水线编排（受理→复用→路由→建档→启动）与复用/重试策略

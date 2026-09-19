@@ -4,7 +4,7 @@ import { createCallToolsDirectorList } from './project/director.js'
 import { createCallToolsJobResult, createCallToolsJobStatus } from './task/model.js'
 import { createCallToolsVideo, createCallToolsVideoRecover } from './media/video.js'
 import { createCallToolsImage, createCallToolsImageRecover } from './media/image.js'
-import { createCallToolsWorkcard } from './workcard.js'
+import { createCallToolsWorkcard } from './card/workcard.js'
 import { createCallToolsLoad } from './load.js'
 
 // 组装与模型任务状态和结果查询相关的工具。
