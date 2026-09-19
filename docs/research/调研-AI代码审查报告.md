@@ -61,7 +61,7 @@ worker.js (独立进程)                                  # video/worker.js
 提交:  comfyui-submission.json (submitting → prompt_id → 归档失败)
 图:    comfyui-workflow.json (恢复时复用已保存的图，不重建)
 产物:  comfyui-history.json → artifacts → comfyui_view_url / local_media_path
-索引:  sessions/{hash}/calls/{callHash} → jobId (call-binding)
+索引:  运行中调用使用进程内关联；完成结果由 Harness 会话日志提供
 项目:  projects/{id}/project.json + anchors.json + storyboard.json + deliverables.json + materials.json
 ```
 

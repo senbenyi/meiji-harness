@@ -7,9 +7,9 @@ export { createTaskDriver } from './driver/driver.js'
 export { waitJob } from './runner/wait.js'
 export { getJob } from './runner/inspect.js'
 
-// 受理：项目归属与会话调用绑定。
+// 受理：项目归属与运行中调用关联；已完成调用以 Harness 日志为准。
 export { ensureFreeProject } from './intake/project.js'
-export { MEDIA_TOOLS, mediaToolNames, findJobCall } from './intake/calls.js'
+export { MEDIA_TOOLS, mediaToolNames, findJobCall, releaseActiveJobCall } from './intake/call-bindings.js'
 
 // 结果：统一汇总口径与本地媒体。
 export { completedResult, jobSummary } from './results/summary.js'

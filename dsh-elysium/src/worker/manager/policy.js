@@ -1,6 +1,6 @@
 // 职责：任务复用与重试策略：何时复用会话内的原任务、何时允许恢复、恢复时是否重提失败的原工作流。
 import { ModelTaskError } from '../../utils/errors.js'
-import { findJobCall } from '../intake/calls.js'
+import { findJobCall } from '../intake/call-bindings.js'
 import { getJob } from '../runner/inspect.js'
 
 export const CAPABILITIES = Object.freeze({ image: 'workflow-image', video: 'workflow-video' })

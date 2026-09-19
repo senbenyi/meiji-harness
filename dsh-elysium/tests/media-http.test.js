@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createServer } from 'node:http'
-import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
+import { access, mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
 import { jobSummary } from '../src/worker/results/summary.js'
-import { bindJobCall, findJobCall } from '../src/worker/intake/calls.js'
+import { bindActiveJobCall, findJobCall, releaseActiveJobCall } from '../src/worker/intake/call-bindings.js'
 import { mediaInvocation, mediaSession } from '../src/session/index.js'
 import { apply } from '../src/index.js'
 import { withConfig } from '../src/config.js'
@@ -100,13 +100,23 @@ test('media routes wait for webServer and inject browser configuration when it b
   assert.equal(rows[0].value.directorBase, '/plugins/dsh-elysium/director')
 })
 
-test('call mapping survives reads and never uses an arbitrary client job/path', async () => {
+test('active calls use memory until Harness logs the result and never create a runtime index', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-index-')), previous = process.env.ELYSIUM_STATE_ROOT
   process.env.ELYSIUM_STATE_ROOT = root
   try {
-    await bindJobCall('a'.repeat(32), mediaInvocation({ agent: { session: { id: 'session-one' } }, callId: 'call-one' }))
+    const active = mediaInvocation({ agent: { session: { id: 'session-one' } }, callId: 'call-one' })
+    bindActiveJobCall('a'.repeat(32), active)
     assert.equal(await findJobCall('session-one', 'call-one'), 'a'.repeat(32))
     assert.equal(await findJobCall('session-two', 'call-one'), null)
+    await assert.rejects(access(join(root, 'runtime', 'calls')), { code: 'ENOENT' })
+    const completed = { id: 'session-one', snapshotEvents: () => [{ type: 'tool/call', data: { name: 'call_tools_video', callId: 'call-one' } },
+      { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'call-one', content: [{ type: 'text', text: JSON.stringify({ job_id: 'b'.repeat(32) }) }] }] } } }] }
+    assert.equal(await findJobCall('session-one', 'call-one', mediaSession(completed)), 'b'.repeat(32))
+    assert.equal(await findJobCall('session-one', 'call-one'), null)
+    const released = mediaInvocation({ agent: { session: { id: 'session-one' } }, callId: 'released' })
+    bindActiveJobCall('c'.repeat(32), released)
+    releaseActiveJobCall(released)
+    assert.equal(await findJobCall('session-one', 'released'), null)
     const session = { id: 'old', snapshotEvents: () => [{ type: 'tool/call', data: { name: 'call_tools_video', callId: 'c' } },
       { type: 'tool/result', data: { message: { content: [{ type: 'tool-result', toolCallId: 'c', content: [{ type: 'text', text: JSON.stringify({ job_id: 'b'.repeat(32) }) }] }] } } }] }
     assert.equal(await findJobCall('old', 'c', mediaSession(session)), 'b'.repeat(32))

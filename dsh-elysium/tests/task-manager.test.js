@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
 import { saveJson } from '../src/database/json.js'
 import { submitTask, retryTask } from '../src/worker/manager/manager.js'
-import { bindJobCall } from '../src/worker/intake/calls.js'
+import { bindActiveJobCall } from '../src/worker/intake/call-bindings.js'
 import { mediaInvocation } from '../src/session/index.js'
 
 const project = 'abcd1234'
@@ -28,11 +28,13 @@ const exec = (value, callId) => ({ agent: { session: value }, callId })
 test('images follow the video reuse rule: failed or same-turn results are reused, earlier successes are not', async t => fixture(t, async ({ root, job }) => {
   const current = session({ type: 'turn/start', data: { turn: 1 } }, { type: 'tool/call', data: { name: 'call_tools_image', callId: 'first' } })
   await job(imageId, 'workflow-image', 'failed')
-  await bindJobCall(imageId, mediaInvocation(exec(current, 'first')))
+  bindActiveJobCall(imageId, mediaInvocation(exec(current, 'first')))
   assert.equal((await submitTask('image', { project_id: project, prompt: 'changed' }, mediaInvocation(exec(current, 'again')))).job_id, imageId)
   await job(imageId, 'workflow-image', 'succeeded')
   assert.equal((await submitTask('image', { project_id: project, prompt: 'changed' }, mediaInvocation(exec(current, 'same-turn')))).job_id, imageId)
   assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [imageId])
+  await assert.rejects(readdir(join(root, 'runtime', 'sessions')), { code: 'ENOENT' })
+  await assert.rejects(readdir(join(root, 'runtime', 'calls')), { code: 'ENOENT' })
   const later = session({ type: 'tool/call', data: { name: 'call_tools_image', callId: 'first' } }, { type: 'turn/start', data: { turn: 2 } })
   // 上一轮已成功的图片不复用：进入路由（本夹具未配置图片模型）。
   await assert.rejects(submitTask('image', { project_id: project, prompt: 'next' }, mediaInvocation(exec(later, 'next'))), /未配置图片模型/)

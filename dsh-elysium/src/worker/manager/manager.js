@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { readJson, saveJson } from '../../database/json.js'
 import { jobsRoot } from '../../database/paths.js'
 import { ModelTaskError } from '../../utils/errors.js'
-import { bindJobCall, withSessionLock } from '../intake/calls.js'
+import { bindActiveJobCall } from '../intake/call-bindings.js'
 import { routeTask, validateRoutedTask } from '../routing/route.js'
 import { readBackend } from '../models/index.js'
 import { getJob } from '../runner/inspect.js'
@@ -142,23 +142,21 @@ export async function submit(request, invocation) {
   return result
 }
 
-// 单任务兼容门面：保留会话复用和原有返回句柄，但不再立即启动 Worker。
+// 单任务兼容门面：保留复用和原有返回句柄，但不再立即启动 Worker。
 export async function submitTask(kind, { project_id: projectId, new_task: newTask = false, ...plan }, invocation) {
   invocation?.signal?.throwIfAborted()
   if (!CAPABILITIES[kind]) throw invalid('任务类型无效')
   if (typeof newTask !== 'boolean') throw invalid('new_task 必须为布尔值')
-  return withSessionLock(invocation, async () => {
-    const reused = newTask ? null : await reusableTask(kind, projectId, invocation)
-    if (reused) {
-      await bindJobCall(reused.job_id, invocation)
-      return handle(reused)
-    }
-    const result = await submit({ submission_id: submissionIdentity(invocation), lane: { id: laneIdentity(projectId, invocation), priority: 'interactive' },
-      project_id: projectId, tasks: [{ kind, plan }], channel: 'session' }, invocation)
-    const job = await getJob(result.tasks[0].task_id)
-    await bindJobCall(job.job_id, invocation)
-    return handle(job)
-  })
+  const reused = newTask ? null : await reusableTask(kind, projectId, invocation)
+  if (reused) {
+    bindActiveJobCall(reused.job_id, invocation)
+    return handle(reused)
+  }
+  const result = await submit({ submission_id: submissionIdentity(invocation), lane: { id: laneIdentity(projectId, invocation), priority: 'interactive' },
+    project_id: projectId, tasks: [{ kind, plan }], channel: 'session' }, invocation)
+  const job = await getJob(result.tasks[0].task_id)
+  bindActiveJobCall(job.job_id, invocation)
+  return handle(job)
 }
 
 export async function dispatch(taskIdValue) {
@@ -249,16 +247,14 @@ export async function retry(jobId, { kind, consent = false } = {}) {
   return result
 }
 
-// 恢复兼容门面：会话锁在队列互斥之前，人工重试只重新入队。
+// 恢复兼容门面：人工重试只重新入队。
 export async function retryTask(jobId, { kind, invocation, consent = false } = {}) {
   invocation?.signal?.throwIfAborted()
-  return withSessionLock(invocation, async () => {
-    const job = await getJob(jobId), taskKind = kind || kindOf(job.capability)
-    assertRetryAllowed(job, taskKind, consent)
-    const result = job.status === 'succeeded' || await retriedThisTurn(taskKind, jobId, invocation) ? handle(job) : await retry(jobId, { kind: taskKind, consent })
-    await bindJobCall(jobId, invocation)
-    return result
-  })
+  const job = await getJob(jobId), taskKind = kind || kindOf(job.capability)
+  assertRetryAllowed(job, taskKind, consent)
+  const result = job.status === 'succeeded' || await retriedThisTurn(taskKind, jobId, invocation) ? handle(job) : await retry(jobId, { kind: taskKind, consent })
+  bindActiveJobCall(jobId, invocation)
+  return result
 }
 
 export async function cancel(taskIdValue) {

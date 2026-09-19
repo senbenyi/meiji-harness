@@ -13,7 +13,7 @@ import { resolveServer } from '../src/worker/models/index.js'
 const startVideoJob = (input, exec) => submitTask('video', input, mediaInvocation(exec))
 const resumeVideoJob = (id, exec) => retryTask(id, { kind: 'video', invocation: mediaInvocation(exec), consent: true })
 import { createJob } from '../src/worker/store/records.js'
-import { bindJobCall, findJobCall } from '../src/worker/intake/calls.js'
+import { bindActiveJobCall, findJobCall } from '../src/worker/intake/call-bindings.js'
 import { readJson, saveJson } from '../src/database/json.js'
 import { mediaInvocation, userRequestedRetry } from '../src/session/index.js'
 const userRequestedVideoRetry = exec => userRequestedRetry(exec.agent.session.snapshotEvents())
@@ -106,13 +106,13 @@ test('changed prompt and concurrent repeat calls reuse the failed job; repeated 
   const session = { id: 'session', snapshotEvents: () => events }
   const exec = callId => ({ agent: { session }, callId })
   const id = await createJob(project, plan, resolveServer('video'))
-  await bindJobCall(id, mediaInvocation(exec('first')))
+  bindActiveJobCall(id, mediaInvocation(exec('first')))
   await saveJson(join(root, 'projects', 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', backend: 'comfyui', status: 'failed' })
   const repeated = await Promise.all(['second', 'third'].map(callId => startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec(callId))))
   assert.ok(repeated.every(job => job.job_id === id))
   assert.equal(await findJobCall(session.id, 'second'), id)
   events.push({ type: 'tool/call', data: { name: 'call_tools_video_recover', callId: 'resume' } })
-  await bindJobCall(id, mediaInvocation(exec('resume')))
+  bindActiveJobCall(id, mediaInvocation(exec('resume')))
   assert.equal((await resumeVideoJob(id, exec('repeat-resume'))).job_id, id)
   assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [id])
   assert.equal(await readJson(join(root, 'projects', 'jobs', id, 'worker.lock')), null)
@@ -123,7 +123,7 @@ test('a repeated generation call in the same user turn reuses the succeeded vide
   const session = { id: 'session', snapshotEvents: () => events }
   const exec = callId => ({ agent: { session }, callId })
   const id = await createJob(project, plan, resolveServer('video'))
-  await bindJobCall(id, mediaInvocation(exec('first')))
+  bindActiveJobCall(id, mediaInvocation(exec('first')))
   await saveJson(join(root, 'projects', 'jobs', id, 'status.json'), { job_id: id, project_id: project, capability: 'workflow-video', status: 'succeeded' })
 
   const repeated = await startVideoJob({ project_id: project, ...plan, prompt: 'Changed by the model.' }, exec('second'))

@@ -1,5 +1,5 @@
 // 职责：图片生成、参考图编辑与原任务恢复的 Harness 工具定义；执行交给 worker 任务管理器。
-import { retryTask, submitTask, waitJob } from '../../worker/index.js'
+import { releaseActiveJobCall, retryTask, submitTask, waitJob } from '../../worker/index.js'
 import { mediaInvocation, userRequestedRetry } from '../../session/index.js'
 import { generationProjectId } from '../project/context.js'
 export function createCallToolsImage() {
@@ -10,15 +10,21 @@ export function createCallToolsImage() {
       seed: { type: 'integer', minimum: 0, maximum: 4294967295 },
       new_image: { type: 'boolean', description: '仅当用户明确要求另一张图片时设为true，失败禁止设为true。' } } },
     async execute({ project_id, new_image = false, ...plan }, exec) {
-      const job = await submitTask('image', { ...plan, project_id: await generationProjectId(project_id, exec), new_task: new_image }, mediaInvocation(exec))
-      return waitJob(job, exec?.signal)
+      const invocation = mediaInvocation(exec)
+      const job = await submitTask('image', { ...plan, project_id: await generationProjectId(project_id, exec), new_task: new_image }, invocation)
+      const result = await waitJob(job, exec?.signal)
+      releaseActiveJobCall(invocation)
+      return result
     } }
 }
 export function createCallToolsImageRecover() {
   return { name: 'call_tools_image_recover', description: '仅在用户要求重试时调用一次；恢复原图片任务，复用已保存的原请求和提交记录；提交结果未知时拒绝重发，避免重复计费。', timeoutMs: 121 * 60 * 1000,
     parameters: { type: 'object', additionalProperties: false, required: ['job_id'], properties: { job_id: { type: 'string' } } },
     async execute(args, exec) {
+      const invocation = mediaInvocation(exec)
       const consent = userRequestedRetry(exec?.agent?.session?.snapshotEvents?.())
-      return waitJob(await retryTask(args.job_id, { kind: 'image', invocation: mediaInvocation(exec), consent }), exec?.signal)
+      const result = await waitJob(await retryTask(args.job_id, { kind: 'image', invocation, consent }), exec?.signal)
+      releaseActiveJobCall(invocation)
+      return result
     } }
 }

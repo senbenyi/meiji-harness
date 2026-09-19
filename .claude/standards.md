@@ -32,7 +32,7 @@ dsh-elysium/
 │   │   ├── index.js    # 唯一门面：提交/管理命令/驱动器/waitJob/getJob/结果汇总/模型设置
 │   │   ├── manager/    # 任务受理、持久化队列、派发、结算、回写与管理命令
 │   │   ├── driver/     # 对账、观察、结算与全局单并发派发循环
-│   │   ├── intake/     # 受理：媒体工具名单、调用↔任务绑定、会话锁、项目归属
+│   │   ├── intake/     # 受理：媒体工具名单、运行中调用关联、项目归属
 │   │   ├── routing/    # 新任务路由：自有优先、三方回退、质量档位、计划校验
 │   │   ├── store/      # 存储：路径、任务记录、状态机（唯一写入口）、锁、媒体登记
 │   │   ├── runner/     # 执行：launcher、worker 进程、TaskContext、进程归属、等待
@@ -107,9 +107,9 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 **规则**：
 - `harness/.dsh/` 逐项覆盖到本机 `~/.dsh/`，不删除本机其他文件。
 - Elysium 的项目、任务、上传、导演、服务器、模型选择和平台配置统一位于 `$DSH_HOME/storages/elysium`；未显式覆盖的运行路径不得读写 `~/.elysium`。
-- Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`（导演库 `directors.json`、素材库索引 `materials.json`），项目拥有的任务、回执和媒体随项目归 `projects/`，跨会话索引和隧道归 `runtime/`，导入原件归 `uploads/`。
+- Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`（导演库 `directors.json`、素材库索引 `materials.json`），项目拥有的任务、回执和媒体随项目归 `projects/`，任务驱动状态归 `runtime/`，导入原件归 `uploads/`。
 - `pools/materials.json` 只保存全局素材的身份、来源和删除状态；媒体实体不复制，仍保留在所属 `projects/` 或 `uploads/`。各项目的 `materials.json` 只保存项目引用。
-- 一级目录路径统一由 `src/database/paths.js` 构造；业务模块不得自行拼接一级目录。`runtime/` 中的调用和会话索引参与任务恢复，不得视为可随意清空的缓存。
+- 一级目录路径统一由 `src/database/paths.js` 构造；业务模块不得自行拼接一级目录。Harness 会话日志是工具调用与任务结果的事实源，插件不得重复持久化调用索引。
 - 部署脚本不检查模型服务、SSH、端口或运行状态。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 

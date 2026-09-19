@@ -22,7 +22,7 @@ test('source tree follows session → tools → worker flow with client, server,
   for (const file of ['index.js', 'config.js', 'client/api/media.js', 'client/api/projects.js', 'client/api/directors.js', 'client/api/settings.js',
     'server/http.js', 'server/routes/media.js', 'server/routes/projects.js', 'server/routes/directors.js', 'server/routes/settings.js',
     'server/directors/service.js', 'server/projects/service.js',
-    'session/index.js', 'worker/driver/driver.js', 'worker/manager/queue.js', 'worker/manager/tasks.js', 'worker/runner/process.js', 'worker/intake/calls.js', 'worker/store/status.js',
+    'session/index.js', 'worker/driver/driver.js', 'worker/manager/queue.js', 'worker/manager/tasks.js', 'worker/runner/process.js', 'worker/intake/call-bindings.js', 'worker/store/status.js',
     'database/index.js', 'database/json.js', 'database/paths.js', 'database/schemas/projects.js', 'tools/index.js', 'tools/card/workcard.js', 'worker/models/protocols/comfyui/client.js',
     'worker/models/index.js', 'utils/context.js', 'utils/errors.js', 'utils/validation.js']) {
     assert.equal(await exists(new URL(file, root)), true, file)

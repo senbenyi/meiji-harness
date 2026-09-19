@@ -14,7 +14,7 @@
 | `src/tools/` | 工具参数 schema；执行只调用 `worker/index.js` |
 | `src/worker/index.js` | worker 唯一门面 |
 | `worker/manager/` | `submitTask` / `retryTask` 流水线与复用、重试策略 |
-| `worker/intake/` | 媒体工具名单、调用 ↔ 任务绑定、会话锁、自由模式工作区 |
+| `worker/intake/` | 媒体工具名单、运行中调用关联、自由模式工作区 |
 | `worker/routing/` | 自有优先、三方回退、质量档位、计划校验 |
 | `worker/store/` | 路径、任务记录、状态机（`status.json` 唯一写入口）、锁、媒体保存与登记 |
 | `worker/runner/` | launcher、worker 进程、`executeTask`、TaskContext、进程归属、等待 |
@@ -25,7 +25,7 @@
 
 ## 关键变更
 
-- 图片与视频共用一条流水线；图片采用视频的会话锁、复用与重试规则，恢复工具需用户明确要求。
+- 图片与视频共用一条流水线；图片采用视频的复用与重试规则，恢复工具需用户明确要求。
 - `submitTask` / `retryTask` 只返回任务句柄；Agent 工具自行等待，工作卡按钮不等待。
 - Provider 统一为 `executeJob(plan, backend, ctx)`，经 TaskContext 写状态、保存产物、读取 `job:` 参考图。
 - 三份 ComfyUI 执行器合并为 `protocols/comfyui/runner.js`；AutoDL 图片与 H3 导演计划也获得网络瞬断有限重试。

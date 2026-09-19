@@ -5,7 +5,7 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 import { readFileSync } from 'node:fs'
-import { mediaToolNames } from '../src/worker/intake/calls.js'
+import { mediaToolNames } from '../src/worker/intake/call-bindings.js'
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
