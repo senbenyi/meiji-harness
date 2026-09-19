@@ -13,25 +13,30 @@ dsh-elysium/
 │   ├── config.js       # 插件实例配置组合
 │   ├── client/         # React.createElement，无 JSX
 │   │   ├── api/        # Client 到 Server 的调用
-│   │   ├── commands/   # 创作命令
 │   │   ├── workcard/   # 会话任务状态与结果卡片
 │   │   └── workbench/  # 素材、项目、锚点、分镜与交付工作台
-│   ├── server/         # 后端业务与 HTTP 接口
+│   ├── server/         # Client 工作台 HTTP 接口与共享 Store
 │   │   ├── routes/     # 媒体、项目、导演和设置接口
 │   │   ├── media/      # 素材查询与访问校验
 │   │   ├── projects/   # 项目领域校验
-│   │   ├── jobs/       # 任务生命周期、诊断与进程锁
-│   │   └── workflows/  # 图片、视频和短剧工作流
+│   │   └── directors/  # 导演 Store
 │   ├── database/       # 数据路径、持久化 schema、原子 JSON 与集中数据管理器
 │   ├── tools/          # Harness 对外工具边界与按需发现
 │   │   ├── prompts/ # Harness 系统提示词片段
 │   │   ├── media/   # 图片、视频和角色工具适配
 │   │   ├── project/ # 项目和导演工具适配
 │   │   └── task/    # 模型任务和 ComfyUI 原生任务工具
-│   ├── models/         # 模型协议、平台和运行管理器
-│   │   ├── protocols/  # 公共模型协议
-│   │   ├── managers/   # 注册、运行、选择、设置和连接管理
-│   │   └── providers/  # 平台专属实现、模板、测试与材料
+│   ├── worker/         # 异步任务、模型和 Worker 公共入口
+│   │   ├── tasks/      # 任务生命周期与图片、视频工作流
+│   │   │   ├── jobs/       # 创建、查询、锁、诊断和等待
+│   │   │   ├── images/     # 图片任务编排
+│   │   │   ├── videos/     # 视频任务编排
+│   │   │   ├── runtime/    # 通用 launcher 与 worker 进程
+│   │   │   └── bindings/   # Harness 调用与任务绑定
+│   │   └── models/     # 模型协议、平台和运行管理器
+│   │       ├── protocols/  # 公共模型协议
+│   │       ├── managers/   # 注册、运行、选择、设置和连接管理
+│   │       └── providers/  # 平台专属实现、模板、测试与材料
 │   └── utils/          # 无业务语义的上下文、错误和校验工具
 ├── scripts/            # 构建脚本（统一目录名）
 │   ├── build.mjs       # src → lib + 生成 client.js
@@ -48,8 +53,9 @@ dsh-elysium/
 **规则**：
 - 构建脚本目录统一命名为 `scripts/`。
 - `src/index.js` 是唯一组合入口；Client 只调用 `server/routes/`，Harness 工具只位于 `src/tools/`。
+- `src/server/` 只承载 Client 工作台 HTTP 边界与共享 Store；任务生命周期、工作流和 worker 进程只位于 `src/worker/tasks/`。
 - 数据目录、原子 JSON 和持久化管理器集中在 `src/database/`；`src/utils/` 不得出现项目、导演、素材、任务、模型或平台业务语义。
-- 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/models/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
+- 平台专属实现、原始工作流模板、档位、测试与运维材料只位于 `src/worker/models/providers/<id>/`；外部通过配置和公共路由选择平台。平台 tests/legacy/resources 不进入运行包；`npm test` 动态发现平台测试。
 - `package.json` 中 `scripts.build` 和 `scripts.package:registry` 指向 `scripts/` 下的脚本。
 - 插件 Cordis 装配统一位于 `harness/.dsh/profiles/web/cordis.patch.yml`，插件包不自带 Harness 运行配置。
 - 新增客户端模块（含 `workbench/`）后须同步更新 `scripts/loader.js` 的模块列表，依赖在前、`index.js` 最后。
@@ -117,4 +123,4 @@ dsh-elysium/tests/         # 插件单元测试
 - 插件中媒体、视频、图片一律使用服务器 URL。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 
-- 原有 Runpod H3 模板与完整 UI 元数据位于 `src/models/providers/runpod/workflows/minimax-h3/`，迁移不得删字段或重写原始内容；公共同步脚本只负责平台路由。
+- 原有 Runpod H3 模板与完整 UI 元数据位于 `src/worker/models/providers/runpod/workflows/minimax-h3/`，迁移不得删字段或重写原始内容；公共同步脚本只负责平台路由。

@@ -1,9 +1,9 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel } from '../../models/managers/runtime/index.js'
-import { withConfig, runtimeConfig, defaultModels } from '../../config.js'
+import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel, updateSettings } from '../../worker/models/managers/runtime/index.js'
+import { withConfig, runtimeConfig, runtimeSettings, defaultModels, defaultSettings } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select']
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select', 'creation-quality']
 export function createSettingsHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
   return async (req, res) => {
     try {
@@ -19,7 +19,8 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       if (action === 'models') {
         const thirdParty = await thirdPartyModels()
         const tunnel = defaultTunnelModel(), chatModel = tunnel && { id: tunnel.id, label: tunnel.label }
-        return json(res, 200, { revision: selection.revision, models, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+        const creation = runtimeConfig().ELYSIUM_SETTINGS_FILE ? runtimeSettings().creation : defaultSettings.creation
+        return json(res, 200, { revision: selection.revision, creation, models, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
           const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
           return [kind, entries.find(model => model.server_id === active)?.id || '']
         })) })
@@ -35,6 +36,16 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
         const body = await readJsonBody(req)
         if (!Number.isSafeInteger(body.revision) || body.revision < 0 || typeof body.id !== 'string') throw invalidRequest('三方模型选择参数无效')
         return json(res, 200, await selectThirdPartyModel(body.kind, body.id, body.revision))
+      }
+      if (action === 'creation-quality') {
+        const body = await readJsonBody(req)
+        if (!Number.isSafeInteger(body.revision) || body.revision < 0 || !['fast', 'regular', 'high'].includes(body.quality)) throw invalidRequest('创作质量参数无效')
+        const saved = await updateSettings(runtimeConfig().ELYSIUM_SETTINGS_FILE, settings => {
+          if (settings.creation.revision !== body.revision) throw Object.assign(new Error('创作质量已被其他页面修改，请刷新后重试'), { status: 409 })
+          settings.creation = { revision: settings.creation.revision + 1, quality: body.quality }
+          return settings
+        })
+        return json(res, 200, { ...saved.creation, effect: 'new_jobs' })
       }
       if (['model-status', 'model-connect'].includes(action)) {
         const body = await readJsonBody(req)

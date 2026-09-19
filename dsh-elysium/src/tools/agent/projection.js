@@ -9,8 +9,8 @@ const deferred = new Set(Object.values(toolsConfig).flatMap(group => group.names
 const alwaysVisible = new Set(['exit_plan_mode'])
 const sectionTools = { 'tool:jobs': toolsConfig.shell.names, 'tool:goal': toolsConfig.planning.names }
 const projectTool = name => /^call_tools_(director|project)_/.test(name)
-const withCreationInstructions = assembly => ({ ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-commands'),
-  { name: 'elysium:creation-commands', text: creationInstructions }] })
+const withCreationInstructions = assembly => ({ ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-policy'),
+  { name: 'elysium:creation-policy', text: creationInstructions }] })
 
 // 按预设、已加载工具和本轮失败状态生成本次请求实际可见的工具与提示词。
 export function createCallToolsForAgent(assembly, agent) {

@@ -3,7 +3,7 @@ import { readdir, readFile, stat, mkdir, rename, rm, open } from 'node:fs/promis
 import { randomBytes } from 'node:crypto'
 import { join, extname, basename } from 'node:path'
 import { openLocalMedia } from './local-media.js'
-import { getJob } from '../jobs/query.js'
+import { getJob } from '../../worker/tasks/jobs/query.js'
 import { readJson, saveJson } from '../../database/json.js'
 import { invalidRequest } from '../http.js'
 import { projectsRoot, uploadsRoot } from '../../database/paths.js'
@@ -20,7 +20,7 @@ export function jobSummary(job, { mode: requestedMode, inferMediaKind = true } =
     error_code: job.error_code, remote_status: job.remote_status,
     error: job.error, retryable: job.retryable, retry_scope: job.retry_scope, recovery_instruction: job.recovery_instruction,
     validation: result.validation, warnings: result.warnings || job.warnings,
-    timings: job.timings, profile: result.profile, specification: result.specification,
+    profile: result.profile, specification: result.specification,
     comfyui_view_url: result.comfyui_view_url, comfyui_metadata_status: result.comfyui_metadata_status,
     media_kind: result.media_kind === 'file' ? 'file' : result.media_kind || (inferMediaKind ? image ? 'image' : 'video' : undefined),
     diagnostic_path: job.status === 'succeeded' ? undefined : job.debug?.diagnostic_path,

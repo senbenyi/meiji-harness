@@ -41,6 +41,6 @@ test('injects creation guidance only for the three Elysium modes', async () => {
   assert.deepEqual(await assemble({}, { agent: agent('elysium-standard') }, async () => base), base)
   for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
     const result = await assemble({}, { agent: agent(id) }, async () => base)
-    assert.deepEqual(result.sections.map(section => section.name), ['elysium:creation-commands'])
+    assert.deepEqual(result.sections.map(section => section.name), ['elysium:creation-policy'])
   }
 })

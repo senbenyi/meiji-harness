@@ -3,7 +3,7 @@ import { after, test } from 'node:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
+import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
 import { readJson, saveJson } from '../src/database/json.js'
 
 const directory = await mkdtemp(join(tmpdir(), 'comfy-client-'))
@@ -98,7 +98,6 @@ test('completed history returns without queue requests or another polling sleep'
     return { done: { status: { completed: true } } }
   }
   await client.wait('done', 1000)
-  assert.ok(!Object.keys(client.timing.snapshot().stages).some(key => key.startsWith('poll.sleep.')))
 })
 
 test('wait distinguishes queue stages and tolerates a completion snapshot race', async () => {

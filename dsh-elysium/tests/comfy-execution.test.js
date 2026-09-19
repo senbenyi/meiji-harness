@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { prepareComfyWorkflow } from '../src/models/protocols/comfyui/execution.js'
+import { prepareComfyWorkflow } from '../src/worker/models/protocols/comfyui/execution.js'
 import { readJson, saveJson } from '../src/database/json.js'
 
 test('recovery keeps an old API snapshot without rebuilding or requiring a visual workflow', async t => {
@@ -22,8 +22,8 @@ test('recovery keeps an old API snapshot without rebuilding or requiring a visua
 })
 
 test('failed execution retains the original node history and prompt identity', async t => {
-  const { ComfyClient } = await import('../src/models/protocols/comfyui/client.js')
-  const { runComfyWorkflow } = await import('../src/models/protocols/comfyui/execution.js')
+  const { ComfyClient } = await import('../src/worker/models/protocols/comfyui/client.js')
+  const { runComfyWorkflow } = await import('../src/worker/models/protocols/comfyui/execution.js')
   const directory = await mkdtemp(join(tmpdir(), 'comfy-failed-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
   const history = { status: { completed: false, status_str: 'error', messages: [

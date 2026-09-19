@@ -6,19 +6,25 @@ import { access, readdir, readFile } from 'node:fs/promises'
 const root = new URL('../src/', import.meta.url)
 const exists = url => access(url).then(() => true, () => false)
 
-test('source tree keeps client, server, database, tools, models and generic utils separated', async () => {
+test('source tree keeps client, server, database, tools, worker and generic utils separated', async () => {
   const entries = await readdir(root, { withFileTypes: true })
   assert.deepEqual(entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort(),
-    ['client', 'database', 'models', 'server', 'tools', 'utils'])
+    ['client', 'database', 'server', 'tools', 'utils', 'worker'])
   for (const legacy of ['business', 'comfyui', 'harness', 'http', 'prompts', 'servers']) {
     assert.equal(await exists(new URL(`${legacy}/`, root)), false, legacy)
+  }
+  for (const legacy of ['server/jobs', 'server/workflows']) {
+    assert.equal(await exists(new URL(`${legacy}/`, root)), false, legacy)
+  }
+  for (const directory of ['jobs', 'images', 'videos', 'runtime', 'bindings']) {
+    assert.equal(await exists(new URL(`worker/tasks/${directory}/`, root)), true, directory)
   }
   for (const file of ['index.js', 'config.js', 'client/api/media.js', 'client/api/projects.js', 'client/api/directors.js', 'client/api/settings.js',
     'server/http.js', 'server/routes/media.js', 'server/routes/projects.js', 'server/routes/directors.js', 'server/routes/settings.js',
     'server/directors/service.js', 'server/projects/service.js',
-    'server/workflows/images/service.js', 'server/workflows/videos/service.js',
-    'database/index.js', 'database/json.js', 'database/paths.js', 'database/schemas/projects.js', 'tools/index.js', 'models/protocols/comfyui/client.js',
-    'models/managers/runtime/index.js', 'utils/context.js', 'utils/errors.js', 'utils/validation.js']) {
+    'worker/tasks/images/service.js', 'worker/tasks/videos/service.js', 'worker/tasks/runtime/worker.js', 'worker/tasks/bindings/call.js',
+    'database/index.js', 'database/json.js', 'database/paths.js', 'database/schemas/projects.js', 'tools/index.js', 'worker/models/protocols/comfyui/client.js',
+    'worker/models/managers/runtime/index.js', 'utils/context.js', 'utils/errors.js', 'utils/validation.js']) {
     assert.equal(await exists(new URL(file, root)), true, file)
   }
 })

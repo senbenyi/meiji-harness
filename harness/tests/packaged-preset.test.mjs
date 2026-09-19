@@ -16,9 +16,8 @@ test('all packaged presets retain native capabilities and names', async () => {
   }
 })
 
-test('Elysium presets include persona and command rules', async () => {
+test('Elysium presets include persona and behavior rules', async () => {
   for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {
-    await access(`${presets}/${id}/persona.md`); const rules = await readFile(`${presets}/${id}/rules.md`, 'utf8')
-    for (const command of ['/预览创作', '/常规创作', '/高清创作']) assert.match(rules, new RegExp(command))
+    await access(`${presets}/${id}/persona.md`); await readFile(`${presets}/${id}/rules.md`, 'utf8')
   }
 })

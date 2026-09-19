@@ -43,7 +43,7 @@ function registerWebTools(ctx, mediaContext, runtime, stores) {
   }
 }
 
-// 在每次模型请求前过滤当前 Agent 可见工具，并仅为 Elysium Agent 注入创作指令。
+// 在每次模型请求前过滤当前 Agent 可见工具，并仅为 Elysium Agent 注入创作规则。
 function registerPromptAssembly(ctx) {
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => createCallToolsForAgent(await next(), context.agent))
 }

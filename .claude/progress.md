@@ -22,6 +22,10 @@
 
 ## 已完成
 
+- **Worker 任务目录迁移** — 2026-09-19 完成：原 `server/jobs` 与 `server/workflows` 迁入 `src/worker/tasks`，删除无用耗时采集后保留 16 个文件，按 jobs、images、videos、runtime、bindings 分层，Server 仅保留 Client HTTP、路由和共享 Store；专项测试 45/45、全量测试 187/188，唯一失败为沙箱禁止 `ps`，语法与构建通过。实施记录：`docs/implement/实施-Worker任务目录迁移.md`。
+
+- **Worker 模型目录迁移** — 2026-09-19 完成：原 `src/models` 的 92 个文件整体迁入 `src/worker/models`，源码、测试、构建与文档路径已同步；Provider/架构专项 17/17 通过，构建通过，全量测试 187/188，唯一失败为沙箱禁止 `ps` 的已知环境限制。实施记录：`docs/implement/实施-Worker模型目录迁移.md`。
+
 - **src 整体职责重构** — 2026-09-18 完成：源码按 client/server/database/tools/models/utils 重组，Database 集中数据入口且不反向依赖 Server，Utils 收敛为无业务语义通用代码，工具与图片工作流分离；190 项插件测试、10 项 Harness 测试、构建、Registry 打包、安装、重启与 3080 身份检查通过。实施记录：`docs/implement/实施-src整体职责重构.md`。
 
 - **聊天模型隧道连接** — 2026-09-18 完成：私有聊天模型改为下拉框且显示 `qwen3.8`，按需连接/重新连接均成功，Harness 启动不建隧道；底层 API ID 保持 `qwen3.8-27b-elysium`，远端未修改或重启。170 项插件测试、7 项 Harness 测试、构建、打包和真实连接验收通过。实施记录：`docs/implement/实施-聊天模型隧道连接.md`。

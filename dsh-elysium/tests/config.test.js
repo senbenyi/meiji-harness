@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { defaultSettings, readDefaults, requiredConfig, resolveConfig, withConfig, workerEnvironment } from '../src/config.js'
-import { comfyUrl, ComfyClient } from '../src/models/protocols/comfyui/client.js'
+import { comfyUrl, ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
 
 test('missing, empty and invalid addresses fail before any request; removed instance is rejected', () => {
   const previous = process.env.COMFYUI_URL

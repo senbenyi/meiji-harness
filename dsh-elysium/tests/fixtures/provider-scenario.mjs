@@ -5,16 +5,16 @@ import { readFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { apply } from './lib/index.js'
-import { buildBackendGraph } from './lib/models/managers/runtime/index.js'
-import { startVideoJob, resumeVideoJob } from './lib/server/workflows/videos/service.js'
-import { getJob } from './lib/server/jobs/query.js'
-import { createJob } from './lib/server/jobs/create.js'
+import { buildBackendGraph } from './lib/worker/models/managers/runtime/index.js'
+import { startVideoJob, resumeVideoJob } from './lib/worker/tasks/videos/service.js'
+import { getJob } from './lib/worker/tasks/jobs/query.js'
+import { createJob } from './lib/worker/tasks/jobs/create.js'
 import { saveJson } from './lib/database/json.js'
-import { resolveServer } from './lib/models/managers/registry/resolve.js'
-import { backendLlmSettings, backendWorkflowSource } from './lib/models/managers/runtime/index.js'
+import { resolveServer } from './lib/worker/models/managers/registry/resolve.js'
+import { backendLlmSettings, backendWorkflowSource } from './lib/worker/models/managers/runtime/index.js'
 import { readRegistry, writeRegistry } from './lib/database/managers/registry.js'
 import { readSelection } from './lib/database/managers/selection.js'
-import { backendFromServer } from './lib/models/managers/registry/resolve.js'
+import { backendFromServer } from './lib/worker/models/managers/registry/resolve.js'
 const provider = process.argv[2], removed = process.argv[3], services = [], jobs = [], schemas = {}
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider, instance_id: 'fixture', deployment_id: 'one', service: 'comfyui', base_url: 'http://unselected.invalid', connection: { workload: 'minimax-h3' } }, plan, id)
 const state = process.env.ELYSIUM_STATE_ROOT
@@ -83,7 +83,7 @@ async function completed(project, id, expected = 'succeeded') {
   throw new Error(`Worker timeout ${id}: ${await readFile(join(jobPath(project, id), 'worker.log'), 'utf8')}`)
 }
 try {
-  for (const name of ['tests', 'legacy', 'resources']) await assert.rejects(access(`lib/models/providers/${provider}/${name}`))
+  for (const name of ['tests', 'legacy', 'resources']) await assert.rejects(access(`lib/worker/models/providers/${provider}/${name}`))
   const a = await model(), b = await model(), routes = new Map(), events = new Map()
   const context = { tools: { register() {} }, get: () => ({ register: route => routes.set(route.path, route.handler) }),
     inject: (_, fn) => fn(context), effect: fn => fn(), on: (event, fn) => events.set(event, fn) }
@@ -124,8 +124,8 @@ try {
   assert.equal(b.posts, 1)
   assert.equal((await backendLlmSettings(backendFromServer(readRegistry().servers.find(server => server.id === 'b'), 'llm'))).base_url, `${b.url}/v1`)
   if (removed) {
-    await assert.rejects(access(`src/models/providers/${removed}`))
-    await assert.rejects(access(`lib/models/providers/${removed}`))
+    await assert.rejects(access(`src/worker/models/providers/${removed}`))
+    await assert.rejects(access(`lib/worker/models/providers/${removed}`))
     const oldId = await createJob(projectId, { mode: 't2va', prompt: 'Old task' })
     const oldPath = jobPath(projectId, oldId)
     await saveJson(join(oldPath, 'input/backend.json'), { ...resolveServer(), provider: removed })

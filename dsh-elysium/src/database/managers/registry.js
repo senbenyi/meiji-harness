@@ -5,7 +5,7 @@ import { basename, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { runtimeConfig } from '../../utils/context.js'
 import { defaultElysiumHome } from '../paths.js'
-import { validateRegistry, serverIdentity, fail } from '../../models/managers/registry/schema.js'
+import { validateRegistry, serverIdentity, fail } from '../../worker/models/managers/registry/schema.js'
 import { readSettings, updateSettings } from './settings.js'
 const unified = path => path === runtimeConfig().ELYSIUM_SETTINGS_FILE || basename(path) === 'settings.json'
 export const registryPath = () => runtimeConfig().ELYSIUM_SETTINGS_FILE || runtimeConfig().ELYSIUM_SERVERS_FILE || join(runtimeConfig().ELYSIUM_HOME || process.env.ELYSIUM_HOME || defaultElysiumHome(), 'config', 'servers.json')

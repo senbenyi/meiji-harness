@@ -24,7 +24,7 @@ test('defers schemas and guidance without mutating source, policies or contexts'
   assert.ok(result.sections.some(s => s.name === 'plan:policy'))
   assert.ok(!result.sections.some(s => s.name === 'tool:bash'))
   assert.match(result.sections.find(section => section.name === 'elysium:tool-discovery').text, /shell/)
-  assert.ok(result.sections.some(section => section.name === 'elysium:creation-commands'))
+  assert.ok(result.sections.some(section => section.name === 'elysium:creation-policy'))
   assert.equal(result.contexts, input.contexts)
   assert.equal(JSON.stringify(input), before)
 })
@@ -53,7 +53,7 @@ test('preserves standard and Code Mode protocols', () => {
   const code = { ...input, tools: [tool('run_code')] }
   const projectedCode = createCallToolsForAgent(code, agent([]))
   assert.deepEqual(projectedCode.tools, code.tools)
-  assert.ok(projectedCode.sections.some(section => section.name === 'elysium:creation-commands'))
+  assert.ok(projectedCode.sections.some(section => section.name === 'elysium:creation-policy'))
 })
 test('recognizes every shipped Elysium mode by its real preset ID', () => {
   for (const id of ['elysium-teaching', 'elysium-free', 'elysium-director']) {

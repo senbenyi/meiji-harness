@@ -4,13 +4,13 @@ import { mkdtemp, mkdir, rm, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig, requiredConfig } from '../src/config.js'
-import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
-import { executeComfyVideo as executePinnedVideo } from '../src/server/workflows/videos/execution.js'
-import { buildBackendGraph } from '../src/models/managers/runtime/index.js'
+import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
+import { executeComfyVideo as executePinnedVideo } from '../src/worker/tasks/videos/execution.js'
+import { buildBackendGraph } from '../src/worker/models/managers/runtime/index.js'
 const buildVideoGraph = (plan, id) => buildBackendGraph({ provider: 'manual', legacy: true, service: 'comfyui', base_url: 'https://comfy.test' }, plan, id)
-import { startVideoJob, resumeVideoJob } from '../src/server/workflows/videos/service.js'
-import { createJob } from '../src/server/jobs/create.js'
-import { bindVideoCall, findVideoCall } from '../src/server/workflows/videos/call-binding.js'
+import { startVideoJob, resumeVideoJob } from '../src/worker/tasks/videos/service.js'
+import { createJob } from '../src/worker/tasks/jobs/create.js'
+import { bindVideoCall, findVideoCall } from '../src/worker/tasks/bindings/call.js'
 import { readJson, saveJson } from '../src/database/json.js'
 import { userRequestedVideoRetry } from '../src/tools/media/video.js'
 
@@ -56,9 +56,6 @@ test('prepare, lost POST response and polling recover inside one job with exactl
   assert.equal(result.result.comfyui_prompt_id, 'original')
   assert.equal(posts, 1)
   assert.deepEqual(delays, [2000, 4000, 8000, 16000])
-  assert.equal(result.timings.clock, 'performance.now')
-  assert.equal(result.timings.stages['reconnect.backoff'].count, 4)
-  assert.equal(result.timings.stages['prepare.validate'].failed, 2)
   assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
 }))
 
@@ -72,7 +69,6 @@ test('persistent outage stops after five retries without submission or new jobs'
   assert.equal(attempts, 6)
   assert.deepEqual(delays, [2000, 4000, 8000, 16000, 30000])
   assert.equal(status.status, 'failed')
-  assert.equal(status.timings.stages['reconnect.backoff'].count, 5)
   assert.match(status.recovery_instruction, /等待用户/)
   assert.deepEqual(await readdir(join(root, 'projects', project, 'jobs')), [id])
 }))

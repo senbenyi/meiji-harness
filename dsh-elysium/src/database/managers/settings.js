@@ -3,8 +3,8 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, w
 import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { validateRegistry } from '../../models/managers/registry/schema.js'
-import { validateSelection } from '../../models/managers/selection/schema.js'
+import { validateRegistry } from '../../worker/models/managers/registry/schema.js'
+import { validateSelection } from '../../worker/models/managers/selection/schema.js'
 import { statusError } from '../../utils/errors.js'
 
 const object = value => value && typeof value === 'object' && !Array.isArray(value)
@@ -13,6 +13,12 @@ const exactKeys = (value, allowed, message) => {
 }
 const clone = value => structuredClone(value)
 const modelKinds = ['image', 'video']
+const qualities = ['fast', 'regular', 'high']
+
+function validateCreation(creation) {
+  exactKeys(creation, ['revision', 'quality'], 'Elysium settings.json 创作质量无效')
+  if (!Number.isSafeInteger(creation.revision) || creation.revision < 0 || !qualities.includes(creation.quality)) throw new Error('Elysium settings.json 创作质量无效')
+}
 
 function validateModels(models) {
   exactKeys(models, modelKinds, 'Elysium settings.json 模型清单无效')
@@ -47,10 +53,11 @@ function validateChat(chat) {
 }
 
 export function validateSettings(value) {
-  exactKeys(value, ['version', 'enableAtomicTools', 'models', 'chat', 'connections', 'selection', 'providers'], 'Elysium settings.json 配置无效')
+  exactKeys(value, ['version', 'enableAtomicTools', 'creation', 'models', 'chat', 'connections', 'selection', 'providers'], 'Elysium settings.json 配置无效')
   if (value.version !== 1 || Object.hasOwn(value, 'enableAtomicTools') && typeof value.enableAtomicTools !== 'boolean') throw new Error('Elysium settings.json 配置无效')
   const normalized = { ...value }
   delete normalized.enableAtomicTools
+  validateCreation(normalized.creation)
   validateModels(normalized.models)
   validateChat(normalized.chat)
   validateRegistry(normalized.connections)
@@ -63,7 +70,11 @@ export function readSettings(path) {
   let text
   try { text = readFileSync(path, 'utf8') } catch (error) { if (error.code === 'ENOENT') return null; throw error }
   if (!text.trim()) return null
-  try { return clone(validateSettings(JSON.parse(text))) } catch (error) {
+  try {
+    const value = JSON.parse(text)
+    if (value.version === 1 && value.creation === undefined) value.creation = { revision: 0, quality: 'regular' }
+    return clone(validateSettings(value))
+  } catch (error) {
     if (error instanceof SyntaxError) throw new Error('Elysium settings.json 无效')
     throw error
   }

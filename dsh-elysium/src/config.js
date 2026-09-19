@@ -1,7 +1,7 @@
 // 职责：集中加载仓库配置、解析插件实例配置，并为异步执行链隔离运行时配置。
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ensureSettings, providerConfigFields, providerConfigDefaults, providerConfigSources, readSettings as readRuntimeSettings, validateSettings } from './models/managers/runtime/index.js'
+import { ensureSettings, providerConfigFields, providerConfigDefaults, providerConfigSources, readSettings as readRuntimeSettings, validateSettings } from './worker/models/managers/runtime/index.js'
 import { defaultElysiumHome } from './database/paths.js'
 import { runtimeConfig, withConfig } from './utils/context.js'
 import { requiredConfig } from './utils/validation.js'
@@ -33,6 +33,7 @@ export const defaultModels = defaultSettings.models
 export const toolsConfig = JSON.parse(readFileSync(toolsFile, 'utf8'))
 export const workcardConfig = JSON.parse(readFileSync(workcardFile, 'utf8'))
 export const runtimeSettings = () => readRuntimeSettings(requiredConfig('ELYSIUM_SETTINGS_FILE'))
+export const creationQuality = () => runtimeConfig().ELYSIUM_SETTINGS_FILE ? runtimeSettings().creation.quality : defaultSettings.creation.quality
 
 // 限定插件入口可接受的配置字段。
 function validatePluginConfig(config) {

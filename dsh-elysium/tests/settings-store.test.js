@@ -8,7 +8,7 @@ import { defaultSettings, withConfig } from '../src/config.js'
 import { ensureSettings, readSettings } from '../src/database/managers/settings.js'
 import { readRegistry, writeRegistry } from '../src/database/managers/registry.js'
 import { readSelection, writeSelection } from '../src/database/managers/selection.js'
-import { legacyTunnelBackend } from '../src/models/managers/registry/resolve.js'
+import { legacyTunnelBackend } from '../src/worker/models/managers/registry/resolve.js'
 
 const fixture = async t => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-unified-settings-'))

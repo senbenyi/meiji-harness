@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 // 职责：验证 AutoDL 自有同步编译器能复现五种冻结 H3 模板。
-import { compileBundle, DIRECTORY, WORKFLOWS } from '../src/models/providers/autodl/workflows/sync.mjs'
+import { compileBundle, DIRECTORY, WORKFLOWS } from '../src/worker/models/providers/autodl/workflows/sync.mjs'
 
 test('AutoDL packages exactly five H3 modes', async () => {
   assert.deepEqual(new Set(Object.keys(WORKFLOWS)), new Set(['t2va', 'i2va', 'fl2va', 'fl2va-loop', 'r2va']))

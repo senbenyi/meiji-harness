@@ -3,7 +3,7 @@ import { uploadsRoot } from '../../database/paths.js'
 import { constants } from 'node:fs'
 import { open, realpath, readFile } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'
-import { projectRoot, validProjectId, validJobId } from '../jobs/paths.js'
+import { projectRoot, validProjectId, validJobId } from '../../worker/tasks/jobs/paths.js'
 
 const formats = { '.png': ['image', 'image/png'], '.jpg': ['image', 'image/jpeg'], '.jpeg': ['image', 'image/jpeg'], '.webp': ['image', 'image/webp'], '.mp4': ['video', 'video/mp4'], '.srt': ['file', 'application/x-subrip; charset=utf-8'] }
 const failure = (status, message) => Object.assign(new Error(message), { status })

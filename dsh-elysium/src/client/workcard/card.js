@@ -108,7 +108,6 @@ window.__ModuleLoader__.load({
             h('details', { className: 'elysium-details' }, h('summary', null, '详情'),
               job.server?.model ? h('p', null, `模型：${job.server.model}`) : null,
               job.job_id ? h('p', null, '任务 ID：', h('code', null, job.job_id)) : null,
-              Number.isFinite(job.timings?.total_ms) ? h('p', null, `任务耗时：${(job.timings.total_ms / 1000).toFixed(1)} 秒`) : null,
               specification ? h('p', null, `生成规格：${specification}`) : null,
               inspect ? h('button', { className: 'elysium-text-button', onClick: inspect }, '执行记录') : null)),
           error ? h('p', { className: 'elysium-error', role: 'alert' }, error, ' ', h('button', { className: 'elysium-text-button', onClick: () => setAttempt(n => n + 1) }, '重新连接')) : null,

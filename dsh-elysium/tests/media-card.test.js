@@ -27,7 +27,7 @@ async function fixture(responses, block = {}) {
     if (!cache.has(name)) cache.set(name, bundles.get(name)(require))
     return cache.get(name)
   }
-  require(pkg.name).apply({ effect: run => run(), inputTriggers: { registerSource: () => () => {} }, uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
+  require(pkg.name).apply({ effect: run => run(), uiConversation: { events: { register() {} } }, settingsScope: { bind: () => ({}) }, slots: { inject: (_, run) => run(), register: (spec, component) => {
     if (spec.name === 'tool.call.toolview') slots.push({ spec, component })
   } } })
   assert.deepEqual(slots.map(s => s.spec.key), ['call_tools_video', 'call_tools_video_recover', 'call_tools_image', 'call_tools_image_recover',
@@ -80,7 +80,7 @@ test('a completed tool result waits for playback intent and stays on the media r
 
 test('completed preview uses specification dimensions and actual job details without media_info', async () => {
   const job = { job_id: '6e050097ab7b37578357ff0e111dc53d', status: 'succeeded',
-    comfyui_view_url: 'https://pod.test/view?filename=final.mp4', timings: { total_ms: 33123 }, profile: 'preview',
+    comfyui_view_url: 'https://pod.test/view?filename=final.mp4', profile: 'preview',
     server: { server_id: 'bailian', provider: 'bailian', model: 'wan2.6-t2v' },
     specification: { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' } }
   for (const block of [null, { content: [{ type: 'text', text: JSON.stringify(job) }] }]) {
@@ -89,7 +89,6 @@ test('completed preview uses specification dimensions and actual job details wit
       assert.equal(f.view.root.findByProps({ className: 'elysium-preview' }).props.style.aspectRatio, '384 / 512')
       const details = f.view.root.findByProps({ className: 'elysium-details' }).findAllByType('p').flatMap(p => p.children.filter(child => typeof child === 'string')).join('\n')
       assert.match(JSON.stringify(f.view.toJSON()), /6e050097ab7b37578357ff0e111dc53d/)
-      assert.match(details, /任务耗时：33.1 秒/)
       assert.match(details, /模型：wan2.6-t2v/)
       assert.doesNotMatch(details, /服务器：/)
       assert.match(details, /生成规格：预览档、384×512、约 3 秒视频、8 步、带音频/)

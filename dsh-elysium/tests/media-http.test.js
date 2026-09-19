@@ -7,11 +7,11 @@ import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createMediaHandler, MEDIA_ROUTE } from '../src/server/routes/media.js'
 import { jobSummary } from '../src/server/media/catalog.js'
-import { bindVideoCall, findVideoCall } from '../src/server/workflows/videos/call-binding.js'
+import { bindVideoCall, findVideoCall } from '../src/worker/tasks/bindings/call.js'
 import { apply } from '../src/index.js'
 import { withConfig } from '../src/config.js'
-import { mediaReference } from '../src/models/protocols/comfyui/media-reference.js'
-import { ComfyClient } from '../src/models/protocols/comfyui/client.js'
+import { mediaReference } from '../src/worker/models/protocols/comfyui/media-reference.js'
+import { ComfyClient } from '../src/worker/models/protocols/comfyui/client.js'
 
 const comfyConfig = { COMFYUI_URL: 'https://comfy.test/comfy/' }
 
@@ -72,10 +72,9 @@ test('local media rejects traversal, unregistered files and symlink escapes', as
   assert.equal((await f.get('video')).status, 403)
 })
 
-test('status summary carries timing and generation specification to recovered cards', () => {
-  const timings = { total_ms: 33123 }, specification = { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' }
-  const summary = jobSummary({ job_id: 'job', status: 'succeeded', timings, result: { profile: 'preview', specification } })
-  assert.deepEqual(summary.timings, timings)
+test('status summary carries generation specification to recovered cards', () => {
+  const specification = { width: 384, height: 512, seconds: 73 / 24, steps: 8, audio: 'joint-generation-and-decoding' }
+  const summary = jobSummary({ job_id: 'job', status: 'succeeded', result: { profile: 'preview', specification } })
   assert.deepEqual(summary.specification, specification)
   assert.equal(summary.profile, 'preview')
 })

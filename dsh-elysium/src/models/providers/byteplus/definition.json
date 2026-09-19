@@ -1,9 +1,0 @@
-{
-  "config": {
-    "field": "byteplusFile",
-    "env": "ELYSIUM_BYTEPLUS_FILE",
-    "file": "byteplus.json"
-  },
-  "priority": 20,
-  "channel": true
-}

@@ -4,9 +4,9 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { withConfig } from '../src/config.js'
-import adapter from '../src/models/providers/autodl/index.js'
-import { buildVideoGraph as buildDirectorGraph, loadVideoTemplates } from '../src/models/providers/autodl/workflows/minimax-h3/director.js'
-import { toDirectorPlan, validatePlan } from '../src/models/providers/autodl/workflows/minimax-h3/plan.js'
+import adapter from '../src/worker/models/providers/autodl/index.js'
+import { buildVideoGraph as buildDirectorGraph, loadVideoTemplates } from '../src/worker/models/providers/autodl/workflows/minimax-h3/director.js'
+import { toDirectorPlan, validatePlan } from '../src/worker/models/providers/autodl/workflows/minimax-h3/plan.js'
 
 const backend = { provider: 'autodl', provider_api_version: 1, server_id: 'autodl-comfy', instance_id: 'gpu-1', deployment_id: 'h3',
   service: 'comfyui', base_url: 'http://127.0.0.1:8188', connection: { transport: 'http', url: 'http://127.0.0.1:8188', workload: 'minimax-h3' } }
@@ -18,7 +18,7 @@ test('AutoDL keeps main H3 generation and director templates byte-identical', as
     workflow_director_video: '00040372a0458cee08cbd603b9683e6142dd428c28f7cc0d7b1eb9098dc75bcf',
   }
   for (const [name, digest] of Object.entries(expected)) {
-    const bytes = await readFile(new URL(`../src/models/providers/autodl/workflows/minimax-h3/director-templates/${name}.json`, import.meta.url))
+    const bytes = await readFile(new URL(`../src/worker/models/providers/autodl/workflows/minimax-h3/director-templates/${name}.json`, import.meta.url))
     assert.equal(createHash('sha256').update(bytes).digest('hex'), digest)
   }
 })
