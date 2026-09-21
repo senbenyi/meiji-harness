@@ -22,6 +22,17 @@ const seedDirectors = (root, names) => withConfig({ ELYSIUM_STATE_ROOT: root }, 
   }
 })
 
+test('project completes only after every planned episode has a film', () => {
+  const base = { id: '1234abcd', title: '双集短剧', anchors: [], acts: [], deliverables: [], planning_episode_count: 2,
+    episodes: [{ number: 1, acts: [], deliverables: [{ type: 'film', label: '第一集', job_id: 'a'.repeat(32) }] },
+      { number: 2, acts: [{ title: '第二集', shots: [{ status: 'pending', job_id: 'b'.repeat(32) }] }], deliverables: [] }] }
+  assert.equal(projectSummary(base).status, 'active')
+  const waiting = { ...base, episodes: [{ ...base.episodes[0] }, { ...base.episodes[1], acts: [] }] }
+  assert.equal(projectSummary(waiting).status, 'todo')
+  const finished = { ...waiting, episodes: [waiting.episodes[0], { ...waiting.episodes[1], deliverables: [{ type: 'film', label: '第二集', job_id: 'c'.repeat(32) }] }] }
+  assert.equal(projectSummary(finished).status, 'completed')
+})
+
 test('shot settlement ignores stale jobs and deleted shots without changing project metadata', async t => {
   const { createProjectStore } = await import('../src/database/managers/projects.js')
   const root = await mkdtemp(join(tmpdir(), 'elysium-shot-settlement-'))
@@ -136,7 +147,7 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.match(id, /^\d{17}$/)
     assert.deepEqual(board.materials, [cover])
     let summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'anchors'); assert.equal(summary.director, skillId('张艺谋'))
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'project'); assert.equal(summary.director, skillId('张艺谋'))
     const shot = { index: 99, role: 'lin', action: '人物走入画面', subtitle: '', mode: 't2va', job_id: 'a'.repeat(32), status: 'succeeded', notes: '已确认' }
     response = await request('update', { id, acts: [{ title: '第一幕', shots: [shot, { ...shot, action: 'B' }] }] })
     assert.equal(response.status, 200)
@@ -146,13 +157,13 @@ test('projects authenticate every route and persist validated atomic CRUD with n
     assert.equal((await request('get', undefined, '&id=../../bad')).status, 400)
     summary = (await (await request('list')).json())[0]
     assert.equal(summary.shot_count, 2); assert.equal(summary.completed_count, 2)
-    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'acts'); assert.equal(summary.deliverable_count, 0)
+    assert.equal(summary.status, 'todo'); assert.equal(summary.stage, 'episodes'); assert.equal(summary.deliverable_count, 0)
     await request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, status: 'running' }] }] })
     summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'active'); assert.equal(summary.stage, 'acts')
+    assert.equal(summary.status, 'active'); assert.equal(summary.stage, 'episodes')
     await request('update', { id, acts: [{ title: '第一幕', shots: [shot] }], deliverables: [{ type: 'film', label: '成品', job_id: 'a'.repeat(32) }] })
     summary = (await (await request('list')).json())[0]
-    assert.equal(summary.status, 'completed'); assert.equal(summary.stage, 'deliverables')
+    assert.equal(summary.status, 'completed'); assert.equal(summary.stage, 'episodes')
     await Promise.all([request('update', { id, title: '新标题', director: skillId('王家卫') }), request('update', { id, acts: [{ title: '第一幕', shots: [{ ...shot, job_id: null, status: 'pending' }] }] })])
     handler = createProjectHandler({ token: 't', ...coverOptions })
     const restored = await (await request('get', undefined, `&id=${id}`)).json()
@@ -298,18 +309,25 @@ test('project produce route authenticates and accepts only project, shot and sub
   assert.deepEqual(calls, [body])
 })
 
-test('project storyboard generation persists complete shots once and leaves failures empty', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'elysium-storyboard-generation-'))
+test('project planning routes append validated drafts and preserve data after model failure', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-planning-routes-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   await seedDirectors(root, ['测试导演'])
+  await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+    const { createSkillsStore } = await import('../src/database/managers/skills.js')
+    await createSkillsStore().seed('drama-planning', new URL('../skills/drama-planning/', import.meta.url).pathname)
+  })
   let calls = 0, fail = false
+  const generated = { logline: '一封信改变两人的关系', genre: '悬疑', episode_count: 2, episode_seconds: 120, world: '雨夜旧城',
+    characters: [{ id: 'lin', name: '林', appearance: '灰外套', voice: '低沉', personality: '克制' }],
+    scenes: [{ id: 'room', name: '公寓', description: '旧厨房' }],
+    episodes: [1, 2].map(number => ({ number, title: `第 ${number} 集`, summary: '一封信', hook: '门外有人' })) }
   const complete = async request => {
     calls++
-    assert.equal(request.name, 'project_storyboard')
-    assert.deepEqual(request.schema.properties.acts.items.properties.shots.items.properties.role.enum, ['', 'lead'])
-    assert.doesNotMatch(JSON.stringify(request.schema), /"(?:minLength|maxLength|minItems|maxItems)"/)
+    assert.equal(request.name, 'drama_series')
+    assert.ok(request.system.includes('短剧规划'))
     if (fail) throw Object.assign(new Error('模型不可用'), { status: 503 })
-    return { acts: [{ title: '第一幕', shots: [{ role: 'lead', action: '女主在东京街头回头，霓虹逆光近景', subtitle: '你来了', notes: '' }] }] }
+    return generated
   }
   const handler = createProjectHandler({ token: 't', ...coverOptions, complete })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
@@ -317,25 +335,22 @@ test('project storyboard generation persists complete shots once and leaves fail
   t.after(() => new Promise(resolve => server.close(resolve)))
   const base = `http://127.0.0.1:${server.address().port}${PROJECT_ROUTE}`
   const post = (action, body, token = 't') => fetch(`${base}/${action}?t=${token}`, { method: 'POST', body: JSON.stringify(body) })
-  const first = await (await post('create', { title: '东京故事', director: skillId('测试导演'), cover_job_id: cover })).json()
-  await post('update-anchor', { id: first.id, action: 'add', data: { role: 'lead', label: '女主', description: '黑发', source: { type: 'material', job_id: 'a'.repeat(32) }, image_url: '' } })
-  assert.equal((await post('generate-storyboard', { id: first.id }, '')).status, 401)
-  assert.equal((await post('generate-storyboard', { id: first.id, replace: true })).status, 400)
-  let response = await post('generate-storyboard', { id: first.id })
+  const project = await (await post('create', { title: '东京故事', director: skillId('测试导演'), cover_job_id: cover })).json()
+  const input = { id: project.id, step: 'series' }
+  assert.equal((await post('plan-generate', input, '')).status, 401)
+  assert.equal((await post('plan-edit', { ...input, value: { ...generated, episode_count: 101 } })).status, 400)
+  let response = await post('plan-generate', input)
   assert.equal(response.status, 200)
-  const generated = await response.json(), shot = generated.acts[0].shots[0]
-  assert.equal(shot.role, 'lead'); assert.equal(shot.mode, 'i2va'); assert.equal(shot.status, 'pending'); assert.equal(shot.job_id, null)
-  assert.match(shot.id, /^[a-f0-9]{8}$/); assert.ok(shot.action)
-  assert.deepEqual(JSON.parse(await readFile(join(root, 'projects', first.id, 'storyboard.json'), 'utf8')), generated.acts)
-  response = await post('generate-storyboard', { id: first.id })
-  assert.equal(response.status, 200); assert.equal(calls, 1); assert.deepEqual((await response.json()).acts, generated.acts)
-
-  const second = await (await post('create', { title: '失败项目', director: skillId('测试导演'), cover_job_id: cover })).json()
-  await post('update-anchor', { id: second.id, action: 'add', data: { role: 'lead', label: '女主', description: '', source: null, image_url: '' } })
+  assert.equal((await response.json()).series.versions.length, 1)
+  assert.equal((await post('plan-finalize', { ...input, version: 1 })).status, 200)
+  assert.deepEqual((await (await post('get', { id: project.id })).json()).error, 'Method not allowed')
+  assert.deepEqual(JSON.parse(await readFile(join(root, 'projects', project.id, 'anchors.json'), 'utf8')).map(item => item.kind), ['character', 'scene'])
   fail = true
-  response = await post('generate-storyboard', { id: second.id })
+  response = await post('plan-generate', input)
   assert.equal(response.status, 503)
-  assert.deepEqual(JSON.parse(await readFile(join(root, 'projects', second.id, 'storyboard.json'), 'utf8')), [])
+  const persisted = JSON.parse(await readFile(join(root, 'projects', project.id, 'planning.json'), 'utf8'))
+  assert.equal(persisted.series.versions.length, 1)
+  assert.equal(calls, 2)
 })
 
 // 封面校验、持久化和摘要读取不依赖锚点顺序或远程模型服务。

@@ -51,6 +51,12 @@ src/
 - 当前预览为 H3、384×512、73 帧、24fps、8 步，约 3.04 秒。
 - 配置位于 `src/worker/models/providers/runpod/workflows/minimax-h3/profiles/preview.json`。
 
+## 短剧项目规划
+
+导演保存在 `$ELYSIUM_HOME/pools/skills/director-<id>/SKILL.md`，工作台可编辑全文。通用剧情规划 Skill 位于同一根目录的 `drama-planning/`；插件首次启动时从包内 `skills/drama-planning/` 写入，已有文件不会被覆盖。导演的 `references/steps/<step>.md` 可覆盖同名通用步骤。
+
+工作台按立项、大纲、人物场景、剧集推进。规划步骤为 `series`、`outline`、每集 `script`、每集 `storyboard` 和逐镜 `shot-prompt`；生成或手改会追加版本，定稿选择其中一版，上游重新定稿后下游需复核。单集分镜、合成任务及交付记录保存在 `projects/<id>/episodes/<n>/`。本集合成只读取已保存到本地的镜头媒体；镜头自动落本地尚待媒体保存规则修订。
+
 ## 三方视频渠道
 
 自有视频模型可连接时优先使用自有模型；否则在已启用渠道中优先选百炼，再选 BytePlus。两者配置独立，任务提交后固定后端，恢复不会切换供应商或再次付费提交。

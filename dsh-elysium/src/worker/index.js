@@ -15,6 +15,7 @@ export { MEDIA_TOOLS, mediaToolNames, findJobCall, releaseActiveJobCall } from '
 // 结果：统一汇总口径与本地媒体。
 export { completedResult, jobSummary } from './results/summary.js'
 export { closeLocalMedia, localMediaInput, openLocalMedia, readLocalMedia, saveFilmJob, saveMedia, streamLocalMedia } from './store/media.js'
+export { withLaunchLock } from './store/lock.js'
 export { saveStatus } from './store/status.js'
 
 // 路由与模型设置：设置页的服务器、三方渠道与连接管理。

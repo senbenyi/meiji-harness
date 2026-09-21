@@ -3,6 +3,7 @@ import { projectSummary } from '../../server/projects/service.js'
 
 const text = { type: 'string' }
 const projectId = { type: 'string', description: '项目 ID，先读取再修改。' }
+const episode = { type: 'integer', minimum: 1, maximum: 100, description: '集数；按集读取或修改分镜时填写。' }
 const shotId = { type: 'string' }
 const object = (properties, required = []) => ({ type: 'object', additionalProperties: false, properties, required })
 const info = { title: text, director: text }
@@ -33,16 +34,16 @@ export function createCallToolsProjectActions(store) {
     },
     {
       name: 'call_tools_project_read', description: '读取项目完整数据和稳定镜头 ID；修改前先读取。',
-      parameters: object({ project_id: projectId }, ['project_id']),
+      parameters: object({ project_id: projectId, episode }, ['project_id']),
       output: { schema: outputSchema, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-      execute: args => store.read(args.project_id),
+      execute: args => args.episode === undefined ? store.read(args.project_id) : store.readEpisode(args.project_id, args.episode),
     },
     {
       name: 'call_tools_project_update', description: '修改项目资料、锚点、幕或镜头。用 target 明确对象；锚点改名用 patch.new_role，镜头动作描述放在 patch.action。',
       parameters: {
         ...object({ project_id: projectId, target: { type: 'string', enum: ['info', 'anchor', 'act', 'shot'] },
           action: { type: 'string', enum: ['add', 'update', 'delete', 'move'] }, role: text, patch: { type: 'object' },
-          act_index: { type: 'integer' }, id: shotId, direction: { type: 'integer', enum: [-1, 1] }, ...info }, ['project_id', 'target']),
+          act_index: { type: 'integer' }, id: shotId, episode, direction: { type: 'integer', enum: [-1, 1] }, ...info }, ['project_id', 'target']),
         oneOf: [
           { properties: { target: { enum: ['info'] } } },
           { properties: { target: { enum: ['anchor'] }, action: { enum: ['add', 'update', 'delete'] }, patch: anchorPatch }, required: ['action', 'role'] },
@@ -54,8 +55,8 @@ export function createCallToolsProjectActions(store) {
       execute: args => {
         if (args.target === 'info') return store.change('update', { id: args.project_id, title: args.title, director: args.director })
         if (args.target === 'anchor') return store.changeAnchor(args.project_id, args.action, { ...args.patch, role: args.role })
-        if (args.target === 'act') return store.changeAct(args.project_id, args.action, { act_index: args.act_index, direction: args.direction, title: args.title })
-        return store.changeShot(args.project_id, args.action, { ...args.patch, id: args.id, act_index: args.act_index, direction: args.direction })
+        if (args.target === 'act') return store.changeAct(args.project_id, args.action, { act_index: args.act_index, direction: args.direction, title: args.title, episode: args.episode })
+        return store.changeShot(args.project_id, args.action, { ...args.patch, id: args.id, act_index: args.act_index, direction: args.direction, episode: args.episode })
       },
     },
     {

@@ -5,7 +5,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
   const { Dialog, Icon, IconButton } = require('elysium/dialog')
   const { MaterialList } = require('elysium/materials')
   const { ShotPreview } = require('elysium/shot-preview')
-  const { importMaterial, updateAnchor } = require('elysium/project-api')
+  const { importMaterial, updateAnchor, generateAnchorImage, fetchProject } = require('elysium/project-api')
   function AnchorCreateForm({ initial, busy, save, cancel, guard }) {
     const [draft, setDraft] = useState(initial), [selecting, setSelecting] = useState(false)
     const dirty = draft.label !== initial.label || draft.description !== initial.description || draft.source !== initial.source
@@ -54,6 +54,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
   }
   function AnchorView({ project, run, busy, guard }) {
     const [selecting, setSelecting] = useState(null), [inspecting, setInspecting] = useState(null), [creating, setCreating] = useState(null)
+    const [message, setMessage] = useState('')
     const startCreate = () => {
       let number = project.anchors.length + 1
       while (project.anchors.some(anchor => anchor.role === `role-${number}`)) number++
@@ -62,11 +63,17 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
     return h('div', { className: 'elysium-anchor-view' },
       h('div', { className: 'elysium-toolbar' }, h(IconButton, { name: 'plus', label: '添加锚点', disabled: busy || Boolean(creating), onClick: startCreate })),
       creating ? h(AnchorCreateForm, { initial: creating, busy, guard, cancel: () => setCreating(null), save: anchor => run(() => updateAnchor(project.id, 'add', anchor)) }) : null,
-      h('div', { className: 'elysium-anchor-grid' }, project.anchors.map(anchor => h('article', { key: anchor.role, className: 'elysium-anchor-card' },
+      message ? h('p', { role: 'status' }, message) : null,
+      h('div', { className: 'elysium-anchor-grid' }, [['character', '角色锚点'], ['scene', '场景锚点'], ['material', '其他锚点']].map(([kind, title]) => h('section', { key: kind, className: 'elysium-anchor-group' },
+        h('h2', null, title), project.anchors.filter(anchor => (anchor.kind || 'material') === kind).map(anchor => h('article', { key: anchor.role, className: 'elysium-anchor-card' },
         h('div', { className: 'elysium-anchor-thumb' }, anchor.image_url ? h('img', { src: anchor.image_url, alt: anchor.label, loading: 'lazy' }) : anchor.source?.job_id ? h(ShotPreview, { jobId: anchor.source.job_id, imageOnly: true }) : h(Icon, { name: 'eye' })),
-        h('div', { className: 'elysium-anchor-copy' }, h('h3', null, anchor.label || anchor.role), anchor.description ? h('p', null, anchor.description) : null),
+        h('div', { className: 'elysium-anchor-copy' }, h('h3', null, anchor.label || anchor.role), anchor.retired ? h('small', null, '已废弃') : null,
+          anchor.image_needs_review ? h('small', null, '参考图需复核') : null, anchor.description ? h('p', null, anchor.description) : null,
+          !anchor.retired ? h('button', { type: 'button', disabled: busy, onClick: () => run(async () => {
+            await generateAnchorImage(project.id, anchor.role); setMessage(`已提交「${anchor.label || anchor.role}」参考图任务`); return fetchProject(project.id)
+          }) }, anchor.source?.job_id || anchor.image_url ? '重新生成参考图' : '生成参考图') : null),
         h('div', { className: 'elysium-card-actions' }, h(IconButton, { name: 'eye', label: `查看参考素材 ${anchor.label || anchor.role}`, onClick: () => setInspecting(anchor) }),
-          h(IconButton, { name: 'minus', label: `删除锚点 ${anchor.label || anchor.role}`, disabled: busy, onClick: () => { if (window.confirm(`删除锚点“${anchor.label || anchor.role}”？`)) run(() => updateAnchor(project.id, 'delete', { role: anchor.role })) } }))))),
+          h(IconButton, { name: 'minus', label: `删除锚点 ${anchor.label || anchor.role}`, disabled: busy, onClick: () => { if (window.confirm(`删除锚点“${anchor.label || anchor.role}”？`)) run(() => updateAnchor(project.id, 'delete', { role: anchor.role })) } }))))))),
       inspecting ? h(AnchorPreview, { anchor: inspecting, busy, guard, replace: () => setSelecting(inspecting), close: () => setInspecting(null), save: patch => run(() => updateAnchor(project.id, 'update', patch)) }) : null,
       selecting ? h(Dialog, { title: `为「${selecting.label || selecting.role}」选择参考素材`, close: () => setSelecting(null), busy },
         h(MaterialList, { imageOnly: true, onSelect: item => run(async () => { const value = await importMaterial(project.id, item.job_id, 'anchor', selecting.role); if (inspecting?.role === selecting.role) setInspecting(value.anchors.find(anchor => anchor.role === selecting.role)); setSelecting(null); return value }) })) : null)

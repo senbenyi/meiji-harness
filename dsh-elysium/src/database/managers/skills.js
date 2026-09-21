@@ -1,6 +1,6 @@
 // 职责：校验、读取和原子保存工作台与 Agent 共用的标准 Skill 文件。
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from '../files.js'
 import { skillsRoot } from '../paths.js'
 import { statusError } from '../../utils/errors.js'
@@ -47,6 +47,10 @@ async function atomicWrite(path, content) {
 }
 
 export function createSkillsStore() {
+  const referencePath = (name, relative) => {
+    if (typeof relative !== 'string' || !/^[a-z0-9][a-z0-9/.-]*\.md$/.test(relative) || relative.split('/').includes('..')) throw invalid('Skill 引用路径无效')
+    return join(path(name), 'references', relative)
+  }
   const path = name => {
     if (!validName(name)) throw invalid('Skill 名称无效')
     return join(skillsRoot(), name)
@@ -75,8 +79,14 @@ export function createSkillsStore() {
     return { ...parsed, content }
   }
   const reference = async (name, relative) => {
-    if (typeof relative !== 'string' || !/^[a-z0-9][a-z0-9/.-]*\.md$/.test(relative) || relative.split('/').includes('..')) throw invalid('Skill 引用路径无效')
-    return readFile(join(path(name), 'references', relative), 'utf8')
+    return readFile(referencePath(name, relative), 'utf8')
+  }
+  const saveReference = async (name, relative, content) => {
+    if (typeof content !== 'string') throw invalid('Skill 引用内容无效')
+    const target = referencePath(name, relative)
+    await mkdir(dirname(target), { recursive: true })
+    await atomicWrite(target, content)
+    return content
   }
   const remove = async name => { await get(name); await rm(path(name), { recursive: true }); return { deleted: true } }
   const seed = async (name, source) => {
@@ -104,5 +114,5 @@ export function createSkillsStore() {
       throw error
     } finally { await rm(temporary, { recursive: true, force: true }) }
   }
-  return { get, list, save, reference, remove, seed }
+  return { get, list, save, reference, saveReference, remove, seed }
 }

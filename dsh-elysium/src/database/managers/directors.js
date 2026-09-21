@@ -4,6 +4,9 @@ import { createSkillsStore, parseSkill } from './skills.js'
 import { statusError } from '../../utils/errors.js'
 
 const invalid = message => statusError(400, message)
+const files = ['SKILL.md', 'script.md', 'storyboard.md', 'shot-prompt-example.md']
+const scriptTemplate = '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n'
+const storyboardTemplate = '# 导演分镜\n\n## 镜头语言\n\n## 提示词额外要求\n'
 const summary = item => ({ name: item.name, display_name: item.metadata?.display_name || item.name,
   description: item.description, order: item.metadata?.order ?? 0 })
 
@@ -14,18 +17,31 @@ export function createDirectorStore() {
   const get = async name => {
     const item = await skills.get(name)
     if (item.metadata?.kind !== 'director') throw invalid('导演 Skill 不存在')
-    return { ...summary(item), content: item.content }
+    const references = await Promise.all(files.slice(1).map(file => skills.reference(name, file).catch(error => {
+      if (error.code === 'ENOENT') return ''
+      throw error
+    })))
+    return { ...summary(item), content: item.content, files: Object.fromEntries([['SKILL.md', item.content], ...files.slice(1).map((file, index) => [file, references[index]])]) }
   }
-  const save = async ({ name, content }) => {
-    if (parseSkill(content).metadata?.kind !== 'director') throw invalid('导演 Skill 的 metadata.kind 必须为 director')
-    const item = await skills.save(name, content)
-    return { ...summary(item), content: item.content }
+  const save = async ({ name, file, content }) => {
+    if (!files.includes(file)) throw invalid('导演文件名无效')
+    if (file === 'SKILL.md') {
+      if (parseSkill(content).metadata?.kind !== 'director') throw invalid('导演 Skill 的 metadata.kind 必须为 director')
+      await skills.save(name, content)
+    } else {
+      await get(name)
+      await skills.saveReference(name, file, content)
+    }
+    return get(name)
   }
   const create = async ({ display_name, description }) => {
     if (typeof display_name !== 'string' || !display_name.trim() || description !== undefined && typeof description !== 'string') throw invalid('请输入导演显示名和描述')
     const name = `director-${randomBytes(4).toString('hex')}`
-    const content = `---\nname: ${name}\ndescription: ${JSON.stringify(description?.trim() || display_name.trim() + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(display_name.trim())}\n  order: ${(await list()).length}\n---\n\n# ${display_name.trim()}\n\n## 风格与题材\n\n## 叙事节奏\n\n## 人物塑造\n\n## 镜头语言\n\n## 声音与对白\n\n## 禁忌\n`
-    return save({ name, content })
+    const content = `---\nname: ${name}\ndescription: ${JSON.stringify(description?.trim() || display_name.trim() + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(display_name.trim())}\n  order: ${(await list()).length}\n---\n\n# ${display_name.trim()}\n\n## 风格与题材\n\n## 人物塑造\n\n## 声音与对白\n\n## 禁忌\n`
+    await skills.save(name, content)
+    await skills.saveReference(name, 'script.md', scriptTemplate)
+    await skills.saveReference(name, 'storyboard.md', storyboardTemplate)
+    return get(name)
   }
   const reorder = async names => {
     const items = await list()
@@ -34,7 +50,7 @@ export function createDirectorStore() {
       const item = await get(name)
       const content = item.content.replace(/(^metadata:\n(?:  .*\n)*?  order: )[^\n]*/m, `$1${order}`)
       if (content === item.content && item.order !== order) throw invalid('导演 Skill 缺少 metadata.order')
-      if (item.order !== order) await save({ name, content })
+      if (item.order !== order) await save({ name, file: 'SKILL.md', content })
     }
     return list()
   }

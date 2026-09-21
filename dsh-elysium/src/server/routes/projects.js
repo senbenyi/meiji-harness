@@ -6,7 +6,7 @@ import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const actions = ['list', 'get', 'episode', 'episode-save', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'generate-storyboard', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read', 'produce', 'retry', 'compose', 'poll']
+const actions = ['list', 'get', 'episode', 'episode-save', 'create', 'update', 'delete', 'import', 'update-anchor', 'anchor-generate', 'update-shot', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read', 'produce', 'retry', 'compose', 'poll']
 const exactBody = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key))
 
 export function createProjectHandler(options) {
@@ -37,13 +37,10 @@ export function createProjectHandler(options) {
       if (action === 'plan-edit') return json(res, 200, await store.planning.edit(body))
       if (action === 'plan-finalize') return json(res, 200, await store.planning.finalize(body))
       if (action === 'plan-read') return json(res, 200, await store.planning.read(body))
+      if (action === 'anchor-generate') return json(res, 202, await store.generateAnchorImage(body))
       if (action === 'episode-save') {
         if (!exactBody(body, ['id', 'episode', 'acts'])) throw invalidRequest('剧集保存参数无效')
         return json(res, 200, await store.saveEpisodeStoryboard(body.id, body.episode, body.acts))
-      }
-      if (action === 'generate-storyboard') {
-        if (!exactBody(body, ['id'])) throw invalidRequest('分镜生成参数无效')
-        return json(res, 200, await store.generateStoryboard(body))
       }
       if (action === 'compose') {
         if (!exactBody(body, ['id']) && !exactBody(body, ['id', 'episode'])) throw invalidRequest('成片合成参数无效')

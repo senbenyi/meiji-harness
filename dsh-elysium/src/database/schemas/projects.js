@@ -35,9 +35,13 @@ export function anchorValue(anchor, existingRoles = new Set()) {
   if (!anchor || !['role', 'label', 'description'].every(key => textValue(anchor[key])) || !anchor.role.trim() || existingRoles.has(anchor.role) ||
     (anchor.kind !== undefined && !['character', 'scene', 'material'].includes(anchor.kind)) ||
     !(anchor.image_url === '' || serverUrl(anchor.image_url)) ||
-    !(anchor.source === null || anchor.source && ['job', 'material'].includes(anchor.source.type) && validJobId(anchor.source.job_id))) throw invalidRequest('锚点字段无效或角色重复')
+    !(anchor.source === null || anchor.source && ['job', 'material'].includes(anchor.source.type) && validJobId(anchor.source.job_id)) ||
+    (anchor.retired !== undefined && typeof anchor.retired !== 'boolean') ||
+    (anchor.image_needs_review !== undefined && typeof anchor.image_needs_review !== 'boolean')) throw invalidRequest('锚点字段无效或角色重复')
   return { role: anchor.role, label: anchor.label, description: anchor.description, source: anchor.source, image_url: anchor.image_url,
-    ...(anchor.kind === undefined ? {} : { kind: anchor.kind }) }
+    ...(anchor.kind === undefined ? {} : { kind: anchor.kind }),
+    ...(anchor.retired === undefined ? {} : { retired: anchor.retired }),
+    ...(anchor.image_needs_review === undefined ? {} : { image_needs_review: anchor.image_needs_review }) }
 }
 
 export function anchorsValue(anchors) {
@@ -51,16 +55,19 @@ export function anchorsValue(anchors) {
 }
 
 export function shotValue(shot) {
-  if (!shot || !['role', 'action', 'subtitle', 'mode', 'notes'].every(key => textValue(shot[key])) ||
+  if (!shot || !['role', 'action', 'subtitle', 'notes'].every(key => textValue(shot[key])) ||
+    (shot.mode !== undefined && !textValue(shot.mode)) ||
     (shot.id !== undefined && !validShotId(shot.id)) ||
     (shot.roles !== undefined && (!Array.isArray(shot.roles) || shot.roles.some(role => !textValue(role)))) ||
     ['scene', 'shot_size', 'camera', 'prompt'].some(key => shot[key] !== undefined && !textValue(shot[key])) ||
     (shot.duration !== undefined && (typeof shot.duration !== 'number' || !Number.isFinite(shot.duration) || shot.duration <= 0 || shot.duration > 120)) ||
     (shot.dialogue !== undefined && (!Array.isArray(shot.dialogue) || shot.dialogue.some(line => !textValue(line?.role) || !textValue(line?.text)))) ||
     (shot.prompt_finalized !== undefined && typeof shot.prompt_finalized !== 'boolean') ||
+    (shot.accepted !== undefined && typeof shot.accepted !== 'boolean') ||
     !(shot.job_id === null || validJobId(shot.job_id)) || !['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'].includes(shot.status)) throw invalidRequest('镜字段无效')
-  return { ...(shot.id === undefined ? {} : { id: shot.id }), role: shot.role, action: shot.action, subtitle: shot.subtitle, mode: shot.mode, job_id: shot.job_id, status: shot.status, notes: shot.notes,
-    ...Object.fromEntries(['roles', 'scene', 'shot_size', 'camera', 'duration', 'dialogue', 'prompt', 'prompt_finalized'].filter(key => shot[key] !== undefined).map(key => [key, shot[key]])) }
+  return { ...(shot.id === undefined ? {} : { id: shot.id }), role: shot.role, action: shot.action, subtitle: shot.subtitle,
+    ...(shot.mode === undefined ? {} : { mode: shot.mode }), job_id: shot.job_id, status: shot.status, notes: shot.notes,
+    ...Object.fromEntries(['roles', 'scene', 'shot_size', 'camera', 'duration', 'dialogue', 'prompt', 'prompt_finalized', 'accepted'].filter(key => shot[key] !== undefined).map(key => [key, shot[key]])) }
 }
 
 export function actsValue(acts) {

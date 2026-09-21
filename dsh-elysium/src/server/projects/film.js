@@ -3,7 +3,11 @@ import { createHash } from 'node:crypto'
 import { execFile, spawn } from 'node:child_process'
 import { Readable } from 'node:stream'
 import { promisify } from 'node:util'
-import { connectBackend, getJob, jobSummary, localMediaInput, saveFilmJob, saveMedia } from '../../worker/index.js'
+import { join } from 'node:path'
+import { readdir } from '../../database/files.js'
+import { projectsRoot } from '../../database/paths.js'
+import { readJson } from '../../database/json.js'
+import { connectBackend, getJob, jobSummary, localMediaInput, saveFilmJob, saveMedia, withLaunchLock } from '../../worker/index.js'
 import { validProjectId } from '../../database/schemas/projects.js'
 import { statusError } from '../../utils/errors.js'
 
@@ -89,7 +93,7 @@ export async function composeEpisodeFilm(store, id, episode) {
     ffmpeg.once('close', code => code === 0 ? resolve() : reject(statusError(502, '本集合成失败，请检查镜头编码与音轨')))
   })
   complete.catch(() => {})
-  ffmpeg.stdin.end(concatList(inputs))
+  ffmpeg.stdin.end(concatList(inputs.map(input => `file:${input}`)))
   try {
     const result = await saveMedia(id, filmId, Readable.toWeb(ffmpeg.stdout), { extension: '.mp4', kind: 'video', complete })
     await saveFilmJob(id, filmId, result)
@@ -97,5 +101,45 @@ export async function composeEpisodeFilm(store, id, episode) {
   } catch (error) {
     ffmpeg.kill()
     throw error
+  }
+}
+
+export function createFilmDriver(store, logger = console) {
+  const active = new Set()
+  return async () => {
+    const projects = await readdir(projectsRoot(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
+    let pending = false
+    for (const project of projects) {
+      if (!project.isDirectory() || !validProjectId(project.name)) continue
+      const episodes = await readdir(join(projectsRoot(), project.name, 'episodes'), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
+      for (const entry of episodes) {
+        const episode = Number(entry.name)
+        if (!entry.isDirectory() || !Number.isInteger(episode) || episode < 1 || episode > 100) continue
+        const directory = join(projectsRoot(), project.name, 'episodes', entry.name)
+        const task = await readJson(join(directory, 'film-task.json'))
+        if (!task || !['pending', 'running'].includes(task.status)) continue
+        pending = true
+        if (active.size) continue
+        active.add(directory)
+        withLaunchLock(directory, async () => {
+          const latest = await store.readEpisode(project.name, episode), current = latest.film_task
+          if (current?.task_id !== task.task_id || !['pending', 'running'].includes(current.status)) return
+          if (JSON.stringify(latest.acts.flatMap(act => act.shots.map(shot => shot.job_id))) !== JSON.stringify(task.job_ids)) {
+            await store.updateEpisodeFilmTask(project.name, episode, task.task_id, { status: 'failed', error: '剧集分镜已变化，请重新提交合成' })
+            return
+          }
+          await store.updateEpisodeFilmTask(project.name, episode, task.task_id, { status: 'running' })
+          try {
+            await composeEpisodeFilm(store, project.name, episode)
+            await store.updateEpisodeFilmTask(project.name, episode, task.task_id, { status: 'succeeded' })
+          } catch (error) {
+            await store.updateEpisodeFilmTask(project.name, episode, task.task_id, { status: 'failed', error: error.message })
+            logger?.error?.(`[elysium] film ${task.task_id}: ${error.message}`)
+          }
+        }).catch(error => { if (error.code !== 'WORKFLOW_RECOVERY_REQUIRED') logger?.error?.(`[elysium] film driver: ${error.message}`) })
+          .finally(() => active.delete(directory))
+      }
+    }
+    return { active: pending || active.size > 0 }
   }
 }

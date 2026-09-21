@@ -11,6 +11,7 @@ import { createCallToolsProject, createCallToolsRuntime } from './tools/index.js
 import { createTaskDriver } from './worker/index.js'
 import { createSkillsStore } from './database/managers/skills.js'
 import { fileURLToPath } from 'node:url'
+import { createFilmDriver } from './server/projects/film.js'
 
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt', 'jobs']
@@ -36,12 +37,15 @@ export function apply(ctx, config = {}) {
 function registerWebFeatures(ctx, runtime) {
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
     mediaContext.effect(() => {
-      const source = fileURLToPath(new URL('../skills/drama-planning/', import.meta.url))
-      createSkillsStore().seed('drama-planning', source).catch(error => ctx.logger?.error?.(error))
+      for (const name of ['drama-planning', 'shot-planning']) {
+        const source = fileURLToPath(new URL(`../skills/${name}/`, import.meta.url))
+        createSkillsStore().seed(name, source).catch(error => ctx.logger?.error?.(error))
+      }
     }, `${effectPrefix}: drama planning skill`)
-    const driver = createTaskDriver({ execute: action => withConfig(runtime, action), logger: ctx.logger })
-    mediaContext.effect(() => { driver.start(); return () => driver.stop() }, `${effectPrefix}: task driver`)
     const stores = createWebStores()
+    const driver = createTaskDriver({ execute: action => withConfig(runtime, action), logger: ctx.logger,
+      driveFilm: createFilmDriver(stores.projects, ctx.logger) })
+    mediaContext.effect(() => { driver.start(); return () => driver.stop() }, `${effectPrefix}: task driver`)
     registerWebRoutes(mediaContext, runtime, stores)
     registerWebTools(ctx, mediaContext, runtime, stores)
   }))

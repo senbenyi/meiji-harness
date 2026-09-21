@@ -23,8 +23,9 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   const deleteProject = id => request('delete', { id })
   const importMaterial = (id, jobId, as = 'anchor', role) => request('import', { id, job_id: jobId, as, ...(role ? { role } : {}) })
   const updateAnchor = (id, action, data) => request('update-anchor', { id, action, data })
+  const generateAnchorImage = (projectId, role) => request('anchor-generate', { project_id: projectId, role })
   const updateShot = (id, action, data) => request('update-shot', { id, action, data })
-  const generateStoryboard = id => request('generate-storyboard', { id })
+  const acceptShot = (id, episode, shotId, accepted) => updateShot(id, 'accept', { episode, id: shotId, accepted })
   const readPlanning = id => request('plan-read', { id })
   const generatePlanning = (id, step, episode, shot_id, requirements = '') => request('plan-generate', { id, step, episode, shot_id, request: requirements })
   const editPlanning = (id, step, episode, shot_id, value) => request('plan-edit', { id, step, episode, shot_id, value })
@@ -34,7 +35,7 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   const produceShots = (projectId, shotIds, id = submissionId(), episode) => request('produce', { project_id: projectId, shot_ids: shotIds, submission_id: id, ...(episode === undefined ? {} : { episode }) })
   const retryShot = (projectId, taskId, episode) => request('retry', { project_id: projectId, task_id: taskId, ...(episode === undefined ? {} : { episode }) })
   const pollProject = (id, since) => request('poll', null, { id, since })
-  Object.assign(exports, { fetchProjects, fetchProject, fetchEpisode, saveEpisode, createProject, updateProject, deleteProject, importMaterial, updateAnchor, updateShot,
-    generateStoryboard, readPlanning, generatePlanning, editPlanning, finalizePlanning, composeFilm, produceShots, retryShot, pollProject })
+  Object.assign(exports, { fetchProjects, fetchProject, fetchEpisode, saveEpisode, createProject, updateProject, deleteProject, importMaterial, updateAnchor, generateAnchorImage, updateShot, acceptShot,
+    readPlanning, generatePlanning, editPlanning, finalizePlanning, composeFilm, produceShots, retryShot, pollProject })
   return exports
 } })

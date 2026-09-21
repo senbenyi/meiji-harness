@@ -11,7 +11,7 @@ function fixture(initial) {
     { name: '王家卫', style: '都市情绪', works: ['阿飞正传', '重庆森林', '花样年华', '2046', '一代宗师'] },
   ]
   let nextShot = 0, storyboardError = '', composeError = ''
-  let planning = { series: { versions: [], finalized: null }, outline: { versions: [], finalized: null }, episodes: {} }
+  let planning = { series: { versions: [], finalized: null }, episodes: {} }
   for (const act of project.acts) for (const shot of act.shots) shot.id ??= `shot-${++nextShot}`
   const modules = new Map(), cache = new Map(), requests = []
   runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {}, URLSearchParams, URL,
@@ -40,12 +40,6 @@ function fixture(initial) {
       if (url.startsWith('/project/episode')) return { ok: true, json: async () => structuredClone(project) }
       if (url.startsWith('/project/list')) return { ok: true, json: async () => [{ id: project.id, title: project.title, status: 'todo', stage: 'anchors', cover_job_id: project.cover_job_id, anchor_count: project.anchors.length, shot_count: project.acts.flatMap(act => act.shots).length, completed_count: 0, deliverable_count: project.deliverables.length }] }
       if (url.startsWith('/project/create')) { project = { ...project, ...JSON.parse(options.body) }; return { ok: true, json: async () => structuredClone(project) } }
-      if (url.startsWith('/project/generate-storyboard')) {
-        if (storyboardError) return { ok: false, json: async () => ({ error: storyboardError }) }
-        const role = project.anchors[0]?.role || ''
-        project.acts = [{ title: '自动分镜', shots: [{ id: `shot-${++nextShot}`, role, action: '人物在霓虹街头回头，近景跟拍', subtitle: '', mode: project.anchors[0]?.source?.job_id ? 'i2va' : 't2va', job_id: null, status: 'pending', notes: '' }] }]
-        return { ok: true, json: async () => structuredClone(project) }
-      }
       if (url.startsWith('/project/compose')) {
         if (composeError) return { ok: false, json: async () => ({ error: composeError }) }
         project.deliverables = [{ type: 'film', label: '项目成片', job_id: 'f'.repeat(32) }]
@@ -153,7 +147,7 @@ test('new project requires cover, genre and synopsis before entering series plan
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectList)) })
   await click(view, '新建项目')
   assert.equal(view.root.findAllByProps({ role: 'dialog' }).length, 0)
-  assert.deepEqual(view.root.findAllByType('button').filter(button => ['立项', '大纲', '人物场景', '剧集'].includes(button.props['aria-label'])).map(button => button.props['aria-label']), ['立项', '大纲', '人物场景', '剧集'])
+  assert.deepEqual(view.root.findAllByType('button').filter(button => ['项目', '剧本', '锚点', '分镜', '成片'].includes(button.props['aria-label'])).map(button => button.props['aria-label']), ['项目', '剧本', '锚点', '分镜', '成片'])
   assert.equal(view.root.findAllByType('option')[0].children.join(''), '选导演')
   assert.equal(view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit').children.join(''), '创建项目')
   await act(async () => view.root.findByProps({ 'aria-label': '项目名称' }).props.onChange({ target: { value: '新项目' } }))
@@ -174,13 +168,13 @@ test('new project requires cover, genre and synopsis before entering series plan
   assert.equal(f.requests.some(request => request.url.startsWith('/project/create')), true)
   assert.equal(JSON.parse(f.requests.find(request => request.url.startsWith('/project/create')).options.body).cover_job_id, 'b'.repeat(32))
   assert.equal(f.project().director, '张艺谋')
-  assert.equal(view.root.findByProps({ 'aria-label': '立项' }).props['aria-current'], 'step')
+  assert.equal(view.root.findByProps({ 'aria-label': '剧本' }).props['aria-current'], 'step')
   assert.match(JSON.stringify(view.toJSON()), /尚无规划内容/)
   await click(view, '返回项目')
   assert.equal(view.root.findByType('img').props.src, `/media/image?job=${'b'.repeat(32)}&t=t`)
   await act(async () => view.root.findByProps({ 'aria-label': '打开项目 新项目' }).props.onClick())
   assert.equal(view.root.findByProps({ alt: '项目封面预览' }).props.src, `/media/image?job=${'b'.repeat(32)}&t=t`)
-  await click(view, '立项')
+  await click(view, '项目')
   assert.equal(view.root.findByProps({ alt: '项目封面' }).props.src, `/media/image?job=${'b'.repeat(32)}&t=t`)
   assert.equal(view.root.findAllByProps({ 'aria-label': '选择封面图片' }).length, 0)
   assert.equal(view.root.findByProps({ 'aria-label': '项目导演' }).props.value, '张艺谋')
@@ -201,6 +195,7 @@ test('series planning can be reviewed and edited through fields without JSON inp
   const f = fixture({ ...emptyProject(), director: '张艺谋', genre: '悬疑', synopsis: '一封信' })
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: 'abcdef12', viewState: { projectTab: 'project' }, back() {} })) })
+  await click(view, '剧本')
   await click(view, '生成')
   assert.equal(view.root.findByProps({ 'aria-label': '一句话梗概' }).props.value, '规划内容')
   await act(async () => view.root.findByProps({ 'aria-label': '一句话梗概' }).props.onChange({ target: { value: '手改的故事' } }))
@@ -217,10 +212,9 @@ test('anchors lead to per-episode planning without implicit storyboard generatio
   const f = fixture(project)
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'anchors' }, back() {} })) })
-  await click(view, '继续到剧集')
-  assert.equal(view.root.findByProps({ 'aria-label': '剧集' }).props['aria-current'], 'step')
-  assert.equal(f.requests.filter(request => request.url.startsWith('/project/generate-storyboard')).length, 0)
   await click(view, '分镜')
+  assert.equal(view.root.findByProps({ 'aria-label': '分镜' }).props['aria-current'], 'step')
+  assert.equal(f.requests.filter(request => request.url.startsWith('/project/plan-generate')).length, 0)
   assert.match(JSON.stringify(view.toJSON()), /尚无规划内容/)
   assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 0)
   await act(async () => view.unmount())
@@ -232,7 +226,6 @@ test('episode planning keeps legacy shots and shows generation errors in place',
   existing.acts = [{ title: '原分镜', shots: [{ role: '', action: '原动作', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }] }]
   let f = fixture(existing), view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: existing.id, viewState: { projectTab: 'anchors' }, back() {} })) })
-  await click(view, '继续到剧集')
   await click(view, '分镜')
   assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 1)
   assert.equal(f.project().acts[0].title, '原分镜')
@@ -242,10 +235,9 @@ test('episode planning keeps legacy shots and shows generation errors in place',
   empty.anchors = [{ role: 'lead', label: '女主', description: '', source: null, image_url: '' }]
   f = fixture(empty); f.failStoryboard('聊天模型暂时不可用')
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: empty.id, viewState: { projectTab: 'anchors' }, back() {} })) })
-  await click(view, '继续到剧集')
   await click(view, '分镜')
   await click(view, '生成')
-  assert.equal(view.root.findByProps({ 'aria-label': '剧集' }).props['aria-current'], 'step')
+  assert.equal(view.root.findByProps({ 'aria-label': '分镜' }).props['aria-current'], 'step')
   assert.equal(view.root.findByProps({ role: 'alert' }).children[0], '聊天模型暂时不可用')
   assert.deepEqual(f.project().acts, [])
   await act(async () => view.unmount())
@@ -253,24 +245,25 @@ test('episode planning keeps legacy shots and shows generation errors in place',
 
 test('continuing to film composes completed shots and exposes the film download', async () => {
   const project = emptyProject()
-  project.acts = [{ title: '第一幕', shots: [{ id: 'shot-1', role: '', action: '人物走近', subtitle: '', mode: 't2va', job_id: 'a'.repeat(32), status: 'succeeded', notes: '' }] }]
+  project.acts = [{ title: '第一幕', shots: [{ id: 'shot-1', role: '', action: '人物走近', subtitle: '', mode: 't2va', job_id: 'a'.repeat(32), status: 'succeeded', accepted: true, notes: '' }] }]
   const f = fixture(project)
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projects: { [project.id]: { tab: 'deliverables' } } }, back() {} })) })
-  assert.equal(view.root.findByProps({ 'aria-label': '剧集' }).props['aria-current'], 'step')
+  assert.equal(view.root.findByProps({ 'aria-label': '项目' }).props['aria-current'], 'step')
   await act(async () => view.unmount())
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, back() {} })) })
-  assert.equal(view.root.findByProps({ 'aria-label': '剧集' }).props['aria-current'], 'step')
-  await click(view, '合成成片')
+  assert.equal(view.root.findByProps({ 'aria-label': '项目' }).props['aria-current'], 'step')
+  await click(view, '成片')
+  await click(view, '合成本集')
   assert.equal(f.requests.filter(request => request.url.startsWith('/project/compose')).length, 1)
-  assert.equal(view.root.findByProps({ 'aria-label': '剧集' }).props['aria-current'], 'step')
+  assert.equal(view.root.findByProps({ 'aria-label': '成片' }).props['aria-current'], 'step')
   assert.match(view.root.findByProps({ 'aria-label': '下载成片 项目成片' }).props.href, /\/media\/download\?job=f{32}/)
   await act(async () => view.unmount())
 
   const failing = fixture({ ...project, deliverables: [] })
   failing.failCompose('合成失败，请重试')
-  await act(async () => { view = create(React.createElement(failing.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'episodes' }, back() {} })) })
-  await click(view, '合成成片')
+  await act(async () => { view = create(React.createElement(failing.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'film' }, back() {} })) })
+  await click(view, '合成本集')
   assert.equal(view.root.findByProps({ role: 'alert' }).children[0], '合成失败，请重试')
   await act(async () => view.unmount())
 })
@@ -281,7 +274,7 @@ test('storyboard paginates 120 shots, requests only selected preview and saves e
   project.acts = Array.from({ length: 6 }, (_, a) => ({ title: `幕${a}`, shots: Array.from({ length: 20 }, (_, i) => ({ index: a * 20 + i + 1, role: 'lin', action: `动作${a}-${i}`, subtitle: '', mode: 't2va', job_id: 'a'.repeat(32), status: 'succeeded', notes: '' })) }))
   const f = fixture(project)
   let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'acts' }, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'storyboard' }, back() {} })) })
   assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 30)
   assert.equal(f.requests.filter(x => x.url.startsWith('/media/status')).length, 0)
   assert.equal(view.root.findAllByProps({ 'aria-label': '搜索镜头' }).length, 0)
@@ -295,7 +288,7 @@ test('storyboard paginates 120 shots, requests only selected preview and saves e
   assert.equal(f.project().acts[5].shots[19].subtitle, '')
   await click(view, '保存')
   assert.equal(f.project().acts[5].shots[19].subtitle, '你好')
-  assert.deepEqual(JSON.parse(f.requests.findLast(x => x.url.startsWith('/project/update-shot')).options.body), { id: project.id, action: 'update', data: { id: 'shot-120', subtitle: '你好' } })
+  assert.deepEqual(JSON.parse(f.requests.findLast(x => x.url.startsWith('/project/update-shot')).options.body), { id: project.id, action: 'update', data: { id: 'shot-120', subtitle: '你好', episode: 1 } })
   await click(view, '标记待重拍')
   assert.equal(f.project().acts[5].shots[19].job_id, 'a'.repeat(32))
   assert.equal(f.project().acts[5].shots[19].status, 'pending')
@@ -309,7 +302,7 @@ test('panel adds, moves and deletes by shot ID while retaining selection after r
   project.acts = [{ title: '幕', shots: [] }]
   const f = fixture(project)
   let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'acts' }, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'storyboard' }, back() {} })) })
   await click(view, '添加镜头')
   await click(view, '添加镜头')
   const second = f.project().acts[0].shots[1].id
@@ -320,8 +313,8 @@ test('panel adds, moves and deletes by shot ID while retaining selection after r
   assert.equal(f.project().acts[0].shots.length, 1)
   const requests = f.requests.filter(x => x.url.startsWith('/project/update-shot')).map(x => JSON.parse(x.options.body))
   assert.deepEqual(requests.map(x => x.action), ['add', 'add', 'move', 'delete'])
-  assert.deepEqual(requests[2].data, { id: second, direction: -1 })
-  assert.deepEqual(requests[3].data, { id: second })
+  assert.deepEqual(requests[2].data, { id: second, direction: -1, episode: 1 })
+  assert.deepEqual(requests[3].data, { id: second, episode: 1 })
   assert.equal(f.requests.some(x => x.url.startsWith('/project/update?')), false)
   await act(async () => view.unmount())
 })
@@ -329,13 +322,13 @@ test('panel adds, moves and deletes by shot ID while retaining selection after r
 test('storyboard submits one shot, retries a failed task, and batches only unclaimed shots', async () => {
   const project = emptyProject()
   project.acts = [{ title: '幕', shots: [
-    { id: 'shot-a', role: '', action: 'A', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' },
-    { id: 'shot-b', role: '', action: 'B', subtitle: '', mode: 't2va', job_id: 'b'.repeat(32), status: 'failed', notes: '' },
-    { id: 'shot-c', role: '', action: 'C', subtitle: '', mode: 't2va', job_id: 'c'.repeat(32), status: 'pending', notes: '' },
+    { id: 'shot-a', role: '', action: 'A', subtitle: '', mode: 't2va', job_id: null, status: 'pending', prompt_finalized: true, notes: '' },
+    { id: 'shot-b', role: '', action: 'B', subtitle: '', mode: 't2va', job_id: 'b'.repeat(32), status: 'failed', prompt_finalized: true, notes: '' },
+    { id: 'shot-c', role: '', action: 'C', subtitle: '', mode: 't2va', job_id: 'c'.repeat(32), status: 'pending', prompt_finalized: true, notes: '' },
   ] }]
   const f = fixture(project)
   let view
-  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'acts' }, back() {} })) })
+  await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: project.id, viewState: { projectTab: 'storyboard' }, back() {} })) })
   await act(async () => view.root.findByProps({ 'aria-label': '镜 001' }).props.onClick())
   await click(view, '生成此镜')
   let request = f.requests.findLast(item => item.url.startsWith('/project/produce'))
@@ -345,7 +338,7 @@ test('storyboard submits one shot, retries a failed task, and batches only uncla
   await act(async () => view.root.findByProps({ 'aria-label': '镜 002' }).props.onClick())
   await click(view, '恢复此镜任务')
   request = f.requests.findLast(item => item.url.startsWith('/project/retry'))
-  assert.deepEqual(JSON.parse(request.options.body), { project_id: project.id, task_id: 'b'.repeat(32) })
+  assert.deepEqual(JSON.parse(request.options.body), { project_id: project.id, task_id: 'b'.repeat(32), episode: 1 })
   await act(async () => view.root.findByProps({ 'aria-label': '镜 001' }).props.onClick())
   await click(view, '解除素材关联')
   await click(view, '生成全部待处理镜头')

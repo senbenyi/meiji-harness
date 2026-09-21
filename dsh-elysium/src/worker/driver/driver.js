@@ -74,7 +74,7 @@ export async function driveOnce({ full = false } = {}) {
   return { active: [...statuses.values()].some(status => ['pending', 'queued', 'running'].includes(status)) || Boolean(next) }
 }
 
-export function createTaskDriver({ execute = action => action(), logger = console } = {}) {
+export function createTaskDriver({ execute = action => action(), logger = console, driveFilm = async () => ({ active: false }) } = {}) {
   let timer, stopped = true, running = false, fullAt = 0
   const schedule = delay => { if (!stopped) { timer = setTimeout(loop, delay); timer.unref?.() } }
   const loop = async () => {
@@ -83,8 +83,9 @@ export function createTaskDriver({ execute = action => action(), logger = consol
     try {
       const now = Date.now(), full = now >= fullAt
       const result = await execute(() => driveOnce({ full }))
+      const films = await execute(driveFilm)
       if (full) fullAt = now + FULL_RECONCILE_INTERVAL
-      schedule(result.active ? ACTIVE_INTERVAL : IDLE_INTERVAL)
+      schedule(result.active || films.active ? ACTIVE_INTERVAL : IDLE_INTERVAL)
     } catch (error) {
       logger?.error?.(`[elysium] task driver: ${error.stack || error.message}`)
       schedule(ACTIVE_INTERVAL)
