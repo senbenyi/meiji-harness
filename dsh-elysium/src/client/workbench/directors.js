@@ -1,14 +1,15 @@
-// 职责：列出导演 Skill，并按风格、剧本和分镜编辑对应 Markdown 文件。
+// 职责：列出导演 Skill 并按步骤编辑其 Markdown 文件；全文编辑流程 Skill（drama）的总纲与步骤说明。
 window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
   const exports = {}
   const { createElement: h, useEffect, useState } = require('react')
-  const { IconButton } = require('elysium/dialog')
-  const { fetchDirectors, fetchDirector, createDirector, saveDirector, reorderDirectors, deleteDirector } = require('elysium/director-api')
+  const { FullText, IconButton } = require('elysium/dialog')
+  const { fetchDirectors, fetchDirector, createDirector, saveDirector, reorderDirectors, deleteDirector, fetchFlow, saveFlow } = require('elysium/director-api')
   const tabs = [{ id: 'style', label: '导演风格', files: [['SKILL.md', 'SKILL.md 全文']] },
+    { id: 'project', label: '导演立项', files: [['project.md', '立项要求']] },
     { id: 'series', label: '导演总览', files: [['series.md', '集数与风格']] },
     { id: 'script', label: '导演剧本', files: [['script.md', '剧本要求']] },
     { id: 'storyboard', label: '导演分镜', files: [['storyboard.md', '分镜要求']] }]
-  const templates = { 'series.md': '# 导演总览\n', 'script.md': '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n',
+  const templates = { 'project.md': '# 导演立项\n\n## 题材范围\n', 'series.md': '# 导演总览\n', 'script.md': '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n',
     'storyboard.md': '# 导演分镜\n\n## 镜头语言\n\n## 提示词额外要求\n' }
   const createTemplate = name => `---\nname: director-new\ndescription: ${JSON.stringify((name || '新导演') + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(name || '新导演')}\n  order: 0\n---\n\n# ${name || '新导演'}\n\n## 风格与题材\n\n## 人物塑造\n\n## 声音与对白\n\n## 禁忌\n`
 
@@ -110,6 +111,19 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
               h(IconButton, { name: 'minus', label: `删除导演 ${item.display_name}`, className: 'elysium-danger', disabled: busy, onClick: () => remove(item) })))))) : null
     )
   }
-  Object.assign(exports, { DirectorList })
+  // 流程 Skill 与导演 Skill 按同名步骤对齐：总纲 · 立项 · 总览 · 剧本 · 分镜。
+  const flowTabs = [['SKILL.md', '总纲'], ['steps/project.md', '立项'], ['steps/series.md', '总览'], ['steps/script.md', '剧本'], ['steps/storyboard.md', '分镜']]
+  function FlowSkill() {
+    const [files, setFiles] = useState(null), [tab, setTab] = useState('SKILL.md'), [error, setError] = useState('')
+    useEffect(() => { fetchFlow().then(value => setFiles(value.files)).catch(err => setError(err.message)) }, [])
+    return h('div', { className: 'elysium-flow-skill' },
+      h('nav', { 'aria-label': '流程 Skill 页签', role: 'tablist', className: 'elysium-tabs' }, flowTabs.map(([file, label]) => h('button', { key: file, type: 'button', role: 'tab',
+        'aria-selected': tab === file, onClick: () => setTab(file) }, label))),
+      h('p', { className: 'elysium-compact-meta' }, '流程 Skill（drama）决定每一步写什么、按什么格式写，所有项目共用；风格与集数写在导演 Skill 的同名页签里。'),
+      error ? h('p', { className: 'elysium-banner', role: 'alert' }, error) : null,
+      files ? h(FullText, { key: tab, label: `流程 Skill ${tab}`, value: files[tab], onSave: async content => setFiles((await saveFlow(tab, content)).files) })
+        : error ? null : h('p', { role: 'status' }, '正在读取流程 Skill…'))
+  }
+  Object.assign(exports, { DirectorList, FlowSkill })
   return exports
 } })

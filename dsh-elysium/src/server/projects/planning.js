@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { createDirectorStore } from '../../database/managers/directors.js'
 import { statusError } from '../../utils/errors.js'
 import { insertStoryboard, parseProject, parseScript, parseSeries, shotMarker, stripVideoDialogue } from './documents.js'
+import { FLOW_SKILL, flowSteps } from '../../database/managers/flow.js'
 
 const invalid = message => statusError(400, message)
 const schema = { type: 'object', properties: { markdown: { type: 'string' } }, required: ['markdown'], additionalProperties: false }
@@ -15,10 +16,10 @@ const sourceLines = script => parseScript(script).lines.map((line, index) => `${
 export function createPlanningService(store, complete, directors = createDirectorStore()) {
   const skills = createSkillsStore()
   async function assemble(step, context) {
-    if (!['project', 'series', 'script', 'storyboard'].includes(step)) throw invalid('文档步骤无效')
+    if (!flowSteps.includes(step)) throw invalid('文档步骤无效')
     const directorName = context.director || parseProject(context.project_text).director
     const [base, director, stepText, reference] = await Promise.all([
-      skills.get('drama'), directors.get(directorName), readFile(join(skillsRoot(), 'drama', 'steps', `${step}.md`), 'utf8'), optional(skills, directorName, `${step}.md`),
+      skills.get(FLOW_SKILL), directors.get(directorName), readFile(join(skillsRoot(), FLOW_SKILL, 'steps', `${step}.md`), 'utf8'), optional(skills, directorName, `${step}.md`),
     ])
     const input = step === 'project' ? { director: director.display_name, requirements: context.request || '' }
       : step === 'series' ? { project: parseProject(context.project_text), requirements: context.request || '' }

@@ -33,7 +33,7 @@ test('director routes save full Skill text, reorder metadata and protect project
     const first = await response.json()
     assert.match(first.name, /^director-[a-f0-9]{8}$/)
     assert.match(first.content, /metadata:\n  kind: director/)
-    assert.deepEqual(Object.keys(first.files), ['SKILL.md', 'series.md', 'script.md', 'storyboard.md'])
+    assert.deepEqual(Object.keys(first.files), ['SKILL.md', 'project.md', 'series.md', 'script.md', 'storyboard.md'])
     assert.doesNotMatch(first.content, /## 叙事节奏|## 镜头语言/)
     assert.match(first.files['script.md'], /叙事节奏/)
     assert.match(first.files['storyboard.md'], /镜头语言/)

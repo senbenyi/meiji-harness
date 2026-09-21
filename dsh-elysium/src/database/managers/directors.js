@@ -1,10 +1,11 @@
 // 职责：以标准 Skill 为导演的唯一存储形式，提供列表、全文编辑和排序。
 import { randomBytes } from 'node:crypto'
 import { createSkillsStore, parseSkill } from './skills.js'
+import { flowSteps } from './flow.js'
 import { statusError } from '../../utils/errors.js'
 
 const invalid = message => statusError(400, message)
-const files = ['SKILL.md', 'series.md', 'script.md', 'storyboard.md']
+const files = ['SKILL.md', ...flowSteps.map(step => `${step}.md`)]
 const seriesTemplate = '# 导演总览\n\n- 集数：固定 2 集；单集 60–120 秒。\n'
 const scriptTemplate = '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n'
 const storyboardTemplate = '# 导演分镜\n\n## 镜头语言\n\n## 提示词额外要求\n'

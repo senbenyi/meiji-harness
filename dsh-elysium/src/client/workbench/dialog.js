@@ -29,10 +29,10 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
   function Badge({ status }) {
     return h('span', { className: 'elysium-badge', 'data-tone': statusTone[status] || 'muted' }, statusText[status] || status || '待生成')
   }
-  // “全文编辑”是全局偏好：开发打开后项目、总览、分集都直接显示 Markdown，运营默认用逐项编辑。
+  // “全文编辑”是全局偏好，默认开启：项目、总览、分集都直接显示 Markdown；切到逐项编辑后三页一起切换。
   const fullTextKey = 'elysium-full-text'
   function useFullText() {
-    const read = () => { try { return localStorage.getItem(fullTextKey) === '1' } catch { return false } }
+    const read = () => { try { return localStorage.getItem(fullTextKey) !== '0' } catch { return true } }
     const [value, setValue] = useState(read)
     useEffect(() => { const sync = () => setValue(read()); window.addEventListener?.('elysium-full-text', sync); return () => window.removeEventListener?.('elysium-full-text', sync) }, [])
     const toggle = () => { try { localStorage.setItem(fullTextKey, value ? '0' : '1') } catch {} setValue(!value); window.dispatchEvent?.(new Event('elysium-full-text')) }

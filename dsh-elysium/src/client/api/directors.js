@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({ id: 'elysium/director-api', factory: require => {
   }
   async function request(action, body, name) {
     const response = await fetch(directorUrl(action, name), { credentials: 'same-origin', cache: 'no-store', ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) })
-    const value = await response.json()
+    const value = await response.json().catch(() => { throw new Error('接口不可用：请重启本机 Harness 后再试') })
     if (!response.ok) throw new Error(value.error || '导演操作失败')
     return value
   }
@@ -19,6 +19,8 @@ window.__ModuleLoader__.load({ id: 'elysium/director-api', factory: require => {
   const saveDirector = director => request('save', director)
   const reorderDirectors = names => request('reorder', { names })
   const deleteDirector = name => request('remove', { name })
-  Object.assign(exports, { fetchDirectors, fetchDirector, createDirector, saveDirector, reorderDirectors, deleteDirector })
+  const fetchFlow = () => request('flow-get')
+  const saveFlow = (file, content) => request('flow-save', { file, content })
+  Object.assign(exports, { fetchDirectors, fetchDirector, createDirector, saveDirector, reorderDirectors, deleteDirector, fetchFlow, saveFlow })
   return exports
 } })

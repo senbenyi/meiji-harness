@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
 import { createSkillsStore } from '../src/database/managers/skills.js'
 import { createDirectorStore } from '../src/database/managers/directors.js'
+import { createFlowSkillStore } from '../src/database/managers/flow.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { insertStoryboard, parseProject, parseScript, stripVideoDialogue } from '../src/server/projects/documents.js'
 import { compileShot, shotRoles } from '../src/server/projects/compile.js'
@@ -78,4 +79,17 @@ test('shot lead follows the on-screen subject, not names mentioned in dialogue o
   const anchors = { 林远: { source_job_id: 'b'.repeat(32) }, 苏晴: { source_job_id: 'c'.repeat(32) } }
   assert.equal(compileShot(series, shot, anchors).reference_job_id, 'b'.repeat(32))
   assert.equal(compileShot(series, { ...shot, roles: null }, anchors).reference_job_id, 'c'.repeat(32))
+})
+
+test('flow skill exposes only its overview and step files for full-text editing', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-flow-'))
+  try {
+    await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+      await createSkillsStore().seed('drama', new URL('drama/', skills).pathname)
+      const flow = createFlowSkillStore()
+      assert.deepEqual(Object.keys((await flow.get()).files), ['SKILL.md', 'steps/project.md', 'steps/series.md', 'steps/script.md', 'steps/storyboard.md'])
+      assert.equal((await flow.save({ file: 'steps/script.md', content: '# 剧本\n新规则\n' })).files['steps/script.md'], '# 剧本\n新规则\n')
+      await assert.rejects(flow.save({ file: '../secret.md', content: 'x' }), /流程 Skill 文件无效/)
+    })
+  } finally { await rm(root, { recursive: true, force: true }) }
 })

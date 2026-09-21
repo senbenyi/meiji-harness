@@ -5,7 +5,7 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
   const { ProjectList } = require('elysium/projects')
   const { MaterialList } = require('elysium/materials')
   const { Settings } = require('elysium/settings')
-  const { DirectorList } = require('elysium/directors')
+  const { DirectorList, FlowSkill } = require('elysium/directors')
   const STORAGE_KEY = 'elysium-workbench'
   const PANEL_MIN = 280
 
@@ -108,10 +108,10 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
           event.currentTarget.setPointerCapture?.(event.pointerId)
         }, onPointerMove: resize, onPointerUp: stopResize, onPointerCancel: stopResize }),
         h('header', { className: 'elysium-panel-header' },
-          h('div', { className: 'elysium-tabs', role: 'tablist', 'aria-label': '创作工作台视图' }, [['projects', '项目'], ['materials', '素材'], ['directors', '导演'], ['settings', '设置']].map(([tab, label]) => h('button', { key: tab, type: 'button', role: 'tab', 'aria-selected': state.activeTab === tab, onClick: () => navigate(() => change({ activeTab: tab })) }, label)))),
+          h('div', { className: 'elysium-tabs', role: 'tablist', 'aria-label': '创作工作台视图' }, [['projects', '项目'], ['materials', '素材'], ['directors', '导演'], ['flow', '流程'], ['settings', '设置']].map(([tab, label]) => h('button', { key: tab, type: 'button', role: 'tab', 'aria-selected': state.activeTab === tab, onClick: () => navigate(() => change({ activeTab: tab })) }, label)))),
         h('div', { className: 'elysium-panel-body' }, state.visited && (state.activeTab === 'materials'
           ? h(MaterialList, { viewState: state.materials, onViewState: materials => change({ materials }) })
-          : state.activeTab === 'settings' ? h(Settings, { guard }) : state.activeTab === 'directors' ? h(DirectorList, { guard }) : h(ProjectList, { viewState: state, onViewState: change, guard, navigate })))))
+          : state.activeTab === 'settings' ? h(Settings, { guard }) : state.activeTab === 'directors' ? h(DirectorList, { guard }) : state.activeTab === 'flow' ? h(FlowSkill) : h(ProjectList, { viewState: state, onViewState: change, guard, navigate })))))
   }
 
   function apply(ctx) {

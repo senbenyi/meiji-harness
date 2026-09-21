@@ -216,6 +216,7 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-tone { font-size:11px; white-space:nowrap; color:var(--dsw-alias-label-tertiary,#888); }
 .elysium-tone[data-tone=success] { color:var(--dsw-alias-status-success,#55a86c); }
 .elysium-tone[data-tone=active] { color:var(--dsw-alias-brand-primary,#4d8ef7); }
+.elysium-flow-skill { min-height:0; overflow:auto; display:flex; flex-direction:column; gap:8px; }
 .elysium-full-editor { display:flex; flex-direction:column; gap:6px; min-height:0; }
 .elysium-portrait { display:flex; flex-direction:column; align-items:center; gap:4px; }
 .elysium-portrait img,.elysium-portrait-empty { display:block; width:96px; height:128px; border-radius:6px; object-fit:cover; object-position:top; background:var(--dsw-alias-bg-layer-2,#8882); }
