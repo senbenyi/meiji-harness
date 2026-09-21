@@ -9,7 +9,7 @@ import { createSkillsStore } from '../src/database/managers/skills.js'
 import { createDirectorStore } from '../src/database/managers/directors.js'
 import { createFlowSkillStore } from '../src/database/managers/flow.js'
 import { createProjectStore } from '../src/server/projects/service.js'
-import { insertStoryboard, parseProject, parseScript, stripVideoDialogue } from '../src/server/projects/documents.js'
+import { insertStoryboard, parseProject, parseScript, parseSeries, stripVideoDialogue } from '../src/server/projects/documents.js'
 import { compileShot, shotRoles } from '../src/server/projects/compile.js'
 
 const skills = new URL('../../harness/.dsh/storages/elysium/pools/skills/', import.meta.url)
@@ -90,6 +90,35 @@ test('flow skill exposes only its overview and step files for full-text editing'
       assert.deepEqual(Object.keys((await flow.get()).files), ['SKILL.md', 'steps/project.md', 'steps/series.md', 'steps/script.md', 'steps/storyboard.md'])
       assert.equal((await flow.save({ file: 'steps/script.md', content: '# 剧本\n新规则\n' })).files['steps/script.md'], '# 剧本\n新规则\n')
       await assert.rejects(flow.save({ file: '../secret.md', content: 'x' }), /流程 Skill 文件无效/)
+    })
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('flow skill examples always pass the document parsers', async () => {
+  const step = async file => (await readFile(new URL(`drama/steps/${file}`, skills), 'utf8')).split(/^## 示例.*$/m)[1].trim() + '\n'
+  assert.ok(parseProject(await step('project.md')).title)
+  const series = parseSeries(await step('series.md'))
+  assert.ok(series.characters.some(item => item.lead))
+  const script = await step('script.md')
+  const shots = parseScript(insertStoryboard(script, await step('storyboard.md'))).shots
+  assert.ok(shots.length > 1)
+  assert.equal(shots.flatMap(shot => shot.lines).length, parseScript(script).lines.length)
+  for (const shot of shots) assert.ok(shot.roles?.every(name => series.characters.some(item => item.name === name)))
+})
+
+test('generated Markdown wrapped in a code fence is saved without the fence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-fence-'))
+  try {
+    await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+      const skillStore = createSkillsStore()
+      await skillStore.seed('drama', new URL('drama/', skills).pathname)
+      await skillStore.seed('director-cad24a59', new URL('director-cad24a59/', skills).pathname)
+      const directors = createDirectorStore()
+      const store = createProjectStore({ directorExists: name => directors.has(name), newId: () => '1234abce', complete: async () => ({ markdown: '```markdown\n' + overview + '```' }) })
+      const project = await store.change('create', { title: '雨夜来信', director: 'director-cad24a59', genre: '情感', synopsis: '旧信重现' })
+      const saved = await store.planning.generate({ id: project.id, step: 'series' })
+      assert.doesNotMatch(saved.series_text, /```/)
+      assert.equal(saved.series.episodes.length, 2)
     })
   } finally { await rm(root, { recursive: true, force: true }) }
 })

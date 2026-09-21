@@ -55,6 +55,8 @@ export function createPlanningService(store, complete, directors = createDirecto
     const prompt = await assemble(step, { ...project, director, episode, script, previous_script: previousScript, request })
     const result = await complete(prompt)
     if (typeof result?.markdown !== 'string' || !result.markdown.trim()) throw invalid('模型未返回 Markdown')
+    // 模型偶尔用代码围栏包裹整份 Markdown，保存前去掉。
+    result.markdown = result.markdown.trim().replace(/^```[a-z]*\n([\s\S]*?)\n```$/, '$1')
     if (step === 'project') {
       const value = parseProject(result.markdown)
       return { markdown: result.markdown, value }

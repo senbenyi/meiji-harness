@@ -1,7 +1,7 @@
 # Skill 编写规范
 
 - 适用范围：流程 Skill `drama` 与所有导演 Skill `director-*`。
-- 标准样例：`director-cad24a59`（甜宠虐恋 · 氛围情感剧）与 `drama` 的现行文件。新写导演时先对照样例。
+- 标准样例：`drama` 的现行文件（流程 Skill 的完整写法），以及 `director-cad24a59`（甜宠虐恋 · 氛围情感剧，导演 Skill 的写法）。新写或修改 Skill 前先对照样例。
 - 位置：运行时 `~/.dsh/storages/elysium/pools/skills/`，仓库模板 `harness/.dsh/storages/elysium/pools/skills/`，两处保持一致。
 - 编辑入口：工作台“流程”面板（`drama`）和“导演”面板（`director-*`），全文 Markdown 编辑，失焦或 ⌘S 保存。
 
@@ -101,11 +101,18 @@ metadata:
 
 ```text
 # 步骤名
-## 输入              （系统传入的 JSON 字段及含义）
+## 目标              （这一步产出什么、好结果的样子）
+## 输入              （系统传入的 JSON 字段及用法）
 ## 输出格式          （逐字模板；解析器依赖它，改之前先确认 documents.js 的解析规则）
-## 规则              （结构与引用规则）
+## 写作方法          （按顺序的写法与数量、长度建议）
+## 质量自查          （输出前逐条检查的清单）
 ## 不得              （明确禁止的内容）
+## 示例              （一份完整可解析的样例，四步示例前后衔接）
 ```
+
+`drama/SKILL.md` 另含：四步流程表（每步读取什么、产出什么、下一步怎么用）、总则、代码负责的部分、内容底线。
+
+四个步骤的“示例”必须能被解析器通过，并且前后衔接：剧本示例使用总览示例中的角色和场景，分镜示例按剧本示例的行号切分。测试 `flow skill examples always pass the document parsers` 会检查这一点，改示例后运行 `npm test`。
 
 每一步的输入由 `planning.js` 的 `assemble` 决定：
 
