@@ -1,0 +1,25 @@
+{
+  "hk": {
+    "alias": "veo-hk",
+    "hostname": "43.154.247.11",
+    "user": "ubuntu",
+    "identity": "id_ed25519_veo_hk",
+    "host_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID31g/TG5B/VYg4Pv0LH1XT14oC3HKPA7hV0i5IDePMJ"
+  },
+  "gpus": [
+    {
+      "alias": "veo-comfyui",
+      "relay_port": 22001,
+      "direct": { "hostname": "connect.westb.seetacloud.com", "port": 24564 },
+      "identity": "id_ed25519_veo_comfyui",
+      "host_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK3kwiFvUVgx1wVKa/LqYm6JNHZqht3d+OSpVJVG/AWa"
+    },
+    {
+      "alias": "veo-qwen38",
+      "relay_port": 22002,
+      "direct": { "hostname": "connect.westd.seetacloud.com", "port": 23237 },
+      "identity": "id_ed25519_veo_qwen38",
+      "host_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK3kwiFvUVgx1wVKa/LqYm6JNHZqht3d+OSpVJVG/AWa"
+    }
+  ]
+}
