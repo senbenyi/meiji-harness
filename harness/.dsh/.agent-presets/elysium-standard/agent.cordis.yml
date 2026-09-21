@@ -17,7 +17,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    text: >-
+    prefix: >-
       你是由 {{model}} 模型驱动的编码 Agent。当前工作目录是 {{cwd}}。
 
 - id: agent-instructions
