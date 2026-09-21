@@ -1,10 +1,10 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel, updateSettings } from '../../worker/index.js'
+import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, checkServer, switchServer, updateSettings } from '../../worker/index.js'
 import { withConfig, runtimeConfig, runtimeSettings, defaultModels, defaultSettings } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-status', 'tunnel-connect', 'third-party-select', 'creation-quality']
-export function createSettingsHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'third-party-select', 'creation-quality']
+export function createSettingsHandler({ token, check = checkServer }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -19,20 +19,13 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       const available = Object.fromEntries(Object.entries(models).map(([kind, entries]) => [kind, entries.filter(model => registry.servers.some(server => server.id === model.server_id && !server.disabled && server.services.comfyui)).map(model => model.id)]))
       if (action === 'models') {
         const thirdParty = await thirdPartyModels()
-        const tunnel = defaultTunnelModel(), chatModel = tunnel && { id: tunnel.id, label: tunnel.label }
+        const chat = runtimeConfig().ELYSIUM_SETTINGS_FILE ? runtimeSettings().chat : defaultSettings.chat
+        const chatModel = { id: chat.id, label: chat.label }
         const creation = runtimeConfig().ELYSIUM_SETTINGS_FILE ? runtimeSettings().creation : defaultSettings.creation
         return json(res, 200, { revision: selection.revision, creation, models, available, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
           const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
           return [kind, entries.find(model => model.server_id === active)?.id || '']
         })) })
-      }
-      if (['tunnel-status', 'tunnel-connect'].includes(action)) {
-        const body = await readJsonBody(req), tunnel = defaultTunnelModel()
-        if (!tunnel || body.id !== tunnel.id) throw invalidRequest('聊天模型未在系统中配置')
-        const backend = tunnelBackend(tunnel.alias)
-        if (!backend) throw invalidRequest('聊天模型隧道未配置')
-        if (action === 'tunnel-status') return json(res, 200, { connected: await probeBackend(backend) })
-        return json(res, 200, { ...await connect(backend), connected: true })
       }
       if (action === 'third-party-select') {
         const body = await readJsonBody(req)
@@ -78,10 +71,8 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       if (action === 'register') {
         const server = structuredClone(body.server)
         if (!server || !server.services) throw invalidRequest('需要服务器连接信息')
-        for (const service of Object.values(server.services)) if (service?.transport === 'ssh') service.ssh_identity = '0'.repeat(64)
         validateRegistry({ ...registry, servers: [...registry.servers, server] })
         for (const kind of Object.keys(server.services)) await validateBackend(backendFromServer(server, kind))
-        for (const service of Object.values(server.services)) if (service.transport === 'ssh') service.ssh_identity = identify(service.ssh_alias)
         const saved = await writeRegistry({ ...registry, servers: [...registry.servers, server] }, body.revision)
         return json(res, 201, { id: server.id, revision: saved.revision, message: '已登记。检查并设为默认后，新任务才使用此服务器。' })
       }

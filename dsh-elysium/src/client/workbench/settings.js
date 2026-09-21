@@ -1,4 +1,4 @@
-// 职责：选择创作质量及私有、三方模型，并显式连接私有模型。
+// 职责：选择创作质量及私有、三方模型，并检查图片和视频服务。
 load('elysium/settings', (require, exports) => {
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { settingsRequest } = require('elysium/settings-api')
@@ -8,18 +8,18 @@ load('elysium/settings', (require, exports) => {
     const [data, setData] = useState(null), [selected, setSelected] = useState({}), [thirdPartySelected, setThirdPartySelected] = useState({})
     const [creation, setCreation] = useState(null), [connected, setConnected] = useState({}), [connectionErrors, setConnectionErrors] = useState({})
     const [error, setError] = useState(''), [busy, setBusy] = useState(null)
-    const probeGeneration = useRef({ chat: 0, image: 0, video: 0 })
+    const probeGeneration = useRef({ image: 0, video: 0 })
     async function refresh(signal) {
       const value = await settingsRequest('models', null, signal)
       if (signal?.aborted) return
       setData(value); setSelected(value.selected); setThirdPartySelected(value.third_party_selected || {}); setCreation(value.creation)
       setConnected({}); setConnectionErrors({})
-      for (const kind of ['chat', 'image', 'video']) {
-        const id = kind === 'chat' ? value.chat_model?.id : value.selected[kind]
-        const available = kind === 'chat' || value.available?.[kind]?.includes(id)
+      for (const kind of ['image', 'video']) {
+        const id = value.selected[kind]
+        const available = value.available?.[kind]?.includes(id)
         const generation = ++probeGeneration.current[kind]
         if (!id || !available) continue
-        settingsRequest(kind === 'chat' ? 'tunnel-status' : 'model-status', kind === 'chat' ? { id } : { kind, id }, signal)
+        settingsRequest('model-status', { kind, id }, signal)
           .then(result => { if (!signal?.aborted && probeGeneration.current[kind] === generation && result.connected) setConnected(current => ({ ...current, [kind]: id })) })
           .catch(() => {})
       }
@@ -33,16 +33,6 @@ load('elysium/settings', (require, exports) => {
       setConnected(current => ({ ...current, [kind]: '' }))
       setConnectionErrors(current => ({ ...current, [kind]: failure.message }))
       if (failure.status === 409) { setError(failure.message); await refresh().catch(error => setError(error.message)) }
-    }
-    async function connectChat() {
-      if (busy || !data?.chat_model) return
-      ++probeGeneration.current.chat
-      setBusy('chat'); setError(''); setConnectionErrors(current => ({ ...current, chat: '' }))
-      try {
-        const value = await settingsRequest('tunnel-connect', { id: data.chat_model.id })
-        if (value.connected) setConnected(current => ({ ...current, chat: data.chat_model.id }))
-      } catch (error) { await failed('chat', error) }
-      finally { setBusy(null) }
     }
     async function chooseQuality(quality) {
       if (busy || !creation) return
@@ -101,9 +91,7 @@ load('elysium/settings', (require, exports) => {
       h('div', { className: 'elysium-model-row' },
         h('label', { htmlFor: 'elysium-model-chat' }, '聊天模型：'),
         h('select', { id: 'elysium-model-chat', 'aria-label': '聊天模型', value: data?.chat_model?.id || '', disabled: true },
-          h('option', { value: data?.chat_model?.id || '' }, data?.chat_model?.label || '未配置')),
-        h('button', { type: 'button', className: isConnected('chat', data?.chat_model?.id) ? 'elysium-connection-ready' : '', disabled: !!busy || !data?.chat_model, onClick: connectChat }, busy === 'chat' ? '连接中…' : isConnected('chat', data?.chat_model?.id) ? '重新连接' : '连接'),
-        rowError('chat')),
+          h('option', { value: data?.chat_model?.id || '' }, data?.chat_model?.label || '未配置'))),
       Object.entries(labels).map(([kind, label]) => {
         const entries = data?.models[kind] || [], id = selected[kind] || ''
         const available = data?.available?.[kind]?.includes(id)
