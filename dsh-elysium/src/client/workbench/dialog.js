@@ -29,6 +29,35 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
   function Badge({ status }) {
     return h('span', { className: 'elysium-badge', 'data-tone': statusTone[status] || 'muted' }, statusText[status] || status || '待生成')
   }
+  // “全文编辑”是全局偏好：开发打开后项目、总览、分集都直接显示 Markdown，运营默认用逐项编辑。
+  const fullTextKey = 'elysium-full-text'
+  function useFullText() {
+    const read = () => { try { return localStorage.getItem(fullTextKey) === '1' } catch { return false } }
+    const [value, setValue] = useState(read)
+    useEffect(() => { const sync = () => setValue(read()); window.addEventListener?.('elysium-full-text', sync); return () => window.removeEventListener?.('elysium-full-text', sync) }, [])
+    const toggle = () => { try { localStorage.setItem(fullTextKey, value ? '0' : '1') } catch {} setValue(!value); window.dispatchEvent?.(new Event('elysium-full-text')) }
+    return [value, toggle]
+  }
+  function FullTextToggle({ value, toggle }) {
+    return h('button', { type: 'button', className: 'elysium-link', 'aria-pressed': value, onClick: toggle }, value ? '逐项编辑' : '全文编辑')
+  }
+  // 整份 Markdown 原样编辑：失焦或 ⌘/Ctrl+S 保存，解析错误原样显示并保留文本。
+  function FullText({ label, value, onSave }) {
+    const [draft, setDraft] = useState(value || ''), [error, setError] = useState(''), [saving, setSaving] = useState(false)
+    const dirty = useRef(false)
+    useEffect(() => { if (!dirty.current) setDraft(value || '') }, [value])
+    const save = async () => {
+      if (!dirty.current || draft === value) { dirty.current = false; return }
+      setSaving(true); setError('')
+      try { await onSave(draft); dirty.current = false } catch (err) { setError(err.message) } finally { setSaving(false) }
+    }
+    return h('div', { className: 'elysium-full-editor' },
+      h('p', { className: 'elysium-compact-meta' }, saving ? '保存中…' : error ? '' : '失焦或 ⌘S 保存'),
+      error ? h('p', { className: 'elysium-banner', role: 'alert' }, error) : null,
+      h('textarea', { className: 'elysium-full-text', 'aria-label': label, value: draft, spellCheck: false,
+        onChange: event => { dirty.current = true; setDraft(event.target.value) }, onBlur: save,
+        onKeyDown: event => { if ((event.metaKey || event.ctrlKey) && event.key === 's') { event.preventDefault(); save() } } }))
+  }
   function trapFocus(event, root) {
     if (event.key !== 'Tab' || !root) return
     const nodes = [...root.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"],summary')].filter(node => node.getClientRects().length)
@@ -78,6 +107,6 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
       pending ? h(Dialog, { title: '有未保存的修改', busy, close: () => setPending(null), footer: h('button', { disabled: busy, onClick: () => submit(() => { close(); pending() }) }, '保存并继续') },
         h('button', { className: 'elysium-danger', disabled: busy, onClick: () => { close(); pending() } }, '放弃修改'), h('button', { onClick: () => setPending(null) }, '继续编辑')) : null)
   }
-  Object.assign(exports, { Badge, Dialog, Editor, Icon, IconButton, Menu })
+  Object.assign(exports, { Badge, Dialog, Editor, FullText, FullTextToggle, Icon, IconButton, Menu, useFullText })
   return exports
 } })

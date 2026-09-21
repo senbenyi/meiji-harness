@@ -5,7 +5,8 @@ window.__ModuleLoader__.load({ id: 'elysium/series', factory: require => {
   const { saveDoc, generateDoc, generateAnchorImage, replaceAnchorImage } = require('elysium/project-api')
   const { assetUrl } = require('elysium/media-api')
   const { MaterialList } = require('elysium/materials')
-  const { Dialog } = require('elysium/dialog')
+  const { episodeProgress } = require('elysium/episode')
+  const { Dialog, FullText, FullTextToggle, useFullText } = require('elysium/dialog')
   const empty = { logline: '', world: '', characters: [], scenes: [], episodes: [] }
   const render = value => [`一句话故事：${value.logline}`, '## 世界观', value.world, '## 角色',
     ...value.characters.flatMap(item => [`### ${item.name}${item.lead ? '（主角）' : ''}`, `简介：${item.intro}`, `定妆：${item.appearance}`, `音色：${item.voice}`]),
@@ -30,7 +31,7 @@ window.__ModuleLoader__.load({ id: 'elysium/series', factory: require => {
 
   function SeriesView({ project, onProject, selectEpisode }) {
     const [draft, setDraft] = useState(project.series || empty), [saving, setSaving] = useState(false), [error, setError] = useState('')
-    const [saved, setSaved] = useState(project.series_text), [revised, setRevised] = useState({}), [dialog, setDialog] = useState(null), [full, setFull] = useState(false), [raw, setRaw] = useState(project.series_text)
+    const [saved, setSaved] = useState(project.series_text), [revised, setRevised] = useState({}), [dialog, setDialog] = useState(null), [full, toggleFull] = useFullText()
     useEffect(() => { if (!saving && render(draft) === saved) { setDraft(project.series || empty); setSaved(project.series_text) } }, [project.series_text])
     const change = (group, index, key, text) => setDraft(current => {
       const next = structuredClone(current)
@@ -55,17 +56,16 @@ window.__ModuleLoader__.load({ id: 'elysium/series', factory: require => {
         h('span', { className: 'elysium-save-state', role: 'status' }, saving ? '保存中…' : ''),
         missing.length && project.series ? h('button', { type: 'button', disabled: saving, onClick: async () => { for (const role of missing) await draw(role.name) } }, `为 ${missing.length} 个角色出图`) : null,
         h('button', { type: 'button', className: project.series ? undefined : 'elysium-primary', disabled: saving, onClick: generate }, project.series ? '🤖 重新生成' : '🤖 生成总览'),
-        h('button', { type: 'button', className: 'elysium-link', onClick: () => { setRaw(project.series_text); setFull(value => !value) } }, full ? '返回排版视图' : '全文编辑')),
+        h(FullTextToggle, { value: full, toggle: toggleFull })),
       error ? h('p', { className: 'elysium-banner', role: 'alert' }, error, h('button', { type: 'button', onClick: persist }, '重试')) : null,
-      full ? h('textarea', { className: 'elysium-full-text', 'aria-label': '总览 Markdown 全文', value: raw, rows: 30, onChange: event => setRaw(event.target.value),
-        onBlur: () => { if (raw !== project.series_text) write(raw) } })
+      full ? h(FullText, { label: '总览 Markdown 全文', value: project.series_text, onSave: async markdown => { const next = await saveDoc(project.id, 'series', markdown); onProject(next); setDraft(next.series || empty); setSaved(markdown) } })
         : !project.series ? h('p', { className: 'elysium-empty' }, '还没有总览。点击“🤖 生成总览”按导演规则生成，或点“全文编辑”手写。')
           : h('div', { className: 'elysium-series-body' },
             h('section', { className: 'elysium-block' }, h('h3', null, '故事'),
               field(null, 0, 'logline', '一句话故事', { className: 'elysium-lead-text' }),
               field(null, 0, 'world', '世界观', { multiline: true, width: 72 })),
             h('section', { className: 'elysium-block' }, h('h3', null, `角色 ${draft.characters.length}`),
-              h('div', { className: 'elysium-character-grid' }, draft.characters.map((role, index) => h('article', { key: role.name, className: 'elysium-character-card' },
+              h('div', { className: 'elysium-card-grid' }, draft.characters.map((role, index) => h('article', { key: role.name, className: 'elysium-card elysium-character-card' },
                 h(Portrait, { anchor: project.anchors[role.name], name: role.name, disabled: saving, onDraw: () => draw(role.name), onReplace: () => setDialog({ role: role.name }) }),
                 h('div', { className: 'elysium-character-copy' },
                   h('header', null, h('b', null, role.name), role.lead ? h('span', { className: 'elysium-badge', 'data-tone': 'active' }, '主角') : null,
@@ -74,14 +74,20 @@ window.__ModuleLoader__.load({ id: 'elysium/series', factory: require => {
                   h('label', { className: 'elysium-inline-label' }, h('span', null, '音色'), field('characters', index, 'voice', `${role.name}音色`)),
                   h('label', { className: 'elysium-inline-label' }, h('span', null, '定妆'), field('characters', index, 'appearance', `${role.name}定妆`, { multiline: true, width: 36, className: 'elysium-mono' }))))))),
             h('section', { className: 'elysium-block' }, h('h3', null, `场景 ${draft.scenes.length}`),
-              draft.scenes.map((scene, index) => h('div', { key: scene.name, className: 'elysium-row' }, h('b', null, scene.name),
-                field('scenes', index, 'description', `${scene.name}描述`, { multiline: true, width: 64 })))),
+              h('div', { className: 'elysium-card-grid' }, draft.scenes.map((scene, index) => h('article', { key: scene.name, className: 'elysium-card' },
+                h('header', null, h('b', null, scene.name)),
+                field('scenes', index, 'description', `${scene.name}描述`, { multiline: true }))))),
             h('section', { className: 'elysium-block' }, h('h3', null, `分集 ${draft.episodes.length}`),
-              draft.episodes.map((episode, index) => h('div', { key: index, className: 'elysium-row elysium-episode-row' },
-                h('button', { type: 'button', className: 'elysium-link', title: '打开这一集', onClick: () => selectEpisode(index + 1) }, String(index + 1).padStart(2, '0')),
-                h('div', null, field('episodes', index, 'title', `第 ${index + 1} 集标题`, { className: 'elysium-strong' }),
-                  field('episodes', index, 'summary', `第 ${index + 1} 集梗概`, { multiline: true, width: 64 }),
-                  h('label', { className: 'elysium-inline-label' }, h('span', null, '钩子'), field('episodes', index, 'hook', `第 ${index + 1} 集钩子`))))))),
+              h('div', { className: 'elysium-card-grid' }, draft.episodes.map((episode, index) => {
+                const [text, tone] = episodeProgress(project, index + 1)
+                return h('article', { key: index, className: 'elysium-card' },
+                  h('header', null, h('span', { className: 'elysium-scene-number' }, `第 ${index + 1} 集`),
+                    field('episodes', index, 'title', `第 ${index + 1} 集标题`, { className: 'elysium-strong' }),
+                    h('small', { className: 'elysium-tone', 'data-tone': tone }, text),
+                    h('button', { type: 'button', className: 'elysium-link', onClick: () => selectEpisode(index + 1) }, '打开 →')),
+                  field('episodes', index, 'summary', `第 ${index + 1} 集梗概`, { multiline: true }),
+                  h('label', { className: 'elysium-inline-label' }, h('span', null, '钩子'), field('episodes', index, 'hook', `第 ${index + 1} 集钩子`, { multiline: true })))
+              })))),
       dialog?.role ? h(Dialog, { title: `为「${dialog.role}」选择定妆图`, close: () => setDialog(null), busy: saving }, h(MaterialList, { onSelect: replace, imageOnly: true })) : null)
   }
   Object.assign(exports, { SeriesView })

@@ -155,7 +155,7 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-panel .elysium-banner button { min-height:24px; padding:0 8px; margin-left:auto; }
 .elysium-error-text { color:var(--dsw-alias-status-error,#cf6666); }
 .elysium-warn-text { font-size:11px; color:var(--dsw-alias-status-warning,#d3a84b); }
-.elysium-panel .elysium-link { min-height:0; padding:0 4px; border:0; background:transparent; color:var(--dsw-alias-brand-primary,#4d8ef7); font-size:12px; }
+.elysium-panel .elysium-link { flex:none; white-space:nowrap; min-height:0; padding:0 4px; border:0; background:transparent; color:var(--dsw-alias-brand-primary,#4d8ef7); font-size:12px; }
 .elysium-panel .elysium-link:hover:not(:disabled) { background:transparent; text-decoration:underline; }
 .elysium-inline { display:block; min-width:0; }
 .elysium-inline small { display:block; padding:0 6px; font-size:11px; color:var(--dsw-alias-status-error,#cf6666); }
@@ -208,28 +208,27 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-series { min-height:0; overflow:auto; display:flex; flex-direction:column; gap:12px; }
 .elysium-series-body { display:flex; flex-direction:column; gap:16px; max-width:1200px; }
 .elysium-panel .elysium-block h3 { margin:0 0 6px; font-size:12px; font-weight:600; color:var(--dsw-alias-label-secondary,#aaa); }
-.elysium-character-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:8px; }
-.elysium-character-card { display:grid; grid-template-columns:96px minmax(0,1fr); gap:10px; padding:8px; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:10px; }
+.elysium-card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:8px; }
+.elysium-card { min-width:0; display:flex; flex-direction:column; gap:2px; padding:8px; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:10px; }
+.elysium-card > header,.elysium-character-copy > header { display:flex; align-items:center; gap:6px; min-height:26px; padding:0 6px; }
+.elysium-card > header .elysium-inline { flex:1; min-width:0; }
+.elysium-character-card { display:grid; grid-template-columns:96px minmax(0,1fr); gap:10px; }
+.elysium-tone { font-size:11px; white-space:nowrap; color:var(--dsw-alias-label-tertiary,#888); }
+.elysium-tone[data-tone=success] { color:var(--dsw-alias-status-success,#55a86c); }
+.elysium-tone[data-tone=active] { color:var(--dsw-alias-brand-primary,#4d8ef7); }
+.elysium-full-editor { display:flex; flex-direction:column; gap:6px; min-height:0; }
 .elysium-portrait { display:flex; flex-direction:column; align-items:center; gap:4px; }
 .elysium-portrait img,.elysium-portrait-empty { display:block; width:96px; height:128px; border-radius:6px; object-fit:cover; object-position:top; background:var(--dsw-alias-bg-layer-2,#8882); }
 .elysium-portrait-empty { display:grid; place-items:center; box-sizing:border-box; border:1px dashed var(--dsw-alias-border-l2,#8885); font-size:12px; color:var(--dsw-alias-label-tertiary,#888); }
 .elysium-portrait > div { display:flex; }
 .elysium-character-copy { min-width:0; display:flex; flex-direction:column; gap:2px; }
-.elysium-character-copy header { display:flex; align-items:center; gap:6px; padding:0 6px; }
 .elysium-inline-label { display:grid; grid-template-columns:30px minmax(0,1fr); align-items:start; }
 .elysium-inline-label > span { padding-top:5px; font-size:11px; color:var(--dsw-alias-label-tertiary,#888); }
-.elysium-row { display:grid; grid-template-columns:120px minmax(0,1fr); gap:8px; align-items:start; padding:4px 0; border-top:1px solid var(--dsw-alias-border-l1,#8883); }
-.elysium-row > b { padding-top:4px; font-size:13px; }
-.elysium-episode-row { grid-template-columns:36px minmax(0,1fr); }
-.elysium-panel .elysium-episode-row > .elysium-link { padding-top:5px; font-weight:600; }
 
 .elysium-episode { flex:1; min-height:0; display:grid; grid-template-columns:168px minmax(0,1fr); gap:12px; }
 .elysium-episode-directory { min-height:0; overflow:auto; display:flex; flex-direction:column; gap:2px; }
 .elysium-panel .elysium-episode-directory button { display:flex; flex-direction:column; align-items:flex-start; min-height:0; padding:6px 8px; border:0; border-radius:8px; text-align:left; }
 .elysium-episode-directory b { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:500; }
-.elysium-episode-directory small { font-size:11px; color:var(--dsw-alias-label-tertiary,#888); }
-.elysium-episode-directory small[data-tone=success] { color:var(--dsw-alias-status-success,#55a86c); }
-.elysium-episode-directory small[data-tone=active] { color:var(--dsw-alias-brand-primary,#4d8ef7); }
 .elysium-panel .elysium-episode-directory button[aria-current=true] { background:var(--dsw-alias-interactive-bg-active,#8883); }
 .elysium-episode-main { min-width:0; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:8px; }
 .elysium-episode-header { position:sticky; top:0; z-index:3; display:flex; flex-direction:column; gap:4px; padding:2px 0 8px; background:var(--dsw-alias-bg-layer-1,#fff); border-bottom:1px solid var(--dsw-alias-border-l1,#8883); }
@@ -291,12 +290,12 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
   .elysium-episode-directory { flex-direction:row; align-items:flex-start; overflow-x:auto; overflow-y:hidden; }
   .elysium-panel .elysium-episode-directory button { flex:none; }
   .elysium-av-head { display:none; }
-  .elysium-av-row,.elysium-film-panel,.elysium-row { grid-template-columns:minmax(0,1fr); }
+  .elysium-av-row,.elysium-film-panel { grid-template-columns:minmax(0,1fr); }
   .elysium-av-row { gap:0; margin:6px 0; padding:4px 0 0; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:10px; }
   .elysium-av-row:has(.elysium-unshot) { border-style:dashed; }
   .elysium-shot-card,.elysium-unshot { border:0; border-top:1px dashed var(--dsw-alias-border-l1,#8883); border-radius:0 0 10px 10px; }
   .elysium-script-column { padding:0 6px 4px 14px; }
-  .elysium-character-grid { grid-template-columns:minmax(0,1fr); }
+  .elysium-card-grid { grid-template-columns:minmax(0,1fr); }
 }
 `
     document.head.appendChild(style)

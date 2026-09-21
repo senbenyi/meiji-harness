@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
   const { createElement: h, useEffect, useRef, useState } = require('react')
   const { saveDoc, generateDoc, reshootShot, previewShot, composeFilm, produceEpisode } = require('elysium/project-api')
   const { assetUrl } = require('elysium/media-api')
-  const { Badge, Menu } = require('elysium/dialog')
+  const { Badge, FullText, FullTextToggle, Menu, useFullText } = require('elysium/dialog')
   const replace = (markdown, index, text) => { const lines = markdown.split('\n'); lines[index] = text; return lines.join('\n') }
   const remove = (markdown, index, count = 1) => { const lines = markdown.split('\n'); lines.splice(index, count); return lines.join('\n') }
   const insert = (markdown, index, text) => { const lines = markdown.split('\n'); lines.splice(index, 0, text); return lines.join('\n') }
@@ -15,6 +15,12 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
   const clock = seconds => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
   const kindOf = text => text.startsWith('动作：') ? 'action' : text.startsWith('音效：') ? 'sound' : 'dialogue'
   const busy = shot => ['queued', 'running'].includes(shot.status) || shot.status === 'pending' && Boolean(shot.job_id)
+
+  // 分集进度文字与色调：总览分集卡片和分集目录共用。
+  function episodeProgress(project, number) {
+    const data = project.episodes.find(part => part.number === number), list = data?.shots || [], completed = list.filter(shot => shot.status === 'succeeded').length
+    return data?.film ? ['成片 ✓', 'success'] : list.length ? [`画面 ${completed}/${list.length}`, completed ? 'active' : 'muted'] : data?.script?.trim() ? ['待分镜', 'muted'] : ['待写剧本', 'muted']
+  }
 
   // 看起来是正文、点击即可编辑的字段；失焦保存，回车/退格用于增删剧本行。
   function Inline({ label, value, onCommit, multiline = false, width = 48, className = '', placeholder, onEnter, onEmptyBackspace }) {
@@ -64,7 +70,7 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
   function EpisodeView({ project, episode, selectEpisode, onProject }) {
     const current = project.episodes.find(item => item.number === episode) || { script: '', scenes: [], shots: [], film: null }
     const [markdown, setMarkdown] = useState(current.script), [saving, setSaving] = useState(false), [error, setError] = useState('')
-    const [full, setFull] = useState(false), [drawer, setDrawer] = useState(false), [brief, setBrief] = useState(false), [prompts, setPrompts] = useState({})
+    const [full, toggleFull] = useFullText(), [drawer, setDrawer] = useState(false), [brief, setBrief] = useState(false), [prompts, setPrompts] = useState({})
     const dirty = useRef(false), chain = useRef(Promise.resolve())
     useEffect(() => { if (!dirty.current) setMarkdown(current.script) }, [project.id, episode, current.script])
     useEffect(() => { setDrawer(false); setBrief(false) }, [episode])
@@ -103,10 +109,9 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
           : !current.film ? [composing ? '合成中…' : '合成本集', () => run(() => composeFilm(project.id, episode)).catch(() => {}), composing]
             : ['▶ 播放成片', () => setDrawer(true)]
     const directory = project.series?.episodes.map(item => {
-      const data = project.episodes.find(part => part.number === item.number), list = data?.shots || [], completed = list.filter(shot => shot.status === 'succeeded').length
-      const [text, tone] = data?.film ? ['成片 ✓', 'success'] : list.length ? [`画面 ${completed}/${list.length}`, completed ? 'active' : 'muted'] : data?.script?.trim() ? ['待分镜', 'muted'] : ['待写剧本', 'muted']
+      const [text, tone] = episodeProgress(project, item.number)
       return h('button', { key: item.number, type: 'button', 'aria-current': item.number === episode ? 'true' : undefined, onClick: () => selectEpisode(item.number) },
-        h('b', null, `${String(item.number).padStart(2, '0')} ${item.title}`), h('small', { 'data-tone': tone }, text))
+        h('b', null, `${String(item.number).padStart(2, '0')} ${item.title}`), h('small', { className: 'elysium-tone', 'data-tone': tone }, text))
     })
     const shotCard = shot => h('article', { id: `elysium-shot-${shot.id}`, className: 'elysium-shot-card', 'data-status': shot.status || 'pending' },
       h('header', null, h('b', null, shot.id), h('span', { className: 'elysium-compact-meta' }, `${clock(timings[shot.id])}–${clock(timings[shot.id] + shot.duration)}`),
@@ -139,19 +144,18 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
             h('h2', null, `第 ${episode} 集 · ${entry?.title || ''}`),
             h('span', { className: 'elysium-compact-meta' }, [clockAt && `${clockAt} 秒`, shots.length && `${shots.length} 镜`, shots.length && `画面 ${done}/${shots.length}`].filter(Boolean).join(' · ')),
             h('span', { className: 'elysium-save-state', role: 'status' }, saving ? '保存中…' : ''),
+            h(FullTextToggle, { value: full, toggle: toggleFull }),
             h('button', { type: 'button', className: 'elysium-primary', disabled: saving || primary[2], onClick: primary[1] }, primary[0]),
             h(Menu, { label: '本集更多操作', items: [
               markdown.trim() ? ['🤖 重新生成剧本', () => generate('script')] : null,
               markdown.trim() && shots.length ? ['🤖 重新生成分镜', () => generate('storyboard')] : null,
               current.film ? ['重新合成本集', () => run(() => composeFilm(project.id, episode)).catch(() => {})] : null,
-              ['＋ 新增一场', addScene],
-              [full ? '返回双栏' : '全文编辑 Markdown', () => setFull(value => !value)]] })),
+              ['＋ 新增一场', addScene]] })),
           entry ? h('button', { type: 'button', className: 'elysium-brief', 'aria-expanded': brief, onClick: () => setBrief(value => !value) },
             h('span', null, `梗概：${entry.summary}`), h('span', null, `钩子：${entry.hook}`)) : null),
         drawer && current.film ? h(FilmPanel, { film: current.film, shots, onClose: () => setDrawer(false), focusShot }) : null,
         error ? h('p', { className: 'elysium-banner', role: 'alert' }, error, h('button', { type: 'button', onClick: () => save(markdown).catch(() => {}) }, '重试')) : null,
-        full ? h('textarea', { className: 'elysium-full-text', 'aria-label': '本集 Markdown 全文', value: markdown, rows: 30,
-          onChange: event => { dirty.current = true; setMarkdown(event.target.value) }, onBlur: () => save(markdown).catch(() => {}) })
+        full ? h(FullText, { key: episode, label: '本集 Markdown 全文', value: current.script, onSave: next => save(next) })
           : !current.scenes.length ? h('p', { className: 'elysium-empty' }, '本集还没有剧本。点击右上角“🤖 生成剧本”。')
             : h('div', { className: 'elysium-av' },
               h('div', { className: 'elysium-av-head', 'aria-hidden': true }, h('span', null, '剧本'), h('span', null, '镜头')),
@@ -179,6 +183,6 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
                   }))
               }))))
   }
-  Object.assign(exports, { EpisodeView })
+  Object.assign(exports, { EpisodeView, episodeProgress })
   return exports
 } })

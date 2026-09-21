@@ -2,10 +2,10 @@
 window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const exports = {}
   const { createElement: h, useEffect, useState } = require('react')
-  const { fetchProjects, fetchProject, createProject, updateProject, deleteProject, generateDoc, startFill, startProduce, pauseAuto, pollProject, downloadFilmsUrl } = require('elysium/project-api')
+  const { fetchProjects, fetchProject, createProject, updateProject, deleteProject, generateDoc, saveDoc, startFill, startProduce, pauseAuto, pollProject, downloadFilmsUrl } = require('elysium/project-api')
   const { fetchDirectors } = require('elysium/director-api')
   const { assetUrl } = require('elysium/media-api')
-  const { Badge, IconButton, Menu } = require('elysium/dialog')
+  const { Badge, FullText, FullTextToggle, IconButton, Menu, useFullText } = require('elysium/dialog')
   const { SeriesView } = require('elysium/series')
   const { EpisodeView } = require('elysium/episode')
   const tabs = [['project', '项目'], ['series', '总览'], ['episode', '分集']]
@@ -56,7 +56,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
 
   function ProjectPage({ project, onProject }) {
     const pick = value => ({ title: value.title, genre: value.genre, synopsis: value.synopsis, director: value.director })
-    const [draft, setDraft] = useState(pick(project)), [directors, setDirectors] = useState([]), [status, setStatus] = useState(''), [error, setError] = useState('')
+    const [draft, setDraft] = useState(pick(project)), [directors, setDirectors] = useState([]), [status, setStatus] = useState(''), [error, setError] = useState(''), [full, toggleFull] = useFullText()
     useEffect(() => { fetchDirectors().then(setDirectors).catch(() => {}) }, [])
     useEffect(() => { if (status !== '保存中') setDraft(pick(project)) }, [project.project_text])
     const save = async (next = draft) => {
@@ -65,8 +65,10 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
       try { onProject(await updateProject(project.id, next)); setStatus('已保存') } catch (err) { setStatus(''); setError(err.message) }
     }
     return h('section', { className: 'elysium-project-page' },
-      h(ProjectFields, { draft, setDraft, directors, onBlur: next => save(next?.title !== undefined ? next : draft) }),
-      h('p', { className: 'elysium-save-state', role: 'status' }, status),
+      h('header', { className: 'elysium-page-heading' }, h('h2', null, '项目信息'),
+        h('span', { className: 'elysium-save-state', role: 'status' }, status === '保存中' ? '保存中…' : ''), h(FullTextToggle, { value: full, toggle: toggleFull })),
+      full ? h(FullText, { label: '项目 Markdown 全文', value: project.project_text, onSave: async markdown => onProject(await saveDoc(project.id, 'project', markdown)) })
+        : h(ProjectFields, { draft, setDraft, directors, onBlur: next => save(next?.title !== undefined ? next : draft) }),
       error ? h('p', { role: 'alert' }, error, h('button', { type: 'button', onClick: () => save() }, '重试')) : null)
   }
 
