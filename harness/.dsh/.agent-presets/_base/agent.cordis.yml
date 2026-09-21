@@ -3,7 +3,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    text: !!js >-
+    prefix: !!js >-
       process.getBuiltinModule('node:fs').readFileSync(new URL('./persona.md', baseUrl), 'utf8') + '\n' + process.getBuiltinModule('node:fs').readFileSync(new
       URL('./rules.md', baseUrl), 'utf8')
 
