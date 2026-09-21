@@ -1,127 +1,58 @@
-// 职责：列出导演 Skill 并按步骤编辑其 Markdown 文件；全文编辑流程 Skill（drama）的总纲与步骤说明。
+// 职责：全文编辑导演 Skill 与流程 Skill（drama）；两者按同名步骤对齐：总纲 · 立项 · 总览 · 剧本 · 分镜。
 window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
   const exports = {}
   const { createElement: h, useEffect, useState } = require('react')
-  const { FullText, IconButton } = require('elysium/dialog')
+  const { FullText, Menu } = require('elysium/dialog')
   const { fetchDirectors, fetchDirector, createDirector, saveDirector, reorderDirectors, deleteDirector, fetchFlow, saveFlow } = require('elysium/director-api')
-  const tabs = [{ id: 'style', label: '导演风格', files: [['SKILL.md', 'SKILL.md 全文']] },
-    { id: 'project', label: '导演立项', files: [['project.md', '立项要求']] },
-    { id: 'series', label: '导演总览', files: [['series.md', '集数与风格']] },
-    { id: 'script', label: '导演剧本', files: [['script.md', '剧本要求']] },
-    { id: 'storyboard', label: '导演分镜', files: [['storyboard.md', '分镜要求']] }]
-  const templates = { 'project.md': '# 导演立项\n\n## 题材范围\n', 'series.md': '# 导演总览\n', 'script.md': '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n',
-    'storyboard.md': '# 导演分镜\n\n## 镜头语言\n\n## 提示词额外要求\n' }
-  const createTemplate = name => `---\nname: director-new\ndescription: ${JSON.stringify((name || '新导演') + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(name || '新导演')}\n  order: 0\n---\n\n# ${name || '新导演'}\n\n## 风格与题材\n\n## 人物塑造\n\n## 声音与对白\n\n## 禁忌\n`
+  const steps = [['SKILL', '总纲'], ['project', '立项'], ['series', '总览'], ['script', '剧本'], ['storyboard', '分镜']]
 
-  function DirectorList({ guard }) {
-    const [items, setItems] = useState([])
-    const [editing, setEditing] = useState(null), [drafts, setDrafts] = useState({}), [saved, setSaved] = useState({}), [tab, setTab] = useState('style'), [styleView, setStyleView] = useState('list'), [newName, setNewName] = useState(''), [newContent, setNewContent] = useState(createTemplate('')), [dragging, setDragging] = useState(null)
-    const [busy, setBusy] = useState(false), [error, setError] = useState('')
-    const refresh = async () => setItems(await fetchDirectors())
-    useEffect(() => { let active = true; setBusy(true); fetchDirectors().then(async value => {
-      if (!active) return
-      setItems(value)
-      if (value[0]) { const first = await fetchDirector(value[0].name); if (active) open(first) }
-    }).catch(err => { if (active) setError(err.message) }).finally(() => { if (active) setBusy(false) }); return () => { active = false } }, [])
-    async function run(action) {
-      setBusy(true); setError('')
-      try { await action(); return true } catch (err) { setError(err.message); return false } finally { setBusy(false) }
-    }
-    function open(item) {
-      const files = item.files || { 'SKILL.md': item.content }
-      const values = Object.fromEntries(Object.entries(files).map(([file, value]) => [file, value || templates[file] || '']))
-      setEditing(item.name); setDrafts(values); setSaved(values)
-    }
-    const dirty = Object.keys(drafts).some(file => drafts[file] !== saved[file])
-    useEffect(() => {
-      if (!guard || !dirty) return
-      const leave = next => { if (window.confirm('放弃未保存的导演内容？')) next() }
-      guard.current = leave
-      return () => { if (guard.current === leave) guard.current = null }
-    }, [dirty, guard])
-    async function edit(item, view = styleView) {
-      if (item.name !== editing && dirty && !window.confirm('放弃未保存的导演内容？')) return false
-      if (item.name === editing) { setStyleView(view); return true }
-      return run(async () => { open(await fetchDirector(item.name)); setStyleView(view) })
-    }
-    async function create(event) {
-      event.preventDefault()
-      if (!newName.trim()) return
-      await run(async () => { await createDirector({ display_name: newName.trim(), content: newContent }); await refresh(); setNewName(''); setNewContent(createTemplate('')); setStyleView('list') })
-    }
-    async function remove(item) {
-      if (!window.confirm(`删除导演“${item.display_name}”？`)) return
-      await run(async () => {
-        await deleteDirector(item.name)
-        const remaining = await fetchDirectors()
-        setItems(remaining)
-        if (editing === item.name) {
-          if (remaining[0]) open(await fetchDirector(remaining[0].name))
-          else { setEditing(null); setDrafts({}); setSaved({}) }
-        }
-      })
-    }
-    async function save(file) {
-      if (await run(async () => { await saveDirector({ name: editing, file, content: drafts[file] }); await refresh() })) setSaved(value => ({ ...value, [file]: drafts[file] }))
-    }
-    async function drop(target, event) {
-      event.preventDefault()
-      const source = dragging
-      setDragging(null)
-      if (!source || source === target) return
-      const previous = items, ordered = items.filter(item => item.name !== source)
-      const targetIndex = ordered.findIndex(item => item.name === target)
-      const bounds = event.currentTarget.getBoundingClientRect()
-      ordered.splice(targetIndex + (event.clientY > bounds.top + bounds.height / 2 ? 1 : 0), 0, items.find(item => item.name === source))
-      setItems(ordered)
-      if (!await run(async () => setItems(await reorderDirectors(ordered.map(item => item.name))))) setItems(previous)
-    }
-    return h('div', { className: 'elysium-directors' },
-      h('nav', { 'aria-label': '导演配置页签', role: 'tablist', className: 'elysium-tabs elysium-director-tabs' }, tabs.map(item => h('button', { key: item.id,
-        type: 'button', role: 'tab', 'aria-selected': tab === item.id, onClick: () => { setTab(item.id); if (item.id === 'style') setStyleView('list') } },
-        item.label, item.files.some(([file]) => drafts[file] !== saved[file]) ? '（未保存）' : ''))),
-      tab !== 'style' && items.length ? h('label', { className: 'elysium-director-picker' }, '导演', h('select', { 'aria-label': '选择导演', value: editing || items[0].name,
-        disabled: busy, onChange: event => edit(items.find(item => item.name === event.target.value)) }, items.map(item => h('option', { key: item.name, value: item.name }, item.display_name)))) : null,
-      editing && (tab !== 'style' || styleView === 'edit') ? h('section', { className: 'elysium-director-create' },
-        tab === 'style' ? h('header', null, h('h2', null, items.find(item => item.name === editing)?.display_name || editing),
-          h('button', { type: 'button', onClick: () => setStyleView('list') }, '返回')) : null,
-        tabs.find(item => item.id === tab)?.files.map(([file, label]) => h('div', { key: file, className: 'elysium-director-editor' },
-          h('label', null, label, drafts[file] !== saved[file] ? '（未保存）' : ''),
-          h('textarea', { 'aria-label': label, value: drafts[file] || '', disabled: busy, rows: 12,
-            onChange: event => setDrafts(value => ({ ...value, [file]: event.target.value })) }),
-          h('footer', null, h('button', { className: 'elysium-primary', type: 'button', disabled: busy || drafts[file] === saved[file],
-            onClick: () => save(file) }, '保存'))))) : null,
-      error ? h('p', { role: 'alert' }, error, !items.length ? h('button', { onClick: () => run(refresh) }, '重试') : null) : null,
-      busy && !items.length ? h('p', { role: 'status' }, '正在读取导演…') : null,
-      !busy && !error && !items.length && styleView === 'list' && tab === 'style' ? h('p', { className: 'elysium-empty' }, '暂无导演') : null,
-      tab === 'style' && styleView === 'create' ? h('form', { className: 'elysium-director-create', onSubmit: create },
-        h('label', null, '导演名称', h('input', { autoFocus: true, 'aria-label': '导演名称', value: newName, disabled: busy, onChange: event => {
-          const name = event.target.value
-          if (newContent === createTemplate(newName)) setNewContent(createTemplate(name.trim()))
-          setNewName(name)
-        } })),
-        h('label', null, 'SKILL.md 全文', h('textarea', { 'aria-label': 'SKILL.md 全文', value: newContent, disabled: busy, rows: 12, onChange: event => setNewContent(event.target.value) })),
-        h('footer', null, h('button', { type: 'button', onClick: () => setStyleView('list') }, '取消'),
-          h('button', { className: 'elysium-primary', type: 'submit', disabled: busy || !newName.trim() || !newContent.trim() }, '保存'))) : null,
-      tab === 'style' && styleView === 'list' ? h('div', { className: 'elysium-director-list' },
-        h('div', { className: 'elysium-director-toolbar' }, h('button', { type: 'button', className: 'elysium-primary', 'aria-label': '添加导演', disabled: busy, onClick: () => setStyleView('create') }, '＋ 添加导演')), items.map(item =>
-        h('article', { className: 'elysium-director-card', key: item.name, draggable: !busy, 'data-dragging': dragging === item.name || undefined, onDragStart: event => { event.dataTransfer.effectAllowed = 'move'; setDragging(item.name) }, onDragOver: event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }, onDrop: event => drop(item.name, event), onDragEnd: () => setDragging(null) },
-          h('header', { className: 'elysium-director-card-heading' }, h('span', { className: 'elysium-director-grip', title: '拖动排序', 'aria-hidden': true }, '⋮⋮'), h('h2', null, item.display_name),
-            h('div', { className: 'elysium-director-actions' }, h(IconButton, { name: 'edit', label: `编辑导演 ${item.display_name}`, disabled: busy, onClick: () => edit(item, 'edit') }),
-              h(IconButton, { name: 'minus', label: `删除导演 ${item.display_name}`, className: 'elysium-danger', disabled: busy, onClick: () => remove(item) })))))) : null
-    )
+  function StepTabs({ label, value, onChange }) {
+    return h('nav', { 'aria-label': label, role: 'tablist', className: 'elysium-tabs' }, steps.map(([step, text]) => h('button', { key: step, type: 'button', role: 'tab',
+      'aria-selected': value === step, onClick: () => onChange(step) }, text)))
   }
-  // 流程 Skill 与导演 Skill 按同名步骤对齐：总纲 · 立项 · 总览 · 剧本 · 分镜。
-  const flowTabs = [['SKILL.md', '总纲'], ['steps/project.md', '立项'], ['steps/series.md', '总览'], ['steps/script.md', '剧本'], ['steps/storyboard.md', '分镜']]
+
+  function DirectorList() {
+    const [items, setItems] = useState([]), [director, setDirector] = useState(null), [step, setStep] = useState('SKILL')
+    const [creating, setCreating] = useState(false), [newName, setNewName] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('')
+    const run = async action => { setBusy(true); setError(''); try { return await action() } catch (err) { setError(err.message) } finally { setBusy(false) } }
+    const open = name => run(async () => setDirector(name ? await fetchDirector(name) : null))
+    const reload = async selected => { const list = await fetchDirectors(); setItems(list); await open(list.some(item => item.name === selected) ? selected : list[0]?.name) }
+    useEffect(() => { run(() => reload()) }, [])
+    const create = event => { event.preventDefault(); if (newName.trim()) run(async () => { const item = await createDirector({ display_name: newName.trim() }); setCreating(false); setNewName(''); setStep('SKILL'); await reload(item.name) }) }
+    const move = offset => run(async () => {
+      const names = items.map(item => item.name), index = names.indexOf(director.name), target = index + offset
+      if (target < 0 || target >= names.length) return
+      names.splice(target, 0, names.splice(index, 1)[0])
+      setItems(await reorderDirectors(names))
+    })
+    const remove = () => { if (window.confirm(`删除导演“${director.display_name}”？被项目使用的导演不能删除。`)) run(async () => { await deleteDirector(director.name); await reload() }) }
+    const file = step === 'SKILL' ? 'SKILL.md' : `${step}.md`
+    return h('div', { className: 'elysium-directors' },
+      h('header', { className: 'elysium-page-heading' },
+        items.length ? h('select', { 'aria-label': '选择导演', value: director?.name || '', disabled: busy, onChange: event => open(event.target.value) },
+          items.map(item => h('option', { key: item.name, value: item.name }, item.display_name))) : null,
+        h('button', { type: 'button', className: 'elysium-link', 'aria-label': '添加导演', onClick: () => setCreating(value => !value) }, creating ? '取消新建' : '＋ 新建导演'),
+        director ? h(Menu, { label: '导演更多操作', items: [['上移', () => move(-1)], ['下移', () => move(1)], ['删除导演', remove, true]] }) : null),
+      creating ? h('form', { className: 'elysium-page-heading', onSubmit: create },
+        h('input', { autoFocus: true, 'aria-label': '导演名称', placeholder: '导演名称，例如：悬疑反转 · 冷色调', value: newName, onChange: event => setNewName(event.target.value) }),
+        h('button', { type: 'submit', className: 'elysium-primary', disabled: busy || !newName.trim() }, '创建')) : null,
+      h(StepTabs, { label: '导演配置页签', value: step, onChange: setStep }),
+      h('p', { className: 'elysium-compact-meta' }, '导演 Skill 决定风格与规模：总纲在每一步都会读取，其余页签只在同名步骤读取。新建导演会按标准结构生成，写法见 docs/design/规范-Skill编写.md。'),
+      error ? h('p', { className: 'elysium-banner', role: 'alert' }, error) : null,
+      director ? h(FullText, { key: `${director.name}-${file}`, label: `${director.display_name} ${file}`, value: director.files[file],
+        onSave: async content => setDirector(await saveDirector({ name: director.name, file, content })) })
+        : h('p', { className: busy ? undefined : 'elysium-empty', role: 'status' }, busy ? '正在读取导演…' : '暂无导演，点击“新建导演”开始'))
+  }
+
   function FlowSkill() {
-    const [files, setFiles] = useState(null), [tab, setTab] = useState('SKILL.md'), [error, setError] = useState('')
+    const [files, setFiles] = useState(null), [step, setStep] = useState('SKILL'), [error, setError] = useState('')
     useEffect(() => { fetchFlow().then(value => setFiles(value.files)).catch(err => setError(err.message)) }, [])
+    const file = step === 'SKILL' ? 'SKILL.md' : `steps/${step}.md`
     return h('div', { className: 'elysium-flow-skill' },
-      h('nav', { 'aria-label': '流程 Skill 页签', role: 'tablist', className: 'elysium-tabs' }, flowTabs.map(([file, label]) => h('button', { key: file, type: 'button', role: 'tab',
-        'aria-selected': tab === file, onClick: () => setTab(file) }, label))),
+      h(StepTabs, { label: '流程 Skill 页签', value: step, onChange: setStep }),
       h('p', { className: 'elysium-compact-meta' }, '流程 Skill（drama）决定每一步写什么、按什么格式写，所有项目共用；风格与集数写在导演 Skill 的同名页签里。'),
       error ? h('p', { className: 'elysium-banner', role: 'alert' }, error) : null,
-      files ? h(FullText, { key: tab, label: `流程 Skill ${tab}`, value: files[tab], onSave: async content => setFiles((await saveFlow(tab, content)).files) })
+      files ? h(FullText, { key: file, label: `流程 Skill ${file}`, value: files[file], onSave: async content => setFiles((await saveFlow(file, content)).files) })
         : error ? null : h('p', { role: 'status' }, '正在读取流程 Skill…'))
   }
   Object.assign(exports, { DirectorList, FlowSkill })

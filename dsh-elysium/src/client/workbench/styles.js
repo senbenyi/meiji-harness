@@ -104,30 +104,6 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 
 .elysium-panel h1 { font-size:16px; font-weight:600; margin:4px 0; }
 .elysium-panel h2 { font-size:15px; font-weight:600; margin:4px 0; }
-.elysium-directors { display:flex; flex-direction:column; min-height:0; height:100%; overflow:auto; scrollbar-width:thin; }
-.elysium-director-heading { display:flex; justify-content:flex-end; flex:none; padding-bottom:8px; }
-.elysium-director-tabs { margin-bottom:8px; }
-.elysium-director-picker { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.elysium-panel .elysium-director-picker select { width:min(100%,180px); min-height:30px; height:30px; padding:3px 28px 3px 8px; }
-.elysium-director-create { display:flex; align-items:center; gap:8px; flex:none; margin-bottom:8px; padding:8px; border:1px solid var(--dsw-alias-border-l1,#8883); border-radius:8px; }
-.elysium-director-create input { flex:1; min-width:0; }
-.elysium-director-create:has(textarea) { flex-direction:column; align-items:stretch; }
-.elysium-panel .elysium-director-create h2 { margin:0; }
-.elysium-director-create header { display:flex; align-items:center; justify-content:space-between; }
-.elysium-director-editor { display:flex; flex-direction:column; gap:6px; }
-.elysium-director-create textarea { min-height:160px; resize:vertical; }
-.elysium-director-create footer { display:flex; justify-content:flex-end; gap:6px; }
-.elysium-director-list { flex:none; display:flex; flex-direction:column; }
-.elysium-director-toolbar { display:flex; justify-content:flex-end; }
-.elysium-director-card { min-width:0; border-bottom:1px solid var(--dsw-alias-border-l1,#8883); }
-.elysium-director-card[data-dragging=true] { opacity:.45; }
-.elysium-director-card-heading { display:flex; align-items:center; gap:8px; min-width:0; min-height:42px; }
-.elysium-director-grip { color:var(--dsw-alias-label-tertiary,#888); cursor:grab; font-size:15px; letter-spacing:-5px; padding-right:5px; user-select:none; }
-.elysium-panel .elysium-director-card-heading h2 { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; }
-.elysium-director-actions { display:flex; align-items:center; gap:2px; margin-left:auto; }
-.elysium-director-works { padding-top:14px; border-top:1px solid var(--dsw-alias-border-l1,#8883); }
-.elysium-director-works ul { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 16px; margin:0; padding:0; list-style:none; color:var(--dsw-alias-label-primary,#eee); font-size:12px; line-height:1.55; }
-.elysium-director-works li { min-width:0; overflow-wrap:anywhere; }
 .elysium-asset-item a { display:inline-block; margin:8px; }
 .elysium-panel details { margin-top:8px; }
 .elysium-panel summary { cursor:pointer; min-height:36px; }
@@ -216,7 +192,11 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-tone { font-size:11px; white-space:nowrap; color:var(--dsw-alias-label-tertiary,#888); }
 .elysium-tone[data-tone=success] { color:var(--dsw-alias-status-success,#55a86c); }
 .elysium-tone[data-tone=active] { color:var(--dsw-alias-brand-primary,#4d8ef7); }
-.elysium-flow-skill { min-height:0; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+.elysium-directors,.elysium-flow-skill { min-height:0; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+.elysium-panel .elysium-directors select { width:auto; max-width:260px; }
+.elysium-directors > .elysium-full-editor,.elysium-flow-skill > .elysium-full-editor { flex:1; }
+.elysium-panel .elysium-directors .elysium-full-text,.elysium-panel .elysium-flow-skill .elysium-full-text { flex:1; min-height:320px; }
+.elysium-panel .elysium-directors form input { flex:1; min-width:0; }
 .elysium-full-editor { display:flex; flex-direction:column; gap:6px; min-height:0; }
 .elysium-portrait { display:flex; flex-direction:column; align-items:center; gap:4px; }
 .elysium-portrait img,.elysium-portrait-empty { display:block; width:96px; height:128px; border-radius:6px; object-fit:cover; object-position:top; background:var(--dsw-alias-bg-layer-2,#8882); }
