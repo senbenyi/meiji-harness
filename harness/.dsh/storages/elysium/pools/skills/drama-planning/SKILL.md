@@ -19,6 +19,6 @@ metadata:
 
 ## 规划建议
 
-整体流程按 series、timeline、storyboard、shot-prompt 的顺序工作。本 Skill 负责 series 和 timeline；分镜与逐镜提示词由 shot-planning 负责。集数、单集时长由故事规模和节奏决定，不机械固定。人物的外观、服装与音色跨集保持一致；场景的空间关系与光线延续。输出供运营审核和修改。
+整体流程按 series、timeline、storyboard、shot-prompt 的顺序工作。本 Skill 负责 series 和 timeline；分镜与逐镜提示词由 shot-planning 负责。集数、单集时长严格采用导演 Skill 的规定，不得自行决定。人物的外观、服装与音色跨集保持一致；场景的空间关系与光线延续。输出供运营审核和修改。
 
 生成前检查 references/checklist.md。
