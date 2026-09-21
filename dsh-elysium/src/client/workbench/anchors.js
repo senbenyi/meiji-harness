@@ -5,6 +5,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
   const { Dialog, Icon, IconButton } = require('elysium/dialog')
   const { MaterialList } = require('elysium/materials')
   const { ShotPreview } = require('elysium/shot-preview')
+  const { assetUrl, previewImageUrl } = require('elysium/media-api')
   const { importMaterial, updateAnchor, generateAnchorImage, fetchProject } = require('elysium/project-api')
   function AnchorCreateForm({ initial, busy, save, cancel, guard }) {
     const [draft, setDraft] = useState(initial), [selecting, setSelecting] = useState(false)
@@ -49,7 +50,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
       h('label', { className: 'elysium-field' }, h('span', null, '锚点名称'), h('input', { 'aria-label': '锚点名称', value: draft.label, disabled: busy, onChange: event => setDraft({ ...draft, label: event.target.value }) })),
       h('label', { className: 'elysium-field' }, h('span', null, '锚点描述'), h('textarea', { 'aria-label': '锚点描述', rows: 3, value: draft.description, disabled: busy, onChange: event => setDraft({ ...draft, description: event.target.value }) })),
       error ? h('p', { role: 'alert' }, error) : null,
-      h('div', { className: 'elysium-anchor-preview' }, anchor.image_url ? h('img', { className: 'elysium-workbench-preview', src: anchor.image_url, alt: anchor.label }) : h(ShotPreview, { jobId: anchor.source?.job_id, imageOnly: true }),
+      h('div', { className: 'elysium-anchor-preview' }, anchor.image_url ? h('img', { className: 'elysium-workbench-preview', src: anchor.source?.job_id ? assetUrl('image', anchor.source.job_id) : previewImageUrl(anchor.image_url), alt: anchor.label }) : h(ShotPreview, { jobId: anchor.source?.job_id, imageOnly: true }),
         h(IconButton, { name: 'insert', label: '更换参考图片', disabled: busy, onClick: replace })))
   }
   function AnchorView({ project, run, busy, guard }) {
@@ -66,7 +67,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
       message ? h('p', { role: 'status' }, message) : null,
       h('div', { className: 'elysium-anchor-grid' }, [['character', '角色锚点'], ['scene', '场景锚点'], ['material', '其他锚点']].map(([kind, title]) => h('section', { key: kind, className: 'elysium-anchor-group' },
         h('h2', null, title), project.anchors.filter(anchor => (anchor.kind || 'material') === kind).map(anchor => h('article', { key: anchor.role, className: 'elysium-anchor-card' },
-        h('div', { className: 'elysium-anchor-thumb' }, anchor.image_url ? h('img', { src: anchor.image_url, alt: anchor.label, loading: 'lazy' }) : anchor.source?.job_id ? h(ShotPreview, { jobId: anchor.source.job_id, imageOnly: true }) : h(Icon, { name: 'eye' })),
+        h('div', { className: 'elysium-anchor-thumb' }, anchor.image_url ? h('img', { src: anchor.source?.job_id ? assetUrl('image', anchor.source.job_id) : previewImageUrl(anchor.image_url), alt: anchor.label, loading: 'lazy' }) : anchor.source?.job_id ? h(ShotPreview, { jobId: anchor.source.job_id, imageOnly: true }) : h(Icon, { name: 'eye' })),
         h('div', { className: 'elysium-anchor-copy' }, h('h3', null, anchor.label || anchor.role), anchor.retired ? h('small', null, '已废弃') : null,
           anchor.image_needs_review ? h('small', null, '参考图需复核') : null, anchor.description ? h('p', null, anchor.description) : null,
           !anchor.retired ? h('button', { type: 'button', disabled: busy, onClick: () => run(async () => {

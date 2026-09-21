@@ -3,6 +3,7 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
   const exports = {}
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { Editor, Icon, IconButton } = require('elysium/dialog')
+  const { assetUrl, previewImageUrl } = require('elysium/media-api')
   const { produceShots, retryShot, updateShot, acceptShot } = require('elysium/project-api')
   const statuses = { pending: '待生成', queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败', cancelled: '已取消' }
   function StoryboardView({ project, save, run, busy, episode, viewState = {}, onViewState = () => {}, guard, reviewReason = () => '' }) {
@@ -88,7 +89,7 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
         h('div', { className: 'elysium-shot-heading' }, h(IconButton, { name: 'back', label: '返回镜头列表', onClick: () => change({ selected: null }) }), h('h2', null, `镜 ${String(selected.number).padStart(3, '0')} · ${project.acts[selected.a].title}`),
           h('div', { className: 'elysium-panel-actions' }, h(IconButton, { name: 'chevronLeft', label: '上一镜', disabled: position <= 0, onClick: () => choose(filtered[position - 1]) }), h(IconButton, { name: 'chevronRight', label: '下一镜', disabled: position < 0 || position >= filtered.length - 1, onClick: () => choose(filtered[position + 1]) }))),
         editing ? null : h(ShotPreview, { jobId: selected.shot.job_id }),
-        h('p', { className: 'elysium-compact-meta' }, `${statuses[selected.shot.status]} · ${selected.shot.accepted ? '已采用 · ' : ''}${anchor?.label || selected.shot.role || '无角色'}`), anchor ? h('details', null, h('summary', null, '角色参考'), anchor.image_url ? h('img', { className: 'elysium-workbench-preview', src: anchor.image_url, alt: anchor.label, loading: 'lazy' }) : null, anchor.description ? h('p', null, anchor.description) : null) : null,
+        h('p', { className: 'elysium-compact-meta' }, `${statuses[selected.shot.status]} · ${selected.shot.accepted ? '已采用 · ' : ''}${anchor?.label || selected.shot.role || '无角色'}`), anchor ? h('details', null, h('summary', null, '角色参考'), anchor.image_url ? h('img', { className: 'elysium-workbench-preview', src: anchor.source?.job_id ? assetUrl('image', anchor.source.job_id) : previewImageUrl(anchor.image_url), alt: anchor.label, loading: 'lazy' }) : null, anchor.description ? h('p', null, anchor.description) : null) : null,
         selectedReason ? h('p', { role: 'status' }, selectedReason) : null,
         copy('动作', selected.shot.action), copy('场景与运镜', [selected.shot.scene, selected.shot.shot_size, selected.shot.camera].filter(Boolean).join(' · ')),
         copy('定稿提示词', selected.shot.prompt), copy('字幕', selected.shot.subtitle), copy('备注', selected.shot.notes),

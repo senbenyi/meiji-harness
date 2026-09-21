@@ -41,9 +41,11 @@ test('five modes keep the H3 graph and patch only declared user bindings', async
     const uiNodes = [...bundle.workflow.nodes, ...bundle.workflow.definitions.subgraphs.flatMap(subgraph => subgraph.nodes)]
     assert.equal(Object.values(bundle.graph).some(node => node.class_type?.startsWith('AILab_QwenVL')), false, mode)
     assert.equal(uiNodes.some(node => node.type?.startsWith('AILab_QwenVL')), false, mode)
-    const changed = Object.keys(prepared.graph).filter(id => JSON.stringify(prepared.graph[id].inputs) !== JSON.stringify(bundle.graph[id].inputs))
+    const changed = Object.keys(bundle.graph).filter(id => JSON.stringify(prepared.graph[id].inputs) !== JSON.stringify(bundle.graph[id].inputs))
     const bindings = [...bundle.bindings.prompt, ...Object.values(bundle.bindings.media), bundle.bindings.output]
     assert.deepEqual(new Set(changed), new Set(bindings.map(item => item.node)), mode)
+    assert.equal(prepared.graph[prepared.previewNode].inputs.crf, 35)
+    assert.deepEqual(prepared.graph.elysium_preview_resize.inputs.image, prepared.graph[prepared.outputNode].inputs.images)
     for (const binding of bundle.bindings.prompt) assert.equal(prepared.graph[binding.node].inputs[binding.input], plan.prompt)
     for (const [name, binding] of Object.entries(bundle.bindings.media)) assert.match(prepared.graph[binding.node].inputs[binding.input], new RegExp(`${new URL(plan[name]).searchParams.get('filename')} \\[output\\]$`))
     assert.equal(prepared.graph[bundle.bindings.output.node].inputs[bundle.bindings.output.input], `elysium/job/${mode}/final`)

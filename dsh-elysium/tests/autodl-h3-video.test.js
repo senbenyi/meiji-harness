@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises'
 import { withConfig } from '../src/config.js'
 import adapter from '../src/worker/models/providers/autodl/index.js'
 import { buildVideoGraph as buildDirectorGraph, loadVideoTemplates } from '../src/worker/models/providers/autodl/workflows/minimax-h3/director.js'
+import { collectDirectorArtifacts } from '../src/worker/models/providers/autodl/workflows/minimax-h3/artifacts.js'
 import { toDirectorPlan, validatePlan } from '../src/worker/models/providers/autodl/workflows/minimax-h3/plan.js'
 
 const backend = { provider: 'autodl', provider_api_version: 1, server_id: 'autodl-comfy', instance_id: 'gpu-1', deployment_id: 'h3',
@@ -60,7 +61,16 @@ test('AutoDL builds main director T2V, I2V, continue and per-shot outputs', asyn
   const text = buildDirectorGraph(textPlan, {}, templates, job)
   assert.equal(text.workflowName, 'workflow_generate_video')
   assert.ok(text.graph.final)
+  assert.equal(text.graph[text.previewNode].inputs.quality, 35)
+  assert.equal(text.graph[text.previewNode].inputs.audio_bitrate, '64k')
+  assert.deepEqual(text.graph.elysium_preview_resize.inputs.image, text.graph.final.inputs.images)
   assert.ok(text.graph.s0_save)
+  const descriptor = filename => ({ filename, type: 'output' })
+  const collected = collectDirectorArtifacts({ url: new URL(backend.base_url), viewUrl: item => view(item.filename) },
+    { outputs: { final: { gifs: [descriptor('final.mp4')] }, s0_save: { gifs: [descriptor('shot.mp4')] },
+      [text.previewNode]: { gifs: [descriptor('preview.mp4')] } } }, text, 'prompt')
+  assert.match(collected.comfyui_view_url, /final\.mp4/)
+  assert.match(collected.preview_view_url, /preview\.mp4/)
 
   const imagePlan = { duration: 10, shots: [
     { id: 'opening', duration: 5, mode: 'independent', prompt: 'same character walks', image_path: image, image_role: 'single-view' },

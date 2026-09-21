@@ -6,10 +6,13 @@ export async function collectVideoArtifacts(client, history, prepared, promptId)
     .find(value => value?.filename?.endsWith('.mp4') && value.type === 'output')
   if (!descriptor) throw new Error(`缺少最终节点 ${prepared.outputNode} 的 MP4 产物`)
   const url = client.viewUrl(descriptor)
+  const preview = Object.values(history.outputs?.[prepared.previewNode] || {}).flat()
+    .find(value => value?.filename?.endsWith('.mp4') && value.type === 'output')
   const messages = history.status?.messages || []
   const started = messages.find(([type]) => type === 'execution_start')?.[1]?.timestamp
   const finished = messages.find(([type]) => type === 'execution_success')?.[1]?.timestamp
-  return { comfyui_view_url: url, media_kind: 'video', mode: prepared.mode, quality: prepared.quality || prepared.plan?.quality,
+  return { comfyui_view_url: url, ...(preview ? { preview_view_url: client.viewUrl(preview) } : {}),
+    media_kind: 'video', mode: prepared.mode, quality: prepared.quality || prepared.plan?.quality,
     ...(Number.isFinite(started) && Number.isFinite(finished) ? { server_execution_ms: finished - started } : {}),
     profile: prepared.profile || prepared.plan?.profile || (prepared.specification ? 'preview' : 'standard'),
     ...(prepared.specification ? { specification: prepared.specification } : {}),

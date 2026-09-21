@@ -1,6 +1,5 @@
-// 职责：提供可跨平台复用的 ComfyUI、SSH 和兼容 LLM 服务协议实现。
+// 职责：提供可跨平台复用的 ComfyUI 和兼容 LLM 服务协议实现。
 import { ComfyClient } from './client.js'
-import { ensureConnection } from '../../catalog/transport.js'
 import { validatePlan as validateProtocolPlan } from './plan.js'
 import { runtimeConfig } from '../../../../config.js'
 import { collectVideoArtifacts } from './artifacts.js'
@@ -20,7 +19,7 @@ export function createStandardAdapter({ id, label, services = standardServices, 
     executeJob: async (plan, backend, ctx) => (await import('./runner.js')).runComfyJob(plan, backend, ctx, { capability: 'workflow-video', timeoutMs: 451 * 60_000,
       prepare: async client => ({ ...await adapter.buildGraph(backend, plan, ctx.jobId), plan, server_url: client.url.href }), collect: collectVideoArtifacts,
       recovery: '自动重试已停止。保留此 job_id，等待用户要求恢复；禁止改提示词重新生成或连续调用恢复工具。' }),
-    connect: backend => ensureConnection(backend),
+    connect: async () => {},
     createClient: (backend, { signal } = {}) => new ComfyClient(backend.base_url, signal),
     buildGraph,
     llmSettings: backend => ({ route: llmRoute || id, api: 'openai-completions', model: backend.connection?.model || services.llm.model,

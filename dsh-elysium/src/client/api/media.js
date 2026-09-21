@@ -41,10 +41,20 @@ window.__ModuleLoader__.load({
       return value
     }
     const assetUrl = (kind, job) => mediaUrl(kind, null, null, { job })
+    function previewImageUrl(url) {
+      try {
+        const value = new URL(url)
+        if (['http:', 'https:'].includes(value.protocol) && value.pathname.endsWith('/view') && value.searchParams.has('filename')) {
+          value.searchParams.set('preview', 'webp;60')
+          return value.href
+        }
+      } catch {}
+      return url
+    }
     function relativeTime(time) {
       const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000))
       return !Number.isFinite(minutes) ? '时间未记录' : minutes < 1 ? '刚刚' : minutes < 60 ? `${minutes} 分钟前` : minutes < 1440 ? `${Math.floor(minutes / 60)} 小时前` : `${Math.floor(minutes / 1440)} 天前`
     }
-    return { mediaUrl, readStatus, retryJob, assetUrl, relativeTime }
+    return { mediaUrl, readStatus, retryJob, assetUrl, previewImageUrl, relativeTime }
   },
 })
