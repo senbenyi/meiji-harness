@@ -4,8 +4,8 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { mediaUrl, assetUrl, relativeTime } = require('elysium/media-api')
   const { specificationLabel } = require('elysium/media-task-state')
-  const { Dialog, Icon, IconButton } = require('elysium/dialog')
-  const DEFAULT_PAGE_SIZE = 6
+  const { IconButton } = require('elysium/dialog')
+  const DEFAULT_PAGE_SIZE = 24
   async function fetchAssets(offset = 0, limit = DEFAULT_PAGE_SIZE, filters = {}, signal) {
     const response = await fetch(mediaUrl('list', null, null, { offset, limit, ...filters }), { cache: 'no-store', credentials: 'same-origin', signal })
     const value = await response.json()
@@ -13,11 +13,11 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
     return value
   }
   const listCache = new Map()
-  const assetTitle = item => item.title || item.prompt_excerpt || `${item.has_video ? '视频' : '图片'} · ${item.job_id.slice(0, 8)}`
+  const assetTitle = item => item.title || item.prompt_excerpt || (item.has_video ? '视频' : '图片')
   function MaterialList({ onSelect, imageOnly = false, viewState = {}, onViewState = () => {} } = {}) {
     const [state, setState] = useState({ source: 'creation', quality: '', media_kind: '', q: '', page: 0, page_size: DEFAULT_PAGE_SIZE, ...viewState, ...(imageOnly ? { media_kind: 'image' } : {}) })
     const [input, setInput] = useState(state.q), [data, setData] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0)
-    const [preview, setPreview] = useState(null), [submitting, setSubmitting] = useState(false), [mediaError, setMediaError] = useState(false), [deleting, setDeleting] = useState(false), [uploading, setUploading] = useState(false), [uploadError, setUploadError] = useState('')
+    const [preview, setPreview] = useState(null), [missing, setMissing] = useState({}), [submitting, setSubmitting] = useState(false), [mediaError, setMediaError] = useState(false), [deleting, setDeleting] = useState(false), [uploading, setUploading] = useState(false), [uploadError, setUploadError] = useState('')
     const sequence = useRef(0), grid = useRef(null), fileInput = useRef(null)
     const pageSize = Number(state.page_size) || DEFAULT_PAGE_SIZE
     const change = patch => { const next = { ...state, ...patch }; setState(next); onViewState(next) }
@@ -76,32 +76,47 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
         else setRetry(value => value + 1)
       } catch (err) { setError(err.message) } finally { setDeleting(false) }
     }
+    const pages = Math.max(1, Math.ceil((data?.total || 0) / pageSize))
+    const media = (item, large) => !large && missing[item.job_id] ? h('span', { className: 'elysium-material-missing' }, '文件缺失') : item.has_video && !(large ? false : item.has_image)
+      ? h('video', { src: `${assetUrl('video', item.job_id)}${large ? '' : '#t=0.1'}`, preload: 'metadata', muted: !large, playsInline: true, ...(large ? { controls: true, autoPlay: true, onError: () => setMediaError(true) } : { 'aria-hidden': true }) })
+      : h('img', { src: assetUrl('image', item.job_id), alt: large ? assetTitle(item) : '', loading: 'lazy', onError: () => large ? setMediaError(true) : setMissing(current => ({ ...current, [item.job_id]: true })) })
     return h('div', { className: 'elysium-materials' },
-      h('div', { className: 'elysium-tabs elysium-material-tabs', role: 'tablist', 'aria-label': '素材分类' }, [['creation', '创作素材'], ['project', '项目素材'], ['import', '导入素材']].map(([source, label]) => h('button', { key: source, type: 'button', role: 'tab', 'aria-selected': state.source === source, onClick: () => { setData(null); change({ source, page: 0, scroll: 0 }) } }, label))),
-      h('div', { className: 'elysium-toolbar' },
+      h('nav', { className: 'elysium-segments', role: 'tablist', 'aria-label': '素材分类' }, [['creation', '创作素材'], ['project', '项目素材'], ['import', '导入素材']].map(([source, label]) => h('button', { key: source, type: 'button', role: 'tab', 'aria-selected': state.source === source, 'aria-current': state.source === source ? 'true' : undefined, onClick: () => { setData(null); setPreview(null); change({ source, page: 0, scroll: 0 }) } }, label))),
+      h('div', { className: 'elysium-page-heading' },
         h('input', { type: 'file', ref: fileInput, hidden: true, multiple: true, accept: imageOnly ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4', 'aria-label': '选择导入文件', disabled: uploading, onChange: upload }),
-        h('input', { type: 'search', 'aria-label': '搜索素材', placeholder: '搜索', value: input, onChange: e => setInput(e.target.value) }),
-        select('创作质量', 'quality', [['', '全部'], ['fast', '快速创作'], ['regular', '常规创作'], ['high', '高清创作']]),
-        imageOnly ? null : select('类型', 'media_kind', [['', '全部'], ['video', '视频'], ['image', '图片']]),
-        h('button', { type: 'button', className: 'elysium-primary', 'aria-label': imageOnly ? '导入图片素材' : '导入素材', disabled: uploading, onClick: () => fileInput.current.click() }, imageOnly ? '导入图片' : '导入素材')),
-      error ? h('p', { role: 'alert' }, error, h('button', { onClick: () => { listCache.clear(); setRetry(x => x + 1) } }, '重试')) : null,
-      uploadError ? h('p', { role: 'alert' }, uploadError) : null,
-      uploading ? h('p', { role: 'status' }, '正在导入素材…') : null,
-      busy ? h('div', { className: 'elysium-empty', role: 'status' }, '正在加载素材…') : null,
-      data?.items.length === 0 ? h('p', { className: 'elysium-empty' }, state.q || state.quality || state.media_kind ? '无匹配素材，请调整筛选条件' : '暂无已完成素材') : null,
+        h('input', { type: 'search', className: 'elysium-material-search', 'aria-label': '搜索素材', placeholder: '搜索提示词或文件名', value: input, onChange: e => setInput(e.target.value) }),
+        imageOnly ? null : select('类型', 'media_kind', [['', '全部类型'], ['video', '视频'], ['image', '图片']]),
+        select('创作质量', 'quality', [['', '全部质量'], ['fast', '快速创作'], ['regular', '常规创作'], ['high', '高清创作']]),
+        h('button', { type: 'button', className: 'elysium-primary', 'aria-label': imageOnly ? '导入图片素材' : '导入素材', disabled: uploading, onClick: () => fileInput.current.click() }, uploading ? '导入中…' : imageOnly ? '＋ 导入图片' : '＋ 导入素材')),
+      error ? h('p', { className: 'elysium-banner', role: 'alert' }, error, h('button', { onClick: () => { listCache.clear(); setRetry(x => x + 1) } }, '重试')) : null,
+      uploadError ? h('p', { className: 'elysium-banner', role: 'alert' }, uploadError) : null,
+      // 选中的素材在列表上方原地展开，不弹窗。
+      preview ? h('section', { className: 'elysium-material-detail', 'aria-label': '素材预览' },
+        h('div', { className: 'elysium-material-detail-media' }, mediaError ? h('p', { role: 'alert' }, '预览加载失败', h('button', { onClick: () => setMediaError(false) }, '重试预览')) : media(preview, true)),
+        h('div', { className: 'elysium-material-detail-copy' },
+          h('b', null, assetTitle(preview)),
+          h('small', { className: 'elysium-compact-meta' }, `${specificationLabel(preview) || (preview.has_video ? '视频' : '图片')} · ${relativeTime(preview.created_at)}`),
+          preview.prompt_excerpt && preview.prompt_excerpt !== assetTitle(preview) ? h('p', null, preview.prompt_excerpt) : null,
+          h('div', { className: 'elysium-page-heading' },
+            onSelect ? h('button', { type: 'button', className: 'elysium-primary', disabled: submitting || imageOnly && !preview.has_image, onClick: choose }, submitting ? '正在使用…' : '使用此素材') : null,
+            h('a', { href: assetUrl('download', preview.job_id), download: '' }, '下载'),
+            h('button', { type: 'button', className: 'elysium-link elysium-danger', disabled: deleting, onClick: () => remove(preview) }, '删除'),
+            h('button', { type: 'button', className: 'elysium-link', 'aria-label': '关闭预览', onClick: () => setPreview(null) }, '收起')))) : null,
+      !data && !error ? h('p', { className: 'elysium-empty', role: 'status' }, '正在加载素材…') : null,
+      data?.items.length === 0 ? h('p', { className: 'elysium-empty' }, state.q || state.quality || state.media_kind ? '没有匹配的素材，请调整筛选条件' : '暂无素材') : null,
       h('div', { className: 'elysium-material-grid', ref: grid, onScroll: e => onViewState({ ...state, scroll: e.currentTarget.scrollTop }) },
-        data?.items.map(item => h('article', { key: item.job_id, className: 'elysium-material-card' },
-          h('button', { className: 'elysium-card-open', onClick: () => { setPreview(item); setMediaError(false) }, 'aria-label': `查看素材 ${assetTitle(item)}` },
-            item.has_image ? h('img', { src: assetUrl('image', item.job_id), alt: assetTitle(item), loading: 'lazy' }) : h('div', { className: 'elysium-video-placeholder', 'aria-hidden': true }, '视频'),
-            h('strong', null, assetTitle(item))), h('small', { className: 'elysium-compact-meta' }, `${specificationLabel(item) || (item.has_image ? '图片' : '视频')} · ${relativeTime(item.created_at)}`),
-          h(IconButton, { name: 'minus', label: `删除素材 ${assetTitle(item)}`, className: 'elysium-danger', disabled: busy || deleting, onClick: () => remove(item) })))),
+        data?.items.map(item => h('article', { key: item.job_id, className: 'elysium-material-card', 'aria-current': preview?.job_id === item.job_id ? 'true' : undefined },
+          h('button', { type: 'button', className: 'elysium-card-open', onClick: () => { setPreview(item); setMediaError(false) }, 'aria-label': `查看素材 ${assetTitle(item)}` },
+            h('span', { className: 'elysium-material-thumb' }, media(item, false), item.has_video ? h('span', { className: 'elysium-material-kind' }, '▶ 视频') : null),
+            h('span', { className: 'elysium-material-title' }, assetTitle(item)),
+            h('small', { className: 'elysium-compact-meta' }, relativeTime(item.created_at))),
+          h(IconButton, { name: 'close', label: `删除素材 ${assetTitle(item)}`, className: 'elysium-danger elysium-material-delete', disabled: busy || deleting, onClick: () => remove(item) })))),
       h('footer', { className: 'elysium-pagination' },
-        h('div', { className: 'elysium-pagination-meta' }, select('每页', 'page_size', [[6, '6 条'], [9, '9 条'], [12, '12 条'], [15, '15 条']]), h('span', { role: 'status' }, busy ? '正在读取…' : `共 ${data?.total ?? data?.items.length ?? 0} 条`)),
-        h('div', { className: 'elysium-pagination-actions' }, h('span', null, `${state.page + 1}/${Math.max(1, Math.ceil((data?.total || 0) / pageSize))}`), h(IconButton, { name: 'chevronLeft', label: '上一页', disabled: busy || state.page === 0, onClick: () => change({ page: state.page - 1, scroll: 0 }) }), h(IconButton, { name: 'chevronRight', label: '下一页', disabled: busy || !data?.has_more, onClick: () => change({ page: state.page + 1, scroll: 0 }) }))),
-      preview ? h(Dialog, { title: assetTitle(preview), close: () => setPreview(null), busy: submitting, footer: onSelect ? h('button', { disabled: submitting || imageOnly && !preview.has_image, className: 'elysium-primary', onClick: choose }, submitting ? '正在使用…' : '使用此素材') : null },
-        mediaError ? h('p', { role: 'alert' }, '预览加载失败', h('button', { onClick: () => setMediaError(false) }, '重试预览')) : h(preview.has_video ? 'video' : 'img', { className: 'elysium-workbench-preview', src: assetUrl(preview.has_video ? 'video' : 'image', preview.job_id), ...(preview.has_video ? { controls: true, preload: 'metadata' } : { alt: assetTitle(preview) }), onError: () => setMediaError(true) }),
-        preview.prompt_excerpt ? h('p', null, preview.prompt_excerpt) : null, error ? h('p', { role: 'alert' }, error) : null,
-        h('a', { href: assetUrl('download', preview.job_id), download: '', className: 'elysium-icon-link', 'aria-label': '下载素材', title: '下载素材' }, h(Icon, { name: 'download' }))) : null)
+        h('span', { role: 'status' }, busy || !data ? '正在读取…' : `共 ${data.total ?? data.items.length} 条`),
+        h('div', { className: 'elysium-pagination-actions' }, select('每页', 'page_size', [[24, '24 条/页'], [48, '48 条/页'], [96, '96 条/页']]),
+          h(IconButton, { name: 'chevronLeft', label: '上一页', disabled: busy || state.page === 0, onClick: () => change({ page: state.page - 1, scroll: 0 }) }),
+          h('span', null, `${state.page + 1} / ${pages}`),
+          h(IconButton, { name: 'chevronRight', label: '下一页', disabled: busy || state.page + 1 >= pages, onClick: () => change({ page: state.page + 1, scroll: 0 }) }))))
   }
   Object.assign(exports, { MaterialList })
   return exports
