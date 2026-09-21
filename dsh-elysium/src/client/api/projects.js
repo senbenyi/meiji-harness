@@ -17,7 +17,8 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   const fetchProjects = () => request('list')
   const fetchProject = id => request('get', null, { id })
   const fetchEpisode = (id, episode) => request('episode', null, { id, number: episode })
-  const createProject = ({ title, director, cover_job_id, genre, synopsis }) => request('create', { title, director, genre, synopsis, ...(cover_job_id ? { cover_job_id } : {}) })
+  const createProject = ({ title, director, genre, synopsis }) => request('create', { title, director, genre, synopsis })
+  const suggestProject = director => request('project-suggest', { director })
   const updateProject = (id, patch) => request('update', { ...patch, id })
   const deleteProject = id => request('delete', { id })
   const replaceAnchorImage = (id, role, jobId) => request('import', { id, as: 'anchor', role, job_id: jobId })
@@ -33,7 +34,7 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   const pauseAuto = id => request('auto-pause', { id })
   const resumeAuto = id => request('auto-resume', { id })
   const pollProject = (id, since) => request('poll', null, { id, since })
-  Object.assign(exports, { fetchProjects, fetchProject, fetchEpisode, createProject, updateProject, deleteProject, replaceAnchorImage, generateAnchorImage, confirmAnchors,
+  Object.assign(exports, { fetchProjects, fetchProject, fetchEpisode, createProject, suggestProject, updateProject, deleteProject, replaceAnchorImage, generateAnchorImage, confirmAnchors,
     readPlanning, generatePlanning, editPlanning, finalizePlanning, reshootShot, retryShot, startAuto, pauseAuto, resumeAuto, pollProject })
   return exports
 } })

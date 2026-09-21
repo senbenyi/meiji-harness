@@ -3,7 +3,7 @@ import { createSkillsStore } from '../../database/managers/skills.js'
 import { createDirectorStore } from '../../database/managers/directors.js'
 import { validProjectId, validShotId } from '../../database/schemas/projects.js'
 import { statusError } from '../../utils/errors.js'
-import { planningSchema, planningSteps, validatePlanningResult } from './planning-schema.js'
+import { planningSchema, planningSteps, projectDraftSchema, validatePlanningResult, validateProjectDraft } from './planning-schema.js'
 import { randomBytes } from 'node:crypto'
 
 const invalid = message => statusError(400, message)
@@ -36,6 +36,17 @@ function preserveShots(next, previous) {
 
 export function createPlanningService(store, complete, directors = createDirectorStore()) {
   const skills = createSkillsStore()
+  const suggestProject = async input => {
+    const name = input?.director
+    if (typeof name !== 'string' || !name.trim()) throw invalid('请选择项目导演')
+    const director = await directors.get(name)
+    const base = await skills.get('drama-planning')
+    const script = await optionalReference(skills, director.name, 'script.md')
+    const result = await complete({ name: 'project_draft', schema: projectDraftSchema, llm: base.metadata?.llm,
+      system: [base.content, director.content, script, '根据导演风格构思一个适合制作人物短剧的原创项目。仅输出项目名称 title、项目题材 genre、故事梗概 synopsis。故事梗概须交代主角、核心冲突和故事走向；不要生成剧本、分镜或封面。'].filter(Boolean).join('\n\n'),
+      user: JSON.stringify({ director: director.display_name }) })
+    return validateProjectDraft(result)
+  }
   async function context(input) {
     const { id, step, episode, shot_id: shotId } = input
     if (!validProjectId(id) || !planningSteps.includes(step)) throw invalid('项目或规划步骤无效')
@@ -106,7 +117,8 @@ export function createPlanningService(store, complete, directors = createDirecto
     if (input.step === 'series') {
       const { changed } = await store.createAnchorsFromCast(input.id, finalized(planning.series))
       if (changed.length) await store.changeAuto(input.id, auto => ({ ...auto, anchors_confirmed: false }))
-      await store.generateAnchorImages(input.id)
+      // 出图提交失败不影响定稿：锚点页可手动重试，流水线也会补出图。
+      await store.generateAnchorImages(input.id).catch(() => {})
     }
     if (input.step === 'storyboard' && state.planning.episodes[input.episode]?.storyboard?.finalized !== input.version) {
       const value = finalized(planning.episodes[input.episode].storyboard)
@@ -135,5 +147,5 @@ export function createPlanningService(store, complete, directors = createDirecto
     if (!validProjectId(id)) throw invalid('项目 ID 无效')
     return store.readPlanning(id)
   }
-  return { generate, edit, finalize, read }
+  return { suggestProject, generate, edit, finalize, read }
 }

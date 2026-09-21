@@ -18,6 +18,7 @@ import { getJob } from '../src/worker/runner/inspect.js'
 import { jobRoot } from '../src/worker/store/paths.js'
 import { saveStatus } from '../src/worker/store/status.js'
 import { heartbeatStale } from '../src/worker/runner/heartbeat.js'
+import { job, seedProject, writeJob } from './fixtures/drama.mjs'
 
 const project = 'abcd1234'
 const cover = 'f'.repeat(32)
@@ -160,79 +161,59 @@ test('terminal settlement is retried until the sink succeeds and then leaves the
   } finally { dispose() }
 }))
 
-test('project sink applies terminal task state idempotently to the bound shot', async t => fixture(t, async () => {
-  const store = createProjectStore(coverOptions)
-  const projectValue = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
-  await store.changeAct(projectValue.id, 'add', { title: '第一幕' })
-  let value = await store.changeShot(projectValue.id, 'add', { act_index: 0, role: '', action: '镜头', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' })
-  const shotId = value.acts[0].shots[0].id, disposers = []
-  registerProjectSinks({ effect: run => disposers.push(run()) }, store)
-  try {
-    const input = request('bound')
-    input.project_id = projectValue.id
-    input.lane.id = `project-${projectValue.id}-main`
-    input.tasks[0].binding = { type: 'shot', shot_id: shotId }
-    const accepted = await submit(input)
-    await store.changeShot(projectValue.id, 'update', { id: shotId, job_id: accepted.tasks[0].task_id, status: 'pending' })
-    await cancel(accepted.tasks[0].task_id)
-    await driveOnce()
-    value = await store.read(projectValue.id)
-    assert.equal(value.acts[0].shots[0].job_id, accepted.tasks[0].task_id)
-    assert.equal(value.acts[0].shots[0].status, 'cancelled')
-  } finally { for (const dispose of disposers.reverse()) dispose() }
-}))
+const autodl = { provider: 'autodl', service: 'comfyui', base_url: 'https://comfy.test', connection: { workload: 'minimax-h3' }, instance_id: 'i', deployment_id: 'd' }
+async function production(t, run) {
+  const root = await mkdtemp(join(tmpdir(), 'project-production-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  return withConfig({ COMFYUI_URL: autodl.base_url, ELYSIUM_BACKEND: autodl, ELYSIUM_STATE_ROOT: root }, async () => {
+    const store = createProjectStore({ directorExists: async () => true }), created = await store.change('create', { title: '项目', director: '导演' })
+    await seedProject(root, created.id)
+    await writeJob(root, job('c'), { project_id: created.id, status: 'succeeded', result: { media_kind: 'image', comfyui_view_url: 'https://comfy.test/view?filename=c.png&type=output' } })
+    const disposers = []
+    registerProjectSinks({ effect: action => disposers.push(action()) }, store)
+    try { return await run(store, created.id) } finally { for (const dispose of disposers.reverse()) dispose() }
+  })
+}
 
-test('driver automatically claims a project task and its terminal sink updates the bound shot', async t => fixture(t, async () => {
-  const store = createProjectStore(coverOptions), created = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
-  await store.changeAct(created.id, 'add', { title: '幕' })
-  const projectValue = await store.changeShot(created.id, 'add', { act_index: 0, role: '', action: '镜头', subtitle: '', mode: 'i2va', job_id: null, status: 'pending', notes: '' })
-  const shotId = projectValue.acts[0].shots[0].id, submission = 'auto-project-001', dependency = taskId(submission, 0), disposers = []
-  registerProjectSinks({ effect: run => disposers.push(run()) }, store)
-  try {
-    const accepted = await submit({ submission_id: submission, lane: { id: `project-${created.id}-main`, priority: 'batch' }, project_id: created.id, tasks: [
-      { kind: 'video', plan: { mode: 't2va', prompt: '锚点' } },
-      { kind: 'video', plan: { mode: 'i2va', prompt: '镜头', first_frame: `job:${dependency}` }, binding: { type: 'shot', shot_id: shotId } },
-    ] })
-    await store.changeShot(created.id, 'update', { id: shotId, job_id: accepted.tasks[1].task_id, status: 'pending' })
-    await saveStatus(jobRoot(dependency), { ...(await getJob(dependency)), status: 'failed', stage: 'failed', error_code: 'TEST', error: 'test', finished_at: new Date().toISOString() })
-    await driveOnce()
-    assert.equal((await getJob(accepted.tasks[1].task_id)).error_code, 'REFERENCE_FAILED')
-    await driveOnce()
-    const shot = (await store.read(created.id)).acts[0].shots[0]
-    assert.equal(shot.job_id, accepted.tasks[1].task_id)
-    assert.equal(shot.status, 'failed')
-  } finally { for (const dispose of disposers.reverse()) dispose() }
-}))
-
-test('project production builds ordered t2va and i2va tasks, persists pending IDs, and is idempotent', async t => fixture(t, async () => {
-  const store = createProjectStore(coverOptions)
-  const created = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
-  const anchor = { role: 'lead', label: '主角', description: '', source: null, image_url: 'https://comfy.test/view?filename=lead.png&type=output' }
-  await store.change('update', { id: created.id, anchors: [anchor], acts: [{ title: '第一幕', shots: [
-    { id: 'shot-a', role: '', action: '远景开场', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' },
-    { id: 'shot-b', role: 'lead', action: '人物转身', subtitle: '', mode: 'i2va', job_id: null, status: 'pending', notes: '' },
-  ] }] })
-  const input = { project_id: created.id, shot_ids: ['shot-b', 'shot-a'], submission_id: 'project-produce-001' }
-  const first = await store.produce(input), repeated = await store.produce(input)
-  assert.deepEqual(repeated.tasks, first.tasks)
-  assert.equal(first.lane_id, `project-${created.id}-main`)
-  const records = await Promise.all(first.tasks.map(item => readTask(item.task_id)))
-  assert.deepEqual(records.map(item => item.binding), [{ type: 'shot', shot_id: 'shot-a' }, { type: 'shot', shot_id: 'shot-b' }])
-  assert.deepEqual(records.map(item => item.plan), [{ mode: 't2va', prompt: '远景开场' }, { mode: 'i2va', prompt: '人物转身', first_frame: 'https://comfy.test/view?filename=lead.png&type=output' }])
-  assert.ok(records.every(item => item.lane.id === `project-${created.id}-main`))
-  assert.deepEqual(first.project.acts[0].shots.map(shot => [shot.status, shot.job_id]), first.tasks.map(item => ['pending', item.task_id]))
-  assert.ok(first.tasks.every(item => (first.project.acts[0].shots.some(shot => shot.job_id === item.task_id))))
+test('each shot submits a keyframe then an i2va video in one lane with fresh seeds per take and idempotent replays', async t => production(t, async (store, id) => {
+  const first = (await store.produceShot({ project_id: id, episode: 1, shot_id: 's1' })).acts[0].shots[0]
+  const [keyframe, video] = await Promise.all([readTask(first.keyframe_job_id), readTask(first.job_id)])
+  assert.deepEqual([first.take, first.status, keyframe.lane.id, video.lane.id], [1, 'pending', `project-${id}-main`, `project-${id}-main`])
+  assert.deepEqual(keyframe.binding, { type: 'keyframe', shot_id: 's1', episode: 1 })
+  assert.deepEqual(keyframe.plan, { capability: 'image-generate', params: { prompt: 'a man in a kitchen', seed: keyframe.plan.params.seed, purpose: 'keyframe', image_path: `job:${job('c')}` } })
+  assert.deepEqual(video.plan, { mode: 'i2va', prompt: '场景：公寓。旧厨房\n提示词 台词s1', first_frame: `job:${first.keyframe_job_id}`, duration_seconds: 5, seed: video.plan.seed })
+  await assert.rejects(store.produceShot({ project_id: id, episode: 1, shot_id: 's1' }), /已有任务/)
+  await assert.rejects(store.reshootShot({ project_id: id, episode: 1, shot_id: 's1' }), /正在生成/)
+  await store.changeShot(id, { id: 's1', episode: 1, status: 'succeeded' })
+  const reset = (await store.reshootShot({ project_id: id, episode: 1, shot_id: 's1' })).acts[0].shots[0]
+  assert.deepEqual([reset.job_id, reset.keyframe_job_id, reset.status, reset.take], [null, null, 'pending', 1])
+  const second = (await store.produceShot({ project_id: id, episode: 1, shot_id: 's1' })).acts[0].shots[0]
+  const next = await readTask(second.keyframe_job_id)
+  assert.notEqual(second.keyframe_job_id, first.keyframe_job_id)
+  assert.notEqual(next.plan.params.seed, keyframe.plan.params.seed)
+  await store.changeShot(id, { id: 's1', episode: 1, take: 1, job_id: null, keyframe_job_id: null })
+  assert.equal((await store.produceShot({ project_id: id, episode: 1, shot_id: 's1' })).acts[0].shots[0].keyframe_job_id, second.keyframe_job_id)
   const indexed = new Set((await loadDriver()).entries.map(entry => entry.task_id))
-  assert.ok(first.tasks.every(item => indexed.has(item.task_id)))
+  assert.ok([first.keyframe_job_id, first.job_id].every(item => indexed.has(item)))
 }))
 
-test('project production rejects i2va without a usable anchor and never fabricates unsupported modes', async t => fixture(t, async () => {
-  const store = createProjectStore(coverOptions), created = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
-  const shot = mode => ({ id: 'shot-a', role: 'lead', action: '动作', subtitle: '', mode, job_id: null, status: 'pending', notes: '' })
-  await store.change('update', { id: created.id, acts: [{ title: '幕', shots: [shot('i2va')] }] })
-  await assert.rejects(store.produce({ project_id: created.id, shot_ids: ['shot-a'], submission_id: 'missing-anchor-001' }), /缺少有效角色锚点/)
-  await store.change('update', { id: created.id, acts: [{ title: '幕', shots: [shot('fl2va')] }] })
-  await assert.rejects(store.produce({ project_id: created.id, shot_ids: ['shot-a'], submission_id: 'unsupported-mode-001' }), /暂不支持项目直接生成/)
+test('a failed keyframe fails its video without launching a worker and both sinks mark the shot failed', async t => production(t, async (store, id) => {
+  const shot = (await store.produceShot({ project_id: id, episode: 1, shot_id: 's2' })).acts[0].shots[1]
+  await saveStatus(jobRoot(shot.keyframe_job_id), { ...(await getJob(shot.keyframe_job_id)), status: 'failed', stage: 'failed', error_code: 'TEST', error: 'test', finished_at: new Date().toISOString() })
+  await driveOnce()
+  assert.equal((await getJob(shot.job_id)).error_code, 'REFERENCE_FAILED')
+  await driveOnce()
+  const settled = (await store.readEpisode(id, 1)).acts[0].shots[1]
+  assert.deepEqual([settled.job_id, settled.status], [shot.job_id, 'failed'])
+  await assert.rejects(store.retryShot({ project_id: id, episode: 1, shot_id: 's2' }), /请重拍/)
+}))
+
+test('shots wait for a ready main-character reference and finalized prompts', async t => production(t, async (store, id) => {
+  await store.changeAnchor(id, 'update', { role: 'lin', image_needs_review: true })
+  await assert.rejects(store.produceShot({ project_id: id, episode: 1, shot_id: 's1' }), /主角锚点图尚未就绪/)
+  await store.changeAnchor(id, 'update', { role: 'lin', image_needs_review: false })
+  await store.changeShot(id, { id: 's1', episode: 1, prompt_finalized: false })
+  await assert.rejects(store.produceShot({ project_id: id, episode: 1, shot_id: 's1' }), /提示词尚未定稿/)
 }))
 
 test('director batch tool binds its waiter to the owning agent and cancelling the waiter keeps durable tasks', async t => fixture(t, async () => {

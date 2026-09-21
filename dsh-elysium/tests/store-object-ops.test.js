@@ -1,123 +1,52 @@
-// 职责：验证对象级修改、镜头身份迁移及旧整数组接口兼容性。
+// 职责：验证锚点、镜头与自动生产状态的对象级修改、字段校验和轮询标记。
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
 import { createProjectStore } from '../src/database/managers/projects.js'
-import { actsValue, anchorValue, validShotId } from '../src/server/projects/schema.js'
+import { anchorValue, autoValue, shotValue } from '../src/server/projects/schema.js'
+import { job, seedProject, shot } from './fixtures/drama.mjs'
 
-const cover = 'f'.repeat(32)
-const coverOptions = { readJob: async job_id => ({ job_id, status: 'succeeded' }), summarizeJob: async () => ({ has_image: true }) }
-const shot = { role: 'lin', action: '走入画面', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }
 async function fixture(run) {
   const root = await mkdtemp(join(tmpdir(), 'elysium-object-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const store = createProjectStore(coverOptions)
-      const project = await store.change('create', { title: '项目', director: '导演', profile: 'preview', cover_job_id: cover })
-      await store.change('update', { id: project.id, acts: [{ title: '第一幕', shots: [] }, { title: '第二幕', shots: [] }] })
+      const store = createProjectStore()
+      const project = await store.change('create', { title: '项目', director: '导演' })
+      await seedProject(root, project.id)
       await run(store, project.id, root)
     })
   } finally { await rm(root, { recursive: true, force: true }) }
 }
 
-test('object operations preserve other fields, register materials and rename linked roles', () => fixture(async (store, id) => {
-  await store.changeAnchor(id, 'add', { role: 'lin', label: '林', description: '白衣' })
-  await store.changeAnchor(id, 'add', { role: 'room', label: '房间' })
-  await store.changeShot(id, 'add', { act_index: 0, ...shot })
-  await Promise.all([
-    store.changeAnchor(id, 'update', { role: 'lin', new_role: 'xiaolin' }),
-    store.changeAnchor(id, 'update', { role: 'room', description: '夜晚' }),
-  ])
-  let value = await store.read(id)
-  assert.equal(value.anchors[0].description, '白衣')
-  assert.equal(value.anchors[1].description, '夜晚')
-  assert.equal(value.acts[0].shots[0].role, 'xiaolin')
-  const shotId = value.acts[0].shots[0].id
-  await store.changeShot(id, 'update', { id: shotId, subtitle: '你好', job_id: 'a'.repeat(32) })
-  value = await store.read(id)
-  assert.equal(value.acts[0].shots[0].action, shot.action)
-  assert.equal(value.acts[0].shots[0].subtitle, '你好')
-  assert.deepEqual(value.materials, [cover, 'a'.repeat(32)])
-  await store.changeAnchor(id, 'delete', { role: 'room' })
-  await store.changeShot(id, 'delete', { id: shotId })
-  value = await store.read(id)
-  assert.equal(value.anchors.length, 1)
-  assert.equal(value.acts[0].shots.length, 0)
-  assert.deepEqual(value.materials, [cover, 'a'.repeat(32)])
-}))
-
-test('shot IDs survive reordering, partial edits and reload, and moves stay within the act', () => fixture(async (store, id) => {
-  await store.changeShot(id, 'add', { act_index: 0, ...shot })
-  await store.changeShot(id, 'add', { act_index: 0, ...shot, action: '转身' })
-  let value = await store.read(id)
-  const [first, second] = value.acts[0].shots.map(shot => shot.id)
-  assert.ok(validShotId(first)); assert.notEqual(first, second)
-  value = await store.changeShot(id, 'move', { id: second, direction: -1 })
-  assert.deepEqual(value.acts[0].shots.map(shot => [shot.id, shot.index]), [[second, 1], [first, 2]])
-  await assert.rejects(store.changeShot(id, 'move', { id: second, direction: -1 }), /边界/)
-  await store.changeShot(id, 'update', { id: first, notes: '保留身份' })
-  assert.equal((await createProjectStore().read(id)).acts[0].shots[1].id, first)
-}))
-
-test('act operations let an empty project build and reorder a storyboard', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'elysium-act-'))
-  try {
-    await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const store = createProjectStore(coverOptions)
-      const project = await store.change('create', { title: '项目', director: '导演', profile: 'preview', cover_job_id: cover })
-      await store.changeAct(project.id, 'add', { title: '第一幕' })
-      await store.changeAct(project.id, 'add', { title: '第二幕' })
-      await store.changeShot(project.id, 'add', { act_index: 0, ...shot })
-      await store.changeAct(project.id, 'update', { act_index: 1, title: '结尾' })
-      const moved = await store.changeAct(project.id, 'move', { act_index: 1, direction: -1 })
-      assert.deepEqual(moved.acts.map(act => act.title), ['结尾', '第一幕'])
-      assert.equal(moved.acts[1].shots.length, 1)
-      await assert.rejects(store.changeAct(project.id, 'move', { act_index: 0, direction: -1 }), /边界/)
-      await store.changeAct(project.id, 'delete', { act_index: 0 })
-      assert.deepEqual((await store.read(project.id)).acts.map(act => act.title), ['第一幕'])
-    })
-  } finally { await rm(root, { recursive: true, force: true }) }
-})
-
-test('missing IDs migrate once for split and monolithic projects; legacy update remains usable', () => fixture(async (store, id, root) => {
-  const directory = join(root, 'projects', id)
-  const legacyActs = [{ title: '旧幕', shots: [{ index: 1, ...shot }] }]
-  await writeFile(join(directory, 'storyboard.json'), JSON.stringify(legacyActs))
-  let value = await store.read(id)
-  const first = value.acts[0].shots[0].id
-  assert.ok(validShotId(first))
-  assert.equal((await store.read(id)).acts[0].shots[0].id, first)
-  assert.deepEqual(JSON.parse(await readFile(join(directory, 'storyboard.json'), 'utf8')), value.acts)
-  value = await store.change('update', { id, title: '新标题', acts: value.acts })
-  assert.equal(value.acts[0].shots[0].id, first)
-  await writeFile(join(directory, 'project.json'), JSON.stringify({ ...value, acts: legacyActs }))
-  value = await createProjectStore().read(id)
-  assert.ok(validShotId(value.acts[0].shots[0].id))
-  value = await store.change('update', { id, acts: legacyActs })
-  assert.ok(validShotId(value.acts[0].shots[0].id))
-  assert.equal((await store.read(id)).acts[0].shots[0].id, value.acts[0].shots[0].id)
+test('object operations preserve other fields and register materials', () => fixture(async (store, id, root) => {
+  let value = await store.changeAnchor(id, 'update', { role: 'lin', source: { type: 'material', job_id: job('d') } })
+  assert.deepEqual(value.anchors[0], { role: 'lin', kind: 'character', label: '林', description: '灰外套；音色：低沉；性格：克制', image_prompt: 'adult Chinese man, grey coat', image_job_id: job('c'), source: { type: 'material', job_id: job('d') } })
+  assert.deepEqual(value.materials, [job('d')])
+  value = await store.changeShot(id, { id: 's2', episode: 1, job_id: job('e'), keyframe_job_id: job('a'), status: 'pending' })
+  assert.deepEqual(value.acts[0].shots[1], shot('s2', { job_id: job('e'), keyframe_job_id: job('a') }))
+  assert.deepEqual(value.acts[0].shots[0], shot('s1'))
+  assert.deepEqual(JSON.parse(await readFile(join(root, 'projects', id, 'materials.json'), 'utf8')), [job('d'), job('e'), job('a')])
+  await store.changeAnchor(id, 'delete', { role: 'scene-room' })
+  assert.deepEqual((await store.read(id)).anchors.map(item => item.role), ['lin'])
 }))
 
 test('invalid object changes fail without altering the project', () => fixture(async (store, id) => {
-  await store.changeAnchor(id, 'add', { role: 'lin' })
-  await store.changeAnchor(id, 'add', { role: 'room' })
-  const before = await store.read(id)
-  for (const run of [
-    () => store.changeAnchor(id, 'add', { role: 'lin' }),
-    () => store.changeAnchor(id, 'update', { role: 'lin', new_role: 'room' }),
-    () => store.changeAnchor(id, 'update', { role: 'lin', image_url: 'file:///tmp/a.png' }),
-    () => store.changeAnchor(id, 'delete', { role: 'missing' }),
-    () => store.changeShot(id, 'add', { act_index: 9 }),
-    () => store.changeShot(id, 'update', { id: 'missing' }),
-    () => store.changeShot(id, 'move', { id: '../bad', direction: 2 }),
-    () => store.read('../bad'),
-  ]) await assert.rejects(run)
-  assert.deepEqual(await store.read(id), before)
-  assert.throws(() => actsValue([{ title: '', shots: [{ ...shot, id: 'same' }, { ...shot, id: 'same' }] }]), /重复/)
-  assert.throws(() => anchorValue(before.anchors[0], new Set(['lin'])), /重复/)
+  const before = await store.readEpisode(id, 1)
+  await assert.rejects(store.changeAnchor(id, 'add', { role: 'lin', kind: 'character', label: '重复', description: '', image_prompt: 'x' }), /锚点已存在/)
+  await assert.rejects(store.changeAnchor(id, 'update', { role: 'lin', image_prompt: '' }), /锚点字段无效/)
+  await assert.rejects(store.changeAnchor(id, 'update', { role: 'scene-room', source: { type: 'job', job_id: job('a') } }), /锚点字段无效/)
+  await assert.rejects(store.changeAnchor(id, 'move', { role: 'lin' }), /锚点操作无效/)
+  await assert.rejects(store.changeShot(id, { id: 's1', episode: 1, job_id: '../bad' }), /镜字段无效/)
+  await assert.rejects(store.changeShot(id, { id: 's1', episode: 1, duration: 16 }), /镜字段无效/)
+  await assert.rejects(store.changeShot(id, { id: 's1', episode: 0 }), /项目或集数无效/)
+  await assert.rejects(store.changeAuto(id, auto => ({ ...auto, until_episode: 101 })), /自动生产状态无效/)
+  assert.deepEqual(await store.readEpisode(id, 1), before)
+  assert.throws(() => anchorValue({ role: 'x', kind: 'material', label: 'x', description: '', source: null }), /锚点字段无效/)
+  assert.deepEqual(Object.keys(shotValue({ ...shot('s1'), mode: 't2va', role: 'lin', accepted: true })), Object.keys(shot('s1')))
+  assert.deepEqual(autoValue({}), { enabled: false, until_episode: null, anchors_confirmed: false, cascade_confirmed: false, paused: null, attempts: {} })
 }))
 
 test('successful writes advance poll markers even within one millisecond and survive restart', t => fixture(async (store, id) => {
@@ -125,14 +54,18 @@ test('successful writes advance poll markers even within one millisecond and sur
   t.mock.method(Date, 'now', () => previous)
   const updated = await store.change('update', { id, title: '更新' })
   assert.equal(updated.updated_at, previous + 1)
-  const anchor = await store.changeAnchor(id, 'add', { role: 'lin' })
+  const anchor = await store.changeAnchor(id, 'update', { role: 'lin', label: '林二' })
   assert.equal(anchor.updated_at, previous + 2)
-  const shot = await store.changeShot(id, 'add', { act_index: 0 })
-  assert.equal(shot.updated_at, previous + 3)
-  assert.equal(await store.lastModified(id), shot.updated_at)
-  assert.equal(await createProjectStore().lastModified(id), shot.updated_at)
-  await assert.rejects(store.changeShot(id, 'delete', { id: 'missing' }))
-  assert.equal(await store.lastModified(id), shot.updated_at)
+  const shotValue = await store.changeShot(id, { id: 's1', episode: 1, status: 'failed' })
+  assert.equal(shotValue.updated_at, previous + 3)
+  const auto = await store.changeAuto(id, value => ({ ...value, enabled: true }))
+  assert.equal(auto.updated_at, previous + 4)
+  assert.equal((await store.changeAuto(id, value => value)).updated_at, previous + 4)
+  await store.appendPlanningVersion(id, 'series', undefined, undefined, { logline: '草稿' })
+  assert.equal(await store.lastModified(id), previous + 5)
+  assert.equal(await createProjectStore().lastModified(id), previous + 5)
+  await assert.rejects(store.changeShot(id, { id: 'missing', episode: 1, status: 'failed' }))
+  assert.equal(await store.lastModified(id), previous + 5)
   await store.change('delete', { id })
   await assert.rejects(store.lastModified(id), { code: 'ENOENT' })
 }))

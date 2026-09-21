@@ -67,7 +67,7 @@ dsh-elysium/
 - 插件 Cordis 装配统一位于 `harness/.dsh/profiles/web/cordis.patch.yml`，插件包不自带 Harness 运行配置。
 - 新增客户端模块（含 `workbench/`）后须同步更新 `scripts/loader.js` 的模块列表，依赖在前、`index.js` 最后。
 - `workbench/` 使用 `load(name, (require, exports) => { ... })` 定义模块；拼接脚本适配宿主的 `{ id, factory }` 注册格式，不引入 bundler。
-- 媒体及项目端点共用注入 token，客户端通过 `mediaUrl()` 构建带凭据的 URL。用户下载流式代理上游，不保存媒体文件；项目 JSON 使用临时文件加 rename 原子写入。
+- 媒体及项目端点共用注入 token，客户端通过 `mediaUrl()` 构建带凭据的 URL。已落本地的媒体读本地文件，不代理模型服务器；项目 JSON 使用临时文件加 rename 原子写入。
 
 ## 2. 预设结构
 
@@ -123,8 +123,8 @@ dsh-elysium/tests/         # 插件单元测试
 
 ## 5. 铁律
 
-- 插件不允许上传、下载、保存文件方法。
-- 插件中媒体、视频、图片一律使用服务器 URL。
+- 模型产物由 Worker 经 `saveMedia` 保存到所属项目 `media/` 并登记；工作台播放与下载一律经认证 URL 读本地文件，不依赖模型服务器在线。
+- 仅 Worker 可向模型服务器上传任务参考图（导入素材或其他服务器的图片）；其他模块不得上传、下载或保存媒体文件。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 
 - 原有 Runpod H3 模板与完整 UI 元数据位于 `src/worker/models/providers/runpod/workflows/minimax-h3/`，迁移不得删字段或重写原始内容；公共同步脚本只负责平台路由。

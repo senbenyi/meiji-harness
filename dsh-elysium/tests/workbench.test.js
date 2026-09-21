@@ -6,7 +6,9 @@ import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 
 function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [], status = { has_video: true } } = {}) {
-  const project = { id: '12345678', title: '项目', anchors: [], acts: [{ title: '幕', shots: [{ id: 'shot-1', role: '', action: '走路', subtitle: '', notes: '', mode: 't2va', job_id: null, status: 'pending' }] }], deliverables: [] }
+  const acts = [{ title: '第 1 集', shots: [{ id: 'shot-1', roles: [], scene: 'room', shot_size: '远景', camera: '固定', action: '走路', duration: 5, dialogue: [], subtitle: '', prompt: '', keyframe_prompt: '', prompt_finalized: false, take: 0, keyframe_job_id: null, job_id: null, status: 'pending' }] }]
+  const project = { id: '12345678', title: '项目', updated_at: 1, anchors: [], materials: [], episodes: [{ number: 1, acts, deliverables: [], film_task: null }], acts, deliverables: [],
+    auto: { enabled: false, until_episode: null, anchors_confirmed: false, cascade_confirmed: false, paused: null, attempts: {} } }
   const modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
     document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },

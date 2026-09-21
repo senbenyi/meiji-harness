@@ -7,7 +7,7 @@ import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
 const reads = ['list', 'get', 'episode', 'poll']
-const actions = [...reads, 'create', 'update', 'delete', 'import', 'anchor-generate', 'anchors-confirm', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read',
+const actions = [...reads, 'create', 'update', 'delete', 'import', 'anchor-generate', 'anchors-confirm', 'project-suggest', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read',
   'reshoot', 'retry', 'auto-start', 'auto-pause', 'auto-resume']
 const exactBody = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key))
 const shotBody = body => exactBody(body, ['project_id', 'episode', 'shot_id'])
@@ -17,6 +17,7 @@ export function createProjectHandler(options) {
   const directors = options.directorStore || createDirectorStore()
   const store = options.projectStore || createProjectStore({ ...options, directorExists: name => directors.has(name) })
   const handlers = {
+    'project-suggest': body => store.planning.suggestProject(body),
     'plan-generate': body => store.planning.generate(body),
     'plan-edit': body => store.planning.edit(body),
     'plan-finalize': body => store.planning.finalize(body),

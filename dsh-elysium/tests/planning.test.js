@@ -11,9 +11,11 @@ import { createProjectStore } from '../src/server/projects/service.js'
 import { validatePlanningResult } from '../src/server/projects/planning-schema.js'
 
 const cover = 'f'.repeat(32)
+let submissions = []
+const submitTasks = async request => { submissions.push(request); return { tasks: request.tasks.map((_, index) => ({ task_id: (submissions.length * 10 + index).toString(16).padStart(32, '0') })) } }
 const templateSkills = new URL('../../harness/.dsh/storages/elysium/pools/skills/', import.meta.url)
 const series = { logline: '一封信改变两人的关系', genre: '悬疑', episode_count: 2, episode_seconds: 10, world: '雨夜旧城',
-  characters: [{ id: 'lin', name: '林', appearance: '灰色外套', voice: '低沉沙哑', personality: '克制' }],
+  characters: [{ id: 'lin', name: '林', appearance: '灰色外套', voice: '低沉沙哑', personality: '克制', image_prompt: 'adult Chinese man, grey coat' }],
   scenes: [{ id: 'room', name: '公寓', description: '旧厨房，冷蓝窗光' }],
   episodes: [1, 2].map(number => ({ number, title: `第${number}集`, summary: '信的秘密', hook: '门外有人' })) }
 const timeline = { beats: [{ start: 0, end: 10, scene_id: 'room', roles: ['lin'], plot: '林打开信', emotion: '疑惑',
@@ -31,7 +33,7 @@ test('planning reads editable Skills, appends versions and marks downstream revi
       const requests = [], outputs = [series, timeline, series]
       const store = createProjectStore({ readJob: async job_id => ({ job_id }), summarizeJob: async () => ({ has_image: true }),
         directorExists: name => directors.has(name), newId: () => '1234abcd',
-        complete: async request => { requests.push(request); return outputs.shift() } })
+        complete: async request => { requests.push(request); return outputs.shift() }, submitTasks })
       const project = await store.change('create', { title: '雨夜的信', director: director.name, cover_job_id: cover })
       const input = { id: project.id, step: 'series' }
       await store.planning.generate(input)
@@ -56,44 +58,44 @@ test('planning reads editable Skills, appends versions and marks downstream revi
       assert.equal((await store.planning.read({ id: project.id })).episodes[1].timeline.versions.length, 2)
     })
     assert.throws(() => validatePlanningResult('series', { ...series, episode_count: 101 }), /剧情总览内容或数量无效/)
-    assert.throws(() => validatePlanningResult('shot-prompt', { prompt: '字'.repeat(20001) }), /超过 20000/)
+    assert.throws(() => validatePlanningResult('shot-prompt', { prompt: '字'.repeat(20001), keyframe_prompt: 'frame' }), /超过 20000/)
+    assert.throws(() => validatePlanningResult('shot-prompt', { prompt: '雨夜' }), /首帧提示词/)
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
-test('finalized episode storyboard and prompt reach the production task', async () => {
+test('finalized episode storyboard and prompts reach a keyframe and video submission', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-episode-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
       await createSkillsStore().seed('drama-planning', new URL('drama-planning/', templateSkills).pathname)
       await createSkillsStore().seed('shot-planning', new URL('shot-planning/', templateSkills).pathname)
       const directors = createDirectorStore(), director = await directors.create({ display_name: '测试导演' })
-      let submission
-      const store = createProjectStore({ readJob: async job_id => ({ job_id }), summarizeJob: async () => ({ has_image: true }),
-        directorExists: name => directors.has(name), newId: () => '1234abcd',
-        submitTasks: async value => { submission = value; return { tasks: [{ task_id: 'a'.repeat(32) }] } } })
-      const project = await store.change('create', { title: '雨夜的信', director: director.name, cover_job_id: cover })
+      submissions = []
+      const store = createProjectStore({ directorExists: name => directors.has(name), newId: () => '1234abcd', submitTasks })
+      const project = await store.change('create', { title: '雨夜的信', director: director.name })
       const accept = async (step, value, episode, shot_id) => {
         await store.planning.edit({ id: project.id, step, episode, shot_id, value })
         await store.planning.finalize({ id: project.id, step, episode, shot_id, version: 1 })
       }
       await accept('series', series)
+      assert.deepEqual(submissions[0].tasks[0].plan.params.character, { view: 'front' })
       await accept('timeline', timeline, 1)
       await accept('storyboard', { shots: [{ scene_id: 'room', roles: ['lin'], shot_size: '近景', camera: '缓推', action: '林打开信', duration: 10,
         dialogue: [{ role: 'lin', text: '是谁寄来的？' }] }] }, 1)
-      const episode = await store.readEpisode(project.id, 1), shot = episode.acts[0].shots[0]
+      const shot = (await store.readEpisode(project.id, 1)).acts[0].shots[0]
       assert.match(shot.id, /^[a-f0-9]{8}$/)
-      assert.equal((await store.read(project.id)).episodes[0].acts[0].shots[0].id, shot.id)
+      assert.deepEqual([shot.take, shot.job_id, shot.prompt_finalized], [0, null, false])
       assert.equal((await store.list())[0].shot_count, 1)
-      await assert.rejects(store.produce({ project_id: project.id, episode: 1, shot_ids: [shot.id], submission_id: 'test-one' }), /提示词尚未定稿/)
-      await accept('shot-prompt', { prompt: '雨夜公寓，林近景，0-10 秒缓推；林以低沉沙哑音色说：是谁寄来的？雨声，中文字幕。' }, 1, shot.id)
-      const ready = await store.readEpisode(project.id, 1)
-      assert.equal(ready.acts[0].shots[0].prompt_finalized, true)
-      await store.produce({ project_id: project.id, episode: 1, shot_ids: [shot.id], submission_id: 'test-two' })
-      assert.equal(submission.tasks[0].binding.episode, 1)
-      assert.equal(submission.tasks[0].plan.duration_seconds, 10)
-      assert.match(submission.tasks[0].plan.prompt, /旧厨房，冷蓝窗光/)
-      assert.match(submission.tasks[0].plan.prompt, /是谁寄来的？/)
-      assert.equal((await store.readEpisode(project.id, 1)).acts[0].shots[0].job_id, 'a'.repeat(32))
+      await store.changeAnchor(project.id, 'update', { role: 'lin', source: { type: 'job', job_id: 'a'.repeat(32) } })
+      await assert.rejects(store.produceShot({ project_id: project.id, episode: 1, shot_id: shot.id }), /提示词尚未定稿/)
+      await accept('shot-prompt', { prompt: '雨夜公寓，林近景，0-10 秒缓推；林以低沉沙哑音色说：是谁寄来的？雨声。', keyframe_prompt: 'close-up of a man holding a letter' }, 1, shot.id)
+      assert.equal((await store.readEpisode(project.id, 1)).acts[0].shots[0].keyframe_prompt, 'close-up of a man holding a letter')
+      await store.produceShot({ project_id: project.id, episode: 1, shot_id: shot.id })
+      const [keyframe, video] = submissions.at(-1).tasks
+      assert.deepEqual([keyframe.kind, keyframe.binding, keyframe.plan.params.image_path], ['image', { type: 'keyframe', shot_id: shot.id, episode: 1 }, `job:${'a'.repeat(32)}`])
+      assert.deepEqual([video.plan.mode, video.plan.duration_seconds, video.binding.episode], ['i2va', 10, 1])
+      assert.match(video.plan.prompt, /旧厨房，冷蓝窗光/)
+      assert.match(video.plan.prompt, /是谁寄来的？/)
       assert.equal((await store.list())[0].status, 'active')
     })
   } finally { await rm(root, { recursive: true, force: true }) }
@@ -110,7 +112,8 @@ test('timeline, storyboard and prompt reject broken time or changed dialogue', (
   assert.throws(() => validatePlanningResult('storyboard', { shots: [{ ...shot, duration: 10.5 }] }, checked), /分镜数量/)
   assert.throws(() => validatePlanningResult('storyboard', { shots: [{ ...shot, duration: 8 }] }, checked), /分镜总时长/)
   assert.throws(() => validatePlanningResult('storyboard', { shots: [{ ...shot, dialogue: [{ role: 'lin', text: '改了台词' }] }] }, checked), /分镜对白/)
-  assert.throws(() => validatePlanningResult('shot-prompt', { prompt: '雨夜公寓' }, { shot }), /缺少定稿对白/)
+  assert.throws(() => validatePlanningResult('storyboard', { shots: [{ ...shot, duration: 1, dialogue: [{ role: 'lin', text: '是谁寄来的？' }] }, { ...shot, action: '沉默', duration: 9, dialogue: [] }] }, checked), /第 1 镜台词超过时长/)
+  assert.throws(() => validatePlanningResult('shot-prompt', { prompt: '雨夜公寓', keyframe_prompt: 'frame' }, { shot }), /缺少定稿对白/)
 })
 
 test('prompt assembly includes common step, director addition and selected example', async () => {
@@ -134,8 +137,8 @@ test('prompt assembly includes common step, director addition and selected examp
           if (request.name === 'drama_series') return series
           if (request.name === 'drama_timeline') return timeline
           if (request.name === 'drama_storyboard') return { shots: [{ scene_id: 'room', roles: ['lin'], shot_size: '近景', camera: '缓推', action: '林打开信', duration: 10, dialogue: [{ role: 'lin', text: '是谁寄来的？' }] }] }
-          return { prompt: '雨夜公寓，林低声说：是谁寄来的？' }
-        } })
+          return { prompt: '雨夜公寓，林低声说：是谁寄来的？', keyframe_prompt: 'a man opens a letter in a kitchen' }
+        }, submitTasks })
       const project = await store.change('create', { title: '雨夜的信', director: director.name, cover_job_id: cover })
       const accept = async (step, value, episode, shot_id) => {
         await store.planning.edit({ id: project.id, step, episode, shot_id, value })
@@ -168,6 +171,7 @@ test('prompt assembly includes common step, director addition and selected examp
 })
 
 test('timeline versions track previous drafts, reject stale basis and retire removed anchors', async () => {
+  submissions = []
   const root = await mkdtemp(join(tmpdir(), 'elysium-timeline-versions-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
@@ -175,7 +179,7 @@ test('timeline versions track previous drafts, reject stale basis and retire rem
       const directors = createDirectorStore(), first = await directors.create({ display_name: '导演甲' }), second = await directors.create({ display_name: '导演乙' })
       let request
       const store = createProjectStore({ readJob: async job_id => ({ job_id }), summarizeJob: async () => ({ has_image: true }),
-        directorExists: name => directors.has(name), newId: () => '1234abcd', complete: async value => { request = value; return timeline } })
+        directorExists: name => directors.has(name), newId: () => '1234abcd', complete: async value => { request = value; return timeline }, submitTasks })
       const project = await store.change('create', { title: '雨夜的信', director: first.name, cover_job_id: cover })
       const edit = (step, value, episode) => store.planning.edit({ id: project.id, step, episode, value })
       const finalize = (step, version, episode) => store.planning.finalize({ id: project.id, step, episode, version })
@@ -201,77 +205,62 @@ test('timeline versions track previous drafts, reject stale basis and retire rem
       const anchors = (await store.read(project.id)).anchors
       assert.equal(anchors.find(item => item.role === 'lin').retired, true)
       assert.equal(anchors.find(item => item.role === 'kai').retired, undefined)
-      assert.equal(anchors.find(item => item.role === 'scene-room').image_needs_review, true)
+      assert.equal(anchors.find(item => item.role === 'scene-room').description, '旧厨房，暖黄灯光')
+      assert.equal(anchors.find(item => item.role === 'scene-room').image_needs_review, undefined)
+      assert.deepEqual(submissions.map(item => item.tasks[0].binding.role), ['lin', 'kai'])
       await store.change('update', { id: project.id, director: second.name })
       assert.equal((await store.planning.read({ id: project.id })).series.needs_review, true)
     })
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
-test('storyboard keeps matching shots, blocks active replacements and requires adoption and review', async () => {
+test('storyboard keeps matching shots, resets changed prompts and blocks active replacements and review gaps', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-storyboard-review-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
       const directors = createDirectorStore(), director = await directors.create({ display_name: '测试导演' })
-      const submissions = []
-      let nextJob = 0
-      const store = createProjectStore({ readJob: async job_id => ({ job_id }), summarizeJob: async () => ({ has_image: true }),
-        directorExists: name => directors.has(name), newId: () => '1234abcd', submitTasks: async request => {
-          submissions.push(request)
-          return { tasks: request.tasks.map(() => ({ task_id: (++nextJob).toString(16).padStart(32, '0') })) }
-        } })
-      const project = await store.change('create', { title: '雨夜的信', director: director.name, cover_job_id: cover })
+      submissions = []
+      const store = createProjectStore({ directorExists: name => directors.has(name), newId: () => '1234abcd', submitTasks })
+      const project = await store.change('create', { title: '雨夜的信', director: director.name })
       const single = { ...series, episode_count: 1, episodes: [series.episodes[0]] }
       const shots = [
         { scene_id: 'room', roles: ['lin'], shot_size: '近景', camera: '缓推', action: '林打开信', duration: 5, dialogue: [{ role: 'lin', text: '是谁寄来的？' }] },
-        { scene_id: 'room', roles: ['lin'], shot_size: '中景', camera: '固定', action: '林看向门口', duration: 5, dialogue: [] },
+        { scene_id: 'room', roles: [], shot_size: '空镜', camera: '固定', action: '门口空镜', duration: 5, dialogue: [] },
       ]
       const edit = (step, value, shot_id) => store.planning.edit({ id: project.id, step, episode: step === 'series' ? undefined : 1, shot_id, value })
       const finalize = (step, version, shot_id) => store.planning.finalize({ id: project.id, step, episode: step === 'series' ? undefined : 1, shot_id, version })
+      const prompt = (shot, extra = '') => ({ prompt: `场景公寓：${shot.action}。${shot.dialogue.map(line => line.text).join(' ')}${extra}`, keyframe_prompt: 'kitchen at night' })
       await edit('series', single); await finalize('series', 1)
+      await store.changeAnchor(project.id, 'update', { role: 'lin', source: { type: 'job', job_id: 'a'.repeat(32) } })
       await edit('timeline', timeline); await finalize('timeline', 1)
       await edit('storyboard', { shots }); await finalize('storyboard', 1)
       let current = (await store.readEpisode(project.id, 1)).acts[0].shots
-      for (const shot of current) {
-        await edit('shot-prompt', { prompt: `场景公寓：${shot.action}。${shot.dialogue.map(line => line.text).join(' ')}` }, shot.id)
-        await finalize('shot-prompt', 1, shot.id)
-      }
-      const image = await store.generateAnchorImage({ project_id: project.id, role: 'lin' })
-      assert.equal(image.tasks.length, 1)
-      assert.deepEqual(submissions[0].tasks[0].binding, { type: 'anchor', role: 'lin' })
-      await store.produce({ project_id: project.id, episode: 1, shot_ids: current.map(shot => shot.id), submission_id: 'first' })
-      assert.equal(submissions[1].tasks[0].plan.mode, 't2va')
-      assert.match(submissions[1].tasks[0].plan.prompt, /旧厨房，冷蓝窗光/)
+      for (const shot of current) { await edit('shot-prompt', prompt(shot), shot.id); await finalize('shot-prompt', 1, shot.id) }
+      for (const shot of current) await store.produceShot({ project_id: project.id, episode: 1, shot_id: shot.id })
+      const empty = submissions.at(-1).tasks[0].plan.params
+      assert.equal(empty.image_path, undefined)
       current = (await store.readEpisode(project.id, 1)).acts[0].shots
-      for (const shot of current) await store.changeShot(project.id, 'update', { episode: 1, id: shot.id, status: 'succeeded' })
-      await assert.rejects(store.requestEpisodeFilm(project.id, 1), /采用/)
-      for (const shot of current) await store.changeShot(project.id, 'accept', { episode: 1, id: shot.id, accepted: true })
+      await edit('shot-prompt', prompt(current[0], '雨声'), current[0].id)
+      await assert.rejects(finalize('shot-prompt', 2, current[0].id), /镜头正在生成/)
+      for (const shot of current) await store.changeShot(project.id, { episode: 1, id: shot.id, status: 'succeeded' })
       await store.requestEpisodeFilm(project.id, 1)
+      await finalize('shot-prompt', 2, current[0].id)
+      const reset = (await store.readEpisode(project.id, 1)).acts[0].shots[0]
+      assert.deepEqual([reset.job_id, reset.keyframe_job_id, reset.status, reset.take], [null, null, 'pending', 1])
       await store.changeAnchor(project.id, 'update', { role: 'scene-room', retired: true })
-      await assert.rejects(store.produce({ project_id: project.id, episode: 1, shot_ids: [current[0].id], submission_id: 'retired' }), /锚点 scene-room 已失效/)
+      await assert.rejects(store.produceShot({ project_id: project.id, episode: 1, shot_id: current[0].id }), /锚点 scene-room 已失效/)
       await store.changeAnchor(project.id, 'update', { role: 'scene-room', retired: false })
-      await store.changeAnchor(project.id, 'update', { role: 'lin', source: { type: 'job', job_id: 'a'.repeat(32) } })
-      await store.produce({ project_id: project.id, episode: 1, shot_ids: current.map(shot => shot.id), submission_id: 'second' })
-      assert.equal(submissions[2].tasks[0].plan.mode, 'i2va')
-      assert.equal(submissions[2].tasks[0].plan.first_frame, `job:${'a'.repeat(32)}`)
+      await store.produceShot({ project_id: project.id, episode: 1, shot_id: current[0].id })
+      await store.changeShot(project.id, { episode: 1, id: current[0].id, status: 'succeeded' })
       current = (await store.readEpisode(project.id, 1)).acts[0].shots
-      assert.equal(current[0].accepted, false)
-      for (const shot of current) {
-        await store.changeShot(project.id, 'update', { episode: 1, id: shot.id, status: 'succeeded' })
-        await store.changeShot(project.id, 'accept', { episode: 1, id: shot.id, accepted: true })
-      }
       await edit('timeline', timeline); await finalize('timeline', 2)
-      await assert.rejects(store.produce({ project_id: project.id, episode: 1, shot_ids: [current[0].id], submission_id: 'third' }), /分镜需复核/)
       await assert.rejects(store.requestEpisodeFilm(project.id, 1), /分镜需复核/)
-      await edit('storyboard', { shots: [shots[0], { ...shots[1], action: '林走出门' }] }); await finalize('storyboard', 2)
+      await edit('storyboard', { shots: [shots[0], { ...shots[1], action: '门口走廊空镜' }] }); await finalize('storyboard', 2)
       const replaced = (await store.readEpisode(project.id, 1)).acts[0].shots
-      assert.equal(replaced[0].id, current[0].id)
-      assert.equal(replaced[0].job_id, current[0].job_id)
-      assert.equal(replaced[0].prompt_finalized, true)
+      assert.deepEqual([replaced[0].id, replaced[0].job_id, replaced[0].take, replaced[0].prompt_finalized], [current[0].id, current[0].job_id, 2, true])
       assert.notEqual(replaced[1].id, current[1].id)
-      assert.equal(replaced[1].job_id, null)
-      assert.equal(replaced[1].prompt_finalized, false)
-      await store.changeShot(project.id, 'update', { episode: 1, id: replaced[1].id, job_id: 'b'.repeat(32), status: 'queued' })
+      assert.deepEqual([replaced[1].job_id, replaced[1].take, replaced[1].prompt_finalized], [null, 0, false])
+      await store.changeShot(project.id, { episode: 1, id: replaced[0].id, status: 'queued' })
       await edit('storyboard', { shots })
       await assert.rejects(finalize('storyboard', 3), /正在生成的镜头/)
     })

@@ -12,6 +12,7 @@ const dialogue = object({ role: string, text: string })
 const timedDialogue = object({ role: string, text: string, tone: string })
 
 export const planningSteps = ['series', 'timeline', 'storyboard', 'shot-prompt']
+export const projectDraftSchema = object({ title: string, genre: string, synopsis: string })
 export const planningSchema = {
   series: object({ logline: string, genre: string, episode_count: integer, episode_seconds: integer, world: string,
     characters: array(character), scenes: array(scene), episodes: array(object({ number: integer, title: string, summary: string, hook: string })) }),
@@ -25,6 +26,14 @@ export const planningSchema = {
 const invalid = message => statusError(502, `规划结果无效：${message}`)
 const text = value => typeof value === 'string' && value.trim() && value.length <= 20000
 const ids = items => new Set(items.map(item => item.id))
+
+export function validateProjectDraft(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+    typeof value.title !== 'string' || !value.title.trim() || value.title.length > 500 ||
+    typeof value.genre !== 'string' || !value.genre.trim() || value.genre.length > 200 ||
+    typeof value.synopsis !== 'string' || !value.synopsis.trim() || value.synopsis.length > 20000) throw invalid('项目草稿内容无效')
+  return { title: value.title.trim(), genre: value.genre.trim(), synopsis: value.synopsis.trim() }
+}
 
 export function validatePlanningResult(step, value, context = {}) {
   if (!planningSteps.includes(step) || !value || typeof value !== 'object' || Array.isArray(value)) throw invalid('步骤或结果无效')

@@ -53,9 +53,19 @@ src/
 
 ## 短剧项目规划
 
-导演保存在 `$ELYSIUM_HOME/pools/skills/director-<id>/SKILL.md`，工作台可编辑全文。通用规划 Skill 位于同一根目录的 `drama-planning/` 和 `shot-planning/`；Harness 安装脚本从 `harness/.dsh/storages/elysium/pools/skills/` 安装。导演的 `references/steps/<step>.md` 可覆盖同名通用步骤。
+导演保存在 `$ELYSIUM_HOME/pools/skills/director-<id>/SKILL.md`，工作台可编辑全文；导演的 `references/script.md`、`storyboard.md`、`shot-prompt-example.md` 叠加到对应规划步骤。通用规划 Skill 位于同一根目录的 `drama-planning/` 和 `shot-planning/`；Harness 安装脚本从 `harness/.dsh/storages/elysium/pools/skills/` 安装。
 
-工作台按立项、大纲、人物场景、剧集推进。规划步骤为 `series`、`outline`、每集 `script`、每集 `storyboard` 和逐镜 `shot-prompt`；生成或手改会追加版本，定稿选择其中一版，上游重新定稿后下游需复核。单集分镜、合成任务及交付记录保存在 `projects/<id>/episodes/<n>/`。本集合成只读取已保存到本地的镜头媒体；镜头自动落本地尚待媒体保存规则修订。
+规划步骤为 `series`（剧情总览，含角色英文出图提示词）、每集 `timeline`、每集 `storyboard` 和逐镜 `shot-prompt`（中文视频提示词 + 英文首帧提示词）；生成或手改追加版本，定稿选择其中一版，上游重新定稿后下游需复核。
+
+生产只经自动流水线（`src/server/projects/pipeline.js`），人工节点只有三个：
+
+1. 定稿剧情总览：自动同步角色/场景锚点，并用正面站姿工作流为角色出参考图；场景只保留文字。
+2. 确认锚点：参考图全部就绪后确认，之后才提交镜头。
+3. 审看成片：需要时重拍单镜，流水线自动重新合成新版本。
+
+「一键生产」（全部或到第 N 集）后，流水线按集定稿时间线、分镜和逐镜提示词；每镜先以首帧提示词 + 主角参考图生成与视频同比例的首帧，再图生视频（每次提交使用新种子）；镜头失败自动换种子重拍一次，仍失败则暂停并给出位置；上游变更影响已生成镜头时暂停，确认后级联；本集全部成功后合成（烧录字幕、响度 -16 LUFS）并登记 MP4 与 SRT。模型产物由 Worker 下载保存到 `projects/<id>/media/`，工作台只读本地文件。单集分镜、合成任务、交付记录保存在 `projects/<id>/episodes/<n>/`，自动生产状态保存在 `projects/<id>/auto.json`。
+
+已知限制：画幅由创作质量档位决定（3:4 竖屏）；多人镜头只保证主角一致；跨镜音色依赖提示词描述；生产中不要切换创作质量。
 
 ## 三方视频渠道
 

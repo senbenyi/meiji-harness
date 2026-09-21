@@ -84,6 +84,8 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-project-stage > :not(.elysium-flow-next) { min-height:0; flex:1; }
 .elysium-script-view,.elysium-episode-planning { min-height:0; overflow:auto; display:flex; flex-direction:column; gap:12px; }
 .elysium-planning { min-height:0; padding:12px; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:12px; }
+.elysium-production { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; flex:none; padding:8px 12px; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:12px; }
+.elysium-production p { margin:0; }
 .elysium-planning-content { max-height:55vh; overflow:auto; }
 .elysium-planning-array,.elysium-planning-item { margin:8px 0; padding:8px; border:1px solid var(--dsw-alias-border-l1,#8883); border-radius:8px; }
 .elysium-planning-actions,.elysium-section-heading,.elysium-film-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
@@ -93,6 +95,8 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-timeline-episodes { display:flex; flex-wrap:wrap; gap:6px; }
 .elysium-timeline-episodes button[aria-current=true] { border-color:var(--dsw-alias-brand-primary,#8bcaff); }
 .elysium-project-form { box-sizing:border-box; width:min(520px,100%); margin:16px auto 0; padding:20px; border:1px solid var(--dsw-alias-border-l2,#8885); border-radius:16px; background:var(--dsw-alias-bg-layer-3,#303030); }
+.elysium-project-form-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.elysium-project-form-heading h2 { margin:0; }
 .elysium-project-form footer,.elysium-flow-next { display:flex; justify-content:flex-end; align-items:center; gap:8px; padding-top:12px; border-top:1px solid var(--dsw-alias-border-l1,#8883); }
 .elysium-storyboard { min-height:0; flex:1; display:grid; grid-template-columns:176px minmax(0,1fr) 360px; gap:16px; }
 .elysium-acts { overflow:auto; display:flex; flex-direction:column; gap:8px; }

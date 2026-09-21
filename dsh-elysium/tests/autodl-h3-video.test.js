@@ -47,7 +47,14 @@ test('AutoDL routes ordinary T2V and I2V through the deployed director workflow'
   assert.deepEqual(toDirectorPlan({ mode: 'i2va', profile: 'regular', duration_seconds: 7, prompt: 'move', first_frame: view('first.png') }),
     { duration: 7, prompts: ['move'], image_path: view('first.png') })
   assert.equal(toDirectorPlan({ mode: 'fl2va', prompt: 'scene' }), null)
+  assert.deepEqual(toDirectorPlan({ mode: 'i2va', quality: 'regular', duration_seconds: 5, prompt: 'move', first_frame: view('first.png'), seed: 42 }),
+    { duration: 5, prompts: ['move'], quality: 'regular', seed: 42, image_path: view('first.png') })
 })
+
+test('AutoDL accepts per-take seeds on standard video plans and rejects invalid ones', async () => withConfig({ COMFYUI_URL: backend.base_url, ELYSIUM_BACKEND: backend }, async () => {
+  await validatePlan({ mode: 'i2va', quality: 'regular', duration_seconds: 5, prompt: 'move', first_frame: view('first.png'), seed: 42 })
+  await assert.rejects(validatePlan({ mode: 't2va', quality: 'regular', duration_seconds: 5, prompt: 'move', seed: -1 }), /seed/)
+}))
 
 test('AutoDL rejects unverified standard modes and overlong single generations', async () => {
   await assert.rejects(validatePlan({ mode: 'fl2va', prompt: 'scene', first_frame: view('first.png'), last_frame: view('last.png') }), /仅开放/)

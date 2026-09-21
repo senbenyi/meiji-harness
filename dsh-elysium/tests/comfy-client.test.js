@@ -132,3 +132,20 @@ test('poll timeout returns to the job retry budget without submitting and honors
   controller.abort()
   await assert.rejects(client.wait('original', 1000), { name: 'AbortError' })
 })
+
+test('artifacts download only from the same server and reference images upload to input', async t => {
+  const client = new ComfyClient('http://comfy.test/base'), calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET', body: options.body })
+    if (String(url).endsWith('upload/image')) return new Response(JSON.stringify({ name: 'ref.png', subfolder: 'elysium-refs', type: 'input' }))
+    return String(url).includes('missing') ? new Response('', { status: 503 }) : new Response('bytes')
+  })
+  await assert.rejects(client.download('http://other.test/base/view?filename=a.mp4&type=output'), /不属于当前 ComfyUI/)
+  await assert.rejects(client.download('http://comfy.test/base/view?filename=missing.mp4&type=output'), error => error.status === 503)
+  assert.equal(await new Response(await client.download('http://comfy.test/base/view?filename=a.mp4&type=output')).text(), 'bytes')
+  const view = await client.uploadImage(Buffer.from('png'), 'ref.png', 'image/png')
+  assert.equal(view, 'http://comfy.test/base/view?filename=ref.png&subfolder=elysium-refs&type=input')
+  const upload = calls.at(-1)
+  assert.deepEqual([upload.url, upload.method, upload.body.get('subfolder'), upload.body.get('type'), upload.body.get('overwrite'), upload.body.get('image').name],
+    ['http://comfy.test/base/upload/image', 'POST', 'elysium-refs', 'input', 'true', 'ref.png'])
+})

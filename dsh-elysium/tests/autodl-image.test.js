@@ -78,3 +78,17 @@ test('global quality produces three distinct image specifications without changi
     assert.equal(built.graph['5'].inputs.seed, 7)
   }
 })
+
+test('AutoDL keyframes match the H3 video aspect of the same quality and reject character views', async () => withConfig({ COMFYUI_URL: backend.base_url, ELYSIUM_BACKEND: backend }, async () => {
+  const plan = quality => ({ ...normalizeImagePlan({ capability: 'image-generate', params: { prompt: 'kitchen at night', seed: 1, purpose: 'keyframe', image_path: view('lead.png') } }), quality })
+  const sizes = {}
+  for (const quality of ['fast', 'regular', 'high']) {
+    validateImagePlan(plan(quality))
+    const { graph, workflowName } = await buildImageGraph(plan(quality), { [view('lead.png')]: { name: 'lead.png [output]' } }, 'a'.repeat(32))
+    assert.equal(workflowName, 'workflow_generate_image_reference')
+    sizes[quality] = [graph['4'].inputs.width, graph['4'].inputs.height]
+  }
+  assert.deepEqual(sizes, { fast: [864, 1152], regular: [864, 1152], high: [840, 1152] })
+  assert.throws(() => validateImagePlan({ capability: 'image-generate', params: { prompt: 'x', seed: 1, purpose: 'keyframe', character: { view: 'front' } } }), /purpose/)
+  assert.throws(() => validateImagePlan({ capability: 'image-generate', params: { prompt: 'x', seed: 1, purpose: 'poster' } }), /purpose/)
+}))

@@ -10,6 +10,7 @@ import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projec
 import { createMediaHandler } from '../src/server/routes/media.js'
 import { listAssets } from '../src/server/media/catalog.js'
 import { jobSummary } from '../src/worker/results/summary.js'
+import { seedProject } from './fixtures/drama.mjs'
 
 test('job status exposes the actual model instead of presenting the provider as a model', () => {
   const summary = jobSummary({ status: 'running', debug: { effective_input: { mode: 't2va' } },
@@ -128,11 +129,12 @@ test('uploaded images and videos preview locally, persist, delete and only image
     const imported = JSON.parse(await readFile(catalogPath, 'utf8')).materials
     assert.deepEqual(imported.map(item => item.job_id).sort(), [image.job_id, video.job_id].sort())
     assert.ok(imported.every(item => item.source === 'import' && !item.deleted && item.project_id === undefined))
-    const project = await (await projectRequest('create', { title: '图片锚点', director: director.name, profile: 'preview', cover_job_id: image.job_id })).json()
-    const inserted = await projectRequest('import', { id: project.id, as: 'anchor', job_id: image.job_id })
+    const project = await (await projectRequest('create', { title: '图片锚点', director: director.name, cover_job_id: image.job_id })).json()
+    await seedProject(root, project.id, { anchorSource: null })
+    const inserted = await projectRequest('import', { id: project.id, as: 'anchor', role: 'lin', job_id: image.job_id })
     assert.equal(inserted.status, 200)
     const anchor = (await inserted.json()).anchors[0]
-    assert.equal(anchor.source.job_id, image.job_id); assert.equal(anchor.image_url, '')
+    assert.deepEqual(anchor.source, { type: 'material', job_id: image.job_id })
     assert.equal((await (await fetch(base + '/list?t=t&source=creation')).json()).total, 0)
     assert.equal((await (await fetch(base + '/list?t=t&source=import')).json()).total, 2)
     const linked = await (await fetch(base + '/list?t=t&source=project')).json()

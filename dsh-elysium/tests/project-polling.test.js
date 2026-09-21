@@ -6,9 +6,9 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 
-const initial = () => ({ id: 'abcdef12', title: '项目', director: '张艺谋', profile: 'preview', updated_at: 1,
-  anchors: [{ role: 'lin', label: '林', description: '', image_url: '', source: null }],
-  acts: [{ title: '幕', shots: [{ id: 'shot-1', role: 'lin', action: '走路', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }] }], deliverables: [] })
+const initial = () => ({ id: 'abcdef12', title: '项目', director: '张艺谋', genre: '悬疑', synopsis: '信', updated_at: 1, materials: [], episodes: [],
+  auto: { enabled: false, until_episode: null, anchors_confirmed: false, cascade_confirmed: false, paused: null, attempts: {} },
+  anchors: [{ role: 'lin', kind: 'character', label: '林', description: '', image_prompt: 'man', image_job_id: null, source: null }] })
 
 function fixture() {
   let project = initial(), hold = null, nextTimer = 0
@@ -52,7 +52,7 @@ test('project settings draft survives a remote update and refreshes after leavin
   assert.equal(view.root.findByProps({ 'aria-label': '项目名称' }).props.value, '手动草稿')
   assert.match(JSON.stringify(view.toJSON()), /项目已有新修改/)
   assert.equal(f.requests.filter(path => path.startsWith('/project/get')).length, 1)
-  await click(view, '人物场景')
+  await click(view, '剧本')
   await f.tick()
   assert.equal(view.root.findByType('h1').children.join(''), '聊天标题')
   await act(async () => view.unmount())

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, mkdir, rm, readdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig, requiredConfig } from '../src/config.js'
@@ -54,6 +54,12 @@ test('prepare, lost POST response and polling recover inside one job with exactl
     if (++polls === 1) throw new DOMException('timeout', 'TimeoutError')
     return { original: { status: { completed: true }, outputs: { [outputNode]: { videos: [{ filename: 'final.mp4', type: 'output' }] } } } }
   })
+  let downloads = 0
+  t.mock.method(ComfyClient.prototype, 'download', async view => {
+    assert.match(view, /filename=final\.mp4/)
+    if (++downloads === 1) throw new TypeError('fetch failed')
+    return new Blob(['video-bytes']).stream()
+  })
   const result = await executeComfyVideo(project, id, plan, { pause: async ms => {
     delays.push(ms)
     assert.equal((await readJson(join(root, 'projects', 'jobs', id, 'status.json'))).stage, 'reconnecting')
@@ -61,7 +67,10 @@ test('prepare, lost POST response and polling recover inside one job with exactl
   assert.equal(result.status, 'succeeded')
   assert.equal(result.result.comfyui_prompt_id, 'original')
   assert.equal(posts, 1)
-  assert.deepEqual(delays, [2000, 4000, 8000, 16000])
+  assert.equal(downloads, 2)
+  assert.equal(result.result.local_media_path, `media/${id}.mp4`)
+  assert.equal(await readFile(join(root, 'projects', project, 'media', `${id}.mp4`), 'utf8'), 'video-bytes')
+  assert.deepEqual(delays, [2000, 4000, 8000, 16000, 30000])
   assert.deepEqual(await readdir(join(root, 'projects', 'jobs')), [id])
 }))
 

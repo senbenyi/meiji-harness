@@ -20,7 +20,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
       !characters.length ? h('p', { className: 'elysium-empty' }, '定稿剧情总览后自动生成角色锚点') : null,
       h('section', { className: 'elysium-anchor-group' }, h('h2', null, '角色锚点'), characters.map(anchor => h('article', { key: anchor.role, className: 'elysium-anchor-card' },
         h('div', { className: 'elysium-anchor-thumb' }, anchor.source?.job_id || anchor.image_job_id ? h(ShotPreview, { jobId: anchor.source?.job_id || anchor.image_job_id, imageOnly: true }) : h(Icon, { name: 'eye' })),
-        h('div', { className: 'elysium-anchor-copy' }, h('h3', null, anchor.label), anchor.image_needs_review ? h('small', null, '外观已变化，参考图重新生成中') : !anchor.source ? h('small', null, '参考图生成中') : null,
+        h('div', { className: 'elysium-anchor-copy' }, h('h3', null, anchor.label), anchor.image_needs_review ? h('small', null, '外观已变化，参考图重新生成中') : !anchor.source ? h('small', null, anchor.image_job_id ? '参考图生成中' : '尚未出图') : null,
           h('p', null, anchor.description),
           h('div', { className: 'elysium-card-actions' },
             h('button', { type: 'button', disabled: busy, onClick: () => run(async () => generateAnchorImage(project.id, anchor.role)) }, '重新生成参考图'),

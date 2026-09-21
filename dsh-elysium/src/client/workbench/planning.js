@@ -17,6 +17,10 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
     dialogue: { role: '', text: '', tone: '' }, shots: { scene_id: '', roles: [], shot_size: '', camera: '', action: '', duration: 5, dialogue: [] } }
   const copy = value => JSON.parse(JSON.stringify(value))
 
+  function AutoGenerateButton({ busy, disabled, onClick }) {
+    return h('button', { type: 'button', className: 'elysium-primary', 'aria-label': '机器人自动生成', disabled: busy || disabled, onClick }, busy ? '🤖 生成中…' : '🤖 自动生成')
+  }
+
   function Field({ name, value, onChange, path = '' }) {
     const label = labels[name] || name, field = path ? `${path} · ${label}` : label
     if (Array.isArray(value)) return h('fieldset', { className: 'elysium-planning-array' },
@@ -70,7 +74,7 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
         Object.entries(draft).map(([key, value]) => h(Field, { key, name: key, value, onChange: next => setDraft({ ...draft, [key]: next }) }))) : h('p', null, '尚无规划内容，点击生成开始'),
       h('label', null, '补充要求', h('textarea', { 'aria-label': `${title}补充要求`, rows: 3, value: requirements, disabled: busy, onChange: event => setRequirements(event.target.value) })),
       h('div', { className: 'elysium-planning-actions' },
-        h('button', { type: 'button', className: selected ? '' : 'elysium-primary', disabled: busy, onClick: async () => { const value = await run(() => generatePlanning(projectId, step, episode, shotId, requirements)); if (value) { setVersion(0); setRequirements('') } } }, selected ? '按补充要求重新生成' : '生成'),
+        h(AutoGenerateButton, { busy, onClick: async () => { const value = await run(() => generatePlanning(projectId, step, episode, shotId, requirements)); if (value) { setVersion(0); setRequirements('') } } }),
         h('button', { type: 'button', className: unsaved ? 'elysium-primary' : '', disabled: busy || !draft, onClick: async () => {
           const saved = await run(() => editPlanning(projectId, step, episode, shotId, draft))
           if (saved) setVersion(0)
@@ -144,6 +148,6 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
   }
   const StoryboardStepView = props => h(EpisodeStepView, { ...props, kind: 'storyboard' })
   const FilmStepView = props => h(EpisodeStepView, { ...props, kind: 'film' })
-  Object.assign(exports, { PlanningView, ScriptView, StoryboardStepView, FilmStepView })
+  Object.assign(exports, { AutoGenerateButton, PlanningView, ScriptView, StoryboardStepView, FilmStepView })
   return exports
 } })
