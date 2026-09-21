@@ -132,7 +132,11 @@ test('active calls use memory until Harness logs the result and never create a r
   }
 })
 test('authenticated media routes proxy HTTP URLs and never serve local files', async () => {
-  const upstream = createServer((req, res) => { res.writeHead(200, { 'Content-Type': req.url.includes('.png') ? 'image/png' : 'video/mp4' }); res.end('media') })
+  const upstream = createServer((req, res) => {
+    const preview = new URL(req.url, 'http://localhost').searchParams.get('preview') === 'webp;85'
+    res.writeHead(200, { 'Content-Type': preview ? 'image/webp' : req.url.includes('.png') ? 'image/png' : 'video/mp4' })
+    res.end(preview ? 'preview' : 'media')
+  })
   await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
   let job = { job_id: 'a'.repeat(32), status: 'running', stage: 'generate' }
   const server = createServer(createMediaHandler({ token: 't', findCall: async (s, c) => s === 's' && c === 'c' ? job.job_id : null, readJob: async () => job }))
@@ -157,7 +161,12 @@ test('authenticated media routes proxy HTTP URLs and never serve local files', a
         assert.equal(response.status, 200)
         assert.equal(response.headers.get('location'), null)
         assert.equal(response.headers.get('content-disposition'), null)
-        assert.equal(await response.text(), method === 'HEAD' ? '' : 'media')
+        assert.equal(await response.text(), method === 'HEAD' ? '' : kind === 'image' ? 'preview' : 'media')
+      }
+      if (kind === 'image') {
+        const original = await get('/download')
+        assert.equal(original.headers.get('content-type'), 'image/png')
+        assert.equal(await original.text(), 'media')
       }
       assert.equal((await get('/' + (kind === 'image' ? 'video' : 'image'))).status, 404)
     }

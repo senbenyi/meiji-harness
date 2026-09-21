@@ -90,6 +90,7 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
         if (target.origin !== original.origin || target.pathname !== new URL('view', original).pathname) return json(res, 403, { error: '素材与原任务服务器不一致' })
         await connectBackend(job.server)
       }
+      if (url.pathname === `${MEDIA_ROUTE}/image`) target.searchParams.set('preview', 'webp;85')
       const requestHeaders = { 'Accept-Encoding': 'identity' }, controller = new AbortController()
       const abortUpstream = () => { if (!res.writableEnded) controller.abort() }
       res.once('close', abortUpstream)
