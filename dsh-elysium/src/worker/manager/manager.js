@@ -1,13 +1,14 @@
 // 职责：持久化受理任务，并提供派发、结算、取消、暂停和人工重试命令；不编排业务顺序。
 import { createHash, randomBytes } from 'node:crypto'
 import { access, readFile, readdir, rm, writeFile } from '../../database/files.js'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import { readJson, saveJson } from '../../database/json.js'
 import { jobsRoot } from '../../database/paths.js'
 import { ModelTaskError } from '../../utils/errors.js'
 import { bindActiveJobCall } from '../intake/call-bindings.js'
 import { routeTask, validateRoutedTask } from '../routing/route.js'
-import { readBackend } from '../models/index.js'
+import { createBackendClient, readBackend } from '../models/index.js'
+import { closeLocalMedia, openLocalMedia, readLocalMedia } from '../store/media.js'
 import { getJob } from '../runner/inspect.js'
 import { launch } from '../runner/launcher.js'
 import { withLaunchLock } from '../store/lock.js'
@@ -191,12 +192,22 @@ export async function dispatch(taskIdValue) {
   })
 }
 
+// 同服务器产物直接引用原 view 地址；导入素材或其他服务器的图片从本地上传到当前 ComfyUI。
+async function referenceUrl(dependency, backend, value) {
+  const view = dependency.result?.comfyui_view_url
+  if (view && new URL(view).origin === new URL(backend.base_url).origin) return view
+  if (dependency.result?.local_media_path === undefined) return view || value
+  const media = await openLocalMedia(dependency)
+  let bytes
+  try { bytes = await readLocalMedia(media) } finally { await closeLocalMedia(media) }
+  return (await createBackendClient(backend)).uploadImage(bytes, `${dependency.job_id}${extname(media.path)}`, media.contentType)
+}
+
 async function resolveReferences(value, backend) {
   if (typeof value === 'string') {
     const match = /^job:([a-f0-9]{32})$/.exec(value)
     if (!match || backend.service !== 'comfyui') return value
-    const dependency = await getJob(match[1])
-    return dependency.result?.comfyui_view_url || dependency.result?.path || value
+    return referenceUrl(await getJob(match[1]), backend, value)
   }
   if (Array.isArray(value)) return Promise.all(value.map(item => resolveReferences(item, backend)))
   if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, item]) => [key, await resolveReferences(item, backend)])))

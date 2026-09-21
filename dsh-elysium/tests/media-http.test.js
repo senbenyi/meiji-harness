@@ -89,7 +89,7 @@ test('media routes wait for webServer and inject browser configuration when it b
   const routes = [], listeners = new Map()
   activate({ get: name => name === 'webServer' ? { register: route => { routes.push(route); return () => {} } } : undefined,
     on: (event, callback) => listeners.set(event, callback), effect: callback => callback() })
-  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', '/plugins/dsh-elysium/media/delete', '/plugins/dsh-elysium/media/upload', '/plugins/dsh-elysium/media/retry', ...['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-status', 'tunnel-connect', 'third-party-select', 'creation-quality'].map(suffix => `/plugins/dsh-elysium/settings/${suffix}`), ...['list', 'get', 'episode', 'episode-save', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read', 'produce', 'retry', 'compose', 'poll'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`), ...['list', 'get', 'create', 'save', 'reorder', 'remove'].map(suffix => `/plugins/dsh-elysium/director/${suffix}`)])
+  assert.deepEqual(routes.map(route => route.path), ['/plugins/dsh-elysium/media/status', '/plugins/dsh-elysium/media/video', '/plugins/dsh-elysium/media/image', '/plugins/dsh-elysium/media/credentials', '/plugins/dsh-elysium/media/download', '/plugins/dsh-elysium/media/list', '/plugins/dsh-elysium/media/delete', '/plugins/dsh-elysium/media/upload', '/plugins/dsh-elysium/media/retry', ...['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-select', 'third-party-select', 'creation-quality'].map(suffix => `/plugins/dsh-elysium/settings/${suffix}`), ...['list', 'get', 'episode', 'episode-save', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read', 'produce', 'retry', 'compose', 'poll'].map(suffix => `/plugins/dsh-elysium/project/${suffix}`), ...['list', 'get', 'create', 'save', 'reorder', 'remove'].map(suffix => `/plugins/dsh-elysium/director/${suffix}`)])
   const rows = []
   listeners.get('webserver/index-inject')(rows)
   assert.equal(rows[0].name, '__ELYSIUM_MEDIA__')
@@ -132,7 +132,11 @@ test('active calls use memory until Harness logs the result and never create a r
   }
 })
 test('authenticated media routes proxy HTTP URLs and never serve local files', async () => {
-  const upstream = createServer((req, res) => { res.writeHead(200, { 'Content-Type': req.url.includes('.png') ? 'image/png' : 'video/mp4' }); res.end('media') })
+  const upstream = createServer((req, res) => {
+    const preview = new URL(req.url, 'http://localhost').searchParams.get('preview') === 'webp;60'
+    res.writeHead(200, { 'Content-Type': preview ? 'image/webp' : req.url.includes('.png') ? 'image/png' : 'video/mp4' })
+    res.end(preview ? 'preview' : req.url.includes('preview.mp4') ? 'preview-video' : 'media')
+  })
   await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
   let job = { job_id: 'a'.repeat(32), status: 'running', stage: 'generate' }
   const server = createServer(createMediaHandler({ token: 't', findCall: async (s, c) => s === 's' && c === 'c' ? job.job_id : null, readJob: async () => job }))
@@ -151,13 +155,25 @@ test('authenticated media routes proxy HTTP URLs and never serve local files', a
     for (const kind of ['image', 'video']) {
       const url = `http://127.0.0.1:${upstream.address().port}/view?filename=final.${kind === 'image' ? 'png' : 'mp4'}&type=output`
       job = { ...job, status: 'succeeded', result: { media_kind: kind, comfyui_view_url: url } }
+      if (kind === 'video') job.result.preview_view_url = url.replace('final.mp4', 'preview.mp4')
       assert.equal((await (await get('/status')).json())[`has_${kind}`], true)
       for (const method of ['GET', 'HEAD']) {
         const response = await get('/' + kind, { method })
         assert.equal(response.status, 200)
         assert.equal(response.headers.get('location'), null)
         assert.equal(response.headers.get('content-disposition'), null)
-        assert.equal(await response.text(), method === 'HEAD' ? '' : 'media')
+        assert.equal(await response.text(), method === 'HEAD' ? '' : kind === 'image' ? 'preview' : 'preview-video')
+        assert.equal(response.headers.get('cache-control'), 'private, max-age=86400')
+      }
+      if (kind === 'image') {
+        const original = await get('/download')
+        assert.equal(original.headers.get('content-type'), 'image/png')
+        assert.equal(await original.text(), 'media')
+      }
+      if (kind === 'video') {
+        const original = await get('/download')
+        assert.equal(await original.text(), 'media')
+        assert.equal(original.headers.get('cache-control'), 'no-store')
       }
       assert.equal((await get('/' + (kind === 'image' ? 'video' : 'image'))).status, 404)
     }
@@ -192,6 +208,23 @@ test('download proxies bytes with attachment headers and rejects upstream failur
   } finally { await Promise.all([server, upstream].map(s => new Promise(resolve => s.close(resolve)))) }
 })
 
+test('invalid remote video cannot make the preview serve original bytes', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-preview-failure-'))
+  const upstream = createServer((_req, res) => { res.writeHead(200, { 'Content-Type': 'video/mp4' }); res.end('not-a-video') })
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
+  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { media_kind: 'video',
+    comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view?filename=invalid.mp4&type=output` } }
+  const handler = createMediaHandler({ token: 't', readJob: async () => job })
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(async () => { await Promise.all([server, upstream].map(value => new Promise(resolve => value.close(resolve)))); await rm(root, { recursive: true, force: true }) })
+  const base = `http://127.0.0.1:${server.address().port}${MEDIA_ROUTE}`
+  assert.equal((await fetch(`${base}/video?t=t&job=${job.job_id}`)).status, 503)
+  const download = await fetch(`${base}/download?t=t&job=${job.job_id}`)
+  assert.equal(download.status, 200)
+  assert.equal(await download.text(), 'not-a-video')
+})
+
 test('preview proxy forwards Range and HEAD, preserves 206/416, and never redirects browsers', async () => {
   const received = []
   const upstream = createServer((req, res) => {
@@ -202,7 +235,7 @@ test('preview proxy forwards Range and HEAD, preserves 206/416, and never redire
     res.end(invalid ? '' : req.headers.range ? 'ide' : 'video')
   })
   await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
-  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
+  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view`, preview_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
   const server = createServer(createMediaHandler({ token: 't', readJob: async () => job, projectBase: '/plugins/dsh-elysium/project' }))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const base = `http://127.0.0.1:${server.address().port}/plugins/dsh-elysium/media`, url = `${base}/video?t=t&job=${job.job_id}`
@@ -231,7 +264,7 @@ test('preview proxy cancels the upstream stream when the browser closes playback
     res.on('close', () => { clearInterval(timer); closeUpstream() })
   })
   await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve))
-  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { media_kind: 'video', comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
+  const job = { job_id: 'a'.repeat(32), status: 'succeeded', result: { media_kind: 'video', comfyui_view_url: `http://127.0.0.1:${upstream.address().port}/view`, preview_view_url: `http://127.0.0.1:${upstream.address().port}/view` } }
   const server = createServer(createMediaHandler({ token: 't', readJob: async () => job }))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   try {

@@ -6,23 +6,17 @@ import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 
-test('model panel connects private models explicitly and keeps quality and third-party selection', async () => {
+test('model panel saves private model selection without connection buttons', async () => {
   const modules = new Map(), cache = new Map(), calls = []
   const data = { revision: 1, creation: { revision: 0, quality: 'regular' }, models: { image: [], video: [{ id: 'a', label: '视频 A' }, { id: 'b', label: '视频 B' }] }, available: { image: [], video: ['a', 'b'] }, selected: { image: '', video: 'a' }, chat_model: { id: 'qwen3.8-27b-elysium', label: 'qwen3.8' },
     third_party: { video: [{ id: 'bailian:wan26', label: 'Wan 2.6' }, { id: 'byteplus:seedance2', label: 'Seedance 2.0' }] }, third_party_selected: { image: '', video: 'bailian:wan26' },
     third_party_channels: [{ id: 'bailian', label: '百炼万相', enabled: true, preferred: true, models: ['wan2.6-t2v', 'wan2.6-i2v'] }, { id: 'byteplus', label: 'Seedance 2.0', enabled: true, preferred: false, models: ['seedance'] }] }
-  let failing = true, holding = false, release, chatFailing = true, chatHolding = false, releaseChat
+  let failing = true, holding = false, release
   runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', settingsBase: '/prefix/settings' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
       const body = options.body && JSON.parse(options.body)
       calls.push({ url, body }); assert.match(url, /^\/prefix\/settings\/.+\?t=token$/)
-      if (url.includes('/tunnel-status') || url.includes('/model-status')) return { ok: true, json: async () => ({ connected: false }) }
-      if (url.includes('/tunnel-connect')) {
-        if (chatFailing) return { ok: false, json: async () => ({ error: '隧道连接失败' }) }
-        if (chatHolding) await new Promise(resolve => { releaseChat = resolve })
-        return { ok: true, json: async () => ({ connected: true }) }
-      }
-      if (url.includes('/model-connect')) {
+      if (url.includes('/model-select')) {
         if (failing) return { ok: false, json: async () => ({ error: '模型检查失败' }) }
         if (holding) await new Promise(resolve => { release = resolve })
         data.selected[body.kind] = body.id; data.revision++
@@ -42,7 +36,7 @@ test('model panel connects private models explicitly and keeps quality and third
   let view
   await act(async () => { view = create(React.createElement(require('elysium/settings').Settings)) })
   assert.equal(view.root.findAllByType('select').length, 6)
-  assert.equal(view.root.findByProps({ 'aria-label': '模型设置' }).findAllByType('button').length, 3)
+  assert.equal(view.root.findByProps({ 'aria-label': '模型设置' }).findAllByType('button').length, 0)
   const chat = view.root.findByProps({ 'aria-label': '聊天模型' })
   assert.equal(chat.props.value, 'qwen3.8-27b-elysium')
   assert.deepEqual(chat.findAllByType('option').map(option => option.children.join('')), ['qwen3.8'])
@@ -61,37 +55,17 @@ test('model panel connects private models explicitly and keeps quality and third
   assert.deepEqual(image.findAllByType('option').map(option => option.children.join('')), ['未配置'])
   assert.ok(view.root.findAllByProps({ className: 'elysium-model-row' }).every(row => row.findAllByProps({ role: 'status' }).length === 0))
   assert.doesNotMatch(JSON.stringify(view.toJSON()), /手工登记|添加视频|添加聊天|未接入|刷新列表/)
-  assert.equal(calls.filter(call => call.url.includes('/model-connect')).length, 0)
-  const chatButton = () => view.root.findAllByProps({ className: 'elysium-model-row' })[1].findByType('button')
-  await act(async () => chatButton().props.onClick())
-  assert.match(JSON.stringify(view.toJSON()), /隧道连接失败/)
-  assert.equal(chatButton().props.disabled, false)
-  chatFailing = false; chatHolding = true
-  let pendingChat
-  await act(async () => { pendingChat = chatButton().props.onClick(); await Promise.resolve() })
-  assert.equal(chatButton().props.disabled, true)
-  assert.equal(chatButton().children.join(''), '连接中…')
-  chatHolding = false; releaseChat()
-  await act(async () => pendingChat)
-  assert.equal(chatButton().children.join(''), '重新连接')
-  assert.equal(chatButton().props.className, 'elysium-connection-ready')
-  assert.doesNotMatch(JSON.stringify(view.toJSON()), /连接成功/)
-  await act(async () => chatButton().props.onClick())
-  assert.equal(calls.filter(call => call.url.includes('/tunnel-connect')).length, 3)
-  assert.deepEqual(calls.filter(call => call.url.includes('/tunnel-connect')).at(-1).body, { id: 'qwen3.8-27b-elysium' })
-  const videoButton = () => view.root.findAllByProps({ className: 'elysium-model-row' })[3].findByType('button')
+  assert.equal(calls.filter(call => call.url.includes('/model-select')).length, 0)
+  assert.equal(view.root.findAllByProps({ className: 'elysium-model-row' })[1].findAllByType('button').length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '视频模型' }).props.onChange({ target: { value: 'b' } }))
   assert.equal(data.selected.video, 'a')
-  assert.equal(view.root.findByProps({ 'aria-label': '视频模型' }).props.value, 'b')
-  assert.equal(calls.filter(call => call.url.includes('/model-connect')).length, 0)
-  await act(async () => videoButton().props.onClick())
-  assert.equal(view.root.findByProps({ 'aria-label': '视频模型' }).props.value, 'b')
+  assert.equal(view.root.findByProps({ 'aria-label': '视频模型' }).props.value, 'a')
   assert.equal(data.selected.video, 'a')
   assert.match(JSON.stringify(view.toJSON()), /模型检查失败/)
   failing = false
   holding = true
   let pending
-  await act(async () => { pending = videoButton().props.onClick(); await Promise.resolve() })
+  await act(async () => { pending = view.root.findByProps({ 'aria-label': '视频模型' }).props.onChange({ target: { value: 'b' } }); await Promise.resolve() })
   assert.equal(view.root.findByProps({ 'aria-label': '视频模型' }).props.disabled, true)
   assert.equal(view.root.findByProps({ 'aria-label': '图片模型' }).props.disabled, true)
   assert.equal(view.root.findByProps({ 'aria-label': '三方视频模型' }).props.disabled, true)
@@ -99,22 +73,20 @@ test('model panel connects private models explicitly and keeps quality and third
   await act(async () => pending)
   assert.equal(data.selected.video, 'b')
   assert.equal(view.root.findByProps({ 'aria-label': '视频模型' }).props.value, 'b')
-  assert.equal(calls.filter(call => call.url.includes('/model-connect') && call.body.kind === 'video').length, 2)
-  assert.equal(videoButton().children.join(''), '重新连接')
-  assert.equal(videoButton().props.className, 'elysium-connection-ready')
-  assert.doesNotMatch(JSON.stringify(view.toJSON()), /连接成功/)
+  assert.equal(calls.filter(call => call.url.includes('/model-select') && call.body.kind === 'video').length, 2)
+  assert.equal(view.root.findAllByType('button').length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '三方视频模型' }).props.onChange({ target: { value: 'byteplus:seedance2' } }))
   assert.equal(data.third_party_selected.video, 'byteplus:seedance2')
   assert.deepEqual(calls.at(-1).body, { kind: 'video', id: 'byteplus:seedance2', revision: 2 })
   await act(async () => view.unmount())
 })
 
-test('a single unselected private model needs the connect button', async () => {
+test('a single unselected private model saves on selection', async () => {
   const modules = new Map(), cache = new Map(), calls = []
   runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', settingsBase: '/settings' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
       const body = options?.body && JSON.parse(options.body); calls.push({ url, body })
-      if (url.includes('/model-connect')) return { ok: true, json: async () => ({ connected: true, revision: 1 }) }
+      if (url.includes('/model-select')) return { ok: true, json: async () => ({ revision: 1 }) }
       return { ok: true, json: async () => ({ revision: 0, creation: { revision: 0, quality: 'regular' }, models: { image: [{ id: 'image', label: 'RealVisXL' }], video: [] }, available: { image: ['image'], video: [] }, selected: { image: '', video: '' } }) }
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
@@ -124,20 +96,17 @@ test('a single unselected private model needs the connect button', async () => {
   assert.equal(image.props.value, '')
   assert.deepEqual(image.findAllByType('option').map(option => option.children.join('')), ['请选择模型', 'RealVisXL'])
   await act(async () => image.props.onChange({ target: { value: 'image' } }))
-  assert.equal(calls.filter(call => call.url.includes('/model-connect')).length, 0)
-  await act(async () => view.root.findAllByProps({ className: 'elysium-model-row' })[2].findByType('button').props.onClick())
-  assert.deepEqual(calls.find(call => call.url.includes('/model-connect')).body, { kind: 'image', id: 'image', revision: 0 })
+  assert.deepEqual(calls.find(call => call.url.includes('/model-select')).body, { kind: 'image', id: 'image', revision: 0 })
   await act(async () => view.unmount())
 })
 
-test('connection status returns after reopening and missing targets stay disabled', async () => {
+test('saved model returns after reopening and missing targets stay visible', async () => {
   const modules = new Map(), cache = new Map(), calls = []
   const data = { revision: 1, creation: { revision: 0, quality: 'regular' }, models: { image: [{ id: 'image', label: '图片' }], video: [{ id: 'video', label: '视频' }] },
     available: { image: ['image'], video: [] }, selected: { image: 'image', video: 'video' }, chat_model: { id: 'chat', label: '聊天' } }
   runInNewContext(clientSource(), { window: { __ELYSIUM_MEDIA__: { token: 'token', settingsBase: '/settings' }, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) } }, URLSearchParams, AbortController,
     fetch: async (url, options) => {
       const body = options?.body && JSON.parse(options.body); calls.push({ url, body })
-      if (url.includes('/tunnel-status') || url.includes('/model-status')) return { ok: true, json: async () => ({ connected: true }) }
       return { ok: true, json: async () => structuredClone(data) }
     } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
@@ -145,13 +114,10 @@ test('connection status returns after reopening and missing targets stay disable
   await act(async () => { view = create(React.createElement(require('elysium/settings').Settings)) })
   assert.equal(view.root.findAllByProps({ role: 'status' }).length, 0)
   const rows = view.root.findAllByProps({ className: 'elysium-model-row' })
-  assert.equal(rows[1].findByType('button').children.join(''), '重新连接')
-  assert.equal(rows[2].findByType('button').children.join(''), '重新连接')
-  assert.equal(rows[1].findByType('button').props.className, 'elysium-connection-ready')
-  assert.equal(rows[2].findByType('button').props.className, 'elysium-connection-ready')
-  assert.equal(rows[3].findByType('button').props.disabled, true)
+  assert.ok(rows.every(row => row.findAllByType('button').length === 0))
+  assert.equal(view.root.findByProps({ 'aria-label': '图片模型' }).props.value, 'image')
+  assert.equal(view.root.findByProps({ 'aria-label': '视频模型' }).props.value, 'video')
   assert.match(JSON.stringify(view.toJSON()), /目标服务器未配置/)
-  assert.equal(calls.filter(call => call.url.includes('/model-status')).length, 1)
-  assert.equal(calls.filter(call => call.url.includes('/model-connect') || call.url.includes('/tunnel-connect')).length, 0)
+  assert.equal(calls.filter(call => call.url.includes('/model-select')).length, 0)
   await act(async () => view.unmount())
 })

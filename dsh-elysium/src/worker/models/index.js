@@ -17,11 +17,9 @@ async function providerFor(backend) {
   try { await provider.validate(backend) } catch (error) { error.status ||= 422; throw error }
   return provider
 }
-export const connectBackend = async backend => (await providerFor(backend)).connect(backend)
 export const checkBackend = async (backend, options) => (await providerFor(backend)).check(backend, options)
 export async function createBackendClient(backend, options) {
   const provider = await providerFor(backend)
-  await provider.connect(backend)
   return provider.createClient(backend, options)
 }
 export const buildBackendGraph = async (backend, plan, jobId) => (await providerFor(backend)).buildGraph(backend, plan, jobId)
@@ -31,12 +29,10 @@ export async function completeStructured(request, options) {
     ? { ...structuredClone(runtimeSettings().chat.backend), provider_api_version: 1, legacy: true }
     : resolveServer('llm')
   const provider = await providerFor(backend)
-  await provider.connect(backend)
   return requestStructured(provider.llmSettings(backend), request, options)
 }
 export const backendWorkflowSource = async backend => {
   const provider = await providerFor(backend)
-  await provider.connect(backend)
   return provider.workflowSource(backend)
 }
 export const manageProvider = async (id, action, options) => (await loadProvider(id)).manage(action, options)
@@ -44,11 +40,10 @@ export const manageProvider = async (id, action, options) => (await loadProvider
 // 唯一公共门面；外部代码不得导入内部 loader、registry、transport 或提供者实现。
 export { VIDEO_MODES, VIDEO_PROFILES, MODE_MEDIA } from './contract.js'
 export { listProviders, providerSourceFiles } from './catalog/loader.js'
-export { resolveServer, backendFromServer, withBackend, legacyTunnelBackend } from './catalog/servers.js'
+export { resolveServer, backendFromServer, withBackend } from './catalog/servers.js'
 export { readRegistry, writeRegistry }
 export { readSelection, writeSelection }
 export { validateRegistry, httpUrl, serviceUrl } from './catalog/registry-schema.js'
-export { sshIdentity } from './catalog/transport.js'
 export { checkServer, switchServer } from './catalog/check.js'
 export { readBackend, sameBackend } from './catalog/backend.js'
 export { providerConfigFields, providerConfigDefaults, providerConfigSources } from './catalog/definitions.js'
@@ -104,14 +99,3 @@ export async function providerCreationInstructions() {
   for (const channel of await channels()) if (channel.enabled && channel.provider.guidance) result.push(channel.provider.guidance)
   return result.join('\n')
 }
-
-export function defaultTunnelModel() {
-  if (runtimeConfig().ELYSIUM_SETTINGS_FILE) {
-    const chat = runtimeSettings().chat
-    return { alias: chat.tunnel.alias, id: chat.id, label: chat.label }
-  }
-  const owner = providerDefinitions().find(item => item.legacy_tunnel)
-  const tunnel = owner?.legacy_tunnel, model = owner?.services?.[tunnel?.service]?.model
-  return tunnel && model ? { alias: tunnel.alias, id: model, label: tunnel.label || model } : null
-}
-export const defaultTunnelAlias = () => defaultTunnelModel()?.alias

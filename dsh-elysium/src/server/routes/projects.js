@@ -6,20 +6,36 @@ import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const actions = ['list', 'get', 'episode', 'episode-save', 'create', 'update', 'delete', 'import', 'update-anchor', 'anchor-generate', 'update-shot', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read', 'produce', 'retry', 'compose', 'poll']
+const reads = ['list', 'get', 'episode', 'poll']
+const actions = [...reads, 'create', 'update', 'delete', 'import', 'anchor-generate', 'anchors-confirm', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read',
+  'reshoot', 'retry', 'auto-start', 'auto-pause', 'auto-resume']
 const exactBody = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key))
+const shotBody = body => exactBody(body, ['project_id', 'episode', 'shot_id'])
 
 export function createProjectHandler(options) {
   const { token } = options
   const directors = options.directorStore || createDirectorStore()
   const store = options.projectStore || createProjectStore({ ...options, directorExists: name => directors.has(name) })
+  const handlers = {
+    'plan-generate': body => store.planning.generate(body),
+    'plan-edit': body => store.planning.edit(body),
+    'plan-finalize': body => store.planning.finalize(body),
+    'plan-read': body => store.planning.read(body),
+    'anchor-generate': body => store.generateAnchorImage(body),
+    'anchors-confirm': body => store.confirmAnchors(body),
+    'auto-start': body => store.startAuto(body),
+    'auto-pause': body => store.pauseAuto(body),
+    'auto-resume': body => store.resumeAuto(body),
+    reshoot: body => { if (!shotBody(body)) throw invalidRequest('重拍参数无效'); return store.reshootShot(body) },
+    retry: body => { if (!shotBody(body)) throw invalidRequest('恢复参数无效'); return store.retryShot(body) },
+  }
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       const action = url.pathname.slice(PROJECT_ROUTE.length + 1)
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
-      if (req.method !== (['list', 'get', 'episode', 'poll'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
+      if (req.method !== (reads.includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       if (action === 'list') return json(res, 200, await store.list())
       if (action === 'get' || action === 'poll') {
         const id = url.searchParams.get('id')
@@ -33,32 +49,7 @@ export function createProjectHandler(options) {
       }
       if (action === 'episode') return json(res, 200, await store.readEpisode(url.searchParams.get('id'), Number(url.searchParams.get('number'))))
       const body = await readJsonBody(req)
-      if (action === 'plan-generate') return json(res, 200, await store.planning.generate(body))
-      if (action === 'plan-edit') return json(res, 200, await store.planning.edit(body))
-      if (action === 'plan-finalize') return json(res, 200, await store.planning.finalize(body))
-      if (action === 'plan-read') return json(res, 200, await store.planning.read(body))
-      if (action === 'anchor-generate') return json(res, 202, await store.generateAnchorImage(body))
-      if (action === 'episode-save') {
-        if (!exactBody(body, ['id', 'episode', 'acts'])) throw invalidRequest('剧集保存参数无效')
-        return json(res, 200, await store.saveEpisodeStoryboard(body.id, body.episode, body.acts))
-      }
-      if (action === 'compose') {
-        if (!exactBody(body, ['id']) && !exactBody(body, ['id', 'episode'])) throw invalidRequest('成片合成参数无效')
-        return json(res, 200, await store.composeFilm(body))
-      }
-      if (action === 'produce') {
-        if (!exactBody(body, ['project_id', 'shot_ids', 'submission_id']) && !exactBody(body, ['project_id', 'shot_ids', 'submission_id', 'episode'])) throw invalidRequest('项目提交参数无效')
-        return json(res, 202, await store.produce(body))
-      }
-      if (action === 'retry') {
-        if (!exactBody(body, ['project_id', 'task_id']) && !exactBody(body, ['project_id', 'task_id', 'episode'])) throw invalidRequest('任务恢复参数无效')
-        return json(res, 202, await store.retryShot(body))
-      }
-      if (['update-anchor', 'update-shot'].includes(action)) {
-        if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) throw invalidRequest('对象参数无效')
-        const change = action === 'update-anchor' ? store.changeAnchor : store.changeShot
-        return json(res, 200, await change(body.id, body.action, body.data))
-      }
+      if (handlers[action]) return json(res, 200, await handlers[action](body))
       return json(res, action === 'create' ? 201 : 200, await store.change(action, body))
     } catch (error) {
       const missing = ['ENOENT', 'MODEL_JOB_NOT_FOUND'].includes(error.code)

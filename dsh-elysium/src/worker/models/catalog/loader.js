@@ -2,7 +2,7 @@
 import { access, readdir } from '../../../database/files.js'
 import { providerDefinitions } from './definitions.js'
 const root = new URL('../providers/', import.meta.url)
-const methods = ['validatePlan', 'executeJob', 'validate', 'connect', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource', 'manage']
+const methods = ['validatePlan', 'executeJob', 'validate', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource', 'manage']
 const unavailable = (id, reason) => Object.assign(new Error(`平台适配器 ${id} 不可用：${reason}`), { code: 'PROVIDER_UNAVAILABLE', status: 409 })
 export function validateProvider(adapter, id) {
   if (adapter?.apiVersion !== 1 || adapter.id !== id || typeof adapter.label !== 'string' || !adapter.services ||

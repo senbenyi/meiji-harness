@@ -1,8 +1,8 @@
-// 职责：ComfyUI 任务的唯一执行流程：准备（恢复时复用已保存的图）→ 提交 → 等待 → 收集产物，网络瞬断时有限重试。
+// 职责：ComfyUI 任务的唯一执行流程：准备（恢复时复用已保存的图）→ 提交 → 等待 → 收集产物 → 保存到项目本地，网络瞬断时有限重试。
 import { setTimeout } from 'node:timers/promises'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import { saveJson } from '../../../../database/json.js'
-import { connectBackend, createBackendClient, withBackend } from '../../index.js'
+import { createBackendClient, withBackend } from '../../index.js'
 import { prepareComfyWorkflow, runComfyWorkflow } from './execution.js'
 
 const MAX_RETRIES = 5
@@ -18,7 +18,6 @@ const transient = error => error.name === 'TimeoutError' || error instanceof Typ
  *   timeoutMs                单次等待上限
  */
 export async function runComfyJob(plan, backend, ctx, spec) {
-  await connectBackend(backend)
   return withBackend(backend, () => execute(plan, backend, ctx, spec))
 }
 
@@ -35,6 +34,9 @@ async function execute(plan, backend, ctx, { capability, prepare, collect, valid
     await ctx.save(status)
     const result = await collect(client, history, prepared, promptId)
     signal?.throwIfAborted()
+    status.stage = 'download'
+    await ctx.save(status)
+    Object.assign(result, await ctx.saveMedia(await client.download(result.comfyui_view_url), { extension: extname(new URL(result.comfyui_view_url).searchParams.get('filename')), kind: result.media_kind }))
     await saveJson(join(directory, 'validation.json'), validation(result))
     return await ctx.succeed(status, result)
   } catch (error) {

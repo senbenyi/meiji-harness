@@ -1,10 +1,10 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, sshIdentity, checkServer, switchServer, checkBackend, legacyTunnelBackend, defaultTunnelModel, updateSettings } from '../../worker/index.js'
+import { listProviders, validateBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, readRegistry, writeRegistry, readSelection, validateRegistry, checkServer, switchServer, updateSettings } from '../../worker/index.js'
 import { withConfig, runtimeConfig, runtimeSettings, defaultModels, defaultSettings } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-status', 'tunnel-connect', 'third-party-select', 'creation-quality']
-export function createSettingsHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-select', 'third-party-select', 'creation-quality']
+export function createSettingsHandler({ token, check = checkServer }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
@@ -19,20 +19,13 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       const available = Object.fromEntries(Object.entries(models).map(([kind, entries]) => [kind, entries.filter(model => registry.servers.some(server => server.id === model.server_id && !server.disabled && server.services.comfyui)).map(model => model.id)]))
       if (action === 'models') {
         const thirdParty = await thirdPartyModels()
-        const tunnel = defaultTunnelModel(), chatModel = tunnel && { id: tunnel.id, label: tunnel.label }
+        const chat = runtimeConfig().ELYSIUM_SETTINGS_FILE ? runtimeSettings().chat : defaultSettings.chat
+        const chatModel = { id: chat.id, label: chat.label }
         const creation = runtimeConfig().ELYSIUM_SETTINGS_FILE ? runtimeSettings().creation : defaultSettings.creation
         return json(res, 200, { revision: selection.revision, creation, models, available, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
           const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
           return [kind, entries.find(model => model.server_id === active)?.id || '']
         })) })
-      }
-      if (['tunnel-status', 'tunnel-connect'].includes(action)) {
-        const body = await readJsonBody(req), tunnel = defaultTunnelModel()
-        if (!tunnel || body.id !== tunnel.id) throw invalidRequest('聊天模型未在系统中配置')
-        const backend = tunnelBackend(tunnel.alias)
-        if (!backend) throw invalidRequest('聊天模型隧道未配置')
-        if (action === 'tunnel-status') return json(res, 200, { connected: await probeBackend(backend) })
-        return json(res, 200, { ...await connect(backend), connected: true })
       }
       if (action === 'third-party-select') {
         const body = await readJsonBody(req)
@@ -49,17 +42,12 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
         })
         return json(res, 200, { ...saved.creation, effect: 'new_jobs' })
       }
-      if (['model-status', 'model-connect'].includes(action)) {
+      if (action === 'model-select') {
         const body = await readJsonBody(req)
         const model = models[body.kind]?.find(model => model.id === body.id)
         if (!model) throw invalidRequest('模型未在系统配置中配置')
         if (!available[body.kind].includes(body.id)) throw invalidRequest('模型目标服务器未配置或已停用')
-        const backend = resolveServer(body.kind, model.server_id)
-        if (action === 'model-status') {
-          return json(res, 200, { connected: await probeBackend(backend) })
-        }
-        const result = await switchServer(body.kind, backend.server_id, body.revision, check)
-        return json(res, 200, { ...result, connected: true })
+        return json(res, 200, await switchServer(body.kind, model.server_id, body.revision, check))
       }
       const providers = action === 'list' ? await listProviders() : []
       if (action === 'list') return json(res, 200, { providers, revision: registry.revision, selection_revision: selection.revision,
@@ -78,10 +66,8 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       if (action === 'register') {
         const server = structuredClone(body.server)
         if (!server || !server.services) throw invalidRequest('需要服务器连接信息')
-        for (const service of Object.values(server.services)) if (service?.transport === 'ssh') service.ssh_identity = '0'.repeat(64)
         validateRegistry({ ...registry, servers: [...registry.servers, server] })
         for (const kind of Object.keys(server.services)) await validateBackend(backendFromServer(server, kind))
-        for (const service of Object.values(server.services)) if (service.transport === 'ssh') service.ssh_identity = identify(service.ssh_alias)
         const saved = await writeRegistry({ ...registry, servers: [...registry.servers, server] }, body.revision)
         return json(res, 201, { id: server.id, revision: saved.revision, message: '已登记。检查并设为默认后，新任务才使用此服务器。' })
       }
@@ -91,7 +77,7 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       return json(res, 200, { revision: saved.revision, message: body.enabled ? '已启用。' : '已停用新任务选择；历史记录和原任务连接保留。' })
     } catch (error) {
       // 上游响应可能包含私有信息，只有本地校验错误可以原样返回。
-      json(res, error.status || 503, { error: error.status ? error.message : '目标检查或连接失败，默认选择未变更；请检查本机配置与服务所需节点、模型。' })
+      json(res, error.status || 503, { error: error.status ? error.message : '目标模型检查失败，默认选择未变更；请检查服务所需节点和模型。' })
     }
   }
 }

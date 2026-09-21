@@ -54,7 +54,7 @@ test('A task survives a default switch to B even when preparation failed; identi
     const media = `${servers[0].services.comfyui.base_url}/view?filename=same.mp4&type=output`
     assert.throws(() => withBackend(resolveServer(), () => mediaReference(media)), /属于/)
     assert.equal(jobSummary({ status: 'succeeded', result: { comfyui_view_url: media } }).comfyui_view_url, media)
-    const mediaJob = { job_id: id, status: 'succeeded', server: await readBackend(dir), result: { comfyui_view_url: media } }
+    const mediaJob = { job_id: id, status: 'succeeded', server: await readBackend(dir), result: { comfyui_view_url: media, preview_view_url: media } }
     const proxy = createServer(createMediaHandler({ token: 'test', readJob: async () => mediaJob }))
     await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve))
     t.after(() => new Promise(resolve => proxy.close(resolve)))

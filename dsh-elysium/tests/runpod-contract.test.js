@@ -11,12 +11,12 @@ import { validateBackend } from '../src/worker/models/index.js'
 test('Runpod exposes the complete contract; missing or incomplete adapters never fall back', async () => {
   const provider = await loadProvider('runpod')
   assert.equal(provider.id, 'runpod')
-  for (const method of ['validate', 'connect', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource', 'manage']) assert.equal(typeof provider[method], 'function')
+  for (const method of ['validate', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource', 'manage']) assert.equal(typeof provider[method], 'function')
   const rows = await listProviders()
   assert.equal(rows.find(item => item.id === 'runpod').available, true)
   assert.equal(rows.find(item => item.id === 'autodl').available, true)
   await assert.rejects(loadProvider('../runpod'), { code: 'PROVIDER_UNAVAILABLE' })
-  assert.throws(() => validateProvider({ ...provider, connect: undefined }, 'runpod'), /契约/)
+  assert.throws(() => validateProvider({ ...provider, check: undefined }, 'runpod'), /契约/)
   await assert.rejects(validateBackend({ provider: 'runpod', provider_api_version: 99, service: 'comfyui' }), { code: 'PROVIDER_VERSION_MISMATCH' })
   const backend = { provider: 'runpod', instance_id: 'a', deployment_id: 'one', service: 'comfyui', base_url: 'http://fixture.test', connection: { transport: 'http', workload: 'minimax-h3' } }
   await validateBackend(backend)

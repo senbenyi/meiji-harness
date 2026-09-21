@@ -120,10 +120,13 @@ try {
   await completed(projectId, initial.job_id, 'failed')
   await select('b')
   a.history['prompt-1'].status = { completed: true }
+  a.history['prompt-1'].outputs.elysium_preview_video = { videos: [{ filename: 'prompt-1-preview.mp4', type: 'output' }] }
   await resumeVideoJob(initial.job_id)
   const result = await completed(projectId, initial.job_id)
   assert.equal(a.posts, 1, 'resume reconciles original prompt'); assert.equal(b.posts, 0)
   assert.equal(result.server.provider, provider); assert.ok(result.result.comfyui_view_url.startsWith(a.url))
+  await writeFile(join(jobPath(projectId, initial.job_id), 'status.json'), JSON.stringify({ ...result,
+    result: { ...result.result, preview_view_url: result.result.comfyui_view_url } }))
   const media = await fetch(`${url}/plugins/dsh-elysium/media/video?job=${initial.job_id}&t=${token}`)
   assert.equal(media.status, 200); assert.equal(await media.text(), 'fixture-media'); assert.equal(a.views, 1)
   const switched = await startVideoJob({ project_id: projectId, mode: 't2va', profile: 'preview', prompt: 'A new scene on B.' })
@@ -144,7 +147,7 @@ try {
     assert.equal((await request('settings/list')).servers.find(server => server.id === 'old').provider_available, false)
     await request(`project/get?id=${projectId}`)
     const trace = (await readFile(process.env.PROVIDER_TRACE, 'utf8')).trim().split('\n').map(JSON.parse)
-    for (const name of ['connect', 'createClient', 'buildGraph']) assert.ok(trace.some(entry => entry.name === name && entry.pid !== process.pid), `${name} dispatched inside real worker`)
+    for (const name of ['createClient', 'buildGraph']) assert.ok(trace.some(entry => entry.name === name && entry.pid !== process.pid), `${name} dispatched inside real worker`)
     for (const name of ['validate', 'check', 'llmSettings', 'workflowSource']) assert.ok(trace.some(entry => entry.name === name), `${name} dispatched`)
   }
   console.log(`${provider}: build/import, registration/check/switch, real worker/recovery, atomic tasks, media and workflow source passed`)

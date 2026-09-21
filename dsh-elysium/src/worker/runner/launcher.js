@@ -1,5 +1,5 @@
 // 职责：在锁保护下启动或接管本地媒体任务 worker。
-import { connectBackend, readBackend } from '../models/index.js'
+import { readBackend } from '../models/index.js'
 import { workerEnvironment } from '../../config.js'
 import { spawn } from 'node:child_process'
 import { closeFile, open, unlink, writeFile, writeOpenedFile } from '../../database/files.js'
@@ -39,7 +39,6 @@ async function launchLocked(jobId, capability, retryFailed) {
   }
   const identity = { job_id: jobId, project_id: projectId, capability, backend: backend.service === 'comfyui' ? 'comfyui' : backend.provider, server: backend }
   try {
-    await connectBackend(backend)
     if (retryFailed) await writeFile(join(directory, 'resume-request.json'), JSON.stringify({ retry_failed: true }), { mode: 0o600 })
     await saveStatus(directory, { ...identity, status: 'queued', stage: 'queued' })
     await appendHistory(directory, 'worker-dispatched', { retry_failed: retryFailed })

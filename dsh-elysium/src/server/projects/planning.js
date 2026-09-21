@@ -90,6 +90,11 @@ export function createPlanningService(store, complete, directors = createDirecto
     const state = await context(input)
     if (!Number.isInteger(input.version) || input.version < 1) throw invalid('规划版本无效')
     let replacement
+    if (input.step === 'shot-prompt') {
+      const shot = (await store.readEpisode(input.id, input.episode)).acts.flatMap(act => act.shots).find(item => item.id === input.shot_id)
+      if (!shot) throw conflict('请先定稿本集分镜')
+      if (['queued', 'running'].includes(shot.status) || shot.status === 'pending' && shot.job_id) throw conflict('镜头正在生成，完成后再定稿提示词')
+    }
     if (input.step === 'storyboard' && state.planning.episodes[input.episode]?.storyboard?.finalized !== input.version) {
       const current = await store.readEpisode(input.id, input.episode)
       if (current.acts.flatMap(act => act.shots).some(shot => ['queued', 'running'].includes(shot.status) || shot.status === 'pending' && shot.job_id)) throw conflict('本集有正在生成的镜头，不能重新定稿分镜')
@@ -98,23 +103,31 @@ export function createPlanningService(store, complete, directors = createDirecto
       replacement = { shots: preserveShots(version.value.shots, current.acts).map(({ previous, ...shot }) => shot) }
     }
     const planning = await store.finalizePlanningVersion(input.id, input.step, input.episode, input.shot_id, input.version, replacement)
-    if (input.step === 'series') await store.createAnchorsFromCast(input.id, finalized(planning.series))
+    if (input.step === 'series') {
+      const { changed } = await store.createAnchorsFromCast(input.id, finalized(planning.series))
+      if (changed.length) await store.changeAuto(input.id, auto => ({ ...auto, anchors_confirmed: false }))
+      await store.generateAnchorImages(input.id)
+    }
     if (input.step === 'storyboard' && state.planning.episodes[input.episode]?.storyboard?.finalized !== input.version) {
       const value = finalized(planning.episodes[input.episode].storyboard)
       const previous = (await store.readEpisode(input.id, input.episode)).acts.flatMap(act => act.shots)
       const shots = value.shots.map(shot => {
         const old = previous.find(item => item.id === shot.id && shotKey(item) === shotKey(shot))
-        const role = shot.roles[0] || ''
-        return { id: shot.id, role, roles: shot.roles, scene: shot.scene_id, shot_size: shot.shot_size, camera: shot.camera,
+        return { id: shot.id, roles: shot.roles, scene: shot.scene_id, shot_size: shot.shot_size, camera: shot.camera,
           action: shot.action, duration: shot.duration, dialogue: shot.dialogue, subtitle: shot.dialogue.map(line => line.text).join(' '),
-          mode: '', job_id: old?.job_id || null, status: old?.status || 'pending', notes: old?.notes || '',
-          prompt: old?.prompt || '', prompt_finalized: old?.prompt_finalized || false, accepted: old?.accepted || false }
+          prompt: old?.prompt || '', keyframe_prompt: old?.keyframe_prompt || '', prompt_finalized: old?.prompt_finalized || false,
+          take: old?.take || 0, keyframe_job_id: old?.keyframe_job_id || null, job_id: old?.job_id || null, status: old?.status || 'pending' }
       })
       await store.saveEpisodeStoryboard(input.id, input.episode, [{ title: `第 ${input.episode} 集`, shots }])
     }
     if (input.step === 'shot-prompt') {
       const value = finalized(planning.episodes[input.episode].prompts[input.shot_id])
-      await store.changeShot(input.id, 'update', { episode: input.episode, id: input.shot_id, prompt: value.prompt, prompt_finalized: true })
+      const shot = (await store.readEpisode(input.id, input.episode)).acts.flatMap(act => act.shots).find(item => item.id === input.shot_id)
+      // 提示词变化后旧画面不再对应定稿内容，镜头回到待生成。
+      const stale = shot.job_id && (shot.prompt !== value.prompt || shot.keyframe_prompt !== value.keyframe_prompt)
+      if (stale) await store.changeAuto(input.id, auto => { delete auto.attempts[`${input.episode}/${input.shot_id}`]; return auto })
+      await store.changeShot(input.id, { episode: input.episode, id: input.shot_id, prompt: value.prompt, keyframe_prompt: value.keyframe_prompt, prompt_finalized: true,
+        ...(stale ? { job_id: null, keyframe_job_id: null, status: 'pending' } : {}) })
     }
     return planning
   }

@@ -10,8 +10,9 @@ export function validatePlan(args) {
   if (typeof args.prompt !== 'string' || !args.prompt.trim()) throw invalid('prompt 必须为非空字符串')
   const required = MODE_MEDIA[args.mode]
   if (args.profile !== undefined && !VIDEO_PROFILES.includes(args.profile)) throw invalid(`profile 仅支持 ${VIDEO_PROFILES.join('、')}`)
-  const allowed = new Set(['mode', 'prompt', 'profile', 'quality', 'preview_variant', 'duration_seconds', ...required])
+  const allowed = new Set(['mode', 'prompt', 'profile', 'quality', 'preview_variant', 'duration_seconds', 'seed', ...required])
   if (Object.keys(args).some(key => !allowed.has(key))) throw invalid(`${args.mode} 包含未支持参数`)
+  if (args.seed !== undefined && (!Number.isInteger(args.seed) || args.seed < 0 || args.seed > 2 ** 32 - 1)) throw invalid('seed 必须为 uint32')
   for (const name of required) {
     if (!(name in args)) throw invalid(`${args.mode} 缺少 ${name}`)
     try { mediaReference(args[name], ['.png', '.jpg', '.jpeg', '.webp']) } catch (error) { throw invalid(`${name}: ${error.message}`) }

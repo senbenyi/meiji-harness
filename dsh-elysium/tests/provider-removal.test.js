@@ -25,7 +25,7 @@ const adapter = createStandardAdapter({ id: 'autodl', label: 'AutoDL test fixtur
     source: { path: 'independent-fixture', sha256: '0'.repeat(64) },
   })
 })
-for (const name of ['validate', 'connect', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource']) {
+for (const name of ['validate', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource']) {
   const original = adapter[name]
   adapter[name] = (...args) => {
     appendFileSync(process.env.PROVIDER_TRACE, JSON.stringify({ name, pid: process.pid }) + '\\n')

@@ -2,6 +2,7 @@
 import { readFile } from '../../../../../../database/files.js'
 
 import { mediaReference } from '../../../../protocols/comfyui/media-reference.js'
+import { addVideoPreview } from '../../../../protocols/comfyui/preview.js'
 import { buildProfileGraph } from './profile.js'
 
 export async function loadVideoTemplate(mode) {
@@ -18,7 +19,8 @@ export async function buildVideoGraph(plan, jobId) {
   }
   const output = bundle.bindings.output
   graph[output.node].inputs[output.input] = `elysium/${jobId}/${plan.mode}/final`
+  const previewNode = addVideoPreview(graph, output.node, jobId)
   return { graph, profile: plan.profile || 'standard', mode: plan.mode,
     workflowName: plan.profile === 'high-quality' ? `high-quality-${plan.mode}` : plan.mode, workflow: bundle.workflow,
-    outputNode: output.node, source: bundle.source }
+    outputNode: output.node, previewNode, source: bundle.source }
 }

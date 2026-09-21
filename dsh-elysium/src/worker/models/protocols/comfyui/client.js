@@ -110,6 +110,32 @@ export class ComfyClient {
     throw new Error(`等待超时；远端任务可能仍在执行，恢复时查询原 prompt_id: ${promptId}`)
   }
 
+  // 下载本服务器的产物原件；5xx 与超时按瞬断交给执行流程重试。
+  async download(view) {
+    const url = new URL(view)
+    if (url.origin !== this.url.origin || url.pathname !== new URL('view', this.url).pathname) throw new Error('产物不属于当前 ComfyUI 服务器')
+    const timeout = AbortSignal.timeout(10 * 60_000)
+    const response = await fetch(url, { signal: this.signal ? AbortSignal.any([this.signal, timeout]) : timeout })
+    if (!response.ok) {
+      await response.body?.cancel()
+      throw Object.assign(new Error(`ComfyUI 产物下载失败：HTTP ${response.status}`), { status: response.status })
+    }
+    return response.body
+  }
+
+  // 上传任务参考图到 input，返回可供工作流引用的 view 地址；同名覆盖保证恢复时结果一致。
+  async uploadImage(bytes, filename, contentType) {
+    const form = new FormData()
+    form.append('image', new Blob([bytes], { type: contentType }), filename)
+    for (const [key, value] of [['subfolder', 'elysium-refs'], ['type', 'input'], ['overwrite', 'true']]) form.append(key, value)
+    const timeout = AbortSignal.timeout(120_000)
+    const response = await fetch(new URL('upload/image', this.url), { method: 'POST', body: form, signal: this.signal ? AbortSignal.any([this.signal, timeout]) : timeout })
+    if (!response.ok) throw Object.assign(new Error(`ComfyUI 参考图上传失败：HTTP ${response.status}`), { status: response.status })
+    const value = await response.json(), url = new URL('view', this.url)
+    url.search = new URLSearchParams({ filename: value.name, subfolder: value.subfolder || '', type: value.type || 'input' }).toString()
+    return url.href
+  }
+
   viewUrl(descriptor) {
     if (!descriptor?.filename || descriptor.type !== 'output') throw new Error('无有效 ComfyUI output 产物')
     const url = new URL('view', this.url)

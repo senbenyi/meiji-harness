@@ -29,6 +29,7 @@ export function validateImagePlan(input) {
     if (params.preset !== undefined && params.preset !== 'standard') throw invalid('图片质量由系统设置控制')
     if (!Number.isInteger(params.seed) || params.seed < 0 || params.seed > 2 ** 32 - 1) throw invalid('seed 必须为 uint32')
     if (params.character && !['front', 'side', 'back'].includes(params.character.view)) throw invalid('角色视角无效')
+    if (params.purpose !== undefined && (params.purpose !== 'keyframe' || params.character)) throw invalid('purpose 仅支持 keyframe，且不能与角色视图同用')
   } else {
     if (!Array.isArray(params.views) || params.views.length !== 3) throw invalid('三视图需要三张图片')
     for (const view of params.views) {

@@ -3,7 +3,6 @@ import { requiredConfig, runtimeConfig, runtimeSettings, withConfig } from '../.
 import { readRegistry } from '../../../database/managers/registry.js'
 import { readSelection } from '../../../database/managers/selection.js'
 import { providerDefinitions } from './definitions.js'
-import { sshIdentity } from './transport.js'
 import { serviceUrl } from './registry-schema.js'
 export function resolveServer(kind = 'comfyui', serverId) {
   const serviceKind = ['image', 'video'].includes(kind) ? 'comfyui' : kind === 'analysis' ? 'llm' : kind
@@ -35,19 +34,3 @@ export function backendFromServer(server, kind) {
 }
 
 export const withBackend = (backend, callback) => withConfig({ ...runtimeConfig(), COMFYUI_URL: backend.base_url, ELYSIUM_BACKEND: backend }, callback)
-
-// 兼容命令和隧道参数由提供者声明，宿主只请求连接。
-export function legacyTunnelBackend(alias) {
-  if (runtimeConfig().ELYSIUM_SETTINGS_FILE) {
-    const chat = runtimeSettings().chat
-    if (chat.tunnel.alias !== alias) return null
-    return { ...structuredClone(chat.backend), provider_api_version: 1, legacy: true, instance_id: 'legacy', deployment_id: alias,
-      connection: { ...chat.backend.connection, ...chat.tunnel, ...(chat.tunnel.transport === 'ssh' && { ssh_identity: sshIdentity(chat.tunnel.ssh_alias) }) } }
-  }
-  const owner = providerDefinitions().find(item => item.legacy_tunnel?.alias === alias)
-  if (!owner) return null
-  const config = owner.legacy_tunnel
-  if (readRegistry()) return resolveServer(config.service)
-  const backend = resolveServer(config.service)
-  return { ...backend, instance_id: 'legacy', deployment_id: alias, connection: { ...config.connection, ssh_identity: sshIdentity(config.connection.ssh_alias) } }
-}

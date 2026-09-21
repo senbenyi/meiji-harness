@@ -1,11 +1,10 @@
-// 职责：导入、查询、预览、选择和删除素材，并将素材导入目标项目。
+// 职责：导入、查询、预览、选择和删除素材。
 window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
   const exports = {}
   const { createElement: h, useState, useEffect, useRef } = require('react')
   const { mediaUrl, assetUrl, relativeTime } = require('elysium/media-api')
   const { specificationLabel } = require('elysium/media-task-state')
   const { Dialog, Icon, IconButton } = require('elysium/dialog')
-  const { fetchProjects, importMaterial } = require('elysium/project-api')
   const DEFAULT_PAGE_SIZE = 6
   async function fetchAssets(offset = 0, limit = DEFAULT_PAGE_SIZE, filters = {}, signal) {
     const response = await fetch(mediaUrl('list', null, null, { offset, limit, ...filters }), { cache: 'no-store', credentials: 'same-origin', signal })
@@ -15,23 +14,10 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
   }
   const listCache = new Map()
   const assetTitle = item => item.title || item.prompt_excerpt || `${item.has_video ? '视频' : '图片'} · ${item.job_id.slice(0, 8)}`
-  function ProjectPicker({ jobId, close }) {
-    const [items, setItems] = useState([]), [error, setError] = useState(''), [busy, setBusy] = useState(false), [selected, setSelected] = useState(null), [loading, setLoading] = useState(true)
-    useEffect(() => { let active = true; fetchProjects().then(value => { if (active) setItems(value) }).catch(err => { if (active) setError(err.message) }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [])
-    async function choose() {
-      if (busy || !selected) return
-      setBusy(true); setError('')
-      try { await importMaterial(selected, jobId); close() } catch (err) { setError(err.message) } finally { setBusy(false) }
-    }
-    return h(Dialog, { title: '选择项目', close, busy, footer: h('button', { className: 'elysium-primary', disabled: busy || !selected, onClick: choose }, busy ? '正在使用…' : '用作项目锚点') },
-      items.map(item => h('button', { key: item.id, disabled: busy, 'aria-pressed': selected === item.id, onClick: () => setSelected(item.id) }, item.title)),
-      loading ? h('p', { role: 'status' }, '正在读取项目…') : !items.length ? h('p', null, '请先在项目页新建项目') : null,
-      error ? h('p', { role: 'alert' }, error) : null)
-  }
   function MaterialList({ onSelect, imageOnly = false, viewState = {}, onViewState = () => {} } = {}) {
     const [state, setState] = useState({ source: 'creation', quality: '', media_kind: '', q: '', page: 0, page_size: DEFAULT_PAGE_SIZE, ...viewState, ...(imageOnly ? { media_kind: 'image' } : {}) })
     const [input, setInput] = useState(state.q), [data, setData] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0)
-    const [preview, setPreview] = useState(null), [importJob, setImportJob] = useState(null), [submitting, setSubmitting] = useState(false), [mediaError, setMediaError] = useState(false), [deleting, setDeleting] = useState(false), [uploading, setUploading] = useState(false), [uploadError, setUploadError] = useState('')
+    const [preview, setPreview] = useState(null), [submitting, setSubmitting] = useState(false), [mediaError, setMediaError] = useState(false), [deleting, setDeleting] = useState(false), [uploading, setUploading] = useState(false), [uploadError, setUploadError] = useState('')
     const sequence = useRef(0), grid = useRef(null), fileInput = useRef(null)
     const pageSize = Number(state.page_size) || DEFAULT_PAGE_SIZE
     const change = patch => { const next = { ...state, ...patch }; setState(next); onViewState(next) }
@@ -112,11 +98,10 @@ window.__ModuleLoader__.load({ id: 'elysium/materials', factory: require => {
       h('footer', { className: 'elysium-pagination' },
         h('div', { className: 'elysium-pagination-meta' }, select('每页', 'page_size', [[6, '6 条'], [9, '9 条'], [12, '12 条'], [15, '15 条']]), h('span', { role: 'status' }, busy ? '正在读取…' : `共 ${data?.total ?? data?.items.length ?? 0} 条`)),
         h('div', { className: 'elysium-pagination-actions' }, h('span', null, `${state.page + 1}/${Math.max(1, Math.ceil((data?.total || 0) / pageSize))}`), h(IconButton, { name: 'chevronLeft', label: '上一页', disabled: busy || state.page === 0, onClick: () => change({ page: state.page - 1, scroll: 0 }) }), h(IconButton, { name: 'chevronRight', label: '下一页', disabled: busy || !data?.has_more, onClick: () => change({ page: state.page + 1, scroll: 0 }) }))),
-      preview && !importJob ? h(Dialog, { title: assetTitle(preview), close: () => setPreview(null), busy: submitting, footer: onSelect ? h('button', { disabled: submitting || imageOnly && !preview.has_image, className: 'elysium-primary', onClick: choose }, submitting ? '正在使用…' : '使用此素材') : preview.has_image ? h('button', { onClick: () => setImportJob(preview.job_id) }, '用作项目锚点') : null },
+      preview ? h(Dialog, { title: assetTitle(preview), close: () => setPreview(null), busy: submitting, footer: onSelect ? h('button', { disabled: submitting || imageOnly && !preview.has_image, className: 'elysium-primary', onClick: choose }, submitting ? '正在使用…' : '使用此素材') : null },
         mediaError ? h('p', { role: 'alert' }, '预览加载失败', h('button', { onClick: () => setMediaError(false) }, '重试预览')) : h(preview.has_video ? 'video' : 'img', { className: 'elysium-workbench-preview', src: assetUrl(preview.has_video ? 'video' : 'image', preview.job_id), ...(preview.has_video ? { controls: true, preload: 'metadata' } : { alt: assetTitle(preview) }), onError: () => setMediaError(true) }),
         preview.prompt_excerpt ? h('p', null, preview.prompt_excerpt) : null, error ? h('p', { role: 'alert' }, error) : null,
-        h('a', { href: assetUrl('download', preview.job_id), download: '', className: 'elysium-icon-link', 'aria-label': '下载素材', title: '下载素材' }, h(Icon, { name: 'download' }))) : null,
-      importJob ? h(ProjectPicker, { jobId: importJob, close: () => setImportJob(null) }) : null)
+        h('a', { href: assetUrl('download', preview.job_id), download: '', className: 'elysium-icon-link', 'aria-label': '下载素材', title: '下载素材' }, h(Icon, { name: 'download' }))) : null)
   }
   Object.assign(exports, { MaterialList })
   return exports

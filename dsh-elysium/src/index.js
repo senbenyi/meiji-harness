@@ -10,6 +10,7 @@ import { registerWebRoutes, createWebStores } from './server/index.js'
 import { createCallToolsProject, createCallToolsRuntime } from './tools/index.js'
 import { createTaskDriver } from './worker/index.js'
 import { createFilmDriver } from './server/projects/film.js'
+import { createPipelineDriver } from './server/projects/pipeline.js'
 
 export const name = '@dsh-external/dsh-elysium'
 export const inject = ['tools', 'systemPrompt', 'jobs']
@@ -35,8 +36,9 @@ export function apply(ctx, config = {}) {
 function registerWebFeatures(ctx, runtime) {
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
     const stores = createWebStores()
-    const driver = createTaskDriver({ execute: action => withConfig(runtime, action), logger: ctx.logger,
-      driveFilm: createFilmDriver(stores.projects, ctx.logger) })
+    const driveFilm = createFilmDriver(stores.projects, ctx.logger), drivePipeline = createPipelineDriver(stores.projects, ctx.logger)
+    const driveProjects = async () => ({ active: [await driveFilm(), await drivePipeline()].some(result => result.active) })
+    const driver = createTaskDriver({ execute: action => withConfig(runtime, action), logger: ctx.logger, driveProjects })
     mediaContext.effect(() => { driver.start(); return () => driver.stop() }, `${effectPrefix}: task driver`)
     registerWebRoutes(mediaContext, runtime, stores)
     registerWebTools(ctx, mediaContext, runtime, stores)

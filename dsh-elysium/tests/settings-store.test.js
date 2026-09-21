@@ -4,12 +4,11 @@ import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { defaultSettings, withConfig } from '../src/config.js'
+import { defaultSettings, runtimeSettings, withConfig } from '../src/config.js'
 import { ensureSettings, readSettings, updateSettings, validateSettings } from '../src/database/managers/settings.js'
 import { readRegistry, writeRegistry } from '../src/database/managers/registry.js'
 import { readSelection, writeSelection } from '../src/database/managers/selection.js'
-import { legacyTunnelBackend } from '../src/worker/models/catalog/servers.js'
-import { ensureConnection } from '../src/worker/models/catalog/transport.js'
+import { resolveServer } from '../src/worker/models/catalog/servers.js'
 
 const fixture = async t => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-unified-settings-'))
@@ -80,43 +79,43 @@ test('legacy atomic tool setting is accepted but removed from runtime settings',
   assert.equal(Object.hasOwn(settings, 'enableAtomicTools'), false)
 })
 
-test('empty connection list keeps the configured chat SSH tunnel and API model', async t => {
+test('empty connection list keeps the configured chat HTTP backend', async t => {
   const files = await fixture(t)
   const defaults = structuredClone(defaultSettings)
-  defaults.chat.tunnel.ssh_alias = 'localhost'
   ensureSettings({ path: files.settings, defaults, registryFile: files.registry, selectionFile: files.selection })
-  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => legacyTunnelBackend('qwen'))
-  assert.equal(backend.connection.transport, 'ssh')
+  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => resolveServer('llm'))
   assert.equal(backend.connection.model, 'qwen3.8-27b-elysium')
   assert.equal(backend.connection.api_key_env, undefined)
+  assert.equal(backend.base_url, defaults.chat.backend.base_url)
 })
 
-test('ComfyUI registry does not replace the configured chat SSH tunnel', async t => {
+test('ComfyUI registry does not replace the configured chat HTTP backend', async t => {
   const files = await fixture(t)
   const defaults = structuredClone(defaultSettings)
-  defaults.chat.tunnel.ssh_alias = 'localhost'
   defaults.connections.servers.push({ id: 'comfy', label: 'ComfyUI', provider: 'autodl', connection_source: 'manual', instance_id: 'gpu', deployment_id: 'one', services: {
     comfyui: { transport: 'http', base_url: 'http://comfy.test', workload: 'minimax-h3' },
   } })
   ensureSettings({ path: files.settings, defaults, registryFile: files.registry, selectionFile: files.selection })
-  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => legacyTunnelBackend('qwen'))
+  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => runtimeSettings().chat.backend)
   assert.equal(backend.server_id, 'legacy-qwen')
-  assert.equal(backend.connection.ssh_alias, 'localhost')
   assert.equal(backend.connection.model, 'qwen3.8-27b-elysium')
 })
 
-test('chat HTTP tunnel connects directly', async t => {
+test('legacy chat tunnel field is removed from persisted HTTP settings', async t => {
   const files = await fixture(t)
   const defaults = structuredClone(defaultSettings)
   defaults.chat.backend.base_url = 'http://gw.test/qwen/v1'
   defaults.chat.tunnel = { alias: 'qwen', transport: 'http' }
-  ensureSettings({ path: files.settings, defaults, registryFile: files.registry, selectionFile: files.selection })
-  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => legacyTunnelBackend('qwen'))
-  assert.equal(backend.connection.transport, 'http')
-  assert.equal(backend.connection.ssh_identity, undefined)
+  await writeFile(files.settings, JSON.stringify(defaults), { mode: 0o600 })
+  const saved = ensureSettings({ path: files.settings, defaults: defaultSettings })
+  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => resolveServer('llm'))
   assert.equal(backend.base_url, 'http://gw.test/qwen/v1')
-  assert.equal(await ensureConnection(backend), undefined)
-  assert.throws(() => validateSettings({ ...defaults, chat: { ...defaults.chat, tunnel: { ...defaults.chat.tunnel, ssh_alias: 'localhost' } } }), /聊天隧道无效/)
+  assert.equal(Object.hasOwn(saved.chat, 'tunnel'), false)
+  assert.equal(Object.hasOwn(JSON.parse(await readFile(files.settings, 'utf8')).chat, 'tunnel'), false)
+  assert.throws(() => validateSettings(defaults), /聊天模型无效/)
+  defaults.chat.tunnel = { alias: 'qwen', transport: 'ssh' }
+  await writeFile(files.settings, JSON.stringify(defaults), { mode: 0o600 })
+  assert.throws(() => ensureSettings({ path: files.settings, defaults: defaultSettings }), /旧 SSH 聊天连接已停用/)
 })
 
 test('legacy unified settings gains regular creation quality without losing sections', async t => {

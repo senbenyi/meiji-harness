@@ -5,7 +5,6 @@ const keys = (value, allowed) => {
   if (!object(value) || Object.keys(value).some(key => !allowed.includes(key))) fail('服务器配置字段无效')
 }
 const id = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value)
-const port = value => Number.isInteger(value) && value > 0 && value <= 65535
 export function httpUrl(value) {
   let url
   try { url = new URL(value) } catch { fail('服务地址必须为 HTTP(S) URL') }
@@ -13,8 +12,7 @@ export function httpUrl(value) {
   return url.href.replace(/\/+$/, '')
 }
 export function serviceUrl(service) {
-  return service.transport === 'http' ? httpUrl(service.base_url)
-    : httpUrl(`http://127.0.0.1:${service.local_port}${service.api_path || ''}`)
+  return httpUrl(service.base_url)
 }
 export function validateRegistry(value) {
   keys(value, ['version', 'revision', 'active', 'third_party', 'servers'])
@@ -24,7 +22,7 @@ export function validateRegistry(value) {
     keys(value.third_party, ['image', 'video'])
     if (Object.values(value.third_party).some(value => !/^[a-z][a-z0-9_-]{0,63}:[A-Za-z0-9_-]+$/.test(value))) fail('三方模型选择无效')
   }
-  const ids = new Set(), ports = new Set(), endpoints = new Set(), identities = new Set()
+  const ids = new Set(), endpoints = new Set(), identities = new Set()
   for (const server of value.servers) {
     keys(server, ['id', 'label', 'provider', 'connection_source', 'instance_id', 'deployment_id', 'disabled', 'services'])
     if (!id(server.id) || ids.has(server.id)) fail('服务器 ID 无效或重复')
@@ -39,17 +37,9 @@ export function validateRegistry(value) {
     keys(server.services, ['comfyui', 'llm'])
     if (!Object.keys(server.services).length) fail('至少登记一种服务')
     for (const [kind, service] of Object.entries(server.services)) {
-      keys(service, ['transport', 'base_url', 'ssh_alias', 'remote_host', 'remote_port', 'local_port', 'api_path', 'model', 'api_key_env', 'workload', 'ssh_identity'])
-      if (service.transport === 'http') {
-        httpUrl(service.base_url)
-        if (['ssh_alias', 'remote_host', 'remote_port', 'local_port', 'api_path', 'ssh_identity'].some(key => service[key] !== undefined)) fail('HTTP 服务不能包含 SSH 字段')
-      } else if (service.transport === 'ssh') {
-        if (!/^[a-f0-9]{64}$/.test(service.ssh_identity || '')) fail('SSH 服务必须记录解析身份，请通过服务器设置登记')
-        if (service.base_url !== undefined || !id(service.ssh_alias) || !/^[A-Za-z0-9.:-]+$/.test(service.remote_host || '') || !port(service.remote_port) || !port(service.local_port)) fail('SSH 地址或端口无效')
-        if (ports.has(service.local_port)) fail('不同服务必须使用独立本地端口')
-        ports.add(service.local_port)
-        if (service.api_path !== undefined && !/^\/[A-Za-z0-9/_-]*$/.test(service.api_path)) fail('api_path 无效')
-      } else fail('未知连接类型')
+      keys(service, ['transport', 'base_url', 'model', 'api_key_env', 'workload'])
+      if (service.transport !== 'http') fail('仅支持 HTTP(S) 服务地址')
+      httpUrl(service.base_url)
       const endpoint = serviceUrl(service)
       if (endpoints.has(endpoint)) fail('服务地址重复，不能映射多个身份')
       endpoints.add(endpoint)

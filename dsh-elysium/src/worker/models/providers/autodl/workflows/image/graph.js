@@ -5,6 +5,12 @@ import { executionWorkflow } from '../workflow.js'
 
 const invalid = message => new ModelTaskError('MODEL_INPUT_INVALID', `[MODEL_INPUT_INVALID] ${message}`, 422)
 
+// 视频首帧与同质量档 H3 视频同比例，长边 1152，按 8 对齐。
+async function keyframeSize(quality = 'regular') {
+  const video = JSON.parse(await readFile(new URL(`../minimax-h3/profiles/${quality}.json`, import.meta.url), 'utf8'))
+  return { width: Math.round(1152 * video.width / video.height / 8) * 8, height: 1152 }
+}
+
 export async function buildImageGraph(plan, media, jobId) {
   const { capability, params } = plan
   const name = capability === 'image-compose' ? 'workflow_character_sheet'
@@ -17,7 +23,7 @@ export async function buildImageGraph(plan, media, jobId) {
     const profile = JSON.parse(await readFile(new URL(`./profiles/${plan.quality || 'regular'}.json`, import.meta.url), 'utf8'))
     graph['2'].inputs.text = params.prompt
     graph['5'].inputs.seed = params.seed
-    Object.assign(graph['4'].inputs, { width: profile.width, height: profile.height })
+    Object.assign(graph['4'].inputs, params.purpose === 'keyframe' ? await keyframeSize(plan.quality) : { width: profile.width, height: profile.height })
     graph['5'].inputs.steps = profile.steps
     if (params.image_path) graph['8'].inputs.image = media[params.image_path].name
     if (params.character) {

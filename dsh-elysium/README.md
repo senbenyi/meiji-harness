@@ -69,11 +69,11 @@ src/
 
 ## 本机配置边界
 
-仓库中的 `config/defaults.json` 只负责初始化非敏感默认值。实际运行设置唯一保存到 `$DSH_HOME/storages/elysium/config/settings.json`，包括聊天模型与隧道、图片/视频模型目录、服务器连接、当前模型选择和三方渠道配置。该文件包含凭据，始终使用 `0600` 权限；浏览器接口不会返回密钥和 SSH 连接细节。插件实例参数可临时覆盖原子工具开关与模型目录。
+仓库中的 `config/defaults.json` 只负责初始化非敏感默认值。实际运行设置唯一保存到 `$DSH_HOME/storages/elysium/config/settings.json`，包括聊天模型、图片/视频模型目录、服务器 HTTP(S) 地址、当前模型选择和三方渠道配置。该文件包含凭据，始终使用 `0600` 权限；浏览器接口不会返回密钥和服务器地址。插件实例参数可临时覆盖原子工具开关与模型目录。
 
-`ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`），根目录只承载五类数据：`config/` 保存唯一的 `settings.json`，`pools/` 保存导演库和素材库索引等跨项目主数据，`projects/` 保存项目业务、任务记录和执行记录，`runtime/` 保存跨会话索引、驱动索引、隧道和迁移归档，`uploads/` 保存用户导入原件。生成任务的不可变请求记录位于 `projects/tasks/`，执行记录位于 `projects/jobs/`，可重建派发索引位于 `runtime/driver.json`；这三处都不是缓存，项目目录本身不再包含 `jobs/`。`pools/materials.json` 仅记录全局素材的身份、来源和删除状态，媒体实体仍位于所属 `projects/` 或 `uploads/`；项目内的 `materials.json` 只是引用集合。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
+`ELYSIUM_HOME` 默认 `$DSH_HOME/storages/elysium`（`DSH_HOME` 默认 `~/.dsh`），根目录只承载五类数据：`config/` 保存唯一的 `settings.json`，`pools/` 保存导演库和素材库索引等跨项目主数据，`projects/` 保存项目业务、任务记录和执行记录，`runtime/` 保存跨会话索引、驱动索引和迁移归档，`uploads/` 保存用户导入原件。生成任务的不可变请求记录位于 `projects/tasks/`，执行记录位于 `projects/jobs/`，可重建派发索引位于 `runtime/driver.json`；这三处都不是缓存，项目目录本身不再包含 `jobs/`。`pools/materials.json` 仅记录全局素材的身份、来源和删除状态，媒体实体仍位于所属 `projects/` 或 `uploads/`；项目内的 `materials.json` 只是引用集合。Harness 的文本模型由 Harness 自身动态路由，Elysium 不修改 `~/.dsh/settings.yaml`。
 
-AutoDL 保持两台服务器分工：ComfyUI 服务器同时承担图片和 H3 视频，Qwen 服务器承担 LLM。按 `src/worker/models/providers/autodl/server.example.json` 登记两个 server 后，将 `selection.selected.image` 与 `selection.selected.video` 指向 ComfyUI server；聊天配置继续指向 Qwen。真实主机、SSH 身份和凭据只保存在本机 `settings.json`/SSH 配置中，不写入仓库。切换只影响新任务，已有任务继续读取各自的 `input/backend.json` 快照。
+AutoDL 保持两台服务器分工：ComfyUI 服务器同时承担图片和 H3 视频，Qwen 服务器承担 LLM。按 `src/worker/models/providers/autodl/server.example.json` 登记两个 server 后，将 `selection.selected.image` 与 `selection.selected.video` 指向 ComfyUI server；聊天配置继续指向 Qwen。实际 HTTP(S) 地址和凭据保存在本机 `settings.json` 中。切换只影响新任务，已有任务继续读取各自的 `input/backend.json` 快照。
 
 ## 构建
 

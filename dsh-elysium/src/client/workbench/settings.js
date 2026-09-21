@@ -1,49 +1,23 @@
-// 职责：选择创作质量及私有、三方模型，并显式连接私有模型。
+// 职责：选择创作质量及私有、三方模型。
 load('elysium/settings', (require, exports) => {
-  const { createElement: h, useState, useEffect, useRef } = require('react')
+  const { createElement: h, useState, useEffect } = require('react')
   const { settingsRequest } = require('elysium/settings-api')
   const labels = { image: '图片模型', video: '视频模型' }
   const qualities = [['fast', '快速创作'], ['regular', '常规创作'], ['high', '高清创作']]
   function Settings() {
     const [data, setData] = useState(null), [selected, setSelected] = useState({}), [thirdPartySelected, setThirdPartySelected] = useState({})
-    const [creation, setCreation] = useState(null), [connected, setConnected] = useState({}), [connectionErrors, setConnectionErrors] = useState({})
+    const [creation, setCreation] = useState(null)
     const [error, setError] = useState(''), [busy, setBusy] = useState(null)
-    const probeGeneration = useRef({ chat: 0, image: 0, video: 0 })
     async function refresh(signal) {
       const value = await settingsRequest('models', null, signal)
       if (signal?.aborted) return
       setData(value); setSelected(value.selected); setThirdPartySelected(value.third_party_selected || {}); setCreation(value.creation)
-      setConnected({}); setConnectionErrors({})
-      for (const kind of ['chat', 'image', 'video']) {
-        const id = kind === 'chat' ? value.chat_model?.id : value.selected[kind]
-        const available = kind === 'chat' || value.available?.[kind]?.includes(id)
-        const generation = ++probeGeneration.current[kind]
-        if (!id || !available) continue
-        settingsRequest(kind === 'chat' ? 'tunnel-status' : 'model-status', kind === 'chat' ? { id } : { kind, id }, signal)
-          .then(result => { if (!signal?.aborted && probeGeneration.current[kind] === generation && result.connected) setConnected(current => ({ ...current, [kind]: id })) })
-          .catch(() => {})
-      }
     }
     useEffect(() => {
       const controller = new AbortController()
       refresh(controller.signal).catch(error => { if (!controller.signal.aborted) setError(error.message) })
       return () => controller.abort()
     }, [])
-    async function failed(kind, failure) {
-      setConnected(current => ({ ...current, [kind]: '' }))
-      setConnectionErrors(current => ({ ...current, [kind]: failure.message }))
-      if (failure.status === 409) { setError(failure.message); await refresh().catch(error => setError(error.message)) }
-    }
-    async function connectChat() {
-      if (busy || !data?.chat_model) return
-      ++probeGeneration.current.chat
-      setBusy('chat'); setError(''); setConnectionErrors(current => ({ ...current, chat: '' }))
-      try {
-        const value = await settingsRequest('tunnel-connect', { id: data.chat_model.id })
-        if (value.connected) setConnected(current => ({ ...current, chat: data.chat_model.id }))
-      } catch (error) { await failed('chat', error) }
-      finally { setBusy(null) }
-    }
     async function chooseQuality(quality) {
       if (busy || !creation) return
       const previous = creation
@@ -57,23 +31,20 @@ load('elysium/settings', (require, exports) => {
       }
       finally { setBusy(null) }
     }
-    function chooseOwn(kind, id) {
-      if (busy) return
-      ++probeGeneration.current[kind]
+    async function chooseOwn(kind, id) {
+      if (busy || !id || id === selected[kind]) return
+      if (!data.available?.[kind]?.includes(id)) { setError('目标服务器未配置'); return }
+      const previous = selected[kind]
       setSelected(current => ({ ...current, [kind]: id }))
-      setConnected(current => ({ ...current, [kind]: '' }))
-      setConnectionErrors(current => ({ ...current, [kind]: '' }))
-    }
-    async function connectOwn(kind) {
-      const id = selected[kind]
-      if (busy || !id || !data.available?.[kind]?.includes(id)) return
-      ++probeGeneration.current[kind]
-      setBusy(kind); setError(''); setConnectionErrors(current => ({ ...current, [kind]: '' }))
+      setBusy(kind); setError('')
       try {
-        const value = await settingsRequest('model-connect', { kind, id, revision: data.revision })
+        const value = await settingsRequest('model-select', { kind, id, revision: data.revision })
         setData(current => ({ ...current, revision: value.revision ?? current.revision, selected: { ...current.selected, [kind]: id } }))
-        if (value.connected) setConnected(current => ({ ...current, [kind]: id }))
-      } catch (error) { await failed(kind, error) }
+      } catch (failure) {
+        setSelected(current => ({ ...current, [kind]: previous }))
+        setError(failure.message)
+        if (failure.status === 409) await refresh().catch(error => setError(error.message))
+      }
       finally { setBusy(null) }
     }
     async function chooseThirdParty(kind, id) {
@@ -89,8 +60,6 @@ load('elysium/settings', (require, exports) => {
       }
       finally { setBusy(null) }
     }
-    const isConnected = (kind, id) => Boolean(id && connected[kind] === id)
-    const rowError = kind => connectionErrors[kind] ? h('span', { className: 'elysium-connection-error', role: 'alert' }, connectionErrors[kind]) : null
     return h('section', { className: 'elysium-settings', 'aria-label': '模型设置' },
       h('h2', null, '创作设置'),
       h('div', { className: 'elysium-model-row' },
@@ -101,9 +70,7 @@ load('elysium/settings', (require, exports) => {
       h('div', { className: 'elysium-model-row' },
         h('label', { htmlFor: 'elysium-model-chat' }, '聊天模型：'),
         h('select', { id: 'elysium-model-chat', 'aria-label': '聊天模型', value: data?.chat_model?.id || '', disabled: true },
-          h('option', { value: data?.chat_model?.id || '' }, data?.chat_model?.label || '未配置')),
-        h('button', { type: 'button', className: isConnected('chat', data?.chat_model?.id) ? 'elysium-connection-ready' : '', disabled: !!busy || !data?.chat_model, onClick: connectChat }, busy === 'chat' ? '连接中…' : isConnected('chat', data?.chat_model?.id) ? '重新连接' : '连接'),
-        rowError('chat')),
+          h('option', { value: data?.chat_model?.id || '' }, data?.chat_model?.label || '未配置'))),
       Object.entries(labels).map(([kind, label]) => {
         const entries = data?.models[kind] || [], id = selected[kind] || ''
         const available = data?.available?.[kind]?.includes(id)
@@ -112,8 +79,7 @@ load('elysium/settings', (require, exports) => {
           h('select', { id: `elysium-model-${kind}`, 'aria-label': label, value: id, disabled: !!busy || !entries.length, onChange: event => chooseOwn(kind, event.target.value) },
             !entries.length ? h('option', { value: '' }, '未配置') : [!id ? h('option', { key: 'choose', value: '' }, '请选择模型') : null,
               ...entries.map(model => h('option', { key: model.id, value: model.id }, model.label))]),
-          h('button', { type: 'button', className: isConnected(kind, id) ? 'elysium-connection-ready' : '', disabled: !!busy || !available, onClick: () => connectOwn(kind) }, busy === kind ? '连接中…' : isConnected(kind, id) ? '重新连接' : '连接'),
-          id && !available ? h('span', { className: 'elysium-connection-error' }, '目标服务器未配置') : null, rowError(kind))
+          id && !available ? h('span', { className: 'elysium-connection-error' }, '目标服务器未配置') : null)
       }),
       data?.third_party ? h('section', { 'aria-label': '三方模型' }, h('h2', null, '三方模型'),
         ['image', 'video'].map(kind => {

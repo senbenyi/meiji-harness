@@ -2,6 +2,7 @@ import { readFile, readFileSync } from '../../../../../../database/files.js'
 
 // 职责：编译 main 分支 AutoDL H3 单镜头、多镜头、续接、参考、复用和合片图。
 import { executionWorkflow } from '../workflow.js'
+import { addVideoPreview } from '../../../../protocols/comfyui/preview.js'
 
 const workflowNames = ['workflow_generate_video', 'workflow_director_video']
 const qualitySettings = Object.fromEntries(['fast', 'regular', 'high'].map(quality => [quality,
@@ -158,6 +159,7 @@ export function buildVideoGraph(plan, media, workflows, jobId) {
     audio: join(allAudio, 'concat_audio_', 'AudioConcat'), frame_rate: settings.outputFps,
     filename_prefix: `elysium/${jobId}/final` })
   graph.final = output
-  return { graph, shots, workflowName, settings, workflow: executionWorkflow(graph, bundle.workflow), outputNode: 'final', mode: 'director',
+  const previewNode = addVideoPreview(graph, 'final', jobId, { width: settings.outputWidth, height: settings.outputHeight })
+  return { graph, shots, workflowName, settings, workflow: executionWorkflow(graph, bundle.workflow), outputNode: 'final', previewNode, mode: 'director',
     quality: plan.quality, specification: { width: settings.outputWidth, height: settings.outputHeight, fps: settings.outputFps, seconds: plan.duration, steps: settings.steps, audio: 'joint-generation-and-decoding' } }
 }

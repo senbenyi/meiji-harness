@@ -35,8 +35,12 @@ test('regular uses aligned five-second graph, keeps image conditioning and repor
   assert.deepEqual(p.graph.n126.inputs.images, ['n105_10', 0])
   assert.deepEqual(p.graph.n126.inputs.audio, ['n105_23', 0])
   assert.equal(p.workflow, undefined)
-  const result = await collectVideoArtifacts(new ComfyClient('https://pod.test'), { outputs: { n126: { gifs: [{ filename: 'final.mp4', type: 'output' }] } } }, p, 'prompt')
+  const result = await collectVideoArtifacts(new ComfyClient('https://pod.test'), { outputs: {
+    n126: { gifs: [{ filename: 'final.mp4', type: 'output' }] },
+    [p.previewNode]: { gifs: [{ filename: 'preview.mp4', type: 'output' }] },
+  } }, p, 'prompt')
   assert.equal(result.profile, 'regular')
+  assert.match(result.preview_view_url, /preview\.mp4/)
   for (const args of [{ ...plan, preview_variant: 'low-resolution' }, { profile: 'regular', mode: 'fl2va', prompt: 'x' }]) await assert.rejects(validateVideoPlan(args))
 }))
 

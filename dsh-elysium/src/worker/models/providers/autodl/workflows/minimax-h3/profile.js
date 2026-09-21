@@ -1,6 +1,7 @@
 // 职责：加载视频档位配置，并编译预览与常规工作流。
 import { readFile } from '../../../../../../database/files.js'
 import { mediaReference } from '../../../../protocols/comfyui/media-reference.js'
+import { addVideoPreview } from '../../../../protocols/comfyui/preview.js'
 
 // A small override of the existing H3 graph; submission/recovery stays shared.
 export async function buildProfileGraph(plan, jobId, bundle) {
@@ -30,8 +31,10 @@ export async function buildProfileGraph(plan, jobId, bundle) {
     }
   }
   visit('n126')
-  return { graph: Object.fromEntries(Object.entries(graph).filter(([id]) => needed.has(id))),
-    profile, mode: plan.mode, workflowName: `${profileName}-${plan.mode}`, outputNode: 'n126', source: bundle.source,
+  const focused = Object.fromEntries(Object.entries(graph).filter(([id]) => needed.has(id)))
+  const previewNode = addVideoPreview(focused, 'n126', jobId)
+  return { graph: focused,
+    profile, mode: plan.mode, workflowName: `${profileName}-${plan.mode}`, outputNode: 'n126', previewNode, source: bundle.source,
     specification: { backend: config.backend, width, height, frames, fps: config.fps, seconds: frames / config.fps,
       ...(lowResolution ? { preview_variant: 'low-resolution' } : {}),
       requested_seconds: requestedSeconds, steps: config.steps, audio: 'joint-generation-and-decoding', interpolation: false } }
