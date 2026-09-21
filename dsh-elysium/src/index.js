@@ -37,9 +37,22 @@ function registerWebFeatures(ctx, runtime) {
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
     const stores = createWebStores()
     const driveFilm = createFilmDriver(stores.projects, ctx.logger), drivePipeline = createPipelineDriver(stores.projects, ctx.logger)
-    const driveProjects = async () => ({ active: [await driveFilm(), await drivePipeline()].some(result => result.active) })
+    let reconciling = false
+    const driveProjects = async () => {
+      if (reconciling) return { active: true }
+      reconciling = true
+      try {
+        const film = await driveFilm().catch(error => { ctx.logger?.error?.(`[elysium] film reconcile: ${error.message}`); return { active: false } })
+        const pipeline = await drivePipeline()
+        return { active: film.active || pipeline.active }
+      }
+      finally { reconciling = false }
+    }
     const driver = createTaskDriver({ execute: action => withConfig(runtime, action), logger: ctx.logger, driveProjects })
-    mediaContext.effect(() => { driver.start(); return () => driver.stop() }, `${effectPrefix}: task driver`)
+    driver.start()
+    const timer = setInterval(() => withConfig(runtime, driveProjects).catch(error => ctx.logger?.error?.(`[elysium] project reconcile: ${error.message}`)), 2000)
+    timer.unref?.()
+    mediaContext.effect(() => () => { clearInterval(timer); driver.stop() }, `${effectPrefix}: task driver`)
     registerWebRoutes(mediaContext, runtime, stores)
     registerWebTools(ctx, mediaContext, runtime, stores)
   }))

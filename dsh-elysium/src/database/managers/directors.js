@@ -4,7 +4,8 @@ import { createSkillsStore, parseSkill } from './skills.js'
 import { statusError } from '../../utils/errors.js'
 
 const invalid = message => statusError(400, message)
-const files = ['SKILL.md', 'script.md', 'storyboard.md', 'shot-prompt-example.md']
+const files = ['SKILL.md', 'series.md', 'script.md', 'storyboard.md']
+const seriesTemplate = '# 导演总览\n\n- 集数：固定 2 集；单集 60–120 秒。\n'
 const scriptTemplate = '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n'
 const storyboardTemplate = '# 导演分镜\n\n## 镜头语言\n\n## 提示词额外要求\n'
 const summary = item => ({ name: item.name, display_name: item.metadata?.display_name || item.name,
@@ -51,6 +52,7 @@ export function createDirectorStore() {
         .replace(/^  order: [^\n]+$/m, `  order: ${order}`) + suppliedContent.slice(end)
     }
     await skills.save(name, content)
+    await skills.saveReference(name, 'series.md', seriesTemplate)
     await skills.saveReference(name, 'script.md', scriptTemplate)
     await skills.saveReference(name, 'storyboard.md', storyboardTemplate)
     return get(name)

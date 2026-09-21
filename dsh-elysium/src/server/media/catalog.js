@@ -95,9 +95,12 @@ export async function listAssets(offset, limit, filters = {}) {
     const projects = await readdir(projectsRoot(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
     for (const project of projects.filter(project => project.isDirectory() && validProjectId(project.name))) {
       const directory = join(projectsRoot(), project.name)
-      const materials = await readJson(join(directory, 'materials.json'))
-      const metadata = materials ? null : await readJson(join(directory, 'project.json'))
-      for (const id of materials || metadata?.materials || []) projectMaterials.add(id)
+      const state = await readJson(join(directory, 'state.json'))
+      for (const anchor of Object.values(state?.anchors || {})) for (const id of [anchor.source_job_id, anchor.image_job_id]) if (id) projectMaterials.add(id)
+      for (const episode of Object.values(state?.episodes || {})) {
+        for (const shot of Object.values(episode.shots || {})) for (const id of [shot.keyframe_job_id, shot.job_id]) if (id) projectMaterials.add(id)
+        for (const id of [episode.film?.job_id, episode.film?.subtitle_job_id]) if (id) projectMaterials.add(id)
+      }
     }
   }
   const items = []

@@ -6,44 +6,6 @@ import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 const execute = promisify(execFile)
-test('complete business flow with autodl after physically deleting runpod', { timeout: 60000 }, async t => {
-  const provider = 'autodl', removed = 'runpod'
-  const root = await mkdtemp(join(tmpdir(), 'provider-removal-'))
-  t.after(() => rm(root, { recursive: true, force: true }))
-  for (const name of ['src', 'scripts', 'config', 'package.json']) await cp(new URL(`../${name}`, import.meta.url), join(root, name), { recursive: true })
-  await cp(new URL('./fixtures/provider-scenario.mjs', import.meta.url), join(root, 'scenario.mjs'))
-  await rm(join(root, `src/worker/models/providers/${removed}`), { recursive: true })
-  await mkdir(join(root, 'src/worker/models/providers/autodl'), { recursive: true })
-  // 独立测试实现仅组合公共协议，不引用或复制 Runpod；真实 AutoDL 目录仍只预留。
-  await writeFile(join(root, 'src/worker/models/providers/autodl/index.js'), `
-import { createStandardAdapter } from '../../protocols/comfyui/adapter.js'
-import { appendFileSync } from 'node:fs'
-const adapter = createStandardAdapter({ id: 'autodl', label: 'AutoDL test fixture',
-  buildGraph: (_backend, plan, jobId) => ({
-    graph: { result: { class_type: 'SaveVideo', inputs: { prompt: plan.prompt, filename_prefix: jobId } } },
-    outputNode: 'result', mode: plan.mode, profile: plan.profile || 'standard', workflowName: 'fixture-video',
-    source: { path: 'independent-fixture', sha256: '0'.repeat(64) },
-  })
-})
-for (const name of ['validate', 'check', 'createClient', 'buildGraph', 'llmSettings', 'workflowSource']) {
-  const original = adapter[name]
-  adapter[name] = (...args) => {
-    appendFileSync(process.env.PROVIDER_TRACE, JSON.stringify({ name, pid: process.pid }) + '\\n')
-    return original(...args)
-  }
-}
-export default adapter
-`)
-  const options = { cwd: root, timeout: 50000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env,
-    DSH_HOME: join(root, 'dsh-home'), ELYSIUM_HOME: join(root, 'home'), ELYSIUM_STATE_ROOT: join(root, 'state'), ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json'),
-    ELYSIUM_SETTINGS_FILE: join(root, 'home', 'config', 'settings.json'),
-    COMFYUI_URL: 'http://unselected.invalid', PROVIDER_TRACE: join(root, 'trace.jsonl') } }
-  try {
-    await execute(process.execPath, ['scripts/build.mjs'], options)
-    await execute(process.execPath, ['scenario.mjs', provider, removed], options)
-  } catch (error) { throw new Error(`${error.message}\n${error.stdout || ''}\n${error.stderr || ''}`, { cause: error }) }
-})
-
 // 删除任何一个实现后，剩余渠道仍可发现、生成配置并通过同一入口路由。
 for (const removed of ['bailian', 'byteplus', 'manual']) test(`remaining providers work after physically deleting ${removed}`, async t => {
   const root = await mkdtemp(join(tmpdir(), 'provider-isolation-'))

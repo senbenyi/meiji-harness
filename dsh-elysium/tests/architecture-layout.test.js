@@ -84,3 +84,18 @@ test('dependencies flow one way from the session entry through the worker facade
     }
   }
 })
+
+// 短剧闭环只保留 Markdown 文档、状态与三页工作台。
+test('drama loop has no retired planning routes or client modules', async () => {
+  const client = new URL('client/workbench/', root)
+  for (const name of ['planning.js', 'storyboard.js', 'delivery.js', 'anchors.js']) assert.equal(await exists(new URL(name, client)), false, name)
+  const routes = await readFile(new URL('server/routes/projects.js', root), 'utf8')
+  const loader = await readFile(new URL('../scripts/loader.js', root), 'utf8')
+  for (const old of ['plan-generate', 'plan-finalize', 'anchors-confirm', 'auto-start', 'elysium/planning', 'elysium/storyboard', 'elysium/delivery', 'elysium/anchors']) {
+    assert.equal(routes.includes(old) || loader.includes(old), false, old)
+  }
+  for (const file of ['project', 'series', 'script', 'storyboard']) {
+    const path = new URL(`../../harness/.dsh/storages/elysium/pools/skills/drama/steps/${file}.md`, root)
+    assert.equal(await exists(path), true, file)
+  }
+})

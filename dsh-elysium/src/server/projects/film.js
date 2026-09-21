@@ -6,7 +6,6 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { readdir } from '../../database/files.js'
 import { projectsRoot } from '../../database/paths.js'
-import { readJson } from '../../database/json.js'
 import { getJob, jobSummary, localMediaInput, saveFilmJob, saveMedia, withLaunchLock } from '../../worker/index.js'
 import { validEpisode, validProjectId } from '../../database/schemas/projects.js'
 import { statusError } from '../../utils/errors.js'
@@ -33,7 +32,7 @@ export function subtitleText(shots, durations) {
   const cues = []
   let start = 0
   for (const [index, shot] of shots.entries()) {
-    const lines = shot.dialogue.filter(line => line.text.trim()), total = lines.reduce((sum, line) => sum + [...line.text].length, 0)
+    const lines = shot.lines.flatMap(item => { const match = /^(.+?)（.+?）：(.+)$/.exec(item.text.trim()); return match ? [{ role: match[1], text: match[2] }] : [] }), total = lines.reduce((sum, line) => sum + [...line.text].length, 0)
     let cursor = start
     for (const line of lines) {
       const end = cursor + durations[index] * [...line.text].length / total
@@ -47,10 +46,10 @@ export function subtitleText(shots, durations) {
 
 export async function composeEpisodeFilm(store, id, episode) {
   if (!validProjectId(id) || !validEpisode(episode)) throw statusError(400, '项目或集数无效')
-  const project = await store.readEpisode(id, episode), shots = project.acts.flatMap(act => act.shots)
+  const project = await store.readEpisode(id, episode), shots = project.shots
   if (!shots.length || shots.some(shot => shot.status !== 'succeeded' || !shot.job_id)) throw invalid('请先完成本集全部镜头')
   const jobIds = shots.map(shot => shot.job_id), filmId = hash([id, episode, jobIds]), subtitleId = hash([filmId, 'srt'])
-  if (project.deliverables.some(item => item.job_id === filmId)) return project
+  if (project.film?.job_id === filmId) return project
   const inputs = []
   for (const shot of shots) {
     const job = await getJob(shot.job_id)
@@ -63,9 +62,7 @@ export async function composeEpisodeFilm(store, id, episode) {
   const durations = []
   for (const input of inputs) durations.push(Number(await probe(input, ['-show_entries', 'format=duration'])))
   if (durations.some(value => !Number.isFinite(value) || value <= 0)) throw statusError(502, '本集镜头时长无效')
-  const planning = await store.readPlanning(id)
-  const series = planning.series.versions.find(item => item.version === planning.series.finalized)?.value
-  const label = `第 ${episode} 集${series?.episodes[episode - 1] ? ` · ${series.episodes[episode - 1].title}` : ''}`
+  const label = `第 ${episode} 集${project.series?.episodes[episode - 1] ? ` · ${project.series.episodes[episode - 1].title}` : ''}`
   const srt = subtitleText(shots, durations)
   let filters = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=24,format=yuv420p`
   if (srt) {
@@ -108,12 +105,13 @@ export function createFilmDriver(store, logger = console) {
     let pending = false
     for (const project of projects) {
       if (!project.isDirectory() || !validProjectId(project.name)) continue
+      try { await store.read(project.name) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
       const episodes = await readdir(join(projectsRoot(), project.name, 'episodes'), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
       for (const entry of episodes) {
         const episode = Number(entry.name)
         if (!entry.isDirectory() || !validEpisode(episode)) continue
         const directory = join(projectsRoot(), project.name, 'episodes', entry.name)
-        const task = await readJson(join(directory, 'film-task.json'))
+        const task = (await store.readEpisode(project.name, episode)).film_task
         if (!task || !['pending', 'running'].includes(task.status)) continue
         pending = true
         if (active.size) continue
@@ -121,7 +119,7 @@ export function createFilmDriver(store, logger = console) {
         withLaunchLock(directory, async () => {
           const latest = await store.readEpisode(project.name, episode), current = latest.film_task
           if (current?.task_id !== task.task_id || !['pending', 'running'].includes(current.status)) return
-          if (JSON.stringify(latest.acts.flatMap(act => act.shots.map(shot => shot.job_id))) !== JSON.stringify(task.job_ids)) {
+          if (JSON.stringify(latest.shots.map(shot => shot.job_id)) !== JSON.stringify(task.job_ids)) {
             await store.updateEpisodeFilmTask(project.name, episode, task.task_id, { status: 'failed', error: '剧集分镜已变化，请重新提交合成' })
             return
           }

@@ -1,372 +1,158 @@
-// 职责：持久化项目 JSON，串行化变更，并执行素材引入的业务规则。
+// 职责：持久化三种创作 Markdown 和唯一的系统 state.json，串行处理项目变更。
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, readFile, readdir, rename, rm, writeFile } from '../files.js'
 import { join } from 'node:path'
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from '../files.js'
 import { projectsRoot } from '../paths.js'
-import { anchorsValue, actsValue, autoValue, deliverablesValue, directorValue, storyValue, titleValue, validEpisode, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
+import { stateValue, validEpisode, validJobId, validProjectId, validShotId } from '../schemas/projects.js'
 import { statusError } from '../../utils/errors.js'
 
-const FREE_PROJECT_ID = '00000000'
-const invalidRequest = message => statusError(400, message)
-const unavailableJob = async () => { throw new Error('项目素材校验服务未配置') }
-const timeProjectId = () => {
-  const now = new Date(), part = (value, width = 2) => String(value).padStart(width, '0')
-  return `${now.getFullYear()}${part(now.getMonth() + 1)}${part(now.getDate())}${part(now.getHours())}${part(now.getMinutes())}${part(now.getSeconds())}${part(now.getMilliseconds(), 3)}`
-}
-const running = shot => ['queued', 'running'].includes(shot.status) || shot.status === 'pending' && Boolean(shot.job_id)
-export const shotsOf = episode => episode.acts.flatMap(act => act.shots)
+const invalid = message => statusError(400, message)
+const missing = error => { if (error.code === 'ENOENT') return ''; throw error }
+const idNow = () => { const d = new Date(), p = (v, w = 2) => String(v).padStart(w, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}${p(d.getMilliseconds(), 3)}` }
+const field = (markdown, key) => new RegExp(`^${key}: (.*)$`, 'm').exec(markdown)?.[1] || ''
+const title = text => field(text, 'title')
+const episodeCount = text => [...text.matchAll(/^### 第 \d+ 集 · /gm)].length
+const shotIds = text => [...text.matchAll(/^### \[(S\d+)\] /gm)].map(item => item[1])
+const initialState = now => ({ created_at: now, updated_at: now, auto: { task: null, paused: null, attempts: {} }, anchors: {}, episodes: {} })
+const episodeState = state => ({ shots: {}, film_task: null, film: null, ...state })
+const jobIds = state => [...new Set([...Object.values(state.anchors).flatMap(item => [item.image_job_id, item.source_job_id]),
+  ...Object.values(state.episodes).flatMap(ep => [...Object.values(ep.shots || {}).flatMap(shot => [shot.job_id, shot.keyframe_job_id]), ep.film?.job_id, ep.film?.subtitle_job_id])].filter(validJobId))]
 
-// 某步骤版本生成时依赖的上游定稿；与当前不一致的版本不能定稿。
-export const planningBasis = (planning, step, episode) => step === 'series' ? {} : step === 'timeline' ? {
-  series: planning.series.finalized,
-  previous_timeline: planning.episodes[String(episode - 1)]?.timeline?.versions.at(-1)?.version ?? null,
-} : step === 'storyboard' ? { timeline: planning.episodes[episode]?.timeline?.finalized ?? null }
-  : { storyboard: planning.episodes[episode]?.storyboard?.finalized ?? null }
-
-export function episodeReviewIssue(project, planning, episode, shots) {
-  const entry = planning.episodes[String(episode)]
-  if (!planning.series.finalized) return '请先定稿剧情总览'
-  if (!entry?.timeline?.finalized || entry.timeline.needs_review) return '本集时间线需复核'
-  if (!entry.storyboard?.finalized || entry.storyboard.needs_review) return '本集分镜需复核'
-  for (const shot of shots) {
-    if (entry.prompts?.[shot.id]?.needs_review) return `镜头 ${shot.id} 提示词需复核`
-    for (const role of [...shot.roles, `scene-${shot.scene}`]) {
-      const anchor = project.anchors.find(item => item.role === role)
-      if (!anchor || anchor.retired) return `镜头 ${shot.id} 引用的锚点 ${role} 已失效`
-    }
-  }
-  return null
+export function projectSummary(project) {
+  const state = project.state, episodes = project.episodes || [], count = episodeCount(project.series_text || '')
+  const shots = episodes.flatMap(item => item.shots || []), films = episodes.filter(item => item.film?.job_id).length
+  const active = state.auto.task || shots.some(shot => ['pending', 'queued', 'running'].includes(shot.status) && shot.job_id)
+  return { id: project.id, title: title(project.project_text), director: field(project.project_text, 'director'), genre: field(project.project_text, 'genre'),
+    created_at: state.created_at, updated_at: project.updated_at, status: state.auto.paused ? 'paused' : films === count && count ? 'completed' : active ? 'active' : 'todo',
+    cover_job_id: Object.values(state.anchors).find(item => item.source_job_id)?.source_job_id || null,
+    lead: /### (.+)（主角）/.exec(project.series_text || '')?.[1] || '',
+    episode_count: count, film_count: films, shot_count: shots.length, completed_count: shots.filter(item => item.status === 'succeeded').length,
+    paused: state.auto.paused }
 }
 
-export function projectSummary(value) {
-  const shots = value.episodes.flatMap(shotsOf), films = value.episodes.filter(episode => episode.deliverables.some(item => item.type === 'film'))
-  const active = shots.some(running) || value.episodes.some(episode => ['pending', 'running'].includes(episode.film_task?.status))
-  const count = value.planning_episode_count || 0
-  const completed = count > 0 && Array.from({ length: count }, (_, index) => films.some(episode => episode.number === index + 1)).every(Boolean)
-  return {
-    cover_job_id: value.cover_job_id || value.anchors.find(anchor => anchor.kind === 'character' && anchor.source?.job_id)?.source.job_id || null,
-    id: value.id, title: value.title, director: value.director || null, created_at: value.created_at, updated_at: value.updated_at,
-    status: active || value.auto.enabled && !value.auto.paused && !completed ? 'active' : completed ? 'completed' : 'todo',
-    anchor_count: value.anchors.length, shot_count: shots.length, completed_count: shots.filter(shot => shot.status === 'succeeded').length,
-    episode_count: count, film_count: films.length,
+export function createProjectStore({ removeTasks = async () => {}, newId = idNow, directorExists = async () => true, ...unused } = {}) {
+  const root = projectsRoot, changed = new Map()
+  let queue = Promise.resolve()
+  const enqueue = action => { const task = queue.then(action); queue = task.catch(() => {}); return task }
+  const dir = id => { if (!validProjectId(id)) throw invalid('项目 ID 无效'); return join(root(), id) }
+  const episodeDir = (id, number) => { if (!validEpisode(number)) throw invalid('集数无效'); return join(dir(id), 'episodes', String(number)) }
+  const readText = path => readFile(path, 'utf8').catch(missing)
+  async function atomic(path, value) {
+    const temp = `${path}.${randomUUID()}.tmp`
+    try { await writeFile(temp, value, { mode: 0o600 }); await rename(temp, path) }
+    finally { await rm(temp, { force: true }) }
   }
-}
-
-export function createProjectStore({ readJob = unavailableJob, summarizeJob = unavailableJob, removeTasks = async () => {}, newId = timeProjectId, directorExists = async () => true } = {}) {
-  const root = projectsRoot
-  const metadataOf = ({ materials, anchors, episodes, episode, acts, deliverables, film_task, planning_episode_count, auto, ...metadata }) => metadata
-  const materialIdsOf = value => [...new Set([...value.materials, value.cover_job_id, ...value.anchors.map(anchor => anchor.source?.job_id),
-    ...value.episodes.flatMap(episode => [...episode.deliverables.map(item => item.job_id), ...shotsOf(episode).flatMap(shot => [shot.job_id, shot.keyframe_job_id])])].filter(validJobId))]
-  const modifiedAt = new Map()
-  let operations = Promise.resolve()
-
-  async function writeJson(path, value) {
-    const temporary = `${path}.${randomUUID()}.tmp`
-    try { await writeFile(temporary, JSON.stringify(value), { mode: 0o600 }); await rename(temporary, path) }
-    finally { await rm(temporary, { force: true }) }
+  const readState = async id => stateValue(JSON.parse(await readFile(join(dir(id), 'state.json'), 'utf8')))
+  async function writeState(id, state) {
+    state.updated_at = Math.max(Date.now(), (state.updated_at || 0) + 1)
+    await atomic(join(dir(id), 'state.json'), JSON.stringify(state))
+    changed.set(id, state.updated_at)
   }
-  const readOptional = (path, fallback) => readFile(path, 'utf8').then(JSON.parse, error => {
-    if (error.code === 'ENOENT') return fallback
-    throw error
-  })
-  const episodeDirectory = (id, episode) => {
-    if (!validProjectId(id) || !validEpisode(episode)) throw invalidRequest('项目或集数无效')
-    return join(root(), id, 'episodes', String(episode))
-  }
-  // 每次写入都推进项目修改时间，页面轮询据此刷新。
-  async function touch(value) {
-    value.updated_at = Math.max(Date.now(), value.updated_at + 1)
-    await writeJson(join(root(), value.id, 'project.json'), metadataOf(value))
-    modifiedAt.set(value.id, value.updated_at)
-  }
-  async function saveMaterials(value) {
-    const materials = materialIdsOf(value)
-    if (materials.length === value.materials.length && materials.every((item, index) => item === value.materials[index])) return
-    value.materials = materials
-    await writeJson(join(root(), value.id, 'materials.json'), materials)
-  }
-
-  async function loadEpisode(id, number) {
-    const directory = episodeDirectory(id, number)
-    const [acts, deliverables, filmTask] = await Promise.all([readOptional(join(directory, 'storyboard.json'), []),
-      readOptional(join(directory, 'deliverables.json'), []), readOptional(join(directory, 'film-task.json'), null)])
-    return { number, acts, deliverables, film_task: filmTask }
-  }
-
   async function load(id) {
-    if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
-    const directory = join(root(), id)
-    const metadata = JSON.parse(await readFile(join(directory, 'project.json'), 'utf8'))
-    const [materials, anchors, planning, auto] = await Promise.all([readOptional(join(directory, 'materials.json'), []), readOptional(join(directory, 'anchors.json'), []),
-      readOptional(join(directory, 'planning.json'), null), readOptional(join(directory, 'auto.json'), autoValue({}))])
-    const entries = await readdir(join(directory, 'episodes'), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
-    const numbers = entries.filter(entry => entry.isDirectory() && validEpisode(Number(entry.name))).map(entry => Number(entry.name)).sort((a, b) => a - b)
-    const series = planning?.series.versions.find(item => item.version === planning.series.finalized)?.value
-    return { ...metadata, materials, anchors, auto, episodes: await Promise.all(numbers.map(number => loadEpisode(id, number))),
-      ...(series ? { planning_episode_count: series.episode_count } : {}) }
+    const directory = dir(id)
+    const [projectText, seriesText, state] = await Promise.all([readFile(join(directory, 'project.md'), 'utf8'), readText(join(directory, 'series.md')), readState(id)])
+    const numbers = [...new Set([...Object.keys(state.episodes).map(Number), ...Array.from({ length: episodeCount(seriesText) }, (_, i) => i + 1)])]
+      .filter(validEpisode).sort((a, b) => a - b)
+    const episodes = await Promise.all(numbers.map(async number => {
+      const script = await readText(join(episodeDir(id, number), 'script.md')), data = episodeState(state.episodes[number])
+      return { number, script, shots: shotIds(script).map(shotId => ({ id: shotId, ...data.shots[shotId] })), film_task: data.film_task, film: data.film }
+    }))
+    const mtimes = await Promise.all([join(directory, 'project.md'), join(directory, 'series.md'), join(directory, 'state.json'),
+      ...numbers.map(number => join(episodeDir(id, number), 'script.md'))].map(path => stat(path).then(item => item.mtimeMs, () => 0)))
+    return { id, project_text: projectText, series_text: seriesText, state, episodes,
+      updated_at: Math.ceil(Math.max(...mtimes, changed.get(id) || 0)) }
   }
-
-  function enqueue(action) {
-    const operation = operations.then(action)
-    operations = operation.catch(() => {})
-    return operation
-  }
-
   const read = id => enqueue(() => load(id))
-  async function loadWithEpisode(id, number) {
-    const project = await load(id), current = project.episodes.find(item => item.number === number) || await loadEpisode(id, number)
-    return { ...project, episode: number, acts: current.acts, deliverables: current.deliverables, film_task: current.film_task }
-  }
-  const readEpisode = (id, number) => enqueue(() => loadWithEpisode(id, number))
-  // 本集分镜内容只来自规划定稿；页面与工具不能增删镜头。
-  const saveEpisodeStoryboard = (id, number, acts) => enqueue(async () => {
-    const project = await load(id), directory = episodeDirectory(id, number), value = actsValue(acts)
-    await mkdir(directory, { recursive: true })
-    await writeJson(join(directory, 'storyboard.json'), value)
-    project.episodes = [...project.episodes.filter(item => item.number !== number), { ...await loadEpisode(id, number), acts: value }]
-    await saveMaterials(project)
-    await touch(project)
-    return loadWithEpisode(id, number)
+  const readEpisode = (id, number) => enqueue(async () => {
+    const project = await load(id)
+    const episode = project.episodes.find(item => item.number === number) || { number, script: '', shots: [], film_task: null, film: null }
+    return { ...project, episode: number, ...episode }
   })
-  const addEpisodeFilm = (id, number, jobIds, items) => enqueue(async () => {
-    const value = await loadWithEpisode(id, number), shots = value.acts.flatMap(act => act.shots)
-    if (!shots.length || shots.length !== jobIds.length || shots.some((shot, index) => shot.status !== 'succeeded' || shot.job_id !== jobIds[index])) throw statusError(409, '剧集分镜已变化，请重新合成')
-    if (value.deliverables.some(item => item.job_id === items[0].job_id)) return value
-    value.deliverables = deliverablesValue([...value.deliverables, ...items])
-    await writeJson(join(episodeDirectory(id, number), 'deliverables.json'), value.deliverables)
-    value.episodes = value.episodes.map(item => item.number === number ? { ...item, deliverables: value.deliverables } : item)
-    await saveMaterials(value)
-    await touch(value)
-    return value
-  })
-  const requestEpisodeFilm = (id, number) => enqueue(async () => {
-    const value = await loadWithEpisode(id, number), shots = value.acts.flatMap(act => act.shots)
-    if (!shots.length || shots.some(shot => shot.status !== 'succeeded' || !validJobId(shot.job_id))) throw statusError(409, '请先完成本集全部镜头')
-    const jobIds = shots.map(shot => shot.job_id)
-    const taskId = createHash('sha256').update(JSON.stringify([id, number, jobIds])).digest('hex').slice(0, 32)
-    if (value.film_task?.task_id === taskId && ['pending', 'running'].includes(value.film_task.status)) return value
-    if (value.film_task?.status === 'running') throw statusError(409, '本集合成任务正在执行')
-    if (value.deliverables.some(item => item.job_id === taskId)) return value
-    const task = { kind: 'film', task_id: taskId, project_id: id, episode: number, job_ids: jobIds, status: 'pending', created_at: Date.now() }
-    await mkdir(episodeDirectory(id, number), { recursive: true })
-    await writeJson(join(episodeDirectory(id, number), 'film-task.json'), task)
-    await touch(value)
-    return { ...value, film_task: task }
-  })
-  const updateEpisodeFilmTask = (id, number, taskId, patch) => enqueue(async () => {
-    const value = await loadWithEpisode(id, number)
-    if (value.film_task?.task_id !== taskId) return value
-    const task = { ...value.film_task, ...patch, updated_at: Date.now() }
-    await writeJson(join(episodeDirectory(id, number), 'film-task.json'), task)
-    await touch(value)
-    return { ...value, film_task: task }
-  })
-
-  const planningPath = id => join(root(), id, 'planning.json')
-  // 规划变更同样推进项目修改时间，页面据此刷新规划与流水线进度。
-  async function savePlanning(id, planning) {
-    await writeJson(planningPath(id), planning)
-    await touch(JSON.parse(await readFile(join(root(), id, 'project.json'), 'utf8')))
-  }
-  async function loadPlanning(id) {
-    if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
-    await readFile(join(root(), id, 'project.json'))
-    return readOptional(planningPath(id), { series: { versions: [], finalized: null }, episodes: {} })
-  }
-  const planningEntry = (planning, step, episode, shotId) => {
-    if (step === 'series') return planning.series
-    const episodeKey = String(episode)
-    planning.episodes[episodeKey] ||= {}
-    if (step === 'shot-prompt') {
-      planning.episodes[episodeKey].prompts ||= {}
-      return planning.episodes[episodeKey].prompts[shotId] ||= { versions: [], finalized: null }
-    }
-    return planning.episodes[episodeKey][step] ||= { versions: [], finalized: null }
-  }
-  const readPlanning = id => enqueue(() => loadPlanning(id))
-  const appendPlanningVersion = (id, step, episode, shotId, value, request = '', basedOn = {}) => enqueue(async () => {
-    const planning = await loadPlanning(id), entry = planningEntry(planning, step, episode, shotId)
-    entry.versions.push({ version: entry.versions.length + 1, value, request, based_on: basedOn, created_at: Date.now() })
-    if (step === 'timeline') {
-      const next = planning.episodes[String(episode + 1)]?.timeline
-      if (next?.versions.length) next.needs_review = true
-    }
-    await savePlanning(id, planning)
-    return planning
-  })
-  const finalizePlanningVersion = (id, step, episode, shotId, version, valueOverride) => enqueue(async () => {
-    const planning = await loadPlanning(id), entry = planningEntry(planning, step, episode, shotId)
-    const selected = entry.versions.find(item => item.version === version)
-    if (!selected) throw invalidRequest('规划版本不存在')
-    if (JSON.stringify(selected.based_on || {}) !== JSON.stringify(planningBasis(planning, step, episode))) throw statusError(409, '规划依据已变化，请先复核上游并重新生成')
-    if (valueOverride) selected.value = valueOverride
-    if (entry.finalized !== version) {
-      entry.finalized = version
-      const later = step === 'series' ? Object.values(planning.episodes).flatMap(item => [item.timeline, item.storyboard, ...Object.values(item.prompts || {})])
-        : step === 'timeline' ? [planning.episodes[episode]?.storyboard, ...Object.values(planning.episodes[episode]?.prompts || {})]
-          : step === 'storyboard' ? Object.values(planning.episodes[episode]?.prompts || {}) : []
-      for (const item of later) if (item?.finalized) item.needs_review = true
-      entry.needs_review = false
-      if (step === 'series') for (const [number, item] of Object.entries(planning.episodes)) item.retired = Number(number) > selected.value.episode_count
-    }
-    await savePlanning(id, planning)
-    return planning
-  })
-
-  async function checkedDirector(value) {
-    const name = directorValue(value)
-    if (!await directorExists(name)) throw invalidRequest('导演 Skill 不存在')
-    return name
-  }
-
-  // 封面只能引用已完成且仍可读取的图片素材。
-  async function checkedImage(jobId, label) {
-    if (!validJobId(jobId)) throw invalidRequest(`${label}素材 ID 无效`)
-    const summary = await summarizeJob(await readJob(jobId))
-    if (!summary.has_image) throw invalidRequest(`${label}只能使用可用的图片素材`)
-    return jobId
-  }
-
   const list = () => enqueue(async () => {
-    const entries = await readdir(root(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
+    const entries = await readdir(root(), { withFileTypes: true }).catch(error => error.code === 'ENOENT' ? [] : Promise.reject(error))
     const items = []
-    for (const entry of entries) {
-      if (!entry.isDirectory() || !validProjectId(entry.name)) continue
-      try {
-        const value = await load(entry.name)
-        if (value.internal === 'free') continue
-        items.push(projectSummary(value))
-      } catch (error) { if (error.code !== 'ENOENT') throw error }
+    for (const entry of entries) if (entry.isDirectory() && validProjectId(entry.name) && entry.name !== '00000000') {
+      try { items.push(projectSummary(await load(entry.name))) }
+      catch (error) { if (error.code !== 'ENOENT') throw error }
     }
     return items.sort((a, b) => b.updated_at - a.updated_at)
   })
-
-  async function change(action, body) {
-    if (action !== 'create' && !validProjectId(body.id)) throw invalidRequest('项目 ID 无效')
-    return enqueue(async () => {
-      if (action === 'delete') {
-        await readFile(join(root(), body.id, 'project.json'))
-        await removeTasks(body.id)
-        await rm(join(root(), body.id), { recursive: true, force: true })
-        modifiedAt.delete(body.id)
-        return { deleted: true }
-      }
-      if (action === 'create') {
-        const now = Date.now()
-        let value
-        do { value = { id: newId() } } while (value.id === FREE_PROJECT_ID)
-        value = { ...value, title: titleValue(body.title), director: await checkedDirector(body.director),
-          genre: storyValue(body.genre ?? '', '题材', 200), synopsis: storyValue(body.synopsis ?? '', '梗概'),
-          ...(body.cover_job_id === undefined ? {} : { cover_job_id: await checkedImage(body.cover_job_id, '封面') }),
-          created_at: now, updated_at: now }
-        await mkdir(root(), { recursive: true })
-        for (;;) {
-          try { await mkdir(join(root(), value.id)); break }
-          catch (error) { if (error.code !== 'EEXIST') throw error; value.id = newId() }
-        }
-        await mkdir(join(root(), value.id, 'media'))
-        await writeJson(join(root(), value.id, 'media', 'manifest.json'), { version: 1, project_id: value.id, complete: false, files: [], missing: [] })
-        await writeJson(join(root(), value.id, 'anchors.json'), [])
-        await writeJson(join(root(), value.id, 'materials.json'), value.cover_job_id ? [value.cover_job_id] : [])
-        await writeJson(join(root(), value.id, 'project.json'), value)
-        modifiedAt.set(value.id, value.updated_at)
-        return load(value.id)
-      }
-      const value = await load(body.id)
-      if (action === 'update') {
-        if (body.cover_job_id !== undefined && body.cover_job_id !== value.cover_job_id) value.cover_job_id = await checkedImage(body.cover_job_id, '封面')
-        if (body.title !== undefined) value.title = titleValue(body.title)
-        if (body.genre !== undefined) value.genre = storyValue(body.genre, '题材', 200)
-        if (body.synopsis !== undefined) value.synopsis = storyValue(body.synopsis, '梗概')
-        if (body.director !== undefined && body.director !== value.director) {
-          value.director = await checkedDirector(body.director)
-          const planning = await loadPlanning(body.id)
-          let changed = false
-          for (const entry of [planning.series, ...Object.values(planning.episodes).flatMap(item => [item.timeline, item.storyboard, ...Object.values(item.prompts || {})])]) {
-            if (entry?.finalized) { entry.needs_review = true; changed = true }
-          }
-          if (changed) await writeJson(planningPath(body.id), planning)
-        }
-      } else if (action === 'import') {
-        const anchor = value.anchors.find(item => item.role === body.role)
-        if (body.as !== 'anchor' || !anchor || anchor.kind !== 'character') throw invalidRequest('素材只能替换角色锚点参考图')
-        anchor.source = { type: 'material', job_id: await checkedImage(body.job_id, '锚点') }
-        anchor.image_needs_review = false
-        value.anchors = anchorsValue(value.anchors)
-        await writeJson(join(root(), value.id, 'anchors.json'), value.anchors)
-      } else throw invalidRequest('项目操作无效')
-      await saveMaterials(value)
-      await touch(value)
-      return value
-    })
-  }
-
-  const changeAnchor = (id, action, data) => enqueue(async () => {
-    const value = await load(id), index = value.anchors.findIndex(anchor => anchor.role === data.role)
-    if (action === 'add') {
-      if (index >= 0) throw invalidRequest('锚点已存在')
-      value.anchors.push({ source: null, ...data })
-    } else if (index < 0) throw invalidRequest('锚点不存在')
-    else if (action === 'delete') value.anchors.splice(index, 1)
-    else if (action === 'update') value.anchors[index] = { ...value.anchors[index], ...data }
-    else throw invalidRequest('锚点操作无效')
-    value.anchors = anchorsValue(value.anchors)
-    await writeJson(join(root(), id, 'anchors.json'), value.anchors)
-    await saveMaterials(value)
-    await touch(value)
-    return value
+  const saveDoc = (id, kind, markdown, number) => enqueue(async () => {
+    if (typeof markdown !== 'string' || markdown.length > 500000) throw invalid('文档内容无效')
+    const path = kind === 'project' ? join(dir(id), 'project.md') : kind === 'series' ? join(dir(id), 'series.md')
+      : kind === 'script' ? join(episodeDir(id, number), 'script.md') : null
+    if (!path) throw invalid('文档类型无效')
+    await readFile(join(dir(id), 'project.md'))
+    if (kind === 'script') await mkdir(episodeDir(id, number), { recursive: true })
+    await atomic(path, markdown)
+    changed.set(id, Date.now())
+    return load(id)
   })
-
-  // 镜头只允许更新任务、状态与提示词；expect_* 用于忽略过期任务的回写。
-  const changeShot = (id, data) => enqueue(async () => {
-    if (!validShotId(data.id)) throw invalidRequest('镜头 ID 无效')
-    const value = await loadWithEpisode(id, data.episode), shot = value.acts.flatMap(act => act.shots).find(item => item.id === data.id)
-    const { id: _, episode, expect_job_id: expectJob, expect_keyframe_job_id: expectKeyframe, ...patch } = data
-    if (!shot || expectJob !== undefined && shot.job_id !== expectJob || expectKeyframe !== undefined && shot.keyframe_job_id !== expectKeyframe) {
-      if (!shot && expectJob === undefined && expectKeyframe === undefined) throw invalidRequest('镜头不存在')
-      return value
+  const changeState = (id, update) => enqueue(async () => {
+    const state = await readState(id), next = stateValue(await update(state) || state)
+    await writeState(id, next)
+    return load(id)
+  })
+  const changeShot = (id, { episode, id: shotId, expect_job_id, expect_keyframe_job_id, ...patch }) => changeState(id, state => {
+    if (!validEpisode(episode) || !validShotId(shotId)) throw invalid('镜头无效')
+    const ep = state.episodes[episode] ||= episodeState()
+    const shot = ep.shots[shotId] ||= { take: 0, keyframe_job_id: null, job_id: null, status: 'pending' }
+    if (expect_job_id && shot.job_id !== expect_job_id || expect_keyframe_job_id && shot.keyframe_job_id !== expect_keyframe_job_id) return state
+    ep.shots[shotId] = { ...shot, ...patch }
+    return state
+  })
+  const changeAuto = (id, update) => changeState(id, state => { state.auto = update(state.auto); return state })
+  const changeAnchor = (id, name, patch) => changeState(id, state => {
+    state.anchors[name] = { ...state.anchors[name], ...patch }; return state
+  })
+  const requestEpisodeFilm = (id, number) => changeState(id, async state => {
+    const ep = state.episodes[number] ||= episodeState()
+    const shots = shotIds(await readText(join(episodeDir(id, number), 'script.md'))).map(shotId => ep.shots[shotId])
+    const ids = shots.map(item => item?.job_id)
+    if (!ids.length || shots.some(item => item?.status !== 'succeeded' || !validJobId(item?.job_id))) throw statusError(409, '请先完成本集镜头')
+    const taskId = createHash('sha256').update(JSON.stringify([id, number, ids])).digest('hex').slice(0, 32)
+    if (ep.film?.job_id === taskId || ep.film_task?.task_id === taskId && ['pending', 'running'].includes(ep.film_task.status)) return state
+    ep.film_task = { kind: 'film', task_id: taskId, project_id: id, episode: number, job_ids: ids, status: 'pending', created_at: Date.now() }
+    return state
+  })
+  const updateEpisodeFilmTask = (id, number, taskId, patch) => changeState(id, state => {
+    const task = state.episodes[number]?.film_task
+    if (task?.task_id === taskId) state.episodes[number].film_task = { ...task, ...patch, updated_at: Date.now() }
+    return state
+  })
+  const addEpisodeFilm = (id, number, ids, items) => changeState(id, async state => {
+    const ep = state.episodes[number] ||= episodeState()
+    const current = shotIds(await readText(join(episodeDir(id, number), 'script.md'))).map(shotId => ep.shots[shotId]?.job_id)
+    if (JSON.stringify(current) !== JSON.stringify(ids)) throw statusError(409, '镜头任务已变化')
+    ep.film = { ...items.find(item => item.type === 'film'), subtitle_job_id: items.find(item => item.type === 'subtitle')?.job_id || null }
+    return state
+  })
+  const lastModified = async id => (await read(id)).updated_at
+  const usesDirector = async name => (await list()).some(item => item.director === name)
+  const change = (action, body) => enqueue(async () => {
+    if (action === 'create') {
+      if (!body?.title?.trim() || !body?.director || !await directorExists(body.director)) throw invalid('项目标题或导演无效')
+      const now = Date.now(); let id = newId(); if (!validProjectId(id)) throw invalid('项目 ID 无效')
+      await mkdir(root(), { recursive: true })
+      for (;;) { try { await mkdir(join(root(), id)); break } catch (error) { if (error.code !== 'EEXIST') throw error; id = newId() } }
+      await mkdir(join(dir(id), 'media'))
+      await atomic(join(dir(id), 'media/manifest.json'), JSON.stringify({ version: 1, project_id: id, complete: false, files: [], missing: [] }))
+      await atomic(join(dir(id), 'project.md'), `---\ntitle: ${body.title.trim()}\ndirector: ${body.director}\ngenre: ${body.genre || ''}\n---\n\n${body.synopsis || ''}\n`)
+      await writeState(id, initialState(now))
+      return load(id)
     }
-    Object.assign(shot, patch)
-    value.acts = actsValue(value.acts)
-    await writeJson(join(episodeDirectory(id, episode), 'storyboard.json'), value.acts)
-    value.episodes = value.episodes.map(item => item.number === episode ? { ...item, acts: value.acts } : item)
-    await saveMaterials(value)
-    await touch(value)
-    return value
-  })
-
-  const changeAuto = (id, mutate) => enqueue(async () => {
-    const value = await load(id), next = autoValue(mutate(structuredClone(value.auto)) ?? value.auto)
-    if (JSON.stringify(next) === JSON.stringify(value.auto)) return value
-    await writeJson(join(root(), id, 'auto.json'), next)
-    value.auto = next
-    await touch(value)
-    return value
-  })
-
-  // 冷启动从持久化元数据恢复标记，后续轮询复用本实例的成功写入记录。
-  const lastModified = id => enqueue(async () => {
-    if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
-    if (!modifiedAt.has(id)) {
-      const value = JSON.parse(await readFile(join(root(), id, 'project.json'), 'utf8'))
-      modifiedAt.set(id, value.updated_at)
+    if (!validProjectId(body?.id)) throw invalid('项目 ID 无效')
+    if (action === 'delete') {
+      await removeTasks(body.id); await rm(dir(body.id), { recursive: true, force: true }); changed.delete(body.id); return { deleted: true }
     }
-    return modifiedAt.get(id)
-  })
-
-  const usesDirector = name => enqueue(async () => {
-    const entries = await readdir(root(), { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error })
-    for (const entry of entries) {
-      if (!entry.isDirectory() || !validProjectId(entry.name)) continue
-      try {
-        const metadata = JSON.parse(await readFile(join(root(), entry.name, 'project.json'), 'utf8'))
-        if (metadata.director === name) return true
-      } catch (error) { if (error.code !== 'ENOENT') throw error }
+    if (action === 'update') {
+      const path = join(dir(body.id), 'project.md'), old = await readFile(path, 'utf8')
+      const next = Object.entries({ title: body.title, director: body.director, genre: body.genre }).reduce((text, [key, val]) => val === undefined ? text : text.replace(new RegExp(`^${key}:.*$`, 'm'), `${key}: ${val}`), old)
+      const synopsis = body.synopsis === undefined ? next : next.replace(/(\n---\n)[\s\S]*$/, `$1\n${body.synopsis}\n`)
+      await atomic(path, synopsis); changed.set(body.id, Date.now()); return load(body.id)
     }
-    return false
+    throw invalid('项目操作无效')
   })
-
-  return { list, read, readEpisode, saveEpisodeStoryboard, addEpisodeFilm, requestEpisodeFilm, updateEpisodeFilmTask,
-    change, changeAnchor, changeShot, changeAuto, lastModified, usesDirector,
-    readPlanning, appendPlanningVersion, finalizePlanningVersion }
+  return { read, readEpisode, list, saveDoc, changeState, changeShot, changeAuto, changeAnchor, requestEpisodeFilm,
+    updateEpisodeFilmTask, addEpisodeFilm, lastModified, usesDirector, change }
 }

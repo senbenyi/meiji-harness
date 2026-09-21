@@ -33,11 +33,11 @@ test('director routes save full Skill text, reorder metadata and protect project
     const first = await response.json()
     assert.match(first.name, /^director-[a-f0-9]{8}$/)
     assert.match(first.content, /metadata:\n  kind: director/)
-    assert.deepEqual(Object.keys(first.files), ['SKILL.md', 'script.md', 'storyboard.md', 'shot-prompt-example.md'])
+    assert.deepEqual(Object.keys(first.files), ['SKILL.md', 'series.md', 'script.md', 'storyboard.md'])
     assert.doesNotMatch(first.content, /## 叙事节奏|## 镜头语言/)
     assert.match(first.files['script.md'], /叙事节奏/)
     assert.match(first.files['storyboard.md'], /镜头语言/)
-    assert.equal(first.files['shot-prompt-example.md'], '')
+    assert.match(first.files['series.md'], /固定 2 集/)
     response = await request('create', { display_name: '姜文' })
     assert.equal(response.status, 201)
     const second = await response.json()
@@ -46,7 +46,7 @@ test('director routes save full Skill text, reorder metadata and protect project
     assert.equal(response.status, 200)
     assert.equal((await response.json()).display_name, '新毕赣')
     assert.equal(await readFile(join(root, 'pools', 'skills', first.name, 'SKILL.md'), 'utf8'), changed)
-    for (const file of ['script.md', 'storyboard.md', 'shot-prompt-example.md']) {
+    for (const file of ['series.md', 'script.md', 'storyboard.md']) {
       response = await request('save', { name: first.name, file, content: `# ${file}\n导演内容` })
       assert.equal(response.status, 200)
       assert.equal((await response.json()).files[file], `# ${file}\n导演内容`)
