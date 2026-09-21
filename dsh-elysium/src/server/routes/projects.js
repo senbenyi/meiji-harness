@@ -4,9 +4,11 @@ import { createProjectStore } from '../projects/service.js'
 import { createDirectorStore } from '../directors/service.js'
 import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
+import { getJob, localMediaInput } from '../../worker/index.js'
+import { spawn } from 'node:child_process'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const reads = ['list', 'get', 'episode', 'poll', 'doc-read']
+const reads = ['list', 'get', 'episode', 'poll', 'doc-read', 'films-download']
 const actions = [...reads, 'create', 'update', 'delete', 'doc-save', 'doc-generate', 'anchor-generate', 'anchor-import', 'auto-fill', 'auto-produce', 'auto-pause',
   'reshoot', 'shot-preview', 'film-compose', 'produce-episode']
 
@@ -35,6 +37,20 @@ export function createProjectHandler(options) {
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
       if (req.method !== (reads.includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       if (action === 'list') return json(res, 200, await store.list())
+      if (action === 'films-download') {
+        const id = url.searchParams.get('id')
+        if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
+        const project = await store.read(id), films = project.episodes.map(item => item.film?.job_id).filter(Boolean)
+        if (!films.length) throw invalidRequest('项目还没有成片')
+        const paths = await Promise.all(films.map(async filmId => localMediaInput(await getJob(filmId))))
+        const zip = spawn('zip', ['-j', '-', ...paths], { stdio: ['ignore', 'pipe', 'pipe'] })
+        zip.stderr.resume()
+        zip.on('error', error => res.destroy(error))
+        zip.on('close', code => { if (code !== 0 && !res.writableEnded) res.destroy(new Error('成片打包失败')) })
+        res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${id}-films.zip"`, 'Cache-Control': 'no-store' })
+        zip.stdout.pipe(res)
+        return
+      }
       if (action === 'get' || action === 'poll') {
         const id = url.searchParams.get('id')
         if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')

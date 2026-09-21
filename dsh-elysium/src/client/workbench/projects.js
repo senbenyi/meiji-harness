@@ -2,7 +2,7 @@
 window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const exports = {}
   const { createElement: h, useEffect, useState } = require('react')
-  const { fetchProjects, fetchProject, createProject, updateProject, deleteProject, generateDoc, startFill, startProduce, pauseAuto, pollProject } = require('elysium/project-api')
+  const { fetchProjects, fetchProject, createProject, updateProject, deleteProject, generateDoc, startFill, startProduce, pauseAuto, pollProject, downloadFilmsUrl } = require('elysium/project-api')
   const { fetchDirectors } = require('elysium/director-api')
   const { SeriesView } = require('elysium/series')
   const { EpisodeView } = require('elysium/episode')
@@ -130,7 +130,12 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
         h('button', { type: 'button', onClick: () => open(item.id) }, h('b', null, item.title), ` · ${item.genre || '未定题材'} · ${item.lead || '未定主演'}`),
         h('p', null, `成片 ${item.film_count}/${item.episode_count} 集 · 镜头 ${item.completed_count}/${item.shot_count} · ${item.status}`),
         item.paused ? h('p', { role: 'alert' }, item.paused.reason) : null,
-        h('button', { type: 'button', disabled: busy, onClick: () => remove(item.id) }, '删除'))))
+        h('div', { className: 'elysium-card-actions' },
+          h('button', { type: 'button', onClick: () => startFill(item.id).then(refresh).catch(err => setError(err.message)) }, '🤖 一键补全'),
+          h('button', { type: 'button', onClick: () => startProduce(item.id).then(refresh).catch(err => setError(err.message)) }, item.paused ? '继续生产' : '▶ 一键生产'),
+          item.status === 'active' ? h('button', { type: 'button', onClick: () => pauseAuto(item.id).then(refresh).catch(err => setError(err.message)) }, '⏸ 暂停') : null,
+          item.film_count ? h('a', { href: downloadFilmsUrl(item.id), download: true }, '⬇ 下载全部成片') : null,
+          h('button', { type: 'button', disabled: busy, onClick: () => remove(item.id) }, '删除')))))
   }
   Object.assign(exports, { ProjectList, ProjectDetail })
   return exports

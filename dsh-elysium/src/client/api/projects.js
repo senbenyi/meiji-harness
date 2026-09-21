@@ -15,6 +15,7 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
     if (!response.ok) throw new Error(value.error || '项目操作失败')
     return value
   }
+  const downloadFilmsUrl = id => projectUrl('films-download', { id })
   const fetchProjects = () => request('list')
   const fetchProject = id => request('get', null, { id })
   const fetchEpisode = (id, number) => request('episode', null, { id, number })
@@ -35,7 +36,7 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   const composeFilm = (id, episode) => request('film-compose', { id, episode })
   const produceEpisode = (id, episode) => request('produce-episode', { id, episode })
   const pollProject = (id, since) => request('poll', null, { id, since })
-  Object.assign(exports, { fetchProjects, fetchProject, fetchEpisode, createProject, updateProject, deleteProject, readDoc, saveDoc, generateDoc,
+  Object.assign(exports, { downloadFilmsUrl, fetchProjects, fetchProject, fetchEpisode, createProject, updateProject, deleteProject, readDoc, saveDoc, generateDoc,
     generateAnchorImage, replaceAnchorImage, startFill, startProduce, pauseAuto, reshootShot, previewShot, composeFilm, produceEpisode, pollProject })
   return exports
 } })
