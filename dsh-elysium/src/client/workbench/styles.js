@@ -270,6 +270,7 @@ body[data-elysium-sidebar-dragging] #root [data-dsh-frame],body[data-elysium-sid
 .elysium-shot-fields .elysium-inline { flex:none; }
 .elysium-panel .elysium-shot-fields .elysium-plain { field-sizing:content; min-width:2em; padding:1px 4px; }
 .elysium-panel .elysium-shot-fields .elysium-plain { font-size:12px; color:var(--dsw-alias-label-secondary,#666); }
+.elysium-shot-cast { display:flex; align-items:center; margin-left:6px; font-size:11px; color:var(--dsw-alias-label-tertiary,#888); }
 .elysium-duration { display:flex; align-items:center; font-size:12px; color:var(--dsw-alias-label-tertiary,#888); }
 .elysium-panel .elysium-duration .elysium-plain { text-align:right; }
 .elysium-panel .elysium-shot-video { font-size:12px; }

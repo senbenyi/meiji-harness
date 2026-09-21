@@ -10,19 +10,21 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
   const insert = (markdown, index, text) => { const lines = markdown.split('\n'); lines.splice(index, 0, text); return lines.join('\n') }
   const marker = (id, size = '中景', camera = '固定', duration = 5) => `### [${id}] ${size}｜${camera}｜${duration} 秒\n视频：\n首帧：`
   const nextId = shots => `S${String(Math.max(0, ...shots.map(item => Number(item.id.slice(1)))) + 1).padStart(2, '0')}`
+  // 改镜头任一字段都整行重写标记，保留人物。
+  const markerOf = (shot, patch) => { const v = { size: shot.size, camera: shot.camera, duration: shot.duration, roles: shot.roles?.join('、') || '', ...patch }; return `### [${shot.id}] ${v.size}｜${v.camera}｜${v.duration} 秒${v.roles.trim() ? `｜人物：${v.roles.trim()}` : ''}` }
   const clock = seconds => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
   const kindOf = text => text.startsWith('动作：') ? 'action' : text.startsWith('音效：') ? 'sound' : 'dialogue'
   const busy = shot => ['queued', 'running'].includes(shot.status) || shot.status === 'pending' && Boolean(shot.job_id)
 
   // 看起来是正文、点击即可编辑的字段；失焦保存，回车/退格用于增删剧本行。
-  function Inline({ label, value, onCommit, multiline = false, width = 48, className = '', onEnter, onEmptyBackspace }) {
+  function Inline({ label, value, onCommit, multiline = false, width = 48, className = '', placeholder, onEnter, onEmptyBackspace }) {
     const [draft, setDraft] = useState(value || ''), [error, setError] = useState('')
     useEffect(() => { if (document.activeElement?.getAttribute('aria-label') !== label) setDraft(value || '') }, [value])
     const commit = async () => {
       if (draft === value) return
       try { await onCommit(draft); setError('') } catch (err) { setError(err.message) }
     }
-    const props = { 'aria-label': label, value: draft, className: `elysium-plain ${className}`, onChange: event => setDraft(event.target.value), onBlur: commit,
+    const props = { 'aria-label': label, placeholder, value: draft, className: `elysium-plain ${className}`, onChange: event => setDraft(event.target.value), onBlur: commit,
       onKeyDown: event => {
         if (event.key === 'Enter' && onEnter && !event.shiftKey) { event.preventDefault(); onEnter(draft) }
         if (event.key === 'Backspace' && !draft && onEmptyBackspace) { event.preventDefault(); onEmptyBackspace() }
@@ -109,9 +111,12 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
     const shotCard = shot => h('article', { id: `elysium-shot-${shot.id}`, className: 'elysium-shot-card', 'data-status': shot.status || 'pending' },
       h('header', null, h('b', null, shot.id), h('span', { className: 'elysium-compact-meta' }, `${clock(timings[shot.id])}–${clock(timings[shot.id] + shot.duration)}`),
         h('span', { className: 'elysium-shot-fields' },
-          h(Inline, { label: `${shot.id} 景别`, value: shot.size, onCommit: text => save(replace(markdown, shot.start, `### [${shot.id}] ${text}｜${shot.camera}｜${shot.duration} 秒`)) }),
-          h(Inline, { label: `${shot.id} 运镜`, value: shot.camera, onCommit: text => save(replace(markdown, shot.start, `### [${shot.id}] ${shot.size}｜${text}｜${shot.duration} 秒`)) }),
-          h('span', { className: 'elysium-duration' }, h(Inline, { label: `${shot.id} 时长`, value: String(shot.duration), onCommit: text => save(replace(markdown, shot.start, `### [${shot.id}] ${shot.size}｜${shot.camera}｜${Number(text)} 秒`)) }), '秒')),
+          h(Inline, { label: `${shot.id} 景别`, value: shot.size, onCommit: text => save(replace(markdown, shot.start, markerOf(shot, { size: text }))) }),
+          h(Inline, { label: `${shot.id} 运镜`, value: shot.camera, onCommit: text => save(replace(markdown, shot.start, markerOf(shot, { camera: text }))) }),
+          h('span', { className: 'elysium-duration' }, h(Inline, { label: `${shot.id} 时长`, value: String(shot.duration), onCommit: text => save(replace(markdown, shot.start, markerOf(shot, { duration: Number(text) }))) }), '秒'),
+          h('span', { className: 'elysium-shot-cast', title: '第一位是画面主体，首帧按其定妆图生成；留空则按剧本行自动判断' }, '人物',
+            h(Inline, { label: `${shot.id} 人物`, value: shot.roles?.join('、') || '', placeholder: `${(shot.cast || []).join('、') || '空镜'}（自动）`,
+              onCommit: text => save(replace(markdown, shot.start, markerOf(shot, { roles: text.replace(/[,，\s]+/g, '、') }))) }))),
         h(Badge, { status: busy(shot) ? 'running' : shot.status }),
         shot.status === 'failed' ? h('button', { type: 'button', className: 'elysium-danger', onClick: () => run(() => reshootShot(project.id, episode, shot.id)).catch(() => {}) }, '重拍') : null,
         h(Menu, { label: `${shot.id} 更多操作`, items: [

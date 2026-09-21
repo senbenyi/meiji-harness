@@ -90,10 +90,13 @@ export function parseScript(markdown) {
   return { markdown: changed ? lines.join('\n') : markdown, scenes, shots, lines: scriptLines }
 }
 
+// 镜头标记行：人物为空时省略，由编译按剧本行推断。
+export const shotMarker = (id, size, camera, duration, roles) => `### [${id}] ${size}｜${camera}｜${duration} 秒${roles?.trim() ? `｜人物：${roles.trim()}` : ''}`
+
 export function insertStoryboard(script, output) {
   const parsed = parseScript(script), starts = [], blocks = output.trim().split(/(?=^### 从第 )/m).filter(Boolean)
   for (const block of blocks) {
-    const match = /^### 从第 (\d+) 行｜([^｜]+)｜([^｜]+)｜(\d+) 秒\n视频：([^\n]*)\n首帧：([^\n]*)/.exec(block.trim())
+    const match = /^### 从第 (\d+) 行｜([^｜]+)｜([^｜]+)｜(\d+) 秒(?:｜人物：([^\n]*))?\n视频：([^\n]*)\n首帧：([^\n]*)/.exec(block.trim())
     if (!match) throw invalid(1, '分镜输出格式无效')
     const number = Number(match[1]), target = parsed.lines[number - 1]
     if (!target || starts.some(item => item.number >= number)) throw invalid(1, '镜头起始行必须递增且存在')
@@ -105,7 +108,7 @@ export function insertStoryboard(script, output) {
   const plain = parseScript(source.join('\n')), byIndex = new Map()
   starts.forEach(({ number, match }, index) => {
     const target = plain.lines[number - 1], id = `S${String(index + 1).padStart(2, '0')}`
-    byIndex.set(target.index, `### [${id}] ${match[2]}｜${match[3]}｜${match[4]} 秒\n视频：${stripVideoDialogue(match[5])}\n首帧：${match[6]}`)
+    byIndex.set(target.index, `${shotMarker(id, match[2], match[3], match[4], match[5])}\n视频：${stripVideoDialogue(match[6])}\n首帧：${match[7]}`)
   })
   return source.map((line, index) => byIndex.has(index) ? `${byIndex.get(index)}\n${line}` : line).join('\n')
 }

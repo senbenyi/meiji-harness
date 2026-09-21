@@ -5,7 +5,7 @@ import { skillsRoot } from '../../database/paths.js'
 import { join } from 'node:path'
 import { createDirectorStore } from '../../database/managers/directors.js'
 import { statusError } from '../../utils/errors.js'
-import { insertStoryboard, parseProject, parseScript, parseSeries, stripVideoDialogue } from './documents.js'
+import { insertStoryboard, parseProject, parseScript, parseSeries, shotMarker, stripVideoDialogue } from './documents.js'
 
 const invalid = message => statusError(400, message)
 const schema = { type: 'object', properties: { markdown: { type: 'string' } }, required: ['markdown'], additionalProperties: false }
@@ -63,11 +63,11 @@ export function createPlanningService(store, complete, directors = createDirecto
       if (shotId) {
         const parsed = parseScript(script), shot = parsed.shots.find(item => item.id === shotId)
         if (!shot) throw invalid('镜头不存在')
-        const match = /^### 从第 \d+ 行｜([^｜]+)｜([^｜]+)｜(\d+) 秒\n视频：([^\n]*)\n首帧：([^\n]*)/.exec(result.markdown.trim())
+        const match = /^### 从第 \d+ 行｜([^｜]+)｜([^｜]+)｜(\d+) 秒(?:｜人物：([^\n]*))?\n视频：([^\n]*)\n首帧：([^\n]*)/.exec(result.markdown.trim())
         if (!match) throw invalid('单镜输出格式无效')
         const lines = script.split('\n'), start = shot.start
-        lines[start] = `### [${shot.id}] ${match[1]}｜${match[2]}｜${match[3]} 秒`
-        lines[start + 1] = `视频：${stripVideoDialogue(match[4])}`; lines[start + 2] = `首帧：${match[5]}`
+        lines[start] = shotMarker(shot.id, match[1], match[2], match[3], match[4])
+        lines[start + 1] = `视频：${stripVideoDialogue(match[5])}`; lines[start + 2] = `首帧：${match[6]}`
         return save({ id, step, episode, markdown: lines.join('\n') })
       }
       return save({ id, step, episode, markdown: insertStoryboard(script, result.markdown) })

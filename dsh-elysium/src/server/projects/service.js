@@ -4,7 +4,7 @@ import { completeStructured, getJob, registerSink, removeProjectTasks, submit, t
 import { validEpisode, validProjectId, validShotId } from './schema.js'
 import { statusError } from '../../utils/errors.js'
 import { createPlanningService } from './planning.js'
-import { compileShot } from './compile.js'
+import { compileShot, shotRoles } from './compile.js'
 import { parseProject, parseScript, parseSeries } from './documents.js'
 import { createHash } from 'node:crypto'
 import { availableJobSummary } from '../media/catalog.js'
@@ -21,7 +21,7 @@ function view(raw) {
   const project = parseProject(raw.project_text), series = parseSeries(raw.series_text)
   const episodes = raw.episodes.map(item => {
     const parsed = parseScript(item.script)
-    return { ...item, scenes: parsed.scenes, shots: parsed.shots.map(shot => ({ ...shot, ...(raw.state.episodes[item.number]?.shots?.[shot.id] ||
+    return { ...item, scenes: parsed.scenes, shots: parsed.shots.map(shot => ({ ...shot, cast: shot.roles?.length ? shot.roles : shotRoles(series?.characters || [], shot.lines), ...(raw.state.episodes[item.number]?.shots?.[shot.id] ||
       { take: 0, keyframe_job_id: null, job_id: null, status: 'pending' }) })) }
   })
   return { ...raw, ...project, series, episodes, anchors: raw.state.anchors, auto: raw.state.auto }

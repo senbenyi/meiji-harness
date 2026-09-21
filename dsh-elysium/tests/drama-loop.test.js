@@ -9,7 +9,7 @@ import { createSkillsStore } from '../src/database/managers/skills.js'
 import { createDirectorStore } from '../src/database/managers/directors.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { insertStoryboard, parseProject, parseScript, stripVideoDialogue } from '../src/server/projects/documents.js'
-import { compileShot } from '../src/server/projects/compile.js'
+import { compileShot, shotRoles } from '../src/server/projects/compile.js'
 
 const skills = new URL('../../harness/.dsh/storages/elysium/pools/skills/', import.meta.url)
 const overview = `一句话故事：一封信改变两个人\n## 世界观\n雨夜城市\n## 角色\n### 林晚（主角）\n简介：插画师\n定妆：adult woman, full body\n音色：清亮\n## 场景\n### 咖啡馆\n街角咖啡馆\n## 分集\n### 第 1 集 · 来信\n梗概：收到信\n钩子：来人\n### 第 2 集 · 真相\n梗概：查明真相\n钩子：和解\n`
@@ -64,4 +64,18 @@ test('project stores only creative Markdown and system state, and saves leave st
       assert.equal((await store.readEpisode(project.id, 1)).script, script)
     })
   } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('shot lead follows the on-screen subject, not names mentioned in dialogue or overview order', () => {
+  const characters = [{ name: '林远' }, { name: '苏晴' }, { name: '王总' }]
+  const lines = texts => texts.map(text => ({ text }))
+  assert.deepEqual(shotRoles(characters, lines(['王总（冷笑）：你那个前男友林远，听说回来了？'])), ['王总'])
+  assert.deepEqual(shotRoles(characters, lines(['动作：苏晴撑着伞走过，看到林远。'])), ['苏晴', '林远'])
+  const marked = insertStoryboard('## 场 1｜咖啡馆｜苏晴、林远\n动作：苏晴走过，看到林远。\n', '### 从第 1 行｜中景｜跟拍｜4 秒｜人物：林远、苏晴\n视频：走过。\n首帧：still')
+  const shot = parseScript(marked).shots[0]
+  assert.deepEqual(shot.roles, ['林远', '苏晴'])
+  const series = { characters: characters.map(item => ({ ...item, appearance: item.name, voice: '' })), scenes: [{ name: '咖啡馆', description: '' }] }
+  const anchors = { 林远: { source_job_id: 'b'.repeat(32) }, 苏晴: { source_job_id: 'c'.repeat(32) } }
+  assert.equal(compileShot(series, shot, anchors).reference_job_id, 'b'.repeat(32))
+  assert.equal(compileShot(series, { ...shot, roles: null }, anchors).reference_job_id, 'c'.repeat(32))
 })
