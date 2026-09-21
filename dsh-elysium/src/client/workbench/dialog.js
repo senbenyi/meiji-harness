@@ -15,6 +15,20 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
   function IconButton({ name, label, className = '', title = label, ...props }) {
     return h('button', { ...props, type: 'button', className: `elysium-icon-button${className ? ` ${className}` : ''}`, 'aria-label': label, title }, h(Icon, { name }))
   }
+  // 次要操作统一收进“⋯”菜单；items 为 [文字, 回调, 是否危险] 列表，空项跳过。
+  function Menu({ label, items }) {
+    const root = useRef(null), close = () => root.current?.removeAttribute('open')
+    return h('details', { className: 'elysium-icon-menu', ref: root },
+      h('summary', { 'aria-label': label, title: label }, h(Icon, { name: 'more' })),
+      h('div', { className: 'elysium-menu-items' }, items.filter(Boolean).map(([text, onClick, danger]) =>
+        h('button', { key: text, type: 'button', className: danger ? 'elysium-danger' : undefined, onClick: () => { close(); onClick() } }, text))))
+  }
+  const statusText = { pending: '待生成', queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败', cancelled: '已取消',
+    todo: '未开始', active: '进行中', paused: '已暂停', completed: '已完成' }
+  const statusTone = { succeeded: 'success', completed: 'success', running: 'active', queued: 'active', active: 'active', failed: 'error', paused: 'error', cancelled: 'error' }
+  function Badge({ status }) {
+    return h('span', { className: 'elysium-badge', 'data-tone': statusTone[status] || 'muted' }, statusText[status] || status || '待生成')
+  }
   function trapFocus(event, root) {
     if (event.key !== 'Tab' || !root) return
     const nodes = [...root.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"],summary')].filter(node => node.getClientRects().length)
@@ -64,6 +78,6 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
       pending ? h(Dialog, { title: '有未保存的修改', busy, close: () => setPending(null), footer: h('button', { disabled: busy, onClick: () => submit(() => { close(); pending() }) }, '保存并继续') },
         h('button', { className: 'elysium-danger', disabled: busy, onClick: () => { close(); pending() } }, '放弃修改'), h('button', { onClick: () => setPending(null) }, '继续编辑')) : null)
   }
-  Object.assign(exports, { Dialog, Editor, Icon, IconButton })
+  Object.assign(exports, { Badge, Dialog, Editor, Icon, IconButton, Menu })
   return exports
 } })

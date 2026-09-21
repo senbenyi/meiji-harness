@@ -21,9 +21,9 @@ const jobIds = state => [...new Set([...Object.values(state.anchors).flatMap(ite
 export function projectSummary(project) {
   const state = project.state, episodes = project.episodes || [], count = episodeCount(project.series_text || '')
   const shots = episodes.flatMap(item => item.shots || []), films = episodes.filter(item => item.film?.job_id).length
-  const active = state.auto.task || shots.some(shot => ['pending', 'queued', 'running'].includes(shot.status) && shot.job_id)
+  const started = Boolean(state.auto.task) || shots.some(shot => shot.job_id)
   return { id: project.id, title: title(project.project_text), director: field(project.project_text, 'director'), genre: field(project.project_text, 'genre'),
-    created_at: state.created_at, updated_at: project.updated_at, status: state.auto.paused ? 'paused' : films === count && count ? 'completed' : active ? 'active' : 'todo',
+    created_at: state.created_at, updated_at: project.updated_at, status: state.auto.paused ? 'paused' : films === count && count ? 'completed' : started ? 'active' : 'todo', running: Boolean(state.auto.task),
     cover_job_id: Object.values(state.anchors).find(item => item.source_job_id)?.source_job_id || null,
     lead: /### (.+)（主角）/.exec(project.series_text || '')?.[1] || '',
     episode_count: count, film_count: films, shot_count: shots.length, completed_count: shots.filter(item => item.status === 'succeeded').length,
