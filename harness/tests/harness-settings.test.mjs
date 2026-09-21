@@ -7,7 +7,7 @@ const profile = await readFile(new URL('../.dsh/profiles/web/cordis.patch.yml', 
 const ignore = await readFile(new URL('../../.gitignore', import.meta.url), 'utf8')
 
 test('Harness settings contain runtime values without composition controls', () => {
-  assert.match(settings, /baseURL: http:\/\/127\.0\.0\.1:18000\/v1/)
+  assert.match(settings, /baseURL: http:\/\/43\.154\.247\.11\/qwen\/v1/)
   assert.match(settings, /apiKeyEnv: QWEN38_LOCAL_API_KEY/)
   assert.doesNotMatch(settings, /^\s+apiKey:/m)
   assert.match(settings, /default: elysium-free/)

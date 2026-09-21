@@ -5,10 +5,11 @@ import { mkdtemp, mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/pro
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { defaultSettings, withConfig } from '../src/config.js'
-import { ensureSettings, readSettings, updateSettings } from '../src/database/managers/settings.js'
+import { ensureSettings, readSettings, updateSettings, validateSettings } from '../src/database/managers/settings.js'
 import { readRegistry, writeRegistry } from '../src/database/managers/registry.js'
 import { readSelection, writeSelection } from '../src/database/managers/selection.js'
 import { legacyTunnelBackend } from '../src/worker/models/catalog/servers.js'
+import { ensureConnection } from '../src/worker/models/catalog/transport.js'
 
 const fixture = async t => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-unified-settings-'))
@@ -102,6 +103,20 @@ test('ComfyUI registry does not replace the configured chat SSH tunnel', async t
   assert.equal(backend.server_id, 'legacy-qwen')
   assert.equal(backend.connection.ssh_alias, 'localhost')
   assert.equal(backend.connection.model, 'qwen3.8-27b-elysium')
+})
+
+test('chat HTTP tunnel connects directly', async t => {
+  const files = await fixture(t)
+  const defaults = structuredClone(defaultSettings)
+  defaults.chat.backend.base_url = 'http://gw.test/qwen/v1'
+  defaults.chat.tunnel = { alias: 'qwen', transport: 'http' }
+  ensureSettings({ path: files.settings, defaults, registryFile: files.registry, selectionFile: files.selection })
+  const backend = withConfig({ ELYSIUM_SETTINGS_FILE: files.settings }, () => legacyTunnelBackend('qwen'))
+  assert.equal(backend.connection.transport, 'http')
+  assert.equal(backend.connection.ssh_identity, undefined)
+  assert.equal(backend.base_url, 'http://gw.test/qwen/v1')
+  assert.equal(await ensureConnection(backend), undefined)
+  assert.throws(() => validateSettings({ ...defaults, chat: { ...defaults.chat, tunnel: { ...defaults.chat.tunnel, ssh_alias: 'localhost' } } }), /聊天隧道无效/)
 })
 
 test('legacy unified settings gains regular creation quality without losing sections', async t => {

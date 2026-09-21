@@ -5,7 +5,7 @@ llm-pi-ai:
   providers:
     qwen38-local:
       displayName: qwen3.8
-      baseURL: http://127.0.0.1:18000/v1
+      baseURL: http://43.154.247.11/qwen/v1
       apiKeyEnv: QWEN38_LOCAL_API_KEY
       api: openai-completions
       compat:
@@ -24,7 +24,7 @@ llm-pi-ai:
             - text
 
 # 默认项。
-# 新会话默认使用经本机转发的 Qwen 模型。
+# 新会话默认使用经香港网关转发的 Qwen 模型。
 agent-default-model:
   provider: qwen38-local
   model: qwen3.8-27b-elysium
