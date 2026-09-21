@@ -1,4 +1,4 @@
-// 职责：调用项目 HTTP 端点，不包含视图状态。
+// 职责：调用项目文档、定妆与生产 HTTP 端点，不保存视图状态。
 window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
   const exports = {}
   function projectUrl(action, params = {}) {
@@ -9,32 +9,33 @@ window.__ModuleLoader__.load({ id: 'elysium/project-api', factory: require => {
     return `${config.projectBase}/${action}?${query}`
   }
   async function request(action, body, params = {}) {
-    const response = await fetch(projectUrl(action, params), { credentials: 'same-origin', cache: 'no-store', ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) })
+    const response = await fetch(projectUrl(action, params), { credentials: 'same-origin', cache: 'no-store',
+      ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) })
     const value = await response.json()
     if (!response.ok) throw new Error(value.error || '项目操作失败')
     return value
   }
   const fetchProjects = () => request('list')
   const fetchProject = id => request('get', null, { id })
-  const fetchEpisode = (id, episode) => request('episode', null, { id, number: episode })
-  const createProject = ({ title, director, genre, synopsis }) => request('create', { title, director, genre, synopsis })
-  const suggestProject = director => request('project-suggest', { director })
-  const updateProject = (id, patch) => request('update', { ...patch, id })
+  const fetchEpisode = (id, number) => request('episode', null, { id, number })
+  const createProject = body => request('create', body)
+  const updateProject = (id, patch) => request('update', { id, ...patch })
   const deleteProject = id => request('delete', { id })
-  const replaceAnchorImage = (id, role, jobId) => request('import', { id, as: 'anchor', role, job_id: jobId })
-  const generateAnchorImage = (projectId, role) => request('anchor-generate', { project_id: projectId, role })
-  const confirmAnchors = id => request('anchors-confirm', { id })
-  const readPlanning = id => request('plan-read', { id })
-  const generatePlanning = (id, step, episode, shot_id, requirements = '', auto_finalize = false) => request('plan-generate', { id, step, episode, shot_id, request: requirements, ...(auto_finalize ? { auto_finalize: true } : {}) })
-  const editPlanning = (id, step, episode, shot_id, value, auto_finalize = false) => request('plan-edit', { id, step, episode, shot_id, value, ...(auto_finalize ? { auto_finalize: true } : {}) })
-  const finalizePlanning = (id, step, episode, shot_id, version) => request('plan-finalize', { id, step, episode, shot_id, version })
-  const reshootShot = (projectId, episode, shotId) => request('reshoot', { project_id: projectId, episode, shot_id: shotId })
-  const retryShot = (projectId, episode, shotId) => request('retry', { project_id: projectId, episode, shot_id: shotId })
-  const startAuto = (id, untilEpisode = null) => request('auto-start', { id, until_episode: untilEpisode })
+  const readDoc = (id, step, episode) => request('doc-read', null, { id, step, ...(episode ? { episode } : {}) })
+  const saveDoc = (id, step, markdown, episode) => request('doc-save', { id, step, markdown, ...(episode ? { episode } : {}) })
+  const generateDoc = (id, step, episode, shotId, director) => request('doc-generate', { ...(id ? { id } : {}), step,
+    ...(episode ? { episode } : {}), ...(shotId ? { shot_id: shotId } : {}), ...(director ? { director } : {}) })
+  const generateAnchorImage = (id, role) => request('anchor-generate', { project_id: id, role })
+  const replaceAnchorImage = (id, role, jobId) => request('anchor-import', { id, role, job_id: jobId })
+  const startFill = id => request('auto-fill', { id })
+  const startProduce = id => request('auto-produce', { id })
   const pauseAuto = id => request('auto-pause', { id })
-  const resumeAuto = id => request('auto-resume', { id })
+  const reshootShot = (id, episode, shotId) => request('reshoot', { project_id: id, episode, shot_id: shotId })
+  const previewShot = (id, episode, shotId) => request('shot-preview', { id, episode, shot_id: shotId })
+  const composeFilm = (id, episode) => request('film-compose', { id, episode })
+  const produceEpisode = (id, episode) => request('produce-episode', { id, episode })
   const pollProject = (id, since) => request('poll', null, { id, since })
-  Object.assign(exports, { fetchProjects, fetchProject, fetchEpisode, createProject, suggestProject, updateProject, deleteProject, replaceAnchorImage, generateAnchorImage, confirmAnchors,
-    readPlanning, generatePlanning, editPlanning, finalizePlanning, reshootShot, retryShot, startAuto, pauseAuto, resumeAuto, pollProject })
+  Object.assign(exports, { fetchProjects, fetchProject, fetchEpisode, createProject, updateProject, deleteProject, readDoc, saveDoc, generateDoc,
+    generateAnchorImage, replaceAnchorImage, startFill, startProduce, pauseAuto, reshootShot, previewShot, composeFilm, produceEpisode, pollProject })
   return exports
 } })

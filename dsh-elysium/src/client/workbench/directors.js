@@ -5,10 +5,11 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
   const { IconButton } = require('elysium/dialog')
   const { fetchDirectors, fetchDirector, createDirector, saveDirector, reorderDirectors, deleteDirector } = require('elysium/director-api')
   const tabs = [{ id: 'style', label: '导演风格', files: [['SKILL.md', 'SKILL.md 全文']] },
+    { id: 'series', label: '导演总览', files: [['series.md', '集数与风格']] },
     { id: 'script', label: '导演剧本', files: [['script.md', '剧本要求']] },
-    { id: 'storyboard', label: '导演分镜', files: [['storyboard.md', '分镜要求'], ['shot-prompt-example.md', '提示词范例']] }]
-  const templates = { 'script.md': '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n',
-    'storyboard.md': '# 导演分镜\n\n## 镜头语言\n\n## 提示词额外要求\n', 'shot-prompt-example.md': '# 单镜提示词范例\n' }
+    { id: 'storyboard', label: '导演分镜', files: [['storyboard.md', '分镜要求']] }]
+  const templates = { 'series.md': '# 导演总览\n', 'script.md': '# 导演剧本\n\n## 叙事节奏\n\n## 单集结构与钩子\n',
+    'storyboard.md': '# 导演分镜\n\n## 镜头语言\n\n## 提示词额外要求\n' }
   const createTemplate = name => `---\nname: director-new\ndescription: ${JSON.stringify((name || '新导演') + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(name || '新导演')}\n  order: 0\n---\n\n# ${name || '新导演'}\n\n## 风格与题材\n\n## 人物塑造\n\n## 声音与对白\n\n## 禁忌\n`
 
   function DirectorList({ guard }) {

@@ -1,4 +1,4 @@
-// 职责：将项目存储操作适配为经过认证的 HTTP 路由。
+// 职责：把项目文档、定妆和生产操作映射为认证 HTTP 路由。
 import { withConfig } from '../../config.js'
 import { createProjectStore } from '../projects/service.js'
 import { createDirectorStore } from '../directors/service.js'
@@ -6,29 +6,26 @@ import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const reads = ['list', 'get', 'episode', 'poll']
-const actions = [...reads, 'create', 'update', 'delete', 'import', 'anchor-generate', 'anchors-confirm', 'project-suggest', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read',
-  'reshoot', 'retry', 'auto-start', 'auto-pause', 'auto-resume']
-const exactBody = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key))
-const shotBody = body => exactBody(body, ['project_id', 'episode', 'shot_id'])
+const reads = ['list', 'get', 'episode', 'poll', 'doc-read']
+const actions = [...reads, 'create', 'update', 'delete', 'doc-save', 'doc-generate', 'anchor-generate', 'anchor-import', 'auto-fill', 'auto-produce', 'auto-pause',
+  'reshoot', 'shot-preview', 'film-compose', 'produce-episode']
 
 export function createProjectHandler(options) {
   const { token } = options
   const directors = options.directorStore || createDirectorStore()
   const store = options.projectStore || createProjectStore({ ...options, directorExists: name => directors.has(name) })
   const handlers = {
-    'project-suggest': body => store.planning.suggestProject(body),
-    'plan-generate': body => store.planning.generate(body),
-    'plan-edit': body => store.planning.edit(body),
-    'plan-finalize': body => store.planning.finalize(body),
-    'plan-read': body => store.planning.read(body),
+    'doc-save': body => store.planning.save(body),
+    'doc-generate': body => store.planning.generate(body),
     'anchor-generate': body => store.generateAnchorImage(body),
-    'anchors-confirm': body => store.confirmAnchors(body),
-    'auto-start': body => store.startAuto(body),
+    'anchor-import': body => store.replaceAnchorImage(body),
+    'auto-fill': body => store.startFill(body),
+    'auto-produce': body => store.startProduce(body),
     'auto-pause': body => store.pauseAuto(body),
-    'auto-resume': body => store.resumeAuto(body),
-    reshoot: body => { if (!shotBody(body)) throw invalidRequest('重拍参数无效'); return store.reshootShot(body) },
-    retry: body => { if (!shotBody(body)) throw invalidRequest('恢复参数无效'); return store.retryShot(body) },
+    reshoot: body => store.reshootShot(body),
+    'shot-preview': body => store.compileShot(body),
+    'film-compose': body => store.requestEpisodeFilm(body.id, body.episode),
+    'produce-episode': body => store.produceEpisode(body),
   }
   return async (req, res) => {
     try {
@@ -43,12 +40,14 @@ export function createProjectHandler(options) {
         if (!validProjectId(id)) throw invalidRequest('项目 ID 无效')
         if (action === 'poll') {
           const since = Number(url.searchParams.get('since'))
-          if (!url.searchParams.has('since') || !url.searchParams.get('since').trim() || !Number.isSafeInteger(since) || since < 0) throw invalidRequest('变更时间无效')
+          if (!Number.isSafeInteger(since) || since < 0) throw invalidRequest('变更时间无效')
           return json(res, 200, { updated: await store.lastModified(id) > since })
         }
         return json(res, 200, await store.read(id))
       }
       if (action === 'episode') return json(res, 200, await store.readEpisode(url.searchParams.get('id'), Number(url.searchParams.get('number'))))
+      if (action === 'doc-read') return json(res, 200, await store.planning.read({ id: url.searchParams.get('id'), step: url.searchParams.get('step'),
+        episode: Number(url.searchParams.get('episode')) }))
       const body = await readJsonBody(req)
       if (handlers[action]) return json(res, 200, await handlers[action](body))
       return json(res, action === 'create' ? 201 : 200, await store.change(action, body))
