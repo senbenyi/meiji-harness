@@ -9,7 +9,7 @@ import { statusError } from '../../utils/errors.js'
 const invalid = message => statusError(400, message)
 const missing = error => { if (error.code === 'ENOENT') return ''; throw error }
 const idNow = () => { const d = new Date(), p = (v, w = 2) => String(v).padStart(w, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}${p(d.getMilliseconds(), 3)}` }
-const field = (markdown, key) => new RegExp(`^${key}: (.*)$`, 'm').exec(markdown)?.[1] || ''
+const field = (markdown, key) => (new RegExp(`^${key}: (.*)$`, 'm').exec(markdown)?.[1] || '').trim().replace(/^([\"'])(.*)\1$/, '$2')
 const title = text => field(text, 'title')
 const episodeCount = text => [...text.matchAll(/^### 第 \d+ 集 · /gm)].length
 const shotIds = text => [...text.matchAll(/^### \[(S\d+)\] /gm)].map(item => item[1])

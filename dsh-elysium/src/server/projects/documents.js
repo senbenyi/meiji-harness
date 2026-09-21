@@ -8,7 +8,10 @@ export const stripVideoDialogue = video => video.replace(/([^【；。\n]+?)（[
 export function parseProject(markdown) {
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(markdown)
   if (!match) throw invalid(1, '项目缺少 frontmatter')
-  const fields = Object.fromEntries(match[1].split('\n').map(line => { const index = line.indexOf(':'); return [line.slice(0, index).trim(), line.slice(index + 1).trim()] }))
+  const fields = Object.fromEntries(match[1].split('\n').map(line => {
+    const index = line.indexOf(':'), raw = line.slice(index + 1).trim()
+    return [line.slice(0, index).trim(), raw.replace(/^([\"'])(.*)\1$/, '$2')]
+  }))
   if (!fields.title) throw invalid(1, '项目需要 title')
   return { title: fields.title, director: fields.director, genre: fields.genre, synopsis: match[2].trim() }
 }

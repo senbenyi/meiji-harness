@@ -8,12 +8,17 @@ import { withConfig } from '../src/config.js'
 import { createSkillsStore } from '../src/database/managers/skills.js'
 import { createDirectorStore } from '../src/database/managers/directors.js'
 import { createProjectStore } from '../src/server/projects/service.js'
-import { insertStoryboard, parseScript, stripVideoDialogue } from '../src/server/projects/documents.js'
+import { insertStoryboard, parseProject, parseScript, stripVideoDialogue } from '../src/server/projects/documents.js'
 import { compileShot } from '../src/server/projects/compile.js'
 
 const skills = new URL('../../harness/.dsh/storages/elysium/pools/skills/', import.meta.url)
 const overview = `一句话故事：一封信改变两个人\n## 世界观\n雨夜城市\n## 角色\n### 林晚（主角）\n简介：插画师\n定妆：adult woman, full body\n音色：清亮\n## 场景\n### 咖啡馆\n街角咖啡馆\n## 分集\n### 第 1 集 · 来信\n梗概：收到信\n钩子：来人\n### 第 2 集 · 真相\n梗概：查明真相\n钩子：和解\n`
 const script = `## 场 1｜咖啡馆｜林晚\n动作：林晚拆开信。\n林晚（低声）：你来了。\n`
+
+test('project frontmatter accepts quoted model values without keeping quote marks', () => {
+  assert.deepEqual(parseProject('---\ntitle: "雨夜重逢"\ndirector: director-cad24a59\ngenre: "甜宠"\n---\n\n旧友重逢\n'),
+    { title: '雨夜重逢', director: 'director-cad24a59', genre: '甜宠', synopsis: '旧友重逢' })
+})
 
 test('script lines stay unchanged when storyboard inserts markers and dialogue compiles from current lines', () => {
   const marked = insertStoryboard(script, `### 从第 1 行｜特写｜固定｜5 秒\n视频：林晚拆信，2 秒处开口。\n首帧：A woman reads a letter.`)
