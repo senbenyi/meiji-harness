@@ -22,7 +22,6 @@ npm-debug.log*
 # local Elysium runtime data
 dsh-elysium/elysium-workspace/
 comfyui-output/
-harness/.dsh/storages/
 
 # env
 .env

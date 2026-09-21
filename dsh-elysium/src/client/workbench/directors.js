@@ -21,8 +21,9 @@ window.__ModuleLoader__.load({ id: 'elysium/directors', factory: require => {
       try { await action(); return true } catch (err) { setError(err.message); return false } finally { setBusy(false) }
     }
     function open(item) {
-      const files = Object.fromEntries(Object.entries(item.files || { 'SKILL.md': item.content }).map(([file, value]) => [file, value || templates[file] || '']))
-      setEditing(item.name); setDrafts(files); setSaved({ ...files }); setTab('style'); setCreating(false)
+      const files = item.files || { 'SKILL.md': item.content }
+      setEditing(item.name); setDrafts(Object.fromEntries(Object.entries(files).map(([file, value]) => [file, value || templates[file] || ''])))
+      setSaved({ ...files }); setTab('style'); setCreating(false)
     }
     async function create(event) {
       event.preventDefault()
