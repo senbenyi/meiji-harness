@@ -34,10 +34,22 @@ export function createDirectorStore() {
     }
     return get(name)
   }
-  const create = async ({ display_name, description }) => {
+  const create = async ({ display_name, description, content: suppliedContent }) => {
     if (typeof display_name !== 'string' || !display_name.trim() || description !== undefined && typeof description !== 'string') throw invalid('请输入导演显示名和描述')
     const name = `director-${randomBytes(4).toString('hex')}`
-    const content = `---\nname: ${name}\ndescription: ${JSON.stringify(description?.trim() || display_name.trim() + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(display_name.trim())}\n  order: ${(await list()).length}\n---\n\n# ${display_name.trim()}\n\n## 风格与题材\n\n## 人物塑造\n\n## 声音与对白\n\n## 禁忌\n`
+    const order = (await list()).length
+    let content = `---\nname: ${name}\ndescription: ${JSON.stringify(description?.trim() || display_name.trim() + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(display_name.trim())}\n  order: ${order}\n---\n\n# ${display_name.trim()}\n\n## 风格与题材\n\n## 人物塑造\n\n## 声音与对白\n\n## 禁忌\n`
+    if (suppliedContent !== undefined) {
+      const parsed = parseSkill(suppliedContent)
+      if (parsed.metadata?.kind !== 'director') throw invalid('导演 Skill 的 metadata.kind 必须为 director')
+      if (typeof parsed.metadata.display_name !== 'string' || !Number.isInteger(parsed.metadata.order)) throw invalid('导演 Skill 缺少 display_name 或 order')
+      const end = suppliedContent.indexOf('\n---\n', 4)
+      const header = suppliedContent.slice(0, end)
+      if (!/^name: [^\n]+$/m.test(header) || !/^  display_name: [^\n]+$/m.test(header) || !/^  order: [^\n]+$/m.test(header)) throw invalid('导演 Skill 缺少 name、display_name 或 order')
+      content = header.replace(/^name: [^\n]+$/m, `name: ${name}`)
+        .replace(/^  display_name: [^\n]+$/m, `  display_name: ${JSON.stringify(display_name.trim())}`)
+        .replace(/^  order: [^\n]+$/m, `  order: ${order}`) + suppliedContent.slice(end)
+    }
     await skills.save(name, content)
     await skills.saveReference(name, 'script.md', scriptTemplate)
     await skills.saveReference(name, 'storyboard.md', storyboardTemplate)

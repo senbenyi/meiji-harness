@@ -18,9 +18,5 @@
   "orchestration": {
     "description": "通用多代理工作流和 Ralph 循环（仅用户明确要求时）",
     "names": ["workflow", "ralph"]
-  },
-  "project": {
-    "description": "仅在制作项目或短剧时加载项目与导演工具",
-    "names": ["call_tools_project_list", "call_tools_project_read", "call_tools_project_update", "call_tools_project_create", "call_tools_project_produce", "call_tools_director_list"]
   }
 }

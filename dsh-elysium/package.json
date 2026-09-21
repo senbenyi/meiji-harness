@@ -19,8 +19,7 @@
   },
   "files": [
     "lib",
-    "config",
-    "skills"
+    "config"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

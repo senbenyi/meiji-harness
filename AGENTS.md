@@ -10,5 +10,6 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 
 ## 远程主机
 - 检查服务： `~/.ssh/config`
-- runpod服务器(ComfyUI)：`ssh veo-comfyui`
+- autodl服务器(ComfyUI)：`ssh veo-comfyui`
 - autodl服务器(Qwen3.8)： `ssh veo-qwen38`
+- 以上两个别名经香港中转 `ssh veo-hk`；直连回退用 `-direct` 后缀，见 `init/README.md`

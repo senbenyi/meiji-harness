@@ -71,5 +71,16 @@ test('director routes save full Skill text, reorder metadata and protect project
     assert.equal((await response.json()).error, '该导演已被项目使用，不能删除')
     assert.equal((await request('remove', { name: second.name })).status, 200)
     assert.deepEqual((await request('list').then(value => value.json())).map(item => item.name), [first.name])
+    const suppliedContent = '---\nname: director-new\ndescription: "自定义风格"\nmetadata:\n  kind: director\n  display_name: "模板名称"\n  order: 0\n---\n\n# 自定义风格\n\n独特段落\n'
+    response = await request('create', { display_name: '新导演', content: suppliedContent })
+    assert.equal(response.status, 201)
+    const created = await response.json()
+    assert.match(created.content, new RegExp(`name: ${created.name}`))
+    assert.match(created.content, /display_name: "新导演"/)
+    assert.match(created.content, /  order: 1/)
+    assert.match(created.content, /description: "自定义风格"/)
+    assert.match(created.content, /独特段落/)
+    assert.equal(await readFile(join(root, 'pools', 'skills', created.name, 'SKILL.md'), 'utf8'), created.content)
+    assert.equal((await request('create', { display_name: '无效导演', content: suppliedContent.replace('kind: director', 'kind: other') })).status, 400)
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

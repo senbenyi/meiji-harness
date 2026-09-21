@@ -48,7 +48,7 @@ test('failed loads and user messages grant nothing; removed tools stay absent', 
 })
 test('preserves standard and Code Mode protocols', () => {
   const input = assembly(), standard = createCallToolsForAgent(input, { session: { header: { agentPreset: 'standard' } } })
-  assert.deepEqual(standard.tools, input.tools.filter(t => t.name !== 'call_tools_load'))
+  assert.deepEqual(standard.tools, input.tools.filter(t => t.name !== 'call_tools_load' && !/^call_tools_(project|director)_/.test(t.name)))
   assert.equal(standard.sections, input.sections)
   const code = { ...input, tools: [tool('run_code')] }
   const projectedCode = createCallToolsForAgent(code, agent([]))
@@ -62,14 +62,18 @@ test('recognizes the shipped Elysium preset by its real ID', () => {
     assert.ok(!result.tools.some(tool => tool.name === 'bash'))
   }
 })
-test('project tools appear only after loading the project group', async () => {
-  const result = createCallToolsForAgent(assembly(), agent([], 'elysium-free'))
+test('project and director tools never appear in chat, including old loaded sessions', async () => {
+  const input = assembly()
+  const result = createCallToolsForAgent(input, agent([], 'elysium-free'))
   assert.ok(result.tools.some(tool => tool.name === 'call_tools_video'))
   assert.ok(!result.tools.some(tool => /^call_tools_(director|project)_/.test(tool.name)))
   const loader = discoveryTool(() => assembly().tools)
-  const loaded = await loader.execute({ groups: ['project'] }, { agent: agent([]) })
-  const visible = createCallToolsForAgent(assembly(), agent(events(loaded.loaded_tools)))
-  for (const name of toolsConfig.project.names.filter(name => assembly().tools.some(tool => tool.name === name))) assert.ok(visible.tools.some(tool => tool.name === name))
+  await assert.rejects(loader.execute({ groups: ['project'] }, { agent: agent([]) }))
+  for (const current of [agent(events(['call_tools_project_create', 'call_tools_director_list'])), { session: { header: { agentPreset: 'standard' } } }]) {
+    const visible = createCallToolsForAgent(input, current)
+    assert.ok(!visible.tools.some(tool => /^call_tools_(director|project)_/.test(tool.name)))
+  }
+  assert.doesNotMatch(result.sections.find(section => section.name === 'elysium:creation-policy').text, /加载 project|新建项目/)
 })
 test('a failed video result removes every remaining tool for the current turn but input validation can retry once', () => {
   const failed = [{ type: 'turn/start', data: { turn: 1 } },

@@ -11,8 +11,6 @@
   name: '@deepseek-ai/dsh-skill-filesystem'
   config:
     agentsHome: !!js process.getBuiltinModule('node:url').fileURLToPath(new URL('../../agents/', baseUrl))
-    customSkillDirs:
-      - !!js process.getBuiltinModule('node:url').fileURLToPath(new URL('../../storages/elysium/pools/skills/', baseUrl))
 
 # 2. Harness 默认配置：通常无需修改
 # 保留标准工具、平台条件及隔离分组。

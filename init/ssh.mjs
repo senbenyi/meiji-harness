@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// 职责：为固定服务器别名安装现有公钥，并更新本机 SSH 连接参数。
+// 职责：为固定服务器的直连别名安装现有公钥，并更新本机 SSH 连接参数（中转别名不经此脚本修改）。
 import { execFileSync } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, chmod, copyFile, readFile, rename, writeFile } from 'node:fs/promises'
@@ -9,8 +9,8 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const identities = {
-  'veo-comfyui': 'id_ed25519_veo_comfyui',
-  'veo-qwen38': 'id_ed25519_veo_qwen38',
+  'veo-comfyui-direct': 'id_ed25519_veo_comfyui',
+  'veo-qwen38-direct': 'id_ed25519_veo_qwen38',
 }
 
 export function parseSshCommand(command) {
@@ -46,7 +46,7 @@ export function updateHostBlock(config, alias, { hostname, port, user }) {
 async function main() {
   const [alias, command, ...extra] = process.argv.slice(2)
   if (!identities[alias] || !command || extra.length) {
-    throw new Error("用法：node init/ssh.mjs <veo-comfyui|veo-qwen38> 'ssh -p <端口> <用户>@<主机>'")
+    throw new Error("用法：node init/ssh.mjs <veo-comfyui-direct|veo-qwen38-direct> 'ssh -p <端口> <用户>@<主机>'")
   }
 
   const endpoint = parseSshCommand(command)

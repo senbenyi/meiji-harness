@@ -11,6 +11,7 @@ import { createProjectStore } from '../src/server/projects/service.js'
 import { validatePlanningResult } from '../src/server/projects/planning-schema.js'
 
 const cover = 'f'.repeat(32)
+const templateSkills = new URL('../../harness/.dsh/storages/elysium/pools/skills/', import.meta.url)
 const series = { logline: '一封信改变两人的关系', genre: '悬疑', episode_count: 2, episode_seconds: 10, world: '雨夜旧城',
   characters: [{ id: 'lin', name: '林', appearance: '灰色外套', voice: '低沉沙哑', personality: '克制' }],
   scenes: [{ id: 'room', name: '公寓', description: '旧厨房，冷蓝窗光' }],
@@ -21,11 +22,11 @@ const timeline = { beats: [{ start: 0, end: 10, scene_id: 'room', roles: ['lin']
 test('planning reads editable Skills, appends versions and marks downstream review', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-planning-'))
   try {
-    const source = new URL('../skills/drama-planning/', import.meta.url).pathname
+    const source = new URL('drama-planning/', templateSkills).pathname
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
       const skills = createSkillsStore()
       await skills.seed('drama-planning', source)
-      await skills.seed('shot-planning', new URL('../skills/shot-planning/', import.meta.url).pathname)
+      await skills.seed('shot-planning', new URL('shot-planning/', templateSkills).pathname)
       const directors = createDirectorStore(), director = await directors.create({ display_name: '测试导演' })
       const requests = [], outputs = [series, timeline, series]
       const store = createProjectStore({ readJob: async job_id => ({ job_id }), summarizeJob: async () => ({ has_image: true }),
@@ -63,8 +64,8 @@ test('finalized episode storyboard and prompt reach the production task', async 
   const root = await mkdtemp(join(tmpdir(), 'elysium-episode-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      await createSkillsStore().seed('drama-planning', new URL('../skills/drama-planning/', import.meta.url).pathname)
-      await createSkillsStore().seed('shot-planning', new URL('../skills/shot-planning/', import.meta.url).pathname)
+      await createSkillsStore().seed('drama-planning', new URL('drama-planning/', templateSkills).pathname)
+      await createSkillsStore().seed('shot-planning', new URL('shot-planning/', templateSkills).pathname)
       const directors = createDirectorStore(), director = await directors.create({ display_name: '测试导演' })
       let submission
       const store = createProjectStore({ readJob: async job_id => ({ job_id }), summarizeJob: async () => ({ has_image: true }),
@@ -117,8 +118,8 @@ test('prompt assembly includes common step, director addition and selected examp
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
       const skills = createSkillsStore()
-      await skills.seed('drama-planning', new URL('../skills/drama-planning/', import.meta.url).pathname)
-      await skills.seed('shot-planning', new URL('../skills/shot-planning/', import.meta.url).pathname)
+      await skills.seed('drama-planning', new URL('drama-planning/', templateSkills).pathname)
+      await skills.seed('shot-planning', new URL('shot-planning/', templateSkills).pathname)
       const directors = createDirectorStore(), director = await directors.create({ display_name: '测试导演' })
       const ref = join(root, 'pools', 'skills', director.name, 'references')
       await skills.saveReference(director.name, 'script.md', '导演剧本：重逢前铺垫')
@@ -170,7 +171,7 @@ test('timeline versions track previous drafts, reject stale basis and retire rem
   const root = await mkdtemp(join(tmpdir(), 'elysium-timeline-versions-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      await createSkillsStore().seed('drama-planning', new URL('../skills/drama-planning/', import.meta.url).pathname)
+      await createSkillsStore().seed('drama-planning', new URL('drama-planning/', templateSkills).pathname)
       const directors = createDirectorStore(), first = await directors.create({ display_name: '导演甲' }), second = await directors.create({ display_name: '导演乙' })
       let request
       const store = createProjectStore({ readJob: async job_id => ({ job_id }), summarizeJob: async () => ({ has_image: true }),

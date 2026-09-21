@@ -13,6 +13,7 @@ const withCreationInstructions = assembly => ({ ...assembly, sections: [...assem
 
 // 按预设、已加载工具和本轮失败状态生成本次请求实际可见的工具与提示词。
 export function createCallToolsForAgent(assembly, agent) {
+  assembly = { ...assembly, tools: assembly.tools.filter(tool => !/^call_tools_(project|director)_/.test(tool.name)) }
   if (!isElysiumAgent(agent)) {
     return { ...assembly, tools: assembly.tools.filter(tool => tool.name !== 'call_tools_load') }
   }

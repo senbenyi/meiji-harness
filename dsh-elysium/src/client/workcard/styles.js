@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
       const style = document.createElement('style')
       style.id = id
       style.textContent = `
-.elysium-download { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--media-muted); cursor: pointer; text-decoration: none; }
+.elysium-download { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--media-muted); cursor: pointer; text-decoration: none; }
 .elysium-download:hover { color: var(--dsw-alias-label-primary, #fff); }
 .elysium-card { --media-muted: var(--dsw-alias-label-secondary, #a3a3a3); box-sizing: border-box; width: 100%; margin: 8px 0; padding: 8px; border: 1px solid var(--dsw-alias-border-l2, #ffffff1a); border-radius: 16px; background: var(--dsw-alias-bg-layer-1, #292929); color: var(--dsw-alias-label-primary, inherit); font: inherit; font-size: 13px; line-height: 1.5; }
 .elysium-preview { position: relative; overflow: hidden; border-radius: 10px; background: var(--dsw-alias-interactive-bg-hover, #8881); }
@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
 .elysium-spinner { width: 22px; height: 22px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: elysium-spin 1s linear infinite; }
 @keyframes elysium-spin { to { transform: rotate(360deg); } }
 .elysium-card button, .elysium-card a { font: inherit; }
-.elysium-control { position: absolute; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid #ffffff20; border-radius: 8px; background: #0007; color: #fff; cursor: pointer; backdrop-filter: blur(8px); transition: background .15s; }
+.elysium-control { position: absolute; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--dsw-alias-border-l2,#ffffff20); border-radius: 6px; background: #0007; color: #fff; cursor: pointer; backdrop-filter: blur(8px); transition: background .15s; }
 .elysium-control:hover { background: #000b; }
 .elysium-control:focus-visible, .elysium-details > summary:focus-visible, .elysium-text-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .elysium-play { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; }
@@ -32,11 +32,12 @@ window.__ModuleLoader__.load({
 .elysium-details > summary::after { content: '⌄'; display: inline-block; margin-left: 4px; }
 .elysium-details[open] > summary::after { transform: rotate(180deg); }
 .elysium-details p { margin: 8px 0 0; font-size: 12px; }
-.elysium-text-button { padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.elysium-text-button { padding: 0; border: 0; background: none; color: var(--dsw-alias-brand-primary,#8bcaff); cursor: pointer; }
+.elysium-text-button:hover { text-decoration: underline; text-underline-offset: 3px; }
 .elysium-error { margin: 8px 0 0; font-size: 12px; color: var(--media-muted); overflow-wrap: anywhere; }
-.elysium-dialog { max-width: 92vw; max-height: 92vh; margin: auto; padding: 6px; border: 1px solid #ffffff20; border-radius: 14px; background: #111; color: #fff; }
-.elysium-dialog::backdrop { background: #000b; backdrop-filter: blur(4px); }
-.elysium-dialog video { display: block; max-width: 88vw; max-height: 88vh; border-radius: 8px; }
+.elysium-media-dialog { max-width: 92vw; max-height: 92vh; margin: auto; padding: 6px; border: 1px solid #ffffff20; border-radius: 14px; background: #111; color: #fff; }
+.elysium-media-dialog::backdrop { background: #000b; backdrop-filter: blur(4px); }
+.elysium-media-dialog video { display: block; max-width: 88vw; max-height: 88vh; border-radius: 8px; }
 .elysium-close { top: 12px; right: 12px; z-index: 1; border-radius: 50%; }
 @media (hover: hover) { .elysium-expand { opacity: 0; transition: opacity .15s; } .elysium-preview:hover .elysium-control, .elysium-preview:focus-within .elysium-control { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .elysium-spinner { animation: none; } .elysium-control { transition: none; } }

@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
       h('legend', null, label),
       value.map((item, index) => h('div', { key: index, className: 'elysium-planning-item' },
         h(Field, { name: `${label} ${index + 1}`, value: item, path: field, onChange: next => onChange(value.map((old, i) => i === index ? next : old)) }),
-        h('button', { type: 'button', onClick: () => onChange(value.filter((_, i) => i !== index)) }, `删除${label} ${index + 1}`))),
+        h('button', { type: 'button', className: 'elysium-danger', onClick: () => onChange(value.filter((_, i) => i !== index)) }, `删除${label} ${index + 1}`))),
       h('button', { type: 'button', onClick: () => onChange([...value, copy(name === 'dialogue' && path.includes('镜头')
         ? { role: '', text: '' } : defaults[name] ?? (typeof value[0] === 'string' ? '' : value[0] || ''))]) }, `添加${label}`))
     if (value && typeof value === 'object') return h('div', { className: 'elysium-planning-fields' },
@@ -45,6 +45,7 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
     const entry = step === 'series' ? planning?.[step]
       : step === 'shot-prompt' ? planning?.episodes?.[episode]?.prompts?.[shotId] : planning?.episodes?.[episode]?.[step]
     const selected = entry?.versions.find(item => item.version === (version || entry.versions.at(-1)?.version))
+    const unsaved = Boolean(draft && selected && JSON.stringify(draft) !== JSON.stringify(selected.value))
     useEffect(() => { setDraft(selected ? copy(selected.value) : null) }, [selected?.version, step, episode, shotId])
     async function run(operation) {
       setBusy(true); setError('')
@@ -66,13 +67,13 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
       draft ? h('div', { className: 'elysium-planning-content', 'aria-label': `${title}内容` },
         Object.entries(draft).map(([key, value]) => h(Field, { key, name: key, value, onChange: next => setDraft({ ...draft, [key]: next }) }))) : h('p', null, '尚无规划内容，点击生成开始'),
       h('label', null, '补充要求', h('textarea', { 'aria-label': `${title}补充要求`, rows: 3, value: requirements, disabled: busy, onChange: event => setRequirements(event.target.value) })),
-      h('div', null,
-        h('button', { type: 'button', disabled: busy, onClick: async () => { const value = await run(() => generatePlanning(projectId, step, episode, shotId, requirements)); if (value) { setVersion(0); setRequirements('') } } }, selected ? '按补充要求重新生成' : '生成'),
-        h('button', { type: 'button', disabled: busy || !draft, onClick: async () => {
+      h('div', { className: 'elysium-planning-actions' },
+        h('button', { type: 'button', className: selected ? '' : 'elysium-primary', disabled: busy, onClick: async () => { const value = await run(() => generatePlanning(projectId, step, episode, shotId, requirements)); if (value) { setVersion(0); setRequirements('') } } }, selected ? '按补充要求重新生成' : '生成'),
+        h('button', { type: 'button', className: unsaved ? 'elysium-primary' : '', disabled: busy || !draft, onClick: async () => {
           const saved = await run(() => editPlanning(projectId, step, episode, shotId, draft))
           if (saved) setVersion(0)
-        } }, '保存修改'),
-        h('button', { type: 'button', disabled: busy || !selected, onClick: async () => {
+        } }, '保存'),
+        h('button', { type: 'button', className: selected && !unsaved ? 'elysium-primary' : '', disabled: busy || !selected, onClick: async () => {
           const value = await run(() => finalizePlanning(projectId, step, episode, shotId, selected.version))
           if (value) onFinalized?.(value)
         } }, '定稿')))
@@ -116,8 +117,8 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
     }
     return h('div', { className: 'elysium-script-view' },
       h(PlanningView, { projectId, step: 'series', title: '剧情总览', onChanged: changed }),
-      series ? h('section', { className: 'elysium-timeline-list' }, h('h2', null, '分集时间线'),
-        h('button', { type: 'button', disabled: busy, onClick: generateAll }, busy ? `生成中 ${progress}` : '生成全部集时间线'),
+      series ? h('section', { className: 'elysium-timeline-list' }, h('div', { className: 'elysium-section-heading' }, h('h2', null, '分集时间线'),
+        h('button', { type: 'button', className: 'elysium-primary', disabled: busy, onClick: generateAll }, busy ? `生成中 ${progress}` : '生成全部集时间线')),
         progress ? h('p', { role: 'status' }, `时间线进度 ${progress}`) : null,
         error ? h('p', { role: 'alert' }, error) : null,
         h('div', { className: 'elysium-timeline-episodes' }, series.episodes.map(item => {
@@ -159,8 +160,8 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
     return h('div', { className: 'elysium-episode-planning' },
       h('nav', { 'aria-label': '选择剧集' }, Array.from({ length: episodeCount(planning) }, (_, index) => h('button', { key: index,
         'aria-current': episode === index + 1, onClick: () => { setEpisode(index + 1); setShotId(''); remember({ episode: index + 1 }) } }, `第 ${index + 1} 集`))),
-      kind === 'storyboard' ? h('nav', { 'aria-label': '分镜步骤' }, [['storyboard', '分镜'], ['shot-prompt', '提示词']].map(([key, label]) =>
-        h('button', { key, 'aria-current': tab === key, onClick: () => { setTab(key); remember({ episodeTab: key }) } }, label))) : null,
+      kind === 'storyboard' ? h('nav', { className: 'elysium-tabs', role: 'tablist', 'aria-label': '分镜步骤' }, [['storyboard', '分镜'], ['shot-prompt', '提示词']].map(([key, label]) =>
+        h('button', { key, role: 'tab', 'aria-selected': tab === key, onClick: () => { setTab(key); remember({ episodeTab: key }) } }, label))) : null,
       kind === 'storyboard' && tab === 'shot-prompt' ? h('label', null, '选择镜头', h('select', { 'aria-label': '提示词镜头', value: shotId, onChange: event => setShotId(event.target.value) },
         h('option', { value: '' }, '请选择'), shots.map((shot, index) => h('option', { key: shot.id, value: shot.id }, `镜 ${index + 1} · ${shot.action.slice(0, 20)}`)))) : null,
       kind === 'storyboard' && (tab !== 'shot-prompt' || shotId) ? h(PlanningView, { key: `${episode}-${tab}-${shotId}`, projectId, step: tab, episode,
@@ -173,8 +174,8 @@ window.__ModuleLoader__.load({ id: 'elysium/planning', factory: require => {
         project?.film_task ? h('p', { role: 'status' }, { pending: '等待合成', running: '正在合成', succeeded: '成片已完成', failed: project.film_task.error || '合成失败' }[project.film_task.status]) : null,
         issue ? h('p', { role: 'status' }, issue) : null,
         unaccepted ? h('p', { role: 'status' }, `还有 ${unaccepted} 个镜头未采用`) : null,
-        h('button', { type: 'button', disabled: busy || Boolean(issue) || Boolean(unaccepted) || ['pending', 'running'].includes(project?.film_task?.status) || !actual.length,
-          onClick: () => run(() => composeFilm(projectId, episode)) }, busy ? '正在提交…' : project?.film_task?.status === 'failed' ? '重试合成' : '合成本集'),
+        h('div', { className: 'elysium-film-actions' }, h('button', { type: 'button', className: 'elysium-primary', disabled: busy || Boolean(issue) || Boolean(unaccepted) || ['pending', 'running'].includes(project?.film_task?.status) || !actual.length,
+          onClick: () => run(() => composeFilm(projectId, episode)) }, busy ? '正在提交…' : project?.film_task?.status === 'failed' ? '重试合成' : '合成本集')),
         project?.deliverables?.length ? h(DeliveryView, { project }) : null) : null)
   }
   const StoryboardStepView = props => h(EpisodeStepView, { ...props, kind: 'storyboard' })

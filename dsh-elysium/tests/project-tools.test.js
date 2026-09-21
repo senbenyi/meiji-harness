@@ -62,6 +62,8 @@ test('chat tools read full objects, mutate one field and render compact mutation
       await assert.rejects(tools.call_tools_project_update.execute({ project_id, target: 'shot', action: 'update', patch: { subtitle: 'bad' } }), /ID/)
       const visible = createCallToolsForAgent({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-free' }, snapshotEvents: () => [] } })
       assert.deepEqual(visible.tools, [])
+      const loaded = createCallToolsForAgent({ tools: definitions, sections: [] }, { session: { header: { agentPreset: 'elysium-free' }, snapshotEvents: () => [{ type: 'tool/result', data: { message: { content: [{ type: 'tool-result', content: [{ type: 'text', text: '{"loaded_tools":["call_tools_project_create"]}' }] }] } } }] } })
+      assert.deepEqual(loaded.tools, [])
     })
   } finally { await rm(root, { recursive: true, force: true }) }
 })

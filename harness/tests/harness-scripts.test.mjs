@@ -11,10 +11,10 @@ test('install only copies Harness-owned configuration and installs the packaged 
   assert.match(install, /pnpm.*@deepseek-ai\/dsh/s)
   assert.match(install, /PNPM_HOME/)
   assert.match(install, /rm\(join\(target, '\.agent-presets', 'elysium-teaching'\), \{ recursive: true, force: true \}\)/)
-  assert.match(install, /\['\.agent-presets', 'profiles', 'settings\.yaml'\]/)
+  assert.match(install, /\['\.agent-presets', 'profiles', 'settings\.yaml', 'storages\/elysium\/pools\/skills'\]/)
   assert.match(install, /package:registry/)
   assert.match(install, /run\('pnpm', \['add', '--workspace-root', join\(plugin, 'registry'\)\]/)
-  assert.doesNotMatch(install, /storage|servers\.json|providerConfig|bailian|byteplus|dsh-elysium\/src/)
+  assert.doesNotMatch(install, /servers\.json|providerConfig|bailian|byteplus|dsh-elysium\/src/)
 })
 
 test('start manages only the Harness process and never rewrites business or model configuration', async () => {

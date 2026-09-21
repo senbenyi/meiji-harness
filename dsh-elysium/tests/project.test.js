@@ -315,7 +315,7 @@ test('project planning routes append validated drafts and preserve data after mo
   await seedDirectors(root, ['测试导演'])
   await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
     const { createSkillsStore } = await import('../src/database/managers/skills.js')
-    await createSkillsStore().seed('drama-planning', new URL('../skills/drama-planning/', import.meta.url).pathname)
+    await createSkillsStore().seed('drama-planning', new URL('../../harness/.dsh/storages/elysium/pools/skills/drama-planning/', import.meta.url).pathname)
   })
   let calls = 0, fail = false
   const generated = { logline: '一封信改变两人的关系', genre: '悬疑', episode_count: 2, episode_seconds: 120, world: '雨夜旧城',

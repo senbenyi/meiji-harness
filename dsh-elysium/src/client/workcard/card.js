@@ -87,7 +87,7 @@ window.__ModuleLoader__.load({
       useEffect(() => { setMediaReady(false) }, [video, attempt])
       if (fallback.status === 'rejected') return h('details', { 'aria-label': '媒体提交记录' },
         h('summary', null, '媒体参数校验未通过（未创建任务）'),
-        h('p', null, fallback.error), inspect ? h('button', { onClick: inspect }, '查看执行记录') : null)
+        h('p', null, fallback.error), inspect ? h('button', { className: 'elysium-text-button', onClick: inspect }, '查看执行记录') : null)
       let args = {}
       try { args = JSON.parse(block?.call?.argsRaw || block?.argsRaw || '{}') } catch { /* Dimensions arrive with the result if arguments are incomplete. */ }
       const actual = dimensions?.src === video ? dimensions : null
@@ -120,7 +120,7 @@ window.__ModuleLoader__.load({
           job.status === 'failed' ? h('p', { className: 'elysium-error', role: 'alert' }, job.error || '任务失败，可查看执行记录。', ' ',
             h('button', { className: 'elysium-text-button', disabled: retrying, onClick: retry }, retrying ? '正在重试' : '重试原任务')) : null,
           playbackError ? h('p', { className: 'elysium-error', role: 'alert' }, '预览加载失败 ', h('button', { className: 'elysium-text-button', onClick: () => setAttempt(n => n + 1) }, '重试播放')) : null),
-        expanded && video ? h('dialog', { ref: dialog, className: 'elysium-dialog', 'aria-label': `${title}预览`, onClose: () => setExpanded(false),
+        expanded && video ? h('dialog', { ref: dialog, className: 'elysium-media-dialog', 'aria-label': `${title}预览`, onClose: () => setExpanded(false),
           onClick: event => { if (event.target === event.currentTarget) setExpanded(false) } },
           h('button', { autoFocus: true, className: 'elysium-control elysium-close', 'aria-label': '关闭', onClick: () => setExpanded(false) }, icon('close')),
           h(kind === 'image' ? 'img' : 'video', { key: `${video}:${attempt}`, src: video, ...(kind === 'image' ? { alt: '生成图片' } : { controls: true, autoPlay: true,

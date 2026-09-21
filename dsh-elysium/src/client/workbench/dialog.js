@@ -35,10 +35,10 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
       if (event.key === 'Tab') { event.stopPropagation(); trapFocus(event, root.current) }
     }
     return h('div', { className: 'elysium-dialog-backdrop', onKeyDown: keyDown },
-      h('section', { className: 'elysium-dialog', role: 'dialog', 'aria-modal': true, 'aria-label': title, tabIndex: -1, ref: root },
+      h('section', { className: 'elysium-workbench-dialog', role: 'dialog', 'aria-modal': true, 'aria-label': title, tabIndex: -1, ref: root },
         h('header', null, h('h2', null, title), h(IconButton, { name: 'close', label: '关闭对话框', disabled: busy, onClick: close })),
         h('div', { className: 'elysium-dialog-body' }, children),
-        h('footer', null, footer, showCancel ? h('button', { disabled: busy, onClick: close }, '取消') : null)))
+        h('footer', null, showCancel ? h('button', { disabled: busy, onClick: close }, '取消') : null, footer)))
   }
   function Editor({ title, initial, fields, save, close, guard }) {
     const [draft, setDraft] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState(''), [pending, setPending] = useState(null)
@@ -62,7 +62,7 @@ window.__ModuleLoader__.load({ id: 'elysium/dialog', factory: require => {
       fields.some(field => field[3]) ? h('details', null, h('summary', null, '技术详情'), fields.filter(field => field[3]).map(renderField)) : null,
       error ? h('p', { role: 'alert' }, error) : null,
       pending ? h(Dialog, { title: '有未保存的修改', busy, close: () => setPending(null), footer: h('button', { disabled: busy, onClick: () => submit(() => { close(); pending() }) }, '保存并继续') },
-        h('button', { disabled: busy, onClick: () => { close(); pending() } }, '放弃修改'), h('button', { onClick: () => setPending(null) }, '继续编辑')) : null)
+        h('button', { className: 'elysium-danger', disabled: busy, onClick: () => { close(); pending() } }, '放弃修改'), h('button', { onClick: () => setPending(null) }, '继续编辑')) : null)
   }
   Object.assign(exports, { Dialog, Editor, Icon, IconButton })
   return exports

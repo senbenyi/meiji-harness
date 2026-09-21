@@ -9,8 +9,6 @@ import { registerWebRoutes, createWebStores } from './server/index.js'
 // tools
 import { createCallToolsProject, createCallToolsRuntime } from './tools/index.js'
 import { createTaskDriver } from './worker/index.js'
-import { createSkillsStore } from './database/managers/skills.js'
-import { fileURLToPath } from 'node:url'
 import { createFilmDriver } from './server/projects/film.js'
 
 export const name = '@dsh-external/dsh-elysium'
@@ -36,12 +34,6 @@ export function apply(ctx, config = {}) {
 // 创建 Web 与聊天工具共享的 Store，并在同一 Web 生命周期中注册 routes 和工具。
 function registerWebFeatures(ctx, runtime) {
   ctx.inject(['webServer'], mediaContext => withConfig(runtime, () => {
-    mediaContext.effect(() => {
-      for (const name of ['drama-planning', 'shot-planning']) {
-        const source = fileURLToPath(new URL(`../skills/${name}/`, import.meta.url))
-        createSkillsStore().seed(name, source).catch(error => ctx.logger?.error?.(error))
-      }
-    }, `${effectPrefix}: drama planning skill`)
     const stores = createWebStores()
     const driver = createTaskDriver({ execute: action => withConfig(runtime, action), logger: ctx.logger,
       driveFilm: createFilmDriver(stores.projects, ctx.logger) })

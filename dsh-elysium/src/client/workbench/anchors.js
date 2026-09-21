@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
     return h(Fragment, null, h('form', { className: 'elysium-anchor-create', onSubmit: submit },
       h('input', { autoFocus: true, 'aria-label': '锚点名称', placeholder: '锚点名称', value: draft.label, disabled: busy, onChange: event => setDraft({ ...draft, label: event.target.value }) }),
       h('textarea', { 'aria-label': '锚点描述', placeholder: '描述（可选）', rows: 1, value: draft.description, disabled: busy, onChange: event => setDraft({ ...draft, description: event.target.value }) }),
-      h('footer', null, h(IconButton, { name: 'insert', label: '选择参考图片', disabled: busy, onClick: () => setSelecting(true) }), h(IconButton, { name: 'close', label: '取消添加锚点', disabled: busy, onClick: () => leave(cancel) }),
+      h('footer', null, h(IconButton, { name: 'insert', label: '选择参考图片', disabled: busy, onClick: () => setSelecting(true) }), h('button', { type: 'button', 'aria-label': '取消添加锚点', disabled: busy, onClick: () => leave(cancel) }, '取消'),
         h('button', { className: 'elysium-primary', type: 'submit', disabled: busy || !draft.label.trim() }, busy ? '保存中…' : '保存')),
       draft.source?.job_id ? h('div', { className: 'elysium-anchor-preview', style: { gridColumn: '1 / -1' } }, h(ShotPreview, { jobId: draft.source.job_id, imageOnly: true })) : null),
       selecting ? h(Dialog, { title: '选择参考图片', busy, close: () => setSelecting(false) },
@@ -61,7 +61,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
       setCreating({ role: `role-${number}`, label: '', description: '', image_url: '', source: null })
     }
     return h('div', { className: 'elysium-anchor-view' },
-      h('div', { className: 'elysium-toolbar' }, h(IconButton, { name: 'plus', label: '添加锚点', disabled: busy || Boolean(creating), onClick: startCreate })),
+      h('div', { className: 'elysium-toolbar' }, h('button', { type: 'button', className: 'elysium-primary', 'aria-label': '添加锚点', disabled: busy || Boolean(creating), onClick: startCreate }, '＋ 添加锚点')),
       creating ? h(AnchorCreateForm, { initial: creating, busy, guard, cancel: () => setCreating(null), save: anchor => run(() => updateAnchor(project.id, 'add', anchor)) }) : null,
       message ? h('p', { role: 'status' }, message) : null,
       h('div', { className: 'elysium-anchor-grid' }, [['character', '角色锚点'], ['scene', '场景锚点'], ['material', '其他锚点']].map(([kind, title]) => h('section', { key: kind, className: 'elysium-anchor-group' },
@@ -73,7 +73,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
             await generateAnchorImage(project.id, anchor.role); setMessage(`已提交「${anchor.label || anchor.role}」参考图任务`); return fetchProject(project.id)
           }) }, anchor.source?.job_id || anchor.image_url ? '重新生成参考图' : '生成参考图') : null),
         h('div', { className: 'elysium-card-actions' }, h(IconButton, { name: 'eye', label: `查看参考素材 ${anchor.label || anchor.role}`, onClick: () => setInspecting(anchor) }),
-          h(IconButton, { name: 'minus', label: `删除锚点 ${anchor.label || anchor.role}`, disabled: busy, onClick: () => { if (window.confirm(`删除锚点“${anchor.label || anchor.role}”？`)) run(() => updateAnchor(project.id, 'delete', { role: anchor.role })) } }))))))),
+          h(IconButton, { name: 'minus', label: `删除锚点 ${anchor.label || anchor.role}`, className: 'elysium-danger', disabled: busy, onClick: () => { if (window.confirm(`删除锚点“${anchor.label || anchor.role}”？`)) run(() => updateAnchor(project.id, 'delete', { role: anchor.role })) } }))))))),
       inspecting ? h(AnchorPreview, { anchor: inspecting, busy, guard, replace: () => setSelecting(inspecting), close: () => setInspecting(null), save: patch => run(() => updateAnchor(project.id, 'update', patch)) }) : null,
       selecting ? h(Dialog, { title: `为「${selecting.label || selecting.role}」选择参考素材`, close: () => setSelecting(null), busy },
         h(MaterialList, { imageOnly: true, onSelect: item => run(async () => { const value = await importMaterial(project.id, item.job_id, 'anchor', selecting.role); if (inspecting?.role === selecting.role) setInspecting(value.anchors.find(anchor => anchor.role === selecting.role)); setSelecting(null); return value }) })) : null)
