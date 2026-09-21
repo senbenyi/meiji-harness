@@ -1,9 +1,9 @@
 // 职责：提供共用页面 token 认证的私有服务器与三方模型选择接口。
-import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, resolveServer, readRegistry, writeRegistry, readSelection, validateRegistry, checkServer, switchServer, updateSettings } from '../../worker/index.js'
+import { listProviders, validateBackend, thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel, backendFromServer, readRegistry, writeRegistry, readSelection, validateRegistry, checkServer, switchServer, updateSettings } from '../../worker/index.js'
 import { withConfig, runtimeConfig, runtimeSettings, defaultModels, defaultSettings } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'third-party-select', 'creation-quality']
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-select', 'third-party-select', 'creation-quality']
 export function createSettingsHandler({ token, check = checkServer }) {
   return async (req, res) => {
     try {
@@ -42,17 +42,12 @@ export function createSettingsHandler({ token, check = checkServer }) {
         })
         return json(res, 200, { ...saved.creation, effect: 'new_jobs' })
       }
-      if (['model-status', 'model-connect'].includes(action)) {
+      if (action === 'model-select') {
         const body = await readJsonBody(req)
         const model = models[body.kind]?.find(model => model.id === body.id)
         if (!model) throw invalidRequest('模型未在系统配置中配置')
         if (!available[body.kind].includes(body.id)) throw invalidRequest('模型目标服务器未配置或已停用')
-        const backend = resolveServer(body.kind, model.server_id)
-        if (action === 'model-status') {
-          return json(res, 200, { connected: await probeBackend(backend) })
-        }
-        const result = await switchServer(body.kind, backend.server_id, body.revision, check)
-        return json(res, 200, { ...result, connected: true })
+        return json(res, 200, await switchServer(body.kind, model.server_id, body.revision, check))
       }
       const providers = action === 'list' ? await listProviders() : []
       if (action === 'list') return json(res, 200, { providers, revision: registry.revision, selection_revision: selection.revision,
@@ -82,7 +77,7 @@ export function createSettingsHandler({ token, check = checkServer }) {
       return json(res, 200, { revision: saved.revision, message: body.enabled ? '已启用。' : '已停用新任务选择；历史记录和原任务连接保留。' })
     } catch (error) {
       // 上游响应可能包含私有信息，只有本地校验错误可以原样返回。
-      json(res, error.status || 503, { error: error.status ? error.message : '目标检查或连接失败，默认选择未变更；请检查本机配置与服务所需节点、模型。' })
+      json(res, error.status || 503, { error: error.status ? error.message : '目标模型检查失败，默认选择未变更；请检查服务所需节点和模型。' })
     }
   }
 }

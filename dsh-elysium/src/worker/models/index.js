@@ -17,11 +17,9 @@ async function providerFor(backend) {
   try { await provider.validate(backend) } catch (error) { error.status ||= 422; throw error }
   return provider
 }
-export const connectBackend = async backend => (await providerFor(backend)).connect(backend)
 export const checkBackend = async (backend, options) => (await providerFor(backend)).check(backend, options)
 export async function createBackendClient(backend, options) {
   const provider = await providerFor(backend)
-  await provider.connect(backend)
   return provider.createClient(backend, options)
 }
 export const buildBackendGraph = async (backend, plan, jobId) => (await providerFor(backend)).buildGraph(backend, plan, jobId)
@@ -31,12 +29,10 @@ export async function completeStructured(request, options) {
     ? { ...structuredClone(runtimeSettings().chat.backend), provider_api_version: 1, legacy: true }
     : resolveServer('llm')
   const provider = await providerFor(backend)
-  await provider.connect(backend)
   return requestStructured(provider.llmSettings(backend), request, options)
 }
 export const backendWorkflowSource = async backend => {
   const provider = await providerFor(backend)
-  await provider.connect(backend)
   return provider.workflowSource(backend)
 }
 export const manageProvider = async (id, action, options) => (await loadProvider(id)).manage(action, options)

@@ -147,7 +147,7 @@ try {
     assert.equal((await request('settings/list')).servers.find(server => server.id === 'old').provider_available, false)
     await request(`project/get?id=${projectId}`)
     const trace = (await readFile(process.env.PROVIDER_TRACE, 'utf8')).trim().split('\n').map(JSON.parse)
-    for (const name of ['connect', 'createClient', 'buildGraph']) assert.ok(trace.some(entry => entry.name === name && entry.pid !== process.pid), `${name} dispatched inside real worker`)
+    for (const name of ['createClient', 'buildGraph']) assert.ok(trace.some(entry => entry.name === name && entry.pid !== process.pid), `${name} dispatched inside real worker`)
     for (const name of ['validate', 'check', 'llmSettings', 'workflowSource']) assert.ok(trace.some(entry => entry.name === name), `${name} dispatched`)
   }
   console.log(`${provider}: build/import, registration/check/switch, real worker/recovery, atomic tasks, media and workflow source passed`)

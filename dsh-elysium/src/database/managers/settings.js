@@ -35,7 +35,7 @@ function validateModels(models) {
 }
 
 function validateChat(chat) {
-  exactKeys(chat, ['id', 'label', 'backend', 'tunnel'], 'Elysium settings.json 聊天模型无效')
+  exactKeys(chat, ['id', 'label', 'backend'], 'Elysium settings.json 聊天模型无效')
   if (!/^[A-Za-z0-9._-]+$/.test(chat.id || '') || typeof chat.label !== 'string' || !chat.label.trim()) throw new Error('Elysium settings.json 聊天模型无效')
   exactKeys(chat.backend, ['server_id', 'provider', 'service', 'base_url', 'connection'], 'Elysium settings.json 聊天后端无效')
   exactKeys(chat.backend.connection, ['model', 'api_key_env'], 'Elysium settings.json 聊天后端无效')
@@ -45,16 +45,6 @@ function validateChat(chat) {
   let url
   try { url = new URL(chat.backend.base_url) } catch { throw new Error('Elysium settings.json 聊天后端无效') }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('Elysium settings.json 聊天后端无效')
-  // http：后端 base_url 直连（如香港网关），不建本地隧道。
-  if (chat.tunnel?.transport === 'http') {
-    exactKeys(chat.tunnel, ['alias', 'transport'], 'Elysium settings.json 聊天隧道无效')
-    if (!/^[A-Za-z0-9_-]+$/.test(chat.tunnel.alias || '')) throw new Error('Elysium settings.json 聊天隧道无效')
-    return
-  }
-  exactKeys(chat.tunnel, ['alias', 'transport', 'ssh_alias', 'remote_host', 'remote_port', 'local_port', 'api_path'], 'Elysium settings.json 聊天隧道无效')
-  if (!/^[A-Za-z0-9_-]+$/.test(chat.tunnel.alias || '') || chat.tunnel.transport !== 'ssh' || !/^[A-Za-z0-9_-]+$/.test(chat.tunnel.ssh_alias || '')
-    || !/^[A-Za-z0-9.:-]+$/.test(chat.tunnel.remote_host || '') || ![chat.tunnel.remote_port, chat.tunnel.local_port].every(port => Number.isInteger(port) && port > 0 && port <= 65535)
-    || !/^\/[A-Za-z0-9/_-]*$/.test(chat.tunnel.api_path || '')) throw new Error('Elysium settings.json 聊天隧道无效')
 }
 
 export function validateSettings(value) {
@@ -78,6 +68,10 @@ export function readSettings(path) {
   try {
     const value = JSON.parse(text)
     if (value.version === 1 && value.creation === undefined) value.creation = { revision: 0, quality: 'regular' }
+    if (value.chat?.tunnel) {
+      if (value.chat.tunnel.transport !== 'http') throw new Error('旧 SSH 聊天连接已停用，请先将聊天模型改为外网 HTTP(S) 地址')
+      delete value.chat.tunnel
+    }
     return clone(validateSettings(value))
   } catch (error) {
     if (error instanceof SyntaxError) throw new Error('Elysium settings.json 无效')
@@ -93,6 +87,11 @@ const readJson = path => {
 export function ensureSettings({ path, defaults, registryFile, selectionFile, providerFiles = {} }) {
   const current = readSettings(path)
   if (current) {
+    if (JSON.parse(readFileSync(path, 'utf8')).chat?.tunnel) {
+      const temporary = `${path}.${randomUUID()}.tmp`
+      writeFileSync(temporary, JSON.stringify(current, null, 2), { mode: 0o600 })
+      renameSync(temporary, path)
+    }
     if ((statSync(path).mode & 0o777) !== 0o600) chmodSync(path, 0o600)
     return current
   }

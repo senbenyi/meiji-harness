@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
       if (sessionId) query.set('session', sessionId)
       if (callId) query.set('call', callId)
       query.set('t', config.token)
-      // Relative to the page origin: SSH tunnel ports must never be hard-coded.
+      // Relative to the page origin: media requests use the current page's server.
       return `${config[baseKey]}/${kind}?${query}`
     }
     async function readStatus(sessionId, callId, signal, retry = true) {

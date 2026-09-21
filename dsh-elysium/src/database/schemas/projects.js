@@ -1,4 +1,4 @@
-// 职责：校验并规范化持久化的项目、素材、锚点、分镜与交付物字段。
+// 职责：校验并规范化持久化的项目、锚点、分镜、交付物与自动生产字段。
 import { statusError } from '../../utils/errors.js'
 
 const invalidRequest = message => statusError(400, message)
@@ -6,10 +6,10 @@ const invalidRequest = message => statusError(400, message)
 export const validProjectId = id => typeof id === 'string' && /^(?:[a-f0-9]{8}|\d{17})$/.test(id)
 export const validShotId = id => typeof id === 'string' && /^[a-z0-9-]{1,40}$/.test(id)
 export const validJobId = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value)
-export const serverUrl = value => {
-  try { const url = new URL(value); return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password } catch { return false }
-}
+export const validEpisode = value => Number.isInteger(value) && value >= 1 && value <= 100
 const textValue = value => typeof value === 'string' && value.length <= 20000
+const filled = value => textValue(value) && Boolean(value.trim())
+const optionalJob = value => value === null || validJobId(value)
 
 export function titleValue(title) {
   if (typeof title !== 'string' || !title.trim() || title.length > 500) throw invalidRequest('请输入项目标题（最多 500 字）')
@@ -26,20 +26,17 @@ export function storyValue(value, label, limit = 20000) {
   return value.trim()
 }
 
-export function materialsValue(values) {
-  if (!Array.isArray(values) || values.length > 1000 || values.some(value => !validJobId(value))) throw invalidRequest('素材列表无效')
-  return [...new Set(values)]
-}
-
+// 角色锚点带英文出图提示词、参考图与最近一次出图任务；场景锚点只保留文字。
 export function anchorValue(anchor, existingRoles = new Set()) {
-  if (!anchor || !['role', 'label', 'description'].every(key => textValue(anchor[key])) || !anchor.role.trim() || existingRoles.has(anchor.role) ||
-    (anchor.kind !== undefined && !['character', 'scene', 'material'].includes(anchor.kind)) ||
-    !(anchor.image_url === '' || serverUrl(anchor.image_url)) ||
-    !(anchor.source === null || anchor.source && ['job', 'material'].includes(anchor.source.type) && validJobId(anchor.source.job_id)) ||
+  const character = anchor?.kind === 'character'
+  if (!anchor || !filled(anchor.role) || existingRoles.has(anchor.role) || !['character', 'scene'].includes(anchor.kind) ||
+    !filled(anchor.label) || !textValue(anchor.description) || (character ? !filled(anchor.image_prompt) : anchor.image_prompt !== undefined) ||
+    !(anchor.source === null || character && anchor.source && ['job', 'material'].includes(anchor.source.type) && validJobId(anchor.source.job_id)) ||
+    (anchor.image_job_id !== undefined && !(character && optionalJob(anchor.image_job_id))) ||
     (anchor.retired !== undefined && typeof anchor.retired !== 'boolean') ||
     (anchor.image_needs_review !== undefined && typeof anchor.image_needs_review !== 'boolean')) throw invalidRequest('锚点字段无效或角色重复')
-  return { role: anchor.role, label: anchor.label, description: anchor.description, source: anchor.source, image_url: anchor.image_url,
-    ...(anchor.kind === undefined ? {} : { kind: anchor.kind }),
+  return { role: anchor.role, kind: anchor.kind, label: anchor.label, description: anchor.description,
+    ...(character ? { image_prompt: anchor.image_prompt, image_job_id: anchor.image_job_id ?? null } : {}), source: anchor.source,
     ...(anchor.retired === undefined ? {} : { retired: anchor.retired }),
     ...(anchor.image_needs_review === undefined ? {} : { image_needs_review: anchor.image_needs_review }) }
 }
@@ -55,19 +52,14 @@ export function anchorsValue(anchors) {
 }
 
 export function shotValue(shot) {
-  if (!shot || !['role', 'action', 'subtitle', 'notes'].every(key => textValue(shot[key])) ||
-    (shot.mode !== undefined && !textValue(shot.mode)) ||
-    (shot.id !== undefined && !validShotId(shot.id)) ||
-    (shot.roles !== undefined && (!Array.isArray(shot.roles) || shot.roles.some(role => !textValue(role)))) ||
-    ['scene', 'shot_size', 'camera', 'prompt'].some(key => shot[key] !== undefined && !textValue(shot[key])) ||
-    (shot.duration !== undefined && (typeof shot.duration !== 'number' || !Number.isFinite(shot.duration) || shot.duration <= 0 || shot.duration > 120)) ||
-    (shot.dialogue !== undefined && (!Array.isArray(shot.dialogue) || shot.dialogue.some(line => !textValue(line?.role) || !textValue(line?.text)))) ||
-    (shot.prompt_finalized !== undefined && typeof shot.prompt_finalized !== 'boolean') ||
-    (shot.accepted !== undefined && typeof shot.accepted !== 'boolean') ||
-    !(shot.job_id === null || validJobId(shot.job_id)) || !['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'].includes(shot.status)) throw invalidRequest('镜字段无效')
-  return { ...(shot.id === undefined ? {} : { id: shot.id }), role: shot.role, action: shot.action, subtitle: shot.subtitle,
-    ...(shot.mode === undefined ? {} : { mode: shot.mode }), job_id: shot.job_id, status: shot.status, notes: shot.notes,
-    ...Object.fromEntries(['roles', 'scene', 'shot_size', 'camera', 'duration', 'dialogue', 'prompt', 'prompt_finalized', 'accepted'].filter(key => shot[key] !== undefined).map(key => [key, shot[key]])) }
+  if (!shot || !validShotId(shot.id) || !Array.isArray(shot.roles) || shot.roles.some(role => !filled(role)) ||
+    !['scene', 'shot_size', 'camera', 'action', 'subtitle', 'prompt', 'keyframe_prompt'].every(key => textValue(shot[key])) ||
+    !Number.isInteger(shot.duration) || shot.duration < 1 || shot.duration > 15 ||
+    !Array.isArray(shot.dialogue) || shot.dialogue.some(line => !filled(line?.role) || !filled(line?.text)) ||
+    typeof shot.prompt_finalized !== 'boolean' || !Number.isInteger(shot.take) || shot.take < 0 || !optionalJob(shot.job_id) || !optionalJob(shot.keyframe_job_id) ||
+    !['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'].includes(shot.status)) throw invalidRequest('镜字段无效')
+  return Object.fromEntries(['id', 'roles', 'scene', 'shot_size', 'camera', 'action', 'duration', 'dialogue', 'subtitle',
+    'prompt', 'keyframe_prompt', 'prompt_finalized', 'take', 'keyframe_job_id', 'job_id', 'status'].map(key => [key, shot[key]]))
 }
 
 export function actsValue(acts) {
@@ -78,9 +70,9 @@ export function actsValue(acts) {
     if (!act || !textValue(act.title) || !Array.isArray(act.shots)) throw invalidRequest('幕字段无效')
     return { title: act.title, shots: act.shots.map(shot => {
       const value = shotValue(shot)
-      if (++index > 1000 || value.id !== undefined && ids.has(value.id)) throw invalidRequest('镜 ID 重复或超过 1000 镜')
-      if (value.id !== undefined) ids.add(value.id)
-      return { index, ...value }
+      if (++index > 1000 || ids.has(value.id)) throw invalidRequest('镜 ID 重复或超过 1000 镜')
+      ids.add(value.id)
+      return value
     }) }
   })
 }
@@ -88,10 +80,21 @@ export function actsValue(acts) {
 export function deliverablesValue(items) {
   if (!Array.isArray(items) || items.length > 1000) throw invalidRequest('交付列表无效')
   return items.map(item => {
-    if (!item || !['type', 'label'].every(key => textValue(item[key])) ||
-      !(validJobId(item.job_id) || serverUrl(item.url)) || (item.url !== undefined && !serverUrl(item.url)) ||
-      (item.job_id !== undefined && !validJobId(item.job_id)) ||
-      ['duration_sec', 'frame_count', 'size_bytes', 'created_at'].some(key => item[key] !== undefined && (!Number.isFinite(item[key]) || item[key] < 0))) throw invalidRequest('交付物需提供任务 ID 或服务器 URL，规格必须为非负数')
-    return Object.fromEntries(['type', 'label', 'job_id', 'url', 'duration_sec', 'frame_count', 'size_bytes', 'created_at'].filter(key => item[key] !== undefined).map(key => [key, item[key]]))
+    if (!item || !['film', 'subtitle'].includes(item.type) || !textValue(item.label) || !validJobId(item.job_id) ||
+      ['duration_sec', 'size_bytes', 'created_at'].some(key => item[key] !== undefined && (!Number.isFinite(item[key]) || item[key] < 0))) throw invalidRequest('交付物字段无效')
+    return Object.fromEntries(['type', 'label', 'job_id', 'duration_sec', 'size_bytes', 'created_at'].filter(key => item[key] !== undefined).map(key => [key, item[key]]))
   })
+}
+
+// 自动生产状态：attempts 以「集/镜」为键记录本轮自动重拍次数。
+export function autoValue(value) {
+  const paused = value.paused ?? null
+  const auto = { enabled: value.enabled ?? false, until_episode: value.until_episode ?? null, anchors_confirmed: value.anchors_confirmed ?? false,
+    cascade_confirmed: value.cascade_confirmed ?? false, paused, attempts: value.attempts ?? {} }
+  if (![auto.enabled, auto.anchors_confirmed, auto.cascade_confirmed].every(item => typeof item === 'boolean') ||
+    !(auto.until_episode === null || validEpisode(auto.until_episode)) ||
+    !(paused === null || paused && filled(paused.reason) && (paused.episode === undefined || validEpisode(paused.episode)) &&
+      (paused.step === undefined || filled(paused.step)) && (paused.shot_id === undefined || validShotId(paused.shot_id))) ||
+    !auto.attempts || typeof auto.attempts !== 'object' || Object.values(auto.attempts).some(count => !Number.isInteger(count) || count < 0)) throw invalidRequest('自动生产状态无效')
+  return auto
 }

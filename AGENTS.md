@@ -12,6 +12,5 @@ DeepSeek Harness 插件、运行配置与部署脚本。
 - 检查服务： `~/.ssh/config`
 - autodl服务器(ComfyUI)：`ssh veo-comfyui`
 - autodl服务器(Qwen3.8)： `ssh veo-qwen38`
-- 以上两个别名经香港中转 `ssh veo-hk`
-- 项目服务经香港网关 `http://43.154.247.11/{comfy,qwen}`；SSH 别名仅用于运维登录
-- 换电脑：运行时只需复制 `~/.dsh/storages/elysium`；运维登录另复制三把私钥并执行 `node init/relay.mjs`，见 `init/README.md`
+- 项目服务使用外网 HTTP(S) 地址；SSH 别名仅用于运维登录，不用于模型连接
+- 换电脑：运行时只需复制 `~/.dsh/storages/elysium`；运维 SSH 配置见 `init/README.md`

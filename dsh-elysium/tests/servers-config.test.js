@@ -12,12 +12,12 @@ import { withConfig, resolveConfig } from '../src/config.js'
 
 const fixture = () => ({ version: 1, revision: 0, servers: ['a', 'b'].map(id => ({ id, label: id, provider: 'manual', instance_id: id, deployment_id: 'one', connection_source: 'manual', services: { comfyui: { transport: 'http', base_url: `http://${id}.test`, workload: 'minimax-h3' } } })) })
 
-test('registry validates identity, URL, SSH ports and service type; legacy selection fields remain readable', () => {
+test('registry validates identity, HTTP URL and service type; legacy selection fields remain readable', () => {
   assert.equal(validateRegistry(fixture()).servers.length, 2)
   for (const mutate of [v => v.servers[1].id = 'a',
     v => v.servers[0].services.comfyui.base_url = 'http://user:secret@a.test',
     v => v.servers[0].services.comfyui.transport = 'magic',
-    v => v.servers[0].services.comfyui = { transport: 'ssh', ssh_alias: 'a', remote_host: 'localhost', local_port: 0, remote_port: 8188, workload: 'minimax-h3' },
+    v => v.servers[0].services.comfyui = { transport: 'ssh', base_url: 'http://a.test', workload: 'minimax-h3' },
     v => v.servers[0].token = 'secret']) {
     const value = fixture(); mutate(value); assert.throws(() => validateRegistry(value))
   }

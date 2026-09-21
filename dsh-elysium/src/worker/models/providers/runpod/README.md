@@ -4,9 +4,9 @@
 
 ## 完整调用流程
 
-1. 在服务器设置登记已部署实例（参考 `server.example.json`）。连接支持 HTTP 或本机 SSH，凭据只引用环境变量。
+1. 在服务器设置登记已部署实例（参考 `server.example.json`）。连接使用 HTTP(S) 地址，凭据只引用环境变量。
 2. 公共 runtime 按记录 provider 加载本模块；`validateRunpod` 校验实例/部署身份和现有 H3/Qwen 服务能力。
-3. `connect` 建立/复用本机专属 SSH 控制连接，或使用明确的 HTTP URL。
+3. 公共运行时直接使用登记的 HTTP(S) URL。
 4. `check` 核对服务、节点及模型，检查通过才允许切换默认目标。
 5. 新任务保存 provider 和后端快照；`buildGraph` 构建 H3 图；`createClient` 提供 submit/request/wait/viewUrl，公共执行器负责提交日志、重试和恢复。队列取消只移除目标排队项。
 6. 批次、参考帧、原子工具、历史媒体继续经该快照调用本模块；输出使用服务器 URL，不搬运媒体。
@@ -41,4 +41,4 @@ runpod/
 旧 manual 手工连接通过核心路由明确使用 Runpod 原模板；移除 Runpod 后该兼容模式不能继续生成。其他已实现平台需提供自己的 buildGraph 和可选 syncWorkflows，不得导入 Runpod。
 `npm test` 动态发现各平台的 tests；删除本目录不会留下固定测试导入。tests、legacy、resources 不进入构建包或任务执行代码指纹。
 
-旧制作脚本位于 `legacy/third-cup-preview.mjs`，原始脚本按 Git 内容保留，仅供历史审计，不是当前可执行入口。旧运维材料见 [历史说明](legacy/operations.md)，其中路径与命令仅作为历史记录，当前操作以本 README 为准。
+旧制作脚本位于 `legacy/third-cup-preview.mjs`，原始脚本按 Git 内容保留，仅供历史审计，不是当前可执行入口。

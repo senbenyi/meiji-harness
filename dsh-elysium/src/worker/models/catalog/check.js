@@ -16,7 +16,7 @@ export async function switchServer(kind, id, revision, check = checkServer) {
   const server = registry.servers.find(item => item.id === id)
   if (!server?.services.comfyui || server.disabled) throw Object.assign(new Error('目标不存在或已停用'), { status: 400 })
   const result = await check(kind, id)
-  if (selection.selected[selectionKind] === id) return { ...result, revision: selection.revision, effect: 'new_jobs', message: '连接检查通过；新任务继续使用此服务器。' }
+  if (selection.selected[selectionKind] === id) return { ...result, revision: selection.revision, effect: 'new_jobs', message: '新任务继续使用此服务器。' }
   const saved = await writeSelection({ ...selection, selected: { ...selection.selected, [selectionKind]: id } }, revision)
   return { ...result, revision: saved.revision, effect: 'new_jobs', message: '新任务使用此服务器；旧任务和已开始的批次继续使用原服务器。' }
 }

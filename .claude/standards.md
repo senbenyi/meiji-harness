@@ -98,7 +98,6 @@ harness/.dsh/.agent-presets/
 ```
 harness/scripts/install.mjs # 本机 Harness 与插件安装入口
 harness/scripts/start.mjs   # 本机 Harness 启动入口
-harness/scripts/tunnel.mjs # 本机模型隧道路由
 harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 ```
 
@@ -108,7 +107,7 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 - Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`（标准 Skill 目录 `skills/`，含导演 Skill 与 `drama-planning`；素材库索引 `materials.json`），项目拥有的任务、回执和媒体随项目归 `projects/`，任务驱动状态归 `runtime/`，导入原件归 `uploads/`。
 - `pools/materials.json` 只保存全局素材的身份、来源和删除状态；媒体实体不复制，仍保留在所属 `projects/` 或 `uploads/`。各项目的 `materials.json` 只保存项目引用。
 - 一级目录路径统一由 `src/database/paths.js` 构造；业务模块不得自行拼接一级目录。Harness 会话日志是工具调用与任务结果的事实源，插件不得重复持久化调用索引。
-- 部署脚本不检查模型服务、SSH、端口或运行状态。
+- 部署脚本不检查模型服务、端口或运行状态。
 - Harness 只在本机运行；远端服务器只保留模型服务。
 
 ## 4. 测试

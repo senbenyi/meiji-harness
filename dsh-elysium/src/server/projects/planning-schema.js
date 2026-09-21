@@ -6,7 +6,7 @@ const integer = { type: 'integer' }
 const number = { type: 'number' }
 const object = properties => ({ type: 'object', additionalProperties: false, properties, required: Object.keys(properties) })
 const array = items => ({ type: 'array', items })
-const character = object({ id: string, name: string, appearance: string, voice: string, personality: string })
+const character = object({ id: string, name: string, appearance: string, voice: string, personality: string, image_prompt: string })
 const scene = object({ id: string, name: string, description: string })
 const dialogue = object({ role: string, text: string })
 const timedDialogue = object({ role: string, text: string, tone: string })
@@ -19,7 +19,7 @@ export const planningSchema = {
     plot: string, emotion: string, dialogue: array(timedDialogue) })) }),
   storyboard: object({ shots: array(object({ scene_id: string, roles: array(string), shot_size: string, camera: string,
     action: string, duration: number, dialogue: array(dialogue) })) }),
-  'shot-prompt': object({ prompt: string }),
+  'shot-prompt': object({ prompt: string, keyframe_prompt: string }),
 }
 
 const invalid = message => statusError(502, `规划结果无效：${message}`)
@@ -32,7 +32,7 @@ export function validatePlanningResult(step, value, context = {}) {
     if (![value.logline, value.genre, value.world].every(text) || !Number.isInteger(value.episode_count) || value.episode_count < 1 || value.episode_count > 100 ||
       !Number.isInteger(value.episode_seconds) || value.episode_seconds < 1 || value.episode_seconds > 3600 ||
       !Array.isArray(value.characters) || !value.characters.length || !Array.isArray(value.scenes) || !value.scenes.length ||
-      value.characters.some(item => ![item.id, item.name, item.appearance, item.voice, item.personality].every(text)) ||
+      value.characters.some(item => ![item.id, item.name, item.appearance, item.voice, item.personality, item.image_prompt].every(text)) ||
       value.scenes.some(item => ![item.id, item.name, item.description].every(text)) ||
       ids(value.characters).size !== value.characters.length || ids(value.scenes).size !== value.scenes.length ||
       !Array.isArray(value.episodes) || value.episodes.length !== value.episode_count ||
@@ -54,6 +54,9 @@ export function validatePlanningResult(step, value, context = {}) {
       !scenes.has(item.scene_id) || !Array.isArray(item.roles) || item.roles.some(role => !roles.has(role)) ||
       ![item.shot_size, item.camera, item.action].every(text) || !Number.isInteger(item.duration) || item.duration < 1 || item.duration > 15 ||
       !Array.isArray(item.dialogue) || item.dialogue.some(line => !roles.has(line.role) || !text(line.text)))) throw invalid('分镜数量、引用或内容无效')
+    // 中文对白约每秒 5 字，超出则镜头时长念不完。
+    const crowded = value.shots.findIndex(shot => shot.dialogue.reduce((sum, line) => sum + [...line.text.replace(/\s/g, '')].length, 0) > shot.duration * 5)
+    if (crowded >= 0) throw invalid(`第 ${crowded + 1} 镜台词超过时长 × 5 字`)
     const total = value.shots.reduce((sum, shot) => sum + shot.duration, 0)
     const timelineSeconds = context.timeline?.beats.at(-1).end
     if (!timelineSeconds || Math.abs(total - timelineSeconds) > timelineSeconds * 0.1) throw invalid('分镜总时长与时间线不符')
@@ -64,6 +67,6 @@ export function validatePlanningResult(step, value, context = {}) {
       if (shot.dialogue.some(line => !lines.some(source => source.role === line.role && source.text === line.text))) throw invalid('分镜对白与时间线不符')
       start += shot.duration
     }
-  } else if (!text(value.prompt) || context.shot?.dialogue?.some(line => !value.prompt.includes(line.text))) throw invalid('镜头提示词为空、超过 20000 字或缺少定稿对白')
+  } else if (!text(value.prompt) || !text(value.keyframe_prompt) || context.shot?.dialogue?.some(line => !value.prompt.includes(line.text))) throw invalid('镜头提示词或首帧提示词为空、超过 20000 字，或缺少定稿对白')
   return value
 }

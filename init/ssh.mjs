@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// 职责：为固定服务器的直连别名安装现有公钥，并更新本机 SSH 连接参数（中转别名不经此脚本修改）。
+// 职责：为运维直连别名安装现有公钥，并更新本机 SSH 连接参数。
 import { execFileSync } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, chmod, copyFile, readFile, rename, writeFile } from 'node:fs/promises'

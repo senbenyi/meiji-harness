@@ -1,5 +1,5 @@
 // 职责：提供素材列表、任务状态、媒体预览与下载的同源 HTTP 路由。
-import { closeLocalMedia, connectBackend, findJobCall, getJob, jobSummary, openLocalMedia, openLocalPreview, openRemotePreview, retryTask, streamLocalMedia } from '../../worker/index.js'
+import { closeLocalMedia, findJobCall, getJob, jobSummary, openLocalMedia, openLocalPreview, openRemotePreview, retryTask, streamLocalMedia } from '../../worker/index.js'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { withConfig } from '../../config.js'
@@ -80,7 +80,8 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
       const summary = jobSummary(job)
       const download = url.pathname === `${MEDIA_ROUTE}/download`
       if (!(download && summary.has_download || url.pathname === `${MEDIA_ROUTE}/video` && summary.has_video || url.pathname === `${MEDIA_ROUTE}/image` && summary.has_image)) return json(res, 404, { error: '媒体尚不可用' })
-      if (job.result?.local_media_path !== undefined && (download || !job.result.preview_view_url)) {
+      // 已落本地的产物一律读本地，模型服务器关机不影响播放与下载。
+      if (job.result?.local_media_path !== undefined) {
         const original = await openLocalMedia(job)
         let media = original
         try {
@@ -93,7 +94,6 @@ export function createMediaHandler({ token, projectBase, directorBase, settingsB
       if (job.server) {
         const original = new URL(job.server.base_url.replace(/\/?$/, '/'))
         if (target.origin !== original.origin || target.pathname !== new URL('view', original).pathname) return json(res, 403, { error: '素材与原任务服务器不一致' })
-        await connectBackend(job.server)
       }
       if (url.pathname === `${MEDIA_ROUTE}/image`) target.searchParams.set('preview', 'webp;60')
       if (url.pathname === `${MEDIA_ROUTE}/video` && job.result.preview_view_url) {

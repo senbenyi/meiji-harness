@@ -21,5 +21,5 @@ export { saveStatus } from './store/status.js'
 
 // 路由与模型设置：设置页的服务器、三方渠道与连接管理。
 export { thirdPartyModels, thirdPartyChannels, thirdPartySelection, selectThirdPartyModel } from './routing/selection.js'
-export { VIDEO_MODES, listProviders, validateBackend, probeBackend, connectBackend, checkBackend, backendFromServer, resolveServer,
+export { VIDEO_MODES, listProviders, validateBackend, probeBackend, checkBackend, backendFromServer, resolveServer,
   readRegistry, writeRegistry, readSelection, validateRegistry, checkServer, switchServer, updateSettings, completeStructured } from './models/index.js'

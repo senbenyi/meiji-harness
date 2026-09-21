@@ -17,7 +17,7 @@ export const MODE_MEDIA = Object.freeze({
  *   preparePlan(plan, quality, backend)  按全局创作质量补全计划
  *   validatePlan(plan, backend)          提交前校验，失败抛 MODEL_INPUT_INVALID
  *   executeJob(plan, backend, ctx)       在 worker 进程内执行一次任务，只通过 ctx 回报
- *   connect / check / probe / createClient / buildGraph / llmSettings / workflowSource / manage
+ *   check / probe / createClient / buildGraph / llmSettings / workflowSource / manage
  *   可选：channel()、generationBackend(kind, model)、guidance、syncWorkflows(args)
  *
  * TaskContext（由 worker/runner/context.js 创建）
