@@ -45,6 +45,12 @@ function validateChat(chat) {
   let url
   try { url = new URL(chat.backend.base_url) } catch { throw new Error('Elysium settings.json 聊天后端无效') }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('Elysium settings.json 聊天后端无效')
+  // http：后端 base_url 直连（如香港网关），不建本地隧道。
+  if (chat.tunnel?.transport === 'http') {
+    exactKeys(chat.tunnel, ['alias', 'transport'], 'Elysium settings.json 聊天隧道无效')
+    if (!/^[A-Za-z0-9_-]+$/.test(chat.tunnel.alias || '')) throw new Error('Elysium settings.json 聊天隧道无效')
+    return
+  }
   exactKeys(chat.tunnel, ['alias', 'transport', 'ssh_alias', 'remote_host', 'remote_port', 'local_port', 'api_path'], 'Elysium settings.json 聊天隧道无效')
   if (!/^[A-Za-z0-9_-]+$/.test(chat.tunnel.alias || '') || chat.tunnel.transport !== 'ssh' || !/^[A-Za-z0-9_-]+$/.test(chat.tunnel.ssh_alias || '')
     || !/^[A-Za-z0-9.:-]+$/.test(chat.tunnel.remote_host || '') || ![chat.tunnel.remote_port, chat.tunnel.local_port].every(port => Number.isInteger(port) && port > 0 && port <= 65535)

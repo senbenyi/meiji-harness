@@ -42,7 +42,7 @@ export function legacyTunnelBackend(alias) {
     const chat = runtimeSettings().chat
     if (chat.tunnel.alias !== alias) return null
     return { ...structuredClone(chat.backend), provider_api_version: 1, legacy: true, instance_id: 'legacy', deployment_id: alias,
-      connection: { ...chat.backend.connection, ...chat.tunnel, ssh_identity: sshIdentity(chat.tunnel.ssh_alias) } }
+      connection: { ...chat.backend.connection, ...chat.tunnel, ...(chat.tunnel.transport === 'ssh' && { ssh_identity: sshIdentity(chat.tunnel.ssh_alias) }) } }
   }
   const owner = providerDefinitions().find(item => item.legacy_tunnel?.alias === alias)
   if (!owner) return null
