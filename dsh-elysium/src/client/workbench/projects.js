@@ -16,10 +16,19 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
   const shotsOf = project => project?.episodes.flatMap(episode => episode.acts.flatMap(act => act.shots)) || []
   const finalValue = entry => entry?.versions.find(item => item.version === entry.finalized)?.value
   const filmCount = project => project?.episodes.filter(episode => episode.deliverables.some(item => item.type === 'film')).length || 0
+  const projectDetails = (synopsis, genre = '') => {
+    let body = synopsis?.trim() || ''
+    if (!body) return genre ? `# 项目详情\n\n## 题材\n${genre}\n\n## 故事梗概\n` : ''
+    if (!body.startsWith('# 项目详情')) body = /^#\s/m.test(body) ? `# 项目详情\n\n${body}` : `# 项目详情\n\n## 故事梗概\n${body}`
+    return /^## 题材\s*$/m.test(body) ? body : body.replace('# 项目详情', `# 项目详情\n\n## 题材\n${genre}`)
+  }
+  const detailGenre = details => details.match(/^## 题材\s*\n([^\n#]+)/m)?.[1].trim() || ''
   const completedSteps = (project, planning) => {
-    const series = finalValue(planning?.series), shots = shotsOf(project)
+    const series = finalValue(planning?.series)
     return { project: Boolean(project?.genre && project?.synopsis), script: Boolean(series), anchors: Boolean(project?.auto.anchors_confirmed),
-      storyboard: Boolean(shots.length && shots.every(shot => shot.status === 'succeeded')), film: Boolean(series && filmCount(project) >= series.episode_count) }
+      storyboard: Boolean(series && Array.from({ length: series.episode_count }, (_, index) => project?.episodes.find(item => item.number === index + 1))
+        .every(episode => episode?.acts.some(act => act.shots.length) && episode.acts.every(act => act.shots.every(shot => shot.status === 'succeeded')))),
+      film: Boolean(series && filmCount(project) >= series.episode_count) }
   }
   // 「继续」只看真实依赖：锚点与分镜都只依赖剧情总览，成片需要已有镜头。
   const reachable = (project, planning) => ({ script: Boolean(project?.genre && project?.synopsis), anchors: Boolean(finalValue(planning?.series)),
@@ -36,6 +45,8 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
     if (!series) return ''
     const last = Math.min(project.auto.until_episode ?? series.episode_count, series.episode_count)
     for (let episode = 1; episode <= last; episode++) {
+      const current = project.episodes.find(item => item.number === episode), produced = current?.acts.flatMap(act => act.shots) || []
+      if (produced.length && produced.every(shot => shot.status === 'succeeded' && shot.job_id)) continue
       const entry = planning.episodes?.[episode] || {}, pending = item => !item?.finalized || item.needs_review
       if (pending(entry.timeline)) return `第 ${episode} 集时间线`
       if (pending(entry.storyboard)) return `第 ${episode} 集分镜`
@@ -73,9 +84,11 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
 
   function ProjectSteps({ active, project, planning, navigate, creating = false }) {
     const complete = completedSteps(project, planning)
+    const started = { project: Boolean(project), script: Boolean(planning?.series?.versions.length), anchors: Boolean(project?.anchors.length),
+      storyboard: Boolean(shotsOf(project).length), film: Boolean(project?.episodes.some(episode => episode.film_task || episode.deliverables.length)) }
     return h('nav', { className: 'elysium-project-steps', 'aria-label': '制作流程' }, steps.map(([value, label], index) => h('button', {
       key: value, type: 'button', disabled: creating && value !== 'project', 'aria-label': label, 'aria-current': active === value ? 'step' : undefined,
-      'data-complete': complete[value] || undefined, onClick: () => navigate(value),
+      'data-complete': complete[value] || undefined, 'data-progress': !complete[value] && started[value] || undefined, onClick: () => navigate(value),
     }, h('span', { 'aria-hidden': true }, complete[value] ? '✓' : index + 1), h('b', null, label))))
   }
   function ProjectForm({ initial, busy, submit, cancel, action, onDirectorChange, guard }) {
@@ -90,11 +103,12 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
       return () => { if (guard.current === leave) guard.current = null }
     }, [dirty, guard])
     const locked = busy || generating
-    const valid = draft.title.trim() && directors.some(item => item.name === draft.director) && draft.genre?.trim() && draft.synopsis?.trim()
-    const save = async event => { event.preventDefault(); if (valid) await submit(draft) }
+    const genre = detailGenre(draft.synopsis || '')
+    const valid = draft.title.trim() && directors.some(item => item.name === draft.director) && genre && genre.length <= 200 && draft.synopsis?.trim()
+    const save = async event => { event.preventDefault(); if (valid) await submit({ ...draft, genre, synopsis: projectDetails(draft.synopsis, genre) }) }
     const generate = async () => {
       setGenerating(true); setGenerateError('')
-      try { const result = await suggestProject(draft.director); setDraft(current => ({ ...current, ...result })) }
+      try { const result = await suggestProject(draft.director); setDraft(current => ({ ...current, ...result, synopsis: projectDetails(result.synopsis, result.genre) })) }
       catch (error) { setGenerateError(error.message) }
       finally { setGenerating(false) }
     }
@@ -105,8 +119,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
       directorError ? h('p', { role: 'alert' }, directorError) : null,
       generateError ? h('p', { role: 'alert' }, generateError) : null,
       h('label', { className: 'elysium-field' }, h('span', null, '项目名称'), h('input', { 'aria-label': '项目名称', value: draft.title, disabled: locked, onChange: event => setDraft({ ...draft, title: event.target.value }) })),
-      h('label', { className: 'elysium-field' }, h('span', null, '项目题材'), h('input', { 'aria-label': '项目题材', value: draft.genre || '', disabled: locked, onChange: event => setDraft({ ...draft, genre: event.target.value }) })),
-      h('label', { className: 'elysium-field' }, h('span', null, '故事梗概'), h('textarea', { 'aria-label': '故事梗概', value: draft.synopsis || '', disabled: locked, rows: 4, onChange: event => setDraft({ ...draft, synopsis: event.target.value }) })),
+      h('label', { className: 'elysium-field' }, h('span', null, '项目详情'), h('textarea', { 'aria-label': '项目详情', value: draft.synopsis || '', disabled: locked, rows: 16, placeholder: '# 项目详情\n\n## 题材\n\n## 故事梗概\n\n## 主角与冲突\n\n## 故事走向', onChange: event => setDraft({ ...draft, synopsis: event.target.value }) })),
       h('footer', null, cancel ? h('button', { type: 'button', disabled: locked, onClick: cancel }, '取消') : null,
         h('button', { className: 'elysium-primary', type: 'submit', disabled: locked || !valid }, busy ? '保存中…' : action))))
   }
@@ -115,7 +128,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
     const [project, setProject] = useState(null), [tab, setTab] = useState(viewState.projects?.[id]?.tab || viewState.projectTab || null)
     const [planning, setPlanning] = useState(null)
     const [directors, setDirectors] = useState(directorItems)
-    const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [reload, setReload] = useState(0)
+    const [error, setError] = useState(''), [busy, setBusy] = useState(false), [reload, setReload] = useState(0)
     const saving = useRef(false), readVersion = useRef(0), localGuard = useRef(null)
     const guard = externalGuard || localGuard
     const [remoteUpdate, setRemoteUpdate] = useState(false)
@@ -143,7 +156,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
           const [value, plan] = await Promise.all([fetchProject(id), readPlanning(id)])
           if (!active || saving.current || version !== readVersion.current) return
           if (guard.current) { setRemoteUpdate(true); return }
-          setProject(value); setPlanning(plan); setSaved(false); setRemoteUpdate(false)
+          setProject(value); setPlanning(plan); setRemoteUpdate(false)
         } catch (err) { if (active && !saving.current && version === readVersion.current) setError(err.message) }
         finally { if (active) timer = setTimeout(poll, 4000) }
       }
@@ -152,26 +165,26 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
     }, [id, project?.updated_at, guard])
     async function run(action) {
       if (saving.current) return false
-      saving.current = true; readVersion.current++; setBusy(true); setError(''); setSaved(false)
-      try { setProject(await action()); setSaved(true); setRemoteUpdate(false); return true } catch (err) { setError(err.message); return false } finally { saving.current = false; setBusy(false) }
+      saving.current = true; readVersion.current++; setBusy(true); setError('')
+      try { setProject(await action()); setRemoteUpdate(false); return true } catch (err) { setError(err.message); return false } finally { saving.current = false; setBusy(false) }
     }
     const save = patch => run(() => updateProject(id, patch))
     const activeTab = tab || stageOf(project, planning)
     const shots = shotsOf(project)
     const open = reachable(project, planning)
-    const next = { project: 'script', script: 'anchors', anchors: 'storyboard', storyboard: 'film' }[activeTab]
+    const next = { script: 'anchors', anchors: 'storyboard', storyboard: 'film' }[activeTab]
     const refresh = project?.updated_at || 0
     const episodeState = { viewState: projectState, onViewState: value => onViewState({ projects: { ...viewState.projects, [id]: { ...value, tab: activeTab } } }) }
-    return h('div', { className: 'elysium-project-detail' },
-      h('div', { className: 'elysium-project-heading' }, h(IconButton, { name: 'back', label: '返回项目', disabled: busy, onClick: () => navigate(back) }), h('h1', null, project?.title || '项目'), h('span', { role: 'status' }, busy ? '保存中…' : saved ? '已保存' : '')),
+    return h('div', { className: `elysium-project-detail${activeTab === 'script' ? ' elysium-project-script' : ''}` },
+      h('div', { className: 'elysium-project-heading' }, h(IconButton, { name: 'back', label: '返回项目', disabled: busy, onClick: () => navigate(back) }), h('h1', null, project?.title || '项目'), busy ? h('span', { role: 'status' }, '保存中…') : null),
       project ? h('p', { className: 'elysium-compact-meta' }, `${directors.find(item => item.name === project.director)?.display_name || project.director || '导演未指定'} · ${project.anchors.filter(anchor => anchor.kind === 'character' && !anchor.retired).length} 角色 · ${shots.filter(shot => shot.status === 'succeeded').length}/${shots.length} 镜完成 · ${filmCount(project)} 集成片`) : null,
       remoteUpdate ? h('p', { role: 'status' }, '项目已有新修改。请先保存或取消当前编辑，随后自动刷新。') : null,
-      project ? h(ProductionPanel, { project, planning, busy, run, go }) : null,
       h(ProjectSteps, { active: activeTab, project, planning, navigate: go }),
       error ? h('p', { role: 'alert' }, error, !project ? h('button', { onClick: () => { setError(''); setReload(value => value + 1) } }, '重试') : null) : null,
       project ? h('div', { className: 'elysium-project-stage' },
-        activeTab === 'project' ? h(ProjectForm, { key: project.updated_at, initial: { title: project.title, director: project.director || '', genre: project.genre || '', synopsis: project.synopsis || '' }, guard, busy, action: '保存', onDirectorChange: director => save({ director }), submit: save })
-          : activeTab === 'script' ? h(ScriptView, { key: projectState.episode || 1, projectId: id, refresh, initialEpisode: projectState.episode || 1, onChanged: value => { setPlanning(value); fetchProject(id).then(setProject).catch(err => setError(err.message)) } })
+        activeTab === 'project' ? h(ProductionPanel, { project, planning, busy, run, go }) : null,
+        activeTab === 'project' ? h(ProjectForm, { key: project.updated_at, initial: { title: project.title, director: project.director || '', genre: project.genre || '', synopsis: projectDetails(project.synopsis, project.genre) }, guard, busy, action: '继续到剧本', onDirectorChange: director => save({ director }), submit: async draft => { if (await save(draft)) { guard.current = null; go('script') } } })
+          : activeTab === 'script' ? h(ScriptView, { projectId: id, projectDetails: projectDetails(project.synopsis, project.genre), refresh, ...episodeState, guard, onChanged: value => { setPlanning(value); fetchProject(id).then(setProject).catch(err => setError(err.message)) } })
             : activeTab === 'anchors' ? h(AnchorView, { project, run, busy })
               : activeTab === 'storyboard' ? h(StoryboardStepView, { key: `${projectState.episode}-${projectState.shot_id}`, projectId: id, refresh, ...episodeState })
                 : h(FilmStepView, { key: projectState.episode, projectId: id, refresh, ...episodeState }),

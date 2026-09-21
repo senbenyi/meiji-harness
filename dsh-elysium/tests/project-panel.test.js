@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
+import { validatePlanningResult } from '../src/server/projects/planning-schema.js'
 
 const auto = { enabled: false, until_episode: null, anchors_confirmed: false, cascade_confirmed: false, paused: null, attempts: {} }
 const character = (extra = {}) => ({ role: 'lin', kind: 'character', label: '林', description: '灰外套', image_prompt: 'man', image_job_id: 'a'.repeat(32), source: { type: 'job', job_id: 'a'.repeat(32) }, ...extra })
@@ -24,8 +25,20 @@ function fixture(initial) {
       const reply = value => ({ ok: true, json: async () => structuredClone(value) })
       if (url.startsWith('/director/list')) return reply(directors)
       if (url.startsWith('/project/plan-read')) return reply(planning)
-      if (url.startsWith('/project/plan-generate')) { planning.series.versions.push({ version: planning.series.versions.length + 1, value: { logline: '规划内容', characters: [{ id: 'lin', image_prompt: 'man' }] } }); return reply(planning) }
-      if (url.startsWith('/project/plan-edit')) { planning.series.versions.push({ version: planning.series.versions.length + 1, value: body.value }); return reply(planning) }
+      if (url.startsWith('/project/plan-generate')) {
+        if (body.step === 'timeline') {
+          const entry = planning.episodes[body.episode] ||= { timeline: { versions: [], finalized: null } }
+          const version = entry.timeline.versions.length + 1
+          entry.timeline.versions.push({ version, value: { beats: [{ start: 0, end: 10, scene_id: 'room', roles: ['lin'], plot: '打开信封', emotion: '惊讶', dialogue: [] }] } })
+          if (body.auto_finalize) entry.timeline.finalized = version
+        } else {
+          const version = planning.series.versions.length + 1
+          planning.series.versions.push({ version, value: { logline: version === 1 ? '规划内容' : '规划内容 2', genre: '悬疑', episode_count: 1, episode_seconds: 10, world: '雨夜城市', characters: [{ id: 'lin', name: '林', appearance: '灰外套', voice: '低沉', personality: '谨慎', image_prompt: 'man' }], scenes: [{ id: 'room', name: '公寓', description: '雨夜公寓' }], episodes: [{ number: 1, title: '来信', summary: '雨夜来信', hook: '门外有人' }] } })
+          if (body.auto_finalize) planning.series.finalized = version
+        }
+        return reply(planning)
+      }
+      if (url.startsWith('/project/plan-edit')) { planning.series.versions.push({ version: planning.series.versions.length + 1, value: body.value }); if (body.auto_finalize) planning.series.finalized = planning.series.versions.length; return reply(planning) }
       if (url.startsWith('/project/list')) return reply([{ id: project.id, title: project.title, status: 'todo', cover_job_id: project.cover_job_id || null, shot_count: 0, completed_count: 0, episode_count: 0, film_count: 0 }])
       if (url.startsWith('/project/create')) { project = { ...project, ...body }; return reply(project) }
       if (url.startsWith('/project/update')) project = { ...project, ...body }
@@ -64,39 +77,126 @@ test('new project needs genre and synopsis, has no cover control, and opens seri
   await click(view, '新建项目')
   const submit = () => view.root.findByType('form').findAllByType('button').find(button => button.props.type === 'submit')
   assert.equal(submit().children.join(''), '创建项目')
-  for (const [label, value] of [['项目名称', '新项目'], ['项目题材', '悬疑']]) await act(async () => view.root.findByProps({ 'aria-label': label }).props.onChange({ target: { value } }))
+  await act(async () => view.root.findByProps({ 'aria-label': '项目名称' }).props.onChange({ target: { value: '新项目' } }))
   assert.equal(view.root.findByProps({ 'aria-label': '项目导演' }).props.value, '张艺谋')
   assert.equal(submit().props.disabled, true)
-  await act(async () => view.root.findByProps({ 'aria-label': '故事梗概' }).props.onChange({ target: { value: '旧城的一封信揭开秘密' } }))
+  const details = view.root.findByProps({ 'aria-label': '项目详情' })
+  assert.equal(details.props.rows, 16)
+  await act(async () => details.props.onChange({ target: { value: '# 项目详情\n\n## 题材\n悬疑\n\n## 故事梗概\n旧城的一封信揭开秘密' } }))
   assert.equal(submit().props.disabled, false)
   assert.doesNotMatch(text(view), /项目封面/)
   await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
-  assert.deepEqual(body(f, 'create'), { title: '新项目', director: '张艺谋', genre: '悬疑', synopsis: '旧城的一封信揭开秘密' })
+  assert.deepEqual(body(f, 'create'), { title: '新项目', director: '张艺谋', genre: '悬疑', synopsis: '# 项目详情\n\n## 题材\n悬疑\n\n## 故事梗概\n旧城的一封信揭开秘密' })
   assert.equal(view.root.findByProps({ 'aria-label': '剧本' }).props['aria-current'], 'step')
-  assert.match(text(view), /尚无规划内容/)
+  assert.equal(view.root.findByProps({ 'aria-label': '剧情总览正文' }).props.value, '# 项目详情\n\n## 题材\n悬疑\n\n## 故事梗概\n旧城的一封信揭开秘密')
   await act(async () => view.unmount())
 })
 
 test('existing project persists director immediately without changing its legacy cover', async () => {
   const f = fixture(emptyProject({ genre: '悬疑', synopsis: '信', cover_job_id: 'a'.repeat(32) })), view = await detail(f, 'project')
+  assert.equal(view.root.findByProps({ 'aria-label': '项目详情' }).props.value, '# 项目详情\n\n## 题材\n悬疑\n\n## 故事梗概\n信')
+  assert.ok(find(view, '继续到剧本'))
   await act(async () => view.root.findByProps({ 'aria-label': '项目导演' }).props.onChange({ target: { value: '王家卫' } }))
   assert.equal(body(f, 'update').director, '王家卫')
   assert.equal(find(view, '更换封面图片'), undefined)
   assert.equal(f.project().cover_job_id, 'a'.repeat(32))
+  await act(async () => view.root.findByProps({ 'aria-label': '项目名称' }).props.onChange({ target: { value: '新片名' } }))
   await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }))
+  assert.equal(body(f, 'update').title, '新片名')
+  assert.doesNotMatch(text(view), /已保存/)
+  assert.equal(view.root.findByProps({ 'aria-label': '剧本' }).props['aria-current'], 'step')
   assert.equal(f.project().cover_job_id, 'a'.repeat(32))
   await act(async () => view.unmount())
 })
 
-test('series planning is reviewed and edited through labelled fields including the English image prompt', async () => {
+test('timeline auto generation first creates the missing series and its anchors', async () => {
+  const f = fixture(emptyProject({ genre: '悬疑', synopsis: '一封信' })), view = await detail(f, 'script')
+  await click(view, '分集时间线')
+  assert.notEqual(find(view, '机器人自动生成').props.disabled, true)
+  await click(view, '机器人自动生成')
+  const requests = f.requests.filter(request => request.url.startsWith('/project/plan-generate')).map(request => JSON.parse(request.options.body))
+  assert.deepEqual(requests.map(request => request.step), ['series', 'timeline'])
+  assert.equal(requests[0].auto_finalize, true)
+  assert.match(requests[0].request, /# 项目详情/)
+  assert.equal(requests[1].episode, 1)
+  assert.equal(f.planning().series.finalized, 1)
+  assert.equal(f.planning().episodes[1].timeline.finalized, 1)
+  assert.match(view.root.findByProps({ 'aria-label': '本集剧本' }).props.value, /打开信封/)
+  await act(async () => view.unmount())
+})
+
+test('series overview uses one directly editable text box and saves every field', async () => {
+  const f = fixture(emptyProject({ genre: '悬疑', synopsis: '一封信' })), view = await detail(f, 'script')
+  const editor = () => view.root.findByProps({ 'aria-label': '剧情总览正文' })
+  assert.equal(editor().props.value, '# 项目详情\n\n## 题材\n悬疑\n\n## 故事梗概\n一封信')
+  assert.equal(find(view, '保存'), undefined)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '剧本版本' }).length, 0)
+  assert.equal(find(view, '定稿'), undefined)
+  await click(view, '机器人自动生成')
+  assert.equal(body(f, 'plan-generate').request, '')
+  assert.equal(body(f, 'plan-generate').auto_finalize, true)
+  assert.equal(view.root.findAllByType('textarea').length, 1)
+  assert.match(editor().props.value, /^# 剧情总览\n\n## 故事主线/m)
+  assert.match(editor().props.value, /^## 角色 · 1$/m)
+  assert.match(editor().props.value, /^## 场景 · 1$/m)
+  assert.match(editor().props.value, /^## 分集 · 1$/m)
+  assert.doesNotMatch(editor().props.value, /[{}\[\]]/)
+  assert.match(text(view), /已生成剧情总览/)
+  await click(view, '机器人自动生成')
+  assert.match(editor().props.value, /规划内容 2/)
+  assert.equal(body(f, 'plan-generate').request, '')
+  assert.equal(f.planning().series.finalized, 2)
+  assert.doesNotMatch(text(view), /第 2 版|已定稿|定稿/)
+  assert.equal(find(view, '编辑'), undefined)
+  assert.equal(find(view, '取消编辑'), undefined)
+  const original = f.planning().series.versions.at(-1).value
+  await act(async () => editor().props.onChange({ target: { value: editor().props.value.replace('规划内容 2', '手改的故事') } }))
+  await click(view, '保存')
+  assert.deepEqual(body(f, 'plan-edit').value, { ...original, logline: '手改的故事' })
+  assert.doesNotMatch(text(view), /已保存/)
+  assert.equal(body(f, 'plan-edit').auto_finalize, true)
+  assert.doesNotThrow(() => validatePlanningResult('series', body(f, 'plan-edit').value))
+  assert.equal(f.planning().series.versions.length, 3)
+  assert.equal(f.planning().series.finalized, 3)
+  await click(view, '分集时间线')
+  assert.equal(f.requests.filter(request => request.url.startsWith('/project/plan-generate')).length, 2)
+  assert.equal(view.root.findByProps({ 'aria-label': '本集剧本' }).props.value, '')
+  await click(view, '机器人自动生成')
+  assert.equal(body(f, 'plan-generate').step, 'timeline')
+  assert.equal(body(f, 'plan-generate').auto_finalize, true)
+  assert.match(view.root.findByProps({ 'aria-label': '本集剧本' }).props.value, /打开信封/)
+  assert.equal(f.planning().episodes[1].timeline.finalized, 1)
+  await act(async () => view.unmount())
+})
+
+test('changes to the initial project details are used for the first generation', async () => {
+  const f = fixture(emptyProject({ genre: '悬疑', synopsis: '一封信' })), view = await detail(f, 'script')
+  const editor = view.root.findByProps({ 'aria-label': '剧情总览正文' })
+  const details = `${editor.props.value}\n\n## 人物关系\n兄妹失散多年`
+  await act(async () => editor.props.onChange({ target: { value: details } }))
+  await click(view, '机器人自动生成')
+  assert.equal(body(f, 'plan-generate').request, details)
+  await act(async () => view.unmount())
+})
+
+test('markdown overview preserves multiline prose and heading characters', () => {
+  const { formatSeries, parseSeries } = fixture(emptyProject()).require('elysium/planning')
+  const value = { logline: '雨夜\n## 来信', genre: '悬疑', episode_count: 1, episode_seconds: 10, world: '旧城\\暗巷',
+    characters: [{ id: 'lin', name: '林', appearance: '灰外套', voice: '低沉', personality: '谨慎', image_prompt: 'man' }],
+    scenes: [{ id: 'room', name: '公寓', description: '门外\n### 有人' }], episodes: [{ number: 1, title: '来信', summary: '雨夜来信', hook: '门外有人' }] }
+  const source = formatSeries(value)
+  assert.match(source, /\\## 来信/)
+  assert.deepEqual(JSON.parse(JSON.stringify(parseSeries(source))), value)
+})
+
+test('malformed overview stays in the editor and is not saved', async () => {
   const f = fixture(emptyProject({ genre: '悬疑', synopsis: '一封信' })), view = await detail(f, 'script')
   await click(view, '机器人自动生成')
-  assert.equal(view.root.findByProps({ 'aria-label': '一句话梗概' }).props.value, '规划内容')
-  assert.ok(view.root.findAllByType('span').some(node => node.children.join('') === '出图提示词（英文）'))
-  await act(async () => view.root.findByProps({ 'aria-label': '一句话梗概' }).props.onChange({ target: { value: '手改的故事' } }))
+  const editor = view.root.findByProps({ 'aria-label': '剧情总览正文' })
+  await act(async () => editor.props.onChange({ target: { value: editor.props.value.replace('#### 名称', '#### 名字') } }))
   await click(view, '保存')
-  assert.equal(body(f, 'plan-edit').value.logline, '手改的故事')
-  assert.equal(f.planning().series.versions.length, 2)
+  assert.match(text(view), /剧情总览字段无效/)
+  assert.equal(f.requests.some(request => request.url.startsWith('/project/plan-edit')), false)
   await act(async () => view.unmount())
 })
 
@@ -120,7 +220,7 @@ test('anchors show characters with reference actions, scenes as text, and confir
   await click(view, '确认锚点')
   assert.deepEqual(body(f, 'anchors-confirm'), { id: project.id })
   assert.equal(find(view, '确认锚点'), undefined)
-  assert.match(text(view), /锚点已确认/)
+  assert.doesNotMatch(text(view), /锚点已确认|镜头将以角色参考图生成首帧/)
   await act(async () => view.unmount())
 })
 

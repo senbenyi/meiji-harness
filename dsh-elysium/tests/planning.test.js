@@ -63,6 +63,34 @@ test('planning reads editable Skills, appends versions and marks downstream revi
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
+test('script generation and saving make the current content available to the next step', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'elysium-script-auto-'))
+  try {
+    await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+      await createSkillsStore().seed('drama-planning', new URL('drama-planning/', templateSkills).pathname)
+      const directors = createDirectorStore(), director = await directors.create({ display_name: '测试导演' })
+      const requests = [], outputs = [series, timeline, timeline]
+      const store = createProjectStore({ directorExists: name => directors.has(name), newId: () => '1234abcd',
+        complete: async request => { requests.push(request); return outputs.shift() }, submitTasks })
+      const project = await store.change('create', { title: '雨夜的信', director: director.name, genre: '悬疑', synopsis: '# 项目详情\n\n## 故事梗概\n一封信' })
+      const first = await store.planning.generate({ id: project.id, step: 'series', request: project.synopsis, auto_finalize: true })
+      assert.equal(first.series.finalized, 1)
+      assert.match(requests[0].user, /一封信/)
+      assert.equal((await store.read(project.id)).anchors.length, 2)
+      const episode = await store.planning.generate({ id: project.id, step: 'timeline', episode: 1, auto_finalize: true })
+      assert.equal(episode.episodes[1].timeline.finalized, 1)
+      const revised = await store.planning.edit({ id: project.id, step: 'series', value: { ...series, logline: '雨夜里的第二封信' }, auto_finalize: true })
+      assert.equal(revised.series.finalized, 2)
+      assert.equal(revised.episodes[1].timeline.needs_review, true)
+      const draft = await store.planning.edit({ id: project.id, step: 'series', value: { ...series, logline: '雨夜里的第三封信' } })
+      assert.equal(draft.series.finalized, 2)
+      const refreshed = await store.planning.generate({ id: project.id, step: 'timeline', episode: 1, auto_finalize: true })
+      assert.equal(refreshed.series.finalized, 3)
+      assert.equal(refreshed.episodes[1].timeline.finalized, 2)
+    })
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('finalized episode storyboard and prompts reach a keyframe and video submission', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-episode-'))
   try {
@@ -74,8 +102,8 @@ test('finalized episode storyboard and prompts reach a keyframe and video submis
       const store = createProjectStore({ directorExists: name => directors.has(name), newId: () => '1234abcd', submitTasks })
       const project = await store.change('create', { title: '雨夜的信', director: director.name })
       const accept = async (step, value, episode, shot_id) => {
-        await store.planning.edit({ id: project.id, step, episode, shot_id, value })
-        await store.planning.finalize({ id: project.id, step, episode, shot_id, version: 1 })
+        await store.planning.edit({ id: project.id, step, episode, shot_id, value, auto_finalize: step === 'storyboard' })
+        if (step !== 'storyboard') await store.planning.finalize({ id: project.id, step, episode, shot_id, version: 1 })
       }
       await accept('series', series)
       assert.deepEqual(submissions[0].tasks[0].plan.params.character, { view: 'front' })
@@ -152,13 +180,13 @@ test('prompt assembly includes common step, director addition and selected examp
       await store.planning.generate({ id: project.id, step: 'timeline', episode: 1 })
       assert.match(requests[1].system, /导演剧本：重逢前铺垫/)
       assert.doesNotMatch(requests[1].system, /导演分镜：缓慢推近/)
-      await store.planning.generate({ id: project.id, step: 'storyboard', episode: 1 })
+      const generated = await store.planning.generate({ id: project.id, step: 'storyboard', episode: 1, auto_finalize: true })
       assert.match(requests[2].system, /将本集定稿时间线拆成/)
       assert.match(requests[2].system, /导演分镜：缓慢推近/)
       assert.doesNotMatch(requests[2].system, /导演剧本：重逢前铺垫|旧步骤不应读取/)
       assert.equal(requests[2].llm.max_tokens, 16384)
       assert.doesNotMatch(requests[2].system, /人物动机、冲突/)
-      await store.planning.finalize({ id: project.id, step: 'storyboard', episode: 1, version: 1 })
+      assert.equal(generated.episodes[1].storyboard.finalized, 1)
       const shot = (await store.readEpisode(project.id, 1)).acts[0].shots[0]
       await store.planning.generate({ id: project.id, step: 'shot-prompt', episode: 1, shot_id: shot.id })
       assert.match(requests[3].system, /导演分镜：缓慢推近/)
@@ -254,7 +282,7 @@ test('storyboard keeps matching shots, resets changed prompts and blocks active 
       await store.changeShot(project.id, { episode: 1, id: current[0].id, status: 'succeeded' })
       current = (await store.readEpisode(project.id, 1)).acts[0].shots
       await edit('timeline', timeline); await finalize('timeline', 2)
-      await assert.rejects(store.requestEpisodeFilm(project.id, 1), /分镜需复核/)
+      assert.equal((await store.requestEpisodeFilm(project.id, 1)).film_task.status, 'pending')
       await edit('storyboard', { shots: [shots[0], { ...shots[1], action: '门口走廊空镜' }] }); await finalize('storyboard', 2)
       const replaced = (await store.readEpisode(project.id, 1)).acts[0].shots
       assert.deepEqual([replaced[0].id, replaced[0].job_id, replaced[0].take, replaced[0].prompt_finalized], [current[0].id, current[0].job_id, 2, true])

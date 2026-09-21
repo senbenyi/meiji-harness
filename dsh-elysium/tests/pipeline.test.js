@@ -96,7 +96,7 @@ test('failed shots are reshot once with a new take, then pause with a location; 
   await until(async () => (await shots(store, id))[0].take === 3, '继续后重拍')
 }))
 
-test('planning failures retry once then pause; upstream changes after production need confirmation to cascade', async t => fixture(t, async ({ store, id, until, llm }) => {
+test('planning failures retry once; completed shots survive upstream changes and a legacy cascade pause', async t => fixture(t, async ({ store, id, until, llm }) => {
   llm.fail = 2
   await store.startAuto({ id })
   await until(async () => (await store.read(id)).auto.paused, '规划失败暂停')
@@ -106,15 +106,27 @@ test('planning failures retry once then pause; upstream changes after production
   await store.confirmAnchors({ id })
   await until(async () => all(await shots(store, id), shot => shot.job_id), '镜头提交')
   for (const shot of await shots(store, id)) await store.changeShot(id, { id: shot.id, episode: 1, status: 'succeeded' })
+  const jobIds = (await shots(store, id)).map(shot => shot.job_id)
   llm.timeline = { beats: [{ ...timeline.beats[0], plot: '林撕开信封' }] }
   await store.planning.edit({ id, step: 'timeline', episode: 1, value: llm.timeline })
   await store.planning.finalize({ id, step: 'timeline', episode: 1, version: 2 })
-  await until(async () => (await store.read(id)).auto.paused, '级联暂停')
-  const paused = (await store.read(id)).auto.paused
-  assert.deepEqual([paused.step, paused.episode], ['cascade', 1])
-  assert.match(paused.reason, /本集已生成 2 镜/)
+  await store.changeAuto(id, auto => ({ ...auto, paused: { step: 'cascade', episode: 1, reason: '旧暂停' } }))
   const calls = llm.calls.length
-  await store.resumeAuto({ id })
-  assert.equal((await store.read(id)).auto.cascade_confirmed, true)
-  await until(async () => llm.calls.length > calls && !(await store.readPlanning(id)).episodes[1].storyboard.needs_review, '级联重做分镜')
+  await until(async () => (await store.readEpisode(id, 1)).film_task?.status === 'pending', '继续合成')
+  assert.equal((await store.read(id)).auto.paused, null)
+  assert.deepEqual((await shots(store, id)).map(shot => shot.job_id), jobIds)
+  assert.equal(llm.calls.length, calls)
+}))
+
+test('upstream changes with partially produced shots continue without a cascade pause', async t => fixture(t, async ({ store, id, until, llm }) => {
+  await store.changeAnchor(id, 'update', { role: 'lin', source: { type: 'job', job_id: 'a'.repeat(32) }, image_needs_review: false })
+  await store.startAuto({ id })
+  await store.confirmAnchors({ id })
+  await until(async () => all(await shots(store, id), shot => shot.job_id), '镜头提交')
+  await store.changeShot(id, { id: (await shots(store, id))[0].id, episode: 1, status: 'succeeded' })
+  await store.planning.edit({ id, step: 'timeline', episode: 1, value: { beats: [{ ...timeline.beats[0], plot: '林撕开信封' }] } })
+  await store.planning.finalize({ id, step: 'timeline', episode: 1, version: 2 })
+  const calls = llm.calls.length
+  await until(async () => llm.calls.length > calls, '继续生成分镜')
+  assert.equal((await store.read(id)).auto.paused, null)
 }))

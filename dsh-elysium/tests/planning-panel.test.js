@@ -16,18 +16,24 @@ const project = (extra = {}) => ({ id: '1234abcd', title: '雨夜', director: 'd
   { role: 'lin', kind: 'character', label: '林', description: '灰外套', image_prompt: 'man', image_job_id: 'a'.repeat(32), source: { type: 'job', job_id: 'a'.repeat(32) } },
   { role: 'scene-room', kind: 'scene', label: '公寓', description: '雨夜', source: null }], episodes: [], ...extra })
 
-function fixture({ value = project(), plan = { series: entry(series), episodes: {} } } = {}) {
+function fixture({ value = project(), plan = { series: entry(series), episodes: {} }, confirm = () => true } = {}) {
   let current = structuredClone(value)
   const calls = [], modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { AbortController, setTimeout, clearTimeout, URLSearchParams, URL,
     window: { __ELYSIUM_MEDIA__: { token: 't', base: '/media', projectBase: '/project', directorBase: '/director' },
-      __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm: () => true }, document: {},
+      __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, confirm }, document: {},
     fetch: async (url, options = {}) => {
       const body = options.body ? JSON.parse(options.body) : null
       calls.push({ url, body })
       const reply = value => ({ ok: true, json: async () => structuredClone(value) })
       if (url.startsWith('/director/list')) return reply([])
       if (url.startsWith('/project/plan-read')) return reply(plan)
+      if (url.startsWith('/project/plan-edit') && body.step === 'storyboard') {
+        const entry = plan.episodes[body.episode].storyboard ||= { versions: [], finalized: null }, version = entry.versions.length + 1
+        entry.versions.push({ version, value: body.value })
+        if (body.auto_finalize) entry.finalized = version
+        return reply(plan)
+      }
       if (url.startsWith('/project/episode')) {
         const number = Number(new URL(url, 'http://localhost').searchParams.get('number')), episode = current.episodes.find(item => item.number === number)
         return reply({ ...current, episode: number, acts: episode?.acts || [], deliverables: episode?.deliverables || [], film_task: episode?.film_task || null })
@@ -44,6 +50,98 @@ function fixture({ value = project(), plan = { series: entry(series), episodes: 
 const text = view => JSON.stringify(view.toJSON())
 const button = (view, label) => view.root.findAllByType('button').find(node => node.props['aria-label'] === label || node.children.join('') === label)
 const click = (view, label) => act(async () => button(view, label).props.onClick())
+
+test('single-episode script text preserves timeline data and reports malformed lines', () => {
+  const { formatTimeline, parseTimeline } = fixture().require('elysium/planning')
+  const overview = { scenes: [{ id: 'a', name: '婚礼｜现场' }], characters: [{ id: 'lin', name: '林、辰' }, { id: 'su', name: '苏婉清' }] }
+  const timeline = { beats: [{ start: 0, end: 12.5, scene_id: 'a', roles: ['lin', 'su'], plot: '收起戒指\n走出会场', emotion: '克制：反转', dialogue: [
+    { role: 'su', tone: '冷淡', text: '到此为止。' }, { role: 'lin', tone: '平静', text: '你会记住今天。' }] },
+  { start: 12.5, end: 25, scene_id: 'a', roles: ['lin'], plot: '拿出黑卡', emotion: '悬念', dialogue: [] }] }
+  const source = formatTimeline(timeline, overview)
+  assert.match(source, /00:12.5/)
+  assert.deepEqual(JSON.parse(JSON.stringify(parseTimeline(source, overview))), timeline)
+  assert.throws(() => parseTimeline(source.replace('情绪：', '心情：'), overview), /第 3 行/)
+})
+
+test('single-episode storyboard markdown preserves every field and rejects malformed headings', () => {
+  const { formatStoryboard, parseStoryboard } = fixture().require('elysium/planning')
+  const overview = { scenes: [{ id: 'room', name: '公寓｜夜' }], characters: [{ id: 'lin', name: '林、辰' }] }
+  const storyboard = { shots: [{ scene_id: 'room', roles: ['lin'], shot_size: '近景', camera: '缓推', action: '打开信\n抬头', duration: 10,
+    dialogue: [{ role: 'lin', text: '是谁：寄来的？' }] }] }
+  const source = formatStoryboard(storyboard, overview)
+  assert.match(source, /# 单集分镜\n\n## 镜头 1/)
+  assert.deepEqual(JSON.parse(JSON.stringify(parseStoryboard(source, overview))), storyboard)
+  assert.throws(() => parseStoryboard(source.replace('景别：', '画面：'), overview), /需要「景别：」/)
+})
+
+test('storyboard uses one markdown editor and saves directly without version or finalization controls', async () => {
+  const overview = { ...series, characters: [{ id: 'lin', name: '林' }], scenes: [{ id: 'room', name: '公寓' }] }
+  const storyboard = { shots: [{ scene_id: 'room', roles: ['lin'], shot_size: '近景', camera: '缓推', action: '林打开信', duration: 10, dialogue: [] }] }
+  const f = fixture({ plan: { series: entry(overview), episodes: { 1: { timeline: entry({ beats: [] }), storyboard: entry(storyboard) } } } })
+  const view = await mount(f, 'storyboard')
+  const editor = view.root.findByProps({ 'aria-label': '单集分镜正文' })
+  assert.equal(view.root.findAllByType('textarea').length, 1)
+  assert.equal(button(view, '定稿'), undefined)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '单集分镜版本' }).length, 0)
+  await act(async () => editor.props.onChange({ target: { value: editor.props.value.replace('林打开信', '林收起信') } }))
+  await click(view, '保存')
+  const saved = f.calls.find(call => call.url.startsWith('/project/plan-edit'))?.body
+  assert.equal(saved.auto_finalize, true)
+  assert.deepEqual(saved.value.shots[0].action, '林收起信')
+  assert.equal(f.calls.some(call => call.url.startsWith('/project/plan-finalize')), false)
+  assert.match(view.root.findByProps({ 'aria-label': '单集分镜正文' }).props.value, /林收起信/)
+  const edited = view.root.findByProps({ 'aria-label': '单集分镜正文' })
+  await act(async () => edited.props.onChange({ target: { value: edited.props.value.replace('景别：', '画面：') } }))
+  await click(view, '保存')
+  assert.match(text(view), /需要「景别：」/)
+  assert.equal(f.calls.filter(call => call.url.startsWith('/project/plan-edit')).length, 1)
+  await act(async () => view.unmount())
+})
+
+test('a new episode storyboard can be written directly in the markdown editor', async () => {
+  const overview = { ...series, characters: [{ id: 'lin', name: '林' }], scenes: [{ id: 'room', name: '公寓' }] }
+  const f = fixture({ plan: { series: entry(overview), episodes: { 1: { timeline: entry({ beats: [] }) } } } })
+  const view = await mount(f, 'storyboard')
+  assert.equal(button(view, '保存').props.disabled, true)
+  const source = '# 单集分镜\n\n## 镜头 1\n场景：公寓\n人物：林\n景别：近景\n运镜：缓推\n动作：林打开信\n时长：10\n对白：\n无'
+  await act(async () => view.root.findByProps({ 'aria-label': '单集分镜正文' }).props.onChange({ target: { value: source } }))
+  await click(view, '保存')
+  assert.equal(f.calls.find(call => call.url.startsWith('/project/plan-edit')).body.auto_finalize, true)
+  assert.match(view.root.findByProps({ 'aria-label': '单集分镜正文' }).props.value, /林打开信/)
+  await act(async () => view.unmount())
+})
+
+test('script timeline shows a single episode editor beside the episode directory', async () => {
+  const overview = { ...series, genre: '悬疑', logline: '雨夜来信', world: '旧城', characters: [{ id: 'lin', name: '林', appearance: '', voice: '', personality: '', image_prompt: '' }],
+    scenes: [{ id: 'room', name: '公寓', description: '' }] }
+  const timeline = { beats: [{ start: 0, end: 10, scene_id: 'room', roles: ['lin'], plot: '打开信封', emotion: '惊讶', dialogue: [{ role: 'lin', tone: '低声', text: '是谁？' }] }] }
+  const f = fixture({ plan: { series: entry(overview), episodes: { 1: { timeline: entry(timeline, 1, true) } } } }), view = await mount(f, 'script')
+  await click(view, '分集时间线')
+  assert.equal(view.root.findByProps({ 'aria-label': '选择剧集' }).findAllByType('button').length, 3)
+  assert.match(text(view), /打开信封/)
+  assert.equal(view.root.findAllByType('textarea').length, 1)
+  assert.equal(button(view, '编辑'), undefined)
+  assert.equal(button(view, '定稿'), undefined)
+  assert.doesNotMatch(text(view), /剧情总览已变化|需更新/)
+  assert.match(view.root.findByProps({ 'aria-label': '本集剧本' }).props.value, /00:00-00:10｜公寓｜林/)
+  await act(async () => view.unmount())
+})
+
+test('unsaved episode text blocks switching and malformed text never reaches plan-edit', async () => {
+  const overview = { ...series, genre: '悬疑', logline: '雨夜来信', world: '旧城', characters: [{ id: 'lin', name: '林' }], scenes: [{ id: 'room', name: '公寓' }] }
+  const timeline = { beats: [{ start: 0, end: 10, scene_id: 'room', roles: ['lin'], plot: '打开信封', emotion: '惊讶', dialogue: [] }] }
+  const f = fixture({ plan: { series: entry(overview), episodes: { 1: { timeline: entry(timeline) } } }, confirm: () => false })
+  const guard = { current: null }; let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/planning').ScriptView, { projectId: '1234abcd', viewState: { scriptTab: 'timeline' }, guard })) })
+  await act(async () => view.root.findByProps({ 'aria-label': '本集剧本' }).props.onChange({ target: { value: '错误正文' } }))
+  assert.ok(guard.current)
+  await act(async () => view.root.findByProps({ 'aria-label': '选择剧集' }).findAllByType('button')[1].props.onClick())
+  assert.match(text(view), /第 1 集 · 第 1 集/)
+  await click(view, '保存')
+  assert.match(text(view), /第 1 行/)
+  assert.equal(f.calls.some(call => call.url.startsWith('/project/plan-edit')), false)
+  await act(async () => view.unmount())
+})
 async function mount(f, tab) {
   let view
   await act(async () => { view = create(React.createElement(f.require('elysium/projects').ProjectDetail, { id: '1234abcd', viewState: tab ? { projectTab: tab } : {}, back() {} })) })
@@ -54,13 +152,19 @@ test('project navigation has five steps, opens at the first unfinished stage and
   const f = fixture(), view = await mount(f)
   assert.deepEqual(view.root.findByProps({ 'aria-label': '制作流程' }).findAllByType('button').map(node => node.props['aria-label']), ['项目', '剧本', '锚点', '分镜', '成片'])
   assert.equal(view.root.findByProps({ 'aria-label': '锚点' }).props['aria-current'], 'step')
+  assert.equal(view.root.findAllByProps({ className: 'elysium-production' }).length, 0)
   await click(view, '剧本')
   assert.equal(button(view, '继续到锚点').props.disabled, false)
+  assert.doesNotMatch(text(view), /一键生产/)
   assert.doesNotMatch(text(view), /生成全部集时间线/)
   await click(view, '锚点')
+  assert.equal(view.root.findAllByProps({ className: 'elysium-production' }).length, 0)
   assert.equal(button(view, '继续到分镜').props.disabled, false)
   await click(view, '分镜')
+  assert.equal(view.root.findAllByProps({ className: 'elysium-production' }).length, 0)
   assert.equal(button(view, '继续到成片').props.disabled, true)
+  await click(view, '成片')
+  assert.equal(view.root.findAllByProps({ className: 'elysium-production' }).length, 0)
   await act(async () => view.unmount())
 })
 
@@ -79,10 +183,29 @@ test('production panel starts a range, pauses, jumps to the paused shot and resu
   assert.match(text(again), /显存不足/)
   await click(again, '去处理')
   assert.equal(again.root.findByProps({ 'aria-label': '分镜' }).props['aria-current'], 'step')
+  assert.equal(again.root.findAllByProps({ className: 'elysium-production' }).length, 0)
+  await click(again, '项目')
   await click(again, '继续')
   assert.ok(f.calls.some(call => call.url.startsWith('/project/auto-resume')))
   assert.doesNotMatch(text(again), /显存不足/)
   await act(async () => { view.unmount(); again.unmount() })
+})
+
+test('completed, active and untouched project stages and episodes use distinct states', async () => {
+  const value = project({ auto: { ...auto, anchors_confirmed: true }, episodes: [
+    { number: 1, acts: [{ shots: [shot('s1')] }], deliverables: [{ type: 'film', job_id: 'e'.repeat(32) }], film_task: { status: 'succeeded' } },
+    { number: 2, acts: [{ shots: [shot('s2')] }], deliverables: [], film_task: null },
+  ] })
+  const f = fixture({ value }), view = await mount(f, 'film')
+  for (const label of ['项目', '剧本', '锚点']) assert.equal(view.root.findByProps({ 'aria-label': label }).props['data-complete'], true)
+  assert.equal(view.root.findByProps({ 'aria-label': '分镜' }).props['data-progress'], true)
+  assert.equal(view.root.findByProps({ 'aria-label': '成片' }).props['data-progress'], true)
+  const episodes = view.root.findByProps({ 'aria-label': '选择剧集' }).findAllByType('button')
+  assert.equal(episodes[0].props['data-complete'], true)
+  assert.equal(episodes[1].props['data-progress'], true)
+  assert.equal(episodes[2].props['data-complete'], undefined)
+  assert.equal(episodes[2].props['data-progress'], undefined)
+  await act(async () => view.unmount())
 })
 
 test('film tab shows the pipeline status and lists the latest film and subtitle downloads', async () => {

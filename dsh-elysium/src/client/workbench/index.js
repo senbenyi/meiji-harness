@@ -30,6 +30,7 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
     })
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
     const narrow = viewportWidth < 768
+    const panelWidth = Math.min(state.width, viewportWidth)
     const root = useRef(null), guard = useRef(null), resizing = useRef(null), pendingWidth = useRef(null), frame = useRef(null), dragStyle = useRef(null)
     const change = patch => setState(value => ({ ...value, ...patch }))
     const navigate = action => guard.current ? guard.current(action) : action()
@@ -62,7 +63,7 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
     }
 
     useEffect(() => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ width: state.width, activeTab: state.activeTab, selected: state.selected, projectTab: state.projectTab, projects: Object.fromEntries(Object.entries(state.projects).map(([id, value]) => [id, { selected: value.selected, selectedJob: value.selectedJob, tab: value.tab }])) })) } catch {}
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ width: state.width, activeTab: state.activeTab, selected: state.selected, projectTab: state.projectTab, projects: Object.fromEntries(Object.entries(state.projects).map(([id, value]) => [id, { selected: value.selected, selectedJob: value.selectedJob, tab: value.tab, episode: value.episode, scriptTab: value.scriptTab }])) })) } catch {}
     }, [state.width, state.activeTab, state.selected, state.projectTab, state.projects])
     useEffect(() => {
       const resizeViewport = () => setViewportWidth(window.innerWidth)
@@ -70,10 +71,10 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
       return () => window.removeEventListener('resize', resizeViewport)
     }, [])
     useEffect(() => {
-      const width = state.open && !narrow ? Math.min(state.width, viewportWidth) : 0
+      const width = state.open && !narrow ? panelWidth : 0
       document.documentElement.style.setProperty('--elysium-sidebar-width', `${width}px`)
       return () => document.documentElement.style.removeProperty('--elysium-sidebar-width')
-    }, [state.open, state.width, narrow, viewportWidth])
+    }, [state.open, panelWidth, narrow])
     useEffect(() => {
       if (!state.open) return
       document.querySelectorAll?.('.elysium-card video').forEach(video => video.pause())
@@ -94,12 +95,12 @@ window.__ModuleLoader__.load({ id: 'elysium/workbench', factory: require => {
 
     return h('div', { className: 'elysium-panel-host', 'data-elysium-panel-host': '' },
       h('div', { className: 'elysium-toggle-cluster' }, h(WorkbenchToggle, { open: state.open, onClick: toggle })),
-      h('aside', { id: 'elysium-workbench-panel', className: `elysium-panel${state.open ? '' : ' elysium-panel-hidden'}`, 'aria-label': '创作工作台', 'aria-hidden': !state.open, style: { width: narrow ? '100%' : `${Math.min(state.width, viewportWidth)}px` }, tabIndex: -1, ref: root, onKeyDown: event => { if (event.key === 'Escape') { event.stopPropagation(); navigate(() => change({ open: false })) } } },
+      h('aside', { id: 'elysium-workbench-panel', className: `elysium-panel${state.open ? '' : ' elysium-panel-hidden'}`, 'aria-label': '创作工作台', 'aria-hidden': !state.open, style: { width: narrow ? '100%' : `${panelWidth}px` }, tabIndex: -1, ref: root, onKeyDown: event => { if (event.key === 'Escape') { event.stopPropagation(); navigate(() => change({ open: false })) } } },
         h('div', { className: 'elysium-resize-handle', role: 'separator', 'aria-label': '调整创作工作台宽度', 'aria-orientation': 'vertical', onPointerDown: event => {
           if (narrow) return
           event.preventDefault()
           resizing.current = event.pointerId
-          pendingWidth.current = state.width
+          pendingWidth.current = panelWidth
           dragStyle.current = { cursor: document.body.style.cursor, userSelect: document.body.style.userSelect }
           document.body.setAttribute?.('data-elysium-sidebar-dragging', '')
           document.body.style.cursor = 'col-resize'

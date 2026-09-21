@@ -14,7 +14,7 @@ window.__ModuleLoader__.load({ id: 'elysium/anchors', factory: require => {
     const pending = characters.filter(anchor => !ready(anchor)).length
     return h('div', { className: 'elysium-anchor-view' },
       h('div', { className: 'elysium-toolbar' },
-        h('p', { role: 'status' }, project.auto.anchors_confirmed ? '锚点已确认，镜头将以角色参考图生成首帧' : pending ? `${pending} 个角色参考图未就绪` : '参考图已就绪，确认后开始生成镜头'),
+        project.auto.anchors_confirmed ? null : h('p', { role: 'status' }, pending ? `${pending} 个角色参考图未就绪` : '参考图已就绪，确认后开始生成镜头'),
         project.auto.anchors_confirmed ? null : h('button', { type: 'button', className: 'elysium-primary', disabled: busy || !characters.length || Boolean(pending),
           onClick: () => run(() => confirmAnchors(project.id)) }, '确认锚点')),
       !characters.length ? h('p', { className: 'elysium-empty' }, '定稿剧情总览后自动生成角色锚点') : null,

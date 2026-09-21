@@ -142,8 +142,6 @@ export function createProjectStore({ readJob = unavailableJob, summarizeJob = un
   const requestEpisodeFilm = (id, number) => enqueue(async () => {
     const value = await loadWithEpisode(id, number), shots = value.acts.flatMap(act => act.shots)
     if (!shots.length || shots.some(shot => shot.status !== 'succeeded' || !validJobId(shot.job_id))) throw statusError(409, '请先完成本集全部镜头')
-    const issue = episodeReviewIssue(value, await loadPlanning(id), number, shots)
-    if (issue) throw statusError(409, issue)
     const jobIds = shots.map(shot => shot.job_id)
     const taskId = createHash('sha256').update(JSON.stringify([id, number, jobIds])).digest('hex').slice(0, 32)
     if (value.film_task?.task_id === taskId && ['pending', 'running'].includes(value.film_task.status)) return value

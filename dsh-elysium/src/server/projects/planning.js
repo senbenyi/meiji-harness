@@ -43,7 +43,7 @@ export function createPlanningService(store, complete, directors = createDirecto
     const base = await skills.get('drama-planning')
     const script = await optionalReference(skills, director.name, 'script.md')
     const result = await complete({ name: 'project_draft', schema: projectDraftSchema, llm: base.metadata?.llm,
-      system: [base.content, director.content, script, '根据导演风格构思一个适合制作人物短剧的原创项目。仅输出项目名称 title、项目题材 genre、故事梗概 synopsis。故事梗概须交代主角、核心冲突和故事走向；不要生成剧本、分镜或封面。'].filter(Boolean).join('\n\n'),
+      system: [base.content, director.content, script, '根据导演风格构思一个适合制作人物短剧的原创项目。仅输出项目名称 title、项目题材 genre、项目详情 synopsis。项目详情采用与导演 Skill 正文一致的 Markdown 标题和分节格式，以「# 项目详情」开头，包含「## 故事梗概」「## 主角与冲突」「## 故事走向」；不要生成剧本、分镜或封面。'].filter(Boolean).join('\n\n'),
       user: JSON.stringify({ director: director.display_name }) })
     return validateProjectDraft(result)
   }
@@ -83,19 +83,31 @@ export function createPlanningService(store, complete, directors = createDirecto
       system: [base.content, director.content, stepText, directorStep, example, checklist].filter(Boolean).join('\n\n'), user }
   }
   const generate = async input => {
+    if (input.auto_finalize && input.step === 'timeline') {
+      const current = await store.readPlanning(input.id), latest = current.series?.versions.at(-1)
+      if (latest && current.series.finalized !== latest.version) await finalize({ id: input.id, step: 'series', version: latest.version })
+    }
     const state = await context(input)
     if (input.request !== undefined && (typeof input.request !== 'string' || input.request.length > 20000)) throw invalid('补充要求无效')
     const result = await complete(await prompt(input, state))
     validatePlanningResult(input.step, result, { series: state.series, timeline: state.timeline, shot: state.shot })
     if (input.step === 'storyboard') for (const shot of result.shots) shot.id = randomBytes(4).toString('hex')
-    return store.appendPlanningVersion(input.id, input.step, input.episode, input.shot_id, result, input.request || '', basis(input.step, state, input.episode))
+    const planning = await store.appendPlanningVersion(input.id, input.step, input.episode, input.shot_id, result, input.request || '', basis(input.step, state, input.episode))
+    return input.auto_finalize && ['series', 'timeline', 'storyboard'].includes(input.step)
+      ? finalize({ ...input, version: (input.step === 'series' ? planning.series : planning.episodes[input.episode][input.step]).versions.at(-1).version }) : planning
   }
   const edit = async input => {
+    if (input.auto_finalize && input.step === 'timeline') {
+      const current = await store.readPlanning(input.id), latest = current.series?.versions.at(-1)
+      if (latest && current.series.finalized !== latest.version) await finalize({ id: input.id, step: 'series', version: latest.version })
+    }
     const state = await context(input)
     try { validatePlanningResult(input.step, input.value, { series: state.series, timeline: state.timeline, shot: state.shot }) }
     catch (error) { error.status = 400; throw error }
     if (input.step === 'storyboard') for (const shot of input.value.shots) shot.id ||= randomBytes(4).toString('hex')
-    return store.appendPlanningVersion(input.id, input.step, input.episode, input.shot_id, input.value, '手动修改', basis(input.step, state, input.episode))
+    const planning = await store.appendPlanningVersion(input.id, input.step, input.episode, input.shot_id, input.value, '手动修改', basis(input.step, state, input.episode))
+    return input.auto_finalize && ['series', 'timeline', 'storyboard'].includes(input.step)
+      ? finalize({ ...input, version: (input.step === 'series' ? planning.series : planning.episodes[input.episode][input.step]).versions.at(-1).version }) : planning
   }
   const finalize = async input => {
     const state = await context(input)

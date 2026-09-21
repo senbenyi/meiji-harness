@@ -6,17 +6,18 @@ import { create, act } from 'react-test-renderer'
 import { clientSource } from '../scripts/loader.js'
 
 function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase: '/project' }, requests = [], status = { has_video: true } } = {}) {
+  let stored = saved
   const acts = [{ title: '第 1 集', shots: [{ id: 'shot-1', roles: [], scene: 'room', shot_size: '远景', camera: '固定', action: '走路', duration: 5, dialogue: [], subtitle: '', prompt: '', keyframe_prompt: '', prompt_finalized: false, take: 0, keyframe_job_id: null, job_id: null, status: 'pending' }] }]
   const project = { id: '12345678', title: '项目', updated_at: 1, anchors: [], materials: [], episodes: [{ number: 1, acts, deliverables: [], film_task: null }], acts, deliverables: [],
     auto: { enabled: false, until_episode: null, anchors_confirmed: false, cascade_confirmed: false, paused: null, attempts: {} } }
   const modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
-    document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },
+    document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(stored), setItem: (_, value) => { stored = JSON.parse(value) } },
     fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') || url.startsWith('/project/episode') ? project
       : url.startsWith('/project/plan-read') ? { series: { versions: [], finalized: null }, episodes: {} } : url.startsWith('/media/status') ? status
       : url.startsWith('/settings/models') ? { revision: 0, models: { image: [], video: [] }, selected: { image: '', video: '' } } : { items: [], total: 0 } } } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
-  return { require }
+  return { require, stored: () => stored }
 }
 test('material browser and image picker share source tabs and reset pagination on switch', async () => {
   for (const imageOnly of [false, true]) {
@@ -63,6 +64,35 @@ test('full workbench enters project, retains selected shot across tab switch and
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '素材').props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '项目').props.onClick())
   assert.ok(view.root.findByProps({ 'aria-label': '镜 001' }).props['aria-pressed'])
+  await act(async () => view.unmount())
+})
+
+test('project workspace follows dragging across steps without a width toggle', async () => {
+  const f = fixture({ saved: { width: 900, projectWide: false, scriptWide: false, selected: '12345678', projectTab: 'script', projects: { 12345678: { tab: 'script', scriptTab: 'timeline', episode: 1 } } } })
+  let view
+  await act(async () => { view = create(React.createElement(f.require('elysium/workbench').Workbench)) })
+  await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
+  assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props.style.width, '900px')
+  const handle = view.root.findByProps({ 'aria-label': '调整创作工作台宽度' })
+  const target = { setPointerCapture() {}, releasePointerCapture() {} }
+  await act(async () => handle.props.onPointerDown({ pointerId: 1, preventDefault() {}, currentTarget: target }))
+  await act(async () => handle.props.onPointerMove({ pointerId: 1, clientX: 1400 }))
+  await act(async () => handle.props.onPointerUp({ pointerId: 1, currentTarget: target }))
+  assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props.style.width, '600px')
+  for (const label of ['项目', '锚点', '分镜', '成片', '剧本']) {
+    await act(async () => view.root.findByProps({ className: 'elysium-project-steps' }).findByProps({ 'aria-label': label }).props.onClick())
+    assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props.style.width, '600px', label)
+  }
+  await act(async () => handle.props.onPointerDown({ pointerId: 2, preventDefault() {}, currentTarget: target }))
+  await act(async () => handle.props.onPointerMove({ pointerId: 2, clientX: 800 }))
+  await act(async () => handle.props.onPointerUp({ pointerId: 2, currentTarget: target }))
+  assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props.style.width, '1200px')
+  assert.equal(f.stored().width, 1200)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '还原侧栏宽度' }).length, 0)
+  assert.equal(view.root.findAllByProps({ 'aria-label': '展开项目工作区' }).length, 0)
+  await act(async () => view.unmount())
+  await act(async () => { view = create(React.createElement(f.require('elysium/workbench').Workbench)) })
+  assert.equal(view.root.findByProps({ id: 'elysium-workbench-panel' }).props.style.width, '1200px')
   await act(async () => view.unmount())
 })
 

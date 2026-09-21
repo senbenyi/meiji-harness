@@ -10,12 +10,14 @@ const finalizedValue = entry => entry?.versions.find(item => item.version === en
 const pending = entry => !entry?.finalized || entry.needs_review
 const busy = status => ['pending', 'queued', 'running'].includes(status)
 const shotsOf = episode => episode.acts.flatMap(act => act.shots)
+const completedShots = episode => { const shots = episode && shotsOf(episode); return Boolean(shots?.length && shots.every(shot => shot.status === 'succeeded' && shot.job_id)) }
 const filmIdOf = (id, episode, jobIds) => createHash('sha256').update(JSON.stringify([id, episode, jobIds])).digest('hex').slice(0, 32)
 const labels = { timeline: '时间线', storyboard: '分镜', 'shot-prompt': '提示词' }
 
 // 规划步骤按集升序，每集 时间线 → 分镜 → 逐镜提示词；返回首个待处理步骤。
-function nextPlanningStep(planning, last) {
+function nextPlanningStep(project, planning, last) {
   for (let episode = 1; episode <= last; episode++) {
+    if (completedShots(project.episodes.find(item => item.number === episode))) continue
     const entry = planning.episodes[episode] || {}
     for (const step of ['timeline', 'storyboard']) if (pending(entry[step])) return { step, episode, entry: entry[step] }
     for (const shot of finalizedValue(entry.storyboard).shots) {
@@ -26,7 +28,8 @@ function nextPlanningStep(planning, last) {
   return null
 }
 
-const planningReady = (planning, episode) => {
+const planningReady = (project, planning, episode) => {
+  if (completedShots(project.episodes.find(item => item.number === episode))) return true
   const entry = planning.episodes[episode] || {}
   return !pending(entry.timeline) && !pending(entry.storyboard) && finalizedValue(entry.storyboard).shots.every(shot => !pending(entry.prompts?.[shot.id]))
 }
@@ -120,29 +123,24 @@ export function createPipelineDriver(store, logger = console) {
 
   async function reconcile(id) {
     const project = await store.read(id), auto = project.auto
-    if (!auto.enabled || auto.paused) return false
+    if (!auto.enabled) return false
+    if (auto.paused?.step === 'cascade') {
+      await store.changeAuto(id, value => ({ ...value, paused: null, cascade_confirmed: false }))
+    } else if (auto.paused) return false
     const planning = await store.readPlanning(id), series = finalizedValue(planning.series)
     if (!series || planning.series.needs_review) {
       await pause(id, { reason: '剧情总览尚未定稿或需复核，请先定稿', step: 'series' })
       return false
     }
     const last = Math.min(auto.until_episode ?? series.episode_count, series.episode_count)
-    const next = nextPlanningStep(planning, last)
-    if (next && next.entry?.needs_review && !auto.cascade_confirmed) {
-      const produced = shotsOf(await store.readEpisode(id, next.episode)).filter(shot => shot.job_id).length
-      if (produced) {
-        await pause(id, { reason: `第 ${next.episode} 集上游已变更，继续将重新生成${labels[next.step]}并重拍受影响镜头（本集已生成 ${produced} 镜）`,
-          episode: next.episode, step: 'cascade' })
-        return false
-      }
-    }
+    const next = nextPlanningStep(project, planning, last)
     if (next && !thinking) think(id, next, { episode: next.episode, step: next.step, ...(next.shot_id ? { shot_id: next.shot_id } : {}) })
     if (!await anchorsReady(project)) return true
     // 等待运营确认锚点时只在还有规划要做时保持高频对账。
     if (!auto.anchors_confirmed) return Boolean(next)
     let done = !next
     for (let episode = 1; episode <= last; episode++) {
-      if (!planningReady(planning, episode)) { done = false; break }
+      if (!planningReady(project, planning, episode)) { done = false; break }
       if (!await produce(await store.read(id), episode)) done = false
       if ((await store.read(id)).auto.paused) return false
     }
