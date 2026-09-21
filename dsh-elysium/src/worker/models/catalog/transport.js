@@ -62,7 +62,12 @@ async function stopLegacyControls(directory, port, run) {
 const defaultControlDirectory = () => join(process.platform === 'darwin' ? '/tmp' : tmpdir(),
   `dsh-el-${process.getuid?.() ?? 'user'}-${createHash('sha256').update(runtimeRoot()).digest('hex').slice(0, 12)}`)
 
-export async function ensureConnection(backend, { identity = sshIdentity, run = spawnSync, available = portAvailable, directory, legacyDirectory } = {}) {
+const forwardHealthy = async url => {
+  try { await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) }); return true }
+  catch { return false }
+}
+
+export async function ensureConnection(backend, { identity = sshIdentity, run = spawnSync, available = portAvailable, healthy = forwardHealthy, directory, legacyDirectory } = {}) {
   const service = backend.connection
   if (service?.transport !== 'ssh') return
   directory ||= defaultControlDirectory()
@@ -72,7 +77,11 @@ export async function ensureConnection(backend, { identity = sshIdentity, run = 
   await chmod(directory, 0o700)
   const key = createHash('sha256').update(JSON.stringify([backend.server_id, backend.instance_id, backend.deployment_id, service])).digest('hex').slice(0, 20)
   const control = join(directory, `${service.local_port}-${key}`)
-  if (runControl(run, 'check', control, service.ssh_alias).status === 0) return { control, reused: true }
+  if (runControl(run, 'check', control, service.ssh_alias).status === 0) {
+    if (!backend.base_url || await healthy(backend.base_url)) return { control, reused: true }
+    if (runControl(run, 'exit', control, service.ssh_alias).status !== 0) throw new Error('SSH 隧道转发失效且无法关闭旧连接')
+    await rm(control, { force: true })
+  }
   await stopLegacyControls(legacyDirectory, service.local_port, run)
   try { await available(service.local_port) } catch (occupied) {
     if (!await stopControls(directory, `${service.local_port}-`, service.ssh_alias, run)) throw occupied

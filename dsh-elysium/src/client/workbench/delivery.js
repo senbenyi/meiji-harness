@@ -37,8 +37,8 @@ window.__ModuleLoader__.load({ id: 'elysium/delivery', factory: require => {
         if (Number.isFinite(item.size_bytes)) specs.push(formatSize(item.size_bytes))
         return h('article', { key: index, className: 'elysium-asset-item' },
           h('strong', null, `${isSubtitle(item) ? '字幕' : '成片'} · ${item.label}`), specs.length ? h('p', { className: 'elysium-compact-meta' }, specs.join(' · ')) : null,
-          !url ? h('p', { role: 'alert' }, '缺少可用的媒体地址') : isSubtitle(item) ? h('div', { className: 'elysium-card-actions' },
-            h('a', { href: url, download: '', target: '_blank', rel: 'noopener noreferrer', className: 'elysium-delivery-download', 'aria-label': `下载字幕 ${item.label}` }, h(Icon, { name: 'download' }), '下载字幕')) : null)
+          !url ? h('p', { role: 'alert' }, '缺少可用的媒体地址') : h('div', { className: 'elysium-card-actions' },
+            h('a', { href: url, download: '', target: '_blank', rel: 'noopener noreferrer', className: 'elysium-delivery-download', 'aria-label': `下载${isSubtitle(item) ? '字幕' : '成片'} ${item.label}` }, h(Icon, { name: 'download' }), isSubtitle(item) ? '下载字幕' : '下载成片')))
       })))
   }
   Object.assign(exports, { DeliveryView, deliveryUrl })

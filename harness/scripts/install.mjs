@@ -33,6 +33,7 @@ if (!hasCommand('dsh')) {
 
 await mkdir(target, { recursive: true })
 await rm(join(target, '.agent-presets', 'elysium-teaching'), { recursive: true, force: true })
+await rm(join(target, '.agent-presets', 'elysium-director'), { recursive: true, force: true })
 for (const entry of ['.agent-presets', 'profiles', 'settings.yaml']) {
   await cp(join(source, entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
 }

@@ -52,7 +52,7 @@ test('project settings draft survives a remote update and refreshes after leavin
   assert.equal(view.root.findByProps({ 'aria-label': '项目名称' }).props.value, '手动草稿')
   assert.match(JSON.stringify(view.toJSON()), /项目已有新修改/)
   assert.equal(f.requests.filter(path => path.startsWith('/project/get')).length, 1)
-  await click(view, '锚点')
+  await click(view, '人物场景')
   await f.tick()
   assert.equal(view.root.findByType('h1').children.join(''), '聊天标题')
   await act(async () => view.unmount())

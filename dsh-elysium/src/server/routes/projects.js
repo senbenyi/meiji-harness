@@ -6,7 +6,7 @@ import { validProjectId } from '../projects/schema.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 
 export const PROJECT_ROUTE = '/plugins/dsh-elysium/project'
-const actions = ['list', 'get', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'generate-storyboard', 'produce', 'retry', 'poll']
+const actions = ['list', 'get', 'episode', 'episode-save', 'create', 'update', 'delete', 'import', 'update-anchor', 'update-shot', 'generate-storyboard', 'plan-generate', 'plan-edit', 'plan-finalize', 'plan-read', 'produce', 'retry', 'compose', 'poll']
 const exactBody = (body, keys) => body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === keys.length && keys.every(key => Object.hasOwn(body, key))
 
 export function createProjectHandler(options) {
@@ -19,7 +19,7 @@ export function createProjectHandler(options) {
       if (!authenticated(url, token)) return json(res, 401, { error: '页面凭据已失效，请刷新页面' })
       const action = url.pathname.slice(PROJECT_ROUTE.length + 1)
       if (!actions.includes(action)) return json(res, 404, { error: '接口不存在' })
-      if (req.method !== (['list', 'get', 'poll'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
+      if (req.method !== (['list', 'get', 'episode', 'poll'].includes(action) ? 'GET' : 'POST')) return json(res, 405, { error: 'Method not allowed' })
       if (action === 'list') return json(res, 200, await store.list())
       if (action === 'get' || action === 'poll') {
         const id = url.searchParams.get('id')
@@ -31,17 +31,30 @@ export function createProjectHandler(options) {
         }
         return json(res, 200, await store.read(id))
       }
+      if (action === 'episode') return json(res, 200, await store.readEpisode(url.searchParams.get('id'), Number(url.searchParams.get('number'))))
       const body = await readJsonBody(req)
+      if (action === 'plan-generate') return json(res, 200, await store.planning.generate(body))
+      if (action === 'plan-edit') return json(res, 200, await store.planning.edit(body))
+      if (action === 'plan-finalize') return json(res, 200, await store.planning.finalize(body))
+      if (action === 'plan-read') return json(res, 200, await store.planning.read(body))
+      if (action === 'episode-save') {
+        if (!exactBody(body, ['id', 'episode', 'acts'])) throw invalidRequest('剧集保存参数无效')
+        return json(res, 200, await store.saveEpisodeStoryboard(body.id, body.episode, body.acts))
+      }
       if (action === 'generate-storyboard') {
         if (!exactBody(body, ['id'])) throw invalidRequest('分镜生成参数无效')
         return json(res, 200, await store.generateStoryboard(body))
       }
+      if (action === 'compose') {
+        if (!exactBody(body, ['id']) && !exactBody(body, ['id', 'episode'])) throw invalidRequest('成片合成参数无效')
+        return json(res, 200, await store.composeFilm(body))
+      }
       if (action === 'produce') {
-        if (!exactBody(body, ['project_id', 'shot_ids', 'submission_id'])) throw invalidRequest('项目提交参数无效')
+        if (!exactBody(body, ['project_id', 'shot_ids', 'submission_id']) && !exactBody(body, ['project_id', 'shot_ids', 'submission_id', 'episode'])) throw invalidRequest('项目提交参数无效')
         return json(res, 202, await store.produce(body))
       }
       if (action === 'retry') {
-        if (!exactBody(body, ['project_id', 'task_id'])) throw invalidRequest('任务恢复参数无效')
+        if (!exactBody(body, ['project_id', 'task_id']) && !exactBody(body, ['project_id', 'task_id', 'episode'])) throw invalidRequest('任务恢复参数无效')
         return json(res, 202, await store.retryShot(body))
       }
       if (['update-anchor', 'update-shot'].includes(action)) {

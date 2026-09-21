@@ -8,13 +8,15 @@ import { withConfig } from '../src/config.js'
 import { createProjectStore } from '../src/database/managers/projects.js'
 import { actsValue, anchorValue, validShotId } from '../src/server/projects/schema.js'
 
+const cover = 'f'.repeat(32)
+const coverOptions = { readJob: async job_id => ({ job_id, status: 'succeeded' }), summarizeJob: async () => ({ has_image: true }) }
 const shot = { role: 'lin', action: '走入画面', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' }
 async function fixture(run) {
   const root = await mkdtemp(join(tmpdir(), 'elysium-object-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const store = createProjectStore()
-      const project = await store.change('create', { title: '项目', director: '导演', profile: 'preview' })
+      const store = createProjectStore(coverOptions)
+      const project = await store.change('create', { title: '项目', director: '导演', profile: 'preview', cover_job_id: cover })
       await store.change('update', { id: project.id, acts: [{ title: '第一幕', shots: [] }, { title: '第二幕', shots: [] }] })
       await run(store, project.id, root)
     })
@@ -38,13 +40,13 @@ test('object operations preserve other fields, register materials and rename lin
   value = await store.read(id)
   assert.equal(value.acts[0].shots[0].action, shot.action)
   assert.equal(value.acts[0].shots[0].subtitle, '你好')
-  assert.deepEqual(value.materials, ['a'.repeat(32)])
+  assert.deepEqual(value.materials, [cover, 'a'.repeat(32)])
   await store.changeAnchor(id, 'delete', { role: 'room' })
   await store.changeShot(id, 'delete', { id: shotId })
   value = await store.read(id)
   assert.equal(value.anchors.length, 1)
   assert.equal(value.acts[0].shots.length, 0)
-  assert.deepEqual(value.materials, ['a'.repeat(32)])
+  assert.deepEqual(value.materials, [cover, 'a'.repeat(32)])
 }))
 
 test('shot IDs survive reordering, partial edits and reload, and moves stay within the act', () => fixture(async (store, id) => {
@@ -64,8 +66,8 @@ test('act operations let an empty project build and reorder a storyboard', async
   const root = await mkdtemp(join(tmpdir(), 'elysium-act-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
-      const store = createProjectStore()
-      const project = await store.change('create', { title: '项目', director: '导演', profile: 'preview' })
+      const store = createProjectStore(coverOptions)
+      const project = await store.change('create', { title: '项目', director: '导演', profile: 'preview', cover_job_id: cover })
       await store.changeAct(project.id, 'add', { title: '第一幕' })
       await store.changeAct(project.id, 'add', { title: '第二幕' })
       await store.changeShot(project.id, 'add', { act_index: 0, ...shot })

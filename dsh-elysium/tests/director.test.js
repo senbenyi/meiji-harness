@@ -1,67 +1,62 @@
+// 职责：验证导演 Skill 的全文保存、排序和项目引用保护。
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createServer } from 'node:http'
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { withConfig } from '../src/config.js'
 import { createDirectorStore } from '../src/server/directors/service.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { createDirectorHandler, DIRECTOR_ROUTE } from '../src/server/routes/directors.js'
-import { createProjectHandler, PROJECT_ROUTE } from '../src/server/routes/projects.js'
 
-test('director catalog initializes empty JSON, validates entries and protects directors used by projects', async () => {
+const cover = 'f'.repeat(32)
+const coverOptions = { readJob: async job_id => ({ job_id, status: 'succeeded' }), summarizeJob: async () => ({ has_image: true }) }
+
+test('director routes save full Skill text, reorder metadata and protect project references', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-directors-'))
-  let directorHandler, projectHandler
+  let handler, directors, projects
   withConfig({ ELYSIUM_STATE_ROOT: root }, () => {
-    const directors = createDirectorStore()
-    const projects = createProjectStore({ newId: () => '1234abcd', directorExists: name => directors.has(name) })
-    directorHandler = createDirectorHandler({ token: 't', directorStore: directors, projectStore: projects })
-    projectHandler = createProjectHandler({ token: 't', directorStore: directors, projectStore: projects })
+    directors = createDirectorStore()
+    projects = createProjectStore({ ...coverOptions, newId: () => '1234abcd', directorExists: name => directors.has(name) })
+    handler = createDirectorHandler({ token: 't', directorStore: directors, projectStore: projects })
   })
-  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => req.url.startsWith(DIRECTOR_ROUTE) ? directorHandler(req, res) : projectHandler(req, res)))
+  const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  const origin = `http://127.0.0.1:${server.address().port}`
-  const request = (base, action, body) => fetch(`${origin}${base}/${action}?t=t`, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const origin = `http://127.0.0.1:${server.address().port}${DIRECTOR_ROUTE}`
+  const request = (action, body) => fetch(`${origin}/${action}?t=t`, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) })
   try {
-    assert.equal((await fetch(`${origin}${DIRECTOR_ROUTE}/list`)).status, 401)
-    let response = await request(DIRECTOR_ROUTE, 'list')
+    assert.equal((await fetch(`${origin}/list`)).status, 401)
+    assert.deepEqual(await (await request('list')).json(), [])
+    let response = await request('create', { display_name: '毕赣' })
+    assert.equal(response.status, 201)
+    const first = await response.json()
+    assert.match(first.name, /^director-[a-f0-9]{8}$/)
+    assert.match(first.content, /metadata:\n  kind: director/)
+    response = await request('create', { display_name: '姜文' })
+    assert.equal(response.status, 201)
+    const second = await response.json()
+    const changed = first.content.replace('display_name: "毕赣"', 'display_name: "新毕赣"').replace('## 镜头语言', '## 镜头语言\n\n长镜头')
+    response = await request('save', { name: first.name, content: changed })
     assert.equal(response.status, 200)
-    assert.deepEqual(await response.json(), [])
-    assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'directors.json'), 'utf8')), [])
-
-    const custom = { name: '毕赣', style: '梦境、长镜头、诗意现实', works: ['路边野餐', '地球最后的夜晚', '破碎太阳之心', '狂野时代', '金刚经'] }
-    response = await request(DIRECTOR_ROUTE, 'create', custom)
-    assert.equal(response.status, 201); assert.deepEqual(await response.json(), custom)
-    assert.equal((await request(DIRECTOR_ROUTE, 'create', custom)).status, 400)
-    response = await request(DIRECTOR_ROUTE, 'create', { ...custom, name: '新导演', works: ['随便写'] })
-    assert.equal(response.status, 201); assert.deepEqual((await response.json()).works, ['随便写'])
-    response = await request(DIRECTOR_ROUTE, 'create', { ...custom, name: '无作品导演', works: [] })
-    assert.equal(response.status, 201); assert.deepEqual((await response.json()).works, [])
-    const order = ['无作品导演', '毕赣', '新导演']
-    response = await request(DIRECTOR_ROUTE, 'reorder', { names: order })
-    assert.equal(response.status, 200); assert.deepEqual((await response.json()).map(item => item.name), order)
-    assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'directors.json'), 'utf8')).map(item => item.name), order)
-    assert.equal((await request(DIRECTOR_ROUTE, 'reorder', { names: order.slice(1) })).status, 400)
-
-    assert.equal((await request(PROJECT_ROUTE, 'create', { title: '项目', director: '未知导演', profile: 'preview' })).status, 400)
-    assert.equal((await request(PROJECT_ROUTE, 'create', { title: '项目', director: custom.name, profile: 'preview' })).status, 201)
-    const edited = { ...custom, style: '新的风格', works: ['新的作品'] }
-    response = await request(DIRECTOR_ROUTE, 'update', edited)
-    assert.equal(response.status, 200); assert.deepEqual(await response.json(), edited)
-    const updated = await request(DIRECTOR_ROUTE, 'list').then(value => value.json())
-    assert.deepEqual(updated.find(item => item.name === custom.name), edited)
-    assert.deepEqual(updated.map(item => item.name), order)
-    assert.deepEqual(JSON.parse(await readFile(join(root, 'pools', 'directors.json'), 'utf8')), updated)
-    assert.equal((await request(DIRECTOR_ROUTE, 'update', { ...edited, style: '' })).status, 400)
-    assert.equal((await request(DIRECTOR_ROUTE, 'update', { ...edited, name: '不存在' })).status, 400)
-    response = await request(DIRECTOR_ROUTE, 'delete', { name: custom.name })
-    assert.equal(response.status, 400); assert.equal((await response.json()).error, '该导演已被项目使用，不能删除')
-    response = await request(DIRECTOR_ROUTE, 'delete', { name: '新导演' })
+    assert.equal((await response.json()).display_name, '新毕赣')
+    assert.equal(await readFile(join(root, 'pools', 'skills', first.name, 'SKILL.md'), 'utf8'), changed)
+    assert.equal((await request('save', { name: first.name, content: changed.replace(`name: ${first.name}`, 'name: other') })).status, 400)
+    assert.equal((await request('save', { name: first.name, content: changed.replace('description:', 'missing:') })).status, 400)
+    response = await fetch(`${origin}/get?t=t&name=${first.name}`)
     assert.equal(response.status, 200)
-    const final = await request(DIRECTOR_ROUTE, 'list').then(value => value.json())
-    assert.equal(final.some(item => item.name === '新导演'), false)
-    assert.equal((await stat(join(root, 'pools', 'directors.json'))).mode & 0o777, 0o600)
-    assert.deepEqual(await withConfig({ ELYSIUM_STATE_ROOT: root }, () => createDirectorStore().list()), final)
+    assert.equal((await response.json()).content, changed)
+    response = await request('reorder', { names: [second.name, first.name] })
+    assert.equal(response.status, 200)
+    assert.deepEqual((await response.json()).map(item => item.name), [second.name, first.name])
+    assert.match(await readFile(join(root, 'pools', 'skills', first.name, 'SKILL.md'), 'utf8'), /  order: 1/)
+    assert.equal((await request('reorder', { names: [first.name] })).status, 400)
+    const project = await withConfig({ ELYSIUM_STATE_ROOT: root }, () => projects.change('create', { title: '项目', director: first.name, cover_job_id: cover }))
+    assert.equal((await withConfig({ ELYSIUM_STATE_ROOT: root }, () => projects.read(project.id))).director, first.name)
+    response = await request('remove', { name: first.name })
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).error, '该导演已被项目使用，不能删除')
+    assert.equal((await request('remove', { name: second.name })).status, 200)
+    assert.deepEqual((await request('list').then(value => value.json())).map(item => item.name), [first.name])
   } finally { await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) }
 })

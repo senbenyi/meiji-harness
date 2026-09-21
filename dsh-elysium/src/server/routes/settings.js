@@ -3,7 +3,7 @@ import { listProviders, validateBackend, probeBackend, thirdPartyModels, thirdPa
 import { withConfig, runtimeConfig, runtimeSettings, defaultModels, defaultSettings } from '../../config.js'
 import { authenticated, invalidRequest, json, readJsonBody } from '../http.js'
 export const SETTINGS_ROUTE = '/plugins/dsh-elysium/settings'
-const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-connect', 'third-party-select', 'creation-quality']
+const actions = ['list', 'register', 'check', 'switch', 'set-enabled', 'models', 'model-status', 'model-connect', 'tunnel-status', 'tunnel-connect', 'third-party-select', 'creation-quality']
 export function createSettingsHandler({ token, check = checkServer, identify = sshIdentity, connect = checkBackend, tunnelBackend = legacyTunnelBackend }) {
   return async (req, res) => {
     try {
@@ -16,20 +16,22 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
       const selection = readSelection()
       const configuredModels = runtimeConfig().ELYSIUM_MODELS || defaultModels
       const models = Object.fromEntries(['image', 'video'].map(kind => [kind, configuredModels[kind] || []]))
+      const available = Object.fromEntries(Object.entries(models).map(([kind, entries]) => [kind, entries.filter(model => registry.servers.some(server => server.id === model.server_id && !server.disabled && server.services.comfyui)).map(model => model.id)]))
       if (action === 'models') {
         const thirdParty = await thirdPartyModels()
         const tunnel = defaultTunnelModel(), chatModel = tunnel && { id: tunnel.id, label: tunnel.label }
         const creation = runtimeConfig().ELYSIUM_SETTINGS_FILE ? runtimeSettings().creation : defaultSettings.creation
-        return json(res, 200, { revision: selection.revision, creation, models, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
+        return json(res, 200, { revision: selection.revision, creation, models, available, chat_model: chatModel, third_party: thirdParty, third_party_selected: thirdPartySelection(thirdParty, selection), third_party_channels: await thirdPartyChannels(), selected: Object.fromEntries(Object.entries(models).map(([kind, entries]) => {
           const active = selection.selected[kind] ?? registry.active?.[kind] ?? (kind === 'video' ? registry.active?.comfyui : undefined)
           return [kind, entries.find(model => model.server_id === active)?.id || '']
         })) })
       }
-      if (action === 'tunnel-connect') {
+      if (['tunnel-status', 'tunnel-connect'].includes(action)) {
         const body = await readJsonBody(req), tunnel = defaultTunnelModel()
         if (!tunnel || body.id !== tunnel.id) throw invalidRequest('聊天模型未在系统中配置')
         const backend = tunnelBackend(tunnel.alias)
         if (!backend) throw invalidRequest('聊天模型隧道未配置')
+        if (action === 'tunnel-status') return json(res, 200, { connected: await probeBackend(backend) })
         return json(res, 200, { ...await connect(backend), connected: true })
       }
       if (action === 'third-party-select') {
@@ -51,13 +53,12 @@ export function createSettingsHandler({ token, check = checkServer, identify = s
         const body = await readJsonBody(req)
         const model = models[body.kind]?.find(model => model.id === body.id)
         if (!model) throw invalidRequest('模型未在系统配置中配置')
+        if (!available[body.kind].includes(body.id)) throw invalidRequest('模型目标服务器未配置或已停用')
         const backend = resolveServer(body.kind, model.server_id)
         if (action === 'model-status') {
           return json(res, 200, { connected: await probeBackend(backend) })
         }
-        const result = readRegistry()?.servers.length
-          ? await switchServer(body.kind, backend.server_id, body.revision, check)
-          : await check(body.kind, backend.server_id)
+        const result = await switchServer(body.kind, backend.server_id, body.revision, check)
         return json(res, 200, { ...result, connected: true })
       }
       const providers = action === 'list' ? await listProviders() : []

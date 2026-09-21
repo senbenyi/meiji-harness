@@ -25,6 +25,16 @@ test('structured completion reports HTTP failure', async () => {
   await assert.rejects(completeStructured(settings, request, { fetcher: async () => response({}, false, 503) }), /HTTP 503/)
 })
 
+test('structured completion uses Skill LLM settings with hard limits', async () => {
+  let options
+  const configured = { ...request, llm: { max_tokens: 50000, timeout_ms: 900000, temperature: 0.8 } }
+  await completeStructured(settings, configured, { fetcher: async (_url, value) => { options = value; return response({ choices: [{ message: { content: '{"value":"ok"}' } }] }) } })
+  const body = JSON.parse(options.body)
+  assert.equal(body.max_tokens, 32768)
+  assert.equal(body.temperature, 0.8)
+  assert.equal(options.signal.aborted, false)
+})
+
 test('structured completion rejects empty model content', async () => {
   await assert.rejects(completeStructured(settings, request, { fetcher: async () => response({ choices: [{ message: { content: '' } }] }) }), /未返回内容/)
 })

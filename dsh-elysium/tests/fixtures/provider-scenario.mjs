@@ -1,7 +1,7 @@
 // 职责：使用本地 HTTP 模拟模型服务和真实子进程，验收平台替换后的公共业务路径。
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { readFile, access } from 'node:fs/promises'
+import { readFile, access, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { apply } from './lib/index.js'
@@ -106,8 +106,13 @@ try {
   assert.equal(a.posts, 0, 'health checks must not generate')
   assert.equal((await backendLlmSettings(backendFromServer(readRegistry().servers.find(server => server.id === 'a'), 'llm'))).base_url, `${a.url}/v1`)
   assert.equal(await backendWorkflowSource(resolveServer()), a.url)
-  await request('director/create', { name: '测试导演', style: '测试风格', works: [] }, 201)
-  const project = await request('project/create', { title: 'Adapter isolation', profile: 'preview', director: '测试导演' }, 201)
+  const director = await request('director/create', { display_name: '测试导演' }, 201)
+  const cover = 'f'.repeat(32), coverDirectory = join(state, 'uploads', cover)
+  await mkdir(join(coverDirectory, 'media'), { recursive: true })
+  await writeFile(join(coverDirectory, 'media', 'cover.png'), 'image')
+  await writeFile(join(coverDirectory, 'media', 'manifest.json'), JSON.stringify({ files: [{ path: 'media/cover.png', job_id: cover, size_bytes: 5 }] }))
+  await writeFile(join(coverDirectory, 'status.json'), JSON.stringify({ job_id: cover, backend: 'upload', status: 'succeeded', result: { media_kind: 'image', local_media_path: 'media/cover.png' } }))
+  const project = await request('project/create', { title: 'Adapter isolation', profile: 'preview', director: director.name, cover_job_id: cover }, 201)
   const projectId = project.id
   assert.match(projectId, /^\d{17}$/)
   a.failNext = true

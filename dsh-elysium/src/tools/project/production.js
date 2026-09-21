@@ -1,4 +1,4 @@
-// 职责：接收导演模式构造的完整有序任务，并用 Harness 后台 Job 通知整批结束。
+// 职责：接收项目的完整有序任务，并用 Harness 后台 Job 通知整批结束。
 import { createHash } from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
 import { getJob, submit } from '../../worker/index.js'

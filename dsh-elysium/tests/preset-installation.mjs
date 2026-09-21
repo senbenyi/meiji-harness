@@ -13,7 +13,7 @@ const source = process.argv[3] || fileURLToPath(new URL('../../harness/.dsh/.age
 const root = await mkdtemp(join(tmpdir(), 'elysium detached '))
 const retired = ['creation-video', 'creation-preview', 'creation-regular', 'creation-hd']
 try {
-  for (const role of ['elysium-director', 'elysium-free']) {
+  for (const role of ['elysium-free']) {
     const preset = join(root, role)
     await cp(join(source, role), preset, { recursive: true })
     const warnings = []
@@ -26,7 +26,7 @@ try {
       assert.ok(entries.every(entry => !retired.includes(entry.name)))
       assert.deepEqual(warnings, [])
       const rules = await readFile(join(preset, 'rules.md'), 'utf8')
-      assert.ok(rules.includes('创作质量由系统设置统一控制'))
+      assert.ok(rules.includes('按需加载 Skill'))
       for (const name of ['预览创作', '常规创作', '高清创作']) assert.ok(!rules.includes('/' + name))
     } finally { await provider.dispose() }
   }

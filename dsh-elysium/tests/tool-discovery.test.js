@@ -55,19 +55,21 @@ test('preserves standard and Code Mode protocols', () => {
   assert.deepEqual(projectedCode.tools, code.tools)
   assert.ok(projectedCode.sections.some(section => section.name === 'elysium:creation-policy'))
 })
-test('recognizes every shipped Elysium mode by its real preset ID', () => {
-  for (const id of ['elysium-free', 'elysium-director']) {
+test('recognizes the shipped Elysium preset by its real ID', () => {
+  for (const id of ['elysium-free']) {
     const result = createCallToolsForAgent(assembly(), agent([], id))
     assert.ok(result.tools.some(tool => tool.name === 'call_tools_load'))
     assert.ok(!result.tools.some(tool => tool.name === 'bash'))
   }
 })
-test('free mode hides project tools while director mode exposes them', () => {
+test('project tools appear only after loading the project group', async () => {
   const result = createCallToolsForAgent(assembly(), agent([], 'elysium-free'))
   assert.ok(result.tools.some(tool => tool.name === 'call_tools_video'))
-  assert.ok(result.tools.some(tool => tool.name === 'call_tools_director_list'))
-  assert.ok(!result.tools.some(tool => tool.name !== 'call_tools_director_list' && /^call_tools_(director|project)_/.test(tool.name)))
-  assert.ok(createCallToolsForAgent(assembly(), agent([], 'elysium-director')).tools.some(tool => tool.name === 'call_tools_project_create'))
+  assert.ok(!result.tools.some(tool => /^call_tools_(director|project)_/.test(tool.name)))
+  const loader = discoveryTool(() => assembly().tools)
+  const loaded = await loader.execute({ groups: ['project'] }, { agent: agent([]) })
+  const visible = createCallToolsForAgent(assembly(), agent(events(loaded.loaded_tools)))
+  for (const name of toolsConfig.project.names.filter(name => assembly().tools.some(tool => tool.name === name))) assert.ok(visible.tools.some(tool => tool.name === name))
 })
 test('a failed video result removes every remaining tool for the current turn but input validation can retry once', () => {
   const failed = [{ type: 'turn/start', data: { turn: 1 } },

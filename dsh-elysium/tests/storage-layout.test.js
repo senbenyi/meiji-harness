@@ -3,7 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
-import { driverFile, jobsRoot, poolsRoot, projectsRoot, runtimeRoot, tasksRoot, uploadsRoot } from '../src/database/paths.js'
+import { driverFile, jobsRoot, poolsRoot, projectsRoot, runtimeRoot, skillsRoot, tasksRoot, uploadsRoot } from '../src/database/paths.js'
 import { registryPath } from '../src/database/managers/registry.js'
 import { selectionPath } from '../src/database/managers/selection.js'
 
@@ -13,6 +13,7 @@ test('storage paths stay within config, pools, projects, runtime and uploads', (
     assert.equal(registryPath(), join(root, 'config', 'settings.json'))
     assert.equal(selectionPath(), join(root, 'config', 'settings.json'))
     assert.equal(poolsRoot(), join(root, 'pools'))
+    assert.equal(skillsRoot(), join(root, 'pools', 'skills'))
     assert.equal(projectsRoot(), join(root, 'projects'))
     assert.equal(tasksRoot(), join(root, 'projects', 'tasks'))
     assert.equal(jobsRoot(), join(root, 'projects', 'jobs'))

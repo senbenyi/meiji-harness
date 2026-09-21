@@ -20,6 +20,8 @@ import { saveStatus } from '../src/worker/store/status.js'
 import { heartbeatStale } from '../src/worker/runner/heartbeat.js'
 
 const project = 'abcd1234'
+const cover = 'f'.repeat(32)
+const coverOptions = { readJob: async job_id => ({ job_id, status: 'succeeded' }), summarizeJob: async () => ({ has_image: true }), directorExists: async () => true }
 const request = prompt => ({ submission_id: 'batch-fixed-001', lane: { id: 'project-abcd1234-main', priority: 'batch' }, project_id: project,
   tasks: [{ kind: 'video', plan: { mode: 't2va', prompt } }], channel: 'test' })
 
@@ -159,8 +161,8 @@ test('terminal settlement is retried until the sink succeeds and then leaves the
 }))
 
 test('project sink applies terminal task state idempotently to the bound shot', async t => fixture(t, async () => {
-  const store = createProjectStore({ directorExists: async () => true })
-  const projectValue = await store.change('create', { title: '项目', director: '导演' })
+  const store = createProjectStore(coverOptions)
+  const projectValue = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
   await store.changeAct(projectValue.id, 'add', { title: '第一幕' })
   let value = await store.changeShot(projectValue.id, 'add', { act_index: 0, role: '', action: '镜头', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' })
   const shotId = value.acts[0].shots[0].id, disposers = []
@@ -171,6 +173,7 @@ test('project sink applies terminal task state idempotently to the bound shot', 
     input.lane.id = `project-${projectValue.id}-main`
     input.tasks[0].binding = { type: 'shot', shot_id: shotId }
     const accepted = await submit(input)
+    await store.changeShot(projectValue.id, 'update', { id: shotId, job_id: accepted.tasks[0].task_id, status: 'pending' })
     await cancel(accepted.tasks[0].task_id)
     await driveOnce()
     value = await store.read(projectValue.id)
@@ -180,7 +183,7 @@ test('project sink applies terminal task state idempotently to the bound shot', 
 }))
 
 test('driver automatically claims a project task and its terminal sink updates the bound shot', async t => fixture(t, async () => {
-  const store = createProjectStore({ directorExists: async () => true }), created = await store.change('create', { title: '项目', director: '导演' })
+  const store = createProjectStore(coverOptions), created = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
   await store.changeAct(created.id, 'add', { title: '幕' })
   const projectValue = await store.changeShot(created.id, 'add', { act_index: 0, role: '', action: '镜头', subtitle: '', mode: 'i2va', job_id: null, status: 'pending', notes: '' })
   const shotId = projectValue.acts[0].shots[0].id, submission = 'auto-project-001', dependency = taskId(submission, 0), disposers = []
@@ -190,6 +193,7 @@ test('driver automatically claims a project task and its terminal sink updates t
       { kind: 'video', plan: { mode: 't2va', prompt: '锚点' } },
       { kind: 'video', plan: { mode: 'i2va', prompt: '镜头', first_frame: `job:${dependency}` }, binding: { type: 'shot', shot_id: shotId } },
     ] })
+    await store.changeShot(created.id, 'update', { id: shotId, job_id: accepted.tasks[1].task_id, status: 'pending' })
     await saveStatus(jobRoot(dependency), { ...(await getJob(dependency)), status: 'failed', stage: 'failed', error_code: 'TEST', error: 'test', finished_at: new Date().toISOString() })
     await driveOnce()
     assert.equal((await getJob(accepted.tasks[1].task_id)).error_code, 'REFERENCE_FAILED')
@@ -201,8 +205,8 @@ test('driver automatically claims a project task and its terminal sink updates t
 }))
 
 test('project production builds ordered t2va and i2va tasks, persists pending IDs, and is idempotent', async t => fixture(t, async () => {
-  const store = createProjectStore({ directorExists: async () => true })
-  const created = await store.change('create', { title: '项目', director: '导演' })
+  const store = createProjectStore(coverOptions)
+  const created = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
   const anchor = { role: 'lead', label: '主角', description: '', source: null, image_url: 'https://comfy.test/view?filename=lead.png&type=output' }
   await store.change('update', { id: created.id, anchors: [anchor], acts: [{ title: '第一幕', shots: [
     { id: 'shot-a', role: '', action: '远景开场', subtitle: '', mode: 't2va', job_id: null, status: 'pending', notes: '' },
@@ -223,7 +227,7 @@ test('project production builds ordered t2va and i2va tasks, persists pending ID
 }))
 
 test('project production rejects i2va without a usable anchor and never fabricates unsupported modes', async t => fixture(t, async () => {
-  const store = createProjectStore({ directorExists: async () => true }), created = await store.change('create', { title: '项目', director: '导演' })
+  const store = createProjectStore(coverOptions), created = await store.change('create', { title: '项目', director: '导演', cover_job_id: cover })
   const shot = mode => ({ id: 'shot-a', role: 'lead', action: '动作', subtitle: '', mode, job_id: null, status: 'pending', notes: '' })
   await store.change('update', { id: created.id, acts: [{ title: '幕', shots: [shot('i2va')] }] })
   await assert.rejects(store.produce({ project_id: created.id, shot_ids: ['shot-a'], submission_id: 'missing-anchor-001' }), /缺少有效角色锚点/)

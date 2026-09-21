@@ -6,6 +6,7 @@ import { requiredConfig } from '../utils/validation.js'
 export const defaultElysiumHome = () => join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'elysium')
 export const storageRoot = () => requiredConfig('ELYSIUM_STATE_ROOT')
 export const poolsRoot = (root = storageRoot()) => join(root, 'pools')
+export const skillsRoot = (root = storageRoot()) => join(poolsRoot(root), 'skills')
 export const projectsRoot = (root = storageRoot()) => join(root, 'projects')
 export const runtimeRoot = (root = storageRoot()) => join(root, 'runtime')
 export const uploadsRoot = (root = storageRoot()) => join(root, 'uploads')

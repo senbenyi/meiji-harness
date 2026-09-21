@@ -16,7 +16,7 @@ test('all endpoints authenticate before IO; registration stays manual and switch
   const server = createServer((req, res) => withConfig({ ELYSIUM_SERVERS_FILE: join(root, 'servers.json'), ELYSIUM_CONFIG_FILE: join(root, 'config.json') }, () => handler(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => server.close(resolve)))
   const request = (action, body, token = 'test') => fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/${action}?t=${token}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
-  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'tunnel-connect', 'third-party-select', 'creation-quality']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
+  for (const action of ['list', 'register', 'check', 'switch', 'set-enabled', 'model-status', 'model-connect', 'tunnel-status', 'tunnel-connect', 'third-party-select', 'creation-quality']) assert.equal((await request(action, action === 'list' ? null : {}, 'bad')).status, 401)
   assert.equal(calls, 0)
   assert.equal((await request('register', { revision: 0, server: { ...record('autodl'), provider: 'autodl' } })).status, 201)
   assert.equal((await request('register', { revision: 1, server: record('a') })).status, 201)
@@ -52,6 +52,8 @@ test('creation quality uses its own revision and persists only valid global valu
   assert.equal((await request({ quality: 'unknown', revision: 1 })).status, 400)
   const models = await (await fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/models?t=test`)).json()
   assert.deepEqual(models.creation, { quality: 'high', revision: 1 })
+  assert.deepEqual(models.available, { image: [], video: [] })
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}${SETTINGS_ROUTE}/model-connect?t=test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'image', id: defaultSettings.models.image[0].id, revision: 0 }) })).status, 400)
 })
 
 test('default private model selections remain visible after the model list reloads', async t => {
@@ -72,6 +74,7 @@ test('default private model selections remain visible after the model list reloa
   assert.equal((await request('model-connect', { kind: 'video', id: 'minimax-h3', revision: 2 })).status, 200)
   const models = await (await request('models')).json()
   assert.deepEqual(models.selected, { image: 'realvisxl-sdxl', video: 'minimax-h3' })
+  assert.deepEqual(models.available, { image: ['realvisxl-sdxl'], video: ['minimax-h3'] })
 })
 
 test('fixed model catalog probes without connecting and failed selection cannot replace active video or image targets', async t => {
@@ -111,6 +114,7 @@ test('fixed model catalog probes without connecting and failed selection cannot 
   assert.equal(tunnelChecks, 0)
   const failedTunnel = await request('tunnel-connect', { id: 'qwen3.8-27b-elysium' })
   assert.equal(failedTunnel.status, 503); assert.doesNotMatch(await failedTunnel.text(), /PRIVATE_TUNNEL|secret/)
+  assert.equal((await (await request('tunnel-status', { id: 'qwen3.8-27b-elysium' })).json()).connected, false)
   tunnelFailing = false
   assert.equal((await (await request('tunnel-connect', { id: 'qwen3.8-27b-elysium' })).json()).connected, true)
   assert.equal(tunnelChecks, 2)
@@ -124,6 +128,8 @@ test('fixed model catalog probes without connecting and failed selection cannot 
   assert.equal(withConfig(config, () => resolveServer().server_id), 'b')
   assert.equal(withConfig(config, () => resolveServer('image').server_id), 'a')
   assert.equal(pinned.server_id, 'a')
+  assert.equal((await (await request('model-connect', { kind: 'video', id: 'model-b', revision: 2 })).json()).revision, 2)
+  assert.equal(withConfig(config, () => readSelection().revision), 2)
   const models = await (await request('models')).json()
   assert.equal(models.selected.video, 'model-b')
   assert.deepEqual(Object.keys(models.models), ['image', 'video'])

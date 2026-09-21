@@ -59,10 +59,10 @@ export function createCallToolsProjectActions(store) {
       },
     },
     {
-      name: 'call_tools_project_create', description: '创建空项目；先调用 call_tools_director_list，director 必须使用其返回的精确名称。返回项目 ID，不会启动视频生成。',
-      parameters: object(info, ['title', 'director']),
+      name: 'call_tools_project_create', description: '创建空项目；先调用 call_tools_director_list 选择导演，并提供已完成的图片素材任务 ID 作为封面。返回项目 ID，不会启动视频生成。',
+      parameters: object({ ...info, cover_job_id: { type: 'string', description: '已完成的封面图片素材任务 ID。' } }, ['title', 'director', 'cover_job_id']),
       output: { schema: outputSchema, render: renderProjectResult },
-      execute: args => store.change('create', { title: args.title, director: args.director }),
+      execute: args => store.change('create', { title: args.title, director: args.director, cover_job_id: args.cover_job_id }),
     },
   ]
 }

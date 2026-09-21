@@ -51,6 +51,19 @@ test('a live matching control socket is reused without persistent metadata', asy
   assert.deepEqual(await readdir(directory), [])
 })
 
+test('a live control with a stalled forward is replaced before reuse', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'elysium-tunnel-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const calls = [], run = (_command, args) => { calls.push(args); return { status: 0 } }
+  const result = await ensureConnection({ ...backend('b'.repeat(64)), base_url: 'http://127.0.0.1:18000' }, {
+    directory, legacyDirectory: join(directory, 'legacy'), identity: () => 'b'.repeat(64), run,
+    healthy: async () => false, available: async () => {},
+  })
+  assert.equal(result.reused, false)
+  assert.ok(calls.some(args => args.includes('exit')))
+  assert.ok(calls.some(args => args.includes('-M')))
+})
+
 test('legacy runtime metadata is consumed without creating a replacement file', async t => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-tunnel-'))
   const directory = join(root, 'controls'), legacyDirectory = join(root, 'runtime', 'tunnels')

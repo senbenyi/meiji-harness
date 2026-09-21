@@ -5,7 +5,7 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
   const { Editor, Icon, IconButton } = require('elysium/dialog')
   const { produceShots, retryShot, updateShot } = require('elysium/project-api')
   const statuses = { pending: '待生成', queued: '排队中', running: '生成中', succeeded: '已完成', failed: '失败', cancelled: '已取消' }
-  function StoryboardView({ project, save, run, busy, viewState = {}, onViewState = () => {}, guard }) {
+  function StoryboardView({ project, save, run, busy, episode, viewState = {}, onViewState = () => {}, guard }) {
     const [state, setState] = useState({ act: '', status: '', role: '', page: 0, selected: null, ...viewState })
     const [editing, setEditing] = useState(null), scroll = useRef(null), keyboard = useRef(false)
     const change = patch => { const next = { ...state, ...patch }; setState(next); onViewState(next) }
@@ -21,30 +21,30 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
     const actIndex = state.act === '' ? selected?.a ?? 0 : Number(state.act)
     const commitActs = async acts => save({ acts })
     const patchShot = async (patch, id = selected.shot.id) => {
-      const ok = await run(() => updateShot(project.id, 'update', { ...patch, id }))
+      const ok = await run(() => updateShot(project.id, 'update', { ...patch, id, ...(episode === undefined ? {} : { episode }) }))
       if (ok && 'job_id' in patch) change({ selectedJob: patch.job_id })
       return ok
     }
     async function move(direction) {
-      await run(() => updateShot(project.id, 'move', { id: selected.shot.id, direction }))
+      await run(() => updateShot(project.id, 'move', { id: selected.shot.id, direction, ...(episode === undefined ? {} : { episode }) }))
     }
     async function remove() {
       if (!window.confirm(`移除镜 ${String(selected.number).padStart(3, '0')}？`)) return
-      if (await run(() => updateShot(project.id, 'delete', { id: selected.shot.id }))) change({ selected: null, selectedJob: undefined })
+      if (await run(() => updateShot(project.id, 'delete', { id: selected.shot.id, ...(episode === undefined ? {} : { episode }) }))) change({ selected: null, selectedJob: undefined })
     }
     async function addShot() {
       let added
       const ok = await run(async () => {
-        const value = await updateShot(project.id, 'add', { act_index: actIndex })
+        const value = await updateShot(project.id, 'add', { act_index: actIndex, ...(episode === undefined ? {} : { episode }) })
         added = value.acts[actIndex].shots.at(-1)
         return value
       })
       if (ok) change({ act: String(actIndex), status: '', role: '', selected: added.id, selectedJob: added.job_id, page: Math.floor(currentAct.shots.length / 30) })
     }
-    const pendingShots = all.filter(item => !item.shot.job_id || ['failed', 'cancelled'].includes(item.shot.status)).map(item => item.shot.id)
-    const produce = ids => run(async () => (await produceShots(project.id, ids)).project)
+    const pendingShots = all.filter(item => (episode === undefined || item.shot.prompt_finalized) && (!item.shot.job_id || ['failed', 'cancelled'].includes(item.shot.status))).map(item => item.shot.id)
+    const produce = ids => run(async () => (await produceShots(project.id, ids, undefined, episode)).project)
     const generateSelected = async () => {
-      if (selected.shot.status === 'failed' && selected.shot.job_id) return run(async () => (await retryShot(project.id, selected.shot.job_id)).project)
+      if (selected.shot.status === 'failed' && selected.shot.job_id) return run(async () => (await retryShot(project.id, selected.shot.job_id, episode)).project)
       if (selected.shot.job_id && !window.confirm('重新生成此镜？原任务记录和素材仍会保留。')) return false
       return produce([selected.shot.id])
     }
@@ -55,7 +55,6 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
     const copy = (title, value) => value ? h('section', { className: 'elysium-shot-copy' }, h('h3', null, title), h('p', null, value)) : null
     const shotFields = [
       ['role', '镜头角色', project.anchors.map(anchor => [anchor.role, anchor.label || anchor.role])], ['action', '动作描述', 'textarea'], ['subtitle', '字幕', 'textarea'], ['notes', '镜头备注', 'textarea'],
-      ['mode', '生成模式', null, true], ['job_id', '关联任务 ID', null, true], ['status', '镜头状态', Object.entries(statuses)],
     ]
     return h('div', { className: `elysium-storyboard${selected ? ' has-selection' : ''}` },
       h('nav', { className: 'elysium-acts', 'aria-label': '幕导航' },
@@ -85,20 +84,19 @@ window.__ModuleLoader__.load({ id: 'elysium/storyboard', factory: require => {
           h('div', { className: 'elysium-panel-actions' }, h(IconButton, { name: 'chevronLeft', label: '上一镜', disabled: position <= 0, onClick: () => choose(filtered[position - 1]) }), h(IconButton, { name: 'chevronRight', label: '下一镜', disabled: position < 0 || position >= filtered.length - 1, onClick: () => choose(filtered[position + 1]) }))),
         editing ? null : h(ShotPreview, { jobId: selected.shot.job_id }),
         h('p', { className: 'elysium-compact-meta' }, `${statuses[selected.shot.status]} · ${anchor?.label || selected.shot.role || '无角色'}`), anchor ? h('details', null, h('summary', null, '角色参考'), anchor.image_url ? h('img', { className: 'elysium-workbench-preview', src: anchor.image_url, alt: anchor.label, loading: 'lazy' }) : null, anchor.description ? h('p', null, anchor.description) : null) : null,
-        copy('动作', selected.shot.action), copy('字幕', selected.shot.subtitle), copy('备注', selected.shot.notes),
-        h('div', { className: 'elysium-card-actions' }, h('button', { disabled: busy || ['queued', 'running'].includes(selected.shot.status) || selected.shot.status === 'pending' && selected.shot.job_id, onClick: generateSelected }, selected.shot.status === 'failed' ? '恢复此镜任务' : selected.shot.job_id ? '重新生成此镜' : '生成此镜'), h(IconButton, { name: 'edit', label: '编辑镜头', disabled: busy, onClick: () => setEditing({ kind: 'shot', ...selected.shot }) }),
+        copy('动作', selected.shot.action), copy('场景与运镜', [selected.shot.scene, selected.shot.shot_size, selected.shot.camera].filter(Boolean).join(' · ')),
+        copy('定稿提示词', selected.shot.prompt), copy('字幕', selected.shot.subtitle), copy('备注', selected.shot.notes),
+        h('div', { className: 'elysium-card-actions' }, h('button', { disabled: busy || episode !== undefined && !selected.shot.prompt_finalized || ['queued', 'running'].includes(selected.shot.status) || selected.shot.status === 'pending' && selected.shot.job_id, onClick: generateSelected }, selected.shot.status === 'failed' ? '恢复此镜任务' : selected.shot.job_id ? '重新生成此镜' : '生成此镜'), h(IconButton, { name: 'edit', label: '编辑镜头', disabled: busy, onClick: () => setEditing({ kind: 'shot', ...selected.shot }) }),
         h('details', { className: 'elysium-icon-menu' }, h('summary', { 'aria-label': '更多操作', title: '更多操作' }, h(Icon, { name: 'more' })),
-          selected.shot.job_id && !['succeeded', 'cancelled'].includes(selected.shot.status) ? h('button', { disabled: busy, onClick: () => { if (window.confirm('仅当任务失败或 Driver 提示需要人工恢复时继续。确认恢复当前任务？')) run(async () => (await retryShot(project.id, selected.shot.job_id)).project) } }, '人工恢复当前任务') : null,
+          selected.shot.job_id && !['succeeded', 'cancelled'].includes(selected.shot.status) ? h('button', { disabled: busy, onClick: () => { if (window.confirm('仅当任务失败或 Driver 提示需要人工恢复时继续。确认恢复当前任务？')) run(async () => (await retryShot(project.id, selected.shot.job_id, episode)).project) } }, '人工恢复当前任务') : null,
           h('button', { disabled: busy, onClick: () => patchShot({ status: 'pending', notes: [selected.shot.notes, '待重拍'].filter(Boolean).join('\n') }) }, '标记待重拍'),
           h('button', { disabled: busy, onClick: () => { if (window.confirm('解除素材关联？旧素材仍保留在素材库。')) patchShot({ job_id: null, status: 'pending' }) } }, '解除素材关联'),
           h('button', { disabled: busy || selected.i === 0 || Boolean(state.role || state.status), onClick: () => move(-1), title: '当前幕内移动，筛选时不可用' }, '上移'),
           h('button', { disabled: busy || selected.i === project.acts[selected.a].shots.length - 1 || Boolean(state.role || state.status), onClick: () => move(1) }, '下移'), h('button', { disabled: busy, onClick: remove }, '移除镜头'))),
-        h('details', null, h('summary', null, '技术详情'), h('p', null, `模式：${selected.shot.mode}`), h('p', null, `任务 ID：${selected.shot.job_id || '未关联'}`))) : h('p', { className: 'elysium-empty' }, '选择一个镜头，查看画面与详情')),
+        h('details', null, h('summary', null, '技术详情'), h('p', null, `模式：${selected.shot.mode}`), h('p', null, `任务 ID：${selected.shot.job_id || '未关联'}`), h('p', null, `状态：${statuses[selected.shot.status]}`))) : h('p', { className: 'elysium-empty' }, '选择一个镜头，查看画面与详情')),
       editing ? h(Editor, { title: editing.kind === 'shot' ? '编辑镜头' : '编辑幕', initial: editing, fields: editing.kind === 'shot' ? shotFields : [['title', '幕标题']], guard, close: () => setEditing(null), save: async draft => {
         if (editing.kind === 'shot') {
-          const values = { ...draft, job_id: draft.job_id?.trim() || null }
-          if (values.job_id !== editing.job_id) values.status = 'pending'
-          const patch = Object.fromEntries(shotFields.map(([key]) => key).filter(key => values[key] !== editing[key]).map(key => [key, values[key]]))
+          const patch = Object.fromEntries(shotFields.map(([key]) => key).filter(key => draft[key] !== editing[key]).map(key => [key, draft[key]]))
           return patchShot(patch, editing.id)
         }
         return commitActs(editing.kind === 'new-act' ? [...project.acts, { title: draft.title, shots: [] }] : project.acts.map((act, a) => a === actIndex ? { ...act, title: draft.title } : act))

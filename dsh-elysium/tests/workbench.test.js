@@ -10,7 +10,8 @@ function fixture({ saved = {}, media = { token: 't', base: '/media', projectBase
   const modules = new Map(), cache = new Map()
   runInNewContext(clientSource(), { window: { innerWidth: 2000, __ELYSIUM_MEDIA__: media, __ModuleLoader__: { load: item => modules.set(item.id, item.factory) }, addEventListener() {}, removeEventListener() {} }, URLSearchParams, URL, AbortController, setTimeout, clearTimeout,
     document: { body: { style: {}, setAttribute() {}, removeAttribute() {} }, documentElement: { style: { setProperty() {}, removeProperty() {} } }, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }, localStorage: { getItem: () => JSON.stringify(saved), setItem() {} },
-    fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') ? project : url.startsWith('/media/status') ? status
+    fetch: async url => { requests.push(url); return { ok: true, json: async () => url.startsWith('/project/list') ? [project] : url.startsWith('/project/get') || url.startsWith('/project/episode') ? project
+      : url.startsWith('/project/plan-read') ? { series: { versions: [], finalized: null }, outline: { versions: [], finalized: null }, episodes: {} } : url.startsWith('/media/status') ? status
       : url.startsWith('/settings/models') ? { revision: 0, models: { image: [], video: [] }, selected: { image: '', video: '' } } : { items: [], total: 0 } } } })
   const require = name => { if (name === 'react') return React; if (!cache.has(name)) cache.set(name, modules.get(name)(require)); return cache.get(name) }
   return { require }
@@ -54,6 +55,7 @@ test('full workbench enters project, retains selected shot across tab switch and
   await act(async () => view.root.findByProps({ 'aria-label': '打开创作工作台' }).props.onClick())
   assert.equal(view.root.findAllByProps({ 'aria-label': '继续制作 项目' }).length, 0)
   await act(async () => view.root.findByProps({ 'aria-label': '打开项目 项目' }).props.onClick())
+  await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '分镜').props.onClick())
   assert.equal(view.root.findAllByProps({ className: 'elysium-shot-row' }).length, 1)
   await act(async () => view.root.findByProps({ 'aria-label': '镜 001' }).props.onClick())
   await act(async () => view.root.findAllByType('button').find(x => x.children.join('') === '素材').props.onClick())

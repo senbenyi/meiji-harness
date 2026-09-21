@@ -76,21 +76,19 @@ dsh-elysium/
 ```
 harness/.dsh/.agent-presets/
 ├── _base/                  # 公共基础 cordis 配置
-│   └── agent.cordis.yml    # 共享模板（free/director 共用）
+│   └── agent.cordis.yml    # 极乐世界预设的基础配置
 ├── elysium-free/
 │   ├── preset.yml          # 名称、描述、排序
 │   ├── agent.cordis.yml    # → ../_base/agent.cordis.yml（符号链接）
-│   ├── persona.md          # 人设提示词
-│   └── rules.md            # 行为规则
-├── elysium-director/       # 同上结构
+│   ├── persona.md          # 简短身份说明
+│   └── rules.md            # 按需加载 Skill
 └── elysium-standard/       # 独立 cordis（原生完整工具）
     ├── preset.yml
     └── agent.cordis.yml
 ```
 
 **规则**：
-- free/director 两个预设共享同一份 `agent.cordis.yml`，通过符号链接指向 `_base/agent.cordis.yml`。
-- free/director 使用相同的创作行为；free 保存到不可见内部工作区，director 创建或复用用户项目。
+- `elysium-free` 通过符号链接使用 `_base/agent.cordis.yml`；预设不含创作业务规则，业务流程由 Skill 定义。
 - 修改共享配置只改 `_base/agent.cordis.yml` 一处。
 - elysium-standard 保持独立配置（工具集不同）。
 - 预设目录不保留空 `skills/` 目录；仅在有实际技能文件时创建。
@@ -107,7 +105,7 @@ harness/.dsh/               # 可直接覆盖的 Harness 主目录模板
 **规则**：
 - `harness/.dsh/` 逐项覆盖到本机 `~/.dsh/`，不删除本机其他文件。
 - Elysium 的项目、任务、上传、导演、服务器、模型选择和平台配置统一位于 `$DSH_HOME/storages/elysium`；未显式覆盖的运行路径不得读写 `~/.elysium`。
-- Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`（导演库 `directors.json`、素材库索引 `materials.json`），项目拥有的任务、回执和媒体随项目归 `projects/`，任务驱动状态归 `runtime/`，导入原件归 `uploads/`。
+- Elysium 根目录只包含 `config/`、`pools/`、`projects/`、`runtime/`、`uploads/` 五类业务目录：配置和凭据归 `config/`，跨项目主数据归 `pools/`（标准 Skill 目录 `skills/`，含导演 Skill 与 `drama-planning`；素材库索引 `materials.json`），项目拥有的任务、回执和媒体随项目归 `projects/`，任务驱动状态归 `runtime/`，导入原件归 `uploads/`。
 - `pools/materials.json` 只保存全局素材的身份、来源和删除状态；媒体实体不复制，仍保留在所属 `projects/` 或 `uploads/`。各项目的 `materials.json` 只保存项目引用。
 - 一级目录路径统一由 `src/database/paths.js` 构造；业务模块不得自行拼接一级目录。Harness 会话日志是工具调用与任务结果的事实源，插件不得重复持久化调用索引。
 - 部署脚本不检查模型服务、SSH、端口或运行状态。

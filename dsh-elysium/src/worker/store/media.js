@@ -5,8 +5,9 @@ import { closeFile, constants, createWriteStream, managedFile, mkdir, open, read
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { extname, join, relative, sep } from 'node:path'
-import { projectRoot, validProjectId, validJobId } from './paths.js'
+import { jobRoot, projectRoot, validProjectId, validJobId } from './paths.js'
 import { withLaunchLock } from './lock.js'
+import { saveStatus } from './status.js'
 
 const formats = { '.png': ['image', 'image/png'], '.jpg': ['image', 'image/jpeg'], '.jpeg': ['image', 'image/jpeg'], '.webp': ['image', 'image/webp'], '.mp4': ['video', 'video/mp4'], '.srt': ['file', 'application/x-subrip; charset=utf-8'] }
 const failure = (status, message) => Object.assign(new Error(message), { status })
@@ -38,7 +39,7 @@ export async function openLocalMedia(job) {
       const stat = await statOpenedFile(handle)
       if (!stat.isFile()) throw failure(403, '本地媒体不是普通文件')
       if (stat.size !== record.size_bytes) throw failure(409, '本地媒体大小与登记不符')
-      return { ...value, handle: managedFile(handle), size: stat.size, etag: `"${stat.size}-${stat.mtimeMs}"` }
+      return { ...value, absolutePath: path, handle: managedFile(handle), size: stat.size, etag: `"${stat.size}-${stat.mtimeMs}"` }
     } catch (error) { await closeFile(handle); throw error }
   } catch (error) {
     if (error.code === 'ENOENT') throw failure(404, '本地媒体文件或登记缺失，请重新安装完整模板')
@@ -49,6 +50,20 @@ export async function openLocalMedia(job) {
 export const readLocalMedia = ({ handle }) => handle.readFile()
 export const streamLocalMedia = ({ handle }, options) => handle.createReadStream({ autoClose: false, ...options })
 export const closeLocalMedia = ({ handle }) => handle.close()
+
+export async function localMediaInput(job) {
+  const media = await openLocalMedia(job)
+  try { return media.absolutePath }
+  finally { await closeLocalMedia(media) }
+}
+
+export async function saveFilmJob(projectId, jobId, result) {
+  const directory = jobRoot(jobId)
+  await mkdir(directory, { recursive: true })
+  const existing = await readJson(join(directory, 'status.json'))
+  if (existing?.status === 'succeeded' && existing.project_id === projectId && existing.result?.local_media_path === result.local_media_path) return existing
+  return saveStatus(directory, { job_id: jobId, project_id: projectId, backend: 'film', status: 'succeeded', stage: 'completed', result })
+}
 
 // 在项目媒体清单中登记产物；同一任务重复登记时替换旧记录。
 export async function registerMedia(projectId, jobId, path, kind) {
@@ -63,10 +78,10 @@ export async function registerMedia(projectId, jobId, path, kind) {
 }
 
 // 将下载流原子写入 media/<jobId><extension> 并登记。
-export async function saveMedia(projectId, jobId, body, { extension, kind }) {
+export async function saveMedia(projectId, jobId, body, { extension, kind, complete }) {
   const path = `media/${jobId}${extension}`, file = join(projectRoot(projectId), path)
   await mkdir(join(projectRoot(projectId), 'media'), { recursive: true })
-  try { await pipeline(Readable.fromWeb(body), createWriteStream(file + '.tmp', { mode: 0o600 })); await rename(file + '.tmp', file) }
+  try { await pipeline(Readable.fromWeb(body), createWriteStream(file + '.tmp', { mode: 0o600 })); if (complete) await complete; await rename(file + '.tmp', file) }
   finally { await rm(file + '.tmp', { force: true }) }
   return registerMedia(projectId, jobId, path, kind)
 }

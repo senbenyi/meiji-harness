@@ -1,14 +1,13 @@
 // 职责：根据 Agent 类型和会话状态投影本次请求可见的工具与提示词；不注册或执行工具。
 import { toolsConfig } from '../config.js'
 import { loadedToolNames, videoFailedThisTurn } from './events.js'
-import { isElysiumAgent, isElysiumProjectAgent } from './presets.js'
+import { isElysiumAgent } from './presets.js'
 import { creationInstructions } from './prompts.js'
 
 // 可按需加载的 Harness 通用工具组由发布配置声明；这里只消费配置，不改变工具权限。
 const deferred = new Set(Object.values(toolsConfig).flatMap(group => group.names))
 const alwaysVisible = new Set(['exit_plan_mode'])
 const sectionTools = { 'tool:jobs': toolsConfig.shell.names, 'tool:goal': toolsConfig.planning.names }
-const projectTool = name => /^call_tools_(director|project)_/.test(name)
 const withCreationInstructions = assembly => ({ ...assembly, sections: [...assembly.sections.filter(section => section.name !== 'elysium:creation-policy'),
   { name: 'elysium:creation-policy', text: creationInstructions }] })
 
@@ -22,8 +21,7 @@ export function createCallToolsForAgent(assembly, agent) {
   if (videoFailedThisTurn(events)) return withCreationInstructions({ ...assembly, tools: [], sections: [...assembly.sections,
     { name: 'elysium:video-failed-stop', text: '视频任务已失败。本轮立即结束并报告失败；等待用户新消息明确要求重试，不得继续调用任何工具。' }] })
   const loaded = loadedToolNames(events)
-  const project = isElysiumProjectAgent(agent)
-  const tools = assembly.tools.filter(tool => (project || tool.name === 'call_tools_director_list' || !projectTool(tool.name)) && (!deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name)))
+  const tools = assembly.tools.filter(tool => !deferred.has(tool.name) || alwaysVisible.has(tool.name) || loaded.has(tool.name))
   const visible = new Set(tools.map(tool => tool.name))
   const available = new Set(assembly.tools.map(tool => tool.name))
   const catalog = Object.entries(toolsConfig).flatMap(([id, group]) => {

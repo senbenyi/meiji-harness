@@ -90,7 +90,7 @@ test('assets require authentication, paginate successful jobs by mtime and accep
 
 test('uploaded images and videos preview locally, persist, delete and only images become anchors', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-upload-'))
-  await withConfig({ ELYSIUM_STATE_ROOT: root }, () => createDirectorStore().create({ name: '姜文', style: '测试风格', works: [] }))
+  const director = await withConfig({ ELYSIUM_STATE_ROOT: root }, () => createDirectorStore().create({ display_name: '姜文' }))
   const media = createMediaHandler({ token: 't' }), projects = createProjectHandler({ token: 't' })
   const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => req.url.startsWith(PROJECT_ROUTE) ? projects(req, res) : media(req, res)))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -128,7 +128,7 @@ test('uploaded images and videos preview locally, persist, delete and only image
     const imported = JSON.parse(await readFile(catalogPath, 'utf8')).materials
     assert.deepEqual(imported.map(item => item.job_id).sort(), [image.job_id, video.job_id].sort())
     assert.ok(imported.every(item => item.source === 'import' && !item.deleted && item.project_id === undefined))
-    const project = await (await projectRequest('create', { title: '图片锚点', director: '姜文', profile: 'preview' })).json()
+    const project = await (await projectRequest('create', { title: '图片锚点', director: director.name, profile: 'preview', cover_job_id: image.job_id })).json()
     const inserted = await projectRequest('import', { id: project.id, as: 'anchor', job_id: image.job_id })
     assert.equal(inserted.status, 200)
     const anchor = (await inserted.json()).anchors[0]

@@ -1,85 +1,47 @@
-// 职责：校验并持久化全局导演库。
-import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, rename, rm, writeFile } from '../files.js'
-import { join } from 'node:path'
-import { poolsRoot } from '../paths.js'
+// 职责：以标准 Skill 为导演的唯一存储形式，提供列表、全文编辑和排序。
+import { randomBytes } from 'node:crypto'
+import { createSkillsStore, parseSkill } from './skills.js'
 import { statusError } from '../../utils/errors.js'
 
-const invalidRequest = message => statusError(400, message)
-
-function directorValue(value) {
-  if (!value || typeof value.name !== 'string' || !value.name.trim() || value.name.length > 80 ||
-    typeof value.style !== 'string' || !value.style.trim() || value.style.length > 1000) throw invalidRequest('请填写导演名称和风格')
-  const works = Array.isArray(value.works) ? value.works.map(String) : typeof value.works === 'string' ? [value.works] : []
-  return { name: value.name.trim(), style: value.style.trim(), works }
-}
+const invalid = message => statusError(400, message)
+const summary = item => ({ name: item.name, display_name: item.metadata?.display_name || item.name,
+  description: item.description, order: item.metadata?.order ?? 0 })
 
 export function createDirectorStore() {
-  const root = poolsRoot
-  const path = () => join(root(), 'directors.json')
-  let operations = Promise.resolve()
-
-  function enqueue(action) {
-    const operation = operations.then(action)
-    operations = operation.catch(() => {})
-    return operation
+  const skills = createSkillsStore()
+  const list = async () => (await skills.list('director')).map(summary)
+  const has = async name => (await list()).some(item => item.name === name)
+  const get = async name => {
+    const item = await skills.get(name)
+    if (item.metadata?.kind !== 'director') throw invalid('导演 Skill 不存在')
+    return { ...summary(item), content: item.content }
   }
-
-  async function write(value) {
-    await mkdir(root(), { recursive: true })
-    const temporary = `${path()}.${randomUUID()}.tmp`
-    try { await writeFile(temporary, JSON.stringify(value), { mode: 0o600 }); await rename(temporary, path()) }
-    finally { await rm(temporary, { force: true }) }
+  const save = async ({ name, content }) => {
+    if (parseSkill(content).metadata?.kind !== 'director') throw invalid('导演 Skill 的 metadata.kind 必须为 director')
+    const item = await skills.save(name, content)
+    return { ...summary(item), content: item.content }
   }
-
-  async function load() {
-    try {
-      const value = JSON.parse(await readFile(path(), 'utf8'))
-      if (!Array.isArray(value)) throw new Error('导演库格式无效')
-      return value.map(directorValue)
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error
-      const value = []
-      await write(value)
-      return value
+  const create = async ({ display_name, description }) => {
+    if (typeof display_name !== 'string' || !display_name.trim() || description !== undefined && typeof description !== 'string') throw invalid('请输入导演显示名和描述')
+    const name = `director-${randomBytes(4).toString('hex')}`
+    const content = `---\nname: ${name}\ndescription: ${JSON.stringify(description?.trim() || display_name.trim() + '的导演风格')}\nmetadata:\n  kind: director\n  display_name: ${JSON.stringify(display_name.trim())}\n  order: ${(await list()).length}\n---\n\n# ${display_name.trim()}\n\n## 风格与题材\n\n## 叙事节奏\n\n## 人物塑造\n\n## 镜头语言\n\n## 声音与对白\n\n## 禁忌\n`
+    return save({ name, content })
+  }
+  const reorder = async names => {
+    const items = await list()
+    if (!Array.isArray(names) || names.length !== items.length || new Set(names).size !== items.length || names.some(name => !items.some(item => item.name === name))) throw invalid('导演排序无效')
+    for (const [order, name] of names.entries()) {
+      const item = await get(name)
+      const content = item.content.replace(/(^metadata:\n(?:  .*\n)*?  order: )[^\n]*/m, `$1${order}`)
+      if (content === item.content && item.order !== order) throw invalid('导演 Skill 缺少 metadata.order')
+      if (item.order !== order) await save({ name, content })
     }
+    return list()
   }
-
-  const list = () => enqueue(load)
-  const has = name => enqueue(async () => (await load()).some(item => item.name === name))
-  const create = value => enqueue(async () => {
-    const director = directorValue(value), items = await load()
-    if (items.some(item => item.name === director.name)) throw invalidRequest('导演名称已存在')
-    await write([...items, director])
-    return director
-  })
-  const update = value => enqueue(async () => {
-    const director = directorValue(value), items = await load()
-    const index = items.findIndex(item => item.name === director.name)
-    if (index < 0) throw invalidRequest('导演不存在')
-    items[index] = director
-    await write(items)
-    return director
-  })
-  const reorder = names => enqueue(async () => {
-    const items = await load()
-    if (!Array.isArray(names) || names.length !== items.length || names.some(name => typeof name !== 'string') ||
-      new Set(names).size !== items.length || names.some(name => !items.some(item => item.name === name))) throw invalidRequest('导演排序无效')
-    const byName = new Map(items.map(item => [item.name, item]))
-    const ordered = names.map(name => byName.get(name))
-    await write(ordered)
-    return ordered
-  })
   const remove = async (name, inUse = async () => false) => {
-    if (typeof name !== 'string' || !name.trim()) throw invalidRequest('导演名称无效')
-    if (await inUse(name)) throw invalidRequest('该导演已被项目使用，不能删除')
-    return enqueue(async () => {
-      const items = await load(), index = items.findIndex(item => item.name === name)
-      if (index < 0) throw invalidRequest('导演不存在')
-      await write(items.filter((_, itemIndex) => itemIndex !== index))
-      return { deleted: true }
-    })
+    await get(name)
+    if (await inUse(name)) throw invalid('该导演已被项目使用，不能删除')
+    return skills.remove(name)
   }
-
-  return { list, has, create, update, reorder, remove }
+  return { list, has, get, save, create, reorder, remove }
 }
