@@ -8,10 +8,10 @@
 
 - series：总览。人物只用这里的角色名。
 - episode：本集序号。
-- numbered_lines：带临时序号的本集剧本行，例如“1. 动作：……”。序号只用于告诉代码镜头从哪一行开始，不会保存。
-- scenes：每场的场号、场景、人物、first_line 与 last_line；行号对应 numbered_lines，整集分镜必须覆盖所有 first_line。
+- numbered_lines：带临时序号的本集剧本行，例如“1. 动作：……”。镜头起始行只取这里的序号；场标题、空行不计入序号，不能按原 Markdown 的物理行号推算。序号不会保存。
+- scenes：每场的场号、场景、人物、first_line 与 last_line。first_line 是该场第一条 numbered_lines 的序号，整集输出必须包含每一个 first_line 对应的镜头块。例如两场分别覆盖 1–6、7–13 行，即使第二场标题位于 Markdown 第 9 行，第二场的镜头也必须从第 7 行开始，不能从第 8 行开始。
 - target_shot：单镜重写时提供目标 ID、first_line 与时长；只能输出这一个起始行的镜头，不能重新规划整集。
-- correction：校验失败时提供原输出与错误，按错误修正后返回完整结果。
+- correction：校验失败时提供原输出与错误；先核对 scenes 的每个 first_line，再修正并返回完整结果。
 - requirements：补充要求（可为空）。
 
 ## 输出格式
@@ -31,7 +31,8 @@
 
 - 第一个镜头必须从第 1 行开始。
 - 起始行号严格递增；一个镜头覆盖从它的起始行到下一个镜头起始行之前的所有行。
-- 每一场的第一行必须是某个镜头的起始行，镜头不能跨场。
+- 先按 scenes 为每个 first_line 安排一个镜头块，再在各场 first_line 与 last_line 之间添加需要的切镜；不得省略或改写任何 first_line，镜头不能跨场。最后按起始行号排序输出，不输出规划过程。
+- 音效行、台词行和动作行都占一个 numbered_lines 序号。若新场的 first_line 是“音效：…”，仍必须在这一行开镜；视频和首帧描述该场当时可见的环境、人物或随后动作，不把音效写成画面，也不能把这一行归入上一场的镜头。
 - 每块三行：标题行、视频行、首帧行，顺序固定，视频和首帧各自一行写完。
 - 单镜重写时只输出一个镜头块。
 
@@ -48,7 +49,7 @@
 
 ## 质量自查
 
-- [ ] 第一个镜头从第 1 行开始，每场首行都是镜头起点，起始行号递增。
+- [ ] 把 scenes 的全部 first_line 与输出标题中的起始行号逐一核对：每个 first_line（包括音效行）都有镜头；若 first_line 为 1、7，输出标题必须同时有“从第 1 行”和“从第 7 行”，不能用第 8 行替代。
 - [ ] 每块正好三行，格式与上面一致。
 - [ ] 人物只用总览角色名，主体在第一位。
 - [ ] 视频时间段首尾相接、不超出时长；没有台词原文。
@@ -73,6 +74,6 @@
 ### 从第 6 行｜特写｜缓推｜5 秒｜人物：顾川、林晚
 视频：【0–2 秒】顾川把旧伞递向林晚，伞柄上的褪色丝带晃动；【2–5 秒】镜头推近伞柄，顾川在 3 秒处开口。
 首帧：Close-up of a man's hand holding out an old umbrella with a faded ribbon on the handle toward a young woman, shallow depth of field, cool blue light, vertical 9:16 composition.
-### 从第 8 行｜近景｜缓推｜6 秒｜人物：林晚
-视频：【0–3 秒】林晚坐在书店窗边翻过信封；【3–6 秒】镜头推近信封背面的字迹，她的手指停住，5 秒处开口。
+### 从第 7 行｜近景｜缓推｜6 秒｜人物：林晚
+视频：【0–3 秒】旧书店内，林晚坐在窗边翻过信封；【3–6 秒】镜头推近信封背面的字迹，她的手指停住，5 秒处开口。
 首帧：A young woman in a cream cardigan sits by a bookstore window holding a yellowed envelope, warm lamp light, bookshelves behind her, medium close shot, vertical 9:16 composition.

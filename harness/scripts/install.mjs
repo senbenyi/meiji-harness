@@ -2,7 +2,7 @@
 
 // 职责：安装 Harness、覆盖仓库托管的 Harness 配置，并安装 Elysium 插件包。
 import { existsSync } from 'node:fs'
-import { cp, mkdir, rm } from 'node:fs/promises'
+import { cp, mkdir, readdir, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { delimiter, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -19,6 +19,7 @@ const harnessRoot = resolve(scriptsRoot, '..')
 const repoRoot = resolve(harnessRoot, '..')
 const source = join(harnessRoot, '.dsh')
 const target = dshHome()
+const hongKong = process.env.DSH_INSTALL_ENV === 'hk'
 const plugin = join(repoRoot, 'dsh-elysium')
 const webProfile = join(target, 'profiles', 'web')
 const pnpmBin = process.env.PNPM_HOME || join(homedir(), process.platform === 'darwin' ? 'Library/pnpm' : '.local/share/pnpm')
@@ -28,19 +29,28 @@ const hasCommand = name => pathWithPnpm.split(delimiter).some(directory => direc
 
 if (!hasCommand('dsh')) {
   await mkdir(pnpmBin, { recursive: true })
-  run('pnpm', ['add', '-g', '@deepseek-ai/dsh'], { env: { ...process.env, PNPM_HOME: pnpmBin, PATH: pathWithPnpm } })
+  run('pnpm', ['add', '-g', '@deepseek-ai/dsh@0.1.2-rc.1'], { env: { ...process.env, PNPM_HOME: pnpmBin, PATH: pathWithPnpm } })
 }
 
 await mkdir(target, { recursive: true })
+if (hongKong) {
+  const skills = join(source, 'storages', 'elysium', 'pools', 'skills')
+  for (const name of await readdir(skills)) {
+    const installed = join(target, 'storages', 'elysium', 'pools', 'skills', name)
+    if (!existsSync(installed)) continue
+    try { run('diff', ['-qr', join(skills, name), installed], { stdio: 'pipe' }) }
+    catch { throw new Error(`香港已有同名 Skill 且内容不同，停止安装：${name}`) }
+  }
+}
 await rm(join(target, '.agent-presets', 'elysium-teaching'), { recursive: true, force: true })
 await rm(join(target, '.agent-presets', 'elysium-director'), { recursive: true, force: true })
 for (const entry of ['.agent-presets', 'profiles', 'settings.yaml', 'storages/elysium/pools/skills']) {
-  await cp(join(source, entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
+  await cp(join(source, entry === 'settings.yaml' && hongKong ? 'settings.hk.yaml' : entry), join(target, entry), { recursive: true, force: true, verbatimSymlinks: true })
 }
 
 run('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], { cwd: plugin })
 run('pnpm', ['build'], { cwd: plugin })
 run('pnpm', ['package:registry'], { cwd: plugin })
-run('pnpm', ['add', '--workspace-root', join(plugin, 'registry')], { cwd: webProfile })
+run('pnpm', ['add', ...(existsSync(join(webProfile, 'pnpm-workspace.yaml')) ? ['--workspace-root'] : []), join(plugin, 'registry')], { cwd: webProfile })
 
 console.log('安装完成，请运行 node harness/scripts/start.mjs')

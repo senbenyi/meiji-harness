@@ -1,0 +1,41 @@
+# 用户运行设置：香港 Harness 使用反向端口的本机入口。
+llm-pi-ai:
+  providers:
+    qwen38-local:
+      displayName: qwen3.8
+      baseURL: http://127.0.0.1:28000/v1
+      apiKeyEnv: QWEN38_LOCAL_API_KEY
+      api: openai-completions
+      compat:
+        supportsDeveloperRole: false
+        maxTokensField: max_tokens
+        thinkingFormat: qwen-chat-template
+      models:
+        - id: qwen3.8-27b-elysium
+          name: qwen3.8
+          contextWindow: 65536
+          maxTokens: 4096
+          reasoningEfforts:
+            'off':
+            high: high
+          input:
+            - text
+
+agent-default-model:
+  provider: qwen38-local
+  model: qwen3.8-27b-elysium
+
+permission:
+  defaultPreset: danger-full-access
+
+agent-presets:
+  default: elysium-free
+
+dsh-better-sidebar:
+  tabsEnabled:
+    browser: true
+    git: true
+  agentOpenTools: true
+
+ui-conversation:
+  busyEnter: steer
