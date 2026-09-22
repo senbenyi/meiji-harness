@@ -112,3 +112,25 @@ export function insertStoryboard(script, output) {
   })
   return source.map((line, index) => byIndex.has(index) ? `${byIndex.get(index)}\n${line}` : line).join('\n')
 }
+
+// 文档进入生成链或生产链前的共同验收；不猜测或替换角色、场景名称。
+export function validateScript(series, parsed, { storyboard = false } = {}) {
+  if (!series) throw invalid(1, '请先生成总览')
+  const scenes = new Set(series.scenes.map(item => item.name)), roles = new Set(series.characters.map(item => item.name))
+  if (!parsed.scenes.length || !parsed.lines.length) throw invalid(1, '剧本不能为空')
+  for (const scene of parsed.scenes) {
+    if (!scenes.has(scene.name)) throw invalid(scene.start + 1, `场景「${scene.name}」不在总览中，可用场景：${[...scenes].join('、')}`)
+    for (const name of scene.roles) if (!roles.has(name)) throw invalid(scene.start + 1, `角色「${name}」不在总览中`)
+  }
+  for (const line of parsed.lines) {
+    const speaker = /^(.+?)（[^）]+）：/.exec(line.text.trim())?.[1]
+    if (speaker && !roles.has(speaker)) throw invalid(line.index + 1, `说话人「${speaker}」不在总览中`)
+    if (storyboard && !line.shot_id) throw invalid(line.index + 1, '剧本行未入镜')
+  }
+  for (const shot of parsed.shots) {
+    for (const name of shot.roles || []) if (!roles.has(name)) throw invalid(shot.start + 1, `镜头角色「${name}」不在总览中`)
+    if (storyboard && (!shot.video.trim() || !shot.keyframe.trim() || !shot.lines.length || shot.duration < 1)) throw invalid(shot.start + 1, `镜头 ${shot.id} 缺少提示词、剧本行或有效时长`)
+  }
+  if (storyboard && !parsed.shots.length) throw invalid(1, '剧本还没有分镜')
+  return parsed
+}

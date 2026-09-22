@@ -77,13 +77,18 @@ export function createProjectStore({ removeTasks = async () => {}, newId = idNow
     }
     return items.sort((a, b) => b.updated_at - a.updated_at)
   })
-  const saveDoc = (id, kind, markdown, number) => enqueue(async () => {
+  const saveDoc = (id, kind, markdown, number, { expected, updateState } = {}) => enqueue(async () => {
     if (typeof markdown !== 'string' || markdown.length > 500000) throw invalid('文档内容无效')
     const path = kind === 'project' ? join(dir(id), 'project.md') : kind === 'series' ? join(dir(id), 'series.md')
       : kind === 'script' ? join(episodeDir(id, number), 'script.md') : null
     if (!path) throw invalid('文档类型无效')
     await readFile(join(dir(id), 'project.md'))
+    if (expected !== undefined && await readText(path) !== expected) throw statusError(409, '文档已变化，请刷新后重试')
     if (kind === 'script') await mkdir(episodeDir(id, number), { recursive: true })
+    if (updateState) {
+      const state = await readState(id), before = JSON.stringify(state), next = stateValue(updateState(state))
+      if (JSON.stringify(next) !== before) await writeState(id, next)
+    }
     await atomic(path, markdown)
     changed.set(id, Date.now())
     return load(id)

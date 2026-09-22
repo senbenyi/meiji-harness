@@ -101,7 +101,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
     const completed = project.episodes.reduce((sum, item) => sum + item.shots.filter(shot => shot.status === 'succeeded').length, 0)
     const lead = project.series?.characters.filter(item => item.lead).map(item => item.name).join('、')
     const auto = project.auto, status = auto.paused ? 'paused' : auto.task ? 'active' : count && films === count ? 'completed' : null
-    const primary = auto.task ? ['⏸ 暂停', () => run(() => pauseAuto(id))] : [auto.paused ? '继续生产' : '▶ 一键生产', () => run(() => startProduce(id))]
+    const primary = auto.task && !auto.paused ? ['⏸ 暂停', () => run(() => pauseAuto(id))] : [auto.paused ? '继续生产' : '▶ 一键生产', () => run(() => startProduce(id))]
     return h('div', { className: 'elysium-project-detail' },
       h('header', { className: 'elysium-project-heading' },
         h(IconButton, { name: 'back', label: '返回项目', onClick: back }),
@@ -153,7 +153,7 @@ window.__ModuleLoader__.load({ id: 'elysium/projects', factory: require => {
         h('div', { className: 'elysium-project-card-side' }, h(Badge, { status: item.status }),
           h(Menu, { label: `${item.title} 更多操作`, items: [
             ['🤖 一键补全空白内容', () => act(() => startFill(item.id))],
-            item.running ? ['⏸ 暂停生产', () => act(() => pauseAuto(item.id))] : [item.paused ? '继续生产' : '▶ 一键生产', () => act(() => startProduce(item.id))],
+            item.running && !item.paused ? ['⏸ 暂停生产', () => act(() => pauseAuto(item.id))] : [item.paused ? '继续生产' : '▶ 一键生产', () => act(() => startProduce(item.id))],
             item.film_count ? ['⬇ 下载全部成片', () => download(downloadFilmsUrl(item.id))] : null,
             ['删除项目', () => remove(item), true]] }))))))
   }

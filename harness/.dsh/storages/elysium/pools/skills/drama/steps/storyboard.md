@@ -9,6 +9,9 @@
 - series：总览。人物只用这里的角色名。
 - episode：本集序号。
 - numbered_lines：带临时序号的本集剧本行，例如“1. 动作：……”。序号只用于告诉代码镜头从哪一行开始，不会保存。
+- scenes：每场的场号、场景、人物、first_line 与 last_line；行号对应 numbered_lines，整集分镜必须覆盖所有 first_line。
+- target_shot：单镜重写时提供目标 ID、first_line 与时长；只能输出这一个起始行的镜头，不能重新规划整集。
+- correction：校验失败时提供原输出与错误，按错误修正后返回完整结果。
 - requirements：补充要求（可为空）。
 
 ## 输出格式

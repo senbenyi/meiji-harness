@@ -5,7 +5,7 @@ import { validEpisode, validProjectId, validShotId } from './schema.js'
 import { statusError } from '../../utils/errors.js'
 import { createPlanningService } from './planning.js'
 import { compileShot, shotRoles } from './compile.js'
-import { parseProject, parseScript, parseSeries } from './documents.js'
+import { parseProject, parseScript, parseSeries, validateScript } from './documents.js'
 import { createHash } from 'node:crypto'
 import { availableJobSummary } from '../media/catalog.js'
 import { validJobId } from '../../database/schemas/projects.js'
@@ -21,7 +21,8 @@ function view(raw) {
   const project = parseProject(raw.project_text), series = parseSeries(raw.series_text)
   const episodes = raw.episodes.map(item => {
     const parsed = parseScript(item.script)
-    return { ...item, scenes: parsed.scenes, shots: parsed.shots.map(shot => ({ ...shot, cast: shot.roles?.length ? shot.roles : shotRoles(series?.characters || [], shot.lines), ...(raw.state.episodes[item.number]?.shots?.[shot.id] ||
+    const storyboardReady = Boolean(parsed.shots.length && parsed.lines.every(line => line.shot_id) && parsed.shots.every(shot => shot.video.trim() && shot.keyframe.trim() && shot.lines.length && shot.duration > 0))
+    return { ...item, storyboard_ready: storyboardReady, scenes: parsed.scenes, shots: parsed.shots.map(shot => ({ ...shot, cast: shot.roles?.length ? shot.roles : shotRoles(series?.characters || [], shot.lines), ...(raw.state.episodes[item.number]?.shots?.[shot.id] ||
       { take: 0, keyframe_job_id: null, job_id: null, status: 'pending' }) })) }
   })
   return { ...raw, ...project, series, episodes, anchors: raw.state.anchors, auto: raw.state.auto }
@@ -38,7 +39,25 @@ export function createProjectStore(options = {}) {
       film_task: episode?.film_task || null }
   }
   store.change = async (action, body) => action === 'delete' ? rawChange(action, body) : view(await rawChange(action, body))
-  store.saveDoc = async (id, step, markdown, number) => view(await rawSave(id, step, markdown, number))
+  store.saveDoc = async (id, step, markdown, number) => {
+    const current = await store.read(id)
+    if (step === 'script') validateScript(current.series, parseScript(markdown))
+    if (step === 'series') for (const episode of current.episodes) if (episode.script.trim()) validateScript(parseSeries(markdown), parseScript(episode.script))
+    if (step !== 'script') return view(await rawSave(id, step, markdown, number))
+    const previous = current.episodes.find(item => item.number === number)
+    const before = parseScript(previous?.script || '').shots, after = parseScript(markdown).shots
+    const signature = shot => shot && JSON.stringify([shot.scene, shot.roles, shot.size, shot.camera, shot.duration, shot.video, shot.keyframe, shot.lines.map(line => line.text)])
+    const changed = new Set([...before, ...after].map(shot => shot.id).filter(id => signature(before.find(shot => shot.id === id)) !== signature(after.find(shot => shot.id === id))))
+    if (previous?.shots.some(shot => changed.has(shot.id) && running(shot))) throw statusError(409, '镜头正在生成，请完成后再修改')
+    return view(await rawSave(id, step, markdown, number, { expected: previous?.script || '', updateState: state => {
+      const episode = state.episodes[number]
+      if (episode && changed.size) {
+        for (const id of changed) if (episode.shots[id]) episode.shots[id] = { take: (episode.shots[id].take || 0) + 1, job_id: null, keyframe_job_id: null, status: 'pending' }
+        episode.film_task = null; episode.film = null
+      }
+      return state
+    } }))
+  }
   store.changeState = async (id, update) => view(await rawState(id, update))
   for (const method of ['changeShot', 'changeAuto', 'changeAnchor', 'requestEpisodeFilm', 'updateEpisodeFilmTask', 'addEpisodeFilm']) {
     const original = store[method]
@@ -96,9 +115,18 @@ export function createProjectStore(options = {}) {
   }
   store.produceEpisode = async ({ id, episode }) => {
     const current = await store.readEpisode(id, episode)
-    if (!current.shots.length) throw statusError(409, '本集还没有分镜')
+    validateScript(current.series, parseScript(current.script), { storyboard: true })
+    for (const shot of current.shots) compileShot(current.series, shot, current.anchors)
     for (const shot of current.shots) if (!shot.job_id) await store.produceShot({ project_id: id, episode, shot_id: shot.id })
     return store.readEpisode(id, episode)
+  }
+  store.validateProduction = async (id, { anchors = true } = {}) => {
+    const project = await store.read(id)
+    for (const item of project.series.episodes) {
+      const episode = project.episodes.find(ep => ep.number === item.number)
+      validateScript(project.series, parseScript(episode?.script || ''), { storyboard: true })
+      if (anchors) for (const shot of episode.shots) compileShot(project.series, shot, project.anchors)
+    }
   }
   store.startFill = ({ id }) => store.changeAuto(id, auto => ({ ...auto, task: 'fill', paused: null, attempts: {} }))
   store.startProduce = ({ id }) => store.changeAuto(id, auto => ({ ...auto, task: 'produce', paused: null, attempts: {} }))

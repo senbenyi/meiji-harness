@@ -104,7 +104,7 @@ window.__ModuleLoader__.load({ id: 'elysium/episode', factory: require => {
     const composing = ['pending', 'running'].includes(current.film_task?.status)
     // 头部只放“当前最该做的一件事”，其余操作进菜单。
     const primary = !markdown.trim() ? ['🤖 生成剧本', () => generate('script')]
-      : !shots.length ? ['🤖 生成分镜', () => generate('storyboard')]
+      : !shots.length || current.storyboard_ready === false ? ['🤖 生成分镜', () => generate('storyboard')]
         : done < shots.length ? [producing ? `生成中 ${done}/${shots.length}` : '▶ 生产本集', () => run(() => produceEpisode(project.id, episode)).catch(() => {}), producing]
           : !current.film ? [composing ? '合成中…' : '合成本集', () => run(() => composeFilm(project.id, episode)).catch(() => {}), composing]
             : ['▶ 播放成片', () => setDrawer(true)]

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { execFileSync } from 'node:child_process'
 import { createServer } from 'node:http'
 import { access, mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -290,4 +291,25 @@ test('workcard retry is POST-only, authenticated, scoped to the bound call and n
   assert.equal((await fetch(url('session=s&call=other'), { method: 'POST' })).status, 404)
   assert.equal((await fetch(url('session=s'), { method: 'POST' })).status, 400)
   assert.equal(retried.length, 1)
+})
+
+// 真实图片必须经过转码，避免仅用小于 256 字节的占位文件跳过预览路径。
+test('local image preview transcodes and caches PNG without optional WebP encoder', async t => {
+  const f = await localFixture(t)
+  const original = execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc=size=128x128', '-frames:v', '1', '-c:v', 'png', '-f', 'image2pipe', 'pipe:1'])
+  assert.ok(original.length > 256)
+  await writeFile(join(f.project, 'media/image.png'), original)
+  f.records.find(item => item.path === 'media/image.png').size_bytes = original.length
+  await f.save()
+  f.job.result = { media_kind: 'image', local_media_path: 'media/image.png' }
+  const response = await f.get('image')
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('content-type'), 'image/png')
+  const preview = Buffer.from(await response.arrayBuffer())
+  assert.equal(preview.readUInt32BE(16), 64)
+  assert.equal(preview.readUInt32BE(20), 64)
+  const cached = await f.get('image')
+  assert.equal(cached.headers.get('etag'), response.headers.get('etag'))
+  assert.deepEqual(Buffer.from(await cached.arrayBuffer()), preview)
+  assert.deepEqual(Buffer.from(await (await f.get('download')).arrayBuffer()), original)
 })

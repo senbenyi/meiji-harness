@@ -38,6 +38,59 @@ test('project routes write Markdown, expose two episode denominator and reject u
     const projectPath = join(root, 'projects', created.id)
     assert.match(await readFile(join(projectPath, 'series.md'), 'utf8'), /第 2 集/)
     assert.equal((await request('doc-read', null, `&id=${created.id}&step=series`)).status, 200)
+    const script = '## 场 1｜房间｜林\n动作：林走到窗边。'
+    assert.equal((await request('doc-save', { id: created.id, step: 'script', episode: 1, markdown: script })).status, 200)
+    const rejected = await request('doc-save', { id: created.id, step: 'script', episode: 1, markdown: script.replace('｜房间｜', '｜房间窗边｜') })
+    assert.equal(rejected.status, 400)
+    assert.match((await rejected.json()).error, /房间窗边.*不在总览/)
+    assert.equal(await readFile(join(projectPath, 'episodes/1/script.md'), 'utf8'), script)
     assert.equal((await request('plan-read', null, `&id=${created.id}`)).status, 404)
+  })
+})
+
+test('generation corrects invalid references and missing scene boundaries before saving', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'drama-contract-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
+    const skills = createSkillsStore()
+    for (const name of ['drama', 'director-cad24a59']) await skills.seed(name, new URL(name + '/', template).pathname)
+    const script = '## 场 1｜房间｜林\n动作：林拿起信。\n\n## 场 2｜房间｜林\n动作：林打开信。'
+    const block = (n, video = '林看信。') => `### 从第 ${n} 行｜近景｜固定｜5 秒｜人物：林\n视频：${video}\n首帧：A man holding a letter.`
+    const prompts = []; let mode = 'script'
+    const store = createProjectStore({ newId: () => '1234abcd', complete: async prompt => {
+      const input = JSON.parse(prompt.user); prompts.push(input)
+      if (mode === 'script') return { markdown: input.correction ? script : script.replace('｜房间｜', '｜房间窗边｜') }
+      if (mode === 'fail') return { markdown: script.replace('｜房间｜', '｜不存在｜') }
+      if (mode === 'single') { assert.equal(input.target_shot.id, 'S02'); assert.match(input.numbered_lines, /^2\./); assert.doesNotMatch(input.numbered_lines, /拿起/); return { markdown: input.correction ? block(2, '林把信折好。') : block(1) } }
+      assert.deepEqual(input.scenes.map(scene => scene.first_line), [1, 2])
+      return { markdown: input.correction ? block(1) + '\n' + block(2) : block(1) }
+    } })
+    const project = await store.change('create', { title: '来信', director: 'director-cad24a59' })
+    await store.saveDoc(project.id, 'series', series)
+    await store.planning.generate({ id: project.id, step: 'script', episode: 1 })
+    assert.match(prompts[1].correction.error, /房间窗边/)
+    assert.equal((await store.read(project.id)).episodes[0].script, script)
+    mode = 'fail'; const before = prompts.length
+    await assert.rejects(store.planning.generate({ id: project.id, step: 'script', episode: 1 }), /不存在/)
+    assert.equal(prompts.length - before, 2)
+    assert.equal((await store.read(project.id)).episodes[0].script, script)
+    mode = 'storyboard'
+    await store.planning.generate({ id: project.id, step: 'storyboard', episode: 1 })
+    assert.match(prompts.at(-1).correction.error, /每场首行/)
+    let episode = (await store.read(project.id)).episodes[0]
+    assert.equal(episode.storyboard_ready, true)
+    const first = episode.shots[0].video
+    await store.changeShot(project.id, { episode: 1, id: 'S01', take: 1, job_id: 'a'.repeat(32), status: 'succeeded' })
+    await store.changeShot(project.id, { episode: 1, id: 'S02', take: 1, job_id: 'b'.repeat(32), status: 'succeeded' })
+    mode = 'single'
+    await store.planning.generate({ id: project.id, step: 'storyboard', episode: 1, shot_id: 'S02' })
+    episode = (await store.read(project.id)).episodes[0]
+    assert.equal(episode.shots[0].video, first)
+    assert.equal(episode.shots[1].video, '林把信折好。')
+    assert.equal(episode.shots[0].job_id, 'a'.repeat(32))
+    assert.equal(episode.shots[1].job_id, null)
+    assert.equal(episode.shots[1].take, 2)
+    await assert.rejects(store.planning.save({ id: project.id, step: 'storyboard', episode: 1, markdown: episode.script.replace('首帧：A man holding a letter.', '首帧：') }), /缺少提示词/)
+    await assert.rejects(store.saveDoc(project.id, 'series', series.replace('### 房间', '### 陌生场景')), /不在总览/)
   })
 })

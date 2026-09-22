@@ -13,7 +13,7 @@ async function generate(source, target, kind) {
   const image = kind === 'image'
   const args = ['-hide_banner', '-loglevel', 'error', '-i', source, '-map', '0:v:0',
     '-vf', 'scale=ceil(iw/4)*2:ceil(ih/4)*2', ...(image
-      ? ['-an', '-frames:v', '1', '-c:v', 'libwebp', '-quality', '65', '-f', 'webp']
+      ? ['-an', '-frames:v', '1', '-c:v', 'png', '-compression_level', '6', '-f', 'image2pipe']
       : ['-map', '0:a?', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '34', '-c:a', 'aac', '-b:a', '48k',
         '-movflags', 'frag_keyframe+empty_moov', '-f', 'mp4']), 'pipe:1']
   const process = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'], signal: AbortSignal.timeout(30_000) })
@@ -36,7 +36,7 @@ async function generate(source, target, kind) {
 async function openPreview(job, input, kind, version) {
   const directory = join(runtimeRoot(), 'previews')
   const key = createHash('sha256').update(`${job.job_id}:${version}`).digest('hex').slice(0, 24)
-  const target = join(directory, `${job.job_id}-${key}.${kind === 'image' ? 'webp' : 'mp4'}`)
+  const target = join(directory, `${job.job_id}-${key}.${kind === 'image' ? 'png' : 'mp4'}`)
   await mkdir(directory, { recursive: true, mode: 0o700 })
   let handle
   try { handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW) }
@@ -48,7 +48,7 @@ async function openPreview(job, input, kind, version) {
   }
   const info = await statOpenedFile(handle)
   return { handle: managedFile(handle), size: info.size, etag: `"${key}-${info.size}"`,
-    contentType: kind === 'image' ? 'image/webp' : 'video/mp4' }
+    contentType: kind === 'image' ? 'image/png' : 'video/mp4' }
 }
 
 export const openLocalPreview = (job, source) => source.size < 256 ? source : openPreview(job, source.absolutePath, source.kind, source.etag)

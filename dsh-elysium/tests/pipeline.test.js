@@ -20,7 +20,8 @@ test('fill only completes blanks; produce submits each shot once', async () => {
         changeAuto: async (_, update) => { project.auto = update(project.auto); return project },
         planning: { generate: async ({ step, episode }) => { calls.push([step, episode]); if (step === 'series') project.series = { characters: [{ name: '林' }], episodes: [{ number: 1 }] }
           else if (step === 'script') project.episodes = [{ number: 1, script: '## 场 1｜房间｜林\n动作：林走进来。', shots: [] }]
-          else project.episodes[0].shots = [{ id: 'S01', status: 'pending', job_id: null, duration: 5 }] } },
+          else { project.episodes[0].shots = [{ id: 'S01', status: 'pending', job_id: null, duration: 5 }]; project.episodes[0].storyboard_ready = true } } },
+        validateProduction: async () => {},
         produceShot: async () => { calls.push(['submit']); project.episodes[0].shots[0] = { ...project.episodes[0].shots[0], job_id: 'b'.repeat(32), status: 'running' } },
         requestEpisodeFilm: async () => { calls.push(['film']) },
       }

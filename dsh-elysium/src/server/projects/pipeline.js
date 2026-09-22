@@ -5,7 +5,7 @@ import { validProjectId } from '../../database/schemas/projects.js'
 import { getJob } from '../../worker/index.js'
 
 const busy = status => ['pending', 'queued', 'running'].includes(status)
-const allDone = episode => episode?.shots.length && episode.shots.every(shot => shot.status === 'succeeded' && shot.job_id)
+const allDone = episode => episode?.storyboard_ready && episode.shots.length && episode.shots.every(shot => shot.status === 'succeeded' && shot.job_id)
 
 export function createPipelineDriver(store, logger = console) {
   let thinking = null
@@ -16,7 +16,7 @@ export function createPipelineDriver(store, logger = console) {
     const key = `${step}/${episode || ''}`
     thinking = store.planning.generate({ id, step, episode }).then(() => clear(id, key)).catch(async error => {
       const project = await store.read(id)
-      if ((project.auto.attempts[key] || 0) < 1) await bump(id, key)
+      if (error.status !== 400 && (project.auto.attempts[key] || 0) < 1) await bump(id, key)
       else await pause(id, `${episode ? `第 ${episode} 集` : ''}${step} 生成失败：${error.message}`, { episode, step })
     }).catch(error => logger?.error?.(`[elysium] fill ${id}: ${error.message}`)).finally(() => { thinking = null })
   }
@@ -25,9 +25,9 @@ export function createPipelineDriver(store, logger = console) {
     for (const episode of project.series.episodes) {
       const current = project.episodes.find(item => item.number === episode.number)
       if (!current?.script) { if (!thinking) generate(project.id, 'script', episode.number); return true }
-      if (!current.shots.length) { if (!thinking) generate(project.id, 'storyboard', episode.number); return true }
+      if (!current.storyboard_ready) { if (!thinking) generate(project.id, 'storyboard', episode.number); return true }
     }
-    await store.changeAuto(project.id, auto => ({ ...auto, task: null }))
+    if (project.auto.task === 'fill') await store.changeAuto(project.id, auto => ({ ...auto, task: null }))
     return false
   }
   async function anchorsReady(project) {
@@ -76,9 +76,13 @@ export function createPipelineDriver(store, logger = console) {
       for (const episode of project.episodes) if (allDone(episode) && (!episode.film_task || JSON.stringify(episode.film_task.job_ids) !== JSON.stringify(episode.shots.map(shot => shot.job_id)))) { await store.requestEpisodeFilm(id, episode.number); return true }
       return false
     }
-    if (project.auto.task === 'fill') return fill(project)
-    if (!project.series) { await pause(id, '请先生成总览', { step: 'series' }); return false }
+    if (await fill(project)) return true
+    if (project.auto.task !== 'produce') return false
+    try { await store.validateProduction(id, { anchors: false }) }
+    catch (error) { await pause(id, `文档校验失败：${error.message}`, { step: 'storyboard' }); return false }
     if (!await anchorsReady(project)) return true
+    try { await store.validateProduction(id) }
+    catch (error) { await pause(id, `生产前校验失败：${error.message}`, { step: 'storyboard' }); return false }
     for (const item of project.series.episodes) if (!await produceEpisode(await store.read(id), item.number)) return !(await store.read(id)).auto.paused
     await store.changeAuto(id, auto => ({ ...auto, task: null }))
     return false
