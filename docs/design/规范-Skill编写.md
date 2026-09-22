@@ -7,7 +7,7 @@
 
 ## 1. 原则
 
-1. **问题修在 Skill 里，不修在项目里。** 同类问题出现两次，就改 Skill，不要逐个项目手改。
+1. **按责任修改。** 写作方法和质量规则修在 Skill；必填字段、引用、行号与渲染规则修在生成契约和代码。不要逐个项目手改。
 2. **两个包各管一件事。**
    - `drama` 管“写什么、按什么格式写”，所有项目共用。
    - 导演管“什么味道、多大规模”，每种风格一个包。
@@ -25,8 +25,8 @@
 
 | 文件 | 只写 | 不得写 |
 |---|---|---|
-| `drama/SKILL.md` | 总则：人工内容优先、名称规则、输出纯 Markdown、代码负责的部分 | 任何步骤的具体格式、风格、数值 |
-| `drama/steps/<步骤>.md` | 本步的输入、输出格式（逐字模板）、结构规则；`storyboard.md` 另含视频模型语法 | 集数、时长这类导演决定的数值；风格偏好 |
+| `drama/SKILL.md` | 总则：人工内容优先、名称规则、结构化返回与 Markdown 的关系、代码负责的部分 | 任何步骤的具体格式、风格、数值 |
+| `drama/steps/<步骤>.md` | 本步的输入、结构化字段、最终 Markdown 样式和写作规则；`storyboard.md` 另含视频模型语法 | 集数、时长这类导演决定的数值；风格偏好 |
 | 导演 `SKILL.md` | 风格与题材、人物塑造、声音与对白、禁忌、代表作参考；每一步都会读取 | 输出格式、模型语法、集数 |
 | 导演 `references/project.md` | 题材范围、立项要求（主角与冲突的写法） | 分集内容 |
 | 导演 `references/series.md` | **规模（唯一的集数规则）**、分集结构、角色设定（服装色系、标志物、定妆画风）、场景设定 | 剧本写法、镜头语言 |
@@ -103,7 +103,7 @@ metadata:
 # 步骤名
 ## 目标              （这一步产出什么、好结果的样子）
 ## 输入              （系统传入的 JSON 字段及用法）
-## 输出格式          （逐字模板；解析器依赖它，改之前先确认 documents.js 的解析规则）
+## 输出格式          （列出结构化字段，展示代码渲染后的 Markdown；修改时核对 contracts.js 与 documents.js）
 ## 写作方法          （按顺序的写法与数量、长度建议）
 ## 质量自查          （输出前逐条检查的清单）
 ## 不得              （明确禁止的内容）
@@ -114,14 +114,16 @@ metadata:
 
 四个步骤的“示例”必须能被解析器通过，并且前后衔接：剧本示例使用总览示例中的角色和场景，分镜示例按剧本示例的行号切分。测试 `flow skill examples always pass the document parsers` 会检查这一点，改示例后运行 `npm test`。
 
-每一步的输入由 `planning.js` 的 `assemble` 决定：
+每一步的输入由 `planning.js` 的 `assemble` 决定，模型按 `contracts.js` 的 JSON Schema 返回字段，代码在 `documents.js` 渲染为 Markdown 后复用保存校验：
 
 | 步骤 | 输入字段 |
 |---|---|
-| project | `director`（导演显示名）、`requirements` |
-| series | `project`（名称、题材、梗概）、`requirements` |
-| script | `series`、`episode`、`previous_last_scene`（上一集最后一场）、`requirements` |
-| storyboard | `series`、`episode`、`numbered_lines`（带临时序号的本集剧本行）、`requirements` |
+| project | `director`（导演显示名）、`director_id`（代码写入项目文档）、`requirements` |
+| series | `project`（名称、题材、梗概）、`expected_episodes`（导演固定集数）、`requirements` |
+| script | `series`、`episode`、`previous_last_scene`（上一集最后一场）、`duration_range`（导演单集时长）、`requirements` |
+| storyboard | `series`、`episode`、`numbered_lines`（带临时序号的本集剧本行）、`scenes`（每场首末行）、`target_shot`（单镜时）、`duration_range`、`requirements` |
+
+生成失败重试时另有 `correction`，包含上次结构化结果和字段错误。结构化字段的增删要同时修改 schema、渲染和本表；最终 Markdown 格式仍以 `documents.js` 的解析器为准。
 
 ## 4. 自查清单
 
@@ -130,6 +132,7 @@ metadata:
 - [ ] 集数只出现在导演 `references/series.md`，写的是“固定 N 集”，全文没有其他集数暗示（如“前 10 集”“每 5 集”）。
 - [ ] 导演文件里没有输出格式和模型语法；`drama` 文件里没有风格偏好和集数、时长数值。
 - [ ] 同一条规则只写在一个文件里，两处写法互不矛盾。
-- [ ] `drama/steps/*` 的输出模板与解析器一致：总览的字段名、剧本的“场 / 动作 / 音效 / 角色（语气）”、分镜的“从第 N 行｜景别｜运镜｜N 秒｜人物”。
+- [ ] `drama/steps/*` 的字段说明与 `contracts.js` 一致；Markdown 示例与 `documents.js` 解析器一致。
 - [ ] 分镜模板写明“人物”，主体放第一位：首帧按第一位角色的定妆图生成，写错就会换人。
+- [ ] 运行 `node dsh-elysium/scripts/skills-sync.mjs --check`，确认运行时与仓库模板同名 Skill 文件一致；需要以运行时为准时运行 `--sync`。
 - [ ] 改完用一个测试项目重新生成对应步骤，确认结果。

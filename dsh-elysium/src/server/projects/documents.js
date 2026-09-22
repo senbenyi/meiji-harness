@@ -20,6 +20,27 @@ export function projectMarkdown({ title, director, genre, synopsis = '' }) {
   return `---\ntitle: ${title}\ndirector: ${director}\ngenre: ${genre}\n---\n\n${synopsis.trim()}\n`
 }
 
+// 模型返回结构化字段；磁盘与人工编辑仍使用原有 Markdown 格式。
+export function renderGenerated(step, result, input) {
+  if (step === 'project') return projectMarkdown({ ...result, director: input.director_id })
+  if (step === 'series') return [
+    `一句话故事：${result.logline}`, '## 世界观', result.world, '## 角色',
+    ...result.characters.flatMap(item => [`### ${item.name}${item.lead ? '（主角）' : ''}`, `简介：${item.intro}`, `定妆：${item.appearance}`, `音色：${item.voice}`]),
+    '## 场景', ...result.scenes.flatMap(item => [`### ${item.name}`, item.description]),
+    '## 分集', ...result.episodes.flatMap(item => [`### 第 ${item.number} 集 · ${item.title}`, `梗概：${item.summary}`, `钩子：${item.hook}`]),
+  ].join('\n') + '\n'
+  if (step === 'script') return result.scenes.map(scene => [
+    `## 场 ${scene.number}｜${scene.name}｜${scene.roles.join('、')}`,
+    ...scene.lines.map(line => line.kind === 'action' ? `动作：${line.text}` : line.kind === 'sound' ? `音效：${line.text}` : `${line.speaker}（${line.tone}）：${line.text}`),
+  ].join('\n')).join('\n\n') + '\n'
+  const formatShot = (start, shot) => `### 从第 ${start} 行｜${shot.size}｜${shot.camera}｜${shot.duration} 秒${shot.roles.length ? `｜人物：${shot.roles.join('、')}` : ''}\n视频：${shot.video}\n首帧：${shot.keyframe}`
+  if (input.target_shot) return formatShot(input.target_shot.first_line, result.shot)
+  return input.scenes.flatMap(scene => {
+    const entry = result.scenes[`scene_${scene.number}`]
+    return [formatShot(scene.first_line, entry.first_shot), ...entry.cuts.map(cut => formatShot(cut.start_line, cut))]
+  }).join('\n')
+}
+
 export function parseSeries(markdown) {
   if (!markdown.trim()) return null
   const lines = markdown.split('\n'), result = { logline: '', world: '', characters: [], scenes: [], episodes: [] }

@@ -9,9 +9,12 @@
 - series：总览。角色、场景名称从这里取。
 - episode：本集序号。本集的标题、梗概、钩子是 series.episodes 中对应的条目。
 - previous_last_scene：上一集最后一场的原文；第 1 集为空。
+- duration_range：导演规定的单集时长范围，用于估算篇幅。
 - requirements：补充要求（可为空）。
 
 ## 输出格式
+
+返回 `scenes` 数组。每场填 `number`、`name`、`roles`（总览角色名数组）、`lines`；每行填 `kind`（`action`、`sound` 或 `dialogue`）、`speaker`、`tone`、`text`。动作和音效行的 `speaker`、`tone` 填空字符串；台词行填写角色名和语气。场景名和角色名逐字使用总览名称。下面是代码渲染后的 Markdown 样式：
 
 每场以场标题开头，下面逐行写剧本；场与场之间空一行：
 

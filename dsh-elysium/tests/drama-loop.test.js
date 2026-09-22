@@ -1,7 +1,8 @@
 // 职责：验证 Markdown 保存、分镜覆盖、台词单源编译和新状态结构。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, readFile } from 'node:fs/promises'
+import { mkdtemp, rm, readFile, mkdir, writeFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withConfig } from '../src/config.js'
@@ -11,6 +12,7 @@ import { createFlowSkillStore } from '../src/database/managers/flow.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { insertStoryboard, parseProject, parseScript, parseSeries, stripVideoDialogue } from '../src/server/projects/documents.js'
 import { compileShot, shotRoles } from '../src/server/projects/compile.js'
+import { generationSchema } from '../src/server/projects/contracts.js'
 
 const skills = new URL('../../harness/.dsh/storages/elysium/pools/skills/', import.meta.url)
 const overview = `一句话故事：一封信改变两个人\n## 世界观\n雨夜城市\n## 角色\n### 林晚（主角）\n简介：插画师\n定妆：adult woman, full body\n音色：清亮\n## 场景\n### 咖啡馆\n街角咖啡馆\n## 分集\n### 第 1 集 · 来信\n梗概：收到信\n钩子：来人\n### 第 2 集 · 真相\n梗概：查明真相\n钩子：和解\n`
@@ -106,7 +108,25 @@ test('flow skill examples always pass the document parsers', async () => {
   for (const shot of shots) assert.ok(shot.roles?.every(name => series.characters.some(item => item.name === name)))
 })
 
-test('generated Markdown wrapped in a code fence is saved without the fence', async () => {
+test('flow skill names every generated field and skill sync detects runtime drift', async t => {
+  for (const step of ['project', 'series', 'script', 'storyboard']) {
+    const content = await readFile(new URL(`drama/steps/${step}.md`, skills), 'utf8')
+    const input = step === 'storyboard' ? { scenes: [{ number: 1 }] } : {}
+    for (const field of Object.keys(generationSchema(step, input).properties)) assert.match(content, new RegExp(`\\b${field}\\b`))
+  }
+  const storyboard = await readFile(new URL('drama/steps/storyboard.md', skills), 'utf8')
+  for (const field of ['first_shot', 'cuts', 'start_line']) assert.match(storyboard, new RegExp(`\\b${field}\\b`))
+  const home = await mkdtemp(join(tmpdir(), 'drama-skill-check-'))
+  t.after(() => rm(home, { recursive: true, force: true }))
+  const runtime = join(home, 'storages/elysium/pools/skills/drama')
+  await mkdir(runtime, { recursive: true })
+  await writeFile(join(runtime, 'SKILL.md'), 'drift\n')
+  const checked = spawnSync(process.execPath, [new URL('../scripts/skills-sync.mjs', import.meta.url).pathname, '--check'], { env: { ...process.env, DSH_HOME: home }, encoding: 'utf8' })
+  assert.equal(checked.status, 1)
+  assert.match(checked.stdout, /drama\/SKILL.md/)
+})
+
+test('structured series generation renders and saves parseable Markdown', async () => {
   const root = await mkdtemp(join(tmpdir(), 'elysium-fence-'))
   try {
     await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
@@ -114,10 +134,15 @@ test('generated Markdown wrapped in a code fence is saved without the fence', as
       await skillStore.seed('drama', new URL('drama/', skills).pathname)
       await skillStore.seed('director-cad24a59', new URL('director-cad24a59/', skills).pathname)
       const directors = createDirectorStore()
-      const store = createProjectStore({ directorExists: name => directors.has(name), newId: () => '1234abce', complete: async () => ({ markdown: '```markdown\n' + overview + '```' }) })
+      const store = createProjectStore({ directorExists: name => directors.has(name), newId: () => '1234abce', complete: async () => ({
+        logline: '一封信改变两个人', world: '雨夜城市', characters: [{ name: '林晚', lead: true, intro: '插画师', appearance: 'adult woman, full body', voice: '清亮' }],
+        scenes: [{ name: '咖啡馆', description: '街角咖啡馆' }], episodes: [
+          { number: 1, title: '来信', summary: '收到信', hook: '来人' }, { number: 2, title: '真相', summary: '查明真相', hook: '和解' },
+        ],
+      }) })
       const project = await store.change('create', { title: '雨夜来信', director: 'director-cad24a59', genre: '情感', synopsis: '旧信重现' })
       const saved = await store.planning.generate({ id: project.id, step: 'series' })
-      assert.doesNotMatch(saved.series_text, /```/)
+      assert.match(saved.series_text, /^一句话故事：/)
       assert.equal(saved.series.episodes.length, 2)
     })
   } finally { await rm(root, { recursive: true, force: true }) }

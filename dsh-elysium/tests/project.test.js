@@ -10,9 +10,43 @@ import { createSkillsStore } from '../src/database/managers/skills.js'
 import { createDirectorStore } from '../src/database/managers/directors.js'
 import { createProjectStore } from '../src/server/projects/service.js'
 import { createProjectHandler } from '../src/server/routes/projects.js'
+import { generationSchema, validateGenerated } from '../src/server/projects/contracts.js'
+import { insertStoryboard, parseProject, parseScript, parseSeries, renderGenerated, validateScript } from '../src/server/projects/documents.js'
 
 const template = new URL('../../harness/.dsh/storages/elysium/pools/skills/', import.meta.url)
 const series = `一句话故事：一封信\n## 世界观\n旧城\n## 角色\n### 林（主角）\n简介：记者\n定妆：adult man, full body\n音色：低沉\n## 场景\n### 房间\n旧房间\n## 分集\n### 第 1 集 · 来信\n梗概：收到信\n钩子：门响\n### 第 2 集 · 回答\n梗概：解开谜\n钩子：和解\n`
+const seriesResult = { logline: '一封信', world: '旧城', characters: [{ name: '林', lead: true, intro: '记者', appearance: 'adult man, full body', voice: '低沉' }],
+  scenes: [{ name: '房间', description: '旧房间' }], episodes: [
+    { number: 1, title: '来信', summary: '收到信', hook: '门响' }, { number: 2, title: '回答', summary: '解开谜', hook: '和解' },
+  ] }
+
+test('structured contracts render four steps and require a first shot for every scene', () => {
+  const project = { title: '来信', genre: '悬疑', synopsis: '旧信重现。' }
+  validateGenerated('project', project, {})
+  assert.equal(parseProject(renderGenerated('project', project, { director_id: 'director-cad24a59' })).director, 'director-cad24a59')
+  const overview = { logline: '一封旧信', world: '旧城', characters: [{ name: '林', lead: true, intro: '记者', appearance: 'adult man, full body', voice: '低沉' }],
+    scenes: [{ name: '房间', description: '旧房间' }], episodes: [{ number: 1, title: '来信', summary: '收到信', hook: '门响' }] }
+  validateGenerated('series', overview, { expected_episodes: 1 })
+  const parsedSeries = parseSeries(renderGenerated('series', overview, {}))
+  assert.equal(parsedSeries.episodes.length, 1)
+  const scriptValue = { scenes: [
+    { number: 1, name: '房间', roles: ['林'], lines: [{ kind: 'action', speaker: '', tone: '', text: '林拿起信。' }] },
+    { number: 2, name: '房间', roles: ['林'], lines: [{ kind: 'sound', speaker: '', tone: '', text: '门铃响。' }, { kind: 'dialogue', speaker: '林', tone: '低声', text: '谁来了？' }] },
+  ] }
+  validateGenerated('script', scriptValue, { series: parsedSeries })
+  const markdown = renderGenerated('script', scriptValue, {}), parsed = parseScript(markdown)
+  assert.equal(parsed.scenes.length, 2)
+  const input = { series: parsedSeries, scenes: parsed.scenes.map(scene => ({ number: scene.number,
+    first_line: parsed.lines.indexOf(scene.lines[0]) + 1, last_line: parsed.lines.indexOf(scene.lines.at(-1)) + 1 })) }
+  const shot = { size: '近景', camera: '固定', duration: 4, roles: ['林'], video: '林看向门口。', keyframe: 'An adult man in a room.' }
+  const storyboard = { scenes: { scene_1: { first_shot: shot, cuts: [] }, scene_2: { first_shot: shot, cuts: [] } } }
+  assert.deepEqual(generationSchema('storyboard', input).required, ['scenes'])
+  assert.throws(() => validateGenerated('storyboard', { scenes: { scene_1: storyboard.scenes.scene_1 } }, input), /scenes.scene_2/)
+  validateGenerated('storyboard', storyboard, input)
+  assert.throws(() => validateGenerated('storyboard', storyboard, { ...input, duration_range: { min: 20, max: 30 } }), /镜头总时长 8 秒/)
+  const marked = insertStoryboard(markdown, renderGenerated('storyboard', storyboard, input))
+  assert.equal(validateScript(parsedSeries, parseScript(marked), { storyboard: true }).shots[1].lines[0].text, '音效：门铃响。')
+})
 test('project routes write Markdown, expose two episode denominator and reject unauthenticated writes', async t => {
   const root = await mkdtemp(join(tmpdir(), 'drama-routes-'))
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -22,7 +56,7 @@ test('project routes write Markdown, expose two episode denominator and reject u
     await skills.seed('director-cad24a59', new URL('director-cad24a59/', template).pathname)
     const directors = createDirectorStore()
     const store = createProjectStore({ newId: () => '1234abcd', directorExists: name => directors.has(name),
-      complete: async ({ name }) => ({ markdown: name === 'drama_series' ? series : '' }) })
+      complete: async () => seriesResult })
     const handler = createProjectHandler({ token: 'test', projectStore: store, directorStore: directors })
     const server = createServer((req, res) => withConfig({ ELYSIUM_STATE_ROOT: root }, () => handler(req, res)))
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -54,16 +88,21 @@ test('generation corrects invalid references and missing scene boundaries before
   await withConfig({ ELYSIUM_STATE_ROOT: root }, async () => {
     const skills = createSkillsStore()
     for (const name of ['drama', 'director-cad24a59']) await skills.seed(name, new URL(name + '/', template).pathname)
-    const script = '## 场 1｜房间｜林\n动作：林拿起信。\n\n## 场 2｜房间｜林\n动作：林打开信。'
-    const block = (n, video = '林看信。') => `### 从第 ${n} 行｜近景｜固定｜5 秒｜人物：林\n视频：${video}\n首帧：A man holding a letter.`
+    const scriptValue = { scenes: [
+      { number: 1, name: '房间', roles: ['林'], lines: [{ kind: 'action', speaker: '', tone: '', text: '林拿起信。' }] },
+      { number: 2, name: '房间', roles: ['林'], lines: [{ kind: 'action', speaker: '', tone: '', text: '林打开信。' }] },
+    ] }
+    const script = renderGenerated('script', scriptValue, {})
+    const shot = { size: '近景', camera: '固定', duration: 30, roles: ['林'], video: '林看信。', keyframe: 'A man holding a letter.' }
+    const storyboard = { scenes: { scene_1: { first_shot: shot, cuts: [] }, scene_2: { first_shot: shot, cuts: [] } } }
     const prompts = []; let mode = 'script'
     const store = createProjectStore({ newId: () => '1234abcd', complete: async prompt => {
       const input = JSON.parse(prompt.user); prompts.push(input)
-      if (mode === 'script') return { markdown: input.correction ? script : script.replace('｜房间｜', '｜房间窗边｜') }
-      if (mode === 'fail') return { markdown: script.replace('｜房间｜', '｜不存在｜') }
-      if (mode === 'single') { assert.equal(input.target_shot.id, 'S02'); assert.match(input.numbered_lines, /^2\./); assert.doesNotMatch(input.numbered_lines, /拿起/); return { markdown: input.correction ? block(2, '林把信折好。') : block(1) } }
+      if (mode === 'script') return input.correction ? scriptValue : { scenes: [{ ...scriptValue.scenes[0], name: '房间窗边' }, scriptValue.scenes[1]] }
+      if (mode === 'fail') return { scenes: [{ ...scriptValue.scenes[0], name: '不存在' }, scriptValue.scenes[1]] }
+      if (mode === 'single') { assert.equal(input.target_shot.id, 'S02'); assert.match(input.numbered_lines, /^2\./); assert.doesNotMatch(input.numbered_lines, /拿起/); return { shot: input.correction ? { ...shot, video: '林把信折好。' } : { ...shot, roles: ['不存在'] } } }
       assert.deepEqual(input.scenes.map(scene => scene.first_line), [1, 2])
-      return { markdown: input.correction ? block(1) + '\n' + block(2) : block(1) }
+      return input.correction ? storyboard : { scenes: { scene_1: storyboard.scenes.scene_1 } }
     } })
     const project = await store.change('create', { title: '来信', director: 'director-cad24a59' })
     await store.saveDoc(project.id, 'series', series)
@@ -76,7 +115,7 @@ test('generation corrects invalid references and missing scene boundaries before
     assert.equal((await store.read(project.id)).episodes[0].script, script)
     mode = 'storyboard'
     await store.planning.generate({ id: project.id, step: 'storyboard', episode: 1 })
-    assert.match(prompts.at(-1).correction.error, /每场首行/)
+    assert.match(prompts.at(-1).correction.error, /scenes.scene_2/)
     let episode = (await store.read(project.id)).episodes[0]
     assert.equal(episode.storyboard_ready, true)
     const first = episode.shots[0].video

@@ -7,9 +7,12 @@
 ## 输入
 
 - project：项目名称、题材、梗概。梗概是本步的依据，人物和冲突要与它一致。
+- expected_episodes：导演规定的固定集数；`episodes` 条目数必须与它相等。
 - requirements：补充要求（可为空）。
 
 ## 输出格式
+
+返回 `logline`、`world`、`characters`、`scenes`、`episodes`。每个角色填 `name`、`lead`（布尔值，是否主角）、`intro`、`appearance`、`voice`；每个场景填 `name`、`description`；每集填 `number`、`title`、`summary`、`hook`。所有字段按 JSON Schema 返回。下面是代码渲染后的 Markdown 样式：
 
 第一行必须是“一句话故事：”。标题层级、字段名原样保留，字段顺序固定：
 
