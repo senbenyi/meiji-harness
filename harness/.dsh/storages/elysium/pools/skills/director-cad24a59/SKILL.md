@@ -4,7 +4,7 @@ description: "甜宠虐恋情感剧导演：以两人关系为核心，浓情绪
 metadata:
   kind: director
   display_name: "甜宠虐恋 · 氛围情感剧"
-  order: 2
+  order: 0
 ---
 
 # 甜宠虐恋 · 氛围情感剧
