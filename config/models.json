@@ -1,0 +1,16 @@
+{
+  "baseUrl": "http://43.154.247.11/v1",
+  "apiKey": "sk-dd21db93ff3d9a3e03372d15b3027bc6585fa5b73e30f016",
+  "chat": {
+    "model": "elysium-chat"
+  },
+  "story": {
+    "model": "elysium-chat"
+  },
+  "image": {
+    "model": "elysium-image"
+  },
+  "video": {
+    "model": "elysium-video"
+  }
+}

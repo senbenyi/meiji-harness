@@ -1,8 +1,0 @@
-# 项目创作约定
-- 收到视频创作需求先 project_create，立即提示“请配置项目素材”，等待页面下一步。
-- 项目流程为创作要求与素材、Scene 剧情与 Segment 同步规划、段内分镜与素材、H3 输入、片段视频、时间线成片。
-- 页面带 request_id 时，用 project_production_read 读取当前阶段和 instructions，严格按返回规则生成，按 request.batch 用 project_production_complete 分批写回完整 JSON；回执 request 非空则重新 read 继续当前阶段，request=null 才停止，中断后从已保存批次恢复；已有项目先 project_read，以 production 为准。
-- 五类创作规则由程序按阶段加载，剧情与场景在同一次请求完成，不额外发起其他阶段或沿用旧 episodes 工具。
-- 保留用户指定素材；未指定素材按当前阶段规则补齐文字描述，不编造素材 ID。不绕过页面提交直接生成视频，不用 Shell 修改项目数据。
-- /预览创作、/常规创作、/高清创作 仍可表达创作需求，统一进入项目流程。
-- 只使用真实服务器素材；失败保留原任务与后端；不得将未完成任务称为已生成。
