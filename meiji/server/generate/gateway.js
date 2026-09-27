@@ -54,6 +54,7 @@ function publicData(value, apiKey) {
   const json = JSON.stringify(value, (key, item) => {
     if (/api[_-]?key|authorization/i.test(key)) return '[已隐藏]'
     if ((key === 'b64_json' || key === 'input_reference') && typeof item === 'string') return `[base64 图片，${item.length} 字符]`
+    if (typeof item === 'string') return item.replace(/data:[^,\s]*;base64,[A-Za-z0-9+/_=-]+/g, data => `[base64 数据，${data.length - data.indexOf(',') - 1} 字符]`)
     return item
   })
   return apiKey ? json.replaceAll(apiKey, '[已隐藏]') : json
@@ -77,6 +78,7 @@ async function requestGateway({ baseUrl, path, method = 'GET', headers, body, ap
     '文件：server/generate/gateway.js',
     `函数：${fn}`,
     `${method} ${url.pathname}${url.search}`,
+    `请求地址：${url.href}`,
   ].join('\n')
   const sent = [
     where,
@@ -147,8 +149,9 @@ export async function uploadGatewayFile({ baseUrl, apiKey, bytes, filename, mime
     '文件：server/generate/gateway.js',
     '函数：uploadGatewayFile',
     `POST ${url.pathname}`,
+    `请求地址：${url.href}`,
     `请求头：${JSON.stringify(publicHeaders(headers, apiKey))}`,
-    `参数：上传文件 ${filename || 'upload'}，${bytes?.length || 0} 字节`,
+    `参数：${publicData({ file: { filename: filename || 'upload', mime: mime || 'application/octet-stream', size: bytes?.length || 0 } }, apiKey)}`,
   ].join('\n'))
   const timeout = AbortSignal.timeout(120 * 1000)
   let response

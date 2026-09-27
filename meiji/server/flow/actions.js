@@ -75,8 +75,12 @@ const labels = {
   'use-asset': '关联图片素材',
 }
 
-export function stageOperation(input) {
+export function validateOperation(input) {
   if (!actions.has(input?.action)) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
+}
+
+export function stageOperation(input) {
+  validateOperation(input)
   const id = randomUUID()
   pending.set(id, { ...input, id })
   return id
@@ -379,7 +383,7 @@ export async function runOperation(operation, deps) {
   if (key) running.add(key)
   const background = []
   let failure
-  const operationId = randomUUID()
+  const operationId = deps.operationId || randomUUID()
   const finish = async () => {
     try {
       if (key) await projectStore(deps.home).save(operation.projectId, current => {

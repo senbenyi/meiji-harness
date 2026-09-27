@@ -1,3 +1,4 @@
+import { notifyProject } from './project-events.js'
 import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../client/drama-model.js'
 import { mkdir, readdir, readFile, writeFile, rename, rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -104,6 +105,7 @@ export function projectStore(home) {
           await writeFile(temporary, JSON.stringify(next, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
           await rename(temporary, key)
         } finally { await rm(temporary, { force: true }) }
+        notifyProject(home, next.id, next.revision)
         return next
       })
       writes.set(key, job)

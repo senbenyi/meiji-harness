@@ -111,7 +111,7 @@ export function createBridge({ request, jsonBody, showProject, status }) {
     },
     async perform(project, action, fields = {}) {
       const sessionId = currentSessionId()
-      if (!sessionId) throw new Error('没有打开的会话，右侧操作无法送入对话')
+      if (!sessionId) throw new Error('没有打开的会话，无法关联任务日志')
       let listBefore
       if (!project) {
         const { projects } = await request('projects')
@@ -124,8 +124,8 @@ export function createBridge({ request, jsonBody, showProject, status }) {
         status('已完成')
         return
       }
-      status('已送入会话')
-      watch(project, listBefore)
+      status('任务已启动')
+      if (!project) watch(project, listBefore)
     },
   }
 }

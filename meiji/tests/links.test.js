@@ -122,6 +122,30 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
   assert.equal(edited.completed, true)
   assert.equal(edited.project.title, '本地修改')
   assert.equal((await projects.read(project.id)).summary.content, '直接保存的剧情')
+  // Generation buttons also bypass the chat controller and return immediately.
+  const generated = await call('turn', { action: 'shots', projectId: project.id, sessionId: first.sessionId })
+  assert.equal(generated.status, 202)
+  assert.ok(generated.operationId)
+  for (let attempt = 0; attempt < 100; attempt++) {
+    let result
+    await handler({ url: '/plugins/meiji/tasks?' + new URLSearchParams({ projectId: project.id, sessionId: first.sessionId }), method: 'GET', headers: {} }, {
+      writeHead() {}, end(text) { result = JSON.parse(text) },
+    })
+    if (!result.tasks.length) break
+    await new Promise(resolve => setTimeout(resolve, 5))
+    assert.notEqual(attempt, 99, 'background task must settle')
+  }
+  const { EventEmitter } = await import('node:events')
+  const stream = new EventEmitter(), updates = []
+  stream.writeHead = code => assert.equal(code, 200)
+  stream.write = text => updates.push(text)
+  await handler({ url: '/plugins/meiji/events?' + new URLSearchParams({ projectId: project.id, sessionId: first.sessionId }), method: 'GET', headers: {} }, stream)
+  const saved = await projects.save(project.id, { title: '推送更新' })
+  assert.ok(updates.some(text => text.includes(`"revision":${saved.revision}`)))
+  stream.emit('close')
+  const count = updates.length
+  await projects.save(project.id, { title: '断开后' })
+  assert.equal(updates.length, count)
   const invalid = await call('turn', { action: 'overview', projectId: project.id, sessionId: first.sessionId, fields: { title: '', summary: '' } })
   assert.equal(invalid.status, 400)
   const rejected = await call('turn', { action: 'overview', projectId: project.id, sessionId })

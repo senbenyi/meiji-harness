@@ -41,3 +41,48 @@ test('an API call logs the path, headers and body without the key', async () => 
   assert.equal(logs[1].includes('写一句'), false)
   assert.equal(logs.join('\n').includes('sk-secret'), false)
 })
+
+test('submission log preserves the complete messages and request options sent to the server', async () => {
+  const events = [], session = { append: (type, data) => events.push({ type, data }) }
+  let sent
+  await runWithSessionLog(session, () => completeChat({
+    baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', model: 'text-model',
+    system: '技能与语言要求\n完整上下文', prompt: '上游内容\n人工意见', maxTokens: 8192, json: true,
+    fetchImpl: async (url, options) => {
+      sent = JSON.parse(options.body)
+      return Response.json({ choices: [{ message: { content: '完成' } }] })
+    },
+  }))
+  const log = events.find(e => e.data.text?.includes('参数：')).data.text
+  assert.match(log, /请求地址：https:\/\/gateway.test\/v1\/chat\/completions/)
+  assert.deepEqual(JSON.parse(log.split('参数：')[1]), sent)
+  assert.equal(log.includes('secret-key'), false)
+})
+
+test('video submission and file upload logs omit base64 while preserving actual uploads', async () => {
+  const { submitGatewayVideo, uploadGatewayFile } = await import('../server/generate/gateway.js')
+  const events = [], session = { append: (type, data) => events.push({ type, data }) }
+  const bytes = Buffer.from([0, 1, 2, 253, 254, 255])
+  const reference = bytes.toString('base64')
+  await runWithSessionLog(session, async () => {
+    await submitGatewayVideo({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', prompt: '生成视频', duration: 5, mode: 'first_frame', inputReference: reference,
+      fetchImpl: async (url, options) => {
+        assert.equal(JSON.parse(options.body).input_reference, reference)
+        return Response.json({ id: 'video-id' })
+      } })
+    await uploadGatewayFile({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', bytes, filename: 'frame.png', mime: 'image/png',
+      fetchImpl: async (url, options) => {
+        assert.deepEqual(Buffer.from(await options.body.get('file').arrayBuffer()), bytes)
+        return Response.json({ id: 'file-id', url: 'https://files.test/frame.png' })
+      } })
+  })
+  const logs = events.filter(e => e.data.text?.includes('参数：')).map(e => e.data.text)
+  assert.equal(JSON.parse(logs[0].split('参数：')[1]).input_reference, `[base64 图片，${reference.length} 字符]`)
+  const file = JSON.parse(logs[1].split('参数：')[1]).file
+  assert.equal(file.filename, 'frame.png')
+  assert.equal(file.mime, 'image/png')
+  assert.equal(file.size, bytes.length)
+  assert.equal('content' in file, false)
+  assert.equal(logs.join('\n').includes(reference), false)
+  assert.equal(logs.join('\n').includes('secret-key'), false)
+})

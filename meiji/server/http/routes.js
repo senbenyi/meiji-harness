@@ -1,3 +1,5 @@
+import { createPanelTasks } from '../flow/panel-tasks.js'
+import { subscribeProject } from '../data/project-events.js'
 import { pictureOf, targetNode, shotResults } from '../../client/drama-model.js'
 import { shotReferenceImages } from '../../client/reference-images.js'
 import { customSkillPatch } from '../data/custom-skills.js'
@@ -15,7 +17,7 @@ import { catalog, compactModels, normalizeModels, purposes } from '../../models/
 import { modelStore } from '../data/models.js'
 import { projectStore } from '../data/projects.js'
 import { readStill } from '../generate/image.js'
-import { describeOperation, runOperation, dropOperation, previewFilmSubmit, saveIncoming, stageOperation } from '../flow/actions.js'
+import { runOperation, saveIncoming } from '../flow/actions.js'
 import { insertSessionLog, runWithSessionLog } from '../flow/session-log.js'
 import { linkStore } from '../data/links.js'
 import { materialize, readEpisodeCover } from '../data/episodes.js'
@@ -91,6 +93,8 @@ export function registerPanel(ctx, ready = Promise.resolve()) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   const store = modelStore(home)
   const projects = projectStore(home)
+  const tasks = createPanelTasks({ home, workspaceController: ctx.workspaceController })
+  ctx.effect(() => () => tasks.dispose(), 'meiji: background tasks')
   const links = linkStore(home, ctx.workspaceController)
   const enterProject = async projectId => {
     const place = await links.ensureProject(projectId, projects)
@@ -240,6 +244,27 @@ export function registerPanel(ctx, ready = Promise.resolve()) {
         const project = await projects.save(body.projectId, { outputLanguage: outputLanguage(body.outputLanguage) })
         return json(res, 200, { project })
       }
+      if (path === base + '/events') {
+        if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
+        const projectId = url.searchParams.get('projectId')
+        await links.requireProject(url.searchParams.get('sessionId'), projectId)
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' })
+        const send = event => res.write(`data: ${JSON.stringify(event)}\n\n`)
+        const unsubscribe = subscribeProject(home, projectId, send)
+        send({ projectId })
+        const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 25000)
+        res.on('close', () => { clearInterval(heartbeat); unsubscribe() })
+        return
+      }
+      if (path === base + '/tasks') {
+        const body = req.method === 'POST' ? await readJson(req, 8192) : Object.fromEntries(url.searchParams)
+        await links.requireProject(body.sessionId, body.projectId)
+        if (req.method === 'GET') return json(res, 200, { tasks: tasks.list(body.projectId) })
+        if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
+        if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
+        tasks.cancel(body.operationId, body.projectId)
+        return json(res, 200, { accepted: true })
+      }
       if (path === base + '/turn') {
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
         if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
@@ -252,7 +277,7 @@ export function registerPanel(ctx, ready = Promise.resolve()) {
             return json(res, 201, { ...place, accepted: true })
           }
           const sessionId = String(body.sessionId || '')
-          if (!/^session-[0-9a-f-]{36}$/i.test(sessionId)) return json(res, 409, { error: '没有打开的会话，右侧操作无法送入对话' })
+          if (!/^session-[0-9a-f-]{36}$/i.test(sessionId)) return json(res, 409, { error: '没有打开的会话，无法关联任务日志' })
           if (body.projectId) await links.requireProject(sessionId, body.projectId)
           const project = body.projectId ? await projects.read(body.projectId) : null
           const staged = { ...body, projectId: project?.id }
@@ -270,27 +295,10 @@ export function registerPanel(ctx, ready = Promise.resolve()) {
             return json(res, 200, { accepted: true, completed: true, ...(project ? { project: await projects.read(project.id) } : {}) })
           }
 
-          if (staged.action === 'film' && project) {
-            const work = body.episodeId ? materialize(project, String(body.episodeId)) : project
-            const item = shotResults(work, 'storyboard').find(entry => entry.id === String(body.track || ''))
-            if (item?.prompt) Object.assign(staged, previewFilmSubmit(work, item))
-          }
-          const operationId = stageOperation(staged)
-          const text = describeOperation({ ...staged, id: operationId })
-          try {
-            await ctx.sessionController.prompt({
-              requestId: `meiji-${randomUUID()}`,
-              sessionId,
-              mode: 'queue',
-              content: [{ type: 'text', text }],
-            }, new AbortController().signal)
-          } catch (error) {
-            dropOperation(operationId)
-            throw error
-          }
-          return json(res, 202, { accepted: true, operationId })
+          const task = tasks.start(staged, ctx.sessions.get(sessionId))
+          return json(res, 202, { accepted: true, operationId: task.id })
         } catch (error) {
-          const result = fail(error, '送入会话失败')
+          const result = fail(error, '启动任务失败')
           return json(res, result.status, { error: result.error })
         }
       }

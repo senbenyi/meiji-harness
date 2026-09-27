@@ -52,6 +52,48 @@ export function mount() {
   if (document.querySelector('meiji-workbench')) return
   const shell = createShell()
   const modelStore = createModelStore()
+  const taskBar = document.createElement('div')
+  taskBar.className = 'task-status'
+  shell.root.querySelector('.status').before(taskBar)
+  let events, eventKey = '', refreshing = false, refreshAgain = false
+  async function refreshTasks(projectId, sessionId) {
+    const result = await request('tasks?' + new URLSearchParams({ projectId, sessionId }))
+    if (eventKey !== `${sessionId}:${projectId}`) return
+    taskBar.replaceChildren()
+    for (const task of result.tasks) {
+      const stop = document.createElement('button')
+      stop.textContent = `停止生成${task.track ? ' · ' + task.track : ''}`
+      stop.onclick = async () => {
+        stop.disabled = true
+        try { await request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }) }
+        catch (error) { shell.status(error.message); stop.disabled = false }
+      }
+      taskBar.append(stop)
+    }
+  }
+  function watchProject(projectId, sessionId) {
+    const key = projectId ? `${sessionId}:${projectId}` : ''
+    if (key === eventKey) return
+    events?.close()
+    eventKey = key
+    taskBar.replaceChildren()
+    if (!key || typeof EventSource === 'undefined') return
+    events = new EventSource('/plugins/meiji/events?' + new URLSearchParams({ projectId, sessionId }))
+    events.onmessage = async () => {
+      if (key !== eventKey) return
+      if (refreshing) { refreshAgain = true; return }
+      refreshing = true
+      try {
+        do {
+          refreshAgain = false
+          await Promise.all([follow(), refreshTasks(projectId, sessionId)])
+        } while (refreshAgain && key === eventKey)
+      } catch (error) { shell.status(error.message) }
+      finally { refreshing = false }
+    }
+  }
+  window.addEventListener('pagehide', () => events?.close(), { once: true })
+
   let openCharacter = null
   let imageGate = null
   let navigation = 0, library, workspace = null, shown = '', shownMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', shotsPane = 'table', openTab = '', shownProject = ''
@@ -245,6 +287,7 @@ export function mount() {
     const place = await request('link?sessionId=' + encodeURIComponent(sessionId))
     if (ticket !== navigation && !force) return
     workspace = place.workspace
+    watchProject(place.projectId, sessionId)
     const next = (place.workspace?.id || '') + ':' + (place.projectId || '')
     if (!force && hold) return
     if (!place.projectId) {
@@ -255,6 +298,7 @@ export function mount() {
       return
     }
     const { project } = await request('projects/' + place.projectId)
+    if (!events || events.readyState !== 1) await refreshTasks(place.projectId, sessionId)
     if (ticket !== navigation && !force) return
     const mark = projectRefreshMark(project)
     if (!force && next === shown && mark === shownMark) return

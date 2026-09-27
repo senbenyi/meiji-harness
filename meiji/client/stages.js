@@ -68,7 +68,7 @@ function generateRow(project, step, label, actions, view) {
     summary: hasSummary(project), outline: hasOutline(project), characters: hasCharacters(project),
     scenes: hasScenes(project), shots: hasShots(project), storyboard: hasStoryboard(project),
   }[step]
-  return bindBusy(element('button', ready ? '重新生成' : label, 'primary'), () => actions.perform(project, step, reviewFields(view)), '已送入会话')
+  return bindBusy(element('button', ready ? '重新生成' : label, 'primary'), () => actions.perform(project, step, reviewFields(view)), '任务已启动')
 }
 
 function field(card, label, value) {
@@ -475,7 +475,7 @@ function renderFilm(project, actions, context) {
   view.append(element('h3', '成片'), customSkillField(project, 'storyboard', actions), customSkillField(project, 'film', actions))
   const all = element('button', '依次生成全部成片', 'primary')
   all.disabled = Boolean(project.activity)
-  bindBusy(all, () => actions.perform(project, 'produce-all'), '已送入会话')
+  bindBusy(all, () => actions.perform(project, 'produce-all'), '任务已启动')
   if (!context.onlyShot) view.append(all)
   for (const shot of project.shots.items.filter(s => !context.onlyShot || s.id === context.onlyShot)) {
     const card = element('article', '', 'shot-card')
@@ -483,7 +483,7 @@ function renderFilm(project, actions, context) {
     card.append(element('h3', shotHeading(shot)))
     const generate = element('button', '生成本镜 / 继续', 'primary')
     generate.disabled = Boolean(project.activity) || shot.seconds.check.passed !== true
-    bindBusy(generate, () => actions.perform(project, 'produce', { track: shot.id }), '已送入会话')
+    bindBusy(generate, () => actions.perform(project, 'produce', { track: shot.id }), '任务已启动')
     card.append(generate, element('h4', `文本分镜 · ${statusLabels[shot.storyboard.status]}`))
     const story = shot.storyboard.content
     if (story?.prompt) {
@@ -501,13 +501,13 @@ function renderFilm(project, actions, context) {
     if (clip?.error) card.append(element('p', clip.error, 'notice'))
     const retry = element('button', '重新生成视频')
     retry.disabled = Boolean(project.activity) || shot.storyboard.check.passed !== true
-    bindBusy(retry, () => actions.perform(project, 'film', { track: shot.id }), '已送入会话'); card.append(retry)
+    bindBusy(retry, () => actions.perform(project, 'film', { track: shot.id }), '任务已启动'); card.append(retry)
     const tail = clip?.status === 'ready' && !shot.video.stale && shot.tailFrame?.content?.sourceVideoFile === clip.file ? shot.tailFrame : null
     card.append(element('h4', `本镜尾帧 · ${statusLabels[tail?.status || GenerationStatus.NOT_GENERATED]}`))
     if (tail?.content?.localPath) { const img = element('img'); img.src = `/plugins/meiji/projects/${project.id}/tail-frame/${project.episodeId}/${shot.id}`; img.alt = '本镜尾帧'; img.style.maxWidth = '160px'; card.append(img) }
     if (!tail?.content?.localPath) card.append(element('div', '本镜尾帧尚未生成', 'storyboard-empty'))
     if (tail?.error) card.append(element('p', tail.error, 'notice'))
-    if (clip?.status === 'ready') { const retryTail = element('button', '重新处理尾帧'); retryTail.disabled = Boolean(project.activity); bindBusy(retryTail, () => actions.perform(project, 'tail-frame', { track: shot.id }), '已送入会话'); card.append(retryTail) }
+    if (clip?.status === 'ready') { const retryTail = element('button', '重新处理尾帧'); retryTail.disabled = Boolean(project.activity); bindBusy(retryTail, () => actions.perform(project, 'tail-frame', { track: shot.id }), '任务已启动'); card.append(retryTail) }
     decorateShotCard(card, shot.storyboard, shot.id, project.shots.items[0].id === shot.id)
     view.append(card)
   }
