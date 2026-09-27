@@ -45,3 +45,8 @@ init/.ssh/
 # Python
 __pycache__/
 *.pyc
+
+# Meiji local runtime and generated artifacts
+/.dsh/
+/harness/
+/meiji/reports/

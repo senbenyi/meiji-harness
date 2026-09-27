@@ -101,13 +101,13 @@ export async function generateShotStoryboard(options) {
   const scenes = shot.scene ? [shot.scene] : [...new Set([ ...(project.plot.scenes?.items || []).filter(scene => scene.name && source.includes(scene.name)).map(scene => scene.name)])]
   const images = shotReferenceImages(project, { ...shot, characters, scenes })
   const tail = previousTail(project, shotId)
-  if (tail) images.push({ url: tail.imageUrl, label: `上一镜 ${tail.sourceShotId} 尾帧（必须作为本镜第一帧，随后推进本镜剧情）`, kind: 'tailFrame', sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile })
+  if (tail) images.push({ url: tail.imageUrl, label: `上一镜 ${tail.sourceShotId} 尾帧（连续剧情承接状态，转场直接进入新场景）`, kind: 'tailFrame', sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile })
   if (images.length > 9) throw new Error('含尾帧的参考图超过9张，请减少角色附属素材')
   // 使用已确认的远程地址；不把尚待确认或仅有本地地址的图片送入视频接口。
   if (images.some(image => !/^https?:\/\//.test(image.url))) throw Object.assign(new Error('请先确认并上传本镜参考图片'), { status: 409 })
   const video = images.length ? 'reference' : 'text'
   const refs = images.map((image, i) => `<Picture ${i + 1}> ${image.label} URL: ${image.url}`).join('\n')
-  const result = await generate('skill-jingtou-wenben-storyboard-generate', `${context(project, shotId)}\n镜头 ${shotId}，${shot.duration}s。\n镜头原文：${body(shot)}\n每秒指令原文：\n${shot.seconds.content || ''}\n视频模式由程序确定：${video}。\n程序关联角色：${characters.join('、')}\n关联场景：${scenes.join('、') || '未关联'}\n参考图片（固定顺序，仅使用此列表，不引用其他资产）：\n${refs || '无'}\n审核意见：${review}\n完整保留每秒指令中的剧情。首行返回 [opening-reference: previous-tail] 或 [opening-reference: none]。尾帧若在参考图片列表中，无论转场与否均须绑定其 Picture 编号，在主体定义、保留分析和开场描述中明确第一帧必须使用该尾帧，不得降级为弱参考；第一帧之后推进本镜剧情，转场立即切入本镜新场景，不停留、不缓慢变形、不重演前镜剧情；若没有尾帧则不虚构。首行统一使用 none，图片已纳入固定列表，不在提交时追加。首行后只返回最终视频提示词原文，不返回 JSON 或说明。`, { ...options, reviewReferences: images })
+  const result = await generate('skill-jingtou-wenben-storyboard-generate', `${context(project, shotId)}\n镜头 ${shotId}，${shot.duration}s。\n镜头原文：${body(shot)}\n每秒指令原文：\n${shot.seconds.content || ''}\n视频模式由程序确定：${video}。\n程序关联角色：${characters.join('、')}\n关联场景：${scenes.join('、') || '未关联'}\n参考图片（固定顺序，仅使用此列表，不引用其他资产）：\n${refs || '无'}\n审核意见：${review}\n完整保留每秒指令中的剧情。首行返回 [opening-reference: previous-tail] 或 [opening-reference: none]。尾帧若在参考图片列表中，无论转场与否均须绑定其 Picture 编号，在主体定义、保留分析和开场描述中说明用途：连续剧情从该尾帧构图与动作状态开始，立即继续运动，不停留展示图片；场景切换、时间跳跃或身份变化直接从第一帧进入本镜新剧情，尾帧仅参考相容状态，不先展示旧场景、不插入静帧或第二帧转场、不重演前镜剧情；若没有尾帧则不虚构。首行统一使用 none，图片已纳入固定列表，不在提交时追加。首行后只返回最终视频提示词原文，不返回 JSON 或说明。`, { ...options, reviewReferences: images })
   const marker = /^\[opening-reference: (previous-tail|none)\][ \t]*\r?\n/.exec(result.text)
   const openingReference = video === 'reference' && project.shots.items[0].id !== shotId && marker?.[1] === 'previous-tail' ? 'previous-tail' : 'none'
   const promptText = marker ? result.text.slice(marker[0].length) : result.text

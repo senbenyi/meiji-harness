@@ -1,6 +1,6 @@
 {
   "baseUrl": "http://43.154.247.11/v1",
-  "apiKey": "sk-dd21db93ff3d9a3e03372d15b3027bc6585fa5b73e30f016",
+  "apiKey": "",
   "chat": {
     "model": "elysium-chat"
   },
