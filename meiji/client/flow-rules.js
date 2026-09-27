@@ -64,9 +64,9 @@ export function gateMessage(project, step) {
   if (step === 'characters' || step === 'scenes') return '角色和场景与故事大纲统一生成；图片可在卡片中单独生成。'
   if (step === 'shots') {
     if (!canGenerate(project, 'shots')) return '请先写好场景卡，再写镜头表。'
-    if (!hasShots(project)) return '先写镜头表，再逐镜写每秒指令。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
-    if (!feedbackOf(project, 'shots').check.passed) return `镜头表还没通过自检：${(feedbackOf(project, 'shots').check.failures || []).slice(0, 3).join('；') || '请重新生成'}`
-    if (!hasShotSeconds(project)) return '镜头表已通过自检。生成分镜表时会把缺的每秒指令一起写上。'
+    if (!hasShots(project)) return '先写镜头表，再整集生成每秒指令并逐镜自审。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
+    if (!feedbackOf(project, 'shots').check.passed) return '镜头表尚未通过自审，请查看镜头表顶部的审核卡片。'
+    if (!hasShotSeconds(project)) return '镜头表已通过自审，请先整集生成每秒指令并逐镜审核。'
     if (shotsReady(project)) return '镜头表已写好。下一步一次生成全部分镜表，每秒指令会一起写上。重新生成镜头表会清掉分镜和成片。'
   }
   if (step === 'storyboard') {

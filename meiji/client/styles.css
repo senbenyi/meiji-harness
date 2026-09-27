@@ -183,14 +183,15 @@ button.style-pick.is-on:hover {
 
 /* Keep feedback and its action together without duplicating generation controls. */
 .workflow-review-panel{padding:12px;border:1px solid var(--border,#3b3e46);border-radius:10px;grid-template-columns:minmax(0,1fr) auto;align-items:center;background:rgba(128,128,128,.05)}
-.workflow-review-panel>.workflow-review-heading,.workflow-review-panel>.hint,.workflow-review-panel>.storyboard-empty{grid-column:1/-1}
-.workflow-review-heading{font-size:13px;line-height:20px;font-weight:600}
+.workflow-review-panel>.hint,.workflow-review-panel>.storyboard-empty{grid-column:1/-1}
 .workflow-review-failed{border-color:rgba(230,95,95,.5);background:rgba(230,95,95,.06)}
-.workflow-review-failed>.workflow-review-heading{color:#ed8585}
 .workflow-review-panel>.workflow-review-action{margin:0;min-height:34px;white-space:nowrap;padding:6px 12px;font-size:13px}
+.workflow-review-panel>.workflow-review-action:not(:disabled){background:#efd09d;border-color:#efd09d;color:#241c10;font-weight:600}.workflow-review-panel>.workflow-review-action:not(:disabled):hover{background:#ffe1af;border-color:#ffe1af}.workflow-review-panel>.workflow-review-action:focus-visible{outline:2px solid #ffe1af;outline-offset:3px}
 .workflow-review-panel>.hint{white-space:pre-wrap;overflow-wrap:anywhere}
 @container workbench (max-width:380px){.workflow-review-panel{grid-template-columns:minmax(0,1fr)}.workflow-review-panel>.workflow-review-action{justify-self:end}}
 
 .scene-text-editor{display:grid;gap:8px;width:100%}.scene-text-editor label{display:grid;gap:4px}.scene-text-editor input,.scene-text-editor textarea{box-sizing:border-box;width:100%;min-width:0}.scene-text-editor textarea{min-height:70px;resize:vertical}
 
 .shot-unpassed .shot-check-badge{color:#ff9b9b;background:#662d3433}
+
+.workflow-generation-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0}.workflow-generation-row>.story-status,.workflow-generation-row>h4,.workflow-generation-row>p{margin:0}.workflow-generation-row>button,.workflow-regenerate{flex:none;margin:0}.workflow-generation-row>button{padding:4px 10px}.image-review-overlay>.workflow-generation-row{width:100%;justify-content:space-between}.episode-copy .workflow-generation-row>strong{min-width:0}

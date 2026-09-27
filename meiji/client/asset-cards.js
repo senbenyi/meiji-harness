@@ -1,4 +1,4 @@
-import { appendWorkflowReview, reviewFields } from './workflow-review.js'
+import { reviewFields } from './workflow-review.js'
 import { pictureOf } from './drama-model.js'
 import { request, assetUrl } from './api.js'
 import { element, appendJsonCopy } from './dom.js'
@@ -100,7 +100,7 @@ export function stillCards(project, items, actions, hint) {
       frame.append(plus)
     }
     const copy = element('div', '', 'asset-copy')
-    const heading = element('div', '', item.type === 'role' ? 'character-heading' : '')
+    const heading = element('div', '', item.type === 'role' ? 'character-heading' : 'workflow-generation-row')
     heading.append(element('h3', `${item.id} · ${item.name}`))
     copy.append(heading)
     const rows = item.type === 'role'
@@ -180,7 +180,6 @@ export function stillCards(project, items, actions, hint) {
         plus.onclick = () => { if (!busy) { pickId = item.id; pickSlot = slot; picker.click() } }
         pics.append(plus)
         block.append(head, pics)
-        appendWorkflowReview(block, item.parts[slot], Boolean(item[slot]?.length), busy, aiPart)
         copy.append(block)
       }
     }
@@ -199,9 +198,7 @@ export function stillCards(project, items, actions, hint) {
         ai.textContent = 'AI生图'
       }
     }
-    if (item.type === 'role') heading.append(ai)
-    else actionsRow.append(ai)
-    appendWorkflowReview(copy, item.image, Boolean(stillSrc(item) || pictureOf(item).imageUrl), busy, ai)
+    heading.append(ai)
     if (stillSrc(item) || pictureOf(item).imageUrl) {
       const edit = element('button', '更换图片')
       edit.type = 'button'

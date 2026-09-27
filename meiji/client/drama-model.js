@@ -27,7 +27,7 @@ export function shotModel(fields) {
 export function episodeModel(id, fields) {
   return { id, ...fields, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
     plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] } },
-    shots: { ...node('shots'), items: [] }, assembly: node('assembly'), customSkills: {}, pendingImages: {}, activity: null, activityError: null }
+    shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), customSkills: {}, pendingImages: {}, activity: null, activityError: null }
 }
 export function targetNode(project, key) {
   const [kind, id, slot] = key.split(':')
@@ -42,6 +42,7 @@ export function targetNode(project, key) {
     const item = [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || [])].find(item => item.id === id)
     return slot ? item?.parts?.[slot] : item?.image
   }
+  if (kind === 'seconds' && !id) return project.shots?.seconds
   if (kind === 'shots') return project.shots
   if (kind === 'assembly') return project.assembly
   const shot = project.shots?.items.find(item => item.id === id)
@@ -51,7 +52,7 @@ export function targetNode(project, key) {
   return shot?.[{ seconds: 'seconds', storyboard: 'storyboard', pencil: 'pencil', film: 'video', tailFrame: 'tailFrame' }[kind]]
 }
 export function allNodes(project) {
-  const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.shots, project.assembly]
+  const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.shots, project.shots?.seconds, project.assembly]
   for (const bag of [project.plot?.characters, project.plot?.scenes]) for (const item of bag?.items || []) result.push(item, item.image, ...Object.values(item.parts || {}))
   for (const shot of project.shots?.items || []) result.push(shot, shot.seconds, shot.storyboard, shot.pencil, shot.video, shot.tailFrame)
   return result.filter(Boolean)
@@ -117,6 +118,7 @@ export function assertDrama(project) {
   for (const episode of project.episodes) {
     if (['feedback', 'outline', 'characters', 'scenes', 'storyboard', 'boards', 'films'].some(key => Object.hasOwn(episode, key))) throw new Error('剧集包含已移除的旧字段')
     if (!episode.plot || !episode.shots?.items || !episode.summary?.check) throw new Error('剧集 Model 不完整')
+    episode.shots.seconds ??= { ...node('seconds'), review: { ...emptyReview(), text: episode.shots.items.filter(shot => shot.seconds.review.text).map(shot => `${shot.id}：${shot.seconds.review.text}`).join('\n') } }
     for (const value of allNodes(episode)) {
       if (!Object.hasOwn(statusLabels, value.status) || !value.check || !value.review) throw new Error(`节点 ${value.id} 不完整`)
     }

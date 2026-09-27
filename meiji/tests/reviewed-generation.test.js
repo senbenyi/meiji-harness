@@ -27,9 +27,9 @@ test('second failure stops; no third generation', async () => {
 for (const verdict of ['', 'invalid', 'FAIL']) test(`invalid review does not trigger correction: ${verdict}`,async()=>{
  let count=0;await generateWithSelfReview({generate:async()=>{count++;return '稿'},review:async()=>verdict});assert.equal(count,1)
 })
-test('review error and correction error preserve generated content',async()=>{
- const a=await generateWithSelfReview({generate:async()=> '稿',review:async()=>{throw new Error('network')}});assert.equal(a.text,'稿');assert.match(a.check.failures[0],/network/)
- const b=await generateWithSelfReview({generate:async correction=>{if(correction)throw new Error('network');return '稿'},review:async()=> 'FAIL\n原因'});assert.equal(b.text,'稿');assert.equal(b.check.failures.length,2)
+test('review and correction API errors stop without producing a semantic failure',async()=>{
+ await assert.rejects(generateWithSelfReview({generate:async()=> '稿',review:async()=>{throw new Error('network')}}),/network/)
+ await assert.rejects(generateWithSelfReview({generate:async correction=>{if(correction)throw new Error('network');return '稿'},review:async()=> 'FAIL\n原因'}),/network/)
 })
 test('seconds retry includes latest draft, original human opinion and failure then reviews again',async()=>{
  const calls=[];let generated=0;let reviewed=0

@@ -1,5 +1,5 @@
 import { setupModel } from './fixtures/model.js'
-import { generateShotSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
+import { generateAllSeconds, generateShotSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
 import { scopeProjects } from '../server/data/episodes.js'
 import { saveImageDraft } from '../server/data/pictures.js'
 import test from 'node:test'
@@ -94,8 +94,8 @@ test('a per-shot storyboard names the shot and its skill', () => {
 test('generating all boards names both shot functions', () => {
   const text = describeOperation({ id: 'op-12', action: 'shot-boards', projectId: 'p1' })
   assert.match(text, /【极乐世界】生成所有分镜/)
-  assert.match(text, /逐镜调用每秒指令和文本分镜/)
-  assert.match(text, /函数：generateShotSeconds/)
+  assert.match(text, /整集一次生成每秒指令并逐镜自审/)
+  assert.match(text, /函数：generateAllSeconds/)
   assert.match(text, /函数：generateShotStoryboard/)
   assert.match(text, /调用 meiji_panel 执行，必须传入上面的 operationId/)
   assert.equal(/项目：|p1/.test(text), false)
@@ -134,7 +134,8 @@ const passText = text => async skill => skill === 'skill-gongyong-content-review
 const videoDeps = home => ({ home, submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: item.track })) }), retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') })
 test('batch boards write each shot without losing earlier results',async t=>{
  const e=await setupModel(t)
- await runOperation(e.op('shot-boards'),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:passText('0–5s：朝北进入')}),generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:passText('summary: 朝北进入\ndetailed_description: 摄影机在身后\noverall_soundscape: 风\nnon_diegetic_music: N/A')})})
+ const {modelStore}=await import('../server/data/models.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
+ await runOperation(e.op('shot-boards'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:passText('## S01 / 5s\n0–5s：朝北进入\n## S02 / 5s\n0–5s：继续进入\n[seconds-complete]')}),generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:passText('summary: 朝北进入\ndetailed_description: 摄影机在身后\noverall_soundscape: 风\nnon_diegetic_music: N/A')})})
  const p=await e.read();assert.equal(p.shots.items.length,2);for(const s of p.shots.items){assert.equal(s.seconds.status,'passed');assert.equal(s.storyboard.status,'passed')}
 })
 test('pencil generation is a draft and does not replace an active pencil',async t=>{const e=await setupModel(t);await runOperation(e.op('pencil',{track:'S01'}),{home:e.home,submitPencilBoard:async()=>saveImageDraft(e.home,Buffer.from('pencil'),'image/png','scenes','分镜',{projectId:e.id,episodeId:e.episodeId})});const p=await e.read();assert.equal(p.shots.items[0].pencil.content,null);assert.equal(Object.keys(p.pendingImages).length,1);assert.equal(p.shots.items[0].pencil.operation.phase,'awaiting-confirmation')})

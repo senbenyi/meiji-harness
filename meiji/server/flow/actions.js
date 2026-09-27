@@ -1,5 +1,5 @@
 import { produceShots } from '../workers/shot-film-worker.js'
-import { GenerationStatus, pictureOf, node, contentNode, plotPatch, targetNode, finish, allNodes, shotResults, shotMap, updateShotResult, updateShotResults } from '../../client/drama-model.js'
+import { GenerationStatus, pictureOf, node, contentNode, plotPatch, targetNode, finish, allNodes, modelPatch, shotResults, shotMap, updateShotResult, updateShotResults } from '../../client/drama-model.js'
 import { reviewContent } from '../generate/review.js'
 import { storyboardTextPatch } from '../data/storyboard-edit.js'
 import { skillSupplement } from '../data/custom-skills.js'
@@ -18,7 +18,7 @@ import { assetStore } from '../data/library.js'
 import { canGenerate, hasCharacters, hasScenes, hasShots, staleMedia, aspectRatioOf } from './gates.js'
 import { bindReferencePrompt, filmClipUrl, saveLastFrame, shotReferenceImages, submitH3, retrieveFilm, videoRequestMode, wantsOpeningFrame } from '../generate/film.js'
 import { concatFilms } from '../generate/concat.js'
-import { regenerateCardGroup, generateEpisode, generateStoryPackage, generateShotSeconds, generateShotStoryboard, generateShots, generateStoryboard, reviseShot, storyboardPromptText } from '../generate/story.js'
+import { regenerateCardGroup, generateEpisode, generateStoryPackage, generateAllSeconds, generateShotSeconds, generateShotStoryboard, generateShots, generateStoryboard, reviseShot, storyboardPromptText } from '../generate/story.js'
 import { imageSkillPrompt, appendImageAsset, characterStillPrompt, clearCharacterImage, generateStillFile, imageSeed, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook } from '../generate/image.js'
 import { runTextGeneration } from '../workers/text-generation-worker.js'
 import { skillFilePath } from '../../skills/load.js'
@@ -78,6 +78,7 @@ const labels = {
 export function operationLabel(operation) { return `${labels[operation.action] || operation.action}${operation.track ? ' ' + operation.track : ''}${operation.generationMode ? '·' + (operation.generationMode === 'modify' ? '按意见修改' : '重新生成') : ''}` }
 
 export function validateOperation(input) {
+  if (input?.action === 'shot-seconds') throw Object.assign(new Error('每秒指令请从卡片集顶部统一提交'), { status: 400 })
   if (!actions.has(input?.action)) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
 }
 
@@ -136,12 +137,11 @@ export function describeOperation(operation) {
     if (String(operation.review || '').trim()) lines.push(`审核意见：${String(operation.review).trim()}`)
     lines.push(...callSite(skillFilePath('skill-jingtou-wenben-storyboard-generate'), 'generateShotStoryboard（server/generate/story.js）'))
   } else if (operation.action === 'storyboard') {
-    lines.push('一次生成全部分镜表。缺每秒指令的镜头先写满每一秒，再写分镜。不要要求用户先单独补每秒指令。')
-    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateShotSeconds（server/generate/story.js）'))
+    lines.push('生成全部文本分镜。前提是整集每秒指令已经逐镜自审通过，不自动补齐缺失的每秒指令。')
     lines.push(...callSite(skillFilePath('skill-jingtou-wenben-storyboard-generate'), 'generateStoryboard（server/generate/story.js）'))
   } else if (operation.action === 'shot-boards') {
-    lines.push('按镜头顺序，逐镜调用每秒指令和文本分镜')
-    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateShotSeconds（server/generate/story.js）'))
+    lines.push('整集一次生成每秒指令并逐镜自审，通过后逐镜生成文本分镜')
+    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateAllSeconds（server/generate/story.js）'))
     lines.push(...callSite(skillFilePath('skill-jingtou-wenben-storyboard-generate'), 'generateShotStoryboard（server/generate/story.js）'))
   } else if (operation.action === 'films') {
     lines.push('按镜头顺序，逐镜提交成片')
@@ -156,8 +156,8 @@ export function describeOperation(operation) {
     lines.push(...callSite('server/generate/image.js', 'submitPencilBoard'))
     lines.push('一张图里画出这一镜的全部格子，每秒一格')
   } else if (operation.action === 'seconds') {
-    lines.push('按镜头顺序写每一镜的每秒指令。不要改镜头表，不要写文本分镜。')
-    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateShotSeconds（server/generate/story.js）'))
+    lines.push('整集一次返回所有镜头的每秒指令，再逐镜自审。不要改镜头表，不要写文本分镜。')
+    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateAllSeconds（server/generate/story.js）'))
   } else if (operation.action === 'shots') {
     const review = String(operation.review || '').trim()
     if (review) lines.push(`审核意见：${review}`)
@@ -386,25 +386,53 @@ export async function runOperation(operation, deps) {
   const background = []
   let failure
   const operationId = deps.operationId || randomUUID()
+  const context = { review: '', operationId, signal: deps.signal }
   const finish = async () => {
     try {
       if (key) await projectStore(deps.home).save(operation.projectId, current => {
         const next = structuredClone(current)
         let changed = false
         for (const episode of next.episodes) {
+          if (context.apiFailure) {
+            const original = context.originalRoot?.episodes.find(item => item.id === episode.id)
+            const owned = allNodes(episode).filter(target => target.operation?.id === operationId).map(target => target.id)
+            const restore = new Set(owned)
+            for (const id of owned) {
+              const [kind, track] = id.split(':')
+              const downstream = kind === 'film' && track ? ['tailFrame'] : kind === 'shot' && track ? ['seconds', 'storyboard', 'pencil', 'film', 'tailFrame'] : kind === 'seconds' && track ? ['storyboard', 'pencil', 'film', 'tailFrame'] : kind === 'storyboard' && track ? ['pencil', 'film', 'tailFrame'] : []
+              for (const child of downstream) restore.add(`${child}:${track}`)
+            }
+            if (owned.length && original) {
+              for (const id of restore) {
+                const target = targetNode(episode, id), previous = targetNode(original, id)
+                if (!target || !previous || (target.operation && target.operation.id !== operationId)) continue
+                const review = target.review, draft = target.draft
+                Object.assign(target, structuredClone(previous), { review, draft, operation: previous.operation?.phase === 'awaiting-confirmation' ? structuredClone(previous.operation) : null })
+              }
+              if (operation.draftId && original.pendingImages?.[operation.draftId]) episode.pendingImages[operation.draftId] = structuredClone(original.pendingImages[operation.draftId])
+              if (owned.includes('outline')) episode.shots = structuredClone(original.shots)
+              const completed = allNodes(episode).some(value => !restore.has(value.id) && value.check?.passed === true && value.revision !== targetNode(original, value.id)?.revision)
+              if (!completed && ['outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'shot-storyboard', 'shot-boards', 'film', 'films'].includes(operation.action)) episode.assembly = structuredClone(original.assembly)
+              episode.activity = null
+              episode.activityError = original.activityError || null
+              Object.assign(episode, modelPatch(episode, {}))
+              changed = true
+            }
+            continue
+          }
           for (const target of allNodes(episode)) {
             if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
             target.error = deps.signal?.reason?.code === 'TASK_PAUSED' ? null : failure?.message || '任务已停止，请重新发起'; target.status = deps.signal?.reason?.code === 'TASK_PAUSED' ? GenerationStatus.PAUSED : GenerationStatus.FAILED; target.operation = null; changed = true
           }
           if (episode.id === operation.episodeId && episode.activity && !allNodes(episode).some(n => n.operation)) { episode.activity = null; changed = true }
         }
-        if (next.activeOperation === operationId) { next.activity = null; next.activeOperation = null; changed = true }
+        if (next.activeOperation === operationId) { next.activity = null; next.activeOperation = null; if (context.apiFailure) next.activityError = context.originalRoot?.activityError || null; changed = true }
         return changed ? next : null
       })
     } finally { if (key) running.delete(key) }
   }
   try {
-    const trace = await checkContext.run({ review: '', operationId, signal: deps.signal }, () => executeOperation(operation, { ...deps, operationId, defer: job => { background.push(job) } }))
+    const trace = await checkContext.run(context, () => executeOperation(operation, { ...deps, operationId, defer: job => { background.push(job) } }))
     trace.status = background.length ? 'running' : 'completed'
     return trace
   } catch (error) { failure = error; throw error } finally {
@@ -451,6 +479,7 @@ async function executeOperation(operation, deps) {
       return trace
     }
     let project = operation.projectId ? normalizeProject(await rootProjects.read(operation.projectId)) : null
+    if (project) checkContext.getStore().originalRoot = structuredClone(project)
     if (!project) throw Object.assign(new Error('没有找到项目'), { status: 404 })
     if (operation.action === 'overview') {
       const saved = await rootProjects.save(project.id, overviewPatch(project, operation.fields))
@@ -666,24 +695,20 @@ async function executeOperation(operation, deps) {
       const items = project.shots?.items || []
       if (!items.length) throw Object.assign(new Error('请先写好镜头表，再写每秒指令'), { status: 409 })
       project = await projects.save(project.id, { activity: 'seconds', activityError: null })
-      note('按镜头顺序写每秒指令')
-      const writeSeconds = deps.generateShotSeconds || generateShotSeconds
-      let current = await projects.read(project.id)
-      for (const shot of current.shots?.items || []) {
-        if (operation.regenerateAll !== true && shotSecondsReady(shot) && shot.seconds.status === GenerationStatus.PASSED && shot.seconds.check.passed === true && !shot.seconds.stale) {
-          note(`${shot.id} 每秒指令已通过，跳过`)
-          continue
-        }
-        note('文件：' + skillFilePath('skill-jingtou-meimiao-seconds-generate'))
-        note('函数：generateShotSeconds（server/generate/story.js）')
-        note(`写 ${shot.id} 的每一秒`)
-        current = await projects.save(project.id, { ...clearShotDownstream(current, 'seconds', shot.id) })
-        await selectCheck(current, { action: 'shot-seconds', track: shot.id })
-        const next = await writeSeconds({ route: (await loadModels(models)).story, shotId: shot.id, project: current })
-        await projects.save(project.id, { shots: next, assembly: node('assembly'), activity: 'seconds' })
-        current = await projects.read(project.id)
-      }
-      await projects.save(project.id, { activity: null })
+      note('整集一次生成每秒指令，返回后逐镜自审')
+      await (deps.generateAllSeconds || generateAllSeconds)({ route: (await loadModels(models)).story, project,
+        persist: (shots, phase) => projects.save(project.id, current => {
+          const patch = phase === 'draft' ? clearShotDownstream(current, 'seconds') : { shots: current.shots }
+          patch.shots.items = patch.shots.items.map(shot => phase === 'draft' || shot.id === checkContext.getStore()?.target?.track ? { ...shot, seconds: shots.items.find(item => item.id === shot.id).seconds } : shot)
+          return { ...patch, assembly: node('assembly'), activity: 'seconds' }
+        }),
+      })
+      await projects.save(project.id, current => {
+        const next = structuredClone(current)
+        finish(next.shots.seconds, { passed: true, failures: [] })
+        next.activity = null
+        return next
+      })
       note('每秒指令已写完')
       return trace
     }
@@ -750,19 +775,16 @@ async function executeOperation(operation, deps) {
       if (!ids.length) throw Object.assign(new Error('请先写好镜头表'), { status: 409 })
       project = await projects.save(project.id, { activity: 'shot-boards', activityError: null })
       note('按镜头顺序生成所有分镜')
-      note('每一镜先写每秒指令，再写文本分镜')
-      const writeSeconds = deps.generateShotSeconds || generateShotSeconds
+      await (deps.generateAllSeconds || generateAllSeconds)({ route: (await loadModels(models)).story, project,
+        persist: (shots, phase) => projects.save(project.id, current => {
+          const patch = phase === 'draft' ? clearShotDownstream(current, 'seconds') : { shots: current.shots }
+          patch.shots.items = patch.shots.items.map(shot => phase === 'draft' || shot.id === checkContext.getStore()?.target?.track ? { ...shot, seconds: shots.items.find(item => item.id === shot.id).seconds } : shot)
+          return { ...patch, assembly: node('assembly'), activity: 'shot-boards' }
+        }),
+      })
       const writeBoard = deps.generateShotStoryboard || generateShotStoryboard
       for (const track of ids) {
         let current = await projects.read(project.id)
-        current = await projects.save(project.id, clearShotDownstream(current, 'seconds', track))
-        note('文件：' + skillFilePath('skill-jingtou-meimiao-seconds-generate'))
-        note('函数：generateShotSeconds（server/generate/story.js）')
-        note(`写 ${track} 的每一秒`)
-        await selectCheck(current, { action: 'shot-seconds', track })
-        const shots = await writeSeconds({ route: (await loadModels(models)).story, shotId: track, project: current })
-        await projects.save(project.id, { shots, activity: 'shot-boards' })
-        current = await projects.read(project.id)
         note('文件：' + skillFilePath('skill-jingtou-wenben-storyboard-generate'))
         note('函数：generateShotStoryboard（server/generate/story.js）')
         note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
@@ -871,22 +893,11 @@ async function executeOperation(operation, deps) {
     if (operation.action === 'storyboard') {
       if (!hasShots(project)) throw Object.assign(new Error('请先写好镜头表，再生成文本分镜'), { status: 409 })
       project = await projects.save(project.id, { activity: 'storyboard', activityError: null })
-      const writeSeconds = deps.generateShotSeconds || generateShotSeconds
-      let current = project
-      for (const shot of current.shots?.items || []) {
-        if (shotSecondsReady(shot) && feedbackOf(current, `seconds:${shot.id}`).check.passed !== false) continue
-        note('文件：' + skillFilePath('skill-jingtou-meimiao-seconds-generate'))
-        note('函数：generateShotSeconds（server/generate/story.js）')
-        note(`写 ${shot.id} 的每一秒`)
-        current = await projects.save(project.id, clearShotDownstream(current, 'seconds', shot.id))
-        await selectCheck(current, { action: 'shot-seconds', track: shot.id })
-        const shots = await writeSeconds({ route: (await loadModels(models)).story, shotId: shot.id, project: current })
-        await projects.save(project.id, { shots, activity: 'storyboard' })
-        current = await projects.read(project.id)
-      }
+      const current = project
+      if (current.shots.items.some(shot => !shotSecondsReady(shot) || shot.seconds.check.passed !== true || shot.seconds.stale)) throw Object.assign(new Error('请先生成整集每秒指令，并使每镜自审通过'), { status: 409 })
       await selectCheck(current, { action: 'storyboard' })
       note('按 skill-jingtou-wenben-storyboard-generate 生成全部分镜表，并审核原文剧情与素材关联')
-      const storyboard = await (deps.generateStoryboard || generateStoryboard)({ route: (await loadModels(models)).story, project: current, regenerateAll: operation.regenerateAll === true, beforeShot: track => projects.save(project.id, current => clearShotDownstream(current, 'storyboard', track)), persist: storyboard => projects.save(project.id, current => updateShotResults(current, 'storyboard', storyboard)) })
+      const storyboard = await (deps.generateStoryboard || generateStoryboard)({ route: (await loadModels(models)).story, project: current, beforeShot: track => projects.save(project.id, current => clearShotDownstream(current, 'storyboard', track)), persist: storyboard => projects.save(project.id, current => updateShotResults(current, 'storyboard', storyboard)) })
       await projects.writeStep(project.id, 'storyboard', { ...updateShotResults(await projects.read(project.id), 'storyboard', storyboard), activity: null })
       note(`文本分镜已写入，共 ${storyboard.length} 镜。铅笔分镜和成片已清空，等待重新生成`)
       return trace
@@ -1019,6 +1030,7 @@ async function executeOperation(operation, deps) {
     }
     throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
   } catch (error) {
+    if (checkContext.getStore()?.apiFailure) throw error
     if (operation.projectId) {
       try {
         const current = await rootProjects.read(operation.projectId)

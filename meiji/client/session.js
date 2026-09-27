@@ -133,7 +133,7 @@ export function renderSession(project, openCreate, actions, context = {}) {
   const index = episodes.findIndex(item => item.id === work.episodeId)
   const number = index < 0 ? episodes.length + 1 : episodes.length - index
   bar.append(back, element('h2', `${project.title} 第 ${number} 集`))
-  if (work.activityError) view.append(element('p', work.activityError, 'notice'))
+  if (work.activityError && !/^(自检|自审)未通过/.test(work.activityError)) view.append(element('p', work.activityError, 'notice'))
   const shot = (work.shots?.items || []).find(item => item.id === context.shotId)
   if (shot) {
     view.append(renderShotPage(work, shot, actions, context))

@@ -1,8 +1,9 @@
+import { askSkill, textMaxTokens } from './chat.js'
 import { previousTail } from '../../client/tail-frame.js'
 import { runTextGeneration } from '../workers/text-generation-worker.js'
 import { continuityReviewContext } from '../prompts/continuity-review.js'
-import { GenerationStatus, node, shotModel, setContent, shotResults, updateShotResults } from '../../client/drama-model.js'
-import { checkContext, selectCheck, checkReasons } from '../data/self-checks.js'
+import { node, shotModel, setContent, shotResults, updateShotResults } from '../../client/drama-model.js'
+import { checkContext, selectCheck, checkReasons, withReviewPrompt, markApiFailure } from '../data/self-checks.js'
 import { shotReferenceImages } from '../../client/reference-images.js'
 import { shotSecondsReady } from '../../client/shot-timing.js'
 
@@ -84,6 +85,49 @@ export async function reviseShot(options) {
   return { ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, content: result.text, check: result.check } : item), check: result.check }
 }
 
+// One whole-episode generation, followed by independent reviews of each returned shot.
+export async function generateAllSeconds(options) {
+  let { project } = options
+  const ctx = checkContext.getStore()
+  const skill = 'skill-jingtou-meimiao-seconds-generate'
+  const invoke = options.request || askSkill
+  const request = async (...args) => { try { return await invoke(...args) } catch (error) { throw markApiFailure(error) } }
+  const signal = options.signal || ctx?.signal
+  signal?.throwIfAborted()
+  for (const shot of project.shots.items) await ctx?.startTarget?.({ action: 'shot-seconds', track: shot.id })
+  const upstream = { ...project, shots: { ...project.shots, items: project.shots.items.map(shot => ({ ...shot, seconds: { ...shot.seconds, content: null, check: { passed: null } } })) } }
+  const instructions = `${context(upstream)}\n一次返回整集所有镜头的每秒指令，统筹动作进度、对白、机位及镜头交接，不重复已经完成的动作。保持已有镜头编号、顺序和时长，不新增或合并镜头。每镜从0秒开始，覆盖该镜完整时长。\n每镜以独占一行的「## S01 / 5s」分段（使用实际编号和时长），正文为逐秒自由文本。最后独占一行输出 [seconds-complete]，只有全部镜头完整输出后才写此标记。`
+  const previous = ctx?.generationMode === 'modify' ? project.shots.items.map(shot => `## ${shot.id}\n${shot.seconds.content || ''}`).join('\n') : ''
+  const text = await request(skill, withReviewPrompt(instructions + (previous ? `\n修改基稿：\n${previous}` : '')), { ...options, signal, includeReview: false, logPurpose: '整集每秒指令', logStage: '生成', maxTokens: textMaxTokens(project.durationSeconds) })
+  const trimmed = String(text).trim()
+  if (!trimmed.endsWith('[seconds-complete]')) throw new Error('整集每秒指令返回不完整，未覆盖原内容；请重新生成')
+  const sections = readShotSections(trimmed.slice(0, -'[seconds-complete]'.length).trim())
+  if (sections.length !== project.shots.items.length || sections.some((shot, i) => shot.id !== project.shots.items[i].id || shot.duration !== project.shots.items[i].duration)) throw new Error('每秒指令镜头编号、数量或时长与镜头表不一致，未覆盖原内容')
+  if (ctx) { ctx.target = { action: 'seconds' }; ctx.validation = []; ctx.deferCheckFailure = true }
+  const failures = []
+  try {
+    project = { ...project, shots: { ...project.shots, items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i].content) })) } }
+    if (options.persist) project = await options.persist(project.shots, 'draft')
+    for (const shot of project.shots.items) {
+      signal?.throwIfAborted()
+      await selectCheck(project, { action: 'shot-seconds', track: shot.id })
+      const neighbors = project.shots.items.filter(item => Math.abs(project.shots.items.indexOf(item) - project.shots.items.indexOf(shot)) === 1)
+      const result = await runTextGeneration({ skill, initialText: shot.seconds.content,
+        instructions: `${context(upstream, shot.id)}\n仅审核或定向修订 ${shot.id} 的0–${shot.duration}s每秒指令。相邻镜头本轮最新内容仅作交接参考，不是待审对象：\n${neighbors.map(item => `${item.id}：${item.seconds.content}`).join('\n')}`,
+        options: { ...options, project, signal, request, shotId: shot.id },
+      })
+      const items = project.shots.items.map(item => item.id === shot.id ? { ...item, seconds: setContent(structuredClone(item.seconds), result.text, result.check) } : item)
+      project = { ...project, shots: { ...project.shots, items } }
+      if (options.persist) project = await options.persist(project.shots, 'review')
+      if (!result.check.passed) failures.push(`${shot.id}：${result.check.failures.join('；')}`)
+    }
+  } finally {
+    if (ctx) { ctx.deferCheckFailure = false; ctx.target = { action: 'seconds' }; ctx.validation = [] }
+  }
+  if (failures.length) throw Object.assign(new Error(`自检未通过：${failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
+  return project.shots
+}
+
 export async function generateShotSeconds(options) {
   const { project, shotId, review = '' } = options
   const shot = project.shots.items.find(item => item.id === shotId)
@@ -120,8 +164,6 @@ export async function generateShotStoryboard(options) {
 export async function generateStoryboard(options) {
   let project = options.project
   for (const shot of project.shots.items) {
-    const board = shot.storyboard
-    if (!options.regenerateAll && board?.content?.prompt?.text?.trim() && board.status === GenerationStatus.PASSED && board.check.passed === true && !board.stale) continue
     if (options.beforeShot) project = await options.beforeShot(shot.id)
     await selectCheck(project, { action: 'shot-storyboard', track: shot.id })
     project = { ...project, ...updateShotResults(project, 'storyboard', await generateShotStoryboard({ ...options, project, shotId: shot.id })) }

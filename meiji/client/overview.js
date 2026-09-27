@@ -184,7 +184,9 @@ export function renderOverview(project, actions, context) {
         actions.fail(error)
       })
     }
-    copy.append(regenerate)
+    const heading = element('div', '', 'workflow-generation-row')
+    heading.append(copy.querySelector('strong'), regenerate)
+    copy.prepend(heading)
     const reviewArea = appendWorkflowReview(copy, episode.summary, Boolean(episode.summary.content), Boolean(project.activity), regenerate)
     reviewArea.dataset.episodeId = episode.id
     reviewArea.onclick = event => event.stopPropagation()

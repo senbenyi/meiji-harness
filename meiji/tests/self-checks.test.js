@@ -12,7 +12,6 @@ test('generation failure retains opinion and content, retry consumes opinion on 
 test('self-check failure and human opinion remain distinct',async t=>{const e=await setupModel(t);await runOperation(e.op('shot-seconds',{track:'S01',review:'保留动作'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:reply('新的指令','FAIL\n缺少空间')})});const n=(await e.read()).shots.items[0].seconds;assert.equal(n.review.text,'保留动作');assert.deepEqual(n.check.failures,['FAIL\n缺少空间']);assert.equal(n.status,'failed');assert.equal(n.content,'新的指令')})
 test('new human draft during a running operation is never cleared or overwritten',async t=>{const e=await setupModel(t);await runOperation(e.op('shot-seconds',{track:'S01',review:'本次修改'}),{home:e.home,generateShotSeconds:async opts=>{const n=(await e.read()).shots.items[0].seconds;await e.store.saveReviewDraft(e.id,e.episodeId,n.id,'下一次意见',n.review.revision);return generateShotSeconds({...opts,request:reply('新指令')})}});const n=(await e.read()).shots.items[0].seconds;assert.equal(n.status,'passed');assert.equal(n.review.text,'下一次意见')})
 test('image opinion edits do not change the picture target snapshot',async t=>{const e=await setupModel(t),p=await e.read(),c=p.plot.characters.items[0],snapshot=pictureTargetSnapshot(c);saveReview(c.image,'换背景');begin(c.image,{id:'task'});assert.equal(pictureTargetSnapshot(c),snapshot)})
-test('batch stops at failed shot, preserving passed prior shot and unprocessed content',async t=>{const e=await setupModel(t);;await e.store.save(e.id,p=>{p.episodes[0].shots.items.forEach(s=>{s.seconds.stale=true});return p});await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:reply('新指令',opts.shotId==='S01'?'PASS':'FAIL\n错误')})}),/自检未通过/);const p=await e.read();assert.equal(p.shots.items[0].seconds.status,'passed');assert.equal(p.shots.items[1].seconds.status,'failed');assert.equal(p.shots.items[1].seconds.content,'新指令')})
 test('unrelated metadata save cannot consume model opinions',async t=>{const e=await setupModel(t);await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','新意见',0);await e.store.save(e.id,{title:'改名'});assert.equal((await e.read()).shots.items[0].storyboard.review.text,'新意见')})
 test('draft optimistic revision rejects a stale browser edit',async t=>{const e=await setupModel(t);await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','新版',0);await assert.rejects(e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','旧版',0),{status:409});assert.equal((await e.read()).shots.items[0].storyboard.review.text,'新版')})
 test('bad shot format keeps original returned text and does not retry',async t=>{const e=await setupModel(t);let calls=0;await runOperation(e.op('shots',{review:'调整'}),{home:e.home,generateShots:opts=>generateShots({...opts,request:async s=>{calls++;return s==='skill-gongyong-content-review'?'PASS':'{invalid json'}})});const p=await e.read();assert.equal(calls,2);assert.equal(p.shots.failedOutput,'{invalid json');assert.equal(p.shots.status,'failed');assert.equal(p.shots.review.text,'调整')})
@@ -53,32 +52,7 @@ test('one-click retry does not regenerate clips completed before a later failure
   assert.ok((await e.read()).shots.items.every(s => s.video.status === 'passed'))
 })
 
-test('batch seconds keeps shot opinions isolated', async t => {
-  const e = await setupModel(t);await e.store.save(e.id,p=>{p.episodes[0].shots.items.forEach(s=>{s.seconds.stale=true});return p});
-  await e.store.saveReviewDraft(e.id, e.episodeId, 'seconds:S01', '仅第一镜保留雨声', 0)
-  await e.store.saveReviewDraft(e.id, e.episodeId, 'seconds:S02', '仅第二镜保持奔跑', 0)
-  await runOperation(e.op('seconds'), {
-    home: e.home,
-    generateShotSeconds: opts => generateShotSeconds({ ...opts, request: async (skill, prompt) => {
-      if (skill === 'skill-gongyong-content-review') return 'PASS'
-      assert.match(prompt, new RegExp(opts.shotId === 'S01' ? '仅第一镜保留雨声' : '仅第二镜保持奔跑'))
-      assert.doesNotMatch(prompt, new RegExp(opts.shotId === 'S01' ? '仅第二镜保持奔跑' : '仅第一镜保留雨声'))
-      return '新指令'
-    } }),
-  })
-})
-
-test('failed first batch shot does not clear unprocessed downstream content', async t => {
-  const e = await setupModel(t);await e.store.save(e.id,p=>{p.episodes[0].shots.items.forEach(s=>{s.seconds.stale=true});return p});
-  const before = (await e.read()).shots.items[1].storyboard
-  await assert.rejects(runOperation(e.op('seconds'), {
-    home: e.home,
-    generateShotSeconds: opts => generateShotSeconds({ ...opts, request: reply('新指令', 'FAIL 动作冲突') }),
-  }), /自检未通过/)
-  assert.deepEqual((await e.read()).shots.items[1].storyboard, before)
-})
-
-for (const action of ['storyboard', 'shot-boards']) {
+for (const action of ['storyboard']) {
   test(`${action} failure preserves unprocessed shot media`, async t => {
     const e = await setupModel(t)
     await e.store.save(e.id, p => {
@@ -90,7 +64,7 @@ for (const action of ['storyboard', 'shot-boards']) {
     })
     const before = (await e.read()).shots.items[1]
     const { generateStoryboard } = await import('../server/generate/shot-text.js')
-    await assert.rejects(runOperation(e.op(action, { regenerateAll: true }), {
+    await assert.rejects(runOperation(e.op(action), {
       home: e.home,
       generateShotSeconds: opts => generateShotSeconds({ ...opts, request: reply('新每秒指令') }),
       generateShotStoryboard: opts => generateShotStoryboard({ ...opts, request: reply('新文本分镜', 'FAIL 动作冲突') }),
@@ -105,16 +79,9 @@ for (const action of ['storyboard', 'shot-boards']) {
   })
 }
 
-test('unprocessed batch seconds retains passed status after earlier failure', async t => {
- const e=await setupModel(t), before=(await e.read()).shots.items[1].seconds;await e.store.save(e.id,p=>{p.episodes[0].shots.items[0].seconds.stale=true;return p});
- await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:reply('新内容','FAIL 动作冲突')})}))
- const after=(await e.read()).shots.items[1].seconds
- assert.equal(after.status,before.status);assert.equal(after.error,before.error);assert.equal(after.operation,null)
-})
-
 test('aborted operation does not invoke generation', async t => {
  const e=await setupModel(t), controller=new AbortController();controller.abort()
- await assert.rejects(runOperation(e.op('seconds'),{home:e.home,signal:controller.signal,generateShotSeconds:()=>{assert.fail('must not generate')}}),{name:'AbortError'})
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,signal:controller.signal,generateAllSeconds:()=>{assert.fail('must not generate')}}),{name:'AbortError'})
 })
 
 test('failed frame extraction keeps newly completed video ready', async t => {
@@ -144,47 +111,19 @@ test('running text API receives the operation cancellation signal', async t => {
  assert.equal((await e.read()).shots.items[0].seconds.operation,null)
 })
 
-test('batch seconds generates only remaining shots and preserves completed downstream', async t => {
+test('storyboard regenerates all shots even when already passed', async t => {
  const e=await setupModel(t)
- await e.store.save(e.id,p=>{p.episodes[0].shots.items[1].seconds.stale=true;return p})
- const before=(await e.read()).shots.items[0], calls=[]
- await runOperation(e.op('seconds'),{home:e.home,generateShotSeconds:opts=>{
-  calls.push(opts.shotId);return generateShotSeconds({...opts,request:reply('补齐内容')})
- }})
- assert.deepEqual(calls,['S02'])
- assert.deepEqual((await e.read()).shots.items[0].storyboard,before.storyboard)
- assert.equal((await e.read()).shots.items[0].seconds.revision,before.seconds.revision)
- await runOperation(e.op('seconds'),{home:e.home,generateShotSeconds:()=>assert.fail('all passed must skip')})
- await runOperation(e.op('shot-seconds',{track:'S01'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:reply('手动重做')})})
- assert.equal((await e.read()).shots.items[0].seconds.content,'手动重做')
-})
-
-test('explicit regenerate all seconds visits already passed shots', async t => {
- const e=await setupModel(t), calls=[]
- await runOperation(e.op('seconds',{regenerateAll:true}),{home:e.home,generateShotSeconds:opts=>{
-  calls.push(opts.shotId);return generateShotSeconds({...opts,request:reply('全部重做')})
- }})
- assert.deepEqual(calls,['S01','S02'])
- assert.ok((await e.read()).shots.items.every(s=>s.seconds.content==='全部重做'))
-})
-
-test('storyboard remaining skips passed shots; explicit all regenerates every shot', async t => {
- const e=await setupModel(t)
+ const {modelStore}=await import('../server/data/models.js')
+ const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
  const {generateStoryboard}=await import('../server/generate/shot-text.js')
- await e.store.save(e.id,p=>{p.episodes[0].shots.items[1].storyboard.stale=true;return p})
- const before=(await e.read()).shots.items[0], calls=[]
+ const calls=[]
  const deps={home:e.home,generateStoryboard:opts=>generateStoryboard({...opts,request:async(skill,prompt)=>{
   if(skill==='skill-gongyong-content-review')return 'PASS'
   calls.push(/镜头 (S\d+)，/.exec(prompt)[1]);return '新的文本分镜'
  }})}
  await runOperation(e.op('storyboard'),deps)
- assert.deepEqual(calls,['S02'])
- const after=(await e.read()).shots.items[0]
- assert.deepEqual(after.storyboard.content,before.storyboard.content)
- assert.deepEqual(after.pencil,before.pencil)
- assert.deepEqual(after.video,before.video)
+ assert.deepEqual(calls,['S01','S02'])
  calls.length=0
- await runOperation(e.op('storyboard'),deps);assert.deepEqual(calls,[])
- await runOperation(e.op('storyboard',{regenerateAll:true}),deps)
+ await runOperation(e.op('storyboard'),deps)
  assert.deepEqual(calls,['S01','S02'])
 })

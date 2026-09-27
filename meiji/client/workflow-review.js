@@ -2,7 +2,9 @@ import { GenerationStatus } from './drama-model.js'
 import { element } from './dom.js'
 
 export function appendWorkflowReview(parent, record, generated, busy = false, actionButton) {
-  const area = element('div', '', 'workflow-review')
+  const area = element('div', '', 'workflow-review workflow-review-panel')
+  if (!generated) return area
+  area.dataset.reviewTarget = record?.id || ''
   const check = record?.check
   const paused = record?.status === GenerationStatus.PAUSED
   if (paused) {
@@ -10,29 +12,23 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     if (actionButton) actionButton.textContent = '重新生成'
   }
   const failed = check?.passed === false || Boolean(record?.error)
-  if (generated || failed) {
-    area.classList.add('workflow-review-panel')
-    if (failed) area.classList.add('workflow-review-failed')
-    area.append(element('strong', failed ? '需要修改' : '审核与修改', 'workflow-review-heading'))
-  }
+  if (failed) area.classList.add('workflow-review-failed')
   if (record?.error) area.append(element('p', `执行未通过：${record.error}`, 'hint warn'))
-  if (!generated) area.append(element('div', '还未生成', 'storyboard-empty'))
-  if (generated && check?.passed === false) {
-    area.append(element('p', `自检未通过：${check.failures.join('；')}`, 'hint warn'))
-  }
-  if (generated) {
+  const failures = check?.passed === false ? (check.failures || []).filter(Boolean) : []
+  if (failures.length) area.append(element('p', `自审未通过：${failures.join('；')}`, 'hint warn workflow-review-failures'))
+  if (!failures.length) {
     const input = element('input', '', 'workflow-review-input')
     input.type = 'text'
     input.placeholder = '修改意见（可选）'
     input.setAttribute('aria-label', '审核意见')
-    input.value = record.review?.text || ''
+    input.value = record?.review?.text || ''
     input.maxLength = 2000
     input.disabled = false
-    input.dataset.reviewKey = record.id || ''
-    let revision = record.review?.revision || 0, timer, saving = false, queued = false
+    input.dataset.reviewKey = record?.id || ''
+    let revision = record?.review?.revision || 0, timer, saving = false, queued = false
     const flush = () => {
       if (saving) { queued = true; return }
-      if (!record.id) return
+      if (!record?.id) return
       saving = true
       const text = input.value
       input.dispatchEvent(new CustomEvent('meiji-review-draft', { bubbles: true, composed: true, detail: {
@@ -45,19 +41,18 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     input.onblur = () => { clearTimeout(timer); if (input.dataset.dirty) flush() }
     area.append(input)
   }
-  if (actionButton && (generated || failed)) {
-    actionButton.classList.add('workflow-review-action')
-    if (!busy) {
+  if (actionButton) {
+    actionButton.classList.add('workflow-regenerate')
+    if (!busy && (generated || failed)) {
       actionButton.textContent = '重新生成'
       actionButton.setAttribute('aria-label', actionButton.textContent)
     }
-    area.append(actionButton)
     const run = actionButton.onclick
     actionButton.onclick = event => { area.dataset.generationMode = 'regenerate'; return run?.call(actionButton, event) }
-    const modify = element('button', '按意见修改', 'workflow-review-action')
+    const modify = element('button', '提交修改', 'workflow-review-action')
     modify.type = 'button'
     const available = !busy && !actionButton.disabled
-    const refresh = () => { modify.disabled = !available || !generated || !(area.querySelector('input')?.value.trim() || (check?.passed === false && check.failures?.some(Boolean))) }
+    const refresh = () => { modify.disabled = !available || !generated || record?.canModify === false || !(area.querySelector('input')?.value.trim() || (check?.passed === false && check.failures?.some(Boolean))) }
     area.querySelector('input')?.addEventListener('input', refresh)
     modify.onclick = event => { if (modify.disabled) return; area.dataset.generationMode = 'modify'; return run?.call(actionButton, event) }
     refresh()
@@ -70,5 +65,6 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
 export function reviewFields(parent) {
   const area = parent.querySelector(':scope > .workflow-review')
   const generationMode = area?.dataset.generationMode || 'regenerate'
-  return { generationMode, ...(generationMode === 'modify' ? { review: area?.querySelector('input')?.value.trim() || '' } : {}) }
+  const input = area?.querySelector('input')
+  return { generationMode, ...(generationMode === 'modify' && input ? { review: input.value.trim() } : {}) }
 }

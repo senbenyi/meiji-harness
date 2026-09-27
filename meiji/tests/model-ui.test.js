@@ -58,19 +58,21 @@ test('shot subtab cards show review failure and retain manual expansion across r
  }
 })
 
-test('review action sits next to feedback and submits the local opinion',async t=>{
+test('failed review shows reasons instead of input and submits the unified modification',async t=>{
  const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
  p.shots.items[0].seconds.check={passed:false,failures:['朝向不连续']}
  const calls=[]
  container.replaceChildren(renderStage('shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane:'seconds'}))
- const card=container.querySelector('.shot-card'),area=card.querySelector('.workflow-review-panel')
+ const card=container.querySelector('.shot-card'),area=container.querySelector('.workflow-review-panel')
  assert.ok(area.classList.contains('workflow-review-failed'))
  assert.match(area.textContent,/朝向不连续/)
- const input=area.querySelector('input');input.value='保持面北'
- const button=area.querySelectorAll('button')[1];assert.equal(button.textContent,'按意见修改')
- assert.equal(card.querySelector('.shot-head').contains(button),false)
+ assert.equal(area.querySelector('input'),null)
+ const button=area.querySelector('button');assert.equal(button.textContent,'提交修改')
+ assert.equal(card.contains(button),false)
+ assert.ok(area.compareDocumentPosition(card) & 4)
+ assert.equal(container.querySelectorAll('.workflow-review-input').length,0)
  button.click();await Promise.resolve()
- assert.equal(calls[0][1],'shot-seconds');assert.equal(calls[0][2].review,'保持面北')
+ assert.equal(calls[0][1],'seconds');assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,undefined)
 })
 
 test('storyboard badges distinguish missing pending and failed content', t => {
@@ -158,22 +160,95 @@ test('log copy copies full content when expanded or collapsed, without duplicate
 test('paused generation shows paused badge and regenerate action without losing its opinion', t => {
  const container=domSetup(t), project=episodeFixture()
  project.shots.items[0].seconds.status='paused'
- project.shots.items[0].seconds.review.text='保留动作'
+ project.shots.seconds.review.text='保留动作'
  container.append(renderStage('shots', project, {perform:async()=>{},fail:()=>{}}, {shotsPane:'seconds'}))
  const card=container.querySelector('[data-model-key="seconds:S01"]') || container.querySelector('.shot-card')
  assert.equal(card.querySelector('.shot-check-badge').textContent,'暂停')
- assert.ok([...card.querySelectorAll('button')].some(button=>button.textContent==='重新生成' && !button.disabled))
- assert.equal(card.querySelector('input').value,'保留动作')
+ assert.ok([...container.querySelectorAll('.workflow-generation-row button')].some(button=>button.textContent==='重新生成' && !button.disabled))
+ assert.equal(container.querySelector('.workflow-review input').value,'保留动作')
+ assert.equal(card.querySelector('input'),null)
 })
 
 test('regenerate button never submits the visible previous opinion', async t => {
  const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
- p.shots.items[0].seconds.review.text='旧人工意见'
+ p.shots.seconds.review.text='旧人工意见'
  const calls=[]
  container.replaceChildren(renderStage('shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane:'seconds'}))
  const area=container.querySelector('.workflow-review-panel')
- const [regenerate,modify]=area.querySelectorAll('button')
- assert.equal(regenerate.textContent,'重新生成');assert.equal(modify.textContent,'按意见修改')
+ const regenerate=container.querySelector('.workflow-regenerate'),modify=area.querySelector('button')
+ assert.equal(area.contains(regenerate),false)
+ assert.equal(regenerate.textContent,'重新生成');assert.equal(modify.textContent,'提交修改')
  regenerate.click();await Promise.resolve()
  assert.equal(calls[0][2].generationMode,'regenerate');assert.equal(calls[0][2].review,undefined)
+})
+test('batch text controls no longer offer fill remaining',async t=>{
+ const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
+ for(const shotsPane of ['seconds']){
+  const calls=[]
+  container.replaceChildren(renderStage('shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane}))
+  assert.doesNotMatch(container.textContent,/补齐剩余/)
+  const button=[...container.querySelectorAll('button')].find(b=>b.textContent==='重新生成')
+  assert.ok(button);button.click();await Promise.resolve()
+  assert.equal(calls[0][2].generationMode,'regenerate');assert.equal(calls[0][2].regenerateAll,undefined)
+ }
+})
+test('table and seconds review panels precede all shot cards; seconds cards have no individual submission',t=>{
+ const container=domSetup(t),p=episodeFixture()
+ p.shots.check={passed:false,failures:['镜头表失败']}
+ p.shots.items[0].seconds.check={passed:false,failures:['第一镜失败']}
+ p.shots.items[1].seconds.check={passed:false,failures:['第二镜失败']}
+ for(const shotsPane of ['table','seconds']){
+  container.replaceChildren(renderStage('shots',p,{perform:async()=>{},fail:()=>{}},{shotsPane}))
+  const area=container.querySelector('.workflow-review'),cards=container.querySelectorAll('.shot-card')
+  assert.ok(area.compareDocumentPosition(cards[0]) & 4)
+  assert.equal(container.querySelectorAll('.workflow-review').length,1)
+  if(shotsPane==='seconds'){
+   assert.match(area.textContent,/S01：第一镜失败/);assert.match(area.textContent,/S02：第二镜失败/)
+   for(const card of cards){assert.equal(card.querySelector('input'),null);assert.doesNotMatch(card.textContent,/提交修改|重新生成|第一镜失败|第二镜失败/)}
+  }
+ }
+})
+test('single shot seconds detail is read only',async t=>{
+ const container=domSetup(t),p=episodeFixture(),{renderShotPage}=await import('../client/stages.js')
+ container.append(renderShotPage(p,p.shots.items[0],{perform:()=>assert.fail('read only')},{shotTab:'seconds'}))
+ assert.match(container.textContent,/卡片集顶部统一/)
+ assert.equal(container.querySelector('.workflow-review'),null)
+})
+test('shared review is absent without generated content and shows only current failures',async t=>{
+ const container=domSetup(t),{appendWorkflowReview}=await import('../client/workflow-review.js')
+ const record={id:'film:S01',review:{text:'',revision:0},check:{passed:false,failures:['失败原因']}}
+ let area=appendWorkflowReview(container,record,false,false,document.createElement('button'))
+ assert.equal(container.querySelector('.workflow-review'),null)
+ area=appendWorkflowReview(container,record,true,false,document.createElement('button'))
+ assert.match(area.textContent,/失败原因/)
+ container.replaceChildren()
+ area=appendWorkflowReview(container,{...record,check:{passed:true,failures:['旧原因']}},true)
+ assert.equal(area.querySelector('.workflow-review-failures'),null)
+ assert.ok(area.querySelector('input'))
+ assert.equal(area.querySelector('.workflow-review-heading'),null)
+})
+test('character and scene group reviews precede their lists',t=>{
+ const container=domSetup(t),p=episodeFixture()
+ container.append(renderStage('script',p,{perform:async()=>{},beginImage:async()=>{},fail:()=>{}},{}))
+ for(const key of ['characters','scenes']){
+  const review=container.querySelector(`[data-review-target="${key}"]`)
+  const card=review.parentElement.querySelector(key==='characters'?'.character-list':'.story-asset')
+  assert.ok(review);assert.ok(card);assert.ok(review.compareDocumentPosition(card)&4)
+ }
+})
+test('film shows review only for existing content and independently for generated video',async t=>{
+ const container=domSetup(t),p=episodeFixture(),calls=[]
+ container.append(renderStage('film',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{}))
+ const card=container.querySelector('.shot-card'),story=card.querySelector('.film-storyboard-section'),video=card.querySelector('.film-video-section')
+ assert.equal(story.lastElementChild.dataset.reviewTarget,'storyboard:S01')
+ assert.equal(video.querySelector('.workflow-review'),null)
+ const input=story.querySelector('.workflow-review input');input.value='只改文本分镜';input.dispatchEvent(new window.Event('input'));input.onblur()
+ story.querySelector('.workflow-review button').click();await Promise.resolve()
+ assert.equal(calls[0][1],'shot-storyboard');assert.equal(calls[0][2].review,'只改文本分镜')
+ p.shots.items[0].video.content={url:'/video.mp4',status:'ready'}
+ container.replaceChildren(renderStage('film',p,{perform:async()=>{},fail:()=>{}},{}))
+ assert.ok(container.querySelector('.film-video-section [data-review-target="film:S01"]'))
+ p.shots.items[0].storyboard.content=null;p.shots.items[0].video.content=null
+ container.replaceChildren(renderStage('film',p,{perform:async()=>{},fail:()=>{}},{}))
+ assert.equal(container.querySelector('.shot-card').querySelector('.workflow-review'),null)
 })

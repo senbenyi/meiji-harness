@@ -2,6 +2,13 @@ import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch } f
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { feedbackKey, feedbackOf } from '../../client/feedback.js'
 export const checkContext = new AsyncLocalStorage()
+export function markApiFailure(error) {
+  const context = checkContext.getStore()
+  if (context?.signal?.aborted || error.name === 'AbortError') return error
+  error.apiFailure = true
+  if (context) context.apiFailure = error
+  return error
+}
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
 const generationActions = new Set(['characters', 'scenes', 'scene-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
@@ -11,6 +18,7 @@ function keys(project, operation) {
   return kind ? shots.map(shot => `${kind}:${shot.id}`) : [feedbackKey(operation)]
 }
 export function checkReasons(project, operation) {
+  if (operation.action === 'seconds') return [...feedbackOf(project, 'seconds').check.failures, project.shots.seconds?.review.text].filter(Boolean)
   return [...new Set(keys(project, operation).flatMap(key => {
     const { check, review } = feedbackOf(project, key)
     return [...(check.passed === false ? check.failures : []), review.text]
@@ -49,7 +57,7 @@ export async function prepareChecks(store, project, operation) {
   if (!manual && mode === 'modify') {
     const reasons = keys(project, operation).flatMap(key => {
       const value = feedbackOf(project, key)
-      return [...(value.check.passed === false ? value.check.failures : []), operation.review ?? operation.instruction ?? value.review.text]
+      return [...(value.check.passed === false ? value.check.failures : []), operation.review ?? operation.instruction ?? (operation.action === 'seconds' ? project.shots.seconds?.review.text : value.review.text)]
     }).filter(value => String(value || '').trim())
     const originals = keys(project, operation).map(key => originalData(project, key))
     if (!reasons.length || !originals.length || (!matchingCandidate && originals.some(value => !value))) {
@@ -61,11 +69,16 @@ export async function prepareChecks(store, project, operation) {
   project = await store.save(project.id, current => {
     const next = structuredClone(current)
     if (matchingCandidate) delete next.pendingImages[matchingCandidate.draftId]
+    if (operation.action === 'seconds') {
+      const group = targetNode(next, 'seconds')
+      if (fresh !== undefined) saveReview(group, String(fresh))
+      begin(group, { id: checkContext.getStore()?.operationId || `${Date.now()}`, action: 'seconds', consumesReview: mode === 'modify' })
+    }
     for (const key of keys(next, operation)) {
       const target = targetNode(next, key)
       if (!target) continue
       if (matchingCandidate && target.operation?.phase === 'awaiting-confirmation') target.operation = null
-      if (fresh !== undefined) saveReview(target, String(fresh))
+      if (fresh !== undefined && operation.action !== 'seconds') saveReview(target, String(fresh))
       target.dependencies = { summary: next.summary.revision, outline: next.plot.outline.revision, shots: next.shots.revision, ...(operation.track ? { seconds: next.shots.items.find(shot => shot.id === operation.track)?.seconds.revision } : {}) }
       if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.operationId || `${Date.now()}`, action: operation.action, consumesReview: mode === 'modify' })
     }
@@ -73,7 +86,7 @@ export async function prepareChecks(store, project, operation) {
   })
   const review = mode === 'regenerate' ? '' : checkReasons(project, operation).join('\n')
   const context = checkContext.getStore()
-  if (context) { context.generationMode = mode; context.originalCandidate = matchingCandidate; context.originalOperation = operation; context.originalProject = structuredClone(project); context.review = review; context.batchReview = String(fresh ?? ''); context.startTarget = async operation => {
+  if (context) { context.generationMode = mode; context.originalCandidate = matchingCandidate; context.originalOperation = operation; context.originalProject = structuredClone(project); context.review = review; context.batchReview = String(operation.action === 'seconds' ? project.shots.seconds?.review.text || '' : fresh ?? ''); context.startTarget = async operation => {
     if (!operation.track) return
     await store.save(project.id, current => {
       const next = structuredClone(current), target = targetNode(next, feedbackKey(operation))
@@ -83,6 +96,7 @@ export async function prepareChecks(store, project, operation) {
   } }
   const wrapped = Object.create(store)
   wrapped.save = async (id, patch) => {
+    if (checkContext.getStore()?.apiFailure) return store.read(id)
     const saved = await store.save(id, current => {
       const changes = typeof patch === 'function' ? patch(current) : patch
       const next = structuredClone({ ...current, ...changes })
@@ -93,6 +107,7 @@ export async function prepareChecks(store, project, operation) {
       for (const key of keys(next, targetOperation)) {
         const old = targetNode(current, key), value = targetNode(next, key)
         if (!old || !value) continue
+        if (value.check?.passed == null && old.check?.passed === false) value.check = structuredClone(old.check)
         value.review = structuredClone(old.review)
         value.operation = old.operation
         value.dependencies = old.dependencies
@@ -118,7 +133,7 @@ export async function prepareChecks(store, project, operation) {
       }
       return modelPatch(current, next)
     })
-    if (checkContext.getStore()?.validation?.length && saved.activity) throw Object.assign(new Error(`自检未通过：${checkContext.getStore().validation.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
+    if (!checkContext.getStore()?.deferCheckFailure && checkContext.getStore()?.validation?.length && saved.activity) throw Object.assign(new Error(`自检未通过：${checkContext.getStore().validation.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
     return saved
   }
   return { store: wrapped, project, operation: { ...operation, review } }
@@ -131,5 +146,5 @@ export async function selectCheck(project, operation) {
   context.validation = []
   context.reviewHistory = undefined
   context.target = operation
-  context.review = context.generationMode === 'regenerate' ? '' : [...new Set([...checkReasons(project, operation), context.batchReview].filter(Boolean))].join('\n')
+  context.review = context.generationMode === 'regenerate' ? '' : context.originalOperation?.action === 'seconds' ? context.batchReview : [...new Set([...checkReasons(project, operation), context.batchReview].filter(Boolean))].join('\n')
 }

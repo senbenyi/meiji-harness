@@ -1,4 +1,4 @@
-import { checkContext } from '../data/self-checks.js'
+import { checkContext, markApiFailure } from '../data/self-checks.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { insertSessionLog, sessionForLog, logPurpose } from '../flow/session-log.js'
 
@@ -40,7 +40,7 @@ async function readBody(response) {
 
 function fail(response, data, fallback) {
   const message = data?.error?.message || fallback
-  throw Object.assign(new Error(message), { status: response.status === 401 ? 401 : 502 })
+  throw markApiFailure(Object.assign(new Error(message), { status: response.status === 401 ? 401 : 502 }))
 }
 
 function publicHeaders(headers, apiKey) {
@@ -75,7 +75,10 @@ function requestSignal(signal) {
   return signal ? AbortSignal.any([signal, timeout]) : timeout
 }
 
-async function requestGateway({ baseUrl, path, method = 'GET', headers, body, apiKey, fetchImpl, signal, binary = false, fn }) {
+async function requestGateway(options) {
+  try { return await requestGatewayRaw(options) } catch (error) { throw markApiFailure(error) }
+}
+async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body, apiKey, fetchImpl, signal, binary = false, fn }) {
   const url = endpoint(baseUrl, path)
   const where = [
     '文件：server/generate/gateway.js',
@@ -94,7 +97,7 @@ async function requestGateway({ baseUrl, path, method = 'GET', headers, body, ap
     response = await fetchImpl(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: requestSignal(signal) })
   } catch (error) {
     writeApiLog(`${where}\n失败：${error?.message || '请求没有完成'}`, true)
-    throw error
+    throw markApiFailure(error)
   }
   if (binary && response.ok) {
     const bytes = Buffer.from(await response.arrayBuffer())
@@ -126,7 +129,7 @@ export async function completeChat({ baseUrl, apiKey, model, system, prompt, max
   if (finish && finish !== 'stop') throw Object.assign(new Error(`模型输出未正常完成：${finish}`), { status: 502, code: 'INCOMPLETE_MODEL_OUTPUT' })
   const content = result.data?.choices?.[0]?.message?.content
   const text = typeof content === 'string' ? content.trim() : ''
-  if (!text) throw Object.assign(new Error('模型没有返回文本'), { status: 502 })
+  if (!text) throw markApiFailure(Object.assign(new Error('模型没有返回文本'), { status: 502 }))
   return text
 }
 
@@ -138,7 +141,7 @@ export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, asp
   })
   if (!result.ok) fail(result.response, result.data, `图片生成失败：HTTP ${result.response.status}`)
   const image = result.data?.data?.[0]?.b64_json
-  if (!image) throw Object.assign(new Error('网关未返回图片'), { status: 502 })
+  if (!image) throw markApiFailure(Object.assign(new Error('网关未返回图片'), { status: 502 }))
   return Buffer.from(image, 'base64')
 }
 
@@ -162,7 +165,7 @@ export async function uploadGatewayFile({ baseUrl, apiKey, bytes, filename, mime
     response = await fetchImpl(url, { method: 'POST', headers, body, signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
   } catch (error) {
     writeApiLog(`文件：server/generate/gateway.js\n函数：uploadGatewayFile\n失败：${error?.message || '请求没有完成'}`, true)
-    throw error
+    throw markApiFailure(error)
   }
   const data = await readBody(response)
   if (!response.ok) {
@@ -171,7 +174,7 @@ export async function uploadGatewayFile({ baseUrl, apiKey, bytes, filename, mime
     fail(response, data, `文件上传失败：HTTP ${response.status}`)
   }
   writeApiLog(`文件：server/generate/gateway.js\n函数：uploadGatewayFile\n返回：${publicData(data, apiKey)}`)
-  if (!data?.id || !data?.url) throw Object.assign(new Error('网关未返回文件地址'), { status: 502 })
+  if (!data?.id || !data?.url) throw markApiFailure(Object.assign(new Error('网关未返回文件地址'), { status: 502 }))
   return { id: String(data.id), url: String(data.url) }
 }
 
@@ -193,7 +196,7 @@ export async function submitGatewayVideo({ baseUrl, apiKey, model, prompt, durat
     body,
   })
   if (!result.ok) fail(result.response, result.data, `视频提交失败：HTTP ${result.response.status}`)
-  if (!result.data?.id) throw Object.assign(new Error('网关未返回视频任务'), { status: 502 })
+  if (!result.data?.id) throw markApiFailure(Object.assign(new Error('网关未返回视频任务'), { status: 502 }))
   return { id: result.data.id, seconds }
 }
 
@@ -212,7 +215,7 @@ export async function retrieveGatewayVideo({ baseUrl, apiKey, promptId, fetchImp
     if (!result.ok) fail(result.response, result.data, `视频查询失败：HTTP ${result.response.status}`)
     const data = result.data
     if (['failed', 'cancelled', 'canceled', 'expired'].includes(data.status)) {
-      throw Object.assign(new Error(`视频生成失败：${data.error?.message || '未知错误'}`), { status: 502, code: 'VIDEO_TASK_TERMINAL' })
+      throw markApiFailure(Object.assign(new Error(`视频生成失败：${data.error?.message || '未知错误'}`), { status: 502, code: 'VIDEO_TASK_TERMINAL' }))
     }
     if (data.status === 'completed') {
       const bytes = await requestGateway({
@@ -224,5 +227,5 @@ export async function retrieveGatewayVideo({ baseUrl, apiKey, promptId, fetchImp
     }
     if (attempt + 1 < maxPolls) await pause(5000, signal)
   }
-  throw Object.assign(new Error('视频查询超时，已停止等待，不会自动重新提交；远端任务可能仍在运行'), { status: 504 })
+  throw markApiFailure(Object.assign(new Error('视频查询超时，已停止等待，不会自动重新提交；远端任务可能仍在运行'), { status: 504 }))
 }

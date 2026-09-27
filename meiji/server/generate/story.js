@@ -1,7 +1,7 @@
 import { checkContext } from '../data/self-checks.js'
 import { runTextGeneration } from '../workers/text-generation-worker.js'
 import { node, cardModel } from '../../client/drama-model.js'
-export { generateShots, reviseShot, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
+export { generateShots, reviseShot, generateAllSeconds, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
 import { h3PromptText } from './film.js'
 import { imageAssets, pictureRecord, usableLook } from './image.js'
 import { parseJsonValue, textMaxTokens } from './chat.js'

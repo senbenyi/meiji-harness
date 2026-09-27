@@ -264,11 +264,13 @@ export function renderImageReview(project, actions, gate) {
   }
 
   buttons.append(confirm, discard)
+  const heading = element('div', '', 'workflow-generation-row')
+  heading.append(tip, regenerate)
   reviewArea.querySelector('.workflow-review')?.remove()
   appendWorkflowReview(reviewArea, record, Boolean(ready), busy, regenerate)
   const opinion = reviewArea.querySelector('input')
   note = opinion
   if (opinion && current.review) { opinion.value = current.review; opinion.dispatchEvent(new Event('input')) }
-  overlay.append(tip, card, reviewArea, buttons, status)
+  overlay.append(heading, card, reviewArea, buttons, status)
   return overlay
 }

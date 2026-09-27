@@ -1,6 +1,6 @@
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { setContent } from '../client/drama-model.js'
-import { generateShotSeconds } from '../server/generate/shot-text.js'
+import { generateAllSeconds } from '../server/generate/shot-text.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -41,12 +41,13 @@ test('reference format rejects missing sections, unbound subjects and missing pi
   assert.ok(h3PromptFailures('integrated_multimodal_description: Walk.\noverall_soundscape: Wind.\nnon_diegetic_music: None.', [{}]).length)
 })
 
-test('failed semantic batch check preserves content and stops before next shot', async t => {
+test('failed semantic batch checks preserve each latest result and audit all shots', async t => {
   const e = await setupModel(t);await e.store.save(e.id,p=>{p.episodes[0].shots.items.forEach(s=>{s.seconds.stale=true});return p});
+  const {modelStore}=await import('../server/data/models.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
   let calls = 0
-  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateShotSeconds: opts => generateShotSeconds({ ...opts, request: async skill => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : '已生成的动作' } }) }), /自检未通过/)
+  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async skill => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : calls === 1 ? '## S01 / 5s\n已生成的动作\n## S02 / 5s\n已生成的动作\n[seconds-complete]' : '已生成的动作' } }) }), /自检未通过/)
   const p = await e.read()
-  assert.equal(calls, 4)
+  assert.equal(calls, 7)
   assert.equal(p.shots.items[0].seconds.content, '已生成的动作')
   assert.equal(p.shots.items[0].seconds.status, 'failed')
   assert.equal(p.shots.items[0].seconds.check.history.length, 2)

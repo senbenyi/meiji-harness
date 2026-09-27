@@ -1,4 +1,4 @@
-import { appendWorkflowReview, reviewFields } from './workflow-review.js'
+import { reviewFields } from './workflow-review.js'
 import { pictureOf } from './drama-model.js'
 import { element, appendJsonCopy } from './dom.js'
 import { stillCards, characterSheet } from './asset-cards.js'
@@ -44,7 +44,6 @@ export function characterCard(project, item, actions, context) {
     }
   }
   card.append(open, refresh, error)
-  appendWorkflowReview(card, item.image, Boolean(item.image?.content), Boolean(project.activity), refresh)
   appendJsonCopy(card, item)
   return card
 }
@@ -64,7 +63,7 @@ export function renderCharacterDetail(project, itemId, actions, context) {
     return page
   }
   page.append(element('p', '人物资料与形象管理', 'meta'))
-  const hint = element('p', project.activityError || '', 'hint warn')
+  const hint = element('p', /^(自检|自审)未通过/.test(project.activityError || '') ? '' : project.activityError || '', 'hint warn')
   hint.hidden = !hint.textContent
   hint.setAttribute('role', 'status')
   page.append(hint, ...stillCards(project, [item], actions, hint))
