@@ -1,0 +1,493 @@
+[
+  {
+    "id": "S01",
+    "title": "进入高楼",
+    "duration": 15,
+    "cast": [
+      "黄征",
+      "队长"
+    ],
+    "scene": "",
+    "format": "text",
+    "task": "交代五十层高楼与警队协作，进入后只向前推进。",
+    "start": "警队已抵楼外，尚未进入。",
+    "end": "黄征进入一层通道，队长在其后，群体控制入口。",
+    "cuts": "5秒由楼外切至门内，原因是交代进入结果；其后连续跟随。",
+    "segments": [
+      [
+        "0–5",
+        "黄征与队长随四名不需独立辨识的警员趋向入口，黄征在前，队长后两米，均面向北侧入口。",
+        "黄征 and 队长 approach the northward entrance with four anonymous officers; 黄征 leads and 队长 stays two metres behind.",
+        "建筑远景，摄影机在入口南侧20米、离地2米，仰角纳入高楼完整轮廓；人物全身约画高8%，不追脸。",
+        "A static establishing long shot from twenty metres south, two metres high, tilted up to include the fifty-storey tower; full figures occupy about eight percent of frame height.",
+        "玻璃塔楼高于周围楼群，入口通道无遮挡，警队与建筑同画。",
+        "The glass tower rises above the surrounding blocks; the entrance route and the whole team remain readable.",
+        "楼内传出闷枪声，近处鞋底与装备轻碰，无可辨对白。",
+        "Muffled gunfire comes from inside, with nearby boots and gear; no intelligible dialogue.",
+        "黄征到入口前，队长仍在后，尚未重复进入。",
+        "黄征 reaches the entrance with 队长 still behind."
+      ],
+      [
+        "5–10",
+        "黄征跨过门槛朝北，队长随后；四名警员中两名留守入口、两名跟进，武器均朝行动前方。",
+        "黄征 crosses the threshold northward, followed by 队长; two officers secure the door and two follow, weapons oriented along the route.",
+        "切到门内东侧，平视全景，向北平行移动，人物全身约画高40%，保留门和走廊。",
+        "Cut to an eye-level full shot inside on the east side, tracking north parallel to the team; figures occupy about forty percent of height, with doorway and corridor visible.",
+        "入口在南后方，走廊向北伸展，无人反向朝门外进攻。",
+        "The entrance remains to the south behind them and the corridor extends north; nobody attacks back toward the entrance.",
+        "脚步由户外变成室内回响，远枪声连续。",
+        "Boots acquire an indoor echo while distant gunfire continues.",
+        "黄征越过门口，队长距其后两米。",
+        "黄征 clears the doorway with 队长 two metres behind."
+      ],
+      [
+        "10–15",
+        "黄征在北向通道前进，队长维持后方掩护，两名跟进警员沿两侧推进，无新增停步表演。",
+        "黄征 advances north; 队长 covers from behind while the two following officers move along the sides without gratuitous stops.",
+        "延续东侧全景跟拍，机位距队伍5米，主体大小不变。",
+        "Continue the eastern full-shot track about five metres from the team without pushing closer.",
+        "南入口留守人员渐出画但仍留守，前方转角为下一推进目标。",
+        "Door guards leave the frame because the camera advances, not because they disappear; the northern corner is the next objective.",
+        "前方枪声更清晰，靴声与衣料摩擦持续，无配乐。",
+        "Forward gunfire becomes clearer under boots and fabric movement; no music.",
+        "黄征到北侧转角前，队长仍后两米，队伍已在楼内。",
+        "End just before the northern corner, with the team already inside and 队长 still behind."
+      ]
+    ]
+  },
+  {
+    "id": "S02",
+    "title": "向楼顶推进",
+    "duration": 15,
+    "cast": [
+      "黄征",
+      "队长",
+      "贩毒头目"
+    ],
+    "scene": "",
+    "format": "text",
+    "task": "用有标识的时间省略交代逐层压缩退路，不能十五秒跑完五十层。",
+    "start": "承接一层北侧转角。",
+    "end": "头目已穿过天台门，黄征与队长抵达门内；其他警员守后方。",
+    "cuts": "5秒、10秒分别切到更高楼层，均为明确时间省略而非连续实时上楼。",
+    "segments": [
+      [
+        "0–5",
+        "黄征在转角掩护队伍推进，队长在后；远处两名无独立面部要求的匪徒在掩体后向通道开火并后撤，双方射击方向与掩体对应。",
+        "黄征 covers the team from the corner with 队长 behind; two anonymous gunmen farther north fire from cover down the corridor and retreat, keeping weapons aimed at their actual opponents.",
+        "东侧中远景固定，双方与通路都能看见，主要人物全身约画高30%，无需看清远处匪徒面部。",
+        "Hold an eastern medium-long view that includes both sides and the route, principal full figures about thirty percent of height; distant extras need no facial detail.",
+        "两方隔着通道与门框，枪口不跳向无关方向。",
+        "Doorframes separate the opposing sides; muzzle directions never jump to unrelated targets.",
+        "混响枪声、碎屑轻落、队伍脚步；无新增命令对白。",
+        "Reverberant gunfire, small falling debris and moving boots; no invented spoken orders.",
+        "对方退向楼梯，黄征准备跟进。",
+        "The opposition retreats toward the stairs; 黄征 prepares to follow."
+      ],
+      [
+        "5–10",
+        "明确省略中间楼层后，队伍出现在更高层楼梯。贩毒头目沿上行楼梯退走，黄征与队长向上追，其他警员封住下方通路。",
+        "After an explicit ellipsis over intermediate floors, the team is on a higher staircase. 贩毒头目 retreats upward; 黄征 and 队长 pursue while other officers secure the lower route.",
+        "切到楼梯东侧全景，阶梯和上下平台同见；主要人物不超过画高35%，不特写楼层数字。",
+        "Cut to a full view from the east of the stairs, including both landings and the ascending route; principal figures stay below thirty-five percent of height; no floor-number insert.",
+        "头目居上，黄征中间，队长后方；这不是同一时刻瞬移。",
+        "The boss is above, 黄征 in the middle and 队长 behind; the cut signals elapsed time, not teleportation.",
+        "楼梯间急促脚步回荡，下方零星枪声渐弱。",
+        "Hurried stairwell footsteps reverberate while scattered shots below fade.",
+        "仍在上行追赶，头目未被抓。",
+        "The upward pursuit continues; the boss remains uncaptured."
+      ],
+      [
+        "10–15",
+        "再次明确时间省略至顶层，贩毒头目推过天台门出画，黄征和队长先后到门内，后方警员留守。",
+        "A second explicit ellipsis reaches the top landing. 贩毒头目 passes through the roof door and exits view; 黄征 and 队长 arrive inside it while officers stay behind.",
+        "切到门内东侧全景，平视见人物全身、最后楼梯和门，白昼从门外射入。",
+        "Cut to an eastern full view of the final stairs and roof door; daylight enters from outside and the full bodies remain visible.",
+        "门在北前方，后方通路保持有人控制。",
+        "The exit is ahead to the north; the route behind remains secured.",
+        "门轴响，风声接替室内枪声成为主环境声，脚步不停。",
+        "Door hinges creak; outdoor wind takes over from indoor gunfire while footsteps continue.",
+        "黄征到门槛内，队长随其后，头目在屋顶。",
+        "黄征 ends just inside the threshold with 队长 behind and the boss outside."
+      ]
+    ]
+  },
+  {
+    "id": "S03",
+    "title": "天台建立关系",
+    "duration": 15,
+    "cast": [
+      "黄征",
+      "队长",
+      "贩毒头目"
+    ],
+    "scene": "五十层写字楼天台",
+    "format": "text",
+    "task": "同时交代目标、掩体、出口和南缘坠落危险。",
+    "start": "黄征在西侧出口内，队长其后，头目已在北侧机组。",
+    "end": "黄征朝北对峙，背后南缘低围挡距半步；队长在其西南侧后方，头目在北机组。",
+    "cuts": "连续空间建立，无切镜；队长沿西侧后方移动，不穿过枪线。",
+    "segments": [
+      [
+        "0–5",
+        "黄征从西侧出口进入屋顶，转向北侧机组后的贩毒头目；队长随后出门，两人不沿同一枪线重叠。",
+        "黄征 enters through the western roof exit and faces 贩毒头目 at the northern HVAC cover; 队长 follows without standing on the same firing line.",
+        "从东侧约15米处全景，平视，三人全身约画高20%，同时保留出口、机组、南围挡与城市。",
+        "An eye-level wide full shot from the east, about fifteen metres away; full figures occupy twenty percent of height with exit, HVAC, southern parapet and skyline visible.",
+        "西出口、北机组、南边缘建立固定地标。",
+        "Establish the fixed western exit, northern HVAC bank and southern edge.",
+        "强风吹动衣服，脚步与金属设备低鸣，无对白。",
+        "Strong wind flaps clothing over footsteps and low mechanical hum; no dialogue.",
+        "两名警察已出门，头目仍北侧掩体。",
+        "Both officers are on the roof; the boss stays at northern cover."
+      ],
+      [
+        "5–10",
+        "头目在机组边举枪形成正面压力，黄征保持朝北持枪，借机组视线角度向南后退两小步；队长沿西侧随行，仍位于侧后方。",
+        "The boss aims from the HVAC edge, maintaining frontal pressure. 黄征 keeps facing north and retreats two small steps south to maintain his line of sight; 队长 follows on the western side, staying behind him.",
+        "东侧机位平移跟随，继续全景，保持三人相对位置与南边缘可见，不推进脸。",
+        "Track laterally on the east in the same full framing, preserving all three positions and the southern edge rather than moving into faces.",
+        "黄征后退接近低围挡；队长在西南斜后约2米，不挡南向退路。",
+        "黄征 nears the low parapet; 队长 is roughly two metres southwest behind him, leaving the due-south fall path clear.",
+        "衣料急促摩擦、风掠围挡，枪击未发生。",
+        "Fabric rustles against the wind crossing the parapet; no betrayal shot yet.",
+        "黄征距南围挡半步，队长固定西南斜后。",
+        "黄征 is half a step from the southern parapet and 队长 settles southwest behind him."
+      ],
+      [
+        "10–15",
+        "黄征稳住枪口看向北侧头目，仍将后方托付同伴；队长停止移动，尚未开枪，头目维持掩护。",
+        "黄征 steadies his aim on the northern boss, still trusting the teammate behind him. 队长 stops moving without firing; the boss maintains cover.",
+        "同一东侧全景固定，南围挡、三人和北机组都可辨，动作关系比表情细节重要。",
+        "Lock the eastern full view; parapet, all three people and northern cover remain readable; spatial relationships matter more than micro-expressions.",
+        "队长在黄征后方偏西，不与头目重叠。",
+        "队长 remains behind and west of 黄征, distinct from the boss.",
+        "风声连续、低沉呼吸，无重复枪声。",
+        "Wind and low breathing continue, without repeated gunshots.",
+        "对峙未解，朝向、持物和位置保持至下一镜。",
+        "The standoff remains unresolved; preserve positions, weapons and orientations into the next clip."
+      ]
+    ]
+  },
+  {
+    "id": "S04",
+    "title": "身后的枪口",
+    "duration": 15,
+    "cast": [
+      "黄征",
+      "队长",
+      "贩毒头目"
+    ],
+    "scene": "五十层写字楼天台",
+    "format": "text",
+    "task": "揭示背叛；只能由队长现有位置开一枪。",
+    "start": "黄征朝北，队长西南侧后，头目北机组。",
+    "end": "黄征受击仍站立，无法正常发声，尚未回头确认。",
+    "cuts": "0秒接东侧关系画面；5秒切东南侧中景突出侧后方枪口，但保留两警察及南围挡。",
+    "segments": [
+      [
+        "0–5",
+        "延续对峙，黄征枪口指北，队长仍在西南侧后，没有绕行或转身，头目在北机组掩体。",
+        "Continue the standoff: 黄征 aims north, 队长 remains southwest behind him without turning or circling, and the boss stays at northern HVAC cover.",
+        "承接东侧全景，保持南边缘和所有目标关系。",
+        "Continue the eastern full framing, retaining the southern edge and all targeting relationships.",
+        "三人位置不重置，队长与黄征间无障碍。",
+        "Positions do not reset; there is no obstruction between 队长 and 黄征.",
+        "强风与紧绷呼吸，不用配乐预告动作。",
+        "Strong wind and tense breathing; no musical cue invents an action.",
+        "队长开始握紧枪，黄征注意力仍朝北。",
+        "队长 begins tightening his grip while 黄征 still looks north."
+      ],
+      [
+        "5–9",
+        "队长就在原处抬枪，枪口对准黄征后背；黄征继续面对前方，不提前发现。",
+        "From the same position, 队长 raises his pistol toward 黄征’s back; 黄征 continues facing forward and does not discover the betrayal early.",
+        "切到东南侧约5米的膝上双人中景，两人不重叠，保留低围挡；头目在远背景或画外北侧。",
+        "Cut to a southeast medium two-shot about five metres away, framed from knees upward; keep the two officers separate and the low parapet visible, with the boss at northern cover in the distance or offscreen.",
+        "子弹方向由西南斜向东北，撞击后人物失衡退南，不把弹道当巨大冲力。",
+        "The shot line runs southwest to northeast; the subsequent loss of balance leads south, not a physically exaggerated bullet-driven launch.",
+        "握枪衣料轻响，风声持续。",
+        "Soft sleeve movement accompanies the raised pistol under continuous wind.",
+        "队长枪口已稳对后背，尚未扣扳机。",
+        "队长 has aimed at the back but has not yet pulled the trigger."
+      ],
+      [
+        "9–10",
+        "队长扣动扳机，仅一枪；子弹从黄征后背穿入、胸前穿出，以衣料破损与短促血迹交代，不展示器官。",
+        "队长 fires exactly once; the bullet enters 黄征’s back and exits through the chest, conveyed by damaged fabric and a brief blood mark without exposed organs.",
+        "维持双人中景，不切伤口特写，枪口与受击者同时可辨。",
+        "Hold the medium two-shot, keeping shooter and victim readable without a wound close-up.",
+        "队长没有向别处射击，黄征仍朝北。",
+        "队长 fires at the established target, not elsewhere; 黄征 still faces north.",
+        "一声骤响盖过风声，随后短回声。",
+        "One abrupt gunshot overwhelms the wind, followed by a short echo.",
+        "黄征受击，未跌落。",
+        "黄征 is struck but has not fallen."
+      ],
+      [
+        "10–15",
+        "黄征身体一僵，前举手臂下沉，呼吸骤断，身体仍朝北，注意力开始转向身后；队长继续指着他。",
+        "黄征 stiffens, his raised arms sink and his breath catches; his torso remains northward while attention shifts behind him. 队长 keeps the pistol trained on him.",
+        "双人中景保持，不追加推脸或重播枪击。",
+        "Keep the same two-shot without pushing into a face or replaying the shot.",
+        "南围挡仍在黄征身后半步，头目没有突然换位。",
+        "The southern parapet remains half a step behind 黄征; the boss does not change position without cause.",
+        "回声消散后风声恢复，黄征只有破碎呼吸，无台词。",
+        "As the echo decays the wind returns; 黄征 produces broken breathing but no words.",
+        "黄征还站着、枪手在其侧后，下一镜才回头看清。",
+        "He is still standing with the shooter behind him; visual confirmation happens next."
+      ]
+    ]
+  },
+  {
+    "id": "S05",
+    "title": "回头确认与坠落",
+    "duration": 15,
+    "cast": [
+      "黄征",
+      "队长",
+      "贩毒头目"
+    ],
+    "scene": "五十层写字楼天台",
+    "format": "text",
+    "task": "保留扭头、说不出话与仰面越过围挡的因果。",
+    "start": "受击站立，队长西南侧后。",
+    "end": "黄征仰面离开南缘，队长仍屋顶，坠落已开始但漩涡未出现。",
+    "cuts": "0秒从东南中景续接；5秒切东侧全景展现失衡路径；10秒沿东侧跟随越缘，不越轴。",
+    "segments": [
+      [
+        "0–5",
+        "黄征躯干仍大体朝北，艰难向左后扭头，看清西南侧队长仍对准自己的枪口；嘴唇想动却说不出话，队长不转身。",
+        "With his torso still broadly northward, 黄征 painfully looks back over his left shoulder and sees 队长’s pistol still trained on him to the southwest. His lips attempt a word but no speech emerges; 队长 does not turn.",
+        "东南侧中景略横移以看清回头关系，人物真实转头由受击确认动机驱动，不强行拧身到正面。",
+        "From the southeast medium view, shift slightly laterally to clarify the backward look; the head turn is motivated by discovering the shooter, not by showing a face to camera.",
+        "侧后方枪手与黄征视线相交，头目仍北方掩体。",
+        "His backward eyeline meets the shooter; the boss remains at northern cover.",
+        "喘息断续，枪声不重播，只有屋顶风声。",
+        "Broken breath and rooftop wind, with no repeated gunshot.",
+        "黄征已看清背叛者，脚下支撑开始丧失。",
+        "He has identified the betrayer and begins losing support."
+      ],
+      [
+        "5–10",
+        "黄征回头后的身体失衡，向南踉跄，腿后撞到低围挡，重心逐渐向围挡外倾；队长原地保持瞄准。",
+        "黄征 loses balance after the backward look, staggers south and catches the back of his legs against the low parapet; his centre of mass tips outward. 队长 maintains aim from his position.",
+        "切东侧全景，头脚和围挡完整，约画高40%，展示实际失足而非被子弹弹飞。",
+        "Cut to an eastern full shot with head, feet and parapet visible, about forty percent frame height, showing a loss of balance rather than a bullet throwing him.",
+        "南向坠落路线无遮挡，队长在西侧不挡路。",
+        "The southward fall path is unobstructed; 队长 remains west of it.",
+        "鞋底擦地、腿撞围挡、衣料摩擦，风声增强。",
+        "Scraping soles, contact with concrete and fabric friction under rising wind.",
+        "上半身越过围挡，尚有腿部接触。",
+        "His upper body tips beyond the parapet while his legs still touch it."
+      ],
+      [
+        "10–15",
+        "黄征仰面越出南缘，双脚离开天台，开始下坠；队长和枪口留在上方屋顶，他没有重新站起或抓住边缘。",
+        "黄征 tips backward beyond the southern edge, his feet leave the roof and the fall begins. 队长 and the pistol remain above; he neither stands again nor catches the edge.",
+        "从东侧全景平滑跟随向下，楼体和高空落差可见，不进入脸部特写。",
+        "Follow downward smoothly from the eastern full view, retaining facade and height instead of cutting to a facial close-up.",
+        "身体朝天，城市在下方，屋顶远离；头目不离开北机组去追。",
+        "His front faces the sky, the city lies below and the rooftop recedes; the boss does not abandon cover to pursue him.",
+        "风噪盖过天台声，没有撞地声或漩涡声。",
+        "Rushing air overtakes rooftop sound; no impact or vortex sound yet.",
+        "已离屋顶仰面下坠，下一镜接同一次坠落。",
+        "He is falling face upward; the next clip continues this same fall."
+      ]
+    ]
+  },
+  {
+    "id": "S06",
+    "title": "落地异变与睁眼",
+    "duration": 15,
+    "cast": [
+      "黄征",
+      "华雄"
+    ],
+    "scene": "三国开阔战场",
+    "format": "text",
+    "task": "完成一次坠落，在落地瞬间切断意识，再出现独立古代身体；两身份先后不同时。",
+    "start": "黄征已仰面下坠。",
+    "end": "华雄已在马上睁眼，右手持红缨长枪，左手缰绳。",
+    "cuts": "0–7秒主观延时感受而非额外物理滞空；7秒落地感知与黑暗衔接；9秒明确时空及身体切换。",
+    "segments": [
+      [
+        "0–5",
+        "黄征延续仰面下坠，楼顶在上方远去，受伤后仍无法喊话；以主观延时感受表现恐惧，不再次从屋顶掉下。",
+        "黄征 continues the same face-up fall, the roof receding above; he cannot call out. Subjectively stretched time conveys fear rather than another fall from the roof.",
+        "楼外东侧远景顺势下降，人物全身约画高15%，立面构成纵深；没有脸部凝视段。",
+        "An exterior eastern long view follows downward; the full figure occupies fifteen percent of height against the deep facade, with no prolonged face insert.",
+        "人物在南立面外，屋顶和地面距离连续变化。",
+        "He remains outside the southern facade as distances to roof and ground change continuously.",
+        "尖锐风噪、模糊心跳，头顶的声音远去。",
+        "Harsh rushing wind and muffled heartbeat as sounds above recede.",
+        "接近地面但未出现漩涡。",
+        "He approaches the ground; no vortex has appeared."
+      ],
+      [
+        "5–7",
+        "下坠抵达落地瞬间，眼前才出现强烈黑色漩涡朝自己卷来；这是主观所见，不给出客观传送装置。",
+        "Only at the instant of reaching the ground does a fierce black vortex seem to surge toward him; this is subjective perception, not an objective teleportation device.",
+        "切主观感知，卷动黑暗侵入原先的天空与楼影；不展示新的身体姿势。",
+        "Cut to subjective perception as churning darkness overtakes the sky and tower silhouette; do not invent a new body pose.",
+        "空间由现实坠落转为意识视觉，不能把漩涡放回高空。",
+        "Real falling space gives way to perception; do not relocate the vortex high in the air.",
+        "风噪压成低频卷动声，不增加尸体撞击细节。",
+        "Rushing wind compresses into a low swirling roar without graphic impact detail.",
+        "黄征开始闭眼接受未知命运。",
+        "黄征 begins closing his eyes to the unknown."
+      ],
+      [
+        "7–9",
+        "黄征闭眼，意识被黑暗截断，不解释死亡、救援或穿越能力。",
+        "黄征 closes his eyes; darkness interrupts consciousness without explaining death, rescue or supernatural powers.",
+        "主观黑场自然闭合，不字幕、不闪回枪击。",
+        "The subjective image closes to black naturally, without text or a replay of the shooting.",
+        "此段无可见角色，不混合两张脸。",
+        "No character is visible during the blackout; never blend the two faces.",
+        "卷动声消退，先听到马呼吸与缰具轻响。",
+        "The swirling sound fades; horse breathing and faint tack become audible first.",
+        "黑场末已建立新声场，未出现旧身体。",
+        "The new soundscape is established before the new body is shown."
+      ],
+      [
+        "9–12",
+        "明确进入古代：华雄已骑在高头大马上，眼睛闭着，右手持红缨长枪、左手缰绳；意识醒转，身体不是现代警察。",
+        "Enter antiquity explicitly: 华雄 is already mounted on a tall horse, eyes closed, red-tasselled spear in his right hand and reins in his left. Consciousness returns in this distinct ancient body.",
+        "切战场东侧全景，人与马全身约画高35%，显示烈日与开阔地面；不从现代脸变形过去。",
+        "Cut to an eastern battlefield full view, rider and horse together about thirty-five percent frame height, showing blazing sun and open ground; no facial morph from the modern man.",
+        "马面北站立，人物始终在鞍上，远处有小规模不可辨面部的军阵。",
+        "The horse stands facing north; the rider is already seated, with distant faceless ranks at the sides.",
+        "马鼻息、皮革轻响、旷野风声，无对白。",
+        "Horse breathing, faint leather creaks and open-country wind; no dialogue.",
+        "华雄在鞍上开始睁眼，枪缰未换手。",
+        "华雄 begins opening his eyes without swapping spear or reins."
+      ],
+      [
+        "12–15",
+        "华雄睁眼迎着刺目日光，感到坐骑轻微起伏，右手枪尖反光，尚未见挑战者。",
+        "华雄 opens his eyes to harsh daylight and feels the horse shift beneath him; his spear point catches the sun, before any challenger is revealed.",
+        "维持东侧全景，不推近，身份靠外貌轮廓与甲胄辨识，不要求眼部微细节。",
+        "Keep the eastern full view without a push-in; identity reads through silhouette and armour rather than minute eye detail.",
+        "北方开阔冲锋地在前，马仍原地。",
+        "The northern charging ground remains ahead and the horse stays put.",
+        "风、鼻息、轻蹄声延续，现代声音已结束。",
+        "Wind, snorts and light hoof movement continue; modern sounds have ended.",
+        "已睁眼、坐在马上，下一镜不能再苏醒或上马。",
+        "End awake and mounted; do not wake or mount him again next clip."
+      ]
+    ]
+  },
+  {
+    "id": "S07",
+    "title": "陌生身体与喊名",
+    "duration": 15,
+    "cast": [
+      "华雄",
+      "潘凤"
+    ],
+    "scene": "三国开阔战场",
+    "format": "text",
+    "task": "确认陌生装备与身份落差，再发现百米外对手。",
+    "start": "华雄已睁眼骑马面北。",
+    "end": "潘凤自北方百米处开始朝南冲锋，华雄听见喊名，尚未应战。",
+    "cuts": "5秒切膝上反应中景，10秒切回关系全景揭示对手；不是再次醒来。",
+    "segments": [
+      [
+        "0–5",
+        "华雄在鞍上低头确认右手红缨枪和甲胄，左手仍握缰，马只轻移重心不向前冲；不出现旧身体闪回。",
+        "Already awake in the saddle, 华雄 looks down at his right-hand red-tasselled spear and armour, left hand still holding reins; the horse shifts weight but does not charge, and no old-body flashback appears.",
+        "东侧全景延续，人与马占画高35%，前后战场可见。",
+        "Continue the eastern full view, rider and horse about thirty-five percent of height with battlefield depth visible.",
+        "枪尖朝北上方，坐骑朝北，手部没有交换。",
+        "The spear points upward and north, the horse faces north and hands do not swap.",
+        "甲片轻响、马鼻息、干燥风掠尘土，无对白。",
+        "Soft armour clicks, horse breathing and dry wind over dust; no dialogue.",
+        "已确认身上装备，但未对新身份下结论。",
+        "He has registered the unfamiliar equipment without resolving his identity."
+      ],
+      [
+        "5–10",
+        "华雄抬头看向四周开阔战场，陌生体格与记忆的落差表现为动作停顿和握枪迟疑，不凭空说现代笑话。",
+        "华雄 lifts his gaze across the open battlefield; a pause and uncertain grip express the mismatch between body and memory without an invented modern joke.",
+        "切东南侧膝上中景，保留鞍、枪、天空与远阵势，短反应有新信息，不推成满脸。",
+        "Cut to a southeast medium reaction framed from the knees upward, retaining saddle, spear, sky and distant ranks; the brief reaction adds information without filling the frame with a face.",
+        "人马朝向仍北，转眼观察不等于整个人马掉头。",
+        "Rider and horse still face north; looking around does not turn them around.",
+        "近处皮革摩擦，远处阵势低声混响，不出现可辨新台词。",
+        "Nearby leather friction and indistinct distant ranks, with no new intelligible line.",
+        "华雄听见北方来声，开始抬视线。",
+        "A sound from the north draws his gaze upward."
+      ],
+      [
+        "10–15",
+        "约百米北方的潘凤身穿黑袍，骑马持枪开始朝南逼来，先喊“华雄匹夫”，华雄看向他；此时只开始呼喊，不重复全句。",
+        "About a hundred metres north, black-robed 潘凤 starts advancing south on horseback with a spear, beginning his call; 华雄 looks toward him. The call starts here and continues across the clip boundary, without repeating it.",
+        "切东侧关系全景，华雄在南前景偏侧、人马约画高30%，潘凤在北远景小而可辨；通路完整。",
+        "Cut to an eastern spatial wide shot, 华雄 to the side in the southern foreground with horse and rider about thirty percent of height, 潘凤 small in the north; keep the route clear.",
+        "两骑相向，华雄未策马，潘凤由百米处逐渐缩短距离。",
+        "The riders face each other; 华雄 remains stationary as 潘凤 starts closing from the hundred-metre position.",
+        "潘凤洪亮普通话开始喊“华雄匹夫”，远蹄声渐起；华雄不对口型。",
+        "潘凤, a booming male voice (S1), begins the on-screen Mandarin call: <d>[Mandarin Chinese] 华雄匹夫，</d> Distant hoofbeats rise; 华雄 does not lip-sync.",
+        "喊话未完，潘凤持续推进，下一镜接“我潘凤来也”。",
+        "The call is unfinished and the advance continues; the next clip starts with the remaining words."
+      ]
+    ]
+  },
+  {
+    "id": "S08",
+    "title": "枪锋将至",
+    "duration": 15,
+    "cast": [
+      "华雄",
+      "潘凤"
+    ],
+    "scene": "三国开阔战场",
+    "format": "text",
+    "task": "完成自报身份，停在未交锋的迫近瞬间，不填入胜负。",
+    "start": "潘凤已开始南向推进并喊出前半句；华雄原地北望。",
+    "end": "华雄握紧枪缰、潘凤仍冲来，两骑尚未接触。",
+    "cuts": "0秒延续东侧关系全景；5秒切华雄侧前中景反应；10秒切回关系全景，让逼近可见。",
+    "segments": [
+      [
+        "0–5",
+        "潘凤保持朝南推进，把同一句喊话接完“我潘凤来也”；华雄听见双方名字，震惊转为求生警觉，马未转向逃走。",
+        "潘凤 continues south and finishes the same call. On hearing the names, 华雄 shifts from shock toward survival alertness; his horse does not turn to flee.",
+        "承接东侧宽景，双方和剩余通路可见；潘凤不是从百米外重新出发。",
+        "Continue the eastern wide view with both riders and the remaining route visible; 潘凤 does not restart from a hundred metres away.",
+        "距离从上镜末态继续缩短；较缓的戏剧化推进节奏不宣称实测速度。",
+        "Distance keeps closing from the previous ending; the deliberately measured advance does not claim a measured speed.",
+        "同一个洪亮男声S1接“我潘凤来也”，只说一次；马蹄与袍声增强。",
+        "The same booming voice (S1) continues: <d>[Mandarin Chinese] 我潘凤来也！</d> Say it once; hoofbeats and robe flaps grow louder.",
+        "全句喊完，潘凤仍在前方，尚未刺击。",
+        "The call is complete; 潘凤 is still ahead and has not thrust his spear."
+      ],
+      [
+        "5–10",
+        "华雄本能收紧右手枪杆和左手缰绳，嘴闭合，眼神与身体仍朝敌方；没有突然熟练挥枪或站起来。",
+        "华雄 instinctively tightens his right hand on the spear and left on the reins, mouth closed and attention northward; no sudden expert flourish or standing up.",
+        "切东北侧膝上中景，看到骑手前侧及鞍与手，机位变而身体不转；保留旷野背景，不极近。",
+        "Cut to a northeast knee-up medium view showing the rider’s front-side, saddle and hands; the camera changes side while his body stays oriented north. Retain the open landscape, not an extreme close-up.",
+        "潘凤在机位北后方画外继续逼近，不能视作消失。",
+        "潘凤 continues approaching from north behind the camera, offscreen but not absent.",
+        "越来越近的蹄声持续，缰具绷紧和甲片轻响，无内心对白。",
+        "Approaching hoofbeats continue with tightening tack and armour clicks, without internal spoken exposition.",
+        "华雄枪缰已握紧，迎击或闪避尚未决定。",
+        "The grip is firm but no attack or evasive decision has been made."
+      ],
+      [
+        "10–15",
+        "恢复关系画面：华雄保持鞍上警觉，潘凤黑袍扬起、纵马持枪逼近；剩余间隔仍足以未接触，停在第一招前，不强制冻结。",
+        "Return to the spatial relationship: 华雄 remains alert in the saddle while 潘凤 advances with black robe billowing and spear held ready. Leave enough separation for no contact; end before the first exchange without a forced freeze-frame.",
+        "切回东侧全景，两个完整人马和间隔同画，约画高30–45%，尘土与地平线仍可见。",
+        "Cut back to an eastern full two-rider view including both entire horses and the gap, about thirty to forty-five percent of height, with dust and horizon visible.",
+        "华雄南、潘凤北，互相面向，枪锋未相碰。",
+        "华雄 stays south, 潘凤 north, facing each other; spear points do not meet.",
+        "强马蹄、袍声、风声持续至结尾，无字幕旁白替代悬念。",
+        "Strong hoofbeats, robe flaps and wind carry through the ending; no caption or narrator replaces the suspense.",
+        "两人仍未交锋，下一集才处理第一击。",
+        "The confrontation remains unresolved; the first exchange belongs to the next episode."
+      ]
+    ]
+  }
+]

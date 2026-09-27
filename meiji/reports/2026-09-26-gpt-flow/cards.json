@@ -1,0 +1,189 @@
+{
+  "characters": {
+    "items": [
+      {
+        "id": "C01",
+        "type": "role",
+        "name": "黄征",
+        "nationality": "中国",
+        "role": "主角原身体",
+        "gender": "男",
+        "era": "现代",
+        "age": 38,
+        "costume": "深蓝作训服、战术背心、黑靴",
+        "height": "178cm",
+        "build": "精壮",
+        "features": "短平头，长方脸，高眉骨，短胡茬",
+        "appearance": "38岁，178cm，精壮，短平头，长方脸，高眉骨，短胡茬",
+        "prop": "警用手枪",
+        "identity": "现代警察；穿越后仅意识延续，新身体另用华雄卡",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：黄征\n身份：主角原身体\n性别：男\n年代：现代\n年龄：38\n服装：深蓝作训服、战术背心、黑靴\n身高：178cm\n体型：精壮\n面相：短平头，长方脸，高眉骨，短胡茬",
+        "assetId": "c044d9a0-ac81-4ab8-88aa-0becfa0af35b",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=c044d9a0-ac81-4ab8-88aa-0becfa0af35b",
+        "imageUrl": "http://43.154.247.11/v1/files/file_145280bea7f60c1ca0c5b6cd49051250/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C02",
+        "type": "role",
+        "name": "队长",
+        "nationality": "中国",
+        "role": "背叛者",
+        "gender": "男",
+        "era": "现代",
+        "age": 46,
+        "costume": "深蓝长袖作训服、长裤、黑靴",
+        "height": "175cm",
+        "build": "结实偏厚",
+        "features": "短侧分发，方宽脸，粗平眉，无须",
+        "appearance": "46岁，175cm，结实偏厚，短侧分发，方宽脸，粗平眉，无须",
+        "prop": "警用手枪",
+        "identity": "黄征的指挥者，天台背后开枪者",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：队长\n身份：背叛者\n性别：男\n年代：现代\n年龄：46\n服装：深蓝长袖作训服、长裤、黑靴\n身高：175cm\n体型：结实偏厚\n面相：短侧分发，方宽脸，粗平眉，无须",
+        "assetId": "790995eb-9bcf-43d4-bd81-54c4f26480b6",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=790995eb-9bcf-43d4-bd81-54c4f26480b6",
+        "imageUrl": "http://43.154.247.11/v1/files/file_fa0895abde3089373a0954f2fd14b806/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C03",
+        "type": "role",
+        "name": "贩毒头目",
+        "nationality": "中国",
+        "role": "被追击的对手",
+        "gender": "男",
+        "era": "现代",
+        "age": 43,
+        "costume": "灰色夹克、黑长裤、皮鞋",
+        "height": "172cm",
+        "build": "偏瘦",
+        "features": "后梳短发，窄脸，左眉旧疤，薄唇，无须",
+        "appearance": "43岁，172cm，偏瘦，后梳短发，窄脸，左眉旧疤，薄唇，无须",
+        "prop": "手枪",
+        "identity": "被警队逼至天台的团伙头目",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：贩毒头目\n身份：被追击的对手\n性别：男\n年代：现代\n年龄：43\n服装：灰色夹克、黑长裤、皮鞋\n身高：172cm\n体型：偏瘦\n面相：后梳短发，窄脸，左眉旧疤，薄唇，无须",
+        "assetId": "a1ae00e2-2d9c-4a9f-8be3-4c0d0026bd16",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=a1ae00e2-2d9c-4a9f-8be3-4c0d0026bd16",
+        "imageUrl": "http://43.154.247.11/v1/files/file_3fbb024f30749402e9679886aa71b842/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C04",
+        "type": "role",
+        "name": "华雄",
+        "nationality": "中国",
+        "role": "穿越后的主角身体",
+        "gender": "男",
+        "era": "东汉末年",
+        "age": 36,
+        "costume": "深铁色甲胄、暗红内衬、皮靴",
+        "height": "190cm",
+        "build": "雄壮宽肩",
+        "features": "长发顶髻，宽方脸，浓眉大鼻，短络腮胡",
+        "appearance": "36岁，190cm，雄壮宽肩，长发顶髻，宽方脸，浓眉大鼻，短络腮胡",
+        "prop": "红缨长枪、马缰",
+        "identity": "独立古代身体，由黄征意识控制；外貌只属于华雄",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：华雄\n身份：穿越后的主角身体\n性别：男\n年代：东汉末年\n年龄：36\n服装：深铁色甲胄、暗红内衬、皮靴\n身高：190cm\n体型：雄壮宽肩\n面相：长发顶髻，宽方脸，浓眉大鼻，短络腮胡",
+        "assetId": "34545446-82c4-4abc-a4d3-10b40184df41",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=34545446-82c4-4abc-a4d3-10b40184df41",
+        "imageUrl": "http://43.154.247.11/v1/files/file_aba7838913ebcd99859c216b9f16ab8a/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C05",
+        "type": "role",
+        "name": "潘凤",
+        "nationality": "中国",
+        "role": "冲锋挑战者",
+        "gender": "男",
+        "era": "东汉末年",
+        "age": 40,
+        "costume": "黑袍、铁甲、皮靴",
+        "height": "185cm",
+        "build": "魁梧",
+        "features": "束发，长脸，挑眉鹰钩鼻，下颌长须",
+        "appearance": "40岁，185cm，魁梧，束发，长脸，挑眉鹰钩鼻，下颌长须",
+        "prop": "长枪、马缰",
+        "identity": "骑马朝华雄冲锋，自报潘凤；低沉洪亮男声，普通话",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：潘凤\n身份：冲锋挑战者\n性别：男\n年代：东汉末年\n年龄：40\n服装：黑袍、铁甲、皮靴\n身高：185cm\n体型：魁梧\n面相：束发，长脸，挑眉鹰钩鼻，下颌长须",
+        "assetId": "b4489489-e56f-45e2-b4de-e6e59f49e40b",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=b4489489-e56f-45e2-b4de-e6e59f49e40b",
+        "imageUrl": "http://43.154.247.11/v1/files/file_52f7e0b5a37ec03f2c70c9355b20c8ba/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      }
+    ]
+  },
+  "scenes": {
+    "items": [
+      {
+        "id": "E01",
+        "type": "scene",
+        "name": "五十层写字楼天台",
+        "landmark": "南缘低围挡、北侧机组、西侧楼梯出口",
+        "light": "东南日光",
+        "space": "天台约40米宽60米深；西侧出口连向楼内，北侧机组可掩护，南缘低围挡外是坠落空间，队长不占坠落线。楼内通道仅文字描述，主图不包含楼内。",
+        "look": "宽阔混凝土天台，南缘低围挡，北侧机组，西侧出口，远处低伏城市和深远街道，日光、强风、高楼纵深；空景。",
+        "assetId": "97c246ce-9292-42d5-a11e-599284570a14",
+        "assetCategory": "scenes",
+        "localPath": "/plugins/meiji/asset-file?category=scenes&id=97c246ce-9292-42d5-a11e-599284570a14",
+        "imageUrl": "http://43.154.247.11/v1/files/file_f40d18fcb56f4996f1c5b33e073fd69c/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "E02",
+        "type": "scene",
+        "name": "三国开阔战场",
+        "landmark": "北方低山、东西远侧土垒",
+        "light": "南上方烈日",
+        "space": "南北至少300米深、东西200米宽的无遮挡冲锋场，人物可在南北两端相向，前中后景清楚。",
+        "look": "烈日下龟裂黄土平原，前景地面、中景飞尘、远景土坡山脊与旗杆，开阔纵深，不含人马。",
+        "assetId": "1f2dbadd-7e91-4fa2-896c-34e8cd171250",
+        "assetCategory": "scenes",
+        "localPath": "/plugins/meiji/asset-file?category=scenes&id=1f2dbadd-7e91-4fa2-896c-34e8cd171250",
+        "imageUrl": "http://43.154.247.11/v1/files/file_e94b0f646488234efe1a55f0ea6315fe/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      }
+    ]
+  }
+}

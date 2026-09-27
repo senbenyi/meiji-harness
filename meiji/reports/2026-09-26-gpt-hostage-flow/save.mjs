@@ -1,0 +1,21 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {projectStore} from '../../server/data/projects.js';
+const dir=new URL('./',import.meta.url),json=async n=>JSON.parse(await readFile(new URL(n,dir),'utf8'));
+const baseline=await json('before.json'),data=await json('generated.json'),store=projectStore(process.cwd()+'/.dsh'),id=baseline.id,eid=baseline.episodes[0].id;
+const current=await store.read(id);assert.equal(current.revision,baseline.revision);assert.ok(!current.activity&&!current.activeOperation);
+const episodes=structuredClone(current.episodes),e=episodes.find(x=>x.id===eid);
+e.shots=data.shots;e.storyboard=data.storyboard;e.boards={};e.assembly=null;e.stage='storyboard';e.activity=null;e.activityError=null;
+for(const film of Object.values(e.films||{}))film.status='stale';
+const pass=key=>{e.feedback[key]={check:{passed:true,failures:[]},review:{status:'pending',text:'',history:e.feedback[key]?.review?.history||[]}}};
+for(const key of ['shots','seconds','storyboard'])pass(key);
+for(const shot of e.shots.items)for(const prefix of ['shot','seconds','storyboard'])pass(`${prefix}:${shot.id}`);
+for(const key of Object.keys(e.feedback))if(/^(film:|pencil:|assembly$|films$)/.test(key))e.feedback[key]={check:{passed:null,failures:[]},review:{status:'pending',text:'',history:e.feedback[key]?.review?.history||[]}};
+const saved=await store.save(id,{episodes},{expectedRevision:baseline.revision});
+const actual=(await store.read(id)).episodes.find(x=>x.id===eid);
+assert.equal(actual.outline,baseline.episodes[0].outline);assert.deepEqual(actual.characters,baseline.episodes[0].characters);assert.deepEqual(actual.scenes,baseline.episodes[0].scenes);
+assert.equal(actual.storyboard.length,12);assert.equal(actual.shots.items.reduce((n,s)=>n+s.duration,0),120);
+for(const b of actual.storyboard){assert.equal(b.video,'reference');for(const r of b.referenceSnapshot){const source=actual[r.kind].items.find(x=>x.id===r.id);assert.equal(source.imageUrl,r.url);assert.equal(source.assetId,r.assetId);}}
+await writeFile(new URL('after.json',dir),JSON.stringify(saved,null,2));
+await writeFile(new URL('检查记录.md',dir),`# 第一集 GPT 编写与检查记录\n\n来源：当前 Codex 对话中的 GPT 依据项目大纲和技能编写并逐段复核；未调用 harness 剧情模型，也未另行发起独立审核模型请求。check 表示本次 GPT 自检，人工 review 保持 pending。\n\n- 保存版本：${saved.revision}。12 镜，8/12/12/10/8/10/12/8/10/12/8/10 秒，总计 120 秒；现代 80 秒，古代 40 秒。大纲末两段括号仍合计 36 秒，与总预算不完全一致，本次依总预算 40 秒展开，未改大纲。\n- 镜头表覆盖清剿、人质、谈判、两次枪击、坠落与穿越；每秒段落连续，单段不超过 5 秒。\n- 两次上楼省略分别由窗外俯见低楼屋顶、无继续上行梯段及露天天台确认。\n- S03–S05 通过先后出入画和成对构图呈现四名重要人物；S06 人质躲入掩体后才同框三名持枪相关人物。\n- 黄征 S04 放枪，之后空手；队长射头目，头目射黄征，枪击仅出现一次且明确目标。\n- 中英文对白对应，中文台词不替换为 Subject 编号；8 句对白分别在指定时段出现，不重复。\n- 古代只绑定华雄、潘凤身体，保留双方军阵、朝向及未交锋结尾。\n- 12 个多模态文本分镜的 Subject/Picture 编号通过项目提交格式检查；引用逐项比对现有资产 ID 和 URL 一致。此次未重新请求远端图片可用性。\n- 大纲、角色卡、人物图片、场景图片保留；旧视频标记 stale，无新视频提交。\n\n限制：这是文本与数据层检查，不是实际成片验证；密集枪击时序、谈判语速与四人分组构图仍需视频产物检验。\n`);
+console.log(JSON.stringify({revision:saved.revision,shots:actual.shots.items.length,storyboards:actual.storyboard.length,seconds:120,assetsUnchanged:true}));

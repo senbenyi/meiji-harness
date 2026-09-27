@@ -1,0 +1,259 @@
+{
+  "repository": "https://github.com/MiniMax-AI/MiniMax-H3",
+  "commit": "d21241f0a4b3acbb34c97dae47fa417b7065e438",
+  "downloadedAt": "2026-09-26T22:47:26.150108+00:00",
+  "files": [
+    {
+      "path": "skills/3d-animation-short-generator/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/SKILL.cn.md",
+      "gitBlobSha": "201d0c93e7445d2a973fe2c51e2bc12c5c66f378",
+      "sha256": "54767a6b3c0194390a7c16a176269046c3fea6d20eb787c60789994a07228dda",
+      "bytes": 39545
+    },
+    {
+      "path": "skills/3d-animation-short-generator/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/SKILL.md",
+      "gitBlobSha": "6ddc1102a8c353b4be4c939444b24f62e5552cde",
+      "sha256": "92f1130ccf456b3e5be2d8aab238a739d26e130ff72061c239e613e4d615f5b4",
+      "bytes": 14961
+    },
+    {
+      "path": "skills/3d-animation-short-generator/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/meta.yaml",
+      "gitBlobSha": "2a8791778b974de0bf8725cab5f4c71ea56e962b",
+      "sha256": "dbc9a379b7a808e7009e2748cd25331aaa709227573001b657a02421643f28ca",
+      "bytes": 2197
+    },
+    {
+      "path": "skills/3d-animation-short-generator/references/fallback-policy.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/references/fallback-policy.md",
+      "gitBlobSha": "ec8753c963f1b9c305549512c8a30f1ee03d868b",
+      "sha256": "c3dcfd75c1744dfbde0778a2ced5c3a320230e24fd3419a1861853378521b251",
+      "bytes": 3930
+    },
+    {
+      "path": "skills/3d-animation-short-generator/references/model-selection.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/references/model-selection.md",
+      "gitBlobSha": "48730351c215e0e591ce9f2ae68838fcbf52eb94",
+      "sha256": "fb020acd0a8a42257eff9196d9aa728b62a5cd892c815396a58c5920ca7dff49",
+      "bytes": 4686
+    },
+    {
+      "path": "skills/3d-animation-short-generator/references/qc-checklist.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/references/qc-checklist.md",
+      "gitBlobSha": "72bbee119d00dac548e06a34e301c386935d33a5",
+      "sha256": "ffd9b192f09aff8cbeb60be859cf13b616ae8ced6a9324cda7728a47e3ea3d3b",
+      "bytes": 7308
+    },
+    {
+      "path": "skills/3d-animation-short-generator/references/shot-table-spec.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/references/shot-table-spec.md",
+      "gitBlobSha": "417405085fd3739c105482108f655c3eee2fde75",
+      "sha256": "d4770ff3f7c6d1d82770e8a93b91cecad269a0da7a5fd97d5c27862a3e4c805c",
+      "bytes": 7803
+    },
+    {
+      "path": "skills/3d-animation-short-generator/references/storyboard-guidelines.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/3d-animation-short-generator/references/storyboard-guidelines.md",
+      "gitBlobSha": "a8639b854041cfb5fc95cd8e020ad5b4c0ffebc1",
+      "sha256": "a1a5aaed9681dd2f66c5ff1f92ea433bf8a04c8a145cd806623e29e8cabfe1f6",
+      "bytes": 14959
+    },
+    {
+      "path": "skills/README.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/README.md",
+      "gitBlobSha": "c030de54dbc0798e680140b657fc7c79e9ef9a48",
+      "sha256": "d993939102d1b06299ab0cacd9c6db79b2a6413c7df20104ce89c49d5638fcb6",
+      "bytes": 8408
+    },
+    {
+      "path": "skills/brand-promo-video-generator/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/brand-promo-video-generator/SKILL.cn.md",
+      "gitBlobSha": "43d0a75f940c21444e7e8e652fd0c14a4ca046c9",
+      "sha256": "e148ad61fe77114543b03ca68d9e1bc4b343d972d3264f6f2a014eaa27f55243",
+      "bytes": 11474
+    },
+    {
+      "path": "skills/brand-promo-video-generator/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/brand-promo-video-generator/SKILL.md",
+      "gitBlobSha": "264eb80b6b02712e5db5fe0b3506b14d437c06c6",
+      "sha256": "a50d270e412be4ed5cf88b187665585f4da637701eb24333fbdef95a19442f37",
+      "bytes": 13561
+    },
+    {
+      "path": "skills/brand-promo-video-generator/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/brand-promo-video-generator/meta.yaml",
+      "gitBlobSha": "4d0d27eb15ea7314b4336a8011a1b9e2d4e24830",
+      "sha256": "e405c2163ebf0c28edbee25202413bae00666c6031b04fe7acd97958e3e47eed",
+      "bytes": 2156
+    },
+    {
+      "path": "skills/co-op-game-intro-generator/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/co-op-game-intro-generator/SKILL.cn.md",
+      "gitBlobSha": "4747e1d62b877e3f230fd5cd8faf7c8bd08a973b",
+      "sha256": "42120f68416eb0ba3b6fd1d1755b902438cc25c89c0e3c30d445b0d566c7237a",
+      "bytes": 7673
+    },
+    {
+      "path": "skills/co-op-game-intro-generator/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/co-op-game-intro-generator/SKILL.md",
+      "gitBlobSha": "3b10d360e35b8a9be6b7233df0273107f9342849",
+      "sha256": "8b49cf84a70fbbc99c661fdac2235cba7f7dd0bde51b639b6ed9c1679a707f5e",
+      "bytes": 8216
+    },
+    {
+      "path": "skills/co-op-game-intro-generator/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/co-op-game-intro-generator/meta.yaml",
+      "gitBlobSha": "c7b53a48f50e5f1cf9a8d557dfa8e26bb8b6a144",
+      "sha256": "1f59c2c70e55c1966c387044b114ed59e4d83c5eebb19474974361c81b7ec531",
+      "bytes": 2005
+    },
+    {
+      "path": "skills/co-op-game-intro-generator/references/h3-confirmation-image-template.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/co-op-game-intro-generator/references/h3-confirmation-image-template.md",
+      "gitBlobSha": "9f12841baab1e6de990c753e9659d41efe8fb0b5",
+      "sha256": "344325132841a673fb2ccc5e12ada2c95c2cba19dd2b658678467219c9f66bbd",
+      "bytes": 14001
+    },
+    {
+      "path": "skills/co-op-game-intro-generator/references/h3-video-prompt-template.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/co-op-game-intro-generator/references/h3-video-prompt-template.md",
+      "gitBlobSha": "9eaaa0dcd5d63be0f388434343f6c76b8bb56523",
+      "sha256": "7fac20c236de585d2f76e4fa01f9e74ced0a88a6d76d2b14c75ceac99607b9c2",
+      "bytes": 10331
+    },
+    {
+      "path": "skills/h3-prompt-writing/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/h3-prompt-writing/SKILL.md",
+      "gitBlobSha": "b6d9b2839384a588763a9c24315225dd8ce19d56",
+      "sha256": "a7000443588ca3f145e3b3fd8900f14e0325dc460bd811268fac89a9dc8e56d0",
+      "bytes": 2623
+    },
+    {
+      "path": "skills/h3-prompt-writing/agents/openai.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/h3-prompt-writing/agents/openai.yaml",
+      "gitBlobSha": "8151bd25e3dc29bdb67c8049e39c34c60c3f08f8",
+      "sha256": "7770c9d784b7251ab882ee29a738219a3f01811e57ba7fc7822fa83eb8438c1a",
+      "bytes": 240
+    },
+    {
+      "path": "skills/h3-prompt-writing/references/base-en.txt",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/h3-prompt-writing/references/base-en.txt",
+      "gitBlobSha": "40cf586a634d677d6b7107b367cf0ec9621be728",
+      "sha256": "2cfebc096a6e08370f288d468d90b60f7f9bcb938f94bf090816e910e48e75fc",
+      "bytes": 15773
+    },
+    {
+      "path": "skills/h3-prompt-writing/references/ref-en.txt",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/h3-prompt-writing/references/ref-en.txt",
+      "gitBlobSha": "7ae1b2d07d743fd2392258a96449be9e9e322d35",
+      "sha256": "1e574f356716ad55612247ffb7bbccbcdb484ad96599d63c7dca1af186b1fab7",
+      "bytes": 23553
+    },
+    {
+      "path": "skills/handdrawn-live-video-generator/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/handdrawn-live-video-generator/SKILL.cn.md",
+      "gitBlobSha": "a1490750c04ee14ff8b67c7dc9c6ac7c5ad2b9ae",
+      "sha256": "ce4a4bcc867def998cd964a15367a9b12cb11534b94a33ed95a4107f49d3de08",
+      "bytes": 6978
+    },
+    {
+      "path": "skills/handdrawn-live-video-generator/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/handdrawn-live-video-generator/SKILL.md",
+      "gitBlobSha": "53fd20efaef4f7347c529d2260a96b41cc214125",
+      "sha256": "5c62175b552f51ed0bfb1e8fcb6fdcfab09530a36570478e58e41c14340b3001",
+      "bytes": 7911
+    },
+    {
+      "path": "skills/handdrawn-live-video-generator/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/handdrawn-live-video-generator/meta.yaml",
+      "gitBlobSha": "68e39cc84f744c6addfaf1855d4d3e4591df9826",
+      "sha256": "374bd4ebb0b1cc4cb49754dab8434cfae4f8e064eb2958d93fba1834377a46a6",
+      "bytes": 1773
+    },
+    {
+      "path": "skills/minimalist-product-ad-generator/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/minimalist-product-ad-generator/SKILL.cn.md",
+      "gitBlobSha": "190b597b2392c91a57dc7c25260121332d9f63cd",
+      "sha256": "287341821b2104ca0caf61326dfdddc5efff09479bb2be321eeaa7cb8d4d01fa",
+      "bytes": 27711
+    },
+    {
+      "path": "skills/minimalist-product-ad-generator/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/minimalist-product-ad-generator/SKILL.md",
+      "gitBlobSha": "7c950cb9374eed4b70e8c984ab89e4888dccfc6f",
+      "sha256": "1f07c58090141159861fa84762ad09eaaf78c2ceaa4cebb08e0e429a55994196",
+      "bytes": 32495
+    },
+    {
+      "path": "skills/minimalist-product-ad-generator/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/minimalist-product-ad-generator/meta.yaml",
+      "gitBlobSha": "878e8d5ac9ca7434c49665bf75da6b810e5c7158",
+      "sha256": "ff790928f5c6abcffcdd25e23300b7ddf1bce431459c9633787278ebd26a71b8",
+      "bytes": 1649
+    },
+    {
+      "path": "skills/music-video-subtitle-generator/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/music-video-subtitle-generator/SKILL.cn.md",
+      "gitBlobSha": "c315ed46972f46a18e5adb251c335e69f4114c57",
+      "sha256": "6a44651945455ba73f8884474027d33afccb7d34485ae6977b454c4c112b6f10",
+      "bytes": 14930
+    },
+    {
+      "path": "skills/music-video-subtitle-generator/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/music-video-subtitle-generator/SKILL.md",
+      "gitBlobSha": "522b2045675c86b04e10056fa2c690121f0ef093",
+      "sha256": "a2c0904632e8db52d2ffdcbaa21208331efd7447b9f34185e7a63a408ae0c848",
+      "bytes": 14423
+    },
+    {
+      "path": "skills/music-video-subtitle-generator/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/music-video-subtitle-generator/meta.yaml",
+      "gitBlobSha": "00b0e78446c886c0f0ae93e54b3d0a7d511e9d93",
+      "sha256": "bb39aca609fd5681342af9e982914872d3770a49a56f724619b2a3cd2b16ffb1",
+      "bytes": 2001
+    },
+    {
+      "path": "skills/paper-collage-explainer-generator/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/paper-collage-explainer-generator/SKILL.cn.md",
+      "gitBlobSha": "6e0fefed199b35e2ae8d91f77d0f3f7cf991efcc",
+      "sha256": "ceaecc38dcf78294d12e658c57b690a0f671bc4b9f7292ef5a65a7db178da4aa",
+      "bytes": 17427
+    },
+    {
+      "path": "skills/paper-collage-explainer-generator/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/paper-collage-explainer-generator/SKILL.md",
+      "gitBlobSha": "473b6aee252735fae1f20f096064a6edbbad6708",
+      "sha256": "2223d4b4ec6b2842db4252a83f00aa6c31e6daa5e8d020d9518e3a8743c47de0",
+      "bytes": 20952
+    },
+    {
+      "path": "skills/paper-collage-explainer-generator/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/paper-collage-explainer-generator/meta.yaml",
+      "gitBlobSha": "c8271f5bbbcb4eea41c884f6f89e04760611a7eb",
+      "sha256": "bb43ad3e81fc92c4ed7c0e2bd750643c84fe7f02641c2fa0cff7747d389f9f4e",
+      "bytes": 1992
+    },
+    {
+      "path": "skills/papercraft-stop-motion-explainer/SKILL.cn.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/papercraft-stop-motion-explainer/SKILL.cn.md",
+      "gitBlobSha": "4e8ee278784f318d4c55f2de352d180bbbad0a2d",
+      "sha256": "94dfb06a487aef8a3d74c5ec7f645fdbd79648dee06934889d823f2624171237",
+      "bytes": 19958
+    },
+    {
+      "path": "skills/papercraft-stop-motion-explainer/SKILL.md",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/papercraft-stop-motion-explainer/SKILL.md",
+      "gitBlobSha": "536ee4f2ffa3593cf744f85566492ddf270062d9",
+      "sha256": "bf8b8e42acd91a0221335d3414abac6c1ad1fd9d8a452b0f7e08f2a973a4fbce",
+      "bytes": 22882
+    },
+    {
+      "path": "skills/papercraft-stop-motion-explainer/meta.yaml",
+      "source": "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/d21241f0a4b3acbb34c97dae47fa417b7065e438/skills/papercraft-stop-motion-explainer/meta.yaml",
+      "gitBlobSha": "4d2c2f0aded6c1609671f5aa2164a2a9bb63897e",
+      "sha256": "088fffbe74924a1766096421e8e890aeefc1a8f0e870751b1aea6b678d3be416",
+      "bytes": 2341
+    }
+  ]
+}

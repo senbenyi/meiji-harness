@@ -1,0 +1,47 @@
+[
+  {
+    "id": "E01",
+    "name": "五十层写字楼外观",
+    "assetId": "2cb54eba-a921-4770-8a0b-e2738856be7e",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=2cb54eba-a921-4770-8a0b-e2738856be7e",
+    "imageUrl": "http://43.154.247.11/v1/files/file_dbd3b3354b7d30844e7da7087f679241/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E02",
+    "name": "写字楼内部通道",
+    "assetId": "4dbc0d2d-1a20-478a-b397-56054949d42d",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=4dbc0d2d-1a20-478a-b397-56054949d42d",
+    "imageUrl": "http://43.154.247.11/v1/files/file_968ea18f6c2e59cdfe7ef27bd4eecb5d/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E03",
+    "name": "写字楼楼梯间",
+    "assetId": "eebb3a5c-415e-4a1b-b5e8-9d053e5b77fc",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=eebb3a5c-415e-4a1b-b5e8-9d053e5b77fc",
+    "imageUrl": "http://43.154.247.11/v1/files/file_4791291aefb87ca7426123f2ab71aafb/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E04",
+    "name": "五十层写字楼天台",
+    "assetId": "0b0180ad-08d4-40fc-8c9d-a403ef61471a",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=0b0180ad-08d4-40fc-8c9d-a403ef61471a",
+    "imageUrl": "http://43.154.247.11/v1/files/file_4299382deeed8c1bc54a8e6a04a7a674/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E05",
+    "name": "虎牢关阵前",
+    "assetId": "20d95210-5253-4ba4-902d-872add6455ec",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=20d95210-5253-4ba4-902d-872add6455ec",
+    "imageUrl": "http://43.154.247.11/v1/files/file_1826235ae5a6398a31ff5cabd5b895bc/content",
+    "verificationStatus": 200
+  }
+]

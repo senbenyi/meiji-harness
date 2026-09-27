@@ -1,0 +1,47 @@
+[
+  {
+    "id": "E01",
+    "name": "废弃烂尾楼外观",
+    "assetId": "7f88b5aa-82e7-49c7-9012-e73894dedd1d",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=7f88b5aa-82e7-49c7-9012-e73894dedd1d",
+    "imageUrl": "http://43.154.247.11/v1/files/file_52f49ca6f7c8156d1767c498261a640a/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E02",
+    "name": "废弃烂尾楼内部通道",
+    "assetId": "24e86a2a-3785-4c1e-91fd-99e9b0b7f951",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=24e86a2a-3785-4c1e-91fd-99e9b0b7f951",
+    "imageUrl": "http://43.154.247.11/v1/files/file_459c7bb79b6ee6a57d0d075c8f6b6695/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E03",
+    "name": "废弃烂尾楼楼梯间",
+    "assetId": "6fd56017-d80d-4574-9ac4-663e82767417",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=6fd56017-d80d-4574-9ac4-663e82767417",
+    "imageUrl": "http://43.154.247.11/v1/files/file_75c99f7833d9d840b98a2cf91cfb2810/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E04",
+    "name": "废弃烂尾楼天台",
+    "assetId": "b0b8ade8-1513-4938-8ba0-bbdd5f85d34f",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=b0b8ade8-1513-4938-8ba0-bbdd5f85d34f",
+    "imageUrl": "http://43.154.247.11/v1/files/file_eb6f8e3de95d8634c5cead806393622e/content",
+    "verificationStatus": 200
+  },
+  {
+    "id": "E05",
+    "name": "虎牢关阵前",
+    "assetId": "6531e1ad-e1cc-4819-8f02-27e4bd32d58b",
+    "assetCategory": "scenes",
+    "localPath": "/plugins/meiji/asset-file?category=scenes&id=6531e1ad-e1cc-4819-8f02-27e4bd32d58b",
+    "imageUrl": "http://43.154.247.11/v1/files/file_094ee4813a19e13d18be6f7819df31b2/content",
+    "verificationStatus": 200
+  }
+]

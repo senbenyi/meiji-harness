@@ -1,0 +1,240 @@
+{
+  "characters": {
+    "items": [
+      {
+        "id": "C01",
+        "type": "role",
+        "name": "黄征",
+        "nationality": "中国",
+        "role": "主角原身体",
+        "gender": "男",
+        "era": "现代",
+        "age": 38,
+        "costume": "深蓝作训服、战术背心、黑靴",
+        "height": "178cm",
+        "build": "精壮",
+        "features": "短平头，长方脸，高眉骨，短胡茬",
+        "appearance": "38岁，178cm，精壮，短平头，长方脸，高眉骨，短胡茬",
+        "prop": "警用手枪",
+        "identity": "现代警察；穿越后仅意识延续，新身体另用华雄卡",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：黄征\n身份：主角原身体\n性别：男\n年代：现代\n年龄：38\n服装：深蓝作训服、战术背心、黑靴\n身高：178cm\n体型：精壮\n面相：短平头，长方脸，高眉骨，短胡茬",
+        "assetId": "c044d9a0-ac81-4ab8-88aa-0becfa0af35b",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=c044d9a0-ac81-4ab8-88aa-0becfa0af35b",
+        "imageUrl": "http://43.154.247.11/v1/files/file_145280bea7f60c1ca0c5b6cd49051250/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C02",
+        "type": "role",
+        "name": "队长",
+        "nationality": "中国",
+        "role": "背叛者",
+        "gender": "男",
+        "era": "现代",
+        "age": 46,
+        "costume": "深蓝长袖作训服、长裤、黑靴",
+        "height": "175cm",
+        "build": "结实偏厚",
+        "features": "短侧分发，方宽脸，粗平眉，无须",
+        "appearance": "46岁，175cm，结实偏厚，短侧分发，方宽脸，粗平眉，无须",
+        "prop": "警用手枪",
+        "identity": "黄征的指挥者，天台背后开枪者",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：队长\n身份：背叛者\n性别：男\n年代：现代\n年龄：46\n服装：深蓝长袖作训服、长裤、黑靴\n身高：175cm\n体型：结实偏厚\n面相：短侧分发，方宽脸，粗平眉，无须",
+        "assetId": "790995eb-9bcf-43d4-bd81-54c4f26480b6",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=790995eb-9bcf-43d4-bd81-54c4f26480b6",
+        "imageUrl": "http://43.154.247.11/v1/files/file_fa0895abde3089373a0954f2fd14b806/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C03",
+        "type": "role",
+        "name": "贩毒头目",
+        "nationality": "中国",
+        "role": "被追击的对手",
+        "gender": "男",
+        "era": "现代",
+        "age": 43,
+        "costume": "灰色夹克、黑长裤、皮鞋",
+        "height": "172cm",
+        "build": "偏瘦",
+        "features": "后梳短发，窄脸，左眉旧疤，薄唇，无须",
+        "appearance": "43岁，172cm，偏瘦，后梳短发，窄脸，左眉旧疤，薄唇，无须",
+        "prop": "手枪",
+        "identity": "被警队逼至天台的团伙头目",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：贩毒头目\n身份：被追击的对手\n性别：男\n年代：现代\n年龄：43\n服装：灰色夹克、黑长裤、皮鞋\n身高：172cm\n体型：偏瘦\n面相：后梳短发，窄脸，左眉旧疤，薄唇，无须",
+        "assetId": "a1ae00e2-2d9c-4a9f-8be3-4c0d0026bd16",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=a1ae00e2-2d9c-4a9f-8be3-4c0d0026bd16",
+        "imageUrl": "http://43.154.247.11/v1/files/file_3fbb024f30749402e9679886aa71b842/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C04",
+        "type": "role",
+        "name": "华雄",
+        "nationality": "中国",
+        "role": "穿越后的主角身体",
+        "gender": "男",
+        "era": "东汉末年",
+        "age": 36,
+        "costume": "深铁色甲胄、暗红内衬、皮靴",
+        "height": "190cm",
+        "build": "雄壮宽肩",
+        "features": "长发顶髻，宽方脸，浓眉大鼻，短络腮胡",
+        "appearance": "36岁，190cm，雄壮宽肩，长发顶髻，宽方脸，浓眉大鼻，短络腮胡",
+        "prop": "红缨长枪、马缰",
+        "identity": "独立古代身体，由黄征意识控制；外貌只属于华雄",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：华雄\n身份：穿越后的主角身体\n性别：男\n年代：东汉末年\n年龄：36\n服装：深铁色甲胄、暗红内衬、皮靴\n身高：190cm\n体型：雄壮宽肩\n面相：长发顶髻，宽方脸，浓眉大鼻，短络腮胡",
+        "assetId": "34545446-82c4-4abc-a4d3-10b40184df41",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=34545446-82c4-4abc-a4d3-10b40184df41",
+        "imageUrl": "http://43.154.247.11/v1/files/file_aba7838913ebcd99859c216b9f16ab8a/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "C05",
+        "type": "role",
+        "name": "潘凤",
+        "nationality": "中国",
+        "role": "冲锋挑战者",
+        "gender": "男",
+        "era": "东汉末年",
+        "age": 40,
+        "costume": "黑袍、铁甲、皮靴",
+        "height": "185cm",
+        "build": "魁梧",
+        "features": "束发，长脸，挑眉鹰钩鼻，下颌长须",
+        "appearance": "40岁，185cm，魁梧，束发，长脸，挑眉鹰钩鼻，下颌长须",
+        "prop": "长枪、马缰",
+        "identity": "骑马朝华雄冲锋，自报潘凤；低沉洪亮男声，普通话",
+        "clothes": [],
+        "props": [],
+        "hairstyles": [],
+        "look": "国籍：中国\n姓名：潘凤\n身份：冲锋挑战者\n性别：男\n年代：东汉末年\n年龄：40\n服装：黑袍、铁甲、皮靴\n身高：185cm\n体型：魁梧\n面相：束发，长脸，挑眉鹰钩鼻，下颌长须",
+        "assetId": "b4489489-e56f-45e2-b4de-e6e59f49e40b",
+        "assetCategory": "characters",
+        "localPath": "/plugins/meiji/asset-file?category=characters&id=b4489489-e56f-45e2-b4de-e6e59f49e40b",
+        "imageUrl": "http://43.154.247.11/v1/files/file_52f7e0b5a37ec03f2c70c9355b20c8ba/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      }
+    ]
+  },
+  "scenes": {
+    "items": [
+      {
+        "id": "E01",
+        "type": "scene",
+        "name": "五十层写字楼外观",
+        "landmark": "完整塔楼与南入口，四周留白，前景道路与远处楼群形成纵深。",
+        "space": "完整塔楼与南入口，四周留白，前景道路与远处楼群形成纵深。",
+        "light": "白昼自然光，室内顶灯补光",
+        "look": "写实电影环境概念图。现代城市白昼，一栋50层玻璃写字楼是中心主体。从对面街区约400米远处观察，完整建筑从底部入口到屋顶全部入画，左右轮廓完整，四边留约10%空隙和天空地面，不裁切。周围较低城市楼群完整呈现纵深，前景通向主楼南侧入口的宽阔街道，主楼作为完整独立体量。东南阳光。无人物无车辆主体无文字水印，不是灰白摄影棚。竖幅，建筑不贴边，不靠夸张畸变。",
+        "assetId": "303f458e-0664-423b-8e58-24f40c9d9704",
+        "assetCategory": "scenes",
+        "localPath": "/plugins/meiji/asset-file?category=scenes&id=303f458e-0664-423b-8e58-24f40c9d9704",
+        "imageUrl": "http://43.154.247.11/v1/files/file_51a05739e84b58a87360e75e9edc0fed/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "E02",
+        "type": "scene",
+        "name": "写字楼内部通道",
+        "landmark": "南入口接北向走廊，北端转角通楼梯；主通道宽4米深20米。",
+        "space": "南入口接北向走廊，北端转角通楼梯；主通道宽4米深20米。",
+        "light": "白昼自然光，室内顶灯补光",
+        "look": "写实电影场景图，现代写字楼地面层内部，南入口朝北走廊望去，完整门框和天花、两侧墙、地板都在画内，镜头后退留足边距，开阔但真实的8米宽大厅接4米宽20米深通道，北端左转角，走廊两侧门框可作掩护，远端灯光有纵深。南入口自然光加顶部白灯。不要人物人群剪影，不要文字水印，无拼贴，无摄影棚背景。主结构完整，通路无障碍，横向空间感足够。",
+        "assetId": "c7ec6493-c067-42ab-b12e-8e9a8604cf66",
+        "assetCategory": "scenes",
+        "localPath": "/plugins/meiji/asset-file?category=scenes&id=c7ec6493-c067-42ab-b12e-8e9a8604cf66",
+        "imageUrl": "http://43.154.247.11/v1/files/file_3e3b43c16f116e2b846ef9d0c2443ad9/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "E03",
+        "type": "scene",
+        "name": "写字楼楼梯间",
+        "landmark": "折返梯上下平台与防火门连通，时间省略后可复用不同楼层的同类布局。",
+        "space": "折返梯上下平台与防火门连通，时间省略后可复用不同楼层的同类布局。",
+        "light": "白昼自然光，室内顶灯补光",
+        "look": "写实电影空场景。现代高层写字楼宽阔防火楼梯间，双跑折返楼梯，完整展现下段台阶、中央平台、上段台阶和上平台防火门，栏杆和门框不裁切。站在东侧稍高的退后观察点，适度广角无畸变，地面墙面天花围合真实，前中后景有明显纵深。顶部白灯、上平台门边白昼微光，不同楼层重复同一建筑设计，不显示楼层数字。不出现人物人群剪影文字，无摄影棚纯色背景。",
+        "assetId": "beff05b1-03fe-48af-9e4d-fe71c9481575",
+        "assetCategory": "scenes",
+        "localPath": "/plugins/meiji/asset-file?category=scenes&id=beff05b1-03fe-48af-9e4d-fe71c9481575",
+        "imageUrl": "http://43.154.247.11/v1/files/file_46f11494cfa710d5d41268e4897b0e71/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "E04",
+        "type": "scene",
+        "name": "五十层写字楼天台",
+        "landmark": "西南出口距南缘约3米，北侧机组距南缘约15米，东西约24米；沿南缘横移4米后可向南退2米，不需穿越整个平台。",
+        "space": "西南出口距南缘约3米，北侧机组距南缘约15米，东西约24米；沿南缘横移4米后可向南退2米，不需穿越整个平台。",
+        "light": "白昼自然光，室内顶灯补光",
+        "look": "写实电影环境参考空景，白昼现代五十层写字楼屋顶。略高于南侧边缘的外部观察点向北俯视，完整矩形屋顶平台四个边角和围挡轮廓都入画，周围留足城市背景边距，不裁切核心平台。屋顶东西24米南北18米。楼梯间出口必须在画面左下方的西南角，出口到南缘低矮混凝土围挡只有约3米；北侧空调机组距南缘约15米，东侧行走通路无遮挡。开阔中间地面、四周低伏城市与深远街道体现高楼尺度。东南日光。无人无剪影，无字无水印，无摄影棚背景。重点核对西南出口，不要把出口放到远处北角。",
+        "assetId": "12272b40-03f8-493e-a4ad-757b131e3243",
+        "assetCategory": "scenes",
+        "localPath": "/plugins/meiji/asset-file?category=scenes&id=12272b40-03f8-493e-a4ad-757b131e3243",
+        "imageUrl": "http://43.154.247.11/v1/files/file_a22debf076e47f49309a563539408d56/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      },
+      {
+        "id": "E05",
+        "type": "scene",
+        "name": "三国开阔战场",
+        "landmark": "中央无遮挡冲锋地，宽约200米深约300米，北山脊、东西土垒完整，南北角色起始相距约100米。",
+        "space": "中央无遮挡冲锋地，宽约200米深约300米，北山脊、东西土垒完整，南北角色起始相距约100米。",
+        "light": "烈日",
+        "look": "写实电影环境空景，烈日下三国时代开阔黄土战场。从适度高的南侧观察点向北望，前景完整开阔平地，中间200米宽300米长南北冲锋通路，东西两侧远土垒完整入画且不贴边，北方连绵山脊完整，天空地面都留够空间。明显前中后景，尘土轻扫地面，正午日光；建筑与环境不能裁成局部，无贴脸局部地面，无鱼眼畸变。无人无马无武器无文字无水印，不是灰白纯色背景。",
+        "assetId": "7a04f165-82f1-4071-8d5f-d19984063152",
+        "assetCategory": "scenes",
+        "localPath": "/plugins/meiji/asset-file?category=scenes&id=7a04f165-82f1-4071-8d5f-d19984063152",
+        "imageUrl": "http://43.154.247.11/v1/files/file_86d2623e522e5313e8a32a4330882390/content",
+        "uploadVerification": {
+          "status": 200,
+          "contentType": "image/png"
+        }
+      }
+    ]
+  }
+}
