@@ -1,3 +1,4 @@
+import { checkContext } from '../data/self-checks.js'
 import { runTextGeneration } from '../workers/text-generation-worker.js'
 import { node, cardModel } from '../../client/drama-model.js'
 export { generateShots, reviseShot, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
@@ -126,7 +127,7 @@ export function episodePrompt(project, episodeId) {
   }
   if (project.script) lines.push(`项目剧本：${project.script}`)
   if (episodeId) {
-    lines.push(`重新生成第 ${next} 集的摘要，不是续写下一集。原摘要是既定事件基稿，保留关键事件并按意见定向修改：${ordered[index].summary.content}`)
+    lines.push(`重新生成第 ${next} 集的摘要，不是续写下一集。${checkContext.getStore()?.generationMode === 'modify' ? `原摘要是修改基稿：${ordered[index].summary.content}` : '根据上游资料重新创作。'}`)
     lines.push(`本集已有时长 ${ordered[index].durationSeconds} 秒，摘要内容应适合这一时长。`)
     const following = ordered.slice(index + 1)
     if (following.length) {
@@ -161,7 +162,7 @@ export async function generateEpisode({ route, project, episodeId, signal, fetch
 export async function generateStoryPackage({ route, project, signal, fetchImpl }) {
   const previous = { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes }
   const prompt = [...context(project), `本集时长 ${project.durationSeconds} 秒，仅用于控制剧情容量；大纲不标制作秒数或镜头编号，具体计时由镜头表规划。一次返回 outline、characters.items、scenes.items；先规划大纲，再基于本次大纲完整建卡。人物和场景不要生成图片。`,
-    `已有资料（有意见时定向修改，未涉及内容保留）：${JSON.stringify(previous)}`].join('\n')
+    ...(checkContext.getStore()?.generationMode === 'modify' ? [`已有资料（定向修改，未涉及内容保留）：${JSON.stringify(previous)}`] : [])].join('\n')
   const options = { route, project, signal, fetchImpl, maxTokens: textMaxTokens(project.durationSeconds) }
   const normalize = text => {
     const raw = parseJsonValue(text)
@@ -175,7 +176,7 @@ export async function regenerateCardGroup({ project, kind, route, review }) {
   const normalize = text => (kind === 'characters' ? normalizeCharacters : normalizeScenes)(parseJsonValue(text))
   const result = await runTextGeneration({
     skill: 'skill-juqing-outline-generate',
-    instructions: [...context(project), `本次仅修订${kind === 'characters' ? '人物卡' : '场景卡'}集合，不生成或修改大纲与另一类卡片。输出仅为 {"items":[...]}，沿用该类卡片字段要求。`, `已通过大纲：${project.plot.outline.content}`, `已有卡片：${JSON.stringify(project.plot[kind].items)}`, `人工意见：${review || ''}`].join('\n'),
+    instructions: [...context(project), `本次仅修订${kind === 'characters' ? '人物卡' : '场景卡'}集合，不生成或修改大纲与另一类卡片。输出仅为 {"items":[...]}，沿用该类卡片字段要求。`, `已通过大纲：${project.plot.outline.content}`, ...(checkContext.getStore()?.generationMode === 'modify' ? [`已有卡片：${JSON.stringify(project.plot[kind].items)}`] : []), `人工意见：${review || ''}`].join('\n'),
     options: { route, project }, validate: normalize,
   })
   return { ...normalize(result.text), check: result.check }

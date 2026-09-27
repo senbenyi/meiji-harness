@@ -74,7 +74,7 @@ export function begin(target, operation) {
 export function finish(target, check) {
   target.check = { ...check, revision: target.revision }
   target.status = check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED
-  if (check.passed && target.operation?.reviewRevision === target.review.revision) target.review.text = ''
+  if (check.passed && target.operation?.consumesReview !== false && target.operation?.reviewRevision === target.review.revision) target.review.text = ''
   target.operation = null
   target.error = null
 }

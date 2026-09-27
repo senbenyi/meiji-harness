@@ -204,9 +204,7 @@ export function renderImageReview(project, actions, gate) {
   const target = { action: current.track ? 'pencil' : current.slot ? 'part-image' : 'image', track: current.track, itemId: current.itemId, slot: current.slot }
   const record = feedbackOf(owner, target)
   const reviewArea = element('div', '', 'image-review-fields')
-  appendWorkflowReview(reviewArea, record, Boolean(ready), busy)
-  const note = reviewArea.querySelector('input')
-  if (note && current.review) note.value = current.review
+  let note
   const status = element('p', '', 'hint warn')
   status.setAttribute('role', 'status')
   if (current.error) status.textContent = current.error
@@ -252,10 +250,10 @@ export function renderImageReview(project, actions, gate) {
   }
   regenerate.onclick = async () => {
     if (!canRegenerate) return
-    const review = reviewFields(reviewArea).review || ''
+    const fields = reviewFields(reviewArea)
     setBusy('正在重新生成…')
     tip.textContent = '正在生成图片，请勿其他操作'
-    try { await actions.regenerateImage(project, current, review) }
+    try { await actions.regenerateImage(project, current, fields) }
     catch (error) {
       status.textContent = error.message
       tip.textContent = '生成失败，可放弃或重新生成'
@@ -265,7 +263,12 @@ export function renderImageReview(project, actions, gate) {
     }
   }
 
-  buttons.append(confirm, discard, regenerate)
+  buttons.append(confirm, discard)
+  reviewArea.querySelector('.workflow-review')?.remove()
+  appendWorkflowReview(reviewArea, record, Boolean(ready), busy, regenerate)
+  const opinion = reviewArea.querySelector('input')
+  note = opinion
+  if (opinion && current.review) { opinion.value = current.review; opinion.dispatchEvent(new Event('input')) }
   overlay.append(tip, card, reviewArea, buttons, status)
   return overlay
 }

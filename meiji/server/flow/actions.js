@@ -7,7 +7,7 @@ import { hasFilm, hasStoryboard } from '../../client/flow-rules.js'
 import { preserveStoryAssets } from '../data/story-package.js'
 import { clearShotDownstream, replaceFrom } from './gates.js'
 import { feedbackKey, feedbackOf } from '../../client/feedback.js'
-import { checkContext, prepareChecks, selectCheck, setCheck } from '../data/self-checks.js'
+import { checkContext, withReviewPrompt, prepareChecks, selectCheck, setCheck } from '../data/self-checks.js'
 import { shotSecondsReady } from '../../client/shot-timing.js'
 import { readPicture, savePicture, pictureReference, readImageDraft, pictureTargetSnapshot } from '../data/pictures.js'
 import { randomUUID } from 'node:crypto'
@@ -75,7 +75,7 @@ const labels = {
   'use-asset': '关联图片素材',
 }
 
-export function operationLabel(operation) { return `${labels[operation.action] || operation.action}${operation.track ? ' ' + operation.track : ''}` }
+export function operationLabel(operation) { return `${labels[operation.action] || operation.action}${operation.track ? ' ' + operation.track : ''}${operation.generationMode ? '·' + (operation.generationMode === 'modify' ? '按意见修改' : '重新生成') : ''}` }
 
 export function validateOperation(input) {
   if (!actions.has(input?.action)) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
@@ -285,7 +285,7 @@ export function filmSubmit(project, item, opening) {
   })
   const basePrompt = item.format === 'text' ? storyboardPromptText(item) : bindReferencePrompt(storyboardPromptText(item), mode === 'reference' ? images : [])
   const supplement = skillSupplement(project, 'skill-chengpian-video-generate')
-  let prompt = supplement ? `${basePrompt}\n${supplement}` : basePrompt
+  let prompt = withReviewPrompt(supplement ? `${basePrompt}\n${supplement}` : basePrompt)
   if (mode === 'reference') {
     if (opening.referenceUrl) {
       const tag = `<Picture ${images.length + 1}>`
@@ -350,7 +350,7 @@ async function saveTailFrame(projects, project, track, file, directory, home, sa
 async function queueOrResumeFilm(project, track, payload, route, deps, size) {
   const old = project.shots.items.find(shot => shot.id === track)?.video
   const request = { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [] }
-  if (!old?.stale && !old?.content?.terminal && old?.content?.promptId && ['running', 'error', 'interrupted'].includes(old.content.status)
+  if (!checkContext.getStore()?.generationMode && !old?.stale && !old?.content?.terminal && old?.content?.promptId && ['running', 'error', 'interrupted'].includes(old.content.status)
     && old.content.request?.mode === request.mode && old.content.request?.prompt === request.prompt
     && JSON.stringify(old.content.request?.referenceImages || []) === JSON.stringify(request.referenceImages)) {
     return { baseUrl: route.baseUrl, apiKey: route.apiKey, shots: [{ promptId: old.content.promptId, duration: project.shots.items.find(shot => shot.id === track).duration }] }
@@ -538,6 +538,7 @@ async function executeOperation(operation, deps) {
         bytes: file.bytes, mime: file.metadata.mime, filename: `${draft.draftId}.${file.metadata.mime === 'image/jpeg' ? 'jpg' : file.metadata.mime.split('/')[1]}` })
       if (!/^https?:\/\//i.test(uploaded.url || '')) throw new Error('上传接口未返回有效的 imageUrl')
       const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, { ...file.metadata, imageUrl: uploaded.url })
+      reference.prompt = file.metadata.prompt || ''
       let patch
       if (draft.track) patch = updateShotResult(project, 'pencil', draft.track, { ...reference, url: reference.localPath })
       else if (draft.slot) patch = { ...staleMedia(project), ...plotPatch(project, { [draft.key]: appendImageAsset(project.plot[draft.key], draft.itemId, draft.slot, { id: nextPartId(target, draft.slot), name: draft.name, ...reference }) }) }
@@ -550,6 +551,10 @@ async function executeOperation(operation, deps) {
       await rm(file.directory, { recursive: true, force: true })
       note('图片已确认：上传完成，imageUrl 已保存，已入素材库并更新关联')
       return trace
+    }
+    if (operation.generationMode === 'modify' && project.pendingImages?.[operation.draftId]) {
+      const candidate = project.pendingImages[operation.draftId]
+      if (!candidate.prompt) candidate.prompt = (await readImageDraft(home, operation.draftId)).metadata.prompt || ''
     }
     const submittedReview = String(operation.review || '').trim()
     const prepared = await prepareChecks(projects, project, operation)
@@ -684,7 +689,7 @@ async function executeOperation(operation, deps) {
     }
     if (operation.action === 'revise-shot') {
       const review = String(operation.review || '').trim()
-      if (!review || review.length > 2000) throw Object.assign(new Error('请先写下这一镜的审核意见'), { status: 400 })
+      if ((operation.generationMode === 'modify' && !review) || review.length > 2000) throw Object.assign(new Error('请先写下这一镜的审核意见'), { status: 400 })
       const track = String(operation.track || '')
       const items = project.shots?.items || []
       if (!items.some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
@@ -1044,7 +1049,7 @@ async function startImage(operation, project, { projects, models, home, submitAs
   const route = await loadModels(models)
   let bag = place.bag
   let how = '沿用这张卡已有的中文画面提示词'
-  if (operation.action === 'revise-image') {
+  if (operation.generationMode === 'modify') {
     const note = String(operation.instruction || operation.review || '').trim()
     if (!note || note.length > 2000) throw Object.assign(new Error(note ? '审核意见过长' : '请先写下审核意见'), { status: 400 })
     const revision = await runTextGeneration({ skill: 'skill-juese-image-review', instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}`, options: {
@@ -1053,7 +1058,6 @@ async function startImage(operation, project, { projects, models, home, submitAs
     const revised = revision.text
     if (!usableLook(revised)) throw Object.assign(new Error('新的画面提示词不够具体'), { status: 502 })
     bag = { ...bag, items: bag.items.map(entry => entry.id === item.id ? { ...entry, look: revised } : entry) }
-    await projects.save(project.id, { ...plotPatch(project, { [place.key]: bag }) })
     if (!revision.check.passed) {
       await projects.save(project.id, { activity: null })
       throw Object.assign(new Error(`自检未通过：${revision.check.failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
@@ -1084,7 +1088,7 @@ async function startImage(operation, project, { projects, models, home, submitAs
     projectId: project.id, episodeId: project.episodeId, directory, referenceBytes, seed, home, prompt: submitted,
   }).then(async next => {
     const draft = next.items.find(entry => entry.id === item.id).pendingImage
-    await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(current) })
+    await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item) })
   }).catch(async error => {
     await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
   }))

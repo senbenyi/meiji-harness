@@ -17,7 +17,7 @@ export async function runTextGeneration({ skill, instructions, options, validate
       return text
     },
     canRevise,
-    review: text => request('skill-gongyong-content-review', buildSelfReviewPrompt({ skill, instructions: withReviewPrompt(reviewInstructions) + skillSupplement(options.project, skill), content: text, extraContext: reviewContext }), { ...options, logPurpose, logStage: reviewAttempt++ ? '复审' : '自审', includeReview: false, json: false, maxTokens: 8192 }),
+    review: text => request('skill-gongyong-content-review', buildSelfReviewPrompt({ skill, instructions: withReviewPrompt(reviewInstructions, false) + skillSupplement(options.project, skill), content: text, extraContext: reviewContext }), { ...options, logPurpose, logStage: reviewAttempt++ ? '复审' : '自审', includeReview: false, json: false, maxTokens: 8192 }),
   })
   const ctx = checkContext.getStore()
   if (ctx) { ctx.validation = result.check.failures; ctx.reviewHistory = result.history }

@@ -10,7 +10,7 @@ import { shotSecondsReady } from '../../client/shot-timing.js'
 async function generate(skill, instructions, options) {
   const original = checkContext.getStore()?.originalProject || options.project
   const action = { 'skill-jingtou-jingtoubiao-table-generate': 'shots', 'skill-jingtou-jingtoubiao-shot-review': 'revise-shot', 'skill-jingtou-meimiao-seconds-generate': 'shot-seconds', 'skill-jingtou-wenben-storyboard-generate': 'shot-storyboard' }[skill]
-  const reasons = [...new Set([options.review, checkContext.getStore()?.review, ...checkReasons(original, { action, track: options.shotId })].filter(Boolean))].join('\n')
+  const reasons = checkContext.getStore()?.generationMode === 'regenerate' ? '' : [...new Set([options.review, checkContext.getStore()?.review, ...checkReasons(original, { action, track: options.shotId })].filter(Boolean))].join('\n')
   const shot = original.shots?.items?.find(item => item.id === options.shotId)
   const board = shotResults(original, 'storyboard')?.find(item => item.id === options.shotId)
   const previous = skill === 'skill-jingtou-meimiao-seconds-generate' ? (shot?.seconds.content || '')
@@ -53,8 +53,8 @@ export function readShotSections(text) {
 export async function generateShots(options) {
   const { project, persist } = options
   const original = checkContext.getStore()?.originalProject || project
-  const draft = original.shots?.items?.map(s => `## ${s.id} / ${s.duration}s\n${body(s)}`).join('\n\n') || ''
-  const instructions = `${context(project)}\n本集目标 ${project.durationSeconds} 秒。先统筹全集事件、场景转换、实际身体身份及片段首末状态，再决定片段数量与各自时长，每段1–15秒，不均分、不凑满15秒。总时长尽量等于目标，容差10秒。\n场景/时代/身体变化、完整对白和动作结果优先作为边界；比较首帧接续与多模态参考时状态衔接是否成立，不在本阶段选择最终模式或编造关键帧。\n一次返回完整镜头表。每段标题严格为「## S01 / 12s」，编号从S01连续递增，秒数按内容分配；分段下首行必须写「标题：简短剧情标题」，标题内容跟随项目语言，概括本镜核心事件，不能只有编号；随后自由文本描述事件、起止状态、切段理由和接续要求，不输出JSON。\n${draft ? `已有镜头表：\n${draft}\n有修订意见时以此为基稿，只改受影响的段落；意见涉及切段或衔接时允许调整相邻边界与时长，保留其他事件和细节。` : ''}`
+  const draft = checkContext.getStore()?.generationMode === 'regenerate' ? '' : original.shots?.items?.map(s => `## ${s.id} / ${s.duration}s\n${body(s)}`).join('\n\n') || ''
+  const instructions = `${context(checkContext.getStore()?.generationMode === 'regenerate' ? { ...project, shots: { ...project.shots, items: [] } } : project)}\n本集目标 ${project.durationSeconds} 秒。先统筹全集事件、场景转换、实际身体身份及片段首末状态，再决定片段数量与各自时长，每段1–15秒，不均分、不凑满15秒。总时长尽量等于目标，容差10秒。\n场景/时代/身体变化、完整对白和动作结果优先作为边界；比较首帧接续与多模态参考时状态衔接是否成立，不在本阶段选择最终模式或编造关键帧。\n一次返回完整镜头表。每段标题严格为「## S01 / 12s」，编号从S01连续递增，秒数按内容分配；分段下首行必须写「标题：简短剧情标题」，标题内容跟随项目语言，概括本镜核心事件，不能只有编号；随后自由文本描述事件、起止状态、切段理由和接续要求，不输出JSON。\n${draft ? `已有镜头表：\n${draft}\n有修订意见时以此为基稿，只改受影响的段落；意见涉及切段或衔接时允许调整相邻边界与时长，保留其他事件和细节。` : ''}`
   const result = await generate('skill-jingtou-jingtoubiao-table-generate', instructions, options)
   let items = []
   const failures = [...result.check.failures]
@@ -80,7 +80,7 @@ export async function reviseShot(options) {
   const { project, shotId, review = '' } = options
   const shot = project.shots.items.find(item => item.id === shotId)
   if (!shot) throw new Error('没有这一镜')
-  const result = await generate('skill-jingtou-jingtoubiao-shot-review', `${context(project, shotId)}\n只改 ${shotId}，时长 ${shot.duration}s。当前正文：${body(shot)}\n审核意见：${review}\n直接返回修改后的完整正文，首行保留「标题：简短剧情标题」；原文缺标题时补充，核心事件未变时沿用原标题。`, options)
+  const result = await generate('skill-jingtou-jingtoubiao-shot-review', `${context(checkContext.getStore()?.generationMode === 'regenerate' ? { ...project, shots: { ...project.shots, items: project.shots.items.filter(item => item.id !== shotId) } } : project, shotId)}\n只生成 ${shotId}，时长 ${shot.duration}s。${checkContext.getStore()?.generationMode === 'regenerate' ? '' : `当前正文：${body(shot)}\n审核意见：${review}`}\n直接返回修改后的完整正文，首行保留「标题：简短剧情标题」；原文缺标题时补充，核心事件未变时沿用原标题。`, options)
   return { ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, content: result.text, check: result.check } : item), check: result.check }
 }
 

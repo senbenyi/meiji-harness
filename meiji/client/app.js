@@ -24,7 +24,6 @@ function installLogCards() {
     .meiji-session-log [data-disclosure-row][aria-expanded="true"]>span:nth-last-child(-n+2){display:none}
   `
   document.head.append(style)
-  const initializedRows = new WeakSet()
   const reveal = () => {
     for (const card of document.querySelectorAll('[data-variant="others"]')) {
       if (card.dataset.tool) continue
@@ -36,11 +35,6 @@ function installLogCards() {
       card.querySelector(':scope > .meiji-log-card')?.remove()
       card.classList.add('meiji-session-log')
       appendLogCopy(card)
-      const expanded = row.getAttribute('aria-expanded')
-      if (!initializedRows.has(row) && expanded !== null) {
-        initializedRows.add(row)
-        if (expanded === 'false') row.click()
-      }
     }
   }
   let queued = false
@@ -159,7 +153,7 @@ export function mount() {
   }
   shell.root.addEventListener('meiji-review-draft', async event => {
     const { key, text, revision, kind, onSaved, onError } = event.detail
-    const projectId = shownProject, episodeId = openEpisode || openCharacter?.episodeId
+    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId
     if (!projectId || !episodeId) return
     try {
       const result = await request('review-draft', { method: 'PUT', ...jsonBody({ projectId, episodeId, sessionId: currentSessionId(), key, text, revision, kind }) })
@@ -206,9 +200,9 @@ export function mount() {
         throw error
       }
     },
-    regenerateImage: async (project, gate, review = '') => {
+    regenerateImage: async (project, gate, options = {}) => {
       const episodeId = gate.episodeId || project.episodeId
-      const note = String(review || '').trim()
+      const note = options.generationMode === 'modify' ? String(options.review || '').trim() : ''
       if (note.length > 2000) throw new Error('审核意见过长')
       const { action, fields } = regenerateFields(gate, note)
       imageGate = {
@@ -227,10 +221,10 @@ export function mount() {
         track: fields.track || gate.track || '',
       }
       showProject(project)
-      if (gate.draftId) {
+      if (gate.draftId && options.generationMode !== 'modify') {
         await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId: gate.draftId, action: 'discard-image' }) })
       }
-      await bridge.perform(project, action, { ...fields, episodeId })
+      await bridge.perform(project, action, { ...fields, ...options, draftId: gate.draftId, episodeId })
     },
     refresh: () => follow(true),
     perform: (project, action, fields) => bridge.perform(project, action, {

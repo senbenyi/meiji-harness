@@ -1,3 +1,4 @@
+import { appendWorkflowReview, reviewFields } from './workflow-review.js'
 import { pictureOf } from './drama-model.js'
 import { element, appendJsonCopy } from './dom.js'
 import { stillCards, characterSheet } from './asset-cards.js'
@@ -34,7 +35,7 @@ export function characterCard(project, item, actions, context) {
     refresh.disabled = true
     refresh.textContent = '生成中'
     error.hidden = true
-    try { await actions.beginImage(project, 'image', { itemId: item.id, itemName: item.name }) }
+    try { await actions.beginImage(project, 'image', { itemId: item.id, itemName: item.name, ...reviewFields(card) }) }
     catch (reason) {
       refresh.disabled = false
       refresh.textContent = 'AI生成'
@@ -43,6 +44,7 @@ export function characterCard(project, item, actions, context) {
     }
   }
   card.append(open, refresh, error)
+  appendWorkflowReview(card, item.image, Boolean(item.image?.content), Boolean(project.activity), refresh)
   appendJsonCopy(card, item)
   return card
 }

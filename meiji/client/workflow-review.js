@@ -36,7 +36,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
       saving = true
       const text = input.value
       input.dispatchEvent(new CustomEvent('meiji-review-draft', { bubbles: true, composed: true, detail: {
-        key: record.id, text, revision,
+        key: record.id, text, revision, episodeId: area.dataset.episodeId,
         onSaved(review) { revision = review.revision; saving = false; if (input.value === text) delete input.dataset.dirty; if (queued || input.value !== text) { queued = false; flush() } },
         onError() { saving = false },
       } }))
@@ -48,16 +48,27 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   if (actionButton && (generated || failed)) {
     actionButton.classList.add('workflow-review-action')
     if (!busy) {
-      actionButton.textContent = paused ? '重新生成' : failed ? '按意见修订' : '修改并重新生成'
+      actionButton.textContent = '重新生成'
       actionButton.setAttribute('aria-label', actionButton.textContent)
     }
     area.append(actionButton)
+    const run = actionButton.onclick
+    actionButton.onclick = event => { area.dataset.generationMode = 'regenerate'; return run?.call(actionButton, event) }
+    const modify = element('button', '按意见修改', 'workflow-review-action')
+    modify.type = 'button'
+    const available = !busy && !actionButton.disabled
+    const refresh = () => { modify.disabled = !available || !generated || !(area.querySelector('input')?.value.trim() || (check?.passed === false && check.failures?.some(Boolean))) }
+    area.querySelector('input')?.addEventListener('input', refresh)
+    modify.onclick = event => { if (modify.disabled) return; area.dataset.generationMode = 'modify'; return run?.call(actionButton, event) }
+    refresh()
+    area.append(modify)
   }
   parent.append(area)
   return area
 }
 
 export function reviewFields(parent) {
-  const input = parent.querySelector(':scope > .workflow-review > input')
-  return input ? { review: input.value.trim() } : {}
+  const area = parent.querySelector(':scope > .workflow-review')
+  const generationMode = area?.dataset.generationMode || 'regenerate'
+  return { generationMode, ...(generationMode === 'modify' ? { review: area?.querySelector('input')?.value.trim() || '' } : {}) }
 }

@@ -255,8 +255,8 @@ export function pictureRecord(item) {
   const server = (!isLocalPicture(item.imageUrl) && /^https?:\/\//.test(String(item.imageUrl || '')) ? item.imageUrl : '') || item.file?.url || ''
   const { file, ...rest } = item
   if (item.type === 'role' || item.type === 'scene') {
-    const { localPath: _, imageUrl, assetId, assetCategory, ...card } = rest
-    const media = { ...pictureOf(item), localPath: localPath || pictureOf(item).localPath || null, imageUrl: server || pictureOf(item).imageUrl || null, ...(assetId ? { assetId, assetCategory } : {}) }
+    const { localPath: _, imageUrl, assetId, assetCategory, prompt, ...card } = rest
+    const media = { ...pictureOf(item), ...(prompt ? { prompt } : {}), localPath: localPath || pictureOf(item).localPath || null, imageUrl: server || pictureOf(item).imageUrl || null, ...(assetId ? { assetId, assetCategory } : {}) }
     card.image = setContent(structuredClone(item.image || node(`image:${item.id}`)), media, { passed: Boolean(media.imageUrl), failures: [] })
     return card
   }
@@ -269,7 +269,7 @@ export function imageAsset(item) {
   const name = String(item.name || '').trim()
   if (!id || !name) return null
   const pictured = pictureRecord(item)
-  return { id, name, ...(pictured.assetId ? { assetId: pictured.assetId, assetCategory: pictured.assetCategory } : {}), localPath: pictured.localPath || null, imageUrl: pictured.imageUrl || null }
+  return { id, name, ...(pictured.prompt ? { prompt: pictured.prompt } : {}), ...(pictured.assetId ? { assetId: pictured.assetId, assetCategory: pictured.assetCategory } : {}), localPath: pictured.localPath || null, imageUrl: pictured.imageUrl || null }
 }
 
 export function imageAssets(list) {

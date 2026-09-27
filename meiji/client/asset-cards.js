@@ -1,3 +1,4 @@
+import { appendWorkflowReview, reviewFields } from './workflow-review.js'
 import { pictureOf } from './drama-model.js'
 import { request, assetUrl } from './api.js'
 import { element, appendJsonCopy } from './dom.js'
@@ -146,7 +147,7 @@ export function stillCards(project, items, actions, hint) {
         aiPart.onclick = async () => {
           aiPart.disabled = true
           aiPart.textContent = '生成中'
-          try { await actions.beginImage(project, 'part-image', { itemId: item.id, itemName: item.name, slot }) } catch (error) {
+          try { await actions.beginImage(project, 'part-image', { itemId: item.id, itemName: item.name, slot, ...reviewFields(block) }) } catch (error) {
             hint.hidden = false
             hint.textContent = error.message
             hint.classList.add('warn')
@@ -179,6 +180,7 @@ export function stillCards(project, items, actions, hint) {
         plus.onclick = () => { if (!busy) { pickId = item.id; pickSlot = slot; picker.click() } }
         pics.append(plus)
         block.append(head, pics)
+        appendWorkflowReview(block, item.parts[slot], Boolean(item[slot]?.length), busy, aiPart)
         copy.append(block)
       }
     }
@@ -189,7 +191,7 @@ export function stillCards(project, items, actions, hint) {
     ai.onclick = async () => {
       ai.disabled = true
       ai.textContent = '生成中'
-      try { await actions.beginImage(project, 'image', { itemId: item.id, itemName: item.name }) } catch (error) {
+      try { await actions.beginImage(project, 'image', { itemId: item.id, itemName: item.name, ...reviewFields(copy) }) } catch (error) {
         hint.hidden = false
         hint.textContent = error.message
         hint.classList.add('warn')
@@ -199,6 +201,7 @@ export function stillCards(project, items, actions, hint) {
     }
     if (item.type === 'role') heading.append(ai)
     else actionsRow.append(ai)
+    appendWorkflowReview(copy, item.image, Boolean(stillSrc(item) || pictureOf(item).imageUrl), busy, ai)
     if (stillSrc(item) || pictureOf(item).imageUrl) {
       const edit = element('button', '更换图片')
       edit.type = 'button'
@@ -262,7 +265,7 @@ export function stillCards(project, items, actions, hint) {
       remove.onclick = () => {
         if (remove.disabled) return
         remove.disabled = true
-        actions.perform(project, 'clear-image', { itemId: item.id, itemName: item.name }).catch(error => {
+        actions.perform(project, 'clear-image', { itemId: item.id, itemName: item.name, ...reviewFields(copy) }).catch(error => {
           remove.disabled = false
           hint.hidden = false
           hint.textContent = error.message

@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { assetStore, MAX_ASSET_BYTES } from './library.js'
 
 export function pictureReference(asset) {
-  return { assetId: asset.id, assetCategory: asset.category,
+  return { prompt: asset.prompt || asset.origin?.prompt || '', assetId: asset.id, assetCategory: asset.category,
     localPath: `/plugins/meiji/asset-file?category=${asset.category}&id=${asset.id}`, imageUrl: asset.imageUrl || null }
 }
 
@@ -40,7 +40,7 @@ export async function saveImageDraft(home, bytes, mime, category, name, origin) 
   await mkdir(directory, { recursive: true })
   await writeFile(join(directory, 'image'), bytes, { mode: 0o600 })
   await writeFile(join(directory, 'metadata.json'), JSON.stringify({ mime, category, name, ...origin }), { mode: 0o600 })
-  return { draftId, previewUrl: `/plugins/meiji/image-draft?id=${draftId}` }
+  return { draftId, prompt: origin?.prompt || '', previewUrl: `/plugins/meiji/image-draft?id=${draftId}` }
 }
 
 export async function readImageDraft(home, id) {

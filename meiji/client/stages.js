@@ -220,11 +220,11 @@ function regenRow(card, { busy, enabled, label, onRun, review = '', check, gener
   hint.hidden = true
   button.onclick = () => {
     if (button.disabled) return
-    const review = reviewFields(card).review
+    const fields = reviewFields(card)
     button.disabled = true
     button.textContent = '生成中'
     hint.hidden = true
-    onRun(review).catch(error => {
+    onRun(fields).catch(error => {
       button.disabled = false
       button.textContent = label
       hint.hidden = false
@@ -362,7 +362,7 @@ function paintSeconds(view, project, actions) {
       record: feedbackOf(project, { action: 'shot-seconds', track: shot.id }),
       check: feedbackOf(project, { action: 'shot-seconds', track: shot.id }).check,
       generated: Boolean(shot.seconds.content || shot.seconds?.content),
-      onRun: review => actions.perform(project, 'shot-seconds', { track: shot.id, review }),
+      onRun: fields => actions.perform(project, 'shot-seconds', { track: shot.id, ...fields }),
     })
     appendJsonCopy(card, shot.seconds.content || { id: shot.id, duration: shot.duration, seconds: shot.seconds })
     view.append(card)
@@ -416,7 +416,7 @@ function paintBoards(view, project, actions) {
       record: feedbackOf(project, { action: 'shot-storyboard', track: shot.id }),
       check: feedbackOf(project, { action: 'shot-storyboard', track: shot.id }).check,
       generated: Boolean(story && hasBoardPrompt(story)),
-      onRun: review => actions.perform(project, 'shot-storyboard', { track: shot.id, review }),
+      onRun: fields => actions.perform(project, 'shot-storyboard', { track: shot.id, ...fields }),
     })
     appendJsonCopy(card, story?.format === 'text' ? story.prompt.text : story)
     view.append(card)
@@ -493,7 +493,7 @@ function renderFilm(project, actions, context) {
     }
     regenRow(card, { busy: project.activity === `shot-storyboard:${shot.id}`, enabled: !project.activity,
       record: shot.storyboard, check: shot.storyboard.check, generated: Boolean(story?.prompt),
-      onRun: review => actions.perform(project, 'shot-storyboard', { track: shot.id, review }) })
+      onRun: fields => actions.perform(project, 'shot-storyboard', { track: shot.id, ...fields }) })
     card.append(element('h4', `视频 · ${statusLabels[shot.video.status]}`))
     const clip = shot.video.content
     if (clip?.url) { const video = element('video'); video.controls = true; video.src = clip.url; card.append(video) }
@@ -501,7 +501,10 @@ function renderFilm(project, actions, context) {
     if (clip?.error) card.append(element('p', clip.error, 'notice'))
     const retry = element('button', '重新生成视频')
     retry.disabled = Boolean(project.activity) || shot.storyboard.check.passed !== true
-    bindBusy(retry, () => actions.perform(project, 'film', { track: shot.id }), '任务已启动'); card.append(retry)
+    const videoReview = element('div')
+    bindBusy(retry, () => actions.perform(project, 'film', { track: shot.id, ...reviewFields(videoReview) }), '任务已启动'); videoReview.append(retry)
+    appendWorkflowReview(videoReview, shot.video, Boolean(clip), Boolean(project.activity), retry)
+    card.append(videoReview)
     const tail = clip?.status === 'ready' && !shot.video.stale && shot.tailFrame?.content?.sourceVideoFile === clip.file ? shot.tailFrame : null
     card.append(element('h4', `本镜尾帧 · ${statusLabels[tail?.status || GenerationStatus.NOT_GENERATED]}`))
     if (tail?.content?.localPath) { const img = element('img'); img.src = `/plugins/meiji/projects/${project.id}/tail-frame/${project.episodeId}/${shot.id}`; img.alt = '本镜尾帧'; img.style.maxWidth = '160px'; card.append(img) }
@@ -543,7 +546,7 @@ function renderAssembly(project, actions) {
     video.src = project.assembly.content.url
     concatCard.append(video)
   }
-  appendWorkflowReview(concatCard, feedbackOf(project, 'assembly'), Boolean(project.assembly?.content?.url), busy, concatCard.querySelector('button.primary'))
+  appendWorkflowReview(concatCard, feedbackOf(project, 'assembly'), Boolean(project.assembly?.content?.url), busy)
   appendJsonCopy(concatCard, project.assembly)
   view.append(concatCard)
   const music = element('article', '', 'shot-card')

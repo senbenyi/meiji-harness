@@ -23,31 +23,61 @@ export function setCheck(project, operation, reasons) {
   }
   return project
 }
-export function withReviewPrompt(prompt) {
+function originalData(project, key) {
+  if (!key) return null
+  const value = targetNode(project, key)
+  if (value?.content || value?.items?.length || value?.failedOutput) return value.content || value.items || value.failedOutput
+  const [kind, id, slot] = key.split(':')
+  if (kind === 'image' && slot) return project.plot?.characters.items.find(item => item.id === id)?.[slot]?.at(-1)
+  return null
+}
+export function withReviewPrompt(prompt, includeOriginal = true) {
   const review = checkContext.getStore()?.review
-  return review && !prompt.includes(review) ? `${prompt}\n本次意见（在原内容基础上修改，保留未涉及部分）：\n${review}` : prompt
+  if (!review) return prompt
+  const context = checkContext.getStore()
+  const original = context?.originalCandidate || originalData(context?.originalProject || {}, feedbackKey(context?.target || context?.originalOperation || {}))
+  const previous = includeOriginal && (original?.request?.prompt || original?.prompt || original?.origin?.prompt)
+  return `${prompt}${previous && !prompt.includes('原生成提示词（修改基稿）') ? `\n原生成提示词（修改基稿）：\n${typeof previous === 'string' ? previous : JSON.stringify(previous)}` : ''}${prompt.includes(review) ? '' : `\n本次意见（在原内容基础上修改，保留未涉及部分）：\n${review}`}`
 }
 export async function prepareChecks(store, project, operation) {
   if (!generationActions.has(operation.action)) return { store, project, operation }
-  const fresh = operation.review ?? (operation.action === 'revise-image' ? operation.instruction : undefined)
+  const manual = ['scene-text', 'storyboard-text', 'outline-text', 'assemble'].includes(operation.action)
+  const mode = manual ? 'modify' : operation.generationMode || (operation.review || operation.instruction ? 'modify' : 'regenerate')
+  if (!['regenerate', 'modify'].includes(mode)) throw Object.assign(new Error('不支持的生成模式'), { status: 400 })
+  const candidate = operation.draftId && project.pendingImages?.[operation.draftId]
+  const matchingCandidate = candidate && (operation.track ? candidate.track === operation.track : candidate.itemId === operation.itemId && (candidate.slot || '') === (operation.slot || '')) ? candidate : null
+  if (!manual && mode === 'modify') {
+    const reasons = keys(project, operation).flatMap(key => {
+      const value = feedbackOf(project, key)
+      return [...(value.check.passed === false ? value.check.failures : []), operation.review ?? operation.instruction ?? value.review.text]
+    }).filter(value => String(value || '').trim())
+    const originals = keys(project, operation).map(key => originalData(project, key))
+    if (!reasons.length || !originals.length || (!matchingCandidate && originals.some(value => !value))) {
+      throw Object.assign(new Error('修改需要原来的数据，以及自审意见或人工意见之一'), { status: 400 })
+    }
+  }
+  operation = { ...operation, generationMode: mode, ...(mode === 'regenerate' ? { review: '', instruction: '' } : {}) }
+  const fresh = mode === 'regenerate' ? undefined : operation.review ?? (operation.action === 'revise-image' ? operation.instruction : undefined)
   project = await store.save(project.id, current => {
     const next = structuredClone(current)
+    if (matchingCandidate) delete next.pendingImages[matchingCandidate.draftId]
     for (const key of keys(next, operation)) {
       const target = targetNode(next, key)
       if (!target) continue
+      if (matchingCandidate && target.operation?.phase === 'awaiting-confirmation') target.operation = null
       if (fresh !== undefined) saveReview(target, String(fresh))
       target.dependencies = { summary: next.summary.revision, outline: next.plot.outline.revision, shots: next.shots.revision, ...(operation.track ? { seconds: next.shots.items.find(shot => shot.id === operation.track)?.seconds.revision } : {}) }
-      if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.operationId || `${Date.now()}`, action: operation.action })
+      if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.operationId || `${Date.now()}`, action: operation.action, consumesReview: mode === 'modify' })
     }
     return next
   })
-  const review = checkReasons(project, operation).join('\n')
+  const review = mode === 'regenerate' ? '' : checkReasons(project, operation).join('\n')
   const context = checkContext.getStore()
-  if (context) { context.originalProject = structuredClone(project); context.review = review; context.batchReview = String(fresh ?? ''); context.startTarget = async operation => {
+  if (context) { context.generationMode = mode; context.originalCandidate = matchingCandidate; context.originalOperation = operation; context.originalProject = structuredClone(project); context.review = review; context.batchReview = String(fresh ?? ''); context.startTarget = async operation => {
     if (!operation.track) return
     await store.save(project.id, current => {
       const next = structuredClone(current), target = targetNode(next, feedbackKey(operation))
-      if (target && !target.operation) begin(target, { id: context.operationId, action: operation.action })
+      if (target && !target.operation) begin(target, { id: context.operationId, action: operation.action, consumesReview: mode === 'modify' })
       return next
     })
   } }
@@ -101,5 +131,5 @@ export async function selectCheck(project, operation) {
   context.validation = []
   context.reviewHistory = undefined
   context.target = operation
-  context.review = [...new Set([...checkReasons(project, operation), context.batchReview].filter(Boolean))].join('\n')
+  context.review = context.generationMode === 'regenerate' ? '' : [...new Set([...checkReasons(project, operation), context.batchReview].filter(Boolean))].join('\n')
 }

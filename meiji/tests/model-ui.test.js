@@ -67,7 +67,7 @@ test('review action sits next to feedback and submits the local opinion',async t
  assert.ok(area.classList.contains('workflow-review-failed'))
  assert.match(area.textContent,/朝向不连续/)
  const input=area.querySelector('input');input.value='保持面北'
- const button=area.querySelector('button');assert.equal(button.textContent,'按意见修订')
+ const button=area.querySelectorAll('button')[1];assert.equal(button.textContent,'按意见修改')
  assert.equal(card.querySelector('.shot-head').contains(button),false)
  button.click();await Promise.resolve()
  assert.equal(calls[0][1],'shot-seconds');assert.equal(calls[0][2].review,'保持面北')
@@ -153,4 +153,27 @@ test('log copy copies full content when expanded or collapsed, without duplicate
  button.click(); await Promise.resolve()
  assert.equal(button.textContent, '复制失败，重试')
  assert.equal(button.disabled, false)
+})
+
+test('paused generation shows paused badge and regenerate action without losing its opinion', t => {
+ const container=domSetup(t), project=episodeFixture()
+ project.shots.items[0].seconds.status='paused'
+ project.shots.items[0].seconds.review.text='保留动作'
+ container.append(renderStage('shots', project, {perform:async()=>{},fail:()=>{}}, {shotsPane:'seconds'}))
+ const card=container.querySelector('[data-model-key="seconds:S01"]') || container.querySelector('.shot-card')
+ assert.equal(card.querySelector('.shot-check-badge').textContent,'暂停')
+ assert.ok([...card.querySelectorAll('button')].some(button=>button.textContent==='重新生成' && !button.disabled))
+ assert.equal(card.querySelector('input').value,'保留动作')
+})
+
+test('regenerate button never submits the visible previous opinion', async t => {
+ const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
+ p.shots.items[0].seconds.review.text='旧人工意见'
+ const calls=[]
+ container.replaceChildren(renderStage('shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane:'seconds'}))
+ const area=container.querySelector('.workflow-review-panel')
+ const [regenerate,modify]=area.querySelectorAll('button')
+ assert.equal(regenerate.textContent,'重新生成');assert.equal(modify.textContent,'按意见修改')
+ regenerate.click();await Promise.resolve()
+ assert.equal(calls[0][2].generationMode,'regenerate');assert.equal(calls[0][2].review,undefined)
 })
