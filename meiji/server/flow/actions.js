@@ -75,6 +75,8 @@ const labels = {
   'use-asset': '关联图片素材',
 }
 
+export function operationLabel(operation) { return `${labels[operation.action] || operation.action}${operation.track ? ' ' + operation.track : ''}` }
+
 export function validateOperation(input) {
   if (!actions.has(input?.action)) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
 }
@@ -392,7 +394,7 @@ export async function runOperation(operation, deps) {
         for (const episode of next.episodes) {
           for (const target of allNodes(episode)) {
             if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
-            target.error = failure?.message || '任务已停止，请重新发起'; target.status = GenerationStatus.FAILED; target.operation = null; changed = true
+            target.error = deps.signal?.reason?.code === 'TASK_PAUSED' ? null : failure?.message || '任务已停止，请重新发起'; target.status = deps.signal?.reason?.code === 'TASK_PAUSED' ? GenerationStatus.PAUSED : GenerationStatus.FAILED; target.operation = null; changed = true
           }
           if (episode.id === operation.episodeId && episode.activity && !allNodes(episode).some(n => n.operation)) { episode.activity = null; changed = true }
         }

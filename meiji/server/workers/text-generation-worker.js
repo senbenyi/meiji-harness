@@ -1,4 +1,4 @@
-import { askSkill, textMaxTokens } from '../generate/chat.js'
+import { askSkill, textMaxTokens, skillLogPurpose } from '../generate/chat.js'
 import { buildGenerationPrompt, buildSelfReviewPrompt } from '../prompts/build-generation-prompts.js'
 import { skillSupplement } from '../data/custom-skills.js'
 import { checkContext, withReviewPrompt } from '../data/self-checks.js'
@@ -6,16 +6,18 @@ import { checkContext, withReviewPrompt } from '../data/self-checks.js'
 export async function runTextGeneration({ skill, instructions, options, validate = () => {}, canRevise, reviewContext = '', reviewInstructions = instructions }) {
   options = { ...options, signal: options.signal || checkContext.getStore()?.signal }
   const request = options.request || askSkill
+  let reviewAttempt = 0
+  const logPurpose = skillLogPurpose(skill)
   const result = await generateWithSelfReview({
     generate: async correction => {
       options.signal?.throwIfAborted()
       const prompt = buildGenerationPrompt({ instructions: withReviewPrompt(instructions), correction })
-      const text = await request(skill, prompt, { ...options, maxTokens: options.maxTokens || textMaxTokens(options.project.durationSeconds) })
+      const text = await request(skill, prompt, { ...options, logPurpose, logStage: correction ? '自动修订' : '生成', maxTokens: options.maxTokens || textMaxTokens(options.project.durationSeconds) })
       validate(text)
       return text
     },
     canRevise,
-    review: text => request('skill-gongyong-content-review', buildSelfReviewPrompt({ skill, instructions: withReviewPrompt(reviewInstructions) + skillSupplement(options.project, skill), content: text, extraContext: reviewContext }), { ...options, includeReview: false, json: false, maxTokens: 8192 }),
+    review: text => request('skill-gongyong-content-review', buildSelfReviewPrompt({ skill, instructions: withReviewPrompt(reviewInstructions) + skillSupplement(options.project, skill), content: text, extraContext: reviewContext }), { ...options, logPurpose, logStage: reviewAttempt++ ? '复审' : '自审', includeReview: false, json: false, maxTokens: 8192 }),
   })
   const ctx = checkContext.getStore()
   if (ctx) { ctx.validation = result.check.failures; ctx.reviewHistory = result.history }

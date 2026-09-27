@@ -6,10 +6,11 @@ export async function interruptRunning(store) {
       const next = structuredClone(episode)
       for (const target of allNodes(next)) {
         if (target.operation?.phase === 'awaiting-confirmation' || (!target.operation && target.status !== GenerationStatus.GENERATING)) continue
-        target.status = GenerationStatus.FAILED; target.error = '生成已中断，可以重新生成'; target.operation = null
+        target.status = GenerationStatus.PAUSED; target.error = null; target.operation = null
         if (target.content?.status === 'running') target.content.status = 'interrupted'
       }
       next.activity = null
+      next.activityError = null
       return modelPatch(episode, next)
     }) }))
   }

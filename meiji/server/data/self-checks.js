@@ -79,7 +79,7 @@ export async function prepareChecks(store, project, operation) {
         } else if (failed) {
           for (const key of keys(next, targetOperation)) {
             const value = targetNode(next, key)
-            if (value) { value.status = GenerationStatus.FAILED; value.error = String(failed); value.operation = null }
+            if (value) { value.status = checkContext.getStore()?.signal?.reason?.code === 'TASK_PAUSED' ? GenerationStatus.PAUSED : GenerationStatus.FAILED; value.error = value.status === GenerationStatus.PAUSED ? null : String(failed); value.operation = null }
           }
         } else {
           const validation = ['shots', 'revise-shot'].includes(targetOperation.action) && next.shots.check.passed === false ? next.shots.check.failures : []

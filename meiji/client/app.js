@@ -1,3 +1,4 @@
+import { appendLogCopy } from './dom.js'
 import { createModelStore, renderModelView } from './model-store.js'
 import { renderCustomSkill } from './custom-skills.js'
 import { renderSettings } from './settings.js'
@@ -14,7 +15,10 @@ function installLogCards() {
   installLogCards.started = true
   const style = document.createElement('style')
   style.textContent = `
-    .meiji-session-log{min-width:0}
+    .meiji-session-log{min-width:0;position:relative}
+    .meiji-session-log [data-disclosure-row]{padding-right:68px}
+    .meiji-log-copy{position:absolute;top:3px;right:4px;z-index:1;border:1px solid #6666;border-radius:6px;padding:3px 9px;background:transparent;color:inherit;font-size:12px;cursor:pointer}
+    .meiji-log-copy:disabled{opacity:.6}
     [data-chat-flow-kind="assistant-step"]::before{content:"大模型";display:block;margin:0 0 6px;color:var(--dsw-alias-label-secondary,#aeb8c6);font-size:13px;line-height:24px}
     .meiji-session-log pre{white-space:pre-wrap!important;overflow-wrap:anywhere;word-break:break-word;max-height:none!important;max-width:100%;box-sizing:border-box;overflow:visible!important}
     .meiji-session-log [data-disclosure-row][aria-expanded="true"]>span:nth-last-child(-n+2){display:none}
@@ -27,10 +31,11 @@ function installLogCards() {
       const row = card.querySelector('[data-disclosure-row]')
       if (!row) continue
       const title = row.querySelector(':scope > span:nth-child(2)')
-      if (!title || !['极乐世界', '日志'].includes(title.textContent.trim())) continue
-      if (title.textContent !== '日志') title.textContent = '日志'
+      if (!title || !(['极乐世界', '日志'].includes(title.textContent.trim()) || title.textContent.trim().startsWith('日志-'))) continue
+      if (title.textContent === '极乐世界') title.textContent = '日志'
       card.querySelector(':scope > .meiji-log-card')?.remove()
       card.classList.add('meiji-session-log')
+      appendLogCopy(card)
       const expanded = row.getAttribute('aria-expanded')
       if (!initializedRows.has(row) && expanded !== null) {
         initializedRows.add(row)

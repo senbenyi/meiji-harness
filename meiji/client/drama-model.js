@@ -4,12 +4,14 @@ export const schemaVersion = 2
 export const GenerationStatus = Object.freeze({
   NOT_GENERATED: 'not-generated',
   GENERATING: 'generating',
+  PAUSED: 'paused',
   FAILED: 'failed',
   PASSED: 'passed',
 })
 export const statusLabels = Object.freeze({
   [GenerationStatus.NOT_GENERATED]: '未生成',
   [GenerationStatus.GENERATING]: '生成中',
+  [GenerationStatus.PAUSED]: '暂停',
   [GenerationStatus.FAILED]: '未通过',
   [GenerationStatus.PASSED]: '已通过',
 })
@@ -105,6 +107,7 @@ export function updateShotResults(project, kind, results) {
 }
 export function aggregateStatus(nodes) {
   if (nodes.some(item => item.status === GenerationStatus.GENERATING)) return GenerationStatus.GENERATING
+  if (nodes.some(item => item.status === GenerationStatus.PAUSED)) return GenerationStatus.PAUSED
   if (nodes.some(item => item.status === GenerationStatus.FAILED || item.stale)) return GenerationStatus.FAILED
   return nodes.length && nodes.every(item => item.status === GenerationStatus.PASSED) ? GenerationStatus.PASSED : GenerationStatus.NOT_GENERATED
 }
@@ -134,6 +137,7 @@ export function contentNode(previous, content, check = emptyCheck()) { return se
 export function modelPatch(project, changes) {
   const next = { ...project, ...changes }
   for (const value of allNodes(next)) {
+    if (value.status === GenerationStatus.PAUSED && !value.operation) continue
     if (value.check?.passed === true) value.status = GenerationStatus.PASSED
     if (value.check?.passed === false || value.error || value.stale) value.status = GenerationStatus.FAILED
     if (value.operation) value.status = GenerationStatus.GENERATING

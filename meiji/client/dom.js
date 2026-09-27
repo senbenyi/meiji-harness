@@ -57,3 +57,25 @@ export function appendJsonCopy(card, value) {
   row.append(button)
   card.append(row)
 }
+
+export function appendLogCopy(card) {
+  if (card.querySelector(':scope > .meiji-log-copy')) return
+  const button = element('button', '复制', 'meiji-log-copy')
+  button.type = 'button'
+  button.setAttribute('aria-label', '复制日志内容')
+  button.onclick = async event => {
+    event.stopPropagation()
+    const content = card.querySelector('pre') || card.querySelector('[data-disclosure-row] > span:last-child')
+    if (!content) return
+    button.disabled = true
+    try {
+      await navigator.clipboard.writeText(content.textContent)
+      button.textContent = '已复制'
+    } catch {
+      button.textContent = '复制失败，重试'
+    } finally {
+      button.disabled = false
+    }
+  }
+  card.append(button)
+}

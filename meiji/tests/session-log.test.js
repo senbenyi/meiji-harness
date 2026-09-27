@@ -86,3 +86,17 @@ test('video submission and file upload logs omit base64 while preserving actual 
   assert.equal(logs.join('\n').includes(reference), false)
   assert.equal(logs.join('\n').includes('secret-key'), false)
 })
+
+test('generation, review, correction and re-review have distinct request and response titles', async () => {
+  const { runTextGeneration } = await import('../server/workers/text-generation-worker.js')
+  const { episodeFixture } = await import('./fixtures/model.js')
+  const events = [], replies = ['原文', 'FAIL\n动作缺失', '修订正文', 'PASS']
+  await runWithSessionLog({ append: (type, data) => events.push({ type, data }) }, () => runTextGeneration({
+    skill: 'skill-jingtou-meimiao-seconds-generate', instructions: '生成时间线', options: {
+      project: episodeFixture(), route: { baseUrl: 'https://test/v1/', apiKey: 'secret', model: 'text' },
+      fetchImpl: async () => Response.json({ choices: [{ message: { content: replies.shift() } }] }),
+    },
+  }))
+  assert.deepEqual(events.filter(e => e.type === 'command/run').map(e => e.data.name),
+    ['生成', '自审', '自动修订', '复审'].flatMap(stage => ['发起请求', '返回数据'].map(phase => `日志-每秒指令·${stage}-${phase}`)))
+})

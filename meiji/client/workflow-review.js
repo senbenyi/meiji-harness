@@ -1,8 +1,14 @@
+import { GenerationStatus } from './drama-model.js'
 import { element } from './dom.js'
 
 export function appendWorkflowReview(parent, record, generated, busy = false, actionButton) {
   const area = element('div', '', 'workflow-review')
   const check = record?.check
+  const paused = record?.status === GenerationStatus.PAUSED
+  if (paused) {
+    area.append(element('p', '任务已暂停，可重新生成', 'hint'))
+    if (actionButton) actionButton.textContent = '重新生成'
+  }
   const failed = check?.passed === false || Boolean(record?.error)
   if (generated || failed) {
     area.classList.add('workflow-review-panel')
@@ -42,7 +48,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   if (actionButton && (generated || failed)) {
     actionButton.classList.add('workflow-review-action')
     if (!busy) {
-      actionButton.textContent = failed ? '按意见修订' : '修改并重新生成'
+      actionButton.textContent = paused ? '重新生成' : failed ? '按意见修订' : '修改并重新生成'
       actionButton.setAttribute('aria-label', actionButton.textContent)
     }
     area.append(actionButton)

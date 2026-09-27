@@ -1,6 +1,6 @@
 import { checkContext } from '../data/self-checks.js'
 import { setTimeout as delay } from 'node:timers/promises'
-import { insertSessionLog, sessionForLog } from '../flow/session-log.js'
+import { insertSessionLog, sessionForLog, logPurpose } from '../flow/session-log.js'
 
 const imageSizes = {
   '1344x768': '1344x768',
@@ -61,7 +61,10 @@ function publicData(value, apiKey) {
 }
 
 function writeApiLog(text, failed) {
-  try { insertSessionLog(sessionForLog(), text, failed) } catch { /* 日志不影响接口结果 */ }
+  const fn = text.match(/函数：([^\n]+)/)?.[1]
+  const purpose = logPurpose() || ({ completeChat: '文本生成', generateGatewayImage: '图片生成', uploadGatewayFile: '上传素材', submitGatewayVideo: '视频生成', retrieveGatewayVideo: '查询或下载视频' }[fn] || 'API调用')
+  const phase = failed ? '请求失败' : text.includes('返回：') ? '返回数据' : '发起请求'
+  try { insertSessionLog(sessionForLog(), text, failed, `日志-${purpose}-${phase}`) } catch { /* 日志不影响接口结果 */ }
 }
 
 const requestTimeoutMs = 15 * 60 * 1000

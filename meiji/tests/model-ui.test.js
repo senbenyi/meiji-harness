@@ -124,3 +124,33 @@ test('generated and revised shot titles appear on production cards', async t => 
  project.shots = await reviseShot({ project, shotId: 'S01', review: '改为风雪中抵达', request: request('- **标题：风雪抵达**\n旅人冒雪抵达门外。') })
  checkCards('风雪抵达')
 })
+
+test('log copy copies full content when expanded or collapsed, without duplicate buttons or toggling', async t => {
+ const { appendLogCopy } = await import('../client/dom.js')
+ const container = domSetup(t)
+ const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+ const copied = []
+ Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async text => copied.push(text) } } })
+ t.after(() => { if (descriptor) Object.defineProperty(globalThis, 'navigator', descriptor); else delete globalThis.navigator })
+ const card = document.createElement('div')
+ const content = '完整请求\n参数：{"prompt":"保留换行和全部正文"}'
+ card.innerHTML = '<div data-disclosure-row><span>图标</span><span>日志-用途-发起请求</span><span></span><span></span></div><pre></pre>'
+ card.querySelector('pre').textContent = content
+ card.querySelector('[data-disclosure-row] > span:last-child').textContent = content
+ container.append(card)
+ let toggles = 0
+ card.onclick = () => { toggles++ }
+ appendLogCopy(card); appendLogCopy(card)
+ assert.equal(card.querySelectorAll('button').length, 1)
+ const button = card.querySelector('button')
+ button.click(); await Promise.resolve()
+ assert.equal(button.textContent, '已复制')
+ card.querySelector('pre').remove()
+ button.click(); await Promise.resolve()
+ assert.deepEqual(copied, [content, content])
+ assert.equal(toggles, 0)
+ navigator.clipboard.writeText = async () => { throw new Error('denied') }
+ button.click(); await Promise.resolve()
+ assert.equal(button.textContent, '复制失败，重试')
+ assert.equal(button.disabled, false)
+})
