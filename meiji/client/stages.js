@@ -1,4 +1,4 @@
-import { statusLabels } from './drama-model.js'
+import { GenerationStatus, statusLabels } from './drama-model.js'
 import { videoPromptText as promptText } from './video-prompt-text.js'
 import { decorateShotCard } from './shot-card-state.js'
 import { shotResults, shotMap } from './drama-model.js'
@@ -287,7 +287,7 @@ function paintShotTable(view, project, actions) {
 }
 
 function shotHeading(shot) {
-  const titleLine = String(shot.content || '').match(/^[ \t]*(?:\*\*)?(?:标题|Title)(?:\*\*)?[ \t]*[:：][ \t]*(.+)$/im)
+  const titleLine = String(shot.content || '').match(/^[ \t]*(?:[-*][ \t]+)?(?:\*\*)?(?:标题|Title)(?:\*\*)?[ \t]*[:：][ \t]*(.+)$/im)
   const title = (titleLine?.[1] || shot.title || '').replace(/^\*\*|\*\*$/g, '').trim()
   return `${shot.id} / ${shot.duration}s${title ? ` · ${title}` : ''}`
 }
@@ -503,7 +503,7 @@ function renderFilm(project, actions, context) {
     retry.disabled = Boolean(project.activity) || shot.storyboard.check.passed !== true
     bindBusy(retry, () => actions.perform(project, 'film', { track: shot.id }), '已送入会话'); card.append(retry)
     const tail = clip?.status === 'ready' && !shot.video.stale && shot.tailFrame?.content?.sourceVideoFile === clip.file ? shot.tailFrame : null
-    card.append(element('h4', `本镜尾帧 · ${statusLabels[tail?.status || 'not-generated']}`))
+    card.append(element('h4', `本镜尾帧 · ${statusLabels[tail?.status || GenerationStatus.NOT_GENERATED]}`))
     if (tail?.content?.localPath) { const img = element('img'); img.src = `/plugins/meiji/projects/${project.id}/tail-frame/${project.episodeId}/${shot.id}`; img.alt = '本镜尾帧'; img.style.maxWidth = '160px'; card.append(img) }
     if (!tail?.content?.localPath) card.append(element('div', '本镜尾帧尚未生成', 'storyboard-empty'))
     if (tail?.error) card.append(element('p', tail.error, 'notice'))

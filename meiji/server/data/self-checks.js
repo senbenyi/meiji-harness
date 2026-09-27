@@ -1,4 +1,4 @@
-import { targetNode, begin, finish, saveReview, modelPatch } from '../../client/drama-model.js'
+import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch } from '../../client/drama-model.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { feedbackKey, feedbackOf } from '../../client/feedback.js'
 export const checkContext = new AsyncLocalStorage()
@@ -79,7 +79,7 @@ export async function prepareChecks(store, project, operation) {
         } else if (failed) {
           for (const key of keys(next, targetOperation)) {
             const value = targetNode(next, key)
-            if (value) { value.status = 'failed'; value.error = String(failed); value.operation = null }
+            if (value) { value.status = GenerationStatus.FAILED; value.error = String(failed); value.operation = null }
           }
         } else {
           const validation = ['shots', 'revise-shot'].includes(targetOperation.action) && next.shots.check.passed === false ? next.shots.check.failures : []

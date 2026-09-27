@@ -2,7 +2,7 @@ import { readFile, writeFile, readdir, mkdir, copyFile, rename } from 'node:fs/p
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { migrateFeedback } from './migration-feedback.js'
-import { schemaVersion, node, episodeModel, cardModel, shotModel, targetNode, allNodes, assertDrama, modelPatch, aggregateStatus, shotResults } from '../client/drama-model.js'
+import { GenerationStatus, schemaVersion, node, episodeModel, cardModel, shotModel, targetNode, allNodes, assertDrama, modelPatch, aggregateStatus, shotResults } from '../client/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/pictures.js'
 const textOf = value => typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value, null, 2)
 function migrateEpisode(source) {
@@ -12,7 +12,7 @@ function migrateEpisode(source) {
   episode.customSkills = structuredClone(old.customSkills || {})
   episode.pendingImages = structuredClone(old.pendingImages || {})
   episode.revision = old.revision || 0
-  episode.summary.status = 'passed'
+  episode.summary.status = GenerationStatus.PASSED
   episode.summary.check.passed = true
   episode.plot.outline.content = outline
   for (const key of ['characters', 'scenes']) {
@@ -44,15 +44,15 @@ function migrateEpisode(source) {
     if (target) draft.target = pictureTargetSnapshot(target)
   }
   for (const value of allNodes(episode)) {
-    if (value.content && value.check.passed === null && value.status === 'not-generated') { value.status = 'failed'; value.error = '尚未完成自检' }
-    if (value.check.passed === false) value.status = 'failed'
-    else if (value.check.passed === true) value.status = 'passed'
-    if (value.content?.status === 'ready') { value.status = 'passed'; value.check.passed = true; value.error = null }
-    if (['error', 'interrupted'].includes(value.content?.status)) { value.status = 'failed'; value.error = value.content.error || '任务已中断' }
-    if (value.content?.status === 'stale') { value.status = 'failed'; value.stale = true }
+    if (value.content && value.check.passed === null && value.status === GenerationStatus.NOT_GENERATED) { value.status = GenerationStatus.FAILED; value.error = '尚未完成自检' }
+    if (value.check.passed === false) value.status = GenerationStatus.FAILED
+    else if (value.check.passed === true) value.status = GenerationStatus.PASSED
+    if (value.content?.status === 'ready') { value.status = GenerationStatus.PASSED; value.check.passed = true; value.error = null }
+    if (['error', 'interrupted'].includes(value.content?.status)) { value.status = GenerationStatus.FAILED; value.error = value.content.error || '任务已中断' }
+    if (value.content?.status === 'stale') { value.status = GenerationStatus.FAILED; value.stale = true }
     if (value.content?.status === 'running' || old.activity) {
       // Migration is offline; no task from the former process may remain active.
-      if (value.content?.status === 'running') { value.status = 'failed'; value.error = '迁移前的视频任务已中断'; value.content.status = 'interrupted' }
+      if (value.content?.status === 'running') { value.status = GenerationStatus.FAILED; value.error = '迁移前的视频任务已中断'; value.content.status = 'interrupted' }
     }
   }
   episode.activity = null
@@ -63,7 +63,7 @@ export function migrateProject(source) {
   if (source.schemaVersion === schemaVersion) return assertDrama(structuredClone(source))
   const { version, feedback, outline, characters, scenes, shots, storyboard, films, boards, assembly, brief, summary, episodes, ...meta } = source
   const migrated = (episodes || [source]).map(migrateEpisode)
-  return assertDrama({ ...meta, schemaVersion, lifecycle: source.status === 'completed' ? 'completed' : 'in-progress', status: aggregateStatus(migrated), summary: { ...node('summary', summary), status: 'passed', check: { passed: true, failures: [], revision: 0 } }, activity: null, activeOperation: null,
+  return assertDrama({ ...meta, schemaVersion, lifecycle: source.status === 'completed' ? 'completed' : 'in-progress', status: aggregateStatus(migrated), summary: { ...node('summary', summary), status: GenerationStatus.PASSED, check: { passed: true, failures: [], revision: 0 } }, activity: null, activeOperation: null,
     episodes: migrated })
 }
 export async function migrateDirectory(home) {

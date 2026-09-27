@@ -106,3 +106,21 @@ test('previous tail input is hidden and never replaces missing current video or 
  assert.match(card.textContent,/本镜尾帧尚未生成/)
  assert.equal(card.querySelector('img[alt="本镜尾帧"]'),null)
 })
+
+test('generated and revised shot titles appear on production cards', async t => {
+ const { generateShots, reviseShot } = await import('../server/generate/shot-text.js')
+ const container = domSetup(t), project = episodeFixture()
+ const request = text => async skill => skill === 'skill-gongyong-content-review' ? 'PASS' : text
+ project.shots = await generateShots({ project, request: request('## S01 / 5s\n标题：夜访庭院\n旅人走到门外。\n\n## S02 / 5s\n标题：叩门待应\n旅人敲门。') })
+ assert.match(project.shots.items[0].content, /^标题：夜访庭院/)
+ const actions = { perform: async () => {}, fail: () => {} }
+ const checkCards = title => {
+  for (const shotsPane of ['table', 'seconds', 'board', 'pencil']) {
+   container.replaceChildren(renderStage('shots', project, actions, { shotsPane }))
+   assert.ok([...container.querySelectorAll('h3')].some(el => el.textContent.includes(`S01 / 5s · ${title}`)), shotsPane)
+  }
+ }
+ checkCards('夜访庭院')
+ project.shots = await reviseShot({ project, shotId: 'S01', review: '改为风雪中抵达', request: request('- **标题：风雪抵达**\n旅人冒雪抵达门外。') })
+ checkCards('风雪抵达')
+})

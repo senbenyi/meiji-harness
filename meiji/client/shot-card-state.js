@@ -1,3 +1,4 @@
+import { GenerationStatus } from './drama-model.js'
 import { element } from './dom.js'
 
 export function setCardExpanded(card, expanded) {
@@ -18,7 +19,7 @@ export function decorateShotCard(card, model, id, first) {
   head.classList.add('shot-collapse-head')
   card.classList.add('collapsible-shot')
   card.dataset.shotId = id
-  const generating = model?.status === 'generating'
+  const generating = model?.status === GenerationStatus.GENERATING
   const failed = !generating && (model?.check?.passed === false || Boolean(model?.error))
   const generated = Boolean(model?.content || model?.items?.length)
   const label = generating ? '生成中' : failed ? (model?.check?.passed === false ? '自审未通过' : '生成失败')

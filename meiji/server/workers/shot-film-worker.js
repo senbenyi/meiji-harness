@@ -1,3 +1,4 @@
+import { GenerationStatus } from '../../client/drama-model.js'
 import { projectStore } from '../data/projects.js'
 import { materialize } from '../data/episodes.js'
 import { previousTail } from '../../client/tail-frame.js'
@@ -19,10 +20,10 @@ export async function produceShots(operation, deps, run) {
       const tail = previousTail(current, track)
       const bound = shot.storyboard.content?.tailReference
       const referenceChanged = (tail?.sourceVideoFile || null) !== (bound?.sourceVideoFile || null)
-      if (shot.storyboard.content?.video === 'first_frame' || shot.storyboard.status !== 'passed' || shot.storyboard.stale || referenceChanged) {
+      if (shot.storyboard.content?.video === 'first_frame' || shot.storyboard.status !== GenerationStatus.PASSED || shot.storyboard.stale || referenceChanged) {
         trace.push(...await run({ ...operation, action: 'shot-storyboard', track }, deps))
         current = await read(); shot = current.shots.items.find(s => s.id === track)
-        if (shot.storyboard.content?.video === 'first_frame' || shot.storyboard.status !== 'passed') throw new Error(`${track} 文本分镜未通过自审`)
+        if (shot.storyboard.content?.video === 'first_frame' || shot.storyboard.status !== GenerationStatus.PASSED) throw new Error(`${track} 文本分镜未通过自审`)
       }
       if (shot.video.content?.status !== 'ready' || shot.video.stale) {
         trace.push(...await run({ ...operation, action: 'film', track }, { ...deps, waitForBackground: true }))

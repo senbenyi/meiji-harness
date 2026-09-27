@@ -1,4 +1,4 @@
-import { schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../client/drama-model.js'
+import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../client/drama-model.js'
 import { mkdir, readdir, readFile, writeFile, rename, rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
@@ -61,9 +61,9 @@ export function projectStore(home) {
         revision: 0,
         id: randomUUID(),
         ...fields,
-        status: 'not-generated',
+        status: GenerationStatus.NOT_GENERATED,
         lifecycle: 'in-progress',
-        summary: { ...node('summary', fields.summary), status: 'passed', check: { passed: true, failures: [], revision: 0 } },
+        summary: { ...node('summary', fields.summary), status: GenerationStatus.PASSED, check: { passed: true, failures: [], revision: 0 } },
         episodes: [],
         stage: 'summary',
         workflow: 'h3',

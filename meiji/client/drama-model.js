@@ -1,17 +1,29 @@
 // Shared business model. Persisted data and API responses use this schema only.
 export const schemaVersion = 2
-export const statusLabels = { 'not-generated': '未生成', generating: '生成中', failed: '未通过', passed: '已通过' }
+// FAILED includes rejected checks, execution errors and stale content.
+export const GenerationStatus = Object.freeze({
+  NOT_GENERATED: 'not-generated',
+  GENERATING: 'generating',
+  FAILED: 'failed',
+  PASSED: 'passed',
+})
+export const statusLabels = Object.freeze({
+  [GenerationStatus.NOT_GENERATED]: '未生成',
+  [GenerationStatus.GENERATING]: '生成中',
+  [GenerationStatus.FAILED]: '未通过',
+  [GenerationStatus.PASSED]: '已通过',
+})
 export const emptyCheck = () => ({ passed: null, failures: [], revision: null })
 export const emptyReview = () => ({ text: '', revision: 0, history: [] })
 export function node(id, content = null) {
-  return { id, revision: 0, status: 'not-generated', content, check: emptyCheck(), review: emptyReview(), draft: { text: null, revision: 0, baseRevision: null }, operation: null, error: null, dependencies: {}, stale: false }
+  return { id, revision: 0, status: GenerationStatus.NOT_GENERATED, content, check: emptyCheck(), review: emptyReview(), draft: { text: null, revision: 0, baseRevision: null }, operation: null, error: null, dependencies: {}, stale: false }
 }
 export function shotModel(fields) {
   const { id, text = '', ...content } = fields
   return { ...node(id, text), ...content, seconds: node(`seconds:${id}`), storyboard: node(`storyboard:${id}`), pencil: node(`pencil:${id}`), video: node(`film:${id}`), tailFrame: node(`tailFrame:${id}`) }
 }
 export function episodeModel(id, fields) {
-  return { id, ...fields, status: 'not-generated', revision: 0, summary: node('summary', fields.summary),
+  return { id, ...fields, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
     plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] } },
     shots: { ...node('shots'), items: [] }, assembly: node('assembly'), customSkills: {}, pendingImages: {}, activity: null, activityError: null }
 }
@@ -48,18 +60,18 @@ export function setContent(target, content, check = emptyCheck()) {
   target.check = { ...check, revision: target.revision }
   target.error = null
   target.stale = false
-  target.status = check.passed === true ? 'passed' : content == null ? 'not-generated' : 'failed'
+  target.status = check.passed === true ? GenerationStatus.PASSED : content == null ? GenerationStatus.NOT_GENERATED : GenerationStatus.FAILED
   return target
 }
 export function begin(target, operation) {
   if (target.operation) throw Object.assign(new Error('该节点已有任务正在执行'), { status: 409 })
   target.operation = { ...operation, sourceRevision: target.revision, reviewRevision: target.review.revision, reviewText: target.review.text, phase: 'generating' }
-  target.status = 'generating'
+  target.status = GenerationStatus.GENERATING
   target.error = null
 }
 export function finish(target, check) {
   target.check = { ...check, revision: target.revision }
-  target.status = check.passed ? 'passed' : 'failed'
+  target.status = check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED
   if (check.passed && target.operation?.reviewRevision === target.review.revision) target.review.text = ''
   target.operation = null
   target.error = null
@@ -92,9 +104,9 @@ export function updateShotResults(project, kind, results) {
   return { shots }
 }
 export function aggregateStatus(nodes) {
-  if (nodes.some(item => item.status === 'generating')) return 'generating'
-  if (nodes.some(item => item.status === 'failed' || item.stale)) return 'failed'
-  return nodes.length && nodes.every(item => item.status === 'passed') ? 'passed' : 'not-generated'
+  if (nodes.some(item => item.status === GenerationStatus.GENERATING)) return GenerationStatus.GENERATING
+  if (nodes.some(item => item.status === GenerationStatus.FAILED || item.stale)) return GenerationStatus.FAILED
+  return nodes.length && nodes.every(item => item.status === GenerationStatus.PASSED) ? GenerationStatus.PASSED : GenerationStatus.NOT_GENERATED
 }
 export function assertDrama(project) {
   if (project.schemaVersion !== schemaVersion) throw new Error('项目格式需先执行一次性 Model 迁移，运行时不兼容旧格式')
@@ -114,7 +126,7 @@ export function pictureOf(item) { return item?.type === 'role' || item?.type ===
 export function cardModel(fields) {
   const { id, image, localPath, imageUrl, assetId, assetCategory, file, ...data } = fields
   const media = image || node(`image:${id}`, localPath || imageUrl || assetId ? { localPath, imageUrl, assetId, assetCategory } : null)
-  if (media.content?.imageUrl) { media.status = 'passed'; media.check.passed = true }
+  if (media.content?.imageUrl) { media.status = GenerationStatus.PASSED; media.check.passed = true }
   return { ...node(id), ...data, image: media, parts: data.parts || Object.fromEntries(['clothes', 'props', 'hairstyles'].map(slot => [slot, node(`image:${id}:${slot}`)])) }
 }
 export function plotPatch(project, values) { return { plot: { ...project.plot, ...values } } }
@@ -122,9 +134,9 @@ export function contentNode(previous, content, check = emptyCheck()) { return se
 export function modelPatch(project, changes) {
   const next = { ...project, ...changes }
   for (const value of allNodes(next)) {
-    if (value.check?.passed === true) value.status = 'passed'
-    if (value.check?.passed === false || value.error || value.stale) value.status = 'failed'
-    if (value.operation) value.status = 'generating'
+    if (value.check?.passed === true) value.status = GenerationStatus.PASSED
+    if (value.check?.passed === false || value.error || value.stale) value.status = GenerationStatus.FAILED
+    if (value.operation) value.status = GenerationStatus.GENERATING
   }
   if (next.plot) next.plot.status = aggregateStatus([next.plot.outline, next.plot.characters, next.plot.scenes])
   next.status = aggregateStatus([next.summary, next.plot, next.shots, next.assembly].filter(Boolean))
@@ -153,9 +165,9 @@ export function refreshReferences(episode) {
     })
     if (changed) {
       shot.storyboard.revision++
-      if (shot.video.content) { shot.video.stale = true; shot.video.status = 'failed' }
-      if (shot.pencil.content) { shot.pencil.stale = true; shot.pencil.status = 'failed' }
-      if (episode.assembly.content) { episode.assembly.stale = true; episode.assembly.status = 'failed' }
+      if (shot.video.content) { shot.video.stale = true; shot.video.status = GenerationStatus.FAILED }
+      if (shot.pencil.content) { shot.pencil.stale = true; shot.pencil.status = GenerationStatus.FAILED }
+      if (episode.assembly.content) { episode.assembly.stale = true; episode.assembly.status = GenerationStatus.FAILED }
     }
   }
 }

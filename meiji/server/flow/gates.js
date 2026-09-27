@@ -1,4 +1,4 @@
-import { node, episodeModel, contentNode } from '../../client/drama-model.js'
+import { GenerationStatus, node, episodeModel, contentNode } from '../../client/drama-model.js'
 import { reviewSteps } from '../../client/flow-rules.js'
 export { reviewSteps, reviewsOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, shotsReady, hasShotSeconds, hasStoryboard, hasFilm, gateOf, canGenerate, gateMessage } from '../../client/flow-rules.js'
 
@@ -52,11 +52,11 @@ export function sourcePatch(project, input) {
 export function staleMedia(project) {
   const shots = structuredClone(project.shots)
   for (const shot of shots.items) {
-    if (shot.video.content) { shot.video.stale = true; shot.video.status = 'failed' }
-    if (shot.pencil.content) { shot.pencil.stale = true; shot.pencil.status = 'failed' }
+    if (shot.video.content) { shot.video.stale = true; shot.video.status = GenerationStatus.FAILED }
+    if (shot.pencil.content) { shot.pencil.stale = true; shot.pencil.status = GenerationStatus.FAILED }
   }
   const assembly = structuredClone(project.assembly)
-  if (assembly.content) { assembly.stale = true; assembly.status = 'failed' }
+  if (assembly.content) { assembly.stale = true; assembly.status = GenerationStatus.FAILED }
   return { shots, assembly }
 }
 export function clearShotDownstream(project, stage, track) {

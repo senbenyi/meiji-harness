@@ -1,4 +1,4 @@
-import { shotResults } from './drama-model.js'
+import { GenerationStatus, shotResults } from './drama-model.js'
 import { feedbackOf } from './feedback.js'
 import { shotSecondsReady } from './shot-timing.js'
 export const reviewSteps = ['summary', 'outline', 'characters', 'scenes', 'shots', 'storyboard', 'film']
@@ -26,7 +26,7 @@ export function hasStoryboard(project) {
 }
 export function hasFilm(project) {
   const rows = shotResults(project, 'storyboard')
-  return hasStoryboard(project) && rows.every(row => project.shots.items.find(shot => shot.id === row.id)?.video.status === 'passed')
+  return hasStoryboard(project) && rows.every(row => project.shots.items.find(shot => shot.id === row.id)?.video.status === GenerationStatus.PASSED)
 }
 
 export function gateOf(project) {

@@ -1,5 +1,5 @@
 import { produceShots } from '../workers/shot-film-worker.js'
-import { pictureOf, node, contentNode, plotPatch, targetNode, finish, allNodes, shotResults, shotMap, updateShotResult, updateShotResults } from '../../client/drama-model.js'
+import { GenerationStatus, pictureOf, node, contentNode, plotPatch, targetNode, finish, allNodes, shotResults, shotMap, updateShotResult, updateShotResults } from '../../client/drama-model.js'
 import { reviewContent } from '../generate/review.js'
 import { storyboardTextPatch } from '../data/storyboard-edit.js'
 import { skillSupplement } from '../data/custom-skills.js'
@@ -325,7 +325,7 @@ async function saveFilmResult(projects, project, track, bytes, home, saveFrame) 
 async function saveTailFrame(projects, project, track, file, directory, home, saveFrame) {
   const lastFrame = file.replace(/\.mp4$/, '-last.png')
   const tail = node(`tailFrame:${track}`)
-  tail.status = 'generating'
+  tail.status = GenerationStatus.GENERATING
   tail.content = { sourceVideoFile: file, localPath: null, imageUrl: null, file: null }
   const persistTail = () => projects.save(project.id, current => ({ shots: { ...current.shots, items: current.shots.items.map(s => s.id === track ? { ...s, tailFrame: structuredClone(tail) } : s) } }))
   await persistTail()
@@ -336,8 +336,8 @@ async function saveTailFrame(projects, project, track, file, directory, home, sa
     const route = (await loadModels(services(home).models)).video
     const uploaded = await uploadGatewayFile({ baseUrl: route.baseUrl, apiKey: route.apiKey, bytes: await readFile(join(directory, lastFrame)), filename: lastFrame, mime: 'image/png' })
     tail.content.file = uploaded; tail.content.imageUrl = uploaded.url
-    tail.status = 'passed'; tail.check = { passed: true, failures: [] }
-  } catch (error) { tail.status = 'failed'; tail.error = error.message || '尾帧处理失败' }
+    tail.status = GenerationStatus.PASSED; tail.check = { passed: true, failures: [] }
+  } catch (error) { tail.status = GenerationStatus.FAILED; tail.error = error.message || '尾帧处理失败' }
   await persistTail()
 }
 
@@ -388,7 +388,7 @@ export async function runOperation(operation, deps) {
         for (const episode of next.episodes) {
           for (const target of allNodes(episode)) {
             if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
-            target.error = failure?.message || '任务已停止，请重新发起'; target.status = 'failed'; target.operation = null; changed = true
+            target.error = failure?.message || '任务已停止，请重新发起'; target.status = GenerationStatus.FAILED; target.operation = null; changed = true
           }
           if (episode.id === operation.episodeId && episode.activity && !allNodes(episode).some(n => n.operation)) { episode.activity = null; changed = true }
         }
@@ -515,7 +515,7 @@ async function executeOperation(operation, deps) {
       const pendingImages = { ...project.pendingImages }
       delete pendingImages[draft.draftId]
       if (operation.action === 'discard-image') {
-        await projects.save(project.id, current => { const next = structuredClone(current); next.pendingImages = pendingImages; const target = targetNode(next, targetKey); if (target) { target.operation = null; target.error = '已放弃候选图片'; target.status = 'failed' }; return next })
+        await projects.save(project.id, current => { const next = structuredClone(current); next.pendingImages = pendingImages; const target = targetNode(next, targetKey); if (target) { target.operation = null; target.error = '已放弃候选图片'; target.status = GenerationStatus.FAILED }; return next })
         const file = await readImageDraft(home, draft.draftId)
         await rm(file.directory, { recursive: true, force: true })
         note('已放弃生成图片，原图保持不变')
@@ -659,7 +659,7 @@ async function executeOperation(operation, deps) {
       const writeSeconds = deps.generateShotSeconds || generateShotSeconds
       let current = await projects.read(project.id)
       for (const shot of current.shots?.items || []) {
-        if (operation.regenerateAll !== true && shotSecondsReady(shot) && shot.seconds.status === 'passed' && shot.seconds.check.passed === true && !shot.seconds.stale) {
+        if (operation.regenerateAll !== true && shotSecondsReady(shot) && shot.seconds.status === GenerationStatus.PASSED && shot.seconds.check.passed === true && !shot.seconds.stale) {
           note(`${shot.id} 每秒指令已通过，跳过`)
           continue
         }
