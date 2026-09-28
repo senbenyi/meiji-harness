@@ -1,18 +1,6 @@
 import { shotMap } from './drama-model.js'
 const sessionPattern = /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function sessionIdFromNode(node) {
-  const fiberKey = Object.keys(node).find(key => key.startsWith('__reactFiber'))
-  let fiber = fiberKey ? node[fiberKey] : null
-  const seen = new Set()
-  while (fiber && !seen.has(fiber)) {
-    seen.add(fiber)
-    if (sessionPattern.test(fiber.key)) return fiber.key
-    fiber = fiber.return
-  }
-  return ''
-}
-
 export function sessionIdFromStorage(storage) {
   try {
     const parsed = JSON.parse(storage?.getItem?.('dsh.sessions.current') || '')
@@ -23,9 +11,6 @@ export function sessionIdFromStorage(storage) {
 }
 
 export function currentSessionId(doc = document) {
-  const row = doc.querySelector('[role="treeitem"][aria-selected="true"]')
-  const fromRow = row ? sessionIdFromNode(row) : ''
-  if (fromRow) return fromRow
   return sessionIdFromStorage(doc.defaultView?.localStorage)
 }
 

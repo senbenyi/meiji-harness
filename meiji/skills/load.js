@@ -8,24 +8,6 @@ import { fileURLToPath } from 'node:url'
  * - 镜头：skill-jingtou-{子tab拼音}-{功能}-{generate|review}.md
  * 运行时 name 与文件名去掉 .md 后完全一致。
  */
-export const skillCategories = [
-  { id: 'gailan', label: '项目概要 / 剧集', tab: null },
-  { id: 'juqing', label: '剧情', tab: 'script' },
-  { id: 'juese', label: '角色场景图片', tab: 'script' },
-  {
-    id: 'jingtou', label: '镜头', tab: 'shots',
-    panes: [
-      { id: 'table', pinyin: 'jingtoubiao', label: '镜头表' },
-      { id: 'seconds', pinyin: 'meimiao', label: '每秒指令' },
-      { id: 'board', pinyin: 'wenben', label: '文本分镜' },
-      { id: 'pencil', pinyin: 'qianbi', label: '铅笔分镜' },
-    ],
-  },
-  { id: 'chengpian', label: '成片', tab: 'film' },
-  { id: 'hecheng', label: '合成', tab: 'assembly' },
-  { id: 'gongyong', label: '片库 / 面板基础设施', tab: null },
-]
-
 const files = {
   'skill-gailan-episode-generate': { file: 'skill-gailan-episode-generate.md', category: 'gailan', feature: 'episode', mode: 'generate' },
 

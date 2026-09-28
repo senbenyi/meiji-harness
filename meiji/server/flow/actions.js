@@ -20,7 +20,8 @@ import { bindReferencePrompt, filmClipUrl, saveLastFrame, shotReferenceImages, s
 import { concatFilms } from '../generate/concat.js'
 import { regenerateCardGroup, generateEpisode, generateStoryPackage, generateAllSeconds, generateShotSeconds, generateShotStoryboard, generateShots, generateStoryboard, reviseShot, storyboardPromptText } from '../generate/story.js'
 import { imageSkillPrompt, appendImageAsset, characterStillPrompt, clearCharacterImage, generateStillFile, imageSeed, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook } from '../generate/image.js'
-import { runTextGeneration } from '../workers/text-generation-worker.js'
+import { runTextWorkflow } from './text-workflow.js'
+import { buildTextPrompts } from '../prompts/text-prompts.js'
 import { skillFilePath } from '../../skills/load.js'
 import { normalizeModels } from '../../models/router.js'
 import { projectStore, revisionStore } from '../data/projects.js'
@@ -87,10 +88,6 @@ export function stageOperation(input) {
   const id = randomUUID()
   pending.set(id, { ...input, id })
   return id
-}
-
-export function dropOperation(id) {
-  pending.delete(String(id || ''))
 }
 
 export function takeOperation(id, sessionId, action) {
@@ -393,7 +390,7 @@ export async function runOperation(operation, deps) {
         const next = structuredClone(current)
         let changed = false
         for (const episode of next.episodes) {
-          if (context.apiFailure) {
+          if (context.apiFailure && !context.textDraftSaved) {
             const original = context.originalRoot?.episodes.find(item => item.id === episode.id)
             const owned = allNodes(episode).filter(target => target.operation?.id === operationId).map(target => target.id)
             const restore = new Set(owned)
@@ -617,7 +614,10 @@ async function executeOperation(operation, deps) {
     if (operation.action === 'characters' || operation.action === 'scenes') {
       const kind = operation.action
       await projects.save(project.id, { activity: kind, activityError: null })
-      const group = await (deps.regenerateCardGroup || regenerateCardGroup)({ project, kind, route: (await loadModels(models)).story, review: operation.review })
+      const group = await (deps.regenerateCardGroup || regenerateCardGroup)({ project, kind, route: (await loadModels(models)).story, review: operation.review, persist: async group => {
+        const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, [kind]: group, check: group.check })
+        await projects.save(project.id, plotPatch(project, { [kind]: merged[kind] }))
+      } })
       const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, [kind]: group, check: group.check })
       checkContext.getStore().validation = group.check.failures
       await projects.save(project.id, { ...plotPatch(project, { [kind]: merged[kind] }), activity: null })
@@ -654,7 +654,10 @@ async function executeOperation(operation, deps) {
       if (!canGenerate(project, 'outline')) throw Object.assign(new Error('请先写好本集摘要，再生成剧情'), { status: 409 })
       await projects.save(project.id, { activity: 'outline', activityError: null })
       note('按 skill-juqing-outline-generate 一次生成大纲、角色卡与场景卡，再做整包自检')
-      const result = await (deps.generateStoryPackage || generateStoryPackage)({ route: (await loadModels(models)).story, project })
+      const result = await (deps.generateStoryPackage || generateStoryPackage)({ route: (await loadModels(models)).story, project, persist: async result => {
+        const merged = preserveStoryAssets(project, result)
+        await projects.save(project.id, replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged }, activity: 'outline' }))
+      } })
       const merged = preserveStoryAssets(project, result)
       const failures = result.check.failures
       if (checkContext.getStore()) checkContext.getStore().validation = failures
@@ -726,7 +729,7 @@ async function executeOperation(operation, deps) {
       note(`审核意见：${review}`)
       const shots = await reviseShot({
         route: (await loadModels(models)).story, shotId: track, review,
-        project,
+        project, persist: shots => projects.save(project.id, { shots }),
       })
       await projects.writeStep(project.id, 'shots', { shots, activity: null })
       note(shots.check.passed ? `${track} 已重写，镜头表通过自检。` : `${track} 已重写，自检未通过：${shots.check.failures.join('；')}`)
@@ -745,6 +748,7 @@ async function executeOperation(operation, deps) {
       if (review) note(`审核意见：${review}`)
       const shots = await (deps.generateShotSeconds || generateShotSeconds)({
         route: (await loadModels(models)).story, shotId: track, project, review,
+        persist: shots => projects.save(project.id, { shots }),
       })
       await projects.save(project.id, { shots, activity: null })
       const row = shots.items.find(item => item.id === track)
@@ -954,7 +958,7 @@ async function executeOperation(operation, deps) {
         note(payload.note)
         note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
         note('视频还在生成。完成后出现在这一张镜头卡片上。')
-        deps.defer((deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey }).then(async bytes => {
+        deps.defer((deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal }).then(async bytes => {
           await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
           insertSessionLog(deps.session, `${track} 成片已生成`)
         }).catch(async error => {
@@ -996,7 +1000,7 @@ async function executeOperation(operation, deps) {
         note(payload.note)
         note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
         try {
-          const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey })
+          const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })
           await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
           note(`${track} 成片已生成`)
         } catch (error) {
@@ -1064,7 +1068,7 @@ async function startImage(operation, project, { projects, models, home, submitAs
   if (operation.generationMode === 'modify') {
     const note = String(operation.instruction || operation.review || '').trim()
     if (!note || note.length > 2000) throw Object.assign(new Error(note ? '审核意见过长' : '请先写下审核意见'), { status: 400 })
-    const revision = await runTextGeneration({ skill: 'skill-juese-image-review', instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}`, options: {
+    const revision = await runTextWorkflow({ prompts: buildTextPrompts({ skill: 'skill-juese-image-review', project, instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}` }), options: {
       route: route.story, project, maxTokens: 800,
     } })
     const revised = revision.text

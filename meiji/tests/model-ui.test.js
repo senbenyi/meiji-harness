@@ -112,7 +112,7 @@ test('previous tail input is hidden and never replaces missing current video or 
 test('generated and revised shot titles appear on production cards', async t => {
  const { generateShots, reviseShot } = await import('../server/generate/shot-text.js')
  const container = domSetup(t), project = episodeFixture()
- const request = text => async skill => skill === 'skill-gongyong-content-review' ? 'PASS' : text
+ const request = text => async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : text
  project.shots = await generateShots({ project, request: request('## S01 / 5s\n标题：夜访庭院\n旅人走到门外。\n\n## S02 / 5s\n标题：叩门待应\n旅人敲门。') })
  assert.match(project.shots.items[0].content, /^标题：夜访庭院/)
  const actions = { perform: async () => {}, fail: () => {} }
@@ -227,14 +227,32 @@ test('shared review is absent without generated content and shows only current f
  assert.ok(area.querySelector('input'))
  assert.equal(area.querySelector('.workflow-review-heading'),null)
 })
-test('character and scene group reviews precede their lists',t=>{
- const container=domSetup(t),p=episodeFixture()
- container.append(renderStage('script',p,{perform:async()=>{},beginImage:async()=>{},fail:()=>{}},{}))
- for(const key of ['characters','scenes']){
-  const review=container.querySelector(`[data-review-target="${key}"]`)
-  const card=review.parentElement.querySelector(key==='characters'?'.character-list':'.story-asset')
-  assert.ok(review);assert.ok(card);assert.ok(review.compareDocumentPosition(card)&4)
- }
+test('plot has one generation entry and one review for outline, characters and scenes',async t=>{
+ const container=domSetup(t),p=episodeFixture(),calls=[]
+ p.plot.outline.check={passed:false,failures:['角色与剧情不一致']}
+ container.append(renderStage('script',p,{perform:async(...args)=>calls.push(args),beginImage:async()=>{},fail:()=>{}},{}))
+ assert.equal(container.querySelectorAll('.workflow-review').length,1)
+ const review=container.querySelector('[data-review-target="outline"]')
+ assert.ok(review)
+ assert.match(review.textContent,/角色与剧情不一致/)
+ assert.equal(container.querySelector('[aria-label="编辑大纲"]'),null)
+ assert.equal([...container.querySelectorAll('button')].some(b=>b.textContent==='编辑文字'),false)
+ const input=review.querySelector('input')
+ input.value='将旅人改为女侦探，并同步调整大纲和庭院场景'
+ input.dispatchEvent(new window.Event('input'));input.onblur()
+ review.querySelector('button').click();await Promise.resolve()
+ assert.equal(calls.length,1);assert.equal(calls[0][1],'outline')
+ assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,input.value)
+ assert.ok(review.compareDocumentPosition(container.querySelector('.character-list'))&4)
+})
+test('empty plot has a unified generate button and no separate card review',async t=>{
+ const container=domSetup(t),p=episodeFixture(),calls=[]
+ p.plot.outline.content='';p.plot.characters.items=[];p.plot.scenes.items=[]
+ container.append(renderStage('script',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{}))
+ assert.equal(container.querySelectorAll('.workflow-review').length,0)
+ const button=container.querySelector('[aria-label="生成剧情"]');assert.ok(button);assert.equal(button.disabled,false)
+ button.click();await Promise.resolve()
+ assert.equal(calls[0][1],'outline');assert.equal(calls[0][2].generationMode,'regenerate')
 })
 test('film shows review only for existing content and independently for generated video',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
@@ -251,4 +269,21 @@ test('film shows review only for existing content and independently for generate
  p.shots.items[0].storyboard.content=null;p.shots.items[0].video.content=null
  container.replaceChildren(renderStage('film',p,{perform:async()=>{},fail:()=>{}},{}))
  assert.equal(container.querySelector('.shot-card').querySelector('.workflow-review'),null)
+})
+
+test('summary editing and review target the current episode',async t=>{
+ const container=domSetup(t),p=episodeFixture(),calls=[],edits=[]
+ p.episodeId=p.id
+ container.append(renderStage('summary',p,{perform:async(...args)=>calls.push(args),openEpisode:(...args)=>edits.push(args),fail:()=>{}},{}))
+ assert.equal(container.querySelector('.episode-summary > .summary').textContent,p.summary.content)
+ const edit=[...container.querySelectorAll('button')].find(b=>b.textContent==='编辑摘要')
+ edit.click();assert.equal(edits[0][1].id,p.episodeId);assert.equal(edits[0][1].summary.content,p.summary.content)
+ const area=container.querySelector('[data-review-target="summary"]'),input=area.querySelector('input')
+ input.value='增加结尾悬念';input.dispatchEvent(new window.Event('input'));input.onblur()
+ area.querySelector('button').click();await Promise.resolve()
+ assert.equal(calls[0][1],'episode-generate');assert.equal(calls[0][2].episodeId,p.episodeId)
+ assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,'增加结尾悬念')
+ container.replaceChildren(renderStage('summary',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{}))
+ container.querySelector('.workflow-regenerate').click();await Promise.resolve()
+ assert.equal(calls[1][2].generationMode,'regenerate');assert.equal(calls[1][2].review,undefined)
 })

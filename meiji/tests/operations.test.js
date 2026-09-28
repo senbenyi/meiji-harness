@@ -7,19 +7,13 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { currentSessionId, projectRefreshMark, sessionIdFromNode, sessionIdFromStorage } from '../client/chat-bridge.js'
+import { currentSessionId, projectRefreshMark, sessionIdFromStorage } from '../client/chat-bridge.js'
 import { episodeWork } from '../client/overview.js'
 import { buildImageGraph } from '../server/generate/image.js'
 import { describeOperation, runOperation, stageOperation, takeOperation, takePendingForSession } from '../server/flow/actions.js'
 import { projectStore } from '../server/data/projects.js'
 
 const look = '二十出头的中国青年男子，短黑发，皮肤晒黑，穿着旧外套，手里拎着鼓囊的编织袋'
-
-test('the selected session row exposes its session id', () => {
-  const node = { __reactFiber$x: { key: null, return: { key: 'session-438a7a11-3984-447d-88df-16d610f8e914', return: null } } }
-  assert.equal(sessionIdFromNode(node), 'session-438a7a11-3984-447d-88df-16d610f8e914')
-  assert.equal(sessionIdFromNode({}), '')
-})
 
 test('the current session is read from storage when the sidebar row is gone', () => {
   const sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
@@ -30,6 +24,18 @@ test('the current session is read from storage when the sidebar row is gone', ()
     querySelector: () => null,
     defaultView: { localStorage: storage },
   }
+  assert.equal(currentSessionId(doc), sessionId)
+})
+
+test('panel follows the latest selection even while the sidebar still shows the old session', () => {
+  let sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
+  const oldSession = sessionId
+  const doc = {
+    querySelector: () => ({ __reactFiber$x: { key: oldSession, return: null } }),
+    defaultView: { localStorage: { getItem: () => JSON.stringify({ sessionId }) } },
+  }
+  assert.equal(currentSessionId(doc), oldSession)
+  sessionId = 'session-46eb0a51-3955-41c1-989c-2f541b1a05e8'
   assert.equal(currentSessionId(doc), sessionId)
 })
 
@@ -130,7 +136,7 @@ test('a revised still encodes the current image instead of an empty latent', () 
   assert.deepEqual(graph[5].inputs.latent_image, ['9', 0])
   assert.equal(graph[8].inputs.image, 'ref.png')
 })
-const passText = text => async skill => skill === 'skill-gongyong-content-review' ? 'PASS' : text
+const passText = text => async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : text
 const videoDeps = home => ({ home, submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: item.track })) }), retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') })
 test('batch boards write each shot without losing earlier results',async t=>{
  const e=await setupModel(t)

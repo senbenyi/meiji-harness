@@ -1,5 +1,5 @@
-import { checkContext } from '../data/self-checks.js'
-import { runTextGeneration } from '../workers/text-generation-worker.js'
+import { runTextWorkflow } from '../flow/text-workflow.js'
+import { buildStoryPrompts, buildEpisodePrompts } from '../prompts/story-prompts.js'
 import { node, cardModel } from '../../client/drama-model.js'
 export { generateShots, reviseShot, generateAllSeconds, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
 import { h3PromptText } from './film.js'
@@ -90,55 +90,6 @@ export function visualStyle(project) {
   return String(project?.style || '').trim()
 }
 
-function context(project) {
-  const style = visualStyle(project)
-  const lines = [
-    `标题：${project.title}`,
-    `总时长：${project.durationSeconds}s`,
-    `画幅：${project.aspectRatio || '1344x768'}`,
-    ...(style ? [`视觉风格：${style}`] : []),
-    `本集摘要：${project.summary.content}`,
-  ]
-  if (project.projectSummary && project.projectSummary !== project.summary.content) lines.push(`项目摘要：${project.projectSummary}`)
-  if (project.script) lines.push(`剧本：\n${project.script}`)
-  return lines
-}
-
-export function episodePrompt(project, episodeId) {
-  const ordered = [...(project.episodes || [])].reverse()
-  const index = episodeId ? ordered.findIndex(episode => episode.id === episodeId) : ordered.length
-  if (index < 0) throw Object.assign(new Error('这一集不存在'), { status: 404 })
-  const previous = ordered.slice(0, index)
-  const next = index + 1
-  const lines = [
-    `标题：${project.title}`,
-    `画幅：${project.aspectRatio || '1344x768'}`,
-    ...(visualStyle(project) ? [`视觉风格：${visualStyle(project)}`] : []),
-    `项目摘要：${project.summary.content}`,
-    `这一集是第 ${next} 集。`,
-  ]
-  if (next === 1) lines.push('第 1 集只根据项目摘要写本集剧情。')
-  else {
-    lines.push('承接上一集，不要重复已经演过的情节。')
-    lines.push('已有剧集：')
-    previous.forEach((episode, index) => {
-      lines.push(`第 ${index + 1} 集（${episode.durationSeconds} 秒）：${episode.summary.content}`)
-    })
-  }
-  if (project.script) lines.push(`项目剧本：${project.script}`)
-  if (episodeId) {
-    lines.push(`重新生成第 ${next} 集的摘要，不是续写下一集。${checkContext.getStore()?.generationMode === 'modify' ? `原摘要是修改基稿：${ordered[index].summary.content}` : '根据上游资料重新创作。'}`)
-    lines.push(`本集已有时长 ${ordered[index].durationSeconds} 秒，摘要内容应适合这一时长。`)
-    const following = ordered.slice(index + 1)
-    if (following.length) {
-      lines.push('后续剧集是衔接约束，不是已经发生的剧情；本集结尾应能接上后续开头：')
-      following.forEach((episode, offset) => lines.push(`第 ${next + offset + 1} 集：${episode.summary.content}`))
-    }
-  }
-  lines.push('只返回 JSON。durationSeconds 不得超过 180。')
-  return lines.join('\n')
-}
-
 export function normalizeEpisodeDraft(raw) {
   const summary = String(raw?.summary || '').trim()
   if (!summary || summary.length > 10000) throw Object.assign(new Error('本集剧情摘要为空或过长'), { status: 502 })
@@ -151,33 +102,29 @@ export function normalizeEpisodeDraft(raw) {
 }
 
 export async function generateEpisode({ route, project, episodeId, signal, fetchImpl, request }) {
-  const result = await runTextGeneration({
-    skill: 'skill-gailan-episode-generate', instructions: episodePrompt(project, episodeId),
+  const result = await runTextWorkflow({
+    prompts: buildEpisodePrompts(project, episodeId),
     options: { route, project: { ...project, durationSeconds: 180 }, signal, fetchImpl, request, maxTokens: 4096 },
     validate: text => normalizeEpisodeDraft(parseJsonValue(text)),
   })
   return { ...normalizeEpisodeDraft(parseJsonValue(result.text)), check: result.check }
 }
 
-export async function generateStoryPackage({ route, project, signal, fetchImpl }) {
-  const previous = { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes }
-  const prompt = [...context(project), `本集时长 ${project.durationSeconds} 秒，仅用于控制剧情容量；大纲不标制作秒数或镜头编号，具体计时由镜头表规划。一次返回 outline、characters.items、scenes.items；先规划大纲，再基于本次大纲完整建卡。人物和场景不要生成图片。`,
-    ...(checkContext.getStore()?.generationMode === 'modify' ? [`已有资料（定向修改，未涉及内容保留）：${JSON.stringify(previous)}`] : [])].join('\n')
+export async function generateStoryPackage({ route, project, signal, fetchImpl, persist }) {
   const options = { route, project, signal, fetchImpl, maxTokens: textMaxTokens(project.durationSeconds) }
   const normalize = text => {
     const raw = parseJsonValue(text)
     return { outline: required(raw.outline, '大纲是空的'), characters: normalizeCharacters(raw.characters), scenes: normalizeScenes(raw.scenes) }
   }
-  const generated = await runTextGeneration({ skill: 'skill-juqing-outline-generate', instructions: prompt, options, validate: normalize })
+  const generated = await runTextWorkflow({ prompts: buildStoryPrompts(project), options, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })) })
   return { ...normalize(generated.text), check: generated.check }
 }
 
-export async function regenerateCardGroup({ project, kind, route, review }) {
+export async function regenerateCardGroup({ project, kind, route, review, persist, signal, fetchImpl, request }) {
   const normalize = text => (kind === 'characters' ? normalizeCharacters : normalizeScenes)(parseJsonValue(text))
-  const result = await runTextGeneration({
-    skill: 'skill-juqing-outline-generate',
-    instructions: [...context(project), `本次仅修订${kind === 'characters' ? '人物卡' : '场景卡'}集合，不生成或修改大纲与另一类卡片。输出仅为 {"items":[...]}，沿用该类卡片字段要求。`, `已通过大纲：${project.plot.outline.content}`, ...(checkContext.getStore()?.generationMode === 'modify' ? [`已有卡片：${JSON.stringify(project.plot[kind].items)}`] : []), `人工意见：${review || ''}`].join('\n'),
-    options: { route, project }, validate: normalize,
+  const result = await runTextWorkflow({
+    prompts: buildStoryPrompts(project, kind, review),
+    options: { route, project, signal, fetchImpl, request }, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
   })
   return { ...normalize(result.text), check: result.check }
 }

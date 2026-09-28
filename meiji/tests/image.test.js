@@ -186,11 +186,15 @@ test('gateway text-to-image posts the supplied Chinese prompt and stores the ret
       backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key' },
       prompt,
       fetchImpl: async (url, options) => {
-        posted = { url: String(url), body: JSON.parse(options.body), authorization: options.headers.Authorization }
-        return new Response(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }))
+        if (options.method === 'POST') {
+          posted = { url: String(url), body: JSON.parse(options.body), authorization: options.headers.Authorization }
+          return Response.json({ id: 'image_test', status: 'queued' })
+        }
+        if (url.pathname.endsWith('/content')) return new Response(png)
+        return Response.json({ status: 'completed' })
       },
     })
-    assert.equal(posted.url, 'http://43.154.247.11/v1/images/generations')
+    assert.equal(posted.url, 'http://43.154.247.11/v1/images/tasks')
     assert.equal(posted.body.model, 'elysium-image')
     assert.equal(posted.body.size, '768x1344')
     assert.equal(posted.body.prompt, prompt)

@@ -18,7 +18,7 @@ for (const generationMode of ['regenerate', 'modify']) {
     })
     const calls = []
     await runOperation(e.op('shot-seconds', { track: 'S01', generationMode }), { home: e.home,
-      generateShotSeconds: options => generateShotSeconds({ ...options, request: async (skill, prompt) => {
+      generateShotSeconds: options => generateShotSeconds({ ...options, request: async ({ skill, user: prompt }) => {
         calls.push({ skill, prompt }); return skill === 'skill-gongyong-content-review' ? 'PASS' : 'NEW_OUTPUT_MARKER'
       } }),
     })

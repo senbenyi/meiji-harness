@@ -7,7 +7,8 @@ import { customSkillPatch, skillSupplement } from '../server/data/custom-skills.
 import { projectStore } from '../server/data/projects.js'
 import { addEpisode, scopeProjects } from '../server/data/episodes.js'
 import { episodeWork } from '../client/overview.js'
-import { askSkill } from '../server/generate/chat.js'
+import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
+import { runTextRequest } from '../server/workers/text-request-worker.js'
 import { previewFilmSubmit } from '../server/flow/actions.js'
 
 test('supplements persist per episode and stage, and clear without changing generated content', async () => {
@@ -40,7 +41,7 @@ test('supplements persist per episode and stage, and clear without changing gene
 })
 
 test('text model receives the base skill and only the current stage supplement', async () => {
-  await askSkill('skill-jingtou-meimiao-seconds-generate', 'Generate', {
+  await runTextRequest(buildGenerationPrompt({ skill: 'skill-jingtou-meimiao-seconds-generate', instructions: 'Generate', project: { outputLanguage: 'en', customSkills: { seconds: 'Keep slow motion', shots: 'OTHER STAGE' } } }), {
     project: { outputLanguage: 'en', customSkills: { seconds: 'Keep slow motion', shots: 'OTHER STAGE' } },
     route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' },
     fetchImpl: async (_url, options) => {

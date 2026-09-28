@@ -56,7 +56,7 @@ test('direct generation saves reviewed model and cancellation clears its operati
  await models.write({ ...await models.read(), apiKey: 'test-only' })
  const events = [], session = { append: (type, data) => events.push({ type, data }) }
  const tasks = createPanelTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-  generateAllSeconds: options => generateAllSeconds({ ...options, request: async skill => skill === 'skill-gongyong-content-review' ? 'PASS' : '## S01 / 5s\n0–5s：旅人继续向北。\n## S02 / 5s\n0–5s：继续行走。\n[seconds-complete]' }),
+  generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : '## S01 / 5s\n0–5s：旅人继续向北。\n## S02 / 5s\n0–5s：继续行走。\n[seconds-complete]' }),
  }) })
  const task = tasks.start(e.op('seconds'), session)
  await task.done

@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { allSkills, loadSkill, registeredSkillFiles, skillFilesOnDisk } from '../skills/load.js'
-import { askSkill } from '../server/generate/chat.js'
+import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
+import { runTextRequest } from '../server/workers/text-request-worker.js'
 
 const generationSkills = ['skill-gailan-episode-generate', 'skill-juqing-outline-generate', 'skill-jingtou-jingtoubiao-table-generate', 'skill-jingtou-jingtoubiao-shot-review', 'skill-jingtou-meimiao-seconds-generate', 'skill-jingtou-wenben-storyboard-generate', 'skill-juese-image-review']
 const checkedSkills = ['skill-gailan-episode-generate', 'skill-juqing-outline-generate', 'skill-jingtou-jingtoubiao-table-generate', 'skill-jingtou-jingtoubiao-shot-review', 'skill-jingtou-meimiao-seconds-generate', 'skill-jingtou-wenben-storyboard-generate', 'skill-chengpian-video-generate']
@@ -13,7 +14,7 @@ test('every generation skill is registered and receives configured language on e
     const skill = loadSkill(skillName)
     for (const outputLanguage of ['zh-CN', 'en']) {
       let body
-      const value = await askSkill(skillName, '中文输入', {
+      const value = await runTextRequest(buildGenerationPrompt({ skill: skillName, project: { outputLanguage }, instructions: '中文输入' }), {
         project: { outputLanguage }, route: { baseUrl: 'http://model.test/v1', apiKey: 'test', model: 'test' },
         fetchImpl: async (_url, options) => {
           body = JSON.parse(options.body)
@@ -23,7 +24,7 @@ test('every generation skill is registered and receives configured language on e
       const system = body.messages.find(message => message.role === 'system').content
       assert.ok(system.startsWith(skill.content))
       assert.ok(system.includes('本次生成语言：' + (outputLanguage === 'en' ? 'English' : '简体中文')))
-      assert.equal(body.messages.find(message => message.role === 'user').content, '中文输入')
+      assert.equal(body.messages.find(message => message.role === 'user').content, '【任务与上下文】\n中文输入')
       assert.equal(value, 'Unmodified output')
       if (skillName === 'skill-jingtou-wenben-storyboard-generate') {
         assert.ok(system.includes('文本分镜正文同样遵循本次生成语言，覆盖官方参考的固定英文要求'))
@@ -88,5 +89,5 @@ test('official references are injected into model skills and prompt language is 
   for (const name of ['skill-jingtou-wenben-storyboard-generate', 'skill-chengpian-video-generate']) {
     assert.doesNotMatch(loadSkill(name).content, /Write (?:all six rewrite sections|rewrite sections|the body) in English|Use 1–[34] English sentences|natural English action|350-500 English words/)
   }
-  assert.match(loadSkill('skill-gongyong-language-generate').content, /自然语言描述跟随项目 `outputLanguage` 配置/)
+  assert.match(loadSkill('skill-gongyong-language-generate').content, /自然语言内容使用项目 outputLanguage 指定的语言/)
 })

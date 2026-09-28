@@ -100,66 +100,61 @@ function requestLines(project, shot, story) {
 
 
 function renderBrief(project, actions) {
-  const view = element('section', '', 'session-project')
+  const view = element('section', '', 'session-project episode-summary')
+  view.dataset.modelKey = `summary:${project.episodeId}`
   const head = element('div', '', 'outline-head')
   head.append(element('h3', '本集摘要'))
-  const regenerate = element('button', project.activity === 'episode' ? '生成中' : '重新生成', 'outline-ai')
+  const edit = element('button', '编辑摘要')
+  edit.type = 'button'
+  edit.disabled = Boolean(project.activity)
+  edit.onclick = () => actions.openEpisode(project, {
+    id: project.episodeId, summary: project.summary, durationSeconds: project.durationSeconds,
+  })
+  const regenerate = element('button', project.activity === 'episode' ? '生成中' : '重新生成', 'primary')
   regenerate.disabled = Boolean(project.activity)
-  regenerate.setAttribute('aria-label', '重新生成本集摘要')
-  regenerate.title = '保留本集时长；摘要变化后下游内容需重新生成'
   bindBusy(regenerate, async () => {
     try { await actions.perform(project, 'episode-generate', { episodeId: project.episodeId, ...reviewFields(view) }) }
     catch (error) { regenerate.disabled = false; regenerate.textContent = '重新生成'; actions.fail(error) }
   }, '生成中')
-  head.append(regenerate)
+  head.append(edit, regenerate)
   view.append(head)
-  view.dataset.modelKey = `summary:${project.episodeId}`
   if (project.summary.content) view.append(element('p', project.summary.content, 'summary'))
-  if (project.summary.content) appendJsonCopy(view, { summary: project.summary.content, durationSeconds: project.durationSeconds })
-  appendWorkflowReview(view, feedbackOf(project, 'summary'), Boolean(project.summary.content), Boolean(project.activity), regenerate)
+  appendWorkflowReview(view, feedbackOf(project, 'summary'), Boolean(project.summary.content), Boolean(project.activity), regenerate, { allowFailureOpinion: true })
   return view
 }
 
-function renderOutline(project, actions) {
+function renderOutline(project) {
   const view = element('section', '', 'session-project')
-  view.append(customSkillField(project, 'outline', actions))
-  const title = element('div', '', 'title-with-edit')
-  title.append(element('h3', '故事大纲'))
-  if (hasOutline(project)) {
-    const edit = element('button', '', 'icon-edit')
-    edit.type = 'button'
-    edit.setAttribute('aria-label', '编辑大纲')
-    edit.innerHTML = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
-    edit.onclick = () => actions.openStory(project)
-    title.append(edit)
-  }
-  const head = element('div', '', 'outline-head')
-  head.append(title)
-  const busy = project.activity === 'outline'
-  const generate = element('button', busy ? '生成中' : '生成剧情', 'outline-ai')
-  generate.type = 'button'
-  generate.disabled = Boolean(project.activity) || !canGenerate(project, 'outline')
-  generate.setAttribute('aria-label', '一次生成故事大纲、角色和场景')
-  generate.title = '一次返回大纲、角色卡和场景卡'
-  generate.onclick = () => {
-    if (generate.disabled) return
-    generate.disabled = true
-    generate.textContent = '生成中'
-    actions.perform(project, 'outline', reviewFields(view)).catch(error => {
-      generate.disabled = false
-      generate.textContent = '生成剧情'
-      actions.fail(error)
-    })
-  }
-  head.append(generate)
-  view.append(head, element('p', '一次生成故事大纲、角色卡和场景卡；图片在各卡片中单独生成。', 'meta'), element('p', stepRunLabel(project, 'outline'), 'story-status'))
+  view.append(element('h3', '故事大纲'), element('p', stepRunLabel(project, 'outline'), 'story-status'))
   if (hasOutline(project)) {
     view.dataset.modelKey = `outline:${project.episodeId}`
     view.append(element('pre', project.plot.outline.content, 'story'))
     appendJsonCopy(view, { outline: project.plot.outline.content })
   }
-  appendWorkflowReview(view, feedbackOf(project, 'outline'), hasOutline(project), Boolean(project.activity), generate)
   return view
+}
+
+function renderStory(project, actions, context) {
+  const controls = element('section', '', 'session-project story-controls')
+  controls.append(customSkillField(project, 'outline', actions))
+  const head = element('div', '', 'outline-head')
+  head.append(element('h3', '剧情生成与审核'))
+  const generated = hasOutline(project) || hasCharacters(project) || hasScenes(project)
+  const label = generated ? '重新生成剧情' : '生成剧情'
+  const generate = element('button', project.activity === 'outline' ? '生成中' : label, 'primary')
+  generate.disabled = Boolean(project.activity) || !canGenerate(project, 'outline')
+  bindBusy(generate, async () => {
+    try { await actions.perform(project, 'outline', reviewFields(controls)) }
+    catch (error) { generate.disabled = false; generate.textContent = label; actions.fail(error) }
+  }, '生成中')
+  head.append(generate)
+  controls.append(head, element('p', '一次生成大纲、角色和场景。修改剧情、角色或场景，请在下方统一填写审核意见。图片仍在各卡片中生成。', 'meta'))
+  const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, Boolean(project.activity), generate, { allowFailureOpinion: true })
+  const input = review.querySelector('input')
+  if (input) input.placeholder = '填写剧情、角色或场景的修改意见'
+  generate.textContent = project.activity === 'outline' ? '生成中' : label
+  generate.setAttribute('aria-label', label)
+  return stack([controls, renderOutline(project), renderCharacters(project, actions, context), renderScenes(project, actions, context)])
 }
 
 function renderCharacters(project, actions, context) {
@@ -174,11 +169,8 @@ function renderCharacters(project, actions, context) {
   view.append(hint)
   const cards = element('div', '', 'character-list')
   for (const item of project.plot.characters?.items || []) cards.append(characterCard(project, item, actions, context))
-  const regenerate = aiButton(actions, project.activity === 'characters', !project.activity && hasOutline(project), () => actions.perform(project, 'characters', reviewFields(view)))
-  head.append(regenerate)
-  appendWorkflowReview(view, feedbackOf(project, 'characters'), hasCharacters(project), Boolean(project.activity), regenerate)
   view.append(cards)
-  if (!hasCharacters(project)) view.append(element('p', '未生成：点击故事大纲旁的生成剧情，一次生成大纲、角色和场景。', 'meta'))
+  if (!hasCharacters(project)) view.append(element('p', '未生成：点击页面顶部的生成剧情，一次生成大纲、角色和场景。', 'meta'))
   return view
 }
 
@@ -192,11 +184,8 @@ function renderScenes(project, actions, context) {
   const hint = element('p', hasScenes(project) ? '' : gateMessage(project, 'scenes'), 'hint')
   hint.hidden = !hint.textContent
   view.append(hint)
-  const regenerate = aiButton(actions, project.activity === 'scenes', !project.activity && hasOutline(project), () => actions.perform(project, 'scenes', reviewFields(view)))
-  head.append(regenerate)
-  appendWorkflowReview(view, feedbackOf(project, 'scenes'), hasScenes(project), Boolean(project.activity), regenerate)
   for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint)) view.append(node)
-  if (!hasScenes(project)) view.append(element('p', '未生成：点击故事大纲旁的生成剧情，一次生成大纲、角色和场景。', 'meta'))
+  if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部的生成剧情，一次生成大纲、角色和场景。', 'meta'))
   return view
 }
 
@@ -558,7 +547,8 @@ function stack(sections) {
 }
 
 const renderers = {
-  script: (project, actions, context) => stack([renderBrief(project, actions), stack([renderOutline(project, actions), renderCharacters(project, actions, context), renderScenes(project, actions, context)])]),
+  summary: renderBrief,
+  script: renderStory,
   shots: renderShots,
   film: renderFilm,
   assembly: renderAssembly,

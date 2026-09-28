@@ -3,7 +3,8 @@ import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, has
 export * from './flow-rules.js'
 import { feedbackOf } from './feedback.js'
 export const tabs = [
-  { id: 'script', label: '剧情', steps: ['summary', 'outline', 'characters', 'scenes'] },
+  { id: 'summary', label: '摘要', steps: ['summary'] },
+  { id: 'script', label: '剧情', steps: ['outline', 'characters', 'scenes'] },
   { id: 'shots', label: '镜头', steps: ['shots'] },
   { id: 'film', label: '成片', steps: ['film'] },
   { id: 'assembly', label: '合成', steps: ['assembly'] },
@@ -18,14 +19,4 @@ export function tabOf(project) {
   if (gate === 'done') return 'assembly'
   if (gate === 'storyboard') return 'shots'
   return tabs.find(tab => tab.steps.includes(gate))?.id || 'script'
-}
-
-export const nextLabel = {
-  summary: '继续写大纲',
-  outline: '进入镜头',
-  characters: '继续写场景',
-  scenes: '进入镜头',
-  shots: '进入分镜',
-  storyboard: '进入成片',
-  film: '进入合成',
 }

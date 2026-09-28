@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { episodePrompt, normalizeEpisodeDraft } from '../server/generate/story.js'
+import { normalizeEpisodeDraft } from '../server/generate/story.js'
+import { episodePrompt } from '../server/prompts/story-prompts.js'
 import { describeOperation } from '../server/flow/actions.js'
 
 test('the first episode is written from the project summary and stays within three minutes', () => {

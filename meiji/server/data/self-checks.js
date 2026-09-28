@@ -107,13 +107,19 @@ export async function prepareChecks(store, project, operation) {
       for (const key of keys(next, targetOperation)) {
         const old = targetNode(current, key), value = targetNode(next, key)
         if (!old || !value) continue
-        if (value.check?.passed == null && old.check?.passed === false) value.check = structuredClone(old.check)
+        if (!checkContext.getStore()?.textNodeSaving && value.check?.passed == null && old.check?.passed === false) value.check = structuredClone(old.check)
         value.review = structuredClone(old.review)
         value.operation = old.operation
         value.dependencies = old.dependencies
       }
+      if (checkContext.getStore()?.textNodeSaving) {
+        for (const key of keys(next, targetOperation)) {
+          const value = targetNode(next, key)
+          if (value?.operation) { value.status = GenerationStatus.GENERATING; value.operation.phase = value.check?.passed == null ? 'reviewing' : 'reviewed' }
+        }
+      }
       const filmRunning = targetOperation.action === 'film' && target?.content?.status === 'running'
-      if ((changes.activity === null || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
+      if (!checkContext.getStore()?.textNodeSaving && (changes.activity === null || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
         const failed = changes.activityError || target?.content?.error
         const awaitingImage = ['image', 'revise-image', 'part-image', 'pencil'].includes(targetOperation.action) && Object.values(next.pendingImages || {}).some(draft => targetOperation.track ? draft.track === targetOperation.track : draft.itemId === targetOperation.itemId)
         if (awaitingImage) {

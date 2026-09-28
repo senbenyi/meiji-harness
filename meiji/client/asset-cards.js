@@ -107,34 +107,6 @@ export function stillCards(project, items, actions, hint) {
       ? characterSheet(item)
       : [['地标', item.landmark], ['光位', item.light], ['空间', item.space], ['画面', item.look]]
     for (const [label, value] of rows) field(copy, label, value)
-    if (item.type === 'scene') {
-      const edit = element('button', '编辑文字')
-      edit.disabled = busy
-      heading.append(edit)
-      edit.onclick = () => {
-        edit.disabled = true
-        const editor = element('div', '', 'scene-text-editor')
-        const inputs = {}
-        for (const [key, label] of [['name', '名称'], ['landmark', '地标'], ['light', '光位'], ['space', '空间'], ['look', '画面描述']]) {
-          const row = element('label', label)
-          const input = element(key === 'name' ? 'input' : 'textarea')
-          input.value = item[key] || ''; input.maxLength = 10000
-          if (key === 'name') input.readOnly = true
-          input.setAttribute('aria-label', label)
-          inputs[key] = input; row.append(input); editor.append(row)
-        }
-        const save = element('button', '保存并自审', 'primary'), cancel = element('button', '取消')
-        cancel.onclick = () => { editor.remove(); edit.disabled = false }
-        save.onclick = async () => {
-          save.disabled = cancel.disabled = true
-          try {
-            await actions.perform(project, 'scene-text', { itemId: item.id, original: Object.fromEntries(Object.keys(inputs).map(key => [key, item[key]])), fields: Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value])) })
-            editor.remove(); edit.disabled = false
-          } catch (error) { hint.hidden = false; hint.textContent = error.message; save.disabled = cancel.disabled = false }
-        }
-        editor.append(save, cancel); copy.append(editor)
-      }
-    }
     if (item.type === 'role') {
       for (const [label, slot] of [['衣服', 'clothes'], ['道具', 'props'], ['发型', 'hairstyles']]) {
         const block = element('div', '', 'part-block')

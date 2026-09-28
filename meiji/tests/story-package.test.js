@@ -73,7 +73,7 @@ test('package saves atomically to one episode, retains failed content and clears
 })
 
 test('characters and scenes belong to the plot tab without a separate cast tab', () => {
-  assert.deepEqual(tabs.map(t => t.id), ['script', 'shots', 'film', 'assembly'])
-  assert.equal(tabOf({ summary: '摘要', outline: '大纲' }), 'script')
+  assert.deepEqual(tabs.map(t => t.id), ['summary', 'script', 'shots', 'film', 'assembly'])
+  assert.equal(tabOf({ summary: { content: '摘要' }, plot: {} }), 'script')
   assert.equal(canGenerate({ outline: '大纲' }, 'characters'), false)
 })

@@ -1,7 +1,7 @@
 import { GenerationStatus } from './drama-model.js'
 import { element } from './dom.js'
 
-export function appendWorkflowReview(parent, record, generated, busy = false, actionButton) {
+export function appendWorkflowReview(parent, record, generated, busy = false, actionButton, { allowFailureOpinion = false } = {}) {
   const area = element('div', '', 'workflow-review workflow-review-panel')
   if (!generated) return area
   area.dataset.reviewTarget = record?.id || ''
@@ -16,7 +16,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   if (record?.error) area.append(element('p', `执行未通过：${record.error}`, 'hint warn'))
   const failures = check?.passed === false ? (check.failures || []).filter(Boolean) : []
   if (failures.length) area.append(element('p', `自审未通过：${failures.join('；')}`, 'hint warn workflow-review-failures'))
-  if (!failures.length) {
+  if (!failures.length || allowFailureOpinion) {
     const input = element('input', '', 'workflow-review-input')
     input.type = 'text'
     input.placeholder = '修改意见（可选）'

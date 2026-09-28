@@ -10,7 +10,7 @@ test('generation and independent review: only review receives previous final pro
   p.shots.items[0].storyboard.content.prompt.text = '前镜结束：旅人面北站在北墙，右手持灯。'
   p.shots.items[0].storyboard.content.referenceSnapshot = [{ name: '旅人', url: 'https://test/previous-person' }]
   const calls = []
-  await generateShotStoryboard({ project: p, shotId: 'S02', request: async (skill, prompt) => {
+  await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: prompt }) => {
     calls.push(prompt)
     return skill === 'skill-gongyong-content-review' ? 'PASS' : '[opening-reference: none]\n旅人继续面北。'
   } })
@@ -25,7 +25,7 @@ test('manual edit review includes previous final prompt and current timeline', a
   const p = episodeFixture()
   p.shots.items[0].storyboard.content.prompt.text = '前镜最终正文'
   let prompt
-  await reviewContent({ project: p, shotId: 'S02', stage: 'skill-jingtou-wenben-storyboard-generate', text: '修改后的正文', request: async (_, text) => { prompt = text; return 'PASS' } })
+  await reviewContent({ project: p, shotId: 'S02', stage: 'skill-jingtou-wenben-storyboard-generate', text: '修改后的正文', request: async ({ user: text }) => { prompt = text; return 'PASS' } })
   assert.match(prompt, /前镜最终正文/)
   assert.match(prompt, /修改后的正文/)
   assert.match(prompt, /当前镜头 S02 每秒指令/)

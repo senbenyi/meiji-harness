@@ -37,5 +37,5 @@ test('English and Chinese character labels and continuity pass equivalent checks
   for (const continuity of ['接着做，同一画面', 'Continue the action in the same frame']) {
     assert.equal(videoRequestMode({ continuity, hasOpening: true, imageCount: 1 }), 'first_frame')
   }
-  assert.equal(tabOf({ summary: 'English summary' }), 'script')
+  assert.equal(tabOf({ summary: { content: 'English summary' }, plot: {} }), 'script')
 })

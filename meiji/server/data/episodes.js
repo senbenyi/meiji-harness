@@ -9,7 +9,9 @@ export function normalizeProject(project) { return assertDrama(project) }
 export function materialize(project, episodeId) {
   const episode = project.episodes.find(item => item.id === episodeId)
   if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
-  return { ...episode, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, revision: project.revision }
+  const ordered = [...project.episodes].reverse()
+  const index = ordered.findIndex(item => item.id === episodeId)
+  return { ...episode, episodeNumber: index + 1, previousEpisodeSummary: ordered[index - 1]?.summary?.content, nextEpisodeSummary: ordered[index + 1]?.summary?.content, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, revision: project.revision }
 }
 export function foldEpisode(project, episodeId, view) {
   const episode = project.episodes.find(item => item.id === episodeId)

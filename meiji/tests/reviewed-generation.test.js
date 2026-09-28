@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runTextGeneration } from '../server/workers/text-generation-worker.js'
+import { runTextWorkflow } from '../server/flow/text-workflow.js'
+import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 
 // Exercise the public worker while controlling generation/review responses.
 async function generateWithSelfReview({ generate, review, canRevise }) {
   let original, verdict
-  return runTextGeneration({ skill: 'test', instructions: '测试', canRevise, options: { project: { durationSeconds: 5 }, request: async skill => {
+  return runTextWorkflow({ prompts: buildTextPrompts({ skill: 'skill-gailan-episode-generate', project: {}, instructions: '测试' }), canRevise, options: { project: { durationSeconds: 5 }, request: async ({ skill }) => {
     if (skill === 'skill-gongyong-content-review') { verdict = await review(original); return verdict }
     original = await generate(original === undefined ? undefined : { text: original, reviewText: verdict })
     return original
@@ -33,19 +34,19 @@ test('review and correction API errors stop without producing a semantic failure
 })
 test('seconds retry includes latest draft, original human opinion and failure then reviews again',async()=>{
  const calls=[];let generated=0;let reviewed=0
- const result=await generateShotSeconds({project:episodeFixture(),shotId:'S01',review:'保留声音',request:async(skill,prompt)=>{calls.push(prompt);return skill==='skill-gongyong-content-review' ? (++reviewed===1?'FAIL\n朝向不对':'PASS') : (++generated===1?'最新初稿':'修好朝向')}})
+ const result=await generateShotSeconds({project:episodeFixture(),shotId:'S01',review:'保留声音',request:async ({ skill, user: prompt }) =>{calls.push(prompt);return skill==='skill-gongyong-content-review' ? (++reviewed===1?'FAIL\n朝向不对':'PASS') : (++generated===1?'最新初稿':'修好朝向')}})
  assert.equal(calls.length,4);assert.match(calls[2],/最新初稿/);assert.match(calls[2],/朝向不对/);assert.match(calls[2],/保留声音/);assert.match(calls[3],/修好朝向/);assert.equal(result.items[0].seconds.check.passed,true)
 })
 test('invalid table syntax is never rewritten even on semantic FAIL',async()=>{
- let count=0;const out=await generateShots({project:episodeFixture(),request:async skill=>{count++;return skill==='skill-gongyong-content-review'?'FAIL\n标题错误':'{"items":[]}'}});assert.equal(count,2);assert.equal(out.failedOutput,'{"items":[]}')
+ let count=0;const out=await generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='skill-gongyong-content-review'?'FAIL\n标题错误':'{"items":[]}'}});assert.equal(count,2);assert.equal(out.failedOutput,'{"items":[]}')
 })
 
 test('second self-review sees task and newest output without prior failed draft or verdict', async () => {
   let generation = 0, reviews = 0
-  await runTextGeneration({
-    skill: 'test', instructions: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
-    reviewInstructions: '任务依据：向北走；人工意见：保持背影。',
-    options: { project: { durationSeconds: 5 }, request: async (skill, prompt) => {
+  await runTextWorkflow({
+    prompts: buildTextPrompts({ skill: 'skill-gailan-episode-generate', project: {}, instructions: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
+    reviewInstructions: '任务依据：向北走；人工意见：保持背影。' }),
+    options: { project: { durationSeconds: 5 }, request: async ({ skill, user: prompt }) => {
       if (skill !== 'skill-gongyong-content-review') {
         generation++
         if (generation === 2) { assert.match(prompt, /FAILED_DRAFT/); assert.match(prompt, /OLD_VERDICT/) }

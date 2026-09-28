@@ -1,4 +1,5 @@
 import { appendLogCopy } from './dom.js'
+import { tabs } from './flow-view.js'
 import { createModelStore, renderModelView } from './model-store.js'
 import { renderCustomSkill } from './custom-skills.js'
 import { renderSettings } from './settings.js'
@@ -115,7 +116,7 @@ export function mount() {
     onSelectTab: id => { openTab = id },
     onShotTab: id => { shotTab = id },
     onShotsPane: id => { shotsPane = id },
-    onOpenEpisode: id => { openEpisode = id; openShot = ''; openTab = 'script'; shotTab = 'seconds'; shotsPane = 'table'; follow(true).catch(error => shell.status(error.message)) },
+    onOpenEpisode: id => { openEpisode = id; openShot = ''; openTab = tabs[0].id; shotTab = 'seconds'; shotsPane = 'table'; follow(true).catch(error => shell.status(error.message)) },
     onOpenShot: id => { openShot = id; shotTab = 'seconds'; follow(true).catch(error => shell.status(error.message)) },
     onBackShot: () => { openShot = ''; openTab = 'shots'; follow(true).catch(error => shell.status(error.message)) },
     onBack: () => { openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; follow(true).catch(error => shell.status(error.message)) },

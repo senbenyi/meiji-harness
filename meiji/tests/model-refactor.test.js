@@ -15,7 +15,7 @@ async function setup(t) {
  await store.save(p.id,{episodes:[episode]})
  return {home,store,id:p.id,episodeId:episode.id, op(action,extra={}){return {action,projectId:p.id,episodeId:episode.id,...extra}}}
 }
-const requestFor = text => async skill=>skill==='skill-gongyong-content-review'?'PASS':text
+const requestFor = text => async ({ skill }) =>skill==='skill-gongyong-content-review'?'PASS':text
 async function throughShots(t) {
  const env=await setup(t)
  await runOperation(env.op('outline'),{home:env.home,generateStoryPackage:async()=>({...storyPackageFixture(10),check:{passed:true,failures:[]}})})

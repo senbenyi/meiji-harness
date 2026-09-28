@@ -25,10 +25,6 @@ export function gatewayImageSize(aspectRatio) {
   return imageSizes[aspectRatio] || imageSizes['1344x768']
 }
 
-export function gatewayVideoSize(aspectRatio) {
-  return imageSizes[aspectRatio] || imageSizes['1344x768']
-}
-
 function endpoint(baseUrl, path) {
   return new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`)
 }
@@ -62,7 +58,7 @@ function publicData(value, apiKey) {
 
 function writeApiLog(text, failed) {
   const fn = text.match(/函数：([^\n]+)/)?.[1]
-  const purpose = logPurpose() || ({ completeChat: '文本生成', generateGatewayImage: '图片生成', uploadGatewayFile: '上传素材', submitGatewayVideo: '视频生成', retrieveGatewayVideo: '查询或下载视频' }[fn] || 'API调用')
+  const purpose = logPurpose() || ({ completeChat: '文本生成', generateGatewayImage: '图片生成', uploadGatewayFile: '上传素材', submitGatewayVideo: '视频生成', retrieveGatewayVideo: '查询或下载视频', retrieveGatewayImage: '查询或下载图片', cancelGatewayTask: '取消生成任务' }[fn] || 'API调用')
   const phase = failed ? '请求失败' : text.includes('返回：') ? '返回数据' : '发起请求'
   try { insertSessionLog(sessionForLog(), text, failed, `日志-${purpose}-${phase}`) } catch { /* 日志不影响接口结果 */ }
 }
@@ -133,16 +129,18 @@ export async function completeChat({ baseUrl, apiKey, model, system, prompt, max
   return text
 }
 
-export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, aspectRatio, fetchImpl = fetch, signal }) {
+export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, aspectRatio, fetchImpl = fetch, signal, pause, maxPolls }) {
+  signal ??= checkContext.getStore()?.signal
+  signal?.throwIfAborted()
+  // 提交期间保留连接取得任务 ID，随后才能显式取消远端任务。
   const result = await requestGateway({
-    baseUrl, path: 'images/generations', method: 'POST', apiKey, fetchImpl, signal, fn: 'generateGatewayImage',
+    baseUrl, path: 'images/tasks', method: 'POST', apiKey, fetchImpl, signal: AbortSignal.timeout(requestTimeoutMs), fn: 'generateGatewayImage',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: { model: model || 'elysium-image', prompt, size: gatewayImageSize(aspectRatio) },
   })
-  if (!result.ok) fail(result.response, result.data, `图片生成失败：HTTP ${result.response.status}`)
-  const image = result.data?.data?.[0]?.b64_json
-  if (!image) throw markApiFailure(Object.assign(new Error('网关未返回图片'), { status: 502 }))
-  return Buffer.from(image, 'base64')
+  if (!result.ok) fail(result.response, result.data, `图片提交失败：HTTP ${result.response.status}`)
+  if (!result.data?.id) throw markApiFailure(Object.assign(new Error('网关未返回图片任务'), { status: 502 }))
+  return retrieveGatewayTask({ baseUrl, apiKey, promptId: result.data.id, kind: 'images/tasks', fetchImpl, signal, pause, maxPolls })
 }
 
 export async function uploadGatewayFile({ baseUrl, apiKey, bytes, filename, mime, fetchImpl = fetch, signal }) {
@@ -179,6 +177,8 @@ export async function uploadGatewayFile({ baseUrl, apiKey, bytes, filename, mime
 }
 
 export async function submitGatewayVideo({ baseUrl, apiKey, model, prompt, duration, mode, inputReference, referenceImages, fetchImpl = fetch, signal }) {
+  signal ??= checkContext.getStore()?.signal
+  signal?.throwIfAborted()
   const seconds = String(Math.round(Number(duration) || 5))
   const body = {
     model: model || 'elysium-video',
@@ -190,42 +190,86 @@ export async function submitGatewayVideo({ baseUrl, apiKey, model, prompt, durat
   const kind = ['text', 'first_frame', 'reference'].includes(mode) ? mode : (images.length ? 'reference' : inputReference ? 'first_frame' : 'text')
   if (kind === 'reference') body.reference_images = images
   else if (kind === 'first_frame' && inputReference) body.input_reference = inputReference
+  // 提交期间保留连接取得任务 ID，随后才能显式取消远端任务。
   const result = await requestGateway({
-    baseUrl, path: 'videos', method: 'POST', apiKey, fetchImpl, signal, fn: 'submitGatewayVideo',
+    baseUrl, path: 'videos', method: 'POST', apiKey, fetchImpl, signal: AbortSignal.timeout(requestTimeoutMs), fn: 'submitGatewayVideo',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body,
   })
   if (!result.ok) fail(result.response, result.data, `视频提交失败：HTTP ${result.response.status}`)
   if (!result.data?.id) throw markApiFailure(Object.assign(new Error('网关未返回视频任务'), { status: 502 }))
+  await cancelOnStop({ baseUrl, apiKey, promptId: result.data.id, kind: 'videos', fetchImpl, signal })
   return { id: result.data.id, seconds }
 }
 
 const wait = (ms, signal) => delay(ms, undefined, { signal })
 
-export async function retrieveGatewayVideo({ baseUrl, apiKey, promptId, fetchImpl = fetch, pause = wait, signal, maxPolls = 360 }) {
+export async function cancelGatewayTask({ baseUrl, apiKey, promptId, kind, fetchImpl = fetch }) {
+  const result = await requestGateway({
+    baseUrl, path: `${kind}/${encodeURIComponent(promptId)}/cancel`, method: 'POST', apiKey, fetchImpl,
+    // 取消请求必须独立于已中止的生成信号。
+    signal: AbortSignal.timeout(30_000), fn: 'cancelGatewayTask',
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+  if (!result.ok) fail(result.response, result.data, `取消失败：HTTP ${result.response.status}`)
+  if (!['cancelled', 'completed', 'failed'].includes(result.data?.status)) throw new Error('网关未确认任务终态')
+  return result.data
+}
+
+async function cancelOnStop({ signal, ...options }) {
+  if (!signal?.aborted) return
+  if (signal.reason?.code === 'TASK_PAUSED' || signal.reason?.name === 'TimeoutError') throw signal.reason
+  let task
+  try { task = await cancelGatewayTask(options) }
+  catch (error) {
+    throw Object.assign(new Error(`远端取消失败（${options.promptId}）：${error.message}；任务可能仍在运行`), { code: 'REMOTE_CANCEL_FAILED', cause: error })
+  }
+  throw Object.assign(new Error(task.status === 'completed' ? '任务已停止；远端任务已完成' : '任务已停止；远端任务已终止'), {
+    code: task.status === 'completed' ? 'TASK_CANCELLED' : options.kind === 'videos' ? 'VIDEO_TASK_TERMINAL' : 'IMAGE_TASK_TERMINAL',
+  })
+}
+
+export async function retrieveGatewayVideo(options) {
+  return retrieveGatewayTask({ ...options, kind: 'videos' })
+}
+
+async function retrieveGatewayTask({ baseUrl, apiKey, promptId, kind, fetchImpl = fetch, pause = wait, signal, maxPolls = 360 }) {
   signal ??= checkContext.getStore()?.signal
+  const options = { baseUrl, apiKey, promptId, kind, fetchImpl, signal }
+  const label = kind === 'videos' ? '视频' : '图片'
+  const fn = kind === 'videos' ? 'retrieveGatewayVideo' : 'retrieveGatewayImage'
   const deadline = AbortSignal.timeout(30 * 60 * 1000)
-  signal = signal ? AbortSignal.any([signal, deadline]) : deadline
-  for (let attempt = 0; attempt < maxPolls; attempt += 1) {
-    signal?.throwIfAborted()
-    const result = await requestGateway({
-      baseUrl, path: `videos/${encodeURIComponent(promptId)}`, apiKey, fetchImpl, signal, fn: 'retrieveGatewayVideo',
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
-    if (!result.ok) fail(result.response, result.data, `视频查询失败：HTTP ${result.response.status}`)
-    const data = result.data
-    if (['failed', 'cancelled', 'canceled', 'expired'].includes(data.status)) {
-      throw markApiFailure(Object.assign(new Error(`视频生成失败：${data.error?.message || '未知错误'}`), { status: 502, code: 'VIDEO_TASK_TERMINAL' }))
-    }
-    if (data.status === 'completed') {
-      const bytes = await requestGateway({
-        baseUrl, path: `videos/${encodeURIComponent(promptId)}/content`, apiKey, fetchImpl, signal, binary: true, fn: 'retrieveGatewayVideo',
+  const pollingSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
+  let terminal = false
+  try {
+    for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+      pollingSignal.throwIfAborted()
+      const result = await requestGateway({
+        baseUrl, path: `${kind}/${encodeURIComponent(promptId)}`, apiKey, fetchImpl, signal: pollingSignal, fn,
         headers: { Authorization: `Bearer ${apiKey}` },
       })
-      if (Buffer.isBuffer(bytes)) return bytes
-      fail(bytes.response, bytes.data, `视频下载失败：HTTP ${bytes.response.status}`)
+      if (!result.ok) fail(result.response, result.data, `${label}查询失败：HTTP ${result.response.status}`)
+      const data = result.data
+      if (['failed', 'cancelled', 'canceled', 'expired'].includes(data.status)) {
+        terminal = true
+        throw markApiFailure(Object.assign(new Error(`${label}生成失败：${data.error?.message || data.status}`), { status: 502, code: kind === 'videos' ? 'VIDEO_TASK_TERMINAL' : 'IMAGE_TASK_TERMINAL' }))
+      }
+      if (data.status === 'completed') {
+        terminal = true
+        pollingSignal.throwIfAborted()
+        const bytes = await requestGateway({
+          baseUrl, path: `${kind}/${encodeURIComponent(promptId)}/content`, apiKey, fetchImpl, signal: pollingSignal, binary: true, fn,
+          headers: { Authorization: `Bearer ${apiKey}` },
+        })
+        pollingSignal.throwIfAborted()
+        if (Buffer.isBuffer(bytes)) return bytes
+        fail(bytes.response, bytes.data, `${label}下载失败：HTTP ${bytes.response.status}`)
+      }
+      if (attempt + 1 < maxPolls) await pause(5000, pollingSignal)
     }
-    if (attempt + 1 < maxPolls) await pause(5000, signal)
+    throw markApiFailure(Object.assign(new Error(`${label}查询超时，已停止等待，不会自动重新提交；远端任务可能仍在运行（${promptId}）`), { status: 504 }))
+  } catch (error) {
+    if (!terminal) await cancelOnStop(options)
+    throw error
   }
-  throw markApiFailure(Object.assign(new Error('视频查询超时，已停止等待，不会自动重新提交；远端任务可能仍在运行'), { status: 504 }))
 }

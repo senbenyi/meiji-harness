@@ -12,7 +12,7 @@ async function environment(t) {
 }
 test('whole episode generates once, reviews each shot, and replaces even previously passed shots', async t => {
  const e=await environment(t), calls=[]
- await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async(skill,prompt)=>{
+ await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill, user: prompt }) =>{
   calls.push({skill,prompt});return skill==='skill-gongyong-content-review'?'PASS':output
  }})})
  assert.equal(calls.length,3);assert.equal(calls.filter(c=>c.skill!=='skill-gongyong-content-review').length,1)
@@ -25,7 +25,7 @@ test('whole episode generates once, reviews each shot, and replaces even previou
 })
 test('one failed review does not skip later shots and correction remains local', async t=>{
  const e=await environment(t), calls=[]
- await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async(skill,prompt)=>{
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill, user: prompt }) =>{
   calls.push({skill,prompt})
   if(skill==='skill-gongyong-content-review') return prompt.includes('仅审核或定向修订 S01')?'FAIL 第一镜问题':'PASS'
   return calls.length===1?output:'第一镜修订稿'
@@ -49,12 +49,12 @@ for(const text of [output.replace('[seconds-complete]',''), '## S01 / 5s\n只有
 test('whole generation does not include old seconds or their opinions',async()=>{
  const p=episodeFixture();p.shots.items.forEach(s=>{s.seconds.content='OLD_SECRET';s.seconds.review.text='OLD_OPINION'})
  const calls=[]
- await generateAllSeconds({project:p,request:async(skill,prompt)=>{calls.push(prompt);return skill==='skill-gongyong-content-review'?'PASS':output}})
+ await generateAllSeconds({project:p,request:async ({ skill, user: prompt }) =>{calls.push(prompt);return skill==='skill-gongyong-content-review'?'PASS':output}})
  assert.doesNotMatch(calls[0],/OLD_SECRET|OLD_OPINION/)
 })
 test('cancellation during review preserves all newly generated drafts and releases ownership',async t=>{
  const e=await environment(t),controller=new AbortController()
- await assert.rejects(runOperation(e.op('seconds'),{home:e.home,signal:controller.signal,generateAllSeconds:options=>generateAllSeconds({...options,request:async skill=>{
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,signal:controller.signal,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill }) =>{
   if(skill!=='skill-gongyong-content-review')return output
   controller.abort();controller.signal.throwIfAborted()
  }})}),{name:'AbortError'})
@@ -69,7 +69,7 @@ test('storyboard never fills missing seconds in the background',async t=>{
 })
 test('review preserves new human opinions entered on a different shot',async t=>{
  const e=await environment(t);let reviews=0
- await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async skill=>{
+ await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill }) =>{
   if(skill!=='skill-gongyong-content-review')return output
   if(reviews++===0)await e.store.saveReviewDraft(e.id,e.episodeId,'seconds:S02','新输入意见',0)
   return 'PASS'
@@ -81,7 +81,7 @@ test('unified opinion and numbered failures modify the whole episode and are con
  await e.store.saveReviewDraft(e.id,e.episodeId,'seconds','统一保持动作方向',0)
  await e.store.save(e.id,p=>{p.episodes[0].shots.items[1].seconds.check={passed:false,failures:['机位反了']};return p})
  const calls=[]
- await runOperation(e.op('seconds',{generationMode:'modify'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async(skill,prompt)=>{
+ await runOperation(e.op('seconds',{generationMode:'modify'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill, user: prompt }) =>{
   calls.push(prompt);return skill==='skill-gongyong-content-review'?'PASS':output
  }})})
  assert.match(calls[0],/统一保持动作方向/);assert.match(calls[0],/S02：机位反了/);assert.match(calls[0],/修改基稿/)
@@ -93,7 +93,7 @@ test('unified opinion saved while generation runs survives completion',async t=>
  const e=await environment(t)
  await e.store.saveReviewDraft(e.id,e.episodeId,'seconds','本次意见',0)
  let entered=false
- await runOperation(e.op('seconds',{generationMode:'modify'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async skill=>{
+ await runOperation(e.op('seconds',{generationMode:'modify'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill }) =>{
   if(!entered){entered=true;await e.store.saveReviewDraft(e.id,e.episodeId,'seconds','下次意见',1)}
   return skill==='skill-gongyong-content-review'?'PASS':output
  }})})
@@ -103,12 +103,12 @@ test('unified opinion is retained after failed review and regeneration does not 
  const e=await environment(t)
  await e.store.saveReviewDraft(e.id,e.episodeId,'seconds','保留人工意见',0)
  let generated=false
- await assert.rejects(runOperation(e.op('seconds',{generationMode:'modify'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async skill=>{
+ await assert.rejects(runOperation(e.op('seconds',{generationMode:'modify'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill }) =>{
   if(skill==='skill-gongyong-content-review')return 'FAIL 不通过'
   if(!generated){generated=true;return output}return '局部修订'
  }})}),/自检未通过/)
  assert.equal((await e.read()).shots.seconds.review.text,'保留人工意见')
- await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async(skill,prompt)=>{
+ await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({ skill, user: prompt }) =>{
   assert.doesNotMatch(prompt,/保留人工意见/);return skill==='skill-gongyong-content-review'?'PASS':output
  }})})
  assert.equal((await e.read()).shots.seconds.review.text,'保留人工意见')

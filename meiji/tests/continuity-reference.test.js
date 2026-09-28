@@ -11,7 +11,7 @@ test('storyboard gets episode and neighbor context without model metadata and st
   p.plot.characters.items[0].draft = { text: 'SECRET_METADATA' }
   p.plot.characters.items[0].image.content = { imageUrl: 'https://test/person' }
   let instructions
-  const rows = await generateShotStoryboard({ project: p, shotId: 'S02', request: async (skill, text) => {
+  const rows = await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: text }) => {
     if (skill === 'skill-gongyong-content-review') return 'PASS'
     instructions = text
     return '[opening-reference: previous-tail]\nsummary: 沿前镜继续'
@@ -29,7 +29,7 @@ test('stored tail is included across scene changes without uploading during gene
  p.shots.items[0].video.content={status:'ready',file:'version.mp4'}
  p.shots.items[0].tailFrame={status:'passed',content:{sourceVideoFile:'version.mp4',imageUrl:'https://test/tail'}}
  p.shots.items[1].scene='新场景'
- const result=await generateShotStoryboard({project:p,shotId:'S02',request:async(skill,text)=>{
+ const result=await generateShotStoryboard({project:p,shotId:'S02',request:async({ skill, user: text })=>{
   if(skill==='skill-gongyong-content-review')return 'PASS'
   assert.match(text,/https:\/\/test\/tail/)
   return '[opening-reference: none]\n使用 <Picture 1> 作为上一镜视觉参考，本镜转入新场景'
@@ -41,7 +41,7 @@ test('stored tail is included across scene changes without uploading during gene
 test('first shot cannot request a previous tail even when the model asks for it', async () => {
   const p = episodeFixture()
   p.plot.characters.items[0].image.content = { imageUrl: 'https://test/person' }
-  const rows = await generateShotStoryboard({ project: p, shotId: 'S01', request: async skill => skill === 'skill-gongyong-content-review' ? 'PASS' : '[opening-reference: previous-tail]\n提示词' })
+  const rows = await generateShotStoryboard({ project: p, shotId: 'S01', request: async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : '[opening-reference: previous-tail]\n提示词' })
   assert.equal(rows[0].openingReference, 'none')
   assert.equal(rows[0].prompt.text, '提示词')
 })

@@ -45,7 +45,7 @@ test('failed semantic batch checks preserve each latest result and audit all sho
   const e = await setupModel(t);await e.store.save(e.id,p=>{p.episodes[0].shots.items.forEach(s=>{s.seconds.stale=true});return p});
   const {modelStore}=await import('../server/data/models.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
   let calls = 0
-  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async skill => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : calls === 1 ? '## S01 / 5s\n已生成的动作\n## S02 / 5s\n已生成的动作\n[seconds-complete]' : '已生成的动作' } }) }), /自检未通过/)
+  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async ({ skill }) => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : calls === 1 ? '## S01 / 5s\n已生成的动作\n## S02 / 5s\n已生成的动作\n[seconds-complete]' : '已生成的动作' } }) }), /自检未通过/)
   const p = await e.read()
   assert.equal(calls, 7)
   assert.equal(p.shots.items[0].seconds.content, '已生成的动作')
@@ -87,16 +87,16 @@ test('character generation runs independent identity coverage review instead of 
 })
 
 test('independent review does not receive stale correction text as a new instruction', async () => {
-  const { askSkill } = await import('../server/generate/chat.js')
+  const { buildReviewPrompt } = await import('../server/prompts/text-prompts.js')
+  const { runTextRequest } = await import('../server/workers/text-request-worker.js')
   await checkContext.run({ review: 'STALE_ALREADY_FIXED' }, async () => {
-    await askSkill('skill-gongyong-content-review', JSON.stringify({ stage: 'skill-juqing-outline-generate', generated: { outline: '', characters: { items: [] }, scenes: { items: [] } } }), {
-      project: { outputLanguage: 'zh-CN' }, includeReview: false,
+    await runTextRequest(buildReviewPrompt({ skill: 'skill-juqing-outline-generate', project: {}, instructions: '本次任务' }, JSON.stringify({ outline: '', characters: { items: [] }, scenes: { items: [] } })), {
       route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' },
       fetchImpl: async (_url, options) => {
         const payload = JSON.parse(options.body)
         assert.doesNotMatch(payload.messages[1].content, /STALE_ALREADY_FIXED/)
-        assert.equal(JSON.parse(payload.messages[1].content).stage, 'skill-juqing-outline-generate')
-        return Response.json({ choices: [{ message: { content: '{"passed":true,"failures":[]}' } }] })
+        assert.match(payload.messages[1].content, /阶段：skill-juqing-outline-generate/)
+        return Response.json({ choices: [{ message: { content: 'PASS' } }] })
       },
     })
   })

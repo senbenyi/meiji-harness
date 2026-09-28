@@ -40,7 +40,7 @@ export function createPanelTasks({ home, workspaceController, execute = runOpera
     cancel(id, projectId) {
       const task = active.get(id)
       if (!task || task.operation.projectId !== projectId) throw Object.assign(new Error('任务已结束或不存在'), { status: 404 })
-      task.controller.abort(new Error('任务已停止'))
+      task.controller.abort(Object.assign(new Error('任务已停止'), { code: 'TASK_CANCELLED' }))
     },
     dispose() { for (const task of active.values()) task.controller.abort(Object.assign(new Error('服务已停止，任务暂停'), { code: 'TASK_PAUSED' })) },
   }

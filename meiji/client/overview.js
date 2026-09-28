@@ -1,4 +1,3 @@
-import { appendWorkflowReview, reviewFields } from './workflow-review.js'
 import { pictureOf } from './drama-model.js'
 import { element, appendJsonCopy } from './dom.js'
 import { bindStylePicker } from './style-picks.js'
@@ -178,7 +177,7 @@ export function renderOverview(project, actions, context) {
       if (regenerate.disabled) return
       regenerate.disabled = true
       regenerate.textContent = '生成中'
-      actions.perform(project, 'episode-generate', { episodeId: episode.id, ...reviewFields(copy) }).catch(error => {
+      actions.perform(project, 'episode-generate', { episodeId: episode.id, generationMode: 'regenerate' }).catch(error => {
         regenerate.disabled = false
         regenerate.textContent = '重新生成摘要'
         actions.fail(error)
@@ -187,9 +186,6 @@ export function renderOverview(project, actions, context) {
     const heading = element('div', '', 'workflow-generation-row')
     heading.append(copy.querySelector('strong'), regenerate)
     copy.prepend(heading)
-    const reviewArea = appendWorkflowReview(copy, episode.summary, Boolean(episode.summary.content), Boolean(project.activity), regenerate)
-    reviewArea.dataset.episodeId = episode.id
-    reviewArea.onclick = event => event.stopPropagation()
     appendJsonCopy(copy, episode)
     card.append(coverNode(episode), copy, edit)
     const open = () => context.onOpenEpisode?.(episode.id)
@@ -275,7 +271,7 @@ export function episodeDialog(root, onSaved) {
     episode = currentEpisode
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
     form.elements.duration.value = currentEpisode ? String(currentEpisode.durationSeconds || '') : ''
-    form.elements.summary.value = currentEpisode?.summary || ''
+    form.elements.summary.value = currentEpisode?.summary?.content || ''
     error.textContent = ''
     dialog.showModal()
   }

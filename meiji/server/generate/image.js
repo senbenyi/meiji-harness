@@ -239,7 +239,6 @@ const defaultPause = (ms, signal) => delay(ms, undefined, { signal })
 
 
 const stillExt = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
-export const stillTypes = stillExt
 
 export function assetImageUrl(projectId, itemId, version = Date.now(), episodeId = '') {
   return `/plugins/meiji/projects/${projectId}/images/${encodeURIComponent(itemId)}?${episodeId ? `episodeId=${encodeURIComponent(episodeId)}&` : ''}v=${version}`
@@ -318,11 +317,6 @@ export function appendImageAsset(assets, characterId, slot, asset) {
   return { ...assets, items }
 }
 
-export function pencilBoardUrl(projectId, track, episodeId, version = Date.now()) {
-  const episode = episodeId ? `${encodeURIComponent(episodeId)}/` : ''
-  return `/plugins/meiji/projects/${projectId}/boards/${episode}${encodeURIComponent(track)}?v=${version}`
-}
-
 export function pencilPrompt(item) {
   if (item?.format === 'text' && item.prompt?.text) return `一张黑白铅笔分镜，按以下提示词的时间顺序绘制关键画面，格子均匀排列并标注时间码，人物与场景保持一致，不新增剧情。镜头 ${item.id}，${item.duration} 秒。\n${item.prompt.text}`
   const panels = Array.isArray(item?.panels) ? item.panels : []
@@ -347,7 +341,7 @@ export async function submitPencilBoard({ directory, track, prompt, home, projec
   if (backend?.apiKey) {
     bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, fetchImpl, signal,
+      prompt: text, aspectRatio, fetchImpl, pause, signal,
     })
   } else {
     const baseUrl = resolveImageBackend(backend, env)
@@ -422,7 +416,7 @@ export async function generateStillFile({ directory, itemId, aspectRatio, backen
   if (backend?.apiKey) {
     bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, fetchImpl, signal,
+      prompt: text, aspectRatio, fetchImpl, pause, signal,
     })
   } else {
     const baseUrl = resolveImageBackend(backend, env)
@@ -449,7 +443,7 @@ export async function submitAssetImage({ assets, itemId, aspectRatio, backend, p
   if (backend?.apiKey) {
     const bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: prompt || imagePrompt(current), aspectRatio, fetchImpl, signal,
+      prompt: prompt || imagePrompt(current), aspectRatio, fetchImpl, pause, signal,
     })
     const fitted = await limitStillBytes(bytes)
     if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
