@@ -1,0 +1,3 @@
+- insert:
+    - id: meiji
+      name: '@meiji/harness-plugin'
