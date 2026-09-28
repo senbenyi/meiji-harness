@@ -15,6 +15,20 @@ test('a session log is a command record and not a model message', () => {
   assert.equal(events.some(event => event.type === 'user/message'), false)
 })
 
+test('the first log opens an empty turn so a blank harness session shows the command', () => {
+  const events = []
+  const session = {
+    snapshotEvents: () => events.slice(),
+    append: (type, data) => { events.push({ type, data }) },
+  }
+  insertSessionLog(session, '已创建短剧')
+  assert.deepEqual(events.map(event => event.type), ['turn/start', 'turn/end', 'command/run', 'command/done'])
+  assert.deepEqual(events[0].data, { turn: 1 })
+  assert.equal(events[1].data.reason.kind, 'completed')
+  insertSessionLog(session, '已添加剧集')
+  assert.equal(events.filter(event => event.type === 'turn/start').length, 1)
+})
+
 test('an API call logs the path, headers and body without the key', async () => {
   const events = []
   const session = { append: (type, data) => { events.push({ type, data }) } }

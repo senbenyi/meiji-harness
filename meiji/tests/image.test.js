@@ -33,7 +33,7 @@ test('a pencil sheet keeps one panel for every second', () => {
 })
 
 test('gateway image route is stored and a chat model cannot take that slot', async () => {
-  const routes = await defaults()
+  const routes = { ...await defaults(), apiKey: 'sk-test-only' }
   const image = normalizeModels(routes).image
   assert.equal(image.model, 'elysium-image')
   assert.equal(image.baseUrl, 'http://43.154.247.11/v1')

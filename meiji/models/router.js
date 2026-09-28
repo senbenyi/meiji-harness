@@ -4,8 +4,15 @@ import { gatewayBaseUrl } from '../server/generate/gateway.js'
 export const purposes = { chat: '聊天', story: '生成剧情', image: '文生图片', video: '生成视频' }
 const purposeIds = Object.keys(purposes)
 
-export async function defaults() {
-  return JSON.parse(await readFile(new URL('../config/models.json', import.meta.url), 'utf8'))
+const localConfig = new URL('../config/models.local.json', import.meta.url)
+
+// config/models.json 入 git，不含密钥；config/models.local.json 不入 git，存放密钥等本地值并覆盖同名字段。
+export async function defaults(local = localConfig) {
+  const base = JSON.parse(await readFile(new URL('../config/models.json', import.meta.url), 'utf8'))
+  let override = {}
+  try { override = JSON.parse(await readFile(local, 'utf8')) }
+  catch (error) { if (error.code !== 'ENOENT') throw error }
+  return { ...base, ...override }
 }
 export function catalog(settings) {
   const providers = settings.get('llm-pi-ai')?.providers ?? {}

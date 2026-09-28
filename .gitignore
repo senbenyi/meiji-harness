@@ -50,3 +50,4 @@ __pycache__/
 /.dsh/
 /harness/
 /meiji/reports/
+/meiji/config/models.local.json
