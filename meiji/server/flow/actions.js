@@ -331,11 +331,25 @@ export async function runOperation(operation, deps) {
             }
             continue
           }
+          let episodeChanged = false
+          const paused = deps.signal?.reason?.code === 'TASK_PAUSED'
+          const stopped = Boolean(failure) || Boolean(deps.signal?.aborted)
           for (const target of allNodes(episode)) {
             if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
-            target.error = deps.signal?.reason?.code === 'TASK_PAUSED' ? null : failure?.message || '任务已停止，请重新发起'; target.status = deps.signal?.reason?.code === 'TASK_PAUSED' ? GenerationStatus.PAUSED : GenerationStatus.FAILED; target.operation = null; changed = true
+            if (!stopped && target.check?.passed != null) {
+              target.operation = null
+              target.error = null
+              target.status = target.check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED
+            } else {
+              target.error = paused ? null : failure?.message || '任务已停止，请重新发起'
+              target.status = paused ? GenerationStatus.PAUSED : GenerationStatus.FAILED
+              target.operation = null
+            }
+            episodeChanged = true
+            changed = true
           }
-          if (episode.id === operation.episodeId && episode.activity && !allNodes(episode).some(n => n.operation)) { episode.activity = null; changed = true }
+          if (episode.id === operation.episodeId && episode.activity && !allNodes(episode).some(n => n.operation)) { episode.activity = null; episodeChanged = true; changed = true }
+          if (episodeChanged) episode.status = modelPatch(episode, {}).status
         }
         if (next.activeOperation === operationId) { next.activity = null; next.activeOperation = null; if (context.apiFailure) next.activityError = context.originalRoot?.activityError || null; changed = true }
         return changed ? next : null

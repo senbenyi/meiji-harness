@@ -36,8 +36,8 @@ test('gateway image route is stored and a chat model cannot take that slot', asy
   const routes = { ...await defaults(), apiKey: 'sk-test-only' }
   const image = normalizeModels(routes).image
   assert.equal(image.model, 'elysium-image')
-  assert.equal(image.baseUrl, 'http://43.154.247.11/v1')
-  assert.equal(normalizeModels({ ...routes, baseUrl: 'http://43.154.247.11/v1/' }).image.baseUrl, 'http://43.154.247.11/v1')
+  assert.equal(image.baseUrl, 'https://43.154.247.11/v1')
+  assert.equal(normalizeModels({ ...routes, baseUrl: 'https://43.154.247.11/v1/' }).image.baseUrl, 'https://43.154.247.11/v1')
   assert.throws(() => normalizeModels({ ...routes, image: routes.chat }))
   assert.throws(() => normalizeModels({ ...routes, baseUrl: 'http://43.154.247.11/v1?token=1' }))
 })

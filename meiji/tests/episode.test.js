@@ -97,7 +97,12 @@ for (const mode of ['new', 'regenerate', 'modify']) {
     if (mode === 'regenerate') assert.equal(calls[0].user.includes(old), false)
     const saved = await e.store.read(e.id)
     assert.equal(saved.episodes.length, root.episodes.length + (mode === 'new' ? 1 : 0))
-    assert.equal(saved.episodes[0].summary.content, '旅人入院后发现新的线索。')
+    const episode = saved.episodes.find(item => item.summary.content === '旅人入院后发现新的线索。')
+    assert.equal(episode.summary.status, 'passed')
+    assert.equal(episode.summary.error, null)
+    assert.equal(episode.summary.check.passed, true)
+    assert.notEqual(episode.status, 'generating')
+    assert.notEqual(saved.status, 'generating')
   })
 }
 
