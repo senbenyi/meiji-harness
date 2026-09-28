@@ -1,3 +1,4 @@
+import { prepareContentRecords, commitContentRecords, recordStore, contentTargets } from './task-records.js'
 import { notifyProject } from './project-events.js'
 import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../client/drama-model.js'
 import { mkdir, readdir, readFile, writeFile, rename, rm } from 'node:fs/promises'
@@ -33,6 +34,14 @@ export function projectStore(home) {
     return project
   }
   return {
+    async interruptRecords(id) {
+      const history = recordStore(home, id)
+      await history.interrupt()
+      for (const target of contentTargets(await this.read(id))) if (target.node.source) {
+        const artifact = await history.read('artifacts', target.node.source.artifactId)
+        if (!artifact.published) await history.update('artifacts', artifact.id, { ...artifact, published: true })
+      }
+    },
     async list() {
       let files
       try { files = await readdir(root) }
@@ -100,11 +109,13 @@ export function projectStore(home) {
         }
         for (const episode of next.episodes) refreshReferences(episode)
         next.status = aggregateStatus(next.episodes)
+        const savedRecords = await prepareContentRecords(current, next)
         const temporary = key + '.' + randomUUID() + '.tmp'
         try {
           await writeFile(temporary, JSON.stringify(next, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
           await rename(temporary, key)
         } finally { await rm(temporary, { force: true }) }
+        await commitContentRecords(savedRecords)
         notifyProject(home, next.id, next.revision)
         return next
       })
@@ -117,6 +128,7 @@ export function projectStore(home) {
       const key = fileFor(id)
       const job = (writes.get(key) || Promise.resolve()).catch(() => {}).then(async () => {
         await this.read(id)
+        await rm(join(root, id, 'history'), { recursive: true, force: true })
         await rm(join(root, id, 'films'), { recursive: true, force: true })
         await rm(key)
         notifyProject(home, id)
@@ -159,7 +171,7 @@ export function revisionStore(store, operationId, scope = {}) {
       ...(scope.action === 'film' && i === index - 1 ? { video: shot.video } : {}),
     }))
     const value = episode && scope.track ? { summary: episode.summary, customSkills: episode.customSkills, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: episode.shots.items[index], ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
-    return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, style: project.style, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision'].includes(key) ? undefined : value)
+    return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, style: project.style, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision'].includes(key) ? undefined : value)
   }
   const guarded = Object.create(store)
   guarded.read = async id => {

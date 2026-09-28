@@ -1,6 +1,7 @@
 import { GenerationStatus, allNodes, modelPatch } from '../../client/drama-model.js'
 export async function interruptRunning(store) {
   for (const project of await store.list()) {
+    await store.interruptRecords?.(project.id)
     if (!project.episodes.some(e => e.activity || allNodes(e).some(n => n.operation || n.status === GenerationStatus.GENERATING))) continue
     await store.save(project.id, current => ({ activity: null, activeOperation: null, episodes: current.episodes.map(episode => {
       const next = structuredClone(episode)

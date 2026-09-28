@@ -62,7 +62,3 @@ export function buildAllSecondsPrompts(options, upstream) {
     opinion: ctx?.generationMode === 'modify' ? ctx.review || '' : '',
   })
 }
-
-export function buildSecondsReviewPrompts(options, upstream, shot, neighbors) {
-  return buildShotPrompts('skill-jingtou-meimiao-seconds-generate', `${shotContext(upstream, shot.id)}\n仅审核或定向修订 ${shot.id} 的0–${shot.duration}s每秒指令。相邻镜头本轮最新内容仅作交接参考，不是待审对象：\n${neighbors.map(item => `${item.id}：${item.seconds.content}`).join('\n')}`, options)
-}

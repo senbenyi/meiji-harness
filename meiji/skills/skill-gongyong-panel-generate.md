@@ -15,6 +15,6 @@ description: 在 Harness 会话中创建故事项目、规划分集制作任务�
 - modify：基于当前基稿局部修改；本次意见放 review。保留无关内容。
 本次要求默认仅作用于本次任务，不自动保存为永久配置或 Skill。
 
-返回 running 后使用 meiji_task_control 的 wait 等待，可继续等待但不能重复提交。只有 completed 且 reviewPassed=true 才把计划步骤标记完成并启动依赖步骤。生成、独立审核和最多一次自动修订由原流程处理；review_failed、failed 或 cancelled 后停止依赖步骤，报告具体原因，不自行循环重试。服务重启后查询实际内容状态，不凭旧任务编号猜测完成。
+返回 running 后使用 meiji_task_control 的 wait 等待，可继续等待但不能重复提交。只有 completed 且 reviewPassed=true 才把计划步骤标记完成并启动依赖步骤。生成、独立审核和最多一次自动修订由原流程处理；review_failed、failed 或 cancelled 后停止依赖步骤，报告具体原因，不自行循环重试。服务重启后可按任务编号查询持久化记录；interrupted 表示执行中断，不能当作已完成或自行重做。
 
 用户已要求完成的多个步骤连续执行，不在步骤之间重复请求确认。任务日志留在发起任务的会话。最终简要说明已完成的项目、集数和阶段，或未完成的原因，不复述请求参数、密钥和内部日志。

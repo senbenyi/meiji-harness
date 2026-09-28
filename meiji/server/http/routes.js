@@ -1,3 +1,4 @@
+import { recordStore } from '../data/task-records.js'
 import { subscribeProject } from '../data/project-events.js'
 import { pictureOf, targetNode, shotResults } from '../../client/drama-model.js'
 import { shotReferenceImages } from '../../client/reference-images.js'
@@ -278,7 +279,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           if (!/^session-[0-9a-f-]{36}$/i.test(sessionId)) return json(res, 409, { error: '没有打开的会话，无法关联任务日志' })
           if (body.projectId) await links.requireProject(sessionId, body.projectId)
           const project = body.projectId ? await projects.read(body.projectId) : null
-          const staged = { ...body, projectId: project?.id }
+          const staged = { ...body, projectId: project?.id, origin: 'panel' }
           if (['project-delete', 'episode-delete'].includes(staged.action) && tasks.list(project.id).length) {
             throw Object.assign(new Error('请先停止生成任务，再删除项目或剧集'), { status: 409 })
           }
@@ -303,6 +304,17 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           return json(res, result.status, { error: result.error })
         }
       }
+      if (path === base + '/history' && req.method === 'GET') {
+        const projectId = url.searchParams.get('projectId')
+        await links.requireProject(url.searchParams.get('sessionId'), projectId)
+        await projects.read(projectId)
+        const history = recordStore(home, projectId)
+        const artifactId = url.searchParams.get('artifactId')
+        if (artifactId) return json(res, 200, { artifact: await history.read('artifacts', artifactId) })
+        const episodeId = url.searchParams.get('episodeId')
+        const tasks = (await history.list()).filter(task => !episodeId || task.episodeId === episodeId).sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+        return json(res, 200, { tasks })
+      }
       const episodeFilm = path.match(new RegExp('^' + base + '/projects/([^/]+)/films/([^/]+)/([^/]+)$'))
       if (episodeFilm) {
         const id = decodeURIComponent(episodeFilm[1])
@@ -312,7 +324,8 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
         try {
           const project = await projects.read(id)
-          const file = project.episodes.find(e => e.id === episodeId)?.shots.items.find(s => s.id === track)?.video.content?.file || `${track}.mp4`
+          const episode = project.episodes.find(e => e.id === episodeId)
+          const file = (track === 'assembly' ? episode?.assembly.content?.file : episode?.shots.items.find(s => s.id === track)?.video.content?.file) || `${track}.mp4`
           const filePath = join(home, 'storages', 'meiji', 'projects', id, 'films', episodeId, file)
           const info = await stat(filePath)
           return sendVideo(req, res, filePath, info.size)

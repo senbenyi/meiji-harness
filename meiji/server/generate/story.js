@@ -101,11 +101,12 @@ export function normalizeEpisodeDraft(raw) {
   return { summary, durationSeconds }
 }
 
-export async function generateEpisode({ route, project, episodeId, signal, fetchImpl, request }) {
+export async function generateEpisode({ route, project, episodeId, signal, fetchImpl, request, persist }) {
   const result = await runTextWorkflow({
     prompts: buildEpisodePrompts(project, episodeId),
     options: { route, project: { ...project, durationSeconds: 180 }, signal, fetchImpl, request },
     validate: text => normalizeEpisodeDraft(parseJsonValue(text)),
+    persist: persist && ((text, check) => persist({ ...normalizeEpisodeDraft(parseJsonValue(text)), check })),
   })
   return { ...normalizeEpisodeDraft(parseJsonValue(result.text)), check: result.check }
 }

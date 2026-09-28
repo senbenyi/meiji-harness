@@ -308,3 +308,56 @@ test('overview deletion buttons confirm, target the selected scope and do not op
  await Promise.resolve()
  assert.equal(calls[1][1], 'project-delete')
 })
+
+test('history entry navigates without loading inline history', t => {
+ const container = domSetup(t), project = { id: 'p', episodeId: 'e' }, calls = []
+ return import('../client/execution-history.js').then(({ historyEntry }) => {
+  container.append(historyEntry(project, { openHistory: value => calls.push(value) }))
+  assert.equal(container.querySelector('details'), null)
+  container.querySelector('button').click()
+  assert.deepEqual(calls, [project])
+ })
+})
+
+test('task history page filters records, loads snapshots, refreshes and returns', async t => {
+ const { renderTaskHistory } = await import('../client/execution-history.js')
+ const container = domSetup(t), calls = []; let returned = false
+ const task = { id: 't1', startedAt: new Date().toISOString(), actor: 'model', action: 'episode-generate', status: 'review_failed', nodes: [{ kind: 'review', status: 'succeeded', reviewResult: 'fail', reasons: ['因果不成立'] }], artifacts: [{ target: 'summary', version: 2, artifactId: 'version-2' }] }
+ const view = renderTaskHistory({ id: 'p', episodeId: 'e', episodeNumber: 1, title: '测试项目' }, {
+  back: () => { returned = true },
+  load: async artifactId => { calls.push(artifactId); return artifactId ? { artifact: { content: '历史摘要原文' } } : { tasks: [task, { ...task, id: 't2', status: 'completed', artifacts: [] }] } },
+ })
+ container.append(view)
+ await Promise.resolve()
+ assert.match(view.textContent, /任务历史/)
+ assert.equal(view.querySelectorAll('.task-history-item').length, 2)
+ const filter = view.querySelector('select')
+ filter.value = 'review_failed'; filter.onchange()
+ assert.equal(view.querySelectorAll('.task-history-item').length, 1)
+ assert.match(view.textContent, /因果不成立/)
+ const snapshot = view.querySelector('.task-history-snapshot')
+ snapshot.open = true; await snapshot.ontoggle()
+ assert.match(view.textContent, /历史摘要原文/)
+ assert.equal(calls.filter(value => value === 'version-2').length, 1)
+ filter.value = 'running'; filter.onchange()
+ assert.match(view.textContent, /没有符合条件/)
+ await view.querySelector('.task-history-header button:last-child').onclick()
+ assert.equal(calls.filter(value => !value).length, 2)
+ view.querySelector('.task-history-header button').click()
+ assert.equal(returned, true)
+})
+
+test('task history load failures offer refresh and recover', async t => {
+ const { renderTaskHistory } = await import('../client/execution-history.js')
+ const container = domSetup(t); let fail = true
+ const view = renderTaskHistory({ id: 'p', title: '测试项目' }, { back: () => {}, load: async () => {
+  if (fail) throw new Error('断网')
+  return { tasks: [] }
+ } })
+ container.append(view); await Promise.resolve()
+ assert.match(view.textContent, /加载失败：断网/)
+ fail = false
+ await view.querySelector('.task-history-header button:last-child').onclick()
+ assert.match(view.textContent, /暂无任务历史/)
+ assert.match(view.textContent, /全部剧集/)
+})

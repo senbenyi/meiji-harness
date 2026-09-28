@@ -1,3 +1,4 @@
+import { historyEntry } from './execution-history.js'
 import { GenerationStatus, statusLabels } from './drama-model.js'
 import { videoPromptText as promptText } from './video-prompt-text.js'
 import { decorateShotCard } from './shot-card-state.js'
@@ -556,6 +557,7 @@ const renderers = {
 
 export function renderStage(step, project, actions, context) {
   const view = (renderers[step] || renderers.script)(project, actions, context)
+  if (actions.openHistory) view.append(historyEntry(project, actions))
   for (const el of view.querySelectorAll('[data-model-key]')) el.dataset.modelKey = `${project.id}:${project.episodeId}:${step}:${context?.shotsPane || ''}:${el.dataset.modelKey}`
   return view
 }

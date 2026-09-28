@@ -28,7 +28,7 @@ export function contentGenerateTool({ home, tasks }) {
         }
       }
       if (args.stage === 'story' && (episode.summary.check.passed !== true || episode.summary.stale)) throw new Error('本集摘要尚未通过审核，不能生成剧情')
-      const task = tasks.start({ action, projectId: project.id, episodeId: episode?.id, sessionId, mode: args.mode,
+      const task = tasks.start({ action, origin: 'session', projectId: project.id, episodeId: episode?.id, sessionId, mode: args.mode,
         generationMode: args.mode === 'modify' ? 'modify' : 'regenerate', requirements: args.requirements || '', review: args.mode === 'modify' ? args.review : '',
       }, exec.agent.session)
       return JSON.stringify({ taskId: task.id, status: 'running', projectId: project.id, episodeId: episode?.id, episodeNumber: args.episodeNumber })

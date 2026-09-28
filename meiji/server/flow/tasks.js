@@ -1,3 +1,4 @@
+import { recordStore } from '../data/task-records.js'
 import { randomUUID } from 'node:crypto'
 import { runOperation, validateOperation, operationLabel } from './actions.js'
 import { insertSessionLog, runWithSessionLog } from './session-log.js'
@@ -29,8 +30,18 @@ export function createTasks({ home, workspaceController, execute = runOperation 
     list(projectId) {
       return [...records.values()].filter(task => task.status === 'running' && task.operation.projectId === projectId).map(task => ({ ...snapshot(task), episodeId: task.operation.episodeId, track: task.operation.track }))
     },
-    get(id, sessionId) { return snapshot(find(id, sessionId)) },
+    async get(id, sessionId) {
+      if (records.has(id)) return snapshot(find(id, sessionId))
+      for (const project of await projectStore(home).list()) {
+        let task
+        try { task = await recordStore(home, project.id).read('tasks', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
+        if (task.sessionId !== sessionId) throw Object.assign(new Error('任务不属于当前会话'), { status: 404 })
+        return { id: task.id, taskId: task.id, projectId: task.projectId, episodeId: task.episodeId, status: task.status, error: task.error, reviewPassed: task.latestOutputs?.length ? task.latestOutputs.every(item => item.reviewPassed === true) : null }
+      }
+      throw Object.assign(new Error('任务不存在'), { status: 404 })
+    },
     async wait(id, sessionId, signal) {
+      if (!records.has(id)) return this.get(id, sessionId)
       const task = find(id, sessionId)
       signal?.throwIfAborted()
       let timer, abort
@@ -68,6 +79,11 @@ export function createTasks({ home, workspaceController, execute = runOperation 
             task.result.failures = feedback.check.failures
             task.status = feedback.check.passed === true ? 'completed' : 'review_failed'
           } else task.status = 'completed'
+          try {
+            const saved = await recordStore(home, operation.projectId).read('tasks', id)
+            if (saved.status !== 'running') task.status = saved.status
+            if (saved.error) task.result.error = saved.error
+          } catch (error) { if (error.code !== 'ENOENT') throw error }
           log(session, `任务 ${id} 执行结束：${task.status}\n${trace.join('\n')}`, false, `日志-${operationLabel(operation)}-执行结束`)
         } catch (error) {
           task.status = controller.signal.aborted ? 'cancelled' : error.code === 'CONTENT_CHECK_FAILED' ? 'review_failed' : 'failed'

@@ -197,3 +197,22 @@ button.style-pick.is-on:hover {
 .workflow-generation-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0}.workflow-generation-row>.story-status,.workflow-generation-row>h4,.workflow-generation-row>p{margin:0}.workflow-generation-row>button,.workflow-regenerate{flex:none;margin:0}.workflow-generation-row>button{padding:4px 10px}.image-review-overlay>.workflow-generation-row{width:100%;justify-content:space-between}.episode-copy .workflow-generation-row>strong{min-width:0}
 
 .episode-summary > .summary{max-height:none;overflow:visible}
+
+.task-history-entry { margin-top: 16px; }
+.task-history-page { padding: 16px; }
+.task-history-header, .task-history-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.task-history-header h2 { flex: 1; margin: 0; }
+.task-history-list { display: grid; gap: 12px; }
+.task-history-item { border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+.task-history-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px; cursor: pointer; }
+.task-history-row strong { flex: 1; min-width: 110px; }
+.task-history-status { padding: 3px 8px; border-radius: 12px; background: #eee; font-size: 12px; }
+.task-history-status.is-completed { color: #176b3a; background: #e8f5ec; }
+.task-history-status.is-running { color: #235a96; background: #eaf2fc; }
+.task-history-status.is-failed, .task-history-status.is-review_failed { color: #9f3030; background: #fdeeee; }
+.task-history-detail { padding: 0 14px 14px; overflow-wrap: anywhere; }
+.task-history-nodes { padding-left: 22px; }
+.task-history-nodes li { margin: 10px 0; }
+.task-history-snapshot { margin-top: 10px; }
+.task-history-snapshot summary { cursor: pointer; }
+.task-history-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; }

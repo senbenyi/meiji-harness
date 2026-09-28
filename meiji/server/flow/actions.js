@@ -1,3 +1,4 @@
+import { executionContext, startExecution, endExecution, recordedNode, recordStore } from '../data/task-records.js'
 import { produceShots } from '../workers/shot-film-worker.js'
 import { GenerationStatus, pictureOf, node, contentNode, plotPatch, targetNode, finish, allNodes, modelPatch, shotResults, shotMap, updateShotResult, updateShotResults } from '../../client/drama-model.js'
 import { reviewContent } from '../generate/review.js'
@@ -265,8 +266,17 @@ async function writeFilm(projects, projectId, track, patch) {
   const job = previous.catch(() => {}).then(async () => {
     const current = await projects.read(projectId)
     const films = { ...shotMap(current, 'video') }
-    films[track] = { ...(films[track] || {}), ...patch }
-    const next = { ...updateShotResult(current, 'video', track, films[track]), assembly: node('assembly') }
+    let next
+    if (films[track]?.file && patch.status !== 'ready') {
+      next = structuredClone(current)
+      const video = next.shots.items.find(shot => shot.id === track).video
+      video.pending = patch
+      if (patch.status === 'error') video.error = patch.error
+    } else {
+      films[track] = { ...(films[track] || {}), ...patch }
+      next = { ...updateShotResult(current, 'video', track, films[track]), assembly: node('assembly') }
+      next.shots.items.find(shot => shot.id === track).video.pending = null
+    }
     if ((patch.status === 'ready' || patch.status === 'error') && current.activity === `film:${track}`) next.activity = null
     await projects.save(projectId, next)
   })
@@ -286,6 +296,7 @@ export async function runOperation(operation, deps) {
   const background = []
   let failure
   const operationId = deps.operationId || randomUUID()
+  let execution
   const context = { review: '', operationId, signal: deps.signal, requirements: operation.requirements || '', requestedMode: operation.mode }
   const finish = async () => {
     try {
@@ -329,10 +340,15 @@ export async function runOperation(operation, deps) {
         if (next.activeOperation === operationId) { next.activity = null; next.activeOperation = null; if (context.apiFailure) next.activityError = context.originalRoot?.activityError || null; changed = true }
         return changed ? next : null
       })
-    } finally { if (key) running.delete(key) }
+    } finally {
+      try { await endExecution(execution, failure, deps.signal) } finally { if (key) running.delete(key) }
+    }
   }
   try {
-    const trace = await checkContext.run(context, () => executeOperation(operation, { ...deps, operationId, defer: job => { background.push(job) } }))
+    if (operation.sessionId && operation.projectId) await linkStore(deps.home).requireProject(operation.sessionId, operation.projectId)
+    execution = await startExecution(deps.home, operation, operationId)
+    if (execution) execution.signal = deps.signal
+    const trace = await executionContext.run(execution, () => checkContext.run(context, () => executeOperation(operation, { ...deps, operationId, defer: job => { background.push(job) } })))
     trace.status = background.length ? 'running' : 'completed'
     return trace
   } catch (error) { failure = error; throw error } finally {
@@ -389,6 +405,7 @@ async function executeOperation(operation, deps) {
         const episode = project.episodes.find(item => item.id === operation.episodeId)
         if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
         await rootProjects.save(project.id, async current => {
+          await recordStore(home, project.id).removeEpisode(episode.id)
           await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'films', episode.id), { recursive: true, force: true })
           return { episodes: current.episodes.filter(item => item.id !== episode.id) }
         })
@@ -419,15 +436,22 @@ async function executeOperation(operation, deps) {
       note('操作：episode-generate（会话与面板共用）')
       note('文件：' + skillFilePath('skill-gailan-episode-generate'))
       note('函数：generateEpisode（server/generate/story.js）')
-      const draft = await (deps.generateEpisode || generateEpisode)({ route: (await loadModels(models)).story, project, episodeId: operation.episodeId })
-      const patch = existing
-        ? editEpisode(project, existing.id, { summary: draft.summary, durationSeconds: existing.durationSeconds })
-        : addEpisode(project, draft)
-      const updated = existing ? patch.episodes.find(episode => episode.id === existing.id) : patch.episodes[0]
-      trace.result = { episodeId: updated.id }
-      setCheck(updated, operation, draft.check?.failures || [])
-      await rootProjects.save(project.id, { ...patch, activity: null, activityError: null })
-      note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，保留 ${existing.durationSeconds} 秒时长` : `已生成第 ${patch.episodes.length} 集，${draft.durationSeconds} 秒`)
+      let episodeId = existing?.id
+      const persist = async draft => {
+        await rootProjects.save(project.id, current => {
+          const patch = episodeId ? editEpisode(current, episodeId, { summary: draft.summary, durationSeconds: existing?.durationSeconds || draft.durationSeconds }) : addEpisode(current, draft)
+          const updated = episodeId ? patch.episodes.find(item => item.id === episodeId) : patch.episodes[0]
+          episodeId = updated.id
+          updated.summary.check = { ...(draft.check || { passed: null, failures: [] }), revision: updated.summary.revision }
+          updated.summary.status = draft.check?.passed === true ? GenerationStatus.PASSED : GenerationStatus.FAILED
+          return { ...patch, activity: 'episode' }
+        })
+      }
+      const draft = await (deps.generateEpisode || generateEpisode)({ route: (await loadModels(models)).story, project, episodeId: operation.episodeId, persist })
+      await persist(draft)
+      trace.result = { episodeId }
+      await rootProjects.save(project.id, { activity: null, activityError: null })
+      note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，保留 ${existing.durationSeconds} 秒时长` : `已生成第 ${project.episodes.length + 1} 集，${draft.durationSeconds} 秒`)
       if (existing && existing.summary.content !== draft.summary) note('本集下游制作数据已重置，需要重新生成')
       note(draft.summary)
       return trace
@@ -443,6 +467,10 @@ async function executeOperation(operation, deps) {
         await rm(incoming.directory, { recursive: true, force: true })
       }
       const previous = project.episodes.find(item => item.id === episode.id)
+      if (!previous || previous.summary.content !== episode.summary.content || previous.durationSeconds !== episode.durationSeconds) {
+        episode.summary.check = { passed: null, failures: [], revision: episode.summary.revision }
+        episode.summary.status = GenerationStatus.NOT_GENERATED
+      }
       await rootProjects.save(project.id, patch)
       note(operation.action === 'episode-add' ? `已添加剧集，${episode.durationSeconds} 秒` : `已保存剧集，${episode.durationSeconds} 秒`)
       if (previous && (previous.summary.content !== episode.summary.content || previous.durationSeconds !== episode.durationSeconds)) {
@@ -618,10 +646,11 @@ async function executeOperation(operation, deps) {
       const items = project.shots?.items || []
       if (!items.length) throw Object.assign(new Error('请先写好镜头表，再写每秒指令'), { status: 409 })
       project = await projects.save(project.id, { activity: 'seconds', activityError: null })
-      note('整集一次生成每秒指令，返回后逐镜自审')
+      note('整集一次生成每秒指令，整集独立自审')
       await (deps.generateAllSeconds || generateAllSeconds)({ route: (await loadModels(models)).story, project,
         persist: (shots, phase) => projects.save(project.id, current => {
           const patch = phase === 'draft' ? clearShotDownstream(current, 'seconds') : { shots: current.shots }
+          patch.shots.seconds = shots.seconds
           patch.shots.items = patch.shots.items.map(shot => phase === 'draft' || shot.id === checkContext.getStore()?.target?.track ? { ...shot, seconds: shots.items.find(item => item.id === shot.id).seconds } : shot)
           return { ...patch, assembly: node('assembly'), activity: 'seconds' }
         }),
@@ -702,6 +731,7 @@ async function executeOperation(operation, deps) {
       await (deps.generateAllSeconds || generateAllSeconds)({ route: (await loadModels(models)).story, project,
         persist: (shots, phase) => projects.save(project.id, current => {
           const patch = phase === 'draft' ? clearShotDownstream(current, 'seconds') : { shots: current.shots }
+          patch.shots.seconds = shots.seconds
           patch.shots.items = patch.shots.items.map(shot => phase === 'draft' || shot.id === checkContext.getStore()?.target?.track ? { ...shot, seconds: shots.items.find(item => item.id === shot.id).seconds } : shot)
           return { ...patch, assembly: node('assembly'), activity: 'shot-boards' }
         }),
@@ -868,7 +898,7 @@ async function executeOperation(operation, deps) {
       await projects.save(project.id, { activity: `film:${track}`, activityError: null })
       try {
         const size = aspectRatioOf(project.aspectRatio)
-        const queued = await queueOrResumeFilm(project, track, payload, route, deps, size)
+        const queued = await recordedNode('video_submit', () => queueOrResumeFilm(project, track, payload, route, deps, size), { target: `film:${track}` })
         const shot = queued.shots[0]
         await writeFilm(projects, project.id, track, { status: 'running', terminal: false, promptId: shot.promptId, request: { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [], continuityReference: payload.continuityReference || null }, assetIds: images.map(image => image.assetId).filter(Boolean), error: null })
         note('已执行：提交成片')
@@ -878,10 +908,10 @@ async function executeOperation(operation, deps) {
         note(payload.note)
         note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
         note('视频还在生成。完成后出现在这一张镜头卡片上。')
-        deps.defer((deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal }).then(async bytes => {
+        deps.defer(recordedNode('video_generate', () => (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal }).then(async bytes => {
           await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
           insertSessionLog(deps.session, `${track} 成片已生成`)
-        }).catch(async error => {
+        }), { target: `film:${track}` }).catch(async error => {
           await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
           insertSessionLog(deps.session, error.message || '成片生成失败', true)
         }))
@@ -913,15 +943,17 @@ async function executeOperation(operation, deps) {
         const opening = await prepareFilmOpening(current, item, { home, projects, route, deps })
         const payload = filmSubmit(current, item, opening)
         const size = aspectRatioOf(project.aspectRatio)
-        const queued = await queueOrResumeFilm(current, track, payload, route, deps, size)
+        const queued = await recordedNode('video_submit', () => queueOrResumeFilm(current, track, payload, route, deps, size), { target: `film:${track}` })
         const shot = queued.shots[0]
         await writeFilm(projects, project.id, track, { status: 'running', terminal: false, promptId: shot.promptId, request: { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [], continuityReference: payload.continuityReference || null }, assetIds: images.map(image => image.assetId).filter(Boolean), error: null })
         note(`已提交 ${track}，时长 ${shot.duration} 秒`)
         note(payload.note)
         note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
         try {
-          const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })
-          await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
+          await recordedNode('video_generate', async () => {
+            const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })
+            await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
+          }, { target: `film:${track}` })
           note(`${track} 成片已生成`)
         } catch (error) {
           await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
@@ -940,7 +972,8 @@ async function executeOperation(operation, deps) {
       const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'films', project.episodeId || '')
       await mkdir(directory, { recursive: true })
       const inputs = project.shots.items.map(item => join(directory, item.video.content.file || `${item.id}.mp4`))
-      const output = join(directory, 'assembly.mp4')
+      const file = `assembly-${randomUUID()}.mp4`
+      const output = join(directory, file)
       note('按镜头顺序拼接成片')
       note('文件：server/generate/concat.js')
       note('函数：concatFilms')
@@ -948,7 +981,7 @@ async function executeOperation(operation, deps) {
       await (deps.concatFilms || concatFilms)({ inputs, output })
       const episode = project.episodeId ? `${encodeURIComponent(project.episodeId)}/` : ''
       const url = `/plugins/meiji/projects/${encodeURIComponent(project.id)}/films/${episode}assembly?v=${Date.now()}`
-      await projects.save(project.id, { assembly: contentNode(project.assembly, { url }, { passed: true, failures: [] }), activity: null })
+      await projects.save(project.id, { assembly: contentNode(project.assembly, { url, file }, { passed: true, failures: [] }), activity: null })
       note('全片已拼接')
       return trace
     }

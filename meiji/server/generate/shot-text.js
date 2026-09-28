@@ -1,6 +1,6 @@
 import { previousTail } from '../../client/tail-frame.js'
-import { runTextWorkflow, runGenerationNode } from '../flow/text-workflow.js'
-import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildStoryboardPrompts, buildAllSecondsPrompts, buildSecondsReviewPrompts } from '../prompts/shot-prompts.js'
+import { runTextWorkflow } from '../flow/text-workflow.js'
+import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildStoryboardPrompts, buildAllSecondsPrompts } from '../prompts/shot-prompts.js'
 import { node, shotModel, setContent, shotResults, updateShotResults } from '../../client/drama-model.js'
 import { checkContext, selectCheck } from '../data/self-checks.js'
 import { shotReferenceImages } from '../../client/reference-images.js'
@@ -37,7 +37,7 @@ export async function generateShots(options) {
     // 保存失败原文，不自动重试或把格式错误交给剧情重写循环。
     return { ...node('shots'), revision: project.shots.revision + 1, items, failedOutput: items.length ? '' : text, reviewText, format: 'text', check: { passed: failures.length ? false : check.passed, failures } }
   }
-  const result = await runTextWorkflow({ prompts: buildTablePrompts(options), options, persist: persist && ((text, check) => persist(normalize(text, check))), canRevise: text => { try { readShotSections(text); return true } catch { return false } } })
+  const result = await runTextWorkflow({ prompts: buildTablePrompts(options), options, validate: readShotSections, persist: persist && ((text, check) => persist(normalize(text, check))), canRevise: text => { try { readShotSections(text); return true } catch { return false } } })
   const shots = normalize(result.text, result.check, result.reviewText)
   const failures = shots.check.failures
   if (persist) {
@@ -56,51 +56,27 @@ export async function reviseShot(options) {
   return { ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, content: result.text, check: result.check } : item), check: result.check }
 }
 
-// One whole-episode generation, followed by independent reviews of each returned shot.
+// Generate, review and revise the complete episode as one version.
 export async function generateAllSeconds(options) {
   let { project } = options
   const ctx = checkContext.getStore()
-  const signal = options.signal || ctx?.signal
-  signal?.throwIfAborted()
-  for (const shot of project.shots.items) await ctx?.startTarget?.({ action: 'shot-seconds', track: shot.id })
   const upstream = { ...project, shots: { ...project.shots, items: project.shots.items.map(shot => ({ ...shot, seconds: { ...shot.seconds, content: null, check: { passed: null } } })) } }
-  const text = await runGenerationNode({ message: buildAllSecondsPrompts(options, upstream).generation, options: { ...options, signal, logPurpose: '整集每秒指令', logStage: '生成' } })
-  const trimmed = String(text).trim()
-  if (!trimmed.endsWith('[seconds-complete]')) throw new Error('整集每秒指令返回不完整，未覆盖原内容；请重新生成')
-  const sections = readShotSections(trimmed.slice(0, -'[seconds-complete]'.length).trim())
-  if (sections.length !== project.shots.items.length || sections.some((shot, i) => shot.id !== project.shots.items[i].id || shot.duration !== project.shots.items[i].duration)) throw new Error('每秒指令镜头编号、数量或时长与镜头表不一致，未覆盖原内容')
-  if (ctx) { ctx.target = { action: 'seconds' }; ctx.validation = []; ctx.deferCheckFailure = true }
-  const failures = []
-  try {
-    project = { ...project, shots: { ...project.shots, items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i].content) })) } }
-    if (options.persist) {
-      if (ctx) ctx.textNodeSaving = true
-      try {
-        project = await options.persist(project.shots, 'draft')
-        if (ctx) ctx.textDraftSaved = true
-      } finally { if (ctx) ctx.textNodeSaving = false }
-    }
-    for (const shot of project.shots.items) {
-      signal?.throwIfAborted()
-      await selectCheck(project, { action: 'shot-seconds', track: shot.id })
-      const neighbors = project.shots.items.filter(item => Math.abs(project.shots.items.indexOf(item) - project.shots.items.indexOf(shot)) === 1)
-      const result = await runTextWorkflow({ initialText: shot.seconds.content,
-        prompts: buildSecondsReviewPrompts({ ...options, project, shotId: shot.id }, upstream, shot, neighbors),
-        options: { ...options, project, signal, shotId: shot.id },
-        persist: async (text, check) => {
-          project = { ...project, shots: { ...project.shots, items: project.shots.items.map(item => item.id === shot.id ? { ...item, seconds: setContent(structuredClone(item.seconds), text, check) } : item) } }
-          if (options.persist) project = await options.persist(project.shots, 'review')
-        },
-      })
-      const items = project.shots.items.map(item => item.id === shot.id ? { ...item, seconds: setContent(structuredClone(item.seconds), result.text, result.check) } : item)
-      project = { ...project, shots: { ...project.shots, items } }
-      if (options.persist) project = await options.persist(project.shots, 'review')
-      if (!result.check.passed) failures.push(`${shot.id}：${result.check.failures.join('；')}`)
-    }
-  } finally {
-    if (ctx) { ctx.deferCheckFailure = false; ctx.target = { action: 'seconds' }; ctx.validation = [] }
+  const parse = text => {
+    const trimmed = String(text).trim()
+    if (!trimmed.endsWith('[seconds-complete]')) throw new Error('整集每秒指令返回不完整，未覆盖原内容；请重新生成')
+    const sections = readShotSections(trimmed.slice(0, -'[seconds-complete]'.length).trim())
+    if (sections.length !== project.shots.items.length || sections.some((shot, i) => shot.id !== project.shots.items[i].id || shot.duration !== project.shots.items[i].duration)) throw new Error('每秒指令镜头编号、数量或时长与镜头表不一致，未覆盖原内容')
+    return sections
   }
-  if (failures.length) throw Object.assign(new Error(`自检未通过：${failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
+  if (ctx) ctx.target = { action: 'seconds' }
+  const result = await runTextWorkflow({ prompts: buildAllSecondsPrompts(options, upstream), options, validate: parse,
+    persist: async (text, check) => {
+      const sections = parse(text)
+      const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), text, check), items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i].content, check) })) }
+      project = options.persist ? await options.persist(shots, 'draft') : { ...project, shots }
+    },
+  })
+  if (!result.check.passed) throw Object.assign(new Error(`自检未通过：${result.check.failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
   return project.shots
 }
 

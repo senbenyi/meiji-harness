@@ -1,3 +1,4 @@
+import { historyEntry } from './execution-history.js'
 import { pictureOf } from './drama-model.js'
 import { element, appendJsonCopy } from './dom.js'
 import { bindStylePicker } from './style-picks.js'
@@ -215,6 +216,7 @@ export function renderOverview(project, actions, context) {
   })
 
   page.append(episodes)
+  if (actions.openHistory) page.append(historyEntry(project, actions))
   return page
 }
 

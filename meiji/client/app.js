@@ -1,3 +1,4 @@
+import { renderTaskHistory } from './execution-history.js'
 import { appendLogCopy } from './dom.js'
 import { tabs } from './flow-view.js'
 import { createModelStore, renderModelView } from './model-store.js'
@@ -164,6 +165,16 @@ export function mount() {
   })
   const bridge = createBridge({ request, jsonBody, showProject, onDeleted: () => follow(true), status: message => shell.status(message) })
   const actions = {
+    openHistory: project => {
+      hold = true
+      navigation++
+      const sessionId = currentSessionId()
+      display(renderTaskHistory(project, {
+        back: () => follow(true).catch(error => shell.status(error.message)),
+        load: (artifactId = '') => request('history?' + new URLSearchParams({ projectId: project.id, ...(project.episodeId ? { episodeId: project.episodeId } : {}), sessionId, ...(artifactId ? { artifactId } : {}) })),
+      }))
+      shell.content.parentElement.scrollTop = 0
+    },
     openCustomSkill: (project, stage) => {
       hold = true
       navigation++
@@ -289,7 +300,7 @@ export function mount() {
     workspace = place.workspace
     watchProject(place.projectId, sessionId)
     const next = (place.workspace?.id || '') + ':' + (place.projectId || '')
-    if (!force && hold) return
+    if (!force && hold && next === shown) return
     if (!place.projectId) {
       if (!force && next === shown) return
       const { projects } = await request('projects')
