@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runTextWorkflow } from '../server/flow/text-workflow.js'
+import { runTextWorkflow } from '../server/generate/text-workflow.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 
 // Exercise the public worker while controlling generation/review responses.
@@ -25,8 +25,9 @@ test('second failure stops; no third generation', async () => {
  const result=await generateWithSelfReview({generate:async()=>`稿${++count}`,review:async()=> 'FAIL\n错误'})
  assert.equal(count,2);assert.equal(result.text,'稿2');assert.equal(result.check.passed,false)
 })
-for (const verdict of ['', 'invalid', 'FAIL']) test(`invalid review does not trigger correction: ${verdict}`,async()=>{
- let count=0;await generateWithSelfReview({generate:async()=>{count++;return '稿'},review:async()=>verdict});assert.equal(count,1)
+// 审核必须返回 PASS 或「FAIL 原因」；其它格式视为接口错误，不触发修订。
+for (const verdict of ['', 'invalid', 'FAIL']) test(`invalid review is a format error and does not trigger correction: ${verdict}`,async()=>{
+ let count=0;await assert.rejects(generateWithSelfReview({generate:async()=>{count++;return '稿'},review:async()=>verdict}),/审核返回格式错误/);assert.equal(count,1)
 })
 test('review and correction API errors stop without producing a semantic failure',async()=>{
  await assert.rejects(generateWithSelfReview({generate:async()=> '稿',review:async()=>{throw new Error('network')}}),/network/)
@@ -37,8 +38,8 @@ test('seconds retry includes latest draft, original human opinion and failure th
  const result=await generateShotSeconds({project:episodeFixture(),shotId:'S01',review:'保留声音',request:async ({ skill, user: prompt }) =>{calls.push(prompt);return skill==='skill-gongyong-content-review' ? (++reviewed===1?'FAIL\n朝向不对':'PASS') : (++generated===1?'最新初稿':'修好朝向')}})
  assert.equal(calls.length,4);assert.match(calls[2],/最新初稿/);assert.match(calls[2],/朝向不对/);assert.match(calls[2],/保留声音/);assert.match(calls[3],/修好朝向/);assert.equal(result.items[0].seconds.check.passed,true)
 })
-test('invalid table syntax is never rewritten even on semantic FAIL',async()=>{
- let count=0;const out=await generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='skill-gongyong-content-review'?'FAIL\n标题错误':'{"items":[]}'}});assert.equal(count,2);assert.equal(out.failedOutput,'{"items":[]}')
+test('invalid table syntax fails before review and is never rewritten',async()=>{
+ let count=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='skill-gongyong-content-review'?'FAIL\n标题错误':'{"items":[]}'}}),/镜头表需按/);assert.equal(count,1)
 })
 
 test('second self-review sees task and newest output without prior failed draft or verdict', async () => {

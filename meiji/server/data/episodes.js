@@ -1,8 +1,8 @@
-import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from '../../client/drama-model.js'
+import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from '../../shared/drama-model.js'
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import { extname, join } from 'node:path'
-import { aspectRatioOf, durationOf, replaceFrom, sourcePatch, staleMedia } from '../flow/gates.js'
+import { aspectRatioOf, durationOf, replaceFrom, sourcePatch, staleMedia } from '../../shared/gates.js'
 
 const scriptLimit = 200000
 export function normalizeProject(project) { return assertDrama(project) }

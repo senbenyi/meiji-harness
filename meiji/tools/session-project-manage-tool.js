@@ -1,7 +1,7 @@
 import { projectStore } from '../server/data/projects.js'
 import { linkStore } from '../server/data/links.js'
 import { runOperation } from '../server/flow/actions.js'
-import { runWithSessionLog, insertSessionLog } from '../server/flow/session-log.js'
+import { runWithSessionLog, insertSessionLog } from '../server/host/session-log.js'
 import { jsonOutput, sessionIdOf } from './session-context-query-tool.js'
 
 export function projectManageTool({ home, workspaceController }) {

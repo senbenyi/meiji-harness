@@ -7,15 +7,33 @@ import { createTasks } from './server/flow/tasks.js'
 import { allSkills } from './skills/load.js'
 import { interruptRunning } from './server/flow/interrupt.js'
 import { projectStore } from './server/data/projects.js'
+import { modelStore } from './server/data/models.js'
+import { normalizeModels } from './models/router.js'
+import { cancelGatewayTask } from './server/generate/gateway.js'
+import { ffmpegAvailable } from './server/generate/ffmpeg.js'
+import { setHostLogger } from './server/host/session-log.js'
+import { setWorkspaceRegistry } from './server/host/workspaces.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 export const name = 'meiji'
-export const inject = ['webServer', 'connection', 'settings', 'tools', 'sessionController', 'workspaceController', 'sessions']
+export const inject = ['webServer', 'connection', 'settings', 'tools', 'sessionController', 'workspaceController', 'workspaceRegistry', 'sessions']
 export function apply(ctx) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
-  const ready = interruptRunning(projectStore(home)).catch(error => {
+  setHostLogger(ctx.logger)
+  ctx.effect(() => () => setHostLogger(null), 'meiji: host logger')
+  setWorkspaceRegistry(ctx.workspaceRegistry)
+  ctx.effect(() => () => setWorkspaceRegistry(null), 'meiji: workspace registry')
+  // 启动时取消上次遗留的进行中任务；已提交的远端视频尽力发送取消请求。
+  const cancelRemote = async promptId => {
+    const route = normalizeModels(await modelStore(home).read()).video
+    await cancelGatewayTask({ baseUrl: route.baseUrl, apiKey: route.apiKey, promptId, kind: 'videos' })
+  }
+  const ready = interruptRunning(projectStore(home), { cancelRemote }).catch(error => {
     ctx.logger.warn('Meiji interrupt failed: %s', error.message)
+  })
+  void ffmpegAvailable().then(found => {
+    if (!found) ctx.logger.warn('Meiji: 未找到 ffmpeg，尾帧提取、全片拼接与图片压缩将不可用；请安装 ffmpeg 并确保在 PATH 中')
   })
   const tasks = createTasks({ home, workspaceController: ctx.workspaceController })
   ctx.effect(() => () => tasks.dispose(), 'meiji: tasks')

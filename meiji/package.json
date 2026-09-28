@@ -10,6 +10,6 @@
     }
   },
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "MEIJI_MODELS_LOCAL=tests/fixtures/models.local.json node --test tests/*.test.js"
   }
 }

@@ -80,12 +80,22 @@ test('unsupported remote cancellation is reported rather than claiming success',
   }), error => error.code === 'REMOTE_CANCEL_FAILED' && /video_1.*channel does not support cancellation.*仍在运行/.test(error.message))
 })
 
-test('service pause keeps the submitted video available for resuming', async () => {
-  const controller = new AbortController(), reason = Object.assign(new Error('暂停'), { code: 'TASK_PAUSED' })
-  let calls = 0
-  controller.abort(reason)
-  await assert.rejects(retrieveGatewayVideo({ ...route, promptId: 'video_1', signal: controller.signal, fetchImpl: async () => { calls++ } }), error => error === reason)
-  assert.equal(calls, 0)
+// 服务关闭一律取消：与用户点击停止相同，已提交的视频会收到远端取消请求。
+test('service shutdown cancels the submitted video remotely instead of pausing it', async () => {
+  const tasks = createTasks({ home: '/nonexistent', execute: async (_operation, { signal }) => {
+    await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, pause: (_ms, polling) => new Promise((_, reject) => polling.addEventListener('abort', () => reject(polling.reason), { once: true })), fetchImpl: async (url, options) => {
+      calls.push([url.pathname, options.method])
+      if (url.pathname.endsWith('/cancel')) return Response.json({ status: 'cancelled' })
+      return Response.json({ status: 'in_progress' })
+    } })
+  } })
+  const calls = []
+  const { done } = tasks.start({ action: 'film', projectId: 'p', episodeId: 'e', track: 'S01', sessionId: 's' })
+  await new Promise(resolve => setTimeout(resolve, 20))
+  tasks.dispose()
+  const result = await done
+  assert.equal(result.status, 'cancelled')
+  assert.deepEqual(calls, [['/v1/videos/video_1', 'GET'], ['/v1/videos/video_1/cancel', 'POST']])
 })
 
 test('completed image is downloaded as bytes using the documented task endpoints', async () => {

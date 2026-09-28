@@ -1,5 +1,5 @@
 import { appendWorkflowReview, reviewFields } from './workflow-review.js'
-import { feedbackOf } from './feedback.js'
+import { feedbackOf } from '../shared/feedback.js'
 import { element, appendJsonCopy } from './dom.js'
 
 export function draftsOf(project) {

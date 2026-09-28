@@ -5,10 +5,10 @@ import { setupModel, episodeFixture } from './fixtures/model.js'
 import { projectStore, revisionStore } from '../server/data/projects.js'
 import { scopeProjects, blankEpisode } from '../server/data/episodes.js'
 import { runOperation } from '../server/flow/actions.js'
-import { staleMedia } from '../server/flow/gates.js'
+import { staleMedia } from '../shared/gates.js'
 import { savePicture, saveImageDraft, readImageDraft, pictureTargetSnapshot } from '../server/data/pictures.js'
 import { assetStore } from '../server/data/library.js'
-import { node, contentNode, pictureOf, begin, setContent } from '../client/drama-model.js'
+import { node, contentNode, pictureOf, begin, setContent } from '../shared/drama-model.js'
 async function pending(t, kind='character') {
  const e=await setupModel(t),p=await e.read(),track=kind==='pencil'?'S01':undefined,slot=kind==='part'?'clothes':undefined
  const target=track?{id:track,...p.shots.items[0].storyboard.content}:p.plot.characters.items[0]

@@ -1,9 +1,9 @@
-import { node } from '../client/drama-model.js'
+import { node } from '../shared/drama-model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
 import { produceShots } from '../server/workers/shot-film-worker.js'
-import { previousTail } from '../client/tail-frame.js'
+import { previousTail } from '../shared/tail-frame.js'
 
 test('production completes previous video before writing next text with its tail', async t => {
  const e=await setupModel(t),calls=[]

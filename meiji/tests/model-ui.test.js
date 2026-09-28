@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { JSDOM } from '../../harness/node_modules/jsdom/lib/api.js'
+import { JSDOM } from './fixtures/jsdom.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { renderStage } from '../client/stages.js'
 import { renderModelView, createModelStore } from '../client/model-store.js'
-import { setContent } from '../client/drama-model.js'
+import { setContent } from '../shared/drama-model.js'
 function domSetup(t) {
  const dom=new JSDOM('<body><main></main></body>',{url:'http://localhost'})
  const prior={document:globalThis.document,window:globalThis.window,CustomEvent:globalThis.CustomEvent}

@@ -1,13 +1,14 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { hostWorkspaces } from '../host/workspaces.js'
+import { readProjectFile } from './project-files.js'
 
 const sessionPattern = /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 let workspaceTail = Promise.resolve()
 
-export function linkStore(home, controller) {
+export function linkStore(home, controller, workspaces = hostWorkspaces()) {
   const file = join(home, 'storages', 'meiji', 'workspace-links.json')
-  const workspaceFile = join(home, 'storages', 'workspace.json')
   const readMap = async () => {
     try {
       const data = JSON.parse(await readFile(file, 'utf8'))
@@ -26,17 +27,7 @@ export function linkStore(home, controller) {
   return {
     async workspaceForSession(sessionId) {
       if (!sessionPattern.test(String(sessionId || ''))) return null
-      let data
-      try { data = JSON.parse(await readFile(workspaceFile, 'utf8')) }
-      catch (error) { if (error.code === 'ENOENT') return null; throw error }
-      const tables = data?.tables?.workspaces
-      if (!tables || typeof tables !== 'object') return null
-      for (const [id, workspace] of Object.entries(tables)) {
-        if (Array.isArray(workspace?.sessionIds) && workspace.sessionIds.includes(sessionId)) {
-          return { id, title: typeof workspace.title === 'string' && workspace.title.trim() ? workspace.title.trim() : id }
-        }
-      }
-      return null
+      return workspaces.forSession(sessionId)
     },
     async selectProject(sessionId, projectId, projects) {
       if (!sessionPattern.test(sessionId)) throw new Error('当前会话无效')
@@ -49,7 +40,7 @@ export function linkStore(home, controller) {
       if (sessionPattern.test(String(sessionId || ''))) {
         try {
           const selected = JSON.parse(await readFile(join(home, 'storages', 'meiji', 'session-projects', sessionId + '.json'), 'utf8'))
-          const project = JSON.parse(await readFile(join(home, 'storages', 'meiji', 'projects', selected.projectId + '.json'), 'utf8'))
+          const project = await readProjectFile(home, selected.projectId)
           return { workspace: { id: project.workspaceId, title: project.title }, projectId: project.id }
         } catch (error) { if (error.code !== 'ENOENT') throw error }
       }
@@ -58,7 +49,7 @@ export function linkStore(home, controller) {
       let projectId = (await readMap())[workspace.id] || null
       if (projectId) {
         try {
-          const project = JSON.parse(await readFile(join(home, 'storages', 'meiji', 'projects', projectId + '.json'), 'utf8'))
+          const project = await readProjectFile(home, projectId)
           if (project.workspaceId !== workspace.id) projectId = null
         } catch (error) { if (error.code === 'ENOENT') projectId = null; else throw error }
       }

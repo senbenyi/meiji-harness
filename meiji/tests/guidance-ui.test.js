@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { JSDOM } from '../../harness/node_modules/jsdom/lib/api.js'
+import { JSDOM } from './fixtures/jsdom.js'
 import { renderCustomSkill, customSkillField } from '../client/custom-skills.js'
 import { renderLibrary } from '../client/library.js'
 

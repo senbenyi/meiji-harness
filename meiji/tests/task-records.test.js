@@ -99,14 +99,14 @@ test('manual text prompt review records the saved version', async t => {
  assert.equal(current.shots.items[0].storyboard.check.passed, true)
 })
 
-test('restart interrupts persisted tasks; tasks can be read after service recreation', async t => {
+test('restart cancels persisted running tasks; tasks can be read after service recreation', async t => {
  const e = await setup(t), id = randomUUID()
  await startExecution(e.home, e.op('seconds', { sessionId: 'session-test' }), id)
  await interruptRunning(e.store)
  const task = await e.history.read('tasks', id)
- assert.equal(task.status, 'interrupted'); assert.equal(task.nodes[0].status, 'interrupted')
+ assert.equal(task.status, 'cancelled'); assert.equal(task.nodes[0].status, 'cancelled'); assert.match(task.error, /服务重启/)
  const result = await createTasks({ home: e.home }).get(id, 'session-test')
- assert.equal(result.status, 'interrupted')
+ assert.equal(result.status, 'cancelled')
 })
 
 test('video completion records immutable filename and a failed retry preserves it', async t => {

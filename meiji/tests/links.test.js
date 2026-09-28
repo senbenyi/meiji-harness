@@ -7,16 +7,19 @@ import { join } from 'node:path'
 import { linkStore } from '../server/data/links.js'
 import { projectStore } from '../server/data/projects.js'
 import { runOperation } from '../server/flow/actions.js'
+import { fakeRegistry } from './fixtures/host.js'
+import { setWorkspaceRegistry } from '../server/host/workspaces.js'
 
 const sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
 const oldId = '4d22904e-81db-454d-a9bd-688c513ed840'
 async function fixture(fn) {
   const home = await mkdtemp(join(tmpdir(), 'meiji-link-'))
   const rows = { [oldId]: { title: '原工作区', path: '/old', sessionIds: [sessionId] } }
-  const persist = async () => {
-    await mkdir(join(home, 'storages'), { recursive: true })
-    await writeFile(join(home, 'storages', 'workspace.json'), JSON.stringify({ global: { archivedSessionIds: [] }, tables: { workspaces: rows } }))
-  }
+  // 工作区只经 Harness 公开的 workspaceRegistry 读取；不写 workspace.json，确保代码不再依赖该文件。
+  const archived = []
+  const persist = async () => {}
+  const registry = fakeRegistry(rows, archived)
+  setWorkspaceRegistry(registry)
   const controller = {
     async create({ path }) {
       let id = Object.keys(rows).find(id => rows[id].path === path)
@@ -32,8 +35,8 @@ async function fixture(fn) {
   await persist()
   const projects = projectStore(home)
   const create = title => projects.create({ title, summary: '短剧摘要' })
-  try { await fn({ home, rows, persist, controller, projects, create, links: linkStore(home, controller) }) }
-  finally { await rm(home, { recursive: true, force: true }) }
+  try { await fn({ home, rows, archived, persist, controller, projects, create, links: linkStore(home, controller) }) }
+  finally { setWorkspaceRegistry(null); await rm(home, { recursive: true, force: true }) }
 }
 
 test('each project owns a stable workspace without moving old conversations', () => fixture(async ({ rows, projects, create, links }) => {
@@ -82,6 +85,7 @@ test('legacy workspace mappings do not claim ambiguous sessions', () => fixture(
 
 test('HTTP project selection reuses sessions, creates an owned session and rejects old-workspace writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
   const { registerPanel } = await import('../server/http/routes.js')
+  const { createTasks } = await import('../server/flow/tasks.js')
   let handler
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -98,7 +102,7 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
       connection: { requestRejection: () => null },
       webServer: { register: route => { handler = route.handler } },
       effect: fn => fn(), on() {}, logger: { warn() {} },
-    })
+    }, Promise.resolve(), createTasks({ home, workspaceController: controller }))
   } finally {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous

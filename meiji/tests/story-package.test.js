@@ -1,4 +1,4 @@
-import { node, cardModel, shotModel, pictureOf } from '../client/drama-model.js'
+import { node, cardModel, shotModel, pictureOf } from '../shared/drama-model.js'
 import { episodeFixture } from './fixtures/model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -73,7 +73,7 @@ test('package saves atomically to one episode, retains failed content and clears
 })
 
 test('characters and scenes belong to the plot tab without a separate cast tab', () => {
-  assert.deepEqual(tabs.map(t => t.id), ['summary', 'script', 'shots', 'film', 'assembly'])
+  assert.deepEqual(tabs.map(t => t.id), ['summary', 'script', 'shots', 'seconds', 'film', 'assembly'])
   assert.equal(tabOf({ summary: { content: '摘要' }, plot: {} }), 'script')
   assert.equal(canGenerate({ outline: '大纲' }, 'characters'), false)
 })

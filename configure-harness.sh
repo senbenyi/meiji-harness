@@ -64,5 +64,12 @@ if node -e 'const n=require("net").connect(3080,"127.0.0.1",()=>{n.end();process
   exit 0
 fi
 
+# 启动前把项目数据迁移到按剧集拆分的存储布局；已迁移的项目跳过，失败时不启动。
+DSH_DATA="${DSH_HOME:-$HOME/.dsh}"
+if [[ -d "$DSH_DATA/storages/meiji/projects" ]]; then
+  echo "检查 meiji 项目存储布局"
+  node "$PLUGIN/scripts/migrate-layout.js" "$DSH_DATA"
+fi
+
 echo "启动 Harness"
 exec node --import tsx/esm apps/cli/src/bin.ts web

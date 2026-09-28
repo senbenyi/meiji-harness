@@ -1,4 +1,4 @@
-import { emptyFeedback, feedbackKey } from '../client/feedback.js'
+import { emptyFeedback, feedbackKey } from '../shared/feedback.js'
 
 // Translate legacy storage once on load/save; runtime consumers only use feedback.
 export function migrateFeedback(source) {

@@ -6,7 +6,7 @@ import { blankEpisode, materialize, scopeProjects } from '../server/data/episode
 import { runOperation } from '../server/flow/actions.js'
 import { generateShots, generateShotSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
-import { node, shotModel, begin, finish, saveReview, assertDrama, allNodes, contentNode } from '../client/drama-model.js'
+import { node, shotModel, begin, finish, saveReview, assertDrama, allNodes, contentNode } from '../shared/drama-model.js'
 import { migrateProject } from '../scripts/migrate-model.js'
 import { referenceReport } from '../client/storyboard-references.js'
 async function setup(t) {

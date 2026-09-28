@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createTasks } from '../server/flow/tasks.js'
 import { subscribeProject } from '../server/data/project-events.js'
 import { setupModel } from './fixtures/model.js'
-import { sessionForLog } from '../server/flow/session-log.js'
+import { sessionForLog } from '../server/host/session-log.js'
 
 const operation = { projectId: 'p', episodeId: 'e', action: 'seconds' }
 test('button tasks execute directly with isolated logs, reject duplicates and release after cancellation', async () => {
@@ -20,8 +20,9 @@ test('button tasks execute directly with isolated logs, reject duplicates and re
  assert.throws(() => tasks.start(operation, session), { status: 409 })
  assert.throws(() => tasks.cancel(task.id, 'other'), { status: 404 })
  tasks.cancel(task.id, 'p')
- await task.done
- assert.equal(signal.aborted, true)
+ // 任务先经过全局队列：提交后立即取消时可能尚未开始执行；若已开始，必须收到中止信号。
+ assert.equal((await task.done).status, 'cancelled')
+ assert.ok(!signal || signal.aborted)
  assert.deepEqual(tasks.list('p'), [])
  assert.ok(events.every(e => ['command/run', 'command/done'].includes(e.type)))
  assert.ok(events.some(e => e.data.text?.includes('任务已停止')))

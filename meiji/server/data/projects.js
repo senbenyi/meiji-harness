@@ -1,11 +1,12 @@
 import { prepareContentRecords, commitContentRecords, recordStore, contentTargets } from './task-records.js'
 import { notifyProject } from './project-events.js'
-import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../client/drama-model.js'
-import { mkdir, readdir, readFile, writeFile, rename, rm } from 'node:fs/promises'
+import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../shared/drama-model.js'
+import { mkdir, rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
-import { replaceFrom, sourcePatch, aspectRatioOf, durationOf } from '../flow/gates.js'
+import { replaceFrom, sourcePatch, aspectRatioOf, durationOf } from '../../shared/gates.js'
 import { normalizeProject } from './episodes.js'
+import { episodeSnapshot, projectIds, readProjectFile, removeProjectFiles, writeProjectFile } from './project-files.js'
 
 const writes = new Map()
 
@@ -28,8 +29,8 @@ export function validateProject(input) {
 export function projectStore(home) {
   const root = join(resolve(home), 'storages', 'meiji', 'projects')
   const fileFor = id => join(root, id + '.json')
-  const parse = async (id, file) => {
-    const project = normalizeProject(JSON.parse(await readFile(file, 'utf8')))
+  const parse = async id => {
+    const project = normalizeProject(await readProjectFile(home, id))
     if (project?.id !== id || typeof project.createdAt !== 'string') throw new Error('项目文件损坏')
     return project
   }
@@ -43,21 +44,16 @@ export function projectStore(home) {
       }
     },
     async list() {
-      let files
-      try { files = await readdir(root) }
-      catch (error) { if (error.code === 'ENOENT') return []; throw error }
       const projects = []
-      for (const file of files) {
-        const id = file.endsWith('.json') ? file.slice(0, -5) : ''
-        if (!uuid.test(id)) continue
-        try { projects.push(await parse(id, join(root, file))) }
+      for (const id of await projectIds(home)) {
+        try { projects.push(await parse(id)) }
         catch (error) { if (error instanceof SyntaxError || error.message === '项目文件损坏') continue; throw error }
       }
       return projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
     async read(id) {
       if (!uuid.test(id)) throw Object.assign(new Error('项目 ID 无效'), { status: 400 })
-      try { return await parse(id, fileFor(id)) }
+      try { return await parse(id) }
       catch (error) {
         if (error.code === 'ENOENT') throw Object.assign(new Error('项目不存在'), { status: 404 })
         throw error
@@ -81,9 +77,7 @@ export function projectStore(home) {
         updatedAt: now,
       })
       await mkdir(root, { recursive: true })
-      const target = fileFor(project.id)
-      await writeFile(target + '.tmp', JSON.stringify(project, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
-      await rename(target + '.tmp', target)
+      await writeProjectFile(home, project, null)
       return project
     },
     async save(id, patch, { expectedRevision } = {}) {
@@ -91,6 +85,7 @@ export function projectStore(home) {
       const previous = writes.get(key) || Promise.resolve()
       const job = previous.catch(() => {}).then(async () => {
         const current = await this.read(id)
+        const before = episodeSnapshot(current)
         if (expectedRevision !== undefined && (current.revision || 0) !== expectedRevision) {
           throw Object.assign(new Error('项目已被修改，请刷新后重试，旧结果未覆盖当前数据'), { status: 409 })
         }
@@ -110,11 +105,7 @@ export function projectStore(home) {
         for (const episode of next.episodes) refreshReferences(episode)
         next.status = aggregateStatus(next.episodes)
         const savedRecords = await prepareContentRecords(current, next)
-        const temporary = key + '.' + randomUUID() + '.tmp'
-        try {
-          await writeFile(temporary, JSON.stringify(next, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
-          await rename(temporary, key)
-        } finally { await rm(temporary, { force: true }) }
+        await writeProjectFile(home, next, before)
         await commitContentRecords(savedRecords)
         notifyProject(home, next.id, next.revision)
         return next
@@ -130,7 +121,7 @@ export function projectStore(home) {
         await this.read(id)
         await rm(join(root, id, 'history'), { recursive: true, force: true })
         await rm(join(root, id, 'films'), { recursive: true, force: true })
-        await rm(key)
+        await removeProjectFiles(home, id)
         notifyProject(home, id)
       })
       writes.set(key, job)

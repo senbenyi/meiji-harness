@@ -11,8 +11,8 @@ import { buildGuidancePrompt } from '../server/prompts/guidance-prompts.js'
 import { runOperation, saveIncoming, previewFilmSubmit } from '../server/flow/actions.js'
 import { generateShotStoryboard } from '../server/generate/shot-text.js'
 import { produceShots } from '../server/workers/shot-film-worker.js'
-import { setContent } from '../client/drama-model.js'
-import { guidanceTypes } from '../client/guidance.js'
+import { setContent } from '../shared/drama-model.js'
+import { guidanceTypes } from '../shared/guidance.js'
 
 const guidance = (id, type = 'action', content = '动作参考') => ({ id, name: `${id}.md`, guidanceType: type, content })
 const importGuide = (home, type = 'action', content = '动作参考') => assetStore(home).import('guidance', `${type}.md`, Readable.from([Buffer.from(content)]), undefined, { guidanceType: type })

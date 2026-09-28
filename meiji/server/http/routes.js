@@ -1,7 +1,7 @@
 import { recordStore } from '../data/task-records.js'
 import { subscribeProject } from '../data/project-events.js'
-import { pictureOf, targetNode, shotResults } from '../../client/drama-model.js'
-import { shotReferenceImages } from '../../client/reference-images.js'
+import { pictureOf, targetNode, shotResults } from '../../shared/drama-model.js'
+import { shotReferenceImages } from '../../shared/reference-images.js'
 import { customSkillPatch, loadGuidanceAssets } from '../data/custom-skills.js'
 import { MAX_GUIDANCE_BYTES } from '../data/library.js'
 import { scopeProjects } from '../data/episodes.js'
@@ -19,17 +19,24 @@ import { modelStore } from '../data/models.js'
 import { projectStore } from '../data/projects.js'
 import { readStill } from '../generate/image.js'
 import { runOperation, saveIncoming } from '../flow/actions.js'
-import { insertSessionLog, runWithSessionLog } from '../flow/session-log.js'
+import { insertSessionLog, runWithSessionLog } from '../host/session-log.js'
+import { hostWorkspaces } from '../host/workspaces.js'
 import { linkStore } from '../data/links.js'
 import { materialize, readEpisodeCover } from '../data/episodes.js'
 import { assetRoutes } from './library-routes.js'
 
 const directActions = new Set(['project-delete', 'episode-delete', 'open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'use-asset', 'clear-image', 'assemble'])
 
-const clientRoot = fileURLToPath(new URL('../../client/', import.meta.url))
+// 浏览器可加载的两个平铺目录：client/ 为面板界面，shared/ 为前后端共用的领域模块。
+const staticRoots = {
+  client: fileURLToPath(new URL('../../client/', import.meta.url)),
+  shared: fileURLToPath(new URL('../../shared/', import.meta.url)),
+}
 const clientMime = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' }
 
-export function resolveClientFile(file) {
+export function resolveClientFile(file, dir = 'client') {
+  const clientRoot = staticRoots[dir]
+  if (!clientRoot) return
   if (typeof file !== 'string' || file.includes('\0')) return
   let decoded
   try { decoded = decodeURIComponent(file) } catch { return }
@@ -94,12 +101,11 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   const store = modelStore(home)
   const projects = projectStore(home)
-  const links = linkStore(home, ctx.workspaceController)
+  const workspaces = hostWorkspaces()
+  const links = linkStore(home, ctx.workspaceController, workspaces)
   const enterProject = async projectId => {
     const place = await links.ensureProject(projectId, projects)
-    const data = JSON.parse(await readFile(join(home, 'storages', 'workspace.json'), 'utf8'))
-    const archived = data.global?.archivedSessionIds || []
-    const sessionId = place.workspace.sessionIds.find(id => !archived.includes(id))
+    const sessionId = workspaces.activeSessions(place.workspace.workspaceId)[0]
       || (await ctx.sessionController.create({ workspaceId: place.workspace.workspaceId })).sessionId
     return { workspace: { id: place.workspace.workspaceId, title: place.workspace.title }, projectId, title: place.title, sessionId }
   }
@@ -110,8 +116,8 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
     res.end(JSON.stringify(value))
   }
   const handleAssets = assetRoutes(home, json)
-  const serveClient = async (res, file) => {
-    const resolved = resolveClientFile(file)
+  const serveClient = async (res, file, dir = 'client') => {
+    const resolved = resolveClientFile(file, dir)
     if (!resolved) {
       res.writeHead(404, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' })
       return res.end()
@@ -134,12 +140,14 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
     await ready
     const url = new URL(req.url, 'http://localhost'), path = url.pathname
     try {
-      if (path === base + '/panel.js' || path.startsWith(base + '/client/')) {
+      if (path === base + '/panel.js' || path.startsWith(base + '/client/') || path.startsWith(base + '/shared/')) {
         if (req.method !== 'GET') {
           res.writeHead(405, { 'Content-Type': 'text/javascript; charset=utf-8' })
           return res.end()
         }
-        return serveClient(res, path === base + '/panel.js' ? 'panel.js' : path.slice((base + '/client/').length))
+        if (path === base + '/panel.js') return serveClient(res, 'panel.js')
+        const dir = path.startsWith(base + '/shared/') ? 'shared' : 'client'
+        return serveClient(res, path.slice((base + '/' + dir + '/').length), dir)
       }
       const rejection = ctx.connection.requestRejection(req)
       if (rejection) return json(res, rejection, { error: '请刷新并登录 Harness' })

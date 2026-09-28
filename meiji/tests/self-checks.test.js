@@ -5,16 +5,17 @@ import { runOperation } from '../server/flow/actions.js'
 import { scopeProjects } from '../server/data/episodes.js'
 import { generateShotSeconds, generateShotStoryboard, generateShots } from '../server/generate/shot-text.js'
 import { checkReasons, setCheck } from '../server/data/self-checks.js'
-import { targetNode, begin, saveReview, finish } from '../client/drama-model.js'
+import { targetNode, begin, saveReview, finish } from '../shared/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/pictures.js'
 const reply=(text,verdict='PASS')=>async ({ skill }) =>skill==='skill-gongyong-content-review'?verdict:text
-test('generation failure retains opinion and content, retry consumes opinion on success',async t=>{const e=await setupModel(t);await assert.rejects(runOperation(e.op('shot-seconds',{track:'S01',review:'不要转身'}),{home:e.home,generateShotSeconds:async()=>{throw new Error('网络失败')}}),/网络失败/);let p=await e.read();assert.equal(p.shots.items[0].seconds.review.text,'不要转身');assert.ok(p.shots.items[0].seconds.content);await runOperation(e.op('shot-seconds',{track:'S01'}),{home:e.home,generateShotSeconds:opts=>{assert.match(opts.review,/不要转身/);return generateShotSeconds({...opts,request:reply('0–5s 朝北不转身')})}});p=await e.read();assert.equal(p.shots.items[0].seconds.review.text,'');assert.equal(p.shots.items[0].seconds.status,'passed')})
+// 意见只在「按意见修改」时由调用方显式传入；失败后保留在节点上供再次修改。
+test('generation failure retains opinion and content, modify retry consumes opinion on success',async t=>{const e=await setupModel(t);await assert.rejects(runOperation(e.op('shot-seconds',{track:'S01',review:'不要转身'}),{home:e.home,generateShotSeconds:async()=>{throw new Error('网络失败')}}),/网络失败/);let p=await e.read();assert.equal(p.shots.items[0].seconds.review.text,'不要转身');assert.ok(p.shots.items[0].seconds.content);await runOperation(e.op('shot-seconds',{track:'S01',generationMode:'modify',review:p.shots.items[0].seconds.review.text}),{home:e.home,generateShotSeconds:opts=>{assert.match(opts.review,/不要转身/);return generateShotSeconds({...opts,request:reply('0–5s 朝北不转身')})}});p=await e.read();assert.equal(p.shots.items[0].seconds.review.text,'');assert.equal(p.shots.items[0].seconds.status,'passed')})
 test('self-check failure and human opinion remain distinct',async t=>{const e=await setupModel(t);await runOperation(e.op('shot-seconds',{track:'S01',review:'保留动作'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:reply('新的指令','FAIL\n缺少空间')})});const n=(await e.read()).shots.items[0].seconds;assert.equal(n.review.text,'保留动作');assert.deepEqual(n.check.failures,['FAIL\n缺少空间']);assert.equal(n.status,'failed');assert.equal(n.content,'新的指令')})
 test('new human draft during a running operation is never cleared or overwritten',async t=>{const e=await setupModel(t);await runOperation(e.op('shot-seconds',{track:'S01',review:'本次修改'}),{home:e.home,generateShotSeconds:async opts=>{const n=(await e.read()).shots.items[0].seconds;await e.store.saveReviewDraft(e.id,e.episodeId,n.id,'下一次意见',n.review.revision);return generateShotSeconds({...opts,request:reply('新指令')})}});const n=(await e.read()).shots.items[0].seconds;assert.equal(n.status,'passed');assert.equal(n.review.text,'下一次意见')})
 test('image opinion edits do not change the picture target snapshot',async t=>{const e=await setupModel(t),p=await e.read(),c=p.plot.characters.items[0],snapshot=pictureTargetSnapshot(c);saveReview(c.image,'换背景');begin(c.image,{id:'task'});assert.equal(pictureTargetSnapshot(c),snapshot)})
 test('unrelated metadata save cannot consume model opinions',async t=>{const e=await setupModel(t);await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','新意见',0);await e.store.save(e.id,{title:'改名'});assert.equal((await e.read()).shots.items[0].storyboard.review.text,'新意见')})
 test('draft optimistic revision rejects a stale browser edit',async t=>{const e=await setupModel(t);await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','新版',0);await assert.rejects(e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','旧版',0),{status:409});assert.equal((await e.read()).shots.items[0].storyboard.review.text,'新版')})
-test('bad shot format keeps original returned text and does not retry',async t=>{const e=await setupModel(t);let calls=0;await runOperation(e.op('shots',{review:'调整'}),{home:e.home,generateShots:opts=>generateShots({...opts,request:async ({ skill: s }) =>{calls++;return s==='skill-gongyong-content-review'?'PASS':'{invalid json'}})});const p=await e.read();assert.equal(calls,2);assert.equal(p.shots.failedOutput,'{invalid json');assert.equal(p.shots.status,'failed');assert.equal(p.shots.review.text,'调整')})
+test('bad shot format fails the task, keeps existing shots and the opinion, and does not retry',async t=>{const e=await setupModel(t),before=await e.read();let calls=0;await assert.rejects(runOperation(e.op('shots',{review:'调整'}),{home:e.home,generateShots:opts=>generateShots({...opts,request:async ({ skill: s }) =>{calls++;return s==='skill-gongyong-content-review'?'PASS':'{invalid json'}})}),/镜头表需按/);const p=await e.read();assert.equal(calls,1);assert.deepEqual(p.shots.items.map(s=>s.content),before.shots.items.map(s=>s.content));assert.equal(p.shots.status,'failed');assert.match(p.shots.error,/镜头表需按/);assert.equal(p.shots.review.text,'调整');assert.equal(p.shots.operation,null)})
 
 test('batch film stays generating until download and local save complete', async t => {
   const e = await setupModel(t)
@@ -35,6 +36,7 @@ test('batch film stays generating until download and local save complete', async
   assert.ok((await e.read()).shots.items.every(s => s.video.status === 'passed' && s.video.content.status === 'ready'))
 })
 
+// 重试即重新生成：已完成的镜头不重交，失败的镜头重新提交，不续查旧远端任务。
 test('one-click retry does not regenerate clips completed before a later failure', async t => {
   const e = await setupModel(t), submitted = []
   let failSecond = true
@@ -48,7 +50,7 @@ test('one-click retry does not regenerate clips completed before a later failure
   assert.equal((await e.read()).shots.items[0].video.status, 'passed')
   failSecond = false
   await runOperation(e.op('films'), deps)
-  assert.deepEqual(submitted, ['S01','S02'])
+  assert.deepEqual(submitted, ['S01','S02','S02'])
   assert.ok((await e.read()).shots.items.every(s => s.video.status === 'passed'))
 })
 

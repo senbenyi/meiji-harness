@@ -1,11 +1,11 @@
-import { previousTail } from '../../client/tail-frame.js'
-import { runTextWorkflow } from '../flow/text-workflow.js'
+import { previousTail } from '../../shared/tail-frame.js'
+import { runTextWorkflow } from './text-workflow.js'
 import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildStoryboardPrompts, buildAllSecondsPrompts } from '../prompts/shot-prompts.js'
-import { node, shotModel, setContent, shotResults, updateShotResults } from '../../client/drama-model.js'
+import { node, shotModel, setContent, shotResults, updateShotResults } from '../../shared/drama-model.js'
 import { checkContext, selectCheck } from '../data/self-checks.js'
-import { shotReferenceImages } from '../../client/reference-images.js'
-import { shotSecondsReady } from '../../client/shot-timing.js'
-import { runTextRequest } from '../workers/text-request-worker.js'
+import { shotReferenceImages } from '../../shared/reference-images.js'
+import { shotSecondsReady } from '../../shared/shot-timing.js'
+import { runTextRequest } from './text-request.js'
 import { recordedNode } from '../data/task-records.js'
 
 function body(shot) { return shot?.content || '' }

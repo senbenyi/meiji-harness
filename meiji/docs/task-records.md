@@ -12,7 +12,7 @@
 | action / source / actor | 业务动作，panel/session/api，human/model |
 | sessionId | 发起会话，用于日志和访问归属 |
 | mode / requirements / opinion | 生成模式、本次要求、修改意见 |
-| status | running/completed/review_failed/failed/cancelled/interrupted |
+| status | running/completed/review_failed/failed/cancelled；旧记录可能为 interrupted |
 | startedAt / endedAt / error | 时间与执行错误 |
 | nodes | 节点表，内嵌在同一个任务文件 |
 | artifacts / latestOutputs | 本任务提交过的快照引用、各目标最新结果 |
@@ -22,7 +22,7 @@
 | 字段 | 含义 |
 |---|---|
 | id / kind | 节点标识；execute/generation/review/revision/re_review/video_submit/video_generate |
-| status | running/succeeded/failed/cancelled/interrupted |
+| status | running/succeeded/failed/cancelled；旧记录可能为 interrupted |
 | inputs / outputs | 输入输出 artifactId；审核绑定实际输入版本 |
 | reviewResult / reasons | pass/fail 及具体原因；审核返回 FAIL 仍是执行 succeeded |
 | target | 可选的镜头或内容目标 |
@@ -53,7 +53,7 @@ seconds（整集每秒指令）、storyboard:Sxx（文本提示词）、film:Sxx
 ## 写入与恢复
 
 保存顺序：快照落盘（published=false）→ 项目 JSON 原子替换 → 快照标记发布并关联节点。
-跨文件不承诺事务；任一步失败会报告任务失败。重启将 running 任务与节点标记 interrupted，
+跨文件不承诺事务；任一步失败会报告任务失败。重启将 running 任务与节点标记 cancelled（已提交的远端视频尽力取消），
 不会自动重复生成。既有未记录内容在第一次执行时保存 baseline，不补造过去时间。
 视频快照记录不可变本地文件名；逐镜视频和新合成视频使用唯一文件名，不覆盖历史文件。
 删除项目或剧集同时清理所属历史；图片素材删除策略不变。

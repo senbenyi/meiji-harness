@@ -1,4 +1,5 @@
-import { assertDrama } from '../../client/drama-model.js'
+import { assertDrama } from '../../shared/drama-model.js'
+import { readProjectFile } from './project-files.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
@@ -47,7 +48,8 @@ export function recordStore(home, projectId) {
       }
     },
     async interrupt() {
-      for (const task of await this.list()) if (task.status === 'running') await update('tasks', task.id, current => ({ ...current, status: 'interrupted', endedAt: now(), nodes: current.nodes.map(node => node.status === 'running' ? { ...node, status: 'interrupted', endedAt: now() } : node) }))
+      // 服务重启：遗留的运行中任务一律记为已取消。
+      for (const task of await this.list()) if (task.status === 'running') await update('tasks', task.id, current => ({ ...current, status: 'cancelled', error: '服务重启，任务已取消', endedAt: now(), nodes: current.nodes.map(node => node.status === 'running' ? { ...node, status: 'cancelled', endedAt: now() } : node) }))
     },
   }
 }
@@ -55,7 +57,7 @@ export function recordStore(home, projectId) {
 export async function startExecution(home, operation, id) {
   if (!operation.projectId || !tracked.has(operation.action)) return null
   const store = recordStore(home, operation.projectId)
-  const project = assertDrama(JSON.parse(await readFile(join(home, 'storages', 'meiji', 'projects', operation.projectId + '.json'), 'utf8')))
+  const project = assertDrama(await readProjectFile(home, operation.projectId))
   const nodeId = randomUUID()
   await store.update('tasks', id, { schemaVersion: 1, id, projectId: operation.projectId, episodeId: operation.episodeId || null,
     action: operation.action, source: operation.origin || 'api', actor: manualActions.has(operation.action) ? 'human' : 'model', sessionId: operation.sessionId || null,
@@ -83,7 +85,7 @@ export async function endExecution(context, error, signal) {
     const failedNode = task.nodes.find(node => ['failed', 'cancelled', 'interrupted'].includes(node.status))
     const reviews = task.nodes.filter(node => node.reviewResult)
     const latest = new Map(reviews.flatMap(node => (node.inputs.length ? node.inputs : [node.target || node.kind]).map(id => [id, node.reviewResult])))
-    const status = signal?.aborted ? signal.reason?.code === 'TASK_PAUSED' ? 'interrupted' : 'cancelled'
+    const status = signal?.aborted ? 'cancelled'
       : error || failedNode ? error?.code === 'CONTENT_CHECK_FAILED' ? 'review_failed' : 'failed'
       : context.outputs.some(item => item.reviewPassed === false) ? 'review_failed'
       : [...latest.values()].includes('fail') && !context.outputs.length ? 'review_failed' : 'completed'
@@ -107,7 +109,7 @@ export async function recordedNode(kind, run, detail = {}) {
       await parent.store.update('tasks', parent.taskId, task => ({ ...task, nodes: task.nodes.map(node => node.id === id ? { ...node, status: 'succeeded', endedAt: now(), ...(result?.check ? { reviewResult: result.check.passed ? 'pass' : 'fail', reasons: result.check.failures } : {}) } : node) }))
       return result
     } catch (error) {
-      const status = parent.signal?.aborted ? parent.signal.reason?.code === 'TASK_PAUSED' ? 'interrupted' : 'cancelled' : 'failed'
+      const status = parent.signal?.aborted ? 'cancelled' : 'failed'
       await parent.store.update('tasks', parent.taskId, task => ({ ...task, nodes: task.nodes.map(node => node.id === id ? { ...node, status, error: error.message, endedAt: now() } : node) }))
       throw error
     }

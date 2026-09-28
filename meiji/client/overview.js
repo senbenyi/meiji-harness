@@ -1,5 +1,5 @@
 import { historyEntry } from './execution-history.js'
-import { pictureOf } from './drama-model.js'
+import { pictureOf } from '../shared/drama-model.js'
 import { element, appendJsonCopy } from './dom.js'
 import { bindStylePicker } from './style-picks.js'
 

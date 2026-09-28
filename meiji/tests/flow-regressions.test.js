@@ -1,5 +1,5 @@
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { setContent } from '../client/drama-model.js'
+import { setContent } from '../shared/drama-model.js'
 import { generateAllSeconds } from '../server/generate/shot-text.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 import test from 'node:test'
@@ -7,12 +7,12 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { hasStoryboard, hasFilm } from '../client/flow-rules.js'
+import { hasStoryboard, hasFilm } from '../shared/flow-rules.js'
 import { stepRunLabel } from '../client/flow-view.js'
 import { h3PromptFailures } from '../server/generate/film.js'
 import { checkContext, prepareChecks, selectCheck } from '../server/data/self-checks.js'
 import { projectStore } from '../server/data/projects.js'
-import { feedbackOf } from '../client/feedback.js'
+import { feedbackOf } from '../shared/feedback.js'
 import { runOperation } from '../server/flow/actions.js'
 import { completeChat } from '../server/generate/gateway.js'
 import { languageInstruction } from '../server/data/language.js'
@@ -41,16 +41,21 @@ test('reference format rejects missing sections, unbound subjects and missing pi
   assert.ok(h3PromptFailures('integrated_multimodal_description: Walk.\noverall_soundscape: Wind.\nnon_diegetic_music: None.', [{}]).length)
 })
 
-test('failed semantic batch checks preserve each latest result and audit all shots', async t => {
+// 整集审核失败后自动修订一次并复审；仍失败时保留最新修订稿并标记失败。
+test('failed whole-episode seconds review keeps the latest revision after one correction', async t => {
   const e = await setupModel(t);await e.store.save(e.id,p=>{p.episodes[0].shots.items.forEach(s=>{s.seconds.stale=true});return p});
   const {modelStore}=await import('../server/data/models.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
   let calls = 0
-  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async ({ skill }) => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : calls === 1 ? '## S01 / 5s\n已生成的动作\n## S02 / 5s\n已生成的动作\n[seconds-complete]' : '已生成的动作' } }) }), /自检未通过/)
+  const out = text => `## S01 / 5s\n${text}\n## S02 / 5s\n${text}\n[seconds-complete]`
+  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async ({ skill }) => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : out(calls === 1 ? '初稿动作' : '修订动作') } }) }), /自检未通过/)
   const p = await e.read()
-  assert.equal(calls, 7)
-  assert.equal(p.shots.items[0].seconds.content, '已生成的动作')
-  assert.equal(p.shots.items[0].seconds.status, 'failed')
-  assert.equal(p.shots.items[0].seconds.check.history.length, 2)
+  assert.equal(calls, 4)
+  for (const shot of p.shots.items) {
+    assert.equal(shot.seconds.content, '修订动作')
+    assert.equal(shot.seconds.status, 'failed')
+    assert.deepEqual(shot.seconds.check.failures, ['FAIL 画外上级被画成主角'])
+    assert.equal(shot.seconds.operation, null)
+  }
 })
 
 test('JSON mode is explicit and truncated responses fail before parsing or retrying', async () => {
@@ -88,7 +93,7 @@ test('character generation runs independent identity coverage review instead of 
 
 test('independent review does not receive stale correction text as a new instruction', async () => {
   const { buildReviewPrompt } = await import('../server/prompts/text-prompts.js')
-  const { runTextRequest } = await import('../server/workers/text-request-worker.js')
+  const { runTextRequest } = await import('../server/generate/text-request.js')
   await checkContext.run({ review: 'STALE_ALREADY_FIXED' }, async () => {
     await runTextRequest(buildReviewPrompt({ skill: 'skill-juqing-outline-generate', project: {}, instructions: '本次任务' }, JSON.stringify({ outline: '', characters: { items: [] }, scenes: { items: [] } })), {
       route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' },

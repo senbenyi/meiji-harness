@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { extname, join } from 'node:path'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { guidanceTypes } from '../../client/guidance.js'
+import { guidanceTypes } from '../../shared/guidance.js'
 
 export const categories = ['characters', 'scenes', 'props', 'audio', 'video', 'guidance']
 export const MAX_GUIDANCE_BYTES = 128 * 1024

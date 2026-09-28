@@ -10,26 +10,15 @@
 
 面板调用必须携带 `operationId` 并校验会话。多集制作操作必须提供 `episodeId`。参考图片变化后，已有视频和合成结果标记为 `stale`，需要重新生成后才能参与合成。
 
-网关图片使用异步 `POST /v1/images/tasks`，轮询完成后下载图片。面板“停止任务”会向当前图片或视频任务发送 `POST /v1/images/tasks/{id}/cancel` 或 `POST /v1/videos/{id}/cancel`；提交期间停止会等待返回任务 ID 后取消。取消请求有独立的 30 秒超时；失败（包括渠道不支持取消的 501）会记录任务 ID 和失败原因，不宣称远端已取消。已取消的视频保存终态，不再复用原任务。服务关闭只暂停本地等待，不取消远端任务。
+网关图片使用异步 `POST /v1/images/tasks`，轮询完成后下载图片。面板“停止任务”会向当前图片或视频任务发送 `POST /v1/images/tasks/{id}/cancel` 或 `POST /v1/videos/{id}/cancel`；提交期间停止会等待返回任务 ID 后取消。取消请求有独立的 30 秒超时；失败（包括渠道不支持取消的 501）会记录任务 ID 和失败原因，不宣称远端已取消。已取消的视频保存终态，不再复用原任务。服务关闭或重启一律取消进行中任务：已提交的远端任务同样发送取消请求（重启时对遗留的视频任务补发），不续查、不自动恢复。生成任务经全局队列限流，文本、图片、视频的并发上限在 `config/models.json` 的 `concurrency` 配置。
 
 Harness 外部插件，源码位于 `Meiji/meiji/`，不修改上游 Harness。测试：`npm test`。
 
 ## 目录与职责
 
-保留 7 个一级目录：`client`、`server`、`models`、`tools`、`skills`、`config`、`tests`。
+完整目录、模块职责与依赖方向见仓库根目录的 `.agents/architecture.md`。要点：`client/` 为面板界面，`shared/` 为前后端共用的领域模块（数据模型、门禁规则），`server/host/` 是唯一接触 Harness 的适配层，面板操作按领域位于 `server/flow/operations/`。
 
-| client 路径 | 职责 |
-| --- | --- |
-| panel.js | 加载浏览器模块的入口 |
-| app.js | 组合进行中项目与片库两个模块 |
-| shell.js | 右栏外壳、标题、加号和收起图标 |
-| session/ | 正在进行的会话项目：流程概要、空态加号、当前项目 |
-| library/ | 片库：短剧列表与素材 |
-| api.js | 同源请求与资源地址 |
-| dom.js | 元素和标签栏组件 |
-| styles.css | 面板样式 |
-
-`server/data/projects.js` 管理项目，`server/data/library.js` 管理素材文件与元数据，`server/http/library-routes.js` 管理导入、读取与分段播放，`server/http/routes.js` 组合鉴权后的 HTTP 路由。浏览器仅加载白名单内的客户端模块。
+`server/data/projects.js` 管理项目（存储布局由 `server/data/project-files.js` 负责），`server/data/library.js` 管理素材文件与元数据，`server/http/library-routes.js` 管理导入、读取与分段播放，`server/http/routes.js` 组合鉴权后的 HTTP 路由。浏览器仅加载 `client/`、`shared/` 两个平铺目录中的模块。
 
 ## 页面行为
 
@@ -65,7 +54,8 @@ Harness 外部插件，源码位于 `Meiji/meiji/`，不修改上游 Harness。�
 meiji/
 ├── models.json
 ├── projects/
-│   └── <项目UUID>.json
+│   ├── <项目UUID>.json          # 项目索引（layout 2）
+│   └── <项目UUID>/episodes/     # 每集一个文件
 └── assets/
     ├── characters/
     ├── scenes/
@@ -77,7 +67,7 @@ meiji/
             └── original.<扩展名>
 ```
 
-各素材分类使用相同的 UUID 目录结构，文件名不作为存储路径，允许同名素材重复导入。元数据记录版本、ID、分类、原文件名、文件类型、字节数、导入来源和创建时间。项目 JSON 以 UUID 为文件名，记录版本、唯一 ID、标题、整数秒时长、摘要、状态、阶段、工作流和创建/更新时间。点击创建后写入该文件，创建完成即展示项目 ID。
+各素材分类使用相同的 UUID 目录结构，文件名不作为存储路径，允许同名素材重复导入。元数据记录版本、ID、分类、原文件名、文件类型、字节数、导入来源和创建时间。项目索引以 UUID 为文件名，记录版本、唯一 ID、标题、整数秒时长、摘要、状态、阶段、工作流和创建/更新时间，每集内容存为 `<项目UUID>/episodes/` 下的独立文件；保存时只重写有变化的剧集，最后原子替换索引。点击创建后写入该文件，创建完成即展示项目 ID。
 
 导入先流式写入 `<素材UUID>.upload/`，文件和元数据均成功写入后，原子重命名为正式目录。失败导入清理临时目录；进程意外退出残留的 `.upload` 不进入素材列表，可在服务停止后清理。素材是全局片库，目前不归属于某个项目；后续项目引用应保存素材 ID，不复制原文件。备份时复制整个 `storages/meiji/`，恢复到同版本的运行目录即可。当前短剧由工作区绑定决定，不记在浏览器里。
 
@@ -85,15 +75,15 @@ meiji/
 
 ## 模型与工作流
 
-网关地址、密钥和四个模型名写在 `config/models.json`。运行中的一份是 `storages/meiji/models.json`，文本、图片和视频都读它。密钥不返回给浏览器。
+网关地址、四个模型名与并发上限写在 `config/models.json`（入 git，不含密钥）；密钥写在本地的 `config/models.local.json`（git 忽略，覆盖同名字段）。运行中的一份是 `storages/meiji/models.json`，文本、图片和视频都读它。密钥不返回给浏览器。
 
-制作顺序由 `server/flow/gates.js` 的门禁决定：简报、大纲、角色、场景、镜头表、每秒指令、文本分镜，然后逐镜交给 MiniMax H3。铅笔分镜在镜头详情里生成，成片拼接仍只保留卡片。
+制作顺序由 `shared/gates.js` 的门禁决定：简报、大纲、角色、场景、镜头表、每秒指令、文本分镜，然后逐镜交给 MiniMax H3。铅笔分镜在镜头详情里生成，成片拼接仍只保留卡片。
 
 右栏左边缘可拖拽调整宽度，聊天区域同步适配；宽度记入浏览器 localStorage，刷新、收起后展开均恢复。窗口缩小时自动限制宽度，拖拽手柄也支持左右方向键。
 
 ## 短剧工作区
 
-每部短剧通过主 JSON 的 `workspaceId`、`workspacePath` 关联专属 Harness 工作区。工作区目录是 `storages/meiji/projects/<projectId>/`，主数据暂沿用 `storages/meiji/projects/<projectId>.json`，媒体继续保存在项目目录内。
+每部短剧通过主 JSON 的 `workspaceId`、`workspacePath` 关联专属 Harness 工作区。工作区目录是 `storages/meiji/projects/<projectId>/`，项目索引为 `storages/meiji/projects/<projectId>.json`，剧集文件与媒体保存在项目目录内。
 
 创建或从片库选择短剧时，创建或复用该目录对应的工作区，打开已有未归档会话；没有会话则新建。浏览器通过 Harness 的持久化会话选择刷新进入目标工作区。短剧改名同步工作区名称，同名冲突添加项目 ID 后缀。
 
@@ -107,7 +97,7 @@ meiji/
 - 失败保留生成内容、自检原因和人工意见；成功仅清理本次处理的意见，新输入的意见保留。
 - 文本编辑草稿和意见均持久化；直接保存正文会再次自检。
 - 图片候选必须确认、上传成功后入素材库；文本分镜保存并展示实际素材引用顺序。
-- 运行时拒绝旧结构。部署前停止服务，执行 `node meiji/scripts/migrate-model.js .dsh`，脚本先完整备份再迁移，不能用运行时兼容替代迁移。
+- 运行时拒绝旧结构与旧存储布局。部署前停止服务，依次执行 `node meiji/scripts/migrate-model.js <DSH_HOME>`（数据结构）与 `node meiji/scripts/migrate-layout.js <DSH_HOME>`（按剧集拆分存储；`configure-harness.sh` 启动前会自动执行）。脚本先完整备份再迁移，不能用运行时兼容替代迁移。
 
 结构、执行步骤及验证见 [重构执行文档](docs/model-refactor-execution.md)。
 
@@ -134,5 +124,5 @@ meiji/
 创建或打开项目会保存当前会话的制作目标，面板随之显示该项目；不会迁移 Harness 会话的工作目录，
 也不会改变其他会话的目标。新会话按其工作区定位项目。任务日志固定写入发起会话。
 任务结果为 `running`、`completed`、`review_failed`、`failed` 或 `cancelled`；
-`wait` 每次最多等待 25 秒。执行记录和内容快照持久化到项目的 history 目录，重启后未完成任务标记为 interrupted，可按原任务编号查询。
+`wait` 每次最多等待 25 秒。执行记录和内容快照持久化到项目的 history 目录，重启后未完成任务一律记为 cancelled（不自动重做），可按原任务编号查询。
 详情页提供“本集执行历史”；记录表结构和保存规则见 [task-records.md](docs/task-records.md)。

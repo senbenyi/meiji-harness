@@ -1,4 +1,4 @@
-import { runReviewNode } from '../flow/text-workflow.js'
+import { runReviewNode } from './text-workflow.js'
 import { buildEditedContentReview } from '../prompts/text-prompts.js'
 
 export async function reviewContent({ project, stage, shotId, text, route, request }) {

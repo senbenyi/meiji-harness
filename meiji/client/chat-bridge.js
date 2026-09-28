@@ -1,4 +1,4 @@
-import { shotMap } from './drama-model.js'
+import { shotMap } from '../shared/drama-model.js'
 const sessionPattern = /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function sessionIdFromStorage(storage) {

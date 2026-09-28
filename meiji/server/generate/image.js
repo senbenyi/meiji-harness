@@ -1,4 +1,4 @@
-import { pictureOf, node, setContent } from '../../client/drama-model.js'
+import { pictureOf, node, setContent } from '../../shared/drama-model.js'
 import { withReviewPrompt, checkContext } from '../data/self-checks.js'
 import { loadSkill } from '../../skills/load.js'
 import { outputLanguage } from '../data/language.js'

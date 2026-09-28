@@ -1,10 +1,24 @@
 import { readFile } from 'node:fs/promises'
-import { gatewayBaseUrl } from '../server/generate/gateway.js'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+// 网关地址校验属于配置规则：只允许 http/https，且不得携带凭据、查询串或锚点。
+export function gatewayBaseUrl(value) {
+  let url
+  try { url = new URL(value) } catch { throw Object.assign(new Error('网关地址无效'), { status: 400 }) }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+    throw Object.assign(new Error('网关地址无效'), { status: 400 })
+  }
+  return url.href.replace(/\/$/, '')
+}
 
 export const purposes = { chat: '聊天', story: '生成剧情', image: '文生图片', video: '生成视频' }
 const purposeIds = Object.keys(purposes)
 
-const localConfig = new URL('../config/models.local.json', import.meta.url)
+// MEIJI_MODELS_LOCAL 可替换本地配置路径；npm test 用它指向测试密钥，保证测试不读取真实密钥。
+const localConfig = process.env.MEIJI_MODELS_LOCAL
+  ? pathToFileURL(resolve(process.env.MEIJI_MODELS_LOCAL))
+  : new URL('../config/models.local.json', import.meta.url)
 
 // config/models.json 入 git，不含密钥；config/models.local.json 不入 git，存放密钥等本地值并覆盖同名字段。
 export async function defaults(local = localConfig) {

@@ -1,5 +1,5 @@
 import { element } from './dom.js'
-import { shotReferenceImages } from './reference-images.js'
+import { shotReferenceImages } from '../shared/reference-images.js'
 export function referenceReport(project, story) {
   const text = String(story.prompt?.text || '')
   const images = shotReferenceImages(project, story)

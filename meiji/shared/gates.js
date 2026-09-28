@@ -1,6 +1,6 @@
-import { GenerationStatus, node, episodeModel, contentNode } from '../../client/drama-model.js'
-import { reviewSteps } from '../../client/flow-rules.js'
-export { reviewSteps, reviewsOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, shotsReady, hasShotSeconds, hasStoryboard, hasFilm, gateOf, canGenerate, gateMessage } from '../../client/flow-rules.js'
+import { GenerationStatus, node, episodeModel, contentNode } from './drama-model.js'
+import { reviewSteps } from './flow-rules.js'
+export { reviewSteps, reviewsOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, shotsReady, hasShotSeconds, hasStoryboard, hasFilm, gateOf, canGenerate, gateMessage } from './flow-rules.js'
 
 export function replaceFrom(project, step, data) {
   let next = structuredClone(project)

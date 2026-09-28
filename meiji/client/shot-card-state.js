@@ -1,4 +1,4 @@
-import { GenerationStatus } from './drama-model.js'
+import { GenerationStatus } from '../shared/drama-model.js'
 import { element } from './dom.js'
 
 export function setCardExpanded(card, expanded) {

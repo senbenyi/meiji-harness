@@ -13,8 +13,10 @@ test('language defaults to Chinese, validates values and follows episode context
 })
 
 test('Chinese input sends English language skill to the model and preserves returned text', async t => {
-  let payload
+  let payload, calls = 0
   t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    // 第一次为生成请求，其后为自审（须返回 PASS）。
+    if (++calls > 1) return Response.json({ choices: [{ message: { content: 'PASS' } }] })
     payload = JSON.parse(options.body)
     return Response.json({ choices: [{ message: { content: JSON.stringify({ summary: 'A traveler enters a mysterious cave.', durationSeconds: 60 }) } }] })
   })

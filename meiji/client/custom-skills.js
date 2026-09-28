@@ -1,6 +1,6 @@
 import { element } from './dom.js'
 import { request } from './api.js'
-import { guidanceTypes, guidanceModule } from './guidance.js'
+import { guidanceTypes, guidanceModule } from '../shared/guidance.js'
 
 export const customSkillStages = { outline: '故事大纲', shots: '镜头表', seconds: '每秒分镜', storyboard: '文本分镜', film: '成片' }
 

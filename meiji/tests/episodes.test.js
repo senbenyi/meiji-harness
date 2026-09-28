@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { addEpisode, editEpisode, materialize, scopeProjects, overviewPatch, normalizeProject } from '../server/data/episodes.js'
 import { setupModel } from './fixtures/model.js'
-import { node } from '../client/drama-model.js'
+import { node } from '../shared/drama-model.js'
 test('runtime rejects pre-model projects instead of silently converting',()=>assert.throws(()=>normalizeProject({id:'old',episodes:[]}),/迁移/))
 test('new episodes are newest first; changing a summary resets only that episode',async t=>{
  const e=await setupModel(t),p=await e.store.read(e.id),next={...p,...addEpisode(p,{summary:'第二集',durationSeconds:12})}

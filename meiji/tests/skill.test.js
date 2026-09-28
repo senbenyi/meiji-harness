@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { allSkills, loadSkill, registeredSkillFiles, skillFilesOnDisk } from '../skills/load.js'
 import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
-import { runTextRequest } from '../server/workers/text-request-worker.js'
+import { runTextRequest } from '../server/generate/text-request.js'
 
 const generationSkills = ['skill-gailan-episode-generate', 'skill-juqing-outline-generate', 'skill-jingtou-jingtoubiao-table-generate', 'skill-jingtou-jingtoubiao-shot-review', 'skill-jingtou-meimiao-seconds-generate', 'skill-jingtou-wenben-storyboard-generate', 'skill-juese-image-review']
 const checkedSkills = ['skill-gailan-episode-generate', 'skill-juqing-outline-generate', 'skill-jingtou-jingtoubiao-table-generate', 'skill-jingtou-jingtoubiao-shot-review', 'skill-jingtou-meimiao-seconds-generate', 'skill-jingtou-wenben-storyboard-generate', 'skill-chengpian-video-generate']

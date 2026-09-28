@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 import { generateShots, generateShotSeconds, generateShotStoryboard, reviseShot } from '../server/generate/shot-text.js'
 import { episodeFixture } from './fixtures/model.js'
 import { checkContext } from '../server/data/self-checks.js'
-import { clearShotDownstream } from '../server/flow/gates.js'
+import { clearShotDownstream } from '../shared/gates.js'
 const ask = (text, verdict='PASS') => async ({ skill }) => skill==='skill-gongyong-content-review'?verdict:text
 const table='## S01 / 3s\n旅人朝北走进庭院。\n\n## S02 / 7s\n旅人停下。'
 test('model can choose unequal boundaries and prose remains verbatim',async()=>{const p=episodeFixture();const out=await generateShots({project:p,request:ask(table)});assert.deepEqual(out.items.map(s=>s.duration),[3,7]);assert.equal(out.items[0].content,'旅人朝北走进庭院。');assert.equal(out.check.passed,true);assert.equal(out.failedOutput,'')})
-for(const raw of ['不是标题','{"items":[]}','## S01 / 16s\n过长'])test(`invalid boundary preserves response without retry: ${raw}`,async()=>{let calls=0;const out=await generateShots({project:episodeFixture(),request:async ({ skill: s }) =>{calls++;return s==='skill-gongyong-content-review'?'PASS':raw}});assert.equal(calls,2);assert.equal(out.check.passed,false);assert.equal(out.failedOutput,raw)})
+// 格式错误在审核前直接报错，原始返回由任务记录保存，不进入审核或修订。
+for(const raw of ['不是标题','{"items":[]}','## S01 / 16s\n过长'])test(`invalid boundary fails before review without retry: ${raw}`,async()=>{let calls=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill: s }) =>{calls++;return s==='skill-gongyong-content-review'?'PASS':raw}}),/镜头表需按|S01 的编号/);assert.equal(calls,1)})
 test('duration mismatch keeps generated shots',async()=>{const p=episodeFixture();p.durationSeconds=60;const out=await generateShots({project:p,request:ask(table)});assert.equal(out.items.length,2);assert.equal(out.check.passed,false)})
 test('semantic review failure after one correction retains generated text',async()=>{const out=await generateShots({project:episodeFixture(),request:ask(table,'FAIL\n缺少原因')});assert.equal(out.items.length,2);assert.deepEqual(out.check.failures,['FAIL\n缺少原因'])})
 test('review network failure stops without a new verdict',async()=>{await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill: s }) =>{if(s==='skill-gongyong-content-review')throw new Error('network');return table}}),/network/)})

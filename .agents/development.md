@@ -18,8 +18,11 @@
 
 - 新代码放进 `architecture.md` 第 2 节对应目录。
 - `index.js` 是唯一组合入口。
-- `client/` 只放 `.js` / `.css`，且必须平铺（`resolveClientFile` 拒绝子路径）；不引入 JSX、bundler 或构建步骤。
-- `client/` 中被服务端 import 的模块（如 `drama-model.js`、`reference-images.js`、`feedback.js`）必须浏览器与 Node 通用，不得使用 `node:` 模块。
+- 依赖只能从高层指向低层：`http/tools → flow → workers → generate → prompts → data → models`；`server/host`、`shared` 可被任意服务端层引用。由 `tests/architecture.test.js` 强制。
+- `client/`、`shared/` 只放 `.js` / `.css`，且必须平铺（`resolveClientFile` 拒绝子路径）；不引入 JSX、bundler 或构建步骤。
+- 前后端共用的模块放 `shared/`：必须浏览器与 Node 通用，不得引用 `node:` 模块或 `client/`、`server/`；服务端、工具与脚本不得引用 `client/`。
+- 访问 Harness 只经 `server/host/`，且只用公开接口（如 `ctx.workspaceRegistry`）；不读取 Harness 的存储文件。
+- 新增面板操作：在 `server/flow/operations/` 对应领域文件注册 `{ stage, run }`，并在 `registry.js` 登记名称与是否需要剧集作用域；不在 `actions.js` 里加分支。
 - `tools/` 只调用 `server/data` 与 `server/flow`；会话与面板共用 `server/flow/tasks.js` 与 `runOperation`，不另建生成通路。
 - 新增 skill：文件名 `skill-{分类拼音}-{功能}-{generate|review}.md`（镜头为 `skill-jingtou-{子tab拼音}-...`），运行时 `name` 与文件名去掉 `.md` 一致，并同步 `skills/load.js` 与 `skills/README.md`。
 - `h3skill/` 保持官方原文，不混入本地改写。
@@ -28,8 +31,9 @@
 ## 3. 数据规则
 
 - JSON 写入一律临时文件 + `rename` 原子替换，权限 `0600`；素材导入先写 `.upload/` 再重命名。
-- 项目保存经 `projectStore.save` 按 `revision` 串行提交，不绕过它直接写项目文件。
-- 数据结构为 `schemaVersion: 2`，运行时拒绝旧结构；结构变更必须提供 `scripts/` 迁移脚本（先完整备份），不写运行时兼容。
+- 项目读写只经 `projectStore`（领域存储）；存储布局（索引 + 每集文件）只由 `server/data/project-files.js` 了解，其他代码不得直接读写项目文件。
+- 项目保存经 `projectStore.save` 按 `revision` 串行提交；只重写内容变化的剧集，最后原子替换索引。
+- 数据结构为 `schemaVersion: 2`、存储布局为 `layout: 2`，运行时拒绝旧结构与旧布局；结构或布局变更必须提供 `scripts/` 迁移脚本（先完整备份、迁移后读回核对），不写运行时兼容。
 - 生成图片先进 `image-drafts/`，只有用户“确认使用”后才入素材库；模型工具不能自动批准。
 - 重新生成创建新素材，不覆盖旧素材；参考图变化后视频与合成结果标记 `stale`。
 - 面板写请求必须携带 `operationId` 并校验会话；多集操作必须带 `episodeId`。
@@ -37,7 +41,8 @@
 
 ## 4. 测试
 
-- 运行：`cd meiji && npm test`。
+- 运行：`cd meiji && npm test`（固定使用 `tests/fixtures/models.local.json` 的测试密钥，不读取真实密钥；UI 测试从同级 `deepseek-harness` 或 `HARNESS_DIR` 加载 jsdom）。
+- 核对结果时同时看通过、失败与取消（cancelled）数：测试挂起会以「取消」出现而非失败。
 - 新增功能或修复必须有对应测试。
 - 改动前先跑一次记下基线失败项；改动后与改动相关的测试必须通过，且不得新增失败。无法运行时说明原因并标「未验证」。
 - 提交前 `git diff --check`，确认无无关修改或凭据。
@@ -45,9 +50,11 @@
 ## 5. 铁律
 
 - 不修改上游 Harness 源码；接入只通过插件与 `cordis.patch.yml`。
-- 制作顺序由 `server/flow/gates.js` 门禁决定，不绕过门禁直接生成下游。
+- 制作顺序由 `shared/gates.js` 门禁决定，不绕过门禁直接生成下游。
 - 审核失败保留生成内容与意见，不回退；接口或格式错误不覆盖旧内容。
 - 远端任务取消失败时如实记录任务 ID 与原因，不宣称已取消。
+- 服务关闭与重启一律取消进行中任务（含已提交的远端任务），不续查、不自动恢复；重试一律重新提交。
+- 生成任务经全局队列限流，并发上限在 `config/models.json` 的 `concurrency` 配置。
 
 ## 6. 调研
 

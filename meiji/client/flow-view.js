@@ -1,7 +1,7 @@
-import { targetNode, statusLabels } from './drama-model.js'
-import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, hasStoryboard } from './flow-rules.js'
-export * from './flow-rules.js'
-import { feedbackOf } from './feedback.js'
+import { targetNode, statusLabels } from '../shared/drama-model.js'
+import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, hasStoryboard } from '../shared/flow-rules.js'
+export * from '../shared/flow-rules.js'
+import { feedbackOf } from '../shared/feedback.js'
 export const tabs = [
   { id: 'summary', label: '摘要', steps: ['summary'] },
   { id: 'script', label: '剧情', steps: ['outline', 'characters', 'scenes'] },

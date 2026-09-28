@@ -1,10 +1,13 @@
 import { recordStore } from '../data/task-records.js'
 import { randomUUID } from 'node:crypto'
 import { runOperation, validateOperation, operationLabel } from './actions.js'
-import { insertSessionLog, runWithSessionLog } from './session-log.js'
+import { insertSessionLog, runWithSessionLog } from '../host/session-log.js'
 import { notifyProject } from '../data/project-events.js'
 import { projectStore } from '../data/projects.js'
-import { feedbackOf } from '../../client/feedback.js'
+import { projectIds } from '../data/project-files.js'
+import { defaults } from '../../models/router.js'
+import { createQueue, defaultConcurrency, taskKind } from './queue.js'
+import { feedbackOf } from '../../shared/feedback.js'
 
 export function generationFeedback(episode, action) {
   if (['storyboard', 'seconds'].includes(action)) {
@@ -15,8 +18,12 @@ export function generationFeedback(episode, action) {
   return feedbackOf(episode, { action })
 }
 
-export function createTasks({ home, workspaceController, execute = runOperation }) {
+// 并发上限来自部署配置 config/models.json（可由 config/models.local.json 覆盖）的 concurrency。
+const configuredLimit = async kind => (await defaults()).concurrency?.[kind] ?? defaultConcurrency[kind]
+
+export function createTasks({ home, workspaceController, execute = runOperation, limitOf = configuredLimit }) {
   const records = new Map()
+  const queue = createQueue(limitOf)
   const snapshot = task => ({ id: task.id, taskId: task.id, ...task.result, action: task.operation.action, projectId: task.operation.projectId, status: task.status })
   const find = (id, sessionId) => {
     const task = records.get(id)
@@ -32,9 +39,10 @@ export function createTasks({ home, workspaceController, execute = runOperation 
     },
     async get(id, sessionId) {
       if (records.has(id)) return snapshot(find(id, sessionId))
-      for (const project of await projectStore(home).list()) {
+      // 按项目 id 直接查找任务文件，不解析项目内容。
+      for (const projectId of await projectIds(home)) {
         let task
-        try { task = await recordStore(home, project.id).read('tasks', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
+        try { task = await recordStore(home, projectId).read('tasks', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
         if (task.sessionId !== sessionId) throw Object.assign(new Error('任务不属于当前会话'), { status: 404 })
         return { id: task.id, taskId: task.id, projectId: task.projectId, episodeId: task.episodeId, status: task.status, error: task.error, reviewPassed: task.latestOutputs?.length ? task.latestOutputs.every(item => item.reviewPassed === true) : null }
       }
@@ -68,7 +76,13 @@ export function createTasks({ home, workspaceController, execute = runOperation 
       task.done = runWithSessionLog(session, async () => {
         log(session, `任务 ${id} 开始：${operation.action}`, false, `日志-${operationLabel(operation)}-开始`)
         try {
-          const trace = await execute(operation, { home, workspaceController, session, signal: controller.signal, operationId: id, waitForBackground: true })
+          const trace = await queue.run(taskKind(operation.action), controller.signal, () => {
+            task.result.queued = false
+            return execute(operation, { home, workspaceController, session, signal: controller.signal, operationId: id, waitForBackground: true })
+          }, () => {
+            task.result.queued = true
+            log(session, `任务 ${id} 排队中：同类任务已达并发上限，前序任务结束后自动开始`, false, `日志-${operationLabel(operation)}-排队`)
+          })
           task.result = { ...task.result, ...trace.result }
           if (['episode-generate', 'outline', 'shots', 'seconds', 'storyboard'].includes(operation.action)) {
             const project = await projectStore(home).read(operation.projectId)
@@ -102,6 +116,7 @@ export function createTasks({ home, workspaceController, execute = runOperation 
       if (!task || task.status !== 'running' || task.operation.projectId !== projectId) throw Object.assign(new Error('任务已结束或不存在'), { status: 404 })
       task.controller.abort(Object.assign(new Error('任务已停止'), { code: 'TASK_CANCELLED' }))
     },
-    dispose() { for (const task of records.values()) if (task.status === 'running') task.controller.abort(Object.assign(new Error('服务已停止，任务暂停'), { code: 'TASK_PAUSED' })) },
+    // 服务关闭一律取消进行中任务（与用户点击停止相同：已提交的远端任务会收到取消请求）。
+    dispose() { for (const task of records.values()) if (task.status === 'running') task.controller.abort(Object.assign(new Error('服务已停止，任务已取消'), { code: 'TASK_CANCELLED' })) },
   }
 }

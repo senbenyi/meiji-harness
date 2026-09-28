@@ -1,6 +1,6 @@
 import { element, tabs } from './dom.js'
 import { request, assetUrl } from './api.js'
-import { guidanceTypes } from './guidance.js'
+import { guidanceTypes } from '../shared/guidance.js'
 
 export const categories = [['characters', '人物'], ['scenes', '场景'], ['props', '道具'], ['audio', '声音'], ['video', '视频'], ['guidance', '指导提示词']]
 const accepts = { characters: '.png,.jpg,.jpeg,.webp,.gif', scenes: '.png,.jpg,.jpeg,.webp,.gif', props: '.png,.jpg,.jpeg,.webp,.gif', audio: '.mp3,.wav,.m4a,.ogg,.flac', video: '.mp4,.webm,.mov', guidance: '.txt,.md,.markdown' }

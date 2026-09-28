@@ -1,4 +1,4 @@
-import { pictureOf } from '../../client/drama-model.js'
+import { pictureOf } from '../../shared/drama-model.js'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'

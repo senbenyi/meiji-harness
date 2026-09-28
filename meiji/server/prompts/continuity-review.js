@@ -1,4 +1,4 @@
-import { shotReferenceImages } from '../../client/reference-images.js'
+import { shotReferenceImages } from '../../shared/reference-images.js'
 
 export function continuityReviewContext(project, shotId, currentReferences) {
   const rows = project.shots?.items || []

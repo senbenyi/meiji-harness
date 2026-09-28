@@ -1,5 +1,5 @@
 import { setCardExpanded } from './shot-card-state.js'
-import { assertDrama } from './drama-model.js'
+import { assertDrama } from '../shared/drama-model.js'
 export function createModelStore() {
   const values = new Map(), listeners = new Set()
   return {

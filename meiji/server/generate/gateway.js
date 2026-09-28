@@ -1,6 +1,6 @@
 import { checkContext, markApiFailure } from '../data/self-checks.js'
 import { setTimeout as delay } from 'node:timers/promises'
-import { insertSessionLog, sessionForLog, logPurpose } from '../flow/session-log.js'
+import { insertSessionLog, sessionForLog, logPurpose } from '../host/session-log.js'
 
 const imageSizes = {
   '1344x768': '1344x768',
@@ -12,14 +12,6 @@ const imageSizes = {
   '4:3': '1152x896',
 }
 
-export function gatewayBaseUrl(value) {
-  let url
-  try { url = new URL(value) } catch { throw Object.assign(new Error('网关地址无效'), { status: 400 }) }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
-    throw Object.assign(new Error('网关地址无效'), { status: 400 })
-  }
-  return url.href.replace(/\/$/, '')
-}
 
 export function gatewayImageSize(aspectRatio) {
   return imageSizes[aspectRatio] || imageSizes['1344x768']
@@ -218,7 +210,7 @@ export async function cancelGatewayTask({ baseUrl, apiKey, promptId, kind, fetch
 
 async function cancelOnStop({ signal, ...options }) {
   if (!signal?.aborted) return
-  if (signal.reason?.code === 'TASK_PAUSED' || signal.reason?.name === 'TimeoutError') throw signal.reason
+  if (signal.reason?.name === 'TimeoutError') throw signal.reason
   let task
   try { task = await cancelGatewayTask(options) }
   catch (error) {

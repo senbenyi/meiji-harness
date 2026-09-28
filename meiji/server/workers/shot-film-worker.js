@@ -1,7 +1,7 @@
-import { GenerationStatus } from '../../client/drama-model.js'
+import { GenerationStatus } from '../../shared/drama-model.js'
 import { projectStore } from '../data/projects.js'
 import { materialize } from '../data/episodes.js'
-import { previousTail } from '../../client/tail-frame.js'
+import { previousTail } from '../../shared/tail-frame.js'
 
 const active = new Set()
 export async function produceShots(operation, deps, run) {

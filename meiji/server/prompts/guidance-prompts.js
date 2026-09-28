@@ -1,4 +1,4 @@
-import { guidanceTypes, guidanceModule } from '../../client/guidance.js'
+import { guidanceTypes, guidanceModule } from '../../shared/guidance.js'
 import { skillStages } from '../data/custom-skills.js'
 
 export function buildGuidancePrompt(project, skill) {

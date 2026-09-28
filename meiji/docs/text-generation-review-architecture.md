@@ -8,8 +8,8 @@
 - `server/prompts/shot-prompts.js`：集中编排镜头表、单镜修改、单镜与整集每秒指令；文本分镜也使用同一请求结构。
 - `server/prompts/text-prompts.js`：共用的生成、审核和修订构建函数，负责 Skill、语言、输出协议、自定义要求及修改意见。审核请求重新包含任务依据、适用生成规范和当前待审正文，不依赖生成请求的会话。
 - `server/prompts/continuity-review.js`：构建跨镜连续性审核资料。
-- `server/flow/text-workflow.js`：`runGenerationNode` 和 `runReviewNode` 可独立调用。`runTextWorkflow` 负责节点顺序、最多一次自动修订及结果保存。
-- `server/workers/text-request-worker.js`：`runTextRequest` 每次只发送一个已经编排完整的请求，处理日志、取消信号和 API 异常；不加载 Skill、不追加提示词、不触发审核。
+- `server/generate/text-workflow.js`：`runGenerationNode` 和 `runReviewNode` 可独立调用。`runTextWorkflow` 负责节点顺序、最多一次自动修订及结果保存。
+- `server/generate/text-request.js`：`runTextRequest` 每次只发送一个已经编排完整的请求，处理日志、取消信号和 API 异常；不加载 Skill、不追加提示词、不触发审核。
 - `server/generate/chat.js`、`gateway.js`：模型请求及网关传输。
 
 旧的 `askSkill`、`runTextGeneration` 接口及对应旧 worker、旧拼接文件已移除；调用方统一使用新接口。

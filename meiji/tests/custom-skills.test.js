@@ -8,7 +8,7 @@ import { projectStore } from '../server/data/projects.js'
 import { addEpisode, scopeProjects } from '../server/data/episodes.js'
 import { episodeWork } from '../client/overview.js'
 import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
-import { runTextRequest } from '../server/workers/text-request-worker.js'
+import { runTextRequest } from '../server/generate/text-request.js'
 import { previewFilmSubmit } from '../server/flow/actions.js'
 
 test('supplements persist per episode and stage, and clear without changing generated content', async () => {

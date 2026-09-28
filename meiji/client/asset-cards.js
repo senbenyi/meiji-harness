@@ -1,5 +1,5 @@
 import { reviewFields } from './workflow-review.js'
-import { pictureOf } from './drama-model.js'
+import { pictureOf } from '../shared/drama-model.js'
 import { request, assetUrl } from './api.js'
 import { element, appendJsonCopy } from './dom.js'
 

@@ -1,6 +1,6 @@
 import { recordedNode } from '../data/task-records.js'
-import { runTextRequest } from '../workers/text-request-worker.js'
-import { skillLogPurpose } from '../generate/chat.js'
+import { runTextRequest } from './text-request.js'
+import { skillLogPurpose } from './chat.js'
 import { checkContext } from '../data/self-checks.js'
 
 export async function runGenerationNode({ message, options, validate = () => {}, complete, persist }) {

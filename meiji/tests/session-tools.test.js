@@ -12,6 +12,7 @@ import { contentGenerateTool } from '../tools/session-content-generate-tool.js'
 import { contextQueryTool } from '../tools/session-context-query-tool.js'
 import { projectManageTool } from '../tools/session-project-manage-tool.js'
 import { taskControlTool } from '../tools/session-task-control-tool.js'
+import { useWorkspaces } from './fixtures/host.js'
 
 async function setup(t, review = 'PASS') {
   const e = await setupModel(t), calls = [], logs = []
@@ -83,6 +84,7 @@ test('tools reject skipped episodes, missing opinions and cross-session task acc
 
 test('session creates project using shared operation and selects it without affecting other sessions', async t => {
   const e = await setup(t), workspaceId = randomUUID()
+  useWorkspaces(t, { [workspaceId]: { title: '穿越成武松', path: '/project', sessionIds: [] } })
   const workspaceController = { create: async () => ({ workspace: { workspaceId, sessionIds: [] } }), rename: async () => {} }
   const tool = projectManageTool({ home: e.home, workspaceController })
   await assert.rejects(tool.execute({ action: 'create', fields: { title: '缺少摘要' } }, e.exec), /摘要/)

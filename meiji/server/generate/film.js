@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { retrieveGatewayVideo, submitGatewayVideo } from './gateway.js'
 
-export { shotReferenceImages } from '../../client/reference-images.js'
+export { shotReferenceImages } from '../../shared/reference-images.js'
 
 export function h3PromptFailures(prompt, images = [], mode = images.length ? 'reference' : 'text') {
   const text = String(prompt || '').trim()
@@ -36,7 +36,7 @@ export function bindReferencePrompt(prompt, images) {
   return text
 }
 
-export { videoPromptText as h3PromptText } from '../../client/video-prompt-text.js'
+export { videoPromptText as h3PromptText } from '../../shared/video-prompt-text.js'
 
 export function continuesFrame(value) {
   return /同一画面|同一时刻|接着做|最后一秒|\bsame (?:frame|moment)|\bcontinues? (?:the )?action|\blast second\b/i.test(String(value || ''))

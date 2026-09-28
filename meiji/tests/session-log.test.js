@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { insertSessionLog, runWithSessionLog } from '../server/flow/session-log.js'
+import { insertSessionLog, runWithSessionLog } from '../server/host/session-log.js'
 import { completeChat } from '../server/generate/gateway.js'
 
 test('a session log is a command record and not a model message', () => {
@@ -103,7 +103,7 @@ test('video submission and file upload logs omit base64 while preserving actual 
 })
 
 test('generation, review, correction and re-review have distinct request and response titles', async () => {
-  const { runTextWorkflow } = await import('../server/flow/text-workflow.js')
+  const { runTextWorkflow } = await import('../server/generate/text-workflow.js')
   const { buildTextPrompts } = await import('../server/prompts/text-prompts.js')
   const { episodeFixture } = await import('./fixtures/model.js')
   const events = [], replies = ['原文', 'FAIL\n动作缺失', '修订正文', 'PASS']

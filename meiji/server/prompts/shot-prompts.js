@@ -1,5 +1,5 @@
 import { checkContext, checkReasons } from '../data/self-checks.js'
-import { shotResults } from '../../client/drama-model.js'
+import { shotResults } from '../../shared/drama-model.js'
 import { continuityReviewContext } from './continuity-review.js'
 import { buildTextPrompts } from './text-prompts.js'
 

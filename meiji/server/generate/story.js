@@ -1,6 +1,6 @@
-import { runTextWorkflow } from '../flow/text-workflow.js'
+import { runTextWorkflow } from './text-workflow.js'
 import { buildStoryPrompts, buildEpisodePrompts } from '../prompts/story-prompts.js'
-import { node, cardModel } from '../../client/drama-model.js'
+import { node, cardModel } from '../../shared/drama-model.js'
 export { generateShots, reviseShot, generateAllSeconds, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
 import { h3PromptText } from './film.js'
 import { imageAssets, pictureRecord, usableLook } from './image.js'
