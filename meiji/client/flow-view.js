@@ -5,7 +5,8 @@ import { feedbackOf } from './feedback.js'
 export const tabs = [
   { id: 'summary', label: '摘要', steps: ['summary'] },
   { id: 'script', label: '剧情', steps: ['outline', 'characters', 'scenes'] },
-  { id: 'shots', label: '镜头', steps: ['shots'] },
+  { id: 'shots', label: '镜头表', steps: ['shots'] },
+  { id: 'seconds', label: '每秒指令', steps: ['seconds'] },
   { id: 'film', label: '成片', steps: ['film'] },
   { id: 'assembly', label: '合成', steps: ['assembly'] },
 ]
@@ -17,6 +18,6 @@ export function stepRunLabel(project, step) {
 export function tabOf(project) {
   const gate = gateOf(project)
   if (gate === 'done') return 'assembly'
-  if (gate === 'storyboard') return 'shots'
+  if (gate === 'storyboard') return 'film'
   return tabs.find(tab => tab.steps.includes(gate))?.id || 'script'
 }

@@ -97,7 +97,7 @@ export function mount() {
 
   let openCharacter = null
   let imageGate = null
-  let navigation = 0, library, workspace = null, shown = '', shownMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', shotsPane = 'table', openTab = '', shownProject = ''
+  let navigation = 0, library, workspace = null, shown = '', shownMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', openTab = '', shownProject = ''
   const display = node => { renderModelView(shell.content, node); shell.status(''); shell.setOpen(true) }
   const signature = project => (workspace?.id || '') + ':' + (project?.id || '')
   const contextFor = projects => ({
@@ -112,19 +112,17 @@ export function mount() {
     episodeId: openEpisode,
     shotId: openShot,
     shotTab,
-    shotsPane,
     tab: openTab,
     onSelectTab: id => { openTab = id },
     onShotTab: id => { shotTab = id },
-    onShotsPane: id => { shotsPane = id },
-    onOpenEpisode: id => { openEpisode = id; openShot = ''; openTab = tabs[0].id; shotTab = 'seconds'; shotsPane = 'table'; follow(true).catch(error => shell.status(error.message)) },
+    onOpenEpisode: id => { openEpisode = id; openShot = ''; openTab = tabs[0].id; shotTab = 'seconds'; follow(true).catch(error => shell.status(error.message)) },
     onOpenShot: id => { openShot = id; shotTab = 'seconds'; follow(true).catch(error => shell.status(error.message)) },
     onBackShot: () => { openShot = ''; openTab = 'shots'; follow(true).catch(error => shell.status(error.message)) },
     onBack: () => { openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; follow(true).catch(error => shell.status(error.message)) },
   })
   const paintProject = (project, nextWorkspace = workspace) => {
     workspace = nextWorkspace ?? workspace
-    if ((project?.id || '') !== shownProject) { openCharacter = null; openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; shotsPane = 'table'; imageGate = null }
+    if ((project?.id || '') !== shownProject) { openCharacter = null; openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; imageGate = null }
     shownProject = project?.id || ''
     shown = signature(project)
     shownMark = projectRefreshMark(project)
@@ -165,11 +163,12 @@ export function mount() {
   })
   const bridge = createBridge({ request, jsonBody, showProject, onDeleted: () => follow(true), status: message => shell.status(message) })
   const actions = {
-    openHistory: project => {
+    openHistory: (project, historyScope = '') => {
       hold = true
       navigation++
       const sessionId = currentSessionId()
       display(renderTaskHistory(project, {
+        historyScope,
         back: () => follow(true).catch(error => shell.status(error.message)),
         load: (artifactId = '') => request('history?' + new URLSearchParams({ projectId: project.id, ...(project.episodeId ? { episodeId: project.episodeId } : {}), sessionId, ...(artifactId ? { artifactId } : {}) })),
       }))

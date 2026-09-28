@@ -5,14 +5,16 @@ const names = { 'episode-generate': '生成摘要', 'episode-add': '新增摘要
 const targets = { summary: '摘要', story: '剧情', shots: '镜头表', seconds: '每秒指令', storyboard: '文本提示词', film: '成片', assembly: '合成视频' }
 const time = value => value ? new Date(value).toLocaleString() : '—'
 
-export function historyEntry(project, actions) {
-  const button = element('button', project.episodeId ? '查看本集任务历史 →' : '查看项目任务历史 →', 'task-history-entry')
+const scopes = { summary: ['摘要', ['episode-generate', 'episode-add', 'episode-edit']], script: ['剧情', ['outline', 'outline-text', 'characters', 'scenes', 'scene-text']], shots: ['镜头表', ['shots', 'revise-shot', 'shot-assets']], seconds: ['每秒指令', ['seconds', 'shot-seconds']], film: ['成片', ['storyboard', 'shot-storyboard', 'shot-boards', 'storyboard-text', 'film', 'films', 'produce-shot', 'produce-all']], assembly: ['合成', ['assemble']] }
+
+export function historyEntry(project, actions, scope = '') {
+  const button = element('button', scopes[scope] ? `查看${scopes[scope][0]}任务历史 →` : project.episodeId ? '查看本集任务历史 →' : '查看项目任务历史 →', 'task-history-entry')
   button.type = 'button'
-  button.onclick = () => actions.openHistory(project)
+  button.onclick = () => actions.openHistory(project, scope)
   return button
 }
 
-export function renderTaskHistory(project, { load, back }) {
+export function renderTaskHistory(project, { load, back, historyScope = '' }) {
   const view = element('section', '', 'task-history-page')
   const header = element('div', '', 'task-history-header')
   const backButton = element('button', '← 返回')
@@ -20,7 +22,7 @@ export function renderTaskHistory(project, { load, back }) {
   backButton.onclick = back
   const refresh = element('button', '刷新')
   refresh.type = 'button'
-  header.append(backButton, element('h2', '任务历史'), refresh)
+  header.append(backButton, element('h2', scopes[historyScope] ? `${scopes[historyScope][0]}任务历史` : '任务历史'), refresh)
   const scope = project.episodeId ? project.episodeNumber ? `第 ${project.episodeNumber} 集` : '本集' : '全部剧集'
   const filter = element('select')
   filter.setAttribute('aria-label', '按任务状态筛选')
@@ -94,7 +96,7 @@ export function renderTaskHistory(project, { load, back }) {
     try {
       const result = await load()
       if (id !== requestId) return
-      tasks = result.tasks
+      tasks = scopes[historyScope] ? result.tasks.filter(task => scopes[historyScope][1].includes(task.action)) : result.tasks
       draw()
     } catch (error) { if (id === requestId) message.textContent = `加载失败：${error.message}。点击刷新重试。` }
     finally { if (id === requestId) refresh.disabled = false }

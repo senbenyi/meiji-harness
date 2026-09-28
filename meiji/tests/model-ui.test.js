@@ -20,7 +20,7 @@ test('all production panes render directly from new models, including pencil and
  const actions={perform:async()=>{},fail:()=>{}}
  for(const step of ['script','shots','film','assembly'])container.replaceChildren(renderStage(step,e,actions,{}))
  for(const shotsPane of ['table','seconds','board','pencil']){
-  container.replaceChildren(renderStage(shotsPane === 'board' ? 'film' : 'shots',e,actions,{shotsPane}))
+  container.replaceChildren(renderStage(shotsPane === 'board' ? 'film' : shotsPane === 'seconds' ? 'seconds' : 'shots',e,actions,{shotsPane}))
   if(shotsPane==='board'){assert.ok(container.querySelector('.reference-card img'));assert.match(container.textContent,/<Subject 1>/);assert.ok(container.querySelector('.storyboard-editor'))}
  }
 })
@@ -46,7 +46,7 @@ test('shot subtab cards show review failure and retain manual expansion across r
  e.shots.items[1].storyboard.check = { passed: false, failures: ['角色冲突'] }
  const actions = { perform: async () => {}, fail: () => {} }
  for (const shotsPane of ['table', 'seconds']) {
-  const build = () => renderStage('shots', e, actions, { shotsPane })
+  const build = () => renderStage(shotsPane === 'seconds' ? 'seconds' : 'shots', e, actions, { shotsPane })
   container.replaceChildren(build())
   const cards = container.querySelectorAll('.collapsible-shot')
   assert.equal(cards.length, 2)
@@ -62,7 +62,7 @@ test('failed review shows reasons instead of input and submits the unified modif
  const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
  p.shots.items[0].seconds.check={passed:false,failures:['朝向不连续']}
  const calls=[]
- container.replaceChildren(renderStage('shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane:'seconds'}))
+ container.replaceChildren(renderStage('seconds',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane:'seconds'}))
  const card=container.querySelector('.shot-card'),area=container.querySelector('.workflow-review-panel')
  assert.ok(area.classList.contains('workflow-review-failed'))
  assert.match(area.textContent,/朝向不连续/)
@@ -118,7 +118,7 @@ test('generated and revised shot titles appear on production cards', async t => 
  const actions = { perform: async () => {}, fail: () => {} }
  const checkCards = title => {
   for (const shotsPane of ['table', 'seconds', 'board', 'pencil']) {
-   container.replaceChildren(renderStage('shots', project, actions, { shotsPane }))
+   container.replaceChildren(renderStage(shotsPane === 'seconds' ? 'seconds' : 'shots', project, actions, { shotsPane }))
    assert.ok([...container.querySelectorAll('h3')].some(el => el.textContent.includes(`S01 / 5s · ${title}`)), shotsPane)
   }
  }
@@ -161,10 +161,10 @@ test('paused generation shows paused badge and regenerate action without losing 
  const container=domSetup(t), project=episodeFixture()
  project.shots.items[0].seconds.status='paused'
  project.shots.seconds.review.text='保留动作'
- container.append(renderStage('shots', project, {perform:async()=>{},fail:()=>{}}, {shotsPane:'seconds'}))
+ container.append(renderStage('seconds', project, {perform:async()=>{},fail:()=>{}}, {shotsPane:'seconds'}))
  const card=container.querySelector('[data-model-key="seconds:S01"]') || container.querySelector('.shot-card')
  assert.equal(card.querySelector('.shot-check-badge').textContent,'暂停')
- assert.ok([...container.querySelectorAll('.workflow-generation-row button')].some(button=>button.textContent==='重新生成' && !button.disabled))
+ assert.ok([...container.querySelectorAll('.stage-primary-actions button')].some(button=>button.textContent==='重新生成' && !button.disabled))
  assert.equal(container.querySelector('.workflow-review input').value,'保留动作')
  assert.equal(card.querySelector('input'),null)
 })
@@ -173,7 +173,7 @@ test('regenerate button never submits the visible previous opinion', async t => 
  const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
  p.shots.seconds.review.text='旧人工意见'
  const calls=[]
- container.replaceChildren(renderStage('shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane:'seconds'}))
+ container.replaceChildren(renderStage('seconds',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane:'seconds'}))
  const area=container.querySelector('.workflow-review-panel')
  const regenerate=container.querySelector('.workflow-regenerate'),modify=area.querySelector('button')
  assert.equal(area.contains(regenerate),false)
@@ -185,7 +185,7 @@ test('batch text controls no longer offer fill remaining',async t=>{
  const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
  for(const shotsPane of ['seconds']){
   const calls=[]
-  container.replaceChildren(renderStage('shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane}))
+  container.replaceChildren(renderStage(shotsPane === 'seconds' ? 'seconds' : 'shots',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{shotsPane}))
   assert.doesNotMatch(container.textContent,/补齐剩余/)
   const button=[...container.querySelectorAll('button')].find(b=>b.textContent==='重新生成')
   assert.ok(button);button.click();await Promise.resolve()
@@ -198,7 +198,7 @@ test('table and seconds review panels precede all shot cards; seconds cards have
  p.shots.items[0].seconds.check={passed:false,failures:['第一镜失败']}
  p.shots.items[1].seconds.check={passed:false,failures:['第二镜失败']}
  for(const shotsPane of ['table','seconds']){
-  container.replaceChildren(renderStage('shots',p,{perform:async()=>{},fail:()=>{}},{shotsPane}))
+  container.replaceChildren(renderStage(shotsPane === 'seconds' ? 'seconds' : 'shots',p,{perform:async()=>{},fail:()=>{}},{shotsPane}))
   const area=container.querySelector('.workflow-review'),cards=container.querySelectorAll('.shot-card')
   assert.ok(area.compareDocumentPosition(cards[0]) & 4)
   assert.equal(container.querySelectorAll('.workflow-review').length,1)
@@ -360,4 +360,33 @@ test('task history load failures offer refresh and recover', async t => {
  await view.querySelector('.task-history-header button:last-child').onclick()
  assert.match(view.textContent, /暂无任务历史/)
  assert.match(view.textContent, /全部剧集/)
+})
+
+test('shot table and seconds are separate top-level tabs with scoped history', async t => {
+ const { tabs } = await import('../client/flow-view.js')
+ assert.deepEqual(tabs.map(tab => tab.label), ['摘要', '剧情', '镜头表', '每秒指令', '成片', '合成'])
+ const container = domSetup(t), project = episodeFixture(), calls = []
+ const actions = {perform:async()=>{},fail:()=>{},openHistory:(project,scope)=>calls.push(scope)}
+ for (const [step,label] of [['shots','镜头表'],['seconds','每秒指令']]) {
+  container.replaceChildren(renderStage(step,project,actions,{}))
+  assert.equal(container.querySelector('.shot-subtabs'),null)
+  const entry=container.querySelector('.task-history-entry')
+  assert.equal(entry.textContent,`查看${label}任务历史 →`)
+  entry.click()
+ }
+ assert.deepEqual(calls,['shots','seconds'])
+})
+
+
+test('stage toolbar groups status, history, skills and generation controls', t => {
+ const container = domSetup(t), project = episodeFixture()
+ const actions = {perform:async()=>{},fail:()=>{},openHistory:()=>{},openCustomSkill:()=>{}}
+ for (const step of ['summary','script','shots','seconds','film','assembly']) {
+  container.replaceChildren(renderStage(step,project,actions,{}))
+  const toolbar=container.querySelector('.stage-history-toolbar')
+  assert.equal(toolbar.firstElementChild.className,'stage-status')
+  assert.ok(toolbar.querySelector('.task-history-entry'))
+  assert.ok(toolbar.querySelector('.stage-primary-actions button.primary'),step)
+  assert.equal(container.querySelectorAll('.custom-skill-field').length,0)
+ }
 })

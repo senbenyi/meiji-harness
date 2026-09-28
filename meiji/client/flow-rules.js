@@ -35,6 +35,7 @@ export function gateOf(project) {
   if (!hasCharacters(project)) return 'characters'
   if (!hasScenes(project)) return 'scenes'
   if (!shotsReady(project)) return 'shots'
+  if (!hasShotSeconds(project) || feedbackOf(project, 'seconds').check.passed !== true) return 'seconds'
   if (!hasStoryboard(project)) return 'storyboard'
   if (!hasFilm(project)) return 'film'
   return 'done'

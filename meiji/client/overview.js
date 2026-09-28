@@ -79,10 +79,15 @@ export function renderOverview(project, actions, context) {
   edit.setAttribute('aria-label', '编辑标题、风格和摘要')
   edit.innerHTML = editIcon
   edit.onclick = () => actions.openOverview?.(project)
-  titleRow.append(edit, deleteButton(project, actions))
+  titleRow.append(edit)
   page.append(titleRow)
   const style = typeof project.style === 'string' && project.style.trim() ? `${project.style.trim()} · ` : ''
   page.append(element('p', `${project.aspectRatio || '1344x768'} · ${style}${(project.episodes || []).length} 集`, 'meta'))
+
+  const projectActions = element('div', '', 'project-actions')
+  if (actions.openHistory) projectActions.append(historyEntry(project, actions))
+  projectActions.append(deleteButton(project, actions))
+  page.append(projectActions)
 
   const summaryCard = element('article', '', 'overview-card')
   summaryCard.append(element('h3', '摘要'))
@@ -137,7 +142,7 @@ export function renderOverview(project, actions, context) {
   const head = element('div', '', 'episode-head')
   head.append(element('h3', '剧集'))
   const busy = project.activity === 'episode'
-  const add = element('button', '＋', 'episode-add')
+  const add = element('button', '＋ 新增剧集', 'episode-add')
   add.type = 'button'
   add.disabled = busy
   add.setAttribute('aria-label', '新增剧集')
@@ -145,32 +150,6 @@ export function renderOverview(project, actions, context) {
   head.append(add)
   episodes.append(head)
   const list = [...(project.episodes || [])]
-  const placeholder = element('div', '', 'episode-card placeholder')
-  if (busy) placeholder.classList.add('is-busy')
-  placeholder.tabIndex = 0
-  const copy = element('div', '', 'episode-copy')
-  copy.append(element('strong', `第 ${list.length + 1} 集`))
-  copy.append(element('span', '时长', 'meta'))
-  copy.append(element('p', '本集剧情'))
-  const generate = element('button', busy ? '生成中' : 'AI生成', 'episode-edit')
-  generate.type = 'button'
-  generate.disabled = busy
-  generate.setAttribute('aria-label', '生成本集剧情')
-  generate.onclick = event => {
-    event.stopPropagation()
-    if (busy || generate.disabled) return
-    generate.disabled = true
-    generate.textContent = '生成中'
-    placeholder.classList.add('is-busy')
-    actions.perform(project, 'episode-generate').catch(error => {
-      generate.disabled = false
-      generate.textContent = 'AI生成'
-      placeholder.classList.remove('is-busy')
-      actions.fail(error)
-    })
-  }
-  placeholder.append(coverNode({}), copy, generate)
-  episodes.append(placeholder)
   list.forEach((episode, index) => {
     const card = element('div', '', 'episode-card')
     card.tabIndex = 0
@@ -202,11 +181,13 @@ export function renderOverview(project, actions, context) {
         actions.fail(error)
       })
     }
-    const heading = element('div', '', 'workflow-generation-row')
-    heading.append(copy.querySelector('strong'), regenerate, deleteButton(project, actions, episode, number))
+    const heading = element('div', '', 'workflow-generation-row episode-card-heading')
+    heading.append(copy.querySelector('strong'))
     copy.prepend(heading)
-    appendJsonCopy(copy, episode)
-    card.append(coverNode(episode), copy, edit)
+    appendJsonCopy(heading, episode)
+    const cardActions = element('div', '', 'episode-card-actions')
+    cardActions.append(edit, regenerate, deleteButton(project, actions, episode, number))
+    card.append(coverNode(episode), copy, cardActions)
     const open = () => context.onOpenEpisode?.(episode.id)
     card.onclick = open
     card.onkeydown = event => {
@@ -216,7 +197,6 @@ export function renderOverview(project, actions, context) {
   })
 
   page.append(episodes)
-  if (actions.openHistory) page.append(historyEntry(project, actions))
   return page
 }
 

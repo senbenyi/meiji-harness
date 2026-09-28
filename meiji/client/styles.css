@@ -182,9 +182,9 @@ button.style-pick.is-on:hover {
 .shot-unpassed>.shot-collapse-head h3,.shot-unpassed>.prompt,.shot-unpassed>.story{color:#ff999f}
 
 /* Keep feedback and its action together without duplicating generation controls. */
-.workflow-review-panel{padding:12px;border:1px solid var(--border,#3b3e46);border-radius:10px;grid-template-columns:minmax(0,1fr) auto;align-items:center;background:rgba(128,128,128,.05)}
+.workflow-review-panel{border:0;grid-template-columns:minmax(0,1fr) auto;align-items:center;background:transparent}
 .workflow-review-panel>.hint,.workflow-review-panel>.storyboard-empty{grid-column:1/-1}
-.workflow-review-failed{border-color:rgba(230,95,95,.5);background:rgba(230,95,95,.06)}
+.workflow-review-failed>.workflow-review-failures{padding:10px 12px;border-radius:8px;background:rgba(230,95,95,.06)}
 .workflow-review-panel>.workflow-review-action{margin:0;min-height:34px;white-space:nowrap;padding:6px 12px;font-size:13px}
 .workflow-review-panel>.workflow-review-action:not(:disabled){background:#efd09d;border-color:#efd09d;color:#241c10;font-weight:600}.workflow-review-panel>.workflow-review-action:not(:disabled):hover{background:#ffe1af;border-color:#ffe1af}.workflow-review-panel>.workflow-review-action:focus-visible{outline:2px solid #ffe1af;outline-offset:3px}
 .workflow-review-panel>.hint{white-space:pre-wrap;overflow-wrap:anywhere}
@@ -203,16 +203,76 @@ button.style-pick.is-on:hover {
 .task-history-header, .task-history-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .task-history-header h2 { flex: 1; margin: 0; }
 .task-history-list { display: grid; gap: 12px; }
-.task-history-item { border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+.task-history-item { border: 1px solid #383a41; border-radius: 8px; overflow: hidden; }
 .task-history-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px; cursor: pointer; }
 .task-history-row strong { flex: 1; min-width: 110px; }
-.task-history-status { padding: 3px 8px; border-radius: 12px; background: #eee; font-size: 12px; }
-.task-history-status.is-completed { color: #176b3a; background: #e8f5ec; }
-.task-history-status.is-running { color: #235a96; background: #eaf2fc; }
-.task-history-status.is-failed, .task-history-status.is-review_failed { color: #9f3030; background: #fdeeee; }
+.task-history-status { padding: 3px 8px; border-radius: 12px; background: #30323a; font-size: 12px; }
+.task-history-status.is-completed { color: #92d9ac; background: #243b30; }
+.task-history-status.is-running { color: #a3c8f4; background: #26384d; }
+.task-history-status.is-failed, .task-history-status.is-review_failed { color: #f1aaaa; background: #442c31; }
 .task-history-detail { padding: 0 14px 14px; overflow-wrap: anywhere; }
 .task-history-nodes { padding-left: 22px; }
 .task-history-nodes li { margin: 10px 0; }
 .task-history-snapshot { margin-top: 10px; }
 .task-history-snapshot summary { cursor: pointer; }
 .task-history-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Action hierarchy and responsive layout across the workbench. */
+button:focus-visible,summary:focus-visible,[role="link"]:focus-visible{outline:2px solid #dfc196;outline-offset:3px}
+button{transition:background-color .15s,border-color .15s;color:inherit}
+button.icon-edit{width:32px;height:32px;align-items:center;justify-content:center;border-radius:8px}
+button.icon-edit:hover{background:#30323a}
+.project-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #383a41}
+.project-actions .task-history-entry{margin:0}
+button.delete-content{color:#bba0a4;border-color:transparent;margin-left:auto}
+button.delete-content:not(:disabled):hover{color:#ffc1c1;background:#442c31;border-color:#785056}
+.episode-head .episode-add{width:auto;height:34px;padding:6px 10px;font-size:12px;border:1px solid #383a41;border-radius:8px}
+.episode-card{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px 12px;cursor:pointer}
+.episode-card .episode-cover{width:64px;height:86px}
+.episode-card .episode-copy{padding-right:0}
+.episode-card .episode-edit{position:static;margin:0}
+.episode-card-actions{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:8px;border-top:1px solid #30323a;padding-top:10px}
+.episode-card-actions button{min-height:34px;padding:6px 10px;font-size:12px;white-space:nowrap}
+.outline-head{flex-wrap:wrap;row-gap:12px}
+.outline-head>h3{flex:1;min-width:100px}
+.outline-head>.section-actions{margin-left:auto}
+.section-actions button,.outline-head>button,.shot-actions button,.workflow-generation-row>button{min-height:34px;padding:6px 10px;font-size:13px;line-height:20px}
+.section-actions,.shot-actions{flex-wrap:wrap;gap:8px}
+.workflow-review-panel{margin-top:28px;padding:0;gap:10px}
+.workflow-review-panel>.workflow-review-action:not(:disabled){background:#30323a;border-color:#76654e;color:#ead0a8}
+.workflow-review-panel>.workflow-review-action:not(:disabled):hover{background:#40392e;border-color:#dfc196}
+.task-history-entry{min-height:34px;color:#aeb5c3;font-size:12px}
+.task-history-page{padding:0}
+.task-history-header,.task-history-toolbar{flex-wrap:wrap;gap:8px}
+.task-history-toolbar select{min-width:0;max-width:100%}
+.task-history-row:hover{background:#25272e}
+@container workbench (max-width:340px){
+ .outline-head>.section-actions{width:100%;justify-content:flex-end}
+ .episode-card-actions{gap:6px}
+ .episode-card-actions button{padding:6px 8px}
+ .section-head{flex-wrap:wrap}
+ .section-actions{flex-shrink:1}
+}
+
+.episode-card-heading{flex-wrap:nowrap;align-items:flex-start;gap:8px}
+.episode-card-heading>.json-copy-row{flex:0 0 auto;margin:0 0 0 auto}
+.episode-card-heading .json-copy{white-space:nowrap}
+
+.stage-history-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;justify-content:flex-start;grid-column:1/-1;margin-bottom:12px}
+.stage-history-toolbar>button{min-height:34px;margin:0;padding:6px 10px;font-size:12px;white-space:nowrap}
+.stage-history-toolbar .task-history-entry{margin:0}
+
+.stage-status{flex:none;font-size:12px;font-weight:600;color:#dfc196;line-height:34px}
+.stage-primary-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.stage-primary-actions>button{min-height:34px;margin:0;padding:6px 10px;font-size:12px;white-space:nowrap}
+
+.film-storyboard-section>.workflow-generation-row{justify-content:space-between;margin:14px 0 10px}
+.film-prompt-empty{width:100%;min-height:72px;display:grid;place-items:center}
+.film-video-section{margin-top:24px;padding-top:16px;border-top:1px solid #383a41}
+.film-media-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:12px;align-items:stretch}
+.film-media-row>div{min-width:0;display:flex;flex-direction:column}
+.film-media-row h4{font-size:12px;margin:0 0 8px;overflow-wrap:anywhere}
+.film-media-row .storyboard-empty{flex:1;min-height:100px;margin:0;display:grid;place-items:center;padding:8px;text-align:center;overflow-wrap:anywhere}
+.film-media-row video,.film-media-row img{display:block;width:100%;min-height:0;max-height:260px;object-fit:contain;border-radius:8px;background:#111;margin:0}
+.film-media-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:12px}
+.film-media-actions button{margin:0;min-height:34px;padding:6px 10px;font-size:12px}
