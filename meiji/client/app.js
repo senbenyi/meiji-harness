@@ -180,7 +180,7 @@ export function mount() {
       const sessionId = currentSessionId()
       display(renderCustomSkill(project, stage, {
         back: () => follow(true).catch(error => shell.status(error.message)),
-        save: content => request('custom-skill', { method: 'PUT', ...jsonBody({ projectId: project.id, episodeId: project.episodeId, sessionId, stage, content }) }),
+        save: (content, guidanceAssetIds) => request('custom-skill', { method: 'PUT', ...jsonBody({ projectId: project.id, episodeId: project.episodeId, sessionId, stage, content, guidanceAssetIds }) }),
       }))
     },
     characterImageUrl: (project, itemId) => '/plugins/meiji/character-image-url?' + new URLSearchParams({ projectId: project.id, episodeId: project.episodeId, itemId, sessionId: currentSessionId() }),
@@ -246,9 +246,9 @@ export function mount() {
       const incomingId = await bridge.stage(file)
       await actions.perform(project, slot ? 'part-import' : 'import-image', { itemId, incomingId, ...(slot ? { slot } : {}) })
     },
-    importLibrary: async (category, file) => {
+    importLibrary: async (category, file, guidanceType) => {
       const incomingId = await bridge.stage(file, category)
-      await bridge.perform(null, 'library-import', { incomingId, category, name: file.name })
+      await bridge.perform(null, 'library-import', { incomingId, category, name: file.name, ...(guidanceType ? { guidanceType } : {}) })
     },
     fail: error => shell.status(error.message),
   }

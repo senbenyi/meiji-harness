@@ -46,3 +46,25 @@ test('audio/video byte ranges support seeking and reject invalid requests', () =
   assert.deepEqual(byteRange('bytes=8-', 10), { start: 8, end: 9, partial: true })
   for (const value of ['bytes=10-', 'bytes=5-2', 'bytes=-0', 'bytes=0-1,3-4', 'bad']) assert.equal(byteRange(value, 10), null)
 })
+
+test('guidance imports persist category, UTF-8 content and original files locally', () => fixture(async (store, home) => {
+  const content = '\ufeff# 声音\n脚步声由远及近。\n'
+  const asset = await store.import('guidance', '脚步.markdown', stream(content), undefined, { guidanceType: 'sound' })
+  const loaded = (await assetStore(home).list('guidance'))[0]
+  assert.equal(loaded.guidanceType, 'sound')
+  assert.equal(loaded.content, '# 声音\n脚步声由远及近。')
+  assert.equal(loaded.mime, 'text/plain; charset=utf-8')
+  assert.equal(await readFile((await store.file('guidance', asset.id)).path, 'utf8'), content)
+  assert.equal((await store.import('guidance', '其他.txt', stream('其他参考'))).guidanceType, 'other')
+}))
+
+test('guidance rejects invalid categories, encoding, blank, binary, oversized and nontext imports', () => fixture(async (store, home) => {
+  await assert.rejects(store.import('guidance', 'a.txt', stream('a'), undefined, { guidanceType: 'unknown' }), { status: 400 })
+  for (const content of ['   \n', 'a\0b', '字'.repeat(20001), Buffer.from([0xff, 0xfe])]) {
+    await assert.rejects(store.import('guidance', 'a.txt', stream(content)), { status: 400 })
+  }
+  await assert.rejects(store.import('guidance', 'a.txt', stream('a'.repeat(128 * 1024 + 1))), { status: 413 })
+  await assert.rejects(store.import('guidance', 'a.html', stream('<script>x</script>')), { status: 400 })
+  await assert.rejects(store.import('audio', 'a.txt', stream('sound')), { status: 400 })
+  assert.deepEqual(await readdir(join(home, 'storages/meiji/assets/guidance')), [])
+}))

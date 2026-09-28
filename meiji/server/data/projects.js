@@ -170,7 +170,7 @@ export function revisionStore(store, operationId, scope = {}) {
       ...(['shot-storyboard', 'storyboard-text'].includes(scope.action) && i === index - 1 ? { storyboard: shot.storyboard } : {}),
       ...(scope.action === 'film' && i === index - 1 ? { video: shot.video } : {}),
     }))
-    const value = episode && scope.track ? { summary: episode.summary, customSkills: episode.customSkills, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: episode.shots.items[index], ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
+    const value = episode && scope.track ? { summary: episode.summary, customSkills: episode.customSkills, guidanceAssets: episode.guidanceAssets, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: episode.shots.items[index], ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
     return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, style: project.style, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision'].includes(key) ? undefined : value)
   }
   const guarded = Object.create(store)

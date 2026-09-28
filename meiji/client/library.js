@@ -1,8 +1,9 @@
 import { element, tabs } from './dom.js'
 import { request, assetUrl } from './api.js'
+import { guidanceTypes } from './guidance.js'
 
-export const categories = [['characters', '人物'], ['scenes', '场景'], ['props', '道具'], ['audio', '声音'], ['video', '视频']]
-const accepts = { characters: '.png,.jpg,.jpeg,.webp,.gif', scenes: '.png,.jpg,.jpeg,.webp,.gif', props: '.png,.jpg,.jpeg,.webp,.gif', audio: '.mp3,.wav,.m4a,.ogg,.flac', video: '.mp4,.webm,.mov' }
+export const categories = [['characters', '人物'], ['scenes', '场景'], ['props', '道具'], ['audio', '声音'], ['video', '视频'], ['guidance', '指导提示词']]
+const accepts = { characters: '.png,.jpg,.jpeg,.webp,.gif', scenes: '.png,.jpg,.jpeg,.webp,.gif', props: '.png,.jpg,.jpeg,.webp,.gif', audio: '.mp3,.wav,.m4a,.ogg,.flac', video: '.mp4,.webm,.mov', guidance: '.txt,.md,.markdown' }
 
 function dramaLibrary(onProject) {
   const view = element('section'), list = element('div')
@@ -29,26 +30,41 @@ function assetLibrary(actions) {
   const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.hidden = true
   input.setAttribute('aria-label', '选择导入素材')
   const importButton = element('button', '导入素材', 'primary')
-  const toolbar = element('div', '', 'asset-toolbar'); toolbar.append(importButton, element('small', '单文件 ≤ 512 MB'))
+  const limit = element('small', '单文件 ≤ 512 MB')
+  const toolbar = element('div', '', 'asset-toolbar'); toolbar.append(importButton, limit)
+  const typeLabel = element('label', '指导分类'), typeInput = document.createElement('select')
+  typeInput.setAttribute('aria-label', '指导素材分类')
+  for (const [value, label] of guidanceTypes) { const option = element('option', label); option.value = value; typeInput.append(option) }
+  typeLabel.append(typeInput); typeLabel.hidden = true
+  typeInput.onchange = () => load()
   const categoryTabs = tabs('素材分类', categories, category, selected => { category = selected; load() })
   const help = element('p', '', 'notice')
-  view.append(categoryTabs, toolbar, input, help, status, list)
+  view.append(categoryTabs, typeLabel, toolbar, input, help, status, list)
   importButton.onclick = () => { input.accept = accepts[category]; input.click() }
   async function load() {
-    const ticket = ++loading, selected = category
-    help.textContent = selected === 'audio' ? '支持 MP3、WAV、M4A、OGG、FLAC' : selected === 'video' ? '支持 MP4、WebM、MOV；能否播放取决于编码格式' : '支持 PNG、JPG、WebP、GIF 图片'
+    const ticket = ++loading, selected = category, guidanceType = typeInput.value
+    typeLabel.hidden = selected !== 'guidance'
+    limit.textContent = selected === 'guidance' ? '单文件 ≤ 128 KB / 20000 字' : '单文件 ≤ 512 MB'
+    help.textContent = selected === 'guidance' ? '按所选分类导入 UTF-8 TXT/Markdown 提示词，保存在本地；在各阶段「补充 skill」中选择使用。' : selected === 'audio' ? '支持 MP3、WAV、M4A、OGG、FLAC' : selected === 'video' ? '支持 MP4、WebM、MOV；能否播放取决于编码格式' : '支持 PNG、JPG、WebP、GIF 图片'
     list.replaceChildren(element('p', '正在读取素材…', 'meta'))
     try {
       const { assets } = await request('assets?' + new URLSearchParams({ category: selected }))
       if (ticket !== loading) return
       list.replaceChildren()
-      if (!assets.length) list.append(element('div', '暂无素材，点击「导入素材」添加', 'empty'))
-      for (const asset of assets) {
+      const visible = selected === 'guidance' ? assets.filter(asset => asset.guidanceType === guidanceType) : assets
+      if (!visible.length) list.append(element('div', '暂无素材，点击「导入素材」添加', 'empty'))
+      for (const asset of visible) {
         const card = element('article', '', 'asset-card'), url = assetUrl(asset)
-        const media = document.createElement(asset.mime.startsWith('image/') ? 'img' : asset.mime.startsWith('audio/') ? 'audio' : 'video')
-        media.src = url
-        if (media.tagName === 'IMG') { media.alt = asset.originalName; media.loading = 'lazy' }
-        else { media.controls = true; media.preload = 'metadata' }
+        let media
+        if (selected === 'guidance') {
+          media = element('details', '', 'guidance-preview')
+          media.append(element('summary', '预览提示词'), element('pre', asset.content, 'guidance-text'))
+        } else {
+          media = document.createElement(asset.mime.startsWith('image/') ? 'img' : asset.mime.startsWith('audio/') ? 'audio' : 'video')
+          media.src = url
+          if (media.tagName === 'IMG') { media.alt = asset.originalName; media.loading = 'lazy' }
+          else { media.controls = true; media.preload = 'metadata' }
+        }
         const download = element('a', '下载原文件'); download.href = url + '&download=1'; download.download = asset.originalName
         card.append(media, element('strong', asset.originalName), element('p', `${(asset.size / 1024 / 1024).toFixed(2)} MB · ${new Date(asset.createdAt).toLocaleDateString('zh-CN')}`, 'meta'), download)
         list.append(card)
@@ -57,8 +73,8 @@ function assetLibrary(actions) {
   }
   input.onchange = async () => {
     if (uploading || !input.files.length) return
-    const files = [...input.files], target = category
-    uploading = true; importButton.disabled = true
+    const files = [...input.files], target = category, guidanceType = typeInput.value
+    uploading = true; importButton.disabled = true; typeInput.disabled = true
     for (const button of categoryTabs.children) button.disabled = true
     let success = 0
     const failures = []
@@ -66,12 +82,13 @@ function assetLibrary(actions) {
       status.textContent = `正在导入 ${index + 1}/${files.length}：${file.name}`
       try {
         if (file.size > 512 * 1024 * 1024) throw new Error('文件超过 512 MB')
-        await actions.importLibrary(target, file)
+        if (target === 'guidance' && file.size > 128 * 1024) throw new Error('指导素材超过 128 KB')
+        await actions.importLibrary(target, file, target === 'guidance' ? guidanceType : undefined)
         success++
       } catch (error) { failures.push(`${file.name}：${error.message}`) }
     }
-    status.textContent = `已送入会话 ${success}/${files.length} 个素材${failures.length ? '；' + failures.join('；') : ''}`
-    input.value = ''; uploading = false; importButton.disabled = false
+    status.textContent = `已导入 ${success}/${files.length} 个素材${failures.length ? '；' + failures.join('；') : ''}`
+    input.value = ''; uploading = false; importButton.disabled = false; typeInput.disabled = false
     for (const button of categoryTabs.children) button.disabled = false
     await load()
   }

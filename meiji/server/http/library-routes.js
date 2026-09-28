@@ -21,7 +21,7 @@ export function assetRoutes(home, json) {
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
         if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
         if (Number(req.headers['content-length']) > MAX_ASSET_BYTES) return json(res, 413, { error: '单个素材不能超过 512 MB' })
-        return json(res, 201, { asset: await store.import(category, url.searchParams.get('name'), req) })
+        return json(res, 201, { asset: await store.import(category, url.searchParams.get('name'), req, MAX_ASSET_BYTES, { guidanceType: url.searchParams.get('guidanceType') }) })
       }
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: '不支持的请求' })
       const { path, metadata } = await store.file(category, url.searchParams.get('id'))

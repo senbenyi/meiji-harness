@@ -2,7 +2,8 @@ import { recordStore } from '../data/task-records.js'
 import { subscribeProject } from '../data/project-events.js'
 import { pictureOf, targetNode, shotResults } from '../../client/drama-model.js'
 import { shotReferenceImages } from '../../client/reference-images.js'
-import { customSkillPatch } from '../data/custom-skills.js'
+import { customSkillPatch, loadGuidanceAssets } from '../data/custom-skills.js'
+import { MAX_GUIDANCE_BYTES } from '../data/library.js'
 import { scopeProjects } from '../data/episodes.js'
 import { readGatewayImage } from '../generate/image-access.js'
 import { readImageDraft } from '../data/pictures.js'
@@ -166,7 +167,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           const name = decodeURIComponent(String(req.headers['x-meiji-name'] || ''))
           const category = String(req.headers['x-meiji-category'] || '')
           const mime = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
-          const limit = category ? 512 * 1024 * 1024 : 12 * 1024 * 1024
+          const limit = category === 'guidance' ? MAX_GUIDANCE_BYTES : category ? 512 * 1024 * 1024 : 12 * 1024 * 1024
           const bytes = await readBytes(req, limit)
           const incomingId = await saveIncoming(home, { name, category, mime, bytes })
           return json(res, 201, { incomingId })
@@ -230,8 +231,9 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         const body = await readJson(req, 150000)
         await links.requireProject(String(body.sessionId || ''), body.projectId)
         if (!body.episodeId) return json(res, 400, { error: '请选择剧集' })
+        const assets = body.guidanceAssetIds === undefined ? undefined : await loadGuidanceAssets(home, body.guidanceAssetIds)
         const scoped = scopeProjects(projects, body.episodeId)
-        await scoped.save(body.projectId, current => customSkillPatch(current, body.stage, body.content))
+        await scoped.save(body.projectId, current => customSkillPatch(current, body.stage, body.content, assets))
         return json(res, 200, { project: await projects.read(body.projectId) })
       }
       if (path === base + '/project-settings') {
