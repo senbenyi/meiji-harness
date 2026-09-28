@@ -1,11 +1,5 @@
 import { completeChat } from './gateway.js'
 
-export function textMaxTokens(durationSeconds) {
-  const duration = Number.isInteger(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1
-  return Math.min(32768, Math.max(16384, 4096 + duration * 128))
-}
-
-
 export function parseJsonValue(text) {
   const source = String(text || '').trim()
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(source)
@@ -22,9 +16,9 @@ export function parseJsonValue(text) {
   }
 }
 
-export async function askModel({ route, system, prompt, maxTokens, json = false, signal, fetchImpl, missing = '尚未配置剧情模型' }) {
+export async function askModel({ route, system, prompt, json = false, signal, fetchImpl, missing = '尚未配置剧情模型' }) {
   if (!route?.baseUrl || !route?.apiKey || !route?.model) throw Object.assign(new Error(missing), { status: 400 })
-  return completeChat({ baseUrl: route.baseUrl, apiKey: route.apiKey, model: route.model, system, prompt, maxTokens, json, signal, fetchImpl })
+  return completeChat({ baseUrl: route.baseUrl, apiKey: route.apiKey, model: route.model, system, prompt, json, signal, fetchImpl })
 }
 
 

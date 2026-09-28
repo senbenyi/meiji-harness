@@ -4,7 +4,7 @@ import { node, cardModel } from '../../client/drama-model.js'
 export { generateShots, reviseShot, generateAllSeconds, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
 import { h3PromptText } from './film.js'
 import { imageAssets, pictureRecord, usableLook } from './image.js'
-import { parseJsonValue, textMaxTokens } from './chat.js'
+import { parseJsonValue } from './chat.js'
 
 
 function required(value, message) {
@@ -104,14 +104,14 @@ export function normalizeEpisodeDraft(raw) {
 export async function generateEpisode({ route, project, episodeId, signal, fetchImpl, request }) {
   const result = await runTextWorkflow({
     prompts: buildEpisodePrompts(project, episodeId),
-    options: { route, project: { ...project, durationSeconds: 180 }, signal, fetchImpl, request, maxTokens: 4096 },
+    options: { route, project: { ...project, durationSeconds: 180 }, signal, fetchImpl, request },
     validate: text => normalizeEpisodeDraft(parseJsonValue(text)),
   })
   return { ...normalizeEpisodeDraft(parseJsonValue(result.text)), check: result.check }
 }
 
 export async function generateStoryPackage({ route, project, signal, fetchImpl, persist }) {
-  const options = { route, project, signal, fetchImpl, maxTokens: textMaxTokens(project.durationSeconds) }
+  const options = { route, project, signal, fetchImpl }
   const normalize = text => {
     const raw = parseJsonValue(text)
     return { outline: required(raw.outline, '大纲是空的'), characters: normalizeCharacters(raw.characters), scenes: normalizeScenes(raw.scenes) }

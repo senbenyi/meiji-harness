@@ -1,4 +1,3 @@
-import { textMaxTokens } from './chat.js'
 import { previousTail } from '../../client/tail-frame.js'
 import { runTextWorkflow, runGenerationNode } from '../flow/text-workflow.js'
 import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildStoryboardPrompts, buildAllSecondsPrompts, buildSecondsReviewPrompts } from '../prompts/shot-prompts.js'
@@ -65,7 +64,7 @@ export async function generateAllSeconds(options) {
   signal?.throwIfAborted()
   for (const shot of project.shots.items) await ctx?.startTarget?.({ action: 'shot-seconds', track: shot.id })
   const upstream = { ...project, shots: { ...project.shots, items: project.shots.items.map(shot => ({ ...shot, seconds: { ...shot.seconds, content: null, check: { passed: null } } })) } }
-  const text = await runGenerationNode({ message: buildAllSecondsPrompts(options, upstream).generation, options: { ...options, signal, logPurpose: '整集每秒指令', logStage: '生成', maxTokens: textMaxTokens(project.durationSeconds) } })
+  const text = await runGenerationNode({ message: buildAllSecondsPrompts(options, upstream).generation, options: { ...options, signal, logPurpose: '整集每秒指令', logStage: '生成' } })
   const trimmed = String(text).trim()
   if (!trimmed.endsWith('[seconds-complete]')) throw new Error('整集每秒指令返回不完整，未覆盖原内容；请重新生成')
   const sections = readShotSections(trimmed.slice(0, -'[seconds-complete]'.length).trim())

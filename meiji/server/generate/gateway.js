@@ -110,11 +110,11 @@ async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body,
   return { ok: true, response, data }
 }
 
-export async function completeChat({ baseUrl, apiKey, model, system, prompt, maxTokens, json = false, fetchImpl = fetch, signal }) {
+export async function completeChat({ baseUrl, apiKey, model, system, prompt, json = false, fetchImpl = fetch, signal }) {
   const messages = []
   if (system) messages.push({ role: 'system', content: system })
   messages.push({ role: 'user', content: prompt })
-  const payload = { model, messages, max_tokens: maxTokens, ...(json ? { response_format: { type: 'json_object' } } : {}) }
+  const payload = { model, messages, ...(json ? { response_format: { type: 'json_object' } } : {}) }
   const result = await requestGateway({
     baseUrl, path: 'chat/completions', method: 'POST', apiKey, fetchImpl, signal, fn: 'completeChat',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

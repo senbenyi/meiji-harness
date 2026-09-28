@@ -24,6 +24,7 @@ for (const stage of ['package', 'characters', 'scenes', 'shots', 'seconds']) {
       await runTextRequest(message, { route, fetchImpl: async (_, options) => {
         const payload = JSON.parse(options.body)
         assert.deepEqual(payload.messages.map(item => item.role), ['system', 'user'])
+        assert.equal('max_tokens' in payload, false)
         assert.equal(payload.messages[0].content, message.system)
         assert.equal(payload.messages[1].content, message.user)
         assert.match(message.system, /本次生成语言：English/)

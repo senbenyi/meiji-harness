@@ -1,5 +1,5 @@
 import { runTextRequest } from '../workers/text-request-worker.js'
-import { textMaxTokens, skillLogPurpose } from '../generate/chat.js'
+import { skillLogPurpose } from '../generate/chat.js'
 import { checkContext } from '../data/self-checks.js'
 
 export async function runGenerationNode({ message, options, validate = () => {}, persist }) {
@@ -20,8 +20,7 @@ export async function runReviewNode({ message, options }) {
 export async function runTextWorkflow({ prompts, options, validate = () => {}, canRevise = () => true, initialText, persist }) {
   const ctx = checkContext.getStore()
   options = { ...options, signal: options.signal || ctx?.signal,
-    logPurpose: options.logPurpose || skillLogPurpose(prompts.generation.skill),
-    maxTokens: options.maxTokens || textMaxTokens(options.project.durationSeconds) }
+    logPurpose: options.logPurpose || skillLogPurpose(prompts.generation.skill) }
   const save = persist && (async (text, check) => {
     const deferred = ctx?.deferCheckFailure
     if (ctx) { ctx.deferCheckFailure = true; ctx.textNodeSaving = true; ctx.validation = check.failures }
@@ -33,7 +32,7 @@ export async function runTextWorkflow({ prompts, options, validate = () => {}, c
   let text = initialText ?? await runGenerationNode({ message: prompts.generation, options: { ...options, logStage: '生成' }, validate, persist: save })
   const history = []
   for (let attempt = 0; attempt < 2; attempt++) {
-    const result = await runReviewNode({ message: prompts.review(text), options: { ...options, logStage: attempt ? '复审' : '自审', maxTokens: 8192 } })
+    const result = await runReviewNode({ message: prompts.review(text), options: { ...options, logStage: attempt ? '复审' : '自审' } })
     history.push({ attempt: attempt + 1, reviewText: result.reviewText, passed: result.check.passed })
     if (ctx) { ctx.validation = result.check.failures; ctx.reviewHistory = history }
     if (save) await save(text, result.check)

@@ -29,20 +29,20 @@ export function episodePrompt(project, episodeId) {
     `标题：${project.title}`,
     `画幅：${project.aspectRatio || '1344x768'}`,
     ...(String(project?.style || '').trim() ? [`视觉风格：${String(project?.style || '').trim()}`] : []),
-    `项目摘要：${project.summary.content}`,
+    `【输入内容：视频总摘要】\n项目摘要：${project.summary.content}`,
     `这一集是第 ${next} 集。`,
   ]
-  if (next === 1) lines.push('第 1 集只根据项目摘要写本集剧情。')
+  if (next === 1) lines.push('第 1 集根据项目摘要和已给剧本展开开场，同时遵守后集衔接约束。')
   else {
-    lines.push('承接上一集，不要重复已经演过的情节。')
-    lines.push('已有剧集：')
+    lines.push('承接上一集结尾，继承此前已经确定的人物身份、位置、关系、关键物件和未解决矛盾；保持事件因果与时间顺序，不重复已发生的情节，不无故重置人物状态。视频总摘要规定整体故事方向，之前剧集摘要是已发生事实。')
+    lines.push('【上下文：之前全部剧集摘要，按剧情顺序】')
     previous.forEach((episode, index) => {
       lines.push(`第 ${index + 1} 集（${episode.durationSeconds} 秒）：${episode.summary.content}`)
     })
   }
   if (project.script) lines.push(`项目剧本：${project.script}`)
   if (episodeId) {
-    lines.push(`重新生成第 ${next} 集的摘要，不是续写下一集。${checkContext.getStore()?.generationMode === 'modify' ? `原摘要是修改基稿：${ordered[index].summary.content}` : '根据上游资料重新创作。'}`)
+    lines.push(`本次目标是第 ${next} 集的摘要，不是续写下一集。`)
     lines.push(`本集已有时长 ${ordered[index].durationSeconds} 秒，摘要内容应适合这一时长。`)
     const following = ordered.slice(index + 1)
     if (following.length) {
@@ -71,6 +71,21 @@ export function buildStoryPrompts(project, kind = 'package', review = '') {
   })
 }
 
+const episodeRevisionRules = `【摘要修订边界】
+以本次提供的基稿为唯一修改基准，按自审或人工意见定向修订。未涉及的事件、顺序、人物、对白和结尾保持原样，只修复必要的因果与衔接，不顺便扩写、删减或润色。返回完整 summary 和 durationSeconds，不返回补丁或修改说明。`
+
 export function buildEpisodePrompts(project, episodeId) {
-  return buildTextPrompts({ skill: 'skill-gailan-episode-generate', project, instructions: episodePrompt(project, episodeId), opinion: checkContext.getStore()?.review || '' })
+  const ctx = checkContext.getStore()
+  const modify = ctx?.generationMode === 'modify'
+  const context = episodePrompt(project, episodeId)
+  const original = modify ? project.episodes.find(episode => episode.id === episodeId) : null
+  if (modify && !original) throw new Error('修订摘要需要指定已有剧集')
+  const mode = modify ? '按意见定向修订' : episodeId ? '重新生成，不使用本集旧摘要和历史意见' : '首次生成'
+  return buildTextPrompts({ skill: 'skill-gailan-episode-generate', project,
+    instructions: `【任务模式】\n${mode}\n${context}` + (modify ? `\n【修改基稿】\n${JSON.stringify({ summary: original.summary.content, durationSeconds: original.durationSeconds })}` : ''),
+    reviewInstructions: context,
+    opinion: modify ? ctx.review || '' : '',
+    systemRules: modify ? episodeRevisionRules : '',
+    revisionRules: episodeRevisionRules,
+  })
 }

@@ -1069,7 +1069,7 @@ async function startImage(operation, project, { projects, models, home, submitAs
     const note = String(operation.instruction || operation.review || '').trim()
     if (!note || note.length > 2000) throw Object.assign(new Error(note ? '审核意见过长' : '请先写下审核意见'), { status: 400 })
     const revision = await runTextWorkflow({ prompts: buildTextPrompts({ skill: 'skill-juese-image-review', project, instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}` }), options: {
-      route: route.story, project, maxTokens: 800,
+      route: route.story, project,
     } })
     const revised = revision.text
     if (!usableLook(revised)) throw Object.assign(new Error('新的画面提示词不够具体'), { status: 502 })

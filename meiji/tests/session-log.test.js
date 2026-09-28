@@ -47,7 +47,7 @@ test('submission log preserves the complete messages and request options sent to
   let sent
   await runWithSessionLog(session, () => completeChat({
     baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', model: 'text-model',
-    system: '技能与语言要求\n完整上下文', prompt: '上游内容\n人工意见', maxTokens: 8192, json: true,
+    system: '技能与语言要求\n完整上下文', prompt: '上游内容\n人工意见', json: true,
     fetchImpl: async (url, options) => {
       sent = JSON.parse(options.body)
       return Response.json({ choices: [{ message: { content: '完成' } }] })
@@ -56,6 +56,7 @@ test('submission log preserves the complete messages and request options sent to
   const log = events.find(e => e.data.text?.includes('参数：')).data.text
   assert.match(log, /请求地址：https:\/\/gateway.test\/v1\/chat\/completions/)
   assert.deepEqual(JSON.parse(log.split('参数：')[1]), sent)
+  assert.equal('max_tokens' in sent, false)
   assert.equal(log.includes('secret-key'), false)
 })
 
