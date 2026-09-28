@@ -1,6 +1,9 @@
 import { registerPanel } from './server/http/routes.js'
-import { episodeTool } from './tools/tool-episode.js'
-import { panelTool } from './tools/tool-panel.js'
+import { contextQueryTool } from './tools/session-context-query-tool.js'
+import { projectManageTool } from './tools/session-project-manage-tool.js'
+import { contentGenerateTool } from './tools/session-content-generate-tool.js'
+import { taskControlTool } from './tools/session-task-control-tool.js'
+import { createTasks } from './server/flow/tasks.js'
 import { allSkills } from './skills/load.js'
 import { interruptRunning } from './server/flow/interrupt.js'
 import { projectStore } from './server/data/projects.js'
@@ -14,9 +17,15 @@ export function apply(ctx) {
   const ready = interruptRunning(projectStore(home)).catch(error => {
     ctx.logger.warn('Meiji interrupt failed: %s', error.message)
   })
-  registerPanel(ctx, ready)
-  ctx.effect(() => ctx.tools.register(panelTool(ctx)), 'meiji: panel tool')
-  ctx.effect(() => ctx.tools.register(episodeTool(ctx)), 'meiji: episode tool')
+  const tasks = createTasks({ home, workspaceController: ctx.workspaceController })
+  ctx.effect(() => () => tasks.dispose(), 'meiji: tasks')
+  registerPanel(ctx, ready, tasks)
+  for (const factory of [contextQueryTool, projectManageTool, contentGenerateTool, taskControlTool]) {
+    const tool = factory({ home, tasks, workspaceController: ctx.workspaceController })
+    const execute = tool.execute
+    tool.execute = async (...args) => { await ready; return execute(...args) }
+    ctx.effect(() => ctx.tools.register(tool), `meiji: ${tool.name}`)
+  }
   for (const skill of allSkills()) {
     try {
       const skills = ctx.get('skills')

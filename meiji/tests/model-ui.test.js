@@ -287,3 +287,24 @@ test('summary editing and review target the current episode',async t=>{
  container.querySelector('.workflow-regenerate').click();await Promise.resolve()
  assert.equal(calls[1][2].generationMode,'regenerate');assert.equal(calls[1][2].review,undefined)
 })
+
+test('overview deletion buttons confirm, target the selected scope and do not open episodes', async t => {
+ const { renderOverview } = await import('../client/overview.js')
+ const container = domSetup(t), episode = episodeFixture()
+ const project = { id: 'project', title: '测试', summary: { content: '摘要' }, episodes: [episode] }
+ const calls = []; let opened = 0, confirmed = false
+ window.confirm = () => confirmed
+ container.append(renderOverview(project, { perform: async (...args) => calls.push(args), fail: error => { throw error } }, { onOpenEpisode: () => opened++ }))
+ const buttons = container.querySelectorAll('.delete-content')
+ buttons[1].click()
+ assert.equal(calls.length, 0)
+ confirmed = true
+ buttons[1].click()
+ await Promise.resolve()
+ assert.equal(calls[0][1], 'episode-delete')
+ assert.equal(calls[0][2].episodeId, episode.id)
+ assert.equal(opened, 0)
+ buttons[0].click()
+ await Promise.resolve()
+ assert.equal(calls[1][1], 'project-delete')
+})

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { setupModel, episodeFixture } from './fixtures/model.js'
 import { projectStore, revisionStore } from '../server/data/projects.js'
 import { scopeProjects, blankEpisode } from '../server/data/episodes.js'
-import { runOperation, stageOperation, takeOperation, takePendingForSession } from '../server/flow/actions.js'
+import { runOperation } from '../server/flow/actions.js'
 import { staleMedia } from '../server/flow/gates.js'
 import { savePicture, saveImageDraft, readImageDraft, pictureTargetSnapshot } from '../server/data/pictures.js'
 import { assetStore } from '../server/data/library.js'
@@ -27,7 +27,6 @@ test('same asset may be used by two episodes; detach never deletes shared file',
  await runOperation(e.op('clear-image',{itemId:'C01'}),{home:e.home})
  const p=await e.store.read(e.id);assert.equal(p.episodes[0].plot.characters.items[0].image.content,null);assert.equal(p.episodes[1].plot.characters.items[0].image.content.assetId,ref.assetId);assert.ok((await assetStore(e.home).file('characters',ref.assetId)).path)
 })
-test('operation IDs preserve exact ownership and are consumed once',()=>{const id=stageOperation({action:'shots',sessionId:'one',projectId:'p'});assert.throws(()=>takePendingForSession('one'),/operationId/);assert.throws(()=>takeOperation(id,'two'),{status:403});assert.equal(takeOperation(id,'one').action,'shots');assert.throws(()=>takeOperation(id,'one'),{status:404})})
 for(const kind of ['character','part','pencil'])test(`${kind} preview publishes only after upload succeeds`,async t=>{
  const e=await pending(t,kind);assert.equal((await assetStore(e.home).list('characters')).length,0)
  await runOperation(e.operation,e.deps);const p=await e.read();const media=kind==='pencil'?p.shots.items[0].pencil.content:kind==='part'?p.plot.characters.items[0].clothes[0]:p.plot.characters.items[0].image.content

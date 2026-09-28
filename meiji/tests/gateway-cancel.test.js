@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { generateGatewayImage, retrieveGatewayVideo, submitGatewayVideo } from '../server/generate/gateway.js'
-import { createPanelTasks } from '../server/flow/panel-tasks.js'
+import { createTasks } from '../server/flow/tasks.js'
 import { checkContext } from '../server/data/self-checks.js'
 
 const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' }
@@ -52,7 +52,7 @@ for (const kind of ['videos', 'images/tasks']) {
 test('panel stop waits for remote cancellation; repeated clicks do not duplicate requests', async () => {
   const query = Promise.withResolvers(), cancellation = Promise.withResolvers(), reachedCancel = Promise.withResolvers()
   let cancelCount = 0
-  const tasks = createPanelTasks({ home: '/tmp/meiji-cancel-test', execute: async (_, { signal }) => {
+  const tasks = createTasks({ home: '/tmp/meiji-cancel-test', execute: async (_, { signal }) => {
     await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, fetchImpl: async (url, options) => {
       if (url.pathname.endsWith('/cancel')) { cancelCount++; reachedCancel.resolve(); return cancellation.promise }
       query.resolve()

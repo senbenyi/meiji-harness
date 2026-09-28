@@ -1,3 +1,4 @@
+import { checkContext } from '../data/self-checks.js'
 import { continuityReviewContext } from './continuity-review.js'
 import { loadSkill } from '../../skills/load.js'
 import { languageInstruction } from '../data/language.js'
@@ -31,6 +32,11 @@ export function buildRevisionPrompt(task, content, review) {
 }
 
 export function buildTextPrompts(task) {
+  const requirements = checkContext.getStore()?.requirements
+  if (requirements) {
+    const addition = `\n【本次生成要求】\n${requirements}`
+    task = { ...task, instructions: task.instructions + addition, reviewInstructions: (task.reviewInstructions || task.instructions) + addition }
+  }
   return {
     generation: buildGenerationPrompt(task),
     review: content => buildReviewPrompt({ ...task, instructions: task.reviewInstructions || task.instructions }, content),

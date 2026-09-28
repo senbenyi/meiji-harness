@@ -112,6 +112,19 @@ export function projectStore(home) {
       try { return await job }
       finally { if (writes.get(key) === job) writes.delete(key) }
     },
+    async remove(id) {
+      await this.read(id)
+      const key = fileFor(id)
+      const job = (writes.get(key) || Promise.resolve()).catch(() => {}).then(async () => {
+        await this.read(id)
+        await rm(join(root, id, 'films'), { recursive: true, force: true })
+        await rm(key)
+        notifyProject(home, id)
+      })
+      writes.set(key, job)
+      try { await job }
+      finally { if (writes.get(key) === job) writes.delete(key) }
+    },
     async saveReviewDraft(id, episodeId, key, text, revision, kind = 'review') {
       return this.save(id, current => {
         const next = structuredClone(current)

@@ -51,6 +51,24 @@ function preview(text) {
 
 const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
 
+function deleteButton(project, actions, episode, number) {
+  const button = element('button', episode ? '删除本集' : '删除项目', 'delete-content')
+  button.type = 'button'
+  button.disabled = Boolean(project.activity || project.episodes?.some(item => item.activity))
+  button.setAttribute('aria-label', episode ? `删除第 ${number} 集` : '删除整个项目')
+  button.onclick = async event => {
+    event.stopPropagation()
+    if (button.disabled) return
+    const target = episode ? `第 ${number} 集` : `项目《${project.title}》`
+    if (!window.confirm(`确定删除${target}？将删除剧情数据及本地视频，此操作无法撤销。`)) return
+    button.disabled = true
+    try {
+      await actions.perform(project, episode ? 'episode-delete' : 'project-delete', episode ? { episodeId: episode.id } : {})
+    } catch (error) { button.disabled = false; actions.fail(error) }
+  }
+  return button
+}
+
 export function renderOverview(project, actions, context) {
   const page = element('div', '', 'overview-page')
   const titleRow = element('div', '', 'title-with-edit')
@@ -60,7 +78,7 @@ export function renderOverview(project, actions, context) {
   edit.setAttribute('aria-label', '编辑标题、风格和摘要')
   edit.innerHTML = editIcon
   edit.onclick = () => actions.openOverview?.(project)
-  titleRow.append(edit)
+  titleRow.append(edit, deleteButton(project, actions))
   page.append(titleRow)
   const style = typeof project.style === 'string' && project.style.trim() ? `${project.style.trim()} · ` : ''
   page.append(element('p', `${project.aspectRatio || '1344x768'} · ${style}${(project.episodes || []).length} 集`, 'meta'))
@@ -184,7 +202,7 @@ export function renderOverview(project, actions, context) {
       })
     }
     const heading = element('div', '', 'workflow-generation-row')
-    heading.append(copy.querySelector('strong'), regenerate)
+    heading.append(copy.querySelector('strong'), regenerate, deleteButton(project, actions, episode, number))
     copy.prepend(heading)
     appendJsonCopy(copy, episode)
     card.append(coverNode(episode), copy, edit)

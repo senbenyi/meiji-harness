@@ -2,7 +2,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeEpisodeDraft } from '../server/generate/story.js'
 import { episodePrompt } from '../server/prompts/story-prompts.js'
-import { describeOperation } from '../server/flow/actions.js'
 
 test('the first episode is written from the project summary and stays within three minutes', () => {
   const prompt = episodePrompt({ title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
@@ -30,11 +29,7 @@ test('a later episode continues from the episodes already shot', () => {
   assert.match(prompt, /不无故重置人物状态/)
   assert.match(prompt, /第 1 集（120 秒）：第一集结义/)
   assert.match(prompt, /第 2 集（90 秒）：第二集回头/)
-  const text = describeOperation({ action: 'episode-generate' })
-  assert.match(text, /meiji_episode/)
-  assert.match(text, /skill-gailan-episode-generate\.md/)
-  assert.match(text, /函数：generateEpisode/)
-  assert.equal(/meiji_panel/.test(text), false)
+
 })
 
 test('regeneration targets the selected episode and separates later continuity constraints', () => {

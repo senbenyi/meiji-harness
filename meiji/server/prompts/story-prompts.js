@@ -9,7 +9,7 @@ function storyContext(project, modify) {
     `画幅：${project.aspectRatio || '1344x768'}`,
     ...(style ? [`视觉风格：${style}`] : []),
   ]
-  if (modify) lines.push(`【修订依据：本集摘要】\n${project.summary.content}`)
+  if (modify || checkContext.getStore()?.requestedMode === 'generate') lines.push(`【输入内容：本集摘要】\n${project.summary.content}`)
   if (project.episodeNumber) lines.push(`本次生成第 ${project.episodeNumber} 集。`)
   for (const [label, content] of [['前集结尾与已发生事实', project.previousEpisodeSummary], ['后集衔接约束，不提前演出', project.nextEpisodeSummary]]) {
     if (content) lines.push(`【上下文：${label}】\n${content}`)
@@ -63,7 +63,7 @@ export function buildStoryPrompts(project, kind = 'package', review = '') {
     ? `本集时长 ${project.durationSeconds} 秒，仅用于控制剧情容量；大纲不标制作秒数或镜头编号，具体计时由镜头表规划。一次返回 outline、characters.items、scenes.items；先规划大纲，再基于本次大纲完整建卡。人物和场景不要生成图片。`
     : `本次仅修订${kind === 'characters' ? '人物卡' : '场景卡'}集合，不生成或修改大纲与另一类卡片。输出仅为 {"items":[...]}，沿用该类卡片字段要求。\n已通过大纲：${project.plot.outline.content}`
   const context = `【本次目标】\n${target}\n${storyContext(project, modify).join('\n')}`
-  const instructions = `【任务模式】\n${modify ? '定向修改，保留未涉及内容。' : '重新生成，仅使用项目背景、剧本、本集配置和跨集约束，不使用本集旧摘要、旧剧情或历史意见。'}\n${context}`
+  const instructions = `【任务模式】\n${modify ? '定向修改，保留未涉及内容。' : ctx?.requestedMode === 'generate' ? '首次生成，依据本集摘要展开剧情，不改变已确定的关键事件。' : '重新生成，仅使用项目背景、剧本、本集配置和跨集约束，不使用本集旧摘要、旧剧情或历史意见。'}\n${context}`
   return buildTextPrompts({ skill: 'skill-juqing-outline-generate', project,
     instructions: instructions + (modify ? `\n【修改基稿】\n${JSON.stringify(previous)}` : ''),
     reviewInstructions: context,

@@ -162,7 +162,7 @@ export function mount() {
       modelStore.accept(result.project)
     } catch (error) { onError(error); shell.status(error.message) }
   })
-  const bridge = createBridge({ request, jsonBody, showProject, status: message => shell.status(message) })
+  const bridge = createBridge({ request, jsonBody, showProject, onDeleted: () => follow(true), status: message => shell.status(message) })
   const actions = {
     openCustomSkill: (project, stage) => {
       hold = true

@@ -38,7 +38,21 @@ export function linkStore(home, controller) {
       }
       return null
     },
+    async selectProject(sessionId, projectId, projects) {
+      if (!sessionPattern.test(sessionId)) throw new Error('当前会话无效')
+      await projects.read(projectId)
+      const directory = join(home, 'storages', 'meiji', 'session-projects')
+      await mkdir(directory, { recursive: true })
+      await writeFile(join(directory, sessionId + '.json'), JSON.stringify({ projectId }), { mode: 0o600 })
+    },
     async projectForSession(sessionId) {
+      if (sessionPattern.test(String(sessionId || ''))) {
+        try {
+          const selected = JSON.parse(await readFile(join(home, 'storages', 'meiji', 'session-projects', sessionId + '.json'), 'utf8'))
+          const project = JSON.parse(await readFile(join(home, 'storages', 'meiji', 'projects', selected.projectId + '.json'), 'utf8'))
+          return { workspace: { id: project.workspaceId, title: project.title }, projectId: project.id }
+        } catch (error) { if (error.code !== 'ENOENT') throw error }
+      }
       const workspace = await this.workspaceForSession(sessionId)
       if (!workspace) return { workspace: null, projectId: null }
       let projectId = (await readMap())[workspace.id] || null

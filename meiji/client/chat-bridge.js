@@ -44,7 +44,7 @@ export function projectRefreshMark(project) {
   return [project.updatedAt, project.activity || '', project.activityError || '', filmMark(project), boardMark(project), pendingMark(project)].join('|')
 }
 
-export function createBridge({ request, jsonBody, showProject, status }) {
+export function createBridge({ request, jsonBody, showProject, onDeleted, status }) {
   let timer
   const watch = (project, listBefore) => {
     clearInterval(timer)
@@ -105,7 +105,8 @@ export function createBridge({ request, jsonBody, showProject, status }) {
       const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, action, projectId: project?.id, ...fields }) })
       if (result.completed) {
         clearInterval(timer)
-        if (result.project) showProject(result.project)
+        if (result.deleted) await onDeleted()
+        else if (result.project) showProject(result.project)
         status('已完成')
         return
       }

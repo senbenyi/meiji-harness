@@ -1,4 +1,3 @@
-import { createPanelTasks } from '../flow/panel-tasks.js'
 import { subscribeProject } from '../data/project-events.js'
 import { pictureOf, targetNode, shotResults } from '../../client/drama-model.js'
 import { shotReferenceImages } from '../../client/reference-images.js'
@@ -23,7 +22,7 @@ import { linkStore } from '../data/links.js'
 import { materialize, readEpisodeCover } from '../data/episodes.js'
 import { assetRoutes } from './library-routes.js'
 
-const directActions = new Set(['open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'use-asset', 'clear-image', 'assemble'])
+const directActions = new Set(['project-delete', 'episode-delete', 'open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'use-asset', 'clear-image', 'assemble'])
 
 const clientRoot = fileURLToPath(new URL('../../client/', import.meta.url))
 const clientMime = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' }
@@ -89,12 +88,10 @@ function sendVideo(req, res, filePath, size) {
   createReadStream(filePath, { start, end }).pipe(res)
 }
 
-export function registerPanel(ctx, ready = Promise.resolve()) {
+export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   const store = modelStore(home)
   const projects = projectStore(home)
-  const tasks = createPanelTasks({ home, workspaceController: ctx.workspaceController })
-  ctx.effect(() => () => tasks.dispose(), 'meiji: background tasks')
   const links = linkStore(home, ctx.workspaceController)
   const enterProject = async projectId => {
     const place = await links.ensureProject(projectId, projects)
@@ -271,7 +268,8 @@ export function registerPanel(ctx, ready = Promise.resolve()) {
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const created = await projects.create(body.fields)
+            const trace = await runOperation({ action: 'create', fields: body.fields }, { home, workspaceController: ctx.workspaceController })
+            const created = await projects.read(trace.result.projectId)
             const place = await enterProject(created.id)
             insertSessionLog(ctx.sessions.get(place.sessionId), `已创建短剧《${created.title}》`)
             return json(res, 201, { ...place, accepted: true })
@@ -281,6 +279,9 @@ export function registerPanel(ctx, ready = Promise.resolve()) {
           if (body.projectId) await links.requireProject(sessionId, body.projectId)
           const project = body.projectId ? await projects.read(body.projectId) : null
           const staged = { ...body, projectId: project?.id }
+          if (['project-delete', 'episode-delete'].includes(staged.action) && tasks.list(project.id).length) {
+            throw Object.assign(new Error('请先停止生成任务，再删除项目或剧集'), { status: 409 })
+          }
           if (directActions.has(staged.action)) {
             const session = ctx.sessions.get(sessionId)
             await runWithSessionLog(session, async () => {
@@ -292,7 +293,7 @@ export function registerPanel(ctx, ready = Promise.resolve()) {
                 throw error
               }
             })
-            return json(res, 200, { accepted: true, completed: true, ...(project ? { project: await projects.read(project.id) } : {}) })
+            return json(res, 200, { accepted: true, completed: true, ...(staged.action === 'project-delete' ? { deleted: true } : project ? { project: await projects.read(project.id) } : {}) })
           }
 
           const task = tasks.start(staged, ctx.sessions.get(sessionId))

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPanelTasks } from '../server/flow/panel-tasks.js'
+import { createTasks } from '../server/flow/tasks.js'
 import { subscribeProject } from '../server/data/project-events.js'
 import { setupModel } from './fixtures/model.js'
 import { sessionForLog } from '../server/flow/session-log.js'
@@ -9,7 +9,7 @@ const operation = { projectId: 'p', episodeId: 'e', action: 'seconds' }
 test('button tasks execute directly with isolated logs, reject duplicates and release after cancellation', async () => {
  const events = [], session = { append: (type, data) => events.push({ type, data }) }
  let signal
- const tasks = createPanelTasks({ home: '/tmp/tasks', execute: async (op, deps) => {
+ const tasks = createTasks({ home: '/tmp/tasks', execute: async (op, deps) => {
   assert.equal(sessionForLog(), session)
   assert.equal(deps.waitForBackground, true)
   signal = deps.signal
@@ -28,10 +28,10 @@ test('button tasks execute directly with isolated logs, reject duplicates and re
 })
 
 test('failed log writes do not fail successful tasks; errors settle and release tasks', async () => {
- const tasks = createPanelTasks({ home: '/tmp/tasks', execute: async () => ['已保存'] })
+ const tasks = createTasks({ home: '/tmp/tasks', execute: async () => ['已保存'] })
  await tasks.start(operation, { append() { throw new Error('disconnected') } }).done
  assert.deepEqual(tasks.list('p'), [])
- const failed = createPanelTasks({ home: '/tmp/tasks', execute: async () => { throw new Error('API failed') } })
+ const failed = createTasks({ home: '/tmp/tasks', execute: async () => { throw new Error('API failed') } })
  await failed.start(operation).done
  assert.deepEqual(failed.list('p'), [])
  assert.throws(() => tasks.start({ ...operation, action: 'unknown' }), { status: 400 })
@@ -55,7 +55,7 @@ test('direct generation saves reviewed model and cancellation clears its operati
  const e = await setupModel(t), models = modelStore(e.home)
  await models.write({ ...await models.read(), apiKey: 'test-only' })
  const events = [], session = { append: (type, data) => events.push({ type, data }) }
- const tasks = createPanelTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
+ const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
   generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : '## S01 / 5s\n0–5s：旅人继续向北。\n## S02 / 5s\n0–5s：继续行走。\n[seconds-complete]' }),
  }) })
  const task = tasks.start(e.op('seconds'), session)
@@ -66,7 +66,7 @@ test('direct generation saves reviewed model and cancellation clears its operati
  assert.equal(shot.seconds.operation, null)
  let entered
  const started = new Promise(resolve => { entered = resolve })
- const cancellable = createPanelTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
+ const cancellable = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
   generateAllSeconds: async () => {
    entered()
    await new Promise((resolve, reject) => deps.signal.addEventListener('abort', () => reject(deps.signal.reason), { once: true }))
@@ -84,6 +84,6 @@ test('direct generation saves reviewed model and cancellation clears its operati
  assert.ok(events.every(e => e.type.startsWith('command/')))
 })
 test('single-shot seconds submissions are rejected at the panel boundary',()=>{
- const tasks=createPanelTasks({home:'/tmp/tasks',execute:()=>assert.fail('must not execute')})
+ const tasks=createTasks({home:'/tmp/tasks',execute:()=>assert.fail('must not execute')})
  assert.throws(()=>tasks.start({projectId:'p',episodeId:'e',action:'shot-seconds',track:'S01'}),/卡片集顶部统一提交/)
 })

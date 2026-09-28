@@ -32,17 +32,17 @@ import { insertSessionLog } from './session-log.js'
 import { decodeImageData } from '../generate/character-views.js'
 import { uploadGatewayFile } from '../generate/gateway.js'
 
-const pending = new Map()
-
 async function loadModels(models) {
   return normalizeModels(await models.read())
 }
-const actions = new Set(['tail-frame', 'produce', 'produce-all', 'create', 'open', 'overview', 'episode-add', 'episode-edit', 'episode-generate', 'source', 'characters', 'scenes', 'scene-text', 'outline-text', 'storyboard-text', 'shot-assets', 'outline', 'shots', 'seconds', 'revise-shot', 'shot-seconds', 'shot-storyboard', 'shot-boards', 'storyboard', 'pencil', 'image', 'revise-image', 'import-image', 'clear-image', 'use-asset', 'part-image', 'part-import', 'film', 'films', 'assemble', 'library-import'])
+const actions = new Set(['tail-frame', 'produce', 'produce-all', 'create', 'open', 'overview', 'episode-add', 'episode-edit', 'project-delete', 'episode-delete', 'episode-generate', 'source', 'characters', 'scenes', 'scene-text', 'outline-text', 'storyboard-text', 'shot-assets', 'outline', 'shots', 'seconds', 'revise-shot', 'shot-seconds', 'shot-storyboard', 'shot-boards', 'storyboard', 'pencil', 'image', 'revise-image', 'import-image', 'clear-image', 'use-asset', 'part-image', 'part-import', 'film', 'films', 'assemble', 'library-import'])
 const episodeScoped = new Set(['tail-frame', 'confirm-image', 'discard-image', 'source', 'characters', 'scenes', 'scene-text', 'outline-text', 'storyboard-text', 'shot-assets', 'outline', 'shots', 'seconds', 'revise-shot', 'shot-seconds', 'shot-storyboard', 'shot-boards', 'storyboard', 'pencil', 'image', 'revise-image', 'import-image', 'clear-image', 'use-asset', 'part-image', 'part-import', 'film', 'films', 'assemble'])
 const labels = {
   create: '创建项目',
   open: '打开项目',
   overview: '保存项目概要',
+  'project-delete': '删除项目',
+  'episode-delete': '删除剧集',
   'episode-add': '新增剧集',
   'episode-edit': '编辑剧集',
   'episode-generate': '生成本集剧情',
@@ -81,103 +81,6 @@ export function operationLabel(operation) { return `${labels[operation.action] |
 export function validateOperation(input) {
   if (input?.action === 'shot-seconds') throw Object.assign(new Error('每秒指令请从卡片集顶部统一提交'), { status: 400 })
   if (!actions.has(input?.action)) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
-}
-
-export function stageOperation(input) {
-  validateOperation(input)
-  const id = randomUUID()
-  pending.set(id, { ...input, id })
-  return id
-}
-
-export function takeOperation(id, sessionId, action) {
-  const key = String(id || '')
-  const operation = pending.get(key)
-  if (!operation) throw Object.assign(new Error('这次操作已失效，请从右侧面板重新发起'), { status: 404 })
-  if (sessionId !== undefined && operation.sessionId !== sessionId) throw Object.assign(new Error('操作不属于当前会话'), { status: 403 })
-  if (action && operation.action !== action) throw Object.assign(new Error('操作与工具不匹配'), { status: 409 })
-  pending.delete(key)
-  return operation
-}
-
-export function takePendingForSession(sessionId) {
-  if ([...pending.values()].some(item => item.sessionId === sessionId)) {
-    throw Object.assign(new Error('面板操作必须携带消息中的 operationId'), { status: 409 })
-  }
-  return null
-}
-
-function callSite(file, fn) {
-  return [`文件：${file}`, `函数：${fn}`]
-}
-
-export function describeOperation(operation) {
-  const lines = [`【极乐世界】${labels[operation.action] || operation.action}`]
-  if (operation.id) lines.push(`operationId: ${operation.id}`)
-  if (operation.action === 'episode-generate') {
-    if (operation.episodeId) lines.push('重新生成指定剧集摘要，保留剧集 ID 和时长；更新后该集下游内容需重新生成。')
-    lines.push(...callSite(skillFilePath('skill-gailan-episode-generate'), 'generateEpisode（server/generate/story.js）'))
-    lines.push('工具：meiji_episode（tools/tool-episode.js 的 execute）')
-    lines.push('调用 meiji_episode 执行，必须传入上面的 operationId。不要改写正文，不要自动再生成下一集。')
-    return lines.join('\n')
-  }
-  if (operation.action === 'revise-shot') {
-    lines.push(`镜头 ${operation.track || ''}`)
-    lines.push(`审核意见：${String(operation.review || '').trim()}`)
-    lines.push(...callSite('server/generate/story.js', 'reviseShot'))
-  } else if (operation.action === 'shot-seconds') {
-    lines.push(`镜头 ${operation.track || ''}`)
-    if (String(operation.review || '').trim()) lines.push(`审核意见：${String(operation.review).trim()}`)
-    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateShotSeconds（server/generate/story.js）'))
-  } else if (operation.action === 'shot-storyboard') {
-    lines.push(`镜头 ${operation.track || ''}`)
-    if (String(operation.review || '').trim()) lines.push(`审核意见：${String(operation.review).trim()}`)
-    lines.push(...callSite(skillFilePath('skill-jingtou-wenben-storyboard-generate'), 'generateShotStoryboard（server/generate/story.js）'))
-  } else if (operation.action === 'storyboard') {
-    lines.push('生成全部文本分镜。前提是整集每秒指令已经逐镜自审通过，不自动补齐缺失的每秒指令。')
-    lines.push(...callSite(skillFilePath('skill-jingtou-wenben-storyboard-generate'), 'generateStoryboard（server/generate/story.js）'))
-  } else if (operation.action === 'shot-boards') {
-    lines.push('整集一次生成每秒指令并逐镜自审，通过后逐镜生成文本分镜')
-    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateAllSeconds（server/generate/story.js）'))
-    lines.push(...callSite(skillFilePath('skill-jingtou-wenben-storyboard-generate'), 'generateShotStoryboard（server/generate/story.js）'))
-  } else if (operation.action === 'films') {
-    lines.push('按镜头顺序，逐镜提交成片')
-    lines.push(...callSite(skillFilePath('skill-chengpian-video-generate'), 'videoRequestMode（server/generate/film.js）'))
-    lines.push(...callSite('server/generate/film.js', 'submitH3'))
-  } else if (operation.action === 'assemble') {
-    lines.push('按镜头顺序用 FFmpeg 拼接成片')
-    lines.push(...callSite('server/generate/concat.js', 'concatFilms'))
-  } else if (operation.action === 'pencil') {
-    lines.push(`镜头 ${operation.track || ''}`)
-    if (String(operation.review || '').trim()) lines.push(`审核意见：${String(operation.review).trim()}`)
-    lines.push(...callSite('server/generate/image.js', 'submitPencilBoard'))
-    lines.push('一张图里画出这一镜的全部格子，每秒一格')
-  } else if (operation.action === 'seconds') {
-    lines.push('整集一次返回所有镜头的每秒指令，再逐镜自审。不要改镜头表，不要写文本分镜。')
-    lines.push(...callSite(skillFilePath('skill-jingtou-meimiao-seconds-generate'), 'generateAllSeconds（server/generate/story.js）'))
-  } else if (operation.action === 'shots') {
-    const review = String(operation.review || '').trim()
-    if (review) lines.push(`审核意见：${review}`)
-    if (review) lines.push('按这条意见重写整张镜头表')
-    lines.push(...callSite(skillFilePath('skill-jingtou-jingtoubiao-table-generate'), 'generateShots（server/generate/story.js）'))
-  } else if (operation.track) lines.push(`轨道 ${operation.track}`)
-  if (operation.action === 'overview') {
-    const fields = operation.fields || {}
-    if (fields.title) lines.push(`标题：${fields.title}`)
-    if (fields.style) lines.push(`风格：${fields.style}`)
-    if (fields.summary) lines.push(`摘要：${fields.summary}`)
-  }
-  if (operation.action === 'film') {
-    lines.push(...callSite(skillFilePath('skill-chengpian-video-generate'), 'videoRequestMode（server/generate/film.js）'))
-    lines.push(...callSite('server/generate/film.js', 'submitH3'))
-    lines.push(...formatFilmRequest(operation))
-  }
-  if (operation.itemName) lines.push(operation.itemName)
-  if (operation.instruction) lines.push(operation.instruction)
-  if (operation.name) lines.push(operation.name)
-  lines.push('工具：meiji_panel（tools/tool-panel.js 的 execute）')
-  lines.push('调用 meiji_panel 执行，必须传入上面的 operationId。不要改写正文，不要自动进入下一步。')
-  return lines.join('\n')
 }
 
 function services(home) {
@@ -383,10 +286,10 @@ export async function runOperation(operation, deps) {
   const background = []
   let failure
   const operationId = deps.operationId || randomUUID()
-  const context = { review: '', operationId, signal: deps.signal }
+  const context = { review: '', operationId, signal: deps.signal, requirements: operation.requirements || '', requestedMode: operation.mode }
   const finish = async () => {
     try {
-      if (key) await projectStore(deps.home).save(operation.projectId, current => {
+      if (key && !context.projectDeleted) await projectStore(deps.home).save(operation.projectId, current => {
         const next = structuredClone(current)
         let changed = false
         for (const episode of next.episodes) {
@@ -464,6 +367,7 @@ async function executeOperation(operation, deps) {
       note(`请在片库选择《${created.title}》，进入它的专属工作区`)
       note(`已创建项目 ${created.title}`)
       note(`编号 ${created.id}，画幅 ${created.aspectRatio}${created.style ? `，风格 ${created.style}` : ''}`)
+      trace.result = { projectId: created.id }
       note('下一步是在项目概要里添加剧集')
       return trace
     }
@@ -478,6 +382,21 @@ async function executeOperation(operation, deps) {
     let project = operation.projectId ? normalizeProject(await rootProjects.read(operation.projectId)) : null
     if (project) checkContext.getStore().originalRoot = structuredClone(project)
     if (!project) throw Object.assign(new Error('没有找到项目'), { status: 404 })
+    if (['project-delete', 'episode-delete'].includes(operation.action)) {
+      if (operation.action === 'project-delete') {
+        await storedProjects.remove(project.id)
+      } else {
+        const episode = project.episodes.find(item => item.id === operation.episodeId)
+        if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
+        await rootProjects.save(project.id, async current => {
+          await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'films', episode.id), { recursive: true, force: true })
+          return { episodes: current.episodes.filter(item => item.id !== episode.id) }
+        })
+      }
+      if (operation.action === 'project-delete') checkContext.getStore().projectDeleted = true
+      note(operation.action === 'project-delete' ? '已删除项目及本地视频' : '已删除本集及本地视频')
+      return trace
+    }
     if (operation.action === 'overview') {
       const saved = await rootProjects.save(project.id, overviewPatch(project, operation.fields))
       if (saved.workspaceId && deps.workspaceController) await linkStore(home, deps.workspaceController).ensureProject(saved.id, rootProjects)
@@ -497,7 +416,7 @@ async function executeOperation(operation, deps) {
       }
       await rootProjects.save(project.id, { activity: 'episode', activityError: null })
       note('按 skill-gailan-episode-generate 生成本集剧情')
-      note('工具：meiji_episode（tools/tool-episode.js 的 execute）')
+      note('操作：episode-generate（会话与面板共用）')
       note('文件：' + skillFilePath('skill-gailan-episode-generate'))
       note('函数：generateEpisode（server/generate/story.js）')
       const draft = await (deps.generateEpisode || generateEpisode)({ route: (await loadModels(models)).story, project, episodeId: operation.episodeId })
@@ -505,6 +424,7 @@ async function executeOperation(operation, deps) {
         ? editEpisode(project, existing.id, { summary: draft.summary, durationSeconds: existing.durationSeconds })
         : addEpisode(project, draft)
       const updated = existing ? patch.episodes.find(episode => episode.id === existing.id) : patch.episodes[0]
+      trace.result = { episodeId: updated.id }
       setCheck(updated, operation, draft.check?.failures || [])
       await rootProjects.save(project.id, { ...patch, activity: null, activityError: null })
       note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，保留 ${existing.durationSeconds} 秒时长` : `已生成第 ${patch.episodes.length} 集，${draft.durationSeconds} 秒`)

@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import { currentSessionId, projectRefreshMark, sessionIdFromStorage } from '../client/chat-bridge.js'
 import { episodeWork } from '../client/overview.js'
 import { buildImageGraph } from '../server/generate/image.js'
-import { describeOperation, runOperation, stageOperation, takeOperation, takePendingForSession } from '../server/flow/actions.js'
+import { runOperation } from '../server/flow/actions.js'
 import { projectStore } from '../server/data/projects.js'
 
 const look = '二十出头的中国青年男子，短黑发，皮肤晒黑，穿着旧外套，手里拎着鼓囊的编织袋'
@@ -37,97 +37,6 @@ test('panel follows the latest selection even while the sidebar still shows the 
   assert.equal(currentSessionId(doc), oldSession)
   sessionId = 'session-46eb0a51-3955-41c1-989c-2f541b1a05e8'
   assert.equal(currentSessionId(doc), sessionId)
-})
-
-test('a panel instruction carries its operation id without unrelated identifiers', () => {
-  const text = describeOperation({ id: 'op-1', action: 'image', itemId: 'A01', itemName: '傻根', projectId: 'p1' })
-  assert.match(text, /【极乐世界】生成图片/)
-  assert.match(text, /operationId: op-1/)
-  assert.match(text, /傻根/)
-  assert.equal(/项目：|p1|A01/.test(text), false)
-  assert.match(text, /必须传入上面的 operationId/)
-})
-
-test('a panel click requires its explicit id and owning session', () => {
-  const sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
-  const id = stageOperation({ action: 'storyboard', sessionId, projectId: 'p1' })
-  assert.throws(() => takePendingForSession(sessionId), /operationId/)
-  assert.throws(() => takeOperation(id, 'another-session'), /不属于当前会话/)
-  const operation = takeOperation(id, sessionId)
-  assert.equal(operation.id, id)
-  assert.equal(operation.action, 'storyboard')
-  assert.equal(takePendingForSession(sessionId), null)
-})
-
-test('a shot table review regenerates the whole table', () => {
-  const text = describeOperation({ id: 'op-13', action: 'shots', review: '打架不要切这么碎', projectId: 'p1' })
-  assert.match(text, /【极乐世界】写镜头表/)
-  assert.match(text, /审核意见：打架不要切这么碎/)
-  assert.match(text, /按这条意见重写整张镜头表/)
-  assert.match(text, /函数：generateShots/)
-  assert.equal(/项目：|p1/.test(text), false)
-})
-
-test('a shot revision names the shot and its review', () => {
-  const text = describeOperation({ id: 'op-8', action: 'revise-shot', track: 'S03', review: '手要松开', projectId: 'p1' })
-  assert.match(text, /【极乐世界】按审核意见重写镜头/)
-  assert.match(text, /镜头 S03/)
-  assert.match(text, /审核意见：手要松开/)
-  assert.match(text, /调用 meiji_panel 执行，必须传入上面的 operationId/)
-  assert.equal(/项目：|p1/.test(text), false)
-})
-
-test('a per-second click names the shot and its skill', () => {
-  const text = describeOperation({ id: 'op-7', action: 'shot-seconds', track: 'S04', projectId: 'p1' })
-  assert.match(text, /【极乐世界】生成每秒指令/)
-  assert.match(text, /镜头 S04/)
-  assert.match(text, /skill-jingtou-meimiao-seconds-generate\.md/)
-  assert.match(text, /函数：generateShotSeconds/)
-  assert.match(text, /调用 meiji_panel 执行，必须传入上面的 operationId/)
-  assert.equal(/项目：|p1/.test(text), false)
-})
-
-test('a per-shot storyboard names the shot and its skill', () => {
-  const text = describeOperation({ id: 'op-10', action: 'shot-storyboard', track: 'S03', projectId: 'p1' })
-  assert.match(text, /【极乐世界】生成这一镜的分镜/)
-  assert.match(text, /镜头 S03/)
-  assert.match(text, /skill-jingtou-wenben-storyboard-generate\.md/)
-  assert.match(text, /函数：generateShotStoryboard/)
-  assert.match(text, /调用 meiji_panel 执行，必须传入上面的 operationId/)
-  assert.equal(/项目：|p1/.test(text), false)
-})
-
-test('generating all boards names both shot functions', () => {
-  const text = describeOperation({ id: 'op-12', action: 'shot-boards', projectId: 'p1' })
-  assert.match(text, /【极乐世界】生成所有分镜/)
-  assert.match(text, /整集一次生成每秒指令并逐镜自审/)
-  assert.match(text, /函数：generateAllSeconds/)
-  assert.match(text, /函数：generateShotStoryboard/)
-  assert.match(text, /调用 meiji_panel 执行，必须传入上面的 operationId/)
-  assert.equal(/项目：|p1/.test(text), false)
-})
-
-test('a pencil click names the shot and its sheet', () => {
-  const text = describeOperation({ id: 'op-11', action: 'pencil', track: 'S01', projectId: 'p1' })
-  assert.match(text, /【极乐世界】生成铅笔分镜/)
-  assert.match(text, /镜头 S01/)
-  assert.match(text, /每秒一格/)
-  assert.match(text, /调用 meiji_panel 执行，必须传入上面的 operationId/)
-  assert.equal(/项目：|p1/.test(text), false)
-})
-
-test('a film click names the tool, the skill, and the prompt', () => {
-  const text = describeOperation({ id: 'op-9', action: 'film', track: '2', projectId: 'p1', prompt: '张飞睁眼' })
-  assert.match(text, /【极乐世界】提交成片/)
-  assert.match(text, /轨道 2/)
-  assert.match(text, /文件：server\/generate\/film.js/)
-  assert.match(text, /函数：submitH3/)
-  assert.match(text, /工具：meiji_panel/)
-  assert.match(text, /最终提交参数：/)
-  assert.match(text, /model: elysium-video/)
-  assert.match(text, /quality: medium/)
-  assert.match(text, /prompt:\n张飞睁眼/)
-  assert.equal(/项目：|p1/.test(text), false)
 })
 
 test('a revised still encodes the current image instead of an empty latent', () => {
