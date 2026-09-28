@@ -5,19 +5,48 @@ import { node, shotModel, setContent, shotResults, updateShotResults } from '../
 import { checkContext, selectCheck } from '../data/self-checks.js'
 import { shotReferenceImages } from '../../client/reference-images.js'
 import { shotSecondsReady } from '../../client/shot-timing.js'
+import { runTextRequest } from '../workers/text-request-worker.js'
+import { recordedNode } from '../data/task-records.js'
 
 function body(shot) { return shot?.content || '' }
 // 只读取片段标题中的传输元数据；剧情正文保持原文，不解析 JSON。
-export function readShotSections(text) {
+export function readShotSections(text, offset = 0) {
   const marks = [...text.matchAll(/^## S(\d+) \/ (\d+)s[ \t]*$/gm)]
   if (!marks.length || text.slice(0, marks[0].index).trim()) throw new Error('镜头表需按「## S01 / 12s」分段，标题前不要添加说明')
   return marks.map((mark, index) => {
-    const id = `S${String(index + 1).padStart(2, '0')}`
+    const id = `S${String(offset + index + 1).padStart(2, '0')}`
     const duration = Number(mark[2])
     const body = text.slice(mark.index + mark[0].length, marks[index + 1]?.index ?? text.length).trim()
-    if (Number(mark[1]) !== index + 1 || duration < 1 || duration > 15 || !body) throw new Error(`${id} 的编号、1–15秒时长或正文不完整`)
+    if (Number(mark[1]) !== offset + index + 1 || duration < 1 || duration > 15 || !body) throw new Error(`${id} 的编号、1–15秒时长或正文不完整`)
     return shotModel({ id, duration, text: body, cast: [], scene: '', format: 'text' })
   })
+}
+
+// 网关可能把被截断的正文标为 stop。只续传未完成尾部，整集齐全前不发布任何片段。
+async function completeSeconds(text, message, options) {
+  const shots = options.project.shots.items
+  let prefix = '', offset = 0, previousOffset = -1
+  for (let attempt = 0; ; attempt++) {
+    text = String(text).trim()
+    if (text.endsWith('[seconds-complete]')) return prefix + text
+    const marks = [...text.matchAll(/^## S\d+ \/ \d+s[ \t]*$/gm)]
+    const last = marks.at(-1)
+    let sections
+    try { sections = readShotSections(text + '\n[partial]', offset) }
+    catch { throw new Error('每秒指令分段格式不完整，无法安全续传，未覆盖原内容') }
+    if (sections.some((section, i) => section.id !== shots[offset + i]?.id || section.duration !== shots[offset + i]?.duration)) throw new Error('每秒指令镜头编号、数量或时长与镜头表不一致，未覆盖原内容')
+    const completed = sections.length - 1
+    if (attempt === 3 || (!completed && offset === previousOffset)) throw new Error(`整集每秒指令返回不完整：返回到 ${sections.at(-1).id}（共 ${shots.length} 镜），缺少完成标记，续传${attempt === 3 ? '已达 3 次上限' : '未取得进展'}；未覆盖原内容`)
+    previousOffset = offset
+    if (completed) prefix += text.slice(0, last.index).trimEnd() + '\n\n'
+    offset += completed
+    const remaining = shots.slice(offset).map(shot => `${shot.id} / ${shot.duration}s`).join('、')
+    const scope = `【程序指定的每秒指令续传范围】\n上次返回缺少完成标记。已暂存 ${offset} 镜；只返回剩余镜头：${remaining}。本范围覆盖原请求的一次返回整集要求。首行从「## ${shots[offset].id} / ${shots[offset].duration}s」开始，完整重写本镜，不接半句话，不重复已暂存镜头。所有剩余镜头完成后独占一行写 [seconds-complete]。不改变原任务、修改意见与约束；稳定状态按1–5秒动作节拍合并，避免逐秒重复五类信息。`
+    text = await recordedNode('generation', () => runTextRequest({ ...message,
+      system: `${message.system}\n\n${scope}`,
+      user: `${message.user}\n\n【本轮已暂存正文，仅作衔接依据，不重新输出】\n${prefix || '无'}\n\n${scope}`,
+    }, { ...options, logStage: `续传 ${attempt + 1}/3（${shots[offset].id} 起）` }))
+  }
 }
 
 export async function generateShots(options) {
@@ -69,7 +98,7 @@ export async function generateAllSeconds(options) {
     return sections
   }
   if (ctx) ctx.target = { action: 'seconds' }
-  const result = await runTextWorkflow({ prompts: buildAllSecondsPrompts(options, upstream), options, validate: parse,
+  const result = await runTextWorkflow({ prompts: buildAllSecondsPrompts(options, upstream), options, validate: parse, complete: completeSeconds,
     persist: async (text, check) => {
       const sections = parse(text)
       const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), text, check), items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i].content, check) })) }

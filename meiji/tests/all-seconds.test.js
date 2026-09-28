@@ -128,3 +128,73 @@ test('old per-shot opinions are collected into one persistent group review',asyn
  await e.store.saveReviewDraft(e.id,e.episodeId,'seconds','统一意见',group.review.revision)
  assert.equal((await e.read()).shots.seconds.review.text,'统一意见')
 })
+
+test('truncated stop response continues from the unfinished shot before atomic save and whole review', async t => {
+ const e=await environment(t),before=await e.read(),calls=[]
+ const partial='## S01 / 5s\n0–5s 第一镜完整新动作\n\n## S02 / 5s\n0–2s 被截断的半句话'
+ await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async message=>{
+  calls.push(message)
+  if(message.skill==='skill-gongyong-content-review') {
+   assert.match(message.user,/第一镜完整新动作/);assert.match(message.user,/第二镜续传完成/)
+   assert.doesNotMatch(message.user,/0–2s 被截断的半句话/)
+   return 'PASS'
+  }
+  if(calls.length===1)return partial
+  assert.match(message.system,/只返回剩余镜头：S02 \/ 5s/)
+  assert.match(message.user,/第一镜完整新动作/)
+  assert.doesNotMatch(message.user,/0–2s 被截断的半句话/)
+  assert.equal((await e.read()).shots.items[0].seconds.content,before.shots.items[0].seconds.content)
+  return '## S02 / 5s\n0–5s 第二镜续传完成\n[seconds-complete]'
+ }})})
+ assert.equal(calls.length,3)
+ const p=await e.read()
+ assert.equal(p.shots.items[0].seconds.content,'0–5s 第一镜完整新动作')
+ assert.equal(p.shots.items[1].seconds.content,'0–5s 第二镜续传完成')
+ assert.ok(p.shots.items.every(s=>s.seconds.check.passed===true))
+})
+
+test('continuation obeys three-request bound and never publishes accumulated partial shots',async()=>{
+ const project=episodeFixture(),template=project.shots.items[0],persisted=[]
+ project.shots.items=Array.from({length:6},(_,i)=>({...structuredClone(template),id:`S0${i+1}`}))
+ let requests=0
+ await assert.rejects(generateAllSeconds({project,persist:async shots=>{persisted.push(shots);return {...project,shots}},request:async()=>{
+  const i=++requests
+  return `## S0${i} / 5s\n0–5s 已完成\n\n## S0${i+1} / 5s\n0–1s 截断`
+ }}),/S05.*共 6 镜.*3 次上限.*未覆盖/)
+ assert.equal(requests,4);assert.deepEqual(persisted,[])
+})
+
+for(const kind of ['wrong-order','api-error','cancel','no-progress']) test(`failed continuation (${kind}) preserves original content and downstream`,async t=>{
+ const e=await environment(t),before=await e.read(),controller=new AbortController();let requests=0
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,signal:controller.signal,generateAllSeconds:options=>generateAllSeconds({...options,request:async()=>{
+  if(++requests===1)return '## S01 / 5s\n0–5s 临时完整片段\n\n## S02 / 5s\n半句话'
+  if(kind==='api-error')throw new Error('network failure')
+  if(kind==='cancel'){controller.abort();controller.signal.throwIfAborted()}
+  if(kind==='wrong-order')return output
+  return '## S02 / 5s\n始终没有结束标记'
+ }})}))
+ const after=await e.read()
+ for(let i=0;i<2;i++){
+  assert.equal(after.shots.items[i].seconds.content,before.shots.items[i].seconds.content)
+  assert.deepEqual(after.shots.items[i].storyboard,before.shots.items[i].storyboard)
+ }
+ assert.ok(requests<=3)
+})
+
+test('truncated automatic revision continues its own latest draft and receives a whole-episode re-review',async()=>{
+ let generations=0,reviews=0
+ const p=await generateAllSeconds({project:episodeFixture(),request:async message=>{
+  if(message.skill==='skill-gongyong-content-review'){
+   if(++reviews===1)return 'FAIL 第二镜动作不连续'
+   assert.match(message.user,/第一镜修好/);assert.match(message.user,/第二镜修好/)
+   assert.doesNotMatch(message.user,/第二镜未写完/)
+   return 'PASS'
+  }
+  if(++generations===1)return output
+  if(generations===2)return '## S01 / 5s\n0–5s 第一镜修好\n\n## S02 / 5s\n第二镜未写完'
+  assert.match(message.user,/第二镜动作不连续/)
+  return '## S02 / 5s\n0–5s 第二镜修好\n[seconds-complete]'
+ }})
+ assert.equal(generations,3);assert.equal(reviews,2)
+ assert.equal(p.items[1].seconds.content,'0–5s 第二镜修好')
+})

@@ -55,7 +55,7 @@ export function buildStoryboardPrompts(options, { shot, video, characters, scene
 export function buildAllSecondsPrompts(options, upstream) {
   const { project } = options
   const ctx = checkContext.getStore()
-  const instructions = `${shotContext(upstream)}\n【本次目标与执行要求】\n一次返回整集所有镜头的每秒指令，统筹动作进度、对白、机位及镜头交接，不重复已经完成的动作。保持已有镜头编号、顺序和时长，不新增或合并镜头。每镜从0秒开始，覆盖该镜完整时长。\n每镜以独占一行的「## S01 / 5s」分段（使用实际编号和时长），正文为逐秒自由文本。最后独占一行输出 [seconds-complete]，只有全部镜头完整输出后才写此标记。`
+  const instructions = `${shotContext(upstream)}\n【本次目标与执行要求】\n一次返回整集所有镜头的每秒指令，统筹动作进度、对白、机位及镜头交接，不重复已经完成的动作。保持已有镜头编号、顺序和时长，不新增或合并镜头。每镜从0秒开始，覆盖该镜完整时长。\n【整集覆盖与篇幅安排】\n本次必须覆盖 ${project.shots.items.length} 镜、共 ${project.shots.items.reduce((sum, shot) => sum + shot.duration, 0)} 秒：${project.shots.items.map(shot => `${shot.id}/${shot.duration}s`).join('、')}。先为全部镜头安排篇幅，不把篇幅耗在前几镜。按动作节拍分段，稳定状态合并为1–5秒，一段只交代一次持续的动作、机位、空间和声音，不按秒重复相同五条描述。每镜以350–650字为篇幅参考，关键动作或完整台词需要时可扩展；不为缩短正文删剧情或对白，不为填满时间新增动作。\n每镜以独占一行的「## S01 / 5s」分段（使用实际编号和时长），正文为覆盖完整时间线的自由文本。最后独占一行输出 [seconds-complete]，只有全部镜头完整输出后才写此标记。`
   const previous = ctx?.generationMode === 'modify' ? project.shots.items.map(shot => `## ${shot.id}\n${shot.seconds.content || ''}`).join('\n') : ''
   return buildTextPrompts({ skill: 'skill-jingtou-meimiao-seconds-generate', project,
     instructions: instructions + (previous ? `\n【修改基稿】\n${previous}` : ''), reviewInstructions: instructions,
