@@ -12,7 +12,6 @@ import { feedbackOf, overrideBlocker, overrideNodes } from '../../../shared/feed
 import { clearShotDownstream, replaceFrom } from '../../../shared/project-rules.js'
 import { canGenerate, hasShots } from '../../../shared/gates.js'
 import { shotSecondsReady } from '../../../shared/shot-timing.js'
-import { skillFilePath } from '../../../skills/load.js'
 import { characterFieldValues, characterLookText } from '../../../shared/character-facts.js'
 
 // if (operation.action === 'source')
@@ -28,7 +27,7 @@ async function opSource(c) {
 async function opStoryboardText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   project = await runStep('save', () => projects.save(project.id, current => ({ ...storyboardTextPatch(current, operation), activity: `shot-storyboard:${operation.track}` })), { target: `storyboard:${operation.track}` })
-  const result = await (deps.reviewContent || reviewContent)({ project, stage: 'skill-jingtou-wenben-storyboard-generate', shotId: operation.track, text: operation.text, route: (await loadModels(models)).story })
+  const result = await (deps.reviewContent || reviewContent)({ project, stage: 'storyboard', shotId: operation.track, text: operation.text, route: (await loadModels(models)).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, { activity: null })
   note(result.passed ? '文本分镜已保存并通过自检' : `文本分镜已保存，自检未通过：${result.failures.join('；')}`)
@@ -75,11 +74,12 @@ async function opCharacterText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const character = project.plot.characters.items.find(item => item.id === operation.itemId)
   if (!character) throw Object.assign(new Error('人物不存在'), { status: 404 })
-  const keys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features']
+  const keys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features']
   const current = characterFieldValues(character)
   if (keys.some(key => current[key] !== operation.original?.[key])) throw Object.assign(new Error('人物已更新，请刷新后编辑'), { status: 409 })
   const values = Object.fromEntries(keys.map(key => [key, String(operation.fields?.[key] || '').trim()]))
   if (Object.values(values).some(value => !value || value.length > 10000)) throw Object.assign(new Error('人物字段不能为空或超过10000字'), { status: 400 })
+  values.costume = current.costume
   if (project.plot.characters.items.some(item => item.id !== character.id && item.name === values.name)) throw Object.assign(new Error('人物名称重复'), { status: 400 })
   const look = characterLookText(values)
   project = await runStep('save', () => projects.save(project.id, currentProject => {
@@ -111,7 +111,7 @@ async function opOutlineText(c) {
   const outline = String(operation.outline || '').trim()
   if (!outline) throw Object.assign(new Error('大纲不能是空的'), { status: 400 })
   project = await runStep('save', () => projects.writeStep(project.id, 'outline', { ...plotPatch(project, { outline: contentNode(project.plot.outline, outline) }), activity: 'outline' }), { target: 'story' })
-  const result = await (deps.reviewContent || reviewContent)({ project, stage: 'skill-juqing-outline-generate', text: JSON.stringify({ outline, characters: project.plot.characters.items, scenes: project.plot.scenes.items }), route: (await loadModels(models)).story })
+  const result = await (deps.reviewContent || reviewContent)({ project, stage: 'outline', text: JSON.stringify({ outline, characters: project.plot.characters.items, scenes: project.plot.scenes.items }), route: (await loadModels(models)).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, { activity: null })
   note(result.passed ? '大纲已保存并通过自检' : `大纲已保存，自检未通过：${result.failures.join('；')}`)
@@ -123,7 +123,7 @@ async function opOutline(c) {
   let { deps, projects, models, project, trace, note } = c
   if (!canGenerate(project, 'outline')) throw Object.assign(new Error('请先写好本集摘要，再生成剧情'), { status: 409 })
   await projects.save(project.id, { activity: 'outline', activityError: null })
-  note('按 skill-juqing-outline-generate 一次生成大纲、角色卡与场景卡，再做整包自检')
+  note('按「剧情整包」技能一次生成大纲、角色卡与场景卡，再做整包自检')
   const result = await (deps.generateStoryPackage || generateStoryPackage)({ route: (await loadModels(models)).story, project, persist: async result => {
     const merged = preserveStoryAssets(project, result)
     await projects.save(project.id, replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged }, activity: 'outline' }))
@@ -228,7 +228,7 @@ async function opShotSeconds(c) {
   const review = String(operation.review || '').trim()
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'seconds', track), activity: `shot-seconds:${track}`, activityError: null })
-  note('文件：' + skillFilePath('skill-jingtou-meimiao-seconds-generate'))
+  note('技能：每秒指令（skills/stages/seconds）')
   note('函数：generateShotSeconds（server/generate/story.js）')
   note(`写 ${track} 的每一秒`)
   if (review) note(`审核意见：${review}`)
@@ -252,7 +252,7 @@ async function opShotStoryboard(c) {
   const review = String(operation.review || '').trim()
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'storyboard', track), activity: `shot-storyboard:${track}`, activityError: null })
-  note('文件：' + skillFilePath('skill-jingtou-wenben-storyboard-generate'))
+  note('技能：文本分镜（skills/stages/storyboard）')
   note('函数：generateShotStoryboard（server/generate/story.js）')
   note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
   if (review) note(`审核意见：${review}`)
@@ -282,7 +282,7 @@ async function opShotBoards(c) {
   const writeBoard = deps.generateShotStoryboard || generateShotStoryboard
   for (const track of ids) {
     let current = await projects.read(project.id)
-    note('文件：' + skillFilePath('skill-jingtou-wenben-storyboard-generate'))
+    note('技能：文本分镜（skills/stages/storyboard）')
     note('函数：generateShotStoryboard（server/generate/story.js）')
     note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
     await selectCheck(current, { action: 'shot-storyboard', track })
@@ -302,7 +302,7 @@ async function opStoryboard(c) {
   const current = project
   if (current.shots.items.some(shot => !shotSecondsReady(shot) || shot.seconds.check.passed !== true || shot.seconds.stale)) throw Object.assign(new Error('请先生成整集每秒指令，并使每镜自审通过'), { status: 409 })
   await selectCheck(current, { action: 'storyboard' })
-  note('按 skill-jingtou-wenben-storyboard-generate 生成全部分镜表，并审核原文剧情与素材关联')
+  note('按「文本分镜」技能生成全部分镜表，并审核原文剧情与素材关联')
   const storyboard = await (deps.generateStoryboard || generateStoryboard)({ route: (await loadModels(models)).story, project: current, beforeShot: track => projects.save(project.id, current => clearShotDownstream(current, 'storyboard', track)), persist: storyboard => projects.save(project.id, current => updateShotResults(current, 'storyboard', storyboard)) })
   await projects.writeStep(project.id, 'storyboard', { ...updateShotResults(await projects.read(project.id), 'storyboard', storyboard), activity: null })
   note(`文本分镜已写入，共 ${storyboard.length} 镜。铅笔分镜和成片已清空，等待重新生成`)

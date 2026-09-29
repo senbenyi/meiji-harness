@@ -1,0 +1,26 @@
+{
+  "id": "outline",
+  "kind": "stage",
+  "label": "剧情整包",
+  "logLabel": "剧情大纲",
+  "output": "json",
+  "languageMode": "story",
+  "panel": "outline",
+  "guidanceStage": "outline",
+  "assetStages": [
+    "outline"
+  ],
+  "shared": {
+    "revise": [
+      "revise-boundary"
+    ]
+  },
+  "fields": [
+    "common",
+    "generate",
+    "review",
+    "revise",
+    "protocol"
+  ],
+  "order": 2
+}

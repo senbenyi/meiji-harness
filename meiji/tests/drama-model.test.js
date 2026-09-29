@@ -15,7 +15,7 @@ async function setup(t) {
  await store.save(p.id,{episodes:[episode]})
  return {home,store,id:p.id,episodeId:episode.id, op(action,extra={}){return {action,projectId:p.id,episodeId:episode.id,...extra}}}
 }
-const requestFor = text => async ({ skill }) =>skill==='skill-gongyong-content-review'?'PASS':text
+const requestFor = text => async ({ skill }) =>skill==='review'?'PASS':text
 async function throughShots(t) {
  const env=await setup(t)
  await runOperation(env.op('outline'),{home:env.home,generateStoryPackage:async()=>({...storyPackageFixture(10),check:{passed:true,failures:[]}})})
@@ -42,7 +42,7 @@ test('one-time migration nests media and preserves text, feedback and IDs; runti
  const old={id:'old',summary:'摘要',createdAt:'today',episodes:[{id:'e',customSkills:{seconds:'补充要求'},summary:'剧情',outline:'大纲',shots:{items:[{id:'S01',text:'镜头',duration:5,secondsText:'每秒'}]},storyboard:[{id:'S01',prompt:{text:'提示词'}}],boards:{S01:{url:'/pencil'}},films:{S01:{status:'ready',url:'/video'}},feedback:{'storyboard:S01':{check:{passed:false,failures:['方位']},review:{text:'保留动作',history:[]}}}}]}
  assert.throws(()=>assertDrama(old),/迁移/)
  const p=migrateProject(old),s=p.episodes[0].shots.items[0]
- assert.equal(p.episodes[0].customSkills.seconds,'补充要求');assert.equal(s.content,'镜头');assert.equal(s.seconds.content,'每秒');assert.equal(s.pencil.content.url,'/pencil');assert.equal(s.video.status,'passed');assert.equal(s.storyboard.review.text,'保留动作');assert.deepEqual(migrateProject(p),p)
+ assert.equal(p.episodes[0].customSkills,undefined);assert.match(p.skills.additions.seconds.generate,/第 1 集[\s\S]*补充要求/);assert.equal(s.content,'镜头');assert.equal(s.seconds.content,'每秒');assert.equal(s.pencil.content.url,'/pencil');assert.equal(s.video.status,'passed');assert.equal(s.storyboard.review.text,'保留动作');assert.deepEqual(migrateProject(p),p)
 })
 test('draft save does not invalidate an in-flight task, unrelated shot commits merge',async t=>{
  const e=await throughShots(t), scope={episodeId:e.episodeId,track:'S01'}, a=revisionStore(e.store,'a',scope),b=revisionStore(e.store,'b',{episodeId:e.episodeId,track:'S02'})

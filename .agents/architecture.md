@@ -26,7 +26,8 @@ meiji/
 │   │                       #   mount()：在 Harness 页面挂载 <meiji-workbench> 右栏（外壳、任务停止栏、项目/片库视图），已挂载则跳过
 │   ├── app.js / shell.js   # 组合与右栏外壳（状态栏：停止生成、查看当前任务）
 │   ├── task-steps.js       # 步骤清单组件：「当前任务」与「任务历史」共用
-│   ├── current-task.js / execution-history.js  # 「当前任务」页 / 「任务历史」页
+│   ├── current-task.js / execution-history.js  # 「当前任务」页 / 「任务历史」页（含任务所用技能）
+│   ├── skill-entry.js / skill-detail.js / skill-library.js  # 各阶段「查看 skill」入口 / 技能详情页（基础、本剧补充、指导、预览）/ 设置页「技能库」
 │   ├── drama-store.js      # 面板内的剧集数据模型存储
 │   ├── api.js / dom.js     # 同源请求与 DOM 组件
 │   └── styles.css
@@ -37,7 +38,7 @@ meiji/
 │   ├── steps.js            # 步骤状态、任务状态推导 deriveTaskStatus、按目标分组、顺序执行器 executeSteps
 │   └── feedback.js（审核结论、人工忽略自审规则）、shot-timing.js、reference-images.js、video-prompt-text.js、tail-frame.js、guidance.js
 ├── server/
-│   ├── http/               # routes.js 鉴权路由与 client/shared 静态分发；library-routes.js 素材导入/读取/Range
+│   ├── http/               # routes.js 鉴权路由与 client/shared 静态分发；library-routes.js 素材导入/读取/Range；skill-routes.js 技能接口（只供面板）
 │   ├── flow/
 │   │   ├── operations/     # run.js 操作入口 runOperation（面板与会话共用）、registry 操作定义（范围/队列/步骤计划/agent 可否）、
 │   │   │                   #   execute 分派流水线、finish 结束释放、
@@ -46,19 +47,21 @@ meiji/
 │   │                       #   queue.js 全局队列（text / image / video 并发上限）、restart.js 启动时取消遗留任务（含远端视频）
 │   ├── generate/           # 网关调用与生成：gateway、text-request、text-steps（生成/自审/修订/复审步骤）、
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
-│   ├── prompts/            # 各阶段提示词拼装
+│   ├── prompts/            # 各阶段提示词拼装；skill-prompts.js 技能分段组装；preview.js 请求预览
 │   ├── data/               # 持久化：projects（领域存储）、project-files（存储布局，唯一了解文件结构）、
 │   │                       #   episodes、library、workspace-links、model-settings、review-checks、
-│   │                       #   task-store（任务与步骤、runStep、内容快照）、operation-context（一次操作的审核上下文）等
+│   │                       #   task-store（任务与步骤、runStep、内容快照、任务固定的技能组合）、operation-context（一次操作的审核上下文）、
+│   │                       #   skill-store（技能基础修改层、本剧层与组合快照）、custom-skills（本剧指导素材）等
 │   └── host/               # Harness 适配层（唯一接触 Harness 的地方）：workspaces（workspaceRegistry）、
 │                           #   session-log（会话命令日志）
 ├── models/model-config.js  # 网关地址校验、默认配置读取、用途（chat/story/image/video）→ 模型路由
 ├── config/models.json      # 网关地址、模型名、并发上限默认配置（入 git，不含密钥）
 ├── config/models.local.json # 本地密钥等，覆盖 models.json 同名字段（git 忽略，需自行创建）
 ├── tools/                  # Harness 会话工具 session-*-tool.js（4 个）
-├── skills/                 # 运行时 skill，load.js 注册；references/minimax-h3 为引用资料
+├── skills/                 # 技能：stages/（阶段技能，按字段存放）guidance/（指导技能）shared/（共享模块）
+│                           #   agent/panel.md（唯一注册给 Harness 的会话说明）references/minimax-h3（官方参考）；load.js 按字段读取与校验
 ├── h3skill/                # MiniMax-H3 官方 skill 归档，只读参考，不注册、不注入
-├── scripts/                # 迁移脚本（参数为 DSH_HOME），统一 migrate- 前缀：migrate-model（模型 v2）、migrate-layout（存储布局 v2）、migrate-task-steps（任务记录 v2）、migrate-tail-frame
+├── scripts/                # 迁移脚本（参数为 DSH_HOME），统一 migrate- 前缀：migrate-model（模型 v2）、migrate-layout（存储布局 v2）、migrate-task-steps（任务记录 v2）、migrate-custom-skills（补充 skill 与指导素材按集 → 按剧）、migrate-tail-frame；prompt-diff.js 为开发用的提示词差集脚本
 ├── tests/                  # node --test；fixtures/（测试密钥、jsdom 加载、模拟 workspaceRegistry）
 ├── docs/                   # 架构与数据说明（tasks-and-steps.md：任务与步骤；gateway-api.md：网关接口）
 └── reports/                # 本地生成报告（git-ignored）
@@ -75,18 +78,18 @@ http / tools → flow → generate → prompts → data → models
 
 | 目录 | 职责 |
 |---|---|
-| `index.js` | `apply(ctx)`：登记 Harness 适配层、取消遗留任务、检查 ffmpeg、创建任务管理器、注册面板路由、4 个会话工具和 skills |
+| `index.js` | `apply(ctx)`：登记 Harness 适配层、取消遗留任务、检查 ffmpeg、创建任务管理器、注册面板路由、4 个会话工具；校验技能结构，只把会话说明技能注册给 Harness |
 | `client/` | 右栏面板 UI；通过 `api.js` 调用 `/plugins/meiji/*` 接口 |
 | `shared/` | 数据模型、门禁与流程规则等纯函数，浏览器与 Node 通用 |
 | `server/http/` | 鉴权、同源校验、分发面板操作，素材上传下载与 Range |
 | `server/flow/` | 操作定义、入口与分派、任务执行器与队列、启动取消 |
 | `server/generate/` | 调用网关：文本、图片、视频提交与轮询、自审修订、ffmpeg 抽帧与拼接 |
-| `server/prompts/` | 按阶段拼装提示词，组合 skill 与指导素材 |
+| `server/prompts/` | 按阶段拼装提示词；`skill-prompts.js` 按请求类型组装技能分段（阶段、指导、共享、本剧补充、素材、协议），`preview.js` 为技能详情页组装预览 |
 | `server/data/` | 项目、剧集、素材、图片、任务与步骤记录等持久化 |
 | `server/host/` | 通过公开的 `workspaceRegistry` 查工作区与会话；写会话命令日志 |
 | `models/`、`config/` | 模型路由与默认配置 |
 | `tools/` | Harness agent 可调用的工具：上下文查询、项目管理、内容生成、任务控制 |
-| `skills/` | 各阶段生成与审核规则（Markdown），由 `load.js` 注册 |
+| `skills/` | 内置技能（按字段的 Markdown + `skill.json`），代码直接读取；基础修改层与本剧层由 `server/data/skill-store.js` 叠加 |
 
 ```text
 面板操作：client → server/http/routes.js → flow/tasks/runner.js（写任务记录、queue 限流）→ flow/operations/run.js(runOperation)
@@ -110,9 +113,10 @@ http / tools → flow → generate → prompts → data → models
 ```
 storages/meiji/
 ├── models.json                              # 运行中模型配置，文本/图片/视频共用
-├── projects/<projectId>.json                # 项目索引（layout: 2，revision 递增；episodes 只存 { id, file }）
+├── projects/<projectId>.json                # 项目索引（layout: 2，revision 递增；episodes 只存 { id, file }；skills 为本剧补充、启用的指导与指导素材）
 ├── projects/<projectId>/episodes/<episodeId>.<版本>.json  # 每集一个文件
 ├── projects/<projectId>/                    # 专属工作区：images/ films/ boards/ covers/ history/（任务记录）
+├── skills/<skillId>.json                     # 技能基础修改层（面板编辑，只存改过的字段、哈希、所基于的内置哈希与上一版本）
 ├── assets/<category>/<assetId>/             # 全局素材：characters scenes props audio video guidance
 ├── image-drafts/<draftId>/                  # 待确认图片预览
 └── incoming/                                # 导入暂存

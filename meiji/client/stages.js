@@ -5,7 +5,7 @@ import { decorateShotCard } from './shot-card-state.js'
 import { shotResults, shotMap } from '../shared/drama-model.js'
 import { storyboardReferences } from './storyboard-references.js'
 import { storyboardEditor } from './storyboard-editor.js'
-import { customSkillField } from './custom-skills.js'
+import { skillField } from './skill-entry.js'
 import { appendWorkflowReview, reviewFields } from './workflow-review.js'
 import { shotReferenceImages } from '../shared/reference-images.js'
 import { feedbackOf } from '../shared/feedback.js'
@@ -139,7 +139,7 @@ function renderOutline(project) {
 
 function renderStory(project, actions, context) {
   const controls = element('section', '', 'session-project story-controls')
-  controls.append(customSkillField(project, 'outline', actions))
+  controls.append(skillField(project, 'outline', actions))
   const head = element('div', '', 'outline-head')
   head.append(element('h3', '剧情生成与审核'))
   const generated = hasOutline(project) || hasCharacters(project) || hasScenes(project)
@@ -244,7 +244,7 @@ function regenRow(card, { busy, enabled, label, onRun, review = '', check, gener
 
 function renderShots(project, actions, stage = 'shots') {
   const view = element('section', '', 'session-project')
-  view.append(customSkillField(project, stage, actions))
+  view.append(skillField(project, stage, actions))
   if (stage === 'shots') paintShotTable(view, project, actions)
   else paintSeconds(view, project, actions)
   view.querySelectorAll(':scope > .shot-card').forEach((card, index) => {
@@ -443,7 +443,7 @@ function mountPencil(parent, url, label) {
 
 function renderFilm(project, actions, context) {
   const view = element('section', '', 'session-project')
-  view.append(element('h3', '成片'), customSkillField(project, 'storyboard', actions), customSkillField(project, 'film', actions))
+  view.append(element('h3', '成片'), skillField(project, 'storyboard', actions), skillField(project, 'film', actions))
   const all = element('button', '依次生成全部成片', 'primary')
   all.disabled = Boolean(project.activity)
   bindBusy(all, () => actions.perform(project, 'produce-all'), '任务已启动')
@@ -571,9 +571,8 @@ export function renderStage(step, project, actions, context) {
   if (actions.openHistory) toolbar.append(historyEntry(project, actions, step))
   for (const field of view.querySelectorAll('.custom-skill-field')) {
     const button = field.querySelector('button')
-    button.textContent = step === 'film'
-      ? (button.getAttribute('aria-label').startsWith('文本分镜') ? '分镜提示词 Skill' : '成片 Skill')
-      : '补充 Skill'
+    button.dataset.label = step === 'film' ? (button.dataset.skill === 'storyboard' ? '分镜 skill' : '成片 skill') : '查看 skill'
+    button.textContent = button.dataset.label + (button.dataset.status ? ` · ${button.dataset.status}` : '')
     toolbar.append(button)
     field.remove()
   }
@@ -653,7 +652,7 @@ export function renderShotPage(project, shot, actions, context = {}) {
     if (active === 'film') { body.replaceChildren(renderFilm(project, actions, { ...context, onlyShot: shot.id })); return }
     const pane = element('section', '', 'session-project')
     const customStage = { seconds: 'seconds', board: 'storyboard', film: 'film' }[active]
-    if (customStage) pane.append(customSkillField(project, customStage, actions))
+    if (customStage) pane.append(skillField(project, customStage, actions))
     const activity = project.activity || ''
     if (active === 'seconds') {
       const head = element('div', '', 'outline-head')

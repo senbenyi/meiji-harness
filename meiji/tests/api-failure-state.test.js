@@ -16,7 +16,7 @@ for(const failed of [false,true]) for(const phase of ['generation','review','cor
   await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:async({ skill })=>{
    calls.push(skill)
    if(phase==='generation'||phase==='review'&&calls.length===2||phase==='correction'&&calls.length===3)throw new Error('HTTP 503')
-   return skill==='skill-gongyong-content-review'?'FAIL 本轮内容问题':output
+   return skill==='review'?'FAIL 本轮内容问题':output
   }})}),/HTTP 503/)
   assert.equal(calls.length,{generation:1,review:2,correction:3}[phase])
   const after=await e.read()
@@ -61,7 +61,7 @@ test('whole-episode seconds are reviewed once as one version',async t=>{
  await models.write({...await models.read(),apiKey:'test-only'})
  let reviews=0
  await runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:async ({ skill }) =>{
-  if(skill!=='skill-gongyong-content-review')return output
+  if(skill!=='review')return output
   reviews++
   return 'PASS'
  }})})

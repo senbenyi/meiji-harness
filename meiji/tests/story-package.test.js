@@ -21,7 +21,7 @@ test('one generation response contains all three sections, followed by one packa
     assert.match(body.messages[0].content, /本次生成语言：English/)
     calls++
     if (calls === 2) {
-      assert.match(body.messages[1].content, /skill-juqing-outline-generate/)
+      assert.match(body.messages[1].content, /阶段：剧情整包/)
       assert.match(body.messages[1].content, /characters/)
     }
     return Response.json({ choices: [{ message: { content: calls === 1 ? JSON.stringify(generated) : 'PASS' } }] })

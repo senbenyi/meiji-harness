@@ -111,6 +111,7 @@
 | startedAt / endedAt / error | 时间与错误 |
 | steps | 步骤 |
 | artifacts / latestOutputs | 本任务提交过的快照引用、各目标最新结果 |
+| skills | 本任务使用的技能：`[{ id, layers, hash }]`，任务开始时固定（见「技能组装」） |
 
 快照：`projects/<projectId>/history/artifacts/<artifactId>.json`
 
@@ -143,10 +144,28 @@
 业务阶段 → 提示词编排 → 文本步骤 → 单次请求 → 模型网关。
 
 - `server/prompts/story-prompts.js`、`shot-prompts.js`：编排剧集摘要、剧情整包、单类卡片、镜头表、单镜修改、每秒指令与文本分镜。
-- `server/prompts/text-prompts.js`：共用的生成、审核和修订构建函数（Skill、语言、输出协议、自定义要求、修改意见）。审核请求重新包含任务依据、适用生成规范和当前待审正文。
+- `server/prompts/text-prompts.js`：共用的生成、意见修改、审核和自动修订构建函数；技能内容由 `skill-prompts.js` 按请求类型组装。
+- `server/prompts/skill-prompts.js`：技能分段组装。每段带来源标题（如【阶段技能·生成】【武术指导】【本剧补充·生成】），面板预览按来源着色。
 - `server/generate/text-request.js`：`runTextRequest` 每次只发送一个编排完整的请求，处理日志、取消信号和接口异常。
 
-编排函数返回 `{ skill, system, user, json }`；最终请求恰含 system 与 user 两条消息。生成和修订剧情资料用 JSON 输出，镜头表与每秒指令用自由文本，审核用 PASS/FAIL。
+编排函数返回 `{ skill, system, user, json, segments }`（审核请求 `skill` 为 `review`，`stage` 为所审阶段）；最终请求恰含 system 与 user 两条消息。
+
+### 技能组装
+
+| 请求 | system（按顺序） | user |
+|---|---|---|
+| 生成 | 阶段通用（含共享模块，如尾帧协议）→ 阶段生成 → 本剧启用且适用本阶段的指导（通用 + 本阶段落点）→ 本剧补充（通用、生成、指导）→ 指导素材编排规则（有素材时）→ 自检标准（阶段审核 + 指导审核 + 本剧审核补充）→ 官方参考（按阶段与文本分镜模式）→ 语言 → 优先级 → 输出协议 | 任务与上下文 → 分类指导素材（按指导分组）→ 本次修改意见 |
+| 意见修改 | 同生成，在语言前加修订边界（阶段修订 + 共享修订边界 + 本剧修订补充），语言含修订时的语言规则 | 同生成（含修改基稿） |
+| 自动修订 | 同生成，自检标准换成修订边界 | 任务与上下文 → 失败稿 → 失败原因 → 原人工意见 |
+| 审核 | 审核通用协议 → 本阶段共享审核模块（镜头类审核、尾帧协议）→ 素材编排规则 → 语言 → PASS/FAIL 协议 | 阶段 → 任务与上下文 → 修改意见 → 验收标准（阶段审核 + 指导审核）→ 本剧补充 → 分类指导素材 → 连续性资料 → 待审内容 |
+| 图片 | —（图片接口只有一段 prompt） | 画面要求 → 官方规则（铅笔分镜）→ 本剧补充 → 语言 → 视觉风格 → 本次画面要求 |
+| 成片 | — | 最终视频提示词后追加成片技能的基础要求与本剧补充（内置为空） |
+
+优先级（写入提示词）：输出协议 > 上游事实与本次任务 > 本剧补充 > 阶段技能 > 指导技能 > 指导素材。审核请求不附生成技能与官方参考；摘要与图片请求不使用指导技能。
+
+技能三层：内置（`skills/`）→ 基础（面板修改，`storages/meiji/skills/<id>.json`，按字段替换内置，对所有剧生效）→ 本剧（项目索引 `skills`，追加）。任务开始执行时（`startExecution`）用 `loadSkillSet` 固定一份组合，嵌套子操作沿用；同一任务的生成、审核、修订使用同一版本，进行中的任务不受中途修改影响。任务记录写入 `skills: [{ id, layers, hash }]`（`layers` 含 `builtin`，修改过为 `base`，有本剧补充为 `project`），任务历史显示所用技能。
+
+面板接口（只接受同源请求，会话 agent 无对应工具）：`GET /skills`、`GET /skills/<id>`、`PUT /skills/<id>`（须 `confirm: true`）、`POST /skills/<id>/reset`、`POST /skills/<id>/preview`、`PUT /project-skills`、`PUT /project-guidance`。生成和修订剧情资料用 JSON 输出，镜头表与每秒指令用自由文本，审核用 PASS/FAIL。
 
 剧情整包、人物卡、场景卡、镜头表与每秒指令都在自审前保存生成稿；自审或修订接口异常保留最新已保存稿，生成接口尚未产生有效稿时回退到原内容。未完成审核不标记通过。保存沿用 `revisionStore` 的依赖检查。人工编辑只执行保存与自审步骤。
 
@@ -154,4 +173,4 @@
 
 ## 验证
 
-`tests/task-steps.test.js`（状态推导、结束落定、计划与执行一一对应、逐镜成片单一任务、人工专属操作、忽略自审、当前任务、迁移）、`task-store`、`reviewed-generation`、`prompt-nodes`、`api-failure-state`、`model-ui`（步骤清单、当前任务页、忽略按钮）。运行 `npm test`，测试使用模拟接口。
+`tests/task-steps.test.js`（状态推导、结束落定、计划与执行一一对应、逐镜成片单一任务、人工专属操作、忽略自审、当前任务、迁移）、`task-store`、`reviewed-generation`、`prompt-nodes`、`api-failure-state`、`model-ui`（步骤清单、当前任务页、忽略按钮）；技能：`skill`（结构、组装、官方参考按模式、图片提示词、指导）、`skill-store`（基础层、任务固定技能版本、接口）、`custom-skills` / `guidance`（本剧补充与指导素材）、`guidance-ui`（入口、详情页、技能库、历史）、`migrate-custom-skills`。运行 `npm test`，测试使用模拟接口。

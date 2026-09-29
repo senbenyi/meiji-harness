@@ -1,0 +1,11 @@
+{
+  "id": "character-image",
+  "kind": "stage",
+  "label": "人物参考图",
+  "logLabel": "人物参考图",
+  "output": "image",
+  "fields": [
+    "generate"
+  ],
+  "order": 9
+}

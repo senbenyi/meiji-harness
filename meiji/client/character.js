@@ -62,7 +62,6 @@ export function renderCharacterDetail(project, itemId, actions, context) {
     page.append(element('p', '该人物已不存在，请返回列表重新选择。', 'notice'))
     return page
   }
-  page.append(element('p', '人物资料与形象管理', 'meta'))
   const hint = element('p', /^(自检|自审)未通过/.test(project.activityError || '') ? '' : project.activityError || '', 'hint warn')
   hint.hidden = !hint.textContent
   hint.setAttribute('role', 'status')

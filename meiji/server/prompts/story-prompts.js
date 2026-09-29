@@ -64,15 +64,12 @@ export function buildStoryPrompts(project, kind = 'package', review = '') {
     : `本次仅修订${kind === 'characters' ? '人物卡' : '场景卡'}集合，不生成或修改大纲与另一类卡片。输出仅为 {"items":[...]}，沿用该类卡片字段要求。\n已通过大纲：${project.plot.outline.content}`
   const context = `【本次目标】\n${target}\n${storyContext(project, modify).join('\n')}`
   const instructions = `【任务模式】\n${modify ? '定向修改，保留未涉及内容。' : ctx?.requestedMode === 'generate' ? '首次生成，依据本集摘要展开剧情，不改变已确定的关键事件。' : '重新生成，仅使用项目背景、剧本、本集配置和跨集约束，不使用本集旧摘要、旧剧情或历史意见。'}\n${context}`
-  return buildTextPrompts({ skill: 'skill-juqing-outline-generate', project,
+  return buildTextPrompts({ skill: 'outline', project, modify,
     instructions: instructions + (modify ? `\n【修改基稿】\n${JSON.stringify(previous)}` : ''),
     reviewInstructions: context,
     opinion: modify ? [...new Set([ctx?.review, review].filter(Boolean))].join('\n') : '',
   })
 }
-
-const episodeRevisionRules = `【摘要修订边界】
-以本次提供的基稿为唯一修改基准，按自审或人工意见定向修订。未涉及的事件、顺序、人物、对白和结尾保持原样，只修复必要的因果与衔接，不顺便扩写、删减或润色。返回完整 summary 和 durationSeconds，不返回补丁或修改说明。`
 
 export function buildEpisodePrompts(project, episodeId) {
   const ctx = checkContext.getStore()
@@ -81,11 +78,9 @@ export function buildEpisodePrompts(project, episodeId) {
   const original = modify ? project.episodes.find(episode => episode.id === episodeId) : null
   if (modify && !original) throw new Error('修订摘要需要指定已有剧集')
   const mode = modify ? '按意见定向修订' : episodeId ? '重新生成，不使用本集旧摘要和历史意见' : '首次生成'
-  return buildTextPrompts({ skill: 'skill-gailan-episode-generate', project,
+  return buildTextPrompts({ skill: 'episode', project, modify,
     instructions: `【任务模式】\n${mode}\n${context}` + (modify ? `\n【修改基稿】\n${JSON.stringify({ summary: original.summary.content, durationSeconds: original.durationSeconds })}` : ''),
     reviewInstructions: context,
     opinion: modify ? ctx.review || '' : '',
-    systemRules: modify ? episodeRevisionRules : '',
-    revisionRules: episodeRevisionRules,
   })
 }

@@ -1,4 +1,5 @@
 import { completeChat } from './gateway.js'
+import { builtinSkill, isSkill } from '../../skills/load.js'
 
 export function parseJsonValue(text) {
   const source = String(text || '').trim()
@@ -22,9 +23,7 @@ export async function askModel({ route, system, prompt, json = false, signal, fe
 }
 
 
-export function skillLogPurpose(skillName) { return ({
-    'skill-gailan-episode-generate': '本集剧情', 'skill-juqing-outline-generate': '剧情大纲',
-    'skill-jingtou-jingtoubiao-table-generate': '镜头表', 'skill-jingtou-jingtoubiao-shot-review': '单镜修订',
-    'skill-jingtou-meimiao-seconds-generate': '每秒指令', 'skill-jingtou-wenben-storyboard-generate': '文本分镜',
-    'skill-gongyong-content-review': '内容自审',
-  }[skillName] || skillName) }
+// 会话日志用途：阶段技能的日志名（未知时原样返回）。
+export function skillLogPurpose(stage) {
+  return isSkill(stage) ? builtinSkill(stage).logLabel || stage : stage
+}

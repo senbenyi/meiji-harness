@@ -1,0 +1,16 @@
+{
+  "id": "guidance-sound",
+  "kind": "guidance",
+  "label": "声音指导",
+  "defaultEnabled": true,
+  "assetTypes": [
+    "sound",
+    "music"
+  ],
+  "stages": {
+    "outline": "环境与声音氛围",
+    "shots": "镜头声场",
+    "seconds": "声音时点、声源与强弱",
+    "storyboard": "环境音与配乐（overall_soundscape / non_diegetic_music）"
+  }
+}

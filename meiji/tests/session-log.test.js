@@ -108,7 +108,7 @@ test('generation, review, correction and re-review have distinct request and res
   const { episodeFixture } = await import('./fixtures/model.js')
   const events = [], replies = ['原文', 'FAIL\n动作缺失', '修订正文', 'PASS']
   await runWithSessionLog({ append: (type, data) => events.push({ type, data }) }, () => runTextSteps({
-    prompts: buildTextPrompts({ skill: 'skill-jingtou-meimiao-seconds-generate', project: {}, instructions: '生成时间线' }), options: {
+    prompts: buildTextPrompts({ skill: 'seconds', project: {}, instructions: '生成时间线' }), options: {
       project: episodeFixture(), route: { baseUrl: 'https://test/v1/', apiKey: 'secret', model: 'text' },
       fetchImpl: async () => Response.json({ choices: [{ message: { content: replies.shift() } }] }),
     },

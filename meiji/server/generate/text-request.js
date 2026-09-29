@@ -1,4 +1,4 @@
-import { askModel } from './chat.js'
+import { askModel, skillLogPurpose } from './chat.js'
 import { runWithLogPurpose } from '../host/session-log.js'
 import { markApiFailure } from '../data/operation-context.js'
 
@@ -6,7 +6,7 @@ import { markApiFailure } from '../data/operation-context.js'
 export async function runTextRequest(message, { request, logPurpose, logStage, ...options } = {}) {
   options.signal?.throwIfAborted()
   try {
-    return await runWithLogPurpose(`${logPurpose || message.skill}${logStage ? '·' + logStage : ''}`, () => request
+    return await runWithLogPurpose(`${logPurpose || skillLogPurpose(message.stage || message.skill)}${logStage ? '·' + logStage : ''}`, () => request
       ? request({ ...options, ...message })
       : askModel({ ...options, system: message.system, prompt: message.user, json: message.json }))
   } catch (error) { throw markApiFailure(error) }

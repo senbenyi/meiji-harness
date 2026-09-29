@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { skillSupplement } from '../../data/custom-skills.js'
+import { videoSupplement } from '../../prompts/skill-prompts.js'
 import { materialize } from '../../data/episodes.js'
 import { projectStore } from '../../data/projects.js'
 import { readPicture, savePicture } from '../../data/pictures.js'
@@ -96,7 +96,7 @@ export function filmSubmit(project, item, opening) {
     imageCount: images.length,
   })
   const basePrompt = item.format === 'text' ? storyboardPromptText(item) : bindReferencePrompt(storyboardPromptText(item), mode === 'reference' ? images : [])
-  const supplement = skillSupplement(project, 'skill-chengpian-video-generate')
+  const supplement = videoSupplement(project)
   let prompt = withReviewPrompt(supplement ? `${basePrompt}\n${supplement}` : basePrompt)
   if (mode === 'reference') {
     if (opening.referenceUrl) {

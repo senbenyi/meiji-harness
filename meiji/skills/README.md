@@ -1,48 +1,64 @@
-# Skills 命名与分类
+# 技能（skills）
 
-## 命名
+生成流程的技能由代码按字段直接读取（`load.js`），不经 Harness。只有 `agent/panel.md` 注册给 Harness，供会话 agent 使用。
 
-- 通用：`skill-{分类拼音}-{功能}-{generate|review}.md`
-- 镜头：`skill-jingtou-{子tab拼音}-{功能}-{generate|review}.md`
+## 目录
 
-| 分类拼音 | 右侧模块 |
-| --- | --- |
-| `gailan` | 项目概要 / 剧集 |
-| `juqing` | 剧情 |
-| `juese` | 角色场景 |
-| `jingtou` | 镜头 |
-| `chengpian` | 成片 |
-| `hecheng` | 合成（暂无 skill） |
-| `gongyong` | 片库 / 面板基础设施 |
+```
+skills/
+├── load.js              # 读取与结构校验：builtinSkill、agentSkills、validateSkills
+├── stages/<id>/         # 阶段技能：skill.json + common / generate / review / revise（可编辑）+ protocol（只读）
+├── guidance/<id>/       # 指导技能：skill.json + common / review + stages/<阶段>.md（本阶段落点）
+├── shared/<id>.md       # 共享模块：多个阶段引用的一段正文
+└── agent/panel.md       # 会话说明（带 frontmatter，唯一注册给 Harness 的技能）
+```
 
-镜头子 tab：
+## 阶段技能
 
-| 拼音 | 子 tab |
-| --- | --- |
-| `jingtoubiao` | 镜头表 |
-| `meimiao` | 每秒指令 |
-| `wenben` | 文本分镜 |
-| `qianbi` | 铅笔分镜 |
+| ID | 名称 | 输出 | 面板入口 |
+|---|---|---|---|
+| `episode` | 剧集摘要 | JSON | 技能库 |
+| `outline` | 剧情整包（大纲、人物卡、场景卡） | JSON | 剧情 |
+| `shots` | 镜头表 | 自由文本 | 镜头表 |
+| `shot-revise` | 单镜修订 | 自由文本 | 镜头表（相关技能） |
+| `seconds` | 每秒指令 | 自由文本 | 每秒指令 |
+| `storyboard` | 文本分镜 | 自由文本 | 文本分镜 / 成片 |
+| `video` | 成片（内置为空；基础与本剧补充追加在最终视频提示词后） | 视频 | 成片 |
+| `image-prompt` | 图片提示词改写 | 文本 | 技能库 |
+| `character-image` / `scene-image` / `part-image` / `pencil` | 人物、场景、附属素材、铅笔分镜图片 | 图片接口 | 技能库 |
 
-模式：`generate` 生成 · `review` 审核。运行时 `name` 与文件名去掉 `.md` 后完全一致。
+字段：
 
-## 对照
+| 字段 | 内容 | 用在 |
+|---|---|---|
+| `common` | 身份、输入说明、领域规则 | 生成、意见修改、自动修订 |
+| `generate` | 写法与步骤 | 同上；图片技能只有此字段（画面要求） |
+| `review` | 验收标准 | 生成时作为自检标准；独立审核时作为验收标准 |
+| `revise` | 修订边界 | 意见修改（与自检标准并存）、自动修订（替换自检标准） |
+| `protocol` | 程序解析依赖的输出格式 | 所有生成类请求的输出协议；只读，面板不能修改 |
 
-| 文件 | name |
-| --- | --- |
-| `skill-gailan-episode-generate.md` | skill-gailan-episode-generate |
-| `skill-juqing-outline-generate.md` | skill-juqing-outline-generate |
-| `skill-juese-character-image-generate.md` | skill-juese-character-image-generate |
-| `skill-juese-scene-image-generate.md` | skill-juese-scene-image-generate |
-| `skill-juese-part-image-generate.md` | skill-juese-part-image-generate |
-| `skill-juese-image-review.md` | skill-juese-image-review |
-| `skill-jingtou-jingtoubiao-table-generate.md` | skill-jingtou-jingtoubiao-table-generate |
-| `skill-jingtou-jingtoubiao-shot-review.md` | skill-jingtou-jingtoubiao-shot-review |
-| `skill-jingtou-meimiao-seconds-generate.md` | skill-jingtou-meimiao-seconds-generate |
-| `skill-jingtou-wenben-storyboard-generate.md` | skill-jingtou-wenben-storyboard-generate |
-| `skill-jingtou-qianbi-pencil-generate.md` | skill-jingtou-qianbi-pencil-generate |
-| `skill-chengpian-video-generate.md` | skill-chengpian-video-generate |
-| `skill-gongyong-language-generate.md` | skill-gongyong-language-generate |
-| `skill-gongyong-panel-generate.md` | skill-gongyong-panel-generate |
+`skill.json`：`id`、`kind: "stage"`、`label`、`logLabel`（会话日志用途）、`output`（json / text / image / video）、`languageMode`（`story` 时使用剧情阶段的语言说明）、`panel`（流程页入口）、`guidanceStage`（指导技能的阶段落点）、`assetStages`（读取哪些阶段选择的指导素材）、`shared`（按字段引用共享模块：`common`、`review`、`revise`）、`related`、`fields`、`order`。md 文件必须与 `fields` 一致，多余或缺少都会在 `validateSkills` 报错。
 
-剧情统一由 skill-juqing-outline-generate 一次生成 outline、characters、scenes，并进行一次整包审核；人物和场景图片仍使用各自成图 skill。
+## 指导技能
+
+| ID | 名称 | 默认 | 素材分类 |
+|---|---|---|---|
+| `guidance-action` | 动作指导 | 启用 | 动作、特效 |
+| `guidance-martial` | 武术指导 | 本剧开启 | 武术 |
+| `guidance-dialogue` | 台词指导 | 启用 | 对白 |
+| `guidance-expression` | 表情指导 | 启用 | 表情 |
+| `guidance-sound` | 声音指导 | 启用 | 声音、配乐 |
+
+`skill.json` 的 `stages` 登记剧情整包、镜头表、每秒指令、文本分镜四个阶段的落点名称，每个落点对应 `stages/<阶段>.md`。指导技能只细化上游已有的事件、人物与对白，不新增事件或改变结果；摘要与图片请求不使用指导技能。
+
+## 共享模块
+
+`review-protocol`（审核通用协议，所有审核）、`camera-review`（镜头类审核：镜头表、单镜修订、每秒指令、文本分镜）、`tail-frame`（尾帧协议：文本分镜的通用与审核）、`revise-boundary`（修订边界：剧情整包、镜头表、每秒指令、文本分镜）、`language`（语言，所有文本请求）、`language-revise`（修订时的语言，意见修改与自动修订）。
+
+## 三层与组装
+
+- 内置：本目录，随插件更新，只读。
+- 基础：面板「查看 skill」中编辑保存，存于 `$DSH_HOME/storages/meiji/skills/<id>.json`，按字段替换内置，对所有剧生效；可恢复内置、撤回上一版，内置更新后提示对比。
+- 本剧：项目索引 `skills`（本剧补充、启用的指导、各阶段指导素材），追加在对应字段之后，只对本剧生效。
+
+组装规则、优先级与请求结构见 `meiji/docs/tasks-and-steps.md`「提示词与请求」。任务开始时固定技能组合版本，同一任务内的生成、审核、修订一致，任务记录写入所用技能与层。

@@ -44,6 +44,8 @@ export function gateFromAction(action, fields = {}) {
     slot: fields.slot || '',
     track: fields.track || '',
     name: fields.itemName || (fields.track ? `${fields.track} 铅笔分镜` : '图片'),
+    aspect: fields.aspect || '',
+    useReference: Boolean(fields.useReference),
     draftId: '',
     previewUrl: '',
     review: '',
@@ -75,7 +77,7 @@ export function regenerateFields(gate, review = '') {
       },
     }
   }
-  return { action: 'image', fields: { itemId: gate.itemId, itemName: gate.itemName || gate.name } }
+  return { action: 'image', fields: { itemId: gate.itemId, itemName: gate.itemName || gate.name, ...(gate.aspect ? { aspect: gate.aspect } : {}), ...(gate.useReference ? { useReference: true } : {}) } }
 }
 
 export function syncImageGate(project, gate) {
@@ -95,6 +97,8 @@ export function syncImageGate(project, gate) {
         slot: draft.slot || '',
         track: draft.track || '',
         name: draft.name || '待确认图片',
+        aspect: draft.aspect || '',
+        useReference: Boolean(draft.useReference),
         draftId: draft.draftId,
         previewUrl: draft.previewUrl || '',
         review: '',

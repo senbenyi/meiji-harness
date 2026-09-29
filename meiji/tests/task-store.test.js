@@ -25,7 +25,7 @@ test('summary history binds each review to its exact published version and retai
  const e = await setup(t); let calls = 0
  await runOperation(e.op('episode-generate', { origin: 'panel' }), summaryDeps(e, async ({ skill }) => {
   calls++
-  return skill === 'skill-gongyong-content-review' ? 'FAIL 缺少因果' : JSON.stringify({ summary: calls === 1 ? '初稿' : '修订稿', durationSeconds: 10 })
+  return skill === 'review' ? 'FAIL 缺少因果' : JSON.stringify({ summary: calls === 1 ? '初稿' : '修订稿', durationSeconds: 10 })
  }))
  const [task] = await e.history.list(), artifacts = await e.history.list('artifacts')
  assert.equal(task.status, 'review_failed')
@@ -45,7 +45,7 @@ test('summary history binds each review to its exact published version and retai
 test('review API error keeps saved new draft; generation error keeps previous content and source', async t => {
  const e = await setup(t)
  await assert.rejects(runOperation(e.op('episode-generate'), summaryDeps(e, async ({ skill }) => {
-  if (skill === 'skill-gongyong-content-review') throw new Error('审核断网')
+  if (skill === 'review') throw new Error('审核断网')
   return JSON.stringify({ summary: '已保存但未审核', durationSeconds: 10 })
  })), /审核断网/)
  let current = await e.read()
@@ -78,10 +78,10 @@ test('story package, shot table and seconds each produce whole-episode records',
  } }) })
  assert.ok((await e.read()).plot.source)
  const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
- await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : table }) })
+ await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({ skill }) => skill === 'review' ? 'PASS' : table }) })
  assert.ok((await e.read()).shots.source)
  let calls = 0
- await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => { calls++; return skill === 'skill-gongyong-content-review' ? 'PASS' : table + '\n[seconds-complete]' } }) })
+ await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => { calls++; return skill === 'review' ? 'PASS' : table + '\n[seconds-complete]' } }) })
  const seconds = (await e.history.list()).find(task => task.action === 'seconds')
  assert.equal(calls, 2)
  assert.equal(seconds.artifacts.length, 1)

@@ -25,7 +25,16 @@
 - 新增面板操作：在 `server/flow/operations/` 对应领域文件注册 `{ stage, run }`，并在 `registry.js` 的 `definitions` 登记 `label / scope / queue / agent`，以及步骤计划 `plan`（处理函数经 `runStep` 执行）或单步 `step`；不在入口 `operations/run.js` 里加分支。
 - 文件按内容命名，不按历史事件或临时来源命名；一次性迁移脚本统一 `migrate-` 前缀；测试文件与被测模块或主题同名。
 - `tools/` 只调用 `server/data` 与 `server/flow`；会话与面板共用 `server/flow/tasks/runner.js` 与 `runOperation`，不另建生成通路。
-- 新增 skill：文件名 `skill-{分类拼音}-{功能}-{generate|review}.md`（镜头为 `skill-jingtou-{子tab拼音}-...`），运行时 `name` 与文件名去掉 `.md` 一致，并同步 `skills/load.js` 与 `skills/README.md`。
+- 技能写法（详见 `skills/README.md`）：
+  - 阶段技能放 `skills/stages/<id>/`：`skill.json` + 按字段的 Markdown（`common` 通用、`generate` 生成、`review` 验收标准、`revise` 修订边界、`protocol` 输出协议）。md 文件与 `fields` 一致，结构错误由 `validateSkills` 与 `tests/skill.test.js` 报出。
+  - 程序解析依赖的格式（JSON 字段、`## S01 / 5s`、`[seconds-complete]`、`[opening-reference: …]`、PASS/FAIL）只写在 `protocol.md` 或代码里；面板不能修改协议。
+  - 多个阶段共用的段落写成 `skills/shared/<id>.md`，由 `skill.json` 的 `shared` 按字段引用，不复制到各阶段。
+  - 动作、武术、台词、表情、声音规则写在 `skills/guidance/<id>/`（`common`、`review`、`stages/<阶段>.md`），不写进阶段技能；指导只细化上游已有内容。
+  - 流程说明（谁发请求、失败后是否重试）由代码负责，不写进技能正文。
+  - 提示词只经 `server/prompts/skill-prompts.js` 组装：生成 / 意见修改 / 审核 / 自动修订各取所需字段，每段带来源标题；新增阶段在 `skill.json` 登记即可，不在调用方拼技能正文。
+  - Harness 只注册 `skills/agent/panel.md`（会话 agent 使用）；生成技能不注册。
+  - 改动技能正文后运行 `node tests/fixtures/prompt-scenarios.js <after.json>` 与 `node scripts/prompt-diff.js <before.json> <after.json> <报告.md>`，核对删除的句子都有去向或理由。
+- 技能修改（基础层、本剧补充、指导开关与素材）只经面板接口（同源请求）；会话工具不提供修改技能的能力。
 - `h3skill/` 保持官方原文，不混入本地改写。
 - 只改需求范围内的代码；受改动影响的调用方、测试和文档一并修改，并写入计划。不做与需求无关的重构。
 
@@ -39,6 +48,7 @@
 - 项目读写只经 `projectStore`（领域存储）；存储布局（索引 + 每集文件）只由 `server/data/project-files.js` 了解，其他代码不得直接读写项目文件。
 - 项目保存经 `projectStore.save` 按 `revision` 串行提交；只重写内容变化的剧集，最后原子替换索引。
 - 数据结构为 `schemaVersion: 2`、存储布局为 `layout: 2`、任务记录为 `schemaVersion: 2`（`steps`），运行时拒绝旧结构、旧布局与旧任务记录；结构或布局变更必须提供 `scripts/` 迁移脚本（先完整备份、迁移后读回核对），不写运行时兼容。
+- 补充 skill 与指导素材按剧保存在项目索引 `skills`，剧集中不得出现 `customSkills` / `guidanceAssets`（运行时拒绝，由 `scripts/migrate-custom-skills.js` 迁移）；技能基础修改层只经 `server/data/skill-store.js` 读写 `storages/meiji/skills/`。
 - 生成图片先进 `image-drafts/`，只有用户“确认使用”后才入素材库；模型工具不能自动批准。
 - 重新生成创建新素材，不覆盖旧素材；参考图变化后视频与合成结果标记 `stale`。
 - 面板写请求必须携带 `operationId` 并校验会话；多集操作必须带 `episodeId`。

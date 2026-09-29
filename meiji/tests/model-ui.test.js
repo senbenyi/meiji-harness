@@ -112,7 +112,7 @@ test('previous tail input is hidden and never replaces missing current video or 
 test('generated and revised shot titles appear on production cards', async t => {
  const { generateShots, reviseShot } = await import('../server/generate/shot-text.js')
  const container = domSetup(t), project = episodeFixture()
- const request = text => async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : text
+ const request = text => async ({ skill }) => skill === 'review' ? 'PASS' : text
  project.shots = await generateShots({ project, request: request('## S01 / 5s\n标题：夜访庭院\n旅人走到门外。\n\n## S02 / 5s\n标题：叩门待应\n旅人敲门。') })
  assert.match(project.shots.items[0].content, /^标题：夜访庭院/)
  const actions = { perform: async () => {}, fail: () => {} }
@@ -384,7 +384,7 @@ test('shot table and seconds are separate top-level tabs with scoped history', a
 
 test('stage toolbar groups status, history, skills and generation controls', t => {
  const container = domSetup(t), project = episodeFixture()
- const actions = {perform:async()=>{},fail:()=>{},openHistory:()=>{},openCustomSkill:()=>{}}
+ const actions = {perform:async()=>{},fail:()=>{},openHistory:()=>{},openSkill:()=>{}}
  for (const step of ['summary','script','shots','seconds','film','assembly']) {
   container.replaceChildren(renderStage(step,project,actions,{}))
   const toolbar=container.querySelector('.stage-history-toolbar')
@@ -555,6 +555,11 @@ test('image detail shows editable text and a prompt without field keys', async t
  container.append(renderCharacterDetail(p, 'C01', { perform: async (...args) => calls.push(args), beginImage: async () => {}, fail() {} }, {}))
  const prompt = container.querySelector('.image-text-prompt')
  assert.equal(prompt.textContent, '中国，旅人，探险者，男性，古代，三十岁，一米八，结实，方脸')
+ assert.equal(container.querySelector('.image-text-editor [aria-label="服装"]'), null)
+ assert.equal(container.querySelector('[aria-label="衣服描述"]').value, '长衣')
+ assert.ok(container.querySelector('[aria-label="坐骑描述"]'))
+ assert.ok(container.querySelector('[aria-label="道具描述"]'))
+ assert.ok(container.querySelector('[aria-label="发型描述"]'))
  assert.equal(/姓名|性别/.test(prompt.textContent), false)
  const name = container.querySelector('[aria-label="姓名"]')
  name.value = '武松'
@@ -566,4 +571,44 @@ test('image detail shows editable text and a prompt without field keys', async t
  assert.equal(calls[0][2].fields.name, '武松')
  assert.equal(calls[0][2].fields.gender, '男性')
  assert.equal(calls[0][2].original.name, '旅人')
+})
+
+test('character detail lays out the portrait, reference, text, and other images', async t => {
+ const container = domSetup(t), p = episodeFixture(), calls = []
+ p.episodeId = p.id
+ const { renderCharacterDetail } = await import('../client/character.js')
+ container.append(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async (...args) => calls.push(args), fail() {} }, {}))
+ const aspect = container.querySelector('[aria-label="画幅"]')
+ assert.equal(aspect.value, '9:16')
+ assert.equal(container.querySelector('[aria-label="参考图生图"]').disabled, true)
+ const pair = container.querySelector('.studio-pair')
+ const text = container.querySelector('.image-text-editor')
+ const parts = container.querySelector('.studio-parts')
+ assert.equal(pair.compareDocumentPosition(text) & 4, 4)
+ assert.equal(text.compareDocumentPosition(parts) & 4, 4)
+ assert.match(parts.textContent, /衣服/)
+ assert.match(parts.textContent, /坐骑/)
+ assert.match(parts.textContent, /道具/)
+ container.querySelector('[aria-label="文字生图"]').click()
+ await Promise.resolve()
+ assert.equal(calls[0][1], 'image')
+ assert.equal(calls[0][2].aspect, '9:16')
+ assert.equal(calls[0][2].useReference, false)
+ p.plot.characters.items[0].reference = { localPath: '/ref.png', mime: 'image/png' }
+ container.replaceChildren(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async (...args) => calls.push(args), fail() {} }, {}))
+ const reference = container.querySelector('[aria-label="参考图生图"]')
+ assert.equal(reference.disabled, false)
+ container.querySelector('[aria-label="画幅"]').value = '3:4'
+ reference.click()
+ await Promise.resolve()
+ assert.equal(calls.at(-1)[2].aspect, '3:4')
+ assert.equal(calls.at(-1)[2].useReference, true)
+ p.plot.characters.items[0].image = { content: { localPath: '/portrait.png' } }
+ container.replaceChildren(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async () => {}, fail() {} }, {}))
+ const dialog = container.querySelector('dialog.still-preview')
+ dialog.showModal = () => { dialog.open = true }
+ container.querySelector('[aria-label="查看大图：人物图片"]').click()
+ const preview = container.querySelector('dialog.still-preview img')
+ assert.equal(preview.src.endsWith('/portrait.png'), true)
+ assert.equal(preview.alt, '旅人 · 人物图片')
 })

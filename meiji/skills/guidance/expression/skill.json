@@ -1,0 +1,15 @@
+{
+  "id": "guidance-expression",
+  "kind": "guidance",
+  "label": "表情指导",
+  "defaultEnabled": true,
+  "assetTypes": [
+    "expression"
+  ],
+  "stages": {
+    "outline": "人物情绪与反应",
+    "shots": "镜头人物情绪",
+    "seconds": "表情变化时间线",
+    "storyboard": "画面表演"
+  }
+}

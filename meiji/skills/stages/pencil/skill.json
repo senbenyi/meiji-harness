@@ -1,0 +1,11 @@
+{
+  "id": "pencil",
+  "kind": "stage",
+  "label": "铅笔分镜",
+  "logLabel": "铅笔分镜",
+  "output": "image",
+  "fields": [
+    "generate"
+  ],
+  "order": 12
+}

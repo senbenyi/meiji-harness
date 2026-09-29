@@ -1,0 +1,31 @@
+{
+  "id": "shots",
+  "kind": "stage",
+  "label": "镜头表",
+  "logLabel": "镜头表",
+  "output": "text",
+  "panel": "shots",
+  "guidanceStage": "shots",
+  "assetStages": [
+    "shots"
+  ],
+  "shared": {
+    "review": [
+      "camera-review"
+    ],
+    "revise": [
+      "revise-boundary"
+    ]
+  },
+  "related": [
+    "shot-revise"
+  ],
+  "fields": [
+    "common",
+    "generate",
+    "review",
+    "revise",
+    "protocol"
+  ],
+  "order": 3
+}

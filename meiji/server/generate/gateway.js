@@ -13,8 +13,17 @@ const imageSizes = {
 }
 
 
+const characterAspects = new Set(['9:16', '16:9', '3:4', '4:3', '1:1', '768x1344', '1344x768', '896x1152', '1152x896', '1024x1024'])
+
 export function gatewayImageSize(aspectRatio) {
   return imageSizes[aspectRatio] || imageSizes['1344x768']
+}
+
+export function characterImageSize(value) {
+  if (value == null || value === '') return imageSizes['9:16']
+  const key = String(value).trim()
+  if (!characterAspects.has(key)) throw Object.assign(new Error('画幅需为 9:16、3:4、1:1、4:3 或 16:9'), { status: 400 })
+  return imageSizes[key]
 }
 
 function endpoint(baseUrl, path) {
@@ -41,7 +50,7 @@ function publicHeaders(headers, apiKey) {
 function publicData(value, apiKey) {
   const json = JSON.stringify(value, (key, item) => {
     if (/api[_-]?key|authorization/i.test(key)) return '[已隐藏]'
-    if ((key === 'b64_json' || key === 'input_reference') && typeof item === 'string') return `[base64 图片，${item.length} 字符]`
+    if ((key === 'b64_json' || key === 'input_reference' || key === 'image') && typeof item === 'string') return `[base64 图片，${item.length} 字符]`
     if (typeof item === 'string') return item.replace(/data:[^,\s]*;base64,[A-Za-z0-9+/_=-]+/g, data => `[base64 数据，${data.length - data.indexOf(',') - 1} 字符]`)
     return item
   })
@@ -121,14 +130,16 @@ export async function completeChat({ baseUrl, apiKey, model, system, prompt, jso
   return text
 }
 
-export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, aspectRatio, fetchImpl = fetch, signal, pause, maxPolls }) {
+export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, aspectRatio, image, fetchImpl = fetch, signal, pause, maxPolls }) {
   signal ??= checkContext.getStore()?.signal
   signal?.throwIfAborted()
   // 提交期间保留连接取得任务 ID，随后才能显式取消远端任务。
+  const body = { model: model || 'elysium-image', prompt, size: gatewayImageSize(aspectRatio) }
+  if (image) body.image = image
   const result = await requestGateway({
     baseUrl, path: 'images/tasks', method: 'POST', apiKey, fetchImpl, signal: AbortSignal.timeout(requestTimeoutMs), fn: 'generateGatewayImage',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: { model: model || 'elysium-image', prompt, size: gatewayImageSize(aspectRatio) },
+    body,
   })
   if (!result.ok) fail(result.response, result.data, `图片提交失败：HTTP ${result.response.status}`)
   if (!result.data?.id) throw markApiFailure(Object.assign(new Error('网关未返回图片任务'), { status: 502 }))

@@ -25,7 +25,7 @@ export function collectCharacters(project) {
 export function episodeWork(project, episodeId) {
   const episode = (project?.episodes || []).find(item => item.id === episodeId)
   if (!episode) return null
-  return { ...episode, id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, revision: project.revision }
+  return { ...episode, id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
 
 }
 

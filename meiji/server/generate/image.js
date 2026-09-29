@@ -1,9 +1,8 @@
 import { pictureOf, node, setContent } from '../../shared/drama-model.js'
-import { characterFactText, characterFieldValues } from '../../shared/character-facts.js'
+import { characterFactText, characterFieldValues, characterLookText } from '../../shared/character-facts.js'
 import { withReviewPrompt } from '../data/review-checks.js'
 import { checkContext } from '../data/operation-context.js'
-import { loadSkill } from '../../skills/load.js'
-import { outputLanguage } from '../data/language.js'
+import { imageSegments, render } from '../prompts/skill-prompts.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { savePicture, saveImageDraft } from '../data/pictures.js'
 import { spawn } from 'node:child_process'
@@ -257,6 +256,7 @@ export function imageAssets(list) {
 
 export const partSlots = {
   clothes: { mark: 'W', label: '衣服' },
+  mounts: { mark: 'M', label: '坐骑' },
   props: { mark: 'P', label: '道具' },
   hairstyles: { mark: 'H', label: '发型' },
 }
@@ -274,11 +274,36 @@ export function nextPartId(character, slot) {
   return id
 }
 
+export const partTextFields = {
+  clothes: 'costume',
+  mounts: 'mount',
+  props: 'prop',
+  hairstyles: 'hairstyle',
+}
+
+export function partNoteText(character, slot) {
+  if (slot === 'clothes') return characterFieldValues(character).costume
+  const key = partTextFields[slot]
+  return key ? String(character?.[key] || '').trim() : ''
+}
+
+export function withPartText(character, slot, text) {
+  const key = partTextFields[slot]
+  if (!key) throw Object.assign(new Error('不支持的图片分组'), { status: 400 })
+  const value = String(text ?? '').trim()
+  if (value.length > 10000) throw Object.assign(new Error('描述不能超过10000字'), { status: 400 })
+  const next = { ...character, [key]: value }
+  if (slot === 'clothes') next.look = characterLookText({ ...characterFieldValues(character), costume: value })
+  return next
+}
+
 export function partPrompt(character, slot) {
   const background = '灰白纯色背景'
-  if (slot === 'clothes') return `${character?.costume || '衣服'}。单独展示这套衣服，不要画人，${background}`
-  if (slot === 'props') return `${character?.prop || '道具'}。单独展示这件道具，不要画人，${background}`
-  if (slot === 'hairstyles') return `${character?.features || character?.name || '发型'}。只画这款发型，不要画全身，${background}`
+  const note = partNoteText(character, slot)
+  if (slot === 'clothes') return `${note || '衣服'}。单独展示这套衣服，不要画人，${background}`
+  if (slot === 'mounts') return `${note || '坐骑'}。单独展示这只坐骑，不要画人，${background}`
+  if (slot === 'props') return `${note || '道具'}。单独展示这件道具，不要画人，${background}`
+  if (slot === 'hairstyles') return `${note || '发型'}。只画这款发型，不要画全身，${background}`
   throw Object.assign(new Error('不支持的图片分组'), { status: 400 })
 }
 
@@ -293,7 +318,7 @@ export function appendImageAsset(assets, characterId, slot, asset) {
     const list = imageAssets(entry[slot]).filter(item => item.id !== picture.id)
     return { ...entry, [slot]: [...list, picture] }
   })
-  if (!found) throw Object.assign(new Error('只有人物可以添加衣服、道具或发型'), { status: 400 })
+  if (!found) throw Object.assign(new Error('只有人物可以添加衣服、坐骑、道具或发型'), { status: 400 })
   return { ...assets, items }
 }
 
@@ -413,7 +438,7 @@ export async function generateStillFile({ directory, itemId, aspectRatio, backen
   return assetImageUrl(projectId, itemId, seed, episodeId)
 }
 
-export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, pause, signal, env, prepare, referenceBytes, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt }) {
+export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, pause, signal, env, prepare, referenceBytes, referenceImage, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt }) {
   const item = assets?.items?.find(entry => entry.id === itemId)
   if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以生图'), { status: 400 })
   const prepared = prepare ? await prepare(assets) : assets
@@ -421,9 +446,9 @@ export async function submitAssetImage({ assets, itemId, aspectRatio, backend, p
   await mkdir(directory, { recursive: true })
   await rm(join(directory, `${itemId}.job.json`), { force: true })
   if (backend?.apiKey) {
-    const bytes = await generateGatewayImage({
+    const     bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: prompt || imagePrompt(current), aspectRatio, fetchImpl, pause, signal,
+      prompt: prompt || imagePrompt(current), aspectRatio, image: referenceImage, fetchImpl, pause, signal,
     })
     const fitted = await limitStillBytes(bytes)
     if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
@@ -472,14 +497,24 @@ export function clearCharacterImage(assets, itemId) {
   return { ...assets, items }
 }
 
-export function imageSkillPrompt(skillName, prompt, project) {
-  const language = outputLanguage(project?.outputLanguage)
-  const style = String(project?.style || '').trim()
-  return [
-    loadSkill(skillName).content,
-    `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。`,
-    style ? `项目视觉风格：${style}。画面须符合该风格。` : '',
-    '本次画面要求：',
-    withReviewPrompt(prompt),
-  ].filter(Boolean).join('\n\n')
+export async function saveCharacterReference({ assets, itemId, projectId, episodeId, directory, bytes, mime }) {
+  const ext = stillExt[mime]
+  if (!ext) throw Object.assign(new Error('请上传 PNG、JPG 或 WebP'), { status: 400 })
+  if (!bytes?.length) throw Object.assign(new Error('图片是空的'), { status: 400 })
+  const item = assets?.items?.find(entry => entry.id === itemId)
+  if (!item || item.type !== 'role') throw Object.assign(new Error('只有人物可以设置参考图'), { status: 400 })
+  await replaceStill(directory, `${itemId}-ref`, ext, bytes)
+  const reference = { localPath: assetImageUrl(projectId, `${itemId}-ref`, Date.now(), episodeId), mime }
+  return { ...assets, items: assets.items.map(entry => entry.id === itemId ? { ...entry, reference } : entry) }
+}
+
+export function clearCharacterReference(assets, itemId) {
+  const item = assets?.items?.find(entry => entry.id === itemId)
+  if (!item || item.type !== 'role') throw Object.assign(new Error('只有人物可以移除参考图'), { status: 400 })
+  return { ...assets, items: assets.items.map(entry => entry.id === itemId ? { ...entry, reference: null } : entry) }
+}
+
+// 图片接口提示词：阶段画面要求 → 官方规则 → 本剧补充 → 语言 → 视觉风格 → 本次画面要求（见 prompts/skill-prompts.js）。
+export function imageSkillPrompt(stage, prompt, project) {
+  return render(imageSegments({ stage, project, request: withReviewPrompt(prompt) }))
 }

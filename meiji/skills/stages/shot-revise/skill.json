@@ -1,0 +1,28 @@
+{
+  "id": "shot-revise",
+  "kind": "stage",
+  "label": "单镜修订",
+  "logLabel": "单镜修订",
+  "output": "text",
+  "panel": "shots",
+  "guidanceStage": "shots",
+  "assetStages": [
+    "shots"
+  ],
+  "shared": {
+    "review": [
+      "camera-review"
+    ]
+  },
+  "related": [
+    "shots"
+  ],
+  "fields": [
+    "common",
+    "generate",
+    "review",
+    "revise",
+    "protocol"
+  ],
+  "order": 4
+}

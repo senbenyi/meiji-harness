@@ -1,13 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { outputLanguage, languageInstruction } from '../server/data/language.js'
+import { outputLanguage } from '../server/data/language.js'
+import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
 import { materialize } from '../server/data/episodes.js'
 import { generateEpisode, normalizeScenes } from '../server/generate/story.js'
 
 test('language defaults to Chinese, validates values and follows episode context', () => {
   assert.equal(outputLanguage(), 'zh-CN')
   assert.throws(() => outputLanguage('unknown'), /仅支持/)
-  assert.match(languageInstruction({ outputLanguage: 'en' }), /English/)
+  assert.match(buildGenerationPrompt({ skill: 'episode', project: { outputLanguage: 'en' }, instructions: '' }).system, /本次生成语言：English/)
   assert.equal(materialize({ id: 'p', summary: { content: '' }, outputLanguage: 'en', episodes: [{ id: 'e' }] }, 'e').outputLanguage, 'en')
   assert.equal(normalizeScenes({ items: [{ name: 'Cave', landmark: 'Stone arch', light: 'Moonlight', space: 'Narrow tunnel', look: 'An empty ancient cave with a stone arch and scattered rocks.' }] }).items[0].name, 'Cave')
 })

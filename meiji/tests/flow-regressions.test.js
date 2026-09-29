@@ -16,7 +16,7 @@ import { projectStore } from '../server/data/projects.js'
 import { feedbackOf } from '../shared/feedback.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { completeChat } from '../server/generate/gateway.js'
-import { languageInstruction } from '../server/data/language.js'
+import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
 
 test('episode completion requires every shot exactly once, not only existing storyboards', () => {
   const p = episodeFixture()
@@ -48,7 +48,7 @@ test('failed whole-episode seconds review keeps the latest revision after one co
   const {modelStore}=await import('../server/data/model-settings.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
   let calls = 0
   const out = text => `## S01 / 5s\n${text}\n## S02 / 5s\n${text}\n[seconds-complete]`
-  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async ({ skill }) => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : out(calls === 1 ? '初稿动作' : '修订动作') } }) }), /自检未通过/)
+  await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async ({ skill }) => { calls++; return skill === 'review' ? 'FAIL 画外上级被画成主角' : out(calls === 1 ? '初稿动作' : '修订动作') } }) }), /自检未通过/)
   const p = await e.read()
   assert.equal(calls, 4)
   for (const shot of p.shots.items) {
@@ -67,8 +67,8 @@ test('JSON mode is explicit and truncated responses fail before parsing or retry
     return Response.json({ choices: [{ finish_reason: 'length', message: { content: '{' } }] })
   } }), { code: 'INCOMPLETE_MODEL_OUTPUT' })
   assert.equal(calls, 1)
-  assert.match(languageInstruction({ outputLanguage: 'zh-CN' }), /Mandarin Chinese/)
-  assert.match(languageInstruction({ outputLanguage: 'en' }), /对白语言：English/)
+  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'zh-CN' }, instructions: '' }).system, /Mandarin Chinese/)
+  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'en' }, instructions: '' }).system, /对白语言：English/)
 })
 
 test('character generation runs independent identity coverage review instead of accepting merged bodies', async t => {
@@ -78,8 +78,8 @@ test('character generation runs independent identity coverage review instead of 
     calls++
     const payload = JSON.parse(options.body)
     if (calls % 2 === 0) {
-      assert.match(payload.messages[1].content, /skill-juqing-outline-generate/)
-      assert.match(payload.messages[0].content, /意识的姓名不代表身体相同/)
+      assert.match(payload.messages[1].content, /阶段：剧情整包/)
+      assert.match(payload.messages[1].content, /意识的姓名不代表身体相同/)
       return Response.json({ choices: [{ message: { content: 'FAIL\n缺少新身体的独立角色卡' } }] })
     }
     return Response.json({ choices: [{ message: { content: JSON.stringify(storyPackageFixture(10)) } }] })
@@ -96,12 +96,12 @@ test('independent review does not receive stale correction text as a new instruc
   const { buildReviewPrompt } = await import('../server/prompts/text-prompts.js')
   const { runTextRequest } = await import('../server/generate/text-request.js')
   await checkContext.run({ review: 'STALE_ALREADY_FIXED' }, async () => {
-    await runTextRequest(buildReviewPrompt({ skill: 'skill-juqing-outline-generate', project: {}, instructions: '本次任务' }, JSON.stringify({ outline: '', characters: { items: [] }, scenes: { items: [] } })), {
+    await runTextRequest(buildReviewPrompt({ skill: 'outline', project: {}, instructions: '本次任务' }, JSON.stringify({ outline: '', characters: { items: [] }, scenes: { items: [] } })), {
       route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' },
       fetchImpl: async (_url, options) => {
         const payload = JSON.parse(options.body)
         assert.doesNotMatch(payload.messages[1].content, /STALE_ALREADY_FIXED/)
-        assert.match(payload.messages[1].content, /阶段：skill-juqing-outline-generate/)
+        assert.match(payload.messages[1].content, /阶段：剧情整包/)
         return Response.json({ choices: [{ message: { content: 'PASS' } }] })
       },
     })

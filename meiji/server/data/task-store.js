@@ -5,6 +5,7 @@ import { assertDrama } from '../../shared/drama-model.js'
 import { StepStatus, deriveTaskStatus, latestVerdicts } from '../../shared/steps.js'
 import { readProjectFile } from './project-files.js'
 import { notifyProject } from './project-events.js'
+import { loadSkillSet } from './skill-store.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
@@ -18,7 +19,7 @@ const now = () => new Date().toISOString()
 // 人工编辑：保存后内容待审（见 prepareContentRecords）。
 export const manualActions = new Set(['episode-add', 'episode-edit', 'source', 'outline-text', 'scene-text', 'character-text', 'storyboard-text', 'shot-assets'])
 // 由人发起的操作，任务与步骤的执行者记为 human。
-const humanActions = new Set([...manualActions, 'overview', 'confirm-image', 'discard-image', 'clear-image', 'use-asset', 'import-image', 'part-import', 'review-override'])
+const humanActions = new Set([...manualActions, 'overview', 'confirm-image', 'discard-image', 'clear-image', 'use-asset', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'review-override'])
 // 不写任务记录：没有项目，或会删除记录所在目录。
 const unrecorded = new Set(['create', 'open', 'library-import', 'project-delete', 'episode-delete'])
 export const recorded = operation => Boolean(operation?.projectId) && !unrecorded.has(operation.action)
@@ -138,7 +139,19 @@ export async function startExecution(home, operation, id, plan) {
   const project = assertDrama(await readProjectFile(home, operation.projectId))
   const baselines = new Map()
   await addBaselines(store, project, operation, stage, baselines)
-  return { store, home, taskId: id, projectId: operation.projectId, operation, stage, baselines, outputs: [], steps: record.steps, signal: null, stepId: null, scope: 'root' }
+  // 任务开始时固定技能组合（内置 + 基础 + 本剧），同一任务内的全部请求（含嵌套子操作）使用同一份。
+  const skillSet = await loadSkillSet(home, project.skills)
+  return { store, home, taskId: id, projectId: operation.projectId, operation, stage, baselines, outputs: [], steps: record.steps, signal: null, stepId: null, scope: 'root', skillSet, skills: new Map() }
+}
+
+// 当前任务固定的技能组合；不在任务中时为 null（由调用方使用内置 + 本剧）。
+export const taskSkillSet = () => executionContext.getStore()?.skillSet || null
+
+// 记录本任务实际使用的技能（写入任务记录 skills，历史中显示所用技能与层）。
+export function useSkills(entries) {
+  const context = executionContext.getStore()
+  if (!context?.skills) return
+  for (const entry of entries) context.skills.set(entry.id, entry)
 }
 
 async function addBaselines(store, project, operation, stage, baselines) {
@@ -153,8 +166,10 @@ async function addBaselines(store, project, operation, stage, baselines) {
   }
 }
 
+const usedSkills = context => context.skills?.size ? { skills: [...context.skills.values()] } : {}
+
 async function writeSteps(context, extra) {
-  const record = await context.store.update('tasks', context.taskId, task => ({ ...task, ...(extra ? extra(task) : {}), steps: context.steps, status: deriveTaskStatus(context.steps) }))
+  const record = await context.store.update('tasks', context.taskId, task => ({ ...task, ...(extra ? extra(task) : {}), ...usedSkills(context), steps: context.steps, status: deriveTaskStatus(context.steps) }))
   live.set(context.taskId, record)
   notifyProject(context.home, context.projectId)
   return record
@@ -200,7 +215,7 @@ export function finalizeSteps(steps, error, signal) {
 export async function endExecution(context, error, signal) {
   if (!context || context.nested) return
   finalizeSteps(context.steps, error, signal)
-  const record = await context.store.update('tasks', context.taskId, task => ({ ...task, steps: context.steps, status: deriveTaskStatus(context.steps), latestOutputs: context.outputs, endedAt: now(),
+  const record = await context.store.update('tasks', context.taskId, task => ({ ...task, ...usedSkills(context), steps: context.steps, status: deriveTaskStatus(context.steps), latestOutputs: context.outputs, endedAt: now(),
     error: error?.message || context.steps.find(step => step.error)?.error || null }))
   live.delete(context.taskId)
   notifyProject(context.home, context.projectId)

@@ -1,0 +1,16 @@
+{
+  "id": "episode",
+  "kind": "stage",
+  "label": "剧集摘要",
+  "logLabel": "本集剧情",
+  "output": "json",
+  "languageMode": "story",
+  "fields": [
+    "common",
+    "generate",
+    "review",
+    "revise",
+    "protocol"
+  ],
+  "order": 1
+}

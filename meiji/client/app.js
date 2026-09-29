@@ -3,7 +3,9 @@ import { renderCurrentTasks } from './current-task.js'
 import { appendLogCopy } from './dom.js'
 import { tabs } from './flow-view.js'
 import { createModelStore, renderModelView, rootProject } from './drama-store.js'
-import { renderCustomSkill } from './custom-skills.js'
+import { renderSkillDetail } from './skill-detail.js'
+import { renderSkillLibrary } from './skill-library.js'
+import { forgetSkillList, skillList } from './skill-entry.js'
 import { renderSettings } from './settings.js'
 import { createShell } from './shell.js'
 import { request, jsonBody } from './api.js'
@@ -217,15 +219,28 @@ export function mount() {
       display(currentPage)
       shell.content.parentElement.scrollTop = 0
     },
-    openCustomSkill: (project, stage) => {
+    // 技能详情页：基础 skill 全局修改，本剧补充 / 指导 / 素材写入当前短剧；预览用当前剧集的上下文。
+    openSkill: (project, id, back = () => follow(true).catch(error => shell.status(error.message))) => {
       hold = true
       navigation++
-      const sessionId = currentSessionId()
-      display(renderCustomSkill(project, stage, {
-        back: () => follow(true).catch(error => shell.status(error.message)),
-        save: (content, guidanceAssetIds) => request('custom-skill', { method: 'PUT', ...jsonBody({ projectId: project.id, episodeId: project.episodeId, sessionId, stage, content, guidanceAssetIds }) }),
+      const sessionId = currentSessionId(), projectId = project?.id
+      const scope = projectId ? { projectId, sessionId } : {}
+      display(renderSkillDetail({ id, project: project && { title: project.title } }, {
+        back,
+        load: () => request(`skills/${id}?` + new URLSearchParams(scope)),
+        saveBase: fields => request(`skills/${id}`, { method: 'PUT', ...jsonBody({ fields, confirm: true }) }),
+        reset: (to, field) => request(`skills/${id}/reset`, { method: 'POST', ...jsonBody({ to, field }) }),
+        saveAddition: fields => request('project-skills', { method: 'PUT', ...jsonBody({ ...scope, skill: id, fields }) }),
+        saveGuidance: enabled => request('project-guidance', { method: 'PUT', ...jsonBody({ ...scope, enabled }) }),
+        saveAssets: (stage, guidanceAssetIds) => request('project-guidance', { method: 'PUT', ...jsonBody({ ...scope, stage, guidanceAssetIds }) }),
+        loadAssets: () => request('assets?category=guidance'),
+        preview: mode => request(`skills/${id}/preview`, { method: 'POST', ...jsonBody({ ...scope, episodeId: project?.episodeId || '', mode }) }),
+        open: next => actions.openSkill(project, next, () => actions.openSkill(project, id, back)),
+        changed: forgetSkillList,
       }))
+      shell.content.parentElement.scrollTop = 0
     },
+    skillList,
     characterImageUrl: (project, itemId) => '/plugins/meiji/character-image-url?' + new URLSearchParams({ projectId: project.id, episodeId: project.episodeId, itemId, sessionId: currentSessionId() }),
     reviewImage: async (project, episodeId, draftId, action) => {
       const result = await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId, action }) })
@@ -287,7 +302,8 @@ export function mount() {
     }),
     importStill: async (project, itemId, file, slot) => {
       const incomingId = await bridge.stage(file)
-      await actions.perform(project, slot ? 'part-import' : 'import-image', { itemId, incomingId, ...(slot ? { slot } : {}) })
+      const action = slot === 'reference' ? 'set-reference' : slot ? 'part-import' : 'import-image'
+      await actions.perform(project, action, { itemId, incomingId, ...(slot && slot !== 'reference' ? { slot } : {}) })
     },
     importLibrary: async (category, file, guidanceType) => {
       const incomingId = await bridge.stage(file, category)
@@ -380,8 +396,13 @@ export function mount() {
       const { project } = await request('projects/' + place.projectId)
       if (ticket !== navigation) return
       setLanguageLabel(project.outputLanguage)
+      const reopen = () => openSettings().catch(error => shell.status(error.message))
       display(renderSettings(project, {
         back: () => follow(true).catch(error => shell.status(error.message)),
+        openSkills: () => {
+          const library = () => display(renderSkillLibrary({ load: skillList, back: reopen, open: id => actions.openSkill(project, id, library) }))
+          library()
+        },
         save: async (current, outputLanguage) => {
           await request('project-settings', { method: 'PUT', ...jsonBody({ projectId: current.id, sessionId, outputLanguage }) })
           setLanguageLabel(outputLanguage)

@@ -18,7 +18,7 @@ const table = '## S01 / 5s\n标题：入院\n旅人进入庭院。\n## S02 / 5s\
 
 for (const stage of ['package', 'characters', 'scenes', 'shots', 'seconds']) {
   test(`${stage}: generation, review and revision each submit exactly system and user`, async () => {
-    const project = { ...episodeFixture(), outputLanguage: 'en', customSkills: { outline: 'CUSTOM_RULE', shots: 'CUSTOM_RULE', seconds: 'CUSTOM_RULE' } }
+    const project = { ...episodeFixture(), outputLanguage: 'en', skills: { additions: { outline: { generate: 'CUSTOM_RULE' }, shots: { generate: 'CUSTOM_RULE' }, seconds: { generate: 'CUSTOM_RULE' } } } }
     const prompts = stage === 'shots' ? buildTablePrompts({ project }) : stage === 'seconds' ? buildSecondsPrompts({ project, shotId: 'S01' }) : buildStoryPrompts(project, stage)
     for (const [message, isReview] of [[prompts.generation, false], [prompts.review('CURRENT_DRAFT'), true], [prompts.revision('LATEST_FAILED', 'FAIL REVIEW_REASON'), false]]) {
       await runTextRequest(message, { route, fetchImpl: async (_, options) => {
@@ -28,11 +28,11 @@ for (const stage of ['package', 'characters', 'scenes', 'shots', 'seconds']) {
         assert.equal(payload.messages[0].content, message.system)
         assert.equal(payload.messages[1].content, message.user)
         assert.match(message.system, /本次生成语言：English/)
-        assert.equal(message.user.split('CUSTOM_RULE').length - 1, 1)
+        assert.equal((message.system + message.user).split('CUSTOM_RULE').length - 1, 1)
         assert.equal(Boolean(payload.response_format), !isReview && ['package', 'characters', 'scenes'].includes(stage))
         if (isReview) {
           assert.match(message.user, /CURRENT_DRAFT/)
-          assert.match(message.user, /生成规范/)
+          assert.match(message.user, /验收标准/)
           assert.match(message.system, /只审核，不生成或修改原文/)
         }
         return response(isReview ? 'PASS' : 'result')
@@ -81,7 +81,7 @@ test('generation and review steps run independently and the draft is saved befor
 test('workflow persists each new draft before its separate review request', async () => {
   const events = [], replies = ['DRAFT', 'FAIL 缺少动作', 'FIXED', 'PASS']
   await runTextSteps({ prompts: buildStoryPrompts(episodeFixture()), options: {
-    project: episodeFixture(), request: async ({ skill }) => { events.push(skill === 'skill-gongyong-content-review' ? 'review' : 'generate'); return replies.shift() },
+    project: episodeFixture(), request: async ({ skill }) => { events.push(skill === 'review' ? 'review' : 'generate'); return replies.shift() },
   }, persist: async (text, check) => events.push(`${text}:${check.passed}`) })
   assert.deepEqual(events, ['generate', 'DRAFT:null', 'review', 'DRAFT:false', 'generate', 'FIXED:null', 'review', 'FIXED:true'])
 })
@@ -138,7 +138,7 @@ test('story regeneration omits the episode summary while modification includes i
       assert.match(message.user, /NEXT_EPISODE/)
       assert.match(message.user, /第 2 集/)
     }
-    assert.doesNotMatch(prompts.generation.system, /大纲的（N秒）|单类卡片修订|共用生成审核流程|H3|detailed_description|最多自动修订/)
+    assert.doesNotMatch(prompts.generation.system, /大纲的（N秒）|单类卡片修订|共用生成审核流程|H3 最终|detailed_description|最多自动修订/)
     assert.doesNotMatch(prompts.revision('FAILED_STORY', 'FAIL 原因').user, /重新生成，仅使用/)
   })
   checkContext.run({ generationMode: 'modify', review: 'CHANGE_ROLE' }, () => {

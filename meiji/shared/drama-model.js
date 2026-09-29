@@ -27,7 +27,7 @@ export function shotModel(fields) {
 export function episodeModel(id, fields) {
   return { id, ...fields, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
     plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] } },
-    shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), customSkills: {}, guidanceAssets: {}, pendingImages: {}, activity: null, activityError: null }
+    shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), pendingImages: {}, activity: null, activityError: null }
 }
 export function targetNode(project, key) {
   const [kind, id, slot] = key.split(':')
@@ -116,7 +116,8 @@ export function assertDrama(project) {
   if (project.schemaVersion !== schemaVersion) throw new Error('项目格式需先执行一次性 Model 迁移，运行时不兼容旧格式')
   if (!Array.isArray(project.episodes)) throw new Error('项目缺少剧集集合')
   for (const episode of project.episodes) {
-    episode.guidanceAssets ??= {}
+    // 补充 skill 与指导素材已改为按剧保存（项目 skills），按集的旧字段需先迁移。
+    if (Object.hasOwn(episode, 'customSkills') || Object.hasOwn(episode, 'guidanceAssets')) throw Object.assign(new Error('剧集仍含按集保存的补充 skill 或指导素材，请停止服务后执行：node meiji/scripts/migrate-custom-skills.js <DSH_HOME>'), { code: 'OLD_CUSTOM_SKILLS', status: 409 })
     if (['feedback', 'outline', 'characters', 'scenes', 'storyboard', 'boards', 'films'].some(key => Object.hasOwn(episode, key))) throw new Error('剧集包含已移除的旧字段')
     if (!episode.plot || !episode.shots?.items || !episode.summary?.check) throw new Error('剧集 Model 不完整')
     episode.shots.seconds ??= { ...node('seconds'), review: { ...emptyReview(), text: episode.shots.items.filter(shot => shot.seconds.review.text).map(shot => `${shot.id}：${shot.seconds.review.text}`).join('\n') } }

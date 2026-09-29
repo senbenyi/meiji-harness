@@ -58,7 +58,7 @@ test('summary modes separate old input, review content and revision-only rules',
     checkContext.run({ generationMode, review: 'HUMAN_OPINION' }, () => {
       const prompts = buildEpisodePrompts(project, 'target')
       const { generation } = prompts
-      assert.match(generation.system, /## 自检/)
+      assert.match(generation.system, /【自检标准】/)
       assert.doesNotMatch(generation.system, /共用生成审核流程|后端验收（未通过则重写）|以原摘要的既定事件为基准/)
       assert.equal(generation.system.includes('【摘要修订边界】'), generationMode === 'modify')
       assert.equal(generation.user.includes('OLD_SUMMARY'), generationMode === 'modify')
@@ -88,7 +88,7 @@ for (const mode of ['new', 'regenerate', 'modify']) {
     }, { home: e.home, generateEpisode: options => generateEpisode({ ...options,
       request: async message => {
         calls.push(message)
-        return message.skill === 'skill-gongyong-content-review' ? 'PASS' : JSON.stringify({ summary: '旅人入院后发现新的线索。', durationSeconds: 10 })
+        return message.skill === 'review' ? 'PASS' : JSON.stringify({ summary: '旅人入院后发现新的线索。', durationSeconds: 10 })
       },
     }) })
     assert.equal(calls.length, 2)
@@ -109,8 +109,8 @@ for (const mode of ['new', 'regenerate', 'modify']) {
 test('summary checks run after drafting and independent review receives the same acceptance constraints', async () => {
   const { buildEpisodePrompts } = await import('../server/prompts/story-prompts.js')
   const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
-  assert.match(prompts.generation.system, /先完成摘要草稿，再在返回结果前/)
-  assert.match(prompts.generation.system, /不代表已经通过生成完成后的独立审核/)
+  assert.match(prompts.generation.system, /【自检标准】\n返回前按以下标准核对并修正明确问题/)
+  assert.match(prompts.generation.system, /不输出检查过程、PASS\/FAIL 或审核报告/)
   const review = prompts.review('{"summary":"待审摘要","durationSeconds":120}')
   for (const constraint of ['跨集连续性', '事件与因果', '时长与容量', '结尾与衔接', '失败依据', '不以个人写法偏好判失败']) {
     assert.ok(prompts.generation.system.includes(constraint))

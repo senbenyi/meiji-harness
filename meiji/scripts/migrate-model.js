@@ -4,12 +4,15 @@ import { pathToFileURL } from 'node:url'
 import { migrateFeedback } from './migrate-model-feedback.js'
 import { GenerationStatus, schemaVersion, node, episodeModel, cardModel, shotModel, targetNode, allNodes, assertDrama, modelPatch, aggregateStatus, shotResults } from '../shared/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/pictures.js'
+import { foldEpisodeSkills } from './migrate-custom-skills.js'
 const textOf = value => typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value, null, 2)
 function migrateEpisode(source) {
   const old = migrateFeedback(source)
-  const { feedback, outline, characters, scenes, shots, storyboard, films, boards, assembly, brief, summary, ...rest } = old
+  const { feedback, outline, characters, scenes, shots, storyboard, films, boards, assembly, brief, summary, customSkills, guidanceAssets, ...rest } = old
   const episode = episodeModel(old.id, { ...rest, summary })
-  episode.customSkills = structuredClone(old.customSkills || {})
+  // 按集的补充 skill 与指导素材随后由 foldEpisodeSkills 合并到本剧（项目 skills）。
+  episode.customSkills = structuredClone(customSkills || {})
+  if (guidanceAssets) episode.guidanceAssets = structuredClone(guidanceAssets)
   episode.pendingImages = structuredClone(old.pendingImages || {})
   episode.revision = old.revision || 0
   episode.summary.status = GenerationStatus.PASSED
@@ -60,11 +63,11 @@ function migrateEpisode(source) {
   return modelPatch(episode, {})
 }
 export function migrateProject(source) {
-  if (source.schemaVersion === schemaVersion) return assertDrama(structuredClone(source))
+  if (source.schemaVersion === schemaVersion) return assertDrama(foldEpisodeSkills(source))
   const { version, feedback, outline, characters, scenes, shots, storyboard, films, boards, assembly, brief, summary, episodes, ...meta } = source
   const migrated = (episodes || [source]).map(migrateEpisode)
-  return assertDrama({ ...meta, schemaVersion, lifecycle: source.status === 'completed' ? 'completed' : 'in-progress', status: aggregateStatus(migrated), summary: { ...node('summary', summary), status: GenerationStatus.PASSED, check: { passed: true, failures: [], revision: 0 } }, activity: null, activeOperation: null,
-    episodes: migrated })
+  return assertDrama(foldEpisodeSkills({ ...meta, schemaVersion, lifecycle: source.status === 'completed' ? 'completed' : 'in-progress', status: aggregateStatus(migrated), summary: { ...node('summary', summary), status: GenerationStatus.PASSED, check: { passed: true, failures: [], revision: 0 } }, activity: null, activeOperation: null,
+    episodes: migrated }))
 }
 export async function migrateDirectory(home) {
   const root = join(home, 'storages/meiji/projects')

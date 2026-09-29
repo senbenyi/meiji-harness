@@ -5,8 +5,8 @@ import { pictureReference, pictureTargetSnapshot, readImageDraft, readPicture, s
 import { openIncoming } from './project.js'
 import { loadModels } from './services.js'
 import { decodeImageData } from '../../generate/character-views.js'
-import { uploadGatewayFile } from '../../generate/gateway.js'
-import { appendImageAsset, characterStillPrompt, clearCharacterImage, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook } from '../../generate/image.js'
+import { characterImageSize, uploadGatewayFile } from '../../generate/gateway.js'
+import { appendImageAsset, characterStillPrompt, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
 import { runTextSteps } from '../../generate/text-steps.js'
 import { runStep } from '../../data/task-store.js'
 import { buildTextPrompts } from '../../prompts/text-prompts.js'
@@ -33,7 +33,7 @@ export async function startImage(operation, project, { projects, models, home, s
   if (operation.generationMode === 'modify') {
     const note = String(operation.instruction || operation.review || '').trim()
     if (!note || note.length > 2000) throw Object.assign(new Error(note ? '审核意见过长' : '请先写下审核意见'), { status: 400 })
-    const revision = await runTextSteps({ target: `image:${item.id}`, prompts: buildTextPrompts({ skill: 'skill-juese-image-review', project, instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}` }), options: {
+    const revision = await runTextSteps({ target: `image:${item.id}`, prompts: buildTextPrompts({ skill: 'image-prompt', project, instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}` }), options: {
       route: route.story, project,
     } })
     const revised = revision.text
@@ -48,10 +48,11 @@ export async function startImage(operation, project, { projects, models, home, s
     throw Object.assign(new Error('这张卡还没有可用的中文画面提示词'), { status: 400 })
   }
   const current = bag.items.find(entry => entry.id === item.id)
-  const submitted = imageSkillPrompt(current.type === 'role' ? 'skill-juese-character-image-generate' : 'skill-juese-scene-image-generate', current.type === 'role' ? characterStillPrompt(current) : sceneStillPrompt(current), project)
+  const submitted = imageSkillPrompt(current.type === 'role' ? 'character-image' : 'scene-image', current.type === 'role' ? characterStillPrompt(current) : sceneStillPrompt(current), project)
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   let referenceBytes
-  let reference = '文生图，不使用旧图'
+  let referenceImage
+  let reference = '纯文字生图'
   if (operation.action === 'revise-image' && !route.image?.apiKey) {
     try {
       referenceBytes = (await readPicture(home, project, current)).bytes
@@ -61,15 +62,26 @@ export async function startImage(operation, project, { projects, models, home, s
     }
   } else if (operation.action === 'revise-image') {
     reference = '按改写后的中文提示词重新生成'
+  } else if (operation.useReference) {
+    if (current.type !== 'role') throw Object.assign(new Error('只有人物可以按参考图生图'), { status: 400 })
+    let file
+    try { file = await readStill(directory, `${current.id}-ref`) }
+    catch (error) {
+      if (error?.code === 'ENOENT') throw Object.assign(new Error('请先上传参考图'), { status: 400 })
+      throw error
+    }
+    referenceBytes = file.bytes
+    referenceImage = `data:${file.mime};base64,${file.bytes.toString('base64')}`
+    reference = '按参考图生成'
   }
   const seed = imageSeed(`${item.id}:${Date.now()}`)
-  const size = aspectRatioOf(project.aspectRatio)
+  const size = current.type === 'role' ? characterImageSize(operation.aspect) : aspectRatioOf(project.aspectRatio)
   defer(runStep('image_generate', () => submitAssetImage({
     assets: bag, itemId: item.id, aspectRatio: size, backend: route.image,
-    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes, seed, home, prompt: submitted,
+    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes, referenceImage, seed, home, prompt: submitted,
   }).then(async next => {
     const draft = next.items.find(entry => entry.id === item.id).pendingImage
-    await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item) })
+    await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item), aspect: current.type === 'role' ? (operation.aspect || '9:16') : '', useReference: Boolean(operation.useReference) })
   }), { target: `image:${item.id}` }).catch(async error => {
     await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
   }))
@@ -87,12 +99,18 @@ export async function startPartImage(operation, project, { projects, models, hom
   if (!partSlots[slot]) throw Object.assign(new Error('不支持的图片分组'), { status: 400 })
   const place = visualPlace(project, operation.itemId)
   const item = place?.bag.items.find(entry => entry.id === operation.itemId && entry.type === 'role')
-  if (!item) throw Object.assign(new Error('只有人物可以添加衣服、道具或发型'), { status: 400 })
+  if (!item) throw Object.assign(new Error('只有人物可以添加衣服、坐骑、道具或发型'), { status: 400 })
   const review = String(operation.review || '').trim()
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
-  const partId = nextPartId(item, slot)
-  const base = partPrompt(item, slot)
-  const submitted = imageSkillPrompt('skill-juese-part-image-generate', review ? `${base}\n审核意见：${review}` : base, project)
+  let current = item
+  if (typeof operation.description === 'string') {
+    current = withPartText(item, slot, operation.description)
+    const bag = { ...place.bag, items: place.bag.items.map(entry => entry.id === item.id ? current : entry) }
+    await projects.save(project.id, plotPatch(project, { [place.key]: bag }))
+  }
+  const partId = nextPartId(current, slot)
+  const base = partPrompt(current, slot)
+  const submitted = imageSkillPrompt('part-image', review ? `${base}\n审核意见：${review}` : base, project)
   await projects.save(project.id, { activity: `image:${item.id}:${slot}`, activityError: null })
   const route = await loadModels(models)
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
@@ -102,7 +120,7 @@ export async function startPartImage(operation, project, { projects, models, hom
     directory, itemId: partId, aspectRatio: size, backend: route.image,
     projectId: project.id, episodeId: project.episodeId, home, category: 'props', prompt: submitted, seed,
   }).then(async localPath => {
-    await stageImageDraft(projects, project, localPath, { key: place.key, itemId: item.id, slot, name: `${item.name}·${partSlots[slot].label}`, target: pictureTargetSnapshot(item) })
+    await stageImageDraft(projects, project, localPath, { key: place.key, itemId: item.id, slot, name: `${item.name}·${partSlots[slot].label}`, target: pictureTargetSnapshot(current) })
   }), { target: `image:${item.id}:${slot}` }).catch(async error => {
     await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
   }))
@@ -208,6 +226,55 @@ async function opImportImage(c) {
   return trace
 }
 
+async function readUploadedImage(operation, home) {
+  if (operation.data) return decodeImageData(operation.data, operation.mime)
+  const incoming = await openIncoming(home, operation.incomingId)
+  const bytes = await readFile(incoming.file)
+  const mime = incoming.mime
+  await rm(incoming.directory, { recursive: true, force: true })
+  return { bytes, mime }
+}
+
+async function opSetReference(c) {
+  let { operation, home, projects, project, trace, note } = c
+  const place = visualPlace(project, operation.itemId)
+  const item = place?.bag.items.find(entry => entry.id === operation.itemId && entry.type === 'role')
+  if (!item) throw Object.assign(new Error('只有人物可以设置参考图'), { status: 400 })
+  const { bytes, mime } = await readUploadedImage(operation, home)
+  const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
+  const bag = await saveCharacterReference({
+    assets: place.bag, itemId: item.id, projectId: project.id, episodeId: project.episodeId, directory, bytes, mime,
+  })
+  await projects.save(project.id, { ...plotPatch(project, { [place.key]: bag }), activity: null, activityError: null })
+  note(`已设置 ${item.name} 的参考图`)
+  return trace
+}
+
+async function opClearReference(c) {
+  let { operation, home, projects, project, trace, note } = c
+  const place = visualPlace(project, operation.itemId)
+  const item = place?.bag.items.find(entry => entry.id === operation.itemId && entry.type === 'role')
+  if (!item) throw Object.assign(new Error('只有人物可以移除参考图'), { status: 400 })
+  const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
+  await Promise.all(['png', 'jpg', 'webp'].map(ext => rm(join(directory, `${item.id}-ref.${ext}`), { force: true })))
+  const bag = clearCharacterReference(place.bag, item.id)
+  await projects.save(project.id, { ...plotPatch(project, { [place.key]: bag }), activity: null, activityError: null })
+  note(`已移除 ${item.name} 的参考图`)
+  return trace
+}
+
+async function opPartText(c) {
+  let { operation, projects, project, trace, note } = c
+  const place = visualPlace(project, operation.itemId)
+  const item = place?.bag.items.find(entry => entry.id === operation.itemId && entry.type === 'role')
+  if (!item) throw Object.assign(new Error('只有人物可以编辑这类描述'), { status: 400 })
+  const next = withPartText(item, operation.slot, operation.text)
+  const bag = { ...place.bag, items: place.bag.items.map(entry => entry.id === item.id ? next : entry) }
+  await projects.save(project.id, { ...plotPatch(project, { [place.key]: bag }), activity: null, activityError: null })
+  note(`已保存 ${item.name} 的${partSlots[operation.slot]?.label || ''}描述`)
+  return trace
+}
+
 // if (operation.action === 'use-asset')
 async function opUseAsset(c) {
   let { operation, projects, library, project, trace, note } = c
@@ -242,7 +309,7 @@ async function opPartImport(c) {
   if (!partSlots[slot]) throw Object.assign(new Error('不支持的图片分组'), { status: 400 })
   const place = visualPlace(project, operation.itemId)
   const character = place?.bag.items.find(entry => entry.id === operation.itemId && entry.type === 'role')
-  if (!character) throw Object.assign(new Error('只有人物可以添加衣服、道具或发型'), { status: 400 })
+  if (!character) throw Object.assign(new Error('只有人物可以添加衣服、坐骑、道具或发型'), { status: 400 })
   let bytes
   let mime
   if (operation.data) {
@@ -290,7 +357,7 @@ async function opPencil(c) {
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   await projects.save(project.id, { activity: `pencil:${track}`, activityError: null })
   const base = pencilPrompt(item)
-  const source = imageSkillPrompt('skill-jingtou-qianbi-pencil-generate', review ? `${base}\n审核意见：${review}` : base, project)
+  const source = imageSkillPrompt('pencil', review ? `${base}\n审核意见：${review}` : base, project)
   const route = await loadModels(models)
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'boards', project.episodeId || '')
   const seed = imageSeed(`${project.id}:${track}:${Date.now()}`)
@@ -314,8 +381,11 @@ export const imageOperations = {
   'revise-image': { stage: 'episode', run: opImage },
   'part-image': { stage: 'episode', run: opPartImage },
   'import-image': { stage: 'episode', run: opImportImage },
+  'set-reference': { stage: 'episode', run: opSetReference },
+  'clear-reference': { stage: 'episode', run: opClearReference },
   'use-asset': { stage: 'episode', run: opUseAsset },
   'clear-image': { stage: 'episode', run: opClearImage },
   'part-import': { stage: 'episode', run: opPartImport },
+  'part-text': { stage: 'episode', run: opPartText },
   'pencil': { stage: 'episode', run: opPencil },
 }

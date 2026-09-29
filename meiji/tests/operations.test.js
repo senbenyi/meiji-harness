@@ -45,7 +45,7 @@ test('a revised still encodes the current image instead of an empty latent', () 
   assert.deepEqual(graph[5].inputs.latent_image, ['9', 0])
   assert.equal(graph[8].inputs.image, 'ref.png')
 })
-const passText = text => async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : text
+const passText = text => async ({ skill }) => skill === 'review' ? 'PASS' : text
 const videoDeps = home => ({ home, submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: item.track })) }), retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') })
 test('batch boards write each shot without losing earlier results',async t=>{
  const e=await setupModel(t)
@@ -76,6 +76,8 @@ test('character text edit keeps the picture and writes values without prompt key
  assert.deepEqual(after.shots.items[0].storyboard.content.characters,['武松'])
  assert.match(characterFactText(saved),/^中国，武松，/)
  assert.equal(/姓名：|性别：/.test(characterFactText(saved)),false)
+ assert.equal(saved.costume,'长衣')
+ assert.match(saved.look,/服装：长衣/)
  await assert.rejects(runOperation(e.op('character-text',{itemId:character.id,original,fields}),{home:e.home}),/已更新/)
 })
 test('scene text edit preserves image and rejects stale original',async t=>{

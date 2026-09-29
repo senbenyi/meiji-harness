@@ -11,7 +11,6 @@ import { recordStore } from '../../data/task-store.js'
 import { loadModels } from './services.js'
 import { generateEpisode } from '../../generate/story.js'
 import { GenerationStatus } from '../../../shared/drama-model.js'
-import { skillFilePath } from '../../../skills/load.js'
 
 export async function openIncoming(home, id) {
   if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) throw Object.assign(new Error('上传的文件已失效'), { status: 400 })
@@ -109,9 +108,9 @@ async function opEpisodeGenerate(c) {
     project = normalizeProject(await rootProjects.read(project.id))
   }
   await rootProjects.save(project.id, { activity: 'episode', activityError: null })
-  note('按 skill-gailan-episode-generate 生成本集剧情')
+  note('按「剧集摘要」技能生成本集剧情')
   note('操作：episode-generate（会话与面板共用）')
-  note('文件：' + skillFilePath('skill-gailan-episode-generate'))
+  note('技能：剧集摘要（skills/stages/episode）')
   note('函数：generateEpisode（server/generate/story.js）')
   let episodeId = existing?.id
   const persist = async draft => {

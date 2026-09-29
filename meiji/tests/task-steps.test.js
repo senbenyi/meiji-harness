@@ -17,7 +17,7 @@ import { generateAllSeconds, generateShotStoryboard, generateShots, generateStor
 import { setupModel, tempHome } from './fixtures/model.js'
 
 const step = (status, extra = {}) => ({ kind: 'generate', target: 'summary', status, verdict: null, reasons: [], ...extra })
-const reply = (text, verdict = 'PASS') => async ({ skill }) => skill === 'skill-gongyong-content-review' ? verdict : text
+const reply = (text, verdict = 'PASS') => async ({ skill }) => skill === 'review' ? verdict : text
 const prompt = 'summary: 旅人朝北进入庭院\ndetailed_description: 摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A'
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 let submitted = 0

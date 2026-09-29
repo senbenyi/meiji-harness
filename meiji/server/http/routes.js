@@ -2,9 +2,7 @@ import { recordStore } from '../data/task-store.js'
 import { subscribeProject } from '../data/project-events.js'
 import { pictureOf, targetNode, shotResults } from '../../shared/drama-model.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
-import { customSkillPatch, loadGuidanceAssets } from '../data/custom-skills.js'
 import { MAX_GUIDANCE_BYTES } from '../data/library.js'
-import { scopeProjects } from '../data/episodes.js'
 import { readGatewayImage } from '../generate/image-access.js'
 import { readImageDraft } from '../data/pictures.js'
 import { outputLanguage } from '../data/language.js'
@@ -24,8 +22,9 @@ import { hostWorkspaces } from '../host/workspaces.js'
 import { linkStore } from '../data/workspace-links.js'
 import { materialize, readEpisodeCover } from '../data/episodes.js'
 import { assetRoutes } from './library-routes.js'
+import { skillRoutes } from './skill-routes.js'
 
-const directActions = new Set(['project-delete', 'episode-delete', 'open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'use-asset', 'clear-image', 'assemble', 'review-override'])
+const directActions = new Set(['project-delete', 'episode-delete', 'open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'use-asset', 'clear-image', 'assemble', 'review-override'])
 
 // 浏览器可加载的两个平铺目录：client/ 为面板界面，shared/ 为前后端共用的领域模块。
 const staticRoots = {
@@ -116,6 +115,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
     res.end(JSON.stringify(value))
   }
   const handleAssets = assetRoutes(home, json)
+  const handleSkills = skillRoutes({ home, projects, links, json, readJson })
   const serveClient = async (res, file, dir = 'client') => {
     const resolved = resolveClientFile(file, dir)
     if (!resolved) {
@@ -233,16 +233,9 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         const episode = saved.episodes.find(e => e.id === body.episodeId)
         return json(res, 200, { project: saved, review: targetNode(episode, body.key)[body.kind === 'text' ? 'draft' : 'review'] })
       }
-      if (path === base + '/custom-skill') {
-        if (req.method !== 'PUT') return json(res, 405, { error: '不支持的请求' })
-        if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
-        const body = await readJson(req, 150000)
-        await links.requireProject(String(body.sessionId || ''), body.projectId)
-        if (!body.episodeId) return json(res, 400, { error: '请选择剧集' })
-        const assets = body.guidanceAssetIds === undefined ? undefined : await loadGuidanceAssets(home, body.guidanceAssetIds)
-        const scoped = scopeProjects(projects, body.episodeId)
-        await scoped.save(body.projectId, current => customSkillPatch(current, body.stage, body.content, assets))
-        return json(res, 200, { project: await projects.read(body.projectId) })
+      if (path === base + '/skills' || path.startsWith(base + '/skills/') || path === base + '/project-skills' || path === base + '/project-guidance') {
+        const handled = await handleSkills(req, res, url, base)
+        return handled === false ? json(res, 404, { error: '技能不存在' }) : handled
       }
       if (path === base + '/project-settings') {
         if (req.method !== 'PUT') return json(res, 405, { error: '不支持的请求' })

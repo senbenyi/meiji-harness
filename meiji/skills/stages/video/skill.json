@@ -1,0 +1,12 @@
+{
+  "id": "video",
+  "kind": "stage",
+  "label": "成片",
+  "logLabel": "成片",
+  "output": "video",
+  "panel": "film",
+  "fields": [
+    "generate"
+  ],
+  "order": 7
+}

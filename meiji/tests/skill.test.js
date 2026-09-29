@@ -1,93 +1,153 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { allSkills, loadSkill, registeredSkillFiles, skillFilesOnDisk } from '../skills/load.js'
-import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { agentSkills, builtinSkill, stageSkillIds, validateSkills } from '../skills/load.js'
+import { buildGenerationPrompt, buildTextPrompts } from '../server/prompts/text-prompts.js'
 import { runTextRequest } from '../server/generate/text-request.js'
+import { imageSkillPrompt } from '../server/generate/image.js'
 
-const generationSkills = ['skill-gailan-episode-generate', 'skill-juqing-outline-generate', 'skill-jingtou-jingtoubiao-table-generate', 'skill-jingtou-jingtoubiao-shot-review', 'skill-jingtou-meimiao-seconds-generate', 'skill-jingtou-wenben-storyboard-generate', 'skill-juese-image-review']
-const checkedSkills = ['skill-gailan-episode-generate', 'skill-juqing-outline-generate', 'skill-jingtou-jingtoubiao-table-generate', 'skill-jingtou-jingtoubiao-shot-review', 'skill-jingtou-meimiao-seconds-generate', 'skill-jingtou-wenben-storyboard-generate', 'skill-chengpian-video-generate']
+const skillsDir = fileURLToPath(new URL('../skills/', import.meta.url))
+const textStages = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'image-prompt']
+const imageStages = ['character-image', 'scene-image', 'part-image', 'pencil']
 
-test('every generation skill is registered and receives configured language on each request', async () => {
-  const registered = allSkills()
-  assert.equal(new Set(registered.map(skill => skill.name)).size, registered.length)
-  for (const skillName of generationSkills) {
-    const skill = loadSkill(skillName)
+test('built-in skills load by field: 12 stages, 5 guidance skills, 6 shared modules', () => {
+  const ids = validateSkills()
+  assert.deepEqual(stageSkillIds(), ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'video', 'image-prompt', 'character-image', 'scene-image', 'part-image', 'pencil'])
+  assert.deepEqual(ids.filter(id => id.startsWith('guidance-')), ['guidance-action', 'guidance-dialogue', 'guidance-expression', 'guidance-martial', 'guidance-sound'])
+  assert.equal(ids.filter(id => id.startsWith('shared-')).length, 6)
+  for (const id of textStages) {
+    const skill = builtinSkill(id)
+    assert.ok(skill.parts.generate.trim(), id)
+    assert.ok(skill.protocol.trim(), `${id} protocol`)
+  }
+  for (const id of imageStages) assert.deepEqual(builtinSkill(id).fields, ['generate'])
+  assert.equal(builtinSkill('video').parts.generate, '')
+  assert.equal(builtinSkill('guidance-martial').defaultEnabled, false)
+})
+
+test('structure errors are reported: stray files, unknown fields and missing shared modules', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'meiji-skills-'))
+  try {
+    await cp(skillsDir, dir, { recursive: true })
+    validateSkills(dir)
+    await writeFile(join(dir, 'stages/shots/extra.md'), 'x')
+    assert.throws(() => validateSkills(dir), /md 文件/)
+    await rm(join(dir, 'stages/shots/extra.md'))
+    const meta = JSON.parse(await readFile(join(dir, 'stages/seconds/skill.json'), 'utf8'))
+    await writeFile(join(dir, 'stages/seconds/skill.json'), JSON.stringify({ ...meta, unknown: 1 }))
+    assert.throws(() => validateSkills(dir), /未知字段 unknown/)
+    await writeFile(join(dir, 'stages/seconds/skill.json'), JSON.stringify(meta))
+    await rm(join(dir, 'shared/tail-frame.md'))
+    assert.throws(() => validateSkills(dir), /tail-frame/)
+  } finally { await rm(dir, { recursive: true, force: true }) }
+})
+
+test('Harness registers only the session agent skill; generation skills are read by code', () => {
+  const skills = agentSkills()
+  assert.deepEqual(skills.map(skill => skill.name), ['skill-gongyong-panel-generate'])
+  assert.match(skills[0].content, /meiji_context_query/)
+})
+
+test('every text stage receives the configured language on each request', async () => {
+  for (const skill of textStages) {
     for (const outputLanguage of ['zh-CN', 'en']) {
       let body
-      const value = await runTextRequest(buildGenerationPrompt({ skill: skillName, project: { outputLanguage }, instructions: '中文输入' }), {
-        project: { outputLanguage }, route: { baseUrl: 'http://model.test/v1', apiKey: 'test', model: 'test' },
+      const value = await runTextRequest(buildGenerationPrompt({ skill, project: { outputLanguage }, instructions: '中文输入', mode: 'text' }), {
+        route: { baseUrl: 'http://model.test/v1', apiKey: 'test', model: 'test' },
         fetchImpl: async (_url, options) => {
           body = JSON.parse(options.body)
           return Response.json({ choices: [{ message: { content: 'Unmodified output' } }] })
         },
       })
       const system = body.messages.find(message => message.role === 'system').content
-      assert.ok(system.startsWith(skill.content))
+      assert.ok(system.startsWith('【阶段技能·通用】'), skill)
       assert.ok(system.includes('本次生成语言：' + (outputLanguage === 'en' ? 'English' : '简体中文')))
+      assert.ok(system.trimEnd().endsWith('只执行本阶段，不调用其他阶段。'), skill)
       assert.equal(body.messages.find(message => message.role === 'user').content, '【任务与上下文】\n中文输入')
       assert.equal(value, 'Unmodified output')
-      if (skillName === 'skill-jingtou-wenben-storyboard-generate') {
-        assert.ok(system.includes('文本分镜正文同样遵循本次生成语言，覆盖官方参考的固定英文要求'))
-        assert.ok(system.indexOf('文本分镜正文同样遵循本次生成语言') > system.indexOf('Write all six sections in the configured project outputLanguage'))
-        assert.ok(!system.includes('最终 H3 描述使用英文'))
-      }
     }
   }
+  const storyboard = buildGenerationPrompt({ skill: 'storyboard', project: {}, instructions: '', mode: 'reference' }).system
+  assert.ok(storyboard.includes('文本分镜正文同样遵循本次生成语言'))
+  assert.ok(!storyboard.includes('【官方参考'))
+  assert.ok(!storyboard.includes('最终 H3 描述使用英文'))
 })
 
-test('checked skills separate generation rules from self-check rules', () => {
-  for (const skillName of checkedSkills) {
-    const content = loadSkill(skillName).content
-    const generation = /^## (?:生成|2\. 返回形式)$/m.exec(content)
-    const check = /^## (?:自检|6\. 返回前核对)$/m.exec(content)
-    assert.ok(generation, `${skillName} missing generation rules`)
-    assert.ok(check, `${skillName} missing self-check rules`)
-    assert.ok(generation.index < check.index, `${skillName} self-check should follow generation`)
+test('requests carry only what they need: generation self-checks, review sees acceptance criteria, revision sees boundaries', () => {
+  for (const skill of ['episode', 'outline', 'shots', 'seconds', 'storyboard']) {
+    const prompts = buildTextPrompts({ skill, project: {}, instructions: 'CTX', mode: 'text' })
+    const { generation } = prompts
+    const review = prompts.review('DRAFT')
+    const revision = prompts.revision('DRAFT', 'FAIL 原因')
+    const modify = buildGenerationPrompt({ skill, project: {}, instructions: 'CTX', opinion: '意见', modify: true, mode: 'text' })
+    const stage = builtinSkill(skill)
+    assert.ok(generation.system.includes(stage.parts.generate), skill)
+    assert.ok(generation.system.includes('【自检标准】') && generation.system.includes(stage.parts.review), skill)
+    const boundary = /【阶段技能·修订边界】|【共享·修订边界】/
+    assert.doesNotMatch(generation.system, boundary, skill)
+    assert.ok(modify.system.includes('【自检标准】') && boundary.test(modify.system), skill)
+    assert.ok(modify.system.includes('语言一致性优先于修订时的逐字保留'), skill)
+    assert.ok(!revision.system.includes('【自检标准】') && boundary.test(revision.system), skill)
+    assert.ok(!generation.system.includes('语言一致性优先于修订时的逐字保留'), skill)
+    // 审核：不附生成技能；验收标准在 user，PASS/FAIL 协议在 system 结尾。
+    assert.ok(!review.system.includes(stage.parts.generate) && !review.user.includes(stage.parts.generate), skill)
+    assert.ok(!(review.system + review.user).includes('【官方参考'), skill)
+    assert.ok(review.user.includes('【验收标准') && review.user.includes(stage.parts.review), skill)
+    assert.match(review.system, /没有问题只返回 PASS；否则首行 FAIL/)
+    assert.equal(review.skill, 'review')
+    assert.equal(review.stage, skill)
+  }
+  // 通用审核只含跨阶段协议；镜头类审核只在镜头阶段加入。
+  assert.doesNotMatch(buildTextPrompts({ skill: 'episode', project: {}, instructions: '' }).review('x').system, /可见面审核|尾帧/)
+  assert.match(buildTextPrompts({ skill: 'seconds', project: {}, instructions: '' }).review('x').system, /可见面审核/)
+  assert.match(buildTextPrompts({ skill: 'storyboard', project: {}, instructions: '' }).review('x').system, /【共享·尾帧协议】/)
+  // 流程说明不再发给模型。
+  for (const skill of textStages) {
+    const { generation } = buildTextPrompts({ skill, project: {}, instructions: '', mode: 'text' })
+    assert.doesNotMatch(generation.system, /服务端流程层调度|最多自动修订一次|生成、审核和修订由程序分别发起请求/, skill)
   }
 })
 
-test('image skills compose configured language and preserve the requested picture', async () => {
-  const { imageSkillPrompt } = await import('../server/generate/image.js')
-  for (const name of ['skill-juese-character-image-generate', 'skill-juese-scene-image-generate', 'skill-juese-part-image-generate', 'skill-jingtou-qianbi-pencil-generate']) {
+test('generation prompts do not inject official references', () => {
+  for (const skill of ['shots', 'shot-revise', 'seconds', 'storyboard']) {
+    for (const mode of ['', 'text', 'reference']) {
+      const system = buildGenerationPrompt({ skill, project: {}, instructions: '', mode }).system
+      assert.doesNotMatch(system, /【官方参考|官方规则：|STEP 5\.5|Per-Second Directives/, skill + mode)
+    }
+  }
+  assert.doesNotMatch(imageSkillPrompt('pencil', '画面', {}), /【官方参考|官方规则：|Opt-in 路径/)
+})
+
+test('image prompts keep only picture requirements, the configured language and the requested picture', () => {
+  for (const name of imageStages) {
     const english = imageSkillPrompt(name, '沙漠里的石洞', { outputLanguage: 'en' })
-    assert.ok(english.startsWith(loadSkill(name).content))
+    assert.ok(english.startsWith(builtinSkill(name).parts.generate))
     assert.ok(english.includes('本次生成语言：English'))
     assert.ok(english.endsWith('沙漠里的石洞'))
+    assert.doesNotMatch(english, /身份与职责|只输出本技能要求的产物|意见修订边界|重新生成”和“修改/)
     assert.ok(imageSkillPrompt(name, '画面', {}).includes('本次生成语言：简体中文'))
-    const styled = imageSkillPrompt(name, '画面', { style: '写实电影，国风水墨' })
-    assert.ok(styled.includes('项目视觉风格：写实电影，国风水墨'))
+    assert.ok(imageSkillPrompt(name, '画面', { style: '写实电影，国风水墨' }).includes('项目视觉风格：写实电影，国风水墨'))
+    assert.match(imageSkillPrompt(name, '画面', { skills: { additions: { [name]: { generate: '本剧统一暖色' } } } }), /本剧补充要求：\n本剧统一暖色/)
   }
+  assert.match(imageSkillPrompt('pencil', '画面', {}), /黑白铅笔线稿/)
 })
 
-test('every skill file is registered exactly once under a panel category', () => {
-  assert.deepEqual(registeredSkillFiles(), skillFilesOnDisk())
-  for (const skill of allSkills()) {
-    assert.ok(['gailan', 'juqing', 'juese', 'jingtou', 'chengpian', 'gongyong'].includes(skill.category), skill.name)
-    assert.ok(['generate', 'review'].includes(skill.mode), skill.name)
-    const mid = skill.pane ? `${skill.category}-${skill.pane}-${skill.feature}` : `${skill.category}-${skill.feature}`
-    assert.match(skill.path, new RegExp(`/skill-${mid}-${skill.mode}\\.md$`))
-    assert.equal(skill.path.startsWith('/'), true, skill.name)
-  }
-})
-
-test('panel skill paths are absolute and openable', async () => {
-  const { access } = await import('node:fs/promises')
-  const { skillFilePath, knownSkillNames } = await import('../skills/load.js')
-  for (const name of knownSkillNames()) {
-    const path = skillFilePath(name)
-    assert.equal(path.startsWith('/'), true, name)
-    await access(path)
-  }
-})
-
-test('official references are injected into model skills and prompt language is explicit', () => {
-  assert.match(loadSkill('skill-jingtou-jingtoubiao-table-generate').content, /STEP 5.5/)
-  assert.match(loadSkill('skill-jingtou-meimiao-seconds-generate').content, /Per-Second Directives/)
-  const storyboard = loadSkill('skill-jingtou-wenben-storyboard-generate').content
-  for (const section of ['subject_definitions', 'retention_analysis', 'integrated_multimodal_description', 'detailed_description']) assert.ok(storyboard.includes(section))
-  assert.match(storyboard, /Write all six sections in the configured project outputLanguage/)
-  for (const name of ['skill-jingtou-wenben-storyboard-generate', 'skill-chengpian-video-generate']) {
-    assert.doesNotMatch(loadSkill(name).content, /Write (?:all six rewrite sections|rewrite sections|the body) in English|Use 1–[34] English sentences|natural English action|350-500 English words/)
-  }
-  assert.match(loadSkill('skill-gongyong-language-generate').content, /自然语言内容使用项目 outputLanguage 指定的语言/)
+test('guidance skills join the stages that enable them and stay out of summary and image requests', () => {
+  const martial = { skills: { guidance: { enabled: ['action', 'martial'] } } }
+  const seconds = buildTextPrompts({ skill: 'seconds', project: martial, instructions: '' })
+  assert.match(seconds.generation.system, /【武术指导】[\s\S]*本阶段落点（招式、节奏、受力与位置时间线）/)
+  assert.match(seconds.generation.system, /【自检·武术指导】/)
+  assert.match(seconds.review('x').user, /【验收·武术指导】/)
+  assert.doesNotMatch(seconds.generation.system, /【台词指导】/)
+  const defaults = buildTextPrompts({ skill: 'storyboard', project: {}, instructions: '' }).generation.system
+  for (const label of ['动作指导', '台词指导', '表情指导', '声音指导']) assert.ok(defaults.includes(`【${label}】`), label)
+  assert.ok(!defaults.includes('【武术指导】'))
+  assert.doesNotMatch(buildGenerationPrompt({ skill: 'episode', project: martial, instructions: '' }).system, /指导】/)
+  assert.doesNotMatch(imageSkillPrompt('character-image', '画面', martial), /指导/)
+  const order = seconds.generation.system
+  assert.ok(order.indexOf('【阶段技能·生成】') < order.indexOf('【武术指导】') && order.indexOf('【武术指导】') < order.indexOf('【自检标准】'))
+  assert.ok(order.indexOf('【优先级】') < order.indexOf('【本次输出协议】'))
 })

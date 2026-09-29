@@ -5,7 +5,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { defaults, normalizeModels } from '../models/model-config.js'
-import { appendImageAsset, characterStillPrompt, imageAsset, imageAssets, imagePrompt, importAssetImage, nextPartId, partPrompt, pencilPrompt, readStill, sceneStillPrompt, submitAssetImage, clearCharacterImage, usableLook } from '../server/generate/image.js'
+import { appendImageAsset, characterStillPrompt, imageAsset, imageAssets, imagePrompt, importAssetImage, nextPartId, partPrompt, pencilPrompt, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, clearCharacterImage, usableLook, withPartText } from '../server/generate/image.js'
+import { characterImageSize } from '../server/generate/gateway.js'
 
 const assets = {
   status: 'analyzed',
@@ -156,12 +157,22 @@ test('an image asset keeps only id, name, and the two paths', () => {
 })
 
 test('clothes, props, and hairstyles append as image assets', () => {
-  const character = { id: 'C01', name: '刘备', type: 'role', costume: '绿袍', prop: '双股剑', features: '长耳' }
+  const character = { id: 'C01', name: '刘备', type: 'role', costume: '绿袍', prop: '双股剑', hairstyle: '长耳', mount: '赤兔马', features: '方脸' }
   assert.equal(nextPartId(character, 'clothes'), 'C01-W01')
   assert.match(partPrompt(character, 'clothes'), /绿袍/)
   assert.match(partPrompt(character, 'clothes'), /灰白纯色背景/)
   assert.match(partPrompt(character, 'props'), /双股剑/)
   assert.match(partPrompt(character, 'hairstyles'), /长耳/)
+  assert.equal(/方脸/.test(partPrompt(character, 'hairstyles')), false)
+  assert.match(partPrompt(character, 'mounts'), /赤兔马/)
+  const noted = withPartText({ id: 'C01', name: '刘备', type: 'role', look: '国籍：中国\n姓名：刘备\n身份：主公\n性别：男\n年代：三国\n年龄：四十岁\n服装：旧袍\n身高：一米八\n体型：结实\n面相：方脸' }, 'clothes', '绿袍')
+  assert.equal(noted.costume, '绿袍')
+  assert.match(noted.look, /服装：绿袍/)
+  assert.match(noted.look, /姓名：刘备/)
+  assert.equal(nextPartId(character, 'mounts'), 'C01-M01')
+  assert.equal(characterImageSize(''), '768x1344')
+  assert.equal(characterImageSize('16:9'), '1344x768')
+  assert.throws(() => characterImageSize('21:9'), { status: 400 })
   const saved = appendImageAsset({ items: [character] }, 'C01', 'clothes', { id: 'C01-W01', name: '衣服01', localPath: '/plugins/meiji/projects/p/images/C01-W01', extra: 'no' })
   assert.deepEqual(saved.items[0].clothes, [{ id: 'C01-W01', name: '衣服01', localPath: '/plugins/meiji/projects/p/images/C01-W01', imageUrl: null }])
   assert.equal(nextPartId(saved.items[0], 'clothes'), 'C01-W02')
@@ -199,9 +210,44 @@ test('gateway text-to-image posts the supplied Chinese prompt and stores the ret
     assert.equal(posted.body.model, 'elysium-image')
     assert.equal(posted.body.size, '768x1344')
     assert.equal(posted.body.prompt, prompt)
+    assert.equal(posted.body.image, undefined)
     assert.equal(posted.authorization, 'Bearer test-key')
     assert.equal(pictureOf(saved.items[0]).localPath.includes('/images/A01'), true)
     assert.deepEqual(await readFile(join(directory, 'A01.png')), png)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('reference image generation posts a data URL and keeps the reference beside the character', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'meiji-ref-'))
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  let posted
+  try {
+    const saved = await saveCharacterReference({
+      assets, itemId: 'A01', projectId: 'p1', episodeId: 'e1', directory, bytes: png, mime: 'image/png',
+    })
+    assert.equal(saved.items[0].reference.mime, 'image/png')
+    assert.match(saved.items[0].reference.localPath, /A01-ref/)
+    assert.deepEqual(await readFile(join(directory, 'A01-ref.png')), png)
+    const file = await readStill(directory, 'A01-ref')
+    await submitAssetImage({
+      assets: saved, itemId: 'A01', aspectRatio: '768x1344', projectId: 'p1', directory, seed: 4,
+      backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key' },
+      prompt: '二十出头的中国男子',
+      referenceImage: `data:${file.mime};base64,${file.bytes.toString('base64')}`,
+      fetchImpl: async (url, options) => {
+        if (options.method === 'POST') {
+          posted = JSON.parse(options.body)
+          return Response.json({ id: 'image_ref', status: 'queued' })
+        }
+        if (url.pathname.endsWith('/content')) return new Response(png)
+        return Response.json({ status: 'completed' })
+      },
+    })
+    assert.equal(posted.size, '768x1344')
+    assert.equal(posted.image, `data:image/png;base64,${png.toString('base64')}`)
+    assert.equal(Object.hasOwn(posted, 'reference_images'), false)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

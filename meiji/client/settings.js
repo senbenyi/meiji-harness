@@ -1,6 +1,6 @@
 import { element } from './dom.js'
 
-export function renderSettings(project, { save, back }) {
+export function renderSettings(project, { save, back, openSkills }) {
   const page = element('section', '', 'settings-page')
   const form = document.createElement('form')
   const title = element('h2', '设置')
@@ -28,6 +28,14 @@ export function renderSettings(project, { save, back }) {
   group.append(label, hint)
   form.append(group, error, submit)
   page.append(form)
+  if (openSkills) {
+    const skills = element('section', '', 'settings-group')
+    const open = element('button', '打开技能库')
+    open.type = 'button'
+    open.onclick = openSkills
+    skills.append(element('h3', '技能库'), element('p', '查看全部阶段技能、指导技能与共享模块；修改基础 skill 对所有剧生效。', 'meta'), open)
+    page.append(skills)
+  }
   form.onsubmit = async event => {
     event.preventDefault()
     submit.disabled = true
