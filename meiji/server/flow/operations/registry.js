@@ -1,50 +1,105 @@
-// 操作元数据：合法操作、需要剧集作用域的操作、显示名称与校验。
+// 操作定义：每个操作（按钮或会话工具）做什么。操作只存在于代码中，每次执行生成一个任务。
+//   label  显示名称
+//   scope  作用范围：project / episode / shot（决定是否需要剧集作用域，以及与哪些任务冲突）
+//   queue  队列类别：text / image / video（只有调用图片或视频接口的操作占用 image / video 名额）
+//   plan   根据当前项目生成步骤计划 [{ kind, target }]，步骤由处理函数经 runStep 执行
+//   step   没有 plan 的操作整体作为一个步骤由执行入口执行：返回 { kind, target }，默认 execute
+//   agent  会话工具（agent）能否发起；人工专属操作为 false
+//   task   能否经任务管理启动（排队执行）；false 的操作只能由面板直接执行
+import { projectStore } from '../../data/projects.js'
+import { materialize } from '../../data/episodes.js'
 
+const text = target => ['generate', 'review', 'revise', 're_review'].map(kind => ({ kind, target }))
+const video = track => [{ kind: 'video_submit', target: `film:${track}` }, { kind: 'video_generate', target: `film:${track}` }]
+const shotIds = project => (project?.shots?.items || []).map(shot => shot.id)
+const edit = target => [{ kind: 'save', target }, { kind: 'review', target }]
+const save = target => op => ({ kind: 'save', target: typeof target === 'function' ? target(op) : target })
+// 单镜制作步骤：文本分镜（生成、自审、需要时修订与复审）→ 提交视频 → 生成视频。单镜与逐镜成片共用。
+export const shotPlan = track => [...text(`storyboard:${track}`), ...video(track)]
+const imagePlan = (_, op) => [...(op.generationMode === 'modify' ? text(`image:${op.itemId}`) : []), { kind: 'image_generate', target: `image:${op.itemId}` }]
 
-export const supportedActions = new Set(['tail-frame', 'produce', 'produce-all', 'create', 'open', 'overview', 'episode-add', 'episode-edit', 'project-delete', 'episode-delete', 'episode-generate', 'source', 'characters', 'scenes', 'scene-text', 'outline-text', 'storyboard-text', 'shot-assets', 'outline', 'shots', 'seconds', 'revise-shot', 'shot-seconds', 'shot-storyboard', 'shot-boards', 'storyboard', 'pencil', 'image', 'revise-image', 'import-image', 'clear-image', 'use-asset', 'part-image', 'part-import', 'film', 'films', 'assemble', 'library-import'])
-export const episodeScoped = new Set(['tail-frame', 'confirm-image', 'discard-image', 'source', 'characters', 'scenes', 'scene-text', 'outline-text', 'storyboard-text', 'shot-assets', 'outline', 'shots', 'seconds', 'revise-shot', 'shot-seconds', 'shot-storyboard', 'shot-boards', 'storyboard', 'pencil', 'image', 'revise-image', 'import-image', 'clear-image', 'use-asset', 'part-image', 'part-import', 'film', 'films', 'assemble'])
-export const labels = {
-  create: '创建项目',
-  open: '打开项目',
-  overview: '保存项目概要',
-  'project-delete': '删除项目',
-  'episode-delete': '删除剧集',
-  'episode-add': '新增剧集',
-  'episode-edit': '编辑剧集',
-  'episode-generate': '生成本集剧情',
-  source: '修改原始资料',
-  'outline-text': '修改大纲',
-  characters: '按意见修订人物卡',
-  scenes: '按意见修订场景卡',
-  'scene-text': '编辑场景文字',
-  outline: '生成剧情（大纲、角色、场景）',
-  shots: '写镜头表',
-  'tail-frame': '重新处理尾帧',
-  produce: '生成本镜文本和视频',
-  'produce-all': '依次生成文本和视频',
-  seconds: '生成每秒指令',
-  'revise-shot': '按审核意见重写镜头',
-  'shot-seconds': '生成每秒指令',
-  'shot-storyboard': '生成这一镜的分镜',
-  'shot-boards': '生成所有分镜',
-  pencil: '生成铅笔分镜',
-  storyboard: '生成全部分镜表',
-  image: '生成图片',
-  'revise-image': '按新需求重绘图片',
-  'import-image': '导入图片',
-  'clear-image': '删除图片',
-  'part-image': '生成图片',
-  'part-import': '导入图片',
-  film: '提交成片',
-  films: '一键成片',
-  assemble: '全片拼接',
-  'library-import': '导入素材',
-  'use-asset': '关联图片素材',
+export const definitions = {
+  create: { label: '创建项目', scope: 'project', queue: 'text', agent: true },
+  open: { label: '打开项目', scope: 'project', queue: 'text', agent: true },
+  overview: { label: '保存项目概要', scope: 'project', queue: 'text', agent: false, step: save(null) },
+  'project-delete': { label: '删除项目', scope: 'project', queue: 'text', agent: false },
+  'episode-delete': { label: '删除剧集', scope: 'episode', queue: 'text', agent: false },
+  'episode-add': { label: '新增剧集', scope: 'project', queue: 'text', agent: false, step: save('summary') },
+  'episode-edit': { label: '编辑剧集', scope: 'project', queue: 'text', agent: false, step: save('summary') },
+  'episode-generate': { label: '生成本集剧情', scope: 'project', queue: 'text', agent: true, plan: () => text('summary') },
+  'library-import': { label: '导入素材', scope: 'project', queue: 'text', agent: false },
+  source: { label: '修改原始资料', scope: 'episode', queue: 'text', agent: false, step: save('summary') },
+  'outline-text': { label: '修改大纲', scope: 'episode', queue: 'text', agent: false, plan: () => edit('story') },
+  'scene-text': { label: '编辑场景文字', scope: 'episode', queue: 'text', agent: false, plan: () => edit('story') },
+  'storyboard-text': { label: '编辑文本分镜', scope: 'shot', queue: 'text', agent: false, plan: (_, op) => edit(`storyboard:${op.track}`) },
+  'shot-assets': { label: '修改镜头素材', scope: 'shot', queue: 'text', agent: false, step: save('shots') },
+  characters: { label: '按意见修订人物卡', scope: 'episode', queue: 'text', agent: true, plan: () => text('story') },
+  scenes: { label: '按意见修订场景卡', scope: 'episode', queue: 'text', agent: true, plan: () => text('story') },
+  outline: { label: '生成剧情（大纲、角色、场景）', scope: 'episode', queue: 'text', agent: true, plan: () => text('story') },
+  shots: { label: '写镜头表', scope: 'episode', queue: 'text', agent: true, plan: () => text('shots') },
+  'revise-shot': { label: '按审核意见重写镜头', scope: 'shot', queue: 'text', agent: true, plan: () => text('shots') },
+  seconds: { label: '生成每秒指令', scope: 'episode', queue: 'text', agent: true, plan: () => text('seconds') },
+  'shot-seconds': { label: '生成每秒指令', scope: 'shot', queue: 'text', agent: true, plan: () => text('seconds') },
+  'shot-storyboard': { label: '生成这一镜的分镜', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => text(`storyboard:${op.track}`) },
+  storyboard: { label: '生成全部分镜表', scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(id => text(`storyboard:${id}`)) },
+  'shot-boards': { label: '生成所有分镜', scope: 'episode', queue: 'text', agent: true, plan: project => [...text('seconds'), ...shotIds(project).flatMap(id => text(`storyboard:${id}`))] },
+  pencil: { label: '生成铅笔分镜', scope: 'shot', queue: 'image', agent: true, plan: (_, op) => [{ kind: 'image_generate', target: `pencil:${op.track}` }] },
+  image: { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },
+  'revise-image': { label: '按新需求重绘图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },
+  'part-image': { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: (_, op) => [{ kind: 'image_generate', target: `image:${op.itemId}:${op.slot}` }] },
+  'import-image': { label: '导入图片', scope: 'episode', queue: 'text', agent: false, step: save(null) },
+  'clear-image': { label: '删除图片', scope: 'episode', queue: 'text', agent: false, step: save(null) },
+  'part-import': { label: '导入图片', scope: 'episode', queue: 'text', agent: false, step: save(null) },
+  'use-asset': { label: '关联图片素材', scope: 'episode', queue: 'text', agent: false, step: save(null) },
+  'confirm-image': { label: '确认使用图片', scope: 'episode', queue: 'text', agent: false, task: false, step: () => ({ kind: 'confirm', target: null }) },
+  'discard-image': { label: '放弃候选图片', scope: 'episode', queue: 'text', agent: false, task: false, step: () => ({ kind: 'confirm', target: null }) },
+  film: { label: '提交成片', scope: 'shot', queue: 'video', agent: true, plan: (_, op) => video(op.track) },
+  films: { label: '一键成片', scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(video) },
+  produce: { label: '生成本镜文本和视频', scope: 'shot', queue: 'video', agent: true, plan: (_, op) => shotPlan(op.track) },
+  'produce-all': { label: '依次生成文本和视频', scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(shotPlan) },
+  'tail-frame': { label: '重新处理尾帧', scope: 'shot', queue: 'video', agent: true, step: op => ({ kind: 'tail_frame', target: `film:${op.track}` }) },
+  assemble: { label: '全片拼接', scope: 'episode', queue: 'text', agent: true, step: () => ({ kind: 'assemble', target: 'assembly' }) },
+  'review-override': { label: '忽略自审并通过', scope: 'episode', queue: 'text', agent: false, task: false, plan: (_, op) => [{ kind: 'override', target: op.key }] },
 }
+
+export const labels = Object.fromEntries(Object.entries(definitions).map(([action, value]) => [action, value.label]))
+// 可经任务管理启动的操作。
+export const supportedActions = new Set(Object.entries(definitions).filter(([, value]) => value.task !== false).map(([action]) => action))
+// 需要剧集作用域的操作（剧集级与镜头级；项目级和一键成片类自行读取剧集）。
+export const episodeScoped = new Set(Object.entries(definitions).filter(([action, value]) => value.scope !== 'project' && !['episode-delete', 'produce', 'produce-all'].includes(action)).map(([action]) => action))
+
+export const queueOf = action => definitions[action]?.queue || 'text'
+export const agentAllowed = action => definitions[action]?.agent === true
 
 export function operationLabel(operation) { return `${labels[operation.action] || operation.action}${operation.track ? ' ' + operation.track : ''}${operation.generationMode ? '·' + (operation.generationMode === 'modify' ? '按意见修改' : '重新生成') : ''}` }
 
 export function validateOperation(input) {
   if (input?.action === 'shot-seconds') throw Object.assign(new Error('每秒指令请从卡片集顶部统一提交'), { status: 400 })
-  if (!supportedActions.has(input?.action)) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
+  if (!definitions[input?.action]) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
+  // 人工专属操作（忽略自审、确认图片、编辑与删除等）不允许由会话工具发起。
+  if (input.origin === 'session' && !agentAllowed(input.action)) throw Object.assign(new Error('该操作只能由人在面板上执行'), { status: 403 })
+  if (!supportedActions.has(input.action)) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
+}
+
+// 没有 plan 的操作由执行入口整体作为一个步骤执行；有 plan 的操作返回 null（步骤由处理函数执行）。
+export function runnerStep(operation) {
+  const definition = definitions[operation.action]
+  if (definition?.plan) return null
+  return definition?.step?.(operation) || { kind: 'execute', target: null }
+}
+
+// 按当前项目生成步骤计划；读取失败时退回单个 execute 步骤（错误在执行时报告）。
+export async function planSteps(home, operation) {
+  const single = runnerStep(operation)
+  if (single) return [single]
+  let project = null
+  try {
+    if (operation.projectId) {
+      const root = await projectStore(home).read(operation.projectId)
+      const episodeId = operation.episodeId || (root.episodes.length === 1 ? root.episodes[0].id : null)
+      project = episodeId ? materialize(root, episodeId) : root
+    }
+  } catch { return [{ kind: 'execute', target: null }] }
+  const steps = definitions[operation.action].plan(project, operation)
+  return steps.length ? steps : [{ kind: 'execute', target: null }]
 }

@@ -4,15 +4,15 @@ import { randomUUID } from 'node:crypto'
 import { readFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setupModel } from './fixtures/model.js'
-import { modelStore } from '../server/data/models.js'
-import { runOperation } from '../server/flow/actions.js'
-import { recordStore, startExecution } from '../server/data/task-records.js'
+import { modelStore } from '../server/data/model-settings.js'
+import { runOperation } from '../server/flow/operations/run.js'
+import { recordStore, startExecution } from '../server/data/task-store.js'
 import { generateEpisode, generateStoryPackage } from '../server/generate/story.js'
 import { generateAllSeconds, generateShots } from '../server/generate/shot-text.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 import { reviewContent } from '../server/generate/review.js'
-import { interruptRunning } from '../server/flow/interrupt.js'
-import { createTasks } from '../server/flow/tasks.js'
+import { interruptRunning } from '../server/flow/tasks/restart.js'
+import { createTasks } from '../server/flow/tasks/runner.js'
 
 async function setup(t) {
  const e = await setupModel(t), models = modelStore(e.home)
@@ -31,12 +31,13 @@ test('summary history binds each review to its exact published version and retai
  assert.equal(task.status, 'review_failed')
  assert.equal(task.source, 'panel')
  assert.equal((await e.read()).summary.content, '修订稿')
- const nodes = task.nodes.filter(node => node.kind !== 'execute')
- assert.deepEqual(nodes.map(node => node.kind), ['generation', 'review', 'revision', 're_review'])
- assert.ok(nodes.every(node => node.status === 'succeeded'))
- assert.equal(nodes[1].reviewResult, 'fail')
- assert.deepEqual(nodes[1].inputs, nodes[0].outputs)
- assert.deepEqual(nodes[3].inputs, nodes[2].outputs)
+ // 计划在开始时写入，执行的步骤与计划一一对应（没有计划外步骤）。
+ const steps = task.steps
+ assert.deepEqual(steps.map(step => `${step.kind}:${step.target}`), ['generate:summary', 'review:summary', 'revise:summary', 're_review:summary'])
+ assert.ok(steps.every(step => step.status === 'completed' && !step.unplanned))
+ assert.deepEqual(steps.map(step => step.verdict), [null, 'fail', null, 'fail'])
+ assert.deepEqual(steps[1].inputs, steps[0].outputs)
+ assert.deepEqual(steps[3].inputs, steps[2].outputs)
  assert.ok(artifacts.every(item => item.published))
  assert.equal((await e.history.read('artifacts', (await e.read()).summary.source.artifactId)).content.summary, '修订稿')
 })
@@ -95,16 +96,18 @@ test('manual text prompt review records the saved version', async t => {
  })
  const [task] = await e.history.list(), current = await e.read()
  assert.equal(task.actor, 'human')
- assert.ok(task.nodes.some(node => node.kind === 'review' && node.inputs.includes(current.shots.items[0].storyboard.source.artifactId)))
+ assert.deepEqual(task.steps.map(step => `${step.kind}:${step.target}:${step.status}`), ['save:storyboard:S01:completed', 'review:storyboard:S01:completed'])
+ assert.ok(task.steps[1].inputs.includes(current.shots.items[0].storyboard.source.artifactId))
+ assert.equal(task.steps[1].verdict, 'pass')
  assert.equal(current.shots.items[0].storyboard.check.passed, true)
 })
 
 test('restart cancels persisted running tasks; tasks can be read after service recreation', async t => {
  const e = await setup(t), id = randomUUID()
- await startExecution(e.home, e.op('seconds', { sessionId: 'session-test' }), id)
+ await startExecution(e.home, e.op('seconds', { sessionId: 'session-test' }), id, [{ kind: 'generate', target: 'seconds' }, { kind: 'review', target: 'seconds' }])
  await interruptRunning(e.store)
  const task = await e.history.read('tasks', id)
- assert.equal(task.status, 'cancelled'); assert.equal(task.nodes[0].status, 'cancelled'); assert.match(task.error, /服务重启/)
+ assert.equal(task.status, 'cancelled'); assert.deepEqual(task.steps.map(step => step.status), ['cancelled', 'pending']); assert.match(task.error, /服务重启/)
  const result = await createTasks({ home: e.home }).get(id, 'session-test')
  assert.equal(result.status, 'cancelled')
 })
@@ -121,7 +124,7 @@ test('video completion records immutable filename and a failed retry preserves i
  const record = await e.history.read('artifacts', before.source.artifactId)
  assert.equal(record.content.file, before.content.file)
  const task = await e.history.read('tasks', before.source.taskId)
- assert.ok(task.nodes.find(node => node.kind === 'video_generate').outputs.includes(record.id))
+ assert.ok(task.steps.find(step => step.kind === 'video_generate').outputs.includes(record.id))
  await runOperation(e.op('film', { track: 'S01' }), { ...deps, retrieveFilm: async () => { throw new Error('视频失败') } })
  const after = (await e.read()).shots.items[0].video
  assert.equal(after.content.file, before.content.file)

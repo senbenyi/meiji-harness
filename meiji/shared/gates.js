@@ -1,71 +1,87 @@
-import { GenerationStatus, node, episodeModel, contentNode } from './drama-model.js'
-import { reviewSteps } from './flow-rules.js'
-export { reviewSteps, reviewsOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, shotsReady, hasShotSeconds, hasStoryboard, hasFilm, gateOf, canGenerate, gateMessage } from './flow-rules.js'
+import { GenerationStatus, shotResults } from './drama-model.js'
+import { feedbackOf } from './feedback.js'
+import { shotSecondsReady } from './shot-timing.js'
+export const reviewSteps = ['summary', 'outline', 'characters', 'scenes', 'shots', 'storyboard', 'film']
 
-export function replaceFrom(project, step, data) {
-  let next = structuredClone(project)
-  if (['summary', 'outline'].includes(step)) {
-    if (step === 'summary') next.plot = episodeModel('temporary', {}).plot
-    next.shots = { ...node('shots'), items: [] }
+export function reviewsOf(project) {
+  return Object.fromEntries(reviewSteps.map(id => [id, feedbackOf(project, id).check.passed === true ? 'approved' : 'pending']))
+}
+
+const text = value => typeof value === 'string' && value.trim().length > 0
+function outlineUnlocked(project) { return hasSummary(project) }
+export function hasSummary(project) { return text(project?.summary?.content) }
+export function hasOutline(project) { return text(project?.plot?.outline?.content) }
+export function hasCharacters(project) { return Array.isArray(project?.plot?.characters?.items) && project.plot.characters.items.length > 0 }
+export function hasScenes(project) { return Array.isArray(project?.plot?.scenes?.items) && project.plot.scenes.items.length > 0 }
+export function hasShots(project) { return Array.isArray(project?.shots?.items) && project.shots.items.length > 0 }
+export function shotsReady(project) { return hasShots(project) && feedbackOf(project, 'shots').check.passed === true }
+export function hasShotSeconds(project) {
+  const items = project?.shots?.items || []
+  return items.length > 0 && items.every(shotSecondsReady)
+}
+export function hasStoryboard(project) {
+  const shots = project?.shots?.items || []
+  const boards = shotResults(project, 'storyboard')
+  return shots.length > 0 && boards.length === shots.length && new Set(boards.map(row => row.id)).size === shots.length && shots.every(shot => boards.some(row => row.id === shot.id))
+}
+export function hasFilm(project) {
+  const rows = shotResults(project, 'storyboard')
+  return hasStoryboard(project) && rows.every(row => project.shots.items.find(shot => shot.id === row.id)?.video.status === GenerationStatus.PASSED)
+}
+
+export function gateOf(project) {
+  if (!outlineUnlocked(project)) return 'summary'
+  if (!hasOutline(project)) return 'outline'
+  if (!hasCharacters(project)) return 'characters'
+  if (!hasScenes(project)) return 'scenes'
+  if (!shotsReady(project)) return 'shots'
+  if (!hasShotSeconds(project) || feedbackOf(project, 'seconds').check.passed !== true) return 'seconds'
+  if (!hasStoryboard(project)) return 'storyboard'
+  if (!hasFilm(project)) return 'film'
+  return 'done'
+}
+
+export function canGenerate(project, step) {
+  if (step === 'summary') return true
+  if (step === 'outline') return outlineUnlocked(project)
+  if (step === 'characters') return false
+  if (step === 'scenes') return false
+  if (step === 'shots') return hasScenes(project) && ['outline', 'characters', 'scenes'].every(key => feedbackOf(project, key).check.passed === true)
+  if (step === 'storyboard') return shotsReady(project)
+  if (step === 'film') return hasStoryboard(project)
+  return false
+}
+
+export function gateMessage(project, step) {
+  if (step === 'summary') {
+    if (!hasSummary(project)) return '先填写或生成本集摘要。画幅沿用项目，时长沿用这一集。'
+    return '这一集从剧情摘要开始。摘要写好后可以直接写大纲。重新生成大纲会清掉后面的角色、场景、镜头、分镜和成片。'
   }
-  if (['shots', 'storyboard'].includes(step)) next = { ...next, ...clearShotDownstream(next, step === 'shots' ? 'shots' : 'storyboard') }
-  next.assembly = node('assembly')
-  next.pendingImages = {}
-  return { ...next, ...data, stage: step }
-}
-
-export function durationOf(raw) {
-  const durationSeconds = typeof raw === 'string' && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : raw
-  if (!Number.isInteger(durationSeconds) || durationSeconds < 1 || durationSeconds > 86400) {
-    throw Object.assign(new Error('时长需为 1–86400 的整数秒'), { status: 400 })
+  if (step === 'outline') {
+    if (!canGenerate(project, 'outline')) return '请先写好本集摘要，再写故事大纲。'
+    if (!hasOutline(project)) return '点击 AI生成，一次返回故事大纲、角色卡和场景卡，不生成图片或镜头。'
+    if (hasOutline(project)) return '剧情资料已生成；大纲、角色和场景由同一次生成返回。重新生成会清空镜头及后续内容。'
   }
-  return durationSeconds
-}
-
-export const defaultAspectRatio = '1344x768'
-const aspectRatios = ['1344x768', '768x1344']
-const legacyAspect = { '16:9': '1344x768', '9:16': '768x1344' }
-
-export function aspectRatioOf(raw) {
-  if (raw == null || raw === '') return defaultAspectRatio
-  const value = legacyAspect[String(raw).trim()] || String(raw).trim()
-  if (!aspectRatios.includes(value)) throw Object.assign(new Error('画幅需为 1344x768 或 768x1344'), { status: 400 })
-  return value
-}
-
-export function sourcePatch(project, input) {
-  const summary = typeof input?.summary === 'string' ? input.summary.trim() : (typeof project?.summary?.content === 'string' ? project.summary.content.trim() : '')
-  if (!summary || summary.length > 10000) throw Object.assign(new Error('剧本摘要需为 1–10000 字'), { status: 400 })
-  const title = typeof input?.title === 'string' ? input.title.trim() : project.title
-  if (!title || title.length > 100) throw Object.assign(new Error('短剧标题需为 1–100 字'), { status: 400 })
-  const durationSeconds = input?.durationSeconds == null || input.durationSeconds === ''
-    ? project.durationSeconds
-    : durationOf(input.durationSeconds)
-  const storedAspect = project?.aspectRatio || defaultAspectRatio
-  const aspectRatio = input?.aspectRatio == null || input.aspectRatio === '' ? storedAspect : aspectRatioOf(input.aspectRatio)
-  const changed = summary !== project.summary.content || durationSeconds !== project.durationSeconds || aspectRatio !== storedAspect
-  if (!changed) return title === project.title ? { summary: project.summary } : { summary: project.summary, title }
-  return { ...replaceFrom(project, 'summary', {}), summary: contentNode(project.summary, summary, { passed: true, failures: [] }), title, durationSeconds, aspectRatio }
-}
-
-
-export function staleMedia(project) {
-  const shots = structuredClone(project.shots)
-  for (const shot of shots.items) {
-    if (shot.video.content) { shot.video.stale = true; shot.video.status = GenerationStatus.FAILED }
-    if (shot.pencil.content) { shot.pencil.stale = true; shot.pencil.status = GenerationStatus.FAILED }
+  if (step === 'characters' || step === 'scenes') return '角色和场景与故事大纲统一生成；图片可在卡片中单独生成。'
+  if (step === 'shots') {
+    if (!canGenerate(project, 'shots')) return '请先写好场景卡，再写镜头表。'
+    if (!hasShots(project)) return '先写镜头表，再整集生成每秒指令并整集自审。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
+    if (!feedbackOf(project, 'shots').check.passed) return '镜头表尚未通过自审，请查看镜头表顶部的审核卡片。'
+    if (!hasShotSeconds(project)) return '镜头表已通过自审，请先整集生成每秒指令并逐镜审核。'
+    if (shotsReady(project)) return '镜头表已写好。下一步一次生成全部分镜表，每秒指令会一起写上。重新生成镜头表会清掉分镜和成片。'
   }
-  const assembly = structuredClone(project.assembly)
-  if (assembly.content) { assembly.stale = true; assembly.status = GenerationStatus.FAILED }
-  return { shots, assembly }
-}
-export function clearShotDownstream(project, stage, track) {
-  const shots = structuredClone(project.shots)
-  const kinds = stage === 'shots' ? ['seconds', 'storyboard', 'pencil', 'video'] : stage === 'seconds' ? ['storyboard', 'pencil', 'video'] : ['pencil', 'video']
-  for (const shot of shots.items) {
-    if (track && shot.id !== track) continue
-    shot.tailFrame = node(`tailFrame:${shot.id}`)
-    for (const kind of kinds) shot[kind] = node(`${kind === 'video' ? 'film' : kind}:${shot.id}`)
+  if (step === 'storyboard') {
+    if (!shotsReady(project)) return '请先让镜头表通过自检，再生成分镜表。'
+    if (!hasStoryboard(project)) return '一次生成全部分镜表。缺的每秒指令会先写满，再写成 MiniMax H3 的三段提示词。'
+    if (hasStoryboard(project)) return '文本分镜已写好。它是成片的依据。铅笔分镜可以后补。'
   }
-  return { shots, assembly: node('assembly'), pendingImages: Object.fromEntries(Object.entries(project.pendingImages || {}).filter(([, draft]) => !draft.track || (track && draft.track !== track))) }
+  if (step === 'boards') return '每秒一格的铅笔草图，用来预览这一镜。文本分镜仍是成片依据。'
+  if (step === 'film') {
+    if (!canGenerate(project, 'film')) return '请先在镜头详情写好文本分镜，再逐镜提交成片。'
+    if (hasFilm(project)) return '每条镜头都已生成。下一步是合成。全片拼接和背景音乐后期接入。'
+    return '每个镜头单独成片。提示词用官方三段式。视频出现在这张镜头卡片上。'
+  }
+  if (step === 'assembly') return '全片拼接和背景音乐后期接入。卡片先留在这里。'
+  return '步骤无效'
 }
+

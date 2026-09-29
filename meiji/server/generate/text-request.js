@@ -1,6 +1,6 @@
 import { askModel } from './chat.js'
 import { runWithLogPurpose } from '../host/session-log.js'
-import { markApiFailure } from '../data/self-checks.js'
+import { markApiFailure } from '../data/operation-context.js'
 
 // 一个节点只发送一次完整请求；不加载 Skill、不拼接提示词、不触发其他节点。
 export async function runTextRequest(message, { request, logPurpose, logStage, ...options } = {}) {

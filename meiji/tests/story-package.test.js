@@ -9,7 +9,7 @@ import { generateStoryPackage } from '../server/generate/story.js'
 import { preserveStoryAssets } from '../server/data/story-package.js'
 import { projectStore } from '../server/data/projects.js'
 import { blankEpisode } from '../server/data/episodes.js'
-import { runOperation } from '../server/flow/actions.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { tabs, tabOf, canGenerate } from '../client/flow-view.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 

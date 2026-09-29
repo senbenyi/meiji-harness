@@ -1,4 +1,4 @@
-import { recordStore } from '../data/task-records.js'
+import { recordStore } from '../data/task-store.js'
 import { subscribeProject } from '../data/project-events.js'
 import { pictureOf, targetNode, shotResults } from '../../shared/drama-model.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
@@ -14,18 +14,18 @@ import { readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { extname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { catalog, compactModels, normalizeModels, purposes } from '../../models/router.js'
-import { modelStore } from '../data/models.js'
+import { catalog, compactModels, normalizeModels, purposes } from '../../models/model-config.js'
+import { modelStore } from '../data/model-settings.js'
 import { projectStore } from '../data/projects.js'
 import { readStill } from '../generate/image.js'
-import { runOperation, saveIncoming } from '../flow/actions.js'
+import { runOperation, saveIncoming } from '../flow/operations/run.js'
 import { insertSessionLog, runWithSessionLog } from '../host/session-log.js'
 import { hostWorkspaces } from '../host/workspaces.js'
-import { linkStore } from '../data/links.js'
+import { linkStore } from '../data/workspace-links.js'
 import { materialize, readEpisodeCover } from '../data/episodes.js'
 import { assetRoutes } from './library-routes.js'
 
-const directActions = new Set(['project-delete', 'episode-delete', 'open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'use-asset', 'clear-image', 'assemble'])
+const directActions = new Set(['project-delete', 'episode-delete', 'open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'use-asset', 'clear-image', 'assemble', 'review-override'])
 
 // 浏览器可加载的两个平铺目录：client/ 为面板界面，shared/ 为前后端共用的领域模块。
 const staticRoots = {
@@ -263,6 +263,13 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 25000)
         res.on('close', () => { clearInterval(heartbeat); unsubscribe() })
         return
+      }
+      // 「当前任务」页：本集进行中与排队中的任务及其步骤、排队位置。
+      if (path === base + '/tasks/current') {
+        if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
+        const projectId = url.searchParams.get('projectId')
+        await links.requireProject(url.searchParams.get('sessionId'), projectId)
+        return json(res, 200, { tasks: tasks.current(projectId, url.searchParams.get('episodeId') || null) })
       }
       if (path === base + '/tasks') {
         const body = req.method === 'POST' ? await readJson(req, 8192) : Object.fromEntries(url.searchParams)

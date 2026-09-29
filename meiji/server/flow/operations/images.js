@@ -7,11 +7,13 @@ import { loadModels } from './services.js'
 import { decodeImageData } from '../../generate/character-views.js'
 import { uploadGatewayFile } from '../../generate/gateway.js'
 import { appendImageAsset, characterStillPrompt, clearCharacterImage, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook } from '../../generate/image.js'
-import { runTextWorkflow } from '../../generate/text-workflow.js'
+import { runTextSteps } from '../../generate/text-steps.js'
+import { runStep } from '../../data/task-store.js'
 import { buildTextPrompts } from '../../prompts/text-prompts.js'
 import { GenerationStatus, finish, plotPatch, shotResults, targetNode, updateShotResult } from '../../../shared/drama-model.js'
 import { feedbackKey } from '../../../shared/feedback.js'
-import { aspectRatioOf, hasCharacters, hasScenes, staleMedia } from '../../../shared/gates.js'
+import { aspectRatioOf, staleMedia } from '../../../shared/project-rules.js'
+import { hasCharacters, hasScenes } from '../../../shared/gates.js'
 
 export function visualPlace(project, itemId) {
   if ((project.plot.characters?.items || []).some(item => item.id === itemId)) return { key: 'characters', bag: project.plot.characters }
@@ -31,7 +33,7 @@ export async function startImage(operation, project, { projects, models, home, s
   if (operation.generationMode === 'modify') {
     const note = String(operation.instruction || operation.review || '').trim()
     if (!note || note.length > 2000) throw Object.assign(new Error(note ? '审核意见过长' : '请先写下审核意见'), { status: 400 })
-    const revision = await runTextWorkflow({ prompts: buildTextPrompts({ skill: 'skill-juese-image-review', project, instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}` }), options: {
+    const revision = await runTextSteps({ target: `image:${item.id}`, prompts: buildTextPrompts({ skill: 'skill-juese-image-review', project, instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}` }), options: {
       route: route.story, project,
     } })
     const revised = revision.text
@@ -62,13 +64,13 @@ export async function startImage(operation, project, { projects, models, home, s
   }
   const seed = imageSeed(`${item.id}:${Date.now()}`)
   const size = aspectRatioOf(project.aspectRatio)
-  defer(submitAssetImage({
+  defer(runStep('image_generate', () => submitAssetImage({
     assets: bag, itemId: item.id, aspectRatio: size, backend: route.image,
     projectId: project.id, episodeId: project.episodeId, directory, referenceBytes, seed, home, prompt: submitted,
   }).then(async next => {
     const draft = next.items.find(entry => entry.id === item.id).pendingImage
     await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item) })
-  }).catch(async error => {
+  }), { target: `image:${item.id}` }).catch(async error => {
     await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
   }))
   return [
@@ -96,12 +98,12 @@ export async function startPartImage(operation, project, { projects, models, hom
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   const seed = imageSeed(`${partId}:${Date.now()}`)
   const size = aspectRatioOf(project.aspectRatio)
-  defer(generateStillFile({
+  defer(runStep('image_generate', () => generateStillFile({
     directory, itemId: partId, aspectRatio: size, backend: route.image,
     projectId: project.id, episodeId: project.episodeId, home, category: 'props', prompt: submitted, seed,
   }).then(async localPath => {
     await stageImageDraft(projects, project, localPath, { key: place.key, itemId: item.id, slot, name: `${item.name}·${partSlots[slot].label}`, target: pictureTargetSnapshot(item) })
-  }).catch(async error => {
+  }), { target: `image:${item.id}:${slot}` }).catch(async error => {
     await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
   }))
   return [
@@ -292,10 +294,12 @@ async function opPencil(c) {
   const route = await loadModels(models)
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'boards', project.episodeId || '')
   const seed = imageSeed(`${project.id}:${track}:${Date.now()}`)
-  const reference = await (deps.submitPencilBoard || submitPencilBoard)({
-    directory, track, prompt: source, aspectRatio: '1344x768', backend: route.image, seed, home, projectId: project.id, episodeId: project.episodeId,
-  })
-  await stageImageDraft(projects, project, reference, { track, name: `${track} 铅笔分镜`, target: pictureTargetSnapshot(item) })
+  await runStep('image_generate', async () => {
+    const reference = await (deps.submitPencilBoard || submitPencilBoard)({
+      directory, track, prompt: source, aspectRatio: '1344x768', backend: route.image, seed, home, projectId: project.id, episodeId: project.episodeId,
+    })
+    await stageImageDraft(projects, project, reference, { track, name: `${track} 铅笔分镜`, target: pictureTargetSnapshot(item) })
+  }, { target: `pencil:${track}` })
   note(`${track} 的铅笔分镜已生成，等待确认使用`)
   if (review) note(`审核意见：${review}`)
   note('提交的画面提示词：')

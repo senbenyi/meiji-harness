@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
-import { modelStore } from '../server/data/models.js'
-import { runOperation } from '../server/flow/actions.js'
+import { modelStore } from '../server/data/model-settings.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { generateAllSeconds } from '../server/generate/shot-text.js'
 const output = '## S01 / 5s\n0–5s 第一镜新动作\n\n## S02 / 5s\n0–5s 第二镜接续动作\n[seconds-complete]'
 async function environment(t) {

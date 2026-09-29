@@ -75,7 +75,7 @@ meiji/
 
 ## 模型与工作流
 
-网关地址、四个模型名与并发上限写在 `config/models.json`（入 git，不含密钥）；密钥写在本地的 `config/models.local.json`（git 忽略，覆盖同名字段）。运行中的一份是 `storages/meiji/models.json`，文本、图片和视频都读它。密钥不返回给浏览器。
+网关地址、四个模型名与并发上限写在 `config/models.json`（入 git，不含密钥）；密钥写在本地的 `config/models.local.json`（git 忽略，覆盖同名字段）。网关接口说明见 [gateway-api.md](docs/gateway-api.md)。运行中的一份是 `storages/meiji/models.json`，文本、图片和视频都读它。密钥不返回给浏览器。
 
 制作顺序由 `shared/gates.js` 的门禁决定：简报、大纲、角色、场景、镜头表、每秒指令、文本分镜，然后逐镜交给 MiniMax H3。铅笔分镜在镜头详情里生成，成片拼接仍只保留卡片。
 
@@ -115,7 +115,7 @@ meiji/
 `session-content-generate-tool.js` 和 `session-task-control-tool.js`。
 用户可说“创建一个现代农民工穿越成武松的故事项目”，再说“完成第一集摘要和剧情”。
 模型通过 Harness 内置 `todo_write` 规划步骤，每次调用只生成一个阶段，并等待审核结果后继续。
-会话与面板共用 `server/flow/tasks.js` 和原有 `runOperation`，不另建内容生成 Skill。
+会话与面板共用 `server/flow/tasks/runner.js` 和 `runOperation`，不另建内容生成 Skill。人工专属操作（忽略自审、确认图片、编辑与删除）会话工具不能发起。
 
 上下文查询返回项目概要、剧集顺序、阶段状态和运行任务，不在每轮装入整个项目 JSON。
 首次剧情生成以已通过的本集摘要为输入；重新生成排除本节点旧结果；修订需提供本次意见。
@@ -123,6 +123,6 @@ meiji/
 
 创建或打开项目会保存当前会话的制作目标，面板随之显示该项目；不会迁移 Harness 会话的工作目录，
 也不会改变其他会话的目标。新会话按其工作区定位项目。任务日志固定写入发起会话。
-任务结果为 `running`、`completed`、`review_failed`、`failed` 或 `cancelled`；
+任务结果为 `queued`、`running`、`completed`、`review_failed`、`failed` 或 `cancelled`（由步骤推导）；
 `wait` 每次最多等待 25 秒。执行记录和内容快照持久化到项目的 history 目录，重启后未完成任务一律记为 cancelled（不自动重做），可按原任务编号查询。
-详情页提供“本集执行历史”；记录表结构和保存规则见 [task-records.md](docs/task-records.md)。
+详情页提供“本集执行历史”，状态栏在有任务时提供“查看当前任务”；两页共用步骤清单。任务、步骤、状态推导、人工忽略自审与记录结构见 [tasks-and-steps.md](docs/tasks-and-steps.md)。

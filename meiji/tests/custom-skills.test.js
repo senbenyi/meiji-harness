@@ -9,7 +9,7 @@ import { addEpisode, scopeProjects } from '../server/data/episodes.js'
 import { episodeWork } from '../client/overview.js'
 import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
 import { runTextRequest } from '../server/generate/text-request.js'
-import { previewFilmSubmit } from '../server/flow/actions.js'
+import { previewFilmSubmit } from '../server/flow/operations/run.js'
 
 test('supplements persist per episode and stage, and clear without changing generated content', async () => {
   const home = await mkdtemp(join(tmpdir(), 'meiji-custom-'))

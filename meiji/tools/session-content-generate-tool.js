@@ -1,4 +1,4 @@
-import { generationFeedback } from '../server/flow/tasks.js'
+import { generationFeedback } from '../server/flow/tasks/runner.js'
 import { jsonOutput, sessionIdOf, currentProject } from './session-context-query-tool.js'
 
 const stages = { summary: 'episode-generate', story: 'outline', shots: 'shots', seconds: 'seconds', storyboard: 'storyboard' }

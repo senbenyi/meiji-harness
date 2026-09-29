@@ -1,15 +1,21 @@
 // 操作结束时释放节点：把本次操作占用的节点恢复为终态，并释放项目/剧集的活动标记。
 // 接口失败（未保存任何草稿）时整体回退到操作开始前的内容；其余情况按自检结果或失败原因落定状态。
+// 「接口失败」「已保存草稿」都从本操作执行过的步骤推导。
 import { projectStore } from '../../data/projects.js'
+import { executionSteps } from '../../data/task-store.js'
 import { allNodes, GenerationStatus, modelPatch, targetNode } from '../../../shared/drama-model.js'
 
-export async function releaseOperation({ operation, deps, operationId, context, key, state }) {
-  if (!key || context.projectDeleted) return
+export async function releaseOperation({ operation, deps, operationId, context, state }) {
+  if (!operation.projectId || context.projectDeleted) return
+  const steps = executionSteps(state.execution)
+  // 步骤之外的接口失败只记在错误上（见 markApiFailure）。
+  const apiFailure = steps.some(step => step.apiFailure) || Boolean(state.failure?.apiFailure)
+  const draftSaved = steps.some(step => step.saved)
   await projectStore(deps.home).save(operation.projectId, current => {
     const next = structuredClone(current)
     let changed = false
     for (const episode of next.episodes) {
-      if (context.apiFailure && !context.textDraftSaved) {
+      if (apiFailure && !draftSaved) {
         const original = context.originalRoot?.episodes.find(item => item.id === episode.id)
         const owned = allNodes(episode).filter(target => target.operation?.id === operationId).map(target => target.id)
         const restore = new Set(owned)
@@ -55,7 +61,7 @@ export async function releaseOperation({ operation, deps, operationId, context, 
       if (episode.id === operation.episodeId && episode.activity && !allNodes(episode).some(n => n.operation)) { episode.activity = null; episodeChanged = true; changed = true }
       if (episodeChanged) episode.status = modelPatch(episode, {}).status
     }
-    if (next.activeOperation === operationId) { next.activity = null; next.activeOperation = null; if (context.apiFailure) next.activityError = context.originalRoot?.activityError || null; changed = true }
+    if (next.activeOperation === operationId) { next.activity = null; next.activeOperation = null; if (apiFailure) next.activityError = context.originalRoot?.activityError || null; changed = true }
     return changed ? next : null
   })
 }

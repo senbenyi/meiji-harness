@@ -9,11 +9,16 @@
 |---|---|---|
 | AC-1 | 通过 | `git diff` 仅 `baseUrl` 一行变化 |
 | AC-2 | 通过 | 两个测试文件 15/15；全量 247 通过 / 19 失败，失败项与基线一致 |
-| AC-3 | 未验收 | 开发沙箱代理拦截该 IP，无法验证 TLS |
+| AC-3 | 未通过 | 2026-09-29 本机实际生成摘要：连接 `https://43.154.247.11/v1` 在约 0.1 秒内报 `fetch failed`（任务 a7895e68，生成步骤接口失败），该 IP 没有可用的 HTTPS |
 
 ## 测试
 基线 246 通过 / 20 失败（含既有不稳定测试）；改动后 247 通过 / 19 失败，无新增失败。
 
+## 回退（2026-09-29，用户决定）
+- `meiji/config/models.json` 的 `baseUrl` 改回 `http://43.154.247.11/v1`（与 `meiji/docs/gateway-api.md` 一致）；`tests/image.test.js`、`tests/model-config.test.js` 的默认地址断言同步改回。`normalizeModels` 仍接受 https 地址。
+- 配置在每次操作时读取，无需重启 Harness。全量测试 331 通过 / 0 失败 / 0 取消。
+- 密钥仍以明文经 HTTP 传输；网关提供带正规证书的 HTTPS 域名后，再把 `baseUrl` 改为该域名。
+
 ## 人工待办
-- [ ] 本机执行 `curl -sS https://43.154.247.11/v1/models -o /dev/null -w '%{http_code}\n'`：证书报错或连接失败说明网关未启用 HTTPS，需服务端配置证书（IP 证书少见，通常需绑定域名后把 `baseUrl` 改为域名）。
+- [ ] 网关提供 HTTPS 域名后重新切换，并先在本机执行 `curl -sS https://43.154.247.11/v1/models -o /dev/null -w '%{http_code}\n'`：证书报错或连接失败说明网关未启用 HTTPS，需服务端配置证书（IP 证书少见，通常需绑定域名后把 `baseUrl` 改为域名）。
 - [ ] 运行时 `$DSH_HOME/storages/meiji/models.json` 若已存在，在面板设置里把网关地址改为 https。

@@ -2,11 +2,12 @@
 // 阶段顺序与原 executeOperation 完全一致：
 //   pre（无需项目）→ 读取项目 → project（项目级）→ 剧集作用域 → review（候选图片确认）→ 自检准备 → episode（剧集级）。
 // 处理函数通过共享上下文 c 读写 operation / projects / project，错误处理看到的是最新值。
-import { linkStore } from '../../data/links.js'
+import { linkStore } from '../../data/workspace-links.js'
 import { materialize, normalizeProject, scopeProjects } from '../../data/episodes.js'
 import { readImageDraft } from '../../data/pictures.js'
 import { revisionStore } from '../../data/projects.js'
-import { checkContext, prepareChecks, setCheck } from '../../data/self-checks.js'
+import { prepareChecks, setCheck } from '../../data/review-checks.js'
+import { checkContext, apiFailed } from '../../data/operation-context.js'
 import { feedbackOf } from '../../../shared/feedback.js'
 import { canGenerate } from '../../../shared/gates.js'
 import { episodeScoped } from './registry.js'
@@ -64,7 +65,7 @@ export async function executeOperation(operation, deps) {
     if (episodeLevel) return await episodeLevel(c)
     throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
   } catch (error) {
-    if (checkContext.getStore()?.apiFailure) throw error
+    if (apiFailed() || error.apiFailure) throw error
     const { operation: current } = c
     if (current.projectId) {
       try {

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'
-import { defaults } from '../../models/router.js'
+import { defaults } from '../../models/model-config.js'
 
 export function modelStore(home) {
   const root = join(home, 'storages', 'meiji')

@@ -16,6 +16,12 @@ export function createModelStore() {
     subscribe(callback) { listeners.add(callback); return () => listeners.delete(callback) },
   }
 }
+// 各页面拿到的是剧集视图（overview.js 的 episodeWork，没有 schemaVersion 与 episodes）；
+// 重绘与写入模型存储必须使用完整项目：完整项目原样返回，剧集视图按 id 取回存储中的完整项目。
+export function rootProject(store, project) {
+  if (!project) return null
+  return Array.isArray(project.episodes) ? project : store.get(project.id) || null
+}
 // Retain unchanged components, and hold an actively edited component until it is saved.
 export function renderModelView(container, next) {
   const root = container.getRootNode(), active = root.activeElement

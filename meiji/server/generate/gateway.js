@@ -1,4 +1,4 @@
-import { checkContext, markApiFailure } from '../data/self-checks.js'
+import { checkContext, markApiFailure } from '../data/operation-context.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { insertSessionLog, sessionForLog, logPurpose } from '../host/session-log.js'
 

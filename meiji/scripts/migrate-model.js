@@ -1,7 +1,7 @@
 import { readFile, writeFile, readdir, mkdir, copyFile, rename } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { migrateFeedback } from './migration-feedback.js'
+import { migrateFeedback } from './migrate-model-feedback.js'
 import { GenerationStatus, schemaVersion, node, episodeModel, cardModel, shotModel, targetNode, allNodes, assertDrama, modelPatch, aggregateStatus, shotResults } from '../shared/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/pictures.js'
 const textOf = value => typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value, null, 2)

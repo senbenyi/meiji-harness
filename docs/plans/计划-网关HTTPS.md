@@ -18,4 +18,4 @@
 AC-1 ～ AC-3（见调研）
 
 ## 验证结果
-已执行：AC-1、AC-2 通过；AC-3 待本机验证。详见 `docs/implement/实施-网关HTTPS.md`。
+已执行：AC-1、AC-2 通过；AC-3 未通过（该 IP 无可用 HTTPS），2026-09-29 按用户决定回退为 http。详见 `docs/implement/实施-网关HTTPS.md`。

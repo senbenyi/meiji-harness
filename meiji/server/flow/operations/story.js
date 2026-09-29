@@ -1,13 +1,16 @@
 // 剧情与镜头文本操作：原始资料、大纲/角色/场景、镜头表、每秒指令、文本分镜。
-import { checkContext, selectCheck } from '../../data/self-checks.js'
+import { runStep } from '../../data/task-store.js'
+import { selectCheck } from '../../data/review-checks.js'
+import { checkContext } from '../../data/operation-context.js'
 import { preserveStoryAssets } from '../../data/story-package.js'
 import { storyboardTextPatch } from '../../data/storyboard-edit.js'
 import { loadModels } from './services.js'
 import { reviewContent } from '../../generate/review.js'
 import { generateAllSeconds, generateShotSeconds, generateShotStoryboard, generateShots, generateStoryPackage, generateStoryboard, regenerateCardGroup, reviseShot } from '../../generate/story.js'
-import { contentNode, finish, node, plotPatch, updateShotResults } from '../../../shared/drama-model.js'
-import { feedbackOf } from '../../../shared/feedback.js'
-import { canGenerate, clearShotDownstream, hasShots, replaceFrom } from '../../../shared/gates.js'
+import { GenerationStatus, contentNode, finish, node, plotPatch, targetNode, updateShotResults } from '../../../shared/drama-model.js'
+import { feedbackOf, overrideBlocker, overrideNodes } from '../../../shared/feedback.js'
+import { clearShotDownstream, replaceFrom } from '../../../shared/project-rules.js'
+import { canGenerate, hasShots } from '../../../shared/gates.js'
 import { shotSecondsReady } from '../../../shared/shot-timing.js'
 import { skillFilePath } from '../../../skills/load.js'
 
@@ -23,7 +26,7 @@ async function opSource(c) {
 // if (operation.action === 'storyboard-text')
 async function opStoryboardText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
-  project = await projects.save(project.id, current => ({ ...storyboardTextPatch(current, operation), activity: `shot-storyboard:${operation.track}` }))
+  project = await runStep('save', () => projects.save(project.id, current => ({ ...storyboardTextPatch(current, operation), activity: `shot-storyboard:${operation.track}` })), { target: `storyboard:${operation.track}` })
   const result = await (deps.reviewContent || reviewContent)({ project, stage: 'skill-jingtou-wenben-storyboard-generate', shotId: operation.track, text: operation.text, route: (await loadModels(models)).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, { activity: null })
@@ -58,7 +61,7 @@ async function opSceneText(c) {
   if (Object.values(values).some(value => !value || value.length > 10000)) throw Object.assign(new Error('场景字段不能为空或超过10000字'), { status: 400 })
   if (values.name !== scene.name) throw Object.assign(new Error('场景名称用于素材关联，此处仅编辑描述'), { status: 400 })
   if (project.plot.scenes.items.some(item => item.id !== scene.id && item.name === values.name)) throw Object.assign(new Error('场景名称重复'), { status: 400 })
-  project = await projects.save(project.id, { ...plotPatch(project, { scenes: { ...project.plot.scenes, items: project.plot.scenes.items.map(item => item.id === scene.id ? { ...item, ...values } : item) } }), activity: 'scene-text' })
+  project = await runStep('save', () => projects.save(project.id, { ...plotPatch(project, { scenes: { ...project.plot.scenes, items: project.plot.scenes.items.map(item => item.id === scene.id ? { ...item, ...values } : item) } }), activity: 'scene-text' }), { target: 'story' })
   const result = await (deps.reviewContent || reviewContent)({ project, stage: '场景文字编辑，仅审场景与大纲一致性，不要求重写大纲或人物卡', text: JSON.stringify(project.plot.scenes.items), route: (await loadModels(models)).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, { activity: null })
@@ -71,7 +74,7 @@ async function opOutlineText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const outline = String(operation.outline || '').trim()
   if (!outline) throw Object.assign(new Error('大纲不能是空的'), { status: 400 })
-  project = await projects.writeStep(project.id, 'outline', { ...plotPatch(project, { outline: contentNode(project.plot.outline, outline) }), activity: 'outline' })
+  project = await runStep('save', () => projects.writeStep(project.id, 'outline', { ...plotPatch(project, { outline: contentNode(project.plot.outline, outline) }), activity: 'outline' }), { target: 'story' })
   const result = await (deps.reviewContent || reviewContent)({ project, stage: 'skill-juqing-outline-generate', text: JSON.stringify({ outline, characters: project.plot.characters.items, scenes: project.plot.scenes.items }), route: (await loadModels(models)).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, { activity: null })
@@ -270,7 +273,34 @@ async function opStoryboard(c) {
   return trace
 }
 
+// if (operation.action === 'review-override')
+// 人工忽略自审：新任务，只含一个 override 步骤（执行者为人），把当前版本的不通过改为通过并保留原 AI 理由；原任务不变。
+async function opReviewOverride(c) {
+  let { operation, projects, project, trace, note } = c
+  const key = String(operation.key || '')
+  const blocked = overrideBlocker(project, key)
+  if (blocked) throw Object.assign(new Error(blocked), { status: 409 })
+  await runStep('override', async () => {
+    await projects.save(project.id, current => {
+      const reason = overrideBlocker(current, key)
+      if (reason) throw Object.assign(new Error(reason), { status: 409 })
+      const next = structuredClone(current), at = new Date().toISOString()
+      for (const [item] of overrideNodes(next, key)) {
+        const target = targetNode(next, item)
+        target.check = { passed: true, failures: [], revision: target.revision, override: { at, actor: 'human', reasons: target.check.failures || [] } }
+        target.status = GenerationStatus.PASSED
+        target.error = null
+      }
+      return next
+    })
+    return { check: { passed: true, failures: [] } }
+  }, { target: key })
+  note(`已忽略自审并放行：${key}`)
+  return trace
+}
+
 export const storyOperations = {
+  'review-override': { stage: 'episode', run: opReviewOverride },
   'source': { stage: 'episode', run: opSource },
   'storyboard-text': { stage: 'episode', run: opStoryboardText },
   'characters': { stage: 'episode', run: opCharacters },

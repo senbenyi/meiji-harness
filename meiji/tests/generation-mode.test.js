@@ -1,10 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { modelStore } from '../server/data/models.js'
-import { runOperation } from '../server/flow/actions.js'
+import { modelStore } from '../server/data/model-settings.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { generateShotSeconds } from '../server/generate/shot-text.js'
-import { checkContext, prepareChecks, withReviewPrompt } from '../server/data/self-checks.js'
+import { prepareChecks, withReviewPrompt } from '../server/data/review-checks.js'
+import { checkContext } from '../server/data/operation-context.js'
 
 for (const generationMode of ['regenerate', 'modify']) {
   test(`${generationMode} isolates old output and opinions while reviewing newest output`, async t => {

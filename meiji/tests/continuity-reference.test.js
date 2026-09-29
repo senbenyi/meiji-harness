@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { generateShotStoryboard } from '../server/generate/shot-text.js'
-import { prepareFilmOpening, filmSubmit } from '../server/flow/actions.js'
+import { prepareFilmOpening, filmSubmit } from '../server/flow/operations/run.js'
 
 test('storyboard gets episode and neighbor context without model metadata and strips continuity protocol', async () => {
   const p = episodeFixture()

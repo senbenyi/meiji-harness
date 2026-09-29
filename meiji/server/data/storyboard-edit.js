@@ -1,6 +1,6 @@
 import { shotResult, updateShotResult } from '../../shared/drama-model.js'
 import { videoPromptText as h3PromptText } from '../../shared/video-prompt-text.js'
-import { clearShotDownstream } from '../../shared/gates.js'
+import { clearShotDownstream } from '../../shared/project-rules.js'
 export function storyboardTextPatch(project, { track, text, originalText, draftRevision }) {
   const item = shotResult(project, 'storyboard', track)
   if (!item) throw Object.assign(new Error('请先生成这一镜的文本分镜'), { status: 404 })

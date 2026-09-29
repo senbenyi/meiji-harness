@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { interruptRunning, RESTART_CANCELLED } from '../server/flow/interrupt.js'
+import { interruptRunning, RESTART_CANCELLED } from '../server/flow/tasks/restart.js'
 import { begin, modelPatch, finish } from '../shared/drama-model.js'
 // 服务重启一律取消遗留任务：不续查、不自动恢复；已提交的远端视频尽力取消。
 test('restart cancels orphaned operations, keeps generated content and cancels the remote video',async t=>{

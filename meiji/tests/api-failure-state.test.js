@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { modelStore } from '../server/data/models.js'
-import { runOperation } from '../server/flow/actions.js'
+import { modelStore } from '../server/data/model-settings.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { generateAllSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
 const output='## S01 / 5s\n新动作一\n## S02 / 5s\n新动作二\n[seconds-complete]'
 // 保存时会刷新节点的上游依赖版本（dependencies），比较业务内容时忽略该字段。

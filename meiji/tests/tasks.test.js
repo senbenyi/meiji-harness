@@ -1,15 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createTasks } from '../server/flow/tasks.js'
+import { createTasks } from '../server/flow/tasks/runner.js'
 import { subscribeProject } from '../server/data/project-events.js'
-import { setupModel } from './fixtures/model.js'
+import { setupModel, tempHome } from './fixtures/model.js'
 import { sessionForLog } from '../server/host/session-log.js'
 
 const operation = { projectId: 'p', episodeId: 'e', action: 'seconds' }
-test('button tasks execute directly with isolated logs, reject duplicates and release after cancellation', async () => {
+test('button tasks execute directly with isolated logs, reject duplicates and release after cancellation', async t => {
  const events = [], session = { append: (type, data) => events.push({ type, data }) }
  let signal
- const tasks = createTasks({ home: '/tmp/tasks', execute: async (op, deps) => {
+ const tasks = createTasks({ home: await tempHome(t), execute: async (op, deps) => {
   assert.equal(sessionForLog(), session)
   assert.equal(deps.waitForBackground, true)
   signal = deps.signal
@@ -28,11 +28,12 @@ test('button tasks execute directly with isolated logs, reject duplicates and re
  assert.ok(events.some(e => e.data.text?.includes('任务已停止')))
 })
 
-test('failed log writes do not fail successful tasks; errors settle and release tasks', async () => {
- const tasks = createTasks({ home: '/tmp/tasks', execute: async () => ['已保存'] })
+test('failed log writes do not fail successful tasks; errors settle and release tasks', async t => {
+ const home = await tempHome(t)
+ const tasks = createTasks({ home, execute: async () => ['已保存'] })
  await tasks.start(operation, { append() { throw new Error('disconnected') } }).done
  assert.deepEqual(tasks.list('p'), [])
- const failed = createTasks({ home: '/tmp/tasks', execute: async () => { throw new Error('API failed') } })
+ const failed = createTasks({ home, execute: async () => { throw new Error('API failed') } })
  await failed.start(operation).done
  assert.deepEqual(failed.list('p'), [])
  assert.throws(() => tasks.start({ ...operation, action: 'unknown' }), { status: 400 })
@@ -50,9 +51,9 @@ test('project notification follows a committed revision and subscriptions can di
 })
 
 test('direct generation saves reviewed model and cancellation clears its operation', async t => {
- const { runOperation } = await import('../server/flow/actions.js')
+ const { runOperation } = await import('../server/flow/operations/run.js')
  const { generateAllSeconds } = await import('../server/generate/shot-text.js')
- const { modelStore } = await import('../server/data/models.js')
+ const { modelStore } = await import('../server/data/model-settings.js')
  const e = await setupModel(t), models = modelStore(e.home)
  await models.write({ ...await models.read(), apiKey: 'test-only' })
  const events = [], session = { append: (type, data) => events.push({ type, data }) }

@@ -7,13 +7,14 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { hasStoryboard, hasFilm } from '../shared/flow-rules.js'
+import { hasStoryboard, hasFilm } from '../shared/gates.js'
 import { stepRunLabel } from '../client/flow-view.js'
 import { h3PromptFailures } from '../server/generate/film.js'
-import { checkContext, prepareChecks, selectCheck } from '../server/data/self-checks.js'
+import { prepareChecks, selectCheck } from '../server/data/review-checks.js'
+import { checkContext } from '../server/data/operation-context.js'
 import { projectStore } from '../server/data/projects.js'
 import { feedbackOf } from '../shared/feedback.js'
-import { runOperation } from '../server/flow/actions.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { completeChat } from '../server/generate/gateway.js'
 import { languageInstruction } from '../server/data/language.js'
 
@@ -44,7 +45,7 @@ test('reference format rejects missing sections, unbound subjects and missing pi
 // 整集审核失败后自动修订一次并复审；仍失败时保留最新修订稿并标记失败。
 test('failed whole-episode seconds review keeps the latest revision after one correction', async t => {
   const e = await setupModel(t);await e.store.save(e.id,p=>{p.episodes[0].shots.items.forEach(s=>{s.seconds.stale=true});return p});
-  const {modelStore}=await import('../server/data/models.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
+  const {modelStore}=await import('../server/data/model-settings.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
   let calls = 0
   const out = text => `## S01 / 5s\n${text}\n## S02 / 5s\n${text}\n[seconds-complete]`
   await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: opts => generateAllSeconds({ ...opts, request: async ({ skill }) => { calls++; return skill === 'skill-gongyong-content-review' ? 'FAIL 画外上级被画成主角' : out(calls === 1 ? '初稿动作' : '修订动作') } }) }), /自检未通过/)

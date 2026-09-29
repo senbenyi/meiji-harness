@@ -1,10 +1,10 @@
-import { prepareContentRecords, commitContentRecords, recordStore, contentTargets } from './task-records.js'
+import { prepareContentRecords, commitContentRecords, recordStore, contentTargets } from './task-store.js'
 import { notifyProject } from './project-events.js'
 import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../shared/drama-model.js'
 import { mkdir, rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
-import { replaceFrom, sourcePatch, aspectRatioOf, durationOf } from '../../shared/gates.js'
+import { replaceFrom, sourcePatch, aspectRatioOf, durationOf } from '../../shared/project-rules.js'
 import { normalizeProject } from './episodes.js'
 import { episodeSnapshot, projectIds, readProjectFile, removeProjectFiles, writeProjectFile } from './project-files.js'
 

@@ -8,9 +8,9 @@ import { scopeProjects, addEpisode } from '../server/data/episodes.js'
 import { projectStore, revisionStore } from '../server/data/projects.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 import { buildGuidancePrompt } from '../server/prompts/guidance-prompts.js'
-import { runOperation, saveIncoming, previewFilmSubmit } from '../server/flow/actions.js'
+import { runOperation, saveIncoming, previewFilmSubmit } from '../server/flow/operations/run.js'
 import { generateShotStoryboard } from '../server/generate/shot-text.js'
-import { produceShots } from '../server/workers/shot-film-worker.js'
+import { produceShots } from '../server/flow/operations/films.js'
 import { setContent } from '../shared/drama-model.js'
 import { guidanceTypes } from '../shared/guidance.js'
 
@@ -129,7 +129,7 @@ test('changing selected guides invalidates an in-flight shot task', async t => {
 
 test('custom-skill HTTP endpoint resolves local IDs and rejects missing assets without partial constraint saves', async t => {
   const { registerPanel } = await import('../server/http/routes.js')
-  const { linkStore } = await import('../server/data/links.js')
+  const { linkStore } = await import('../server/data/workspace-links.js')
   const e = await setupModel(t), sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
   await linkStore(e.home).selectProject(sessionId, e.id, e.store)
   let handler

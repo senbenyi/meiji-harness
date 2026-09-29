@@ -57,9 +57,9 @@ ShotTableModel.items 中每个 ShotModel 包含 content、seconds、storyboard�
 
 - `shared/drama-model.js`：共享 Model、四态、节点更新、意见版本与图片引用刷新。
 - `server/data/projects.js`、`episodes.js`：原子存储、节点合并、来源版本检查。
-- `server/data/self-checks.js`、`server/flow/actions.js`：任务状态、意见消费、手动编辑后复审。
-- `client/model-store.js`、`app.js`：响应式数据订阅，保留编辑组件和焦点，拒绝旧响应。
+- `server/data/review-checks.js`、`server/flow/operations/run.js`：任务状态、意见消费、手动编辑后复审。
+- `client/drama-store.js`、`app.js`：响应式数据订阅，保留编辑组件和焦点，拒绝旧响应。
 - `client/workflow-review.js`、`storyboard-editor.js`、`storyboard-references.js`：通用审核、正文草稿和引用核查。
 - `client/styles.css`、`shell.js`：面板容器宽度适配及窄屏布局。
-- `scripts/migrate-model.js`、`migration-feedback.js`：离线一次性迁移；运行时无引用。
+- `scripts/migrate-model.js`、`migrate-model-feedback.js`：离线一次性迁移；运行时无引用。
 

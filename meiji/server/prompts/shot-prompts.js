@@ -1,4 +1,5 @@
-import { checkContext, checkReasons } from '../data/self-checks.js'
+import { checkReasons } from '../data/review-checks.js'
+import { checkContext } from '../data/operation-context.js'
 import { shotResults } from '../../shared/drama-model.js'
 import { continuityReviewContext } from './continuity-review.js'
 import { buildTextPrompts } from './text-prompts.js'

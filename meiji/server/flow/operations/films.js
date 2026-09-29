@@ -3,9 +3,11 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { skillSupplement } from '../../data/custom-skills.js'
+import { materialize } from '../../data/episodes.js'
+import { projectStore } from '../../data/projects.js'
 import { readPicture, savePicture } from '../../data/pictures.js'
-import { selectCheck, withReviewPrompt } from '../../data/self-checks.js'
-import { recordedNode } from '../../data/task-records.js'
+import { selectCheck, withReviewPrompt } from '../../data/review-checks.js'
+import { runStep } from '../../data/task-store.js'
 import { loadModels, services } from './services.js'
 import { concatFilms } from '../../generate/concat.js'
 import { bindReferencePrompt, filmClipUrl, retrieveFilm, saveLastFrame, shotReferenceImages, submitH3, videoRequestMode, wantsOpeningFrame } from '../../generate/film.js'
@@ -15,8 +17,10 @@ import { storyboardPromptText } from '../../generate/story.js'
 import { insertSessionLog } from '../../host/session-log.js'
 import { GenerationStatus, contentNode, node, pictureOf, plotPatch, shotMap, shotResults, updateShotResult } from '../../../shared/drama-model.js'
 import { feedbackOf } from '../../../shared/feedback.js'
-import { hasFilm, hasStoryboard } from '../../../shared/flow-rules.js'
-import { aspectRatioOf } from '../../../shared/gates.js'
+import { hasFilm, hasStoryboard } from '../../../shared/gates.js'
+import { aspectRatioOf } from '../../../shared/project-rules.js'
+import { executeSteps } from '../../../shared/steps.js'
+import { previousTail } from '../../../shared/tail-frame.js'
 
 export async function prepareFilmOpening(project, item) {
   // The storyboard already contains the stored reference; never extract or upload here.
@@ -204,14 +208,17 @@ async function opFilm(c) {
   if (!item || !/^S[0-9]{2,}$/.test(track)) throw Object.assign(new Error('请在对应镜头上提交这一条成片'), { status: 400 })
   if (!storyboardPromptText(item).trim()) throw Object.assign(new Error('请先生成这一镜的分镜'), { status: 409 })
   const route = (await loadModels(models)).video
-  await publishLocalReferences(project, item.video === 'text' ? [] : shotReferenceImages(project, item), { home, route, projects })
   const images = item.video === 'text' ? [] : shotReferenceImages(project, item)
-  const opening = await prepareFilmOpening(project, item, { home, projects, route, deps })
-  const payload = filmSubmit(project, item, opening)
   await projects.save(project.id, { activity: `film:${track}`, activityError: null })
   try {
     const size = aspectRatioOf(project.aspectRatio)
-    const queued = await recordedNode('video_submit', () => submitFilm(project, track, payload, route, deps, size), { target: `film:${track}` })
+    let payload
+    // 提交视频步骤包含：上传本地参考图、准备开场帧、组装参数并提交。
+    const queued = await runStep('video_submit', async () => {
+      await publishLocalReferences(project, images, { home, route, projects })
+      payload = filmSubmit(project, item, await prepareFilmOpening(project, item, { home, projects, route, deps }))
+      return submitFilm(project, track, payload, route, deps, size)
+    }, { target: `film:${track}` })
     const shot = queued.shots[0]
     await writeFilm(projects, project.id, track, { status: 'running', terminal: false, promptId: shot.promptId, request: { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [], continuityReference: payload.continuityReference || null }, assetIds: images.map(image => image.assetId).filter(Boolean), error: null })
     note('已执行：提交成片')
@@ -221,10 +228,10 @@ async function opFilm(c) {
     note(payload.note)
     note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
     note('视频还在生成。完成后出现在这一张镜头卡片上。')
-    deps.defer(recordedNode('video_generate', () => (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal }).then(async bytes => {
+    deps.defer(runStep('video_generate', () => (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal }).then(async bytes => {
       await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
       insertSessionLog(deps.session, `${track} 成片已生成`)
-    }), { target: `film:${track}` }).catch(async error => {
+    }), { target: `film:${track}`, remoteId: shot.promptId }).catch(async error => {
       await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
       insertSessionLog(deps.session, error.message || '成片生成失败', true)
     }))
@@ -254,22 +261,25 @@ async function opFilms(c) {
     if (existing?.content?.status === 'ready' && !existing.stale) { note(`${track} 已完成，跳过重复提交`); continue }
     await selectCheck(current, { action: 'film', track })
     const route = (await loadModels(models)).video
-    await publishLocalReferences(current, item.video === 'text' ? [] : shotReferenceImages(current, item), { home, route, projects })
     const images = item.video === 'text' ? [] : shotReferenceImages(current, item)
-    const opening = await prepareFilmOpening(current, item, { home, projects, route, deps })
-    const payload = filmSubmit(current, item, opening)
     const size = aspectRatioOf(project.aspectRatio)
-    const queued = await recordedNode('video_submit', () => submitFilm(current, track, payload, route, deps, size), { target: `film:${track}` })
+    let payload
+    // 提交视频步骤包含：上传本地参考图、准备开场帧、组装参数并提交。
+    const queued = await runStep('video_submit', async () => {
+      await publishLocalReferences(current, images, { home, route, projects })
+      payload = filmSubmit(current, item, await prepareFilmOpening(current, item, { home, projects, route, deps }))
+      return submitFilm(current, track, payload, route, deps, size)
+    }, { target: `film:${track}` })
     const shot = queued.shots[0]
     await writeFilm(projects, project.id, track, { status: 'running', terminal: false, promptId: shot.promptId, request: { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [], continuityReference: payload.continuityReference || null }, assetIds: images.map(image => image.assetId).filter(Boolean), error: null })
     note(`已提交 ${track}，时长 ${shot.duration} 秒`)
     note(payload.note)
     note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
     try {
-      await recordedNode('video_generate', async () => {
+      await runStep('video_generate', async () => {
         const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })
         await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
-      }, { target: `film:${track}` })
+      }, { target: `film:${track}`, remoteId: shot.promptId })
       note(`${track} 成片已生成`)
     } catch (error) {
       await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
@@ -305,7 +315,62 @@ async function opAssemble(c) {
   return trace
 }
 
+// 单镜制作步骤（produce 与 produce-all 复用）：文本分镜不可用时重新生成并自审 → 视频未完成时提交成片并等待。
+// 每一步执行前按最新内容判断是否需要（已完成的跳过）；任一步未通过即停止，因为后一镜依赖前一镜的尾帧。
+// 子操作经 run（runOperation）执行并复用本任务，步骤写入同一任务记录（见 run.js 的嵌套执行）。
+export function shotSteps(track, { operation, deps, run, trace }) {
+  const read = async () => {
+    const project = materialize(await projectStore(deps.home).read(operation.projectId), operation.episodeId)
+    const shot = project.shots.items.find(item => item.id === track)
+    if (!shot) throw new Error('镜头不存在')
+    return { project, shot }
+  }
+  const storyboardUsable = shot => shot.storyboard.content?.video !== 'first_frame' && shot.storyboard.status === GenerationStatus.PASSED
+  return [
+    {
+      name: `storyboard:${track}`,
+      when: async () => {
+        deps.signal?.throwIfAborted()
+        const { project, shot } = await read()
+        const tail = previousTail(project, track), bound = shot.storyboard.content?.tailReference
+        return !storyboardUsable(shot) || shot.storyboard.stale || (tail?.sourceVideoFile || null) !== (bound?.sourceVideoFile || null)
+      },
+      run: async () => {
+        trace.push(...await run({ ...operation, action: 'shot-storyboard', track }, deps))
+        if (!storyboardUsable((await read()).shot)) throw Object.assign(new Error(`${track} 文本分镜未通过自审`), { code: 'CONTENT_CHECK_FAILED' })
+      },
+    },
+    {
+      name: `film:${track}`,
+      when: async () => { const { shot } = await read(); return shot.video.content?.status !== 'ready' || shot.video.stale },
+      run: async () => {
+        trace.push(...await run({ ...operation, action: 'film', track }, { ...deps, waitForBackground: true }))
+        const { shot } = await read()
+        if (shot.video.content?.status !== 'ready') throw new Error(shot.video.content?.error || `${track} 视频未完成`)
+      },
+    },
+  ]
+}
+
+// if (operation.action === 'produce' || operation.action === 'produce-all')
+const producing = new Set()
+export async function produceShots(operation, deps, run) {
+  const key = `${deps.home}:${operation.projectId}:${operation.episodeId}`
+  if (producing.has(key)) throw new Error('本集成片流程正在执行')
+  producing.add(key)
+  const trace = []
+  try {
+    const project = materialize(await projectStore(deps.home).read(operation.projectId), operation.episodeId)
+    const tracks = operation.action === 'produce-all' ? project.shots.items.map(shot => shot.id) : [operation.track]
+    await executeSteps(tracks.flatMap(track => shotSteps(track, { operation, deps, run, trace })))
+    return trace
+  } finally { producing.delete(key) }
+}
+const opProduce = c => produceShots(c.operation, c.deps, c.deps.runOperation)
+
 export const filmOperations = {
+  'produce': { stage: 'project', run: opProduce },
+  'produce-all': { stage: 'project', run: opProduce },
   'tail-frame': { stage: 'episode', run: opTailFrame },
   'film': { stage: 'episode', run: opFilm },
   'films': { stage: 'episode', run: opFilms },

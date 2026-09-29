@@ -216,6 +216,25 @@ button.style-pick.is-on:hover {
 .task-history-snapshot { margin-top: 10px; }
 .task-history-snapshot summary { cursor: pointer; }
 .task-history-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.task-history-status.is-queued, .task-history-status.is-waiting { color: #ead0a8; background: #40392e; }
+.task-history-status.is-cancelled { color: #c6cbd5; background: #30323a; }
+/* 步骤清单（当前任务与任务历史共用）。 */
+.task-steps { display: grid; gap: 10px; margin-top: 10px; }
+.task-steps-target { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 13px; }
+.task-steps-list { margin: 0; padding-left: 22px; }
+.task-step { margin: 6px 0; padding: 6px 8px; border-radius: 6px; }
+.task-step p { margin: 4px 0 0; }
+.task-step-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.task-step-status { font-size: 12px; color: #aeb5c3; }
+.task-step.is-completed .task-step-status { color: #92d9ac; }
+.task-step.is-failed .task-step-status { color: #f1aaaa; }
+.task-step.is-pending, .task-step.is-skipped { opacity: .65; }
+.task-step.is-current { background: #26384d; outline: 1px solid #4d6f96; }
+.task-step-actor { padding: 1px 6px; border-radius: 10px; background: #40392e; color: #ead0a8; font-size: 12px; }
+.task-step-verdict.is-fail { color: #f1aaaa; }
+.current-task-stop { margin-left: auto; }
+.task-status-view { margin-right: 8px; }
+.workflow-review-overridden { color: #ead0a8; }
 
 /* Action hierarchy and responsive layout across the workbench. */
 button:focus-visible,summary:focus-visible,[role="link"]:focus-visible{outline:2px solid #dfc196;outline-offset:3px}

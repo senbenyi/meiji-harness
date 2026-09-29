@@ -1,7 +1,7 @@
 // 服务启动时处理上次遗留的进行中任务：一律取消，不续查、不自动恢复（用户决定）。
 // 已提交到远端的视频任务尽力发送取消请求；取消失败如实写在节点上（任务可能仍在远端运行）。
 // 等待用户确认的候选图片不属于进行中任务，保持不变。
-import { GenerationStatus, allNodes, modelPatch } from '../../shared/drama-model.js'
+import { GenerationStatus, allNodes, modelPatch } from '../../../shared/drama-model.js'
 
 export const RESTART_CANCELLED = '服务重启，任务已取消，请重新发起'
 

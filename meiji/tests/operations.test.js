@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import { currentSessionId, projectRefreshMark, sessionIdFromStorage } from '../client/chat-bridge.js'
 import { episodeWork } from '../client/overview.js'
 import { buildImageGraph } from '../server/generate/image.js'
-import { runOperation } from '../server/flow/actions.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { projectStore } from '../server/data/projects.js'
 
 const look = '二十出头的中国青年男子，短黑发，皮肤晒黑，穿着旧外套，手里拎着鼓囊的编织袋'
@@ -49,7 +49,7 @@ const passText = text => async ({ skill }) => skill === 'skill-gongyong-content-
 const videoDeps = home => ({ home, submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: item.track })) }), retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') })
 test('batch boards write each shot without losing earlier results',async t=>{
  const e=await setupModel(t)
- const {modelStore}=await import('../server/data/models.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
+ const {modelStore}=await import('../server/data/model-settings.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
  await runOperation(e.op('shot-boards'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:passText('## S01 / 5s\n0–5s：朝北进入\n## S02 / 5s\n0–5s：继续进入\n[seconds-complete]')}),generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:passText('summary: 朝北进入\ndetailed_description: 摄影机在身后\noverall_soundscape: 风\nnon_diegetic_music: N/A')})})
  const p=await e.read();assert.equal(p.shots.items.length,2);for(const s of p.shots.items){assert.equal(s.seconds.status,'passed');assert.equal(s.storyboard.status,'passed')}
 })

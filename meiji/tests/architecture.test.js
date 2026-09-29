@@ -4,13 +4,13 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// 依赖只能从高层指向低层：http/tools → flow → workers → generate → prompts → data → models → shared。
+// 依赖只能从高层指向低层：http/tools → flow → generate → prompts → data → models → shared。
 // host（Harness 适配层）与 shared（领域模块）可被任意服务端层引用；host 自身只依赖 shared。
 // 服务端、工具与脚本不得 import client/（浏览器界面）。
 const root = fileURLToPath(new URL('..', import.meta.url))
 const layers = [
   ['server/http', 7], ['tools', 7], ['index.js', 8],
-  ['server/flow', 6], ['server/workers', 5], ['server/generate', 4], ['server/prompts', 3],
+  ['server/flow', 6], ['server/generate', 4], ['server/prompts', 3],
   ['server/data', 2], ['models', 1], ['skills', 1],
   ['server/host', 0], ['shared', 0],
 ]

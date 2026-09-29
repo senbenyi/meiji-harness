@@ -2,13 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
 import { buildTablePrompts, buildSecondsPrompts } from '../server/prompts/shot-prompts.js'
-import { runGenerationNode, runReviewNode, runTextWorkflow } from '../server/generate/text-workflow.js'
+import { generateStep, reviewStep, runTextSteps } from '../server/generate/text-steps.js'
 import { runTextRequest } from '../server/generate/text-request.js'
 import { generateStoryPackage, regenerateCardGroup } from '../server/generate/story.js'
 import { generateShots, generateShotSeconds } from '../server/generate/shot-text.js'
-import { checkContext } from '../server/data/self-checks.js'
-import { runOperation } from '../server/flow/actions.js'
-import { modelStore } from '../server/data/models.js'
+import { checkContext } from '../server/data/operation-context.js'
+import { runOperation } from '../server/flow/operations/run.js'
+import { modelStore } from '../server/data/model-settings.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 
@@ -62,16 +62,16 @@ test('story regeneration excludes old results; revision uses only latest failed 
   })
 })
 
-test('generation and review nodes run independently and the draft is saved before review starts', async () => {
+test('generation and review steps run independently and the draft is saved before review starts', async () => {
   const prompts = buildStoryPrompts(episodeFixture())
   let saved, calls = 0
-  const text = await runGenerationNode({ message: prompts.generation,
+  const text = await generateStep({ message: prompts.generation,
     options: { request: async () => { calls++; return 'SAVED_DRAFT' } },
     persist: async (text, check) => { saved = text; assert.equal(check.passed, null) },
   })
   assert.equal(calls, 1)
   assert.equal(saved, text)
-  const result = await runReviewNode({ message: prompts.review(saved), options: { request: async ({ user }) => {
+  const result = await reviewStep({ message: prompts.review(saved), options: { request: async ({ user }) => {
     calls++; assert.match(user, /SAVED_DRAFT/); return 'PASS'
   } } })
   assert.equal(calls, 2)
@@ -80,7 +80,7 @@ test('generation and review nodes run independently and the draft is saved befor
 
 test('workflow persists each new draft before its separate review request', async () => {
   const events = [], replies = ['DRAFT', 'FAIL 缺少动作', 'FIXED', 'PASS']
-  await runTextWorkflow({ prompts: buildStoryPrompts(episodeFixture()), options: {
+  await runTextSteps({ prompts: buildStoryPrompts(episodeFixture()), options: {
     project: episodeFixture(), request: async ({ skill }) => { events.push(skill === 'skill-gongyong-content-review' ? 'review' : 'generate'); return replies.shift() },
   }, persist: async (text, check) => events.push(`${text}:${check.passed}`) })
   assert.deepEqual(events, ['generate', 'DRAFT:null', 'review', 'DRAFT:false', 'generate', 'FIXED:null', 'review', 'FIXED:true'])

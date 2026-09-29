@@ -2,7 +2,7 @@ import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from '
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import { extname, join } from 'node:path'
-import { aspectRatioOf, durationOf, replaceFrom, sourcePatch, staleMedia } from '../../shared/gates.js'
+import { aspectRatioOf, durationOf, replaceFrom, sourcePatch, staleMedia } from '../../shared/project-rules.js'
 
 const scriptLimit = 200000
 export function normalizeProject(project) { return assertDrama(project) }

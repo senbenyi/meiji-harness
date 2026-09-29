@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { generateShots, generateShotSeconds, generateShotStoryboard, reviseShot } from '../server/generate/shot-text.js'
 import { episodeFixture } from './fixtures/model.js'
-import { checkContext } from '../server/data/self-checks.js'
-import { clearShotDownstream } from '../shared/gates.js'
+import { checkContext } from '../server/data/operation-context.js'
+import { clearShotDownstream } from '../shared/project-rules.js'
 const ask = (text, verdict='PASS') => async ({ skill }) => skill==='skill-gongyong-content-review'?verdict:text
 const table='## S01 / 3s\n旅人朝北走进庭院。\n\n## S02 / 7s\n旅人停下。'
 test('model can choose unequal boundaries and prose remains verbatim',async()=>{const p=episodeFixture();const out=await generateShots({project:p,request:ask(table)});assert.deepEqual(out.items.map(s=>s.duration),[3,7]);assert.equal(out.items[0].content,'旅人朝北走进庭院。');assert.equal(out.check.passed,true);assert.equal(out.failedOutput,'')})

@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { runOperation } from '../server/flow/actions.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { scopeProjects } from '../server/data/episodes.js'
 import { generateShotSeconds, generateShotStoryboard, generateShots } from '../server/generate/shot-text.js'
-import { checkReasons, setCheck } from '../server/data/self-checks.js'
+import { checkReasons, setCheck } from '../server/data/review-checks.js'
 import { targetNode, begin, saveReview, finish } from '../shared/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/pictures.js'
 const reply=(text,verdict='PASS')=>async ({ skill }) =>skill==='skill-gongyong-content-review'?verdict:text
@@ -115,7 +115,7 @@ test('running text API receives the operation cancellation signal', async t => {
 
 test('storyboard regenerates all shots even when already passed', async t => {
  const e=await setupModel(t)
- const {modelStore}=await import('../server/data/models.js')
+ const {modelStore}=await import('../server/data/model-settings.js')
  const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
  const {generateStoryboard}=await import('../server/generate/shot-text.js')
  const calls=[]

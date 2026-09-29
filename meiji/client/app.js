@@ -1,7 +1,8 @@
 import { renderTaskHistory } from './execution-history.js'
+import { renderCurrentTasks } from './current-task.js'
 import { appendLogCopy } from './dom.js'
 import { tabs } from './flow-view.js'
-import { createModelStore, renderModelView } from './model-store.js'
+import { createModelStore, renderModelView, rootProject } from './drama-store.js'
 import { renderCustomSkill } from './custom-skills.js'
 import { renderSettings } from './settings.js'
 import { createShell } from './shell.js'
@@ -56,11 +57,18 @@ export function mount() {
   const taskBar = document.createElement('div')
   taskBar.className = 'task-status'
   shell.root.querySelector('.status').before(taskBar)
-  let events, eventKey = '', refreshing = false, refreshAgain = false
+  let events, eventKey = '', refreshing = false, refreshAgain = false, currentPage = null
   async function refreshTasks(projectId, sessionId) {
     const result = await request('tasks?' + new URLSearchParams({ projectId, sessionId }))
     if (eventKey !== `${sessionId}:${projectId}`) return
     taskBar.replaceChildren()
+    if (result.tasks.length) {
+      const view = document.createElement('button')
+      view.textContent = '查看当前任务'
+      view.className = 'task-status-view'
+      view.onclick = () => actions.openCurrentTasks(projectId)
+      taskBar.append(view)
+    }
     for (const task of result.tasks) {
       const stop = document.createElement('button')
       stop.textContent = `停止生成${task.track ? ' · ' + task.track : ''}`
@@ -87,7 +95,7 @@ export function mount() {
       try {
         do {
           refreshAgain = false
-          await Promise.all([follow(), refreshTasks(projectId, sessionId)])
+          await Promise.all([follow(), refreshTasks(projectId, sessionId), currentPage?.isConnected ? currentPage.refresh() : null])
         } while (refreshAgain && key === eventKey)
       } catch (error) { shell.status(error.message) }
       finally { refreshing = false }
@@ -139,6 +147,11 @@ export function mount() {
     const accepted = modelStore.accept(project)
     if (accepted === previous || hold) paintProject(accepted)
   }
+  // 用当前完整项目重绘（参数可以是剧集视图）。
+  const repaint = project => {
+    const root = rootProject(modelStore, project)
+    if (root) showProject(root)
+  }
   const showUnbound = projects => {
     shown = signature(null)
     shownProject = ''
@@ -162,6 +175,14 @@ export function mount() {
     } catch (error) { onError(error); shell.status(error.message) }
   })
   const bridge = createBridge({ request, jsonBody, showProject, onDeleted: () => follow(true), status: message => shell.status(message) })
+  // 人工忽略自审：面板直接执行 review-override（会话工具不能发起）。
+  shell.root.addEventListener('meiji-review-override', async event => {
+    const { key, onError } = event.detail
+    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId
+    if (!projectId || !episodeId) return
+    try { await bridge.perform({ id: projectId }, 'review-override', { key, episodeId }) }
+    catch (error) { onError?.(); shell.status(error.message) }
+  })
   const actions = {
     openHistory: (project, historyScope = '') => {
       hold = true
@@ -172,6 +193,23 @@ export function mount() {
         back: () => follow(true).catch(error => shell.status(error.message)),
         load: (artifactId = '') => request('history?' + new URLSearchParams({ projectId: project.id, ...(project.episodeId ? { episodeId: project.episodeId } : {}), sessionId, ...(artifactId ? { artifactId } : {}) })),
       }))
+      shell.content.parentElement.scrollTop = 0
+    },
+    // 「当前任务」页：打开剧集时只看本集，否则看整个项目；收到 /events 推送时刷新。
+    openCurrentTasks: projectId => {
+      hold = true
+      navigation++
+      const sessionId = currentSessionId(), root = modelStore.get(projectId)
+      const episodeId = openEpisode || openCharacter?.episodeId || ''
+      const index = episodeId ? [...(root?.episodes || [])].reverse().findIndex(episode => episode.id === episodeId) : -1
+      const project = { id: projectId, title: root?.title, episodeId, episodeNumber: index >= 0 ? index + 1 : undefined, episodes: root?.episodes }
+      currentPage = renderCurrentTasks(project, {
+        back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
+        load: () => request('tasks/current?' + new URLSearchParams({ projectId, sessionId, ...(episodeId ? { episodeId } : {}) })),
+        stop: task => request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }),
+        openHistory: () => { currentPage = null; actions.openHistory(project) },
+      })
+      display(currentPage)
       shell.content.parentElement.scrollTop = 0
     },
     openCustomSkill: (project, stage) => {
@@ -202,12 +240,12 @@ export function mount() {
     beginImage: async (project, action, fields = {}) => {
       const episodeId = fields.episodeId || project.episodeId
       imageGate = gateFromAction(action, { ...fields, episodeId })
-      showProject(project)
+      repaint(project)
       try {
         await bridge.perform(project, action, { ...fields, episodeId })
       } catch (error) {
         imageGate = { ...imageGate, phase: 'error', held: false, error: error.message }
-        showProject(project)
+        repaint(project)
         throw error
       }
     },
@@ -231,7 +269,7 @@ export function mount() {
         slot: fields.slot || gate.slot || '',
         track: fields.track || gate.track || '',
       }
-      showProject(project)
+      repaint(project)
       if (gate.draftId && options.generationMode !== 'modify') {
         await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId: gate.draftId, action: 'discard-image' }) })
       }

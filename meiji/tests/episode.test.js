@@ -49,7 +49,7 @@ test('regeneration targets the selected episode and separates later continuity c
 
 test('summary modes separate old input, review content and revision-only rules', async () => {
   const { buildEpisodePrompts } = await import('../server/prompts/story-prompts.js')
-  const { checkContext } = await import('../server/data/self-checks.js')
+  const { checkContext } = await import('../server/data/operation-context.js')
   const project = { title: '故事', summary: { content: 'PROJECT_BACKGROUND' }, episodes: [
     { id: 'next', summary: { content: 'NEXT_EPISODE' }, durationSeconds: 120 },
     { id: 'target', summary: { content: 'OLD_SUMMARY' }, durationSeconds: 120 },
@@ -76,8 +76,8 @@ test('summary modes separate old input, review content and revision-only rules',
 for (const mode of ['new', 'regenerate', 'modify']) {
   test(`summary ${mode} runs through the real operation with episode-scoped check context`, async t => {
     const { setupModel } = await import('./fixtures/model.js')
-    const { modelStore } = await import('../server/data/models.js')
-    const { runOperation } = await import('../server/flow/actions.js')
+    const { modelStore } = await import('../server/data/model-settings.js')
+    const { runOperation } = await import('../server/flow/operations/run.js')
     const { generateEpisode } = await import('../server/generate/story.js')
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })

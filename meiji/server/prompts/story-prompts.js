@@ -1,4 +1,4 @@
-import { checkContext } from '../data/self-checks.js'
+import { checkContext } from '../data/operation-context.js'
 import { buildTextPrompts } from './text-prompts.js'
 
 function storyContext(project, modify) {

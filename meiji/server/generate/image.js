@@ -1,5 +1,6 @@
 import { pictureOf, node, setContent } from '../../shared/drama-model.js'
-import { withReviewPrompt, checkContext } from '../data/self-checks.js'
+import { withReviewPrompt } from '../data/review-checks.js'
+import { checkContext } from '../data/operation-context.js'
 import { loadSkill } from '../../skills/load.js'
 import { outputLanguage } from '../data/language.js'
 import { setTimeout as delay } from 'node:timers/promises'

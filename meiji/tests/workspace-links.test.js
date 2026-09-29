@@ -4,9 +4,9 @@ import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { linkStore } from '../server/data/links.js'
+import { linkStore } from '../server/data/workspace-links.js'
 import { projectStore } from '../server/data/projects.js'
-import { runOperation } from '../server/flow/actions.js'
+import { runOperation } from '../server/flow/operations/run.js'
 import { fakeRegistry } from './fixtures/host.js'
 import { setWorkspaceRegistry } from '../server/host/workspaces.js'
 
@@ -85,7 +85,7 @@ test('legacy workspace mappings do not claim ambiguous sessions', () => fixture(
 
 test('HTTP project selection reuses sessions, creates an owned session and rejects old-workspace writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
   const { registerPanel } = await import('../server/http/routes.js')
-  const { createTasks } = await import('../server/flow/tasks.js')
+  const { createTasks } = await import('../server/flow/tasks/runner.js')
   let handler
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home

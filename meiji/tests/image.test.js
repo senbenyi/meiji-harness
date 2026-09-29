@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { defaults, normalizeModels } from '../models/router.js'
+import { defaults, normalizeModels } from '../models/model-config.js'
 import { appendImageAsset, characterStillPrompt, imageAsset, imageAssets, imagePrompt, importAssetImage, nextPartId, partPrompt, pencilPrompt, readStill, sceneStillPrompt, submitAssetImage, clearCharacterImage, usableLook } from '../server/generate/image.js'
 
 const assets = {
@@ -36,7 +36,7 @@ test('gateway image route is stored and a chat model cannot take that slot', asy
   const routes = { ...await defaults(), apiKey: 'sk-test-only' }
   const image = normalizeModels(routes).image
   assert.equal(image.model, 'elysium-image')
-  assert.equal(image.baseUrl, 'https://43.154.247.11/v1')
+  assert.equal(image.baseUrl, 'http://43.154.247.11/v1')
   assert.equal(normalizeModels({ ...routes, baseUrl: 'https://43.154.247.11/v1/' }).image.baseUrl, 'https://43.154.247.11/v1')
   assert.throws(() => normalizeModels({ ...routes, image: routes.chat }))
   assert.throws(() => normalizeModels({ ...routes, baseUrl: 'http://43.154.247.11/v1?token=1' }))

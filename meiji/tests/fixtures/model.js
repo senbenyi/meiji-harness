@@ -19,6 +19,11 @@ export function episodeFixture() {
   e.shots.status = 'passed'; e.shots.check.passed = true
   return e
 }
+// 任务测试用的临时数据目录（任务管理入队时写入任务记录）。
+export async function tempHome(t) {
+  const home = await mkdtemp('/tmp/meiji-tasks-test-'); t.after(() => rm(home, { recursive: true, force: true }))
+  return home
+}
 export async function setupModel(t) {
   const home = await mkdtemp('/tmp/meiji-model-test-'); t.after(() => rm(home, { recursive: true, force: true }))
   const store = projectStore(home), project = await store.create({ title: '测试剧', summary: '旅人的冒险' }), episode = episodeFixture()

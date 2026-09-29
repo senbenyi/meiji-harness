@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { renderStage } from '../client/stages.js'
-import { renderModelView, createModelStore } from '../client/model-store.js'
+import { renderModelView, createModelStore } from '../client/drama-store.js'
 import { setContent } from '../shared/drama-model.js'
 function domSetup(t) {
  const dom=new JSDOM('<body><main></main></body>',{url:'http://localhost'})
@@ -322,7 +322,7 @@ test('history entry navigates without loading inline history', t => {
 test('task history page filters records, loads snapshots, refreshes and returns', async t => {
  const { renderTaskHistory } = await import('../client/execution-history.js')
  const container = domSetup(t), calls = []; let returned = false
- const task = { id: 't1', startedAt: new Date().toISOString(), actor: 'model', action: 'episode-generate', status: 'review_failed', nodes: [{ kind: 'review', status: 'succeeded', reviewResult: 'fail', reasons: ['因果不成立'] }], artifacts: [{ target: 'summary', version: 2, artifactId: 'version-2' }] }
+ const task = { id: 't1', startedAt: new Date().toISOString(), actor: 'model', action: 'episode-generate', status: 'review_failed', steps: [{ kind: 'generate', target: 'summary', status: 'completed' }, { kind: 'review', target: 'summary', status: 'completed', verdict: 'fail', reasons: ['因果不成立'] }, { kind: 'revise', target: 'summary', status: 'skipped' }], artifacts: [{ target: 'summary', version: 2, artifactId: 'version-2' }] }
  const view = renderTaskHistory({ id: 'p', episodeId: 'e', episodeNumber: 1, title: '测试项目' }, {
   back: () => { returned = true },
   load: async artifactId => { calls.push(artifactId); return artifactId ? { artifact: { content: '历史摘要原文' } } : { tasks: [task, { ...task, id: 't2', status: 'completed', artifacts: [] }] } },
@@ -335,6 +335,10 @@ test('task history page filters records, loads snapshots, refreshes and returns'
  filter.value = 'review_failed'; filter.onchange()
  assert.equal(view.querySelectorAll('.task-history-item').length, 1)
  assert.match(view.textContent, /因果不成立/)
+ // 步骤清单与「当前任务」页共用组件：按目标分组，历史中不高亮当前步骤。
+ assert.equal(view.querySelector('.task-steps-target').textContent.startsWith('摘要'), true)
+ assert.deepEqual([...view.querySelectorAll('.task-step')].map(item => item.className), ['task-step is-completed', 'task-step is-completed', 'task-step is-skipped'])
+ assert.equal(view.querySelector('.task-step.is-current'), null)
  const snapshot = view.querySelector('.task-history-snapshot')
  snapshot.open = true; await snapshot.ontoggle()
  assert.match(view.textContent, /历史摘要原文/)
@@ -389,4 +393,88 @@ test('stage toolbar groups status, history, skills and generation controls', t =
   assert.ok(toolbar.querySelector('.stage-primary-actions button.primary'),step)
   assert.equal(container.querySelectorAll('.custom-skill-field').length,0)
  }
+})
+
+test('step list groups by target and shows the current step with elapsed time, attempts and remote task', async t => {
+ const { renderSteps, tickElapsed } = await import('../client/task-steps.js')
+ const container = domSetup(t), start = new Date(Date.now() - 65000).toISOString()
+ const steps = [
+  { kind: 'generate', target: 'storyboard:S01', status: 'completed', startedAt: start, endedAt: start },
+  { kind: 'review', target: 'storyboard:S01', status: 'completed', verdict: 'fail', reasons: ['FAIL 动作冲突'] },
+  { kind: 'revise', target: 'storyboard:S01', status: 'running', startedAt: start, attempts: [{ label: '续传 2/3（S02 起）', status: 'running' }] },
+  { kind: 'video_submit', target: 'film:S01', status: 'pending' },
+  { kind: 'override', target: 'shots', status: 'completed', verdict: 'pass', actor: 'human' },
+ ]
+ const view = renderSteps(steps, { live: true })
+ container.append(view)
+ assert.deepEqual([...view.querySelectorAll('.task-steps-target')].map(head => head.firstChild.textContent), ['文本提示词 · S01', '成片 · S01', '镜头表'])
+ const current = view.querySelector('.task-step.is-current')
+ assert.equal(current.getAttribute('aria-current'), 'step')
+ assert.match(current.textContent, /修订/)
+ assert.match(current.textContent, /尝试 1 次：续传 2\/3（S02 起）（进行中）/)
+ assert.match(current.querySelector('.task-step-elapsed').textContent, /已用 1分0[5-9]秒/)
+ tickElapsed(view, Date.now() + 60000)
+ assert.match(current.querySelector('.task-step-elapsed').textContent, /已用 2分/)
+ assert.match(view.textContent, /审核未通过：FAIL 动作冲突/)
+ assert.match(view.textContent, /人工放行，视为通过/)
+ assert.ok(view.querySelector('.task-step-actor'))
+ const video = renderSteps([{ kind: 'video_generate', target: 'film:S02', status: 'running', startedAt: start, remoteId: 'video_42' }], { live: true })
+ assert.match(video.textContent, /远端任务：video_42/)
+})
+
+test('current task page lists running and queued tasks, stops a task and refreshes on push', async t => {
+ const { renderCurrentTasks } = await import('../client/current-task.js')
+ const container = domSetup(t), stopped = []
+ let tasks = [
+  { id: 'a', label: '一键成片', status: 'running', startedAt: new Date().toISOString(), steps: [{ kind: 'video_submit', target: 'film:S01', status: 'completed' }, { kind: 'video_generate', target: 'film:S01', status: 'running', startedAt: new Date().toISOString(), remoteId: 'video_1' }] },
+  { id: 'b', label: '写镜头表', status: 'queued', queuePosition: 1, steps: [{ kind: 'generate', target: 'shots', status: 'pending' }] },
+ ]
+ let returned = false
+ const view = renderCurrentTasks({ id: 'p', title: '测试剧', episodeId: 'e', episodeNumber: 2 }, { load: async () => ({ tasks }), stop: async task => { stopped.push(task.id) }, back: () => { returned = true } })
+ container.append(view)
+ await new Promise(resolve => setTimeout(resolve, 0))
+ assert.match(view.textContent, /测试剧 · 第 2 集/)
+ assert.equal(view.querySelectorAll('.current-task').length, 2)
+ assert.match(view.textContent, /排队第 1 位/)
+ assert.match(view.querySelector('.task-step.is-current').textContent, /远端任务：video_1/)
+ await view.querySelector('.current-task-stop').onclick()
+ assert.deepEqual(stopped, ['a'])
+ tasks = []
+ await view.refresh()
+ assert.match(view.textContent, /当前没有进行中或排队中的任务/)
+ view.querySelector('.task-history-header button').click()
+ assert.equal(returned, true)
+ view.remove()
+})
+
+test('failed text review offers a human override; an overridden node shows the original AI reasons', async t => {
+ const { appendWorkflowReview } = await import('../client/workflow-review.js')
+ const container = domSetup(t), events = []
+ container.addEventListener('meiji-review-override', event => events.push(event.detail.key))
+ const doc = container.ownerDocument, button = () => doc.createElement('button')
+ doc.defaultView.confirm = () => true
+ const failed = { id: 'shots', review: { text: '', revision: 0 }, check: { passed: false, failures: ['FAIL 节奏太快'] } }
+ let area = appendWorkflowReview(container, failed, true, false, button())
+ area.querySelector('.workflow-review-override').click()
+ assert.deepEqual(events, ['shots'])
+ container.replaceChildren()
+ area = appendWorkflowReview(container, failed, true, true, button())
+ assert.equal(area.querySelector('.workflow-review-override'), null)
+ area = appendWorkflowReview(container, { ...failed, id: 'film:S01' }, true, false, button())
+ assert.equal(area.querySelector('.workflow-review-override'), null)
+ area = appendWorkflowReview(container, { ...failed, check: { passed: true, failures: [], override: { at: 'now', reasons: ['FAIL 节奏太快'] } } }, true, false, button())
+ assert.match(area.querySelector('.workflow-review-overridden').textContent, /人工放行（原自审意见：FAIL 节奏太快）/)
+ assert.equal(area.querySelector('.workflow-review-override'), null)
+})
+
+test('image generation from an episode page repaints with the full project, not the episode view', async t => {
+ const { episodeWork } = await import('../client/overview.js')
+ const { rootProject } = await import('../client/drama-store.js')
+ const e = await setupModel(t), root = await e.store.read(e.id), store = createModelStore()
+ store.accept(root)
+ const view = episodeWork(root, e.episodeId)
+ assert.throws(() => store.accept(view), /Model 迁移/)
+ assert.equal(rootProject(store, view), root)
+ assert.equal(rootProject(store, root), root)
+ assert.equal(rootProject(createModelStore(), view), null)
 })

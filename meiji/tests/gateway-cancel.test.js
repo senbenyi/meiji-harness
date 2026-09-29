@@ -1,8 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { generateGatewayImage, retrieveGatewayVideo, submitGatewayVideo } from '../server/generate/gateway.js'
-import { createTasks } from '../server/flow/tasks.js'
-import { checkContext } from '../server/data/self-checks.js'
+import { createTasks } from '../server/flow/tasks/runner.js'
+import { checkContext } from '../server/data/operation-context.js'
+import { tempHome } from './fixtures/model.js'
 
 const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' }
 const stop = controller => controller.abort(Object.assign(new Error('任务已停止'), { code: 'TASK_CANCELLED' }))
@@ -49,10 +50,10 @@ for (const kind of ['videos', 'images/tasks']) {
   })
 }
 
-test('panel stop waits for remote cancellation; repeated clicks do not duplicate requests', async () => {
+test('panel stop waits for remote cancellation; repeated clicks do not duplicate requests', async t => {
   const query = Promise.withResolvers(), cancellation = Promise.withResolvers(), reachedCancel = Promise.withResolvers()
   let cancelCount = 0
-  const tasks = createTasks({ home: '/tmp/meiji-cancel-test', execute: async (_, { signal }) => {
+  const tasks = createTasks({ home: await tempHome(t), execute: async (_, { signal }) => {
     await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, fetchImpl: async (url, options) => {
       if (url.pathname.endsWith('/cancel')) { cancelCount++; reachedCancel.resolve(); return cancellation.promise }
       query.resolve()
@@ -81,9 +82,10 @@ test('unsupported remote cancellation is reported rather than claiming success',
 })
 
 // 服务关闭一律取消：与用户点击停止相同，已提交的视频会收到远端取消请求。
-test('service shutdown cancels the submitted video remotely instead of pausing it', async () => {
-  const tasks = createTasks({ home: '/nonexistent', execute: async (_operation, { signal }) => {
-    await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, pause: (_ms, polling) => new Promise((_, reject) => polling.addEventListener('abort', () => reject(polling.reason), { once: true })), fetchImpl: async (url, options) => {
+test('service shutdown cancels the submitted video remotely instead of pausing it', async t => {
+  const paused = Promise.withResolvers()
+  const tasks = createTasks({ home: await tempHome(t), execute: async (_operation, { signal }) => {
+    await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, pause: (_ms, polling) => { paused.resolve(); return new Promise((_, reject) => polling.addEventListener('abort', () => reject(polling.reason), { once: true })) }, fetchImpl: async (url, options) => {
       calls.push([url.pathname, options.method])
       if (url.pathname.endsWith('/cancel')) return Response.json({ status: 'cancelled' })
       return Response.json({ status: 'in_progress' })
@@ -91,7 +93,7 @@ test('service shutdown cancels the submitted video remotely instead of pausing i
   } })
   const calls = []
   const { done } = tasks.start({ action: 'film', projectId: 'p', episodeId: 'e', track: 'S01', sessionId: 's' })
-  await new Promise(resolve => setTimeout(resolve, 20))
+  await paused.promise
   tasks.dispose()
   const result = await done
   assert.equal(result.status, 'cancelled')
@@ -136,8 +138,8 @@ test('generation uses the operation context signal and does not submit after sto
 for (const action of ['film', 'films']) {
   test(`${action}: remote cancellation persists a terminal video and releases the card`, async t => {
     const { setupModel } = await import('./fixtures/model.js')
-    const { modelStore } = await import('../server/data/models.js')
-    const { runOperation } = await import('../server/flow/actions.js')
+    const { modelStore } = await import('../server/data/model-settings.js')
+    const { runOperation } = await import('../server/flow/operations/run.js')
     const e = await setupModel(t), controller = new AbortController()
     await modelStore(e.home).write({ ...route, chat: { model: 'chat' }, story: { model: 'chat' }, image: { model: 'image' }, video: { model: 'video' } })
     let submissions = 0, cancellations = 0

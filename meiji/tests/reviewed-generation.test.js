@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runTextWorkflow } from '../server/generate/text-workflow.js'
+import { runTextSteps } from '../server/generate/text-steps.js'
+import { recordSteps } from './fixtures/steps.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 
 // Exercise the public worker while controlling generation/review responses.
 async function generateWithSelfReview({ generate, review, canRevise }) {
   let original, verdict
-  return runTextWorkflow({ prompts: buildTextPrompts({ skill: 'skill-gailan-episode-generate', project: {}, instructions: '测试' }), canRevise, options: { project: { durationSeconds: 5 }, request: async ({ skill }) => {
+  return runTextSteps({ prompts: buildTextPrompts({ skill: 'skill-gailan-episode-generate', project: {}, instructions: '测试' }), canRevise, options: { project: { durationSeconds: 5 }, request: async ({ skill }) => {
     if (skill === 'skill-gongyong-content-review') { verdict = await review(original); return verdict }
     original = await generate(original === undefined ? undefined : { text: original, reviewText: verdict })
     return original
@@ -44,7 +45,7 @@ test('invalid table syntax fails before review and is never rewritten',async()=>
 
 test('second self-review sees task and newest output without prior failed draft or verdict', async () => {
   let generation = 0, reviews = 0
-  await runTextWorkflow({
+  await runTextSteps({
     prompts: buildTextPrompts({ skill: 'skill-gailan-episode-generate', project: {}, instructions: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
     reviewInstructions: '任务依据：向北走；人工意见：保持背影。' }),
     options: { project: { durationSeconds: 5 }, request: async ({ skill, user: prompt }) => {
@@ -61,4 +62,15 @@ test('second self-review sees task and newest output without prior failed draft 
     } },
   })
   assert.equal(reviews, 2)
+})
+
+test('text steps record generate, review and, only after a failed review, revise and re-review', async () => {
+  const plan = ['generate', 'review', 'revise', 're_review'].map(kind => ({ id: kind, kind, target: 'summary', status: 'pending', verdict: null, reasons: [], attempts: [], inputs: [], outputs: [] }))
+  const failed = await recordSteps(() => generateWithSelfReview({ generate: async correction => correction ? '修订稿' : '初稿', review: async text => text === '初稿' ? 'FAIL\n朝向错误' : 'PASS' }), structuredClone(plan))
+  // 未传 target 时步骤不对应到计划，追加在后面；计划步骤保持未执行。
+  assert.deepEqual(failed.steps.filter(step => step.unplanned).map(step => `${step.kind}:${step.verdict}`), ['generate:null', 'review:fail', 'revise:null', 're_review:pass'])
+  const passed = await recordSteps(() => runTextSteps({ target: 'summary', prompts: buildTextPrompts({ skill: 'skill-gailan-episode-generate', project: {}, instructions: '测试' }), options: { project: { durationSeconds: 5 },
+    request: async ({ skill }) => skill === 'skill-gongyong-content-review' ? 'PASS' : '稿' } }), structuredClone(plan))
+  assert.deepEqual(passed.steps.map(step => `${step.kind}:${step.status}:${step.verdict}`), ['generate:completed:null', 'review:completed:pass', 'revise:pending:null', 're_review:pending:null'])
+  assert.ok(passed.steps.every(step => !step.unplanned))
 })

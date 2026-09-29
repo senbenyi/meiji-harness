@@ -27,3 +27,35 @@ export function feedbackOf(project, target) {
   const record = targetNode(project, key)
   return record || emptyFeedback()
 }
+
+// 人工忽略自审（review-override）：只作用于文本内容当前版本的自审不通过。
+// 内容为空或格式错误（解析失败）、正在生成、已过期或结论不属于当前版本时不可忽略。
+// 放行记在节点 check.override 上（保留原 AI 理由）；内容再次生成或编辑会写入新的 check，放行随之失效。
+const overrideKinds = new Set(['summary', 'outline', 'characters', 'scenes', 'shots', 'seconds', 'storyboard'])
+export function overrideNodes(project, key) {
+  const kind = String(key || '').split(':')[0]
+  if (!overrideKinds.has(kind)) return []
+  const keys = key === 'outline' ? ['outline', 'characters', 'scenes'] : key === 'seconds' ? ['seconds', ...(project.shots?.items || []).map(shot => `seconds:${shot.id}`)] : [key]
+  return keys.map(item => [item, targetNode(project, item)]).filter(([, value]) => value?.check?.passed === false)
+}
+const hasText = (key, value) => {
+  const kind = key.split(':')[0]
+  if (kind === 'characters' || kind === 'scenes') return Boolean(value.items ? value.items.length : value.content ?? value.look ?? value.name)
+  if (kind === 'shots') return Boolean(value.items?.length) && !value.failedOutput
+  if (kind === 'storyboard') return value.content != null
+  return Boolean(String(value.content ?? '').trim())
+}
+export function overrideBlocker(project, key) {
+  const nodes = overrideNodes(project, key)
+  if (!nodes.length) return '只有自审未通过的文本内容可以忽略'
+  for (const [item, value] of nodes) {
+    if (value.operation) return '内容正在生成，请稍后'
+    if (value.stale) return '内容已过期，请重新生成'
+    if (value.check.revision != null && value.check.revision !== value.revision) return '自审结论不属于当前版本，请重新生成'
+    if (!hasText(item, value)) return '内容为空或格式错误，不能忽略，请重新生成'
+  }
+  return null
+}
+export const overriddenBy = record => record?.check?.passed === true && record.check.override ? record.check.override : null
+// 面板是否显示「忽略并通过」按钮（完整校验在服务端 overrideBlocker）。
+export const overridable = record => overrideKinds.has(String(record?.id || '').split(':')[0]) && record.check?.passed === false && !record.stale && !record.operation

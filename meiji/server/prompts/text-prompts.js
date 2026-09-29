@@ -1,4 +1,4 @@
-import { checkContext } from '../data/self-checks.js'
+import { checkContext } from '../data/operation-context.js'
 import { continuityReviewContext } from './continuity-review.js'
 import { loadSkill } from '../../skills/load.js'
 import { languageInstruction } from '../data/language.js'

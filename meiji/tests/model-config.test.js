@@ -4,13 +4,13 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { defaults, normalizeModels } from '../models/router.js'
-import { modelStore } from '../server/data/models.js'
+import { defaults, normalizeModels } from '../models/model-config.js'
+import { modelStore } from '../server/data/model-settings.js'
 
 test('text, image, and video share one gateway config', async () => {
   const routes = { ...await defaults(), apiKey: 'sk-test-only' }
   const config = normalizeModels(routes)
-  assert.equal(config.chat.baseUrl, 'https://43.154.247.11/v1')
+  assert.equal(config.chat.baseUrl, 'http://43.154.247.11/v1')
   assert.equal(config.image.baseUrl, config.chat.baseUrl)
   assert.equal(config.video.apiKey, config.chat.apiKey)
   assert.equal(config.chat.model, 'elysium-chat')

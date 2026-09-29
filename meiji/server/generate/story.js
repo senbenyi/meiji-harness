@@ -1,4 +1,4 @@
-import { runTextWorkflow } from './text-workflow.js'
+import { runTextSteps } from './text-steps.js'
 import { buildStoryPrompts, buildEpisodePrompts } from '../prompts/story-prompts.js'
 import { node, cardModel } from '../../shared/drama-model.js'
 export { generateShots, reviseShot, generateAllSeconds, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
@@ -102,7 +102,8 @@ export function normalizeEpisodeDraft(raw) {
 }
 
 export async function generateEpisode({ route, project, episodeId, signal, fetchImpl, request, persist }) {
-  const result = await runTextWorkflow({
+  const result = await runTextSteps({
+    target: 'summary',
     prompts: buildEpisodePrompts(project, episodeId),
     options: { route, project: { ...project, durationSeconds: 180 }, signal, fetchImpl, request },
     validate: text => normalizeEpisodeDraft(parseJsonValue(text)),
@@ -117,13 +118,14 @@ export async function generateStoryPackage({ route, project, signal, fetchImpl, 
     const raw = parseJsonValue(text)
     return { outline: required(raw.outline, '大纲是空的'), characters: normalizeCharacters(raw.characters), scenes: normalizeScenes(raw.scenes) }
   }
-  const generated = await runTextWorkflow({ prompts: buildStoryPrompts(project), options, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })) })
+  const generated = await runTextSteps({ target: 'story', prompts: buildStoryPrompts(project), options, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })) })
   return { ...normalize(generated.text), check: generated.check }
 }
 
 export async function regenerateCardGroup({ project, kind, route, review, persist, signal, fetchImpl, request }) {
   const normalize = text => (kind === 'characters' ? normalizeCharacters : normalizeScenes)(parseJsonValue(text))
-  const result = await runTextWorkflow({
+  const result = await runTextSteps({
+    target: 'story',
     prompts: buildStoryPrompts(project, kind, review),
     options: { route, project, signal, fetchImpl, request }, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
   })
