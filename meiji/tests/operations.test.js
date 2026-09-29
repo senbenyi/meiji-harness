@@ -64,6 +64,20 @@ test('group regeneration only replaces selected cards and retains outline and ot
  await runOperation(e.op('scenes',{review:'场景更开阔'}),{home:e.home,regenerateCardGroup:async()=>({items:before.plot.scenes.items.map(s=>({...s,space:'更开阔的空间'})),check:{passed:true,failures:[]}})})
  const after=await e.read();assert.deepEqual(after.plot.characters,before.plot.characters);assert.deepEqual(after.plot.outline,before.plot.outline);assert.equal(after.plot.scenes.items[0].space,'更开阔的空间')
 })
+test('character text edit keeps the picture and writes values without prompt keys',async t=>{
+ const e=await setupModel(t),before=await e.read(),character=before.plot.characters.items[0]
+ const {characterFieldValues,characterFactText}=await import('../shared/character-facts.js')
+ const original=characterFieldValues(character)
+ const fields={...original,name:'武松',gender:'男'}
+ await runOperation(e.op('character-text',{itemId:character.id,original,fields}),{home:e.home,reviewContent:async()=>({passed:true,failures:[]})})
+ const after=await e.read(),saved=after.plot.characters.items[0]
+ assert.equal(saved.name,'武松');assert.equal(saved.gender,'男');assert.equal(saved.image.content,character.image.content)
+ assert.equal(after.shots.items[0].cast[0],'武松')
+ assert.deepEqual(after.shots.items[0].storyboard.content.characters,['武松'])
+ assert.match(characterFactText(saved),/^中国，武松，/)
+ assert.equal(/姓名：|性别：/.test(characterFactText(saved)),false)
+ await assert.rejects(runOperation(e.op('character-text',{itemId:character.id,original,fields}),{home:e.home}),/已更新/)
+})
 test('scene text edit preserves image and rejects stale original',async t=>{
  const e=await setupModel(t),before=await e.read(),scene=before.plot.scenes.items[0]
  const original=Object.fromEntries(['name','landmark','light','space','look'].map(k=>[k,scene[k]]))

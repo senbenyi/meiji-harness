@@ -2,7 +2,7 @@ import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch } f
 import { feedbackKey, feedbackOf } from '../../shared/feedback.js'
 import { checkContext, apiFailed, inTextStep } from './operation-context.js'
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
-const generationActions = new Set(['characters', 'scenes', 'scene-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
+const generationActions = new Set(['characters', 'scenes', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' || operation.action === 'outline-text') return ['outline', 'characters', 'scenes']
   const kind = { seconds: 'seconds', storyboard: 'storyboard', 'shot-boards': 'storyboard', films: 'film' }[operation.action]
@@ -41,7 +41,7 @@ export function withReviewPrompt(prompt, includeOriginal = true) {
 }
 export async function prepareChecks(store, project, operation) {
   if (!generationActions.has(operation.action)) return { store, project, operation }
-  const manual = ['scene-text', 'storyboard-text', 'outline-text', 'assemble'].includes(operation.action)
+  const manual = ['scene-text', 'character-text', 'storyboard-text', 'outline-text', 'assemble'].includes(operation.action)
   const mode = manual ? 'modify' : operation.generationMode || (operation.review || operation.instruction ? 'modify' : 'regenerate')
   if (!['regenerate', 'modify'].includes(mode)) throw Object.assign(new Error('不支持的生成模式'), { status: 400 })
   const candidate = operation.draftId && project.pendingImages?.[operation.draftId]

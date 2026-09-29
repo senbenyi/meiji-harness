@@ -1,8 +1,8 @@
-import { renderImageReview } from './image-review.js'
+import { renderImageReview, syncImageGate, detailOwnsImage } from './image-review.js'
 import { renderCharacterDetail } from './character.js'
 import { element } from './dom.js'
 import { tabOf, tabs } from './flow-view.js'
-import { renderShotPage, renderStage } from './stages.js'
+import { renderShotPage, renderStage, renderSceneDetail } from './stages.js'
 import { episodeWork, renderOverview } from './overview.js'
 import { bindStylePicker } from './style-picks.js'
 
@@ -110,11 +110,21 @@ export function renderSession(project, openCreate, actions, context = {}) {
     view.append(unboundBody(openCreate, context))
     return view
   }
-  const previews = renderImageReview(project, actions, context.imageGate)
-  if (previews) view.append(previews)
+  const imageGate = syncImageGate(project, context.imageGate)
+  const onDetail = detailOwnsImage(context, imageGate)
+  if (!onDetail) {
+    const previews = renderImageReview(project, actions, context.imageGate)
+    if (previews) view.append(previews)
+  }
+  const detailContext = onDetail ? { ...context, detailGate: imageGate } : context
   if (context.character) {
     const characterProject = episodeWork(project, context.character.episodeId)
-    view.append(renderCharacterDetail(characterProject, context.character.itemId, actions, context))
+    view.append(renderCharacterDetail(characterProject, context.character.itemId, actions, detailContext))
+    return view
+  }
+  if (context.scene) {
+    const sceneProject = episodeWork(project, context.scene.episodeId)
+    view.append(renderSceneDetail(sceneProject, context.scene.itemId, actions, detailContext))
     return view
   }
   const work = context.episodeId ? episodeWork(project, context.episodeId) : null

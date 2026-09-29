@@ -13,6 +13,7 @@ import { clearShotDownstream, replaceFrom } from '../../../shared/project-rules.
 import { canGenerate, hasShots } from '../../../shared/gates.js'
 import { shotSecondsReady } from '../../../shared/shot-timing.js'
 import { skillFilePath } from '../../../skills/load.js'
+import { characterFieldValues, characterLookText } from '../../../shared/character-facts.js'
 
 // if (operation.action === 'source')
 async function opSource(c) {
@@ -66,6 +67,41 @@ async function opSceneText(c) {
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, { activity: null })
   note('场景文字已保存并完成自审，图片保留')
+  return trace
+}
+
+// if (operation.action === 'character-text')
+async function opCharacterText(c) {
+  let { operation, deps, projects, models, project, trace, note } = c
+  const character = project.plot.characters.items.find(item => item.id === operation.itemId)
+  if (!character) throw Object.assign(new Error('人物不存在'), { status: 404 })
+  const keys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features']
+  const current = characterFieldValues(character)
+  if (keys.some(key => current[key] !== operation.original?.[key])) throw Object.assign(new Error('人物已更新，请刷新后编辑'), { status: 409 })
+  const values = Object.fromEntries(keys.map(key => [key, String(operation.fields?.[key] || '').trim()]))
+  if (Object.values(values).some(value => !value || value.length > 10000)) throw Object.assign(new Error('人物字段不能为空或超过10000字'), { status: 400 })
+  if (project.plot.characters.items.some(item => item.id !== character.id && item.name === values.name)) throw Object.assign(new Error('人物名称重复'), { status: 400 })
+  const look = characterLookText(values)
+  project = await runStep('save', () => projects.save(project.id, currentProject => {
+    const items = currentProject.plot.characters.items.map(item => item.id === character.id ? { ...item, ...values, figure: '', look } : item)
+    const patch = { ...plotPatch(currentProject, { characters: { ...currentProject.plot.characters, items } }), activity: 'character-text' }
+    if (values.name === character.name || !currentProject.shots) return patch
+    patch.shots = {
+      ...currentProject.shots,
+      items: currentProject.shots.items.map(shot => ({
+        ...shot,
+        cast: (shot.cast || []).map(name => name === character.name ? values.name : name),
+        storyboard: Array.isArray(shot.storyboard?.content?.characters)
+          ? { ...shot.storyboard, content: { ...shot.storyboard.content, characters: shot.storyboard.content.characters.map(name => name === character.name ? values.name : name) } }
+          : shot.storyboard,
+      })),
+    }
+    return patch
+  }), { target: 'story' })
+  const result = await (deps.reviewContent || reviewContent)({ project, stage: '人物文字编辑，仅审人物与大纲一致性，不要求重写大纲或场景卡', text: JSON.stringify(project.plot.characters.items), route: (await loadModels(models)).story })
+  checkContext.getStore().validation = result.failures
+  await projects.save(project.id, { activity: null })
+  note('人物文字已保存并完成自审，图片保留')
   return trace
 }
 
@@ -306,6 +342,7 @@ export const storyOperations = {
   'characters': { stage: 'episode', run: opCharacters },
   'scenes': { stage: 'episode', run: opCharacters },
   'scene-text': { stage: 'episode', run: opSceneText },
+  'character-text': { stage: 'episode', run: opCharacterText },
   'outline-text': { stage: 'episode', run: opOutlineText },
   'outline': { stage: 'episode', run: opOutline },
   'shot-assets': { stage: 'episode', run: opShotAssets },

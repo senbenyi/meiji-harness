@@ -31,6 +31,7 @@ export const definitions = {
   source: { label: '修改原始资料', scope: 'episode', queue: 'text', agent: false, step: save('summary') },
   'outline-text': { label: '修改大纲', scope: 'episode', queue: 'text', agent: false, plan: () => edit('story') },
   'scene-text': { label: '编辑场景文字', scope: 'episode', queue: 'text', agent: false, plan: () => edit('story') },
+  'character-text': { label: '编辑人物文字', scope: 'episode', queue: 'text', agent: false, plan: () => edit('story') },
   'storyboard-text': { label: '编辑文本分镜', scope: 'shot', queue: 'text', agent: false, plan: (_, op) => edit(`storyboard:${op.track}`) },
   'shot-assets': { label: '修改镜头素材', scope: 'shot', queue: 'text', agent: false, step: save('shots') },
   characters: { label: '按意见修订人物卡', scope: 'episode', queue: 'text', agent: true, plan: () => text('story') },

@@ -1,6 +1,7 @@
 import { targetNode, emptyCheck, emptyReview, node, aggregateStatus } from './drama-model.js'
 export function feedbackKey({ action, track, itemId, slot }) {
   if (action === 'scene-text') return 'scenes'
+  if (action === 'character-text') return 'characters'
   if (action === 'episode-generate') return 'summary'
   if (action === 'revise-shot') return `shot:${track}`
   if (action === 'shot-seconds') return `seconds:${track}`

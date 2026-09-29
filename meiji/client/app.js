@@ -104,6 +104,7 @@ export function mount() {
   window.addEventListener('pagehide', () => events?.close(), { once: true })
 
   let openCharacter = null
+  let openScene = null
   let imageGate = null
   let navigation = 0, library, workspace = null, shown = '', shownMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', openTab = '', shownProject = ''
   const display = node => { renderModelView(shell.content, node); shell.status(''); shell.setOpen(true) }
@@ -115,8 +116,11 @@ export function mount() {
     onBind: () => openCatalog().catch(error => shell.status(error.message)),
     onPick: project => bind(project).catch(error => shell.status(error.message)),
     character: openCharacter,
-    onOpenCharacter: (episodeId, itemId) => { openCharacter = { episodeId, itemId }; follow(true).catch(error => shell.status(error.message)) },
+    scene: openScene,
+    onOpenCharacter: (episodeId, itemId) => { openCharacter = { episodeId, itemId }; openScene = null; follow(true).catch(error => shell.status(error.message)) },
     onBackCharacter: () => { openCharacter = null; follow(true).catch(error => shell.status(error.message)) },
+    onOpenScene: (episodeId, itemId) => { openScene = { episodeId, itemId }; openCharacter = null; follow(true).catch(error => shell.status(error.message)) },
+    onBackScene: () => { openScene = null; follow(true).catch(error => shell.status(error.message)) },
     episodeId: openEpisode,
     shotId: openShot,
     shotTab,
@@ -130,7 +134,7 @@ export function mount() {
   })
   const paintProject = (project, nextWorkspace = workspace) => {
     workspace = nextWorkspace ?? workspace
-    if ((project?.id || '') !== shownProject) { openCharacter = null; openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; imageGate = null }
+    if ((project?.id || '') !== shownProject) { openCharacter = null; openScene = null; openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; imageGate = null }
     shownProject = project?.id || ''
     shown = signature(project)
     shownMark = projectRefreshMark(project)
@@ -156,6 +160,7 @@ export function mount() {
     shown = signature(null)
     shownProject = ''
     openCharacter = null
+    openScene = null
     openEpisode = ''
     openShot = ''
     imageGate = null
@@ -166,7 +171,7 @@ export function mount() {
   }
   shell.root.addEventListener('meiji-review-draft', async event => {
     const { key, text, revision, kind, onSaved, onError } = event.detail
-    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId
+    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId || openScene?.episodeId
     if (!projectId || !episodeId) return
     try {
       const result = await request('review-draft', { method: 'PUT', ...jsonBody({ projectId, episodeId, sessionId: currentSessionId(), key, text, revision, kind }) })
@@ -178,7 +183,7 @@ export function mount() {
   // 人工忽略自审：面板直接执行 review-override（会话工具不能发起）。
   shell.root.addEventListener('meiji-review-override', async event => {
     const { key, onError } = event.detail
-    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId
+    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId || openScene?.episodeId
     if (!projectId || !episodeId) return
     try { await bridge.perform({ id: projectId }, 'review-override', { key, episodeId }) }
     catch (error) { onError?.(); shell.status(error.message) }
@@ -200,7 +205,7 @@ export function mount() {
       hold = true
       navigation++
       const sessionId = currentSessionId(), root = modelStore.get(projectId)
-      const episodeId = openEpisode || openCharacter?.episodeId || ''
+      const episodeId = openEpisode || openCharacter?.episodeId || openScene?.episodeId || ''
       const index = episodeId ? [...(root?.episodes || [])].reverse().findIndex(episode => episode.id === episodeId) : -1
       const project = { id: projectId, title: root?.title, episodeId, episodeNumber: index >= 0 ? index + 1 : undefined, episodes: root?.episodes }
       currentPage = renderCurrentTasks(project, {

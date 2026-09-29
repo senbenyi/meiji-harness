@@ -1,4 +1,5 @@
 import { pictureOf, node, setContent } from '../../shared/drama-model.js'
+import { characterFactText, characterFieldValues } from '../../shared/character-facts.js'
 import { withReviewPrompt } from '../data/review-checks.js'
 import { checkContext } from '../data/operation-context.js'
 import { loadSkill } from '../../skills/load.js'
@@ -64,32 +65,10 @@ export function sceneStillPrompt(item) {
   return look
 }
 
-const stillLabels = ['国籍', '身份', '性别', '年代', '年龄', '服装', '身高', '体型', '身型', '面相', '面向']
-
-function labeledValue(text, label) {
-  const source = String(text || '')
-  const mark = `${label}：`
-  const start = source.indexOf(mark)
-  if (start < 0) return ''
-  const from = start + mark.length
-  const next = stillLabels.slice(stillLabels.indexOf(label) + 1).map(item => source.indexOf(`${item}：`, from)).find(index => index >= 0)
-  return source.slice(from, next === undefined ? source.length : next).trim()
-}
-
 export function characterStillPrompt(item) {
-  const pick = (field, label) => String(item?.[field] || labeledValue(item?.look, label) || '').trim()
-  const lines = [
-    ['国籍', pick('nationality', '国籍') || '中国'],
-    ['身份', pick('role', '身份')],
-    ['性别', pick('gender', '性别')],
-    ['年代', pick('era', '年代')],
-    ['年龄', pick('age', '年龄')],
-    ['身高', pick('height', '身高')],
-    ['体型', [pick('build', '体型'), pick('figure', '身型')].filter(Boolean).join('，')],
-    ['面相', pick('features', '面相')],
-  ].filter(([, value]) => value)
-  lines.push(['形态', characterStillShape(item)])
-  return lines.map(([label, value]) => `${label}：${value}`).join(' ')
+  const facts = characterFactText(item)
+  const shape = characterStillShape(item)
+  return facts ? `${facts}。${shape}` : shape
 }
 
 const hanDigit = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
@@ -108,7 +87,7 @@ function hanYears(text) {
 }
 
 function statedAge(item) {
-  const age = String(item?.age || labeledValue(item?.look, '年龄') || '')
+  const age = characterFieldValues(item).age
   const years = age.match(/(\d+)\s*(?:岁|years?\b)/i)
   if (years) return Number(years[1])
   const han = hanYears(age)
@@ -297,9 +276,9 @@ export function nextPartId(character, slot) {
 
 export function partPrompt(character, slot) {
   const background = '灰白纯色背景'
-  if (slot === 'clothes') return `服装：${character?.costume || '衣服'}。单独展示这套衣服，不要画人，${background}`
-  if (slot === 'props') return `道具：${character?.prop || '道具'}。单独展示这件道具，不要画人，${background}`
-  if (slot === 'hairstyles') return `发型：${character?.features || character?.name || '发型'}。只画这款发型，不要画全身，${background}`
+  if (slot === 'clothes') return `${character?.costume || '衣服'}。单独展示这套衣服，不要画人，${background}`
+  if (slot === 'props') return `${character?.prop || '道具'}。单独展示这件道具，不要画人，${background}`
+  if (slot === 'hairstyles') return `${character?.features || character?.name || '发型'}。只画这款发型，不要画全身，${background}`
   throw Object.assign(new Error('不支持的图片分组'), { status: 400 })
 }
 

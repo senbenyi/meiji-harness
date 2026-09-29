@@ -123,11 +123,12 @@ test('a character still prompt keeps the face and figure and drops clothing', ()
     build: '中等、肩宽',
     figure: '肩宽腰稳、四肢厚实',
     features: '面容温和，双耳垂肩，短须',
+    name: '刘备',
     look: '国籍：中国 身份：桃园结义大哥 性别：男 年代：三国 年龄：四十三岁 服装：绿袍锦缎长衣 身高：一米八五 体型：中等、肩宽 身型：肩宽腰稳、四肢厚实 面相：面容温和，双耳垂肩，短须 面向：正面平视镜头',
   })
-  assert.match(prompt, /体型：中等、肩宽，肩宽腰稳、四肢厚实/)
-  assert.equal(prompt.includes('身型：'), false)
-  assert.match(prompt, /面相：面容温和，双耳垂肩，短须/)
+  assert.match(prompt, /中国，刘备，桃园结义大哥，男，三国，四十三岁，一米八五，中等、肩宽，肩宽腰稳、四肢厚实，面容温和，双耳垂肩，短须/)
+  assert.equal(/国籍：|姓名：|身份：|性别：|年代：|年龄：|身高：|体型：|身型：|面相：|形态：|服装：/.test(prompt), false)
+  assert.match(prompt, /面容温和，双耳垂肩，短须/)
   assert.match(prompt, /上半身裸露/)
   assert.match(prompt, /如果是女性，只穿比基尼/)
   assert.match(prompt, /正面全身照/)

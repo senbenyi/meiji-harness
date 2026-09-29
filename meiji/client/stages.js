@@ -177,6 +177,28 @@ function renderCharacters(project, actions, context) {
   return view
 }
 
+export function renderSceneDetail(project, itemId, actions, context) {
+  const page = element('section', '', 'session-project character-detail')
+  const head = element('div', '', 'episode-bar')
+  const back = element('button', '←', 'episode-back')
+  back.type = 'button'
+  back.setAttribute('aria-label', '返回场景列表')
+  back.onclick = () => context.onBackScene?.()
+  const item = project?.plot?.scenes?.items?.find(scene => scene.id === itemId)
+  head.append(back, element('h2', item ? `${item.name} · 场景详情` : '场景详情'))
+  page.append(head)
+  if (!item) {
+    page.append(element('p', '该场景已不存在，请返回列表重新选择。', 'notice'))
+    return page
+  }
+  page.append(element('p', '场景资料与形象管理', 'meta'))
+  const hint = element('p', /^(自检|自审)未通过/.test(project.activityError || '') ? '' : project.activityError || '', 'hint warn')
+  hint.hidden = !hint.textContent
+  hint.setAttribute('role', 'status')
+  page.append(hint, ...stillCards(project, [item], actions, hint, { editable: true, imageGate: context.detailGate }))
+  return page
+}
+
 function renderScenes(project, actions, context) {
   const view = element('section', '', 'session-project')
   const head = element('div', '', 'outline-head')
@@ -187,7 +209,7 @@ function renderScenes(project, actions, context) {
   const hint = element('p', hasScenes(project) ? '' : gateMessage(project, 'scenes'), 'hint')
   hint.hidden = !hint.textContent
   view.append(hint)
-  for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint)) view.append(node)
+  for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { onOpen: id => context.onOpenScene?.(project.episodeId, id) })) view.append(node)
   if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部的生成剧情，一次生成大纲、角色和场景。', 'meta'))
   return view
 }

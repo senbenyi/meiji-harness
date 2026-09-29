@@ -16,13 +16,13 @@ const writes = new Map()
 const validId = /^[a-zA-Z0-9_-]+$/
 const now = () => new Date().toISOString()
 // 人工编辑：保存后内容待审（见 prepareContentRecords）。
-export const manualActions = new Set(['episode-add', 'episode-edit', 'source', 'outline-text', 'scene-text', 'storyboard-text', 'shot-assets'])
+export const manualActions = new Set(['episode-add', 'episode-edit', 'source', 'outline-text', 'scene-text', 'character-text', 'storyboard-text', 'shot-assets'])
 // 由人发起的操作，任务与步骤的执行者记为 human。
 const humanActions = new Set([...manualActions, 'overview', 'confirm-image', 'discard-image', 'clear-image', 'use-asset', 'import-image', 'part-import', 'review-override'])
 // 不写任务记录：没有项目，或会删除记录所在目录。
 const unrecorded = new Set(['create', 'open', 'library-import', 'project-delete', 'episode-delete'])
 export const recorded = operation => Boolean(operation?.projectId) && !unrecorded.has(operation.action)
-const stages = { 'episode-generate': 'summary', 'episode-edit': 'summary', 'episode-add': 'summary', source: 'summary', outline: 'story', 'outline-text': 'story', characters: 'story', scenes: 'story', 'scene-text': 'story', shots: 'shots', 'revise-shot': 'shots', seconds: 'seconds', 'shot-seconds': 'seconds', storyboard: 'storyboard', 'shot-storyboard': 'storyboard', 'shot-boards': 'storyboard', 'storyboard-text': 'storyboard', film: 'film', films: 'film', assemble: 'assembly' }
+const stages = { 'episode-generate': 'summary', 'episode-edit': 'summary', 'episode-add': 'summary', source: 'summary', outline: 'story', 'outline-text': 'story', characters: 'story', scenes: 'story', 'scene-text': 'story', 'character-text': 'story', shots: 'shots', 'revise-shot': 'shots', seconds: 'seconds', 'shot-seconds': 'seconds', storyboard: 'storyboard', 'shot-storyboard': 'storyboard', 'shot-boards': 'storyboard', 'storyboard-text': 'storyboard', film: 'film', films: 'film', assemble: 'assembly' }
 
 // 进行中任务的最新记录（同步读取，供任务查询与「当前任务」页）。
 const live = new Map()

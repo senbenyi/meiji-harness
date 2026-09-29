@@ -478,3 +478,92 @@ test('image generation from an episode page repaints with the full project, not 
  assert.equal(rootProject(store, root), root)
  assert.equal(rootProject(createModelStore(), view), null)
 })
+
+test('a ready candidate image can be confirmed even though images have no AI review', async t => {
+ const { renderImageReview } = await import('../client/image-review.js')
+ const container = domSetup(t), e = await setupModel(t)
+ const root = await e.store.save(e.id, project => {
+  const episode = project.episodes[0], image = episode.plot.characters.items[0].image
+  episode.pendingImages = { d1: { draftId: 'd1', previewUrl: '/plugins/meiji/image-draft/d1', key: 'characters', itemId: 'C01', name: '旅人', target: 'snapshot' } }
+  image.status = 'generating'; image.operation = { id: 'op', action: 'image', phase: 'awaiting-confirmation' }
+  return project
+ })
+ assert.equal(root.episodes[0].plot.characters.items[0].image.check.passed, null)
+ const calls = []
+ const actions = { reviewImage: async (...args) => { calls.push(args.slice(2)) }, closeImageReview: async () => {}, regenerateImage: async () => {} }
+ container.append(renderImageReview(root, actions, null))
+ const [confirm, discard] = container.querySelectorAll('.image-review-actions button')
+ assert.equal(confirm.disabled, false); assert.equal(discard.disabled, false)
+ await confirm.onclick()
+ assert.deepEqual(calls, [['d1', 'confirm-image']])
+ // 仍在生成（还没有候选图）时不能确认或放弃。
+ const generating = { ...root, episodes: [{ ...root.episodes[0], pendingImages: {} }] }
+ container.replaceChildren(renderImageReview(generating, actions, { phase: 'generating', held: true, action: 'image', episodeId: e.episodeId, itemId: 'C01', name: '旅人' }))
+ const [busyConfirm, busyDiscard] = container.querySelectorAll('.image-review-actions button')
+ assert.equal(busyConfirm.disabled, true); assert.equal(busyDiscard.disabled, true)
+})
+
+test('detail page confirms an image without opening the review page', async t => {
+ const container = domSetup(t), episode = episodeFixture(), calls = []
+ episode.pendingImages = { d1: { draftId: 'd1', previewUrl: '/draft.png', itemId: 'C01', name: '旅人' } }
+ const root = { id: 'p', title: '剧', revision: 1, episodes: [episode], summary: { content: '' } }
+ const { renderSession } = await import('../client/session.js')
+ container.append(renderSession(root, () => {}, {
+  reviewImage: async (...args) => { calls.push(args.slice(1)) },
+  closeImageReview: async () => {},
+  regenerateImage: async () => {},
+  beginImage: async () => {},
+  perform: async () => {},
+  fail() {},
+  characterImageUrl: () => '',
+ }, {
+  character: { episodeId: episode.id, itemId: 'C01' },
+  imageGate: { phase: 'ready', held: false, action: 'image', episodeId: episode.id, itemId: 'C01', name: '旅人', draftId: 'd1', previewUrl: '/draft.png', slot: '', track: '' },
+  onBackCharacter() {},
+ }))
+ assert.equal(container.querySelector('.image-review-overlay'), null)
+ assert.equal(container.querySelector('.asset-still img').src.endsWith('/draft.png'), true)
+ const labels = [...container.querySelectorAll('.detail-image-buttons button')].map(button => button.textContent)
+ assert.deepEqual(labels, ['放弃', '确定', '重新生成'])
+ container.querySelector('.detail-image-buttons .primary').click()
+ await Promise.resolve()
+ assert.deepEqual(calls, [[episode.id, 'd1', 'confirm-image']])
+})
+
+test('scene cards stay read only and editing happens on the detail page', async t => {
+ const container = domSetup(t), p = episodeFixture(), opened = []
+ p.episodeId = p.id
+ container.append(renderStage('script', p, { perform: async () => {}, beginImage: async () => {}, fail() {} }, { onOpenScene: (...args) => opened.push(args) }))
+ assert.equal(container.querySelector('.image-text-editor'), null)
+ assert.match(container.textContent, /南门北墙/)
+ assert.match(container.textContent, /开阔庭院及远处山脉/)
+ const open = container.querySelector('[aria-label="场景详情：庭院"]')
+ open.click()
+ assert.deepEqual(opened, [[p.episodeId, 'E01']])
+ const { renderSceneDetail } = await import('../client/stages.js')
+ container.replaceChildren(renderSceneDetail(p, 'E01', { perform: async () => {}, beginImage: async () => {}, fail() {} }, {}))
+ const prompt = container.querySelector('.image-text-prompt')
+ assert.equal(prompt.textContent, '开阔庭院及远处山脉，完整门墙与通道')
+ assert.ok(container.querySelector('[aria-label="地标"]'))
+ assert.equal(container.querySelector('[aria-label="场景详情：庭院"]'), null)
+})
+
+test('image detail shows editable text and a prompt without field keys', async t => {
+ const container = domSetup(t), p = episodeFixture(), calls = []
+ p.episodeId = p.id
+ const { renderCharacterDetail } = await import('../client/character.js')
+ container.append(renderCharacterDetail(p, 'C01', { perform: async (...args) => calls.push(args), beginImage: async () => {}, fail() {} }, {}))
+ const prompt = container.querySelector('.image-text-prompt')
+ assert.equal(prompt.textContent, '中国，旅人，探险者，男性，古代，三十岁，一米八，结实，方脸')
+ assert.equal(/姓名|性别/.test(prompt.textContent), false)
+ const name = container.querySelector('[aria-label="姓名"]')
+ name.value = '武松'
+ name.dispatchEvent(new window.Event('input'))
+ assert.match(container.querySelector('.image-text-prompt').textContent, /^中国，武松，探险者，男性/)
+ container.querySelector('.image-text-editor').requestSubmit()
+ await Promise.resolve()
+ assert.equal(calls[0][1], 'character-text')
+ assert.equal(calls[0][2].fields.name, '武松')
+ assert.equal(calls[0][2].fields.gender, '男性')
+ assert.equal(calls[0][2].original.name, '旅人')
+})

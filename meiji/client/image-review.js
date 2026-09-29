@@ -217,7 +217,8 @@ export function renderImageReview(project, actions, gate) {
 
   for (const button of [confirm, discard, regenerate]) button.type = 'button'
 
-  const canConfirm = Boolean(ready) && record.check.passed === true && !busy
+  // 图片没有 AI 自审：候选图就绪即可由人确认（确认成功后服务端才把节点记为通过）。
+  const canConfirm = Boolean(ready) && !busy
   const canDiscard = (Boolean(ready) || current.phase === 'error') && !busy
   const canRegenerate = (Boolean(ready) || current.phase === 'error') && !busy
   confirm.disabled = !canConfirm
@@ -273,4 +274,69 @@ export function renderImageReview(project, actions, gate) {
   if (opinion && current.review) { opinion.value = current.review; opinion.dispatchEvent(new Event('input')) }
   overlay.append(heading, card, reviewArea, buttons, status)
   return overlay
+}
+
+export function detailOwnsImage(context, gate) {
+  const open = context?.character || context?.scene
+  return Boolean(open && gate && !gate.track && gate.itemId === open.itemId && (!gate.episodeId || gate.episodeId === open.episodeId))
+}
+
+export function renderDetailImageActions(project, actions, gate) {
+  if (!gate || gate.track) return null
+  const ready = gate.phase === 'ready' && gate.previewUrl
+  const busy = gate.phase === 'generating' || gate.phase === 'uploading' || gate.held
+  const bar = element('div', '', 'detail-image-actions')
+  const tip = element('p', gate.phase === 'error' ? (gate.error || '生成失败') : ready ? '请确认这张图' : gate.phase === 'uploading' ? '正在上传' : '正在生成', 'detail-image-status')
+  tip.setAttribute('role', 'status')
+  const buttons = element('div', '', 'detail-image-buttons')
+  const discard = element('button', '放弃')
+  const confirm = element('button', '确定', 'primary')
+  const regenerate = element('button', '重新生成')
+  for (const button of [discard, confirm, regenerate]) button.type = 'button'
+  const canConfirm = Boolean(ready) && !busy
+  const canDiscard = (Boolean(ready) || gate.phase === 'error') && !busy
+  const canRegenerate = (Boolean(ready) || gate.phase === 'error') && !busy
+  confirm.disabled = !canConfirm
+  discard.disabled = !canDiscard
+  regenerate.disabled = !canRegenerate
+  const status = element('p', '', 'hint warn detail-image-error')
+  status.setAttribute('role', 'status')
+  const setBusy = message => {
+    confirm.disabled = discard.disabled = regenerate.disabled = true
+    if (message) tip.textContent = message
+  }
+  confirm.onclick = async () => {
+    if (!canConfirm || !gate.draftId) return
+    setBusy('正在上传')
+    try { await actions.reviewImage(project, gate.episodeId, gate.draftId, 'confirm-image') }
+    catch (error) {
+      status.textContent = error.message
+      confirm.disabled = discard.disabled = regenerate.disabled = false
+    }
+  }
+  discard.onclick = async () => {
+    if (!canDiscard) return
+    setBusy('正在处理')
+    try {
+      if (gate.draftId) await actions.reviewImage(project, gate.episodeId, gate.draftId, 'discard-image')
+      else await actions.closeImageReview()
+    } catch (error) {
+      status.textContent = error.message
+      confirm.disabled = discard.disabled = regenerate.disabled = false
+    }
+  }
+  regenerate.onclick = async () => {
+    if (!canRegenerate) return
+    setBusy('正在生成')
+    try { await actions.regenerateImage(project, gate, { generationMode: 'regenerate' }) }
+    catch (error) {
+      status.textContent = error.message
+      tip.textContent = '生成失败'
+      confirm.disabled = true
+      discard.disabled = regenerate.disabled = false
+    }
+  }
+  buttons.append(discard, confirm, regenerate)
+  bar.append(tip, buttons, status)
+  return bar
 }
