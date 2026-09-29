@@ -2,11 +2,12 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { videoSupplement } from '../../prompts/skill-prompts.js'
+import { render } from '../../prompts/skill-prompts.js'
+import videoSegments from '../../prompts/interfaces/video.js'
 import { materialize } from '../../data/episodes.js'
 import { projectStore } from '../../data/projects.js'
 import { readPicture, savePicture } from '../../data/pictures.js'
-import { selectCheck, withReviewPrompt } from '../../data/review-checks.js'
+import { selectCheck } from '../../data/review-checks.js'
 import { runStep } from '../../data/task-store.js'
 import { loadModels, services } from './services.js'
 import { concatFilms } from '../../generate/concat.js'
@@ -96,15 +97,8 @@ export function filmSubmit(project, item, opening) {
     imageCount: images.length,
   })
   const basePrompt = item.format === 'text' ? storyboardPromptText(item) : bindReferencePrompt(storyboardPromptText(item), mode === 'reference' ? images : [])
-  const supplement = videoSupplement(project)
-  let prompt = withReviewPrompt(supplement ? `${basePrompt}\n${supplement}` : basePrompt)
+  const prompt = render(videoSegments({ project, prompt: basePrompt, mode, opening, imageCount: images.length }))
   if (mode === 'reference') {
-    if (opening.referenceUrl) {
-      const tag = `<Picture ${images.length + 1}>`
-      prompt += project.outputLanguage === 'en'
-        ? `\nOpening continuity reference: ${tag} is the final frame of the previous clip ${opening.previous}. Use it to establish the opening positions, body headings, camera side, background orientation, lighting and ongoing action. Preserve identities and story costumes from the existing subject references. Continue the stated timeline without replaying actions or adding a portrait close-up. This is a reference image, not a strict API first frame.`
-        : `\n开场衔接参考：${tag} 是上一镜 ${opening.previous} 的尾帧，用于衔接开场人物位置、身体朝向、机位侧别、背景方向、光照和进行中的动作。身份和剧情服装仍以既有主体参考及正文为准。按本镜时间线继续，不重演动作，不额外插入人物特写。这是参考图，不是接口强制首帧。`
-    }
     return {
       mode,
       prompt,

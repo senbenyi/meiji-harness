@@ -1,8 +1,8 @@
 import { pictureOf, node, setContent } from '../../shared/drama-model.js'
 import { characterFactText, characterFieldValues, characterLookText } from '../../shared/character-facts.js'
-import { withReviewPrompt } from '../data/review-checks.js'
 import { checkContext } from '../data/operation-context.js'
-import { imageSegments, render } from '../prompts/skill-prompts.js'
+import { render } from '../prompts/skill-prompts.js'
+import { imageSegments } from '../prompts/interfaces/registry.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { savePicture, saveImageDraft } from '../data/pictures.js'
 import { spawn } from 'node:child_process'
@@ -75,7 +75,7 @@ const clothedConstraint = '正面全身照，从头到脚都在画面里，灰�
 export function characterImagePrompt(item, project) {
   const facts = characterStillPrompt(item)
   if (adultCharacter(item)) return imageSkillPrompt('character-image', facts, project)
-  return render(imageSegments({ stage: 'character-image', project, request: withReviewPrompt(facts), constraint: clothedConstraint }))
+  return render(imageSegments({ stage: 'character-image', project, request: facts, constraint: clothedConstraint }))
 }
 
 const hanDigit = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
@@ -520,7 +520,7 @@ export function clearCharacterReference(assets, itemId) {
   return { ...assets, items: assets.items.map(entry => entry.id === itemId ? { ...entry, reference: null } : entry) }
 }
 
-// 图片接口提示词：阶段画面要求 → 官方规则 → 本剧补充 → 语言 → 视觉风格 → 本次画面要求（见 prompts/skill-prompts.js）。
+// 图片接口只负责选取对应的独立组装模块；段落结构由该模块决定。
 export function imageSkillPrompt(stage, prompt, project) {
-  return render(imageSegments({ stage, project, request: withReviewPrompt(prompt) }))
+  return render(imageSegments({ stage, project, request: prompt }))
 }

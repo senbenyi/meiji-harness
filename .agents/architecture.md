@@ -9,6 +9,7 @@ meiji（`@meiji/harness-plugin`）是 DeepSeek Harness 的外部插件：在 Har
 ```
 llm-dsh-plugins/
 ├── configure-harness.sh    # 把 meiji 链接到同级 deepseek-harness，迁移项目存储布局与任务记录后启动 Web（3080）
+├── restart-harness.sh      # 已配置环境的免安装重启：校验源码链接，正常停止旧进程，加载当前代码与 skill
 ├── docs/                   # 流程文档：research/ plans/ implement/（按需创建）
 └── meiji/                  # 插件本体，见第 2 节
 ```
@@ -47,7 +48,7 @@ meiji/
 │   │                       #   queue.js 全局队列（text / image / video 并发上限）、restart.js 启动时取消遗留任务（含远端视频）
 │   ├── generate/           # 网关调用与生成：gateway、text-request、text-steps（生成/自审/修订/复审步骤）、
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
-│   ├── prompts/            # 各阶段提示词拼装；skill-prompts.js 技能分段组装；preview.js 请求预览
+│   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
 │   ├── data/               # 持久化：projects（领域存储）、project-files（存储布局，唯一了解文件结构）、
 │   │                       #   episodes、library、workspace-links、model-settings、review-checks、
 │   │                       #   task-store（任务与步骤、runStep、内容快照、任务固定的技能组合）、operation-context（一次操作的审核上下文）、
@@ -84,7 +85,7 @@ http / tools → flow → generate → prompts → data → models
 | `server/http/` | 鉴权、同源校验、分发面板操作，素材上传下载与 Range |
 | `server/flow/` | 操作定义、入口与分派、任务执行器与队列、启动取消 |
 | `server/generate/` | 调用网关：文本、图片、视频提交与轮询、自审修订、ffmpeg 抽帧与拼接 |
-| `server/prompts/` | 按阶段拼装提示词；`skill-prompts.js` 按请求类型组装技能分段（阶段、指导、共享、本剧补充、素材、协议），`preview.js` 为技能详情页组装预览 |
+| `server/prompts/` | `interfaces/<阶段>.js` 独立定义各接口的生成、审核、修订结构；`interfaces/registry.js` 只分发；`skill-prompts.js` 提供可选的技能片段、覆盖层与来源标注；`preview.js` 复用各接口组装函数 |
 | `server/data/` | 项目、剧集、素材、图片、任务与步骤记录等持久化 |
 | `server/host/` | 通过公开的 `workspaceRegistry` 查工作区与会话；写会话命令日志 |
 | `models/`、`config/` | 模型路由与默认配置 |

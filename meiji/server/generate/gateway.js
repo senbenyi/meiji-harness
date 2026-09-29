@@ -187,7 +187,6 @@ export async function submitGatewayVideo({ baseUrl, apiKey, model, prompt, durat
     model: model || 'elysium-video',
     prompt,
     seconds,
-    quality: 'medium',
   }
   const images = (referenceImages || []).map(item => String(item || '').trim()).filter(Boolean).slice(0, 9)
   const kind = ['text', 'first_frame', 'reference'].includes(mode) ? mode : (images.length ? 'reference' : inputReference ? 'first_frame' : 'text')

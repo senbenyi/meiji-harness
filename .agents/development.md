@@ -31,7 +31,7 @@
   - 多个阶段共用的段落写成 `skills/shared/<id>.md`，由 `skill.json` 的 `shared` 按字段引用，不复制到各阶段。
   - 动作、武术、台词、表情、声音规则写在 `skills/guidance/<id>/`（`common`、`review`、`stages/<阶段>.md`），不写进阶段技能；指导只细化上游已有内容。
   - 流程说明（谁发请求、失败后是否重试）由代码负责，不写进技能正文。
-  - 提示词只经 `server/prompts/skill-prompts.js` 组装：生成 / 意见修改 / 审核 / 自动修订各取所需字段，每段带来源标题；新增阶段在 `skill.json` 登记即可，不在调用方拼技能正文。
+  - 各生成接口在 `server/prompts/interfaces/<阶段>.js` 独立定义 system/user/prompt 的内容、顺序与输出格式；公共分发与网络层不得追加统一提示词包装。`skill-prompts.js` 仅提供可选技能片段与来源标注，不决定最终结构。新增阶段须登记 `skill.json` 与对应接口模块；技能正文仍从技能组合读取，预览必须复用实际接口组装函数，不在流程或网络层另拼提示词。修改输出协议时须同步其解析与校验，不能只更改 json 标记。
   - Harness 只注册 `skills/agent/panel.md`（会话 agent 使用）；生成技能不注册。
   - 改动技能正文后运行 `node tests/fixtures/prompt-scenarios.js <after.json>` 与 `node scripts/prompt-diff.js <before.json> <after.json> <报告.md>`，核对删除的句子都有去向或理由。
 - 技能修改（基础层、本剧补充、指导开关与素材）只经面板接口（同源请求）；会话工具不提供修改技能的能力。

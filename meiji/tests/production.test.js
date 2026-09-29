@@ -59,7 +59,7 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
     },
   })
   assert.equal(posted.url, 'http://43.154.247.11/v1/videos')
-  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞睁眼', seconds: '6', quality: 'medium' })
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞睁眼', seconds: '6' })
   assert.equal(posted.authorization, 'Bearer test-key')
   const landscape = await submitH3({
     items: [{ track: 'S01b', duration: 6, prompt: '张飞睁眼' }],
@@ -70,7 +70,7 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
       return new Response(JSON.stringify({ id: 'vid-1b' }))
     },
   })
-  assert.equal(Object.hasOwn(posted.body, 'size'), false)
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞睁眼', seconds: '6' })
   assert.equal(landscape.shots[0].promptId, 'vid-1b')
   const followed = await submitH3({
     items: [{ track: 'S02', duration: 6, prompt: '张飞回头', inputReference: 'abc' }],
@@ -80,7 +80,7 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
       return new Response(JSON.stringify({ id: 'vid-2' }))
     },
   })
-  assert.equal(posted.body.input_reference, 'abc')
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞回头', seconds: '6', input_reference: 'abc' })
   const referenced = await submitH3({
     items: [{ track: 'S03', duration: 6, prompt: '张飞回头', inputReference: 'abc', referenceImages: ['http://gateway/v1/files/file_a/content'] }],
     route: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-video', apiKey: 'test-key' },
@@ -89,8 +89,7 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
       return new Response(JSON.stringify({ id: 'vid-3' }))
     },
   })
-  assert.deepEqual(posted.body.reference_images, ['http://gateway/v1/files/file_a/content'])
-  assert.equal(posted.body.input_reference, undefined)
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞回头', seconds: '6', reference_images: ['http://gateway/v1/files/file_a/content'] })
   assert.equal(referenced.shots[0].promptId, 'vid-3')
   assert.equal(followed.shots[0].promptId, 'vid-2')
   assert.equal(queued.provider, 'elysium')
