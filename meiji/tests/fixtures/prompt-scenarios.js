@@ -8,7 +8,7 @@ import { checkContext } from '../../server/data/operation-context.js'
 import { buildEpisodePrompts, buildStoryPrompts } from '../../server/prompts/story-prompts.js'
 import { buildAllSecondsPrompts, buildSecondsPrompts, buildSingleShotPrompts, buildStoryboardPrompts, buildTablePrompts } from '../../server/prompts/shot-prompts.js'
 import { buildEditedContentReview, buildTextPrompts } from '../../server/prompts/text-prompts.js'
-import { characterStillPrompt, imageSkillPrompt, partPrompt, pencilPrompt, sceneStillPrompt } from '../../server/generate/image.js'
+import { characterImagePrompt, imageSkillPrompt, partPrompt, pencilPrompt, sceneStillPrompt } from '../../server/generate/image.js'
 
 const guidance = [{ id: 'g-action', name: '动作参考', guidanceType: 'action', content: '动作参考内容' }, { id: 'g-sound', name: '声音参考', guidanceType: 'sound', content: '声音参考内容' }]
 const supplements = { outline: '【本剧】大纲补充', shots: '【本剧】镜头表补充', seconds: '【本剧】每秒补充', storyboard: '【本剧】分镜补充', film: '【本剧】成片补充' }
@@ -67,7 +67,7 @@ export async function buildScenarios() {
     add('image-prompt', text(buildTextPrompts({ skill: 'image-prompt', project: view, instructions: '原提示词：旅人\n新要求：换成夜景' })))
   })
   const card = view.plot.characters.items[0], scene = view.plot.scenes.items[0]
-  add('image:character', { prompt: imageSkillPrompt('character-image', characterStillPrompt(card), view) })
+  add('image:character', { prompt: characterImagePrompt(card, view) })
   add('image:scene', { prompt: imageSkillPrompt('scene-image', sceneStillPrompt(scene), view) })
   add('image:part', { prompt: imageSkillPrompt('part-image', partPrompt(card, 'clothes'), view) })
   add('image:pencil', { prompt: imageSkillPrompt('pencil', pencilPrompt(view.shots.items[0].storyboard.content), view) })

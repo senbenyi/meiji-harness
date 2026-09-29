@@ -182,15 +182,16 @@ export function reviewUser({ stage, project, instructions, opinion = '', reviewC
 }
 
 // 图片接口只有一段 prompt：画面要求 → 本剧补充 → 语言 → 视觉风格 → 本次画面要求。
-export function imageSegments({ stage, project, request, skillSet }) {
+// constraint：代码持有的固定约束，替换可编辑的画面要求与本剧补充（用于未成年或年龄不明的人物图）。
+export function imageSegments({ stage, project, request, skillSet, constraint = '' }) {
   const set = currentSkillSet(project, skillSet)
   const meta = stageMeta(stage)
   recordUse(set, meta, [])
   const language = outputLanguage(project?.outputLanguage)
   const style = String(project?.style || '').trim()
   return [
-    segment('stage', '', part(set, stage, 'generate'), { skill: stage, field: 'generate' }),
-    segment('project', '本剧补充要求：', addition(set, stage, 'generate'), { skill: stage, field: 'generate' }),
+    constraint ? segment('protocol', '', constraint) : segment('stage', '', part(set, stage, 'generate'), { skill: stage, field: 'generate' }),
+    segment('project', '本剧补充要求：', constraint ? '' : addition(set, stage, 'generate'), { skill: stage, field: 'generate' }),
     segment('language', '', `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。`),
     segment('context', '', style ? `项目视觉风格：${style}。画面须符合该风格。` : ''),
     segment('context', '本次画面要求：', request),

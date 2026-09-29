@@ -64,10 +64,18 @@ export function sceneStillPrompt(item) {
   return look
 }
 
+// 人物资料（本次画面要求）：只含外观相关的人物卡字段；构图与着装约束在技能 skills/stages/character-image/generate.md。
 export function characterStillPrompt(item) {
-  const facts = characterFactText(item)
-  const shape = characterStillShape(item)
-  return facts ? `${facts}。${shape}` : shape
+  return characterFactText(item)
+}
+
+// 人物图提示词。成年人物使用可编辑的技能约束与本剧补充；未成年或年龄不明的人物固定穿着完整服装，
+// 不使用可编辑的约束与本剧补充（由代码持有，面板不能修改）。
+const clothedConstraint = '正面全身照，从头到脚都在画面里，灰白纯色背景。按年龄穿着完整服装，不要裸露。'
+export function characterImagePrompt(item, project) {
+  const facts = characterStillPrompt(item)
+  if (adultCharacter(item)) return imageSkillPrompt('character-image', facts, project)
+  return render(imageSegments({ stage: 'character-image', project, request: withReviewPrompt(facts), constraint: clothedConstraint }))
 }
 
 const hanDigit = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
@@ -87,7 +95,7 @@ function hanYears(text) {
 
 function statedAge(item) {
   const age = characterFieldValues(item).age
-  const years = age.match(/(\d+)\s*(?:岁|years?\b)/i)
+  const years = age.match(/(\d+)\s*(?:岁|周岁|years?\b)/i) || age.match(/^\s*(\d+)\s*$/)
   if (years) return Number(years[1])
   const han = hanYears(age)
   if (han != null) return han
@@ -95,11 +103,9 @@ function statedAge(item) {
   return null
 }
 
-function characterStillShape(item) {
+export function adultCharacter(item) {
   const years = statedAge(item)
-  const framing = '正面全身照，从头到脚都在画面里，灰白纯色背景，成图文件小于 3MB'
-  if (years != null && years < 18) return `${framing}。按年龄穿着完整服装，不要裸露`
-  return `${framing}。上半身裸露。如果是女性，只穿比基尼，不要画其他衣服、盔甲、鞋帽`
+  return years != null && years >= 18
 }
 
 export function buildImageGraph({ prompt, seed, width, height, prefix, imageName }) {

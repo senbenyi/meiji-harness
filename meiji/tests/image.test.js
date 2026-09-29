@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { defaults, normalizeModels } from '../models/model-config.js'
-import { appendImageAsset, characterStillPrompt, imageAsset, imageAssets, imagePrompt, importAssetImage, nextPartId, partPrompt, pencilPrompt, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, clearCharacterImage, usableLook, withPartText } from '../server/generate/image.js'
+import { appendImageAsset, characterImagePrompt, characterStillPrompt, imageAsset, imageAssets, imagePrompt, importAssetImage, nextPartId, partPrompt, pencilPrompt, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, clearCharacterImage, usableLook, withPartText } from '../server/generate/image.js'
 import { characterImageSize } from '../server/generate/gateway.js'
 
 const assets = {
@@ -113,7 +113,7 @@ test('importing a still replaces the generated file', async () => {
 })
 
 test('a character still prompt keeps the face and figure and drops clothing', () => {
-  const prompt = characterStillPrompt({
+  const card = {
     type: 'role',
     role: '桃园结义大哥',
     gender: '男',
@@ -126,7 +126,13 @@ test('a character still prompt keeps the face and figure and drops clothing', ()
     features: '面容温和，双耳垂肩，短须',
     name: '刘备',
     look: '国籍：中国 身份：桃园结义大哥 性别：男 年代：三国 年龄：四十三岁 服装：绿袍锦缎长衣 身高：一米八五 体型：中等、肩宽 身型：肩宽腰稳、四肢厚实 面相：面容温和，双耳垂肩，短须 面向：正面平视镜头',
-  })
+  }
+  // 人物资料只含外观字段；构图与着装约束来自技能 character-image 的生成字段，不再写死在代码里。
+  assert.equal(/正面全身照|上半身裸露|比基尼|3MB/.test(characterStillPrompt(card)), false)
+  const prompt = characterImagePrompt(card, { style: '写实' })
+  assert.ok(prompt.startsWith('正面全身照，从头到脚都在画面里，灰白纯色背景'))
+  assert.ok(prompt.endsWith(characterStillPrompt(card)))
+  assert.doesNotMatch(prompt, /根据人物卡生成|保持姓名对应的身份|未成年人保持完整服装/)
   assert.match(prompt, /中国，刘备，桃园结义大哥，男，三国，四十三岁，一米八五，中等、肩宽，肩宽腰稳、四肢厚实，面容温和，双耳垂肩，短须/)
   assert.equal(/国籍：|姓名：|身份：|性别：|年代：|年龄：|身高：|体型：|身型：|面相：|形态：|服装：/.test(prompt), false)
   assert.match(prompt, /面容温和，双耳垂肩，短须/)
@@ -141,13 +147,19 @@ test('a character still prompt keeps the face and figure and drops clothing', ()
   assert.equal(prompt.includes('正面平视'), false)
 })
 
-test('a minor character still stays clothed', () => {
-  const prompt = characterStillPrompt({ gender: '女', age: '十六岁', look: '年龄：十六岁 性别：女 面相：圆脸' })
-  assert.match(prompt, /正面全身照/)
-  assert.match(prompt, /灰白纯色背景/)
-  assert.match(prompt, /穿着完整服装/)
-  assert.equal(prompt.includes('比基尼'), false)
-  assert.equal(prompt.includes('上半身裸露'), false)
+test('a minor or unknown-age character still stays clothed and ignores editable constraints', () => {
+  const project = { skills: { additions: { 'character-image': { generate: '本剧补充的着装要求' } } } }
+  for (const card of [{ gender: '女', age: '十六岁', look: '年龄：十六岁 性别：女 面相：圆脸' }, { gender: '女', age: '青年', look: '年龄：青年 性别：女 面相：圆脸' }]) {
+    const prompt = characterImagePrompt(card, project)
+    assert.match(prompt, /正面全身照/)
+    assert.match(prompt, /灰白纯色背景/)
+    assert.match(prompt, /穿着完整服装/)
+    assert.equal(prompt.includes('比基尼'), false)
+    assert.equal(prompt.includes('上半身裸露'), false)
+    assert.equal(prompt.includes('本剧补充的着装要求'), false)
+  }
+  const adult = characterImagePrompt({ gender: '女', age: '23', look: '年龄：23 性别：女' }, project)
+  assert.match(adult, /本剧补充要求：\n本剧补充的着装要求/)
 })
 
 test('an image asset keeps only id, name, and the two paths', () => {

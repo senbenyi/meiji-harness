@@ -6,7 +6,7 @@ import { openIncoming } from './project.js'
 import { loadModels } from './services.js'
 import { decodeImageData } from '../../generate/character-views.js'
 import { characterImageSize, uploadGatewayFile } from '../../generate/gateway.js'
-import { appendImageAsset, characterStillPrompt, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
+import { appendImageAsset, characterImagePrompt, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
 import { runTextSteps } from '../../generate/text-steps.js'
 import { runStep } from '../../data/task-store.js'
 import { buildTextPrompts } from '../../prompts/text-prompts.js'
@@ -48,7 +48,7 @@ export async function startImage(operation, project, { projects, models, home, s
     throw Object.assign(new Error('这张卡还没有可用的中文画面提示词'), { status: 400 })
   }
   const current = bag.items.find(entry => entry.id === item.id)
-  const submitted = imageSkillPrompt(current.type === 'role' ? 'character-image' : 'scene-image', current.type === 'role' ? characterStillPrompt(current) : sceneStillPrompt(current), project)
+  const submitted = current.type === 'role' ? characterImagePrompt(current, project) : imageSkillPrompt('scene-image', sceneStillPrompt(current), project)
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   let referenceBytes
   let referenceImage

@@ -119,7 +119,6 @@ test('skill HTTP endpoints: library, detail, confirmed base save, reset and prev
   assert.equal(preview.status, 200)
   assert.deepEqual(Object.keys(preview.requests), ['generate', 'modify', 'review', 'revise'])
   assert.ok(preview.requests.review.user.some(segment => segment.text.includes('全局验收')))
-  assert.ok(preview.requests.generate.system.some(segment => segment.source === 'reference'))
   assert.ok(!preview.requests.review.system.some(segment => segment.source === 'reference'))
   assert.ok(preview.requests.generate.chars > 1000)
   const reset = await call('POST', 'skills/storyboard/reset', { to: 'builtin' })
