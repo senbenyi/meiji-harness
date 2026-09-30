@@ -31,6 +31,12 @@ export function aspectRatioOf(raw) {
   return value
 }
 
+// 视频请求尺寸按项目画幅：宽高为 32 的倍数，总像素在网关上限（864×1184）以内。
+const videoSizes = { '1344x768': '1024x576', '768x1344': '576x1024' }
+export function videoSizeOf(raw) {
+  return videoSizes[aspectRatioOf(raw)]
+}
+
 export function sourcePatch(project, input) {
   const summary = typeof input?.summary === 'string' ? input.summary.trim() : (typeof project?.summary?.content === 'string' ? project.summary.content.trim() : '')
   if (!summary || summary.length > 10000) throw Object.assign(new Error('剧本摘要需为 1–10000 字'), { status: 400 })

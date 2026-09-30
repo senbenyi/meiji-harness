@@ -40,9 +40,7 @@ function coverNode(episode) {
 }
 
 function stillSrc(item) {
-  if (pictureOf(item).localPath) return pictureOf(item).localPath
-  if (typeof pictureOf(item).imageUrl === 'string' && pictureOf(item).imageUrl.startsWith('/')) return pictureOf(item).imageUrl
-  return ''
+  return pictureOf(item).localPath || ''
 }
 
 function preview(text) {

@@ -45,7 +45,7 @@ meiji/
 │   │   │                   #   execute 分派流水线、finish 结束释放、
 │   │   │                   #   project / story / images / films 各领域处理函数（films 含逐镜成片 shotSteps）
 │   │   └── tasks/          # runner.js 任务执行器（入队写记录、启动、查询、等待、取消、当前任务）、
-│   │                       #   queue.js 全局队列（text / image / video 并发上限）、restart.js 启动时取消遗留任务（含远端视频）
+│   │                       #   queue.js 全局队列（text / image / video 并发上限）、restart.js 启动时取消遗留任务（网关无取消接口，远端视频如实记录）
 │   ├── generate/           # 网关调用与生成：gateway、text-request、text-steps（生成/自审/修订/复审步骤）、
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
 │   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
@@ -64,7 +64,7 @@ meiji/
 │                           #   constraints/<id>.md（固定约束，只读，允许为空；目前仅人物图，替代其 generate.md）
 │                           #   agent/panel.md（唯一注册给 Harness 的会话说明）references/minimax-h3（官方参考）；load.js 按字段读取与校验
 ├── h3skill/                # MiniMax-H3 官方 skill 归档，只读参考，不注册、不注入
-├── scripts/                # 迁移脚本（参数为 DSH_HOME），统一 migrate- 前缀：migrate-model（模型 v2）、migrate-layout（存储布局 v2）、migrate-task-steps（任务记录 v2）、migrate-custom-skills（补充 skill 与指导素材按集 → 按剧）、migrate-tail-frame；prompt-diff.js 为开发用的提示词差集脚本
+├── scripts/                # 迁移脚本（参数为 DSH_HOME），统一 migrate- 前缀：migrate-model（模型 v2）、migrate-layout（存储布局 v2）、migrate-task-steps（任务记录 v2）、migrate-custom-skills（补充 skill 与指导素材按集 → 按剧）、migrate-tail-frame、migrate-image-url（删除网关文件地址 imageUrl）；prompt-diff.js 为开发用的提示词差集脚本
 ├── tests/                  # node --test；fixtures/（测试密钥、jsdom 加载、模拟 workspaceRegistry）
 ├── docs/                   # 架构与数据说明（tasks-and-steps.md：任务与步骤；gateway-api.md：网关接口）
 └── reports/                # 本地生成报告（git-ignored）

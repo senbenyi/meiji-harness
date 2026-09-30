@@ -14,8 +14,9 @@ export function preserveStoryAssets(project, result) {
       if (old) for (const field of ['image', 'clothes', 'props', 'hairstyles', 'parts']) {
         if (old[field] !== undefined) kept[field] = old[field]
       }
+      // 模型返回的图片字段（含旧版 imageUrl / file）一律丢弃，只保留原卡已确认的图片。
       const { file, localPath, imageUrl, assetId, assetCategory, ...description } = item
-      return { ...cardModel({ ...description, localPath: null, imageUrl: null, ...kept, id: old?.id || `${prefix}${String(++next).padStart(2, '0')}` }), check: result.check, status: result.check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED }
+      return { ...cardModel({ ...description, localPath: null, ...kept, id: old?.id || `${prefix}${String(++next).padStart(2, '0')}` }), check: result.check, status: result.check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED }
     }) }
   }
   return patch

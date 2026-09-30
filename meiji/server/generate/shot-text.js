@@ -1,4 +1,4 @@
-import { previousTail } from '../../shared/tail-frame.js'
+import { previousTail, tailFrameUrl } from '../../shared/tail-frame.js'
 import { runTextSteps } from './text-steps.js'
 import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildStoryboardPrompts, buildAllSecondsPrompts } from '../prompts/shot-prompts.js'
 import { node, shotModel, setContent, shotResults, updateShotResults } from '../../shared/drama-model.js'
@@ -127,17 +127,18 @@ export async function generateShotStoryboard(options) {
   const scenes = shot.scene ? [shot.scene] : [...new Set([ ...(project.plot.scenes?.items || []).filter(scene => scene.name && source.includes(scene.name)).map(scene => scene.name)])]
   const images = shotReferenceImages(project, { ...shot, characters, scenes })
   const tail = previousTail(project, shotId)
-  if (tail) images.push({ url: tail.imageUrl, label: `上一镜 ${tail.sourceShotId} 尾帧（连续剧情承接状态，转场直接进入新场景）`, kind: 'tailFrame', sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile })
+  if (tail) images.push({ url: tailFrameUrl(tail.sourceVideoFile), label: `上一镜 ${tail.sourceShotId} 尾帧（连续剧情承接状态，转场直接进入新场景）`, kind: 'tailFrame', sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile })
   if (images.length > 9) throw new Error('含尾帧的参考图超过9张，请减少角色附属素材')
-  // 使用已确认的远程地址；不把尚待确认或仅有本地地址的图片送入视频接口。
-  if (images.some(image => !/^https?:\/\//.test(image.url))) throw Object.assign(new Error('请先确认并上传本镜参考图片'), { status: 409 })
+  // 只使用已确认入库的本地图片；提交视频时按此顺序读取并转为 base64。
+  if (images.some(image => !image.url)) throw Object.assign(new Error('请先确认本镜参考图片'), { status: 409 })
   const video = images.length ? 'reference' : 'text'
-  const refs = images.map((image, i) => `<Picture ${i + 1}> ${image.label} URL: ${image.url}`).join('\n')
+  // 文本分镜只传编号与标签，不传图片或地址；图片在提交视频时按同一顺序转为 base64。
+  const refs = images.map((image, i) => `<Picture ${i + 1}> ${image.label}`).join('\n')
   const result = await runTextSteps({ target: `storyboard:${shotId}`, prompts: buildStoryboardPrompts(options, { shot, video, characters, scenes, refs, images }), options })
   const marker = /^\[opening-reference: (previous-tail|none)\][ \t]*\r?\n/.exec(result.text)
   const openingReference = video === 'reference' && project.shots.items[0].id !== shotId && marker?.[1] === 'previous-tail' ? 'previous-tail' : 'none'
   const promptText = marker ? result.text.slice(marker[0].length) : result.text
-  const item = { tailReference: tail ? { sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile, imageUrl: tail.imageUrl } : null, openingReference, id: shotId, duration: shot.duration, title: shotId, format: 'text', video, scene: scenes[0] || '', scenes, characters, referenceSnapshot: structuredClone(images), prompt: { text: promptText }, reviewText: result.reviewText }
+  const item = { tailReference: tail ? { sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile } : null, openingReference, id: shotId, duration: shot.duration, title: shotId, format: 'text', video, scene: scenes[0] || '', scenes, characters, referenceSnapshot: structuredClone(images), prompt: { text: promptText }, reviewText: result.reviewText }
   const byId = new Map(shotResults(project, 'storyboard').map(item => [item.id, item]))
   byId.set(shotId, item)
   return project.shots.items.map(shot => byId.get(shot.id)).filter(Boolean)

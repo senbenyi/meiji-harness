@@ -7,7 +7,7 @@ import { assetStore, MAX_ASSET_BYTES } from './library.js'
 
 export function pictureReference(asset) {
   return { prompt: asset.prompt || asset.origin?.prompt || '', assetId: asset.id, assetCategory: asset.category,
-    localPath: `/plugins/meiji/asset-file?category=${asset.category}&id=${asset.id}`, imageUrl: asset.imageUrl || null }
+    localPath: `/plugins/meiji/asset-file?category=${asset.category}&id=${asset.id}` }
 }
 
 export async function savePicture(home, bytes, mime, category, name, origin = {}) {
@@ -22,7 +22,7 @@ export async function readPicture(home, project, item) {
     const file = await assetStore(home).file(pictureOf(item).assetCategory, pictureOf(item).assetId)
     return { bytes: await readFile(file.path), mime: file.metadata.mime }
   }
-  const url = new URL(pictureOf(item).localPath || pictureOf(item).imageUrl || '', 'http://localhost')
+  const url = new URL(pictureOf(item).localPath || '', 'http://localhost')
   const episodeId = url.searchParams.get('episodeId') || ''
   if (episodeId && episodeId !== project.episodeId) throw new Error('图片与当前剧集不匹配')
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(item.id)) throw new Error('图片 ID 无效')
@@ -32,6 +32,33 @@ export async function readPicture(home, project, item) {
     catch (error) { if (error.code !== 'ENOENT') throw error }
   }
   throw Object.assign(new Error('图片不存在'), { code: 'ENOENT' })
+}
+
+// 读取一张分镜参考图（素材库图片、旧版剧集图片或上一镜尾帧）的字节。
+export async function readReferenceImage(home, project, image) {
+  if (image?.kind === 'tailFrame') {
+    const file = String(image.sourceVideoFile || '')
+    if (!/^[A-Za-z0-9_-]+\.mp4$/.test(file)) throw new Error('尾帧对应的视频文件无效')
+    const path = join(home, 'storages', 'meiji', 'projects', project.id, 'films', project.episodeId || '', file.replace(/\.mp4$/, '-last.png'))
+    return { bytes: await readFile(path), mime: 'image/png' }
+  }
+  if (image?.assetId) return readPicture(home, project, { assetId: image.assetId, assetCategory: image.assetCategory })
+  return readPicture(home, project, { id: image?.id, localPath: image?.localPath || image?.url })
+}
+
+// 视频请求中的参考图：按快照顺序读取本地图片，转成 base64 data URL（对应 <Picture N>）。
+export async function referenceImageData(home, project, images) {
+  const list = []
+  for (const image of images) {
+    let picture
+    try { picture = await readReferenceImage(home, project, image) }
+    catch (error) {
+      if (error.code === 'ENOENT') throw Object.assign(new Error(`参考图不存在：${image.label || image.name || image.id || image.url}`), { status: 409 })
+      throw error
+    }
+    list.push(`data:${picture.mime};base64,${picture.bytes.toString('base64')}`)
+  }
+  return list
 }
 
 export async function saveImageDraft(home, bytes, mime, category, name, origin) {

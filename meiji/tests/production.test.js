@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { bindReferencePrompt, retrieveFilm, shotReferenceImages, submitH3, videoRequestMode } from '../server/generate/film.js'
+import { bindReferencePrompt, h3PromptFailures, retrieveFilm, shotReferenceImages, submitH3, videoRequestMode } from '../server/generate/film.js'
 import { normalizeCharacters, normalizeScenes } from '../server/generate/story.js'
 
 const look = '二十出头的中国青年男子，短黑发，皮肤晒黑，穿着旧外套，站在空无一人的门口'
@@ -59,7 +59,7 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
     },
   })
   assert.equal(posted.url, 'http://43.154.247.11/v1/videos')
-  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞睁眼', seconds: '6' })
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞睁眼', seconds: '6', size: '576x1024' })
   assert.equal(posted.authorization, 'Bearer test-key')
   const landscape = await submitH3({
     items: [{ track: 'S01b', duration: 6, prompt: '张飞睁眼' }],
@@ -70,7 +70,7 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
       return new Response(JSON.stringify({ id: 'vid-1b' }))
     },
   })
-  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞睁眼', seconds: '6' })
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞睁眼', seconds: '6', size: '1024x576' })
   assert.equal(landscape.shots[0].promptId, 'vid-1b')
   const followed = await submitH3({
     items: [{ track: 'S02', duration: 6, prompt: '张飞回头', inputReference: 'abc' }],
@@ -80,16 +80,26 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
       return new Response(JSON.stringify({ id: 'vid-2' }))
     },
   })
-  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞回头', seconds: '6', input_reference: 'abc' })
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞回头', seconds: '6', size: '1024x576', input_reference: 'abc' })
   const referenced = await submitH3({
-    items: [{ track: 'S03', duration: 6, prompt: '张飞回头', inputReference: 'abc', referenceImages: ['http://gateway/v1/files/file_a/content'] }],
+    items: [{ track: 'S03', duration: 6, prompt: '张飞回头', inputReference: 'abc', referenceImages: ['data:image/png;base64,iVBORw0KGgo='] }],
     route: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-video', apiKey: 'test-key' },
     fetchImpl: async (_url, options) => {
       posted = { body: JSON.parse(options.body) }
       return new Response(JSON.stringify({ id: 'vid-3' }))
     },
   })
-  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞回头', seconds: '6', reference_images: ['http://gateway/v1/files/file_a/content'] })
+  assert.deepEqual(posted.body, { model: 'elysium-video', prompt: '张飞回头', seconds: '6', size: '1024x576', reference_images: ['data:image/png;base64,iVBORw0KGgo='] })
+  await assert.rejects(submitH3({
+    items: [{ track: 'S04', duration: 6, prompt: '张飞回头', referenceImages: ['http://gateway/v1/files/file_a/content'] }],
+    route: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-video', apiKey: 'test-key' },
+    fetchImpl: async () => assert.fail('远端地址不能提交'),
+  }), /base64 data URL/)
+  await assert.rejects(submitH3({
+    items: [{ track: 'S05', duration: 6, prompt: '张飞回头', referenceImages: [`data:image/png;base64,${'A'.repeat(64 * 1024 * 1024)}`] }],
+    route: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-video', apiKey: 'test-key' },
+    fetchImpl: async () => assert.fail('超过 64 MiB 不能提交'),
+  }), { status: 413 })
   assert.equal(referenced.shots[0].promptId, 'vid-3')
   assert.equal(followed.shots[0].promptId, 'vid-2')
   assert.equal(queued.provider, 'elysium')
@@ -108,15 +118,47 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
 
 test('a shot binds uploaded character views and the scene into picture order', () => {
   const project = { plot: {
-    characters: { items: [{ name: '陈锋', imageUrl: 'http://gateway/person' }] },
-    scenes: { items: [{ name: '虎牢关', imageUrl: 'http://gateway/scene' }] },
+    characters: { items: [{ name: '陈锋', localPath: '/plugins/meiji/asset-file?category=characters&id=a' }] },
+    scenes: { items: [{ name: '虎牢关', localPath: '/plugins/meiji/asset-file?category=scenes&id=b' }] },
   } }
   const images = shotReferenceImages(project, { characters: ['陈锋'], scene: '虎牢关' })
-  assert.deepEqual(images.map(image => image.url), ['http://gateway/person', 'http://gateway/scene'])
+  assert.deepEqual(images.map(image => image.url), ['/plugins/meiji/asset-file?category=characters&id=a', '/plugins/meiji/asset-file?category=scenes&id=b'])
   assert.throws(() => bindReferencePrompt('张飞睁眼', images), /subject_definitions/)
   const local = shotReferenceImages({ plot: {
     characters: { items: [{ id: 'C01', name: '麦克', localPath: '/plugins/meiji/projects/p/images/C01' }] },
     scenes: { items: [] },
   } }, { characters: ['麦克'] })
   assert.equal(local[0].url, '/plugins/meiji/projects/p/images/C01')
+})
+
+test('video reference images are read locally and sent as base64 in picture order', async t => {
+  const { mkdir, writeFile } = await import('node:fs/promises')
+  const { join } = await import('node:path')
+  const { Readable } = await import('node:stream')
+  const { setupModel } = await import('./fixtures/model.js')
+  const { assetStore } = await import('../server/data/library.js')
+  const { referenceImageData } = await import('../server/data/pictures.js')
+  const e = await setupModel(t), project = await e.read()
+  const asset = await assetStore(e.home).import('characters', '旅人.png', Readable.from([Buffer.from('person')]), undefined, { source: 'import' })
+  const films = join(e.home, 'storages', 'meiji', 'projects', project.id, 'films', project.episodeId)
+  await mkdir(films, { recursive: true })
+  await writeFile(join(films, 'S01-x-last.png'), Buffer.from('tail'))
+  const images = [
+    { url: 'tail-frame:S01-x.mp4', kind: 'tailFrame', sourceVideoFile: 'S01-x.mp4', label: '上一镜尾帧' },
+    { url: `/plugins/meiji/asset-file?category=characters&id=${asset.id}`, assetId: asset.id, assetCategory: 'characters', kind: 'characters', label: '旅人' },
+  ]
+  assert.deepEqual(await referenceImageData(e.home, project, images), [
+    `data:image/png;base64,${Buffer.from('tail').toString('base64')}`,
+    `data:image/png;base64,${Buffer.from('person').toString('base64')}`,
+  ])
+  await assert.rejects(referenceImageData(e.home, project, [{ ...images[0], sourceVideoFile: 'S02-y.mp4' }]), { status: 409 })
+  await assert.rejects(referenceImageData(e.home, project, [{ ...images[0], sourceVideoFile: '../x.mp4' }]), /视频文件无效/)
+})
+
+test('reference format rejects missing sections, unbound subjects and missing pictures', () => {
+  const text = 'subject_definitions: <Subject 1> from <Picture 1>.\nsummary: Walk.\nretention_analysis: Preserve.\ndetailed_description: <Subject 1> walks.\noverall_soundscape: Wind.\nnon_diegetic_music: None.'
+  assert.deepEqual(h3PromptFailures(text, [{}]), [])
+  assert.ok(h3PromptFailures(text.replace('detailed_description: <Subject 1>', 'detailed_description: <Subject 2>'), [{}]).some(s => s.includes('未定义')))
+  assert.ok(h3PromptFailures(text, [{}, {}]).some(s => s.includes('编号')))
+  assert.ok(h3PromptFailures('integrated_multimodal_description: Walk.\noverall_soundscape: Wind.\nnon_diegetic_music: None.', [{}]).length)
 })

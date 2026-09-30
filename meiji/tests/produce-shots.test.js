@@ -11,11 +11,11 @@ test('production completes previous video before writing next text with its tail
  await produceShots(e.op('produce-all'),{home:e.home},async op=>{
   calls.push(`${op.track}:${op.action}`)
   const current=await e.read()
-  if(op.track==='S02'&&op.action==='shot-storyboard')assert.equal(previousTail(current,'S02').imageUrl,'https://test/S01')
+  if(op.track==='S02'&&op.action==='shot-storyboard')assert.equal(previousTail(current,'S02').localPath,'/films/S01-last.png')
   await e.store.save(e.id,p=>{
    const s=p.episodes[0].shots.items.find(s=>s.id===op.track)
    if(op.action==='shot-storyboard')s.storyboard.status='passed'
-   else {s.video.content={status:'ready',file:`${s.id}.mp4`};s.tailFrame={...node(`tailFrame:${s.id}`),status:'passed',content:{sourceVideoFile:`${s.id}.mp4`,imageUrl:`https://test/${s.id}`}}}
+   else {s.video.content={status:'ready',file:`${s.id}.mp4`};s.tailFrame={...node(`tailFrame:${s.id}`),status:'passed',content:{sourceVideoFile:`${s.id}.mp4`,localPath:`/films/${s.id}-last.png`}}}
    return p
   });return []
  })
@@ -26,6 +26,6 @@ test('missing or obsolete tail is optional',async t=>{
  const e=await setupModel(t),p=await e.read()
  assert.equal(previousTail(p,'S01'),null);assert.equal(previousTail(p,'S02'),null)
  p.shots.items[0].video.content={status:'ready',file:'new.mp4'}
- p.shots.items[0].tailFrame={status:'passed',content:{sourceVideoFile:'old.mp4',imageUrl:'https://test/old'}}
+ p.shots.items[0].tailFrame={status:'passed',content:{sourceVideoFile:'old.mp4',localPath:'/films/old-last.png'}}
  assert.equal(previousTail(p,'S02'),null)
 })

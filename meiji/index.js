@@ -7,9 +7,6 @@ import { createTasks } from './server/flow/tasks/runner.js'
 import { agentSkills, validateSkills } from './skills/load.js'
 import { interruptRunning } from './server/flow/tasks/restart.js'
 import { projectStore } from './server/data/projects.js'
-import { modelStore } from './server/data/model-settings.js'
-import { normalizeModels } from './models/model-config.js'
-import { cancelGatewayTask } from './server/generate/gateway.js'
 import { ffmpegAvailable } from './server/generate/ffmpeg.js'
 import { setHostLogger } from './server/host/session-log.js'
 import { setWorkspaceRegistry } from './server/host/workspaces.js'
@@ -24,12 +21,8 @@ export function apply(ctx) {
   ctx.effect(() => () => setHostLogger(null), 'meiji: host logger')
   setWorkspaceRegistry(ctx.workspaceRegistry)
   ctx.effect(() => () => setWorkspaceRegistry(null), 'meiji: workspace registry')
-  // 启动时取消上次遗留的进行中任务；已提交的远端视频尽力发送取消请求。
-  const cancelRemote = async promptId => {
-    const route = normalizeModels(await modelStore(home).read()).video
-    await cancelGatewayTask({ baseUrl: route.baseUrl, apiKey: route.apiKey, promptId, kind: 'videos' })
-  }
-  const ready = interruptRunning(projectStore(home), { cancelRemote }).catch(error => {
+  // 启动时取消上次遗留的进行中任务；网关不提供取消接口，已提交的远端视频如实记录可能仍在运行。
+  const ready = interruptRunning(projectStore(home)).catch(error => {
     ctx.logger.warn('Meiji interrupt failed: %s', error.message)
   })
   void ffmpegAvailable().then(found => {

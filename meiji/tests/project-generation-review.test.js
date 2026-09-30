@@ -31,3 +31,23 @@ test('episode invalid JSON is not sent to semantic review or retried',async()=>{
  await assert.rejects(generateEpisode({project:{...episodeFixture(),episodes:[]},route,request:async()=>{calls++;return '{bad'}}),/JSON/)
  assert.equal(calls,1)
 })
+
+test('character generation runs independent identity coverage review instead of accepting merged bodies', async t => {
+  let calls = 0
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    calls++
+    const payload = JSON.parse(options.body)
+    if (calls % 2 === 0) {
+      assert.match(payload.messages[1].content, /阶段：剧情整包/)
+      assert.match(payload.messages[1].content, /意识的姓名不代表身体相同/)
+      return Response.json({ choices: [{ message: { content: 'FAIL\n缺少新身体的独立角色卡' } }] })
+    }
+    return Response.json({ choices: [{ message: { content: JSON.stringify(storyPackageFixture(10)) } }] })
+  })
+  await checkContext.run({}, async () => {
+    const result = await generateStoryPackage({ route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' }, project: { ...episodeFixture(), outputLanguage: 'zh-CN' } })
+    assert.equal(result.characters.items.length, 1)
+    assert.deepEqual(checkContext.getStore().validation, ['FAIL\n缺少新身体的独立角色卡'])
+  })
+  assert.equal(calls, 4)
+})

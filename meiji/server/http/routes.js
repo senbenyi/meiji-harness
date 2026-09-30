@@ -1,10 +1,9 @@
 import { recordStore } from '../data/task-store.js'
 import { subscribeProject } from '../data/project-events.js'
-import { pictureOf, targetNode, shotResults } from '../../shared/drama-model.js'
+import { targetNode, shotResults } from '../../shared/drama-model.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
 import { MAX_GUIDANCE_BYTES } from '../data/library.js'
-import { readGatewayImage } from '../generate/image-access.js'
-import { readImageDraft } from '../data/pictures.js'
+import { readImageDraft, readReferenceImage } from '../data/pictures.js'
 import { outputLanguage } from '../data/language.js'
 import { randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
@@ -191,21 +190,8 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         if (!story) return json(res, 404, { error: '文本分镜不存在' })
         const reference = shotReferenceImages(project, story)[Number(url.searchParams.get('index'))]
         if (!reference) return json(res, 404, { error: '引用不存在' })
-        const route = normalizeModels(await store.read())
-        const image = await readGatewayImage({ imageUrl: reference.url, baseUrl: route.baseUrl, apiKey: route.apiKey })
-        res.writeHead(200, { 'Content-Type': image.mime, 'Cache-Control': 'private, no-store' })
-        return res.end(image.bytes)
-      }
-      if (path === base + '/character-image-url') {
-        if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
-        const projectId = url.searchParams.get('projectId')
-        await links.requireProject(url.searchParams.get('sessionId') || '', projectId)
-        const project = materialize(await projects.read(projectId), url.searchParams.get('episodeId'))
-        const character = project.plot.characters?.items.find(item => item.id === url.searchParams.get('itemId'))
-        if (!pictureOf(character).imageUrl) return json(res, 404, { error: '该人物尚无已上传的图片 URL' })
-        const route = normalizeModels(await store.read())
-        const image = await readGatewayImage({ imageUrl: pictureOf(character).imageUrl, baseUrl: route.baseUrl, apiKey: route.apiKey })
-        res.writeHead(200, { 'Content-Type': image.mime, 'Content-Length': image.bytes.length, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' })
+        const image = await readReferenceImage(home, project, reference)
+        res.writeHead(200, { 'Content-Type': image.mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' })
         return res.end(image.bytes)
       }
       if (path === base + '/image-draft') {

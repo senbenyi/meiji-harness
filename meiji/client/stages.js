@@ -1,6 +1,7 @@
 import { historyEntry } from './execution-history.js'
 import { GenerationStatus, statusLabels } from '../shared/drama-model.js'
 import { videoPromptText as promptText } from '../shared/video-prompt-text.js'
+import { videoSizeOf } from '../shared/project-rules.js'
 import { decorateShotCard } from './shot-card-state.js'
 import { shotResults, shotMap } from '../shared/drama-model.js'
 import { storyboardReferences } from './storyboard-references.js'
@@ -89,10 +90,10 @@ function requestLines(project, shot, story) {
     ['model', 'elysium-video'],
     ['prompt', promptText(story?.prompt)],
     ['seconds', String(shot?.duration ?? story?.duration ?? '')],
-    ['quality', 'medium'],
+    ['size', videoSizeOf(project?.aspectRatio)],
     ['input_reference', firstFrame ? '上一镜尾帧' : ''],
     ['last_frame', ''],
-    ['reference_images', names.join('\n')],
+    ['reference_images', names.length ? `${names.join('\n')}\n（提交时按顺序读取本地图片，转为 base64 data URL）` : ''],
     ['reference_videos', ''],
     ['reference_audios', ''],
   ]

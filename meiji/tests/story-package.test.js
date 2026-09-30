@@ -34,10 +34,11 @@ test('one generation response contains all three sections, followed by one packa
 })
 
 test('stable identity and confirmed media survive reordering; invented URLs are discarded', () => {
-  const original = { ...episodeFixture(), plot: { ...episodeFixture().plot, characters: { items: [cardModel({ id: 'C04', name: '原角色', type: 'role', imageUrl: 'https://real.test/a', assetId: 'saved', clothes: [{ id: 'cloth' }] })] }, scenes: { items: [] } } }
-  const merged = preserveStoryAssets(original, { check: { passed: true, failures: [] }, outline: '新大纲', characters: { items: [{ id: 'C01', name: '新人', imageUrl: 'https://fake.test/a' }, { id: 'C02', name: '原角色', appearance: '新描述' }] }, scenes: { items: [] } })
+  const original = { ...episodeFixture(), plot: { ...episodeFixture().plot, characters: { items: [cardModel({ id: 'C04', name: '原角色', type: 'role', localPath: '/plugins/meiji/asset-file?category=characters&id=saved', assetId: 'saved', clothes: [{ id: 'cloth' }] })] }, scenes: { items: [] } } }
+  const merged = preserveStoryAssets(original, { check: { passed: true, failures: [] }, outline: '新大纲', characters: { items: [{ id: 'C01', name: '新人', imageUrl: 'https://fake.test/a', localPath: '/fake', file: { url: 'https://fake.test/a' } }, { id: 'C02', name: '原角色', appearance: '新描述' }] }, scenes: { items: [] } })
   assert.equal(merged.characters.items[0].id, 'C05')
   assert.equal(merged.characters.items[0].image.content, null)
+  assert.equal(JSON.stringify(merged).includes('fake'), false)
   assert.equal(merged.characters.items[1].id, 'C04')
   assert.equal(merged.characters.items[1].appearance, '新描述')
   assert.equal(merged.characters.items[1].image.content.assetId, 'saved')
@@ -52,7 +53,7 @@ test('package saves atomically to one episode, retains failed content and clears
   const one = blankEpisode({ summary: '本集', durationSeconds: 10 })
   const two = blankEpisode({ summary: '别集', durationSeconds: 10 })
   one.plot.outline.content = '原大纲'; one.shots.items = [shotModel({ id: 'S01' })]
-  one.plot.characters.items = [cardModel({ id: 'C04', name: '旅人', type: 'role', imageUrl: 'https://real.test/portrait', assetId: 'portrait' })]
+  one.plot.characters.items = [cardModel({ id: 'C04', name: '旅人', type: 'role', localPath: '/plugins/meiji/asset-file?category=characters&id=portrait', assetId: 'portrait' })]
   const baseline = await store.save(root.id, { episodes: [one, two] })
   await runOperation({ action: 'outline', projectId: root.id, episodeId: one.id }, { home, generateStoryPackage: async () => ({ ...storyPackageFixture(), check: { passed: false, failures: ['缺少剧情中的另一身份'] } }) })
   const saved = await store.read(root.id)

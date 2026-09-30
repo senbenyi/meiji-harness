@@ -22,7 +22,7 @@ const prompt = 'summary: 旅人朝北进入庭院\ndetailed_description: 摄影�
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 let submitted = 0
 const filmDeps = { submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: `remote-${++submitted}` })) }),
-  retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') }
+  retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async (_video, frame) => { await writeFile(frame, Buffer.from('frame')); return Buffer.from('frame') } }
 
 async function setup(t) {
   const e = await setupModel(t), models = modelStore(e.home)
@@ -107,7 +107,8 @@ test('produce-all is one task: each shot runs only the steps it needs, in order'
   assert.equal(task.status, 'completed')
   assert.ok(task.steps.every(item => !item.unplanned))
   assert.deepEqual(task.steps.filter(item => item.status === 'completed').map(item => `${item.kind}:${item.target}`),
-    ['generate:storyboard:S01', 'review:storyboard:S01', 'video_submit:film:S01', 'video_generate:film:S01', 'video_submit:film:S02', 'video_generate:film:S02'])
+    // S01 成片后抽出尾帧，S02 的文本分镜按新尾帧重写后再提交。
+    ['generate:storyboard:S01', 'review:storyboard:S01', 'video_submit:film:S01', 'video_generate:film:S01', 'generate:storyboard:S02', 'review:storyboard:S02', 'video_submit:film:S02', 'video_generate:film:S02'])
   const remote = task.steps.filter(item => item.kind === 'video_generate').map(item => item.remoteId)
   assert.equal(new Set(remote).size, 2); assert.ok(remote.every(id => /^remote-\d+$/.test(id)))
   // 子操作的步骤各有作用域，互不混淆。

@@ -42,7 +42,7 @@
 | save | 人工编辑的保存 |
 | check | 保存时的内容校验不通过（如时长不符），只记结论 |
 | override | 人工忽略自审 |
-| video_submit / video_generate | 提交成片（含上传参考图）/ 等待远端并保存成片与尾帧；`remoteId` 为远端任务编号 |
+| video_submit / video_generate | 提交成片（参考图读取本地文件转为 base64）/ 等待远端并保存成片与尾帧；`remoteId` 为远端任务编号 |
 | image_generate | 生成候选图片（人物、场景、部件、铅笔分镜） |
 | tail_frame / assemble / confirm / execute | 重新处理尾帧 / 全片拼接 / 确认或放弃候选图片 / 其他操作整体 |
 | checkpoint | 人工关卡（预留） |
@@ -66,7 +66,7 @@
   - 内容校验不通过（`CONTENT_CHECK_FAILED`）：最新结论中还没有不通过时追加一个 `check` 步骤。
   - 其他错误：没有失败步骤时，执行中或第一个未执行步骤记为失败。
   - 没有失败或取消时，其余未执行步骤记为已跳过。
-- 服务重启：未结束的任务一律按中止落定（`recordStore.interrupt`），已提交的远端视频尽力取消，不续查、不自动重做。
+- 服务重启：未结束的任务一律按中止落定（`recordStore.interrupt`），网关不提供取消接口，已提交的远端视频如实记录可能仍在运行，不续查、不自动重做。
 
 ## 任务状态推导
 

@@ -5,7 +5,7 @@ import { pictureReference, pictureTargetSnapshot, readImageDraft, readPicture, s
 import { openIncoming } from './project.js'
 import { loadModels } from './services.js'
 import { decodeImageData } from '../../generate/character-views.js'
-import { characterImageSize, uploadGatewayFile } from '../../generate/gateway.js'
+import { characterImageSize } from '../../generate/gateway.js'
 import { appendImageAsset, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
 import { runTextSteps } from '../../generate/text-steps.js'
 import { runStep } from '../../data/task-store.js'
@@ -52,7 +52,7 @@ export async function startImage(operation, project, { projects, models, home, s
   const submitted = current.type === 'role' ? characterImagePrompt(current, project) : imageSkillPrompt('scene-image', sceneStillPrompt(current), project)
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   let referenceBytes
-  let referenceImage
+  let referenceMime
   let reference = '纯文字生图'
   if (operation.action === 'revise-image' && !route.image?.apiKey) {
     try {
@@ -72,14 +72,14 @@ export async function startImage(operation, project, { projects, models, home, s
       throw error
     }
     referenceBytes = file.bytes
-    referenceImage = `data:${file.mime};base64,${file.bytes.toString('base64')}`
+    referenceMime = file.mime
     reference = '按参考图生成'
   }
   const seed = imageSeed(`${item.id}:${Date.now()}`)
   const size = current.type === 'role' ? characterImageSize(operation.aspect) : aspectRatioOf(project.aspectRatio)
   defer(runStep('image_generate', () => submitAssetImage({
     assets: bag, itemId: item.id, aspectRatio: size, backend: route.image,
-    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes, referenceImage, seed, home, prompt: submitted,
+    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes, referenceMime, seed, home, prompt: submitted,
   }).then(async next => {
     const draft = next.items.find(entry => entry.id === item.id).pendingImage
     await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item), aspect: current.type === 'role' ? (operation.aspect || '9:16') : '', useReference: Boolean(operation.useReference) })
@@ -160,11 +160,7 @@ async function opConfirmImage(c) {
   const file = await readImageDraft(home, draft.draftId)
   if (file.metadata.projectId !== project.id || file.metadata.episodeId !== project.episodeId) throw Object.assign(new Error('图片不属于当前剧集'), { status: 409 })
   await projects.save(project.id, { activity: 'confirm-image', activityError: null })
-  const route = (await loadModels(models)).video
-  const uploaded = await (deps.uploadGatewayFile || uploadGatewayFile)({ baseUrl: route.baseUrl, apiKey: route.apiKey,
-    bytes: file.bytes, mime: file.metadata.mime, filename: `${draft.draftId}.${file.metadata.mime === 'image/jpeg' ? 'jpg' : file.metadata.mime.split('/')[1]}` })
-  if (!/^https?:\/\//i.test(uploaded.url || '')) throw new Error('上传接口未返回有效的 imageUrl')
-  const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, { ...file.metadata, imageUrl: uploaded.url })
+  const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, file.metadata)
   reference.prompt = file.metadata.prompt || ''
   let patch
   if (draft.track) patch = updateShotResult(project, 'pencil', draft.track, { ...reference, url: reference.localPath })
@@ -176,7 +172,7 @@ async function opConfirmImage(c) {
     throw error
   }
   await rm(file.directory, { recursive: true, force: true })
-  note('图片已确认：上传完成，imageUrl 已保存，已入素材库并更新关联')
+  note('图片已确认：已入素材库并更新关联')
   return trace
 }
 
@@ -210,20 +206,14 @@ async function opImportImage(c) {
     mime = incoming.mime
     await rm(incoming.directory, { recursive: true, force: true })
   }
-  const route = (await loadModels(models)).video
-  if (!route?.apiKey || !route?.baseUrl) throw Object.assign(new Error('尚未配置视频网关。'), { status: 409 })
-  const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'
-  const fileName = `${operation.itemId}.${ext}`
-  const file = await uploadGatewayFile({ baseUrl: route.baseUrl, apiKey: route.apiKey, bytes, mime, filename: fileName })
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   const bag = await importAssetImage({
     assets: place.bag, itemId: operation.itemId, projectId: project.id, episodeId: project.episodeId, directory,
-    bytes, mime, file, home,
+    bytes, mime, home,
   })
   await projects.save(project.id, { ...staleMedia(project), ...plotPatch(project, { [place.key]: bag }), activity: null, activityError: null })
   const item = bag.items.find(entry => entry.id === operation.itemId)
   note(`已用上传的文件替换 ${item?.id || operation.itemId} ${item?.name || ''}`.trim())
-  note(`网关文件：${file.id}`)
   return trace
 }
 
@@ -329,19 +319,11 @@ async function opPartImport(c) {
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   await mkdir(directory, { recursive: true })
   await writeFile(join(directory, `${partId}.${ext}`), bytes, { mode: 0o600 })
-  const route = (await loadModels(models)).video
-  let imageUrl = null
-  if (route?.apiKey && route?.baseUrl) {
-    const file = await uploadGatewayFile({ baseUrl: route.baseUrl, apiKey: route.apiKey, bytes, mime, filename: `${partId}.${ext}` })
-    imageUrl = file.url
-    note(`网关文件：${file.id}`)
-  }
   const reference = await savePicture(home, bytes, mime, 'props', `${character.name}-${slot}`, { source: 'import', projectId: project.id, episodeId: project.episodeId, itemId: partId })
   const bag = appendImageAsset(place.bag, character.id, slot, {
     id: partId,
     name: `${partSlots[slot].label}${partId.slice(-2)}`,
     ...reference,
-    imageUrl,
   })
   await projects.save(project.id, { ...staleMedia(project), ...plotPatch(project, { [place.key]: bag }), activity: null, activityError: null })
   note(`已导入 ${character.name} 的${partSlots[slot].label} ${partId}`)

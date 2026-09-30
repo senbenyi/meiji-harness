@@ -33,7 +33,12 @@ test('whole episode failed review revises the complete version once', async t=>{
  const p=await e.read()
  assert.equal(p.shots.items[0].seconds.content,'0–5s 第一镜修订稿')
  assert.equal(p.shots.items[1].seconds.content,'0–5s 第二镜接续动作')
- assert.ok(p.shots.items.every(shot=>shot.seconds.check.passed===false))
+ for (const shot of p.shots.items) {
+  assert.equal(shot.seconds.check.passed, false)
+  assert.equal(shot.seconds.status, 'failed')
+  assert.deepEqual(shot.seconds.check.failures, ['FAIL 第一镜问题'])
+  assert.equal(shot.seconds.operation, null)
+ }
  assert.equal(calls.length,4)
 })
 for(const text of [output.replace('[seconds-complete]',''), '## S01 / 5s\n只有一镜\n[seconds-complete]',output.replace('S02 / 5s','S02 / 4s')]) {

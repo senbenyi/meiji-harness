@@ -20,12 +20,14 @@ test('character cards keep one uploaded photo and no view set', () => {
   const characters = normalizeCharacters({
     items: [{
       name: '陈锋', role: '主角', appearance: '二十八岁', costume: '暗色漆甲', identity: '方脸', look,
-      file: { id: 'file_a', url: 'http://gateway/v1/files/file_a/content' },
+      localPath: '/plugins/meiji/asset-file?category=characters&id=a',
     }],
   })
   assert.equal(characters.items[0].views, undefined)
   assert.equal(characters.items[0].file, undefined)
-  assert.equal(characters.items[0].image.content.imageUrl, 'http://gateway/v1/files/file_a/content')
+  assert.equal(characters.items[0].image.content.localPath, '/plugins/meiji/asset-file?category=characters&id=a')
+  assert.equal(Object.hasOwn(characters.items[0].image.content, 'imageUrl'), false)
+  assert.equal(characters.items[0].image.status, 'passed')
   assert.equal(characters.items[0].features, '方脸，短黑发')
 })
 

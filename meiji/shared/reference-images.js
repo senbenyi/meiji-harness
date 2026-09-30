@@ -3,7 +3,7 @@ export function shotReferenceImages(project, item) {
   if (Array.isArray(item?.referenceSnapshot)) return item.referenceSnapshot.map(image => ({ ...image }))
   const images = []
   const add = (asset, label, kind, ownerId, slot) => {
-    const url = /^https?:\/\//.test(String(pictureOf(asset).imageUrl || '')) ? pictureOf(asset).imageUrl : pictureOf(asset).localPath || ''
+    const url = pictureOf(asset).localPath || ''
     if (!url) return
     const key = pictureOf(asset).assetId || url
     if (images.some(image => (image.assetId || image.url) === key)) return
@@ -21,7 +21,7 @@ export function shotReferenceImages(project, item) {
     for (const [slot, label] of [['clothes', '服装'], ['props', '道具'], ['hairstyles', '发型']]) {
       for (const part of person[slot] || []) {
         const key = `${person.name}/${slot}/${part.id}`
-        if (Array.isArray(selected) && !selected.some(ref => ref === key || ref === part.name || ref === part.assetId || ref === part.imageUrl)) continue
+        if (Array.isArray(selected) && !selected.some(ref => ref === key || ref === part.name || ref === part.assetId || ref === part.localPath)) continue
         add(part, `${person.name}的${label}「${part.name || part.id}」`, slot === 'props' ? 'props' : 'characters', person.id, slot)
       }
     }

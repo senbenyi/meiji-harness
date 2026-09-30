@@ -3,22 +3,15 @@ import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
 import { interruptRunning, RESTART_CANCELLED } from '../server/flow/tasks/restart.js'
 import { begin, modelPatch, finish } from '../shared/drama-model.js'
-// 服务重启一律取消遗留任务：不续查、不自动恢复；已提交的远端视频尽力取消。
-test('restart cancels orphaned operations, keeps generated content and cancels the remote video',async t=>{
- const e=await setupModel(t),cancelled=[]
- await e.store.save(e.id,p=>{begin(p.episodes[0].shots.items[0].video,{id:'orphan'});p.episodes[0].shots.items[0].video.content={status:'running',promptId:'remote'};return p})
- await interruptRunning(e.store,{cancelRemote:async id=>{cancelled.push(id)}})
- const v=(await e.read()).shots.items[0].video
- assert.deepEqual(cancelled,['remote'])
- assert.equal(v.status,'failed');assert.equal(v.error,RESTART_CANCELLED);assert.equal(v.operation,null)
- assert.equal(v.content.promptId,'remote');assert.equal(v.content.status,'error');assert.equal(v.content.terminal,true)
-})
-test('a failed remote cancellation is recorded honestly on the node',async t=>{
+// 服务重启一律取消遗留任务：不续查、不自动恢复；网关不提供取消接口，已提交的远端视频如实记录可能仍在运行。
+test('restart cancels orphaned operations, keeps generated content and records the uncancelled remote video',async t=>{
  const e=await setupModel(t)
  await e.store.save(e.id,p=>{begin(p.episodes[0].shots.items[0].video,{id:'orphan'});p.episodes[0].shots.items[0].video.content={status:'running',promptId:'remote'};return p})
- await interruptRunning(e.store,{cancelRemote:async()=>{throw new Error('HTTP 501')}})
+ await interruptRunning(e.store)
  const v=(await e.read()).shots.items[0].video
- assert.match(v.content.error,/远端取消失败（remote）：HTTP 501，任务可能仍在运行/)
+ assert.equal(v.status,'failed');assert.equal(v.error,RESTART_CANCELLED);assert.equal(v.operation,null)
+ assert.equal(v.content.promptId,'remote');assert.equal(v.content.status,'error');assert.equal(v.content.terminal,true)
+ assert.equal(v.content.error,`${RESTART_CANCELLED}；网关不提供取消接口，远端任务（remote）可能仍在运行`)
 })
 
  test('restart cancels unfinished text work, keeps opinion and content; explicit regeneration can pass', async t => {

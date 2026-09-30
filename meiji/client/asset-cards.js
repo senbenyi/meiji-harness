@@ -103,9 +103,7 @@ function textMaterials(project, item, actions, hint, busy) {
 }
 
 function stillSrc(item) {
-  if (pictureOf(item).localPath) return pictureOf(item).localPath
-  if (typeof pictureOf(item).imageUrl === 'string' && pictureOf(item).imageUrl.startsWith('/')) return pictureOf(item).imageUrl
-  return ''
+  return pictureOf(item).localPath || ''
 }
 
 function field(card, label, value) {
@@ -260,14 +258,14 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     textGen.setAttribute('aria-label', '文字生图')
     textGen.onclick = () => generate(textGen, '文字生图', false)
     resultActions.append(textGen)
-    if (stillSrc(item) || pictureOf(item).imageUrl) {
+    if (stillSrc(item)) {
       const edit = element('button', '更换')
       edit.type = 'button'
       edit.disabled = controlBusy
       edit.setAttribute('aria-label', `更换图片：${item.name}`)
       edit.onclick = () => { pickId = item.id; pickSlot = ''; picker.click() }
       resultActions.append(edit)
-      if (stillSrc(item) || /^https?:\/\//.test(String(pictureOf(item).imageUrl || ''))) {
+      if (stillSrc(item)) {
         const remove = element('button', '删除')
         remove.type = 'button'
         remove.disabled = controlBusy
@@ -553,7 +551,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       }
     }
     heading.append(ai)
-    if (stillSrc(item) || pictureOf(item).imageUrl) {
+    if (stillSrc(item)) {
       const edit = element('button', '更换图片')
       edit.type = 'button'
       edit.disabled = controlBusy
@@ -606,7 +604,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       } catch (error) { content.textContent = error.message }
     }
     actionsRow.append(choose)
-    if (item.type === 'role' && (stillSrc(item) || /^https?:\/\//.test(String(pictureOf(item).imageUrl || '')))) {
+    if (item.type === 'role' && stillSrc(item)) {
       const remove = element('button', '', 'character-remove')
       remove.title = '删除图片'
       remove.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>'

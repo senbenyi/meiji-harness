@@ -9,7 +9,7 @@ export function characterCard(project, item, actions, context) {
   open.type = 'button'
   open.setAttribute('aria-label', `人物详情：${item.name}`)
   open.onclick = () => context.onOpenCharacter?.(project.episodeId, item.id)
-  const src = pictureOf(item).localPath || (pictureOf(item).imageUrl?.startsWith('/') ? pictureOf(item).imageUrl : '')
+  const src = pictureOf(item).localPath || ''
   const portrait = element(src ? 'img' : 'span', src ? '' : (item.name || '人').charAt(0), 'character-thumb')
   if (src) { portrait.src = src; portrait.alt = item.name }
   const copy = element('span', '', 'character-copy')
@@ -66,16 +66,5 @@ export function renderCharacterDetail(project, itemId, actions, context) {
   hint.hidden = !hint.textContent
   hint.setAttribute('role', 'status')
   page.append(hint, ...stillCards(project, [item], actions, hint, { editable: true, imageGate: context.detailGate }))
-  const address = element('section', '', 'character-image-url')
-  address.append(element('h3', '人物图片 URL'))
-  if (/^https?:\/\//.test(String(pictureOf(item).imageUrl || ''))) {
-    const link = element('a', pictureOf(item).imageUrl)
-    link.href = actions.characterImageUrl(project, item.id)
-    link.target = '_blank'
-    link.rel = 'noopener'
-    link.title = '验证并查看已上传的图片'
-    address.append(link, element('p', '点击地址验证访问并查看图片。', 'meta'))
-  } else address.append(element('p', '尚无已上传的图片 URL，请先确认上传图片。', 'meta'))
-  page.append(address)
   return page
 }

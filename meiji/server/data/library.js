@@ -61,7 +61,7 @@ export function assetStore(home) {
         await pipeline(chunks(), limiter, createWriteStream(join(staging, 'original' + extension), { flags: 'wx', mode: 0o600 }))
         if (!size) throw Object.assign(new Error('不能导入空文件'), { status: 400 })
         const content = category === 'guidance' ? guidanceText(await readFile(join(staging, 'original' + extension))) : undefined
-        const metadata = { version: 1, id, category, originalName, file: 'original' + extension, mime, size, ...(content === undefined ? {} : { content, guidanceType }), source: origin.source || 'import', ...(origin.imageUrl ? { imageUrl: origin.imageUrl } : {}), ...(origin.projectId ? { projectId: origin.projectId, episodeId: origin.episodeId || null, itemId: origin.itemId || null, prompt: origin.prompt || '' } : {}), createdAt: new Date().toISOString() }
+        const metadata = { version: 1, id, category, originalName, file: 'original' + extension, mime, size, ...(content === undefined ? {} : { content, guidanceType }), source: origin.source || 'import', ...(origin.projectId ? { projectId: origin.projectId, episodeId: origin.episodeId || null, itemId: origin.itemId || null, prompt: origin.prompt || '' } : {}), createdAt: new Date().toISOString() }
         await writeFile(join(staging, 'metadata.json'), JSON.stringify(metadata, null, 2) + '\n', { mode: 0o600 })
         await rename(staging, directory)
         return metadata

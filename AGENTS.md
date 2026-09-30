@@ -21,3 +21,10 @@ Claude Code 通过 `.claude/settings.json` 注册的 `.claude/guard.mjs` 强制�
 
 - 使用中文沟通和撰写文档。
 - 只改需求范围内的代码；不提交凭据。
+
+## GitNexus 索引维护
+
+- 完成本项目代码修改及项目要求的验证后，在最终回复前更新 GitNexus 索引；同一任务集中更新一次，不在每次编辑后重复执行。
+- 在本仓库根目录执行：`GITNEXUS_STORAGE_ROOT=/Users/devin/.gitnexus/indexes gitnexus analyze --index-only`。
+- 仅讨论、只读调研或未修改代码时不更新。
+- 更新失败时说明原因与索引可能过期，不宣称更新成功；不为修复索引问题修改无关业务代码。

@@ -64,7 +64,7 @@ if node -e 'const n=require("net").connect(3080,"127.0.0.1",()=>{n.end();process
   exit 0
 fi
 
-# 启动前迁移：项目数据按剧集拆分的存储布局、任务记录的步骤格式、补充 skill 与指导素材按剧保存；已迁移的跳过，失败时不启动。
+# 启动前迁移：项目数据按剧集拆分的存储布局、任务记录的步骤格式、补充 skill 与指导素材按剧保存、删除图片网关地址；已迁移的跳过，失败时不启动。
 DSH_DATA="${DSH_HOME:-$HOME/.dsh}"
 if [[ -d "$DSH_DATA/storages/meiji/projects" ]]; then
   echo "检查 meiji 项目存储布局"
@@ -73,6 +73,8 @@ if [[ -d "$DSH_DATA/storages/meiji/projects" ]]; then
   node "$PLUGIN/scripts/migrate-task-steps.js" "$DSH_DATA"
   echo "检查 meiji 补充 skill 与指导素材（按集 → 按剧）"
   node "$PLUGIN/scripts/migrate-custom-skills.js" "$DSH_DATA"
+  echo "检查 meiji 图片网关地址（imageUrl → 本地图片）"
+  node "$PLUGIN/scripts/migrate-image-url.js" "$DSH_DATA"
 fi
 
 echo "启动 Harness"

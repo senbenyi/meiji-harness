@@ -112,12 +112,21 @@ export function aggregateStatus(nodes) {
   if (nodes.some(item => item.status === GenerationStatus.FAILED || item.stale)) return GenerationStatus.FAILED
   return nodes.length && nodes.every(item => item.status === GenerationStatus.PASSED) ? GenerationStatus.PASSED : GenerationStatus.NOT_GENERATED
 }
+// 旧版网关文件字段：图片远端地址 imageUrl 与上传记录 file（{ id, url }）。网关已不提供文件接口，需迁移删除。
+export function hasGatewayFileFields(value) {
+  if (Array.isArray(value)) return value.some(hasGatewayFileFields)
+  if (!value || typeof value !== 'object') return false
+  if (Object.hasOwn(value, 'imageUrl')) return true
+  if (value.file && typeof value.file === 'object' && Object.hasOwn(value.file, 'url')) return true
+  return Object.values(value).some(hasGatewayFileFields)
+}
 export function assertDrama(project) {
   if (project.schemaVersion !== schemaVersion) throw new Error('项目格式需先执行一次性 Model 迁移，运行时不兼容旧格式')
   if (!Array.isArray(project.episodes)) throw new Error('项目缺少剧集集合')
   for (const episode of project.episodes) {
     // 补充 skill 与指导素材已改为按剧保存（项目 skills），按集的旧字段需先迁移。
     if (Object.hasOwn(episode, 'customSkills') || Object.hasOwn(episode, 'guidanceAssets')) throw Object.assign(new Error('剧集仍含按集保存的补充 skill 或指导素材，请停止服务后执行：node meiji/scripts/migrate-custom-skills.js <DSH_HOME>'), { code: 'OLD_CUSTOM_SKILLS', status: 409 })
+    if (hasGatewayFileFields(episode)) throw Object.assign(new Error('剧集仍含网关文件地址（imageUrl），请停止服务后执行：node meiji/scripts/migrate-image-url.js <DSH_HOME>'), { code: 'OLD_IMAGE_URL', status: 409 })
     if (['feedback', 'outline', 'characters', 'scenes', 'storyboard', 'boards', 'films'].some(key => Object.hasOwn(episode, key))) throw new Error('剧集包含已移除的旧字段')
     if (!episode.plot || !episode.shots?.items || !episode.summary?.check) throw new Error('剧集 Model 不完整')
     episode.shots.seconds ??= { ...node('seconds'), review: { ...emptyReview(), text: episode.shots.items.filter(shot => shot.seconds.review.text).map(shot => `${shot.id}：${shot.seconds.review.text}`).join('\n') } }
@@ -131,9 +140,9 @@ export function assertDrama(project) {
 export function shotMap(project, kind) { return Object.fromEntries(shotResults(project, kind).map(({ id, ...content }) => [id, content])) }
 export function pictureOf(item) { return item?.type === 'role' || item?.type === 'scene' ? item.image?.content || {} : item || {} }
 export function cardModel(fields) {
-  const { id, image, localPath, imageUrl, assetId, assetCategory, file, ...data } = fields
-  const media = image || node(`image:${id}`, localPath || imageUrl || assetId ? { localPath, imageUrl, assetId, assetCategory } : null)
-  if (media.content?.imageUrl) { media.status = GenerationStatus.PASSED; media.check.passed = true }
+  const { id, image, localPath, assetId, assetCategory, ...data } = fields
+  const media = image || node(`image:${id}`, localPath || assetId ? { localPath, assetId, assetCategory } : null)
+  if (media.content?.localPath || media.content?.assetId) { media.status = GenerationStatus.PASSED; media.check.passed = true }
   return { ...node(id), ...data, image: media, parts: data.parts || Object.fromEntries(['clothes', 'props', 'hairstyles'].map(slot => [slot, node(`image:${id}:${slot}`)])) }
 }
 export function plotPatch(project, values) { return { plot: { ...project.plot, ...values } } }
@@ -166,7 +175,7 @@ export function refreshReferences(episode) {
       const item = ref.ownerId ? owner?.[ref.slot]?.find(item => item.id === ref.id) : owner
       if (!item) return ref
       const media = pictureOf(item)
-      const url = media.imageUrl || media.localPath || ''
+      const url = media.localPath || ''
       if (url === ref.url && media.assetId === ref.assetId) return ref
       changed = true
       return { ...ref, url, assetId: media.assetId || null, assetCategory: media.assetCategory || null, localPath: media.localPath || null }

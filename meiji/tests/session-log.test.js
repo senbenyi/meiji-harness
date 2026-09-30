@@ -74,8 +74,8 @@ test('submission log preserves the complete messages and request options sent to
   assert.equal(log.includes('secret-key'), false)
 })
 
-test('video submission and file upload logs omit base64 while preserving actual uploads', async () => {
-  const { submitGatewayVideo, uploadGatewayFile } = await import('../server/generate/gateway.js')
+test('video and reference image logs omit base64 while preserving what was actually sent', async () => {
+  const { submitGatewayVideo, generateGatewayImage } = await import('../server/generate/gateway.js')
   const events = [], session = { append: (type, data) => events.push({ type, data }) }
   const bytes = Buffer.from([0, 1, 2, 253, 254, 255])
   const reference = bytes.toString('base64')
@@ -85,19 +85,22 @@ test('video submission and file upload logs omit base64 while preserving actual 
         assert.equal(JSON.parse(options.body).input_reference, reference)
         return Response.json({ id: 'video-id' })
       } })
-    await uploadGatewayFile({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', bytes, filename: 'frame.png', mime: 'image/png',
+    await submitGatewayVideo({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', prompt: '生成视频', duration: 5, mode: 'reference', referenceImages: [`data:image/png;base64,${reference}`],
       fetchImpl: async (url, options) => {
-        assert.deepEqual(Buffer.from(await options.body.get('file').arrayBuffer()), bytes)
-        return Response.json({ id: 'file-id', url: 'https://files.test/frame.png' })
+        assert.deepEqual(JSON.parse(options.body).reference_images, [`data:image/png;base64,${reference}`])
+        return Response.json({ id: 'video-id-2' })
+      } })
+    await generateGatewayImage({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', prompt: '参考生图', references: [{ bytes, mime: 'image/png' }],
+      fetchImpl: async (url, options) => {
+        assert.deepEqual(Buffer.from(await options.body.get('image[]').arrayBuffer()), bytes)
+        return Response.json({ data: [{ b64_json: reference }] })
       } })
   })
   const logs = events.filter(e => e.data.text?.includes('参数：')).map(e => e.data.text)
   assert.equal(JSON.parse(logs[0].split('参数：')[1]).input_reference, `[base64 图片，${reference.length} 字符]`)
-  const file = JSON.parse(logs[1].split('参数：')[1]).file
-  assert.equal(file.filename, 'frame.png')
-  assert.equal(file.mime, 'image/png')
-  assert.equal(file.size, bytes.length)
-  assert.equal('content' in file, false)
+  assert.deepEqual(JSON.parse(logs[1].split('参数：')[1]).reference_images, [`[base64 数据，${reference.length} 字符]`])
+  const edit = JSON.parse(logs[2].split('参数：')[1])
+  assert.deepEqual(edit['image[]'], [`reference-1.png（image/png，${bytes.length} 字节）`])
   assert.equal(logs.join('\n').includes(reference), false)
   assert.equal(logs.join('\n').includes('secret-key'), false)
 })

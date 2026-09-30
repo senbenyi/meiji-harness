@@ -57,8 +57,6 @@ export function normalizeCharacters(raw) {
       props: imageAssets(item?.props),
       hairstyles: imageAssets(item?.hairstyles),
       localPath: item?.localPath || null,
-      imageUrl: item?.imageUrl || null,
-      file: item?.file,
     }
   }).map(pictureRecord)
   return { ...node('characters'), items: items.map(cardModel) }
@@ -76,7 +74,6 @@ export function normalizeScenes(raw) {
     space: required(item?.space, `场景 ${index + 1} 没有空间说明`),
     look: usableLook(item?.look),
     localPath: null,
-    imageUrl: null,
   }))
   if (items.some(item => !item.look)) throw Object.assign(new Error('场景画面提示词需要至少 12 个文字字符，且不能靠人物来描述'), { status: 502 })
   return { ...node('scenes'), items: items.map(cardModel) }

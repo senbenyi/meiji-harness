@@ -1,22 +1,21 @@
 // 成片操作：单镜与整集视频提交、尾帧处理、全片拼接，以及视频提交参数的组装。
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { render } from '../../prompts/skill-prompts.js'
 import videoSegments from '../../prompts/interfaces/video.js'
 import { materialize } from '../../data/episodes.js'
 import { projectStore } from '../../data/projects.js'
-import { readPicture, savePicture } from '../../data/pictures.js'
+import { referenceImageData } from '../../data/pictures.js'
 import { selectCheck } from '../../data/review-checks.js'
 import { runStep } from '../../data/task-store.js'
-import { loadModels, services } from './services.js'
+import { loadModels } from './services.js'
 import { concatFilms } from '../../generate/concat.js'
 import { bindReferencePrompt, filmClipUrl, retrieveFilm, saveLastFrame, shotReferenceImages, submitH3, videoRequestMode, wantsOpeningFrame } from '../../generate/film.js'
-import { uploadGatewayFile } from '../../generate/gateway.js'
-import { pictureRecord } from '../../generate/image.js'
+import { gatewayVideoSize } from '../../generate/gateway.js'
 import { storyboardPromptText } from '../../generate/story.js'
 import { insertSessionLog } from '../../host/session-log.js'
-import { GenerationStatus, contentNode, node, pictureOf, plotPatch, shotMap, shotResults, updateShotResult } from '../../../shared/drama-model.js'
+import { GenerationStatus, contentNode, node, shotMap, shotResults, updateShotResult } from '../../../shared/drama-model.js'
 import { feedbackOf } from '../../../shared/feedback.js'
 import { hasFilm, hasStoryboard } from '../../../shared/gates.js'
 import { aspectRatioOf } from '../../../shared/project-rules.js'
@@ -26,27 +25,6 @@ import { previousTail } from '../../../shared/tail-frame.js'
 export async function prepareFilmOpening(project, item) {
   // The storyboard already contains the stored reference; never extract or upload here.
   return {}
-}
-
-export async function publishLocalReferences(project, images, { home, route, projects }) {
-  for (const image of images) {
-    if (!String(image.url || '').startsWith('/plugins/meiji/') || !image.id || !image.kind) continue
-    const key = image.ownerId ? 'characters' : image.kind
-    const owner = project.plot[key]?.items.find(entry => entry.id === (image.ownerId || image.id))
-    const source = image.ownerId ? owner?.[image.slot]?.find(entry => entry.id === image.id) : owner
-    const still = await readPicture(home, project, source)
-    const reference = pictureOf(source).assetId ? {} : await savePicture(home, still.bytes, still.mime, image.kind, source.name || source.id, { source: 'import', projectId: project.id, episodeId: project.episodeId, itemId: source.id })
-    const ext = still.mime === 'image/jpeg' ? 'jpg' : still.mime === 'image/webp' ? 'webp' : 'png'
-    const file = await uploadGatewayFile({ baseUrl: route.baseUrl, apiKey: route.apiKey, bytes: still.bytes, mime: still.mime, filename: `${image.id}.${ext}` })
-    const bag = project.plot[key]
-    if (!bag?.items) continue
-    const updated = pictureRecord({ ...source, ...reference, localPath: reference.localPath || pictureOf(source).localPath || image.url, imageUrl: file.url, file })
-    const items = bag.items.map(entry => entry.id !== owner.id ? entry : image.ownerId
-      ? { ...entry, [image.slot]: entry[image.slot].map(part => part.id === image.id ? updated : part) }
-      : updated)
-    project.plot[key] = { ...bag, items }
-    await projects.save(project.id, plotPatch(project, { [key]: project.plot[key] }))
-  }
 }
 
 export function previewFilmSubmit(project, item) {
@@ -62,7 +40,7 @@ export function previewFilmSubmit(project, item) {
   return {
     model: 'elysium-video',
     seconds: item.duration,
-    quality: 'medium',
+    size: gatewayVideoSize(aspectRatioOf(project.aspectRatio)),
     mode: payload.mode,
     prompt: payload.prompt,
     referenceImages: payload.referenceImages || [],
@@ -76,10 +54,10 @@ export function formatFilmRequest(fields) {
     '最终提交参数：',
     `model: ${fields.model || 'elysium-video'}`,
     `seconds: ${fields.seconds ?? ''}`,
-    `quality: ${fields.quality || 'medium'}`,
+    `size: ${fields.size || ''}`,
     `mode: ${fields.mode || ''}`,
   ]
-  if (fields.referenceImages?.length) lines.push(`reference_images: ${JSON.stringify(fields.referenceImages)}`)
+  if (fields.referenceImages?.length) lines.push(`reference_images（按顺序转为 base64 data URL 提交）: ${JSON.stringify(fields.referenceImages)}`)
   if (fields.inputReference) lines.push(`input_reference: ${fields.inputReference}`)
   lines.push('prompt:')
   if (fields.prompt) lines.push(fields.prompt)
@@ -138,24 +116,21 @@ export async function saveTailFrame(projects, project, track, file, directory, h
   const lastFrame = file.replace(/\.mp4$/, '-last.png')
   const tail = node(`tailFrame:${track}`)
   tail.status = GenerationStatus.GENERATING
-  tail.content = { sourceVideoFile: file, localPath: null, imageUrl: null, file: null }
+  tail.content = { sourceVideoFile: file, localPath: null }
   const persistTail = () => projects.save(project.id, current => ({ shots: { ...current.shots, items: current.shots.items.map(s => s.id === track ? { ...s, tailFrame: structuredClone(tail) } : s) } }))
   await persistTail()
   try {
     await saveFrame(join(directory, file), join(directory, lastFrame))
     tail.content.localPath = join(directory, lastFrame)
-    await persistTail()
-    const route = (await loadModels(services(home).models)).video
-    const uploaded = await uploadGatewayFile({ baseUrl: route.baseUrl, apiKey: route.apiKey, bytes: await readFile(join(directory, lastFrame)), filename: lastFrame, mime: 'image/png' })
-    tail.content.file = uploaded; tail.content.imageUrl = uploaded.url
     tail.status = GenerationStatus.PASSED; tail.check = { passed: true, failures: [] }
   } catch (error) { tail.status = GenerationStatus.FAILED; tail.error = error.message || '尾帧处理失败' }
   await persistTail()
 }
 
 // 提交一镜视频。重试一律重新提交，不续查旧的远端任务（服务重启会取消进行中任务）。
-export async function submitFilm(project, track, payload, route, deps, size) {
-  return (deps.submitH3 || submitH3)({ items: [{ track, duration: project.shots.items.find(shot => shot.id === track).duration, ...payload }], route, aspectRatio: size, signal: deps.signal })
+// payload.referenceImages 为本地地址；提交时换成 media（按同一顺序的 base64 data URL）。
+export async function submitFilm(project, track, payload, route, deps, size, media = []) {
+  return (deps.submitH3 || submitH3)({ items: [{ track, duration: project.shots.items.find(shot => shot.id === track).duration, ...payload, referenceImages: media }], route, aspectRatio: size, signal: deps.signal })
 }
 
 export const filmWrites = new Map()
@@ -207,11 +182,11 @@ async function opFilm(c) {
   try {
     const size = aspectRatioOf(project.aspectRatio)
     let payload
-    // 提交视频步骤包含：上传本地参考图、准备开场帧、组装参数并提交。
+    // 提交视频步骤包含：准备开场帧、组装参数、读取本地参考图转为 base64 并提交。
     const queued = await runStep('video_submit', async () => {
-      await publishLocalReferences(project, images, { home, route, projects })
       payload = filmSubmit(project, item, await prepareFilmOpening(project, item, { home, projects, route, deps }))
-      return submitFilm(project, track, payload, route, deps, size)
+      const media = payload.mode === 'reference' ? await referenceImageData(home, project, images) : []
+      return submitFilm(project, track, payload, route, deps, size, media)
     }, { target: `film:${track}` })
     const shot = queued.shots[0]
     await writeFilm(projects, project.id, track, { status: 'running', terminal: false, promptId: shot.promptId, request: { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [], continuityReference: payload.continuityReference || null }, assetIds: images.map(image => image.assetId).filter(Boolean), error: null })
@@ -220,7 +195,7 @@ async function opFilm(c) {
     note('函数：submitH3')
     note(`${track}，时长 ${shot.duration} 秒`)
     note(payload.note)
-    note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
+    note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, mode: payload.mode, size: gatewayVideoSize(size), prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
     note('视频还在生成。完成后出现在这一张镜头卡片上。')
     deps.defer(runStep('video_generate', () => (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal }).then(async bytes => {
       await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
@@ -258,17 +233,17 @@ async function opFilms(c) {
     const images = item.video === 'text' ? [] : shotReferenceImages(current, item)
     const size = aspectRatioOf(project.aspectRatio)
     let payload
-    // 提交视频步骤包含：上传本地参考图、准备开场帧、组装参数并提交。
+    // 提交视频步骤包含：准备开场帧、组装参数、读取本地参考图转为 base64 并提交。
     const queued = await runStep('video_submit', async () => {
-      await publishLocalReferences(current, images, { home, route, projects })
       payload = filmSubmit(current, item, await prepareFilmOpening(current, item, { home, projects, route, deps }))
-      return submitFilm(current, track, payload, route, deps, size)
+      const media = payload.mode === 'reference' ? await referenceImageData(home, current, images) : []
+      return submitFilm(current, track, payload, route, deps, size, media)
     }, { target: `film:${track}` })
     const shot = queued.shots[0]
     await writeFilm(projects, project.id, track, { status: 'running', terminal: false, promptId: shot.promptId, request: { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [], continuityReference: payload.continuityReference || null }, assetIds: images.map(image => image.assetId).filter(Boolean), error: null })
     note(`已提交 ${track}，时长 ${shot.duration} 秒`)
     note(payload.note)
-    note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, quality: 'medium', mode: payload.mode, size, prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
+    note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, mode: payload.mode, size: gatewayVideoSize(size), prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
     try {
       await runStep('video_generate', async () => {
         const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })

@@ -14,8 +14,8 @@ function domSetup(t) {
 }
 test('all production panes render directly from new models, including pencil and references',t=>{
  const container=domSetup(t),e=episodeFixture();e.episodeId=e.id
- e.plot.characters.items[0].image.content={imageUrl:'https://image.test/a',localPath:'/portrait'}
- e.shots.items[0].storyboard.content.referenceSnapshot=[{id:'C01',url:'https://image.test/a',localPath:'/portrait',kind:'characters',label:'旅人'}]
+ e.plot.characters.items[0].image.content={localPath:'/portrait'}
+ e.shots.items[0].storyboard.content.referenceSnapshot=[{id:'C01',url:'/portrait',localPath:'/portrait',kind:'characters',label:'旅人'}]
  e.shots.items[0].storyboard.content.prompt.text='<Subject 1> comes from <Picture 1>'
  const actions={perform:async()=>{},fail:()=>{}}
  for(const step of ['script','shots','film','assembly'])container.replaceChildren(renderStage(step,e,actions,{}))
@@ -32,7 +32,7 @@ test('partial refresh retains focused draft and does not detach nested reused co
 })
 test('model store notifies on newer revisions and rejects late responses',async t=>{const e=await setupModel(t),p=await e.store.read(e.id),store=createModelStore();let calls=0;store.subscribe(()=>calls++);store.accept(p);store.accept({...p,revision:p.revision+2,title:'新'});assert.equal(store.accept({...p,title:'旧'}).title,'新');assert.equal(calls,2)})
 test('text draft survives reload and does not alter published storyboard',async t=>{const e=await setupModel(t);const before=(await e.read()).shots.items[0].storyboard.content.prompt.text;await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','未提交正文',0,'text');const model=(await e.read()).shots.items[0].storyboard;assert.equal(model.content.prompt.text,before);assert.equal(model.draft.text,'未提交正文');assert.equal(model.status,'passed')})
-test('replacing a picture refreshes snapshot URL without regenerating storyboard prose',async t=>{const e=await setupModel(t);await e.store.save(e.id,p=>{const ep=p.episodes[0];ep.plot.characters.items[0].image.content={imageUrl:'https://image.test/new'};ep.shots.items[0].storyboard.content.referenceSnapshot=[{id:'C01',url:'https://image.test/old',kind:'characters'}];return p});const ep=await e.read();assert.equal(ep.shots.items[0].storyboard.content.referenceSnapshot[0].url,'https://image.test/new');assert.match(ep.shots.items[0].storyboard.content.prompt.text,/旅人/);assert.equal(ep.shots.items[0].storyboard.status,'passed')})
+test('replacing a picture refreshes snapshot URL without regenerating storyboard prose',async t=>{const e=await setupModel(t);await e.store.save(e.id,p=>{const ep=p.episodes[0];ep.plot.characters.items[0].image.content={localPath:'/plugins/meiji/asset-file?category=characters&id=new'};ep.shots.items[0].storyboard.content.referenceSnapshot=[{id:'C01',url:'/plugins/meiji/asset-file?category=characters&id=old',kind:'characters'}];return p});const ep=await e.read();assert.equal(ep.shots.items[0].storyboard.content.referenceSnapshot[0].url,'/plugins/meiji/asset-file?category=characters&id=new');assert.match(ep.shots.items[0].storyboard.content.prompt.text,/旅人/);assert.equal(ep.shots.items[0].storyboard.status,'passed')})
 test('project refresh marker reads nested pencil and video nodes', async t => {
  const { projectRefreshMark } = await import('../client/chat-bridge.js')
  const e = await setupModel(t), p = await e.store.read(e.id)
@@ -97,7 +97,7 @@ test('storyboard badges distinguish missing pending and failed content', t => {
 test('previous tail input is hidden and never replaces missing current video or tail', t => {
  const container=domSetup(t),e=episodeFixture();e.episodeId=e.id
  const s=e.shots.items[1]
- s.storyboard.content.tailReference={sourceShotId:'S01',imageUrl:'https://test/previous'}
+ s.storyboard.content.tailReference={sourceShotId:'S01',sourceVideoFile:'previous.mp4'}
  s.video.content=null
  s.tailFrame={status:'passed',content:{sourceVideoFile:'old.mp4',localPath:'/old.png'}}
  container.replaceChildren(renderStage('film',e,{perform:async()=>{},fail:()=>{}},{}))

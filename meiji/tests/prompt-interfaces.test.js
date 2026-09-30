@@ -83,7 +83,7 @@ test('各图片接口显式选择的基础覆盖和本剧补充继续参与生�
 })
 
 test('视频独立模块拥有补充、意见与衔接规则，流程层按原样使用', () => {
-  const view = { ...project, plot: { characters: { items: [{ name: '甲', imageUrl: 'https://image.test/a' }] }, scenes: { items: [] } } }
+  const view = { ...project, plot: { characters: { items: [{ name: '甲', localPath: '/plugins/meiji/asset-file?category=characters&id=a' }] }, scenes: { items: [] } } }
   const set = builtinSkillSet({ additions: { video: { generate: '视频独立补充' } } })
   const item = { id: 'S01', format: 'text', video: 'reference', characters: ['甲'], prompt: { text: '最终视频正文' } }
   const opening = { referenceUrl: 'https://image.test/tail', previous: 'S00' }
@@ -91,7 +91,7 @@ test('视频独立模块拥有补充、意见与衔接规则，流程层按原�
     const expected = render(videoSegments({ project: view, prompt: item.prompt.text, mode: 'reference', opening, imageCount: 1 }))
     const actual = filmSubmit(view, item, opening)
     assert.equal(actual.prompt, expected)
-    assert.deepEqual(actual.referenceImages, ['https://image.test/a', opening.referenceUrl])
+    assert.deepEqual(actual.referenceImages, ['/plugins/meiji/asset-file?category=characters&id=a', opening.referenceUrl])
     assert.match(actual.prompt, /视频独立补充/)
     assert.match(actual.prompt, /节奏加快/)
     assert.match(actual.prompt, /<Picture 2>/)

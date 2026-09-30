@@ -7,6 +7,8 @@ import { generateEpisode, normalizeScenes } from '../server/generate/story.js'
 
 test('language defaults to Chinese, validates values and follows episode context', () => {
   assert.equal(outputLanguage(), 'zh-CN')
+  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'zh-CN' }, instructions: '' }).system, /Mandarin Chinese/)
+  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'en' }, instructions: '' }).system, /对白语言：English/)
   assert.throws(() => outputLanguage('unknown'), /仅支持/)
   assert.match(buildGenerationPrompt({ skill: 'episode', project: { outputLanguage: 'en' }, instructions: '' }).system, /本次生成语言：English/)
   assert.equal(materialize({ id: 'p', summary: { content: '' }, outputLanguage: 'en', episodes: [{ id: 'e' }] }, 'e').outputLanguage, 'en')

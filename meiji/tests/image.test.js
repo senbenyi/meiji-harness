@@ -72,7 +72,8 @@ test('each AI click generates a new still and replaces the previous file', async
     assert.equal(saved.items[1].localPath, undefined)
     assert.equal(saved.items[1].imageUrl, undefined)
     assert.match(pictureOf(saved.items[0]).localPath, /\?v=11$/)
-    assert.equal(pictureOf(saved.items[0]).imageUrl, null)
+    assert.equal(Object.hasOwn(pictureOf(saved.items[0]), 'imageUrl'), false)
+    assert.equal(saved.items[0].image.status, 'passed')
     assert.equal((await readFile(join(directory, 'A01.png'))).equals(png), true)
     const again = await submitAssetImage({ ...input, assets: saved, itemId: 'A01', seed: 22 })
     assert.equal(posts.length, 2)
@@ -85,7 +86,7 @@ test('each AI click generates a new still and replaces the previous file', async
 
 test('clearing a character image drops the bound file', () => {
   const cleared = clearCharacterImage({
-    items: [cardModel({ id: 'C01', name: '黄征', type: 'role', localPath: '/images/C01', imageUrl: 'http://gateway/a' })],
+    items: [cardModel({ id: 'C01', name: '黄征', type: 'role', localPath: '/images/C01' })],
   }, 'C01')
   assert.equal(cleared.items[0].image.content, null)
   assert.equal(cleared.items[0].image.status, 'not-generated')
@@ -164,9 +165,9 @@ test('a minor or unknown-age character still stays clothed and ignores editable 
 })
 
 test('an image asset keeps only id, name, and the two paths', () => {
-  const asset = imageAsset({ id: 'W01', name: '旧外套', localPath: '/plugins/meiji/projects/p/images/W01', imageUrl: 'http://gateway/coat', costume: '旧外套', file: { url: 'http://ignored' } })
-  assert.deepEqual(asset, { id: 'W01', name: '旧外套', localPath: '/plugins/meiji/projects/p/images/W01', imageUrl: 'http://gateway/coat' })
-  assert.deepEqual(imageAssets([{ name: '缺编号' }, { id: 'H01', name: '短发' }]), [{ id: 'H01', name: '短发', localPath: null, imageUrl: null }])
+  const asset = imageAsset({ id: 'W01', name: '旧外套', localPath: '/plugins/meiji/projects/p/images/W01', costume: '旧外套' })
+  assert.deepEqual(asset, { id: 'W01', name: '旧外套', localPath: '/plugins/meiji/projects/p/images/W01' })
+  assert.deepEqual(imageAssets([{ name: '缺编号' }, { id: 'H01', name: '短发' }]), [{ id: 'H01', name: '短发', localPath: null }])
 })
 
 test('clothes, props, and hairstyles append as image assets', () => {
@@ -187,7 +188,7 @@ test('clothes, props, and hairstyles append as image assets', () => {
   assert.equal(characterImageSize('16:9'), '1344x768')
   assert.throws(() => characterImageSize('21:9'), { status: 400 })
   const saved = appendImageAsset({ items: [character] }, 'C01', 'clothes', { id: 'C01-W01', name: '衣服01', localPath: '/plugins/meiji/projects/p/images/C01-W01', extra: 'no' })
-  assert.deepEqual(saved.items[0].clothes, [{ id: 'C01-W01', name: '衣服01', localPath: '/plugins/meiji/projects/p/images/C01-W01', imageUrl: null }])
+  assert.deepEqual(saved.items[0].clothes, [{ id: 'C01-W01', name: '衣服01', localPath: '/plugins/meiji/projects/p/images/C01-W01' }])
   assert.equal(nextPartId(saved.items[0], 'clothes'), 'C01-W02')
 })
 
@@ -211,19 +212,13 @@ test('gateway text-to-image posts the supplied Chinese prompt and stores the ret
       backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key' },
       prompt,
       fetchImpl: async (url, options) => {
-        if (options.method === 'POST') {
-          posted = { url: String(url), body: JSON.parse(options.body), authorization: options.headers.Authorization }
-          return Response.json({ id: 'image_test', status: 'queued' })
-        }
-        if (url.pathname.endsWith('/content')) return new Response(png)
-        return Response.json({ status: 'completed' })
+        assert.equal(options.method, 'POST')
+        posted = { url: String(url), body: JSON.parse(options.body), authorization: options.headers.Authorization }
+        return Response.json({ created: 1, data: [{ b64_json: png.toString('base64') }] })
       },
     })
-    assert.equal(posted.url, 'http://43.154.247.11/v1/images/tasks')
-    assert.equal(posted.body.model, 'elysium-image')
-    assert.equal(posted.body.size, '768x1344')
-    assert.equal(posted.body.prompt, prompt)
-    assert.equal(posted.body.image, undefined)
+    assert.equal(posted.url, 'http://43.154.247.11/v1/images/generations')
+    assert.deepEqual(posted.body, { model: 'elysium-image', prompt, size: '768x1344', seed: 4 })
     assert.equal(posted.authorization, 'Bearer test-key')
     assert.equal(pictureOf(saved.items[0]).localPath.includes('/images/A01'), true)
     assert.deepEqual(await readFile(join(directory, 'A01.png')), png)
@@ -232,7 +227,7 @@ test('gateway text-to-image posts the supplied Chinese prompt and stores the ret
   }
 })
 
-test('reference image generation posts a data URL and keeps the reference beside the character', async () => {
+test('reference image generation uploads the reference to images/edits and keeps the reference beside the character', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'meiji-ref-'))
   const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
   let posted
@@ -248,19 +243,21 @@ test('reference image generation posts a data URL and keeps the reference beside
       assets: saved, itemId: 'A01', aspectRatio: '768x1344', projectId: 'p1', directory, seed: 4,
       backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key' },
       prompt: '二十出头的中国男子',
-      referenceImage: `data:${file.mime};base64,${file.bytes.toString('base64')}`,
+      referenceBytes: file.bytes, referenceMime: file.mime,
       fetchImpl: async (url, options) => {
-        if (options.method === 'POST') {
-          posted = JSON.parse(options.body)
-          return Response.json({ id: 'image_ref', status: 'queued' })
-        }
-        if (url.pathname.endsWith('/content')) return new Response(png)
-        return Response.json({ status: 'completed' })
+        assert.equal(options.method, 'POST')
+        assert.equal(options.headers['Content-Type'], undefined)
+        posted = { url: String(url), form: options.body }
+        return Response.json({ created: 1, data: [{ b64_json: png.toString('base64') }] })
       },
     })
-    assert.equal(posted.size, '768x1344')
-    assert.equal(posted.image, `data:image/png;base64,${png.toString('base64')}`)
-    assert.equal(Object.hasOwn(posted, 'reference_images'), false)
+    assert.equal(posted.url, 'http://43.154.247.11/v1/images/edits')
+    assert.deepEqual([...posted.form.keys()], ['model', 'prompt', 'size', 'image[]'])
+    assert.equal(posted.form.get('size'), '768x1344')
+    assert.equal(posted.form.get('model'), 'elysium-image')
+    const sent = posted.form.get('image[]')
+    assert.equal(sent.type, 'image/png')
+    assert.deepEqual(Buffer.from(await sent.arrayBuffer()), png)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

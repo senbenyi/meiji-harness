@@ -241,7 +241,6 @@ export function mount() {
       shell.content.parentElement.scrollTop = 0
     },
     skillList,
-    characterImageUrl: (project, itemId) => '/plugins/meiji/character-image-url?' + new URLSearchParams({ projectId: project.id, episodeId: project.episodeId, itemId, sessionId: currentSessionId() }),
     reviewImage: async (project, episodeId, draftId, action) => {
       const result = await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId, action }) })
       imageGate = null

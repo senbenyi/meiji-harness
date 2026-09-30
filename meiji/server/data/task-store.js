@@ -308,7 +308,7 @@ export function activeStep() {
   return context?.steps.find(item => item.id === context.stepId) || null
 }
 
-const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'operation', 'error', 'dependencies', 'stale', 'source', 'image', 'parts', 'localPath', 'imageUrl', 'assetId', 'assetCategory'])
+const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'operation', 'error', 'dependencies', 'stale', 'source', 'image', 'parts', 'localPath', 'assetId', 'assetCategory'])
 const textData = value => JSON.parse(JSON.stringify(value, (key, item) => omitted.has(key) ? undefined : item))
 export function contentTargets(project) {
   return project.episodes.flatMap(episode => {

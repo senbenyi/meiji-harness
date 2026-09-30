@@ -51,7 +51,7 @@ export async function buildScenarios() {
       add(`shot-revise:${mode}`, text(buildSingleShotPrompts({ project: view, shotId: 'S01', review: '【单镜意见】' })))
       for (const video of ['text', 'reference']) {
         add(`storyboard-${video}:${mode}`, text(buildStoryboardPrompts({ project: view, shotId: 'S01' }, { shot: view.shots.items[0], video, characters: ['旅人'], scenes: ['庭院'],
-          refs: video === 'reference' ? '<Picture 1> 旅人 URL: https://image.test/a' : '', images: video === 'reference' ? [{ url: 'https://image.test/a', label: '旅人', kind: 'characters' }] : [] })))
+          refs: video === 'reference' ? '<Picture 1> 旅人' : '', images: video === 'reference' ? [{ url: '/plugins/meiji/asset-file?category=characters&id=a', label: '旅人', kind: 'characters' }] : [] })))
       }
     })
   }

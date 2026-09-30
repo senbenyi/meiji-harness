@@ -188,22 +188,16 @@ export function assetImageUrl(projectId, itemId, version = Date.now(), episodeId
   return `/plugins/meiji/projects/${projectId}/images/${encodeURIComponent(itemId)}?${episodeId ? `episodeId=${encodeURIComponent(episodeId)}&` : ''}v=${version}`
 }
 
-export function isLocalPicture(url) {
-  return typeof url === 'string' && (url.startsWith('/plugins/meiji/') || url.startsWith('/images/'))
-}
-
 export function pictureRecord(item) {
   if (!item || typeof item !== 'object') return item
-  const localPath = item.localPath || (isLocalPicture(item.imageUrl) ? item.imageUrl : null)
-  const server = (!isLocalPicture(item.imageUrl) && /^https?:\/\//.test(String(item.imageUrl || '')) ? item.imageUrl : '') || item.file?.url || ''
-  const { file, ...rest } = item
+  const localPath = item.localPath || null
   if (item.type === 'role' || item.type === 'scene') {
-    const { localPath: _, imageUrl, assetId, assetCategory, prompt, ...card } = rest
-    const media = { ...pictureOf(item), ...(prompt ? { prompt } : {}), localPath: localPath || pictureOf(item).localPath || null, imageUrl: server || pictureOf(item).imageUrl || null, ...(assetId ? { assetId, assetCategory } : {}) }
-    card.image = setContent(structuredClone(item.image || node(`image:${item.id}`)), media, { passed: Boolean(media.imageUrl), failures: [] })
+    const { localPath: _, assetId, assetCategory, prompt, ...card } = item
+    const media = { ...pictureOf(item), ...(prompt ? { prompt } : {}), localPath: localPath || pictureOf(item).localPath || null, ...(assetId ? { assetId, assetCategory } : {}) }
+    card.image = setContent(structuredClone(item.image || node(`image:${item.id}`)), media, { passed: Boolean(media.localPath || media.assetId), failures: [] })
     return card
   }
-  return { ...rest, localPath: localPath || null, imageUrl: server || null }
+  return { ...item, localPath }
 }
 
 export function imageAsset(item) {
@@ -212,7 +206,7 @@ export function imageAsset(item) {
   const name = String(item.name || '').trim()
   if (!id || !name) return null
   const pictured = pictureRecord(item)
-  return { id, name, ...(pictured.prompt ? { prompt: pictured.prompt } : {}), ...(pictured.assetId ? { assetId: pictured.assetId, assetCategory: pictured.assetCategory } : {}), localPath: pictured.localPath || null, imageUrl: pictured.imageUrl || null }
+  return { id, name, ...(pictured.prompt ? { prompt: pictured.prompt } : {}), ...(pictured.assetId ? { assetId: pictured.assetId, assetCategory: pictured.assetCategory } : {}), localPath: pictured.localPath || null }
 }
 
 export function imageAssets(list) {
@@ -311,7 +305,7 @@ export async function submitPencilBoard({ directory, track, prompt, home, projec
   if (backend?.apiKey) {
     bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, fetchImpl, pause, signal,
+      prompt: text, aspectRatio, seed, fetchImpl, signal,
     })
   } else {
     const baseUrl = resolveImageBackend(backend, env)
@@ -386,7 +380,7 @@ export async function generateStillFile({ directory, itemId, aspectRatio, backen
   if (backend?.apiKey) {
     bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, fetchImpl, pause, signal,
+      prompt: text, aspectRatio, seed, fetchImpl, signal,
     })
   } else {
     const baseUrl = resolveImageBackend(backend, env)
@@ -403,7 +397,7 @@ export async function generateStillFile({ directory, itemId, aspectRatio, backen
   return assetImageUrl(projectId, itemId, seed, episodeId)
 }
 
-export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, pause, signal, env, prepare, referenceBytes, referenceImage, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt }) {
+export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, pause, signal, env, prepare, referenceBytes, referenceMime, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt }) {
   const item = assets?.items?.find(entry => entry.id === itemId)
   if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以生图'), { status: 400 })
   const prepared = prepare ? await prepare(assets) : assets
@@ -411,13 +405,13 @@ export async function submitAssetImage({ assets, itemId, aspectRatio, backend, p
   await mkdir(directory, { recursive: true })
   await rm(join(directory, `${itemId}.job.json`), { force: true })
   if (backend?.apiKey) {
-    const     bytes = await generateGatewayImage({
+    const bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: prompt || imagePrompt(current), aspectRatio, image: referenceImage, fetchImpl, pause, signal,
+      prompt: prompt || imagePrompt(current), aspectRatio, seed, references: referenceBytes ? [{ bytes: referenceBytes, mime: referenceMime }] : [], fetchImpl, signal,
     })
     const fitted = await limitStillBytes(bytes)
     if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
-    const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId), imageUrl: null }
+    const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
     const items = prepared.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, file: null }) : entry)
     return { ...prepared, items }
   }
@@ -431,12 +425,12 @@ export async function submitAssetImage({ assets, itemId, aspectRatio, backend, p
   })
   const fitted = await limitStillBytes(bytes)
   if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
-    const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId), imageUrl: null }
+    const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
     const items = prepared.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, file: null }) : entry)
   return { ...prepared, items }
 }
 
-export async function importAssetImage({ assets, itemId, projectId, episodeId, directory, bytes, mime, file, home }) {
+export async function importAssetImage({ assets, itemId, projectId, episodeId, directory, bytes, mime, home }) {
   const ext = stillExt[mime]
   if (!ext) throw Object.assign(new Error('请上传 PNG、JPG 或 WebP'), { status: 400 })
   if (!bytes?.length) throw Object.assign(new Error('图片是空的'), { status: 400 })
@@ -446,9 +440,8 @@ export async function importAssetImage({ assets, itemId, projectId, episodeId, d
   await replaceStill(directory, itemId, ext, bytes)
   await rm(join(directory, `${itemId}.job.json`), { force: true })
   const url = assetImageUrl(projectId, itemId, version, episodeId)
-  const stored = file?.id && file?.url ? { id: String(file.id), url: String(file.url) } : null
   const reference = home ? await savePicture(home, bytes, mime, item.type === 'role' ? 'characters' : 'scenes', item.name || itemId, { source: 'import', projectId, episodeId, itemId }) : { localPath: url }
-  const items = assets.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, imageUrl: stored?.url || null, file: stored }) : entry)
+  const items = assets.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference }) : entry)
   return { ...assets, items }
 }
 

@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { runTextSteps } from '../server/generate/text-steps.js'
+import { checkContext } from '../server/data/operation-context.js'
 import { recordSteps } from './fixtures/steps.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 
@@ -73,4 +74,20 @@ test('text steps record generate, review and, only after a failed review, revise
     request: async ({ skill }) => skill === 'review' ? 'PASS' : '稿' } }), structuredClone(plan))
   assert.deepEqual(passed.steps.map(step => `${step.kind}:${step.status}:${step.verdict}`), ['generate:completed:null', 'review:completed:pass', 'revise:pending:null', 're_review:pending:null'])
   assert.ok(passed.steps.every(step => !step.unplanned))
+})
+
+test('independent review does not receive stale correction text as a new instruction', async () => {
+  const { buildReviewPrompt } = await import('../server/prompts/text-prompts.js')
+  const { runTextRequest } = await import('../server/generate/text-request.js')
+  await checkContext.run({ review: 'STALE_ALREADY_FIXED' }, async () => {
+    await runTextRequest(buildReviewPrompt({ skill: 'outline', project: {}, instructions: '本次任务' }, JSON.stringify({ outline: '', characters: { items: [] }, scenes: { items: [] } })), {
+      route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' },
+      fetchImpl: async (_url, options) => {
+        const payload = JSON.parse(options.body)
+        assert.doesNotMatch(payload.messages[1].content, /STALE_ALREADY_FIXED/)
+        assert.match(payload.messages[1].content, /阶段：剧情整包/)
+        return Response.json({ choices: [{ message: { content: 'PASS' } }] })
+      },
+    })
+  })
 })
