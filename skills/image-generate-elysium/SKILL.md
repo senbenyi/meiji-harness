@@ -1,12 +1,25 @@
-# 图片生成（image-generate）
+---
+name: image-generate-elysium
+description: 使用 Elysium 的 Qwen Image 2.1 工作流完成输入框手动文生图或参考图改绘；只接受带 elysium 标记的工作流解析结果。
+whenToUse: |
+  用户消息以 `/image-generate-elysium` 斜杠命令开头，或明确要求使用 Elysium 图片工作流手动生成、改绘图片时使用。
+---
 
-最简单的图片生成流程：解析任务消息里的字段，调用 ComfyUI 图片工具出图，产物落画布并回报结果。支持**文生图（t2i）**与**参考图生图（i2i，FLUX.2 ReferenceLatent 改绘）**。
+# 图片生成（image-generate-elysium）
+
+最简单的图片生成流程：解析任务消息里的字段，调用 ComfyUI 图片工具出图，产物落画布并回报结果。支持**文生图（t2i）**与**参考图生图（i2i，Qwen Image 2.1 改绘）**。
+
+## Elysium 执行约束
+
+- 本 Skill 只使用 `qwen-image-21-t2i-elysium-*` 与 `qwen-image-21-i2i-elysium-*` 工作流。
+- 首次生成前调用 `comfy_list_workflows` 核对当前 capability + tier 解析结果；若未解析到对应 Elysium 工作流，停止并报告配置问题，禁止回退到无 `elysium` 标记的作者工作流。
+- 模型文件名与节点参数以 Elysium 工作流清单为准，不在 Skill 中改写 checkpoint。
 
 ## 工具映射（本插件工具，已注册）
 
 | 用途 | 用这个工具 |
 |---|---|
-| 文生图（无参考，FLUX） | `comfy_generate_image`（= capability `image.text2image` 的别名） |
+| 文生图（无参考，Qwen Image 2.1） | `comfy_generate_image`（= capability `image.text2image` 的别名） |
 | 参考图生图（改绘：换装/改背景/风格迁移/构图微调） | `comfy_render`（capability=`image.image2image` + `ref_nodes`） |
 | 通用渲染（指定 capability / tier） | `comfy_render` |
 | 查可用能力与档位 | `comfy_list_workflows` |
@@ -17,12 +30,12 @@
 
 ## 输入契约（任务消息结构）
 
-发送进会话的任务消息由输入框草稿直接构成，结构为：**`/image-generate` 斜杠命令行（加载本 skill，参数以 `key=value` 内联）+ 一个空行 + 用户 prompt 正文**。示例：
+发送进会话的任务消息由输入框草稿直接构成，结构为：**`/image-generate-elysium` 斜杠命令行（加载本 skill，参数以 `key=value` 内联）+ 一个空行 + 用户 prompt 正文**。示例：
 
 t2i 文生图：
 
 ```
-/image-generate type=t2i ratio=16:9 size=1344x768 count=2
+/image-generate-elysium type=t2i ratio=16:9 size=1344x768 count=2
 
 一只戴草帽的橘猫坐在海边礁石上，黄昏逆光，电影感胶片色调
 ```
@@ -30,7 +43,7 @@ t2i 文生图：
 i2i 参考图生图（参考图必须是当前会话画布的图片节点 id）：
 
 ```
-/image-generate type=i2i tier=quality count=1 refs=c71ee706-7256-4258-9215-4f3e69e31ffe
+/image-generate-elysium type=i2i tier=quality count=1 refs=c71ee706-7256-4258-9215-4f3e69e31ffe
 
 Keep the flying pig exactly as it is, only change the sky from daytime blue to a warm golden sunset
 ```
@@ -79,4 +92,4 @@ Keep the flying pig exactly as it is, only change the sky from daytime blue to a
 
 ## 与片型 skill 的边界
 
-本 skill 只承担「手动生成图片」（文生图 / 参考图改绘），不产出简报/大纲/角色卡/镜头表，不做逐镜编排。需要完整短剧/动画/品牌片流程时，交给 `3d-animation-short-generator` 或 `brand-promo-video-generator`。
+本 skill 只承担「手动生成图片」（文生图 / 参考图改绘），不产出简报/大纲/角色卡/镜头表，不做逐镜编排。需要完整短剧/动画/品牌片流程时，交给 `3d-animation-short-generator-elysium` 或 `brand-promo-video-generator-elysium`。

@@ -1,5 +1,5 @@
 ---
-name: brand-promo-video-generator
+name: brand-promo-video-generator-elysium
 description: |
   把可核验的品牌素材与推广目标转化为一条完整的品牌宣传短片生产流程，依次完成素材收集、品牌事实表、来源清单、品牌资产上画布、创意方向、六列标准镜头表、镜头表自检门、生成前硬确认、逐镜视频生成（视频原生音频 + 画面内原生文案）、拼接成片与最终交付复查。全程走本地 ComfyUI 能力注册表（图片文生图 + 视频 AV 模型）；带身份识别素材（LOGO / 产品界面 / 包装 / 吉祥物）绝不重绘或近似——画布原件可用时首帧锁定，否则降级为精确描述锚点。适用于品牌 / 产品 / 网站 / App / 小店 / 个人项目的新品发布、官网展示与社媒推广短片。不适用于 KOC 口播带货广告、缺少授权素材时仿造真实品牌标识、虚构产品功能或长篇剧情影片。
 whenToUse: |
@@ -9,6 +9,12 @@ whenToUse: |
 # 品牌宣传短片生成器（dsh-short-video-studio 适配版）
 
 官方 MiniMax H3 brand-promo-video-generator 适配到本插件执行层（本地 ComfyUI 能力注册表 + 画布 + 资产库 + 飞书交付）。当用户想把品牌素材或一个想法做成宣传短片时使用本 Skill。流程从素材收集到最终交付，所有主要产物按生产顺序落到画布，并在高成本或关键创意节点用选项卡让用户确认。
+
+## Elysium 执行约束
+
+- 图片只使用 `qwen-image-21-t2i-elysium-*` / `qwen-image-21-i2i-elysium-*`，视频只使用 `minimax-h3-ref2v-elysium-*` / `minimax-h3-i2v-elysium-*`。
+- 每种 capability 首次生成前调用 `comfy_list_workflows` 核对解析结果；若不是对应 Elysium 工作流，停止并报告配置问题，禁止回退到作者工作流。
+- H3 提示词重写只加载 `h3-prompt-writing-elysium`。
 
 核心规则：**真素材先行、生成在后；身份素材绝不虚构；开场用选项卡确认生产规格；产物按顺序上画布；带身份识别素材（LOGO / 产品界面 / 包装 / 人物 / 吉祥物）绝不重绘或近似——画布原件可用时首帧锁定，否则精确描述锚点；镜头表确认并自检通过后逐镜生成 → 拼接 → 终检；BGM / 旁白由视频 AV 模型原生生成，不单独生成音乐轨。**
 
@@ -25,7 +31,7 @@ whenToUse: |
 | 单镜头视频生成（自带原生音频，支持画面内文案） | `comfy_generate_video` |
 | 查可用能力与档位 | `comfy_list_workflows` |
 | 通用渲染（指定 capability / tier） | `comfy_render` |
-| 生成 H3 结构化 prompt（镜头表行 / 绑定 → Ref2VA 六段式 / I2VA·FL2VA 三段式） | 调用 skill 工具加载 `h3-prompt-writing`，按其 `references/` 规范重写 |
+| 生成 H3 结构化 prompt（镜头表行 / 绑定 → Ref2VA 六段式 / I2VA·FL2VA 三段式） | 调用 skill 工具加载 `h3-prompt-writing-elysium`，按其 `references/` 规范重写 |
 | 写简报 / 事实表 / 来源清单 / 镜头表 / 交付清单 | `canvas_write_node`（kind=text\|table） |
 | 读画布节点 | `canvas_get_node` / `canvas_list_nodes` |
 | 归组 / 排序 | `canvas_group_nodes` / `canvas_reorder` |
@@ -223,7 +229,7 @@ whenToUse: |
   - `画面文案` — 文案文本 + 语言 + 出现时机 + 可读停留（≥1.5s）；**每镜 ≤2 行**；无文案写 `none`。
   - `CTA` — 仅尾镜：行动号召（按钮文案 / 口号 / 官网）。
   - `旁白`（仅 narration-led）— 画外讲述人的台词、语气、时间范围；**一镜一个讲述人，无出镜说话角色**。
-  - 文案在成片中以**画面内原生文字**呈现（写法见 `h3-prompt-writing`「字幕与画面内文案（唯一权威版）」，STEP 7 只做委托），不需要后期字幕。
+  - 文案在成片中以**画面内原生文字**呈现（写法见 `h3-prompt-writing-elysium`「字幕与画面内文案（唯一权威版）」，STEP 7 只做委托），不需要后期字幕。
 - **音频与转场轨**：字段：
   - `BGM 状态` — `buildup` / `sustain` / `peak` / `brake` / `resolve`；全片弧线完整（只在关键信息处制动）。
   - `SFX` — 产品声 / UI 声 / 转场声，按时间锚定。
@@ -304,15 +310,15 @@ whenToUse: |
 
 按以下顺序组装：
 
-1. **H3 结构化重写（委托 `h3-prompt-writing` skill，主路径）**：调用 skill 工具加载 `h3-prompt-writing`，按它的规范（官方 `base-en.txt` / `ref-en.txt` + `references/studio-mapping.md` 映射表）把本镜「镜头表行 + 品牌视觉锁」重写为 H3 结构化 prompt：
+1. **H3 结构化重写（委托 `h3-prompt-writing-elysium` skill，主路径）**：调用 skill 工具加载 `h3-prompt-writing-elysium`，按它的规范（官方 `base-en.txt` / `ref-en.txt` + `references/studio-mapping.md` 映射表）把本镜「镜头表行 + 品牌视觉锁」重写为 H3 结构化 prompt：
    - **`ref` 镜**（无首末帧）→ **Ref2VA 六段式**：`subject_definitions` → `summary` → `retention_analysis` → `detailed_description` → `overall_soundscape` → `non_diegetic_music`；
    - **`first-frame` 镜** → **I2VA 三段式**：对齐指令（首行）+ `integrated_multimodal_description` + `overall_soundscape` + `non_diegetic_music`；
    - **转场镜** → **FL2VA 三段式**（首帧 + 末帧）。
    - **条件启用**：仅当解析到的工作流 id 前缀为 `minimax-h3-` 时走本路径；其他工作流跳过，直接走 2 的自由格式组装（模型无关，不写死模型名）。
-   - **画面文案 / 字幕：写法不在这里**——写法（含四条限定词）、失败写法、容量阈值、档位与实现口径，**一律以 `h3-prompt-writing`「字幕与画面内文案（唯一权威版）」为准**；本节只交代「把镜头表 `文案与字幕轨` 字段交给它」，片型侧**不复述、不定策略、不追加末尾中文指令**。
+   - **画面文案 / 字幕：写法不在这里**——写法（含四条限定词）、失败写法、容量阈值、档位与实现口径，**一律以 `h3-prompt-writing-elysium`「字幕与画面内文案（唯一权威版）」为准**；本节只交代「把镜头表 `文案与字幕轨` 字段交给它」，片型侧**不复述、不定策略、不追加末尾中文指令**。
    - **BGM**：`non_diegetic_music` 写品牌安全的器乐（风格 / 速度 / 情绪 + 本镜 BGM 状态，如 `minimal electronic, 100 bpm, confident, build-up`）；**全片基底描述保持一致**（同一底色的曲），各镜只变强度；纯 SFX 无 BGM 的镜写 `N/A`。
    - **旁白**（narration-led）：用官方 off-screen voiceover 句式 + `<d>语言 台词</d>`；无出镜说话角色，无口型要求。
-2. **自由格式兜底（仅非 H3 工作流）**：从镜头表每秒指令展开成自然语言镜头描述；画面文案的写法同样按 `h3-prompt-writing`「字幕与画面内文案（唯一权威版）」执行（英文引号逐字声明紧随文案句，**不用末尾中文指令**）。
+2. **自由格式兜底（仅非 H3 工作流）**：从镜头表每秒指令展开成自然语言镜头描述；画面文案的写法同样按 `h3-prompt-writing-elysium`「字幕与画面内文案（唯一权威版）」执行（英文引号逐字声明紧随文案句，**不用末尾中文指令**）。
 3. **品牌视觉锁后缀**：色彩状态关键词 + 调性 + 负向约束（两种路径都追加）。
 4. **负向意图**：不生成其他品牌元素、无未验证指标、无水印、无真人面孔（除非品牌素材即人物）、无分镜痕迹、不把参考图内文字印进环境。
 
@@ -323,7 +329,7 @@ whenToUse: |
 0. **（仅 H3 结构化路径）先检查重写本身**：若本镜走了结构化重写且质量倒退（文案字准 / 身份一致性 / 音频任一指标），先回退该镜为自由格式 prompt 重渲，**prompt 首行加 `[PROMPT_FALLBACK]` 标记**（质检门据此放行），再走下面的重试阶梯。
 1. **第一次重试**：强化 prompt——直接引用事实表「产品外观卡」与品牌视觉锁，缩短冗余措辞。
 2. **第二次重试**：缩到 ≤6s（141 帧），简化动作（减少每秒动作数），或把一行文案拆到两镜。
-3. **第三次重试**：改档验证是 prompt 问题还是采样问题——**文案字准 / 漏烧类问题升档**（`fast`/`balanced` → `quality`），**只是想省成本或排查链路才降档**（`quality` → `balanced`/`fast`，注意 `first-frame`/续接/转场镜走 i2v，无 `balanced`，会报错）；或降低节拍强度。（同档换实现的可行性按 `h3-prompt-writing`「字幕与画面内文案」§4 的口径取证后再说。）
+3. **第三次重试**：改档验证是 prompt 问题还是采样问题——**文案字准 / 漏烧类问题升档**（`fast`/`balanced` → `quality`），**只是想省成本或排查链路才降档**（`quality` → `balanced`/`fast`，注意 `first-frame`/续接/转场镜走 i2v，无 `balanced`，会报错）；或降低节拍强度。（同档换实现的可行性按 `h3-prompt-writing-elysium`「字幕与画面内文案」§4 的口径取证后再说。）
 4. **同一镜连续 3 次失败**：选项卡问用户——换档位（先 `comfy_list_workflows` 核对可用档）/ 放宽要求 / 跳过该镜并在下游标记 `placeholder: missing clip` / 用户手动提供素材或成片片段。
 
 不要重复提交未改动的同一请求。
