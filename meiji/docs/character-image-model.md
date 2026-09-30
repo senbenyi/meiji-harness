@@ -44,3 +44,5 @@ const referenceBase64 = model.images.map(image => image.base64)
 ## Base64 约定
 
 人物修改提交 Base64 字符串；结果读取 URL 后下载图片转 Base64，再交给现有本地保存流程，仍支持 b64_json 响应。当前适配层沿用已有 multipart 容器，将 image[] 的人物编辑输入改为 Base64 data URL 文本；其他既有文件参考请求保留。底层传输协议本次不另行重设计，真实服务尚未联调。
+
+普通人物图生成与参考图生成的资料也按“字段名：内容”逐行组装：国籍、姓名、身份、性别、年代、年龄、身高、体型、面相。姓名有值时明确写为“姓名：…”；空字段省略。共用 characterSheet 保留 look 标签解析，实际生成和预览一致。

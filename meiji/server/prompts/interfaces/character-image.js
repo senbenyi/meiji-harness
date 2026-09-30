@@ -1,7 +1,7 @@
 // 人物图接口负责技能快照、年龄规则与 model 赋值；修改提示词由 model 转换。
 // 固定约束来自 skills/constraints/character/generate-character-image.md。
 // 图片上传、尺寸、请求发送和结果保存仍由生成/流程层负责。
-import { characterFieldValues } from '../../../shared/character-facts.js'
+import { characterFieldValues, characterSheet } from '../../../shared/character-facts.js'
 import { withReviewPrompt } from '../../data/review-checks.js'
 import { currentSkillSet, recordUse, render, segment, stageMeta } from '../skill-prompts.js'
 
@@ -9,11 +9,9 @@ import { createCharacterImageModel } from '../models/character-image-model.js'
 
 const stage = 'character-image'
 // 人物图只选这些外观资料；不带剧情服装、道具与卡片的面向指令。
-const factKeys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features']
-
 export function characterStillPrompt(item) {
-  const values = characterFieldValues(item)
-  return factKeys.map(key => String(values[key] || '').trim()).filter(Boolean).join('，')
+  return characterSheet(item).filter(([, value]) => value)
+    .map(([label, value]) => `${label}：${value}`).join('\n')
 }
 
 const hanDigit = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }

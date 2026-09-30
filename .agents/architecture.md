@@ -50,7 +50,8 @@ meiji/
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
 │   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
 │   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、修改意见与人物预览；约束正文在 skills/constraints/
-│   │                       # models/character-image-model.js 定义模式、固定角色职责、人物资料、规则、Base64 图片、画幅与修改意见；人物修改经 model.toPrompt() 生成最终提示词
+│   │                       # models/character-image-model.js 定义人物模式、角色职责、资料、规则、Base64 图片、画幅与修改意见；人物修改经 model.toPrompt() 生成提示词
+│   │                       # models/scene-image-model.js 定义场景五项资料、规则、本剧补充、Base64 图片与画幅；场景生成/修改及预览由接口赋值后复用 model.toPrompt()/toSegments()
 │   ├── data/               # 持久化：projects（领域存储）、project-files（存储布局，唯一了解文件结构）、
 │   │                       #   episodes、library、workspace-links、model-settings、review-checks、
 │   │                       #   task-store（任务与步骤、runStep、内容快照、任务固定的技能组合）、operation-context（一次操作的审核上下文）、

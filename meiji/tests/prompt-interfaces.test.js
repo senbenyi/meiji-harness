@@ -74,10 +74,10 @@ test('各图片接口显式选择的基础覆盖和本剧补充继续参与生�
     const set = builtinSkillSet({ additions: { [stage]: { generate: '本剧补充' } } })
     set.skills[stage].parts.generate = `基础覆盖：${stage}`
     const actual = executionContext.run({ skillSet: set, skills: new Map() }, () => imageSkillPrompt(stage, '画面', project))
-    assert.ok(actual.startsWith(`基础覆盖：${stage}`))
+    assert.ok(stage === 'scene-image' ? actual.includes(`【生成规则】\n基础覆盖：${stage}`) : actual.startsWith(`基础覆盖：${stage}`))
     assert.match(actual, /本剧补充/)
     const preview = previewPrompts({ stage, root: project, skillSet: set }).image
-    assert.ok(render(preview.user).startsWith(`基础覆盖：${stage}`))
+    assert.ok(stage === 'scene-image' ? render(preview.user).includes(`【生成规则】\n基础覆盖：${stage}`) : render(preview.user).startsWith(`基础覆盖：${stage}`))
     assert.equal(preview.chars, render(preview.user).length)
   }
 })

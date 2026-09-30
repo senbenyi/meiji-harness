@@ -16,7 +16,7 @@ const view = item => ({ style: '水彩', outputLanguage: 'en', plot: { character
 const preview = (project, skillSet) => previewPrompts({ stage: 'character-image', root: {}, view: project, skillSet }).image
 
 test('人物模块自行选择外观字段，排除剧情服装、道具与旧面向指令', () => {
-  assert.equal(characterStillPrompt(character), '中国，甲，旅人，男，现代，23，一米八，健壮，短发方脸')
+  assert.equal(characterStillPrompt(character), '国籍：中国\n姓名：甲\n身份：旅人\n性别：男\n年代：现代\n年龄：23\n身高：一米八\n体型：健壮\n面相：短发方脸')
   assert.doesNotMatch(characterStillPrompt(character), /旧外套|木剑|背面|面向：/)
 })
 
@@ -108,8 +108,20 @@ test('人物预览选第一张人物卡；没有人物时明确标记为模板�
 
 test('其他图片接口预览保留原来的上下文占位和结构', () => {
   const project = view(character)
-  for (const stage of ['scene-image', 'part-image', 'pencil']) {
+  for (const stage of ['part-image', 'pencil']) {
     const result = previewPrompts({ stage, root: project, skillSet: builtinSkillSet(project.skills) }).image
     assert.equal(render(result.user), imageSkillPrompt(stage, '（本次画面要求由程序按卡片或文本分镜生成）', project))
   }
+})
+
+
+test('人物资料逐行保留字段名与姓名，空字段省略，最新资料覆盖 look 旧值', () => {
+  const item = { type: 'role', name: '新姓名', age: '24', look: '姓名：旧姓名 性别：女 年龄：二十岁 面相：圆脸' }
+  const text = characterStillPrompt(item)
+  assert.equal(text, '国籍：中国\n姓名：新姓名\n性别：女\n年龄：24\n面相：圆脸')
+  assert.doesNotMatch(text, /旧姓名|二十岁|身份：|身高：/)
+  const project = view(item), set = builtinSkillSet(project.skills)
+  const actual = characterImagePrompt(item, project, set)
+  assert.match(actual, /姓名：新姓名/)
+  assert.equal(render(preview(project, set).user), actual)
 })

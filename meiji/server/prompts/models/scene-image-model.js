@@ -35,7 +35,7 @@ function normalizeModel({ scene, generationRules, canvas, additionalInstructions
   if (typeof additionalInstructions !== 'string') throw Object.assign(new Error('场景图本剧补充必须是字符串'), { status: 400 })
   const values = Object.fromEntries(sceneFields.map(([key]) => [key, String(scene[key] || '').trim()]))
   return {
-    scene: Object.fromEntries(sceneFields.map(([key]) => [key, values[key]])),
+    scene: values,
     generationRules,
     additionalInstructions,
     canvas: { width: canvas.width, height: canvas.height },
@@ -73,7 +73,7 @@ export function sceneImageModelSegments(model) {
     segment('context', '【图片用途】', references),
     segment('context', '【场景资料】', facts),
     segment('context', '【资料边界】', '最新场景资料是事实依据。参考图与原图仅辅助成图，不覆盖资料；仅使用实际提供的信息。'),
-    segment('constraint', '【生成规则】', normalized.generationRules, { skill: 'scene-image', field: 'generate' }),
+    segment('stage', '【生成规则】', normalized.generationRules, { skill: 'scene-image', field: 'generate' }),
     segment('project', '【本剧补充】', normalized.additionalInstructions, { skill: 'scene-image', field: 'generate' }),
     segment('context', '【画幅】', `${width} × ${height} 像素，${orientation}。按此画幅安排构图。`),
     segment('context', '【本次修改意见】', normalized.modification?.instruction || ''),

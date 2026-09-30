@@ -51,11 +51,11 @@ for (const draft of [false, true]) test(`人物修改直接提交意见和${draf
   assert.equal(Object.keys(after.pendingImages).length, 1)
 })
 
-test('人物修改缺少原图时报错，场景修改仍规划文字步骤', async t => {
+test('人物修改缺少原图时报错，场景修改也使用图片步骤', async t => {
   const e = await setupModel(t)
   await assert.rejects(runOperation(e.op('image', { itemId: 'C01', generationMode: 'modify', review: '改头发' }), { home: e.home, waitForBackground: true, submitAssetImage: () => assert.fail('不应提交') }), /原来的数据|原图/)
   const scene = await planSteps(e.home, e.op('image', { itemId: 'E01', generationMode: 'modify' }))
-  assert.equal(scene[0].kind, 'generate')
+  assert.deepEqual(scene.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
 })
 
 test('人物修改预览复用实际 model 的组装，Base64 不显示在预览文本', async t => {

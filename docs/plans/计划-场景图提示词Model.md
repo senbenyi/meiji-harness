@@ -13,7 +13,7 @@
 3. meiji/server/prompts/preview.js — 场景实际卡预览、修改预览复用接口 → AC-3。
 4. meiji/server/flow/operations/images.js、registry.js — 场景生成用 model，意见修改直接带原图并取消文字改写计划；场景画幅传入 model → AC-3。
 5. meiji/tests/scene-image-model.test.js、scene-image-edit.test.js — 结构/边界/验证、规则覆盖、预览等价和三步完整流程 → AC-1/2/3/4。
-6. meiji/tests/prompt-interfaces.test.js、character-image-prompts.test.js、character-image-edit.test.js — 更新场景结构及修改计划断言 → AC-3/4。
+6. meiji/tests/prompt-interfaces.test.js、character-image-prompts.test.js、character-image-edit.test.js、skill.test.js — 更新场景结构及修改计划断言 → AC-3/4。
 7. meiji/docs/scene-image-model.md、.agents/architecture.md — 描述模型与流程 → AC-1/3。
 
 ## 验收标准
@@ -23,4 +23,4 @@
 - AC-4：保留场景技能基础覆盖与本剧补充，规则正文不改，人物及其他接口不受影响。
 
 ## 验证结果
-基线 382 通过、0 失败、0 取消。相关测试、全量 npm test、git diff --check 后更新 GitNexus。
+基线 382 通过、0 失败、0 取消；相关测试 36 通过、0 失败、0 取消；全量 npm test 390 通过、0 失败、0 取消。git diff --check 通过。
