@@ -1,10 +1,45 @@
-// scene-image 的图片 prompt 结构；修改此文件不会改变其他图片接口。
-import { imageParts } from '../skill-prompts.js'
-import { withReviewPrompt } from '../../data/review-checks.js'
+// 场景图接口负责技能快照和 model 赋值，model 内部生成最终提示词。
+import { aspectRatioOf } from '../../../shared/project-rules.js'
+import { createSceneImageModel } from '../models/scene-image-model.js'
+import { addition, currentSkillSet, part, recordUse, stageMeta } from '../skill-prompts.js'
 
-function generate(args) {
-  const p = imageParts({ ...args, stage: 'scene-image', request: withReviewPrompt(args.request) })
-  return [p.requirement, p.addition, p.language, p.style, p.request]
+const stage = 'scene-image'
+
+export function sceneImageModel(item, project, { mode = 'generate', images = [], canvas, instruction } = {}, skillSet) {
+  const set = currentSkillSet(project, skillSet)
+  recordUse(set, stageMeta(stage), [])
+  const [width, height] = aspectRatioOf(project?.aspectRatio).split('x').map(Number)
+  return createSceneImageModel({
+    scene: item, mode, images, canvas: canvas || { width, height },
+    generationRules: part(set, stage, 'generate'),
+    additionalInstructions: addition(set, stage, 'generate'),
+    modification: mode === 'modify' ? { instruction, preserveUnspecified: true } : null,
+  })
 }
 
-export default { generate }
+export function sceneImageModificationModel(item, project, options, skillSet) {
+  return sceneImageModel(item, project, { ...options, mode: 'modify' }, skillSet)
+}
+
+function generate({ item, project, request = '', skillSet, ...options }) {
+  return sceneImageModel(item || { look: request }, project, options, skillSet).toSegments()
+}
+
+function modify({ item, project, skillSet, ...options }) {
+  return sceneImageModificationModel(item, project, options, skillSet).toSegments()
+}
+
+function preview(args) {
+  const item = args.project?.plot?.scenes?.items?.find(entry => entry.type === 'scene')
+  return generate({ ...args, item, request: item ? '' : '（场景资料将在生成时由所选场景卡提取；当前仅预览技能模板）' })
+}
+
+export default { generate, modify, preview }
+
+export function sceneImagePrompt(item, project, skillSet, options) {
+  return sceneImageModel(item, project, options, skillSet).toPrompt()
+}
+
+export function sceneImageModificationPrompt(item, project, options, skillSet) {
+  return sceneImageModificationModel(item, project, options, skillSet).toPrompt()
+}

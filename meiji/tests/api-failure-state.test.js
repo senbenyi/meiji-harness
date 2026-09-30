@@ -49,7 +49,7 @@ test('gateway image error is logged without changing image model state',async t=
  const {generateGatewayImage}=await import('../server/generate/gateway.js')
  const {runWithSessionLog}=await import('../server/host/session-log.js')
  const before=await e.read(),logs=[]
- await runWithSessionLog({append:(type,data)=>logs.push({type,data})},()=>runOperation(e.op('image',{itemId:'C01'}),{home:e.home,waitForBackground:true,submitAssetImage:()=>generateGatewayImage({baseUrl:'https://test/',apiKey:'test',model:'test',prompt:'test',aspectRatio:'1344x768',fetchImpl:async()=>new Response(JSON.stringify({error:{message:'image unavailable'}}),{status:503})})}))
+ await runWithSessionLog({append:(type,data)=>logs.push({type,data})},()=>runOperation(e.op('image',{itemId:'C01'}),{home:e.home,waitForBackground:true,submitAssetImage:args=>generateGatewayImage({stepTarget:args.stepTarget,baseUrl:'https://test/',apiKey:'test',model:'test',prompt:'test',aspectRatio:'1344x768',fetchImpl:async()=>new Response(JSON.stringify({error:{message:'image unavailable'}}),{status:503})})}))
  const after=await e.read()
  assert.deepEqual(after.plot.characters.items[0].image,before.plot.characters.items[0].image)
  assert.equal(after.activityError,before.activityError)

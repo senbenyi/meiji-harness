@@ -8,7 +8,8 @@
 skills/
 ├── load.js              # 读取与结构校验：builtinSkill、agentSkills、validateSkills
 ├── stages/<id>/         # 阶段技能：skill.json + common / generate / review / revise（可编辑）+ protocol（只读）
-├── constraints/<id>.md  # 固定约束：只读，空文件表示本接口不添加约束，目前仅人物图
+├── constraints/character/generate-character-image.md  # 人物固定约束，只读，允许空正文
+├── constraints/scene/generate-scene-image.md  # 场景生成正文，沿用 generate 字段的编辑语义
 ├── guidance/<id>/       # 指导技能：skill.json + common / review + stages/<阶段>.md（本阶段落点）
 ├── shared/<id>.md       # 共享模块：多个阶段引用的一段正文
 └── agent/panel.md       # 会话说明（带 frontmatter，唯一注册给 Harness 的技能）
@@ -42,7 +43,7 @@ skills/
 
 ## 固定约束
 
-固定约束集中在 `constraints/`，文件只放约束正文，不在 JS 或可编辑技能里保存副本。目前 `character-image` 登记 `fixedConstraints: true`、`fields: []`，读取 `constraints/character-image.md`，不再有 `stages/character-image/generate.md`。
+固定约束集中在 `constraints/`，文件只放约束正文，不在 JS 或可编辑技能里保存副本。目前 `character-image` 登记 `fixedConstraints: true`、`fields: []`，读取 `constraints/character/generate-character-image.md`，不再有 `stages/character-image/generate.md`。
 
 - 空文件（包括仅空白）有效，表示请求不添加固定约束；缺文件报错。
 - 页面只读显示，不能编辑或恢复；旧的人物图基础修改与本剧 generate 补充不进入新请求，原存储文件不删除。
@@ -73,3 +74,5 @@ skills/
 - 本剧：项目索引 `skills`（本剧补充、启用的指导、各阶段指导素材），追加在对应字段之后，只对本剧生效。
 
 组装规则、优先级与请求结构见 `meiji/docs/tasks-and-steps.md`「提示词与请求」。任务开始时固定技能组合版本，同一任务内的生成、审核、修订一致，任务记录写入所用技能与层。
+
+场景图的内置 generate 正文读取 `constraints/scene/generate-scene-image.md`，基础覆盖与本剧补充语义保持原样。人物修改接口把实际年龄适用的固定约束赋给提示词 model。

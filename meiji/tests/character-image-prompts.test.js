@@ -44,8 +44,8 @@ test('人物固定约束只读且不受旧基础覆盖和本剧补充影响', as
   assert.doesNotMatch(actual, /旧页面规则|旧上一版|本剧人物图补充/)
   assert.deepEqual((await store.get('character-image')).previous, [])
   assert.deepEqual(skillUse(set, 'character-image').layers, ['builtin'])
-  assert.match(actual, /本次生成语言：English/)
-  assert.match(actual, /项目视觉风格：水彩/)
+  assert.doesNotMatch(actual, /本次生成语言|English|简体中文/)
+  assert.doesNotMatch(actual, /项目视觉风格|水彩/)
   assert.ok(actual.endsWith(characterStillPrompt(character)))
 })
 

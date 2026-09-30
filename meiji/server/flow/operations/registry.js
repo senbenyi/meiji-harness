@@ -16,7 +16,8 @@ const edit = target => [{ kind: 'save', target }, { kind: 'review', target }]
 const save = target => op => ({ kind: 'save', target: typeof target === 'function' ? target(op) : target })
 // 单镜制作步骤：文本分镜（生成、自审、需要时修订与复审）→ 提交视频 → 生成视频。单镜与逐镜成片共用。
 export const shotPlan = track => [...text(`storyboard:${track}`), ...video(track)]
-const imagePlan = (_, op) => [...(op.generationMode === 'modify' ? text(`image:${op.itemId}`) : []), { kind: 'image_generate', target: `image:${op.itemId}` }]
+const image = target => ['image_generate', 'image_download', 'image_save'].map(kind => ({ kind, target }))
+const imagePlan = (_project, op) => image(`image:${op.itemId}`)
 
 export const definitions = {
   create: { label: '创建项目', scope: 'project', queue: 'text', agent: true },
@@ -44,10 +45,10 @@ export const definitions = {
   'shot-storyboard': { label: '生成这一镜的分镜', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => text(`storyboard:${op.track}`) },
   storyboard: { label: '生成全部分镜表', scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(id => text(`storyboard:${id}`)) },
   'shot-boards': { label: '生成所有分镜', scope: 'episode', queue: 'text', agent: true, plan: project => [...text('seconds'), ...shotIds(project).flatMap(id => text(`storyboard:${id}`))] },
-  pencil: { label: '生成铅笔分镜', scope: 'shot', queue: 'image', agent: true, plan: (_, op) => [{ kind: 'image_generate', target: `pencil:${op.track}` }] },
+  pencil: { label: '生成铅笔分镜', scope: 'shot', queue: 'image', agent: true, plan: (_, op) => image(`pencil:${op.track}`) },
   image: { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },
   'revise-image': { label: '按新需求重绘图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },
-  'part-image': { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: (_, op) => [{ kind: 'image_generate', target: `image:${op.itemId}:${op.slot}` }] },
+  'part-image': { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: (_, op) => image(`image:${op.itemId}:${op.slot}`) },
   'import-image': { label: '导入图片', scope: 'episode', queue: 'text', agent: false, step: save(null) },
   'set-reference': { label: '设置参考图', scope: 'episode', queue: 'text', agent: false, step: save(null) },
   'clear-reference': { label: '移除参考图', scope: 'episode', queue: 'text', agent: false, step: save(null) },

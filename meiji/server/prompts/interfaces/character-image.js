@@ -1,9 +1,11 @@
-// 人物图提示词编排：字段、年龄分支、意见、语言和画风在此；固定约束正文仅来自 skills/constraints/character-image.md。
+// 人物图接口负责技能快照、年龄规则与 model 赋值；修改提示词由 model 转换。
+// 固定约束来自 skills/constraints/character/generate-character-image.md。
 // 图片上传、尺寸、请求发送和结果保存仍由生成/流程层负责。
 import { characterFieldValues } from '../../../shared/character-facts.js'
-import { outputLanguage } from '../../data/language.js'
 import { withReviewPrompt } from '../../data/review-checks.js'
 import { currentSkillSet, recordUse, render, segment, stageMeta } from '../skill-prompts.js'
+
+import { createCharacterImageModel } from '../models/character-image-model.js'
 
 const stage = 'character-image'
 // 人物图只选这些外观资料；不带剧情服装、道具与卡片的面向指令。
@@ -44,7 +46,7 @@ export function adultCharacter(item) {
   return years != null && years >= 18
 }
 
-// 约束正文只来自 skills/constraints/character-image.md。
+// 约束正文只来自 skills/constraints/character/generate-character-image.md。
 // 普通 Markdown 原样使用；存在约定分节时，实际人物只选通用与适用年龄段，模板预览显示全文。
 function selectConstraints(text, item) {
   if (!item) return text
@@ -64,12 +66,8 @@ function generate({ item, project, request = '', skillSet }) {
   recordUse(set, stageMeta(stage), [])
   const requirement = selectConstraints(set.skills[stage].constraints ?? '', item)
   const facts = item ? characterStillPrompt(item) : request
-  const language = outputLanguage(project?.outputLanguage)
-  const style = String(project?.style || '').trim()
   return [
     segment('constraint', '', requirement, { skill: stage, field: 'constraints' }),
-    segment('language', '', `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。`),
-    segment('context', '', style ? `项目视觉风格：${style}。画面须符合该风格。` : ''),
     segment('context', '本次画面要求：', withReviewPrompt(facts)),
   ]
 }
@@ -80,9 +78,28 @@ function preview(args) {
   return characterImage.generate({ ...args, item, request: '（人物资料将在生成时由所选人物卡提取；当前仅预览技能模板，具体年龄约束以人物卡为准）' })
 }
 
-const characterImage = { generate, preview }
+export function characterImageModificationModel(item, project, { images, instruction, canvas }, skillSet) {
+  const set = currentSkillSet(project, skillSet)
+  recordUse(set, stageMeta(stage), [])
+  return createCharacterImageModel({
+    mode: 'modify', character: item,
+    generationRules: selectConstraints(set.skills[stage].constraints ?? '', item),
+    canvas, images,
+    modification: { instruction, preserveUnspecified: true },
+  })
+}
+
+function modify({ item, project, skillSet, ...options }) {
+  return characterImageModificationModel(item, project, options, skillSet).toSegments()
+}
+
+const characterImage = { generate, preview, modify }
 export default characterImage
 
 export function characterImagePrompt(item, project, skillSet) {
   return render(characterImage.generate({ item: item || {}, project, skillSet }))
+}
+
+export function characterImageModificationPrompt(item, project, options, skillSet) {
+  return characterImageModificationModel(item, project, options, skillSet).toPrompt()
 }

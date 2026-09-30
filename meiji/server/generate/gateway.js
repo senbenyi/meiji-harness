@@ -1,3 +1,4 @@
+import { runStep } from '../data/task-store.js'
 import { checkContext, markApiFailure } from '../data/operation-context.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { insertSessionLog, sessionForLog, logPurpose } from '../host/session-log.js'
@@ -14,17 +15,30 @@ const imageSizes = {
 }
 
 
-const characterAspects = new Set(['9:16', '16:9', '3:4', '4:3', '1:1', '768x1344', '1344x768', '896x1152', '1152x896', '1024x1024'])
+
+function normalizeImagePixels(value) {
+  const match = String(value).match(/^(\d+)x(\d+)$/)
+  if (!match) throw Object.assign(new Error('画幅需为宽x高像素或已支持的比例'), { status: 400 })
+  let [width, height] = match.slice(1).map(Number)
+  if (![width, height].every(side => Number.isSafeInteger(side) && side > 0 && side % 8 === 0)) throw Object.assign(new Error('画幅宽高必须为正整数且是 8 的倍数'), { status: 400 })
+  if (Math.max(width, height) > 2048) {
+    const scale = 2048 / Math.max(width, height)
+    width = Math.floor(width * scale / 8) * 8
+    height = Math.floor(height * scale / 8) * 8
+  }
+  if (!width || !height) throw Object.assign(new Error('画幅归一化后过小'), { status: 400 })
+  return `${width}x${height}`
+}
 
 export function gatewayImageSize(aspectRatio) {
-  return imageSizes[aspectRatio] || imageSizes['1344x768']
+  if (!aspectRatio || aspectRatio === 'auto') return imageSizes['1344x768']
+  return normalizeImagePixels(imageSizes[aspectRatio] || aspectRatio)
 }
 
 export function characterImageSize(value) {
   if (value == null || value === '') return imageSizes['9:16']
   const key = String(value).trim()
-  if (!characterAspects.has(key)) throw Object.assign(new Error('画幅需为 9:16、3:4、1:1、4:3 或 16:9'), { status: 400 })
-  return imageSizes[key]
+  return normalizeImagePixels(imageSizes[key] || key)
 }
 
 export function gatewayVideoSize(aspectRatio) {
@@ -88,7 +102,7 @@ async function requestGateway(options) {
   try { return await requestGatewayRaw(options) } catch (error) { throw markApiFailure(error) }
 }
 // body 为 FormData 时按 multipart 发送，logBody 描述其内容；否则按 JSON 发送。
-async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body, logBody, apiKey, fetchImpl, signal, binary = false, fn }) {
+async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body, logBody, apiKey, fetchImpl, signal, binary = false, binaryLabel = '视频文件', redirect, fn }) {
   const url = endpoint(baseUrl, path)
   const where = [
     '文件：server/generate/gateway.js',
@@ -105,14 +119,14 @@ async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body,
   writeApiLog(sent.join('\n'))
   let response
   try {
-    response = await fetchImpl(url, { method, headers, body: body === undefined ? undefined : form ? body : JSON.stringify(body), signal: requestSignal(signal) })
+    response = await fetchImpl(url, { method, headers, body: body === undefined ? undefined : form ? body : JSON.stringify(body), signal: requestSignal(signal), ...(redirect ? { redirect } : {}) })
   } catch (error) {
     writeApiLog(`${where}\n失败：${error?.message || '请求没有完成'}`, true)
     throw markApiFailure(error)
   }
   if (binary && response.ok) {
     const bytes = Buffer.from(await response.arrayBuffer())
-    writeApiLog(`${where}\n返回：视频文件 ${bytes.length} 字节`)
+    writeApiLog(`${where}\n返回：${binaryLabel} ${bytes.length} 字节`)
     return bytes
   }
   const data = await readBody(response)
@@ -144,19 +158,42 @@ export async function completeChat({ baseUrl, apiKey, model, system, prompt, jso
   return text
 }
 
+// 下载响应 URL；网关媒体需要原密钥，外部地址不携带密钥。
+async function downloadImageBytes({ baseUrl, url, apiKey, fetchImpl, signal }) {
+  signal?.throwIfAborted()
+  let target
+  try {
+    target = endpoint(baseUrl, url)
+    if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) throw new Error('invalid URL')
+  } catch {
+    throw markApiFailure(Object.assign(new Error('网关返回的图片 URL 无效'), { status: 502 }))
+  }
+  const sameOrigin = target.origin === new URL(baseUrl).origin
+  const result = await requestGateway({
+    baseUrl, path: target.href, apiKey, fetchImpl, signal, binary: true, binaryLabel: '图片文件',
+    fn: 'generateGatewayImage', headers: sameOrigin ? { Authorization: `Bearer ${apiKey}` } : {},
+    ...(sameOrigin ? { redirect: 'error' } : {}),
+  })
+  signal?.throwIfAborted()
+  if (!Buffer.isBuffer(result)) fail(result.response, result.data, `图片下载失败：HTTP ${result.response.status}`)
+  if (!result.length) throw markApiFailure(Object.assign(new Error('网关返回的图片是空的'), { status: 502 }))
+  return result
+}
+
 const imageExt = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
 
 // 同步生图：无参考图走 images/generations（JSON，可带 seed）；有参考图走 images/edits（multipart，image[] 按顺序上传，不接受 seed）。
 // 停止任务会中断请求；网关随之取消这次同步生成。
-export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, aspectRatio, seed, references = [], fetchImpl = fetch, signal }) {
+export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, aspectRatio, seed, references = [], referenceBase64 = [], fetchImpl = fetch, signal, stepTarget }) {
   signal ??= checkContext.getStore()?.signal
   signal?.throwIfAborted()
   const size = gatewayImageSize(aspectRatio)
   const headers = { Authorization: `Bearer ${apiKey}` }
   const images = references.filter(item => item?.bytes?.length)
-  if (images.length > 10) throw Object.assign(new Error('参考图最多 10 张'), { status: 400 })
+  if (!Array.isArray(referenceBase64) || referenceBase64.some(value => typeof value !== 'string' || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value))) throw Object.assign(new Error('参考图 Base64 无效'), { status: 400 })
+  if (images.length + referenceBase64.length > 10) throw Object.assign(new Error('参考图最多 10 张'), { status: 400 })
   let request
-  if (images.length) {
+  if (images.length || referenceBase64.length) {
     const body = new FormData()
     body.append('model', model || 'elysium-image')
     body.append('prompt', prompt)
@@ -165,15 +202,34 @@ export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, asp
       if (!imageExt[item.mime]) throw Object.assign(new Error('参考图需为 PNG、JPG 或 WebP'), { status: 400 })
       body.append('image[]', new Blob([item.bytes], { type: item.mime }), `reference-${index + 1}.${imageExt[item.mime]}`)
     })
-    const logBody = { model: model || 'elysium-image', prompt, size, 'image[]': images.map((item, index) => `reference-${index + 1}.${imageExt[item.mime]}（${item.mime}，${item.bytes.length} 字节）`) }
+    referenceBase64.forEach(value => body.append('image[]', value))
+    const logBody = { model: model || 'elysium-image', prompt, size, 'image[]': [...images.map((item, index) => `reference-${index + 1}.${imageExt[item.mime]}（${item.mime}，${item.bytes.length} 字节）`), ...referenceBase64.map(value => `[Base64 图片，${value.length} 字符]`)] }
     request = { path: 'images/edits', headers, body, logBody }
   } else {
     const body = { model: model || 'elysium-image', prompt, size, ...(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff ? { seed } : {}) }
     request = { path: 'images/generations', headers: { ...headers, 'Content-Type': 'application/json' }, body }
   }
-  const result = await requestGateway({ baseUrl, method: 'POST', apiKey, fetchImpl, signal, fn: 'generateGatewayImage', ...request })
-  if (!result.ok) fail(result.response, result.data, `图片生成失败：HTTP ${result.response.status}`)
-  const encoded = result.data?.data?.[0]?.b64_json
+  const step = (kind, run) => stepTarget ? runStep(kind, run, { target: stepTarget }) : run()
+  const result = await step('image_generate', async () => {
+    const response = await requestGateway({ baseUrl, method: 'POST', apiKey, fetchImpl, signal, fn: 'generateGatewayImage', ...request })
+    if (!response.ok) fail(response.response, response.data, `图片生成失败：HTTP ${response.response.status}`)
+    signal?.throwIfAborted()
+    const image = response.data?.data?.[0]
+    if (!(typeof image?.url === 'string' && image.url.trim())) {
+      if (typeof image?.b64_json !== 'string' || !image.b64_json) throw markApiFailure(Object.assign(new Error('网关未返回图片'), { status: 502 }))
+      if (!Buffer.from(image.b64_json, 'base64').length) throw markApiFailure(Object.assign(new Error('网关返回的图片是空的'), { status: 502 }))
+    }
+    return response
+  })
+  const image = result.data?.data?.[0]
+  let encoded = image?.b64_json
+  if (typeof image?.url === 'string' && image.url.trim()) {
+    encoded = await step('image_download', async () => {
+      const downloaded = await downloadImageBytes({ baseUrl, url: image.url.trim(), apiKey, fetchImpl, signal })
+      signal?.throwIfAborted()
+      return downloaded.toString('base64')
+    })
+  }
   if (typeof encoded !== 'string' || !encoded) throw markApiFailure(Object.assign(new Error('网关未返回图片'), { status: 502 }))
   const bytes = Buffer.from(encoded, 'base64')
   if (!bytes.length) throw markApiFailure(Object.assign(new Error('网关返回的图片是空的'), { status: 502 }))

@@ -49,7 +49,8 @@ meiji/
 │   ├── generate/           # 网关调用与生成：gateway、text-request、text-steps（生成/自审/修订/复审步骤）、
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
 │   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
-│   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、语言风格、修改意见与人物预览；约束正文在 skills/constraints/
+│   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、修改意见与人物预览；约束正文在 skills/constraints/
+│   │                       # models/character-image-model.js 定义模式、固定角色职责、人物资料、规则、Base64 图片、画幅与修改意见；人物修改经 model.toPrompt() 生成最终提示词
 │   ├── data/               # 持久化：projects（领域存储）、project-files（存储布局，唯一了解文件结构）、
 │   │                       #   episodes、library、workspace-links、model-settings、review-checks、
 │   │                       #   task-store（任务与步骤、runStep、内容快照、任务固定的技能组合）、operation-context（一次操作的审核上下文）、
@@ -61,7 +62,7 @@ meiji/
 ├── config/models.local.json # 本地密钥等，覆盖 models.json 同名字段（git 忽略，需自行创建）
 ├── tools/                  # Harness 会话工具 session-*-tool.js（4 个）
 ├── skills/                 # 技能：stages/（阶段技能，按字段存放）guidance/（指导技能）shared/（共享模块）
-│                           #   constraints/<id>.md（固定约束，只读，允许为空；目前仅人物图，替代其 generate.md）
+│                           #   constraints/character/generate-character-image.md（人物固定约束，只读，可为空）；constraints/scene/generate-scene-image.md（场景生成正文，仍使用既有可编辑语义）
 │                           #   agent/panel.md（唯一注册给 Harness 的会话说明）references/minimax-h3（官方参考）；load.js 按字段读取与校验
 ├── h3skill/                # MiniMax-H3 官方 skill 归档，只读参考，不注册、不注入
 ├── scripts/                # 迁移脚本（参数为 DSH_HOME），统一 migrate- 前缀：migrate-model（模型 v2）、migrate-layout（存储布局 v2）、migrate-task-steps（任务记录 v2）、migrate-custom-skills（补充 skill 与指导素材按集 → 按剧）、migrate-tail-frame、migrate-image-url（删除网关文件地址 imageUrl）；prompt-diff.js 为开发用的提示词差集脚本
@@ -86,7 +87,7 @@ http / tools → flow → generate → prompts → data → models
 | `shared/` | 数据模型、门禁与流程规则等纯函数，浏览器与 Node 通用 |
 | `server/http/` | 鉴权、同源校验、分发面板操作，素材上传下载与 Range |
 | `server/flow/` | 操作定义、入口与分派、任务执行器与队列、启动取消 |
-| `server/generate/` | 调用网关：文本、图片、视频提交与轮询、自审修订、ffmpeg 抽帧与拼接 |
+| `server/generate/` | 调用网关：文本、图片、视频提交与轮询、自审修订、ffmpeg 抽帧与拼接；图片经调用 API、下载并转 Base64、保存候选三个独立步骤执行 |
 | `server/prompts/` | `interfaces/<阶段>.js` 独立定义各接口的生成、审核、修订结构；`interfaces/registry.js` 只分发；`skill-prompts.js` 提供可选的技能片段、覆盖层与来源标注；`preview.js` 复用各接口组装函数 |
 | `server/data/` | 项目、剧集、素材、图片、任务与步骤记录等持久化 |
 | `server/host/` | 通过公开的 `workspaceRegistry` 查工作区与会话；写会话命令日志 |

@@ -5,14 +5,13 @@ import { pictureReference, pictureTargetSnapshot, readImageDraft, readPicture, s
 import { openIncoming } from './project.js'
 import { loadModels } from './services.js'
 import { decodeImageData } from '../../generate/character-views.js'
-import { characterImageSize } from '../../generate/gateway.js'
-import { appendImageAsset, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
-import { runTextSteps } from '../../generate/text-steps.js'
-import { runStep } from '../../data/task-store.js'
-import { buildTextPrompts } from '../../prompts/text-prompts.js'
-import { characterImagePrompt } from '../../prompts/interfaces/character-image.js'
+import { characterImageSize, gatewayImageSize } from '../../generate/gateway.js'
+import { appendImageAsset, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
+import { characterImagePrompt, characterImageModificationModel } from '../../prompts/interfaces/character-image.js'
+import { sceneImagePrompt, sceneImageModificationModel } from '../../prompts/interfaces/scene-image.js'
 import { GenerationStatus, finish, plotPatch, shotResults, targetNode, updateShotResult } from '../../../shared/drama-model.js'
 import { feedbackKey } from '../../../shared/feedback.js'
+import { checkContext } from '../../data/operation-context.js'
 import { aspectRatioOf, staleMedia } from '../../../shared/project-rules.js'
 import { hasCharacters, hasScenes } from '../../../shared/gates.js'
 
@@ -29,32 +28,49 @@ export async function startImage(operation, project, { projects, models, home, s
   if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以出图'), { status: 400 })
   await projects.save(project.id, { activity: `image:${item.id}`, activityError: null })
   const route = await loadModels(models)
-  let bag = place.bag
+  const bag = place.bag
   let how = '沿用这张卡已有的中文画面提示词'
-  if (operation.generationMode === 'modify') {
-    const note = String(operation.instruction || operation.review || '').trim()
-    if (!note || note.length > 2000) throw Object.assign(new Error(note ? '审核意见过长' : '请先写下审核意见'), { status: 400 })
-    const revision = await runTextSteps({ target: `image:${item.id}`, prompts: buildTextPrompts({ skill: 'image-prompt', project, instructions: `原提示词：${item.look || item.appearance || item.space || ''}\n新要求：${note}` }), options: {
-      route: route.story, project,
-    } })
-    const revised = revision.text
-    if (!usableLook(revised)) throw Object.assign(new Error('新的画面提示词不够具体'), { status: 502 })
-    bag = { ...bag, items: bag.items.map(entry => entry.id === item.id ? { ...entry, look: revised } : entry) }
-    if (!revision.check.passed) {
-      await projects.save(project.id, { activity: null })
-      throw Object.assign(new Error(`自检未通过：${revision.check.failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
-    }
-    how = '已按审核意见改写画面提示词'
-  } else if (!usableLook(item.look)) {
+  const imageModification = operation.generationMode === 'modify'
+  if (!imageModification && !usableLook(item.look)) {
     throw Object.assign(new Error('这张卡还没有可用的中文画面提示词'), { status: 400 })
   }
   const current = bag.items.find(entry => entry.id === item.id)
-  const submitted = current.type === 'role' ? characterImagePrompt(current, project) : imageSkillPrompt('scene-image', sceneStillPrompt(current), project)
+  const size = current.type === 'role' ? characterImageSize(operation.aspect) : gatewayImageSize(operation.aspect || aspectRatioOf(project.aspectRatio))
+  const [width, height] = size.split('x').map(Number)
+  const canvas = { width, height }
+  const subject = current.type === 'role' ? '人物' : '场景'
+  let submitted = imageModification ? '' : current.type === 'role' ? characterImagePrompt(current, project) : sceneImagePrompt(current, project, undefined, { canvas })
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   let referenceBytes
   let referenceMime
+  let referenceBase64
   let reference = '纯文字生图'
-  if (operation.action === 'revise-image' && !route.image?.apiKey) {
+  if (imageModification) {
+    const instruction = String(operation.instruction || operation.review || checkContext.getStore()?.review || '').trim()
+    if (!instruction || instruction.length > 2000) throw Object.assign(new Error(instruction ? '审核意见过长' : `${subject}图修改需要输入意见`), { status: 400 })
+    const candidate = checkContext.getStore()?.originalCandidate
+    let file
+    if (candidate) {
+      file = await readImageDraft(home, candidate.draftId)
+      if (file.metadata.projectId !== project.id || file.metadata.episodeId !== project.episodeId || file.metadata.itemId !== item.id) throw Object.assign(new Error('修改原图不属于当前素材或剧集'), { status: 409 })
+      referenceMime = file.metadata.mime
+    } else {
+      try { file = await readPicture(home, project, current) }
+      catch (error) {
+        if (error.code === 'ENOENT') throw Object.assign(new Error(`${subject}图修改需要原图，请先生成或导入图片`), { status: 400 })
+        throw error
+      }
+      referenceMime = file.mime
+    }
+    referenceBytes = file.bytes
+    if (!referenceBytes?.length) throw Object.assign(new Error(`${subject}图修改原图为空`), { status: 400 })
+    const buildModel = current.type === 'role' ? characterImageModificationModel : sceneImageModificationModel
+    const model = buildModel(current, project, { canvas, images: [{ purpose: 'edit-base', base64: `data:${referenceMime};base64,${referenceBytes.toString('base64')}` }], instruction })
+    submitted = model.toPrompt()
+    referenceBase64 = model.images.map(image => image.base64)
+    how = `按人工意见直接编辑${subject}原图`
+    reference = '使用待修改原图，保留未涉及内容'
+  } else if (operation.action === 'revise-image' && !route.image?.apiKey) {
     try {
       referenceBytes = (await readPicture(home, project, current)).bytes
       reference = '带上当前图片作为重绘底图'
@@ -76,14 +92,15 @@ export async function startImage(operation, project, { projects, models, home, s
     reference = '按参考图生成'
   }
   const seed = imageSeed(`${item.id}:${Date.now()}`)
-  const size = current.type === 'role' ? characterImageSize(operation.aspect) : aspectRatioOf(project.aspectRatio)
-  defer(runStep('image_generate', () => submitAssetImage({
+  defer(submitAssetImage({
     assets: bag, itemId: item.id, aspectRatio: size, backend: route.image,
-    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes, referenceMime, seed, home, prompt: submitted,
-  }).then(async next => {
-    const draft = next.items.find(entry => entry.id === item.id).pendingImage
-    await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item), aspect: current.type === 'role' ? (operation.aspect || '9:16') : '', useReference: Boolean(operation.useReference) })
-  }), { target: `image:${item.id}` }).catch(async error => {
+    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes: imageModification ? undefined : referenceBytes, referenceMime, referenceBase64, seed, home, prompt: submitted,
+    stepTarget: `image:${item.id}`,
+    onSaved: async next => {
+      const draft = next.items.find(entry => entry.id === item.id).pendingImage
+      await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item), aspect: operation.aspect || (current.type === 'role' ? '9:16' : size), useReference: Boolean(operation.useReference) })
+    },
+  }).catch(async error => {
     await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
   }))
   return [
@@ -117,12 +134,12 @@ export async function startPartImage(operation, project, { projects, models, hom
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   const seed = imageSeed(`${partId}:${Date.now()}`)
   const size = aspectRatioOf(project.aspectRatio)
-  defer(runStep('image_generate', () => generateStillFile({
+  defer(generateStillFile({
     directory, itemId: partId, aspectRatio: size, backend: route.image,
     projectId: project.id, episodeId: project.episodeId, home, category: 'props', prompt: submitted, seed,
-  }).then(async localPath => {
-    await stageImageDraft(projects, project, localPath, { key: place.key, itemId: item.id, slot, name: `${item.name}·${partSlots[slot].label}`, target: pictureTargetSnapshot(current) })
-  }), { target: `image:${item.id}:${slot}` }).catch(async error => {
+    stepTarget: `image:${item.id}:${slot}`,
+    onSaved: localPath => stageImageDraft(projects, project, localPath, { key: place.key, itemId: item.id, slot, name: `${item.name}·${partSlots[slot].label}`, target: pictureTargetSnapshot(current) }),
+  }).catch(async error => {
     await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
   }))
   return [
@@ -344,12 +361,11 @@ async function opPencil(c) {
   const route = await loadModels(models)
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'boards', project.episodeId || '')
   const seed = imageSeed(`${project.id}:${track}:${Date.now()}`)
-  await runStep('image_generate', async () => {
-    const reference = await (deps.submitPencilBoard || submitPencilBoard)({
-      directory, track, prompt: source, aspectRatio: '1344x768', backend: route.image, seed, home, projectId: project.id, episodeId: project.episodeId,
-    })
-    await stageImageDraft(projects, project, reference, { track, name: `${track} 铅笔分镜`, target: pictureTargetSnapshot(item) })
-  }, { target: `pencil:${track}` })
+  await (deps.submitPencilBoard || submitPencilBoard)({
+    directory, track, prompt: source, aspectRatio: '1344x768', backend: route.image, seed, home, projectId: project.id, episodeId: project.episodeId,
+    stepTarget: `pencil:${track}`,
+    onSaved: reference => stageImageDraft(projects, project, reference, { track, name: `${track} 铅笔分镜`, target: pictureTargetSnapshot(item) }),
+  })
   note(`${track} 的铅笔分镜已生成，等待确认使用`)
   if (review) note(`审核意见：${review}`)
   note('提交的画面提示词：')

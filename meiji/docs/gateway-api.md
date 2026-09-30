@@ -297,11 +297,11 @@ curl -sS "$GATEWAY_URL/v1/images/generations" \
 ```json
 {
   "created": 1790650000,
-  "data": [{"b64_json":"..."}]
+  "data": [{"url":"http://127.0.0.1:18090/v1/media/media_..."}]
 }
 ```
 
-当前只返回 `b64_json`，不返回托管 URL。
+插件读取 `data[0].url`，下载图片并转为 Base64，再解码交给现有本地保存流程。同源媒体下载使用生成时的 Bearer 密钥并禁止重定向；外部 HTTP(S) 地址不携带网关密钥。下载支持停止与超时，失败不重新提交生成。仍支持已有 `b64_json` 响应。
 
 ### 6.2 图片编辑
 
@@ -312,9 +312,9 @@ curl -sS "$GATEWAY_URL/v1/images/generations" \
 | `model` | text | 是 | `elysium-image` |
 | `prompt` | text | 是 | 编辑指令 |
 | `size` | text | 否 | 规则与图片生成一致 |
-| `image` / `image[]` | file | 是 | PNG、JPEG 或 WebP；合计 1–10 张 |
+| `image` / `image[]` | file / text | 是 | 既有参考图为文件；人物修改为 PNG/JPEG/WebP 的 Base64 data URL 文本；合计 1–10 张 |
 
-除上述字段外的文本字段或文件字段会返回 `400`。
+人物修改按用户要求提交 Base64 字符串；以下文件示例描述既有参考图请求。角色职责写在 prompt 正文中，不传 role 表单字段。真实服务 Base64 文本输入尚未联调。
 
 ```sh
 curl -sS "$GATEWAY_URL/v1/images/edits" \

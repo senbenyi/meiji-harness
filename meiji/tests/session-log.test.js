@@ -92,10 +92,15 @@ test('video and reference image logs omit base64 while preserving what was actua
       } })
     await generateGatewayImage({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', prompt: '参考生图', references: [{ bytes, mime: 'image/png' }],
       fetchImpl: async (url, options) => {
+        if (options.method === 'GET') return new Response(bytes)
         assert.deepEqual(Buffer.from(await options.body.get('image[]').arrayBuffer()), bytes)
-        return Response.json({ data: [{ b64_json: reference }] })
+        return Response.json({ data: [{ url: '/v1/media/image_1' }] })
       } })
   })
+  const allLogs = events.map(e => e.data.text || '').join('\n')
+  assert.match(allLogs, /返回：图片文件 6 字节/)
+  assert.equal(allLogs.includes(reference), false)
+  assert.equal(allLogs.includes('secret-key'), false)
   const logs = events.filter(e => e.data.text?.includes('参数：')).map(e => e.data.text)
   assert.equal(JSON.parse(logs[0].split('参数：')[1]).input_reference, `[base64 图片，${reference.length} 字符]`)
   assert.deepEqual(JSON.parse(logs[1].split('参数：')[1]).reference_images, [`[base64 数据，${reference.length} 字符]`])

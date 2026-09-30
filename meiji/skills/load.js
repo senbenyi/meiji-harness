@@ -42,15 +42,18 @@ function loadStage(base, id) {
   const fields = meta.fields || []
   if (meta.fixedConstraints !== undefined && typeof meta.fixedConstraints !== 'boolean') throw skillError(`stages/${id} fixedConstraints 必须为布尔值`)
   if (!Array.isArray(fields) || (!fields.includes('generate') && !meta.fixedConstraints) || fields.some(field => ![...editableParts, 'protocol'].includes(field))) throw skillError(`stages/${id} fields 无效`)
+  const externalGenerate = id === 'scene-image' ? join(base, 'constraints/scene/generate-scene-image.md') : null
   const files = mdFiles(dir)
+  if (externalGenerate && existsSync(externalGenerate) && !files.includes('generate')) files.push('generate')
+  files.sort()
   if (files.join() !== [...fields].sort().join()) throw skillError(`stages/${id} 的 md 文件（${files.join('、')}）与 fields 不一致`)
   for (const [part, refs] of Object.entries(meta.shared || {})) {
     if (!['common', 'review', 'revise'].includes(part)) throw skillError(`stages/${id} shared.${part} 无效`)
     for (const ref of refs) if (!sharedLabels[ref]) throw skillError(`stages/${id} 引用了不存在的共享模块 ${ref}`)
   }
-  const parts = Object.fromEntries(editableParts.map(part => [part, fields.includes(part) ? read(join(dir, part + '.md')) : '']))
+  const parts = Object.fromEntries(editableParts.map(part => [part, fields.includes(part) ? read(part === 'generate' && externalGenerate ? externalGenerate : join(dir, part + '.md')) : '']))
   // 空文件有效；缺失文件仍报错，不静默忽略配置问题。
-  const constraints = meta.fixedConstraints ? { constraints: read(join(base, 'constraints', id + '.md')) } : {}
+  const constraints = meta.fixedConstraints ? { constraints: read(join(base, 'constraints', id === 'character-image' ? 'character/generate-character-image.md' : id + '.md')) } : {}
   return { ...meta, fields, parts, ...constraints, protocol: fields.includes('protocol') ? read(join(dir, 'protocol.md')) : '' }
 }
 

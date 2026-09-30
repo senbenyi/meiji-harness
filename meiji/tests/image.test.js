@@ -212,9 +212,14 @@ test('gateway text-to-image posts the supplied Chinese prompt and stores the ret
       backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key' },
       prompt,
       fetchImpl: async (url, options) => {
+        if (options.method === 'GET') {
+          assert.equal(url.pathname, '/v1/media/image_1')
+          assert.equal(options.headers.Authorization, 'Bearer test-key')
+          return new Response(png)
+        }
         assert.equal(options.method, 'POST')
         posted = { url: String(url), body: JSON.parse(options.body), authorization: options.headers.Authorization }
-        return Response.json({ created: 1, data: [{ b64_json: png.toString('base64') }] })
+        return Response.json({ created: 1, data: [{ url: 'http://43.154.247.11/v1/media/image_1' }] })
       },
     })
     assert.equal(posted.url, 'http://43.154.247.11/v1/images/generations')
@@ -245,10 +250,15 @@ test('reference image generation uploads the reference to images/edits and keeps
       prompt: '二十出头的中国男子',
       referenceBytes: file.bytes, referenceMime: file.mime,
       fetchImpl: async (url, options) => {
+        if (options.method === 'GET') {
+          assert.equal(url.pathname, '/v1/media/image_1')
+          assert.equal(options.headers.Authorization, 'Bearer test-key')
+          return new Response(png)
+        }
         assert.equal(options.method, 'POST')
         assert.equal(options.headers['Content-Type'], undefined)
         posted = { url: String(url), form: options.body }
-        return Response.json({ created: 1, data: [{ b64_json: png.toString('base64') }] })
+        return Response.json({ created: 1, data: [{ url: 'http://43.154.247.11/v1/media/image_1' }] })
       },
     })
     assert.equal(posted.url, 'http://43.154.247.11/v1/images/edits')
@@ -267,4 +277,51 @@ test('text-to-image stops when ComfyUI is not configured or nothing is visual', 
   const input = { assets, projectId: 'p', directory: '/tmp/meiji-unused', fetchImpl: async () => { throw new Error('should not fetch') } }
   await assert.rejects(submitAssetImage({ ...input, itemId: 'A01', backend: null, env: {} }), { status: 409 })
   await assert.rejects(submitAssetImage({ ...input, itemId: 'A02', backend: { provider: 'comfyui', baseUrl: 'http://comfy.test/comfy' } }), { status: 400 })
+})
+
+
+test('all image entry points save and register candidates inside their third planned step', async t => {
+  const { recordSteps } = await import('./fixtures/steps.js')
+  const { activeStep, executionSteps, finalizeSteps } = await import('../server/data/task-store.js')
+  const { submitPencilBoard, generateStillFile } = await import('../server/generate/image.js')
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  for (const [generate, target] of [[submitAssetImage, 'image:A01'], [generateStillFile, 'image:A01:clothes'], [submitPencilBoard, 'pencil:S01']]) {
+    for (const legacy of [false, true]) {
+      const directory = await mkdtemp(join(tmpdir(), 'meiji-image-steps-'))
+      t.after(() => rm(directory, { recursive: true, force: true }))
+      const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target, status: 'pending' }))
+      let registered = false
+      await recordSteps(() => generate({ assets, itemId: 'A01', track: 'S01', projectId: 'p', directory, prompt: '正面全身人物图', stepTarget: target,
+        backend: { ...{ baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' }, provider: 'elysium' },
+        fetchImpl: async (_url, options) => options.method === 'POST'
+          ? Response.json({ data: [legacy ? { b64_json: png.toString('base64') } : { url: '/v1/media/image' }] })
+          : new Response(png),
+        onSaved: async () => {
+          assert.equal(activeStep().kind, 'image_save')
+          assert.equal(executionSteps().filter(step => step.status === 'running').length, 1)
+          assert.deepEqual(await readFile(join(directory, generate === submitPencilBoard ? 'S01.png' : 'A01.png')), png)
+          registered = true
+        },
+      }), planned)
+      assert.equal(registered, true)
+      finalizeSteps(planned)
+      assert.deepEqual(planned.map(step => step.status), legacy ? ['completed', 'skipped', 'completed'] : ['completed', 'completed', 'completed'])
+      assert.ok(planned.every(step => !step.unplanned))
+    }
+  }
+})
+
+test('candidate registration failure is recorded on the save step', async t => {
+  const { recordSteps } = await import('./fixtures/steps.js')
+  const directory = await mkdtemp(join(tmpdir(), 'meiji-image-save-fail-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target: 'image:A01', status: 'pending' }))
+  await recordSteps(async () => {
+    await assert.rejects(submitAssetImage({ assets, itemId: 'A01', projectId: 'p', directory, prompt: '正面全身人物图', stepTarget: 'image:A01',
+      backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' },
+      fetchImpl: async (_url, options) => options.method === 'POST' ? Response.json({ data: [{ url: '/v1/media/image' }] }) : new Response(Buffer.from([137, 80, 78, 71])),
+      onSaved: () => { throw new Error('候选登记失败') },
+    }), /候选登记失败/)
+  }, planned)
+  assert.deepEqual(planned.map(step => step.status), ['completed', 'completed', 'failed'])
 })

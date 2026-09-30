@@ -7,6 +7,8 @@ import { buildEpisodePrompts, buildStoryPrompts } from './story-prompts.js'
 import { buildSecondsPrompts, buildSingleShotPrompts, buildStoryboardPrompts, buildTablePrompts } from './shot-prompts.js'
 import { buildTextPrompts } from './text-prompts.js'
 import { render } from './skill-prompts.js'
+import characterImage from './interfaces/character-image.js'
+import sceneImage from './interfaces/scene-image.js'
 import { imagePreviewSegments } from './interfaces/registry.js'
 import videoSegments from './interfaces/video.js'
 
@@ -27,14 +29,24 @@ function textBuilder(stage, root, view, mode) {
 
 const request = message => ({ system: message.segments.system, user: message.segments.user, chars: message.system.length + message.user.length })
 
-export function previewPrompts({ stage, root, view, skillSet, mode = 'reference' }) {
+export function previewPrompts({ stage, root, view, skillSet, mode = 'reference', canvas }) {
   const meta = builtinSkill(stage)
   if (meta.kind !== 'stage') throw Object.assign(new Error('只有阶段技能可以预览请求'), { status: 400 })
   return executionContext.run({ skillSet, skills: new Map() }, () => {
     const project = view || root
     if (meta.output === 'image') {
-      const segments = imagePreviewSegments({ stage, project, request: '（本次画面要求由程序按卡片或文本分镜生成）' })
-      return { image: { system: [], user: segments, chars: render(segments).length } }
+      const segments = imagePreviewSegments({ stage, project, request: '（本次画面要求由程序按卡片或文本分镜生成）', canvas })
+      const result = { image: { system: [], user: segments, chars: render(segments).length } }
+      if (['character-image', 'scene-image'].includes(stage)) {
+        const character = stage === 'character-image'
+        const api = character ? characterImage : sceneImage
+        const item = (character ? project?.plot?.characters : project?.plot?.scenes)?.items?.find(entry => entry.type === (character ? 'role' : 'scene'))
+        if (item) {
+          const user = api.modify({ item, project, canvas: canvas || (character ? { width: 768, height: 1344 } : undefined), instruction: opinion, images: [{ purpose: 'edit-base', base64: 'data:image/png;base64,AA==' }] })
+          result.modify = { system: [], user, chars: render(user).length }
+        } else result.modify = null
+      }
+      return result
     }
     if (meta.output === 'video') {
       const segments = videoSegments({ project, prompt: '（已审核的文本分镜最终视频提示词）', mode })

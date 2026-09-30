@@ -1,3 +1,4 @@
+import { runStep } from '../data/task-store.js'
 import { pictureOf, node, setContent } from '../../shared/drama-model.js'
 import { characterFieldValues, characterLookText } from '../../shared/character-facts.js'
 import { checkContext } from '../data/operation-context.js'
@@ -297,7 +298,20 @@ export function pencilPrompt(item) {
   return lines.join('\n')
 }
 
-export async function submitPencilBoard({ directory, track, prompt, home, projectId, episodeId, aspectRatio = '1344x768', backend, fetchImpl, pause, signal, env, seed = imageSeed(`${track}:${Date.now()}`) }) {
+const imageStep = (target, kind, run) => target ? runStep(kind, run, { target }) : run()
+
+async function saveGeneratedImage(target, run, onSaved, signal) {
+  return imageStep(target, 'image_save', async () => {
+    signal ??= checkContext.getStore()?.signal
+    signal?.throwIfAborted()
+    const result = await run()
+    signal?.throwIfAborted()
+    if (onSaved) await onSaved(result)
+    return result
+  })
+}
+
+export async function submitPencilBoard({ directory, track, prompt, home, projectId, episodeId, aspectRatio = '1344x768', backend, fetchImpl, pause, signal, env, seed = imageSeed(`${track}:${Date.now()}`), stepTarget, onSaved }) {
   const text = String(prompt || '').trim()
   if (!text) throw Object.assign(new Error('没有可提交的铅笔分镜提示词'), { status: 409 })
   await mkdir(directory, { recursive: true })
@@ -305,20 +319,22 @@ export async function submitPencilBoard({ directory, track, prompt, home, projec
   if (backend?.apiKey) {
     bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, seed, fetchImpl, signal,
+      prompt: text, aspectRatio, seed, fetchImpl, signal, stepTarget,
     })
   } else {
     const baseUrl = resolveImageBackend(backend, env)
     if (!baseUrl) throw Object.assign(new Error('尚未配置图片执行器。'), { status: 409 })
     const size = imageSize(aspectRatio)
-    bytes = await generateStill({
+    bytes = await imageStep(stepTarget, 'image_generate', () => generateStill({
       baseUrl, ...size, seed, prompt: text,
       prefix: `meiji/pencil/${track}`, jobId: `pencil:${track}:${seed}`,
       fetchImpl, pause, signal,
-    })
+    }))
   }
-  if (!home) await replaceStill(directory, track, 'png', bytes)
-  if (home) return saveImageDraft(home, bytes, 'image/png', 'scenes', `${track}-铅笔分镜`, { source: 'generated', projectId, episodeId, itemId: track, prompt: text })
+  return saveGeneratedImage(stepTarget, async () => {
+    if (!home) await replaceStill(directory, track, 'png', bytes)
+    if (home) return saveImageDraft(home, bytes, 'image/png', 'scenes', `${track}-铅笔分镜`, { source: 'generated', projectId, episodeId, itemId: track, prompt: text })
+  }, onSaved, signal)
 }
 
 export async function readStill(directory, itemId) {
@@ -372,7 +388,7 @@ async function replaceStill(directory, itemId, ext, bytes) {
   await writeFile(join(directory, `${itemId}.${ext}`), bytes, { mode: 0o600 })
 }
 
-export async function generateStillFile({ directory, itemId, aspectRatio, backend, projectId, episodeId, home, category = 'props', prompt, seed, fetchImpl, pause, signal, env }) {
+export async function generateStillFile({ directory, itemId, aspectRatio, backend, projectId, episodeId, home, category = 'props', prompt, seed, fetchImpl, pause, signal, env, stepTarget, onSaved }) {
   const text = String(prompt || '').trim()
   if (!text) throw Object.assign(new Error('没有可提交的画面提示词'), { status: 400 })
   await mkdir(directory, { recursive: true })
@@ -380,24 +396,26 @@ export async function generateStillFile({ directory, itemId, aspectRatio, backen
   if (backend?.apiKey) {
     bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, seed, fetchImpl, signal,
+      prompt: text, aspectRatio, seed, fetchImpl, signal, stepTarget,
     })
   } else {
     const baseUrl = resolveImageBackend(backend, env)
     if (!baseUrl) throw Object.assign(new Error('尚未配置图片执行器。请先配置 ComfyUI 地址。'), { status: 409 })
-    bytes = await generateStill({
+    bytes = await imageStep(stepTarget, 'image_generate', () => generateStill({
       baseUrl, ...imageSize(aspectRatio), seed, prompt: text,
       prefix: `meiji/${projectId}/${itemId}`, jobId: `${projectId}:${itemId}:${seed}`,
       journalFile: join(directory, `${itemId}.job.json`), fetchImpl, pause, signal,
-    })
+    }))
   }
-  const fitted = await limitStillBytes(bytes)
-  if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
-  if (home) return saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), category, itemId, { source: 'generated', projectId, episodeId, itemId, prompt: text })
-  return assetImageUrl(projectId, itemId, seed, episodeId)
+  return saveGeneratedImage(stepTarget, async () => {
+    const fitted = await limitStillBytes(bytes)
+    if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
+    if (home) return saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), category, itemId, { source: 'generated', projectId, episodeId, itemId, prompt: text })
+    return assetImageUrl(projectId, itemId, seed, episodeId)
+  }, onSaved, signal)
 }
 
-export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, pause, signal, env, prepare, referenceBytes, referenceMime, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt }) {
+export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, pause, signal, env, prepare, referenceBytes, referenceMime, referenceBase64, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt, stepTarget, onSaved }) {
   const item = assets?.items?.find(entry => entry.id === itemId)
   if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以生图'), { status: 400 })
   const prepared = prepare ? await prepare(assets) : assets
@@ -407,27 +425,36 @@ export async function submitAssetImage({ assets, itemId, aspectRatio, backend, p
   if (backend?.apiKey) {
     const bytes = await generateGatewayImage({
       baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: prompt || imagePrompt(current), aspectRatio, seed, references: referenceBytes ? [{ bytes: referenceBytes, mime: referenceMime }] : [], fetchImpl, signal,
+      prompt: prompt || imagePrompt(current), aspectRatio, seed, references: referenceBytes ? [{ bytes: referenceBytes, mime: referenceMime }] : [], referenceBase64, fetchImpl, signal, stepTarget,
     })
+    return saveGeneratedImage(stepTarget, async () => {
+      const fitted = await limitStillBytes(bytes)
+      if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
+      const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
+      const items = prepared.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, file: null }) : entry)
+      return { ...prepared, items }
+    }, onSaved, signal)
+  }
+  const baseUrl = resolveImageBackend(backend, env)
+  if (!baseUrl) throw Object.assign(new Error('尚未配置图片执行器。请先配置 ComfyUI 地址。'), { status: 409 })
+  if (referenceBase64?.length) {
+    const match = referenceBase64[0].match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/)
+    if (!match) throw Object.assign(new Error('人物原图 Base64 无效'), { status: 400 })
+    referenceBytes = Buffer.from(match[2], 'base64')
+  }
+  const imageName = referenceBytes ? await uploadReference(baseUrl, referenceBytes, fetchImpl, signal) : undefined
+  const bytes = await imageStep(stepTarget, 'image_generate', () => generateStill({
+    baseUrl, ...imageSize(aspectRatio), seed, prompt: prompt || imagePrompt(current), imageName,
+    prefix: `meiji/${projectId}/${itemId}`, jobId: `${projectId}:${itemId}:${seed}`,
+    journalFile: join(directory, `${itemId}.job.json`), fetchImpl, pause, signal,
+  }))
+  return saveGeneratedImage(stepTarget, async () => {
     const fitted = await limitStillBytes(bytes)
     if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
     const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
     const items = prepared.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, file: null }) : entry)
     return { ...prepared, items }
-  }
-  const baseUrl = resolveImageBackend(backend, env)
-  if (!baseUrl) throw Object.assign(new Error('尚未配置图片执行器。请先配置 ComfyUI 地址。'), { status: 409 })
-  const imageName = referenceBytes ? await uploadReference(baseUrl, referenceBytes, fetchImpl, signal) : undefined
-  const bytes = await generateStill({
-    baseUrl, ...imageSize(aspectRatio), seed, prompt: prompt || imagePrompt(current), imageName,
-    prefix: `meiji/${projectId}/${itemId}`, jobId: `${projectId}:${itemId}:${seed}`,
-    journalFile: join(directory, `${itemId}.job.json`), fetchImpl, pause, signal,
-  })
-  const fitted = await limitStillBytes(bytes)
-  if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
-    const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
-    const items = prepared.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, file: null }) : entry)
-  return { ...prepared, items }
+  }, onSaved, signal)
 }
 
 export async function importAssetImage({ assets, itemId, projectId, episodeId, directory, bytes, mime, home }) {

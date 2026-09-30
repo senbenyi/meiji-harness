@@ -28,6 +28,8 @@
 
 单镜制作步骤 `shotPlan(track)`：文本分镜的生成 → 自审 →（需要时）修订 → 复审 → 提交视频 → 生成视频。`produce`（单镜）与 `produce-all`（逐镜）共用；执行时按最新内容跳过已完成的部分（`operations/films.js` 的 `shotSteps`），任一步未通过即停止，因为后一镜依赖前一镜的尾帧。
 
+图片计划顺序：`image_generate → image_download → image_save`。调用 API、下载并转 Base64、保存候选图片分别记录状态、时间与失败原因，任一步失败后不执行后续步骤。旧 `b64_json` 响应无需下载和转换，ComfyUI 保持自身生成流程，未执行的下载并转 Base64 步骤在任务结束时记为已跳过。候选登记位于保存步骤内，只有人工确认后才入素材库。
+
 ## 步骤
 
 ```js
@@ -43,7 +45,9 @@
 | check | 保存时的内容校验不通过（如时长不符），只记结论 |
 | override | 人工忽略自审 |
 | video_submit / video_generate | 提交成片（参考图读取本地文件转为 base64）/ 等待远端并保存成片与尾帧；`remoteId` 为远端任务编号 |
-| image_generate | 生成候选图片（人物、场景、部件、铅笔分镜） |
+| image_generate | 调用图片 API（人物、场景、部件、铅笔分镜） |
+| image_download | 下载网关响应 URL 的图片并转为 Base64 |
+| image_save | 图片处理、保存候选图片并登记到项目，等待人工确认 |
 | tail_frame / assemble / confirm / execute | 重新处理尾帧 / 全片拼接 / 确认或放弃候选图片 / 其他操作整体 |
 | checkpoint | 人工关卡（预留） |
 
