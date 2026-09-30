@@ -126,5 +126,13 @@ test('skill HTTP endpoints: library, detail, confirmed base save, reset and prev
   assert.equal((await call('POST', 'skills/guidance-action/preview', {})).status, 400)
   const image = await call('POST', 'skills/character-image/preview', {})
   assert.ok(image.requests.image.user.length)
+  const fixed = await call('GET', 'skills/character-image')
+  assert.deepEqual(fixed.skill.fields, [])
+  assert.equal(fixed.skill.constraints, builtinSkill('character-image').constraints)
+  for (const field of ['constraints', 'generate']) {
+    assert.equal((await call('PUT', 'skills/character-image', { fields: { [field]: '不能修改' }, confirm: true })).status, 400)
+    assert.equal((await call('POST', 'skills/character-image/reset', { field, to: 'previous' })).status, 400)
+    assert.equal((await call('PUT', 'project-skills', { projectId: e.id, sessionId, skill: 'character-image', fields: { [field]: '不能补充' } })).status, 400)
+  }
   assert.equal((await call('GET', 'skills/unknown')).status, 404)
 })

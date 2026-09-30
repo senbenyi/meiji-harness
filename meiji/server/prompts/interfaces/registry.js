@@ -19,7 +19,16 @@ export function textInterface(stage) {
   return textInterfaces[stage]
 }
 
+function imageInterface(stage) {
+  if (!Object.hasOwn(imageInterfaces, stage)) throw new Error(`未定义图片接口提示词：${stage}`)
+  return imageInterfaces[stage]
+}
+
 export function imageSegments(args) {
-  if (!Object.hasOwn(imageInterfaces, args.stage)) throw new Error(`未定义图片接口提示词：${args.stage}`)
-  return imageInterfaces[args.stage].generate(args)
+  return imageInterface(args.stage).generate(args)
+}
+
+export function imagePreviewSegments(args) {
+  const api = imageInterface(args.stage)
+  return (api.preview || api.generate)(args)
 }

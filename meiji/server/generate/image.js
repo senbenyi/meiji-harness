@@ -1,5 +1,5 @@
 import { pictureOf, node, setContent } from '../../shared/drama-model.js'
-import { characterFactText, characterFieldValues, characterLookText } from '../../shared/character-facts.js'
+import { characterFieldValues, characterLookText } from '../../shared/character-facts.js'
 import { checkContext } from '../data/operation-context.js'
 import { render } from '../prompts/skill-prompts.js'
 import { imageSegments } from '../prompts/interfaces/registry.js'
@@ -64,49 +64,8 @@ export function sceneStillPrompt(item) {
   return look
 }
 
-// 人物资料（本次画面要求）：只含外观相关的人物卡字段；构图与着装约束在技能 skills/stages/character-image/generate.md。
-export function characterStillPrompt(item) {
-  return characterFactText(item)
-}
-
-// 人物图提示词。成年人物使用可编辑的技能约束与本剧补充；未成年或年龄不明的人物固定穿着完整服装，
-// 不使用可编辑的约束与本剧补充（由代码持有，面板不能修改）。
-const clothedConstraint = '正面全身照，从头到脚都在画面里，灰白纯色背景。按年龄穿着完整服装，不要裸露。'
-export function characterImagePrompt(item, project) {
-  const facts = characterStillPrompt(item)
-  if (adultCharacter(item)) return imageSkillPrompt('character-image', facts, project)
-  return render(imageSegments({ stage: 'character-image', project, request: facts, constraint: clothedConstraint }))
-}
-
-const hanDigit = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
-
-function hanYears(text) {
-  const match = String(text || '').match(/([零一二两三四五六七八九十]+)\s*岁/)
-  if (!match) return null
-  const word = match[1]
-  if (word === '十') return 10
-  const ten = word.indexOf('十')
-  if (ten < 0) return hanDigit[word] ?? null
-  const high = ten === 0 ? 1 : hanDigit[word[ten - 1]]
-  const low = word[ten + 1] ? hanDigit[word[ten + 1]] : 0
-  if (high == null || low == null) return null
-  return high * 10 + low
-}
-
-function statedAge(item) {
-  const age = characterFieldValues(item).age
-  const years = age.match(/(\d+)\s*(?:岁|周岁|years?\b)/i) || age.match(/^\s*(\d+)\s*$/)
-  if (years) return Number(years[1])
-  const han = hanYears(age)
-  if (han != null) return han
-  if (/童|幼|少儿|小孩|儿童|未成年|婴儿|孩童|少年|child|minor|teen|infant|toddler/i.test(age)) return 0
-  return null
-}
-
-export function adultCharacter(item) {
-  const years = statedAge(item)
-  return years != null && years >= 18
-}
+// 旧导出保留为转发；人物图专属逻辑集中在对应提示词接口。
+export { characterStillPrompt, characterImagePrompt, adultCharacter } from '../prompts/interfaces/character-image.js'
 
 export function buildImageGraph({ prompt, seed, width, height, prefix, imageName }) {
   const graph = {

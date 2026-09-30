@@ -42,15 +42,16 @@ export function mergeBase(skill, override) {
   const parts = { ...skill.parts }
   const layers = {}
   const outdated = []
+  const allowed = editableFields(skill)
   for (const field of Object.keys(skill.parts)) {
-    const base = override?.fields?.[field]
+    const base = allowed.includes(field) ? override?.fields?.[field] : null
     layers[field] = base ? 'base' : 'builtin'
     if (base) {
       parts[field] = base.text
       if (base.builtinHash !== textHash(skill.parts[field])) outdated.push(field)
     }
   }
-  return { ...skill, builtin: skill.parts, parts, layers, outdated, previous: Object.keys(override?.previous || {}), updatedAt: override?.updatedAt || null }
+  return { ...skill, builtin: skill.parts, parts, layers, outdated, previous: Object.keys(override?.previous || {}).filter(field => allowed.includes(field)), updatedAt: allowed.length ? override?.updatedAt || null : null }
 }
 
 export function skillStore(home) {
@@ -185,11 +186,13 @@ export const builtinSkillSet = projectValue => buildSkillSet(new Map(), projectV
 
 function buildSkillSet(overrides, projectValue) {
   const skills = {}
+  const project = projectSkills(projectValue)
   for (const skill of builtinSkills()) {
     const merged = mergeBase(skill, overrides.get(skill.id))
-    skills[skill.id] = { parts: merged.parts, layers: merged.layers }
+    skills[skill.id] = { parts: merged.parts, layers: merged.layers, ...(skill.fixedConstraints ? { constraints: skill.constraints } : {}) }
+    if (skill.fixedConstraints && !editableFields(skill).length) delete project.additions[skill.id]
   }
-  return { skills, project: projectSkills(projectValue) }
+  return { skills, project }
 }
 
 // 任务记录与历史中的技能条目：所用层与内容哈希。
@@ -199,5 +202,7 @@ export function skillUse(set, id) {
   const layers = ['builtin']
   if (Object.values(skill.layers).includes('base')) layers.push('base')
   if (addition && Object.keys(addition).length) layers.push('project')
-  return { id, layers, hash: textHash(JSON.stringify([skill.parts, addition || {}])) }
+  const content = [skill.parts, addition || {}]
+  if (Object.hasOwn(skill, 'constraints')) content.push(skill.constraints)
+  return { id, layers, hash: textHash(JSON.stringify(content)) }
 }

@@ -26,7 +26,7 @@ function detail(skill) {
     ? guidanceSkillIds().map(builtinSkill).filter(item => item.stages[meta.guidanceStage]).map(item => ({ id: item.id, name: guidanceName(item.id), label: item.label, placement: item.stages[meta.guidanceStage], defaultEnabled: item.defaultEnabled, assetTypes: item.assetTypes }))
     : []
   const stages = meta.kind === 'guidance' ? Object.entries(meta.stages).map(([stage, placement]) => ({ stage, placement })) : []
-  return { ...summary(skill), fields, protocol: meta.protocol || '', guidance, stages, assetStages: meta.assetStages || [], related: meta.related || [] }
+  return { ...summary(skill), fields, protocol: meta.protocol || '', ...(meta.fixedConstraints ? { constraints: meta.constraints } : {}), guidance, stages, assetStages: meta.assetStages || [], related: meta.related || [] }
 }
 
 export function skillRoutes({ home, projects, links, json, readJson }) {

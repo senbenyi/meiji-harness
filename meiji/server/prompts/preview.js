@@ -7,7 +7,7 @@ import { buildEpisodePrompts, buildStoryPrompts } from './story-prompts.js'
 import { buildSecondsPrompts, buildSingleShotPrompts, buildStoryboardPrompts, buildTablePrompts } from './shot-prompts.js'
 import { buildTextPrompts } from './text-prompts.js'
 import { render } from './skill-prompts.js'
-import { imageSegments } from './interfaces/registry.js'
+import { imagePreviewSegments } from './interfaces/registry.js'
 import videoSegments from './interfaces/video.js'
 
 const placeholder = '（任务与上下文由程序在运行时填入：本集资料、上下游内容与本次目标。当前剧集缺少所需的上游内容，此处以说明代替。）'
@@ -33,7 +33,7 @@ export function previewPrompts({ stage, root, view, skillSet, mode = 'reference'
   return executionContext.run({ skillSet, skills: new Map() }, () => {
     const project = view || root
     if (meta.output === 'image') {
-      const segments = imageSegments({ stage, project, request: '（本次画面要求由程序按卡片或文本分镜生成）' })
+      const segments = imagePreviewSegments({ stage, project, request: '（本次画面要求由程序按卡片或文本分镜生成）' })
       return { image: { system: [], user: segments, chars: render(segments).length } }
     }
     if (meta.output === 'video') {

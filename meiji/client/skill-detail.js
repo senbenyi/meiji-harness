@@ -8,7 +8,7 @@ const fieldLabels = { common: '通用', generate: '生成', review: '审核', re
 const kindLabels = { stage: '阶段技能', guidance: '指导技能', shared: '共享模块' }
 const guidanceLabels = { action: '动作指导', martial: '武术指导', dialogue: '台词指导', expression: '表情指导', sound: '声音指导', '': '其他参考' }
 const requestLabels = { generate: '生成', modify: '意见修改', review: '审核', revise: '自动修订', image: '图片接口', video: '成片提交' }
-const sourceLabels = { stage: '阶段技能', guidance: '指导技能', shared: '共享模块', project: '本剧补充', asset: '指导素材', context: '任务与上下文', protocol: '协议', language: '语言', reference: '官方参考' }
+const sourceLabels = { stage: '阶段技能', constraint: '固定约束', guidance: '指导技能', shared: '共享模块', project: '本剧补充', asset: '指导素材', context: '任务与上下文', protocol: '协议', language: '语言', reference: '官方参考' }
 
 function button(text, onclick, className) {
   const node = element('button', text, className)
@@ -239,12 +239,17 @@ export function renderSkillDetail({ id, project }, handlers) {
   const draw = (data, message = '') => {
     const { skill } = data
     const children = [button('← 返回', handlers.back, 'back'), element('h2', `${skill.label} · skill`),
-      element('p', `${kindLabels[skill.kind]}${project ? ` · 本剧补充只对《${project.title || '本剧'}》生效` : ''}`, 'meta')]
+      element('p', `${kindLabels[skill.kind]}${project && skill.fields.length ? ` · 本剧补充只对《${project.title || '本剧'}》生效` : ''}`, 'meta')]
     for (const related of skill.related || []) children.push(button(`查看相关技能：${related === 'shot-revise' ? '单镜修订' : related === 'shots' ? '镜头表' : related} →`, () => handlers.open(related), 'link'))
     if (skill.stages?.length) children.push(element('p', `落点：${skill.stages.map(item => `${fieldLabels[item.stage]}（${item.placement}）`).join('；')}`, 'meta'))
     const redraw = (next, text) => { handlers.changed?.(); draw({ ...data, skill: next }, text) }
-    children.push(renderBase(skill, handlers, redraw))
-    if (data.project && skill.kind !== 'shared') children.push(renderAdditions(skill, data.project.additions, handlers))
+    if (Object.hasOwn(skill, 'constraints')) {
+      const fixed = element('section', '', 'settings-group skill-constraints')
+      fixed.append(element('h3', '固定约束（只读）'), element('p', '由技能文件提供，不能在页面修改或覆盖。', 'meta'), element('pre', skill.constraints.trim() || '无固定约束', 'skill-text'))
+      children.push(fixed)
+    }
+    if (skill.fields.length || skill.protocol) children.push(renderBase(skill, handlers, redraw))
+    if (data.project && skill.kind !== 'shared' && skill.fields.length) children.push(renderAdditions(skill, data.project.additions, handlers))
     if (data.project && skill.guidance?.length) children.push(renderGuidance(skill, data.project.enabled, handlers))
     if (data.project && skill.kind === 'guidance') {
       const name = skill.id.replace(/^guidance-/, '')

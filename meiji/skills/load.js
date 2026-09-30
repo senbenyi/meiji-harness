@@ -2,6 +2,7 @@
 //   stages/<id>/     阶段技能：skill.json + common / generate / review / revise（可编辑）+ protocol（程序解析依赖，只读）
 //   guidance/<id>/   指导技能：skill.json + common / review + stages/<阶段>.md（本阶段要求）
 //   shared/<id>.md   共享模块：被多个阶段引用的单段正文
+//   constraints/<id>.md 固定约束：由阶段显式启用，允许空文本，页面/API 不可编辑
 //   agent/panel.md   会话说明：唯一注册给 Harness 的技能（会话 agent 使用，不参与提示词组装）
 // 面板修改（基础层）与本剧补充由 server/data/skill-store.js 叠加在内置之上。
 import { createHash } from 'node:crypto'
@@ -12,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
 export const editableParts = ['common', 'generate', 'review', 'revise']
 export const guidanceStages = ['outline', 'shots', 'seconds', 'storyboard']
-const stageKeys = new Set(['id', 'kind', 'label', 'logLabel', 'output', 'languageMode', 'panel', 'guidanceStage', 'assetStages', 'shared', 'related', 'fields', 'order'])
+const stageKeys = new Set(['id', 'kind', 'label', 'logLabel', 'output', 'languageMode', 'panel', 'guidanceStage', 'assetStages', 'shared', 'related', 'fields', 'order', 'fixedConstraints'])
 const guidanceKeys = new Set(['id', 'kind', 'label', 'defaultEnabled', 'assetTypes', 'stages'])
 const outputs = new Set(['json', 'text', 'image', 'video'])
 const sharedLabels = {
@@ -39,7 +40,8 @@ function loadStage(base, id) {
   for (const key of Object.keys(meta)) if (!stageKeys.has(key)) throw skillError(`stages/${id} 未知字段 ${key}`)
   if (!meta.label || !meta.logLabel || !outputs.has(meta.output)) throw skillError(`stages/${id} 缺少 label / logLabel / output`)
   const fields = meta.fields || []
-  if (!fields.includes('generate') || fields.some(field => ![...editableParts, 'protocol'].includes(field))) throw skillError(`stages/${id} fields 无效`)
+  if (meta.fixedConstraints !== undefined && typeof meta.fixedConstraints !== 'boolean') throw skillError(`stages/${id} fixedConstraints 必须为布尔值`)
+  if (!Array.isArray(fields) || (!fields.includes('generate') && !meta.fixedConstraints) || fields.some(field => ![...editableParts, 'protocol'].includes(field))) throw skillError(`stages/${id} fields 无效`)
   const files = mdFiles(dir)
   if (files.join() !== [...fields].sort().join()) throw skillError(`stages/${id} 的 md 文件（${files.join('、')}）与 fields 不一致`)
   for (const [part, refs] of Object.entries(meta.shared || {})) {
@@ -47,7 +49,9 @@ function loadStage(base, id) {
     for (const ref of refs) if (!sharedLabels[ref]) throw skillError(`stages/${id} 引用了不存在的共享模块 ${ref}`)
   }
   const parts = Object.fromEntries(editableParts.map(part => [part, fields.includes(part) ? read(join(dir, part + '.md')) : '']))
-  return { ...meta, fields, parts, protocol: fields.includes('protocol') ? read(join(dir, 'protocol.md')) : '' }
+  // 空文件有效；缺失文件仍报错，不静默忽略配置问题。
+  const constraints = meta.fixedConstraints ? { constraints: read(join(base, 'constraints', id + '.md')) } : {}
+  return { ...meta, fields, parts, ...constraints, protocol: fields.includes('protocol') ? read(join(dir, 'protocol.md')) : '' }
 }
 
 function loadGuidance(base, name) {

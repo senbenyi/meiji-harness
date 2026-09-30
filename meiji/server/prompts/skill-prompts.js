@@ -153,14 +153,14 @@ export function reviewParts({ stage, project, instructions, opinion = '', review
 }
 
 // 图片片段不包含固定顺序；每个图片接口单独选择。
-export function imageParts({ stage, project, request, skillSet, constraint = '' }) {
+export function imageParts({ stage, project, request, skillSet }) {
   const set = currentSkillSet(project, skillSet)
   recordUse(set, stageMeta(stage), [])
   const language = outputLanguage(project?.outputLanguage)
   const style = String(project?.style || '').trim()
   return {
-    requirement: constraint ? segment('protocol', '', constraint) : segment('stage', '', part(set, stage, 'generate'), { skill: stage, field: 'generate' }),
-    addition: segment('project', '本剧补充要求：', constraint ? '' : addition(set, stage, 'generate'), { skill: stage, field: 'generate' }),
+    requirement: segment('stage', '', part(set, stage, 'generate'), { skill: stage, field: 'generate' }),
+    addition: segment('project', '本剧补充要求：', addition(set, stage, 'generate'), { skill: stage, field: 'generate' }),
     language: segment('language', '', `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。`),
     style: segment('context', '', style ? `项目视觉风格：${style}。画面须符合该风格。` : ''),
     request: segment('context', '本次画面要求：', request),

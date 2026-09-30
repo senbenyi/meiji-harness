@@ -168,6 +168,8 @@
 
 技能三层：内置（`skills/`）→ 基础（面板修改，`storages/meiji/skills/<id>.json`，按字段替换内置，对所有剧生效）→ 本剧（项目索引 `skills`，追加）。任务开始执行时（`startExecution`）用 `loadSkillSet` 固定一份组合，嵌套子操作沿用；同一任务的生成、审核、修订使用同一版本，进行中的任务不受中途修改影响。任务记录写入 `skills: [{ id, layers, hash }]`（`layers` 含 `builtin`，修改过为 `base`，有本剧补充为 `project`），任务历史显示所用技能。
 
+固定约束例外：人物图通过 `fixedConstraints: true` 读取 `skills/constraints/character-image.md`，其 `fields: []`，不再有可编辑 generate 字段，也不应用旧基础覆盖或本剧补充。固定文本纳入任务快照和内容哈希，页面/API 只读；空文件表示不注入固定约束，不使用代码默认值。其他阶段暂不变。
+
 面板接口（只接受同源请求，会话 agent 无对应工具）：`GET /skills`、`GET /skills/<id>`、`PUT /skills/<id>`（须 `confirm: true`）、`POST /skills/<id>/reset`、`POST /skills/<id>/preview`、`PUT /project-skills`、`PUT /project-guidance`。生成和修订剧情资料用 JSON 输出，镜头表与每秒指令用自由文本，审核用 PASS/FAIL。
 
 剧情整包、人物卡、场景卡、镜头表与每秒指令都在自审前保存生成稿；自审或修订接口异常保留最新已保存稿，生成接口尚未产生有效稿时回退到原内容。未完成审核不标记通过。保存沿用 `revisionStore` 的依赖检查。人工编辑只执行保存与自审步骤。

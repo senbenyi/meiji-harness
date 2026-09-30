@@ -1,10 +1,88 @@
-// character-image 的图片 prompt 结构；修改此文件不会改变其他图片接口。
-import { imageParts } from '../skill-prompts.js'
+// 人物图提示词编排：字段、年龄分支、意见、语言和画风在此；固定约束正文仅来自 skills/constraints/character-image.md。
+// 图片上传、尺寸、请求发送和结果保存仍由生成/流程层负责。
+import { characterFieldValues } from '../../../shared/character-facts.js'
+import { outputLanguage } from '../../data/language.js'
 import { withReviewPrompt } from '../../data/review-checks.js'
+import { currentSkillSet, recordUse, render, segment, stageMeta } from '../skill-prompts.js'
 
-function generate(args) {
-  const p = imageParts({ ...args, stage: 'character-image', request: withReviewPrompt(args.request) })
-  return [p.requirement, p.addition, p.language, p.style, p.request]
+const stage = 'character-image'
+// 人物图只选这些外观资料；不带剧情服装、道具与卡片的面向指令。
+const factKeys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features']
+
+export function characterStillPrompt(item) {
+  const values = characterFieldValues(item)
+  return factKeys.map(key => String(values[key] || '').trim()).filter(Boolean).join('，')
 }
 
-export default { generate }
+const hanDigit = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
+
+function hanYears(text) {
+  const match = String(text || '').match(/([零一二两三四五六七八九十]+)\s*岁/)
+  if (!match) return null
+  const word = match[1]
+  if (word === '十') return 10
+  const ten = word.indexOf('十')
+  if (ten < 0) return hanDigit[word] ?? null
+  const high = ten === 0 ? 1 : hanDigit[word[ten - 1]]
+  const low = word[ten + 1] ? hanDigit[word[ten + 1]] : 0
+  if (high == null || low == null) return null
+  return high * 10 + low
+}
+
+function statedAge(item) {
+  const age = characterFieldValues(item).age
+  const years = age.match(/(\d+)\s*(?:岁|周岁|years?\b)/i) || age.match(/^\s*(\d+)\s*$/)
+  if (years) return Number(years[1])
+  const han = hanYears(age)
+  if (han != null) return han
+  if (/童|幼|少儿|小孩|儿童|未成年|婴儿|孩童|少年|child|minor|teen|infant|toddler/i.test(age)) return 0
+  return null
+}
+
+export function adultCharacter(item) {
+  const years = statedAge(item)
+  return years != null && years >= 18
+}
+
+// 约束正文只来自 skills/constraints/character-image.md。
+// 普通 Markdown 原样使用；存在约定分节时，实际人物只选通用与适用年龄段，模板预览显示全文。
+function selectConstraints(text, item) {
+  if (!item) return text
+  const parts = text.split(/^## (通用|成年人物|未成年或年龄不明)\s*$/m)
+  if (parts.length === 1) return text
+  const selected = [parts[0]]
+  const ageGroup = adultCharacter(item) ? '成年人物' : '未成年或年龄不明'
+  for (let i = 1; i < parts.length; i += 2) {
+    if (parts[i] === '通用' || parts[i] === ageGroup) selected.push(parts[i + 1])
+  }
+  return selected.map(value => value.trim()).filter(Boolean).join('\n\n')
+}
+
+// item 是实际人物卡；只有技能库模板预览/通用技能调用才可以只传 request。
+function generate({ item, project, request = '', skillSet }) {
+  const set = currentSkillSet(project, skillSet)
+  recordUse(set, stageMeta(stage), [])
+  const requirement = selectConstraints(set.skills[stage].constraints ?? '', item)
+  const facts = item ? characterStillPrompt(item) : request
+  const language = outputLanguage(project?.outputLanguage)
+  const style = String(project?.style || '').trim()
+  return [
+    segment('constraint', '', requirement, { skill: stage, field: 'constraints' }),
+    segment('language', '', `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。`),
+    segment('context', '', style ? `项目视觉风格：${style}。画面须符合该风格。` : ''),
+    segment('context', '本次画面要求：', withReviewPrompt(facts)),
+  ]
+}
+
+// 技能详情页没有选定人物的控件：有本集资料时预览第一张人物卡，否则展示模板占位。
+function preview(args) {
+  const item = args.project?.plot?.characters?.items?.find(entry => entry.type === 'role')
+  return characterImage.generate({ ...args, item, request: '（人物资料将在生成时由所选人物卡提取；当前仅预览技能模板，具体年龄约束以人物卡为准）' })
+}
+
+const characterImage = { generate, preview }
+export default characterImage
+
+export function characterImagePrompt(item, project, skillSet) {
+  return render(characterImage.generate({ item: item || {}, project, skillSet }))
+}

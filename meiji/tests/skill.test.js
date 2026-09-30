@@ -23,7 +23,7 @@ test('built-in skills load by field: 12 stages, 5 guidance skills, 6 shared modu
     assert.ok(skill.parts.generate.trim(), id)
     assert.ok(skill.protocol.trim(), `${id} protocol`)
   }
-  for (const id of imageStages) assert.deepEqual(builtinSkill(id).fields, ['generate'])
+  for (const id of imageStages) assert.deepEqual(builtinSkill(id).fields, id === 'character-image' ? [] : ['generate'])
   assert.equal(builtinSkill('video').parts.generate, '')
   assert.equal(builtinSkill('guidance-martial').defaultEnabled, false)
 })
@@ -124,13 +124,15 @@ test('generation prompts do not inject official references', () => {
 test('image prompts keep only picture requirements, the configured language and the requested picture', () => {
   for (const name of imageStages) {
     const english = imageSkillPrompt(name, '沙漠里的石洞', { outputLanguage: 'en' })
-    assert.ok(english.startsWith(builtinSkill(name).parts.generate))
+    assert.ok(english.startsWith(name === 'character-image' ? builtinSkill(name).constraints : builtinSkill(name).parts.generate))
     assert.ok(english.includes('本次生成语言：English'))
     assert.ok(english.endsWith('沙漠里的石洞'))
     assert.doesNotMatch(english, /身份与职责|只输出本技能要求的产物|意见修订边界|重新生成”和“修改/)
     assert.ok(imageSkillPrompt(name, '画面', {}).includes('本次生成语言：简体中文'))
     assert.ok(imageSkillPrompt(name, '画面', { style: '写实电影，国风水墨' }).includes('项目视觉风格：写实电影，国风水墨'))
-    assert.match(imageSkillPrompt(name, '画面', { skills: { additions: { [name]: { generate: '本剧统一暖色' } } } }), /本剧补充要求：\n本剧统一暖色/)
+    const supplemented = imageSkillPrompt(name, '画面', { skills: { additions: { [name]: { generate: '本剧统一暖色' } } } })
+    if (name === 'character-image') assert.doesNotMatch(supplemented, /本剧统一暖色/)
+    else assert.match(supplemented, /本剧补充要求：\n本剧统一暖色/)
   }
   assert.match(imageSkillPrompt('pencil', '画面', {}), /黑白铅笔线稿/)
 })
@@ -150,4 +152,21 @@ test('guidance skills join the stages that enable them and stay out of summary a
   const order = seconds.generation.system
   assert.ok(order.indexOf('【阶段技能·生成】') < order.indexOf('【武术指导】') && order.indexOf('【武术指导】') < order.indexOf('【自检标准】'))
   assert.ok(order.indexOf('【优先级】') < order.indexOf('【本次输出协议】'))
+})
+
+
+test('固定约束文件允许为空，缺失仍报错，人物图不再有 generate.md', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'meiji-fixed-skills-'))
+  try {
+    await cp(skillsDir, dir, { recursive: true })
+    assert.equal(builtinSkill('character-image').fixedConstraints, true)
+    assert.match(builtinSkill('character-image').constraints, /## 通用/)
+    await assert.rejects(readFile(join(dir, 'stages/character-image/generate.md')), { code: 'ENOENT' })
+    await writeFile(join(dir, 'constraints/character-image.md'), '')
+    assert.ok(validateSkills(dir).includes('character-image'))
+    await writeFile(join(dir, 'constraints/character-image.md'), '   \n')
+    assert.ok(validateSkills(dir).includes('character-image'))
+    await rm(join(dir, 'constraints/character-image.md'))
+    assert.throws(() => validateSkills(dir), /ENOENT/)
+  } finally { await rm(dir, { recursive: true, force: true }) }
 })

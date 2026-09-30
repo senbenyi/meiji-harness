@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { defaults, normalizeModels } from '../models/model-config.js'
 import { appendImageAsset, characterImagePrompt, characterStillPrompt, imageAsset, imageAssets, imagePrompt, importAssetImage, nextPartId, partPrompt, pencilPrompt, readStill, saveCharacterReference, sceneStillPrompt, submitAssetImage, clearCharacterImage, usableLook, withPartText } from '../server/generate/image.js'
 import { characterImageSize } from '../server/generate/gateway.js'
+import { builtinSkill } from '../skills/load.js'
 
 const assets = {
   status: 'analyzed',
@@ -127,7 +128,7 @@ test('a character still prompt keeps the face and figure and drops clothing', ()
     name: '刘备',
     look: '国籍：中国 身份：桃园结义大哥 性别：男 年代：三国 年龄：四十三岁 服装：绿袍锦缎长衣 身高：一米八五 体型：中等、肩宽 身型：肩宽腰稳、四肢厚实 面相：面容温和，双耳垂肩，短须 面向：正面平视镜头',
   }
-  // 人物资料只含外观字段；构图与着装约束来自技能 character-image 的生成字段，不再写死在代码里。
+  // 人物资料只含外观字段；构图与着装约束来自固定文件，不再写死在代码或可编辑生成字段里。
   assert.equal(/正面全身照|上半身裸露|比基尼|3MB/.test(characterStillPrompt(card)), false)
   const prompt = characterImagePrompt(card, { style: '写实' })
   assert.ok(prompt.startsWith('正面全身照，从头到脚都在画面里，灰白纯色背景'))
@@ -137,7 +138,7 @@ test('a character still prompt keeps the face and figure and drops clothing', ()
   assert.equal(/国籍：|姓名：|身份：|性别：|年代：|年龄：|身高：|体型：|身型：|面相：|形态：|服装：/.test(prompt), false)
   assert.match(prompt, /面容温和，双耳垂肩，短须/)
   assert.match(prompt, /上半身裸露/)
-  assert.match(prompt, /如果是女性，只穿比基尼/)
+  assert.match(builtinSkill('character-image').constraints, /## 成年人物/)
   assert.match(prompt, /正面全身照/)
   assert.match(prompt, /灰白纯色背景/)
   assert.equal(prompt.includes('无背景'), false)
@@ -159,7 +160,7 @@ test('a minor or unknown-age character still stays clothed and ignores editable 
     assert.equal(prompt.includes('本剧补充的着装要求'), false)
   }
   const adult = characterImagePrompt({ gender: '女', age: '23', look: '年龄：23 性别：女' }, project)
-  assert.match(adult, /本剧补充要求：\n本剧补充的着装要求/)
+  assert.doesNotMatch(adult, /本剧补充的着装要求/)
 })
 
 test('an image asset keeps only id, name, and the two paths', () => {

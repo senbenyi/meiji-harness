@@ -4,8 +4,7 @@
   "label": "人物参考图",
   "logLabel": "人物参考图",
   "output": "image",
-  "fields": [
-    "generate"
-  ],
+  "fixedConstraints": true,
+  "fields": [],
   "order": 9
 }

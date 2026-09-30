@@ -49,6 +49,7 @@ meiji/
 │   ├── generate/           # 网关调用与生成：gateway、text-request、text-steps（生成/自审/修订/复审步骤）、
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
 │   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
+│   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、语言风格、修改意见与人物预览；约束正文在 skills/constraints/
 │   ├── data/               # 持久化：projects（领域存储）、project-files（存储布局，唯一了解文件结构）、
 │   │                       #   episodes、library、workspace-links、model-settings、review-checks、
 │   │                       #   task-store（任务与步骤、runStep、内容快照、任务固定的技能组合）、operation-context（一次操作的审核上下文）、
@@ -60,6 +61,7 @@ meiji/
 ├── config/models.local.json # 本地密钥等，覆盖 models.json 同名字段（git 忽略，需自行创建）
 ├── tools/                  # Harness 会话工具 session-*-tool.js（4 个）
 ├── skills/                 # 技能：stages/（阶段技能，按字段存放）guidance/（指导技能）shared/（共享模块）
+│                           #   constraints/<id>.md（固定约束，只读，允许为空；目前仅人物图，替代其 generate.md）
 │                           #   agent/panel.md（唯一注册给 Harness 的会话说明）references/minimax-h3（官方参考）；load.js 按字段读取与校验
 ├── h3skill/                # MiniMax-H3 官方 skill 归档，只读参考，不注册、不注入
 ├── scripts/                # 迁移脚本（参数为 DSH_HOME），统一 migrate- 前缀：migrate-model（模型 v2）、migrate-layout（存储布局 v2）、migrate-task-steps（任务记录 v2）、migrate-custom-skills（补充 skill 与指导素材按集 → 按剧）、migrate-tail-frame；prompt-diff.js 为开发用的提示词差集脚本
@@ -90,7 +92,7 @@ http / tools → flow → generate → prompts → data → models
 | `server/host/` | 通过公开的 `workspaceRegistry` 查工作区与会话；写会话命令日志 |
 | `models/`、`config/` | 模型路由与默认配置 |
 | `tools/` | Harness agent 可调用的工具：上下文查询、项目管理、内容生成、任务控制 |
-| `skills/` | 内置技能（按字段的 Markdown + `skill.json`），代码直接读取；基础修改层与本剧层由 `server/data/skill-store.js` 叠加 |
+| `skills/` | 内置技能（按字段的 Markdown + `skill.json`）；固定约束集中在 `constraints/<id>.md`，显式启用，空文件不添加约束，不接受基础/本剧覆盖。其他可编辑技能由 `server/data/skill-store.js` 叠加覆盖层 |
 
 ```text
 面板操作：client → server/http/routes.js → flow/tasks/runner.js（写任务记录、queue 限流）→ flow/operations/run.js(runOperation)

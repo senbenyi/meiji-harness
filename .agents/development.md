@@ -27,6 +27,7 @@
 - `tools/` 只调用 `server/data` 与 `server/flow`；会话与面板共用 `server/flow/tasks/runner.js` 与 `runOperation`，不另建生成通路。
 - 技能写法（详见 `skills/README.md`）：
   - 阶段技能放 `skills/stages/<id>/`：`skill.json` + 按字段的 Markdown（`common` 通用、`generate` 生成、`review` 验收标准、`revise` 修订边界、`protocol` 输出协议）。md 文件与 `fields` 一致，结构错误由 `validateSkills` 与 `tests/skill.test.js` 报出。
+  - 固定约束只放 `skills/constraints/<id>.md`，阶段通过 `fixedConstraints: true` 显式启用；只有固定约束的阶段允许 `fields: []`，不再有 generate.md。空约束文件表示不注入约束，不能回退到 JS 默认值；缺文件仍报错。固定约束参与任务快照和哈希，不允许页面/API/基础覆盖/本剧补充修改；实际生成与预览从同一来源读取。
   - 程序解析依赖的格式（JSON 字段、`## S01 / 5s`、`[seconds-complete]`、`[opening-reference: …]`、PASS/FAIL）只写在 `protocol.md` 或代码里；面板不能修改协议。
   - 多个阶段共用的段落写成 `skills/shared/<id>.md`，由 `skill.json` 的 `shared` 按字段引用，不复制到各阶段。
   - 动作、武术、台词、表情、声音规则写在 `skills/guidance/<id>/`（`common`、`review`、`stages/<阶段>.md`），不写进阶段技能；指导只细化上游已有内容。

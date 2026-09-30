@@ -70,7 +70,7 @@ test('人物图可独立取消默认包装，预览同步，场景图不受影�
 })
 
 test('各图片接口显式选择的基础覆盖和本剧补充继续参与生成', () => {
-  for (const stage of ['character-image', 'scene-image', 'part-image', 'pencil']) {
+  for (const stage of ['scene-image', 'part-image', 'pencil']) {
     const set = builtinSkillSet({ additions: { [stage]: { generate: '本剧补充' } } })
     set.skills[stage].parts.generate = `基础覆盖：${stage}`
     const actual = executionContext.run({ skillSet: set, skills: new Map() }, () => imageSkillPrompt(stage, '画面', project))

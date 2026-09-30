@@ -22,6 +22,25 @@ const storyboard = {
 }
 const click = (root, text) => [...root.querySelectorAll('button')].find(button => button.textContent === text).click()
 
+test('固定约束只读显示，空文件显示无约束，人物图没有基础编辑或本剧补充入口', async t => {
+  domSetup(t)
+  for (const constraints of ['只画人物全身', '']) {
+    const page = renderSkillDetail({ id: 'character-image', project: { title: '短剧' } }, {
+      back() {}, load: async () => ({ skill: { id: 'character-image', kind: 'stage', label: '人物图', fields: [], constraints }, project: { additions: { generate: '旧补充' } } }),
+    })
+    document.body.append(page)
+    await settle()
+    assert.match(page.textContent, /固定约束（只读）/)
+    assert.equal(page.querySelector('.skill-constraints .skill-text').textContent, constraints || '无固定约束')
+    assert.equal(page.querySelector('textarea'), null)
+    assert.equal(page.querySelector('.skill-base'), null)
+    assert.equal(page.querySelector('.skill-additions'), null)
+    assert.equal([...page.querySelectorAll('button')].some(button => /编辑|恢复|保存/.test(button.textContent)), false)
+    assert.doesNotMatch(page.textContent, /旧补充|undefined/)
+    page.remove()
+  }
+})
+
 test('stage entries open the stage skill and show drama status', async t => {
   domSetup(t)
   const opened = [], project = { id: 'p', skills: { additions: { video: { generate: '保持节奏' } }, assets: { film: [assets[0]] } } }
