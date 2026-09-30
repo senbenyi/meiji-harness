@@ -1,0 +1,477 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dsh.local/schemas/workflow-manifest.schema.json",
+  "title": "Workflow Manifest",
+  "description": "一份「工作流绑定契约」：把一个抽象 capability 绑定到一条具体 ComfyUI 工作流（数据，非代码）。",
+  "type": "object",
+  "required": [
+    "id",
+    "version",
+    "capability",
+    "graph",
+    "params"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capability": {
+      "type": "string",
+      "enum": [
+        "image.text2image",
+        "image.image2image",
+        "video.text2video",
+        "video.image2video",
+        "video.reference2video",
+        "audio.tts",
+        "audio.music"
+      ]
+    },
+    "runner": {
+      "type": "string",
+      "enum": [
+        "comfyui"
+      ],
+      "default": "comfyui"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "modelNode": {
+      "type": "string",
+      "description": "基础模型输出节点 id（$model 哨兵的来源；缺省 '1'）"
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "mediaType": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video",
+            "audio"
+          ]
+        },
+        "hasAudio": {
+          "type": "boolean"
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "default"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "checkpoint",
+              "clip",
+              "vae",
+              "lora",
+              "other"
+            ]
+          },
+          "default": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string",
+            "description": "可覆盖文件名的环境变量名"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "description": "ComfyUI API 格式图模板 {nodeId: {class_type, inputs}}。可变字段留 null，由 params 注入；模型资产用 \"$assets.<key>\"；模型连线用 [\"$model\", 0]。",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "class_type"
+        ],
+        "properties": {
+          "class_type": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "description": "注入点：任务输入 → 图字段。",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "inject",
+              "to"
+            ],
+            "properties": {
+              "inject": {
+                "type": "string",
+                "const": "scalar"
+              },
+              "to": {
+                "$ref": "#/definitions/targets"
+              },
+              "default": {}
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "inject",
+              "via",
+              "to"
+            ],
+            "properties": {
+              "inject": {
+                "type": "string",
+                "const": "image"
+              },
+              "via": {
+                "type": "string",
+                "enum": [
+                  "field",
+                  "node"
+                ]
+              },
+              "to": {
+                "$ref": "#/definitions/target"
+              },
+              "node": {
+                "type": "string",
+                "description": "via=node 时的 LoadImage 类节点类名，默认 LoadImage"
+              },
+              "preprocess": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "class_type"
+                  ],
+                  "properties": {
+                    "class_type": {
+                      "type": "string"
+                    },
+                    "inputs": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "imageInput": {
+                      "type": "string",
+                      "description": "接收上一节点输出连线的输入字段，默认 image"
+                    }
+                  }
+                }
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        ]
+      }
+    },
+    "priority": {
+      "type": "number",
+      "description": "同能力候选的确定性排序权重（降序，缺省 0；相同则按 id 升序）。该顺序决定 preferred 为空时的隐式默认档：写负数可让清单永不被选为默认（适合实验性、依赖自定义节点或成本高出一个量级的加速变体）。"
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "fast",
+        "balanced",
+        "quality"
+      ],
+      "description": "档位（受控枚举，锁定三档）。一个清单只服务一个档位；声明了才参与档位解析。契约见 docs/tier-strategy-design.md。"
+    },
+    "group": {
+      "type": "string",
+      "description": "组名（唯一的分组依据，不从文件名猜）：同 group 的清单聚合成一组，配置页显示为「displayName（档位列表）」。缺省以自身 id 成组。"
+    },
+    "accel": {
+      "type": "string",
+      "description": "加速实现标注（如 sol），仅用于 UI 标注与「有加速/无加速」策略投影，不参与档位解析。"
+    },
+    "requiresNodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "该实现必需的 ComfyUI 节点 class_type（预检依据）。缺失 → 显式不可用并报错，本插件不会静默替换用户选定的实现。"
+    },
+    "estSeconds": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "实测耗时（秒），口径：16:9 · 124 帧 · 该档长边。内置清单由生成器从 benchmark 数据填入；用户上传留空 → UI 显示「耗时未知」。"
+    },
+    "note": {
+      "type": "string",
+      "description": "UI 上给用户看的一行事实（如「Sol-Attn 加速 · 1344×768 实测 1.27× · 480p 无收益」）。"
+    },
+    "internal": {
+      "type": "boolean",
+      "description": "诊断/调试清单：true 时永不参与档位解析，也不出现在 UI 与技能选项里（只能显式 workflow= 调用）。"
+    },
+    "modes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "longSide": {
+            "type": "integer"
+          },
+          "loras": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "asset"
+              ],
+              "properties": {
+                "asset": {
+                  "type": "string",
+                  "description": "assets 里的 key（lora 资产）"
+                },
+                "strength": {
+                  "type": "number",
+                  "default": 1.0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": [
+            "explicit",
+            "aspect-ratio"
+          ]
+        },
+        "snap": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "default": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    "resolutionLock": {
+      "type": "object",
+      "description": "分辨率声明：两阶段实现（首遍采样 → 放大/精修 → 交付）的尺寸契约，两种形态。① 图锁定（给 graph）：首遍尺寸是图结构的一部分，显式 width/height 与画布 aspectRatio 都不得覆盖它。② 只锁倍率（只给 scale，省略 graph）：首遍尺寸不锁，按「显式宽高 → 画布比例 × 档位长边 → resolution.default」推导；图内目标尺寸用算术模板（如 \"${width * 2}\"）跟着首遍走，因此天然支持任意画幅比例。两种形态的交付分辨率一律 = 首遍 × scale。至少声明 graph / scale 之一。",
+      "properties": {
+        "graph": {
+          "type": "array",
+          "description": "首遍采样分辨率（图内 width/height 注入值）。省略 = 不锁首遍，只按 scale 声明交付倍率",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "scale": {
+          "type": "number",
+          "description": "二遍潜空间放大倍率；交付分辨率 = 首遍 × scale（缺省 1）",
+          "exclusiveMinimum": 0
+        },
+        "note": {
+          "type": "string",
+          "description": "为什么这样声明（会拼进解析警告，让调用方知道首遍与交付尺寸的关系）"
+        }
+      }
+    },
+    "upscale": {
+      "type": "object",
+      "description": "视频超分（capability=video.upscale）的尺寸与显存契约。与 resolutionLock 互斥：那种的尺寸来自图结构/档位×画布比例，这里的尺寸**跟着输入视频走**。两个维度必须说清：① sizing = 交付尺寸从哪来（factor = 源 × 倍率，像素空间 CNN；short-side = 由实现的目标短边推导，扩散/恢复类模型，倍率是推导出来的）；② chunking = 显存归谁管（caller = 逐帧独立，runner 可按像素-帧预算自由分块；internal = 自带跨帧时间先验，外层不切，显存交给实现自己）。契约见 docs/video-upscale.md §3。",
+      "properties": {
+        "sizing": {
+          "enum": [
+            "factor",
+            "short-side"
+          ],
+          "description": "尺寸来源（缺省 factor）。short-side 时不得声明 factor（倍率由短边推导，写死会与实际交付不符），且清单必须声明 params.out_short_side 让 runner 注入解析出的短边。"
+        },
+        "factor": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "sizing=factor 时必填：交付尺寸 = 源视频尺寸 × factor（可被 target_width 事后收敛）。倍率由权重决定，换权重必须换同倍率的文件。"
+        },
+        "shortSide": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "sizing=short-side 时必填：目标短边像素（长边按源片比例推导，再按 align 对齐）。target_width 会给它反解出新的短边并回注实现，而不是先渲染再降采样。"
+        },
+        "maxEdge": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "仅 sizing=short-side 有意义：实现自己的长边上限（0 = 不限）。超出时 runner 如实预测压回后的尺寸并告警，不静默裁切。"
+        },
+        "align": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "交付尺寸对齐粒度（缺省 32）。"
+        },
+        "chunking": {
+          "enum": [
+            "caller",
+            "internal"
+          ],
+          "description": "分块归属（缺省 caller）。caller = 逐帧独立，runner 可按像素-帧预算自动分块再拼回（切点不影响结果）；internal = 模型自带跨帧时间先验（如 4n+1 batch / temporal_overlap / 内部 tiling），runner **不**自动分块——切开会打断它的时间窗。"
+        },
+        "note": {
+          "type": "string",
+          "description": "为什么这样声明（会拼进调用方的 warnings，让调用方知道交付尺寸是怎么来的）"
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "aspectRatios": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "maxDurationFrames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxDurationFramesByRatio": {
+          "type": "object",
+          "description": "按画幅比例声明的建议帧数上限（**只声明、不强制**：渲染不会被拦，供 UI/文档/排障提示用）。键是比例（如 \"1:1\"），值是帧数。用于「同一实现在某些比例下显存余量很小」的情况——例如两阶段放大族 1:1 的交付像素量是 16:9 的 1.78 倍。缺省比例回落到 maxDurationFrames。",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "supportsSubtitles": {
+          "type": "boolean"
+        }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "description": "链式续接声明：本实现消费「上一镜」的产物（服务端 latent）以延续画面与音频，专用于同场景续接镜。不声明=不参与链式续接。契约见 docs/shot-chain-continuity.md。",
+      "properties": {
+        "source": {
+          "enum": [
+            "clip-latent"
+          ],
+          "description": "上一镜的来源形态：clip-latent = 上一镜渲染时落盘的服务端 latent（画质无损、无需上传）"
+        },
+        "sampleExtra": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "为继承而多采的帧数：请求 N 帧 → 实际按 N+sampleExtra 采样，交付前裁掉（起链时不加）"
+        },
+        "lengthGrid": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[步长, 偏移]：模型合法的采样帧数（如 17k+5）"
+        },
+        "indexParam": {
+          "type": "string",
+          "description": "载入序号注入的参数名（默认 context_clip_index）"
+        },
+        "saveIndexParam": {
+          "type": "string",
+          "description": "落盘序号注入的参数名（默认 save_clip_index）"
+        }
+      },
+      "required": [
+        "source",
+        "sampleExtra"
+      ]
+    }
+  },
+  "definitions": {
+    "target": {
+      "type": "object",
+      "required": [
+        "node",
+        "field"
+      ],
+      "properties": {
+        "node": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string",
+          "description": "字段名；支持 ${i} 索引占位与 dotted 字段（如 ref_images.ref_image_${i}）"
+        }
+      }
+    },
+    "targets": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/target"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/target"
+          },
+          "minItems": 1
+        }
+      ]
+    }
+  }
+}
