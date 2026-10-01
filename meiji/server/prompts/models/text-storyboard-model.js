@@ -36,7 +36,7 @@ function generate(task) {
 function review(task, content) {
   const p = reviewParts({ ...withRequirements(task), stage: 'storyboard' }, content)
   return {
-    json: false,
+    json: true,
     system: [segment('context', '【角色与职责】', '你是一名视频提示词与引用审核员，只验收最新待审内容是否忠实转换本镜每秒指令、正确绑定素材并符合格式，不生成或修改原文。'),
       segment('context', '【审核方式】', '以本镜已通过每秒指令为唯一时间线依据，关联资料只核对身份与环境，固定素材清单只核对引用。只报告明确遗漏、错误引用或转写引入的改动，每项引用最新待审稿及对应输入，并给出最小修正方向。合理等义合并通过；不重新验收上游镜头规划、动作设计、节奏或前镜最终稿。上游自身冲突应指出具体来源，不将其判成转写新增的错误，不授权引用阶段修复上游。'),
       ...p.assetRules, p.language, p.protocol],
@@ -45,7 +45,7 @@ function review(task, content) {
       p.opinion, p.criteria, ...p.guidance, ...p.additions,
       ...p.assetContent,
       segment('protocol', '【转写与声音格式验收依据】', conversion),
-      segment('protocol', '【输出结构验收依据】', `${outputStructure(task.mode)}生成稿首行标记为 [opening-reference: none]；已保存或人工编辑的正文可以省略此程序标记。以上仅作验收依据，实际审核只按 PASS/FAIL 返回。`),
+      segment('protocol', '【输出结构验收依据】', `${outputStructure(task.mode)}生成稿首行标记为 [opening-reference: none]；已保存或人工编辑的正文可以省略此程序标记。以上仅作验收依据，实际审核只返回统一的 passed/issues JSON。`),
       p.content, p.scope,
       segment('context', '【目标边界】', `只验收 ${task.shotId || '本镜'} 是否完整保留已通过每秒指令的动作、机位、景别、空间关系与声音，交接说明是否已转为承接与结尾状态而非流程备注，以及模式、素材用途、Picture/Subject 绑定和输出结构是否正确。不重新审核此前已通过的镜头规划或每秒指令，不虚构前镜，不以个人节奏、裁切比例或微动作偏好改写已通过文字。缺少 Subject 引用属于绑定错误，应在对应时段补引用，不能借此重编动作。`)],
   }

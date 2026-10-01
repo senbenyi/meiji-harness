@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
@@ -112,7 +113,7 @@ test('previous tail input is hidden and never replaces missing current video or 
 test('generated and revised shot titles appear on production cards', async t => {
  const { generateShots, reviseShot } = await import('../server/generate/shot-text.js')
  const container = domSetup(t), project = episodeFixture()
- const request = text => async ({ skill }) => skill === 'review' ? 'PASS' : text
+ const request = text => async ({ skill }) => skill === 'review' ? reviewPass : text
  project.shots = await generateShots({ project, request: request('## S01 / 5s\n标题：夜访庭院\n旅人走到门外。\n\n## S02 / 5s\n标题：叩门待应\n旅人敲门。') })
  assert.match(project.shots.items[0].content, /^标题：夜访庭院/)
  const actions = { perform: async () => {}, fail: () => {} }
@@ -467,7 +468,7 @@ test('step list groups by target and shows the current step with elapsed time, a
  const container = domSetup(t), start = new Date(Date.now() - 65000).toISOString()
  const steps = [
   { kind: 'generate', target: 'storyboard:S01', status: 'completed', startedAt: start, endedAt: start },
-  { kind: 'review', target: 'storyboard:S01', status: 'completed', verdict: 'fail', reasons: ['FAIL 动作冲突'] },
+  { kind: 'review', target: 'storyboard:S01', status: 'completed', verdict: 'fail', reasons: ['位置：S01；原因：动作冲突；修正要求：保持动作连续'], attempts: [{ label: '程序审核', status: 'completed' }, { label: '大模型审核', status: 'completed' }] },
   { kind: 'revise', target: 'storyboard:S01', status: 'running', startedAt: start, attempts: [{ label: '续传 2/3（S02 起）', status: 'running' }] },
   { kind: 'video_submit', target: 'film:S01', status: 'pending' },
   { kind: 'override', target: 'shots', status: 'completed', verdict: 'pass', actor: 'human' },
@@ -478,11 +479,14 @@ test('step list groups by target and shows the current step with elapsed time, a
  const current = view.querySelector('.task-step.is-current')
  assert.equal(current.getAttribute('aria-current'), 'step')
  assert.match(current.textContent, /修订/)
- assert.match(current.textContent, /尝试 1 次：续传 2\/3（S02 起）（进行中）/)
+ assert.match(current.textContent, /尝试 1 次/)
+ assert.match(current.textContent, /续传 2\/3（S02 起）：执行中/)
  assert.match(current.querySelector('.task-step-elapsed').textContent, /已用 1分0[5-9]秒/)
  tickElapsed(view, Date.now() + 60000)
  assert.match(current.querySelector('.task-step-elapsed').textContent, /已用 2分/)
- assert.match(view.textContent, /审核未通过：FAIL 动作冲突/)
+ assert.match(view.textContent, /审核未通过：位置：S01；原因：动作冲突；修正要求：保持动作连续/)
+ assert.match(view.textContent, /程序审核：完成/)
+ assert.match(view.textContent, /大模型审核：完成/)
  assert.match(view.textContent, /人工放行，视为通过/)
  assert.ok(view.querySelector('.task-step-actor'))
  const video = renderSteps([{ kind: 'video_generate', target: 'film:S02', status: 'running', startedAt: start, remoteId: 'video_42' }], { live: true })
@@ -520,7 +524,7 @@ test('failed text review offers a human override; an overridden node shows the o
  container.addEventListener('meiji-review-override', event => events.push(event.detail.key))
  const doc = container.ownerDocument, button = () => doc.createElement('button')
  doc.defaultView.confirm = () => true
- const failed = { id: 'shots', review: { text: '', revision: 0 }, check: { passed: false, failures: ['FAIL 节奏太快'] } }
+ const failed = { id: 'shots', review: { text: '', revision: 0 }, check: { passed: false, failures: ['位置：因果剧情；原因：节奏太快；修正要求：减少事件'] } }
  let area = appendWorkflowReview(container, failed, true, false, button())
  area.querySelector('.workflow-review-override').click()
  assert.deepEqual(events, ['shots'])
@@ -529,8 +533,8 @@ test('failed text review offers a human override; an overridden node shows the o
  assert.equal(area.querySelector('.workflow-review-override'), null)
  area = appendWorkflowReview(container, { ...failed, id: 'film:S01' }, true, false, button())
  assert.equal(area.querySelector('.workflow-review-override'), null)
- area = appendWorkflowReview(container, { ...failed, check: { passed: true, failures: [], override: { at: 'now', reasons: ['FAIL 节奏太快'] } } }, true, false, button())
- assert.match(area.querySelector('.workflow-review-overridden').textContent, /人工放行（原自审意见：FAIL 节奏太快）/)
+ area = appendWorkflowReview(container, { ...failed, check: { passed: true, failures: [], override: { at: 'now', reasons: ['位置：因果剧情；原因：节奏太快；修正要求：减少事件'] } } }, true, false, button())
+ assert.match(area.querySelector('.workflow-review-overridden').textContent, /人工放行（原自审意见：位置：因果剧情；原因：节奏太快；修正要求：减少事件）/)
  assert.equal(area.querySelector('.workflow-review-override'), null)
 })
 

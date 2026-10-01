@@ -34,7 +34,7 @@ function root(view) {
 const text = prompts => ({
   generation: prompts.generation,
   review: prompts.review('【待审内容】'),
-  revision: prompts.revision('【失败稿】', 'FAIL 【失败原因】'),
+  revision: prompts.revision('【失败稿】', JSON.stringify({ passed: false, issues: [{ location: '本次内容', reason: '【失败原因】', requirement: '修正问题' }] })),
 })
 const inMode = (mode, view, run) => checkContext.run(mode === 'modify' ? { generationMode: 'modify', review: '【人工意见】', originalProject: view } : { generationMode: 'regenerate' }, run)
 

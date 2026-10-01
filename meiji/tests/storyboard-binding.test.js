@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture, setupModel } from './fixtures/model.js'
@@ -22,7 +23,7 @@ test('binding reads approved seconds directly in one phase and freezes pictures'
   project.plot.scenes.items[0].image.content = { localPath: '/scene.png' }
   const rows = await generateShotStoryboard({ project, shotId: 'S01', request: async message => {
     requests.push(message)
-    if (message.skill === 'review') return 'PASS'
+    if (message.skill === 'review') return reviewPass
     return storyboardFixture(message.user)
   } })
   assert.deepEqual(requests.map(m => m.skill), ['storyboard', 'review'])
@@ -45,7 +46,7 @@ test('unselected scenes are matched by card ID mentioned in the seconds', async 
   shot.cast = []; shot.scene = ''
   shot.seconds.content = '0–5s：旅人（C01）在 E01 主走道朝北行走，摄影机位于身后。'
   project.plot.scenes.items[0].image.content = { localPath: '/scene.png' }
-  const rows = await generateShotStoryboard({ project, shotId: 'S01', request: async ({ skill, user }) => skill === 'review' ? 'PASS' : storyboardFixture(user) })
+  const rows = await generateShotStoryboard({ project, shotId: 'S01', request: async ({ skill, user }) => skill === 'review' ? reviewPass : storyboardFixture(user) })
   assert.deepEqual(rows[0].sceneIds, ['E01'])
   assert.deepEqual(rows[0].referenceSnapshot.map(r => r.url), ['/scene.png'])
 })
@@ -54,7 +55,7 @@ test('format check drives binding correction even when AI returns PASS', async (
   const project = episodeFixture(); project.plot.characters.items[0].image.content = { localPath: '/portrait.png' }
   let bindings = 0
   const rows = await generateShotStoryboard({ project, shotId: 'S01', request: async ({ skill, user }) => {
-    if (skill === 'review') return 'PASS'
+    if (skill === 'review') return reviewPass
     if (++bindings === 1) return 'integrated_multimodal_description: 未绑定图片\noverall_soundscape: 风\nnon_diegetic_music: N/A'
     assert.match(user, /H3 reference/)
     return storyboardFixture(user)
@@ -69,7 +70,7 @@ test('rebinding reads current seconds and current selected images', async () => 
   let user = ''
   const rows = await generateShotStoryboard({ project, shotId: 'S01', request: async message => {
     if (message.skill !== 'review') user = message.user
-    return message.skill === 'review' ? 'PASS' : storyboardFixture(message.user)
+    return message.skill === 'review' ? reviewPass : storyboardFixture(message.user)
   } })
   assert.match(user, /朝东行走，摄影机位于左侧/)
   assert.equal(rows[0].referenceSnapshot[0].url, '/new-portrait.png')
@@ -78,7 +79,7 @@ test('rebinding reads current seconds and current selected images', async () => 
 test('failed binding saves the failed final prompt, and task does not pass', async t => {
   const e = await setupModel(t)
   await assert.rejects(runOperation(e.op('shot-storyboard', { track: 'S01' }), { home: e.home, operationId: 'bad-binding',
-    generateShotStoryboard: opts => generateShotStoryboard({ ...opts, request: async ({ skill }) => skill === 'review' ? 'PASS' : '错误引用稿' }) }), /自检未通过/)
+    generateShotStoryboard: opts => generateShotStoryboard({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : '错误引用稿' }) }), /自检未通过/)
   const board = (await e.read()).shots.items[0].storyboard
   assert.equal(board.content.prompt.text, '错误引用稿')
   assert.equal(board.check.passed, false)
@@ -93,7 +94,7 @@ test('shot storyboard and storyboard-bind plan only reference-binding steps', as
   for (const [action, id] of [['shot-storyboard', 'full'], ['storyboard-bind', 'rebind']]) {
     await runOperation(e.op(action, { track: 'S01' }), { home: e.home, operationId: id,
       generateShotStoryboard: opts => generateShotStoryboard({ ...opts, request: async ({ skill, user }) => {
-        assert.notEqual(skill, 'text-shot'); return skill === 'review' ? 'PASS' : storyboardFixture(user)
+        assert.notEqual(skill, 'text-shot'); return skill === 'review' ? reviewPass : storyboardFixture(user)
       } }) })
     const task = await recordStore(e.home, e.id).read('tasks', id)
     assert.equal(task.status, 'completed'); assert.ok(task.steps.every(s => s.phase === 'reference-binding' && !s.unplanned))

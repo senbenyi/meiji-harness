@@ -43,8 +43,8 @@ function renderStep(step, current, now, loadPrompts) {
   if (step.error) item.append(element('p', step.error, 'error'))
   const attempts = step.attempts || []
   if (attempts.length) {
-    const last = attempts.at(-1)
-    item.append(element('p', `尝试 ${attempts.length} 次：${last.label}${last.status === 'running' ? '（进行中）' : last.status === 'failed' ? `（失败：${last.error || ''}）` : ''}`, 'meta task-step-attempts'))
+    item.append(element('p', `尝试 ${attempts.length} 次`, 'meta'))
+    for (const attempt of attempts) item.append(element('p', `${attempt.label}：${stepStatusLabels[attempt.status] || attempt.status}${attempt.error ? `（${attempt.error}）` : ''}`, 'meta task-step-attempts'))
   }
   if (step.remoteId) item.append(element('p', `远端任务：${step.remoteId}`, 'meta task-step-remote'))
   if (current && step.startedAt) {

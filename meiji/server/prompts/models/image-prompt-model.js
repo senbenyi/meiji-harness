@@ -29,7 +29,7 @@ function generate(task) {
 function review(task, content) {
   const p = reviewParts({ ...withRequirements(task), stage: 'image-prompt' }, content)
   return {
-    json: false,
+    json: true,
     system: [segment('context', '【角色与职责】', '你是一名独立图片提示词设计师审核员，只验收最新待审内容，不生成或修改原文。'), p.commonProtocol, ...p.shared, ...p.assetRules, p.language, p.protocol],
     user: [p.stage, p.context,
       segment('context', '【修订基稿（用于对照范围）】', task.baseContent),

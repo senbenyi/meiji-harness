@@ -62,7 +62,7 @@ export function previewPrompts({ stage, root, view, skillSet, mode = 'reference'
       generate: request(regenerate.generation),
       modify: modify ? request(modify) : null,
       review: request(regenerate.review('（待审内容）')),
-      revise: request(regenerate.revision('（自审未通过的稿件）', 'FAIL （自审不通过原因）')),
+      revise: request(regenerate.revision('（自审未通过的稿件）', JSON.stringify({ passed: false, issues: [{ location: '本次内容', reason: '（自审不通过原因）', requirement: '修正上述问题' }] }))),
     }
     if (stage === 'outline' && view?.plot && !nodeKey) {
       for (const kind of ['characters', 'scenes']) {
@@ -71,7 +71,7 @@ export function previewPrompts({ stage, root, view, skillSet, mode = 'reference'
         requests[`${kind}_generate`] = request(extract.generation)
         requests[`${kind}_modify`] = request(modify)
         requests[`${kind}_review`] = request(extract.review('（待审卡片）'))
-        requests[`${kind}_revise`] = request(extract.revision('（自审未通过的卡片）', 'FAIL （本轮自审原因）'))
+        requests[`${kind}_revise`] = request(extract.revision('（自审未通过的卡片）', JSON.stringify({ passed: false, issues: [{ location: '本次内容', reason: '（本轮自审原因）', requirement: '修正上述问题' }] })))
       }
     }
     return requests

@@ -87,7 +87,7 @@ function publicData(value, apiKey) {
 function writeApiLog(text, failed) {
   const fn = text.match(/函数：([^\n]+)/)?.[1]
   const purpose = logPurpose() || ({ completeChat: '文本生成', generateGatewayImage: '图片生成', submitGatewayVideo: '视频生成', retrieveGatewayVideo: '查询或下载视频' }[fn] || 'API调用')
-  const phase = failed ? '请求失败' : text.includes('返回：') ? '返回数据' : '发起请求'
+  const phase = failed ? '请求失败' : /^返回：/m.test(text) ? '返回数据' : '发起请求'
   try { insertSessionLog(sessionForLog(), text, failed, `日志-${purpose}-${phase}`) } catch { /* 日志不影响接口结果 */ }
 }
 

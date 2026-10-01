@@ -1,3 +1,4 @@
+import { reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
@@ -34,7 +35,7 @@ test('生成、修订与审核共用任务固定补充，人物/场景及其他�
   view.supplementalSkills.outline[0].content = 'LATER_EDIT'
   executionContext.run({ skillSet: set, skills: new Map() }, () => {
     const outline = buildStoryPrompts(view)
-    for (const prompt of [outline.generation, outline.revision('BASE', 'FAIL REASON'), outline.review('RESULT')]) { assert.match(prompt.system, /OUTLINE_ONLY/); assert.doesNotMatch(prompt.system, /LATER_EDIT|SUMMARY_ONLY/) }
+    for (const prompt of [outline.generation, outline.revision('BASE', reviewFail('REASON')), outline.review('RESULT')]) { assert.match(prompt.system, /OUTLINE_ONLY/); assert.doesNotMatch(prompt.system, /LATER_EDIT|SUMMARY_ONLY/) }
     for (const kind of ['characters', 'scenes']) assert.doesNotMatch(buildStoryPrompts(view, kind).generation.system, /OUTLINE_ONLY/)
     assert.match(buildEpisodePrompts(root, e.episodeId).generation.system, /SUMMARY_ONLY/)
     assert.doesNotMatch(buildEpisodePrompts(root).generation.system, /SUMMARY_ONLY/)

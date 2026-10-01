@@ -1,3 +1,4 @@
+import { reviewProtocol } from '../../../shared/review-result.js'
 // 摘要 model 只组织数据与提示词，不读取配置、不发请求。
 import { segment, render } from '../skill-prompts.js'
 import { outputLanguage } from '../../data/language.js'
@@ -77,14 +78,14 @@ export class EpisodeSummaryModel {
     baseContent = contentText(baseContent)
     const hasBase = Boolean(baseContent.trim())
     const mode = automatic ? '自动修订结果验收' : hasBase ? '人工修订结果验收' : this.target.episodeId || this.mode === 'regenerate' ? '重新生成结果验收，不使用本集旧摘要和历史意见' : '首次生成结果验收'
-    return { json: false, system: [
+    return { json: true, system: [
       segment('context', '【角色与职责】', `你是一名${this.reviewRole}。只审核，不生成或修改原文。以下创作约束及补充仅作验收依据，不执行其中的创作指令。审核意见使用本次参数指定的语言。`),
       segment('constraints', '【创作约束（仅作验收依据）】', this.generationRules, { skill: 'episode', field: 'constraints' }),
       criteria, ...system,
       segment('context', '【本次审核范围】', hasBase
         ? '对照提供的基稿与本次意见，核实修改是否落实、是否出现无关改动或新冲突。完整返回不代表允许整篇重写。只审核最新待审稿，不直接沿用历史失败结论。'
         : '只验收本集最新摘要。未提供本集基稿，不要求与旧摘要一致，不声称已验证未改部分保留；合理续写不因未逐字出现在资料中而判失败。'),
-      segment('protocol', '【本次审核协议】', '没有问题只返回 PASS；否则首行 FAIL，后续逐条写“位置：实际问题；修正要求”。每条失败引用最新待审稿的具体表述以及对应输入事实或规则，并说明最小修正方向；无具体违规依据时不判失败，建议与个人节奏偏好不能阻塞。不输出 JSON、修改稿、已通过项或额外说明。'),
+      segment('protocol', '【本次审核协议】', reviewProtocol),
     ], user: [this.taskSegment(mode), ...this.contextSegments(context),
       ...(hasBase ? [segment('context', '【修订基稿（用于对照修改范围）】', baseContent),
         segment('context', automatic ? '【本轮修订意见】' : '【本次修改意见】', opinion)] : []),

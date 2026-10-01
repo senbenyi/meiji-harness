@@ -25,6 +25,19 @@ export function readShotSections(text, offset = 0) {
   })
 }
 
+// 时间边界属于传输结构：拒绝遗漏标题后在同一镜内再次从0计时。
+export function validateSecondsTimeline(shot) {
+  const ranges = [...shot.content.matchAll(/^(?:###[ \t]+)?(\d+(?:\.\d+)?)[ \t]*[–—-][ \t]*(\d+(?:\.\d+)?)s(?=[ \t\r\n：:]|$)/gm)]
+  if (!ranges.length) throw new Error(`${shot.id} 缺少时间段，请按「### 0–${shot.duration}s」覆盖完整时长；未覆盖原内容`)
+  let end = 0
+  for (const range of ranges) {
+    const from = Number(range[1]), to = Number(range[2])
+    if (from !== end || to <= from || to > shot.duration) throw new Error(`${shot.id} 时间线错误：${range[0]}，应从 ${end}s 连续推进且不超过 ${shot.duration}s；禁止重复、重叠或空档；未覆盖原内容`)
+    end = to
+  }
+  if (end !== shot.duration) throw new Error(`${shot.id} 时间线只覆盖到 ${end}s，应覆盖到 ${shot.duration}s；未覆盖原内容`)
+}
+
 // 网关可能把被截断的正文标为 stop。只续传未完成尾部，整集齐全前不发布任何片段。
 async function completeSeconds(text, message, options) {
   const shots = options.project.shots.items
@@ -36,10 +49,10 @@ async function completeSeconds(text, message, options) {
     const last = marks.at(-1)
     let sections
     try { sections = readShotSections(text + '\n[partial]', offset) }
-    catch { throw new Error('每秒指令分段格式不完整，无法安全续传，未覆盖原内容') }
-    if (sections.some((section, i) => section.id !== shots[offset + i]?.id || section.duration !== shots[offset + i]?.duration)) throw new Error('每秒指令镜头编号、数量或时长与镜头表不一致，未覆盖原内容')
+    catch { return prefix + text }
+    if (sections.some((section, i) => section.id !== shots[offset + i]?.id || section.duration !== shots[offset + i]?.duration)) return prefix + text
     const completed = sections.length - 1
-    if (attempt === 3 || (!completed && offset === previousOffset)) throw new Error(`整集每秒指令返回不完整：返回到 ${sections.at(-1).id}（共 ${shots.length} 镜），缺少完成标记，续传${attempt === 3 ? '已达 3 次上限' : '未取得进展'}；未覆盖原内容`)
+    if (attempt === 3 || (!completed && offset === previousOffset)) return prefix + text
     previousOffset = offset
     if (completed) prefix += text.slice(0, last.index).trimEnd() + '\n\n'
     offset += completed
@@ -60,19 +73,13 @@ export async function generateShots(options) {
     return Math.abs(total - project.durationSeconds) > 10 ? [`镜头总时长 ${total}s，与目标 ${project.durationSeconds}s 相差超过10秒`] : []
   }
   const normalize = (text, check, reviewText = '') => {
-    let items = []
-    const failures = [...check.failures]
-    try {
-      items = readShotSections(text).map(item => {
-        const previous = original.shots?.items?.find(shot => shot.id === item.id && shot.duration === item.duration && body(shot) === item.content)
-        return previous ? { ...previous, ...item, cast: previous.cast || [], scene: previous.scene || '' } : item
-      })
-      failures.push(...timingFailures(text).filter(reason => !failures.includes(reason)))
-    } catch (error) { failures.push(error.message) }
-    // 保存失败原文，不自动重试或把格式错误交给剧情重写循环。
-    return { ...node('shots'), revision: project.shots.revision + 1, items, failedOutput: items.length ? '' : text, reviewText, format: 'text', check: { passed: failures.length ? false : check.passed, failures } }
+    const items = readShotSections(text).map(item => {
+      const previous = original.shots?.items?.find(shot => shot.id === item.id && shot.duration === item.duration && body(shot) === item.content)
+      return previous ? { ...previous, ...item, cast: previous.cast || [], scene: previous.scene || '' } : item
+    })
+    return { ...node('shots'), revision: project.shots.revision + 1, items, failedOutput: '', reviewText, format: 'text', check }
   }
-  const result = await runTextSteps({ target: 'shots', prompts: buildTablePrompts(options), options, validate: readShotSections, check: timingFailures, retainFailedDraft: true, persist: persist && ((text, check) => persist(normalize(text, check))), canRevise: text => { try { readShotSections(text); return true } catch { return false } } })
+  const result = await runTextSteps({ target: 'shots', prompts: buildTablePrompts(options), options, check: timingFailures, canPersist: text => Boolean(readShotSections(text)), retainFailedDraft: true, persist: persist && ((text, check) => persist(normalize(text, check))) })
   const shots = normalize(result.text, result.check, result.reviewText)
   const failures = shots.check.failures
   if (persist) {
@@ -98,13 +105,22 @@ export async function generateAllSeconds(options) {
   const upstream = { ...project, shots: { ...project.shots, items: project.shots.items.map(shot => ({ ...shot, seconds: { ...shot.seconds, content: null, check: { passed: null } } })) } }
   const parse = text => {
     const trimmed = String(text).trim()
-    if (!trimmed.endsWith('[seconds-complete]')) throw new Error('整集每秒指令返回不完整，未覆盖原内容；请重新生成')
+    if (!trimmed.endsWith('[seconds-complete]')) throw new Error('整集每秒指令缺少完成标记，请补齐全部镜头及完成标记')
     const sections = readShotSections(trimmed.slice(0, -'[seconds-complete]'.length).trim())
-    if (sections.length !== project.shots.items.length || sections.some((shot, i) => shot.id !== project.shots.items[i].id || shot.duration !== project.shots.items[i].duration)) throw new Error('每秒指令镜头编号、数量或时长与镜头表不一致，未覆盖原内容')
+    const expected = project.shots.items
+    const failures = []
+    if (sections.length !== expected.length) failures.push(`镜头数量应为 ${expected.length}，实际 ${sections.length}`)
+    for (const [i, shot] of expected.entries()) {
+      const actual = sections[i]
+      if (!actual) failures.push(`缺少 ${shot.id} / ${shot.duration}s`)
+      else if (actual.id !== shot.id || actual.duration !== shot.duration) failures.push(`第 ${i + 1} 镜应为 ${shot.id} / ${shot.duration}s，实际 ${actual.id} / ${actual.duration}s`)
+    }
+    if (failures.length) throw new Error(`每秒指令与镜头表不一致：${failures.join('；')}；未覆盖原内容`)
+    sections.forEach(validateSecondsTimeline)
     return sections
   }
   if (ctx) ctx.target = { action: 'seconds' }
-  const result = await runTextSteps({ target: 'seconds', prompts: buildAllSecondsPrompts(options, upstream), options, validate: parse, complete: completeSeconds,
+  const result = await runTextSteps({ target: 'seconds', prompts: buildAllSecondsPrompts(options, upstream), options, check: text => { parse(text); return [] }, complete: completeSeconds,
     persist: async (text, check) => {
       const sections = parse(text)
       const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), text, check), items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i].content, scopedCheck(check, shot.id)) })) }

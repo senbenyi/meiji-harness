@@ -40,7 +40,7 @@ test('基础规则空正文有效，缺失与未登记文件报错', async () =>
     assert.throws(() => validateSkills(dir), /ENOENT/)
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
-test('各文本步骤三类请求共用生产规则且只出现一次，审核保留 PASS/FAIL 边界', () => {
+test('各文本步骤三类请求共用生产规则且只出现一次，审核使用统一 JSON 协议', () => {
   for (const stage of ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'image-prompt']) {
     const prompts = buildTextPrompts({ skill: stage, project: { outputLanguage: 'en' }, instructions: 'UPSTREAM' })
     const rules = builtinSkill(stage).constraints
@@ -49,7 +49,7 @@ test('各文本步骤三类请求共用生产规则且只出现一次，审核�
       assert.match(request.system + request.user, /本次生成语言：English/)
     }
     assert.match(prompts.review('LATEST').system, /只审核|只验收/)
-    assert.match(prompts.review('LATEST').system, /PASS.*FAIL/s)
+    assert.match(prompts.review('LATEST').system, /passed.*issues/s)
     assert.match(prompts.revision('FAILED', 'REPAIR').user, /FAILED/)
     assert.match(prompts.revision('FAILED', 'REPAIR').user, /REPAIR/)
   }

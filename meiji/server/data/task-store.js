@@ -413,7 +413,7 @@ export async function commitContentRecords(saved) {
   await writeSteps(context, task => ({ episodeId: task.episodeId || saved[0].episodeId, artifacts: [...task.artifacts, ...saved] }))
 }
 
-// 不发布的弹框草稿沿用任务 artifact 与 outputs，不写项目或剧集。
+// 不发布的弹框草稿及未通过结构校验的生成原文沿用任务 artifact 与 outputs，不写项目或剧集。
 export async function saveTaskDraft(target, content) {
   const context = executionContext.getStore()
   if (!context) throw new Error('草稿需要任务上下文')

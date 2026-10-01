@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel } from './fixtures/model.js'
 import { generateAllSeconds, generateShotSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
@@ -39,7 +40,7 @@ test('panel follows the latest selection even while the sidebar still shows the 
   assert.equal(currentSessionId(doc), sessionId)
 })
 
-const passText = text => async ({ skill, user }) => skill === 'review' ? 'PASS' : skill==='storyboard'?storyboardFixture(user):text
+const passText = text => async ({ skill, user }) => skill === 'review' ? reviewPass : skill==='storyboard'?storyboardFixture(user):text
 const videoDeps = home => ({ home, submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: item.track })) }), retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') })
 test('batch boards write each shot without losing earlier results',async t=>{
  const e=await setupModel(t)

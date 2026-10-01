@@ -1,8 +1,9 @@
+import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { setupModel } from './fixtures/model.js'
-import { storyPackageFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
 import { createTasks } from '../server/flow/tasks/runner.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { generateEpisode, generateStoryPackage } from '../server/generate/story.js'
@@ -14,7 +15,7 @@ import { projectManageTool } from '../tools/session-project-manage-tool.js'
 import { taskControlTool } from '../tools/session-task-control-tool.js'
 import { useWorkspaces } from './fixtures/host.js'
 
-async function setup(t, review = 'PASS') {
+async function setup(t, review = reviewPass) {
   const e = await setupModel(t), calls = [], logs = []
   await e.store.save(e.id, { episodes: [] })
   const models = modelStore(e.home); await models.write({ ...await models.read(), apiKey: 'test-only' })
@@ -22,7 +23,7 @@ async function setup(t, review = 'PASS') {
   await linkStore(e.home).selectProject(exec.agent.session.id, e.id, e.store)
   const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 150 }) } }),
-    generateStoryPackage: opts => generateStoryPackage({ ...opts, fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: payload.response_format ? JSON.stringify(storyPackageFixture()) : review } }] }) } }),
+    generateStoryPackage: opts => generateStoryPackage({ ...opts, fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: system.content.includes('【本次审核协议】') ? review : user.content.includes('仅生成本集完整剧情大纲') ? outlineFixture() : JSON.stringify(user.content.includes('返回人物 items') ? storyPackageFixture().characters : storyPackageFixture().scenes) } }] }) } }),
   }) })
   const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ tasks })
   const start = async args => JSON.parse(await generate.execute(args, exec))
@@ -52,7 +53,7 @@ test('session executes summary then story through real workflows and carries req
 })
 
 test('failed summary blocks story and reports review_failed without a tool retry', async t => {
-  const e = await setup(t, 'FAIL 缺少关键因果')
+  const e = await setup(t, reviewFail('缺少关键因果'))
   const result = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
   assert.equal(result.status, 'review_failed')
   await assert.rejects(e.start({ stage: 'story', episodeNumber: 1, mode: 'generate' }), /摘要尚未通过/)

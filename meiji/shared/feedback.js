@@ -1,6 +1,6 @@
 import { targetNode, emptyCheck, emptyReview, node, aggregateStatus } from './drama-model.js'
 // 按原文去重，不把跨镜错误重复复制为每镜意见。
-export const uniqueFeedback = values => [...new Set(values.flatMap(value => String(value || '').split(/\r?\n\s*\r?\n/)).map(value => value.trim()).filter(value => value && value !== 'FAIL'))]
+export const uniqueFeedback = values => [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))]
 export function scopedCheck(check, shotId) {
   if (!shotId || check.passed !== false) return structuredClone(check)
   const failures = uniqueFeedback(check.failures).filter(reason => {

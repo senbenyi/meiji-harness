@@ -102,7 +102,6 @@ export async function generateEpisode({ route, project, episodeId, referenceDura
     target: 'summary',
     prompts: buildEpisodePrompts(project, episodeId, reference),
     options: { route, project: { ...project, durationSeconds: reference }, signal, fetchImpl, request },
-    validate: parseJsonValue,
     check: text => episodeSummaryFailures(parseJsonValue(text), reference),
     persist: persist && ((text, check) => persist({ ...normalizeEpisodeDraft(parseJsonValue(text), reference), check })),
   })
@@ -146,17 +145,14 @@ export async function generateStoryPackage({ route, project, signal, fetchImpl, 
     if (ctx) ctx.target = { ...ctx.originalOperation, action: 'outline', stageKey: kind }
     const input = kind === 'outline' ? project : { ...project, plot: { ...project.plot, outline: { ...project.plot.outline, content: result.outline } } }
     const normalize = text => {
+      if (kind === 'outline') return required(text, '大纲是空的')
       const raw = parseJsonValue(text)
-      if (kind === 'outline') {
-        if (Object.keys(raw).length !== 1 || typeof raw.outline !== 'string') throw new Error('大纲结果仅允许 outline 字符串')
-        return required(raw.outline, '大纲是空的')
-      }
       if (Object.keys(raw).length !== 1 || !Array.isArray(raw.items)) throw new Error('提取结果仅允许 items 数组')
       return (kind === 'characters' ? normalizeCharacters : normalizeScenes)(raw)
     }
     const generated = await runTextSteps({ target: kind,
       prompts: buildStoryPrompts(input, kind, '', { extraction: kind !== 'outline' }), options,
-      validate: normalize, check: kind === 'outline' ? text => outlineStructureFailures(normalize(text), project.outputLanguage) : () => [], retainFailedDraft: true, persist: persist && ((text, check) => save(kind, normalize(text), check)) })
+      check: text => { normalize(text); return kind === 'outline' ? outlineStructureFailures(text, project.outputLanguage) : [] }, retainFailedDraft: kind === 'outline', persist: persist && ((text, check) => save(kind, normalize(text), check)) })
     await save(kind, normalize(generated.text), generated.check, false)
     if (!generated.check.passed) break
   }
@@ -169,7 +165,7 @@ export async function regenerateCardGroup({ project, kind, route, review, persis
   const result = await runTextSteps({
     target: kind,
     prompts: buildStoryPrompts(project, kind, review),
-    options: { route, project, signal, fetchImpl, request }, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
+    options: { route, project, signal, fetchImpl, request }, check: text => { normalize(text); return [] }, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
   })
   return { ...normalize(result.text), check: result.check }
 }

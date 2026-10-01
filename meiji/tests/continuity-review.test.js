@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -13,7 +14,7 @@ test('binding generation and review keep the current timeline and exclude previo
   const calls = []
   await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: prompt }) => {
     calls.push(prompt)
-    return skill === 'review' ? 'PASS' : storyboardFixture(prompt)
+    return skill === 'review' ? reviewPass : storyboardFixture(prompt)
   } })
   assert.equal(calls.length, 2)
   assert.doesNotMatch(calls[0], /前镜结束：旅人面北站在北墙/)
@@ -26,7 +27,7 @@ test('manual edit review only receives the current timeline, selected references
   const p = episodeFixture()
   p.shots.items[0].storyboard.content.prompt.text = '前镜最终正文'
   let prompt
-  await reviewContent({ project: p, shotId: 'S02', stage: 'storyboard', text: '修改后的正文', request: async ({ user: text }) => { prompt = text; return 'PASS' } })
+  await reviewContent({ project: p, shotId: 'S02', stage: 'storyboard', text: '修改后的正文', request: async ({ user: text }) => { prompt = text; return reviewPass } })
   assert.doesNotMatch(prompt, /前镜最终正文|本集摘要|大纲|完整镜头表/)
   assert.match(prompt, /修改后的正文/)
   assert.match(prompt, /本镜已通过每秒指令/)

@@ -1,3 +1,4 @@
+import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { StoryOutlineModel } from '../server/prompts/models/story-outline-model.js'
@@ -18,8 +19,8 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
     const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', generationRules: 'RULE' })
     const generated = model.toGenerateMessages()
     assert.deepEqual(generated.map(message => message.role), ['system', 'user'])
-    assert.match(generated[0].content, kind === 'outline' ? /顶层仅含 outline/ : /顶层仅含 items/)
-    const revised = model.toReviseMessages({ baseContent: 'LATEST', opinion: 'FAIL NEW', automatic: true })
+    assert.match(generated[0].content, kind === 'outline' ? /完整大纲纯文本/ : /顶层仅含 items/)
+    const revised = model.toReviseMessages({ baseContent: 'LATEST', opinion: reviewFail('NEW'), automatic: true })
     assert.match(revised[1].content, /LATEST/)
     assert.match(revised[1].content, /HUMAN/)
     assert.doesNotMatch(revised[1].content, /BASE/)
@@ -28,8 +29,28 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
     assert.match(reviewed[0].content, /RULE/)
     assert.match(reviewed[1].content, /BASE/)
     assert.match(reviewed[1].content, /RESULT/)
+    for (const automatic of [false, true]) {
+      const review = model.toReviewMessages({ content: 'RESULT', automatic })
+      assert.match(review[1].content, /只返回统一审核 JSON/)
+      assert.doesNotMatch(review[1].content, /仅生成本集完整剧情大纲|返回人物 items|返回无人物的环境卡 items/)
+      assert.doesNotMatch(review[0].content, /JSON 字符串里的换行正确转义/)
+    }
+    assert.doesNotMatch(generated[1].content, /只返回统一审核 JSON/)
+    assert.doesNotMatch(revised[1].content, /只返回统一审核 JSON/)
   })
 }
+
+test('review returning an outline instead of a verdict fails and retains the generated draft', async () => {
+  const draft = outlineFixture('生成稿')
+  let calls = 0
+  const saved = []
+  await assert.rejects(generateStoryPackage({ project: episodeFixture(), request: async () =>
+    ++calls === 1 ? draft : draft,
+    persist: result => saved.push(structuredClone(result)),
+  }), /审核返回格式错误/)
+  assert.equal(calls, 2)
+  assert.equal(saved.at(-1).outline, draft)
+})
 
 test('每个剧情步骤生成和审核共用同一基础规则，输出协议独立', () => {
   for (const [kind, generation, criteria, other] of [
@@ -50,7 +71,7 @@ test('每个剧情步骤生成和审核共用同一基础规则，输出协议�
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
   assert.deepEqual(definitions.outline.plan().filter(step => step.kind === 'generate').map(step => step.target), ['outline', 'characters', 'scenes'])
-  const replies = ['{"outline":"初稿"}', 'FAIL 因果错误', '{"outline":"修订稿"}', 'FAIL 因果错误']
+  const replies = ['初稿', reviewFail('因果错误'), '修订稿', reviewFail('因果错误')]
   let calls = 0
   const { result, steps } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
   assert.equal(calls, 4)
@@ -65,8 +86,8 @@ test('a card API error retains drafts saved by earlier independent stages', asyn
   let calls = 0
   const saved = []
   await assert.rejects(generateStoryPackage({ project: episodeFixture(), request: async () => {
-    if (++calls === 1) return JSON.stringify({ outline: outlineFixture('已生成大纲') })
-    if (calls === 2) return 'PASS'
+    if (++calls === 1) return outlineFixture('已生成大纲')
+    if (calls === 2) return reviewPass
     throw new Error('CHARACTER_API_ERROR')
   }, persist: result => saved.push(structuredClone(result)) }), /CHARACTER_API_ERROR/)
   assert.equal(calls, 3)
@@ -79,7 +100,7 @@ test('extraction after outline modification uses new facts, never stale card bas
   const project = episodeFixture()
   project.plot.outline.content = 'OLD_OUTLINE'
   const fixture = storyPackageFixture()
-  const replies = [JSON.stringify({ outline: outlineFixture('FINAL_NEW_OUTLINE') }), 'PASS', JSON.stringify(fixture.characters), 'PASS', JSON.stringify(fixture.scenes), 'PASS']
+  const replies = [outlineFixture('FINAL_NEW_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
   let calls = 0
   await checkContext.run({ generationMode: 'modify', originalProject: project, review: 'CHANGE_OUTLINE' }, () => generateStoryPackage({ project, request: async message => {
     if (++calls === 1) assert.match(message.user, /OLD_OUTLINE.*|CHANGE_OUTLINE/)
@@ -95,7 +116,7 @@ test('extraction after outline modification uses new facts, never stale card bas
 test('real operation persists independent checks and blocks downstream after failed characters', async t => {
   const e = await setupModel(t)
   const fixture = storyPackageFixture()
-  const replies = [JSON.stringify({ outline: outlineFixture('FINAL_OUTLINE') }), 'PASS', JSON.stringify(fixture.characters), 'FAIL 缺少另一身体', JSON.stringify(fixture.characters), 'FAIL 缺少另一身体']
+  const replies = [outlineFixture('FINAL_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少另一身体'), JSON.stringify(fixture.characters), reviewFail('缺少另一身体')]
   let calls = 0
   await runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
@@ -115,8 +136,8 @@ test('a later API error preserves the passed outline status in the real operatio
   let calls = 0
   await assert.rejects(runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
-      if (++calls === 1) return JSON.stringify({ outline: outlineFixture('PASSED_OUTLINE') })
-      if (calls === 2) return 'PASS'
+      if (++calls === 1) return outlineFixture('PASSED_OUTLINE')
+      if (calls === 2) return reviewPass
       throw new Error('CHARACTER_ERROR')
     } }),
   }), /CHARACTER_ERROR/)
@@ -135,7 +156,7 @@ test('stopping before the next stage prevents card API requests and keeps the ou
   const saved = []
   await assert.rejects(generateStoryPackage({ project: episodeFixture(), signal: controller.signal, request: async () => {
     calls++
-    return calls === 1 ? JSON.stringify({ outline: outlineFixture('NEW_OUTLINE') }) : 'PASS'
+    return calls === 1 ? outlineFixture('NEW_OUTLINE') : reviewPass
   }, persist: result => {
     saved.push(structuredClone(result))
     if (result.checks.outline.passed) controller.abort()
@@ -172,7 +193,7 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
     return current
   })
   let calls = 0
-  const replies = [JSON.stringify({ outline: outlineFixture('FIXED_OUTLINE') }), 'PASS', JSON.stringify(fixture.characters), 'PASS', JSON.stringify(fixture.scenes), 'PASS']
+  const replies = [outlineFixture('FIXED_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
   await runOperation(e.op('outline', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
   })
@@ -216,13 +237,13 @@ test('edited story material still receives comprehensive review without an extra
   const project = episodeFixture()
   const content = JSON.stringify({ outline: 'EDITED', characters: { items: [] }, scenes: { items: [] } })
   const prompt = buildEditedContentReview({ project, stage: 'outline' }, content)
-  assert.equal(prompt.json, false)
+  assert.equal(prompt.json, true)
   assert.match(prompt.user, /阶段：剧情整包/)
   assert.match(prompt.user, /EDITED/)
   assert.ok(prompt.system.includes(builtinSkill('outline').rules.outline))
   assert.match(prompt.system, /人物、场景卡的覆盖性/)
   assert.match(prompt.system, /先独立从最新大纲盘点/)
-  assert.match(prompt.system, /没有问题只返回 PASS/)
+  assert.match(prompt.system, /passed 和 issues/)
 })
 
 test('大纲生成与修订都提供正文分节和换行结构', () => {
@@ -230,7 +251,7 @@ test('大纲生成与修订都提供正文分节和换行结构', () => {
   for (const request of [model.toGenerateMessages(), model.toReviseMessages({ baseContent: '旧大纲', opinion: '改结尾' })]) {
     assert.match(request[0].content, /【正文结构】/)
     assert.match(request[0].content, /小节之间留一个空行/)
-    assert.match(request[0].content, /解析后保留真实换行/)
+    assert.match(request[0].content, /直接使用真实换行/)
   }
 })
 
@@ -240,7 +261,7 @@ test('outline section structure is checked deterministically and repairs the lat
  assert.equal(outlineStructureFailures(outlineFixture()).length,0)
  assert.ok(outlineStructureFailures('【主角动机】正文挤在同一行').length)
  const fixture=storyPackageFixture(),calls=[]
- const replies=['{"outline":"缺少标题的完整事件稿"}','PASS',JSON.stringify({outline:outlineFixture()}),'PASS',JSON.stringify(fixture.characters),'PASS',JSON.stringify(fixture.scenes),'PASS']
+ const replies=['缺少标题的完整事件稿',reviewPass,outlineFixture(),reviewPass,JSON.stringify(fixture.characters),reviewPass,JSON.stringify(fixture.scenes),reviewPass]
  const result=await generateStoryPackage({project:episodeFixture(),request:async message=>{calls.push(message);return replies.shift()}})
  assert.equal(result.check.passed,true);assert.match(calls[2].user,/大纲正文结构/);assert.equal(calls.length,8)
 })
@@ -251,4 +272,15 @@ test('extraction tasks and review explicitly distinguish offscreen voice and emp
  const scene=new StorySceneModel({project})
  for(const request of [character.toGenerateMessages(),character.toReviseMessages({baseContent:'BASE',opinion:'OPINION'}),character.toReviewMessages({content:'LATEST'})])assert.match(request.map(m=>m.content).join('\n'),/全程只有电话或画外声音/)
  for(const request of [scene.toGenerateMessages(),scene.toReviseMessages({baseContent:'BASE',opinion:'OPINION'}),scene.toReviewMessages({content:'LATEST'})])assert.match(request.map(m=>m.content).join('\n'),/不写人物、剪影、身体部位/)
+})
+
+test('new semantic review failure clears old execution errors', async t => {
+  const e = await setupModel(t)
+  await e.store.save(e.id, p => { p.episodes[0].activityError = '审核返回格式错误'; for (const key of ['outline', 'characters', 'scenes']) p.episodes[0].plot[key].error = '审核返回格式错误'; return p })
+  const replies = [outlineFixture('新稿'), reviewFail('剧情冲突'), outlineFixture('修订稿'), reviewFail('剧情冲突')]
+  await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: opts => generateStoryPackage({ ...opts, request: async () => replies.shift() }) })
+  const saved = await e.read()
+  for (const key of ['outline', 'characters', 'scenes']) assert.equal(saved.plot[key].error, null, key)
+  assert.equal(saved.plot.outline.check.passed, false)
+  assert.equal(saved.activityError, null)
 })

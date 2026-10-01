@@ -62,6 +62,7 @@ export async function prepareChecks(store, project, operation) {
   const fresh = mode === 'regenerate' ? undefined : operation.review ?? (operation.action === 'revise-image' ? operation.instruction : undefined)
   project = await store.save(project.id, current => {
     const next = structuredClone(current)
+    next.activityError = null
     if (matchingCandidate) delete next.pendingImages[matchingCandidate.draftId]
     if (operation.action === 'seconds') {
       const group = targetNode(next, 'seconds')

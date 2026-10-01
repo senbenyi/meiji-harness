@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { outputLanguage } from '../server/data/language.js'
@@ -19,7 +20,7 @@ test('Chinese input sends English language skill to the model and preserves retu
   let payload, calls = 0
   t.mock.method(globalThis, 'fetch', async (_url, options) => {
     // 第一次为生成请求，其后为自审（须返回 PASS）。
-    if (++calls > 1) return Response.json({ choices: [{ message: { content: 'PASS' } }] })
+    if (++calls > 1) return Response.json({ choices: [{ message: { content: reviewPass } }] })
     payload = JSON.parse(options.body)
     return Response.json({ choices: [{ message: { content: JSON.stringify({ summary: 'A traveler enters a mysterious cave.', durationSeconds: 60 }) } }] })
   })

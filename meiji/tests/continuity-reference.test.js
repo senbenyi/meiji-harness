@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -14,7 +15,7 @@ test('storyboard keeps only current seconds and associated identity data, and st
   p.plot.characters.items[0].image.content = { localPath: '/plugins/meiji/asset-file?category=characters&id=person' }
   let instructions
   const rows = await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: text }) => {
-    if (skill === 'review') return 'PASS'
+    if (skill === 'review') return reviewPass
     instructions=text; return storyboardFixture(text)
   } })
   assert.doesNotMatch(instructions, /本集摘要|大纲|## S01 \/ 5s/)
@@ -30,7 +31,7 @@ test('stored tail is included across scene changes without uploading during gene
  p.shots.items[0].tailFrame={status:'passed',content:{sourceVideoFile:'version.mp4',localPath:'/films/version-last.png'}}
  p.shots.items[1].scene='新场景'
  const result=await generateShotStoryboard({project:p,shotId:'S02',request:async({ skill, user: text })=>{
-  if(skill==='review')return 'PASS'
+  if(skill==='review')return reviewPass
   assert.match(text,/<Picture 1> 上一镜 S01 尾帧/)
   assert.doesNotMatch(text,/tail-frame|version-last|base64/)
   return storyboardFixture(text)
@@ -43,7 +44,7 @@ test('stored tail is included across scene changes without uploading during gene
 test('first shot cannot request a previous tail even when the model asks for it', async () => {
   const p = episodeFixture()
   p.plot.characters.items[0].image.content = { localPath: '/plugins/meiji/asset-file?category=characters&id=person' }
-  const rows = await generateShotStoryboard({ project: p, shotId: 'S01', request: async ({ skill, user }) => skill === 'review' ? 'PASS' : '[opening-reference: previous-tail]\n'+storyboardFixture(user) })
+  const rows = await generateShotStoryboard({ project: p, shotId: 'S01', request: async ({ skill, user }) => skill === 'review' ? reviewPass : '[opening-reference: previous-tail]\n'+storyboardFixture(user) })
   assert.equal(rows[0].openingReference, 'none')
   assert.match(rows[0].prompt.text,/subject_definitions/)
 })
