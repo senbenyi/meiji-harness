@@ -26,6 +26,7 @@ meiji/
 │   │                       #   动态 import('/plugins/meiji/client/app.js') 后调用 mount()
 │   │                       #   mount()：在 Harness 页面挂载 <meiji-workbench> 右栏（外壳、任务停止栏、项目/片库视图），已挂载则跳过
 │   ├── app.js / shell.js   # 组合与右栏外壳（状态栏：停止生成、查看当前任务）
+│   ├── panel-events.js     # 插件事件连接：隐藏释放、可见重连刷新、创建期间暂停、页面退出清理
 │   ├── task-steps.js       # 步骤清单组件：「当前任务」与「任务历史」共用
 │   ├── task-prompt.js      # 查看步骤实际提示词：点击加载完整快照，按请求展示与复制
 │   ├── current-task.js / execution-history.js  # 「当前任务」页 / 「任务历史」页（含任务所用技能）

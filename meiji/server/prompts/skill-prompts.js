@@ -28,11 +28,11 @@ export function stageGuidance(set, meta) {
 
 function languageLines(project, story) {
   const language = outputLanguage(project?.outputLanguage)
-  return `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。\n对白语言：${language === 'en' ? 'English' : '中文普通话（Mandarin Chinese）'}。${story ? '既定台词保留原文。' : '每句对白及画外对讲机声音明确说话人、声源和此语言；文本分镜正文同样遵循本次生成语言；协议标题及引用标签不翻译，既定台词保留原文。'}`
+  return `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。使用此语言生成自然语言内容。\n对白语言：${language === 'en' ? 'English' : '中文普通话（Mandarin Chinese）'}。${story ? '既定台词保留原文。' : '每句对白及画外对讲机声音明确说话人、声源和此语言；文本分镜正文同样遵循本次生成语言；协议标题及引用标签不翻译，既定台词保留原文。'}`
 }
 
 export function languageSegment(set, project, meta, revise = false) {
-  const text = [shared(set, 'language'), revise ? shared(set, 'language-revise') : '', languageLines(project, meta.languageMode === 'story')].filter(Boolean).join('\n\n')
+  const text = [languageLines(project, meta.languageMode === 'story'), shared(set, 'language'), revise ? shared(set, 'language-revise') : ''].filter(Boolean).join('\n\n')
   return segment('language', '【语言】', text, { skill: 'shared-language' })
 }
 

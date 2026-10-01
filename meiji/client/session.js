@@ -190,7 +190,9 @@ export function projectDialog(root, onCreated) {
   for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => dialog.close()
   form.onsubmit = async event => {
     event.preventDefault()
-    const button = form.querySelector('[type=submit]'); button.disabled = true; error.textContent = ''
+    const button = form.querySelector('[type=submit]')
+    if (button.disabled) return
+    button.disabled = true; error.textContent = ''
     try {
       const data = new FormData(form)
       const input = { title: data.get('title').trim(), aspectRatio: data.get('aspect'), style: data.get('style').trim(), summary: data.get('summary').trim() }

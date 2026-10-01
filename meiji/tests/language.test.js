@@ -44,3 +44,22 @@ test('English and Chinese character labels and continuity pass equivalent checks
   }
   assert.equal(tabOf({ summary: { content: 'English summary' }, plot: {} }), 'script')
 })
+
+test('resolved language is stated directly without asking the model to read configuration', async () => {
+  const { buildStoryPrompts } = await import('../server/prompts/story-prompts.js')
+  const { episodeFixture } = await import('./fixtures/model.js')
+  const { checkContext } = await import('../server/data/operation-context.js')
+  for (const [configured, expected] of [[undefined, '简体中文'], ['zh-CN', '简体中文'], ['en', 'English']]) {
+    checkContext.run({ generationMode: 'generate' }, () => {
+      const project = { ...episodeFixture(), outputLanguage: configured, projectSummary: '中文资料 Mixed input' }
+      const prompts = buildStoryPrompts(project)
+      const messages = [prompts.generation, prompts.review('最新大纲'), prompts.revision('失败稿', '修正意见')]
+      for (const message of messages) {
+        assert.match(message.system, new RegExp(`本次生成语言：${expected}`))
+        assert.match(message.system, /使用此语言生成自然语言内容/)
+        assert.doesNotMatch(message.system, /读取项目 outputLanguage|自然语言内容使用项目 outputLanguage|未配置默认 zh-CN|不根据输入材料的语言推断/)
+        assert.match(message.system, /既定对白、歌词和画面文字保留原文/)
+      }
+    })
+  }
+})

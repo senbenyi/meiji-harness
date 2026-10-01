@@ -1,3 +1,4 @@
+import { createPanelEvents } from './panel-events.js'
 import { renderNodeSkill } from './node-skill.js'
 import { generateEpisodeDraft } from './episode-draft.js'
 import { renderTaskHistory } from './execution-history.js'
@@ -61,7 +62,12 @@ export function mount() {
   const taskBar = document.createElement('div')
   taskBar.className = 'task-status'
   shell.root.querySelector('.status').before(taskBar)
-  let events, eventKey = '', refreshing = false, refreshAgain = false, currentPage = null
+  let eventKey = '', refreshing = false, refreshAgain = false, currentPage = null
+  const events = createPanelEvents({ onResume: () => {
+    if (!eventKey) return
+    const [sessionId, projectId] = eventKey.split(':')
+    Promise.all([follow(), refreshTasks(projectId, sessionId), currentPage?.isConnected ? currentPage.refresh() : null]).catch(error => shell.status(error.message))
+  } })
   async function refreshTasks(projectId, sessionId) {
     const result = await request('tasks?' + new URLSearchParams({ projectId, sessionId }))
     if (eventKey !== `${sessionId}:${projectId}`) return
@@ -87,12 +93,9 @@ export function mount() {
   function watchProject(projectId, sessionId) {
     const key = projectId ? `${sessionId}:${projectId}` : ''
     if (key === eventKey) return
-    events?.close()
     eventKey = key
     taskBar.replaceChildren()
-    if (!key || typeof EventSource === 'undefined') return
-    events = new EventSource('/plugins/meiji/events?' + new URLSearchParams({ projectId, sessionId }))
-    events.onmessage = async () => {
+    events.watch(key ? '/plugins/meiji/events?' + new URLSearchParams({ projectId, sessionId }) : '', async () => {
       if (key !== eventKey) return
       if (refreshing) { refreshAgain = true; return }
       refreshing = true
@@ -103,9 +106,8 @@ export function mount() {
         } while (refreshAgain && key === eventKey)
       } catch (error) { shell.status(error.message) }
       finally { refreshing = false }
-    }
+    })
   }
-  window.addEventListener('pagehide', () => events?.close(), { once: true })
 
   let openCharacter = null
   let openScene = null
@@ -329,8 +331,13 @@ export function mount() {
   }
   const openCreate = projectDialog(shell.root, async input => {
     library = undefined
-    const place = await request('turn', { method: 'POST', ...jsonBody({ action: 'create', fields: input }) })
-    enterWorkspace(place)
+    events.pause()
+    let created = false
+    try {
+      const place = await request('turn', { method: 'POST', ...jsonBody({ action: 'create', fields: input }) })
+      created = true
+      enterWorkspace(place)
+    } finally { if (!created) events.resume() }
   })
   const saved = async (project, input) => {
     if (typeof input.outline === 'string') await actions.perform(project, 'outline-text', { outline: input.outline })
@@ -386,7 +393,7 @@ export function mount() {
       return
     }
     const { project } = await request('projects/' + place.projectId)
-    if (!events || events.readyState !== 1) await refreshTasks(place.projectId, sessionId)
+    if (!events.connected()) await refreshTasks(place.projectId, sessionId)
     if (ticket !== navigation && !force) return
     const mark = projectRefreshMark(project)
     if (!force && next === shown && mark === shownMark) return
