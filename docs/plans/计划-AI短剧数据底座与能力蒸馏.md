@@ -1,26 +1,29 @@
 # AI短剧数据底座与能力蒸馏
 
 - 类型：新功能 / 架构重构
-- 目标：先冻结并完整迁移当前插件已经可用的制片能力，再建立可恢复的 Elysium 短剧项目域和网关执行契约；随后只蒸馏开源项目相对现有插件的真实增量，最后重做用户界面。
+- 目标：先冻结并完整迁移当前插件已经可用的制片能力，再在当前 `dsh-short-video-studio` 插件内建立可恢复的短剧项目域，并补齐网关执行契约；随后只蒸馏开源项目相对现有插件的真实增量，最后重做用户界面。
 - 调研来源：`docs/research/调研-Harness网关与短剧数据底座.md`
+
+> **勘误（2026-10-01）**：原计划误把已经移出当前仓库的独立历史包当作目标实现边界。当前方案以 `dsh-short-video-studio` 为唯一插件项目，新增数据底座、领域、媒体、时间线和 Agent 模块均位于本仓库 `lib/`；不恢复或依赖独立历史包。Elysium 仅保留为现有生成能力与运行时存储目录的名称。
 
 ## 人工决策
 
 计划采用以下边界，需用户确认后才进入业务代码实施：
 
-1. 短剧业务状态归 Elysium，不进入 Harness 通用核心，也不进入推理网关。
+1. 短剧业务状态归当前 `dsh-short-video-studio` 插件的项目域，不进入 Harness 通用核心，也不进入推理网关。
 2. Project 独立于 Harness Session；一个项目可被多个会话和 Agent 打开。
 3. 第一条生产链路只使用已验收 Elysium 图片/视频能力；其它 workflow 继续留在网关候选库。
 4. 多 Agent 延后到单 Agent + 状态机闭环稳定之后。
 5. UI 最后重做，前期只保留最小诊断与验收入口。
 6. 当前插件的 Skills、人工门、画布操作、资产复用、连续性、返工、拼接、终检和渠道交付是迁移基线，不以“新架构”为理由删减。
 7. 现有脚本和旧文件先分类迁移；只有替代测试和数据迁移验收通过后才删除源文件。
+8. 每项通用能力先查 `docs/audits/harness-capabilities.md`：Harness 已提供的 Todo、Goal、Plan、Subagent、Workflow、Job、Approval、Skill、Storage、Projection、Deliverables 等能力直接复用，不在插件内重造。
 
 ## 总体顺序
 
 ```text
-插件生产协议与 Harness/网关能力基线冻结
-  → Elysium 文件与项目域
+Harness 官方插件全量审计与插件/网关能力基线冻结
+  → 当前插件的文件服务与项目域
   → 状态机和领域命令
   → 网关幂等与能力契约
   → 任务恢复和素材血缘
@@ -36,46 +39,46 @@
 
 1. `docs/audits/plugin-capability-ledger.md` — 新增：逐条登记当前 16 个工具、HTTP 路由、客户端 slots、画布动作、资产类型、8 个 Skills、人工门、连续性规则、交付钩子与对应迁移目标 → AC-7。
 2. `tests/characterization/*` — 新增：对当前 `project.json`、节点泳道、资产物化、重做/替换/废弃/恢复、H3 门、逐镜确认、拼接和 ask 前送达建立黑盒特征测试 → AC-7。
-3. `docs/audits/script-migration-matrix.md` — 新增：为全部 smoke/e2e/probe/bench/make/analyze/preview 脚本标注“插件保留、迁 Elysium、迁网关、替代后删除” → AC-7。
-4. `docs/audits/harness-capabilities.md` — 新增：记录 Harness 0.1.0-rc.7 的 Agent、Workflow、Job、Schedule、Storage、Projection、UI 插槽契约与最小验证 → AC-1。
+3. `docs/audits/script-migration-matrix.md` — 新增：为全部 smoke/e2e/probe/bench/make/analyze/preview 脚本标注“插件保留、迁插件项目域、迁网关、替代后删除” → AC-7。
+4. `docs/audits/harness-capabilities.md` — 新增：按当前实际版本全量登记 Harness 官方包组，区分已安装、已挂载、Agent 可见、业务已利用，并记录复用、暂不采用和安装门 → AC-1。
 5. `docs/audits/gateway-capabilities.md` — 新增：记录网关路由、异步任务、恢复、取消、媒体和能力目录契约 → AC-2。
-6. `scripts/audit-harness.mjs` — 新增：只读探针，验证目标 Harness 服务是否实际挂载，不只检查包存在 → AC-1。
+6. `scripts/audit-harness.mjs` — 新增：只读解析当前 Profile 组合与本机安装树，验证官方包/子入口是否可解析并输出 enabled/disabled/conditional 状态；运行时服务可用性在后续对应能力接入时增加聚焦探针 → AC-1。
 7. `llm-modes-gateway/tests/server/server_test.go`、`tests/workflow/image_test.go` — 修改：固定当前 Elysium 能力基线和不泄露 workflow id 的边界 → AC-2。
 
-验证：先用一个现有项目生成“迁移金样快照”，覆盖节点参数/血缘/泳道/批准版本/排序/送达状态；再运行 Harness 探针和网关测试。缺失服务必须显式失败，不能回退自建实现。
+验证：先运行 `node scripts/audit-harness.mjs web --json`，组合引用缺包数必须为 0；再用一个现有项目生成“迁移金样快照”，覆盖节点参数/血缘/泳道/批准版本/排序/送达状态，并运行 Harness 聚焦探针和网关测试。缺失服务必须显式失败，不能回退自建实现。本阶段审计未发现需要立即安装的官方依赖；以后只有被采用且确实缺失的能力才允许安装。
 
-## 阶段 1：建立 Elysium 唯一文件入口
+## 阶段 1：在当前插件建立唯一文件入口
 
-1. `dsh-elysium/src/database/files.js` — 新增：项目目录、媒体、临时文件、原子发布、hash、读取范围校验和删除的唯一文件入口 → AC-3。
-2. `dsh-elysium/src/database/layout.js` — 新增：固定 `~/.dsh/storages/elysium` 下 project/media/export/cache 布局；禁止 session/workspace 路径成为权威身份 → AC-3。
-3. `dsh-elysium/src/database/migrations.js` — 新增：格式版本、迁移登记、备份和失败回滚 → AC-3。
-4. `dsh-elysium/tests/files.test.js` — 新增：原子写、路径逃逸、损坏文件、磁盘失败、迁移失败测试 → AC-3。
+1. `lib/storage/files.js` — 新增：项目目录、媒体、临时文件、原子发布、hash、读取范围校验和删除的唯一文件入口 → AC-3。
+2. `lib/storage/layout.js` — 新增：固定 `~/.dsh/storages/elysium` 下 project/media/export/cache 布局；禁止 session/workspace 路径成为权威身份 → AC-3。
+3. `lib/storage/migrations.js` — 新增：格式版本、迁移登记、备份和失败回滚 → AC-3。
+4. `tests/storage/files.test.js` — 新增：原子写、路径逃逸、损坏文件、磁盘失败、迁移失败测试 → AC-3。
 
 验证：故障注入中任何失败都保留旧版本；所有业务源码检索不到 `node:fs`，只有 `files.js` 可以导入。
 
 ## 阶段 2：建立项目聚合与领域命令
 
-1. `dsh-elysium/src/domain/spec.js` — 新增：Project 聚合及 StoryBible、Character/State、Location/Scene、Episode、Shot、Attempt、Asset、Review、Timeline、Deliverable schema → AC-3。
-2. `dsh-elysium/src/domain/service.js` — 新增：基于 Harness `dsh-storage-domain` 打开 Elysium domain；每个项目记录通过 `KvTable.update` 原子变更 → AC-3。
-3. `dsh-elysium/src/domain/commands/*.js` — 新增：create/open/update/transition/attach/review/assemble/deliver 命令；统一 revision 与幂等检查 → AC-3、AC-4。
-4. `dsh-elysium/src/domain/state-machines.js` — 新增：Episode、Shot、GenerationAttempt 状态机，非法跳转显式失败 → AC-3。
-5. `dsh-elysium/src/domain/read-models.js` — 新增：项目列表、制作看板、镜头队列、审核队列、时间线只读模型 → AC-3。
-6. `dsh-elysium/tests/domain/*.test.js` — 新增：并发 revision、重复命令、非法状态、跨会话打开同项目、损坏恢复 → AC-3、AC-4。
-7. `dsh-elysium/src/domain/invalidation.js` — 新增：角色/场景/镜头表修订和链上镜头重渲时，按现有 Skill 规则显式失效下游分镜、片段、检查帧和时间线引用 → AC-4、AC-7。
-8. `dsh-elysium/src/domain/policies.js` — 新增：镜头表自检、逐镜人工确认、字幕/说话人、参考图、画质一致性与生成前硬门 → AC-4、AC-7。
+1. `lib/domain/spec.js` — 新增：Project 聚合及 StoryBible、Character/State、Location/Scene、Episode、Shot、Attempt、Asset、Review、Timeline、Deliverable schema → AC-3。
+2. `lib/domain/service.js` — 新增：基于 Harness `dsh-storage-domain` 打开当前插件的项目 domain；每个项目记录通过 `KvTable.update` 原子变更 → AC-3。
+3. `lib/domain/commands/*.js` — 新增：create/open/update/transition/attach/review/assemble/deliver 命令；统一 revision 与幂等检查 → AC-3、AC-4。
+4. `lib/domain/state-machines.js` — 新增：Episode、Shot、GenerationAttempt 状态机，非法跳转显式失败 → AC-3。
+5. `lib/domain/read-models.js` — 新增：项目列表、制作看板、镜头队列、审核队列、时间线只读模型 → AC-3。
+6. `tests/domain/*.test.js` — 新增：并发 revision、重复命令、非法状态、跨会话打开同项目、损坏恢复 → AC-3、AC-4。
+7. `lib/domain/invalidation.js` — 新增：角色/场景/镜头表修订和链上镜头重渲时，按现有 Skill 规则显式失效下游分镜、片段、检查帧和时间线引用 → AC-4、AC-7。
+8. `lib/domain/policies.js` — 新增：镜头表自检、逐镜人工确认、字幕/说话人、参考图、画质一致性与生成前硬门 → AC-4、AC-7。
 
 验证：两个 Harness 会话同时更新同一项目时不会静默覆盖；项目关闭再打开能恢复到相同 revision。
 
 ## 阶段 3：让插件成为薄适配层
 
-1. `lib/index.js:loadProject/saveProject/画布工具` — 修改：删除本地 `project.json` 真值源；工具只调用 Elysium command/query service → AC-3。
+1. `lib/index.js:loadProject/saveProject/画布工具` — 修改：删除本地 `project.json` 真值源；工具只调用当前插件的 command/query service → AC-3。
 2. `lib/index.js:resolveSessionRoot` — 修改：session 只记录活动来源；所有生成命令必须显式或通过会话绑定解析 project id → AC-3。
-3. `lib/assets.js`、`lib/pdf.js`、`lib/concat.js` — 修改：所有文件读写经过 `dsh-elysium/src/database/files.js` → AC-3。
-4. `lib/assets.js` — 修改：把 character/scene/style/clip/text、稳定 asset id、角色 state、跨会话物化和共享文件引用保护迁到 Elysium Asset service；修复中文名称和损坏库处理 → AC-3、AC-7。
-5. `studio/app.js`、`lib/client.js` — 修改：第一阶段保持现有交互外观，把 edit/replace/redo/deprecate/restore/group/reorder/upload/register 转为 Elysium command；main/frames/discard 改为 read model 投影 → AC-3、AC-7。
+3. `lib/assets.js`、`lib/pdf.js`、`lib/concat.js` — 修改：所有文件读写经过 `lib/storage/files.js` → AC-3。
+4. `lib/assets.js` — 修改：把 character/scene/style/clip/text、稳定 asset id、角色 state、跨会话物化和共享文件引用保护迁到当前插件的 Asset service；修复中文名称和损坏库处理 → AC-3、AC-7。
+5. `studio/app.js`、`lib/client.js` — 修改：第一阶段保持现有交互外观，把 edit/replace/redo/deprecate/restore/group/reorder/upload/register 转为项目域 command；main/frames/discard 改为 read model 投影 → AC-3、AC-7。
 6. `skills/*` — 修改：保持现有制片顺序和门控，改为调用领域工具；Markdown 继续作为展示产物，但不再是权威业务状态 → AC-3、AC-4、AC-7。
 7. `lib/index.js:makeH3PromptGateListener/自动送达监听器` — 修改：分别接入 QualityPolicy 与 Delivery Outbox，保留当前有界 fallback 和 ask 前送达行为 → AC-4、AC-7。
-8. `scripts/migrate-canvas-projects.mjs` — 新增：把旧 `canvas/<sessionId>/project.json` 和 `.dsh-assets/library.json` 迁为 Elysium Project/Asset，生成迁移报告，不自动删除源数据 → AC-3、AC-7。
+8. `scripts/migrate-canvas-projects.mjs` — 新增：把旧 `canvas/<sessionId>/project.json` 和 `.dsh-assets/library.json` 迁为当前插件的 Project/Asset，生成迁移报告，不自动删除源数据 → AC-3、AC-7。
 
 验证：迁移前后不只比较数量/hash，还逐项比较 params、血缘、泳道、group/order、当前批准版本、废弃/恢复和 delivery 状态；特征测试全部通过后，插件重启、换会话仍能打开同一项目。
 
@@ -97,24 +100,24 @@
 
 ## 阶段 5：打通生成、审核和素材血缘
 
-1. `dsh-elysium/src/media/generation.js` — 新增：创建 Attempt、提交网关、持久化 task id、轮询/恢复、下载、hash 校验、登记 Asset → AC-4。
-2. `dsh-elysium/src/media/recovery.js` — 新增：扫描非终态 Attempt，用 Harness Job 恢复；禁止依赖 UI 常驻 → AC-4。
-3. `dsh-elysium/src/domain/commands/review.js` — 新增：ReviewDecision，候选素材只有批准后才能绑定 Shot approved asset → AC-4。
-4. `dsh-elysium/src/quality/*.js` — 新增：可插拔质量门，只写检测结果，不自动覆盖人工决定 → AC-4。
-5. `dsh-elysium/tests/recovery/*.test.js` — 新增：插件退出、Harness 重启、网关重启、下载中断、重复回调与坏媒体测试 → AC-4。
-6. `dsh-elysium/src/media/lineage.js` — 新增：把 `ref_nodes`、首末帧、`continuity_from`、抽帧、超分、拼接、替换和重渲关系固化为依赖图；上游变化自动产生待返工集合 → AC-4、AC-7。
+1. `lib/media/generation.js` — 新增：创建 Attempt、提交网关、持久化 task id、轮询/恢复、下载、hash 校验、登记 Asset → AC-4。
+2. `lib/media/recovery.js` — 新增：扫描非终态 Attempt，用 Harness Job 恢复；禁止依赖 UI 常驻 → AC-4。
+3. `lib/domain/commands/review.js` — 新增：ReviewDecision，候选素材只有批准后才能绑定 Shot approved asset → AC-4。
+4. `lib/quality/*.js` — 新增：可插拔质量门，只写检测结果，不自动覆盖人工决定 → AC-4。
+5. `tests/recovery/*.test.js` — 新增：插件退出、Harness 重启、网关重启、下载中断、重复回调与坏媒体测试 → AC-4。
+6. `lib/media/lineage.js` — 新增：把 `ref_nodes`、首末帧、`continuity_from`、抽帧、超分、拼接、替换和重渲关系固化为依赖图；上游变化自动产生待返工集合 → AC-4、AC-7。
 
 验证：在每个中断点杀死进程后重启，Attempt 最终进入唯一终态，素材无重复、Shot 状态正确。
 
 ## 阶段 6：成片项目与交付稳定化
 
-1. `dsh-elysium/src/timeline/model.js` — 新增：版本化视频/音频/字幕/转场轨道 → AC-4。
-2. `dsh-elysium/src/timeline/assemble.js` — 新增：从 approved asset 构建 immutable timeline revision → AC-4。
-3. `dsh-elysium/src/delivery/export.js` — 新增：导出任务、编码参数、产物 hash、质量报告和失败恢复 → AC-4。
-4. `dsh-elysium/src/delivery/adapters/*` — 新增：先实现 MP4 与工程清单；剪映/XML 等按开源项目审计结果逐项增加 → AC-4、AC-5。
-5. `dsh-elysium/tests/golden-project/*` — 新增：固定一集最小金样，从建项目到交付全链路回归 → AC-4。
-6. `dsh-elysium/src/delivery/outbox.js` — 新增：记录媒体/PDF/HTML 的待送达、已送达、失败、超限与重试；适配当前 Web/TUI/飞书行为 → AC-4、AC-7。
-7. `dsh-elysium/src/quality/final-review.js` — 新增：结构化保存当前终检清单，包括角色、场景、口型、字幕、参考污染、薄弱片段和实际尺寸 → AC-4、AC-7。
+1. `lib/timeline/model.js` — 新增：版本化视频/音频/字幕/转场轨道 → AC-4。
+2. `lib/timeline/assemble.js` — 新增：从 approved asset 构建 immutable timeline revision → AC-4。
+3. `lib/delivery/export.js` — 新增：导出任务、编码参数、产物 hash、质量报告和失败恢复 → AC-4。
+4. `lib/delivery/adapters/*` — 新增：先实现 MP4 与工程清单；剪映/XML 等按开源项目审计结果逐项增加 → AC-4、AC-5。
+5. `tests/golden-project/*` — 新增：固定一集最小金样，从建项目到交付全链路回归 → AC-4。
+6. `lib/delivery/outbox.js` — 新增：记录媒体/PDF/HTML 的待送达、已送达、失败、超限与重试；适配当前 Web/TUI/飞书行为 → AC-4、AC-7。
+7. `lib/quality/final-review.js` — 新增：结构化保存当前终检清单，包括角色、场景、口型、字幕、参考污染、薄弱片段和实际尺寸 → AC-4、AC-7。
 
 验证：同一 timeline revision 重复导出内容 hash 一致；替换单镜只产生新 revision，不破坏历史成片。
 
@@ -157,15 +160,16 @@
 
 ## 阶段 8：受控启用 Multi-Agent
 
-1. `dsh-elysium/src/agents/blackboard.js` — 新增：只读快照与领域命令提交，不允许 Agent 直接共享可变对象 → AC-1、AC-4。
-2. `dsh-elysium/src/agents/workflows/*.js` — 新增：只为小说压缩、角色提取、镜头规划、连续性检查、声音规划等独立任务使用 Harness Workflow/Subagent → AC-1、AC-5。
-3. `dsh-elysium/src/agents/contracts/*.js` — 新增：每个 Agent 的输入 schema、输出 schema、允许命令和质量门 → AC-4。
+1. `lib/agents/blackboard.js` — 新增：只读快照与领域命令提交，不允许 Agent 直接共享可变对象 → AC-1、AC-4。
+2. `lib/agents/contracts/*.js` — 新增：每个 Agent 的输入 schema、输出 schema、允许命令和质量门；只定义业务契约，不实现子代理调度器 → AC-4。
+3. `skills/*` — 修改：小说压缩、角色提取、镜头规划、连续性检查、声音规划等独立任务直接调用 Harness Subagent；只有用户明确要求大型多 Agent 编排且至少有三个独立任务时才使用 Harness Workflow → AC-1、AC-5。
+4. `tests/agents/*.test.js` — 新增：固定只读快照、领域命令提交、子代理失败隔离、Workflow 取消和关闭所有 Subagent 后的单 Agent 回退 → AC-1、AC-4。
 
-验证：关闭所有 Subagent 后，单 Agent 仍能完成全链路；Subagent 失败不会损坏项目或阻塞人工继续。
+验证：Harness 原生 Subagent 目录能显示运行状态和完成结果，Todo 能显示当前步骤及待执行项；关闭所有 Subagent 后，单 Agent 仍能完成全链路；Subagent 失败不会损坏项目或阻塞人工继续。插件代码中不得出现自建 Agent runtime、子代理进程管理器或第二套任务列表 UI。
 
 ## 阶段 9：最后重做 UI
 
-1. `studio/src/project/*` — 新增：项目列表、版本与恢复入口，数据来自 Elysium read model → AC-6。
+1. `studio/src/project/*` — 新增：项目列表、版本与恢复入口，数据来自当前插件的 read model → AC-6。
 2. `studio/src/production/*` — 新增：剧集/场景/镜头生产看板与审核队列 → AC-6。
 3. `studio/src/timeline/*` — 新增：只编辑 Timeline command，不直接改媒体或项目 JSON → AC-6。
 4. `studio/src/diagnostics/*` — 新增：Attempt、gateway task、错误、恢复与血缘诊断 → AC-4、AC-6。
@@ -183,9 +187,9 @@
 
 ## 验收标准
 
-- AC-1：Harness 能力矩阵可定位到当前安装包源码/契约，并通过运行时探针。
+- AC-1：Harness 官方插件能力矩阵可定位到当前安装包源码、组合配置或官方契约，明确安装/挂载/Agent 可见/业务利用状态，并通过对应运行时探针。
 - AC-2：网关职责、任务生命周期与能力目录由测试固定。
-- AC-3：Elysium 是项目业务状态唯一所有者，所有写入经过领域命令和唯一文件入口。
+- AC-3：当前 `dsh-short-video-studio` 插件的项目域是业务状态唯一所有者，所有写入经过领域命令和唯一文件入口。
 - AC-4：生成到交付的每个非终态都能在崩溃后恢复，重复执行保持幂等。
 - AC-5：17 个开源项目逐个完成证据卡、许可证门和独立验收，不做整项目移植。
 - AC-6：UI 最后实施，且只通过 command/read model 与数据层交互。

@@ -1,17 +1,20 @@
 # Harness、网关与短剧数据底座调研
 
 > 状态：已完成（静态源码审计）；真实长任务与故障注入尚未验收
-> 基线：2026-10-01；DeepSeek Harness `0.1.0-rc.7`；当前 `llm-dsh-plugins` 与 `llm-modes-gateway` 工作区
+> 基线：2026-10-01；当前 `dsh 0.1.7-alpha.2` Web Profile（组合内含 `0.1.2-rc.1` 与 `0.1.7-alpha.2` 包）；当前 `llm-dsh-plugins` 与 `llm-modes-gateway` 工作区
 > 范围：Harness 核心能力、网关核心能力、当前插件的完整生产协议与数据状态、17 个开源项目的能力蒸馏顺序；不包含界面定稿和业务代码实施
+
+> **勘误（2026-10-01）**：原调研误把已经移出当前仓库的独立历史包继续作为目标实现边界。当前结论改为：短剧项目域和唯一文件入口均在现有 `dsh-short-video-studio` 插件内建设，不恢复或依赖独立历史包；Elysium 仅指现有生成能力和 `~/.dsh/storages/elysium` 运行时存储目录。
 
 ## 0. 结论
 
-- Harness 已经具备 Agent 循环、Skill、Goal、Workflow、后台 Job、Schedule、Subagent、会话事件日志、投影缓存和持久化 Domain Storage。新插件不应另造 Agent Runtime 或通用任务编排器。
+- Harness 已经具备 Agent 循环、Skill、Goal、Workflow、后台 Job、Schedule、Subagent、会话事件日志、投影缓存和持久化 Domain Storage。当前插件不应另造 Agent Runtime 或通用任务编排器。
+- 当前 Web Profile 已组合 Todo、Subagent、Workflow、Goal、Jobs、Plan、Storage Domain、Projection、Approval、Skill、Attachment、Deliverables、Compaction 与 Spill；182 个官方包/子入口均能从本机安装树解析，当前没有需要补装的组合依赖。应先改进这些原生能力的使用方式，再讨论新增依赖。
 - 网关已经具备模型/渠道路由、异步任务先落库、未知提交恢复、轮询、取消、媒体资源定位和 ComfyUI workflow 编译。网关应继续只拥有推理执行，不拥有短剧项目、剧集、角色或镜头业务状态。
 - 当前插件不是空壳。它已经形成从简报、资产卡、镜头表、自检、逐镜生成、连续性控制、人工确认、返工、拼接、终检到多渠道交付的一套可运行生产协议；画布还实现了主线/检查帧/废弃三条泳道、重做、替换、恢复、入库和跨会话素材复用。这些都是迁移基线，不能因重做数据层而丢失。
 - 当前最大断点是这套生产协议没有可靠数据底座：插件把 `sessionId` 当项目 id，把全部状态压在 `<workspace>/canvas/<sessionId>/project.json` 的 `settings + nodes` 中，并直接操作 `node:fs`。它没有独立项目身份、领域对象、修订号、迁移、生成尝试记录、审核决策、成片版本和可靠恢复。
-- 仓库规范要求的 `dsh-elysium/src/database/files.js` 与 `~/.dsh/storages/elysium` 当前均不存在。必须先建立 Elysium 项目域，再集成开源项目能力；否则只会把更多流程继续堆进画布 JSON。
-- 多 Agent 不是第一阶段目标。Agent 只能通过经过校验的领域命令读写项目；共享状态来自 Elysium，不来自 Agent 之间的隐式对话或超长 prompt。
+- 当前插件缺少统一文件入口和独立项目域，`~/.dsh/storages/elysium` 运行时目录当前也不存在。必须先在当前插件内建立文件服务与项目域，再集成开源项目能力；否则只会把更多流程继续堆进画布 JSON。
+- 多 Agent 不是第一阶段目标。Agent 只能通过经过校验的领域命令读写项目；共享状态来自当前插件的项目域，不来自 Agent 之间的隐式对话或超长 prompt。
 - 界面必须最后实施。先完成数据所有权、状态机、命令、恢复、网关任务关联和开源能力验收，再根据稳定读模型设计 UI。
 
 ## 1. 规格
@@ -30,7 +33,7 @@
 
 ### 验收标准
 
-- AC-1：Harness 能力矩阵可定位到当前安装包的源码或公开类型契约。
+- AC-1：Harness 官方插件能力矩阵可定位到当前安装包源码、当前组合状态或官方契约，并区分已安装、已挂载、Agent 可见和业务已利用。
 - AC-2：网关职责、任务生命周期与数据边界可定位到实际执行路径。
 - AC-3：短剧项目的唯一数据所有者、写入口、实体、不变量和状态转换明确。
 - AC-4：从创作命令到网关任务、素材审核、时间线和成片交付的数据流完整且可恢复。
@@ -38,25 +41,32 @@
 - AC-6：计划明确先数据与流程、后能力、最后 UI。
 - AC-7：当前插件已经可用的生产协议、人工操作和渠道交付均有迁移映射与特征测试，重构前后行为不倒退。
 
-## 2. Harness 核心能力
+## 2. Harness 官方原生插件能力
 
-审计基线均为 `@deepseek-ai/* 0.1.0-rc.7`。
+完整审计见 `docs/audits/harness-capabilities.md`，当前组合可通过 `node scripts/audit-harness.mjs web --json` 复查。官方包必须区分四种状态：本机已安装、Profile 已挂载、当前 Agent preset 可见、当前业务已利用。宿主层 disabled 占位可能在 Standard preset 内重新启用，不能只检索一行配置下结论。
 
 | 能力 | 已确认实现 | 可直接复用 | 不能误用为 |
 | --- | --- | --- | --- |
 | Agent 生命周期 | `dsh-agent-loop.AgentLoop.createAgent/resume` | 创建、恢复、取消 Agent | 短剧项目数据库 |
 | Skill | `dsh-tool-skill` | 按需加载创作规范 | 持久业务状态 |
+| Todo | `dsh-tool-todo` + Conversation Todo dock | 展示当前轮 `pending/in_progress/completed`，支持并行任务可见性 | 跨轮次 Project/Shot 状态；下一轮开始会清空 |
 | Goal | `dsh-tool-goal` | 同一会话目标与收尾 | 项目/剧集状态机 |
-| Workflow | `dsh-tool-workflow` + `ctx.workflowEngine` | 有界 JavaScript 编排、并行子任务、取消 | 无边界自动化主循环 |
+| Plan | `dsh-plan-mode` + `dsh-client-ui-plan` | 实施前计划审阅和批准 | 运行中的制片进度 |
+| Workflow | `dsh-tool-workflow` + `ctx.workflowEngine` | 用户明确要求大型多 Agent 编排时执行有界并行任务 | 无边界自动化主循环；一两个委托应直接用 Subagent |
 | Background Job | `dsh-tool-jobs` | 查询输出、列出、终止后台工作 | 网关媒体任务真值源 |
-| Schedule | `dsh-schedule` | 基于会话事件日志的持久提醒 | 精确媒体队列调度器 |
 | Subagent | `dsh-subagent-spawn-in-process`、`dsh-tool-subagent-control` | 独立、可验证的分析/生成子任务 | 共享可变业务状态 |
 | Domain Storage | `dsh-storage-domain` | schema 校验、单域写链、持久化后更新内存、`update` 原子读改写 | 跨多个表的数据库事务 |
 | JSON Backend | `dsh-storage-json` | 指定根目录、原子整文件发布 | 大型二进制媒体仓库 |
 | Session Projection | `dsh-session-projection` | 从已提交会话事件计算一致读模型 | 独立于会话的项目真值源 |
 | Projection Cache | `dsh-session-projection-cache` | 版本化 checkpoint、尾日志重放、冷读恢复 | 权威数据；它只是可丢弃缓存 |
+| Approval / Ask User | `dsh-user-approval`、`dsh-tool-ask-user` | 付费生成、人工确认和高风险决策的交互承载 | ReviewDecision 业务记录本身 |
+| Attachment / Deliverables | `dsh-attachment-local`、`dsh-client-ui-deliverables`、Office-to-PDF | 普通附件持久化、文件与文档交付 | 画布素材血缘、Timeline 或 Deliverable 真值 |
+| Settings / Credentials | `dsh-settings`、`dsh-credentials-local` | 宿主偏好、模型和密钥引用 | 项目配置、任务快照或画布节点 |
+| Compaction / Spill | `dsh-compaction-*`、`dsh-spill-*` | 长会话上下文和大工具结果治理 | 崩溃后的业务恢复来源 |
 | UI 扩展 | conversation/workspace slots、API gateway | 会话视图、侧栏、工作区和远程服务 | 数据所有权 |
 | LLM 可靠性 | `dsh-llm-retry`、output retention | 提供商重试、输出限长 | 业务命令幂等与镜头恢复 |
+
+当前 `web` Profile 的 Schedule UI 明确 disabled，且短剧主链路没有定时跟进需求，因此本阶段不安装或启用 Schedule。SSH、Terminal、Browser/Computer Use、LSP、Webhook、SDK/ACP、Extensions 和 Experimental 同样只登记在官方能力版图中，不因“官方存在”自动安装。
 
 ### 2.1 最重要的存储语义
 
@@ -68,9 +78,11 @@
 - `DomainSpec.version` 不匹配时拒绝打开，不会静默误读旧格式。
 - 没有跨表事务。因此短剧项目需要以“一个项目聚合记录”为一致性边界，而不能一次命令分散写多个权威表。
 
-### 2.2 Harness 中应沉淀什么
+### 2.2 Harness 中应复用什么
 
-只沉淀通用机制：结构化工具、命令执行、会话投影、后台编排、恢复与 UI 插槽。短剧专用实体和状态机应实现为建立在 Harness 能力上的 Elysium 领域插件，而不是修改 Harness Agent Loop。
+Harness 已经拥有通用机制：结构化工具、Todo、Goal、Plan、Subagent、Workflow、Job、Approval、Skill、会话投影、上下文压缩、交付和 UI 插槽。当前插件只提供短剧领域实体、状态机、业务命令、素材血缘和质量规则；它应建立在 Harness 能力之上，而不是修改 Harness Agent Loop、另建独立插件包或复制通用任务 UI。
+
+利用顺序固定为：先直接使用 Todo/Goal/Plan/Skill/Approval/Deliverables；项目域建设时采用 Storage Domain 的一致性模型；单 Agent 闭环稳定后才让 Subagent 通过只读快照和领域命令参与；只有用户明确要求且存在三个以上独立任务时才使用 Workflow。Jobs 只负责后台驱动，Project/GenerationAttempt 与网关 task 才是业务状态。
 
 ## 3. 网关核心能力
 
@@ -146,12 +158,12 @@ API 请求
 | --- | --- | --- |
 | 生产流程 | 故事短片：规格确认 → 简报 → 大纲 → 角色卡 → 场景卡 → 七列镜头表 → 强制自检 → 文本/铅笔分镜 → 逐镜生成 → 拼接 → 终检 → 交付 | 业务协议，必须保留 |
 | 品牌流程 | 可核验来源 → 品牌事实表 → 来源清单 → 身份资产绑定 → 创意方向 → 六列镜头表 → 自检/审批 → 生成/拼接/交付 | 可复用的“来源与权利”协议；成人短剧的身份、成年与授权记录可沿用此思想 |
-| Prompt | H3 Ref2VA 六段式、I2VA/FL2VA 三段式、字幕唯一真值、结构校验门和有界 fallback | 质量策略；结构门保留在插件/Elysium，模型工作流选择留给网关 |
+| Prompt | H3 Ref2VA 六段式、I2VA/FL2VA 三段式、字幕唯一真值、结构校验门和有界 fallback | 质量策略；结构门保留在当前插件，模型工作流选择留给网关 |
 | 生成语义 | 图片 t2i/i2i、视频 r2v/i2v、capability + tier、参考卡、首末帧、`continuity_from`、抽帧、超分、拼接 | 语义命令保留；实现/workflow id 归网关 |
 | 连续性 | 单视图零文字参考、角色/场景锚点、同场景链式续接、跨场景转场、链尺寸约束、重渲后的下游链连锁失效 | 核心领域不变量，必须进入 Shot/Attempt/Asset 血缘 |
 | 人工门 | 简报、大纲、角色卡、场景卡、镜头表、自检、分镜、逐镜、交付均有人工确认；同镜连续失败升级求助 | 状态机门，不得只留在 Skill 散文里 |
 | 画布 | image/video/text/table 卡片；编辑、上传替换、AI 重做、分组、排序、删除；main/frames/discard 泳道；废弃与恢复 | 已有操作语义必须映射为领域命令；界面可晚改 |
-| 资产库 | character/scene/style/clip/text 类型，稳定 asset id、角色 state、跨会话物化、共享文件引用保护 | 合并进 Elysium Asset/CharacterState，不应删除后重造 |
+| 资产库 | character/scene/style/clip/text 类型，稳定 asset id、角色 state、跨会话物化、共享文件引用保护 | 合并进当前插件的 Asset/CharacterState，不应删除后重造 |
 | 交付 | 逐镜/成片、PDF/HTML 文本导出、飞书 `send_file` 的 ask 前自动送达、20 MiB 失败记录、Web/TUI fallback | DeliveryAttempt/Outbox + 渠道适配器；保留现有最后一公里 |
 | 包装 | bundled Skill 同步、版本/hash、宿主 system prompt、settings/toolbar/sidebar/view slots | 插件壳继续承担，不下沉网关 |
 
@@ -178,7 +190,7 @@ API 请求
 5. 拼接必须使用当前批准且画质一致的镜头；单镜超分后必须重跑拼接。
 6. 交付清单需记录镜头到节点/文件/时长映射，并核对角色、场景、口型、字幕、参考污染、尺寸和薄弱片段。
 
-这些规则应被提升为 Elysium 的命令前置条件、依赖失效规则、ReviewDecision 和 Timeline 校验，而不是在重构时改写成另一套流程。
+这些规则应被提升为当前插件项目域的命令前置条件、依赖失效规则、ReviewDecision 和 Timeline 校验，而不是在重构时改写成另一套流程。
 
 ### 4.4 当前插件需要修复而不是丢弃的点
 
@@ -194,7 +206,7 @@ API 请求
 仓库已有 19 个 smoke、9 个 e2e、6 个 probe、3 个 benchmark、8 个模板生成脚本、6 个分析脚本和 3 个 UI preview。它们是可执行知识库，不应随旧 workflow 文件一起删除：
 
 - provider/workflow 编译、tier、分辨率、链式续接和 GPU probe：迁到网关资格测试；
-- 画布、资产、上传、Skill 安装、H3 门、PDF、交付、拼接：迁到 Elysium/插件特征测试；
+- 画布、资产、上传、Skill 安装、H3 门、PDF、交付、拼接：迁到当前插件项目域并建立插件特征测试；
 - 真机 benchmark：变为网关候选实现晋级/降级的离线评测；
 - UI preview：保留为最后阶段的交互与视觉回归。
 
@@ -208,10 +220,10 @@ Harness 会话日志                   网关任务库
           │                                │
           └────── 领域命令 / task id ──────┘
                          │
-                 Elysium Project Domain
+              Studio Project Domain
         项目、内容、状态机、修订、尝试、审核、时间线、交付
                          │
-                 Elysium File Service
+               Studio File Service
              项目媒体、代理文件、导出物、校验和
                          │
                     UI Read Models
@@ -239,8 +251,8 @@ Harness 会话日志                   网关任务库
 ### 5.2 一致性边界
 
 - 每个 Project 是一个可原子更新的聚合记录，带 `revision`。
-- 所有写入只能经过 Elysium command service；Agent、HTTP、UI 都不能直接改记录或文件。
-- 媒体字节只能经过 `dsh-elysium/src/database/files.js`；业务记录只保存 file id、hash、mime、size 和派生关系。
+- 所有写入只能经过当前插件的 command service；Agent、HTTP、UI 都不能直接改记录或文件。
+- 媒体字节只能经过当前插件的 `lib/storage/files.js`；业务记录只保存 file id、hash、mime、size 和派生关系。
 - Harness session id 只能作为 `activity/sourceSessionId`，不能作为 project id。
 - 网关 task id 只能属于一个 GenerationAttempt；相同 attempt 的重复提交必须返回同一个结果。
 
@@ -279,7 +291,7 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 
 ```text
 用户/Agent 提交领域命令
-  → Elysium 校验 project revision、前置状态和引用
+  → 当前插件项目域校验 project revision、前置状态和引用
   → 原子创建 GenerationAttempt(created) + 幂等键
   → 调用网关 semantic API
   → 写入 gateway task id / submitting 或 submission_unknown
@@ -292,7 +304,7 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
   → Timeline 固化版本并导出 Deliverable
 ```
 
-任何中断后都从 Elysium 中非终态 Attempt 恢复，不能从画布节点、聊天文本或文件名猜测。
+任何中断后都从当前插件项目域中的非终态 Attempt 恢复，不能从画布节点、聊天文本或文件名猜测。
 
 ## 8. 开源项目逐项蒸馏清单
 
@@ -300,23 +312,23 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 
 | 项目 | 首要蒸馏项 | 放入本系统的位置 | 禁止直接照搬/门槛 |
 | --- | --- | --- | --- |
-| ArcReel | 分阶段人工审核、任务队列、供应商抽象、迁移/备份、剪映导出 | Elysium 流程、网关、交付 | AGPL 边界需先确认 |
+| ArcReel | 分阶段人工审核、任务队列、供应商抽象、迁移/备份、剪映导出 | 插件项目域、网关、交付 | AGPL 边界需先确认 |
 | LumenX | Studio/Playground 分离、统一模型目录、声音与终剪 | 产品模式、网关目录、后期 | 先验证真实成片链路 |
-| ViMax | 小说压缩、单职责 Agent、上下文索引、并行生成与续跑 | Harness workflow + Elysium 黑板 | Agent 不得直接共享可变状态 |
-| Jellyfish | 角色/场景/道具/服装/镜头一级对象、统一异步任务中心 | Elysium 领域模型 | 先核对最新发布分支 |
+| ViMax | 小说压缩、单职责 Agent、上下文索引、并行生成与续跑 | Harness workflow + 插件项目黑板 | Agent 不得直接共享可变状态 |
+| Jellyfish | 角色/场景/道具/服装/镜头一级对象、统一异步任务中心 | 插件项目域模型 | 先核对最新发布分支 |
 | Toonflow | 无限画布、节点能力包、provider/tool/team/skill 扩展边界 | 最后阶段 UI 与扩展 SDK | 测试薄弱，不作为状态底座 |
 | AID Studio | 模型健康、僵尸任务回收、媒体清理、运营作业 | 网关运维 | 不引入其重型平台栈 |
-| waoowaoo | 持久执行、失败治理、计费审批、资源归属 | 网关治理/Elysium 权限 | Elastic License，禁止直接服务化复刻 |
-| LocalMiniDrama | 本地隐私、镜头行、工作流组重跑 | Elysium selection/rerun + UI | 不复制其本地状态缺陷 |
-| moyin-creator | 角色圣经、批量队列、导演台、自动重试 | Elysium + Harness jobs | AGPL/商业许可门 |
+| waoowaoo | 持久执行、失败治理、计费审批、资源归属 | 网关治理/插件项目权限 | Elastic License，禁止直接服务化复刻 |
+| LocalMiniDrama | 本地隐私、镜头行、工作流组重跑 | 插件项目域 selection/rerun + UI | 不复制其本地状态缺陷 |
+| moyin-creator | 角色圣经、批量队列、导演台、自动重试 | 插件项目域 + Harness jobs | AGPL/商业许可门 |
 | Huobao Drama | prompts/skills 与工具分离、供应商 adapter | Harness Skill + 网关 adapter | CC BY-NC-SA，商业产品不可复制代码 |
 | Pixelle-Video | pipeline/processor/provider/model 分层、解说视频链路 | 可选内容模板 | 不当作连续短剧领域模型 |
 | FastMovieAI | 用户、积分、支付和运营后台 | 未来商业层 | 活跃度与供应链风险；非核心制作能力 |
 | MoneyPrinterTurbo | TTS、字幕、BGM、素材与合成 | 后期媒体服务 | 不具备角色/镜头状态，不当底座 |
 | BigBanana | 产品流程声明 | 仅作产品研究 | 源码不足且非商业许可 |
-| Novella | ProjectBlackboard、Hub-and-Spoke、音频工作室、插件 SDK | Elysium read model + Harness Agents | v0.0.1，宣传性能需实测 |
+| Novella | ProjectBlackboard、Hub-and-Spoke、音频工作室、插件 SDK | 插件 read model + Harness Agents | v0.0.1，宣传性能需实测 |
 | AI Video Production Editor | 3D 预演、连续性复审、返拍队列、调色与交付 | 后期高级能力 | GPL 分发义务；能力逐项实测 |
-| Story Claw | 角色阶段、跨章声线、VLM 首尾帧质检、断点续跑 | Elysium 状态与质量门 | 当前偏批处理，交互精修需重做 |
+| Story Claw | 角色阶段、跨章声线、VLM 首尾帧质检、断点续跑 | 插件项目状态与质量门 | 当前偏批处理，交互精修需重做 |
 
 ### 8.1 相对当前插件的逐项判断
 
@@ -350,14 +362,14 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 4. 中断、重试、取消、重复提交和恢复行为。
 5. 一条最小样片实测与产物检查。
 6. 能蒸馏的设计原则；禁止复制的代码/资产/prompt。
-7. 映射到 Elysium、Harness、网关或后期服务的唯一位置。
+7. 映射到当前插件项目域、Harness、网关或后期服务的唯一位置。
 8. 一个可自动验证的验收用例和一个失败用例。
 
 ## 10. 诚实边界
 
 - 已确认：Harness 与网关静态源码能力；当前插件宿主、客户端、画布、资产库、8 个 Skills、生产文档与脚本清单的静态执行契约。
 - 未验收：Harness Domain Storage 在数百镜头项目上的体积与延迟；网关进程重启和远端不确定提交的完整故障注入。
-- 未确认：规范中提到的独立 `dsh-elysium` 历史实现；当前磁盘没有找到该源码或 `~/.dsh/storages/elysium`。
+- 已确认：独立历史实现已不属于当前仓库；本文的目标实现只落在当前 `dsh-short-video-studio` 插件、Harness 与网关。`~/.dsh/storages/elysium` 仅作为计划中的运行时数据目录，当前尚未创建。
 - 开源项目表来自现有调研库存；正式集成前仍必须按第 9 节逐仓重新取证。
 
 ## 11. 证据
@@ -366,6 +378,6 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 - 当前插件客户端与画布：`lib/client.js`、`studio/app.js`、`lib/assets.js`。
 - 当前插件流程：`skills/*/SKILL.md`、`docs/ARCHITECTURE.md`、`docs/consistency-plan.md`、`docs/video-shape-contract.md`、`docs/shot-chain-continuity.md`、`docs/channel-delivery.md`。
 - 当前插件验证资产：`scripts/smoke-*`、`scripts/e2e-*`、`scripts/probe-*`、`scripts/bench-*`、`scripts/preview-*`。
-- Harness：本机 npm npx 缓存中的 `@deepseek-ai/* 0.1.0-rc.7` 类型契约和实现。
+- Harness：当前 `web` Profile 的 `dsh --dump-config`、`docs/audits/harness-capabilities.md`、`scripts/audit-harness.mjs`，以及本机已解析的 `@deepseek-ai/*` 包源码和 README；当前为 `0.1.2-rc.1` / `0.1.7-alpha.2` 混合组合。
 - 网关：`internal/core/gateway.go`、`internal/store/store.go`、`internal/task/poller.go`、`internal/provider/comfyui/executor.go`。
 - 开源项目库存：`docs/research/ai-short-drama-projects-comparison-2026-10-01.md`。
