@@ -5,14 +5,13 @@ import shots from './shots.js'
 import shotRevise from './shot-revise.js'
 import seconds from './seconds.js'
 import storyboard from './storyboard.js'
-import textShot from './text-shot.js'
 import imagePrompt from './image-prompt.js'
 import characterImage from './character-image.js'
 import sceneImage from './scene-image.js'
 import partImage from './part-image.js'
 import pencil from './pencil.js'
 
-const textInterfaces = { episode, outline, shots, 'shot-revise': shotRevise, seconds, 'text-shot': textShot, storyboard, 'image-prompt': imagePrompt }
+const textInterfaces = { episode, outline, shots, 'shot-revise': shotRevise, seconds, storyboard, 'image-prompt': imagePrompt }
 const imageInterfaces = { 'character-image': characterImage, 'scene-image': sceneImage, 'part-image': partImage, pencil }
 
 export function textInterface(stage) {

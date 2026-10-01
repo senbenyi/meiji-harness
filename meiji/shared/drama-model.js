@@ -49,7 +49,7 @@ export function targetNode(project, key) {
   if (kind === 'shot') return shot
   if (!id && /^S\d+$/.test(kind)) return project.shots?.items.find(item => item.id === kind)
   if (!id && /^[CE]\d+$/.test(kind)) return [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || [])].find(item => item.id === kind)
-  return shot?.[{ seconds: 'seconds', 'text-shot': 'storyboard', storyboard: 'storyboard', pencil: 'pencil', film: 'video', tailFrame: 'tailFrame' }[kind]]
+  return shot?.[{ seconds: 'seconds', storyboard: 'storyboard', pencil: 'pencil', film: 'video', tailFrame: 'tailFrame' }[kind]]
 }
 export function allNodes(project) {
   const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.shots, project.shots?.seconds, project.assembly]

@@ -1,4 +1,4 @@
-import { textShotFixture, storyboardFixture } from './fixtures/storyboard.js'
+import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -8,21 +8,19 @@ import { generateShotStoryboard } from '../server/generate/shot-text.js'
 import { prepareFilmOpening, filmSubmit, runOperation } from '../server/flow/operations/run.js'
 import { setContent } from '../shared/drama-model.js'
 
-test('storyboard gets episode and neighbor context without model metadata and strips continuity protocol', async () => {
+test('storyboard keeps only current seconds and associated identity data, and strips the protocol marker', async () => {
   const p = episodeFixture()
   p.plot.characters.items[0].draft = { text: 'SECRET_METADATA' }
   p.plot.characters.items[0].image.content = { localPath: '/plugins/meiji/asset-file?category=characters&id=person' }
-  let instructions, bindingInstructions
+  let instructions
   const rows = await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: text }) => {
     if (skill === 'review') return 'PASS'
-    if(skill==='text-shot'){instructions=text;return textShotFixture()}
-    bindingInstructions=text; return storyboardFixture(text)
+    instructions=text; return storyboardFixture(text)
   } })
-  assert.match(instructions, /本集摘要/)
-  assert.match(instructions, /## S01 \/ 5s/)
+  assert.doesNotMatch(instructions, /本集摘要|大纲|## S01 \/ 5s/)
   assert.match(instructions, /摄影机位于身后/)
   assert.doesNotMatch(instructions, /SECRET_METADATA/)
-  assert.match(bindingInstructions,/已通过文本镜头/);assert.equal(rows[1].openingReference, 'none')
+  assert.match(instructions,/本镜已通过每秒指令/);assert.equal(rows[1].openingReference, 'none')
   assert.match(rows[1].prompt.text,/subject_definitions/)
 })
 
@@ -33,7 +31,6 @@ test('stored tail is included across scene changes without uploading during gene
  p.shots.items[1].scene='新场景'
  const result=await generateShotStoryboard({project:p,shotId:'S02',request:async({ skill, user: text })=>{
   if(skill==='review')return 'PASS'
-  if(skill==='text-shot')return textShotFixture()
   assert.match(text,/<Picture 1> 上一镜 S01 尾帧/)
   assert.doesNotMatch(text,/tail-frame|version-last|base64/)
   return storyboardFixture(text)
@@ -46,7 +43,7 @@ test('stored tail is included across scene changes without uploading during gene
 test('first shot cannot request a previous tail even when the model asks for it', async () => {
   const p = episodeFixture()
   p.plot.characters.items[0].image.content = { localPath: '/plugins/meiji/asset-file?category=characters&id=person' }
-  const rows = await generateShotStoryboard({ project: p, shotId: 'S01', request: async ({ skill, user }) => skill === 'review' ? 'PASS' : skill==='text-shot'?textShotFixture():'[opening-reference: previous-tail]\n'+storyboardFixture(user) })
+  const rows = await generateShotStoryboard({ project: p, shotId: 'S01', request: async ({ skill, user }) => skill === 'review' ? 'PASS' : '[opening-reference: previous-tail]\n'+storyboardFixture(user) })
   assert.equal(rows[0].openingReference, 'none')
   assert.match(rows[0].prompt.text,/subject_definitions/)
 })

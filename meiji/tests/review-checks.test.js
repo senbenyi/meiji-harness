@@ -1,4 +1,4 @@
-import { textShotFixture, storyboardFixture } from './fixtures/storyboard.js'
+import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
@@ -122,7 +122,7 @@ test('storyboard regenerates all shots even when already passed', async t => {
  const calls=[]
  const deps={home:e.home,generateStoryboard:opts=>generateStoryboard({...opts,request:async ({ skill, user: prompt }) =>{
   if(skill==='review')return 'PASS'
-  if(skill==='text-shot'){calls.push(/仅为 (S\d+) 整理/.exec(prompt)[1]);return textShotFixture()}return storyboardFixture(prompt)
+  calls.push(/仅为 (S\d+) 将已通过的每秒指令/.exec(prompt)[1]);return storyboardFixture(prompt)
  }})}
  await runOperation(e.op('storyboard'),deps)
  assert.deepEqual(calls,['S01','S02'])

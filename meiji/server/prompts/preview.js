@@ -5,7 +5,7 @@ import { executionContext } from '../data/task-store.js'
 import { builtinSkill } from '../../skills/load.js'
 import { buildStoryPrompts } from './story-prompts.js'
 import { buildEpisodePrompts } from './episode-prompts.js'
-import { buildSecondsPrompts, buildSingleShotPrompts, buildStoryboardPrompts, buildTextShotPrompts, buildTablePrompts } from './shot-prompts.js'
+import { buildSecondsPrompts, buildSingleShotPrompts, buildStoryboardPrompts, buildTablePrompts } from './shot-prompts.js'
 import { buildTextPrompts } from './text-prompts.js'
 import { render } from './skill-prompts.js'
 import characterImage from './interfaces/character-image.js'
@@ -23,7 +23,6 @@ function textBuilder(stage, root, view, mode, nodeKey) {
   if (stage === 'shots' && view?.plot?.outline?.content) return () => buildTablePrompts({ project: view })
   if (stage === 'shot-revise' && shot) return () => buildSingleShotPrompts({ project: view, shotId: shot.id })
   if (stage === 'seconds' && shot) return () => buildSecondsPrompts({ project: view, shotId: shot.id })
-  if (stage === 'text-shot' && shot) return () => buildTextShotPrompts({ project: view, shotId: shot.id }, shot)
   if (stage === 'storyboard' && shot) return () => buildStoryboardPrompts({ project: view, shotId: shot.id }, { shot, video: mode, characters: shot.cast || [], scenes: shot.scene ? [shot.scene] : [], refs: mode === 'reference' ? '（参考图片列表由程序按本镜关联素材提供）' : '', images: [] })
   const instructions = stage === 'image-prompt' ? '原提示词：（人物或场景的原提示词）\n新要求：（人工填写的新要求）' : placeholder
   return () => buildTextPrompts({ skill: stage, project: view || root, instructions, reviewInstructions: instructions, mode, opinion: checkContext.getStore()?.review || '', modify: checkContext.getStore()?.generationMode === 'modify' })

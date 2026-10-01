@@ -2,6 +2,8 @@
 // task：{ skill: 阶段技能 ID, project, instructions, reviewInstructions, opinion, reviewContext, mode（文本分镜模式）, modify（按人工意见修改）}
 import { isSkill } from '../../skills/load.js'
 import { continuityReviewContext } from './continuity-review.js'
+import { storyboardContext } from './storyboard-context.js'
+import { shotReferenceImages } from '../../shared/reference-images.js'
 import { render, stageMeta } from './skill-prompts.js'
 import { textInterface } from './interfaces/registry.js'
 
@@ -34,8 +36,20 @@ export function buildTextPrompts(task) {
 export function buildEditedContentReview({ project, stage, shotId }, text) {
   const skill = isSkill(stage) ? stage : 'outline'
   const shot = project.shots?.items.find(item => item.id === shotId)
+  if (stage === 'storyboard' && shot) {
+    const board = shot.storyboard.content || {}
+    const images = shotReferenceImages(project, board)
+    const mode = board.video || (images.length ? 'reference' : 'text')
+    return buildReviewPrompt({ project, skill, shotId, mode,
+      instructions: storyboardContext({ project, shot, video: mode,
+        characters: board.characterIds || board.characters || shot.cast || [],
+        scenes: board.sceneIds || board.scenes || (shot.scene ? [shot.scene] : []),
+        refs: images.map((image, index) => `<Picture ${index + 1}> ${image.label || image.name || image.id || image.sourceShotId || '参考图'}`).join('\n'),
+        task: `只审核 ${shot.id} 已编辑的最终提示词是否忠实转写本镜每秒指令、正确绑定素材并符合输出结构，不生成或改写原文。` }),
+    }, text)
+  }
   return buildReviewPrompt({ project, skill,
-    instructions: `只审核已编辑原文，不生成或改写内容。\n审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}\n本集摘要：${project.summary.content}\n大纲：${project.plot.outline.content || ''}${['text-shot', 'storyboard'].includes(stage) && shot ? `\n【本镜已通过每秒指令】\n${shot?.seconds.content || ''}` : ''}`,
+    instructions: `只审核已编辑原文，不生成或改写内容。\n审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}\n本集摘要：${project.summary.content}\n大纲：${project.plot.outline.content || ''}`,
     reviewContext: continuityReviewContext(project, shotId),
   }, text)
 }

@@ -85,19 +85,6 @@ export const stageCatalog = [
     "constraintFile": "generate-seconds-instructions-skill.md"
   },
   {
-    "id": "text-shot",
-    "kind": "stage",
-    "label": "文本镜头",
-    "logLabel": "文本镜头",
-    "output": "text",
-    "panel": "storyboard",
-    "assetStages": [],
-    "fields": [],
-    "order": 6,
-    "fixedConstraints": true,
-    "constraintFile": "generate-text-shot-skill.md"
-  },
-  {
     "id": "storyboard",
     "kind": "stage",
     "label": "多模态引用编排",

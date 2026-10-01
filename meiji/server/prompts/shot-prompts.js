@@ -1,7 +1,7 @@
 import { checkReasons } from '../data/review-checks.js'
 import { checkContext } from '../data/operation-context.js'
 import { shotResults } from '../../shared/drama-model.js'
-import { continuityReviewContext } from './continuity-review.js'
+import { storyboardContext } from './storyboard-context.js'
 import { buildTextPrompts } from './text-prompts.js'
 
 export function shotContext(project, shotId) {
@@ -27,18 +27,16 @@ function body(shot) { return shot?.content || '' }
 export function buildShotPrompts(skill, instructions, options) {
   const ctx = checkContext.getStore()
   const original = ctx?.originalProject || options.project
-  const action = { shots: 'shots', 'shot-revise': 'revise-shot', seconds: 'shot-seconds', storyboard: 'shot-storyboard', 'text-shot': 'shot-storyboard' }[skill]
+  const action = { shots: 'shots', 'shot-revise': 'revise-shot', seconds: 'shot-seconds', storyboard: 'shot-storyboard' }[skill]
   const opinion = ctx?.generationMode === 'regenerate' ? '' : [...new Set([options.review, ctx?.review, ...checkReasons(original, { action, track: options.shotId })].filter(Boolean))].join('\n')
   const shot = original.shots?.items?.find(item => item.id === options.shotId)
   const board = shotResults(original, 'storyboard')?.find(item => item.id === options.shotId)
   const previous = skill === 'seconds' ? shot?.seconds.content
-    : skill === 'text-shot' ? board?.textShot
     : skill === 'storyboard' ? (board?.prompt?.text || (board?.prompt ? JSON.stringify(board.prompt) : ''))
     : action === 'shots' ? original.shots?.items.map(item => `## ${item.id} / ${item.duration}s\n${body(item)}`).join('\n\n') : body(shot)
   return buildTextPrompts({ skill, project: options.project, shotId: options.shotId, opinion, mode: options.mode || '', modify: Boolean(previous && opinion),
     instructions, baseContent: previous && opinion ? previous : '',
     reviewInstructions: instructions,
-    reviewContext: action === 'shot-storyboard' && skill !== 'storyboard' ? continuityReviewContext(options.project, options.shotId, options.reviewReferences) : '',
   })
 }
 
@@ -60,44 +58,14 @@ export function buildSecondsPrompts(options) {
   return buildShotPrompts('seconds', `${shotContext(project, shotId)}\n【本次任务】\n只为 ${shotId} 生成 0–${shot.duration}s 的时间线。\n镜头原文：${body(shot)}\n自由文本分段写时间、动作、摄影机、空间、声音及交接，不输出 JSON。镜头表起始状态对应0秒，结束状态只在本镜最后时点达成；每段交接只记录截至该段结束已完成的动作与持物状态。`, options)
 }
 
-export function buildTextShotPrompts(options, shot) {
-  return buildShotPrompts('text-shot', `${shotContext(options.project, options.shotId)}\n【本次任务】\n仅为 ${shot.id} 整理 ${shot.duration}s 的独立文本镜头，完整保留已通过每秒指令的时间线，不处理图片引用。\n【上游事实：本镜镜头表，起始状态对应0秒，末态对应结束】\n${body(shot)}\n【上游事实：本镜已通过每秒指令】\n${shot.seconds.content || ''}`, options)
-}
-
 // 引用编排直接以已通过的每秒指令为唯一时间线来源（不再经过独立的文本镜头转写），
-// 只补充本镜实际关联的人物/场景卡和镜头表起止状态，供主体定义与空间基准使用。
+// 只提供本镜关联资料与固定素材清单，不再次审核整集剧情与前镜最终稿。
 export function storyboardSource(shot) {
   return String(shot?.seconds?.content || '').trim()
 }
 
-function boundCards(project, characters, scenes) {
-  const pick = (cards, names) => (cards || []).filter(card => names.includes(card.name) || names.includes(card.id))
-  const keys = ['id', 'name', 'description', 'identity', 'landmark', 'light', 'space', 'look']
-  const clean = card => Object.fromEntries(keys.filter(key => card[key] != null && card[key] !== '').map(key => [key, card[key]]))
-  return [...pick(project.plot?.characters?.items, characters), ...pick(project.plot?.scenes?.items, scenes)].map(clean)
-}
-
-export function buildStoryboardPrompts(options, { shot, video, characters, scenes, refs, images }) {
-  const { project, shotId } = options
-  const cards = boundCards(project, characters, scenes)
-  return buildShotPrompts('storyboard', [
-    '【本次任务】',
-    `仅为 ${shotId} 将已通过的每秒指令直接编排为时长 ${shot.duration}s 的最终视频提示词，不输出其他镜头。`,
-    '【上游事实：本镜镜头表，起始状态对应0秒，末态对应结束】',
-    body(shot),
-    '【上游事实：本镜已通过每秒指令（唯一时间线来源）】',
-    storyboardSource(shot) || '（每秒指令通过后由程序提供）',
-    '【每秒指令转写规则】',
-    '每段的动作、镜头、空间、声音全部进入最终正文：动作与镜头写入对应时段的 detailed_description（或 integrated_multimodal_description），机位侧别、距离、高度、景别及其变化、画面左右与前中后景按原文保留，不改写为其他机位，不补每秒指令与场景资料都没有的光向，不在背面或远景机位补写看不到的面部细节。各段「交接」是写给下一段的衔接备注，不作为独立内容输出；中间段的交接只用于核对承接，最后一段的交接写成本镜结尾状态。删除“为下一镜做衔接”“机位准备切换”等流程说明。环境底声与持续声汇总到 overall_soundscape，与动作同步的声响留在对应时段；原文没有配乐时 non_diegetic_music 写 N/A。',
-    cards.length ? `【上游事实：本镜关联的人物与场景资料】\n${JSON.stringify(cards)}` : '',
-    '【程序确定的素材与模式】',
-    `视频模式由程序确定：${video}。`,
-    `程序关联角色：${characters.join('、') || '未关联'}`,
-    `关联场景：${scenes.join('、') || '未关联'}`,
-    '参考图片（固定顺序，仅使用此列表，不引用其他资产）：',
-    refs || '无',
-    '参考人像只锁定身份和外形，不能作为首帧或改变已通过的动作、景别与姿态。尾帧在清单中时只引用相容的衔接状态，不重演前镜。首行统一写 [opening-reference: none]；图片已纳入固定列表，提交时不追加。只转换表达结构与引用，禁止改变时间线或新增剧情。',
-  ].filter(Boolean).join('\n'), { ...options, mode: video, reviewReferences: images })
+export function buildStoryboardPrompts(options, { shot, video, characters, scenes, refs }) {
+  return buildShotPrompts('storyboard', storyboardContext({ project: options.project, shot, video, characters, scenes, refs }), { ...options, mode: video })
 }
 
 export function buildAllSecondsPrompts(options, upstream) {

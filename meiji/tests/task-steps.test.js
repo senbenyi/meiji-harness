@@ -14,11 +14,11 @@ import { runOperation } from '../server/flow/operations/run.js'
 import { definitions, planSteps, validateOperation } from '../server/flow/operations/registry.js'
 import { createTasks } from '../server/flow/tasks/runner.js'
 import { generateAllSeconds, generateShotStoryboard, generateShots, generateStoryboard } from '../server/generate/shot-text.js'
-import { textShotFixture, storyboardFixture } from './fixtures/storyboard.js'
+import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel, tempHome } from './fixtures/model.js'
 
 const step = (status, extra = {}) => ({ kind: 'generate', target: 'summary', status, verdict: null, reasons: [], ...extra })
-const reply = (text, verdict = 'PASS') => async ({ skill, user }) => skill === 'review' ? verdict : skill === 'text-shot' ? textShotFixture() : skill === 'storyboard' ? storyboardFixture(user) : text
+const reply = (text, verdict = 'PASS') => async ({ skill, user }) => skill === 'review' ? verdict : skill === 'storyboard' ? storyboardFixture(user) : text
 const prompt = 'integrated_multimodal_description: 旅人朝北进入庭院，摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A'
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 let submitted = 0
@@ -109,7 +109,7 @@ test('produce-all is one task: each shot runs only the steps it needs, in order'
   assert.ok(task.steps.every(item => !item.unplanned))
   assert.deepEqual(task.steps.filter(item => item.status === 'completed').map(item => `${item.kind}:${item.target}`),
     // S01 成片后抽出尾帧，S02 的文本分镜按新尾帧重写后再提交。
-    ['generate:storyboard:S01', 'review:storyboard:S01', 'generate:storyboard:S01', 'review:storyboard:S01', 'video_submit:film:S01', 'video_generate:film:S01', 'tail_frame:film:S01', 'generate:storyboard:S02', 'review:storyboard:S02', 'generate:storyboard:S02', 'review:storyboard:S02', 'video_submit:film:S02', 'video_generate:film:S02', 'tail_frame:film:S02'])
+    ['generate:storyboard:S01', 'review:storyboard:S01', 'video_submit:film:S01', 'video_generate:film:S01', 'tail_frame:film:S01', 'generate:storyboard:S02', 'review:storyboard:S02', 'video_submit:film:S02', 'video_generate:film:S02', 'tail_frame:film:S02'])
   const remote = task.steps.filter(item => item.kind === 'video_generate').map(item => item.remoteId)
   assert.equal(new Set(remote).size, 2); assert.ok(remote.every(id => /^remote-\d+$/.test(id)))
   // 子操作的步骤各有作用域，互不混淆。
