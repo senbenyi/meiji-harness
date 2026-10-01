@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 已完成 configure-harness.sh 配置后的日常重启：直接使用当前源码和 skill。
-# 启动命令 bash /Users/devin/meiji/llm-dsh-plugins/restart-harness.sh
+# 启动命令 bash /Users/tom/Documents/jileshijie/llm-dsh-plugins/restart-harness.sh
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd -P)"
