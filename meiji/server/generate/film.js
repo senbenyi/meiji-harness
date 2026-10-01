@@ -10,6 +10,7 @@ export function h3PromptFailures(prompt, images = [], mode = images.length ? 're
     ? ['subject_definitions', 'summary', 'retention_analysis', 'detailed_description', 'overall_soundscape', 'non_diegetic_music']
     : ['integrated_multimodal_description', 'overall_soundscape', 'non_diegetic_music']
   const failures = []
+  if (/<(?:Subject|Picture)\s+N\d+>/i.test(text)) failures.push('引用编号必须写 <Subject 1>、<Picture 1>，空格后直接为整数，不能写 <Subject N1> 或 <Picture N1>')
   const marks = fields.map(field => new RegExp(`(?:^|\\n)\\s*${field}\\s*:`, 'i').exec(text))
   if (marks.some((mark, i) => !mark || (i && mark.index <= marks[i - 1]?.index))) {
     failures.push(`H3 ${mode} 提示词必须按顺序包含 ${fields.join('、')}`)
@@ -20,6 +21,7 @@ export function h3PromptFailures(prompt, images = [], mode = images.length ? 're
   if (mode === 'reference') {
     if (pictures.some(n => n < 1 || n > images.length) || images.some((_, i) => !pictures.includes(i + 1))) failures.push('参考图片编号与提交素材不一致，所有素材必须按顺序绑定')
     const definitions = text.slice(0, marks[1].index)
+    for (let i = 1; i <= images.length; i++) if (!new RegExp(`<Picture\\s+${i}>`).test(definitions)) failures.push(`Picture ${i} 未在 subject_definitions 中绑定主体`)
     const body = text.slice(marks[3].index, marks[4].index)
     const defined = new Set([...definitions.matchAll(/<Subject\s+(\d+)>/g)].map(m => m[1]))
     const used = [...body.matchAll(/<Subject\s+(\d+)>/g)].map(m => m[1])

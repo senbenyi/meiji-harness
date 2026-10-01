@@ -6,6 +6,7 @@ import { decorateShotCard } from './shot-card-state.js'
 import { shotResults, shotMap } from '../shared/drama-model.js'
 import { storyboardReferences } from './storyboard-references.js'
 import { storyboardEditor } from './storyboard-editor.js'
+import { textShotView } from './text-shot-view.js'
 import { skillField } from './skill-entry.js'
 import { appendWorkflowReview, reviewFields } from './workflow-review.js'
 import { shotReferenceImages } from '../shared/reference-images.js'
@@ -129,7 +130,6 @@ function renderBrief(project, actions) {
 
 function storyNodeActions(project, actions, stage) {
   const row = element('div', '', 'story-node-actions')
-  if (actions.openHistory) row.append(historyEntry(project, actions, stage))
   row.append(skillField(project, stage, actions).querySelector('button'))
   return row
 }
@@ -220,7 +220,9 @@ function renderScenes(project, actions, context) {
   const hint = element('p', hasScenes(project) ? '' : gateMessage(project, 'scenes'), 'hint')
   hint.hidden = !hint.textContent
   view.append(hint)
-  for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { onOpen: id => context.onOpenScene?.(project.episodeId, id) })) view.append(node)
+  const list = element('div', '', 'scene-list')
+  for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { onOpen: id => context.onOpenScene?.(project.episodeId, id) })) (node.tagName === 'DIALOG' || node.tagName === 'INPUT' ? view : list).append(node)
+  view.append(list)
   if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部生成剧情，依次完成大纲、人物提取和场景提取。', 'meta'))
   return view
 }
@@ -386,6 +388,7 @@ function paintBoards(view, project, actions) {
     card.dataset.modelKey = `shot:${shot.id}`
     card.append(element('h3', shotHeading(shot)))
     if (story) field(card, '视频生成模式', videoModeLabel(story))
+    if (story?.textShot) card.append(textShotView(project, story, actions))
     if (story && hasBoardPrompt(story)) {
       card.append(storyboardEditor(project, story, promptText(story.prompt), actions))
       const prompt = element('p', requestLines(project, shot, story), 'prompt full')
@@ -473,6 +476,7 @@ function renderFilm(project, actions, context) {
     storySection.append(storyHead)
     card.append(storySection)
     const story = shot.storyboard.content
+    if (story?.textShot) storySection.append(textShotView(project, { ...story, id: shot.id }, actions))
     if (story?.prompt) {
       storySection.append(storyboardEditor(project, { ...story, id: shot.id }, promptText(story.prompt), actions))
       storySection.append(element('p', promptText(story.prompt), 'prompt full'), storyboardReferences(project, { ...story, id: shot.id }))
@@ -514,6 +518,7 @@ function renderFilm(project, actions, context) {
     retry.setAttribute('aria-label', retry.textContent)
     card.append(videoReview)
     decorateShotCard(card, shot.storyboard, shot.id, project.shots.items[0].id === shot.id)
+    if (actions.openHistory) card.querySelector('.shot-head').append(historyEntry(project, actions, `film:${shot.id}`))
     view.append(card)
   }
   return view
@@ -579,7 +584,7 @@ const renderers = {
 export function renderStage(step, project, actions, context) {
   const view = (renderers[step] || renderers.script)(project, actions, context)
   const toolbar = element('div', '', 'stage-history-toolbar')
-  if (actions.openHistory) toolbar.append(historyEntry(project, actions, step))
+  if (actions.openHistory && step !== 'film') toolbar.append(historyEntry(project, actions, step))
   for (const field of view.querySelectorAll('.custom-skill-field')) {
     const button = field.querySelector('button')
     button.dataset.label = step === 'film' ? (button.dataset.skill === 'storyboard' ? '分镜 skill' : '成片 skill') : '查看 skill'
@@ -676,6 +681,7 @@ export function renderShotPage(project, shot, actions, context = {}) {
       head.append(aiButton(actions, activity === `shot-storyboard:${shot.id}`, secondsReady && !activity, () => actions.perform(project, 'shot-storyboard', { track: shot.id, ...reviewFields(pane) })))
       pane.append(head)
       if (story) {
+        if (story.textShot) pane.append(textShotView(project, story, actions))
         field(pane, '标题', story.title)
         field(pane, '视频生成模式', videoModeLabel(story))
         field(pane, '场景与角色', `${story.scene || ''}｜${(story.characters || []).join('、')}`)

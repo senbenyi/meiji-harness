@@ -10,12 +10,15 @@ import { projectStore } from '../../data/projects.js'
 import { materialize } from '../../data/episodes.js'
 
 const text = target => ['generate', 'review', 'revise', 're_review'].map(kind => ({ kind, target }))
-const video = track => [{ kind: 'video_submit', target: `film:${track}` }, { kind: 'video_generate', target: `film:${track}` }]
+const binding = track => text(`storyboard:${track}`).map(step => ({ ...step, phase: 'reference-binding', label: `引用编排·${({ generate: '生成', review: '自审', revise: '修订', re_review: '复审' })[step.kind]}` }))
+// 文本分镜 = 以已通过每秒指令直接编排多模态引用（不再单独生成文本镜头）。
+const storyboard = track => binding(track)
+const video = track => ['video_submit', 'video_generate', 'tail_frame'].map(kind => ({ kind, target: `film:${track}` }))
 const shotIds = project => (project?.shots?.items || []).map(shot => shot.id)
 const edit = target => [{ kind: 'save', target }, { kind: 'review', target }]
 const save = target => op => ({ kind: 'save', target: typeof target === 'function' ? target(op) : target })
-// 单镜制作步骤：文本分镜（生成、自审、需要时修订与复审）→ 提交视频 → 生成视频。单镜与逐镜成片共用。
-export const shotPlan = track => [...text(`storyboard:${track}`), ...video(track)]
+// 单镜制作步骤：文本分镜 → 提交视频 → 生成视频 → 提取尾帧。单镜与逐镜成片共用。
+export const shotPlan = track => [...storyboard(track), ...video(track)]
 const image = target => ['image_generate', 'image_download', 'image_save'].map(kind => ({ kind, target }))
 const imagePlan = (_project, op) => image(`image:${op.itemId}`)
 
@@ -43,9 +46,10 @@ export const definitions = {
   'revise-shot': { label: '按审核意见重写镜头', scope: 'shot', queue: 'text', agent: true, plan: () => text('shots') },
   seconds: { label: '生成每秒指令', scope: 'episode', queue: 'text', agent: true, plan: () => text('seconds') },
   'shot-seconds': { label: '生成每秒指令', scope: 'shot', queue: 'text', agent: true, plan: () => text('seconds') },
-  'shot-storyboard': { label: '生成这一镜的分镜', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => text(`storyboard:${op.track}`) },
-  storyboard: { label: '生成全部分镜表', scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(id => text(`storyboard:${id}`)) },
-  'shot-boards': { label: '生成所有分镜', scope: 'episode', queue: 'text', agent: true, plan: project => [...text('seconds'), ...shotIds(project).flatMap(id => text(`storyboard:${id}`))] },
+  'shot-storyboard': { label: '生成这一镜的分镜', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => storyboard(op.track) },
+  'storyboard-bind': { label: '重新编排引用', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => binding(op.track) },
+  storyboard: { label: '生成全部分镜表', scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(storyboard) },
+  'shot-boards': { label: '生成所有分镜', scope: 'episode', queue: 'text', agent: true, plan: project => [...text('seconds'), ...shotIds(project).flatMap(storyboard)] },
   pencil: { label: '生成铅笔分镜', scope: 'shot', queue: 'image', agent: true, plan: (_, op) => image(`pencil:${op.track}`) },
   image: { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },
   'revise-image': { label: '按新需求重绘图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },

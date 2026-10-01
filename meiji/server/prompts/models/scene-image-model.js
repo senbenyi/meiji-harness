@@ -7,7 +7,7 @@ const sceneFields = [
 
 /**
  * 可序列化场景图 model。scene 为最新场景卡五项资料；generationRules 为调用方读取的
- * generate-scene-image.md 或已保存覆盖正文；additionalInstructions 为本剧补充。
+ * generate-scene-image-skill.md 或已保存覆盖正文；additionalInstructions 为本剧补充。
  * canvas 为自定义正整数像素；mode 为 generate/reference/modify。
  * images 按提交顺序使用 { purpose: 'edit-base'|'scene-reference', base64: data URL }。
  * modification: { instruction, preserveUnspecified } 仅用于场景资料之外的画面修改。
@@ -62,10 +62,10 @@ export function sceneImageModelSegments(model) {
   const facts = sceneFields.filter(([key]) => normalized.scene[key])
     .map(([key, label]) => `${label}：${normalized.scene[key]}`).join('\n')
   const task = normalized.mode === 'modify'
-    ? '以输入图片1为原图，执行本次修改意见。'
+    ? '根据下方最新场景资料，以输入图片1为原图，按本次修改意见调整画面并返回一张场景参考图。'
     : normalized.mode === 'reference'
-      ? '根据场景资料、参考图片与生成规则，生成一张场景参考图。'
-      : '根据场景资料与生成规则，生成一张场景参考图。'
+      ? '根据下方场景资料，结合输入参考图片设计一张场景参考图。遵守下方生成规则及补充要求。'
+      : '根据下方场景资料设计一张场景参考图。遵守下方生成规则及补充要求。'
   const references = normalized.images.map((image, index) => `输入图片${index + 1}：${image.purpose === 'edit-base' ? '本次编辑原图，作为未修改内容的依据。' : '场景空间与环境参考，地标、光位和布局以最新场景资料为准。'}`).join('\n')
   return [
     segment('context', '【角色与职责】', `你是一名${normalized.role}，负责保持场景地标、空间布局与光位一致，并按本次要求设计或修改无人场景参考图。`),
@@ -81,6 +81,7 @@ export function sceneImageModelSegments(model) {
       '始终按最新场景资料成图；原图与参考图不能覆盖最新资料。场景资料有变化时直接使用新资料，不从原图恢复旧资料。\n意见仅用于场景资料之外的画面调整；资料中的地标、光位、空间与画面要求以最新值为准。',
       normalized.modification.preserveUnspecified ? '在满足最新场景资料、生成规则、本剧补充与画幅的前提下，保留原图中未被意见涉及的内容。' : '',
     ].filter(Boolean).join('\n') : ''),
+    segment('protocol', '【输出要求】', '只输出一张图片，不输出解释或审核文字。'),
   ]
 }
 

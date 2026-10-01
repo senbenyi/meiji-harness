@@ -1,5 +1,7 @@
 # 任务与步骤
 
+文本分镜任务包含「文本镜头」与「引用编排」两阶段，各自生成、自审、必要时修订和复审；步骤 `phase` 区分同一目标的阶段，历史显示对应名称和实际提示词。文字通过后才能编排引用，失败保留文字与失败稿；独立引用操作不改已通过文字。
+
 执行模型只有一条：**操作 → 任务 → 步骤 → 内容节点**。
 
 | 概念 | 是什么 | 状态 | 状态由谁决定 | 位置 |
@@ -44,11 +46,11 @@
 | save | 人工编辑的保存 |
 | check | 保存时的内容校验不通过（如时长不符），只记结论 |
 | override | 人工忽略自审 |
-| video_submit / video_generate | 提交成片（参考图读取本地文件转为 base64）/ 等待远端并保存成片与尾帧；`remoteId` 为远端任务编号 |
+| video_submit / video_generate | 提交成片（参考图读取本地文件转为 base64）/ 等待远端并保存视频；`remoteId` 为远端任务编号 |
 | image_generate | 调用图片 API（人物、场景、部件、铅笔分镜） |
 | image_download | 下载网关响应 URL 的图片并转为 Base64 |
 | image_save | 图片处理、保存候选图片并登记到项目，等待人工确认 |
-| tail_frame / assemble / confirm / execute | 重新处理尾帧 / 全片拼接 / 确认或放弃候选图片 / 其他操作整体 |
+| tail_frame / assemble / confirm / execute | 视频保存后自动提取尾帧（失败保留视频，可单独重试）/ 全片拼接 / 确认或放弃候选图片 / 其他操作整体 |
 | checkpoint | 人工关卡（预留） |
 
 - `target`：写入的内容，如 `summary`、`story`、`shots`、`seconds`、`storyboard:S01`、`film:S01`、`image:C01`。
@@ -180,7 +182,7 @@
 
 技能三层：内置（`skills/`）→ 基础（面板修改，`storages/meiji/skills/<id>.json`，按字段替换内置，对所有剧生效）→ 本剧（项目索引 `skills`，追加）。任务开始执行时（`startExecution`）用 `loadSkillSet` 固定一份组合，嵌套子操作沿用；同一任务的生成、审核、修订使用同一版本，进行中的任务不受中途修改影响。任务记录写入 `skills: [{ id, layers, hash }]`（`layers` 含 `builtin`，修改过为 `base`，有本剧补充为 `project`），任务历史显示所用技能。
 
-固定约束例外：人物图通过 `fixedConstraints: true` 读取 `skills/constraints/character-image.md`，其 `fields: []`，不再有可编辑 generate 字段，也不应用旧基础覆盖或本剧补充。固定文本纳入任务快照和内容哈希，页面/API 只读；空文件表示不注入固定约束，不使用代码默认值。其他阶段暂不变。
+固定约束例外：人物图通过 `fixedConstraints: true` 读取 `skills/task/generate-character-image-skill.md`，其 `fields: []`，不再有可编辑 generate 字段，也不应用旧基础覆盖或本剧补充。固定文本纳入任务快照和内容哈希，页面/API 只读；空文件表示不注入固定约束，不使用代码默认值。所有功能均按单一只读基础生产规则管理，生成与审核共用，修订由 Model 增加基稿及意见。
 
 面板接口（只接受同源请求，会话 agent 无对应工具）：`GET /skills`、`GET /skills/<id>`、`PUT /skills/<id>`（须 `confirm: true`）、`POST /skills/<id>/reset`、`POST /skills/<id>/preview`、`PUT /project-skills`、`PUT /project-guidance`。生成和修订剧情资料用 JSON 输出，镜头表与每秒指令用自由文本，审核用 PASS/FAIL。
 

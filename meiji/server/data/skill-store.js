@@ -15,6 +15,7 @@ const badRequest = message => Object.assign(new Error(message), { status: 400 })
 
 // 可编辑的字段：阶段技能 common/generate/review/revise（协议只读）；指导技能 common/review/各阶段；共享模块 text。
 export function editableFields(skill) {
+  if (skill.fixedConstraints) return []
   if (skill.kind === 'stage') return skill.fields.filter(field => editableParts.includes(field))
   return [...skill.fields]
 }
@@ -64,7 +65,7 @@ export function skillStore(home) {
   return {
     async list() {
       const overrides = await readAllOverrides(home)
-      return builtinSkills().map(skill => mergeBase(skill, overrides.get(skill.id)))
+      return builtinSkills().filter(skill => !skill.codeOnly).map(skill => mergeBase(skill, overrides.get(skill.id)))
     },
     async get(id) {
       if (!isSkill(id)) throw Object.assign(new Error('技能不存在'), { status: 404 })
@@ -189,7 +190,7 @@ function buildSkillSet(overrides, projectValue) {
   const project = projectSkills(projectValue)
   for (const skill of builtinSkills()) {
     const merged = mergeBase(skill, overrides.get(skill.id))
-    skills[skill.id] = { parts: merged.parts, layers: merged.layers, ...(skill.fixedConstraints ? { constraints: skill.constraints } : {}) }
+    skills[skill.id] = { parts: merged.parts, layers: merged.layers, ...(skill.fixedConstraints ? { constraints: skill.constraints, rules: skill.rules } : {}) }
     if (skill.fixedConstraints && !editableFields(skill).length) delete project.additions[skill.id]
   }
   return { skills, project }

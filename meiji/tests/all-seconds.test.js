@@ -203,3 +203,43 @@ test('truncated automatic revision continues its own latest draft and receives a
  assert.equal(generations,3);assert.equal(reviews,2)
  assert.equal(p.items[1].seconds.content,'0–5s 第二镜修好')
 })
+
+
+test('numbered failures stay on affected shots and appear only once in whole revision', async t => {
+ const e=await environment(t)
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?'FAIL S01：动作重复':output})}),/动作重复/)
+ const project=await e.read()
+ assert.equal(project.shots.items[0].seconds.check.passed,false)
+ assert.equal(project.shots.items[1].seconds.check.passed,true)
+ const { checkReasons }=await import('../server/data/review-checks.js')
+ assert.deepEqual(checkReasons(project,{action:'seconds'}),['FAIL S01：动作重复'])
+})
+
+
+test('multiline feedback retains evidence inside its targeted issue',async()=>{
+ const { scopedCheck, uniqueFeedback }=await import('../shared/feedback.js')
+ const issue='FAIL\nS01：动作重复\n原文：再起身\n修正：保持站立'
+ assert.deepEqual(uniqueFeedback([issue,issue]),[issue])
+ assert.equal(scopedCheck({passed:false,failures:[issue]},'S02').passed,true)
+ assert.deepEqual(scopedCheck({passed:false,failures:[issue]},'S01').failures,[issue])
+})
+
+
+test('resolved shot failures do not survive in the whole episode feedback',async()=>{
+ const { feedbackOf }=await import('../shared/feedback.js')
+ const project=episodeFixture()
+ project.shots.seconds.check={passed:false,failures:['FAIL S01：旧问题']}
+ project.shots.items.forEach(shot=>{shot.seconds.check={passed:true,failures:[]}})
+ assert.equal(feedbackOf(project,'seconds').check.passed,true)
+ assert.deepEqual(feedbackOf(project,'seconds').check.failures,[])
+})
+
+
+test('a new local failure replaces stale whole episode failure when collecting opinions',async()=>{
+ const { feedbackOf }=await import('../shared/feedback.js')
+ const project=episodeFixture()
+ project.shots.seconds.check={passed:false,failures:['FAIL S01：旧问题']}
+ project.shots.items[0].seconds.check={passed:true,failures:[]}
+ project.shots.items[1].seconds.check={passed:false,failures:['新问题']}
+ assert.deepEqual(feedbackOf(project,'seconds').check.failures,['S02：新问题'])
+})

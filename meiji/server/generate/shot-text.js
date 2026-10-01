@@ -1,6 +1,8 @@
+import { h3PromptFailures } from './film.js'
+import { scopedCheck } from '../../shared/feedback.js'
 import { previousTail, tailFrameUrl } from '../../shared/tail-frame.js'
 import { runTextSteps } from './text-steps.js'
-import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildStoryboardPrompts, buildAllSecondsPrompts } from '../prompts/shot-prompts.js'
+import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildStoryboardPrompts, buildAllSecondsPrompts, storyboardSource } from '../prompts/shot-prompts.js'
 import { node, shotModel, setContent, shotResults, updateShotResults } from '../../shared/drama-model.js'
 import { selectCheck } from '../data/review-checks.js'
 import { checkContext } from '../data/operation-context.js'
@@ -53,6 +55,10 @@ async function completeSeconds(text, message, options) {
 export async function generateShots(options) {
   const { project, persist } = options
   const original = checkContext.getStore()?.originalProject || project
+  const timingFailures = text => {
+    const total = readShotSections(text).reduce((sum, shot) => sum + shot.duration, 0)
+    return Math.abs(total - project.durationSeconds) > 10 ? [`镜头总时长 ${total}s，与目标 ${project.durationSeconds}s 相差超过10秒`] : []
+  }
   const normalize = (text, check, reviewText = '') => {
     let items = []
     const failures = [...check.failures]
@@ -61,13 +67,12 @@ export async function generateShots(options) {
         const previous = original.shots?.items?.find(shot => shot.id === item.id && shot.duration === item.duration && body(shot) === item.content)
         return previous ? { ...previous, ...item, cast: previous.cast || [], scene: previous.scene || '' } : item
       })
-      const total = items.reduce((sum, item) => sum + item.duration, 0)
-      if (Math.abs(total - project.durationSeconds) > 10) failures.push(`镜头总时长 ${total}s，与目标 ${project.durationSeconds}s 相差超过10秒`)
+      failures.push(...timingFailures(text).filter(reason => !failures.includes(reason)))
     } catch (error) { failures.push(error.message) }
     // 保存失败原文，不自动重试或把格式错误交给剧情重写循环。
     return { ...node('shots'), revision: project.shots.revision + 1, items, failedOutput: items.length ? '' : text, reviewText, format: 'text', check: { passed: failures.length ? false : check.passed, failures } }
   }
-  const result = await runTextSteps({ target: 'shots', prompts: buildTablePrompts(options), options, validate: readShotSections, persist: persist && ((text, check) => persist(normalize(text, check))), canRevise: text => { try { readShotSections(text); return true } catch { return false } } })
+  const result = await runTextSteps({ target: 'shots', prompts: buildTablePrompts(options), options, validate: readShotSections, check: timingFailures, retainFailedDraft: true, persist: persist && ((text, check) => persist(normalize(text, check))), canRevise: text => { try { readShotSections(text); return true } catch { return false } } })
   const shots = normalize(result.text, result.check, result.reviewText)
   const failures = shots.check.failures
   if (persist) {
@@ -102,7 +107,7 @@ export async function generateAllSeconds(options) {
   const result = await runTextSteps({ target: 'seconds', prompts: buildAllSecondsPrompts(options, upstream), options, validate: parse, complete: completeSeconds,
     persist: async (text, check) => {
       const sections = parse(text)
-      const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), text, check), items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i].content, check) })) }
+      const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), text, check), items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i].content, scopedCheck(check, shot.id)) })) }
       project = options.persist ? await options.persist(shots, 'draft') : { ...project, shots }
     },
   })
@@ -118,29 +123,45 @@ export async function generateShotSeconds(options) {
   return { ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, seconds: setContent(structuredClone(item.seconds), result.text, result.check) } : item) }
 }
 
+// 每秒指令已具备动作、镜头、空间、声音与交接五要素，引用编排直接以其为时间线来源：
+// 不再生成独立文本镜头，省去一轮转写及其自审（转写曾丢失机位与空间信息）。
+export function matchCards(cards, selected, source) {
+  if (selected?.length) return cards.filter(card => selected.includes(card.id) || selected.includes(card.name))
+  const mentions = card => (card.name && source.includes(card.name)) || (card.id && new RegExp(`(^|[^A-Za-z0-9])${card.id}(?![0-9])`).test(source))
+  return cards.filter(mentions)
+}
+
 export async function generateShotStoryboard(options) {
   const { project, shotId } = options
   const shot = project.shots.items.find(item => item.id === shotId)
   if (!shot || !shotSecondsReady(shot)) throw Object.assign(new Error('请先生成这一镜的每秒指令'), { status: 409 })
-  const source = `${body(shot)}\n${shot.seconds.content || ''}`
-  const characters = shot.cast?.length ? [...shot.cast] : [...new Set([ ...(project.plot.characters?.items || []).filter(person => person.name && source.includes(person.name)).map(person => person.name)])]
-  const scenes = shot.scene ? [shot.scene] : [...new Set([ ...(project.plot.scenes?.items || []).filter(scene => scene.name && source.includes(scene.name)).map(scene => scene.name)])]
+  const byId = new Map(shotResults(project, 'storyboard').map(item => [item.id, item]))
+  let item = { id: shotId, duration: shot.duration, title: shotId, format: 'text', secondsRevision: shot.seconds.revision, prompt: { text: '' } }
+  const publish = async (next, check) => {
+    item = { ...item, ...next }
+    byId.set(shotId, item)
+    if (options.persistDraft) await options.persistDraft([...byId.values()], check)
+  }
+  // 优先使用镜头上明确选择的卡片 ID/名称；未选择时只按本镜镜头表与每秒指令中的完整名称或 ID 匹配。
+  const source = `${shot.content || ''}\n${storyboardSource(shot)}`
+  const people = matchCards(project.plot.characters?.items || [], shot.cast, source)
+  const places = matchCards(project.plot.scenes?.items || [], shot.scene ? [shot.scene] : [], source)
+  const characters = people.map(card => card.name), scenes = places.map(card => card.name)
   const images = shotReferenceImages(project, { ...shot, characters, scenes })
   const tail = previousTail(project, shotId)
   if (tail) images.push({ url: tailFrameUrl(tail.sourceVideoFile), label: `上一镜 ${tail.sourceShotId} 尾帧（连续剧情承接状态，转场直接进入新场景）`, kind: 'tailFrame', sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile })
   if (images.length > 9) throw new Error('含尾帧的参考图超过9张，请减少角色附属素材')
-  // 只使用已确认入库的本地图片；提交视频时按此顺序读取并转为 base64。
-  if (images.some(image => !image.url)) throw Object.assign(new Error('请先确认本镜参考图片'), { status: 409 })
   const video = images.length ? 'reference' : 'text'
-  // 文本分镜只传编号与标签，不传图片或地址；图片在提交视频时按同一顺序转为 base64。
-  const refs = images.map((image, i) => `<Picture ${i + 1}> ${image.label}`).join('\n')
-  const result = await runTextSteps({ target: `storyboard:${shotId}`, prompts: buildStoryboardPrompts(options, { shot, video, characters, scenes, refs, images }), options })
-  const marker = /^\[opening-reference: (previous-tail|none)\][ \t]*\r?\n/.exec(result.text)
-  const openingReference = video === 'reference' && project.shots.items[0].id !== shotId && marker?.[1] === 'previous-tail' ? 'previous-tail' : 'none'
-  const promptText = marker ? result.text.slice(marker[0].length) : result.text
-  const item = { tailReference: tail ? { sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile } : null, openingReference, id: shotId, duration: shot.duration, title: shotId, format: 'text', video, scene: scenes[0] || '', scenes, characters, referenceSnapshot: structuredClone(images), prompt: { text: promptText }, reviewText: result.reviewText }
-  const byId = new Map(shotResults(project, 'storyboard').map(item => [item.id, item]))
-  byId.set(shotId, item)
+  const refs = images.map((image, i) => `<Picture ${i + 1}> ${image.label}（${image.id || image.sourceShotId}）`).join('\n')
+  const marker = /^\[opening-reference: (previous-tail|none)\][ \t]*\r?\n/
+  const strip = text => text.replace(marker, '').trim()
+  const check = text => h3PromptFailures(strip(text), images, video)
+  const metadata = { tailReference: tail ? { sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile } : null, openingReference: 'none', video, scene: scenes[0] || '', scenes, characters,
+    characterIds: people.map(card => card.id), sceneIds: places.map(card => card.id), referenceSnapshot: structuredClone(images) }
+  const result = await runTextSteps({ target: `storyboard:${shotId}`, phase: 'reference-binding', labelPrefix: '引用编排',
+    prompts: buildStoryboardPrompts(options, { shot, video, characters, scenes, refs, images }), options, check, retainFailedDraft: true,
+    persist: (text, check) => publish({ ...metadata, prompt: { text: strip(text) } }, check) })
+  await publish({ ...metadata, prompt: { text: strip(result.text) }, reviewText: result.reviewText, bindingCheck: result.check }, result.check)
   return project.shots.items.map(shot => byId.get(shot.id)).filter(Boolean)
 }
 
@@ -149,7 +170,7 @@ export async function generateStoryboard(options) {
   for (const shot of project.shots.items) {
     if (options.beforeShot) project = await options.beforeShot(shot.id)
     await selectCheck(project, { action: 'shot-storyboard', track: shot.id })
-    project = { ...project, ...updateShotResults(project, 'storyboard', await generateShotStoryboard({ ...options, project, shotId: shot.id })) }
+    project = { ...project, ...updateShotResults(project, 'storyboard', await generateShotStoryboard({ ...options, project, shotId: shot.id, persistDraft: options.persist && ((rows) => options.persist(rows)) })) }
     if (options.persist) await options.persist(shotResults(project, 'storyboard'))
     if (checkContext.getStore()?.validation?.length) break
   }

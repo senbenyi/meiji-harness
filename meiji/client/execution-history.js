@@ -2,6 +2,7 @@
 import { element } from './dom.js'
 import { renderSteps, taskStatusLabels } from './task-steps.js'
 const names = { 'episode-generate': '生成摘要', 'episode-add': '新增摘要', 'episode-edit': '编辑摘要', outline: '生成剧情', 'outline-text': '编辑剧情', characters: '修改角色', scenes: '修改场景', 'scene-text': '编辑场景', 'character-text': '编辑人物文字', shots: '生成镜头表', 'revise-shot': '修改镜头表', seconds: '生成每秒指令', storyboard: '生成文本提示词', 'shot-storyboard': '生成文本提示词', 'shot-boards': '生成文本提示词', 'storyboard-text': '编辑文本提示词', film: '生成成片', films: '生成成片', produce: '生成本镜文本和视频', 'produce-all': '依次生成文本和视频', assemble: '合成视频', 'tail-frame': '重新处理尾帧', 'shot-assets': '修改镜头素材', source: '编辑资料', overview: '保存项目概要',
+  'text-shot-edit': '编辑文本镜头', 'storyboard-bind': '编排多模态引用',
   image: '生成图片', 'revise-image': '重绘图片', 'part-image': '生成图片', pencil: '生成铅笔分镜', 'import-image': '导入图片', 'part-import': '导入图片', 'part-text': '编辑图片描述', 'set-reference': '设置参考图', 'clear-reference': '移除参考图', 'use-asset': '关联图片素材', 'clear-image': '删除图片', 'confirm-image': '确认使用图片', 'discard-image': '放弃候选图片', 'review-override': '忽略自审并通过' }
 const targets = { summary: '摘要', story: '剧情', shots: '镜头表', seconds: '每秒指令', storyboard: '文本提示词', film: '成片', assembly: '合成视频' }
 const time = value => value ? new Date(value).toLocaleString() : '—'
@@ -20,16 +21,20 @@ export function skillsLine(skills = []) {
   return line
 }
 
-const scopes = { outline: ['大纲', ['outline', 'outline-text']], characters: ['人物角色', ['outline', 'characters', 'character-text']], scenes: ['场景', ['outline', 'scenes', 'scene-text']], summary: ['摘要', ['episode-summary-draft', 'episode-generate', 'episode-add', 'episode-edit']], script: ['剧情', ['outline', 'outline-text', 'characters', 'scenes', 'scene-text', 'character-text']], shots: ['镜头表', ['shots', 'revise-shot', 'shot-assets']], seconds: ['每秒指令', ['seconds', 'shot-seconds']], film: ['成片', ['storyboard', 'shot-storyboard', 'shot-boards', 'storyboard-text', 'film', 'films', 'produce', 'produce-all', 'tail-frame']], assembly: ['合成', ['assemble']] }
+const scopes = { images: ['图片', ['image', 'revise-image', 'part-image', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'use-asset', 'clear-image', 'confirm-image', 'discard-image']], outline: ['大纲', ['outline', 'outline-text']], characters: ['人物角色', ['outline', 'characters', 'character-text']], scenes: ['场景', ['outline', 'scenes', 'scene-text']], summary: ['摘要', ['episode-summary-draft', 'episode-generate', 'episode-add', 'episode-edit']], script: ['剧情', ['outline', 'outline-text', 'characters', 'scenes', 'scene-text', 'character-text']], shots: ['镜头表', ['shots', 'revise-shot', 'shot-assets']], seconds: ['每秒指令', ['seconds', 'shot-seconds']], film: ['成片', ['storyboard', 'shot-storyboard', 'shot-boards', 'storyboard-text', 'text-shot-edit', 'storyboard-bind', 'film', 'films', 'produce', 'produce-all', 'tail-frame']], assembly: ['合成', ['assemble']] }
 
 export function historyEntry(project, actions, scope = '') {
-  const button = element('button', scopes[scope] ? `查看${scopes[scope][0]}任务历史 →` : project.episodeId ? '查看本集任务历史 →' : '查看项目任务历史 →', 'task-history-entry')
+  const scopeKey = scope.split(':')[0]
+  const button = element('button', scopes[scopeKey] ? `查看${scopes[scopeKey][0]}任务历史 →` : project.episodeId ? '查看本集任务历史 →' : '查看项目任务历史 →', 'task-history-entry')
   button.type = 'button'
   button.onclick = () => actions.openHistory(project, scope)
   return button
 }
 
 export function renderTaskHistory(project, { load, loadPrompts, back, historyScope = '' }) {
+  const [scopeKey, track] = historyScope.split(':')
+  const shotId = scopeKey === 'film' ? track : null
+  const matchesShot = item => !shotId || item.target?.split(':')[1] === shotId
   const view = element('section', '', 'task-history-page')
   const header = element('div', '', 'task-history-header')
   const backButton = element('button', '← 返回')
@@ -38,7 +43,7 @@ export function renderTaskHistory(project, { load, loadPrompts, back, historySco
   const refresh = element('button', '刷新')
   refresh.type = 'button'
   refresh.type = 'button'
-  header.append(backButton, element('h2', scopes[historyScope] ? `${scopes[historyScope][0]}任务历史` : '任务历史'), refresh)
+  header.append(backButton, element('h2', scopes[scopeKey] ? `${shotId ? `${shotId} · ` : ''}${scopes[scopeKey][0]}任务历史` : '任务历史'), refresh)
   const scope = project.episodeId ? project.episodeNumber ? `第 ${project.episodeNumber} 集` : '本集' : '全部剧集'
   const filter = element('select')
   filter.setAttribute('aria-label', '按任务状态筛选')
@@ -78,8 +83,8 @@ export function renderTaskHistory(project, { load, loadPrompts, back, historySco
       if (task.error) detail.append(element('p', task.error, 'error'))
       const used = skillsLine(task.skills)
       if (used) detail.append(used)
-      detail.append(renderSteps(task.steps, { live: ['queued', 'running'].includes(task.status), loadPrompts: loadPrompts && (step => loadPrompts(task, step)) }))
-      for (const artifact of task.artifacts) {
+      detail.append(renderSteps((task.steps || []).filter(matchesShot), { live: ['queued', 'running'].includes(task.status), loadPrompts: loadPrompts && (step => loadPrompts(task, step)) }))
+      for (const artifact of (task.artifacts || []).filter(matchesShot)) {
         const [kind, track] = artifact.target.split(':')
         const snapshot = element('details', '', 'task-history-snapshot')
         snapshot.append(element('summary', `${targets[kind] || kind}${track ? ` · ${track}` : ''} · V${artifact.version} · 内容快照`))
@@ -109,7 +114,7 @@ export function renderTaskHistory(project, { load, loadPrompts, back, historySco
     try {
       const result = await load()
       if (id !== requestId) return
-      tasks = scopes[historyScope] ? result.tasks.filter(task => scopes[historyScope][1].includes(task.action)) : result.tasks
+      tasks = result.tasks.filter(task => (!scopes[scopeKey] || scopes[scopeKey][1].includes(task.action)) && (!shotId || [...(task.steps || []), ...(task.artifacts || [])].some(matchesShot)))
       draw()
     } catch (error) { if (id === requestId) message.textContent = `加载失败：${error.message}。点击刷新重试。` }
     finally { if (id === requestId) refresh.disabled = false }

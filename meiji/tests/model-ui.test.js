@@ -389,7 +389,7 @@ test('stage toolbar groups status, history, skills and generation controls', t =
   container.replaceChildren(renderStage(step,project,actions,{}))
   const toolbar=container.querySelector('.stage-history-toolbar')
   assert.equal(toolbar.firstElementChild.className,'stage-status')
-  assert.ok(toolbar.querySelector('.task-history-entry'))
+  assert.equal(Boolean(toolbar.querySelector('.task-history-entry')), step !== 'film')
   assert.ok(toolbar.querySelector('.stage-primary-actions button.primary'),step)
   assert.equal(container.querySelectorAll('.custom-skill-field').length,0)
   if (step === 'script') {
@@ -397,11 +397,69 @@ test('stage toolbar groups status, history, skills and generation controls', t =
    assert.equal(groups.length,3)
    for (const group of groups) {
     assert.ok(group.parentElement.querySelector('h3'))
-    assert.ok(group.querySelector('.task-history-entry'))
+    assert.equal(group.querySelector('.task-history-entry'), null)
     assert.ok(group.querySelector('[data-skill]'))
    }
   }
  }
+})
+
+test('film history entries stay in each shot header and navigate to the corresponding shot', t => {
+ const container=domSetup(t),project=episodeFixture(),calls=[]
+ const actions={perform:async()=>{},fail:()=>{},openHistory:(value,scope)=>calls.push([value,scope])}
+ container.append(renderStage('film',project,actions,{}))
+ assert.equal(container.querySelector('.stage-history-toolbar .task-history-entry'),null)
+ const cards=[...container.querySelectorAll('.shot-card')]
+ assert.equal(cards.length,project.shots.items.length)
+ for(const [index,card] of cards.entries()){
+  const entry=card.querySelector(':scope > .shot-head > .task-history-entry')
+  assert.ok(entry)
+  assert.equal(card.querySelectorAll('.task-history-entry').length,1)
+  assert.equal(entry.textContent,'查看成片任务历史 →')
+  entry.click()
+  assert.equal(card.dataset.expanded,index === 0 ? 'true' : 'false')
+ }
+ assert.deepEqual(calls,project.shots.items.map(shot=>[project,`film:${shot.id}`]))
+ container.replaceChildren(renderStage('film',project,actions,{onlyShot:'S02'}))
+ assert.equal(container.querySelectorAll('.task-history-entry').length,1)
+ container.querySelector('.task-history-entry').click()
+ assert.equal(calls.at(-1)[1],'film:S02')
+})
+
+test('shot film history filters exact shot targets including batch steps and artifact-only records', async t => {
+ const {renderTaskHistory}=await import('../client/execution-history.js')
+ const container=domSetup(t),project={id:'p',episodeId:'e'},copies=[],promptCalls=[]
+ window.HTMLDialogElement.prototype.show=function(){this.open=true}
+ const task=(id,action,steps=[],artifacts=[])=>({id,action,steps,artifacts,status:'completed',actor:'model'})
+ const s1={id:'one',kind:'video_submit',target:'film:S01',status:'completed',prompts:[{id:'p1'}]}
+ const s2={id:'two',kind:'video_generate',target:'film:S02',status:'completed'}
+ const a1={target:'film:S01',version:1,artifactId:'a1'}
+ const a2={target:'film:S02',version:1,artifactId:'a2'}
+ const tasks=[task('single','film',[s1]),task('batch','produce-all',[s1,s2],[a1,a2]),
+  task('other','film',[s2]),task('similar','film',[{...s1,target:'film:S010'}]),
+  task('outside','seconds',[{...s1,target:'seconds:S01'}]),task('old','films',[],[a1]),
+  task('edit','text-shot-edit',[{...s1,target:'storyboard:S01'}]),
+  task('bind','storyboard-bind',[{...s1,target:'storyboard:S01'}]),task('tail','tail-frame',[s1])]
+ const before=structuredClone(tasks)
+ const view=renderTaskHistory(project,{historyScope:'film:S01',back:()=>{},
+  load:async artifactId=>artifactId ? (copies.push(artifactId),{artifact:{content:'本镜视频快照'}}) : {tasks},
+  loadPrompts:async(task,step)=>{promptCalls.push([task.id,step.id]);return {prompts:[]}}})
+ container.append(view);await Promise.resolve()
+ assert.equal(view.querySelector('h2').textContent,'S01 · 成片任务历史')
+ assert.deepEqual([...view.querySelectorAll('[data-task-id]')].map(el=>el.dataset.taskId),['single','batch','old','edit','bind','tail'])
+ const batch=view.querySelector('[data-task-id="batch"]')
+ assert.equal(batch.querySelectorAll('.task-step').length,1)
+ assert.equal(batch.querySelectorAll('.task-history-snapshot').length,1)
+ assert.doesNotMatch(batch.textContent,/S02/)
+ const snapshot=batch.querySelector('.task-history-snapshot');snapshot.open=true;await snapshot.ontoggle()
+ assert.deepEqual(copies,['a1'])
+ batch.querySelector('.task-step-prompt').click();await Promise.resolve()
+ assert.deepEqual(promptCalls,[['batch','one']])
+ tasks[0]={...tasks[0],status:'running',steps:[{...s1,status:'running',startedAt:new Date().toISOString()}]}
+ await view.refresh()
+ assert.ok(view.querySelector('[data-task-id="single"] .task-step.is-current'))
+ assert.equal(view.querySelectorAll('[data-task-id]').length,6)
+ assert.deepEqual(before[1],tasks[1])
 })
 
 test('step list groups by target and shows the current step with elapsed time, attempts and remote task', async t => {
@@ -684,4 +742,20 @@ test('late draft acknowledgement cannot restore consumed opinion or block a newe
  assert.equal(saved[1].text,'新意见');assert.equal(saved[1].revision,2)
  saved[1].onSaved({text:'新意见',revision:3})
  assert.equal(input.dataset.dirty,undefined)
+})
+
+
+test('story result cards keep skills and share the history entry of the generation operation', t => {
+ const container = domSetup(t), project = episodeFixture(), calls = []
+ const actions = { perform: async () => {}, fail() {}, openHistory: (project, scope) => calls.push(scope), openSkill() {} }
+ container.append(renderStage('script', project, actions, {}))
+ const rows = [...container.querySelectorAll('.story-node-actions')]
+ assert.equal(rows.length, 3)
+ for (const row of rows) {
+  assert.equal(row.querySelector('.task-history-entry'), null)
+  assert.equal(row.querySelector('button').textContent, '查看 skill')
+ }
+ assert.equal(container.querySelectorAll('.task-history-entry').length, 1)
+ container.querySelector('.stage-history-toolbar .task-history-entry').click()
+ assert.deepEqual(calls, ['script'])
 })

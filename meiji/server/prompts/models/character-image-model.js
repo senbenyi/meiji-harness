@@ -34,7 +34,7 @@ const characterFields = [
  * 创建可 JSON 序列化的人物图提示词 model。
  * @param {object} input
  * @param {object} input.character 人物资料；沿用 characterFieldValues 的字段与 look 解析。
- * @param {string} input.generationRules generate-character-image.md 的完整正文，可为空。
+ * @param {string} input.generationRules generate-character-image-skill.md 的完整正文，可为空。
  * @param {{width: number, height: number}} input.canvas 自定义整数像素宽高，无默认画幅。
  * @returns {CharacterImageModel}
  */
@@ -100,9 +100,10 @@ export function characterImageModelSegments(model) {
     segment('context', '【画幅】', `${width} × ${height} 像素，${orientation}。按此画幅安排构图。`),
     segment('context', '【本次修改意见】', normalized.modification?.instruction || ''),
     segment('context', '【修改边界】', normalized.mode === 'modify' ? [
-      '修改意见明确更改的属性，替代人物资料中该属性的原始描述；生成规则仍为本次成图要求。',
+      '始终使用本次最新人物资料，原图和参考图不能恢复旧资料。意见用于人物资料之外的画面调整；人物身份与外观属性以最新资料为准。',
       normalized.modification.preserveUnspecified ? '保留原图中未被意见、生成规则与画幅要求涉及的人物特征、构图及其他内容。' : '',
     ].filter(Boolean).join('\n') : ''),
+    segment('protocol', '【输出要求】', '只输出一张图片，不输出解释或审核文字。'),
   ]
 }
 

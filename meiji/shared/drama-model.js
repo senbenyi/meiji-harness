@@ -49,7 +49,7 @@ export function targetNode(project, key) {
   if (kind === 'shot') return shot
   if (!id && /^S\d+$/.test(kind)) return project.shots?.items.find(item => item.id === kind)
   if (!id && /^[CE]\d+$/.test(kind)) return [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || [])].find(item => item.id === kind)
-  return shot?.[{ seconds: 'seconds', storyboard: 'storyboard', pencil: 'pencil', film: 'video', tailFrame: 'tailFrame' }[kind]]
+  return shot?.[{ seconds: 'seconds', 'text-shot': 'storyboard', storyboard: 'storyboard', pencil: 'pencil', film: 'video', tailFrame: 'tailFrame' }[kind]]
 }
 export function allNodes(project) {
   const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.shots, project.shots?.seconds, project.assembly]
@@ -132,7 +132,7 @@ export function assertDrama(project) {
       const supplements = episode.supplementalSkills
       if (!supplements || typeof supplements !== 'object' || Array.isArray(supplements)) throw new Error('节点补充 skill 格式错误')
       for (const [key, items] of Object.entries(supplements)) {
-        if (!/^(summary|outline|characters|scenes|shots|shot|seconds|storyboard|film|pencil)(:[A-Za-z0-9_-]+)?$/.test(key) || !Array.isArray(items) || items.length > 20 || new Set(items.map(item => item?.id)).size !== items.length || items.some(item => typeof item?.id !== 'string' || !item.id || typeof item.content !== 'string' || !item.content.trim() || item.content.length > 10000)) throw new Error('节点补充 skill 格式错误')
+        if (!/^(summary|outline|characters|scenes|shots|shot|seconds|text-shot|storyboard|film|pencil)(:[A-Za-z0-9_-]+)?$/.test(key) || !Array.isArray(items) || items.length > 20 || new Set(items.map(item => item?.id)).size !== items.length || items.some(item => typeof item?.id !== 'string' || !item.id || typeof item.content !== 'string' || !item.content.trim() || item.content.length > 10000)) throw new Error('节点补充 skill 格式错误')
       }
     }
     // 旧字段需迁移；指导素材继续按剧保存（项目 skills），按集的旧字段需先迁移。

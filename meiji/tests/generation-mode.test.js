@@ -26,7 +26,8 @@ for (const generationMode of ['regenerate', 'modify']) {
     const generation = calls[0].prompt
     for (const marker of ['OLD_OUTPUT_MARKER', 'OLD_HUMAN_MARKER', 'OLD_CHECK_MARKER']) assert.equal(generation.includes(marker), generationMode === 'modify', marker)
     assert.match(calls[1].prompt, /【本次待审内容】\nNEW_OUTPUT_MARKER/)
-    assert.doesNotMatch(calls[1].prompt, /OLD_OUTPUT_MARKER/)
+    if (generationMode === 'regenerate') assert.doesNotMatch(calls[1].prompt, /OLD_OUTPUT_MARKER/)
+    else assert.match(calls[1].prompt, /【修订基稿（用于对照范围）】\nOLD_OUTPUT_MARKER/)
     const node = (await e.read()).shots.items[0].seconds
     assert.equal(node.content, 'NEW_OUTPUT_MARKER')
     assert.equal(node.review.text, generationMode === 'regenerate' ? 'OLD_HUMAN_MARKER' : '')

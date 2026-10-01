@@ -86,8 +86,8 @@ export function recordStore(home, projectId) {
   }
 }
 
-function planStep({ kind, target = null, label = null }, actor) {
-  return { id: randomUUID(), kind, target, label, status: StepStatus.PENDING, verdict: null, reasons: [], error: null, actor, attempts: [], inputs: [], outputs: [], startedAt: null, endedAt: null }
+function planStep({ kind, target = null, label = null, phase }, actor) {
+  return { id: randomUUID(), kind, target, label, ...(phase ? { phase } : {}), status: StepStatus.PENDING, verdict: null, reasons: [], error: null, actor, attempts: [], inputs: [], outputs: [], startedAt: null, endedAt: null }
 }
 
 // 任务开始（或进入队列）时写入记录与完整步骤计划。plan 为 [{ kind, target }]。
@@ -271,12 +271,12 @@ export async function runStep(kind, run, detail = {}) {
   const context = executionContext.getStore()
   if (!context) return run()
   const target = detail.target ?? null
-  let step = context.steps.find(item => (item.status === StepStatus.PENDING || item.preparing) && item.kind === kind && (item.target ?? null) === target)
+  let step = context.steps.find(item => (item.status === StepStatus.PENDING || item.preparing) && item.kind === kind && (item.target ?? null) === target && (item.phase ?? null) === (detail.phase ?? null))
   // 开始的不是准备中的步骤时，准备中的步骤恢复为未执行。
   for (const item of context.steps) if (item.preparing && item !== step) unprepare(item)
   if (step) delete step.preparing
   if (!step) {
-    step = { ...planStep({ kind, target, label: detail.label }, context.steps[0]?.actor || 'model'), unplanned: true }
+    step = { ...planStep({ kind, target, label: detail.label, phase: detail.phase }, context.steps[0]?.actor || 'model'), unplanned: true }
     context.steps.push(step)
   } else if (detail.label) step.label = detail.label
   const outputs = target ? context.outputs.filter(item => item.target === target) : context.outputs

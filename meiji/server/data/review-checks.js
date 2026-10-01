@@ -1,8 +1,8 @@
 import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch } from '../../shared/drama-model.js'
-import { feedbackKey, feedbackOf } from '../../shared/feedback.js'
+import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shared/feedback.js'
 import { checkContext, apiFailed, inTextStep } from './operation-context.js'
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
-const generationActions = new Set(['characters', 'scenes', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
+const generationActions = new Set(['characters', 'scenes', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
   if (operation.action === 'outline' || operation.action === 'outline-text') return ['outline', 'characters', 'scenes']
@@ -11,7 +11,7 @@ function keys(project, operation) {
   return kind ? shots.map(shot => `${kind}:${shot.id}`) : [feedbackKey(operation)]
 }
 export function checkReasons(project, operation) {
-  if (operation.action === 'seconds') return [...feedbackOf(project, 'seconds').check.failures, project.shots.seconds?.review.text].filter(Boolean)
+  if (operation.action === 'seconds') return uniqueFeedback([...feedbackOf(project, 'seconds').check.failures, project.shots.seconds?.review.text])
   return [...new Set(keys(project, operation).flatMap(key => {
     const { check, review } = feedbackOf(project, key)
     return [...(check.passed === false ? check.failures : []), review.text]
@@ -21,7 +21,7 @@ export function setCheck(project, operation, reasons) {
   for (const key of keys(project, operation)) {
     const target = targetNode(project, key)
     if (target) finish(target, operation.action === 'outline' && checkContext.getStore()?.storyStages
-      ? target.check : { passed: reasons.length === 0, failures: [...new Set(reasons.filter(Boolean))] })
+      ? target.check : operation.action === 'seconds' ? scopedCheck({ passed: reasons.length === 0, failures: uniqueFeedback(reasons) }, key.split(':')[1]) : { passed: reasons.length === 0, failures: uniqueFeedback(reasons) })
   }
   return project
 }

@@ -1,3 +1,4 @@
+import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
@@ -69,15 +70,15 @@ test('人物图可独立取消默认包装，预览同步，场景图不受影�
   assert.equal(imageSkillPrompt('scene-image', '场景内容', project), scene)
 })
 
-test('各图片接口显式选择的基础覆盖和本剧补充继续参与生成', () => {
+test('图片接口与预览使用同一基础规则，旧的本剧覆盖不再生效', () => {
   for (const stage of ['scene-image', 'part-image', 'pencil']) {
     const set = builtinSkillSet({ additions: { [stage]: { generate: '本剧补充' } } })
-    set.skills[stage].parts.generate = `基础覆盖：${stage}`
+    set.skills[stage].constraints = `基础规则：${stage}`
     const actual = executionContext.run({ skillSet: set, skills: new Map() }, () => imageSkillPrompt(stage, '画面', project))
-    assert.ok(stage === 'scene-image' ? actual.includes(`【生成规则】\n基础覆盖：${stage}`) : actual.startsWith(`基础覆盖：${stage}`))
-    assert.match(actual, /本剧补充/)
+    assert.ok(stage === 'scene-image' ? actual.includes(`【生成规则】\n基础规则：${stage}`) : actual.includes(`【基础生产规则】\n基础规则：${stage}`))
+    assert.doesNotMatch(actual, /本剧补充/)
     const preview = previewPrompts({ stage, root: project, skillSet: set }).image
-    assert.ok(stage === 'scene-image' ? render(preview.user).includes(`【生成规则】\n基础覆盖：${stage}`) : render(preview.user).startsWith(`基础覆盖：${stage}`))
+    assert.ok(stage === 'scene-image' ? render(preview.user).includes(`【生成规则】\n基础规则：${stage}`) : render(preview.user).includes(`【基础生产规则】\n基础规则：${stage}`))
     assert.equal(preview.chars, render(preview.user).length)
   }
 })
@@ -85,14 +86,15 @@ test('各图片接口显式选择的基础覆盖和本剧补充继续参与生�
 test('视频独立模块拥有补充、意见与衔接规则，流程层按原样使用', () => {
   const view = { ...project, plot: { characters: { items: [{ name: '甲', localPath: '/plugins/meiji/asset-file?category=characters&id=a' }] }, scenes: { items: [] } } }
   const set = builtinSkillSet({ additions: { video: { generate: '视频独立补充' } } })
-  const item = { id: 'S01', format: 'text', video: 'reference', characters: ['甲'], prompt: { text: '最终视频正文' } }
+  const item = { id: 'S01', format: 'text', video: 'reference', characters: ['甲'], prompt: { text: storyboardFixture('<Picture 1> 甲') } }
   const opening = { referenceUrl: 'https://image.test/tail', previous: 'S00' }
   executionContext.run({ skillSet: set, skills: new Map() }, () => checkContext.run({ review: '节奏加快' }, () => {
     const expected = render(videoSegments({ project: view, prompt: item.prompt.text, mode: 'reference', opening, imageCount: 1 }))
     const actual = filmSubmit(view, item, opening)
     assert.equal(actual.prompt, expected)
     assert.deepEqual(actual.referenceImages, ['/plugins/meiji/asset-file?category=characters&id=a', opening.referenceUrl])
-    assert.match(actual.prompt, /视频独立补充/)
+    assert.doesNotMatch(actual.prompt, /视频独立补充/)
+    assert.match(actual.prompt, /身份、动作、对白、场景与时间保持连续/)
     assert.match(actual.prompt, /节奏加快/)
     assert.match(actual.prompt, /<Picture 2>/)
   }))

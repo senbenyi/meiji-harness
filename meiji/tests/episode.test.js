@@ -59,15 +59,15 @@ test('summary modes separate old input, review content and revision-only rules',
     checkContext.run({ generationMode, review: 'HUMAN_OPINION' }, () => {
       const prompts = buildEpisodePrompts(project, 'target')
       const { generation } = prompts
-      assert.match(generation.system, /返回前核对本集事件因果/)
+      assert.ok(generation.system.includes(builtinSkill('episode').constraints))
       assert.doesNotMatch(generation.system, /共用生成审核流程|后端验收（未通过则重写）|以原摘要的既定事件为基准/)
-      assert.equal(generation.system.includes('【摘要修订边界】'), generationMode === 'modify')
+      assert.equal(generation.system.includes('【本次修订范围】'), generationMode === 'modify')
       assert.equal(generation.user.includes('OLD_SUMMARY'), generationMode === 'modify')
       assert.equal(generation.user.includes('HUMAN_OPINION'), generationMode === 'modify')
       assert.match(generation.user, /NEXT_EPISODE/)
       assert.equal(prompts.review('NEW_SUMMARY').user.includes('OLD_SUMMARY'), generationMode === 'modify')
       const revision = prompts.revision('FAILED_SUMMARY', 'FAIL 原因')
-      assert.match(revision.system, /【摘要修订边界】/)
+      assert.match(revision.system, /【本次修订范围】/)
       assert.match(revision.user, /FAILED_SUMMARY/)
       assert.doesNotMatch(revision.user, /OLD_SUMMARY|重新生成/)
     })
@@ -111,13 +111,12 @@ for (const mode of ['new', 'regenerate', 'modify']) {
 test('summary checks run after drafting and independent review receives the same acceptance constraints', async () => {
   const { buildEpisodePrompts } = await import('../server/prompts/episode-prompts.js')
   const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
-  assert.match(prompts.generation.system, /返回前核对本集事件因果/)
+  const rules = builtinSkill('episode').constraints
+  assert.ok(prompts.generation.system.includes(rules))
   assert.match(prompts.generation.system, /不输出检查过程/)
   const review = prompts.review('{"summary":"待审摘要","durationSeconds":120}')
-  for (const constraint of ['跨集连续性', '事件与因果', '时长与容量', '结尾与衔接', '失败依据', '不以个人写法偏好判失败']) {
-    assert.ok(!prompts.generation.system.includes(constraint))
-    assert.ok(review.system.includes(constraint))
-  }
+  assert.ok(review.system.includes(rules))
+  assert.match(review.system, /无具体违规依据时不判失败/)
   assert.match(review.system, /只审核，不生成或修改原文/)
   assert.match(review.user, /【本次待审内容】\n.*待审摘要/)
 })

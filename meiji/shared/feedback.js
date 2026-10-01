@@ -1,11 +1,21 @@
 import { targetNode, emptyCheck, emptyReview, node, aggregateStatus } from './drama-model.js'
+// 按原文去重，不把跨镜错误重复复制为每镜意见。
+export const uniqueFeedback = values => [...new Set(values.flatMap(value => String(value || '').split(/\r?\n\s*\r?\n/)).map(value => value.trim()).filter(value => value && value !== 'FAIL'))]
+export function scopedCheck(check, shotId) {
+  if (!shotId || check.passed !== false) return structuredClone(check)
+  const failures = uniqueFeedback(check.failures).filter(reason => {
+    const ids = reason.match(/\bS\d{2,}\b/g) || []
+    return !ids.length || ids.includes(shotId)
+  })
+  return { ...check, passed: failures.length === 0, failures }
+}
 export function feedbackKey({ action, track, itemId, slot }) {
   if (action === 'scene-text') return 'scenes'
   if (action === 'character-text') return 'characters'
   if (action === 'episode-generate') return 'summary'
   if (action === 'revise-shot') return `shot:${track}`
   if (action === 'shot-seconds') return `seconds:${track}`
-  if (action === 'shot-storyboard' || action === 'storyboard-text') return `storyboard:${track}`
+  if (['shot-storyboard', 'storyboard-text', 'storyboard-bind'].includes(action)) return `storyboard:${track}`
   if (action === 'shot-boards') return 'storyboard'
   if (action === 'revise-image' || action === 'image') return `image:${itemId}`
   if (action === 'part-image') return `image:${itemId}:${slot}`
@@ -19,7 +29,9 @@ export function feedbackOf(project, target) {
   if (key === 'seconds') {
     const shots = project.shots?.items || []
     const group = project.shots?.seconds || node('seconds')
-    const failures = shots.flatMap(shot => shot.seconds.check.passed === false ? shot.seconds.check.failures.map(reason => `${shot.id}：${reason}`) : [])
+    const shared = uniqueFeedback(group.check?.passed === false ? group.check.failures : [])
+    const failures = uniqueFeedback(shots.flatMap(shot => shot.seconds.check.passed === false
+      ? uniqueFeedback(shot.seconds.check.failures).map(reason => /\bS\d{2,}\b/.test(reason) || shared.includes(reason) ? reason : `${shot.id}：${reason}`) : []))
     const errors = shots.filter(shot => shot.seconds.error).map(shot => `${shot.id}：${shot.seconds.error}`)
     return { ...group, canModify: shots.length > 0 && shots.every(shot => Boolean(shot.seconds.content)), status: group.operation || group.status === 'paused' ? group.status : aggregateStatus(shots.map(shot => shot.seconds)),
       check: { passed: failures.length ? false : shots.length && shots.every(shot => shot.seconds.check.passed === true) ? true : null, failures },

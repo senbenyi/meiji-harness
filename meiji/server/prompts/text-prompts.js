@@ -33,8 +33,9 @@ export function buildTextPrompts(task) {
 // 人工编辑后的审核。stage 为阶段技能 ID（storyboard / outline）或审核范围说明（按剧情整包的验收标准审核）。
 export function buildEditedContentReview({ project, stage, shotId }, text) {
   const skill = isSkill(stage) ? stage : 'outline'
+  const shot = project.shots?.items.find(item => item.id === shotId)
   return buildReviewPrompt({ project, skill,
-    instructions: `只审核已编辑原文，不生成或改写内容。\n审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}\n本集摘要：${project.summary.content}\n大纲：${project.plot.outline.content || ''}`,
+    instructions: `只审核已编辑原文，不生成或改写内容。\n审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}\n本集摘要：${project.summary.content}\n大纲：${project.plot.outline.content || ''}${stage === 'text-shot' ? `\n【本镜已通过每秒指令】\n${shot?.seconds.content || ''}` : ''}`,
     reviewContext: continuityReviewContext(project, shotId),
   }, text)
 }

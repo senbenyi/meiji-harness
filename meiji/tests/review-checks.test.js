@@ -1,3 +1,4 @@
+import { textShotFixture, storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
@@ -93,7 +94,7 @@ test('failed frame extraction keeps newly completed video ready', async t => {
  await runOperation(e.op('films'),deps)
  const before=(await e.read()).shots.items[0].video.content
  await e.store.save(e.id,p=>{p.episodes[0].shots.items[0].video.stale=true;return p})
- await runOperation(e.op('films'),{...deps,retrieveFilm:async()=>Buffer.from('new-video'),saveLastFrame:async()=>{throw new Error('frame failed')}})
+ await assert.rejects(runOperation(e.op('films'),{...deps,retrieveFilm:async()=>Buffer.from('new-video'),saveLastFrame:async()=>{throw new Error('frame failed')}}), /frame failed/)
  const after=(await e.read()).shots.items[0].video.content
  assert.notEqual(after.file,before.file)
  assert.equal(after.status,'ready')
@@ -121,7 +122,7 @@ test('storyboard regenerates all shots even when already passed', async t => {
  const calls=[]
  const deps={home:e.home,generateStoryboard:opts=>generateStoryboard({...opts,request:async ({ skill, user: prompt }) =>{
   if(skill==='review')return 'PASS'
-  calls.push(/镜头 (S\d+)，/.exec(prompt)[1]);return '新的文本分镜'
+  if(skill==='text-shot'){calls.push(/仅为 (S\d+) 整理/.exec(prompt)[1]);return textShotFixture()}return storyboardFixture(prompt)
  }})}
  await runOperation(e.op('storyboard'),deps)
  assert.deepEqual(calls,['S01','S02'])

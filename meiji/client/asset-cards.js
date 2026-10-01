@@ -1,3 +1,4 @@
+import { historyEntry } from './execution-history.js'
 import { reviewFields } from './workflow-review.js'
 import { renderDetailImageActions } from './image-review.js'
 import { pictureOf } from '../shared/drama-model.js'
@@ -6,6 +7,20 @@ import { request, assetUrl } from './api.js'
 import { showPanelDialog, element, appendJsonCopy } from './dom.js'
 
 export { characterSheet }
+
+function imageEntries(project, item, actions, part = false) {
+  const row = element('div', '', 'story-node-actions')
+  if (actions.openHistory) row.append(historyEntry(project, actions, 'images'))
+  if (actions.openSkill) {
+    const skill = part ? 'part-image' : item.type === 'role' ? 'character-image' : 'scene-image'
+    const button = element('button', '查看 skill')
+    button.type = 'button'
+    button.setAttribute('aria-label', `${part ? '附属素材' : item.type === 'role' ? '人物图片' : '场景图片'} skill`)
+    button.onclick = () => actions.openSkill(project, skill)
+    row.append(button)
+  }
+  return row
+}
 
 function materialControl(label, value, { area = false, readOnly = false } = {}) {
   const wrap = element('label')
@@ -41,8 +56,8 @@ function textMaterials(project, item, actions, hint, busy) {
     ]
     : [
       ['name', '名称', false, true],
-      ['landmark', '地标'],
-      ['light', '光位'],
+      ['landmark', '地标', true],
+      ['light', '光位', true],
       ['space', '空间', true],
       ['look', '画面', true],
     ]
@@ -66,6 +81,8 @@ function textMaterials(project, item, actions, hint, busy) {
     prompt.textContent = text
   }
   refreshPrompt()
+  // 场景的生图描述即「画面」原文，详情页不再重复展示。
+  prompt.hidden = !role
   form.append(head, grid, prompt)
   const saving = project.activity === (role ? 'character-text' : 'scene-text')
   const save = element('button', saving ? '保存中' : '保存', 'primary')
@@ -106,8 +123,48 @@ function stillSrc(item) {
   return pictureOf(item).localPath || ''
 }
 
-function field(card, label, value) {
-  if (value) card.append(element('p', `${label}：${value}`, 'meta'))
+// 场景画幅随项目：横屏图片置顶通栏，竖屏图片居左，文字资料按标签分行展示。
+export function sceneOrientation(project) {
+  return String(project?.aspectRatio || '').trim() === '768x1344' || project?.aspectRatio === '9:16' ? 'portrait' : 'landscape'
+}
+
+const sceneFacts = [['地标', 'landmark'], ['光位', 'light'], ['空间', 'space'], ['画面', 'look']]
+
+function sceneCard(project, item, onOpen) {
+  const card = element('article', '', `scene-card is-${sceneOrientation(project)}`)
+  const open = element('button', '', 'scene-card-open')
+  open.type = 'button'
+  open.setAttribute('aria-label', `场景详情：${item.name}`)
+  open.onclick = () => onOpen?.(item.id)
+  const media = element('span', '', 'scene-card-media')
+  const src = stillSrc(item)
+  if (src) {
+    const image = element('img')
+    image.src = src
+    image.alt = item.name
+    image.loading = 'lazy'
+    media.append(image)
+  } else {
+    media.classList.add('is-empty')
+    media.append(element('span', '暂无场景图', 'scene-card-empty'))
+  }
+  const copy = element('span', '', 'scene-card-copy')
+  const title = element('span', '', 'scene-card-title')
+  title.append(element('span', item.id, 'scene-card-id'), element('strong', item.name || '未命名场景'))
+  copy.append(title)
+  const facts = element('span', '', 'scene-card-facts')
+  for (const [label, key] of sceneFacts) {
+    const value = String(item[key] || '').trim()
+    if (!value) continue
+    const row = element('span', '', 'scene-fact')
+    row.title = `${label}：${value}`
+    row.append(element('span', label, 'scene-fact-label'), element('span', value, 'scene-fact-value'))
+    facts.append(row)
+  }
+  if (facts.childElementCount) copy.append(facts)
+  open.append(media, copy)
+  card.append(open)
+  return card
 }
 
 const partKinds = [['衣服', 'clothes'], ['坐骑', 'mounts'], ['道具', 'props'], ['发型', 'hairstyles']]
@@ -194,7 +251,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     const card = element('article', '', 'character-studio')
     const stage = element('section', '', 'studio-stage')
     const toolbar = element('div', '', 'studio-toolbar')
-    toolbar.append(element('h3', `${item.id} · ${item.name}`))
+    toolbar.append(element('h3', `${item.id} · ${item.name}`), imageEntries(project, item, actions))
     const aspectWrap = element('label', '', 'studio-aspect')
     aspectWrap.append(element('span', '画幅'))
     const aspect = element('select')
@@ -207,11 +264,17 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     }
     aspect.disabled = controlBusy
     aspectWrap.append(aspect)
-    toolbar.append(aspectWrap)
     const pair = element('div', '', 'studio-pair')
-    const pane = (title, src, emptyLabel, onEmpty) => {
-      const box = element('figure', '', 'studio-pane')
-      box.append(element('figcaption', title))
+    // 主图为镜头实际使用的人物图，参考图只是可选的生成输入：两者在尺寸、底色和标签上区分主次。
+    const pane = (title, src, emptyLabel, onEmpty, { kind, badge, note, extra } = {}) => {
+      const box = element('figure', '', `studio-pane is-${kind}`)
+      const caption = element('figcaption', '', 'studio-caption')
+      const name = element('span', '', 'studio-caption-title')
+      name.append(element('strong', title), element('span', badge, 'studio-badge'))
+      caption.append(name)
+      if (extra) caption.append(extra)
+      box.append(caption)
+      if (note) box.append(element('p', note, 'studio-note'))
       const frame = element('div', '', 'studio-frame')
       if (src) {
         const open = element('button', '', 'asset-still')
@@ -249,7 +312,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       }
     }
     const resultSrc = mainReview && imageGate.previewUrl ? imageGate.previewUrl : stillSrc(item)
-    const result = pane('人物图片', resultSrc, `导入图片：${item.name}`, () => { pickId = item.id; pickSlot = ''; picker.click() })
+    const result = pane('人物图片', resultSrc, `导入图片：${item.name}`, () => { pickId = item.id; pickSlot = ''; picker.click() }, { kind: 'main', badge: '主图', extra: aspectWrap })
     if (mainReview) result.append(renderDetailImageActions(project, actions, imageGate))
     const resultActions = element('div', '', 'studio-actions')
     const textGen = element('button', imaging === item.id && !imageGate?.useReference ? '生成中' : '文字生图', 'primary')
@@ -282,7 +345,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     }
     result.append(resultActions)
     const referenceSrc = item.reference?.localPath || ''
-    const reference = pane('参考图', referenceSrc, `上传参考图：${item.name}`, () => { pickId = item.id; pickSlot = 'reference'; picker.click() })
+    const reference = pane('参考图', referenceSrc, `上传参考图：${item.name}`, () => { pickId = item.id; pickSlot = 'reference'; picker.click() }, { kind: 'reference', badge: '可选', note: referenceSrc ? '生成时按此图保持外貌' : '上传后可用参考图生图' })
     const referenceActions = element('div', '', 'studio-actions')
     const refGen = element('button', imaging === item.id && imageGate?.useReference ? '生成中' : '参考图生图', 'primary')
     refGen.type = 'button'
@@ -312,7 +375,8 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     }
     reference.append(referenceActions)
     pair.append(result, reference)
-    const library = element('button', '从素材库选择人物图片')
+    const library = element('button', '从素材库选择')
+    library.setAttribute('aria-label', '从素材库选择人物图片')
     library.type = 'button'
     library.disabled = controlBusy
     library.onclick = async () => {
@@ -355,16 +419,15 @@ export function stillCards(project, items, actions, hint, { editable = false, on
         }
       } catch (error) { content.textContent = error.message }
     }
-    const extras = element('div', '', 'studio-library')
-    extras.append(library)
-    stage.append(toolbar, pair, extras)
+    resultActions.append(library)
+    stage.append(toolbar, pair)
     const materials = textMaterials(project, item, actions, hint, controlBusy)
     const parts = element('section', '', 'studio-parts')
     parts.append(element('h4', '其他图片资料'))
     for (const [label, slot] of partKinds) {
       const block = element('div', '', 'part-block')
       const head = element('div', '', 'part-head')
-      head.append(element('span', label))
+      head.append(element('span', label), imageEntries(project, item, actions, true))
       const note = partNote(project, item, slot, label, actions, hint, controlBusy)
       const generating = activity === `image:${item.id}:${slot}`
       const partReview = reviewing && imageGate.slot === slot
@@ -431,10 +494,14 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       nodes.push(characterStudio(item))
       continue
     }
+    if (!editable) {
+      nodes.push(sceneCard(project, item, onOpen))
+      continue
+    }
     const reviewing = Boolean(imageGate && imageGate.itemId === item.id && !imageGate.track)
     const controlBusy = busy || reviewing
     const mainReview = reviewing && !imageGate.slot
-    const card = element('article', '', 'shot-card story-asset')
+    const card = element('article', '', item.type === 'role' ? 'shot-card story-asset' : `shot-card story-asset scene-asset is-${sceneOrientation(project)}`)
     const frame = element('div', '', 'asset-frame')
     const frameSrc = mainReview && imageGate.previewUrl ? imageGate.previewUrl : stillSrc(item)
     if (frameSrc) {
@@ -456,85 +523,12 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       frame.append(plus)
     }
     const copy = element('div', '', 'asset-copy')
-    const heading = element('div', '', item.type === 'role' ? 'character-heading' : 'workflow-generation-row')
-    if (onOpen && item.type === 'scene') {
-      const open = element('button', `${item.id} · ${item.name}`, 'scene-open')
-      open.type = 'button'
-      open.setAttribute('aria-label', `场景详情：${item.name}`)
-      open.onclick = () => onOpen(item.id)
-      heading.append(open)
-    } else heading.append(element('h3', `${item.id} · ${item.name}`))
+    const heading = element('div', '', 'workflow-generation-row')
+    const entries = imageEntries(project, item, actions)
+    heading.append(element('h3', `${item.id} · ${item.name}`), entries)
     copy.append(heading)
     if (mainReview) copy.append(renderDetailImageActions(project, actions, imageGate))
-    if (editable) copy.append(textMaterials(project, item, actions, hint, controlBusy))
-    else {
-      const rows = item.type === 'role'
-        ? characterSheet(item)
-        : [['地标', item.landmark], ['光位', item.light], ['空间', item.space], ['画面', item.look]]
-      for (const [label, value] of rows) field(copy, label, value)
-    }
-    if (item.type === 'role') {
-      for (const [label, slot] of partKinds) {
-        const block = element('div', '', 'part-block')
-        const head = element('div', '', 'part-head')
-        head.append(element('span', label))
-        const note = partNote(project, item, slot, label, actions, hint, controlBusy)
-        const generating = activity === `image:${item.id}:${slot}`
-        const partReview = reviewing && imageGate.slot === slot
-        const aiPart = element('button', generating ? '生成中' : 'AI生图', 'primary')
-        aiPart.type = 'button'
-        aiPart.disabled = controlBusy
-        aiPart.onclick = async () => {
-          aiPart.disabled = true
-          aiPart.textContent = '生成中'
-          try { await actions.beginImage(project, 'part-image', { itemId: item.id, itemName: item.name, slot, description: note.input.value.trim(), ...reviewFields(block) }) } catch (error) {
-            hint.hidden = false
-            hint.textContent = error.message
-            hint.classList.add('warn')
-            aiPart.disabled = false
-            aiPart.textContent = 'AI生图'
-          }
-        }
-        head.append(aiPart)
-        const pics = element('div', '', 'part-pics')
-        for (const picture of (Array.isArray(item[slot]) ? item[slot] : [])) {
-          const src = stillSrc(picture)
-          if (!src) continue
-          const open = element('button', '', 'part-still')
-          open.type = 'button'
-          open.setAttribute('aria-label', `查看大图：${picture.name}`)
-          const still = document.createElement('img')
-          still.alt = picture.name || ''
-          still.src = src
-          open.append(still)
-          open.onclick = () => { full.alt = picture.name || label; full.src = src; showPanelDialog(preview) }
-          const pictureCard = element('div', '', 'part-json-card')
-          pictureCard.append(open)
-          appendJsonCopy(pictureCard, picture)
-          pics.append(pictureCard)
-        }
-        if (partReview && imageGate.previewUrl) {
-          const open = element('button', '', 'part-still')
-          open.type = 'button'
-          open.setAttribute('aria-label', `查看待确认${label}`)
-          const still = document.createElement('img')
-          still.alt = `待确认${label}`
-          still.src = imageGate.previewUrl
-          open.append(still)
-          open.onclick = () => { full.alt = `待确认${label}`; full.src = imageGate.previewUrl; showPanelDialog(preview) }
-          pics.prepend(open)
-        }
-        const plus = element('button', '+', 'part-add')
-        plus.type = 'button'
-        plus.disabled = controlBusy
-        plus.setAttribute('aria-label', `导入${label}：${item.name}`)
-        plus.onclick = () => { if (!controlBusy) { pickId = item.id; pickSlot = slot; picker.click() } }
-        pics.append(plus)
-        block.append(head, note.box, pics)
-        if (partReview) block.append(renderDetailImageActions(project, actions, imageGate))
-        copy.append(block)
-      }
-    }
+    copy.append(textMaterials(project, item, actions, hint, controlBusy))
     const actionsRow = element('div', '', 'asset-actions')
     const ai = element('button', imaging === item.id ? '生成中' : 'AI生图', 'primary')
     ai.type = 'button'
@@ -604,26 +598,14 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       } catch (error) { content.textContent = error.message }
     }
     actionsRow.append(choose)
-    if (item.type === 'role' && stillSrc(item)) {
-      const remove = element('button', '', 'character-remove')
-      remove.title = '删除图片'
-      remove.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      remove.type = 'button'
-      remove.disabled = controlBusy
-      remove.setAttribute('aria-label', `删除图片：${item.name}`)
-      remove.onclick = () => {
-        if (remove.disabled) return
-        remove.disabled = true
-        actions.perform(project, 'clear-image', { itemId: item.id, itemName: item.name, ...reviewFields(copy) }).catch(error => {
-          remove.disabled = false
-          hint.hidden = false
-          hint.textContent = error.message
-          hint.classList.add('warn')
-        })
-      }
-      frame.append(remove)
-    }
-    if (actionsRow.childElementCount) copy.append(actionsRow)
+    if (item.type !== 'role') {
+      // 场景详情：图片相关操作集中在图片下方，标题行只留名称。
+      const bar = element('div', '', 'scene-image-bar')
+      const tools = element('div', '', 'scene-image-tools')
+      tools.append(ai, ...actionsRow.children)
+      bar.append(tools, entries)
+      frame.append(bar)
+    } else if (actionsRow.childElementCount) copy.append(actionsRow)
     card.append(frame, copy)
     appendJsonCopy(copy, item)
     nodes.push(card)

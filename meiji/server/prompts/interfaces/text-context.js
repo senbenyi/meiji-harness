@@ -9,6 +9,6 @@ export function withRequirements(task) {
 }
 
 export function revisionTask(task, content, review) {
-  const instructions = `${task.reviewInstructions || task.instructions}\n【本轮定向修订】\n最新失败稿（以此为唯一修改基准）：\n${content}\n本轮自审不通过原因：\n${review}\n保留原人工意见，只修改受影响内容及必要衔接。返回完整修订结果，不返回修改说明。`
-  return { ...task, instructions }
+  return { ...task, instructions: task.reviewInstructions || task.instructions,
+    baseContent: content, opinion: review, humanOpinion: task.opinion || '', automatic: true }
 }

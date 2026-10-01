@@ -39,8 +39,8 @@ test('实际生成精简重复与审核包装，同时独立审核保留完整�
   assert.equal(combined.split('130–170').length - 1, 1)
   assert.equal(combined.split('最多 300').length - 1, 1)
   assert.doesNotMatch(system, /FAIL|失败依据|outputLanguage|角色 look|指导技能只细化|durationSeconds":120/)
-  assert.match(system, /返回前核对本集事件因果/)
-  assert.match(prompts.review('待审稿').system, /失败依据|跨集连续性/)
+  assert.match(system, /保持事件因果与时间顺序/)
+  assert.match(prompts.review('待审稿').system, /保持事件因果与时间顺序/)
   assert.match(prompts.review('待审稿').system, /首行 FAIL/)
 })
 
@@ -77,8 +77,8 @@ test('人工修改带基稿和意见，自动修订只带最新失败稿并保�
     const prompts = buildEpisodePrompts(middle(), 'target', 150)
     assert.match(prompts.generation.user, /【修改基稿】\n.*本集旧稿/)
     assert.match(prompts.generation.user, /【本次修改意见】\n加强最后的抉择/)
-    assert.match(prompts.generation.system, /【摘要修订边界】/)
-    assert.match(prompts.generation.system, /语言一致性优先于逐字保留/)
+    assert.match(prompts.generation.system, /【本次修订范围】/)
+    assert.match(prompts.generation.system, /保留未涉及的事件、顺序、结果与内容/)
     const revision = prompts.revision('最新失败稿正文', 'FAIL 缺少因果')
     assert.match(revision.user, /最新失败稿正文/)
     assert.match(revision.user, /FAIL 缺少因果/)
@@ -90,7 +90,7 @@ test('人工修改带基稿和意见，自动修订只带最新失败稿并保�
   })
 })
 
-test('英文参数及技能快照的 common、修订边界和节点补充继续生效，review 不混入生成', () => {
+test('英文参数和节点补充生效，废弃的通用审核修订覆盖不再参与编排', () => {
   const set = builtinSkillSet({ additions: { episode: { common: '本剧创作补充', revise: '本剧修订补充', review: '本剧审核补充' } } })
   set.nodeSupplements = { target: { summary: [{ id: 'node', content: '本节点创作补充' }] } }
   set.skills.episode.parts.common = '基础通用覆盖'
@@ -100,13 +100,13 @@ test('英文参数及技能快照的 common、修订边界和节点补充继续�
     const prompts = buildEpisodePrompts({ ...middle(), outputLanguage: 'en' }, 'target')
     assert.match(prompts.generation.user, /本次生成语言：English/)
     assert.match(prompts.generation.user, /对白语言：English/)
-    assert.match(prompts.generation.system, /基础通用覆盖/)
+    assert.doesNotMatch(prompts.generation.system, /基础通用覆盖/)
     assert.match(prompts.generation.system, /本节点创作补充/)
     assert.doesNotMatch(prompts.generation.system, /独立审核覆盖|本剧审核补充/)
-    assert.match(prompts.review('稿件').system, /独立审核覆盖/)
+    assert.doesNotMatch(prompts.review('稿件').system, /独立审核覆盖/)
     assert.match(prompts.review('稿件').system, /本节点创作补充/)
     assert.doesNotMatch(prompts.review('稿件').system, /本剧审核补充/)
-    assert.match(prompts.revision('稿件', 'FAIL').system, /基础修订覆盖/)
+    assert.doesNotMatch(prompts.revision('稿件', 'FAIL').system, /基础修订覆盖/)
     assert.match(prompts.revision('稿件', 'FAIL').system, /本节点创作补充/)
   })
 })
@@ -136,7 +136,7 @@ test('实际审核把验收规则放 system，参数不重复且不带其他阶�
   const audit = buildEpisodePrompts(root()).review('最新内容')
   assert.equal(audit.json, false)
   assert.match(audit.system, /独立剧集摘要审核员/)
-  assert.match(audit.system, /【验收标准/)
+  assert.match(audit.system, /【创作约束（仅作验收依据）】/)
   assert.doesNotMatch(audit.user, /【验收标准/)
   assert.doesNotMatch(audit.system + audit.user, /独立审片师|subject_definitions|retention_analysis|outputLanguage|角色 look/)
   assert.equal((audit.system + audit.user).split('本次生成语言：').length - 1, 1)

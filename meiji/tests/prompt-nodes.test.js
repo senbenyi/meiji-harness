@@ -19,6 +19,8 @@ const table = '## S01 / 5s\n标题：入院\n旅人进入庭院。\n## S02 / 5s\
 for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
   test(`${stage}: generation, review and revision each submit exactly system and user`, async () => {
     const project = { ...episodeFixture(), outputLanguage: 'en', skills: { additions: { outline: { generate: 'CUSTOM_RULE' }, shots: { generate: 'CUSTOM_RULE' }, seconds: { generate: 'CUSTOM_RULE' } } } }
+    project.episodeId = project.id
+    project.supplementalSkills = Object.fromEntries(['outline', 'characters', 'scenes', 'shots', 'seconds'].map(node => [node, [{ id: node, content: 'CUSTOM_RULE' }]]))
     const prompts = stage === 'shots' ? buildTablePrompts({ project }) : stage === 'seconds' ? buildSecondsPrompts({ project, shotId: 'S01' }) : buildStoryPrompts(project, stage)
     for (const [message, isReview] of [[prompts.generation, false], [prompts.review('CURRENT_DRAFT'), true], [prompts.revision('LATEST_FAILED', 'FAIL REVIEW_REASON'), false]]) {
       await runTextRequest(message, { route, fetchImpl: async (_, options) => {

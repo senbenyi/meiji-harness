@@ -7,14 +7,15 @@ import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
 import { generateStoryPackage } from '../server/generate/story.js'
 import { checkContext } from '../server/data/operation-context.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { storyPackageFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
 import { definitions } from '../server/flow/operations/registry.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { recordSteps } from './fixtures/steps.js'
+import { builtinSkill } from '../skills/load.js'
 
 for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterModel, 'characters'], [StorySceneModel, 'scenes']]) {
   test(`${kind}: model independently assembles generation, revision and review`, () => {
-    const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', reviewRules: 'RULE' })
+    const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', generationRules: 'RULE' })
     const generated = model.toGenerateMessages()
     assert.deepEqual(generated.map(message => message.role), ['system', 'user'])
     assert.match(generated[0].content, kind === 'outline' ? /顶层仅含 outline/ : /顶层仅含 items/)
@@ -30,15 +31,17 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
   })
 }
 
-test('each stage selects only its generation, acceptance and output sections', () => {
+test('每个剧情步骤生成和审核共用同一基础规则，输出协议独立', () => {
   for (const [kind, generation, criteria, other] of [
     ['outline', '故事大纲', '大纲验收', '人物验收|场景验收'],
     ['characters', '角色卡', '人物验收', '大纲验收|场景验收'],
     ['scenes', '场景卡', '场景验收', '大纲验收|人物验收'],
   ]) {
     const prompts = buildStoryPrompts(episodeFixture(), kind)
-    assert.match(prompts.generation.system, new RegExp(`### ${generation}`))
-    assert.match(prompts.review('DRAFT').system, new RegExp(`## ${criteria}`))
+    const rules = builtinSkill('outline').rules[kind]
+    assert.ok(rules.trim())
+    assert.ok(prompts.generation.system.includes(rules))
+    assert.ok(prompts.review('DRAFT').system.includes(rules))
     assert.doesNotMatch(prompts.review('DRAFT').system, new RegExp(other))
     assert.doesNotMatch(prompts.generation.system, /【自检标准】|审核通用协议|一次调用、一次返回完整结果/)
     assert.doesNotMatch(prompts.review('DRAFT').system, /审核通用协议|独立审片师/)
@@ -62,12 +65,12 @@ test('a card API error retains drafts saved by earlier independent stages', asyn
   let calls = 0
   const saved = []
   await assert.rejects(generateStoryPackage({ project: episodeFixture(), request: async () => {
-    if (++calls === 1) return '{"outline":"已生成大纲"}'
+    if (++calls === 1) return JSON.stringify({ outline: outlineFixture('已生成大纲') })
     if (calls === 2) return 'PASS'
     throw new Error('CHARACTER_API_ERROR')
   }, persist: result => saved.push(structuredClone(result)) }), /CHARACTER_API_ERROR/)
   assert.equal(calls, 3)
-  assert.equal(saved.at(-1).outline, '已生成大纲')
+  assert.equal(saved.at(-1).outline, outlineFixture('已生成大纲'))
   assert.equal(saved.at(-1).checks.outline.passed, true)
   assert.equal(saved.at(-1).checks.characters.passed, null)
 })
@@ -76,7 +79,7 @@ test('extraction after outline modification uses new facts, never stale card bas
   const project = episodeFixture()
   project.plot.outline.content = 'OLD_OUTLINE'
   const fixture = storyPackageFixture()
-  const replies = ['{"outline":"FINAL_NEW_OUTLINE"}', 'PASS', JSON.stringify(fixture.characters), 'PASS', JSON.stringify(fixture.scenes), 'PASS']
+  const replies = [JSON.stringify({ outline: outlineFixture('FINAL_NEW_OUTLINE') }), 'PASS', JSON.stringify(fixture.characters), 'PASS', JSON.stringify(fixture.scenes), 'PASS']
   let calls = 0
   await checkContext.run({ generationMode: 'modify', originalProject: project, review: 'CHANGE_OUTLINE' }, () => generateStoryPackage({ project, request: async message => {
     if (++calls === 1) assert.match(message.user, /OLD_OUTLINE.*|CHANGE_OUTLINE/)
@@ -92,14 +95,14 @@ test('extraction after outline modification uses new facts, never stale card bas
 test('real operation persists independent checks and blocks downstream after failed characters', async t => {
   const e = await setupModel(t)
   const fixture = storyPackageFixture()
-  const replies = ['{"outline":"FINAL_OUTLINE"}', 'PASS', JSON.stringify(fixture.characters), 'FAIL 缺少另一身体', JSON.stringify(fixture.characters), 'FAIL 缺少另一身体']
+  const replies = [JSON.stringify({ outline: outlineFixture('FINAL_OUTLINE') }), 'PASS', JSON.stringify(fixture.characters), 'FAIL 缺少另一身体', JSON.stringify(fixture.characters), 'FAIL 缺少另一身体']
   let calls = 0
   await runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
   })
   const saved = await e.read()
   assert.equal(calls, 6)
-  assert.equal(saved.plot.outline.content, 'FINAL_OUTLINE')
+  assert.equal(saved.plot.outline.content, outlineFixture('FINAL_OUTLINE'))
   assert.equal(saved.plot.outline.check.passed, true)
   assert.equal(saved.plot.characters.check.passed, false)
   assert.equal(saved.plot.scenes.check.passed, null)
@@ -112,13 +115,13 @@ test('a later API error preserves the passed outline status in the real operatio
   let calls = 0
   await assert.rejects(runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
-      if (++calls === 1) return '{"outline":"PASSED_OUTLINE"}'
+      if (++calls === 1) return JSON.stringify({ outline: outlineFixture('PASSED_OUTLINE') })
       if (calls === 2) return 'PASS'
       throw new Error('CHARACTER_ERROR')
     } }),
   }), /CHARACTER_ERROR/)
   const saved = await e.read()
-  assert.equal(saved.plot.outline.content, 'PASSED_OUTLINE')
+  assert.equal(saved.plot.outline.content, outlineFixture('PASSED_OUTLINE'))
   assert.equal(saved.plot.outline.check.passed, true)
   assert.equal(saved.plot.outline.status, 'passed')
   assert.equal(saved.plot.outline.operation, null)
@@ -132,13 +135,13 @@ test('stopping before the next stage prevents card API requests and keeps the ou
   const saved = []
   await assert.rejects(generateStoryPackage({ project: episodeFixture(), signal: controller.signal, request: async () => {
     calls++
-    return calls === 1 ? '{"outline":"NEW_OUTLINE"}' : 'PASS'
+    return calls === 1 ? JSON.stringify({ outline: outlineFixture('NEW_OUTLINE') }) : 'PASS'
   }, persist: result => {
     saved.push(structuredClone(result))
     if (result.checks.outline.passed) controller.abort()
   } }), { name: 'AbortError' })
   assert.equal(calls, 2)
-  assert.equal(saved.at(-1).outline, 'NEW_OUTLINE')
+  assert.equal(saved.at(-1).outline, outlineFixture('NEW_OUTLINE'))
   assert.equal(saved.at(-1).checks.outline.passed, true)
 })
 
@@ -169,7 +172,7 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
     return current
   })
   let calls = 0
-  const replies = ['{"outline":"FIXED_OUTLINE"}', 'PASS', JSON.stringify(fixture.characters), 'PASS', JSON.stringify(fixture.scenes), 'PASS']
+  const replies = [JSON.stringify({ outline: outlineFixture('FIXED_OUTLINE') }), 'PASS', JSON.stringify(fixture.characters), 'PASS', JSON.stringify(fixture.scenes), 'PASS']
   await runOperation(e.op('outline', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
   })
@@ -216,9 +219,36 @@ test('edited story material still receives comprehensive review without an extra
   assert.equal(prompt.json, false)
   assert.match(prompt.user, /阶段：剧情整包/)
   assert.match(prompt.user, /EDITED/)
-  assert.match(prompt.system, /## 大纲验收/)
-  assert.match(prompt.system, /## 人物验收/)
-  assert.match(prompt.system, /## 场景验收/)
+  assert.ok(prompt.system.includes(builtinSkill('outline').rules.outline))
+  assert.match(prompt.system, /人物、场景卡的覆盖性/)
   assert.match(prompt.system, /先独立从最新大纲盘点/)
   assert.match(prompt.system, /没有问题只返回 PASS/)
+})
+
+test('大纲生成与修订都提供正文分节和换行结构', () => {
+  const model = new StoryOutlineModel({ project: episodeFixture(), mode: 'generate' })
+  for (const request of [model.toGenerateMessages(), model.toReviseMessages({ baseContent: '旧大纲', opinion: '改结尾' })]) {
+    assert.match(request[0].content, /【正文结构】/)
+    assert.match(request[0].content, /小节之间留一个空行/)
+    assert.match(request[0].content, /解析后保留真实换行/)
+  }
+})
+
+
+test('outline section structure is checked deterministically and repairs the latest draft', async () => {
+ const { outlineStructureFailures }=await import('../server/generate/story.js')
+ assert.equal(outlineStructureFailures(outlineFixture()).length,0)
+ assert.ok(outlineStructureFailures('【主角动机】正文挤在同一行').length)
+ const fixture=storyPackageFixture(),calls=[]
+ const replies=['{"outline":"缺少标题的完整事件稿"}','PASS',JSON.stringify({outline:outlineFixture()}),'PASS',JSON.stringify(fixture.characters),'PASS',JSON.stringify(fixture.scenes),'PASS']
+ const result=await generateStoryPackage({project:episodeFixture(),request:async message=>{calls.push(message);return replies.shift()}})
+ assert.equal(result.check.passed,true);assert.match(calls[2].user,/大纲正文结构/);assert.equal(calls.length,8)
+})
+
+test('extraction tasks and review explicitly distinguish offscreen voice and empty scenery',()=>{
+ const project=episodeFixture()
+ const character=new StoryCharacterModel({project})
+ const scene=new StorySceneModel({project})
+ for(const request of [character.toGenerateMessages(),character.toReviseMessages({baseContent:'BASE',opinion:'OPINION'}),character.toReviewMessages({content:'LATEST'})])assert.match(request.map(m=>m.content).join('\n'),/全程只有电话或画外声音/)
+ for(const request of [scene.toGenerateMessages(),scene.toReviseMessages({baseContent:'BASE',opinion:'OPINION'}),scene.toReviewMessages({content:'LATEST'})])assert.match(request.map(m=>m.content).join('\n'),/不写人物、剪影、身体部位/)
 })

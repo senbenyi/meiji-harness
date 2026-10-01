@@ -22,7 +22,7 @@ const storyboard = {
 }
 const click = (root, text) => [...root.querySelectorAll('button')].find(button => button.textContent === text).click()
 
-test('固定约束只读显示，空文件显示无约束，人物图没有基础编辑或本剧补充入口', async t => {
+test('固定约束只读显示，空文件显示空正文，人物图没有基础编辑或本剧补充入口', async t => {
   domSetup(t)
   for (const constraints of ['只画人物全身', '']) {
     const page = renderSkillDetail({ id: 'character-image', project: { title: '短剧' } }, {
@@ -30,12 +30,12 @@ test('固定约束只读显示，空文件显示无约束，人物图没有基�
     })
     document.body.append(page)
     await settle()
-    assert.match(page.textContent, /固定约束（只读）/)
-    assert.equal(page.querySelector('.skill-constraints .skill-text').textContent, constraints || '无固定约束')
-    assert.equal(page.querySelector('textarea'), null)
-    assert.equal(page.querySelector('.skill-base'), null)
-    assert.equal(page.querySelector('.skill-additions'), null)
-    assert.equal([...page.querySelectorAll('button')].some(button => /编辑|恢复|保存/.test(button.textContent)), false)
+    assert.match(page.textContent, /基础 skill/)
+    assert.equal(page.querySelector('.skill-base .skill-text')?.textContent || '', constraints)
+    assert.equal(page.querySelector('textarea').disabled, true)
+    assert.ok(page.querySelector('.skill-base'))
+    assert.equal(page.querySelector('.skill-additions').hidden, true)
+    assert.equal([...page.querySelectorAll('button')].some(button => /编辑|恢复|保存/.test(button.textContent) && !button.disabled), false)
     assert.doesNotMatch(page.textContent, /旧补充|undefined/)
     page.remove()
   }
@@ -51,95 +51,6 @@ test('stage entries open the stage skill and show drama status', async t => {
   row.querySelector('button').click()
   assert.deepEqual(opened, [[project, 'video']])
   assert.equal(skillField({}, 'outline', { openSkill() {} }).querySelector('button').textContent, '查看 skill')
-})
-
-test('skill detail shows base fields, saves edits only after confirming they apply to every drama, and restores', async t => {
-  domSetup(t)
-  const calls = []
-  const page = renderSkillDetail({ id: 'storyboard', project: { title: '沙漠' } }, {
-    back() {}, open() {}, loadAssets: async () => ({ assets }),
-    load: async () => ({ skill: storyboard, project: { additions: { generate: '本剧冷色调' }, enabled: ['action'], assets: {} } }),
-    saveBase: async fields => { calls.push(['base', fields]); return { skill: { ...storyboard, fields: storyboard.fields.map(item => item.field === 'generate' ? { ...item, text: fields.generate, layer: 'base' } : item) } } },
-    reset: async (to, name) => { calls.push(['reset', to, name]); return { skill: storyboard } },
-    saveAddition: async fields => calls.push(['addition', fields]),
-    saveGuidance: async enabled => calls.push(['guidance', enabled]),
-    saveAssets: async (stage, ids) => calls.push(['assets', stage, ids]),
-    preview: async mode => { calls.push(['preview', mode]); return { requests: { generate: { chars: 12, system: [{ source: 'stage', title: '【阶段技能·生成】', text: '生成正文' }, { source: 'project', title: '【本剧补充·生成】', text: '本剧冷色调' }], user: [{ source: 'context', title: '【任务与上下文】', text: '上下文' }] }, modify: null } } },
-  })
-  document.body.append(page)
-  await settle()
-  assert.match(page.textContent, /文本分镜 · skill/)
-  assert.match(page.querySelector('.skill-base .skill-text').textContent, /生成正文/)
-  // 协议只读
-  click(page.querySelector('.skill-base [role=tablist]'), '协议（只读）')
-  assert.match(page.querySelector('.skill-base').textContent, /不可编辑/)
-  assert.equal([...page.querySelector('.skill-base').querySelectorAll('button')].some(button => button.textContent === '编辑'), false)
-  // 编辑生成字段：先确认再保存
-  click(page.querySelector('.skill-base [role=tablist]'), '生成')
-  click(page.querySelector('.skill-base'), '编辑')
-  page.querySelector('.skill-base textarea').value = '新的生成正文'
-  click(page.querySelector('.skill-base'), '保存')
-  assert.deepEqual(calls, [])
-  assert.match(page.querySelector('.skill-confirm').textContent, /对所有剧生效/)
-  click(page.querySelector('.skill-base'), '确认保存')
-  await settle()
-  assert.deepEqual(calls.shift(), ['base', { generate: '新的生成正文' }])
-  assert.match(page.textContent, /已保存基础 skill/)
-  // 已修改且内置已更新的审核字段：可对比、恢复内置、撤回上一版
-  click(page.querySelector('.skill-base [role=tablist]'), '审核')
-  assert.match(page.querySelector('.skill-base').textContent, /内置已更新/)
-  assert.match(page.querySelector('.skill-compare').textContent, /旧审核/)
-  click(page.querySelector('.skill-base'), '撤回上一版')
-  await settle()
-  assert.deepEqual(calls.shift(), ['reset', 'previous', 'review'])
-  // 本剧补充保存全部字段
-  const addition = page.querySelector('.skill-additions textarea')
-  assert.equal(addition.value, '本剧冷色调')
-  click(page.querySelector('.skill-additions [role=tablist]'), '审核')
-  addition.value = '核对色调'; addition.oninput()
-  click(page.querySelector('.skill-additions'), '保存本剧补充')
-  await settle()
-  assert.deepEqual(calls.shift(), ['addition', { common: '', generate: '本剧冷色调', review: '核对色调', revise: '' }])
-  // 指导启用开关
-  const martial = page.querySelector('.skill-guidance input[value=martial]')
-  assert.equal(martial.checked, false)
-  martial.checked = true; await martial.onchange()
-  assert.deepEqual(calls.shift(), ['guidance', ['action', 'martial']])
-  // 指导素材按指导分组，保存到本阶段
-  assert.match(page.querySelector('.skill-assets').textContent, /声音指导[\s\S]*风声.md/)
-  assert.equal(page.querySelector('.skill-assets script'), null)
-  page.querySelector('.skill-assets input[value=one]').click()
-  click(page.querySelector('.skill-assets'), '保存指导素材')
-  await settle()
-  assert.deepEqual(calls.shift(), ['assets', 'storyboard', ['one']])
-  // 预览按来源着色并显示字数
-  page.querySelector('.skill-preview select').value = 'text'
-  click(page.querySelector('.skill-preview'), '预览请求')
-  await settle()
-  assert.deepEqual(calls.shift(), ['preview', 'text'])
-  assert.match(page.querySelector('.skill-preview-request summary').textContent, /生成 · 12 字/)
-  assert.ok(page.querySelector('.skill-seg.seg-project'))
-  assert.match(page.querySelector('.skill-seg.seg-project').textContent, /本剧补充/)
-  assert.equal(page.querySelectorAll('.skill-preview-request').length, 1)
-})
-
-test('a failed library load or save keeps the selected guides', async t => {
-  domSetup(t)
-  const saved = [], asset = { ...assets[0], name: assets[0].originalName }
-  const page = renderSkillDetail({ id: 'video', project: { title: '沙漠' } }, {
-    back() {}, open() {}, preview: async () => ({ requests: {} }),
-    load: async () => ({ skill: { id: 'video', kind: 'stage', label: '成片', related: [], stages: [], guidance: [], protocol: '', fields: [field('generate', '')] }, project: { additions: {}, enabled: [], assets: { film: [asset] } } }),
-    loadAssets: async () => { throw new Error('离线') }, saveAssets: async (...args) => { saved.push(args); throw new Error('保存失败') },
-  })
-  await settle(); await settle()
-  assert.match(page.textContent, /已选素材仍保留/)
-  assert.match(page.textContent, /先编入文本分镜/)
-  click(page.querySelector('.skill-assets'), '保存指导素材')
-  await settle()
-  assert.deepEqual(saved, [['film', ['one']]])
-  assert.match(page.querySelector('.skill-assets').textContent, /保存失败/)
-  assert.equal(page.querySelector('.skill-assets input[value=one]').checked, true)
-  assert.equal(page.querySelector('.skill-guidance'), null)
 })
 
 test('skill library groups stage, guidance and shared skills with their modification state', async t => {

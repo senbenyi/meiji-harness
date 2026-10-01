@@ -1,3 +1,4 @@
+import { textShotFixture, storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
@@ -12,13 +13,13 @@ test('generation and independent review: only review receives previous final pro
   const calls = []
   await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: prompt }) => {
     calls.push(prompt)
-    return skill === 'review' ? 'PASS' : '[opening-reference: none]\n旅人继续面北。'
+    return skill === 'review' ? 'PASS' : skill==='text-shot'?textShotFixture():storyboardFixture(prompt)
   } })
-  assert.equal(calls.length, 2)
+  assert.equal(calls.length, 4)
   assert.doesNotMatch(calls[0], /前镜结束：旅人面北站在北墙/)
-  assert.match(calls[1], /前镜结束：旅人面北站在北墙/)
-  assert.match(calls[1], /https:\/\/test\/previous-person/)
-  assert.match(calls[1], /旅人继续面北/)
+  assert.doesNotMatch(calls[3], /前镜结束：旅人面北站在北墙/)
+  assert.doesNotMatch(calls[3], /https:\/\/test\/previous-person/)
+  assert.match(calls[3], /旅人朝北/)
 })
 
 test('manual edit review includes previous final prompt and current timeline', async () => {

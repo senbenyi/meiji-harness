@@ -7,7 +7,7 @@ import { storyboardTextPatch } from '../../data/storyboard-edit.js'
 import { loadModels } from './services.js'
 import { reviewContent } from '../../generate/review.js'
 import { generateAllSeconds, generateShotSeconds, generateShotStoryboard, generateShots, generateStoryPackage, generateStoryboard, regenerateCardGroup, reviseShot } from '../../generate/story.js'
-import { GenerationStatus, contentNode, finish, node, plotPatch, targetNode, updateShotResults } from '../../../shared/drama-model.js'
+import { GenerationStatus, contentNode, finish, node, plotPatch, setContent, targetNode, updateShotResults } from '../../../shared/drama-model.js'
 import { feedbackOf, overrideBlocker, overrideNodes } from '../../../shared/feedback.js'
 import { clearShotDownstream, replaceFrom } from '../../../shared/project-rules.js'
 import { canGenerate, hasShots } from '../../../shared/gates.js'
@@ -230,7 +230,7 @@ async function opShotSeconds(c) {
   const review = String(operation.review || '').trim()
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'seconds', track), activity: `shot-seconds:${track}`, activityError: null })
-  note('技能：每秒指令（skills/constraints/stages/seconds）')
+  note('技能：每秒指令（skills/task/generate-seconds-instructions-skill.md）')
   note('函数：generateShotSeconds（server/generate/story.js）')
   note(`写 ${track} 的每一秒`)
   if (review) note(`审核意见：${review}`)
@@ -254,12 +254,17 @@ async function opShotStoryboard(c) {
   const review = String(operation.review || '').trim()
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'storyboard', track), activity: `shot-storyboard:${track}`, activityError: null })
-  note('技能：文本分镜（skills/constraints/stages/storyboard）')
+  note('步骤：每秒指令 → 多模态引用编排')
   note('函数：generateShotStoryboard（server/generate/story.js）')
   note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
   if (review) note(`审核意见：${review}`)
   const storyboard = await (deps.generateShotStoryboard || generateShotStoryboard)({
     route: (await loadModels(models)).story, shotId: track, project, review,
+    persistDraft: (rows, check) => projects.save(project.id, current => {
+      const patch = updateShotResults(current, 'storyboard', rows)
+      patch.shots.items.find(item => item.id === track).storyboard.check = check
+      return patch
+    }),
   })
   await projects.save(project.id, { ...updateShotResults(project, 'storyboard', storyboard), assembly: node('assembly'), activity: null })
   note(`${track} 的分镜已写入。这一镜的铅笔分镜和成片已清空`)
@@ -284,7 +289,7 @@ async function opShotBoards(c) {
   const writeBoard = deps.generateShotStoryboard || generateShotStoryboard
   for (const track of ids) {
     let current = await projects.read(project.id)
-    note('技能：文本分镜（skills/constraints/stages/storyboard）')
+    note('技能：文本分镜（skills/task/generate-text-storyboard-skill.md）')
     note('函数：generateShotStoryboard（server/generate/story.js）')
     note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
     await selectCheck(current, { action: 'shot-storyboard', track })
@@ -353,6 +358,7 @@ export const storyOperations = {
   'revise-shot': { stage: 'episode', run: opReviseShot },
   'shot-seconds': { stage: 'episode', run: opShotSeconds },
   'shot-storyboard': { stage: 'episode', run: opShotStoryboard },
+  'storyboard-bind': { stage: 'episode', run: opShotStoryboard },
   'shot-boards': { stage: 'episode', run: opShotBoards },
   'storyboard': { stage: 'episode', run: opStoryboard },
 }

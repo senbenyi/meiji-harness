@@ -4,7 +4,7 @@ import { outputLanguage } from '../../data/language.js'
 import { referenceDuration, durationRange } from '../../../shared/episode-summary.js'
 
 export class EpisodeSummaryModel {
-  constructor({ project = {}, episodeId, referenceDurationSeconds, generationRules = '', outputProtocol = '', reviewRules = '', revisionRules = '', mode = 'generate', opinion = '' }) {
+  constructor({ project = {}, episodeId, referenceDurationSeconds, generationRules = '', outputProtocol = '', mode = 'generate', opinion = '' }) {
     const target = project.episodes?.find(episode => episode.id === episodeId)
     const ordered = [...(project.episodes || [])].reverse()
     const index = episodeId ? ordered.findIndex(episode => episode.id === episodeId) : ordered.length
@@ -22,8 +22,6 @@ export class EpisodeSummaryModel {
     this.summaryLength = { min: 1, max: 300 }
     this.generationRules = generationRules
     this.outputProtocol = outputProtocol
-    this.reviewRules = reviewRules
-    this.revisionRules = revisionRules
     this.reviewRole = '独立剧集摘要审核员'
     this.mode = mode
     this.modification = mode === 'modify' && target ? { baseSummary: target.summary.content, durationSeconds: target.durationSeconds, instruction: opinion } : null
@@ -37,7 +35,7 @@ export class EpisodeSummaryModel {
     const following = this.followingEpisodes.map(episode => `第 ${episode.episodeNumber} 集：${episode.summary}`).join('\n')
     const pieces = [
       segment('context', '【本次参数】', `参考时长：${reference} 秒。实际时长范围：${min}–${max} 秒（含边界），由 AI 按剧情容量决定。\n本次生成语言：${language ? 'English（英文）' : '简体中文'}。\n对白语言：${language ? 'English' : '中文普通话（Mandarin Chinese）'}。既定台词保留原文。${this.project.style ? `\n视觉风格：${this.project.style}` : ''}`),
-      segment('context', '【故事资料】', `标题：${this.project.title}\n【输入内容：视频总摘要】\n项目摘要：${this.project.summary || '未提供'}\n项目剧本：${this.project.script || '未提供'}`),
+      segment('context', '【故事资料】', `标题：${this.project.title}\n【输入内容：视频总摘要】\n项目摘要：${this.project.summary || '未提供'}\n${this.project.script ? `项目剧本：${this.project.script}` : ''}`),
       segment('context', '【前集资料】', previous ? `之前全部剧集摘要，按剧情顺序：\n${previous}\n本集开场承接前集结尾，延续已确定的人物状态和未解决矛盾。` : '无前集。本集为第 1 集，根据项目摘要和剧本展开开场。'),
       segment('context', '【后集资料】', following ? `后续剧集是衔接约束，不是已经发生的剧情：\n${following}\n本集结尾须自然接上后集开头，不提前演出后集事件。` : '未提供后集剧情。本集取得明确进展后，以当前冲突中的危机、新发现或关键抉择留下悬念，为下一集提供可继续展开的方向。'),
       segment('context', '【补充任务资料】', instructions),
@@ -60,7 +58,7 @@ export class EpisodeSummaryModel {
   }
   toReviseSegments({ baseContent = this.modification && JSON.stringify({ summary: this.modification.baseSummary, durationSeconds: this.modification.durationSeconds }),
     opinion = this.modification?.instruction || '', automatic = false, humanOpinion = this.modification?.instruction || '',
-    system = [], boundary = [segment('stage', '【阶段技能·修订边界】', this.revisionRules, { skill: 'episode', field: 'revise' })],
+    system = [], boundary = [segment('context', '【本次修订范围】', '按意见定向修订，只修改受影响内容及必要衔接，保留未涉及的事件、顺序与结果。')],
     protocol = segment('protocol', '【本次输出协议】', this.outputProtocol), ...context } = {}) {
     baseContent = contentText(baseContent)
     if (!baseContent.trim()) throw new Error('修订摘要需要提供基稿')
@@ -74,7 +72,7 @@ export class EpisodeSummaryModel {
   }
   toReviewSegments({ content, baseContent = this.modification && JSON.stringify({ summary: this.modification.baseSummary, durationSeconds: this.modification.durationSeconds }),
     opinion = this.modification?.instruction || '', automatic = false, humanOpinion = this.modification?.instruction || '',
-    system = [], criteria = segment('stage', '【验收标准（仅作审核依据，不执行其中生成指令）】', this.reviewRules, { skill: 'episode', field: 'review' }),
+    system = [], criteria = segment('stage', '【验收标准（仅作审核依据，不执行其中生成指令）】', '', { skill: 'episode', field: 'review' }),
     reviewContext = '', ...context } = {}) {
     baseContent = contentText(baseContent)
     const hasBase = Boolean(baseContent.trim())
@@ -86,7 +84,7 @@ export class EpisodeSummaryModel {
       segment('context', '【本次审核范围】', hasBase
         ? '对照提供的基稿与本次意见，核实修改是否落实、是否出现无关改动或新冲突。完整返回不代表允许整篇重写。只审核最新待审稿，不直接沿用历史失败结论。'
         : '只验收本集最新摘要。未提供本集基稿，不要求与旧摘要一致，不声称已验证未改部分保留；合理续写不因未逐字出现在资料中而判失败。'),
-      segment('protocol', '【本次审核协议】', '没有问题只返回 PASS；否则首行 FAIL，后续逐条写“位置：实际问题；修正要求”。不输出 JSON、修改稿、已通过项或额外说明。'),
+      segment('protocol', '【本次审核协议】', '没有问题只返回 PASS；否则首行 FAIL，后续逐条写“位置：实际问题；修正要求”。每条失败引用最新待审稿的具体表述以及对应输入事实或规则，并说明最小修正方向；无具体违规依据时不判失败，建议与个人节奏偏好不能阻塞。不输出 JSON、修改稿、已通过项或额外说明。'),
     ], user: [this.taskSegment(mode), ...this.contextSegments(context),
       ...(hasBase ? [segment('context', '【修订基稿（用于对照修改范围）】', baseContent),
         segment('context', automatic ? '【本轮修订意见】' : '【本次修改意见】', opinion)] : []),

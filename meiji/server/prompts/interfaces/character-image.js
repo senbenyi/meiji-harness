@@ -1,9 +1,8 @@
-// 人物图接口负责技能快照、年龄规则与 model 赋值；修改提示词由 model 转换。
-// 固定约束来自 skills/constraints/character/generate-character-image.md。
+// 人物图接口负责技能快照、年龄规则与 Model 赋值；三种图片模式均由 Model 转换。
+// 固定约束来自 skills/task/generate-character-image-skill.md。
 // 图片上传、尺寸、请求发送和结果保存仍由生成/流程层负责。
 import { characterFieldValues, characterSheet } from '../../../shared/character-facts.js'
-import { withReviewPrompt } from '../../data/review-checks.js'
-import { currentSkillSet, recordUse, render, segment, stageMeta } from '../skill-prompts.js'
+import { currentSkillSet, recordUse, segment, stageMeta } from '../skill-prompts.js'
 
 import { createCharacterImageModel } from '../models/character-image-model.js'
 
@@ -44,16 +43,16 @@ export function adultCharacter(item) {
   return years != null && years >= 18
 }
 
-// 约束正文只来自 skills/constraints/character/generate-character-image.md。
-// 普通 Markdown 原样使用；存在约定分节时，实际人物只选通用与适用年龄段，模板预览显示全文。
+// 约束正文只来自 skills/task/generate-character-image-skill.md。
+// 普通正文原样使用；存在年龄条件时，实际人物只选适用条件，模板预览显示全文。
 function selectConstraints(text, item) {
   if (!item) return text
-  const parts = text.split(/^## (通用|成年人物|未成年或年龄不明)\s*$/m)
+  const parts = text.split(/^若为(成年人物|未成年或年龄不明)：\s*$/m)
   if (parts.length === 1) return text
   const selected = [parts[0]]
   const ageGroup = adultCharacter(item) ? '成年人物' : '未成年或年龄不明'
   for (let i = 1; i < parts.length; i += 2) {
-    if (parts[i] === '通用' || parts[i] === ageGroup) selected.push(parts[i + 1])
+    if (parts[i] === ageGroup) selected.push(parts[i + 1])
   }
   return selected.map(value => value.trim()).filter(Boolean).join('\n\n')
 }
@@ -62,18 +61,21 @@ function selectConstraints(text, item) {
 function generate({ item, project, request = '', skillSet }) {
   const set = currentSkillSet(project, skillSet)
   recordUse(set, stageMeta(stage), [])
-  const requirement = selectConstraints(set.skills[stage].constraints ?? '', item)
-  const facts = item ? characterStillPrompt(item) : request
-  return [
-    segment('constraint', '', requirement, { skill: stage, field: 'constraints' }),
-    segment('context', '本次画面要求：', withReviewPrompt(facts)),
-  ]
+  if (!item) return [segment('context', '【本次任务】', '根据人物资料生成一张人物参考图。'), segment('constraint', '【生成规则】', selectConstraints(set.skills[stage].constraints ?? '', item)), segment('context', '【人物资料】', request)]
+  return characterImageGenerationModel(item, project, {}, set).toSegments()
 }
 
 // 技能详情页没有选定人物的控件：有本集资料时预览第一张人物卡，否则展示模板占位。
 function preview(args) {
   const item = args.project?.plot?.characters?.items?.find(entry => entry.type === 'role')
   return characterImage.generate({ ...args, item, request: '（人物资料将在生成时由所选人物卡提取；当前仅预览技能模板，具体年龄约束以人物卡为准）' })
+}
+
+export function characterImageGenerationModel(item, project, { canvas = { width: 768, height: 1344 }, images = [] } = {}, skillSet) {
+  const set = currentSkillSet(project, skillSet)
+  recordUse(set, stageMeta(stage), [])
+  return createCharacterImageModel({ mode: images.length ? 'reference' : 'generate', character: item,
+    generationRules: selectConstraints(set.skills[stage].constraints ?? '', item), canvas, images })
 }
 
 export function characterImageModificationModel(item, project, { images, instruction, canvas }, skillSet) {
@@ -94,8 +96,8 @@ function modify({ item, project, skillSet, ...options }) {
 const characterImage = { generate, preview, modify }
 export default characterImage
 
-export function characterImagePrompt(item, project, skillSet) {
-  return render(characterImage.generate({ item: item || {}, project, skillSet }))
+export function characterImagePrompt(item, project, skillSet, options = {}) {
+  return characterImageGenerationModel(item || {}, project, options, skillSet).toPrompt()
 }
 
 export function characterImageModificationPrompt(item, project, options, skillSet) {

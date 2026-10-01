@@ -11,7 +11,7 @@ export function sceneImageModel(item, project, { mode = 'generate', images = [],
   const [width, height] = aspectRatioOf(project?.aspectRatio).split('x').map(Number)
   return createSceneImageModel({
     scene: item, mode, images, canvas: canvas || { width, height },
-    generationRules: part(set, stage, 'generate'),
+    generationRules: set.skills[stage].constraints,
     additionalInstructions: addition(set, stage, 'generate'),
     modification: mode === 'modify' ? { instruction, preserveUnspecified: true } : null,
   })

@@ -7,7 +7,7 @@ import { loadModels } from './services.js'
 import { decodeImageData } from '../../generate/character-views.js'
 import { characterImageSize, gatewayImageSize } from '../../generate/gateway.js'
 import { appendImageAsset, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
-import { characterImagePrompt, characterImageModificationModel } from '../../prompts/interfaces/character-image.js'
+import { characterImagePrompt, characterImageGenerationModel, characterImageModificationModel } from '../../prompts/interfaces/character-image.js'
 import { sceneImagePrompt, sceneImageModificationModel } from '../../prompts/interfaces/scene-image.js'
 import { GenerationStatus, finish, consumeReview, plotPatch, shotResults, targetNode, updateShotResult } from '../../../shared/drama-model.js'
 import { feedbackKey } from '../../../shared/feedback.js'
@@ -39,7 +39,7 @@ export async function startImage(operation, project, { projects, models, home, s
   const [width, height] = size.split('x').map(Number)
   const canvas = { width, height }
   const subject = current.type === 'role' ? '人物' : '场景'
-  let submitted = imageModification ? '' : current.type === 'role' ? characterImagePrompt(current, project) : sceneImagePrompt(current, project, undefined, { canvas })
+  let submitted = imageModification ? '' : current.type === 'role' ? characterImagePrompt(current, project, undefined, { canvas }) : sceneImagePrompt(current, project, undefined, { canvas })
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   let referenceBytes
   let referenceMime
@@ -82,12 +82,15 @@ export async function startImage(operation, project, { projects, models, home, s
     }
     referenceBytes = file.bytes
     referenceMime = file.mime
+    const model = characterImageGenerationModel(current, project, { canvas, images: [{ purpose: 'character-reference', base64: `data:${referenceMime};base64,${referenceBytes.toString('base64')}` }] })
+    submitted = model.toPrompt()
+    referenceBase64 = model.images.map(image => image.base64)
     reference = '按参考图生成'
   }
   const seed = imageSeed(`${item.id}:${Date.now()}`)
   defer(submitAssetImage({
     assets: bag, itemId: item.id, aspectRatio: size, backend: route.image,
-    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes: imageModification ? undefined : referenceBytes, referenceMime, referenceBase64, seed, home, prompt: submitted,
+    projectId: project.id, episodeId: project.episodeId, directory, referenceBytes: referenceBase64 ? undefined : referenceBytes, referenceMime, referenceBase64, seed, home, prompt: submitted,
     stepTarget: `image:${item.id}`,
     onSaved: async next => {
       const draft = next.items.find(entry => entry.id === item.id).pendingImage

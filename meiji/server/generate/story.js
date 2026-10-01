@@ -109,6 +109,22 @@ export async function generateEpisode({ route, project, episodeId, referenceDura
   return { ...normalizeEpisodeDraft(parseJsonValue(result.text), reference), check: result.check }
 }
 
+// 只检查格式，不依据词语猜测人物或环境的剧情语义。
+export function outlineStructureFailures(text, language = 'zh-CN') {
+  const headings = language === 'en' ? ['Motivation', 'World Rules', 'Causal Plot', 'Emotional Thread', 'Dialogue Beats', 'Ending State', 'Final Image']
+    : ['主角动机', '世界规则', '因果剧情', '情绪线索', '对白节拍', '结尾状态', '结尾关键画面']
+  const lines = String(text || '').split(/\r?\n/)
+  let previous = -1
+  const failures = []
+  for (const title of headings) {
+    const marker = `【${title}】`
+    const index = lines.indexOf(marker)
+    if (index <= previous || !lines[index + 1]?.trim() || /^【/.test(lines[index + 1])) failures.push(`大纲正文结构：${marker}须按顺序独占一行，下一行有正文`)
+    previous = Math.max(previous, index)
+  }
+  return failures
+}
+
 // 三个独立文本流程：大纲通过后，按同一份最终大纲分别提取人物和场景。
 export async function generateStoryPackage({ route, project, signal, fetchImpl, request, persist }) {
   const options = { route, project, signal, fetchImpl, request }
@@ -140,7 +156,7 @@ export async function generateStoryPackage({ route, project, signal, fetchImpl, 
     }
     const generated = await runTextSteps({ target: kind,
       prompts: buildStoryPrompts(input, kind, '', { extraction: kind !== 'outline' }), options,
-      validate: normalize, persist: persist && ((text, check) => save(kind, normalize(text), check)) })
+      validate: normalize, check: kind === 'outline' ? text => outlineStructureFailures(normalize(text), project.outputLanguage) : () => [], retainFailedDraft: true, persist: persist && ((text, check) => save(kind, normalize(text), check)) })
     await save(kind, normalize(generated.text), generated.check, false)
     if (!generated.check.passed) break
   }

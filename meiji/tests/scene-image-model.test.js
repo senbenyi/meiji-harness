@@ -53,17 +53,30 @@ test('模式、画幅和图片用途需有效，空规则不追加默认正文',
   assert.doesNotMatch(prompt, /【生成规则】|无人空景，地标和光位保持一致。/)
 })
 
-test('场景接口保留技能覆盖和本剧补充，实际卡生成与修改预览同源', () => {
+test('场景接口保留基础快照，忽略旧本剧覆盖，实际卡与预览同源', () => {
   const project = { aspectRatio: '1344x768', style: '水彩', outputLanguage: 'en', plot: { scenes: { items: [{ ...input.scene, type: 'scene' }] } } }
   const set = builtinSkillSet({ additions: { 'scene-image': { generate: '本剧补充：保留真实尺度' } } })
-  set.skills['scene-image'].parts.generate = '基础覆盖：无人空景'
+  set.skills['scene-image'].constraints = '基础覆盖：无人空景'
   const model = sceneImageModel(input.scene, project, {}, set)
   assert.equal(model.generationRules, '基础覆盖：无人空景')
-  assert.match(model.toPrompt(), /本剧补充：保留真实尺度/)
+  assert.doesNotMatch(model.toPrompt(), /本剧补充：保留真实尺度/)
   const previews = previewPrompts({ stage: 'scene-image', root: {}, view: project, skillSet: set })
   assert.equal(render(previews.image.user), sceneImagePrompt(input.scene, project, set))
   const modify = sceneImageModificationModel(input.scene, project, { images: [{ purpose: 'edit-base', base64 }], instruction: '（此处为人工修改意见）' }, set)
   assert.equal(render(previews.modify.user), modify.toPrompt())
   assert.equal(previews.modify.chars, modify.toPrompt().length)
   assert.doesNotMatch(model.toPrompt(), /水彩|本次生成语言/)
+})
+
+test('三种图片任务明确资料依据，图片输出要求由 Model 提供而非依赖 skill', () => {
+  const base = { scene: { name: '庭院' }, canvas: { width: 100, height: 100 }, generationRules: '' }
+  for (const mode of ['generate', 'reference', 'modify']) {
+    const model = createSceneImageModel({ ...base, mode,
+      images: mode === 'generate' ? [] : [{ purpose: mode === 'modify' ? 'edit-base' : 'scene-reference', base64: 'data:image/png;base64,AA==' }],
+      modification: mode === 'modify' ? { instruction: '减少雾气' } : null })
+    const prompt = model.toPrompt()
+    assert.match(prompt, /根据下方(?:最新)?场景资料/)
+    assert.match(prompt, /【输出要求】\n只输出一张图片/)
+    assert.doesNotMatch(prompt, /base64/)
+  }
 })

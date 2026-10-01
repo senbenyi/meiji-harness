@@ -11,7 +11,7 @@ import { selectCheck } from '../../data/review-checks.js'
 import { runStep } from '../../data/task-store.js'
 import { loadModels } from './services.js'
 import { concatFilms } from '../../generate/concat.js'
-import { bindReferencePrompt, filmClipUrl, retrieveFilm, saveLastFrame, shotReferenceImages, submitH3, videoRequestMode, wantsOpeningFrame } from '../../generate/film.js'
+import { bindReferencePrompt, filmClipUrl, h3PromptFailures, retrieveFilm, saveLastFrame, shotReferenceImages, submitH3, videoRequestMode, wantsOpeningFrame } from '../../generate/film.js'
 import { gatewayVideoSize } from '../../generate/gateway.js'
 import { storyboardPromptText } from '../../generate/story.js'
 import { insertSessionLog } from '../../host/session-log.js'
@@ -74,7 +74,7 @@ export function filmSubmit(project, item, opening) {
     hasOpening: Boolean(opening.inputReference),
     imageCount: images.length,
   })
-  const basePrompt = item.format === 'text' ? storyboardPromptText(item) : bindReferencePrompt(storyboardPromptText(item), mode === 'reference' ? images : [])
+  const basePrompt = bindReferencePrompt(storyboardPromptText(item), mode === 'reference' ? images : [])
   const prompt = render(videoSegments({ project, prompt: basePrompt, mode, opening, imageCount: images.length }))
   if (mode === 'reference') {
     return {
@@ -96,20 +96,20 @@ export function filmSubmit(project, item, opening) {
   return { mode, prompt, note: '文生视频：不上传首帧和参考图' }
 }
 
-export async function saveFilmResult(projects, project, track, bytes, home, saveFrame) {
+export async function saveFilmResult(projects, project, track, bytes, home) {
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'films', project.episodeId || '')
   await mkdir(directory, { recursive: true })
   const name = `${track}-${randomUUID()}`
-  const file = `${name}.mp4`, lastFrame = `${name}-last.png`
+  const file = `${name}.mp4`
   try {
     await writeFile(join(directory, file), bytes)
     await writeFilm(projects, project.id, track, { status: 'ready', file, url: filmClipUrl(project.id, track, project.episodeId), error: null })
 
   } catch (error) {
-    await Promise.all([file, lastFrame].map(name => rm(join(directory, name), { force: true })))
+    await rm(join(directory, file), { force: true })
     throw error
   }
-  await saveTailFrame(projects, project, track, file, directory, home, saveFrame)
+  return { file, directory }
 }
 
 export async function saveTailFrame(projects, project, track, file, directory, home, saveFrame) {
@@ -123,7 +123,12 @@ export async function saveTailFrame(projects, project, track, file, directory, h
     await saveFrame(join(directory, file), join(directory, lastFrame))
     tail.content.localPath = join(directory, lastFrame)
     tail.status = GenerationStatus.PASSED; tail.check = { passed: true, failures: [] }
-  } catch (error) { tail.status = GenerationStatus.FAILED; tail.error = error.message || '尾帧处理失败' }
+  } catch (error) {
+    tail.status = GenerationStatus.FAILED; tail.error = error.message || '尾帧处理失败'
+    await rm(join(directory, lastFrame), { force: true })
+    await persistTail()
+    throw error
+  }
   await persistTail()
 }
 
@@ -197,11 +202,21 @@ async function opFilm(c) {
     note(payload.note)
     note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, mode: payload.mode, size: gatewayVideoSize(size), prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
     note('视频还在生成。完成后出现在这一张镜头卡片上。')
-    deps.defer(runStep('video_generate', () => (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal }).then(async bytes => {
-      await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
-      insertSessionLog(deps.session, `${track} 成片已生成`)
-    }), { target: `film:${track}`, remoteId: shot.promptId }).catch(async error => {
-      await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
+    deps.defer((async () => {
+      let saved
+      try {
+        saved = await runStep('video_generate', async () => {
+          const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })
+          return saveFilmResult(projects, project, track, bytes, home)
+        }, { target: `film:${track}`, remoteId: shot.promptId })
+      } catch (error) {
+        await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
+        throw error
+      }
+      insertSessionLog(deps.session, `${track} 成片已生成，正在提取尾帧`)
+      await runStep('tail_frame', () => saveTailFrame(projects, project, track, saved.file, saved.directory, home, deps.saveLastFrame || saveLastFrame), { target: `film:${track}` })
+      insertSessionLog(deps.session, `${track} 尾帧已提取`)
+    })().catch(async error => {
       insertSessionLog(deps.session, error.message || '成片生成失败', true)
     }))
     return trace
@@ -227,7 +242,12 @@ async function opFilms(c) {
     const track = item.id
     const current = await projects.read(project.id)
     const existing = current.shots.items.find(shot => shot.id === track)?.video
-    if (existing?.content?.status === 'ready' && !existing.stale) { note(`${track} 已完成，跳过重复提交`); continue }
+    if (existing?.content?.status === 'ready' && !existing.stale) {
+      note(`${track} 已完成，跳过重复提交`)
+      const completed = current.shots.items.find(shot => shot.id === track)
+      if (!tailReady(completed)) await runStep('tail_frame', () => saveTailFrame(projects, current, track, existing.content.file, join(home, 'storages', 'meiji', 'projects', project.id, 'films', project.episodeId || ''), home, deps.saveLastFrame || saveLastFrame), { target: `film:${track}` })
+      continue
+    }
     await selectCheck(current, { action: 'film', track })
     const route = (await loadModels(models)).video
     const images = item.video === 'text' ? [] : shotReferenceImages(current, item)
@@ -244,16 +264,19 @@ async function opFilms(c) {
     note(`已提交 ${track}，时长 ${shot.duration} 秒`)
     note(payload.note)
     note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, mode: payload.mode, size: gatewayVideoSize(size), prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
+    let saved
     try {
-      await runStep('video_generate', async () => {
+      saved = await runStep('video_generate', async () => {
         const bytes = await (deps.retrieveFilm || retrieveFilm)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })
-        await saveFilmResult(projects, project, track, bytes, home, deps.saveLastFrame || saveLastFrame)
+        return saveFilmResult(projects, project, track, bytes, home)
       }, { target: `film:${track}`, remoteId: shot.promptId })
       note(`${track} 成片已生成`)
     } catch (error) {
       await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
       throw error
     }
+    await runStep('tail_frame', () => saveTailFrame(projects, project, track, saved.file, saved.directory, home, deps.saveLastFrame || saveLastFrame), { target: `film:${track}` })
+    note(`${track} 尾帧已提取`)
   }
   await projects.save(project.id, { activity: null })
   return trace
@@ -287,6 +310,10 @@ async function opAssemble(c) {
 // 单镜制作步骤（produce 与 produce-all 复用）：文本分镜不可用时重新生成并自审 → 视频未完成时提交成片并等待。
 // 每一步执行前按最新内容判断是否需要（已完成的跳过）；任一步未通过即停止，因为后一镜依赖前一镜的尾帧。
 // 子操作经 run（runOperation）执行并复用本任务，步骤写入同一任务记录（见 run.js 的嵌套执行）。
+function tailReady(shot) {
+  return shot.tailFrame?.status === GenerationStatus.PASSED && !shot.tailFrame.stale && Boolean(shot.tailFrame.content?.localPath) && shot.tailFrame.content.sourceVideoFile === shot.video.content?.file
+}
+
 export function shotSteps(track, { operation, deps, run, trace }) {
   const read = async () => {
     const project = materialize(await projectStore(deps.home).read(operation.projectId), operation.episodeId)
@@ -294,7 +321,10 @@ export function shotSteps(track, { operation, deps, run, trace }) {
     if (!shot) throw new Error('镜头不存在')
     return { project, shot }
   }
-  const storyboardUsable = shot => shot.storyboard.content?.video !== 'first_frame' && shot.storyboard.status === GenerationStatus.PASSED
+  const storyboardUsable = shot => {
+    const board = shot.storyboard.content
+    return board?.video !== 'first_frame' && shot.storyboard.status === GenerationStatus.PASSED && !h3PromptFailures(storyboardPromptText(board), board?.referenceSnapshot || [], board?.video || 'text').length
+  }
   return [
     {
       name: `storyboard:${track}`,
@@ -316,7 +346,13 @@ export function shotSteps(track, { operation, deps, run, trace }) {
         trace.push(...await run({ ...operation, action: 'film', track }, { ...deps, waitForBackground: true }))
         const { shot } = await read()
         if (shot.video.content?.status !== 'ready') throw new Error(shot.video.content?.error || `${track} 视频未完成`)
+        if (!tailReady(shot)) throw new Error(shot.tailFrame?.error || `${track} 尾帧未完成`)
       },
+    },
+    {
+      name: `tail_frame:${track}`,
+      when: async () => !tailReady((await read()).shot),
+      run: async () => { trace.push(...await run({ ...operation, action: 'tail-frame', track }, deps)) },
     },
   ]
 }

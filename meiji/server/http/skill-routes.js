@@ -42,7 +42,7 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
     if (path === base + '/node-skills') {
       if (!['GET', 'PUT', 'DELETE'].includes(req.method)) return json(res, 405, { error: '不支持的请求' })
       if (req.method !== 'GET' && !sameOrigin(req)) return json(res, 403, { error: '需要同源请求' })
-      const body = req.method === 'GET' ? Object.fromEntries(url.searchParams) : await readJson(req, 20000)
+      const body = req.method === 'GET' ? Object.fromEntries(url.searchParams) : await readJson(req, 80000)
       const { projectId, episodeId, nodeKey } = body
       await links.requireProject(String(body.sessionId || ''), projectId)
       let root = await projects.read(projectId)
@@ -50,6 +50,7 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
       if (req.method !== 'GET') root = await projects.save(projectId, current => nodeSkillsPatch(current, { ...body, remove: req.method === 'DELETE' }))
       const id = nodeStage(nodeKey), skill = detail(await store.get(id))
       if (id === 'outline' && ['outline', 'characters', 'scenes'].includes(nodeKey)) {
+        skill.constraints = builtinSkill(id).rules[nodeKey]
         const selected = { outline: ['故事大纲', '大纲输出', '大纲验收'], characters: ['角色卡', '人物输出', '人物验收'], scenes: ['场景卡', '场景输出', '场景验收'] }[nodeKey]
         for (const field of skill.fields) if (field.field === 'generate' || field.field === 'review') field.text = sections(field.text, field.field === 'generate' ? '###' : '##', ['通用验收', ...selected])
         skill.protocol = sections(skill.protocol, '##', [selected[1]])

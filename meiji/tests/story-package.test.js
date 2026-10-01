@@ -11,11 +11,11 @@ import { projectStore } from '../server/data/projects.js'
 import { blankEpisode } from '../server/data/episodes.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { tabs, tabOf, canGenerate } from '../client/flow-view.js'
-import { storyPackageFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
 
 test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
-  const generated = { ...storyPackageFixture(), outline: '旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。' }
+  const generated = { ...storyPackageFixture(), outline: outlineFixture('旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。', 'en') }
   const replies = [JSON.stringify({ outline: generated.outline }), 'PASS', JSON.stringify(generated.characters), 'PASS', JSON.stringify(generated.scenes), 'PASS']
   const result = await generateStoryPackage({ project: { ...episodeFixture(), outputLanguage: 'en' }, route: { baseUrl: 'http://model.test', apiKey: 'test', model: 'test' }, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
@@ -26,8 +26,8 @@ test('outline, characters and scenes use separate generation and review requests
       assert.match(body.messages[0].content, /顶层仅含 outline/)
       assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }
-    if (calls === 3) assert.match(body.messages[0].content, /### 角色卡/)
-    if (calls === 5) assert.match(body.messages[0].content, /### 场景卡/)
+    if (calls === 3) assert.match(body.messages[0].content, /角色卡覆盖大纲/)
+    if (calls === 5) assert.match(body.messages[0].content, /按实际空间覆盖建卡/)
     return Response.json({ choices: [{ message: { content: replies.shift() } }] })
   } })
   assert.equal(result.outline, generated.outline)

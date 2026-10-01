@@ -5,7 +5,7 @@
 | 属性 | 内容 |
 |---|---|
 | scene | 最新场景资料：name 名称、landmark 地标、light 光位、space 空间、look 画面 |
-| generationRules | generate-scene-image.md 正文或已保存的基础覆盖 |
+| generationRules | generate-scene-image-skill.md 只读基础生产规则正文 |
 | additionalInstructions | 已保存的本剧补充 |
 | canvas | 自定义正整数像素 width、height |
 | mode | generate、reference、modify |

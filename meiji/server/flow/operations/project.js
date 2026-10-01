@@ -110,7 +110,7 @@ async function opEpisodeGenerate(c) {
   await rootProjects.save(project.id, { activity: 'episode', activityError: null })
   note('按「剧集摘要」技能生成本集剧情')
   note('操作：episode-generate（会话与面板共用）')
-  note('技能：剧集摘要（skills/constraints/stages/episode）')
+  note('技能：剧集摘要（skills/task/generate-episode-summary-skill.md）')
   note('函数：generateEpisode（server/generate/story.js）')
   let episodeId = existing?.id
   const persist = async draft => {

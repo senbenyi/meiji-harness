@@ -226,7 +226,7 @@ export function mount() {
       display(currentPage)
       shell.content.parentElement.scrollTop = 0
     },
-    // 技能详情页：基础 skill 全局修改，本剧补充 / 指导 / 素材写入当前短剧；预览用当前剧集的上下文。
+    // 技能详情页：只读展示基础，补充通过既有保存接口写入。
     openSkill: (project, id, back = () => follow(true).catch(error => shell.status(error.message))) => {
       hold = true
       navigation++
@@ -235,14 +235,7 @@ export function mount() {
       display(renderSkillDetail({ id, project: project && { title: project.title } }, {
         back,
         load: () => request(`skills/${id}?` + new URLSearchParams(scope)),
-        saveBase: fields => request(`skills/${id}`, { method: 'PUT', ...jsonBody({ fields, confirm: true }) }),
-        reset: (to, field) => request(`skills/${id}/reset`, { method: 'POST', ...jsonBody({ to, field }) }),
         saveAddition: fields => request('project-skills', { method: 'PUT', ...jsonBody({ ...scope, skill: id, fields }) }),
-        saveGuidance: enabled => request('project-guidance', { method: 'PUT', ...jsonBody({ ...scope, enabled }) }),
-        saveAssets: (stage, guidanceAssetIds) => request('project-guidance', { method: 'PUT', ...jsonBody({ ...scope, stage, guidanceAssetIds }) }),
-        loadAssets: () => request('assets?category=guidance'),
-        preview: mode => request(`skills/${id}/preview`, { method: 'POST', ...jsonBody({ ...scope, episodeId: project?.episodeId || '', mode }) }),
-        open: next => actions.openSkill(project, next, () => actions.openSkill(project, id, back)),
         changed: forgetSkillList,
       }))
       shell.content.parentElement.scrollTop = 0
@@ -255,8 +248,6 @@ export function mount() {
         back: () => follow(true).catch(error => shell.status(error.message)),
         load: () => request('node-skills?' + new URLSearchParams(scope)),
         save: fields => request('node-skills', { method: 'PUT', ...jsonBody({ ...scope, ...fields }) }),
-        remove: itemId => request('node-skills', { method: 'DELETE', ...jsonBody({ ...scope, id: itemId }) }),
-        preview: () => request(`skills/${id}/preview`, { method: 'POST', ...jsonBody(scope) }),
       }))
     },
     skillList,

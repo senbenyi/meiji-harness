@@ -46,7 +46,7 @@ test('人物固定约束只读且不受旧基础覆盖和本剧补充影响', as
   assert.deepEqual(skillUse(set, 'character-image').layers, ['builtin'])
   assert.doesNotMatch(actual, /本次生成语言|English|简体中文/)
   assert.doesNotMatch(actual, /项目视觉风格|水彩/)
-  assert.ok(actual.endsWith(characterStillPrompt(character)))
+  assert.match(actual, /【人物资料】/); assert.ok(actual.includes(characterStillPrompt(character)))
 })
 
 test('空约束不注入默认值；固定内容纳入技能快照与哈希', () => {
@@ -65,7 +65,7 @@ test('空约束不注入默认值；固定内容纳入技能快照与哈希', ()
   const changed = structuredClone(original)
   changed.skills['character-image'].constraints = '只用新约束'
   assert.equal(characterImagePrompt(character, project, frozen), characterImagePrompt(character, project, original))
-  assert.ok(characterImagePrompt(character, project, changed).startsWith('只用新约束'))
+  assert.ok(characterImagePrompt(character, project, changed).includes('【生成规则】\n只用新约束'))
   assert.notEqual(skillUse(changed, 'character-image').hash, skillUse(original, 'character-image').hash)
 })
 
@@ -78,19 +78,20 @@ test('未成年与年龄不明人物在实际生成和预览中使用相同适�
     const actual = characterImagePrompt(card, project, set)
     assert.equal(render(preview(project, set).user), actual)
     assert.match(actual, /按年龄穿着完整服装/)
+    assert.doesNotMatch(actual, /上半身裸露|比基尼|黑色平角短裤/)
     assert.doesNotMatch(actual, /不应使用的可编辑规则|本剧人物图补充/)
-    assert.ok(actual.endsWith(characterStillPrompt(card)))
+    assert.ok(actual.includes(characterStillPrompt(card)))
   }
 })
 
-test('人物模块统一编入原图提示词和人工意见，预览与生成一致', () => {
+test('重新生成人物图不沿用历史原图提示词或意见，预览与生成一致', () => {
   const project = view(character)
   const set = builtinSkillSet(project.skills)
   checkContext.run({ review: '头转向左侧', originalCandidate: { request: { prompt: '原图提示词' } } }, () => {
     const actual = characterImagePrompt(character, project, set)
     assert.equal(render(preview(project, set).user), actual)
-    assert.match(actual, /原生成提示词（修改基稿）：\n原图提示词/)
-    assert.match(actual, /本次意见（在原内容基础上修改，保留未涉及部分）：\n头转向左侧/)
+    assert.doesNotMatch(actual, /原图提示词/)
+    assert.doesNotMatch(actual, /头转向左侧/)
   })
 })
 
@@ -124,4 +125,14 @@ test('人物资料逐行保留字段名与姓名，空字段省略，最新资�
   const actual = characterImagePrompt(item, project, set)
   assert.match(actual, /姓名：新姓名/)
   assert.equal(render(preview(project, set).user), actual)
+})
+
+
+test('generation and reference use the same Model with actual canvas and ordered image purpose',async()=>{
+ const { characterImageGenerationModel }=await import('../server/prompts/interfaces/character-image.js')
+ const canvas={width:900,height:1200}
+ const text=characterImagePrompt(character,view(character),undefined,{canvas})
+ assert.match(text,/【任务】/);assert.match(text,/900 × 1200/);assert.match(text,/【输出要求】/)
+ const model=characterImageGenerationModel(character,view(character),{canvas,images:[{purpose:'character-reference',base64:'data:image/png;base64,YQ=='}]})
+ assert.equal(model.mode,'reference');assert.match(model.toPrompt(),/输入图片1：人物外观参考/);assert.doesNotMatch(model.toPrompt(),/data:image/)
 })

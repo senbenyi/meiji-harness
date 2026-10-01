@@ -13,7 +13,7 @@ export function episodeFixture() {
     const shot = shotModel({ id, duration: 5, text: '旅人朝北进入庭院', cast: ['旅人'], scene: '庭院', format: 'text' })
     shot.status = 'passed'; shot.check.passed = true
     setContent(shot.seconds, '0–5s：旅人朝北行走，摄影机位于身后。', { passed: true, failures: [] })
-    setContent(shot.storyboard, { format: 'text', duration: 5, title: id, video: 'text', characters: ['旅人'], scene: '庭院', prompt: { text: 'summary: 旅人朝北进入庭院\ndetailed_description: 摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A' } }, { passed: true, failures: [] })
+    setContent(shot.storyboard, { format: 'text', duration: 5, title: id, video: 'text', characters: ['旅人'], scene: '庭院', prompt: { text: 'integrated_multimodal_description: 旅人朝北进入庭院，摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A' } }, { passed: true, failures: [] })
     return shot
   })
   e.shots.status = 'passed'; e.shots.check.passed = true

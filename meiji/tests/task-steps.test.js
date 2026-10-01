@@ -14,11 +14,12 @@ import { runOperation } from '../server/flow/operations/run.js'
 import { definitions, planSteps, validateOperation } from '../server/flow/operations/registry.js'
 import { createTasks } from '../server/flow/tasks/runner.js'
 import { generateAllSeconds, generateShotStoryboard, generateShots, generateStoryboard } from '../server/generate/shot-text.js'
+import { textShotFixture, storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel, tempHome } from './fixtures/model.js'
 
 const step = (status, extra = {}) => ({ kind: 'generate', target: 'summary', status, verdict: null, reasons: [], ...extra })
-const reply = (text, verdict = 'PASS') => async ({ skill }) => skill === 'review' ? verdict : text
-const prompt = 'summary: 旅人朝北进入庭院\ndetailed_description: 摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A'
+const reply = (text, verdict = 'PASS') => async ({ skill, user }) => skill === 'review' ? verdict : skill === 'text-shot' ? textShotFixture() : skill === 'storyboard' ? storyboardFixture(user) : text
+const prompt = 'integrated_multimodal_description: 旅人朝北进入庭院，摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A'
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 let submitted = 0
 const filmDeps = { submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: `remote-${++submitted}` })) }),
@@ -108,13 +109,56 @@ test('produce-all is one task: each shot runs only the steps it needs, in order'
   assert.ok(task.steps.every(item => !item.unplanned))
   assert.deepEqual(task.steps.filter(item => item.status === 'completed').map(item => `${item.kind}:${item.target}`),
     // S01 成片后抽出尾帧，S02 的文本分镜按新尾帧重写后再提交。
-    ['generate:storyboard:S01', 'review:storyboard:S01', 'video_submit:film:S01', 'video_generate:film:S01', 'generate:storyboard:S02', 'review:storyboard:S02', 'video_submit:film:S02', 'video_generate:film:S02'])
+    ['generate:storyboard:S01', 'review:storyboard:S01', 'generate:storyboard:S01', 'review:storyboard:S01', 'video_submit:film:S01', 'video_generate:film:S01', 'tail_frame:film:S01', 'generate:storyboard:S02', 'review:storyboard:S02', 'generate:storyboard:S02', 'review:storyboard:S02', 'video_submit:film:S02', 'video_generate:film:S02', 'tail_frame:film:S02'])
   const remote = task.steps.filter(item => item.kind === 'video_generate').map(item => item.remoteId)
   assert.equal(new Set(remote).size, 2); assert.ok(remote.every(id => /^remote-\d+$/.test(id)))
   // 子操作的步骤各有作用域，互不混淆。
   assert.notEqual(task.steps.find(item => item.target === 'storyboard:S01' && item.kind === 'generate').scope, task.steps.find(item => item.target === 'film:S01' && item.kind === 'video_submit').scope)
   const shots = (await e.read()).shots.items
   assert.ok(shots.every(shot => shot.video.content?.status === 'ready'))
+})
+
+test('failed tail step preserves video and a tail-only retry does not submit again', async t => {
+  const e = await setup(t)
+  await runOperation(e.op('film', { track: 'S01' }), { home: e.home, operationId: 'tail-fails', waitForBackground: true, ...filmDeps,
+    saveLastFrame: async () => { throw new Error('FFmpeg failed') } })
+  const task = await e.history.read('tasks', 'tail-fails')
+  assert.equal(task.status, 'failed')
+  assert.deepEqual(task.steps.map(s => [s.kind, s.status]), [['video_submit', 'completed'], ['video_generate', 'completed'], ['tail_frame', 'failed']])
+  const before = (await e.read()).shots.items[0]
+  assert.equal(before.video.content.status, 'ready')
+  assert.equal(before.tailFrame.error, 'FFmpeg failed')
+  await runOperation(e.op('tail-frame', { track: 'S01' }), { home: e.home, operationId: 'tail-retry', ...filmDeps,
+    submitH3: () => assert.fail('must not resubmit') })
+  const after = (await e.read()).shots.items[0]
+  assert.equal(after.video.content.file, before.video.content.file)
+  assert.equal(after.tailFrame.status, 'passed')
+  await access(after.tailFrame.content.localPath)
+  assert.equal((await e.history.read('tasks', 'tail-retry')).status, 'completed')
+})
+
+test('one-click videos fill missing tails without regenerating existing videos', async t => {
+  const e = await setup(t)
+  await runOperation(e.op('films'), { home: e.home, ...filmDeps })
+  await e.store.save(e.id, p => { p.episodes[0].shots.items[0].tailFrame = { ...p.episodes[0].shots.items[0].tailFrame, status: 'failed', check: { passed: false, failures: ['missing tail'] }, content: null }; return p })
+  let extracted = 0
+  await runOperation(e.op('films'), { home: e.home, operationId: 'fill-tail', ...filmDeps,
+    submitH3: () => assert.fail('must not resubmit'),
+    saveLastFrame: async (...args) => { extracted++; return filmDeps.saveLastFrame(...args) } })
+  assert.equal(extracted, 1)
+  const task = await e.history.read('tasks', 'fill-tail')
+  assert.equal(task.status, 'completed')
+  assert.deepEqual(task.steps.filter(s => s.status === 'completed').map(s => [s.kind, s.target]), [['tail_frame', 'film:S01']])
+})
+
+test('produce-all stops when video is ready but its tail extraction failed', async t => {
+  const e = await setup(t)
+  let submittedShots = 0
+  await assert.rejects(runOperation(e.op('produce-all'), { home: e.home, operationId: 'stop-tail', waitForBackground: true, ...filmDeps,
+    submitH3: async args => { submittedShots++; return filmDeps.submitH3(args) },
+    saveLastFrame: async () => { throw new Error('tail failed') } }), /tail failed/)
+  assert.equal(submittedShots, 1)
+  assert.equal((await e.history.read('tasks', 'stop-tail')).status, 'failed')
 })
 
 test('human-only operations are rejected for the agent and never queued for it', async t => {
