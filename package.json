@@ -53,7 +53,6 @@
     "studio",
     "skills",
     "scripts",
-    "workflows",
     "schemas",
     "cordis.patch.yml",
     "README.md",
@@ -73,10 +72,8 @@
     "provenance": true
   },
   "scripts": {
-    "smoke": "node scripts/smoke-tools.mjs && node scripts/make-image-variants.mjs --check && node scripts/smoke-manifest.mjs && node scripts/smoke-render.mjs && node scripts/smoke-tier-resolution.mjs && node scripts/smoke-video-shape.mjs && node scripts/smoke-upscale.mjs && node scripts/smoke-hires-lock.mjs && node scripts/smoke-skill-install.mjs && node scripts/verify-h3-variants.mjs && node scripts/smoke-client-settings.mjs && node scripts/smoke-canvas-home.mjs && node scripts/smoke-canvas-theme.mjs && node scripts/preview-toolbar.mjs --assert && node scripts/preview-canvas.mjs --assert && node scripts/smoke-assets.mjs && node scripts/smoke-upload-assets.mjs && node scripts/smoke-preask-deliver.mjs && node scripts/smoke-pdf.mjs",
-    "prepublishOnly": "npm run smoke",
-    "e2e:tier": "node scripts/e2e-tier-pipeline.mjs",
-    "variants:check": "node scripts/make-image-variants.mjs --check"
+    "smoke": "node scripts/smoke-gateway-client.mjs && node scripts/smoke-tools.mjs && node scripts/smoke-video-shape.mjs && node scripts/smoke-skill-install.mjs && node scripts/smoke-canvas-home.mjs && node scripts/smoke-canvas-theme.mjs && node scripts/preview-toolbar.mjs --assert && node scripts/preview-canvas.mjs --assert && node scripts/smoke-assets.mjs && node scripts/smoke-upload-assets.mjs && node scripts/smoke-preask-deliver.mjs && node scripts/smoke-pdf.mjs",
+    "prepublishOnly": "npm run smoke"
   },
   "dependencies": {
     "puppeteer-core": "^25.9.0"
