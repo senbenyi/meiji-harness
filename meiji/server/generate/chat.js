@@ -17,9 +17,8 @@ export function parseJsonValue(text) {
   }
 }
 
-export async function askModel({ route, system, prompt, json = false, signal, fetchImpl, missing = '尚未配置剧情模型' }) {
-  if (!route?.baseUrl || !route?.apiKey || !route?.model) throw Object.assign(new Error(missing), { status: 400 })
-  return completeChat({ baseUrl: route.baseUrl, apiKey: route.apiKey, model: route.model, system, prompt, json, signal, fetchImpl })
+export async function askModel({ route, system, prompt, json = false, signal, fetchImpl }) {
+  return completeChat({ baseUrl: route?.baseUrl, apiKey: route?.apiKey, model: route?.model, system, prompt, json, signal, fetchImpl })
 }
 
 

@@ -27,6 +27,7 @@ export const definitions = {
   'episode-delete': { label: '删除剧集', scope: 'episode', queue: 'text', agent: false },
   'episode-add': { label: '新增剧集', scope: 'project', queue: 'text', agent: false, step: save('summary') },
   'episode-edit': { label: '编辑剧集', scope: 'project', queue: 'text', agent: false, step: save('summary') },
+  'episode-summary-draft': { label: 'AI 生成摘要草稿', scope: 'project', queue: 'text', agent: false, plan: () => [...text('summary'), { kind: 'save', target: 'summary-draft' }] },
   'episode-generate': { label: '生成本集剧情', scope: 'project', queue: 'text', agent: true, plan: () => text('summary') },
   'library-import': { label: '导入素材', scope: 'project', queue: 'text', agent: false },
   source: { label: '修改原始资料', scope: 'episode', queue: 'text', agent: false, step: save('summary') },

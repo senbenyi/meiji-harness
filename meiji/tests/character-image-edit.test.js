@@ -77,7 +77,7 @@ test('人物修改真实生成通路执行三个计划步骤并登记候选图',
   const e = await fixture(t)
   const operation = e.op('image', { itemId: 'C01', generationMode: 'modify', review: '背景改为白色' })
   await runOperation(operation, { home: e.home, operationId: 'image-three-steps', waitForBackground: true,
-    submitAssetImage: args => submitAssetImage({ ...args, backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-only' },
+    submitAssetImage: args => submitAssetImage({ ...args, backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-only', model: 'elysium-image' },
       fetchImpl: async (_url, options) => options.method === 'POST' ? Response.json({ data: [{ url: '/v1/media/edited' }] }) : new Response(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
     }),
   })

@@ -2,7 +2,7 @@
 // 入队时写入任务记录与完整步骤计划；任务状态只由步骤推导（shared/steps.js 的 deriveTaskStatus），这里不给状态赋值。
 // 不写记录的操作（创建、打开、删除等）在内存中保留一个 execute 步骤，同样由它推导状态。
 import { randomUUID } from 'node:crypto'
-import { abandonTask, beginTask, createTaskRecord, finalizeSteps, liveTask, recorded, recordStore } from '../../data/task-store.js'
+import { abandonTask, beginTask, createTaskRecord, finalizeSteps, liveTask, recorded, recordStore, readTaskDraft } from '../../data/task-store.js'
 import { runOperation, validateOperation, operationLabel } from '../operations/run.js'
 import { planSteps, queueOf } from '../operations/registry.js'
 import { insertSessionLog, runWithSessionLog } from '../../host/session-log.js'
@@ -82,13 +82,17 @@ export function createTasks({ home, workspaceController, execute = runOperation,
         .map(task => ({ ...snapshot(task), episodeId: task.operation.episodeId || null, track: task.operation.track || null, label: operationLabel(task.operation), actor: liveTask(task.id)?.actor || 'model', startedAt: task.startedAt, steps: stepsOf(task) }))
     },
     async get(id, sessionId) {
-      if (records.has(id)) return snapshot(find(id, sessionId))
+      if (records.has(id)) {
+        const task = find(id, sessionId)
+        if (taskEnded(stepsOf(task))) await task.done
+        return snapshot(task)
+      }
       // 按项目 id 直接查找任务文件，不解析项目内容。
       for (const projectId of await projectIds(home)) {
         let task
         try { task = await recordStore(home, projectId).read('tasks', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
         if (task.sessionId !== sessionId) throw Object.assign(new Error('任务不属于当前会话'), { status: 404 })
-        return { id: task.id, taskId: task.id, projectId: task.projectId, episodeId: task.episodeId, ...summary(task.steps, task.error) }
+        return { ...await readTaskDraft(home, task), id: task.id, taskId: task.id, projectId: task.projectId, episodeId: task.episodeId, ...summary(task.steps, task.error) }
       }
       throw Object.assign(new Error('任务不存在'), { status: 404 })
     },

@@ -6,7 +6,7 @@ import { executionSteps } from '../../data/task-store.js'
 import { allNodes, GenerationStatus, modelPatch, targetNode } from '../../../shared/drama-model.js'
 
 export async function releaseOperation({ operation, deps, operationId, context, state }) {
-  if (!operation.projectId || context.projectDeleted) return
+  if (!operation.projectId || context.projectDeleted || operation.action === 'episode-summary-draft') return
   const steps = executionSteps(state.execution)
   // 步骤之外的接口失败只记在错误上（见 markApiFailure）。
   const apiFailure = steps.some(step => step.apiFailure) || Boolean(state.failure?.apiFailure)

@@ -1,5 +1,7 @@
+import { episodeSummaryFailures, referenceDuration } from '../../shared/episode-summary.js'
 import { runTextSteps } from './text-steps.js'
-import { buildStoryPrompts, buildEpisodePrompts } from '../prompts/story-prompts.js'
+import { buildStoryPrompts } from '../prompts/story-prompts.js'
+import { buildEpisodePrompts } from '../prompts/episode-prompts.js'
 import { node, cardModel } from '../../shared/drama-model.js'
 export { generateShots, reviseShot, generateAllSeconds, generateShotSeconds, generateStoryboard, generateShotStoryboard } from './shot-text.js'
 import { h3PromptText } from './film.js'
@@ -87,26 +89,23 @@ export function visualStyle(project) {
   return String(project?.style || '').trim()
 }
 
-export function normalizeEpisodeDraft(raw) {
-  const summary = String(raw?.summary || '').trim()
-  if (!summary || summary.length > 10000) throw Object.assign(new Error('本集剧情摘要为空或过长'), { status: 502 })
-  const rawDuration = raw?.durationSeconds
-  const durationSeconds = typeof rawDuration === 'string' && /^\d+$/.test(rawDuration.trim()) ? Number(rawDuration.trim()) : rawDuration
-  if (!Number.isInteger(durationSeconds) || durationSeconds < 1 || durationSeconds > 180) {
-    throw Object.assign(new Error('本集时长需为 1–180 秒'), { status: 502 })
-  }
-  return { summary, durationSeconds }
+export function normalizeEpisodeDraft(raw, referenceDurationSeconds = 150) {
+  const failures = episodeSummaryFailures(raw, referenceDurationSeconds)
+  if (failures.length) throw Object.assign(new Error(failures.join('；')), { status: 502, code: 'INVALID_EPISODE_SUMMARY' })
+  return { summary: raw.summary.trim(), durationSeconds: raw.durationSeconds }
 }
 
-export async function generateEpisode({ route, project, episodeId, signal, fetchImpl, request, persist }) {
+export async function generateEpisode({ route, project, episodeId, referenceDurationSeconds, signal, fetchImpl, request, persist }) {
+  const reference = referenceDuration(referenceDurationSeconds ?? project.episodes?.find(episode => episode.id === episodeId)?.durationSeconds)
   const result = await runTextSteps({
     target: 'summary',
-    prompts: buildEpisodePrompts(project, episodeId),
-    options: { route, project: { ...project, durationSeconds: 180 }, signal, fetchImpl, request },
-    validate: text => normalizeEpisodeDraft(parseJsonValue(text)),
-    persist: persist && ((text, check) => persist({ ...normalizeEpisodeDraft(parseJsonValue(text)), check })),
+    prompts: buildEpisodePrompts(project, episodeId, reference),
+    options: { route, project: { ...project, durationSeconds: reference }, signal, fetchImpl, request },
+    validate: parseJsonValue,
+    check: text => episodeSummaryFailures(parseJsonValue(text), reference),
+    persist: persist && ((text, check) => persist({ ...normalizeEpisodeDraft(parseJsonValue(text), reference), check })),
   })
-  return { ...normalizeEpisodeDraft(parseJsonValue(result.text)), check: result.check }
+  return { ...normalizeEpisodeDraft(parseJsonValue(result.text), reference), check: result.check }
 }
 
 export async function generateStoryPackage({ route, project, signal, fetchImpl, persist }) {

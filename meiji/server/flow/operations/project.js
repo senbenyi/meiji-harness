@@ -7,7 +7,7 @@ import { addEpisode, editEpisode, materialize, normalizeProject, overviewPatch, 
 import { linkStore } from '../../data/workspace-links.js'
 import { prepareChecks } from '../../data/review-checks.js'
 import { checkContext } from '../../data/operation-context.js'
-import { recordStore } from '../../data/task-store.js'
+import { recordStore, runStep, saveTaskDraft } from '../../data/task-store.js'
 import { loadModels } from './services.js'
 import { generateEpisode } from '../../generate/story.js'
 import { GenerationStatus } from '../../../shared/drama-model.js'
@@ -115,7 +115,7 @@ async function opEpisodeGenerate(c) {
   let episodeId = existing?.id
   const persist = async draft => {
     await rootProjects.save(project.id, current => {
-      const patch = episodeId ? editEpisode(current, episodeId, { summary: draft.summary, durationSeconds: existing?.durationSeconds || draft.durationSeconds }) : addEpisode(current, draft)
+      const patch = episodeId ? editEpisode(current, episodeId, { summary: draft.summary, durationSeconds: draft.durationSeconds }) : addEpisode(current, draft)
       const updated = episodeId ? patch.episodes.find(item => item.id === episodeId) : patch.episodes[0]
       episodeId = updated.id
       updated.summary.check = { ...(draft.check || { passed: null, failures: [] }), revision: updated.summary.revision }
@@ -123,13 +123,25 @@ async function opEpisodeGenerate(c) {
       return { ...patch, activity: 'episode' }
     })
   }
-  const draft = await (deps.generateEpisode || generateEpisode)({ route: (await loadModels(models)).story, project, episodeId: operation.episodeId, persist })
+  const draft = await (deps.generateEpisode || generateEpisode)({ route: (await loadModels(models)).story, project, episodeId: operation.episodeId, referenceDurationSeconds: operation.referenceDurationSeconds, persist })
   await persist(draft)
   trace.result = { episodeId }
   await rootProjects.save(project.id, { activity: null, activityError: null })
-  note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，保留 ${existing.durationSeconds} 秒时长` : `已生成第 ${project.episodes.length + 1} 集，${draft.durationSeconds} 秒`)
+  note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，AI 决定时长 ${draft.durationSeconds} 秒` : `已生成第 ${project.episodes.length + 1} 集，${draft.durationSeconds} 秒`)
   if (existing && existing.summary.content !== draft.summary) note('本集下游制作数据已重置，需要重新生成')
   note(draft.summary)
+  return trace
+}
+
+// 弹框草稿：仅记录任务结果，保存按钮才写入剧集。
+async function opEpisodeSummaryDraft({ operation, deps, models, project, trace }) {
+  const draft = await (deps.generateEpisode || generateEpisode)({
+    route: (await loadModels(models)).story, project, episodeId: operation.episodeId,
+    referenceDurationSeconds: operation.referenceDurationSeconds,
+  })
+  deps.signal?.throwIfAborted()
+  await runStep('save', () => saveTaskDraft('summary-draft', draft), { target: 'summary-draft' })
+  trace.result = { draft }
   return trace
 }
 
@@ -166,6 +178,7 @@ export const projectOperations = {
   'episode-delete': { stage: 'project', run: opProjectDelete },
   'overview': { stage: 'project', run: opOverview },
   'episode-generate': { stage: 'project', run: opEpisodeGenerate },
+  'episode-summary-draft': { stage: 'project', run: opEpisodeSummaryDraft },
   'episode-add': { stage: 'project', run: opEpisodeAdd },
   'episode-edit': { stage: 'project', run: opEpisodeAdd },
 }

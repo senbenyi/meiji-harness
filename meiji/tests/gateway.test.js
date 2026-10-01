@@ -5,7 +5,7 @@ import { createTasks } from '../server/flow/tasks/runner.js'
 import { checkContext } from '../server/data/operation-context.js'
 import { tempHome } from './fixtures/model.js'
 
-const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' }
+const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key', model: 'elysium-image' }
 const stop = controller => controller.abort(Object.assign(new Error('任务已停止'), { code: 'TASK_CANCELLED' }))
 const notCancelled = /网关不提供取消接口，远端视频任务（video_1）可能仍在运行/
 

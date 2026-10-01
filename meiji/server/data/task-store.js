@@ -378,3 +378,23 @@ export async function commitContentRecords(saved) {
   if (step) step.outputs = [...step.outputs, ...saved.map(item => item.artifactId)]
   await writeSteps(context, task => ({ episodeId: task.episodeId || saved[0].episodeId, artifacts: [...task.artifacts, ...saved] }))
 }
+
+// 不发布的弹框草稿沿用任务 artifact 与 outputs，不写项目或剧集。
+export async function saveTaskDraft(target, content) {
+  const context = executionContext.getStore()
+  if (!context) throw new Error('草稿需要任务上下文')
+  const id = randomUUID()
+  const source = { artifactId: id, taskId: context.taskId, stepId: context.stepId, episodeId: context.operation.episodeId || null, target, version: 1, reviewPassed: content.check?.passed ?? null }
+  await context.store.update('artifacts', id, { schemaVersion: 1, id, ...source, projectId: context.projectId, content, createdAt: now(), published: false })
+  context.outputs.push(source)
+  activeStep().outputs.push(id)
+  await writeSteps(context, task => ({ artifacts: [...task.artifacts, source] }))
+}
+
+export async function readTaskDraft(home, task) {
+  if (task.action !== 'episode-summary-draft' || !['completed', 'review_failed'].includes(deriveTaskStatus(task.steps))) return {}
+  const output = task.latestOutputs.find(item => item.target === 'summary-draft')
+  if (!output) return {}
+  const artifact = await recordStore(home, task.projectId).read('artifacts', output.artifactId)
+  return { draft: artifact.content }
+}

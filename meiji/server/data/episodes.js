@@ -1,3 +1,4 @@
+import { summaryLength, summaryLimit } from '../../shared/episode-summary.js'
 import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from '../../shared/drama-model.js'
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, readFile, readdir, rm } from 'node:fs/promises'
@@ -23,7 +24,7 @@ export function foldEpisode(project, episodeId, view) {
 
 function episodeSummary(raw) {
   const summary = typeof raw === 'string' ? raw.trim() : ''
-  if (!summary || summary.length > 10000) throw Object.assign(new Error('本集剧情摘要需为 1–10000 字'), { status: 400 })
+  if (!summary || summaryLength(summary) > summaryLimit) throw Object.assign(new Error('本集剧情摘要需为 1–300 字（不计空白，标点计入）'), { status: 400 })
   return summary
 }
 
@@ -87,7 +88,7 @@ export function scopeProjects(store, episodeId, track) {
       return this.save(id, view => replaceFrom(view, step, data))
     },
     async saveSource(id, input) {
-      return this.save(id, view => sourcePatch(view, input))
+      return this.save(id, view => sourcePatch(view, { ...input, summary: episodeSummary(input?.summary ?? view.summary.content) }))
     },
   }
 }

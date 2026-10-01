@@ -8,6 +8,7 @@
 skills/
 ├── load.js              # 读取与结构校验：builtinSkill、agentSkills、validateSkills
 ├── stages/<id>/         # 阶段技能：skill.json + common / generate / review / revise（可编辑）+ protocol（只读）
+├── constraints/episode.md  # 摘要固定约束：参考时长 ±20 秒、最多 300 字与跨集因果
 ├── constraints/character/generate-character-image.md  # 人物固定约束，只读，允许空正文
 ├── constraints/scene/generate-scene-image.md  # 场景生成正文，沿用 generate 字段的编辑语义
 ├── guidance/<id>/       # 指导技能：skill.json + common / review + stages/<阶段>.md（本阶段落点）
@@ -34,7 +35,7 @@ skills/
 | 字段 | 内容 | 用在 |
 |---|---|---|
 | `common` | 身份、输入说明、领域规则 | 生成、意见修改、自动修订 |
-| `generate` | 写法与步骤 | 同上；场景、附属素材与铅笔图仍使用此字段，人物图改用固定约束 |
+| `generate` | 写法与步骤 | 同上；场景、附属素材与铅笔图仍使用此字段，人物图与剧集摘要改用固定约束 |
 | `review` | 验收标准 | 生成时作为自检标准；独立审核时作为验收标准 |
 | `revise` | 修订边界 | 意见修改（与自检标准并存）、自动修订（替换自检标准） |
 | `protocol` | 程序解析依赖的输出格式 | 所有生成类请求的输出协议；只读，面板不能修改 |
@@ -50,6 +51,8 @@ skills/
 - 约束随技能组合固定到任务中，记录内容哈希；直接修改源码文件后重启生效。
 - 人物图支持 `## 通用`、`## 成年人物`、`## 未成年或年龄不明` 三个分节。实际请求读取通用与适用年龄分节；无人物的模板预览展示全文。没有这些分节的普通文本原样使用。
 - 其他步骤以后按需显式启用，不自动注入人物约束。只有约束的步骤不需要 generate.md。
+
+剧集摘要也启用 `fixedConstraints: true`，保留 common/review/revise/protocol，删除 generate 字段和文件。`EpisodeSummaryModel` 只包含本次视频资料、目标集与参考时长、前后集摘要、约束及明确修改基稿；`episode-prompts.js` 读取技能快照，接口选择角色片段，预览共用实际组装路径。
 
 ## 指导技能
 

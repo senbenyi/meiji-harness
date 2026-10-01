@@ -49,26 +49,17 @@ test('each AI click generates a new still and replaces the previous file', async
   const posts = []
   const png = Buffer.from([137, 80, 78, 71])
   const fetchImpl = async (url, init) => {
-    const href = String(url)
-    if (init?.method === 'POST') {
-      posts.push(JSON.parse(init.body))
-      return Response.json({ prompt_id: posts.length === 1 ? 'role' : 'scene' })
-    }
-    if (href.includes('/history/role')) return Response.json({ role: { status: { completed: true }, outputs: { 7: { images: [{ filename: 'role.png', subfolder: 'meiji', type: 'output' }] } } } })
-    if (href.includes('/history/scene')) return Response.json({ scene: { status: { completed: true }, outputs: { 7: { images: [{ filename: 'scene.png', subfolder: '', type: 'output' }] } } } })
-    if (href.includes('/view')) return new Response(png)
-    throw new Error(href)
+    posts.push(JSON.parse(init.body))
+    return Response.json({ data: [{ b64_json: png.toString('base64') }] })
   }
-  const backend = { provider: 'comfyui', baseUrl: 'http://comfy.test/comfy' }
+  const backend = { baseUrl: 'http://gateway.test/v1', apiKey: 'test', model: 'image' }
   const input = { assets, aspectRatio: '768x1344', backend, projectId: 'p1', directory, fetchImpl, pause: async () => {} }
   try {
     const saved = await submitAssetImage({ ...input, itemId: 'A01', seed: 11 })
     assert.equal(posts.length, 1)
-    assert.equal(posts[0].prompt['1'].inputs.ckpt_name, 'RealVisXL_V5.0_fp16.safetensors')
-    assert.deepEqual([posts[0].prompt['4'].inputs.width, posts[0].prompt['4'].inputs.height], [768, 1344])
-    assert.equal(posts[0].prompt['2'].inputs.text, assets.items[0].look)
-    assert.equal(posts[0].prompt['5'].inputs.seed, 11)
-    assert.equal(/[A-Za-z]{4,}/.test(posts[0].prompt['2'].inputs.text), false)
+    assert.equal(posts[0].size, '768x1344')
+    assert.equal(posts[0].prompt, assets.items[0].look)
+    assert.equal(posts[0].seed, 11)
     assert.equal(saved.items[1].localPath, undefined)
     assert.equal(saved.items[1].imageUrl, undefined)
     assert.match(pictureOf(saved.items[0]).localPath, /\?v=11$/)
@@ -77,7 +68,7 @@ test('each AI click generates a new still and replaces the previous file', async
     assert.equal((await readFile(join(directory, 'A01.png'))).equals(png), true)
     const again = await submitAssetImage({ ...input, assets: saved, itemId: 'A01', seed: 22 })
     assert.equal(posts.length, 2)
-    assert.equal(posts[1].prompt['5'].inputs.seed, 22)
+    assert.equal(posts[1].seed, 22)
     assert.match(pictureOf(again.items[0]).localPath, /\?v=22$/)
   } finally {
     await rm(directory, { recursive: true, force: true })
@@ -209,7 +200,7 @@ test('gateway text-to-image posts the supplied Chinese prompt and stores the ret
   try {
     const saved = await submitAssetImage({
       assets, itemId: 'A01', aspectRatio: '768x1344', projectId: 'p1', directory, seed: 4,
-      backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key' },
+      backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key', model: 'elysium-image' },
       prompt,
       fetchImpl: async (url, options) => {
         if (options.method === 'GET') {
@@ -246,7 +237,7 @@ test('reference image generation uploads the reference to images/edits and keeps
     const file = await readStill(directory, 'A01-ref')
     await submitAssetImage({
       assets: saved, itemId: 'A01', aspectRatio: '768x1344', projectId: 'p1', directory, seed: 4,
-      backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key' },
+      backend: { provider: 'elysium', baseUrl: 'http://43.154.247.11/v1', model: 'elysium-image', apiKey: 'test-key', model: 'elysium-image' },
       prompt: '二十出头的中国男子',
       referenceBytes: file.bytes, referenceMime: file.mime,
       fetchImpl: async (url, options) => {
@@ -273,9 +264,9 @@ test('reference image generation uploads the reference to images/edits and keeps
   }
 })
 
-test('text-to-image stops when ComfyUI is not configured or nothing is visual', async () => {
+test('text-to-image stops at the gateway when credentials are missing or prompt is empty', async () => {
   const input = { assets, projectId: 'p', directory: '/tmp/meiji-unused', fetchImpl: async () => { throw new Error('should not fetch') } }
-  await assert.rejects(submitAssetImage({ ...input, itemId: 'A01', backend: null, env: {} }), { status: 409 })
+  await assert.rejects(submitAssetImage({ ...input, itemId: 'A01', backend: null, env: {} }), { status: 400 })
   await assert.rejects(submitAssetImage({ ...input, itemId: 'A02', backend: { provider: 'comfyui', baseUrl: 'http://comfy.test/comfy' } }), { status: 400 })
 })
 
@@ -292,7 +283,7 @@ test('all image entry points save and register candidates inside their third pla
       const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target, status: 'pending' }))
       let registered = false
       await recordSteps(() => generate({ assets, itemId: 'A01', track: 'S01', projectId: 'p', directory, prompt: '正面全身人物图', stepTarget: target,
-        backend: { ...{ baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' }, provider: 'elysium' },
+        backend: { ...{ baseUrl: 'https://gateway.test/v1', apiKey: 'test-key', model: 'elysium-image' }, provider: 'elysium' },
         fetchImpl: async (_url, options) => options.method === 'POST'
           ? Response.json({ data: [legacy ? { b64_json: png.toString('base64') } : { url: '/v1/media/image' }] })
           : new Response(png),
@@ -318,7 +309,7 @@ test('candidate registration failure is recorded on the save step', async t => {
   const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target: 'image:A01', status: 'pending' }))
   await recordSteps(async () => {
     await assert.rejects(submitAssetImage({ assets, itemId: 'A01', projectId: 'p', directory, prompt: '正面全身人物图', stepTarget: 'image:A01',
-      backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' },
+      backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key', model: 'elysium-image' },
       fetchImpl: async (_url, options) => options.method === 'POST' ? Response.json({ data: [{ url: '/v1/media/image' }] }) : new Response(Buffer.from([137, 80, 78, 71])),
       onSaved: () => { throw new Error('候选登记失败') },
     }), /候选登记失败/)

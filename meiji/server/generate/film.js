@@ -63,13 +63,12 @@ export async function submitH3({ items, route, aspectRatio, fetchImpl = fetch, s
   if (!Array.isArray(items) || !items.length) throw Object.assign(new Error('没有可提交的镜头提示词'), { status: 409 })
   const apiKey = route?.apiKey
   const baseUrl = String(route?.baseUrl || '').replace(/\/$/, '')
-  if (!apiKey || !baseUrl) throw Object.assign(new Error('尚未配置视频网关。'), { status: 409 })
   const shots = []
   for (const item of items) {
     const prompt = String(item.prompt || '').trim()
     if (!prompt) throw Object.assign(new Error(`镜头 ${item.track || shots.length + 1} 没有最终提示词`), { status: 409 })
     const submitted = await submitGatewayVideo({
-      baseUrl, apiKey, model: route.model, prompt, duration: item.duration, aspectRatio,
+      baseUrl, apiKey, model: route?.model, prompt, duration: item.duration, aspectRatio,
       mode: item.mode, inputReference: item.inputReference, referenceImages: item.referenceImages, fetchImpl, signal,
     })
     shots.push({ track: item.track || String(shots.length + 1), promptId: submitted.id, duration: Number(submitted.seconds), prompt })

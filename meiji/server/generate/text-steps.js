@@ -14,19 +14,21 @@ export async function generateStep({ kind = 'generate', target = null, message, 
     if (!String(text || '').trim()) throw new Error('模型未返回内容')
     if (complete) text = await complete(text, message, options)
     validate(text)
-    if (persist) { await persist(text, { passed: null, failures: [] }); markSaved() }
+    if (persist) { if (await persist(text, { passed: null, failures: [] }) !== false) markSaved() }
     return text
   }, { target })
 }
 
 // 审核一次：必须返回 PASS 或「FAIL 原因」，否则为执行失败（审核返回格式错误）。
-export async function reviewStep({ kind = 'review', target = null, message, options, persist }) {
+export async function reviewStep({ kind = 'review', target = null, message, options, persist, failures = [] }) {
   return runStep(kind, async () => {
     const reviewText = String(await runTextRequest(message, options)).trim()
-    const passed = reviewText === 'PASS'
+    let passed = reviewText === 'PASS'
     if (!passed && !/^FAIL\s+\S/.test(reviewText)) throw new Error('审核返回格式错误')
-    const result = { reviewText, check: { passed, failures: passed ? [] : [reviewText] } }
-    if (persist) { await persist(result); markSaved() }
+    const combined = [...(passed ? [] : [reviewText]), ...failures]
+    passed = combined.length === 0
+    const result = { reviewText: failures.length ? `FAIL ${combined.join('；')}` : reviewText, check: { passed, failures: combined } }
+    if (persist) { if (await persist(result) !== false) markSaved() }
     return result
   }, { target })
 }
@@ -39,14 +41,15 @@ function markSaved() {
 const revisable = review => !review.check.passed && /^FAIL\s+\S/.test(review.reviewText)
 
 // 声明文本步骤。target 为写入的内容节点（summary / story / shots / seconds / storyboard:S01 / image:C01 …）。
-export function textSteps({ target = null, prompts, options, validate = () => {}, complete, canRevise = () => true, initialText, persist }) {
+export function textSteps({ target = null, prompts, options, validate = () => {}, complete, canRevise = () => true, initialText, persist, check = () => [] }) {
   const ctx = checkContext.getStore()
   options = { ...options, signal: options.signal || ctx?.signal, logPurpose: options.logPurpose || skillLogPurpose(prompts.generation.skill) }
-  const save = persist && (async (text, check) => {
-    if (ctx) ctx.validation = check.failures
-    await persist(text, check)
+  const save = persist && (async (text, verdict) => {
+    if (check(text).length) return false
+    if (ctx) ctx.validation = verdict.failures
+    await persist(text, verdict)
   })
-  const review = (kind, stage) => state => reviewStep({ kind, target, message: prompts.review(state.text), options: { ...options, logStage: stage }, persist: save && (result => save(state.text, result.check)) }).then(result => {
+  const review = (kind, stage) => state => reviewStep({ kind, target, message: prompts.review(state.text), failures: check(state.text), options: { ...options, logStage: stage }, persist: save && (result => save(state.text, result.check)) }).then(result => {
     if (ctx) ctx.validation = result.check.failures
     return result
   })

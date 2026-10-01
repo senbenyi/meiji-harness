@@ -35,6 +35,12 @@ export function catalog(settings) {
     purposes: ['chat', 'story'],
   })))
 }
+// 读取路由不校验：生成先组装提示词，仅当前请求在网关入口校验。
+export function modelRoutes(raw) {
+  const { baseUrl, apiKey } = raw || {}
+  return { baseUrl, apiKey, ...Object.fromEntries(purposeIds.map(id => [id, { baseUrl, apiKey, model: raw?.[id]?.model }])) }
+}
+
 export function normalizeModels(raw) {
   const baseUrl = gatewayBaseUrl(raw?.baseUrl)
   const apiKey = String(raw?.apiKey || '').replace(/^Bearer\s+/i, '').trim()

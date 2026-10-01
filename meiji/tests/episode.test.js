@@ -1,16 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeEpisodeDraft } from '../server/generate/story.js'
-import { episodePrompt } from '../server/prompts/story-prompts.js'
+import { EpisodeSummaryModel } from '../server/prompts/models/episode-summary-model.js'
+import { builtinSkill } from '../skills/load.js'
+const episodePrompt = (project, episodeId) => new EpisodeSummaryModel({ project, episodeId, generationRules: builtinSkill('episode').constraints }).toMessages().map(message => message.content).join('\n')
 
-test('the first episode is written from the project summary and stays within three minutes', () => {
+test('the first episode is written from the project summary and uses the reference duration range', () => {
   const prompt = episodePrompt({ title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
   assert.match(prompt, /第 1 集根据项目摘要/)
   assert.match(prompt, /李伟穿越/)
   assert.match(prompt, /视觉风格：写实电影/)
-  assert.equal(/承接上一集/.test(prompt), false)
-  assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 180 }), { summary: '开场结义', durationSeconds: 180 })
-  assert.throws(() => normalizeEpisodeDraft({ summary: '太长', durationSeconds: 181 }), { status: 502 })
+  assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }), { summary: '开场结义', durationSeconds: 170 })
+  assert.throws(() => normalizeEpisodeDraft({ summary: '太长', durationSeconds: 171 }), { status: 502 })
 })
 
 test('a later episode continues from the episodes already shot', () => {
@@ -48,7 +49,7 @@ test('regeneration targets the selected episode and separates later continuity c
 })
 
 test('summary modes separate old input, review content and revision-only rules', async () => {
-  const { buildEpisodePrompts } = await import('../server/prompts/story-prompts.js')
+  const { buildEpisodePrompts } = await import('../server/prompts/episode-prompts.js')
   const { checkContext } = await import('../server/data/operation-context.js')
   const project = { title: '故事', summary: { content: 'PROJECT_BACKGROUND' }, episodes: [
     { id: 'next', summary: { content: 'NEXT_EPISODE' }, durationSeconds: 120 },
@@ -82,7 +83,7 @@ for (const mode of ['new', 'regenerate', 'modify']) {
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
     const root = await e.store.read(e.id), old = root.episodes[0].summary.content, calls = []
-    await runOperation({ action: 'episode-generate', projectId: e.id,
+    await runOperation({ action: 'episode-generate', projectId: e.id, referenceDurationSeconds: 10,
       ...(mode === 'new' ? {} : { episodeId: e.episodeId, generationMode: mode }),
       ...(mode === 'modify' ? { review: '加强悬念' } : {}),
     }, { home: e.home, generateEpisode: options => generateEpisode({ ...options,
@@ -107,7 +108,7 @@ for (const mode of ['new', 'regenerate', 'modify']) {
 }
 
 test('summary checks run after drafting and independent review receives the same acceptance constraints', async () => {
-  const { buildEpisodePrompts } = await import('../server/prompts/story-prompts.js')
+  const { buildEpisodePrompts } = await import('../server/prompts/episode-prompts.js')
   const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
   assert.match(prompts.generation.system, /【自检标准】\n返回前按以下标准核对并修正明确问题/)
   assert.match(prompts.generation.system, /不输出检查过程、PASS\/FAIL 或审核报告/)

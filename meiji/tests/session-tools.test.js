@@ -21,7 +21,7 @@ async function setup(t, review = 'PASS') {
   const exec = { agent: { session: { id: 'session-' + randomUUID(), append: (type, data) => logs.push({ type, data }) } }, signal: new AbortController().signal }
   await linkStore(e.home).selectProject(exec.agent.session.id, e.id, e.store)
   const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-    generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 10 }) } }),
+    generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 150 }) } }),
     generateStoryPackage: opts => generateStoryPackage({ ...opts, fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: payload.response_format ? JSON.stringify(storyPackageFixture()) : review } }] }) } }),
   }) })
   const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ tasks })

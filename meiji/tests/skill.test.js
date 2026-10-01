@@ -20,7 +20,7 @@ test('built-in skills load by field: 12 stages, 5 guidance skills, 6 shared modu
   assert.equal(ids.filter(id => id.startsWith('shared-')).length, 6)
   for (const id of textStages) {
     const skill = builtinSkill(id)
-    assert.ok(skill.parts.generate.trim(), id)
+    assert.ok((skill.constraints || skill.parts.generate).trim(), id)
     assert.ok(skill.protocol.trim(), `${id} protocol`)
   }
   for (const id of imageStages) assert.deepEqual(builtinSkill(id).fields, id === 'character-image' ? [] : ['generate'])
@@ -63,7 +63,7 @@ test('every text stage receives the configured language on each request', async 
         },
       })
       const system = body.messages.find(message => message.role === 'system').content
-      assert.ok(system.startsWith('【阶段技能·通用】'), skill)
+      assert.ok(system.startsWith(skill === 'episode' ? '【角色与职责】' : '【阶段技能·通用】'), skill)
       assert.ok(system.includes('本次生成语言：' + (outputLanguage === 'en' ? 'English' : '简体中文')))
       assert.ok(system.trimEnd().endsWith('只执行本阶段，不调用其他阶段。'), skill)
       assert.equal(body.messages.find(message => message.role === 'user').content, '【任务与上下文】\n中文输入')
@@ -93,7 +93,8 @@ test('requests carry only what they need: generation self-checks, review sees ac
     assert.ok(!revision.system.includes('【自检标准】') && boundary.test(revision.system), skill)
     assert.ok(!generation.system.includes('语言一致性优先于修订时的逐字保留'), skill)
     // 审核：不附生成技能；验收标准在 user，PASS/FAIL 协议在 system 结尾。
-    assert.ok(!review.system.includes(stage.parts.generate) && !review.user.includes(stage.parts.generate), skill)
+    if (stage.parts.generate) assert.ok(!review.system.includes(stage.parts.generate) && !review.user.includes(stage.parts.generate), skill)
+    if (stage.fixedConstraints) assert.ok(review.system.includes(stage.constraints), skill)
     assert.ok(!(review.system + review.user).includes('【官方参考'), skill)
     assert.ok(review.user.includes('【验收标准') && review.user.includes(stage.parts.review), skill)
     assert.match(review.system, /没有问题只返回 PASS；否则首行 FAIL/)

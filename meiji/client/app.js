@@ -1,3 +1,4 @@
+import { generateEpisodeDraft } from './episode-draft.js'
 import { renderTaskHistory } from './execution-history.js'
 import { renderCurrentTasks } from './current-task.js'
 import { appendLogCopy } from './dom.js'
@@ -328,7 +329,7 @@ export function mount() {
     const fields = { durationSeconds: input.durationSeconds, summary: input.summary }
     if (input.episodeId) await actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
     else await actions.perform(project, 'episode-add', { fields })
-  })
+  }, generateEpisodeDraft)
   const openCatalogDialog = catalogDialog(shell.root)
   function enterWorkspace(place) {
     // Harness restores the selected session from this persisted selection on boot.

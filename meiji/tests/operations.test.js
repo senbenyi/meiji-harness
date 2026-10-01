@@ -9,7 +9,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { currentSessionId, projectRefreshMark, sessionIdFromStorage } from '../client/chat-bridge.js'
 import { episodeWork } from '../client/overview.js'
-import { buildImageGraph } from '../server/generate/image.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { projectStore } from '../server/data/projects.js'
 
@@ -39,12 +38,6 @@ test('panel follows the latest selection even while the sidebar still shows the 
   assert.equal(currentSessionId(doc), sessionId)
 })
 
-test('a revised still encodes the current image instead of an empty latent', () => {
-  const graph = buildImageGraph({ prompt: look, seed: 3, width: 768, height: 1344, prefix: 'a', imageName: 'ref.png' })
-  assert.equal(graph[5].inputs.denoise, 0.55)
-  assert.deepEqual(graph[5].inputs.latent_image, ['9', 0])
-  assert.equal(graph[8].inputs.image, 'ref.png')
-})
 const passText = text => async ({ skill }) => skill === 'review' ? 'PASS' : text
 const videoDeps = home => ({ home, submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: item.track })) }), retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') })
 test('batch boards write each shot without losing earlier results',async t=>{

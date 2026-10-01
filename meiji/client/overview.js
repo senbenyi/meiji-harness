@@ -1,3 +1,4 @@
+import { defaultReferenceDuration, referenceDuration, summaryLength, summaryLimit, episodeSummaryFailures } from '../shared/episode-summary.js'
 import { historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { element, appendJsonCopy } from './dom.js'
@@ -238,38 +239,76 @@ export function overviewDialog(root, onSaved) {
   }
 }
 
-export function episodeDialog(root, onSaved) {
+export function episodeDialog(root, onSaved, onGenerate) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><p>填写这一集的剧情和时长。</p><form class="episode"><label for="episode-summary">本集剧情摘要</label><textarea id="episode-summary" name="summary" required maxlength="10000" placeholder="这一集发生什么"></textarea><label for="episode-duration">时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">参考时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>AI 根据剧情决定实际时长，范围为参考时长上下 20 秒。</p><output class="actual-duration"></output><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-episode')
   const form = dialog.querySelector('form')
   const error = dialog.querySelector('.error')
-  let current = null
-  let episode = null
-  for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => dialog.close()
-  form.onsubmit = async event => {
-    event.preventDefault()
-    const button = form.querySelector('[type=submit]')
-    button.disabled = true
+  const generate = dialog.querySelector('.ai-summary'), stop = dialog.querySelector('.stop-summary'), save = form.querySelector('[type=submit]')
+  const actual = dialog.querySelector('.actual-duration'), count = dialog.querySelector('.summary-count')
+  let current, episode, controller, actualDuration = null, version = 0
+  const updateCount = () => {
+    const length = summaryLength(form.elements.summary.value)
+    count.textContent = `${length} / ${summaryLimit} 字（不计空白，标点计入）`
+    form.elements.summary.setCustomValidity(length > summaryLimit ? '摘要不能超过 300 字' : '')
+  }
+  const busy = value => { generate.disabled = value; save.disabled = value; stop.hidden = !value }
+  const cancel = () => { version++; controller?.abort(); controller = null; busy(false) }
+  for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => { cancel(); dialog.close() }
+  dialog.addEventListener('cancel', cancel)
+  dialog.addEventListener('close', cancel)
+  stop.onclick = cancel
+  form.addEventListener('input', event => {
+    cancel()
+    if (event.target === form.elements.duration) { actualDuration = null; actual.textContent = '' }
+    updateCount()
+  })
+  generate.onclick = async () => {
     error.textContent = ''
     try {
-      const data = new FormData(form)
-      await onSaved(current, {
-        episodeId: episode?.id || '',
-        durationSeconds: Number(data.get('duration')),
-        summary: data.get('summary').trim(),
-      })
+      const reference = referenceDuration(Number(form.elements.duration.value))
+      cancel()
+      const requestVersion = version, abort = controller = new AbortController()
+      busy(true)
+      try {
+        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference }, { signal: abort.signal })
+        if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
+        const failures = episodeSummaryFailures(draft, reference)
+        if (failures.length) throw new Error(failures.join('；'))
+        form.elements.summary.value = draft.summary
+        actualDuration = draft.durationSeconds
+        actual.textContent = `AI 决定实际时长：${actualDuration} 秒`
+        updateCount()
+      } catch (failure) { if (!abort.signal.aborted && version === requestVersion) error.textContent = failure.message + (failure.draft ? `\n未通过的候选摘要：${failure.draft.summary}` : '') }
+      finally { if (version === requestVersion) { controller = null; busy(false) } }
+    } catch (failure) { error.textContent = failure.message }
+  }
+  form.onsubmit = async event => {
+    event.preventDefault()
+    if (controller) return
+    save.disabled = true
+    error.textContent = ''
+    try {
+      const summary = form.elements.summary.value.trim()
+      if (!summaryLength(summary) || summaryLength(summary) > summaryLimit) throw new Error('摘要必须非空且不超过 300 字')
+      const durationSeconds = actualDuration ?? referenceDuration(Number(form.elements.duration.value))
+      await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary })
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
-    finally { button.disabled = false }
+    finally { save.disabled = false }
   }
   return (project, currentEpisode) => {
+    cancel()
     current = project
     episode = currentEpisode
+    actualDuration = null
+    actual.textContent = ''
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
-    form.elements.duration.value = currentEpisode ? String(currentEpisode.durationSeconds || '') : ''
+    form.elements.duration.value = String(currentEpisode?.durationSeconds ?? defaultReferenceDuration)
     form.elements.summary.value = currentEpisode?.summary?.content || ''
+    updateCount()
     error.textContent = ''
     dialog.showModal()
   }

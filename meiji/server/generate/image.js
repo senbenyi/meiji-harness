@@ -4,7 +4,6 @@ import { characterFieldValues, characterLookText } from '../../shared/character-
 import { checkContext } from '../data/operation-context.js'
 import { render } from '../prompts/skill-prompts.js'
 import { imageSegments } from '../prompts/interfaces/registry.js'
-import { setTimeout as delay } from 'node:timers/promises'
 import { savePicture, saveImageDraft } from '../data/pictures.js'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -17,36 +16,6 @@ export function usableLook(text) {
   const look = String(text || '').replace(/\s+/g, ' ').trim()
   const han = look.match(/[\p{L}\p{N}]/gu) || []
   return han.length >= 12 ? look : ''
-}
-
-const checkpoint = 'RealVisXL_V5.0_fp16.safetensors'
-const negative = 'child, minor, young-looking, underage, bad anatomy, deformed hands, extra fingers, missing fingers, fused fingers, malformed limbs, duplicate body, distorted face, crossed eyes, blurry, low resolution, text, watermark, logo'
-const sizes = {
-  '1344x768': { width: 1344, height: 768 },
-  '768x1344': { width: 768, height: 1344 },
-  '16:9': { width: 1344, height: 768 },
-  '9:16': { width: 768, height: 1344 },
-  '3:4': { width: 864, height: 1152 },
-  '1:1': { width: 1024, height: 1024 },
-}
-
-export function comfyBaseUrl(value) {
-  let url
-  try { url = new URL(value) } catch { throw Object.assign(new Error('文生图片：ComfyUI 地址无效'), { status: 400 }) }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
-    throw Object.assign(new Error('文生图片：ComfyUI 地址无效'), { status: 400 })
-  }
-  return url.href.replace(/\/$/, '')
-}
-
-export function resolveImageBackend(route, env = process.env) {
-  if (route?.provider === 'comfyui' && route.baseUrl) return comfyBaseUrl(route.baseUrl)
-  if ((route == null || route?.provider == null) && env.COMFYUI_URL) return comfyBaseUrl(env.COMFYUI_URL)
-  return null
-}
-
-export function imageSize(aspectRatio) {
-  return sizes[aspectRatio] || sizes['1344x768']
 }
 
 export function imageSeed(id) {
@@ -67,121 +36,6 @@ export function sceneStillPrompt(item) {
 
 // 旧导出保留为转发；人物图专属逻辑集中在对应提示词接口。
 export { characterStillPrompt, characterImagePrompt, adultCharacter } from '../prompts/interfaces/character-image.js'
-
-export function buildImageGraph({ prompt, seed, width, height, prefix, imageName }) {
-  const graph = {
-    1: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: checkpoint } },
-    2: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['1', 1] } },
-    3: { class_type: 'CLIPTextEncode', inputs: { text: negative, clip: ['1', 1] } },
-    4: { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: 1 } },
-    5: { class_type: 'KSampler', inputs: {
-      seed, steps: 30, cfg: 6, sampler_name: 'dpmpp_2m_sde', scheduler: 'karras', denoise: imageName ? 0.55 : 1,
-      model: ['1', 0], positive: ['2', 0], negative: ['3', 0], latent_image: ['4', 0],
-    } },
-    6: { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } },
-    7: { class_type: 'SaveImage', inputs: { filename_prefix: prefix, images: ['6', 0] } },
-  }
-  if (imageName) {
-    graph[8] = { class_type: 'LoadImage', inputs: { image: imageName } }
-    graph[9] = { class_type: 'VAEEncode', inputs: { pixels: ['8', 0], vae: ['1', 2] } }
-    graph[5].inputs.latent_image = ['9', 0]
-  }
-  return graph
-}
-
-function endpoint(baseUrl, path) {
-  return new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`)
-}
-
-async function request(baseUrl, path, body, fetchImpl, signal) {
-  signal ??= checkContext.getStore()?.signal
-  const timeout = AbortSignal.timeout(60 * 1000)
-  const response = await fetchImpl(endpoint(baseUrl, path), {
-    method: body === undefined ? 'GET' : 'POST',
-    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-    ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-  })
-  const result = await response.json().catch(() => ({}))
-  if (!response.ok || result.error || (result.node_errors && Object.keys(result.node_errors).length)) {
-    throw Object.assign(new Error(`ComfyUI 文生图请求失败：HTTP ${response.status}`), { status: 502 })
-  }
-  return result
-}
-
-function outputImage(history) {
-  const descriptor = Object.values(history.outputs?.['7'] || {}).flat()
-    .find(value => value?.filename && value.type === 'output')
-  if (!descriptor) throw Object.assign(new Error('ComfyUI 没有返回图片'), { status: 502 })
-  return descriptor
-}
-
-async function waitPrompt(baseUrl, promptId, { fetchImpl, pause, signal, maxPolls = 900 }) {
-  let missing = 0
-  for (let attempt = 0; attempt < maxPolls; attempt += 1) {
-    signal?.throwIfAborted()
-    const history = await request(baseUrl, `history/${encodeURIComponent(promptId)}`, undefined, fetchImpl, signal)
-    const entry = history[promptId]
-    const failed = entry?.status?.status_str === 'error'
-      || entry?.status?.messages?.some(([type]) => ['execution_error', 'execution_interrupted'].includes(type))
-    if (failed) throw Object.assign(new Error('ComfyUI 文生图失败'), { status: 502 })
-    if (entry?.status?.completed) return entry
-    const queue = await request(baseUrl, 'queue', undefined, fetchImpl, signal)
-    const queued = queue.queue_running?.some(item => item[1] === promptId) || queue.queue_pending?.some(item => item[1] === promptId)
-    missing = entry || queued ? 0 : missing + 1
-    if (missing >= 3) throw Object.assign(new Error('文生图任务已不在 ComfyUI 队列中，不会自动重提'), { status: 502 })
-    if (attempt + 1 < maxPolls) await pause(2000, signal)
-  }
-  throw Object.assign(new Error('图片查询超时，已停止等待，不会自动重新提交；远端任务可能仍在运行'), { status: 504 })
-}
-
-async function readJournal(file) {
-  try { return JSON.parse(await readFile(file, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return null; throw error }
-}
-
-async function uploadReference(baseUrl, bytes, fetchImpl, signal) {
-  const body = new FormData()
-  body.append('image', new Blob([bytes], { type: 'image/png' }), 'meiji-reference.png')
-  signal ??= checkContext.getStore()?.signal
-  const timeout = AbortSignal.timeout(60 * 1000)
-  const response = await fetchImpl(endpoint(baseUrl, 'upload/image'), { method: 'POST', body, signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
-  const result = await response.json().catch(() => ({}))
-  if (!response.ok || !result.name) throw Object.assign(new Error('ComfyUI 没有收下参考图'), { status: 502 })
-  return result.name
-}
-
-export async function generateStill({ baseUrl, prompt, seed, width, height, prefix, imageName, jobId, journalFile, fetchImpl = fetch, pause = defaultPause, signal, maxPolls }) {
-  signal ??= checkContext.getStore()?.signal
-  const deadline = AbortSignal.timeout(30 * 60 * 1000)
-  signal = signal ? AbortSignal.any([signal, deadline]) : deadline
-  const graph = buildImageGraph({ prompt, seed, width, height, prefix, imageName })
-  const promptHash = createHash('sha256').update(JSON.stringify(graph)).digest('hex')
-  let journal = await readJournal(journalFile)
-  let promptId = journal?.server === baseUrl && journal.promptHash === promptHash ? journal.promptId : null
-  if (!promptId) {
-    if (journal?.submitting && journal.server === baseUrl && journal.promptHash === promptHash) {
-      throw Object.assign(new Error('文生图提交结果未确认，不会自动重提'), { status: 409 })
-    }
-    journal = { server: baseUrl, promptHash, submitting: true, jobId }
-    await writeFile(journalFile, JSON.stringify(journal) + '\n', { mode: 0o600 })
-    const submitted = await request(baseUrl, 'prompt', { prompt: graph, client_id: jobId }, fetchImpl, signal)
-    if (!submitted.prompt_id) throw Object.assign(new Error('ComfyUI 没有返回任务编号，不会自动重提'), { status: 502 })
-    promptId = submitted.prompt_id
-    journal = { ...journal, submitting: false, promptId }
-    await writeFile(journalFile, JSON.stringify(journal) + '\n', { mode: 0o600 })
-  }
-  const history = await waitPrompt(baseUrl, promptId, { fetchImpl, pause, signal, maxPolls })
-  const descriptor = outputImage(history)
-  const view = endpoint(baseUrl, `view?${new URLSearchParams({ filename: descriptor.filename, subfolder: descriptor.subfolder || '', type: 'output' })}`)
-  signal ??= checkContext.getStore()?.signal
-  const timeout = AbortSignal.timeout(60 * 1000)
-  const response = await fetchImpl(view, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
-  if (!response.ok) throw Object.assign(new Error(`ComfyUI 图片下载失败：HTTP ${response.status}`), { status: 502 })
-  return Buffer.from(await response.arrayBuffer())
-}
-
-const defaultPause = (ms, signal) => delay(ms, undefined, { signal })
-
 
 const stillExt = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
 
@@ -311,26 +165,13 @@ async function saveGeneratedImage(target, run, onSaved, signal) {
   })
 }
 
-export async function submitPencilBoard({ directory, track, prompt, home, projectId, episodeId, aspectRatio = '1344x768', backend, fetchImpl, pause, signal, env, seed = imageSeed(`${track}:${Date.now()}`), stepTarget, onSaved }) {
+export async function submitPencilBoard({ directory, track, prompt, home, projectId, episodeId, aspectRatio = '1344x768', backend, fetchImpl, signal, seed = imageSeed(`${track}:${Date.now()}`), stepTarget, onSaved }) {
   const text = String(prompt || '').trim()
   if (!text) throw Object.assign(new Error('没有可提交的铅笔分镜提示词'), { status: 409 })
   await mkdir(directory, { recursive: true })
-  let bytes
-  if (backend?.apiKey) {
-    bytes = await generateGatewayImage({
-      baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, seed, fetchImpl, signal, stepTarget,
-    })
-  } else {
-    const baseUrl = resolveImageBackend(backend, env)
-    if (!baseUrl) throw Object.assign(new Error('尚未配置图片执行器。'), { status: 409 })
-    const size = imageSize(aspectRatio)
-    bytes = await imageStep(stepTarget, 'image_generate', () => generateStill({
-      baseUrl, ...size, seed, prompt: text,
-      prefix: `meiji/pencil/${track}`, jobId: `pencil:${track}:${seed}`,
-      fetchImpl, pause, signal,
-    }))
-  }
+  const bytes = await generateGatewayImage({
+    ...backend, prompt: text, aspectRatio, seed, fetchImpl, signal, stepTarget,
+  })
   return saveGeneratedImage(stepTarget, async () => {
     if (!home) await replaceStill(directory, track, 'png', bytes)
     if (home) return saveImageDraft(home, bytes, 'image/png', 'scenes', `${track}-铅笔分镜`, { source: 'generated', projectId, episodeId, itemId: track, prompt: text })
@@ -388,25 +229,13 @@ async function replaceStill(directory, itemId, ext, bytes) {
   await writeFile(join(directory, `${itemId}.${ext}`), bytes, { mode: 0o600 })
 }
 
-export async function generateStillFile({ directory, itemId, aspectRatio, backend, projectId, episodeId, home, category = 'props', prompt, seed, fetchImpl, pause, signal, env, stepTarget, onSaved }) {
+export async function generateStillFile({ directory, itemId, aspectRatio, backend, projectId, episodeId, home, category = 'props', prompt, seed, fetchImpl, signal, stepTarget, onSaved }) {
   const text = String(prompt || '').trim()
   if (!text) throw Object.assign(new Error('没有可提交的画面提示词'), { status: 400 })
   await mkdir(directory, { recursive: true })
-  let bytes
-  if (backend?.apiKey) {
-    bytes = await generateGatewayImage({
-      baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: text, aspectRatio, seed, fetchImpl, signal, stepTarget,
-    })
-  } else {
-    const baseUrl = resolveImageBackend(backend, env)
-    if (!baseUrl) throw Object.assign(new Error('尚未配置图片执行器。请先配置 ComfyUI 地址。'), { status: 409 })
-    bytes = await imageStep(stepTarget, 'image_generate', () => generateStill({
-      baseUrl, ...imageSize(aspectRatio), seed, prompt: text,
-      prefix: `meiji/${projectId}/${itemId}`, jobId: `${projectId}:${itemId}:${seed}`,
-      journalFile: join(directory, `${itemId}.job.json`), fetchImpl, pause, signal,
-    }))
-  }
+  const bytes = await generateGatewayImage({
+    ...backend, prompt: text, aspectRatio, seed, fetchImpl, signal, stepTarget,
+  })
   return saveGeneratedImage(stepTarget, async () => {
     const fitted = await limitStillBytes(bytes)
     if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
@@ -415,39 +244,16 @@ export async function generateStillFile({ directory, itemId, aspectRatio, backen
   }, onSaved, signal)
 }
 
-export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, pause, signal, env, prepare, referenceBytes, referenceMime, referenceBase64, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt, stepTarget, onSaved }) {
+export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, signal, prepare, referenceBytes, referenceMime, referenceBase64, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt, stepTarget, onSaved }) {
   const item = assets?.items?.find(entry => entry.id === itemId)
   if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以生图'), { status: 400 })
   const prepared = prepare ? await prepare(assets) : assets
   const current = prepared.items.find(entry => entry.id === itemId)
   await mkdir(directory, { recursive: true })
-  await rm(join(directory, `${itemId}.job.json`), { force: true })
-  if (backend?.apiKey) {
-    const bytes = await generateGatewayImage({
-      baseUrl: backend.baseUrl, apiKey: backend.apiKey, model: backend.model,
-      prompt: prompt || imagePrompt(current), aspectRatio, seed, references: referenceBytes ? [{ bytes: referenceBytes, mime: referenceMime }] : [], referenceBase64, fetchImpl, signal, stepTarget,
-    })
-    return saveGeneratedImage(stepTarget, async () => {
-      const fitted = await limitStillBytes(bytes)
-      if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
-      const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
-      const items = prepared.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, file: null }) : entry)
-      return { ...prepared, items }
-    }, onSaved, signal)
-  }
-  const baseUrl = resolveImageBackend(backend, env)
-  if (!baseUrl) throw Object.assign(new Error('尚未配置图片执行器。请先配置 ComfyUI 地址。'), { status: 409 })
-  if (referenceBase64?.length) {
-    const match = referenceBase64[0].match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/)
-    if (!match) throw Object.assign(new Error('人物原图 Base64 无效'), { status: 400 })
-    referenceBytes = Buffer.from(match[2], 'base64')
-  }
-  const imageName = referenceBytes ? await uploadReference(baseUrl, referenceBytes, fetchImpl, signal) : undefined
-  const bytes = await imageStep(stepTarget, 'image_generate', () => generateStill({
-    baseUrl, ...imageSize(aspectRatio), seed, prompt: prompt || imagePrompt(current), imageName,
-    prefix: `meiji/${projectId}/${itemId}`, jobId: `${projectId}:${itemId}:${seed}`,
-    journalFile: join(directory, `${itemId}.job.json`), fetchImpl, pause, signal,
-  }))
+  const bytes = await generateGatewayImage({
+    ...backend,
+    prompt: prompt || imagePrompt(current), aspectRatio, seed, references: referenceBytes ? [{ bytes: referenceBytes, mime: referenceMime }] : [], referenceBase64, fetchImpl, signal, stepTarget,
+  })
   return saveGeneratedImage(stepTarget, async () => {
     const fitted = await limitStillBytes(bytes)
     if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)

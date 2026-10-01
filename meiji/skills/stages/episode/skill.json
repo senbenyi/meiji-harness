@@ -7,10 +7,10 @@
   "languageMode": "story",
   "fields": [
     "common",
-    "generate",
     "review",
     "revise",
     "protocol"
   ],
-  "order": 1
+  "order": 1,
+  "fixedConstraints": true
 }

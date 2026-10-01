@@ -1,3 +1,4 @@
+import { gatewayBaseUrl } from '../../models/model-config.js'
 import { runStep } from '../data/task-store.js'
 import { checkContext, markApiFailure } from '../data/operation-context.js'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -102,7 +103,17 @@ async function requestGateway(options) {
   try { return await requestGatewayRaw(options) } catch (error) { throw markApiFailure(error) }
 }
 // body 为 FormData 时按 multipart 发送，logBody 描述其内容；否则按 JSON 发送。
-async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body, logBody, apiKey, fetchImpl, signal, binary = false, binaryLabel = '视频文件', redirect, fn }) {
+async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body, logBody, apiKey, fetchImpl, signal, binary = false, binaryLabel = '视频文件', redirect, fn, authenticated = true }) {
+  baseUrl = gatewayBaseUrl(baseUrl)
+  if (authenticated) {
+    apiKey = String(apiKey || '').replace(/^Bearer\s+/i, '').trim()
+    if (!apiKey) throw Object.assign(new Error('需要网关密钥'), { status: 400 })
+    headers = { ...headers, Authorization: `Bearer ${apiKey}` }
+  }
+  if (method === 'POST') {
+    const model = body instanceof FormData ? body.get('model') : body?.model
+    if (!String(model || '').trim()) throw Object.assign(new Error('当前请求需要模型名'), { status: 400 })
+  }
   const url = endpoint(baseUrl, path)
   const where = [
     '文件：server/generate/gateway.js',
@@ -171,7 +182,7 @@ async function downloadImageBytes({ baseUrl, url, apiKey, fetchImpl, signal }) {
   const sameOrigin = target.origin === new URL(baseUrl).origin
   const result = await requestGateway({
     baseUrl, path: target.href, apiKey, fetchImpl, signal, binary: true, binaryLabel: '图片文件',
-    fn: 'generateGatewayImage', headers: sameOrigin ? { Authorization: `Bearer ${apiKey}` } : {},
+    authenticated: sameOrigin, fn: 'generateGatewayImage', headers: sameOrigin ? { Authorization: `Bearer ${apiKey}` } : {},
     ...(sameOrigin ? { redirect: 'error' } : {}),
   })
   signal?.throwIfAborted()
@@ -195,7 +206,7 @@ export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, asp
   let request
   if (images.length || referenceBase64.length) {
     const body = new FormData()
-    body.append('model', model || 'elysium-image')
+    body.append('model', model || '')
     body.append('prompt', prompt)
     body.append('size', size)
     images.forEach((item, index) => {
@@ -203,10 +214,10 @@ export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, asp
       body.append('image[]', new Blob([item.bytes], { type: item.mime }), `reference-${index + 1}.${imageExt[item.mime]}`)
     })
     referenceBase64.forEach(value => body.append('image[]', value))
-    const logBody = { model: model || 'elysium-image', prompt, size, 'image[]': [...images.map((item, index) => `reference-${index + 1}.${imageExt[item.mime]}（${item.mime}，${item.bytes.length} 字节）`), ...referenceBase64.map(value => `[Base64 图片，${value.length} 字符]`)] }
+    const logBody = { model: model, prompt, size, 'image[]': [...images.map((item, index) => `reference-${index + 1}.${imageExt[item.mime]}（${item.mime}，${item.bytes.length} 字节）`), ...referenceBase64.map(value => `[Base64 图片，${value.length} 字符]`)] }
     request = { path: 'images/edits', headers, body, logBody }
   } else {
-    const body = { model: model || 'elysium-image', prompt, size, ...(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff ? { seed } : {}) }
+    const body = { model: model, prompt, size, ...(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff ? { seed } : {}) }
     request = { path: 'images/generations', headers: { ...headers, 'Content-Type': 'application/json' }, body }
   }
   const step = (kind, run) => stepTarget ? runStep(kind, run, { target: stepTarget }) : run()
@@ -247,7 +258,7 @@ export async function submitGatewayVideo({ baseUrl, apiKey, model, prompt, durat
   signal?.throwIfAborted()
   const seconds = String(Math.round(Number(duration) || 5))
   const body = {
-    model: model || 'elysium-video',
+    model: model,
     prompt,
     seconds,
     size: gatewayVideoSize(aspectRatio),

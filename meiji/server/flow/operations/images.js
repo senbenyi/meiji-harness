@@ -70,13 +70,6 @@ export async function startImage(operation, project, { projects, models, home, s
     referenceBase64 = model.images.map(image => image.base64)
     how = `按人工意见直接编辑${subject}原图`
     reference = '使用待修改原图，保留未涉及内容'
-  } else if (operation.action === 'revise-image' && !route.image?.apiKey) {
-    try {
-      referenceBytes = (await readPicture(home, project, current)).bytes
-      reference = '带上当前图片作为重绘底图'
-    } catch {
-      reference = '还没有图片，按新提示词直接生成'
-    }
   } else if (operation.action === 'revise-image') {
     reference = '按改写后的中文提示词重新生成'
   } else if (operation.useReference) {

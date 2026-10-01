@@ -35,6 +35,7 @@ meiji/
 ├── shared/                 # 前后端共用的领域模块（平铺，浏览器经 /plugins/meiji/shared/ 加载）
 │   ├── drama-model.js      # 剧集数据模型（schemaVersion 2）
 │   ├── gates.js            # 制作门禁：各阶段能否生成（canGenerate、gateOf、hasX）
+│   ├── episode-summary.js  # 摘要非空且最多 300 字、参考时长与 ±20 秒范围，前后端统一口径
 │   ├── project-rules.js    # 时长/画幅规范化、上游变化时清理下游
 │   ├── steps.js            # 步骤状态、任务状态推导 deriveTaskStatus、按目标分组、顺序执行器 executeSteps
 │   └── feedback.js（审核结论、人工忽略自审规则）、shot-timing.js、reference-images.js、video-prompt-text.js、tail-frame.js、guidance.js
@@ -50,6 +51,7 @@ meiji/
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
 │   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
 │   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、修改意见与人物预览；约束正文在 skills/constraints/
+│   │                       # episode-prompts.js + models/episode-summary-model.js：总摘要、目标时长、前后集事实与固定约束；生成/审核/修订/预览共用
 │   │                       # models/character-image-model.js 定义人物模式、角色职责、资料、规则、Base64 图片、画幅与修改意见；人物修改经 model.toPrompt() 生成提示词
 │   │                       # models/scene-image-model.js 定义场景五项资料、规则、本剧补充、Base64 图片与画幅；场景生成/修改及预览由接口赋值后复用 model.toPrompt()/toSegments()
 │   ├── data/               # 持久化：projects（领域存储）、project-files（存储布局，唯一了解文件结构）、
@@ -58,7 +60,7 @@ meiji/
 │   │                       #   skill-store（技能基础修改层、本剧层与组合快照）、custom-skills（本剧指导素材）等
 │   └── host/               # Harness 适配层（唯一接触 Harness 的地方）：workspaces（workspaceRegistry）、
 │                           #   session-log（会话命令日志）
-├── models/model-config.js  # 网关地址校验、默认配置读取、用途（chat/story/image/video）→ 模型路由
+├── models/model-config.js  # 配置保存校验、默认配置读取与无校验路由展开；生成请求仅在 gateway.js 校验当前路由
 ├── config/models.json      # 网关地址、模型名、并发上限默认配置（入 git，不含密钥）
 ├── config/models.local.json # 本地密钥等，覆盖 models.json 同名字段（git 忽略，需自行创建）
 ├── tools/                  # Harness 会话工具 session-*-tool.js（4 个）
@@ -128,3 +130,10 @@ storages/meiji/
 ```
 
 迁移备份位于 `$DSH_HOME/backups/`。
+
+## 5. 摘要草稿与请求边界
+
+- 剧集弹框先填参考时长（默认 150 秒），可在摘要为空时发起 `episode-summary-draft`；复用任务队列、步骤、取消、历史。结果保存为未发布 artifact，`latestOutputs` 指向 `summary-draft`；不改项目文件。保存按钮才调用 episode-add/edit。
+- 总摘要、参考时长与全部前集摘要决定本集；后集仅作衔接约束。AI 决定实际时长（参考值 ±20 秒，1–86400 秒域内），摘要最多 300 个非空白 Unicode 字符，标点计入。规则违规与语义审核合并，最多自动修订一次；无效摘要不落入剧集。
+- 固定生成约束在 `skills/constraints/episode.md`；common/review/revise 仍可编辑，protocol 只读；不再保留 episode generate.md。
+- 所有外部生成请求在 `gateway.js` 发出前校验地址、密钥及当前生成模型；轮询/下载不要求生成模型。第三方图片下载不附网关密钥。删除缺密钥时的 ComfyUI 隐式回退。

@@ -253,7 +253,14 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
       if (path === base + '/tasks') {
         const body = req.method === 'POST' ? await readJson(req, 8192) : Object.fromEntries(url.searchParams)
         await links.requireProject(body.sessionId, body.projectId)
-        if (req.method === 'GET') return json(res, 200, { tasks: tasks.list(body.projectId) })
+        if (req.method === 'GET') {
+          if (body.operationId) {
+            const task = await tasks.get(body.operationId, body.sessionId)
+            if (task.projectId !== body.projectId) return json(res, 404, { error: '任务不属于本项目' })
+            return json(res, 200, { task })
+          }
+          return json(res, 200, { tasks: tasks.list(body.projectId) })
+        }
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
         if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
         tasks.cancel(body.operationId, body.projectId)

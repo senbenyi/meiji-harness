@@ -80,17 +80,17 @@ test('video and reference image logs omit base64 while preserving what was actua
   const bytes = Buffer.from([0, 1, 2, 253, 254, 255])
   const reference = bytes.toString('base64')
   await runWithSessionLog(session, async () => {
-    await submitGatewayVideo({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', prompt: '生成视频', duration: 5, mode: 'first_frame', inputReference: reference,
+    await submitGatewayVideo({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', model: 'elysium-video', prompt: '生成视频', duration: 5, mode: 'first_frame', inputReference: reference,
       fetchImpl: async (url, options) => {
         assert.equal(JSON.parse(options.body).input_reference, reference)
         return Response.json({ id: 'video-id' })
       } })
-    await submitGatewayVideo({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', prompt: '生成视频', duration: 5, mode: 'reference', referenceImages: [`data:image/png;base64,${reference}`],
+    await submitGatewayVideo({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', model: 'elysium-video', prompt: '生成视频', duration: 5, mode: 'reference', referenceImages: [`data:image/png;base64,${reference}`],
       fetchImpl: async (url, options) => {
         assert.deepEqual(JSON.parse(options.body).reference_images, [`data:image/png;base64,${reference}`])
         return Response.json({ id: 'video-id-2' })
       } })
-    await generateGatewayImage({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', prompt: '参考生图', references: [{ bytes, mime: 'image/png' }],
+    await generateGatewayImage({ baseUrl: 'https://gateway.test/v1/', apiKey: 'secret-key', model: 'elysium-image', prompt: '参考生图', references: [{ bytes, mime: 'image/png' }],
       fetchImpl: async (url, options) => {
         if (options.method === 'GET') return new Response(bytes)
         assert.deepEqual(Buffer.from(await options.body.get('image[]').arrayBuffer()), bytes)

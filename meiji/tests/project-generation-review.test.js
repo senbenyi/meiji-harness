@@ -9,7 +9,7 @@ const route = { baseUrl: 'https://test.local', apiKey: 'test', model: 'test' }
 
 test('episode generation repairs once and records both reviews',async()=>{
  const project = {...episodeFixture(), episodes: []};let calls=0
- const { result, steps } = await recordSteps(() => checkContext.run({},() => generateEpisode({project,route,request:async ({ skill, user: prompt }) =>{
+ const { result, steps } = await recordSteps(() => checkContext.run({},() => generateEpisode({project,route,referenceDurationSeconds:10,request:async ({ skill, user: prompt }) =>{
  calls++;if(calls===2)return 'FAIL\n结尾未承接';if(calls===4)return 'PASS'
  if(calls===3){assert.match(prompt,/结尾未承接/);assert.match(prompt,/初稿/)}
  return JSON.stringify({summary:calls===1?'初稿':'修订稿',durationSeconds:10})

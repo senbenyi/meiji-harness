@@ -22,7 +22,7 @@ for (const draft of [false, true]) test(`场景意见修改使用${draft ? '待�
   const requests = []
   await runOperation(e.op('image', { itemId: 'E01', generationMode: 'modify', review: '镜头后退，扩大安全边距', aspect: '1600x904', ...(candidate ? { draftId: candidate.draftId } : {}) }), {
     home: e.home, operationId: 'scene-modify', waitForBackground: true,
-    submitAssetImage: args => submitAssetImage({ ...args, backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-only' }, fetchImpl: async (url, options) => {
+    submitAssetImage: args => submitAssetImage({ ...args, backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-only', model: 'elysium-image' }, fetchImpl: async (url, options) => {
       requests.push([url.pathname, options.method])
       if (options.method === 'GET') return new Response(Buffer.from([137, 80, 78, 71]))
       assert.equal(url.pathname, '/v1/images/edits')

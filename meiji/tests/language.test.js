@@ -23,7 +23,7 @@ test('Chinese input sends English language skill to the model and preserves retu
     payload = JSON.parse(options.body)
     return Response.json({ choices: [{ message: { content: JSON.stringify({ summary: 'A traveler enters a mysterious cave.', durationSeconds: 60 }) } }] })
   })
-  const draft = await generateEpisode({
+  const draft = await generateEpisode({ referenceDurationSeconds: 60,
     route: { baseUrl: 'http://model.test/v1', apiKey: 'test', model: 'test' },
     project: { title: '沙漠', summary: { content: '旅人进入山洞' }, outputLanguage: 'en', episodes: [] },
   })

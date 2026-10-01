@@ -57,13 +57,13 @@ test('a task fixes base and drama skills at its start; later edits do not change
   const e = await setupModel(t), models = modelStore(e.home)
   await models.write({ ...await models.read(), apiKey: 'test-only' })
   await skillStore(e.home).save('episode', { review: '【基础】第一版验收' })
-  await e.store.save(e.id, current => ({ skills: additionsPatch(current.skills, 'episode', { generate: '本剧第一版' }) }))
+  await e.store.save(e.id, current => ({ skills: additionsPatch(current.skills, 'episode', { common: '本剧第一版' }) }))
   const seen = []
   await runOperation(e.op('episode-generate'), { home: e.home, generateEpisode: options => generateEpisode({ ...options, request: async message => {
     seen.push(message.system + message.user)
     if (message.skill !== 'review') {
       await skillStore(e.home).save('episode', { review: '【基础】第二版验收' })
-      await e.store.save(e.id, current => ({ skills: additionsPatch(current.skills, 'episode', { generate: '本剧第二版' }) }))
+      await e.store.save(e.id, current => ({ skills: additionsPatch(current.skills, 'episode', { common: '本剧第二版' }) }))
       return JSON.stringify({ summary: '初稿', durationSeconds: 10 })
     }
     return 'PASS'
