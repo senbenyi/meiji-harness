@@ -112,9 +112,22 @@ export function renderSession(project, openCreate, actions, context = {}) {
   }
   const imageGate = syncImageGate(project, context.imageGate)
   const onDetail = detailOwnsImage(context, imageGate)
-  if (!onDetail) {
-    const previews = renderImageReview(project, actions, context.imageGate)
-    if (previews) view.append(previews)
+  if (!onDetail && imageGate) {
+    const episode = project.episodes?.find(item => item.id === imageGate.episodeId)
+    const character = episode?.plot?.characters?.items?.find(item => item.id === imageGate.itemId)
+    const scene = episode?.plot?.scenes?.items?.find(item => item.id === imageGate.itemId)
+    if (!imageGate.track && (character || scene)) {
+      const pending = element('div', '', 'notice workflow-generation-row')
+      pending.append(element('span', `${imageGate.name || character?.name || scene?.name}：图片任务请在详情页查看与确认。`))
+      const open = element('button', character ? '查看人物详情' : '查看场景详情')
+      open.type = 'button'
+      open.onclick = () => character ? context.onOpenCharacter?.(episode.id, character.id) : context.onOpenScene?.(episode.id, scene.id)
+      pending.append(open)
+      view.append(pending)
+    } else {
+      const previews = renderImageReview(project, actions, context.imageGate)
+      if (previews) view.append(previews)
+    }
   }
   const detailContext = onDetail ? { ...context, detailGate: imageGate } : context
   if (context.character) {

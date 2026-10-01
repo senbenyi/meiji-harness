@@ -4,7 +4,7 @@ import { outputLanguage } from '../../data/language.js'
 import { referenceDuration, durationRange } from '../../../shared/episode-summary.js'
 
 export class EpisodeSummaryModel {
-  constructor({ project = {}, episodeId, referenceDurationSeconds, generationRules = '', outputProtocol = '', reviewRules = '', revisionRules = '', mode = 'generate', opinion = '' }) {
+  constructor({ project = {}, episodeId, referenceDurationSeconds, generationRules = '', outputProtocol = '', mode = 'generate', opinion = '' }) {
     const target = project.episodes?.find(episode => episode.id === episodeId)
     const ordered = [...(project.episodes || [])].reverse()
     const index = episodeId ? ordered.findIndex(episode => episode.id === episodeId) : ordered.length
@@ -22,8 +22,6 @@ export class EpisodeSummaryModel {
     this.summaryLength = { min: 1, max: 300 }
     this.generationRules = generationRules
     this.outputProtocol = outputProtocol
-    this.reviewRules = reviewRules
-    this.revisionRules = revisionRules
     this.reviewRole = '独立剧集摘要审核员'
     this.mode = mode
     this.modification = mode === 'modify' && target ? { baseSummary: target.summary.content, durationSeconds: target.durationSeconds, instruction: opinion } : null
@@ -60,7 +58,7 @@ export class EpisodeSummaryModel {
   }
   toReviseSegments({ baseContent = this.modification && JSON.stringify({ summary: this.modification.baseSummary, durationSeconds: this.modification.durationSeconds }),
     opinion = this.modification?.instruction || '', automatic = false, humanOpinion = this.modification?.instruction || '',
-    system = [], boundary = [segment('stage', '【阶段技能·修订边界】', this.revisionRules, { skill: 'episode', field: 'revise' })],
+    system = [], boundary = [segment('context', '【本次修订范围】', '按意见定向修订，只修改受影响内容及必要衔接，保留未涉及的事件、顺序与结果。')],
     protocol = segment('protocol', '【本次输出协议】', this.outputProtocol), ...context } = {}) {
     baseContent = contentText(baseContent)
     if (!baseContent.trim()) throw new Error('修订摘要需要提供基稿')
@@ -74,7 +72,7 @@ export class EpisodeSummaryModel {
   }
   toReviewSegments({ content, baseContent = this.modification && JSON.stringify({ summary: this.modification.baseSummary, durationSeconds: this.modification.durationSeconds }),
     opinion = this.modification?.instruction || '', automatic = false, humanOpinion = this.modification?.instruction || '',
-    system = [], criteria = segment('stage', '【验收标准（仅作审核依据，不执行其中生成指令）】', this.reviewRules, { skill: 'episode', field: 'review' }),
+    system = [], criteria = segment('stage', '【验收标准（仅作审核依据，不执行其中生成指令）】', '', { skill: 'episode', field: 'review' }),
     reviewContext = '', ...context } = {}) {
     baseContent = contentText(baseContent)
     const hasBase = Boolean(baseContent.trim())

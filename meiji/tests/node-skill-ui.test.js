@@ -11,23 +11,24 @@ function setup(t) {
   t.after(() => { globalThis.document = prior; dom.window.close() })
   return dom.window.document.querySelector('main')
 }
-test('节点补充可增改删，失败保留输入，预览展示四类完整请求', async t => {
-  const root = setup(t), calls = [], data = { skill: { constraints: '固定基础', fields: [{ field: 'review', text: '本节点验收' }], protocol: '协议' }, items: [] }
-  const view = renderNodeSkill({ title: '测试' }, 'scenes', {
-    load: async () => data, back() {},
-    save: async fields => { calls.push(fields); if (!fields.content) throw new Error('内容不能为空'); data.items = [{ id: fields.id || 'a', content: fields.content }]; return data },
-    remove: async id => { calls.push(id); data.items = []; return data },
-    preview: async () => ({ requests: Object.fromEntries(['generate', 'modify', 'review', 'revise'].map(key => [key, { system: [{ title: '角色', text: '完整规则' }], user: [{ title: '资料', text: '完整上下文' }] }])) }),
+test('默认基础 tab，补充整段载入并保存，切换和失败保留输入', async t => {
+  const root = setup(t), calls = []
+  const view = renderNodeSkill({}, 'scenes', {
+    back() {}, load: async () => ({ skill: { constraints: '基础正文', fields: [], protocol: '协议' }, items: [{ id: 'a', content: '甲' }, { id: 'b', content: '乙' }] }),
+    save: async value => { calls.push(value); if (calls.length === 1) throw new Error('保存失败') },
   })
   root.append(view); await settle()
-  const button = text => [...view.querySelectorAll('button')].find(item => item.textContent === text)
-  let input = view.querySelector('textarea'); input.value = ''
-  button('添加补充 skill').click(); await settle(); assert.match(view.textContent, /内容不能为空/)
-  input.value = '第一版'; button('添加补充 skill').click(); await settle()
-  button('修改').click(); input = view.querySelector('textarea'); assert.equal(input.value, '第一版')
-  input.value = '第二版'; button('保存修改').click(); await settle(); assert.equal(calls.at(-1).id, 'a')
-  button('预览完整提示词').click(); await settle(); assert.equal(view.querySelectorAll('details').length, 5); assert.match(view.textContent, /完整上下文/)
-  button('删除').click(); await settle(); assert.equal(data.items.length, 0)
+  const tabs = view.querySelectorAll('[role=tab]'), base = view.querySelector('.skill-base'), additions = view.querySelector('.skill-additions')
+  assert.equal(tabs.length, 2); assert.equal(tabs[0].getAttribute('aria-selected'), 'true')
+  assert.equal(base.hidden, false); assert.equal(additions.hidden, true)
+  tabs[1].click(); assert.equal(base.hidden, true); assert.equal(additions.hidden, false)
+  const input = view.querySelector('textarea'), save = additions.querySelector('button')
+  assert.equal(input.value, '甲\n\n乙')
+  assert.equal(view.querySelector('.skill-supplement-card, .skill-preview'), null)
+  input.value = '整段新意见'; tabs[0].click(); tabs[1].click(); assert.equal(input.value, '整段新意见')
+  await save.onclick(); assert.match(view.textContent, /保存失败/); assert.equal(input.value, '整段新意见')
+  await save.onclick(); assert.deepEqual(calls.at(-1), { content: '整段新意见', replace: true })
+  input.value = ''; await save.onclick(); assert.deepEqual(calls.at(-1), { content: '', replace: true })
 })
 test('历史刷新保留任务展开，步骤更新并高亮当前步骤', async t => {
   const root = setup(t), task = { id: 't', action: 'outline', status: 'running', steps: [{ id: 's', target: 'outline', kind: 'generate', status: 'running' }], artifacts: [] }
@@ -49,4 +50,12 @@ test('摘要弹框任务回调实时显示步骤，历史入口不触发表单�
   open({ id: 'p' }); await root.querySelector('.ai-summary').onclick()
   assert.match(root.textContent, /摘要任务：执行中/)
   assert.match(root.textContent, /查看摘要任务历史/)
+})
+test('节点页加载失败可以重试', async t => {
+  const root = setup(t); let loads = 0
+  const view = renderNodeSkill({}, 'outline', { back() {}, load: async () => { if (++loads === 1) throw new Error('网络失败'); return { skill: { constraints: '规则', fields: [] }, items: [] } } })
+  root.append(view); await settle(); assert.match(view.textContent, /网络失败/)
+  const retry = [...view.querySelectorAll('button')].find(button => button.textContent === '重新加载')
+  retry.click(); await settle()
+  assert.equal(view.querySelector('[aria-selected=true]').textContent, '基础 skill')
 })

@@ -1,5 +1,5 @@
 // 人物图接口负责技能快照、年龄规则与 model 赋值；修改提示词由 model 转换。
-// 固定约束来自 skills/constraints/character/generate-character-image.md。
+// 固定约束来自 skills/task/generate-character-image-skill.md。
 // 图片上传、尺寸、请求发送和结果保存仍由生成/流程层负责。
 import { characterFieldValues, characterSheet } from '../../../shared/character-facts.js'
 import { withReviewPrompt } from '../../data/review-checks.js'
@@ -44,16 +44,16 @@ export function adultCharacter(item) {
   return years != null && years >= 18
 }
 
-// 约束正文只来自 skills/constraints/character/generate-character-image.md。
-// 普通 Markdown 原样使用；存在约定分节时，实际人物只选通用与适用年龄段，模板预览显示全文。
+// 约束正文只来自 skills/task/generate-character-image-skill.md。
+// 普通正文原样使用；存在年龄条件时，实际人物只选适用条件，模板预览显示全文。
 function selectConstraints(text, item) {
   if (!item) return text
-  const parts = text.split(/^## (通用|成年人物|未成年或年龄不明)\s*$/m)
+  const parts = text.split(/^若为(成年人物|未成年或年龄不明)：\s*$/m)
   if (parts.length === 1) return text
   const selected = [parts[0]]
   const ageGroup = adultCharacter(item) ? '成年人物' : '未成年或年龄不明'
   for (let i = 1; i < parts.length; i += 2) {
-    if (parts[i] === '通用' || parts[i] === ageGroup) selected.push(parts[i + 1])
+    if (parts[i] === ageGroup) selected.push(parts[i + 1])
   }
   return selected.map(value => value.trim()).filter(Boolean).join('\n\n')
 }

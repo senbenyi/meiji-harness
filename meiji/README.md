@@ -114,7 +114,7 @@ meiji/
 
 ## 剧情统一生成
 
-剧情页包含摘要、大纲、角色卡和场景卡，不再单设角色场景一级页。outline 操作使用 `skills/constraints/stages/outline` 的对应小节，依次生成并审核大纲、提取人物、提取场景；每步独立调用模型并保存到当前集 plot.outline / plot.characters / plot.scenes 节点，保留同名卡片稳定 ID 和已确认素材，清空镜头及下游。审核失败保留完整内容与意见，不能继续生成镜头表。角色与场景的图片仍独立生成、确认；不会因统一生成文本而调用图片接口。
+剧情页包含摘要、大纲、角色卡和场景卡，不再单设角色场景一级页。outline 操作使用 `skills/task/generate-story-outline-skill.md`、`extract-story-characters-skill.md`、`extract-story-scenes-skill.md` 三份基础规则，依次生成并审核大纲、提取人物、提取场景；每步独立调用模型并保存到当前集 plot.outline / plot.characters / plot.scenes 节点，保留同名卡片稳定 ID 和已确认素材，清空镜头及下游。审核失败保留完整内容与意见，不能继续生成镜头表。角色与场景的图片仍独立生成、确认；不会因统一生成文本而调用图片接口。
 
 面板始终从 Harness 的当前会话选择读取日志目标。切换或新建会话后，新任务写入最新选中的会话；已启动任务的后续日志仍写入发起会话。只有任务日志的新会话也会显示日志，无需先发送聊天消息。
 

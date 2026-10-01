@@ -26,14 +26,11 @@
 - 文件按内容命名，不按历史事件或临时来源命名；一次性迁移脚本统一 `migrate-` 前缀；测试文件与被测模块或主题同名。
 - `tools/` 只调用 `server/data` 与 `server/flow`；会话与面板共用 `server/flow/tasks/runner.js` 与 `runOperation`，不另建生成通路。
 - 技能写法（详见 `skills/README.md`）：
-  - 阶段技能放 `skills/constraints/stages/<id>/`：`skill.json` + 按字段的 Markdown（`common` 通用、`generate` 生成、`review` 验收标准、`revise` 修订边界、`protocol` 输出协议）。md 文件与 `fields` 一致，结构错误由 `validateSkills` 与 `tests/skill.test.js` 报出。
-  - 固定约束只放 `skills/constraints/<id>.md`，阶段通过 `fixedConstraints: true` 显式启用；只有固定约束的阶段允许 `fields: []`，不再有 generate.md。空约束文件表示不注入约束，不能回退到 JS 默认值；缺文件仍报错。固定约束参与任务快照和哈希，不允许页面/API/基础覆盖/本剧补充修改；实际生成与预览从同一来源读取。
-  - 程序解析依赖的格式（JSON 字段、`## S01 / 5s`、`[seconds-complete]`、`[opening-reference: …]`、PASS/FAIL）只写在 `protocol.md` 或代码里；面板不能修改协议。
-  - 多个阶段共用的段落写成 `skills/constraints/shared/<id>.md`，由 `skill.json` 的 `shared` 按字段引用，不复制到各阶段。
-  - 动作、武术、台词、表情、声音规则写在 `skills/constraints/guidance/<id>/`（`common`、`review`、`stages/<阶段>.md`），不写进阶段技能；指导只细化上游已有内容。
-  - 流程说明（谁发请求、失败后是否重试）由代码负责，不写进技能正文。
-  - 各生成接口在 `server/prompts/interfaces/<阶段>.js` 独立定义 system/user/prompt 的内容、顺序与输出格式；公共分发与网络层不得追加统一提示词包装。`skill-prompts.js` 仅提供可选技能片段与来源标注，不决定最终结构。新增阶段须登记 `skill.json` 与对应接口模块；技能正文仍从技能组合读取，预览必须复用实际接口组装函数，不在流程或网络层另拼提示词。修改输出协议时须同步其解析与校验，不能只更改 json 标记。
-  - Harness 只注册 `skills/agent/panel.md`（会话 agent 使用）；生成技能不注册。
+  - 基础生产规则统一平铺在 `skills/task/`，按功能命名 Markdown，一个功能一份。大纲、人物、场景提取各自独立；不再设通用、审核、修订、共享或指导 skill。
+  - `skills/catalog.js` 登记功能与文件，`skills/protocols.js` 保存程序解析协议。基础只读，空正文有效，缺文件或未登记文件报错。
+  - 每个 AI 步骤有独立提示词 Model，提供生成、审核、修订编排；三类共用基础生产规则。身份、语言、审核协议、修订边界与输出协议由代码负责。接口只赋值和调用 Model，网络层不追加包装。
+  - 补充 skill 按当前剧集当前节点保存，支持增删改，任务开始时冻结；预览复用实际编排，步骤历史保存实际请求。图片和视频没有独立 AI 审核时，不为统一方法新增接口调用。
+  - Harness 只注册 `skills/session/panel.md`（会话 agent 使用）；生成技能不注册。
   - 改动技能正文后运行 `node tests/fixtures/prompt-scenarios.js <after.json>` 与 `node scripts/prompt-diff.js <before.json> <after.json> <报告.md>`，核对删除的句子都有去向或理由。
 - 技能修改（基础层、本剧补充、指导开关与素材）只经面板接口（同源请求）；会话工具不提供修改技能的能力。
 - `h3skill/` 保持官方原文，不混入本地改写。

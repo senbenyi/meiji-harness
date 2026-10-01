@@ -32,7 +32,7 @@ const model = new StoryCharacterModel({
 const messages = model.toGenerateMessages()
 ```
 
-实际入口 buildStoryPrompts 给对应模型赋值；outline 接口从本次技能组合选择大纲、人物或场景小节，并传给 model。正文仍以 skills/constraints/stages/outline 下的文档为来源，协议只读。
+实际入口 buildStoryPrompts 给对应模型赋值；接口给大纲、人物、场景 Model 赋值对应的单一基础生产规则，生成与审核共用，修订增加意见。规则文件分别为 generate-story-outline-skill.md、extract-story-characters-skill.md、extract-story-scenes-skill.md；输出协议由代码维护。
 
 ## 请求与步骤顺序
 

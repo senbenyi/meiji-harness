@@ -69,15 +69,15 @@ test('人物图可独立取消默认包装，预览同步，场景图不受影�
   assert.equal(imageSkillPrompt('scene-image', '场景内容', project), scene)
 })
 
-test('各图片接口显式选择的基础覆盖和本剧补充继续参与生成', () => {
+test('图片接口与预览使用同一基础规则，旧的本剧覆盖不再生效', () => {
   for (const stage of ['scene-image', 'part-image', 'pencil']) {
     const set = builtinSkillSet({ additions: { [stage]: { generate: '本剧补充' } } })
-    set.skills[stage].parts.generate = `基础覆盖：${stage}`
+    set.skills[stage].constraints = `基础规则：${stage}`
     const actual = executionContext.run({ skillSet: set, skills: new Map() }, () => imageSkillPrompt(stage, '画面', project))
-    assert.ok(stage === 'scene-image' ? actual.includes(`【生成规则】\n基础覆盖：${stage}`) : actual.startsWith(`基础覆盖：${stage}`))
-    assert.match(actual, /本剧补充/)
+    assert.ok(stage === 'scene-image' ? actual.includes(`【生成规则】\n基础规则：${stage}`) : actual.startsWith(`基础规则：${stage}`))
+    assert.doesNotMatch(actual, /本剧补充/)
     const preview = previewPrompts({ stage, root: project, skillSet: set }).image
-    assert.ok(stage === 'scene-image' ? render(preview.user).includes(`【生成规则】\n基础覆盖：${stage}`) : render(preview.user).startsWith(`基础覆盖：${stage}`))
+    assert.ok(stage === 'scene-image' ? render(preview.user).includes(`【生成规则】\n基础规则：${stage}`) : render(preview.user).startsWith(`基础规则：${stage}`))
     assert.equal(preview.chars, render(preview.user).length)
   }
 })
@@ -92,7 +92,8 @@ test('视频独立模块拥有补充、意见与衔接规则，流程层按原�
     const actual = filmSubmit(view, item, opening)
     assert.equal(actual.prompt, expected)
     assert.deepEqual(actual.referenceImages, ['/plugins/meiji/asset-file?category=characters&id=a', opening.referenceUrl])
-    assert.match(actual.prompt, /视频独立补充/)
+    assert.doesNotMatch(actual.prompt, /视频独立补充/)
+    assert.match(actual.prompt, /保持身份、动作、对白、场景与时间连续/)
     assert.match(actual.prompt, /节奏加快/)
     assert.match(actual.prompt, /<Picture 2>/)
   }))

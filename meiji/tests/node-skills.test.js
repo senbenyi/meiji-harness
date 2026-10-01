@@ -61,3 +61,17 @@ test('迁移完整备份和读回，旧补充保留到已有节点；重复执�
   assert.equal((await migrateNodeSkills(e.home)).migrated, 0)
   assert.match((await e.store.read(e.id)).episodes[0].supplementalSkills.summary[0].content, /旧摘要要求/)
 })
+
+test('整段替换原子合并旧条目，空保存清空且其他节点不变', async t => {
+ const e = await setupModel(t)
+ let root = await e.store.save(e.id, current => nodeSkillsPatch(current, { episodeId: e.episodeId, nodeKey: 'outline', content: '甲' }))
+ root = await e.store.save(e.id, current => nodeSkillsPatch(current, { episodeId: e.episodeId, nodeKey: 'outline', content: '乙' }))
+ root = await e.store.save(e.id, current => nodeSkillsPatch(current, { episodeId: e.episodeId, nodeKey: 'characters', content: '其他节点' }))
+ root = await e.store.save(e.id, current => nodeSkillsPatch(current, { episodeId: e.episodeId, nodeKey: 'outline', replace: true, content: '甲\n\n乙' }))
+ assert.equal(nodeSkills(root, e.episodeId, 'outline').length, 1)
+ assert.equal(nodeSkills(root, e.episodeId, 'outline')[0].content, '甲\n\n乙')
+ assert.throws(() => nodeSkillsPatch(root, { episodeId: e.episodeId, nodeKey: 'outline', replace: true, content: '字'.repeat(10001) }))
+ root = await e.store.save(e.id, current => nodeSkillsPatch(current, { episodeId: e.episodeId, nodeKey: 'outline', replace: true, content: '' }))
+ assert.equal(nodeSkills(root, e.episodeId, 'outline').length, 0)
+ assert.equal(nodeSkills(root, e.episodeId, 'characters')[0].content, '其他节点')
+})

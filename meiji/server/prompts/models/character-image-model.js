@@ -34,7 +34,7 @@ const characterFields = [
  * 创建可 JSON 序列化的人物图提示词 model。
  * @param {object} input
  * @param {object} input.character 人物资料；沿用 characterFieldValues 的字段与 look 解析。
- * @param {string} input.generationRules generate-character-image.md 的完整正文，可为空。
+ * @param {string} input.generationRules generate-character-image-skill.md 的完整正文，可为空。
  * @param {{width: number, height: number}} input.canvas 自定义整数像素宽高，无默认画幅。
  * @returns {CharacterImageModel}
  */

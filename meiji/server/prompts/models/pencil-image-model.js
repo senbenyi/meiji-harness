@@ -1,0 +1,14 @@
+// pencil 的图片 prompt 结构；修改此文件不会改变其他图片接口。
+import { imageParts } from '../skill-prompts.js'
+import { withReviewPrompt } from '../../data/review-checks.js'
+
+function generate(args) {
+  const p = imageParts({ ...args, stage: 'pencil', request: withReviewPrompt(args.request) })
+  return [p.requirement, p.addition, p.language, p.style, p.request]
+}
+
+export class PencilImageModel {
+  constructor(task = {}) { this.task = { ...task } }
+  toGenerateSegments() { return generate(this.task) }
+  toReviseSegments(request) { return generate({ ...this.task, request }) }
+}

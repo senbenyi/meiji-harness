@@ -7,7 +7,7 @@ const sceneFields = [
 
 /**
  * 可序列化场景图 model。scene 为最新场景卡五项资料；generationRules 为调用方读取的
- * generate-scene-image.md 或已保存覆盖正文；additionalInstructions 为本剧补充。
+ * generate-scene-image-skill.md 或已保存覆盖正文；additionalInstructions 为本剧补充。
  * canvas 为自定义正整数像素；mode 为 generate/reference/modify。
  * images 按提交顺序使用 { purpose: 'edit-base'|'scene-reference', base64: data URL }。
  * modification: { instruction, preserveUnspecified } 仅用于场景资料之外的画面修改。

@@ -30,8 +30,8 @@ meiji/
 │   ├── task-steps.js       # 步骤清单组件：「当前任务」与「任务历史」共用
 │   ├── task-prompt.js      # 查看步骤实际提示词：点击加载完整快照，按请求展示与复制
 │   ├── current-task.js / execution-history.js  # 「当前任务」页 / 「任务历史」页（含任务所用技能）
-│   ├── node-skill.js       # 摘要/大纲/人物/场景节点的基础查看、补充 CRUD 与预览
-│   ├── skill-entry.js / skill-detail.js / skill-library.js  # 各阶段「查看 skill」入口 / 技能详情页（基础、本剧补充、指导、预览）/ 设置页「技能库」
+│   ├── node-skill.js       # 摘要/大纲/人物/场景节点的基础/补充双页签，补充整段保存
+│   ├── skill-entry.js / skill-detail.js / skill-library.js  # 各阶段「查看 skill」入口 / 技能详情页（默认基础 tab、补充整段编辑保存）/ 设置页「技能库」
 │   ├── drama-store.js      # 面板内的剧集数据模型存储
 │   ├── api.js / dom.js     # 同源请求与 DOM 组件（showPanelDialog：面板范围弹窗，不锁住会话）
 │   └── styles.css
@@ -53,7 +53,7 @@ meiji/
 │   ├── generate/           # 网关调用与生成：gateway、text-request、text-steps（生成/自审/修订/复审步骤）、
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
 │   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
-│   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、修改意见与人物预览；约束正文在 skills/constraints/
+│   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、修改意见与人物预览；约束正文在 skills/task/
 │   │                       # episode-prompts.js + models/episode-summary-model.js：model 编排任务、目标时长/语言/风格、故事资料、前后集条件与修改意见；生成、意见修订、独立审核分别使用 model 三类入口；共享上下文及预览，审核对照对应修订基稿
 │   │                       # models/story-outline-model.js、story-character-model.js、story-scene-model.js：分别编排大纲、人物提取、场景提取的生成/修订/审核；各自管理资料结构、职责、上下文及三类提示词编排，仅共用 prompt-text.js 的文本化/消息序列化函数；技能按小节选择，预览复用实际入口
 │   │                       # models/character-image-model.js 定义人物模式、角色职责、资料、规则、Base64 图片、画幅与修改意见；人物修改经 model.toPrompt() 生成提示词
@@ -68,9 +68,9 @@ meiji/
 ├── config/models.json      # 网关地址、模型名、并发上限默认配置（入 git，不含密钥）
 ├── config/models.local.json # 本地密钥等，覆盖 models.json 同名字段（git 忽略，需自行创建）
 ├── tools/                  # Harness 会话工具 session-*-tool.js（4 个）
-├── skills/                 # 模型技能统一放在 constraints/ 下：stages/（阶段）、guidance/（指导）、shared/（共享）
-│                           #   constraints/character/generate-character-image.md（人物固定约束，只读，可为空）；constraints/scene/generate-scene-image.md（场景生成正文，仍使用既有可编辑语义）
-│                           #   agent/panel.md（唯一注册给 Harness 的会话说明）references/minimax-h3（官方参考）；load.js 按字段读取与校验
+├── skills/                 # task/ 平铺功能生产规则；catalog.js 注册，protocols.js 维护输出协议
+│                           #   task/generate-character-image-skill.md（人物固定约束，只读，可为空）；task/generate-scene-image-skill.md（场景生成正文，仍使用既有可编辑语义）
+│                           #   session/panel.md（唯一注册给 Harness 的会话说明）references/minimax-h3（官方参考）；load.js 按字段读取与校验
 ├── h3skill/                # MiniMax-H3 官方 skill 归档，只读参考，不注册、不注入
 ├── scripts/                # 迁移脚本（参数为 DSH_HOME），统一 migrate- 前缀：migrate-model（模型 v2）、migrate-layout（存储布局 v2）、migrate-task-steps（任务记录 v2）、migrate-custom-skills（补充 skill 与指导素材按集 → 按剧）、migrate-tail-frame、migrate-image-url（删除网关文件地址 imageUrl）；prompt-diff.js 为开发用的提示词差集脚本
 ├── tests/                  # node --test；fixtures/（测试密钥、jsdom 加载、模拟 workspaceRegistry）
@@ -100,7 +100,7 @@ http / tools → flow → generate → prompts → data → models
 | `server/host/` | 通过公开的 `workspaceRegistry` 查工作区与会话；写会话命令日志 |
 | `models/`、`config/` | 模型路由与默认配置 |
 | `tools/` | Harness agent 可调用的工具：上下文查询、项目管理、内容生成、任务控制 |
-| `skills/` | 内置技能（按字段的 Markdown + `skill.json`）；固定约束集中在 `constraints/<id>.md`，显式启用，空文件不添加约束，不接受基础/本剧覆盖。其他可编辑技能由 `server/data/skill-store.js` 叠加覆盖层 |
+| `skills/` | 基础生产规则在 constraints 平铺，一功能一份；catalog.js 注册，protocols.js 管理格式；基础只读，任务固定正文与当前节点补充 |
 
 ```text
 面板操作：client → server/http/routes.js → flow/tasks/runner.js（写任务记录、queue 限流）→ flow/operations/run.js(runOperation)
@@ -140,7 +140,7 @@ storages/meiji/
 
 - 剧集弹框先填参考时长（默认 150 秒），可在摘要为空时发起 `episode-summary-draft`；复用任务队列、步骤、取消、历史。结果保存为未发布 artifact，`latestOutputs` 指向 `summary-draft`；不改项目文件。保存按钮才调用 episode-add/edit。
 - 总摘要、参考时长与全部前集摘要决定本集；后集仅作衔接约束。AI 决定实际时长（参考值 ±20 秒，1–86400 秒域内），摘要最多 300 个非空白 Unicode 字符，标点计入。规则违规与语义审核合并，最多自动修订一次；无效摘要不落入剧集。
-- 固定生成约束在 `skills/constraints/episode.md`；common/review/revise 仍可编辑，protocol 只读；不再保留 episode generate.md。
+- 摘要基础生产规则在 `skills/task/generate-episode-summary-skill.md`；生成与审核共用，修订增加基稿和意见，身份与输出协议由 Model 代码编排。
 - 所有外部生成请求在 `gateway.js` 发出前校验地址、密钥及当前生成模型；轮询/下载不要求生成模型。第三方图片下载不附网关密钥。删除缺密钥时的 ComfyUI 隐式回退。
 
 ## 6. 剧情分步生成
@@ -149,3 +149,5 @@ storages/meiji/
 - 提取使用本轮审核通过后的最终大纲，不带旧卡片基稿或旧意见；单独按意见修改卡片时只修改该类资料。
 - 草稿逐阶段保存，已通过阶段不会被后项错误或取消改判失败。未提取卡片保留原素材但标过期；镜头及后续资料清空。
 - 任务计划按 outline、characters、scenes 分组；持久化历史继续保存 story 聚合快照，审核结果按三项聚合。
+
+人物/场景图片 UI：`character.js` 人物列表只进入详情，`stages.js` 场景列表只进入详情；`asset-cards.js` 详情编辑器统一管理生图、素材和确认，标题旁提供图片任务历史与对应基础 skill。`session.js` 将已有候选提示导向详情，独立图片确认组件仅供铅笔分镜等其他图片流程使用。

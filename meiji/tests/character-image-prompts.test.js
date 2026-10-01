@@ -78,6 +78,7 @@ test('未成年与年龄不明人物在实际生成和预览中使用相同适�
     const actual = characterImagePrompt(card, project, set)
     assert.equal(render(preview(project, set).user), actual)
     assert.match(actual, /按年龄穿着完整服装/)
+    assert.doesNotMatch(actual, /上半身裸露|比基尼|黑色平角短裤/)
     assert.doesNotMatch(actual, /不应使用的可编辑规则|本剧人物图补充/)
     assert.ok(actual.endsWith(characterStillPrompt(card)))
   }

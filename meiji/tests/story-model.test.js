@@ -14,7 +14,7 @@ import { recordSteps } from './fixtures/steps.js'
 
 for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterModel, 'characters'], [StorySceneModel, 'scenes']]) {
   test(`${kind}: model independently assembles generation, revision and review`, () => {
-    const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', reviewRules: 'RULE' })
+    const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', generationRules: 'RULE' })
     const generated = model.toGenerateMessages()
     assert.deepEqual(generated.map(message => message.role), ['system', 'user'])
     assert.match(generated[0].content, kind === 'outline' ? /顶层仅含 outline/ : /顶层仅含 items/)
@@ -30,7 +30,7 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
   })
 }
 
-test('each stage selects only its generation, acceptance and output sections', () => {
+test('每个剧情步骤生成和审核共用同一基础规则，输出协议独立', () => {
   for (const [kind, generation, criteria, other] of [
     ['outline', '故事大纲', '大纲验收', '人物验收|场景验收'],
     ['characters', '角色卡', '人物验收', '大纲验收|场景验收'],
@@ -38,7 +38,7 @@ test('each stage selects only its generation, acceptance and output sections', (
   ]) {
     const prompts = buildStoryPrompts(episodeFixture(), kind)
     assert.match(prompts.generation.system, new RegExp(`### ${generation}`))
-    assert.match(prompts.review('DRAFT').system, new RegExp(`## ${criteria}`))
+    assert.match(prompts.review('DRAFT').system, new RegExp(`### ${generation}`))
     assert.doesNotMatch(prompts.review('DRAFT').system, new RegExp(other))
     assert.doesNotMatch(prompts.generation.system, /【自检标准】|审核通用协议|一次调用、一次返回完整结果/)
     assert.doesNotMatch(prompts.review('DRAFT').system, /审核通用协议|独立审片师/)
@@ -216,9 +216,8 @@ test('edited story material still receives comprehensive review without an extra
   assert.equal(prompt.json, false)
   assert.match(prompt.user, /阶段：剧情整包/)
   assert.match(prompt.user, /EDITED/)
-  assert.match(prompt.system, /## 大纲验收/)
-  assert.match(prompt.system, /## 人物验收/)
-  assert.match(prompt.system, /## 场景验收/)
+  assert.match(prompt.system, /### 故事大纲/)
+  assert.match(prompt.system, /人物、场景卡的覆盖性/)
   assert.match(prompt.system, /先独立从最新大纲盘点/)
   assert.match(prompt.system, /没有问题只返回 PASS/)
 })

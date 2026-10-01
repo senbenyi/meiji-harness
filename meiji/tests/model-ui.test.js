@@ -397,7 +397,7 @@ test('stage toolbar groups status, history, skills and generation controls', t =
    assert.equal(groups.length,3)
    for (const group of groups) {
     assert.ok(group.parentElement.querySelector('h3'))
-    assert.ok(group.querySelector('.task-history-entry'))
+    assert.equal(group.querySelector('.task-history-entry'), null)
     assert.ok(group.querySelector('[data-skill]'))
    }
   }
@@ -684,4 +684,20 @@ test('late draft acknowledgement cannot restore consumed opinion or block a newe
  assert.equal(saved[1].text,'新意见');assert.equal(saved[1].revision,2)
  saved[1].onSaved({text:'新意见',revision:3})
  assert.equal(input.dataset.dirty,undefined)
+})
+
+
+test('story result cards keep skills and share the history entry of the generation operation', t => {
+ const container = domSetup(t), project = episodeFixture(), calls = []
+ const actions = { perform: async () => {}, fail() {}, openHistory: (project, scope) => calls.push(scope), openSkill() {} }
+ container.append(renderStage('script', project, actions, {}))
+ const rows = [...container.querySelectorAll('.story-node-actions')]
+ assert.equal(rows.length, 3)
+ for (const row of rows) {
+  assert.equal(row.querySelector('.task-history-entry'), null)
+  assert.equal(row.querySelector('button').textContent, '查看 skill')
+ }
+ assert.equal(container.querySelectorAll('.task-history-entry').length, 1)
+ container.querySelector('.stage-history-toolbar .task-history-entry').click()
+ assert.deepEqual(calls, ['script'])
 })

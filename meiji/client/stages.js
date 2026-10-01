@@ -129,7 +129,6 @@ function renderBrief(project, actions) {
 
 function storyNodeActions(project, actions, stage) {
   const row = element('div', '', 'story-node-actions')
-  if (actions.openHistory) row.append(historyEntry(project, actions, stage))
   row.append(skillField(project, stage, actions).querySelector('button'))
   return row
 }

@@ -8,8 +8,14 @@ export function nodeSkills(project, episodeId, key) {
   if (!episode || !nodeStage(key) || !targetNode(episode, key)) throw invalid('剧集或技能节点不存在')
   return episode.supplementalSkills?.[key] || []
 }
-export function nodeSkillsPatch(project, { episodeId, nodeKey, id, content, remove = false }) {
+export function nodeSkillsPatch(project, { episodeId, nodeKey, id, content, remove = false, replace = false }) {
   const items = nodeSkills(project, episodeId, nodeKey)
+  if (replace) {
+    if (typeof content !== 'string' || content.trim().length > 10000) throw invalid('补充 skill 最多 10000 字')
+    const text = content.trim()
+    const next = text ? [{ id: items[0]?.id || randomUUID(), content: text }] : []
+    return { episodes: project.episodes.map(episode => episode.id === episodeId ? { ...episode, supplementalSkills: { ...episode.supplementalSkills, [nodeKey]: next } } : episode) }
+  }
   if (id && !items.some(item => item.id === id)) throw invalid('补充 skill 不存在')
   const text = typeof content === 'string' ? content.trim() : ''
   if (!remove && (!text || text.length > 10000)) throw invalid('补充 skill 需为 1–10000 字')

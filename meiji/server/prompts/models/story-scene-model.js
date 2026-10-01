@@ -4,15 +4,13 @@ import { contentText, messages } from '../prompt-text.js'
 import { outputLanguage } from '../../data/language.js'
 
 export class StorySceneModel {
-  constructor({ project = {}, mode = 'regenerate', baseContent = '', opinion = '', generationRules = '', reviewRules = '', revisionRules = '', outputProtocol = '' } = {}) {
+  constructor({ project = {}, mode = 'regenerate', baseContent = '', opinion = '', generationRules = '', outputProtocol = '' } = {}) {
     this.kind = 'scenes'
     this.role = '影视场景美术指导'
     this.reviewRole = '独立场景资料审核员'
     this.fields = ['name', 'landmark', 'light', 'space', 'look']
     this.mode = mode
     this.generationRules = generationRules
-    this.reviewRules = reviewRules
-    this.revisionRules = revisionRules
     this.outputProtocol = outputProtocol || '只返回合法 JSON：{"items":[...]}，顶层仅含 items，不生成 ID、URL 或文件路径。'
     this.project = { title: project.title || '' }
     this.approvedOutline = project.plot?.outline?.content || ''
@@ -45,7 +43,7 @@ ${p.episodeNumber ? `本次生成第 ${p.episodeNumber} 集。
     ] }
   }
   toReviseSegments({ baseContent = this.modification?.baseContent, opinion = this.modification?.opinion || '',
-    automatic = false, humanOpinion = this.modification?.opinion || '', system, protocol, boundary = [segment('stage', '【修订边界】', this.revisionRules || '按意见定向修订，保留未涉及内容，修复必要连带关系。')], ...context } = {}) {
+    automatic = false, humanOpinion = this.modification?.opinion || '', system, protocol, boundary = [segment('stage', '【修订边界】', '按意见定向修订，保留未涉及内容，修复必要连带关系。')], ...context } = {}) {
     baseContent = contentText(baseContent)
     if (!baseContent.trim()) throw new Error('修订剧情需要提供基稿')
     return { json: true, system: this.creationSystem({ system, protocol }, boundary), user: [
@@ -57,7 +55,7 @@ ${p.episodeNumber ? `本次生成第 ${p.episodeNumber} 集。
     ] }
   }
   toReviewSegments({ content, baseContent = this.modification?.baseContent, opinion = this.modification?.opinion || '',
-    automatic = false, humanOpinion = this.modification?.opinion || '', system = [], criteria = segment('stage', '【验收标准】', this.reviewRules),
+    automatic = false, humanOpinion = this.modification?.opinion || '', system = [], criteria = segment('stage', '【验收标准】', this.generationRules),
     reviewContext = '', ...context } = {}) {
     baseContent = contentText(baseContent)
     const hasBase = Boolean(baseContent.trim())

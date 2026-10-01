@@ -28,7 +28,7 @@ function review(task, content) {
   const set = currentSkillSet(task.project, task.skillSet)
   return modelOf(task).toReviewSegments({ ...contextOf(task, true), content,
     criteria: p.criteria,
-    system: [segment('stage', '【其他创作要求（仅作验收依据）】', part(set, 'episode', 'common'), { skill: 'episode', field: 'common' }),
+    system: [segment('stage', '【其他创作要求（仅作验收依据）】', '', { skill: 'episode', field: 'common' }),
       ...p.additions, ...p.guidance],
     ...(task.baseContent !== undefined ? { baseContent: task.baseContent } : {}),
     opinion: task.revisionOpinion || task.opinion,

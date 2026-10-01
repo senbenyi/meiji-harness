@@ -37,7 +37,7 @@ return {
 
 这个接口将任务语言放在 user 中，且不选其他片段；不会影响其他接口。也可以使用 `segment('context', '自定义标题', 自定义文本)`，标题传空字符串则不加标题。`system: []` 表示只发 user；修改输出格式仍需满足本阶段的解析和审核协议。
 
-`generationParts`、`reviewParts` 是可选的片段工具，不强制任何最终顺序。接口显式选用它们，可以继续使用任务固定的技能版本、页面基础覆盖、本剧补充、指导与素材；不应改成直接读取内置 Markdown 而绕过这些层。`text-context.js` 的本次要求与修订上下文也由接口显式选择使用。
+`generationParts`、`reviewParts` 是可选的片段工具，不强制任何最终顺序。接口显式选用它们，可以继续使用任务固定的基础生产规则、当前节点补充与参考资料；不应改成直接读取内置 Markdown 而绕过这些层。`text-context.js` 的本次要求与修订上下文也由接口显式选择使用。
 
 ## 图片和视频
 
@@ -51,7 +51,7 @@ return {
 - `characterImagePrompt`：实际生成入口，渲染同一份段落。传入人物卡与项目即可，不在调用方再拼接。
 - `preview`：有剧集人物时使用第一张人物卡，复用 `generate`；没有人物时明确标注为模板预览。
 
-看人物图「如何组装」只看这个 JS；人物图的固定约束唯一来源是 `skills/constraints/character-image.md`，原 generate.md 已移除。该文件可以为空，表示不添加约束，JS 不补默认约束。页面只读，修改约束须编辑源码文件后重启。参考图读取/上传、尺寸、网络请求和结果保存继续由共用执行层负责。
+看人物图「如何组装」只看这个 JS；人物图的固定约束唯一来源是 `skills/task/generate-character-image-skill.md`，原 generate.md 已移除。该文件可以为空，表示不添加约束，JS 不补默认约束。页面只读，修改约束须编辑源码文件后重启。参考图读取/上传、尺寸、网络请求和结果保存继续由共用执行层负责。
 
 视频的最终正文、成片技能补充、人工意见和上一镜尾帧衔接都在 `video.js` 组装；流程层负责参考图和模式参数。网络层按接口产出的 prompt 发送。
 
@@ -68,3 +68,5 @@ bash /Users/devin/meiji/llm-dsh-plugins/restart-harness.sh
 ```
 
 验证：`cd meiji && npm test`，并使用 `tests/fixtures/prompt-scenarios.js` 与 `scripts/prompt-diff.js` 对照改动前后提示词，核对预览与真实发送保持一致。
+
+当前约定：每个 AI 步骤的接口只给对应 Model 赋值并调用方法。Model 区分生成、审核、修订，三类共用同一功能基础生产规则。旧通用、审核、修订、共享与指导 skill 已移除。

@@ -53,13 +53,13 @@ test('模式、画幅和图片用途需有效，空规则不追加默认正文',
   assert.doesNotMatch(prompt, /【生成规则】|无人空景，地标和光位保持一致。/)
 })
 
-test('场景接口保留技能覆盖和本剧补充，实际卡生成与修改预览同源', () => {
+test('场景接口保留基础快照，忽略旧本剧覆盖，实际卡与预览同源', () => {
   const project = { aspectRatio: '1344x768', style: '水彩', outputLanguage: 'en', plot: { scenes: { items: [{ ...input.scene, type: 'scene' }] } } }
   const set = builtinSkillSet({ additions: { 'scene-image': { generate: '本剧补充：保留真实尺度' } } })
-  set.skills['scene-image'].parts.generate = '基础覆盖：无人空景'
+  set.skills['scene-image'].constraints = '基础覆盖：无人空景'
   const model = sceneImageModel(input.scene, project, {}, set)
   assert.equal(model.generationRules, '基础覆盖：无人空景')
-  assert.match(model.toPrompt(), /本剧补充：保留真实尺度/)
+  assert.doesNotMatch(model.toPrompt(), /本剧补充：保留真实尺度/)
   const previews = previewPrompts({ stage: 'scene-image', root: {}, view: project, skillSet: set })
   assert.equal(render(previews.image.user), sceneImagePrompt(input.scene, project, set))
   const modify = sceneImageModificationModel(input.scene, project, { images: [{ purpose: 'edit-base', base64 }], instruction: '（此处为人工修改意见）' }, set)

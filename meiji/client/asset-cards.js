@@ -1,3 +1,4 @@
+import { historyEntry } from './execution-history.js'
 import { reviewFields } from './workflow-review.js'
 import { renderDetailImageActions } from './image-review.js'
 import { pictureOf } from '../shared/drama-model.js'
@@ -6,6 +7,20 @@ import { request, assetUrl } from './api.js'
 import { showPanelDialog, element, appendJsonCopy } from './dom.js'
 
 export { characterSheet }
+
+function imageEntries(project, item, actions, part = false) {
+  const row = element('div', '', 'story-node-actions')
+  if (actions.openHistory) row.append(historyEntry(project, actions, 'images'))
+  if (actions.openSkill) {
+    const skill = part ? 'part-image' : item.type === 'role' ? 'character-image' : 'scene-image'
+    const button = element('button', '查看 skill')
+    button.type = 'button'
+    button.setAttribute('aria-label', `${part ? '附属素材' : item.type === 'role' ? '人物图片' : '场景图片'} skill`)
+    button.onclick = () => actions.openSkill(project, skill)
+    row.append(button)
+  }
+  return row
+}
 
 function materialControl(label, value, { area = false, readOnly = false } = {}) {
   const wrap = element('label')
@@ -194,7 +209,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     const card = element('article', '', 'character-studio')
     const stage = element('section', '', 'studio-stage')
     const toolbar = element('div', '', 'studio-toolbar')
-    toolbar.append(element('h3', `${item.id} · ${item.name}`))
+    toolbar.append(element('h3', `${item.id} · ${item.name}`), imageEntries(project, item, actions))
     const aspectWrap = element('label', '', 'studio-aspect')
     aspectWrap.append(element('span', '画幅'))
     const aspect = element('select')
@@ -364,7 +379,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     for (const [label, slot] of partKinds) {
       const block = element('div', '', 'part-block')
       const head = element('div', '', 'part-head')
-      head.append(element('span', label))
+      head.append(element('span', label), imageEntries(project, item, actions, true))
       const note = partNote(project, item, slot, label, actions, hint, controlBusy)
       const generating = activity === `image:${item.id}:${slot}`
       const partReview = reviewing && imageGate.slot === slot
@@ -431,6 +446,24 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       nodes.push(characterStudio(item))
       continue
     }
+    if (!editable) {
+      const card = element('article', '', 'shot-card story-asset')
+      const open = element('button', '', 'scene-open')
+      open.type = 'button'
+      open.setAttribute('aria-label', `场景详情：${item.name}`)
+      open.onclick = () => onOpen?.(item.id)
+      if (stillSrc(item)) {
+        const image = element('img', '', 'character-thumb')
+        image.src = stillSrc(item)
+        image.alt = item.name
+        open.append(image)
+      }
+      open.append(element('strong', `${item.id} · ${item.name}`))
+      card.append(open)
+      for (const [label, value] of [['地标', item.landmark], ['光位', item.light], ['空间', item.space], ['画面', item.look]]) field(card, label, value)
+      nodes.push(card)
+      continue
+    }
     const reviewing = Boolean(imageGate && imageGate.itemId === item.id && !imageGate.track)
     const controlBusy = busy || reviewing
     const mainReview = reviewing && !imageGate.slot
@@ -456,85 +489,11 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       frame.append(plus)
     }
     const copy = element('div', '', 'asset-copy')
-    const heading = element('div', '', item.type === 'role' ? 'character-heading' : 'workflow-generation-row')
-    if (onOpen && item.type === 'scene') {
-      const open = element('button', `${item.id} · ${item.name}`, 'scene-open')
-      open.type = 'button'
-      open.setAttribute('aria-label', `场景详情：${item.name}`)
-      open.onclick = () => onOpen(item.id)
-      heading.append(open)
-    } else heading.append(element('h3', `${item.id} · ${item.name}`))
+    const heading = element('div', '', 'workflow-generation-row')
+    heading.append(element('h3', `${item.id} · ${item.name}`), imageEntries(project, item, actions))
     copy.append(heading)
     if (mainReview) copy.append(renderDetailImageActions(project, actions, imageGate))
-    if (editable) copy.append(textMaterials(project, item, actions, hint, controlBusy))
-    else {
-      const rows = item.type === 'role'
-        ? characterSheet(item)
-        : [['地标', item.landmark], ['光位', item.light], ['空间', item.space], ['画面', item.look]]
-      for (const [label, value] of rows) field(copy, label, value)
-    }
-    if (item.type === 'role') {
-      for (const [label, slot] of partKinds) {
-        const block = element('div', '', 'part-block')
-        const head = element('div', '', 'part-head')
-        head.append(element('span', label))
-        const note = partNote(project, item, slot, label, actions, hint, controlBusy)
-        const generating = activity === `image:${item.id}:${slot}`
-        const partReview = reviewing && imageGate.slot === slot
-        const aiPart = element('button', generating ? '生成中' : 'AI生图', 'primary')
-        aiPart.type = 'button'
-        aiPart.disabled = controlBusy
-        aiPart.onclick = async () => {
-          aiPart.disabled = true
-          aiPart.textContent = '生成中'
-          try { await actions.beginImage(project, 'part-image', { itemId: item.id, itemName: item.name, slot, description: note.input.value.trim(), ...reviewFields(block) }) } catch (error) {
-            hint.hidden = false
-            hint.textContent = error.message
-            hint.classList.add('warn')
-            aiPart.disabled = false
-            aiPart.textContent = 'AI生图'
-          }
-        }
-        head.append(aiPart)
-        const pics = element('div', '', 'part-pics')
-        for (const picture of (Array.isArray(item[slot]) ? item[slot] : [])) {
-          const src = stillSrc(picture)
-          if (!src) continue
-          const open = element('button', '', 'part-still')
-          open.type = 'button'
-          open.setAttribute('aria-label', `查看大图：${picture.name}`)
-          const still = document.createElement('img')
-          still.alt = picture.name || ''
-          still.src = src
-          open.append(still)
-          open.onclick = () => { full.alt = picture.name || label; full.src = src; showPanelDialog(preview) }
-          const pictureCard = element('div', '', 'part-json-card')
-          pictureCard.append(open)
-          appendJsonCopy(pictureCard, picture)
-          pics.append(pictureCard)
-        }
-        if (partReview && imageGate.previewUrl) {
-          const open = element('button', '', 'part-still')
-          open.type = 'button'
-          open.setAttribute('aria-label', `查看待确认${label}`)
-          const still = document.createElement('img')
-          still.alt = `待确认${label}`
-          still.src = imageGate.previewUrl
-          open.append(still)
-          open.onclick = () => { full.alt = `待确认${label}`; full.src = imageGate.previewUrl; showPanelDialog(preview) }
-          pics.prepend(open)
-        }
-        const plus = element('button', '+', 'part-add')
-        plus.type = 'button'
-        plus.disabled = controlBusy
-        plus.setAttribute('aria-label', `导入${label}：${item.name}`)
-        plus.onclick = () => { if (!controlBusy) { pickId = item.id; pickSlot = slot; picker.click() } }
-        pics.append(plus)
-        block.append(head, note.box, pics)
-        if (partReview) block.append(renderDetailImageActions(project, actions, imageGate))
-        copy.append(block)
-      }
-    }
+    copy.append(textMaterials(project, item, actions, hint, controlBusy))
     const actionsRow = element('div', '', 'asset-actions')
     const ai = element('button', imaging === item.id ? '生成中' : 'AI生图', 'primary')
     ai.type = 'button'
@@ -604,25 +563,6 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       } catch (error) { content.textContent = error.message }
     }
     actionsRow.append(choose)
-    if (item.type === 'role' && stillSrc(item)) {
-      const remove = element('button', '', 'character-remove')
-      remove.title = '删除图片'
-      remove.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      remove.type = 'button'
-      remove.disabled = controlBusy
-      remove.setAttribute('aria-label', `删除图片：${item.name}`)
-      remove.onclick = () => {
-        if (remove.disabled) return
-        remove.disabled = true
-        actions.perform(project, 'clear-image', { itemId: item.id, itemName: item.name, ...reviewFields(copy) }).catch(error => {
-          remove.disabled = false
-          hint.hidden = false
-          hint.textContent = error.message
-          hint.classList.add('warn')
-        })
-      }
-      frame.append(remove)
-    }
     if (actionsRow.childElementCount) copy.append(actionsRow)
     card.append(frame, copy)
     appendJsonCopy(copy, item)

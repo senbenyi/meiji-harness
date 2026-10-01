@@ -4,7 +4,7 @@ import { projectManageTool } from './tools/session-project-manage-tool.js'
 import { contentGenerateTool } from './tools/session-content-generate-tool.js'
 import { taskControlTool } from './tools/session-task-control-tool.js'
 import { createTasks } from './server/flow/tasks/runner.js'
-import { agentSkills, validateSkills } from './skills/load.js'
+import { sessionSkills, validateSkills } from './skills/load.js'
 import { interruptRunning } from './server/flow/tasks/restart.js'
 import { projectStore } from './server/data/projects.js'
 import { ffmpegAvailable } from './server/generate/ffmpeg.js'
@@ -37,9 +37,9 @@ export function apply(ctx) {
     tool.execute = async (...args) => { await ready; return execute(...args) }
     ctx.effect(() => ctx.tools.register(tool), `meiji: ${tool.name}`)
   }
-  // 生成流程由代码直接读取技能（skills/stages、guidance、shared），不经 Harness；只把会话说明注册给会话 agent。
+  // 生成流程由代码直接读取技能（skills/task 平铺的功能文件），不经 Harness；只把会话说明注册给会话 agent。
   validateSkills()
-  for (const skill of agentSkills()) {
+  for (const skill of sessionSkills()) {
     try {
       const skills = ctx.get('skills')
       if (skills) skills.register(skill)

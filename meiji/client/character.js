@@ -1,4 +1,3 @@
-import { reviewFields } from './workflow-review.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { element, appendJsonCopy } from './dom.js'
 import { stillCards, characterSheet } from './asset-cards.js'
@@ -20,30 +19,7 @@ export function characterCard(project, item, actions, context) {
   const appearance = [details.体型, details.面相].filter(Boolean).join('，')
   if (appearance) copy.append(element('span', appearance, 'meta character-description'))
   open.append(portrait, copy)
-  const refresh = element('button', '', 'character-refresh')
-  refresh.type = 'button'
-  const pending = project.activity === `image:${item.id}`
-  refresh.disabled = Boolean(project.activity)
-  refresh.setAttribute('aria-label', `${pending ? '正在生成' : 'AI生成'}人物图片：${item.name}`)
-  refresh.title = pending ? '正在生成图片' : 'AI生成角色图片'
-  refresh.textContent = pending ? '生成中' : 'AI生成'
-  const error = element('p', '', 'character-error')
-  error.hidden = true
-  error.setAttribute('role', 'alert')
-  refresh.onclick = async () => {
-    if (refresh.disabled) return
-    refresh.disabled = true
-    refresh.textContent = '生成中'
-    error.hidden = true
-    try { await actions.beginImage(project, 'image', { itemId: item.id, itemName: item.name, ...reviewFields(card) }) }
-    catch (reason) {
-      refresh.disabled = false
-      refresh.textContent = 'AI生成'
-      error.textContent = reason.message
-      error.hidden = false
-    }
-  }
-  card.append(open, refresh, error)
+  card.append(open)
   appendJsonCopy(card, item)
   return card
 }
