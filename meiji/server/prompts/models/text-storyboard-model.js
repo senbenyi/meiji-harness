@@ -8,7 +8,7 @@ function compose(task, kind) {
   return {
     json: false,
     system: [
-      segment('context', '【角色与职责】', '你是一名视频多模态引用编排师，将已通过的文本镜头转换为程序指定模式的最终视频提示词。只组织输出结构与素材绑定，不重新创作剧情；时间线、动作、机位、起止状态和声音以已通过文本镜头为准。程序提供有序素材清单，不能增删或重排。'), p.common, ...p.commonShared, p.generate,
+      segment('context', '【角色与职责】', '你是一名视频多模态引用编排师，将已通过的每秒指令直接编排为程序指定模式的最终视频提示词。只组织输出结构与素材绑定，不重新创作剧情；时间线、动作、机位、起止状态和声音以已通过每秒指令为准。程序提供有序素材清单，不能增删或重排。'), p.common, ...p.commonShared, p.generate,
       ...p.guidance, ...p.additions, ...p.assetRules,
       ...(kind === 'revise' ? p.revisionBoundary : p.selfCheck),
       ...(kind === 'modify' ? p.revisionBoundary : []),
@@ -35,7 +35,7 @@ function review(task, content) {
       segment('context', '【修订基稿（用于对照范围）】', task.baseContent),
       p.opinion, p.criteria, ...p.guidance, ...p.additions,
       ...p.assetContent, p.continuity, p.content, p.scope,
-      segment('context', '【目标边界】', `只验收 ${task.shotId || '本镜'} 是否完整保留已通过文本镜头，以及模式、素材用途、Picture/Subject 绑定和输出结构是否正确。不重新审核此前已通过的镜头规划或每秒指令，不虚构前镜，不以个人节奏、裁切比例或微动作偏好改写已通过文字。缺少 Subject 引用属于绑定错误，应在对应时段补引用，不能借此重编动作。`)],
+      segment('context', '【目标边界】', `只验收 ${task.shotId || '本镜'} 是否完整保留已通过每秒指令的动作、机位、景别、空间关系与声音，交接说明是否已转为承接与结尾状态而非流程备注，以及模式、素材用途、Picture/Subject 绑定和输出结构是否正确。不重新审核此前已通过的镜头规划或每秒指令，不虚构前镜，不以个人节奏、裁切比例或微动作偏好改写已通过文字。缺少 Subject 引用属于绑定错误，应在对应时段补引用，不能借此重编动作。`)],
   }
 }
 

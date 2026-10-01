@@ -35,7 +35,7 @@ export function buildEditedContentReview({ project, stage, shotId }, text) {
   const skill = isSkill(stage) ? stage : 'outline'
   const shot = project.shots?.items.find(item => item.id === shotId)
   return buildReviewPrompt({ project, skill,
-    instructions: `只审核已编辑原文，不生成或改写内容。\n审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}\n本集摘要：${project.summary.content}\n大纲：${project.plot.outline.content || ''}${stage === 'text-shot' ? `\n【本镜已通过每秒指令】\n${shot?.seconds.content || ''}` : ''}`,
+    instructions: `只审核已编辑原文，不生成或改写内容。\n审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}\n本集摘要：${project.summary.content}\n大纲：${project.plot.outline.content || ''}${['text-shot', 'storyboard'].includes(stage) && shot ? `\n【本镜已通过每秒指令】\n${shot?.seconds.content || ''}` : ''}`,
     reviewContext: continuityReviewContext(project, shotId),
   }, text)
 }

@@ -6,7 +6,6 @@ import { decorateShotCard } from './shot-card-state.js'
 import { shotResults, shotMap } from '../shared/drama-model.js'
 import { storyboardReferences } from './storyboard-references.js'
 import { storyboardEditor } from './storyboard-editor.js'
-import { textShotView } from './text-shot-view.js'
 import { skillField } from './skill-entry.js'
 import { appendWorkflowReview, reviewFields } from './workflow-review.js'
 import { shotReferenceImages } from '../shared/reference-images.js'
@@ -388,7 +387,6 @@ function paintBoards(view, project, actions) {
     card.dataset.modelKey = `shot:${shot.id}`
     card.append(element('h3', shotHeading(shot)))
     if (story) field(card, '视频生成模式', videoModeLabel(story))
-    if (story?.textShot) card.append(textShotView(project, story, actions))
     if (story && hasBoardPrompt(story)) {
       card.append(storyboardEditor(project, story, promptText(story.prompt), actions))
       const prompt = element('p', requestLines(project, shot, story), 'prompt full')
@@ -476,7 +474,6 @@ function renderFilm(project, actions, context) {
     storySection.append(storyHead)
     card.append(storySection)
     const story = shot.storyboard.content
-    if (story?.textShot) storySection.append(textShotView(project, { ...story, id: shot.id }, actions))
     if (story?.prompt) {
       storySection.append(storyboardEditor(project, { ...story, id: shot.id }, promptText(story.prompt), actions))
       storySection.append(element('p', promptText(story.prompt), 'prompt full'), storyboardReferences(project, { ...story, id: shot.id }))
@@ -681,7 +678,6 @@ export function renderShotPage(project, shot, actions, context = {}) {
       head.append(aiButton(actions, activity === `shot-storyboard:${shot.id}`, secondsReady && !activity, () => actions.perform(project, 'shot-storyboard', { track: shot.id, ...reviewFields(pane) })))
       pane.append(head)
       if (story) {
-        if (story.textShot) pane.append(textShotView(project, story, actions))
         field(pane, '标题', story.title)
         field(pane, '视频生成模式', videoModeLabel(story))
         field(pane, '场景与角色', `${story.scene || ''}｜${(story.characters || []).join('、')}`)
