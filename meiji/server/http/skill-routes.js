@@ -49,9 +49,9 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
       nodeSkills(root, episodeId, nodeKey)
       if (req.method !== 'GET') root = await projects.save(projectId, current => nodeSkillsPatch(current, { ...body, remove: req.method === 'DELETE' }))
       const id = nodeStage(nodeKey), skill = detail(await store.get(id))
-      if (id === 'outline' && ['outline', 'characters', 'scenes'].includes(nodeKey)) {
+      if (id === 'outline' && ['outline', 'characters', 'scenes', 'props'].includes(nodeKey)) {
         skill.constraints = builtinSkill(id).rules[nodeKey]
-        const selected = { outline: ['故事大纲', '大纲输出', '大纲验收'], characters: ['角色卡', '人物输出', '人物验收'], scenes: ['场景卡', '场景输出', '场景验收'] }[nodeKey]
+        const selected = { outline: ['故事大纲', '大纲输出', '大纲验收'], characters: ['角色卡', '人物输出', '人物验收'], scenes: ['场景卡', '场景输出', '场景验收'], props: ['道具卡', '道具输出', '道具验收'] }[nodeKey]
         for (const field of skill.fields) if (field.field === 'generate' || field.field === 'review') field.text = sections(field.text, field.field === 'generate' ? '###' : '##', ['通用验收', ...selected])
         skill.protocol = sections(skill.protocol, '##', [selected[1]])
       }

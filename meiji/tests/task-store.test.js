@@ -1,3 +1,5 @@
+import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
+import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -77,15 +79,15 @@ test('story package, shot table and seconds each produce whole-episode records',
   const request = JSON.parse(options.body)
   const fixture = storyPackageFixture()
   const text = request.messages[1].content
-  const value = text.includes('仅生成本集完整剧情大纲') ? outlineFixture() : JSON.stringify(text.includes('返回人物 items') ? fixture.characters : fixture.scenes)
-  return Response.json({ choices: [{ message: { content: request.messages[0].content.includes('【本次审核协议】') ? reviewPass : value } }] })
+  const value = text.includes('仅生成本集完整剧情大纲') ? outlineFixture() : JSON.stringify(text.includes('返回人物 items') ? fixture.characters : request.messages[0].content.includes('道具') && text.includes('唯一事实来源：大纲') ? fixture.props : fixture.scenes)
+  return Response.json({ choices: [{ message: { content: (/【(?:本次)?审核协议】/.test(request.messages[0].content)) ? reviewPass : value } }] })
  } }) })
  assert.ok((await e.read()).plot.source)
  const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
  await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({ skill }) => skill === 'review' ? reviewPass : table }) })
  assert.ok((await e.read()).shots.source)
  let calls = 0
- await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => { calls++; return skill === 'review' ? reviewPass : table.replaceAll('\n第', '\n### 0–5s\n第') + '\n[seconds-complete]' } }) })
+ await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => { calls++; return skill === 'review' ? reviewPass : secondsResponse() } }) })
  const seconds = (await e.history.list()).find(task => task.action === 'seconds')
  assert.equal(calls, 2)
  assert.equal(seconds.artifacts.length, 1)
@@ -95,7 +97,7 @@ test('story package, shot table and seconds each produce whole-episode records',
 
 test('manual text prompt review records the saved version', async t => {
  const e = await setup(t), project = await e.read(), old = project.shots.items[0].storyboard.content.prompt.text
- await runOperation(e.op('storyboard-text', { track: 'S01', originalText: old, text: old + '\n新增声音' }), {
+ await runOperation(e.op('storyboard-text', { track: 'S01', originalText: old, text: compileVideoPrompt(project, project.shots.items[0]).prompt.text }), {
   home: e.home, reviewContent: options => reviewContent({ ...options, request: async () => reviewPass }),
  })
  const [task] = await e.history.list(), current = await e.read()

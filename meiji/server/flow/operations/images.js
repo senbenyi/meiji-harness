@@ -6,40 +6,40 @@ import { openIncoming } from './project.js'
 import { loadModels } from './services.js'
 import { decodeImageData } from '../../generate/character-views.js'
 import { characterImageSize, gatewayImageSize } from '../../generate/gateway.js'
-import { appendImageAsset, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
+import { appendImageAsset, clearCharacterImage, clearCharacterReference, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partSlots, pencilPrompt, pictureRecord, propImagePrompt, readStill, saveCharacterReference, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
 import { characterImagePrompt, characterImageGenerationModel, characterImageModificationModel } from '../../prompts/interfaces/character-image.js'
 import { sceneImagePrompt, sceneImageModificationModel } from '../../prompts/interfaces/scene-image.js'
 import { GenerationStatus, finish, consumeReview, plotPatch, shotResults, targetNode, updateShotResult } from '../../../shared/drama-model.js'
 import { feedbackKey } from '../../../shared/feedback.js'
 import { checkContext } from '../../data/operation-context.js'
 import { aspectRatioOf, staleMedia } from '../../../shared/project-rules.js'
-import { hasCharacters, hasScenes } from '../../../shared/gates.js'
 
 export function visualPlace(project, itemId) {
   if ((project.plot.characters?.items || []).some(item => item.id === itemId)) return { key: 'characters', bag: project.plot.characters }
   if ((project.plot.scenes?.items || []).some(item => item.id === itemId)) return { key: 'scenes', bag: project.plot.scenes }
+  if ((project.plot.props?.items || []).some(item => item.id === itemId)) return { key: 'props', bag: project.plot.props }
   return null
 }
 
 export async function startImage(operation, project, { projects, models, home, submitAssetImage, defer }) {
   const place = visualPlace(project, operation.itemId)
-  if (!place || (!hasCharacters(project) && !hasScenes(project))) throw Object.assign(new Error('请先写好角色卡或场景卡'), { status: 409 })
+  if (!place) throw Object.assign(new Error('请先写好角色卡或场景卡'), { status: 409 })
   const item = place.bag.items.find(entry => entry.id === operation.itemId)
-  if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以出图'), { status: 400 })
+  if (!item || !['role', 'scene', 'prop'].includes(item.type)) throw Object.assign(new Error('只有角色、场景和道具可以出图'), { status: 400 })
   await projects.save(project.id, { activity: `image:${item.id}`, activityError: null })
   const route = await loadModels(models)
   const bag = place.bag
   let how = '沿用这张卡已有的中文画面提示词'
   const imageModification = operation.generationMode === 'modify'
-  if (!imageModification && !usableLook(item.look)) {
+  if (!imageModification && !(item.type === 'prop' ? item.description?.trim() : usableLook(item.look))) {
     throw Object.assign(new Error('这张卡还没有可用的中文画面提示词'), { status: 400 })
   }
   const current = bag.items.find(entry => entry.id === item.id)
   const size = current.type === 'role' ? characterImageSize(operation.aspect) : gatewayImageSize(operation.aspect || aspectRatioOf(project.aspectRatio))
   const [width, height] = size.split('x').map(Number)
   const canvas = { width, height }
-  const subject = current.type === 'role' ? '人物' : '场景'
-  let submitted = imageModification ? '' : current.type === 'role' ? characterImagePrompt(current, project, undefined, { canvas }) : sceneImagePrompt(current, project, undefined, { canvas })
+  const subject = current.type === 'prop' ? '道具' : current.type === 'role' ? '人物' : '场景'
+  let submitted = imageModification ? '' : current.type === 'prop' ? propImagePrompt(current, project) : current.type === 'role' ? characterImagePrompt(current, project, undefined, { canvas }) : sceneImagePrompt(current, project, undefined, { canvas })
   const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
   let referenceBytes
   let referenceMime
@@ -64,10 +64,15 @@ export async function startImage(operation, project, { projects, models, home, s
     }
     referenceBytes = file.bytes
     if (!referenceBytes?.length) throw Object.assign(new Error(`${subject}图修改原图为空`), { status: 400 })
+    if (current.type === 'prop') {
+      submitted = propImagePrompt(current, project, instruction)
+      referenceBase64 = [`data:${referenceMime};base64,${referenceBytes.toString('base64')}`]
+    } else {
     const buildModel = current.type === 'role' ? characterImageModificationModel : sceneImageModificationModel
     const model = buildModel(current, project, { canvas, images: [{ purpose: 'edit-base', base64: `data:${referenceMime};base64,${referenceBytes.toString('base64')}` }], instruction })
     submitted = model.toPrompt()
     referenceBase64 = model.images.map(image => image.base64)
+    }
     how = `按人工意见直接编辑${subject}原图`
     reference = '使用待修改原图，保留未涉及内容'
   } else if (operation.action === 'revise-image') {
@@ -106,44 +111,6 @@ export async function startImage(operation, project, { projects, models, home, s
     `画幅 ${size}，新种子，生成后等待确认，确认上传后才会入库并使用`,
     reference,
   ]
-}
-
-export async function startPartImage(operation, project, { projects, models, home, generateStillFile, defer }) {
-  const slot = operation.slot
-  if (!partSlots[slot]) throw Object.assign(new Error('不支持的图片分组'), { status: 400 })
-  const place = visualPlace(project, operation.itemId)
-  const item = place?.bag.items.find(entry => entry.id === operation.itemId && entry.type === 'role')
-  if (!item) throw Object.assign(new Error('只有人物可以添加衣服、坐骑、道具或发型'), { status: 400 })
-  const review = String(operation.review || '').trim()
-  if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
-  let current = item
-  if (typeof operation.description === 'string') {
-    current = withPartText(item, slot, operation.description)
-    const bag = { ...place.bag, items: place.bag.items.map(entry => entry.id === item.id ? current : entry) }
-    await projects.save(project.id, plotPatch(project, { [place.key]: bag }))
-  }
-  const partId = nextPartId(current, slot)
-  const base = partPrompt(current, slot)
-  const submitted = imageSkillPrompt('part-image', review ? `${base}\n审核意见：${review}` : base, project)
-  await projects.save(project.id, { activity: `image:${item.id}:${slot}`, activityError: null })
-  const route = await loadModels(models)
-  const directory = join(home, 'storages', 'meiji', 'projects', project.id, 'images', project.episodeId || '')
-  const seed = imageSeed(`${partId}:${Date.now()}`)
-  const size = aspectRatioOf(project.aspectRatio)
-  defer(generateStillFile({
-    directory, itemId: partId, aspectRatio: size, backend: route.image,
-    projectId: project.id, episodeId: project.episodeId, home, category: 'props', prompt: submitted, seed,
-    stepTarget: `image:${item.id}:${slot}`,
-    onSaved: localPath => stageImageDraft(projects, project, localPath, { key: place.key, itemId: item.id, slot, name: `${item.name}·${partSlots[slot].label}`, target: pictureTargetSnapshot(current) }),
-  }).catch(async error => {
-    await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
-  }))
-  return [
-    `正在生成 ${item.name} 的${partSlots[slot].label} ${partId}`,
-    review ? `审核意见：${review}` : '',
-    '提交的画面提示词：' + submitted,
-    `画幅 ${size}，灰白纯色背景`,
-  ].filter(Boolean)
 }
 
 export async function stageImageDraft(projects, project, draft, target) {
@@ -198,12 +165,6 @@ async function opImage(c) {
   let { operation, deps, home, projects, models, project } = c
   const lines = await startImage(operation, project, { projects, models, home, submitAssetImage: deps.submitAssetImage || submitAssetImage, defer: deps.defer })
   return lines
-}
-
-// if (operation.action === 'part-image')
-async function opPartImage(c) {
-  let { operation, deps, home, projects, models, project } = c
-  return startPartImage(operation, project, { projects, models, home, generateStillFile: deps.generateStillFile || generateStillFile, defer: deps.defer })
 }
 
 // if (operation.action === 'import-image')
@@ -378,7 +339,6 @@ export const imageOperations = {
   'discard-image': { stage: 'review', run: opConfirmImage },
   'image': { stage: 'episode', run: opImage },
   'revise-image': { stage: 'episode', run: opImage },
-  'part-image': { stage: 'episode', run: opPartImage },
   'import-image': { stage: 'episode', run: opImportImage },
   'set-reference': { stage: 'episode', run: opSetReference },
   'clear-reference': { stage: 'episode', run: opClearReference },

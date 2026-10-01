@@ -1,7 +1,7 @@
 import { GenerationStatus, shotResults } from './drama-model.js'
 import { feedbackOf } from './feedback.js'
 import { shotSecondsReady } from './shot-timing.js'
-export const reviewSteps = ['summary', 'outline', 'characters', 'scenes', 'shots', 'storyboard', 'film']
+export const reviewSteps = ['summary', 'outline', 'characters', 'scenes', 'props', 'shots', 'storyboard', 'film']
 
 export function reviewsOf(project) {
   return Object.fromEntries(reviewSteps.map(id => [id, feedbackOf(project, id).check.passed === true ? 'approved' : 'pending']))
@@ -46,7 +46,7 @@ export function canGenerate(project, step) {
   if (step === 'outline') return outlineUnlocked(project)
   if (step === 'characters') return false
   if (step === 'scenes') return false
-  if (step === 'shots') return hasScenes(project) && ['outline', 'characters', 'scenes'].every(key => feedbackOf(project, key).check.passed === true)
+  if (step === 'shots') return hasScenes(project) && ['outline', 'characters', 'scenes', 'props'].every(key => feedbackOf(project, key).check.passed === true)
   if (step === 'storyboard') return shotsReady(project)
   if (step === 'film') return hasStoryboard(project)
   return false
@@ -59,12 +59,12 @@ export function gateMessage(project, step) {
   }
   if (step === 'outline') {
     if (!canGenerate(project, 'outline')) return '请先写好本集摘要，再写故事大纲。'
-    if (!hasOutline(project)) return '点击 AI生成，一次返回故事大纲、角色卡和场景卡，不生成图片或镜头。'
-    if (hasOutline(project)) return '剧情资料已生成；大纲、角色和场景由同一次生成返回。重新生成会清空镜头及后续内容。'
+    if (!hasOutline(project)) return '点击 AI生成，依次生成故事大纲、角色卡、场景卡和道具卡，不生成图片或镜头。'
+    if (hasOutline(project)) return '剧情资料已生成；大纲、角色、场景和道具依次独立生成并审核。重新生成会清空镜头及后续内容。'
   }
   if (step === 'characters' || step === 'scenes') return '角色和场景与故事大纲统一生成；图片可在卡片中单独生成。'
   if (step === 'shots') {
-    if (!canGenerate(project, 'shots')) return '请先写好场景卡，再写镜头表。'
+    if (!canGenerate(project, 'shots')) return '请先让大纲、人物、场景及道具提取通过自审，再写镜头表。'
     if (!hasShots(project)) return '先写镜头表，再整集生成每秒指令并整集自审。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
     if (!feedbackOf(project, 'shots').check.passed) return '镜头表尚未通过自审，请查看镜头表顶部的审核卡片。'
     if (!hasShotSeconds(project)) return '镜头表已通过自审，请先整集生成每秒指令并逐镜审核。'

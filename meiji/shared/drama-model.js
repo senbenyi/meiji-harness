@@ -26,7 +26,7 @@ export function shotModel(fields) {
 }
 export function episodeModel(id, fields) {
   return { id, ...fields, supplementalSkills: {}, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
-    plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] } },
+    plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] }, props: { ...node('props'), items: [] } },
     shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), pendingImages: {}, activity: null, activityError: null }
 }
 export function targetNode(project, key) {
@@ -34,12 +34,12 @@ export function targetNode(project, key) {
   if (kind === 'summary') return project.summary
   if (kind === 'plot') return project.plot
   if (kind === 'outline') return project.plot?.outline
-  if (kind === 'characters' || kind === 'scenes') {
+  if (kind === 'characters' || kind === 'scenes' || kind === 'props') {
     const bag = project.plot?.[kind]
     return id ? bag?.items.find(item => item.id === id) : bag
   }
   if (kind === 'image') {
-    const item = [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || [])].find(item => item.id === id)
+    const item = [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || []), ...(project.plot?.props?.items || [])].find(item => item.id === id)
     return slot ? item?.parts?.[slot] : item?.image
   }
   if (kind === 'seconds' && !id) return project.shots?.seconds
@@ -48,12 +48,12 @@ export function targetNode(project, key) {
   const shot = project.shots?.items.find(item => item.id === id)
   if (kind === 'shot') return shot
   if (!id && /^S\d+$/.test(kind)) return project.shots?.items.find(item => item.id === kind)
-  if (!id && /^[CE]\d+$/.test(kind)) return [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || [])].find(item => item.id === kind)
+  if (!id && /^[CEP]\d+$/.test(kind)) return [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || []), ...(project.plot?.props?.items || [])].find(item => item.id === kind)
   return shot?.[{ seconds: 'seconds', storyboard: 'storyboard', pencil: 'pencil', film: 'video', tailFrame: 'tailFrame' }[kind]]
 }
 export function allNodes(project) {
-  const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.shots, project.shots?.seconds, project.assembly]
-  for (const bag of [project.plot?.characters, project.plot?.scenes]) for (const item of bag?.items || []) result.push(item, item.image, ...Object.values(item.parts || {}))
+  const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.plot?.props, project.shots, project.shots?.seconds, project.assembly]
+  for (const bag of [project.plot?.characters, project.plot?.scenes, project.plot?.props]) for (const item of bag?.items || []) result.push(item, item.image, ...Object.values(item.parts || {}))
   for (const shot of project.shots?.items || []) result.push(shot, shot.seconds, shot.storyboard, shot.pencil, shot.video, shot.tailFrame)
   return result.filter(Boolean)
 }
@@ -132,7 +132,7 @@ export function assertDrama(project) {
       const supplements = episode.supplementalSkills
       if (!supplements || typeof supplements !== 'object' || Array.isArray(supplements)) throw new Error('节点补充 skill 格式错误')
       for (const [key, items] of Object.entries(supplements)) {
-        if (!/^(summary|outline|characters|scenes|shots|shot|seconds|text-shot|storyboard|film|pencil)(:[A-Za-z0-9_-]+)?$/.test(key) || !Array.isArray(items) || items.length > 20 || new Set(items.map(item => item?.id)).size !== items.length || items.some(item => typeof item?.id !== 'string' || !item.id || typeof item.content !== 'string' || !item.content.trim() || item.content.length > 10000)) throw new Error('节点补充 skill 格式错误')
+        if (!/^(summary|outline|characters|scenes|props|shots|shot|seconds|text-shot|storyboard|film|pencil)(:[A-Za-z0-9_-]+)?$/.test(key) || !Array.isArray(items) || items.length > 20 || new Set(items.map(item => item?.id)).size !== items.length || items.some(item => typeof item?.id !== 'string' || !item.id || typeof item.content !== 'string' || !item.content.trim() || item.content.length > 10000)) throw new Error('节点补充 skill 格式错误')
       }
     }
     // 旧字段需迁移；指导素材继续按剧保存（项目 skills），按集的旧字段需先迁移。
@@ -149,7 +149,7 @@ export function assertDrama(project) {
 }
 
 export function shotMap(project, kind) { return Object.fromEntries(shotResults(project, kind).map(({ id, ...content }) => [id, content])) }
-export function pictureOf(item) { return item?.type === 'role' || item?.type === 'scene' ? item.image?.content || {} : item || {} }
+export function pictureOf(item) { return item?.type === 'role' || item?.type === 'scene' || item?.type === 'prop' ? item.image?.content || {} : item || {} }
 export function cardModel(fields) {
   const { id, image, localPath, assetId, assetCategory, ...data } = fields
   const media = image || node(`image:${id}`, localPath || assetId ? { localPath, assetId, assetCategory } : null)
@@ -166,7 +166,7 @@ export function modelPatch(project, changes) {
     if (value.check?.passed === false || value.error || value.stale) value.status = GenerationStatus.FAILED
     if (value.operation) value.status = GenerationStatus.GENERATING
   }
-  if (next.plot) next.plot.status = aggregateStatus([next.plot.outline, next.plot.characters, next.plot.scenes])
+  if (next.plot) next.plot.status = aggregateStatus([next.plot.outline, next.plot.characters, next.plot.scenes, next.plot.props].filter(Boolean))
   next.status = aggregateStatus([next.summary, next.plot, next.shots, next.assembly].filter(Boolean))
   return next
 }
@@ -180,6 +180,8 @@ export function refreshReferences(episode) {
   for (const shot of episode.shots.items) {
     const story = shot.storyboard.content
     if (!story?.referenceSnapshot) continue
+    // 程序编译产物冻结引用；提交时重算验证，不悄悄替换 Picture 内容。
+    if (story.compilerVersion === 1) continue
     let changed = false
     story.referenceSnapshot = story.referenceSnapshot.map(ref => {
       const owner = ref.ownerId ? episode.plot.characters.items.find(item => item.id === ref.ownerId) : (ref.kind === 'scenes' ? episode.plot.scenes : episode.plot.characters).items.find(item => item.id === ref.id)

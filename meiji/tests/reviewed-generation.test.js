@@ -1,3 +1,4 @@
+import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -38,7 +39,7 @@ test('review and correction API errors stop without producing a semantic failure
 })
 test('seconds retry includes latest draft, original human opinion and failure then reviews again',async()=>{
  const calls=[];let generated=0;let reviewed=0
- const result=await generateShotSeconds({project:episodeFixture(),shotId:'S01',review:'保留声音',request:async ({ skill, user: prompt }) =>{calls.push(prompt);return skill==='review' ? (++reviewed===1?reviewFail('朝向不对'):reviewPass) : (++generated===1?'最新初稿':'修好朝向')}})
+ const result=await generateShotSeconds({project:episodeFixture(),shotId:'S01',review:'保留声音',request:async ({ skill, user: prompt }) =>{calls.push(prompt);return skill==='review' ? (++reviewed===1?reviewFail('朝向不对'):reviewPass) : secondsResponse([['S01',5,++generated===1?'最新初稿':'修好朝向']])}})
  assert.equal(calls.length,4);assert.match(calls[2],/最新初稿/);assert.match(calls[2],/朝向不对/);assert.match(calls[2],/保留声音/);assert.match(calls[3],/修好朝向/);assert.equal(result.items[0].seconds.check.passed,true)
 })
 test('invalid table syntax is reviewed and revised once',async()=>{

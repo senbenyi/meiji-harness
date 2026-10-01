@@ -12,15 +12,13 @@ test('binding generation and review keep the current timeline and exclude previo
   p.shots.items[0].storyboard.content.prompt.text = '前镜结束：旅人面北站在北墙，右手持灯。'
   p.shots.items[0].storyboard.content.referenceSnapshot = [{ name: '旅人', url: 'https://test/previous-person' }]
   const calls = []
-  await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: prompt }) => {
+  const rows = await generateShotStoryboard({ project: p, shotId: 'S02', request: async ({ skill, user: prompt }) => {
     calls.push(prompt)
     return skill === 'review' ? reviewPass : storyboardFixture(prompt)
   } })
-  assert.equal(calls.length, 2)
-  assert.doesNotMatch(calls[0], /前镜结束：旅人面北站在北墙/)
-  assert.doesNotMatch(calls[1], /前镜结束：旅人面北站在北墙|完整镜头表|跨镜连续性审核资料/)
-  assert.doesNotMatch(calls[1], /https:\/\/test\/previous-person/)
-  assert.match(calls[1], /旅人朝北/)
+  assert.equal(calls.length, 0)
+  assert.doesNotMatch(rows[1].prompt.text, /前镜结束|previous-person/)
+  assert.match(rows[1].prompt.text, /旅人朝北/)
 })
 
 test('manual edit review only receives the current timeline, selected references and edited prompt', async () => {

@@ -14,7 +14,7 @@ import { checkContext } from '../server/data/operation-context.js'
 import { executionContext } from '../server/data/task-store.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 
-const stages = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'image-prompt']
+const stages = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']
 const project = { outputLanguage: 'en', style: '水彩', skills: {} }
 const task = skill => ({ skill, project, instructions: '任务内容', reviewInstructions: '审核上下文' })
 const piece = text => segment('context', '', text)

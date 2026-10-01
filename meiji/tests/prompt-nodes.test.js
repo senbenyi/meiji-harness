@@ -1,3 +1,4 @@
+import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -32,7 +33,7 @@ for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
         assert.equal(payload.messages[1].content, message.user)
         assert.match(message.system, /本次生成语言：English/)
         assert.equal((message.system + message.user).split('CUSTOM_RULE').length - 1, 1)
-        assert.equal(Boolean(payload.response_format), isReview || ['characters', 'scenes'].includes(stage))
+        assert.equal(Boolean(payload.response_format), isReview || ['characters', 'scenes', 'seconds'].includes(stage))
         if (isReview) {
           assert.match(message.user, /CURRENT_DRAFT/)
           assert.match(['outline', 'characters', 'scenes'].includes(stage) ? message.system : message.user, /验收标准/)
@@ -108,10 +109,10 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
         if (action === 'characters') assert.equal(saved.plot.characters.items[0].appearance, raw.characters.items[0].appearance)
         if (action === 'scenes') assert.equal(saved.plot.scenes.items[0].look, raw.scenes.items[0].look)
         if (action === 'shots') assert.match(saved.shots.items[0].content, /入院/)
-        if (action === 'shot-seconds') assert.equal(saved.shots.items[0].seconds.content, '新每秒指令')
+        if (action === 'shot-seconds') assert.equal(saved.shots.items[0].seconds.content.beats[0].action, '新每秒指令')
         throw new Error('REVIEW_UNAVAILABLE')
       }
-      return response(action === 'shots' ? table : action === 'shot-seconds' ? '新每秒指令' : action === 'outline' ? raw.outline : JSON.stringify(raw[action]))
+      return response(action === 'shots' ? table : action === 'shot-seconds' ? secondsResponse([['S01',5,'新每秒指令']]) : action === 'outline' ? raw.outline : JSON.stringify(raw[action]))
     }
     const deps = { home: e.home,
       generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl }),

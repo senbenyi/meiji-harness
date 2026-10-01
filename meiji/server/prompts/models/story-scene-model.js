@@ -22,6 +22,7 @@ export class StorySceneModel {
   contextSegments({ instructions = '', requirements = '', assets = [], review = false } = {}) {
     const p = this.parameters
     return [
+      segment('context', '【事实边界】', '大纲是唯一事实来源；地点、陈设、材质、光线与布局仅提取明确描述，不按时代或风格补齐。未说明的属性标记大纲未说明，不从人物卡扩展场景。'),
       segment('context', '【本次目标】', review ? '仅审核待审场景卡是否忠实提取已通过大纲中的实际地点，核对无人物环境、空间布局、区域合并及遗漏：landmark、light、space、look 不写人物、剪影、身体部位、当前动作或人物移动；同一可共用布局的连续室内空间应合并，各区域关系在同一 space 中交代。只返回统一审核 JSON 结论及具体问题，不生成或复述场景卡。' : '仅从已通过大纲提取实际地点，返回无人物的环境卡 items。landmark、light、space、look 只描述环境与可用空间，不写人物、剪影、身体部位、当前动作或人物移动；动作仅用于判断空间是否足够，不写进卡片。同一可共用布局的连续室内空间只建一张卡，不将书架、柜台、入口等角落拆成多个地点；在同一 space 内交代区域关系。'),
       segment('context', '【本次参数】', [`标题：${this.project.title}`, p.episodeNumber ? `本次为第 ${p.episodeNumber} 集。` : '', p.style ? `视觉风格：${p.style}` : ''].filter(Boolean).join('\n')),
       segment('context', '【已通过大纲】', this.approvedOutline),

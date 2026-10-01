@@ -1,3 +1,4 @@
+import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 // 任务与步骤：状态推导、结束落定、计划与执行的对应、逐镜成片单一任务、人工专属操作。
 import test from 'node:test'
@@ -83,7 +84,7 @@ test('text operations execute exactly their planned steps', async t => {
   const e = await setup(t)
   const cases = [
     ['shots', { generateShots: options => generateShots({ ...options, request: reply(table) }) }],
-    ['seconds', { generateAllSeconds: options => generateAllSeconds({ ...options, request: reply(table.replaceAll('\n第', '\n### 0–5s\n第') + '\n[seconds-complete]') }) }],
+    ['seconds', { generateAllSeconds: options => generateAllSeconds({ ...options, request: reply(secondsResponse()) }) }],
     ['shot-storyboard', { generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt) }) }, { track: 'S01' }],
     ['storyboard', { generateStoryboard: options => generateStoryboard({ ...options, request: reply(prompt) }) }],
   ]
@@ -175,9 +176,9 @@ test('human-only operations are rejected for the agent and never queued for it',
 
 test('produce stops at a failed storyboard review: the task is review_failed and later steps are skipped', async t => {
   const e = await setup(t)
-  await e.store.save(e.id, project => { project.episodes[0].shots.items[0].storyboard.status = 'not-generated'; return project })
+  await e.store.save(e.id, project => { project.episodes[0].shots.items[0].storyboard.status = 'not-generated'; project.episodes[0].shots.items[0].seconds.content.beats[0].action='【错误|C99】'; return project })
   await assert.rejects(runOperation(e.op('produce-all'), { home: e.home, operationId: 'stop', waitForBackground: true, ...filmDeps,
-    generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt, reviewFail('动作冲突')) }) }), /未通过自审|自检未通过/)
+    generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt, reviewFail('动作冲突')) }) }), /未通过自审|自审未通过/)
   const task = await e.history.read('tasks', 'stop')
   assert.equal(task.status, 'review_failed')
   assert.ok(task.steps.filter(item => item.kind.startsWith('video_')).every(item => item.status === 'skipped'))

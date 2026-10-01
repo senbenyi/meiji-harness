@@ -13,7 +13,7 @@ const contextOf = (task, review = false) => ({
   instructions: task.model ? '' : review ? task.reviewInstructions || task.instructions : task.instructions,
   requirements: checkContext.getStore()?.requirements || '',
 })
-const titles = { outline: ['故事大纲', '大纲输出', '大纲验收'], characters: ['角色卡', '人物输出', '人物验收'], scenes: ['场景卡', '场景输出', '场景验收'] }
+const titles = { outline: ['故事大纲', '大纲输出', '大纲验收'], characters: ['角色卡', '人物输出', '人物验收'], scenes: ['场景卡', '场景输出', '场景验收'], props: ['道具卡', '道具输出', '道具验收'] }
 export function sections(text, heading, selected) {
   const chunks = text.split(new RegExp(`^${heading} `, 'm'))
   if (chunks.length === 1) return text // 面板基础修改可能使用无小节正文。

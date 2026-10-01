@@ -39,10 +39,10 @@ test('image details expose image history and their own basic skill beside genera
   character.querySelector('[aria-label="人物图片 skill"]').click()
   scene.querySelector('.task-history-entry').click()
   scene.querySelector('[aria-label="场景图片 skill"]').click()
-  character.querySelector('[aria-label="附属素材 skill"]').click()
-  assert.deepEqual(calls, [['history', 'images'], ['skill', 'character-image'], ['history', 'images'], ['skill', 'scene-image'], ['skill', 'part-image']])
+  assert.equal(character.querySelector('.studio-parts'), null)
+  assert.deepEqual(calls, [['history', 'images'], ['skill', 'character-image'], ['history', 'images'], ['skill', 'scene-image']])
   assert.ok(character.querySelector('[aria-label="文字生图"]'))
-  assert.ok(scene.querySelector('.workflow-generation-row .primary'))
+  assert.ok(scene.querySelector('.scene-image-tools .primary'))
 })
 
 for (const [itemId, name, key, label] of [['C01', '旅人', 'onOpenCharacter', '查看人物详情'], ['E01', '庭院', 'onOpenScene', '查看场景详情']]) {
@@ -59,3 +59,16 @@ for (const [itemId, name, key, label] of [['C01', '旅人', 'onOpenCharacter', '
     assert.equal(episode.pendingImages.draft.previewUrl, '/draft.png')
   })
 }
+
+
+test('props cards generate images by their independent P ID', async t => {
+  const project = setup(t), calls = []
+  project.plot.props.items = [{ id: 'P01', type: 'prop', name: '长衣', category: 'clothing', description: '灰色长衣', evidence: '旅人身穿灰色长衣', ownerId: 'C01' }]
+  const page = renderStage('script', project, { fail() {}, beginImage: async (...args) => calls.push(args), openSkill: (...args) => calls.push(args) }, {})
+  page.querySelector('[aria-label="道具图片 skill"]').click()
+  assert.equal(calls[0][1], 'part-image')
+  const button = [...page.querySelectorAll('button')].find(b => b.textContent === 'AI生图')
+  assert.ok(button); button.click(); await Promise.resolve()
+  assert.equal(calls[1][1], 'image'); assert.equal(calls[1][2].itemId, 'P01')
+  assert.match(page.textContent, /旅人身穿灰色长衣/)
+})

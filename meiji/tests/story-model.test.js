@@ -70,7 +70,7 @@ test('每个剧情步骤生成和审核共用同一基础规则，输出协议�
 })
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
-  assert.deepEqual(definitions.outline.plan().filter(step => step.kind === 'generate').map(step => step.target), ['outline', 'characters', 'scenes'])
+  assert.deepEqual(definitions.outline.plan().filter(step => step.kind === 'generate').map(step => step.target), ['outline', 'characters', 'scenes', 'props'])
   const replies = ['初稿', reviewFail('因果错误'), '修订稿', reviewFail('因果错误')]
   let calls = 0
   const { result, steps } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
@@ -100,7 +100,7 @@ test('extraction after outline modification uses new facts, never stale card bas
   const project = episodeFixture()
   project.plot.outline.content = 'OLD_OUTLINE'
   const fixture = storyPackageFixture()
-  const replies = [outlineFixture('FINAL_NEW_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
+  const replies = [outlineFixture('FINAL_NEW_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
   let calls = 0
   await checkContext.run({ generationMode: 'modify', originalProject: project, review: 'CHANGE_OUTLINE' }, () => generateStoryPackage({ project, request: async message => {
     if (++calls === 1) assert.match(message.user, /OLD_OUTLINE.*|CHANGE_OUTLINE/)
@@ -110,7 +110,7 @@ test('extraction after outline modification uses new facts, never stale card bas
     }
     return replies.shift()
   } }))
-  assert.equal(calls, 6)
+  assert.equal(calls, 8)
 })
 
 test('real operation persists independent checks and blocks downstream after failed characters', async t => {
@@ -193,13 +193,13 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
     return current
   })
   let calls = 0
-  const replies = [outlineFixture('FIXED_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
+  const replies = [outlineFixture('FIXED_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
   await runOperation(e.op('outline', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
   })
   const saved = await e.read()
-  assert.equal(calls, 6)
-  for (const kind of ['outline', 'characters', 'scenes']) assert.equal(saved.plot[kind].check.passed, true)
+  assert.equal(calls, 8)
+  for (const kind of ['outline', 'characters', 'scenes', 'props']) assert.equal(saved.plot[kind].check.passed, true)
   const { contentTargets } = await import('../server/data/task-store.js')
   const root = await e.store.read(e.id)
   assert.equal(contentTargets(root).find(item => item.key === 'story').check.passed, true)
@@ -261,9 +261,9 @@ test('outline section structure is checked deterministically and repairs the lat
  assert.equal(outlineStructureFailures(outlineFixture()).length,0)
  assert.ok(outlineStructureFailures('【主角动机】正文挤在同一行').length)
  const fixture=storyPackageFixture(),calls=[]
- const replies=['缺少标题的完整事件稿',reviewPass,outlineFixture(),reviewPass,JSON.stringify(fixture.characters),reviewPass,JSON.stringify(fixture.scenes),reviewPass]
+ const replies=['缺少标题的完整事件稿',reviewPass,outlineFixture(),reviewPass,JSON.stringify(fixture.characters),reviewPass,JSON.stringify(fixture.scenes),reviewPass,JSON.stringify(fixture.props),reviewPass]
  const result=await generateStoryPackage({project:episodeFixture(),request:async message=>{calls.push(message);return replies.shift()}})
- assert.equal(result.check.passed,true);assert.match(calls[2].user,/大纲正文结构/);assert.equal(calls.length,8)
+ assert.equal(result.check.passed,true);assert.match(calls[2].user,/大纲正文结构/);assert.equal(calls.length,10)
 })
 
 test('extraction tasks and review explicitly distinguish offscreen voice and empty scenery',()=>{
@@ -276,11 +276,11 @@ test('extraction tasks and review explicitly distinguish offscreen voice and emp
 
 test('new semantic review failure clears old execution errors', async t => {
   const e = await setupModel(t)
-  await e.store.save(e.id, p => { p.episodes[0].activityError = '审核返回格式错误'; for (const key of ['outline', 'characters', 'scenes']) p.episodes[0].plot[key].error = '审核返回格式错误'; return p })
+  await e.store.save(e.id, p => { p.episodes[0].activityError = '审核返回格式错误'; for (const key of ['outline', 'characters', 'scenes', 'props']) p.episodes[0].plot[key].error = '审核返回格式错误'; return p })
   const replies = [outlineFixture('新稿'), reviewFail('剧情冲突'), outlineFixture('修订稿'), reviewFail('剧情冲突')]
   await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: opts => generateStoryPackage({ ...opts, request: async () => replies.shift() }) })
   const saved = await e.read()
-  for (const key of ['outline', 'characters', 'scenes']) assert.equal(saved.plot[key].error, null, key)
+  for (const key of ['outline', 'characters', 'scenes', 'props']) assert.equal(saved.plot[key].error, null, key)
   assert.equal(saved.plot.outline.check.passed, false)
   assert.equal(saved.activityError, null)
 })

@@ -343,12 +343,12 @@ const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'oper
 const textData = value => JSON.parse(JSON.stringify(value, (key, item) => omitted.has(key) ? undefined : item))
 export function contentTargets(project) {
   return project.episodes.flatMap(episode => {
-    const storyChecks = [episode.plot.outline.check, episode.plot.characters.check, episode.plot.scenes.check]
+    const storyChecks = [episode.plot.outline.check, episode.plot.characters.check, episode.plot.scenes.check, ...(episode.plot.props ? [episode.plot.props.check] : [])]
     const storyCheck = { passed: storyChecks.some(check => check.passed === false) ? false : storyChecks.every(check => check.passed === true) ? true : null,
       failures: [...new Set(storyChecks.flatMap(check => check.failures || []))] }
     const entries = [
       ['summary', episode.summary, { summary: episode.summary.content, durationSeconds: episode.durationSeconds }],
-      ['story', episode.plot, { outline: episode.plot.outline.content, characters: textData(episode.plot.characters.items), scenes: textData(episode.plot.scenes.items) }],
+      ['story', episode.plot, { outline: episode.plot.outline.content, characters: textData(episode.plot.characters.items), scenes: textData(episode.plot.scenes.items), props: textData(episode.plot.props?.items || []) }],
       ['shots', episode.shots, episode.shots.items.map(shot => ({ id: shot.id, duration: shot.duration, content: shot.content, cast: shot.cast, scene: shot.scene, reference_images: shot.reference_images }))],
       ['seconds', episode.shots.seconds, episode.shots.items.map(shot => ({ id: shot.id, duration: shot.duration, content: shot.seconds.content }))],
       ['assembly', episode.assembly, episode.assembly.content],
@@ -380,7 +380,7 @@ export async function prepareContentRecords(current, next) {
     if (!target.exists) { delete target.node.source; continue }
     if (manualActions.has(context.operation.action)) {
       const episode = next.episodes.find(item => item.id === target.episodeId)
-      const nodes = target.key === 'story' ? [episode.plot.outline, episode.plot.characters, episode.plot.scenes] : [target.node]
+      const nodes = target.key === 'story' ? [episode.plot.outline, episode.plot.characters, episode.plot.scenes, episode.plot.props].filter(Boolean) : [target.node]
       for (const node of nodes) { node.check = { passed: null, failures: [], revision: node.revision }; if (!node.operation) node.status = 'not-generated' }
       target.check = nodes[0].check
     }

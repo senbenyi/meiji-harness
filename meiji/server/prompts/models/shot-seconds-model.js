@@ -4,9 +4,9 @@ import { currentSkillSet, generationParts, reviewParts, segment } from '../skill
 import { withRequirements, revisionTask } from '../interfaces/text-context.js'
 
 function compose(task, kind) {
-  const p = generationParts({ ...task, stage: 'seconds', kind, outputProtocol: '仅返回目标镜头完整时间线正文，保留该镜时长，禁止 JSON 包装。' })
+  const p = generationParts({ ...task, stage: 'seconds', kind, outputProtocol: '返回完整shots JSON，遵循每秒指令结构协议。' })
   return {
-    json: false,
+    json: true,
     system: [
       segment('context', '【角色与职责】', '你是一名单镜每秒指令编剧。完成本次指定任务，遵守上游事实和基础生产规则。'), p.common, ...p.commonShared, p.generate,
       ...p.guidance, ...p.additions, ...p.assetRules,

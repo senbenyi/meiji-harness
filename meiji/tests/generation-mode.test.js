@@ -1,3 +1,4 @@
+import { secondsResponse, secondsContent } from './fixtures/seconds.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -14,23 +15,23 @@ for (const generationMode of ['regenerate', 'modify']) {
     await models.write({ ...await models.read(), apiKey: 'test-only' })
     await e.store.save(e.id, p => {
       const node = p.episodes[0].shots.items[0].seconds
-      node.content = 'OLD_OUTPUT_MARKER'; node.review.text = 'OLD_HUMAN_MARKER'
+      node.content = secondsContent('S01',5,'OLD_OUTPUT_MARKER'); node.review.text = 'OLD_HUMAN_MARKER'
       node.check = { passed: false, failures: ['OLD_CHECK_MARKER'] }
       return p
     })
     const calls = []
     await runOperation(e.op('shot-seconds', { track: 'S01', generationMode }), { home: e.home,
       generateShotSeconds: options => generateShotSeconds({ ...options, request: async ({ skill, user: prompt }) => {
-        calls.push({ skill, prompt }); return skill === 'review' ? reviewPass : 'NEW_OUTPUT_MARKER'
+        calls.push({ skill, prompt }); return skill === 'review' ? reviewPass : secondsResponse([['S01',5,'NEW_OUTPUT_MARKER']])
       } }),
     })
     const generation = calls[0].prompt
     for (const marker of ['OLD_OUTPUT_MARKER', 'OLD_HUMAN_MARKER', 'OLD_CHECK_MARKER']) assert.equal(generation.includes(marker), generationMode === 'modify', marker)
-    assert.match(calls[1].prompt, /【本次待审内容】\nNEW_OUTPUT_MARKER/)
+    assert.match(calls[1].prompt, /【本次待审内容】[\s\S]*NEW_OUTPUT_MARKER/)
     if (generationMode === 'regenerate') assert.doesNotMatch(calls[1].prompt, /OLD_OUTPUT_MARKER/)
-    else assert.match(calls[1].prompt, /【修订基稿（用于对照范围）】\nOLD_OUTPUT_MARKER/)
+    else assert.match(calls[1].prompt, /【修订基稿（用于对照范围）】[\s\S]*OLD_OUTPUT_MARKER/)
     const node = (await e.read()).shots.items[0].seconds
-    assert.equal(node.content, 'NEW_OUTPUT_MARKER')
+    assert.equal(node.content.beats[0].action, 'NEW_OUTPUT_MARKER')
     assert.equal(node.review.text, generationMode === 'regenerate' ? 'OLD_HUMAN_MARKER' : '')
   })
 }

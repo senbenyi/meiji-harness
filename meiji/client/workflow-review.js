@@ -31,7 +31,9 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
       ignore.dispatchEvent(new CustomEvent('meiji-review-override', { bubbles: true, composed: true, detail: { key: record.id, episodeId: area.dataset.episodeId, onError() { ignore.disabled = false } } }))
     }
   }
-  if (!failures.length || allowFailureOpinion) {
+  const compiled = record?.content?.compilerVersion === 1
+  if (compiled) area.append(element('p', '由每秒分镜程序组装。剧情修改请到每秒分镜提交意见；也可直接编辑最终提示词。', 'meta'))
+  if (!compiled && (!failures.length || allowFailureOpinion)) {
     const input = element('input', '', 'workflow-review-input')
     input.type = 'text'
     input.placeholder = '修改意见（可选）'
@@ -82,6 +84,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     }
     const run = actionButton.onclick
     actionButton.onclick = event => { area.dataset.generationMode = 'regenerate'; return run?.call(actionButton, event) }
+    if (!compiled) {
     const modify = element('button', '提交修改', 'workflow-review-action')
     modify.type = 'button'
     const available = !busy && !actionButton.disabled
@@ -91,6 +94,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     modify.onclick = event => { if (modify.disabled) return; area.dataset.generationMode = 'modify'; const input = area.querySelector('input'); if (input) input.dataset.submittedReview = input.value; return run?.call(actionButton, event) }
     refresh()
     area.append(modify)
+    }
   }
   // 「忽略并通过」排在「提交修改」之后：按意见修改是首选，忽略是人工兜底。
   if (ignore) area.append(ignore)

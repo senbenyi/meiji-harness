@@ -232,7 +232,7 @@ test('plot has one generation entry and one review for outline, characters and s
  const container=domSetup(t),p=episodeFixture(),calls=[]
  p.plot.outline.check={passed:false,failures:['角色与剧情不一致']}
  container.append(renderStage('script',p,{perform:async(...args)=>calls.push(args),beginImage:async()=>{},fail:()=>{}},{}))
- assert.equal(container.querySelectorAll('.workflow-review').length,1)
+ assert.equal(container.querySelectorAll('.workflow-review').length,2)
  const review=container.querySelector('[data-review-target="outline"]')
  assert.ok(review)
  assert.match(review.textContent,/角色与剧情不一致/)
@@ -248,7 +248,7 @@ test('plot has one generation entry and one review for outline, characters and s
 })
 test('empty plot has a unified generate button and no separate card review',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
- p.plot.outline.content='';p.plot.characters.items=[];p.plot.scenes.items=[]
+ p.plot.outline.content='';p.plot.characters.items=[];p.plot.scenes.items=[];p.plot.props.check.passed=null
  container.append(renderStage('script',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{}))
  assert.equal(container.querySelectorAll('.workflow-review').length,0)
  const button=container.querySelector('[aria-label="生成剧情"]');assert.ok(button);assert.equal(button.disabled,false)
@@ -627,10 +627,7 @@ test('image detail shows editable text and a prompt without field keys', async t
  const prompt = container.querySelector('.image-text-prompt')
  assert.equal(prompt.textContent, '中国，旅人，探险者，男性，古代，三十岁，一米八，结实，方脸')
  assert.equal(container.querySelector('.image-text-editor [aria-label="服装"]'), null)
- assert.equal(container.querySelector('[aria-label="衣服描述"]').value, '长衣')
- assert.ok(container.querySelector('[aria-label="坐骑描述"]'))
- assert.ok(container.querySelector('[aria-label="道具描述"]'))
- assert.ok(container.querySelector('[aria-label="发型描述"]'))
+ assert.equal(container.querySelector('.studio-parts'), null)
  assert.equal(/姓名|性别/.test(prompt.textContent), false)
  const name = container.querySelector('[aria-label="姓名"]')
  name.value = '武松'
@@ -644,7 +641,7 @@ test('image detail shows editable text and a prompt without field keys', async t
  assert.equal(calls[0][2].original.name, '旅人')
 })
 
-test('character detail lays out the portrait, reference, text, and other images', async t => {
+test('character detail lays out the portrait, reference and text without ancillary images', async t => {
  const container = domSetup(t), p = episodeFixture(), calls = []
  p.episodeId = p.id
  const { renderCharacterDetail } = await import('../client/character.js')
@@ -656,10 +653,7 @@ test('character detail lays out the portrait, reference, text, and other images'
  const text = container.querySelector('.image-text-editor')
  const parts = container.querySelector('.studio-parts')
  assert.equal(pair.compareDocumentPosition(text) & 4, 4)
- assert.equal(text.compareDocumentPosition(parts) & 4, 4)
- assert.match(parts.textContent, /衣服/)
- assert.match(parts.textContent, /坐骑/)
- assert.match(parts.textContent, /道具/)
+ assert.equal(parts, null)
  container.querySelector('[aria-label="文字生图"]').click()
  await Promise.resolve()
  assert.equal(calls[0][1], 'image')

@@ -17,7 +17,7 @@ import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js
 test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
   const generated = { ...storyPackageFixture(), outline: outlineFixture('旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。', 'en') }
-  const replies = [generated.outline, reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass]
+  const replies = [generated.outline, reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
   const result = await generateStoryPackage({ project: { ...episodeFixture(), outputLanguage: 'en' }, route: { baseUrl: 'http://model.test', apiKey: 'test', model: 'test' }, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
     assert.match(body.messages[0].content, /本次生成语言：English/)
@@ -37,7 +37,7 @@ test('outline, characters and scenes use separate generation and review requests
     return Response.json({ choices: [{ message: { content: replies.shift() } }] })
   } })
   assert.equal(result.outline, generated.outline)
-  assert.equal(calls, 6)
+  assert.equal(calls, 8)
   assert.equal(result.characters.items.length, 1)
   assert.equal(result.scenes.items.length, 1)
   assert.equal(result.check.passed, true)

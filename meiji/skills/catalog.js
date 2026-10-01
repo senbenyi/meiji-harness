@@ -30,7 +30,8 @@ export const stageCatalog = [
     "constraintVariants": {
       "outline": "generate-story-outline-skill.md",
       "characters": "extract-story-characters-skill.md",
-      "scenes": "extract-story-scenes-skill.md"
+      "scenes": "extract-story-scenes-skill.md",
+      "props": "extract-story-props-skill.md"
     }
   },
   {
@@ -148,8 +149,8 @@ export const stageCatalog = [
   {
     "id": "part-image",
     "kind": "stage",
-    "label": "附属素材图",
-    "logLabel": "附属素材图",
+    "label": "道具图片",
+    "logLabel": "道具图片",
     "output": "image",
     "fields": [],
     "order": 11,

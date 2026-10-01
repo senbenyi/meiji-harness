@@ -18,10 +18,10 @@ test('storyboard keeps only current seconds and associated identity data, and st
     if (skill === 'review') return reviewPass
     instructions=text; return storyboardFixture(text)
   } })
-  assert.doesNotMatch(instructions, /本集摘要|大纲|## S01 \/ 5s/)
-  assert.match(instructions, /摄影机位于身后/)
-  assert.doesNotMatch(instructions, /SECRET_METADATA/)
-  assert.match(instructions,/本镜已通过每秒指令/);assert.equal(rows[1].openingReference, 'none')
+  assert.equal(instructions,undefined)
+  assert.match(rows[1].prompt.text,/摄影机位于身后/)
+  assert.doesNotMatch(rows[1].prompt.text,/SECRET_METADATA/)
+  assert.equal(rows[1].openingReference, 'none')
   assert.match(rows[1].prompt.text,/subject_definitions/)
 })
 

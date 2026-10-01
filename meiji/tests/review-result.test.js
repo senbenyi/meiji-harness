@@ -21,11 +21,12 @@ test('strict review contract accepts only consistent structured verdicts', () =>
 
 test('every review entry uses the one JSON protocol in its real API request', async () => {
   const project = episodeFixture()
-  const prompts = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'image-prompt']
+  const prompts = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']
     .map(skill => buildTextPrompts({ skill, project, instructions: '输入资料' }).review('待审正文'))
   prompts.push(buildTextPrompts({ skill: 'seconds', project, shotId: 'S01' }).review('单镜正文'))
-  for (const kind of ['outline', 'characters', 'scenes']) prompts.push(buildStoryPrompts(project, kind).review('待审资料'))
+  for (const kind of ['outline', 'characters', 'scenes', 'props']) prompts.push(buildStoryPrompts(project, kind).review('待审资料'))
   prompts.push(buildEditedContentReview({ project, stage: 'outline' }, '编辑正文'))
+  prompts.push(buildEditedContentReview({ project, stage: 'storyboard', shotId: 'S01' }, '编辑正文'))
   for (const message of prompts) {
     assert.equal(message.json, true)
     assert.equal(message.system.split(reviewProtocol).length - 1, 1)

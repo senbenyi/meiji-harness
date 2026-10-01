@@ -1,3 +1,4 @@
+import { compileVideoPrompt } from '../../server/prompts/video-prompt-renderer.js'
 // 提示词场景：覆盖各阶段、各类请求（生成 / 审核 / 修订）与模式，供提示词组装测试与新旧差集对比使用。
 // 命令行：node tests/fixtures/prompt-scenarios.js <输出.json>（需设置 MEIJI_MODELS_LOCAL）
 import { writeFile } from 'node:fs/promises'
@@ -7,9 +8,9 @@ import { episodeFixture } from './model.js'
 import { checkContext } from '../../server/data/operation-context.js'
 import { buildStoryPrompts } from '../../server/prompts/story-prompts.js'
 import { buildEpisodePrompts } from '../../server/prompts/episode-prompts.js'
-import { buildAllSecondsPrompts, buildSecondsPrompts, buildSingleShotPrompts, buildStoryboardPrompts, buildTablePrompts } from '../../server/prompts/shot-prompts.js'
+import { buildAllSecondsPrompts, buildSecondsPrompts, buildSingleShotPrompts, buildTablePrompts } from '../../server/prompts/shot-prompts.js'
 import { buildEditedContentReview, buildTextPrompts } from '../../server/prompts/text-prompts.js'
-import { characterImagePrompt, imageSkillPrompt, partPrompt, pencilPrompt, sceneStillPrompt } from '../../server/generate/image.js'
+import { characterImagePrompt, imageSkillPrompt, propImagePrompt, pencilPrompt, sceneStillPrompt } from '../../server/generate/image.js'
 
 const guidance = [{ id: 'g-action', name: '动作参考', guidanceType: 'action', content: '动作参考内容' }, { id: 'g-sound', name: '声音参考', guidanceType: 'sound', content: '声音参考内容' }]
 const supplements = { outline: '【本剧】大纲补充', shots: '【本剧】镜头表补充', seconds: '【本剧】每秒补充', storyboard: '【本剧】分镜补充', film: '【本剧】成片补充' }
@@ -48,14 +49,12 @@ export async function buildScenarios() {
       add(`outline:${mode}`, text(buildStoryPrompts(view)))
       add(`characters:${mode}`, text(buildStoryPrompts(view, 'characters')))
       add(`scenes:${mode}`, text(buildStoryPrompts(view, 'scenes')))
+      add(`props:${mode}`, text(buildStoryPrompts(view, 'props')))
       add(`shots:${mode}`, text(buildTablePrompts({ project: view })))
       add(`seconds-all:${mode}`, text(buildAllSecondsPrompts({ project: view }, view)))
       add(`seconds-shot:${mode}`, text(buildSecondsPrompts({ project: view, shotId: 'S01' })))
       add(`shot-revise:${mode}`, text(buildSingleShotPrompts({ project: view, shotId: 'S01', review: '【单镜意见】' })))
-      for (const video of ['text', 'reference']) {
-        add(`storyboard-${video}:${mode}`, text(buildStoryboardPrompts({ project: view, shotId: 'S01' }, { shot: view.shots.items[0], video, characters: ['旅人'], scenes: ['庭院'],
-          refs: video === 'reference' ? '<Picture 1> 旅人' : '', images: video === 'reference' ? [{ url: '/plugins/meiji/asset-file?category=characters&id=a', label: '旅人', kind: 'characters' }] : [] })))
-      }
+      add(`storyboard-program:${mode}`, { prompt: compileVideoPrompt(view,view.shots.items[0]).prompt.text })
     })
   }
   const view = scenarioProject()
@@ -64,7 +63,7 @@ export async function buildScenarios() {
     add('characters:regenerate', text(buildStoryPrompts(view, 'characters')))
     add('scenes:regenerate', text(buildStoryPrompts(view, 'scenes')))
     add('outline:en', text(buildStoryPrompts(scenarioProject({ language: 'en' }))))
-    add('storyboard:plain', text(buildStoryboardPrompts({ project: scenarioProject({ extras: false }), shotId: 'S01' }, { shot: view.shots.items[0], video: 'text', characters: ['旅人'], scenes: ['庭院'], refs: '', images: [] })))
+    add('storyboard:plain', { prompt: compileVideoPrompt(view,view.shots.items[0]).prompt.text })
     add('edited:storyboard', { review: buildEditedContentReview({ project: view, stage: 'storyboard', shotId: 'S01' }, '【编辑后正文】') })
     add('edited:outline', { review: buildEditedContentReview({ project: view, stage: 'outline' }, '【编辑后正文】') })
     add('image-prompt', text(buildTextPrompts({ skill: 'image-prompt', project: view, instructions: '原提示词：旅人\n新要求：换成夜景' })))
@@ -72,7 +71,7 @@ export async function buildScenarios() {
   const card = view.plot.characters.items[0], scene = view.plot.scenes.items[0]
   add('image:character', { prompt: characterImagePrompt(card, view) })
   add('image:scene', { prompt: imageSkillPrompt('scene-image', sceneStillPrompt(scene), view) })
-  add('image:part', { prompt: imageSkillPrompt('part-image', partPrompt(card, 'clothes'), view) })
+  add('image:part', { prompt: propImagePrompt({id: 'P01', name: '长衣', category: 'clothing', description: '灰色长衣', evidence: '旅人身穿灰色长衣'}, view) })
   add('image:pencil', { prompt: imageSkillPrompt('pencil', pencilPrompt(view.shots.items[0].storyboard.content), view) })
   return out
 }

@@ -44,15 +44,16 @@ export function feedbackOf(project, target) {
 // 人工忽略自审（review-override）：只作用于文本内容当前版本的自审不通过。
 // 内容为空或格式错误（解析失败）、正在生成、已过期或结论不属于当前版本时不可忽略。
 // 放行记在节点 check.override 上（保留原 AI 理由）；内容再次生成或编辑会写入新的 check，放行随之失效。
-const overrideKinds = new Set(['summary', 'outline', 'characters', 'scenes', 'shots', 'seconds', 'storyboard'])
+const overrideKinds = new Set(['summary', 'outline', 'characters', 'scenes', 'props', 'shots', 'seconds', 'storyboard'])
 export function overrideNodes(project, key) {
   const kind = String(key || '').split(':')[0]
   if (!overrideKinds.has(kind)) return []
-  const keys = key === 'outline' ? ['outline', 'characters', 'scenes'] : key === 'seconds' ? ['seconds', ...(project.shots?.items || []).map(shot => `seconds:${shot.id}`)] : [key]
+  const keys = key === 'outline' ? ['outline', 'characters', 'scenes', 'props'] : key === 'seconds' ? ['seconds', ...(project.shots?.items || []).map(shot => `seconds:${shot.id}`)] : [key]
   return keys.map(item => [item, targetNode(project, item)]).filter(([, value]) => value?.check?.passed === false)
 }
 const hasText = (key, value) => {
   const kind = key.split(':')[0]
+  if (kind === 'props') return Array.isArray(value.items)
   if (kind === 'characters' || kind === 'scenes') return Boolean(value.items ? value.items.length : value.content ?? value.look ?? value.name)
   if (kind === 'shots') return Boolean(value.items?.length) && !value.failedOutput
   if (kind === 'storyboard') return value.content != null

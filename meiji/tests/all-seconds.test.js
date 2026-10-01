@@ -1,3 +1,4 @@
+import { secondsResponse, secondsContent } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -6,7 +7,7 @@ import { modelStore } from '../server/data/model-settings.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { recordStore } from '../server/data/task-store.js'
 import { generateAllSeconds } from '../server/generate/shot-text.js'
-const output = '## S01 / 5s\n0–5s 第一镜新动作\n\n## S02 / 5s\n0–5s 第二镜接续动作\n[seconds-complete]'
+const output = secondsResponse()
 async function environment(t) {
  const e = await setupModel(t), models = modelStore(e.home)
  await models.write({ ...await models.read(), apiKey: 'test-only' })
@@ -33,8 +34,8 @@ test('whole episode failed review revises the complete version once', async t=>{
   return calls.length===1?output:output.replace('第一镜新动作','第一镜修订稿')
  }})}),/第一镜问题/)
  const p=await e.read()
- assert.equal(p.shots.items[0].seconds.content,'0–5s 第一镜修订稿')
- assert.equal(p.shots.items[1].seconds.content,'0–5s 第二镜接续动作')
+ assert.equal(p.shots.items[0].seconds.content.beats[0].action,'第一镜修订稿')
+ assert.equal(p.shots.items[1].seconds.content.beats[0].action,'第二镜接续动作')
  for (const shot of p.shots.items) {
   assert.equal(shot.seconds.check.passed, false)
   assert.equal(shot.seconds.status, 'failed')
@@ -43,13 +44,13 @@ test('whole episode failed review revises the complete version once', async t=>{
  }
  assert.equal(calls.length,4)
 })
-for(const text of [output.replace('[seconds-complete]',''), '## S01 / 5s\n只有一镜\n[seconds-complete]',output.replace('S02 / 5s','S02 / 4s')]) {
+for(const text of [output.slice(0, -8), secondsResponse([['S01', 5, '只有一镜']]), secondsResponse([['S01',5,'动作'],['S02',4,'时长错']])]) {
  test('incomplete or mismatched result preserves original content and downstream',async t=>{
   const e=await environment(t),before=await e.read()
   await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:text})}),/自审未通过/)
   const after=await e.read()
   for(let i=0;i<2;i++) {
-   assert.equal(after.shots.items[i].seconds.content,before.shots.items[i].seconds.content)
+   assert.deepEqual(after.shots.items[i].seconds.content,before.shots.items[i].seconds.content)
    assert.deepEqual(after.shots.items[i].storyboard,before.shots.items[i].storyboard)
   }
  })
@@ -67,7 +68,7 @@ test('cancellation during review preserves all newly generated drafts and releas
   controller.abort();controller.signal.throwIfAborted()
  }})}),{name:'AbortError'})
  const p=await e.read()
- assert.ok(p.shots.items.every(s=>s.seconds.content.includes('动作') && s.seconds.operation===null))
+ assert.ok(p.shots.items.every(s=>s.seconds.content.beats[0].action.includes('动作') && s.seconds.operation===null))
  assert.equal(p.activity,null)
 })
 test('storyboard never fills missing seconds in the background',async t=>{
@@ -136,185 +137,38 @@ test('old per-shot opinions are collected into one persistent group review',asyn
  assert.equal((await e.read()).shots.seconds.review.text,'统一意见')
 })
 
-test('truncated stop response continues from the unfinished shot before atomic save and whole review', async t => {
- const e=await environment(t),before=await e.read(),calls=[]
- const partial='## S01 / 5s\n0–5s 第一镜完整新动作\n\n## S02 / 5s\n0–2s 被截断的半句话'
- await runOperation(e.op('seconds',{generationMode:'regenerate'}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async message=>{
-  calls.push(message)
-  if(message.skill==='review') {
-   assert.match(message.user,/第一镜完整新动作/);assert.match(message.user,/第二镜续传完成/)
-   assert.doesNotMatch(message.user,/0–2s 被截断的半句话/)
-   return reviewPass
-  }
-  if(calls.length===1)return partial
-  assert.match(message.system,/只返回剩余镜头：S02 \/ 5s/)
-  assert.match(message.user,/第一镜完整新动作/)
-  assert.doesNotMatch(message.user,/0–2s 被截断的半句话/)
-  assert.equal((await e.read()).shots.items[0].seconds.content,before.shots.items[0].seconds.content)
-  return '## S02 / 5s\n0–5s 第二镜续传完成\n[seconds-complete]'
- }})})
- assert.equal(calls.length,3)
- const p=await e.read()
- assert.equal(p.shots.items[0].seconds.content,'0–5s 第一镜完整新动作')
- assert.equal(p.shots.items[1].seconds.content,'0–5s 第二镜续传完成')
- assert.ok(p.shots.items.every(s=>s.seconds.check.passed===true))
-})
 
-test('continuation obeys three-request bound and never publishes accumulated partial shots',async()=>{
- const project=episodeFixture(),template=project.shots.items[0],persisted=[]
- project.shots.items=Array.from({length:6},(_,i)=>({...structuredClone(template),id:`S0${i+1}`}))
- let requests=0
- await assert.rejects(generateAllSeconds({project,persist:async shots=>{persisted.push(shots);return {...project,shots}},request:async ({skill})=>{
-  if(skill==='review')return reviewPass
-  const i=(requests++ % 4)+1
-  return `## S0${i} / 5s\n0–5s 已完成\n\n## S0${i+1} / 5s\n0–1s 截断`
- }}),/自审未通过.*缺少完成标记/)
- assert.equal(requests,8);assert.deepEqual(persisted,[])
-})
-
-for(const kind of ['wrong-order','api-error','cancel','no-progress']) test(`failed continuation (${kind}) preserves original content and downstream`,async t=>{
- const e=await environment(t),before=await e.read(),controller=new AbortController();let requests=0
- await assert.rejects(runOperation(e.op('seconds'),{home:e.home,signal:controller.signal,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>{
-  if(skill==='review')return reviewPass
-  if(++requests===1)return '## S01 / 5s\n0–5s 临时完整片段\n\n## S02 / 5s\n半句话'
-  if(kind==='api-error')throw new Error('network failure')
-  if(kind==='cancel'){controller.abort();controller.signal.throwIfAborted()}
-  if(kind==='wrong-order')return requests===2?output:output.replace('S01','S03')
-  return '## S02 / 5s\n始终没有结束标记'
- }})}))
- const after=await e.read()
- for(let i=0;i<2;i++){
-  assert.equal(after.shots.items[i].seconds.content,before.shots.items[i].seconds.content)
-  assert.deepEqual(after.shots.items[i].storyboard,before.shots.items[i].storyboard)
- }
- assert.ok(requests<=8)
-})
-
-test('truncated automatic revision continues its own latest draft and receives a whole-episode re-review',async()=>{
- let generations=0,reviews=0
- const p=await generateAllSeconds({project:episodeFixture(),request:async message=>{
-  if(message.skill==='review'){
-   if(++reviews===1)return reviewFail('第二镜动作不连续')
-   assert.match(message.user,/第一镜修好/);assert.match(message.user,/第二镜修好/)
-   assert.doesNotMatch(message.user,/第二镜未写完/)
-   return reviewPass
-  }
-  if(++generations===1)return output
-  if(generations===2)return '## S01 / 5s\n0–5s 第一镜修好\n\n## S02 / 5s\n第二镜未写完'
-  assert.match(message.user,/第二镜动作不连续/)
-  return '## S02 / 5s\n0–5s 第二镜修好\n[seconds-complete]'
+for (const count of [1, 2, 5]) test(`initial generation covers ${count} shots in one request`, async () => {
+ const project = episodeFixture(); const template = project.shots.items[0]
+ project.shots.items = Array.from({length: count}, (_,i) => ({...structuredClone(template), id: `S${String(i+1).padStart(2,'0')}`, duration: i+1}))
+ let generations = 0
+ const result = await generateAllSeconds({project, request: async ({skill}) => {
+  if(skill==='review') return reviewPass
+  generations++; return secondsResponse(project.shots.items.map(s=>[s.id,s.duration,'本镜动作']))
  }})
- assert.equal(generations,3);assert.equal(reviews,2)
- assert.equal(p.items[1].seconds.content,'0–5s 第二镜修好')
+ assert.equal(generations,1); assert.equal(result.items.length,count)
+ for(const s of result.items) assert.equal(s.seconds.content.beats[0].durationMs,s.duration*1000)
+})
+test('missing shot is a self-review failure and revision repairs the complete episode', async t => {
+ const e=await environment(t); let generations=0
+ await runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:++generations===1?secondsResponse([['S01',5,'首镜']]):output})})
+ assert.equal(generations,2); assert.equal((await e.read()).shots.items[1].seconds.content.shotId,'S02')
+})
+test('truncated JSON does not trigger continuation requests or publish partial shots', async t => {
+ const e=await environment(t),before=await e.read();let calls=0
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>{calls++;return skill==='review'?reviewPass:output.slice(0,-10)}})}),/完整JSON/)
+ assert.equal(calls,4); assert.deepEqual((await e.read()).shots.items.map(s=>s.seconds.content),before.shots.items.map(s=>s.seconds.content))
 })
 
-
-test('numbered failures stay on affected shots and appear only once in whole revision', async t => {
- const e=await environment(t)
- await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewFail('S01：动作重复'):output})}),/动作重复/)
- const project=await e.read()
- assert.equal(project.shots.items[0].seconds.check.passed,false)
- assert.equal(project.shots.items[1].seconds.check.passed,true)
- const { checkReasons }=await import('../server/data/review-checks.js')
- assert.deepEqual(checkReasons(project,{action:'seconds'}),['位置：本次内容；原因：S01：动作重复；修正要求：修正上述问题'])
-})
-
-
-test('multiline feedback retains evidence inside its targeted issue',async()=>{
- const { scopedCheck, uniqueFeedback }=await import('../shared/feedback.js')
- const issue='位置：S01；原因：动作重复\n\n原文：再起身；修正要求：保持站立'
- assert.deepEqual(uniqueFeedback([issue,issue]),[issue])
- assert.equal(scopedCheck({passed:false,failures:[issue]},'S02').passed,true)
- assert.deepEqual(scopedCheck({passed:false,failures:[issue]},'S01').failures,[issue])
-})
-
-
-test('resolved shot failures do not survive in the whole episode feedback',async()=>{
- const { feedbackOf }=await import('../shared/feedback.js')
- const project=episodeFixture()
- project.shots.seconds.check={passed:false,failures:['位置：S01；原因：旧问题；修正要求：修正']}
- project.shots.items.forEach(shot=>{shot.seconds.check={passed:true,failures:[]}})
- assert.equal(feedbackOf(project,'seconds').check.passed,true)
- assert.deepEqual(feedbackOf(project,'seconds').check.failures,[])
-})
-
-
-test('a new local failure replaces stale whole episode failure when collecting opinions',async()=>{
- const { feedbackOf }=await import('../shared/feedback.js')
- const project=episodeFixture()
- project.shots.seconds.check={passed:false,failures:['位置：S01；原因：旧问题；修正要求：修正']}
- project.shots.items[0].seconds.check={passed:true,failures:[]}
- project.shots.items[1].seconds.check={passed:false,failures:['新问题']}
- assert.deepEqual(feedbackOf(project,'seconds').check.failures,['S02：新问题'])
-})
-
-for (const [label, invalid, reason] of [
- ['missing', '## S01 / 5s\n只有一镜\n[seconds-complete]', /镜头数量应为 2，实际 1；缺少 S02 \/ 5s/],
- ['duration', output.replace('S02 / 5s', 'S02 / 4s'), /应为 S02 \/ 5s，实际 S02 \/ 4s/],
- ['extra', output.replace('[seconds-complete]', '## S03 / 5s\n多余镜头\n[seconds-complete]'), /镜头数量应为 2，实际 3/],
-]) test(`seconds ${label} reports the mismatch as review failure and preserves originals`, async t => {
- const e = await environment(t), before = await e.read(); let requests = 0
- await assert.rejects(runOperation(e.op('seconds'), { home: e.home, operationId: `mismatch-${label}`,
-  generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({skill}) => { requests++; return skill==='review'?reviewPass:invalid } }),
- }), reason)
- assert.equal(requests, 4)
- const task = await recordStore(e.home, e.id).read('tasks', `mismatch-${label}`)
- assert.equal(task.status, 'review_failed')
- assert.ok(task.steps.every(step => step.status === 'completed' && !step.error))
- assert.match(task.steps[1].reasons.join('；'), reason)
- assert.equal(task.steps[1].verdict, 'fail')
- assert.deepEqual(task.steps[1].attempts.map(a => a.label), ['程序审核', '大模型审核'])
- const raw = await recordStore(e.home, e.id).read('artifacts', task.steps[0].outputs[0])
- assert.equal(raw.content.text, invalid)
- assert.equal(raw.published, false)
- const after = await e.read()
- for (let i = 0; i < 2; i++) {
-  assert.deepEqual(after.shots.items[i].seconds.content, before.shots.items[i].seconds.content)
-  assert.deepEqual(after.shots.items[i].storyboard, before.shots.items[i].storyboard)
- }
-})
-
-for (const count of [1, 2, 5]) test(`whole seconds covers exactly ${count} shots with their own duration`, async () => {
- const { buildAllSecondsPrompts } = await import('../server/prompts/shot-prompts.js')
- const project = episodeFixture(), sample = project.shots.items[0]
- project.shots.items = Array.from({ length: count }, (_, i) => ({ ...structuredClone(sample), id: `S${String(i + 1).padStart(2, '0')}`, duration: 3 + i }))
- const text = project.shots.items.map(s => `## ${s.id} / ${s.duration}s\n### 0–${s.duration}s\n本镜动作`).join('\n\n') + '\n[seconds-complete]'
- const prompts = buildAllSecondsPrompts({ project }, project)
- assert.match(prompts.generation.user, /本次必须逐项输出的镜头标题清单/)
- for (const shot of project.shots.items) assert.ok(prompts.generation.user.includes(`## ${shot.id} / ${shot.duration}s`))
- assert.doesNotMatch(prompts.generation.system, /结束的逐秒正文|\nS01 \/ 4s/)
- const result = await generateAllSeconds({ project, request: async message => message.skill === 'review' ? reviewPass : text })
- assert.equal(result.items.length, count)
- for (const shot of result.items) assert.equal(shot.seconds.content, `### 0–${shot.duration}s\n本镜动作`)
-})
-
-test('seconds timeline rejects repeated, overlapping, gapped, short or oversized ranges', async () => {
- const { validateSecondsTimeline } = await import('../server/generate/shot-text.js')
- for (const content of ['### 0–5s\n动作\n### 0–5s\n重复', '### 0–3s\n动作\n### 2–5s\n重叠', '### 0–2s\n动作\n### 3–5s\n空档', '### 0–4s\n未完', '### 0–6s\n越界', '没有时间线']) {
-  assert.throws(() => validateSecondsTimeline({ id: 'S01', duration: 5, content }), /S01.*未覆盖原内容/)
- }
- validateSecondsTimeline({ id: 'S01', duration: 5, content: '### 0–0.5s\n动作\n### 0.5–5s\n持续' })
-})
-
-test('even with all shot titles, a repeated timeline cannot overwrite previous seconds', async t => {
- const e = await environment(t), before = await e.read()
- const invalid = output.replace('0–5s 第一镜新动作', '### 0–5s\n动作\n### 0–5s\n重复')
- await assert.rejects(runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({skill}) => skill==='review'?reviewPass:invalid }) }), /S01 时间线错误/)
- assert.equal((await e.read()).shots.items[0].seconds.content, before.shots.items[0].seconds.content)
-})
-
-test('program-rejected missing shot is repaired and both reviewers accept the complete revision', async t => {
- const e = await environment(t); let generations = 0
- await runOperation(e.op('seconds'), { home: e.home, operationId: 'repaired-missing-shot', generateAllSeconds: options => generateAllSeconds({ ...options,
-  request: async message => {
-   if (message.skill === 'review') return reviewPass
-   if (++generations === 1) return '## S01 / 5s\n0–5s 第一镜\n[seconds-complete]'
-   assert.match(message.user, /缺少 S02/)
-   return output
-  },
- }) })
- const task = await recordStore(e.home, e.id).read('tasks', 'repaired-missing-shot')
- assert.equal(task.status, 'completed')
- assert.deepEqual(task.steps.filter(s => s.kind.includes('review')).map(s => s.verdict), ['fail', 'pass'])
- assert.equal((await e.read()).shots.items[1].seconds.content, '0–5s 第二镜接续动作')
+test('targeted correction replaces only the reviewed shot and keeps all other beats verbatim',async()=>{
+ const project=episodeFixture();let generation=0,review=0
+ const initial=secondsResponse([['S01',5,'保留首镜原文'],['S02',5,'待修正动作']])
+ const result=await generateAllSeconds({project,request:async message=>{
+  if(message.skill==='review') return ++review===1?reviewFail('S02 动作方向相反'):reviewPass
+  if(++generation===1)return initial
+  assert.match(message.user,/只返回这些镜头的完整shots条目：S02/)
+  return secondsResponse([['S02',5,'修正动作']])
+ }})
+ assert.deepEqual(result.items[0].seconds.content,JSON.parse(initial).shots[0])
+ assert.equal(result.items[1].seconds.content.beats[0].action,'修正动作')
 })

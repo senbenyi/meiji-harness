@@ -22,7 +22,7 @@ export class StoryOutlineModel {
   contextSegments({ instructions = '', requirements = '', assets = [], review = false } = {}) {
     const p = this.parameters
     return [
-      segment('context', '【本次目标】', review ? '仅审核本次待审大纲的事件、因果、人物关系、身体形态、地点、剧情容量与跨集衔接。只返回统一审核 JSON 结论及具体问题，不生成或复述大纲。' : '仅生成本集完整剧情大纲，直接返回正文；本步骤不输出人物卡或场景卡。写清人物关系、可见身体形态与实际地点，供后续独立提取。依据本集实际时长展开已确定事件；短情节合并节拍，不为凑八拍增加调查、来回取放或重复反应。'),
+      segment('context', '【本次目标】', review ? '仅审核本次待审大纲的事件、因果、人物关系、身体形态、必要着装、地点与道具的明确描述、剧情容量与跨集衔接。只返回统一审核 JSON 结论及具体问题，不生成或复述大纲。' : '仅生成本集完整剧情大纲，直接返回正文；本步骤不输出人物卡或场景卡。写清人物关系、可见身体形态、必要着装、实际地点和剧情必要道具，供后续独立提取。依据本集实际时长展开已确定事件；短情节合并节拍，不为凑八拍增加调查、来回取放或重复反应。'),
       segment('context', '【本次参数】', `标题：${this.project.title}
 ${p.episodeNumber ? `本次生成第 ${p.episodeNumber} 集。
 ` : ''}本集总时长：${p.durationSeconds ?? '未提供'} 秒，仅控制剧情容量，不要求大纲写制作秒数或镜头编号。

@@ -6,7 +6,7 @@ import { ShotSecondsModel } from '../server/prompts/models/shot-seconds-model.js
 import { TextStoryboardModel } from '../server/prompts/models/text-storyboard-model.js'
 import { render } from '../server/prompts/skill-prompts.js'
 import { builtinSkill } from '../skills/load.js'
-for (const [Model, stage] of [[ShotTableModel, 'shots'], [EpisodeSecondsModel, 'seconds'], [ShotSecondsModel, 'seconds'], [TextStoryboardModel, 'storyboard']]) {
+for (const [Model, stage] of [[ShotTableModel, 'shots'], [EpisodeSecondsModel, 'seconds'], [ShotSecondsModel, 'seconds']]) {
   test(`${Model.name}：共用基础规则，人工修订和自动修订使用各自基稿`, () => {
     const model = new Model({ project: { outputLanguage: 'en' }, instructions: 'UPSTREAM', reviewInstructions: 'UPSTREAM', modify: true, baseContent: 'HUMAN_BASE', opinion: 'HUMAN_OPINION' })
     const creation = model.toGenerateSegments(), review = model.toReviewSegments('LATEST'), revised = model.toReviseSegments('FAILED_BASE', 'FAIL_NEW')
@@ -66,19 +66,20 @@ test('shot context omits empty blocks and preserves landmark and light facts', a
  assert.doesNotMatch(prompt.user,/【上下文：相邻镜头|【上下文：完整镜头表|首帧接续|多模态参考/)
  assert.ok(prompt.user.indexOf('【本次任务】')<prompt.user.indexOf('【上游事实：大纲】'))
  assert.doesNotMatch(shotContext({...project,shots:{items:[]}}),/上下文与衔接边界/)
- assert.doesNotMatch(render(new TextStoryboardModel({project}).toGenerateSegments().system),/镜头表按要求用标题/)
+ assert.doesNotMatch(render(new TextStoryboardModel({project}).toReviewSegments('正文').system),/镜头表按要求用标题/)
 })
 
 
 test('single target labels distinguish upstream same shot from previous and following shots',async()=>{
  const { episodeFixture }=await import('./fixtures/model.js')
- const { buildStoryboardPrompts, shotContext }=await import('../server/prompts/shot-prompts.js')
- const project=episodeFixture(),shot=project.shots.items[0]
+ const { shotContext }=await import('../server/prompts/shot-prompts.js')
+ const { buildEditedContentReview }=await import('../server/prompts/text-prompts.js')
+ const project=episodeFixture()
  const context=shotContext(project,'S01')
  assert.doesNotMatch(context,/前镜已发生/);assert.match(context,/后镜尚未发生/)
- const prompts=buildStoryboardPrompts({project,shotId:'S01'},{shot,video:'text',characters:[],scenes:[],refs:'',images:[]})
- assert.match(prompts.generation.user,/仅为 S01 将已通过的每秒指令直接编排/)
- assert.match(prompts.generation.user,/本镜已通过每秒指令/)
- assert.doesNotMatch(prompts.generation.user,/后镜尚未发生|本集摘要|大纲/)
- assert.match(prompts.review('最终提示词').user,/不重新审核此前已通过/)
+ const review=buildEditedContentReview({project,stage:'storyboard',shotId:'S01'},'最终提示词')
+ assert.match(review.user,/只审核 S01 已编辑的最终提示词/)
+ assert.match(review.user,/本镜已通过每秒指令/)
+ assert.doesNotMatch(review.user,/后镜尚未发生|本集摘要|大纲/)
+ assert.match(review.user,/不重新审核此前已通过/)
 })
