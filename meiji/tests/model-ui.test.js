@@ -392,6 +392,15 @@ test('stage toolbar groups status, history, skills and generation controls', t =
   assert.ok(toolbar.querySelector('.task-history-entry'))
   assert.ok(toolbar.querySelector('.stage-primary-actions button.primary'),step)
   assert.equal(container.querySelectorAll('.custom-skill-field').length,0)
+  if (step === 'script') {
+   const groups = container.querySelectorAll('.outline-head > .story-node-actions')
+   assert.equal(groups.length,3)
+   for (const group of groups) {
+    assert.ok(group.parentElement.querySelector('h3'))
+    assert.ok(group.querySelector('.task-history-entry'))
+    assert.ok(group.querySelector('[data-skill]'))
+   }
+  }
  }
 })
 
@@ -606,9 +615,73 @@ test('character detail lays out the portrait, reference, text, and other images'
  p.plot.characters.items[0].image = { content: { localPath: '/portrait.png' } }
  container.replaceChildren(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async () => {}, fail() {} }, {}))
  const dialog = container.querySelector('dialog.still-preview')
- dialog.showModal = () => { dialog.open = true }
+ dialog.show = () => { dialog.open = true }
  container.querySelector('[aria-label="查看大图：人物图片"]').click()
  const preview = container.querySelector('dialog.still-preview img')
  assert.equal(preview.src.endsWith('/portrait.png'), true)
  assert.equal(preview.alt, '旅人 · 人物图片')
+})
+
+test('successful modification clears submitted opinion even while focused or dirty, and not on acceptance', async t => {
+ const { appendWorkflowReview } = await import('../client/workflow-review.js')
+ const { node, begin, finish } = await import('../shared/drama-model.js')
+ const container=domSetup(t), record=node('summary','摘要')
+ const build=()=>{const root=document.createElement('div'),view=document.createElement('div');view.dataset.modelKey='opinion';const button=document.createElement('button');button.onclick=async()=>{};view.append(button);appendWorkflowReview(view,record,true,false,button);root.append(view);return root}
+ container.append(build())
+ const input=container.querySelector('input')
+ input.value='增加悬念';input.dispatchEvent(new window.Event('input'))
+ container.querySelector('.workflow-review-action').click();await Promise.resolve()
+ assert.equal(input.value,'增加悬念')
+ input.focus()
+ begin(record,{id:'one',consumesReview:true});finish(record,{passed:true,failures:[]})
+ renderModelView(container,build())
+ assert.equal(container.querySelector('input'),input)
+ assert.equal(input.value,'')
+ assert.equal(input.dataset.dirty,undefined)
+ assert.equal(container.querySelector('.workflow-review-action').disabled,true)
+})
+
+test('successful modification preserves a new opinion typed while task runs', async t => {
+ const { appendWorkflowReview } = await import('../client/workflow-review.js')
+ const { node, begin, finish } = await import('../shared/drama-model.js')
+ const container=domSetup(t), record=node('summary','摘要')
+ const build=()=>{const root=document.createElement('div'),view=document.createElement('div');view.dataset.modelKey='opinion';const button=document.createElement('button');button.onclick=async()=>{};view.append(button);appendWorkflowReview(view,record,true,false,button);root.append(view);return root}
+ container.append(build())
+ const input=container.querySelector('input')
+ input.value='本次意见';input.dispatchEvent(new window.Event('input'));container.querySelector('.workflow-review-action').click()
+ begin(record,{id:'one',consumesReview:true})
+ input.value='下一次意见';input.dispatchEvent(new window.Event('input'));input.focus()
+ finish(record,{passed:true,failures:[]});renderModelView(container,build())
+ assert.equal(container.querySelector('input').value,'下一次意见')
+ input.onblur()
+})
+
+test('failed modification preserves persisted opinion, and a new image candidate clears gate opinion', async t => {
+ const { node, begin, finish, saveReview } = await import('../shared/drama-model.js')
+ const { syncImageGate } = await import('../client/image-review.js')
+ const record=node('summary','摘要');saveReview(record,'保留意见',0)
+ begin(record,{id:'one',consumesReview:true});finish(record,{passed:false,failures:['失败']})
+ assert.equal(record.review.text,'保留意见')
+ const next=syncImageGate({episodes:[{id:'episode',pendingImages:{new:{draftId:'new',itemId:'C01',previewUrl:'/new.png'}}}]},
+  {phase:'generating',episodeId:'episode',itemId:'C01',ignoreDraftId:'old',review:'旧修改意见'})
+ assert.equal(next.review,'');assert.equal(next.phase,'ready')
+})
+
+test('late draft acknowledgement cannot restore consumed opinion or block a newer draft save', async t => {
+ const { appendWorkflowReview } = await import('../client/workflow-review.js')
+ const { node, begin, finish } = await import('../shared/drama-model.js')
+ const container=domSetup(t),record=node('summary','摘要'),saved=[]
+ container.addEventListener('meiji-review-draft',event=>saved.push(event.detail))
+ const build=()=>{const root=document.createElement('div'),view=document.createElement('div');view.dataset.modelKey='opinion';const button=document.createElement('button');button.onclick=async()=>{};view.append(button);appendWorkflowReview(view,record,true,false,button);root.append(view);return root}
+ container.append(build());const input=container.querySelector('input')
+ input.value='旧意见';input.dispatchEvent(new window.Event('input'));input.onblur()
+ container.querySelector('.workflow-review-action').click();input.focus()
+ record.review={text:'旧意见',revision:1};begin(record,{id:'one',consumesReview:true});finish(record,{passed:true,failures:[]})
+ renderModelView(container,build());assert.equal(input.value,'')
+ input.value='新意见';input.dispatchEvent(new window.Event('input'));input.onblur()
+ saved[0].onSaved({text:'旧意见',revision:1})
+ assert.equal(input.value,'新意见');assert.equal(saved.length,2)
+ assert.equal(saved[1].text,'新意见');assert.equal(saved[1].revision,2)
+ saved[1].onSaved({text:'新意见',revision:3})
+ assert.equal(input.dataset.dirty,undefined)
 })

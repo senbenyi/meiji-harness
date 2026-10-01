@@ -25,7 +25,7 @@ export function shotModel(fields) {
   return { ...node(id, text), ...content, seconds: node(`seconds:${id}`), storyboard: node(`storyboard:${id}`), pencil: node(`pencil:${id}`), video: node(`film:${id}`), tailFrame: node(`tailFrame:${id}`) }
 }
 export function episodeModel(id, fields) {
-  return { id, ...fields, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
+  return { id, ...fields, supplementalSkills: {}, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
     plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] } },
     shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), pendingImages: {}, activity: null, activityError: null }
 }
@@ -75,9 +75,13 @@ export function begin(target, operation) {
 export function finish(target, check) {
   target.check = { ...check, revision: target.revision }
   target.status = check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED
-  if (check.passed && target.operation?.consumesReview !== false && target.operation?.reviewRevision === target.review.revision) target.review.text = ''
+  if (check.passed) consumeReview(target)
   target.operation = null
   target.error = null
+}
+export function consumeReview(target) {
+  if (!target?.operation || target.operation.consumesReview === false || target.operation.reviewRevision !== target.review.revision) return
+  target.review = { ...target.review, text: '', revision: target.review.revision + 1 }
 }
 export function saveReview(target, text, expectedRevision) {
   if (typeof text !== 'string' || text.length > 2000) throw Object.assign(new Error('修改意见不能超过 2000 字'), { status: 400 })
@@ -124,7 +128,14 @@ export function assertDrama(project) {
   if (project.schemaVersion !== schemaVersion) throw new Error('项目格式需先执行一次性 Model 迁移，运行时不兼容旧格式')
   if (!Array.isArray(project.episodes)) throw new Error('项目缺少剧集集合')
   for (const episode of project.episodes) {
-    // 补充 skill 与指导素材已改为按剧保存（项目 skills），按集的旧字段需先迁移。
+    if (episode.supplementalSkills !== undefined) {
+      const supplements = episode.supplementalSkills
+      if (!supplements || typeof supplements !== 'object' || Array.isArray(supplements)) throw new Error('节点补充 skill 格式错误')
+      for (const [key, items] of Object.entries(supplements)) {
+        if (!/^(summary|outline|characters|scenes|shots|shot|seconds|storyboard|film|pencil)(:[A-Za-z0-9_-]+)?$/.test(key) || !Array.isArray(items) || items.length > 20 || new Set(items.map(item => item?.id)).size !== items.length || items.some(item => typeof item?.id !== 'string' || !item.id || typeof item.content !== 'string' || !item.content.trim() || item.content.length > 10000)) throw new Error('节点补充 skill 格式错误')
+      }
+    }
+    // 旧字段需迁移；指导素材继续按剧保存（项目 skills），按集的旧字段需先迁移。
     if (Object.hasOwn(episode, 'customSkills') || Object.hasOwn(episode, 'guidanceAssets')) throw Object.assign(new Error('剧集仍含按集保存的补充 skill 或指导素材，请停止服务后执行：node meiji/scripts/migrate-custom-skills.js <DSH_HOME>'), { code: 'OLD_CUSTOM_SKILLS', status: 409 })
     if (hasGatewayFileFields(episode)) throw Object.assign(new Error('剧集仍含网关文件地址（imageUrl），请停止服务后执行：node meiji/scripts/migrate-image-url.js <DSH_HOME>'), { code: 'OLD_IMAGE_URL', status: 409 })
     if (['feedback', 'outline', 'characters', 'scenes', 'storyboard', 'boards', 'films'].some(key => Object.hasOwn(episode, key))) throw new Error('剧集包含已移除的旧字段')

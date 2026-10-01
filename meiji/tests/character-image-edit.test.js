@@ -27,6 +27,7 @@ async function fixture(t, draft = false) {
 
 for (const draft of [false, true]) test(`人物修改直接提交意见和${draft ? '待确认' : '已确认'}原图 Base64，不改写人物卡`, async t => {
   const e = await fixture(t, draft)
+  await e.store.saveReviewDraft(e.id, e.episodeId, 'image:C01', '将头发改为黑色短发', 0)
   const before = await e.read()
   const operation = e.op('image', { itemId: 'C01', generationMode: 'modify', review: '将头发改为黑色短发', aspect: '1000x1504', ...(draft ? { draftId: e.draftId } : {}) })
   const steps = await planSteps(e.home, operation)
@@ -46,6 +47,10 @@ for (const draft of [false, true]) test(`人物修改直接提交意见和${draf
   } })
   const after = await e.read()
   assert.equal(called, 1)
+  assert.equal(after.plot.characters.items[0].image.review.text, '')
+  assert.equal(after.plot.characters.items[0].image.review.revision, before.plot.characters.items[0].image.review.revision + 1)
+  assert.notEqual(after.plot.characters.items[0].image.status, 'passed')
+  await assert.rejects(e.store.saveReviewDraft(e.id, e.episodeId, 'image:C01', '迟到的旧意见', before.plot.characters.items[0].image.review.revision), /意见已更新/)
   assert.equal(after.plot.characters.items[0].look, before.plot.characters.items[0].look)
   assert.equal(after.plot.characters.items[0].image.content.assetId, before.plot.characters.items[0].image.content.assetId)
   assert.equal(Object.keys(after.pendingImages).length, 1)

@@ -57,13 +57,13 @@ test('a task fixes base and drama skills at its start; later edits do not change
   const e = await setupModel(t), models = modelStore(e.home)
   await models.write({ ...await models.read(), apiKey: 'test-only' })
   await skillStore(e.home).save('episode', { review: '【基础】第一版验收' })
-  await e.store.save(e.id, current => ({ skills: additionsPatch(current.skills, 'episode', { common: '本剧第一版' }) }))
+  await e.store.save(e.id, current => ({ episodes: current.episodes.map(item => ({ ...item, supplementalSkills: { summary: [{ id: 'one', content: '本节点第一版' }] } })) }))
   const seen = []
   await runOperation(e.op('episode-generate'), { home: e.home, generateEpisode: options => generateEpisode({ ...options, request: async message => {
     seen.push(message.system + message.user)
     if (message.skill !== 'review') {
       await skillStore(e.home).save('episode', { review: '【基础】第二版验收' })
-      await e.store.save(e.id, current => ({ skills: additionsPatch(current.skills, 'episode', { common: '本剧第二版' }) }))
+      await e.store.save(e.id, current => ({ episodes: current.episodes.map(item => ({ ...item, supplementalSkills: { summary: [{ id: 'one', content: '本节点第二版' }] } })) }))
       return JSON.stringify({ summary: '初稿', durationSeconds: 10 })
     }
     return 'PASS'
@@ -74,8 +74,9 @@ test('a task fixes base and drama skills at its start; later edits do not change
     assert.doesNotMatch(text, /第二版/)
   }
   const [task] = await recordStore(e.home, e.id).list()
-  assert.deepEqual(task.skills.map(skill => [skill.id, skill.layers]), [['episode', ['builtin', 'base', 'project']]])
+  assert.deepEqual(task.skills.map(skill => [skill.id, skill.layers]), [['episode', ['builtin', 'base', 'node']]])
   assert.match(task.skills[0].hash, /^[0-9a-f]{12}$/)
+  assert.equal((await e.store.read(e.id)).episodes[0].supplementalSkills.summary[0].content, '本节点第二版')
   const next = await loadSkillSet(e.home, (await e.store.read(e.id)).skills)
   assert.match(next.skills.episode.parts.review, /第二版/)
 })
@@ -101,6 +102,17 @@ test('skill HTTP endpoints: library, detail, confirmed base save, reset and prev
     })
     return { status, ...value }
   }
+  const scope = { projectId: e.id, sessionId, episodeId: e.episodeId, nodeKey: 'characters' }
+  const supplement = await call('PUT', 'node-skills', { ...scope, content: 'NODE_ONLY' })
+  assert.equal(supplement.status, 200)
+  assert.equal(supplement.items.length, 1)
+  assert.doesNotMatch(supplement.skill.fields.find(field => field.field === 'generate').text, /### 场景卡/)
+  assert.equal((await call('PUT', 'node-skills', { ...scope, content: 'x' }, {})).status, 403)
+  assert.ok((await call('PUT', 'node-skills', { ...scope, sessionId: 'wrong', content: 'x' })).status >= 400)
+  const nodePreview = await call('POST', 'skills/outline/preview', scope)
+  assert.deepEqual(Object.keys(nodePreview.requests), ['generate', 'modify', 'review', 'revise'])
+  assert.match(JSON.stringify(nodePreview.requests.generate), /NODE_ONLY/)
+  assert.equal((await call('DELETE', 'node-skills', { ...scope, id: supplement.items[0].id })).items.length, 0)
   const library = await call('GET', 'skills')
   assert.equal(library.status, 200)
   assert.equal(library.skills.length, 23)

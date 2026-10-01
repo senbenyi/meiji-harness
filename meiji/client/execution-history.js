@@ -12,15 +12,15 @@ const skillNames = { episode: '剧集摘要', outline: '剧情整包', shots: '�
 export function skillsLine(skills = []) {
   if (!skills.length) return null
   const text = skills.map(skill => {
-    const notes = [skill.layers.includes('base') ? '基础已修改' : '', skill.layers.includes('project') ? '含本剧补充' : ''].filter(Boolean)
-    return `${skillNames[skill.id] || skill.id}${notes.length ? `（${notes.join('、')}）` : ''}`
+    const notes = [skill.layers.includes('base') ? '基础已修改' : '', skill.layers.includes('node') ? '含本节点补充' : skill.layers.includes('project') ? '含本剧补充' : ''].filter(Boolean)
+    return `${skillNames[skill.id] || skill.id}${skill.nodeKey ? ` · ${skill.nodeKey}` : ""}${notes.length ? `（${notes.join('、')}）` : ''}`
   }).join('、')
   const line = element('p', `所用技能：${text}`, 'meta task-skills')
   line.title = skills.map(skill => `${skill.id} ${skill.hash}`).join('\n')
   return line
 }
 
-const scopes = { summary: ['摘要', ['episode-generate', 'episode-add', 'episode-edit']], script: ['剧情', ['outline', 'outline-text', 'characters', 'scenes', 'scene-text', 'character-text']], shots: ['镜头表', ['shots', 'revise-shot', 'shot-assets']], seconds: ['每秒指令', ['seconds', 'shot-seconds']], film: ['成片', ['storyboard', 'shot-storyboard', 'shot-boards', 'storyboard-text', 'film', 'films', 'produce', 'produce-all', 'tail-frame']], assembly: ['合成', ['assemble']] }
+const scopes = { outline: ['大纲', ['outline', 'outline-text']], characters: ['人物角色', ['outline', 'characters', 'character-text']], scenes: ['场景', ['outline', 'scenes', 'scene-text']], summary: ['摘要', ['episode-summary-draft', 'episode-generate', 'episode-add', 'episode-edit']], script: ['剧情', ['outline', 'outline-text', 'characters', 'scenes', 'scene-text', 'character-text']], shots: ['镜头表', ['shots', 'revise-shot', 'shot-assets']], seconds: ['每秒指令', ['seconds', 'shot-seconds']], film: ['成片', ['storyboard', 'shot-storyboard', 'shot-boards', 'storyboard-text', 'film', 'films', 'produce', 'produce-all', 'tail-frame']], assembly: ['合成', ['assemble']] }
 
 export function historyEntry(project, actions, scope = '') {
   const button = element('button', scopes[scope] ? `查看${scopes[scope][0]}任务历史 →` : project.episodeId ? '查看本集任务历史 →' : '查看项目任务历史 →', 'task-history-entry')
@@ -29,13 +29,14 @@ export function historyEntry(project, actions, scope = '') {
   return button
 }
 
-export function renderTaskHistory(project, { load, back, historyScope = '' }) {
+export function renderTaskHistory(project, { load, loadPrompts, back, historyScope = '' }) {
   const view = element('section', '', 'task-history-page')
   const header = element('div', '', 'task-history-header')
   const backButton = element('button', '← 返回')
   backButton.type = 'button'
   backButton.onclick = back
   const refresh = element('button', '刷新')
+  refresh.type = 'button'
   refresh.type = 'button'
   header.append(backButton, element('h2', scopes[historyScope] ? `${scopes[historyScope][0]}任务历史` : '任务历史'), refresh)
   const scope = project.episodeId ? project.episodeNumber ? `第 ${project.episodeNumber} 集` : '本集' : '全部剧集'
@@ -53,12 +54,15 @@ export function renderTaskHistory(project, { load, back, historyScope = '' }) {
   view.append(header, element('p', `${project.title || '项目'} · ${scope}`, 'meta'), toolbar, message, list)
   let tasks = [], requestId = 0
   const draw = () => {
+    const expanded = new Set([...list.querySelectorAll('details[data-task-id][open]')].map(item => item.dataset.taskId))
     list.replaceChildren()
     const selected = tasks.filter(task => !filter.value || task.status === filter.value)
     count.textContent = `${selected.length} 条任务`
     message.textContent = selected.length ? '' : tasks.length ? '没有符合条件的任务' : '暂无任务历史'
     for (const task of selected) {
       const item = element('details', '', 'task-history-item')
+      item.dataset.taskId = task.id
+      item.open = expanded.has(task.id)
       const row = element('summary', '', 'task-history-row')
       row.append(element('strong', names[task.action] || task.action), element('span', taskStatusLabels[task.status] || task.status, `task-history-status is-${task.status}`), element('span', task.actor === 'human' ? '人工操作' : '模型任务', 'meta'), element('span', time(task.startedAt), 'meta'))
       item.append(row)
@@ -74,7 +78,7 @@ export function renderTaskHistory(project, { load, back, historyScope = '' }) {
       if (task.error) detail.append(element('p', task.error, 'error'))
       const used = skillsLine(task.skills)
       if (used) detail.append(used)
-      detail.append(renderSteps(task.steps))
+      detail.append(renderSteps(task.steps, { live: ['queued', 'running'].includes(task.status), loadPrompts: loadPrompts && (step => loadPrompts(task, step)) }))
       for (const artifact of task.artifacts) {
         const [kind, track] = artifact.target.split(':')
         const snapshot = element('details', '', 'task-history-snapshot')
@@ -110,6 +114,7 @@ export function renderTaskHistory(project, { load, back, historyScope = '' }) {
     } catch (error) { if (id === requestId) message.textContent = `加载失败：${error.message}。点击刷新重试。` }
     finally { if (id === requestId) refresh.disabled = false }
   }
-  void refresh.onclick()
+  view.refresh = refresh.onclick
+  void view.refresh()
   return view
 }

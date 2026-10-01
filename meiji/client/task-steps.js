@@ -3,6 +3,7 @@
 // live 时高亮当前步骤，并显示已用时间、同一步骤内的尝试（如续传 2/3）与视频的远端任务编号。
 import { currentStep, groupByTarget } from '../shared/steps.js'
 import { element } from './dom.js'
+import { openStepPrompts } from './task-prompt.js'
 
 export const taskStatusLabels = { queued: '排队中', running: '执行中', waiting: '等待人工', completed: '完成', review_failed: '审核未通过', failed: '失败', cancelled: '已取消' }
 export const stepStatusLabels = { pending: '未执行', running: '执行中', waiting: '等待人工', completed: '完成', failed: '失败', cancelled: '已取消', skipped: '已跳过' }
@@ -22,11 +23,19 @@ export function elapsedText(startedAt, now = Date.now()) {
   return seconds >= 60 ? `${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, '0')}秒` : `${seconds}秒`
 }
 
-function renderStep(step, current, now) {
+function renderStep(step, current, now, loadPrompts) {
   const item = element('li', '', `task-step is-${step.status}${current ? ' is-current' : ''}`)
   if (current) item.setAttribute('aria-current', 'step')
   const head = element('div', '', 'task-step-head')
   head.append(element('strong', stepKindLabels[step.kind] || step.label || step.kind), element('span', stepStatusLabels[step.status] || step.status, `task-step-status is-${step.status}`))
+  if (['generate', 'review', 'revise', 're_review', 'image_generate', 'video_submit'].includes(step.kind) || step.prompts?.length) {
+    const button = element('button', '查看提示词', 'task-step-prompt')
+    button.type = 'button'
+    button.disabled = !loadPrompts || (!step.prompts?.length && ['pending', 'skipped'].includes(step.status))
+    button.title = step.prompts?.length ? '查看该步骤实际提交的完整提示词' : step.status === 'skipped' ? '该步骤已跳过，没有生成提示词' : step.status === 'pending' ? '提示词尚未生成' : '查看该步骤的请求日志；没有记录时显示原因'
+    button.onclick = () => openStepPrompts(button, { title: `${stepKindLabels[step.kind] || step.kind} · 完整提示词`, load: () => loadPrompts(step) })
+    head.append(button)
+  }
   if (step.actor === 'human') head.append(element('span', '人工', 'task-step-actor'))
   item.append(head)
   if (step.label && stepKindLabels[step.kind]) item.append(element('p', step.label, 'meta'))
@@ -46,7 +55,7 @@ function renderStep(step, current, now) {
   return item
 }
 
-export function renderSteps(steps = [], { live = false, now = Date.now() } = {}) {
+export function renderSteps(steps = [], { live = false, now = Date.now(), loadPrompts } = {}) {
   const view = element('div', '', 'task-steps')
   const current = live ? currentStep(steps) : null
   for (const group of groupByTarget(steps)) {
@@ -54,7 +63,7 @@ export function renderSteps(steps = [], { live = false, now = Date.now() } = {})
     const head = element('h4', '', 'task-steps-target')
     head.append(element('span', targetLabel(group.target)), element('span', taskStatusLabels[group.status] || group.status, `task-history-status is-${group.status}`))
     const list = element('ol', '', 'task-steps-list')
-    for (const step of group.steps) list.append(renderStep(step, step === current, now))
+    for (const step of group.steps) list.append(renderStep(step, step === current, now, loadPrompts))
     section.append(head, list)
     view.append(section)
   }

@@ -68,8 +68,9 @@ export function recordStore(home, projectId) {
       return Promise.all(names.filter(name => name.endsWith('.json')).map(name => read(kind, name.slice(0, -5))))
     },
     async removeEpisode(episodeId) {
-      for (const kind of ['tasks', 'artifacts']) for (const value of await this.list(kind)) {
-        if (value.episodeId === episodeId) await rm(path(kind, value.id), { force: true })
+      const taskIds = new Set((await this.list('tasks')).filter(task => task.episodeId === episodeId).map(task => task.id))
+      for (const kind of ['tasks', 'artifacts', 'prompts']) for (const value of await this.list(kind)) {
+        if (value.episodeId === episodeId || (kind === 'prompts' && taskIds.has(value.taskId))) await rm(path(kind, value.id), { force: true })
       }
     },
     // 服务重启：遗留的进行中或排队中任务一律取消（执行中的步骤记为已取消）。
@@ -141,6 +142,7 @@ export async function startExecution(home, operation, id, plan) {
   await addBaselines(store, project, operation, stage, baselines)
   // 任务开始时固定技能组合（内置 + 基础 + 本剧），同一任务内的全部请求（含嵌套子操作）使用同一份。
   const skillSet = await loadSkillSet(home, project.skills)
+  skillSet.nodeSupplements = structuredClone(Object.fromEntries(project.episodes.map(episode => [episode.id, episode.supplementalSkills || {}])))
   return { store, home, taskId: id, projectId: operation.projectId, operation, stage, baselines, outputs: [], steps: record.steps, signal: null, stepId: null, scope: 'root', skillSet, skills: new Map() }
 }
 
@@ -151,7 +153,7 @@ export const taskSkillSet = () => executionContext.getStore()?.skillSet || null
 export function useSkills(entries) {
   const context = executionContext.getStore()
   if (!context?.skills) return
-  for (const entry of entries) context.skills.set(entry.id, entry)
+  for (const entry of entries) context.skills.set(entry.id + ':' + (entry.nodeKey || ''), entry)
 }
 
 async function addBaselines(store, project, operation, stage, baselines) {
@@ -173,6 +175,35 @@ async function writeSteps(context, extra) {
   live.set(context.taskId, record)
   notifyProject(context.home, context.projectId)
   return record
+}
+
+// 请求前保存精确提示词；步骤只带引用，任务列表不携带大段文本、密钥或参考图。
+export async function recordStepPrompt({ kind, messages, prompt }) {
+  const context = executionContext.getStore()
+  const step = context?.steps.find(item => item.id === context.stepId)
+  if (!step) return
+  const content = messages ? { messages: messages.map(({ role, content }) => ({ role, content })) } : { prompt }
+  const id = randomUUID()
+  const snapshot = { id, taskId: context.taskId, stepId: step.id, episodeId: context.operation.episodeId || null,
+    kind, createdAt: now(), ...structuredClone(content) }
+  await context.store.update('prompts', id, snapshot)
+  step.prompts = [...(step.prompts || []), { id, kind, createdAt: snapshot.createdAt }]
+  await writeSteps(context)
+}
+
+export async function readStepPrompts(home, projectId, taskId, stepId) {
+  const store = recordStore(home, projectId)
+  const task = await store.read('tasks', taskId)
+  if (task.projectId !== projectId) throw Object.assign(new Error('任务不属于当前项目'), { status: 404 })
+  const step = task.steps.find(item => item.id === stepId)
+  if (!step) throw Object.assign(new Error('任务步骤不存在'), { status: 404 })
+  return Promise.all((step.prompts || []).map(async ({ id }) => {
+    const value = await store.read('prompts', id)
+    if (value.taskId !== taskId || value.stepId !== stepId) {
+      throw Object.assign(new Error('提示词记录不属于当前步骤'), { status: 404 })
+    }
+    return value
+  }))
 }
 
 function unprepare(step) {
@@ -312,6 +343,9 @@ const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'oper
 const textData = value => JSON.parse(JSON.stringify(value, (key, item) => omitted.has(key) ? undefined : item))
 export function contentTargets(project) {
   return project.episodes.flatMap(episode => {
+    const storyChecks = [episode.plot.outline.check, episode.plot.characters.check, episode.plot.scenes.check]
+    const storyCheck = { passed: storyChecks.some(check => check.passed === false) ? false : storyChecks.every(check => check.passed === true) ? true : null,
+      failures: [...new Set(storyChecks.flatMap(check => check.failures || []))] }
     const entries = [
       ['summary', episode.summary, { summary: episode.summary.content, durationSeconds: episode.durationSeconds }],
       ['story', episode.plot, { outline: episode.plot.outline.content, characters: textData(episode.plot.characters.items), scenes: textData(episode.plot.scenes.items) }],
@@ -321,7 +355,7 @@ export function contentTargets(project) {
       ...episode.shots.items.flatMap(shot => [['storyboard', shot.storyboard], ['film', shot.video]].map(([kind, node]) => [`${kind}:${shot.id}`, node, kind === 'film' ? node.content?.file ? { file: node.content.file, url: node.content.url } : null : node.content])),
     ]
     return entries.map(([key, node, content]) => ({ episodeId: episode.id, key, node, content,
-      check: key === 'story' ? episode.plot.outline.check : node.check,
+      check: key === 'story' ? storyCheck : node.check,
       exists: key === 'story' ? Boolean(content.outline || content.characters.length || content.scenes.length) : key === 'seconds' ? content.some(item => item.content) : key === 'shots' ? content.length > 0 : key === 'summary' ? Boolean(content.summary) : content != null }))
   })
 }

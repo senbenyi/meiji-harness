@@ -17,14 +17,18 @@ test('episode generation repairs once and records both reviews',async()=>{
  assert.equal(calls,4);assert.equal(result.summary,'修订稿');assert.equal(result.check.passed,true)
  assert.deepEqual(steps.map(step => `${step.kind}:${step.target}:${step.verdict}`), ['generate:summary:null', 'review:summary:fail', 'revise:summary:null', 're_review:summary:pass'])
 })
-test('story package repairs once with language and original failure present',async()=>{
+test('story outline repairs once before extracting cards from the final outline', async () => {
+ const fixture = storyPackageFixture()
+ const replies = [JSON.stringify({outline:'初稿'}), 'FAIL\n因果不完整', JSON.stringify({outline:'修订后最终大纲'}), 'PASS', JSON.stringify(fixture.characters), 'PASS', JSON.stringify(fixture.scenes), 'PASS']
  let calls=0
- const result=await generateStoryPackage({project:{...episodeFixture(),outputLanguage:'en'},route,fetchImpl:async(_,options)=>{
- const body=JSON.parse(options.body);calls++;assert.match(body.messages[0].content,/本次生成语言：English/)
- if(calls===3)assert.match(body.messages[1].content,/缺少角色/)
- return Response.json({choices:[{message:{content:calls===2?'FAIL\n缺少角色':calls===4?'PASS':JSON.stringify(storyPackageFixture())}}]})
- }})
- assert.equal(calls,4);assert.equal(result.check.passed,true)
+ const { result, steps }=await recordSteps(() => generateStoryPackage({project:{...episodeFixture(),outputLanguage:'en'},route,request:async message=>{
+   calls++
+   if(calls===3) { assert.match(message.user,/因果不完整/); assert.match(message.user,/初稿/) }
+   if(calls>=5) { assert.match(message.user,/修订后最终大纲/); assert.doesNotMatch(message.user,/初稿/) }
+   return replies.shift()
+ }}))
+ assert.equal(calls,8); assert.equal(result.check.passed,true)
+ assert.deepEqual(steps.map(step=>`${step.kind}:${step.target}`), ['generate:outline','review:outline','revise:outline','re_review:outline','generate:characters','review:characters','generate:scenes','review:scenes'])
 })
 test('episode invalid JSON is not sent to semantic review or retried',async()=>{
  let calls=0
@@ -32,22 +36,24 @@ test('episode invalid JSON is not sent to semantic review or retried',async()=>{
  assert.equal(calls,1)
 })
 
-test('character generation runs independent identity coverage review instead of accepting merged bodies', async t => {
+test('character extraction independently reviews body coverage and stops scene extraction on failure', async () => {
+  const fixture = storyPackageFixture()
+  const replies = [JSON.stringify({outline:'现代旅人穿越到古代武松身体，两个身体均实际出镜。'}), 'PASS', JSON.stringify(fixture.characters), 'FAIL\n缺少新身体的独立角色卡', JSON.stringify(fixture.characters), 'FAIL\n缺少新身体的独立角色卡']
   let calls = 0
-  t.mock.method(globalThis, 'fetch', async (_url, options) => {
-    calls++
-    const payload = JSON.parse(options.body)
-    if (calls % 2 === 0) {
-      assert.match(payload.messages[1].content, /阶段：剧情整包/)
-      assert.match(payload.messages[1].content, /意识的姓名不代表身体相同/)
-      return Response.json({ choices: [{ message: { content: 'FAIL\n缺少新身体的独立角色卡' } }] })
-    }
-    return Response.json({ choices: [{ message: { content: JSON.stringify(storyPackageFixture(10)) } }] })
-  })
   await checkContext.run({}, async () => {
-    const result = await generateStoryPackage({ route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' }, project: { ...episodeFixture(), outputLanguage: 'zh-CN' } })
+    const result = await generateStoryPackage({ route, project: episodeFixture(), request: async message => {
+      calls++
+      if ([4,6].includes(calls)) {
+        assert.match(message.user, /阶段：人物提取/)
+        assert.match(message.system, /意识的姓名不代表身体相同/)
+      }
+      return replies.shift()
+    } })
     assert.equal(result.characters.items.length, 1)
+    assert.equal(result.checks.outline.passed, true)
+    assert.equal(result.checks.characters.passed, false)
+    assert.equal(result.checks.scenes.passed, null)
     assert.deepEqual(checkContext.getStore().validation, ['FAIL\n缺少新身体的独立角色卡'])
   })
-  assert.equal(calls, 4)
+  assert.equal(calls, 6)
 })

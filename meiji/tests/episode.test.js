@@ -59,13 +59,13 @@ test('summary modes separate old input, review content and revision-only rules',
     checkContext.run({ generationMode, review: 'HUMAN_OPINION' }, () => {
       const prompts = buildEpisodePrompts(project, 'target')
       const { generation } = prompts
-      assert.match(generation.system, /【自检标准】/)
+      assert.match(generation.system, /返回前核对本集事件因果/)
       assert.doesNotMatch(generation.system, /共用生成审核流程|后端验收（未通过则重写）|以原摘要的既定事件为基准/)
       assert.equal(generation.system.includes('【摘要修订边界】'), generationMode === 'modify')
       assert.equal(generation.user.includes('OLD_SUMMARY'), generationMode === 'modify')
       assert.equal(generation.user.includes('HUMAN_OPINION'), generationMode === 'modify')
       assert.match(generation.user, /NEXT_EPISODE/)
-      assert.doesNotMatch(prompts.review('NEW_SUMMARY').user, /OLD_SUMMARY/)
+      assert.equal(prompts.review('NEW_SUMMARY').user.includes('OLD_SUMMARY'), generationMode === 'modify')
       const revision = prompts.revision('FAILED_SUMMARY', 'FAIL 原因')
       assert.match(revision.system, /【摘要修订边界】/)
       assert.match(revision.user, /FAILED_SUMMARY/)
@@ -102,6 +102,7 @@ for (const mode of ['new', 'regenerate', 'modify']) {
     assert.equal(episode.summary.status, 'passed')
     assert.equal(episode.summary.error, null)
     assert.equal(episode.summary.check.passed, true)
+    if (mode === 'modify') assert.equal(episode.summary.review.text, '')
     assert.notEqual(episode.status, 'generating')
     assert.notEqual(saved.status, 'generating')
   })
@@ -110,13 +111,38 @@ for (const mode of ['new', 'regenerate', 'modify']) {
 test('summary checks run after drafting and independent review receives the same acceptance constraints', async () => {
   const { buildEpisodePrompts } = await import('../server/prompts/episode-prompts.js')
   const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
-  assert.match(prompts.generation.system, /【自检标准】\n返回前按以下标准核对并修正明确问题/)
-  assert.match(prompts.generation.system, /不输出检查过程、PASS\/FAIL 或审核报告/)
+  assert.match(prompts.generation.system, /返回前核对本集事件因果/)
+  assert.match(prompts.generation.system, /不输出检查过程/)
   const review = prompts.review('{"summary":"待审摘要","durationSeconds":120}')
   for (const constraint of ['跨集连续性', '事件与因果', '时长与容量', '结尾与衔接', '失败依据', '不以个人写法偏好判失败']) {
-    assert.ok(prompts.generation.system.includes(constraint))
-    assert.ok(review.user.includes(constraint))
+    assert.ok(!prompts.generation.system.includes(constraint))
+    assert.ok(review.system.includes(constraint))
   }
   assert.match(review.system, /只审核，不生成或修改原文/)
   assert.match(review.user, /【本次待审内容】\n.*待审摘要/)
 })
+
+for (const scenario of ['failed', 'new-opinion']) {
+  test(`summary modification keeps opinions when ${scenario}`, async t => {
+    const { setupModel } = await import('./fixtures/model.js')
+    const { modelStore } = await import('../server/data/model-settings.js')
+    const { runOperation } = await import('../server/flow/operations/run.js')
+    const { saveReview } = await import('../shared/drama-model.js')
+    const e = await setupModel(t), models = modelStore(e.home)
+    await models.write({ ...await models.read(), apiKey: 'test-only' })
+    await runOperation({ action: 'episode-generate', projectId: e.id, episodeId: e.episodeId,
+      generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10,
+    }, { home: e.home, generateEpisode: async () => {
+      if (scenario === 'new-opinion') await e.store.save(e.id, current => {
+        const next = structuredClone(current)
+        saveReview(next.episodes.find(item => item.id === e.episodeId).summary, '执行期间新意见')
+        return next
+      })
+      return { summary: '旅人发现线索。', durationSeconds: 10,
+        check: { passed: scenario !== 'failed', failures: scenario === 'failed' ? ['冲突'] : [] } }
+    } })
+    const saved = await e.store.read(e.id)
+    assert.equal(saved.episodes.find(item => item.id === e.episodeId).summary.review.text,
+      scenario === 'failed' ? '已提交意见' : '执行期间新意见')
+  })
+}

@@ -74,7 +74,10 @@ test('story package, shot table and seconds each produce whole-episode records',
  const e = await setup(t)
  await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl: async (_url, options) => {
   const request = JSON.parse(options.body)
-  return Response.json({ choices: [{ message: { content: request.response_format ? JSON.stringify(storyPackageFixture()) : 'PASS' } }] })
+  const fixture = storyPackageFixture()
+  const text = request.messages[1].content
+  const value = text.includes('仅生成本集完整剧情大纲') ? { outline: fixture.outline } : text.includes('本次仅处理人物卡') ? fixture.characters : fixture.scenes
+  return Response.json({ choices: [{ message: { content: request.response_format ? JSON.stringify(value) : 'PASS' } }] })
  } }) })
  assert.ok((await e.read()).plot.source)
  const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'

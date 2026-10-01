@@ -123,12 +123,14 @@ async function opOutline(c) {
   let { deps, projects, models, project, trace, note } = c
   if (!canGenerate(project, 'outline')) throw Object.assign(new Error('请先写好本集摘要，再生成剧情'), { status: 409 })
   await projects.save(project.id, { activity: 'outline', activityError: null })
-  note('按「剧情整包」技能一次生成大纲、角色卡与场景卡，再做整包自检')
+  note('依次生成并审核剧情大纲、提取人物角色、提取场景；每项独立调用模型，前项未通过则停止后项')
   const result = await (deps.generateStoryPackage || generateStoryPackage)({ route: (await loadModels(models)).story, project, persist: async result => {
     const merged = preserveStoryAssets(project, result)
+    if (result.checks && checkContext.getStore()) checkContext.getStore().storyStages = true
     await projects.save(project.id, replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged }, activity: 'outline' }))
   } })
   const merged = preserveStoryAssets(project, result)
+  if (result.checks && checkContext.getStore()) checkContext.getStore().storyStages = true
   const failures = result.check.failures
   if (checkContext.getStore()) checkContext.getStore().validation = failures
   const patch = replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged }, activity: null })
@@ -228,7 +230,7 @@ async function opShotSeconds(c) {
   const review = String(operation.review || '').trim()
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'seconds', track), activity: `shot-seconds:${track}`, activityError: null })
-  note('技能：每秒指令（skills/stages/seconds）')
+  note('技能：每秒指令（skills/constraints/stages/seconds）')
   note('函数：generateShotSeconds（server/generate/story.js）')
   note(`写 ${track} 的每一秒`)
   if (review) note(`审核意见：${review}`)
@@ -252,7 +254,7 @@ async function opShotStoryboard(c) {
   const review = String(operation.review || '').trim()
   if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'storyboard', track), activity: `shot-storyboard:${track}`, activityError: null })
-  note('技能：文本分镜（skills/stages/storyboard）')
+  note('技能：文本分镜（skills/constraints/stages/storyboard）')
   note('函数：generateShotStoryboard（server/generate/story.js）')
   note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
   if (review) note(`审核意见：${review}`)
@@ -282,7 +284,7 @@ async function opShotBoards(c) {
   const writeBoard = deps.generateShotStoryboard || generateShotStoryboard
   for (const track of ids) {
     let current = await projects.read(project.id)
-    note('技能：文本分镜（skills/stages/storyboard）')
+    note('技能：文本分镜（skills/constraints/stages/storyboard）')
     note('函数：generateShotStoryboard（server/generate/story.js）')
     note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
     await selectCheck(current, { action: 'shot-storyboard', track })

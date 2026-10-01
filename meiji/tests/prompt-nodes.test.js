@@ -16,7 +16,7 @@ const route = { baseUrl: 'https://model.test/v1', apiKey: 'test', model: 'test' 
 const response = content => Response.json({ choices: [{ message: { content } }] })
 const table = '## S01 / 5s\n标题：入院\n旅人进入庭院。\n## S02 / 5s\n标题：寻人\n旅人继续寻找。'
 
-for (const stage of ['package', 'characters', 'scenes', 'shots', 'seconds']) {
+for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
   test(`${stage}: generation, review and revision each submit exactly system and user`, async () => {
     const project = { ...episodeFixture(), outputLanguage: 'en', skills: { additions: { outline: { generate: 'CUSTOM_RULE' }, shots: { generate: 'CUSTOM_RULE' }, seconds: { generate: 'CUSTOM_RULE' } } } }
     const prompts = stage === 'shots' ? buildTablePrompts({ project }) : stage === 'seconds' ? buildSecondsPrompts({ project, shotId: 'S01' }) : buildStoryPrompts(project, stage)
@@ -29,10 +29,10 @@ for (const stage of ['package', 'characters', 'scenes', 'shots', 'seconds']) {
         assert.equal(payload.messages[1].content, message.user)
         assert.match(message.system, /本次生成语言：English/)
         assert.equal((message.system + message.user).split('CUSTOM_RULE').length - 1, 1)
-        assert.equal(Boolean(payload.response_format), !isReview && ['package', 'characters', 'scenes'].includes(stage))
+        assert.equal(Boolean(payload.response_format), !isReview && ['outline', 'characters', 'scenes'].includes(stage))
         if (isReview) {
           assert.match(message.user, /CURRENT_DRAFT/)
-          assert.match(message.user, /验收标准/)
+          assert.match(['outline', 'characters', 'scenes'].includes(stage) ? message.system : message.user, /验收标准/)
           assert.match(message.system, /只审核，不生成或修改原文/)
         }
         return response(isReview ? 'PASS' : 'result')
@@ -58,7 +58,8 @@ test('story regeneration excludes old results; revision uses only latest failed 
     assert.match(revision.user, /NEW_REASON/)
     assert.match(revision.user, /HUMAN_OPINION/)
     assert.doesNotMatch(revision.user, /OLD_DRAFT/)
-    assert.doesNotMatch(prompts.review('FIXED').user, /LATEST_FAILED|NEW_REASON|OLD_DRAFT/)
+    assert.doesNotMatch(prompts.review('FIXED').user, /LATEST_FAILED|NEW_REASON/)
+    assert.match(prompts.review('FIXED').user, /OLD_DRAFT/)
   })
 })
 
@@ -105,7 +106,7 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
         if (action === 'shot-seconds') assert.equal(saved.shots.items[0].seconds.content, '新每秒指令')
         throw new Error('REVIEW_UNAVAILABLE')
       }
-      return response(action === 'shots' ? table : action === 'shot-seconds' ? '新每秒指令' : JSON.stringify(action === 'outline' ? raw : raw[action]))
+      return response(action === 'shots' ? table : action === 'shot-seconds' ? '新每秒指令' : JSON.stringify(action === 'outline' ? { outline: raw.outline } : raw[action]))
     }
     const deps = { home: e.home,
       generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl }),

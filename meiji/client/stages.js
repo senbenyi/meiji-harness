@@ -13,7 +13,7 @@ import { feedbackOf } from '../shared/feedback.js'
 import { shotSecondsReady } from '../shared/shot-timing.js'
 import { stillCards } from './asset-cards.js'
 import { characterCard } from './character.js'
-import { element, appendJsonCopy } from './dom.js'
+import { showPanelDialog, element, appendJsonCopy } from './dom.js'
 import {
   canGenerate, gateMessage, hasSummary, hasCharacters, hasFilm, hasOutline, hasScenes, hasShots, hasStoryboard, stepRunLabel,
 } from './flow-view.js'
@@ -121,15 +121,26 @@ function renderBrief(project, actions) {
   const controls = element('div', '', 'section-actions')
   controls.append(edit, regenerate)
   head.append(controls)
-  view.append(head)
+  view.append(head, skillField(project, 'summary', actions))
   if (project.summary.content) view.append(element('p', project.summary.content, 'summary'))
   appendWorkflowReview(view, feedbackOf(project, 'summary'), Boolean(project.summary.content), Boolean(project.activity), regenerate, { allowFailureOpinion: true })
   return view
 }
 
-function renderOutline(project) {
+function storyNodeActions(project, actions, stage) {
+  const row = element('div', '', 'story-node-actions')
+  if (actions.openHistory) row.append(historyEntry(project, actions, stage))
+  row.append(skillField(project, stage, actions).querySelector('button'))
+  return row
+}
+
+function renderOutline(project, actions) {
   const view = element('section', '', 'session-project')
-  view.append(element('h3', '故事大纲'), element('p', stepRunLabel(project, 'outline'), 'story-status'))
+  const head = element('div', '', 'outline-head')
+  const title = element('div', '', 'asset-stage-title')
+  title.append(element('h3', '故事大纲'), element('span', stepRunLabel(project, 'outline'), 'story-status'))
+  head.append(title, storyNodeActions(project, actions, 'outline'))
+  view.append(head)
   if (hasOutline(project)) {
     view.dataset.modelKey = `outline:${project.episodeId}`
     view.append(element('pre', project.plot.outline.content, 'story'))
@@ -140,7 +151,6 @@ function renderOutline(project) {
 
 function renderStory(project, actions, context) {
   const controls = element('section', '', 'session-project story-controls')
-  controls.append(skillField(project, 'outline', actions))
   const head = element('div', '', 'outline-head')
   head.append(element('h3', '剧情生成与审核'))
   const generated = hasOutline(project) || hasCharacters(project) || hasScenes(project)
@@ -152,13 +162,13 @@ function renderStory(project, actions, context) {
     catch (error) { generate.disabled = false; generate.textContent = label; actions.fail(error) }
   }, '生成中')
   head.append(generate)
-  controls.append(head, element('p', '一次生成大纲、角色和场景。修改剧情、角色或场景，请在下方统一填写审核意见。图片仍在各卡片中生成。', 'meta'))
+  controls.append(head, element('p', '依次生成并审核大纲、提取人物角色、提取场景，各步骤独立调用模型。下方意见用于本次剧情修改。', 'meta'))
   const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, Boolean(project.activity), generate, { allowFailureOpinion: true })
   const input = review.querySelector('input')
   if (input) input.placeholder = '填写剧情、角色或场景的修改意见'
   generate.textContent = project.activity === 'outline' ? '生成中' : label
   generate.setAttribute('aria-label', label)
-  return stack([controls, renderOutline(project), renderCharacters(project, actions, context), renderScenes(project, actions, context)])
+  return stack([controls, renderOutline(project, actions), renderCharacters(project, actions, context), renderScenes(project, actions, context)])
 }
 
 function renderCharacters(project, actions, context) {
@@ -166,7 +176,7 @@ function renderCharacters(project, actions, context) {
   const head = element('div', '', 'outline-head')
   const title = element('div', '', 'asset-stage-title')
   title.append(element('h3', '角色卡'), element('span', stepRunLabel(project, 'characters'), 'story-status'))
-  head.append(title)
+  head.append(title, storyNodeActions(project, actions, 'characters'))
   view.append(head)
   const hint = element('p', hasCharacters(project) ? '' : gateMessage(project, 'characters'), 'hint')
   hint.hidden = !hint.textContent
@@ -174,7 +184,7 @@ function renderCharacters(project, actions, context) {
   const cards = element('div', '', 'character-list')
   for (const item of project.plot.characters?.items || []) cards.append(characterCard(project, item, actions, context))
   view.append(cards)
-  if (!hasCharacters(project)) view.append(element('p', '未生成：点击页面顶部的生成剧情，一次生成大纲、角色和场景。', 'meta'))
+  if (!hasCharacters(project)) view.append(element('p', '未生成：点击页面顶部生成剧情，依次完成大纲、人物提取和场景提取。', 'meta'))
   return view
 }
 
@@ -205,13 +215,13 @@ function renderScenes(project, actions, context) {
   const head = element('div', '', 'outline-head')
   const title = element('div', '', 'asset-stage-title')
   title.append(element('h3', '场景卡'), element('span', stepRunLabel(project, 'scenes'), 'story-status'))
-  head.append(title)
+  head.append(title, storyNodeActions(project, actions, 'scenes'))
   view.append(head, element('p', '按剧情需要管理场景；各镜头仅关联实际使用的场景图片。', 'meta'))
   const hint = element('p', hasScenes(project) ? '' : gateMessage(project, 'scenes'), 'hint')
   hint.hidden = !hint.textContent
   view.append(hint)
   for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { onOpen: id => context.onOpenScene?.(project.episodeId, id) })) view.append(node)
-  if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部的生成剧情，一次生成大纲、角色和场景。', 'meta'))
+  if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部生成剧情，依次完成大纲、人物提取和场景提取。', 'meta'))
   return view
 }
 
@@ -438,7 +448,7 @@ function mountPencil(parent, url, label) {
   sheet.alt = label
   sheet.src = url
   open.append(sheet)
-  open.onclick = () => { full.src = url; preview.showModal() }
+  open.onclick = () => { full.src = url; showPanelDialog(preview) }
   parent.append(preview, open)
 }
 
@@ -574,8 +584,7 @@ export function renderStage(step, project, actions, context) {
     const button = field.querySelector('button')
     button.dataset.label = step === 'film' ? (button.dataset.skill === 'storyboard' ? '分镜 skill' : '成片 skill') : '查看 skill'
     button.textContent = button.dataset.label + (button.dataset.status ? ` · ${button.dataset.status}` : '')
-    toolbar.append(button)
-    field.remove()
+    if (step !== 'script') { toolbar.append(button); field.remove() }
   }
   const scope = step === 'script' ? view.querySelector('.story-controls') : view
   const header = scope.querySelector(':scope > .outline-head, :scope > .workflow-generation-row')

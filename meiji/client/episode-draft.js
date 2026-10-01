@@ -2,7 +2,7 @@ import { request, jsonBody } from './api.js'
 import { currentSessionId } from './chat-bridge.js'
 
 // 使用现有任务队列、查询与停止接口；关闭弹框也停止排队/执行中的任务。
-export async function generateEpisodeDraft(project, input, { signal }) {
+export async function generateEpisodeDraft(project, input, { signal, onTask }) {
   const sessionId = currentSessionId()
   if (!sessionId) throw new Error('没有打开的会话，无法关联任务日志')
   let operationId
@@ -14,7 +14,8 @@ export async function generateEpisodeDraft(project, input, { signal }) {
     operationId = started.operationId
     if (signal.aborted) { await cancel(); signal.throwIfAborted() }
     while (true) {
-      const { task } = await request('tasks?' + new URLSearchParams({ projectId: project.id, sessionId, operationId }), { signal })
+      const { task } = await request('tasks?' + new URLSearchParams({ projectId: project.id, sessionId, operationId }), { signal, onTask })
+      onTask?.(task)
       if (task.status === 'completed') {
         if (!task.draft) throw new Error('任务未返回摘要草稿')
         return task.draft

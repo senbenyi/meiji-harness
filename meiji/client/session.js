@@ -1,6 +1,6 @@
 import { renderImageReview, syncImageGate, detailOwnsImage } from './image-review.js'
 import { renderCharacterDetail } from './character.js'
-import { element } from './dom.js'
+import { showPanelDialog, element } from './dom.js'
 import { tabOf, tabs } from './flow-view.js'
 import { renderShotPage, renderStage, renderSceneDetail } from './stages.js'
 import { episodeWork, renderOverview } from './overview.js'
@@ -98,7 +98,7 @@ export function catalogDialog(root) {
       list.append(card)
     }
     if (!projects.length) list.append(element('p', '还没有视频项目。点加号创建一部。', 'empty'))
-    if (!dialog.open) dialog.showModal()
+    if (!dialog.open) showPanelDialog(dialog)
   }
 }
 
@@ -199,7 +199,7 @@ export function projectDialog(root, onCreated) {
     } catch (failure) { error.textContent = failure.message }
     finally { button.disabled = false }
   }
-  return () => { form.reset(); form.elements.aspect.value = '1344x768'; stylePicker.sync(); error.textContent = ''; dialog.showModal() }
+  return () => { form.reset(); form.elements.aspect.value = '1344x768'; stylePicker.sync(); error.textContent = ''; showPanelDialog(dialog) }
 }
 
 export function sourceDialog(root, onSaved) {
@@ -233,7 +233,7 @@ export function sourceDialog(root, onSaved) {
     form.elements.aspect.value = ['1344x768', '768x1344'].includes(aspect) ? aspect : '1344x768'
     form.elements.summary.value = project.summary.content || ''
     error.textContent = ''
-    dialog.showModal()
+    showPanelDialog(dialog)
   }
 }
 
@@ -258,6 +258,6 @@ export function storyDialog(root, onSaved) {
     current = project
     form.elements.outline.value = project.plot.outline.content || ''
     error.textContent = ''
-    dialog.showModal()
+    showPanelDialog(dialog)
   }
 }

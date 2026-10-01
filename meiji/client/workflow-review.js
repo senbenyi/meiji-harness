@@ -40,6 +40,8 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     input.maxLength = 2000
     input.disabled = false
     input.dataset.reviewKey = record?.id || ''
+    input.dataset.reviewRevision = String(record?.review?.revision || 0)
+    input.dataset.reviewText = input.value
     let revision = record?.review?.revision || 0, timer, saving = false, queued = false
     const flush = () => {
       if (saving) { queued = true; return }
@@ -48,11 +50,27 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
       const text = input.value
       input.dispatchEvent(new CustomEvent('meiji-review-draft', { bubbles: true, composed: true, detail: {
         key: record.id, text, revision, episodeId: area.dataset.episodeId,
-        onSaved(review) { revision = review.revision; saving = false; if (input.value === text) delete input.dataset.dirty; if (queued || input.value !== text) { queued = false; flush() } },
-        onError() { saving = false },
+        onSaved(review) {
+          saving = false
+          if (review.revision < revision) {
+            if (queued || input.dataset.dirty) { queued = false; flush() }
+            return
+          }
+          revision = review.revision
+          input.dataset.reviewRevision = String(revision); input.dataset.reviewText = text
+          if (input.value === text) delete input.dataset.dirty
+          if (queued || input.value !== text) { queued = false; flush() }
+        },
+        onError() { saving = false; if (queued) { queued = false; flush() } },
       } }))
     }
-    input.oninput = () => { input.dataset.dirty = 'true'; clearTimeout(timer); timer = setTimeout(flush, 400) }
+    input.clearConsumedReview = nextRevision => {
+      clearTimeout(timer); queued = false; revision = nextRevision
+      input.value = ''; input.dataset.reviewText = ''; input.dataset.reviewRevision = String(revision)
+      delete input.dataset.dirty; delete input.dataset.submittedReview
+      input.dispatchEvent(new CustomEvent('meiji-review-cleared'))
+    }
+    input.oninput = () => { delete input.dataset.submittedReview; input.dataset.dirty = 'true'; clearTimeout(timer); timer = setTimeout(flush, 400) }
     input.onblur = () => { clearTimeout(timer); if (input.dataset.dirty) flush() }
     area.append(input)
   }
@@ -69,7 +87,8 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     const available = !busy && !actionButton.disabled
     const refresh = () => { modify.disabled = !available || !generated || record?.canModify === false || !(area.querySelector('input')?.value.trim() || (check?.passed === false && check.failures?.some(Boolean))) }
     area.querySelector('input')?.addEventListener('input', refresh)
-    modify.onclick = event => { if (modify.disabled) return; area.dataset.generationMode = 'modify'; return run?.call(actionButton, event) }
+    area.querySelector('input')?.addEventListener('meiji-review-cleared', refresh)
+    modify.onclick = event => { if (modify.disabled) return; area.dataset.generationMode = 'modify'; const input = area.querySelector('input'); if (input) input.dataset.submittedReview = input.value; return run?.call(actionButton, event) }
     refresh()
     area.append(modify)
   }
@@ -84,4 +103,17 @@ export function reviewFields(parent) {
   const generationMode = area?.dataset.generationMode || 'regenerate'
   const input = area?.querySelector('input')
   return { generationMode, ...(generationMode === 'modify' && input ? { review: input.value.trim() } : {}) }
+}
+
+// 服务端消费了旧版本后同步保留中的输入框；用户新输入的草稿继续保留。
+export function syncConsumedReviewInputs(previous, incoming) {
+  const fresh = [...incoming.querySelectorAll('.workflow-review-input')]
+  for (const input of previous.querySelectorAll('.workflow-review-input')) {
+    const next = fresh.find(value => value.dataset.reviewKey === input.dataset.reviewKey)
+    if (!next || next.value || Number(next.dataset.reviewRevision) <= Number(input.dataset.reviewRevision)) continue
+    const submitted = input.dataset.submittedReview
+    if (submitted === undefined && input.dataset.dirty) continue
+    if (input.value !== (submitted ?? input.dataset.reviewText)) continue
+    input.clearConsumedReview?.(Number(next.dataset.reviewRevision))
+  }
 }

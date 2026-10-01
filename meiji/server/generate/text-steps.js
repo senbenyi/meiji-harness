@@ -49,15 +49,22 @@ export function textSteps({ target = null, prompts, options, validate = () => {}
     if (ctx) ctx.validation = verdict.failures
     await persist(text, verdict)
   })
-  const review = (kind, stage) => state => reviewStep({ kind, target, message: prompts.review(state.text), failures: check(state.text), options: { ...options, logStage: stage }, persist: save && (result => save(state.text, result.check)) }).then(result => {
-    if (ctx) ctx.validation = result.check.failures
-    return result
-  })
+  const review = (kind, stage) => state => {
+    const revision = state.revisionBase == null ? undefined : {
+      baseContent: state.revisionBase, revisionOpinion: state.revisionOpinion, revisionReview: true,
+    }
+    return reviewStep({ kind, target, message: prompts.review(state.text, revision), failures: check(state.text),
+      options: { ...options, logStage: stage }, persist: save && (result => save(state.text, result.check)) }).then(result => {
+      if (ctx) ctx.validation = result.check.failures
+      return result
+    })
+  }
+
   return [
     { name: 'text', when: () => initialText == null, run: () => generateStep({ target, message: prompts.generation, options: { ...options, logStage: '生成' }, validate, complete, persist: save }) },
     { name: 'review', run: state => review('review', '自审')({ text: state.text ?? initialText }) },
     { name: 'revised', when: state => revisable(state.review) && canRevise(state.text ?? initialText), run: state => generateStep({ kind: 'revise', target, message: prompts.revision(state.text ?? initialText, state.review.reviewText), options: { ...options, logStage: '自动修订' }, validate, complete, persist: save }) },
-    { name: 'reReview', when: state => state.revised != null, run: state => review('re_review', '复审')({ text: state.revised }) },
+    { name: 'reReview', when: state => state.revised != null, run: state => review('re_review', '复审')({ text: state.revised, revisionBase: state.text ?? initialText, revisionOpinion: state.review.reviewText }) },
   ]
 }
 

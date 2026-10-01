@@ -6,6 +6,8 @@
 //   POST /skills/<id>/preview          生成 / 意见修改 / 审核 / 自动修订请求的组装预览（分段、来源、字数），不调用模型
 //   PUT  /project-skills               本剧补充 { sessionId, projectId, skill, fields }
 //   PUT  /project-guidance             本剧启用的指导 { enabled } 与某阶段的指导素材 { stage, guidanceAssetIds }
+import { nodeSkills, nodeSkillsPatch, nodeStage } from '../data/node-skills.js'
+import { sections } from '../prompts/interfaces/outline.js'
 import { builtinSkill, guidanceName, guidanceSkillIds } from '../../skills/load.js'
 import { editableFields, additionsPatch, guidancePatch, loadSkillSet, projectSkills, skillStore } from '../data/skill-store.js'
 import { assetsPatch, loadGuidanceAssets } from '../data/custom-skills.js'
@@ -26,7 +28,7 @@ function detail(skill) {
     ? guidanceSkillIds().map(builtinSkill).filter(item => item.stages[meta.guidanceStage]).map(item => ({ id: item.id, name: guidanceName(item.id), label: item.label, placement: item.stages[meta.guidanceStage], defaultEnabled: item.defaultEnabled, assetTypes: item.assetTypes }))
     : []
   const stages = meta.kind === 'guidance' ? Object.entries(meta.stages).map(([stage, placement]) => ({ stage, placement })) : []
-  return { ...summary(skill), fields, protocol: meta.protocol || '', ...(meta.fixedConstraints ? { constraints: meta.constraints } : {}), guidance, stages, assetStages: meta.assetStages || [], related: meta.related || [] }
+  return { ...summary(skill), nodeScoped: ['episode', 'outline'].includes(skill.id), fields, protocol: meta.protocol || '', ...(meta.fixedConstraints ? { constraints: meta.constraints } : {}), guidance, stages, assetStages: meta.assetStages || [], related: meta.related || [] }
 }
 
 export function skillRoutes({ home, projects, links, json, readJson }) {
@@ -37,6 +39,23 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
   }
   return async (req, res, url, base) => {
     const path = url.pathname
+    if (path === base + '/node-skills') {
+      if (!['GET', 'PUT', 'DELETE'].includes(req.method)) return json(res, 405, { error: '不支持的请求' })
+      if (req.method !== 'GET' && !sameOrigin(req)) return json(res, 403, { error: '需要同源请求' })
+      const body = req.method === 'GET' ? Object.fromEntries(url.searchParams) : await readJson(req, 20000)
+      const { projectId, episodeId, nodeKey } = body
+      await links.requireProject(String(body.sessionId || ''), projectId)
+      let root = await projects.read(projectId)
+      nodeSkills(root, episodeId, nodeKey)
+      if (req.method !== 'GET') root = await projects.save(projectId, current => nodeSkillsPatch(current, { ...body, remove: req.method === 'DELETE' }))
+      const id = nodeStage(nodeKey), skill = detail(await store.get(id))
+      if (id === 'outline' && ['outline', 'characters', 'scenes'].includes(nodeKey)) {
+        const selected = { outline: ['故事大纲', '大纲输出', '大纲验收'], characters: ['角色卡', '人物输出', '人物验收'], scenes: ['场景卡', '场景输出', '场景验收'] }[nodeKey]
+        for (const field of skill.fields) if (field.field === 'generate' || field.field === 'review') field.text = sections(field.text, field.field === 'generate' ? '###' : '##', ['通用验收', ...selected])
+        skill.protocol = sections(skill.protocol, '##', [selected[1]])
+      }
+      return json(res, 200, { skill, items: nodeSkills(root, episodeId, nodeKey), ...(req.method !== 'GET' ? { project: root } : {}) })
+    }
     if (path === base + '/skills') {
       if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
       return json(res, 200, { skills: (await store.list()).map(summary) })
@@ -47,6 +66,7 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
       const body = await readJson(req, path.endsWith('skills') ? 200000 : 8192)
       await links.requireProject(String(body.sessionId || ''), body.projectId)
       if (path.endsWith('skills')) {
+        if (['episode', 'outline'].includes(body.skill)) return json(res, 400, { error: '请在当前剧集对应节点管理补充 skill' })
         const saved = await projects.save(body.projectId, current => ({ skills: additionsPatch(current.skills, String(body.skill || ''), body.fields) }))
         return json(res, 200, { project: saved, skills: projectPart(saved, body.skill) })
       }
@@ -88,7 +108,8 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
       view = body.episodeId ? materialize(root, body.episodeId) : null
     }
     const skillSet = await loadSkillSet(home, root?.skills)
-    const requests = previewPrompts({ stage: id, root: root || { title: '', summary: { content: '' }, episodes: [] }, view, skillSet, mode: body.mode === 'text' ? 'text' : 'reference' })
+    skillSet.nodeSupplements = Object.fromEntries((root?.episodes || []).map(episode => [episode.id, episode.supplementalSkills || {}]))
+    const requests = previewPrompts({ stage: id, root: root || { title: '', summary: { content: '' }, episodes: [] }, view, skillSet, mode: body.mode === 'text' ? 'text' : 'reference', nodeKey: body.nodeKey })
     return json(res, 200, { requests })
   }
 }

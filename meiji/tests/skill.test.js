@@ -33,14 +33,14 @@ test('structure errors are reported: stray files, unknown fields and missing sha
   try {
     await cp(skillsDir, dir, { recursive: true })
     validateSkills(dir)
-    await writeFile(join(dir, 'stages/shots/extra.md'), 'x')
+    await writeFile(join(dir, 'constraints/stages/shots/extra.md'), 'x')
     assert.throws(() => validateSkills(dir), /md 文件/)
-    await rm(join(dir, 'stages/shots/extra.md'))
-    const meta = JSON.parse(await readFile(join(dir, 'stages/seconds/skill.json'), 'utf8'))
-    await writeFile(join(dir, 'stages/seconds/skill.json'), JSON.stringify({ ...meta, unknown: 1 }))
+    await rm(join(dir, 'constraints/stages/shots/extra.md'))
+    const meta = JSON.parse(await readFile(join(dir, 'constraints/stages/seconds/skill.json'), 'utf8'))
+    await writeFile(join(dir, 'constraints/stages/seconds/skill.json'), JSON.stringify({ ...meta, unknown: 1 }))
     assert.throws(() => validateSkills(dir), /未知字段 unknown/)
-    await writeFile(join(dir, 'stages/seconds/skill.json'), JSON.stringify(meta))
-    await rm(join(dir, 'shared/tail-frame.md'))
+    await writeFile(join(dir, 'constraints/stages/seconds/skill.json'), JSON.stringify(meta))
+    await rm(join(dir, 'constraints/shared/tail-frame.md'))
     assert.throws(() => validateSkills(dir), /tail-frame/)
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
@@ -63,10 +63,12 @@ test('every text stage receives the configured language on each request', async 
         },
       })
       const system = body.messages.find(message => message.role === 'system').content
-      assert.ok(system.startsWith(skill === 'episode' ? '【角色与职责】' : '【阶段技能·通用】'), skill)
-      assert.ok(system.includes('本次生成语言：' + (outputLanguage === 'en' ? 'English' : '简体中文')))
+      assert.ok(system.startsWith(['episode', 'outline'].includes(skill) ? '【角色与职责】' : '【阶段技能·通用】'), skill)
+      assert.ok((skill === 'episode' ? body.messages.find(message => message.role === 'user').content : system).includes('本次生成语言：' + (outputLanguage === 'en' ? 'English' : '简体中文')))
       assert.ok(system.trimEnd().endsWith('只执行本阶段，不调用其他阶段。'), skill)
-      assert.equal(body.messages.find(message => message.role === 'user').content, '【任务与上下文】\n中文输入')
+      if (skill === 'episode') assert.match(body.messages.find(message => message.role === 'user').content, /【补充任务资料】\n中文输入/)
+      else if (skill === 'outline') assert.match(body.messages.find(message => message.role === 'user').content, /【补充任务资料】\n中文输入/)
+      else assert.equal(body.messages.find(message => message.role === 'user').content, '【任务与上下文】\n中文输入')
       assert.equal(value, 'Unmodified output')
     }
   }
@@ -84,19 +86,33 @@ test('requests carry only what they need: generation self-checks, review sees ac
     const revision = prompts.revision('DRAFT', 'FAIL 原因')
     const modify = buildGenerationPrompt({ skill, project: {}, instructions: 'CTX', opinion: '意见', modify: true, mode: 'text' })
     const stage = builtinSkill(skill)
-    assert.ok(generation.system.includes(stage.parts.generate), skill)
-    assert.ok(generation.system.includes('【自检标准】') && generation.system.includes(stage.parts.review), skill)
+    assert.ok(skill === 'outline' ? generation.system.includes('### 故事大纲') : generation.system.includes(stage.parts.generate), skill)
     const boundary = /【阶段技能·修订边界】|【共享·修订边界】/
     assert.doesNotMatch(generation.system, boundary, skill)
-    assert.ok(modify.system.includes('【自检标准】') && boundary.test(modify.system), skill)
-    assert.ok(modify.system.includes('语言一致性优先于修订时的逐字保留'), skill)
-    assert.ok(!revision.system.includes('【自检标准】') && boundary.test(revision.system), skill)
-    assert.ok(!generation.system.includes('语言一致性优先于修订时的逐字保留'), skill)
+    assert.ok(boundary.test(modify.system) && boundary.test(revision.system), skill)
+    if (skill === 'episode') {
+      for (const prompt of [generation, modify, revision]) {
+        assert.ok(!prompt.system.includes(stage.parts.review))
+        assert.doesNotMatch(prompt.system, /【自检标准】|outputLanguage|角色 look|指导技能只细化/)
+        assert.match(prompt.user, /本次生成语言/)
+      }
+      assert.match(generation.system, /返回前核对本集事件因果/)
+    } else if (skill === 'outline') {
+      for (const prompt of [generation, modify, revision]) assert.doesNotMatch(prompt.system, /【自检标准】|【审核通用协议】/)
+      assert.match(generation.system, /返回前核对本次资料/)
+    } else {
+      assert.ok(generation.system.includes('【自检标准】') && generation.system.includes(stage.parts.review), skill)
+      assert.ok(modify.system.includes('【自检标准】'), skill)
+      assert.ok(modify.system.includes('语言一致性优先于修订时的逐字保留'), skill)
+      assert.ok(!revision.system.includes('【自检标准】'), skill)
+      assert.ok(!generation.system.includes('语言一致性优先于修订时的逐字保留'), skill)
+    }
     // 审核：不附生成技能；验收标准在 user，PASS/FAIL 协议在 system 结尾。
     if (stage.parts.generate) assert.ok(!review.system.includes(stage.parts.generate) && !review.user.includes(stage.parts.generate), skill)
     if (stage.fixedConstraints) assert.ok(review.system.includes(stage.constraints), skill)
     assert.ok(!(review.system + review.user).includes('【官方参考'), skill)
-    assert.ok(review.user.includes('【验收标准') && review.user.includes(stage.parts.review), skill)
+    const criteria = ['episode', 'outline'].includes(skill) ? review.system : review.user
+    assert.ok(criteria.includes('【验收标准') && (skill === 'outline' ? criteria.includes('## 大纲验收') : criteria.includes(stage.parts.review)), skill)
     assert.match(review.system, /没有问题只返回 PASS；否则首行 FAIL/)
     assert.equal(review.skill, 'review')
     assert.equal(review.stage, skill)
@@ -167,7 +183,7 @@ test('固定约束文件允许为空，缺失仍报错，人物图不再有 gene
     await cp(skillsDir, dir, { recursive: true })
     assert.equal(builtinSkill('character-image').fixedConstraints, true)
     assert.match(builtinSkill('character-image').constraints, /正面全身照/)
-    await assert.rejects(readFile(join(dir, 'stages/character-image/generate.md')), { code: 'ENOENT' })
+    await assert.rejects(readFile(join(dir, 'constraints/stages/character-image/generate.md')), { code: 'ENOENT' })
     await writeFile(join(dir, 'constraints/character/generate-character-image.md'), '')
     assert.ok(validateSkills(dir).includes('character-image'))
     await writeFile(join(dir, 'constraints/character/generate-character-image.md'), '   \n')

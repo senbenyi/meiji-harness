@@ -12,7 +12,7 @@ function setup(t, generate, saved = async () => {}) {
   const root = dom.window.document.querySelector('main')
   const open = episodeDialog(root, saved, generate)
   const dialog = root.querySelector('dialog')
-  dialog.showModal = () => { dialog.open = true }
+  dialog.show = () => { dialog.open = true }
   dialog.close = () => { dialog.open = false; dialog.dispatchEvent(new dom.window.Event('close')) }
   open({ id: 'project', summary: { content: '总摘要' } })
   return { dom, root, open, dialog, form: dialog.querySelector('form'), generate: dialog.querySelector('.ai-summary'), input: element => element.dispatchEvent(new dom.window.Event('input', { bubbles: true })) }

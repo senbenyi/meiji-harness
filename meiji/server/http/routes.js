@@ -1,4 +1,5 @@
-import { recordStore } from '../data/task-store.js'
+import { recordStore, readStepPrompts } from '../data/task-store.js'
+import { stepPromptsFromLog } from '../host/step-prompt-log.js'
 import { subscribeProject } from '../data/project-events.js'
 import { targetNode, shotResults } from '../../shared/drama-model.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
@@ -219,7 +220,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         const episode = saved.episodes.find(e => e.id === body.episodeId)
         return json(res, 200, { project: saved, review: targetNode(episode, body.key)[body.kind === 'text' ? 'draft' : 'review'] })
       }
-      if (path === base + '/skills' || path.startsWith(base + '/skills/') || path === base + '/project-skills' || path === base + '/project-guidance') {
+      if (path === base + '/skills' || path.startsWith(base + '/skills/') || path === base + '/node-skills' || path === base + '/project-skills' || path === base + '/project-guidance') {
         const handled = await handleSkills(req, res, url, base)
         return handled === false ? json(res, 404, { error: '技能不存在' }) : handled
       }
@@ -312,6 +313,17 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         await links.requireProject(url.searchParams.get('sessionId'), projectId)
         await projects.read(projectId)
         const history = recordStore(home, projectId)
+        const taskId = url.searchParams.get('taskId'), stepId = url.searchParams.get('stepId')
+        if (taskId || stepId) {
+          if (!taskId || !stepId) return json(res, 400, { error: '查看提示词需要任务和步骤编号' })
+          const prompts = await readStepPrompts(home, projectId, taskId, stepId)
+          if (prompts.length) return json(res, 200, { prompts })
+          const task = await history.read('tasks', taskId), step = task.steps.find(item => item.id === stepId)
+          const logged = stepPromptsFromLog(ctx.sessions?.get(task.sessionId), task, step)
+          return json(res, 200, { prompts: logged, message: logged.length
+            ? '来自当时的会话请求日志，可能包含脱敏标记。'
+            : '该步骤没有提示词快照，也未找到能明确关联到该步骤的完整请求日志。旧服务生成的任务可能没有记录；更新后端代码后需要重启服务，新的请求才会保存提示词。' })
+        }
         const artifactId = url.searchParams.get('artifactId')
         if (artifactId) return json(res, 200, { artifact: await history.read('artifacts', artifactId) })
         const episodeId = url.searchParams.get('episodeId')

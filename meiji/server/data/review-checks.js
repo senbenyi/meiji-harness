@@ -4,6 +4,7 @@ import { checkContext, apiFailed, inTextStep } from './operation-context.js'
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
 const generationActions = new Set(['characters', 'scenes', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
+  if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
   if (operation.action === 'outline' || operation.action === 'outline-text') return ['outline', 'characters', 'scenes']
   const kind = { seconds: 'seconds', storyboard: 'storyboard', 'shot-boards': 'storyboard', films: 'film' }[operation.action]
   const shots = operation.action === 'films' ? project.shots.items.filter(shot => shot.video.content?.status !== 'ready' || shot.video.stale) : project.shots.items
@@ -19,7 +20,8 @@ export function checkReasons(project, operation) {
 export function setCheck(project, operation, reasons) {
   for (const key of keys(project, operation)) {
     const target = targetNode(project, key)
-    if (target) finish(target, { passed: reasons.length === 0, failures: [...new Set(reasons.filter(Boolean))] })
+    if (target) finish(target, operation.action === 'outline' && checkContext.getStore()?.storyStages
+      ? target.check : { passed: reasons.length === 0, failures: [...new Set(reasons.filter(Boolean))] })
   }
   return project
 }
@@ -51,7 +53,7 @@ export async function prepareChecks(store, project, operation) {
       const value = feedbackOf(project, key)
       return [...(value.check.passed === false ? value.check.failures : []), operation.review ?? operation.instruction ?? (operation.action === 'seconds' ? project.shots.seconds?.review.text : value.review.text)]
     }).filter(value => String(value || '').trim())
-    const originals = keys(project, operation).map(key => originalData(project, key))
+    const originals = (operation.action === 'outline' ? ['outline'] : keys(project, operation)).map(key => originalData(project, key))
     if (!reasons.length || !originals.length || (!matchingCandidate && originals.some(value => !value))) {
       throw Object.assign(new Error('修改需要原来的数据，以及自审意见或人工意见之一'), { status: 400 })
     }

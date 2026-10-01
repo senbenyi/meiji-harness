@@ -46,6 +46,8 @@ export async function buildScenarios() {
     inMode(mode, view, () => {
       add(`episode:${mode}`, text(buildEpisodePrompts(root(view), 'e1')))
       add(`outline:${mode}`, text(buildStoryPrompts(view)))
+      add(`characters:${mode}`, text(buildStoryPrompts(view, 'characters')))
+      add(`scenes:${mode}`, text(buildStoryPrompts(view, 'scenes')))
       add(`shots:${mode}`, text(buildTablePrompts({ project: view })))
       add(`seconds-all:${mode}`, text(buildAllSecondsPrompts({ project: view }, view)))
       add(`seconds-shot:${mode}`, text(buildSecondsPrompts({ project: view, shotId: 'S01' })))

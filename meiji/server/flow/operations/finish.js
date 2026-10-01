@@ -46,7 +46,8 @@ export async function releaseOperation({ operation, deps, operationId, context, 
       const stopped = Boolean(state.failure) || Boolean(deps.signal?.aborted)
       for (const target of allNodes(episode)) {
         if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
-        if (!stopped && target.check?.passed != null) {
+        const completedStoryStage = context.storyStages && target.operation.phase === 'reviewed' && target.check?.passed === true
+        if (completedStoryStage || (!stopped && target.check?.passed != null)) {
           target.operation = null
           target.error = null
           target.status = target.check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED

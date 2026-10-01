@@ -10,7 +10,7 @@ import { checkContext } from '../../data/operation-context.js'
 import { recordStore, runStep, saveTaskDraft } from '../../data/task-store.js'
 import { loadModels } from './services.js'
 import { generateEpisode } from '../../generate/story.js'
-import { GenerationStatus } from '../../../shared/drama-model.js'
+import { GenerationStatus, consumeReview } from '../../../shared/drama-model.js'
 
 export async function openIncoming(home, id) {
   if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) throw Object.assign(new Error('上传的文件已失效'), { status: 400 })
@@ -110,7 +110,7 @@ async function opEpisodeGenerate(c) {
   await rootProjects.save(project.id, { activity: 'episode', activityError: null })
   note('按「剧集摘要」技能生成本集剧情')
   note('操作：episode-generate（会话与面板共用）')
-  note('技能：剧集摘要（skills/stages/episode）')
+  note('技能：剧集摘要（skills/constraints/stages/episode）')
   note('函数：generateEpisode（server/generate/story.js）')
   let episodeId = existing?.id
   const persist = async draft => {
@@ -125,6 +125,12 @@ async function opEpisodeGenerate(c) {
   }
   const draft = await (deps.generateEpisode || generateEpisode)({ route: (await loadModels(models)).story, project, episodeId: operation.episodeId, referenceDurationSeconds: operation.referenceDurationSeconds, persist })
   await persist(draft)
+  if (existing) await rootProjects.save(project.id, current => {
+    const next = structuredClone(current)
+    const target = next.episodes.find(item => item.id === episodeId).summary
+    if (target.check.passed === true) consumeReview(target)
+    return next
+  })
   trace.result = { episodeId }
   await rootProjects.save(project.id, { activity: null, activityError: null })
   note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，AI 决定时长 ${draft.durationSeconds} 秒` : `已生成第 ${project.episodes.length + 1} 集，${draft.durationSeconds} 秒`)

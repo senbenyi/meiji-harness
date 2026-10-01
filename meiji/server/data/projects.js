@@ -162,7 +162,7 @@ export function revisionStore(store, operationId, scope = {}) {
       ...(scope.action === 'film' && i === index - 1 ? { video: shot.video } : {}),
     }))
     const value = episode && scope.track ? { summary: episode.summary, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: episode.shots.items[index], ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
-    return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, style: project.style, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision', 'skills'].includes(key) ? undefined : value)
+    return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, style: project.style, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision', 'skills', 'supplementalSkills'].includes(key) ? undefined : value)
   }
   const guarded = Object.create(store)
   guarded.read = async id => {
@@ -177,6 +177,10 @@ export function revisionStore(store, operationId, scope = {}) {
     const saved = await store.save(id, async current => {
       if (observed.get(id) !== fingerprint(current)) throw Object.assign(new Error('任务依赖已修改，旧结果未覆盖当前数据'), { status: 409 })
       const changes = typeof patch === 'function' ? await patch(current) : patch
+      if (changes?.episodes) changes.episodes = changes.episodes.map(episode => {
+        const latest = current.episodes.find(item => item.id === episode.id)
+        return latest ? { ...episode, supplementalSkills: latest.supplementalSkills } : episode
+      })
       return changes == null ? null : { ...changes, ...(operationId && Object.hasOwn(changes, 'activity') ? { activeOperation: changes.activity ? operationId : null } : {}) }
     })
     observed.set(id, fingerprint(saved))

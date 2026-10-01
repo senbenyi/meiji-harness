@@ -40,7 +40,7 @@ export function createTasks({ home, workspaceController, execute = runOperation,
   const snapshot = task => {
     const steps = stepsOf(task)
     const status = deriveTaskStatus(steps)
-    return { id: task.id, taskId: task.id, ...task.result, action: task.operation.action, projectId: task.operation.projectId, ...summary(steps, task.error),
+    return { id: task.id, taskId: task.id, ...task.result, action: task.operation.action, projectId: task.operation.projectId, ...summary(steps, task.error), steps: structuredClone(steps),
       queued: status === TaskStatus.QUEUED, ...(status === TaskStatus.QUEUED ? { queuePosition: queue.position(task.id) } : {}) }
   }
   const find = (id, sessionId) => {
@@ -92,7 +92,7 @@ export function createTasks({ home, workspaceController, execute = runOperation,
         let task
         try { task = await recordStore(home, projectId).read('tasks', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
         if (task.sessionId !== sessionId) throw Object.assign(new Error('任务不属于当前会话'), { status: 404 })
-        return { ...await readTaskDraft(home, task), id: task.id, taskId: task.id, projectId: task.projectId, episodeId: task.episodeId, ...summary(task.steps, task.error) }
+        return { ...await readTaskDraft(home, task), id: task.id, taskId: task.id, projectId: task.projectId, episodeId: task.episodeId, ...summary(task.steps, task.error), steps: task.steps }
       }
       throw Object.assign(new Error('任务不存在'), { status: 404 })
     },

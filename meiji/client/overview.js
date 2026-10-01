@@ -1,7 +1,8 @@
 import { defaultReferenceDuration, referenceDuration, summaryLength, summaryLimit, episodeSummaryFailures } from '../shared/episode-summary.js'
-import { historyEntry } from './execution-history.js'
+import { renderSteps, taskStatusLabels } from './task-steps.js'
+import { renderTaskHistory, historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
-import { element, appendJsonCopy } from './dom.js'
+import { showPanelDialog, element, appendJsonCopy } from './dom.js'
 import { bindStylePicker } from './style-picks.js'
 
 export function collectCharacters(project) {
@@ -26,7 +27,7 @@ export function collectCharacters(project) {
 export function episodeWork(project, episodeId) {
   const episode = (project?.episodes || []).find(item => item.id === episodeId)
   if (!episode) return null
-  return { ...episode, id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
+  return { ...episode, activity: episode.activity || (project.activity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
 
 }
 
@@ -235,11 +236,11 @@ export function overviewDialog(root, onSaved) {
     stylePicker.sync()
     form.elements.summary.value = project.summary.content || ''
     error.textContent = ''
-    dialog.showModal()
+    showPanelDialog(dialog)
   }
 }
 
-export function episodeDialog(root, onSaved, onGenerate) {
+export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadPrompts } = {}) {
   const template = document.createElement('template')
   template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">参考时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>AI 根据剧情决定实际时长，范围为参考时长上下 20 秒。</p><output class="actual-duration"></output><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
@@ -248,6 +249,18 @@ export function episodeDialog(root, onSaved, onGenerate) {
   const error = dialog.querySelector('.error')
   const generate = dialog.querySelector('.ai-summary'), stop = dialog.querySelector('.stop-summary'), save = form.querySelector('[type=submit]')
   const actual = dialog.querySelector('.actual-duration'), count = dialog.querySelector('.summary-count')
+  const progress = element('div', '', 'episode-task-progress')
+  const history = element('details')
+  history.append(element('summary', '查看摘要任务历史'))
+  let historyView
+  history.ontoggle = () => {
+    if (history.open && loadHistory) {
+      historyView = renderTaskHistory(current, { historyScope: 'summary', load: artifact => loadHistory(current, artifact), loadPrompts: (task, step) => loadPrompts(current, task, step), back: () => { history.open = false } })
+      history.querySelector('section')?.remove()
+      history.append(historyView)
+    }
+  }
+  form.querySelector('footer').before(progress, history)
   let current, episode, controller, actualDuration = null, version = 0
   const updateCount = () => {
     const length = summaryLength(form.elements.summary.value)
@@ -261,6 +274,7 @@ export function episodeDialog(root, onSaved, onGenerate) {
   dialog.addEventListener('close', cancel)
   stop.onclick = cancel
   form.addEventListener('input', event => {
+    if (![form.elements.duration, form.elements.summary].includes(event.target)) return
     cancel()
     if (event.target === form.elements.duration) { actualDuration = null; actual.textContent = '' }
     updateCount()
@@ -273,7 +287,11 @@ export function episodeDialog(root, onSaved, onGenerate) {
       const requestVersion = version, abort = controller = new AbortController()
       busy(true)
       try {
-        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference }, { signal: abort.signal })
+        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference }, { signal: abort.signal, onTask: task => {
+          if (version !== requestVersion || !dialog.open) return
+          progress.replaceChildren(element('p', `摘要任务：${taskStatusLabels[task.status] || task.status}`, 'meta'), renderSteps(task.steps, { live: true, loadPrompts: loadPrompts && (step => loadPrompts(current, task, step)) }))
+          if (history.open) void historyView?.refresh()
+        } })
         if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
         const failures = episodeSummaryFailures(draft, reference)
         if (failures.length) throw new Error(failures.join('；'))
@@ -305,11 +323,14 @@ export function episodeDialog(root, onSaved, onGenerate) {
     episode = currentEpisode
     actualDuration = null
     actual.textContent = ''
+    progress.replaceChildren()
+    history.open = false
+    history.querySelector('section')?.remove()
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
     form.elements.duration.value = String(currentEpisode?.durationSeconds ?? defaultReferenceDuration)
     form.elements.summary.value = currentEpisode?.summary?.content || ''
     updateCount()
     error.textContent = ''
-    dialog.showModal()
+    showPanelDialog(dialog)
   }
 }

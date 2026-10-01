@@ -16,10 +16,10 @@ import videoSegments from './interfaces/video.js'
 const placeholder = '（任务与上下文由程序在运行时填入：本集资料、上下游内容与本次目标。当前剧集缺少所需的上游内容，此处以说明代替。）'
 const opinion = '（此处为人工修改意见）'
 
-function textBuilder(stage, root, view, mode) {
+function textBuilder(stage, root, view, mode, nodeKey) {
   const shot = view?.shots?.items?.[0]
   if (stage === 'episode' && view) return () => buildEpisodePrompts(root, view.episodeId)
-  if (stage === 'outline' && view?.summary?.content) return () => buildStoryPrompts(view)
+  if (stage === 'outline' && view?.summary?.content) return () => buildStoryPrompts(view, nodeKey || 'outline', '', { extraction: ['characters', 'scenes'].includes(nodeKey) && checkContext.getStore()?.generationMode !== 'modify' })
   if (stage === 'shots' && view?.plot?.outline?.content) return () => buildTablePrompts({ project: view })
   if (stage === 'shot-revise' && shot) return () => buildSingleShotPrompts({ project: view, shotId: shot.id })
   if (stage === 'seconds' && shot) return () => buildSecondsPrompts({ project: view, shotId: shot.id })
@@ -30,7 +30,7 @@ function textBuilder(stage, root, view, mode) {
 
 const request = message => ({ system: message.segments.system, user: message.segments.user, chars: message.system.length + message.user.length })
 
-export function previewPrompts({ stage, root, view, skillSet, mode = 'reference', canvas }) {
+export function previewPrompts({ stage, root, view, skillSet, mode = 'reference', canvas, nodeKey }) {
   const meta = builtinSkill(stage)
   if (meta.kind !== 'stage') throw Object.assign(new Error('只有阶段技能可以预览请求'), { status: 400 })
   return executionContext.run({ skillSet, skills: new Map() }, () => {
@@ -53,16 +53,27 @@ export function previewPrompts({ stage, root, view, skillSet, mode = 'reference'
       const segments = videoSegments({ project, prompt: '（已审核的文本分镜最终视频提示词）', mode })
       return { video: { system: [], user: segments, chars: render(segments).length } }
     }
-    const build = textBuilder(stage, root, view, mode)
-    const regenerate = checkContext.run({ generationMode: 'regenerate', requestedMode: 'regenerate', review: '', requirements: '', originalProject: project }, build)
+    const build = textBuilder(stage, root, view, mode, nodeKey)
+    const regenerate = checkContext.run({ generationMode: 'regenerate', requestedMode: stage === 'outline' && !view?.plot?.outline?.content ? 'generate' : 'regenerate', review: '', requirements: '', originalProject: project }, build)
     let modify
     try { modify = checkContext.run({ generationMode: 'modify', requestedMode: 'modify', review: opinion, requirements: '', originalProject: project }, build).generation }
     catch { modify = null }
-    return {
+    const requests = {
       generate: request(regenerate.generation),
       modify: modify ? request(modify) : null,
       review: request(regenerate.review('（待审内容）')),
       revise: request(regenerate.revision('（自审未通过的稿件）', 'FAIL （自审不通过原因）')),
     }
+    if (stage === 'outline' && view?.plot && !nodeKey) {
+      for (const kind of ['characters', 'scenes']) {
+        const extract = checkContext.run({ generationMode: 'regenerate', review: '', requirements: '' }, () => buildStoryPrompts(view, kind, '', { extraction: true }))
+        const modify = checkContext.run({ generationMode: 'modify', review: opinion, requirements: '', originalProject: view }, () => buildStoryPrompts(view, kind)).generation
+        requests[`${kind}_generate`] = request(extract.generation)
+        requests[`${kind}_modify`] = request(modify)
+        requests[`${kind}_review`] = request(extract.review('（待审卡片）'))
+        requests[`${kind}_revise`] = request(extract.revision('（自审未通过的卡片）', 'FAIL （本轮自审原因）'))
+      }
+    }
+    return requests
   })
 }

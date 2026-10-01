@@ -7,7 +7,7 @@ import { assetStageOf } from './skill-entry.js'
 const fieldLabels = { common: '通用', generate: '生成', review: '审核', revise: '修订', protocol: '协议（只读）', text: '正文', outline: '剧情整包', shots: '镜头表', seconds: '每秒指令', storyboard: '文本分镜' }
 const kindLabels = { stage: '阶段技能', guidance: '指导技能', shared: '共享模块' }
 const guidanceLabels = { action: '动作指导', martial: '武术指导', dialogue: '台词指导', expression: '表情指导', sound: '声音指导', '': '其他参考' }
-const requestLabels = { generate: '生成', modify: '意见修改', review: '审核', revise: '自动修订', image: '图片接口', video: '成片提交' }
+const requestLabels = { generate: '生成', modify: '意见修改', review: '审核', revise: '自动修订', image: '图片接口', video: '成片提交', characters_generate: '提取人物', characters_modify: '人物意见修改', characters_review: '人物审核', characters_revise: '人物自动修订', scenes_generate: '提取场景', scenes_modify: '场景意见修改', scenes_review: '场景审核', scenes_revise: '场景自动修订' }
 const sourceLabels = { stage: '阶段技能', constraint: '固定约束', guidance: '指导技能', shared: '共享模块', project: '本剧补充', asset: '指导素材', context: '任务与上下文', protocol: '协议', language: '语言', reference: '官方参考' }
 
 function button(text, onclick, className) {
@@ -239,7 +239,7 @@ export function renderSkillDetail({ id, project }, handlers) {
   const draw = (data, message = '') => {
     const { skill } = data
     const children = [button('← 返回', handlers.back, 'back'), element('h2', `${skill.label} · skill`),
-      element('p', `${kindLabels[skill.kind]}${project && skill.fields.length ? ` · 本剧补充只对《${project.title || '本剧'}》生效` : ''}`, 'meta')]
+      element('p', `${kindLabels[skill.kind]}${project && skill.fields.length && !skill.nodeScoped ? ` · 本剧补充只对《${project.title || '本剧'}》生效` : ''}`, 'meta')]
     for (const related of skill.related || []) children.push(button(`查看相关技能：${related === 'shot-revise' ? '单镜修订' : related === 'shots' ? '镜头表' : related} →`, () => handlers.open(related), 'link'))
     if (skill.stages?.length) children.push(element('p', `落点：${skill.stages.map(item => `${fieldLabels[item.stage]}（${item.placement}）`).join('；')}`, 'meta'))
     const redraw = (next, text) => { handlers.changed?.(); draw({ ...data, skill: next }, text) }
@@ -249,7 +249,8 @@ export function renderSkillDetail({ id, project }, handlers) {
       children.push(fixed)
     }
     if (skill.fields.length || skill.protocol) children.push(renderBase(skill, handlers, redraw))
-    if (data.project && skill.kind !== 'shared' && skill.fields.length) children.push(renderAdditions(skill, data.project.additions, handlers))
+    if (data.project && !skill.nodeScoped && skill.kind !== 'shared' && skill.fields.length) children.push(renderAdditions(skill, data.project.additions, handlers))
+    if (skill.nodeScoped) children.push(element('p', '补充 skill 请在对应剧集的摘要、大纲、人物或场景节点管理。', 'meta'))
     if (data.project && skill.guidance?.length) children.push(renderGuidance(skill, data.project.enabled, handlers))
     if (data.project && skill.kind === 'guidance') {
       const name = skill.id.replace(/^guidance-/, '')

@@ -13,21 +13,25 @@ import { runOperation } from '../server/flow/operations/run.js'
 import { tabs, tabOf, canGenerate } from '../client/flow-view.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 
-test('one generation response contains all three sections, followed by one package review', async () => {
+test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
   const generated = { ...storyPackageFixture(), outline: '旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。' }
+  const replies = [JSON.stringify({ outline: generated.outline }), 'PASS', JSON.stringify(generated.characters), 'PASS', JSON.stringify(generated.scenes), 'PASS']
   const result = await generateStoryPackage({ project: { ...episodeFixture(), outputLanguage: 'en' }, route: { baseUrl: 'http://model.test', apiKey: 'test', model: 'test' }, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
     assert.match(body.messages[0].content, /本次生成语言：English/)
     calls++
-    if (calls === 2) {
-      assert.match(body.messages[1].content, /阶段：剧情整包/)
-      assert.match(body.messages[1].content, /characters/)
+    if (calls > 2) assert.match(body.messages[1].content, /旅人进入山洞，发现陌生脚印/)
+    if (calls === 1) {
+      assert.match(body.messages[0].content, /顶层仅含 outline/)
+      assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }
-    return Response.json({ choices: [{ message: { content: calls === 1 ? JSON.stringify(generated) : 'PASS' } }] })
+    if (calls === 3) assert.match(body.messages[0].content, /### 角色卡/)
+    if (calls === 5) assert.match(body.messages[0].content, /### 场景卡/)
+    return Response.json({ choices: [{ message: { content: replies.shift() } }] })
   } })
   assert.equal(result.outline, generated.outline)
-  assert.equal(calls, 2)
+  assert.equal(calls, 6)
   assert.equal(result.characters.items.length, 1)
   assert.equal(result.scenes.items.length, 1)
   assert.equal(result.check.passed, true)

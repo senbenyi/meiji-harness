@@ -1,3 +1,4 @@
+import { syncConsumedReviewInputs } from './workflow-review.js'
 import { setCardExpanded } from './shot-card-state.js'
 import { assertDrama } from '../shared/drama-model.js'
 export function createModelStore() {
@@ -35,6 +36,7 @@ export function renderModelView(container, next) {
     const newDetails = incoming.matches('details') ? [incoming] : [...incoming.querySelectorAll('details')]
     newDetails.forEach((detail, index) => { if (oldDetails[index]) detail.open = oldDetails[index].open })
     if (previous.dataset.expanded && incoming.classList.contains('collapsible-shot')) setCardExpanded(incoming, previous.dataset.expanded === 'true')
+    syncConsumedReviewInputs(previous, incoming)
     const editing = previous.contains(active) && active?.matches('input,textarea')
     if (previous.isEqualNode(incoming) || editing || previous.querySelector('[data-dirty="true"]')) incoming.replaceWith(previous)
   }

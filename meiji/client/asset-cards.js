@@ -3,7 +3,7 @@ import { renderDetailImageActions } from './image-review.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { characterFactLine, characterFieldValues, characterSheet } from '../shared/character-facts.js'
 import { request, assetUrl } from './api.js'
-import { element, appendJsonCopy } from './dom.js'
+import { showPanelDialog, element, appendJsonCopy } from './dom.js'
 
 export { characterSheet }
 
@@ -181,7 +181,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       hint.classList.add('warn')
     }
   }
-  const showStill = (src, alt) => { full.alt = alt; full.src = src; preview.showModal() }
+  const showStill = (src, alt) => { full.alt = alt; full.src = src; showPanelDialog(preview) }
   const showError = error => {
     hint.hidden = false
     hint.textContent = error.message
@@ -328,7 +328,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       dialog.append(head, content)
       card.append(dialog)
       dialog.addEventListener('close', () => { dialog.remove(); library.disabled = controlBusy }, { once: true })
-      dialog.showModal()
+      showPanelDialog(dialog)
       content.textContent = '正在读取素材…'
       try {
         const { assets } = await request('assets?category=characters')
@@ -445,7 +445,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       still.alt = ''
       still.src = frameSrc
       open.append(still)
-      open.onclick = () => { full.alt = item.name; full.src = frameSrc; preview.showModal() }
+      open.onclick = () => { full.alt = item.name; full.src = frameSrc; showPanelDialog(preview) }
       frame.append(open)
     } else {
       const plus = element('button', '+', 'asset-placeholder')
@@ -507,7 +507,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
           still.alt = picture.name || ''
           still.src = src
           open.append(still)
-          open.onclick = () => { full.alt = picture.name || label; full.src = src; preview.showModal() }
+          open.onclick = () => { full.alt = picture.name || label; full.src = src; showPanelDialog(preview) }
           const pictureCard = element('div', '', 'part-json-card')
           pictureCard.append(open)
           appendJsonCopy(pictureCard, picture)
@@ -521,7 +521,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
           still.alt = `待确认${label}`
           still.src = imageGate.previewUrl
           open.append(still)
-          open.onclick = () => { full.alt = `待确认${label}`; full.src = imageGate.previewUrl; preview.showModal() }
+          open.onclick = () => { full.alt = `待确认${label}`; full.src = imageGate.previewUrl; showPanelDialog(preview) }
           pics.prepend(open)
         }
         const plus = element('button', '+', 'part-add')
@@ -574,7 +574,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       dialog.append(heading, content)
       card.append(dialog)
       dialog.addEventListener('close', () => { dialog.remove(); choose.disabled = false }, { once: true })
-      dialog.showModal()
+      showPanelDialog(dialog)
       content.textContent = '正在读取素材…'
       try {
         const category = item.type === 'role' ? 'characters' : 'scenes'

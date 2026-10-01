@@ -44,7 +44,7 @@ test('invalid table syntax fails before review and is never rewritten',async()=>
  let count=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='review'?'FAIL\n标题错误':'{"items":[]}'}}),/镜头表需按/);assert.equal(count,1)
 })
 
-test('second self-review sees task and newest output without prior failed draft or verdict', async () => {
+test('summary re-review compares the current revision base and opinion without restoring older source', async () => {
   let generation = 0, reviews = 0
   await runTextSteps({
     prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
@@ -57,8 +57,13 @@ test('second self-review sees task and newest output without prior failed draft 
       }
       reviews++
       assert.match(prompt, /向北走/); assert.match(prompt, /保持背影/)
-      assert.doesNotMatch(prompt, /OLD_BASE|OLD_VERDICT|【本轮定向修订】/)
-      if (reviews === 2) { assert.match(prompt, /LATEST_OUTPUT/); assert.doesNotMatch(prompt, /FAILED_DRAFT/) }
+      assert.doesNotMatch(prompt, /OLD_BASE|【本轮定向修订】/)
+      if (reviews === 1) assert.doesNotMatch(prompt, /OLD_VERDICT|【修订基稿/)
+      if (reviews === 2) {
+        assert.match(prompt, /【修订基稿.*FAILED_DRAFT/s)
+        assert.match(prompt, /【本轮修订意见】\nFAIL OLD_VERDICT/)
+        assert.match(prompt, /【本次待审内容】\nLATEST_OUTPUT/)
+      }
       return reviews === 1 ? 'FAIL OLD_VERDICT' : 'PASS'
     } },
   })
@@ -85,7 +90,7 @@ test('independent review does not receive stale correction text as a new instruc
       fetchImpl: async (_url, options) => {
         const payload = JSON.parse(options.body)
         assert.doesNotMatch(payload.messages[1].content, /STALE_ALREADY_FIXED/)
-        assert.match(payload.messages[1].content, /阶段：剧情整包/)
+        assert.match(payload.messages[1].content, /阶段：剧情大纲/)
         return Response.json({ choices: [{ message: { content: 'PASS' } }] })
       },
     })

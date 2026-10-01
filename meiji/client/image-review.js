@@ -143,7 +143,7 @@ export function syncImageGate(project, gate) {
       draftId: draft.draftId,
       previewUrl: draft.previewUrl || '',
       name: draft.name || gate.name,
-      review: gate.review || '',
+      review: gate.phase === 'generating' ? '' : gate.review || '',
       error: '',
     }
   }

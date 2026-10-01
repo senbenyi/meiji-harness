@@ -34,7 +34,7 @@
 
 ```js
 { id, kind, target, label, status, verdict, reasons, error, actor, attempts, inputs, outputs, startedAt, endedAt,
-  scope, remoteId?, saved?, apiFailure?, preparing?, unplanned? }
+  scope, remoteId?, saved?, apiFailure?, preparing?, unplanned?, prompts? }
 ```
 
 | kind | 执行者（worker） |
@@ -59,6 +59,14 @@
 - `saved`：生成或审核步骤已保存草稿；`apiFailure`：步骤中发生接口失败（中止不算）。两者供 `operations/finish.js` 判断接口失败时是否回退内容。
 
 ## 执行
+
+### 查看步骤提示词
+
+「当前任务」和「任务历史」在生成、自审、修订、复审、图片生成、视频提交步骤显示「查看提示词」。请求发出前将实际完整 messages（含 system/user）或媒体 prompt 原子保存到 `history/prompts/<promptId>.json`；`steps.prompts` 仅保存 `{ id, kind, createdAt }`，不增加任务列表的正文体积。同一步的续传等多次请求分别保存，接口失败后仍可查看。
+
+点击后沿用项目会话授权，按 taskId/stepId 校验归属并加载弹窗，完整展示每次请求、支持复制及失败重试。快照不保存请求头、API 密钥或参考图片 Base64。删除剧集时同时删除其任务的提示词记录，包括生成后才绑定集编号的任务。
+
+未执行和已跳过且没有快照的步骤按钮禁用；已执行的旧步骤允许点击。没有快照时，通过任务所属会话的公开 `snapshotEvents` 读取当时的脱敏请求日志，弹窗标明来源。仅在日志存在明确任务起止边界且该步骤类型在任务中唯一时读取；同会话任务并发、同类多步骤或日志缺失时不推测归属，说明无完整记录。新字段为任务 schemaVersion 2 的可选记录，不放宽对旧任务 schemaVersion 的拒绝；不使用当前项目资料重建历史提示词，也不读取 Harness 私有文件。更新后端后需重启已配置 Harness 才能为新请求保存快照。
 
 - 入队时（`tasks/runner.js`）写入任务记录与完整步骤计划，全部未执行 = 排队中；写入按发起顺序串行，先发起的先入队。
 - 出队时（`beginTask`）按最新内容重写计划，并把第一个步骤记为「准备中」的执行中；执行器真正开始某个步骤时，准备中的步骤要么就是它，要么恢复为未执行。

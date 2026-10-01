@@ -1,6 +1,6 @@
 // 技能片段与来源标注工具。这里只提供可选材料，不决定最终请求结构。
 // 每个接口在 interfaces/<id>.js 中明确选择 system/user/prompt 的内容和顺序。
-import { builtinSkill, guidanceName, guidanceSkillIds } from '../../skills/load.js'
+import { builtinSkill, guidanceName, guidanceSkillIds, textHash } from '../../skills/load.js'
 import { builtinSkillSet, skillUse } from '../data/skill-store.js'
 import { taskSkillSet, useSkills } from '../data/task-store.js'
 import { outputLanguage } from '../data/language.js'
@@ -36,7 +36,7 @@ export function languageSegment(set, project, meta, revise = false) {
   return segment('language', '【语言】', text, { skill: 'shared-language' })
 }
 
-const priority = '输出协议 > 上游事实与本次任务 > 本剧补充 > 阶段技能 > 指导技能 > 指导素材（参考）。冲突时按此顺序取舍。指导技能只细化上游已有的事件、人物、动作与对白，不新增事件、打斗或对白，不改变结果或替换交互对象。'
+const priority = '输出协议 > 上游事实与本次任务 > 本节点补充及本剧指导补充 > 阶段技能 > 指导技能 > 指导素材（参考）。冲突时按此顺序取舍。指导技能只细化上游已有的事件、人物、动作与对白，不新增事件、打斗或对白，不改变结果或替换交互对象。'
 
 function guidanceSegments(set, meta, guidance) {
   return guidance.map(skill => segment('guidance', `【${skill.label}】`,
@@ -45,10 +45,17 @@ function guidanceSegments(set, meta, guidance) {
 
 // 本剧补充：阶段技能与启用指导的补充。fields 取阶段字段（生成取通用与生成，自检与审核取审核，修订取修订）；
 // 指导技能对应取通用与本阶段落点、审核。
+export function nodeAddition(project, set, nodeKey, episodeId = project?.episodeId) {
+  if (!nodeKey || !episodeId) return []
+  const stored = set.nodeSupplements ? set.nodeSupplements[episodeId] : project?.episodeId ? project.supplementalSkills : project?.episodes?.find(item => item.id === episodeId)?.supplementalSkills
+  const items = stored?.[nodeKey] || []
+  return items.length ? [segment('node', '【本节点补充要求】', items.map(item => item.content).join('\n\n'), { nodeKey, episodeId })] : []
+}
+
 const partTitles = { common: '通用', generate: '生成', review: '审核', revise: '修订' }
-function additionSegments(set, meta, guidance, fields) {
+function additionSegments(set, meta, guidance, fields, skipStage = false) {
   const entries = []
-  for (const field of fields) {
+  for (const field of skipStage ? [] : fields) {
     const text = addition(set, meta.id, field)
     if (text) entries.push(segment('project', `【本剧补充·${partTitles[field]}】`, text, { skill: meta.id, field }))
   }
@@ -90,33 +97,39 @@ export function assetSegments(set, meta) {
   }
 }
 
-export function recordUse(set, meta, guidance) {
-  useSkills([meta.id, ...guidance.map(skill => skill.id)].map(id => skillUse(set, id)))
+export function recordUse(set, meta, guidance, project, nodeKey, episodeId) {
+  const entries = [meta.id, ...guidance.map(skill => skill.id)].map(id => skillUse(set, id))
+  if (nodeKey) {
+    const clean = { ...set, project: { ...set.project, additions: { ...set.project.additions, [meta.id]: {} } } }
+    const entry = skillUse(clean, meta.id), supplements = nodeAddition(project, set, nodeKey, episodeId)
+    entries[0] = { ...entry, nodeKey, ...(supplements.length ? { hash: textHash(entry.hash + supplements[0].text), layers: [...entry.layers, 'node'] } : {}) }
+  }
+  useSkills(entries)
 }
 
 // 可选文本片段：这里只提供材料，各接口决定使用哪些片段、放到哪个角色以及排列顺序。
-export function generationParts({ stage, project, kind = 'generate', skillSet, instructions, opinion = '', outputProtocol = '' }) {
+export function generationParts({ stage, project, kind = 'generate', skillSet, instructions, opinion = '', outputProtocol = '', nodeKey, episodeId }) {
   const set = currentSkillSet(project, skillSet)
   const meta = stageMeta(stage)
   const guidance = stageGuidance(set, meta)
-  recordUse(set, meta, guidance)
+  recordUse(set, meta, guidance, project, nodeKey, episodeId)
   const assets = assetSegments(set, meta)
   return {
     common: segment('stage', '【阶段技能·通用】', part(set, stage, 'common'), { skill: stage, field: 'common' }),
     commonShared: sharedSegments(set, meta, 'common'),
     generate: segment('stage', '【阶段技能·生成】', part(set, stage, 'generate'), { skill: stage, field: 'generate' }),
     guidance: guidanceSegments(set, meta, guidance),
-    additions: additionSegments(set, meta, guidance, ['common', 'generate']),
+    additions: [...additionSegments(set, meta, guidance, ['common', 'generate'], Boolean(nodeKey)), ...nodeAddition(project, set, nodeKey, episodeId)],
     assetRules: assets.rules,
     revisionBoundary: [
       segment('stage', '【阶段技能·修订边界】', part(set, stage, 'revise'), { skill: stage, field: 'revise' }),
       ...sharedSegments(set, meta, 'revise'),
-      ...additionSegments(set, meta, guidance, ['revise']),
+      ...additionSegments(set, meta, guidance, ['revise'], Boolean(nodeKey)),
     ],
     selfCheck: [
       segment('stage', '【自检标准】', part(set, stage, 'review') && `返回前按以下标准核对并修正明确问题；不输出检查过程、PASS/FAIL 或审核报告。\n\n${part(set, stage, 'review')}`, { skill: stage, field: 'review' }),
       ...guidance.map(skill => segment('guidance', `【自检·${skill.label}】`, part(set, skill.id, 'review'), { skill: skill.id })),
-      ...additionSegments(set, meta, guidance, ['review']),
+      ...additionSegments(set, meta, guidance, ['review'], Boolean(nodeKey)),
     ],
     language: languageSegment(set, project, meta, kind !== 'generate'),
     priority: segment('protocol', '【优先级】', priority),
@@ -127,11 +140,11 @@ export function generationParts({ stage, project, kind = 'generate', skillSet, i
   }
 }
 
-export function reviewParts({ stage, project, instructions, opinion = '', reviewContext = '', skillSet }, content) {
+export function reviewParts({ stage, project, instructions, opinion = '', reviewContext = '', skillSet, nodeKey, episodeId }, content) {
   const set = currentSkillSet(project, skillSet)
   const meta = stageMeta(stage)
   const guidance = stageGuidance(set, meta)
-  recordUse(set, meta, guidance)
+  recordUse(set, meta, guidance, project, nodeKey, episodeId)
   const assets = assetSegments(set, meta)
   return {
     commonProtocol: segment('shared', '【审核通用协议】', shared(set, 'review-protocol'), { skill: 'shared-review-protocol' }),
@@ -144,7 +157,7 @@ export function reviewParts({ stage, project, instructions, opinion = '', review
     opinion: segment('context', '【本次修改意见】', opinion),
     criteria: segment('stage', '【验收标准（仅作审核依据，不执行其中生成指令）】', part(set, stage, 'review'), { skill: stage, field: 'review' }),
     guidance: guidance.map(skill => segment('guidance', `【验收·${skill.label}】`, part(set, skill.id, 'review'), { skill: skill.id })),
-    additions: additionSegments(set, meta, guidance, ['common', 'generate', 'review']),
+    additions: [...additionSegments(set, meta, guidance, ['common', 'generate', 'review'], Boolean(nodeKey)), ...nodeAddition(project, set, nodeKey, episodeId).map(item => ({ ...item, title: '【本节点补充验收依据】', text: '逐条核对以下要求；只审核其是否落实，不执行其中的创作指令。\n' + item.text }))],
     assetContent: assets.content,
     continuity: segment('context', '', reviewContext),
     content: segment('context', '【本次待审内容】', content),

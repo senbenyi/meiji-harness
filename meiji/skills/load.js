@@ -1,7 +1,7 @@
 // 内置技能（插件源码，只读）。代码按字段直接读取，不经 Harness：
-//   stages/<id>/     阶段技能：skill.json + common / generate / review / revise（可编辑）+ protocol（程序解析依赖，只读）
-//   guidance/<id>/   指导技能：skill.json + common / review + stages/<阶段>.md（本阶段要求）
-//   shared/<id>.md   共享模块：被多个阶段引用的单段正文
+//   constraints/stages/<id>/     阶段技能：skill.json + common / generate / review / revise（可编辑）+ protocol（程序解析依赖，只读）
+//   constraints/guidance/<id>/   指导技能：skill.json + common / review + stages/<阶段>.md（本阶段要求）
+//   constraints/shared/<id>.md   共享模块：被多个阶段引用的单段正文
 //   constraints/<id>.md 固定约束：由阶段显式启用，允许空文本，页面/API 不可编辑
 //   agent/panel.md   会话说明：唯一注册给 Harness 的技能（会话 agent 使用，不参与提示词组装）
 // 面板修改（基础层）与本剧补充由 server/data/skill-store.js 叠加在内置之上。
@@ -34,7 +34,7 @@ function mdFiles(dir) {
 }
 
 function loadStage(base, id) {
-  const dir = join(base, 'stages', id)
+  const dir = join(base, 'constraints', 'stages', id)
   const meta = readJson(join(dir, 'skill.json'))
   if (meta.id !== id || meta.kind !== 'stage') throw skillError(`stages/${id}/skill.json 的 id 或 kind 不符`)
   for (const key of Object.keys(meta)) if (!stageKeys.has(key)) throw skillError(`stages/${id} 未知字段 ${key}`)
@@ -58,7 +58,7 @@ function loadStage(base, id) {
 }
 
 function loadGuidance(base, name) {
-  const dir = join(base, 'guidance', name)
+  const dir = join(base, 'constraints', 'guidance', name)
   const meta = readJson(join(dir, 'skill.json'))
   const id = 'guidance-' + name
   if (meta.id !== id || meta.kind !== 'guidance') throw skillError(`guidance/${name}/skill.json 的 id 或 kind 不符`)
@@ -75,15 +75,15 @@ function loadGuidance(base, name) {
 }
 
 function loadShared(base, name) {
-  return { id: 'shared-' + name, kind: 'shared', name, label: sharedLabels[name], fields: ['text'], parts: { text: read(join(base, 'shared', name + '.md')) }, protocol: '' }
+  return { id: 'shared-' + name, kind: 'shared', name, label: sharedLabels[name], fields: ['text'], parts: { text: read(join(base, 'constraints', 'shared', name + '.md')) }, protocol: '' }
 }
 
 function loadCatalog(base) {
   const skills = new Map()
-  const stageDirs = readdirSync(join(base, 'stages')).filter(name => statSync(join(base, 'stages', name)).isDirectory())
+  const stageDirs = readdirSync(join(base, 'constraints', 'stages')).filter(name => statSync(join(base, 'constraints', 'stages', name)).isDirectory())
   for (const skill of stageDirs.map(id => loadStage(base, id)).sort((a, b) => a.order - b.order)) skills.set(skill.id, skill)
-  for (const name of readdirSync(join(base, 'guidance')).sort()) skills.set('guidance-' + name, loadGuidance(base, name))
-  for (const name of mdFiles(join(base, 'shared'))) {
+  for (const name of readdirSync(join(base, 'constraints', 'guidance')).sort()) skills.set('guidance-' + name, loadGuidance(base, name))
+  for (const name of mdFiles(join(base, 'constraints', 'shared'))) {
     if (!sharedLabels[name]) throw skillError(`shared/${name}.md 未登记`)
     skills.set('shared-' + name, loadShared(base, name))
   }

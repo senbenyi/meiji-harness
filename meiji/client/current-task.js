@@ -5,7 +5,7 @@ import { renderSteps, taskStatusLabels, tickElapsed } from './task-steps.js'
 
 const time = value => value ? new Date(value).toLocaleString() : '—'
 
-export function renderCurrentTasks(project, { load, stop, back, openHistory }) {
+export function renderCurrentTasks(project, { load, loadPrompts, stop, back, openHistory }) {
   const view = element('section', '', 'task-history-page current-task-page')
   const header = element('div', '', 'task-history-header')
   const backButton = element('button', '← 返回')
@@ -45,7 +45,7 @@ export function renderCurrentTasks(project, { load, stop, back, openHistory }) {
       row.append(stopButton)
       const detail = element('div', '', 'task-history-detail')
       if (task.error) detail.append(element('p', task.error, 'error'))
-      detail.append(renderSteps(task.steps, { live: true }))
+      detail.append(renderSteps(task.steps, { live: true, loadPrompts: loadPrompts && (step => loadPrompts(task, step)) }))
       card.append(row, detail)
       list.append(card)
     }

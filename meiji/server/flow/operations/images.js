@@ -9,7 +9,7 @@ import { characterImageSize, gatewayImageSize } from '../../generate/gateway.js'
 import { appendImageAsset, clearCharacterImage, clearCharacterReference, generateStillFile, imageSeed, imageSkillPrompt, importAssetImage, nextPartId, partPrompt, partSlots, pencilPrompt, pictureRecord, readStill, saveCharacterReference, submitAssetImage, submitPencilBoard, usableLook, withPartText } from '../../generate/image.js'
 import { characterImagePrompt, characterImageModificationModel } from '../../prompts/interfaces/character-image.js'
 import { sceneImagePrompt, sceneImageModificationModel } from '../../prompts/interfaces/scene-image.js'
-import { GenerationStatus, finish, plotPatch, shotResults, targetNode, updateShotResult } from '../../../shared/drama-model.js'
+import { GenerationStatus, finish, consumeReview, plotPatch, shotResults, targetNode, updateShotResult } from '../../../shared/drama-model.js'
 import { feedbackKey } from '../../../shared/feedback.js'
 import { checkContext } from '../../data/operation-context.js'
 import { aspectRatioOf, staleMedia } from '../../../shared/project-rules.js'
@@ -145,7 +145,11 @@ export async function startPartImage(operation, project, { projects, models, hom
 
 export async function stageImageDraft(projects, project, draft, target) {
   if (!draft?.draftId) throw new Error('生成结果缺少待确认图片')
-  await projects.save(project.id, current => ({ pendingImages: { ...current.pendingImages, [draft.draftId]: { ...draft, ...target } }, activity: null, activityError: null }))
+  await projects.save(project.id, current => {
+    const key = feedbackKey({ action: target.track ? 'pencil' : target.slot ? 'part-image' : 'image', track: target.track, itemId: target.itemId, slot: target.slot })
+    consumeReview(targetNode(current, key))
+    return { ...current, pendingImages: { ...current.pendingImages, [draft.draftId]: { ...draft, ...target } }, activity: null, activityError: null }
+  })
 }
 
 // if (operation.action === 'confirm-image' || operation.action === 'discard-image')

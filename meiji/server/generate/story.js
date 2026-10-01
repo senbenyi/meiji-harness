@@ -1,4 +1,5 @@
 import { episodeSummaryFailures, referenceDuration } from '../../shared/episode-summary.js'
+import { checkContext } from '../data/operation-context.js'
 import { runTextSteps } from './text-steps.js'
 import { buildStoryPrompts } from '../prompts/story-prompts.js'
 import { buildEpisodePrompts } from '../prompts/episode-prompts.js'
@@ -108,20 +109,49 @@ export async function generateEpisode({ route, project, episodeId, referenceDura
   return { ...normalizeEpisodeDraft(parseJsonValue(result.text), reference), check: result.check }
 }
 
-export async function generateStoryPackage({ route, project, signal, fetchImpl, persist }) {
-  const options = { route, project, signal, fetchImpl }
-  const normalize = text => {
-    const raw = parseJsonValue(text)
-    return { outline: required(raw.outline, '大纲是空的'), characters: normalizeCharacters(raw.characters), scenes: normalizeScenes(raw.scenes) }
+// 三个独立文本流程：大纲通过后，按同一份最终大纲分别提取人物和场景。
+export async function generateStoryPackage({ route, project, signal, fetchImpl, request, persist }) {
+  const options = { route, project, signal, fetchImpl, request }
+  const ctx = checkContext.getStore()
+  const pending = () => ({ passed: null, failures: [] })
+  const result = { outline: '', characters: { ...project.plot.characters, check: pending(), stale: true },
+    scenes: { ...project.plot.scenes, check: pending(), stale: true }, checks: { outline: pending(), characters: pending(), scenes: pending() }, check: pending() }
+  const save = async (kind, value, check, publish = true) => {
+    if (kind === 'outline') result.outline = value
+    else result[kind] = { ...value, check, stale: false }
+    result.checks[kind] = check
+    result.check = { passed: Object.values(result.checks).every(value => value.passed === true) ? true
+      : Object.values(result.checks).some(value => value.passed === false) ? false : null,
+      failures: Object.values(result.checks).flatMap(value => value.failures) }
+    if (persist && publish) await persist({ ...result, phase: kind })
   }
-  const generated = await runTextSteps({ target: 'story', prompts: buildStoryPrompts(project), options, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })) })
-  return { ...normalize(generated.text), check: generated.check }
+  for (const kind of ['outline', 'characters', 'scenes']) {
+    (signal || ctx?.signal)?.throwIfAborted()
+    if (ctx) ctx.target = { ...ctx.originalOperation, action: 'outline', stageKey: kind }
+    const input = kind === 'outline' ? project : { ...project, plot: { ...project.plot, outline: { ...project.plot.outline, content: result.outline } } }
+    const normalize = text => {
+      const raw = parseJsonValue(text)
+      if (kind === 'outline') {
+        if (Object.keys(raw).length !== 1 || typeof raw.outline !== 'string') throw new Error('大纲结果仅允许 outline 字符串')
+        return required(raw.outline, '大纲是空的')
+      }
+      if (Object.keys(raw).length !== 1 || !Array.isArray(raw.items)) throw new Error('提取结果仅允许 items 数组')
+      return (kind === 'characters' ? normalizeCharacters : normalizeScenes)(raw)
+    }
+    const generated = await runTextSteps({ target: kind,
+      prompts: buildStoryPrompts(input, kind, '', { extraction: kind !== 'outline' }), options,
+      validate: normalize, persist: persist && ((text, check) => save(kind, normalize(text), check)) })
+    await save(kind, normalize(generated.text), generated.check, false)
+    if (!generated.check.passed) break
+  }
+  if (ctx) { ctx.target = ctx.originalOperation; ctx.validation = result.check.failures }
+  return result
 }
 
 export async function regenerateCardGroup({ project, kind, route, review, persist, signal, fetchImpl, request }) {
   const normalize = text => (kind === 'characters' ? normalizeCharacters : normalizeScenes)(parseJsonValue(text))
   const result = await runTextSteps({
-    target: 'story',
+    target: kind,
     prompts: buildStoryPrompts(project, kind, review),
     options: { route, project, signal, fetchImpl, request }, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
   })

@@ -1,43 +1,46 @@
-// episode 接口：在此独立定义生成、审核、修订的角色、顺序与输出格式。
-// 下列片段均为显式选择；可删减、移动到另一角色，或替换为本接口自己的 segment。
-import { currentSkillSet, generationParts, reviewParts } from '../skill-prompts.js'
-import { withRequirements, revisionTask } from './text-context.js'
-
+// 摘要接口选择技能快照片段；三类请求分别由 model 编排。
+import { currentSkillSet, generationParts, reviewParts, segment, part } from '../skill-prompts.js'
+import { checkContext } from '../../data/operation-context.js'
 import { EpisodeSummaryModel } from '../models/episode-summary-model.js'
 
 const modelOf = task => task.model || new EpisodeSummaryModel({ project: task.project, generationRules: currentSkillSet(task.project, task.skillSet).skills.episode.constraints })
+const contextOf = (task, review = false) => ({
+  instructions: task.model ? '' : review ? task.reviewInstructions || task.instructions : task.instructions,
+  requirements: checkContext.getStore()?.requirements || '',
+})
 
-function compose(task, kind) {
-  const p = generationParts({ ...task, stage: 'episode', kind, outputProtocol: '只输出完整合法 JSON 对象。字符串内双引号、反斜杠和换行必须转义；对白优先用中文引号「」或单引号，禁止 Markdown 围栏、注释和尾随逗号。' })
-  return modelOf(task).toSegments({
-    json: true,
-    system: [
-      p.common, ...p.commonShared,
-      ...p.guidance, ...p.additions, ...p.assetRules,
-      ...(kind === 'revise' ? p.revisionBoundary : p.selfCheck),
-      ...(kind === 'modify' ? p.revisionBoundary : []),
-      p.language, p.priority, p.protocol,
-    ],
-    user: [p.context, ...p.assetContent, p.opinion],
-  })
+function creationParts(task, kind) {
+  const p = generationParts({ ...task, stage: 'episode', nodeKey: 'summary', kind })
+  return { system: [p.common, ...p.commonShared, ...p.guidance, ...p.additions, ...p.assetRules],
+    boundary: p.revisionBoundary, protocol: p.protocol }
 }
 
 function generate(task) {
-  return compose(withRequirements(task), task.modify ? 'modify' : 'generate')
+  const model = modelOf(task)
+  const parts = creationParts(task, task.modify ? 'modify' : 'generate')
+  if (task.modify) return model.toReviseSegments({ ...parts, ...contextOf(task),
+    ...(task.model ? {} : { baseContent: task.baseContent || task.instructions }), opinion: task.opinion })
+  return model.toGenerateSegments({ ...parts, ...contextOf(task) })
 }
 
 function review(task, content) {
-  const p = reviewParts({ ...withRequirements(task), stage: 'episode' }, content)
-  return modelOf(task).toSegments({
-    json: false,
-    system: [p.commonProtocol, ...p.shared, ...p.assetRules, p.language, p.protocol],
-    user: [p.stage, p.context, p.opinion, p.criteria, ...p.guidance, ...p.additions,
-      ...p.assetContent, p.continuity, p.content, p.scope],
+  const p = reviewParts({ ...task, stage: 'episode', nodeKey: 'summary' }, content)
+  const set = currentSkillSet(task.project, task.skillSet)
+  return modelOf(task).toReviewSegments({ ...contextOf(task, true), content,
+    criteria: p.criteria,
+    system: [segment('stage', '【其他创作要求（仅作验收依据）】', part(set, 'episode', 'common'), { skill: 'episode', field: 'common' }),
+      ...p.additions, ...p.guidance],
+    ...(task.baseContent !== undefined ? { baseContent: task.baseContent } : {}),
+    opinion: task.revisionOpinion || task.opinion,
+    automatic: task.revisionReview || false,
+    humanOpinion: task.opinion,
+    reviewContext: task.reviewContext,
   })
 }
 
 function revise(task, content, review) {
-  return compose(revisionTask(withRequirements(task), content, review), 'revise')
+  return modelOf(task).toReviseSegments({ ...creationParts(task, 'revise'), ...contextOf(task, true),
+    baseContent: content, opinion: review, automatic: true, humanOpinion: task.opinion || '' })
 }
 
 export default { generate, review, revise }

@@ -1,3 +1,4 @@
+import { renderNodeSkill } from './node-skill.js'
 import { generateEpisodeDraft } from './episode-draft.js'
 import { renderTaskHistory } from './execution-history.js'
 import { renderCurrentTasks } from './current-task.js'
@@ -196,11 +197,13 @@ export function mount() {
       hold = true
       navigation++
       const sessionId = currentSessionId()
-      display(renderTaskHistory(project, {
+      currentPage = renderTaskHistory(project, {
         historyScope,
-        back: () => follow(true).catch(error => shell.status(error.message)),
+        loadPrompts: (task, step) => request('history?' + new URLSearchParams({ projectId: project.id, sessionId, taskId: task.id, stepId: step.id })),
+        back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
         load: (artifactId = '') => request('history?' + new URLSearchParams({ projectId: project.id, ...(project.episodeId ? { episodeId: project.episodeId } : {}), sessionId, ...(artifactId ? { artifactId } : {}) })),
-      }))
+      })
+      display(currentPage)
       shell.content.parentElement.scrollTop = 0
     },
     // 「当前任务」页：打开剧集时只看本集，否则看整个项目；收到 /events 推送时刷新。
@@ -212,6 +215,7 @@ export function mount() {
       const index = episodeId ? [...(root?.episodes || [])].reverse().findIndex(episode => episode.id === episodeId) : -1
       const project = { id: projectId, title: root?.title, episodeId, episodeNumber: index >= 0 ? index + 1 : undefined, episodes: root?.episodes }
       currentPage = renderCurrentTasks(project, {
+        loadPrompts: (task, step) => request('history?' + new URLSearchParams({ projectId, sessionId, taskId: task.id, stepId: step.id })),
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
         load: () => request('tasks/current?' + new URLSearchParams({ projectId, sessionId, ...(episodeId ? { episodeId } : {}) })),
         stop: task => request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }),
@@ -240,6 +244,18 @@ export function mount() {
         changed: forgetSkillList,
       }))
       shell.content.parentElement.scrollTop = 0
+    },
+    openNodeSkill: (project, nodeKey, id) => {
+      hold = true
+      navigation++
+      const scope = { projectId: project.id, sessionId: currentSessionId(), episodeId: project.episodeId, nodeKey }
+      display(renderNodeSkill(project, nodeKey, {
+        back: () => follow(true).catch(error => shell.status(error.message)),
+        load: () => request('node-skills?' + new URLSearchParams(scope)),
+        save: fields => request('node-skills', { method: 'PUT', ...jsonBody({ ...scope, ...fields }) }),
+        remove: itemId => request('node-skills', { method: 'DELETE', ...jsonBody({ ...scope, id: itemId }) }),
+        preview: () => request(`skills/${id}/preview`, { method: 'POST', ...jsonBody(scope) }),
+      }))
     },
     skillList,
     reviewImage: async (project, episodeId, draftId, action) => {
@@ -329,7 +345,10 @@ export function mount() {
     const fields = { durationSeconds: input.durationSeconds, summary: input.summary }
     if (input.episodeId) await actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
     else await actions.perform(project, 'episode-add', { fields })
-  }, generateEpisodeDraft)
+  }, generateEpisodeDraft, {
+    loadHistory: (project, artifactId = '') => request('history?' + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), ...(artifactId ? { artifactId } : {}) })),
+    loadPrompts: (project, task, step) => request('history?' + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), taskId: task.id, stepId: step.id })),
+  })
   const openCatalogDialog = catalogDialog(shell.root)
   function enterWorkspace(place) {
     // Harness restores the selected session from this persisted selection on boot.
