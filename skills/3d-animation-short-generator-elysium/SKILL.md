@@ -9,10 +9,10 @@ trigger: 用户要求制作包含角色、场景、镜头规划、逐镜生成�
 ## 硬边界
 
 - 只使用以下工作流家族：
-  - `qwen-image-21-t2i-elysium-*`
-  - `qwen-image-21-i2i-elysium-*`
-  - `minimax-h3-ref2v-elysium-*`
-  - `minimax-h3-i2v-elysium-*`
+  - `elysium-qwen-image-21-t2i-*`
+  - `elysium-qwen-image-21-i2i-*`
+  - `elysium-minimax-h3-ref2v-*`
+  - `elysium-minimax-h3-i2v-*`
 - 每种 capability 第一次调用前先运行 `comfy_list_workflows`。解析结果不是相应 Elysium 家族时立即停止，报告配置错误；不得回退到作者工作流。
 - H3 提示词只委托 `h3-prompt-writing-elysium`。
 - 当前 Elysium 视频清单不声明 `chain`，禁止传 `continuity_from`，不得承诺 latent 续接。
@@ -67,7 +67,7 @@ trigger: 用户要求制作包含角色、场景、镜头规划、逐镜生成�
 
 逐镜执行，不并发烧满显存：
 
-1. 再次核对 capability + tier 实际解析到的 `implementation` 含 `-elysium-`。
+1. 再次核对 capability + tier 实际解析到的 `implementation` 以 `elysium-` 开头。
 2. 正片镜优先调用 `comfy_generate_video(type='r2v', tier=..., ref_nodes=[角色卡, 场景卡], ...)`。
 3. 已有批准静帧需要精确起止构图时调用 `type='i2v'`；不得同时传 `ref_nodes`。
 4. 工具返回的 `warnings`、实际尺寸、实现和失败原因必须如实记录。

@@ -11,7 +11,7 @@ whenToUse: |
 
 ## Elysium 执行约束
 
-- 本 Skill 只使用 `minimax-h3-ref2v-elysium-*` 与 `minimax-h3-i2v-elysium-*` 工作流。
+- 本 Skill 只使用 `elysium-minimax-h3-ref2v-*` 与 `elysium-minimax-h3-i2v-*` 工作流。
 - 首次生成前调用 `comfy_list_workflows` 核对当前 capability + tier 解析结果；若未解析到对应 Elysium 工作流，停止并报告配置问题，禁止回退到无 `elysium` 标记的作者工作流。
 - 模型文件名与节点参数以 Elysium 工作流清单为准，不在 Skill 中改写 checkpoint。
 

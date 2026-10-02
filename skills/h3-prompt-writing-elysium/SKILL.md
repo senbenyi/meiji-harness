@@ -11,7 +11,7 @@ compatibility: Portable to any agent that can read local files — no external A
 
 ## Elysium 执行约束
 
-本副本专供 `3d-animation-short-generator-elysium`、`brand-promo-video-generator-elysium` 和 `minimax-h3-{ref2v,i2v}-elysium-*` 工作流使用。作者原版已归档，不参与运行时解析。
+本副本专供 `3d-animation-short-generator-elysium`、`brand-promo-video-generator-elysium` 和 `elysium-minimax-h3-{ref2v,i2v}-*` 工作流使用。作者原版已归档，不参与运行时解析。
 
 ## Workflow
 
@@ -59,7 +59,7 @@ Read `references/ref-en.txt` for label rules, retention analysis, and complete e
 ## 输入与条件启用
 
 - 输入：片型 skill（如 3d-animation-short-generator-elysium）在逐镜生成时提供的「本镜分镜章节 + 镜头表 `参考锚点` / `音频与对白轨` 行 + ref_nodes / first_frame / last_frame 绑定」。
-- **仅当**解析到的实现匹配 `minimax-h3-(ref2v|i2v)-elysium-(fast|balanced|quality)` 时应用本重写；否则停止并报告配置错误，不走非 Elysium 兜底。
+- **仅当**解析到的实现匹配 `elysium-minimax-h3-(ref2v|i2v)-(fast|balanced|quality)` 时应用本重写；否则停止并报告配置错误，不走非 Elysium 兜底。
 - 参考图硬规则（单视图 / 图内零文字 / 不拼图）由插件工具契约统一约束，本 skill 遵守不重述。
 
 ## 重写路径

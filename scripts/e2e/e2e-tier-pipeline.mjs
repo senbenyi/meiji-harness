@@ -51,7 +51,7 @@ const img = await _internals.runRender(ctx, {
 const imgNode = img.node
 const imgSize = _internals.probeImageSize(absOf(imgNode.media))
 console.log(`  · 解析=${img.resolution} tier=${imgNode.params.tier} 实现=${imgNode.params.workflow} ${Math.round((Date.now() - t0) / 1000)}s`)
-ok(imgNode.params.workflow.startsWith('qwen-image-21-t2i-elysium-'), `实现由配置解析到 Elysium qwen（${imgNode.params.workflow}）`)
+ok(imgNode.params.workflow.startsWith('elysium-qwen-image-21-t2i-'), `实现由配置解析到 Elysium qwen（${imgNode.params.workflow}）`)
 ok(imgNode.params.tier === 'fast', 'tier 记在节点上')
 ok(imgNode.params.width === 576 && imgNode.params.height === 1024, `9:16 × fast 长边 1024 → 节点记 ${imgNode.params.width}×${imgNode.params.height}`)
 ok(imgSize && imgNode.params.width === imgSize.w && imgNode.params.height === imgSize.h, `节点宽高 == 产物真实像素（${imgSize?.w}×${imgSize?.h}）`)
@@ -68,7 +68,7 @@ const i2iNode = i2i.node
 const i2iSize = _internals.probeImageSize(absOf(i2iNode.media))
 console.log(`  · 解析=${i2i.resolution} tier=${i2iNode.params.tier} 实现=${i2iNode.params.workflow} ${Math.round((Date.now() - t1) / 1000)}s`)
 console.log(`  · warnings: ${JSON.stringify(i2i.warnings || [])}`)
-ok(i2iNode.params.workflow.startsWith('qwen-image-21-i2i-elysium-'), `i2i 实现由配置解析到 Elysium（${i2iNode.params.workflow}）`)
+ok(i2iNode.params.workflow.startsWith('elysium-qwen-image-21-i2i-'), `i2i 实现由配置解析到 Elysium（${i2iNode.params.workflow}）`)
 ok(i2iNode.params.width === i2iSize?.w && i2iNode.params.height === i2iSize?.h, `节点宽高 == 产物真实像素（${i2iSize?.w}×${i2iSize?.h}）`)
 ok(i2iSize && Math.max(i2iSize.w, i2iSize.h) > 1500, `quality 档出 2K 级改绘（长边 ${Math.max(i2iSize?.w || 0, i2iSize?.h || 0)}）`)
 ok((i2i.warnings || []).some((w) => w.includes('width') && w.includes('未生效')), 'i2i 传 width → 明确告警「该参数未生效」')
@@ -86,7 +86,7 @@ if (!SKIP_VIDEO) {
   const vNode = vid.node
   console.log(`  · 解析=${vid.resolution} tier=${vNode.params.tier} 实现=${vNode.params.workflow} ${Math.round((Date.now() - t2) / 1000)}s`)
   ok(vNode.kind === 'video', '产物是视频节点')
-  ok(vNode.params.workflow.startsWith('minimax-h3-ref2v-elysium-'), `视频实现由配置解析到 Elysium（${vNode.params.workflow}）`)
+  ok(vNode.params.workflow.startsWith('elysium-minimax-h3-ref2v-'), `视频实现由配置解析到 Elysium（${vNode.params.workflow}）`)
   ok(vNode.params.width > 0 && vNode.params.height > 0 && vNode.params.width < vNode.params.height, `9:16 竖版交付记账：${vNode.params.width}×${vNode.params.height}（两阶段实现的交付尺寸）`)
 }
 

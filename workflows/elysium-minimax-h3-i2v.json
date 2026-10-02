@@ -1,5 +1,5 @@
 {
-  "id": "minimax-h3-i2v-elysium",
+  "id": "elysium-minimax-h3-i2v",
   "version": 1,
   "capability": "video.image2video",
   "lengthGrid": [
@@ -368,7 +368,7 @@
     "maxDurationFrames": 310,
     "supportsSubtitles": true
   },
-  "group": "minimax-h3-i2v-elysium",
+  "group": "elysium-minimax-h3-i2v",
   "note": "Elysium 用户工作流：以当前 ComfyUI 的 DaSiWa Hybrid 4-step、H3 CLIP 与 VAE 文件为准；不叠加作者模板的外置 LoRA。",
   "priority": -100
 }

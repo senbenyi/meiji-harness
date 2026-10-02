@@ -10,10 +10,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const report = loadBuiltinManifests(join(root, 'workflows'))
 const tiers = ['fast', 'balanced', 'quality']
 const families = {
-  'qwen-image-21-t2i-elysium': 'image.text2image',
-  'qwen-image-21-i2i-elysium': 'image.image2image',
-  'minimax-h3-ref2v-elysium': 'video.reference2video',
-  'minimax-h3-i2v-elysium': 'video.image2video',
+  'elysium-qwen-image-21-t2i': 'image.text2image',
+  'elysium-qwen-image-21-i2i': 'image.image2image',
+  'elysium-minimax-h3-ref2v': 'video.reference2video',
+  'elysium-minimax-h3-i2v': 'video.image2video',
 }
 const expected = Object.keys(families).flatMap((family) => tiers.map((tier) => `${family}-${tier}`)).sort()
 const expectedSources = [

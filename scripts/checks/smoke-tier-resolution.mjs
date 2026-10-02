@@ -7,10 +7,10 @@ const { getRegistry, resolveTieredManifest, describeTierMatrix, effectiveAssetsO
 const registry = getRegistry()
 const tiers = ['fast', 'balanced', 'quality']
 const families = {
-  'image.text2image': 'qwen-image-21-t2i-elysium',
-  'image.image2image': 'qwen-image-21-i2i-elysium',
-  'video.reference2video': 'minimax-h3-ref2v-elysium',
-  'video.image2video': 'minimax-h3-i2v-elysium',
+  'image.text2image': 'elysium-qwen-image-21-t2i',
+  'image.image2image': 'elysium-qwen-image-21-i2i',
+  'video.reference2video': 'elysium-minimax-h3-ref2v',
+  'video.image2video': 'elysium-minimax-h3-i2v',
 }
 
 let pass = 0
@@ -48,7 +48,7 @@ for (const [capability, family] of Object.entries(families)) {
   const cap = matrix[capability]
   ok(`${capability} 只公开三档`, cap && cap.tiers.join(',') === tiers.join(','))
   ok(`${capability} 只公开 Elysium 家族`, cap && cap.groups.length === 1 && cap.groups[0].id === family)
-  ok(`${capability} 默认策略三档均为 Elysium`, cap && Object.values(cap.strategies[0].tiers).every((id) => id.includes('-elysium-')))
+  ok(`${capability} 默认策略三档均为 Elysium`, cap && Object.values(cap.strategies[0].tiers).every((id) => id.startsWith('elysium-')))
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`)

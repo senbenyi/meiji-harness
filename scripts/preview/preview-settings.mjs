@@ -42,9 +42,9 @@ const moduleExports = mod.factory((name) => (name === 'react' ? React : {}))
 const USE_FIXTURE = process.argv.includes('--fixture')
 const cfgFixture = {
   baseUrl: 'http://localhost:8188', apiKey: '', pollMs: 2000, timeoutMs: 900000,
-  models: {}, assetOverrides: { 'minimax-h3-ref2v-elysium-quality': { vae: 'minimax_h3_video_vae_fp16.safetensors' } },
-  preferred: { 'image.image2image': ['qwen-image-21-i2i-elysium'] },
-  tiers: { 'video.reference2video': { fast: 'minimax-h3-ref2v-elysium-fast', balanced: 'minimax-h3-ref2v-elysium-balanced', quality: 'minimax-h3-ref2v-elysium-quality' } },
+  models: {}, assetOverrides: { 'elysium-minimax-h3-ref2v-quality': { vae: 'minimax_h3_video_vae_fp16.safetensors' } },
+  preferred: { 'image.image2image': ['elysium-qwen-image-21-i2i'] },
+  tiers: { 'video.reference2video': { fast: 'elysium-minimax-h3-ref2v-fast', balanced: 'elysium-minimax-h3-ref2v-balanced', quality: 'elysium-minimax-h3-ref2v-quality' } },
 }
 const realCfg = _internals.getCfg ? _internals.getCfg() : null
 const cfg = USE_FIXTURE || !realCfg ? cfgFixture : realCfg

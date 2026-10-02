@@ -23,10 +23,10 @@ function ok(name, condition) {
 
 console.log('== resolution ==')
 for (const [capability, family] of Object.entries({
-  'image.text2image': 'qwen-image-21-t2i-elysium',
-  'image.image2image': 'qwen-image-21-i2i-elysium',
-  'video.reference2video': 'minimax-h3-ref2v-elysium',
-  'video.image2video': 'minimax-h3-i2v-elysium',
+  'image.text2image': 'elysium-qwen-image-21-t2i',
+  'image.image2image': 'elysium-qwen-image-21-i2i',
+  'video.reference2video': 'elysium-minimax-h3-ref2v',
+  'video.image2video': 'elysium-minimax-h3-i2v',
 })) {
   for (const tier of ['fast', 'balanced', 'quality']) {
     const result = await resolveTieredManifest(capability, tier, null, none)
@@ -35,13 +35,13 @@ for (const [capability, family] of Object.entries({
 }
 
 let threw = false
-try { await resolveTieredManifest('image.text2image', 'fast', 'minimax-h3-ref2v-elysium-fast', none) } catch { threw = true }
+try { await resolveTieredManifest('image.text2image', 'fast', 'elysium-minimax-h3-ref2v-fast', none) } catch { threw = true }
 ok('跨能力显式实现被拒绝', threw)
 
 console.log('== size ==')
-const image = reg.byId['qwen-image-21-t2i-elysium-balanced']
-const videoFast = reg.byId['minimax-h3-ref2v-elysium-fast']
-const videoQuality = reg.byId['minimax-h3-ref2v-elysium-quality']
+const image = reg.byId['elysium-qwen-image-21-t2i-balanced']
+const videoFast = reg.byId['elysium-minimax-h3-ref2v-fast']
+const videoQuality = reg.byId['elysium-minimax-h3-ref2v-quality']
 let size = computeManifestSize(image, 'balanced', undefined, undefined, '16:9')
 eq('balanced t2i 16:9 width', size.w, 1344)
 eq('balanced t2i 16:9 height', size.h, 768)
@@ -58,7 +58,7 @@ eq('fast graph width', rendered.job.width, 832)
 eq('fast graph height', rendered.job.height, 480)
 ok('r2v reference injected', Object.values(rendered.graph).some((n) => n.inputs && Object.keys(n.inputs).some((k) => k.startsWith('ref_images.'))))
 
-rendered = buildRenderGraph(reg.byId['minimax-h3-i2v-elysium-balanced'], {
+rendered = buildRenderGraph(reg.byId['elysium-minimax-h3-i2v-balanced'], {
   prompt: 'p', mode: 'balanced', first_frame: 'first.png', last_frame: 'last.png', prefix: 'x',
 }, '16:9')
 ok('i2v first frame injected', Object.values(rendered.graph).some((n) => n.inputs && n.inputs.first_frame))

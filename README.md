@@ -8,10 +8,10 @@ DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激�
 
 | capability | family | 档位 |
 | --- | --- | --- |
-| `image.text2image` | `qwen-image-21-t2i-elysium` | fast / balanced / quality |
-| `image.image2image` | `qwen-image-21-i2i-elysium` | fast / balanced / quality |
-| `video.reference2video` | `minimax-h3-ref2v-elysium` | fast / balanced / quality |
-| `video.image2video` | `minimax-h3-i2v-elysium` | fast / balanced / quality |
+| `image.text2image` | `elysium-qwen-image-21-t2i` | fast / balanced / quality |
+| `image.image2image` | `elysium-qwen-image-21-i2i` | fast / balanced / quality |
+| `video.reference2video` | `elysium-minimax-h3-ref2v` | fast / balanced / quality |
+| `video.image2video` | `elysium-minimax-h3-i2v` | fast / balanced / quality |
 
 图片使用 Qwen Image 2.1；视频使用 MiniMax H3。模型文件名、节点图、分辨率和步数以对应 manifest 为真值。
 未传 `tier` 时统一使用 `fast`；`balanced` / `quality` 只有显式指定才会使用。

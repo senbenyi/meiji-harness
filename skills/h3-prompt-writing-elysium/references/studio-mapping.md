@@ -2,8 +2,8 @@
 
 本映射只适用于当前活动的两个视频家族：
 
-- `minimax-h3-ref2v-elysium-{fast,balanced,quality}`
-- `minimax-h3-i2v-elysium-{fast,balanced,quality}`
+- `elysium-minimax-h3-ref2v-{fast,balanced,quality}`
+- `elysium-minimax-h3-i2v-{fast,balanced,quality}`
 
 解析到其它实现时停止，不使用本映射。
 
