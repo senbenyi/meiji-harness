@@ -133,7 +133,7 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 
 1. Jellyfish — 领域对象与任务中心。
 2. Story Claw — 角色阶段、声线映射、VLM 质量门、断点续跑。
-3. ArcReel — 数据迁移/备份、队列、供应商抽象和工程导出。
+3. ArcReel — 只蒸馏与当前架构直接相邻且收益最高的引用/输入快照、ComfyUI workflow 检查与预览、Attempt 对账与恢复投影；不引入通用队列、供应商全集或工程后端。范围见 `docs/audits/open-source/ArcReel.md`，实施设计见 `docs/plans/计划-ArcReel高收益能力蒸馏.md`。
 4. ViMax — 长篇上下文压缩、渲染状态持久化和并行续跑。
 
 每项只集成一个可独立验收的能力；未通过金样和故障测试，不进入下一项 → AC-5。

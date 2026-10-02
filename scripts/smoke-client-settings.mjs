@@ -89,10 +89,10 @@ console.log('\n[1] 设置页渲染（真实 /api/workflows 形状数据）')
   ok('策略摘要按档位顺序（fast → balanced → quality）',
     text.indexOf('fast → ') < text.indexOf('balanced → '))
   ok('三档都在摘要里出现', ['fast →', 'balanced →', 'quality →'].every((t) => text.includes(t)))
-  ok('显示实测耗时（来自注册表 estSeconds）', text.includes('约 397s') || text.includes('约 311s'))
+  ok('不显示旧作者工作流的实测耗时', !text.includes('约 397s') && !text.includes('约 311s'))
   // 新交互：**默认视图只显示策略列表与名称**，档位表单（下拉）必须点「编辑档位」才出现
   ok('策略行有「编辑档位」入口', text.includes('编辑档位'))
-  ok('显示未分级清单提示', text.includes('未分级') || text.includes('未分档'))
+  ok('活动清单全部已分档', apiPayload.capabilities.every((c) => (c.unclassified || []).length === 0))
   ok('导入表单有组名字段', text.includes('组名 group（同名成组）'))
   ok('导入表单有档位字段', text.includes('档位 tier'))
   ok('i2v 也有自己的内置默认策略', text.includes('MiniMax H3 首末帧生成视频'))
@@ -130,8 +130,8 @@ console.log('\n[2] 工具条命令行拼装（tier= 与尺寸随档位）')
   ok('r2v 档位列表来自矩阵', r2vTiers.length > 0 && r2vTiers.includes('fast'), r2vTiers.join(','))
   ok('i2v 档位列表来自矩阵（已补齐 balanced）', i2vTiers.join(',') === 'fast,balanced,quality', i2vTiers.join(','))
   ok('默认档位 = 列表首个（非写死）', T.GEN_DEFAULT.videoTier === '' && T.GEN_DEFAULT.imageTier === '')
-  const i2iModes = T.modesOf(apiPayload, 'image.image2image')
-  ok('图片 i2i「档位」读清单 modes', i2iModes.length > 0, i2iModes.join(','))
+  const i2iTiers = T.tiersOf(apiPayload, 'image.image2image')
+  ok('图片 i2i 档位来自矩阵', i2iTiers.join(',') === 'fast,balanced,quality', i2iTiers.join(','))
   // 图片已并入 tier 体系（一档一清单）：t2i 的档位列表来自矩阵，长边来自该档清单
   const t2iTiers = T.tiersOf(apiPayload, 'image.text2image')
   ok('图片 t2i 档位列表来自矩阵', t2iTiers.length > 0 && t2iTiers.includes('fast'), t2iTiers.join(','))
@@ -163,7 +163,7 @@ console.log('\n[3] tierPick 与后端解析同源')
   eq('读到该档长边（来自清单）', pickDefault.longSide, 1344)
   const fast = T.tierPick(apiPayload, refCap, 'fast')
   eq('fast 档长边（来自清单）', fast.longSide, 832)
-  eq('fast 档耗时（来自清单）', Math.round(fast.estSeconds), 25)
+  ok('未实测耗时保持未知', !fast.estSeconds, String(fast.estSeconds))
   eq('i2v balanced 档来自清单', T.tierPick(apiPayload, 'video.image2video', 'balanced').id, 'minimax-h3-i2v-elysium-balanced')
   eq('未分档能力 → null', T.tierPick(apiPayload, 'image.from_video', 'quality'), null)
 }
@@ -365,3 +365,5 @@ console.log('\n[6] 策略：内置默认 / 用户自建 / 新增（命名 + 自�
     }
   }
 }
+
+process.exitCode = fail ? 1 : 0

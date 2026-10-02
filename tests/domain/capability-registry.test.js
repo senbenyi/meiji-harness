@@ -10,3 +10,10 @@ test('registry only resolves runtime verified workflows', () => {
   assert.equal(registry.resolve('image.text2image', 'quality').workflowId, 'qwen-image-21')
   assert.throws(() => registry.resolve('video.image2video', 'quality'), /no runtime_verified workflow/)
 })
+
+test('verified workflow bindings must be explicitly confirmed', () => {
+  assert.throws(() => new CapabilityRegistry([{
+    capability: 'image.text2image', status: 'manifest_verified', bindingStatus: 'suggested',
+    bindings: { positivePrompt: [{ nodeId: '1', input: 'text' }] },
+  }]), /confirmed bindings/)
+})

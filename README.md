@@ -47,6 +47,18 @@ DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激�
 
 不要再配置旧 `flux*`、`h3Ref*`、`h3Fl*`、PDD 或 LoRA 键；它们对应的工作流已经归档。
 
+ArcReel 能力蒸馏的三个增量功能默认开启，可独立回退；修改后需重启插件：
+
+```json
+{
+  "features": {
+    "promptSnapshots": true,
+    "workflowInspector": true,
+    "attemptDiagnostics": true
+  }
+}
+```
+
 ## 安装与运行
 
 ```bash

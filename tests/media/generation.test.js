@@ -65,3 +65,47 @@ test('submission response loss becomes submission_unknown and requires explicit 
     assert.equal(recoveryPlan(project)[0].automatic, false)
   } finally { await rm(root, { recursive: true, force: true }) }
 })
+
+test('known submit rejection fails without becoming submission_unknown', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-generation-rejected-'))
+  try {
+    const { projects, projectId, attemptId } = await generationFixture()
+    const runner = new GenerationRunner({
+      projectService: projects,
+      comfyClient: new ComfyClient({ baseUrl: 'https://comfy.example', fetchImpl: async () => Response.json({ error: 'invalid workflow' }, { status: 400 }) }),
+      fileService: await new FileService(root).initialize(),
+    })
+    await assert.rejects(runner.submit({ projectId, attemptId, graph: {} }), /comfy-submit-failed/)
+    const attempt = (await projects.getProject(projectId)).attempts[attemptId]
+    assert.equal(attempt.status, 'failed')
+    assert.equal(attempt.failureClass, 'invalid_input')
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('download failure resumes the same prompt and deterministic asset id', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-generation-recover-'))
+  try {
+    const { projects, projectId, attemptId } = await generationFixture()
+    let downloads = 0
+    const fetchImpl = async (url) => {
+      if (url.endsWith('/prompt')) return Response.json({ prompt_id: 'prompt-recover' })
+      if (url.includes('/history/')) return Response.json({ 'prompt-recover': { status: { completed: true }, outputs: { 9: { videos: [{ filename: 'clip.mp4', type: 'output' }] } } } })
+      if (url.includes('/view?')) {
+        downloads++
+        if (downloads === 1) return new Response('', { status: 500 })
+        return new Response(Buffer.from('video-bytes'))
+      }
+      throw new Error(`unexpected URL: ${url}`)
+    }
+    const runner = new GenerationRunner({
+      projectService: projects,
+      comfyClient: new ComfyClient({ baseUrl: 'https://comfy.example', fetchImpl, pollMs: 1 }),
+      fileService: await new FileService(root).initialize(),
+    })
+    await assert.rejects(runner.run({ projectId, attemptId, graph: {} }), /comfy-download-failed/)
+    assert.equal((await projects.getProject(projectId)).attempts[attemptId].failureClass, 'download_failure')
+    const recovered = await runner.recover({ projectId, attemptId })
+    assert.equal(recovered.output.assetId, `${attemptId}-output-0`)
+    assert.equal((await projects.getProject(projectId)).attempts[attemptId].status, 'completed')
+  } finally { await rm(root, { recursive: true, force: true }) }
+})

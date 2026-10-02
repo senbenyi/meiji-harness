@@ -78,3 +78,76 @@ test('adult project cannot generate without age and rights records', async () =>
     /rights gate blocked/,
   )
 })
+
+test('generation attempt freezes a validated prompt snapshot', async () => {
+  const { service, projectId } = await fixture()
+  await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
+  await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
+  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const shot = await command(service, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready', prompt: 'test prompt' })
+  const { compilePromptSnapshot } = await import('../../lib/prompts/compiler.js')
+  const project = await service.getProject(projectId)
+  const snapshot = compilePromptSnapshot({ project, shotId: shot.output.id, capability: 'image.text2image' })
+  const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'image.text2image', inputSnapshot: snapshot })
+  assert.deepEqual(attempt.project.attempts[attempt.output.attemptId].inputSnapshot, snapshot)
+  const changed = structuredClone(snapshot)
+  changed.prompt = 'tampered'
+  await assert.rejects(
+    command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'image.text2image', inputSnapshot: changed }),
+    /prompt snapshot hash mismatch/,
+  )
+})
+
+test('download failure can resume the same attempt without a new submission', async () => {
+  const { service, projectId } = await fixture()
+  await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
+  await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
+  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const shot = await command(service, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready' })
+  const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
+  const attemptId = attempt.output.attemptId
+  await command(service, projectId, 'markAttemptSubmitted', { attemptId, promptId: 'prompt-1' })
+  await command(service, projectId, 'advanceGenerationAttempt', { attemptId, status: 'running' })
+  await command(service, projectId, 'advanceGenerationAttempt', { attemptId, status: 'downloading' })
+  await command(service, projectId, 'failGenerationAttempt', { attemptId, error: 'download failed', failureClass: 'download_failure', retryable: true, failureStage: 'download' })
+  const resumed = await command(service, projectId, 'recoverGenerationAttempt', { attemptId, decision: 'resume' })
+  assert.equal(resumed.project.attempts[attemptId].status, 'downloading')
+  assert.equal(resumed.project.attempts[attemptId].promptId, 'prompt-1')
+})
+
+test('recordAutomatedCheck pass keeps awaiting_human, fail auto-rejects', async () => {
+  const { service, projectId } = await fixture()
+  await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
+  await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
+  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const shot = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
+  const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
+  await command(service, projectId, 'markAttemptSubmitted', { attemptId: attempt.output.attemptId, promptId: 'p1' })
+  await command(service, projectId, 'advanceGenerationAttempt', { attemptId: attempt.output.attemptId, status: 'running' })
+  await command(service, projectId, 'advanceGenerationAttempt', { attemptId: attempt.output.attemptId, status: 'downloading' })
+  const completed = await command(service, projectId, 'completeGenerationAttempt', { attemptId: attempt.output.attemptId, kind: 'video', logicalKey: 'media/a.mp4', contentHash: 'abc' })
+  const { assetId, reviewTaskId } = completed.output
+
+  // pass → stays awaiting_human
+  const passResult = await command(service, projectId, 'recordAutomatedCheck', { reviewTaskId, adapter: 'metadata', schemaVersion: 1, inputHash: 'abc', result: 'pass' })
+  assert.equal(passResult.output.autoRejected, false)
+  assert.equal(passResult.project.reviewTasks[reviewTaskId].status, 'awaiting_human')
+  assert.equal(passResult.project.assets[assetId].status, 'candidate')
+
+  // Now test fail path: create a second asset with its own review task
+  const shot2 = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头2', status: 'ready' })
+  const attempt2 = await command(service, projectId, 'createGenerationAttempt', { shotId: shot2.output.id, capability: 'video.image2video' })
+  await command(service, projectId, 'markAttemptSubmitted', { attemptId: attempt2.output.attemptId, promptId: 'p2' })
+  await command(service, projectId, 'advanceGenerationAttempt', { attemptId: attempt2.output.attemptId, status: 'running' })
+  await command(service, projectId, 'advanceGenerationAttempt', { attemptId: attempt2.output.attemptId, status: 'downloading' })
+  const completed2 = await command(service, projectId, 'completeGenerationAttempt', { attemptId: attempt2.output.attemptId, kind: 'video', logicalKey: 'media/b.mp4', contentHash: 'def' })
+  const reviewTaskId2 = completed2.output.reviewTaskId
+  const assetId2 = completed2.output.assetId
+
+  // fail → auto-rejected, asset rejected, shot back to ready
+  const failResult = await command(service, projectId, 'recordAutomatedCheck', { reviewTaskId: reviewTaskId2, adapter: 'nsfw', schemaVersion: 1, inputHash: 'def', result: 'fail' })
+  assert.equal(failResult.output.autoRejected, true)
+  assert.equal(failResult.project.reviewTasks[reviewTaskId2].status, 'rejected')
+  assert.equal(failResult.project.assets[assetId2].status, 'rejected')
+  assert.equal(failResult.project.shots[shot2.output.id].status, 'ready')
+})
