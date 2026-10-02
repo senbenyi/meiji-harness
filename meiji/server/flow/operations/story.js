@@ -10,7 +10,7 @@ import { generateAllSeconds, generateShotSeconds, generateShotStoryboard, genera
 import { GenerationStatus, contentNode, finish, node, plotPatch, setContent, targetNode, updateShotResults } from '../../../shared/drama-model.js'
 import { feedbackOf, overrideBlocker, overrideNodes } from '../../../shared/feedback.js'
 import { clearShotDownstream, replaceFrom } from '../../../shared/project-rules.js'
-import { canGenerate, hasShots } from '../../../shared/gates.js'
+import { canGenerate, gateMessage, hasShots } from '../../../shared/gates.js'
 import { shotSecondsReady } from '../../../shared/shot-timing.js'
 import { characterFieldValues, characterLookText } from '../../../shared/character-facts.js'
 
@@ -174,7 +174,7 @@ async function opShotAssets(c) {
 // if (operation.action === 'shots')
 async function opShots(c) {
   let { operation, deps, projects, models, project, submittedReview, trace, note } = c
-  if (!canGenerate(project, 'shots')) throw Object.assign(new Error('请先写好场景卡，再写镜头表'), { status: 409 })
+  if (!canGenerate(project, 'shots')) throw Object.assign(new Error(gateMessage(project, 'shots')), { status: 409 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'shots'), activity: 'shots', activityError: null })
   const review = String(operation.review || '').trim()
   note('按事件与空间连续性规划镜头表，每段不超过15秒')

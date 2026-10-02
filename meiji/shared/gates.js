@@ -64,7 +64,17 @@ export function gateMessage(project, step) {
   }
   if (step === 'characters' || step === 'scenes') return '角色和场景与故事大纲统一生成；图片可在卡片中单独生成。'
   if (step === 'shots') {
-    if (!canGenerate(project, 'shots')) return '请先让大纲、人物、场景及道具提取通过自审，再写镜头表。'
+    if (!canGenerate(project, 'shots')) {
+      const labels = { outline: '剧情大纲', characters: '人物角色', scenes: '场景卡', props: '道具' }
+      const pending = Object.entries(labels).flatMap(([key, label]) => {
+        const record = project.plot?.[key]
+        if (key === 'scenes' && !hasScenes(project)) return [`${label}尚未生成`]
+        if (record?.check?.passed === true) return []
+        if (key === 'props' && (!record || (record.check?.passed == null && record.revision === 0 && !record.items?.length && !record.operation))) return ['道具尚未提取，请到剧情页提取道具并通过自审']
+        return [`${label}${record?.check?.passed === false ? '自审未通过' : '尚未通过自审'}`]
+      })
+      return `镜头表暂不可生成：${pending.join('；')}。`
+    }
     if (!hasShots(project)) return '先写镜头表，再整集生成每秒指令并整集自审。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
     if (!feedbackOf(project, 'shots').check.passed) return '镜头表尚未通过自审，请查看镜头表顶部的审核卡片。'
     if (!hasShotSeconds(project)) return '镜头表已通过自审，请先整集生成每秒指令并逐镜审核。'
@@ -84,4 +94,3 @@ export function gateMessage(project, step) {
   if (step === 'assembly') return '全片拼接和背景音乐后期接入。卡片先留在这里。'
   return '步骤无效'
 }
-

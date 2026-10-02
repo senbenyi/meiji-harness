@@ -26,6 +26,30 @@ test('all production panes render directly from new models, including pencil and
   if(shotsPane==='board'){assert.ok(container.querySelector('.reference-card img'));assert.match(container.textContent,/<Subject 1>/);assert.ok(container.querySelector('.storyboard-editor'))}
  }
 })
+test('镜头表按钮始终可见，缺少道具时禁用，审核通过后刷新启用', async t => {
+ const container=domSetup(t), project=episodeFixture(), props=project.plot.props
+ project.shots.items=[]
+ delete project.plot.props
+ let calls=0
+ const actions={perform:async()=>{calls++},fail:()=>{}}
+ const build=()=>renderStage('shots',project,actions,{})
+ renderModelView(container,build())
+ let button=container.querySelector('.stage-primary-actions button.primary')
+ assert.ok(button)
+ assert.equal(button.disabled,true)
+ assert.match(container.textContent,/道具尚未提取/)
+ assert.match(button.title,/道具尚未提取/)
+ button.click()
+ assert.equal(calls,0)
+ project.plot.props=props
+ renderModelView(container,build())
+ button=container.querySelector('.stage-primary-actions button.primary')
+ assert.equal(button.disabled,false)
+ assert.doesNotMatch(container.textContent,/道具尚未提取/)
+ button.click()
+ await new Promise(resolve=>setImmediate(resolve))
+ assert.equal(calls,1)
+})
 test('partial refresh retains focused draft and does not detach nested reused components',t=>{
  const container=domSetup(t)
  const build=label=>{const root=document.createElement('div');root.innerHTML=`<article data-model-key="one"><input value="draft"><span data-model-key="inside">inside</span></article><article data-model-key="two">${label}</article>`;return root}

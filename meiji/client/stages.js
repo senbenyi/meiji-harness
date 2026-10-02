@@ -290,16 +290,16 @@ function paintShotTable(view, project, actions) {
   heading.append(element('span', stepRunLabel(project, 'shots'), 'story-status'))
   view.append(heading)
   const tableBusy = Boolean(project.activity)
-  if (canGenerate(project, 'shots')) {
-    const hasTable = hasShots(project)
-    const label = hasTable ? '重新生成' : '写镜头表'
-    const button = markTask(element('button', project.activity === 'shots' ? '生成中' : label, 'primary'), 'shots')
-    button.type = 'button'
-    button.disabled = tableBusy
-    bindBusy(button, () => actions.perform(project, 'shots', reviewFields(view)), '生成中')
-    heading.append(button)
-
-  }
+  const ready = canGenerate(project, 'shots')
+  const hasTable = hasShots(project)
+  const label = hasTable ? '重新生成' : '写镜头表'
+  const button = markTask(element('button', project.activity === 'shots' ? '生成中' : label, 'primary'), 'shots')
+  button.type = 'button'
+  button.disabled = tableBusy || !ready
+  if (!ready) button.title = gateMessage(project, 'shots')
+  bindBusy(button, () => actions.perform(project, 'shots', reviewFields(view)), '生成中')
+  heading.append(button)
+  if (!ready) view.append(element('p', button.title, 'notice shot-generation-blocker'))
   appendWorkflowReview(view, feedbackOf(project, 'shots'), hasShots(project) || Boolean(project.shots?.failedOutput), tableBusy, heading.querySelector('button.primary'))
   for (const shot of project.shots?.items || []) view.append(shotTableCard(shot))
   if (!hasShots(project) && project.shots?.failedOutput) view.append(element('pre', project.shots.failedOutput, 'story'))

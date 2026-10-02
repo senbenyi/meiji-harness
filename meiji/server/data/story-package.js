@@ -1,4 +1,4 @@
-import { GenerationStatus, contentNode, cardModel } from '../../shared/drama-model.js'
+import { GenerationStatus, contentNode, cardModel, node } from '../../shared/drama-model.js'
 // Keep confirmed assets attached to stable names while replacing generated descriptions.
 export function preserveStoryAssets(project, result) {
   const patch = { outline: contentNode(project.plot.outline, result.outline, result.checks?.outline || result.check) }
@@ -8,7 +8,7 @@ export function preserveStoryAssets(project, result) {
     const oldItems = project.plot[key]?.items || []
     let next = Math.max(0, ...oldItems.map(item => Number(item.id?.slice(1)) || 0))
     const names = new Set()
-    patch[key] = { ...project.plot[key], stale: result[key].stale || false, check, status: check.passed === true ? GenerationStatus.PASSED : check.passed === false ? GenerationStatus.FAILED : GenerationStatus.NOT_GENERATED, items: result[key].items.map(item => {
+    patch[key] = { ...(project.plot[key] || node(key)), stale: result[key].stale || false, check, status: check.passed === true ? GenerationStatus.PASSED : check.passed === false ? GenerationStatus.FAILED : GenerationStatus.NOT_GENERATED, items: result[key].items.map(item => {
       if (names.has(item.name)) throw new Error(`名称重复：${item.name}`)
       names.add(item.name)
       const old = oldItems.find(value => value.name === item.name)

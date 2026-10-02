@@ -10,6 +10,8 @@ import { previewPrompts } from '../server/prompts/preview.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 import { render } from '../server/prompts/skill-prompts.js'
 import { characterImageModificationPrompt } from '../server/prompts/interfaces/character-image.js'
+import { canGenerate, gateMessage } from '../shared/gates.js'
+import { node } from '../shared/drama-model.js'
 
 async function fixture(t, draft = false) {
   const e = await setupModel(t)
@@ -24,6 +26,33 @@ async function fixture(t, draft = false) {
   }
   return e
 }
+
+for (const [category,itemId] of [['characters','C01'],['scenes','E01']]) test(`${category} 选用素材图片保持剧情审核及镜头表门禁`, async t => {
+  const e=await setupModel(t)
+  const ref=await savePicture(e.home,Buffer.from('library image'),'image/png',category,'测试图')
+  const before=await e.read()
+  await runOperation(e.op('use-asset',{category,itemId,assetId:ref.assetId}),{home:e.home})
+  const after=await e.read()
+  assert.equal(after.plot[category].items.find(item=>item.id===itemId).image.content.assetId,ref.assetId)
+  for (const key of ['outline','characters','scenes','props']) assert.deepEqual(after.plot[key].check,before.plot[key].check)
+  assert.equal(canGenerate(after,'shots'),true)
+  await e.store.save(e.id,p=>{p.episodes[0].plot.props.check.passed=false;return p})
+  await runOperation(e.op('use-asset',{category,itemId,assetId:ref.assetId}),{home:e.home})
+  assert.equal(canGenerate(await e.read(),'shots'),false)
+  assert.match(gateMessage(await e.read(),'shots'),/道具自审未通过/)
+})
+
+test('缺少道具时服务端拒绝镜头表生成并说明准确前置原因', async t => {
+  const e=await setupModel(t)
+  await e.store.save(e.id,p=>{delete p.episodes[0].plot.props;return p})
+  await assert.rejects(runOperation(e.op('shots'),{home:e.home,generateShots:()=>assert.fail('不应调用生成接口')}), /道具尚未提取.*剧情页提取道具/)
+  await runOperation(e.op('props'),{home:e.home,regenerateCardGroup:async()=>({...node('props'),items:[],check:{passed:true,failures:[]}})})
+  const after=await e.read()
+  assert.equal(after.plot.props.id,'props')
+  assert.equal(after.plot.props.items.length,0)
+  assert.equal(after.plot.props.check.passed,true)
+  assert.equal(canGenerate(after,'shots'),true)
+})
 
 for (const draft of [false, true]) test(`人物修改直接提交意见和${draft ? '待确认' : '已确认'}原图 Base64，不改写人物卡`, async t => {
   const e = await fixture(t, draft)
