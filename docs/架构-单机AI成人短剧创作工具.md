@@ -46,6 +46,7 @@
 | 视频语音、对白、环境声 | MiniMax H3 原生音视频能力 | 与视频在同一次 H3 workflow 中生成 |
 | 独立 TTS（备用） | edge-tts / GPT-SoVITS（本地） | 当 H3 音轨质量不足或需要精细对白控制时启用 |
 | 独立 BGM（备用） | MusicGen / 本地音频素材库 | 当 H3 背景音乐不满足创意需求时启用 |
+| VLM 视觉自检 | Qwen3-VL（或同系列 VL 模型） | 聊天网关 OpenAI 兼容接口（multimodal chat），传入生成帧 + 结构化 prompt；不可用时降级为元数据启发式检查 |
 | 抽帧、超分、拼接 | ComfyUI workflow；拼接可优先使用本机 FFmpeg | 插件本地执行 |
 
 聊天网关与媒体生成是两条独立路径：
@@ -567,28 +568,778 @@ payload
 
 领域服务通过 Harness Domain Storage 的表 `update` 修改 Project；该串行写链只按进程内保证设计，跨进程由项目级单写者租约约束。revision 不匹配时显式返回冲突，不做最后写入者覆盖。
 
-### 10.4 必须实现的领域命令
+### 10.4 Project 聚合 JSON Schema
 
-- `createProject`
-- `updateProductionSpec`
-- `upsertStoryBible`
-- `upsertCharacter`
-- `upsertCharacterState`
-- `upsertLocation`
-- `upsertEpisode`
-- `upsertShot`
-- `createGenerationAttempt`
-- `markAttemptSubmitted`
-- `completeGenerationAttempt`
-- `failGenerationAttempt`
-- `createReviewTask`
-- `recordReviewDecision`
-- `recordAutomatedCheck`
-- `approveShotAsset`
-- `invalidateDependents`
-- `assembleTimeline`
-- `recordDeliverable`
-- `recordRights`
+Domain Storage 以 `projectId` 为 key、整个 Project 为 value 存储。以下是聚合根的完整结构定义（TypeScript 记法，实际以 JSON Schema 校验）：
+
+```typescript
+/** Domain Storage key = projectId, value = Project */
+interface Project {
+  id: string                          // nanoid, 稳定身份
+  schemaVersion: 2                    // 迁移器检查
+  revision: number                    // 每次 update +1, CAS 乐观并发
+  title: string
+  contentRating: 'general' | 'mature' | 'adult'
+  status: 'active' | 'archived' | 'deleted'
+  createdAt: string                   // ISO 8601
+  createdBy: string
+  updatedAt: string
+
+  productionSpec: ProductionSpec
+  storyBible: StoryBible | null
+
+  characters:       Record<string, Character>
+  characterStates:  Record<string, CharacterState>
+  locations:        Record<string, Location>
+  episodes:         Record<string, Episode>
+  shots:            Record<string, Shot>
+  attempts:         Record<string, GenerationAttempt>
+  assets:           Record<string, Asset>
+  reviewTasks:      Record<string, ReviewTask>
+  reviewDecisions:  Record<string, ReviewDecision>
+  timelines:        Record<string, Timeline>
+  deliverables:     Record<string, Deliverable>
+  rightsRecords:    Record<string, RightsRecord>
+  outbox:           Record<string, OutboxEvent>
+
+  commandIndex:     Record<string, CommandResult>  // commandId → 幂等结果
+  lease: WriterLease | null
+}
+
+interface ProductionSpec {
+  aspectRatio: string                 // '16:9' | '9:16' | '1:1'
+  targetDuration: string              // '30s' | '60s' | '90s'
+  audioMode: 'silent' | 'dialogue-led' | 'narration-led'
+  audioStrategy: 'h3-native' | 'tts-override' | 'full-mix'
+  tier: 'fast' | 'balanced' | 'quality'
+  deliveryQuality: 'draft' | 'preview' | 'final'
+  updatedAt: string
+}
+
+interface StoryBible {
+  worldRules: string
+  style: string
+  prohibitions: string[]
+  continuityRules: string[]
+  emotionAnchors: string[]
+  audioSpine: string | null
+  updatedAt: string
+}
+
+interface Character {
+  id: string
+  name: string
+  adultConfirmed: boolean             // false 时不得进入成人生产链
+  visualAnchorAssetId: string | null  // 锚点角色卡 Asset
+  voiceAnchorDesc: string | null
+  description: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface CharacterState {
+  id: string
+  characterId: string
+  label: string                       // '默认' | '战损' | '礼服' 等
+  costume: string
+  injuries: string | null
+  ageStage: string
+  carriedItems: string[]
+  emotion: string | null
+  applicableEpisodes: string[]        // 空 = 全局
+  updatedAt: string
+}
+
+interface Location {
+  id: string
+  name: string
+  layout: string
+  timeOfDay: string
+  lighting: string
+  props: string[]
+  continuityLandmarks: string[]
+  anchorAssetId: string | null
+  updatedAt: string
+}
+
+interface Episode {
+  id: string
+  order: number
+  title: string
+  outline: string | null
+  script: string | null
+  status: EpisodeStatus               // §11.1 状态机
+  sceneSequence: string[]             // shot ids in order
+  updatedAt: string
+}
+
+interface Shot {
+  id: string
+  episodeId: string
+  order: number
+  durationFrames: number              // 24fps
+  cameraSpec: CameraSpec | null       // 可选镜头语言
+  shotDescription: string             // 每秒镜头描述
+  audioDialogue: string | null        // 对白文本
+  audioNotes: string | null           // 音频备注
+  hookType: string | null             // 'visual' | 'audio' | 'cut' | null
+  continuityFrom: string | null       // 前一镜 shotId
+  referenceAssetIds: string[]         // 角色卡/场景卡 asset ids
+  firstFrameAssetId: string | null
+  lastFrameAssetId: string | null
+  approvedAssetId: string | null      // 当前批准的 Asset
+  status: ShotStatus                  // §11.2 状态机
+  updatedAt: string
+}
+
+interface CameraSpec {
+  shotSize: 'extreme-close' | 'close' | 'medium' | 'full' | 'wide' | 'extreme-wide'
+  movement: 'static' | 'push' | 'pull' | 'pan' | 'tilt' | 'dolly' | 'track' | 'crane'
+  focalIntent: string | null          // '浅景深' | '全景深' 等
+}
+
+interface GenerationAttempt {
+  id: string
+  shotId: string
+  idempotencyKey: string              // §15.1 计算方式
+  capability: string                  // 'video.reference2video' 等
+  tier: string
+  manifestId: string
+  manifestVersion: string
+  paramsSnapshot: Record<string, unknown>  // 完整参数快照
+  promptHash: string
+  comfyPromptId: string | null        // ComfyUI 返回的 prompt_id
+  status: AttemptStatus               // §11.3 状态机
+  candidateAssetId: string | null     // 成功后产生的候选 Asset
+  failureReason: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface Asset {
+  id: string
+  type: 'character_card' | 'scene_card' | 'shot_video' | 'shot_audio'
+       | 'upscaled_video' | 'tts_audio' | 'bgm_audio' | 'concat_video'
+       | 'deliverable_video' | 'source_text' | 'storyboard'
+  logicalKey: string                  // 'characters/{charId}/card' 等
+  fileHash: string                    // sha256
+  mimeType: string
+  fileSize: number
+  width: number | null
+  height: number | null
+  durationMs: number | null
+  derivedFrom: string[]               // 上游 asset ids（血缘）
+  attemptId: string | null            // 生成它的 Attempt
+  reviewStatus: 'candidate' | 'approved' | 'rejected' | 'invalidated'
+  createdAt: string
+}
+
+interface ReviewTask {
+  id: string
+  targetType: 'asset' | 'episode' | 'shot' | 'timeline' | 'deliverable'
+  targetId: string
+  checkType: 'manual' | 'automated_vlm'
+  checklist: string[]                 // 人工检查项
+  automatedCheck: AutomatedCheckResult | null
+  status: 'pending' | 'in_progress' | 'completed'
+  createdAt: string
+}
+
+interface AutomatedCheckResult {
+  modelId: string                     // 执行 VLM 检查的模型
+  checkItems: Record<string, CheckItemResult>
+  confidence: number                  // 0-1
+  threshold: number                   // 默认 0.85
+  passed: boolean
+  failedItems: string[]
+  executedAt: string
+}
+
+interface CheckItemResult {
+  passed: boolean
+  confidence: number
+  detail: string | null
+}
+
+interface ReviewDecision {
+  id: string
+  reviewTaskId: string
+  decision: 'approved' | 'rejected'
+  reason: string
+  actor: string                       // 'user' | 'system'
+  annotations: string[]
+  createdAt: string
+}
+
+interface Timeline {
+  id: string
+  revision: number
+  episodeId: string
+  segments: TimelineSegment[]
+  status: 'draft' | 'validated' | 'frozen' | 'invalidated' | 'superseded'
+  createdAt: string
+  frozenAt: string | null
+}
+
+interface TimelineSegment {
+  shotId: string
+  assetId: string                     // 必须是 approved Asset
+  startFrame: number
+  endFrame: number
+  audioOverrideAssetId: string | null // tts-override 时的替换音轨
+}
+
+interface Deliverable {
+  id: string
+  timelineId: string
+  timelineRevision: number
+  encodingParams: Record<string, unknown>
+  nlePreset: 'none' | 'jianying-draft' | 'fcpxml' | 'davinci-edl'
+  fileHash: string | null
+  qualityReport: Record<string, unknown> | null
+  contentRating: string
+  sidecarManifest: Record<string, unknown> | null
+  status: DeliverableStatus           // §11.9 状态机
+  createdAt: string
+  deliveredAt: string | null
+}
+
+interface RightsRecord {
+  id: string
+  subjectType: 'character' | 'reference_photo' | 'voice' | 'brand' | 'music'
+  subjectId: string
+  adultAssertion: boolean
+  verificationMethod: string
+  verifiedAt: string
+  verifier: string
+  consentScope: string[]
+  allowedUses: string[]
+  channels: string[]
+  territory: string
+  licenseSource: string | null
+  termsHash: string | null
+  effectiveAt: string
+  expiresAt: string | null
+  revokedAt: string | null
+  evidenceLogicalKey: string | null
+  evidenceSha256: string | null
+  createdAt: string
+  supersedes: string | null
+}
+
+interface OutboxEvent {
+  id: string
+  type: string                        // §15.6.1 事件目录
+  payload: Record<string, unknown>
+  status: 'pending' | 'processing' | 'delivered' | 'retry_wait' | 'dead'
+  retryCount: number
+  maxRetries: number
+  lastError: string | null
+  externalRef: string | null          // 外部系统返回的标识
+  createdAt: string
+  processedAt: string | null
+}
+
+interface CommandResult {
+  commandId: string
+  payloadHash: string                 // 同 id 不同 payload 拒绝
+  result: 'ok' | 'conflict'
+  revision: number                    // 执行后的 revision
+  timestamp: string
+}
+
+interface WriterLease {
+  ownerPid: number
+  ownerHost: string
+  ownerProfile: string
+  startedAt: string
+  heartbeatAt: string
+  leaseVersion: number
+}
+```
+
+**聚合大小约束**：单个 Project 的 JSON 序列化体积不应超过 **10 MB**。阶段 0 的 Domain Storage probe 必须验证后端对单条 record value 的实际大小限制。对于超过 100 集的超长项目，考虑拆分为多个 Project 而非扩大单聚合。
+
+**实体 key 策略**：所有 `Record<string, T>` 的 key 均为实体 `id`（nanoid）。查询使用内存遍历（单机场景数据量有限），不建索引表。
+
+### 10.5 领域命令完整规格
+
+每条命令的定义包含：输入 payload、前置条件、状态转换和产出的 Outbox 事件。
+
+#### `createProject`
+
+```text
+payload:
+  title: string
+  contentRating: 'general' | 'mature' | 'adult'
+  productionSpec: ProductionSpec
+
+preconditions:
+  - commandId 在全局无冲突（跨 project 的 id 唯一性由调用方保证）
+
+transitions:
+  - 创建 Project, status='active', revision=1
+
+outbox:
+  - project.created { projectId }
+```
+
+#### `updateProductionSpec`
+
+```text
+payload:
+  aspectRatio?: string
+  targetDuration?: string
+  audioMode?: string
+  audioStrategy?: string
+  tier?: string
+  deliveryQuality?: string
+
+preconditions:
+  - Project.status = 'active'
+
+transitions:
+  - 合并更新 productionSpec 字段
+  - 若 audioStrategy 变更：标记所有未生成 Shot 的 spec 已变化
+
+outbox:
+  - spec.updated { projectId, changedFields[] }
+```
+
+#### `upsertStoryBible`
+
+```text
+payload:
+  worldRules?: string
+  style?: string
+  prohibitions?: string[]
+  continuityRules?: string[]
+  emotionAnchors?: string[]
+  audioSpine?: string
+
+preconditions:
+  - Project.status = 'active'
+
+transitions:
+  - 创建或合并更新 storyBible
+
+outbox:
+  - storybible.updated { projectId }
+```
+
+#### `upsertCharacter`
+
+```text
+payload:
+  id?: string                      // 无 id = 新建, 有 id = 更新
+  name: string
+  adultConfirmed: boolean
+  visualAnchorAssetId?: string
+  voiceAnchorDesc?: string
+  description?: string
+
+preconditions:
+  - Project.status = 'active'
+  - 若 contentRating='adult', adultConfirmed 必须为 true
+  - 若指定 visualAnchorAssetId, 该 Asset 必须存在且 reviewStatus='approved'
+
+transitions:
+  - 创建或更新 Character
+  - 若更新了 visualAnchorAssetId（锚点变更）→ 触发 invalidateDependents
+
+outbox:
+  - character.upserted { projectId, characterId, anchorChanged: boolean }
+```
+
+#### `upsertCharacterState`
+
+```text
+payload:
+  id?: string
+  characterId: string
+  label: string
+  costume: string
+  injuries?: string
+  ageStage: string
+  carriedItems?: string[]
+  emotion?: string
+  applicableEpisodes?: string[]
+
+preconditions:
+  - Character 存在
+  - Project.status = 'active'
+
+transitions:
+  - 创建或更新 CharacterState
+  - 若更新已有 state → 触发 invalidateDependents（所有引用此 state 的 Shot）
+
+outbox:
+  - characterState.upserted { projectId, characterId, stateId }
+```
+
+#### `upsertLocation`
+
+```text
+payload:
+  id?: string
+  name: string
+  layout: string
+  timeOfDay: string
+  lighting: string
+  props?: string[]
+  continuityLandmarks?: string[]
+
+preconditions:
+  - Project.status = 'active'
+
+transitions:
+  - 创建或更新 Location
+  - 若更新 → 触发 invalidateDependents（引用此 Location 的 Shot）
+
+outbox:
+  - location.upserted { projectId, locationId }
+```
+
+#### `upsertEpisode`
+
+```text
+payload:
+  id?: string
+  order: number
+  title: string
+  outline?: string
+  script?: string
+  sceneSequence?: string[]
+
+preconditions:
+  - Project.status = 'active'
+  - 若从 draft 之外的状态修改 outline/script → Episode 必须先回到可编辑状态
+
+transitions:
+  - 创建: Episode status='draft'
+  - 更新: 若修改了 outline → status 回退到 'draft'（若当前在 'planning' 之后）
+  - 若修改了 sceneSequence → 触发 invalidateDependents
+
+outbox:
+  - episode.upserted { projectId, episodeId }
+```
+
+#### `upsertShot`
+
+```text
+payload:
+  id?: string
+  episodeId: string
+  order: number
+  durationFrames: number
+  cameraSpec?: CameraSpec
+  shotDescription: string
+  audioDialogue?: string
+  audioNotes?: string
+  hookType?: string
+  continuityFrom?: string            // 前一镜 shotId
+  referenceAssetIds?: string[]
+  firstFrameAssetId?: string
+  lastFrameAssetId?: string
+
+preconditions:
+  - Episode 存在
+  - Project.status = 'active'
+  - 若指定 continuityFrom, 该 Shot 必须存在
+  - 若指定 referenceAssetIds, 每个 Asset 必须存在且 approved
+  - referenceAssetIds 和 firstFrameAssetId 不同时为非空（形状互斥）
+
+transitions:
+  - 创建: Shot status='planned'
+  - 更新: 若修改了描述/参考/续接 → status 回退到 'planned'
+  - 若 status 在 approved 之后 → 触发 invalidateDependents
+
+outbox:
+  - shot.upserted { projectId, shotId, episodeId }
+```
+
+#### `createGenerationAttempt`
+
+```text
+payload:
+  shotId: string
+  capability: string
+  tier: string
+  manifestId: string
+  manifestVersion: string
+  paramsSnapshot: Record<string, unknown>
+  promptHash: string
+  seed: number
+  referenceAssetHashes: string[]
+
+preconditions:
+  - Shot.status = 'ready'
+  - 幂等键计算后查重：已有成功 Attempt → 返回已有结果; 已有活动 Attempt → 返回其状态
+  - 若 contentRating='adult': 所有引用 Character 的 adultConfirmed=true
+  - 所有引用的 Asset reviewStatus='approved'
+  - 相关 RightsRecord 有效（未过期、未撤销、scope 覆盖）
+
+transitions:
+  - 创建 GenerationAttempt status='created'
+  - Shot status → 'generating'
+
+outbox:
+  - attempt.created { projectId, attemptId, shotId, idempotencyKey }
+```
+
+#### `markAttemptSubmitted`
+
+```text
+payload:
+  attemptId: string
+  comfyPromptId: string | null       // null = submission_unknown
+
+preconditions:
+  - Attempt.status = 'created' 或 'submitting'
+
+transitions:
+  - 有 promptId → status='queued', 记录 comfyPromptId
+  - 无 promptId → status='submission_unknown'
+
+outbox:
+  - attempt.submitted { projectId, attemptId, comfyPromptId }
+```
+
+#### `completeGenerationAttempt`
+
+```text
+payload:
+  attemptId: string
+  assetData:
+    fileHash: string
+    mimeType: string
+    fileSize: number
+    width: number
+    height: number
+    durationMs: number | null
+    logicalKey: string
+
+preconditions:
+  - Attempt.status in ['queued', 'running', 'downloading']
+
+transitions:
+  - Attempt status → 'succeeded'
+  - 创建 Asset, type 根据 capability 推导, reviewStatus='candidate'
+  - Attempt.candidateAssetId = 新 Asset id
+  - Shot status → 'review'
+
+outbox:
+  - attempt.completed { projectId, attemptId, assetId }
+  - reviewTask.needed { projectId, assetId, shotId }
+```
+
+#### `failGenerationAttempt`
+
+```text
+payload:
+  attemptId: string
+  reason: string
+
+preconditions:
+  - Attempt.status in ['created','submitting','queued','running',
+    'downloading','submission_unknown']
+
+transitions:
+  - Attempt status → 'failed'
+  - Shot status → 'ready'（允许重新生成）
+
+outbox:
+  - attempt.failed { projectId, attemptId, reason }
+```
+
+#### `createReviewTask`
+
+```text
+payload:
+  targetType: 'asset' | 'episode' | 'shot' | 'timeline' | 'deliverable'
+  targetId: string
+  checkType: 'manual' | 'automated_vlm'
+  checklist: string[]
+
+preconditions:
+  - 目标实体存在
+  - 若 targetType='asset': Asset.reviewStatus='candidate'
+
+transitions:
+  - 创建 ReviewTask status='pending'
+
+outbox:
+  - review.taskCreated { projectId, reviewTaskId, targetType, targetId }
+```
+
+#### `recordAutomatedCheck`
+
+```text
+payload:
+  reviewTaskId: string
+  modelId: string
+  checkItems: Record<string, CheckItemResult>
+  confidence: number
+  threshold: number
+
+preconditions:
+  - ReviewTask 存在且 checkType='automated_vlm'
+  - ReviewTask.status = 'pending' 或 'in_progress'
+
+transitions:
+  - 写入 ReviewTask.automatedCheck
+  - ReviewTask.status → 'in_progress'
+  - 若 confidence >= threshold → 创建后续人工 ReviewTask 标记为"推荐通过"
+
+outbox:
+  - review.automatedCheckCompleted { projectId, reviewTaskId, passed }
+```
+
+#### `recordReviewDecision`
+
+```text
+payload:
+  reviewTaskId: string
+  decision: 'approved' | 'rejected'
+  reason: string
+  actor: string
+  annotations?: string[]
+
+preconditions:
+  - ReviewTask 存在且 status != 'completed'
+
+transitions:
+  - 创建 ReviewDecision
+  - ReviewTask.status → 'completed'
+  - 若 decision='approved' 且 targetType='asset':
+    - Asset.reviewStatus → 'approved'
+  - 若 decision='rejected':
+    - Asset.reviewStatus → 'rejected'
+    - Shot.status → 'ready'（允许重新生成）
+
+outbox:
+  - review.decided { projectId, reviewTaskId, decision }
+```
+
+#### `approveShotAsset`
+
+```text
+payload:
+  shotId: string
+  assetId: string
+
+preconditions:
+  - Asset.reviewStatus = 'approved'
+  - Asset.attemptId 对应的 Attempt 属于该 Shot
+  - Shot.status = 'review'
+
+transitions:
+  - Shot.approvedAssetId = assetId
+  - Shot.status → 'approved'
+
+outbox:
+  - shot.assetApproved { projectId, shotId, assetId }
+```
+
+#### `invalidateDependents`
+
+```text
+payload:
+  sourceType: 'character' | 'characterState' | 'location' | 'shot' | 'asset'
+  sourceId: string
+
+preconditions:
+  - 源实体存在
+
+transitions:
+  - 广度优先遍历依赖图（§14 规则表）
+  - 对每个受影响的 Asset: reviewStatus → 'invalidated'
+  - 对每个受影响的 Shot: status → 'invalidated' → 'ready'（若当前在 approved 之后）
+  - 对每个受影响的 Timeline: status → 'invalidated'
+  - 记录失效集合到命令结果
+
+outbox:
+  - lineage.invalidated { projectId, sourceType, sourceId, affectedIds[] }
+```
+
+#### `assembleTimeline`
+
+```text
+payload:
+  episodeId: string
+  segments: { shotId: string, assetId: string, audioOverrideAssetId?: string }[]
+
+preconditions:
+  - Episode 存在
+  - 每个 segment 的 Shot.status = 'approved'
+  - 每个 segment 的 Asset.reviewStatus = 'approved'
+  - 每个 Asset 的分辨率/画质一致
+  - 若 audioStrategy != 'h3-native': audioOverrideAssetId 必须存在且 approved
+
+transitions:
+  - 创建 Timeline, status='draft', revision=1
+  - 或在已有 draft Timeline 上递增 revision
+  - 相关 Shot.status → 'assembled'
+
+outbox:
+  - timeline.assembled { projectId, timelineId, episodeId }
+```
+
+#### `recordDeliverable`
+
+```text
+payload:
+  timelineId: string
+  encodingParams: Record<string, unknown>
+  nlePreset: 'none' | 'jianying-draft' | 'fcpxml' | 'davinci-edl'
+  fileHash: string
+  qualityReport: Record<string, unknown>
+  contentRating: string
+  sidecarManifest: Record<string, unknown>
+
+preconditions:
+  - Timeline.status = 'frozen'
+  - 若 contentRating='adult': 交付前检查全部通过（§16.3）
+  - fileHash 对应文件已通过 File Service 写入
+
+transitions:
+  - 创建 Deliverable, status='ready'
+
+outbox:
+  - deliverable.ready { projectId, deliverableId, timelineId }
+```
+
+#### `recordRights`
+
+```text
+payload:
+  subjectType: 'character' | 'reference_photo' | 'voice' | 'brand' | 'music'
+  subjectId: string
+  adultAssertion: boolean
+  verificationMethod: string
+  consentScope: string[]
+  allowedUses: string[]
+  channels: string[]
+  territory: string
+  licenseSource?: string
+  termsHash?: string
+  effectiveAt: string
+  expiresAt?: string
+  evidenceLogicalKey?: string
+  evidenceSha256?: string
+  supersedes?: string
+
+preconditions:
+  - subject 实体存在
+  - 若 supersedes 指定，旧 RightsRecord 必须存在
+
+transitions:
+  - 创建 RightsRecord
+  - 若 supersedes 指定，旧记录不删除但标记被取代
+
+outbox:
+  - rights.recorded { projectId, rightsId, subjectType, subjectId }
+```
 
 ## 11. 状态机
 
@@ -924,7 +1675,39 @@ automatedCheck:
 
 自检 `passed=true` 时仍需创建人工 ReviewTask，但可以标记为"推荐通过"以加速人工审核。自检 `passed=false` 时，在 ReviewTask 中高亮失败项供人工决策。
 
+**VLM 执行路径**
+
+VLM 自检通过聊天网关的 OpenAI 兼容接口执行，而非 ComfyUI：
+
+```text
+VLM 自检路径
+插件
+  → 抽取候选 Asset 关键帧（首/中/末）
+  → 构造 multimodal chat 请求（system prompt = 检查策略 + checkItems，user = 关键帧图片）
+  → 聊天网关 OpenAI-compatible endpoint
+  → Qwen3-VL（或配置中指定的 VL 模型）
+  → 解析结构化 JSON 响应 → automatedCheck schema
+```
+
+模型要求：聊天网关必须配置一个支持视觉输入的模型（如 Qwen3-VL）。`VisualInspectorPort` 的默认 adapter 即为 `ChatGatewayVLMAdapter`，调用时传入 `modelId`（从 `healthSnapshot.vlmModelId` 或配置获取）。
+
 VLM 工具通过 `VisualInspectorPort` 接入，内置模型或第三方视觉插件都只是可替换 adapter。adapter 必须返回同一份 `automatedCheck` schema，并额外记录 `providerId / adapterVersion / modelVersion / inputAssetHashes / promptOrPolicyHash / executedAt`；原始证据图、裁剪区域或差异热图登记为 ReviewTask 的证据 Asset。工具自然语言回答、插件内部缓存和聊天附件不能直接形成 ReviewDecision。
+
+**降级策略：VLM 不可用时的元数据启发式检查**
+
+当 VLM 模型不可用（网关未配置 VL 模型、调用超时或返回错误）时，自检降级为元数据启发式检查：
+
+| 检查项 | 启发式方法 | 置信度上限 |
+| --- | --- | --- |
+| characterCount | 解析 Shot prompt 中人物数量 vs 生成参数 | 0.6 |
+| costumeMatch | 对比 CharacterState hash 与 Attempt 输入参数 | 0.5 |
+| locationMatch | 对比 Location hash 与 Attempt 输入参数 | 0.5 |
+| textInFrame | 不可检测，标记 `skipped` | — |
+| continuity | 对比前镜 seed/prompt 相似度 | 0.4 |
+| composition | 对比 cameraSpec 参数与 workflow 实际参数 | 0.5 |
+| adultCompliance | 检查 Character.ageVerification 字段完整性 | 0.7 |
+
+启发式检查的 `confidence` 不得超过 0.7，`threshold` 自动提升为 0.95（即必然 `passed=false`），强制进入人工审核。`automatedCheck.providerId` 标记为 `metadata-heuristic`，确保审核者知晓检查精度有限。
 
 视觉检测失败、超时或不可用时，Attempt 已生成的候选 Asset 保持可见，ReviewTask 转为 `awaiting_human`；不得静默按通过处理，也不得因为更换视觉插件而改变 Shot、Asset、Review 和 Timeline 的领域语义。
 
@@ -958,6 +1741,27 @@ VLM 工具通过 `VisualInspectorPort` 接入，内置模型或第三方视觉�
 - 链上镜头重渲：失效所有连续下游镜头。
 - 单镜超分变化：失效引用旧派生素材的 Timeline。
 - Timeline 变化：旧 Deliverable 保留但不再是 current。
+
+**正式失效传播规则表**
+
+`invalidateDependents` 命令根据以下规则表执行遍历。每行表示一条传播规则，触发源修改后沿箭头方向逐级失效：
+
+| # | 触发源实体 | 触发条件 | 直接受影响实体 | 遍历方向 | 失效动作 |
+| --- | --- | --- | --- | --- | --- |
+| R1 | Character | 任意字段修改 | CharacterState（同 characterId） | Character → CharacterState → R2 | CharacterState.status → `invalidated` |
+| R2 | CharacterState | status → `invalidated` 或内容修改 | Shot（`characterIds` 含该 characterId） | CharacterState → Shot → R4 | Shot 标记 `plan_dirty` |
+| R3 | Location | 任意字段修改 | Shot（`locationId` 引用该 Location） | Location → Shot → R4 | Shot 标记 `plan_dirty` |
+| R4 | Shot | `plan_dirty` 或计划字段修改 | GenerationAttempt（同 shotId，状态非 terminal） | Shot → Attempt | 活跃 Attempt 标记 `cancelled` |
+| R5 | Shot | 批准 Asset 变更（重渲/替换） | Shot（`continuityFrom` 指向当前 Shot） | Shot → 下游 Shot → R4（递归） | 下游 Shot 标记 `plan_dirty`，连锁失效 |
+| R6 | Asset | 派生源 Asset 失效 | Asset（`derivedFrom` 指向该 Asset） | Asset → 派生 Asset | 派生 Asset.status → `invalidated` |
+| R7 | Asset | 批准 Asset 失效或替换 | Timeline（segments 引用该 Asset） | Asset → Timeline → R8 | Timeline.status → `dirty` |
+| R8 | Timeline | status → `dirty` 或 revision 变更 | Deliverable（引用该 Timeline） | Timeline → Deliverable | Deliverable.status 保持但标记 `superseded`（不再 current） |
+| R9 | StoryBible | 任意修改 | Episode（全部） | StoryBible → Episode → 各 Shot → R4 | 所有 Episode 标记需要重新审查 |
+| R10 | Episode | 结构修改（场景增删、顺序调整） | Shot（属于该 Episode） | Episode → Shot → R4 | 受影响 Shot 标记 `plan_dirty` |
+
+**遍历算法**：`invalidateDependents(entityType, entityId)` 按上表匹配触发源，收集直接受影响实体，对每个受影响实体递归检查是否触发后续规则（如 R2→R4→R5），直到无新实体被标记。所有变更在同一次 `Project.update` 中原子提交，并为每个被失效实体产生 `dependents_invalidated` OutboxEvent。
+
+**循环保护**：遍历维护 `visited: Set<string>`（`entityType:entityId`），已访问实体不重复处理。由于依赖图是 DAG（Shot 的 `continuityFrom` 不允许成环），正常情况下不会出现循环；若检测到环（防御性），记录警告并中止该分支遍历。
 
 失效不删除历史媒体；历史版本用于比较、恢复和审计。
 
@@ -1245,7 +2049,22 @@ Harness 侧栏、回复内交互组件或其他画布插件可以消费 read mod
 | 崩溃恢复 | ≥3 | queued/running/downloading 三阶段中断后恢复 |
 | 金样回归 | 1（完整 30 秒短剧） | 从创意到交付的全流程 |
 
-阶段 0 退出标准：上表全部用例通过，且 `audit-local-stack` 报告无 `runtime_verified` 缺失。
+**Domain Storage 运行时探测规格**
+
+在阶段 0 必须完成以下 Domain Storage 探测，结果写入 `audit-local-stack` 报告：
+
+| 探测项 | 方法 | 通过标准 | 失败处置 |
+| --- | --- | --- | --- |
+| 单值大小上限 | 写入 1 KB → 64 KB → 256 KB → 1 MB → 4 MB 递增 JSON 值，记录首次失败的阈值 | 确认 Project 聚合 ≤ 阈值的 80%；若阈值 < 1 MB 则架构不可行 | 中止迁移，输出实际上限；>1 MB 但接近上限时启用 JSON 压缩或分片策略 |
+| 原子 read-modify-write | 两个并发 `KvTable.update` 写同一 key，验证 serial write chain 是否保证一个成功一个被拒 | 不得出现静默覆盖（lost update） | 若出现 lost update，必须在插件层加版本号 CAS |
+| revision 单调递增 | 连续 10 次 update，验证 revision 严格单调递增 | 无跳跃、无回退 | 若 revision 语义不符预期，插件自维护 revision |
+| schema version 不匹配 | 写入 `schemaVersion: 2` 的记录，以 `schemaVersion: 1` 的旧代码读取 | 旧代码可读取但触发迁移路径，不 crash | 若 crash，添加 schema 版本守卫 |
+| crash recovery 完整性 | 在 `update` 回调中 `process.exit(1)` 模拟崩溃，重启后读取 | 值为上次成功提交的状态，不为空或损坏 | 若损坏，启用 write-ahead snapshot |
+| 空 domain 首次读取 | 未初始化的 domain 读取 | 返回 `undefined` 或空对象，不 throw | 若 throw，包装为 `ProjectNotFound` |
+
+探测脚本命名为 `scripts/probe-domain-storage.js`，输出结构化 JSON 报告。
+
+阶段 0 退出标准：上表全部用例通过，Domain Storage 探测全部通过，且 `audit-local-stack` 报告无 `runtime_verified` 缺失。
 
 ### 阶段 1：文件入口与 Project Domain
 
@@ -1253,6 +2072,36 @@ Harness 侧栏、回复内交互组件或其他画布插件可以消费 read mod
 - 建完整 Project 聚合骨架、revision、单写者租约、commandId 幂等和领域命令。
 - 原 HTTP route 立即接入 `LegacyCanvasCommandAdapter`；UI 外观不变，但停止直接写 `project.json`。
 - 迁移后的旧文件只读；不做新旧数据双写。
+
+**LegacyCanvasCommandAdapter 路由映射表**
+
+以下表格定义了现有 HTTP 路由 / 工具调用到领域命令的完整映射。Adapter 收到旧请求后，将参数翻译为领域命令 payload，通过 `Project.update` 写入 Domain Storage。
+
+| 现有入口 | 方法 | 映射的领域命令 | 参数翻译说明 |
+| --- | --- | --- | --- |
+| `/canvas` (GET) | GET | 读模型查询（无命令） | 整个 Project 聚合 → 旧 `{settings, nodes}` 格式转换 |
+| `/canvas/node` (POST) | POST | `upsertShot` / `upsertCharacter` / `upsertLocation` | 按 `body.group` 分流：角色组 → `upsertCharacter`，场景组 → `upsertLocation`，镜头组 → `upsertShot`；`body.params` 映射至对应实体字段 |
+| `/canvas/group` (POST) | POST | 批量 `upsertShot`（更新 group 字段） | `body.nodeIds` 逐个映射为 Shot/Character/Location 的 group 更新 |
+| `/canvas/reorder` (POST) | POST | `upsertEpisode`（更新 shotOrder） | `body.nodeIds` 顺序 → Episode 的 `shotOrder` 数组 |
+| `/canvas/node` (DELETE) | DELETE | `upsertShot` (status → `deleted`) | 不物理删除，标记删除；触发 `invalidateDependents` |
+| `/canvas/upload` (POST) | POST | `upsertCharacterState` / `upsertLocation` | 上传的参考图 → CharacterState 或 Location 的参考 Asset |
+| `/assets` (GET) | GET | 读模型查询（无命令） | Asset 库 → 旧格式 `{assets: [...]}` |
+| `/assets` (POST) | POST | `approveShotAsset` + `createReviewTask` | 画布节点入库 → 创建 Asset + ReviewTask（自动批准） |
+| `/assets` (DELETE) | DELETE | `upsertShot` (解除 Asset 引用) | 资产删除 → 解除引用，Asset 标记 `archived` |
+| `/assets/to-canvas` (POST) | POST | 读模型查询（无命令） | 资产物化到画布为纯 UI 操作，不改变领域状态 |
+| `/canvas/node/replace-image` (POST) | POST | `createGenerationAttempt` → `completeGenerationAttempt` | 本地替换图 → 新 Attempt（source: `manual-upload`），立即完成 |
+| `/generate/image` (POST) | POST | `createGenerationAttempt` → `markAttemptSubmitted` | `body.prompt` → Attempt payload；ComfyUI 提交后写 `promptId` |
+| `/generate/video` (POST) | POST | `createGenerationAttempt` → `markAttemptSubmitted` | `body.type` → capability 映射；其余同图片生成 |
+| `canvas_get_state` (Tool) | Tool | 读模型查询（无命令） | `project.settings` → `ProductionSpec` 字段子集 |
+| `canvas_set_state` (Tool) | Tool | `updateProductionSpec` | `aspectRatio/duration/audioMode/mode` → ProductionSpec 对应字段 |
+| `comfy_generate_image` (Tool) | Tool | `createGenerationAttempt` → `markAttemptSubmitted` | 同 `/generate/image` |
+| `comfy_generate_video` (Tool) | Tool | `createGenerationAttempt` → `markAttemptSubmitted` | 同 `/generate/video` |
+
+**Adapter 实现约束**：
+- Adapter 是临时兼容层，每个被适配的路由必须有对应的集成测试。
+- 阶段 5 统计仍走 Adapter 的路由；全部切换并通过金样后才删除 Adapter。
+- Adapter 不得绕过领域命令直接写 Domain Storage。
+- 旧 `project.json` 读写函数 (`loadProject/saveProject`) 在 Adapter 中仅用于迁移读取，不用于新写入。
 
 ### 阶段 2：Attempt 与恢复
 
