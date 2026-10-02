@@ -52,22 +52,10 @@ const bar = reg['conversation.input.attachments']
 if (!toggle || !bar) { console.error('未取到组件注册：', Object.keys(reg)); process.exit(1) }
 
 const cfg = _internals.getCfg ? _internals.getCfg() : {}
-const gatewayCatalog = {
-  ok: true,
-  data: [
-    { name: 'image.text2image', tiers: ['fast', 'balanced', 'quality'] },
-    { name: 'image.image2image', tiers: ['fast', 'balanced', 'quality'] },
-    { name: 'video.image2video', tiers: ['fast', 'balanced', 'quality'] },
-    { name: 'video.reference2video', tiers: ['fast', 'balanced', 'quality'] },
-  ],
-}
-const apiPayload = {
-  ok: true,
-  capabilities: gatewayCatalog.data.map((item) => ({ capability: item.name, tiered: true, tiers: item.tiers })),
-}
+const apiPayload = await _internals.describeWorkflowsApi(_internals.getRegistry(), { probe: false, cfg: {} })
 global.fetch = async (url) => ({
   ok: true,
-  json: async () => (String(url).includes('/api/config') ? { ok: true, config: cfg } : gatewayCatalog),
+  json: async () => (String(url).includes('/api/config') ? { ok: true, config: cfg } : apiPayload),
 })
 
 const SID = 'preview-session'
@@ -116,8 +104,9 @@ if (process.argv.includes('--assert')) {
   const tierVals = tierSel ? findAll(tierSel, (n) => n.type === 'option').map((o) => o.props.value) : []
   const capTiers = TE.tiersOf(apiPayload, 'video.reference2video')
   const tiersOk = tierVals.length > 0 && tierVals.join(',') === capTiers.join(',')
-  const okAll = orphan === 0 && labels.length > 0 && groups.length > 0 && tiersOk
-  console.log(`参数条结构断言：标签 ${labels.length} / 分组 ${groups.length} / 游离 ${orphan} / 档位选项 [${tierVals.join(', ')}] = 网关能力目录 [${capTiers.join(', ')}] ${tiersOk ? '✓' : '✗'} → ${okAll ? '✓ 通过' : '✗ 失败'}`)
+  const labelsHaveEst = tierSel ? findAll(tierSel, (n) => n.type === 'option').every((o) => String(o.props.children).includes('约')) : false
+  const okAll = orphan === 0 && labels.length > 0 && groups.length > 0 && tiersOk && labelsHaveEst
+  console.log(`参数条结构断言：标签 ${labels.length} / 分组 ${groups.length} / 游离 ${orphan} / 档位选项 [${tierVals.join(', ')}] = 矩阵 [${capTiers.join(', ')}] ${tiersOk ? '✓' : '✗'} / 选项含实测耗时 ${labelsHaveEst ? '✓' : '✗'} → ${okAll ? '✓ 通过' : '✗ 失败'}`)
   process.exit(okAll ? 0 : 1)
 }
 const inner = toHtml(tree)
