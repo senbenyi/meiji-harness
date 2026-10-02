@@ -13,7 +13,7 @@
  * 外加两件事：
  *   - 首屏时序：主题脚本必须在样式表**之前**（否则先按浅色画一帧再跳深色，闪一下）；
  *   - WCAG 对比度：纯 JS 合成半透明底再算比值，两套调色板的主要「字/底」配对都要达 AA。
- *     （真浏览器的合成结果由 scripts/preview-canvas-theme.mjs 量，那个是权威；
+ *     （合成结果需另行真浏览器验收；
  *      这里是快速网，能在没有 Chrome 的机器上先拦一道。）
  *
  * 用法：node scripts/checks/smoke-canvas-theme.mjs

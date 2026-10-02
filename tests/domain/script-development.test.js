@@ -54,8 +54,10 @@ test('SourceTextService imports immutable normalized text and reads verified chu
       /immutable/,
     )
     await assert.rejects(sources.importText({ projectId, sourceId: '../escape', title: '越界', text: '内容' }), /safe storage identifiers/)
-    assert.equal(await files.readText(`source/${projectId}/novel.txt`), '第一行\n第二行🙂')
-    await files.replace(`source/${projectId}/novel.txt`, '被篡改')
+    const logicalKey = imported.project.sourceDocuments.novel.logicalKey
+    assert.match(logicalKey, new RegExp(`^projects/${projectId}/step-01-source/step-01-novel-小说\\.txt$`))
+    assert.equal(await files.readText(logicalKey), '第一行\n第二行🙂')
+    await files.replace(logicalKey, '被篡改')
     await assert.rejects(sources.readChunk({ projectId, sourceId: 'novel' }), /hash mismatch/)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -159,7 +161,7 @@ test('approving a replacement script invalidates old shots and downstream assets
   project = await service.getProject(projectId)
   assert.equal(project.shots['old-shot'].status, 'invalidated')
   assert.equal(project.assets['old-asset'].status, 'invalidated')
-  assert.deepEqual(project.episodes['episode-1'].shotIds, ['replacement-shot-001'])
+  assert.deepEqual(project.episodes['episode-1'].shotIds, ['episode-1-script-v001-shot-001'])
 })
 
 test('approving a changed episode plan clears stale formal script and invalidates its downstream', async () => {

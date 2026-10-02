@@ -201,7 +201,7 @@ comfy_render(capability, ..., continuity_from?)
 
 口径：**同一 prompt、同一 seed、各档原生分辨率**、素材为带 100 BPM 节拍的音乐型声景；
 每档跑三镜「起链 → 续接 → 同 seed 对照（普通实现）」；指标＝上镜→本镜接缝。
-脚本 `scripts/bench-chain-continuity.mjs`（`--only=<档>` / `--fresh`），原始数据 `e2e-out/chain-bench/rows.json`。
+脚本 `scripts/bench-chain-continuity.mjs`（`--only=<档>` / `--fresh`）；原始本地产物已清理。
 
 | 档位实现 | 加速件 | 分辨率 | 帧数 起链/续接/对照 | 画面 MAD 续接→对照 | 音频相关 1s 续接→对照 | 包络相关 续接→对照 | 响度台阶 续接→对照 | 耗时 起链/续接/对照 (s) |
 |---|---|---|---|---|---|---|---|---|
@@ -224,7 +224,7 @@ comfy_render(capability, ..., continuity_from?)
 
 ## 附 C：测量口径与已知坑
 
-* **测量位置**：在 ComfyUI 容器内跑 `e2e-out/ctx-test/measure_seam.py`（容器自带 av+numpy，不依赖宿主 ffmpeg）。
+* **测量位置**：在 ComfyUI 容器内运行测量脚本（容器自带 av+numpy，不依赖宿主 ffmpeg；历史脚本已清理）。
 * **指标**：① 上一镜末帧 ↔ 本镜首帧逐像素平均绝对差（0–255，越小越连续）；② 接缝两侧音频宽带相关（100/250/500/1000 ms 窗）；
   ③ 20 ms RMS 包络相关（1 s 窗）；④ 接缝两侧响度台阶（dB）。
 * **噪声型声景（风、雨、环境噪声）上音频相关系数无区分度**——续接与"随便两段"给不出差别，只能靠听；响度台阶仍有效。
@@ -270,7 +270,7 @@ h3_motion_context: tail padded 266 zero samples (8.31ms) so audio matches 136 fr
 
 **读法（诚实版）**：① 画面列在 i2v 上**无区分度**——两镜共享同一张首帧图，接缝本来就被锚定（4.3 / 8.5 都属于"极连续"量级，对照 r2v fast 的 7.0 / 67.6）；② 音频列**对照反而更高**，疑为"同 seed + 同首帧"造成的趋同而非真连续 ⇒ 对照设计必须重做；③ 响度台阶方向相反，须人工听核。**机制可用已证，效果优劣未证。**
 
-**待补**：其余 3 档（`--tier=balanced|balanced-pdd|quality`）；对照重设（同首帧·不同 seed，或同 seed·首帧取上一镜倒数第 22 帧）；人工听核。原始数据 `e2e-out/chain-continuity-i2v/`（`report-fast.md` / `rows-fast.json` / `seam-fast.json`）。
+**待补**：其余 3 档（`--tier=balanced|balanced-pdd|quality`）；对照重设（同首帧·不同 seed，或同 seed·首帧取上一镜倒数第 22 帧）；人工听核。历史原始数据已清理。
 
 ---
 

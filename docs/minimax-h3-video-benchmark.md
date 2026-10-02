@@ -3,7 +3,7 @@
 > **⚠️ 历史实测记录（保留原文 id）**：本报告的 `minimax-h3-ref2v` 对应拆分后的 `minimax-h3-ref2v-fast`（同图 fast 档）与 `minimax-h3-ref2v-quality`（同图 quality 档），`minimax-h3-ref2v-8step` → `minimax-h3-ref2v-balanced`，`minimax-h3-ref2v-sol` → `minimax-h3-ref2v-quality-sol`，`minimax-h3-ref2v-8step-sol` → `minimax-h3-ref2v-balanced-sol`，`minimax-h3-i2v` → `minimax-h3-i2v-fast` / `minimax-h3-i2v-quality`，`minimax-h3-i2v-sol` → `minimax-h3-i2v-quality-sol`（**P2 拆分，图形等价**——同一张图，只是「一个 json = 一个档位」。当时一个 json 用 `modes` 覆盖多档）。`mode=` 参数现为 `tier=` 的兼容别名。档位契约见 [`docs/tier-strategy-design.md`](tier-strategy-design.md)。
 
 > 本机实测汇总：**分辨率 × 档位 × LoRA × Sol-Attn 加速** 四个维度的成本与画质。
-> 数据来自 单卡 Ampere（sm_80）服务器上的本地 ComfyUI，全部由 `dsh-short-video-studio` 插件的**能力注册表**提交，可用 `node e2e-out/bench.mjs` 从 `/history` 一键重取。
+> 数据来自单卡 Ampere（sm_80）服务器上的本地 ComfyUI，全部由 `dsh-short-video-studio` 插件的**能力注册表**提交；历史辅助工具已清理。
 >
 > 配套文档：`docs/minimax-h3-acceleration-lora.md`（加速方案研究，§9 为实测记录）、`README.md`（工作流清单与配置）。
 
@@ -178,7 +178,7 @@ i2v（FL2VA）侧同条件：20 步 **392.4s**（锐度 8.137）→ **PDD 178.8s
 | 像素 diff | 8 步 15.3/255（43% 通道 >8）、成片 ref2v 17.2、成片 i2v 6.4、tau2.0 20.3 → 换轨迹而非崩坏 |
 | 音轨 | 各臂 mp4 均含音频 ✓ |
 
-证据链工具：`node e2e-out/sharpness.mjs 基线.png 稀疏.png`（零依赖）。
+历史证据链工具与本地产物已清理。
 
 ### 6.4 怎么启用
 - **按调用指定**（推荐）：`comfy_render(workflow="minimax-h3-ref2v-8step-sol", mode="balanced", …)` / `"minimax-h3-i2v-sol"`。
@@ -257,23 +257,13 @@ i2v（FL2VA）侧同条件：20 步 **392.4s**（锐度 8.137）→ **PDD 178.8s
 ## 11. 复现命令
 
 ```bash
-# ① 一键重取本次基准表（扫 ComfyUI /history，按指纹归类，输出 markdown）
-node e2e-out/bench.mjs 100
-
-# ② 清单盘点（各档位的步数/LoRA/shift/采样器/Sol 参数）
-node e2e-out/inventory.mjs
-
-# ③ 单跑（走能力注册表，模型无关）
+# ① 单跑（走能力注册表，模型无关）
 #    成片档 + Sol：comfy_render(capability="video.reference2video",
 #      workflow="minimax-h3-ref2v-sol", mode="quality", width=1344, height=768, seed=42424242,
 #      length=124, ref_nodes=["<角色卡节点 id>"], prompt="<H3 六段结构>", group="基准矩阵")
 #    预演档：workflow="minimax-h3-ref2v", mode="fast", width=1344, height=768
 
-# ④ 画质证据
-node e2e-out/pngdiff.mjs 基线中帧.png 待检中帧.png      # 像素差
-node e2e-out/sharpness.mjs 基线中帧.png 待检中帧.png    # 高频能量（糊化检测）
-
-# ⑤ 换 tau 重新生成 Sol 变体
+# ② 换 tau 重新生成 Sol 变体
 node scripts/make-sol-attn-variant.mjs --tau 1.5
 ```
 

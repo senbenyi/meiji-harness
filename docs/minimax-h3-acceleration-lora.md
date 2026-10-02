@@ -380,8 +380,8 @@ RuntimeError: The size of tensor a (32) must match the size of tensor b (1024)
 | 改引擎 | `lib/index.js` | **修掉一个会让上述改动失效的坑**：`LEGACY_MODEL_ASSET_MAP['minimax-h3-i2v']` 原先复用 ref2v 的 `h3RefUnet`/`h3FastLora` → 配置里有这两个旧键的用户，i2v 的 base 会被**静默改回 ref2va**（跨变体错配复现）。现改为独立的 `h3FlUnet`/`h3FlFastLora`（`getCfg().models` 新增两键，env `DSH_SVS_H3_MODEL_FL` / `DSH_SVS_H3_LORA_FL_FAST`），并把 legacy 兜底 builder `buildH3ImageToVideoWorkflow` 同步到 fl2va/fl2v。**此改动需重启插件进程才生效** |
 | 删清单 | ~~`workflows/minimax-h3-ref2v-acc8.json`~~ | PDD 不可用，下架（后由 §9.9 的 PDD 清单取代） |
 | 本机配置 | `~/.dsh/dsh-short-video-studio.json` | `models.h3VideoVae` → int8_convrot；4 个 `assetOverrides`（3 个 ref2v 档挂 int8 VAE + i2v 的 fl2va/fl2v/int8VAE）；`preferred` pin 住两能力的默认档 |
-| 备份 | `e2e-out/config-backup-before-h3-accel.json` | 改动前配置，回滚用 |
-| 工具 | `e2e-out/hist.mjs` / `logs.mjs` / `pngdiff.mjs` | 历史耗时归因 / 服务端日志提取 / 零依赖 PNG 像素 diff |
+| 备份 | 已清理 | 当时用于保存改动前配置 |
+| 工具 | 已清理 | 当时用于历史耗时归因 / 服务端日志提取 / PNG 像素 diff |
 | 新清单（加速） | `workflows/minimax-h3-ref2v-sol.json`、`minimax-h3-ref2v-8step-sol.json`、`minimax-h3-i2v-sol.json`、`minimax-h3-ref2v-sol-stats.json` | Sol-Attn 块稀疏注意力变体（`class_type: SolAttnMiniMaxH3`，`dense_first_percent: 0`，`log_every: 50`），**内置可见但 `priority: -100` 不当默认档**；`-stats` 是带计数器诊断的复核用变体；全部由 `scripts/make-sol-attn-variant.mjs` 生成 |
 | 改引擎 | `lib/index.js`（`reloadRegistry`） | 同能力候选改为**确定性排序**（`priority` 降序 → `id` 升序），修掉"候选顺序跟文件系统枚举走、新增清单会静默改掉隐式默认档"的问题；`schema` 同步补 `priority` 字段说明 |
 | 产物 | 画布分组「加速实验」 | A1/A1'/A2/A3/A4（VAE）、B1/B2（i2v）、C1/C3（平衡 vs 成片）、S/P 系列（Sol-Attn 关开对照与探针）共 26 个节点含抽帧 |
@@ -515,7 +515,7 @@ node scripts/make-sol-attn-variant.mjs --tau 1.5  # 换 tau 再生成
 | 像素 diff（同图同 seed 开/关） | 768p 8 步 15.3/255（43% 通道 >8）；成片 ref2v 17.2/255；成片 i2v 6.4/255（16.7%）；tau2.0 20.3/255 |
 | 音轨 | 各臂 mp4 均含音频轨 ✓ |
 
-工具：`node e2e-out/sharpness.mjs a.png b.png …`（零依赖；输出 mean\|∇\| 与 >16 梯度像素占比，第一张为基准）。
+历史锐度分析工具与本地产物已清理；表中保留当时的测量结果。
 
 **这些数字怎么读**：
 - **"像不像基线"不能当画质判据**：注意力实现从 SDPA 换成 flex_attention，即使**完全不稀疏**（`enabled=false` 对照 vs 原版基线）也有 15.1/255 的均值差；8 步蒸馏采样器会把 bf16 级扰动放大成"另一张同样合理的画面"。⇒ **同 seed 不再复现同像素，整片必须一致地全用或全不用**，不能逐镜混用。

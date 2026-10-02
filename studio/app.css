@@ -7,7 +7,7 @@
    1. 两个调色板块必须定义**完全相同**的变量名，否则切主题会「少一个变量」而静默变色；
    2. **调色板块之外不得出现任何颜色字面量** —— 色值只在这里出现，
       低透明度底色一律用 color-mix() 从语义色派生（DSH 自身也用这个写法）。
-   改了底色记得重跑 preview-canvas-theme.mjs：它用真浏览器按 WCAG 量对比度。 */
+   改了底色记得重跑 scripts/checks/smoke-canvas-theme.mjs。 */
 :root {
   color-scheme: light;
   --bg: #f6f7f9;

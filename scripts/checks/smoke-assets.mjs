@@ -223,7 +223,7 @@ try {
   const vNode = proj.nodes.find((n) => n.id === toVid.json().nodeId)
   eq('  产物节点 kind=video', vNode.kind, 'video')
   eq('  产物绑定资产 id', vNode.params.assetId, 'clip:shot01')
-  ok('  产物媒体文件已落到本会话画布目录', existsSync(join(WORKSPACE, ...vNode.media.split('/'))))
+  ok('  产物媒体文件已落到项目步骤目录', existsSync(join(HOME, '.dsh/storages/short_video_studio', ...vNode.media.split('/'))))
 
   const toTxt = await call('POST', '/assets/to-canvas', { token, body: { id: 'text:storyboard' } })
   proj = await loadCanvas(token)

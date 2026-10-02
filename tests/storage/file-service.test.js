@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FileService } from '../../lib/storage/files.js'
@@ -15,6 +15,17 @@ test('FileService confines paths and atomically publishes content', async () => 
     assert.equal(await readFile(join(root, 'media/p/a.txt'), 'utf8'), 'hello')
     assert.throws(() => files.resolve('../escape.txt'), /escapes/)
     assert.throws(() => files.resolve('/tmp/escape.txt'), /relative/)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('FileService creates one semantic step tree per project', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-studio-project-tree-'))
+  try {
+    const files = await new FileService(root).initialize()
+    const layout = await files.initializeProject('20261002213427144')
+    for (const path of Object.values(layout)) assert.equal((await stat(path)).isDirectory(), true)
+    assert.match(layout.source, /projects\/20261002213427144\/step-01-source$/)
+    assert.match(layout.delivery, /projects\/20261002213427144\/step-10-delivery$/)
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 

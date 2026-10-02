@@ -11,7 +11,7 @@ scripts/analysis/eye-crops.py — 把两条成片的对齐帧导成「眼判图�
   <out>/flicker-strip.png          各 4 连续帧横排，A 在上 B 在下（看闪烁/抖动）
 
 用法：
-  python3 scripts/analysis/eye-crops.py a.mp4 b.mp4 --out e2e-out/2k-ab2 --frame mid --label-a base --label-b pdd
+  python3 scripts/analysis/eye-crops.py a.mp4 b.mp4 --out eye-crops --frame mid --label-a base --label-b pdd
 """
 
 import argparse
@@ -44,7 +44,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('a')
     ap.add_argument('b')
-    ap.add_argument('--out', default='e2e-out/eyecrops')
+    ap.add_argument('--out', default='eye-crops')
     ap.add_argument('--frame', default='mid', help="'mid' | 'first' | 'last' | 整数帧号")
     ap.add_argument('--label-a', default='A')
     ap.add_argument('--label-b', default='B')

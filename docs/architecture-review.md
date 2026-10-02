@@ -118,7 +118,7 @@ try { ... } catch (error) { return { ok: false, ..., error: error?.message || St
 
 加一个只跑 `npm test` 的 GitHub Action。理由：`consistency-optimization-plan.md` 里提的 `shotlist_validate()`（把七项自检编译成代码断言）价值完全取决于有没有地方持续运行它。没有 `npm test`，新增的校验逻辑第二周就会腐烂。
 
-另外 `e2e-out/` 和 `docs/`、`lib/assets.js`、`workflows/` 等一批文件目前未纳入 git（`git status` 显示 untracked）。生成产物应进 `.gitignore`，源码应尽快提交——当前状态下 M1/M2 的成果不在版本控制里。
+另外本地生成产物和 `docs/`、`lib/assets.js`、`workflows/` 等一批文件当时未纳入 git（`git status` 显示 untracked）。生成产物不应入库，源码应尽快提交——当时 M1/M2 的成果不在版本控制里。
 
 ---
 
@@ -174,7 +174,7 @@ function migrateProject(p) {
 | ~~P0~~ ✅ | ~~修 GUIDANCE 三视图/单视图矛盾（§1.1）~~ **已完成** | — | 活 bug，已按实测结论修复 |
 | **P0** | 消除 GUIDANCE / SKILL.md 重复，单一真相（§1.2） | 小 | 否则一致性改造无准绳；与 M3 合并做 |
 | **P1** | 补 `npm test` + CI（§4） | 小 | 后续所有校验逻辑的载体 |
-| **P1** | 提交未入库源码、`e2e-out/` 进 gitignore（§4） | 小 | M1/M2 成果目前不在版本控制 |
+| **P1** | 提交未入库源码、清理本地生成产物（§4） | 小 | M1/M2 成果目前不在版本控制 |
 | **P1** | 清理 legacy 死代码，改 golden file（§2） | 中 | 消除两套图构造逻辑 |
 | **P1** | 拆分 `index.js` + `defineTool` wrapper（§3） | 中 | 可测试性前置条件 |
 | **P2** | tokenless 路由加 token（§5） | 小 | 移除需读注释才懂的例外 |

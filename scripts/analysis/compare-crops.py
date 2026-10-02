@@ -10,12 +10,12 @@ scripts/analysis/compare-crops.py — 同区域多臂 1:1 对照图（给**人�
   下排「同显示宽」：同一批裁切都缩到同一显示宽度 ⇒ 看**同尺寸下的观感**（谁更实、谁更糊）
 
 用法：
-  python3 scripts/analysis/compare-crops.py --out e2e-out/4k/compare-4arms-1to1.png \\
+  python3 scripts/analysis/compare-crops.py --out compare-4arms-1to1.png \\
       --frame 60 --x0 0.34 --x1 0.60 --y0 0.28 --y1 0.66 \\
-      "原生 1344x768=e2e-out/2k/native-s20f124-native-s20f124_00001_.mp4" \\
-      "U1 2K 2688x1536=e2e-out/2k/v2s20f124-v2s20f124_00001_.mp4" \\
-      "原生→U3x4 4032=e2e-out/4k/ab-native-u3-x4-4k-ab-native-u3-x4-4k_00001_.mp4" \\
-      "U1→U3x2 4032=e2e-out/4k/u3-4k-area-f124-u3-4k-area-f124_00001_.mp4"
+      "原生 1344x768=native.mp4" \\
+      "U1 2K 2688x1536=u1-2k.mp4" \\
+      "原生→U3x4 4032=native-u3-x4.mp4" \\
+      "U1→U3x2 4032=u1-u3-x2.mp4"
 """
 import argparse
 import os
@@ -50,7 +50,7 @@ def label(img, text, pad=6):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("arms", nargs="+", help="名字=路径（名字里别放 =）")
-    ap.add_argument("--out", default="e2e-out/4k/compare-arms-1to1.png")
+    ap.add_argument("--out", default="compare-arms-1to1.png")
     ap.add_argument("--frame", type=int, default=60)
     ap.add_argument("--x0", type=float, default=0.34)
     ap.add_argument("--x1", type=float, default=0.60)

@@ -188,7 +188,7 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
 | 宽（> 960） | 一行 A B C：B `flex:1` 吃掉中间剩余空间，C 靠右 |
 | 窄（≤ 960，如右侧面板 ~360） | 竖直 A B C：各占一行，谁都不挤谁 |
 
-断点 960 的依据是三块的内容最小宽度（品牌 ~110 + 参数 ~400 + 按钮 ~450 + 间距），再挤就会让参数在行内折成两三行、按钮贴边。这条是回归断言（`preview-canvas` 的「布局」段，宽栏 1100 + 窄栏 360 两档，量中线对齐 / 左右顺序 / 靠右 / 竖排顺序 / 无横向滚动）。
+断点 960 的依据是三块的内容最小宽度（品牌 ~110 + 参数 ~400 + 按钮 ~450 + 间距），再挤就会让参数在行内折成两三行、按钮贴边。
 
 已知的一处浏览器行为：参数行宽度**正好差几像素**装不下时（实测盒 488.5 / 文 494.1），Chrome 会让它溢出盒子而不是折行——换 `overflow-wrap` / `word-break` / `text-wrap` 都不改变。溢出量落在 B 与 C 之间 10px 的间隙内（实测余 4.5px），压不到按钮也不撑出页面滚动，故保留；断言相应量的是「不压到按钮」（宽栏）与「真折行」（窄栏）。
 
@@ -215,11 +215,6 @@ studio/app.css     两套调色板：:root（浅，默认）/ :root[data-theme="
 - 宿主读不到主题服务（没装 `ui-theme`）时**不传** `?theme=`，让画布页按系统偏好兜底，不硬猜。
 - 首屏主题**只读一次**：它进了 `src`，跟着变会让 iframe 重载（丢滚动位置）。运行中切换只走
   `postMessage`。`color-scheme` 两套都声明，原生控件（下拉/滚动条/复选框）跟着走。
-- 真浏览器验证：`scripts/preview/preview-canvas.mjs` 起 stub 服务喂一份覆盖每种节点类型/状态/分区的
-  样例工程，两套主题各跑一遍 `lowContrast()`（合成半透明底后按 WCAG 算），并断言
-  postMessage 切换、非法取值不误改、无 `?theme=` 时跟随系统偏好。
-
-
 ### 3.5 集成层
 
 - **Agent 工具**（原生 ToolDefinition，parameters 直接写 JSON Schema，零 `@deepseek-ai/*` 运行时 import，全部走注入 `ctx`）：15 个工具 = 6 生成/抽帧/拼接/查询（`comfy_generate_image` / `comfy_generate_video` / `comfy_render` / `extract_frame` / `video_concat` / `comfy_list_workflows`）+ 7 画布（`canvas_list_nodes` / `canvas_write_node` / `canvas_get_node` / `canvas_group_nodes` / `canvas_reorder` / `canvas_get_state` / `canvas_set_state`）+ 2 资产（`asset_list` / `asset_to_canvas`）。
@@ -309,9 +304,9 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 | `workflows/` | 4 份内置 manifest（数据） |
 | `schemas/workflow-manifest.schema.json` | manifest 权威 JSON Schema |
 | `skills/3d-animation-short-generator/` | 其中一种片型的生产流程 skill（自包含单文件 SKILL.md + meta.yaml）；插件对它零认知 |
-| `scripts/` 冒烟与走查 | `mock-apply`（装配冒烟）、`smoke-manifest`（M1 图编译等价）、`smoke-render`（M2 纯逻辑）、`smoke-concat`（拼接图拓扑）、`smoke-canvas-home`（画布的家 + 主题接线的纯逻辑）、`smoke-canvas-theme`（双调色板对等 / 零颜色字面量 / WCAG）、`preview-canvas`（真浏览器：两套主题的实际合成像素对比度 + 宽/窄栏响应式布局 + 资产库对话框三载体与删除交互 + 截图）、`smoke-assets`（真路由：三种载体的入库/删除/物化 + 老库兼容）、`preview-settings` / `preview-toolbar`（离屏渲染截图）、`lib/ui-probe.mjs`（宿主主题变量 + 浏览器内对比度/溢出度量，含 `color(srgb …)` 解析）、`probe-concat` / `probe-extract-frame`（实跑，需 ComfyUI）、`smoke-flux2` / `smoke-submit` / `e2e` / `e2e-comfy`（需 ComfyUI）、`import-comfy`（CLI 转换） |
+| `scripts/` 冒烟与走查 | `mock-apply`（装配冒烟）、`smoke-manifest`（M1 图编译等价）、`smoke-render`（M2 纯逻辑）、`smoke-concat`（拼接图拓扑）、`smoke-canvas-home`（画布的家 + 主题接线的纯逻辑）、`smoke-canvas-theme`（双调色板对等 / 零颜色字面量 / WCAG）、`smoke-assets`（真路由：三种载体的入库/删除/物化 + 老库兼容）、`probe-concat` / `probe-extract-frame`（实跑，需 ComfyUI）、`smoke-flux2` / `smoke-submit`（需 ComfyUI）、`import-comfy`（CLI 转换） |
 | `scripts/` 模板层（H3 一个 json = 一个档位实现） | `h3-templates/`（手写源）→ 三个生成器 → `workflows/`（产物，勿手改）：`make-h3-variants.mjs`（模板 → 单档清单，自动填 `requiresNodes`/`estSeconds`/`note`）、`make-pdd-template.mjs`（从同族 base 生成 PDD 模板，固定 6 处改动：model 直连 UNETLoader 不走 `$model` 哨兵、插 `MiniMaxH3PDDAccApply`、guider 改用其输出、删 `BasicScheduler`、`sigmas` 接该节点的 1 号输出、采样器强制 euler；shift 固定 12/3，`requiresNodes=['MiniMaxH3PDDAccApply']`，`priority=-30` 不做隐式默认）、`make-sol-attn-variant.mjs`（插 Sol 节点；`--after=<锚点>`，遇到 PDD 模板会自动锚定 PDD 节点、Sol id 改用 `2b`，避免与 Apply 节点的 `2a` 撞号） |
-| `scripts/bench-h3.mjs` + `e2e-out/{sharpness,noise-floor,frame-check,crop}.mjs` | 实测工具链：`bench-h3` 由**模板**直接组图跑真机并计时（两条臂只要 ref/seed/length/prompt 一致，差异即只来自配方；`--dry` 先核对配方）；`frame-check` 抽某帧、`sharpness` 比高频能量、`noise-floor` 比 16×16 分块梯度的低分位（**跨臂内容无关的噪声地板判据**：干净渲染里应有接近零的平坦块）。PDD 的"锐度高是细节还是颗粒"就是靠这一对指标判定的 |
+| `scripts/bench-h3.mjs` | 实测工具：由**模板**直接组图跑真机并计时（两条臂只要 ref/seed/length/prompt 一致，差异即只来自配方；`--dry` 先核对配方） |
 | `cordis.patch.yml` | bundle patch：插件行插入 web profile roster |
 | `docs/` | 设计文档（workflow-contract）、审查（architecture-review）、方案（consistency-optimization-plan）、实验（three-view-experiment） |
 

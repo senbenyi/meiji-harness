@@ -11,7 +11,6 @@
 | `scripts/analysis/` | 画质、分辨率、闪烁和裁剪结果分析 |
 | `scripts/checks/` | 离线 smoke 与契约检查 |
 | `scripts/probes/` | 实验性探针和单路径验证 |
-| `scripts/preview/` | 浏览器预览、截图与 UI 断言 |
 | `scripts/tools/` | 导入、审计等人工运维工具 |
 | `scripts/lib/` | 脚本共享辅助代码 |
 

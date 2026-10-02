@@ -12,25 +12,16 @@
  * 另外报告分时段锐度，用于定位「后段变软」这类时间上的不均匀。
  *
  * 用法：node scripts/analysis/analyze-hires.mjs <video.mp4> [更多视频...]
- *       node scripts/analysis/analyze-hires.mjs --all          # 自动收集 e2e-out/hires/*.mp4
  */
 
-import { readdirSync, existsSync } from 'node:fs'
-import { resolve, dirname, basename } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve, basename } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const DIRS = [resolve(ROOT, 'e2e-out/hires'), resolve(ROOT, 'e2e-out/2k')]
-
 const argv = process.argv.slice(2)
-const all = argv.includes('--all') || argv.length === 0
-const files = all
-  ? DIRS.flatMap((d) => (existsSync(d) ? readdirSync(d).filter((f) => f.endsWith('.mp4')).map((f) => resolve(d, f)) : []))
-  : argv.map((f) => resolve(f))
+const files = argv.map((f) => resolve(f))
 
 if (!files.length) {
-  console.error('没有可分析的视频。用法：node scripts/analysis/analyze-hires.mjs <video.mp4> | --all')
+  console.error('没有可分析的视频。用法：node scripts/analysis/analyze-hires.mjs <video.mp4> [更多视频...]')
   process.exit(1)
 }
 

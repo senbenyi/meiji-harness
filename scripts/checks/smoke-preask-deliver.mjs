@@ -40,12 +40,12 @@ console.log('# exportTextNode')
     const sid = 'sid-x'
     // 无 PDF 工具 → 兜底 .html
     const out1 = await exportTextNode(root, sid, 'n1', '简报', 'text', 'story planning', '# 标题\n\n正文', null)
-    ok(out1.ext === 'html' && out1.rel === 'canvas/' + sid + '/n1.html', '无 PDF 工具 → 导出 .html 兜底')
-    ok(existsSync(join(root, 'canvas', sid, 'n1.html')), '.html 文件已落盘')
+    ok(out1.ext === 'html' && /^projects\/\d{17}\/step-02-development\/step-02-简报-v001\.html$/.test(out1.rel), '无 PDF 工具 → 导出到开发步骤目录的 .html 兜底')
+    ok(existsSync(join(root, ...out1.rel.split('/'))), '.html 文件已落盘')
     // PDF 工具转失败（bin 不存在 → puppeteer/CLI 均失败）→ 兜底 .html
     const out2 = await exportTextNode(root, sid, 'n2', '镜头表', 'table', 'shot table', '| 镜号 | 内容 |', { type: 'chrome', bin: '/nonexistent/chrome' })
-    ok(out2.ext === 'html' && out2.rel === 'canvas/' + sid + '/n2.html', 'PDF 转换失败 → 兜底 .html')
-    ok(existsSync(join(root, 'canvas', sid, 'n2.html')), '失败兜底 .html 文件已落盘')
+    ok(out2.ext === 'html' && /^projects\/\d{17}\/step-04-scripts\/step-04-镜头表-v001\.html$/.test(out2.rel), 'PDF 转换失败 → 剧本步骤目录的 .html 兜底')
+    ok(existsSync(join(root, ...out2.rel.split('/'))), '失败兜底 .html 文件已落盘')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

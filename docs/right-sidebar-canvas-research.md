@@ -309,15 +309,11 @@ const [sidebarOwns] = React.useState(() => {
 
 ### 8.1 离线（本仓库已有基础设施，成本极低）
 
-本仓库已有一套**真跑组件 + Chrome 离屏截图**的垫片：`scripts/lib/react-shim.mjs` + `scripts/preview/preview-toolbar.mjs` / `preview-settings.mjs`。它把 `window.__ModuleLoader__.load` 与假 `ctx.slots` 拼起来，直接 `T.apply(fakeCtx)` 后取组件渲染。
-
-沿用这套可以断言：
+离屏截图工具已经清理；保留 `scripts/lib/react-shim.mjs` 供组件检查脚本使用。离线检查应断言：
 
 1. `fakeCtx.slots.register` 收到的注册表里出现 `{ name: 'sidebar.right.pane.tab', key: 'dsh-short-video-studio' }`；
 2. `ctx.sidebarRightTabs.register` 收到的定义含 `kind: 'short-video-canvas'` 与一条 `guide` 入口；
 3. 直接渲染该正文组件（喂假 `sessionId` / `useWorkspaces` / `inputActions` / `useTabInfo`），断言产出 `iframe`，且 `src` 携带正确的 `sessionId` / `workspaceId`，`postMessage({channel,type:'ask-ai'})` 能把文本灌进假 `inputActions.setDraft`；
-4. 宽度断言：在 640 / 480 / 360 三档宽度下用 `scripts/lib/ui-probe.mjs` 的溢出度量，确认窄列不破版。
-
 建议新增 `scripts/smoke-sidebar-canvas.mjs` 并挂进 `package.json` 的 `smoke` 链。
 
 ### 8.2 真机（Web GUI）

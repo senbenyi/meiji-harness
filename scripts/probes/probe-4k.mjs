@@ -18,7 +18,7 @@
  *                                          CreateVideo(images,fps,audio) → SaveVideo
  *
  * 用法：
- *   node scripts/probes/probe-4k.mjs --src e2e-out/2k/v2s20f124-v2s20f124_00001_.mp4 --frames 12 --tag u3-trial
+ *   node scripts/probes/probe-4k.mjs --src source.mp4 --out-dir probe-4k-out --frames 12 --tag u3-trial
  *   --model RealESRGAN_x2.pth | RealESRGAN_x4.pth | ESRGAN_4x.pth
  *   --frames N   只处理前 N 帧（显存安全阀；不传=整片）
  *   --scale S    超分后再按 S 回缩（如 0.75：5376×3072 → 4032×2304）
@@ -29,7 +29,6 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { resolve, basename } from 'node:path'
 
-const ROOT = resolve(import.meta.dirname, '..')
 const BASE = process.env.DSH_SVS_COMFY ?? 'http://localhost:8188'
 
 const argv = process.argv.slice(2)
@@ -37,11 +36,14 @@ const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i
 const has = (k) => argv.includes('--' + k)
 const num = (k, d) => { const v = arg(k); return v === undefined ? d : Number(v) }
 
-const SRC = resolve(ROOT, arg('src', 'e2e-out/2k/v2s20f56-v2s20f56_00001_.mp4'))
+const src = arg('src')
+if (!src) { console.error('缺少 --src <video.mp4>'); process.exit(1) }
+const SRC = resolve(src)
 const MODEL = arg('model', 'RealESRGAN_x2.pth')
 const FRAMES = num('frames', undefined)
 const SCALE = num('scale', undefined)
 const TAG = arg('tag', 'u3')
+const OUT_DIR = resolve(arg('out-dir', 'probe-4k-out'))
 const DRY = has('dry')
 
 if (!existsSync(SRC)) { console.error(`找不到源片 ${SRC}`); process.exit(1) }
@@ -84,7 +86,7 @@ if (SCALE !== undefined) {
 // --no-audio：源片没有音轨时（长片压测用的合成片）不接 audio，否则 CreateVideo 拿空 AUDIO 会失败
 const NO_AUDIO = has('no-audio')
 g[7] = { class_type: 'CreateVideo', inputs: NO_AUDIO ? { images: out, fps: ['2', 2] } : { images: out, fps: ['2', 2], audio: ['2', 1] } }
-g[8] = { class_type: 'SaveVideo', inputs: { video: ['7', 0], filename_prefix: `e2e-4k/${TAG}`, format: 'mp4', codec: 'h264' } }
+g[8] = { class_type: 'SaveVideo', inputs: { video: ['7', 0], filename_prefix: `probe-4k/${TAG}`, format: 'mp4', codec: 'h264' } }
 
 if (DRY) { console.log(JSON.stringify(g, null, 2)); process.exit(0) }
 
@@ -112,11 +114,11 @@ try {
     const secs = (Date.now() - t0) / 1000
     const files = Object.values(e.outputs || {}).flatMap((o) => o.videos || o.images || [])
     console.log(`  ✓ 完成：${secs.toFixed(1)}s，产物 ${JSON.stringify(files.map((f) => f.filename))}`)
-    mkdirSync(resolve(ROOT, 'e2e-out/4k'), { recursive: true })
+    mkdirSync(OUT_DIR, { recursive: true })
     for (const f of files) {
-      const q = new URLSearchParams({ filename: f.filename, subfolder: f.subfolder ?? 'e2e-4k', type: f.type ?? 'output' })
+      const q = new URLSearchParams({ filename: f.filename, subfolder: f.subfolder ?? 'probe-4k', type: f.type ?? 'output' })
       const b = Buffer.from(await (await fetch(`${BASE}/view?${q}`)).arrayBuffer())
-      const o = resolve(ROOT, `e2e-out/4k/${TAG}-${f.filename.replace(/^.*\//, '')}`)
+      const o = resolve(OUT_DIR, `${TAG}-${f.filename.replace(/^.*\//, '')}`)
       writeFileSync(o, b)
       console.log(`    已存 ${o}（${(b.length / 2 ** 20).toFixed(1)} MiB）`)
     }

@@ -10,6 +10,15 @@ test('Harness Storage descriptor names use identifier-safe syntax', () => {
   for (const tableName of Object.keys(studioDomainSpec.tables)) assert.match(tableName, unitName)
 })
 
+test('new project ids are sortable Asia/Shanghai timestamps without separators', async () => {
+  const service = await new ProjectService(new MemoryProjectRepository()).open()
+  const first = await service.createProject({ payload: { title: '一' } })
+  const second = await service.createProject({ payload: { title: '二' } })
+  assert.match(first.project.id, /^\d{17}$/)
+  assert.match(second.project.id, /^\d{17}$/)
+  assert.ok(second.project.id > first.project.id)
+})
+
 async function command(service, projectId, type, payload, options = {}) {
   const project = await service.getProject(projectId)
   return service.execute({

@@ -68,7 +68,7 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 **`-ctx-balanced-pdd-2k` 应当退场**（已标 `internal: true`：不进档位解析、不出现在 UI/技能选项，
 仍可显式 `workflow=` 调用以复现历史）。它相对 `-ctx-balanced-2k` / `-ctx-quality-2k`
 既没有速度优势（实测更慢），又没有画质优势（有效宽度 1.00×、闪烁更差）。
-真正该上线的是 `-ctx-quality-pdd2-2k`。眼判图：`e2e-out/2k-ab2/eye/`（`scripts/analysis/eye-crops.py` 生成）。
+真正该上线的是 `-ctx-quality-pdd2-2k`。历史眼判图已清理，可用 `scripts/analysis/eye-crops.py` 重新生成。
 
 ---
 
@@ -290,8 +290,8 @@ pdd @124 : P1·f1 + 2·p2·f2 + D·fD =  826.0
 
 ### 5.2 画面对照图
 
-- `e2e-out/2k-ab/cmp-full.png`：第 28 帧上下对照（各缩到 1344 宽）
-- `e2e-out/2k-ab/cmp-crop.png`：第 28 帧同坐标 768×432 **1:1** 裁切对照
+- 第 28 帧上下对照（各缩到 1344 宽，历史本地产物已清理）
+- 第 28 帧同坐标 768×432 **1:1** 裁切对照（历史本地产物已清理）
 
 > 取材时本机视觉引擎（modlens）不可用，这两张图**没有人眼复核过**，结论全部建立在 §5/§5.1 的数值判据上。
 > 需要人眼确认时请直接打开这两张图。
@@ -349,8 +349,8 @@ node scripts/ab-2k-pdd.mjs --frames 56
 node scripts/ab-2k-pdd.mjs --frames 124 --only B2 --seed 20260930   # 交付长度（≈14 分钟）
 
 # 5) 判据
-node scripts/analysis/analyze-hires.mjs e2e-out/2k-ab/A.mp4 e2e-out/2k-ab/B.mp4
-python3 scripts/analysis/analyze-ab-diff.py e2e-out/2k-ab/A.mp4 e2e-out/2k-ab/B.mp4
+node scripts/analysis/analyze-hires.mjs A.mp4 B.mp4
+python3 scripts/analysis/analyze-ab-diff.py A.mp4 B.mp4
 ```
 
 ### 8.1 已知的会话可见性问题

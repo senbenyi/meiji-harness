@@ -46,7 +46,7 @@ test('GenerationRunner persists prompt, downloads, atomically publishes, then cr
     const asset = result.project.assets[result.output.assetId]
     assert.equal(result.project.attempts[attemptId].status, 'completed')
     assert.equal(asset.status, 'candidate')
-    assert.match(asset.logicalKey, /^media\//)
+    assert.match(asset.logicalKey, new RegExp(`^projects/${projectId}/step-07-generation/step-07-`))
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 

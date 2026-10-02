@@ -256,7 +256,7 @@ latent 用 `…SaveLatent`/`…LoadLatent` 跨运行搬运（首镜 Load 0 / Sav
 
 四档结论一致：续接把接缝画面差压到 2.6–7.0，同 seed 对照 32–68；音频在音乐型素材上四档全部正向。
 **续接带来的是"同一段画面"，不是"更高画质"**（MAD 与档位几乎无关）。完整表（含包络相关与耗时）
-见 `docs/shot-chain-continuity.md` 附 B；原始数据 `e2e-out/chain-bench/rows.json`。
+见 `docs/shot-chain-continuity.md` 附 B；原始本地产物已清理。
 
 **Sol-Attn 叠加未测且不可测**：`…-ctx-balanced-pdd-sol` 会让 ComfyUI 硬崩
 （`CUDA_ERROR_INVALID_VALUE from cuMemFreeAsync` → `Fatal Python error: Aborted`，容器重启），

@@ -50,12 +50,27 @@ DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激�
 
 ## 安装与运行
 
+首次安装或更新当前本地插件：
+
 ```bash
-dsh plugin --profile web add file:/Users/mac/ai/llm-dsh-plugins
+dsh plugin --profile web add -w file:/Users/mac/ai/llm-dsh-plugins
+```
+
+`web` profile 本身是 pnpm workspace 根，因此必须传入 `-w`（`--workspace-root`）。省略该参数时，pnpm 会报 `ERR_PNPM_ADDING_TO_ROOT`，插件不会完成本次安装或更新。
+
+确认 profile 已识别插件：
+
+```bash
+dsh plugin --profile web list --depth 0
+```
+
+启动 Web：
+
+```bash
 dsh web
 ```
 
-插件把活动 `skills/` 安装到 `~/.dsh/skills/`。运行中的宿主需要重启后才会重新加载工作流和 Skill。
+默认会打开浏览器；不需要自动打开时使用 `dsh web --no-open`。插件把活动 `skills/` 安装到 `~/.dsh/skills/`。安装或更新后需要重启正在运行的宿主，才能重新加载工作流和 Skill。
 
 ## 验证
 
