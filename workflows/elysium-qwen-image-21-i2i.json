@@ -4,8 +4,8 @@
   "capability": "image.image2image",
   "runner": "comfyui",
   "displayName": "Qwen-Image 2.1 图生图（参考图改绘） · Elysium",
-  "description": "本地 Qwen-Image 2.1 参考图改绘：参考图经 TextEncodeQwenImage21 同时喂给视觉塔与 VAE 潜空间（reference_latents），prompt 描述改动（换装 / 改背景 / 风格迁移 / 构图微调）。图结构对应 ComfyUI 官方模板 image_qwen_image_2_1_image_edit。 Elysium 本机模型映射版。",
-  "note": "需要 ComfyUI ≥ v0.37.0（TextEncodeQwenImage21 / QwenImage21Cache）。**输出尺寸跟随第一张参考图**（显式 width/height 不注入）：节点按本档「参考图预算」等比缩放参考图（32 对齐），latent 与该尺寸一致。预算 768/1056/2048 ⇒ **quality 档可出 2K 改绘**。resolution=1056 一档是官方模板起步值 0 与 1024/1536 网格上有锐化噪点/指令失效的已知 issue（ComfyUI #16435，未修复）的规避值。图上最多 10 张参考图（image_1 是编辑目标，其余为参考），prompt 里用 <image1>…<image10> 指代。QwenImage21Cache 把「文本+参考图前缀」KV cache 量化到 int8。cfg 固定 1。",
+  "description": "Elysium Qwen-Image 2.1 参考图改绘工作流。",
+  "note": "需要 ComfyUI ≥ v0.37.0；输出尺寸跟随首张参考图，最多支持 10 张参考图；cfg 固定为 1。",
   "group": "elysium-qwen-image-21-i2i",
   "requiresNodes": [
     "TextEncodeQwenImage21",
