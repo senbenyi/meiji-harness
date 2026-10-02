@@ -1,19 +1,4 @@
 {
   "version": 1,
-  "assets": {
-    "text:11": {
-      "id": "text:11",
-      "type": "text",
-      "name": "11",
-      "state": "default",
-      "sourceSession": "session-437d00d2-5a73-4ea3-b4fa-393442dd3a15",
-      "sourceNode": "2b25fa22-5db0-4238-8b25-4785a8be18f9",
-      "kind": "text",
-      "createdAt": 1790923893824,
-      "updatedAt": 1790923893824,
-      "text": "画布写入成功",
-      "title": "基础验收",
-      "nodeKind": "text"
-    }
-  }
+  "assets": {}
 }
