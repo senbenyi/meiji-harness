@@ -4,7 +4,7 @@
 - 目标：先冻结并完整迁移当前插件已经可用的制片能力，再在当前 `dsh-short-video-studio` 插件内建立可恢复的短剧项目域，并补齐网关执行契约；随后只蒸馏开源项目相对现有插件的真实增量，最后重做用户界面。
 - 调研来源：`docs/research/调研-Harness网关与短剧数据底座.md`
 
-> **勘误（2026-10-01）**：原计划误把已经移出当前仓库的独立历史包当作目标实现边界。当前方案以 `dsh-short-video-studio` 为唯一插件项目，新增数据底座、领域、媒体、时间线和 Agent 模块均位于本仓库 `lib/`；不恢复或依赖独立历史包。Elysium 仅保留为现有生成能力与运行时存储目录的名称。
+> **边界修订（2026-10-02）**：原计划误把已经移出当前仓库的独立历史包及其 `~/.dsh/storages/elysium` 目录继续当作目标边界。该目录已经删除，后续不得恢复、探测、迁移到或回退创建。当前方案以 `dsh-short-video-studio` 为唯一插件项目；`Elysium` 只表示当前已验收的图片/视频生成能力，不表示存储产品、目录或项目域名称。结构化业务状态由 Harness Domain Storage 持久化；媒体与导出物由插件 File Service 管理，其物理根目录必须由宿主注入或显式配置解析，业务代码不得硬编码用户主目录路径。
 
 ## 人工决策
 
@@ -18,6 +18,7 @@
 6. 当前插件的 Skills、人工门、画布操作、资产复用、连续性、返工、拼接、终检和渠道交付是迁移基线，不以“新架构”为理由删减。
 7. 现有脚本和旧文件先分类迁移；只有替代测试和数据迁移验收通过后才删除源文件。
 8. 每项通用能力先查 `docs/audits/harness-capabilities.md`：Harness 已提供的 Todo、Goal、Plan、Subagent、Workflow、Job、Approval、Skill、Storage、Projection、Deliverables 等能力直接复用，不在插件内重造。
+9. 存储位置不是领域身份：Project 只以稳定 `projectId` 标识；Domain Storage 保存权威结构化状态，File Service 只保存按 asset id/hash 引用的二进制与导出物。宿主没有提供可写根目录且用户也未显式配置时必须失败并说明修复方法，禁止静默回退到历史目录或 session/workspace 路径。
 
 ## 总体顺序
 
@@ -42,24 +43,27 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 3. `docs/audits/script-migration-matrix.md` — 新增：为全部 smoke/e2e/probe/bench/make/analyze/preview 脚本标注“插件保留、迁插件项目域、迁网关、替代后删除” → AC-7。
 4. `docs/audits/harness-capabilities.md` — 新增：按当前实际版本全量登记 Harness 官方包组，区分已安装、已挂载、Agent 可见、业务已利用，并记录复用、暂不采用和安装门 → AC-1。
 5. `docs/audits/gateway-capabilities.md` — 新增：记录网关路由、异步任务、恢复、取消、媒体和能力目录契约 → AC-2。
-6. `scripts/audit-harness.mjs` — 新增：只读解析当前 Profile 组合与本机安装树，验证官方包/子入口是否可解析并输出 enabled/disabled/conditional 状态；运行时服务可用性在后续对应能力接入时增加聚焦探针 → AC-1。
+6. `scripts/audit-harness.mjs` — 新增：只读解析当前 Profile 组合与本机安装树，验证官方包/子入口是否可解析并输出 enabled/disabled/conditional 状态；同时确认当前版本可用于 Domain Storage 和插件文件根定位的真实注入点，不能用历史路径代替未确认的宿主契约；运行时服务可用性在后续对应能力接入时增加聚焦探针 → AC-1、AC-3。
 7. `llm-modes-gateway/tests/server/server_test.go`、`tests/workflow/image_test.go` — 修改：固定当前 Elysium 能力基线和不泄露 workflow id 的边界 → AC-2。
 
 验证：先运行 `node scripts/audit-harness.mjs web --json`，组合引用缺包数必须为 0；再用一个现有项目生成“迁移金样快照”，覆盖节点参数/血缘/泳道/批准版本/排序/送达状态，并运行 Harness 聚焦探针和网关测试。缺失服务必须显式失败，不能回退自建实现。本阶段审计未发现需要立即安装的官方依赖；以后只有被采用且确实缺失的能力才允许安装。
 
-## 阶段 1：在当前插件建立唯一文件入口
+## 阶段 1：建立存储定位与唯一文件入口
 
-1. `lib/storage/files.js` — 新增：项目目录、媒体、临时文件、原子发布、hash、读取范围校验和删除的唯一文件入口 → AC-3。
-2. `lib/storage/layout.js` — 新增：固定 `~/.dsh/storages/elysium` 下 project/media/export/cache 布局；禁止 session/workspace 路径成为权威身份 → AC-3。
-3. `lib/storage/migrations.js` — 新增：格式版本、迁移登记、备份和失败回滚 → AC-3。
-4. `tests/storage/files.test.js` — 新增：原子写、路径逃逸、损坏文件、磁盘失败、迁移失败测试 → AC-3。
+本阶段先分开两种存储：Project/Shot/Attempt/Review 等结构化真值进入 Harness Domain Storage；图片、视频、代理文件、缓存和导出物进入 Studio File Service。两者共享稳定 id/hash，不共享物理路径作为身份。
 
-验证：故障注入中任何失败都保留旧版本；所有业务源码检索不到 `node:fs`，只有 `files.js` 可以导入。
+1. `lib/storage/locator.js` — 新增：只从宿主注入或显式配置解析插件作用域文件根；返回规范化绝对路径和来源信息。缺失、只读或越界时显式失败；不得包含历史目录 fallback → AC-3。
+2. `lib/storage/layout.js` — 新增：只定义相对于已解析根目录的 `media/`、`exports/`、`cache/`、`tmp/` 逻辑布局；Project 结构化状态不在此重复落一份 JSON → AC-3。
+3. `lib/storage/files.js` — 新增：以 locator 返回的根为唯一边界，负责临时文件、原子发布、hash、读取范围校验和删除；业务模块不得自行拼接绝对路径 → AC-3。
+4. `lib/storage/migrations.js` — 新增：媒体布局格式版本、迁移登记、备份和失败回滚。迁移源必须显式传入或由旧项目记录发现；不得扫描、创建或假设已删除的历史目录 → AC-3。
+5. `tests/storage/*.test.js` — 新增：注入临时根，覆盖根缺失/只读、原子写、路径逃逸、损坏文件、磁盘失败和迁移失败；测试不得读写真实用户目录 → AC-3。
+
+验证：故障注入中任何失败都保留旧版本；物理根变化后，同一 Project 仍可通过稳定 id/hash 恢复引用；所有业务源码检索不到 `node:fs`，只有 `files.js` 可以导入；仓库执行 `rg '~/.dsh/storages/elysium|storages/elysium' lib tests scripts` 必须无结果。
 
 ## 阶段 2：建立项目聚合与领域命令
 
 1. `lib/domain/spec.js` — 新增：Project 聚合及 StoryBible、Character/State、Location/Scene、Episode、Shot、Attempt、Asset、Review、Timeline、Deliverable schema → AC-3。
-2. `lib/domain/service.js` — 新增：基于 Harness `dsh-storage-domain` 打开当前插件的项目 domain；每个项目记录通过 `KvTable.update` 原子变更 → AC-3。
+2. `lib/domain/service.js` — 新增：基于 Harness `dsh-storage-domain` 打开当前插件的项目 domain；每个项目记录通过 `KvTable.update` 原子变更。Domain 负责结构化真值，记录 Asset 的稳定 id/hash/逻辑引用，不保存 File Service 的部署根路径 → AC-3。
 3. `lib/domain/commands/*.js` — 新增：create/open/update/transition/attach/review/assemble/deliver 命令；统一 revision 与幂等检查 → AC-3、AC-4。
 4. `lib/domain/state-machines.js` — 新增：Episode、Shot、GenerationAttempt 状态机，非法跳转显式失败 → AC-3。
 5. `lib/domain/read-models.js` — 新增：项目列表、制作看板、镜头队列、审核队列、时间线只读模型 → AC-3。
@@ -78,7 +82,7 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 5. `studio/app.js`、`lib/client.js` — 修改：第一阶段保持现有交互外观，把 edit/replace/redo/deprecate/restore/group/reorder/upload/register 转为项目域 command；main/frames/discard 改为 read model 投影 → AC-3、AC-7。
 6. `skills/*` — 修改：保持现有制片顺序和门控，改为调用领域工具；Markdown 继续作为展示产物，但不再是权威业务状态 → AC-3、AC-4、AC-7。
 7. `lib/index.js:makeH3PromptGateListener/自动送达监听器` — 修改：分别接入 QualityPolicy 与 Delivery Outbox，保留当前有界 fallback 和 ask 前送达行为 → AC-4、AC-7。
-8. `scripts/migrate-canvas-projects.mjs` — 新增：把旧 `canvas/<sessionId>/project.json` 和 `.dsh-assets/library.json` 迁为当前插件的 Project/Asset，生成迁移报告，不自动删除源数据 → AC-3、AC-7。
+8. `scripts/migrate-canvas-projects.mjs` — 新增：从用户显式指定的 workspace 或已打开旧项目中读取 `canvas/<sessionId>/project.json` 和 `.dsh-assets/library.json`，迁为当前插件的 Project/Asset，生成迁移报告，不自动删除源数据；不得扫描已删除的历史目录 → AC-3、AC-7。
 
 验证：迁移前后不只比较数量/hash，还逐项比较 params、血缘、泳道、group/order、当前批准版本、废弃/恢复和 delivery 状态；特征测试全部通过后，插件重启、换会话仍能打开同一项目。
 
@@ -189,7 +193,7 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 
 - AC-1：Harness 官方插件能力矩阵可定位到当前安装包源码、组合配置或官方契约，明确安装/挂载/Agent 可见/业务利用状态，并通过对应运行时探针。
 - AC-2：网关职责、任务生命周期与能力目录由测试固定。
-- AC-3：当前 `dsh-short-video-studio` 插件的项目域是业务状态唯一所有者，所有写入经过领域命令和唯一文件入口。
+- AC-3：当前 `dsh-short-video-studio` 插件的项目域是业务状态唯一所有者；结构化写入经过领域命令与 Harness Domain Storage，二进制写入经过宿主定位的唯一 File Service。任何 Project/Asset 身份均不依赖固定绝对路径，代码无历史目录 fallback。
 - AC-4：生成到交付的每个非终态都能在崩溃后恢复，重复执行保持幂等。
 - AC-5：17 个开源项目逐个完成证据卡、许可证门和独立验收，不做整项目移植。
 - AC-6：UI 最后实施，且只通过 command/read model 与数据层交互。
@@ -197,4 +201,4 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 
 ## 验证结果
 
-未执行。本计划等待用户确认边界与实施顺序。
+未执行。2026-10-02 已删除历史固定存储目录假设；本计划等待架构审核及用户确认其余边界与实施顺序。
