@@ -13,7 +13,7 @@ const requirements = () => checkContext.getStore()?.requirements || ''
 
 function creationParts(task, kind) {
   const p = generationParts({ ...task, stage: 'episode', nodeKey: 'summary', kind })
-  return { additions: p.additions, assetRules: p.assetRules, boundary: p.revisionBoundary, protocol: p.protocol, requirements: requirements(),
+  return { additions: p.additions, assetRules: p.assetRules, boundary: p.revisionBoundary, language: p.language, protocol: p.protocol, requirements: requirements(),
     instructions: task.model ? '' : taskInput(task.instructions).task }
 }
 
@@ -26,7 +26,7 @@ function generate(task) {
 
 function review(task, content) {
   const p = reviewParts({ ...task, stage: 'episode', nodeKey: 'summary' }, content)
-  return modelOf(task).toReviewSegments({ content, criteria: p.criteria, method: p.method, additions: p.additions, requirements: requirements(),
+  return modelOf(task).toReviewSegments({ content, criteria: p.criteria, method: p.method, additions: p.additions, language: p.language, requirements: requirements(),
     instructions: task.model ? '' : taskInput(task.instructions).review || taskInput(task.instructions).task,
     ...(task.baseContent !== undefined ? { baseContent: task.baseContent } : {}),
     opinion: task.revisionOpinion || task.opinion, automatic: task.revisionReview || false, humanOpinion: task.opinion, reviewContext: task.reviewContext })

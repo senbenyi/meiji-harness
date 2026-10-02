@@ -10,7 +10,7 @@ test('the first episode is written from the project summary and keeps the user-s
   const prompt = episodePrompt({ title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
   assert.match(prompt, /第 1 集根据项目摘要/)
   assert.match(prompt, /李伟穿越/)
-  assert.match(prompt, /视觉风格：写实电影/)
+  assert.match(prompt, /项目风格：写实电影/)
   assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }, 150), { summary: '开场结义', durationSeconds: 150 })
   assert.throws(() => normalizeEpisodeDraft({ summary: '字'.repeat(301) }), { status: 502 })
 })
@@ -25,8 +25,8 @@ test('a later episode continues from the episodes already shot', () => {
     ],
   })
   assert.match(prompt, /第 3 集/)
-  assert.match(prompt, /【输入内容：视频总摘要】\n项目摘要：李伟穿越/)
-  assert.match(prompt, /之前全部剧集摘要，按剧情顺序/)
+  assert.match(prompt, /【核心输入：项目摘要】\n李伟穿越/)
+  assert.match(prompt, /【衔接：前集已发生事实，按剧情顺序】/)
   assert.ok(prompt.indexOf('第一集结义') < prompt.indexOf('第二集回头'))
   assert.match(prompt, /不无故重置人物状态/)
   assert.match(prompt, /第 1 集（120 秒）：第一集结义/)
@@ -41,9 +41,9 @@ test('regeneration targets the selected episode and separates later continuity c
     { id: 'a', summary: { content: '开场' }, durationSeconds: 120 },
   ] }
   const prompt = episodePrompt(project, 'b')
-  assert.match(prompt, /这一集是第 2 集/)
+  assert.match(prompt, /重新生成第 2 集摘要/)
   assert.match(prompt, /第 1 集（120 秒）：开场/)
-  assert.match(prompt, /后续剧集是衔接约束/)
+  assert.match(prompt, /【衔接：后集摘要】/)
   assert.match(prompt, /第 3 集：结尾/)
   assert.match(prompt, /项目剧本/)
   assert.throws(() => episodePrompt(project, 'missing'), { status: 404 })

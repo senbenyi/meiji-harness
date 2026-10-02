@@ -11,7 +11,7 @@ test('language defaults to Chinese, validates values and follows episode context
   assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'zh-CN' }, instructions: '' }).system, /Mandarin Chinese/)
   assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'en' }, instructions: '' }).system, /对白语言：English/)
   assert.throws(() => outputLanguage('unknown'), /仅支持/)
-  assert.match(buildGenerationPrompt({ skill: 'episode', project: { outputLanguage: 'en' }, instructions: '' }).user, /本次生成语言：English/)
+  assert.match(buildGenerationPrompt({ skill: 'episode', project: { outputLanguage: 'en' }, instructions: '' }).system, /本次生成语言：English/)
   assert.equal(materialize({ id: 'p', summary: { content: '' }, outputLanguage: 'en', episodes: [{ id: 'e' }] }, 'e').outputLanguage, 'en')
   assert.equal(normalizeScenes({ items: [{ name: 'Cave', landmark: 'Stone arch', light: 'Moonlight', space: 'Narrow tunnel', look: 'An empty ancient cave with a stone arch and scattered rocks.' }] }).items[0].name, 'Cave')
 })
@@ -28,7 +28,8 @@ test('Chinese input sends English language skill to the model and preserves retu
     route: { baseUrl: 'http://model.test/v1', apiKey: 'test', model: 'test' },
     project: { title: '沙漠', summary: { content: '旅人进入山洞' }, outputLanguage: 'en', episodes: [] },
   })
-  assert.match(payload.messages.find(item => item.role === 'user').content, /本次生成语言：English/)
+  assert.match(payload.messages.find(item => item.role === 'system').content, /本次生成语言：English/)
+  assert.doesNotMatch(payload.messages.find(item => item.role === 'user').content, /本次生成语言/)
   assert.match(payload.messages.find(item => item.role === 'user').content, /旅人进入山洞/)
   assert.equal(draft.summary, 'A traveler enters a mysterious cave.')
 })

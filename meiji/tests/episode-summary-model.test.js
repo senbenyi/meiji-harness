@@ -14,6 +14,52 @@ const root = () => ({ title: '故事标题', summary: { content: '项目设定' 
 const episode = (id, content, durationSeconds = 150) => ({ id, summary: { content }, durationSeconds })
 const middle = () => ({ ...root(), episodes: [episode('next', '后集开头'), episode('target', '本集旧稿'), episode('first', '前集结尾')] })
 
+test('summary separates identity, one-line tasks, rules, source material and language', () => {
+  const set = builtinSkillSet()
+  set.nodeSupplements = { target: { summary: [{ id: 'rule', content: 'SUMMARY_SUPPLEMENT' }], outline: [{ id: 'other', content: 'OUTLINE_ONLY' }] } }
+  executionContext.run({ skillSet: set, skills: new Map() }, () => {
+    for (const generationMode of ['regenerate', 'modify']) checkContext.run({ generationMode, review: '本次意见' }, () => {
+      const prompts = buildEpisodePrompts(middle(), 'target', 38)
+      for (const request of [prompts.generation, prompts.revision('本轮失败摘要', reviewFail('修复转折'))]) {
+        assert.equal(request.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名短剧分集编剧。')
+        const task = request.user.split('【本次任务】\n')[1].split('\n\n')[0]
+        assert.equal(task.split('\n').length, 1)
+        assert.match(task, /项目摘要.*剧本.*第 2 集摘要.*基础规则和补充规则/)
+        assert.doesNotMatch(task, /任务模式|旧摘要|历史意见|只处理|只修改|保留未涉及|300/)
+        assert.match(request.system, /【基础规则】\n/)
+        assert.match(request.system, /【补充规则】\nSUMMARY_SUPPLEMENT/)
+        assert.doesNotMatch(request.system + request.user, /OUTLINE_ONLY|【故事资料】|标题：故事标题/)
+        assert.match(request.system, /【语言】\n本次生成语言：简体中文/)
+        assert.doesNotMatch(request.user, /本次生成语言|对白语言|SUPPLEMENT/)
+        assert.match(request.user, /【核心输入：项目摘要】\n项目设定/)
+        assert.match(request.user, /【输入：剧本资料】\n明确剧本/)
+        assert.match(request.user, /【本次参数】\n本集时长：38 秒\n项目风格：武侠仙侠/)
+        assert.ok(request.user.indexOf('【核心输入：项目摘要】') < request.user.indexOf('【本次参数】'))
+      }
+      const review = prompts.review('最新摘要')
+      assert.equal(review.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名独立剧集摘要审核员。')
+      assert.match(review.system, /【补充规则】\n逐条核对以下要求；只审核其是否落实/)
+      assert.doesNotMatch(review.user, /遵守基础规则和补充规则|任务模式/)
+    })
+  })
+})
+
+test('summary supplement headings preserve source metadata and isolate episodes', () => {
+  const model = new EpisodeSummaryModel({ project: root() })
+  const supplement = { source: 'node', title: '【本节点补充要求】', text: '补充正文', nodeKey: 'summary', episodeId: 'target' }
+  const before = structuredClone(supplement)
+  const request = model.toGenerateSegments({ additions: [supplement] })
+  assert.deepEqual(request.system.find(item => item?.source === 'node'), { ...before, title: '【补充规则】' })
+  assert.deepEqual(supplement, before)
+  const set = builtinSkillSet()
+  set.nodeSupplements = { target: { summary: [{ id: 'one', content: 'TARGET_RULE' }] }, next: { summary: [{ id: 'two', content: 'NEXT_RULE' }] } }
+  executionContext.run({ skillSet: set, skills: new Map() }, () => {
+    const request = buildEpisodePrompts(middle(), 'next').generation
+    assert.match(request.system, /NEXT_RULE/);assert.doesNotMatch(request.system, /TARGET_RULE/)
+  })
+  assert.doesNotMatch(model.toGenerateMessages()[0].content, /【补充规则】/)
+})
+
 test('model 通过属性和技能文本生成最终消息，参数与故事资料只在 user', () => {
   const model = new EpisodeSummaryModel({ project: root(), referenceDurationSeconds: 150 })
   model.generationRules = builtinSkill('episode').constraints
@@ -25,10 +71,13 @@ test('model 通过属性和技能文本生成最终消息，参数与故事资�
   assert.match(system.content, /只含 summary 字段/)
   assert.match(system.content, /示例（仅示范格式）/)
   assert.match(system.content, /本集时长由用户设定/)
-  assert.doesNotMatch(system.content, /故事标题|明确剧本|本次生成语言|本集时长：150/)
-  assert.match(user.content, /任务模式：首次生成/)
-  assert.match(user.content, /标题：故事标题/)
-  assert.match(user.content, /本集时长：150 秒（用户设定，不输出、不修改）/)
+  assert.doesNotMatch(system.content, /故事标题|明确剧本|本集时长：150/)
+  assert.match(system.content, /【语言】\n本次生成语言：简体中文/)
+  assert.match(user.content, /依据项目摘要和剧本生成第 1 集摘要/)
+  assert.match(user.content, /【核心输入：项目摘要】\n项目设定/)
+  assert.match(user.content, /【输入：剧本资料】\n明确剧本/)
+  assert.match(user.content, /本集时长：150 秒/)
+  assert.doesNotMatch(user.content, /本次生成语言|标题：故事标题/)
   assert.doesNotMatch(system.content + user.content, /画幅|1344x768/)
 })
 
@@ -50,24 +99,24 @@ test('实际生成精简重复与审核包装，同时独立审核保留完整�
 
 test('首集和无后集明确开场与悬念方向，追加新集延续全部前集', () => {
   const first = buildEpisodePrompts(root()).generation.user
-  assert.match(first, /无前集。本集为第 1 集/)
+  assert.match(first, /生成第 1 集摘要/)
+  assert.match(first, /无前集。/)
   assert.match(first, /未提供后集剧情/)
-  assert.match(first, /危机、新发现或关键抉择/)
+  assert.match(buildEpisodePrompts(root()).generation.system, /危机、新发现或关键抉择/)
   const project = { ...root(), episodes: [episode('b', '第二集事件'), episode('a', '第一集事件')] }
   const next = buildEpisodePrompts(project).generation.user
-  assert.match(next, /任务模式：首次生成/)
-  assert.match(next, /这一集是第 3 集/)
+  assert.match(next, /依据项目摘要和剧本生成第 3 集摘要/)
   assert.ok(next.indexOf('第一集事件') < next.indexOf('第二集事件'))
-  assert.match(next, /本集开场承接前集结尾/)
+  assert.match(buildEpisodePrompts(project).generation.system, /后续各集承接上一集结尾/)
 })
 
 test('中间集重新生成使用前后集约束，排除旧稿及历史意见', () => {
   const prompts = checkContext.run({ generationMode: 'regenerate', review: 'HISTORY_OPINION' }, () => buildEpisodePrompts(middle(), 'target', 200))
   const user = prompts.generation.user
-  assert.match(user, /这一集是第 2 集/)
+  assert.match(user, /重新生成第 2 集摘要/)
   assert.match(user, /前集结尾/)
   assert.match(user, /第 3 集：后集开头/)
-  assert.match(user, /不提前演出后集事件/)
+  assert.match(prompts.generation.system, /不在本集提前演出/)
   assert.match(user, /本集时长：200 秒/)
   assert.doesNotMatch(user, /本集旧稿|HISTORY_OPINION|【修改基稿】/)
   const preview = previewPrompts({ stage: 'episode', root: middle(), view: { episodeId: 'target' }, skillSet: builtinSkillSet() })
@@ -102,8 +151,9 @@ test('英文参数和节点补充生效，废弃的通用审核修订覆盖不�
   set.skills.episode.parts.review = '独立审核覆盖'
   executionContext.run({ skillSet: set, skills: new Map() }, () => {
     const prompts = buildEpisodePrompts({ ...middle(), outputLanguage: 'en' }, 'target')
-    assert.match(prompts.generation.user, /本次生成语言：English/)
-    assert.match(prompts.generation.user, /对白语言：English/)
+    assert.match(prompts.generation.system, /本次生成语言：English/)
+    assert.match(prompts.generation.system, /对白语言：English/)
+    assert.doesNotMatch(prompts.generation.user, /本次生成语言|对白语言/)
     assert.doesNotMatch(prompts.generation.system, /基础通用覆盖/)
     assert.match(prompts.generation.system, /本节点创作补充/)
     assert.doesNotMatch(prompts.generation.system, /独立审核覆盖|本剧审核补充/)
@@ -164,7 +214,7 @@ test('人工修订初审使用人工基稿，自动修订复审使用最新失�
   assert.match(calls[1].user, /【修订基稿.*本集旧稿/s)
   assert.match(calls[2].user, /最新失败稿.*初次修改稿/s)
   assert.doesNotMatch(calls[2].user, /本集旧稿/)
-  assert.match(calls[3].user, /自动修订结果验收/)
+  assert.match(calls[3].user, /摘要的自动修订结果/)
   assert.match(calls[3].user, /【修订基稿.*初次修改稿/s)
   assert.match(calls[3].user, /【本轮修订意见】[\s\S]*动机不完整/)
   assert.match(calls[3].user, /【本次修改意见】\n加强抉择/)

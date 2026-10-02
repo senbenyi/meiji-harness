@@ -35,7 +35,7 @@ test('超长结果即使 AI 审核 PASS 也只修订一次，本集时长始终�
     request: async message => { messages.push(message); return replies.shift() }, persist: value => saved.push(value) })
   assert.equal(result.durationSeconds, 150)
   assert.equal(messages.length, 4)
-  for (const message of messages) assert.match(message.user, /本集时长：150 秒（用户设定/)
+  for (const message of messages) assert.match(message.user, /本集时长：150 秒(?:\n|$)/)
   for (const message of messages) assert.doesNotMatch(message.user + message.system, /130–170|上下 20/)
   assert.match(messages[2].user, /300 字/)
   assert.ok(saved.every(value => value.summary === '修正后的事件' && value.durationSeconds === 150))
@@ -52,7 +52,7 @@ test('新建摘要实际与预览共用固定约束；约束不能覆盖或补�
   const e = await setupModel(t), root = await e.store.read(e.id)
   const actual = buildEpisodePrompts(root, e.episodeId).generation
   const preview = previewPrompts({ stage: 'episode', root, view: await e.read(), skillSet: builtinSkillSet(root.skills) })
-  assert.ok(actual.system.includes('【基础生产规则】'))
+  assert.ok(actual.system.includes('【基础规则】'))
   assert.ok(actual.system.includes('最多 300 字'))
   assert.deepEqual(preview.generate.system, actual.segments.system)
   await assert.rejects(skillStore(e.home).save('episode', { constraints: '改规则' }), /不可编辑/)
