@@ -1850,6 +1850,39 @@ leaseVersion
 
 文件发布采用 staging + hash + 原子 rename。若文件已发布但状态提交失败，恢复扫描以 `eventId/hash` 对账，不重复生成或发送。
 
+**Outbox 事件类型汇总目录**
+
+以下为所有领域命令产生的 OutboxEvent 类型汇总（详细定义见 §10.5 各命令规格）：
+
+| 事件类型 | 产生命令 | payload 关键字段 | dispatcher 副作用 |
+| --- | --- | --- | --- |
+| `project_created` | createProject | projectId, title, contentRating | 创建项目目录结构、初始化 File Service 布局 |
+| `production_spec_updated` | updateProductionSpec | projectId, changedFields | 无外部副作用；触发 UI 刷新 |
+| `story_bible_updated` | upsertStoryBible | projectId | 无外部副作用 |
+| `character_upserted` | upsertCharacter | projectId, characterId | 无外部副作用 |
+| `character_state_upserted` | upsertCharacterState | projectId, characterId, stateId | 若有参考图 → 文件落盘 |
+| `location_upserted` | upsertLocation | projectId, locationId | 若有参考图 → 文件落盘 |
+| `episode_upserted` | upsertEpisode | projectId, episodeId | 无外部副作用 |
+| `shot_upserted` | upsertShot | projectId, shotId | 无外部副作用 |
+| `attempt_created` | createGenerationAttempt | projectId, attemptId, idempotencyKey | 无外部副作用（仅状态预留） |
+| `attempt_submitted` | markAttemptSubmitted | projectId, attemptId, promptId | 无外部副作用（ComfyUI 已在命令前提交） |
+| `attempt_completed` | completeGenerationAttempt | projectId, attemptId, assetId | 媒体文件从 staging → 正式位置原子 rename |
+| `attempt_failed` | failGenerationAttempt | projectId, attemptId, errorCode | 清理 staging 临时文件 |
+| `review_task_created` | createReviewTask | projectId, reviewTaskId, type | `automated_vlm` 类型 → 触发 VLM 自检调用 |
+| `automated_check_recorded` | recordAutomatedCheck | projectId, reviewTaskId | 无外部副作用 |
+| `review_decision_recorded` | recordReviewDecision | projectId, decisionId, verdict | 若 `approved` → 触发下游流程继续 |
+| `shot_asset_approved` | approveShotAsset | projectId, shotId, assetId | 无外部副作用 |
+| `dependents_invalidated` | invalidateDependents | projectId, sourceEntity, affectedEntities[] | 批量标记失效（详见 §14 传播规则表） |
+| `timeline_assembled` | assembleTimeline | projectId, timelineId | 无外部副作用 |
+| `deliverable_recorded` | recordDeliverable | projectId, deliverableId | 文件导出 / NLE 工程文件生成 |
+| `rights_recorded` | recordRights | projectId, rightsRecordId | 无外部副作用 |
+
+**dispatcher 处理规则**：
+- 每个事件至多重试 3 次（指数退避：1s → 4s → 16s），超过后标记 `dead`。
+- `dead` 事件保留在 outbox 中，启动恢复扫描时再次尝试或报告给用户。
+- 同一 `eventId` 的副作用必须幂等：文件 rename 以 hash 校验，已存在则跳过。
+- dispatcher 按 `createdAt` 顺序处理，保证因果序。
+
 ### 15.7 备份、损坏与恢复点
 
 - 每次 schema migration 前创建 Project 快照和 manifest 校验和。
@@ -2196,6 +2229,112 @@ Harness 侧栏、回复内交互组件或其他画布插件可以消费 read mod
 - 超分、拼接和真正静音导出。
 - Harness 重启后继续。
 - 最终 Deliverable hash 和质量报告。
+
+### 21.5 两集三分钟短剧的可重复执行演练
+
+本节把 `2026-10-02` 的架构推演固化为回归场景。它不是一次性文档示例；每次完成数据层、执行层、审核层或 Harness 集成的重要编码后，都必须用**当时真实代码和运行服务**重新演练，并重新判断基础创作、故障恢复和 Harness 融合程度。不得用本节目标流程或 mock 通过代替实现证据。
+
+#### 固定输入与规模假设
+
+固定用户输入：
+
+> 创建一部穿越短剧，只有 2 集，每集 3 分钟。
+
+首次执行必须通过 Harness Ask User 补齐穿越方向、画幅、风格、受众、内容分级、音频策略、真人/声音/品牌权利和交付方式；未确认前不得开始付费或耗时生成。测试默认选择 9:16、24fps、H3 原生音视频、无真人参考和声音克隆、两集分别交付。镜头数由批准后的镜头表决定；容量规划按平均约 5 秒一镜估算为每集约 36 镜、总计约 72 镜，不把该数字写成领域硬限制。
+
+#### 必须观察到的完整执行链
+
+```text
+用户输入
+  → Harness Goal（本会话目标）+ Todo（当前轮进度）
+  → Ask User / Approval 补齐并确认规格
+  → createProject / updateProductionSpec / recordRights
+  → StoryBible
+  → Character / CharacterState / Location
+  → Episode 01 / Episode 02
+  → 剧本 ReviewTask / ReviewDecision
+  → 两集 Shot 与 continuityFrom 依赖图
+  → 镜头表 ReviewTask / ReviewDecision
+  → 角色卡、场景卡、分镜 GenerationAttempt
+  → 候选 Asset → 自动检查 → 人工 ReviewDecision
+  → 逐镜 GenerationAttempt(created → submitting → queued → running)
+  → ComfyUI 输出 → tmp 下载 → hash/媒体校验 → 原子发布
+  → 候选视频 Asset → 首/中/末帧检查 → 人工 ReviewDecision
+  → 每集不可变 Timeline revision
+  → 拼接/超分/音频/字幕派生 Asset
+  → Deliverable(planned → exporting → ready → delivered)
+  → Harness Deliverables 展示或发送
+```
+
+三类状态必须始终分离：Harness Goal/Todo/Workflow 只表示会话执行；Project Domain 保存 Episode/Shot/Attempt/Review/Timeline 等业务真相；网关/ComfyUI 保存外部执行事实。任一层重启后，都通过稳定 id、revision 和外部任务标识重新对账，禁止从聊天文字或文件名猜测状态。
+
+#### Harness 执行引擎利用检查
+
+| Harness 能力 | 本场景必须承担 | 通过证据 | 禁止误用 |
+| --- | --- | --- | --- |
+| Agent Loop / LLM Retry | 导演 Agent 决策下一条命令；模型请求瞬时失败重试 | 会话事件与重试记录 | 代替领域命令幂等 |
+| Goal / Todo | 保存本会话作品目标；显示当前轮步骤 | Goal/Todo UI 与事件 | 代替 Project、Episode 或 Shot 状态 |
+| Skill | 按阶段加载编剧、镜头、图片、H3 prompt 和终检规则 | Skill 加载记录与版本 | 把 Markdown 当持久工作流状态 |
+| Subagent | 小说压缩、角色提取、连续性检查等独立任务 | 固定只读输入快照和结构化输出 | 直接写项目文件或共享可变对象 |
+| Workflow | 用户明确启用时执行有界、可重放的并行阶段 | workflow run id、输入/输出和终态 | 永不结束的制片守护进程 |
+| Jobs | 恢复扫描、媒体探针、导出和诊断 | job id 只携带 project/attempt id | 作为 ComfyUI 或项目任务真值源 |
+| Domain Storage | Project 聚合、revision、commandId 结果和恢复状态 | 持久记录及重启后读回 | 保存大型媒体字节 |
+| Projection / UI Slots | 画布、镜头队列、审核队列和诊断读模型 | 可重建 projection 与 UI 截图 | 成为第二套可写真相源 |
+| Ask User / Approval | 规格确认、付费生成门和人工审核交互 | 回答被转换为领域命令和 ReviewDecision | 把会话回答本身当业务记录 |
+| Attachment / Deliverables | 输入参考文件与展示最终交付物 | Asset 导入记录、Deliverable 引用 | 代替血缘、Timeline 或 Deliverable 实体 |
+| Compaction / Spill | 控制长会话上下文和大工具输出 | compact/spill 后仍能从 Project 继续 | 作为崩溃恢复来源 |
+| Settings / Credentials | 模型、网关和密钥引用 | 配置来源审计；Project 内无 secret | 保存项目生产状态 |
+
+#### 必须注入的中断与人工返工
+
+每次完整复验至少覆盖以下故障；所有用例均需记录中断前 revision、Attempt/Review 状态、恢复动作、恢复后 revision、是否重复提交以及最终 Deliverable hash：
+
+1. LLM 在生成剧本途中断网，确认 Harness 重试或恢复后不产生半条领域命令。
+2. 工具提交成功但 Agent 未收到响应，以相同 `commandId` 重放并返回原结果。
+3. `/prompt` 调用前断网，Attempt 保持 `created`，恢复后只提交一次。
+4. ComfyUI 已接收请求但响应丢失，Attempt 进入 `submission_unknown`；无法唯一核对时暂停人工确认，禁止盲目重提。
+5. 已持久化 `promptId` 后终止 Harness/插件进程，重启扫描从 history 继续。
+6. 在 `queued`、`running`、`downloading` 各中断一次，恢复后不重复生成且不发布半文件。
+7. 剧本审核驳回，修改 Episode 后对应 Shot/Asset/Timeline 下游显式失效。
+8. 角色卡、分镜图和任一中段视频分别驳回；旧候选保留，新 Attempt 替换，连续链按依赖顺序重建。
+9. VLM 检查失败或不可用，ReviewTask 转 `awaiting_human`，不得自动通过。
+10. 用户离开或 Approval 无 answerer，Agent turn 正常结束；从画布审核队列或新会话继续。
+11. 两个进程同时打开 Project，只有租约持有者可写；陈旧 revision 明确冲突。
+12. 下载损坏、原子 rename 失败和磁盘达到 critical 水位，不产生 current Asset，仍允许清理、归档和恢复。
+13. 拼接或送达失败，Timeline 和已生成媒体保持有效，Outbox 重试或进入可见 dead-letter。
+14. Project 记录损坏时进入只读修复，禁止回退成空项目。
+
+#### 当前实现基线（2026-10-02）
+
+本次真实代码审查和 `npm run smoke` 的基线结论：
+
+| 判断 | 当前结论 | 证据与缺口 |
+| --- | --- | --- |
+| 能否完成最基础 AI 短剧创作 | **有条件可以**：在 ComfyUI/模型可用、Agent 不崩溃且有人值守时，可完成简报、大纲、角色/场景卡、镜头表、图片、逐镜视频、连续性、拼接和送达 | smoke 通过；现有工具和 Skills 覆盖顺利路径；尚无两集三分钟真实金样 |
+| 是否稳定完成 | **不可以宣称稳定** | 当前生成是 `comfySubmit → comfyWait → 下载 → saveProject`，提交前没有持久 Attempt；`promptId` 中断后丢失；缺少启动恢复、业务幂等、revision、租约、正式 Review/Timeline/Outbox 和故障注入闭环 |
+| 是否完全融合 Harness | **未完成** | 宿主当前主要注入 `webServer/tools/systemPrompt/workspaceRegistry`，尚未把 Domain Storage、Goal/Todo、Workflow/Subagent、Jobs、Approval、Projection、Compaction/Spill 组成正式生产执行链 |
+
+因此当前产品定义是“可运行、有人值守的短剧生成原型”，不是“可无人值守、可中断恢复的稳定生产引擎”。该结论只能由后续真实复验改变，不能仅因代码文件或接口名称出现而改写。
+
+#### 编码完成后的真实复验与漂移判断
+
+复验分两层：日常 CI 使用缩短片段和固定 provider double 覆盖所有状态/故障分支；版本验收必须连接实际 Harness Profile、Qwen3.8 网关、ComfyUI、Qwen-Image 2.1 和 MiniMax H3，完成本节两集三分钟场景。实际运行成本或时长不能成为省略版本验收的理由，可以由用户显式决定何时执行。
+
+每次复验在 `docs/audits/runs/<YYYY-MM-DD>-two-episode-traversal.md` 保存人工可读报告，并保存同名 `.json` 机器证据索引。报告至少包含 commit、Harness/Profile 版本、模型/workflow/manifest hash、Project id、起止 revision、72 镜实际数量、Attempt/重试/人工驳回统计、故障注入结果、Timeline/Deliverable hash、日志与媒体证据路径，以及以下三项重新判断：
+
+1. **基础创作**：是否从固定输入真实得到两集可播放、时长达标的 Deliverable。
+2. **稳定性**：所有规定中断点是否从持久状态继续，且无重复付费提交、静默丢状态或半成品 current Asset。
+3. **Harness 融合**：是否复用上表原生能力，并保持 Harness 执行状态、Project 业务状态和外部任务状态的所有权边界。
+
+出现以下任一项即判定代码相对架构发生漂移，复验不得通过：
+
+- 新业务写路径绕过领域命令、revision 或 commandId。
+- UI、Skill、聊天、Todo、Workflow、Job、画布 JSON 或第三方插件成为第二套业务真相源。
+- ComfyUI 提交、文件发布或外部送达发生在持久业务意图之前，且没有可对账标识。
+- 错误被转换为空项目、默认成功、静默换模型/档位或无提示自动重提。
+- Subagent 直接共享可变 Project，或插件自建 Harness 已有的 Agent runtime、任务列表、审批 transport、Workflow/Job 引擎。
+- 上游修改后旧 Review、Asset、Timeline 或 Deliverable 仍被当作当前有效版本。
+- 只补接口/类型/测试桩，没有真实进程重启、网络中断、人工驳回和实际媒体产物证据。
 
 ## 22. 验收标准
 
