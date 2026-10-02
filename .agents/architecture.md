@@ -112,7 +112,7 @@ http / tools → flow → generate → prompts → data → models
 
 视频任务依次执行「提交视频 → 生成并保存视频 → 提取尾帧」。尾帧依赖本机 FFmpeg，提取失败时任务明确失败、保留已保存视频；`tail-frame` 可单独重试。整集/逐镜制作遇到已完成视频缺少当前版本尾帧时补提取，不重复提交视频。
 
-文本分镜先由 `TextShotModel` 整理并审核文本镜头，再由 `TextStoryboardModel` 编排模式与多模态引用。内容保存在 `storyboard.content.textShot/textShotCheck/textShotSecondsRevision` 和 `prompt/referenceSnapshot/bindingCheck`；任务步骤以 `phase` 区分两阶段。`storyboard-bind` 仅重编引用，`text-shot-edit` 编辑文字并使最终提示词失效。两阶段补充分别按当前集 `text-shot:Sxx`、`storyboard:Sxx` 保存。图片只在视频提交时读取并按快照顺序转为 Base64。
+文本分镜由 `TextStoryboardModel` 直接转写本镜已通过的每秒指令并绑定多模态引用，只有 `reference-binding` 阶段。基础 skill 仅约束完整性与素材用途；Model 定义转写、声音标签、输出结构及生成/审核/修订职责。生成与人工编辑审核共用 `storyboard-context.js`，只对照本镜时间线、关联资料和固定素材，不重审整集或前镜最终稿。当前集当前镜头补充使用 `storyboard:Sxx`；结果保存为 `prompt/referenceSnapshot/bindingCheck/secondsRevision`。图片只在视频提交时按快照顺序读取并转 Base64；停用的独立文本镜头不再注册，历史记录保留。
 
 | 概念 | 是什么 | 状态由谁决定 |
 |---|---|---|
