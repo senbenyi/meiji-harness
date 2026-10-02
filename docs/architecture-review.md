@@ -55,7 +55,7 @@
 
 `runImageGeneration`（586）、`runVideoGeneration`（631）、`buildFluxImageWorkflow`（327）、`buildH3VideoWorkflow`（383）、`buildH3ImageToVideoWorkflow`（436）**已无生产调用点**。全部 12 个工具和 2 条生成路由都走 `runRender`（1018 / 1061 / 1328 / 1697 / 1707）。
 
-这些函数目前只通过 `_internals`（1880）导出给 `scripts/smoke-manifest.mjs` 做「manifest 编译结果 vs legacy 构造结果」的节点类型等价性比对。
+这些函数目前只通过 `_internals`（1880）导出给 `scripts/checks/smoke-manifest.mjs` 做「manifest 编译结果 vs legacy 构造结果」的节点类型等价性比对。
 
 问题在于**两套图构造逻辑并存的维护成本**：改 manifest 时不会有人同步改 legacy builder，于是等价性测试从"保护网"退化成"误报源"——它会在一次正当的 manifest 演进后失败，然后被人为放宽或注释掉。
 
@@ -111,9 +111,9 @@ try { ... } catch (error) { return { ok: false, ..., error: error?.message || St
 
 ```jsonc
 "scripts": {
-  "test": "node scripts/smoke-manifest.mjs && node scripts/smoke-render.mjs && node scripts/mock-apply.mjs",
-  "test:e2e": "node scripts/e2e.mjs",          // 需 ComfyUI
-  "import": "node scripts/import-comfy.mjs"
+  "test": "node scripts/checks/smoke-manifest.mjs && node scripts/checks/smoke-render.mjs && node scripts/checks/mock-apply.mjs",
+  "test:e2e": "node scripts/e2e/e2e.mjs",          // 需 ComfyUI
+  "import": "node scripts/tools/import-comfy.mjs"
 }
 ```
 

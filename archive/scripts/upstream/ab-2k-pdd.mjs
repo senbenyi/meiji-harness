@@ -200,5 +200,5 @@ if (!DRY && results.length) {
   }
   console.log('\n  注：这条差值**全部来自首遍**（二遍两边配置相同）。首遍/二遍的净分解见：')
   console.log('      node scripts/ab-2k-pass1.mjs      # 非 ctx 同档清单上做纯首遍 8 步 vs PDD 探针')
-  console.log('  画质对比：node scripts/analyze-2k-detail.mjs --a e2e-out/2k-ab/A.mp4 --b e2e-out/2k-ab/B.mp4')
+  console.log('  画质对比：node scripts/analysis/analyze-2k-detail.mjs --a e2e-out/2k-ab/A.mp4 --b e2e-out/2k-ab/B.mp4')
 }

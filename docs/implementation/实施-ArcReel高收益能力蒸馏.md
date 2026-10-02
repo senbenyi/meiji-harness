@@ -33,7 +33,7 @@
 | `tests/domain/*.test.js` | 领域回归 | 覆盖 Snapshot 稳定性/篡改、引用缺口、Capability bindings 和下载恢复 | P0-1 / P0-2 / P0-3 |
 | `tests/comfy/*.test.js` | workflow 回归 | 覆盖候选识别、歧义、绑定校验和请求不变性 | P0-2 |
 | `tests/media/*.test.js` | 生成/恢复回归 | 覆盖提交失败分类、`submission_unknown` 不重提、原 Attempt 下载恢复 | P0-3 |
-| `scripts/smoke-tools.mjs` | 工具契约 smoke | 同步 Project Domain 工具数量和新工具契约 | 回归验证 |
+| `scripts/checks/smoke-tools.mjs` | 工具契约 smoke | 同步 Project Domain 工具数量和新工具契约 | 回归验证 |
 
 ## 2. 验证
 
@@ -41,7 +41,7 @@
 | --- | --- | --- |
 | `node --test tests/domain/*.test.js tests/comfy/*.test.js tests/media/*.test.js` | 三个 P0 的领域、workflow 和恢复分支 | 22/22 通过 |
 | `npm test` | 全部 Node 测试 | 25/25 通过 |
-| `node scripts/smoke-tools.mjs` | 工具 schema、输出和能力轴 | 134/134 通过 |
+| `node scripts/checks/smoke-tools.mjs` | 工具 schema、输出和能力轴 | 134/134 通过 |
 | `npm run smoke` | 工具、manifest、生成、画布、资产、交付和 PDF 全量 smoke | 通过，退出码 0 |
 | `npm pack --dry-run --json` | npm 发布包文件集 | 通过，125 个文件 |
 | `node --check lib/index.js`、`node --check lib/domain/tools.js`、`node --check lib/domain/commands/index.js` | 主要装配与领域路径语法 | 通过 |

@@ -194,7 +194,7 @@ capability + tier
 | **P2** | 工具面去 `workflow`/`mode` + `video_upscale` + `comfy_list_workflows` 诊断字段 + 系统提示词 | `smoke-tools`：生成类工具 schema **不含 `workflow`**；`comfy_render(workflow=)` 报错 |
 | **P3** | 分辨率统一（aspect-ratio + 单边推导 + `reference_pixels` 注入） | 9:16 画布下 t2i 默认 1152×2048；只传 width → 高度按比例推；i2i quality 出 2K |
 | **P4** | 交付尺寸如实回填 + 未支持参数告警 | 节点 `width/height` == 产物真实像素；Qwen+guidance → warnings 有明确提示 |
-| **P5** | 技能/README/文档改写 + 全量 smoke + A800 真机 e2e（t2i/i2i/video 各一次） | `npm run smoke` 全绿 + `scripts/e2e-tier-pipeline.mjs` 全绿 |
+| **P5** | 技能/README/文档改写 + 全量 smoke + A800 真机 e2e（t2i/i2i/video 各一次） | `npm run smoke` 全绿 + `scripts/e2e/e2e-tier-pipeline.mjs` 全绿 |
 
 ### 实施状态（滚动更新）
 
@@ -204,7 +204,7 @@ capability + tier
 | P2 工具面去 workflow/mode | ✅ | 四个生成工具的 schema 无 `workflow`/`mode`（smoke-tools 断言）；runner 收到 `workflow=` **报错**；`comfy_list_workflows` 主输出改为「能力→档位」，实现 id 进 `diagnostics`；GUIDANCE 与 5 个技能改写 |
 | P3 分辨率统一 | ✅ | 图片清单改 `policy=aspect-ratio`；只传一边→另一边按画布比例推导（smoke-render 断言）。实测 9:16 画布下 t2i fast = 576×1024 |
 | P4 记账与告警 | ✅ | `probeImageSize`（PNG/JPEG/WebP）回填真实像素；未支持参数进 warnings（工具返回 + 节点 `params.warnings`）。实测 i2i quality：节点记 1536×2720 == 产物真实像素，且收到「width 未生效」+「交付尺寸以产物为准」两条警告 |
-| P5 技能/文档 + 真机 e2e | ✅ | `npm run smoke` exit 0；`scripts/e2e-tier-pipeline.mjs` 三能力真机跑通（t2i 4s / i2i 2K 119s / video fast 98s） |
+| P5 技能/文档 + 真机 e2e | ✅ | `npm run smoke` exit 0；`scripts/e2e/e2e-tier-pipeline.mjs` 三能力真机跑通（t2i 4s / i2i 2K 119s / video fast 98s） |
 
 **遗留**：`~/.dsh/dsh-short-video-studio/workflows/` 下两份**未分档旧清单**（`flux2-img2img.json`、`z-image-turbe-t2i.json`）现为 legacy（只 pin 可达，不参与档位解析），需用户决定迁移或删除。
 

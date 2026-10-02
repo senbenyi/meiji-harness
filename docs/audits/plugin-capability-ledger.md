@@ -29,4 +29,4 @@
 
 - `已接入`：当前代码路径和离线测试均有证据。
 - `远程实机待验收`：需要活动 Qwen/ComfyUI、模型文件、自定义节点或真实媒体产物，不能由离线测试替代。
-- Harness 官方包解析结果由 `node scripts/audit-harness.mjs web --json` 复查；本次为 144/144 可解析、0 unresolved。
+- Harness 官方包解析结果由 `node scripts/tools/audit-harness.mjs web --json` 复查；本次为 144/144 可解析、0 unresolved。

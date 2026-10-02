@@ -66,7 +66,7 @@ capability = (first_frame_node || last_frame_node) ? 'video.image2video' : 'vide
 | `comfy_generate_video` | `type` 进 schema 的 `required` + `enum`；不再做能力推断 |
 | `comfy_render` | `type` 可选别名：传了必须与 `capability` 一致；不传则按 `capability` 推导形状校验 |
 | `POST /generate/video` | 同样要求显式 `type`（缺则 400） |
-| `scripts/smoke-video-shape.mjs` | 31 条断言覆盖真值表 / 合法组合 / 冲突报错 / 工具面文案（不触网） |
+| `scripts/checks/smoke-video-shape.mjs` | 31 条断言覆盖真值表 / 合法组合 / 冲突报错 / 工具面文案（不触网） |
 
 ## 5. 流程 skill 的写法
 
@@ -112,8 +112,8 @@ capability = (first_frame_node || last_frame_node) ? 'video.image2video' : 'vide
 ## 7. 复现
 
 ```bash
-node scripts/smoke-video-shape.mjs        # 31 条断言，不触网
-node scripts/mock-apply.mjs               # 工具 schema / render / execute 完整性
+node scripts/checks/smoke-video-shape.mjs        # 31 条断言，不触网
+node scripts/checks/mock-apply.mjs               # 工具 schema / render / execute 完整性
 npm run smoke                             # 全量冒烟（含本表）
 
 # i2v 链式续接（真跑 GPU，串行不并行）

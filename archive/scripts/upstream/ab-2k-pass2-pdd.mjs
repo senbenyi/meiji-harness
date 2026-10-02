@@ -222,7 +222,7 @@ if (!DRY && results.length) {
     console.log('  A、B 各自的缓存命中集：若 B 的命中集 ⊇ 首遍节点，则')
     console.log('      二遍PDD ≈ t_B − t(放大+解码+加载)，二遍base ≈ t_A − 同一项')
     console.log('  画质对比（**闪烁是第一验收指标**）：')
-    console.log('      python3 scripts/analyze-2k-pair.py e2e-out/2k-ab2/A.mp4 e2e-out/2k-ab2/B.mp4 --label-a base --label-b pdd')
+    console.log('      python3 scripts/analysis/analyze-2k-pair.py e2e-out/2k-ab2/A.mp4 e2e-out/2k-ab2/B.mp4 --label-a base --label-b pdd')
   } else {
     console.log('  （A/B 没跑齐，暂不做比较）')
   }

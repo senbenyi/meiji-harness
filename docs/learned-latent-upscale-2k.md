@@ -72,7 +72,7 @@ node 10 首遍采样（20 步 / denoise 1.0 / shift 12,3）   ← 首遍尺寸**
 | OOM | 无 |
 
 **「多出来的是真细节还是插值？」** —— 这是必须回答的问题，因为把 1344×768 用 bicubic 拉大
-在小图上看几乎一样。做法（`scripts/analyze-2k-detail.mjs`）：
+在小图上看几乎一样。做法（`scripts/analysis/analyze-2k-detail.mjs`）：
 
 - A/B 两次跑的**首遍逐像素相同**（同 seed、同步数、同首遍尺寸）⇒ 唯一变量就是「放大 + 精修」；
 - 在 2K 的像素网格上，原生 1344×768 的成片**物理上最高只能含到 0.25 cycles/px**
@@ -240,10 +240,10 @@ comfy_render({ capability: "video.reference2video", workflow: "minimax-h3-ref2v-
 node scripts/make-2k-template.mjs         # 生成模板（产物，勿手改）
 node scripts/make-h3-variants.mjs         # 生成 workflows/*.json 清单
 node scripts/smoke-hires-lock.mjs         # 锁定语义 / 图结构 / 不静默 / 不隐式默认（331 断言，含 2k 段）
-node scripts/smoke-tier-resolution.mjs    # 档位解析无回归
+node scripts/checks/smoke-tier-resolution.mjs    # 档位解析无回归
 node scripts/verify-h3-variants.mjs       # 清单一致性无回归
 node scripts/probe-2k.mjs --frames 56 --steps 20 --steps2 3 --denoise 0.3   # 真机接线探针
-node scripts/analyze-2k-detail.mjs <native.mp4> <2k.mp4>                    # 「细节是真的吗」判据
+node scripts/analysis/analyze-2k-detail.mjs <native.mp4> <2k.mp4>                    # 「细节是真的吗」判据
 ```
 
 `probe-2k.mjs` 还提供 `--variant native`（同 seed 只跑首遍）与 `--variant v1`

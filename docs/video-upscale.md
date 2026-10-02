@@ -126,7 +126,7 @@
 
 ---
 
-## 4. 实测账本（A800 · 124 帧 ≈ 5.17s · `scripts/probe-4k.mjs` + `scripts/e2e-upscale.mjs`）
+## 4. 实测账本（A800 · 124 帧 ≈ 5.17s · `scripts/probes/probe-4k.mjs` + `scripts/e2e/e2e-upscale.mjs`）
 
 ### 4.1 耗时与交付（同一条原生 1344×768 源片）
 
@@ -171,7 +171,7 @@
 ### 4.3 眼判材料
 
 * `e2e-out/4k/compare-4arms-1to1.png`：四臂（原生 / U1 2K / 原生→×4 4032 / U1→×2 4032）**同归一化区域**的
-  ①1:1 原像素、②缩到同一显示宽 两排对照。生成器 `scripts/compare-crops.py`（可换帧号与区域）。
+  ①1:1 原像素、②缩到同一显示宽 两排对照。生成器 `scripts/analysis/compare-crops.py`（可换帧号与区域）。
 * **已知瑕疵**：5.4K 路径块效应指标 1.191（偏高），是一次放大 16.5M 像素/帧的代价；
   要更干净就收敛到 4032，或分两步（先 ×2 再 ×2）。
 
@@ -204,8 +204,8 @@
 **帧数守恒 124**（证明切帧/切音轨没丢没错位）、音轨保留。
 可用 `chunk_frames=` 手动指定；告警文案会区分「超预算自动分块」和「调用方指定分块」。
 切块的接线是**按引用找**的（不认节点类名）：任何吃源帧 `[2,0]` 的输入都会被改到切口上，找不到消费者就抛错
-（见 §2.1 第 4 条）；切完必须**帧数守恒**——`scripts/e2e-upscale.mjs --chunk=40` 与
-`scripts/e2e-upscale-shortside.mjs` 的 C 臂都把这一条当真机判据。
+（见 §2.1 第 4 条）；切完必须**帧数守恒**——`scripts/e2e/e2e-upscale.mjs --chunk=40` 与
+`scripts/e2e/e2e-upscale-shortside.mjs` 的 C 臂都把这一条当真机判据。
 
 ---
 
@@ -260,7 +260,7 @@
 | **`video-upscale-x2`（U3）** | 2218 | ×1.65 | **0.958** | 193.9 | **69.0s** |
 | **`video-upscale-seedvr2-3b`** | **2654** | **×1.975** | 1.045 | **311.3** ⚠ | **483.4s（7.0×）** |
 
-**1:1 眼判**（`e2e-out/seedvr2/compare-3arms-1to1.png`，`scripts/compare-crops.py` 生成）：
+**1:1 眼判**（`e2e-out/seedvr2/compare-3arms-1to1.png`，`scripts/analysis/compare-crops.py` 生成）：
 SeedVR2 的确**更实**——砖墙纹理、伞面布纹、霓虹招牌边缘都比 U3 立体；
 **但平坦区（暗部墙面、伞面、路面）出现可见的细颗粒**，对应表里 311 那个数字
 （与 §4.2 里 4032 那格被判「过锐/振铃」的 362 同一档），平坦区闪烁也比 U3 高（1.045 vs 0.958）。
@@ -281,7 +281,7 @@ SeedVR2 的确**更实**——砖墙纹理、伞面布纹、霓虹招牌边缘�
   眼判优先：`e2e-out/4k/compare-u3-124-crop-100pct.png` 是 1:1 裁切对照。
 * **倍率由权重决定**：`factor` 声明必须与权重一致，插件无法替你校验（换了 `x4` 权重却写 `factor: 2` 会得到错误尺寸）。
 * **`sizing='short-side'` 的实现一律未经本机实测**：契约与规划器（`planUpscale` / `planUpscaleChunks`）有单测，
-  但「短边注入后模型是否真的按该尺寸渲染」只能在真机上验（`scripts/e2e-upscale.mjs` 加一臂）。
+  但「短边注入后模型是否真的按该尺寸渲染」只能在真机上验（`scripts/e2e/e2e-upscale.mjs` 加一臂）。
   在跑过之前，不要给这类实现标 `estSeconds`。
 * **未测**：RealESRGAN_x4 在 5.4K 输入上的行为；更高位率/更慢编码（h264 默认档在 5.4K 有可见块效应）；
   分块在音频上的边界（末块 <1 帧时 `TrimAudioDuration` 的时长口径）。
@@ -316,27 +316,27 @@ video_upscale({ video_node: '<shot-01 nodeId>', workflow: '<某个 short-side �
 
 ```bash
 # 统一入口：清单 → e2e 真机（读画布源节点 → 上传 → 编译图 → 落画布）
-node scripts/e2e-upscale.mjs --target=4032                    # 单块：4032×2304
-node scripts/e2e-upscale.mjs --target=4032 --chunk=40         # 分块：4 块 + 拼回，帧数守恒
-node scripts/e2e-upscale.mjs --src=<mp4> --tag=myrun          # 换源片
-node scripts/e2e-upscale.mjs --workflow=video-upscale-seedvr2-3b --src=<mp4> --target=2688   # 换实现（扩散式）
+node scripts/e2e/e2e-upscale.mjs --target=4032                    # 单块：4032×2304
+node scripts/e2e/e2e-upscale.mjs --target=4032 --chunk=40         # 分块：4 块 + 拼回，帧数守恒
+node scripts/e2e/e2e-upscale.mjs --src=<mp4> --tag=myrun          # 换源片
+node scripts/e2e/e2e-upscale.mjs --workflow=video-upscale-seedvr2-3b --src=<mp4> --target=2688   # 换实现（扩散式）
 
 # 短边形态（sizing="short-side"）的**真机**契约验证：走几何探针夹具（不产细节，只验契约链路）
 #   DSH_SVS_USER_WORKFLOWS 是测试接缝：清单装进临时目录，不碰用户真实配置
-node scripts/e2e-upscale-shortside.mjs                        # 三臂：默认短边 / target_width 反解回注 / internal 下显式分块
-node scripts/e2e-upscale-shortside.mjs --src=<竖版 mp4>        # 换源片（探针按「竖版短边=宽」映射）
+node scripts/e2e/e2e-upscale-shortside.mjs                        # 三臂：默认短边 / target_width 反解回注 / internal 下显式分块
+node scripts/e2e/e2e-upscale-shortside.mjs --src=<竖版 mp4>        # 换源片（探针按「竖版短边=宽」映射）
 
 # 纯逻辑（不连 ComfyUI、不跑 GPU）：清单契约 / 校验 / 两种尺寸规划 / 分块决策 / 切口接线 / 容器解析 / 注册表集成
 node scripts/smoke-upscale.mjs                                # 156 项（含两种 sizing / 两种 chunking 的契约）
 
 # 低层探针（直接对裸图，用来标定耗时与显存包线）
-node scripts/probe-4k.mjs --src <mp4> --tag t                 # 默认 RealESRGAN_x2
-node scripts/probe-4k.mjs --src <mp4> --model RealESRGAN_x4.pth --scale 0.75 --method area --tag t4
-node scripts/analyze-u3.mjs <输入.mp4> <产物.mp4> [目标宽]     # 有效分辨率 / 闪烁 / 锐度
+node scripts/probes/probe-4k.mjs --src <mp4> --tag t                 # 默认 RealESRGAN_x2
+node scripts/probes/probe-4k.mjs --src <mp4> --model RealESRGAN_x4.pth --scale 0.75 --method area --tag t4
+node scripts/analysis/analyze-u3.mjs <输入.mp4> <产物.mp4> [目标宽]     # 有效分辨率 / 闪烁 / 锐度
 ```
 
 * 生成清单：`node scripts/make-upscale-manifests.mjs`（清单是产物，改结构请改脚本）。
 * 短边探针夹具：`scripts/fixtures/upscale-shortside-probe.json`（`internal: true`，永远不出现在用户的工作流清单里；
   由 `smoke-upscale.mjs` 做 GPU-free 校验，由 `e2e-upscale-shortside.mjs` 做真机验证）。
 * 相关文件：`lib/upscale.js`（纯逻辑）、`lib/index.js` 的 `runUpscale` + `video_upscale`、
-  `workflows/video-upscale-x{2,4}.json`、`scripts/e2e-upscale.mjs`、`scripts/smoke-upscale.mjs`。
+  `workflows/video-upscale-x{2,4}.json`、`scripts/e2e/e2e-upscale.mjs`、`scripts/smoke-upscale.mjs`。

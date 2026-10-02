@@ -2,7 +2,7 @@
  * scripts/lib/react-shim.mjs — 离屏渲染 lib/client.js 的最小 React 垫片（测试/预览共用）。
  *
  * 用途：不启浏览器也能「真跑」插件客户端组件（组件函数 + hooks + 元素树），
- * 并把元素树序列化成静态 HTML 供 puppeteer 截图（scripts/preview-settings.mjs）。
+ * 并把元素树序列化成静态 HTML 供 puppeteer 截图（scripts/preview/preview-settings.mjs）。
  * 只实现插件的客户端用到的能力：createElement / useState / useEffect / useRef /
  * useCallback / useMemo / Fragment。
  */

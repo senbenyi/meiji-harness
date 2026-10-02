@@ -27,7 +27,7 @@
 **修正**：新增 `-ctx-quality-pdd2-2k`（ref2v / i2v），首遍与 `-ctx-quality-2k`
 **逐字节相同**，只把二遍的 model / sigmas 换成 PDD 侧 —— 即本文 §1.6 变体 A 的真正落地。
 A/B：`scripts/ab-2k-pass2-pdd.mjs`（首遍相同 ⇒ 第二臂命中原首遍缓存，可读出纯二遍时间）。
-画质：`scripts/analyze-2k-pair.py`（同为 2K 的两条片子不能用 `analyze-2k-detail.mjs`，那需要原生基线校准）。
+画质：`scripts/analysis/analyze-2k-pair.py`（同为 2K 的两条片子不能用 `analyze-2k-detail.mjs`，那需要原生基线校准）。
 历史 A/B（PDD 确在二遍，2.91×）见 `docs/2k-pdd-ab-verdict.md`；该文顶部的勘误记录了这次接线错位。
 
 **修正版实测**（2026-09-23，seed 20260924，ref2v）：

@@ -43,10 +43,10 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 3. `docs/audits/script-migration-matrix.md` — 新增：为全部 smoke/e2e/probe/bench/make/analyze/preview 脚本标注“插件保留、迁插件项目域、迁网关、替代后删除” → AC-7。
 4. `docs/audits/harness-capabilities.md` — 新增：按当前实际版本全量登记 Harness 官方包组，区分已安装、已挂载、Agent 可见、业务已利用，并记录复用、暂不采用和安装门 → AC-1。
 5. `docs/audits/gateway-capabilities.md` — 新增：记录网关路由、异步任务、恢复、取消、媒体和能力目录契约 → AC-2。
-6. `scripts/audit-harness.mjs` — 新增：只读解析当前 Profile 组合与本机安装树，验证官方包/子入口是否可解析并输出 enabled/disabled/conditional 状态；同时确认当前版本可用于 Domain Storage 和插件文件根定位的真实注入点，不能用历史路径代替未确认的宿主契约；运行时服务可用性在后续对应能力接入时增加聚焦探针 → AC-1、AC-3。
+6. `scripts/tools/audit-harness.mjs` — 新增：只读解析当前 Profile 组合与本机安装树，验证官方包/子入口是否可解析并输出 enabled/disabled/conditional 状态；同时确认当前版本可用于 Domain Storage 和插件文件根定位的真实注入点，不能用历史路径代替未确认的宿主契约；运行时服务可用性在后续对应能力接入时增加聚焦探针 → AC-1、AC-3。
 7. `llm-modes-gateway/tests/server/server_test.go`、`tests/workflow/image_test.go` — 修改：固定当前 Elysium 能力基线和不泄露 workflow id 的边界 → AC-2。
 
-验证：先运行 `node scripts/audit-harness.mjs web --json`，组合引用缺包数必须为 0；再用一个现有项目生成“迁移金样快照”，覆盖节点参数/血缘/泳道/批准版本/排序/送达状态，并运行 Harness 聚焦探针和网关测试。缺失服务必须显式失败，不能回退自建实现。本阶段审计未发现需要立即安装的官方依赖；以后只有被采用且确实缺失的能力才允许安装。
+验证：先运行 `node scripts/tools/audit-harness.mjs web --json`，组合引用缺包数必须为 0；再用一个现有项目生成“迁移金样快照”，覆盖节点参数/血缘/泳道/批准版本/排序/送达状态，并运行 Harness 聚焦探针和网关测试。缺失服务必须显式失败，不能回退自建实现。本阶段审计未发现需要立即安装的官方依赖；以后只有被采用且确实缺失的能力才允许安装。
 
 ## 阶段 1：建立存储定位与唯一文件入口
 

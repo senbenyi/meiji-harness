@@ -29,7 +29,7 @@
 | `lib/capabilities/` | 工作流选择 | manifest 校验、仅解析 `runtime_verified` 默认实现 |
 | `lib/compat/legacy-canvas-adapter.js` | 旧 UI 兼容 | 首次只读导入旧画布，后续读写统一翻译成领域命令 |
 | `lib/index.js` | 插件装配 | 注入 Storage、注册生命周期/REST/tools，并把原生成与画布入口接入新底座 |
-| `scripts/audit-harness.mjs` | Harness 依赖审计 | 修正全局 dsh/pnpm 安装树解析，避免把已安装包误报为缺失 |
+| `scripts/tools/audit-harness.mjs` | Harness 依赖审计 | 修正全局 dsh/pnpm 安装树解析，避免把已安装包误报为缺失 |
 | `tests/` 与 smoke 脚本 | 回归防线 | 覆盖 CAS、幂等、状态机、权利门、审核门、Attempt 恢复、FileService、租约、审计链和兼容入口 |
 
 ## 2. 验证
@@ -38,12 +38,12 @@
 | --- | --- | --- |
 | `npm test` | 领域、存储、媒体、审计、能力注册表 | 10/10 通过，0 失败 |
 | `npm run smoke` | 19 个现有离线 smoke/预览/PDF/兼容入口 | 全部通过 |
-| `node scripts/smoke-tools.mjs` | 51 个工具的宿主 register 契约 | 134 项通过 |
+| `node scripts/checks/smoke-tools.mjs` | 51 个工具的宿主 register 契约 | 134 项通过 |
 | `node --test tests/domain/script-development.test.js tests/domain/project-service.test.js tests/domain/state-machines.test.js` | 源文、Proposal、审核提交与下游失效 | 29/29 通过 |
-| `node scripts/smoke-assets.mjs` | 资产兼容 API | 77 项通过 |
-| `node scripts/smoke-upload-assets.mjs` | 手动上传、物化、替换 | 41 项通过 |
-| `node scripts/smoke-preask-deliver.mjs` | 送达、失败记录与再次尝试 | 53 项通过 |
-| `node scripts/audit-harness.mjs web --json` | 当前 web profile 官方包解析 | 144/144 resolved，0 unresolved |
+| `node scripts/checks/smoke-assets.mjs` | 资产兼容 API | 77 项通过 |
+| `node scripts/checks/smoke-upload-assets.mjs` | 手动上传、物化、替换 | 41 项通过 |
+| `node scripts/checks/smoke-preask-deliver.mjs` | 送达、失败记录与再次尝试 | 53 项通过 |
+| `node scripts/tools/audit-harness.mjs web --json` | 当前 web profile 官方包解析 | 144/144 resolved，0 unresolved |
 
 ## 3. 手工验收
 

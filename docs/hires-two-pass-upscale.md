@@ -136,7 +136,7 @@ comfy_render({ capability: "video.reference2video", workflow: "minimax-h3-ref2v-
 node scripts/make-hires-template.mjs      # 生成模板（产物，勿手改）
 node scripts/make-h3-variants.mjs         # 生成 workflows/*.json 清单
 node scripts/smoke-hires-lock.mjs         # 新契约：锁定语义 / 图结构 / 不静默 / 不隐式默认（331 断言）
-node scripts/smoke-tier-resolution.mjs    # 档位解析无回归（109 断言）
+node scripts/checks/smoke-tier-resolution.mjs    # 档位解析无回归（109 断言）
 node scripts/verify-h3-variants.mjs       # 清单一致性无回归（154 断言）
 node scripts/e2e-hires.mjs --compare --steps 20 --length 124   # 真机出片 + 对照
 ```

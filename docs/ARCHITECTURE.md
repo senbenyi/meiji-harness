@@ -211,11 +211,11 @@ studio/app.css     两套调色板：:root（浅，默认）/ :root[data-theme="
 
 - 两套调色板**变量名必须完全对等**、调色板块之外**零颜色字面量**、低透明度底色一律
   `color-mix()` 从语义色派生（DSH 自身也用这个写法）——三条都由
-  `scripts/smoke-canvas-theme.mjs` 强制，因为这类问题的表现是**静默变色**而不是报错。
+  `scripts/checks/smoke-canvas-theme.mjs` 强制，因为这类问题的表现是**静默变色**而不是报错。
 - 宿主读不到主题服务（没装 `ui-theme`）时**不传** `?theme=`，让画布页按系统偏好兜底，不硬猜。
 - 首屏主题**只读一次**：它进了 `src`，跟着变会让 iframe 重载（丢滚动位置）。运行中切换只走
   `postMessage`。`color-scheme` 两套都声明，原生控件（下拉/滚动条/复选框）跟着走。
-- 真浏览器验证：`scripts/preview-canvas.mjs` 起 stub 服务喂一份覆盖每种节点类型/状态/分区的
+- 真浏览器验证：`scripts/preview/preview-canvas.mjs` 起 stub 服务喂一份覆盖每种节点类型/状态/分区的
   样例工程，两套主题各跑一遍 `lowContrast()`（合成半透明底后按 WCAG 算），并断言
   postMessage 切换、非法取值不误改、无 `?theme=` 时跟随系统偏好。
 
@@ -234,7 +234,7 @@ studio/app.css     两套调色板：:root（浅，默认）/ :root[data-theme="
   - 每个已安装副本的 `.dsh-studio-manifest` 记 `pluginVersion` + `contentHash` + `installedAt`；
   - **五种情形**：① 目标不存在 → 安装 + 落戳；② 有戳且内容 == 记录（用户没改）→ 与源不同则**刷新**（删掉重拷 + 更新戳），相同则只补戳（静默）；③ 有戳但内容 != 记录（**用户改过**）→ **不覆盖**，日志提示取新版的办法；④ 有戳无哈希（旧版安装）→ 内容与源一致只补戳，不一致按「用户改过」保守处理；⑤ 无戳 → 内容与源逐字节一致才**收编补戳**（只写标记，不碰内容），否则视为用户/第三方同名 skill → 冲突提示、不覆盖；
   - `DSH_SVS_SKILL_REFRESH=off` 关掉刷新（只做首次安装 + 冲突提示），`=force` 连用户改过的也覆盖（显式越权）；
-  - 回归：`scripts/smoke-skill-install.mjs`（37 断言，临时目录里自建 bundle + 目标，不碰真实 `~/.dsh/skills`），已进 `npm run smoke`。
+  - 回归：`scripts/checks/smoke-skill-install.mjs`（37 断言，临时目录里自建 bundle + 目标，不碰真实 `~/.dsh/skills`），已进 `npm run smoke`。
 - **配置**：插件 `inject = ['webServer', 'tools', 'systemPrompt', 'workspaceRegistry']`（fiber 等待服务就绪）。
 
 ---

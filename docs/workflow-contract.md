@@ -398,11 +398,11 @@ ComfyUI 菜单「导出 API」得到的 JSON 就是我们的 `graph` 格式（`{
   普通工作流硬连线即可，无需 `$model`。
 
 ### 11.5 自动转换脚本
-`scripts/import-comfy.mjs` 自动完成 11.2 + 11.3（资产、标量、prompt、`$assets`/`null` 替换），
+`scripts/tools/import-comfy.mjs` 自动完成 11.2 + 11.3（资产、标量、prompt、`$assets`/`null` 替换），
 并打印 11.4 的「需手动补充」清单：
 
 ```
-node scripts/import-comfy.mjs exported.json \
+node scripts/tools/import-comfy.mjs exported.json \
   --id sdxl-text2image --capability image.text2image --name "SDXL 文生图" \
   --out ~/.dsh/dsh-short-video-studio/workflows/sdxl-text2image.json
 ```

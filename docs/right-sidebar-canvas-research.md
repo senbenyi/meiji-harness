@@ -309,7 +309,7 @@ const [sidebarOwns] = React.useState(() => {
 
 ### 8.1 离线（本仓库已有基础设施，成本极低）
 
-本仓库已有一套**真跑组件 + Chrome 离屏截图**的垫片：`scripts/lib/react-shim.mjs` + `scripts/preview-toolbar.mjs` / `preview-settings.mjs`。它把 `window.__ModuleLoader__.load` 与假 `ctx.slots` 拼起来，直接 `T.apply(fakeCtx)` 后取组件渲染。
+本仓库已有一套**真跑组件 + Chrome 离屏截图**的垫片：`scripts/lib/react-shim.mjs` + `scripts/preview/preview-toolbar.mjs` / `preview-settings.mjs`。它把 `window.__ModuleLoader__.load` 与假 `ctx.slots` 拼起来，直接 `T.apply(fakeCtx)` 后取组件渲染。
 
 沿用这套可以断言：
 
@@ -655,7 +655,7 @@ scope.sidebarRightTabs.register({
 | `lib/client.js` · `apply` / 新增 `applyCanvasHome` | 拆出 `registerTabHome` / `registerSidebarHome`；同步注册默认家 → 异步读配置 → 只在读到 `'sidebar'` **且右栏服务确实可用**时，注册右栏家再注销 tab 家（**单向换家**，比草图更短） |
 | `lib/client.js` · 新增 `CanvasGuideIcon` | 28×28 内联 SVG 分镜格（`IconProps` 只有 `size`/`className`） |
 | `lib/client.js` · `shellStyle` | 补 `flex:'1 1 auto'` / `minWidth:0` / `boxSizing` —— 会话区视图槽的父级是 flex 列（靠 `flex:1`），右栏 pane body 是有确定高度的块级容器（靠 `height:100%`），两者同给才在两种家里都铺满 |
-| `scripts/smoke-canvas-home.mjs` | 新增，65 项，已挂进 `npm run smoke` |
+| `scripts/checks/smoke-canvas-home.mjs` | 新增，65 项，已挂进 `npm run smoke` |
 
 **实现期发现（三处）**
 

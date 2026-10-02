@@ -3,7 +3,7 @@
    由 <html data-theme> 选择（首屏由 index.html 的 inline 脚本按 ?theme= 定，
    运行时由 app.js 收宿主的 postMessage 切换）。
 
-   两条硬规矩（由 scripts/smoke-canvas-theme.mjs 强制）：
+   两条硬规矩（由 scripts/checks/smoke-canvas-theme.mjs 强制）：
    1. 两个调色板块必须定义**完全相同**的变量名，否则切主题会「少一个变量」而静默变色；
    2. **调色板块之外不得出现任何颜色字面量** —— 色值只在这里出现，
       低透明度底色一律用 color-mix() 从语义色派生（DSH 自身也用这个写法）。

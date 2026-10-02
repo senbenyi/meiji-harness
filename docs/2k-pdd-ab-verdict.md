@@ -29,7 +29,7 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 
 **修正**：新增 `-ctx-quality-pdd2-2k`（ref2v / i2v 各一份）把本文的变体 A 真正落地 ——
 首遍与 `-ctx-quality-2k` **逐字节相同**，只把二遍的 model/sigmas 换成 PDD 侧。
-配套 A/B：`scripts/ab-2k-pass2-pdd.mjs`；画质对比：`scripts/analyze-2k-pair.py`。
+配套 A/B：`scripts/ab-2k-pass2-pdd.mjs`；画质对比：`scripts/analysis/analyze-2k-pair.py`。
 
 ### 修正版复测（2026-09-23，56 帧 / 2688×1536 / seed 20260924）
 
@@ -68,7 +68,7 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 **`-ctx-balanced-pdd-2k` 应当退场**（已标 `internal: true`：不进档位解析、不出现在 UI/技能选项，
 仍可显式 `workflow=` 调用以复现历史）。它相对 `-ctx-balanced-2k` / `-ctx-quality-2k`
 既没有速度优势（实测更慢），又没有画质优势（有效宽度 1.00×、闪烁更差）。
-真正该上线的是 `-ctx-quality-pdd2-2k`。眼判图：`e2e-out/2k-ab2/eye/`（`scripts/eye-crops.py` 生成）。
+真正该上线的是 `-ctx-quality-pdd2-2k`。眼判图：`e2e-out/2k-ab2/eye/`（`scripts/analysis/eye-crops.py` 生成）。
 
 ---
 
@@ -106,7 +106,7 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 **在做任何效果实验之前**必须先证这件事，否则 `on_off_grid='error'` 会在采样时报错，
 或者更糟——静默地用一个不在训练分布上的 σ 序列。
 
-`scripts/probe-pdd-sigmas.mjs`（不出片，秒级）：
+`scripts/probes/probe-pdd-sigmas.mjs`（不出片，秒级）：
 
 ```
 PDD 训练网格 (nfe=8) = 1.0000, 0.9882, 0.9730, 0.9524, 0.9231, 0.8780, 0.8000, 0.6316, 0
@@ -254,7 +254,7 @@ pdd @124 : P1·f1 + 2·p2·f2 + D·fD =  826.0
 
 ## 5. 画质判据（同 seed、首遍相同）
 
-`scripts/analyze-hires.mjs`（本项目自己的决策工具）：
+`scripts/analysis/analyze-hires.mjs`（本项目自己的决策工具）：
 
 | 指标 | A（base 6 步） | B（PDD 2 次） | 判读 |
 |---|---|---|---|
@@ -273,7 +273,7 @@ pdd @124 : P1·f1 + 2·p2·f2 + D·fD =  826.0
 如果 PDD 再加一层闪烁，即使更快也不该发。**实测没有**：闪烁略降。
 按 `analyze-hires.mjs` 的判读表，属于「空间高频持平 + 时间闪烁持平/略低」= **真恢复细节**，不是注入颗粒。
 
-### 5.1 差异归因（`scripts/analyze-ab-diff.py`）
+### 5.1 差异归因（`scripts/analysis/analyze-ab-diff.py`）
 
 两条片子差异到底长什么样，避免把「画质持平」当成「几乎没变」：
 
@@ -333,7 +333,7 @@ pdd @124 : P1·f1 + 2·p2·f2 + D·fD =  826.0
 
 ```bash
 # 1) 结构前提（秒级，不出片）：PDD σ 网格 + 与 base 二遍 σ0 的差距
-node scripts/probe-pdd-sigmas.mjs --nfe 8 --denoise 0.3
+node scripts/probes/probe-pdd-sigmas.mjs --nfe 8 --denoise 0.3
 
 # 2) 重新生成模板与清单（图是产物，勿手改）
 node scripts/make-2k-template.mjs
@@ -341,7 +341,7 @@ node scripts/make-h3-variants.mjs
 
 # 3) 回归（本变体加入后应保持全绿）
 node scripts/smoke-hires-lock.mjs          # 331 / 0
-node scripts/smoke-tier-resolution.mjs     # 109 / 0
+node scripts/checks/smoke-tier-resolution.mjs     # 109 / 0
 node scripts/verify-h3-variants.mjs        # 154 / 0
 
 # 4) A/B（隔离自证 → A 冷跑 → B 热跑 → B2 冷跑 → 复现臂 A2/B3）
@@ -349,8 +349,8 @@ node scripts/ab-2k-pdd.mjs --frames 56
 node scripts/ab-2k-pdd.mjs --frames 124 --only B2 --seed 20260930   # 交付长度（≈14 分钟）
 
 # 5) 判据
-node scripts/analyze-hires.mjs e2e-out/2k-ab/A.mp4 e2e-out/2k-ab/B.mp4
-python3 scripts/analyze-ab-diff.py e2e-out/2k-ab/A.mp4 e2e-out/2k-ab/B.mp4
+node scripts/analysis/analyze-hires.mjs e2e-out/2k-ab/A.mp4 e2e-out/2k-ab/B.mp4
+python3 scripts/analysis/analyze-ab-diff.py e2e-out/2k-ab/A.mp4 e2e-out/2k-ab/B.mp4
 ```
 
 ### 8.1 已知的会话可见性问题

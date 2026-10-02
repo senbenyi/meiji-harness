@@ -290,7 +290,7 @@ attemptDiagnostics
 
 ```bash
 node --test tests/domain/*.test.js tests/comfy/*.test.js tests/media/*.test.js tests/integration/*.test.js
-node scripts/smoke-tools.mjs
+node scripts/checks/smoke-tools.mjs
 npm run smoke
 ```
 
@@ -318,7 +318,7 @@ npm run smoke
 
 ## 9. 实施前检查
 
-- 当前工作区已有 `lib/domain/tools.js`、`scripts/smoke-client-settings.mjs` 修改以及未跟踪测试/运行数据；实施时必须先区分用户改动，不覆盖、不 stash。
+- 当前工作区已有 `lib/domain/tools.js`、`scripts/checks/smoke-client-settings.mjs` 修改以及未跟踪测试/运行数据；实施时必须先区分用户改动，不覆盖、不 stash。
 - 批次 A 会与当前 `lib/domain/tools.js` 改动相交，开始编码前必须读取并基于当前内容做最小补丁。
 - 每个批次开始前重新确认 Git 状态和实际宿主工具契约。
 - 如果实现证据表明必须新增第二状态机、第二存储或破坏现有工具输入，停止实施并回到设计确认，不自行扩大范围。

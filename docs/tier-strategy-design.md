@@ -178,7 +178,7 @@ video.reference2video
 
 | 阶段 | 内容 | 状态 | 验收 |
 |---|---|---|---|
-| P1 | schema 加字段（`group`/`tier`/`accel`/`requiresNodes`/`estSeconds`/`internal`）；注册表输出**档位 × 实现 × 可用性矩阵**（`describeTierMatrix`）；解析层按 tier 解析 + **删除 `resolveMode` 静默回退** + 缺档/不可用**显式报错**；`/object_info` 预检；**旧 id 配置迁移**（`LEGACY_MODEL_ASSET_MAP` 按族登记 + `ASSET_OVERRIDE_ALIASES`：拆分后新 id 继承旧 id 的 `assetOverrides`，旧 `models.*` 键继续生效，旧配置不失效） | ✅ 完成 | `node scripts/smoke-tier-resolution.mjs` — **109 断言全过**：每 (capability,tier) 解析到预期实现；未分档旧清单按 mode 名匹配、匹配不到报错；缺节点报错文案正确；`internal` 清单不进矩阵；`probe=false` → 可用性未知(null)；**每份档位清单都有旧 id 的 `assetOverrides` 继承入口 + `models.*` 兜底映射 + 实际生效资产值齐备，别名表指向合法旧 id** |
+| P1 | schema 加字段（`group`/`tier`/`accel`/`requiresNodes`/`estSeconds`/`internal`）；注册表输出**档位 × 实现 × 可用性矩阵**（`describeTierMatrix`）；解析层按 tier 解析 + **删除 `resolveMode` 静默回退** + 缺档/不可用**显式报错**；`/object_info` 预检；**旧 id 配置迁移**（`LEGACY_MODEL_ASSET_MAP` 按族登记 + `ASSET_OVERRIDE_ALIASES`：拆分后新 id 继承旧 id 的 `assetOverrides`，旧 `models.*` 键继续生效，旧配置不失效） | ✅ 完成 | `node scripts/checks/smoke-tier-resolution.mjs` — **109 断言全过**：每 (capability,tier) 解析到预期实现；未分档旧清单按 mode 名匹配、匹配不到报错；缺节点报错文案正确；`internal` 清单不进矩阵；`probe=false` → 可用性未知(null)；**每份档位清单都有旧 id 的 `assetOverrides` 继承入口 + `models.*` 兜底映射 + 实际生效资产值齐备，别名表指向合法旧 id** |
 | P2 | `scripts/make-h3-variants.mjs` 生成器 + `scripts/h3-templates/` 模板 + **单档清单**（ref2v/i2v 各档 + ctx 族 + 2k/hires + 超分，sol 折叠进同档实现）；`estSeconds`/`requiresNodes`/`note` 自动填 | ✅ 完成 | `node scripts/verify-h3-variants.mjs` — **154 断言全过**：各 (capability,tier) → 预期实现 id；16:9 / 9:16 尺寸推导正确；quality 清单可编译（含音频/视频 VAE 解码）；诊断清单 `internal=true` 且不参与任何隐式解析候选 |
 | P3 | 配置页：**策略条目**（`〈displayName〉（无加速）` / `（有加速）`）+ **逐档下拉** + 可用性置灰与告警横幅 + 导入表单**组名 + 档位（受控枚举）** | ✅ 完成 | 手动验证：选「有加速」→ 三档实现正确（ref2v = fast 标准 / balanced+quality 带 Sol）；断网显示「未知」；缺节点置灰；投影结果相同时不显示「（有加速）」条目 |
 | P4 | 工具条：**档位三档下拉**、**尺寸与耗时读档位矩阵**（清单 `longSide` / `estSeconds`，矩阵未加载时按档位内置口径 fast 832 / 其余 1344 兜底）、无加速开关 | ✅ 完成 | UI 显示尺寸 = 实际出片尺寸；耗时读 `estSeconds`（按帧数/画幅修正）；显示解析到的实现 id 与缺节点告警 |
@@ -186,7 +186,7 @@ video.reference2video
 
 **验收脚本**（改档位契约后必须三个都跑）：
 
-- `node scripts/smoke-tier-resolution.mjs` — **109 断言**：解析层语义（显式 workflow 跨档报错、配置选定实现、组内该档标准实现、缺档列可用档位、旧 `modes` 清单兼容不崩、`describeTierMatrix` 数据源），以及**旧 id 资产覆盖继承 / `models.*` 兜底映射 / 别名表合法性**。
+- `node scripts/checks/smoke-tier-resolution.mjs` — **109 断言**：解析层语义（显式 workflow 跨档报错、配置选定实现、组内该档标准实现、缺档列可用档位、旧 `modes` 清单兼容不崩、`describeTierMatrix` 数据源），以及**旧 id 资产覆盖继承 / `models.*` 兜底映射 / 别名表合法性**。
 - `node scripts/verify-h3-variants.mjs` — **154 断言**：各份单档清单的 id/档位/尺寸/可编译性，以及诊断清单不进产品面。
 - `node scripts/smoke-hires-lock.mjs` — **560 断言**：`resolutionLock` **两种形态**分别锁死——**图锁定**（显式宽高/画布比例均不得覆盖、警告说「不生效」、只声明 16:9）、**只锁倍率**（显式宽高生效且仅 snap32、画布 9:16/1:1 都能推、9:16 与 16:9 像素量相同、图内 RefineHandoff 目标 = 首遍 ×2 且随比例变化、声明三种比例）；两者共同点（交付 = 首遍 × scale、priority<0、必有 warning）；插值版两阶段图结构（放大节点 + 二遍低噪声 + 解码读二遍 + 音频走二遍）、**学习式放大版图结构**（RefineHandoff 吃首遍 AV latent、`lock_audio=true`、图里只有一个采样器、二遍噪声独立）、不隐式默认、无锁实现行为不变。
 - `node scripts/smoke-upscale.mjs` — **91 断言**：`video.upscale` 的倍率契约（必声明 `factor`、不得声明 `resolutionLock`）、尺寸规划与 32 对齐、分块切片、MP4 自解析。
@@ -217,7 +217,7 @@ video.reference2video
   **与链式续接可叠用**：放大发生在链式存档之后 ⇒ 判据是**首遍尺寸一致**，交付尺寸不锁。
   实测 124 帧 1671.2s（56 帧 269.3s ⇒ 精修在 ≈500k token 上**超线性**）；同 seed 原生对照的频带判据：
   0.25 cyc/px 以上能量 6.6–7.7×（≥0.4 cyc/px 在长片上掉到 1.7×，与高码率重编的对照见文档）。
-  详见 `docs/learned-latent-upscale-2k.md`；验收 `scripts/probe-2k.mjs` + `scripts/analyze-2k-detail.mjs`；
+  详见 `docs/learned-latent-upscale-2k.md`；验收 `scripts/probe-2k.mjs` + `scripts/analysis/analyze-2k-detail.mjs`；
   **画幅比例**出片探针 `scripts/probe-2k-aspect.mjs`（独立进程直连 ComfyUI，绕开插件模块缓存）：
   `--ratio 9:16 --frames 124` 实测 638.5s → 交付 **960×1664** 带音轨（`fast` 档，首遍 480×832）；
   `--ratio 1:1` 实测 22/56/124 帧都出片（**1664×1664** 带音轨，124 帧 992.8s），
@@ -234,7 +234,7 @@ video.reference2video
   清单 `video-upscale-x2` / `-x4`（`priority` 0 / -10），模型走资产槽 `upscale_x2`/`upscale_x4`。
   与生成类的差别：**尺寸跟输入视频走**，声明**尺寸来源**（`upscale.sizing`：`factor` = 交付源 × 倍率 / `short-side` = 交付由实现的目标短边推导）与**分块归属**（`upscale.chunking`：`caller` 可由 runner 切 / `internal` 显存归实现自己管），**不得**带 `resolutionLock`；
   逐帧独立 ⇒ 代价线性、天然可分块（长片切块再拼回，不需要 ffmpeg）。纯逻辑在 `lib/upscale.js`，编排在 `lib/index.js` 的 `runUpscale`。
-  详见 `docs/video-upscale.md`；验收 `scripts/smoke-upscale.mjs` + `scripts/e2e-upscale.mjs`。**推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
+  详见 `docs/video-upscale.md`；验收 `scripts/smoke-upscale.mjs` + `scripts/e2e/e2e-upscale.mjs`。**推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
 - **PDD 的多镜头一致性未验**：现有画质结论来自单帧/单 seed；同一部片子若混用 PDD 与非 PDD 档，观感是否漂移未知（与 Sol 的"不逐镜混用"同理需要一部完整片子验证）。
 - 长 duration（250/372 帧）的耗时线性假设未实测。
 - 多行/竖版字幕在各档的字准样本量不足（n=1）。**当前状态**：配方已单源到 `skills/h3-prompt-writing`「字幕与画面内文案（唯一权威版）」，已实测的是 quality 逐字一致 / balanced 整段未烧 / fast 有错字；样本量为 1，多行与竖版待补测后回填该节。
