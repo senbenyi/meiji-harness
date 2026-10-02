@@ -18,7 +18,7 @@ function setup(t, generate, saved = async () => {}) {
   return { dom, root, open, dialog, form: dialog.querySelector('form'), generate: dialog.querySelector('.ai-summary'), input: element => element.dispatchEvent(new dom.window.Event('input', { bubbles: true })) }
 }
 
-test('空白摘要可 AI 生成，参考时长在前，结果回填后保存实际时长', async t => {
+test('空白摘要可 AI 生成，时长在前，结果回填后保存用户设定的时长', async t => {
   let saved, calls = 0
   const e = setup(t, async (_project, input) => {
     calls++
@@ -33,9 +33,9 @@ test('空白摘要可 AI 生成，参考时长在前，结果回填后保存实�
   assert.equal(saved, undefined)
   assert.equal(e.form.elements.summary.value, '本集的故事。')
   assert.equal(e.form.elements.duration.value, '150')
-  assert.match(e.dialog.querySelector('.actual-duration').textContent, /160/)
+  assert.equal(e.dialog.querySelector('.actual-duration'), null)
   await e.form.onsubmit({ preventDefault() {} })
-  assert.equal(saved.durationSeconds, 160)
+  assert.equal(saved.durationSeconds, 150)
   assert.equal(e.dialog.open, false)
 })
 

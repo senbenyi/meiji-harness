@@ -6,13 +6,13 @@ import { EpisodeSummaryModel } from '../server/prompts/models/episode-summary-mo
 import { builtinSkill } from '../skills/load.js'
 const episodePrompt = (project, episodeId) => new EpisodeSummaryModel({ project, episodeId, generationRules: builtinSkill('episode').constraints }).toMessages().map(message => message.content).join('\n')
 
-test('the first episode is written from the project summary and uses the reference duration range', () => {
+test('the first episode is written from the project summary and keeps the user-set duration', () => {
   const prompt = episodePrompt({ title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
   assert.match(prompt, /第 1 集根据项目摘要/)
   assert.match(prompt, /李伟穿越/)
   assert.match(prompt, /视觉风格：写实电影/)
-  assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }), { summary: '开场结义', durationSeconds: 170 })
-  assert.throws(() => normalizeEpisodeDraft({ summary: '太长', durationSeconds: 171 }), { status: 502 })
+  assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }, 150), { summary: '开场结义', durationSeconds: 150 })
+  assert.throws(() => normalizeEpisodeDraft({ summary: '字'.repeat(301) }), { status: 502 })
 })
 
 test('a later episode continues from the episodes already shot', () => {
@@ -114,12 +114,15 @@ test('summary checks run after drafting and independent review receives the epis
   const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
   const rules = builtinSkill('episode').constraints
   assert.ok(prompts.generation.system.includes(rules))
-  assert.match(prompts.generation.system, /不输出检查过程/)
+  assert.match(prompts.generation.system, /示例（仅示范格式）/)
+  assert.doesNotMatch(prompts.generation.system, /【优先级】/)
+  assert.doesNotMatch(prompts.generation.system.slice(prompts.generation.system.indexOf('【本次输出协议】')), /不输出|禁止/)
   const review = prompts.review('{"summary":"待审摘要","durationSeconds":120}')
   assert.ok(review.system.includes(builtinSkill('episode').review))
   assert.ok(!review.system.includes(rules))
-  assert.match(review.system, /无具体违规依据时不判失败/)
-  assert.match(review.system, /只审核，不生成或修改原文/)
+  assert.match(review.system, /说不出具体差异时判为通过/)
+  assert.equal(review.system.split('【本次审核协议】').length - 1, 1)
+  assert.equal((review.system + review.user).split('"passed":true').length - 1, 1)
   assert.match(review.user, /【本次待审内容】\n.*待审摘要/)
 })
 

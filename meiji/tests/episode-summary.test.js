@@ -1,7 +1,7 @@
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { summaryLength, episodeSummaryFailures, durationRange } from '../shared/episode-summary.js'
+import { summaryLength, episodeSummaryFailures } from '../shared/episode-summary.js'
 import { generateEpisode, normalizeEpisodeDraft } from '../server/generate/story.js'
 import { buildEpisodePrompts } from '../server/prompts/episode-prompts.js'
 import { previewPrompts } from '../server/prompts/preview.js'
@@ -20,31 +20,30 @@ import { join } from 'node:path'
 const project = { title: '故事', summary: { content: '总故事方向' }, episodes: [] }
 const draft = (summary = '本集事件', durationSeconds = 150) => ({ summary, durationSeconds })
 
-test('300 字按 Unicode 计数，标点计入；时长含边界且不截断或强制钳制', () => {
+test('300 字按 Unicode 计数，标点计入；时长由用户设定，忽略模型返回的时长', () => {
   assert.equal(summaryLength('😀 中\n。\t'), 3)
-  for (const n of [130, 170]) assert.deepEqual(episodeSummaryFailures(draft('字'.repeat(300), n), 150), [])
-  for (const value of [draft('字'.repeat(301)), draft(' '), draft('摘要', '150'), draft('摘要', 129), draft('摘要', 171)]) assert.throws(() => normalizeEpisodeDraft(value), /摘要|时长/)
-  assert.deepEqual(durationRange(1), { min: 1, max: 21 })
-  assert.deepEqual(durationRange(86400), { min: 86380, max: 86400 })
-  assert.equal(normalizeEpisodeDraft(draft('长集', 210), 200).durationSeconds, 210)
+  for (const n of [1, 999, '150', undefined]) assert.deepEqual(episodeSummaryFailures(draft('字'.repeat(300), n)), [])
+  for (const value of [draft('字'.repeat(301)), draft(' ')]) assert.throws(() => normalizeEpisodeDraft(value), /摘要/)
+  assert.equal(normalizeEpisodeDraft(draft('长集', 210), 200).durationSeconds, 200)
+  assert.equal(normalizeEpisodeDraft({ summary: '只有摘要' }).durationSeconds, 150)
 })
 
-test('超长、超时结果即使 AI 审核 PASS 也只修订一次，参考时长不漂移', async () => {
-  const replies = [JSON.stringify(draft('字'.repeat(301), 171)), reviewPass, JSON.stringify(draft('修正后的事件', 170)), reviewPass]
+test('超长结果即使 AI 审核 PASS 也只修订一次，本集时长始终为用户设定值', async () => {
+  const replies = [JSON.stringify(draft('字'.repeat(301), 171)), reviewPass, JSON.stringify(draft('修正后的事件', 99)), reviewPass]
   const messages = [], saved = []
   const result = await generateEpisode({ project, referenceDurationSeconds: 150,
     request: async message => { messages.push(message); return replies.shift() }, persist: value => saved.push(value) })
-  assert.equal(result.durationSeconds, 170)
+  assert.equal(result.durationSeconds, 150)
   assert.equal(messages.length, 4)
-  for (const message of messages) assert.match(message.user, /参考时长：150 秒/)
+  for (const message of messages) assert.match(message.user, /本集时长：150 秒（用户设定/)
+  for (const message of messages) assert.doesNotMatch(message.user + message.system, /130–170|上下 20/)
   assert.match(messages[2].user, /300 字/)
-  assert.match(messages[2].user, /130–170/)
-  assert.ok(saved.every(value => value.summary === '修正后的事件'))
+  assert.ok(saved.every(value => value.summary === '修正后的事件' && value.durationSeconds === 150))
 })
 
 test('最终仍违规时拒绝结果、不保存无效内容、不再重试', async () => {
   let calls = 0, saves = 0
-  await assert.rejects(generateEpisode({ project, request: async ({ skill }) => { calls++; return skill === 'review' ? reviewPass : JSON.stringify(draft('超时', 171)) }, persist: () => { saves++ } }), /130–170/)
+  await assert.rejects(generateEpisode({ project, request: async ({ skill }) => { calls++; return skill === 'review' ? reviewPass : JSON.stringify(draft('字'.repeat(301))) }, persist: () => { saves++ } }), /300 字/)
   assert.equal(calls, 4)
   assert.equal(saves, 0)
 })
@@ -77,11 +76,11 @@ test('草稿任务持久化并可重新查询，保存前项目文件不变', as
   assert.equal(record.latestOutputs[0].target, 'summary-draft')
 })
 
-test('已有剧集重新生成保存 AI 实际时长，手工及 source 入口都遵守 300 字', async t => {
+test('已有剧集重新生成保留用户设定的时长、不采用 AI 返回值，手工及 source 入口都遵守 300 字', async t => {
   const e = await setupModel(t)
   await runOperation(e.op('episode-generate', { referenceDurationSeconds: 150 }), { home: e.home,
     generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft('新摘要', 165)) }) })
-  assert.equal((await e.read()).durationSeconds, 165)
+  assert.equal((await e.read()).durationSeconds, 150)
   const root = await e.store.read(e.id)
   assert.throws(() => editEpisode(root, e.episodeId, draft('字'.repeat(301))), /300/)
   await assert.rejects(scopeProjects(e.store, e.episodeId).saveSource(e.id, { summary: '字'.repeat(301) }), /300/)

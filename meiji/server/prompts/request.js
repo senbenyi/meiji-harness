@@ -1,7 +1,7 @@
 // 统一的文本请求结构。所有文本步骤（摘要、剧情四类、镜头表、每秒指令、单镜修订、图片提示词改写、文本分镜审核）
 // 都按同一顺序组装三类请求，各步骤只提供内容：
 //   system：角色 → 任务范围 → 规则（生成/修订用生产规则，审核用审核方式与审核标准）→ 本节点补充 → 指导素材规则
-//           →（修订范围）→ 语言 → 正文结构 → 优先级 → 协议
+//           →（修订范围）→ 语言 → 正文结构 → 输出协议（写明输出什么并附示例）
 //   user：  阶段 → 本次任务 → 本次生成要求 → 上游事实与上下文 → 指导素材 → 基稿与意见 → 审核上下文 → 待审内容 → 审核收尾
 import { segment } from './skill-prompts.js'
 import { checkContext } from '../data/operation-context.js'
@@ -34,11 +34,11 @@ export function baseSegments({ kind, baseContent = '', opinion = '', humanOpinio
   ]
 }
 
-export function generationRequest({ json = false, role, scope, rules, additions, assetRules, boundary, language, structure, priority, protocol,
+export function generationRequest({ json = false, role, scope, rules, additions, assetRules, boundary, language, structure, protocol,
   task, requirements, facts, assets, base }) {
   return {
     json,
-    system: [role, ...list(scope), ...list(rules), ...list(additions), ...list(assetRules), ...list(boundary), ...list(language), ...list(structure), ...list(priority), ...list(protocol)],
+    system: [role, ...list(scope), ...list(rules), ...list(additions), ...list(assetRules), ...list(boundary), ...list(language), ...list(structure), ...list(protocol)],
     user: [...list(task), ...list(requirements), ...list(facts), ...list(assets), ...list(base)],
   }
 }

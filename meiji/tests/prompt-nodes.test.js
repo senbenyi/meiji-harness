@@ -37,7 +37,8 @@ for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
         if (isReview) {
           assert.match(message.user, /CURRENT_DRAFT/)
           assert.match(message.system, /【审核标准】/)
-          assert.match(message.system, /只审核，不生成或修改原文/)
+          assert.equal(message.system.split('【本次审核协议】').length - 1, 1)
+          assert.equal((message.system + message.user).split('"passed":true').length - 1, 1)
         }
         return response(isReview ? reviewPass : 'result')
       } })
@@ -131,26 +132,27 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
 }
 
 
-test('story regeneration omits the episode summary while modification includes it', () => {
+test('story regeneration keeps the episode summary as core input and drops the old story', () => {
   const project = { ...episodeFixture(), projectSummary: 'PROJECT_BACKGROUND', episodeNumber: 2,
     previousEpisodeSummary: 'PREVIOUS_EPISODE', nextEpisodeSummary: 'NEXT_EPISODE' }
-  project.summary.content = 'OLD_EPISODE_SUMMARY'
+  project.summary.content = 'EPISODE_SUMMARY'
   project.plot.outline.content = 'OLD_STORY'
   checkContext.run({ generationMode: 'regenerate', review: 'OLD_REVIEW' }, () => {
     const prompts = buildStoryPrompts(project)
     for (const message of [prompts.generation, prompts.review('NEW_STORY')]) {
-      assert.doesNotMatch(message.user, /OLD_EPISODE_SUMMARY|OLD_STORY|OLD_REVIEW/)
-      assert.match(message.user, /PROJECT_BACKGROUND/)
+      assert.doesNotMatch(message.user, /OLD_STORY|OLD_REVIEW/)
+      assert.match(message.user, /【核心输入：本集摘要】\nEPISODE_SUMMARY/)
+      assert.match(message.user, /【参考：项目背景】\nPROJECT_BACKGROUND/)
       assert.match(message.user, /PREVIOUS_EPISODE/)
       assert.match(message.user, /NEXT_EPISODE/)
-      assert.match(message.user, /第 2 集/)
+      assert.match(message.user, /本集总时长：10 秒/)
     }
     assert.doesNotMatch(prompts.generation.system, /大纲的（N秒）|单类卡片修订|共用生成审核流程|H3 最终|detailed_description|最多自动修订/)
     assert.doesNotMatch(prompts.revision('FAILED_STORY', reviewFail('原因')).user, /重新生成，仅使用/)
   })
   checkContext.run({ generationMode: 'modify', review: 'CHANGE_ROLE' }, () => {
     const message = buildStoryPrompts(project).generation
-    assert.match(message.user, /OLD_EPISODE_SUMMARY/)
+    assert.match(message.user, /EPISODE_SUMMARY/)
     assert.match(message.user, /OLD_STORY/)
     assert.match(message.user, /CHANGE_ROLE/)
   })

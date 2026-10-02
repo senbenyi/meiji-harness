@@ -13,6 +13,10 @@
 
 三类请求由 `request.js` 统一组装：生成/修订使用生产规则（skills/task），审核使用对应审核 skill（skills/review）。人物保留姓名、国籍、身份、性别、年代、年龄、服装、身高、体型、面相、外貌、道具、身体与意识关系及 look；场景保留 name、landmark、light、space、look。
 
+大纲生成与修订按「本次任务（含目标）→ 本集摘要 → 参数（时长、项目风格）→ 背景参考与前后集衔接 → 基稿和意见（修订时）」编排。首次与重新生成都以当前本集摘要为事件依据；重新生成不使用旧大纲和历史意见。项目摘要、剧本帮助理解背景，前后集约束开场和结尾，不能扩展本集事件范围。审核使用同一摘要与上下文，任务与生成指令分开。
+
+角色段只保留职业身份。大纲任务为一句依据和动作说明，引用「基础规则」「补充规则」；不重复生产要求或返回格式。基础 skill 放基础规则，当前集大纲节点补充 skill 放补充规则；保留其来源和节点标识。审核中补充正文仅供验收，输出格式仍由独立协议规定。
+
 ## 赋值与提示词函数
 
 构造参数为 project、mode、baseContent、opinion，以及可选 generationRules、reviewRules、revisionRules、outputProtocol。各 model 独立记录 role、reviewRole、project、parameters、modification、fields；人物和场景模型额外记录 approvedOutline，大纲模型保留摘要、剧本与前后集资料，提取模型仅保留标题和最终大纲。生成与审核各自使用固定职责，不需要给接口另传“设计师”类型的 role；最终 messages 仍为 system/user。

@@ -45,11 +45,11 @@ export function buildEditedContentReview({ project, stage, shotId }, text) {
         characters: board.characterIds || board.characters || shot.cast || [],
         scenes: board.sceneIds || board.scenes || (shot.scene ? [shot.scene] : []),
         refs: images.map((image, index) => `<Picture ${index + 1}> ${image.label || image.name || image.id || image.sourceShotId || '参考图'}`).join('\n'),
-        task: `只审核 ${shot.id} 已编辑的最终提示词是否忠实转写本镜每秒指令、正确绑定素材并符合输出结构，不生成或改写原文。` }),
+        task: `只审核 ${shot.id} 已编辑的最终提示词是否忠实转写本镜每秒指令、正确绑定素材并符合输出结构。` }),
     }, text)
   }
   return buildReviewPrompt({ project, skill, edited: true,
-    instructions: { review: `只审核已编辑原文，不生成或改写内容。审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}`,
+    instructions: { review: `审核已编辑原文。审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}`,
       facts: [{ title: '【上游事实：本集摘要】', text: project.summary.content }, { title: '【上游事实：大纲】', text: project.plot.outline.content || '' }] },
     reviewContext: continuityReviewContext(project, shotId),
   }, text)

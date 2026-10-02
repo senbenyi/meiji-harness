@@ -45,7 +45,7 @@ test('生成、修订与审核共用任务固定补充，人物/场景及其他�
 test('首次大纲展开当前摘要，明确重新生成仍不沿用旧摘要', async t => {
   const e = await setupModel(t), view = await e.read()
   view.plot.outline.content = null
-  assert.match(buildStoryPrompts(view).generation.user, /输入内容：本集摘要/)
+  assert.match(buildStoryPrompts(view).generation.user, /核心输入：本集摘要/)
   assert.match(buildStoryPrompts(view).generation.user, /旅人进入庭院/)
 })
 

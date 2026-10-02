@@ -133,7 +133,7 @@ async function opEpisodeGenerate(c) {
   })
   trace.result = { episodeId }
   await rootProjects.save(project.id, { activity: null, activityError: null })
-  note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，AI 决定时长 ${draft.durationSeconds} 秒` : `已生成第 ${project.episodes.length + 1} 集，${draft.durationSeconds} 秒`)
+  note(existing ? `已重新生成第 ${project.episodes.length - project.episodes.findIndex(episode => episode.id === existing.id)} 集摘要，本集时长 ${draft.durationSeconds} 秒` : `已生成第 ${project.episodes.length + 1} 集，${draft.durationSeconds} 秒`)
   if (existing && existing.summary.content !== draft.summary) note('本集下游制作数据已重置，需要重新生成')
   note(draft.summary)
   return trace

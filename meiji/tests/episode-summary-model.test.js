@@ -22,12 +22,13 @@ test('model 通过属性和技能文本生成最终消息，参数与故事资�
   assert.equal(system.role, 'system')
   assert.equal(user.role, 'user')
   assert.match(system.content, /短剧分集编剧/)
-  assert.match(system.content, /durationSeconds 是本次指定范围内的整数秒/)
-  assert.doesNotMatch(system.content, /故事标题|明确剧本|本次生成语言|130–170/)
+  assert.match(system.content, /只含 summary 字段/)
+  assert.match(system.content, /示例（仅示范格式）/)
+  assert.match(system.content, /本集时长由用户设定/)
+  assert.doesNotMatch(system.content, /故事标题|明确剧本|本次生成语言|本集时长：150/)
   assert.match(user.content, /任务模式：首次生成/)
   assert.match(user.content, /标题：故事标题/)
-  assert.match(user.content, /参考时长：150 秒/)
-  assert.match(user.content, /130–170 秒（含边界）/)
+  assert.match(user.content, /本集时长：150 秒（用户设定，不输出、不修改）/)
   assert.doesNotMatch(system.content + user.content, /画幅|1344x768/)
 })
 
@@ -37,7 +38,7 @@ test('实际生成精简重复与审核包装，同时独立审核保留完整�
   const combined = system + user
   assert.equal(combined.split('你是一名短剧分集编剧').length - 1, 1)
   assert.equal(combined.split('本次生成语言：').length - 1, 1)
-  assert.equal(combined.split('130–170').length - 1, 1)
+  assert.equal(combined.split('本集时长：150').length - 1, 1)
   assert.equal(combined.split('最多 300').length - 1, 1)
   assert.doesNotMatch(system, /FAIL|失败依据|outputLanguage|角色 look|指导技能只细化|durationSeconds":120/)
   assert.match(system, /保持事件因果与时间顺序/)
@@ -67,7 +68,7 @@ test('中间集重新生成使用前后集约束，排除旧稿及历史意见',
   assert.match(user, /前集结尾/)
   assert.match(user, /第 3 集：后集开头/)
   assert.match(user, /不提前演出后集事件/)
-  assert.match(user, /180–220/)
+  assert.match(user, /本集时长：200 秒/)
   assert.doesNotMatch(user, /本集旧稿|HISTORY_OPINION|【修改基稿】/)
   const preview = previewPrompts({ stage: 'episode', root: middle(), view: { episodeId: 'target' }, skillSet: builtinSkillSet() })
   const actual = buildEpisodePrompts(middle(), 'target').generation
@@ -86,7 +87,7 @@ test('人工修改带基稿和意见，自动修订只带最新失败稿并保�
     assert.match(revision.user, /最新失败稿正文/)
     assert.match(revision.user, /缺少因果/)
     assert.match(revision.user, /加强最后的抉择/)
-    assert.match(revision.user, /130–170/)
+    assert.match(revision.user, /本集时长：150 秒/)
     assert.equal(revision.user.split('只涉及本集事件').length - 1, 1)
     assert.doesNotMatch(revision.user, /本集旧稿|【修改基稿】|任务模式：重新生成/)
     assert.match(prompts.review('修改后').user, /加强最后的抉择|只涉及本集事件/)
@@ -123,7 +124,7 @@ test('三类 model 方法使用独立职责和输出协议，修订接受结构�
   const reviewed = model.toReviewMessages({ content: { summary: '最新摘要', durationSeconds: 150 } })
   for (const messages of [generated, revised]) {
     assert.match(messages[0].content, /你是一名短剧分集编剧/)
-    assert.match(messages[0].content, /合法的 JSON 对象/)
+    assert.match(messages[0].content, /返回一个 JSON 对象/)
     assert.doesNotMatch(messages[0].content, /独立剧集摘要审核员|首行 FAIL/)
   }
   assert.match(revised[1].content, /"summary":"原摘要"/)
@@ -144,7 +145,7 @@ test('实际审核把验收规则放 system，参数不重复且不带其他阶�
   assert.doesNotMatch(audit.user, /【验收标准/)
   assert.doesNotMatch(audit.system + audit.user, /独立审片师|subject_definitions|retention_analysis|outputLanguage|角色 look/)
   assert.equal((audit.system + audit.user).split('本次生成语言：').length - 1, 1)
-  assert.equal((audit.system + audit.user).split('130–170').length - 1, 1)
+  assert.equal((audit.system + audit.user).split('本集时长：150').length - 1, 1)
   assert.doesNotMatch(audit.user, /【修订基稿/)
 })
 

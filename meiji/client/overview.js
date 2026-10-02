@@ -242,13 +242,13 @@ export function overviewDialog(root, onSaved) {
 
 export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadPrompts } = {}) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">参考时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>AI 根据剧情决定实际时长，范围为参考时长上下 20 秒。</p><output class="actual-duration"></output><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-episode')
   const form = dialog.querySelector('form')
   const error = dialog.querySelector('.error')
   const generate = dialog.querySelector('.ai-summary'), stop = dialog.querySelector('.stop-summary'), save = form.querySelector('[type=submit]')
-  const actual = dialog.querySelector('.actual-duration'), count = dialog.querySelector('.summary-count')
+  const count = dialog.querySelector('.summary-count')
   const progress = element('div', '', 'episode-task-progress')
   const history = element('details')
   history.append(element('summary', '查看摘要任务历史'))
@@ -261,7 +261,7 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
     }
   }
   form.querySelector('footer').before(progress, history)
-  let current, episode, controller, actualDuration = null, version = 0
+  let current, episode, controller, version = 0
   const updateCount = () => {
     const length = summaryLength(form.elements.summary.value)
     count.textContent = `${length} / ${summaryLimit} 字（不计空白，标点计入）`
@@ -276,7 +276,6 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
   form.addEventListener('input', event => {
     if (![form.elements.duration, form.elements.summary].includes(event.target)) return
     cancel()
-    if (event.target === form.elements.duration) { actualDuration = null; actual.textContent = '' }
     updateCount()
   })
   generate.onclick = async () => {
@@ -293,11 +292,9 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
           if (history.open) void historyView?.refresh()
         } })
         if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
-        const failures = episodeSummaryFailures(draft, reference)
+        const failures = episodeSummaryFailures(draft)
         if (failures.length) throw new Error(failures.join('；'))
         form.elements.summary.value = draft.summary
-        actualDuration = draft.durationSeconds
-        actual.textContent = `AI 决定实际时长：${actualDuration} 秒`
         updateCount()
       } catch (failure) { if (!abort.signal.aborted && version === requestVersion) error.textContent = failure.message + (failure.draft ? `\n未通过的候选摘要：${failure.draft.summary}` : '') }
       finally { if (version === requestVersion) { controller = null; busy(false) } }
@@ -311,7 +308,7 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
     try {
       const summary = form.elements.summary.value.trim()
       if (!summaryLength(summary) || summaryLength(summary) > summaryLimit) throw new Error('摘要必须非空且不超过 300 字')
-      const durationSeconds = actualDuration ?? referenceDuration(Number(form.elements.duration.value))
+      const durationSeconds = referenceDuration(Number(form.elements.duration.value))
       await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary })
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
@@ -321,8 +318,6 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
     cancel()
     current = project
     episode = currentEpisode
-    actualDuration = null
-    actual.textContent = ''
     progress.replaceChildren()
     history.open = false
     history.querySelector('section')?.remove()

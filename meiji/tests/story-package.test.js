@@ -28,7 +28,7 @@ test('outline, characters and scenes use separate generation and review requests
     }
     if (calls > 2) assert.match(body.messages[1].content, /旅人进入山洞，发现陌生脚印/)
     if (calls === 1) {
-      assert.match(body.messages[0].content, /完整大纲纯文本/)
+      assert.match(body.messages[0].content, /返回大纲纯文本/)
       assert.equal(body.response_format, undefined)
       assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }

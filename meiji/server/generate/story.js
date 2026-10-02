@@ -106,10 +106,11 @@ export function visualStyle(project) {
   return String(project?.style || '').trim()
 }
 
+// 时长固定为用户设定值；模型返回的时长字段一律忽略。
 export function normalizeEpisodeDraft(raw, referenceDurationSeconds = 150) {
-  const failures = episodeSummaryFailures(raw, referenceDurationSeconds)
+  const failures = episodeSummaryFailures(raw)
   if (failures.length) throw Object.assign(new Error(failures.join('；')), { status: 502, code: 'INVALID_EPISODE_SUMMARY' })
-  return { summary: raw.summary.trim(), durationSeconds: raw.durationSeconds }
+  return { summary: raw.summary.trim(), durationSeconds: referenceDuration(referenceDurationSeconds) }
 }
 
 export async function generateEpisode({ route, project, episodeId, referenceDurationSeconds, signal, fetchImpl, request, persist }) {
@@ -118,7 +119,7 @@ export async function generateEpisode({ route, project, episodeId, referenceDura
     target: 'summary',
     prompts: buildEpisodePrompts(project, episodeId, reference),
     options: { route, project: { ...project, durationSeconds: reference }, signal, fetchImpl, request },
-    check: text => episodeSummaryFailures(parseJsonValue(text), reference),
+    check: text => episodeSummaryFailures(parseJsonValue(text)),
     persist: persist && ((text, check) => persist({ ...normalizeEpisodeDraft(parseJsonValue(text), reference), check })),
   })
   return { ...normalizeEpisodeDraft(parseJsonValue(result.text), reference), check: result.check }

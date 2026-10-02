@@ -14,12 +14,86 @@ import { runOperation } from '../server/flow/operations/run.js'
 import { recordSteps } from './fixtures/steps.js'
 import { builtinSkill } from '../skills/load.js'
 
+test('outline tasks only describe the action and refer to separate rule blocks', () => {
+  const project = episodeFixture();project.episodeId = project.id
+  project.supplementalSkills = { outline: [{ id: 'one', content: 'SUPPLEMENT_REQUIREMENT' }], characters: [{ id: 'other', content: 'OTHER_NODE_RULE' }] }
+  for (const generationMode of ['regenerate', 'modify']) checkContext.run({ generationMode, review: '本次人工意见' }, () => {
+    const prompts = buildStoryPrompts(project)
+    for (const request of [prompts.generation, prompts.revision('最新失败稿', reviewFail('本轮错误'))]) {
+      const task = request.user.split('【本次任务】\n')[1].split('\n\n')[0]
+      assert.equal(task.split('\n').length, 1)
+      assert.match(task, /本集摘要.*剧情大纲.*基础规则和补充规则/)
+      assert.doesNotMatch(task, /不输出人物卡|写清人物关系|制作秒数|凑八拍|历史意见|不改变|保留未涉及/)
+      assert.match(request.system, /【基础规则】\n/)
+      assert.equal(request.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名短剧剧情编剧。')
+      assert.match(request.system, /【补充规则】\nSUPPLEMENT_REQUIREMENT/)
+      assert.doesNotMatch(request.user, /SUPPLEMENT_REQUIREMENT|OTHER_NODE_RULE/)
+      assert.doesNotMatch(request.system, /OTHER_NODE_RULE|【本节点补充要求】/)
+      assert.match(request.system, /返回大纲纯文本/)
+    }
+    const review = prompts.review('本轮待审稿')
+    assert.equal(review.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名独立剧情大纲审核员。')
+    assert.match(review.system, /【补充规则】\n逐条核对以下要求；只审核其是否落实/)
+    assert.match(review.system, /SUPPLEMENT_REQUIREMENT/)
+    assert.doesNotMatch(review.user, /遵守基础规则和补充规则/)
+  })
+  const other = { ...project, episodeId: 'OTHER_EPISODE', supplementalSkills: { outline: [{ id: 'two', content: 'OTHER_EPISODE_RULE' }] } }
+  const request = buildStoryPrompts(other).generation
+  assert.match(request.system, /OTHER_EPISODE_RULE/)
+  assert.doesNotMatch(request.system, /SUPPLEMENT_REQUIREMENT/)
+})
+
+test('outline rule headings preserve supplement source metadata without mutating input', () => {
+  const model = new StoryOutlineModel({ project: episodeFixture() })
+  const supplement = { source: 'node', title: '【本节点补充要求】', text: '用户补充正文', nodeKey: 'outline', episodeId: 'EP01' }
+  const original = structuredClone(supplement)
+  for (const request of [model.toGenerateSegments({ additions: [supplement] }), model.toReviewSegments({ content: '待审正文', additions: [supplement] })]) {
+    const actual = request.system.find(item => item?.source === 'node')
+    assert.deepEqual(actual, { ...original, title: '【补充规则】' })
+  }
+  assert.deepEqual(supplement, original)
+  assert.ok(!model.toGenerateMessages()[0].content.includes('【补充规则】'))
+})
+
+test('outline merges task and target, uses current summary, and limits parameters to duration and style', () => {
+  const project = { ...episodeFixture(), title: 'UNNEEDED_TITLE', episodeNumber: 8, aspectRatio: '999x555', durationSeconds: 38, style: '写实电影',
+    projectSummary: 'PROJECT_REFERENCE', script: 'SCRIPT_REFERENCE', previousEpisodeSummary: 'PREVIOUS_FACT', nextEpisodeSummary: 'FOLLOWING_DIRECTION' }
+  project.summary.content = 'CURRENT_EPISODE_EVENTS'
+  for (const mode of ['generate', 'regenerate', 'modify']) {
+    const model = new StoryOutlineModel({ project, mode, baseContent: 'CURRENT_BASE', opinion: 'CURRENT_OPINION' })
+    const requests = mode === 'modify'
+      ? [model.toReviseMessages(), model.toReviseMessages({ baseContent: 'FAILED_BASE', opinion: 'LATEST_ISSUE', automatic: true })]
+      : [model.toGenerateMessages()]
+    for (const request of requests) {
+      const user = request[1].content
+      assert.equal((user.match(/【本次任务】/g) || []).length, 1)
+      assert.doesNotMatch(user, /【本次目标】|UNNEEDED_TITLE|999x555|本次生成第 8 集/)
+      assert.match(user, /本集摘要.*剧情大纲/)
+      assert.match(user, /【核心输入：本集摘要】\nCURRENT_EPISODE_EVENTS/)
+      assert.match(user, /【本次参数】\n本集总时长：38 秒\n项目风格：写实电影/)
+      assert.ok(user.indexOf('【本次任务】') < user.indexOf('【核心输入：本集摘要】'))
+      assert.ok(user.indexOf('【核心输入：本集摘要】') < user.indexOf('【本次参数】'))
+      assert.match(user, /【参考：项目背景】\nPROJECT_REFERENCE/)
+      assert.match(user, /本集事件以本集摘要为准/)
+      assert.match(user, /【参考：剧本资料】\nSCRIPT_REFERENCE/)
+      assert.match(user, /【衔接：前集结尾】\nPREVIOUS_FACT/)
+      assert.match(user, /【衔接：后集摘要】\nFOLLOWING_DIRECTION/)
+    }
+    const review = model.toReviewMessages({ content: 'LATEST_OUTLINE' })[1].content
+    assert.match(review, /【审核目标】/)
+    assert.match(review, /CURRENT_EPISODE_EVENTS/)
+    assert.doesNotMatch(review, /【本次目标】|仅生成本集完整剧情大纲/)
+  }
+})
+
 for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterModel, 'characters'], [StorySceneModel, 'scenes']]) {
   test(`${kind}: model independently assembles generation, revision and review`, () => {
     const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', generationRules: 'RULE', reviewRules: 'REVIEW_RULE' })
     const generated = model.toGenerateMessages()
     assert.deepEqual(generated.map(message => message.role), ['system', 'user'])
-    assert.match(generated[0].content, kind === 'outline' ? /完整大纲纯文本/ : /顶层仅含 items/)
+    assert.match(generated[0].content, kind === 'outline' ? /返回大纲纯文本/ : /\{"items":\[/)
+    assert.match(generated[0].content, /示例（仅示范格式/)
+    assert.doesNotMatch(generated[0].content, /【优先级】/)
     const revised = model.toReviseMessages({ baseContent: 'LATEST', opinion: reviewFail('NEW'), automatic: true })
     assert.match(revised[1].content, /LATEST/)
     assert.match(revised[1].content, /HUMAN/)
@@ -247,15 +321,16 @@ test('edited story material still receives comprehensive review without an extra
   assert.ok(!prompt.system.includes(builtinSkill('outline').rules.outline))
   assert.match(prompt.system, /人物、场景卡的覆盖性/)
   assert.match(prompt.system, /先独立从最新大纲盘点/)
+  assert.equal(prompt.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名独立剧情大纲审核员。')
   assert.match(prompt.system, /passed 和 issues/)
 })
 
 test('大纲生成与修订都提供正文分节和换行结构', () => {
   const model = new StoryOutlineModel({ project: episodeFixture(), mode: 'generate' })
   for (const request of [model.toGenerateMessages(), model.toReviseMessages({ baseContent: '旧大纲', opinion: '改结尾' })]) {
-    assert.match(request[0].content, /【正文结构】/)
-    assert.match(request[0].content, /小节之间留一个空行/)
-    assert.match(request[0].content, /直接使用真实换行/)
+    assert.match(request[0].content, /【本次输出协议】/)
+    assert.match(request[0].content, /小节之间空一行/)
+    assert.match(request[0].content, /【主角动机】\n旅人/)
   }
 })
 

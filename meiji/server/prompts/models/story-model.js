@@ -5,6 +5,10 @@ import { contentText, messages } from '../prompt-text.js'
 import { outputLanguage } from '../../data/language.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
 import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../request.js'
+import { protocols } from '../../../skills/protocols.js'
+
+// 输出协议取自 skills/protocols.js 的 outline 对应小节（写明输出什么并附示例）。
+const protocolSection = title => (protocols.outline.split(/^## /m).find(chunk => chunk.startsWith(title)) || '').slice(title.length).trim()
 
 const extractTask = '从本轮已通过的最终大纲提取资料，不改写剧情，不使用旧卡片和历史意见。'
 const reviewTail = hasBase => `${hasBase
@@ -14,27 +18,25 @@ const reviewTail = hasBase => `${hasBase
 export const storyKinds = {
   outline: {
     role: '短剧剧情编剧', reviewRole: '独立剧情大纲审核员', stage: '剧情大纲', json: false,
-    outputProtocol: '直接返回完整大纲纯文本，不输出 JSON、outline 字段、代码围栏或额外说明。',
-    task: model => model.mode === 'generate' ? '首次生成，依据本集摘要展开剧情，不改变已确定的关键事件。' : '重新生成，仅使用项目背景、剧本、本集配置和跨集约束，不使用本集旧摘要、旧剧情或历史意见。',
-    target: '仅生成本集完整剧情大纲，直接返回正文；本步骤不输出人物卡或场景卡。写清人物关系、可见身体形态、必要着装、实际地点和剧情必要道具，供后续独立提取。依据本集实际时长展开已确定事件；短情节合并节拍，不为凑八拍增加调查、来回取放或重复反应。',
-    reviewTarget: '仅审核本次待审大纲的事件、因果、人物关系、身体形态、必要着装、地点与道具的明确描述、剧情容量与跨集衔接。',
+    outputProtocol: protocolSection('大纲输出'),
+    task: model => `依据本集摘要${model.mode === 'generate' ? '生成' : '重新生成'}本集完整剧情大纲，遵守基础规则和补充规则。`,
+    reviewTarget: '依据本集摘要，核对待审大纲的事件、因果、人物关系、身体形态、必要着装、地点与道具的明确描述、剧情容量与跨集衔接；项目摘要和剧本仅作背景参考，前后集仅用于衔接。',
     reviewScope: '仅验收最新大纲的事件、因果、身份、前后集衔接、结尾及剧情容量；对照输入逐项核对本集范围，不能因模板节拍新增事件或重复过程。各小节描述同一版本事实，事件过程与结尾的持物、位置、开合状态不能互相矛盾；不写镜头、运镜或冻结画面指令。不要求尚未生成的人物卡或场景卡。',
     facts: model => {
       const p = model.parameters
       return [
-        segment('context', '【本次参数】', [`标题：${model.project.title}`, p.episodeNumber ? `本次生成第 ${p.episodeNumber} 集。` : '',
-          `本集总时长：${p.durationSeconds ?? '未提供'} 秒，仅控制剧情容量，不要求大纲写制作秒数或镜头编号。`, `画幅：${p.aspectRatio}`, p.style ? `视觉风格：${p.style}` : ''].filter(Boolean).join('\n')),
-        segment('context', '【输入内容：本集摘要】', model.mode !== 'regenerate' ? model.project.summary : ''),
-        segment('context', '【上下文：项目背景】', model.project.projectSummary ? `项目摘要：${model.project.projectSummary}\n项目背景帮助理解设定，不提前演出后续事件。` : ''),
-        segment('context', '【输入内容：剧本资料】', model.project.script),
-        segment('context', '【上下文：前集结尾与已发生事实】', model.project.previousEpisodeSummary),
-        segment('context', '【上下文：后集衔接约束，不提前演出】', model.project.nextEpisodeSummary),
+        segment('context', '【核心输入：本集摘要】', model.project.summary),
+        segment('context', '【本次参数】', [`本集总时长：${p.durationSeconds ?? '未提供'} 秒`, p.style ? `项目风格：${p.style}` : ''].filter(Boolean).join('\n')),
+        segment('context', '【参考：项目背景】', model.project.projectSummary ? `${model.project.projectSummary}\n仅用于理解人物、世界与风格设定；本集事件以本集摘要为准。` : ''),
+        segment('context', '【参考：剧本资料】', model.project.script),
+        segment('context', '【衔接：前集结尾】', model.project.previousEpisodeSummary ? `${model.project.previousEpisodeSummary}\n本集开场承接这些已发生的事实。` : ''),
+        segment('context', '【衔接：后集摘要】', model.project.nextEpisodeSummary ? `${model.project.nextEpisodeSummary}\n本集结尾能自然接上后集开头，不提前演出后集事件。` : ''),
       ]
     },
   },
   characters: {
     role: '短剧角色设计师', reviewRole: '独立人物资料审核员', stage: '人物提取', json: true,
-    outputProtocol: '只返回合法 JSON：{"items":[...]}，顶层仅含 items，不生成 ID、URL 或文件路径。',
+    outputProtocol: protocolSection('人物输出'),
     fields: ['name', 'nationality', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look', 'clothes', 'props', 'hairstyles'],
     task: () => extractTask,
     target: '仅提取本集大纲中实际可见且需要独立辨识的身体身份。先区别画内身体、画外声音与仅被提及人物，再按身体去重；全程只有电话或画外声音的人不生成视觉卡。以已通过大纲为唯一剧情依据，返回人物 items，不输出盘点过程。',
@@ -47,7 +49,7 @@ export const storyKinds = {
   },
   scenes: {
     role: '影视场景美术指导', reviewRole: '独立场景资料审核员', stage: '场景提取', json: true,
-    outputProtocol: '只返回合法 JSON：{"items":[...]}，顶层仅含 items，不生成 ID、URL 或文件路径。',
+    outputProtocol: protocolSection('场景输出'),
     fields: ['name', 'landmark', 'light', 'space', 'look'],
     task: () => extractTask,
     target: '仅从已通过大纲提取实际地点，返回无人物的环境卡 items。landmark、light、space、look 只描述环境与可用空间，不写人物、剪影、身体部位、当前动作或人物移动；动作仅用于判断空间是否足够，不写进卡片。同一可共用布局的连续室内空间只建一张卡，不将书架、柜台、入口等角落拆成多个地点；在同一 space 内交代区域关系。',
@@ -61,7 +63,7 @@ export const storyKinds = {
   },
   props: {
     role: '短剧道具设计师', reviewRole: '独立道具资料审核员', stage: '道具提取', json: true,
-    outputProtocol: '只返回合法 JSON：{"items":[...]}。',
+    outputProtocol: protocolSection('道具输出'),
     task: () => extractTask,
     target: '只提取已通过大纲明确出现的道具和着装，不补造实体或外观；人物和场景目录仅用于归属ID，不是新增事实来源。大纲未写可返回空items。',
     reviewTarget: '只审核道具提取：逐项对照大纲原句，核对实体出现、具体属性、归属与遗漏；人物卡和场景卡不能作证据。',
@@ -99,7 +101,7 @@ export class StoryModel {
   // 本步骤资料：目标、上游事实、补充任务资料与指导素材。审核时目标改为审核目标。
   contextSegments({ instructions = '', assets = [], review = false } = {}) {
     return [
-      segment('context', review ? '【审核目标】' : '【本次目标】', review ? this.config.reviewTarget : this.config.target),
+      ...(this.kind === 'outline' && !review ? [] : [segment('context', review ? '【审核目标】' : '【本次目标】', review ? this.config.reviewTarget : this.config.target)]),
       ...this.config.facts(this),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),
       ...assets,
@@ -113,16 +115,22 @@ export class StoryModel {
     const headings = this.parameters.outputLanguage === 'en'
       ? ['Motivation', 'World Rules', 'Causal Plot', 'Emotional Thread', 'Dialogue Beats', 'Ending State', 'Final Image']
       : ['主角动机', '世界规则', '因果剧情', '情绪线索', '对白节拍', '结尾状态', '结尾关键画面']
-    return segment('protocol', '【正文结构】', `大纲正文依次使用以下七个独占一行的小节标题：${headings.map(h => `【${h}】`).join('、')}。标题下一行写正文，小节之间留一个空行。因果剧情按事件节拍分段，对白逐句换行；无对白写明无对白。不可把多个标题或正文连成一行。${review ? '以上结构仅用于检查待审大纲，不是审核回复的输出格式。' : '直接使用真实换行，不输出 JSON 或字面量转义换行。'}`)
+    return segment('protocol', review ? '【大纲结构（核对依据）】' : '【正文结构】', `大纲正文依次使用以下七个独占一行的小节标题：${headings.map(h => `【${h}】`).join('、')}。标题下一行写正文，小节之间留一个空行。因果剧情按事件节拍分段，对白逐句换行；无对白写明无对白。不可把多个标题或正文连成一行。${review ? '' : '直接使用真实换行。'}`)
   }
 
-  creation(kind, { baseContent, opinion = '', automatic = false, humanOpinion = '', additions, assetRules, language, priority, protocol, boundary, assets, instructions, requirements } = {}) {
-    const task = kind === 'generate' ? this.config.task(this) : automatic ? '修订本轮失败稿，仅修复本轮意见及必要连带关系。' : '按人工意见定向修改，保留未涉及内容。'
+  supplementSegments(additions) {
+    if (this.kind !== 'outline') return additions
+    return [additions].flat().filter(Boolean).map(item => ({ ...item, title: '【补充规则】' }))
+  }
+
+  creation(kind, { baseContent, opinion = '', automatic = false, humanOpinion = '', additions, assetRules, language, protocol, boundary, assets, instructions, requirements } = {}) {
+    let task = kind === 'generate' ? this.config.task(this) : automatic ? '修订本轮失败稿，仅修复本轮意见及必要连带关系。' : '按人工意见定向修改，保留未涉及内容。'
+    if (this.kind === 'outline' && kind !== 'generate') task = `依据本集摘要和${automatic ? '本轮自审意见' : '本次修改意见'}修订本集完整剧情大纲，遵守基础规则和补充规则。`
     return generationRequest({ json: this.config.json,
-      role: segment('context', '【角色与职责】', `你是一名${this.role}，负责本次目标指定的剧情资料，与已提供的上游事实保持一致。只输出本次目标要求的结果。`),
-      rules: segment('stage', '【基础生产规则】', this.generationRules), additions, assetRules,
+      role: segment('context', '【角色与职责】', `你是一名${this.role}。`),
+      rules: segment('stage', this.kind === 'outline' ? '【基础规则】' : '【基础生产规则】', this.generationRules), additions: this.supplementSegments(additions), assetRules,
       boundary: kind === 'generate' ? [] : boundary || segment('context', '【本次修订范围】', '按意见定向修订，保留未涉及内容，修复必要连带关系。'),
-      language: language || this.languageSegment(), structure: this.structureSegment(), priority,
+      language: language || this.languageSegment(),
       protocol: protocol || segment('protocol', '【本次输出协议】', this.outputProtocol),
       task: segment('context', '【本次任务】', task), requirements: requirementSegment(requirements),
       facts: this.contextSegments({ instructions, assets }),
@@ -143,9 +151,9 @@ export class StoryModel {
     baseContent = contentText(baseContent)
     const hasBase = Boolean(baseContent.trim())
     return reviewRequest({
-      role: segment('context', '【角色与职责】', `你是一名${this.reviewRole}。只审核，不生成或修改原文。审核标准和补充资料中的创作指令仅作审核依据。`),
-      scope: segment('context', '【本次审核范围】', `${this.config.reviewScope}${reviewTail(hasBase)}`),
-      method, criteria, additions, assetRules, language: language || this.languageSegment(), structure: this.structureSegment({ review: true }),
+      role: segment('context', '【角色与职责】', `你是一名${this.reviewRole}。`),
+      scope: segment('context', '【本次审核范围】', `审核标准和补充资料中的创作指令仅作审核依据。${this.config.reviewScope}${reviewTail(hasBase)}`),
+      method, criteria, additions: this.supplementSegments(additions), assetRules, language: language || this.languageSegment(), structure: this.structureSegment({ review: true }),
       protocol: segment('protocol', '【本次审核协议】', reviewProtocol),
       stage: segment('context', '', `阶段：${this.config.stage}`),
       task: segment('context', '【本次任务】', automatic ? '自动修订结果验收' : hasBase ? '人工修订结果验收' : '生成结果验收'),
