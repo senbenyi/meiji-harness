@@ -3,6 +3,7 @@ process.env.DSH_SVS_CONFIG = process.env.DSH_SVS_CONFIG || '/nonexistent/svs-smo
 
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { readdirSync } from 'node:fs'
 import { loadBuiltinManifests, buildGraphFromManifest } from '../lib/manifest.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -15,6 +16,7 @@ const families = {
   'minimax-h3-i2v-elysium': 'video.image2video',
 }
 const expected = Object.keys(families).flatMap((family) => tiers.map((tier) => `${family}-${tier}`)).sort()
+const expectedSources = Object.keys(families).map((family) => `${family}.json`).sort()
 
 let pass = 0
 let fail = 0
@@ -37,7 +39,9 @@ function graphHasSentinel(graph) {
 console.log('== Elysium manifest inventory ==')
 ok('清单全部通过 schema 校验', report.errors.length === 0, report.errors.join(' | '))
 const actual = report.manifests.filter((m) => !m.internal).map((m) => m.id).sort()
-ok('活动目录恰好只有 12 份 Elysium 清单', JSON.stringify(actual) === JSON.stringify(expected), actual.join(', '))
+const physical = readdirSync(join(root, 'workflows')).filter((name) => name.endsWith('.json')).sort()
+ok('活动目录恰好只有 4 份 Elysium 家族清单', JSON.stringify(physical) === JSON.stringify(expectedSources), physical.join(', '))
+ok('注册表展开为 12 个 Elysium 档位实现', JSON.stringify(actual) === JSON.stringify(expected), actual.join(', '))
 
 for (const [family, capability] of Object.entries(families)) {
   for (const tier of tiers) {

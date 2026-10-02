@@ -179,7 +179,7 @@ comfy_list_workflows() -> {
 comfy_render({
   capability: "video.reference2video",   // 必填：能力（能力词汇表）
   workflow: "minimax-h3-ref2v-quality",  // 可选：显式指定实现（其 tier 与请求档位不符会报错，不静默）
-  tier: "quality",                       // 可选：档位 fast|balanced|quality（缺省 quality）；mode= 为兼容别名
+  tier: "quality",                       // 可选：档位 fast|balanced|quality（缺省 fast）；mode= 为兼容别名
   prompt, width, height, seed, steps, length, refs[], first_frame, last_frame, // 能力输入
   title, group, nodeId, sessionId, workspaceId                              // 画布落库参数（与能力无关，宿主统一处理）
 }) -> { ok, nodeId, media, tier, implementation, resolution, warnings }

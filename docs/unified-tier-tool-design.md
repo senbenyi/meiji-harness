@@ -37,9 +37,9 @@
 
 | 决策 | 结论 |
 |---|---|
-| **D1 档位声明形态** | **一档一清单**（与 H3 一致）：`<family>-<tier>.json`，`group = <family>`；由生成器从模板产出，人只改模板 |
+| **D1 档位声明形态** | **一家族一清单**：`<family>.json` 共享 graph/assets/params，`tiers` 只保存三档差异；加载器展开为兼容的 `<family>-<tier>` 运行时实现 |
 | **D2 钉实现通道** | **保留配置面 `pins`**（设置页可写）；脚本走 `_internals`；调用面仍无 `workflow` |
-| **D3 图片默认档** | **`quality`（长边 2048 / 2K）** —— 单张成本从 ~6s 涨到 ~63s（A800 实测），是刻意选择 |
+| **D3 默认档** | **`fast`**；`balanced` / `quality` 只有调用方显式指定才会使用，避免隐式高成本生成 |
 | **D4 列表暴露粒度** | `comfy_list_workflows` 主输出 = 能力 → 档位 → {可用性/交付尺寸/耗时}；**实现 id 收进诊断字段**，技能不引用 |
 
 ---
@@ -60,9 +60,9 @@ qwen-image-21-t2i-quality.json { "id": "qwen-image-21-t2i-quality",  "tier": "qu
 ### 3.2 生成器与模板（与 H3 同构）
 
 ```
-scripts/image-templates/<family>.json      # 手写源：一份图结构 + 三档差异表
-        ↓  node scripts/make-image-variants.mjs
-workflows/<family>-<tier>.json             # 产物，勿手改（同 H3 的约定）
+workflows/<family>.json                    # 一份共享图结构 + tiers 三档差异表
+        ↓  loadBuiltinManifests
+registry.byId[<family>-<tier>]             # 运行时兼容 id，不产生重复物理文件
 ```
 
 模板里的档位差异表（示意）：
@@ -129,7 +129,7 @@ capability + tier
 
 | 工具 | 变更 |
 |---|---|
-| `comfy_generate_image` | 加 `tier?`（默认 quality）；其余不变 |
+| `comfy_generate_image` | 加 `tier?`（默认 fast）；其余不变 |
 | `comfy_generate_video` | 去 `mode`（保留一版弃用别名 → tier）；`type` 形状契约不变 |
 | `comfy_render` | **去 `workflow`、去 `mode`**；`workflow=` 直接报错并指路（配置页 pin / 改档位） |
 | `video_upscale` | 去 `workflow`；`tier` + `target_width` 不变 |
@@ -190,7 +190,7 @@ capability + tier
 | 阶段 | 内容 | 可执行验收 |
 |---|---|---|
 | **P0 ✅** | 本文档 + 四项决策 | — |
-| **P1** | `make-image-variants.mjs` + `image-templates/` + 图片清单拆分；解析层：删 mode 路径、加 `pins`、`preferred` 家族语义、清单校验（`tier` 必填 + `longSide`/`referencePixels` 32 对齐） | `smoke-tier-resolution`：图片每 (capability,tier) 解析到预期实现；缺档报错列可用档；pins 冲突报错；旧 `preferred` 家族配置仍解析到同族 |
+| **P1** | 四份家族清单直接声明 `tiers`；加载器展开逐档运行时实现；保留 `pins`、`preferred` 家族语义和旧实现 id | `smoke-tier-resolution`：每个 (capability,tier) 解析到预期兼容 id；缺档报错列可用档；旧 `preferred` / `cfg.tiers` 仍解析到同族 |
 | **P2** | 工具面去 `workflow`/`mode` + `video_upscale` + `comfy_list_workflows` 诊断字段 + 系统提示词 | `smoke-tools`：生成类工具 schema **不含 `workflow`**；`comfy_render(workflow=)` 报错 |
 | **P3** | 分辨率统一（aspect-ratio + 单边推导 + `reference_pixels` 注入） | 9:16 画布下 t2i 默认 1152×2048；只传 width → 高度按比例推；i2i quality 出 2K |
 | **P4** | 交付尺寸如实回填 + 未支持参数告警 | 节点 `width/height` == 产物真实像素；Qwen+guidance → warnings 有明确提示 |
@@ -200,7 +200,7 @@ capability + tier
 
 | 阶段 | 状态 | 证据 |
 |---|---|---|
-| P1 图片并入 tier（一档一清单 + 生成器 + 解析层） | ✅ | `scripts/image-templates/` 4 模板 → 12 份产物；`make-image-variants.mjs --check` 进 smoke 链；旧 4 份未分档清单已删；`pins` / preferred 家族序 / 删 mode 名匹配 |
+| P1 四能力并入 tier（家族清单 + 加载时展开） | ✅ | `workflows/` 4 份家族清单 → 注册表 12 个逐档兼容实现；`smoke-manifest` 同时断言物理文件数与运行时实现数；`pins` / preferred 家族序 / 旧 id 保持兼容 |
 | P2 工具面去 workflow/mode | ✅ | 四个生成工具的 schema 无 `workflow`/`mode`（smoke-tools 断言）；runner 收到 `workflow=` **报错**；`comfy_list_workflows` 主输出改为「能力→档位」，实现 id 进 `diagnostics`；GUIDANCE 与 5 个技能改写 |
 | P3 分辨率统一 | ✅ | 图片清单改 `policy=aspect-ratio`；只传一边→另一边按画布比例推导（smoke-render 断言）。实测 9:16 画布下 t2i fast = 576×1024 |
 | P4 记账与告警 | ✅ | `probeImageSize`（PNG/JPEG/WebP）回填真实像素；未支持参数进 warnings（工具返回 + 节点 `params.warnings`）。实测 i2i quality：节点记 1536×2720 == 产物真实像素，且收到「width 未生效」+「交付尺寸以产物为准」两条警告 |

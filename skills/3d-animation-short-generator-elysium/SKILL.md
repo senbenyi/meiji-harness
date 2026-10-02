@@ -29,7 +29,7 @@ trigger: 用户要求制作包含角色、场景、镜头规划、逐镜生成�
 | 首帧或首末帧约束的视频镜头 | `comfy_generate_video(type='i2v', first_frame_node=..., last_frame_node=...)` |
 | 拼接片段 | `video_concat` |
 
-三档均为 `fast` / `balanced` / `quality`。每次生成显式传 `tier`；缺省虽为 `quality`，但不得依赖隐式缺省。
+三档均为 `fast` / `balanced` / `quality`。缺省固定为 `fast`；只有需要日常或成片档时才显式传 `balanced` / `quality`。
 
 ## 工作流
 

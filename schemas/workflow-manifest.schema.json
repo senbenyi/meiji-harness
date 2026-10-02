@@ -199,6 +199,103 @@
       "type": "number",
       "description": "同能力候选的确定性排序权重（降序，缺省 0；相同则按 id 升序）。该顺序决定 preferred 为空时的隐式默认档：写负数可让清单永不被选为默认（适合实验性、依赖自定义节点或成本高出一个量级的加速变体）。"
     },
+    "tiers": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "enum": [
+          "fast",
+          "balanced",
+          "quality"
+        ]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "estSeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "mode": {
+            "type": "object",
+            "properties": {
+              "steps": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "longSide": {
+                "type": "integer"
+              },
+              "referencePixels": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "loras": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "asset"
+                  ],
+                  "properties": {
+                    "asset": {
+                      "type": "string"
+                    },
+                    "strength": {
+                      "type": "number",
+                      "default": 1.0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "resolution": {
+            "type": "object",
+            "properties": {
+              "longSide": {
+                "type": "integer"
+              },
+              "default": {
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "paramDefaults": {
+            "type": "object",
+            "description": "该档覆盖 params.<name>.default；键必须引用已声明的参数。",
+            "additionalProperties": true
+          }
+        }
+      },
+      "description": "家族清单的档位参数表。加载时展开为 <id>-<tier> 逐档运行时清单；不能与顶层 tier 同时声明。"
+    },
     "tier": {
       "type": "string",
       "enum": [
@@ -206,7 +303,7 @@
         "balanced",
         "quality"
       ],
-      "description": "档位（受控枚举，锁定三档）。一个清单只服务一个档位；声明了才参与档位解析。契约见 docs/tier-strategy-design.md。"
+      "description": "逐档运行时清单的档位（受控枚举，锁定三档）。家族源清单改用 tiers，加载后自动生成该字段。契约见 docs/tier-strategy-design.md。"
     },
     "group": {
       "type": "string",
@@ -247,6 +344,10 @@
           },
           "longSide": {
             "type": "integer"
+          },
+          "referencePixels": {
+            "type": "integer",
+            "minimum": 1
           },
           "loras": {
             "type": "array",

@@ -304,7 +304,7 @@ video_upscale({ video_node: '<long nodeId>', target_width: 4032, chunk_frames: 1
 video_upscale({ video_node: '<shot-01 nodeId>', workflow: '<某个 short-side 实现>', target_width: 2560 })
 ```
 
-* `tier` 缺省 `quality`；**写错的档位会显式报错**（曾因静默退化到 quality 白跑一次 5376×3072）。
+* `tier` 缺省 `fast`；`balanced` / `quality` 需显式指定；**写错的档位会显式报错**（曾因静默退化到 quality 白跑一次 5376×3072）。
 * 产物写回画布（`kind: video`），记 `width/height/length/fps`（拼接与续接的兼容性判据要用）、
   `upscaleFrom`（溯源）、`sizing` + `factor/shortSide/naturalWidth`（尺寸是怎么来的）、`assets`（用了哪个权重）。
   **短边形态下 `factor` 如实记 null**（倍率是推导的，不编一个数出来），标题也据此写成「超分 短边 1088」。

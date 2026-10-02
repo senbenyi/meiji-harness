@@ -30,8 +30,8 @@ for (const [capability, family] of Object.entries(families)) {
   }
 
   const fallback = await resolveTieredManifest(capability, null, null, { registry, cfg: {}, probe: false })
-  ok(`${capability} 缺省为 quality`, fallback.tier === 'quality')
-  ok(`${capability} 缺省仍为 Elysium`, fallback.manifest.id === `${family}-quality`, fallback.manifest.id)
+  ok(`${capability} 缺省为 fast`, fallback.tier === 'fast')
+  ok(`${capability} 缺省仍为 Elysium`, fallback.manifest.id === `${family}-fast`, fallback.manifest.id)
 }
 
 console.log('== Explicit configuration ==')

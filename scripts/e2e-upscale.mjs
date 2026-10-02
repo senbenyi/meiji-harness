@@ -36,7 +36,7 @@ const SRC = arg('src', 'e2e-out/2k/v2s20f124-v2s20f124_00001_.mp4')   // U1 的 
 const TAG = arg('tag', 'e2e')
 const TARGET = Number(arg('target', '4032'))
 const CHUNK = Number(arg('chunk', '0'))
-const TIER = arg('tier', 'quality')
+const TIER = arg('tier', 'fast')
 const WORKFLOW = arg('workflow', '')      // 显式指定实现（不传=按档位解析，通常是 x2）
 
 const srcAbs = join(ROOT, SRC)

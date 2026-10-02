@@ -4,7 +4,7 @@ DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激�
 
 ## 活动工作流
 
-活动目录 `workflows/` 只有 12 份清单：
+活动目录 `workflows/` 只有 4 份家族清单；加载时展开为 12 个兼容的逐档运行时实现：
 
 | capability | family | 档位 |
 | --- | --- | --- |
@@ -14,6 +14,7 @@ DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激�
 | `video.image2video` | `minimax-h3-i2v-elysium` | fast / balanced / quality |
 
 图片使用 Qwen Image 2.1；视频使用 MiniMax H3。模型文件名、节点图、分辨率和步数以对应 manifest 为真值。
+未传 `tier` 时统一使用 `fast`；`balanced` / `quality` 只有显式指定才会使用。
 
 当前未激活：FLUX、作者原版 Qwen/H3、PDD/Sol/ctx/hires/2K 变体、抽帧和视频超分。调用方不得假设这些能力存在。
 
@@ -45,19 +46,6 @@ DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激�
 - `elysiumQwenUnet` / `elysiumQwenClip` / `elysiumQwenVae`
 - `elysiumH3Unet` / `elysiumH3Clip` / `elysiumH3VideoVae` / `elysiumH3AudioVae`
 
-不要再配置旧 `flux*`、`h3Ref*`、`h3Fl*`、PDD 或 LoRA 键；它们对应的工作流已经归档。
-
-ArcReel 能力蒸馏的三个增量功能默认开启，可独立回退；修改后需重启插件：
-
-```json
-{
-  "features": {
-    "promptSnapshots": true,
-    "workflowInspector": true,
-    "attemptDiagnostics": true
-  }
-}
-```
 
 ## 安装与运行
 
@@ -78,17 +66,7 @@ npm pack --dry-run
 
 `npm run smoke` 会验证：
 
-- 活动目录恰好是 12 份 Elysium manifest；
+- 活动目录恰好是 4 份 Elysium 家族 manifest，并展开为 12 个逐档实现；
 - 四种 capability 的三档都解析到 Elysium；
 - manifest 可以编译且没有残留资产占位符；
 - 活动 Skill 的安装与前端工具栏契约未漂移。
-
-需要真实验证时，重启插件后调用 `comfy_list_workflows`，再按 capability 分别提交一份最小生成任务。真实渲染会占用 GPU，不属于静态冒烟测试。
-
-## 归档
-
-- `archive/workflows/unverified/`：51 份未验证工作流清单。
-- `archive/skills/upstream/`：5 个作者版 Skill。
-- `archive/scripts/upstream/`：与未验证工作流绑定的生成、基准、探针和验证脚本。
-
-归档文件不由注册表加载，也不包含在 npm `files` 清单中。恢复某一能力前，应先按当前 GPU 与 ComfyUI 节点完成真实验证，再把对应 manifest、Skill 契约和测试一起移回活动目录。

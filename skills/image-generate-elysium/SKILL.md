@@ -52,15 +52,15 @@ Keep the flying pig exactly as it is, only change the sky from daytime blue to a
 |---|---|---|
 | prompt（空行后的正文） | 画面描述（t2i）或「保留什么、改什么」的改动描述（i2i） | 一只戴草帽的橘猫… |
 | `type` | `t2i`（文生图）或 `i2i`（参考图生图） | t2i |
-| `tier` | t2i / i2i 都支持 `fast`、`balanced`、`quality`；缺省 `quality` | quality |
+| `tier` | t2i / i2i 都支持 `fast`、`balanced`、`quality`；缺省 `fast` | fast |
 | `ratio` | 画面比例（仅 t2i） | 16:9 |
 | `size` | 显式宽×高，已 snap32、`x` 分隔（仅 t2i） | 1344x768 |
 | `count` | 生成张数（1–4） | 2 |
 | `refs` | 画布节点 id（i2i，单个，作 `ref_nodes`） | c71ee706-… |
 
-**图片档位口径（与视频同一套）**：图片能力已并入统一档位体系（fast / balanced / quality，一档一清单）：
+**图片档位口径（与视频同一套）**：图片能力已并入统一档位体系（fast / balanced / quality，一份家族清单在加载时展开三档）：
 
-- **t2i（`image.text2image`）**：`comfy_generate_image(..., tier=档位)`。档位决定**长边**（fast 1024 / balanced 1344 / quality 2048，缺省 quality）；实际尺寸 = **画布 aspectRatio × 该档长边**（snap32），显式 `width/height` 可覆盖，**只传一边时另一边按画布比例推导**。**抽卡迭代用 fast/balanced，定稿才用 quality**（quality 单张成本显著更高）。
+- **t2i（`image.text2image`）**：`comfy_generate_image(..., tier=档位)`。档位决定**长边**（fast 1024 / balanced 1344 / quality 2048，缺省 fast）；实际尺寸 = **画布 aspectRatio × 该档长边**（snap32），显式 `width/height` 可覆盖，**只传一边时另一边按画布比例推导**。**抽卡迭代用 fast/balanced，定稿才用 quality**（quality 单张成本显著更高）。
 - **i2i（`image.image2image`）**：`comfy_render(capability='image.image2image', tier=档位, ...)`。档位决定**参考图重采样预算**（fast 768 / balanced 1056 / quality 2048，可出 2K 改绘）；**输出尺寸跟随参考图**，不传 width/height（传了会收到「该参数未生效」的警告）。
 - 请求该能力没有的档会**显式报错并列出可用档位**（与视频一致，不静默换档）。**实现由配置决定**，技能不指定工作流 id。
 
@@ -73,7 +73,7 @@ Keep the flying pig exactly as it is, only change the sky from daytime blue to a
    - i2i：**尺寸跟随参考图**（按档位预算等比缩放），不传 width/height。
 4. **调用生成**（按类型二选一）：
    - t2i：`comfy_generate_image(prompt, tier=档位, width=…, height=…, count=张数, title='手动 t2i · 比例', group='手动生成')`。
-   - i2i：`comfy_render(capability='image.image2image', tier=档位, prompt=改动描述, ref_nodes=[参考节点 id], count=张数, title='手动 i2i · 档位 · 参考改绘', group='手动生成')`。档位取消息 `tier` 字段（缺省 quality）；调试/挑构图用 `fast`（768 预算、20 步），定稿用 `quality`（2048 预算）。
+   - i2i：`comfy_render(capability='image.image2image', tier=档位, prompt=改动描述, ref_nodes=[参考节点 id], count=张数, title='手动 i2i · 档位 · 参考改绘', group='手动生成')`。档位取消息 `tier` 字段（缺省 fast）；调试/挑构图用 `fast`（768 预算、20 步），定稿用 `quality`（2048 预算）。
 5. **回报结果**：工具已把产物写回画布；回复里给出图片节点标题、媒体相对路径与「画布」tab 入口，一句话说明用了哪个能力与档位。工具返回若带 `warnings`（如某参数未生效、交付尺寸与推导值不同）**必须如实说明**，不要复述一个没生效的档位或尺寸。
 6. **失败不盲重试**：失败先简化改动描述 / 换档位（fast↔quality）/ 换参考图再重试；同一请求不要原样重复提交。
 

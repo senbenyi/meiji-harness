@@ -1,5 +1,5 @@
 {
-  "id": "minimax-h3-i2v-elysium-balanced",
+  "id": "minimax-h3-i2v-elysium",
   "version": 1,
   "capability": "video.image2video",
   "lengthGrid": [
@@ -7,7 +7,7 @@
     5
   ],
   "runner": "comfyui",
-  "displayName": "MiniMax H3 首末帧生成视频 · Elysium DaSiWa balanced",
+  "displayName": "MiniMax H3 首末帧生成视频 · Elysium DaSiWa",
   "description": "Elysium 本机 DaSiWa MiniMax H3 Hybrid 4-step i2v 工作流。",
   "output": {
     "mediaType": "video",
@@ -305,22 +305,59 @@
       }
     }
   },
-  "modes": {
+  "tiers": {
+    "fast": {
+      "displayName": "MiniMax H3 首末帧生成视频 · Elysium DaSiWa fast",
+      "mode": {
+        "steps": 4,
+        "longSide": 832,
+        "loras": []
+      },
+      "resolution": {
+        "default": {
+          "fast": [
+            832,
+            480
+          ]
+        }
+      }
+    },
     "balanced": {
-      "steps": 4,
-      "longSide": 1344,
-      "loras": []
+      "displayName": "MiniMax H3 首末帧生成视频 · Elysium DaSiWa balanced",
+      "mode": {
+        "steps": 4,
+        "longSide": 1344,
+        "loras": []
+      },
+      "resolution": {
+        "default": {
+          "balanced": [
+            1344,
+            768
+          ]
+        }
+      }
+    },
+    "quality": {
+      "displayName": "MiniMax H3 首末帧生成视频 · Elysium DaSiWa quality",
+      "mode": {
+        "steps": 4,
+        "longSide": 1344,
+        "loras": []
+      },
+      "resolution": {
+        "default": {
+          "quality": [
+            1344,
+            768
+          ]
+        }
+      }
     }
   },
   "resolution": {
     "policy": "aspect-ratio",
-    "snap": 32,
-    "default": {
-      "balanced": [
-        1344,
-        768
-      ]
-    }
+    "snap": 32
   },
   "constraints": {
     "aspectRatios": [
@@ -332,7 +369,6 @@
     "supportsSubtitles": true
   },
   "group": "minimax-h3-i2v-elysium",
-  "tier": "balanced",
   "note": "Elysium 用户工作流：以当前 ComfyUI 的 DaSiWa Hybrid 4-step、H3 CLIP 与 VAE 文件为准；不叠加作者模板的外置 LoRA。",
   "priority": -100
 }
