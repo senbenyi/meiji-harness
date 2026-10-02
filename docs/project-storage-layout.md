@@ -45,4 +45,4 @@ node scripts/tools/migrate-project-layout.mjs \
   --workspace=<旧文件所在工作区>
 ```
 
-确认预演结果后增加 `--apply`。工具会合并项目记录、更新原位置的 binding、复制并校验文件，然后将旧权威记录与旧工作区目录归档到新项目的 `trash/legacy-import-*`；迁移可从该目录恢复。
+确认预演结果后先停止 `dsh web`，再增加 `--offline --apply`。离线要求用于避免正在运行的 Domain Storage 用内存状态覆盖迁移结果。工具会合并项目记录、更新原位置的 binding、复制并校验文件，然后将旧权威记录与旧工作区目录归档到全局 `trash/project-layout-*`；即使项目目录需要重建，备份仍可恢复。若历史记录引用的文件原本就已丢失，工具默认中止；人工核对后可用 `--allow-missing` 保留缺失文件清单并迁移其余数据。

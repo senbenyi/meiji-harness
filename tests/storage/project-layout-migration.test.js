@@ -51,7 +51,7 @@ test('project layout migration merges canvas, retargets bindings, and keeps reco
     assert.match(preview.stdout, /"mode": "dry-run"/)
     await assert.rejects(stat(join(storage, 'projects', `${targetId}.json`)))
 
-    await execute(process.execPath, [migrationScript, ...common, '--apply'])
+    await execute(process.execPath, [migrationScript, ...common, '--offline', '--apply'])
     const migrated = JSON.parse(await readFile(join(storage, 'projects', `${targetId}.json`), 'utf8')).record
     assert.equal(migrated.id, targetId)
     assert.match(migrated.sourceDocuments.source.logicalKey, /^projects\/20261002213427144\/step-01-source\/step-01-source-001-完整剧本-v001\.txt$/)
@@ -61,7 +61,7 @@ test('project layout migration merges canvas, retargets bindings, and keeps reco
     await assert.rejects(stat(join(storage, 'projects', `${oldCanvasId}.json`)))
     await assert.rejects(stat(join(workspace, 'source', oldProjectId)))
     await assert.rejects(stat(join(workspace, 'canvas', 'session-a')))
-    const trash = join(storage, 'projects', targetId, 'trash')
+    const trash = join(storage, 'trash')
     assert.ok((await stat(trash)).isDirectory())
   } finally {
     await rm(root, { recursive: true, force: true })

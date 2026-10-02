@@ -7,6 +7,7 @@ import { PROJECT_STEPS, STUDIO_STORAGE_ROOT, formatProjectId, projectDirectories
 
 const args = parseArgs(process.argv.slice(2))
 if (!args.project) usage('缺少 --project=<旧项目ID>')
+if (args.apply && !args.offline) usage('执行迁移前必须停止 dsh web，并显式增加 --offline')
 
 const storageRoot = resolve(args.storage || STUDIO_STORAGE_ROOT)
 const workspace = resolve(args.workspace || process.cwd())
@@ -25,13 +26,14 @@ if (!sourceIds.includes(targetId) && existsSync(targetFile)) throw new Error(`�
 
 const layout = projectDirectories(storageRoot, targetId)
 const migrationId = formatProjectId()
-const backupDir = join(layout.trash, `legacy-import-${migrationId}`)
+const backupDir = join(storageRoot, 'trash', `project-layout-${targetId}-${migrationId}`)
 const copies = []
 const missing = []
 const usedNames = new Set()
 
 base.id = targetId
 base.title = String(base.title || '未命名短剧项目').trim()
+if (/^短剧项目\s+session-/.test(base.title)) base.title = inferProjectTitle(canvas) || '未命名短剧项目'
 base.updatedAt = new Date().toISOString()
 base.sourceDocuments = structuredClone(base.sourceDocuments || {})
 
@@ -42,8 +44,7 @@ for (const document of Object.values(base.sourceDocuments)) {
   const extension = extname(original) || '.txt'
   const filename = uniqueName(PROJECT_STEPS.source, `step-01-source-${String(sourceIndex).padStart(3, '0')}-${safeName(document.title, 'source')}`, extension)
   const logicalKey = `projects/${targetId}/${PROJECT_STEPS.source}/${filename}`
-  registerCopy(original, join(storageRoot, logicalKey), logicalKey)
-  document.logicalKey = logicalKey
+  if (registerCopy(original, join(storageRoot, logicalKey), logicalKey)) document.logicalKey = logicalKey
 }
 
 if (canvas) {
@@ -57,8 +58,12 @@ if (canvas) {
       const extension = extname(original) || extensionForKind(node.kind)
       const filename = uniqueName(step, `${step.slice(0, 7)}-${safeName(node.title, node.kind || 'artifact')}`, extension)
       const logicalKey = `projects/${targetId}/${step}/${filename}`
-      registerCopy(original, join(storageRoot, logicalKey), logicalKey)
-      node[field] = logicalKey
+      if (registerCopy(original, join(storageRoot, logicalKey), logicalKey)) {
+        node[field] = logicalKey
+      } else if (args.allowMissing) {
+        node.migrationMissingFiles = [...(node.migrationMissingFiles || []), node[field]]
+        delete node[field]
+      }
     }
   }
 }
@@ -101,7 +106,7 @@ const report = {
   archivedLegacyDirectories: legacyDirectories.map(({ path, archiveName }) => ({ from: path, to: join(backupDir, archiveName) })),
 }
 
-if (missing.length) {
+if (missing.length && !args.allowMissing) {
   console.log(JSON.stringify(report, null, 2))
   throw new Error(`有 ${missing.length} 个源文件不存在，未执行迁移`)
 }
@@ -137,8 +142,21 @@ function resolveStoredPath(logicalKey) {
 }
 
 function registerCopy(original, destination, logicalKey) {
-  if (!existsSync(original)) missing.push(original)
+  if (!existsSync(original)) {
+    missing.push(original)
+    return false
+  }
   copies.push({ original, destination, logicalKey })
+  return true
+}
+
+function inferProjectTitle(legacyCanvas) {
+  for (const node of legacyCanvas?.nodes || []) {
+    const title = String(node.title || '').trim()
+    const match = title.match(/^(?:项目简报|故事大纲)\s*[·:：-]\s*(.+)$/)
+    if (match?.[1]) return match[1].trim()
+  }
+  return ''
 }
 
 function stepForNode(node) {
@@ -199,6 +217,8 @@ function parseArgs(values) {
   const result = { apply: false }
   for (const value of values) {
     if (value === '--apply') result.apply = true
+    else if (value === '--offline') result.offline = true
+    else if (value === '--allow-missing') result.allowMissing = true
     else if (value.startsWith('--project=')) result.project = value.slice(10)
     else if (value.startsWith('--canvas-project=')) result.canvasProject = value.slice(17)
     else if (value.startsWith('--target=')) result.target = value.slice(9)
@@ -211,6 +231,6 @@ function parseArgs(values) {
 
 function usage(message) {
   if (message) console.error(message)
-  console.error('用法: node scripts/tools/migrate-project-layout.mjs --project=<ID> [--canvas-project=<ID>] [--workspace=<路径>] [--storage=<路径>] [--target=<17位ID>] [--apply]')
+  console.error('用法: node scripts/tools/migrate-project-layout.mjs --project=<ID> [--canvas-project=<ID>] [--workspace=<路径>] [--storage=<路径>] [--target=<17位ID>] [--allow-missing] [--offline --apply]')
   process.exit(2)
 }
