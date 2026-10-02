@@ -138,7 +138,7 @@ node scripts/make-h3-variants.mjs         # 生成 workflows/*.json 清单
 node scripts/smoke-hires-lock.mjs         # 新契约：锁定语义 / 图结构 / 不静默 / 不隐式默认（331 断言）
 node scripts/checks/smoke-tier-resolution.mjs    # 档位解析无回归（109 断言）
 node scripts/verify-h3-variants.mjs       # 清单一致性无回归（154 断言）
-node scripts/e2e-hires.mjs --compare --steps 20 --length 124   # 真机出片 + 对照
+# 真机出片与对照改为手工验收
 ```
 
 真机实测（本环境 A800 80GB，896×512 → 1344×768，56 帧）：

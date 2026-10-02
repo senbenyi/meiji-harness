@@ -208,7 +208,7 @@ video.reference2video
 - ~~**「两段式超分」（`MiniMaxH3AVLatentUpscaleBy`）**~~ → **已实现**（2026）：独立家族 `minimax-h3-ref2v-hires` / `minimax-h3-i2v-hires`，只提供 `quality` 档、
   `priority < 0`（不做隐式默认）。**开源版 H3 原生上限即 768p**，所以首遍锁在 896×512、latent ×1.5 后二遍以 denoise 0.35 重建细节，交付 1344×768。
   新增 `resolutionLock` 字段（**图锁定**形态：首遍尺寸是图结构的一部分，显式宽高/画布比例不得覆盖；交付尺寸 = graph × scale，且改写必有 warning）。
-  详见 `docs/hires-two-pass-upscale.md`；验收 `scripts/smoke-hires-lock.mjs` + `scripts/e2e-hires.mjs`。
+  详见 `docs/hires-two-pass-upscale.md`；验收使用离线 smoke。
 - ~~**「>2K」**~~ → **已实现**（2026）：家族 `minimax-h3-{ref2v,i2v}-ctx-{quality,quality-pdd2,balanced,fast}-2k`（**8 份在役**；另有 `-ctx-balanced-pdd-2k` 一对**已弃用**退场——PDD 接首遍更慢且闪烁，改接二遍即 `-quality-pdd2-2k`）。从 **ctx base** 派生。
   hires 的插值放大器只能把首遍**拉回**原生 768p，交付分辨率仍等于原生上限；要用**学习式 3D 放大器**
   （`MinimaxH3LatentUpscaler3DRefineHandoff` + `minimax_h3_latent_upscaler_3d_conv_v1_bf16`）在 latent 空间真重建，
@@ -234,7 +234,7 @@ video.reference2video
   清单 `video-upscale-x2` / `-x4`（`priority` 0 / -10），模型走资产槽 `upscale_x2`/`upscale_x4`。
   与生成类的差别：**尺寸跟输入视频走**，声明**尺寸来源**（`upscale.sizing`：`factor` = 交付源 × 倍率 / `short-side` = 交付由实现的目标短边推导）与**分块归属**（`upscale.chunking`：`caller` 可由 runner 切 / `internal` 显存归实现自己管），**不得**带 `resolutionLock`；
   逐帧独立 ⇒ 代价线性、天然可分块（长片切块再拼回，不需要 ffmpeg）。纯逻辑在 `lib/upscale.js`，编排在 `lib/index.js` 的 `runUpscale`。
-  详见 `docs/video-upscale.md`；验收 `scripts/smoke-upscale.mjs` + `scripts/e2e/e2e-upscale.mjs`。**推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
+  详见 `docs/video-upscale.md`；验收使用离线 smoke。**推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
 - **PDD 的多镜头一致性未验**：现有画质结论来自单帧/单 seed；同一部片子若混用 PDD 与非 PDD 档，观感是否漂移未知（与 Sol 的"不逐镜混用"同理需要一部完整片子验证）。
 - 长 duration（250/372 帧）的耗时线性假设未实测。
 - 多行/竖版字幕在各档的字准样本量不足（n=1）。**当前状态**：配方已单源到 `skills/h3-prompt-writing`「字幕与画面内文案（唯一权威版）」，已实测的是 quality 逐字一致 / balanced 整段未烧 / fast 有错字；样本量为 1，多行与竖版待补测后回填该节。

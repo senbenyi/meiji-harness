@@ -154,7 +154,7 @@ comfy_render(capability, ..., continuity_from?)
 
 * 模板：r2v `scripts/h3-templates/minimax-h3-ref2v-ctx.json`、`…-8step-ctx.json`、`…-pdd-ref2v-ctx.json`；i2v 由 `scripts/make-h3-ctx-templates.mjs` 从普通 i2v 模板**派生**（`minimax-h3-i2v-ctx.json`、`…-8step-ctx.json`、`…-pdd-i2v-ctx.json`，勿手改）
 * 清单（生成物，勿手改）：`workflows/minimax-h3-ref2v-ctx-{fast,balanced,balanced-pdd,quality}.json`、`workflows/minimax-h3-i2v-ctx-{fast,balanced,balanced-pdd,quality}.json`
-* 覆盖矩阵基准：`scripts/bench-chain-continuity.mjs` → `e2e-out/chain-bench/{report.md,rows.json}`；i2v 端到端 `scripts/e2e-chain-continuity-i2v.mjs` → `e2e-out/chain-continuity-i2v/`
+* 覆盖矩阵基准：`scripts/bench-chain-continuity.mjs`；历史 i2v 端到端结果见附 E
 * 生成器：`scripts/make-h3-variants.mjs`（清单）、`scripts/make-h3-ctx-templates.mjs`（i2v ctx 模板）
 
 ---
@@ -237,18 +237,14 @@ comfy_render(capability, ..., continuity_from?)
 ## 附 D：复现
 
 ```bash
-# 机制层（裸图直提 API，含像素路径 / latent 路径 / 自测基线）
-node scripts/e2e-chain-continuity.mjs        # 插件层端到端：起链 → 续接 → 非链式反例 → 同 seed 对照 → 抽帧回归
 node scripts/bench-chain-continuity.mjs      # 档位 × 加速件覆盖矩阵（--only=fast|balanced|balanced-pdd|quality）
-python3 e2e-out/ctx-test/measure_seam.py <上一镜.mp4> <本镜.mp4> <输出目录>   # 接缝量化（容器内跑）
 ```
 
-> 带 `--measure` 的脚本会自己在容器里跑量化，需要**宿主机可达**：`DSH_BENCH_SSH=user@host`（可选 `DSH_BENCH_CONTAINER`，默认 `comfyui`）。
-> 脚本**不内置任何私有地址**；不设 `DSH_BENCH_SSH` 时只跳过量化，渲染与断言照常。
+> 端到端渲染与接缝量化脚本已移除；本节保留历史结果。
 
 ## 附 E：i2v 版链式续接（fast 档实测 · 2026-09-15）
 
-`node scripts/e2e-chain-continuity-i2v.mjs --tier=fast --measure`（`--measure-only` 只补测量、复用上次渲染）。四镜：i2v 起链 → 抽末帧 → 续接（`continuity_from` + 首帧 = 上一镜末帧）→ 对照（普通 i2v，同首帧同 seed、无续接）。
+历史实测使用四镜：i2v 起链 → 抽末帧 → 续接（`continuity_from` + 首帧 = 上一镜末帧）→ 对照（普通 i2v，同首帧同 seed、无续接）。
 
 **链路（全过）**：起链 `load 0 / save 1259` → 续接 `load 1259 / save 1260`；请求 124 → 采样 158 → 交付 136；普通 i2v 实现 + `continuity_from` 显式拒跑。
 
@@ -290,7 +286,7 @@ h3_motion_context: tail padded 266 zero samples (8.31ms) so audio matches 136 fr
 * **交付尺寸不参与**续接 ⇒ 一条链里可以有「首遍相同、交付不同」的镜（例如 `-ctx-quality` 1344×768 接 `-ctx-quality-2k` 2688×1536）；
 * 反过来，首遍不同（fast 832×480 ↔ quality 1344×768）**拒跑**——latent 不能缩放。
 
-**实测（2026-09-23，`scripts/e2e-chain-continuity.mjs`，交付 1664×960 / 首遍 832×480）**：
+**实测（2026-09-23，交付 1664×960 / 首遍 832×480）**：
 
 | 镜 | 实现 | 交付 | 帧数（请求/采样/交付） | 链序号 |
 |---|---|---|---|---|
@@ -316,13 +312,7 @@ h3_motion_context: tail padded 266 zero samples (8.31ms) so audio matches 136 fr
 3. **代价**：fast 档 56 帧一镜 114.0s（起链）/ 246.3s（续接，多采到 90 帧）——续接镜贵在采样帧数，
    不在放大本身。quality 档同尺寸预估 ~1900s（二遍 6 步 20 步首遍），要成片再上。
 
-**复现**：
-
-```bash
-node scripts/e2e-chain-continuity.mjs --tier=fast --workflow-suffix=-2k \
-  --plain=minimax-h3-ref2v-fast --control-workflow=minimax-h3-ref2v-ctx-fast-2k --length=56
-# 接缝量化：把三条产物送进容器跑 e2e-out/ctx-test/measure_seam.py（宿主无 ffmpeg，容器自带 av+numpy）
-```
+原端到端复现脚本与接缝量化产物已移除，本节仅保留历史实测结论。
 
 **顺带的契约修正**：`docs/` 与 UI 里此前"两阶段放大与链式续接不能叠用"的说法是**错的**，
 正确口径是「**同一条链内首遍尺寸一致**」。runner 已按此判据实现（`chainGraphMismatch`，纯函数，

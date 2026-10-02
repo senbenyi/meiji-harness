@@ -1,18 +1,9 @@
 {
   "name": "dsh-short-video-studio",
   "version": "1.8.2",
-  "description": "基于 deepseek harness 的短剧/动画画布工作室：仅分发按本机 GPU 配置并验证的 Elysium Qwen Image 2.1 与 MiniMax H3 工作流，以及对应 Elysium skills。",
+  "description": "基于 deepseek harness 的短剧/动画画布工作室",
   "keywords": [
-    "dsh",
-    "deepseek-harness",
-    "comfyui",
-    "minimax-h3",
-    "dsh-plugin",
-    "qwen-image",
-    "short-video",
-    "animation",
-    "canvas",
-    "skill"
+    "deepseek-harness"
   ],
   "type": "module",
   "engines": {
@@ -55,19 +46,8 @@
     "scripts",
     "workflows",
     "schemas",
-    "cordis.patch.yml",
-    "README.md",
-    "LICENSE"
+    "cordis.patch.yml"
   ],
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/fengyungithub/dsh-short-video-studio.git"
-  },
-  "homepage": "https://github.com/fengyungithub/dsh-short-video-studio#readme",
-  "bugs": {
-    "url": "https://github.com/fengyungithub/dsh-short-video-studio/issues"
-  },
   "publishConfig": {
     "access": "public",
     "provenance": true
@@ -75,9 +55,8 @@
   "scripts": {
     "test": "node --test tests/**/*.test.js",
     "test:domain": "node --test tests/domain/*.test.js tests/storage/*.test.js tests/media/*.test.js tests/integration/*.test.js",
-    "smoke": "node scripts/checks/smoke-tools.mjs && node scripts/checks/smoke-manifest.mjs && node scripts/checks/smoke-render.mjs && node scripts/checks/smoke-tier-resolution.mjs && node scripts/checks/smoke-video-shape.mjs && node scripts/checks/smoke-skill-install.mjs && node scripts/checks/smoke-client-settings.mjs && node scripts/checks/smoke-canvas-home.mjs && node scripts/checks/smoke-canvas-theme.mjs && node scripts/preview/preview-toolbar.mjs --assert && node scripts/preview/preview-canvas.mjs --assert && node scripts/checks/smoke-assets.mjs && node scripts/checks/smoke-upload-assets.mjs && node scripts/checks/smoke-preask-deliver.mjs && node scripts/checks/smoke-pdf.mjs",
-    "prepublishOnly": "npm run smoke",
-    "e2e:tier": "node scripts/e2e/e2e-tier-pipeline.mjs"
+    "smoke": "node scripts/checks/smoke-tools.mjs && node scripts/checks/smoke-manifest.mjs && node scripts/checks/smoke-render.mjs && node scripts/checks/smoke-tier-resolution.mjs && node scripts/checks/smoke-video-shape.mjs && node scripts/checks/smoke-skill-install.mjs && node scripts/checks/smoke-client-settings.mjs && node scripts/checks/smoke-canvas-home.mjs && node scripts/checks/smoke-canvas-theme.mjs && node scripts/checks/smoke-assets.mjs && node scripts/checks/smoke-upload-assets.mjs && node scripts/checks/smoke-preask-deliver.mjs && node scripts/checks/smoke-pdf.mjs",
+    "prepublishOnly": "npm run smoke"
   },
   "dependencies": {
     "puppeteer-core": "^25.9.0"

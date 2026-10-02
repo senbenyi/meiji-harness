@@ -97,17 +97,16 @@ capability = (first_frame_node || last_frame_node) ? 'video.image2video' : 'vide
 - **做法**：Motion Context 四个节点挂在**条件节点之后**（conditioning / latent / audio），与用哪种条件节点无关 ⇒ i2v（`MiniMaxH3ImageToVideo`）同样可挂。模板由 `scripts/make-h3-ctx-templates.mjs` 从普通 i2v 模板**派生**（可复现，勿手改）：`minimax-h3-i2v-ctx.json` / `-8step-ctx.json` / `pdd-i2v-ctx.json`。
 - **清单**：`minimax-h3-i2v-ctx-{fast,balanced,balanced-pdd,quality}`（`priority: -100`：只被显式指定或链式路径选中），已登记资产继承表（`H3_I2V_IDS` / `H3_I2V_ASSETS`）与 `models.*` 兜底映射。
 - **节点参数**：视频节点现在记 `params.type`（`r2v` / `i2v`），画布据此辨识转场镜 / 锚点式重渲这类 i2v 镜。
-- **实测（fast 档）**：链路全过 —— 起链 `load 0 / save 1259` → 续接 `load 1259 / save 1260`、请求 124 → 采样 158 → 交付 136；服务端日志确认 `22 frames -> 7 cond blocks at indices 0..18`、`trim 22`、`audio 24 frames -> 40 latent steps (1.000s)`、尾部补零 8.31ms；普通 i2v 实现 + `continuity_from` 显式拒跑。原始数据 `e2e-out/chain-continuity-i2v/{rows-fast.json,seam-fast.json,report-fast.md}`。
+- **实测（fast 档）**：链路全过 —— 起链 `load 0 / save 1259` → 续接 `load 1259 / save 1260`、请求 124 → 采样 158 → 交付 136；服务端日志确认 `22 frames -> 7 cond blocks at indices 0..18`、`trim 22`、`audio 24 frames -> 40 latent steps (1.000s)`、尾部补零 8.31ms；普通 i2v 实现 + `continuity_from` 显式拒跑。原始端到端产物已移除。
 - **实测得到的行为契约（重要）**：链式 i2v 里 **`first_frame_node` 会被丢弃**——服务端日志：
   `dropped 1 keyframe anchor(s) at frame(s) [0]: the pinned head already decides frames 0..21. A last_frame anchor is kept.`
   ⇒ 钉住的 head 已决定第 0..21 帧，首帧锚点变冗余；**`last_frame_node` 保留**。所以"转场镜：首帧 = 前一镜末帧、末帧 = 下一镜首帧"的用法在链式 i2v 上依然成立，而且比纯双端锚定**多拿到尾部画面 + 音频的连续性**。
 - **fast 档接缝指标（诚实版）**：续接镜 vs 同首帧同 seed 的对照镜 —— 画面 MAD **8.47 / 4.34**（都在"极连续"量级，**该列在 i2v 上无区分度**：两镜共享同一张首帧图，接缝本来就被锚定）；音频 1s 相关 **0.157 / 0.313**、包络 **−0.198 / −0.082**（**对照反而更高**，疑为"同种子趋同"而非"真连续"）；响度台阶 **+7.18 dB / −10.13 dB**（方向相反，须人工听核）。
   **结论：机制可用已证；"i2v 续接是否更好"尚未拿到正面证据，需重设对照后重测。**
 - **待补（记录在案）**：
-  1. **其余 3 档**：`node scripts/e2e-chain-continuity-i2v.mjs --tier=balanced|balanced-pdd|quality`。
+  1. **其余 3 档**：尚未完成真机手工验证。
   2. **重设对照**：现有对照与上一镜**同 seed + 同首帧**，会把"同种子趋同"混进音频相关。至少要补其一：**同首帧 · 不同 seed**，或 **同 seed · 首帧取上一镜倒数第 22 帧**。
   3. **人工听核**：包络相关与响度台阶在 i2v 上方向矛盾，最终以耳朵判定。
-  4. `scripts/e2e-chain-continuity-i2v.mjs` 支持 `--measure-only`（复用上次渲染结果，不重跑 GPU）。
 
 ## 7. 复现
 
@@ -116,11 +115,9 @@ node scripts/checks/smoke-video-shape.mjs        # 31 条断言，不触网
 node scripts/checks/mock-apply.mjs               # 工具 schema / render / execute 完整性
 npm run smoke                             # 全量冒烟（含本表）
 
-# i2v 链式续接（真跑 GPU，串行不并行）
 node scripts/make-h3-ctx-templates.mjs                      # 派生 3 份 i2v ctx 模板（改了普通 i2v 模板才需要）
 node scripts/make-h3-variants.mjs                           # 生成清单
 node scripts/verify-h3-variants.mjs                         # 154 条清单/图结构断言
-node scripts/e2e-chain-continuity-i2v.mjs --tier=fast --measure   # 端到端 + 接缝量化
-node scripts/e2e-chain-continuity-i2v.mjs --tier=fast --measure-only  # 只补测量（复用上次渲染）
-# 量化在容器里跑：需 DSH_BENCH_SSH=user@host（可选 DSH_BENCH_CONTAINER，默认 comfyui）；不设则只跳过量化
 ```
+
+真机链式续接与接缝量化改为手工验收。

@@ -112,7 +112,6 @@ try { ... } catch (error) { return { ok: false, ..., error: error?.message || St
 ```jsonc
 "scripts": {
   "test": "node scripts/checks/smoke-manifest.mjs && node scripts/checks/smoke-render.mjs && node scripts/checks/mock-apply.mjs",
-  "test:e2e": "node scripts/e2e/e2e.mjs",          // 需 ComfyUI
   "import": "node scripts/tools/import-comfy.mjs"
 }
 ```

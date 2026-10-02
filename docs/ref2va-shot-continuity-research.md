@@ -272,7 +272,7 @@ latent 用 `…SaveLatent`/`…LoadLatent` 跨运行搬运（首镜 Load 0 / Sav
 - 新组 `minimax-h3-ref2v-ctx`（4 档，priority −100 ⇒ 永不为隐式默认），工具面新增 `continuity_from`。
 - 顺手修掉一个真 bug：`comfyOutputs` 会把 `LoadVideo` 的输入回显（`type=input`）当产物收集——
   链式实现里这会把"上一镜"当成这一镜的成片存进画布。
-- 端到端脚本 `scripts/e2e-chain-continuity.mjs`（起链 → 续接 → 非链式反例 → 同 seed 对照）。
+- 历史端到端实测覆盖了起链、续接、非链式反例和同 seed 对照；脚本已移除。
 
 **仍未验证**（2026-09 更新）：
 

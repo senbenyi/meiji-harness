@@ -318,7 +318,7 @@ PDD 把二遍从 6 次评估压到 2 次（`nfe=8, denoise=0.3 → round(8×0.3)
 > **状态（2026-09-24）：方案 A 已落地**——契约扩成 `upscale.sizing`（`factor` / `short-side`）× `upscale.chunking`
 > （`caller` / `internal`）两个维度，规划器与分块决策都有单测（`node scripts/smoke-upscale.mjs`，175 项）。
 > **SeedVR2 清单本身仍未加入**：节点是否装在 GPU 主机上、短边注入后模型是否真按该尺寸渲染，
-> 都要真机验收（`scripts/e2e/e2e-upscale.mjs` 加一臂）——在那之前不给它标 `estSeconds`，也不写进 README/技能。
+> 都要真机手工验收——在那之前不给它标 `estSeconds`，也不写进 README/技能。
 > 下面 §5.1.1–§5.1.4 保留为**决策记录**（当时写下的冲突分析），落地口径见 §5.1.5。
 
 **结论：用户视角该是（同一个 `video_upscale`、同一个画布语义），但契约上不能只是「再加一份 `video-upscale-seedvr2.json`」。**
@@ -409,7 +409,7 @@ SeedVR2 是扩散模型，官方明说 **VAE 常是瓶颈**，且首次跑有 `t
 4. **`requiresNodes` 三件**：两个 loader（DiT / VAE）+ 主节点；模型首次使用会自动从 HF 下载（部署方要能出网）。
 5. **一条顺手的交叉收益**：SeedVR2 自带 `attention_mode = sageattn_2/sageattn_3` 与 `torch.compile` 开关——
    §2.1 那个「本机无 nvcc 所以 Sage 没开」的限制，在 SeedVR2 这条路上**由它自己的 wheel 解决**，不需要和 ComfyUI 主进程的启动参数较劲。
-6. **验收**：`scripts/smoke-upscale.mjs` 加 `sizing` 分支用例；`scripts/e2e/e2e-upscale.mjs` 加一臂，
+6. **验收**：`scripts/smoke-upscale.mjs` 加 `sizing` 分支用例；真机手工验证增加一组对照，
    断言「交付尺寸按短边推导 + 32 对齐 + 帧数守恒 + 音轨在」，并且**用 §6 的判据表**（有效宽 / 闪烁 / 32px 网格 / 1:1 眼判）
    与 U3 同源片对比——不要在没跑之前就把「SeedVR2 细节更强」写进文档。
 
@@ -452,7 +452,7 @@ SeedVR2 是扩散模型，官方明说 **VAE 常是瓶颈**，且首次跑有 `t
 `scripts/make-upscale-manifests.mjs` 显式生成 `sizing`/`chunking`（让用户在 `workflows/*.json` 里直接读到契约）、
 `schemas/workflow-manifest.schema.json` 补 `upscale` 定义、`docs/video-upscale.md` 新增 §2.1 契约节、
 `package.json` 的 `npm run smoke` 把 `smoke-upscale.mjs`（与 `smoke-hires-lock.mjs`）纳入 CI 门；
-新增 `scripts/e2e/e2e-upscale-shortside.mjs` + 夹具，以及 `DSH_SVS_USER_WORKFLOWS` 测试接缝（清单装临时目录）。
+新增短边探针夹具，以及 `DSH_SVS_USER_WORKFLOWS` 测试接缝（清单装临时目录）。
 
 **真机验收（2026-09-24，A800 / ComfyUI 0.35.2）**：factor 形态回归全绿（2688×1536 → 4032×2304，124 帧，266.8s）；
 短边形态用 `scripts/fixtures/upscale-shortside-probe.json`（几何探针，`internal: true`）三臂真机跑通
