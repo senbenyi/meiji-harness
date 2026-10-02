@@ -2,6 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { MemoryProjectRepository, ProjectService } from '../../lib/domain/service.js'
+import { studioDomainSpec } from '../../lib/domain/spec.js'
+
+test('Harness Storage descriptor names use identifier-safe syntax', () => {
+  const unitName = /^[a-z][a-z0-9_]*$/
+  assert.match(studioDomainSpec.name, unitName)
+  for (const tableName of Object.keys(studioDomainSpec.tables)) assert.match(tableName, unitName)
+})
 
 async function command(service, projectId, type, payload, options = {}) {
   const project = await service.getProject(projectId)
