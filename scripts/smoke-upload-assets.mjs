@@ -8,13 +8,13 @@
  * 用法：node scripts/smoke-upload-assets.mjs
  */
 import { strict as assert } from 'node:assert'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _internals } from '../lib/index.js'
 import { loadLibrary, registerAsset, assetFile } from '../lib/assets.js'
 
-const { parseDataUrlImage, importManualImage, copyAssetToCanvas, replaceNodeImage } = _internals
+const { parseDataUrlImage, importManualImage, copyAssetToCanvas, replaceNodeImage, initializeTestProjectDomain, loadProject, saveProject } = _internals
 
 // 1x1 PNG（跨工具可识别的最小合法 PNG）
 const PNG_B64 =
@@ -47,6 +47,7 @@ console.log('# parseDataUrlImage')
 const dir = mkdtempSync(join(tmpdir(), 'svs-upload-'))
 const S_A = 'session-upload-a'
 const S_B = 'session-upload-b'
+const closeProjectDomain = await initializeTestProjectDomain()
 try {
   console.log('# importManualImage（上传 → 画布资产卡，不入库）')
   let node
@@ -59,8 +60,8 @@ try {
     ok(node.params && !node.params.assetId, '上传不自动入库（assetId 缺省）')
     const abs = join(dir, ...node.media.split('/'))
     ok(existsSync(abs) && readFileSync(abs).equals(PNG_BUF), '媒体文件已落盘且字节一致')
-    const project = JSON.parse(readFileSync(join(dir, 'canvas', S_A, 'project.json'), 'utf8'))
-    ok(project.nodes.some((n) => n.id === node.id), '节点已写入 project.json')
+    const project = await loadProject(dir, S_A)
+    ok(project.nodes.some((n) => n.id === node.id), '节点已写入 Project Domain')
     const uploaded = project.nodes.find((n) => n.id === node.id)
     ok(uploaded && uploaded.media.startsWith('canvas/' + S_A + '/upload-'), '媒体路径位于画布目录 upload- 前缀')
   }
@@ -92,8 +93,8 @@ try {
     ok(nodeB.media.startsWith('canvas/' + S_B + '/asset-character-hero'), '库图拷贝进 S_B 画布目录')
     const absB = join(dir, ...nodeB.media.split('/'))
     ok(existsSync(absB) && readFileSync(absB).equals(PNG_BUF), '拷贝内容与资产图一致')
-    const projectB = JSON.parse(readFileSync(join(dir, 'canvas', S_B, 'project.json'), 'utf8'))
-    ok(projectB.nodes.some((n) => n.id === nodeB.id), 'S_B project.json 含物化节点')
+    const projectB = await loadProject(dir, S_B)
+    ok(projectB.nodes.some((n) => n.id === nodeB.id), 'S_B Project Domain 含物化节点')
 
     // char: 别名（工具契约支持）
     const alias = await copyAssetToCanvas(dir, S_B, 'char:hero', {})
@@ -108,11 +109,11 @@ try {
     // 从资产库取用的卡支持「编辑 → 本地上传替换」：解绑 assetId、换媒体
     let replaced
     {
-      const before = JSON.parse(readFileSync(join(dir, 'canvas', S_B, 'project.json'), 'utf8')).nodes.find((x) => x.id === nodeB.id)
+      const before = (await loadProject(dir, S_B)).nodes.find((x) => x.id === nodeB.id)
       ok(before.params.deliveredAt === undefined, '替换前无送达标记（干净起点）')
       replaced = await replaceNodeImage(dir, S_B, nodeB.id, { filename: '自定义.png', dataUrl: 'data:image/png;base64,' + PNG_B64 })
       ok(replaced.assetIdCleared && replaced.prevAssetId === 'character:hero', '替换已入库的卡 → 解绑并回传 prevAssetId')
-      const after = JSON.parse(readFileSync(join(dir, 'canvas', S_B, 'project.json'), 'utf8')).nodes.find((x) => x.id === nodeB.id)
+      const after = (await loadProject(dir, S_B)).nodes.find((x) => x.id === nodeB.id)
       ok(after.id === nodeB.id && after.title === '主角', '节点 id/标题保留')
       ok(after.params.assetId === undefined, 'params.assetId 已清除')
       ok(after.params.source === 'manual-upload' && after.params.replacedAt > 0, 'params.source=manual-upload + replacedAt')
@@ -123,19 +124,19 @@ try {
     }
     {
       const r2 = await replaceNodeImage(dir, S_B, nodeB.id, { dataUrl: 'data:image/jpeg;base64,' + JPG_BUF.toString('base64') })
-      const p2 = JSON.parse(readFileSync(join(dir, 'canvas', S_B, 'project.json'), 'utf8')).nodes.find((x) => x.id === nodeB.id)
+      const p2 = (await loadProject(dir, S_B)).nodes.find((x) => x.id === nodeB.id)
       ok(r2.assetIdCleared === false && p2.media.endsWith('.jpg'), '未入库卡二次替换不回 assetId 逻辑，jpg 扩展名正确')
       ok(readFileSync(join(dir, ...p2.media.split('/'))).equals(JPG_BUF), '二次替换字节为 jpg')
       ok(p2.params.deliveredAt === undefined && p2.params.deliveryError === undefined, '替换后送达标记被清（下次 ask 重新送达）')
     }
     {
       // 模拟送达标记后替换 → 应被清除（飞书重发新图）
-      const projectB = JSON.parse(readFileSync(join(dir, 'canvas', S_B, 'project.json'), 'utf8'))
+      const projectB = await loadProject(dir, S_B)
       const nn = projectB.nodes.find((x) => x.id === nodeB.id)
       nn.params.deliveredAt = 1234567890
-      writeFileSync(join(dir, 'canvas', S_B, 'project.json'), JSON.stringify(projectB, null, 2), 'utf8')
+      await saveProject(dir, S_B, projectB)
       await replaceNodeImage(dir, S_B, nodeB.id, { dataUrl: 'data:image/png;base64,' + PNG_B64 })
-      const p3 = JSON.parse(readFileSync(join(dir, 'canvas', S_B, 'project.json'), 'utf8')).nodes.find((x) => x.id === nodeB.id)
+      const p3 = (await loadProject(dir, S_B)).nodes.find((x) => x.id === nodeB.id)
       ok(p3.params.deliveredAt === undefined, '替换清除旧 deliveredAt（新图会重新送达）')
     }
     {
@@ -145,6 +146,7 @@ try {
     }
   }
 } finally {
+  await closeProjectDomain()
   rmSync(dir, { recursive: true, force: true })
 }
 

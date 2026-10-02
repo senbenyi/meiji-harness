@@ -19,6 +19,7 @@ const registered = []
 const workspace = { id: 'ws-e2e', path: tmpRoot, sessionIds: [SID] }
 
 const mockCtx = {
+  __testMemoryProjectDomain: true,
   webServer: { register: () => () => {} },
   tools: { register: (t) => { registered.push(t); return () => {} } },
   systemPrompt: { section: () => () => {} },

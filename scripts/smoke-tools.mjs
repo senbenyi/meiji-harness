@@ -172,6 +172,7 @@ if (host && typeof host.mod.validateJsonSchemaValue === 'function') {
     ? (s) => host.mod.assertSupportedJsonSchema(s)
     : () => {}
   const hostCtx = {
+    __testMemoryProjectDomain: true,
     effect: (fn, label) => {
       order.push(label || '(effect)')
       const disposed = fn()
@@ -197,7 +198,8 @@ if (host && typeof host.mod.validateJsonSchemaValue === 'function') {
   let applyErr = ''
   try { pluginApply(hostCtx) } catch (e) { applyErr = e?.stack?.split('\n').slice(0, 3).join(' | ') || String(e) }
   ok('apply() 全程不抛（抛出 = 工具与路由一起消失）', applyErr === '', applyErr)
-  ok(`apply() 注册全部 ${tools.length} 个工具`, registered.length === tools.length, `实际 ${registered.length}`)
+  const domainToolCount = 21
+  ok(`apply() 注册全部 ${tools.length + domainToolCount} 个工具（含 ${domainToolCount} 个 Project Domain 工具）`, registered.length === tools.length + domainToolCount, `实际 ${registered.length}`)
   ok('apply() 注册了 prefix 路由（设置页/画布都要它）', routes.length === 1 && routes[0].path === '/dsh-short-video-studio' && routes[0].kind === 'prefix',
     JSON.stringify(routes.map((r) => r.kind + ':' + r.path)))
   ok('apply() 注册顺序：工具 → systemPrompt → 路由（路由必须最后且被执行到）',

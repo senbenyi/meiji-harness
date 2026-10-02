@@ -9,7 +9,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _internals } from '../lib/index.js'
 
-const { collectUndelivered, deliverPending, makePreAskDeliverListener, markdownToHtml, renderNodeHtml, exportTextNode, deliveryFilename, TEXT_NODE_EXPORT_PDF } = _internals
+const { collectUndelivered, deliverPending, makePreAskDeliverListener, markdownToHtml, renderNodeHtml, exportTextNode, deliveryFilename, TEXT_NODE_EXPORT_PDF, initializeTestProjectDomain, loadProject, saveProject } = _internals
+
+const closeProjectDomain = await initializeTestProjectDomain()
 
 let passed = 0
 function ok(cond, name) {
@@ -223,21 +225,23 @@ console.log('# makePreAskDeliverListener')
     ok(executeCalls[1] === '.delivery/' + sessionId + '/T.pdf', '文本副本：T.pdf')
     ok(!existsSync(join(root, '.delivery', sessionId, '角色卡A.png')), '发送后媒体副本已清理')
     ok(!existsSync(join(root, '.delivery', sessionId, 'T.pdf')), '发送后文本副本已清理')
-    const saved = JSON.parse(readFileSync(join(canvasDir, 'project.json'), 'utf8'))
+    const saved = await loadProject(root, sessionId)
     ok(saved.nodes.every((n) => n.params.deliveredAt > 0), '送达后节点持久化 deliveredAt')
 
     // 路径 4：ask 且产物发送失败 → 不阻塞、记 deliveryError，仍放行
     saved.nodes[0].params = { deliveredAt: undefined }
-    writeFileSync(join(canvasDir, 'project.json'), JSON.stringify(saved), 'utf8')
+    await saveProject(root, sessionId, saved)
     failNext = true
     await listener({ name: 'ask_user_question', agent, signal: undefined }, next)
     ok(nextCount === 4, '失败场景 ask 仍放行')
-    const saved2 = JSON.parse(readFileSync(join(canvasDir, 'project.json'), 'utf8'))
+    const saved2 = await loadProject(root, sessionId)
     ok(String(saved2.nodes[0].params.deliveryError).length > 0, '失败节点记 deliveryError')
     ok(!existsSync(join(root, '.delivery', sessionId, '角色卡A.png')), '发送失败后副本也已清理')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 }
+
+await closeProjectDomain()
 
 console.log(`\npre-ask deliver smoke: ${passed} checks passed`)

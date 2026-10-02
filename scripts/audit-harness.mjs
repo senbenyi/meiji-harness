@@ -65,8 +65,13 @@ function parseEntries(text) {
 
 const profileRequire = createRequire(profilePackage)
 const pnpmRootResult = spawnSync('pnpm', ['root', '-g'], { encoding: 'utf8' })
-const pnpmStore = pnpmRootResult.status === 0
-  ? join(dirname(pnpmRootResult.stdout.trim()), '.pnpm')
+const pnpmRoot = pnpmRootResult.status === 0 ? pnpmRootResult.stdout.trim() : null
+const pnpmStores = pnpmRoot
+  ? [join(pnpmRoot, '.pnpm'), join(dirname(pnpmRoot), '.pnpm')]
+  : []
+const dshBinResult = spawnSync('which', ['dsh'], { encoding: 'utf8' })
+const dshPackageRequire = dshBinResult.status === 0
+  ? createRequire(join(dirname(dirname(realpathSync(dshBinResult.stdout.trim()))), 'package.json'))
   : null
 
 function canonicalPackageName(specifier) {
@@ -89,18 +94,33 @@ function readInstalledPackage(name) {
     })
   } catch {}
 
-  if (pnpmStore && existsSync(pnpmStore)) {
-    const encoded = packageName.replace('/', '+') + '@'
-    for (const entry of readdirSync(pnpmStore)) {
-      if (!entry.startsWith(encoded)) continue
-      const packagePath = join(pnpmStore, entry, 'node_modules', ...packageName.split('/'), 'package.json')
-      if (!existsSync(packagePath)) continue
-      const pkg = JSON.parse(readFileSync(packagePath, 'utf8'))
+  if (dshPackageRequire) {
+    try {
+      const packagePath = dshPackageRequire.resolve(`${packageName}/package.json`)
+      const realPath = realpathSync(packagePath)
+      const pkg = JSON.parse(readFileSync(realPath, 'utf8'))
       found.push({
         version: pkg.version || null,
         description: pkg.description || '',
-        path: dirname(packagePath),
+        path: dirname(realPath),
       })
+    } catch {}
+  }
+
+  for (const pnpmStore of pnpmStores) {
+    if (existsSync(pnpmStore)) {
+      const encoded = packageName.replace('/', '+') + '@'
+      for (const entry of readdirSync(pnpmStore)) {
+        if (!entry.startsWith(encoded)) continue
+        const packagePath = join(pnpmStore, entry, 'node_modules', ...packageName.split('/'), 'package.json')
+        if (!existsSync(packagePath)) continue
+        const pkg = JSON.parse(readFileSync(packagePath, 'utf8'))
+        found.push({
+          version: pkg.version || null,
+          description: pkg.description || '',
+          path: dirname(packagePath),
+        })
+      }
     }
   }
 

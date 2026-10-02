@@ -69,6 +69,7 @@ const SID2 = 'session-assets-b'
 
 let handler = null
 const mockCtx = new Proxy({
+  __testMemoryProjectDomain: true,
   webServer: { register: (route) => { if (route.handler) handler = route.handler; return () => {} } },
   tools: { register: () => () => {}, get: () => undefined, execute: async () => ({}) },
   systemPrompt: { section: () => () => {} },
@@ -81,14 +82,14 @@ const mockCtx = new Proxy({
 }, { get: (t, p) => (p in t ? t[p] : () => () => {}) })
 
 // API 走 ROUTE_ROOT + '/api'；'/' 是静态 index.html（用来取 token）
-async function call(method, path, { body, token } = {}) {
+async function call(method, path, { body, token, sessionId = SID } = {}) {
   const res = new FakeRes()
   const headers = token ? { 'x-dsh-svs-token': token } : {}
   // /media 不在 /api 前缀下（它的 token 也走 query，不走 header）
   const base = path === '/'
     ? ROUTE_ROOT + '/'
     : path.startsWith('/media') ? ROUTE_ROOT + path : ROUTE_ROOT + '/api' + path
-  const url = base + (base.includes('?') ? '&' : '?') + 'sessionId=' + SID + '&workspaceId=ws-assets'
+  const url = base + (base.includes('?') ? '&' : '?') + 'sessionId=' + sessionId + '&workspaceId=ws-assets'
   await handler(makeReq(method, url, body, headers), res)
   // handleMedia 用 createReadStream().pipe(res)，是异步落盘的：不等 finish 就断言会读到半个
   // body（这个坑在本脚本里真实踩过一次）。加超时兜底，避免路径写错时整个脚本挂死。
@@ -99,6 +100,10 @@ async function call(method, path, { body, token } = {}) {
     ])
   }
   return res
+}
+
+async function loadCanvas(token, sessionId = SID) {
+  return (await call('GET', '/canvas', { token, sessionId })).json()
 }
 
 const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -214,21 +219,21 @@ try {
   // ---------------------------------------------------------------------------
   const toVid = await call('POST', '/assets/to-canvas', { token, body: { id: 'clip:shot01' } })
   eq('视频资产 → 画布 → 200', toVid.status, 200)
-  let proj = JSON.parse(readFileSync(join(canvasDir, 'project.json'), 'utf8'))
+  let proj = await loadCanvas(token)
   const vNode = proj.nodes.find((n) => n.id === toVid.json().nodeId)
   eq('  产物节点 kind=video', vNode.kind, 'video')
   eq('  产物绑定资产 id', vNode.params.assetId, 'clip:shot01')
   ok('  产物媒体文件已落到本会话画布目录', existsSync(join(WORKSPACE, ...vNode.media.split('/'))))
 
   const toTxt = await call('POST', '/assets/to-canvas', { token, body: { id: 'text:storyboard' } })
-  proj = JSON.parse(readFileSync(join(canvasDir, 'project.json'), 'utf8'))
+  proj = await loadCanvas(token)
   const tNode = proj.nodes.find((n) => n.id === toTxt.json().nodeId)
   eq('文本资产 → 产物节点 kind=text', tNode.kind, 'text')
   ok('  正文被带回来', tNode.content.includes('狐狸抬头看星星'))
   ok('  文本产物不产生媒体文件', !tNode.media)
 
   const toTbl = await call('POST', '/assets/to-canvas', { token, body: { id: 'text:shotlist' } })
-  proj = JSON.parse(readFileSync(join(canvasDir, 'project.json'), 'utf8'))
+  proj = await loadCanvas(token)
   eq('表格类文本资产 → 产物节点仍是 table', proj.nodes.find((n) => n.id === toTbl.json().nodeId).kind, 'table')
 
   // ---------------------------------------------------------------------------
@@ -307,9 +312,7 @@ try {
     const toOld = await call('POST', '/assets/to-canvas', { token, body: { id: 'scene:old-bridge' } })
     eq('旧记录仍能被取回画布', toOld.status, 200)
     // 覆盖登记同 id：新记录写 file，不能留下指向旧文件的 image 字段
-    const p2 = JSON.parse(readFileSync(join(canvasDir, 'project.json'), 'utf8'))
-    p2.nodes.push(node('n-img2', 'image', { media: `${CANVAS_DIR}/${SID}/${imgName}` }))
-    writeFileSync(join(canvasDir, 'project.json'), JSON.stringify(p2, null, 2))
+    await call('POST', '/canvas/node', { token, body: node('n-img2', 'image', { media: `${CANVAS_DIR}/${SID}/${imgName}` }) })
     await call('POST', '/assets', { token, body: { nodeId: 'n-img2', type: 'scene', name: 'old-bridge' } })
     const l4 = loadLibrary(WORKSPACE)
     ok('覆盖登记后不残留旧 image 字段', !('image' in l4.assets['scene:old-bridge']))
@@ -346,7 +349,7 @@ try {
     const n1 = await copyAssetToCanvas(WORKSPACE, SID2, 'text:shotlist', { nodeId: 'reuse-1' })
     const n2 = await copyAssetToCanvas(WORKSPACE, SID2, 'text:shotlist', { nodeId: 'reuse-1' })
     eq('同 nodeId 复用不报错', n2.id, 'reuse-1')
-    const p3 = JSON.parse(readFileSync(join(WORKSPACE, CANVAS_DIR, SID2, 'project.json'), 'utf8'))
+    const p3 = await loadCanvas(token, SID2)
     eq('  也没有多出重复节点', p3.nodes.filter((n) => n.id === 'reuse-1').length, 1)
     eq('  跨会话可用（另一 sessionId）', n1.kind, 'table')
   }

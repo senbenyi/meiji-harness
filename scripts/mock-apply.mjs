@@ -6,6 +6,7 @@ const registered = { routes: [], tools: [], sections: [] }
 // 宿主 ctx：只实现需要观察的几个 API，其余一律 no-op（宿主演进时本脚本不脆）。
 const noop = () => () => {}
 const mockCtx = new Proxy({
+  __testMemoryProjectDomain: true,
   webServer: {
     register: (route) => { registered.routes.push(route); return () => {} },
   },

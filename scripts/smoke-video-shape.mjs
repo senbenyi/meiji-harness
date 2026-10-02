@@ -67,6 +67,7 @@ const workspace = { id: 'ws-shape', path: '/nonexistent/ws-shape', sessionIds: [
 // 宿主 ctx：只实现本测试需要的 API；**未知 API 一律 no-op**（宿主演进时不至于让冒烟测试变脆）。
 const noop = () => () => {}
 const mockCtx = new Proxy({
+  __testMemoryProjectDomain: true,
   webServer: { register: () => () => {} },
   tools: { register: (t) => { registered.push(t); return () => {} }, get: () => undefined, execute: async () => ({}) },
   systemPrompt: { section: () => () => {} },
