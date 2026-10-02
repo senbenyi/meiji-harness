@@ -43,11 +43,16 @@ export function renderSkillDetail({ id }, handlers) {
     })
     save.disabled = !editable
     additions.append(save, status)
-    const navigation = tabs('skill', [['base', '基础 skill'], ['addition', '补充 skill']], 'base', key => {
+    // 审核 skill：自审使用的验收标准，与基础生产规则分开展示（只读）。
+    const review = element('section', '', 'settings-group skill-review')
+    review.hidden = true
+    if (skill.review) review.append(element('pre', skill.review, 'skill-text'))
+    const navigation = tabs('skill', [['base', '基础 skill'], ...(skill.review ? [['review', '审核 skill']] : []), ['addition', '补充 skill']], 'base', key => {
       base.hidden = key !== 'base'
+      review.hidden = key !== 'review'
       additions.hidden = key !== 'addition'
     })
-    page.replaceChildren(header(skill.label), navigation, base, additions)
+    page.replaceChildren(header(skill.label), navigation, base, review, additions)
   }
   const load = () => {
     page.replaceChildren(header(id), element('p', '正在读取…', 'skill-status'))

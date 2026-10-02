@@ -1,9 +1,9 @@
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { StoryOutlineModel } from '../server/prompts/models/story-outline-model.js'
-import { StoryCharacterModel } from '../server/prompts/models/story-character-model.js'
-import { StorySceneModel } from '../server/prompts/models/story-scene-model.js'
+import { StoryOutlineModel } from '../server/prompts/models/story-model.js'
+import { StoryCharacterModel } from '../server/prompts/models/story-model.js'
+import { StorySceneModel } from '../server/prompts/models/story-model.js'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
 import { generateStoryPackage } from '../server/generate/story.js'
 import { checkContext } from '../server/data/operation-context.js'
@@ -16,7 +16,7 @@ import { builtinSkill } from '../skills/load.js'
 
 for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterModel, 'characters'], [StorySceneModel, 'scenes']]) {
   test(`${kind}: model independently assembles generation, revision and review`, () => {
-    const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', generationRules: 'RULE' })
+    const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', generationRules: 'RULE', reviewRules: 'REVIEW_RULE' })
     const generated = model.toGenerateMessages()
     assert.deepEqual(generated.map(message => message.role), ['system', 'user'])
     assert.match(generated[0].content, kind === 'outline' ? /完整大纲纯文本/ : /顶层仅含 items/)
@@ -26,17 +26,19 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
     assert.doesNotMatch(revised[1].content, /BASE/)
     const reviewed = model.toReviewMessages({ content: 'RESULT' })
     assert.match(reviewed[0].content, /独立.*审核员/)
-    assert.match(reviewed[0].content, /RULE/)
+    assert.match(reviewed[0].content, /【审核标准】\nREVIEW_RULE/)
+    assert.doesNotMatch(reviewed[0].content + reviewed[1].content, /(^|[^_])RULE/)
     assert.match(reviewed[1].content, /BASE/)
     assert.match(reviewed[1].content, /RESULT/)
     for (const automatic of [false, true]) {
       const review = model.toReviewMessages({ content: 'RESULT', automatic })
-      assert.match(review[1].content, /只返回统一审核 JSON/)
+      assert.match(review[0].content, /【本次审核协议】/)
+      assert.match(review[1].content, /【审核目标】/)
       assert.doesNotMatch(review[1].content, /仅生成本集完整剧情大纲|返回人物 items|返回无人物的环境卡 items/)
       assert.doesNotMatch(review[0].content, /JSON 字符串里的换行正确转义/)
     }
-    assert.doesNotMatch(generated[1].content, /只返回统一审核 JSON/)
-    assert.doesNotMatch(revised[1].content, /只返回统一审核 JSON/)
+    assert.doesNotMatch(generated[1].content, /【审核目标】|【本次审核协议】/)
+    assert.doesNotMatch(revised[1].content + revised[0].content, /【审核目标】|【本次审核协议】/)
   })
 }
 
@@ -52,7 +54,7 @@ test('review returning an outline instead of a verdict fails and retains the gen
   assert.equal(saved.at(-1).outline, draft)
 })
 
-test('每个剧情步骤生成和审核共用同一基础规则，输出协议独立', () => {
+test('每个剧情步骤生成用生产规则、自审用对应审核 skill，输出协议独立', () => {
   for (const [kind, generation, criteria, other] of [
     ['outline', '故事大纲', '大纲验收', '人物验收|场景验收'],
     ['characters', '角色卡', '人物验收', '大纲验收|场景验收'],
@@ -62,7 +64,11 @@ test('每个剧情步骤生成和审核共用同一基础规则，输出协议�
     const rules = builtinSkill('outline').rules[kind]
     assert.ok(rules.trim())
     assert.ok(prompts.generation.system.includes(rules))
-    assert.ok(prompts.review('DRAFT').system.includes(rules))
+    const review = builtinSkill('outline').reviewRules[kind]
+    assert.ok(review.trim())
+    assert.ok(prompts.review('DRAFT').system.includes(review))
+    assert.ok(!prompts.review('DRAFT').system.includes(rules))
+    assert.ok(!prompts.generation.system.includes(review))
     assert.doesNotMatch(prompts.review('DRAFT').system, new RegExp(other))
     assert.doesNotMatch(prompts.generation.system, /【自检标准】|审核通用协议|一次调用、一次返回完整结果/)
     assert.doesNotMatch(prompts.review('DRAFT').system, /审核通用协议|独立审片师/)
@@ -209,14 +215,11 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
   assert.equal(contentTargets(root).find(item => item.key === 'story').check.passed, false)
 })
 
-test('three models own their structures and prompt assembly without a business base class', () => {
+test('四类剧情资料共用 StoryModel，差异只在 storyKinds 配置中声明', async () => {
+  const { StoryModel, storyKinds } = await import('../server/prompts/models/story-model.js')
   const project = { ...episodeFixture(), projectSummary: 'PROJECT_BACKGROUND', script: 'SOURCE_SCRIPT', previousEpisodeSummary: 'PREVIOUS', nextEpisodeSummary: 'FOLLOWING' }
-  for (const Model of [StoryOutlineModel, StoryCharacterModel, StorySceneModel]) {
-    assert.equal(Object.getPrototypeOf(Model.prototype), Object.prototype)
-    for (const method of ['contextSegments', 'creationSystem', 'toGenerateSegments', 'toReviseSegments', 'toReviewSegments']) {
-      assert.ok(Object.hasOwn(Model.prototype, method), `${Model.name}.${method}`)
-    }
-  }
+  assert.deepEqual(Object.keys(storyKinds), ['outline', 'characters', 'scenes', 'props'])
+  for (const Model of [StoryOutlineModel, StoryCharacterModel, StorySceneModel]) assert.equal(Object.getPrototypeOf(Model.prototype), StoryModel.prototype)
   const outline = new StoryOutlineModel({ project, mode: 'generate' })
   const character = new StoryCharacterModel({ project })
   const scene = new StorySceneModel({ project })
@@ -240,7 +243,8 @@ test('edited story material still receives comprehensive review without an extra
   assert.equal(prompt.json, true)
   assert.match(prompt.user, /阶段：剧情整包/)
   assert.match(prompt.user, /EDITED/)
-  assert.ok(prompt.system.includes(builtinSkill('outline').rules.outline))
+  for (const kind of ['outline', 'characters', 'scenes']) assert.ok(prompt.system.includes(builtinSkill('outline').reviewRules[kind]))
+  assert.ok(!prompt.system.includes(builtinSkill('outline').rules.outline))
   assert.match(prompt.system, /人物、场景卡的覆盖性/)
   assert.match(prompt.system, /先独立从最新大纲盘点/)
   assert.match(prompt.system, /passed 和 issues/)

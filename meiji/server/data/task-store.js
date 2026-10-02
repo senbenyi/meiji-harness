@@ -19,7 +19,7 @@ const now = () => new Date().toISOString()
 // 人工编辑：保存后内容待审（见 prepareContentRecords）。
 export const manualActions = new Set(['episode-add', 'episode-edit', 'source', 'outline-text', 'scene-text', 'character-text', 'storyboard-text', 'shot-assets'])
 // 由人发起的操作，任务与步骤的执行者记为 human。
-const humanActions = new Set([...manualActions, 'overview', 'confirm-image', 'discard-image', 'clear-image', 'use-asset', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'review-override'])
+const humanActions = new Set([...manualActions, 'overview', 'confirm-image', 'discard-image', 'clear-image', 'use-asset', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'review-override', 'prop-delete'])
 // 不写任务记录：没有项目，或会删除记录所在目录。
 const unrecorded = new Set(['create', 'open', 'library-import', 'project-delete', 'episode-delete'])
 export const recorded = operation => Boolean(operation?.projectId) && !unrecorded.has(operation.action)

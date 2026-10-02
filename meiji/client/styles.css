@@ -360,3 +360,16 @@ dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min
 .character-studio .is-reference .studio-actions{flex-direction:column}
 .character-studio .is-reference .studio-actions button{width:100%}
 @container workbench (max-width:520px){.character-studio .studio-pair{grid-template-columns:minmax(0,1fr)}.character-studio .is-main .studio-frame,.character-studio .is-main .studio-frame button.asset-still,.character-studio .is-main .studio-frame button.asset-still img{height:260px}.character-studio .is-reference .studio-actions{flex-direction:row}.character-studio .is-reference .studio-actions button{width:auto}}
+
+/* 生成按钮 + 查看任务 + 停止：运行中作为一个整体显示在同一行 */
+.task-group{display:inline-flex;align-items:stretch;flex:none;max-width:100%;vertical-align:middle}
+.task-group>button{margin:0}
+.task-group.is-running>button{border-radius:0}
+.task-group.is-running>button:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px}
+.task-group.is-running>button:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px}
+.task-group.is-running>button:first-child:disabled{opacity:1;cursor:progress}
+.task-group-extra{display:inline-flex;align-items:center;margin:0;padding:4px 10px;border:1px solid #4a3f2c;border-left-width:0;background:#2a261f;color:#dfc196;font-size:12px;line-height:18px;white-space:nowrap;cursor:pointer}
+.task-group-extra:hover{background:#3a3326}
+.task-group-stop{color:#f0a0a0}
+.task-group-stop:hover{background:#3d2528;color:#ffb3b3}
+.task-group-extra:focus-visible{outline:2px solid #dfc196;outline-offset:-2px}

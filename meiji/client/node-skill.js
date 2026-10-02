@@ -35,11 +35,15 @@ export function renderNodeSkill(project, nodeKey, { load, save, back }) {
       finally { submit.disabled = false }
     }
     additions.append(input, submit)
-    const navigation = tabs('skill', [['base', '基础 skill'], ['addition', '补充 skill']], 'base', key => {
+    const review = element('section', '', 'settings-group skill-review')
+    review.hidden = true
+    if (skill.review) review.append(element('pre', skill.review, 'skill-text'))
+    const navigation = tabs('skill', [['base', '基础 skill'], ...(skill.review ? [['review', '审核 skill']] : []), ['addition', '补充 skill']], 'base', key => {
       base.hidden = key !== 'base'
+      review.hidden = key !== 'review'
       additions.hidden = key !== 'addition'
     })
-    body.replaceChildren(navigation, base, additions)
+    body.replaceChildren(navigation, base, review, additions)
   }
   const reload = async () => {
     body.replaceChildren(element('p', '正在读取…', 'skill-status'))

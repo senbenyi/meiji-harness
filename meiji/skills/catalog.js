@@ -1,4 +1,5 @@
-// 功能技能注册信息。基础生产规则只读，正文只来自 task 的功能文件。
+// 功能技能注册信息。基础生产规则只读，正文只来自 task 的功能文件；
+// 自审使用 review 目录中对应的审核 skill（reviewFile / reviewVariants），不复用生成规则。
 export const stageCatalog = [
   {
     "id": "episode",
@@ -10,7 +11,8 @@ export const stageCatalog = [
     "fields": [],
     "order": 1,
     "fixedConstraints": true,
-    "constraintFile": "generate-episode-summary-skill.md"
+    "constraintFile": "generate-episode-summary-skill.md",
+    "reviewFile": "review-episode-summary-skill.md"
   },
   {
     "id": "outline",
@@ -32,6 +34,13 @@ export const stageCatalog = [
       "characters": "extract-story-characters-skill.md",
       "scenes": "extract-story-scenes-skill.md",
       "props": "extract-story-props-skill.md"
+    },
+    "reviewFile": "review-story-outline-skill.md",
+    "reviewVariants": {
+      "outline": "review-story-outline-skill.md",
+      "characters": "review-story-characters-skill.md",
+      "scenes": "review-story-scenes-skill.md",
+      "props": "review-story-props-skill.md"
     }
   },
   {
@@ -50,7 +59,8 @@ export const stageCatalog = [
     "fields": [],
     "order": 3,
     "fixedConstraints": true,
-    "constraintFile": "generate-shot-table-skill.md"
+    "constraintFile": "generate-shot-table-skill.md",
+    "reviewFile": "review-shot-table-skill.md"
   },
   {
     "id": "shot-revise",
@@ -68,7 +78,8 @@ export const stageCatalog = [
     "fields": [],
     "order": 4,
     "fixedConstraints": true,
-    "constraintFile": "generate-shot-table-skill.md"
+    "constraintFile": "generate-shot-table-skill.md",
+    "reviewFile": "review-shot-revision-skill.md"
   },
   {
     "id": "seconds",
@@ -83,7 +94,8 @@ export const stageCatalog = [
     "fields": [],
     "order": 5,
     "fixedConstraints": true,
-    "constraintFile": "generate-seconds-instructions-skill.md"
+    "constraintFile": "generate-seconds-instructions-skill.md",
+    "reviewFile": "review-seconds-instructions-skill.md"
   },
   {
     "id": "storyboard",
@@ -99,7 +111,8 @@ export const stageCatalog = [
     "fields": [],
     "order": 6,
     "fixedConstraints": true,
-    "constraintFile": "generate-text-storyboard-skill.md"
+    "constraintFile": "generate-text-storyboard-skill.md",
+    "reviewFile": "review-text-storyboard-skill.md"
   },
   {
     "id": "video",
@@ -122,7 +135,8 @@ export const stageCatalog = [
     "fields": [],
     "order": 8,
     "fixedConstraints": true,
-    "codeOnly": true
+    "codeOnly": true,
+    "reviewFile": "review-image-prompt-skill.md"
   },
   {
     "id": "character-image",

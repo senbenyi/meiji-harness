@@ -1,14 +1,17 @@
 # 剧情提示词 Model
 
-## 三个业务模型
+## 统一的剧情 Model
 
-| 文件 | 类 | 负责内容 | 输出 |
-|---|---|---|---|
-| server/prompts/models/story-outline-model.js | StoryOutlineModel | 本集大纲、事件因果、跨集衔接 | `{ "outline": "完整大纲" }` |
-| server/prompts/models/story-character-model.js | StoryCharacterModel | 从最终大纲提取实际可见身体身份，生成人物资料 | `{ "items": [...] }` |
-| server/prompts/models/story-scene-model.js | StorySceneModel | 从最终大纲提取实际空间，生成场景资料 | `{ "items": [...] }` |
+`server/prompts/models/story-model.js` 的 `StoryModel` 编排大纲、人物、场景、道具四类资料；`storyKinds` 为每类声明职责、上游资料、本次目标与审核目标、审核范围、输出协议及 fields。导出的 `StoryOutlineModel`、`StoryCharacterModel`、`StorySceneModel`、`StoryPropsModel` 只是指定 kind 的子类。
 
-三个模型各自管理资料结构、上下文及生成/修订/审核编排，不继承业务基类。共用的 prompt-text.js 仅负责内容文本化和消息序列化，不选择业务字段、任务模式或提示词规则。每个业务模型声明 fields，人物保留姓名、国籍、身份、性别、年代、年龄、服装、身高、体型、面相、外貌、道具、身体与意识关系及 look；场景保留 name、landmark、light、space、look。
+| kind | 负责内容 | 输出 |
+|---|---|---|
+| outline | 本集大纲、事件因果、跨集衔接 | 大纲纯文本 |
+| characters | 从最终大纲提取实际可见身体身份 | `{ "items": [...] }` |
+| scenes | 从最终大纲提取实际空间 | `{ "items": [...] }` |
+| props | 从最终大纲提取需复用的重要道具与着装 | `{ "items": [...] }` |
+
+三类请求由 `request.js` 统一组装：生成/修订使用生产规则（skills/task），审核使用对应审核 skill（skills/review）。人物保留姓名、国籍、身份、性别、年代、年龄、服装、身高、体型、面相、外貌、道具、身体与意识关系及 look；场景保留 name、landmark、light、space、look。
 
 ## 赋值与提示词函数
 

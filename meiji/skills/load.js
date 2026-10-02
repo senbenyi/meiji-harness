@@ -1,5 +1,5 @@
-// 每个功能一份基础生产规则；生成、审核和修订由对应 Model 编排。
-// task 只放平铺的功能 Markdown；注册信息和输出协议由代码管理。
+// 每个功能一份基础生产规则（task/）和一份审核 skill（review/）；生成、审核和修订由对应 Model 编排。
+// 两个目录都只放平铺的功能 Markdown；注册信息和输出协议由代码管理。
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -19,11 +19,18 @@ function loadCatalog(base) {
   const expected = new Set(stageCatalog.flatMap(meta => [meta.constraintFile, ...Object.values(meta.constraintVariants || {})]).filter(Boolean))
   const entries = readdirSync(dir).filter(name => !name.startsWith('.'))
   for (const name of entries) if (!expected.has(name)) throw skillError(`md 文件 ${name} 未登记；task 只允许平铺功能约束`)
+  // 审核 skill：每个有自审的功能一份，平铺在 review/，与生成规则分开维护。
+  const reviewDir = join(base, 'review')
+  const expectedReview = new Set(stageCatalog.flatMap(meta => [meta.reviewFile, ...Object.values(meta.reviewVariants || {})]).filter(Boolean))
+  const reviewEntries = readdirSync(reviewDir).filter(name => !name.startsWith('.'))
+  for (const name of reviewEntries) if (!expectedReview.has(name)) throw skillError(`审核 md 文件 ${name} 未登记；review 只允许平铺功能审核 skill`)
   const skills = new Map()
   for (const meta of stageCatalog) {
     const rules = Object.fromEntries(Object.entries(meta.constraintVariants || {}).map(([key, file]) => [key, read(join(dir, file))]))
     const constraints = meta.codeOnly ? '' : read(join(dir, meta.constraintFile))
-    skills.set(meta.id, { ...meta, rules, constraints, parts: { common: '', generate: constraints, review: '', revise: '' }, protocol: protocols[meta.id] || '' })
+    const reviewRules = Object.fromEntries(Object.entries(meta.reviewVariants || {}).map(([key, file]) => [key, read(join(reviewDir, file))]))
+    const review = meta.reviewFile ? read(join(reviewDir, meta.reviewFile)) : ''
+    skills.set(meta.id, { ...meta, rules, constraints, reviewRules, review, parts: { common: '', generate: constraints, review, revise: '' }, protocol: protocols[meta.id] || '' })
   }
   return { skills, guidance: [] }
 }

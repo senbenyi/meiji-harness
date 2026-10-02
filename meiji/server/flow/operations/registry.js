@@ -41,6 +41,7 @@ export const definitions = {
   'shot-assets': { label: '修改镜头素材', scope: 'shot', queue: 'text', agent: false, step: save('shots') },
   characters: { label: '按意见修订人物卡', scope: 'episode', queue: 'text', agent: true, plan: () => text('characters') },
   props: { label: '提取道具', scope: 'episode', queue: 'text', agent: true, plan: () => text('props') },
+  'prop-delete': { label: '删除道具', scope: 'episode', queue: 'text', agent: false, step: save('props') },
   scenes: { label: '按意见修订场景卡', scope: 'episode', queue: 'text', agent: true, plan: () => text('scenes') },
   outline: { label: '生成剧情（大纲、角色、场景、道具）', scope: 'episode', queue: 'text', agent: true, plan: () => ['outline', 'characters', 'scenes', 'props'].flatMap(text) },
   shots: { label: '写镜头表', scope: 'episode', queue: 'text', agent: true, plan: () => text('shots') },

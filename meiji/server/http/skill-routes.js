@@ -28,7 +28,7 @@ function detail(skill) {
     ? guidanceSkillIds().map(builtinSkill).filter(item => item.stages[meta.guidanceStage]).map(item => ({ id: item.id, name: guidanceName(item.id), label: item.label, placement: item.stages[meta.guidanceStage], defaultEnabled: item.defaultEnabled, assetTypes: item.assetTypes }))
     : []
   const stages = meta.kind === 'guidance' ? Object.entries(meta.stages).map(([stage, placement]) => ({ stage, placement })) : []
-  return { ...summary(skill), nodeScoped: ['episode', 'outline'].includes(skill.id), fields, protocol: meta.protocol || '', ...(meta.fixedConstraints ? { constraints: meta.constraints } : {}), guidance, stages, assetStages: meta.assetStages || [], related: meta.related || [] }
+  return { ...summary(skill), nodeScoped: ['episode', 'outline'].includes(skill.id), fields, protocol: meta.protocol || '', ...(meta.fixedConstraints ? { constraints: meta.constraints } : {}), review: meta.review || '', guidance, stages, assetStages: meta.assetStages || [], related: meta.related || [] }
 }
 
 export function skillRoutes({ home, projects, links, json, readJson }) {
@@ -51,9 +51,9 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
       const id = nodeStage(nodeKey), skill = detail(await store.get(id))
       if (id === 'outline' && ['outline', 'characters', 'scenes', 'props'].includes(nodeKey)) {
         skill.constraints = builtinSkill(id).rules[nodeKey]
-        const selected = { outline: ['故事大纲', '大纲输出', '大纲验收'], characters: ['角色卡', '人物输出', '人物验收'], scenes: ['场景卡', '场景输出', '场景验收'], props: ['道具卡', '道具输出', '道具验收'] }[nodeKey]
-        for (const field of skill.fields) if (field.field === 'generate' || field.field === 'review') field.text = sections(field.text, field.field === 'generate' ? '###' : '##', ['通用验收', ...selected])
-        skill.protocol = sections(skill.protocol, '##', [selected[1]])
+        skill.review = builtinSkill(id).reviewRules[nodeKey] || ''
+        // 输出协议按节点只展示对应小节。
+        skill.protocol = sections(skill.protocol, '##', [{ outline: '大纲输出', characters: '人物输出', scenes: '场景输出', props: '道具输出' }[nodeKey]])
       }
       return json(res, 200, { skill, items: nodeSkills(root, episodeId, nodeKey), ...(req.method !== 'GET' ? { project: root } : {}) })
     }

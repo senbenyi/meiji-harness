@@ -190,7 +190,7 @@ function buildSkillSet(overrides, projectValue) {
   const project = projectSkills(projectValue)
   for (const skill of builtinSkills()) {
     const merged = mergeBase(skill, overrides.get(skill.id))
-    skills[skill.id] = { parts: merged.parts, layers: merged.layers, ...(skill.fixedConstraints ? { constraints: skill.constraints, rules: skill.rules } : {}) }
+    skills[skill.id] = { parts: merged.parts, layers: merged.layers, review: skill.review, reviewRules: skill.reviewRules, ...(skill.fixedConstraints ? { constraints: skill.constraints, rules: skill.rules } : {}) }
     if (skill.fixedConstraints && !editableFields(skill).length) delete project.additions[skill.id]
   }
   return { skills, project }

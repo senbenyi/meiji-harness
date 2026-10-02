@@ -46,7 +46,7 @@ test('character extraction independently reviews body coverage and stops scene e
       calls++
       if ([4,6].includes(calls)) {
         assert.match(message.user, /阶段：人物提取/)
-        assert.match(message.system, /按可见身体建卡/)
+        assert.match(message.system, /剧情明确进入另一个身体（穿越、夺舍、变身等）后，没有为新身体单独建卡/)
       }
       return replies.shift()
     } })

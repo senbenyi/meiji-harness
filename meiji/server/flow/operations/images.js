@@ -47,7 +47,7 @@ export async function startImage(operation, project, { projects, models, home, s
   let reference = '纯文字生图'
   if (imageModification) {
     const instruction = String(operation.instruction || operation.review || checkContext.getStore()?.review || '').trim()
-    if (!instruction || instruction.length > 2000) throw Object.assign(new Error(instruction ? '审核意见过长' : `${subject}图修改需要输入意见`), { status: 400 })
+    if (!instruction) throw Object.assign(new Error(`${subject}图修改需要输入意见`), { status: 400 })
     const candidate = checkContext.getStore()?.originalCandidate
     let file
     if (candidate) {
@@ -315,7 +315,6 @@ async function opPencil(c) {
   const item = shotResults(project, 'storyboard').find(entry => entry.id === track)
   if (!(item?.format === 'text' ? item.prompt?.text : item?.panels?.length) || !/^S[0-9]{2,}$/.test(track)) throw Object.assign(new Error('请先写好这一镜的文本分镜'), { status: 409 })
   const review = String(operation.review || '').trim()
-  if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   await projects.save(project.id, { activity: `pencil:${track}`, activityError: null })
   const base = pencilPrompt(item)
   const source = imageSkillPrompt('pencil', review ? `${base}\n审核意见：${review}` : base, project)

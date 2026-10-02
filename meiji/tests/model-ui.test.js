@@ -215,11 +215,19 @@ test('single shot seconds detail is read only',async t=>{
  assert.match(container.textContent,/卡片集顶部统一/)
  assert.equal(container.querySelector('.workflow-review'),null)
 })
-test('shared review is absent without generated content and shows only current failures',async t=>{
+test('shared review hides empty initial state but displays failures without generated content',async t=>{
  const container=domSetup(t),{appendWorkflowReview}=await import('../client/workflow-review.js')
- const record={id:'film:S01',review:{text:'',revision:0},check:{passed:false,failures:['失败原因']}}
- let area=appendWorkflowReview(container,record,false,false,document.createElement('button'))
+ const record={id:'seconds',review:{text:'',revision:0},check:{passed:false,failures:['失败原因']}}
+ appendWorkflowReview(container,{...record,check:{passed:null,failures:[]}},false)
  assert.equal(container.querySelector('.workflow-review'),null)
+ let area=appendWorkflowReview(container,record,false,false,document.createElement('button'))
+ assert.ok(area.classList.contains('workflow-review-failed'))
+ assert.match(area.textContent,/失败原因/)
+ assert.match(area.textContent,/尚未保存可用内容/)
+ assert.equal(area.querySelector('input'),null)
+ assert.equal(area.querySelector('.workflow-review-override'),null)
+ assert.equal(area.querySelector('.workflow-review-action').disabled,true)
+ container.replaceChildren()
  area=appendWorkflowReview(container,record,true,false,document.createElement('button'))
  assert.match(area.textContent,/失败原因/)
  container.replaceChildren()
@@ -227,6 +235,25 @@ test('shared review is absent without generated content and shows only current f
  assert.equal(area.querySelector('.workflow-review-failures'),null)
  assert.ok(area.querySelector('input'))
  assert.equal(area.querySelector('.workflow-review-heading'),null)
+})
+test('seconds renders unpublished task failure and clears it after a successful refresh',t=>{
+ const container=domSetup(t),p=episodeFixture(),calls=[]
+ p.shots.items.forEach(shot=>{shot.seconds.content=null;shot.seconds.check={passed:null,failures:[]};shot.seconds.status='not-generated'})
+ p.shots.seconds.status='failed';p.shots.seconds.error='自审未通过：S01 节拍总时长5000ms，应为6000ms'
+ const build=()=>renderStage('seconds',p,{perform:async(...args)=>calls.push(args),openHistory:()=>{},fail:()=>{}},{})
+ container.append(build())
+ const area=container.querySelector('.workflow-review-failed')
+ assert.ok(area);assert.match(area.textContent,/S01 节拍总时长5000ms，应为6000ms/)
+ assert.equal(area.querySelector('.workflow-review-action').disabled,true)
+ assert.equal(area.querySelector('.workflow-review-override'),null)
+ assert.ok([...container.querySelectorAll('button')].some(b=>/查看.*任务历史/.test(b.textContent)))
+ container.querySelector('.workflow-regenerate').click()
+ assert.equal(calls[0][2].generationMode,'regenerate')
+ p.shots.seconds.error=null;p.shots.seconds.status='passed'
+ for(const shot of p.shots.items){shot.seconds.content={beats:[]};shot.seconds.check={passed:true,failures:[]};shot.seconds.status='passed'}
+ renderModelView(container,build())
+ assert.equal(container.querySelector('.workflow-review-failed'),null)
+ assert.doesNotMatch(container.textContent,/5000ms|尚未保存可用内容/)
 })
 test('plot has one generation entry and one review for outline, characters and scenes',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]

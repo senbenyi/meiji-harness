@@ -109,14 +109,15 @@ for (const mode of ['new', 'regenerate', 'modify']) {
   })
 }
 
-test('summary checks run after drafting and independent review receives the same acceptance constraints', async () => {
+test('summary checks run after drafting and independent review receives the episode review skill', async () => {
   const { buildEpisodePrompts } = await import('../server/prompts/episode-prompts.js')
   const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
   const rules = builtinSkill('episode').constraints
   assert.ok(prompts.generation.system.includes(rules))
   assert.match(prompts.generation.system, /不输出检查过程/)
   const review = prompts.review('{"summary":"待审摘要","durationSeconds":120}')
-  assert.ok(review.system.includes(rules))
+  assert.ok(review.system.includes(builtinSkill('episode').review))
+  assert.ok(!review.system.includes(rules))
   assert.match(review.system, /无具体违规依据时不判失败/)
   assert.match(review.system, /只审核，不生成或修改原文/)
   assert.match(review.user, /【本次待审内容】\n.*待审摘要/)

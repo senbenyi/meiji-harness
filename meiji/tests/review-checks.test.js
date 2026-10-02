@@ -11,6 +11,60 @@ import { checkReasons, setCheck } from '../server/data/review-checks.js'
 import { targetNode, begin, saveReview, finish } from '../shared/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/pictures.js'
 const reply=(text,verdict=reviewPass)=>async ({ skill }) =>skill==='review'?verdict:skill==='seconds'?secondsResponse([['S01',5,text]]):text
+
+for (const [action, key, fields] of [
+  ['shots', 'shots', {}],
+  ['shot-seconds', 'seconds:S01', { track: 'S01' }],
+  ['pencil', 'pencil:S01', { track: 'S01' }],
+]) test(`${action} passes complete long self-check feedback with a short human opinion`, async t => {
+  const e = await setupModel(t)
+  const reasons = Array.from({ length: 13 }, (_, i) => `位置：S01 第${i + 1}项；原因：${'需保留的动作与空间问题'.repeat(20)}；修正要求：完整处理第${i + 1}项`)
+  const human = '保留既定剧情'
+  const store = scopeProjects(e.store, e.episodeId)
+  await store.save(e.id, p => {
+    targetNode(p, key).check = { passed: false, failures: reasons }
+    if (action === 'pencil') targetNode(p, key).content = { url: 'old.png' }
+    return p
+  })
+  let called = 0
+  const verify = text => {
+    called++
+    for (const reason of reasons) assert.ok(text.includes(reason), 'must preserve every complete self-check issue')
+    assert.ok(text.includes(human))
+  }
+  const deps = { home: e.home,
+    generateShots: opts => generateShots({ ...opts, request: async ({ skill, user }) => {
+      if (skill === 'review') return reviewPass
+      verify(user)
+      return '## S01 / 5s\n标题：进入庭院\n旅人朝北进入庭院。\n\n## S02 / 5s\n标题：等待回应\n旅人在门外等待。'
+    } }),
+    generateShotSeconds: opts => generateShotSeconds({ ...opts, request: async ({ skill, user }) => {
+      if (skill === 'review') return reviewPass
+      verify(user)
+      return secondsResponse([['S01', 5, '沿原路径继续前行']])
+    } }),
+    submitPencilBoard: async args => { verify(args.prompt) },
+  }
+  await runOperation(e.op(action, { ...fields, generationMode: 'modify', review: human }), deps)
+  assert.equal(called, 1)
+})
+
+test('shots can revise from long self-check feedback without any human opinion', async t => {
+  const e = await setupModel(t)
+  const reason = `位置：S01；原因：${'空间连续性问题'.repeat(400)}；修正要求：修正镜头衔接`
+  await scopeProjects(e.store, e.episodeId).save(e.id, p => {
+    p.shots.check = { passed: false, failures: [reason] }
+    return p
+  })
+  let called = false
+  await runOperation(e.op('shots', { generationMode: 'modify' }), { home: e.home, generateShots: async opts => {
+    called = true
+    assert.equal(opts.review, reason)
+    return { ...opts.project.shots, check: { passed: true, failures: [] } }
+  } })
+  assert.equal(called, true)
+})
+
 // 意见只在「按意见修改」时由调用方显式传入；失败后保留在节点上供再次修改。
 test('generation failure retains opinion and content, modify retry consumes opinion on success',async t=>{const e=await setupModel(t);await assert.rejects(runOperation(e.op('shot-seconds',{track:'S01',review:'不要转身'}),{home:e.home,generateShotSeconds:async()=>{throw new Error('网络失败')}}),/网络失败/);let p=await e.read();assert.equal(p.shots.items[0].seconds.review.text,'不要转身');assert.ok(p.shots.items[0].seconds.content);await runOperation(e.op('shot-seconds',{track:'S01',generationMode:'modify',review:p.shots.items[0].seconds.review.text}),{home:e.home,generateShotSeconds:opts=>{assert.match(opts.review,/不要转身/);return generateShotSeconds({...opts,request:reply('0–5s 朝北不转身')})}});p=await e.read();assert.equal(p.shots.items[0].seconds.review.text,'');assert.equal(p.shots.items[0].seconds.status,'passed')})
 test('self-check failure and human opinion remain distinct',async t=>{const e=await setupModel(t);await runOperation(e.op('shot-seconds',{track:'S01',review:'保留动作'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:reply('新的指令',reviewFail('缺少空间'))})});const n=(await e.read()).shots.items[0].seconds;assert.equal(n.review.text,'保留动作');assert.deepEqual(n.check.failures,['位置：本次内容；原因：缺少空间；修正要求：修正上述问题']);assert.equal(n.status,'failed');assert.equal(n.content.beats[0].action,'新的指令')})

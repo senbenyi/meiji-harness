@@ -49,8 +49,8 @@ test('invalid table syntax is reviewed and revised once',async()=>{
 test('summary re-review compares the current revision base and opinion without restoring older source', async () => {
   let generation = 0, reviews = 0
   await runTextSteps({
-    prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
-    reviewInstructions: '任务依据：向北走；人工意见：保持背影。' }),
+    prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: { task: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
+    review: '任务依据：向北走；人工意见：保持背影。' } }),
     options: { project: { durationSeconds: 5 }, request: async ({ skill, user: prompt }) => {
       if (skill !== 'review') {
         generation++

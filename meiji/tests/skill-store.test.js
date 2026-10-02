@@ -19,7 +19,10 @@ test('基础生产规则只读，旧审核覆盖不再参与新任务', async t 
   const set = await loadSkillSet(home, { additions: { shots: { review: '旧审核', generate: '旧基础' } } })
   assert.deepEqual(set.project.additions.shots, undefined)
   assert.equal(set.skills.shots.constraints, builtinSkill('shots').constraints)
-  assert.equal(set.skills.shots.parts.review, '')
+  // 自审使用内置审核 skill（review/），旧的审核覆盖与补充不会替换它。
+  assert.equal(set.skills.shots.review, builtinSkill('shots').review)
+  assert.equal(set.skills.shots.parts.review, builtinSkill('shots').review)
+  assert.doesNotMatch(set.skills.shots.review, /旧审核/)
 })
 
 test('skill HTTP endpoints: library, detail, confirmed base save, reset and preview', async t => {

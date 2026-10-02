@@ -1,5 +1,5 @@
 // 文本请求分发与序列化。角色内容、顺序和 JSON 模式由 interfaces/<skill>.js 决定。
-// task：{ skill: 阶段技能 ID, project, instructions, reviewInstructions, opinion, reviewContext, mode（文本分镜模式）, modify（按人工意见修改）}
+// task：{ skill: 阶段技能 ID, project, instructions（{ task, review, facts } 或任务文本）, opinion, reviewContext, mode（文本分镜模式）, modify（按人工意见修改）}
 import { isSkill } from '../../skills/load.js'
 import { continuityReviewContext } from './continuity-review.js'
 import { storyboardContext } from './storyboard-context.js'
@@ -27,7 +27,7 @@ export function buildRevisionPrompt(task, content, review) {
 export function buildTextPrompts(task) {
   return {
     generation: buildGenerationPrompt(task),
-    review: (content, revision = {}) => buildReviewPrompt({ ...task, instructions: task.reviewInstructions || task.instructions, ...revision }, content),
+    review: (content, revision = {}) => buildReviewPrompt({ ...task, ...revision }, content),
     revision: (content, review) => buildRevisionPrompt(task, content, review),
   }
 }
@@ -48,8 +48,9 @@ export function buildEditedContentReview({ project, stage, shotId }, text) {
         task: `只审核 ${shot.id} 已编辑的最终提示词是否忠实转写本镜每秒指令、正确绑定素材并符合输出结构，不生成或改写原文。` }),
     }, text)
   }
-  return buildReviewPrompt({ project, skill,
-    instructions: `只审核已编辑原文，不生成或改写内容。\n审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}\n本集摘要：${project.summary.content}\n大纲：${project.plot.outline.content || ''}`,
+  return buildReviewPrompt({ project, skill, edited: true,
+    instructions: { review: `只审核已编辑原文，不生成或改写内容。审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}`,
+      facts: [{ title: '【上游事实：本集摘要】', text: project.summary.content }, { title: '【上游事实：大纲】', text: project.plot.outline.content || '' }] },
     reviewContext: continuityReviewContext(project, shotId),
   }, text)
 }

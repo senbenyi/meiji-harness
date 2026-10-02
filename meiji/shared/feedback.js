@@ -1,4 +1,4 @@
-import { targetNode, emptyCheck, emptyReview, node, aggregateStatus } from './drama-model.js'
+import { targetNode, emptyCheck, emptyReview, node, aggregateStatus, GenerationStatus } from './drama-model.js'
 // 按原文去重，不把跨镜错误重复复制为每镜意见。
 export const uniqueFeedback = values => [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))]
 export function scopedCheck(check, shotId) {
@@ -30,11 +30,13 @@ export function feedbackOf(project, target) {
     const shots = project.shots?.items || []
     const group = project.shots?.seconds || node('seconds')
     const shared = uniqueFeedback(group.check?.passed === false ? group.check.failures : [])
-    const failures = uniqueFeedback(shots.flatMap(shot => shot.seconds.check.passed === false
-      ? uniqueFeedback(shot.seconds.check.failures).map(reason => /\bS\d{2,}\b/.test(reason) || shared.includes(reason) ? reason : `${shot.id}：${reason}`) : []))
+    const failures = uniqueFeedback([...shared, ...shots.flatMap(shot => shot.seconds.check.passed === false
+      ? uniqueFeedback(shot.seconds.check.failures).map(reason => /\bS\d{2,}\b/.test(reason) || shared.includes(reason) ? reason : `${shot.id}：${reason}`) : [])])
     const errors = shots.filter(shot => shot.seconds.error).map(shot => `${shot.id}：${shot.seconds.error}`)
-    return { ...group, canModify: shots.length > 0 && shots.every(shot => Boolean(shot.seconds.content)), status: group.operation || group.status === 'paused' ? group.status : aggregateStatus(shots.map(shot => shot.seconds)),
-      check: { passed: failures.length ? false : shots.length && shots.every(shot => shot.seconds.check.passed === true) ? true : null, failures },
+    const status = group.operation || group.status === GenerationStatus.PAUSED ? group.status
+      : group.status === GenerationStatus.FAILED || group.error || group.check?.passed === false ? GenerationStatus.FAILED : aggregateStatus(shots.map(shot => shot.seconds))
+    return { ...group, canModify: shots.length > 0 && shots.every(shot => Boolean(shot.seconds.content)), status,
+      check: { passed: failures.length || group.check?.passed === false ? false : shots.length && shots.every(shot => shot.seconds.check.passed === true) ? true : null, failures },
       error: group.error || errors.join('；') || null }
   }
   const record = targetNode(project, key)

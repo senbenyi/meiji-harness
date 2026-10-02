@@ -37,7 +37,7 @@ return {
 
 这个接口将任务语言放在 user 中，且不选其他片段；不会影响其他接口。也可以使用 `segment('context', '自定义标题', 自定义文本)`，标题传空字符串则不加标题。`system: []` 表示只发 user；修改输出格式仍需满足本阶段的解析和审核协议。
 
-`generationParts`、`reviewParts` 是可选的片段工具，不强制任何最终顺序。接口显式选用它们，可以继续使用任务固定的基础生产规则、当前节点补充与参考资料；不应改成直接读取内置 Markdown 而绕过这些层。`text-context.js` 的本次要求与修订上下文也由接口显式选择使用。
+`generationParts`、`reviewParts` 提供技能片段（生产规则或审核标准、本节点补充、指导素材、语言、协议），不含任务资料和意见；请求的最终顺序统一由 `request.js` 的 `generationRequest` / `reviewRequest` 组装。任务资料以 `{ task, review, facts }` 传入（`taskInput` 也接受纯任务文本），本次生成要求由 `requirementSegment` 单独成段，基稿与意见由 `baseSegments` 按生成/修订/审核生成。不应改成直接读取内置 Markdown 而绕过任务固定的技能快照。
 
 ## 图片和视频
 

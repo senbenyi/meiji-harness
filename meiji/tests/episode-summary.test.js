@@ -53,7 +53,7 @@ test('新建摘要实际与预览共用固定约束；约束不能覆盖或补�
   const e = await setupModel(t), root = await e.store.read(e.id)
   const actual = buildEpisodePrompts(root, e.episodeId).generation
   const preview = previewPrompts({ stage: 'episode', root, view: await e.read(), skillSet: builtinSkillSet(root.skills) })
-  assert.ok(actual.system.includes('【摘要固定约束】'))
+  assert.ok(actual.system.includes('【基础生产规则】'))
   assert.ok(actual.system.includes('最多 300 字'))
   assert.deepEqual(preview.generate.system, actual.segments.system)
   await assert.rejects(skillStore(e.home).save('episode', { constraints: '改规则' }), /不可编辑/)

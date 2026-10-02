@@ -2,6 +2,7 @@ import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch } f
 import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shared/feedback.js'
 import { checkContext, apiFailed, inTextStep } from './operation-context.js'
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
+const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image', 'pencil'])
 const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
@@ -46,6 +47,16 @@ export async function prepareChecks(store, project, operation) {
   const manual = ['scene-text', 'character-text', 'storyboard-text', 'outline-text', 'assemble'].includes(operation.action)
   const mode = manual ? 'modify' : operation.generationMode || (operation.review || operation.instruction ? 'modify' : 'regenerate')
   if (!['regenerate', 'modify'].includes(mode)) throw Object.assign(new Error('不支持的生成模式'), { status: 400 })
+  // 人工输入限长；自审问题随后完整合并，不套用人工输入上限。
+  // 在保存和清理下游前校验，拒绝输入时保留原内容与意见。
+  if (mode === 'modify' && limitedOpinionActions.has(operation.action)) {
+    const humanOpinions = operation.review != null || operation.instruction != null
+      ? [operation.review, operation.instruction]
+      : keys(project, operation).map(key => feedbackOf(project, key).review.text)
+    if (humanOpinions.some(value => String(value || '').trim().length > 2000)) {
+      throw Object.assign(new Error('审核意见过长'), { status: 400 })
+    }
+  }
   const candidate = operation.draftId && project.pendingImages?.[operation.draftId]
   const matchingCandidate = candidate && (operation.track ? candidate.track === operation.track : candidate.itemId === operation.itemId && (candidate.slot || '') === (operation.slot || '')) ? candidate : null
   if (!manual && mode === 'modify') {

@@ -428,6 +428,26 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     const heading = element('div', '', 'workflow-generation-row')
     const entries = imageEntries(project, item, actions)
     heading.append(element('h3', `${item.id} · ${item.name}`), entries)
+    if (item.type === 'prop') {
+      const remove = element('button', '删除道具', 'delete-content')
+      remove.type = 'button'
+      remove.disabled = controlBusy
+      remove.setAttribute('aria-label', `删除道具：${item.name}`)
+      remove.onclick = async () => {
+        if (remove.disabled) return
+        remove.disabled = true
+        hint.hidden = true
+        try {
+          await actions.perform(project, 'prop-delete', { itemId: item.id, itemName: item.name })
+        } catch (error) {
+          remove.disabled = false
+          hint.hidden = false
+          hint.textContent = error.message
+          hint.classList.add('warn')
+        }
+      }
+      heading.append(remove)
+    }
     copy.append(heading)
     if (mainReview) copy.append(renderDetailImageActions(project, actions, imageGate))
     if (item.type === 'prop') copy.append(element('p', `${item.category} · 所属：${item.ownerId || '未指定'}`, 'meta'), element('p', item.description), element('p', `依据：${item.evidence}`, 'meta'))
@@ -515,4 +535,3 @@ export function stillCards(project, items, actions, hint, { editable = false, on
   }
   return nodes
 }
-

@@ -13,6 +13,7 @@ import { shotReferenceImages } from '../shared/reference-images.js'
 import { feedbackOf } from '../shared/feedback.js'
 import { shotSecondsReady } from '../shared/shot-timing.js'
 import { stillCards } from './asset-cards.js'
+import { markTask } from './task-group.js'
 import { characterCard } from './character.js'
 import { showPanelDialog, element, appendJsonCopy } from './dom.js'
 import {
@@ -113,7 +114,7 @@ function renderBrief(project, actions) {
   edit.onclick = () => actions.openEpisode(project, {
     id: project.episodeId, summary: project.summary, durationSeconds: project.durationSeconds,
   })
-  const regenerate = element('button', project.activity === 'episode' ? '生成中' : '重新生成', 'primary')
+  const regenerate = markTask(element('button', project.activity === 'episode' ? '生成中' : '重新生成', 'primary'), 'episode-generate')
   regenerate.disabled = Boolean(project.activity)
   bindBusy(regenerate, async () => {
     try { await actions.perform(project, 'episode-generate', { episodeId: project.episodeId, ...reviewFields(view) }) }
@@ -155,7 +156,7 @@ function renderStory(project, actions, context) {
   head.append(element('h3', '剧情生成与审核'))
   const generated = hasOutline(project) || hasCharacters(project) || hasScenes(project)
   const label = generated ? '重新生成剧情' : '生成剧情'
-  const generate = element('button', project.activity === 'outline' ? '生成中' : label, 'primary')
+  const generate = markTask(element('button', project.activity === 'outline' ? '生成中' : label, 'primary'), 'outline')
   generate.disabled = Boolean(project.activity) || !canGenerate(project, 'outline')
   bindBusy(generate, async () => {
     try { await actions.perform(project, 'outline', reviewFields(controls)) }
@@ -228,7 +229,7 @@ function renderScenes(project, actions, context) {
   const props = project.plot.props
   const propsHead = element('div', '', 'outline-head')
   propsHead.append(element('h3', '道具（服装、坐骑、武器、饰品）'))
-  const extract = element('button', '提取道具', 'primary')
+  const extract = markTask(element('button', '提取道具', 'primary'), 'props')
   extract.disabled = Boolean(project.activity) || project.plot.scenes.check.passed !== true
   extract.onclick = () => actions.perform(project, 'props', reviewFields(propsView))
   const propsSkill = skillField(project, 'props', actions)
@@ -242,11 +243,12 @@ function renderScenes(project, actions, context) {
   return view
 }
 
-function regenRow(card, { busy, enabled, label, onRun, review = '', check, generated, record }) {
+function regenRow(card, { busy, enabled, label, onRun, review = '', check, generated, record, task }) {
   const title = card.querySelector('h3')
   const head = element('div', '', 'shot-head')
   if (title) head.append(title)
   const button = element('button', busy ? '生成中' : label, 'primary')
+  if (task) markTask(button, ...task)
   button.type = 'button'
   button.disabled = busy || !enabled
   head.append(button)
@@ -291,7 +293,7 @@ function paintShotTable(view, project, actions) {
   if (canGenerate(project, 'shots')) {
     const hasTable = hasShots(project)
     const label = hasTable ? '重新生成' : '写镜头表'
-    const button = element('button', project.activity === 'shots' ? '生成中' : label, 'primary')
+    const button = markTask(element('button', project.activity === 'shots' ? '生成中' : label, 'primary'), 'shots')
     button.type = 'button'
     button.disabled = tableBusy
     bindBusy(button, () => actions.perform(project, 'shots', reviewFields(view)), '生成中')
@@ -346,7 +348,7 @@ function paintSeconds(view, project, actions) {
   const busy = Boolean(project.activity)
   const controls = element('div', '', 'workflow-generation-row')
   controls.append(element('span', statusLabels[feedbackOf(project, 'seconds').status], 'story-status'))
-  const button = element('button', '整集重新生成', 'primary')
+  const button = markTask(element('button', '整集重新生成', 'primary'), 'seconds')
   button.type = 'button'
   button.disabled = busy
   button.onclick = () => {
@@ -380,7 +382,7 @@ function paintBoards(view, project, actions) {
   if (hasShots(project)) {
     const boarding = project.activity === 'storyboard'
     const controls = element('div', '', 'actions')
-    const button = element('button', '整集重新生成', 'primary')
+    const button = markTask(element('button', '整集重新生成', 'primary'), 'storyboard')
     button.type = 'button'
     button.disabled = tableBusy || !canGenerate(project, 'storyboard')
     button.onclick = () => {
@@ -414,6 +416,7 @@ function paintBoards(view, project, actions) {
       enabled: secondsReady && !tableBusy,
       label: story ? '重新生成' : '生成',
       record: feedbackOf(project, { action: 'shot-storyboard', track: shot.id }),
+      task: ['shot-storyboard', shot.id],
       check: feedbackOf(project, { action: 'shot-storyboard', track: shot.id }).check,
       generated: Boolean(story && hasBoardPrompt(story)),
       onRun: fields => actions.perform(project, 'shot-storyboard', { track: shot.id, ...fields }),
@@ -473,7 +476,7 @@ function mountPencil(parent, url, label) {
 function renderFilm(project, actions, context) {
   const view = element('section', '', 'session-project')
   view.append(element('h3', '成片'), skillField(project, 'storyboard', actions), skillField(project, 'film', actions))
-  const all = element('button', '依次生成全部成片', 'primary')
+  const all = markTask(element('button', '依次生成全部成片', 'primary'), 'produce-all')
   all.disabled = Boolean(project.activity)
   bindBusy(all, () => actions.perform(project, 'produce-all'), '任务已启动')
   if (!context.onlyShot) view.append(all)
@@ -484,7 +487,7 @@ function renderFilm(project, actions, context) {
     const storySection = element('section', '', 'film-storyboard-section')
     const storyHead = element('div', '', 'workflow-generation-row')
     storyHead.append(element('h4', `分镜提示词 · ${statusLabels[shot.storyboard.status]}`))
-    const storyGenerate = element('button', shot.storyboard.content ? '重新生成提示词' : '生成提示词', 'primary')
+    const storyGenerate = markTask(element('button', shot.storyboard.content ? '重新生成提示词' : '生成提示词', 'primary'), 'shot-storyboard', shot.id)
     storyGenerate.disabled = Boolean(project.activity) || shot.seconds.check.passed !== true
     bindBusy(storyGenerate, () => actions.perform(project, 'shot-storyboard', { track: shot.id, ...reviewFields(storySection) }), '生成中')
     storyHead.append(storyGenerate)
@@ -516,12 +519,12 @@ function renderFilm(project, actions, context) {
     media.append(videoColumn, tailColumn)
     videoReview.append(media)
     const mediaActions = element('div', '', 'film-media-actions')
-    const retry = element('button', clip?.url ? '重新生成视频' : '生成视频', 'primary')
+    const retry = markTask(element('button', clip?.url ? '重新生成视频' : '生成视频', 'primary'), 'film', shot.id)
     retry.disabled = Boolean(project.activity) || shot.storyboard.check.passed !== true
     bindBusy(retry, () => actions.perform(project, 'film', { track: shot.id, ...reviewFields(videoReview) }), '任务已启动')
     mediaActions.append(retry)
     if (clip?.status === 'ready') {
-      const retryTail = element('button', tail?.content?.localPath ? '重新提取尾帧' : '提取尾帧')
+      const retryTail = markTask(element('button', tail?.content?.localPath ? '重新提取尾帧' : '提取尾帧'), 'tail-frame', shot.id)
       retryTail.disabled = Boolean(project.activity)
       bindBusy(retryTail, () => actions.perform(project, 'tail-frame', { track: shot.id }), '任务已启动')
       mediaActions.append(retryTail)
@@ -544,7 +547,7 @@ function renderAssembly(project, actions) {
   const concatCard = element('article', '', 'shot-card')
   concatCard.append(element('h3', '全片拼接'), element('p', '按镜头顺序用 FFmpeg 把成片接成一条。', 'meta'))
   const busy = project.activity === 'assemble'
-  const button = element('button', busy ? '拼接中' : '全片拼接', 'primary')
+  const button = markTask(element('button', busy ? '拼接中' : '全片拼接', 'primary'), 'assemble')
   button.type = 'button'
   button.disabled = busy || Boolean(project.activity) || !hasFilm(project)
   button.onclick = () => {
@@ -692,7 +695,7 @@ export function renderShotPage(project, shot, actions, context = {}) {
     } else if (active === 'board') {
       const head = element('div', '', 'outline-head')
       head.append(element('h3', '文本分镜'))
-      head.append(aiButton(actions, activity === `shot-storyboard:${shot.id}`, secondsReady && !activity, () => actions.perform(project, 'shot-storyboard', { track: shot.id, ...reviewFields(pane) })))
+      head.append(markTask(aiButton(actions, activity === `shot-storyboard:${shot.id}`, secondsReady && !activity, () => actions.perform(project, 'shot-storyboard', { track: shot.id, ...reviewFields(pane) })), 'shot-storyboard', shot.id))
       pane.append(head)
       if (story) {
         field(pane, '标题', story.title)
@@ -724,7 +727,7 @@ export function renderShotPage(project, shot, actions, context = {}) {
       head.append(element('h3', '成片'))
       const generate = aiButton(actions, filming, boardReady && feedbackOf(project, `storyboard:${shot.id}`).check.passed !== false && feedbackOf(project, 'storyboard').check.passed !== false && !activity, () => actions.perform(project, 'film', { track: shot.id, ...reviewFields(pane) }))
       if (clip?.status === 'interrupted' && !filming) generate.textContent = '重新生成'
-      head.append(generate)
+      head.append(markTask(generate, 'film', shot.id))
       pane.append(head)
       if (!boardReady) pane.append(element('p', '先写好这一镜的文本分镜，再提交成片。', 'meta'))
       if ((clip?.status === 'error' || clip?.status === 'interrupted') && clip.error) pane.append(element('p', clip.error, 'notice'))

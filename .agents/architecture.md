@@ -52,10 +52,11 @@ meiji/
 │   │                       #   queue.js 全局队列（text / image / video 并发上限）、restart.js 启动时取消遗留任务（网关无取消接口，远端视频如实记录）
 │   ├── generate/           # 网关调用与生成：gateway、text-request、text-steps（生成/自审/修订/复审步骤）、
 │   │                       #   story、shot-text、image、film、concat、review、ffmpeg 检查
-│   ├── prompts/            # interfaces/<阶段>.js 独立定义各接口的 system/user/prompt；skill-prompts.js 提供可选片段；preview.js 复用真实组装
+│   ├── prompts/            # request.js 统一文本请求结构（system＝角色/规则/补充/语言/协议，user＝任务/资料/基稿与意见/待审内容）；skill-prompts.js 提供技能片段（生产规则、审核标准、补充、协议）；interfaces/registry.js 选择接口；preview.js 复用真实组装
 │   │                       # interfaces/character-image.js 集中人物字段选择、约束分节选择、修改意见与人物预览；约束正文在 skills/task/
 │   │                       # episode-prompts.js + models/episode-summary-model.js：model 编排任务、目标时长/语言/风格、故事资料、前后集条件与修改意见；生成、意见修订、独立审核分别使用 model 三类入口；共享上下文及预览，审核对照对应修订基稿
-│   │                       # models/story-outline-model.js、story-character-model.js、story-scene-model.js：分别编排大纲、人物提取、场景提取的生成/修订/审核；各自管理资料结构、职责、上下文及三类提示词编排，仅共用 prompt-text.js 的文本化/消息序列化函数；技能按小节选择，预览复用实际入口
+│   │                       # models/story-model.js：大纲、人物、场景、道具四类剧情资料共用 StoryModel，差异在 storyKinds 中声明（职责、资料、目标、审核范围、输出协议）
+│   │                       # models/text-step-model.js：镜头表、整集/单镜每秒指令、单镜修订、图片提示词改写共用 TextStepModel，差异在 textSteps 中声明；shot-prompts.js 以 { task, review, facts } 传入任务、审核目标与上游资料
 │   │                       # models/character-image-model.js 定义人物模式、角色职责、资料、规则、Base64 图片、画幅与修改意见；人物修改经 model.toPrompt() 生成提示词
 │   │                       # models/scene-image-model.js 定义场景五项资料、规则、本剧补充、Base64 图片与画幅；场景生成/修改及预览由接口赋值后复用 model.toPrompt()/toSegments()
 │   ├── data/               # 持久化：projects（领域存储）、project-files（存储布局，唯一了解文件结构）、
@@ -165,7 +166,7 @@ storages/meiji/
 
 整集每秒分镜动态注入全部镜头 ID 与时长清单，JSON shots 必须完全覆盖；每镜节拍使用正整数 durationMs，程序累计起止时间。dialogues 独立保存台词，beat 只引用事件 ID；ambient、music 保存带时间的声音事件。界面渲染可读正文。旧自由文本由 migrate-seconds-content.js 先备份后保留 archivedContent，标记后续产物过期，需重新生成每秒分镜。
 
-道具保存在 plot.props，分类 clothing/mount/weapon/accessory/prop，字段 name/category/description/ownerId/evidence；程序分配稳定 P 编号，不要求参考图。独立 Model 为 story-props-model.js，规则为 extract-story-props-skill.md。允许空集合通过，道具审核纳入镜头表门禁，人物/场景/道具 ID 按名称保留，新增 ID 递增。
+道具保存在 plot.props，分类 clothing/mount/weapon/accessory/prop，字段 name/category/description/ownerId/evidence；程序分配稳定 P 编号，不要求参考图。道具由 story-model.js 的 props 配置编排，规则为 extract-story-props-skill.md，审核为 review-story-props-skill.md。允许空集合通过，道具审核纳入镜头表门禁，人物/场景/道具 ID 按名称保留，新增 ID 递增。
 
 生成正文的漏镜、时长及格式问题归入程序自审，不在生成步骤提前中断；不可解析或无法对应上游的原文以未发布任务 artifact 留存，修订使用完整原文，始终不覆盖原项目内容。未配置审核时结论保持未审核。
 

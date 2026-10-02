@@ -51,6 +51,24 @@ async function opCharacters(c) {
   return trace
 }
 
+async function opPropDelete(c) {
+  const { operation, projects, project, trace, note } = c
+  const item = project.plot.props.items.find(item => item.id === operation.itemId)
+  if (!item) throw Object.assign(new Error('道具不存在'), { status: 404 })
+  await projects.save(project.id, current => {
+    const props = current.plot.props
+    if (!props.items.some(item => item.id === operation.itemId)) throw Object.assign(new Error('道具不存在'), { status: 404 })
+    const revision = props.revision + 1
+    return {
+      ...plotPatch(current, { props: { ...props, revision, check: { ...props.check, revision }, items: props.items.filter(item => item.id !== operation.itemId) } }),
+      pendingImages: Object.fromEntries(Object.entries(current.pendingImages || {}).filter(([, draft]) => draft.itemId !== operation.itemId)),
+      activity: null, activityError: null,
+    }
+  })
+  note(`已删除道具 ${item.id} · ${item.name}`)
+  return trace
+}
+
 // if (operation.action === 'scene-text')
 async function opSceneText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
@@ -159,7 +177,6 @@ async function opShots(c) {
   if (!canGenerate(project, 'shots')) throw Object.assign(new Error('请先写好场景卡，再写镜头表'), { status: 409 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'shots'), activity: 'shots', activityError: null })
   const review = String(operation.review || '').trim()
-  if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   note('按事件与空间连续性规划镜头表，每段不超过15秒')
   if (submittedReview) note(`审核意见：${submittedReview}`)
   const failures = feedbackOf(project, 'shots').check.failures
@@ -203,7 +220,7 @@ async function opSeconds(c) {
 async function opReviseShot(c) {
   let { operation, projects, models, project, trace, note } = c
   const review = String(operation.review || '').trim()
-  if ((operation.generationMode === 'modify' && !review) || review.length > 2000) throw Object.assign(new Error('请先写下这一镜的审核意见'), { status: 400 })
+  if (operation.generationMode === 'modify' && !review) throw Object.assign(new Error('请先写下这一镜的审核意见'), { status: 400 })
   const track = String(operation.track || '')
   const items = project.shots?.items || []
   if (!items.some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
@@ -229,7 +246,6 @@ async function opShotSeconds(c) {
   const items = project.shots?.items || []
   if (!items.some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
   const review = String(operation.review || '').trim()
-  if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'seconds', track), activity: `shot-seconds:${track}`, activityError: null })
   note('技能：每秒指令（skills/task/generate-seconds-instructions-skill.md）')
   note('函数：generateShotSeconds（server/generate/story.js）')
@@ -350,6 +366,7 @@ export const storyOperations = {
   'characters': { stage: 'episode', run: opCharacters },
   'scenes': { stage: 'episode', run: opCharacters },
   'props': { stage: 'episode', run: opCharacters },
+  'prop-delete': { stage: 'episode', run: opPropDelete },
   'scene-text': { stage: 'episode', run: opSceneText },
   'character-text': { stage: 'episode', run: opCharacterText },
   'outline-text': { stage: 'episode', run: opOutlineText },

@@ -72,3 +72,35 @@ test('props cards generate images by their independent P ID', async t => {
   assert.equal(calls[1][1], 'image'); assert.equal(calls[1][2].itemId, 'P01')
   assert.match(page.textContent, /旅人身穿灰色长衣/)
 })
+
+test('prop card deletion sits beside its title, submits once and displays errors', async t => {
+  const project = setup(t), calls = []
+  project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信', category: 'prop', description: '泛黄旧信', evidence: '旅人拿着旧信' }]
+  let reject
+  const page = renderStage('script', project, { perform: (...args) => {
+    calls.push(args)
+    return new Promise((resolve, failed) => { reject = failed })
+  } }, {})
+  const remove = page.querySelector('[aria-label="删除道具：旧信"]')
+  assert.ok(remove.closest('.workflow-generation-row').querySelector('h3'))
+  assert.equal(page.querySelector('[aria-label="删除道具：旅人"]'), null)
+  remove.click(); remove.click()
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0][1], 'prop-delete')
+  assert.deepEqual(calls[0][2], { itemId: 'P01', itemName: '旧信' })
+  assert.equal(remove.disabled, true)
+  reject(new Error('保存失败'))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(remove.disabled, false)
+  assert.match(page.textContent, /保存失败/)
+})
+
+test('prop deletion is disabled while a production task is running', t => {
+  const project = setup(t)
+  project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信' }]
+  project.activity = 'outline'
+  const page = renderStage('script', project, { perform: () => assert.fail('must not delete while busy') }, {})
+  const remove = page.querySelector('[aria-label="删除道具：旧信"]')
+  assert.equal(remove.disabled, true)
+  remove.click()
+})

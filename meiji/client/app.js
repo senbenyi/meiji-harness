@@ -1,3 +1,4 @@
+import { decorateTaskGroups } from './task-group.js'
 import { createPanelEvents } from './panel-events.js'
 import { renderNodeSkill } from './node-skill.js'
 import { generateEpisodeDraft } from './episode-draft.js'
@@ -68,32 +69,46 @@ export function mount() {
     const [sessionId, projectId] = eventKey.split(':')
     Promise.all([follow(), refreshTasks(projectId, sessionId), currentPage?.isConnected ? currentPage.refresh() : null]).catch(error => shell.status(error.message))
   } })
-  async function refreshTasks(projectId, sessionId) {
-    const result = await request('tasks?' + new URLSearchParams({ projectId, sessionId }))
-    if (eventKey !== `${sessionId}:${projectId}`) return
+  // 运行中的任务优先挂到对应生成按钮旁（task-group.js）；找不到按钮的任务（其他页面发起）才放到底部任务栏。
+  let liveTasks = [], liveTaskKey = ''
+  function stopTask(task) {
+    const [sessionId, projectId] = liveTaskKey.split(':')
+    return request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }).catch(error => { shell.status(error.message); throw error })
+  }
+  function paintTasks() {
+    const projectId = liveTaskKey.split(':')[1]
+    const attached = decorateTaskGroups(shell.content, liveTasks, { open: () => actions.openCurrentTasks(projectId), stop: stopTask })
     taskBar.replaceChildren()
-    if (result.tasks.length) {
-      const view = document.createElement('button')
-      view.textContent = '查看当前任务'
-      view.className = 'task-status-view'
-      view.onclick = () => actions.openCurrentTasks(projectId)
-      taskBar.append(view)
-    }
-    for (const task of result.tasks) {
+    const loose = liveTasks.filter(task => !attached.has(task.id))
+    if (!loose.length) return
+    const view = document.createElement('button')
+    view.textContent = '查看当前任务'
+    view.className = 'task-status-view'
+    view.onclick = () => actions.openCurrentTasks(projectId)
+    taskBar.append(view)
+    for (const task of loose) {
       const stop = document.createElement('button')
       stop.textContent = `停止生成${task.track ? ' · ' + task.track : ''}`
       stop.onclick = async () => {
         stop.disabled = true
-        try { await request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }) }
-        catch (error) { shell.status(error.message); stop.disabled = false }
+        try { await stopTask(task) } catch { stop.disabled = false }
       }
       taskBar.append(stop)
     }
+  }
+  async function refreshTasks(projectId, sessionId) {
+    const result = await request('tasks?' + new URLSearchParams({ projectId, sessionId }))
+    if (eventKey !== `${sessionId}:${projectId}`) return
+    liveTasks = result.tasks
+    liveTaskKey = eventKey
+    paintTasks()
   }
   function watchProject(projectId, sessionId) {
     const key = projectId ? `${sessionId}:${projectId}` : ''
     if (key === eventKey) return
     eventKey = key
+    liveTasks = []
+    liveTaskKey = key
     taskBar.replaceChildren()
     events.watch(key ? '/plugins/meiji/events?' + new URLSearchParams({ projectId, sessionId }) : '', async () => {
       if (key !== eventKey) return
@@ -113,7 +128,7 @@ export function mount() {
   let openScene = null
   let imageGate = null
   let navigation = 0, library, workspace = null, shown = '', shownMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', openTab = '', shownProject = ''
-  const display = node => { renderModelView(shell.content, node); shell.status(''); shell.setOpen(true) }
+  const display = node => { renderModelView(shell.content, node); paintTasks(); shell.status(''); shell.setOpen(true) }
   const signature = project => (workspace?.id || '') + ':' + (project?.id || '')
   const contextFor = projects => ({
     workspace,

@@ -36,7 +36,7 @@ for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
         assert.equal(Boolean(payload.response_format), isReview || ['characters', 'scenes', 'seconds'].includes(stage))
         if (isReview) {
           assert.match(message.user, /CURRENT_DRAFT/)
-          assert.match(['outline', 'characters', 'scenes'].includes(stage) ? message.system : message.user, /验收标准/)
+          assert.match(message.system, /【审核标准】/)
           assert.match(message.system, /只审核，不生成或修改原文/)
         }
         return response(isReview ? reviewPass : 'result')

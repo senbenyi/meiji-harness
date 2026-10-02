@@ -25,7 +25,7 @@ function textBuilder(stage, root, view, mode, nodeKey) {
   if (stage === 'shot-revise' && shot) return () => buildSingleShotPrompts({ project: view, shotId: shot.id })
   if (stage === 'seconds' && shot) return () => buildSecondsPrompts({ project: view, shotId: shot.id })
   const instructions = stage === 'image-prompt' ? '原提示词：（人物或场景的原提示词）\n新要求：（人工填写的新要求）' : placeholder
-  return () => buildTextPrompts({ skill: stage, project: view || root, instructions, reviewInstructions: instructions, mode, opinion: checkContext.getStore()?.review || '', modify: checkContext.getStore()?.generationMode === 'modify' })
+  return () => buildTextPrompts({ skill: stage, project: view || root, instructions, mode, opinion: checkContext.getStore()?.review || '', modify: checkContext.getStore()?.generationMode === 'modify' })
 }
 
 const request = message => ({ system: message.segments.system, user: message.segments.user, chars: message.system.length + message.user.length })

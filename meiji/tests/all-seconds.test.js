@@ -7,7 +7,30 @@ import { modelStore } from '../server/data/model-settings.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { recordStore } from '../server/data/task-store.js'
 import { generateAllSeconds } from '../server/generate/shot-text.js'
+import { feedbackOf } from '../shared/feedback.js'
 const output = secondsResponse()
+test('invalid first seconds result keeps drafts unpublished and exposes the task failure',async t=>{
+ const e=await environment(t)
+ await e.store.save(e.id,p=>{for(const shot of p.episodes[0].shots.items){shot.seconds.content=null;shot.seconds.check={passed:null,failures:[]};shot.seconds.status='not-generated'}return p})
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:output.slice(0,-8)})}),/自审未通过/)
+ const p=await e.read(),feedback=feedbackOf(p,'seconds')
+ assert.ok(p.shots.items.every(shot=>shot.seconds.content===null))
+ assert.equal(feedback.status,'failed');assert.equal(feedback.canModify,false)
+ assert.match(feedback.error,/自审未通过/)
+})
+test('seconds feedback includes group failures once and preserves active state',()=>{
+ const p=episodeFixture(),reason='S01 与 S02 动作衔接错误'
+ p.shots.seconds.check={passed:false,failures:[reason,'整集事件遗漏']}
+ p.shots.seconds.status='failed'
+ p.shots.items[0].seconds.check={passed:false,failures:[reason,'第一镜错误']}
+ const feedback=feedbackOf(p,'seconds')
+ assert.deepEqual(feedback.check.failures,[reason,'整集事件遗漏','S01：第一镜错误'])
+ assert.equal(feedback.status,'failed');assert.equal(feedback.check.passed,false)
+ p.shots.seconds.operation={id:'running-task'};p.shots.seconds.status='generating'
+ assert.equal(feedbackOf(p,'seconds').status,'generating')
+ p.shots.seconds.operation=null;p.shots.seconds.status='paused'
+ assert.equal(feedbackOf(p,'seconds').status,'paused')
+})
 async function environment(t) {
  const e = await setupModel(t), models = modelStore(e.home)
  await models.write({ ...await models.read(), apiKey: 'test-only' })
