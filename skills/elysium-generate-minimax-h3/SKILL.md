@@ -1,5 +1,5 @@
 ---
-name: h3-prompt-writing-elysium
+name: elysium-generate-minimax-h3
 description: Write MiniMax H3 video generation prompts for T2VA, I2VA, FL2VA, L2VA, and Ref2VA. Use when rewriting multimodal requests into H3 prompt structures, composing integrated_multimodal_description, overall_soundscape, and non_diegetic_music, aligning keyframes, or defining reference labels for images, videos, and audio. dsh-short-video-studio 适配版：还负责把画布上的镜头表/分镜/参考绑定重写为 H3 结构化 prompt（见文末「插件对接」适配节）。
 compatibility: Portable to any agent that can read local files — no external API calls, MiniMax Hub tools, or proprietary runtime required. The agents/openai.yaml file only adds optional ChatGPT/Codex UI metadata; it does not restrict the skill to OpenAI agents.
 ---
@@ -11,7 +11,7 @@ compatibility: Portable to any agent that can read local files — no external A
 
 ## Elysium 执行约束
 
-本副本专供 `3d-animation-short-generator-elysium`、`brand-promo-video-generator-elysium` 和 `elysium-minimax-h3-{ref2v,i2v}-*` 工作流使用。作者原版已归档，不参与运行时解析。
+本副本专供 `elysium-generate-video-3d`、`elysium-generate-video-brand` 和 `elysium-minimax-h3-{ref2v,i2v}-*` 工作流使用。作者原版已归档，不参与运行时解析。
 
 ## Workflow
 
@@ -58,7 +58,7 @@ Read `references/ref-en.txt` for label rules, retention analysis, and complete e
 
 ## 输入与条件启用
 
-- 输入：片型 skill（如 3d-animation-short-generator-elysium）在逐镜生成时提供的「本镜分镜章节 + 镜头表 `参考锚点` / `音频与对白轨` 行 + ref_nodes / first_frame / last_frame 绑定」。
+- 输入：片型 skill（如 elysium-generate-video-3d）在逐镜生成时提供的「本镜分镜章节 + 镜头表 `参考锚点` / `音频与对白轨` 行 + ref_nodes / first_frame / last_frame 绑定」。
 - **仅当**解析到的实现匹配 `elysium-minimax-h3-(ref2v|i2v)-(fast|balanced|quality)` 时应用本重写；否则停止并报告配置错误，不走非 Elysium 兜底。
 - 参考图硬规则（单视图 / 图内零文字 / 不拼图）由插件工具契约统一约束，本 skill 遵守不重述。
 

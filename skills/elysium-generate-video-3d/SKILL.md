@@ -1,5 +1,5 @@
 ---
-name: 3d-animation-short-generator-elysium
+name: elysium-generate-video-3d
 description: 使用当前项目已验证的 Elysium Qwen Image 2.1 与 MiniMax H3 工作流，把故事创意制作成完整 3D 动画短片。
 trigger: 用户要求制作包含角色、场景、镜头规划、逐镜生成与拼接交付的 3D 动画短片时使用。
 ---
@@ -14,7 +14,7 @@ trigger: 用户要求制作包含角色、场景、镜头规划、逐镜生成�
   - `elysium-minimax-h3-ref2v-*`
   - `elysium-minimax-h3-i2v-*`
 - 每种 capability 第一次调用前先运行 `comfy_list_workflows`。解析结果不是相应 Elysium 家族时立即停止，报告配置错误；不得回退到作者工作流。
-- H3 提示词只委托 `h3-prompt-writing-elysium`。
+- H3 提示词只委托 `elysium-generate-minimax-h3`。
 - 当前 Elysium 视频清单不声明 `chain`，禁止传 `continuity_from`，不得承诺 latent 续接。
 - 当前活动注册表没有 `image.from_video` 和 `video.upscale`，不得调用抽帧或超分，也不得承诺 2K/4K 后处理交付。
 - Skill 只表达 capability、tier 和创作参数；模型文件名以 manifest/config 为准。
@@ -61,7 +61,7 @@ trigger: 用户要求制作包含角色、场景、镜头规划、逐镜生成�
 
 每镜写一段可独立执行的分镜章节：开场状态、逐秒动作、镜头运动、声音、对白/字幕、结束状态与下一镜交接。
 
-调用 `h3-prompt-writing-elysium` 生成 H3 结构化 prompt。字幕和画面内文字完全遵循该 Skill 的写法，不在此重复另一套规则。
+调用 `elysium-generate-minimax-h3` 生成 H3 结构化 prompt。字幕和画面内文字完全遵循该 Skill 的写法，不在此重复另一套规则。
 
 ### 5. 逐镜生成
 

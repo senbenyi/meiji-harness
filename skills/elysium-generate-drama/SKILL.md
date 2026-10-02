@@ -1,5 +1,5 @@
 ---
-name: script-development-elysium
+name: elysium-generate-drama
 description: 将纯文本小说、故事或已有剧本导入短剧 Project，生成可溯源的内容分析、分集规划和正式剧本候选，并经人工审核后提交。
 trigger: 用户要求从长文本、小说、故事或已有剧本开始做内容分析、分集或正式剧本时使用。
 ---

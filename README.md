@@ -20,13 +20,14 @@ DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激�
 
 ## 活动 Skills
 
-插件只分发以下 5 个 Skill：
+插件只分发以下 6 个 Skill：
 
-- `image-generate-elysium`
-- `video-generate-elysium`
-- `h3-prompt-writing-elysium`
-- `3d-animation-short-generator-elysium`
-- `brand-promo-video-generator-elysium`
+- `elysium-generate-image`
+- `elysium-generate-video`
+- `elysium-generate-drama`
+- `elysium-generate-minimax-h3`
+- `elysium-generate-video-3d`
+- `elysium-generate-video-brand`
 
 所有 Skill 在首次生成前通过 `comfy_list_workflows` 核对解析结果；实现不属于 Elysium 家族时停止，不回退到已归档工作流。
 

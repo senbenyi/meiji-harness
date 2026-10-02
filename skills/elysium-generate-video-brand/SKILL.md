@@ -1,5 +1,5 @@
 ---
-name: brand-promo-video-generator-elysium
+name: elysium-generate-video-brand
 description: 使用当前项目已验证的 Elysium 图片与视频工作流制作品牌、产品、网站或个人项目宣传短片。
 trigger: 用户要求把可核验的品牌素材和传播目标制作成宣传短片时使用。
 ---
@@ -10,7 +10,7 @@ trigger: 用户要求把可核验的品牌素材和传播目标制作成宣传�
 
 - 只使用 `elysium-qwen-image-21-{t2i,i2i}-*` 与 `elysium-minimax-h3-{ref2v,i2v}-*`。
 - 每种 capability 首次生成前调用 `comfy_list_workflows`；解析结果必须以 `elysium-` 开头，否则停止并报告配置错误。
-- H3 prompt 只委托 `h3-prompt-writing-elysium`。
+- H3 prompt 只委托 `elysium-generate-minimax-h3`。
 - 当前 Elysium 视频清单不支持 `continuity_from`；当前活动注册表也没有抽帧和视频超分。不得调用或承诺这些能力。
 - 不伪造品牌标识、界面、包装或产品声明。身份资产缺少授权原件时，必须降级为不带真实标识的概念表达。
 
@@ -51,7 +51,7 @@ trigger: 用户要求把可核验的品牌素材和传播目标制作成宣传�
 
 ### 4. Prompt 与生成
 
-每镜把镜头表行、授权素材绑定、文案和音频要求交给 `h3-prompt-writing-elysium`，生成相应 Ref2VA 或 I2VA 结构化 prompt。
+每镜把镜头表行、授权素材绑定、文案和音频要求交给 `elysium-generate-minimax-h3`，生成相应 Ref2VA 或 I2VA 结构化 prompt。
 
 逐镜执行：
 

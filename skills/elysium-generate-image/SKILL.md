@@ -1,11 +1,11 @@
 ---
-name: image-generate-elysium
+name: elysium-generate-image
 description: 使用 Elysium 的 Qwen Image 2.1 工作流完成输入框手动文生图或参考图改绘；只接受带 elysium 标记的工作流解析结果。
 whenToUse: |
-  用户消息以 `/image-generate-elysium` 斜杠命令开头，或明确要求使用 Elysium 图片工作流手动生成、改绘图片时使用。
+  用户消息以 `/elysium-generate-image` 斜杠命令开头，或明确要求使用 Elysium 图片工作流手动生成、改绘图片时使用。
 ---
 
-# 图片生成（image-generate-elysium）
+# 图片生成（elysium-generate-image）
 
 最简单的图片生成流程：解析任务消息里的字段，调用 ComfyUI 图片工具出图，产物落画布并回报结果。支持**文生图（t2i）**与**参考图生图（i2i，Qwen Image 2.1 改绘）**。
 
@@ -30,12 +30,12 @@ whenToUse: |
 
 ## 输入契约（任务消息结构）
 
-发送进会话的任务消息由输入框草稿直接构成，结构为：**`/image-generate-elysium` 斜杠命令行（加载本 skill，参数以 `key=value` 内联）+ 一个空行 + 用户 prompt 正文**。示例：
+发送进会话的任务消息由输入框草稿直接构成，结构为：**`/elysium-generate-image` 斜杠命令行（加载本 skill，参数以 `key=value` 内联）+ 一个空行 + 用户 prompt 正文**。示例：
 
 t2i 文生图：
 
 ```
-/image-generate-elysium type=t2i ratio=16:9 size=1344x768 count=2
+/elysium-generate-image type=t2i ratio=16:9 size=1344x768 count=2
 
 一只戴草帽的橘猫坐在海边礁石上，黄昏逆光，电影感胶片色调
 ```
@@ -43,7 +43,7 @@ t2i 文生图：
 i2i 参考图生图（参考图必须是当前会话画布的图片节点 id）：
 
 ```
-/image-generate-elysium type=i2i tier=quality count=1 refs=c71ee706-7256-4258-9215-4f3e69e31ffe
+/elysium-generate-image type=i2i tier=quality count=1 refs=c71ee706-7256-4258-9215-4f3e69e31ffe
 
 Keep the flying pig exactly as it is, only change the sky from daytime blue to a warm golden sunset
 ```
@@ -92,4 +92,4 @@ Keep the flying pig exactly as it is, only change the sky from daytime blue to a
 
 ## 与片型 skill 的边界
 
-本 skill 只承担「手动生成图片」（文生图 / 参考图改绘），不产出简报/大纲/角色卡/镜头表，不做逐镜编排。需要完整短剧/动画/品牌片流程时，交给 `3d-animation-short-generator-elysium` 或 `brand-promo-video-generator-elysium`。
+本 skill 只承担「手动生成图片」（文生图 / 参考图改绘），不产出简报/大纲/角色卡/镜头表，不做逐镜编排。需要完整短剧/动画/品牌片流程时，交给 `elysium-generate-video-3d` 或 `elysium-generate-video-brand`。

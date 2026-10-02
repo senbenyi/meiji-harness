@@ -1,11 +1,11 @@
 ---
-name: video-generate-elysium
-description: 把「提示词 + 参考图/首帧图 + 尺寸/档位/时长/比例」等参数生成为一段单镜头视频。支持 r2v（参考图生成，ref_nodes 绑定角色/场景）与 i2v（首帧/末帧生成，first/last_frame 串联）。适用于「输入框手动生成」这条轻量链路：用户在输入框用 `/video-generate-elysium` 斜杠命令加载本 skill、在工具条选参数、写 prompt，发送后由本 skill 解析命令行参数并调度 comfy_generate_video 出片。不适用于完整片型流程（简报/大纲/镜头表/分镜/逐镜交付），那些请用 3d-animation-short-generator-elysium 或 brand-promo-video-generator-elysium。
+name: elysium-generate-video
+description: 把「提示词 + 参考图/首帧图 + 尺寸/档位/时长/比例」等参数生成为一段单镜头视频。支持 r2v（参考图生成，ref_nodes 绑定角色/场景）与 i2v（首帧/末帧生成，first/last_frame 串联）。适用于「输入框手动生成」这条轻量链路：用户在输入框用 `/elysium-generate-video` 斜杠命令加载本 skill、在工具条选参数、写 prompt，发送后由本 skill 解析命令行参数并调度 comfy_generate_video 出片。不适用于完整片型流程（简报/大纲/镜头表/分镜/逐镜交付），那些请用 elysium-generate-video-3d 或 elysium-generate-video-brand。
 whenToUse: |
-  用户消息以 `/video-generate-elysium` 斜杠命令开头（内联 `type/tier/ratio/size/length/refs/first/last` 参数 + 空行后的 prompt 正文），或用户要求「用输入框手动生成一段视频 / 参考图生成 / 首帧生成 / 单镜头出片」时使用。档位由注册表决定（一个能力多档，具体见 `comfy_list_workflows`；旧参数 `mode=` 为兼容别名）。
+  用户消息以 `/elysium-generate-video` 斜杠命令开头（内联 `type/tier/ratio/size/length/refs/first/last` 参数 + 空行后的 prompt 正文），或用户要求「用输入框手动生成一段视频 / 参考图生成 / 首帧生成 / 单镜头出片」时使用。档位由注册表决定（一个能力多档，具体见 `comfy_list_workflows`；旧参数 `mode=` 为兼容别名）。
 ---
 
-# 参考视频生成（video-generate-elysium）
+# 参考视频生成（elysium-generate-video）
 
 最简单镜头视频生成流程：解析任务消息里的字段，校验前置条件，调用 ComfyUI 视频工具出片，产物落画布并把结果回报给用户。本 skill 只做「一段视频」，不做剧本、镜头表、分镜等完整片型编排。
 
@@ -29,10 +29,10 @@ whenToUse: |
 
 ## 输入契约（任务消息结构）
 
-发送进会话的任务消息由输入框草稿直接构成，结构为：**`/video-generate-elysium` 斜杠命令行（加载本 skill，参数以 `key=value` 内联）+ 一个空行 + 用户 prompt 正文**。示例：
+发送进会话的任务消息由输入框草稿直接构成，结构为：**`/elysium-generate-video` 斜杠命令行（加载本 skill，参数以 `key=value` 内联）+ 一个空行 + 用户 prompt 正文**。示例：
 
 ```
-/video-generate-elysium type=r2v tier=quality ratio=16:9 size=1344x768 length=124 refs=node-a,node-b
+/elysium-generate-video type=r2v tier=quality ratio=16:9 size=1344x768 length=124 refs=node-a,node-b
 
 一只橘猫在夕阳天台伸懒腰
 ```
@@ -73,4 +73,4 @@ whenToUse: |
 
 ## 与片型 skill 的边界
 
-本 skill 只承担「一段视频」的手动生成，不产出简报/大纲/镜头表/分镜、不做逐镜编排与成片拼接。需要完整短剧/动画/品牌片流程时，交给 `3d-animation-short-generator-elysium` 或 `brand-promo-video-generator-elysium`。
+本 skill 只承担「一段视频」的手动生成，不产出简报/大纲/镜头表/分镜、不做逐镜编排与成片拼接。需要完整短剧/动画/品牌片流程时，交给 `elysium-generate-video-3d` 或 `elysium-generate-video-brand`。

@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | `lib/domain/` | 唯一业务状态与写入口 | 聚合 schema、命令、策略、状态机、CAS/幂等、Harness repository、读模型、Outbox、租约和 Project 工具 |
 | `lib/script/` | 源文与剧本开发 | 不可变纯文本导入、hash/分块读取、内容分析/分集/正式剧本 Proposal 契约与工具 |
-| `skills/script-development-elysium/` | Agent 编排 | 强制源文引用、Proposal 审核和正式数据提交边界 |
+| `skills/elysium-generate-drama/` | Agent 编排 | 强制源文引用、Proposal 审核和正式数据提交边界 |
 | `lib/storage/` | 本地二进制与迁移 | 根目录解析、逻辑布局、路径逃逸防护、原子发布、hash、Trash/GC、旧画布导入 |
 | `lib/comfy/`、`lib/media/` | 生成副作用编排 | ComfyUI client、Attempt 生命周期、下载发布、恢复扫描和媒体血缘 |
 | `lib/review/`、`lib/rights/` | 人工审核与合规硬门 | ReviewTask/Decision 桥接、批准/拒绝状态推进、成年/同意/许可检查 |

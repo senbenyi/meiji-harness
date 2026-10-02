@@ -582,8 +582,8 @@ Canvas 路由已有相对路径验证和工作区逃逸保护。发布原子性�
 - `lib/domain/tools.js`
 - `lib/domain/invalidation.js`
 - `lib/index.js`
-- `skills/h3-prompt-writing-elysium/SKILL.md`
-- `skills/h3-prompt-writing-elysium/references/studio-mapping.md`
+- `skills/elysium-generate-minimax-h3/SKILL.md`
+- `skills/elysium-generate-minimax-h3/references/studio-mapping.md`
 
 ### 实测记录
 
