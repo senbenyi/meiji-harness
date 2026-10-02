@@ -129,6 +129,31 @@ test('BatchRunner throws on missing episodeId and shotIds', async () => {
   )
 })
 
+test('BatchRunner distinguishes conflict errors from generation failures', async () => {
+  const { projects, projectId, episodeId, shots } = await makeFixture({ shotCount: 3 })
+  const runner = new BatchRunner({ getProject: (pid) => projects.getProject(pid) })
+  const conflictId = shots[1].id
+
+  const result = await runner.run({
+    projectId,
+    episodeId,
+    generateFn: async (shot) => {
+      if (shot.id === conflictId) {
+        const err = new Error('revision conflict')
+        err.code = 'conflict'
+        throw err
+      }
+      return { media: `ok-${shot.id}.mp4` }
+    },
+  })
+
+  assert.equal(result.completed, 2)
+  assert.equal(result.failed, 1)
+  const conflictResult = result.results.find((r) => r.shotId === conflictId)
+  assert.equal(conflictResult.status, 'conflict')
+  assert.equal(conflictResult.retryable, true)
+})
+
 test('BatchRunner throws on unknown shotId', async () => {
   const { projects, projectId } = await makeFixture()
   const runner = new BatchRunner({ getProject: (pid) => projects.getProject(pid) })

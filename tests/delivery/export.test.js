@@ -126,6 +126,42 @@ test('startDeliverableExport/completeDeliverableExport/failDeliverableExport tra
   assert.equal((await projects.getProject(projectId)).deliverables[deliverableId].status, 'ready')
 })
 
+test('DeliveryService.execute rejects path traversal in asset logicalKey', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-export-traverse-'))
+  try {
+    const projects = await new ProjectService(new MemoryProjectRepository()).open()
+    const created = await projects.createProject({ payload: { title: '遍历测试', productionSpec: { contentRating: 'adult' } } })
+    const projectId = created.project.id
+    await cmd(projects, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
+    await cmd(projects, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
+    const ep = await cmd(projects, projectId, 'upsertEpisode', { title: '集' })
+    const shot = await cmd(projects, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
+    const attempt = await cmd(projects, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
+    await cmd(projects, projectId, 'advanceGenerationAttempt', { attemptId: attempt.output.attemptId, status: 'submitting' })
+    await cmd(projects, projectId, 'advanceGenerationAttempt', { attemptId: attempt.output.attemptId, status: 'queued' })
+    await cmd(projects, projectId, 'advanceGenerationAttempt', { attemptId: attempt.output.attemptId, status: 'running' })
+    await cmd(projects, projectId, 'advanceGenerationAttempt', { attemptId: attempt.output.attemptId, status: 'downloading' })
+    // Use path traversal in logicalKey
+    await cmd(projects, projectId, 'completeGenerationAttempt', {
+      attemptId: attempt.output.attemptId, assetId: 'bad-asset', kind: 'video',
+      logicalKey: '../../../etc/passwd', contentHash: 'abc', bytes: 100,
+    })
+    const project = await projects.getProject(projectId)
+    const reviewTaskId = Object.keys(project.reviewTasks).find((id) => project.reviewTasks[id].targetId === 'bad-asset')
+    await cmd(projects, projectId, 'recordReviewDecision', { reviewTaskId, decision: 'approved', answerer: 'tester' })
+    await cmd(projects, projectId, 'assembleTimeline', { episodeId: ep.output.id, assetIds: ['bad-asset'] })
+
+    const project2 = await projects.getProject(projectId)
+    const timelineId = Object.keys(project2.timelines)[0]
+    const delivery = new DeliveryService(projects)
+    const planned = await delivery.plan(projectId, timelineId)
+    await assert.rejects(
+      delivery.execute(projectId, planned.output.deliverableId, root),
+      /export-path-traversal/,
+    )
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('failDeliverableExport transitions exporting → failed', async () => {
   const projects = await new ProjectService(new MemoryProjectRepository()).open()
   const created = await projects.createProject({ payload: { title: '失败', productionSpec: { contentRating: 'adult' } } })
