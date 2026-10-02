@@ -1,16 +1,16 @@
 import { reviewPass } from './fixtures/review-result.js'
 import { node, cardModel, shotModel, pictureOf } from '../shared/drama-model.js'
-import { episodeFixture } from './fixtures/model.js'
+import { episodeFixture, setupModel } from './fixtures/model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { generateStoryPackage } from '../server/generate/story.js'
-import { preserveStoryAssets } from '../server/data/story-package.js'
-import { projectStore } from '../server/data/projects.js'
-import { blankEpisode } from '../server/data/episodes.js'
-import { runOperation } from '../server/flow/operations/run.js'
+import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
+import { preserveStoryAssets } from '../shared/preserve-story-assets.js'
+import { projectStore } from '../server/data/project-store.js'
+import { blankEpisode } from '../shared/episode-rules.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
 import { tabs, tabOf, canGenerate } from '../client/flow-view.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
 
@@ -70,21 +70,109 @@ test('package saves atomically to one episode, retains failed content and clears
   assert.deepEqual(saved.episodes[1], baseline.episodes[1])
   const ep = saved.episodes[0]
   assert.equal(ep.plot.outline.content, storyPackageFixture().outline)
-  assert.equal(ep.plot.characters.items[0].image.content.assetId, 'portrait')
-  assert.equal(ep.plot.characters.items[0].id, 'C04')
+  assert.equal(ep.plot.characters.items[0].image.content, null)
+  assert.equal(ep.plot.characters.items[0].id, 'C01')
   assert.equal(ep.plot.scenes.items.length, 1)
   assert.equal(ep.shots.items.length, 0)
   assert.equal(ep.assembly.content, null)
   for (const key of ['outline', 'characters', 'scenes']) assert.equal(ep.plot[key].check.passed, false)
   assert.equal(canGenerate(ep, 'shots'), false)
-  const old = structuredClone(ep)
   await assert.rejects(runOperation({ action: 'outline', projectId: root.id, episodeId: one.id }, { home, generateStoryPackage: async () => { throw new Error('返回数据不完整') } }), /返回数据不完整/)
   const after = (await store.read(root.id)).episodes[0]
-  for (const key of ['outline', 'characters', 'scenes']) assert.deepEqual(after.plot[key].content, old.plot[key].content)
+  assert.equal(after.plot.outline.content, null)
+  for (const key of ['characters', 'scenes', 'props']) assert.deepEqual(after.plot[key].items, [])
 })
 
 test('characters and scenes belong to the plot tab without a separate cast tab', () => {
   assert.deepEqual(tabs.map(t => t.id), ['summary', 'script', 'shots', 'seconds', 'film', 'assembly'])
   assert.equal(tabOf({ summary: { content: '摘要' }, plot: {} }), 'script')
   assert.equal(canGenerate({ outline: '大纲' }, 'characters'), false)
+})
+
+async function withOldStory(t) {
+  const e = await setupModel(t)
+  await e.store.save(e.id, root => {
+    const episode = root.episodes[0]
+    episode.supplementalSkills = { outline: [{ id: 'rule', content: '保留本集补充' }] }
+    episode.plot.props.items = [cardModel({ id: 'P01', name: '旧道具', type: 'prop', category: 'prop', description: '旧道具正文' })]
+    for (const key of ['characters', 'scenes', 'props']) {
+      const item = episode.plot[key].items[0]
+      item.image = node(`image:${item.id}`, { assetId: `old-${key}`, localPath: `/old/${key}` })
+      item.parts = { clothes: node(`image:${item.id}:clothes`, { assetId: 'old-part' }) }
+    }
+    episode.pendingImages = { old: { draftId: 'old', itemId: 'C01' } }
+    episode.assembly = node('assembly', { file: 'old.mp4' })
+    return root
+  })
+  return e
+}
+
+function assertEmptyStory(project) {
+  assert.equal(project.plot.outline.content, null)
+  for (const key of ['characters', 'scenes', 'props']) assert.deepEqual(project.plot[key].items, [])
+  assert.deepEqual(project.pendingImages, {})
+  assert.deepEqual(project.shots.items, [])
+  assert.equal(project.assembly.content, null)
+}
+
+test('regenerate clears old story before requests and extracts same-name cards without old media', async t => {
+  const e = await withOldStory(t), before = await e.read()
+  const generated = storyPackageFixture()
+  generated.props = { items: [{ name: '旧道具', category: 'prop', description: '本轮新道具', evidence: '新大纲提到', ownerId: 'C01' }] }
+  const replies = [outlineFixture(), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
+  let calls = 0
+  await runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
+    generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
+      if (!calls++) {
+        assertEmptyStory(options.project)
+        assertEmptyStory(await e.read())
+      }
+      return replies.shift()
+    } }),
+  })
+  const after = await e.read()
+  assert.equal(calls, 8)
+  for (const key of ['characters', 'scenes', 'props']) {
+    assert.equal(after.plot[key].items.length, 1)
+    assert.ok(!after.plot[key].items[0].image.content?.assetId)
+    assert.ok(!after.plot[key].items[0].image.content?.localPath)
+    assert.ok(Object.values(after.plot[key].items[0].parts).every(part => part.content === null))
+  }
+  assert.equal(after.plot.props.items[0].description, '本轮新道具')
+  assert.deepEqual(after.summary, before.summary)
+  assert.deepEqual(after.supplementalSkills, before.supplementalSkills)
+})
+
+for (const phase of ['first-request', 'characters', 'cancel']) test(`regenerate does not restore old cards after ${phase}`, async t => {
+  const e = await withOldStory(t), controller = new AbortController()
+  let calls = 0
+  await assert.rejects(runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home, signal: controller.signal,
+    generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
+      calls++
+      if (phase === 'characters' && calls <= 2) return calls === 1 ? outlineFixture() : reviewPass
+      if (phase === 'cancel') {
+        controller.abort(new Error('本轮停止'))
+        throw controller.signal.reason
+      }
+      throw new Error('HTTP 503')
+    } }),
+  }), /HTTP 503|本轮停止/)
+  const after = await e.read()
+  for (const key of ['characters', 'scenes', 'props']) assert.deepEqual(after.plot[key].items, [])
+  assert.deepEqual(after.shots.items, [])
+  assert.deepEqual(after.pendingImages, {})
+  assert.equal(after.assembly.content, null)
+  if (phase === 'characters') assert.equal(after.plot.outline.content, outlineFixture())
+  else assert.equal(after.plot.outline.content, null)
+})
+
+test('outline modification keeps the original cards and confirmed media', async t => {
+  const e = await withOldStory(t), before = await e.read()
+  await runOperation(e.op('outline', { generationMode: 'modify', review: '调整剧情节奏' }), { home: e.home,
+    generateStoryPackage: async ({ project }) => {
+      assert.equal(project.plot.characters.items[0].image.content.assetId, 'old-characters')
+      return { ...storyPackageFixture(), check: { passed: true, failures: [] } }
+    },
+  })
+  assert.deepEqual((await e.read()).plot.characters.items[0].image.content, before.plot.characters.items[0].image.content)
 })

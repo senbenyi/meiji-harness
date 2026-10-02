@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { renderNodeSkill } from '../client/node-skill.js'
 import { renderTaskHistory } from '../client/execution-history.js'
-import { episodeDialog } from '../client/overview.js'
+import { episodeDialog } from '../client/project-overview-view.js'
 const settle = () => new Promise(resolve => setImmediate(resolve))
 function setup(t) {
   const dom = new JSDOM('<main></main>'), prior = globalThis.document

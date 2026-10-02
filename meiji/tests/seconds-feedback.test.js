@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { splitSecondsIssues, secondsRevisionIds } from '../server/prompts/seconds-feedback.js'
-import { buildAllSecondsPrompts, buildSecondsPrompts } from '../server/prompts/shot-prompts.js'
+import { buildAllSecondsPrompts, buildSecondsPrompts } from '../server/prompts/shot-text-prompts.js'
 import { EpisodeSecondsModel } from '../server/prompts/models/text-step-model.js'
 import { render } from '../server/prompts/skill-prompts.js'
-import { checkContext } from '../server/data/operation-context.js'
+import { checkContext } from '../server/runtime/operation-context.js'
 import { formatReviewIssue } from '../shared/review-result.js'
 import { validateSeconds } from '../shared/seconds-content.js'
-import { protocols } from '../skills/protocols.js'
+import { protocols } from '../skills/output-protocols.js'
 import { episodeFixture } from './fixtures/model.js'
 
 const program = { location: '程序校验', reason: 'S02 节拍总时长4000ms，应为5000ms', requirement: '修正时长' }

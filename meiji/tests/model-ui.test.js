@@ -3,7 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { renderStage } from '../client/stages.js'
+import { renderStage } from '../client/generation-stage-views.js'
 import { renderModelView, createModelStore } from '../client/drama-store.js'
 import { setContent } from '../shared/drama-model.js'
 import { secondsContent } from './fixtures/seconds.js'
@@ -84,7 +84,7 @@ test('shot subtab cards show review failure and retain manual expansion across r
  }
 })
 
-test('failed review shows reasons instead of input and submits the unified modification',async t=>{
+test('failed review keeps reasons and accepts an opinion for the unified modification',async t=>{
  const container=domSetup(t),p=episodeFixture();p.episodeId=p.id
  p.shots.items[0].seconds.check={passed:false,failures:['朝向不连续']}
  const calls=[]
@@ -92,13 +92,14 @@ test('failed review shows reasons instead of input and submits the unified modif
  const card=container.querySelector('.shot-card'),area=container.querySelector('.workflow-review-panel')
  assert.ok(area.classList.contains('workflow-review-failed'))
  assert.match(area.textContent,/朝向不连续/)
- assert.equal(area.querySelector('input'),null)
- const button=area.querySelector('button');assert.equal(button.textContent,'提交修改')
+ const input=area.querySelector('.workflow-review-input');assert.ok(input)
+ input.value='保持朝向'
+ const button=area.querySelector('.workflow-review-action');assert.equal(button.textContent,'提交修改')
  assert.equal(card.contains(button),false)
  assert.ok(area.compareDocumentPosition(card) & 4)
- assert.equal(container.querySelectorAll('.workflow-review-input').length,0)
+ assert.equal(container.querySelectorAll('.workflow-review-input').length,1)
  button.click();await Promise.resolve()
- assert.equal(calls[0][1],'seconds');assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,undefined)
+ assert.equal(calls[0][1],'seconds');assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,'保持朝向')
 })
 
 test('storyboard badges distinguish missing pending and failed content', t => {
@@ -136,7 +137,7 @@ test('previous tail input is hidden and never replaces missing current video or 
 })
 
 test('generated and revised shot titles appear on production cards', async t => {
- const { generateShots, reviseShot } = await import('../server/generate/shot-text.js')
+ const { generateShots, reviseShot } = await import('../server/flow/operations/shot-operations.js')
  const container = domSetup(t), project = episodeFixture()
  const request = text => async ({ skill }) => skill === 'review' ? reviewPass : text
  project.shots = await generateShots({ project, request: request('## S01 / 5s\n标题：夜访庭院\n旅人走到门外。\n\n## S02 / 5s\n标题：叩门待应\n旅人敲门。') })
@@ -154,7 +155,7 @@ test('generated and revised shot titles appear on production cards', async t => 
 })
 
 test('log copy copies full content when expanded or collapsed, without duplicate buttons or toggling', async t => {
- const { appendLogCopy } = await import('../client/dom.js')
+ const { appendLogCopy } = await import('../client/panel-dom.js')
  const container = domSetup(t)
  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
  const copied = []
@@ -235,7 +236,7 @@ test('table and seconds review panels precede all shot cards; seconds cards have
  }
 })
 test('single shot seconds detail is read only',async t=>{
- const container=domSetup(t),p=episodeFixture(),{renderShotPage}=await import('../client/stages.js')
+ const container=domSetup(t),p=episodeFixture(),{renderShotPage}=await import('../client/generation-stage-views.js')
  container.append(renderShotPage(p,p.shots.items[0],{perform:()=>assert.fail('read only')},{shotTab:'seconds'}))
  assert.match(container.textContent,/卡片集顶部统一/)
  assert.equal(container.querySelector('.workflow-review'),null)
@@ -393,7 +394,7 @@ test('summary editing and review target the current episode',async t=>{
 })
 
 test('overview deletion buttons confirm, target the selected scope and do not open episodes', async t => {
- const { renderOverview } = await import('../client/overview.js')
+ const { renderOverview } = await import('../client/project-overview-view.js')
  const container = domSetup(t), episode = episodeFixture()
  const project = { id: 'project', title: '测试', summary: { content: '摘要' }, episodes: [episode] }
  const calls = []; let opened = 0, confirmed = false
@@ -531,7 +532,7 @@ test('film history entries stay in each shot header and navigate to the correspo
 })
 
 test('shot film history filters exact shot targets including batch steps and artifact-only records', async t => {
- const {renderTaskHistory}=await import('../client/execution-history.js')
+ const { renderTaskHistory } = await import('../client/execution-history.js')
  const container=domSetup(t),project={id:'p',episodeId:'e'},copies=[],promptCalls=[]
  window.HTMLDialogElement.prototype.show=function(){this.open=true}
  const task=(id,action,steps=[],artifacts=[])=>({id,action,steps,artifacts,status:'completed',actor:'model'})
@@ -642,7 +643,7 @@ test('failed text review offers a human override; an overridden node shows the o
 })
 
 test('image generation from an episode page repaints with the full project, not the episode view', async t => {
- const { episodeWork } = await import('../client/overview.js')
+ const { episodeWork } = await import('../client/project-overview-view.js')
  const { rootProject } = await import('../client/drama-store.js')
  const e = await setupModel(t), root = await e.store.read(e.id), store = createModelStore()
  store.accept(root)
@@ -681,7 +682,7 @@ test('detail page confirms an image without opening the review page', async t =>
  const container = domSetup(t), episode = episodeFixture(), calls = []
  episode.pendingImages = { d1: { draftId: 'd1', previewUrl: '/draft.png', itemId: 'C01', name: '旅人' } }
  const root = { id: 'p', title: '剧', revision: 1, episodes: [episode], summary: { content: '' } }
- const { renderSession } = await import('../client/session.js')
+ const { renderSession } = await import('../client/project-session-view.js')
  container.append(renderSession(root, () => {}, {
   reviewImage: async (...args) => { calls.push(args.slice(1)) },
   closeImageReview: async () => {},
@@ -715,7 +716,7 @@ test('scene cards stay read only and editing happens on the detail page', async 
  const open = container.querySelector('[aria-label="场景详情：庭院"]')
  open.click()
  assert.deepEqual(opened, [[p.episodeId, 'E01']])
- const { renderSceneDetail } = await import('../client/stages.js')
+ const { renderSceneDetail } = await import('../client/generation-stage-views.js')
  container.replaceChildren(renderSceneDetail(p, 'E01', { perform: async () => {}, beginImage: async () => {}, fail() {} }, {}))
  const prompt = container.querySelector('.image-text-prompt')
  assert.equal(prompt.textContent, '开阔庭院及远处山脉，完整门墙与通道')
@@ -726,7 +727,7 @@ test('scene cards stay read only and editing happens on the detail page', async 
 test('image detail shows editable text and a prompt without field keys', async t => {
  const container = domSetup(t), p = episodeFixture(), calls = []
  p.episodeId = p.id
- const { renderCharacterDetail } = await import('../client/character.js')
+ const { renderCharacterDetail } = await import('../client/character-views.js')
  container.append(renderCharacterDetail(p, 'C01', { perform: async (...args) => calls.push(args), beginImage: async () => {}, fail() {} }, {}))
  const prompt = container.querySelector('.image-text-prompt')
  assert.equal(prompt.textContent, '中国，旅人，探险者，男性，古代，三十岁，一米八，结实，方脸')
@@ -748,7 +749,7 @@ test('image detail shows editable text and a prompt without field keys', async t
 test('character detail lays out the portrait, reference and text without ancillary images', async t => {
  const container = domSetup(t), p = episodeFixture(), calls = []
  p.episodeId = p.id
- const { renderCharacterDetail } = await import('../client/character.js')
+ const { renderCharacterDetail } = await import('../client/character-views.js')
  container.append(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async (...args) => calls.push(args), fail() {} }, {}))
  const aspect = container.querySelector('[aria-label="画幅"]')
  assert.equal(aspect.value, '9:16')

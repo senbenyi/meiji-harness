@@ -1,9 +1,9 @@
 import { reviewProtocol } from '../../../shared/review-result.js'
 // 摘要 model 只组织数据与提示词，不读取配置、不发请求。
 import { segment, render } from '../skill-prompts.js'
-import { outputLanguage } from '../../data/language.js'
+import { outputLanguage } from '../../../shared/output-language.js'
 import { referenceDuration } from '../../../shared/episode-summary.js'
-import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../request.js'
+import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../prompt-request.js'
 
 export class EpisodeSummaryModel {
   constructor({ project = {}, episodeId, referenceDurationSeconds, generationRules = '', reviewRules = '', outputProtocol = '', mode = 'generate', opinion = '' }) {
@@ -27,7 +27,7 @@ export class EpisodeSummaryModel {
     this.modification = mode === 'modify' && target ? { baseSummary: target.summary.content, durationSeconds: target.durationSeconds, instruction: opinion } : null
     if (mode === 'modify' && !this.modification) throw new Error('修订摘要需要指定已有剧集')
   }
-  // 三类请求共用事实与参数；结构由 request.js 统一组装。
+  // 三类请求共用事实与参数；结构由 prompt-request.js 统一组装。
   contextSegments({ instructions = '' } = {}) {
     const { referenceDurationSeconds: duration } = this.target
     const previous = this.previousEpisodes.map(episode => `第 ${episode.episodeNumber} 集（${episode.durationSeconds} 秒）：${episode.summary}`).join('\n')

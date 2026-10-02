@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { scopeProjects } from '../server/data/episodes.js'
+import { scopeProjects } from '../server/data/episode-data.js'
 import { cardModel, pictureOf } from '../shared/drama-model.js'
-import { submitAssetImage } from '../server/generate/image.js'
-import { runOperation } from '../server/flow/operations/run.js'
+import { submitAssetImage } from '../server/flow/operations/image-operations.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
 import { recordStore } from '../server/data/task-store.js'
 
 test('道具生成候选、人工确认入库、原图修改使用同一 P ID', async t => {

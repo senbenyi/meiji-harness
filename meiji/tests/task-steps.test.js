@@ -3,19 +3,21 @@ import { reviewPass, reviewFail } from './fixtures/review-result.js'
 // 任务与步骤：状态推导、结束落定、计划与执行的对应、逐镜成片单一任务、人工专属操作。
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { migrateTaskSteps } from '../scripts/migrate-task-steps.js'
-import { overrideBlocker } from '../shared/feedback.js'
-import { shotsReady } from '../shared/gates.js'
-import { StepStatus, currentStep, deriveTaskStatus, groupByTarget, reviewFailures, reviewPassed } from '../shared/steps.js'
-import { expandStage, finalizeSteps, recordStore } from '../server/data/task-store.js'
-import { recordSteps } from './fixtures/steps.js'
+import { overrideBlocker } from '../shared/review-feedback.js'
+import { shotsReady } from '../shared/generation-gates.js'
+import { StepStatus, currentStep, deriveTaskStatus, groupByTarget, reviewFailures, reviewPassed } from '../shared/task-steps.js'
+import { finalizeSteps } from '../server/runtime/task-state.js'
+import { recordStore } from '../server/data/task-store.js'
+import { linkStore } from '../server/data/workspace-links.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { definitions, planSteps, validateOperation } from '../server/flow/operations/registry.js'
-import { createTasks } from '../server/flow/tasks/runner.js'
-import { generateAllSeconds, generateShotStoryboard, generateShots, generateStoryboard } from '../server/generate/shot-text.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { definitions, planSteps, validateOperation } from '../server/flow/operations/operation-registry.js'
+import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { generateAllSeconds, generateShotStoryboard, generateShots, generateStoryboard } from '../server/flow/operations/shot-operations.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel, tempHome } from './fixtures/model.js'
 
@@ -25,7 +27,7 @@ const prompt = 'integrated_multimodal_description: 旅人朝北进入庭院，�
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 let submitted = 0
 const filmDeps = { submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: `remote-${++submitted}` })) }),
-  retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async (_video, frame) => { await writeFile(frame, Buffer.from('frame')); return Buffer.from('frame') } }
+  retrieveGatewayVideo: async () => Buffer.from('video'), saveLastFrame: async (_video, frame) => { await writeFile(frame, Buffer.from('frame')); return Buffer.from('frame') } }
 
 async function setup(t) {
   const e = await setupModel(t), models = modelStore(e.home)
@@ -78,6 +80,30 @@ test('ending a task settles open steps by how it ended', () => {
   const failed = finalizeSteps([step('running', { preparing: true }), step('pending')], new Error('请先写好镜头表'), null)
   assert.deepEqual(failed.map(item => item.status), ['failed', 'pending'])
   assert.equal(failed[0].preparing, undefined)
+})
+
+test('latest completed reviews determine both status and reasons, without duplicating failed checks', () => {
+  const steps = [
+    step('completed', { target: 'a', verdict: 'fail', reasons: ['旧意见'] }),
+    step('completed', { target: 'b', verdict: 'fail', reasons: ['未解决'] }),
+    step('completed', { target: 'a', kind: 're_review', verdict: 'pass' }),
+    step('pending', { target: 'b', kind: 're_review' }),
+  ]
+  assert.equal(deriveTaskStatus(steps), 'running')
+  assert.equal(reviewPassed(steps), false)
+  assert.deepEqual(reviewFailures(steps), ['未解决'])
+  finalizeSteps(steps, Object.assign(new Error('审核失败'), { code: 'CONTENT_CHECK_FAILED' }))
+  assert.equal(steps.length, 4)
+  assert.equal(deriveTaskStatus(steps), 'review_failed')
+  steps.push(step('completed', { target: 'b', kind: 're_review', verdict: 'pass' }))
+  assert.equal(deriveTaskStatus(steps), 'completed')
+  assert.equal(reviewPassed(steps), true)
+  assert.deepEqual(reviewFailures(steps), [])
+  finalizeSteps(steps, Object.assign(new Error('新增内容错误'), { code: 'CONTENT_CHECK_FAILED' }))
+  assert.equal(steps.at(-1).kind, 'check')
+  assert.deepEqual(reviewFailures(steps), ['新增内容错误'])
+  steps.push(step('cancelled'))
+  assert.equal(deriveTaskStatus(steps), 'cancelled')
 })
 
 test('text operations execute exactly their planned steps', async t => {
@@ -164,6 +190,8 @@ test('produce-all stops when video is ready but its tail extraction failed', asy
 })
 
 test('human-only operations are rejected for the agent and never queued for it', async t => {
+  for (const action of ['missing', 'constructor', 'toString', '__proto__']) assert.throws(() => validateOperation({ action, origin: 'panel' }), { status: 400 }, action)
+  for (const action of ['review-override', 'confirm-image', 'discard-image']) assert.throws(() => validateOperation({ action, origin: 'panel' }), { status: 400 }, action)
   const humanOnly = Object.entries(definitions).filter(([, value]) => value.agent === false).map(([action]) => action)
   assert.ok(humanOnly.includes('review-override') && humanOnly.includes('confirm-image'))
   for (const action of humanOnly) assert.throws(() => validateOperation({ action, origin: 'session' }), { status: 403 }, action)
@@ -263,8 +291,24 @@ test('old task records must be migrated; migration converts nodes to steps and i
   assert.deepEqual(await migrateTaskSteps(e.home), { migrated: 0 })
 })
 
-test('a stage placeholder expands into concrete steps once its predecessors pass (reserved for whole-episode runs)', async () => {
-  const plan = [{ id: 'a', kind: 'generate', target: 'shots', status: 'completed' }, { id: 'b', kind: 'stage', target: 'shots:each', status: 'pending' }, { id: 'c', kind: 'assemble', target: 'assembly', status: 'pending' }]
-  const { steps } = await recordSteps(() => expandStage('shots:each', [{ kind: 'generate', target: 'storyboard:S01' }, { kind: 'generate', target: 'storyboard:S02' }]), plan)
-  assert.deepEqual(steps.map(item => `${item.kind}:${item.target}:${item.status}`), ['generate:shots:completed', 'generate:storyboard:S01:pending', 'generate:storyboard:S02:pending', 'assemble:assembly:pending'])
+test('operation entry rejects another project before recording or generating and allows the selected project', async t => {
+  const e = await setup(t), sessionId = `session-${randomUUID()}`
+  const other = await e.store.create({ title: '另一部剧', summary: '另一段故事' })
+  const links = linkStore(e.home)
+  await links.selectProject(sessionId, other.id, e.store)
+  let calls = 0
+  const deps = { home: e.home, operationId: 'authorized-shots', generateShots: options => {
+    calls++
+    return generateShots({ ...options, request: reply(table) })
+  } }
+  const operation = e.op('shots', { sessionId, origin: 'session' })
+  const before = await e.store.read(e.id)
+  await assert.rejects(runOperation(operation, deps), { status: 409 })
+  assert.equal(calls, 0)
+  assert.deepEqual(await e.history.list(), [])
+  assert.deepEqual(await e.store.read(e.id), before)
+  await links.selectProject(sessionId, e.id, e.store)
+  await runOperation(operation, deps)
+  assert.equal(calls, 1)
+  assert.equal((await e.history.read('tasks', deps.operationId)).status, 'completed')
 })

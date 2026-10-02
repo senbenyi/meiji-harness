@@ -6,7 +6,7 @@ export function storyboardContext({ project, shot, video, characters = [], scene
     .filter(key => card[key] != null).map(key => [key, Array.isArray(card[key]) ? card[key].map(clean) : card[key]]))
   const people = selected(project.plot?.characters?.items, characters).map(clean)
   const places = selected(project.plot?.scenes?.items, scenes).map(clean)
-  // 结构化返回：任务、审核目标与本镜资料分开，由 request.js 组装。
+  // 结构化返回：任务、审核目标与本镜资料分开，由 prompt-request.js 组装。
   return {
     task: task || `仅为 ${shot.id} 将已通过的每秒指令直接编排为时长 ${shot.duration}s 的最终视频提示词，不输出其他镜头。`,
     review: task || '',

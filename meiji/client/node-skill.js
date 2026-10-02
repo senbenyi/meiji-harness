@@ -1,4 +1,4 @@
-import { element, tabs } from './dom.js'
+import { element, tabs } from './panel-dom.js'
 
 const labels = { summary: '摘要', outline: '大纲', characters: '人物角色', scenes: '场景', props: '道具' }
 export function renderNodeSkill(project, nodeKey, { load, save, back }) {

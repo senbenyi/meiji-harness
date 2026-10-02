@@ -18,7 +18,7 @@ Harness 外部插件，源码位于 `Meiji/meiji/`，不修改上游 Harness。�
 
 完整目录、模块职责与依赖方向见仓库根目录的 `.agents/architecture.md`。要点：`client/` 为面板界面，`shared/` 为前后端共用的领域模块（数据模型、门禁规则），`server/host/` 是唯一接触 Harness 的适配层，面板操作按领域位于 `server/flow/operations/`。
 
-`server/data/projects.js` 管理项目（存储布局由 `server/data/project-files.js` 负责），`server/data/library.js` 管理素材文件与元数据，`server/http/library-routes.js` 管理导入、读取与分段播放，`server/http/routes.js` 组合鉴权后的 HTTP 路由。浏览器仅加载 `client/`、`shared/` 两个平铺目录中的模块。
+`server/data/project-store.js` 管理项目（存储布局由 `server/data/project-files.js` 负责），`server/data/asset-library-store.js` 管理素材文件与元数据，`server/http/asset-library-routes.js` 管理导入、读取与分段播放，`server/http/panel-routes.js` 组合鉴权后的 HTTP 路由。浏览器仅加载 `client/`、`shared/` 两个平铺目录中的模块。
 
 ## 页面行为
 
@@ -40,7 +40,7 @@ Harness 外部插件，源码位于 `Meiji/meiji/`，不修改上游 Harness。�
 - **指导素材**：在「素材 → 指导提示词」按表情、动作、武术、特效、声音、对白、配乐或其他分类导入 UTF-8 TXT/Markdown（单文件最多 128 KB、正文 20000 字，保存在本地 `assets/guidance/<素材UUID>/`）。在技能详情页按指导分组勾选，每阶段最多 20 个、合计 60000 字，按剧保存。素材是参考例子，未全部使用不构成审核失败，不能覆盖本剧补充与输出协议。
 - **预览**：用当前剧集的上下文组装生成、意见修改、审核、自动修订请求，按来源着色并显示字数，不调用模型。
 
-优先级：输出协议 > 上游事实与本次任务 > 本剧补充 > 阶段技能 > 指导技能 > 指导素材。审核请求只带验收标准，不附整份生成技能与官方参考；文本分镜只注入当前模式的官方参考。组装细节见 [docs/tasks-and-steps.md](docs/tasks-and-steps.md)「提示词与请求」。
+优先级：输出协议 > 上游事实与本次任务 > 本剧补充 > 阶段技能 > 指导技能 > 指导素材。审核请求只带验收标准，不附整份生成技能与官方参考；文本分镜只注入当前模式的官方参考。组装细节见 [开发指引：提示词接口与 Model](../.agents/meiji-dev.md#prompt-models)。
 
 | 素材分类 | 所属指导 | 最终视频提示词模块 |
 | --- | --- | --- |
@@ -86,9 +86,9 @@ meiji/
 
 ## 模型与工作流
 
-网关地址、四个模型名与并发上限写在 `config/models.json`（入 git，不含密钥）；密钥写在本地的 `config/models.local.json`（git 忽略，覆盖同名字段）。网关接口说明见 [gateway-api.md](docs/gateway-api.md)。运行中的一份是 `storages/meiji/models.json`，文本、图片和视频都读它。密钥不返回给浏览器。
+网关地址、四个模型名与并发上限写在 `config/models.json`（入 git，不含密钥）；密钥写在本地的 `config/models.local.json`（git 忽略，覆盖同名字段）。网关接口说明见 [开发指引：网关 API 参考](../.agents/meiji-dev.md#gateway-api)。运行中的一份是 `storages/meiji/models.json`，文本、图片和视频都读它。密钥不返回给浏览器。
 
-制作顺序由 `shared/gates.js` 的门禁决定：简报、大纲、角色、场景、镜头表、每秒指令、文本分镜，然后逐镜交给 MiniMax H3。铅笔分镜在镜头详情里生成，成片拼接仍只保留卡片。
+制作顺序由 `shared/generation-gates.js` 的门禁决定：简报、大纲、角色、场景、镜头表、每秒指令、文本分镜，然后逐镜交给 MiniMax H3。铅笔分镜在镜头详情里生成，成片拼接仍只保留卡片。
 
 右栏左边缘可拖拽调整宽度，聊天区域同步适配；宽度记入浏览器 localStorage，刷新、收起后展开均恢复。窗口缩小时自动限制宽度，拖拽手柄也支持左右方向键。
 
@@ -110,7 +110,7 @@ meiji/
 - 图片候选必须确认、上传成功后入素材库；文本分镜保存并展示实际素材引用顺序。
 - 运行时拒绝旧结构、旧存储布局与按集保存的补充 skill。部署前停止服务，依次执行 `node meiji/scripts/migrate-model.js <DSH_HOME>`（数据结构）、`node meiji/scripts/migrate-layout.js <DSH_HOME>`（按剧集拆分存储）与 `node meiji/scripts/migrate-custom-skills.js <DSH_HOME>`（补充 skill 与指导素材按剧保存）；后两者由 `configure-harness.sh` 启动前自动执行。脚本先完整备份再迁移，不能用运行时兼容替代迁移。
 
-结构、执行步骤及验证见 [重构执行文档](docs/model-refactor-execution.md)。
+结构、执行步骤及验证见 [开发指引：历史迁移记录](../.agents/meiji-dev.md#model-migration-history)。
 
 ## 剧情统一生成
 
@@ -126,7 +126,7 @@ meiji/
 `session-content-generate-tool.js` 和 `session-task-control-tool.js`。
 用户可说“创建一个现代农民工穿越成武松的故事项目”，再说“完成第一集摘要和剧情”。
 模型通过 Harness 内置 `todo_write` 规划步骤，每次调用只生成一个阶段，并等待审核结果后继续。
-会话与面板共用 `server/flow/tasks/runner.js` 和 `runOperation`，不另建内容生成 Skill。人工专属操作（忽略自审、确认图片、编辑与删除）会话工具不能发起。
+会话与面板共用 `server/flow/tasks/task-manager.js` 和 `runOperation`，不另建内容生成 Skill。人工专属操作（忽略自审、确认图片、编辑与删除）会话工具不能发起。
 
 上下文查询返回项目概要、剧集顺序、阶段状态和运行任务，不在每轮装入整个项目 JSON。
 首次剧情生成以已通过的本集摘要为输入；重新生成排除本节点旧结果；修订需提供本次意见。
@@ -136,4 +136,4 @@ meiji/
 也不会改变其他会话的目标。新会话按其工作区定位项目。任务日志固定写入发起会话。
 任务结果为 `queued`、`running`、`completed`、`review_failed`、`failed` 或 `cancelled`（由步骤推导）；
 `wait` 每次最多等待 25 秒。执行记录和内容快照持久化到项目的 history 目录，重启后未完成任务一律记为 cancelled（不自动重做），可按原任务编号查询。
-详情页提供“本集执行历史”，状态栏在有任务时提供“查看当前任务”；两页共用步骤清单。任务、步骤、状态推导、人工忽略自审与记录结构见 [tasks-and-steps.md](docs/tasks-and-steps.md)。
+详情页提供“本集执行历史”，状态栏在有任务时提供“查看当前任务”；两页共用步骤清单。任务、步骤、状态推导、人工忽略自审与记录结构见 [开发指引：任务记录与状态](../.agents/meiji-dev.md#task-records)。

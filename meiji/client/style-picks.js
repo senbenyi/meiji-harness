@@ -1,4 +1,4 @@
-import { element } from './dom.js'
+import { element } from './panel-dom.js'
 
 export const styleOptions = [
   '写实电影',

@@ -4,8 +4,8 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { migrateLayout } from '../scripts/migrate-layout.js'
-import { projectStore } from '../server/data/projects.js'
-import { blankEpisode } from '../server/data/episodes.js'
+import { projectStore } from '../server/data/project-store.js'
+import { blankEpisode } from '../shared/episode-rules.js'
 
 async function oldLayoutProject(t) {
   const home = await mkdtemp(join(tmpdir(), 'meiji-layout-')); t.after(() => rm(home, { recursive: true, force: true }))

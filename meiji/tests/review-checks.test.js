@@ -4,12 +4,12 @@ import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { scopeProjects } from '../server/data/episodes.js'
-import { generateShotSeconds, generateShotStoryboard, generateShots } from '../server/generate/shot-text.js'
-import { checkReasons, setCheck } from '../server/data/review-checks.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { scopeProjects } from '../server/data/episode-data.js'
+import { generateShotSeconds, generateShotStoryboard, generateShots } from '../server/flow/operations/shot-operations.js'
+import { checkReasons, setCheck } from '../server/runtime/review-checks.js'
 import { targetNode, begin, saveReview, finish } from '../shared/drama-model.js'
-import { pictureTargetSnapshot } from '../server/data/pictures.js'
+import { pictureTargetSnapshot } from '../server/data/image-storage.js'
 const reply=(text,verdict=reviewPass)=>async ({ skill }) =>skill==='review'?verdict:skill==='seconds'?secondsResponse([['S01',5,text]]):text
 
 for (const [action, key, fields] of [
@@ -80,7 +80,7 @@ test('batch film stays generating until download and local save complete', async
   await runOperation(e.op('films'), {
     home: e.home,
     submitH3: async () => ({ baseUrl: 'https://test', shots: [{ promptId: 'task', duration: 5 }] }),
-    retrieveFilm: async () => {
+    retrieveGatewayVideo: async () => {
       const p = await e.read(), current = p.shots.items[calls++]
       assert.equal(current.video.status, 'generating')
       assert.equal(current.video.content.status, 'running')
@@ -100,7 +100,7 @@ test('one-click retry does not regenerate clips completed before a later failure
   const deps = {
     home: e.home,
     submitH3: async ({items}) => { submitted.push(items[0].track); return { baseUrl: 'https://test', shots: [{ promptId: items[0].track, duration: 5 }] } },
-    retrieveFilm: async ({promptId}) => { if (promptId === 'S02' && failSecond) throw new Error('remote failure'); return Buffer.from('video') },
+    retrieveGatewayVideo: async ({promptId}) => { if (promptId === 'S02' && failSecond) throw new Error('remote failure'); return Buffer.from('video') },
     saveLastFrame: async () => Buffer.from('frame'),
   }
   await assert.rejects(runOperation(e.op('films'), deps), /remote failure/)
@@ -123,7 +123,7 @@ for (const action of ['storyboard']) {
     })
     await e.store.save(e.id,p=>{p.episodes[0].shots.items[0].seconds.content.beats[0].action='【错误|C99】';return p})
     const before = (await e.read()).shots.items[1]
-    const { generateStoryboard } = await import('../server/generate/shot-text.js')
+    const { generateStoryboard } = await import('../server/flow/operations/shot-operations.js')
     await assert.rejects(runOperation(e.op(action), {
       home: e.home,
       generateShotSeconds: opts => generateShotSeconds({ ...opts, request: reply('新每秒指令') }),
@@ -147,11 +147,11 @@ test('aborted operation does not invoke generation', async t => {
 test('failed frame extraction keeps newly completed video ready', async t => {
  const e=await setupModel(t)
  const {readFile}=await import('node:fs/promises')
- const deps={home:e.home,submitH3:async()=>({baseUrl:'https://test',shots:[{promptId:'task',duration:5}]}),retrieveFilm:async()=>Buffer.from('old-video'),saveLastFrame:async()=>Buffer.from('frame')}
+ const deps={home:e.home,submitH3:async()=>({baseUrl:'https://test',shots:[{promptId:'task',duration:5}]}),retrieveGatewayVideo:async()=>Buffer.from('old-video'),saveLastFrame:async()=>Buffer.from('frame')}
  await runOperation(e.op('films'),deps)
  const before=(await e.read()).shots.items[0].video.content
  await e.store.save(e.id,p=>{p.episodes[0].shots.items[0].video.stale=true;return p})
- await assert.rejects(runOperation(e.op('films'),{...deps,retrieveFilm:async()=>Buffer.from('new-video'),saveLastFrame:async()=>{throw new Error('frame failed')}}), /frame failed/)
+ await assert.rejects(runOperation(e.op('films'),{...deps,retrieveGatewayVideo:async()=>Buffer.from('new-video'),saveLastFrame:async()=>{throw new Error('frame failed')}}), /frame failed/)
  const after=(await e.read()).shots.items[0].video.content
  assert.notEqual(after.file,before.file)
  assert.equal(after.status,'ready')
@@ -161,7 +161,7 @@ test('failed frame extraction keeps newly completed video ready', async t => {
 
 test('running text API receives the operation cancellation signal', async t => {
  const e=await setupModel(t), controller=new AbortController()
- const {completeChat}=await import('../server/generate/gateway.js')
+ const { completeChat } = await import('../server/gateway/model-gateway.js')
  await assert.rejects(runOperation(e.op('shot-seconds',{track:'S01'}),{
   home:e.home,signal:controller.signal,
   generateShotSeconds:()=>completeChat({baseUrl:'https://test/',apiKey:'test',model:'test',prompt:'test',fetchImpl:async(_url,{signal})=>{
@@ -173,9 +173,9 @@ test('running text API receives the operation cancellation signal', async t => {
 
 test('storyboard regenerates all shots even when already passed', async t => {
  const e=await setupModel(t)
- const {modelStore}=await import('../server/data/model-settings.js')
+ const { modelStore } = await import('../server/data/model-settings.js')
  const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
- const {generateStoryboard}=await import('../server/generate/shot-text.js')
+ const { generateStoryboard } = await import('../server/flow/operations/shot-operations.js')
  const calls=[]
  const deps={home:e.home,generateStoryboard:opts=>generateStoryboard({...opts,request:async ({ skill, user: prompt }) =>{
   if(skill==='review')return reviewPass

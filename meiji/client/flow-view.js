@@ -1,7 +1,7 @@
 import { targetNode, statusLabels } from '../shared/drama-model.js'
-import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, hasStoryboard } from '../shared/gates.js'
-export * from '../shared/gates.js'
-import { feedbackOf } from '../shared/feedback.js'
+import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, hasStoryboard } from '../shared/generation-gates.js'
+export * from '../shared/generation-gates.js'
+import { feedbackOf } from '../shared/review-feedback.js'
 export const tabs = [
   { id: 'summary', label: '摘要', steps: ['summary'] },
   { id: 'script', label: '剧情', steps: ['outline', 'characters', 'scenes'] },

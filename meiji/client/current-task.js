@@ -1,6 +1,6 @@
 // 「当前任务」页：本集（或本项目）进行中与排队中的任务，显示步骤清单、当前步骤执行情况与排队位置，可停止任务。
-// 数据来自 GET /plugins/meiji/tasks/current；页面由 app.js 在收到 /events 推送时调用 view.refresh() 刷新，不另行轮询。
-import { element } from './dom.js'
+// 数据来自 GET /plugins/meiji/tasks/current；页面由 panel-app.js 在收到 /events 推送时调用 view.refresh() 刷新，不另行轮询。
+import { element } from './panel-dom.js'
 import { renderSteps, taskStatusLabels, tickElapsed } from './task-steps.js'
 
 const time = value => value ? new Date(value).toLocaleString() : '—'

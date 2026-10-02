@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
-import { projectDialog } from '../client/session.js'
+import { projectDialog } from '../client/project-session-view.js'
 
 function setup(t, create) {
   const dom = new JSDOM('<main></main>', { pretendToBeVisual: true })

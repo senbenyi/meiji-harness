@@ -6,13 +6,13 @@
 //   POST /skills/<id>/preview          生成 / 意见修改 / 审核 / 自动修订请求的组装预览（分段、来源、字数），不调用模型
 //   PUT  /project-skills               本剧补充 { sessionId, projectId, skill, fields }
 //   PUT  /project-guidance             本剧启用的指导 { enabled } 与某阶段的指导素材 { stage, guidanceAssetIds }
-import { nodeSkills, nodeSkillsPatch, nodeStage } from '../data/node-skills.js'
-import { sections } from '../prompts/interfaces/outline.js'
-import { builtinSkill, guidanceName, guidanceSkillIds } from '../../skills/load.js'
+import { nodeSkills, nodeSkillsPatch, nodeStage } from '../../shared/node-skills.js'
+import { sections } from '../prompts/interfaces/story-content-interface.js'
+import { builtinSkill, guidanceName, guidanceSkillIds } from '../../skills/load-skills.js'
 import { editableFields, additionsPatch, guidancePatch, loadSkillSet, projectSkills, skillStore } from '../data/skill-store.js'
-import { assetsPatch, loadGuidanceAssets } from '../data/custom-skills.js'
-import { materialize } from '../data/episodes.js'
-import { previewPrompts } from '../prompts/preview.js'
+import { assetsPatch, loadGuidanceAssets } from '../data/guidance-assets.js'
+import { materialize } from '../../shared/episode-rules.js'
+import { previewPrompts } from '../prompts/preview-prompts.js'
 
 const sameOrigin = req => req.headers['x-meiji-request'] === '1'
 

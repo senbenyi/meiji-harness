@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { scopeProjects } from '../server/data/episodes.js'
-import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/pictures.js'
+import { scopeProjects } from '../server/data/episode-data.js'
+import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/image-storage.js'
 import { recordStore } from '../server/data/task-store.js'
-import { pictureRecord, submitAssetImage } from '../server/generate/image.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { sceneImagePrompt } from '../server/prompts/interfaces/scene-image.js'
+import { pictureRecord } from '../shared/image-assets.js'
+import { submitAssetImage } from '../server/flow/operations/image-operations.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { sceneImagePrompt } from '../server/prompts/interfaces/scene-image-interface.js'
 
 for (const draft of [false, true]) test(`场景意见修改使用${draft ? '待确认' : '已确认'}原图 Base64，不改写资料，执行三步`, async t => {
   const e = await setupModel(t)

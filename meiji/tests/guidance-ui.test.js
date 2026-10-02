@@ -4,7 +4,7 @@ import { JSDOM } from './fixtures/jsdom.js'
 import { skillField } from '../client/skill-entry.js'
 import { renderSkillDetail } from '../client/skill-detail.js'
 import { renderSkillLibrary } from '../client/skill-library.js'
-import { renderLibrary } from '../client/library.js'
+import { renderLibrary } from '../client/asset-library-view.js'
 
 function domSetup(t) {
   const dom = new JSDOM('<body></body>', { url: 'http://localhost' })

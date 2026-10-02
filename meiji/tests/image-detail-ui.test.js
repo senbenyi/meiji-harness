@@ -2,9 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { episodeFixture } from './fixtures/model.js'
-import { renderStage, renderSceneDetail } from '../client/stages.js'
-import { renderCharacterDetail } from '../client/character.js'
-import { renderSession } from '../client/session.js'
+import { renderStage, renderSceneDetail } from '../client/generation-stage-views.js'
+import { renderCharacterDetail } from '../client/character-views.js'
+import { renderSession } from '../client/project-session-view.js'
 
 function setup(t) {
   const dom = new JSDOM('<body></body>', { url: 'http://localhost' })

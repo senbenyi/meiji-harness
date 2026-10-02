@@ -2,12 +2,12 @@ import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EpisodeSummaryModel } from '../server/prompts/models/episode-summary-model.js'
-import { buildEpisodePrompts } from '../server/prompts/episode-prompts.js'
-import { checkContext } from '../server/data/operation-context.js'
-import { executionContext } from '../server/data/task-store.js'
+import { buildEpisodePrompts } from '../server/prompts/episode-summary-prompts.js'
+import { checkContext } from '../server/runtime/operation-context.js'
+import { executionContext } from '../server/runtime/task-context.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
-import { builtinSkill } from '../skills/load.js'
-import { previewPrompts } from '../server/prompts/preview.js'
+import { builtinSkill } from '../skills/load-skills.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { render } from '../server/prompts/skill-prompts.js'
 
 const root = () => ({ title: '故事标题', summary: { content: '项目设定' }, script: '明确剧本', style: '武侠仙侠', outputLanguage: 'zh-CN', aspectRatio: '1344x768', episodes: [] })
@@ -202,7 +202,7 @@ test('实际审核把验收规则放 system，参数不重复且不带其他阶�
 })
 
 test('人工修订初审使用人工基稿，自动修订复审使用最新失败稿和本轮意见', async () => {
-  const { generateEpisode } = await import('../server/generate/story.js')
+  const { generateEpisode } = await import('../server/flow/operations/project-operations.js')
   const initial = JSON.stringify({ summary: '初次修改稿', durationSeconds: 150 })
   const revised = JSON.stringify({ summary: '修复后的最新稿', durationSeconds: 150 })
   const replies = [initial, reviewFail('动机不完整'), revised, reviewPass]

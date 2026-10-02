@@ -5,8 +5,8 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { setupModel } from './fixtures/model.js'
 import { readProjectFile, writeProjectFile } from '../server/data/project-files.js'
-import { assetStore } from '../server/data/library.js'
-import { projectStore } from '../server/data/projects.js'
+import { assetStore } from '../server/data/asset-library-store.js'
+import { projectStore } from '../server/data/project-store.js'
 import { migrateImageUrl } from '../scripts/migrate-image-url.js'
 
 const local = id => `/plugins/meiji/asset-file?category=characters&id=${id}`

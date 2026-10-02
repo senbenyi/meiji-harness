@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { resolveClientFile } from '../server/http/routes.js'
+import { resolveClientFile } from '../server/http/panel-routes.js'
 
 const clientRoot = fileURLToPath(new URL('../client/', import.meta.url))
 
@@ -16,8 +16,8 @@ function listClientFiles() {
 
 test('client modules are flat files with javascript mime', () => {
   const files = listClientFiles()
-  assert.ok(files.includes('session.js'))
-  assert.ok(files.includes('library.js'))
+  assert.ok(files.includes('project-session-view.js'))
+  assert.ok(files.includes('asset-library-view.js'))
   assert.equal(files.some(file => file.includes('/')), false)
   for (const file of files) {
     const resolved = resolveClientFile(file)
@@ -38,9 +38,9 @@ test('shared domain modules are served from their own flat directory', () => {
   const files = readdirSync(sharedRoot).filter(name => name.endsWith('.js'))
   assert.ok(files.includes('drama-model.js'))
   for (const file of files) assert.equal(resolveClientFile(file, 'shared')?.path, join(sharedRoot, file), file)
-  assert.equal(resolveClientFile('app.js').path, join(clientRoot, 'app.js'))
-  assert.equal(resolveClientFile('../client/app.js', 'shared'), undefined)
-  assert.equal(resolveClientFile('app.js', 'server'), undefined)
+  assert.equal(resolveClientFile('panel-app.js').path, join(clientRoot, 'panel-app.js'))
+  assert.equal(resolveClientFile('../client/panel-app.js', 'shared'), undefined)
+  assert.equal(resolveClientFile('panel-app.js', 'server'), undefined)
 })
 
 test('shared modules stay usable in the browser', async () => {

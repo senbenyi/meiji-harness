@@ -2,10 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createCharacterImageModel } from '../server/prompts/models/character-image-model.js'
 import { createSceneImageModel } from '../server/prompts/models/scene-image-model.js'
-import { imageSegments } from '../server/prompts/interfaces/registry.js'
+import { imageSegments } from '../server/prompts/interfaces/prompt-interfaces.js'
 import { render } from '../server/prompts/skill-prompts.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
-import { previewPrompts } from '../server/prompts/preview.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
 
 const base64 = 'data:image/png;base64,AA=='
 const configurations = [

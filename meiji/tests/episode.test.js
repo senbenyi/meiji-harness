@@ -1,9 +1,9 @@
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeEpisodeDraft } from '../server/generate/story.js'
+import { normalizeEpisodeDraft } from '../shared/story-content.js'
 import { EpisodeSummaryModel } from '../server/prompts/models/episode-summary-model.js'
-import { builtinSkill } from '../skills/load.js'
+import { builtinSkill } from '../skills/load-skills.js'
 const episodePrompt = (project, episodeId) => new EpisodeSummaryModel({ project, episodeId, generationRules: builtinSkill('episode').constraints }).toMessages().map(message => message.content).join('\n')
 
 test('the first episode is written from the project summary and keeps the user-set duration', () => {
@@ -51,8 +51,8 @@ test('regeneration targets the selected episode and separates later continuity c
 })
 
 test('summary modes separate old input, review content and revision-only rules', async () => {
-  const { buildEpisodePrompts } = await import('../server/prompts/episode-prompts.js')
-  const { checkContext } = await import('../server/data/operation-context.js')
+  const { buildEpisodePrompts } = await import('../server/prompts/episode-summary-prompts.js')
+  const { checkContext } = await import('../server/runtime/operation-context.js')
   const project = { title: '故事', summary: { content: 'PROJECT_BACKGROUND' }, episodes: [
     { id: 'next', summary: { content: 'NEXT_EPISODE' }, durationSeconds: 120 },
     { id: 'target', summary: { content: 'OLD_SUMMARY' }, durationSeconds: 120 },
@@ -80,8 +80,8 @@ for (const mode of ['new', 'regenerate', 'modify']) {
   test(`summary ${mode} runs through the real operation with episode-scoped check context`, async t => {
     const { setupModel } = await import('./fixtures/model.js')
     const { modelStore } = await import('../server/data/model-settings.js')
-    const { runOperation } = await import('../server/flow/operations/run.js')
-    const { generateEpisode } = await import('../server/generate/story.js')
+    const { runOperation } = await import('../server/flow/operations/run-operation.js')
+    const { generateEpisode } = await import('../server/flow/operations/project-operations.js')
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
     const root = await e.store.read(e.id), old = root.episodes[0].summary.content, calls = []
@@ -111,7 +111,7 @@ for (const mode of ['new', 'regenerate', 'modify']) {
 }
 
 test('summary checks run after drafting and independent review receives the episode review skill', async () => {
-  const { buildEpisodePrompts } = await import('../server/prompts/episode-prompts.js')
+  const { buildEpisodePrompts } = await import('../server/prompts/episode-summary-prompts.js')
   const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
   const rules = builtinSkill('episode').constraints
   assert.ok(prompts.generation.system.includes(rules))
@@ -131,7 +131,7 @@ for (const scenario of ['failed', 'new-opinion']) {
   test(`summary modification keeps opinions when ${scenario}`, async t => {
     const { setupModel } = await import('./fixtures/model.js')
     const { modelStore } = await import('../server/data/model-settings.js')
-    const { runOperation } = await import('../server/flow/operations/run.js')
+    const { runOperation } = await import('../server/flow/operations/run-operation.js')
     const { saveReview } = await import('../shared/drama-model.js')
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })

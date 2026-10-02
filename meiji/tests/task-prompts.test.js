@@ -2,9 +2,11 @@ import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { tempHome, setupModel } from './fixtures/model.js'
-import { executionContext, recordStore, readStepPrompts, runStep, TASK_SCHEMA } from '../server/data/task-store.js'
-import { completeChat, generateGatewayImage, submitGatewayVideo } from '../server/generate/gateway.js'
-import { runTextRequest } from '../server/generate/text-request.js'
+import { executionContext } from '../server/runtime/task-context.js'
+import { recordStore, readStepPrompts, TASK_SCHEMA } from '../server/data/task-store.js'
+import { runStep } from '../server/runtime/task-execution.js'
+import { completeChat, generateGatewayImage, submitGatewayVideo } from '../server/gateway/model-gateway.js'
+import { runTextRequest } from '../server/gateway/model-gateway.js'
 
 const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'secret-test-key', model: 'test-model' }
 async function fixture(t, home = null, projectId = 'project') {
@@ -45,8 +47,8 @@ test('请求失败仍可查看原提示词，自定义文本请求也记录且�
 })
 
 test('实际摘要生成、自审、修订、复审各记录一份完整提示词', async t => {
-  const { runOperation } = await import('../server/flow/operations/run.js')
-  const { generateEpisode } = await import('../server/generate/story.js')
+  const { runOperation } = await import('../server/flow/operations/run-operation.js')
+  const { generateEpisode } = await import('../server/flow/operations/project-operations.js')
   const e = await setupModel(t), messages = []
   await runOperation(e.op('episode-generate'), { home: e.home, generateEpisode: options => generateEpisode({ ...options, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
@@ -96,7 +98,7 @@ test('按任务与步骤验证归属；新建剧集后仍能查看，删除剧�
 })
 
 test('提示词 HTTP 查询沿用会话项目授权并验证 taskId / stepId', async t => {
-  const { registerPanel } = await import('../server/http/routes.js')
+  const { registerPanel } = await import('../server/http/panel-routes.js')
   const { linkStore } = await import('../server/data/workspace-links.js')
   const project = await setupModel(t), sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
   const e = await fixture(t, project.home, project.id)

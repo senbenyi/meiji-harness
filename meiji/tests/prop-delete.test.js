@@ -2,9 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
 import { cardModel } from '../shared/drama-model.js'
-import { scopeProjects } from '../server/data/episodes.js'
+import { scopeProjects } from '../server/data/episode-data.js'
 import { recordStore } from '../server/data/task-store.js'
-import { runOperation, validateOperation } from '../server/flow/operations/run.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { validateOperation } from '../server/flow/operations/operation-registry.js'
 
 const prop = (id, name) => cardModel({ id, type: 'prop', name, category: 'prop', description: name, evidence: `旅人拿起${name}`, ownerId: 'C01' })
 

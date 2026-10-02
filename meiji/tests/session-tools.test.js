@@ -4,9 +4,10 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { setupModel } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
-import { createTasks } from '../server/flow/tasks/runner.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { generateEpisode, generateStoryPackage } from '../server/generate/story.js'
+import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { generateEpisode } from '../server/flow/operations/project-operations.js'
+import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { linkStore } from '../server/data/workspace-links.js'
 import { contentGenerateTool } from '../tools/session-content-generate-tool.js'
@@ -21,9 +22,10 @@ async function setup(t, review = reviewPass) {
   const models = modelStore(e.home); await models.write({ ...await models.read(), apiKey: 'test-only' })
   const exec = { agent: { session: { id: 'session-' + randomUUID(), append: (type, data) => logs.push({ type, data }) } }, signal: new AbortController().signal }
   await linkStore(e.home).selectProject(exec.agent.session.id, e.id, e.store)
+  const fixture = storyPackageFixture(), storyReplies = [outlineFixture(), review, JSON.stringify(fixture.characters), review, JSON.stringify(fixture.scenes), review, JSON.stringify(fixture.props), review]
   const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 150 }) } }),
-    generateStoryPackage: opts => generateStoryPackage({ ...opts, fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: system.content.includes('【本次审核协议】') ? review : user.content.includes('本集完整剧情大纲') ? outlineFixture() : JSON.stringify(user.content.includes('返回人物 items') ? storyPackageFixture().characters : storyPackageFixture().scenes) } }] }) } }),
+    generateStoryPackage: opts => generateStoryPackage({ ...opts, fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: storyReplies.shift() } }] }) } }),
   }) })
   const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ tasks })
   const start = async args => JSON.parse(await generate.execute(args, exec))
@@ -39,11 +41,12 @@ test('session executes summary then story through real workflows and carries req
   const story = await e.wait(await e.start({ stage: 'story', episodeNumber: 1, mode: 'generate', requirements: '侧重心理反应' }))
   assert.equal(story.status, 'completed', JSON.stringify(story)); assert.equal(story.reviewPassed, true)
   assert.equal(story.episodeId, summary.episodeId)
-  assert.equal(e.calls.length, 4)
+  assert.equal(e.calls.length, 10)
   for (const message of e.calls.slice(0, 2)) assert.match(message.user, /保留工地经历/)
-  for (const message of e.calls.slice(2)) { assert.match(message.user, /侧重心理反应/); assert.match(message.user, /武松带着工地经历醒来/) }
+  for (const message of e.calls.slice(2)) assert.match(message.user, /侧重心理反应/)
+  for (const message of e.calls.slice(2, 4)) assert.match(message.user, /武松带着工地经历醒来/)
   const duplicate = await e.start({ stage: 'story', episodeNumber: 1, mode: 'generate' })
-  assert.equal(duplicate.alreadyCompleted, true); assert.equal(e.calls.length, 4)
+  assert.equal(duplicate.alreadyCompleted, true); assert.equal(e.calls.length, 10)
   const context = JSON.parse(await contextQueryTool({ home: e.home, tasks: e.tasks }).execute({}, e.exec))
   assert.equal(context.current.episodes[0].episodeNumber, 1)
   assert.equal(context.current.episodes[0].stages.outline.passed, true)

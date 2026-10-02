@@ -5,12 +5,14 @@ import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { episodeFixture } from './model.js'
-import { checkContext } from '../../server/data/operation-context.js'
+import { checkContext } from '../../server/runtime/operation-context.js'
 import { buildStoryPrompts } from '../../server/prompts/story-prompts.js'
-import { buildEpisodePrompts } from '../../server/prompts/episode-prompts.js'
-import { buildAllSecondsPrompts, buildSecondsPrompts, buildSingleShotPrompts, buildTablePrompts } from '../../server/prompts/shot-prompts.js'
+import { buildEpisodePrompts } from '../../server/prompts/episode-summary-prompts.js'
+import { buildAllSecondsPrompts, buildSecondsPrompts, buildSingleShotPrompts, buildTablePrompts } from '../../server/prompts/shot-text-prompts.js'
 import { buildEditedContentReview, buildTextPrompts } from '../../server/prompts/text-prompts.js'
-import { characterImagePrompt, imageSkillPrompt, propImagePrompt, pencilPrompt, sceneStillPrompt } from '../../server/generate/image.js'
+import { characterImagePrompt } from '../../server/prompts/interfaces/character-image-interface.js'
+import { imageSkillPrompt, propImagePrompt, pencilPrompt } from '../../server/prompts/image-prompts.js'
+import { sceneStillPrompt } from '../../shared/image-assets.js'
 
 const guidance = [{ id: 'g-action', name: '动作参考', guidanceType: 'action', content: '动作参考内容' }, { id: 'g-sound', name: '声音参考', guidanceType: 'sound', content: '声音参考内容' }]
 const supplements = { outline: '【本剧】大纲补充', shots: '【本剧】镜头表补充', seconds: '【本剧】每秒补充', storyboard: '【本剧】分镜补充', film: '【本剧】成片补充' }

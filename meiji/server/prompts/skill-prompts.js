@@ -1,11 +1,11 @@
 import { reviewProtocol } from '../../shared/review-result.js'
 // 技能片段与来源标注工具。这里只提供可选材料，不决定最终请求结构。
 // 每个接口在 interfaces/<id>.js 中明确选择 system/user/prompt 的内容和顺序。
-import { builtinSkill, textHash } from '../../skills/load.js'
+import { builtinSkill, textHash } from '../../skills/load-skills.js'
 import { builtinSkillSet, skillUse } from '../data/skill-store.js'
-import { taskSkillSet, useSkills } from '../data/task-store.js'
-import { outputLanguage } from '../data/language.js'
-import { assetGuidance } from '../../shared/guidance.js'
+import { taskSkillSet, useSkills } from '../runtime/task-context.js'
+import { outputLanguage } from '../../shared/output-language.js'
+import { assetGuidance } from '../../shared/guidance-categories.js'
 
 export const segment = (source, title, text, extra = {}) => ({ source, title, text: String(text ?? '').trim(), ...extra })
 export const render = segments => segments.filter(item => item.text).map(item => item.title ? `${item.title}\n${item.text}` : item.text).join('\n\n')
@@ -15,7 +15,6 @@ export function currentSkillSet(project, explicit) {
   return explicit || taskSkillSet() || builtinSkillSet(project?.skills)
 }
 
-export const stageMeta = id => builtinSkill(id)
 export const part = (set, id, field) => set.skills[id]?.parts?.[field] || ''
 const productionRule = (set, stage, nodeKey) => set.skills[stage]?.rules?.[nodeKey] ?? set.skills[stage]?.constraints ?? part(set, stage, 'generate')
 // 自审只使用 review/ 中的审核 skill，不再复用生成规则；没有审核 skill 的功能返回空。
@@ -81,13 +80,13 @@ export function recordUse(set, meta, guidance, project, nodeKey, episodeId, rule
   useSkills(entries)
 }
 
-// 技能相关片段：生产规则、审核标准、补充、指导素材、语言与协议。任务资料、基稿与意见由 request.js 组装。
+// 技能相关片段：生产规则、审核标准、补充、指导素材、语言与协议。任务资料、基稿与意见由 prompt-request.js 组装。
 // rules：调用方显式提供的生产规则（如图片提示词改写），缺省读取技能快照。
 export function generationParts({ stage, project, kind = 'generate', skillSet, outputProtocol = '', nodeKey, episodeId, rules }) {
   nodeKey ||= { episode: 'summary', outline: 'outline', shots: 'shots', 'shot-revise': 'shot', seconds: 'seconds', storyboard: 'storyboard' }[stage]
   episodeId ||= project?.episodeId
   const set = currentSkillSet(project, skillSet)
-  const meta = stageMeta(stage)
+  const meta = builtinSkill(stage)
   const rule = rules === undefined ? productionRule : () => rules
   recordUse(set, meta, [], project, nodeKey, episodeId, rule)
   const assets = assetSegments(set, meta)
@@ -111,7 +110,7 @@ export function reviewParts({ stage, project, reviewContext = '', skillSet, node
   nodeKey ||= { episode: 'summary', outline: 'outline', shots: 'shots', 'shot-revise': 'shot', seconds: 'seconds', storyboard: 'storyboard' }[stage]
   episodeId ||= project?.episodeId
   const set = currentSkillSet(project, skillSet)
-  const meta = stageMeta(stage)
+  const meta = builtinSkill(stage)
   recordUse(set, meta, [], project, nodeKey, episodeId, reviewRule)
   const assets = assetSegments(set, meta, { review: true })
   return {
@@ -131,7 +130,7 @@ export function reviewParts({ stage, project, reviewContext = '', skillSet, node
 // 图片片段不包含固定顺序；每个图片接口单独选择。
 export function imageParts({ stage, project, request, skillSet }) {
   const set = currentSkillSet(project, skillSet)
-  recordUse(set, stageMeta(stage), [])
+  recordUse(set, builtinSkill(stage), [])
   const language = outputLanguage(project?.outputLanguage)
   const style = String(project?.style || '').trim()
   return {

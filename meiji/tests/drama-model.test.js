@@ -1,11 +1,14 @@
+import { secondsResponse } from './fixtures/seconds.js'
+import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, readFile } from 'node:fs/promises'
-import { projectStore, revisionStore } from '../server/data/projects.js'
-import { blankEpisode, materialize, scopeProjects } from '../server/data/episodes.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { generateShots, generateShotSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
+import { projectStore, revisionStore } from '../server/data/project-store.js'
+import { blankEpisode, materialize } from '../shared/episode-rules.js'
+import { scopeProjects } from '../server/data/episode-data.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { generateShots, generateShotSeconds, generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 import { node, shotModel, begin, finish, saveReview, assertDrama, allNodes, contentNode } from '../shared/drama-model.js'
 import { migrateProject } from '../scripts/migrate-model.js'
@@ -25,13 +28,16 @@ async function throughShots(t) {
 }
 test('canonical model flows through plot, shots, seconds, storyboard and manual recheck',async t=>{
  const e=await throughShots(t)
- await runOperation(e.op('shot-seconds',{track:'S01'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:requestFor('0–5s：朝北行走，摄影机在人物身后。')})})
- await runOperation(e.op('shot-storyboard',{track:'S01'}),{home:e.home,generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:requestFor('summary: 旅人走进庭院\ndetailed_description: 朝北行走，摄影机在人物身后。')})})
+ await runOperation(e.op('shot-seconds',{track:'S01'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:requestFor(secondsResponse([['S01', 5, '旅人【旅人|C01】朝北行走，摄影机在人物身后。']]))})})
+ const generated=(await e.store.read(e.id)).episodes[0].shots.items[0]
+ assert.equal(generated.seconds.check.passed,true,JSON.stringify(generated.seconds.check))
+ await runOperation(e.op('shot-storyboard',{track:'S01'}),{home:e.home,generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:()=>assert.fail('程序编译不调用模型')})})
  let p=await e.store.read(e.id), shot=p.episodes[0].shots.items[0]
  assert.equal(shot.seconds.status,'passed');assert.equal(shot.storyboard.status,'passed');assert.equal(shot.pencil.status,'not-generated')
- await runOperation(e.op('storyboard-text',{track:'S01',originalText:shot.storyboard.content.prompt.text,text:'修改后的文本分镜'}),{home:e.home,reviewContent:async()=>({passed:true,failures:[]})})
+ const edited=compileVideoPrompt(materialize(p,e.episodeId),shot).prompt.text.replace('旅人朝北行走','旅人缓步朝北行走')
+ await runOperation(e.op('storyboard-text',{track:'S01',originalText:shot.storyboard.content.prompt.text,text:edited}),{home:e.home,reviewContent:async()=>({passed:true,failures:[]})})
  p=await e.store.read(e.id);shot=p.episodes[0].shots.items[0]
- assert.equal(shot.storyboard.content.prompt.text,'修改后的文本分镜');assert.equal(shot.storyboard.status,'passed')
+ assert.equal(shot.storyboard.content.prompt.text,edited);assert.equal(shot.storyboard.status,'passed')
  const raw=JSON.parse(await readFile(`${e.home}/storages/meiji/projects/${e.id}.json`,'utf8'))
  assert.equal(raw.schemaVersion,2);assert.equal('feedback' in raw.episodes[0],false);assert.equal('storyboard' in raw.episodes[0],false)
 })

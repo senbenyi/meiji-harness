@@ -1,6 +1,6 @@
 import { appendWorkflowReview, reviewFields } from './workflow-review.js'
-import { feedbackOf } from '../shared/feedback.js'
-import { element, appendJsonCopy } from './dom.js'
+import { feedbackOf } from '../shared/review-feedback.js'
+import { element, appendJsonCopy } from './panel-dom.js'
 
 export function draftsOf(project) {
   return (project.episodes || []).flatMap(episode => Object.values(episode.pendingImages || {}).map(draft => ({ ...draft, episodeId: episode.id })))

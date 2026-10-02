@@ -1,5 +1,5 @@
 import { currentSkillSet } from './skill-prompts.js'
-import { checkContext } from '../data/operation-context.js'
+import { checkContext } from '../runtime/operation-context.js'
 import { buildTextPrompts } from './text-prompts.js'
 import { StoryModel, storyKinds } from './models/story-model.js'
 

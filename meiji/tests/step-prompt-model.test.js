@@ -1,11 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ShotTableModel } from '../server/prompts/models/text-step-model.js'
-import { EpisodeSecondsModel } from '../server/prompts/models/text-step-model.js'
-import { ShotSecondsModel } from '../server/prompts/models/text-step-model.js'
+import { ShotTableModel, EpisodeSecondsModel, ShotSecondsModel } from '../server/prompts/models/text-step-model.js'
 import { TextStoryboardModel } from '../server/prompts/models/text-storyboard-model.js'
 import { render } from '../server/prompts/skill-prompts.js'
-import { builtinSkill } from '../skills/load.js'
+import { builtinSkill } from '../skills/load-skills.js'
 for (const [Model, stage] of [[ShotTableModel, 'shots'], [EpisodeSecondsModel, 'seconds'], [ShotSecondsModel, 'seconds']]) {
   test(`${Model.name}：生成与修订用生产规则，自审只用审核 skill，人工修订和自动修订使用各自基稿`, () => {
     const model = new Model({ project: { outputLanguage: 'en' }, instructions: 'UPSTREAM', reviewInstructions: 'UPSTREAM', modify: true, baseContent: 'HUMAN_BASE', opinion: 'HUMAN_OPINION' })
@@ -69,7 +67,7 @@ test('图片提示词改写由 Model 定义生成规则，自审使用独立审�
 
 
 test('shot context omits empty blocks and preserves landmark and light facts', async () => {
- const { shotContext, buildTablePrompts }=await import('../server/prompts/shot-prompts.js')
+ const { shotContext, buildTablePrompts }=await import('../server/prompts/shot-text-prompts.js')
  const { episodeFixture }=await import('./fixtures/model.js')
  const project=episodeFixture();project.plot.scenes.items[0].landmark='固定地标';project.plot.scenes.items[0].light='东侧光源'
  const prompt=buildTablePrompts({project}).generation
@@ -84,7 +82,7 @@ test('shot context omits empty blocks and preserves landmark and light facts', a
 
 test('single target labels distinguish upstream same shot from previous and following shots',async()=>{
  const { episodeFixture }=await import('./fixtures/model.js')
- const { shotContext }=await import('../server/prompts/shot-prompts.js')
+ const { shotContext }=await import('../server/prompts/shot-text-prompts.js')
  const { buildEditedContentReview }=await import('../server/prompts/text-prompts.js')
  const project=episodeFixture()
  const context=shotContext(project,'S01').map(fact=>fact.title).join('\n')
@@ -98,7 +96,7 @@ test('single target labels distinguish upstream same shot from previous and foll
 
 test('审核请求不带生成指令，审核标准与规则在 system、任务与资料在 user', async () => {
  const { episodeFixture }=await import('./fixtures/model.js')
- const { buildTablePrompts, buildSecondsPrompts }=await import('../server/prompts/shot-prompts.js')
+ const { buildTablePrompts, buildSecondsPrompts }=await import('../server/prompts/shot-text-prompts.js')
  const project=episodeFixture()
  for (const prompts of [buildTablePrompts({project}), buildSecondsPrompts({project,shotId:'S01'})]) {
   const review=prompts.review('待审')
@@ -111,7 +109,7 @@ test('审核请求不带生成指令，审核标准与规则在 system、任务�
 
 test('单镜上下文只带本镜及前后镜关联卡片与衔接段，大纲存在时不重复摘要', async () => {
  const { episodeFixture }=await import('./fixtures/model.js')
- const { shotContext }=await import('../server/prompts/shot-prompts.js')
+ const { shotContext }=await import('../server/prompts/shot-text-prompts.js')
  const { cardModel }=await import('../shared/drama-model.js')
  const project=episodeFixture()
  project.plot.characters.items.push(cardModel({ id: 'C09', name: '路人', type: 'role', look: '无关人物' }))

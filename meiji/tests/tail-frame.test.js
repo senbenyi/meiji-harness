@@ -5,8 +5,8 @@ import { promisify } from 'node:util'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ffmpegAvailable } from '../server/generate/ffmpeg.js'
-import { saveLastFrame } from '../server/generate/film.js'
+import { ffmpegAvailable } from '../server/media/check-ffmpeg.js'
+import { saveLastFrame } from '../server/media/extract-video-tail.js'
 
 const exec = promisify(execFile)
 test('FFmpeg extracts the actual final blue frame after earlier red frames', async t => {

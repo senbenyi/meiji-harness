@@ -4,8 +4,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { generateAllSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { generateAllSeconds, generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
 const output=secondsResponse([['S01',5,'新动作一'],['S02',5,'新动作二']])
 // 保存时会刷新节点的上游依赖版本（dependencies），比较业务内容时忽略该字段。
 const content=({dependencies,...rest})=>rest
@@ -44,8 +44,8 @@ test('program storyboard needs no API and works without model access', async t =
 test('gateway image error is logged without changing image model state',async t=>{
  const e=await setupModel(t),models=modelStore(e.home)
  await models.write({...await models.read(),apiKey:'test-only'})
- const {generateGatewayImage}=await import('../server/generate/gateway.js')
- const {runWithSessionLog}=await import('../server/host/session-log.js')
+ const { generateGatewayImage } = await import('../server/gateway/model-gateway.js')
+ const { runWithSessionLog } = await import('../server/host/session-log.js')
  const before=await e.read(),logs=[]
  await runWithSessionLog({append:(type,data)=>logs.push({type,data})},()=>runOperation(e.op('image',{itemId:'C01'}),{home:e.home,waitForBackground:true,submitAssetImage:args=>generateGatewayImage({stepTarget:args.stepTarget,baseUrl:'https://test/',apiKey:'test',model:'test',prompt:'test',aspectRatio:'1344x768',fetchImpl:async()=>new Response(JSON.stringify({error:{message:'image unavailable'}}),{status:503})})}))
  const after=await e.read()

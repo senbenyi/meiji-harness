@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
-import { episodeDialog } from '../client/overview.js'
+import { episodeDialog } from '../client/project-overview-view.js'
 
 function setup(t, generate, saved = async () => {}) {
   const dom = new JSDOM('<main></main>')

@@ -2,7 +2,7 @@ import { node } from '../shared/drama-model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { produceShots } from '../server/flow/operations/films.js'
+import { produceShots } from '../server/flow/operations/video-operations.js'
 import { previousTail } from '../shared/tail-frame.js'
 
 test('production completes previous video before writing next text with its tail', async t => {

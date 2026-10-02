@@ -1,4 +1,4 @@
-import { element, tabs } from './dom.js'
+import { element, tabs } from './panel-dom.js'
 
 function button(text, onclick) {
   const node = element('button', text)

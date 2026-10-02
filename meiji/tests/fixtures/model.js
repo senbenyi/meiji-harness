@@ -1,7 +1,7 @@
 import { secondsContent } from './seconds.js'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { projectStore } from '../../server/data/projects.js'
-import { blankEpisode, materialize } from '../../server/data/episodes.js'
+import { projectStore } from '../../server/data/project-store.js'
+import { blankEpisode, materialize } from '../../shared/episode-rules.js'
 import { node, cardModel, shotModel, setContent } from '../../shared/drama-model.js'
 export function episodeFixture() {
   const e = blankEpisode({ summary: '旅人进入庭院', durationSeconds: 10 })

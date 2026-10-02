@@ -1,7 +1,7 @@
 import { cardModel, node } from '../shared/drama-model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { collectCharacters, episodeWork } from '../client/overview.js'
+import { collectCharacters, episodeWork } from '../client/project-overview-view.js'
 
 test('overview character links retain the selected portrait episode and original data', () => {
   const first = cardModel({ id: 'C01', name: '麦克', type: 'role' })

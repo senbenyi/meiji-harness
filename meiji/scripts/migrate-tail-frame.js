@@ -1,5 +1,5 @@
 // One-time addition of derived frame image nodes; no library assets are created.
-import { projectStore } from '../server/data/projects.js'
+import { projectStore } from '../server/data/project-store.js'
 import { node } from '../shared/drama-model.js'
 const home = process.argv[2]
 if (!home) throw new Error('请传入 DSH_HOME')

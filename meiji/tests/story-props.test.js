@@ -3,8 +3,9 @@ import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
 import { reviewPass } from './fixtures/review-result.js'
-import { normalizeProps, generateStoryPackage } from '../server/generate/story.js'
-import { preserveStoryAssets } from '../server/data/story-package.js'
+import { normalizeProps } from '../shared/story-content.js'
+import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
+import { preserveStoryAssets } from '../shared/preserve-story-assets.js'
 import { entityCatalog } from '../shared/entity-references.js'
 
 const prop = (name, category, ownerId = 'C01') => ({ name, category, ownerId, description: `${name}的外观`, evidence: `大纲中使用${name}` })
@@ -40,7 +41,7 @@ test('character costume alone does not force props absent from outline', () => {
 })
 
 test('prop generation review and revision isolate invented card details from evidence', async () => {
- const { StoryPropsModel }=await import('../server/prompts/models/story-model.js')
+ const { StoryPropsModel } = await import('../server/prompts/models/story-model.js')
  const p=episodeFixture();p.plot.characters.items[0].costume='凭空绣金斗篷';p.plot.scenes.items[0].look='凭空紫檀茶台'
  const model=new StoryPropsModel({project:p,generationRules:'只提取大纲明确出现的物件'})
  for(const segments of [model.toGenerateSegments(),model.toReviewSegments({content:{items:[]}}),model.toReviseSegments({baseContent:{items:[]},opinion:'核对大纲'})]) {

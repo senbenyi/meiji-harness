@@ -1,6 +1,6 @@
 // storyboard 审核：文本分镜由程序编译，这里只组装人工编辑稿的审核请求。
 import { currentSkillSet, reviewParts, segment } from '../skill-prompts.js'
-import { baseSegments, factSegments, requirementSegment, reviewRequest, taskInput } from '../request.js'
+import { baseSegments, factSegments, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
 
 function outputStructure(mode = 'text') {
   return `本次固定模式：${mode}。使用真实换行，按顺序输出 ${mode === 'reference' ? 'subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music' : 'integrated_multimodal_description、overall_soundscape、non_diegetic_music'}，每个英文标题后加冒号，另起行写非空正文。${mode === 'reference' ? 'subject_definitions 定义每张 Picture 与 Subject 的真实用途；summary 简述本镜；retention_analysis 说明参考特征的保留与变化；detailed_description 在原时段的动作或环境描述中使用对应 Subject。每张图片都绑定，每个已定义主体都在正文使用，图片与主体的编号体系独立。' : '没有图片，不写 Picture 或 Subject。'}不输出 JSON、代码围栏或额外说明。`
@@ -8,7 +8,7 @@ function outputStructure(mode = 'text') {
 
 const conversion = '每段的动作、镜头、空间、声音全部进入对应时段的 detailed_description（或 integrated_multimodal_description），保留机位侧别、距离、高度、景别变化、画面左右与前中后景，不概括为剧情摘要。各段「交接」只用于核对承接，最后一段的交接写成本镜结尾状态，不输出“为下一镜衔接”“机位准备切换”等流程备注。用 [Shot 1] 开始，只有每秒指令已确定的实际剪辑才递增 Shot 编号并标明原切镜时点；连续运镜不另算切镜。环境底声与持续声汇总到 overall_soundscape，与动作同步的声响保留在对应时段。仅为实际发声者使用稳定的 (S1)、(S2) 编号，它们与视觉 Subject 编号独立；说话人、画内/画外、已给语气和嘴部状态写在 <d> 外，<d> 内仅写对白语言标签与原文台词，不重复完整台词到声音汇总。既定对白保持原文，不补写对白、声线、光向或动作细节。原文没有配乐时 non_diegetic_music 写 N/A。时间码与引用标签不是画面字幕。'
 
-// 文本分镜由程序生成；模型只审核人工编辑后的最终提示词。结构与其他步骤一致（request.js）。
+// 文本分镜由程序生成；模型只审核人工编辑后的最终提示词。结构与其他步骤一致（prompt-request.js）。
 function review(task, content) {
   const p = reviewParts({ ...task, stage: 'storyboard' }, content)
   const input = taskInput(task.instructions)

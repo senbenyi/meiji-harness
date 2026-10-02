@@ -22,9 +22,9 @@ function latestPlan() {
 if (mode === 'prompt') {
   process.stdout.write([
     '【仓库强制流程】若本次需求涉及修改 meiji/ 下代码：',
-    '1) 先读 .agents/architecture.md、.agents/development.md；',
-    '2) 回复开头写明「档位：完整流程 / 小改动」及理由（定义见 development.md 第 1 节）；',
-    '3) 完整流程：调研 → 计划 → 实施（development.md 第 6–8 节）；小改动：简短计划 → 实施；',
+    '1) 先读 .agents/meiji-dev.md、.agents/development.md；',
+    '2) 回复开头写明「档位：完整流程 / 小改动」及理由（定义见 meiji-dev.md 第 11 节）；',
+    '3) 两步流程：调研与计划 → 实施与验证（development.md 第 1–2 节）；调研合入计划，小改动写简短计划；',
     '4) 改代码前必须已有 docs/plans/计划-*.md（钩子会拦截）；',
     '5) 完成后 cd meiji && npm test，不得新增失败。',
     '只回答问题或只改文档时忽略本提醒。',
@@ -42,8 +42,8 @@ if (mode === 'edit') {
   if (age > PLAN_MAX_AGE) {
     process.stderr.write(
       `已拒绝修改 ${rel}：docs/plans/ 中没有 24 小时内更新的 计划-*.md。\n` +
-      '请按 .agents/development.md 第 1 节判定档位：完整流程先调研（第 6 节）再写计划（第 7 节）；' +
-      '小改动按第 7 节写简短计划（类型「小改动」）。写好计划后再修改代码。\n')
+      '请按 .agents/meiji-dev.md 第 11 节判定档位：按 development.md 第 1 节将调研与改动方案写入同一份计划；' +
+      '小改动按 development.md 第 1 节写简短计划（类型「小改动」）。写好计划后再修改代码。\n')
     process.exit(2)
   }
   process.exit(0)

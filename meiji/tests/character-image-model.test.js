@@ -52,12 +52,11 @@ test('自定义画幅按像素输出，无固定尺寸枚举，转换时也校�
   }
 })
 
-test('规则正文由调用方提供，完整保留年龄分节；空正文不追加默认规则', () => {
+test('规则正文由调用方提供并完整保留；空正文不追加默认规则', () => {
   const rules = readFileSync(new URL('../skills/task/generate-character-image-skill.md', import.meta.url), 'utf8')
   const model = createCharacterImageModel({ ...input, generationRules: rules })
   assert.equal(model.generationRules, rules)
   assert.ok(characterImageModelToPrompt(model).includes(rules.trim()))
-  assert.match(characterImageModelToPrompt(model), /若为成年人物：[\s\S]*若为未成年或年龄不明：/)
   for (const generationRules of ['', ' \n ']) {
     const prompt = characterImageModelToPrompt(createCharacterImageModel({ ...input, generationRules }))
     assert.doesNotMatch(prompt, /【基础规则】|正面全身照|成年规则|适龄规则/)

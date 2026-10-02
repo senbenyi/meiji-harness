@@ -1,5 +1,5 @@
 // 「任务历史」页：已记录的任务（按状态筛选），每个任务的步骤清单与「当前任务」页共用 task-steps.js。
-import { element } from './dom.js'
+import { element } from './panel-dom.js'
 import { renderSteps, taskStatusLabels } from './task-steps.js'
 const names = { 'episode-generate': '生成摘要', 'episode-add': '新增摘要', 'episode-edit': '编辑摘要', outline: '生成剧情', 'outline-text': '编辑剧情', characters: '修改角色', scenes: '修改场景', props: '提取道具', 'scene-text': '编辑场景', 'character-text': '编辑人物文字', shots: '生成镜头表', 'revise-shot': '修改镜头表', seconds: '生成每秒指令', storyboard: '生成文本提示词', 'shot-storyboard': '生成文本提示词', 'shot-boards': '生成文本提示词', 'storyboard-text': '编辑文本提示词', film: '生成成片', films: '生成成片', produce: '生成本镜文本和视频', 'produce-all': '依次生成文本和视频', assemble: '合成视频', 'tail-frame': '重新处理尾帧', 'shot-assets': '修改镜头素材', source: '编辑资料', overview: '保存项目概要',
   'text-shot-edit': '编辑文本镜头', 'storyboard-bind': '编排多模态引用', 'prop-delete': '删除道具',

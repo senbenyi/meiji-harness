@@ -1,8 +1,8 @@
 // 步骤清单组件：「当前任务」与「任务历史」两个页面共用。
 // 按目标（摘要、各镜头的文本提示词与成片……）分组，显示每个步骤的类型、状态、审核结论与理由、错误、执行者、起止时间；
 // live 时高亮当前步骤，并显示已用时间、同一步骤内的尝试（如续传 2/3）与视频的远端任务编号。
-import { currentStep, groupByTarget } from '../shared/steps.js'
-import { element } from './dom.js'
+import { currentStep, groupByTarget } from '../shared/task-steps.js'
+import { element } from './panel-dom.js'
 import { openStepPrompts } from './task-prompt.js'
 
 export const taskStatusLabels = { queued: '排队中', running: '执行中', waiting: '等待人工', completed: '完成', review_failed: '审核未通过', failed: '失败', cancelled: '已取消' }

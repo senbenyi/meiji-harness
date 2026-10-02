@@ -1,5 +1,5 @@
 // 查看步骤实际提交的提示词，按点击加载，不用当前资料重新拼装。
-import { showPanelDialog, element, appendJsonCopy } from './dom.js'
+import { showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
 
 export function openStepPrompts(anchor, { title, load }) {
   const dialog = element('dialog', '', 'task-prompt-dialog')

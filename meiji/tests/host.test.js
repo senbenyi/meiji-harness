@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { hostWorkspaces, setWorkspaceRegistry } from '../server/host/workspaces.js'
+import { hostWorkspaces, setWorkspaceRegistry } from '../server/host/harness-workspaces.js'
 import { insertSessionLog, setHostLogger } from '../server/host/session-log.js'
 import { fakeRegistry } from './fixtures/host.js'
 

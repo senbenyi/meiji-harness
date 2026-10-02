@@ -1,11 +1,11 @@
 // 文本请求分发与序列化。角色内容、顺序和 JSON 模式由 interfaces/<skill>.js 决定。
 // task：{ skill: 阶段技能 ID, project, instructions（{ task, review, facts } 或任务文本）, opinion, reviewContext, mode（文本分镜模式）, modify（按人工意见修改）}
-import { isSkill } from '../../skills/load.js'
+import { isSkill, builtinSkill } from '../../skills/load-skills.js'
 import { continuityReviewContext } from './continuity-review.js'
 import { storyboardContext } from './storyboard-context.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
-import { render, stageMeta } from './skill-prompts.js'
-import { textInterface } from './interfaces/registry.js'
+import { render } from './skill-prompts.js'
+import { textInterface } from './interfaces/prompt-interfaces.js'
 
 function message(stage, { system = [], user = [], json = false }) {
   return { skill: stage, json, system: render(system), user: render(user), segments: { system, user } }
@@ -49,7 +49,7 @@ export function buildEditedContentReview({ project, stage, shotId }, text) {
     }, text)
   }
   return buildReviewPrompt({ project, skill, edited: true,
-    instructions: { review: `审核已编辑原文。审核范围：${isSkill(stage) ? stageMeta(stage).label : stage}`,
+    instructions: { review: `审核已编辑原文。审核范围：${isSkill(stage) ? builtinSkill(stage).label : stage}`,
       facts: [{ title: '【上游事实：本集摘要】', text: project.summary.content }, { title: '【上游事实：大纲】', text: project.plot.outline.content || '' }] },
     reviewContext: continuityReviewContext(project, shotId),
   }, text)

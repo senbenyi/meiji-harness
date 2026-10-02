@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
-import { showPanelDialog } from '../client/dom.js'
+import { showPanelDialog } from '../client/panel-dom.js'
 
 function setup(t) {
   const dom = new JSDOM('<main id="chat"><input></main><meiji-workbench></meiji-workbench>')

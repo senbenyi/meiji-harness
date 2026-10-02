@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { hostWorkspaces } from '../host/workspaces.js'
+import { hostWorkspaces } from '../host/harness-workspaces.js'
 import { readProjectFile } from './project-files.js'
 
 const sessionPattern = /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

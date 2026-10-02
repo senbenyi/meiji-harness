@@ -1,5 +1,5 @@
 import { GenerationStatus } from '../shared/drama-model.js'
-import { element } from './dom.js'
+import { element } from './panel-dom.js'
 
 export function setCardExpanded(card, expanded) {
   card.dataset.expanded = String(expanded)

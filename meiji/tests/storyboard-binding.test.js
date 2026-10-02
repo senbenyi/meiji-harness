@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { generateShotStoryboard } from '../server/generate/shot-text.js'
-import { runOperation } from '../server/flow/operations/run.js'
+import { generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
 import { recordStore } from '../server/data/task-store.js'
-import { h3PromptFailures } from '../server/generate/film.js'
-import { filmSubmit } from '../server/flow/operations/films.js'
+import { h3PromptFailures } from '../shared/video-rules.js'
+import { filmSubmit } from '../server/flow/operations/video-operations.js'
 import { buildEditedContentReview } from '../server/prompts/text-prompts.js'
-import { previewPrompts } from '../server/prompts/preview.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
 
 test('program binding uses markers and freezes picture order without LLM requests',async()=>{
  const project=episodeFixture();project.plot.characters.items[0].image.content={localPath:'/portrait.png'};project.plot.scenes.items[0].image.content={localPath:'/scene.png'}

@@ -2,8 +2,8 @@ import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runTextSteps } from '../server/generate/text-steps.js'
-import { checkContext } from '../server/data/operation-context.js'
+import { runTextSteps } from '../server/runtime/text-generation.js'
+import { checkContext } from '../server/runtime/operation-context.js'
 import { recordSteps } from './fixtures/steps.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 
@@ -16,7 +16,7 @@ async function generateWithSelfReview({ generate, review, canRevise }) {
     return original
   } } })
 }
-import { generateShotSeconds, generateShots } from '../server/generate/shot-text.js'
+import { generateShotSeconds, generateShots } from '../server/flow/operations/shot-operations.js'
 import { episodeFixture } from './fixtures/model.js'
 
 test('shared executor corrects once and reviews the new result', async () => {
@@ -85,7 +85,7 @@ test('text steps record generate, review and, only after a failed review, revise
 
 test('independent review does not receive stale correction text as a new instruction', async () => {
   const { buildReviewPrompt } = await import('../server/prompts/text-prompts.js')
-  const { runTextRequest } = await import('../server/generate/text-request.js')
+  const { runTextRequest } = await import('../server/gateway/model-gateway.js')
   await checkContext.run({ review: 'STALE_ALREADY_FIXED' }, async () => {
     await runTextRequest(buildReviewPrompt({ skill: 'outline', project: {}, instructions: '本次任务' }, JSON.stringify({ outline: '', characters: { items: [] }, scenes: { items: [] } })), {
       route: { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'test' },
@@ -97,4 +97,24 @@ test('independent review does not receive stale correction text as a new instruc
       },
     })
   })
+})
+
+test('existing text is reviewed without generation and a disabled revision keeps the failed draft', async () => {
+  const calls = []
+  const result = await runTextSteps({ initialText: '已有草稿', canRevise: () => false,
+    prompts: { generation: { skill: 'episode' }, review: text => ({ skill: 'review', user: text }), revision: () => { throw new Error('不应修订') } },
+    options: { request: async message => { calls.push(message.user); return reviewFail('需要用户补充事实') } },
+  })
+  assert.deepEqual(calls, ['已有草稿'])
+  assert.equal(result.text, '已有草稿')
+  assert.equal(result.check.passed, false)
+})
+
+test('cancellation after generation prevents review and revision requests', async () => {
+  const controller = new AbortController(), calls = []
+  await assert.rejects(runTextSteps({
+    prompts: { generation: { skill: 'episode' }, review: text => ({ skill: 'review', user: text }), revision: () => { throw new Error('不应修订') } },
+    options: { signal: controller.signal, request: async message => { calls.push(message.skill); controller.abort(); return '已生成草稿' } },
+  }), { name: 'AbortError' })
+  assert.deepEqual(calls, ['episode'])
 })

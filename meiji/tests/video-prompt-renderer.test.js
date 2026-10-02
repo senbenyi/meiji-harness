@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
 import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
 import { parseSecondsResponse, validateSeconds, secondsText } from '../shared/seconds-content.js'
-import { h3PromptFailures } from '../server/generate/film.js'
-import { generateShotStoryboard } from '../server/generate/shot-text.js'
+import { h3PromptFailures } from '../shared/video-rules.js'
+import { generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
 import { cardModel } from '../shared/drama-model.js'
 
 test('unpictured entities compile to text with no model call or invented picture', async () => {
@@ -43,9 +43,9 @@ test('wrong ID, renamed label, duration and extra/missing shots are rejected',()
 })
 
 test('compiled Picture order is the exact local base64 order and changed images reject submission',async t=>{
- const {tempHome}=await import('./fixtures/model.js')
- const {savePicture,referenceImageData}=await import('../server/data/pictures.js')
- const {filmSubmit}=await import('../server/flow/operations/films.js')
+ const { tempHome } = await import('./fixtures/model.js')
+ const { savePicture, referenceImageData } = await import('../server/data/image-storage.js')
+ const { filmSubmit } = await import('../server/flow/operations/video-operations.js')
  const home=await tempHome(t),p=episodeFixture(),s=p.shots.items[0]
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')
  const second=Buffer.concat([png,Buffer.from('second')])

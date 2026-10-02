@@ -1,18 +1,16 @@
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { StoryOutlineModel } from '../server/prompts/models/story-model.js'
-import { StoryCharacterModel } from '../server/prompts/models/story-model.js'
-import { StorySceneModel } from '../server/prompts/models/story-model.js'
+import { StoryOutlineModel, StoryCharacterModel, StorySceneModel } from '../server/prompts/models/story-model.js'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
-import { generateStoryPackage } from '../server/generate/story.js'
-import { checkContext } from '../server/data/operation-context.js'
+import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
+import { checkContext } from '../server/runtime/operation-context.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
-import { definitions } from '../server/flow/operations/registry.js'
-import { runOperation } from '../server/flow/operations/run.js'
+import { definitions } from '../server/flow/operations/operation-registry.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
 import { recordSteps } from './fixtures/steps.js'
-import { builtinSkill } from '../skills/load.js'
+import { builtinSkill } from '../skills/load-skills.js'
 
 test('outline tasks only describe the action and refer to separate rule blocks', () => {
   const project = episodeFixture();project.episodeId = project.id
@@ -113,7 +111,7 @@ for (const [kind, label] of [['characters', '人物角色'], ['scenes', '场景'
   })
 
   test(`${kind}: protocol example passes the actual card normalizer`, async () => {
-    const { normalizeCharacters, normalizeScenes } = await import('../server/generate/story.js')
+    const { normalizeCharacters, normalizeScenes } = await import('../shared/story-content.js')
     const model = kind === 'characters' ? new StoryCharacterModel() : new StorySceneModel()
     const example = model.outputProtocol.split('示例（仅示范格式）：\n')[1]
     const raw = JSON.parse(example)
@@ -321,7 +319,7 @@ test('stopping before the next stage prevents card API requests and keeps the ou
 })
 
 test('preview exposes all three models with the same prompt builders', async () => {
-  const { previewPrompts } = await import('../server/prompts/preview.js')
+  const { previewPrompts } = await import('../server/prompts/preview-prompts.js')
   const { builtinSkillSet } = await import('../server/data/skill-store.js')
   const { render } = await import('../server/prompts/skill-prompts.js')
   const project = episodeFixture()
@@ -354,7 +352,7 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
   const saved = await e.read()
   assert.equal(calls, 8)
   for (const kind of ['outline', 'characters', 'scenes', 'props']) assert.equal(saved.plot[kind].check.passed, true)
-  const { contentTargets } = await import('../server/data/task-store.js')
+  const { contentTargets } = await import('../server/data/content-records.js')
   const root = await e.store.read(e.id)
   assert.equal(contentTargets(root).find(item => item.key === 'story').check.passed, true)
   root.episodes[0].plot.scenes.check.passed = null
@@ -410,7 +408,7 @@ test('大纲生成与修订都提供正文分节和换行结构', () => {
 
 
 test('outline section structure is checked deterministically and repairs the latest draft', async () => {
- const { outlineStructureFailures }=await import('../server/generate/story.js')
+ const { outlineStructureFailures } = await import('../shared/story-content.js')
  assert.equal(outlineStructureFailures(outlineFixture()).length,0)
  assert.ok(outlineStructureFailures('【主角动机】正文挤在同一行').length)
  const fixture=storyPackageFixture(),calls=[]

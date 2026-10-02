@@ -1,4 +1,4 @@
-import { element, showToast } from './dom.js'
+import { element, showToast } from './panel-dom.js'
 
 export function storyboardEditor(project, story, originalText, actions) {
   const box = element('div', '', 'storyboard-editor')

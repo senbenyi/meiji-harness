@@ -1,5 +1,5 @@
 // 模拟 Harness 公开的 ctx.workspaceRegistry：rows 为 { [workspaceId]: { title, path, sessionIds } }，archived 为已归档会话 id。
-import { setWorkspaceRegistry } from '../../server/host/workspaces.js'
+import { setWorkspaceRegistry } from '../../server/host/harness-workspaces.js'
 
 export function fakeRegistry(rows = {}, archived = []) {
   return {

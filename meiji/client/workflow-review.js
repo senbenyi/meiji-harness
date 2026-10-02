@@ -1,6 +1,6 @@
 import { GenerationStatus } from '../shared/drama-model.js'
-import { overridable, overriddenBy } from '../shared/feedback.js'
-import { element } from './dom.js'
+import { overridable, overriddenBy } from '../shared/review-feedback.js'
+import { element } from './panel-dom.js'
 
 export function appendWorkflowReview(parent, record, generated, busy = false, actionButton, { allowFailureOpinion = false } = {}) {
   const area = element('div', '', 'workflow-review workflow-review-panel')

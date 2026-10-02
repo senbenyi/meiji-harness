@@ -2,16 +2,16 @@ import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
-import { previewPrompts } from '../server/prompts/preview.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { render, segment } from '../server/prompts/skill-prompts.js'
-import { imageSegments, textInterface } from '../server/prompts/interfaces/registry.js'
-import characterInterface from '../server/prompts/interfaces/character-image.js'
-import videoSegments from '../server/prompts/interfaces/video.js'
-import { runTextRequest } from '../server/generate/text-request.js'
-import { imageSkillPrompt } from '../server/generate/image.js'
-import { filmSubmit } from '../server/flow/operations/films.js'
-import { checkContext } from '../server/data/operation-context.js'
-import { executionContext } from '../server/data/task-store.js'
+import { imageSegments, textInterface } from '../server/prompts/interfaces/prompt-interfaces.js'
+import characterInterface from '../server/prompts/interfaces/character-image-interface.js'
+import { FilmModel } from '../server/prompts/models/video-prompt-model.js'
+import { runTextRequest } from '../server/gateway/model-gateway.js'
+import { imageSkillPrompt } from '../server/prompts/image-prompts.js'
+import { filmSubmit } from '../server/flow/operations/video-operations.js'
+import { checkContext } from '../server/runtime/operation-context.js'
+import { executionContext } from '../server/runtime/task-context.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 
 const stages = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']
@@ -89,7 +89,7 @@ test('视频独立模块拥有补充、意见与衔接规则，流程层按原�
   const item = { id: 'S01', format: 'text', video: 'reference', characters: ['甲'], prompt: { text: storyboardFixture('<Picture 1> 甲') } }
   const opening = { referenceUrl: 'https://image.test/tail', previous: 'S00' }
   executionContext.run({ skillSet: set, skills: new Map() }, () => checkContext.run({ review: '节奏加快' }, () => {
-    const expected = render(videoSegments({ project: view, prompt: item.prompt.text, mode: 'reference', opening, imageCount: 1 }))
+    const expected = render(new FilmModel({ project: view, prompt: item.prompt.text, mode: 'reference', opening, imageCount: 1 }).toGenerateSegments())
     const actual = filmSubmit(view, item, opening)
     assert.equal(actual.prompt, expected)
     assert.deepEqual(actual.referenceImages, ['/plugins/meiji/asset-file?category=characters&id=a', opening.referenceUrl])
@@ -99,7 +99,7 @@ test('视频独立模块拥有补充、意见与衔接规则，流程层按原�
     assert.match(actual.prompt, /<Picture 2>/)
   }))
   const preview = previewPrompts({ stage: 'video', root: view, skillSet: set }).video
-  assert.equal(render(preview.user), render(videoSegments({ project: view, prompt: '（已审核的文本分镜最终视频提示词）', skillSet: set, mode: 'reference' })))
+  assert.equal(render(preview.user), render(new FilmModel({ project: view, prompt: '（已审核的文本分镜最终视频提示词）', skillSet: set, mode: 'reference' }).toGenerateSegments()))
   assert.equal(preview.chars, render(preview.user).length)
 })
 

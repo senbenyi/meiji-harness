@@ -1,6 +1,6 @@
 // 各阶段的「查看 skill」入口：显示本阶段技能的状态（基础已修改、本剧有补充、启用的指导、指导素材），点击进入技能详情页。
-import { element } from './dom.js'
-import { request } from './api.js'
+import { element } from './panel-dom.js'
+import { request } from './panel-api.js'
 
 // 流程页的阶段 → 阶段技能。成片入口对应成片技能（其本剧补充追加在最终视频提示词后）。
 export const stageSkills = { summary: ['episode', '摘要'], characters: ['outline', '人物角色'], scenes: ['outline', '场景'], props: ['outline', '道具'], outline: ['outline', '剧情'], shots: ['shots', '镜头表'], seconds: ['seconds', '每秒指令'], storyboard: ['storyboard', '文本分镜'], film: ['video', '成片'] }

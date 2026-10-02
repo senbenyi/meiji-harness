@@ -1,15 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFile, readdir } from 'node:fs/promises'
-import { join } from 'node:path'
 import { setupModel, tempHome } from './fixtures/model.js'
-import { modelStore } from '../server/data/model-settings.js'
-import { loadSkillSet, skillStore, skillsRoot } from '../server/data/skill-store.js'
-import { builtinSkill, textHash } from '../skills/load.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { recordStore } from '../server/data/task-store.js'
-import { generateEpisode } from '../server/generate/story.js'
-import { additionsPatch } from '../server/data/skill-store.js'
+import { loadSkillSet, skillStore, additionsPatch } from '../server/data/skill-store.js'
+import { builtinSkill } from '../skills/load-skills.js'
 
 test('基础生产规则只读，旧审核覆盖不再参与新任务', async t => {
   const home = await tempHome(t), store = skillStore(home)
@@ -26,7 +19,7 @@ test('基础生产规则只读，旧审核覆盖不再参与新任务', async t 
 })
 
 test('skill HTTP endpoints: library, detail, confirmed base save, reset and preview', async t => {
-  const { registerPanel } = await import('../server/http/routes.js')
+  const { registerPanel } = await import('../server/http/panel-routes.js')
   const { linkStore } = await import('../server/data/workspace-links.js')
   const e = await setupModel(t), sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
   await linkStore(e.home).selectProject(sessionId, e.id, e.store)

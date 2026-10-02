@@ -4,10 +4,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { runOperation } from '../server/flow/operations/run.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
 import { recordStore } from '../server/data/task-store.js'
-import { generateAllSeconds, generateShotSeconds } from '../server/generate/shot-text.js'
-import { feedbackOf, overrideBlocker } from '../shared/feedback.js'
+import { generateAllSeconds, generateShotSeconds } from '../server/flow/operations/shot-operations.js'
+import { feedbackOf, overrideBlocker } from '../shared/review-feedback.js'
 import { secondsText } from '../shared/seconds-content.js'
 const output = secondsResponse()
 test('invalid first seconds result keeps drafts unpublished and exposes the task failure',async t=>{

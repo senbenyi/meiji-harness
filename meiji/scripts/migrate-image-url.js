@@ -10,7 +10,7 @@ import { cp, mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promise
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { episodeSnapshot, episodesDir, indexFile, projectIds, readProjectFile, writeProjectFile, LAYOUT } from '../server/data/project-files.js'
-import { categories } from '../server/data/library.js'
+import { categories } from '../server/data/asset-library-store.js'
 import { hasGatewayFileFields, node, pictureOf } from '../shared/drama-model.js'
 import { tailFrameUrl } from '../shared/tail-frame.js'
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { parseReviewResult, reviewProtocol, formatReviewIssue } from '../shared/review-result.js'
 import { buildTextPrompts, buildEditedContentReview } from '../server/prompts/text-prompts.js'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
-import { reviewStep, runTextSteps } from '../server/generate/text-steps.js'
+import { reviewStep, runTextSteps } from '../server/runtime/text-generation.js'
 import { episodeFixture } from './fixtures/model.js'
 import { reviewPass } from './fixtures/review-result.js'
 

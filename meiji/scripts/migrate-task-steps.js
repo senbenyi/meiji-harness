@@ -1,14 +1,14 @@
 // 任务记录迁移：schemaVersion 1（nodes）→ 2（steps）。只改 history/ 下的任务与快照文件，项目内容不变。
 // 用法（先停止 Harness）：node meiji/scripts/migrate-task-steps.js <DSH_HOME>
 //   nodes → steps；generation → generate，revision → revise；succeeded → completed，interrupted → cancelled；
-//   reviewResult → verdict；快照来源 nodeId → stepId；任务状态按步骤重新推导（shared/steps.js）。
+//   reviewResult → verdict；快照来源 nodeId → stepId；任务状态按步骤重新推导（shared/task-steps.js）。
 // 已是 schemaVersion 2 的记录跳过，可重复执行。迁移前把待迁移项目的 history 目录完整备份到 <DSH_HOME>/backups/task-steps-<时间>/，
 // 每个文件写入后读回比对，不一致则还原该项目并中止。未结束的任务保持未结束，由启动时的重启处理统一取消。
 import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { projectIds, projectsRoot } from '../server/data/project-files.js'
-import { StepStatus, deriveTaskStatus } from '../shared/steps.js'
+import { StepStatus, deriveTaskStatus } from '../shared/task-steps.js'
 
 const TASK_SCHEMA = 2
 const kinds = { generation: 'generate', revision: 'revise' }

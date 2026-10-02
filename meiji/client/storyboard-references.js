@@ -1,4 +1,4 @@
-import { element } from './dom.js'
+import { element } from './panel-dom.js'
 import { shotReferenceImages } from '../shared/reference-images.js'
 export function referenceReport(project, story) {
   const text = String(story.prompt?.text || '')

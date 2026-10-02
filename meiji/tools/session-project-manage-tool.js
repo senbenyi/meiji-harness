@@ -1,6 +1,6 @@
-import { projectStore } from '../server/data/projects.js'
+import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
-import { runOperation } from '../server/flow/operations/run.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
 import { runWithSessionLog, insertSessionLog } from '../server/host/session-log.js'
 import { jsonOutput, sessionIdOf } from './session-context-query-tool.js'
 

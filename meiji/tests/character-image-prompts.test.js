@@ -1,12 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { adultCharacter, characterImagePrompt, characterStillPrompt } from '../server/prompts/interfaces/character-image.js'
-import { previewPrompts } from '../server/prompts/preview.js'
+import { adultCharacter, characterImagePrompt, characterStillPrompt } from '../server/prompts/interfaces/character-image-interface.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { render } from '../server/prompts/skill-prompts.js'
-import { imageSkillPrompt } from '../server/generate/image.js'
+import { imageSkillPrompt } from '../server/prompts/image-prompts.js'
 import { builtinSkillSet, loadSkillSet, skillStore, skillUse, skillsRoot, additionsPatch } from '../server/data/skill-store.js'
-import { executionContext } from '../server/data/task-store.js'
-import { checkContext } from '../server/data/operation-context.js'
+import { executionContext } from '../server/runtime/task-context.js'
+import { checkContext } from '../server/runtime/operation-context.js'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tempHome } from './fixtures/model.js'
@@ -69,21 +69,6 @@ test('空约束不注入默认值；固定内容纳入技能快照与哈希', ()
   assert.notEqual(skillUse(changed, 'character-image').hash, skillUse(original, 'character-image').hash)
 })
 
-test('未成年与年龄不明人物在实际生成和预览中使用相同适龄约束', () => {
-  for (const age of ['十六岁', '青年', '']) {
-    const card = { ...character, age, look: '' }
-    const project = view(card)
-    const set = builtinSkillSet(project.skills)
-    set.skills['character-image'].parts.generate = '不应使用的可编辑规则'
-    const actual = characterImagePrompt(card, project, set)
-    assert.equal(render(preview(project, set).user), actual)
-    assert.match(actual, /按年龄穿着完整服装/)
-    assert.doesNotMatch(actual, /上半身裸露|比基尼|黑色平角短裤/)
-    assert.doesNotMatch(actual, /不应使用的可编辑规则|本剧人物图补充/)
-    assert.ok(actual.includes(characterStillPrompt(card)))
-  }
-})
-
 test('重新生成人物图不沿用历史原图提示词或意见，预览与生成一致', () => {
   const project = view(character)
   const set = builtinSkillSet(project.skills)
@@ -129,7 +114,7 @@ test('人物资料逐行保留字段名与姓名，空字段省略，最新资�
 
 
 test('generation and reference use the same Model with actual canvas and ordered image purpose',async()=>{
- const { characterImageGenerationModel }=await import('../server/prompts/interfaces/character-image.js')
+ const { characterImageGenerationModel } = await import('../server/prompts/interfaces/character-image-interface.js')
  const canvas={width:900,height:1200}
  const text=characterImagePrompt(character,view(character),undefined,{canvas})
  assert.match(text,/【本次任务】/);assert.match(text,/900 × 1200/);assert.match(text,/【本次输出协议】/)

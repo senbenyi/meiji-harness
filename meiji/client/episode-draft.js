@@ -1,4 +1,4 @@
-import { request, jsonBody } from './api.js'
+import { request, jsonBody } from './panel-api.js'
 import { currentSessionId } from './chat-bridge.js'
 
 // 使用现有任务队列、查询与停止接口；关闭弹框也停止排队/执行中的任务。

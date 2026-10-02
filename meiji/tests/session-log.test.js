@@ -2,7 +2,7 @@ import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { insertSessionLog, runWithSessionLog } from '../server/host/session-log.js'
-import { completeChat } from '../server/generate/gateway.js'
+import { completeChat } from '../server/gateway/model-gateway.js'
 
 test('a session log is a command record and not a model message', () => {
   const events = []
@@ -76,7 +76,7 @@ test('submission log preserves the complete messages and request options sent to
 })
 
 test('video and reference image logs omit base64 while preserving what was actually sent', async () => {
-  const { submitGatewayVideo, generateGatewayImage } = await import('../server/generate/gateway.js')
+  const { submitGatewayVideo, generateGatewayImage } = await import('../server/gateway/model-gateway.js')
   const events = [], session = { append: (type, data) => events.push({ type, data }) }
   const bytes = Buffer.from([0, 1, 2, 253, 254, 255])
   const reference = bytes.toString('base64')
@@ -112,7 +112,7 @@ test('video and reference image logs omit base64 while preserving what was actua
 })
 
 test('generation, review, correction and re-review have distinct request and response titles', async () => {
-  const { runTextSteps } = await import('../server/generate/text-steps.js')
+  const { runTextSteps } = await import('../server/runtime/text-generation.js')
   const { buildTextPrompts } = await import('../server/prompts/text-prompts.js')
   const { episodeFixture } = await import('./fixtures/model.js')
   const events = [], replies = ['原文', reviewFail('动作缺失'), '修订正文', reviewPass]

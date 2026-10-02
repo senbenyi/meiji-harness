@@ -4,7 +4,7 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
-import { builtinSkill, builtinSkills, editableParts, guidanceName, guidanceSkillIds, isSkill, textHash } from '../../skills/load.js'
+import { builtinSkill, builtinSkills, editableParts, guidanceName, guidanceSkillIds, isSkill, textHash } from '../../skills/load-skills.js'
 
 const MAX_BASE = 60000
 const MAX_ADDITION = 20000

@@ -1,10 +1,11 @@
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { generateEpisode, generateStoryPackage } from '../server/generate/story.js'
+import { generateEpisode } from '../server/flow/operations/project-operations.js'
+import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
 import { episodeFixture } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
-import { checkContext } from '../server/data/operation-context.js'
+import { checkContext } from '../server/runtime/operation-context.js'
 import { recordSteps } from './fixtures/steps.js'
 const route = { baseUrl: 'https://test.local', apiKey: 'test', model: 'test' }
 
@@ -45,7 +46,7 @@ test('character extraction independently reviews body coverage and stops scene e
     const result = await generateStoryPackage({ route, project: episodeFixture(), request: async message => {
       calls++
       if ([4,6].includes(calls)) {
-        assert.match(message.user, /阶段：人物提取/)
+        assert.ok(message.user.includes(JSON.stringify(fixture.characters)))
         assert.match(message.system, /剧情明确进入另一个身体（穿越、夺舍、变身等）后，没有为新身体单独建卡/)
       }
       return replies.shift()

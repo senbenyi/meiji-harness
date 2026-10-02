@@ -1,7 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { bindReferencePrompt, h3PromptFailures, retrieveFilm, shotReferenceImages, submitH3, videoRequestMode } from '../server/generate/film.js'
-import { normalizeCharacters, normalizeScenes } from '../server/generate/story.js'
+import { bindReferencePrompt, h3PromptFailures, videoRequestMode } from '../shared/video-rules.js'
+import { retrieveGatewayVideo } from '../server/gateway/model-gateway.js'
+import { submitH3 } from '../server/flow/operations/video-operations.js'
+import { shotReferenceImages } from '../shared/reference-images.js'
+import { normalizeCharacters, normalizeScenes } from '../shared/story-content.js'
 
 const look = '二十出头的中国青年男子，短黑发，皮肤晒黑，穿着旧外套，站在空无一人的门口'
 const characterLook = [
@@ -103,7 +106,7 @@ test('gateway video submits one shot and downloads the finished mp4', async () =
   assert.equal(referenced.shots[0].promptId, 'vid-3')
   assert.equal(followed.shots[0].promptId, 'vid-2')
   assert.equal(queued.provider, 'elysium')
-  const bytes = await retrieveFilm({
+  const bytes = await retrieveGatewayVideo({
     baseUrl: queued.baseUrl,
     promptId: queued.shots[0].promptId,
     provider: 'elysium',
@@ -136,8 +139,8 @@ test('video reference images are read locally and sent as base64 in picture orde
   const { join } = await import('node:path')
   const { Readable } = await import('node:stream')
   const { setupModel } = await import('./fixtures/model.js')
-  const { assetStore } = await import('../server/data/library.js')
-  const { referenceImageData } = await import('../server/data/pictures.js')
+  const { assetStore } = await import('../server/data/asset-library-store.js')
+  const { referenceImageData } = await import('../server/data/image-storage.js')
   const e = await setupModel(t), project = await e.read()
   const asset = await assetStore(e.home).import('characters', '旅人.png', Readable.from([Buffer.from('person')]), undefined, { source: 'import' })
   const films = join(e.home, 'storages', 'meiji', 'projects', project.id, 'films', project.episodeId)

@@ -1,16 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
-import { scopeProjects } from '../server/data/episodes.js'
-import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/pictures.js'
-import { pictureRecord } from '../server/generate/image.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { planSteps } from '../server/flow/operations/registry.js'
-import { previewPrompts } from '../server/prompts/preview.js'
+import { scopeProjects } from '../server/data/episode-data.js'
+import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/image-storage.js'
+import { pictureRecord } from '../shared/image-assets.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { planSteps } from '../server/flow/operations/operation-registry.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 import { render } from '../server/prompts/skill-prompts.js'
-import { characterImageModificationPrompt } from '../server/prompts/interfaces/character-image.js'
-import { canGenerate, gateMessage } from '../shared/gates.js'
+import { characterImageModificationPrompt } from '../server/prompts/interfaces/character-image-interface.js'
+import { canGenerate, gateMessage } from '../shared/generation-gates.js'
 import { node } from '../shared/drama-model.js'
 
 async function fixture(t, draft = false) {
@@ -106,7 +106,7 @@ test('人物修改预览复用实际 model 的组装，Base64 不显示在预览
 
 
 test('人物修改真实生成通路执行三个计划步骤并登记候选图', async t => {
-  const { submitAssetImage } = await import('../server/generate/image.js')
+  const { submitAssetImage } = await import('../server/flow/operations/image-operations.js')
   const { recordStore } = await import('../server/data/task-store.js')
   const e = await fixture(t)
   const operation = e.op('image', { itemId: 'C01', generationMode: 'modify', review: '背景改为白色' })

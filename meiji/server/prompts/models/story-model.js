@@ -1,13 +1,13 @@
 // 剧情四类资料（大纲、人物、场景、道具）共用一个 Model：资料与差异在 storyKinds 中声明，
-// 三类请求的结构统一由 request.js 组装（system＝角色/规则/协议，user＝任务/资料/基稿/待审内容）。
+// 三类请求的结构统一由 prompt-request.js 组装（system＝角色/规则/协议，user＝任务/资料/基稿/待审内容）。
 import { segment } from '../skill-prompts.js'
 import { contentText, messages } from '../prompt-text.js'
-import { outputLanguage } from '../../data/language.js'
+import { outputLanguage } from '../../../shared/output-language.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
-import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../request.js'
-import { protocols } from '../../../skills/protocols.js'
+import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../prompt-request.js'
+import { protocols } from '../../../skills/output-protocols.js'
 
-// 输出协议取自 skills/protocols.js 的 outline 对应小节（写明输出什么并附示例）。
+// 输出协议取自 skills/output-protocols.js 的 outline 对应小节（写明输出什么并附示例）。
 const protocolSection = title => (protocols.outline.split(/^## /m).find(chunk => chunk.startsWith(title)) || '').slice(title.length).trim()
 
 const extractTask = '从本轮已通过的最终大纲提取资料，不改写剧情，不使用旧卡片和历史意见。'

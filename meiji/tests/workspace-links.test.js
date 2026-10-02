@@ -5,10 +5,10 @@ import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { linkStore } from '../server/data/workspace-links.js'
-import { projectStore } from '../server/data/projects.js'
-import { runOperation } from '../server/flow/operations/run.js'
+import { projectStore } from '../server/data/project-store.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
 import { fakeRegistry } from './fixtures/host.js'
-import { setWorkspaceRegistry } from '../server/host/workspaces.js'
+import { setWorkspaceRegistry } from '../server/host/harness-workspaces.js'
 
 const sessionId = 'session-438a7a11-3984-447d-88df-16d610f8e914'
 const oldId = '4d22904e-81db-454d-a9bd-688c513ed840'
@@ -84,8 +84,8 @@ test('legacy workspace mappings do not claim ambiguous sessions', () => fixture(
 }))
 
 test('HTTP project selection reuses sessions, creates an owned session and rejects old-workspace writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
-  const { registerPanel } = await import('../server/http/routes.js')
-  const { createTasks } = await import('../server/flow/tasks/runner.js')
+  const { registerPanel } = await import('../server/http/panel-routes.js')
+  const { createTasks } = await import('../server/flow/tasks/task-manager.js')
   let handler
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home

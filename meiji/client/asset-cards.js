@@ -3,8 +3,8 @@ import { reviewFields } from './workflow-review.js'
 import { renderDetailImageActions, syncImageGate } from './image-review.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { characterFactLine, characterFieldValues, characterSheet } from '../shared/character-facts.js'
-import { request, assetUrl } from './api.js'
-import { showPanelDialog, element, appendJsonCopy } from './dom.js'
+import { request, assetUrl } from './panel-api.js'
+import { showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
 
 export { characterSheet }
 

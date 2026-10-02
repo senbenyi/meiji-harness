@@ -8,14 +8,16 @@ import { readFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setupModel } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { runOperation } from '../server/flow/operations/run.js'
-import { recordStore, startExecution } from '../server/data/task-store.js'
-import { generateEpisode, generateStoryPackage } from '../server/generate/story.js'
-import { generateAllSeconds, generateShots } from '../server/generate/shot-text.js'
+import { runOperation } from '../server/flow/operations/run-operation.js'
+import { recordStore } from '../server/data/task-store.js'
+import { startExecution } from '../server/runtime/task-execution.js'
+import { generateEpisode } from '../server/flow/operations/project-operations.js'
+import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
+import { generateAllSeconds, generateShots } from '../server/flow/operations/shot-operations.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
-import { reviewContent } from '../server/generate/review.js'
-import { interruptRunning } from '../server/flow/tasks/restart.js'
-import { createTasks } from '../server/flow/tasks/runner.js'
+import { reviewContent } from '../server/runtime/text-generation.js'
+import { interruptRunning } from '../server/flow/tasks/cancel-interrupted-tasks.js'
+import { createTasks } from '../server/flow/tasks/task-manager.js'
 
 async function setup(t) {
  const e = await setupModel(t), models = modelStore(e.home)
@@ -74,13 +76,10 @@ test('manual summary saves a pending version and immutable baseline', async t =>
 })
 
 test('story package, shot table and seconds each produce whole-episode records', async t => {
- const e = await setup(t)
- await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl: async (_url, options) => {
-  const request = JSON.parse(options.body)
-  const fixture = storyPackageFixture()
-  const text = request.messages[1].content
-  const value = text.includes('本集完整剧情大纲') ? outlineFixture() : JSON.stringify(text.includes('返回人物 items') ? fixture.characters : request.messages[0].content.includes('道具') && text.includes('唯一事实来源：大纲') ? fixture.props : fixture.scenes)
-  return Response.json({ choices: [{ message: { content: (/【(?:本次)?审核协议】/.test(request.messages[0].content)) ? reviewPass : value } }] })
+ const e = await setup(t), fixture = storyPackageFixture()
+ const replies = [outlineFixture(), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+ await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl: async () => {
+  return Response.json({ choices: [{ message: { content: replies.shift() } }] })
  } }) })
  assert.ok((await e.read()).plot.source)
  const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
@@ -90,8 +89,7 @@ test('story package, shot table and seconds each produce whole-episode records',
  await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => { calls++; return skill === 'review' ? reviewPass : secondsResponse() } }) })
  const seconds = (await e.history.list()).find(task => task.action === 'seconds')
  assert.equal(calls, 2)
- assert.equal(seconds.artifacts.length, 1)
- assert.equal(seconds.artifacts[0].target, 'seconds')
+ assert.deepEqual(seconds.artifacts.map(item => item.target).sort(), ['seconds', 'seconds-response'])
  assert.ok((await e.read()).shots.seconds.source)
 })
 
@@ -122,7 +120,7 @@ test('video completion records immutable filename and a failed retry preserves i
  const e = await setup(t)
  const deps = { home: e.home, waitForBackground: true,
   submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: 'remote' })) }),
-  retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame'),
+  retrieveGatewayVideo: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame'),
  }
  await runOperation(e.op('film', { track: 'S01' }), deps)
  const before = (await e.read()).shots.items[0].video
@@ -131,7 +129,7 @@ test('video completion records immutable filename and a failed retry preserves i
  assert.equal(record.content.file, before.content.file)
  const task = await e.history.read('tasks', before.source.taskId)
  assert.ok(task.steps.find(step => step.kind === 'video_generate').outputs.includes(record.id))
- await runOperation(e.op('film', { track: 'S01' }), { ...deps, retrieveFilm: async () => { throw new Error('视频失败') } })
+ await runOperation(e.op('film', { track: 'S01' }), { ...deps, retrieveGatewayVideo: async () => { throw new Error('视频失败') } })
  const after = (await e.read()).shots.items[0].video
  assert.equal(after.content.file, before.content.file)
  assert.deepEqual(after.source, before.source)

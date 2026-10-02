@@ -1,6 +1,6 @@
-import { projectStore } from '../server/data/projects.js'
+import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
-import { generationFeedback } from '../server/flow/tasks/runner.js'
+import { generationFeedback } from '../server/flow/tasks/task-manager.js'
 
 export const jsonOutput = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
 export function sessionIdOf(exec) {

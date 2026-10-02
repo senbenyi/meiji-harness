@@ -1,5 +1,5 @@
 // 设置页的「技能库」：全部阶段技能、指导技能与共享模块及其修改状态，点击进入技能详情页。
-import { element } from './dom.js'
+import { element } from './panel-dom.js'
 
 const groups = [['stage', '阶段技能'], ['guidance', '指导技能'], ['shared', '共享模块']]
 

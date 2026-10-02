@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createSceneImageModel, sceneImageModelToPrompt } from '../server/prompts/models/scene-image-model.js'
-import { sceneImageModel, sceneImageModificationModel, sceneImagePrompt } from '../server/prompts/interfaces/scene-image.js'
-import { previewPrompts } from '../server/prompts/preview.js'
+import { sceneImageModel, sceneImageModificationModel, sceneImagePrompt } from '../server/prompts/interfaces/scene-image-interface.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 import { render } from '../server/prompts/skill-prompts.js'
 

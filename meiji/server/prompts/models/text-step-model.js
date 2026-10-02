@@ -1,7 +1,7 @@
 // 文本步骤的统一组装器：镜头表、整集/单镜每秒指令、单镜修订、图片提示词改写共用同一套
-// 生成 / 审核 / 修订编排（结构见 request.js），各步骤只在 textSteps 中声明差异；输出协议统一来自 skills/protocols.js。
+// 生成 / 审核 / 修订编排（结构见 prompt-request.js），各步骤只在 textSteps 中声明差异；输出协议统一来自 skills/output-protocols.js。
 import { currentSkillSet, generationParts, reviewParts, segment } from '../skill-prompts.js'
-import { baseSegments, factSegments, generationRequest, requirementSegment, reviewRequest, taskInput } from '../request.js'
+import { baseSegments, factSegments, generationRequest, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
 import { splitSecondsIssues } from '../seconds-feedback.js'
 
 const secondsBoundary = '以同编号已通过镜头表的事件、起止状态、切镜点和固定时长为上游事实；大纲仅作参考。程序问题、语义审核问题和人工意见用于修复当前基稿，不能修改上游事实或重排镜头事件。逐项核对意见与同编号镜头表，冲突时以镜头表为准，不采纳要求改写上游的替代方案。上游自身矛盾时不假定已经修正镜头表，不编造新事件掩盖矛盾。'
