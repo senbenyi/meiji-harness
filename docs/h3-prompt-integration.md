@@ -192,7 +192,7 @@ h3-prompt-writing 输出 **H3 结构核心**（六段式 / 三段式 + 对齐指
   - 工作流不是 `minimax-h3-*` → allow（模型无关）；
   - 是 H3 且 prompt 含完整结构字段 → allow；
   - 缺字段 → deny，reason 明确列出缺失字段与修复指引（「请加载 h3-prompt-writing 并按六段式重写」）。
-- **防死循环**：按 agent 会话记连续 deny 次数，≥ N 次（建议 2）后降级为 allow + 在画布节点 / 工具结果注记警告，避免 agent 反复撞墙烧 token。
+- **无次数旁路**：普通自由格式输入由正式 Prompt 编译器转换；已经包含 H3 字段但结构残缺的输入直接拒绝。契约错误不得因重试次数增加而降级放行。
 - **不做**：不直接改写 `exec.arguments.prompt`（waterfall 语义是门禁非变换，无契约保证）；不调云端 IR API（违背零云端依赖）。
 
 ---

@@ -1,0 +1,15 @@
+display-name-zh: 短剧文本开发
+version: 1.0.0
+tag-en: Writing
+tag-cn: 编剧
+complete-tags-en:
+  - Writing / Script Development
+complete-tags-cn:
+  - 编剧 / 剧本开发
+summary-en: Turn source text into reviewed content analysis, episode plans, and formal episode scripts.
+summary-cn: 将源文转为经人工审核的内容分析、分集规划和正式剧本。
+desc-en: Imports plain text, preserves source citations, and commits approved proposals into the Project domain.
+desc-cn: 导入纯文本并保留原文引用，只把获批候选提交到 Project 正式数据。
+author-en: dsh-short-video-studio
+author-cn: dsh-short-video-studio
+source: bundled

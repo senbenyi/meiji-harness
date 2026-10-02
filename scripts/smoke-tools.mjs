@@ -198,7 +198,7 @@ if (host && typeof host.mod.validateJsonSchemaValue === 'function') {
   let applyErr = ''
   try { pluginApply(hostCtx) } catch (e) { applyErr = e?.stack?.split('\n').slice(0, 3).join(' | ') || String(e) }
   ok('apply() 全程不抛（抛出 = 工具与路由一起消失）', applyErr === '', applyErr)
-  const domainToolCount = 22
+  const domainToolCount = 34
   ok(`apply() 注册全部 ${tools.length + domainToolCount} 个工具（含 ${domainToolCount} 个 Project Domain 工具）`, registered.length === tools.length + domainToolCount, `实际 ${registered.length}`)
   ok('apply() 注册了 prefix 路由（设置页/画布都要它）', routes.length === 1 && routes[0].path === '/dsh-short-video-studio' && routes[0].kind === 'prefix',
     JSON.stringify(routes.map((r) => r.kind + ':' + r.path)))

@@ -135,5 +135,5 @@ Read `references/ref-en.txt` for label rules, retention analysis, and complete e
 
 ## 失败回退
 
-- 结构化重写后某镜质量倒退（字幕 / 口型 / 一致性 / 音频任一指标）→ 该镜回退为旧自由格式 prompt 重渲，**prompt 首行加 `[PROMPT_FALLBACK]` 标记**（插件质检门据此放行），结论记入交付清单。
+- 结构化重写后某镜质量倒退（字幕 / 口型 / 一致性 / 音频任一指标）→ 修改结构化 prompt 中对应段落后重渲；不得通过特殊标记绕过编译与校验。普通创作描述由插件 Prompt 编译器统一转换为 H3 结构。
 - 全局关闭：删除本适配节 / 覆盖本文件即可，片型 skill 自动回到自由格式组装。

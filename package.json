@@ -1,6 +1,6 @@
 {
   "name": "dsh-short-video-studio",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "基于 deepseek harness 的短剧/动画画布工作室：仅分发按本机 GPU 配置并验证的 Elysium Qwen Image 2.1 与 MiniMax H3 工作流，以及对应 Elysium skills。",
   "keywords": [
     "dsh",

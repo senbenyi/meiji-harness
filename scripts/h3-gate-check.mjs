@@ -53,12 +53,11 @@ let r = await run('ref2v structured', {
 })
 assert('allow', r.kind === 'allow')
 
-console.log('— ref2v: H3 workflow + 自由格式 → deny —')
+console.log('— ref2v: 自由格式交给正式编译器 → allow —')
 r = await run('ref2v freeform', {
   name: 'comfy_generate_video', arguments: { prompt: '一只狐狸跳过原木，镜头推近。' }, agent: { id: 'b' },
 })
-assert('deny', r.kind === 'deny', JSON.stringify(r))
-assert('reason lists missing fields', typeof r.reason === 'string' && r.reason.includes('subject_definitions'))
+assert('allow', r.kind === 'allow', JSON.stringify(r))
 
 console.log('— i2v: H3 workflow + 三段式 + 对齐指令 → allow —')
 r = await run('i2v structured', {
@@ -86,17 +85,23 @@ console.log('— 非视频工具 → allow —')
 r = await run('image tool', { name: 'comfy_generate_image', arguments: { prompt: 'x' }, agent: { id: 'f' } })
 assert('allow', r.kind === 'allow')
 
-console.log('— 显式回退标记 [PROMPT_FALLBACK] → allow —')
+console.log('— fallback 标记不再是旁路；自由文本统一交给编译器 —')
 r = await run('fallback marker', {
   name: 'comfy_generate_video', arguments: { prompt: '[PROMPT_FALLBACK]\n一只狐狸跳过原木。' }, agent: { id: 'h' },
 })
 assert('allow', r.kind === 'allow')
 
-console.log('— 防死循环：同 agent 连续缺失 → 前 2 次 deny，第 3 次降级 allow —')
+console.log('— 自由文本重复提交始终交给编译器，不做次数状态机 —')
 const execG = { name: 'comfy_generate_video', arguments: { prompt: '自由格式' }, agent: { id: 'g' } }
-r = await run('g#1', execG); assert('g#1 deny', r.kind === 'deny')
-r = await run('g#2', execG); assert('g#2 deny', r.kind === 'deny')
-r = await run('g#3', execG); assert('g#3 allow (降级)', r.kind === 'allow')
+r = await run('g#1', execG); assert('g#1 allow', r.kind === 'allow')
+r = await run('g#2', execG); assert('g#2 allow', r.kind === 'allow')
+r = await run('g#3', execG); assert('g#3 allow', r.kind === 'allow')
+
+console.log('— 半结构化 prompt 缺字段 → deny —')
+r = await run('partial structured', {
+  name: 'comfy_generate_video', arguments: { prompt: 'subject_definitions:\\nx\\nsummary:\\ny' }, agent: { id: 'partial' },
+})
+assert('deny partial', r.kind === 'deny' && String(r.reason).includes('retention_analysis'))
 
 console.log(`\n结果: ${pass} passed, ${fail} failed`)
 process.exit(fail > 0 ? 1 : 0)

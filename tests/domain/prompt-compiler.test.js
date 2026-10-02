@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { compilePromptSnapshot } from '../../lib/prompts/compiler.js'
+import { compileH3Prompt, compilePromptSnapshot } from '../../lib/prompts/compiler.js'
 import { createProjectAggregate } from '../../lib/domain/spec.js'
 
 function fixture() {
@@ -37,4 +37,38 @@ test('required references reject missing or unapproved assets before submission'
     () => compilePromptSnapshot({ project, shotId: 'shot-1', capability: 'image.text2image' }),
     /reference asset must be approved/,
   )
+})
+
+test('video reference prompt is compiled to deterministic H3 Ref2VA sections', () => {
+  const project = fixture()
+  const snapshot = compilePromptSnapshot({
+    project,
+    shotId: 'shot-1',
+    capability: 'video.reference2video',
+    tier: 'quality',
+  })
+  for (const section of ['subject_definitions', 'summary', 'retention_analysis', 'detailed_description', 'overall_soundscape', 'non_diegetic_music']) {
+    assert.match(snapshot.prompt, new RegExp(`(^|\\n)${section}:`, 'm'))
+  }
+  assert.match(snapshot.prompt, /<Subject 1>/)
+  assert.match(snapshot.prompt, /silver bob haircut/)
+})
+
+test('already structured H3 prompt is preserved and I2V gets alignment contract', () => {
+  const structured = `subject_definitions:
+x
+summary:
+x
+retention_analysis:
+x
+detailed_description:
+x
+overall_soundscape:
+x
+non_diegetic_music:
+N/A`
+  assert.equal(compileH3Prompt({ capability: 'video.reference2video', prompt: structured }), structured)
+  const i2v = compileH3Prompt({ capability: 'video.image2video', prompt: 'A woman turns toward the gate.' })
+  assert.match(i2v, /^For the target video/)
+  assert.match(i2v, /integrated_multimodal_description:/)
 })

@@ -8,7 +8,7 @@
 ## 0. 结果
 
 - 已完成 Project 聚合、Harness Domain Storage repository、revision CAS、commandId 幂等、单写者租约、Outbox、状态机与读模型。
-- 已完成 21 个 `studio_*` 工具及 Project REST API；原 UI/HTTP/tool 写入口保留兼容契约，但权威状态不再写回 `project.json`。
+- 已完成 Project 工具、源文与剧本开发工具及 Project REST API；原 UI/HTTP/tool 写入口保留兼容契约，但权威状态不再写回 `project.json`。
 - 已完成“先持久化 Attempt、再提交 ComfyUI”、提交响应不确定态、恢复决策、候选 Asset、人工 ReviewDecision 和批准资产硬门。
 - 已完成成人项目的年龄/同意/许可记录与生成、交付硬门；证据接口只返回计数，不回显证据原件。
 - 已完成受约束的 FileService、原子发布、血缘失效、Timeline revision、Deliverable 记录、磁盘 GC 基础能力、结构化诊断和 hash-chain 审计。
@@ -18,7 +18,9 @@
 
 | 文件或目录 | 职责 | 实施内容 |
 | --- | --- | --- |
-| `lib/domain/` | 唯一业务状态与写入口 | 聚合 schema、命令、策略、状态机、CAS/幂等、Harness repository、读模型、Outbox、租约和 21 个工具 |
+| `lib/domain/` | 唯一业务状态与写入口 | 聚合 schema、命令、策略、状态机、CAS/幂等、Harness repository、读模型、Outbox、租约和 Project 工具 |
+| `lib/script/` | 源文与剧本开发 | 不可变纯文本导入、hash/分块读取、内容分析/分集/正式剧本 Proposal 契约与工具 |
+| `skills/script-development-elysium/` | Agent 编排 | 强制源文引用、Proposal 审核和正式数据提交边界 |
 | `lib/storage/` | 本地二进制与迁移 | 根目录解析、逻辑布局、路径逃逸防护、原子发布、hash、Trash/GC、旧画布导入 |
 | `lib/comfy/`、`lib/media/` | 生成副作用编排 | ComfyUI client、Attempt 生命周期、下载发布、恢复扫描和媒体血缘 |
 | `lib/review/`、`lib/rights/` | 人工审核与合规硬门 | ReviewTask/Decision 桥接、批准/拒绝状态推进、成年/同意/许可检查 |
@@ -36,7 +38,8 @@
 | --- | --- | --- |
 | `npm test` | 领域、存储、媒体、审计、能力注册表 | 10/10 通过，0 失败 |
 | `npm run smoke` | 19 个现有离线 smoke/预览/PDF/兼容入口 | 全部通过 |
-| `node scripts/smoke-tools.mjs` | 37 个工具的宿主 register 契约 | 128 项通过 |
+| `node scripts/smoke-tools.mjs` | 51 个工具的宿主 register 契约 | 134 项通过 |
+| `node --test tests/domain/script-development.test.js tests/domain/project-service.test.js tests/domain/state-machines.test.js` | 源文、Proposal、审核提交与下游失效 | 29/29 通过 |
 | `node scripts/smoke-assets.mjs` | 资产兼容 API | 77 项通过 |
 | `node scripts/smoke-upload-assets.mjs` | 手动上传、物化、替换 | 41 项通过 |
 | `node scripts/smoke-preask-deliver.mjs` | 送达、失败记录与再次尝试 | 53 项通过 |
