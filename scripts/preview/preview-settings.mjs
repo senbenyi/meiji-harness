@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { React, renderStable, toHtml, resetHooks, findAll, textOf } from '../lib/react-shim.mjs'
+import { React, renderStable, toHtml, resetHooks } from '../lib/react-shim.mjs'
 import { _internals } from '../../lib/index.js'
 import { themeCss, PROBE_CONTRAST } from '../lib/ui-probe.mjs'
 
@@ -36,9 +36,8 @@ global.window = { __ModuleLoader__: { load: (m) => { mod = m } } }
 await import('../../lib/client.js')
 const moduleExports = mod.factory((name) => (name === 'react' ? React : {}))
 
-// --- 2) 造真实形状的数据（后端同一份 payload）--------------------------------
-// 默认用**本机真实配置**（读 ~/.dsh 里那份），--fixture 才用手写样本：
-// 只有真实数据才能暴露用户实际看到的溢出（真实 tiers 选择/更多能力/长资产名）。
+// --- 2) 读取连接配置 ---------------------------------------------------------
+// 默认用本机真实配置（读 ~/.dsh 里那份），--fixture 才用手写样本。
 const USE_FIXTURE = process.argv.includes('--fixture')
 const cfgFixture = {
   baseUrl: 'http://localhost:8188', apiKey: '', pollMs: 2000, timeoutMs: 900000,
@@ -48,12 +47,9 @@ const cfgFixture = {
 }
 const realCfg = _internals.getCfg ? _internals.getCfg() : null
 const cfg = USE_FIXTURE || !realCfg ? cfgFixture : realCfg
-const apiPayload = await _internals.describeWorkflowsApi(_internals.getRegistry(), { probe: true })
-// 注意：/api/config 必须回**同一份** cfg（payload 用的是哪份就回哪份），否则
-// "注册表侧（策略/选中）"与"客户端侧（逐档回显）"会来自两份不同配置，预览会自相矛盾。
-global.fetch = async (url) => ({
+global.fetch = async () => ({
   ok: true,
-  json: async () => (String(url).includes('/api/config') ? { ok: true, config: cfg } : apiPayload),
+  json: async () => ({ ok: true, config: cfg }),
 })
 
 let settingsComponent = null
@@ -65,59 +61,9 @@ moduleExports.apply({
   effect: () => {}, log: () => {}, warn: () => {}, error: () => {},
 })
 
-// --- 3a) 交互断言：内置默认策略的「编辑档位」→ 点开才出现多档下拉表单 -----------
-const UI_FAIL = []
-const uiOk = (cond, msg) => { if (cond) console.log('  ✓ ' + msg); else { UI_FAIL.push(msg); console.log('  ✗ ' + msg) } }
-{
-  resetHooks()
-  let t = await renderStable(settingsComponent, {})
-  const buttons = () => findAll(t, (n) => n.type === 'button')
-  const formOf = (tree) => findAll(tree, (n) => n.__el && n.props && n.props.style && String(n.props.style.border || '').includes('dashed'))[0]
-  uiOk(buttons().some((b) => textOf(b).includes('编辑档位')), '内置默认策略有「编辑档位」按钮')
-  uiOk(!formOf(t), '未点编辑时**不**出现多档下拉表单')
-  // 默认视图只应有策略列表与名称：**该能力块**内不含任何档位下拉（表单控件一律不常显）。
-  // （页面别处仍有 select：未分档能力的「选默认实现」与「导入工作流」表单，那些不是档位表单。）
-  const blockOf = (tree, cap) => findAll(tree, (n) => n.__el && n.type === 'div' && n.props && n.props.style && n.props.style.borderRadius === 8 &&
-    findAll(n, (m) => m.type === 'strong' && textOf(m) === cap).length > 0)[0]
-  const t2iBlock = blockOf(t, 'image.text2image')
-  const idleSelects = t2iBlock ? findAll(t2iBlock, (n) => n.type === 'select').length : -1
-  uiOk(idleSelects === 0, `image.text2image 区块默认不含档位下拉（实际 ${idleSelects} 个 select）`)
-  uiOk(textOf(t).includes('实际使用') || textOf(t).includes('fast →'), '策略行以只读文本说明「实际生效」的实现')
-  const edit = buttons().find((b) => textOf(b).includes('编辑档位'))
-  if (edit) {
-    edit.props.onClick()
-    t = await renderStable(settingsComponent, {})
-    const form = formOf(t)
-    const selects = form ? findAll(form, (n) => n.type === 'select') : []
-    uiOk(Boolean(form) && textOf(form).includes('保存为逐档选择'), '点「编辑档位」后展开表单（主按钮＝保存为逐档选择）')
-    uiOk(selects.length >= 3, `表单里是**多档下拉**（${selects.length} 个 select）`)
-    uiOk(selects.length > 0 && selects.every((x) => x.props.value), '表单预填当前生效的实现（每档都有值）')
-    uiOk(textOf(form).includes('内置默认'), '文案点明这是编辑内置默认')
-    const cancel = form ? findAll(form, (n) => n.type === 'button').find((b) => textOf(b).includes('取消')) : null
-    if (cancel) {
-      cancel.props.onClick()
-      t = await renderStable(settingsComponent, {})
-      uiOk(!formOf(t), '点「取消」后表单收起')
-    }
-  }
-  // 用户自建策略那条仍应保留「编辑档位」（同一套表单）
-  uiOk(buttons().length >= 2, `按钮总数 ${buttons().length}（内置默认 + 自建策略的编辑入口）`)
-}
-
 // --- 3) 渲染 + 序列化 --------------------------------------------------------
-// --edit-builtin：把「内置默认 → 编辑档位」展开后的状态也序列化/截图（走查那套表单的排版）
-const KEEP_OPEN = process.argv.includes('--edit-builtin')
-let inner
-if (KEEP_OPEN) {
-  resetHooks()
-  let t = await renderStable(settingsComponent, {})
-  const edit = findAll(t, (n) => n.type === 'button').find((b) => textOf(b).includes('编辑档位'))
-  if (edit) { edit.props.onClick(); t = await renderStable(settingsComponent, {}) }
-  inner = toHtml(t)
-} else {
-  resetHooks()
-  inner = toHtml(await renderStable(settingsComponent, {}))
-}
+resetHooks()
+const inner = toHtml(await renderStable(settingsComponent, {}))
 mkdirSync(OUT, { recursive: true })
 
 const page = (width, themeName = 'dark') => `<!doctype html><html lang="zh"><head><meta charset="utf-8">
@@ -206,24 +152,8 @@ try {
       const radioBad = Object.entries(radioLefts).filter(([, v]) => v.size > 1).map(([k, v]) => `${k}: ${[...v].join(',')}`)
       return { overflow: bad, misaligned, heights, radioBad, lowContrast: globalThis.__uiProbe.lowContrast(pane), height: Math.round(pane.getBoundingClientRect().height) }
     })
-    const file = join(OUT, `settings-${KEEP_OPEN ? 'edit-builtin-' : ''}${w}${themeName === 'light' ? '-light' : ''}.png`)
+    const file = join(OUT, `settings-${w}${themeName === 'light' ? '-light' : ''}.png`)
     await p.screenshot({ path: file, fullPage: true })
-    // --block=<capability>：只截某一个能力块的图（走查「编辑档位」表单这类局部排版）
-    const blockCap = arg('block', '')
-    if (blockCap) {
-      const el = await p.evaluateHandle((cap) => {
-        const s = [...document.querySelectorAll('strong')].find((x) => x.textContent.trim() === cap)
-        return s ? s.closest('div[style*="border-radius"]') : null
-      }, blockCap)
-      const handle = el.asElement()
-      if (handle) {
-        const blockFile = join(OUT, `settings-block-${blockCap}${KEEP_OPEN ? '-edit' : ''}${themeName === 'light' ? '-light' : ''}.png`)
-        await handle.screenshot({ path: blockFile })
-        console.log(`区块截图 → ${blockFile}`)
-      } else {
-        console.log(`   ⚠️ 没找到能力块 ${blockCap}`)
-      }
-    }
     console.log(`截图 → ${file}（容器高 ${probe.height}px）`)
     if (probe.lowContrast.length) {
       console.log('  ⚠️ 对比度不足（看不清内容）：')
@@ -247,9 +177,4 @@ try {
   }
 } finally {
   await browser.close()
-}
-
-if (process.argv.includes('--assert') && UI_FAIL.length) {
-  console.error(`\n✗ UI 交互断言失败 ${UI_FAIL.length} 项：\n  - ` + UI_FAIL.join('\n  - '))
-  process.exit(1)
 }

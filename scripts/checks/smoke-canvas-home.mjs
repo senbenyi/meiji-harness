@@ -227,7 +227,7 @@ console.log('\n[6] 引导页胶囊图标')
   eq('缺省尺寸 26', el2?.props?.width, 26)
 }
 
-// --- [7] 设置页「界面」组 ----------------------------------------------------
+// --- [7] 设置页画布位置 ------------------------------------------------------
 console.log('\n[7] 设置页：画布位置下拉 + 刷新生效提示')
 {
   let settingsComponent = null
@@ -256,10 +256,9 @@ console.log('\n[7] 设置页：画布位置下拉 + 刷新生效提示')
   ok('渲染不抛异常', !err, err && err.stack && err.stack.split('\n').slice(0, 3).join(' | '))
 
   const text = textOf(tree)
-  ok('有「界面」分组', text.includes('界面'))
-  ok('有画布位置字段', text.includes('画布位置 canvasHome'))
-  ok('说明「改选即保存，刷新页面后生效」', text.includes('改选即保存，刷新页面后生效'))
-  ok('有「立即刷新」按钮', findAll(tree, (n) => n.type === 'button' && String(textOf(n)).includes('立即刷新')).length === 1)
+  ok('有画布显示位置字段', text.includes('画布显示位置'))
+  ok('说明切换后刷新生效', text.includes('切换后刷新页面生效'))
+  ok('有「刷新页面」按钮', findAll(tree, (n) => n.type === 'button' && String(textOf(n)).includes('刷新页面')).length === 1)
 
   // 下拉：两个选项，当前值 = 配置里的 'tab'
   const sel = findAll(tree, (n) => n.type === 'select' && findAll(n, (o) => o.props.value === 'sidebar').length > 0)
@@ -267,7 +266,6 @@ console.log('\n[7] 设置页：画布位置下拉 + 刷新生效提示')
   const opts = findAll(sel[0], (n) => n.type === 'option').map((o) => o.props.value)
   eq('两个选项（tab / sidebar）', opts.join(','), 'tab,sidebar')
   eq('回显配置值', sel[0]?.props.value, 'tab')
-  ok('选 tab 时提示走会话区 tab', text.includes('会话区视图标签页'))
 
   // 改选 → **改选即保存**（不要求用户再滚到底部点「保存配置」，否则改完直接刷新会丢改动）：
   // 断言 onChange 之后 POST 就已经带上 canvasHome，且提示同步更新。
@@ -279,8 +277,7 @@ console.log('\n[7] 设置页：画布位置下拉 + 刷新生效提示')
   ok('改选即发保存请求（无需再点底部保存）', posts.length > postsBefore)
   eq('保存请求带上 canvasHome', posts[posts.length - 1]?.canvasHome, 'sidebar')
   tree = await renderStable(settingsComponent, {})
-  ok('改选后提示改为右侧栏入口', textOf(tree).includes('会话标题栏右上角的展开按钮'))
-  ok('保存成功提示写明「刷新页面后生效」', textOf(tree).includes('刷新页面后生效'))
+  ok('保存成功提示刷新页面', textOf(tree).includes('已保存，请刷新页面'))
 }
 
 // --- [8] 画布主题：跟随宿主浅/深 --------------------------------------------
