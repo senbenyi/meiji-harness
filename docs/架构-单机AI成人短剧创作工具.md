@@ -806,6 +806,12 @@ lineage
 
 本步骤不是必须的——用户也可以从零开始创作，直接进入 Step 0。
 
+#### 长篇召回边界
+
+跨会话记忆、Markdown 索引或语义检索只能作为 Qwen3.8 的**候选上下文层**，不能成为项目事实来源。允许被索引的内容限于已经提交的 StoryBible、CharacterState、Episode 摘要和带血缘的 source_text；每条召回结果必须携带 `projectId / sourceType / sourceId / sourceRevision`，模型引用过期 revision 时不得据此提交领域命令。
+
+关闭或卸载召回组件后，Project 仍必须能仅凭 Domain Storage、File Service 和审计记录完整打开、恢复、审核与交付。自动蒸馏出的角色关系、剧情结论或偏好在用户确认并执行领域命令前都只是候选信息，禁止反向覆盖 StoryBible、角色状态、镜头状态、ReviewDecision 或 revision。
+
 ### Step 0：接收需求与规格确认
 
 1. Qwen3.8 识别完整短剧意图并加载 `3d-animation-short-generator`。
@@ -917,6 +923,10 @@ automatedCheck:
 ```
 
 自检 `passed=true` 时仍需创建人工 ReviewTask，但可以标记为"推荐通过"以加速人工审核。自检 `passed=false` 时，在 ReviewTask 中高亮失败项供人工决策。
+
+VLM 工具通过 `VisualInspectorPort` 接入，内置模型或第三方视觉插件都只是可替换 adapter。adapter 必须返回同一份 `automatedCheck` schema，并额外记录 `providerId / adapterVersion / modelVersion / inputAssetHashes / promptOrPolicyHash / executedAt`；原始证据图、裁剪区域或差异热图登记为 ReviewTask 的证据 Asset。工具自然语言回答、插件内部缓存和聊天附件不能直接形成 ReviewDecision。
+
+视觉检测失败、超时或不可用时，Attempt 已生成的候选 Asset 保持可见，ReviewTask 转为 `awaiting_human`；不得静默按通过处理，也不得因为更换视觉插件而改变 Shot、Asset、Review 和 Timeline 的领域语义。
 
 ### Step 8：拼接与交付
 
@@ -1172,6 +1182,12 @@ Trash 默认保留期建议 30 天但必须可配置；硬删前再次重算引�
 
 切换时只允许一次性导入，不做双写：选定 Project 成功迁移后，旧 `project.json` 和 `.dsh-assets/library.json` 变为只读迁移源/备份。兼容 adapter 把旧请求翻译为领域命令；任何无法无损翻译的动作必须显式报错，不能旁路写旧文件。
 
+### 18.1 第三方 UI 与工作流扩展边界
+
+Harness 侧栏、回复内交互组件或其他画布插件可以消费 read model，也可以把用户操作转换为公开领域命令，但不得直接读写 Project 存储、旧 `project.json`、资产索引或 ComfyUI 队列。当前画布仍是本产品的审核工作台，不因安装通用 UI 插件而增加第二套节点真值、任务状态或审批记录。
+
+第三方 ComfyUI bridge、浏览器自动化、文件监听和可视化工作流同样不进入主执行链：已有 manifest registry、AttemptRunner、网关状态与 outbox 分别拥有能力解析、任务提交、恢复和副作用交付。只有目标服务确实没有 API，且 adapter 通过幂等、取消、超时、恢复和结果绑定测试时，才允许在对应 Port 后增加降级实现。
+
 ## 19. 模块重构建议
 
 | 目标文件 | 职责 |
@@ -1361,6 +1377,9 @@ Trash 默认保留期建议 30 天但必须可配置；硬删前再次重算引�
 25. 长文本输入经过结构化压缩后保留原文溯源关系。
 26. NLE 导出预设生成的工程文件使用相对路径，可在对应 NLE 中直接打开。
 27. 运行时健康快照异常时暂停自动生成并通知用户。
+28. 任意视觉检查 adapter 均输出统一 schema、版本和输入 hash；不可用时转人工审核，不自动放行。
+29. 任意长期记忆或语义检索组件都只召回带 Project revision 的已提交事实；卸载后不影响恢复和交付。
+30. 第三方 UI、ComfyUI bridge、浏览器自动化或文件监听不得成为第二个项目状态、任务状态或审批状态所有者。
 
 ## 23. 明确非目标
 
@@ -1386,6 +1405,8 @@ Trash 默认保留期建议 30 天但必须可配置；硬删前再次重算引�
 - 高并发元数据：把 ProjectRepository 换成 PostgreSQL。
 - 长工作流恢复达不到验收：把 AttemptRunner/WorkflowPort 换成 Temporal。
 - 多消费者事件：把本地 outbox publisher 接到 NATS/Redis Streams。
+- 结构化索引和全文检索在已记录的长篇金样上不达标：再评估本地向量索引；没有规模、延迟、召回率和磁盘预算基准时不引入 Milvus 等独立服务。
+- 当前 VLM 自检在固定角色/服装/场景/首尾帧金样上不达标：再审计外部视觉 adapter；只替换 `VisualInspectorPort`，不改变 Review 语义。
 
 这些扩展都不得改变 Project、Shot、Attempt、Asset、Review 和 Timeline 的领域语义。
 
