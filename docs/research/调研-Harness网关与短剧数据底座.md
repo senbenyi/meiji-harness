@@ -365,6 +365,31 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 | AI Video Production Editor | 逐镜审核和返工 | 3D 预演、调色、专业工程交付 | 一次性大而全移植 |
 | Story Claw | 链式连续性、逐镜自检 | 角色阶段、声线映射、VLM 首尾帧质量门、断点续跑 | 批处理 UI |
 
+### 8.2 外部 AI 插件建议复核（2026-10-02）
+
+外部建议正确识别了视觉一致性、长篇上下文和人工审核三个业务痛点，但把“痛点成立”“项目存在”和“适合本项目”混为一谈。插件存在不等于应安装；以下结论只基于当前仓库执行链、公开源码和可定位的一手说明。
+
+| 建议 | 复核结果 | 对当前项目的决定 | 准入条件 |
+| --- | --- | --- | --- |
+| `@liustack/modlens` | 已确认存在，定位是为纯文本 Agent 提供图片 OCR、布局和语义证据 | 条件采纳为候选视觉输入适配器，不作为项目状态或质量结论所有者 | 固定版本与 provider；本地样片实测；输出转成结构化 `Review`；记录模型/版本/输入 hash |
+| `dsh-vision-toolkit` | 已确认存在，提供 describe/ground/crop/pixel diff/OCR 等工具 | 条件采纳为候选质量检测器，优先验证角色、服装、场景和首尾帧连续性 | 对固定金样给出可重复的差异证据；误报/漏报可量化；失败不得阻断人工审核 |
+| `dsh-layered-memory` | 已确认存在跨会话蒸馏实现，但公开仓库存在同名实现，所有权和版本必须锁定 | 只允许作检索/召回辅助，禁止成为 StoryBible、角色状态、镜头状态或 revision 的真相源 | 只索引已提交的项目快照；召回结果带来源 revision；关闭插件后生产链仍完整可用 |
+| `dsh-genui` | 已确认存在，作用是把回复渲染成交互组件 | 不作为核心依赖；只允许用于原型或临时只读视图 | 不直接写领域状态；正式 UI 仍消费 read model 并提交领域命令 |
+| `DSH-better-sidebar` | 已确认存在侧栏扩展能力 | 当前不引入；本插件已经接入 Harness 原生右侧栏，不能解决项目域缺失 | 只有出现原生扩展点无法满足且有最小复现时重新评估 |
+| `Aegis` | 已确认存在 DSH Skill/方法包接入，但不是短剧领域审核引擎 | 不用它替代镜头表、连续性或成人内容规则；通用研发方法不进入制片运行时 | 若用于研发，只按独立开发工具审计，不进入交付依赖 |
+| `dsh-browser` | 公开目录可定位，但浏览器自动点击不是当前 ComfyUI API 路径的可靠替代 | 不引入主链；只有目标供应商没有 API 时才进入 adapter 调研 | 必须具备幂等、超时、取消、结果绑定和页面变更故障测试 |
+| `dsh-sentinel` | 公开目录可定位，定位是文件/命令/HTTP/进程/webhook 条件唤醒 | 不用于判断 ComfyUI 任务完成；网关任务状态和恢复仍是权威链路 | 仅可承担非权威通知；重复唤醒不得重复提交生成任务 |
+| `dsh-share`、`powercontext-dsh`、`cleverer-dsh`、`dsh-plugin-comfyui-bridge`、`dsh-chatnode-wechat`、`dsh-plugin-agent-workflow`、`@linxin666/dsh-web-ui-all` | 未确认：本次未取得足够的一手仓库、版本、许可证和兼容性证据 | 不写入安装清单，不进入实现计划 | 先按第 9 节完成独立确认卡 |
+| EverOS、OpenViking Memory | 名称可对应通用知识/记忆方向，但外部建议没有给出可复现版本和与 DSH 的确定集成契约 | 不纳入当前依赖；其“本地索引/分层召回”思想仅作需求参考 | 只有结构化项目域上线后，且真实长篇检索基准证明需要时再评估 |
+| Milvus/独立向量数据库 | 能解决大规模语义检索，但当前单机项目没有数据规模、延迟或召回指标证明必要 | 不采纳；先使用 Project Domain、确定性索引和可追溯摘要 | 达到已记录的规模阈值且全文/结构化检索基准不达标后再立项 |
+
+因此，只把两个增量带入正式路线：
+
+1. **视觉一致性质量门**：候选视觉工具只能产出证据，由 `ShotAttempt → Review` 保存角色、服装、场景、构图、首尾帧差异及检测器版本，最终决策仍由规则/人工完成。
+2. **受控长篇召回**：记忆插件只能检索已确认的 StoryBible、角色状态和分集摘要；Project Domain、revision、血缘与状态机仍是唯一权威状态。
+
+明确不采纳“安装一组插件即可把 DSH 变成短剧工作室”的结论。当前项目已经拥有专用画布、ComfyUI 能力注册表、生成/拼接工具、资产库和流程 Skills；重复引入 UI、ComfyUI bridge 或另一套工作流运行时会增加状态所有者，而不会修复跨会话项目域、恢复、血缘和审核结构化这些真实断点。
+
 ## 9. 逐项目确认卡的统一标准
 
 每个项目必须用同一张卡，避免“看 README 就集成”：
@@ -393,5 +418,6 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 - 当前插件流程：`skills/*/SKILL.md`、`docs/ARCHITECTURE.md`、`docs/consistency-plan.md`、`docs/video-shape-contract.md`、`docs/shot-chain-continuity.md`、`docs/channel-delivery.md`。
 - 当前插件验证资产：`scripts/smoke-*`、`scripts/e2e-*`、`scripts/probe-*`、`scripts/bench-*`、`scripts/preview-*`。
 - Harness：当前 `web` Profile 的 `dsh --dump-config`、`docs/audits/harness-capabilities.md`、`scripts/audit-harness.mjs`，以及本机已解析的 `@deepseek-ai/*` 包源码和 README；当前为 `0.1.2-rc.1` / `0.1.7-alpha.2` 混合组合。
+- 外部 AI 建议复核的一手入口：`https://github.com/liustack/modlens`、`https://github.com/Anionex/dsh-vision-toolkit`、`https://github.com/JunNanLYS/dsh-layered-memory`、`https://github.com/omdsh-dev/dsh-genui`、`https://github.com/omdsh-dev/dsh-better-sidebar`、`https://github.com/GanyuanRan/Aegis`。这些链接只证明可定位的实现与公开契约，不替代第 9 节要求的版本锁定、许可证审计和本地实测。
 - 网关：`internal/core/gateway.go`、`internal/store/store.go`、`internal/task/poller.go`、`internal/provider/comfyui/executor.go`。
 - 开源项目库存：`docs/research/ai-short-drama-projects-comparison-2026-10-01.md`。

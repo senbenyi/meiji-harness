@@ -160,6 +160,15 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 3. Pixelle-Video — 解说/口播作为内容模板。
 4. BigBanana — 只保留产品研究，不进入代码集成。
 
+### 7E：外部 AI 建议中通过复核的候选能力
+
+以下项目不是组合安装清单，只在阶段 1–6 完成、Project Domain 成为唯一真相源后逐项审计：
+
+1. `@liustack/modlens`、`dsh-vision-toolkit` — 二选一或按能力拆分验证角色、服装、场景、构图和首尾帧连续性；新增适配器必须把检测器、版本、输入 hash、结构化差异和证据资产写入 `Review`，不得直接修改 `Shot` 或替代人工结论 → AC-4、AC-5、AC-7。
+2. `dsh-layered-memory` — 只验证“从已提交项目快照召回 StoryBible、角色状态和分集摘要”；召回结果必须携带 project/revision/source，关闭插件后同一金样仍能完整生产 → AC-3、AC-5。
+
+以下建议不进入当前实施：`dsh-genui` 和 `DSH-better-sidebar` 与已有画布/宿主侧栏重叠；ComfyUI bridge 与当前能力注册表和执行器重叠；Milvus 没有规模与检索基准支撑；浏览器自动化、文件唤醒和手机审批不替代网关任务状态、outbox 与 Harness Approval。其余无法锁定一手仓库、版本、许可证和兼容性证据的名称，只能先建审计卡，不能写入 Profile 或依赖清单。
+
 验证：每份审计卡都有一个成功金样、一个故障样例、许可证结论和明确的映射组件。
 
 ## 阶段 8：受控启用 Multi-Agent
