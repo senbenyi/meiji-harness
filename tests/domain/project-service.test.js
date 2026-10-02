@@ -113,6 +113,23 @@ test('download failure can resume the same attempt without a new submission', as
   const resumed = await command(service, projectId, 'recoverGenerationAttempt', { attemptId, decision: 'resume' })
   assert.equal(resumed.project.attempts[attemptId].status, 'downloading')
   assert.equal(resumed.project.attempts[attemptId].promptId, 'prompt-1')
+  assert.equal(resumed.project.shots[shot.output.id].status, 'generating')
+})
+
+test('failing one of multiple active attempts keeps the shot generating', async () => {
+  const { service, projectId } = await fixture()
+  await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
+  await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
+  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const shot = await command(service, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready' })
+  const first = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
+  const second = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
+
+  const firstFailed = await command(service, projectId, 'failGenerationAttempt', { attemptId: first.output.attemptId, error: 'first failed' })
+  assert.equal(firstFailed.project.shots[shot.output.id].status, 'generating')
+
+  const secondFailed = await command(service, projectId, 'failGenerationAttempt', { attemptId: second.output.attemptId, error: 'second failed' })
+  assert.equal(secondFailed.project.shots[shot.output.id].status, 'ready')
 })
 
 test('cancelGenerationAttempt uses transition and enforces state machine', async () => {
@@ -288,7 +305,7 @@ test('recordAutomatedCheck rejects on terminal task status', async () => {
   // try to add check to approved task
   await assert.rejects(
     command(service, projectId, 'recordAutomatedCheck', { reviewTaskId, adapter: 'nsfw', schemaVersion: 1, inputHash: 'abc', result: 'pass' }),
-    /not accepting checks/,
+    /illegal review transition/,
   )
 })
 
