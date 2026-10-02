@@ -1,3 +1,4 @@
+import { secondsText } from '../shared/seconds-content.js'
 import { historyEntry } from './execution-history.js'
 import { GenerationStatus, statusLabels } from '../shared/drama-model.js'
 import { videoPromptText as promptText } from '../shared/video-prompt-text.js'
@@ -222,6 +223,21 @@ function renderScenes(project, actions, context) {
   const list = element('div', '', 'scene-list')
   for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { onOpen: id => context.onOpenScene?.(project.episodeId, id) })) (node.tagName === 'DIALOG' || node.tagName === 'INPUT' ? view : list).append(node)
   view.append(list)
+  const propsView = element('section')
+  view.append(propsView)
+  const props = project.plot.props
+  const propsHead = element('div', '', 'outline-head')
+  propsHead.append(element('h3', '道具（服装、坐骑、武器、饰品）'))
+  const extract = element('button', '提取道具', 'primary')
+  extract.disabled = Boolean(project.activity) || project.plot.scenes.check.passed !== true
+  extract.onclick = () => actions.perform(project, 'props', reviewFields(propsView))
+  const propsSkill = skillField(project, 'props', actions)
+  propsHead.append(extract, propsSkill.querySelector('button')); propsView.append(propsHead)
+  if (props) {
+    if (props.check.passed !== null) appendWorkflowReview(propsView, feedbackOf(project, 'props'), true, Boolean(project.activity), extract)
+    propsView.append(...stillCards(project, props.items, actions, hint, { editable: true }))
+    if (props.check.passed === true && !props.items.length) propsView.append(element('p', '本集未提取到需独立登记的道具。', 'meta'))
+  }
   if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部生成剧情，依次完成大纲、人物提取和场景提取。', 'meta'))
   return view
 }
@@ -350,7 +366,8 @@ function paintSeconds(view, project, actions) {
     const card = element('article', '', 'shot-card')
     card.dataset.modelKey = `shot:${shot.id}`
     card.append(element('h3', shotHeading(shot)))
-    if (shot.seconds.content) card.append(element('p', shot.seconds.content, 'prompt full'))
+    if (shot.seconds.content) card.append(element('p', secondsText(shot.seconds.content), 'prompt full'))
+    if (shot.seconds.archivedContent) { const archive = element('details'); archive.append(element('summary', '查看迁移前的每秒指令（只读）'), element('pre', String(shot.seconds.archivedContent), 'prompt full')); card.append(archive) }
     appendJsonCopy(card, shot.seconds.content || { id: shot.id, duration: shot.duration, seconds: shot.seconds })
     view.append(card)
   }
@@ -671,7 +688,7 @@ export function renderShotPage(project, shot, actions, context = {}) {
       head.append(element('h3', '每秒指令'))
       head.append(element('span', '请在每秒指令卡片集顶部统一生成或修改', 'hint'))
       pane.append(head, element('p', '动作、镜头、空间、音频、交接。写满后原样进入文本分镜。', 'meta'))
-      if (shot.seconds.content) pane.append(element('p', shot.seconds.content, 'prompt full'))
+      if (shot.seconds.content) pane.append(element('p', secondsText(shot.seconds.content), 'prompt full'))
     } else if (active === 'board') {
       const head = element('div', '', 'outline-head')
       head.append(element('h3', '文本分镜'))

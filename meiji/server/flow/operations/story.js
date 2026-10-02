@@ -38,15 +38,16 @@ async function opStoryboardText(c) {
 async function opCharacters(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const kind = operation.action
+  if (kind === 'props' && ['outline', 'characters', 'scenes'].some(key => project.plot[key].check.passed !== true || project.plot[key].stale)) throw Object.assign(new Error('请先完成并通过大纲、人物及场景审核，再提取道具'), { status: 409 })
   await projects.save(project.id, { activity: kind, activityError: null })
   const group = await (deps.regenerateCardGroup || regenerateCardGroup)({ project, kind, route: (await loadModels(models)).story, review: operation.review, persist: async group => {
-    const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, [kind]: group, check: group.check })
+    const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, props: project.plot.props, [kind]: group, check: group.check })
     await projects.save(project.id, plotPatch(project, { [kind]: merged[kind] }))
   } })
-  const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, [kind]: group, check: group.check })
+  const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, props: project.plot.props, [kind]: group, check: group.check })
   checkContext.getStore().validation = group.check.failures
   await projects.save(project.id, { ...plotPatch(project, { [kind]: merged[kind] }), activity: null })
-  note(`${kind === 'characters' ? '人物卡' : '场景卡'}已保存${group.check.passed ? '并通过自审' : '，自审未通过：' + group.check.failures.join('；')}`)
+  note(`${({ characters: '人物卡', scenes: '场景卡', props: '道具卡' })[kind]}已保存${group.check.passed ? '并通过自审' : '，自审未通过：' + group.check.failures.join('；')}`)
   return trace
 }
 
@@ -123,7 +124,7 @@ async function opOutline(c) {
   let { deps, projects, models, project, trace, note } = c
   if (!canGenerate(project, 'outline')) throw Object.assign(new Error('请先写好本集摘要，再生成剧情'), { status: 409 })
   await projects.save(project.id, { activity: 'outline', activityError: null })
-  note('依次生成并审核剧情大纲、提取人物角色、提取场景；每项独立调用模型，前项未通过则停止后项')
+  note('依次生成并审核剧情大纲、提取人物角色、提取场景、提取道具；每项独立调用模型，前项未通过则停止后项')
   const result = await (deps.generateStoryPackage || generateStoryPackage)({ route: (await loadModels(models)).story, project, persist: async result => {
     const merged = preserveStoryAssets(project, result)
     if (result.checks && checkContext.getStore()) checkContext.getStore().storyStages = true
@@ -135,7 +136,7 @@ async function opOutline(c) {
   if (checkContext.getStore()) checkContext.getStore().validation = failures
   const patch = replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged }, activity: null })
   await projects.save(project.id, patch)
-  note(`剧情已保存：大纲、${merged.characters.items.length} 张角色卡、${merged.scenes.items.length} 张场景卡；${failures.length ? '自检未通过：' + failures.join('；') : '整包自检通过'}。镜头及后续内容已清空。`)
+  note(`剧情已保存：大纲、${merged.characters.items.length} 张角色卡、${merged.scenes.items.length} 张场景卡、${merged.props.items.length} 张道具卡；${failures.length ? '自检未通过：' + failures.join('；') : '整包自检通过'}。镜头及后续内容已清空。`)
   return trace
 }
 
@@ -252,7 +253,7 @@ async function opShotStoryboard(c) {
   if (!(project.shots?.items || []).some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
   if (!shotSecondsReady(project.shots.items.find(item => item.id === track))) throw Object.assign(new Error('请先写好这一镜的每秒指令'), { status: 409 })
   const review = String(operation.review || '').trim()
-  if (review.length > 2000) throw Object.assign(new Error('审核意见过长'), { status: 400 })
+  if (review || operation.generationMode === 'modify') throw Object.assign(new Error('视频提示词由程序组装；请在每秒分镜提交修改意见，或直接编辑最终提示词'), { status: 409 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'storyboard', track), activity: `shot-storyboard:${track}`, activityError: null })
   note('步骤：每秒指令 → 多模态引用编排')
   note('函数：generateShotStoryboard（server/generate/story.js）')
@@ -348,6 +349,7 @@ export const storyOperations = {
   'storyboard-text': { stage: 'episode', run: opStoryboardText },
   'characters': { stage: 'episode', run: opCharacters },
   'scenes': { stage: 'episode', run: opCharacters },
+  'props': { stage: 'episode', run: opCharacters },
   'scene-text': { stage: 'episode', run: opSceneText },
   'character-text': { stage: 'episode', run: opCharacterText },
   'outline-text': { stage: 'episode', run: opOutlineText },

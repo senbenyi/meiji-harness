@@ -1,3 +1,5 @@
+import { secondsResponse } from './fixtures/seconds.js'
+import { reviewPass } from './fixtures/review-result.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel } from './fixtures/model.js'
 import { generateAllSeconds, generateShotSeconds, generateShotStoryboard } from '../server/generate/shot-text.js'
@@ -39,12 +41,12 @@ test('panel follows the latest selection even while the sidebar still shows the 
   assert.equal(currentSessionId(doc), sessionId)
 })
 
-const passText = text => async ({ skill, user }) => skill === 'review' ? 'PASS' : skill==='storyboard'?storyboardFixture(user):text
+const passText = text => async ({ skill, user }) => skill === 'review' ? reviewPass : skill==='storyboard'?storyboardFixture(user):text
 const videoDeps = home => ({ home, submitH3: async ({ items }) => ({ baseUrl: 'http://video.test', shots: items.map(item => ({ ...item, promptId: item.track })) }), retrieveFilm: async () => Buffer.from('video'), saveLastFrame: async () => Buffer.from('frame') })
 test('batch boards write each shot without losing earlier results',async t=>{
  const e=await setupModel(t)
  const {modelStore}=await import('../server/data/model-settings.js');const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
- await runOperation(e.op('shot-boards'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:passText('## S01 / 5s\n0–5s：朝北进入\n## S02 / 5s\n0–5s：继续进入\n[seconds-complete]')}),generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:passText('summary: 朝北进入\ndetailed_description: 摄影机在身后\noverall_soundscape: 风\nnon_diegetic_music: N/A')})})
+ await runOperation(e.op('shot-boards'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:passText(secondsResponse())}),generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:passText('summary: 朝北进入\ndetailed_description: 摄影机在身后\noverall_soundscape: 风\nnon_diegetic_music: N/A')})})
  const p=await e.read();assert.equal(p.shots.items.length,2);for(const s of p.shots.items){assert.equal(s.seconds.status,'passed');assert.equal(s.storyboard.status,'passed')}
 })
 test('pencil generation is a draft and does not replace an active pencil',async t=>{const e=await setupModel(t);await runOperation(e.op('pencil',{track:'S01'}),{home:e.home,submitPencilBoard:async args=>{const result=await saveImageDraft(e.home,Buffer.from('pencil'),'image/png','scenes','分镜',{projectId:e.id,episodeId:e.episodeId});await args.onSaved(result);return result}});const p=await e.read();assert.equal(p.shots.items[0].pencil.content,null);assert.equal(Object.keys(p.pendingImages).length,1);assert.equal(p.shots.items[0].pencil.operation.phase,'awaiting-confirmation')})

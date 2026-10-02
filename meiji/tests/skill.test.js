@@ -13,7 +13,7 @@ test('约束只放平铺的功能正文，没有独立通用审核修订指导 s
   assert.ok(builtinSkills().every(skill => skill.kind === 'stage' && skill.fixedConstraints && !skill.fields.length))
   assert.deepEqual(stageSkillIds(), ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'video', 'image-prompt', 'character-image', 'scene-image', 'part-image', 'pencil'])
   const files = await readdir(join(skillsDir, 'task'), { withFileTypes: true })
-  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image","generate-pencil-storyboard"].map(name => `${name}-skill.md`).sort())
+  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","extract-story-props","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image","generate-pencil-storyboard"].map(name => `${name}-skill.md`).sort())
   assert.ok(files.filter(file => !file.name.startsWith('.')).every(file => file.isFile() && file.name.endsWith('-skill.md')))
   for (const skill of builtinSkills()) {
     assert.doesNotMatch(skill.constraints, /^#{1,6}\s/m)
@@ -40,8 +40,8 @@ test('基础规则空正文有效，缺失与未登记文件报错', async () =>
     assert.throws(() => validateSkills(dir), /ENOENT/)
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
-test('各文本步骤三类请求共用生产规则且只出现一次，审核保留 PASS/FAIL 边界', () => {
-  for (const stage of ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'image-prompt']) {
+test('各文本步骤三类请求共用生产规则且只出现一次，审核使用统一 JSON 协议', () => {
+  for (const stage of ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']) {
     const prompts = buildTextPrompts({ skill: stage, project: { outputLanguage: 'en' }, instructions: 'UPSTREAM' })
     const rules = builtinSkill(stage).constraints
     for (const request of [prompts.generation, prompts.review('LATEST'), prompts.revision('FAILED', 'REPAIR')]) {
@@ -49,7 +49,7 @@ test('各文本步骤三类请求共用生产规则且只出现一次，审核�
       assert.match(request.system + request.user, /本次生成语言：English/)
     }
     assert.match(prompts.review('LATEST').system, /只审核|只验收/)
-    assert.match(prompts.review('LATEST').system, /PASS.*FAIL/s)
+    assert.match(prompts.review('LATEST').system, /passed.*issues/s)
     assert.match(prompts.revision('FAILED', 'REPAIR').user, /FAILED/)
     assert.match(prompts.revision('FAILED', 'REPAIR').user, /REPAIR/)
   }

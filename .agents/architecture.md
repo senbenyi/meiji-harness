@@ -112,7 +112,9 @@ http / tools → flow → generate → prompts → data → models
 
 视频任务依次执行「提交视频 → 生成并保存视频 → 提取尾帧」。尾帧依赖本机 FFmpeg，提取失败时任务明确失败、保留已保存视频；`tail-frame` 可单独重试。整集/逐镜制作遇到已完成视频缺少当前版本尾帧时补提取，不重复提交视频。
 
-文本分镜由 `TextStoryboardModel` 直接转写本镜已通过的每秒指令并绑定多模态引用，只有 `reference-binding` 阶段。基础 skill 仅约束完整性与素材用途；Model 定义转写、声音标签、输出结构及生成/审核/修订职责。生成与人工编辑审核共用 `storyboard-context.js`，只对照本镜时间线、关联资料和固定素材，不重审整集或前镜最终稿。当前集当前镜头补充使用 `storyboard:Sxx`；结果保存为 `prompt/referenceSnapshot/bindingCheck/secondsRevision`。图片只在视频提交时按快照顺序读取并转 Base64；停用的独立文本镜头不再注册，历史记录保留。
+每秒分镜由模型一次返回整集 shots JSON（version:1），程序审核镜头集合、实体标记、毫秒时长与对白事件，模型审核语义，最多自动修订一次；有明确失败镜头时仅修订该范围并由程序合并。`shared/seconds-content.js` 同时负责校验与可读正文。`shared/entity-references.js` 提供【名字|ID】目录，ID不依赖图片。
+
+`server/prompts/video-prompt-renderer.js` 直接将已通过的每秒分镜编译为有图六字段或无图三字段；不调用模型重写，保留动作、机位、空间、段末状态和唯一对白。`referenceSnapshot` 冻结 Picture 顺序，Subject 标识实体；服装共享所属角色 Subject，武器等独立。`sourceMap` 记录来源，人工编辑后移除。人工编辑仍进行程序格式审核与模型语义审核。剧情修改意见在每秒分镜提交，最终提示词支持直接编辑。图片仅在视频提交时读取本地文件并按冻结顺序转 Base64；版本或素材变化要求重新组装。
 
 | 概念 | 是什么 | 状态由谁决定 |
 |---|---|---|
@@ -149,9 +151,22 @@ storages/meiji/
 
 ## 6. 剧情分步生成
 
-- 剧情操作依次执行大纲、提取人物、提取场景三组文本步骤，各自独立调用生成、审核，失败最多自动修订一次；前项未通过停止后项。
+- 大纲生成与修订直接返回七小节纯文本，不输出 JSON 或 outline 字段；审核与修改基稿也直接使用正文，保存到已有 plot.outline.content 字符串，无存储结构迁移。人物、场景提取仍分别返回 items JSON。
+- 剧情操作依次执行大纲、提取人物、提取场景、提取道具四组文本步骤，各自独立调用生成、审核，失败最多自动修订一次；前项未通过停止后项。
 - 提取使用本轮审核通过后的最终大纲，不带旧卡片基稿或旧意见；单独按意见修改卡片时只修改该类资料。
 - 草稿逐阶段保存，已通过阶段不会被后项错误或取消改判失败。未提取卡片保留原素材但标过期；镜头及后续资料清空。
-- 任务计划按 outline、characters、scenes 分组；持久化历史继续保存 story 聚合快照，审核结果按三项聚合。
+- 任务计划按 outline、characters、scenes、props 分组；持久化历史继续保存 story 聚合快照，审核结果按四项聚合。
 
-人物/场景图片 UI：`character.js` 人物列表只进入详情，`stages.js` 场景列表只进入详情；`asset-cards.js` 详情编辑器统一管理生图、素材和确认，标题旁提供图片任务历史与对应基础 skill。`session.js` 将已有候选提示导向详情，独立图片确认组件仅供铅笔分镜等其他图片流程使用。
+人物/场景图片 UI：`character.js` 人物列表只进入详情，`stages.js` 场景列表只进入详情；`asset-cards.js` 详情编辑器统一管理生图、素材和确认，标题旁提供图片任务历史与对应基础 skill。`session.js` 将已有候选提示导向详情，独立图片确认组件供道具、铅笔分镜等图片流程使用。人物详情不再提供服装/坐骑/道具/发型附属图片生成。
+
+## 7. 统一 AI 审核协议
+
+所有 AI 审核和复审共用 `shared/review-result.js` 的协议，启用 JSON 请求模式，返回 `{passed, issues}`；每项问题为非空 `location/reason/requirement`。通过必须空问题，未通过必须有问题。执行器严格校验，不接受旧 PASS/FAIL 文本、围栏或相互矛盾的结论。各流程通过可选 check 和 prompts.review 分别声明程序审核与模型审核，无需用户开关；可只运行一种或均不运行。两种来源在同一自审步骤的 attempts 分别记录。程序校验问题并入结构化问题，自动修订及复审接收同一份 JSON 意见，最多修订一次。已有节点 `check.failures` 和任务步骤 `reasons` 保存可读的位置/原因/修正要求，页面按现有展示入口逐项显示。审核响应协议错误是执行失败，不伪装成审核未通过，不触发修订、不覆盖已保存草稿；无存储结构变更，无历史数据迁移。
+
+整集每秒分镜动态注入全部镜头 ID 与时长清单，JSON shots 必须完全覆盖；每镜节拍使用正整数 durationMs，程序累计起止时间。dialogues 独立保存台词，beat 只引用事件 ID；ambient、music 保存带时间的声音事件。界面渲染可读正文。旧自由文本由 migrate-seconds-content.js 先备份后保留 archivedContent，标记后续产物过期，需重新生成每秒分镜。
+
+道具保存在 plot.props，分类 clothing/mount/weapon/accessory/prop，字段 name/category/description/ownerId/evidence；程序分配稳定 P 编号，不要求参考图。独立 Model 为 story-props-model.js，规则为 extract-story-props-skill.md。允许空集合通过，道具审核纳入镜头表门禁，人物/场景/道具 ID 按名称保留，新增 ID 递增。
+
+生成正文的漏镜、时长及格式问题归入程序自审，不在生成步骤提前中断；不可解析或无法对应上游的原文以未发布任务 artifact 留存，修订使用完整原文，始终不覆盖原项目内容。未配置审核时结论保持未审核。
+
+道具图片：场景区下的独立道具卡通过 `image` 操作、`image:Pnn` 节点生成/修改图片；`part-image` 仅为道具图片基础 skill ID，旧人物槽位生成操作已移除。候选人工确认后入 props 素材库，可导入和关联已有素材；不删除历史人物附属素材。大纲明确必要场景、物件与着装；场景/道具提取仅依据大纲，人物/场景目录仅匹配 ownerId，不从卡片外观补造道具。

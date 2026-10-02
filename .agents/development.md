@@ -26,7 +26,7 @@
 - 文件按内容命名，不按历史事件或临时来源命名；一次性迁移脚本统一 `migrate-` 前缀；测试文件与被测模块或主题同名。
 - `tools/` 只调用 `server/data` 与 `server/flow`；会话与面板共用 `server/flow/tasks/runner.js` 与 `runOperation`，不另建生成通路。
 - 技能写法（详见 `skills/README.md`）：
-  - 基础生产规则统一平铺在 `skills/task/`，按功能命名 Markdown，一个功能一份。大纲、人物、场景提取各自独立；不再设通用、审核、修订、共享或指导 skill。
+  - 基础生产规则统一平铺在 `skills/task/`，按功能命名 Markdown，一个功能一份。大纲、人物、场景、道具提取各自独立；不再设通用、审核、修订、共享或指导 skill。
   - `skills/catalog.js` 登记功能与文件，`skills/protocols.js` 保存程序解析协议。基础只读，空正文有效，缺文件或未登记文件报错。
   - 每个 AI 步骤有独立提示词 Model，提供生成、审核、修订编排；三类共用基础生产规则。身份、语言、审核协议、修订边界与输出协议由代码负责。接口只赋值和调用 Model，网络层不追加包装。
   - 补充 skill 按当前剧集当前节点保存，支持增删改，任务开始时冻结；预览复用实际编排，步骤历史保存实际请求。图片和视频没有独立 AI 审核时，不为统一方法新增接口调用。
@@ -46,7 +46,7 @@
 - 项目读写只经 `projectStore`（领域存储）；存储布局（索引 + 每集文件）只由 `server/data/project-files.js` 了解，其他代码不得直接读写项目文件。
 - 项目保存经 `projectStore.save` 按 `revision` 串行提交；只重写内容变化的剧集，最后原子替换索引。
 - 数据结构为 `schemaVersion: 2`、存储布局为 `layout: 2`、任务记录为 `schemaVersion: 2`（`steps`），运行时拒绝旧结构、旧布局与旧任务记录；结构或布局变更必须提供 `scripts/` 迁移脚本（先完整备份、迁移后读回核对），不写运行时兼容。
-- 摘要、大纲、人物、场景的补充 skill 按集按节点保存到 `supplementalSkills`；任务开始时冻结，节点编辑只影响后续任务。其他阶段的项目补充及指导素材暂保存在项目索引 `skills`，剧集中不得出现 `customSkills` / `guidanceAssets`（运行时拒绝，由 `scripts/migrate-custom-skills.js` 迁移）；技能基础修改层只经 `server/data/skill-store.js` 读写 `storages/meiji/skills/`。
+- 摘要、大纲、人物、场景、道具的补充 skill 按集按节点保存到 `supplementalSkills`；任务开始时冻结，节点编辑只影响后续任务。其他阶段的项目补充及指导素材暂保存在项目索引 `skills`，剧集中不得出现 `customSkills` / `guidanceAssets`（运行时拒绝，由 `scripts/migrate-custom-skills.js` 迁移）；技能基础修改层只经 `server/data/skill-store.js` 读写 `storages/meiji/skills/`。
 - 生成图片先进 `image-drafts/`，只有用户“确认使用”后才入素材库；模型工具不能自动批准。
 - 重新生成创建新素材，不覆盖旧素材；参考图变化后视频与合成结果标记 `stale`。
 - 面板写请求必须携带 `operationId` 并校验会话；多集操作必须带 `episodeId`。
@@ -64,7 +64,7 @@
 
 - 不修改上游 Harness 源码；接入只通过插件与 `cordis.patch.yml`。
 - 制作顺序由 `shared/gates.js` 门禁决定，不绕过门禁直接生成下游。
-- 审核失败保留生成内容与意见，不回退；接口或格式错误不覆盖旧内容。人工可忽略自审（只对当前版本、不可忽略格式错误、只在面板操作）。
+- 程序内容检查与模型审核按流程独立配置，均归入自审；任一不通过即自审未通过，可按流程自动修订一次。未配置的审核不执行、不伪造通过。审核失败保留生成内容与意见，不回退；不能解析或对应上游的内容仅保存为未发布任务草稿，不覆盖旧内容。接口故障与审核响应协议错误属于执行失败。人工可忽略自审（只对当前版本、不可忽略格式错误、只在面板操作）。
 - 网关不提供取消接口：停止、服务关闭与重启只取消本地任务，如实记录远端任务 ID 可能仍在运行，不宣称已取消；不续查、不自动恢复；重试一律重新提交。
 - 网关不提供文件接口：图片以本地文件为准（`localPath` / `assetId`），参考图只在提交视频时读取本地图片、按 `<Picture N>` 顺序转为 base64 data URL；文本请求不传图片。
 - 生成任务经全局队列限流，并发上限在 `config/models.json` 的 `concurrency` 配置。

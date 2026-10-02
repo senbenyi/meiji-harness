@@ -1,3 +1,5 @@
+import { secondsResponse } from './fixtures/seconds.js'
+import { reviewPass, reviewFail } from './fixtures/review-result.js'
 // 任务与步骤：状态推导、结束落定、计划与执行的对应、逐镜成片单一任务、人工专属操作。
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -18,7 +20,7 @@ import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel, tempHome } from './fixtures/model.js'
 
 const step = (status, extra = {}) => ({ kind: 'generate', target: 'summary', status, verdict: null, reasons: [], ...extra })
-const reply = (text, verdict = 'PASS') => async ({ skill, user }) => skill === 'review' ? verdict : skill === 'storyboard' ? storyboardFixture(user) : text
+const reply = (text, verdict = reviewPass) => async ({ skill, user }) => skill === 'review' ? verdict : skill === 'storyboard' ? storyboardFixture(user) : text
 const prompt = 'integrated_multimodal_description: 旅人朝北进入庭院，摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A'
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 let submitted = 0
@@ -50,11 +52,11 @@ test('task status is derived from steps in the documented priority order', () =>
 test('review summary, grouping and current step read from steps', () => {
   const steps = [
     step('completed', { kind: 'review', target: 'storyboard:S01', verdict: 'pass' }),
-    step('completed', { kind: 'review', target: 'storyboard:S02', verdict: 'fail', reasons: ['FAIL 动作冲突'] }),
+    step('completed', { kind: 'review', target: 'storyboard:S02', verdict: 'fail', reasons: [reviewFail('动作冲突')] }),
     step('running', { kind: 'video_submit', target: 'film:S01' }),
   ]
   assert.equal(reviewPassed(steps), false)
-  assert.deepEqual(reviewFailures(steps), ['FAIL 动作冲突'])
+  assert.deepEqual(reviewFailures(steps), [reviewFail('动作冲突')])
   assert.equal(reviewPassed(steps.slice(0, 1)), true)
   assert.equal(reviewPassed([step('completed')]), null)
   assert.deepEqual(groupByTarget(steps).map(group => [group.target, group.status]), [['storyboard:S01', 'completed'], ['storyboard:S02', 'review_failed'], ['film:S01', 'running']])
@@ -82,7 +84,7 @@ test('text operations execute exactly their planned steps', async t => {
   const e = await setup(t)
   const cases = [
     ['shots', { generateShots: options => generateShots({ ...options, request: reply(table) }) }],
-    ['seconds', { generateAllSeconds: options => generateAllSeconds({ ...options, request: reply(table + '\n[seconds-complete]') }) }],
+    ['seconds', { generateAllSeconds: options => generateAllSeconds({ ...options, request: reply(secondsResponse()) }) }],
     ['shot-storyboard', { generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt) }) }, { track: 'S01' }],
     ['storyboard', { generateStoryboard: options => generateStoryboard({ ...options, request: reply(prompt) }) }],
   ]
@@ -174,9 +176,9 @@ test('human-only operations are rejected for the agent and never queued for it',
 
 test('produce stops at a failed storyboard review: the task is review_failed and later steps are skipped', async t => {
   const e = await setup(t)
-  await e.store.save(e.id, project => { project.episodes[0].shots.items[0].storyboard.status = 'not-generated'; return project })
+  await e.store.save(e.id, project => { project.episodes[0].shots.items[0].storyboard.status = 'not-generated'; project.episodes[0].shots.items[0].seconds.content.beats[0].action='【错误|C99】'; return project })
   await assert.rejects(runOperation(e.op('produce-all'), { home: e.home, operationId: 'stop', waitForBackground: true, ...filmDeps,
-    generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt, 'FAIL 动作冲突') }) }), /未通过自审|自检未通过/)
+    generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt, reviewFail('动作冲突')) }) }), /未通过自审|自审未通过/)
   const task = await e.history.read('tasks', 'stop')
   assert.equal(task.status, 'review_failed')
   assert.ok(task.steps.filter(item => item.kind.startsWith('video_')).every(item => item.status === 'skipped'))
@@ -185,7 +187,7 @@ test('produce stops at a failed storyboard review: the task is review_failed and
 
 test('review override: a new human task passes the current version, keeps the AI reasons and leaves the original task alone', async t => {
   const e = await setup(t)
-  await runOperation(e.op('shots'), { home: e.home, operationId: 'generated', generateShots: options => generateShots({ ...options, request: reply(table, 'FAIL 节奏太快') }) })
+  await runOperation(e.op('shots'), { home: e.home, operationId: 'generated', generateShots: options => generateShots({ ...options, request: reply(table, reviewFail('节奏太快')) }) })
   let project = await e.read()
   assert.equal(project.shots.check.passed, false)
   assert.equal(shotsReady(project), false)
@@ -204,7 +206,7 @@ test('review override: a new human task passes the current version, keeps the AI
   // 已通过的内容没有可忽略的结论。
   await assert.rejects(runOperation(e.op('review-override', { key: 'shots' }), { home: e.home }), { status: 409 })
   // 重新生成写入新的结论，放行失效。
-  await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: reply(table, 'FAIL 仍然太快') }) })
+  await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: reply(table, reviewFail('仍然太快')) }) })
   project = await e.read()
   assert.equal(project.shots.check.passed, false)
   assert.equal(project.shots.check.override, undefined)
@@ -237,7 +239,7 @@ test('old task records must be migrated; migration converts nodes to steps and i
   const at = '2026-01-01T00:00:00.000Z', node = (id, kind, extra = {}) => ({ id, kind, status: 'succeeded', startedAt: at, endedAt: at, inputs: [], outputs: [], ...extra })
   const write = (kind, value) => writeFile(join(root, kind, value.id + '.json'), JSON.stringify(value))
   await write('tasks', { schemaVersion: 1, id: 'reviewed', projectId: e.id, episodeId: e.episodeId, action: 'shots', actor: 'model', status: 'completed', startedAt: at, endedAt: at, error: null,
-    nodes: [node('n0', 'execute'), node('n1', 'generation', { outputs: ['a1'] }), node('n2', 'review', { reviewResult: 'fail', reasons: ['FAIL 节奏'] }), node('n3', 'revision'), node('n4', 're_review', { reviewResult: 'pass' })],
+    nodes: [node('n0', 'execute'), node('n1', 'generation', { outputs: ['a1'] }), node('n2', 'review', { reviewResult: 'fail', reasons: [reviewFail('节奏')] }), node('n3', 'revision'), node('n4', 're_review', { reviewResult: 'pass' })],
     artifacts: [{ artifactId: 'a1', taskId: 'reviewed', nodeId: 'n1', version: 2, target: 'shots' }], latestOutputs: [] })
   await write('tasks', { schemaVersion: 1, id: 'checked', projectId: e.id, episodeId: e.episodeId, action: 'shots', actor: 'model', status: 'review_failed', startedAt: at, endedAt: at, error: '自检未通过：时长不符', nodes: [node('n0', 'execute')], artifacts: [] })
   await write('tasks', { schemaVersion: 1, id: 'stopped', projectId: e.id, episodeId: e.episodeId, action: 'film', actor: 'model', status: 'interrupted', startedAt: at, endedAt: at, error: '服务重启', nodes: [node('n0', 'execute', { status: 'interrupted' })], artifacts: [] })

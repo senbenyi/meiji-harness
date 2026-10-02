@@ -10,7 +10,7 @@ import { projectStore } from '../../data/projects.js'
 import { materialize } from '../../data/episodes.js'
 
 const text = target => ['generate', 'review', 'revise', 're_review'].map(kind => ({ kind, target }))
-const binding = track => text(`storyboard:${track}`).map(step => ({ ...step, phase: 'reference-binding', label: `引用编排·${({ generate: '生成', review: '自审', revise: '修订', re_review: '复审' })[step.kind]}` }))
+const binding = track => ['generate', 'review'].map(kind => ({ kind, target: `storyboard:${track}` })).map(step => ({ ...step, phase: 'reference-binding', label: `引用编排·${({ generate: '生成', review: '自审', revise: '修订', re_review: '复审' })[step.kind]}` }))
 // 文本分镜 = 以已通过每秒指令直接编排多模态引用（不再单独生成文本镜头）。
 const storyboard = track => binding(track)
 const video = track => ['video_submit', 'video_generate', 'tail_frame'].map(kind => ({ kind, target: `film:${track}` }))
@@ -40,8 +40,9 @@ export const definitions = {
   'storyboard-text': { label: '编辑文本分镜', scope: 'shot', queue: 'text', agent: false, plan: (_, op) => edit(`storyboard:${op.track}`) },
   'shot-assets': { label: '修改镜头素材', scope: 'shot', queue: 'text', agent: false, step: save('shots') },
   characters: { label: '按意见修订人物卡', scope: 'episode', queue: 'text', agent: true, plan: () => text('characters') },
+  props: { label: '提取道具', scope: 'episode', queue: 'text', agent: true, plan: () => text('props') },
   scenes: { label: '按意见修订场景卡', scope: 'episode', queue: 'text', agent: true, plan: () => text('scenes') },
-  outline: { label: '生成剧情（大纲、角色、场景）', scope: 'episode', queue: 'text', agent: true, plan: () => ['outline', 'characters', 'scenes'].flatMap(text) },
+  outline: { label: '生成剧情（大纲、角色、场景、道具）', scope: 'episode', queue: 'text', agent: true, plan: () => ['outline', 'characters', 'scenes', 'props'].flatMap(text) },
   shots: { label: '写镜头表', scope: 'episode', queue: 'text', agent: true, plan: () => text('shots') },
   'revise-shot': { label: '按审核意见重写镜头', scope: 'shot', queue: 'text', agent: true, plan: () => text('shots') },
   seconds: { label: '生成每秒指令', scope: 'episode', queue: 'text', agent: true, plan: () => text('seconds') },
@@ -53,7 +54,6 @@ export const definitions = {
   pencil: { label: '生成铅笔分镜', scope: 'shot', queue: 'image', agent: true, plan: (_, op) => image(`pencil:${op.track}`) },
   image: { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },
   'revise-image': { label: '按新需求重绘图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan },
-  'part-image': { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: (_, op) => image(`image:${op.itemId}:${op.slot}`) },
   'import-image': { label: '导入图片', scope: 'episode', queue: 'text', agent: false, step: save(null) },
   'set-reference': { label: '设置参考图', scope: 'episode', queue: 'text', agent: false, step: save(null) },
   'clear-reference': { label: '移除参考图', scope: 'episode', queue: 'text', agent: false, step: save(null) },

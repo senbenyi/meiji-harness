@@ -1,3 +1,4 @@
+import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeEpisodeDraft } from '../server/generate/story.js'
@@ -66,7 +67,7 @@ test('summary modes separate old input, review content and revision-only rules',
       assert.equal(generation.user.includes('HUMAN_OPINION'), generationMode === 'modify')
       assert.match(generation.user, /NEXT_EPISODE/)
       assert.equal(prompts.review('NEW_SUMMARY').user.includes('OLD_SUMMARY'), generationMode === 'modify')
-      const revision = prompts.revision('FAILED_SUMMARY', 'FAIL 原因')
+      const revision = prompts.revision('FAILED_SUMMARY', reviewFail('原因'))
       assert.match(revision.system, /【本次修订范围】/)
       assert.match(revision.user, /FAILED_SUMMARY/)
       assert.doesNotMatch(revision.user, /OLD_SUMMARY|重新生成/)
@@ -89,7 +90,7 @@ for (const mode of ['new', 'regenerate', 'modify']) {
     }, { home: e.home, generateEpisode: options => generateEpisode({ ...options,
       request: async message => {
         calls.push(message)
-        return message.skill === 'review' ? 'PASS' : JSON.stringify({ summary: '旅人入院后发现新的线索。', durationSeconds: 10 })
+        return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '旅人入院后发现新的线索。', durationSeconds: 10 })
       },
     }) })
     assert.equal(calls.length, 2)

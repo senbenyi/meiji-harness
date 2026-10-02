@@ -1,6 +1,6 @@
 import { element, tabs } from './dom.js'
 
-const labels = { summary: '摘要', outline: '大纲', characters: '人物角色', scenes: '场景' }
+const labels = { summary: '摘要', outline: '大纲', characters: '人物角色', scenes: '场景', props: '道具' }
 export function renderNodeSkill(project, nodeKey, { load, save, back }) {
   const view = element('section', '', 'skill-detail-page skill-detail')
   const header = element('header', '', 'skill-page-head')

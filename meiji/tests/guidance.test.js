@@ -1,3 +1,4 @@
+import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
@@ -58,7 +59,7 @@ test('assets are grouped by guidance skill with the same context for generation,
   const project = { skills: { assets: { seconds: assets, outline: [guidance('OUTSIDE_STAGE')] }, additions: { seconds: { generate: '必须保持朝向' } } } }
   const task = { project, skill: 'seconds', instructions: '生成当前镜头', opinion: '本次修改' }
   const prompts = buildTextPrompts(task)
-  for (const message of [prompts.generation, prompts.review('待审'), prompts.revision('旧稿', 'FAIL 缺少动作')]) {
+  for (const message of [prompts.generation, prompts.review('待审'), prompts.revision('旧稿', reviewFail('缺少动作'))]) {
     assert.match(message.user, /【表情指导素材｜表情变化时间线】/)
     assert.match(message.user, /【声音指导素材｜声音时点、声源与强弱】/)
     assert.match(message.user, /【台词指导素材｜说话人、对白时点与语气】/)
@@ -87,7 +88,7 @@ test('storyboard compiles film references into picture, sound, dialogue and musi
     assert.match(message.system, /对白放在画面描述的对应时点/)
     assert.match(message.user, /声音指导素材｜环境音与配乐（overall_soundscape \/ non_diegetic_music）/)
     assert.equal(message.user.match(/"name":"sound.md"/g)?.length, 1)
-    return message.skill === 'review' ? 'PASS' : `[opening-reference: none]\n${compiled}`
+    return message.skill === 'review' ? reviewPass : `[opening-reference: none]\n${compiled}`
   } })
   assert.equal(calls.length, 2)
   const payload = previewFilmSubmit(project, result[0])

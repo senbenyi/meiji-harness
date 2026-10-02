@@ -1,3 +1,4 @@
+import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EpisodeSummaryModel } from '../server/prompts/models/episode-summary-model.js'
@@ -41,7 +42,7 @@ test('实际生成精简重复与审核包装，同时独立审核保留完整�
   assert.doesNotMatch(system, /FAIL|失败依据|outputLanguage|角色 look|指导技能只细化|durationSeconds":120/)
   assert.match(system, /保持事件因果与时间顺序/)
   assert.match(prompts.review('待审稿').system, /保持事件因果与时间顺序/)
-  assert.match(prompts.review('待审稿').system, /首行 FAIL/)
+  assert.match(prompts.review('待审稿').system, /passed 和 issues/)
 })
 
 test('首集和无后集明确开场与悬念方向，追加新集延续全部前集', () => {
@@ -79,9 +80,9 @@ test('人工修改带基稿和意见，自动修订只带最新失败稿并保�
     assert.match(prompts.generation.user, /【本次修改意见】\n加强最后的抉择/)
     assert.match(prompts.generation.system, /【本次修订范围】/)
     assert.match(prompts.generation.system, /保留未涉及的事件、顺序、结果与内容/)
-    const revision = prompts.revision('最新失败稿正文', 'FAIL 缺少因果')
+    const revision = prompts.revision('最新失败稿正文', reviewFail('缺少因果'))
     assert.match(revision.user, /最新失败稿正文/)
-    assert.match(revision.user, /FAIL 缺少因果/)
+    assert.match(revision.user, /缺少因果/)
     assert.match(revision.user, /加强最后的抉择/)
     assert.match(revision.user, /130–170/)
     assert.equal(revision.user.split('只涉及本集事件').length - 1, 1)
@@ -127,14 +128,14 @@ test('三类 model 方法使用独立职责和输出协议，修订接受结构�
   assert.match(revised[1].content, /修复动机/)
   assert.match(reviewed[0].content, /你是一名独立剧集摘要审核员/)
   assert.doesNotMatch(reviewed[0].content, /你是一名短剧分集编剧|本次输出协议/)
-  assert.equal(reviewed[0].content.split('首行 FAIL').length - 1, 1)
+  assert.equal(reviewed[0].content.split('passed 和 issues').length - 1, 1)
   assert.match(reviewed[1].content, /"summary":"最新摘要"/)
   assert.throws(() => model.toReviseMessages({ opinion: '意见' }), /需要提供基稿/)
 })
 
 test('实际审核把验收规则放 system，参数不重复且不带其他阶段模板', () => {
   const audit = buildEpisodePrompts(root()).review('最新内容')
-  assert.equal(audit.json, false)
+  assert.equal(audit.json, true)
   assert.match(audit.system, /独立剧集摘要审核员/)
   assert.match(audit.system, /【创作约束（仅作验收依据）】/)
   assert.doesNotMatch(audit.user, /【验收标准/)
@@ -148,7 +149,7 @@ test('人工修订初审使用人工基稿，自动修订复审使用最新失�
   const { generateEpisode } = await import('../server/generate/story.js')
   const initial = JSON.stringify({ summary: '初次修改稿', durationSeconds: 150 })
   const revised = JSON.stringify({ summary: '修复后的最新稿', durationSeconds: 150 })
-  const replies = [initial, 'FAIL 动机不完整', revised, 'PASS']
+  const replies = [initial, reviewFail('动机不完整'), revised, reviewPass]
   const calls = []
   const result = await checkContext.run({ generationMode: 'modify', review: '加强抉择', requirements: '保留既定结尾' }, () => generateEpisode({
     project: middle(), episodeId: 'target', referenceDurationSeconds: 150,
@@ -161,7 +162,7 @@ test('人工修订初审使用人工基稿，自动修订复审使用最新失�
   assert.doesNotMatch(calls[2].user, /本集旧稿/)
   assert.match(calls[3].user, /自动修订结果验收/)
   assert.match(calls[3].user, /【修订基稿.*初次修改稿/s)
-  assert.match(calls[3].user, /【本轮修订意见】\nFAIL 动机不完整/)
+  assert.match(calls[3].user, /【本轮修订意见】[\s\S]*动机不完整/)
   assert.match(calls[3].user, /【本次修改意见】\n加强抉择/)
   assert.doesNotMatch(calls[3].user, /本集旧稿/)
   for (const call of calls) assert.equal(call.user.split('保留既定结尾').length - 1, 1)
@@ -173,7 +174,7 @@ test('生成、人工修订、审核、自动修订预览复用独立 model 编�
   const prompts = buildEpisodePrompts(project, 'target')
   const modify = checkContext.run({ generationMode: 'modify', review: '（此处为人工修改意见）' }, () => buildEpisodePrompts(project, 'target').generation)
   for (const [shown, actual] of [[preview.generate, prompts.generation], [preview.modify, modify],
-    [preview.review, prompts.review('（待审内容）')], [preview.revise, prompts.revision('（自审未通过的稿件）', 'FAIL （自审不通过原因）')]]) {
+    [preview.review, prompts.review('（待审内容）')], [preview.revise, prompts.revision('（自审未通过的稿件）', reviewFail('（自审不通过原因）'))]]) {
     assert.equal(render(shown.system), actual.system)
     assert.equal(render(shown.user), actual.user)
   }

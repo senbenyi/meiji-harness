@@ -2,7 +2,8 @@ import { GenerationStatus, contentNode, cardModel } from '../../shared/drama-mod
 // Keep confirmed assets attached to stable names while replacing generated descriptions.
 export function preserveStoryAssets(project, result) {
   const patch = { outline: contentNode(project.plot.outline, result.outline, result.checks?.outline || result.check) }
-  for (const [key, prefix] of [['characters', 'C'], ['scenes', 'E']]) {
+  for (const [key, prefix] of [['characters', 'C'], ['scenes', 'E'], ['props', 'P']]) {
+    if (!result[key]) continue
     const check = result.checks?.[key] || result.check
     const oldItems = project.plot[key]?.items || []
     let next = Math.max(0, ...oldItems.map(item => Number(item.id?.slice(1)) || 0))

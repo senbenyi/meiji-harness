@@ -8,14 +8,14 @@ import { showPanelDialog, element, appendJsonCopy } from './dom.js'
 
 export { characterSheet }
 
-function imageEntries(project, item, actions, part = false) {
+function imageEntries(project, item, actions) {
   const row = element('div', '', 'story-node-actions')
   if (actions.openHistory) row.append(historyEntry(project, actions, 'images'))
   if (actions.openSkill) {
-    const skill = part ? 'part-image' : item.type === 'role' ? 'character-image' : 'scene-image'
+    const skill = item.type === 'prop' ? 'part-image' : item.type === 'role' ? 'character-image' : 'scene-image'
     const button = element('button', '查看 skill')
     button.type = 'button'
-    button.setAttribute('aria-label', `${part ? '附属素材' : item.type === 'role' ? '人物图片' : '场景图片'} skill`)
+    button.setAttribute('aria-label', `${item.type === 'prop' ? '道具图片' : item.type === 'role' ? '人物图片' : '场景图片'} skill`)
     button.onclick = () => actions.openSkill(project, skill)
     row.append(button)
   }
@@ -123,7 +123,7 @@ function stillSrc(item) {
   return pictureOf(item).localPath || ''
 }
 
-// 场景画幅随项目：横屏图片置顶通栏，竖屏图片居左，文字资料按标签分行展示。
+// 场景卡始终左图右文等分；图片画幅随项目，文字资料按标签分行展示。
 export function sceneOrientation(project) {
   return String(project?.aspectRatio || '').trim() === '768x1344' || project?.aspectRatio === '9:16' ? 'portrait' : 'landscape'
 }
@@ -167,42 +167,6 @@ function sceneCard(project, item, onOpen) {
   return card
 }
 
-const partKinds = [['衣服', 'clothes'], ['坐骑', 'mounts'], ['道具', 'props'], ['发型', 'hairstyles']]
-const partTextKey = { clothes: 'costume', mounts: 'mount', props: 'prop', hairstyles: 'hairstyle' }
-
-function partNoteValue(item, slot) {
-  if (slot === 'clothes') return characterFieldValues(item).costume
-  return String(item?.[partTextKey[slot]] || '').trim()
-}
-
-function partNote(project, item, slot, label, actions, hint, busy) {
-  const box = element('div', '', 'part-note')
-  const input = element('textarea')
-  input.value = partNoteValue(item, slot)
-  input.placeholder = `${label}描述`
-  input.maxLength = 10000
-  input.setAttribute('aria-label', `${label}描述`)
-  input.disabled = busy
-  const save = element('button', project.activity === 'part-text' ? '保存中' : '保存')
-  save.type = 'button'
-  save.disabled = busy
-  save.onclick = async () => {
-    if (save.disabled) return
-    save.disabled = true
-    save.textContent = '保存中'
-    hint.hidden = true
-    try { await actions.perform(project, 'part-text', { itemId: item.id, slot, text: input.value.trim() }) }
-    catch (error) {
-      save.disabled = false
-      save.textContent = '保存'
-      hint.hidden = false
-      hint.textContent = error.message
-      hint.classList.add('warn')
-    }
-  }
-  box.append(input, save)
-  return { box, input }
-}
 const aspectChoices = [['9:16', '9:16'], ['3:4', '3:4'], ['1:1', '1:1'], ['4:3', '4:3'], ['16:9', '16:9']]
 
 export function stillCards(project, items, actions, hint, { editable = false, onOpen, imageGate = null } = {}) {
@@ -422,69 +386,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     resultActions.append(library)
     stage.append(toolbar, pair)
     const materials = textMaterials(project, item, actions, hint, controlBusy)
-    const parts = element('section', '', 'studio-parts')
-    parts.append(element('h4', '其他图片资料'))
-    for (const [label, slot] of partKinds) {
-      const block = element('div', '', 'part-block')
-      const head = element('div', '', 'part-head')
-      head.append(element('span', label), imageEntries(project, item, actions, true))
-      const note = partNote(project, item, slot, label, actions, hint, controlBusy)
-      const generating = activity === `image:${item.id}:${slot}`
-      const partReview = reviewing && imageGate.slot === slot
-      const aiPart = element('button', generating ? '生成中' : 'AI生图', 'primary')
-      aiPart.type = 'button'
-      aiPart.disabled = controlBusy
-      aiPart.setAttribute('aria-label', `生成${label}：${item.name}`)
-      aiPart.onclick = async () => {
-        aiPart.disabled = true
-        aiPart.textContent = '生成中'
-        try { await actions.beginImage(project, 'part-image', { itemId: item.id, itemName: item.name, slot, description: note.input.value.trim(), ...reviewFields(block) }) }
-        catch (error) {
-          aiPart.disabled = false
-          aiPart.textContent = 'AI生图'
-          showError(error)
-        }
-      }
-      head.append(aiPart)
-      const pics = element('div', '', 'part-pics')
-      for (const picture of (Array.isArray(item[slot]) ? item[slot] : [])) {
-        const src = stillSrc(picture)
-        if (!src) continue
-        const open = element('button', '', 'part-still')
-        open.type = 'button'
-        open.setAttribute('aria-label', `查看大图：${picture.name}`)
-        const still = document.createElement('img')
-        still.alt = picture.name || ''
-        still.src = src
-        open.append(still)
-        open.onclick = () => showStill(src, picture.name || label)
-        const pictureCard = element('div', '', 'part-json-card')
-        pictureCard.append(open)
-        appendJsonCopy(pictureCard, picture)
-        pics.append(pictureCard)
-      }
-      if (partReview && imageGate.previewUrl) {
-        const open = element('button', '', 'part-still')
-        open.type = 'button'
-        open.setAttribute('aria-label', `查看待确认${label}`)
-        const still = document.createElement('img')
-        still.alt = `待确认${label}`
-        still.src = imageGate.previewUrl
-        open.append(still)
-        open.onclick = () => showStill(imageGate.previewUrl, `待确认${label}`)
-        pics.prepend(open)
-      }
-      const plus = element('button', '+', 'part-add')
-      plus.type = 'button'
-      plus.disabled = controlBusy
-      plus.setAttribute('aria-label', `导入${label}：${item.name}`)
-      plus.onclick = () => { if (!controlBusy) { pickId = item.id; pickSlot = slot; picker.click() } }
-      pics.append(plus)
-      block.append(head, note.box, pics)
-      if (partReview) block.append(renderDetailImageActions(project, actions, imageGate))
-      parts.append(block)
-    }
-    card.append(stage, materials, parts)
+    card.append(stage, materials)
     appendJsonCopy(card, item)
     return card
   }
@@ -528,7 +430,8 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     heading.append(element('h3', `${item.id} · ${item.name}`), entries)
     copy.append(heading)
     if (mainReview) copy.append(renderDetailImageActions(project, actions, imageGate))
-    copy.append(textMaterials(project, item, actions, hint, controlBusy))
+    if (item.type === 'prop') copy.append(element('p', `${item.category} · 所属：${item.ownerId || '未指定'}`, 'meta'), element('p', item.description), element('p', `依据：${item.evidence}`, 'meta'))
+    else copy.append(textMaterials(project, item, actions, hint, controlBusy))
     const actionsRow = element('div', '', 'asset-actions')
     const ai = element('button', imaging === item.id ? '生成中' : 'AI生图', 'primary')
     ai.type = 'button'
@@ -571,7 +474,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       showPanelDialog(dialog)
       content.textContent = '正在读取素材…'
       try {
-        const category = item.type === 'role' ? 'characters' : 'scenes'
+        const category = item.type === 'prop' ? 'props' : item.type === 'role' ? 'characters' : 'scenes'
         const { assets } = await request('assets?category=' + category)
         content.replaceChildren()
         if (!assets.length) content.append(element('p', '暂无素材，可先生成或到片库导入图片。', 'notice'))

@@ -1,3 +1,5 @@
+import { secondsResponse } from './fixtures/seconds.js'
+import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createTasks } from '../server/flow/tasks/runner.js'
@@ -58,12 +60,12 @@ test('direct generation saves reviewed model and cancellation clears its operati
  await models.write({ ...await models.read(), apiKey: 'test-only' })
  const events = [], session = { append: (type, data) => events.push({ type, data }) }
  const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-  generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => skill === 'review' ? 'PASS' : '## S01 / 5s\n0–5s：旅人继续向北。\n## S02 / 5s\n0–5s：继续行走。\n[seconds-complete]' }),
+  generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => skill === 'review' ? reviewPass : secondsResponse() }),
  }) })
  const task = tasks.start(e.op('seconds'), session)
  await task.done
  let shot = (await e.read()).shots.items[0]
- assert.equal(shot.seconds.content, '0–5s：旅人继续向北。')
+ assert.equal(shot.seconds.content.beats[0].action, '第一镜新动作')
  assert.equal(shot.seconds.status, 'passed')
  assert.equal(shot.seconds.operation, null)
  let entered

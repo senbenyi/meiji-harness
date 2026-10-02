@@ -12,6 +12,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { generateGatewayImage } from './gateway.js'
 
+export function propImagePrompt(item, project, instruction = '') {
+  return imageSkillPrompt('part-image', `道具：${item.name}（${item.id}）\n类别：${item.category}\n描述：${item.description}\n大纲依据：${item.evidence}${instruction ? `\n原图修改意见：${instruction}` : ''}`, project)
+}
+
 export function usableLook(text) {
   const look = String(text || '').replace(/\s+/g, ' ').trim()
   const han = look.match(/[\p{L}\p{N}]/gu) || []
@@ -46,7 +50,7 @@ export function assetImageUrl(projectId, itemId, version = Date.now(), episodeId
 export function pictureRecord(item) {
   if (!item || typeof item !== 'object') return item
   const localPath = item.localPath || null
-  if (item.type === 'role' || item.type === 'scene') {
+  if (['role', 'scene', 'prop'].includes(item.type)) {
     const { localPath: _, assetId, assetCategory, prompt, ...card } = item
     const media = { ...pictureOf(item), ...(prompt ? { prompt } : {}), localPath: localPath || pictureOf(item).localPath || null, ...(assetId ? { assetId, assetCategory } : {}) }
     card.image = setContent(structuredClone(item.image || node(`image:${item.id}`)), media, { passed: Boolean(media.localPath || media.assetId), failures: [] })
@@ -246,7 +250,7 @@ export async function generateStillFile({ directory, itemId, aspectRatio, backen
 
 export async function submitAssetImage({ assets, itemId, aspectRatio, backend, projectId, episodeId, directory, fetchImpl, signal, prepare, referenceBytes, referenceMime, referenceBase64, seed = imageSeed(`${itemId}:${Date.now()}`), home, prompt, stepTarget, onSaved }) {
   const item = assets?.items?.find(entry => entry.id === itemId)
-  if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以生图'), { status: 400 })
+  if (!item || !['role', 'scene', 'prop'].includes(item.type)) throw Object.assign(new Error('只有角色、场景和道具可以生图'), { status: 400 })
   const prepared = prepare ? await prepare(assets) : assets
   const current = prepared.items.find(entry => entry.id === itemId)
   await mkdir(directory, { recursive: true })
@@ -257,7 +261,7 @@ export async function submitAssetImage({ assets, itemId, aspectRatio, backend, p
   return saveGeneratedImage(stepTarget, async () => {
     const fitted = await limitStillBytes(bytes)
     if (!home) await replaceStill(directory, itemId, fitted.ext, fitted.bytes)
-    const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
+    const reference = home ? { pendingImage: await saveImageDraft(home, fitted.bytes, 'image/' + (fitted.ext === 'jpg' ? 'jpeg' : fitted.ext), current.type === 'prop' ? 'props' : current.type === 'role' ? 'characters' : 'scenes', current.name || itemId, { source: 'generated', projectId, episodeId, itemId, prompt: prompt || imagePrompt(current) }) } : { localPath: assetImageUrl(projectId, itemId, seed, episodeId) }
     const items = prepared.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference, file: null }) : entry)
     return { ...prepared, items }
   }, onSaved, signal)
@@ -268,12 +272,12 @@ export async function importAssetImage({ assets, itemId, projectId, episodeId, d
   if (!ext) throw Object.assign(new Error('请上传 PNG、JPG 或 WebP'), { status: 400 })
   if (!bytes?.length) throw Object.assign(new Error('图片是空的'), { status: 400 })
   const item = assets?.items?.find(entry => entry.id === itemId)
-  if (!item || (item.type !== 'role' && item.type !== 'scene')) throw Object.assign(new Error('只有角色和场景可以导入图片'), { status: 400 })
+  if (!item || !['role', 'scene', 'prop'].includes(item.type)) throw Object.assign(new Error('只有角色、场景和道具可以导入图片'), { status: 400 })
   const version = Date.now()
   await replaceStill(directory, itemId, ext, bytes)
   await rm(join(directory, `${itemId}.job.json`), { force: true })
   const url = assetImageUrl(projectId, itemId, version, episodeId)
-  const reference = home ? await savePicture(home, bytes, mime, item.type === 'role' ? 'characters' : 'scenes', item.name || itemId, { source: 'import', projectId, episodeId, itemId }) : { localPath: url }
+  const reference = home ? await savePicture(home, bytes, mime, item.type === 'prop' ? 'props' : item.type === 'role' ? 'characters' : 'scenes', item.name || itemId, { source: 'import', projectId, episodeId, itemId }) : { localPath: url }
   const items = assets.items.map(entry => entry.id === itemId ? pictureRecord({ ...entry, ...reference }) : entry)
   return { ...assets, items }
 }

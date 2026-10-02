@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, readFile } from 'node:fs/promises'
@@ -15,7 +16,7 @@ async function setup(t) {
  await store.save(p.id,{episodes:[episode]})
  return {home,store,id:p.id,episodeId:episode.id, op(action,extra={}){return {action,projectId:p.id,episodeId:episode.id,...extra}}}
 }
-const requestFor = text => async ({ skill }) =>skill==='review'?'PASS':text
+const requestFor = text => async ({ skill }) =>skill==='review'?reviewPass:text
 async function throughShots(t) {
  const env=await setup(t)
  await runOperation(env.op('outline'),{home:env.home,generateStoryPackage:async()=>({...storyPackageFixture(10),check:{passed:true,failures:[]}})})

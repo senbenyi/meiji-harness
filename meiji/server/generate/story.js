@@ -82,6 +82,22 @@ export function normalizeScenes(raw) {
   return { ...node('scenes'), items: items.map(cardModel) }
 }
 
+export function normalizeProps(raw, project) {
+  if (!Array.isArray(raw?.items)) throw new Error('道具提取需要items数组')
+  const owners = new Set([...project.plot.characters.items, ...project.plot.scenes.items].map(item => item.id))
+  const names = new Set()
+  const items = raw.items.map((item, index) => {
+    const name = required(item.name, '道具缺少名称')
+    if (names.has(name)) throw new Error(`道具名称重复：${name}`)
+    names.add(name)
+    if (!['clothing', 'mount', 'weapon', 'accessory', 'prop'].includes(item.category)) throw new Error('道具类别错误')
+    if (item.ownerId && !owners.has(item.ownerId)) throw new Error(`道具所属ID不存在：${item.ownerId}`)
+    return cardModel({ id: `P${String(index + 1).padStart(2, '0')}`, type: 'prop', name, category: item.category,
+      ownerId: item.ownerId || '', description: required(item.description, '道具缺少描述'), evidence: required(item.evidence, '道具缺少提取依据') })
+  })
+  return { ...node('props'), items }
+}
+
 export function storyboardPromptText(item) {
   return h3PromptText(item.prompt)
 }
@@ -102,7 +118,6 @@ export async function generateEpisode({ route, project, episodeId, referenceDura
     target: 'summary',
     prompts: buildEpisodePrompts(project, episodeId, reference),
     options: { route, project: { ...project, durationSeconds: reference }, signal, fetchImpl, request },
-    validate: parseJsonValue,
     check: text => episodeSummaryFailures(parseJsonValue(text), reference),
     persist: persist && ((text, check) => persist({ ...normalizeEpisodeDraft(parseJsonValue(text), reference), check })),
   })
@@ -125,38 +140,40 @@ export function outlineStructureFailures(text, language = 'zh-CN') {
   return failures
 }
 
-// 三个独立文本流程：大纲通过后，按同一份最终大纲分别提取人物和场景。
+// 大纲通过后依次提取人物、场景和道具，各阶段独立审核。
 export async function generateStoryPackage({ route, project, signal, fetchImpl, request, persist }) {
   const options = { route, project, signal, fetchImpl, request }
   const ctx = checkContext.getStore()
   const pending = () => ({ passed: null, failures: [] })
   const result = { outline: '', characters: { ...project.plot.characters, check: pending(), stale: true },
-    scenes: { ...project.plot.scenes, check: pending(), stale: true }, checks: { outline: pending(), characters: pending(), scenes: pending() }, check: pending() }
+    scenes: { ...project.plot.scenes, check: pending(), stale: true }, checks: { outline: pending(), characters: pending(), scenes: pending(), props: pending() }, props: { ...project.plot.props, check: pending(), stale: true }, check: pending() }
   const save = async (kind, value, check, publish = true) => {
     if (kind === 'outline') result.outline = value
-    else result[kind] = { ...value, check, stale: false }
+    else {
+      const previous = project.plot[kind]?.items || []
+      let next = Math.max(0, ...previous.map(item => Number(item.id.slice(1)) || 0))
+      const prefix = { characters: 'C', scenes: 'E', props: 'P' }[kind]
+      result[kind] = { ...value, items: value.items.map(item => ({ ...item, id: previous.find(old => old.name === item.name)?.id || `${prefix}${String(++next).padStart(2, '0')}` })), check, stale: false }
+    }
     result.checks[kind] = check
     result.check = { passed: Object.values(result.checks).every(value => value.passed === true) ? true
       : Object.values(result.checks).some(value => value.passed === false) ? false : null,
       failures: Object.values(result.checks).flatMap(value => value.failures) }
     if (persist && publish) await persist({ ...result, phase: kind })
   }
-  for (const kind of ['outline', 'characters', 'scenes']) {
+  for (const kind of ['outline', 'characters', 'scenes', 'props']) {
     (signal || ctx?.signal)?.throwIfAborted()
     if (ctx) ctx.target = { ...ctx.originalOperation, action: 'outline', stageKey: kind }
-    const input = kind === 'outline' ? project : { ...project, plot: { ...project.plot, outline: { ...project.plot.outline, content: result.outline } } }
+    const input = kind === 'outline' ? project : { ...project, plot: { ...project.plot, outline: { ...project.plot.outline, content: result.outline }, characters: result.characters, scenes: result.scenes } }
     const normalize = text => {
+      if (kind === 'outline') return required(text, '大纲是空的')
       const raw = parseJsonValue(text)
-      if (kind === 'outline') {
-        if (Object.keys(raw).length !== 1 || typeof raw.outline !== 'string') throw new Error('大纲结果仅允许 outline 字符串')
-        return required(raw.outline, '大纲是空的')
-      }
       if (Object.keys(raw).length !== 1 || !Array.isArray(raw.items)) throw new Error('提取结果仅允许 items 数组')
-      return (kind === 'characters' ? normalizeCharacters : normalizeScenes)(raw)
+      return kind === 'props' ? normalizeProps(raw, input) : (kind === 'characters' ? normalizeCharacters : normalizeScenes)(raw)
     }
     const generated = await runTextSteps({ target: kind,
       prompts: buildStoryPrompts(input, kind, '', { extraction: kind !== 'outline' }), options,
-      validate: normalize, check: kind === 'outline' ? text => outlineStructureFailures(normalize(text), project.outputLanguage) : () => [], retainFailedDraft: true, persist: persist && ((text, check) => save(kind, normalize(text), check)) })
+      check: text => { normalize(text); return kind === 'outline' ? outlineStructureFailures(text, project.outputLanguage) : [] }, retainFailedDraft: kind === 'outline', persist: persist && ((text, check) => save(kind, normalize(text), check)) })
     await save(kind, normalize(generated.text), generated.check, false)
     if (!generated.check.passed) break
   }
@@ -165,11 +182,11 @@ export async function generateStoryPackage({ route, project, signal, fetchImpl, 
 }
 
 export async function regenerateCardGroup({ project, kind, route, review, persist, signal, fetchImpl, request }) {
-  const normalize = text => (kind === 'characters' ? normalizeCharacters : normalizeScenes)(parseJsonValue(text))
+  const normalize = text => kind === 'props' ? normalizeProps(parseJsonValue(text), project) : (kind === 'characters' ? normalizeCharacters : normalizeScenes)(parseJsonValue(text))
   const result = await runTextSteps({
     target: kind,
     prompts: buildStoryPrompts(project, kind, review),
-    options: { route, project, signal, fetchImpl, request }, validate: normalize, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
+    options: { route, project, signal, fetchImpl, request }, check: text => { normalize(text); return [] }, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
   })
   return { ...normalize(result.text), check: result.check }
 }

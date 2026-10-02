@@ -1,5 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { shotModel } from '../shared/drama-model.js'
 import { shotSecondsReady } from '../shared/shot-timing.js'
-test('directives use free text without per-second JSON field validation',()=>{const s=shotModel({id:'S01',duration:5});assert.equal(shotSecondsReady(s),false);s.seconds.content='0–5s：动作保持连续';assert.equal(shotSecondsReady(s),true);s.seconds.content=' ';assert.equal(shotSecondsReady(s),false)})
+import { secondsContent } from './fixtures/seconds.js'
+test('only structured seconds are ready; old free text requires migration',()=>{
+ const s={seconds:{content:null}};assert.equal(shotSecondsReady(s),false)
+ s.seconds.content='0–5s旧文本';assert.equal(shotSecondsReady(s),false)
+ s.seconds.content=secondsContent();assert.equal(shotSecondsReady(s),true)
+})

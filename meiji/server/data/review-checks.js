@@ -2,10 +2,10 @@ import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch } f
 import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shared/feedback.js'
 import { checkContext, apiFailed, inTextStep } from './operation-context.js'
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
-const generationActions = new Set(['characters', 'scenes', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
+const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
-  if (operation.action === 'outline' || operation.action === 'outline-text') return ['outline', 'characters', 'scenes']
+  if (operation.action === 'outline' || operation.action === 'outline-text') return ['outline', 'characters', 'scenes', 'props']
   const kind = { seconds: 'seconds', storyboard: 'storyboard', 'shot-boards': 'storyboard', films: 'film' }[operation.action]
   const shots = operation.action === 'films' ? project.shots.items.filter(shot => shot.video.content?.status !== 'ready' || shot.video.stale) : project.shots.items
   return kind ? shots.map(shot => `${kind}:${shot.id}`) : [feedbackKey(operation)]
@@ -62,6 +62,7 @@ export async function prepareChecks(store, project, operation) {
   const fresh = mode === 'regenerate' ? undefined : operation.review ?? (operation.action === 'revise-image' ? operation.instruction : undefined)
   project = await store.save(project.id, current => {
     const next = structuredClone(current)
+    next.activityError = null
     if (matchingCandidate) delete next.pendingImages[matchingCandidate.draftId]
     if (operation.action === 'seconds') {
       const group = targetNode(next, 'seconds')

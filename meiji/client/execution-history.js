@@ -1,12 +1,12 @@
 // 「任务历史」页：已记录的任务（按状态筛选），每个任务的步骤清单与「当前任务」页共用 task-steps.js。
 import { element } from './dom.js'
 import { renderSteps, taskStatusLabels } from './task-steps.js'
-const names = { 'episode-generate': '生成摘要', 'episode-add': '新增摘要', 'episode-edit': '编辑摘要', outline: '生成剧情', 'outline-text': '编辑剧情', characters: '修改角色', scenes: '修改场景', 'scene-text': '编辑场景', 'character-text': '编辑人物文字', shots: '生成镜头表', 'revise-shot': '修改镜头表', seconds: '生成每秒指令', storyboard: '生成文本提示词', 'shot-storyboard': '生成文本提示词', 'shot-boards': '生成文本提示词', 'storyboard-text': '编辑文本提示词', film: '生成成片', films: '生成成片', produce: '生成本镜文本和视频', 'produce-all': '依次生成文本和视频', assemble: '合成视频', 'tail-frame': '重新处理尾帧', 'shot-assets': '修改镜头素材', source: '编辑资料', overview: '保存项目概要',
+const names = { 'episode-generate': '生成摘要', 'episode-add': '新增摘要', 'episode-edit': '编辑摘要', outline: '生成剧情', 'outline-text': '编辑剧情', characters: '修改角色', scenes: '修改场景', props: '提取道具', 'scene-text': '编辑场景', 'character-text': '编辑人物文字', shots: '生成镜头表', 'revise-shot': '修改镜头表', seconds: '生成每秒指令', storyboard: '生成文本提示词', 'shot-storyboard': '生成文本提示词', 'shot-boards': '生成文本提示词', 'storyboard-text': '编辑文本提示词', film: '生成成片', films: '生成成片', produce: '生成本镜文本和视频', 'produce-all': '依次生成文本和视频', assemble: '合成视频', 'tail-frame': '重新处理尾帧', 'shot-assets': '修改镜头素材', source: '编辑资料', overview: '保存项目概要',
   'text-shot-edit': '编辑文本镜头', 'storyboard-bind': '编排多模态引用',
   image: '生成图片', 'revise-image': '重绘图片', 'part-image': '生成图片', pencil: '生成铅笔分镜', 'import-image': '导入图片', 'part-import': '导入图片', 'part-text': '编辑图片描述', 'set-reference': '设置参考图', 'clear-reference': '移除参考图', 'use-asset': '关联图片素材', 'clear-image': '删除图片', 'confirm-image': '确认使用图片', 'discard-image': '放弃候选图片', 'review-override': '忽略自审并通过' }
 const targets = { summary: '摘要', story: '剧情', shots: '镜头表', seconds: '每秒指令', storyboard: '文本提示词', film: '成片', assembly: '合成视频' }
 const time = value => value ? new Date(value).toLocaleString() : '—'
-const skillNames = { episode: '剧集摘要', outline: '剧情整包', shots: '镜头表', 'shot-revise': '单镜修订', seconds: '每秒指令', storyboard: '文本分镜', video: '成片', 'image-prompt': '图片提示词改写', 'character-image': '人物参考图', 'scene-image': '场景参考图', 'part-image': '附属素材图', pencil: '铅笔分镜',
+const skillNames = { episode: '剧集摘要', outline: '剧情整包', shots: '镜头表', 'shot-revise': '单镜修订', seconds: '每秒指令', storyboard: '文本分镜', video: '成片', 'image-prompt': '图片提示词改写', 'character-image': '人物参考图', 'scene-image': '场景参考图', 'part-image': '道具图片', pencil: '铅笔分镜',
   'guidance-action': '动作指导', 'guidance-martial': '武术指导', 'guidance-dialogue': '台词指导', 'guidance-expression': '表情指导', 'guidance-sound': '声音指导' }
 
 // 任务所用技能：任务开始时固定的组合，标明是否为修改后的基础版本、是否含本剧补充。
@@ -21,7 +21,7 @@ export function skillsLine(skills = []) {
   return line
 }
 
-const scopes = { images: ['图片', ['image', 'revise-image', 'part-image', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'use-asset', 'clear-image', 'confirm-image', 'discard-image']], outline: ['大纲', ['outline', 'outline-text']], characters: ['人物角色', ['outline', 'characters', 'character-text']], scenes: ['场景', ['outline', 'scenes', 'scene-text']], summary: ['摘要', ['episode-summary-draft', 'episode-generate', 'episode-add', 'episode-edit']], script: ['剧情', ['outline', 'outline-text', 'characters', 'scenes', 'scene-text', 'character-text']], shots: ['镜头表', ['shots', 'revise-shot', 'shot-assets']], seconds: ['每秒指令', ['seconds', 'shot-seconds']], film: ['成片', ['storyboard', 'shot-storyboard', 'shot-boards', 'storyboard-text', 'text-shot-edit', 'storyboard-bind', 'film', 'films', 'produce', 'produce-all', 'tail-frame']], assembly: ['合成', ['assemble']] }
+const scopes = { images: ['图片', ['image', 'revise-image', 'part-image', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'use-asset', 'clear-image', 'confirm-image', 'discard-image']], outline: ['大纲', ['outline', 'outline-text']], characters: ['人物角色', ['outline', 'characters', 'character-text']], props: ['道具', ['outline', 'props']], scenes: ['场景', ['outline', 'scenes', 'scene-text']], summary: ['摘要', ['episode-summary-draft', 'episode-generate', 'episode-add', 'episode-edit']], script: ['剧情', ['outline', 'outline-text', 'characters', 'scenes', 'props', 'scene-text', 'character-text']], shots: ['镜头表', ['shots', 'revise-shot', 'shot-assets']], seconds: ['每秒指令', ['seconds', 'shot-seconds']], film: ['成片', ['storyboard', 'shot-storyboard', 'shot-boards', 'storyboard-text', 'text-shot-edit', 'storyboard-bind', 'film', 'films', 'produce', 'produce-all', 'tail-frame']], assembly: ['合成', ['assemble']] }
 
 export function historyEntry(project, actions, scope = '') {
   const scopeKey = scope.split(':')[0]

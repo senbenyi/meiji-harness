@@ -1,3 +1,4 @@
+import { reviewPass } from './fixtures/review-result.js'
 import { node, cardModel, shotModel, pictureOf } from '../shared/drama-model.js'
 import { episodeFixture } from './fixtures/model.js'
 import test from 'node:test'
@@ -16,14 +17,19 @@ import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js
 test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
   const generated = { ...storyPackageFixture(), outline: outlineFixture('旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。', 'en') }
-  const replies = [JSON.stringify({ outline: generated.outline }), 'PASS', JSON.stringify(generated.characters), 'PASS', JSON.stringify(generated.scenes), 'PASS']
+  const replies = [generated.outline, reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
   const result = await generateStoryPackage({ project: { ...episodeFixture(), outputLanguage: 'en' }, route: { baseUrl: 'http://model.test', apiKey: 'test', model: 'test' }, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
     assert.match(body.messages[0].content, /本次生成语言：English/)
     calls++
+    if (calls === 2) {
+      assert.ok(body.messages[1].content.endsWith(generated.outline))
+      assert.doesNotMatch(body.messages[1].content, /\"outline\"\s*:/)
+    }
     if (calls > 2) assert.match(body.messages[1].content, /旅人进入山洞，发现陌生脚印/)
     if (calls === 1) {
-      assert.match(body.messages[0].content, /顶层仅含 outline/)
+      assert.match(body.messages[0].content, /完整大纲纯文本/)
+      assert.equal(body.response_format, undefined)
       assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }
     if (calls === 3) assert.match(body.messages[0].content, /角色卡覆盖大纲/)
@@ -31,7 +37,7 @@ test('outline, characters and scenes use separate generation and review requests
     return Response.json({ choices: [{ message: { content: replies.shift() } }] })
   } })
   assert.equal(result.outline, generated.outline)
-  assert.equal(calls, 6)
+  assert.equal(calls, 8)
   assert.equal(result.characters.items.length, 1)
   assert.equal(result.scenes.items.length, 1)
   assert.equal(result.check.passed, true)

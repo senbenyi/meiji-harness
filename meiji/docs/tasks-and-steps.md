@@ -43,8 +43,8 @@
 
 | kind | 执行者（worker） |
 |---|---|
-| generate / revise | `generateStep`（请求、续传补全、格式校验、保存草稿） |
-| review / re_review | `reviewStep`（必须返回 PASS 或「FAIL 原因」） |
+| generate / revise | `generateStep`（请求、续传补全、保存草稿） |
+| review / re_review | `reviewStep`（按流程运行可选程序审核与模型审核，合并结论） |
 | save | 人工编辑的保存 |
 | check | 保存时的内容校验不通过（如时长不符），只记结论 |
 | override | 人工忽略自审 |
@@ -56,7 +56,7 @@
 | checkpoint | 人工关卡（预留） |
 
 - `target`：写入的内容，如 `summary`、`story`、`shots`、`seconds`、`storyboard:S01`、`film:S01`、`image:C01`。
-- `status` 与 `verdict` 分开：自审返回 FAIL 是「完成 + 不通过」，不是执行失败。
+- `status` 与 `verdict` 分开：自审返回 passed: false 是「完成 + 不通过」，不是执行失败。
 - `attempts`：同一步骤内的多次请求（整集每秒指令续传最多 3 次），不拆成独立步骤。
 - `actor`：`model` / `human`。
 - `scope`：逐镜成片的每个子操作一个作用域，接口失败回退与草稿判断只看本作用域的步骤。
@@ -176,7 +176,7 @@
 | 生成 | 阶段通用（含共享模块，如尾帧协议）→ 阶段生成 → 本剧启用且适用本阶段的指导（通用 + 本阶段落点）→ 本剧补充（通用、生成、指导）→ 指导素材编排规则（有素材时）→ 自检标准（阶段审核 + 指导审核 + 本剧审核补充）→ 语言 → 优先级 → 输出协议 | 任务与上下文 → 分类指导素材（按指导分组）→ 本次修改意见 |
 | 意见修改 | 同生成，在语言前加修订边界（阶段修订 + 共享修订边界 + 本剧修订补充），语言含修订时的语言规则 | 同生成（含修改基稿） |
 | 自动修订 | 同生成，自检标准换成修订边界 | 任务与上下文 → 失败稿 → 失败原因 → 原人工意见 |
-| 审核 | 审核通用协议 → 本阶段共享审核模块（镜头类审核、尾帧协议）→ 素材编排规则 → 语言 → PASS/FAIL 协议 | 阶段 → 任务与上下文 → 修改意见 → 验收标准（阶段审核 + 指导审核）→ 本剧补充 → 分类指导素材 → 连续性资料 → 待审内容 |
+| 审核 | 审核通用协议 → 本阶段共享审核模块（镜头类审核、尾帧协议）→ 素材编排规则 → 语言 → JSON {passed, issues} 协议 | 阶段 → 任务与上下文 → 修改意见 → 验收标准（阶段审核 + 指导审核）→ 本剧补充 → 分类指导素材 → 连续性资料 → 待审内容 |
 | 图片 | —（图片接口只有一段 prompt） | 画面要求 → 本剧补充 → 语言 → 视觉风格 → 本次画面要求 |
 | 成片 | — | 最终视频提示词后追加成片技能的基础要求与本剧补充（内置为空） |
 
@@ -186,7 +186,7 @@
 
 固定约束例外：人物图通过 `fixedConstraints: true` 读取 `skills/task/generate-character-image-skill.md`，其 `fields: []`，不再有可编辑 generate 字段，也不应用旧基础覆盖或本剧补充。固定文本纳入任务快照和内容哈希，页面/API 只读；空文件表示不注入固定约束，不使用代码默认值。所有功能均按单一只读基础生产规则管理，生成与审核共用，修订由 Model 增加基稿及意见。
 
-面板接口（只接受同源请求，会话 agent 无对应工具）：`GET /skills`、`GET /skills/<id>`、`PUT /skills/<id>`（须 `confirm: true`）、`POST /skills/<id>/reset`、`POST /skills/<id>/preview`、`PUT /project-skills`、`PUT /project-guidance`。生成和修订剧情资料用 JSON 输出，镜头表与每秒指令用自由文本，审核用 PASS/FAIL。
+面板接口（只接受同源请求，会话 agent 无对应工具）：`GET /skills`、`GET /skills/<id>`、`PUT /skills/<id>`（须 `confirm: true`）、`POST /skills/<id>/reset`、`POST /skills/<id>/preview`、`PUT /project-skills`、`PUT /project-guidance`。生成和修订剧情资料用 JSON 输出，镜头表与每秒指令用自由文本，审核用 JSON {passed, issues}。
 
 剧情整包、人物卡、场景卡、镜头表与每秒指令都在自审前保存生成稿；自审或修订接口异常保留最新已保存稿，生成接口尚未产生有效稿时回退到原内容。未完成审核不标记通过。保存沿用 `revisionStore` 的依赖检查。人工编辑只执行保存与自审步骤。
 
@@ -195,3 +195,11 @@
 ## 验证
 
 `tests/task-steps.test.js`（状态推导、结束落定、计划与执行一一对应、逐镜成片单一任务、人工专属操作、忽略自审、当前任务、迁移）、`task-store`、`reviewed-generation`、`prompt-nodes`、`api-failure-state`、`model-ui`（步骤清单、当前任务页、忽略按钮）；技能：`skill`（结构、组装、官方参考按模式、图片提示词、指导）、`skill-store`（基础层、任务固定技能版本、接口）、`custom-skills` / `guidance`（本剧补充与指导素材）、`guidance-ui`（入口、详情页、技能库、历史）、`migrate-custom-skills`。运行 `npm test`，测试使用模拟接口。
+
+## 按流程配置自审
+
+`runTextSteps` 的 `check(text)` 声明可选程序审核，`prompts.review` 声明可选模型审核；不提供前者或后者就跳过对应来源，没有界面开关。两者均不提供时不执行自审，结论保持 `passed: null`。`prompts.revision` 可选，仅配置后才按合并意见自动修订一次。
+
+程序审核检查生成内容结构、镜头编号/数量/时长和时间线，返回问题或抛出内容解析错误都计入自审不通过。模型审核严格使用 `{passed, issues}`；任一来源否决，合并结果就是不通过。审核步骤完成并记录 `verdict: fail`，任务推导为 `review_failed`；网络错误、取消及模型审核响应协议错误保留独立执行语义。步骤 attempts 分别展示程序审核、大模型审核。
+
+无法解析或无法对应上游的生成原文保存为未发布 artifact（`content: {text, check}`），用于修订及历史追查，不覆盖项目原内容。可保存的语义失败稿仍按流程保留；未发布草稿不等于项目内容，不能通过忽略自审强行写入。

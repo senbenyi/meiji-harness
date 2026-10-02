@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { targetNode } from '../../shared/drama-model.js'
 
-export const nodeStage = key => ({ summary: 'episode', outline: 'outline', characters: 'outline', scenes: 'outline', shots: 'shots', shot: 'shot-revise', seconds: 'seconds', storyboard: 'storyboard', film: 'video', pencil: 'pencil' })[key.split(':')[0]]
+export const nodeStage = key => ({ summary: 'episode', outline: 'outline', characters: 'outline', scenes: 'outline', props: 'outline', shots: 'shots', shot: 'shot-revise', seconds: 'seconds', storyboard: 'storyboard', film: 'video', pencil: 'pencil' })[key.split(':')[0]]
 const invalid = message => Object.assign(new Error(message), { status: 400 })
 export function nodeSkills(project, episodeId, key) {
   const episode = project.episodes.find(item => item.id === episodeId)

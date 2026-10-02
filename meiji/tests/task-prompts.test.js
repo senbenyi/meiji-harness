@@ -1,3 +1,4 @@
+import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { tempHome, setupModel } from './fixtures/model.js'
@@ -50,7 +51,7 @@ test('实际摘要生成、自审、修订、复审各记录一份完整提示�
   await runOperation(e.op('episode-generate'), { home: e.home, generateEpisode: options => generateEpisode({ ...options, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
     messages.push(body.messages)
-    const content = body.response_format ? JSON.stringify({ summary: '旅人进入庭院，发现门后有埋伏，决定先探明敌人的目的。', durationSeconds: 10 }) : messages.length === 2 ? 'FAIL 缺少明确的危机' : 'PASS'
+    const content = !body.messages[0].content.includes('【本次审核协议】') ? JSON.stringify({ summary: '旅人进入庭院，发现门后有埋伏，决定先探明敌人的目的。', durationSeconds: 10 }) : messages.length === 2 ? reviewFail('缺少明确的危机') : reviewPass
     return Response.json({ choices: [{ message: { content } }] })
   } }) })
   const [task] = await recordStore(e.home, e.id).list()
