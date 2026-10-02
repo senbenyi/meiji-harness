@@ -11,7 +11,7 @@ compatibility: Portable to any agent that can read local files — no external A
 
 ## Elysium 执行约束
 
-本副本专供 `3d-animation-short-generator-elysium`、`brand-promo-video-generator-elysium` 和 `minimax-h3-*-elysium-*` 工作流使用。原作者 `h3-prompt-writing` Skill 保持独立，不由本副本覆盖。
+本副本专供 `3d-animation-short-generator-elysium`、`brand-promo-video-generator-elysium` 和 `minimax-h3-{ref2v,i2v}-elysium-*` 工作流使用。作者原版已归档，不参与运行时解析。
 
 ## Workflow
 
@@ -59,8 +59,8 @@ Read `references/ref-en.txt` for label rules, retention analysis, and complete e
 ## 输入与条件启用
 
 - 输入：片型 skill（如 3d-animation-short-generator-elysium）在逐镜生成时提供的「本镜分镜章节 + 镜头表 `参考锚点` / `音频与对白轨` 行 + ref_nodes / first_frame / last_frame 绑定」。
-- **仅当**当前 capability 的 `preferred` 工作流 id 前缀为 `minimax-h3-` 时应用本重写；其他工作流跳过（片型 skill 自由格式组装，模型无关）。
-- 参考图硬规则（单视图 / 图内零文字 / 不拼图 / first_frame 仅同场景续接）由插件工具契约统一约束，本 skill 遵守不重述。
+- **仅当**解析到的实现匹配 `minimax-h3-(ref2v|i2v)-elysium-(fast|balanced|quality)` 时应用本重写；否则停止并报告配置错误，不走非 Elysium 兜底。
+- 参考图硬规则（单视图 / 图内零文字 / 不拼图）由插件工具契约统一约束，本 skill 遵守不重述。
 
 ## 重写路径
 
@@ -95,7 +95,7 @@ Read `references/ref-en.txt` for label rules, retention analysis, and complete e
 ## 字幕与画面内文案（唯一权威版）
 
 > 本节是字幕 / 画面内文案写法的**唯一权威来源**：片型 skill（3d-animation / brand-promo）只**引用**本节——不另立简化版（简化版漏掉限定词是已知缺陷 → 字幕整段不烧），也**不在别处定义任何字幕策略**。
-> **适用面**：任何解析到「声明支持字幕」的实现的镜头（当前 = `minimax-h3-*` 系）。H3 走结构化内嵌路径，非 H3 走自由格式路径，但**四条写法不变**。
+> **适用面**：解析到活动 Elysium H3 实现且 manifest 声明支持字幕的镜头。当前没有非 H3 或作者工作流兜底。
 
 ### 1. 定稿写法（四条，缺一不可）
 

@@ -22,7 +22,6 @@ whenToUse: |
 | 生成单镜头视频（自带声音，AV 模型） | `comfy_generate_video` |
 | 查可用能力与档位 | `comfy_list_workflows` |
 | 读画布节点 / 列表（核对参考图存在） | `canvas_get_node` / `canvas_list_nodes` |
-| 抽帧（i2v 取末帧做续接等） | `extract_frame` |
 | 通用渲染（指定 capability / tier） | `comfy_render` |
 | 需要用户选择时 | `ask_user_question`（选项卡） |
 
@@ -57,7 +56,7 @@ whenToUse: |
 
 1. **解析字段**：从任务消息读出参数头各字段与空行后的 prompt 正文。`type` 是**必填**（r2v / i2v，工具面不接受缺省），缺失就按下方默认值 `r2v` 处理并在回报里点明。其它字段缺省值：档位 quality、比例 16:9、时长 124；关键字段缺失（r2v 缺参考图、i2v 缺首帧、无 prompt）则回报缺什么，不瞎猜。消息里写 `mode=` 也接受（兼容别名，等同 `tier=`），但回报时按 `tier` 口径说。
 2. **校验前置**：`canvas_get_node` 或 `canvas_list_nodes` 确认参考图/首末帧节点存在且为图片节点；缺失就回报用户「请先上传参考图/首帧」。
-3. **分辨率**：直接传消息里的 `尺寸`（`width`/`height`，已 snap32）。若消息没带尺寸，则按比例 + 档位推导：`fast` 长边 832、`balanced`/`quality` 长边 1344，snap32。**例外**：若该档解析到的实现**锁定了自己的原生分辨率**（放大类实现），**显式 `width`/`height` 与画布比例都不生效**，交付尺寸由该实现决定，工具会带一条 `warnings` 说明——如实回报，别声称用了请求的尺寸。
+3. **分辨率**：直接传消息里的 `尺寸`（`width`/`height`，已 snap32）。若消息没带尺寸，则按比例 + 档位推导：`fast` 长边 832、`balanced`/`quality` 长边 1344，snap32。
 4. **调用生成**（按类型二选一）：
    - r2v：`comfy_generate_video(prompt, type='r2v', tier=档位, width, height, length=时长, ref_nodes=[参考图节点...], title='手动 r2v · 档位 · 比例', group='手动生成')`
    - i2v：`comfy_generate_video(prompt, type='i2v', tier=档位, width, height, length=时长, first_frame_node=首帧, last_frame_node=末帧(可选), title='手动 i2v · 档位 · 比例', group='手动生成')`
@@ -70,7 +69,7 @@ whenToUse: |
 - **单视图**：参考图里有几个身体，成片就倾向出现几个角色。三视图拼图会产生角色副本，prompt 里声明「同一角色」无效——只传单视图。
 - **图内零文字**：参考图上的角色名/「正面·侧面」/FRONT VIEW/水印会被视频模型印进成片；文字只写画布节点标题或资产库元数据。
 - **多角度无增量**：单张正面卡足以支撑转身/走远；确需多角度时把多张单视图分别放进不同 `ref_nodes` 槽位，绝不拼成一张图。
-- **first_frame 仅同场景续接**：跨场景只传角色卡 + 场景卡，不带上一镜末帧。
+- **first_frame 必须是现有图片节点**：本 Skill 不调用已归档的抽帧工作流；需要首帧时由用户上传或先用 Elysium 图片工作流生成静帧。
 
 ## 与片型 skill 的边界
 

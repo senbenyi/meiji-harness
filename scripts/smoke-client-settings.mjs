@@ -49,8 +49,8 @@ let settingsComponent = null
 const cfgFixture = {
   baseUrl: 'http://localhost:8188', apiKey: '', pollMs: 2000, timeoutMs: 900000,
   models: {}, assetOverrides: {},
-  preferred: { 'video.reference2video': ['minimax-h3-ref2v-quality'] },
-  tiers: { 'video.reference2video': { quality: 'minimax-h3-ref2v-quality-sol' } },
+  preferred: { 'video.reference2video': ['minimax-h3-ref2v-elysium'] },
+  tiers: { 'video.reference2video': { quality: 'minimax-h3-ref2v-elysium-quality' } },
 }
 // cfg 显式传空对象：**不使用本机真实配置**。否则用户/开发机在里面存过的策略与档位选择
 // 会改变档位列表（availableTiers 收敛）与选中态，测试前提随之漂移。
@@ -102,7 +102,7 @@ console.log('\n[1] 设置页渲染（真实 /api/workflows 形状数据）')
   const formSelects = findAll(tree, (n) => n.type === 'select' && findAll(n, (o) => String(o.props.children || '').includes('不选＝')).length > 0)
   ok('默认视图不出现档位表单下拉', formSelects.length === 0, `实际 ${formSelects.length} 个`)
   // 实现 id 仍在（只读摘要里），只是不再以下拉形式铺开
-  ok('摘要里能读到各档实际实现 id', ['minimax-h3-ref2v-fast', 'minimax-h3-ref2v-quality-sol'].some((id) => text.includes(id)))
+  ok('摘要里能读到各档实际实现 id', ['minimax-h3-ref2v-elysium-fast', 'minimax-h3-ref2v-elysium-quality'].some((id) => text.includes(id)))
 }
 
 console.log('\n[2] 工具条命令行拼装（tier= 与尺寸随档位）')
@@ -147,14 +147,14 @@ console.log('\n[3] tierPick 与后端解析同源')
   const refCap0 = apiPayload.capabilities.find((c) => c.capability === refCap)
   const selQuality = (refCap0.selection || {}).quality
   const pickDefault = T.tierPick(apiPayload, refCap, 'quality')
-  eq('有配置选择 → 用配置', pickDefault.id, selQuality || 'minimax-h3-ref2v-quality')
+  eq('有配置选择 → 用配置', pickDefault.id, selQuality || 'minimax-h3-ref2v-elysium-quality')
   // 注入选择（= 设置页选了「有加速」策略或逐档改选）
   const withSel = JSON.parse(JSON.stringify(apiPayload))
   const withSelCap = withSel.capabilities.find((c) => c.capability === refCap)
-  withSelCap.selection = { quality: 'minimax-h3-ref2v-quality-sol' }
+  withSelCap.selection = { quality: 'minimax-h3-ref2v-elysium-quality' }
   // 后端的 effective 是「选择 + 家族序」算出来的；这里只改 selection，所以把它清掉以测**回退链**
   delete withSelCap.effective
-  eq('配置选择生效（quality → sol 实现）', T.tierPick(withSel, refCap, 'quality').id, 'minimax-h3-ref2v-quality-sol')
+  eq('配置选择生效（quality → Elysium 实现）', T.tierPick(withSel, refCap, 'quality').id, 'minimax-h3-ref2v-elysium-quality')
   // 无选择时才回退到注册表首选（同档第一个候选）
   const noSel = JSON.parse(JSON.stringify(apiPayload))
   const capNoSel = noSel.capabilities.find((c) => c.capability === refCap)
@@ -164,7 +164,7 @@ console.log('\n[3] tierPick 与后端解析同源')
   const fast = T.tierPick(apiPayload, refCap, 'fast')
   eq('fast 档长边（来自清单）', fast.longSide, 832)
   eq('fast 档耗时（来自清单）', Math.round(fast.estSeconds), 25)
-  eq('i2v balanced 档来自清单', T.tierPick(apiPayload, 'video.image2video', 'balanced').id, 'minimax-h3-i2v-balanced')
+  eq('i2v balanced 档来自清单', T.tierPick(apiPayload, 'video.image2video', 'balanced').id, 'minimax-h3-i2v-elysium-balanced')
   eq('未分档能力 → null', T.tierPick(apiPayload, 'image.from_video', 'quality'), null)
 }
 
@@ -365,4 +365,3 @@ console.log('\n[6] 策略：内置默认 / 用户自建 / 新增（命名 + 自�
     }
   }
 }
-

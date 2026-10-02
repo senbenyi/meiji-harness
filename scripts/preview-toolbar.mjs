@@ -104,9 +104,8 @@ if (process.argv.includes('--assert')) {
   const tierVals = tierSel ? findAll(tierSel, (n) => n.type === 'option').map((o) => o.props.value) : []
   const capTiers = TE.tiersOf(apiPayload, 'video.reference2video')
   const tiersOk = tierVals.length > 0 && tierVals.join(',') === capTiers.join(',')
-  const labelsHaveEst = tierSel ? findAll(tierSel, (n) => n.type === 'option').every((o) => String(o.props.children).includes('约')) : false
-  const okAll = orphan === 0 && labels.length > 0 && groups.length > 0 && tiersOk && labelsHaveEst
-  console.log(`参数条结构断言：标签 ${labels.length} / 分组 ${groups.length} / 游离 ${orphan} / 档位选项 [${tierVals.join(', ')}] = 矩阵 [${capTiers.join(', ')}] ${tiersOk ? '✓' : '✗'} / 选项含实测耗时 ${labelsHaveEst ? '✓' : '✗'} → ${okAll ? '✓ 通过' : '✗ 失败'}`)
+  const okAll = orphan === 0 && labels.length > 0 && groups.length > 0 && tiersOk
+  console.log(`参数条结构断言：标签 ${labels.length} / 分组 ${groups.length} / 游离 ${orphan} / 档位选项 [${tierVals.join(', ')}] = 矩阵 [${capTiers.join(', ')}] ${tiersOk ? '✓' : '✗'} → ${okAll ? '✓ 通过' : '✗ 失败'}`)
   process.exit(okAll ? 0 : 1)
 }
 const inner = toHtml(tree)

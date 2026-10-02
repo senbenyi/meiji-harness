@@ -52,7 +52,7 @@ Keep the flying pig exactly as it is, only change the sky from daytime blue to a
 |---|---|---|
 | prompt（空行后的正文） | 画面描述（t2i）或「保留什么、改什么」的改动描述（i2i） | 一只戴草帽的橘猫… |
 | `type` | `t2i`（文生图）或 `i2i`（参考图生图） | t2i |
-| `tier` | **仅 i2i**：`quality`（成片）/ `fast`（调试）。注意图片能力目前是**未分档清单**（清单未声明 `tier`），见下「图片档位口径」 | quality |
+| `tier` | t2i / i2i 都支持 `fast`、`balanced`、`quality`；缺省 `quality` | quality |
 | `ratio` | 画面比例（仅 t2i） | 16:9 |
 | `size` | 显式宽×高，已 snap32、`x` 分隔（仅 t2i） | 1344x768 |
 | `count` | 生成张数（1–4） | 2 |
