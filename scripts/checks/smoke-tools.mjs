@@ -77,6 +77,25 @@ ok('makeTools() 返回非空数组', Array.isArray(tools) && tools.length > 0, `
 
 const names = tools.map((t) => t && t.name)
 ok('工具名唯一', new Set(names).size === names.length, `重复：${names.filter((n, i) => names.indexOf(n) !== i).join(', ')}`)
+ok('工具名与注册顺序保持稳定', names.join(',') === [
+  'comfy_generate_image',
+  'comfy_generate_video',
+  'comfy_render',
+  'video_concat',
+  'comfy_list_workflows',
+  'comfy_workflow_inspect',
+  'comfy_workflow_preview',
+  'comfy_workflow_verify',
+  'canvas_list_nodes',
+  'canvas_write_node',
+  'canvas_get_node',
+  'canvas_group_nodes',
+  'canvas_reorder',
+  'canvas_get_state',
+  'canvas_set_state',
+  'asset_list',
+  'asset_to_canvas',
+].join(','), names.join(' → '))
 
 // ── 调用面契约（P2）：实现选择归配置面，工具面**不得**暴露 workflow ──────────────
 // docs/unified-tier-tool-design.md §5：comfy_render / video_upscale 曾用 workflow= 选实现，
@@ -168,6 +187,7 @@ if (host && typeof host.mod.validateJsonSchemaValue === 'function') {
   const routes = []
   const registered = []
   const order = []
+  const promptSections = []
   const assertSchema = host
     ? (s) => host.mod.assertSupportedJsonSchema(s)
     : () => {}
@@ -192,7 +212,7 @@ if (host && typeof host.mod.validateJsonSchemaValue === 'function') {
       get: () => undefined,
     },
     webServer: { register: (r) => { routes.push(r); return () => {} } },
-    systemPrompt: { section: (s) => { order.push('systemPrompt.section:' + s.name); return () => {} } },
+    systemPrompt: { section: (s) => { promptSections.push(s); order.push('systemPrompt.section:' + s.name); return () => {} } },
     workspaceRegistry: { get: () => undefined, list: () => [] },
   }
   let applyErr = ''
@@ -202,6 +222,10 @@ if (host && typeof host.mod.validateJsonSchemaValue === 'function') {
   ok(`apply() 注册全部 ${tools.length + domainToolCount} 个工具（含 ${domainToolCount} 个 Project Domain 工具）`, registered.length === tools.length + domainToolCount, `实际 ${registered.length}`)
   ok('apply() 注册了 prefix 路由（设置页/画布都要它）', routes.length === 1 && routes[0].path === '/dsh-short-video-studio' && routes[0].kind === 'prefix',
     JSON.stringify(routes.map((r) => r.kind + ':' + r.path)))
+  ok('apply() 注册稳定的 systemPrompt 段', promptSections.length === 1 &&
+    promptSections[0].name === 'plugin:dsh-short-video-studio' && promptSections[0].order === 150 &&
+    typeof promptSections[0].text === 'string' && promptSections[0].text.includes('## 工具契约'),
+  JSON.stringify(promptSections.map((s) => ({ name: s.name, order: s.order, length: s.text?.length }))))
   ok('apply() 注册顺序：工具 → systemPrompt → 路由（路由必须最后且被执行到）',
     order.indexOf('dsh-short-video-studio: tools') < order.findIndex((l) => String(l).startsWith('systemPrompt.section')) &&
     order.indexOf('dsh-short-video-studio: routes') === order.length - 1,

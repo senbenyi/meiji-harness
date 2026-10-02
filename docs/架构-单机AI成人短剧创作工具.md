@@ -199,7 +199,12 @@ Skill 不直接拥有 Project 状态，不应通过聊天文本猜测当前批�
 
 | 文件 | 职责 |
 | --- | --- |
-| `lib/index.js` | 插件 `apply()`、配置、ComfyUI 客户端、渲染编排、HTTP 路由、工具注册、画布读写和 Skill 安装 |
+| `lib/index.js` | 插件 `apply()` 装配、ComfyUI 客户端、渲染编排、HTTP 路由、工具注册和画布读写；仍是后续拆分重点 |
+| `lib/config.js` | 配置文件、环境变量优先级、模型默认值和运行时配置快照 |
+| `lib/guidance.js` | systemPrompt Guidance 文本 |
+| `lib/hooks/pre-ask-delivery.js` | ask 前自动送达、文本交付物导出和送达状态回写 |
+| `lib/hooks/h3-prompt-gate.js` | H3 半结构化 Prompt 的确定性校验门 |
+| `lib/skills/sync.js` | Bundled Skill 安装、版本戳、内容哈希与刷新策略 |
 | `lib/manifest.js` | capability 词汇、manifest 校验、资产解析、参数注入和 graph 编译 |
 | `lib/convert.js` | 将 ComfyUI API 导出 JSON 转换为 workflow manifest 草稿 |
 | `lib/assets.js` | 跨会话角色/场景/风格/片段/文本资产库 |

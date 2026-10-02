@@ -4,6 +4,8 @@
 
 审查基线：`lib/` 2827 行（`index.js` 1905 / `manifest.js` 369 / `client.js` 293 / `convert.js` 142 / `assets.js` 118）。
 
+> **勘误（2026-10-02）**：上述行数和第 3、4 节描述的是早期基线，不能代表当前实现。当前已建立 `npm test` 与 `npm run smoke`；第一批入口拆分已把配置、systemPrompt Guidance、Skill 同步、pre-ask 自动送达和 H3 Prompt Gate 分别迁入 `lib/config.js`、`lib/guidance.js`、`lib/skills/sync.js` 与 `lib/hooks/`。`lib/index.js` 当前仍有 4078 行，ComfyUI、渲染、工具和路由拆分尚未完成。
+
 ---
 
 ## 0. 先说做得好的部分
@@ -68,9 +70,9 @@
 
 ---
 
-## 3. `lib/index.js` 1905 行承担 8 个职责（P1）
+## 3. `lib/index.js` 职责拆分尚未完成（P1）
 
-当前单文件包含：配置解析、ComfyUI HTTP 客户端、工作流构造、画布持久化、渲染编排、HTTP 路由、12 个工具定义、systemPrompt 文本。
+当前文件仍包含 ComfyUI HTTP 客户端、工作流构造、画布持久化、渲染编排、HTTP 路由和工具定义。配置解析、systemPrompt 文本、Skill 同步与两个 `tools/pre-execute` Hook 已完成第一批迁移；后续仍需按单向依赖继续收敛。
 
 项目已经拆出 `assets.js` / `manifest.js` / `convert.js`，说明拆分方向是明确的、只是没走完。建议继续按现有风格拆：
 
