@@ -75,7 +75,7 @@ test('shot context omits empty blocks and preserves landmark and light facts', a
  const prompt=buildTablePrompts({project}).generation
  assert.match(prompt.user,/固定地标/);assert.match(prompt.user,/东侧光源/)
  assert.doesNotMatch(prompt.user,/【上下文：相邻镜头|【上下文：完整镜头表|首帧接续|多模态参考/)
- assert.ok(prompt.user.indexOf('【本次任务】')<prompt.user.indexOf('【上游事实：大纲】'))
+ assert.ok(prompt.user.indexOf('【本次任务】')<prompt.user.indexOf('【核心输入：大纲】'))
  assert.doesNotMatch(JSON.stringify(shotContext({...project,shots:{items:[]}})),/上下文与衔接边界/)
  assert.ok(shotContext(project).every(fact => fact.title && fact.text))
  assert.doesNotMatch(render(new TextStoryboardModel({project}).toReviewSegments('正文').system),/镜头表按要求用标题/)
@@ -102,10 +102,10 @@ test('审核请求不带生成指令，审核标准与规则在 system、任务�
  const project=episodeFixture()
  for (const prompts of [buildTablePrompts({project}), buildSecondsPrompts({project,shotId:'S01'})]) {
   const review=prompts.review('待审')
-  assert.match(review.system,/【审核标准】/); assert.doesNotMatch(review.user,/【审核标准】|【基础生产规则】/)
+  assert.match(review.system,/【审核标准】/); assert.doesNotMatch(review.user,/【审核标准】|【基础规则】|【基础生产规则】/)
   assert.match(review.user,/【审核目标】/); assert.doesNotMatch(review.user,/【本次任务】/)
   assert.doesNotMatch(review.user,/一次返回完整镜头表|返回shots JSON数组/)
-  assert.match(prompts.generation.system,/【基础生产规则】/); assert.match(prompts.generation.user,/^【本次任务】/)
+  assert.match(prompts.generation.system,/【基础规则】/); assert.match(prompts.generation.user,/^【本次任务】/)
  }
 })
 

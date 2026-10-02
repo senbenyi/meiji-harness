@@ -1,16 +1,22 @@
-import { parseSecondsResponse } from '../../shared/seconds-content.js'
+import { parseSecondsPartial } from '../../shared/seconds-content.js'
 import { referencedEntities } from '../../shared/entity-references.js'
 import { compileVideoPrompt } from '../prompts/video-prompt-renderer.js'
 import { h3PromptFailures } from './film.js'
-import { scopedCheck } from '../../shared/feedback.js'
+import { scopedCheck, uniqueFeedback } from '../../shared/feedback.js'
 import { runTextSteps, reviewStep } from './text-steps.js'
 import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts, buildAllSecondsPrompts } from '../prompts/shot-prompts.js'
-import { node, shotModel, setContent, shotResults, updateShotResults } from '../../shared/drama-model.js'
+import { GenerationStatus, node, shotModel, setContent, shotResults, updateShotResults } from '../../shared/drama-model.js'
 import { selectCheck } from '../data/review-checks.js'
 import { checkContext } from '../data/operation-context.js'
 import { shotSecondsReady } from '../../shared/shot-timing.js'
+import { secondsRevisionIds } from '../prompts/seconds-feedback.js'
 
-import { runStep } from '../data/task-store.js'
+import { runStep, activeStep, saveTaskDraft } from '../data/task-store.js'
+
+async function retainSecondsResponse(text) {
+  if (activeStep()) await saveTaskDraft('seconds-response', { text })
+  return text
+}
 
 function body(shot) { return shot?.content || '' }
 // 只读取片段标题中的传输元数据；剧情正文保持原文，不解析 JSON。
@@ -65,21 +71,18 @@ export async function generateAllSeconds(options) {
   let { project } = options
   const ctx = checkContext.getStore()
   const upstream = { ...project, shots: { ...project.shots, items: project.shots.items.map(shot => ({ ...shot, seconds: { ...shot.seconds, content: null, check: { passed: null } } })) } }
-  const parse = text => parseSecondsResponse(text, project.shots.items, project)
-
   if (ctx) ctx.target = { action: 'seconds' }
   const prompts = buildAllSecondsPrompts(options, upstream)
   const revise = prompts.revision
   let base = null, affected = null, correctionError = ''
   prompts.revision = (text, verdict) => {
     try { base = JSON.parse(text) } catch { base = null }
-    const mentioned = [...new Set(verdict.match(/\bS\d{2,}\b/g) || [])]
-    affected = base?.shots && mentioned.length ? project.shots.items.filter(s => mentioned.includes(s.id)).map(s => s.id) : project.shots.items.map(s => s.id)
-    const message = revise(text, verdict)
-    message.user += `\n【本轮程序限定修订范围，覆盖整集返回要求】\n只返回这些镜头的完整shots条目：${affected.join('、')}。保留其他镜头，程序负责合并并复核整集与相邻交接。`
-    return message
+    affected = base?.shots ? secondsRevisionIds(verdict, project.shots.items) : project.shots.items.map(s => s.id)
+    if (!affected.length) affected = project.shots.items.map(s => s.id)
+    return revise(text, verdict, { revisionShotIds: affected })
   }
-  const complete = (text, _message, requestOptions) => {
+  const complete = async (text, _message, requestOptions) => {
+    await retainSecondsResponse(text)
     if (requestOptions.logStage !== '自动修订' || !base?.shots) return text
     let correction
     try { correction = JSON.parse(text) } catch { return text }
@@ -88,10 +91,21 @@ export async function generateAllSeconds(options) {
     const merged = base.shots.filter(s => !affected.includes(s.shotId))
     return JSON.stringify({ shots: [...merged, ...correction.shots] })
   }
-  const result = await runTextSteps({ target: 'seconds', prompts, options, complete, check: text => { if (correctionError) throw new Error(correctionError); parse(text); return [] },
+  // 镜头清单可匹配时全部保存；失败镜头也保留正文，审核状态决定是否可用于下游。
+  const partial = text => parseSecondsPartial(text, project.shots.items, project)
+  const result = await runTextSteps({ target: 'seconds', prompts, options, complete, check: text => { if (correctionError) throw new Error(correctionError); return Object.values(partial(text).failures) },
+    canPersist: text => !correctionError && partial(text).sections.length > 0, retainFailedDraft: true,
     persist: async (text, check) => {
-      const sections = parse(text)
-      const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), { version: 1, shots: sections }, check), items: project.shots.items.map((shot, i) => ({ ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i], scopedCheck(check, shot.id)) })) }
+      const { sections, failures } = partial(text)
+      const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), { version: 1, shots: sections }, check), items: project.shots.items.map((shot, i) => {
+        const scoped = scopedCheck(check, shot.id)
+        const failure = failures[shot.id]
+        if (failure) {
+          scoped.passed = false
+          if (!scoped.failures.some(reason => reason.includes(failure))) scoped.failures = uniqueFeedback([...scoped.failures, failure])
+        }
+        return { ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i], scoped) }
+      }) }
       project = options.persist ? await options.persist(shots, 'draft') : { ...project, shots }
     },
   })
@@ -102,9 +116,11 @@ export async function generateAllSeconds(options) {
 export async function generateShotSeconds(options) {
   const { project, shotId } = options
   const shot = project.shots.items.find(item => item.id === shotId)
-  const parse = text => parseSecondsResponse(text, [shot], project)[0]
-  const patch = (text, check) => ({ ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, seconds: setContent(structuredClone(item.seconds), parse(text), check) } : item) })
-  const result = await runTextSteps({ target: 'seconds', prompts: buildSecondsPrompts(options), options, check: text => { parse(text); return [] }, persist: options.persist && ((text, check) => options.persist(patch(text, check))) })
+  const parse = text => parseSecondsPartial(text, [shot], project)
+  const patch = (text, check) => ({ ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, seconds: setContent(structuredClone(item.seconds), parse(text).sections[0], check) } : item) })
+  const result = await runTextSteps({ target: 'seconds', prompts: buildSecondsPrompts(options), options, complete: retainSecondsResponse,
+    check: text => Object.values(parse(text).failures), canPersist: text => parse(text).sections.length > 0, retainFailedDraft: true,
+    persist: options.persist && ((text, check) => options.persist(patch(text, check))) })
   return patch(result.text, result.check)
 }
 

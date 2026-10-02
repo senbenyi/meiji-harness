@@ -23,7 +23,7 @@ function review(task, content) {
     stage: p.stage, task: segment('context', '【审核目标】', input.review || input.task), requirements: requirementSegment(),
     facts: factSegments(input.facts), assets: p.assetContent,
     base: baseSegments({ kind: 'review', baseContent: task.baseContent, opinion: task.opinion }),
-    content: p.content, closing: p.closing,
+    content: p.content,
   })
 }
 

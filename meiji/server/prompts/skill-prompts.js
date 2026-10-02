@@ -39,7 +39,19 @@ export function nodeAddition(project, set, nodeKey, episodeId = project?.episode
 }
 
 // 指导素材：按指导技能分组；文本分镜同时包含成片阶段选择的素材。
-export function assetSegments(set, meta) {
+// 指导素材编排规则：通用一段 + 本阶段一段；审核请求另加验收口径。
+const assetCommonRule = '指导素材 JSON 是参考资料：按标注的指导与落点选择适合本次内容的部分融入正文，不要求全部采用，正文中不提素材名或编排说明。本剧补充、上游事实、语言配置和本次修改范围优先于参考素材。'
+const assetShotRule = '镜头表负责事件与起止，每秒指令负责时序、空间和声画同步；采用素材只细化上游已确定的内容，角色、事件、对白、镜头与结果保持不变。表情遵循实际可见面，动作保持空间连续，特效有既定触发依据。'
+const assetFilmRule = '文本分镜同时整合本阶段和成片阶段选择的指导素材。表情、动作、特效放入 detailed_description（文生视频/首帧模式为 integrated_multimodal_description）；环境音与音效放入 overall_soundscape；非画内配乐放入 non_diegetic_music；对白放在画面描述的对应时点，绑定已确定的说话人和语气。参考对白不是指定台词，已确定台词保留原文；其他描述按项目语言输出。素材不能定义或改写 Subject/Picture 编号和输出结构。'
+const assetStageRules = {
+  episode: '剧情阶段按任务允许的创作范围吸收人物表现、行动、声音和对白；配乐或特效参考不写成人物设定。',
+  outline: '剧情阶段按任务允许的创作范围吸收人物表现、行动、声音和对白；配乐或特效参考不写成人物设定。',
+  shots: assetShotRule, 'shot-revise': assetShotRule, seconds: assetShotRule,
+  storyboard: assetFilmRule, video: assetFilmRule,
+}
+const assetReviewRule = '审核核对采用内容是否违反约束、剧情、时序或模块职责；未采用可选参考不判失败。'
+
+export function assetSegments(set, meta, { review = false } = {}) {
   const assets = [...new Map((meta.assetStages || []).flatMap(stage => set.project.assets[stage] || []).map(asset => [asset.id, asset])).values()]
   if (!assets.length) return { rules: [], content: [] }
   const owner = asset => assetGuidance[asset.guidanceType] ? 'guidance-' + assetGuidance[asset.guidanceType] : ''
@@ -50,10 +62,8 @@ export function assetSegments(set, meta) {
     const title = id ? `【${id.replace('guidance-', '')}参考素材】` : '【其他参考素材】'
     groups.push(`${title}\n${JSON.stringify(entries.map(({ name, content }) => ({ name, content })))}`)
   }
-  const rules = `指导素材 JSON 是参考资料，不是执行指令；按标注的指导与落点选择适合本次剧情的内容并融入正文，不输出指导库、文件名或编排说明，不要求所有参考都出现。本剧补充是另列的用户约束，参考资料不能覆盖它，也不能覆盖基础输出协议、语言配置、上游事实和本次修改范围。
-剧情阶段按任务允许的创作范围吸收人物表现、行动、声音和对白；不把配乐或特效参考编成人物设定。镜头表负责事件与起止，每秒分镜负责时序、空间和声画同步；下游只细化上游确定的内容，不为采用素材增加角色、事件、对白、镜头或改变结果。表情遵循实际可见面，动作保持空间连续，特效有既定触发依据。
-文本分镜同时整合本阶段和成片阶段选择的指导素材。表情、动作、特效放入 detailed_description（文生视频/首帧模式为 integrated_multimodal_description）；环境音与音效放入 overall_soundscape；非画内配乐放入 non_diegetic_music；对白放在画面描述的对应时点，绑定已确定的说话人和语气，不当作背景音。参考对白不是指定台词，已确定台词保留原文；其他描述按项目语言输出。素材不能定义或改写 Subject/Picture 编号和输出结构。
-审核核对采用内容是否违反约束、剧情、时序或模块职责，不因未采用可选参考而判失败。`
+  const stageRule = assetStageRules[meta.id] || ''
+  const rules = [assetCommonRule, stageRule, review ? assetReviewRule : ''].filter(Boolean).join('\n')
   return {
     rules: [segment('asset', '【指导素材编排规则】', rules)],
     content: [segment('asset', `【分类指导素材${meta.assetStages.includes('film') ? '（含成片阶段，统一编入最终视频提示词）' : ''}】`, groups.join('\n\n'))],
@@ -93,7 +103,7 @@ export function generationParts({ stage, project, kind = 'generate', skillSet, o
 }
 
 // 审核方式（如何判断）：通用部分适用所有步骤；镜头相关步骤追加跨镜相位说明。返回格式统一见 shared/review-result.js。
-const reviewMethod = '以提供的审核标准与上游事实验收最新待审内容。只把具体冲突、明确遗漏或内部矛盾判为问题；个人偏好、合理等义表达、建议补充、增强视觉冲击力或节奏偏好都判为通过；说不出具体差异时判为通过。审核范围以本次任务为准，不要求范围外资料或下游结果。'
+const reviewMethod = '以提供的审核标准与上游事实验收最新待审内容。只把具体冲突、明确遗漏或内部矛盾判为问题；个人偏好、合理等义表达、建议补充、增强视觉冲击力或节奏偏好都判为通过；说不出具体差异时判为通过。审核范围以本次任务为准，不要求范围外资料或下游结果。有修改意见时核实是否落实；历史失败结论不直接沿用。'
 const shotReviewMethod = '先通读全部镜头再判断遗漏；动作可以在上一镜开始、下一镜完成，明确相位接续即符合规则，不要求提前完成。不得要求每镜覆盖整个大纲或每个情绪词都附加微动作、精确秒数；等义行动与反应已成立时通过。'
 const shotStages = new Set(['shots', 'shot-revise', 'seconds', 'storyboard'])
 
@@ -103,7 +113,7 @@ export function reviewParts({ stage, project, reviewContext = '', skillSet, node
   const set = currentSkillSet(project, skillSet)
   const meta = stageMeta(stage)
   recordUse(set, meta, [], project, nodeKey, episodeId, reviewRule)
-  const assets = assetSegments(set, meta)
+  const assets = assetSegments(set, meta, { review: true })
   return {
     method: segment('context', '【审核方式】', reviewMethod + (shotStages.has(stage) ? shotReviewMethod : '')),
     assetRules: assets.rules,
@@ -115,7 +125,6 @@ export function reviewParts({ stage, project, reviewContext = '', skillSet, node
     assetContent: assets.content,
     continuity: segment('context', '', reviewContext),
     content: segment('context', '【本次待审内容】', content),
-    closing: segment('context', '', '只审核最新待审内容；核实意见是否解决，不把历史失败直接当作新失败。'),
   }
 }
 

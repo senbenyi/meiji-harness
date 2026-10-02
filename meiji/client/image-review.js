@@ -285,10 +285,10 @@ export function detailOwnsImage(context, gate) {
   return Boolean(open && gate && !gate.track && gate.itemId === open.itemId && (!gate.episodeId || gate.episodeId === open.episodeId))
 }
 
-export function renderDetailImageActions(project, actions, gate) {
+export function renderDetailImageActions(project, actions, gate, { regenerate: showRegenerate = true, blocked = false } = {}) {
   if (!gate || gate.track) return null
   const ready = gate.phase === 'ready' && gate.previewUrl
-  const busy = gate.phase === 'generating' || gate.phase === 'uploading' || gate.held
+  const busy = gate.phase === 'generating' || gate.phase === 'uploading' || gate.held || blocked
   const bar = element('div', '', 'detail-image-actions')
   const tip = element('p', gate.phase === 'error' ? (gate.error || '生成失败') : ready ? '请确认这张图' : gate.phase === 'uploading' ? '正在上传' : '正在生成', 'detail-image-status')
   tip.setAttribute('role', 'status')
@@ -340,7 +340,8 @@ export function renderDetailImageActions(project, actions, gate) {
       discard.disabled = regenerate.disabled = false
     }
   }
-  buttons.append(discard, confirm, regenerate)
+  buttons.append(discard, confirm)
+  if (showRegenerate) buttons.append(regenerate)
   bar.append(tip, buttons, status)
   return bar
 }

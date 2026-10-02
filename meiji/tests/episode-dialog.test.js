@@ -56,20 +56,35 @@ for (const action of ['input', 'close', 'stop', 'reopen']) {
   })
 }
 
-test('错误保留输入；摘要显示统一计数且超过 300 字不能保存', async t => {
-  let saves = 0
-  const e = setup(t, async () => { throw new Error('需要网关密钥') }, async () => { saves++ })
+test('错误保留输入；摘要仅显示字数，超过旧上限仍完整保存', async t => {
+  let saved
+  const e = setup(t, async () => { throw new Error('需要网关密钥') }, async (_project, input) => { saved = input })
   e.form.elements.summary.value = '已有摘要'
   await e.generate.onclick()
   assert.equal(e.form.elements.summary.value, '已有摘要')
   assert.match(e.dialog.querySelector('.error').textContent, /需要网关密钥/)
-  e.form.elements.summary.value = '😀'.repeat(300) + ' \n'
+  const summary = '😀'.repeat(10001) + '。'
+  e.form.elements.summary.value = summary + ' \n'
   e.input(e.form.elements.summary)
-  assert.match(e.dialog.querySelector('.summary-count').textContent, /^300 \/ 300/)
+  assert.equal(e.dialog.querySelector('.summary-count').textContent, '10002 字（不计空白，标点计入）')
   assert.equal(e.form.elements.summary.validity.valid, true)
-  e.form.elements.summary.value += '。'
+  assert.equal(e.form.elements.summary.hasAttribute('maxlength'), false)
+  await e.form.onsubmit({ preventDefault() {} })
+  assert.equal(saved.summary, summary)
+  assert.equal(e.dialog.open, false)
+})
+
+test('AI 生成长摘要回填完整，空白摘要仍不能保存', async t => {
+  const summary = '一段完整剧情。'.repeat(1500)
+  let saved
+  const e = setup(t, async () => ({ summary }), async (_project, input) => { saved = input })
+  await e.generate.onclick()
+  assert.equal(e.form.elements.summary.value, summary)
+  assert.equal(e.form.elements.summary.validity.valid, true)
+  e.form.elements.summary.value = ' \n\t'
   e.input(e.form.elements.summary)
   await e.form.onsubmit({ preventDefault() {} })
-  assert.equal(saves, 0)
-  assert.equal(e.form.elements.summary.validity.valid, false)
+  assert.equal(saved, undefined)
+  assert.match(e.dialog.querySelector('.error').textContent, /摘要不能为空/)
+  assert.equal(e.dialog.open, true)
 })

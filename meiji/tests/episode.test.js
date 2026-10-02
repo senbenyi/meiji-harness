@@ -12,7 +12,8 @@ test('the first episode is written from the project summary and keeps the user-s
   assert.match(prompt, /李伟穿越/)
   assert.match(prompt, /项目风格：写实电影/)
   assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }, 150), { summary: '开场结义', durationSeconds: 150 })
-  assert.throws(() => normalizeEpisodeDraft({ summary: '字'.repeat(301) }), { status: 502 })
+  assert.equal(normalizeEpisodeDraft({ summary: '字'.repeat(501) }).summary, '字'.repeat(501))
+  assert.throws(() => normalizeEpisodeDraft({ summary: ' ' }), { status: 502 })
 })
 
 test('a later episode continues from the episodes already shot', () => {

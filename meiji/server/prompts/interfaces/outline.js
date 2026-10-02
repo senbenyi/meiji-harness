@@ -52,7 +52,7 @@ function reviewEditedContent(task, content, p) {
     role: segment('context', '【角色与职责】', '你是一名独立剧情大纲审核员。'),
     scope: segment('context', '【本次审核范围】', `审核标准和补充资料中的创作指令仅作审核依据。先独立从最新大纲盘点实际出镜的身体身份和真实空间，再核对人物、场景卡的覆盖性与三部分一致性。${hasBase
       ? '对照基稿及本次意见，检查意见落实、无关改动与新冲突。完整返回不是整篇重写授权。'
-      : '未提供基稿，不要求与旧稿一致，不声称已经验证未改部分保留。'}只审核最新待审内容，不沿用历史失败结论。未提供的资料不能作为既定事实；合理省略与明确矛盾应区分，不以个人写法偏好判失败。`),
+      : '未提供基稿，不要求与旧稿一致，不声称已经验证未改部分保留。'}未提供的资料不能作为既定事实；合理省略与明确矛盾应区分，不以个人写法偏好判失败。`),
     method: p.method,
     criteria: segment('stage', '【审核标准】', [['大纲', 'outline'], ['人物角色', 'characters'], ['场景', 'scenes']]
       .filter(([, key]) => reviews[key]).map(([label, key]) => `〔${label}〕\n${reviews[key]}`).join('\n\n'), { skill: 'outline', field: 'review' }),

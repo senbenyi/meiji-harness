@@ -1,4 +1,4 @@
-import { entityCatalog, referencePattern } from '../../shared/entity-references.js'
+import { collapseMentions, entityCatalog, referencePattern } from '../../shared/entity-references.js'
 import { validateSeconds, secondsRange } from '../../shared/seconds-content.js'
 import { pictureOf } from '../../shared/drama-model.js'
 import { previousTail, tailFrameUrl } from '../../shared/tail-frame.js'
@@ -32,7 +32,7 @@ export function compileVideoPrompt(project, shot) {
   if (tail) images.push({ kind: 'tailFrame', label: `上一镜 ${tail.sourceShotId} 尾帧`, url: tailFrameUrl(tail.sourceVideoFile), sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile, subjectIds: [] })
   if (images.length > 9) throw new Error('本镜实际引用及尾帧超过9张图片')
   const mode = images.length ? 'reference' : 'text'
-  const substitute = value => String(value).replace(referencePattern(), (_, name, id) => mode === 'reference' && bindings.has(id) ? `<Subject ${bindings.get(id)}>（${name}）` : name)
+  const substitute = value => collapseMentions(value, project).replace(referencePattern(), (_, name, id) => mode === 'reference' && bindings.has(id) ? `<Subject ${bindings.get(id)}>（${name}）` : name)
   const sourceMap = [], lines = []
   const field = (name, text, sources) => { lines.push(`${name}:\n${text}`); sourceMap.push({ field: name, sources }) }
   if (mode === 'reference') {

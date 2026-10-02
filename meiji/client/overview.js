@@ -1,4 +1,4 @@
-import { defaultReferenceDuration, referenceDuration, summaryLength, summaryLimit, episodeSummaryFailures } from '../shared/episode-summary.js'
+import { defaultReferenceDuration, referenceDuration, summaryLength, episodeSummaryFailures } from '../shared/episode-summary.js'
 import { renderSteps, taskStatusLabels } from './task-steps.js'
 import { renderTaskHistory, historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
@@ -264,8 +264,7 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
   let current, episode, controller, version = 0
   const updateCount = () => {
     const length = summaryLength(form.elements.summary.value)
-    count.textContent = `${length} / ${summaryLimit} 字（不计空白，标点计入）`
-    form.elements.summary.setCustomValidity(length > summaryLimit ? '摘要不能超过 300 字' : '')
+    count.textContent = `${length} 字（不计空白，标点计入）`
   }
   const busy = value => { generate.disabled = value; save.disabled = value; stop.hidden = !value }
   const cancel = () => { version++; controller?.abort(); controller = null; busy(false) }
@@ -307,7 +306,7 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
     error.textContent = ''
     try {
       const summary = form.elements.summary.value.trim()
-      if (!summaryLength(summary) || summaryLength(summary) > summaryLimit) throw new Error('摘要必须非空且不超过 300 字')
+      if (!summaryLength(summary)) throw new Error('摘要不能为空')
       const durationSeconds = referenceDuration(Number(form.elements.duration.value))
       await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary })
       dialog.close()

@@ -39,7 +39,8 @@ export function videoSizeOf(raw) {
 
 export function sourcePatch(project, input) {
   const summary = typeof input?.summary === 'string' ? input.summary.trim() : (typeof project?.summary?.content === 'string' ? project.summary.content.trim() : '')
-  if (!summary || summary.length > 10000) throw Object.assign(new Error('剧本摘要需为 1–10000 字'), { status: 400 })
+  if (!summary) throw Object.assign(new Error('摘要不能为空'), { status: 400 })
+  if (!project.episodeId && summary.length > 10000) throw Object.assign(new Error('剧本摘要需为 1–10000 字'), { status: 400 })
   const title = typeof input?.title === 'string' ? input.title.trim() : project.title
   if (!title || title.length > 100) throw Object.assign(new Error('短剧标题需为 1–100 字'), { status: 400 })
   const durationSeconds = input?.durationSeconds == null || input.durationSeconds === ''

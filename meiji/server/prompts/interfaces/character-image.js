@@ -2,7 +2,7 @@
 // 固定约束来自 skills/task/generate-character-image-skill.md。
 // 图片上传、尺寸、请求发送和结果保存仍由生成/流程层负责。
 import { characterFieldValues, characterSheet } from '../../../shared/character-facts.js'
-import { currentSkillSet, recordUse, segment, stageMeta } from '../skill-prompts.js'
+import { currentSkillSet, recordUse, stageMeta } from '../skill-prompts.js'
 
 import { createCharacterImageModel } from '../models/character-image-model.js'
 
@@ -58,11 +58,10 @@ function selectConstraints(text, item) {
 }
 
 // item 是实际人物卡；只有技能库模板预览/通用技能调用才可以只传 request。
-function generate({ item, project, request = '', skillSet }) {
+function generate({ item, project, request = '', skillSet, ...options }) {
   const set = currentSkillSet(project, skillSet)
   recordUse(set, stageMeta(stage), [])
-  if (!item) return [segment('context', '【本次任务】', '根据人物资料生成一张人物参考图。'), segment('constraint', '【生成规则】', selectConstraints(set.skills[stage].constraints ?? '', item)), segment('context', '【人物资料】', request)]
-  return characterImageGenerationModel(item, project, {}, set).toSegments()
+  return characterImageGenerationModel(item, project, options, set).toSegments({ factsText: item ? undefined : request })
 }
 
 // 技能详情页没有选定人物的控件：有本集资料时预览第一张人物卡，否则展示模板占位。
@@ -74,7 +73,7 @@ function preview(args) {
 export function characterImageGenerationModel(item, project, { canvas = { width: 768, height: 1344 }, images = [] } = {}, skillSet) {
   const set = currentSkillSet(project, skillSet)
   recordUse(set, stageMeta(stage), [])
-  return createCharacterImageModel({ mode: images.length ? 'reference' : 'generate', character: item,
+  return createCharacterImageModel({ mode: images.length ? 'reference' : 'generate', character: item || {},
     generationRules: selectConstraints(set.skills[stage].constraints ?? '', item), canvas, images })
 }
 

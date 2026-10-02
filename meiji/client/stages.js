@@ -222,7 +222,7 @@ function renderScenes(project, actions, context) {
   hint.hidden = !hint.textContent
   view.append(hint)
   const list = element('div', '', 'scene-list')
-  for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { onOpen: id => context.onOpenScene?.(project.episodeId, id) })) (node.tagName === 'DIALOG' || node.tagName === 'INPUT' ? view : list).append(node)
+  for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { imageGate: context.imageGate, onOpen: id => context.onOpenScene?.(project.episodeId, id) })) (node.tagName === 'DIALOG' || node.tagName === 'INPUT' ? view : list).append(node)
   view.append(list)
   const propsView = element('section')
   view.append(propsView)
@@ -363,12 +363,14 @@ function paintSeconds(view, project, actions) {
   }
   controls.append(button)
   view.append(controls)
-  appendWorkflowReview(view, feedbackOf(project, 'seconds'), shots.some(shot => Boolean(shot.seconds.content)), busy, button)
+  appendWorkflowReview(view, feedbackOf(project, 'seconds'), shots.some(shot => Boolean(shot.seconds.content)), busy, button, { allowFailureOpinion: true })
   for (const shot of shots) {
     const card = element('article', '', 'shot-card')
     card.dataset.modelKey = `shot:${shot.id}`
     card.append(element('h3', shotHeading(shot)))
     if (shot.seconds.content) card.append(element('p', secondsText(shot.seconds.content), 'prompt full'))
+    if (shot.seconds.content && shot.seconds.check?.passed === false) card.append(element('p', `本镜自审未通过：${(shot.seconds.check.failures || []).join('；')}`, 'hint warn'))
+    else if (shot.seconds.check?.passed === false) card.append(element('p', `本镜未保存：${(shot.seconds.check.failures || []).join('；')}。提交修改或整集重新生成时一并修正。`, 'hint warn'))
     if (shot.seconds.archivedContent) { const archive = element('details'); archive.append(element('summary', '查看迁移前的每秒指令（只读）'), element('pre', String(shot.seconds.archivedContent), 'prompt full')); card.append(archive) }
     appendJsonCopy(card, shot.seconds.content || { id: shot.id, duration: shot.duration, seconds: shot.seconds })
     view.append(card)

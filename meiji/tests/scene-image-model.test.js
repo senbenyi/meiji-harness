@@ -19,7 +19,7 @@ test('场景 model 五项资料独立复制，可 JSON 往返，内部生成具�
   assert.deepEqual(Object.keys(model.scene), ['name', 'landmark', 'light', 'space', 'look'])
   assert.equal(model.role, '影视场景设计师')
   assert.equal(model.toPrompt(), sceneImageModelToPrompt(JSON.parse(JSON.stringify(model))))
-  assert.match(model.toPrompt(), /【场景资料】\n名称：庭院\n地标：南门北墙\n光位：西侧夕阳/)
+  assert.match(model.toPrompt(), /【核心输入：场景资料】\n名称：庭院\n地标：南门北墙\n光位：西侧夕阳/)
   assert.match(model.toPrompt(), /1600 × 904 像素，横幅/)
   assert.doesNotMatch(model.toPrompt(), /水彩|【语言】|English|视觉风格|无关数据/)
   model.scene.name = '新院'
@@ -50,7 +50,7 @@ test('模式、画幅和图片用途需有效，空规则不追加默认正文',
     { additionalInstructions: null },
   ]) assert.throws(() => createSceneImageModel({ ...input, ...patch }), { status: 400 })
   const prompt = createSceneImageModel({ ...input, generationRules: '' }).toPrompt()
-  assert.doesNotMatch(prompt, /【生成规则】|无人空景，地标和光位保持一致。/)
+  assert.doesNotMatch(prompt, /【基础规则】|无人空景，地标和光位保持一致。/)
 })
 
 test('场景接口保留基础快照，忽略旧本剧覆盖，实际卡与预览同源', () => {
@@ -75,8 +75,8 @@ test('三种图片任务明确资料依据，图片输出要求由 Model 提供�
       images: mode === 'generate' ? [] : [{ purpose: mode === 'modify' ? 'edit-base' : 'scene-reference', base64: 'data:image/png;base64,AA==' }],
       modification: mode === 'modify' ? { instruction: '减少雾气' } : null })
     const prompt = model.toPrompt()
-    assert.match(prompt, /根据下方(?:最新)?场景资料/)
-    assert.match(prompt, /【输出要求】\n只输出一张图片/)
+    assert.match(prompt, /依据本次场景资料/)
+    assert.match(prompt, /【本次输出协议】\n只输出一张图片/)
     assert.doesNotMatch(prompt, /base64/)
   }
 })

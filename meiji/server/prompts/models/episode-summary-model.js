@@ -19,7 +19,6 @@ export class EpisodeSummaryModel {
     const fact = (episode, position) => ({ episodeId: episode.id, episodeNumber: position + 1, durationSeconds: episode.durationSeconds, summary: episode.summary.content })
     this.previousEpisodes = ordered.slice(0, index).map(fact)
     this.followingEpisodes = ordered.slice(index + 1).map((episode, offset) => fact(episode, index + 1 + offset))
-    this.summaryLength = { min: 1, max: 300 }
     this.generationRules = generationRules
     this.reviewRules = reviewRules
     this.outputProtocol = outputProtocol

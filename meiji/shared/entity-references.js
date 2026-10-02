@@ -25,6 +25,22 @@ export function referencedEntities(text, project) {
   if (/【[^】]*[|｜][^】]*】/.test(String(text).replace(referencePattern(), ''))) throw new Error('实体标记必须为【名字|ID】，使用半角 |')
   return [...found.values()]
 }
-export function entityInstructions(project) {
-  return `【实体引用清单】\n${entityCatalog(project).map(e => `${entityLabel(e)}${e.ownerId ? `（所属人物 ${e.ownerId}）` : ''}`).join('\n') || '无已登记实体'}\n镜头表及每秒分镜在人物、场景、道具、服装出现的正文位置使用【名字|ID】。ID仅从清单选择，不自行编造；没有参考图也照常引用。台词原文不插标记，单独标记说话人。仅被台词提及的人物不当作出镜人物；不存在的道具卡可写普通描述，不虚构ID。`
+export const entityMention = entity => `${entity.name}${entityLabel(entity)}`
+// 正文写法「名字【名字|ID】」：替换或校验前先收拢成单独标记，避免名字重复出现。
+export function collapseMentions(text, project) {
+  let value = String(text)
+  for (const e of entityCatalog(project).sort((a, b) => b.name.length - a.name.length)) if (e.name) value = value.split(entityMention(e)).join(entityLabel(e))
+  return value
 }
+const kindLabels = { character: '人物', scene: '场景', prop: '道具', clothes: '服装', props: '人物持物', hairstyles: '人物发型' }
+export function entityInstructions(project) {
+  const catalog = entityCatalog(project)
+  if (!catalog.length) return '【实体引用清单】\n本集无已登记的人物、场景或道具，正文直接描述。'
+  const lines = Object.entries(kindLabels).flatMap(([kind, label]) => {
+    const items = catalog.filter(e => e.kind === kind)
+    return items.length ? [`${label}：${items.map(e => `${entityMention(e)}${e.ownerId && kind !== 'character' && kind !== 'scene' ? `（属 ${e.ownerId}）` : ''}`).join('、')}`] : []
+  })
+  const sample = ['character', 'scene', 'prop'].map(kind => catalog.find(e => e.kind === kind)).filter(Boolean).map(entityMention).join('、')
+  return `【实体引用清单】\n${lines.join('\n')}\n正文每次提到以上人物、场景、道具或服装，都按清单原样写作「名字【名字|ID】」，例如 ${sample}。清单外的物件写普通描述；台词原文不插标记，说话人单独标注；仅被台词提及的人物不算出镜。`
+}
+

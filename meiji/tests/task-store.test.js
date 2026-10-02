@@ -79,7 +79,7 @@ test('story package, shot table and seconds each produce whole-episode records',
   const request = JSON.parse(options.body)
   const fixture = storyPackageFixture()
   const text = request.messages[1].content
-  const value = text.includes('仅生成本集完整剧情大纲') ? outlineFixture() : JSON.stringify(text.includes('返回人物 items') ? fixture.characters : request.messages[0].content.includes('道具') && text.includes('唯一事实来源：大纲') ? fixture.props : fixture.scenes)
+  const value = text.includes('本集完整剧情大纲') ? outlineFixture() : JSON.stringify(text.includes('返回人物 items') ? fixture.characters : request.messages[0].content.includes('道具') && text.includes('唯一事实来源：大纲') ? fixture.props : fixture.scenes)
   return Response.json({ choices: [{ message: { content: (/【(?:本次)?审核协议】/.test(request.messages[0].content)) ? reviewPass : value } }] })
  } }) })
  assert.ok((await e.read()).plot.source)

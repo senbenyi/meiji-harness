@@ -37,7 +37,7 @@ const text = prompts => ({
   review: prompts.review('【待审内容】'),
   revision: prompts.revision('【失败稿】', JSON.stringify({ passed: false, issues: [{ location: '本次内容', reason: '【失败原因】', requirement: '修正问题' }] })),
 })
-const inMode = (mode, view, run) => checkContext.run(mode === 'modify' ? { generationMode: 'modify', review: '【人工意见】', originalProject: view } : { generationMode: 'regenerate' }, run)
+const inMode = (mode, view, run) => checkContext.run(mode === 'modify' ? { generationMode: 'modify', review: '【人工意见】', batchReview: '【人工意见】', originalProject: view } : { generationMode: 'regenerate' }, run)
 
 export async function buildScenarios() {
   const out = {}

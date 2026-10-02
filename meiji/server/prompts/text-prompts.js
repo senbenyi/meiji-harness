@@ -28,7 +28,7 @@ export function buildTextPrompts(task) {
   return {
     generation: buildGenerationPrompt(task),
     review: (content, revision = {}) => buildReviewPrompt({ ...task, ...revision }, content),
-    revision: (content, review) => buildRevisionPrompt(task, content, review),
+    revision: (content, review, overrides = {}) => buildRevisionPrompt({ ...task, ...overrides }, content, review),
   }
 }
 

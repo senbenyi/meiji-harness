@@ -4,6 +4,8 @@ import { checkReasons } from '../data/review-checks.js'
 import { checkContext } from '../data/operation-context.js'
 import { shotResults } from '../../shared/drama-model.js'
 import { buildTextPrompts } from './text-prompts.js'
+import { feedbackOf } from '../../shared/feedback.js'
+import { splitSecondsIssues } from './seconds-feedback.js'
 
 // 镜头相关步骤的上游事实与上下文，按 { title, text } 分段返回，由 request.js 组装进 user。
 // 整集步骤（镜头表、整集每秒指令）给全部资料；单镜步骤只给衔接所需：本镜及前后镜关联的卡片、
@@ -43,7 +45,7 @@ export function shotContext(project, shotId) {
   const entities = entityInstructions(project).replace(/^【实体引用清单】\n/, '')
   return [
     { title: '【实体引用清单】', text: entities },
-    { title: '【项目配置】', text: [`项目：${project.title}`, project.style && `风格：${project.style}`].filter(Boolean).join('\n') },
+    { title: '【本次参数】', text: project.style ? `项目风格：${project.style}` : '' },
     { title: '【上游事实：本集摘要】', text: project.plot.outline.content ? '' : project.summary?.content },
     { title: '【上游事实：大纲】', text: project.plot.outline.content },
     { title: single ? '【上游事实：本镜及前后镜关联人物】' : '【上游事实：人物资料】', text: cards('characters') },
@@ -67,18 +69,39 @@ export function buildShotPrompts(skill, instructions, options) {
   const previous = skill === 'seconds' ? (shot?.seconds.content ? JSON.stringify({ shots: [shot.seconds.content] }) : '')
     : skill === 'storyboard' ? (board?.prompt?.text || (board?.prompt ? JSON.stringify(board.prompt) : ''))
     : action === 'shots' ? original.shots?.items.map(item => `## ${item.id} / ${item.duration}s\n${body(item)}`).join('\n\n') : body(shot)
+  if (skill === 'seconds') {
+    const record = feedbackOf(original, `seconds:${options.shotId}`)
+    const regenerate = ctx?.generationMode === 'regenerate'
+    const human = regenerate ? '' : options.review ?? ctx?.batchReview ?? record.review.text ?? ''
+    const issues = splitSecondsIssues(regenerate ? [] : record.check?.passed === false ? record.check.failures : [])
+    const modify = Boolean(previous && (human || issues.programIssues.length || issues.semanticIssues.length))
+    return buildTextPrompts({ skill, project: options.project, shotId: options.shotId, instructions, modify,
+      baseContent: modify ? previous : '', opinion: human, ...issues })
+  }
   return buildTextPrompts({ skill, project: options.project, shotId: options.shotId, opinion, mode: options.mode || '', modify: Boolean(previous && opinion),
     instructions, baseContent: previous && opinion ? previous : '',
   })
+}
+
+// 镜头表资料：大纲为核心输入，随后是参数（时长、项目风格）、角色/场景/道具卡与实体引用清单。
+function tableFacts(project, min, max) {
+  const context = shotContext({ ...project, shots: { ...project.shots, items: [] } })
+  const cards = context.filter(fact => /^【上游事实：(人物|场景|道具)资料】$/.test(fact.title))
+  return [
+    { title: '【核心输入：大纲】', text: project.plot.outline.content },
+    { title: '【本次参数】', text: [`本集时长：${project.durationSeconds} 秒（各镜时长之和 ${min}–${max} 秒，单镜 1–15 秒）`, project.style && `项目风格：${project.style}`].filter(Boolean).join('\n') },
+    ...cards,
+    ...context.filter(fact => fact.title === '【实体引用清单】'),
+  ].filter(fact => fact.text)
 }
 
 export function buildTablePrompts(options) {
   const { project } = options
   const min = Math.max(1, project.durationSeconds - 10), max = project.durationSeconds + 10
   return buildShotPrompts('shots', {
-    task: `本集目标 ${project.durationSeconds} 秒。先统筹全集事件、场景转换、实际身体身份及片段首末状态，再决定片段数量与各自时长，每段1–15秒，不均分、不凑满15秒。总时长必须在 ${Math.max(1, project.durationSeconds - 10)}–${project.durationSeconds + 10} 秒内（含边界）。先决定满足总时长的片段数量与时长，再安排事件；相邻简单事件可连续呈现，不把每个大纲节拍机械拆成一镜。若无法容纳关键事件，明确指出具体容量冲突，不返回超时长方案。\n场景、时代、身体身份变化及完整对白和动作结果优先作为片段边界；写清边界状态供下一步骤承接。\n一次返回完整镜头表。每段标题严格为「## S01 / 12s」，编号从S01连续递增，秒数按内容分配；分段下首行必须写「标题：简短剧情标题」，标题内容跟随项目语言，概括本镜核心事件，不能只有编号；随后自由文本描述事件、起止状态、切段理由和接续要求，不输出JSON。`,
+    task: '依据大纲生成本集完整镜头表，遵守基础规则和补充规则。',
     review: `验收本集完整镜头表：覆盖大纲事件与结尾，编号连续、单镜1–15秒且总时长在 ${min}–${max} 秒内（含边界），条目格式完整，镜头之间起止状态承接。`,
-    facts: shotContext({ ...project, shots: { ...project.shots, items: [] } }),
+    facts: tableFacts(project, min, max),
   }, options)
 }
 
@@ -92,13 +115,32 @@ export function buildSingleShotPrompts(options) {
   }, options)
 }
 
+// 每秒指令资料：镜头表为核心输入，随后是参数、相邻镜头衔接、角色/场景/道具卡、大纲参考与实体引用清单。
+const secondsTitles = {
+  '【上下文：前镜已发生，本次不重演】': '【衔接：前镜（已发生，不重演）】',
+  '【上下文：后镜尚未发生，本次不提前演出】': '【衔接：后镜（尚未发生，不提前演出）】',
+  '【上下文：相邻镜头每秒指令的衔接段，不重复执行】': '【衔接：相邻镜头每秒指令】',
+  '【上游事实：大纲】': '【参考：大纲】',
+  '【上游事实：本集摘要】': '【参考：本集摘要】',
+}
+function secondsFacts(context, core, params) {
+  const pick = test => context.filter(fact => test(fact.title)).map(fact => ({ ...fact, title: secondsTitles[fact.title] || fact.title }))
+  return [core, { title: '【本次参数】', text: params.filter(Boolean).join('\n') },
+    ...pick(title => title.startsWith('【上下文：')),
+    ...pick(title => /^【上游事实：.*(人物|场景|道具)/.test(title)),
+    ...pick(title => title === '【上游事实：大纲】' || title === '【上游事实：本集摘要】'),
+    ...pick(title => title === '【实体引用清单】'),
+  ].filter(fact => fact.text)
+}
+
 export function buildSecondsPrompts(options) {
   const { project, shotId } = options
   const shot = project.shots.items.find(item => item.id === shotId)
   return buildShotPrompts('seconds', {
-    task: `只为 ${shotId} 生成 0–${shot.duration}s 的时间线。返回shots JSON数组且仅含本镜，按协议填写动作节拍、对白、环境声和配乐。镜头表起始状态对应0秒，结束状态只在本镜最后时点达成；每段交接只记录截至该段结束已完成的动作与持物状态。`,
+    task: '依据本镜镜头表生成本镜每秒指令，遵守基础规则和补充规则。',
     review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：与本镜镜头表的事件、切镜点和起止状态一致，与相邻镜头衔接。`,
-    facts: [{ title: '【上游事实：本镜镜头表】', text: body(shot) }, ...shotContext(project, shotId)],
+    facts: secondsFacts(shotContext(project, shotId), { title: '【核心输入：本镜镜头表】', text: body(shot) },
+      [`本镜：${shotId}，时长 ${shot.duration} 秒（0–${shot.duration * 1000}ms）`, project.style && `项目风格：${project.style}`]),
   }, options)
 }
 
@@ -112,13 +154,17 @@ export function buildAllSecondsPrompts(options, upstream) {
   const { project } = options
   const ctx = checkContext.getStore()
   const instructions = {
-    task: `一次返回整集所有镜头的每秒指令，统筹动作进度、对白、机位及镜头交接，不重复已经完成的动作。保持已有镜头编号、顺序和时长，不新增或合并镜头。每镜从0秒开始，覆盖该镜完整时长。同编号的镜头表是本镜依据，不是上一镜；镜头表起始状态对应本镜0秒，结束状态对应本镜最后时点，不能把末态提前套到开场。每段交接只记录该时间段结束时已发生的动作与持物状态，尚未完成的动作留给下一段，不重演、不提前完成。\n【整集覆盖与篇幅安排】\n本次必须覆盖 ${project.shots.items.length} 镜、共 ${project.shots.items.reduce((sum, shot) => sum + shot.duration, 0)} 秒：${project.shots.items.map(shot => `${shot.id}/${shot.duration}s`).join('、')}。先为全部镜头安排篇幅，不把篇幅耗在前几镜。按动作节拍分段，稳定状态合并为1–5秒，一段只交代一次持续的动作、机位、空间和声音，不按秒重复相同五条描述。每镜以350–650字为篇幅参考，关键动作或完整台词需要时可扩展；不为缩短正文删剧情或对白，不为填满时间新增动作。\n一次返回shots JSON，按清单完整生成，不得遗漏、重复或新增镜头。不要输出镜头标题或完成标记，程序负责渲染。`,
+    task: '依据已通过镜头表生成整集每秒指令，遵守基础规则和补充规则。',
     review: `验收整集每秒指令：覆盖本次固定镜头清单的全部镜头且不增删，逐镜与已通过镜头表的事件、切镜点和起止状态一致，镜头之间交接连续。`,
-    facts: [...shotContext(upstream), { title: '【本次固定镜头清单】', text: `${project.shots.items.map(shot => `${shot.id}：${shot.duration * 1000}ms`).join('\n')}` }],
+    facts: secondsFacts(shotContext(upstream), { title: '【核心输入：已通过镜头表】', text: upstream.shots.items.map(shot => `## ${shot.id} / ${shot.duration}s\n${body(shot)}`).join('\n\n') },
+      [`本集镜头清单：${project.shots.items.map(shot => `${shot.id}/${shot.duration}s`).join('、')}（共 ${project.shots.items.length} 镜、${project.shots.items.reduce((sum, shot) => sum + shot.duration, 0)} 秒）`, project.style && `项目风格：${project.style}`])
+      .filter(fact => fact.title !== '【上游事实：已通过镜头表，同编号是本镜依据】'),
   }
   const previous = ctx?.generationMode === 'modify' ? JSON.stringify({ shots: project.shots.items.map(shot => shot.seconds.content).filter(Boolean) }) : ''
+  const record = feedbackOf(ctx?.originalProject || project, 'seconds')
   return buildTextPrompts({ skill: 'seconds', project, modify: Boolean(previous),
     instructions, baseContent: previous,
-    opinion: ctx?.generationMode === 'modify' ? ctx.review || '' : '',
+    opinion: ctx?.generationMode === 'modify' ? options.review ?? ctx.batchReview ?? record.review.text ?? '' : '',
+    ...splitSecondsIssues(ctx?.generationMode === 'modify' ? record.check.failures : []),
   })
 }

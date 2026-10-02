@@ -32,12 +32,13 @@ test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享�
 
 test('基础转换使用具名人物资料和分节自然语言，不混入剧情服装道具或面向', () => {
   const prompt = characterImageModelToPrompt(createCharacterImageModel(input))
-  assert.match(prompt, /【人物资料】\n国籍：中国\n姓名：甲\n身份：旅人\n性别：男/)
+  assert.match(prompt, /【核心输入：人物资料】\n国籍：中国\n姓名：甲\n身份：旅人\n性别：男/)
   assert.match(prompt, /年龄：23\n身高：180cm\n体型：健壮\n面相：短发方脸/)
   assert.doesNotMatch(prompt, /旧外套|木剑|背面|服装：|道具：|面向：/)
-  assert.ok(prompt.indexOf('【任务】') < prompt.indexOf('【人物资料】'))
-  assert.ok(prompt.indexOf('【人物资料】') < prompt.indexOf('【生成规则】'))
-  assert.ok(prompt.indexOf('【生成规则】') < prompt.indexOf('【画幅】'))
+  assert.ok(prompt.indexOf('【本次任务】') < prompt.indexOf('【核心输入：人物资料】'))
+  assert.ok(prompt.indexOf('【核心输入：人物资料】') < prompt.indexOf('【基础规则】'))
+  assert.ok(prompt.indexOf('【核心输入：人物资料】') < prompt.indexOf('【本次参数】'))
+  assert.ok(prompt.indexOf('【本次参数】') < prompt.indexOf('【基础规则】'))
 })
 
 test('自定义画幅按像素输出，无固定尺寸枚举，转换时也校验输入', () => {
@@ -59,7 +60,7 @@ test('规则正文由调用方提供，完整保留年龄分节；空正文不�
   assert.match(characterImageModelToPrompt(model), /若为成年人物：[\s\S]*若为未成年或年龄不明：/)
   for (const generationRules of ['', ' \n ']) {
     const prompt = characterImageModelToPrompt(createCharacterImageModel({ ...input, generationRules }))
-    assert.doesNotMatch(prompt, /【生成规则】|正面全身照|成年规则|适龄规则/)
+    assert.doesNotMatch(prompt, /【基础规则】|正面全身照|成年规则|适龄规则/)
   }
 })
 
@@ -79,7 +80,7 @@ test('修改 model 固定角色职责，Base64 原图与人工意见分开保存
   assert.equal(model.images[0].base64, base64)
   assert.equal(model.toPrompt(), characterImageModelToPrompt(JSON.parse(JSON.stringify(model))))
   assert.match(model.toPrompt(), /【角色与职责】\n你是一名人物角色设计师/)
-  assert.match(model.toPrompt(), /【图片用途】\n输入图片1：本次编辑原图/)
+  assert.match(model.toPrompt(), /【参考图片】\n输入图片1：本次编辑原图/)
   assert.match(model.toPrompt(), /【本次修改意见】\n将头发改为黑色短发/)
   assert.match(model.toPrompt(), /保留原图中未被意见/)
   assert.doesNotMatch(model.toPrompt(), /data:image|b3JpZ2luYWw=/)

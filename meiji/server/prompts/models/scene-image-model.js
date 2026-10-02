@@ -62,26 +62,27 @@ export function sceneImageModelSegments(model) {
   const facts = sceneFields.filter(([key]) => normalized.scene[key])
     .map(([key, label]) => `${label}：${normalized.scene[key]}`).join('\n')
   const task = normalized.mode === 'modify'
-    ? '根据下方最新场景资料，以输入图片1为原图，按本次修改意见调整画面并返回一张场景参考图。'
+    ? '依据本次场景资料、原图和本次修改意见修订场景参考图，遵守基础规则和补充规则。'
     : normalized.mode === 'reference'
-      ? '根据下方场景资料，结合输入参考图片设计一张场景参考图。遵守下方生成规则及补充要求。'
-      : '根据下方场景资料设计一张场景参考图。遵守下方生成规则及补充要求。'
-  const references = normalized.images.map((image, index) => `输入图片${index + 1}：${image.purpose === 'edit-base' ? '本次编辑原图，作为未修改内容的依据。' : '场景空间与环境参考，地标、光位和布局以最新场景资料为准。'}`).join('\n')
+      ? '依据本次场景资料，结合参考图片生成一张场景参考图，遵守基础规则和补充规则。'
+      : '依据本次场景资料生成一张场景参考图，遵守基础规则和补充规则。'
+  const references = normalized.images.map((image, index) => `输入图片${index + 1}：${image.purpose === 'edit-base' ? '本次编辑原图。' : '场景空间与环境参考。'}`).join('\n')
+  const rules = [normalized.generationRules, normalized.mode === 'reference'
+    ? '参考图片仅提供空间与环境参考；地标、光位、空间布局与画面要求以本次场景资料为准。' : ''].filter(Boolean).join('\n\n')
   return [
-    segment('context', '【角色与职责】', `你是一名${normalized.role}，负责保持场景地标、空间布局与光位一致，并按本次要求设计或修改无人场景参考图。`),
-    segment('context', '【任务】', task),
-    segment('context', '【图片用途】', references),
-    segment('context', '【场景资料】', facts),
-    segment('context', '【资料边界】', '最新场景资料是事实依据。参考图与原图仅辅助成图，不覆盖资料；仅使用实际提供的信息。'),
-    segment('stage', '【生成规则】', normalized.generationRules, { skill: 'scene-image', field: 'generate' }),
-    segment('project', '【本剧补充】', normalized.additionalInstructions, { skill: 'scene-image', field: 'generate' }),
-    segment('context', '【画幅】', `${width} × ${height} 像素，${orientation}。按此画幅安排构图。`),
+    segment('context', '【角色与职责】', `你是一名${normalized.role}。`),
+    segment('context', '【本次任务】', task),
+    segment('context', '【核心输入：场景资料】', facts),
+    segment('context', '【本次参数】', `画幅：${width} × ${height} 像素，${orientation}。`),
+    segment('context', '【参考图片】', references),
     segment('context', '【本次修改意见】', normalized.modification?.instruction || ''),
-    segment('context', '【修改边界】', normalized.mode === 'modify' ? [
+    segment('stage', '【基础规则】', rules, { skill: 'scene-image', field: 'generate' }),
+    segment('project', '【补充规则】', normalized.additionalInstructions, { skill: 'scene-image', field: 'generate' }),
+    segment('context', '【本次修订范围】', normalized.mode === 'modify' ? [
       '始终按最新场景资料成图；原图与参考图不能覆盖最新资料。场景资料有变化时直接使用新资料，不从原图恢复旧资料。\n意见仅用于场景资料之外的画面调整；资料中的地标、光位、空间与画面要求以最新值为准。',
-      normalized.modification.preserveUnspecified ? '在满足最新场景资料、生成规则、本剧补充与画幅的前提下，保留原图中未被意见涉及的内容。' : '',
+      normalized.modification.preserveUnspecified ? '在满足最新场景资料、基础规则、补充规则与画幅的前提下，保留原图中未被意见涉及的内容。' : '',
     ].filter(Boolean).join('\n') : ''),
-    segment('protocol', '【输出要求】', '只输出一张图片，不输出解释或审核文字。'),
+    segment('protocol', '【本次输出协议】', '只输出一张图片，不输出解释或审核文字。'),
   ]
 }
 

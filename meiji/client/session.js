@@ -112,6 +112,7 @@ export function renderSession(project, openCreate, actions, context = {}) {
   }
   const imageGate = syncImageGate(project, context.imageGate)
   const onDetail = detailOwnsImage(context, imageGate)
+  let imageNotice
   if (!onDetail && imageGate) {
     const episode = project.episodes?.find(item => item.id === imageGate.episodeId)
     const character = episode?.plot?.characters?.items?.find(item => item.id === imageGate.itemId)
@@ -124,6 +125,7 @@ export function renderSession(project, openCreate, actions, context = {}) {
       open.onclick = () => character ? context.onOpenCharacter?.(episode.id, character.id) : context.onOpenScene?.(episode.id, scene.id)
       pending.append(open)
       view.append(pending)
+      imageNotice = pending
     } else {
       const previews = renderImageReview(project, actions, context.imageGate)
       if (previews) view.append(previews)
@@ -185,7 +187,8 @@ export function renderSession(project, openCreate, actions, context = {}) {
       button.onclick = () => { active = tab.id; context.onSelectTab?.(tab.id); paint() }
       overview.append(button)
     }
-    body.replaceChildren(renderStage(active, work, actions, { ...context, onGoTab: id => { active = id; context.onSelectTab?.(id); paint() } }))
+    if (imageNotice) imageNotice.hidden = active === 'script' && imageGate.episodeId === work.episodeId
+    body.replaceChildren(renderStage(active, work, actions, { ...context, imageGate, onGoTab: id => { active = id; context.onSelectTab?.(id); paint() } }))
   }
   view.append(bar, overview, body)
   paint()

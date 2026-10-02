@@ -25,7 +25,7 @@ test('summary separates identity, one-line tasks, rules, source material and lan
         const task = request.user.split('【本次任务】\n')[1].split('\n\n')[0]
         assert.equal(task.split('\n').length, 1)
         assert.match(task, /项目摘要.*剧本.*第 2 集摘要.*基础规则和补充规则/)
-        assert.doesNotMatch(task, /任务模式|旧摘要|历史意见|只处理|只修改|保留未涉及|300/)
+        assert.doesNotMatch(task, /任务模式|旧摘要|历史意见|只处理|只修改|保留未涉及|500/)
         assert.match(request.system, /【基础规则】\n/)
         assert.match(request.system, /【补充规则】\nSUMMARY_SUPPLEMENT/)
         assert.doesNotMatch(request.system + request.user, /OUTLINE_ONLY|【故事资料】|标题：故事标题/)
@@ -88,7 +88,9 @@ test('实际生成精简重复与审核包装，同时独立审核保留完整�
   assert.equal(combined.split('你是一名短剧分集编剧').length - 1, 1)
   assert.equal(combined.split('本次生成语言：').length - 1, 1)
   assert.equal(combined.split('本集时长：150').length - 1, 1)
-  assert.equal(combined.split('最多 300').length - 1, 1)
+  for (const request of [prompts.generation, prompts.revision('最新基稿', reviewFail('修复因果')), prompts.review('待审稿')]) {
+    assert.doesNotMatch(request.system + request.user, /最多\s*\d+\s*字|不超过.*字|字数上限/)
+  }
   assert.doesNotMatch(system, /FAIL|失败依据|outputLanguage|角色 look|指导技能只细化|durationSeconds":120/)
   assert.match(system, /保持事件因果与时间顺序/)
   assert.doesNotMatch(prompts.review('待审稿').system, /保持事件因果与时间顺序/)

@@ -73,37 +73,39 @@ function normalizeModel({ character, generationRules, canvas, mode = 'generate',
 // 方法放在原型上，JSON 序列化仅包含数据；可用 createCharacterImageModel 恢复方法。
 export class CharacterImageModel {
   constructor(input) { Object.assign(this, normalizeModel(input)) }
-  toSegments() { return characterImageModelSegments(this) }
-  toPrompt() { return render(this.toSegments()) }
+  toSegments(options) { return characterImageModelSegments(this, options) }
+  toPrompt(options) { return render(this.toSegments(options)) }
 }
 
 export function createCharacterImageModel(input) { return new CharacterImageModel(input) }
 
-export function characterImageModelSegments(model) {
+export function characterImageModelSegments(model, { factsText } = {}) {
   const normalized = normalizeModel(model)
   const { width, height } = normalized.canvas
   const orientation = width === height ? '正方形' : width > height ? '横幅' : '竖幅'
-  const facts = characterFields.filter(([key]) => normalized.character[key])
+  const facts = factsText ?? characterFields.filter(([key]) => normalized.character[key])
     .map(([key, label]) => `${label}：${normalized.character[key]}`).join('\n')
   const task = normalized.mode === 'modify'
-    ? '以输入图片1为原图，执行本次修改意见。'
+    ? '依据本次人物资料、原图和本次修改意见修订人物参考图，遵守基础规则和补充规则。'
     : normalized.mode === 'reference'
-      ? '根据人物资料、参考图片与生成规则，生成一张人物参考图。'
-      : '根据人物资料与生成规则，生成一张人物参考图。'
-  const references = normalized.images.map((image, index) => `输入图片${index + 1}：${image.purpose === 'edit-base' ? '本次编辑原图，作为未修改内容的依据。' : '人物外观参考，参考人物特征，构图与背景按本次要求。'}`).join('\n')
+      ? '依据本次人物资料，结合参考图片生成一张人物参考图，遵守基础规则和补充规则。'
+      : '依据本次人物资料生成一张人物参考图，遵守基础规则和补充规则。'
+  const references = normalized.images.map((image, index) => `输入图片${index + 1}：${image.purpose === 'edit-base' ? '本次编辑原图。' : '人物外观参考。'}`).join('\n')
+  const rules = [normalized.generationRules, normalized.mode === 'reference'
+    ? '参考图片仅提供人物外观参考；身份与外观属性以本次人物资料为准，构图与背景遵守基础规则和补充规则。' : ''].filter(Boolean).join('\n\n')
   return [
-    segment('context', '【角色与职责】', `你是一名${normalized.role}，负责保持人物身份与外观一致，并按本次要求设计或修改人物参考图。`),
-    segment('context', '【任务】', task),
-    segment('context', '【图片用途】', references),
-    segment('context', '【人物资料】', facts),
-    segment('constraint', '【生成规则】', normalized.generationRules, { skill: 'character-image', field: 'constraints' }),
-    segment('context', '【画幅】', `${width} × ${height} 像素，${orientation}。按此画幅安排构图。`),
+    segment('context', '【角色与职责】', `你是一名${normalized.role}。`),
+    segment('context', '【本次任务】', task),
+    segment('context', '【核心输入：人物资料】', facts),
+    segment('context', '【本次参数】', `画幅：${width} × ${height} 像素，${orientation}。`),
+    segment('context', '【参考图片】', references),
     segment('context', '【本次修改意见】', normalized.modification?.instruction || ''),
-    segment('context', '【修改边界】', normalized.mode === 'modify' ? [
+    segment('constraint', '【基础规则】', rules, { skill: 'character-image', field: 'constraints' }),
+    segment('context', '【本次修订范围】', normalized.mode === 'modify' ? [
       '始终使用本次最新人物资料，原图和参考图不能恢复旧资料。意见用于人物资料之外的画面调整；人物身份与外观属性以最新资料为准。',
-      normalized.modification.preserveUnspecified ? '保留原图中未被意见、生成规则与画幅要求涉及的人物特征、构图及其他内容。' : '',
+      normalized.modification.preserveUnspecified ? '保留原图中未被意见、基础规则与画幅要求涉及的人物特征、构图及其他内容。' : '',
     ].filter(Boolean).join('\n') : ''),
-    segment('protocol', '【输出要求】', '只输出一张图片，不输出解释或审核文字。'),
+    segment('protocol', '【本次输出协议】', '只输出一张图片，不输出解释或审核文字。'),
   ]
 }
 

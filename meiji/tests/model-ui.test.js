@@ -6,6 +6,7 @@ import { episodeFixture, setupModel } from './fixtures/model.js'
 import { renderStage } from '../client/stages.js'
 import { renderModelView, createModelStore } from '../client/drama-store.js'
 import { setContent } from '../shared/drama-model.js'
+import { secondsContent } from './fixtures/seconds.js'
 function domSetup(t) {
  const dom=new JSDOM('<body><main></main></body>',{url:'http://localhost'})
  const prior={document:globalThis.document,window:globalThis.window,CustomEvent:globalThis.CustomEvent}
@@ -205,7 +206,7 @@ test('table and seconds review panels precede all shot cards; seconds cards have
   assert.equal(container.querySelectorAll('.workflow-review').length,1)
   if(shotsPane==='seconds'){
    assert.match(area.textContent,/S01：第一镜失败/);assert.match(area.textContent,/S02：第二镜失败/)
-   for(const card of cards){assert.equal(card.querySelector('input'),null);assert.doesNotMatch(card.textContent,/提交修改|重新生成|第一镜失败|第二镜失败/)}
+   for(const card of cards){assert.equal(card.querySelector('input'),null);assert.doesNotMatch(card.textContent,/提交修改|重新生成/);assert.match(card.textContent,/本镜自审未通过/)}
   }
  }
 })
@@ -236,6 +237,29 @@ test('shared review hides empty initial state but displays failures without gene
  assert.ok(area.querySelector('input'))
  assert.equal(area.querySelector('.workflow-review-heading'),null)
 })
+test('shared review displays audit reasons once and preserves independent execution errors',async t=>{
+ const container=domSetup(t),{appendWorkflowReview}=await import('../client/workflow-review.js')
+ const first='位置：程序校验；原因：S05 节拍总时长3000ms，应为5000ms；修正要求：按该校验要求修正正文'
+ const second='S06 节拍总时长3000ms，应为4000ms'
+ const record={id:'seconds',check:{passed:false,failures:[first,second]},error:`自检未通过：${first}`}
+ for(const prefix of ['自检','自审'])for(const generated of [true,false]){
+  container.replaceChildren()
+  const area=appendWorkflowReview(container,{...record,error:`${prefix}未通过：${first}`},generated)
+  assert.equal(area.textContent.split('S05 节拍总时长3000ms').length-1,1)
+  assert.match(area.textContent,/S06 节拍总时长3000ms/)
+  assert.doesNotMatch(area.textContent,/执行未通过/)
+  assert.equal(area.querySelector('input'),null)
+ }
+ container.replaceChildren()
+ const area=appendWorkflowReview(container,{...record,error:'请求超时，请重试'},true)
+ assert.match(area.textContent,/执行未通过：请求超时，请重试/)
+ assert.match(area.textContent,/自审未通过：位置：程序校验/)
+ container.replaceChildren()
+ const errorOnly=appendWorkflowReview(container,{...record,check:{passed:false,failures:[]}},false)
+ assert.match(errorOnly.textContent,/S05 节拍总时长3000ms/)
+ assert.match(errorOnly.textContent,/尚未保存可用内容/)
+ assert.ok(errorOnly.classList.contains('workflow-review-failed'))
+})
 test('seconds renders unpublished task failure and clears it after a successful refresh',t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
  p.shots.items.forEach(shot=>{shot.seconds.content=null;shot.seconds.check={passed:null,failures:[]};shot.seconds.status='not-generated'})
@@ -254,6 +278,34 @@ test('seconds renders unpublished task failure and clears it after a successful 
  renderModelView(container,build())
  assert.equal(container.querySelector('.workflow-review-failed'),null)
  assert.doesNotMatch(container.textContent,/5000ms|尚未保存可用内容/)
+})
+test('seconds retains failed shot text and reasons without offering a format override',t=>{
+ const container=domSetup(t),p=episodeFixture()
+ p.shots.items[0].seconds.content=secondsContent('S01',3,'本次失败正文仍需查看')
+ p.shots.items[0].seconds.check={passed:false,failures:['S01 节拍总时长3000ms，应为5000ms']}
+ p.shots.items[0].seconds.status='failed'
+ const build=()=>renderStage('seconds',p,{perform:async()=>{},fail:()=>{}},{})
+ container.append(build())
+ const card=container.querySelector('.shot-card')
+ assert.match(card.textContent,/本次失败正文仍需查看/)
+ assert.match(card.textContent,/本镜自审未通过：S01 节拍总时长3000ms，应为5000ms/)
+ assert.equal(container.querySelector('.workflow-review-override'),null)
+ delete p.shots.items[0].seconds.content.beats[0].dialogueIds
+ container.replaceChildren(build())
+ assert.match(container.querySelector('.shot-card').textContent,/本次失败正文仍需查看/)
+ assert.match(container.querySelector('.shot-card').textContent,/"shotId": "S01"/)
+})
+test('seconds history exposes the complete original response even when JSON is truncated',async t=>{
+ const container=domSetup(t),{renderTaskHistory}=await import('../client/execution-history.js')
+ const original='{"shots":[{"shotId":"S01","summary":"未截掉的原文'
+ const view=renderTaskHistory(episodeFixture(),{historyScope:'seconds',back:()=>{},load:async id=>id
+  ? {artifact:{content:{text:original}}}
+  : {tasks:[{id:'failed-seconds',action:'seconds',status:'review_failed',steps:[],artifacts:[{target:'seconds-response',artifactId:'raw-response',version:1}]}]}})
+ container.append(view);await Promise.resolve()
+ const snapshot=view.querySelector('.task-history-snapshot')
+ assert.match(snapshot.querySelector('summary').textContent,/每秒指令原始响应/)
+ snapshot.open=true;await snapshot.ontoggle()
+ assert.equal(JSON.parse(snapshot.querySelector('pre').textContent).text,original)
 })
 test('plot has one generation entry and one review for outline, characters and scenes',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
@@ -622,7 +674,8 @@ test('detail page confirms an image without opening the review page', async t =>
  assert.equal(container.querySelector('.image-review-overlay'), null)
  assert.equal(container.querySelector('.asset-still img').src.endsWith('/draft.png'), true)
  const labels = [...container.querySelectorAll('.detail-image-buttons button')].map(button => button.textContent)
- assert.deepEqual(labels, ['放弃', '确定', '重新生成'])
+ assert.deepEqual(labels, ['放弃', '确定'])
+ assert.ok(container.querySelector('.studio-tools [aria-label="AI生成"]'))
  container.querySelector('.detail-image-buttons .primary').click()
  await Promise.resolve()
  assert.deepEqual(calls, [[episode.id, 'd1', 'confirm-image']])
@@ -675,20 +728,22 @@ test('character detail lays out the portrait, reference and text without ancilla
  container.append(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async (...args) => calls.push(args), fail() {} }, {}))
  const aspect = container.querySelector('[aria-label="画幅"]')
  assert.equal(aspect.value, '9:16')
- assert.equal(container.querySelector('[aria-label="参考图生图"]').disabled, true)
+ assert.equal(container.querySelector('[aria-label="AI生成"]').disabled, false)
+ assert.equal(container.querySelector('[aria-label="参考图生图"]'), null)
+ assert.equal(container.querySelector('[aria-label="文字生图"]'), null)
  const pair = container.querySelector('.studio-pair')
  const text = container.querySelector('.image-text-editor')
  const parts = container.querySelector('.studio-parts')
  assert.equal(pair.compareDocumentPosition(text) & 4, 4)
  assert.equal(parts, null)
- container.querySelector('[aria-label="文字生图"]').click()
+ container.querySelector('[aria-label="AI生成"]').click()
  await Promise.resolve()
  assert.equal(calls[0][1], 'image')
  assert.equal(calls[0][2].aspect, '9:16')
  assert.equal(calls[0][2].useReference, false)
  p.plot.characters.items[0].reference = { localPath: '/ref.png', mime: 'image/png' }
  container.replaceChildren(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async (...args) => calls.push(args), fail() {} }, {}))
- const reference = container.querySelector('[aria-label="参考图生图"]')
+ const reference = container.querySelector('[aria-label="AI生成"]')
  assert.equal(reference.disabled, false)
  container.querySelector('[aria-label="画幅"]').value = '3:4'
  reference.click()

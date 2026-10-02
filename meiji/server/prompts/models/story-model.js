@@ -11,9 +11,13 @@ import { protocols } from '../../../skills/protocols.js'
 const protocolSection = title => (protocols.outline.split(/^## /m).find(chunk => chunk.startsWith(title)) || '').slice(title.length).trim()
 
 const extractTask = '从本轮已通过的最终大纲提取资料，不改写剧情，不使用旧卡片和历史意见。'
+const cardFacts = model => [
+  segment('context', '【核心输入：本集已通过大纲】', model.approvedOutline),
+  segment('context', '【本次参数】', model.parameters.style ? `项目风格：${model.parameters.style}` : ''),
+]
 const reviewTail = hasBase => `${hasBase
   ? '对照基稿及本次意见，检查意见落实、无关改动与新冲突。完整返回不是整篇重写授权。'
-  : '未提供基稿，不要求与旧稿一致，不声称已经验证未改部分保留。'}只审核最新待审内容，不沿用历史失败结论。未提供的资料不能作为既定事实；合理省略与明确矛盾应区分，不以个人写法偏好判失败。`
+  : '未提供基稿，不要求与旧稿一致，不声称已经验证未改部分保留。'}未提供的资料不能作为既定事实；合理省略与明确矛盾应区分，不以个人写法偏好判失败。`
 
 export const storyKinds = {
   outline: {
@@ -36,30 +40,25 @@ export const storyKinds = {
   },
   characters: {
     role: '短剧角色设计师', reviewRole: '独立人物资料审核员', stage: '人物提取', json: true,
+    cardExtraction: true,
     outputProtocol: protocolSection('人物输出'),
     fields: ['name', 'nationality', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look', 'clothes', 'props', 'hairstyles'],
-    task: () => extractTask,
-    target: '仅提取本集大纲中实际可见且需要独立辨识的身体身份。先区别画内身体、画外声音与仅被提及人物，再按身体去重；全程只有电话或画外声音的人不生成视觉卡。以已通过大纲为唯一剧情依据，返回人物 items，不输出盘点过程。',
-    reviewTarget: '仅审核待审人物卡是否忠实提取已通过大纲中的可见身体身份，核对去重、遗漏及画外声音误入；全程只有电话或画外声音的人不应出现在视觉卡中。',
-    reviewScope: '仅审核人物卡集合与已通过大纲的对应关系；审核标准只适用于本次卡片，不要求输出大纲或另一类卡片。核对每张卡对应的实际可见身体；若仅通过电话或画外声音参与且没有身体出镜依据，属于多生成卡片，应移除。',
-    facts: model => [
-      segment('context', '【本次参数】', [`标题：${model.project.title}`, model.parameters.episodeNumber ? `本次为第 ${model.parameters.episodeNumber} 集。` : '', model.parameters.style ? `视觉风格：${model.parameters.style}` : ''].filter(Boolean).join('\n')),
-      segment('context', '【已通过大纲】', model.approvedOutline),
-    ],
+    task: model => `依据本集已通过大纲${model.mode === 'regenerate' ? '重新提取' : '提取'}人物角色资料，遵守基础规则和补充规则。`,
+    revisionTask: automatic => `依据本集已通过大纲和${automatic ? '本轮自审意见' : '本次修改意见'}修订人物角色资料，遵守基础规则和补充规则。`,
+    reviewTarget: '依据本集已通过大纲审核最新人物角色资料，按审核标准和补充规则验收。',
+    reviewScope: '仅验收人物角色资料，不生成或改写正文，不要求大纲、场景卡或下游制作结果。',
+    facts: cardFacts,
   },
   scenes: {
     role: '影视场景美术指导', reviewRole: '独立场景资料审核员', stage: '场景提取', json: true,
+    cardExtraction: true,
     outputProtocol: protocolSection('场景输出'),
     fields: ['name', 'landmark', 'light', 'space', 'look'],
-    task: () => extractTask,
-    target: '仅从已通过大纲提取实际地点，返回无人物的环境卡 items。landmark、light、space、look 只描述环境与可用空间，不写人物、剪影、身体部位、当前动作或人物移动；动作仅用于判断空间是否足够，不写进卡片。同一可共用布局的连续室内空间只建一张卡，不将书架、柜台、入口等角落拆成多个地点；在同一 space 内交代区域关系。',
-    reviewTarget: '仅审核待审场景卡是否忠实提取已通过大纲中的实际地点，核对无人物环境、空间布局、区域合并及遗漏：landmark、light、space、look 不写人物、剪影、身体部位、当前动作或人物移动；同一可共用布局的连续室内空间应合并，各区域关系在同一 space 中交代。',
-    reviewScope: '仅审核场景卡集合与已通过大纲的对应关系；审核标准只适用于本次卡片，不要求输出大纲或另一类卡片。逐项检查 landmark、light、space、look；环境字段中出现实际人物、剪影、身体部位或正在发生的行动属于违规。允许描述供行动使用的空区域，不因预留活动空间误判为画有人。',
-    facts: model => [
-      segment('context', '【事实边界】', '大纲是唯一事实来源；地点、陈设、材质、光线与布局仅提取明确描述，不按时代或风格补齐。未说明的属性标记大纲未说明，不从人物卡扩展场景。'),
-      segment('context', '【本次参数】', [`标题：${model.project.title}`, model.parameters.episodeNumber ? `本次为第 ${model.parameters.episodeNumber} 集。` : '', model.parameters.style ? `视觉风格：${model.parameters.style}` : ''].filter(Boolean).join('\n')),
-      segment('context', '【已通过大纲】', model.approvedOutline),
-    ],
+    task: model => `依据本集已通过大纲${model.mode === 'regenerate' ? '重新提取' : '提取'}场景资料，遵守基础规则和补充规则。`,
+    revisionTask: automatic => `依据本集已通过大纲和${automatic ? '本轮自审意见' : '本次修改意见'}修订场景资料，遵守基础规则和补充规则。`,
+    reviewTarget: '依据本集已通过大纲审核最新场景资料，按审核标准和补充规则验收。',
+    reviewScope: '仅验收场景资料，不生成或改写正文，不要求大纲、人物卡或下游制作结果。',
+    facts: cardFacts,
   },
   props: {
     role: '短剧道具设计师', reviewRole: '独立道具资料审核员', stage: '道具提取', json: true,
@@ -101,10 +100,10 @@ export class StoryModel {
   // 本步骤资料：目标、上游事实、补充任务资料与指导素材。审核时目标改为审核目标。
   contextSegments({ instructions = '', assets = [], review = false } = {}) {
     return [
-      ...(this.kind === 'outline' && !review ? [] : [segment('context', review ? '【审核目标】' : '【本次目标】', review ? this.config.reviewTarget : this.config.target)]),
+      ...(this.config.cardExtraction || this.kind === 'outline' && !review ? [] : [segment('context', review ? '【审核目标】' : '【本次目标】', review ? this.config.reviewTarget : this.config.target)]),
       ...this.config.facts(this),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),
-      ...assets,
+      ...(this.config.cardExtraction ? [] : assets),
     ]
   }
 
@@ -119,17 +118,21 @@ export class StoryModel {
   }
 
   supplementSegments(additions) {
-    if (this.kind !== 'outline') return additions
+    if (this.kind !== 'outline' && !this.config.cardExtraction) return additions
     return [additions].flat().filter(Boolean).map(item => ({ ...item, title: '【补充规则】' }))
   }
 
   creation(kind, { baseContent, opinion = '', automatic = false, humanOpinion = '', additions, assetRules, language, protocol, boundary, assets, instructions, requirements } = {}) {
     let task = kind === 'generate' ? this.config.task(this) : automatic ? '修订本轮失败稿，仅修复本轮意见及必要连带关系。' : '按人工意见定向修改，保留未涉及内容。'
     if (this.kind === 'outline' && kind !== 'generate') task = `依据本集摘要和${automatic ? '本轮自审意见' : '本次修改意见'}修订本集完整剧情大纲，遵守基础规则和补充规则。`
+    if (this.config.cardExtraction && kind !== 'generate') task = this.config.revisionTask(automatic)
+    if (this.config.cardExtraction) boundary = segment('context', kind === 'generate' ? '【本次提取范围】' : '【本次修订范围】', kind === 'generate'
+      ? '本次提取仅依据提供的已通过大纲，不沿用旧卡片或历史意见。项目风格仅用于统一表达，不作为新增人物、地点或具体属性的事实依据。'
+      : '以提供的最新基稿为唯一修改基准，按本次意见修正受影响卡片及必要连带关系，保留未涉及卡片与字段；修改意见不能替代大纲事实或改写剧情。返回完整卡片集合，不只返回修改部分。')
     return generationRequest({ json: this.config.json,
       role: segment('context', '【角色与职责】', `你是一名${this.role}。`),
-      rules: segment('stage', this.kind === 'outline' ? '【基础规则】' : '【基础生产规则】', this.generationRules), additions: this.supplementSegments(additions), assetRules,
-      boundary: kind === 'generate' ? [] : boundary || segment('context', '【本次修订范围】', '按意见定向修订，保留未涉及内容，修复必要连带关系。'),
+      rules: segment('stage', this.kind === 'outline' || this.config.cardExtraction ? '【基础规则】' : '【基础生产规则】', this.generationRules), additions: this.supplementSegments(additions), assetRules: this.config.cardExtraction ? [] : assetRules,
+      boundary: kind === 'generate' && !this.config.cardExtraction ? [] : boundary || segment('context', '【本次修订范围】', '按意见定向修订，保留未涉及内容，修复必要连带关系。'),
       language: language || this.languageSegment(),
       protocol: protocol || segment('protocol', '【本次输出协议】', this.outputProtocol),
       task: segment('context', '【本次任务】', task), requirements: requirementSegment(requirements),
@@ -153,10 +156,10 @@ export class StoryModel {
     return reviewRequest({
       role: segment('context', '【角色与职责】', `你是一名${this.reviewRole}。`),
       scope: segment('context', '【本次审核范围】', `审核标准和补充资料中的创作指令仅作审核依据。${this.config.reviewScope}${reviewTail(hasBase)}`),
-      method, criteria, additions: this.supplementSegments(additions), assetRules, language: language || this.languageSegment(), structure: this.structureSegment({ review: true }),
+      method, criteria, additions: this.supplementSegments(additions), assetRules: this.config.cardExtraction ? [] : assetRules, language: language || this.languageSegment(), structure: this.structureSegment({ review: true }),
       protocol: segment('protocol', '【本次审核协议】', reviewProtocol),
-      stage: segment('context', '', `阶段：${this.config.stage}`),
-      task: segment('context', '【本次任务】', automatic ? '自动修订结果验收' : hasBase ? '人工修订结果验收' : '生成结果验收'),
+      stage: this.config.cardExtraction ? [] : segment('context', '', `阶段：${this.config.stage}`),
+      task: segment('context', '【本次任务】', this.config.cardExtraction ? this.config.reviewTarget : automatic ? '自动修订结果验收' : hasBase ? '人工修订结果验收' : '生成结果验收'),
       requirements: requirementSegment(requirements),
       facts: this.contextSegments({ instructions, assets, review: true }),
       base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion, humanOpinion, automatic }) : [],

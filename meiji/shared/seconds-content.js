@@ -1,4 +1,4 @@
-import { referencedEntities, entityCatalog } from './entity-references.js'
+import { referencedEntities, entityCatalog, collapseMentions, entityMention } from './entity-references.js'
 export const secondsVersion = 1
 const fail = message => { throw new Error(message) }
 const nonempty = value => typeof value === 'string' && value.trim()
@@ -43,8 +43,8 @@ export function validateSeconds(content, shot, project) {
   const entities = referencedEntities(visual, project)
   referencedEntities([content.summary, ...beats.map(b => b.sound), ...content.ambient.map(e => e.text), ...content.music.map(e => e.text)].join('\n'), project)
   // 已登记人物/场景在正文出现时不能绕过标记；对白原文不参加名称扫描。
-  const unmarked = visual.replace(/【[^【】]+】/g, '')
-  for (const e of entityCatalog(project)) if (e.name && unmarked.includes(e.name)) fail(`${shot.id} 正文中的${e.name}须写为【${e.name}|${e.id}】`)
+  const unmarked = collapseMentions(visual, project).replace(/【[^【】]+】/g, '')
+  for (const e of entityCatalog(project)) if (e.name && unmarked.includes(e.name)) fail(`${shot.id} 正文中的${e.name}须写为${entityMention(e)}`)
   return entities
 }
 export function parseSecondsResponse(text, shots, project) {
@@ -59,20 +59,37 @@ export function parseSecondsResponse(text, shots, project) {
     return content
   })
 }
+// 保存与验收分开：镜头可匹配时全部返回原内容，逐镜校验错误单独记录。
+export function parseSecondsPartial(text, shots, project) {
+  let result
+  try { result = JSON.parse(text) } catch { fail('每秒指令必须返回完整JSON，不能截断或包裹代码围栏') }
+  const rows = array(result.shots, 'shots')
+  const ids = rows.map(s => s?.shotId)
+  if (new Set(ids).size !== ids.length || rows.length !== shots.length || shots.some(s => !ids.includes(s.id))) fail(`每秒指令镜头清单不符：应为${shots.map(s => s.id).join('、')}，实际${ids.join('、')}；不得漏镜、重复或新增镜头`)
+  const failures = {}
+  const sections = shots.map(shot => {
+    const content = rows.find(s => s.shotId === shot.id)
+    try { validateSeconds(content, shot, project); return content }
+    catch (error) { failures[shot.id] = error.message.includes(shot.id) ? error.message : `${shot.id}：${error.message}`; return content }
+  })
+  return { sections, failures }
+}
 export const secondsRange = (start, end) => `${start / 1000}–${end / 1000}s`
 export function secondsText(content) {
   if (!content) return ''
-  if (content.version !== secondsVersion) return '旧每秒指令需迁移后重新生成'
-  let start = 0
-  const lines = [`事件：${content.summary}`]
-  for (const b of content.beats) {
-    lines.push(`### ${secondsRange(start, start + b.durationMs)}`, `动作：${b.action}`, `镜头：${b.transition === 'cut' ? '切镜；' : ''}${b.camera}`, `空间：${b.space}`, `声音：${b.sound}`)
-    for (const id of b.dialogueIds) {
-      const d = content.dialogues.find(d => d.id === id)
-      lines.push(`对白 ${d.id}（${secondsRange(d.startMs, d.endMs)}，${d.speakerId}，${d.delivery}，${d.performance}）：${d.text}`)
+  try {
+    if (content.version !== secondsVersion || !Array.isArray(content.beats)) return JSON.stringify(content, null, 2)
+    let start = 0
+    const lines = [`事件：${content.summary}`]
+    for (const b of content.beats) {
+      lines.push(`### ${secondsRange(start, start + b.durationMs)}`, `动作：${b.action}`, `镜头：${b.transition === 'cut' ? '切镜；' : ''}${b.camera}`, `空间：${b.space}`, `声音：${b.sound}`)
+      for (const id of b.dialogueIds) {
+        const d = content.dialogues.find(d => d.id === id)
+        lines.push(`对白 ${d.id}（${secondsRange(d.startMs, d.endMs)}，${d.speakerId}，${d.delivery}，${d.performance}）：${d.text}`)
+      }
+      lines.push(`交接：${b.endState}`); start += b.durationMs
     }
-    lines.push(`交接：${b.endState}`); start += b.durationMs
-  }
-  for (const [label, events] of [['环境声', content.ambient], ['配乐', content.music]]) for (const e of events) lines.push(`${label} ${secondsRange(e.startMs, e.endMs)}：${e.text}`)
-  return lines.join('\n')
+    for (const [label, events] of [['环境声', content.ambient], ['配乐', content.music]]) for (const e of events) lines.push(`${label} ${secondsRange(e.startMs, e.endMs)}：${e.text}`)
+    return lines.join('\n')
+  } catch { return JSON.stringify(content, null, 2) }
 }

@@ -6,8 +6,9 @@ import { setupModel, episodeFixture } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { runOperation } from '../server/flow/operations/run.js'
 import { recordStore } from '../server/data/task-store.js'
-import { generateAllSeconds } from '../server/generate/shot-text.js'
-import { feedbackOf } from '../shared/feedback.js'
+import { generateAllSeconds, generateShotSeconds } from '../server/generate/shot-text.js'
+import { feedbackOf, overrideBlocker } from '../shared/feedback.js'
+import { secondsText } from '../shared/seconds-content.js'
 const output = secondsResponse()
 test('invalid first seconds result keeps drafts unpublished and exposes the task failure',async t=>{
  const e=await environment(t)
@@ -67,7 +68,7 @@ test('whole episode failed review revises the complete version once', async t=>{
  }
  assert.equal(calls.length,4)
 })
-for(const text of [output.slice(0, -8), secondsResponse([['S01', 5, '只有一镜']]), secondsResponse([['S01',5,'动作'],['S02',4,'时长错']])]) {
+for(const text of [output.slice(0, -8), secondsResponse([['S01', 5, '只有一镜']])]) {
  test('incomplete or mismatched result preserves original content and downstream',async t=>{
   const e=await environment(t),before=await e.read()
   await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:text})}),/自审未通过/)
@@ -187,11 +188,105 @@ test('targeted correction replaces only the reviewed shot and keeps all other be
  const project=episodeFixture();let generation=0,review=0
  const initial=secondsResponse([['S01',5,'保留首镜原文'],['S02',5,'待修正动作']])
  const result=await generateAllSeconds({project,request:async message=>{
-  if(message.skill==='review') return ++review===1?reviewFail('S02 动作方向相反'):reviewPass
+  if(message.skill==='review') return ++review===1?reviewFail('S02 动作方向相反','S02'):reviewPass
   if(++generation===1)return initial
-  assert.match(message.user,/只返回这些镜头的完整shots条目：S02/)
+  assert.match(message.system,/本轮仅返回这些镜头的完整 shots 条目：S02/)
   return secondsResponse([['S02',5,'修正动作']])
  }})
  assert.deepEqual(result.items[0].seconds.content,JSON.parse(initial).shots[0])
  assert.equal(result.items[1].seconds.content.beats[0].action,'修正动作')
+})
+test('automatic seconds correction does not edit a shot merely mentioned as context in the reason',async()=>{
+ const project=episodeFixture(),initial=secondsResponse([['S01',5,'保留首镜'],['S02',5,'待修正末态']]);let generated=0,reviewed=0
+ const result=await generateAllSeconds({project,request:async message=>{
+  if(message.skill==='review')return ++reviewed===1?reviewFail('S02末态不符，S01仅作为衔接参考','S02结束状态'):reviewPass
+  if(++generated===1)return initial
+  assert.match(message.system,/本轮仅返回这些镜头的完整 shots 条目：S02。/)
+  assert.doesNotMatch(message.system,/条目：S01/)
+  return secondsResponse([['S02',5,'修正末态']])
+ }})
+ assert.deepEqual(result.items[0].seconds.content,JSON.parse(initial).shots[0])
+ assert.equal(result.items[1].seconds.content.beats[0].action,'修正末态')
+})
+
+test('一镜程序校验失败时全部镜头保存，失败镜头带正文和原因，可提交修改但不可忽略', async t => {
+ const e=await environment(t)
+ const text=secondsResponse([['S01',5,'【旅人|C01】第一镜动作'],['S02',4,'时长错']])
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:text})}),/自审未通过/)
+ const p=await e.read(),[first,second]=p.shots.items
+ assert.equal(first.seconds.content.beats[0].action,'【旅人|C01】第一镜动作')
+ assert.equal(second.seconds.content.beats[0].action,'时长错')
+ assert.equal(second.seconds.status,'failed');assert.equal(second.seconds.check.passed,false)
+ assert.match(second.seconds.check.failures.join(),/S02 节拍总时长4000ms，应为5000ms/)
+ const feedback=feedbackOf(p,'seconds')
+ assert.equal(feedback.canModify,true);assert.equal(feedback.canOverride,false)
+ assert.match(feedback.check.failures.join(),/S02 节拍总时长/)
+ assert.match(overrideBlocker(p,'seconds'),/格式错误/)
+})
+
+test('every failed shot and original model response is retained, with all program errors reviewed together', async t => {
+ const e=await environment(t)
+ const text=secondsResponse([['S01',4,'首镜失败正文'],['S02',3,'次镜失败正文']])
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill,user})=>{
+  if(skill==='review') return reviewPass
+  if(user.includes('【最新失败稿')) assert.match(user,/"location":"程序校验"/)
+  return text
+ }})}),/自检未通过/)
+ const p=await e.read()
+ assert.deepEqual(p.shots.items.map(s=>s.seconds.content.beats[0].action),['首镜失败正文','次镜失败正文'])
+ assert.ok(p.shots.items.every(s=>s.seconds.check.passed===false && s.seconds.status==='failed'))
+ assert.equal(feedbackOf(p,'seconds').canOverride,false)
+ const records=recordStore(e.home,e.id), task=(await records.list('tasks'))[0]
+ const originals=await Promise.all(task.artifacts.filter(a=>a.target==='seconds-response').map(a=>records.read('artifacts',a.artifactId)))
+ assert.equal(originals.length,2)
+ assert.ok(originals.every(a=>a.content.text===text))
+ const review=task.steps.find(s=>s.kind==='review')
+ assert.ok(review.reasons.some(r=>r.includes('S01')))
+ assert.ok(review.reasons.some(r=>r.includes('S02')))
+})
+
+test('missing beat fields are retained and render as raw JSON rather than crashing', async t => {
+ const e=await environment(t), raw=JSON.parse(output);let generated=0
+ delete raw.shots[1].beats[0].dialogueIds
+ const text=JSON.stringify(raw)
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:++generated===1?text:JSON.stringify({shots:[raw.shots[1]]})})}),/dialogueIds/)
+ const saved=await e.read(),second=saved.shots.items[1]
+ assert.deepEqual(second.seconds.content,raw.shots[1])
+ assert.match(secondsText(second.seconds.content),/第二镜接续动作/)
+ assert.equal(second.seconds.check.passed,false)
+ assert.equal(saved.shots.items[0].seconds.check.passed,true)
+ assert.ok(second.seconds.check.failures.some(reason=>reason.includes('S02') && reason.includes('dialogueIds')))
+})
+
+test('single-shot seconds keep invalid generated content and leave the other shot untouched', async t => {
+ const e=await environment(t), before=await e.read()
+ const text=secondsResponse([['S01',4,'单镜失败正文']])
+ await runOperation(e.op('shot-seconds',{track:'S01'}),{home:e.home,generateShotSeconds:options=>generateShotSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:text})}).catch(error=>{
+  assert.match(error.message,/自检|自审/)
+ })
+ const after=await e.read()
+ assert.equal(after.shots.items[0].seconds.content.beats[0].action,'单镜失败正文')
+ assert.equal(after.shots.items[0].seconds.check.passed,false)
+ assert.deepEqual(after.shots.items[1].seconds.content,before.shots.items[1].seconds.content)
+})
+
+test('truncated original responses remain accessible as task artifacts', async t => {
+ const e=await environment(t), text=output.slice(0,-8)
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:text})}),/完整JSON/)
+ const records=recordStore(e.home,e.id), task=(await records.list('tasks'))[0]
+ const responses=await Promise.all(task.artifacts.filter(a=>a.target==='seconds-response').map(a=>records.read('artifacts',a.artifactId)))
+ assert.equal(responses.length,2)
+ assert.ok(responses.every(a=>a.content.text===text))
+})
+test('部分保存后提交修改：意见含失败镜头原因，已保存镜头作基稿，修订结果整集保存', async t => {
+ const e=await environment(t)
+ const broken=secondsResponse([['S01',5,'【旅人|C01】第一镜动作'],['S02',4,'时长错']])
+ await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill})=>skill==='review'?reviewPass:broken})}),/自审未通过/)
+ const calls=[]
+ await runOperation(e.op('seconds',{generationMode:'modify',review:''}),{home:e.home,generateAllSeconds:options=>generateAllSeconds({...options,request:async ({skill,user})=>{calls.push({skill,user});return skill==='review'?reviewPass:secondsResponse([['S01',5,'【旅人|C01】第一镜动作'],['S02',5,'第二镜修好']])}})})
+ const generation=calls.find(c=>c.skill!=='review').user
+ assert.match(generation,/S02 节拍总时长4000ms，应为5000ms/); assert.match(generation,/第一镜动作/)
+ const p=await e.read()
+ assert.ok(p.shots.items.every(s=>s.seconds.content && s.seconds.check.passed===true))
+ assert.equal(p.shots.items[1].seconds.content.beats[0].action,'第二镜修好')
 })

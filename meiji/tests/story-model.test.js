@@ -55,6 +55,79 @@ test('outline rule headings preserve supplement source metadata without mutating
   assert.ok(!model.toGenerateMessages()[0].content.includes('【补充规则】'))
 })
 
+for (const [kind, label] of [['characters', '人物角色'], ['scenes', '场景']]) {
+  test(`${kind}: actual requests separate task, current outline, style, rules and opinions`, () => {
+    const project = { ...episodeFixture(), episodeId: 'EP01', title: 'UNNEEDED_TITLE', episodeNumber: 8, durationSeconds: 38, aspectRatio: '999x555',
+      projectSummary: 'UNRELATED_PROJECT_SUMMARY', script: 'UNRELATED_SCRIPT', previousEpisodeSummary: 'UNRELATED_PREVIOUS', nextEpisodeSummary: 'UNRELATED_NEXT',
+      style: '写实电影', supplementalSkills: { [kind]: [{ id: 'one', content: 'CURRENT_NODE_RULE' }], outline: [{ id: 'other', content: 'OTHER_NODE_RULE' }] },
+      skills: { assets: { outline: [{ id: 'guide', name: '参考动作', guidanceType: 'action', content: 'UNRELATED_ASSET' }] } } }
+    project.plot.outline.content = 'APPROVED_CURRENT_OUTLINE'
+    project.plot[kind].items[0].name = 'OLD_CARD_NAME'
+    project.summary.content = 'UNRELATED_EPISODE_SUMMARY'
+    for (const outputLanguage of ['zh-CN', 'en']) for (const generationMode of ['generate', 'regenerate', 'modify']) {
+      project.outputLanguage = outputLanguage
+      checkContext.run({ generationMode, requestedMode: generationMode, originalProject: project, review: 'HUMAN_OPINION' }, () => {
+        const prompts = buildStoryPrompts(project, kind)
+        const revised = prompts.revision('LATEST_FAILED_CARDS', reviewFail('LATEST_AUDIT_ISSUE'))
+        const reviewed = prompts.review('LATEST_CARDS')
+        const reReviewed = prompts.review('REPAIRED_CARDS', { baseContent: 'LATEST_FAILED_CARDS', revisionOpinion: reviewFail('LATEST_AUDIT_ISSUE'), revisionReview: true })
+        for (const request of [prompts.generation, revised, reviewed, reReviewed]) {
+          assert.equal(request.json, true)
+          assert.equal((request.user.match(/【本次任务】/g) || []).length, 1)
+          const task = request.user.split('【本次任务】\n')[1].split('\n\n')[0]
+          assert.equal(task.split('\n').length, 1)
+          assert.match(task, new RegExp(`本集已通过大纲.*${label}资料`))
+          assert.doesNotMatch(task, /画外|空间|去重|landmark|items|保留未涉及|不改写/)
+          assert.match(request.user, /【核心输入：本集已通过大纲】\nAPPROVED_CURRENT_OUTLINE/)
+          assert.match(request.user, /【本次参数】\n项目风格：写实电影/)
+          assert.ok(request.user.indexOf('【核心输入：本集已通过大纲】') < request.user.indexOf('【本次参数】'))
+          assert.doesNotMatch(request.user, /【本次目标】|【审核目标】|【事实边界】|阶段：|UNNEEDED_TITLE|999x555|第 8 集|38 秒|UNRELATED_/)
+          assert.match(request.system, /【补充规则】\n/)
+          assert.equal((request.system.match(/CURRENT_NODE_RULE/g) || []).length, 1)
+          assert.doesNotMatch(request.user, /CURRENT_NODE_RULE/)
+          assert.doesNotMatch(request.system, /OTHER_NODE_RULE|UNRELATED_ASSET|指导素材编排规则|本节点补充要求/)
+          assert.match(request.system, outputLanguage === 'en' ? /本次生成语言：English/ : /本次生成语言：简体中文/)
+        }
+        if (generationMode === 'modify') {
+          assert.match(prompts.generation.user, /【修改基稿】/)
+          assert.match(prompts.generation.user, /OLD_CARD_NAME|HUMAN_OPINION/)
+          assert.match(revised.user, /HUMAN_OPINION/)
+        } else {
+          assert.doesNotMatch(prompts.generation.user + reviewed.user + revised.user, /OLD_CARD_NAME|HUMAN_OPINION/)
+          assert.match(prompts.generation.system, /不沿用旧卡片或历史意见/)
+        }
+        assert.match(revised.user, /【最新失败稿（唯一修改基准）】\nLATEST_FAILED_CARDS/)
+        assert.match(revised.user, /LATEST_AUDIT_ISSUE/)
+        assert.doesNotMatch(revised.user, /OLD_CARD_NAME/)
+        assert.match(revised.system, /返回完整卡片集合/)
+        assert.match(reviewed.system, /【审核标准】/)
+        assert.doesNotMatch(reviewed.system, /【本次输出协议】/)
+        assert.match(reReviewed.user, /LATEST_FAILED_CARDS|LATEST_AUDIT_ISSUE|REPAIRED_CARDS/)
+      })
+    }
+    const otherEpisode = { ...project, episodeId: 'EP02', supplementalSkills: { [kind]: [{ id: 'two', content: 'OTHER_EPISODE_RULE' }] }, style: '' }
+    const request = buildStoryPrompts(otherEpisode, kind).generation
+    assert.match(request.system, /OTHER_EPISODE_RULE/)
+    assert.doesNotMatch(request.system, /CURRENT_NODE_RULE/)
+    assert.doesNotMatch(request.user, /【本次参数】/)
+  })
+
+  test(`${kind}: protocol example passes the actual card normalizer`, async () => {
+    const { normalizeCharacters, normalizeScenes } = await import('../server/generate/story.js')
+    const model = kind === 'characters' ? new StoryCharacterModel() : new StorySceneModel()
+    const example = model.outputProtocol.split('示例（仅示范格式）：\n')[1]
+    const raw = JSON.parse(example)
+    assert.deepEqual(Object.keys(raw), ['items'])
+    const result = (kind === 'characters' ? normalizeCharacters : normalizeScenes)(raw)
+    assert.equal(result.items[0].name, raw.items[0].name)
+    if (kind === 'characters') {
+      assert.equal(raw.items[0].look.split('\n').length, 10)
+      assert.match(result.items[0].look, /国籍：中国.*姓名：旅人.*面相：方脸，浓眉/)
+    }
+    assert.match(model.outputProtocol, /顶层仅含 items|字符串内换行/)
+  })
+}
+
 test('outline merges task and target, uses current summary, and limits parameters to duration and style', () => {
   const project = { ...episodeFixture(), title: 'UNNEEDED_TITLE', episodeNumber: 8, aspectRatio: '999x555', durationSeconds: 38, style: '写实电影',
     projectSummary: 'PROJECT_REFERENCE', script: 'SCRIPT_REFERENCE', previousEpisodeSummary: 'PREVIOUS_FACT', nextEpisodeSummary: 'FOLLOWING_DIRECTION' }
@@ -107,7 +180,8 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
     for (const automatic of [false, true]) {
       const review = model.toReviewMessages({ content: 'RESULT', automatic })
       assert.match(review[0].content, /【本次审核协议】/)
-      assert.match(review[1].content, /【审核目标】/)
+      if (kind === 'outline') assert.match(review[1].content, /【审核目标】/)
+      else assert.match(review[1].content, /【本次任务】\n依据本集已通过大纲审核最新/)
       assert.doesNotMatch(review[1].content, /仅生成本集完整剧情大纲|返回人物 items|返回无人物的环境卡 items/)
       assert.doesNotMatch(review[0].content, /JSON 字符串里的换行正确转义/)
     }
@@ -345,12 +419,14 @@ test('outline section structure is checked deterministically and repairs the lat
  assert.equal(result.check.passed,true);assert.match(calls[2].user,/大纲正文结构/);assert.equal(calls.length,10)
 })
 
-test('extraction tasks and review explicitly distinguish offscreen voice and empty scenery',()=>{
- const project=episodeFixture()
- const character=new StoryCharacterModel({project})
- const scene=new StorySceneModel({project})
- for(const request of [character.toGenerateMessages(),character.toReviseMessages({baseContent:'BASE',opinion:'OPINION'}),character.toReviewMessages({content:'LATEST'})])assert.match(request.map(m=>m.content).join('\n'),/全程只有电话或画外声音/)
- for(const request of [scene.toGenerateMessages(),scene.toReviseMessages({baseContent:'BASE',opinion:'OPINION'}),scene.toReviewMessages({content:'LATEST'})])assert.match(request.map(m=>m.content).join('\n'),/不写人物、剪影、身体部位/)
+test('extraction rules and review distinguish offscreen voice and empty scenery in system only',()=>{
+ for (const kind of ['characters', 'scenes']) {
+  const prompts = buildStoryPrompts(episodeFixture(), kind)
+  for (const request of [prompts.generation, prompts.revision('BASE', reviewFail('OPINION')), prompts.review('LATEST')]) {
+   assert.match(request.system, kind === 'characters' ? /画外声音.*不出镜|画外声音、全程不出镜/ : /人物、人群、剪影、手、脸/)
+   assert.doesNotMatch(request.user, /全程只有电话或画外声音|不写人物、剪影、身体部位|【事实边界】/)
+  }
+ }
 })
 
 test('new semantic review failure clears old execution errors', async t => {

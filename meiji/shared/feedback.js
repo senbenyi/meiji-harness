@@ -1,4 +1,12 @@
 import { targetNode, emptyCheck, emptyReview, node, aggregateStatus, GenerationStatus } from './drama-model.js'
+import { validateSeconds } from './seconds-content.js'
+
+function validSeconds(project, shotId) {
+  const shots = (project.shots?.items || []).filter(shot => !shotId || shot.id === shotId)
+  return shots.length > 0 && shots.every(shot => {
+    try { validateSeconds(shot.seconds.content, shot, project); return true } catch { return false }
+  })
+}
 // 按原文去重，不把跨镜错误重复复制为每镜意见。
 export const uniqueFeedback = values => [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))]
 export function scopedCheck(check, shotId) {
@@ -35,7 +43,8 @@ export function feedbackOf(project, target) {
     const errors = shots.filter(shot => shot.seconds.error).map(shot => `${shot.id}：${shot.seconds.error}`)
     const status = group.operation || group.status === GenerationStatus.PAUSED ? group.status
       : group.status === GenerationStatus.FAILED || group.error || group.check?.passed === false ? GenerationStatus.FAILED : aggregateStatus(shots.map(shot => shot.seconds))
-    return { ...group, canModify: shots.length > 0 && shots.every(shot => Boolean(shot.seconds.content)), status,
+    // 失败正文也可修订；只有程序格式检查通过时才可忽略模型的语义审核。
+    return { ...group, canModify: shots.some(shot => Boolean(shot.seconds.content)), canOverride: validSeconds(project), status,
       check: { passed: failures.length || group.check?.passed === false ? false : shots.length && shots.every(shot => shot.seconds.check.passed === true) ? true : null, failures },
       error: group.error || errors.join('；') || null }
   }
@@ -69,6 +78,7 @@ export function overrideBlocker(project, key) {
     if (value.stale) return '内容已过期，请重新生成'
     if (value.check.revision != null && value.check.revision !== value.revision) return '自审结论不属于当前版本，请重新生成'
     if (!hasText(item, value)) return '内容为空或格式错误，不能忽略，请重新生成'
+    if (item.split(':')[0] === 'seconds' && !validSeconds(project, item.split(':')[1])) return '每秒指令格式错误，不能忽略，请修正后重新审核'
   }
   return null
 }

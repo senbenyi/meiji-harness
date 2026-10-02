@@ -38,7 +38,7 @@ meiji/
 ├── shared/                 # 前后端共用的领域模块（平铺，浏览器经 /plugins/meiji/shared/ 加载）
 │   ├── drama-model.js      # 剧集数据模型（schemaVersion 2）
 │   ├── gates.js            # 制作门禁：各阶段能否生成（canGenerate、gateOf、hasX）
-│   ├── episode-summary.js  # 摘要非空且最多 300 字、参考时长与 ±20 秒范围，前后端统一口径
+│   ├── episode-summary.js  # 剧集摘要非空校验与字数统计（无上限）、用户时长校验，前后端统一口径
 │   ├── project-rules.js    # 时长/画幅规范化、上游变化时清理下游
 │   ├── steps.js            # 步骤状态、任务状态推导 deriveTaskStatus、按目标分组、顺序执行器 executeSteps
 │   └── feedback.js（审核结论、人工忽略自审规则）、shot-timing.js、reference-images.js、video-prompt-text.js、tail-frame.js、guidance.js
@@ -113,7 +113,9 @@ http / tools → flow → generate → prompts → data → models
 
 视频任务依次执行「提交视频 → 生成并保存视频 → 提取尾帧」。尾帧依赖本机 FFmpeg，提取失败时任务明确失败、保留已保存视频；`tail-frame` 可单独重试。整集/逐镜制作遇到已完成视频缺少当前版本尾帧时补提取，不重复提交视频。
 
-每秒分镜由模型一次返回整集 shots JSON（version:1），程序审核镜头集合、实体标记、毫秒时长与对白事件，模型审核语义，最多自动修订一次；有明确失败镜头时仅修订该范围并由程序合并。`shared/seconds-content.js` 同时负责校验与可读正文。`shared/entity-references.js` 提供【名字|ID】目录，ID不依赖图片。
+每秒分镜由模型一次返回整集 shots JSON（version:1），程序审核镜头集合、实体标记、毫秒时长与对白事件，模型审核语义，最多自动修订一次；有明确失败镜头时仅修订该范围并由程序合并。`shared/seconds-content.js` 同时负责校验与可读正文。`shared/entity-references.js` 提供按人物/场景/道具分组的实体目录，正文统一写作「名字【名字|ID】」（镜头表标题行除外），渲染与校验前用 collapseMentions 收拢；ID不依赖图片。
+
+每秒指令修订由 `prompts/seconds-feedback.js` 解码已有审核原因并分出程序与语义问题、精确去重，人工意见独立读取本轮输入。TextStepModel 在生成、修订、复审中组装基稿与三类意见，明确同编号镜头表优先；Model 决定输出范围，generateAllSeconds 仅合并结果。语义修订范围读取 location，程序问题读取实际校验原因中的镜头；无法明确定位时覆盖整集，不从修正建议中猜镜头。
 
 `server/prompts/video-prompt-renderer.js` 直接将已通过的每秒分镜编译为有图六字段或无图三字段；不调用模型重写，保留动作、机位、空间、段末状态和唯一对白。`referenceSnapshot` 冻结 Picture 顺序，Subject 标识实体；服装共享所属角色 Subject，武器等独立。`sourceMap` 记录来源，人工编辑后移除。人工编辑仍进行程序格式审核与模型语义审核。剧情修改意见在每秒分镜提交，最终提示词支持直接编辑。图片仅在视频提交时读取本地文件并按冻结顺序转 Base64；版本或素材变化要求重新组装。
 
@@ -146,7 +148,7 @@ storages/meiji/
 ## 5. 摘要草稿与请求边界
 
 - 剧集弹框先填参考时长（默认 150 秒），可在摘要为空时发起 `episode-summary-draft`；复用任务队列、步骤、取消、历史。结果保存为未发布 artifact，`latestOutputs` 指向 `summary-draft`；不改项目文件。保存按钮才调用 episode-add/edit。
-- 总摘要、参考时长与全部前集摘要决定本集；后集仅作衔接约束。AI 决定实际时长（参考值 ±20 秒，1–86400 秒域内），摘要最多 300 个非空白 Unicode 字符，标点计入。规则违规与语义审核合并，最多自动修订一次；无效摘要不落入剧集。
+- 总摘要、用户时长与全部前集摘要决定本集；后集仅作衔接约束。时长保持用户设定值（1–86400 秒），剧集摘要必须非空、不设字数上限；生成、审核、手工编辑与 source 保存口径一致，页面仅统计字数，不按字数推断时长。规则违规与语义审核合并，最多自动修订一次；无效摘要不落入剧集。项目总摘要仍保持原 10000 字上限。
 - 摘要基础生产规则在 `skills/task/generate-episode-summary-skill.md`；生成与审核共用，修订增加基稿和意见，身份与输出协议由 Model 代码编排。
 - 所有外部生成请求在 `gateway.js` 发出前校验地址、密钥及当前生成模型；轮询/下载不要求生成模型。第三方图片下载不附网关密钥。删除缺密钥时的 ComfyUI 隐式回退。
 
@@ -155,16 +157,19 @@ storages/meiji/
 - 大纲生成与修订直接返回七小节纯文本，不输出 JSON 或 outline 字段；审核与修改基稿也直接使用正文，保存到已有 plot.outline.content 字符串，无存储结构迁移。人物、场景提取仍分别返回 items JSON。
 - 剧情操作依次执行大纲、提取人物、提取场景、提取道具四组文本步骤，各自独立调用生成、审核，失败最多自动修订一次；前项未通过停止后项。
 - 提取使用本轮审核通过后的最终大纲，不带旧卡片基稿或旧意见；单独按意见修改卡片时只修改该类资料。
+- 人物/场景 Model 将任务与目标合并，user 依次提供核心大纲、风格参数、修订基稿与意见；不携带大纲阶段的指导素材。基础规则、当前节点补充、语言及完整 items 输出协议进入 system，审核独立编排并只验收该类最新卡片。
 - 草稿逐阶段保存，已通过阶段不会被后项错误或取消改判失败。未提取卡片保留原素材但标过期；镜头及后续资料清空。
 - 任务计划按 outline、characters、scenes、props 分组；持久化历史继续保存 story 聚合快照，审核结果按四项聚合。
 
-人物/场景图片 UI：`character.js` 人物列表只进入详情，`stages.js` 场景列表只进入详情；`asset-cards.js` 详情编辑器统一管理生图、素材和确认，标题旁提供图片任务历史与对应基础 skill。`session.js` 将已有候选提示导向详情，独立图片确认组件供道具、铅笔分镜等图片流程使用。人物详情不再提供服装/坐骑/道具/发型附属图片生成。
+人物/场景图片 UI：`character.js`、`asset-cards.js` 列表图片下方支持默认文生图，按当前剧集和卡片匹配候选，卡片内预览并确定或放弃；生成中两按钮禁用。人物详情主图在左、参考图在中、操作在右；只有一个 AI生成按钮，有参考图自动走多图生成单图接口，无参考图走文生图，右侧同时提供画幅、图片管理、确定/放弃、任务历史及 skill。场景详情保持既有入口。`session.js` 在当前剧情列表直接展示候选，其余页面保留进入详情提示。列表与详情复用 `image-review.js` 的确认动作；独立图片确认组件供道具、铅笔分镜等流程使用。人物详情不再提供服装/坐骑/道具/发型附属图片生成。
+
+图片实际请求由 CharacterImageModel / SceneImageModel 编排，角色只写身份，任务、核心卡片资料、画幅参数、参考图片、修改意见、基础/补充规则与输出协议各自分区，无独立资料边界。文生图、参考图、原图修改及模板预览共用 Model；人物模板资料通过 toSegments 的 factsText 参数赋值。Base64 仅另传图片接口，不进入 prompt。
 
 ## 7. 统一 AI 审核协议
 
 所有 AI 审核和复审共用 `shared/review-result.js` 的协议，启用 JSON 请求模式，返回 `{passed, issues}`；每项问题为非空 `location/reason/requirement`。通过必须空问题，未通过必须有问题。执行器严格校验，不接受旧 PASS/FAIL 文本、围栏或相互矛盾的结论。各流程通过可选 check 和 prompts.review 分别声明程序审核与模型审核，无需用户开关；可只运行一种或均不运行。两种来源在同一自审步骤的 attempts 分别记录。程序校验问题并入结构化问题，自动修订及复审接收同一份 JSON 意见，最多修订一次。已有节点 `check.failures` 和任务步骤 `reasons` 保存可读的位置/原因/修正要求，页面按现有展示入口逐项显示。审核响应协议错误是执行失败，不伪装成审核未通过，不触发修订、不覆盖已保存草稿；无存储结构变更，无历史数据迁移。
 
-整集每秒分镜动态注入全部镜头 ID 与时长清单，JSON shots 必须完全覆盖；每镜节拍使用正整数 durationMs，程序累计起止时间。dialogues 独立保存台词，beat 只引用事件 ID；ambient、music 保存带时间的声音事件。界面渲染可读正文。旧自由文本由 migrate-seconds-content.js 先备份后保留 archivedContent，标记后续产物过期，需重新生成每秒分镜。
+整集每秒分镜动态注入全部镜头 ID 与时长清单，JSON shots 必须完全覆盖；每镜节拍使用正整数 durationMs，程序累计起止时间。dialogues 独立保存台词，beat 只引用事件 ID；ambient、music 保存带时间的声音事件。镜头清单唯一对应上游时，全部镜头正文都保存，逐镜校验错误汇总并保留失败状态；失败卡片显示正文与原因，结构损坏时展示原 JSON。生成与自动修订的原始响应以 seconds-response 任务快照保存，无法解析或匹配的响应也可在历史查看，不覆盖旧镜头。格式错误不能人工放行到下游。旧自由文本由 migrate-seconds-content.js 先备份后保留 archivedContent，标记后续产物过期，需重新生成每秒分镜。
 
 道具保存在 plot.props，分类 clothing/mount/weapon/accessory/prop，字段 name/category/description/ownerId/evidence；程序分配稳定 P 编号，不要求参考图。道具由 story-model.js 的 props 配置编排，规则为 extract-story-props-skill.md，审核为 review-story-props-skill.md。允许空集合通过，道具审核纳入镜头表门禁，人物/场景/道具 ID 按名称保留，新增 ID 递增。
 

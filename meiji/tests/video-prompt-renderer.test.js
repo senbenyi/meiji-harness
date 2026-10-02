@@ -60,3 +60,14 @@ test('compiled Picture order is the exact local base64 order and changed images 
  p.plot.characters.items[0].image.content=p.plot.scenes.items[0].image.content
  assert.throws(()=>filmSubmit(p,item,{}),/参考素材已变化/)
 })
+test('「名字【名字|ID】」写法通过校验，渲染时名字不重复，未标记名字仍报错', () => {
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content
+ c.beats[0].action='旅人【旅人|C01】沿庭院【庭院|E01】朝北行走'
+ assert.doesNotThrow(()=>validateSeconds(c,s,p))
+ const text=compileVideoPrompt(p,s).prompt.text
+ assert.match(text,/旅人沿庭院朝北行走/); assert.doesNotMatch(text,/旅人旅人|庭院庭院|【/)
+ p.plot.characters.items[0].image.content={assetId:'person',assetCategory:'characters',localPath:'/person.png'}
+ assert.match(compileVideoPrompt(p,s).prompt.text,/<Subject 1>（旅人）沿<Subject 2>（庭院）朝北行走/)
+ c.beats[0].action='旅人沿庭院【庭院|E01】朝北行走'
+ assert.throws(()=>validateSeconds(c,s,p),/旅人须写为旅人【旅人\|C01】/)
+})

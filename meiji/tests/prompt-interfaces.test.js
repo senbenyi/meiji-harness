@@ -75,10 +75,10 @@ test('图片接口与预览使用同一基础规则，旧的本剧覆盖不再�
     const set = builtinSkillSet({ additions: { [stage]: { generate: '本剧补充' } } })
     set.skills[stage].constraints = `基础规则：${stage}`
     const actual = executionContext.run({ skillSet: set, skills: new Map() }, () => imageSkillPrompt(stage, '画面', project))
-    assert.ok(stage === 'scene-image' ? actual.includes(`【生成规则】\n基础规则：${stage}`) : actual.includes(`【基础生产规则】\n基础规则：${stage}`))
+    assert.ok(stage === 'scene-image' ? actual.includes(`【基础规则】\n基础规则：${stage}`) : actual.includes(`【基础生产规则】\n基础规则：${stage}`))
     assert.doesNotMatch(actual, /本剧补充/)
     const preview = previewPrompts({ stage, root: project, skillSet: set }).image
-    assert.ok(stage === 'scene-image' ? render(preview.user).includes(`【生成规则】\n基础规则：${stage}`) : render(preview.user).includes(`【基础生产规则】\n基础规则：${stage}`))
+    assert.ok(stage === 'scene-image' ? render(preview.user).includes(`【基础规则】\n基础规则：${stage}`) : render(preview.user).includes(`【基础生产规则】\n基础规则：${stage}`))
     assert.equal(preview.chars, render(preview.user).length)
   }
 })

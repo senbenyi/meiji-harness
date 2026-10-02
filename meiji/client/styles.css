@@ -336,7 +336,7 @@ dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min
 /* 人物详情：主图 / 参考图主次 */
 .character-studio .studio-toolbar{padding-bottom:8px;border-bottom:1px solid #2e3038}
 .character-studio .studio-stage{gap:12px;padding:12px}
-.character-studio .studio-pair{grid-template-columns:minmax(0,1fr) 168px;gap:14px;align-items:start}
+.character-studio .studio-pair{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 112px;gap:10px;align-items:start}
 .character-studio .studio-pane{gap:8px;padding:10px;border-radius:12px}
 .character-studio .studio-pane.is-main{border:1px solid #4a3f2c;background:#15161b}
 .character-studio .studio-pane.is-reference{border:1px dashed #3a3d46;background:transparent}
@@ -348,7 +348,15 @@ dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min
 .is-reference .studio-badge{background:#2a2c33;color:#9b9fab}
 .is-reference .studio-caption-title strong{color:#b9bdc7}
 .studio-note{margin:-2px 0 0;font-size:11px;line-height:1.5;color:#7d828e}
-.character-studio .studio-caption .studio-aspect{flex:none}
+.character-studio .studio-tools{display:grid;align-content:start;gap:10px;min-width:0}
+.character-studio .studio-tools>.primary{width:100%;margin:0}
+.character-studio .studio-tools .studio-aspect{display:grid;gap:4px}
+.character-studio .studio-tools .studio-aspect select{width:100%;min-width:0;box-sizing:border-box}
+.character-studio .studio-tools .studio-actions,.character-studio .studio-tools .story-node-actions{display:grid;gap:6px}
+.character-studio .studio-tools .studio-actions button,.character-studio .studio-tools .story-node-actions button{width:100%;min-width:0;margin:0;white-space:normal;overflow-wrap:anywhere}
+.character-studio .studio-tools .detail-image-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}
+.character-studio .studio-caption-title{flex-wrap:wrap}
+.character-studio .studio-caption-title strong{white-space:normal;overflow-wrap:anywhere}
 .character-studio .is-main .studio-frame{height:320px;background:#0e0f12}
 .character-studio .is-main .studio-frame button.asset-still,.character-studio .is-main .studio-frame button.asset-still img{height:320px}
 .character-studio .is-main .studio-frame button.asset-placeholder{width:180px;height:320px}
@@ -357,9 +365,7 @@ dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min
 .character-studio .is-reference .studio-frame button.asset-placeholder{width:100%;height:200px;font-size:24px}
 .character-studio .studio-actions{gap:6px}
 .character-studio .studio-actions button{padding:5px 10px}
-.character-studio .is-reference .studio-actions{flex-direction:column}
-.character-studio .is-reference .studio-actions button{width:100%}
-@container workbench (max-width:520px){.character-studio .studio-pair{grid-template-columns:minmax(0,1fr)}.character-studio .is-main .studio-frame,.character-studio .is-main .studio-frame button.asset-still,.character-studio .is-main .studio-frame button.asset-still img{height:260px}.character-studio .is-reference .studio-actions{flex-direction:row}.character-studio .is-reference .studio-actions button{width:auto}}
+@container workbench (max-width:520px){.character-studio .studio-pair{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) 96px;gap:6px}.character-studio .studio-pane{padding:6px}.character-studio .is-main .studio-frame,.character-studio .is-main .studio-frame button.asset-still,.character-studio .is-main .studio-frame button.asset-still img{height:240px}.character-studio .is-reference .studio-frame,.character-studio .is-reference .studio-frame button.asset-still,.character-studio .is-reference .studio-frame button.asset-still img,.character-studio .is-reference .studio-frame button.asset-placeholder{height:160px}.character-studio .studio-tools .studio-actions button,.character-studio .studio-tools .story-node-actions button{padding:5px 4px;font-size:11px}}
 
 /* 生成按钮 + 查看任务 + 停止：运行中作为一个整体显示在同一行 */
 .task-group{display:inline-flex;align-items:stretch;flex:none;max-width:100%;vertical-align:middle}
@@ -373,3 +379,27 @@ dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min
 .task-group-stop{color:#f0a0a0}
 .task-group-stop:hover{background:#3d2528;color:#ffb3b3}
 .task-group-extra:focus-visible{outline:2px solid #dfc196;outline-offset:-2px}
+
+/* 列表卡片左侧图片和快捷生图、右侧资料；生成按钮独立于详情按钮。 */
+.character-card{grid-template-columns:auto minmax(0,1fr);align-items:start}
+.character-card-media{display:grid;gap:8px;width:88px;min-width:0}
+.character-card .character-open{align-items:flex-start}
+.character-card-title{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+button.character-portrait-open,button.scene-card-preview{display:block;width:100%;margin:0;padding:0;border:0;border-radius:6px;background:none;overflow:hidden}
+button.character-portrait-open:hover,button.scene-card-preview:hover{background:none}
+.character-card-media .character-thumb{width:100%;margin:0}
+.card-image-generate{width:100%;margin:0;padding:6px 8px;font-size:12px}
+.card-image-error{margin:0;font-size:12px;overflow-wrap:anywhere}
+.card-image-review{margin:0;padding:0;border:0;min-width:0}
+.card-image-review .detail-image-status{margin:0;font-size:11px}
+.card-image-review .detail-image-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.card-image-review .detail-image-buttons button{width:100%;margin:0;padding:6px 2px;font-size:12px}
+.card-image-review .detail-image-error{margin:0;font-size:11px;overflow-wrap:anywhere}
+.scene-card-image .card-image-review{margin:0 10px}
+.scene-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.scene-card-image{display:grid;gap:8px;min-width:0;padding-bottom:10px}
+.scene-card-image .card-image-generate,.scene-card-image .card-image-error{width:calc(100% - 20px);margin:0 10px}
+.scene-card>button.scene-card-open{display:block}
+button.scene-card-preview{border-radius:0}
+button.character-portrait-open:focus-visible,button.scene-card-preview:focus-visible{outline:2px solid #dfc196;outline-offset:-2px}
+@media(max-width:600px){.character-card-media{width:72px}}

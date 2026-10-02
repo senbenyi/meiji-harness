@@ -65,7 +65,9 @@ export async function prepareChecks(store, project, operation) {
       return [...(value.check.passed === false ? value.check.failures : []), operation.review ?? operation.instruction ?? (operation.action === 'seconds' ? project.shots.seconds?.review.text : value.review.text)]
     }).filter(value => String(value || '').trim())
     const originals = (operation.action === 'outline' ? ['outline'] : keys(project, operation)).map(key => originalData(project, key))
-    if (!reasons.length || !originals.length || (!matchingCandidate && originals.some(value => !value))) {
+    // 整集每秒指令允许部分保存：至少一镜有原内容即可修改，缺失的镜头随意见一起补齐。
+    const missing = operation.action === 'seconds' ? originals.every(value => !value) : originals.some(value => !value)
+    if (!reasons.length || !originals.length || (!matchingCandidate && missing)) {
       throw Object.assign(new Error('修改需要原来的数据，以及自审意见或人工意见之一'), { status: 400 })
     }
   }

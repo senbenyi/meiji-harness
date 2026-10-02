@@ -1,4 +1,3 @@
-import { summaryLength, summaryLimit } from '../../shared/episode-summary.js'
 import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from '../../shared/drama-model.js'
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, readFile, readdir, rm } from 'node:fs/promises'
@@ -24,7 +23,7 @@ export function foldEpisode(project, episodeId, view) {
 
 function episodeSummary(raw) {
   const summary = typeof raw === 'string' ? raw.trim() : ''
-  if (!summary || summaryLength(summary) > summaryLimit) throw Object.assign(new Error('本集剧情摘要需为 1–300 字（不计空白，标点计入）'), { status: 400 })
+  if (!summary) throw Object.assign(new Error('本集剧情摘要必须为非空字符串'), { status: 400 })
   return summary
 }
 

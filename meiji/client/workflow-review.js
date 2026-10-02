@@ -14,8 +14,9 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     if (actionButton) actionButton.textContent = '重新生成'
   }
   if (failed) area.classList.add('workflow-review-failed')
-  if (record?.error) area.append(element('p', `执行未通过：${record.error}`, 'hint warn'))
   const failures = check?.passed === false ? (check.failures || []).filter(Boolean) : []
+  const reviewError = /^(自检|自审)未通过/.test(record?.error || '')
+  if (record?.error && !(reviewError && failures.length)) area.append(element('p', `执行未通过：${record.error}`, 'hint warn'))
   if (failures.length) area.append(element('p', `自审未通过：${failures.join('；')}`, 'hint warn workflow-review-failures'))
   else if (check?.passed === false && !record?.error) area.append(element('p', '自审未通过，请查看任务历史中的审核详情。', 'hint warn workflow-review-failures'))
   if (!generated) area.append(element('p', '本次尚未保存可用内容，请查看任务历史中的执行详情，再重新生成。', 'hint'))
@@ -23,7 +24,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   const override = overriddenBy(record)
   if (override) area.append(element('p', `人工放行${override.reasons?.length ? `（原自审意见：${override.reasons.join('；')}）` : ''}`, 'hint workflow-review-overridden'))
   let ignore = null
-  if (generated && failures.length && !busy && overridable(record)) {
+  if (generated && failures.length && !busy && overridable(record) && record.canOverride !== false) {
     ignore = element('button', '忽略并通过', 'workflow-review-override')
     ignore.type = 'button'
     ignore.title = '不采纳本次自审意见，视为通过；原自审意见保留在记录中'
