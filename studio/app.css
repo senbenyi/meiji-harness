@@ -125,6 +125,50 @@ body { display: flex; flex-direction: column; }
   .topbar-bar { flex-wrap: wrap; min-width: 0; }
 }
 
+/* 画布内部的制作阶段二级页签；只切换现有节点视图，不改变 Harness 一级 tab。 */
+.stage-tabs {
+  display: flex;
+  flex: none;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+.stage-tab {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 112px;
+  padding: 9px 13px 10px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+.stage-tab:first-child { border-left: 1px solid var(--border); }
+.stage-tab strong { display: block; color: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.stage-tab span { display: block; margin-top: 3px; font-size: 10px; white-space: nowrap; }
+.stage-tab:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.stage-tab[aria-selected="true"] {
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.stage-tab[aria-selected="true"]::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 2px;
+  background: var(--accent);
+}
+.stage-empty { padding: 48px 20px; text-align: center; color: var(--muted); }
+.stage-empty h2 { color: var(--text); font-size: 16px; }
+
 .btn {
   appearance: none;
   border: 1px solid var(--border);

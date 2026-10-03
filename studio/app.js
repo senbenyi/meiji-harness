@@ -1,4 +1,5 @@
 import { markdownToHtml } from './markdown.js'
+import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasStage } from './stages.js'
 
 (function () {
   'use strict'
@@ -48,6 +49,7 @@ import { markdownToHtml } from './markdown.js'
     followToggle: document.getElementById('follow-toggle'),
     addUpload: document.getElementById('add-upload'),
     addAssets: document.getElementById('add-assets'),
+    stageTabs: document.getElementById('stage-tabs'),
   }
 
   // 最新主线节点 id（渲染时记录，供空白点击 / 顶部按钮 / 跟随模式定位）
@@ -58,6 +60,30 @@ import { markdownToHtml } from './markdown.js'
   let followInited = false
   let followTimer = null
   let lastMainIds = new Set()
+  let activeStageKey = 'overview'
+  let currentProject = null
+
+  function renderStageTabs(nodes) {
+    if (!el.stageTabs) return
+    const counts = canvasStageCounts(nodes)
+    el.stageTabs.innerHTML = ''
+    for (const stage of CANVAS_STAGES) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'stage-tab'
+      button.setAttribute('role', 'tab')
+      button.setAttribute('aria-selected', stage.key === activeStageKey ? 'true' : 'false')
+      button.innerHTML = '<strong>' + stage.label + '</strong><span>'
+        + (stage.key === 'overview' ? '全部 ' : '') + counts[stage.key] + ' 项产物</span>'
+      button.onclick = () => {
+        if (activeStageKey === stage.key || !currentProject) return
+        activeStageKey = stage.key
+        render(currentProject)
+        el.canvas.scrollTop = 0
+      }
+      el.stageTabs.appendChild(button)
+    }
+  }
 
   function apiUrl(action) {
     // action 可能自带 query（如 '/canvas/node?id=…'），此时用 & 拼接，避免第二个 ? 把 sessionId 吞进参数值
@@ -861,8 +887,14 @@ import { markdownToHtml } from './markdown.js'
   }
 
   function render(project) {
+    currentProject = project
     el.canvas.innerHTML = ''
-    const nodes = [...(project.nodes || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
+    const allNodes = [...(project.nodes || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
+    renderStageTabs(allNodes)
+    const nodes = nodesForCanvasStage(allNodes, activeStageKey)
+    const allMain = allNodes.filter((node) => nodeLane(node) === 'main')
+    const allFrames = allNodes.filter((node) => nodeLane(node) === 'frames')
+    const allDiscards = allNodes.filter((node) => nodeLane(node) === 'discard')
 
     // 分区：主线（确认/待确认的现行资产）优先；抽帧与作废各自收纳到页尾折叠区
     const main = []
@@ -879,10 +911,10 @@ import { markdownToHtml } from './markdown.js'
       + (project.settings?.duration ? ' · 时长 ' + project.settings.duration : '')
       + ' · 音频 ' + (project.settings?.audioMode || 'silent')
       + ' · 档位 ' + (project.settings?.mode || 'quality')
-      + ' · 节点 ' + nodes.length
-      + (nodes.length ? '（主线 ' + main.length + (frames.length ? ' · 抽帧 ' + frames.length : '') + (discards.length ? ' · 作废 ' + discards.length : '') + '）' : '')
+      + ' · 节点 ' + allNodes.length
+      + (allNodes.length ? '（主线 ' + allMain.length + (allFrames.length ? ' · 抽帧 ' + allFrames.length : '') + (allDiscards.length ? ' · 作废 ' + allDiscards.length : '') + '）' : '')
 
-    if (nodes.length === 0) {
+    if (allNodes.length === 0) {
       const empty = document.createElement('div')
       empty.className = 'empty'
       empty.innerHTML =
@@ -900,6 +932,23 @@ import { markdownToHtml } from './markdown.js'
       el.canvas.appendChild(empty)
       latestMainNodeId = null
       lastMainIds = new Set()
+      syncLocateButton()
+      syncJump()
+      return
+    }
+
+    if (nodes.length === 0) {
+      const stage = CANVAS_STAGES.find((item) => item.key === activeStageKey)
+      const empty = document.createElement('div')
+      empty.className = 'stage-empty'
+      empty.innerHTML = '<h2>「' + stage.label + '」暂无产物</h2><p>现有画布节点不会丢失，可回到制作总览查看全部内容。</p><button class="btn" type="button">返回制作总览</button>'
+      empty.querySelector('button').onclick = () => {
+        activeStageKey = 'overview'
+        render(project)
+      }
+      el.canvas.appendChild(empty)
+      latestMainNodeId = allMain.length ? allMain[allMain.length - 1].id : null
+      lastMainIds = new Set(allMain.map((node) => node.id))
       syncLocateButton()
       syncJump()
       return
@@ -935,11 +984,11 @@ import { markdownToHtml } from './markdown.js'
 
     // 最新主线节点 = 主线里 createdAt / order 最大者（点画布空白或「最新主线」定位到它）
     let latestMain = null
-    for (const n of main) {
+    for (const n of allMain) {
       if (!latestMain || ((n.createdAt || n.order || 0) >= (latestMain.createdAt || latestMain.order || 0))) latestMain = n
     }
     latestMainNodeId = latestMain ? latestMain.id : null
-    lastMainIds = new Set(main.map((n) => n.id)) // 跟随模式轮询用：比对主线节点集合，发现新增才刷新
+    lastMainIds = new Set(allMain.map((n) => n.id)) // 跟随模式轮询用：比对主线节点集合，发现新增才刷新
     syncLocateButton()
     syncJump()
   }
@@ -1013,7 +1062,14 @@ import { markdownToHtml } from './markdown.js'
 
   /** 定位到最新主线节点（手动：空白点击 / 📍 按钮 / 跟随模式共用）。 */
   function locateLatest() {
-    if (latestMainNodeId) locateNode(latestMainNodeId)
+    if (!latestMainNodeId) return
+    if (activeStageKey !== 'overview' && currentProject) {
+      activeStageKey = 'overview'
+      render(currentProject)
+      requestAnimationFrame(() => locateNode(latestMainNodeId))
+      return
+    }
+    locateNode(latestMainNodeId)
   }
 
   // ---- 跟随最新模式（checkbox）----
@@ -1101,6 +1157,7 @@ import { markdownToHtml } from './markdown.js'
       const openLanes = [...el.canvas.querySelectorAll('details.lane[open]')]
         .map((d) => [...d.classList].find((c) => c.startsWith('lane-')))
         .filter(Boolean)
+      activeStageKey = canvasStageForNode(target) || 'overview'
       render(project)
       for (const name of openLanes) {
         const d = el.canvas.querySelector('details.' + name)
