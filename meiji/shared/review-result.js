@@ -2,10 +2,10 @@
 export const reviewProtocol = `返回一个 JSON 对象，只含 passed 和 issues 两个字段：
 - 通过时：{"passed":true,"issues":[]}
 - 未通过时：passed 为 false，issues 逐项列出每个实际问题，每项含三个字段——location（具体小节、字段或镜头编号）、reason（引用待审内容与对应的输入事实或审核标准，说明问题）、requirement（最小修正要求）。每个问题单独一项；镜头相关问题按镜头编号分别列出，跨镜问题在 location 中写明相关编号。
-issues 的文字使用本次生成语言。
+issues 的文字使用本次要求中的输出语言。
 
 示例（仅示范格式）：
-{"passed":false,"issues":[{"location":"S02 结束状态","reason":"待审稿写旅人已推门进院，但镜头表规定 S02 结束时门仍关闭","requirement":"把结束状态改为门仍关闭，推门留到 S03"}]}`
+{"passed":false,"issues":[{"location":"结尾状态","reason":"待审稿写「信已烧毁」，但输入资料要求保留信件","requirement":"保留信件并同步相关持物状态"}]}`
 
 export function parseReviewResult(text) {
   const invalid = () => new Error('审核返回格式错误：必须返回 passed 布尔值及 issues 问题数组，且结论与问题一致')

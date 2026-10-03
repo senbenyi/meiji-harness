@@ -4,7 +4,7 @@ import { finish } from '../../../../shared/drama-model.js'
 import { selectCheck } from '../../../runtime/review-checks.js'
 import { saveSecondsShot } from '../shared/seconds-results.js'
 import { generateShotSeconds } from './shot-seconds.js'
-import { textSteps, shotIds } from '../plan-steps.js'
+import { textSteps, shotIds, secondsTasks } from '../plan-steps.js'
 
 // 每镜通过后才生成下一镜，后镜读取本轮前镜最终稿。
 export async function generateAllSeconds(options) {
@@ -48,5 +48,5 @@ export async function opSeconds(c) {
 }
 
 export const operations = {
-  seconds: { label: '生成每秒指令', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(id => textSteps(`seconds:${id}`)), stage: 'episode', run: opSeconds },
+  seconds: { label: '生成每秒指令', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(id => textSteps(`seconds:${id}`)), tasks: secondsTasks, stage: 'episode', run: opSeconds },
 }

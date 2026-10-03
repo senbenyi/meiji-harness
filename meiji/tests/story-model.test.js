@@ -12,6 +12,9 @@ import { definitions } from '../server/flow/operations/operation-registry.js'
 import { runOperation } from '../server/flow/operations/run-operation.js'
 import { recordSteps } from './fixtures/steps.js'
 import { builtinSkill } from '../skills/load-skills.js'
+import { builtinSkillSet } from '../server/data/skill-store.js'
+import { previewPrompts } from '../server/prompts/preview-prompts.js'
+import { render } from '../server/prompts/skill-prompts.js'
 
 test('outline tasks only describe the action and refer to separate rule blocks', () => {
   const project = episodeFixture();project.episodeId = project.id
@@ -152,7 +155,7 @@ test('outline merges task and target, uses current summary, and limits parameter
       assert.deepEqual(promptData(user, '【后集摘要】'), 'FOLLOWING_DIRECTION')
     }
     const review = model.toReviewMessages({ content: 'LATEST_OUTLINE' })[1].content
-    assert.match(review, /【本次任务】\n依据本集摘要，核对待审大纲/)
+    assert.match(review, /【本次任务】\n审核【本次待审内容】中的本集剧情大纲/)
     assert.match(review, /CURRENT_EPISODE_EVENTS/)
     assert.doesNotMatch(review, /【本次目标】|仅生成本集完整剧情大纲/)
   }
@@ -179,7 +182,7 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
     for (const automatic of [false, true]) {
       const review = model.toReviewMessages({ content: 'RESULT', automatic })
       assert.match(review[0].content, /【本次审核协议】/)
-      if (kind === 'outline') assert.match(review[1].content, /【本次任务】\n依据本集摘要，核对待审大纲/)
+      if (kind === 'outline') assert.match(review[1].content, /【本次任务】\n审核【本次待审内容】中的本集剧情大纲/)
       else assert.match(review[1].content, /【本次任务】\n依据本集已通过大纲审核最新/)
       assert.doesNotMatch(review[1].content, /仅生成本集完整剧情大纲|返回人物 items|返回无人物的环境卡 items/)
       assert.doesNotMatch(review[0].content, /JSON 字符串里的换行正确转义/)
@@ -188,6 +191,57 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
     assert.doesNotMatch(revised[1].content + revised[0].content, /【审核目标】|【本次审核协议】/)
   })
 }
+
+test('大纲自审和复审只含四类系统规则，资料用途和基稿范围在 user', () => {
+  for (const outputLanguage of ['zh-CN', 'en']) for (const generationMode of ['regenerate', 'modify']) {
+    const project = { ...episodeFixture(), episodeId: 'EP01', outputLanguage, durationSeconds: 38, style: '写实电影',
+      projectSummary: 'PROJECT_BACKGROUND', script: 'SCRIPT_BACKGROUND', previousEpisodeSummary: 'PREVIOUS_FACT', nextEpisodeSummary: 'NEXT_BOUNDARY',
+      supplementalSkills: { outline: [{ id: 'one', content: 'CURRENT_SUPPLEMENT' }] } }
+    project.summary.content = 'CURRENT_EPISODE_SUMMARY'
+    project.plot.outline.content = outlineFixture('ORIGINAL_BASE')
+    checkContext.run({ generationMode, review: 'HUMAN_OPINION', originalProject: project }, () => {
+      const prompts = buildStoryPrompts(project)
+      const current = outlineFixture('CURRENT_DRAFT'), failed = outlineFixture('LATEST_FAILED_DRAFT')
+      const first = prompts.review(JSON.stringify(current))
+      const second = prompts.review(JSON.stringify(current), { baseContent: JSON.stringify(failed), revisionOpinion: reviewFail('CURRENT_ISSUE'), revisionReview: true })
+      for (const request of [first, second]) {
+        assert.deepEqual(request.segments.system.filter(item => item?.text).map(item => item.title),
+          ['【角色与职责】', '【审核原则】', '【审核标准】', '【补充规则】', '【本次审核协议】'])
+        assert.match(request.system, /合理省略、等义表达.*不判失败/)
+        assert.doesNotMatch(request.system, /【本次审核范围】|【待审大纲结构】|小节标题|独占一行|缺少外在目标|节拍缺少/)
+        assert.doesNotMatch(request.system, /本集摘要|项目背景|前集摘要|后集摘要|PROJECT_BACKGROUND|CURRENT_EPISODE_SUMMARY/)
+        assert.match(request.user, /【本集摘要】是本集事件依据.*【项目背景】与【剧本】仅作设定参考.*【前集摘要】.*【后集摘要】/)
+        assert.deepEqual(promptData(request.user, '【本次待审内容】'), current)
+        assert.match(request.user, outputLanguage === 'en' ? /输出语言：English/ : /输出语言：简体中文/)
+        assert.equal(request.system.split('CURRENT_SUPPLEMENT').length - 1, 1)
+        assert.doesNotMatch(request.user, /CURRENT_SUPPLEMENT/)
+      }
+      assert.deepEqual(promptData(second.user, '【修订基稿（用于对照范围）】'), failed)
+      assert.match(second.user, /【本轮修订意见】.*\n.*CURRENT_ISSUE/)
+      assert.match(second.user, /未涉及内容应保留/)
+      assert.doesNotMatch(second.user, /ORIGINAL_BASE/)
+      if (generationMode === 'modify') {
+        assert.deepEqual(promptData(first.user, '【修订基稿（用于对照范围）】'), project.plot.outline.content)
+        assert.match(first.user + second.user, /HUMAN_OPINION/)
+      } else {
+        assert.match(first.user, /未提供修订基稿/)
+        assert.doesNotMatch(first.user + second.user, /ORIGINAL_BASE|HUMAN_OPINION/)
+      }
+    })
+  }
+})
+
+test('简化后的大纲审核预览与实际请求一致，独立 Model 也提供审核原则', () => {
+  const project = { ...episodeFixture(), episodeId: 'EP01' }
+  const preview = previewPrompts({ stage: 'outline', root: project, view: project, nodeKey: 'outline', skillSet: builtinSkillSet() }).review
+  const actual = checkContext.run({ generationMode: 'regenerate', review: '', requirements: '' }, () => buildStoryPrompts(project).review('（待审内容）'))
+  assert.equal(render(preview.system), actual.system)
+  assert.equal(render(preview.user), actual.user)
+  const independent = new StoryOutlineModel({ project, reviewRules: 'NODE_RULE' }).toReviewMessages({ content: outlineFixture('正文') })
+  assert.match(independent[0].content, /【审核原则】.*\n只审核最新待审内容/)
+  assert.match(independent[0].content, /【审核标准】\nNODE_RULE/)
+  assert.doesNotMatch(independent[0].content, /【待审大纲结构】|【本次审核范围】/)
+})
 
 test('review returning an outline instead of a verdict fails and retains the generated draft', async () => {
   const draft = outlineFixture('生成稿')

@@ -11,7 +11,7 @@ import { characterImagePrompt, characterImageGenerationModel, characterImageModi
 import { sceneImagePrompt, sceneImageModificationModel } from '../../../prompts/interfaces/scene-image-interface.js'
 import { aspectRatioOf } from '../../../../shared/project-rules.js'
 import { imageSeed, submitAssetImage, visualPlace, stageImageDraft } from '../shared/image-files.js'
-import { imagePlan } from '../plan-steps.js'
+import { imagePlan, imageTasks } from '../plan-steps.js'
 
 export async function startImage(operation, project, { projects, models, home, submitAssetImage, defer }) {
   const place = visualPlace(project, operation.itemId)
@@ -112,6 +112,6 @@ export async function opImage(c) {
 }
 
 export const operations = {
-  image: { label: '生成图片', maxRevisions: 0, scope: 'episode', queue: 'image', agent: true, plan: imagePlan, stage: 'episode', run: opImage },
-  'revise-image': { label: '按新需求重绘图片', maxRevisions: 0, scope: 'episode', queue: 'image', agent: true, plan: imagePlan, stage: 'episode', run: opImage },
+  image: { label: '生成图片', maxRevisions: 0, scope: 'episode', queue: 'image', agent: true, plan: imagePlan, tasks: imageTasks, stage: 'episode', run: opImage },
+  'revise-image': { label: '按新需求重绘图片', maxRevisions: 0, scope: 'episode', queue: 'image', agent: true, plan: imagePlan, tasks: imageTasks, stage: 'episode', run: opImage },
 }

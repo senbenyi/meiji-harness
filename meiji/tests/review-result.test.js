@@ -19,6 +19,15 @@ test('strict review contract accepts only consistent structured verdicts', () =>
   ]) assert.throws(() => parseReviewResult(invalid), /审核返回格式错误/)
 })
 
+test('通用审核示例符合解析契约，不引入无关镜头要求', () => {
+  const example = JSON.parse(reviewProtocol.split('示例（仅示范格式）：\n')[1])
+  assert.deepEqual(parseReviewResult(JSON.stringify(example)), example)
+  assert.equal(example.passed, false)
+  assert.equal(example.issues.length, 1)
+  assert.doesNotMatch(reviewProtocol, /S0\d|镜头表规定|推门留到/)
+  assert.match(reviewProtocol, /本次要求中的输出语言/)
+})
+
 test('every review entry uses the one JSON protocol in its real API request', async () => {
   const project = episodeFixture()
   const prompts = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']

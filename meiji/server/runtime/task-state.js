@@ -64,7 +64,7 @@ export function partitionSteps(steps, tasks) {
 const touched = steps => steps.some(step => step.status !== StepStatus.PENDING || step.preparing)
 
 // 操作结束时逐个任务落定步骤：正在执行（或最后开始）的任务按错误/中止落定；已完成任务剩余的未执行步骤记为跳过；
-// 未开始的任务：若前序任务失败、审核未通过或被停止，记为已取消（停止规则），否则记为跳过。新追加的步骤同步回 steps。
+// 未开始的任务：排在出错任务之后且前序失败、审核未通过或被停止时记为已取消（停止规则），否则记为跳过。新追加的步骤同步回 steps。
 export function finalizeTaskGroups(steps, tasks, error, signal) {
   if (!tasks || tasks.length <= 1) return finalizeSteps(steps, error, signal)
   const at = now(), groups = partitionSteps(steps, tasks)
@@ -77,10 +77,12 @@ export function finalizeTaskGroups(steps, tasks, error, signal) {
     for (const step of group.steps) if (!before.has(step)) steps.push(step)
   }
   const stopped = groups.some(group => (group === current || started.includes(group)) && deriveTaskStatus(group.steps) !== 'completed')
-  for (const group of groups) {
-    if (group === current || started.includes(group)) continue
-    for (const step of group.steps) Object.assign(step, stopped ? { status: StepStatus.CANCELLED, error: '前序任务未完成，已停止', endedAt: at } : { status: StepStatus.SKIPPED, endedAt: at })
-  }
+  // 停止规则只作用于出错任务之后的任务；排在它之前、因内容已完成而未执行的任务记为跳过。
+  const stopAt = groups.indexOf(current)
+  groups.forEach((group, index) => {
+    if (group === current || started.includes(group)) return
+    for (const step of group.steps) Object.assign(step, stopped && index > stopAt ? { status: StepStatus.CANCELLED, error: '前序任务未完成，已停止', endedAt: at } : { status: StepStatus.SKIPPED, endedAt: at })
+  })
   return steps
 }
 

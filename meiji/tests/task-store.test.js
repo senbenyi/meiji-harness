@@ -106,8 +106,11 @@ test('story package, shot table and seconds each produce whole-episode records',
  assert.ok((await e.read()).shots.source)
  let calls = 0
  await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async message => { calls++; return message.skill === 'review' ? reviewPass : secondsForRequest(message) } }) })
- const seconds = (await e.history.list()).find(task => task.action === 'seconds')
+ const secondsTasks = (await e.history.list()).filter(task => task.action === 'seconds')
  assert.equal(calls, 4)
+ // 每镜一个任务，产物记在各自任务上。
+ assert.deepEqual(secondsTasks.map(task => task.targets[0]).sort(), ['seconds:S01', 'seconds:S02'])
+ const seconds = { artifacts: secondsTasks.flatMap(task => task.artifacts) }
  assert.deepEqual(seconds.artifacts.map(item => item.target).sort(), ['seconds', 'seconds', 'seconds-response', 'seconds-response', 'seconds:S01', 'seconds:S02'])
  assert.ok((await e.read()).shots.seconds.source)
 })

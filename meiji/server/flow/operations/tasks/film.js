@@ -18,7 +18,7 @@ import { hasStoryboard } from '../../../../shared/generation-gates.js'
 import { projectStore } from '../../../data/project-store.js'
 import { previousTail } from '../../../../shared/tail-frame.js'
 import { submitH3, prepareFilmOpening, formatFilmRequest, filmSubmit, saveFilmResult, saveTailFrame, submitFilm, writeFilm } from './film-video.js'
-import { videoSteps, shotSteps, shotIds } from '../plan-steps.js'
+import { videoSteps, shotSteps, shotIds, shotFilmTasks, filmTasks, videoTasks } from '../plan-steps.js'
 
 // if (operation.action === 'films')
 export async function opFilms(c) {
@@ -128,7 +128,7 @@ export async function produceShots(operation, deps, run) {
 export const opProduce = c => produceShots(c.operation, c.deps, c.deps.runOperation)
 
 export const operations = {
-  produce: { label: '生成本镜文本和视频', maxRevisions: 0, scope: 'shot', queue: 'video', agent: true, plan: (_, op) => shotSteps(op.track), stage: 'project', run: opProduce },
-  'produce-all': { label: '依次生成文本和视频', maxRevisions: 0, scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(shotSteps), stage: 'project', run: opProduce },
-  films: { label: '一键成片', maxRevisions: 0, scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(videoSteps), stage: 'episode', run: opFilms },
+  produce: { label: '生成本镜文本和视频', maxRevisions: 0, scope: 'shot', queue: 'video', agent: true, plan: (_, op) => shotSteps(op.track), tasks: (_, op) => shotFilmTasks(op.track), stage: 'project', run: opProduce },
+  'produce-all': { label: '依次生成文本和视频', maxRevisions: 0, scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(shotSteps), tasks: filmTasks, stage: 'project', run: opProduce },
+  films: { label: '一键成片', maxRevisions: 0, scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(videoSteps), tasks: videoTasks, stage: 'episode', run: opFilms },
 }

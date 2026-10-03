@@ -13,6 +13,7 @@ import { filmSubmit } from '../server/flow/operations/video-operations.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { executionContext } from '../server/runtime/task-context.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
+import { reviewRequest } from '../server/prompts/prompt-request.js'
 
 const stages = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']
 const project = { outputLanguage: 'en', style: '水彩', skills: {} }
@@ -57,6 +58,20 @@ test('独立文本结构在预览中与发送内容一致', t => {
   assert.equal(render(preview.system), actual.system)
   assert.equal(render(preview.user), actual.user)
   assert.equal(preview.chars, actual.system.length + actual.user.length)
+})
+
+test('审核语言例外合并进原则，复用片段不串改或丢失来源', () => {
+  const method = { ...segment('context', '【审核原则】', '只审明确冲突'), skill: 'outline' }, original = structuredClone(method)
+  for (const outputLanguage of ['简体中文', 'English']) {
+    const request = reviewRequest({ method, language: segment('language', '', `输出语言：${outputLanguage}`) })
+    const blocks = request.system.filter(Boolean)
+    assert.equal(blocks.length, 1)
+    assert.equal(blocks[0].title, method.title)
+    assert.equal(blocks[0].skill, method.skill)
+    assert.match(blocks[0].text, /既定对白、歌词和画面文字保留原文/)
+    assert.match(render(request.user), new RegExp(`输出语言：${outputLanguage}`))
+    assert.deepEqual(method, original)
+  }
 })
 
 test('人物图可独立取消默认包装，预览同步，场景图不受影响', t => {

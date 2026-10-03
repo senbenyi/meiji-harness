@@ -9,7 +9,7 @@ import { normalizeOutline } from '../../../../shared/story-outline.js'
 import { preserveStoryAssets } from '../../../../shared/preserve-story-assets.js'
 import { replaceFrom } from '../../../../shared/project-rules.js'
 import { canGenerate } from '../../../../shared/generation-gates.js'
-import { textSteps } from '../plan-steps.js'
+import { textSteps, storyTasks } from '../plan-steps.js'
 
 export async function generateStoryPackage({ route, project, signal, fetchImpl, request, persist }) {
   const options = { route, project, signal, fetchImpl, request }
@@ -73,5 +73,5 @@ export async function opOutline(c) {
 }
 
 export const operations = {
-  outline: { label: '生成剧情（大纲、角色、场景、道具）', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: () => ['outline', 'characters', 'scenes', 'props'].flatMap(textSteps), stage: 'episode', run: opOutline },
+  outline: { label: '生成剧情（大纲、角色、场景、道具）', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: () => ['outline', 'characters', 'scenes', 'props'].flatMap(textSteps), tasks: storyTasks, stage: 'episode', run: opOutline },
 }

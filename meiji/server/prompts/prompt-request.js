@@ -59,9 +59,12 @@ export function generationRequest({ json = false, role, scope, rules, additions,
 export function reviewRequest({ role, scope, method, criteria, additions, assetRules, language, structure, protocol,
   stage, task, requirements, facts, assets, base, continuity, content, closing }) {
   const input = requestFacts(facts, language, requirements)
+  const methods = list(method), languageRules = languageRule(language)
+  // 语言的实际取值仍在 user；例外规则并入审核原则，不另列一段重复说明。
+  if (methods.length && languageRules.length) methods[0] = { ...methods[0], text: [methods[0].text, ...languageRules.map(item => item.text)].join('\n') }
   return {
     json: true,
-    system: [role, ...list(scope), ...list(method), ...list(criteria), ...list(additions), ...list(assetRules), ...languageRule(language), ...list(structure), ...list(protocol)],
+    system: [role, ...list(scope), ...methods, ...list(criteria), ...list(additions), ...list(assetRules), ...(methods.length ? [] : languageRules), ...list(structure), ...list(protocol)],
     user: [...list(stage), ...list(task), input.requirements, ...input.facts, ...list(assets), ...list(base), ...list(continuity), ...list(content), ...list(closing)],
   }
 }

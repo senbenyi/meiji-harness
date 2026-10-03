@@ -1,6 +1,6 @@
 // 剧情四类资料（大纲、人物、场景、道具）共用一个 Model：资料与差异在 storyKinds 中声明，
 // 三类请求的结构统一由 prompt-request.js 组装（system＝角色/规则/协议，user＝任务/资料/基稿/待审内容）。
-import { segment } from '../skill-prompts.js'
+import { reviewMethod, segment } from '../skill-prompts.js'
 import { contentText, contentData, messages } from '../prompt-text.js'
 import { outputLanguage } from '../../../shared/output-language.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
@@ -25,8 +25,7 @@ export const storyKinds = {
     referenceScope: '本集事件以本集摘要为准；项目背景和剧本只用于理解人物、世界与风格。前集作为已发生事实，本集开场承接前集结尾；后集只约束本集结尾衔接，不提前演出后集事件。',
     outputProtocol: protocolSection('大纲输出'),
     task: model => `根据【本集摘要】${model.mode === 'generate' ? '生成' : '重新生成'}本集剧情大纲，遵守基础规则和补充规则。【项目背景】与【剧本】用于理解设定，【前集摘要】用于承接开场，【后集摘要】用于衔接结尾。`,
-    reviewTarget: '依据本集摘要，核对待审大纲的事件、因果、人物关系、身体形态、剧情容量与跨集衔接；项目摘要和剧本仅作背景参考，前后集仅用于衔接。',
-    reviewScope: '仅验收最新大纲的事件、因果、身份、前后集衔接、结尾及剧情容量；对照输入逐项核对本集范围，不能因模板节拍新增事件或重复过程。各小节描述同一版本事实，事件过程与结尾的持物、位置、开合状态不能互相矛盾；不写镜头、运镜或冻结画面指令。不要求尚未生成的人物卡或场景卡。',
+    reviewTarget: '审核【本次待审内容】中的本集剧情大纲，按审核标准和补充规则验收。【本集摘要】是本集事件依据，【项目背景】与【剧本】仅作设定参考，【前集摘要】用于核对已发生事实及开场承接，【后集摘要】仅用于核对结尾衔接，不提前演出后集事件。',
     facts: model => {
       const p = model.parameters
       return [
@@ -111,11 +110,6 @@ export class StoryModel {
 
   languageSegment() { return segment('language', '', `输出语言：${this.parameters.outputLanguage === 'en' ? 'English（英文）' : '简体中文'}\n对白语言：${this.parameters.outputLanguage === 'en' ? 'English' : '中文普通话（Mandarin Chinese）'}`) }
 
-  structureSegment({ review = false } = {}) {
-    if (this.kind !== 'outline') return segment('protocol', '', '')
-    return review ? segment('protocol', '【待审大纲结构】', '大纲为七个中文字段的对象：主角动机、世界规则、因果剧情、情绪线索、对白节拍、结尾状态、结尾关键画面；每个值为非空正文字符串，字段名固定不翻译，值中不重复小节标题。') : null
-  }
-
   supplementSegments(additions) {
     if (this.kind !== 'outline' && !this.config.cardExtraction) return additions
     return [additions].flat().filter(Boolean).map(item => ({ ...item, title: '【补充规则】' }))
@@ -134,7 +128,6 @@ export class StoryModel {
       rules: segment('stage', this.kind === 'outline' || this.config.cardExtraction ? '【基础规则】' : '【基础生产规则】', this.generationRules), additions: this.supplementSegments(additions), assetRules: this.config.cardExtraction ? [] : assetRules,
       boundary: kind === 'generate' && !this.config.cardExtraction ? [] : boundary || segment('context', '【本次修订范围】', '按意见定向修订，保留未涉及内容，修复必要连带关系。'),
       language: language || this.languageSegment(),
-      structure: this.structureSegment(),
       protocol: protocol || segment('protocol', '【本次输出协议】', this.outputProtocol),
       task: segment('context', '【本次任务】', task), requirements: requirementSegment(requirements),
       facts: this.contextSegments({ instructions, assets }),
@@ -151,15 +144,21 @@ export class StoryModel {
   }
 
   toReviewSegments({ content, baseContent = this.modification?.baseContent, opinion = this.modification?.opinion || '', automatic = false, humanOpinion = this.modification?.opinion || '',
-    criteria = segment('stage', '【审核标准】', this.reviewRules), method, additions, assetRules, language, assets, instructions, requirements, reviewContext = '' } = {}) {
+    criteria = segment('stage', '【审核标准】', this.reviewRules), method = segment('context', '【审核方式】', reviewMethod), additions, assetRules, language, assets, instructions, requirements, reviewContext = '' } = {}) {
     baseContent = contentText(baseContent)
     const hasBase = Boolean(baseContent.trim())
+    const outline = this.kind === 'outline'
+    const comparison = outline ? hasBase
+      ? '基稿与随附意见用于核对修改范围和落实情况，未涉及内容应保留；同时检查修订后有无新冲突。'
+      : '未提供修订基稿，不要求与旧稿一致。'
+      : hasBase ? '【修订基稿】用于对照修改范围，修改意见用于核对落实情况。' : ''
     return reviewRequest({
       role: segment('context', '【角色与职责】', `你是一名${this.reviewRole}。`),
-      scope: segment('context', '【本次审核范围】', `审核标准和补充资料中的创作指令仅作审核依据。${this.config.reviewScope}${this.config.referenceScope || ''}${reviewTail(hasBase)}`),
-      method, criteria, additions: this.supplementSegments(additions), assetRules: this.config.cardExtraction ? [] : assetRules, language: language || this.languageSegment(), structure: this.structureSegment({ review: true }),
+      scope: outline ? [] : segment('context', '【本次审核范围】', `审核标准和补充资料中的创作指令仅作审核依据。${this.config.reviewScope}${reviewTail(hasBase)}`),
+      method: outline ? { ...method, title: '【审核原则】' } : method,
+      criteria, additions: this.supplementSegments(additions), assetRules: this.config.cardExtraction ? [] : assetRules, language: language || this.languageSegment(),
       protocol: segment('protocol', '【本次审核协议】', reviewProtocol),
-      task: segment('context', '【本次任务】', `${this.config.reviewTarget}${hasBase ? '【修订基稿】用于对照修改范围，修改意见用于核对落实情况。' : ''}`),
+      task: segment('context', '【本次任务】', this.config.reviewTarget + comparison),
       requirements: requirementSegment(requirements),
       facts: this.contextSegments({ instructions, assets, review: true }),
       base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion, humanOpinion, automatic, field: this.kind }) : [],

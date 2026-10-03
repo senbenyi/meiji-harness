@@ -13,7 +13,7 @@ import { clearShotDownstream } from '../../../../shared/project-rules.js'
 import { hasShots } from '../../../../shared/generation-gates.js'
 import { saveSecondsShot } from '../shared/seconds-results.js'
 import { generateAllSeconds } from './seconds.js'
-import { textSteps, storyboardSteps, shotIds } from '../plan-steps.js'
+import { textSteps, storyboardSteps, shotIds, storyboardTasks } from '../plan-steps.js'
 
 export async function generateShotStoryboard(options) {
   const { project, shotId } = options
@@ -120,5 +120,5 @@ export const operations = {
   'shot-storyboard': { label: '生成这一镜的分镜', maxRevisions: 0, scope: 'shot', queue: 'text', agent: true, plan: (_, op) => storyboardSteps(op.track), stage: 'episode', run: opShotStoryboard },
   'storyboard-bind': { label: '重新编排引用', maxRevisions: 0, scope: 'shot', queue: 'text', agent: true, plan: (_, op) => storyboardSteps(op.track), stage: 'episode', run: opShotStoryboard },
   'shot-boards': { label: '生成所有分镜', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: project => [...shotIds(project).flatMap(id => textSteps(`seconds:${id}`)), ...shotIds(project).flatMap(storyboardSteps)], stage: 'episode', run: opShotBoards },
-  storyboard: { label: '生成全部分镜表', maxRevisions: 0, scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(storyboardSteps), stage: 'episode', run: opStoryboard },
+  storyboard: { label: '生成全部分镜表', maxRevisions: 0, scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(storyboardSteps), tasks: storyboardTasks, stage: 'episode', run: opStoryboard },
 }

@@ -12,6 +12,11 @@ test('七字段对象保留引号、换行与英文正文，展示标题不进�
   assert.deepEqual(Object.keys(normalizeOutline(outline)), outlineFields)
   assert.deepEqual(normalizeOutline(JSON.parse(JSON.stringify(outline))), outline)
   assert.ok(outlineText(outline).startsWith('【主角动机】\nA note'))
+  assert.deepEqual(normalizeOutline(Object.fromEntries(Object.entries(outline).reverse())), outline)
+  for (const field of outlineFields) {
+    const missing = { ...outline };delete missing[field]
+    assert.ok(outlineFailures(missing).length)
+  }
   for (const invalid of [null, '正文', [], { outline }, { ...outline, extra: '内容' }, { ...outline, 因果剧情: '' }, { ...outline, 世界规则: 1 }, { ...outline, 主角动机: '【主角动机】\n正文' }]) {
     assert.ok(outlineFailures(invalid).length)
     assert.throws(() => normalizeOutline(invalid, 400), error => error.status === 400)

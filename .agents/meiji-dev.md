@@ -34,6 +34,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 - 大模型文本生成、修订和审核统一返回 JSON 对象并启用 `json_object` 模式。解析字段后再保存与展示正文，字符串转义还原成真实换行；不能直接展示响应对象外壳。图片和视频接口沿用各自媒体协议。
 - 文本请求由 `prompt-request.js` 分开组装 system 规则与 user 资料；图片接口接收完整 prompt，参考图 Base64 另传，不写入正文。
 - 预览与提交复用同一组装入口；历史展示实际请求快照，不用当前资料重建。
+- 大纲审核的 system 只放角色、审核原则、节点审核标准及补充、返回协议；资料用途及修订对照范围放 user。程序检查 JSON 结构，模型检查有证据的剧情问题，不审核展示标题或强求无依据的弱点、微动作。
 
 参考：`server/prompts/models/`、`server/prompts/interfaces/`、`server/prompts/prompt-request.js`。
 

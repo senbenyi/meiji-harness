@@ -55,7 +55,7 @@ test('各文本步骤生成与修订使用生产规则、自审只使用对应�
     assert.equal(count(prompts.review('LATEST'), review), 1, stage)
     if (rules) assert.equal(count(prompts.review('LATEST'), rules), 0, stage)
     assert.match(prompts.review('LATEST').system + prompts.review('LATEST').user, /输出语言：English/)
-    assert.match(prompts.review('LATEST').system, /【审核方式】/)
+    assert.match(prompts.review('LATEST').system, stage === 'outline' ? /【审核原则】/ : /【审核方式】/)
     assert.equal(prompts.review('LATEST').system.split('【本次审核协议】').length - 1, 1)
     assert.match(prompts.review('LATEST').system, /passed.*issues/s)
     assert.match(prompts.revision('FAILED', 'REPAIR').user, /FAILED/)

@@ -117,24 +117,31 @@ test('text operations execute exactly their planned steps', async t => {
   ]
   for (const [action, deps, fields = {}] of cases) {
     const operation = e.op(action, fields), plan = await planSteps(e.home, operation)
+    const before = new Set((await e.history.list()).map(task => task.id))
     await runOperation(operation, { home: e.home, operationId: `task-${action}`, ...deps })
-    const task = await e.history.read('tasks', `task-${action}`)
-    assert.deepEqual(task.steps.map(item => `${item.kind}:${item.target}`), plan.map(item => `${item.kind}:${item.target}`), action)
-    assert.ok(task.steps.every(item => ['completed', 'skipped'].includes(item.status) && !item.unplanned), action)
-    assert.equal(task.status, 'completed', action)
-    assert.ok(task.endedAt)
+    // 多任务操作（每秒指令、整集分镜按镜头划分）：本次执行的全部任务按计划顺序拼接后与计划一致。
+    const at = task => plan.findIndex(item => item.target === task.steps[0].target)
+    const tasks = (await e.history.list()).filter(task => !before.has(task.id)).sort((a, b) => at(a) - at(b))
+    assert.ok(tasks.some(task => task.id === `task-${action}`), action)
+    assert.deepEqual(tasks.flatMap(task => task.steps).map(item => `${item.kind}:${item.target}`), plan.map(item => `${item.kind}:${item.target}`), action)
+    for (const task of tasks) {
+      assert.ok(task.steps.every(item => ['completed', 'skipped'].includes(item.status) && !item.unplanned), action)
+      assert.equal(task.status, 'completed', action)
+      assert.ok(task.endedAt)
+    }
   }
 })
 
-test('produce-all is one task: each shot runs only the steps it needs, in order', async t => {
+test('produce-all: each shot is a storyboard-prompt task then a video task, running only the steps it needs, in order', async t => {
   const e = await setup(t)
   await e.store.save(e.id, project => { project.episodes[0].shots.items[0].storyboard.status = 'not-generated'; return project })
   await runOperation(e.op('produce-all'), { home: e.home, operationId: 'one-click', waitForBackground: true, ...filmDeps,
     generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt) }) })
   const tasks = await e.history.list()
-  assert.deepEqual(tasks.map(task => task.id), ['one-click'])
-  const [task] = tasks
-  assert.equal(task.status, 'completed')
+  assert.equal(tasks.length, 4); assert.ok(tasks.some(task => task.id === 'one-click'))
+  assert.deepEqual(tasks.map(task => `${task.type}:${task.targets[0]}`).sort(), ['storyboard-prompt:storyboard:S01', 'storyboard-prompt:storyboard:S02', 'video:film:S01', 'video:film:S02'])
+  assert.ok(tasks.every(task => task.status === 'completed'))
+  const task = { steps: tasks.flatMap(item => item.steps).sort((a, b) => (a.startedAt || '').localeCompare(b.startedAt || '')) }
   assert.ok(task.steps.every(item => !item.unplanned))
   assert.deepEqual(task.steps.filter(item => item.status === 'completed').map(item => `${item.kind}:${item.target}`),
     // S01 成片后抽出尾帧，S02 的文本分镜按新尾帧重写后再提交。
@@ -187,7 +194,11 @@ test('produce-all stops when video is ready but its tail extraction failed', asy
     submitH3: async args => { submittedShots++; return filmDeps.submitH3(args) },
     saveLastFrame: async () => { throw new Error('tail failed') } }), /tail failed/)
   assert.equal(submittedShots, 1)
-  assert.equal((await e.history.read('tasks', 'stop-tail')).status, 'failed')
+  // S01 视频任务失败；之后的 S02 分镜与视频按停止规则取消；排在前面的 S01 分镜（已完成或跳过）不受影响。
+  const status = Object.fromEntries((await e.history.list()).map(task => [task.targets[0], task.status]))
+  assert.equal(status['film:S01'], 'failed')
+  assert.equal(status['storyboard:S02'], 'cancelled'); assert.equal(status['film:S02'], 'cancelled')
+  assert.equal(status['storyboard:S01'], 'completed')
 })
 
 test('human-only operations are rejected for the agent and never queued for it', async t => {
