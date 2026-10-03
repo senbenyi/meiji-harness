@@ -51,7 +51,7 @@ for (const count of [1, 2, 5]) test(`生成 ${count} 镜分别请求，不发整
  for (const shot of shots.items) assert.equal(shot.seconds.content.beats[0].durationMs, shot.duration * 1000)
 })
 
-test('三项内容上下文用于生成、自审与修订，不带其他镜头表或后镜旧指令', () => {
+test('本镜剧情、关联资料与前镜指令用于生成、自审与修订，不带其他镜头表或后镜旧指令', () => {
  const p = episodeFixture()
  p.plot.outline.content = '大纲整体内容'
  p.shots.items[0].content = '不应提供的前镜镜头表'
@@ -62,7 +62,9 @@ test('三项内容上下文用于生成、自审与修订，不带其他镜头�
   assert.match(message.user, /当前镜头表/)
   assert.match(message.user, /大纲整体内容/)
   assert.ok(message.user.includes(JSON.stringify(p.shots.items[0].seconds.content)))
-  assert.doesNotMatch(message.user, /不应提供的|关联人物|关联场景|关联道具/)
+  assert.match(message.user, /上游事实：本镜关联人物/)
+  assert.match(message.user, /上游事实：本镜关联场景/)
+  assert.doesNotMatch(message.user, /不应提供的/)
  }
 })
 

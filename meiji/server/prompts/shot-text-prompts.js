@@ -115,17 +115,22 @@ export function buildSingleShotPrompts(options) {
   }, options)
 }
 
-// 每秒指令只带本镜镜头表、前镜完整指令与大纲，不引入其他镜头的旧稿。
+// 每秒指令带本镜剧情及关联资料、前镜完整指令与大纲，不引入其他镜头的旧稿。
 export function buildSecondsPrompts(options) {
   const { project, shotId } = options
   const index = project.shots.items.findIndex(item => item.id === shotId)
   const shot = project.shots.items[index], previous = project.shots.items[index - 1]
+  const related = relatedEntities([shot])
+  const cards = (group, title) => ({ title, text: JSON.stringify((project.plot[group]?.items || [])
+    .filter(card => related.has(card.id) || related.has(card.name) || (card.ownerId && related.has(card.ownerId)))
+    .map(cleanCard)) })
   return buildShotPrompts('seconds', {
-    task: `依据本镜镜头表生成 ${shotId} 的每秒指令，承接上一镜已通过指令，大纲仅作整体内容参考。`,
-    review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：与本镜镜头表的事件、切镜点和起止状态一致，与上一镜已通过指令连续。`,
+    task: `依据本镜分段剧情与关联资料生成 ${shotId} 的每秒指令，承接上一镜已通过指令，遵守基础规则和补充规则。`,
+    review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：剧情、时长与交接状态符合本镜镜头表，具体镜头设计与空间调度符合关联资料，与上一镜已通过指令连续。`,
     facts: [
       { title: '【核心输入：本镜镜头表】', text: `## ${shotId} / ${shot.duration}s\n${body(shot)}` },
       { title: '【连续性参考：上一镜每秒指令】', text: previous?.seconds.check.passed === true && !previous.seconds.stale ? JSON.stringify(previous.seconds.content) : '' },
+      ...[cards('characters', '【上游事实：本镜关联人物】'), cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】')].filter(fact => fact.text !== '[]'),
       { title: '【整体内容参考：剧情大纲】', text: project.plot.outline.content },
       { title: '【本次参数】', text: [`本镜：${shotId}，时长 ${shot.duration} 秒（0–${shot.duration * 1000}ms）`, project.style && `项目风格：${project.style}`].filter(Boolean).join('\n') },
       { title: '【实体引用清单】', text: entityInstructions(project).replace(/^【实体引用清单】\n/, '') },

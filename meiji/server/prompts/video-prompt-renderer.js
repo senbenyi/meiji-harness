@@ -1,5 +1,5 @@
 import { collapseMentions, entityCatalog, referencePattern } from '../../shared/entity-references.js'
-import { validateSeconds, secondsRange } from '../../shared/seconds-content.js'
+import { validateSeconds, secondsRange, narratorId } from '../../shared/seconds-content.js'
 import { pictureOf } from '../../shared/drama-model.js'
 import { previousTail, tailFrameUrl } from '../../shared/tail-frame.js'
 
@@ -47,13 +47,14 @@ export function compileVideoPrompt(project, shot) {
   }
   let start = 0, cut = 0
   const details = [], speakers = new Map()
+  const speakerName = id => id === narratorId ? '旁白' : catalog.get(id).name
   for (const b of content.beats) {
     if (!cut || b.transition === 'cut') cut++
     details.push(`[Shot ${cut}] ${secondsRange(start, start + b.durationMs)}\n动作：${substitute(b.action)}\n镜头：${substitute(b.camera)}\n空间：${substitute(b.space)}\n同步声音：${substitute(b.sound)}`)
     for (const id of b.dialogueIds) {
       const d = content.dialogues.find(d => d.id === id)
       if (!speakers.has(d.speakerId)) speakers.set(d.speakerId, speakers.size + 1)
-      details.push(`${secondsRange(d.startMs, d.endMs)} ${catalog.get(d.speakerId).name} (S${speakers.get(d.speakerId)})，${{ on: '画内', off: '画外', inner: '内心独白，不对口型' }[d.delivery]}，${d.performance}：<d>${d.language}: ${d.text}</d>`)
+      details.push(`${secondsRange(d.startMs, d.endMs)} ${speakerName(d.speakerId)} (S${speakers.get(d.speakerId)})，${d.speakerId === narratorId ? '独立画外旁白，不对口型' : { on: '画内', off: '画外', inner: '内心独白，不对口型' }[d.delivery]}，${d.performance}：<d>${d.language}: ${d.text}</d>`)
     }
     // 只记录已完成的状态，不添加后镜计划。
     details.push(`${b === content.beats.at(-1) ? '结尾状态' : '段末状态'}：${substitute(b.endState)}`)
@@ -61,7 +62,7 @@ export function compileVideoPrompt(project, shot) {
     start += b.durationMs
   }
   field(mode === 'reference' ? 'detailed_description' : 'integrated_multimodal_description', details.join('\n\n'), content.beats.map(b => b.id))
-  field('overall_soundscape', [...content.ambient.map(e => `${secondsRange(e.startMs, e.endMs)} ${substitute(e.text)}`), ...content.dialogues.map(d => `${secondsRange(d.startMs, d.endMs)} ${catalog.get(d.speakerId).name} (S${speakers.get(d.speakerId)})，对白见对应时段。`)].join('\n') || 'N/A（无额外持续声；同步声见对应时段）', ['ambient', ...content.dialogues.map(d => d.id)])
+  field('overall_soundscape', [...content.ambient.map(e => `${secondsRange(e.startMs, e.endMs)} ${substitute(e.text)}`), ...content.dialogues.map(d => `${secondsRange(d.startMs, d.endMs)} ${speakerName(d.speakerId)} (S${speakers.get(d.speakerId)})，${d.speakerId === narratorId ? '旁白' : '对白'}见对应时段。`)].join('\n') || 'N/A（无额外持续声；同步声见对应时段）', ['ambient', ...content.dialogues.map(d => d.id)])
   field('non_diegetic_music', content.music.map(e => `${secondsRange(e.startMs, e.endMs)} ${substitute(e.text)}`).join('\n') || 'N/A', ['music'])
   return { prompt: { text: lines.join('\n\n') }, video: mode, referenceSnapshot: images, sourceMap,
     secondsRevision: shot.seconds.revision, tailReference: tail ? { sourceShotId: tail.sourceShotId, sourceVideoFile: tail.sourceVideoFile } : null,

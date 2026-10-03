@@ -71,3 +71,49 @@ test('「名字【名字|ID】」写法通过校验，渲染时名字不重复�
  c.beats[0].action='旅人沿庭院【庭院|E01】朝北行走'
  assert.throws(()=>validateSeconds(c,s,p),/旅人须写为旅人【旅人\|C01】/)
 })
+
+for(const reference of [false,true])test(`独立旁白与人物声音分别编译，不新增身体或图片：${reference?'多模态':'文本'}`,()=>{
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content
+ if(reference)p.plot.characters.items[0].image.content={assetId:'person',assetCategory:'characters',localPath:'/person.png'}
+ c.dialogues=[
+  {id:'D01',speakerId:'NARRATOR',text:'旧友的失约，一直让他难以释怀。',language:'zh-CN',startMs:0,endMs:3500,delivery:'off',performance:'平静画外声，画内人物不对口型'},
+  {id:'D02',speakerId:'C01',text:'我到了。',language:'zh-CN',startMs:3500,endMs:5000,delivery:'on',performance:'平静，开口'},
+ ]
+ c.beats[0].dialogueIds=['D01','D02']
+ assert.doesNotThrow(()=>validateSeconds(c,s,p))
+ assert.match(secondsText(c),/旁白 D01（0–3.5s，NARRATOR，off/)
+ const out=compileVideoPrompt(p,s)
+ assert.match(out.prompt.text,/旁白 \(S1\)，独立画外旁白，不对口型/)
+ assert.match(out.prompt.text,/旅人 \(S2\)，画内/)
+ for(const d of c.dialogues)assert.equal(out.prompt.text.split(d.text).length-1,1)
+ assert.deepEqual(out.characters,['旅人']);assert.deepEqual(out.entityIds,['C01','E01'])
+ assert.equal(out.referenceSnapshot.length,reference?1:0)
+ assert.doesNotMatch(out.prompt.text,/NARRATOR|<Subject \d+>：旁白|<Picture \d+>（旁白）/)
+ assert.deepEqual(h3PromptFailures(out.prompt.text,out.referenceSnapshot,out.video),[])
+})
+
+test('纯旁白无需登记人物，环境镜不会虚构出镜身体',()=>{
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content
+ p.plot.characters.items=[]
+ c.summary='庭院空无一人';c.beats[0].action='庭院【庭院|E01】中风吹动草叶'
+ c.beats[0].endState='庭院【庭院|E01】仍空无一人'
+ c.dialogues=[{id:'D01',speakerId:'NARRATOR',text:'多年过去，这里仍没有回应。',language:'zh-CN',startMs:0,endMs:4000,delivery:'off',performance:'低沉画外声'}]
+ c.beats[0].dialogueIds=['D01']
+ const out=compileVideoPrompt(p,s)
+ assert.deepEqual(out.characters,[]);assert.deepEqual(out.entityIds,['E01'])
+ assert.equal(out.referenceSnapshot.length,0);assert.match(out.prompt.text,/独立画外旁白，不对口型/)
+})
+
+for(const [label,patch,error] of [
+ ['画内旁白',{delivery:'on'},/对白身份/],
+ ['内心旁白',{delivery:'inner'},/对白身份/],
+ ['未知人物',{speakerId:'C99'},/对白身份/],
+ ['未知旁白ID',{speakerId:'narrator'},/对白身份/],
+ ['超出本镜时长',{endMs:5001},/对白时间越界/],
+ ['缺少原文',{text:''},/对白身份/],
+])test(`旁白支持不放宽原有校验：${label}`,()=>{
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content
+ c.dialogues=[{id:'D01',speakerId:'NARRATOR',text:'多年过去，这里仍没有回应。',language:'zh-CN',startMs:0,endMs:4000,delivery:'off',performance:'平静画外声',...patch}]
+ c.beats[0].dialogueIds=['D01']
+ assert.throws(()=>validateSeconds(c,s,p),error)
+})

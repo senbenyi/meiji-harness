@@ -154,6 +154,29 @@ test('generated and revised shot titles appear on production cards', async t => 
  checkCards('风雪抵达')
 })
 
+test('超过15秒的小剧情同名分段标题经保存读回后在各镜头卡片完整展示', async t => {
+ const { generateShots,reviseShot }=await import('../server/flow/operations/shot-operations.js')
+ const container=domSetup(t), e=await setupModel(t), project=e.episode
+ project.durationSeconds=24
+ const raw='## S01 / 12s\n标题：发现旧信1\n旅人在木箱里找到旧信，尚未取出。\n\n## S02 / 8s\n标题：发现旧信2\n旅人取出旧信，辨认封面。\n\n## S03 / 4s\n标题：决定拆读\n旅人准备打开旧信。'
+ const request=text=>async ({skill})=>skill==='review'?reviewPass:text
+ const persist=async shots=>{project.shots=shots;await e.store.save(e.id,{episodes:[project]})}
+ await generateShots({project,request:request(raw),persist})
+ let saved=await e.read()
+ assert.deepEqual(saved.shots.items.map(s=>[s.id,s.duration]),[['S01',12],['S02',8],['S03',4]])
+ assert.match(saved.shots.items[1].content,/^标题：发现旧信2/)
+ const revised=await reviseShot({project:saved,shotId:'S02',review:'补充信封完整',request:request('标题：发现旧信2\n旅人取出封口完整的旧信，辨认封面。')})
+ await persist(revised)
+ saved=await e.read()
+ assert.deepEqual(saved.shots.items[0],revised.items[0])
+ const actions={perform:async()=>{},fail:()=>{}}
+ for(const stage of ['shots','seconds','film']) {
+  container.replaceChildren(renderStage(stage,saved,actions,{}))
+  const headings=[...container.querySelectorAll('h3')].map(el=>el.textContent)
+  for(const expected of ['S01 / 12s · 发现旧信1','S02 / 8s · 发现旧信2','S03 / 4s · 决定拆读']) assert.ok(headings.includes(expected),`${stage}: ${expected}`)
+ }
+})
+
 test('log copy copies full content when expanded or collapsed, without duplicate buttons or toggling', async t => {
  const { appendLogCopy } = await import('../client/panel-dom.js')
  const container = domSetup(t)

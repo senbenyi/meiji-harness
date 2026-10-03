@@ -1,5 +1,6 @@
 import { referencedEntities, entityCatalog, collapseMentions, entityMention } from './entity-references.js'
 export const secondsVersion = 1
+export const narratorId = 'NARRATOR'
 const fail = message => { throw new Error(message) }
 const nonempty = value => typeof value === 'string' && value.trim()
 const array = (value, name) => { if (!Array.isArray(value)) fail(`${name}必须为数组`); return value }
@@ -25,7 +26,8 @@ export function validateSeconds(content, shot, project) {
   for (const d of dialogues) {
     if (!nonempty(d.id) || seen.has(d.id)) fail(`${shot.id} 对白ID缺失或重复`)
     seen.add(d.id)
-    if (!speakers.has(d.speakerId) || !nonempty(d.text) || !nonempty(d.language) || !['on', 'off', 'inner'].includes(d.delivery) || !nonempty(d.performance)) fail(`${shot.id}/${d.id} 对白身份、原文、语言或表演信息不完整`)
+    const validSpeaker = d.speakerId === narratorId ? d.delivery === 'off' : speakers.has(d.speakerId)
+    if (!validSpeaker || !nonempty(d.text) || !nonempty(d.language) || !['on', 'off', 'inner'].includes(d.delivery) || !nonempty(d.performance)) fail(`${shot.id}/${d.id} 对白身份、原文、语言或表演信息不完整`)
     if (!Number.isSafeInteger(d.startMs) || !Number.isSafeInteger(d.endMs) || d.startMs < 0 || d.endMs <= d.startMs || d.endMs > total) fail(`${shot.id}/${d.id} 对白时间越界`)
     if (/[【】]/.test(d.text)) fail(`${shot.id}/${d.id} 台词原文不得包含实体标记`)
     if (dialogueUses.get(d.id) !== 1) fail(`${shot.id}/${d.id} 对白事件必须且只能引用一次`)
@@ -85,7 +87,7 @@ export function secondsText(content) {
       lines.push(`### ${secondsRange(start, start + b.durationMs)}`, `动作：${b.action}`, `镜头：${b.transition === 'cut' ? '切镜；' : ''}${b.camera}`, `空间：${b.space}`, `声音：${b.sound}`)
       for (const id of b.dialogueIds) {
         const d = content.dialogues.find(d => d.id === id)
-        lines.push(`对白 ${d.id}（${secondsRange(d.startMs, d.endMs)}，${d.speakerId}，${d.delivery}，${d.performance}）：${d.text}`)
+        lines.push(`${d.speakerId === narratorId ? '旁白' : '对白'} ${d.id}（${secondsRange(d.startMs, d.endMs)}，${d.speakerId}，${d.delivery}，${d.performance}）：${d.text}`)
       }
       lines.push(`交接：${b.endState}`); start += b.durationMs
     }

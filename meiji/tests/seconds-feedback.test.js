@@ -49,7 +49,8 @@ test('seconds automatic correction and re-review keep sources separate, exclude 
  const review=model.toReviewSegments('最新修订稿')
  assert.match(render(review.user),/【人工修改意见】\n保留声音/)
  assert.match(render(review.user),/【本次待审内容】\n最新修订稿/)
- assert.match(render(review.system),/对应镜头表原文/)
+ assert.match(render(review.system),/对应上游事实或审核规则/)
+ assert.match(render(review.system),/同编号镜头表及本镜关联资料逐项对照/)
  assert.match(render(review.system),/不能因动作问题将正确时长判为/)
 })
 
@@ -65,4 +66,6 @@ test('seconds protocol example satisfies the actual validator including empty di
  const project=episodeFixture(),shot={...project.shots.items[0],duration:4}
  assert.doesNotThrow(()=>validateSeconds(example.shots[0],shot,project))
  assert.ok(example.shots[0].beats.every(beat=>Array.isArray(beat.dialogueIds)))
+ assert.equal(example.shots[0].beats.length,1)
+ assert.equal(example.shots[0].beats[0].durationMs,4000)
 })

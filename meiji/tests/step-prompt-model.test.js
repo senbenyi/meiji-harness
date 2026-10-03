@@ -120,3 +120,120 @@ test('单镜上下文只带本镜及前后镜关联卡片与衔接段，大纲�
  const whole=JSON.stringify(shotContext(project))
  assert.match(whole,/路人/); assert.match(whole,/码头/)
 })
+
+test('镜头表三类编排先规划时间和同名分段，不再要求摄影条目', async () => {
+ const { buildTablePrompts, buildSingleShotPrompts }=await import('../server/prompts/shot-text-prompts.js')
+ const { episodeFixture }=await import('./fixtures/model.js')
+ const project=episodeFixture()
+ project.shots.items[0].content='标题：发现旧信1\n旅人已发现信件，尚未取出。'
+ project.shots.items[1].content='标题：发现旧信2\n旅人取出信件，辨认名字。'
+ const table=buildTablePrompts({project})
+ for(const message of [table.generation,table.revision('失败稿','时间不足')]) {
+  assert.match(message.system,/先按大纲梳理.*估计必要动作.*再分配本集预算/s)
+  assert.match(message.system,/发现旧信1.*发现旧信2/s)
+  assert.match(message.system,/末尾依次直接加 1、2、3/)
+  assert.doesNotMatch(message.system,/- 机位与构图：|- 切镜点与理由：|每镜写明主要景别/)
+ }
+ const review=table.review('最新镜头表')
+ assert.match(review.system,/不要求机位、景别、构图/)
+ assert.match(review.system,/不能仅凭人物、(?:场景|地点)相同/)
+ assert.doesNotMatch(review.system,/- 调度与机位：|- 景别：|- 切镜：/)
+ const single=buildSingleShotPrompts({project,shotId:'S01',review:'只补充必要环境'})
+ for(const message of [single.generation,single.revision('标题：发现旧信1\n环境描述不完整的失败稿','缺少环境'),single.review('标题：发现旧信1\n修订正文')]) {
+  assert.match(message.system,/基础标题.*分段尾数/s)
+  assert.match(message.user,/发现旧信1/)
+ }
+})
+
+test('每秒指令三类编排携带当前关联布局并允许独立设计摄影，排除其他地点资料及图片', async () => {
+ const { buildSecondsPrompts }=await import('../server/prompts/shot-text-prompts.js')
+ const { episodeFixture }=await import('./fixtures/model.js')
+ const { cardModel }=await import('../shared/drama-model.js')
+ const project=episodeFixture()
+ project.plot.scenes.items[0].landmark='北侧石拱门'
+ project.plot.scenes.items[0].light='西侧月光'
+ project.plot.scenes.items[0].image.content={localPath:'/private-scene-image'}
+ project.plot.scenes.items.push(cardModel({id:'E09',name:'码头',type:'scene',space:'无关场景布局'}))
+ project.plot.props.items.push(cardModel({id:'P01',name:'旧信',type:'prop',description:'封口完整的旧信'}))
+ project.shots.items[0].content='旅人【旅人|C01】在庭院【庭院|E01】发现旧信【旧信|P01】，尚未取出。'
+ project.shots.items[1].scene='码头'
+ project.shots.items[1].content='只供后续镜头的剧情'
+ const prompts=buildSecondsPrompts({project,shotId:'S01'})
+ for(const message of [prompts.generation,prompts.review('待审内容'),prompts.revision('最新失败稿','补充发现旧信的特写')]) {
+  const scene=message.user.match(/【上游事实：本镜关联场景】\n([^\n]+)/)?.[1]
+  assert.ok(scene)
+  assert.equal(JSON.parse(scene)[0].landmark,'北侧石拱门')
+  assert.equal(JSON.parse(scene)[0].light,'西侧月光')
+  assert.match(message.user,/封口完整的旧信/)
+  assert.doesNotMatch(message.user,/无关场景布局|private-scene-image|只供后续镜头的剧情/)
+  assert.doesNotMatch(message.system,/切镜发生在镜头表规定的位置|继承镜头表的景别意图|仅在上游明确剪辑时为 cut/)
+ }
+ assert.match(prompts.generation.system,/cut 表示本阶段有叙事依据的剪辑切镜/)
+ assert.match(prompts.review('待审').system,/上游没有摄影安排不构成遗漏/)
+ assert.match(prompts.review('待审').system,/同一画面或切换中超过三名重要人物/)
+})
+
+test('镜头表生成修订与审核按小剧情合并，不按动作和摄影切镜拆视频片段', async () => {
+ const { buildTablePrompts,buildSingleShotPrompts }=await import('../server/prompts/shot-text-prompts.js')
+ const { episodeFixture }=await import('./fixtures/model.js')
+ const project=episodeFixture(),prompts=buildTablePrompts({project})
+ for(const message of [prompts.generation,prompts.revision('最新失败稿','连续动作合并')]) {
+  assert.match(message.system,/不按大纲条目逐条分镜/)
+  assert.match(message.system,/景别变化、运镜、特写、反应或动作完成不自动成为视频片段边界/)
+  assert.match(message.system,/没有必须保留的边界，就合并/)
+  assert.doesNotMatch(message.system,/在动作结果、完整对白、关键反应或可连续承接的中间状态拆段/)
+ }
+ const review=prompts.review('标题：查阅旧信\n连续呈现查找、取出与辨认。')
+ assert.match(review.system,/一个片段含多个动作或故事节拍/)
+ assert.match(review.system,/不能仅因短或片段多判失败/)
+ const single=buildSingleShotPrompts({project,shotId:'S01',review:'合写连续动作'}).review('单镜修订结果')
+ assert.match(single.system,/不要求修改编号、时长或合并相邻片段/)
+})
+
+test('每秒三类编排允许整镜连续beat，不设篇幅和5秒节拍上限', async () => {
+ const { buildSecondsPrompts }=await import('../server/prompts/shot-text-prompts.js')
+ const { episodeFixture }=await import('./fixtures/model.js')
+ const prompts=buildSecondsPrompts({project:episodeFixture(),shotId:'S01'})
+ for(const message of [prompts.generation,prompts.revision('最新失败稿','合并连续动作'),prompts.review('单段连续动作')]) {
+  assert.match(message.system,/覆盖整镜/)
+  assert.doesNotMatch(message.system,/350–650|稳定.*合并为 1–5 秒|关键招式细分到亚秒/)
+ }
+ assert.match(prompts.generation.system,/不设置固定段数或字数配额/)
+ assert.match(prompts.review('最新稿').system,/不因 beat 长于 5 秒而失败/)
+})
+
+test('镜头表补时编排允许有作用的扩充与旁白，审核不将细化误判成新增主线',async()=>{
+ const { buildTablePrompts,buildSingleShotPrompts }=await import('../server/prompts/shot-text-prompts.js')
+ const { episodeFixture }=await import('./fixtures/model.js')
+ const project=episodeFixture(),prompts=buildTablePrompts({project})
+ for(const message of [prompts.generation,prompts.revision('短稿','补足本集时间')]){
+  assert.match(message.system,/基础呈现时间不足时.*必要时增加有作用的旁白/s)
+  assert.match(message.system,/不能只把片段秒数写长或只报告时间不足/)
+  assert.match(message.system,/不能把并行的动作和旁白时间重复相加/)
+  assert.match(message.system,/明确禁止旁白或所有人声时/)
+  assert.match(message.system,/仅要求无人物对白时，独立画外旁白仍可使用/)
+  assert.doesNotMatch(message.system,/不能增加调查.*扩充容量|预算冲突应指出具体缺口/)
+ }
+ const review=prompts.review('动作与旁白补时后的完整镜头表')
+ assert.match(review.system,/合理扩充.*不视为新增主线/s)
+ assert.match(review.system,/不因大纲未逐字写出而失败/)
+ assert.match(review.system,/新增独立支线、重大线索、人物、地点、关键道具或新危机/)
+ const single=buildSingleShotPrompts({project,shotId:'S01',review:'丰富动作和旁白，补足本镜时间'})
+ assert.match(single.review('单镜补时稿').system,/补时意见允许在本镜既定事件内丰富动作、反应、环境互动与旁白/)
+})
+
+test('每秒生成修订审核继承镜头表补时内容，独立旁白协议无需角色卡',async()=>{
+ const { buildSecondsPrompts }=await import('../server/prompts/shot-text-prompts.js')
+ const { episodeFixture }=await import('./fixtures/model.js')
+ const prompts=buildSecondsPrompts({project:episodeFixture(),shotId:'S01'})
+ for(const message of [prompts.generation,prompts.revision('最新失败稿','保留完整旁白')]){
+  assert.match(message.system,/镜头表已确定的扩充动作、反应、环境互动与旁白属于本镜依据/)
+  assert.match(message.system,/不在本步骤独立新增补时剧情或旁白/)
+  assert.match(message.system,/独立画外旁白固定 NARRATOR，delivery 固定 off，无需角色卡/)
+  assert.match(message.system,/本镜无对白和旁白时为空数组/)
+ }
+ const review=prompts.review('每秒补时稿')
+ assert.match(review.system,/不因大纲未逐字写出而失败/)
+ assert.match(review.system,/NARRATOR.*off/s)
+ assert.doesNotMatch(review.system,/【本次输出协议】/)
+})
