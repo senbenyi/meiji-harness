@@ -27,7 +27,7 @@ export function shotModel(fields) {
 export function episodeModel(id, fields) {
   return { id, ...fields, supplementalSkills: {}, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
     plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] }, props: { ...node('props'), items: [] } },
-    shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), pendingImages: {}, activity: null, activityError: null }
+    shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), pendingImages: {} }
 }
 export function targetNode(project, key) {
   const [kind, id, slot] = key.split(':')
@@ -124,9 +124,12 @@ export function hasGatewayFileFields(value) {
   if (value.file && typeof value.file === 'object' && Object.hasOwn(value.file, 'url')) return true
   return Object.values(value).some(hasGatewayFileFields)
 }
+const runtimeFields = ['activity', 'activityError', 'activeOperation']
 export function assertDrama(project) {
   if (project.schemaVersion !== schemaVersion) throw new Error('项目格式需先执行一次性 Model 迁移，运行时不兼容旧格式')
   if (!Array.isArray(project.episodes)) throw new Error('项目缺少剧集集合')
+  // 是否在执行由进行中的操作推导（剧集占用），错误记录在任务与内容节点上；旧文件中的运行期字段读取时丢弃，下次保存即清除。
+  for (const holder of [project, ...project.episodes]) for (const key of runtimeFields) delete holder[key]
   for (const episode of project.episodes) {
     if (episode.supplementalSkills !== undefined) {
       const supplements = episode.supplementalSkills

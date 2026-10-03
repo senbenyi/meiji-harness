@@ -100,7 +100,7 @@ for (const failure of ['review', 'program', 'api', 'cancel']) test(`第二镜 ${
  assert.equal(p.shots.items[0].seconds.content.beats[0].action, '第一镜新动作')
  assert.equal(p.shots.items[0].seconds.status, 'passed')
  assert.ok(p.shots.items.every(s => !s.seconds.operation))
- assert.equal(p.activity, null)
+ assert.equal('activity' in p, false)
  if (failure === 'program') {
   assert.equal(p.shots.items[1].seconds.content.beats[0].action, '第二镜失败稿')
   assert.match(overrideBlocker(p, 'seconds'), /格式错误/)
@@ -115,7 +115,8 @@ for (const invalid of ['truncated', 'foreign']) test(`${invalid} 响应不覆盖
  assert.deepEqual(p.shots.items.map(s => s.seconds.content), before.shots.items.map(s => s.seconds.content))
  const records = recordStore(e.home, e.id), task = (await records.list('tasks'))[0]
  const responses = await Promise.all(task.artifacts.filter(a => a.target === 'seconds-response').map(a => records.read('artifacts', a.artifactId)))
- assert.equal(responses.length, 2)
+ // 生成 + 默认 2 轮修订，各保存一份原始响应。
+ assert.equal(responses.length, 3)
  assert.ok(responses.every(a => a.content.text === text))
 })
 

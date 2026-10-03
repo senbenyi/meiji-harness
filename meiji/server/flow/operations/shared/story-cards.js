@@ -23,14 +23,13 @@ export async function opCharacters(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const kind = operation.action
   if (kind === 'props' && ['outline', 'characters', 'scenes'].some(key => project.plot[key].check.passed !== true || project.plot[key].stale)) throw Object.assign(new Error('请先完成并通过大纲、人物及场景审核，再提取道具'), { status: 409 })
-  await projects.save(project.id, { activity: kind, activityError: null })
   const group = await (deps.regenerateCardGroup || regenerateCardGroup)({ project, kind, route: (modelRoutes(await models.read())).story, review: operation.review, persist: async group => {
     const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, props: project.plot.props, [kind]: group, check: group.check })
     await projects.save(project.id, plotPatch(project, { [kind]: merged[kind] }))
   } })
   const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, props: project.plot.props, [kind]: group, check: group.check })
   checkContext.getStore().validation = group.check.failures
-  await projects.save(project.id, { ...plotPatch(project, { [kind]: merged[kind] }), activity: null })
+  await projects.save(project.id, { ...plotPatch(project, { [kind]: merged[kind] }) }, { final: true })
   note(`${({ characters: '人物卡', scenes: '场景卡', props: '道具卡' })[kind]}已保存${group.check.passed ? '并通过自审' : '，自审未通过：' + group.check.failures.join('；')}`)
   return trace
 }

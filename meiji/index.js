@@ -3,9 +3,9 @@ import { contextQueryTool } from './tools/session-context-query-tool.js'
 import { projectManageTool } from './tools/session-project-manage-tool.js'
 import { contentGenerateTool } from './tools/session-content-generate-tool.js'
 import { taskControlTool } from './tools/session-task-control-tool.js'
-import { createTasks } from './server/flow/tasks/task-manager.js'
+import { createOperationManager } from './server/flow/operations/operation-manager.js'
 import { sessionSkills, validateSkills } from './skills/load-skills.js'
-import { interruptRunning } from './server/flow/tasks/cancel-interrupted-tasks.js'
+import { interruptRunning } from './server/flow/tasks/task-interrupt.js'
 import { projectStore } from './server/data/project-store.js'
 import { ffmpegAvailable } from './server/media/check-ffmpeg.js'
 import { setHostLogger } from './server/host/session-log.js'
@@ -28,7 +28,7 @@ export function apply(ctx) {
   void ffmpegAvailable().then(found => {
     if (!found) ctx.logger.warn('Meiji: 未找到 ffmpeg，尾帧提取、全片拼接与图片压缩将不可用；请安装 ffmpeg 并确保在 PATH 中')
   })
-  const tasks = createTasks({ home, workspaceController: ctx.workspaceController })
+  const tasks = createOperationManager({ home, workspaceController: ctx.workspaceController })
   ctx.effect(() => () => tasks.dispose(), 'meiji: tasks')
   registerPanel(ctx, ready, tasks)
   for (const factory of [contextQueryTool, projectManageTool, contentGenerateTool, taskControlTool]) {

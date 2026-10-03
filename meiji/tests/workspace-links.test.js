@@ -85,7 +85,7 @@ test('legacy workspace mappings do not claim ambiguous sessions', () => fixture(
 
 test('HTTP project selection reuses sessions, creates an owned session and rejects old-workspace writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
   const { registerPanel } = await import('../server/http/panel-routes.js')
-  const { createTasks } = await import('../server/flow/tasks/task-manager.js')
+  const { createOperationManager } = await import('../server/flow/operations/operation-manager.js')
   let handler
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -102,7 +102,7 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
       connection: { requestRejection: () => null },
       webServer: { register: route => { handler = route.handler } },
       effect: fn => fn(), on() {}, logger: { warn() {} },
-    }, Promise.resolve(), createTasks({ home, workspaceController: controller }))
+    }, Promise.resolve(), createOperationManager({ home, workspaceController: controller }))
   } finally {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous

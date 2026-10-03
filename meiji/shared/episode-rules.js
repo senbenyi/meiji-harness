@@ -9,14 +9,14 @@ export function materialize(project, episodeId) {
   if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
   const ordered = [...project.episodes].reverse()
   const index = ordered.findIndex(item => item.id === episodeId)
-  return { ...episode, activity: episode.activity || (project.activity === 'episode' ? 'episode' : null), episodeNumber: index + 1, previousEpisodeSummary: ordered[index - 1]?.summary?.content, nextEpisodeSummary: ordered[index + 1]?.summary?.content, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
+  return { ...episode, episodeNumber: index + 1, previousEpisodeSummary: ordered[index - 1]?.summary?.content, nextEpisodeSummary: ordered[index + 1]?.summary?.content, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
 }
 export function foldEpisode(project, episodeId, view) {
   const episode = project.episodes.find(item => item.id === episodeId)
   const next = { ...episode }
   for (const key of Object.keys(episode)) if (Object.hasOwn(view, key) && !['id', 'revision'].includes(key)) next[key] = view[key]
   next.revision = episode.revision + 1
-  return { episodes: project.episodes.map(item => item.id === episodeId ? modelPatch(episode, next) : item), activity: view.activity ?? null, activityError: view.activityError ?? null }
+  return { episodes: project.episodes.map(item => item.id === episodeId ? modelPatch(episode, next) : item) }
 }
 
 export function episodeSummary(raw) {

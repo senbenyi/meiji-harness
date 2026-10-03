@@ -205,7 +205,8 @@ export function renderSceneDetail(project, itemId, actions, context) {
     return page
   }
   page.append(element('p', '场景资料与形象管理', 'meta'))
-  const hint = element('p', /^(自检|自审)未通过/.test(project.activityError || '') ? '' : project.activityError || '', 'hint warn')
+  // 错误显示在对应内容与图片节点上；这里只承载本页操作的即时提示。
+  const hint = element('p', '', 'hint warn')
   hint.hidden = !hint.textContent
   hint.setAttribute('role', 'status')
   page.append(hint, ...stillCards(project, [item], actions, hint, { editable: true, imageGate: context.detailGate }))

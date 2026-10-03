@@ -49,7 +49,7 @@ for (const raw of ['不是 JSON', JSON.stringify({ outline: 123 }), JSON.stringi
   test(`非法大纲对象不能发布：${raw}`, async () => {
     let calls = 0, saves = 0
     await assert.rejects(generateStoryPackage({ project: episodeFixture(), request: async message => { calls++; return message.skill === 'review' ? reviewPass : raw }, persist: () => saves++ }), /自审未通过/)
-    assert.equal(calls, 4);assert.equal(saves, 0)
+    assert.equal(calls, 6);assert.equal(saves, 0)
   })
 }
 

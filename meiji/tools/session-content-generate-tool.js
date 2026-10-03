@@ -1,11 +1,11 @@
-import { generationFeedback } from '../server/flow/tasks/task-manager.js'
+import { generationFeedback } from '../server/flow/operations/operation-manager.js'
 import { jsonOutput, sessionIdOf, currentProject } from './session-context-query-tool.js'
 
 const stages = { summary: 'episode-generate', story: 'outline', shots: 'shots', seconds: 'seconds', storyboard: 'storyboard' }
 export function contentGenerateTool({ home, tasks }) {
   return {
     name: 'meiji_content_generate',
-    description: '执行一个制作步骤：summary 本集摘要；story 一次生成大纲、角色、场景；shots 镜头表；seconds 每秒指令；storyboard 文本分镜。多步骤由你用 todo_write 规划并依次调用。首次 generate；明确重做 regenerate；按意见局部修改 modify。requirements 是本次创作要求，review 仅为修订意见。返回 running 后用 meiji_task_control wait 等待；只有 completed 且 reviewPassed=true 才推进后续步骤。生成、审核、最多一次自动修订由原流程处理，不自行重复提交。',
+    description: '返回 operationId，用 meiji_task_control wait 等待结果。本集已被占用时返回 status=busy 与占用者 operationId：告知用户，用 meiji_task_control wait 该 operationId 直到结束后再重新发起，不要重复提交。执行一个制作步骤：summary 本集摘要；story 一次生成大纲、角色、场景；shots 镜头表；seconds 每秒指令；storyboard 文本分镜。多步骤由你用 todo_write 规划并依次调用。首次 generate；明确重做 regenerate；按意见局部修改 modify。requirements 是本次创作要求，review 仅为修订意见。返回 running 后用 meiji_task_control wait 等待；只有 completed 且 reviewPassed=true 才推进后续步骤。生成、审核、最多一次自动修订由原流程处理，不自行重复提交。',
     parameters: { type: 'object', additionalProperties: false, required: ['stage', 'episodeNumber', 'mode'], properties: {
       stage: { type: 'string', enum: Object.keys(stages) }, episodeNumber: { type: 'integer', minimum: 1 },
       mode: { type: 'string', enum: ['generate', 'regenerate', 'modify'] }, requirements: { type: 'string' }, review: { type: 'string' },
@@ -28,10 +28,17 @@ export function contentGenerateTool({ home, tasks }) {
         }
       }
       if (args.stage === 'story' && (episode.summary.check.passed !== true || episode.summary.stale)) throw new Error('本集摘要尚未通过审核，不能生成剧情')
-      const task = tasks.start({ action, origin: 'session', projectId: project.id, episodeId: episode?.id, sessionId, mode: args.mode,
-        generationMode: args.mode === 'modify' ? 'modify' : 'regenerate', requirements: args.requirements || '', review: args.mode === 'modify' ? args.review : '',
-      }, exec.agent.session)
-      return JSON.stringify({ taskId: task.id, status: 'running', projectId: project.id, episodeId: episode?.id, episodeNumber: args.episodeNumber })
+      let task
+      try {
+        task = tasks.start({ action, origin: 'session', projectId: project.id, episodeId: episode?.id, sessionId, mode: args.mode,
+          generationMode: args.mode === 'modify' ? 'modify' : 'regenerate', requirements: args.requirements || '', review: args.mode === 'modify' ? args.review : '',
+        }, exec.agent.session)
+      } catch (error) {
+        // 本集已被占用（面板或其他会话的操作排队中或执行中）：不报错，返回 busy，由会话等待该操作结束后重新发起。
+        if (error.code !== 'EPISODE_BUSY') throw error
+        return JSON.stringify({ status: 'busy', busy: true, operationId: error.busy.operationId, label: error.busy.label, initiator: error.busy.initiator, message: error.message, projectId: project.id, episodeNumber: args.episodeNumber })
+      }
+      return JSON.stringify({ operationId: task.id, status: 'running', projectId: project.id, episodeId: episode?.id, episodeNumber: args.episodeNumber })
     },
   }
 }

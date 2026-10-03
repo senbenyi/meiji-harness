@@ -21,6 +21,7 @@ import { saveLastFrame } from '../../../media/extract-video-tail.js'
 import { referenceImageData } from '../../../data/image-storage.js'
 import { insertSessionLog } from '../../../host/session-log.js'
 import { videoSteps } from '../plan-steps.js'
+import { markFailed, markGenerating, markPassed } from '../../../../shared/content-state.js'
 
 export async function submitH3({ items, route, aspectRatio, fetchImpl = fetch, signal }) {
   if (!Array.isArray(items) || !items.length) throw Object.assign(new Error('没有可提交的镜头提示词'), { status: 409 })
@@ -142,16 +143,16 @@ export async function saveFilmResult(projects, project, track, bytes, home) {
 export async function saveTailFrame(projects, project, track, file, directory, home, saveFrame) {
   const lastFrame = file.replace(/\.mp4$/, '-last.png')
   const tail = node(`tailFrame:${track}`)
-  tail.status = GenerationStatus.GENERATING
+  markGenerating(tail)
   tail.content = { sourceVideoFile: file, localPath: null }
   const persistTail = () => projects.save(project.id, current => ({ shots: { ...current.shots, items: current.shots.items.map(s => s.id === track ? { ...s, tailFrame: structuredClone(tail) } : s) } }))
   await persistTail()
   try {
     await saveFrame(join(directory, file), join(directory, lastFrame))
     tail.content.localPath = join(directory, lastFrame)
-    tail.status = GenerationStatus.PASSED; tail.check = { passed: true, failures: [] }
+    markPassed(tail)
   } catch (error) {
-    tail.status = GenerationStatus.FAILED; tail.error = error.message || '尾帧处理失败'
+    markFailed(tail, error.message || '尾帧处理失败')
     await rm(join(directory, lastFrame), { force: true })
     await persistTail()
     throw error
@@ -183,8 +184,8 @@ export async function writeFilm(projects, projectId, track, patch) {
       next = { ...updateShotResult(current, 'video', track, films[track]), assembly: node('assembly') }
       next.shots.items.find(shot => shot.id === track).video.pending = null
     }
-    if ((patch.status === 'ready' || patch.status === 'error') && current.activity === `film:${track}`) next.activity = null
-    await projects.save(projectId, next)
+    // 视频完成或报错时为本次成片操作的最终写入。
+    await projects.save(projectId, next, { final: patch.status === 'ready' || patch.status === 'error' })
   })
   filmWrites.set(projectId, job)
   try { return await job }
@@ -210,7 +211,6 @@ export async function opFilm(c) {
   if (!storyboardPromptText(item).trim()) throw Object.assign(new Error('请先生成这一镜的分镜'), { status: 409 })
   const route = (modelRoutes(await models.read())).video
   const images = item.video === 'text' ? [] : shotReferenceImages(project, item)
-  await projects.save(project.id, { activity: `film:${track}`, activityError: null })
   try {
     const size = aspectRatioOf(project.aspectRatio)
     let payload
@@ -248,13 +248,12 @@ export async function opFilm(c) {
     }))
     return trace
   } catch (error) {
-    const current = await projects.read(project.id)
-    if (current.activity === `film:${track}`) await projects.save(project.id, { activity: null, activityError: error.message })
+    await projects.save(project.id, {}, { final: true, error: error.message }).catch(() => {})
     throw error
   }
 }
 
 export const operations = {
-  film: { label: '提交成片', scope: 'shot', queue: 'video', agent: true, plan: (_, op) => videoSteps(op.track), stage: 'episode', run: opFilm },
-  'tail-frame': { label: '重新处理尾帧', scope: 'shot', queue: 'video', agent: true, step: op => ({ kind: 'tail_frame', target: `film:${op.track}` }), stage: 'episode', run: opTailFrame },
+  film: { label: '提交成片', maxRevisions: 0, scope: 'shot', queue: 'video', agent: true, plan: (_, op) => videoSteps(op.track), stage: 'episode', run: opFilm },
+  'tail-frame': { label: '重新处理尾帧', maxRevisions: 0, scope: 'shot', queue: 'video', agent: true, step: op => ({ kind: 'tail_frame', target: `film:${op.track}` }), stage: 'episode', run: opTailFrame },
 }

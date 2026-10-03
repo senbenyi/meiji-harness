@@ -2,6 +2,7 @@
 // 按目标（摘要、各镜头的文本提示词与成片……）分组，显示每个步骤的类型、状态、审核结论与理由、错误、执行者、起止时间；
 // live 时高亮当前步骤，并显示已用时间、同一步骤内的尝试（如续传 2/3）与视频的远端任务编号。
 import { currentStep, groupByTarget } from '../shared/task-steps.js'
+import { roundSuffix } from '../shared/task-nodes.js'
 import { element } from './panel-dom.js'
 import { openStepPrompts } from './task-prompt.js'
 
@@ -27,7 +28,7 @@ function renderStep(step, current, now, loadPrompts) {
   const item = element('li', '', `task-step is-${step.status}${current ? ' is-current' : ''}`)
   if (current) item.setAttribute('aria-current', 'step')
   const head = element('div', '', 'task-step-head')
-  head.append(element('strong', stepKindLabels[step.kind] || step.label || step.kind), element('span', stepStatusLabels[step.status] || step.status, `task-step-status is-${step.status}`))
+  head.append(element('strong', (stepKindLabels[step.kind] || step.label || step.kind) + roundSuffix(step)), element('span', stepStatusLabels[step.status] || step.status, `task-step-status is-${step.status}`))
   if (['generate', 'review', 'revise', 're_review', 'image_generate', 'video_submit'].includes(step.kind) || step.prompts?.length) {
     const button = element('button', '查看提示词', 'task-step-prompt')
     button.type = 'button'

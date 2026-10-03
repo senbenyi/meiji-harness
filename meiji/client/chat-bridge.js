@@ -1,4 +1,7 @@
-import { shotMap } from '../shared/drama-model.js'
+import { allNodes, shotMap } from '../shared/drama-model.js'
+
+// 剧集是否有进行中的操作：以内容节点上的 operation 为准（等待人工确认的候选图不算）。
+const episodeRunning = episode => allNodes(episode).some(node => node.operation && node.operation.phase !== 'awaiting-confirmation')
 const sessionPattern = /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function sessionIdFromStorage(storage) {
@@ -35,13 +38,13 @@ function boardMark(project) {
 function pendingMark(project) {
   const rows = Object.keys(project.pendingImages || {}).sort().map(id => id)
   for (const episode of project.episodes || []) {
-    rows.push(`${episode.id}:${episode.activity || ''}:${Object.keys(episode.pendingImages || {}).sort().join(',')}`)
+    rows.push(`${episode.id}:${episodeRunning(episode) ? 'running' : ''}:${Object.keys(episode.pendingImages || {}).sort().join(',')}`)
   }
   return rows.join(';')
 }
 
 export function projectRefreshMark(project) {
-  return [project.updatedAt, project.activity || '', project.activityError || '', filmMark(project), boardMark(project), pendingMark(project)].join('|')
+  return [project.updatedAt, filmMark(project), boardMark(project), pendingMark(project)].join('|')
 }
 
 export function createBridge({ request, jsonBody, showProject, onDeleted, status }) {
@@ -64,14 +67,13 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
           ...(next.episodes || []).flatMap(episode => Object.values(shotMap(episode, 'video'))),
         ]
         const filmRunning = clips.some(clip => clip?.status === 'running')
-        const episodeBusy = (next.episodes || []).some(episode => episode.activity)
-        const busy = Boolean(next.activity) || episodeBusy || filmRunning
+        // 是否在执行：内容节点上有进行中的操作（服务端不再保存剧集 activity）。
+        const busy = (next.episodes || []).some(episodeRunning) || filmRunning
         if (busy) sawBusy = true
         const nextMark = projectRefreshMark(next)
         if (nextMark !== mark) {
           mark = nextMark
           showProject(next)
-          if (next.activityError) status(next.activityError)
         }
         if (sawBusy && !busy) clearInterval(timer)
       } catch (error) {

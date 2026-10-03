@@ -12,8 +12,8 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 | `client/` | 原生 ES 模块面板，通过 `panel-api.js` 访问同源接口 |
 | `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游失效；不读写文件 |
 | `server/http/`、`tools/` | 面板与会话入口，复用服务端流程；鉴权与同源检查在 HTTP 层 |
-| `server/flow/operations/` | `tasks/` 每个生成任务、小任务一个文件，`actions/` 每个操作一个文件（按 project/episode/story/image/shot 分组），均导出 `operations`（定义 + stage/run）；`registry.js` 汇总，`operation-registry.js` 提供权限、范围、队列与步骤计划查询，`plan-steps.js` 为计划构造，`shared/` 为任务与操作共用函数；`run-operation.js` 集中管理执行上下文、准备分派与结束释放。`*-operations.js` 仅为兼容出口，拆分计划见 `docs/plans/计划-操作与任务文件拆分.md` |
-| `server/flow/tasks/` | 入队、查询、等待、取消、重启处理及 text/image/video 全局限流 |
+| `server/flow/operations/` | 操作层：`operation-manager.js` 是面板与会话、生成与直接操作的唯一入口（start 排队执行、run 直接执行、current/list/get/wait、cancel），写操作记录；`operation-occupancy.js` 剧集占用（唯一一把锁，同集同时只允许一个操作，含排队中）；`operation-cancel.js` 停止；`operation-registry.js` 汇总各文件导出的操作定义（label、scope、queue、agent、maxRevisions、plan/step、stage/run）；`direct/operation-*.js` 每个直接操作一个文件；`tasks/` 为生成操作的现有实现（阶段 C 拆为 generate/operation-* 与 flow/tasks/task-*）；`run-operation.js` 执行一个任务（上下文、准备分派、结束释放）。迁移计划见 `docs/plans/计划-操作任务节点三层模型.md` |
+| `server/flow/tasks/` | 任务层：`task-queue.js` text/image/video 全局限流；`task-interrupt.js` 服务重启时取消遗留的操作与任务（阶段 C 起每种任务一个 `task-*.js`） |
 | `server/gateway/` | 文本/图片/视频网关适配、文本请求入口、视频轮询、请求快照和日志 |
 | `server/media/` | 图片解码/文件处理/压缩，FFmpeg 检查、尾帧提取与视频拼接；不依赖操作、提示词或任务执行 |
 | `server/prompts/` | Model 编排提示词，interfaces 赋值，`prompt-request.js` 统一请求结构，preview 复用实际入口 |
@@ -22,7 +22,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 | `server/host/` | Harness 公开接口适配、工作区与会话查询、日志及归属明确的历史提示词读取 |
 | `models/`、`config/`、`skills/` | 模型路由与默认配置、生产规则、审核规则及会话说明 |
 
-生成主链：`面板/会话工具 → tasks.start → queue → runOperation → executeOperation → 领域操作（含业务生成） → 网关/媒体 → 保存结果`。面板编辑、删除、图片确认及会话创建等直接调用 `runOperation`；打开项目由 `workspace-links` 处理。不能在页面、网络层或工具中另建生成通路。
+生成主链：`面板/会话工具 → operation-manager.start（剧集占用、操作记录）→ queue → runOperation（任务记录、步骤）→ executeOperation → 领域操作（含业务生成） → 网关/媒体 → 保存结果`。面板编辑、删除、图片确认及会话创建等经 `operation-manager.run` 直接执行（同样占用剧集、写操作记录）；打开项目由 `workspace-links` 处理。不能在页面、网络层或工具中另建生成通路。
 
 ## 2. 提示词 Model
 

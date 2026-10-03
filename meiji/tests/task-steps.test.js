@@ -17,7 +17,7 @@ import { linkStore } from '../server/data/workspace-links.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { runOperation } from '../server/flow/operations/run-operation.js'
 import { definitions, planSteps, validateOperation } from '../server/flow/operations/operation-registry.js'
-import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { generateAllSeconds, generateShotStoryboard, generateShots, generateStoryboard } from '../server/flow/operations/shot-operations.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel, tempHome } from './fixtures/model.js'
@@ -196,7 +196,7 @@ test('human-only operations are rejected for the agent and never queued for it',
   const humanOnly = Object.entries(definitions).filter(([, value]) => value.agent === false).map(([action]) => action)
   assert.ok(humanOnly.includes('review-override') && humanOnly.includes('confirm-image'))
   for (const action of humanOnly) assert.throws(() => validateOperation({ action, origin: 'session' }), { status: 403 }, action)
-  const tasks = createTasks({ home: '/tmp/unused', execute: () => assert.fail('must not execute') })
+  const tasks = createOperationManager({ home: '/tmp/unused', execute: () => assert.fail('must not execute') })
   assert.throws(() => tasks.start({ action: 'review-override', origin: 'session', projectId: 'p', episodeId: 'e', key: 'summary' }), { status: 403 })
   const e = await setup(t)
   await assert.rejects(runOperation(e.op('review-override', { origin: 'session', key: 'summary' }), { home: e.home }), { status: 403 })
@@ -247,7 +247,7 @@ test('review override: a new human task passes the current version, keeps the AI
 
 test('current tasks show running and queued tasks of the episode with steps and queue position', async t => {
   const home = await tempHome(t), gate = Promise.withResolvers()
-  const tasks = createTasks({ home, limitOf: () => 1, execute: async () => { await gate.promise; return [] } })
+  const tasks = createOperationManager({ home, limitOf: () => 1, execute: async () => { await gate.promise; return [] } })
   const a = tasks.start({ action: 'films', projectId: 'p', episodeId: 'e1', sessionId: 's' })
   const b = tasks.start({ action: 'films', projectId: 'p', episodeId: 'e2', sessionId: 's' })
   for (let i = 0; i < 200 && tasks.current('p').find(task => task.id === b.id)?.queuePosition !== 1; i++) await new Promise(resolve => setTimeout(resolve, 10))

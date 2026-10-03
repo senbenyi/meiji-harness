@@ -7,6 +7,7 @@ import { parseReviewResult, formatReviewIssue } from '../../shared/review-result
 import { activeStep } from './task-context.js'
 import { saveTaskDraft } from '../data/content-records.js'
 import { checkContext } from './operation-context.js'
+import { maxRevisionsOf, roundSuffix } from '../../shared/task-nodes.js'
 
 export async function reviewContent({ project, stage, shotId, text, route, request }) {
   const board = project.shots?.items.find(shot => shot.id === shotId)?.storyboard.content
@@ -27,18 +28,18 @@ function canPublish({ check, canPersist, retainFailedDraft }, text) {
   catch { return false }
 }
 
-export async function generateStep({ kind = 'generate', target = null, phase, label, message, options, complete, persist }) {
+export async function generateStep({ kind = 'generate', target = null, phase, label, round, message, options, complete, persist }) {
   return runStep(kind, async () => {
     let text = await runTextRequest(message, options)
     if (!String(text || '').trim()) throw new Error('模型未返回内容')
     if (complete) text = await complete(text, message, options)
     if (persist && await persist(text, { passed: null, failures: [] }) !== false) markSaved()
     return text
-  }, { target, phase, label })
+  }, { target, phase, label, round })
 }
 
 // 一个自审包含按流程声明的0–2种来源；接口故障或非法审核响应仍是执行错误。
-export async function reviewStep({ kind = 'review', target = null, phase, label, message, options, persist, check, text }) {
+export async function reviewStep({ kind = 'review', target = null, phase, label, round, message, options, persist, check, text }) {
   if (!check && !message) return { review: null, reviewText: '', check: { passed: null, failures: [] } }
   return runStep(kind, async () => {
     const failures = check ? await stepAttempt('程序审核', () => programFailures(check, text)) : []
@@ -49,7 +50,7 @@ export async function reviewStep({ kind = 'review', target = null, phase, label,
     const result = { review, reviewText: combined.join('\n') || '审核通过', check: { passed: review.passed, failures: combined } }
     if (persist && await persist(result) !== false) markSaved()
     return result
-  }, { target, phase, label })
+  }, { target, phase, label, round })
 }
 
 function markSaved() {
@@ -60,8 +61,11 @@ function markSaved() {
 export async function runTextSteps(spec) {
   const { target = null, phase, labelPrefix, prompts, complete, canPersist, canRevise = () => true, initialText, persist, check, retainFailedDraft = false } = spec
   let options = spec.options || {}
-  const detail = kind => ({ phase, label: labelPrefix ? `${labelPrefix}·${({ generate: '生成', review: '自审', revise: '修订', re_review: '复审' })[kind]}` : undefined })
+  const detail = (kind, round) => ({ phase, round, label: labelPrefix ? `${labelPrefix}·${({ generate: '生成', review: '自审', revise: '修订', re_review: '复审' })[kind]}${roundSuffix({ kind, round })}` : undefined })
   const ctx = checkContext.getStore()
+  // 修订上限：调用方显式传入优先，其次为当前任务定义（run-operation 放入操作上下文），默认 2。
+  // 操作上下文可按目标给出各任务的上限（一个操作含多个任务时）。
+  const maxRevisions = maxRevisionsOf(spec.maxRevisions ?? (typeof ctx?.maxRevisions === 'function' ? ctx.maxRevisions(target) : ctx?.maxRevisions))
   options = { ...options, signal: options.signal || ctx?.signal, logPurpose: options.logPurpose || skillLogPurpose(prompts.generation.skill) }
   const save = async (text, verdict) => {
     if (!canPublish({ check, canPersist, retainFailedDraft }, text)) {
@@ -72,8 +76,8 @@ export async function runTextSteps(spec) {
     if (ctx) ctx.validation = verdict.failures
     return persist ? await persist(text, verdict) : false
   }
-  const review = async (text, kind, stage, revision) => {
-    const result = await reviewStep({ kind, target, ...detail(kind), message: prompts.review?.(text, revision), check, text,
+  const review = async (text, kind, stage, revision, round) => {
+    const result = await reviewStep({ kind, target, ...detail(kind, round), message: prompts.review?.(text, revision), check, text,
       options: { ...options, logStage: stage }, persist: result => save(text, result.check) })
     if (ctx) ctx.validation = result.check.failures
     return result
@@ -83,11 +87,12 @@ export async function runTextSteps(spec) {
     options: { ...options, logStage: '生成' }, complete, persist: save })
   let final = { review: null, reviewText: '', check: { passed: null, failures: [] } }
   if (check || prompts.review) final = await review(text, 'review', '自审')
-  if (final.review?.passed === false && prompts.revision && canRevise(text)) {
+  // 自审不通过且仍有修订次数时，追加一轮「修订 → 复审」；每轮基于本轮最新失败稿和本轮审核意见。
+  for (let round = 1; final.review?.passed === false && prompts.revision && round <= maxRevisions && canRevise(text); round++) {
     const baseContent = text, revisionOpinion = JSON.stringify(final.review)
-    text = await generateStep({ kind: 'revise', target, ...detail('revise'), message: prompts.revision(baseContent, revisionOpinion),
+    text = await generateStep({ kind: 'revise', target, ...detail('revise', round), message: prompts.revision(baseContent, revisionOpinion),
       options: { ...options, logStage: '自动修订' }, complete, persist: save })
-    final = await review(text, 're_review', '复审', { baseContent, revisionOpinion, revisionReview: true })
+    final = await review(text, 're_review', '复审', { baseContent, revisionOpinion, revisionReview: true }, round)
   }
   if (!canPublish(spec, text)) throw Object.assign(new Error(`自审未通过：${final.check.failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
   return { ...final, text }

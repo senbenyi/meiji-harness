@@ -56,23 +56,22 @@ export async function generateStoryPackage({ route, project, signal, fetchImpl, 
 export async function opOutline(c) {
   let { deps, projects, models, project, trace, note } = c
   if (!canGenerate(project, 'outline')) throw Object.assign(new Error('请先写好本集摘要，再生成剧情'), { status: 409 })
-  await projects.save(project.id, { activity: 'outline', activityError: null })
   note('依次生成并审核剧情大纲、提取人物角色、提取场景、提取道具；每项独立调用模型，前项未通过则停止后项')
   const result = await (deps.generateStoryPackage || generateStoryPackage)({ route: (modelRoutes(await models.read())).story, project, persist: async result => {
     const merged = preserveStoryAssets(project, result)
     if (result.checks && checkContext.getStore()) checkContext.getStore().storyStages = true
-    await projects.save(project.id, replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged }, activity: 'outline' }))
+    await projects.save(project.id, replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged } }))
   } })
   const merged = preserveStoryAssets(project, result)
   if (result.checks && checkContext.getStore()) checkContext.getStore().storyStages = true
   const failures = result.check.failures
   if (checkContext.getStore()) checkContext.getStore().validation = failures
-  const patch = replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged }, activity: null })
-  await projects.save(project.id, patch)
+  const patch = replaceFrom(project, 'outline', { plot: { ...project.plot, ...merged } })
+  await projects.save(project.id, patch, { final: true })
   note(`剧情已保存：大纲、${merged.characters.items.length} 张角色卡、${merged.scenes.items.length} 张场景卡、${merged.props.items.length} 张道具卡；${failures.length ? '自检未通过：' + failures.join('；') : '整包自检通过'}。镜头及后续内容已清空。`)
   return trace
 }
 
 export const operations = {
-  outline: { label: '生成剧情（大纲、角色、场景、道具）', scope: 'episode', queue: 'text', agent: true, plan: () => ['outline', 'characters', 'scenes', 'props'].flatMap(textSteps), stage: 'episode', run: opOutline },
+  outline: { label: '生成剧情（大纲、角色、场景、道具）', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: () => ['outline', 'characters', 'scenes', 'props'].flatMap(textSteps), stage: 'episode', run: opOutline },
 }

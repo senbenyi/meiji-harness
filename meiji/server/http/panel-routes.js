@@ -15,7 +15,7 @@ import { catalog, compactModels, normalizeModels, purposes } from '../../models/
 import { modelStore } from '../data/model-settings.js'
 import { projectStore } from '../data/project-store.js'
 import { readStill } from '../media/image-files.js'
-import { runOperation } from '../flow/operations/run-operation.js'
+import { cancelOperation } from '../flow/operations/operation-cancel.js'
 import { saveIncoming } from '../flow/operations/project-operations.js'
 import { insertSessionLog, runWithSessionLog } from '../host/session-log.js'
 import { hostWorkspaces } from '../host/harness-workspaces.js'
@@ -208,7 +208,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         const body = await readJson(req, 8192)
         if (!['confirm-image', 'discard-image'].includes(body.action)) return json(res, 400, { error: '图片操作无效' })
         await links.requireProject(String(body.sessionId || ''), body.projectId)
-        const trace = await runOperation({ action: body.action, projectId: body.projectId, episodeId: body.episodeId, draftId: body.draftId, sessionId: body.sessionId }, { home, imageReviewAllowed: true })
+        const trace = await tasks.run({ action: body.action, projectId: body.projectId, episodeId: body.episodeId, draftId: body.draftId, sessionId: body.sessionId }, { imageReviewAllowed: true })
         insertSessionLog(ctx.sessions.get(body.sessionId), trace.join('\n'))
         return json(res, 200, { project: await projects.read(body.projectId) })
       }
@@ -265,7 +265,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         }
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
         if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
-        tasks.cancel(body.operationId, body.projectId)
+        cancelOperation(tasks, { id: body.operationId, projectId: body.projectId, sessionId: body.sessionId, initiator: 'panel' })
         return json(res, 200, { accepted: true })
       }
       if (path === base + '/turn') {
@@ -274,7 +274,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const trace = await runOperation({ action: 'create', fields: body.fields }, { home, workspaceController: ctx.workspaceController })
+            const trace = await tasks.run({ action: 'create', fields: body.fields })
             const created = await projects.read(trace.result.projectId)
             const place = await enterProject(created.id)
             insertSessionLog(ctx.sessions.get(place.sessionId), `已创建短剧《${created.title}》`)
@@ -292,7 +292,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
             const session = ctx.sessions.get(sessionId)
             await runWithSessionLog(session, async () => {
               try {
-                const trace = await runOperation(staged, { home, workspaceController: ctx.workspaceController, session })
+                const trace = await tasks.run(staged, { session })
                 insertSessionLog(session, trace.join('\n'))
               } catch (error) {
                 insertSessionLog(session, error.message || '操作失败', true)
@@ -306,7 +306,8 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           return json(res, 202, { accepted: true, operationId: task.id })
         } catch (error) {
           const result = fail(error, '启动任务失败')
-          return json(res, result.status, { error: result.error })
+          // 本集被占用（面板或会话的操作排队中或执行中）：附带占用者，面板据此提示。
+          return json(res, result.status, { error: result.error, ...(error.busy ? { busy: error.busy } : {}) })
         }
       }
       if (path === base + '/history' && req.method === 'GET') {

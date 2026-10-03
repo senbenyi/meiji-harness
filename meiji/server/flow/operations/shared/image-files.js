@@ -104,8 +104,8 @@ export async function stageImageDraft(projects, project, draft, target) {
   await projects.save(project.id, current => {
     const key = feedbackKey({ action: target.track ? 'pencil' : target.slot ? 'part-image' : 'image', track: target.track, itemId: target.itemId, slot: target.slot })
     consumeReview(targetNode(current, key))
-    return { ...current, pendingImages: { ...current.pendingImages, [draft.draftId]: { ...draft, ...target } }, activity: null, activityError: null }
-  })
+    return { ...current, pendingImages: { ...current.pendingImages, [draft.draftId]: { ...draft, ...target } }}
+  }, { final: true })
 }
 
 export async function readUploadedImage(operation, home) {

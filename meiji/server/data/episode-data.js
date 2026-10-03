@@ -19,8 +19,8 @@ export function scopeProjects(store, episodeId, track) {
       })
       return materialize(saved, episodeId)
     },
-    async writeStep(id, step, data) {
-      return this.save(id, view => replaceFrom(view, step, data))
+    async writeStep(id, step, data, options) {
+      return this.save(id, view => replaceFrom(view, step, data), options)
     },
     async saveSource(id, input) {
       return this.save(id, view => sourcePatch(view, { ...input, summary: episodeSummary(input?.summary ?? view.summary.content) }))

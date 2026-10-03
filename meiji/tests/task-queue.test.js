@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createQueue } from '../server/flow/tasks/task-queue.js'
-import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { definitions, queueOf } from '../server/flow/operations/operation-registry.js'
 import { tempHome } from './fixtures/model.js'
 
@@ -73,7 +73,7 @@ const until = async predicate => { for (let i = 0; i < 200 && !(await predicate(
 
 test('tasks beyond the limit report queued and start when a slot frees', async t => {
   const gates = new Map(), started = []
-  const tasks = createTasks({ home: await tempHome(t), limitOf: () => 1, execute: async operation => {
+  const tasks = createOperationManager({ home: await tempHome(t), limitOf: () => 1, execute: async operation => {
     started.push(operation.projectId); const gate = deferred(); gates.set(operation.projectId, gate); await gate.promise; return []
   } })
   const a = tasks.start({ action: 'films', projectId: 'a', sessionId: 's' })

@@ -18,6 +18,7 @@ import { episodeDialog, overviewDialog } from './project-overview-view.js'
 import { renderLibrary } from './asset-library-view.js'
 import { createBridge, currentSessionId, projectRefreshMark } from './chat-bridge.js'
 import { gateFromAction, regenerateFields, syncImageGate } from './image-review.js'
+import { liveActivityMark, withLiveActivity } from './live-activity.js'
 
 function installLogCards() {
   if (installLogCards.started) return
@@ -102,6 +103,9 @@ export function mount() {
     liveTasks = result.tasks
     liveTaskKey = eventKey
     paintTasks()
+    // 进行中的操作变化（开始、排队、结束）时重绘，使按钮禁用状态与剧集占用一致。
+    const root = shownProject && modelStore.get(shownProject)
+    if (root && !hold && liveActivityMark(root, liveTasks) !== shownLiveMark) paintProject(root)
   }
   function watchProject(projectId, sessionId) {
     const key = projectId ? `${sessionId}:${projectId}` : ''
@@ -127,7 +131,7 @@ export function mount() {
   let openCharacter = null
   let openScene = null
   let imageGate = null
-  let navigation = 0, library, workspace = null, shown = '', shownMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', openTab = '', shownProject = ''
+  let navigation = 0, library, workspace = null, shown = '', shownMark = '', shownLiveMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', openTab = '', shownProject = ''
   const display = node => { renderModelView(shell.content, node); paintTasks(); shell.status(''); shell.setOpen(true) }
   const signature = project => (workspace?.id || '') + ':' + (project?.id || '')
   const contextFor = projects => ({
@@ -159,11 +163,14 @@ export function mount() {
     shownProject = project?.id || ''
     shown = signature(project)
     shownMark = projectRefreshMark(project)
+    // 「执行中」由进行中的操作（含排队中）推导，不读服务端字段。
+    shownLiveMark = liveActivityMark(project, liveTasks)
+    const view = withLiveActivity(project, liveTasks)
     hold = false
     navigation++
-    imageGate = syncImageGate(project, imageGate)
+    imageGate = syncImageGate(view, imageGate)
     setLanguageLabel(project?.outputLanguage)
-    display(renderSession(project, openCreate, actions, contextFor()))
+    display(renderSession(view, openCreate, actions, contextFor()))
   }
   modelStore.subscribe(project => { if (!hold) paintProject(project) })
   const showProject = (project, nextWorkspace = workspace) => {
@@ -232,7 +239,8 @@ export function mount() {
       const index = episodeId ? [...(root?.episodes || [])].reverse().findIndex(episode => episode.id === episodeId) : -1
       const project = { id: projectId, title: root?.title, episodeId, episodeNumber: index >= 0 ? index + 1 : undefined, episodes: root?.episodes }
       currentPage = renderCurrentTasks(project, {
-        loadPrompts: (task, step) => request('history?' + new URLSearchParams({ projectId, sessionId, taskId: task.id, stepId: step.id })),
+        // 当前任务页的条目是操作（id 为 operationId），提示词按其任务记录（taskId）读取。
+        loadPrompts: (task, step) => request('history?' + new URLSearchParams({ projectId, sessionId, taskId: task.taskId || task.id, stepId: step.id })),
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
         load: () => request('tasks/current?' + new URLSearchParams({ projectId, sessionId, ...(episodeId ? { episodeId } : {}) })),
         stop: task => request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }),

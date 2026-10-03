@@ -18,7 +18,6 @@ export async function startImage(operation, project, { projects, models, home, s
   if (!place) throw Object.assign(new Error('请先写好角色卡或场景卡'), { status: 409 })
   const item = place.bag.items.find(entry => entry.id === operation.itemId)
   if (!item || !['role', 'scene', 'prop'].includes(item.type)) throw Object.assign(new Error('只有角色、场景和道具可以出图'), { status: 400 })
-  await projects.save(project.id, { activity: `image:${item.id}`, activityError: null })
   const route = modelRoutes(await models.read())
   const bag = place.bag
   let how = '沿用这张卡已有的中文画面提示词'
@@ -94,7 +93,7 @@ export async function startImage(operation, project, { projects, models, home, s
       await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item), aspect: operation.aspect || (current.type === 'role' ? '9:16' : size), useReference: Boolean(operation.useReference) })
     },
   }).catch(async error => {
-    await projects.save(project.id, { activity: null, activityError: error.message }).catch(() => {})
+    await projects.save(project.id, {}, { final: true, error: error.message }).catch(() => {})
   }))
   return [
     `正在生成 ${item.id} ${item.name} 的图片`,
@@ -113,6 +112,6 @@ export async function opImage(c) {
 }
 
 export const operations = {
-  image: { label: '生成图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan, stage: 'episode', run: opImage },
-  'revise-image': { label: '按新需求重绘图片', scope: 'episode', queue: 'image', agent: true, plan: imagePlan, stage: 'episode', run: opImage },
+  image: { label: '生成图片', maxRevisions: 0, scope: 'episode', queue: 'image', agent: true, plan: imagePlan, stage: 'episode', run: opImage },
+  'revise-image': { label: '按新需求重绘图片', maxRevisions: 0, scope: 'episode', queue: 'image', agent: true, plan: imagePlan, stage: 'episode', run: opImage },
 }

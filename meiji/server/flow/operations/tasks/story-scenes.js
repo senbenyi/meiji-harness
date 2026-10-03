@@ -3,5 +3,5 @@ import { opCharacters } from '../shared/story-cards.js'
 import { textSteps } from '../plan-steps.js'
 
 export const operations = {
-  scenes: { label: '按意见修订场景卡', scope: 'episode', queue: 'text', agent: true, plan: () => textSteps('scenes'), stage: 'episode', run: opCharacters },
+  scenes: { label: '按意见修订场景卡', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: () => textSteps('scenes'), stage: 'episode', run: opCharacters },
 }

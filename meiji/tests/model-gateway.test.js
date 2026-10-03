@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { completeChat, generateGatewayImage, characterImageSize, gatewayVideoSize, retrieveGatewayVideo, submitGatewayVideo } from '../server/gateway/model-gateway.js'
-import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { tempHome } from './fixtures/model.js'
 
@@ -159,7 +159,7 @@ test('stopping a synchronous image request aborts it', async () => {
 
 test('panel stop ends the task without any cancel request', async t => {
   const query = Promise.withResolvers(), calls = []
-  const tasks = createTasks({ home: await tempHome(t), execute: async (_, { signal }) => {
+  const tasks = createOperationManager({ home: await tempHome(t), execute: async (_, { signal }) => {
     await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, fetchImpl: async (url, options) => {
       calls.push(url.pathname)
       query.resolve()
@@ -179,7 +179,7 @@ test('panel stop ends the task without any cancel request', async t => {
 // 服务关闭一律取消本地任务：网关不提供取消接口，不发送任何取消请求。
 test('service shutdown cancels the local task and sends no remote cancel', async t => {
   const paused = Promise.withResolvers(), calls = []
-  const tasks = createTasks({ home: await tempHome(t), execute: async (_operation, { signal }) => {
+  const tasks = createOperationManager({ home: await tempHome(t), execute: async (_operation, { signal }) => {
     await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, pause: (_ms, polling) => { paused.resolve(); return new Promise((_, reject) => polling.addEventListener('abort', () => reject(polling.reason), { once: true })) }, fetchImpl: async (url, options) => {
       calls.push([url.pathname, options.method])
       return Response.json({ status: 'in_progress' })

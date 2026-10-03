@@ -54,6 +54,22 @@ export function reviewPassed(steps = []) {
   return reviews.length ? reviews.every(step => step.verdict === 'pass') : null
 }
 
+// 操作状态由其任务状态推导（任务状态由 deriveTaskStatus 从节点推导）：
+// 全部排队 → 排队中；有执行中、等待 → 执行中；有失败 → 失败；有审核未通过 → 审核未通过；有取消 → 已取消；
+// 已开始但仍有排队 → 执行中；全部完成 → 完成。没有任务的操作视为完成。
+// 失败与审核未通过优先于取消：按停止规则，其余任务是因它们而被取消的，操作状态反映根因。
+export function deriveOperationStatus(taskStatuses = []) {
+  const has = status => taskStatuses.includes(status)
+  if (!taskStatuses.length) return TaskStatus.COMPLETED
+  if (taskStatuses.every(status => status === TaskStatus.QUEUED)) return TaskStatus.QUEUED
+  if (has(TaskStatus.RUNNING) || has(TaskStatus.WAITING)) return TaskStatus.RUNNING
+  if (has(TaskStatus.FAILED)) return TaskStatus.FAILED
+  if (has(TaskStatus.REVIEW_FAILED)) return TaskStatus.REVIEW_FAILED
+  if (has(TaskStatus.CANCELLED)) return TaskStatus.CANCELLED
+  if (has(TaskStatus.QUEUED)) return TaskStatus.RUNNING
+  return TaskStatus.COMPLETED
+}
+
 export const taskEnded = steps => ![TaskStatus.QUEUED, TaskStatus.RUNNING, TaskStatus.WAITING].includes(deriveTaskStatus(steps))
 
 // 面板按目标分组展示；没有目标的步骤归入「本任务」。

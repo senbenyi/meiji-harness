@@ -27,7 +27,6 @@ export async function opFilms(c) {
   if (!hasStoryboard(project)) throw Object.assign(new Error('请先写好本集全部文本分镜'), { status: 409 })
   if (rows.some(item => !storyboardPromptText(item).trim())) throw Object.assign(new Error('请先生成每一镜的分镜'), { status: 409 })
   if (rows.some(item => feedbackOf(project, `storyboard:${item.id}`).check.passed === false) || feedbackOf(project, 'storyboard').check.passed === false) throw Object.assign(new Error('文本分镜自检未通过，请先修正'), { status: 409 })
-  await projects.save(project.id, { activity: 'films', activityError: null })
   note('按镜头顺序生成所有成片')
   note('文件：server/flow/operations/tasks/film.js')
   note('函数：submitH3')
@@ -71,7 +70,7 @@ export async function opFilms(c) {
     await runStep('tail_frame', () => saveTailFrame(projects, project, track, saved.file, saved.directory, home, deps.saveLastFrame || saveLastFrame), { target: `film:${track}` })
     note(`${track} 尾帧已提取`)
   }
-  await projects.save(project.id, { activity: null })
+  await projects.save(project.id, {}, { final: true })
   return trace
 }
 
@@ -129,7 +128,7 @@ export async function produceShots(operation, deps, run) {
 export const opProduce = c => produceShots(c.operation, c.deps, c.deps.runOperation)
 
 export const operations = {
-  produce: { label: '生成本镜文本和视频', scope: 'shot', queue: 'video', agent: true, plan: (_, op) => shotSteps(op.track), stage: 'project', run: opProduce },
-  'produce-all': { label: '依次生成文本和视频', scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(shotSteps), stage: 'project', run: opProduce },
-  films: { label: '一键成片', scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(videoSteps), stage: 'episode', run: opFilms },
+  produce: { label: '生成本镜文本和视频', maxRevisions: 0, scope: 'shot', queue: 'video', agent: true, plan: (_, op) => shotSteps(op.track), stage: 'project', run: opProduce },
+  'produce-all': { label: '依次生成文本和视频', maxRevisions: 0, scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(shotSteps), stage: 'project', run: opProduce },
+  films: { label: '一键成片', maxRevisions: 0, scope: 'episode', queue: 'video', agent: true, plan: project => shotIds(project).flatMap(videoSteps), stage: 'episode', run: opFilms },
 }

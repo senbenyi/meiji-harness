@@ -1,14 +1,13 @@
 // 面板与会话共用入口：锁定与任务上下文 → 项目/剧集准备 → 领域操作 → 状态释放与任务收尾。
 // 嵌套操作复用同一任务；后台图片/视频完成后才释放操作。
 import { randomUUID } from 'node:crypto'
-import { resolve } from 'node:path'
 import { linkStore } from '../../data/workspace-links.js'
 import { endExecution, runStep, startExecution } from '../../runtime/task-execution.js'
 import { executionContext, executionSteps } from '../../runtime/task-context.js'
 import { recorded } from '../../runtime/task-state.js'
 import { checkContext, apiFailed } from '../../runtime/operation-context.js'
-import { planSteps, runnerStep, validateOperation, episodeScoped } from './operation-registry.js'
-import { operations } from './registry.js'
+import { planTasks, runnerStep, validateOperation, episodeScoped, definitions, operationLabel, operations } from './operation-registry.js'
+import { holderOf, occupy } from './operation-occupancy.js'
 import { materialize, normalizeProject } from '../../../shared/episode-rules.js'
 import { scopeProjects } from '../../data/episode-data.js'
 import { readImageDraft } from '../../data/image-storage.js'
@@ -19,8 +18,8 @@ import { canGenerate } from '../../../shared/generation-gates.js'
 import { assetStore } from '../../data/asset-library-store.js'
 import { modelStore } from '../../data/model-settings.js'
 import { allNodes, GenerationStatus, modelPatch, targetNode } from '../../../shared/drama-model.js'
+import { markFailed, refreshEpisodeStatus, settleByCheck } from '../../../shared/content-state.js'
 
-const running = new Set()
 
 export async function runOperation(operation, deps) {
   deps.signal?.throwIfAborted()
@@ -28,22 +27,26 @@ export async function runOperation(operation, deps) {
   if (operation.origin === 'session') validateOperation(operation)
   const operationId = deps.operationId || randomUUID()
   const nested = executionContext.getStore()?.taskId === operationId
-  const key = operation.projectId && !nested ? resolve(deps.home, 'storages', 'meiji', 'projects', operation.projectId) + (operation.episodeId ? ':' + operation.episodeId : '') + (operation.track ? ':' + operation.track : '') : null
-  if (key && [...running].some(active => active === key || active.startsWith(key + ':') || key.startsWith(active + ':'))) throw Object.assign(new Error('上一项面板操作还在进行'), { status: 409 })
-  if (key) running.add(key)
+  // 剧集占用（唯一一把锁）：经任务管理器启动的操作已在入队时占用；直接操作在这里占用，结束时释放。
+  // deps.operationRecordId：经操作管理器执行时所属操作的 id（占用者与操作记录）；operationId 为本次任务记录的 id。
+  const release = nested || holderOf(deps.operationRecordId || operationId) ? () => {} : occupy(deps.home, operation, { id: operationId, label: operationLabel(operation) })
   const background = []
   const state = { failure: undefined, execution: undefined }
-  const context = { review: '', operationId, signal: deps.signal, requirements: operation.requirements || '', requestedMode: operation.mode }
+  // maxRevisions：本操作定义的修订上限，文本流程（runTextSteps）据此动态追加修订轮次。
+  const context = { review: '', operationId, signal: deps.signal, requirements: operation.requirements || '', requestedMode: operation.mode, maxRevisions: definitions[operation.action]?.maxRevisions }
   const finish = async () => {
     try { await releaseOperation({ operation, deps, operationId, context, state }) }
     finally {
-      try { await endExecution(state.execution, state.failure, deps.signal) } finally { if (key) running.delete(key) }
+      try { await endExecution(state.execution, state.failure, deps.signal) } finally { release() }
     }
   }
   try {
     if (operation.sessionId && operation.projectId) await linkStore(deps.home).requireProject(operation.sessionId, operation.projectId)
-    const plan = !nested && recorded(operation) ? await planSteps(deps.home, operation) : null
-    state.execution = await startExecution(deps.home, operation, operationId, plan)
+    // 任务划分：经操作管理器执行时沿用入队时写好的任务（deps.tasks），否则按定义划分；第一个任务的 id 即本次执行的 id。
+    const planned = !nested && recorded(operation) ? (deps.tasks || await planTasks(deps.home, operation)) : null
+    const tasks = planned?.map((task, index) => ({ ...task, id: task.id || (index === 0 ? operationId : randomUUID()) }))
+    if (tasks) context.maxRevisions = target => tasks.find(task => task.targets?.includes(target ?? null))?.maxRevisions ?? tasks[0].maxRevisions ?? definitions[operation.action]?.maxRevisions
+    state.execution = await startExecution(deps.home, operation, operationId, tasks?.[0].plan ?? null, { operationId: deps.operationRecordId, type: tasks?.[0].type, label: tasks?.[0].label, targets: tasks?.[0].targets, tasks })
     if (state.execution) state.execution.signal = deps.signal
     const single = runnerStep(operation)
     const execute = () => executeOperation(operation, { ...deps, operationId, runOperation, defer: job => { background.push(job) } })
@@ -87,6 +90,7 @@ async function executeOperation(operation, deps) {
     }
     c.submittedReview = String(c.operation.review || '').trim()
     const prepared = await prepareChecks(c.projects, c.project, c.operation)
+    c.prepared = true
     c.projects = prepared.store
     c.project = prepared.project
     c.operation = prepared.operation
@@ -100,14 +104,14 @@ async function executeOperation(operation, deps) {
     const { operation: current } = c
     if (current.projectId) {
       try {
-        const saved = await rootProjects.read(current.projectId)
-        if (saved.activeOperation === deps.operationId) {
-          if (error.code === 'CONTENT_CHECK_FAILED' && current.action === 'episode-generate' && current.episodeId) {
-            await scopeProjects(rootProjects, current.episodeId, current.track).save(current.projectId, view => setCheck(structuredClone(view), current, [...feedbackOf(view, current).check.failures, error.message]))
-          }
-          await c.projects.save(current.projectId, { activity: null, activityError: error.message })
+        if (error.code === 'CONTENT_CHECK_FAILED' && current.action === 'episode-generate' && current.episodeId) {
+          await scopeProjects(rootProjects, current.episodeId, current.track).save(current.projectId, view => setCheck(structuredClone(view), current, [...feedbackOf(view, current).check.failures, error.message]))
         }
-      } catch { /* Conflicting results are discarded; the owner releases its activity in finish. */ }
+        // 已开始执行（本集有内容节点归本操作所有）的操作：失败原因只记在目标内容节点上；未开始就失败（如参数校验）不写任何数据。
+        if (c.prepared && allNodes(await c.projects.read(current.projectId)).some(node => node.operation?.id === deps.operationId)) {
+          await c.projects.save(current.projectId, {}, { final: true, error: error.message })
+        }
+      } catch { /* Conflicting results are discarded; releaseOperation settles owned nodes. */ }
     }
     throw error
   }
@@ -145,8 +149,6 @@ async function releaseOperation({ operation, deps, operationId, context, state }
           if (owned.includes('outline')) episode.shots = structuredClone(original.shots)
           const completed = allNodes(episode).some(value => !restore.has(value.id) && value.check?.passed === true && value.revision !== targetNode(original, value.id)?.revision)
           if (!completed && ['outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'shot-storyboard', 'shot-boards', 'film', 'films'].includes(operation.action)) episode.assembly = structuredClone(original.assembly)
-          episode.activity = null
-          episode.activityError = original.activityError || null
           Object.assign(episode, modelPatch(episode, {}))
           changed = true
         }
@@ -157,22 +159,13 @@ async function releaseOperation({ operation, deps, operationId, context, state }
       for (const target of allNodes(episode)) {
         if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
         const completedStoryStage = context.storyStages && target.operation.phase === 'reviewed' && target.check?.passed === true
-        if (completedStoryStage || (!stopped && target.check?.passed != null)) {
-          target.operation = null
-          target.error = null
-          target.status = target.check.passed ? GenerationStatus.PASSED : GenerationStatus.FAILED
-        } else {
-          target.error = state.failure?.message || '任务已停止，请重新发起'
-          target.status = GenerationStatus.FAILED
-          target.operation = null
-        }
+        if (completedStoryStage || (!stopped && target.check?.passed != null)) settleByCheck(target)
+        else markFailed(target, state.failure?.message || '任务已停止，请重新发起')
         episodeChanged = true
         changed = true
       }
-      if (episode.id === operation.episodeId && episode.activity && !allNodes(episode).some(n => n.operation)) { episode.activity = null; episodeChanged = true; changed = true }
-      if (episodeChanged) episode.status = modelPatch(episode, {}).status
+      if (episodeChanged) refreshEpisodeStatus(episode)
     }
-    if (next.activeOperation === operationId) { next.activity = null; next.activeOperation = null; if (apiFailure) next.activityError = context.originalRoot?.activityError || null; changed = true }
     return changed ? next : null
   })
 }

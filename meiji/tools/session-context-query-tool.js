@@ -1,6 +1,6 @@
 import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
-import { generationFeedback } from '../server/flow/tasks/task-manager.js'
+import { generationFeedback } from '../server/flow/operations/operation-manager.js'
 
 export const jsonOutput = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
 export function sessionIdOf(exec) {
@@ -28,7 +28,8 @@ export function contextQueryTool({ home, tasks }) {
         id: project.id, title: project.title, summary: project.summary.content,
         episodes: [...project.episodes].reverse().map((episode, index) => ({ id: episode.id, episodeNumber: index + 1, summary: episode.summary.content,
           stages: Object.fromEntries(['summary', 'outline', 'shots', 'seconds', 'storyboard'].map(stage => { const value = generationFeedback(episode, stage); return [stage, { status: value.status, passed: value.check.passed, failures: value.check.failures, stale: Boolean(value.stale) }] })) })),
-        tasks: tasks.list(project.id),
+        // 只列进行中操作（用于避免重复发起），不含任务与步骤；详情只在面板查看。
+        tasks: tasks.list(project.id).map(item => ({ operationId: item.id, action: item.action, status: item.status, episodeId: item.episodeId || null, initiator: item.initiator })),
       } : null })
     },
   }

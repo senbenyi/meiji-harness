@@ -4,6 +4,8 @@ import { deriveTaskStatus } from '../../shared/task-steps.js'
 import { executionContext, activeStep } from '../runtime/task-context.js'
 import { manualActions } from '../runtime/task-state.js'
 import { recordStore, writeSteps } from './task-store.js'
+import { markPendingReview } from '../../shared/content-state.js'
+import { taskIdOfStep } from '../runtime/task-state.js'
 
 const now = () => new Date().toISOString()
 export async function addBaselines(store, project, operation, stage, baselines) {
@@ -61,7 +63,7 @@ export async function prepareContentRecords(current, next) {
     if (manualActions.has(context.operation.action) && target.key !== 'summary') {
       const episode = next.episodes.find(item => item.id === target.episodeId)
       const nodes = target.key === 'story' ? [episode.plot.outline, episode.plot.characters, episode.plot.scenes, episode.plot.props].filter(Boolean) : [target.node]
-      for (const node of nodes) { node.check = { passed: null, failures: [], revision: node.revision }; if (!node.operation) node.status = 'not-generated' }
+      for (const node of nodes) markPendingReview(node)
       target.check = nodes[0].check
     }
     let previous = old?.node.source || context.baselines.get(`${target.episodeId}:${target.key}`) || null
@@ -73,7 +75,7 @@ export async function prepareContentRecords(current, next) {
       previous = { artifactId: randomUUID(), version: 1, taskId: null, stepId: null }
       await context.store.update('artifacts', previous.artifactId, { schemaVersion: 1, id: previous.artifactId, ...previous, projectId: current.id, episodeId: target.episodeId, target: target.key, content: old.content, createdAt: now(), published: true, baseline: true })
     }
-    const source = { taskId: context.taskId, stepId: context.stepId || null, artifactId: randomUUID(), version: (previous?.version || 0) + 1 }
+    const source = { taskId: taskIdOfStep(context, context.stepId), stepId: context.stepId || null, artifactId: randomUUID(), version: (previous?.version || 0) + 1 }
     await context.store.update('artifacts', source.artifactId, { schemaVersion: 1, id: source.artifactId, ...source, projectId: current.id, episodeId: target.episodeId, target: target.key, previousArtifactId: previous?.artifactId || null, content: target.content, createdAt: now(), published: false })
     target.node.source = source
     saved.push({ ...source, episodeId: target.episodeId, target: target.key, reviewPassed: target.check?.passed ?? null })
@@ -98,7 +100,7 @@ export async function saveTaskDraft(target, content) {
   const context = executionContext.getStore()
   if (!context) throw new Error('草稿需要任务上下文')
   const id = randomUUID()
-  const source = { artifactId: id, taskId: context.taskId, stepId: context.stepId, episodeId: context.operation.episodeId || null, target, version: 1, reviewPassed: content.check?.passed ?? null }
+  const source = { artifactId: id, taskId: taskIdOfStep(context, context.stepId), stepId: context.stepId, episodeId: context.operation.episodeId || null, target, version: 1, reviewPassed: content.check?.passed ?? null }
   await context.store.update('artifacts', id, { schemaVersion: 1, id, ...source, projectId: context.projectId, content, createdAt: now(), published: false })
   context.outputs.push(source)
   activeStep().outputs.push(id)

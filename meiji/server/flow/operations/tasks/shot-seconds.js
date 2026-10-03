@@ -26,7 +26,7 @@ export async function opShotSeconds(c) {
   const items = project.shots?.items || []
   if (!items.some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
   const review = String(operation.review || '').trim()
-  project = await projects.save(project.id, { ...clearShotDownstream(project, 'seconds', track), activity: `shot-seconds:${track}`, activityError: null })
+  project = await projects.save(project.id, { ...clearShotDownstream(project, 'seconds', track) })
   note('技能：每秒指令（skills/task/generate-seconds-instructions-skill.md）')
   note('函数：generateShotSeconds（server/flow/operations/tasks/shot-seconds.js）')
   note(`写 ${track} 的每一秒`)
@@ -35,12 +35,12 @@ export async function opShotSeconds(c) {
     route: (modelRoutes(await models.read())).story, shotId: track, project, review,
     persist: shots => projects.save(project.id, { shots }),
   })
-  await projects.save(project.id, { shots, activity: null })
+  await projects.save(project.id, { shots }, { final: true })
   const row = shots.items.find(item => item.id === track)
   note(`${track} 已生成指令原文，目标时长 ${row?.duration || 0} 秒`)
   return trace
 }
 
 export const operations = {
-  'shot-seconds': { label: '生成每秒指令', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => textSteps(`seconds:${op.track}`), stage: 'episode', run: opShotSeconds },
+  'shot-seconds': { label: '生成每秒指令', maxRevisions: 2, scope: 'shot', queue: 'text', agent: true, plan: (_, op) => textSteps(`seconds:${op.track}`), stage: 'episode', run: opShotSeconds },
 }

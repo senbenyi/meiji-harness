@@ -48,7 +48,8 @@ export function renderCharacterDetail(project, itemId, actions, context) {
     page.append(element('p', '该人物已不存在，请返回列表重新选择。', 'notice'))
     return page
   }
-  const hint = element('p', /^(自检|自审)未通过/.test(project.activityError || '') ? '' : project.activityError || '', 'hint warn')
+  // 错误显示在对应内容与图片节点上；这里只承载本页操作的即时提示。
+  const hint = element('p', '', 'hint warn')
   hint.hidden = !hint.textContent
   hint.setAttribute('role', 'status')
   page.append(hint, ...stillCards(project, [item], actions, hint, { editable: true, imageGate: context.detailGate }))

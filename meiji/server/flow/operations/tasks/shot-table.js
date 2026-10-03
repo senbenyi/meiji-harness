@@ -75,17 +75,14 @@ export async function reviseShot(options) {
 export async function opShots(c) {
   let { operation, deps, projects, models, project, submittedReview, trace, note } = c
   if (!canGenerate(project, 'shots')) throw Object.assign(new Error(gateMessage(project, 'shots')), { status: 409 })
-  project = await projects.save(project.id, { ...clearShotDownstream(project, 'shots'), activity: 'shots', activityError: null })
+  project = await projects.save(project.id, { ...clearShotDownstream(project, 'shots') })
   const review = String(operation.review || '').trim()
   note('按事件与空间连续性规划镜头表，每段不超过15秒')
   if (submittedReview) note(`审核意见：${submittedReview}`)
   const failures = feedbackOf(project, 'shots').check.failures
   if (failures.length) note(`自检未通过：${failures.join('；')}`)
   const shots = await (deps.generateShots || generateShots)({ route: (modelRoutes(await models.read())).story, project, review, persist: shots => projects.save(project.id, { shots }) })
-  await projects.writeStep(project.id, 'shots', {
-    shots,
-    activity: null,
-  })
+  await projects.writeStep(project.id, 'shots', { shots }, { final: true })
   note(shots.check.passed ? `镜头表已通过自检，共 ${shots.items.length} 镜。` : `镜头表已写入，自检未通过：${shots.check.failures.join('；')}`)
   note('每秒指令需要在镜头表里单独生成')
   return trace
@@ -100,7 +97,7 @@ export async function opReviseShot(c) {
   const items = project.shots?.items || []
   if (!items.some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
   if (!canGenerate(project, 'shots')) throw Object.assign(new Error('请先写好场景卡，再改镜头'), { status: 409 })
-  project = await projects.save(project.id, { ...clearShotDownstream(project, 'shots', track), activity: `revise-shot:${track}`, activityError: null })
+  project = await projects.save(project.id, { ...clearShotDownstream(project, 'shots', track) })
   note(`文件：server/flow/operations/tasks/shot-table.js`)
   note('函数：reviseShot')
   note(`重写 ${track}`)
@@ -109,12 +106,12 @@ export async function opReviseShot(c) {
     route: (modelRoutes(await models.read())).story, shotId: track, review,
     project, persist: shots => projects.save(project.id, { shots }),
   })
-  await projects.writeStep(project.id, 'shots', { shots, activity: null })
+  await projects.writeStep(project.id, 'shots', { shots }, { final: true })
   note(shots.check.passed ? `${track} 已重写，镜头表通过自检。` : `${track} 已重写，自检未通过：${shots.check.failures.join('；')}`)
   return trace
 }
 
 export const operations = {
-  shots: { label: '写镜头表', scope: 'episode', queue: 'text', agent: true, plan: () => textSteps('shots'), stage: 'episode', run: opShots },
-  'revise-shot': { label: '按审核意见重写镜头', scope: 'shot', queue: 'text', agent: true, plan: () => textSteps('shots'), stage: 'episode', run: opReviseShot },
+  shots: { label: '写镜头表', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: () => textSteps('shots'), stage: 'episode', run: opShots },
+  'revise-shot': { label: '按审核意见重写镜头', maxRevisions: 2, scope: 'shot', queue: 'text', agent: true, plan: () => textSteps('shots'), stage: 'episode', run: opReviseShot },
 }

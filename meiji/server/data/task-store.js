@@ -5,7 +5,7 @@ import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promise
 import { join } from 'node:path'
 import { notifyProject } from './project-events.js'
 import { liveTasks as live, usedSkills } from '../runtime/task-context.js'
-import { finalizeSteps } from '../runtime/task-state.js'
+import { finalizeSteps, partitionSteps, taskIdOfStep } from '../runtime/task-state.js'
 
 export const TASK_SCHEMA = 2
 const writes = new Map()
@@ -51,7 +51,7 @@ export function recordStore(home, projectId) {
     },
     async removeEpisode(episodeId) {
       const taskIds = new Set((await this.list('tasks')).filter(task => task.episodeId === episodeId).map(task => task.id))
-      for (const kind of ['tasks', 'artifacts', 'prompts']) for (const value of await this.list(kind)) {
+      for (const kind of ['operations', 'tasks', 'artifacts', 'prompts']) for (const value of await this.list(kind)) {
         if (value.episodeId === episodeId || (kind === 'prompts' && taskIds.has(value.taskId))) await rm(path(kind, value.id), { force: true })
       }
     },
@@ -64,15 +64,27 @@ export function recordStore(home, projectId) {
         await update('tasks', task.id, current => ({ ...current, steps, status: deriveTaskStatus(steps), error: '服务重启，任务已取消', endedAt: now() }))
         live.delete(task.id)
       }
+      // 遗留的未结束操作同样结束，状态由其任务推导（均已取消）。
+      for (const operation of await this.list('operations')) {
+        if (operation.endedAt) continue
+        await update('operations', operation.id, current => ({ ...current, status: 'cancelled', error: '服务重启，任务已取消', endedAt: now() }))
+      }
     },
   }
 }
 
+// 按任务写回步骤（一个操作的多个任务共用执行上下文，步骤按目标归入各自任务）；extra 只写入当前步骤所属任务。
 export async function writeSteps(context, extra) {
-  const record = await context.store.update('tasks', context.taskId, task => ({ ...task, ...(extra ? extra(task) : {}), ...usedSkills(context), steps: context.steps, status: deriveTaskStatus(context.steps) }))
-  live.set(context.taskId, record)
+  const owner = taskIdOfStep(context, context.stepId)
+  let primary = null
+  for (const group of partitionSteps(context.steps, context.tasks)) {
+    const id = group.id || context.taskId
+    const record = await context.store.update('tasks', id, task => ({ ...task, ...(extra && id === owner ? extra(task) : {}), ...usedSkills(context), steps: group.steps, status: deriveTaskStatus(group.steps) }))
+    live.set(id, record)
+    if (id === owner) primary = record
+  }
   notifyProject(context.home, context.projectId)
-  return record
+  return primary
 }
 
 export async function readStepPrompts(home, projectId, taskId, stepId) {

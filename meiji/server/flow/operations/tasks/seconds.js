@@ -30,24 +30,23 @@ export async function opSeconds(c) {
   let { deps, projects, models, project, trace, note } = c
   const items = project.shots?.items || []
   if (!items.length) throw Object.assign(new Error('请先写好镜头表，再写每秒指令'), { status: 409 })
-  project = await projects.save(project.id, { activity: 'seconds', activityError: null })
+  project = await projects.read(project.id)
   note('按镜头顺序逐镜生成每秒指令，每镜自审通过后继续下一镜')
   await (deps.generateAllSeconds || generateAllSeconds)({ route: (modelRoutes(await models.read())).story, project,
     persist: (shots, track) => projects.save(project.id, current => {
       const patch = saveSecondsShot(current, shots, track)
-      return { ...patch, activity: 'seconds' }
+      return patch
     }),
   })
   await projects.save(project.id, current => {
     const next = structuredClone(current)
     finish(next.shots.seconds, { passed: true, failures: [] })
-    next.activity = null
     return next
-  })
+  }, { final: true })
   note('每秒指令已写完')
   return trace
 }
 
 export const operations = {
-  seconds: { label: '生成每秒指令', scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(id => textSteps(`seconds:${id}`)), stage: 'episode', run: opSeconds },
+  seconds: { label: '生成每秒指令', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(id => textSteps(`seconds:${id}`)), stage: 'episode', run: opSeconds },
 }

@@ -55,7 +55,7 @@ export async function opShotStoryboard(c) {
   if (!shotSecondsReady(project.shots.items.find(item => item.id === track))) throw Object.assign(new Error('请先写好这一镜的每秒指令'), { status: 409 })
   const review = String(operation.review || '').trim()
   if (review || operation.generationMode === 'modify') throw Object.assign(new Error('视频提示词由程序组装；请在每秒分镜提交修改意见，或直接编辑最终提示词'), { status: 409 })
-  project = await projects.save(project.id, { ...clearShotDownstream(project, 'storyboard', track), activity: `shot-storyboard:${track}`, activityError: null })
+  project = await projects.save(project.id, { ...clearShotDownstream(project, 'storyboard', track) })
   note('步骤：每秒指令 → 多模态引用编排')
   note('函数：generateShotStoryboard（server/flow/operations/tasks/film-storyboard.js）')
   note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
@@ -68,7 +68,7 @@ export async function opShotStoryboard(c) {
       return patch
     }),
   })
-  await projects.save(project.id, { ...updateShotResults(project, 'storyboard', storyboard), assembly: node('assembly'), activity: null })
+  await projects.save(project.id, { ...updateShotResults(project, 'storyboard', storyboard), assembly: node('assembly') }, { final: true })
   note(`${track} 的分镜已写入。这一镜的铅笔分镜和成片已清空`)
   return trace
 }
@@ -78,12 +78,12 @@ export async function opShotBoards(c) {
   let { deps, projects, models, project, trace, note } = c
   const ids = (project.shots?.items || []).map(item => item.id)
   if (!ids.length) throw Object.assign(new Error('请先写好镜头表'), { status: 409 })
-  project = await projects.save(project.id, { activity: 'shot-boards', activityError: null })
+  project = await projects.read(project.id)
   note('按镜头顺序生成所有分镜')
   await (deps.generateAllSeconds || generateAllSeconds)({ route: (modelRoutes(await models.read())).story, project,
     persist: (shots, track) => projects.save(project.id, current => {
       const patch = saveSecondsShot(current, shots, track)
-      return { ...patch, activity: 'shot-boards' }
+      return patch
     }),
   })
   const writeBoard = deps.generateShotStoryboard || generateShotStoryboard
@@ -94,10 +94,10 @@ export async function opShotBoards(c) {
     note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
     await selectCheck(current, { action: 'shot-storyboard', track })
     const storyboard = await writeBoard({ route: (modelRoutes(await models.read())).story, shotId: track, project: current })
-  await projects.save(project.id, { ...updateShotResults(current, 'storyboard', storyboard), assembly: node('assembly'), activity: 'shot-boards' })
+  await projects.save(project.id, { ...updateShotResults(current, 'storyboard', storyboard), assembly: node('assembly') })
     note(`${track} 的分镜已写入。这一镜的铅笔分镜和成片已清空`)
   }
-  await projects.save(project.id, { activity: null })
+  await projects.save(project.id, {}, { final: true })
   return trace
 }
 
@@ -105,20 +105,20 @@ export async function opShotBoards(c) {
 export async function opStoryboard(c) {
   let { deps, projects, models, project, trace, note } = c
   if (!hasShots(project)) throw Object.assign(new Error('请先写好镜头表，再生成文本分镜'), { status: 409 })
-  project = await projects.save(project.id, { activity: 'storyboard', activityError: null })
+  project = await projects.read(project.id)
   const current = project
   if (current.shots.items.some(shot => !shotSecondsReady(shot) || shot.seconds.check.passed !== true || shot.seconds.stale)) throw Object.assign(new Error('请先生成整集每秒指令，并使每镜自审通过'), { status: 409 })
   await selectCheck(current, { action: 'storyboard' })
   note('按「文本分镜」技能生成全部分镜表，并审核原文剧情与素材关联')
   const storyboard = await (deps.generateStoryboard || generateStoryboard)({ route: (modelRoutes(await models.read())).story, project: current, beforeShot: track => projects.save(project.id, current => clearShotDownstream(current, 'storyboard', track)), persist: storyboard => projects.save(project.id, current => updateShotResults(current, 'storyboard', storyboard)) })
-  await projects.writeStep(project.id, 'storyboard', { ...updateShotResults(await projects.read(project.id), 'storyboard', storyboard), activity: null })
+  await projects.writeStep(project.id, 'storyboard', { ...updateShotResults(await projects.read(project.id), 'storyboard', storyboard) }, { final: true })
   note(`文本分镜已写入，共 ${storyboard.length} 镜。铅笔分镜和成片已清空，等待重新生成`)
   return trace
 }
 
 export const operations = {
-  'shot-storyboard': { label: '生成这一镜的分镜', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => storyboardSteps(op.track), stage: 'episode', run: opShotStoryboard },
-  'storyboard-bind': { label: '重新编排引用', scope: 'shot', queue: 'text', agent: true, plan: (_, op) => storyboardSteps(op.track), stage: 'episode', run: opShotStoryboard },
-  'shot-boards': { label: '生成所有分镜', scope: 'episode', queue: 'text', agent: true, plan: project => [...shotIds(project).flatMap(id => textSteps(`seconds:${id}`)), ...shotIds(project).flatMap(storyboardSteps)], stage: 'episode', run: opShotBoards },
-  storyboard: { label: '生成全部分镜表', scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(storyboardSteps), stage: 'episode', run: opStoryboard },
+  'shot-storyboard': { label: '生成这一镜的分镜', maxRevisions: 0, scope: 'shot', queue: 'text', agent: true, plan: (_, op) => storyboardSteps(op.track), stage: 'episode', run: opShotStoryboard },
+  'storyboard-bind': { label: '重新编排引用', maxRevisions: 0, scope: 'shot', queue: 'text', agent: true, plan: (_, op) => storyboardSteps(op.track), stage: 'episode', run: opShotStoryboard },
+  'shot-boards': { label: '生成所有分镜', maxRevisions: 2, scope: 'episode', queue: 'text', agent: true, plan: project => [...shotIds(project).flatMap(id => textSteps(`seconds:${id}`)), ...shotIds(project).flatMap(storyboardSteps)], stage: 'episode', run: opShotBoards },
+  storyboard: { label: '生成全部分镜表', maxRevisions: 0, scope: 'episode', queue: 'text', agent: true, plan: project => shotIds(project).flatMap(storyboardSteps), stage: 'episode', run: opStoryboard },
 }

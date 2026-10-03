@@ -1,10 +1,9 @@
 import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
 import { runWithSessionLog, insertSessionLog } from '../server/host/session-log.js'
 import { jsonOutput, sessionIdOf } from './session-context-query-tool.js'
 
-export function projectManageTool({ home, workspaceController }) {
+export function projectManageTool({ home, tasks, workspaceController }) {
   return {
     name: 'meiji_project_manage',
     description: '创建或打开故事项目，并将当前会话的制作目标选为该项目（不迁移 Harness 会话工作目录）。create 必须填写 fields.title 和 fields.summary；用户授权构思时可根据题材补全标题和总摘要，未指定画幅使用默认值。创建项目不生成剧集；成功后可继续调用摘要生成工具。open 使用查询工具返回的 projectId。',
@@ -20,7 +19,7 @@ export function projectManageTool({ home, workspaceController }) {
       let projectId = args.projectId
       await runWithSessionLog(exec.agent.session, async () => {
         if (args.action === 'create') {
-          const trace = await runOperation({ action: 'create', fields: args.fields, sessionId }, { home, workspaceController, signal: exec.signal })
+          const trace = await tasks.run({ action: 'create', fields: args.fields, sessionId }, { signal: exec.signal, workspaceController })
           projectId = trace.result.projectId
         }
         if (args.action === 'open') await links.ensureProject(projectId, store)

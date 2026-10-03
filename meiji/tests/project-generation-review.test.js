@@ -32,20 +32,20 @@ test('story outline repairs once before extracting cards from the final outline'
  assert.equal(calls,10); assert.equal(result.check.passed,true)
  assert.deepEqual(steps.map(step=>`${step.kind}:${step.target}`), ['generate:outline','review:outline','revise:outline','re_review:outline','generate:characters','review:characters','generate:scenes','review:scenes','generate:props','review:props'])
 })
-test('episode invalid JSON fails program review and receives one revision',async()=>{
+test('episode invalid JSON fails program review and receives maxRevisions (default 2) revisions',async()=>{
  let calls=0
  await assert.rejects(generateEpisode({project:{...episodeFixture(),episodes:[]},route,request:async({skill})=>{calls++;return skill==='review'?reviewPass:'{bad'}}),/JSON/)
- assert.equal(calls,4)
+ assert.equal(calls,6)
 })
 
 test('character extraction independently reviews body coverage and stops scene extraction on failure', async () => {
   const fixture = storyPackageFixture()
-  const replies = [JSON.stringify(outlineFixture('现代旅人穿越到古代武松身体，两个身体均实际出镜。')), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡'), JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡')]
+  const replies = [JSON.stringify(outlineFixture('现代旅人穿越到古代武松身体，两个身体均实际出镜。')), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡'), JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡'), JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡')]
   let calls = 0
   await checkContext.run({}, async () => {
     const result = await generateStoryPackage({ route, project: episodeFixture(), request: async message => {
       calls++
-      if ([4,6].includes(calls)) {
+      if ([4,6,8].includes(calls)) {
         assert.ok(message.user.includes(JSON.stringify(fixture.characters)))
         assert.match(message.system, /剧情明确进入另一个身体（穿越、夺舍、变身等）后，没有为新身体单独建卡/)
       }
@@ -57,5 +57,6 @@ test('character extraction independently reviews body coverage and stops scene e
     assert.equal(result.checks.scenes.passed, null)
     assert.deepEqual(checkContext.getStore().validation, ['位置：本次内容；原因：缺少新身体的独立角色卡；修正要求：修正上述问题'])
   })
-  assert.equal(calls, 6)
+  // 大纲 2 次 + 角色 生成、自审与默认 2 轮修订复审 6 次；场景不再请求。
+  assert.equal(calls, 8)
 })

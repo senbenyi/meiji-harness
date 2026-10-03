@@ -8,9 +8,48 @@
 //   task   能否经任务管理启动（排队执行）；false 的操作只能由面板直接执行
 import { projectStore } from '../../data/project-store.js'
 import { materialize } from '../../../shared/episode-rules.js'
-import { operations } from './registry.js'
+import { operations as tasksAssetImage } from './tasks/asset-image.js'
+import { operations as tasksEpisodeStory } from './tasks/episode-story.js'
+import { operations as tasksEpisodeSummary } from './tasks/episode-summary.js'
+import { operations as tasksFilmStoryboard } from './tasks/film-storyboard.js'
+import { operations as tasksFilmVideo } from './tasks/film-video.js'
+import { operations as tasksFilm } from './tasks/film.js'
+import { operations as tasksPencil } from './tasks/pencil.js'
+import { operations as tasksSeconds } from './tasks/seconds.js'
+import { operations as tasksShotSeconds } from './tasks/shot-seconds.js'
+import { operations as tasksShotTable } from './tasks/shot-table.js'
+import { operations as tasksStoryCharacters } from './tasks/story-characters.js'
+import { operations as tasksStoryProps } from './tasks/story-props.js'
+import { operations as tasksStoryScenes } from './tasks/story-scenes.js'
+import { operations as actionsEpisodeEpisodeDelete } from './direct/operation-episode-delete.js'
+import { operations as actionsEpisodeEpisodeSave } from './direct/operation-episode-save.js'
+import { operations as actionsEpisodeSource } from './direct/operation-source-edit.js'
+import { operations as actionsImageClearImage } from './direct/operation-image-clear.js'
+import { operations as actionsImageClearReference } from './direct/operation-image-clear-reference.js'
+import { operations as actionsImageImageCandidate } from './direct/operation-image-candidate.js'
+import { operations as actionsImageImportImage } from './direct/operation-image-import.js'
+import { operations as actionsImagePartImport } from './direct/operation-image-part-import.js'
+import { operations as actionsImagePartText } from './direct/operation-image-part-text.js'
+import { operations as actionsImageSetReference } from './direct/operation-image-set-reference.js'
+import { operations as actionsImageUseAsset } from './direct/operation-image-use-asset.js'
+import { operations as actionsProjectCreate } from './direct/operation-project-create.js'
+import { operations as actionsProjectLibraryImport } from './direct/operation-library-import.js'
+import { operations as actionsProjectOpen } from './direct/operation-project-open.js'
+import { operations as actionsProjectOverview } from './direct/operation-project-overview.js'
+import { operations as actionsProjectProjectDelete } from './direct/operation-project-delete.js'
+import { operations as actionsReviewOverride } from './direct/operation-review-override.js'
+import { operations as actionsShotAssemble } from './direct/operation-assemble.js'
+import { operations as actionsShotShotAssets } from './direct/operation-shot-assets.js'
+import { operations as actionsShotStoryboardText } from './direct/operation-storyboard-edit.js'
+import { operations as actionsStoryCharacterText } from './direct/operation-character-edit.js'
+import { operations as actionsStoryOutlineText } from './direct/operation-outline-edit.js'
+import { operations as actionsStoryPropDelete } from './direct/operation-prop-delete.js'
+import { operations as actionsStorySceneText } from './direct/operation-scene-edit.js'
 
-// 操作定义分布在 tasks/ 与 actions/ 下的独立文件中，由 registry.js 汇总。
+// 操作定义分布在 tasks/ 与 direct/ 下的独立文件中，这里汇总：每个 action 只在一个文件中定义。
+export const tasks = { ...tasksAssetImage, ...tasksEpisodeStory, ...tasksEpisodeSummary, ...tasksFilmStoryboard, ...tasksFilmVideo, ...tasksFilm, ...tasksPencil, ...tasksSeconds, ...tasksShotSeconds, ...tasksShotTable, ...tasksStoryCharacters, ...tasksStoryProps, ...tasksStoryScenes }
+export const actions = { ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageClearReference, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageSetReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
+export const operations = { ...tasks, ...actions }
 export const definitions = operations
 
 export const labels = Object.fromEntries(Object.entries(definitions).map(([action, value]) => [action, value.label]))
@@ -37,18 +76,35 @@ export function runnerStep(operation) {
   return definition?.step?.(operation) || { kind: 'execute', target: null }
 }
 
+async function planningProject(home, operation) {
+  if (!operation.projectId) return null
+  const root = await projectStore(home).read(operation.projectId)
+  const episodeId = operation.episodeId || (root.episodes.length === 1 ? root.episodes[0].id : null)
+  return episodeId ? materialize(root, episodeId) : root
+}
+
 // 按当前项目生成步骤计划；读取失败时退回单个 execute 步骤（错误在执行时报告）。
 export async function planSteps(home, operation) {
   const single = runnerStep(operation)
   if (single) return [single]
   let project = null
-  try {
-    if (operation.projectId) {
-      const root = await projectStore(home).read(operation.projectId)
-      const episodeId = operation.episodeId || (root.episodes.length === 1 ? root.episodes[0].id : null)
-      project = episodeId ? materialize(root, episodeId) : root
-    }
-  } catch { return [{ kind: 'execute', target: null }] }
+  try { project = await planningProject(home, operation) } catch { return [{ kind: 'execute', target: null }] }
   const steps = definitions[operation.action].plan(project, operation)
   return steps.length ? steps : [{ kind: 'execute', target: null }]
+}
+
+// 按操作定义的 tasks(project, operation) 把步骤计划划分为任务 [{ type, label, targets, maxRevisions, plan }]；
+// 没有 tasks 的操作为单个任务（承接全部步骤）。未被任何任务认领的步骤归第一个任务。
+export async function planTasks(home, operation) {
+  const definition = definitions[operation.action]
+  const plan = await planSteps(home, operation)
+  let items = null
+  if (definition?.tasks) {
+    try { items = definition.tasks(await planningProject(home, operation), operation) } catch { items = null }
+  }
+  if (!items?.length) return [{ type: operation.action, label: definition?.label || operation.action, targets: null, maxRevisions: definition?.maxRevisions, plan }]
+  const tasks = items.map(item => ({ maxRevisions: definition.maxRevisions, ...item, plan: plan.filter(step => item.targets.includes(step.target ?? null)) }))
+  const claimed = new Set(items.flatMap(item => item.targets))
+  tasks[0].plan.unshift(...plan.filter(step => !claimed.has(step.target ?? null)))
+  return tasks.filter((task, index) => index === 0 || task.plan.length)
 }

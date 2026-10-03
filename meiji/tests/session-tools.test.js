@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { setupModel } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
-import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { runOperation } from '../server/flow/operations/run-operation.js'
 import { generateEpisode } from '../server/flow/operations/project-operations.js'
 import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
@@ -23,13 +23,13 @@ async function setup(t, review = reviewPass) {
   const exec = { agent: { session: { id: 'session-' + randomUUID(), append: (type, data) => logs.push({ type, data }) } }, signal: new AbortController().signal }
   await linkStore(e.home).selectProject(exec.agent.session.id, e.id, e.store)
   const fixture = storyPackageFixture(), storyReplies = [JSON.stringify(outlineFixture()), review, JSON.stringify(fixture.characters), review, JSON.stringify(fixture.scenes), review, JSON.stringify(fixture.props), review]
-  const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
+  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 150 }) } }),
     generateStoryPackage: opts => generateStoryPackage({ ...opts, fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: storyReplies.shift() } }] }) } }),
   }) })
-  const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ tasks })
+  const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ home: e.home, tasks })
   const start = async args => JSON.parse(await generate.execute(args, exec))
-  const wait = async task => JSON.parse(await control.execute({ action: 'wait', taskId: task.taskId }, exec))
+  const wait = async task => JSON.parse(await control.execute({ action: 'wait', operationId: task.operationId }, exec))
   return { ...e, exec, calls, logs, tasks, start, wait, control }
 }
 
@@ -60,7 +60,8 @@ test('failed summary blocks story and reports review_failed without a tool retry
   const result = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
   assert.equal(result.status, 'review_failed')
   await assert.rejects(e.start({ stage: 'story', episodeNumber: 1, mode: 'generate' }), /摘要尚未通过/)
-  assert.equal(e.calls.length, 4)
+  // 生成 + 自审 + 默认 2 轮（修订 + 复审）。
+  assert.equal(e.calls.length, 6)
 })
 
 test('regeneration excludes old output and history; modification includes original and new opinion', async t => {
@@ -82,7 +83,7 @@ test('tools reject skipped episodes, missing opinions and cross-session task acc
   await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
   await assert.rejects(e.start({ stage: 'summary', episodeNumber: 1, mode: 'modify' }), /修改意见/)
   const task = await e.start({ stage: 'summary', episodeNumber: 1, mode: 'regenerate' })
-  await assert.rejects(e.control.execute({ action: 'get', taskId: task.taskId }, { agent: { session: { id: 'other' } } }), { status: 404 })
+  await assert.rejects(e.control.execute({ action: 'cancel', operationId: task.operationId }, { agent: { session: { id: 'other' } } }), { status: 404 })
   await e.wait(task)
 })
 
@@ -90,7 +91,7 @@ test('session creates project using shared operation and selects it without affe
   const e = await setup(t), workspaceId = randomUUID()
   useWorkspaces(t, { [workspaceId]: { title: '穿越成武松', path: '/project', sessionIds: [] } })
   const workspaceController = { create: async () => ({ workspace: { workspaceId, sessionIds: [] } }), rename: async () => {} }
-  const tool = projectManageTool({ home: e.home, workspaceController })
+  const tool = projectManageTool({ home: e.home, tasks: e.tasks, workspaceController })
   await assert.rejects(tool.execute({ action: 'create', fields: { title: '缺少摘要' } }, e.exec), /摘要/)
   const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '穿越成武松', summary: '农民工穿越成为武松' } }, e.exec))
   assert.equal(created.status, 'completed')

@@ -31,7 +31,7 @@ for(const failed of [false,true]) for(const phase of ['generation','review','cor
     assert.equal(after.shots.items[i].seconds.operation, null)
    }
   }
-  assert.equal(after.activity,null);assert.equal(after.activityError,before.activityError)
+  assert.ok(!('activity' in after) && !('activityError' in after))
   if (phase === 'generation') assert.equal(after.shots.seconds.status,before.shots.seconds.status)
  })
 }
@@ -49,13 +49,12 @@ test('gateway image error is logged without changing image model state',async t=
  await runWithSessionLog({append:(type,data)=>logs.push({type,data})},()=>runOperation(e.op('image',{itemId:'C01'}),{home:e.home,waitForBackground:true,submitAssetImage:args=>generateGatewayImage({stepTarget:args.stepTarget,baseUrl:'https://test/',apiKey:'test',model:'test',prompt:'test',aspectRatio:'1344x768',fetchImpl:async()=>new Response(JSON.stringify({error:{message:'image unavailable'}}),{status:503})})}))
  const after=await e.read()
  assert.deepEqual(after.plot.characters.items[0].image,before.plot.characters.items[0].image)
- assert.equal(after.activityError,before.activityError)
+ assert.equal('activityError' in after, false)
  assert.ok(JSON.stringify(logs).includes('image unavailable'))
 })
 for(const mode of ['error','stop','draft']) test(`image ${mode} only changes the image node, never the episode story state`,async t=>{
  const e=await setupModel(t),models=modelStore(e.home)
  await models.write({...await models.read(),apiKey:'test-only'})
- await e.store.save(e.id,p=>{p.activityError='剧情旧错误';p.episodes[0].activityError='剧情旧错误';return p})
  const before=await e.read(),stop=new AbortController()
  await runOperation(e.op('image',{itemId:'C01'}),{home:e.home,waitForBackground:true,signal:stop.signal,submitAssetImage:async args=>{
   if(mode==='stop'){stop.abort(new Error('用户停止'));throw new Error('任务已停止')}
@@ -63,19 +62,22 @@ for(const mode of ['error','stop','draft']) test(`image ${mode} only changes the
   throw new Error('HTTP 500 image fail')
  }})
  const after=await e.read(),root=await e.store.read(e.id),image=after.plot.characters.items[0].image
- assert.equal(after.activityError,'剧情旧错误');assert.equal(root.activityError,'剧情旧错误')
+ assert.ok(!('activityError' in after) && !('activityError' in root))
  for(const key of ['outline','characters','scenes','props']){assert.equal(after.plot[key].status,before.plot[key].status);assert.equal(after.plot[key].error,before.plot[key].error)}
  if(mode==='draft')assert.ok(after.pendingImages.d1)
  else{assert.equal(image.status,'failed');assert.equal(image.error,mode==='stop'?'任务已停止':'HTTP 500 image fail')}
 })
-test('restart cancel of an interrupted image keeps the episode story error',async t=>{
+test('restart cancel of an interrupted image only fails the image node',async t=>{
  const e=await setupModel(t)
- const { interruptRunning, RESTART_CANCELLED } = await import('../server/flow/tasks/cancel-interrupted-tasks.js')
- await e.store.save(e.id,p=>{p.episodes[0].activity='image:C01';p.episodes[0].activityError='剧情旧错误';p.episodes[0].plot.characters.items[0].image.status='generating';return p})
+ const { interruptRunning, RESTART_CANCELLED } = await import('../server/flow/tasks/task-interrupt.js')
+ await e.store.save(e.id,p=>{const image=p.episodes[0].plot.characters.items[0].image;image.status='generating';image.operation={id:'old',action:'image',phase:'generating'};return p})
+ const before=await e.read()
  await interruptRunning(e.store)
  const after=await e.read()
- assert.equal(after.activity,null);assert.equal(after.activityError,'剧情旧错误')
  assert.equal(after.plot.characters.items[0].image.error,RESTART_CANCELLED)
+ assert.equal(after.plot.characters.items[0].image.operation,null)
+ for(const key of ['outline','characters','scenes','props']) assert.equal(after.plot[key].status,before.plot[key].status)
+ assert.ok(!('activity' in after) && !('activityError' in after))
 })
 // 每镜独立生成与审核。
 test('seconds are reviewed one shot at a time',async t=>{

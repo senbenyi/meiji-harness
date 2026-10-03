@@ -30,7 +30,6 @@ export async function opPencil(c) {
   const item = shotResults(project, 'storyboard').find(entry => entry.id === track)
   if (!(item?.format === 'text' ? item.prompt?.text : item?.panels?.length) || !/^S[0-9]{2,}$/.test(track)) throw Object.assign(new Error('请先写好这一镜的文本分镜'), { status: 409 })
   const review = String(operation.review || '').trim()
-  await projects.save(project.id, { activity: `pencil:${track}`, activityError: null })
   const base = pencilPrompt(item)
   const source = imageSkillPrompt('pencil', review ? `${base}\n审核意见：${review}` : base, project)
   const route = modelRoutes(await models.read())
@@ -49,5 +48,5 @@ export async function opPencil(c) {
 }
 
 export const operations = {
-  pencil: { label: '生成铅笔分镜', scope: 'shot', queue: 'image', agent: true, plan: (_, op) => imageSteps(`pencil:${op.track}`), stage: 'episode', run: opPencil },
+  pencil: { label: '生成铅笔分镜', maxRevisions: 0, scope: 'shot', queue: 'image', agent: true, plan: (_, op) => imageSteps(`pencil:${op.track}`), stage: 'episode', run: opPencil },
 }

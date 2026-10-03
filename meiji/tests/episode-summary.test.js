@@ -9,7 +9,7 @@ import { buildEpisodePrompts } from '../server/prompts/episode-summary-prompts.j
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { builtinSkillSet, skillStore, additionsPatch } from '../server/data/skill-store.js'
 import { setupModel } from './fixtures/model.js'
-import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { runOperation } from '../server/flow/operations/run-operation.js'
 import { recordStore } from '../server/data/task-store.js'
 import { scopeProjects } from '../server/data/episode-data.js'
@@ -53,7 +53,7 @@ test('空摘要即使 AI 审核 PASS 也只修订一次，本集时长始终为�
 test('最终仍违规时拒绝结果、不保存无效内容、不再重试', async () => {
   let calls = 0, saves = 0
   await assert.rejects(generateEpisode({ project, request: async ({ skill }) => { calls++; return skill === 'review' ? reviewPass : JSON.stringify(draft(' ')) }, persist: () => { saves++ } }), /非空字符串/)
-  assert.equal(calls, 4)
+  assert.equal(calls, 6)
   assert.equal(saves, 0)
 })
 
@@ -85,15 +85,15 @@ test('新建摘要实际与预览共用固定约束；约束不能覆盖或补�
 test('草稿任务持久化并可重新查询，保存前项目文件不变', async t => {
   const e = await setupModel(t)
   const file = join(e.home, 'storages/meiji/projects', e.id + '.json'), before = await readFile(file, 'utf8')
-  const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps, generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft()) }) }) })
+  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps, generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft()) }) }) })
   const task = tasks.start({ action: 'episode-summary-draft', projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' })
   const result = await tasks.wait(task.id)
   assert.equal(result.status, 'completed')
   assert.equal(result.draft.summary, '本集事件')
   assert.equal(await readFile(file, 'utf8'), before)
-  const resumed = await createTasks({ home: e.home }).get(task.id, null)
+  const resumed = await createOperationManager({ home: e.home }).get(task.id, null)
   assert.deepEqual(resumed.draft, result.draft)
-  const record = await recordStore(e.home, e.id).read('tasks', task.id)
+  const record = await recordStore(e.home, e.id).read('tasks', task.taskId)
   assert.ok(record.steps.every(step => !step.unplanned))
   assert.equal(record.latestOutputs[0].target, 'summary-draft')
 })
@@ -148,21 +148,21 @@ test('只校验当前路由；图像、编辑、视频提交及轮询在发请�
 
 test('审核失败候选保存在任务历史，原项目不变，也不能伪装成成功', async t => {
   const e = await setupModel(t), before = await e.store.read(e.id)
-  const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
+  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewFail('结尾未衔接') : JSON.stringify(draft()) }) }) })
   const task = tasks.start({ action: 'episode-summary-draft', projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' })
   const result = await tasks.wait(task.id)
   assert.equal(result.status, 'review_failed')
   assert.equal(result.draft.check.passed, false)
   assert.deepEqual(await e.store.read(e.id), before)
-  assert.deepEqual((await createTasks({ home: e.home }).get(task.id, null)).draft, result.draft)
+  assert.deepEqual((await createOperationManager({ home: e.home }).get(task.id, null)).draft, result.draft)
 })
 
 test('停止摘要草稿会中止请求，保留已有剧集和下游内容', async t => {
   const e = await setupModel(t), before = await e.store.read(e.id)
   let started
   const ready = new Promise(resolve => { started = resolve })
-  const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
+  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: ({ signal }) => new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => reject(signal.reason), { once: true }); started()
     }) }) }) })

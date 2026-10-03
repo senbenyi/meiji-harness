@@ -17,8 +17,8 @@ import { generateStoryPackage } from '../server/flow/operations/story-text-opera
 import { generateAllSeconds, generateShots } from '../server/flow/operations/shot-operations.js'
 import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
 import { reviewContent } from '../server/runtime/text-generation.js'
-import { interruptRunning } from '../server/flow/tasks/cancel-interrupted-tasks.js'
-import { createTasks } from '../server/flow/tasks/task-manager.js'
+import { interruptRunning } from '../server/flow/tasks/task-interrupt.js'
+import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 
 async function setup(t) {
  const e = await setupModel(t), models = modelStore(e.home)
@@ -28,24 +28,25 @@ async function setup(t) {
 const summaryDeps = (e, request) => ({ home: e.home, generateEpisode: options => generateEpisode({ ...options, request }) })
 
 test('summary history binds each review to its exact published version and retains failed newest content', async t => {
- const e = await setup(t); let calls = 0
+ const e = await setup(t); let drafts = 0
+ const versions = ['初稿', '修订稿', '二次修订稿']
  await runOperation(e.op('episode-generate', { origin: 'panel' }), summaryDeps(e, async ({ skill }) => {
-  calls++
-  return skill === 'review' ? reviewFail('缺少因果') : JSON.stringify({ summary: calls === 1 ? '初稿' : '修订稿', durationSeconds: 10 })
+  return skill === 'review' ? reviewFail('缺少因果') : JSON.stringify({ summary: versions[drafts++], durationSeconds: 10 })
  }))
  const [task] = await e.history.list(), artifacts = await e.history.list('artifacts')
  assert.equal(task.status, 'review_failed')
  assert.equal(task.source, 'panel')
- assert.equal((await e.read()).summary.content, '修订稿')
- // 计划在开始时写入，执行的步骤与计划一一对应（没有计划外步骤）。
+ assert.equal((await e.read()).summary.content, '二次修订稿')
+ // 计划只含生成与自审；两轮修订与复审按自审结论动态追加，带轮次，均不是计划外步骤。
  const steps = task.steps
- assert.deepEqual(steps.map(step => `${step.kind}:${step.target}`), ['generate:summary', 'review:summary', 'revise:summary', 're_review:summary'])
+ assert.deepEqual(steps.map(step => `${step.kind}${step.round ? '#' + step.round : ''}:${step.target}`), ['generate:summary', 'review:summary', 'revise#1:summary', 're_review#1:summary', 'revise#2:summary', 're_review#2:summary'])
  assert.ok(steps.every(step => step.status === 'completed' && !step.unplanned))
- assert.deepEqual(steps.map(step => step.verdict), [null, 'fail', null, 'fail'])
+ assert.deepEqual(steps.map(step => step.verdict), [null, 'fail', null, 'fail', null, 'fail'])
  assert.deepEqual(steps[1].inputs, steps[0].outputs)
  assert.deepEqual(steps[3].inputs, steps[2].outputs)
+ assert.deepEqual(steps[5].inputs, steps[4].outputs)
  assert.ok(artifacts.every(item => item.published))
- assert.equal((await e.history.read('artifacts', (await e.read()).summary.source.artifactId)).content.summary, '修订稿')
+ assert.equal((await e.history.read('artifacts', (await e.read()).summary.source.artifactId)).content.summary, '二次修订稿')
 })
 
 test('review API error keeps saved new draft; generation error keeps previous content and source', async t => {
@@ -130,7 +131,7 @@ test('restart cancels persisted running tasks; tasks can be read after service r
  await interruptRunning(e.store)
  const task = await e.history.read('tasks', id)
  assert.equal(task.status, 'cancelled'); assert.deepEqual(task.steps.map(step => step.status), ['cancelled', 'pending']); assert.match(task.error, /服务重启/)
- const result = await createTasks({ home: e.home }).get(id, 'session-test')
+ const result = await createOperationManager({ home: e.home }).get(id, 'session-test')
  assert.equal(result.status, 'cancelled')
 })
 

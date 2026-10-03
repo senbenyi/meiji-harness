@@ -1,6 +1,7 @@
 import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch, episodeModel } from '../../shared/drama-model.js'
 import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shared/review-feedback.js'
 import { checkContext, apiFailed, inTextStep } from './operation-context.js'
+import { markFailed, markGenerating } from '../../shared/content-state.js'
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
 const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image', 'pencil'])
 const imageGenerationActions = new Set(['image', 'revise-image', 'part-image', 'pencil'])
@@ -76,8 +77,6 @@ export async function prepareChecks(store, project, operation) {
   const fresh = mode === 'regenerate' ? undefined : operation.review ?? (operation.action === 'revise-image' ? operation.instruction : undefined)
   project = await store.save(project.id, current => {
     const next = structuredClone(current)
-    // 图片生成不清除剧集的剧情错误。
-    if (!imageGenerationActions.has(operation.action)) next.activityError = null
     // 重新生成剧情先清空本集旧产物；修改模式仍以原稿为基础。
     if (operation.action === 'outline' && mode === 'regenerate') {
       const empty = episodeModel(next.id, {})
@@ -113,7 +112,8 @@ export async function prepareChecks(store, project, operation) {
     })
   } }
   const wrapped = Object.create(store)
-  wrapped.save = async (id, patch) => {
+  // options.final：本次操作的最终写入（落定审核结论）；options.error：操作失败，原因只记在目标内容节点上。
+  wrapped.save = async (id, patch, options = {}) => {
     if (apiFailed()) return store.read(id)
     const saved = await store.save(id, current => {
       const changes = typeof patch === 'function' ? patch(current) : patch
@@ -133,12 +133,12 @@ export async function prepareChecks(store, project, operation) {
       if (inTextStep()) {
         for (const key of keys(next, targetOperation)) {
           const value = targetNode(next, key)
-          if (value?.operation) { value.status = GenerationStatus.GENERATING; value.operation.phase = value.check?.passed == null ? 'reviewing' : 'reviewed' }
+          if (value?.operation) markGenerating(value, value.check?.passed == null ? 'reviewing' : 'reviewed')
         }
       }
       const filmRunning = targetOperation.action === 'film' && target?.content?.status === 'running'
-      if (!inTextStep() && (changes.activity === null || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
-        const failed = changes.activityError || target?.content?.error
+      if (!inTextStep() && (options.final || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
+        const failed = options.error || target?.content?.error
         const awaitingImage = imageGenerationActions.has(targetOperation.action) && Object.values(next.pendingImages || {}).some(draft => targetOperation.track ? draft.track === targetOperation.track : draft.itemId === targetOperation.itemId)
         if (awaitingImage) {
           for (const key of keys(next, targetOperation)) {
@@ -148,18 +148,16 @@ export async function prepareChecks(store, project, operation) {
         } else if (failed) {
           for (const key of keys(next, targetOperation)) {
             const value = targetNode(next, key)
-            if (value) { value.status = GenerationStatus.FAILED; value.error = String(failed); value.operation = null }
+            if (value) markFailed(value, failed)
           }
         } else {
           const validation = ['shots', 'revise-shot'].includes(targetOperation.action) && next.shots.check.passed === false ? next.shots.check.failures : []
           setCheck(next, targetOperation, [...validation, ...(checkContext.getStore()?.validation || [])])
         }
       }
-      // 图片生成的开始、失败与停止只记在图片节点上，不改剧集的剧情状态（activityError）。
-      if (imageGenerationActions.has(targetOperation.action)) next.activityError = current.activityError ?? null
       return modelPatch(current, next)
     })
-    if (!inTextStep() && checkContext.getStore()?.validation?.length && saved.activity) throw Object.assign(new Error(`自检未通过：${checkContext.getStore().validation.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
+    if (!inTextStep() && checkContext.getStore()?.validation?.length && !options.final) throw Object.assign(new Error(`自检未通过：${checkContext.getStore().validation.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
     return saved
   }
   return { store: wrapped, project, operation: { ...operation, review } }

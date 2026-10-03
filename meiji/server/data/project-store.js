@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path'
 import { replaceFrom, sourcePatch, aspectRatioOf, durationOf } from '../../shared/project-rules.js'
 import { normalizeProject } from '../../shared/episode-rules.js'
 import { episodeSnapshot, projectIds, readProjectFile, removeProjectFiles, writeProjectFile } from './project-files.js'
+import { initialProjectStates, refreshProjectStatus } from '../../shared/content-state.js'
 
 const writes = new Map()
 
@@ -68,9 +69,8 @@ export function projectStore(home) {
         revision: 0,
         id: randomUUID(),
         ...fields,
-        status: GenerationStatus.NOT_GENERATED,
+        ...initialProjectStates(node('summary', fields.summary)),
         lifecycle: 'in-progress',
-        summary: { ...node('summary', fields.summary), status: GenerationStatus.PASSED, check: { passed: true, failures: [], revision: 0 } },
         episodes: [],
         stage: 'summary',
         workflow: 'h3',
@@ -104,7 +104,7 @@ export function projectStore(home) {
           }
         }
         for (const episode of next.episodes) refreshReferences(episode)
-        next.status = aggregateStatus(next.episodes)
+        refreshProjectStatus(next)
         const savedRecords = await prepareContentRecords(current, next)
         await writeProjectFile(home, next, before)
         await commitContentRecords(savedRecords)
@@ -182,7 +182,7 @@ export function revisionStore(store, operationId, scope = {}) {
         const latest = current.episodes.find(item => item.id === episode.id)
         return latest ? { ...episode, supplementalSkills: latest.supplementalSkills } : episode
       })
-      return changes == null ? null : { ...changes, ...(operationId && Object.hasOwn(changes, 'activity') ? { activeOperation: changes.activity ? operationId : null } : {}) }
+      return changes == null ? null : changes
     })
     observed.set(id, fingerprint(saved))
     return saved

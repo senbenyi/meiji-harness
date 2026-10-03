@@ -1,6 +1,6 @@
 // 无文件 IO 的任务分类、步骤创建和终态规则。
 import { randomUUID } from 'node:crypto'
-import { StepStatus, reviewPassed } from '../../shared/task-steps.js'
+import { StepStatus, deriveTaskStatus, reviewPassed } from '../../shared/task-steps.js'
 
 const now = () => new Date().toISOString()
 // 人工编辑：保存后内容待审（见 prepareContentRecords）。
@@ -49,4 +49,43 @@ export function finalizeSteps(steps, error, signal) {
     for (const step of steps) if (step.status === StepStatus.PENDING) Object.assign(step, { status: StepStatus.SKIPPED, endedAt: at })
   }
   return steps
+}
+
+// 一个操作的多个任务共用同一执行上下文：步骤按目标（target）归入各自任务。
+// tasks 为 [{ id, targets }]；targets 为空的任务承接未匹配的步骤（没有则归第一个任务）。只有一个任务时不划分。
+export function partitionSteps(steps, tasks) {
+  if (!tasks || tasks.length <= 1) return [{ ...(tasks?.[0] || {}), steps }]
+  const groups = tasks.map(task => ({ ...task, steps: [] }))
+  const fallback = groups.find(group => !group.targets) || groups[0]
+  for (const step of steps) (groups.find(group => group.targets?.includes(step.target ?? null)) || fallback).steps.push(step)
+  return groups
+}
+
+const touched = steps => steps.some(step => step.status !== StepStatus.PENDING || step.preparing)
+
+// 操作结束时逐个任务落定步骤：正在执行（或最后开始）的任务按错误/中止落定；已完成任务剩余的未执行步骤记为跳过；
+// 未开始的任务：若前序任务失败、审核未通过或被停止，记为已取消（停止规则），否则记为跳过。新追加的步骤同步回 steps。
+export function finalizeTaskGroups(steps, tasks, error, signal) {
+  if (!tasks || tasks.length <= 1) return finalizeSteps(steps, error, signal)
+  const at = now(), groups = partitionSteps(steps, tasks)
+  const started = groups.filter(group => touched(group.steps))
+  const current = started.find(group => group.steps.some(step => step.status === StepStatus.RUNNING)) || started.at(-1) || groups[0]
+  for (const group of groups) {
+    if (group !== current && !started.includes(group)) continue
+    const before = new Set(group.steps)
+    finalizeSteps(group.steps, group === current ? error : null, group === current ? signal : null)
+    for (const step of group.steps) if (!before.has(step)) steps.push(step)
+  }
+  const stopped = groups.some(group => (group === current || started.includes(group)) && deriveTaskStatus(group.steps) !== 'completed')
+  for (const group of groups) {
+    if (group === current || started.includes(group)) continue
+    for (const step of group.steps) Object.assign(step, stopped ? { status: StepStatus.CANCELLED, error: '前序任务未完成，已停止', endedAt: at } : { status: StepStatus.SKIPPED, endedAt: at })
+  }
+  return steps
+}
+
+// 步骤所属任务记录的 id（单任务时为执行上下文的 taskId）。
+export function taskIdOfStep(context, stepId) {
+  if (!context.tasks || context.tasks.length <= 1) return context.taskId
+  return partitionSteps(context.steps, context.tasks).find(group => group.steps.some(step => step.id === stepId))?.id || context.taskId
 }

@@ -24,10 +24,10 @@ test('shared executor corrects once and reviews the new result', async () => {
  const result = await generateWithSelfReview({ generate: async correction => { calls.push(correction); return correction ? '修订稿' : '初稿' }, review: async text => text === '初稿' ? reviewFail('朝向错误') : reviewPass })
  assert.equal(calls.length, 2); assert.deepEqual(calls[1], { text: '初稿', reviewText: reviewFail('朝向错误') }); assert.equal(result.text, '修订稿'); assert.equal(result.check.passed, true)
 })
-test('second failure stops; no third generation', async () => {
+test('修订次数用完即停止：默认 2 轮，共 3 次生成', async () => {
  let count=0
  const result=await generateWithSelfReview({generate:async()=>`稿${++count}`,review:async()=> reviewFail('错误')})
- assert.equal(count,2);assert.equal(result.text,'稿2');assert.equal(result.check.passed,false)
+ assert.equal(count,3);assert.equal(result.text,'稿3');assert.equal(result.check.passed,false)
 })
 // 审核必须返回统一 JSON；旧文本和其它格式属于执行错误，不触发修订。
 for (const verdict of ['', 'invalid', 'FAIL']) test(`invalid review is a format error and does not trigger correction: ${verdict}`,async()=>{
@@ -42,8 +42,8 @@ test('seconds retry includes latest draft, original human opinion and failure th
  const result=await generateShotSeconds({project:episodeFixture(),shotId:'S01',review:'保留声音',request:async ({ skill, user: prompt }) =>{calls.push(prompt);return skill==='review' ? (++reviewed===1?reviewFail('朝向不对'):reviewPass) : secondsResponse([['S01',5,++generated===1?'最新初稿':'修好朝向']])}})
  assert.equal(calls.length,4);assert.match(calls[2],/最新初稿/);assert.match(calls[2],/朝向不对/);assert.match(calls[2],/保留声音/);assert.match(calls[3],/修好朝向/);assert.equal(result.items[0].seconds.check.passed,true)
 })
-test('invalid table syntax is reviewed and revised once',async()=>{
- let count=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='review'?reviewFail('标题错误'):'{"items":[]}'}}),/镜头表需按/);assert.equal(count,4)
+test('invalid table syntax is reviewed and revised up to maxRevisions (default 2)',async()=>{
+ let count=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='review'?reviewFail('标题错误'):'{"items":[]}'}}),/镜头表需按/);assert.equal(count,6)
 })
 
 test('summary re-review compares the current revision base and opinion without restoring older source', async () => {
@@ -72,14 +72,15 @@ test('summary re-review compares the current revision base and opinion without r
   assert.equal(reviews, 2)
 })
 
-test('text steps record generate, review and, only after a failed review, revise and re-review', async () => {
-  const plan = ['generate', 'review', 'revise', 're_review'].map(kind => ({ id: kind, kind, target: 'summary', status: 'pending', verdict: null, reasons: [], attempts: [], inputs: [], outputs: [] }))
+test('文本步骤只计划生成与自审；自审不通过后才动态追加带轮次的修订与复审', async () => {
+  const plan = ['generate', 'review'].map(kind => ({ id: kind, kind, target: 'summary', status: 'pending', verdict: null, reasons: [], attempts: [], inputs: [], outputs: [] }))
   const failed = await recordSteps(() => generateWithSelfReview({ generate: async correction => correction ? '修订稿' : '初稿', review: async text => text === '初稿' ? reviewFail('朝向错误') : reviewPass }), structuredClone(plan))
-  // 未传 target 时步骤不对应到计划，追加在后面；计划步骤保持未执行。
-  assert.deepEqual(failed.steps.filter(step => step.unplanned).map(step => `${step.kind}:${step.verdict}`), ['generate:null', 'review:fail', 'revise:null', 're_review:pass'])
+  // 未传 target 时生成与自审不对应到计划，记为计划外；修订与复审是动态节点，带轮次，不算计划外。
+  assert.deepEqual(failed.steps.filter(step => step.unplanned).map(step => `${step.kind}:${step.verdict}`), ['generate:null', 'review:fail'])
+  assert.deepEqual(failed.steps.filter(step => step.round).map(step => `${step.kind}#${step.round}:${step.verdict}`), ['revise#1:null', 're_review#1:pass'])
   const passed = await recordSteps(() => runTextSteps({ target: 'summary', prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), options: { project: { durationSeconds: 5 },
     request: async ({ skill }) => skill === 'review' ? reviewPass : '稿' } }), structuredClone(plan))
-  assert.deepEqual(passed.steps.map(step => `${step.kind}:${step.status}:${step.verdict}`), ['generate:completed:null', 'review:completed:pass', 'revise:pending:null', 're_review:pending:null'])
+  assert.deepEqual(passed.steps.map(step => `${step.kind}:${step.status}:${step.verdict}`), ['generate:completed:null', 'review:completed:pass'])
   assert.ok(passed.steps.every(step => !step.unplanned))
 })
 
