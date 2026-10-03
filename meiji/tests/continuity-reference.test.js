@@ -3,9 +3,9 @@ import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
-import { prepareFilmOpening } from '../server/flow/operations/video-operations.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
+import { prepareFilmOpening } from '../server/flow/shared/video-submit.js'
+import { runOperation } from './fixtures/operation.js'
 import { setContent } from '../shared/drama-model.js'
 
 test('storyboard keeps only current seconds and associated identity data, and strips the protocol marker', async () => {
@@ -61,13 +61,11 @@ test('a known scene transition does not upload the previous scene tail', async (
 test('changing shot references keeps downstream invalidation instead of restoring old renders', async t => {
   const e = await setupModel(t)
   setContent(e.episode.shots.items[0].video, { status: 'ready', url: 'https://test/video' }, { passed: true, failures: [] })
-  setContent(e.episode.shots.items[0].pencil, { localPath: '/plugins/meiji/asset-file?category=scenes&id=pencil', url: '/plugins/meiji/asset-file?category=scenes&id=pencil' }, { passed: true, failures: [] })
   await e.store.save(e.id, { episodes: [e.episode] })
   await runOperation({ ...e.op('shot-assets'), track: 'S01', characterIds: ['C01'], sceneId: 'E01' }, { home: e.home })
   const p = await e.read()
   assert.equal(p.shots.items[0].storyboard.stale, true)
   assert.equal(p.shots.items[0].storyboard.check.passed, null)
   assert.equal(p.shots.items[0].video.content, null)
-  assert.equal(p.shots.items[0].pencil.content, null)
   assert.equal(p.assembly.content, null)
 })

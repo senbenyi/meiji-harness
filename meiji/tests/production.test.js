@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { bindReferencePrompt, h3PromptFailures, videoRequestMode } from '../shared/video-rules.js'
 import { retrieveGatewayVideo } from '../server/gateway/model-gateway.js'
-import { submitH3 } from '../server/flow/operations/video-operations.js'
+import { submitH3 } from '../server/flow/shared/video-submit.js'
 import { shotReferenceImages } from '../shared/reference-images.js'
 import { normalizeCharacters, normalizeScenes } from '../shared/story-content.js'
 

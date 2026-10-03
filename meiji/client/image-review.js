@@ -8,16 +8,15 @@ export function draftsOf(project) {
 
 function generatingOf(project) {
   return (project.episodes || []).flatMap(episode => {
-    const activity = typeof episode.activity === 'string' ? episode.activity : ''
-    if (!activity.startsWith('image:') && !activity.startsWith('pencil:') && activity !== 'confirm-image') return []
-    return [{ episodeId: episode.id, activity }]
+    const activity = typeof episode.operationActivity === 'string' ? episode.operationActivity : ''
+    if (!activity.startsWith('image:') && activity !== 'confirm-image') return []
+    return [{ episodeId: episode.id, operationActivity: activity }]
   })
 }
 
 function matchesDraft(draft, gate) {
   if (!gate) return false
   if (gate.episodeId && draft.episodeId !== gate.episodeId) return false
-  if (gate.track) return draft.track === gate.track
   if (gate.slot) return draft.itemId === gate.itemId && draft.slot === gate.slot
   if (gate.itemId) return draft.itemId === gate.itemId && !draft.slot && !draft.track
   return true
@@ -26,11 +25,10 @@ function matchesDraft(draft, gate) {
 function matchesActivity(entry, gate) {
   if (!gate) return false
   if (gate.episodeId && entry.episodeId !== gate.episodeId) return false
-  const activity = entry.activity || ''
-  if (gate.track) return activity === `pencil:${gate.track}`
+  const activity = entry.operationActivity || ''
   if (gate.slot) return activity === `image:${gate.itemId}:${gate.slot}`
   if (gate.itemId) return activity === `image:${gate.itemId}`
-  return activity.startsWith('image:') || activity.startsWith('pencil:') || activity === 'confirm-image'
+  return activity.startsWith('image:') || activity === 'confirm-image'
 }
 
 export function gateFromAction(action, fields = {}) {
@@ -43,7 +41,7 @@ export function gateFromAction(action, fields = {}) {
     itemName: fields.itemName || '',
     slot: fields.slot || '',
     track: fields.track || '',
-    name: fields.itemName || (fields.track ? `${fields.track} 铅笔分镜` : '图片'),
+    name: fields.itemName || '图片',
     aspect: fields.aspect || '',
     useReference: Boolean(fields.useReference),
     draftId: '',
@@ -55,7 +53,6 @@ export function gateFromAction(action, fields = {}) {
 
 export function regenerateFields(gate, review = '') {
   const note = String(review || '').trim()
-  if (gate.track) return { action: 'pencil', fields: { track: gate.track, ...(note ? { review: note } : {}) } }
   if (gate.slot) {
     return {
       action: 'part-image',
@@ -90,7 +87,7 @@ export function syncImageGate(project, gate) {
       return {
         phase: 'ready',
         held: false,
-        action: draft.track ? 'pencil' : draft.slot ? 'part-image' : 'image',
+        action: draft.slot ? 'part-image' : 'image',
         episodeId: draft.episodeId,
         itemId: draft.itemId || '',
         itemName: draft.name || '',
@@ -107,10 +104,9 @@ export function syncImageGate(project, gate) {
     }
     const entry = generating[0]
     if (!entry) return null
-    const activity = entry.activity || ''
+    const activity = entry.operationActivity || ''
     let itemId = '', slot = '', track = ''
-    if (activity.startsWith('pencil:')) track = activity.slice(7)
-    else if (activity.startsWith('image:')) {
+    if (activity.startsWith('image:')) {
       const parts = activity.slice(6).split(':')
       itemId = parts[0] || ''
       slot = parts[1] || ''
@@ -118,13 +114,13 @@ export function syncImageGate(project, gate) {
     return {
       phase: activity === 'confirm-image' ? 'uploading' : 'generating',
       held: true,
-      action: track ? 'pencil' : slot ? 'part-image' : 'image',
+      action: slot ? 'part-image' : 'image',
       episodeId: entry.episodeId,
       itemId,
       itemName: '',
       slot,
       track,
-      name: track ? `${track} 铅笔分镜` : '图片',
+      name: '图片',
       draftId: '',
       previewUrl: '',
       review: '',
@@ -149,13 +145,13 @@ export function syncImageGate(project, gate) {
   }
 
   const entry = generating.find(item => matchesActivity(item, gate)) || generating.find(item => item.episodeId === gate.episodeId)
-  if (entry?.activity === 'confirm-image') {
+  if (entry?.operationActivity === 'confirm-image') {
     return { ...gate, phase: 'uploading', held: true, error: '' }
   }
   if (entry || gate.held || gate.phase === 'generating' || gate.phase === 'uploading') {
     const episode = (project.episodes || []).find(item => item.id === gate.episodeId)
     // 图片错误只读对应图片节点，不读剧集的剧情错误。
-    const error = (!entry && episode ? feedbackOf(episode, { action: gate.action || (gate.track ? 'pencil' : gate.slot ? 'part-image' : 'image'), track: gate.track, itemId: gate.itemId, slot: gate.slot })?.error : '') || ''
+    const error = (!entry && episode ? feedbackOf(episode, `image:${gate.itemId}${gate.slot ? `:${gate.slot}` : ''}`)?.error : '') || ''
     if (error && !entry) return { ...gate, phase: 'error', held: false, error, previewUrl: '', draftId: '' }
     return { ...gate, phase: 'generating', previewUrl: '', draftId: gate.held ? '' : gate.draftId, error: '' }
   }
@@ -206,7 +202,7 @@ export function renderImageReview(project, actions, gate) {
   const discard = element('button', '放弃')
   const regenerate = element('button', '重新生成')
   const owner = project.episodes?.find(episode => episode.id === current.episodeId) || project
-  const target = { action: current.track ? 'pencil' : current.slot ? 'part-image' : 'image', track: current.track, itemId: current.itemId, slot: current.slot }
+  const target = { action: current.slot ? 'part-image' : 'image', track: current.track, itemId: current.itemId, slot: current.slot }
   const record = feedbackOf(owner, target)
   const reviewArea = element('div', '', 'image-review-fields')
   let note

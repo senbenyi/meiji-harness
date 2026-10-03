@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { completeChat, generateGatewayImage, characterImageSize, gatewayVideoSize, retrieveGatewayVideo, submitGatewayVideo } from '../server/gateway/model-gateway.js'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { checkContext } from '../server/runtime/operation-context.js'
-import { tempHome } from './fixtures/model.js'
+import { tempHome, setupModel } from './fixtures/model.js'
 
 const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key', model: 'elysium-image' }
 const stop = controller => controller.abort(Object.assign(new Error('任务已停止'), { code: 'TASK_CANCELLED' }))
@@ -158,8 +158,8 @@ test('stopping a synchronous image request aborts it', async () => {
 })
 
 test('panel stop ends the task without any cancel request', async t => {
-  const query = Promise.withResolvers(), calls = []
-  const tasks = createOperationManager({ home: await tempHome(t), execute: async (_, { signal }) => {
+  const e = await setupModel(t), query = Promise.withResolvers(), calls = []
+  const tasks = createOperationManager({ home: e.home, execute: async (_, { signal }) => {
     await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, fetchImpl: async (url, options) => {
       calls.push(url.pathname)
       query.resolve()
@@ -167,25 +167,25 @@ test('panel stop ends the task without any cancel request', async t => {
     } })
     return []
   } })
-  const task = tasks.start({ projectId: 'p', episodeId: 'e', action: 'film', track: 'S01' })
+  const task = tasks.start(e.op('film', { parts: 'video', track: 'S01' }))
   await query.promise
-  tasks.cancel(task.id, 'p')
-  tasks.cancel(task.id, 'p')
+  tasks.cancel(task.id, e.id)
+  tasks.cancel(task.id, e.id)
   await task.done
   assert.deepEqual(calls, ['/v1/videos/video_1'])
-  assert.deepEqual(tasks.list('p'), [])
+  assert.deepEqual(tasks.list(e.id), [])
 })
 
 // 服务关闭一律取消本地任务：网关不提供取消接口，不发送任何取消请求。
 test('service shutdown cancels the local task and sends no remote cancel', async t => {
-  const paused = Promise.withResolvers(), calls = []
-  const tasks = createOperationManager({ home: await tempHome(t), execute: async (_operation, { signal }) => {
+  const e = await setupModel(t), paused = Promise.withResolvers(), calls = []
+  const tasks = createOperationManager({ home: e.home, execute: async (_operation, { signal }) => {
     await retrieveGatewayVideo({ ...route, promptId: 'video_1', signal, pause: (_ms, polling) => { paused.resolve(); return new Promise((_, reject) => polling.addEventListener('abort', () => reject(polling.reason), { once: true })) }, fetchImpl: async (url, options) => {
       calls.push([url.pathname, options.method])
       return Response.json({ status: 'in_progress' })
     } })
   } })
-  const { done } = tasks.start({ action: 'film', projectId: 'p', episodeId: 'e', track: 'S01', sessionId: 's' })
+  const { done } = tasks.start(e.op('film', { parts: 'video', track: 'S01' }))
   await paused.promise
   tasks.dispose()
   const result = await done
@@ -217,7 +217,7 @@ for (const action of ['film', 'films']) {
   test(`${action}: stopping records the uncancelled remote video and releases the card`, async t => {
     const { setupModel } = await import('./fixtures/model.js')
     const { modelStore } = await import('../server/data/model-settings.js')
-    const { runOperation } = await import('../server/flow/operations/run-operation.js')
+    const { runOperation } = await import('./fixtures/operation.js')
     const e = await setupModel(t), controller = new AbortController()
     await modelStore(e.home).write({ ...route, chat: { model: 'chat' }, story: { model: 'chat' }, image: { model: 'image' }, video: { model: 'video' } })
     let submissions = 0
@@ -230,8 +230,7 @@ for (const action of ['film', 'films']) {
         return Response.json({ status: 'in_progress' })
       } }),
     })
-    if (action === 'film') await execution
-    else await assert.rejects(execution, { code: 'REMOTE_NOT_CANCELLED' })
+    await assert.rejects(execution, { code: 'REMOTE_NOT_CANCELLED' })
     const video = (await e.read()).shots.items[0].video
     assert.equal(video.content.promptId, 'video_1')
     assert.equal(video.content.status, 'error')
@@ -254,23 +253,23 @@ test('JSON mode is explicit and truncated responses fail before parsing or retry
 })
 
 
-test('image gateway records API and combined download/Base64 steps in order without nested running steps', async () => {
-  const { recordSteps } = await import('./fixtures/steps.js')
-  const { activeStep, executionSteps } = await import('../server/runtime/task-context.js')
+test('image gateway records API and combined download/Base64 nodes in order without nested running nodes', async () => {
+  const { recordSteps } = await import('./fixtures/nodes.js')
+  const { activeNode, executionNodes } = await import('../server/runtime/task-context.js')
   const target = 'image:C01'
   const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target, status: 'pending' }))
-  const { result, steps } = await recordSteps(() => generateGatewayImage({ ...route, stepTarget: target, fetchImpl: async (_url, options) => {
-    assert.equal(executionSteps().filter(step => step.status === 'running').length, 1)
-    assert.equal(activeStep().kind, options.method === 'POST' ? 'image_generate' : 'image_download')
+  const { result, nodes } = await recordSteps(() => generateGatewayImage({ ...route, stepTarget: target, fetchImpl: async (_url, options) => {
+    assert.equal(executionNodes().filter(step => step.status === 'running').length, 1)
+    assert.equal(activeNode().kind, options.method === 'POST' ? 'image_generate' : 'image_download')
     return options.method === 'POST' ? Response.json({ data: [{ url: '/v1/media/image' }] }) : new Response(Buffer.from('image'))
   } }), planned)
   assert.deepEqual(result, Buffer.from('image'))
-  assert.deepEqual(steps.map(step => step.status), ['completed', 'completed', 'pending'])
-  assert.ok(steps.every(step => !step.unplanned))
+  assert.deepEqual(nodes.map(step => step.status), ['completed', 'completed', 'pending'])
+  assert.ok(nodes.every(step => !step.unplanned))
 })
 
 test('image gateway records download failure or cancellation on the download step', async () => {
-  const { recordSteps } = await import('./fixtures/steps.js')
+  const { recordSteps } = await import('./fixtures/nodes.js')
   const { executionContext } = await import('../server/runtime/task-context.js')
   for (const cancel of [false, true]) {
     const controller = new AbortController()
@@ -289,8 +288,8 @@ test('image gateway records download failure or cancellation on the download ste
 
 
 test('stopping after receiving image bytes cancels the combined download/Base64 step and prevents saving', async () => {
-  const { recordSteps } = await import('./fixtures/steps.js')
-  const { executionContext, activeStep } = await import('../server/runtime/task-context.js')
+  const { recordSteps } = await import('./fixtures/nodes.js')
+  const { executionContext, activeNode } = await import('../server/runtime/task-context.js')
   const controller = new AbortController()
   const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target: 'image:C01', status: 'pending' }))
   await recordSteps(async () => {
@@ -301,7 +300,7 @@ test('stopping after receiving image bytes cancels the combined download/Base64 
       const read = response.arrayBuffer.bind(response)
       response.arrayBuffer = async () => {
         const bytes = await read()
-        assert.equal(activeStep().kind, 'image_download')
+        assert.equal(activeNode().kind, 'image_download')
         stop(controller)
         return bytes
       }

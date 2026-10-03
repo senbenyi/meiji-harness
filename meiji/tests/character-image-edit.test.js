@@ -4,8 +4,8 @@ import { setupModel } from './fixtures/model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/image-storage.js'
 import { pictureRecord } from '../shared/image-assets.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
-import { planSteps } from '../server/flow/operations/operation-registry.js'
+import { runOperation } from './fixtures/operation.js'
+import { planTasks } from '../server/flow/operations/operation-registry.js'
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 import { render } from '../server/prompts/skill-prompts.js'
@@ -45,8 +45,8 @@ for (const [category,itemId] of [['characters','C01'],['scenes','E01']]) test(`$
 test('缺少道具时服务端拒绝镜头表生成并说明准确前置原因', async t => {
   const e=await setupModel(t)
   await e.store.save(e.id,p=>{delete p.episodes[0].plot.props;return p})
-  await assert.rejects(runOperation(e.op('shots'),{home:e.home,generateShots:()=>assert.fail('不应调用生成接口')}), /道具尚未提取.*剧情页提取道具/)
-  await runOperation(e.op('props'),{home:e.home,regenerateCardGroup:async()=>({...node('props'),items:[],check:{passed:true,failures:[]}})})
+  await assert.rejects(runOperation(e.op('shot-table', {}),{home:e.home,generateShots:()=>assert.fail('不应调用生成接口')}), /道具尚未提取.*剧情页提取道具/)
+  await runOperation(e.op('story', { ...{}, only: 'props' }),{home:e.home,regenerateCardGroup:async()=>({...node('props'),items:[],check:{passed:true,failures:[]}})})
   const after=await e.read()
   assert.equal(after.plot.props.id,'props')
   assert.equal(after.plot.props.items.length,0)
@@ -58,9 +58,9 @@ for (const draft of [false, true]) test(`人物修改直接提交意见和${draf
   const e = await fixture(t, draft)
   await e.store.saveReviewDraft(e.id, e.episodeId, 'image:C01', '将头发改为黑色短发', 0)
   const before = await e.read()
-  const operation = e.op('image', { itemId: 'C01', generationMode: 'modify', review: '将头发改为黑色短发', aspect: '1000x1504', ...(draft ? { draftId: e.draftId } : {}) })
-  const steps = await planSteps(e.home, operation)
-  assert.deepEqual(steps.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
+  const operation = e.op('character-image', { itemId: 'C01', generationMode: 'modify', review: '将头发改为黑色短发', aspect: '1000x1504', ...(draft ? { draftId: e.draftId } : {}) })
+  const nodes = await planSteps(e.home, operation)
+  assert.deepEqual(nodes.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
   let called = 0
   await runOperation(operation, { home: e.home, waitForBackground: true, submitAssetImage: async args => {
     called++
@@ -87,8 +87,8 @@ for (const draft of [false, true]) test(`人物修改直接提交意见和${draf
 
 test('人物修改缺少原图时报错，场景修改也使用图片步骤', async t => {
   const e = await setupModel(t)
-  await assert.rejects(runOperation(e.op('image', { itemId: 'C01', generationMode: 'modify', review: '改头发' }), { home: e.home, waitForBackground: true, submitAssetImage: () => assert.fail('不应提交') }), /原来的数据|原图/)
-  const scene = await planSteps(e.home, e.op('image', { itemId: 'E01', generationMode: 'modify' }))
+  await assert.rejects(runOperation(e.op('character-image', { itemId: 'C01', generationMode: 'modify', review: '改头发' }), { home: e.home, waitForBackground: true, submitAssetImage: () => assert.fail('不应提交') }), /原来的数据|原图/)
+  const scene = await planSteps(e.home, e.op('scene-image', { itemId: 'E01', generationMode: 'modify' }))
   assert.deepEqual(scene.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
 })
 
@@ -106,19 +106,21 @@ test('人物修改预览复用实际 model 的组装，Base64 不显示在预览
 
 
 test('人物修改真实生成通路执行三个计划步骤并登记候选图', async t => {
-  const { submitAssetImage } = await import('../server/flow/operations/image-operations.js')
+  const { submitAssetImage } = await import('../server/flow/shared/image-files.js')
   const { recordStore } = await import('../server/data/task-store.js')
   const e = await fixture(t)
-  const operation = e.op('image', { itemId: 'C01', generationMode: 'modify', review: '背景改为白色' })
-  await runOperation(operation, { home: e.home, operationId: 'image-three-steps', waitForBackground: true,
+  const operation = e.op('character-image', { itemId: 'C01', generationMode: 'modify', review: '背景改为白色' })
+  await runOperation(operation, { home: e.home, operationId: 'image-three-nodes', waitForBackground: true,
     submitAssetImage: args => submitAssetImage({ ...args, backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-only', model: 'elysium-image' },
       fetchImpl: async (_url, options) => options.method === 'POST' ? Response.json({ data: [{ url: '/v1/media/edited' }] }) : new Response(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
     }),
   })
-  const task = await recordStore(e.home, e.id).read('tasks', 'image-three-steps')
-  const planned = task.steps
+  const task = (await recordStore(e.home, e.id).list('tasks'))[0]
+  const planned = task.nodes
   assert.equal(task.status, 'completed')
   assert.deepEqual(planned.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
   assert.ok(planned.every(step => step.status === 'completed' && !step.unplanned && step.target === 'image:C01'))
   assert.equal(Object.keys((await e.read()).pendingImages).length, 1)
 })
+
+async function planSteps(home, operation) { return (await planTasks(home, operation)).flatMap(task => task.plan) }

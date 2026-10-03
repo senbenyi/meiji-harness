@@ -1,0 +1,3 @@
+export const operation = { label: '生成成片', scope: 'episode', agent: true, kind: 'generate',
+  precheck(project, op) { if (!project.shots.items.length) throw new Error('请先生成镜头表'); if (op.parts && !['storyboard', 'video', 'tail'].includes(op.parts)) throw new Error('成片步骤无效'); if (op.track && !project.shots.items.some(shot => shot.id === op.track)) throw new Error('镜头不存在') },
+  tasks(project, op) { return project.shots.items.filter(shot => !op.track || shot.id === op.track).flatMap(shot => (op.parts === 'storyboard' ? ['storyboard-prompt'] : op.parts === 'video' || op.parts === 'tail' ? ['video'] : ['storyboard-prompt', 'video']).map(type => ({ type, params: { track: shot.id, generationMode: 'regenerate', review: '' } }))) } }

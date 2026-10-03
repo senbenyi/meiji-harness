@@ -3,8 +3,8 @@ import { rm } from 'node:fs/promises'
 import { addEpisode, editEpisode } from '../../../../shared/episode-rules.js'
 import { writeEpisodeCover } from '../../../data/episode-data.js'
 import { GenerationStatus } from '../../../../shared/drama-model.js'
-import { openIncoming } from '../shared/incoming.js'
-import { saveStep } from '../plan-steps.js'
+import { openIncoming } from '../../shared/incoming.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 import { markPassed } from '../../../../shared/content-state.js'
 
 // if (operation.action === 'episode-add' || operation.action === 'episode-edit')
@@ -31,6 +31,6 @@ export async function opEpisodeAdd(c) {
 }
 
 export const operations = {
-  'episode-add': { label: '新增剧集', scope: 'project', queue: 'text', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
-  'episode-edit': { label: '编辑剧集', scope: 'project', queue: 'text', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
+  'episode-add': { label: '新增剧集', scope: 'project', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
+  'episode-edit': { label: '编辑剧集', scope: 'project', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
 }

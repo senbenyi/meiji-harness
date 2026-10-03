@@ -6,9 +6,9 @@ import { savePicture } from '../../../data/image-storage.js'
 import { appendImageAsset, nextPartId, partSlots } from '../../../../shared/image-assets.js'
 import { staleMedia } from '../../../../shared/project-rules.js'
 import { decodeImageData } from '../../../media/decode-image-data.js'
-import { visualPlace } from '../shared/image-files.js'
-import { openIncoming } from '../shared/incoming.js'
-import { saveStep } from '../plan-steps.js'
+import { visualPlace } from '../../shared/image-files.js'
+import { openIncoming } from '../../shared/incoming.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'part-import')
 export async function opPartImport(c) {
@@ -48,5 +48,5 @@ export async function opPartImport(c) {
 }
 
 export const operations = {
-  'part-import': { label: '导入图片', scope: 'episode', queue: 'text', agent: false, step: saveStep(null), stage: 'episode', run: opPartImport },
+  'part-import': { label: '导入图片', scope: 'episode', agent: false, step: saveStep(null), stage: 'episode', run: opPartImport },
 }

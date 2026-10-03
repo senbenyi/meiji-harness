@@ -3,7 +3,7 @@ import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
-import { generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
+import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
 import { reviewContent } from '../server/runtime/text-generation.js'
 import { continuityReviewContext } from '../server/prompts/continuity-review.js'
 

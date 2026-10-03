@@ -1,3 +1,6 @@
+import { renderExecutionDetail } from './task-detail.js'
+import { historyTargets } from './execution-history.js'
+import { taskStatusLabels } from './task-nodes.js'
 import { decorateTaskGroups } from './task-group.js'
 import { createPanelEvents } from './panel-events.js'
 import { renderNodeSkill } from './node-skill.js'
@@ -74,33 +77,25 @@ export function mount() {
   let liveTasks = [], liveTaskKey = ''
   function stopTask(task) {
     const [sessionId, projectId] = liveTaskKey.split(':')
-    return request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }).catch(error => { shell.status(error.message); throw error })
+    return request('operations/cancel', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }).catch(error => { shell.status(error.message); throw error })
   }
   function paintTasks() {
     const projectId = liveTaskKey.split(':')[1]
-    const attached = decorateTaskGroups(shell.content, liveTasks, { open: () => actions.openCurrentTasks(projectId), stop: stopTask })
+    decorateTaskGroups(shell.content, liveTasks, { open: task => actions.openOperation({ id: projectId }, task.id), stop: stopTask })
     taskBar.replaceChildren()
-    const loose = liveTasks.filter(task => !attached.has(task.id))
-    if (!loose.length) return
-    const view = document.createElement('button')
-    view.textContent = '查看当前任务'
-    view.className = 'task-status-view'
-    view.onclick = () => actions.openCurrentTasks(projectId)
-    taskBar.append(view)
-    for (const task of loose) {
-      const stop = document.createElement('button')
-      stop.textContent = `停止生成${task.track ? ' · ' + task.track : ''}`
-      stop.onclick = async () => {
-        stop.disabled = true
-        try { await stopTask(task) } catch { stop.disabled = false }
-      }
-      taskBar.append(stop)
+    for (const operation of liveTasks) {
+      const row = document.createElement('div'); row.className = 'task-status-row'
+      const label = document.createElement('span'); label.textContent = `${operation.label} · ${taskStatusLabels[operation.status]} · ${operation.initiator === 'session' ? '会话' : '面板'}`
+      const view = document.createElement('button'); view.textContent = '查看'; view.onclick = () => actions.openOperation({ id: projectId }, operation.id)
+      const stop = document.createElement('button'); stop.textContent = '停止'; stop.onclick = async () => { stop.disabled = true; try { await stopTask(operation) } catch { stop.disabled = false } }
+      row.append(label, view, stop); taskBar.append(row)
     }
   }
+
   async function refreshTasks(projectId, sessionId) {
-    const result = await request('tasks?' + new URLSearchParams({ projectId, sessionId }))
+    const result = await request('operations/current?' + new URLSearchParams({ projectId, sessionId }))
     if (eventKey !== `${sessionId}:${projectId}`) return
-    liveTasks = result.tasks
+    liveTasks = result.operations
     liveTaskKey = eventKey
     paintTasks()
     // 进行中的操作变化（开始、排队、结束）时重绘，使按钮禁用状态与剧集占用一致。
@@ -216,38 +211,61 @@ export function mount() {
     try { await bridge.perform({ id: projectId }, 'review-override', { key, episodeId }) }
     catch (error) { onError?.(); shell.status(error.message) }
   })
+  shell.root.addEventListener('meiji-view-failure', event => {
+    const root = modelStore.get(shownProject)
+    if (!root) return
+    const episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId || openScene?.episodeId
+    actions.openLatestTask({ id: root.id, episodeId }, event.detail.target).catch(error => shell.status(error.message))
+  })
   const actions = {
-    openHistory: (project, historyScope = '') => {
-      hold = true
-      navigation++
-      const sessionId = currentSessionId()
-      currentPage = renderTaskHistory(project, {
-        historyScope,
-        loadPrompts: (task, step) => request('history?' + new URLSearchParams({ projectId: project.id, sessionId, taskId: task.id, stepId: step.id })),
+    stopOperation: stopTask,
+    openOperation: (project, id) => actions.openExecution(project, 'operations', id),
+    openExecution: (project, kind, id, focusFailure = false) => {
+      hold = true; navigation++
+      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
+      currentPage = renderExecutionDetail({ title: kind === 'operations' ? '操作详情' : '任务详情',
+        load: () => request(`${kind}/${id}?${query}`),
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
-        load: (artifactId = '') => request('history?' + new URLSearchParams({ projectId: project.id, ...(project.episodeId ? { episodeId: project.episodeId } : {}), sessionId, ...(artifactId ? { artifactId } : {}) })),
+        loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
+        loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
+        openOperation: operationId => actions.openOperation(project, operationId), stop: stopTask, focusFailure,
       })
-      display(currentPage)
-      shell.content.parentElement.scrollTop = 0
+      display(currentPage); shell.content.parentElement.scrollTop = 0
     },
-    // 「当前任务」页：打开剧集时只看本集，否则看整个项目；收到 /events 推送时刷新。
-    openCurrentTasks: projectId => {
-      hold = true
-      navigation++
-      const sessionId = currentSessionId(), root = modelStore.get(projectId)
-      const episodeId = openEpisode || openCharacter?.episodeId || openScene?.episodeId || ''
-      const index = episodeId ? [...(root?.episodes || [])].reverse().findIndex(episode => episode.id === episodeId) : -1
-      const project = { id: projectId, title: root?.title, episodeId, episodeNumber: index >= 0 ? index + 1 : undefined, episodes: root?.episodes }
-      currentPage = renderCurrentTasks(project, {
-        // 当前任务页的条目是操作（id 为 operationId），提示词按其任务记录（taskId）读取。
-        loadPrompts: (task, step) => request('history?' + new URLSearchParams({ projectId, sessionId, taskId: task.taskId || task.id, stepId: step.id })),
+    openLatestTask: async (project, target) => {
+      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), ...(project.episodeId ? { episodeId: project.episodeId } : {}), target })
+      const result = await request(`tasks?${query}`)
+      if (result.tasks[0]) actions.openExecution(project, 'tasks', result.tasks[0].id, true)
+      else actions.openHistory(project, target)
+    },
+    openHistory: (project, historyScope = '') => {
+      hold = true; navigation++
+      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), ...(project.episodeId ? { episodeId: project.episodeId } : {}) })
+      const contentOnly = ['outline', 'characters', 'scenes', 'props'].includes(historyScope) || historyScope.includes(':') && !historyScope.startsWith('film:')
+      const targets = historyTargets(historyScope).join(',')
+      currentPage = renderTaskHistory(project, { historyScope,
+        load: () => request(`${contentOnly ? 'tasks' : 'operations'}?${query}&${contentOnly ? 'target' : 'targets'}=${encodeURIComponent(targets)}`),
+        loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
+        loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
+        openOperation: id => actions.openOperation(project, id), stop: stopTask,
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
-        load: () => request('tasks/current?' + new URLSearchParams({ projectId, sessionId, ...(episodeId ? { episodeId } : {}) })),
-        stop: task => request('tasks', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }),
-        openHistory: () => { currentPage = null; actions.openHistory(project) },
       })
-      display(currentPage)
-      shell.content.parentElement.scrollTop = 0
+      display(currentPage); shell.content.parentElement.scrollTop = 0
+    },
+    openCurrentTasks: projectId => {
+      hold = true; navigation++
+      const root = modelStore.get(projectId), episodeId = openEpisode || openCharacter?.episodeId || openScene?.episodeId || ''
+      const project = { id: projectId, title: root?.title, episodeId, episodes: root?.episodes }
+      const query = new URLSearchParams({ projectId, sessionId: currentSessionId(), ...(episodeId ? { episodeId } : {}) })
+      currentPage = renderCurrentTasks(project, {
+        load: () => request(`operations/current?${query}`),
+        loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
+        loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
+        openOperation: id => actions.openOperation(project, id), stop: stopTask,
+        back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
+        openHistory: () => actions.openHistory(project),
+      })
+      display(currentPage); shell.content.parentElement.scrollTop = 0
     },
     // 技能详情页：只读展示基础，补充通过既有保存接口写入。
     openSkill: (project, id, back = () => follow(true).catch(error => shell.status(error.message))) => {
@@ -367,8 +385,8 @@ export function mount() {
     if (input.episodeId) await actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
     else await actions.perform(project, 'episode-add', { fields })
   }, generateEpisodeDraft, {
-    loadHistory: (project, artifactId = '') => request('history?' + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), ...(artifactId ? { artifactId } : {}) })),
-    loadPrompts: (project, task, step) => request('history?' + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), taskId: task.id, stepId: step.id })),
+    openHistory: project => actions.openHistory(project, 'summary'),
+    loadPrompts: (project, task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
   })
   const openCatalogDialog = catalogDialog(shell.root)
   function enterWorkspace(place) {

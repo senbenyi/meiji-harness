@@ -31,5 +31,5 @@ export async function opAssemble(c) {
 }
 
 export const operations = {
-  assemble: { label: '全片拼接', scope: 'episode', queue: 'text', agent: true, step: () => ({ kind: 'assemble', target: 'assembly' }), stage: 'episode', run: opAssemble },
+  assemble: { label: '全片拼接', scope: 'episode', agent: true, step: () => ({ kind: 'assemble', target: 'assembly' }), stage: 'episode', run: opAssemble },
 }

@@ -6,9 +6,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { runOperation } from './fixtures/operation.js'
 import { recordStore } from '../server/data/task-store.js'
-import { generateAllSeconds } from '../server/flow/operations/shot-operations.js'
+import { generateAllSeconds } from './fixtures/seconds-generation.js'
 import { buildSecondsPrompts } from '../server/prompts/shot-text-prompts.js'
 import { feedbackOf, overrideBlocker } from '../shared/review-feedback.js'
 
@@ -18,7 +18,7 @@ async function environment(t) {
  return e
 }
 const execute = (e, request, operation = {}, deps = {}) => runOperation(e.op('seconds', operation), {
- home: e.home, ...deps, generateAllSeconds: options => generateAllSeconds({ ...options, request }),
+ home: e.home, ...deps, request,
 })
 const reply = message => message.skill === 'review' ? reviewPass : secondsForRequest(message)
 
@@ -37,8 +37,8 @@ test('逐镜生成和审核，后镜引用本轮前镜完整指令，历史按�
  assert.equal(p.shots.seconds.status, 'passed')
  const tasks = (await recordStore(e.home, e.id).list('tasks')).sort((a, b) => a.targets[0].localeCompare(b.targets[0]))
  assert.deepEqual(tasks.map(task => [task.type, task.label, task.status]), [['shot-seconds', '每秒指令 S01', 'completed'], ['shot-seconds', '每秒指令 S02', 'completed']])
- assert.deepEqual(tasks.flatMap(task => task.steps).filter(s => s.status === 'completed').map(s => `${s.kind}:${s.target}`), ['generate:seconds:S01', 'review:seconds:S01', 'generate:seconds:S02', 'review:seconds:S02'])
- assert.ok(tasks.every(task => task.steps.every(s => !s.unplanned)))
+ assert.deepEqual(tasks.flatMap(task => task.nodes).filter(s => s.status === 'completed').map(s => `${s.kind}:${s.target}`), ['generate:seconds:S01', 'review:seconds:S01', 'generate:seconds:S02', 'review:seconds:S02'])
+ assert.ok(tasks.every(task => task.nodes.every(s => !s.unplanned)))
 })
 
 for (const count of [1, 2, 5]) test(`生成 ${count} 镜分别请求，不发整集请求`, async () => {
@@ -159,7 +159,7 @@ test('部分保存后可按失败原因修改，缺失镜头继续生成', async
 test('storyboard never fills missing seconds in the background', async t => {
  const e = await environment(t)
  await e.store.save(e.id, p => { p.episodes[0].shots.items[1].seconds.content = null; return p })
- await assert.rejects(runOperation(e.op('storyboard'), { home: e.home, generateAllSeconds: () => assert.fail('no implicit fill') }), /请先生成整集每秒指令/)
+ await assert.rejects(runOperation(e.op('film', { ...{}, parts: 'storyboard' }), { home: e.home, generateAllSeconds: () => assert.fail('no implicit fill') }), /请先.*每秒指令/)
 })
 
 test('首镜更新后后镜旧稿过期，失败停止后不能把旧稿用于下游', async t => {
@@ -190,7 +190,7 @@ test('取消当前镜审核保留已生成草稿，不开始后镜', async t => 
 test('修改失败保留统一意见，成功后仅消费本次意见', async t => {
  const e = await environment(t)
  await e.store.saveReviewDraft(e.id, e.episodeId, 'seconds', '统一意见', 0)
- await assert.rejects(execute(e, async m => m.skill === 'review' ? reviewFail('失败', 'S01') : secondsForRequest(m), { generationMode: 'modify' }), /自检/)
+ await assert.rejects(execute(e, async m => m.skill === 'review' ? reviewFail('失败', 'S01') : secondsForRequest(m), { generationMode: 'modify' }), /自检|自审/)
  assert.equal((await e.read()).shots.seconds.review.text, '统一意见')
  await execute(e, reply, { generationMode: 'modify' })
  assert.equal((await e.read()).shots.seconds.review.text, '')

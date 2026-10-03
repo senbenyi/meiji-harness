@@ -4,9 +4,9 @@ import { join } from 'node:path'
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { staleMedia } from '../../../../shared/project-rules.js'
 import { decodeImageData } from '../../../media/decode-image-data.js'
-import { importAssetImage, visualPlace } from '../shared/image-files.js'
-import { openIncoming } from '../shared/incoming.js'
-import { saveStep } from '../plan-steps.js'
+import { importAssetImage, visualPlace } from '../../shared/image-files.js'
+import { openIncoming } from '../../shared/incoming.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'import-image')
 export async function opImportImage(c) {
@@ -37,5 +37,5 @@ export async function opImportImage(c) {
 }
 
 export const operations = {
-  'import-image': { label: '导入图片', scope: 'episode', queue: 'text', agent: false, step: saveStep(null), stage: 'episode', run: opImportImage },
+  'import-image': { label: '导入图片', scope: 'episode', agent: false, step: saveStep(null), stage: 'episode', run: opImportImage },
 }

@@ -1,3 +1,4 @@
+import { operationRequest } from '../client/operation-request.js'
 import { outlineText } from '../shared/story-outline.js'
 import { outlineFixture } from './fixtures/story-package.js'
 import { tableResponse, singleShotResponse } from './fixtures/shot-response.js'
@@ -17,14 +18,14 @@ function domSetup(t) {
  t.after(()=>{Object.assign(globalThis,prior);dom.window.close()})
  return dom.window.document.querySelector('main')
 }
-test('all production panes render directly from new models, including pencil and references',t=>{
+test('all production panes render directly from new models, including video and references',t=>{
  const container=domSetup(t),e=episodeFixture();e.episodeId=e.id
  e.plot.characters.items[0].image.content={localPath:'/portrait'}
  e.shots.items[0].storyboard.content.referenceSnapshot=[{id:'C01',url:'/portrait',localPath:'/portrait',kind:'characters',label:'旅人'}]
  e.shots.items[0].storyboard.content.prompt.text='<Subject 1> comes from <Picture 1>'
  const actions={perform:async()=>{},fail:()=>{}}
  for(const step of ['script','shots','film','assembly'])container.replaceChildren(renderStage(step,e,actions,{}))
- for(const shotsPane of ['table','seconds','board','pencil']){
+ for(const shotsPane of ['table','seconds','board']){
   container.replaceChildren(renderStage(shotsPane === 'board' ? 'film' : shotsPane === 'seconds' ? 'seconds' : 'shots',e,actions,{shotsPane}))
   if(shotsPane==='board'){assert.ok(container.querySelector('.reference-card img'));assert.match(container.textContent,/<Subject 1>/);assert.ok(container.querySelector('.storyboard-editor'))}
  }
@@ -62,11 +63,11 @@ test('partial refresh retains focused draft and does not detach nested reused co
 test('model store notifies on newer revisions and rejects late responses',async t=>{const e=await setupModel(t),p=await e.store.read(e.id),store=createModelStore();let calls=0;store.subscribe(()=>calls++);store.accept(p);store.accept({...p,revision:p.revision+2,title:'新'});assert.equal(store.accept({...p,title:'旧'}).title,'新');assert.equal(calls,2)})
 test('text draft survives reload and does not alter published storyboard',async t=>{const e=await setupModel(t);const before=(await e.read()).shots.items[0].storyboard.content.prompt.text;await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','未提交正文',0,'text');const model=(await e.read()).shots.items[0].storyboard;assert.equal(model.content.prompt.text,before);assert.equal(model.draft.text,'未提交正文');assert.equal(model.status,'passed')})
 test('replacing a picture refreshes snapshot URL without regenerating storyboard prose',async t=>{const e=await setupModel(t);await e.store.save(e.id,p=>{const ep=p.episodes[0];ep.plot.characters.items[0].image.content={localPath:'/plugins/meiji/asset-file?category=characters&id=new'};ep.shots.items[0].storyboard.content.referenceSnapshot=[{id:'C01',url:'/plugins/meiji/asset-file?category=characters&id=old',kind:'characters'}];return p});const ep=await e.read();assert.equal(ep.shots.items[0].storyboard.content.referenceSnapshot[0].url,'/plugins/meiji/asset-file?category=characters&id=new');assert.match(ep.shots.items[0].storyboard.content.prompt.text,/旅人/);assert.equal(ep.shots.items[0].storyboard.status,'passed')})
-test('project refresh marker reads nested pencil and video nodes', async t => {
+test('project refresh marker reads nested video nodes', async t => {
  const { projectRefreshMark } = await import('../client/chat-bridge.js')
  const e = await setupModel(t), p = await e.store.read(e.id)
  const before = projectRefreshMark(p)
- p.episodes[0].shots.items[0].pencil.content = { url: '/new-pencil' }
+ p.episodes[0].shots.items[0].video.content = { status: 'ready', url: '/new-video' }
  assert.notEqual(projectRefreshMark(p), before)
 })
 test('shot subtab cards show review failure and retain manual expansion across refresh', t => {
@@ -140,14 +141,14 @@ test('previous tail input is hidden and never replaces missing current video or 
 })
 
 test('generated and revised shot titles appear on production cards', async t => {
- const { generateShots, reviseShot } = await import('../server/flow/operations/shot-operations.js')
+ const { generateShots, reviseShot } = await import('../server/flow/tasks/text/task-shot-table.js')
  const container = domSetup(t), project = episodeFixture()
  const request = text => async ({ skill }) => skill === 'review' ? reviewPass : skill === 'shots' ? tableResponse(text) : singleShotResponse(text)
  project.shots = await generateShots({ project, request: request('## S01 / 5s\n标题：夜访庭院\n旅人走到门外。\n\n## S02 / 5s\n标题：叩门待应\n旅人敲门。') })
  assert.match(project.shots.items[0].content, /^标题：夜访庭院/)
  const actions = { perform: async () => {}, fail: () => {} }
  const checkCards = title => {
-  for (const shotsPane of ['table', 'seconds', 'board', 'pencil']) {
+  for (const shotsPane of ['table', 'seconds', 'board']) {
    container.replaceChildren(renderStage(shotsPane === 'seconds' ? 'seconds' : 'shots', project, actions, { shotsPane }))
    assert.ok([...container.querySelectorAll('h3')].some(el => el.textContent.includes(`S01 / 5s · ${title}`)), shotsPane)
   }
@@ -158,14 +159,14 @@ test('generated and revised shot titles appear on production cards', async t => 
 })
 
 test('JSON 大纲经解析保存后展示真实换行，不展示对象外壳或转义字符', async t => {
- const { generateStoryPackage } = await import('../server/flow/operations/story-text-operations.js')
- const { runOperation } = await import('../server/flow/operations/run-operation.js')
+ const { generateStoryPackage } = await import('./fixtures/story-generation.js')
+ const { runOperation } = await import('./fixtures/operation.js')
  const { outlineFixture, storyPackageFixture } = await import('./fixtures/story-package.js')
  const container = domSetup(t), e = await setupModel(t), fixture = storyPackageFixture()
  const outline = outlineFixture('旅人读到 "明天见"。\n他收起信，望向紧闭的门。')
  const replies = [JSON.stringify(outline), reviewPass, JSON.stringify(fixture.characters), reviewPass,
   JSON.stringify(fixture.scenes), reviewPass, JSON.stringify({ items: [] }), reviewPass]
- await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => replies.shift() }) })
+ await runOperation(e.op('story', {}), { home: e.home, request: async () => replies.shift() })
  const saved = await e.read()
  assert.deepEqual(saved.plot.outline.content, outline)
  container.replaceChildren(renderStage('outline', saved, { perform: async () => {}, fail: () => {} }, {}))
@@ -174,7 +175,7 @@ test('JSON 大纲经解析保存后展示真实换行，不展示对象外壳或
 })
 
 test('超过15秒的小剧情同名分段标题经保存读回后在各镜头卡片完整展示', async t => {
- const { generateShots,reviseShot }=await import('../server/flow/operations/shot-operations.js')
+ const { generateShots,reviseShot }=await import('../server/flow/tasks/text/task-shot-table.js')
  const container=domSetup(t), e=await setupModel(t), project=e.episode
  project.durationSeconds=24
  const raw='## S01 / 12s\n标题：发现旧信1\n旅人在木箱里找到旧信，尚未取出。\n\n## S02 / 8s\n标题：发现旧信2\n旅人取出旧信，辨认封面。\n\n## S03 / 4s\n标题：决定拆读\n旅人准备打开旧信。'
@@ -367,7 +368,7 @@ test('seconds history exposes the complete original response even when JSON is t
  const original='{"shots":[{"shotId":"S01","summary":"未截掉的原文'
  const view=renderTaskHistory(episodeFixture(),{historyScope:'seconds',back:()=>{},load:async id=>id
   ? {artifact:{content:{text:original}}}
-  : {tasks:[{id:'failed-seconds',action:'seconds',status:'review_failed',steps:[],artifacts:[{target:'seconds-response',artifactId:'raw-response',version:1}]}]}})
+  : {tasks:[{id:'failed-seconds',action:'seconds',status:'review_failed',nodes:[],artifacts:[{target:'seconds-response',artifactId:'raw-response',version:1}]}]}})
  container.append(view);await Promise.resolve()
  const snapshot=view.querySelector('.task-history-snapshot')
  assert.match(snapshot.querySelector('summary').textContent,/每秒指令原始响应/)
@@ -387,7 +388,7 @@ test('plot has one generation entry and one review for outline, characters and s
  const input=review.querySelector('input')
  input.value='将旅人改为女侦探，并同步调整大纲和庭院场景'
  input.dispatchEvent(new window.Event('input'));input.onblur()
- review.querySelector('button').click();await Promise.resolve()
+ review.querySelector('.workflow-review-action').click();await Promise.resolve()
  assert.equal(calls.length,1);assert.equal(calls[0][1],'outline')
  assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,input.value)
  assert.ok(review.compareDocumentPosition(container.querySelector('.character-list'))&4)
@@ -469,7 +470,7 @@ test('history entry navigates without loading inline history', t => {
 test('task history page filters records, loads snapshots, refreshes and returns', async t => {
  const { renderTaskHistory } = await import('../client/execution-history.js')
  const container = domSetup(t), calls = []; let returned = false
- const task = { id: 't1', startedAt: new Date().toISOString(), actor: 'model', action: 'episode-generate', status: 'review_failed', steps: [{ kind: 'generate', target: 'summary', status: 'completed' }, { kind: 'review', target: 'summary', status: 'completed', verdict: 'fail', reasons: ['因果不成立'] }, { kind: 'revise', target: 'summary', status: 'skipped' }], artifacts: [{ target: 'summary', version: 2, artifactId: 'version-2' }] }
+ const task = operationRequest('episode-generate', { id: 't1', startedAt: new Date().toISOString(), actor: 'model', status: 'review_failed', nodes: [{ kind: 'generate', target: 'summary', status: 'completed' }, { kind: 'review', target: 'summary', status: 'completed', verdict: 'fail', reasons: ['因果不成立'] }, { kind: 'revise', target: 'summary', status: 'skipped' }], artifacts: [{ target: 'summary', version: 2, artifactId: 'version-2' }] })
  const view = renderTaskHistory({ id: 'p', episodeId: 'e', episodeNumber: 1, title: '测试项目' }, {
   back: () => { returned = true },
   load: async artifactId => { calls.push(artifactId); return artifactId ? { artifact: { content: '历史摘要原文' } } : { tasks: [task, { ...task, id: 't2', status: 'completed', artifacts: [] }] } },
@@ -483,7 +484,7 @@ test('task history page filters records, loads snapshots, refreshes and returns'
  assert.equal(view.querySelectorAll('.task-history-item').length, 1)
  assert.match(view.textContent, /因果不成立/)
  // 步骤清单与「当前任务」页共用组件：按目标分组，历史中不高亮当前步骤。
- assert.equal(view.querySelector('.task-steps-target').textContent.startsWith('摘要'), true)
+ assert.equal(view.querySelector('.task-nodes-target').textContent.startsWith('摘要'), true)
  assert.deepEqual([...view.querySelectorAll('.task-step')].map(item => item.className), ['task-step is-completed', 'task-step is-completed', 'task-step is-skipped'])
  assert.equal(view.querySelector('.task-step.is-current'), null)
  const snapshot = view.querySelector('.task-history-snapshot')
@@ -536,7 +537,7 @@ test('stage toolbar groups status, history, skills and generation controls', t =
   container.replaceChildren(renderStage(step,project,actions,{}))
   const toolbar=container.querySelector('.stage-history-toolbar')
   assert.equal(toolbar.firstElementChild.className,'stage-status')
-  assert.equal(Boolean(toolbar.querySelector('.task-history-entry')), step !== 'film')
+  assert.equal(Boolean(toolbar.querySelector('.task-history-entry')), true)
   assert.ok(toolbar.querySelector('.stage-primary-actions button.primary'),step)
   assert.equal(container.querySelectorAll('.custom-skill-field').length,0)
   if (step === 'script') {
@@ -544,7 +545,7 @@ test('stage toolbar groups status, history, skills and generation controls', t =
    assert.equal(groups.length,3)
    for (const group of groups) {
     assert.ok(group.parentElement.querySelector('h3'))
-    assert.equal(group.querySelector('.task-history-entry'), null)
+    assert.ok(group.querySelector('.task-history-entry'))
     assert.ok(group.querySelector('[data-skill]'))
    }
   }
@@ -555,38 +556,39 @@ test('film history entries stay in each shot header and navigate to the correspo
  const container=domSetup(t),project=episodeFixture(),calls=[]
  const actions={perform:async()=>{},fail:()=>{},openHistory:(value,scope)=>calls.push([value,scope])}
  container.append(renderStage('film',project,actions,{}))
- assert.equal(container.querySelector('.stage-history-toolbar .task-history-entry'),null)
+ assert.ok(container.querySelector('.stage-history-toolbar .task-history-entry'))
  const cards=[...container.querySelectorAll('.shot-card')]
  assert.equal(cards.length,project.shots.items.length)
  for(const [index,card] of cards.entries()){
   const entry=card.querySelector(':scope > .shot-head > .task-history-entry')
   assert.ok(entry)
   assert.equal(card.querySelectorAll('.task-history-entry').length,1)
-  assert.equal(entry.textContent,'查看成片任务历史 →')
+  assert.equal(entry.textContent,'历史')
   entry.click()
   assert.equal(card.dataset.expanded,index === 0 ? 'true' : 'false')
  }
  assert.deepEqual(calls,project.shots.items.map(shot=>[project,`film:${shot.id}`]))
  container.replaceChildren(renderStage('film',project,actions,{onlyShot:'S02'}))
- assert.equal(container.querySelectorAll('.task-history-entry').length,1)
- container.querySelector('.task-history-entry').click()
+ assert.equal(container.querySelectorAll('.task-history-entry').length,2)
+ container.querySelector('.shot-head .task-history-entry').click()
  assert.equal(calls.at(-1)[1],'film:S02')
 })
 
-test('shot film history filters exact shot targets including batch steps and artifact-only records', async t => {
+test('shot film history filters exact shot targets including batch nodes and artifact-only records', async t => {
  const { renderTaskHistory } = await import('../client/execution-history.js')
  const container=domSetup(t),project={id:'p',episodeId:'e'},copies=[],promptCalls=[]
  window.HTMLDialogElement.prototype.show=function(){this.open=true}
- const task=(id,action,steps=[],artifacts=[])=>({id,action,steps,artifacts,status:'completed',actor:'model'})
+ const task=(id,action,nodes=[],artifacts=[])=>({id,action,nodes,artifacts,status:'completed',actor:'model'})
  const s1={id:'one',kind:'video_submit',target:'film:S01',status:'completed',prompts:[{id:'p1'}]}
  const s2={id:'two',kind:'video_generate',target:'film:S02',status:'completed'}
  const a1={target:'film:S01',version:1,artifactId:'a1'}
  const a2={target:'film:S02',version:1,artifactId:'a2'}
- const tasks=[task('single','film',[s1]),task('batch','produce-all',[s1,s2],[a1,a2]),
+ let tasks=[task('single','film',[s1]),task('batch','produce-all',[s1,s2],[a1,a2]),
   task('other','film',[s2]),task('similar','film',[{...s1,target:'film:S010'}]),
   task('outside','seconds',[{...s1,target:'seconds:S01'}]),task('old','films',[],[a1]),
   task('edit','text-shot-edit',[{...s1,target:'storyboard:S01'}]),
   task('bind','storyboard-bind',[{...s1,target:'storyboard:S01'}]),task('tail','tail-frame',[s1])]
+ tasks = tasks.filter(task => [...task.nodes, ...task.artifacts].some(item => ['film:S01', 'storyboard:S01'].includes(item.target))).map(task => ({...task,nodes:task.nodes.filter(item => ['film:S01','storyboard:S01'].includes(item.target)),artifacts:task.artifacts.filter(item => ['film:S01','storyboard:S01'].includes(item.target))}))
  const before=structuredClone(tasks)
  const view=renderTaskHistory(project,{historyScope:'film:S01',back:()=>{},
   load:async artifactId=>artifactId ? (copies.push(artifactId),{artifact:{content:'本镜视频快照'}}) : {tasks},
@@ -602,7 +604,7 @@ test('shot film history filters exact shot targets including batch steps and art
  assert.deepEqual(copies,['a1'])
  batch.querySelector('.task-step-prompt').click();await Promise.resolve()
  assert.deepEqual(promptCalls,[['batch','one']])
- tasks[0]={...tasks[0],status:'running',steps:[{...s1,status:'running',startedAt:new Date().toISOString()}]}
+ tasks[0]={...tasks[0],status:'running',nodes:[{...s1,status:'running',startedAt:new Date().toISOString()}]}
  await view.refresh()
  assert.ok(view.querySelector('[data-task-id="single"] .task-step.is-current'))
  assert.equal(view.querySelectorAll('[data-task-id]').length,6)
@@ -610,18 +612,18 @@ test('shot film history filters exact shot targets including batch steps and art
 })
 
 test('step list groups by target and shows the current step with elapsed time, attempts and remote task', async t => {
- const { renderSteps, tickElapsed } = await import('../client/task-steps.js')
+ const { renderSteps, tickElapsed } = await import('../client/task-nodes.js')
  const container = domSetup(t), start = new Date(Date.now() - 65000).toISOString()
- const steps = [
+ const nodes = [
   { kind: 'generate', target: 'storyboard:S01', status: 'completed', startedAt: start, endedAt: start },
   { kind: 'review', target: 'storyboard:S01', status: 'completed', verdict: 'fail', reasons: ['位置：S01；原因：动作冲突；修正要求：保持动作连续'], attempts: [{ label: '程序审核', status: 'completed' }, { label: '大模型审核', status: 'completed' }] },
   { kind: 'revise', target: 'storyboard:S01', status: 'running', startedAt: start, attempts: [{ label: '续传 2/3（S02 起）', status: 'running' }] },
   { kind: 'video_submit', target: 'film:S01', status: 'pending' },
   { kind: 'override', target: 'shots', status: 'completed', verdict: 'pass', actor: 'human' },
  ]
- const view = renderSteps(steps, { live: true })
+ const view = renderSteps(nodes, { live: true })
  container.append(view)
- assert.deepEqual([...view.querySelectorAll('.task-steps-target')].map(head => head.firstChild.textContent), ['文本提示词 · S01', '成片 · S01', '镜头表'])
+ assert.deepEqual([...view.querySelectorAll('.task-nodes-target')].map(head => head.firstChild.textContent), ['文本提示词 · S01', '成片 · S01', '镜头表'])
  const current = view.querySelector('.task-step.is-current')
  assert.equal(current.getAttribute('aria-current'), 'step')
  assert.match(current.textContent, /修订/)
@@ -643,18 +645,18 @@ test('current task page lists running and queued tasks, stops a task and refresh
  const { renderCurrentTasks } = await import('../client/current-task.js')
  const container = domSetup(t), stopped = []
  let tasks = [
-  { id: 'a', label: '一键成片', status: 'running', startedAt: new Date().toISOString(), steps: [{ kind: 'video_submit', target: 'film:S01', status: 'completed' }, { kind: 'video_generate', target: 'film:S01', status: 'running', startedAt: new Date().toISOString(), remoteId: 'video_1' }] },
-  { id: 'b', label: '写镜头表', status: 'queued', queuePosition: 1, steps: [{ kind: 'generate', target: 'shots', status: 'pending' }] },
+  { id: 'a', label: '一键成片', status: 'running', startedAt: new Date().toISOString(), nodes: [{ kind: 'video_submit', target: 'film:S01', status: 'completed' }, { kind: 'video_generate', target: 'film:S01', status: 'running', startedAt: new Date().toISOString(), remoteId: 'video_1' }] },
+  { id: 'b', label: '写镜头表', status: 'queued', queuePosition: 1, nodes: [{ kind: 'generate', target: 'shots', status: 'pending' }] },
  ]
  let returned = false
- const view = renderCurrentTasks({ id: 'p', title: '测试剧', episodeId: 'e', episodeNumber: 2 }, { load: async () => ({ tasks }), stop: async task => { stopped.push(task.id) }, back: () => { returned = true } })
+ const view = renderCurrentTasks({ id: 'p', title: '测试剧', episodeId: 'e', episodeNumber: 2 }, { load: async () => ({ operations: tasks.map(task => ({ id:task.id, status:task.status, queuePosition:task.queuePosition, tasks:[task] })) }), stop: async task => { stopped.push(task.id) }, back: () => { returned = true } })
  container.append(view)
  await new Promise(resolve => setTimeout(resolve, 0))
  assert.match(view.textContent, /测试剧 · 第 2 集/)
  assert.equal(view.querySelectorAll('.current-task').length, 2)
  assert.match(view.textContent, /排队第 1 位/)
  assert.match(view.querySelector('.task-step.is-current').textContent, /远端任务：video_1/)
- await view.querySelector('.current-task-stop').onclick()
+ await view.querySelector('.task-history-stop').onclick()
  assert.deepEqual(stopped, ['a'])
  tasks = []
  await view.refresh()
@@ -702,7 +704,7 @@ test('a ready candidate image can be confirmed even though images have no AI rev
  const root = await e.store.save(e.id, project => {
   const episode = project.episodes[0], image = episode.plot.characters.items[0].image
   episode.pendingImages = { d1: { draftId: 'd1', previewUrl: '/plugins/meiji/image-draft/d1', key: 'characters', itemId: 'C01', name: '旅人', target: 'snapshot' } }
-  image.status = 'generating'; image.operation = { id: 'op', action: 'image', phase: 'awaiting-confirmation' }
+  image.status = 'generating'; image.operation = operationRequest('image', { id: 'op', phase: 'awaiting-confirmation' })
   return project
  })
  assert.equal(root.episodes[0].plot.characters.items[0].image.check.passed, null)
@@ -715,7 +717,7 @@ test('a ready candidate image can be confirmed even though images have no AI rev
  assert.deepEqual(calls, [['d1', 'confirm-image']])
  // 仍在生成（还没有候选图）时不能确认或放弃。
  const generating = { ...root, episodes: [{ ...root.episodes[0], pendingImages: {} }] }
- container.replaceChildren(renderImageReview(generating, actions, { phase: 'generating', held: true, action: 'image', episodeId: e.episodeId, itemId: 'C01', name: '旅人' }))
+ container.replaceChildren(renderImageReview(generating, actions, operationRequest('image', { phase: 'generating', held: true, episodeId: e.episodeId, itemId: 'C01', name: '旅人' })))
  const [busyConfirm, busyDiscard] = container.querySelectorAll('.image-review-actions button')
  assert.equal(busyConfirm.disabled, true); assert.equal(busyDiscard.disabled, true)
 })
@@ -735,7 +737,7 @@ test('detail page confirms an image without opening the review page', async t =>
   characterImageUrl: () => '',
  }, {
   character: { episodeId: episode.id, itemId: 'C01' },
-  imageGate: { phase: 'ready', held: false, action: 'image', episodeId: episode.id, itemId: 'C01', name: '旅人', draftId: 'd1', previewUrl: '/draft.png', slot: '', track: '' },
+  imageGate: operationRequest('image', { phase: 'ready', held: false, episodeId: episode.id, itemId: 'C01', name: '旅人', draftId: 'd1', previewUrl: '/draft.png', slot: '', track: '' }),
   onBackCharacter() {},
  }))
  assert.equal(container.querySelector('.image-review-overlay'), null)
@@ -875,9 +877,9 @@ test('failed modification preserves persisted opinion, and a new image candidate
 test('image gate reads the image node error and ignores the episode story error', async t => {
  const { syncImageGate } = await import('../client/image-review.js')
  const episode=episodeFixture();episode.activityError='剧情旧错误';episode.plot.characters.items[0].image.error='图片生成失败'
- const failed=syncImageGate({episodes:[episode]},{phase:'generating',held:true,action:'image',episodeId:episode.id,itemId:'C01'})
+ const failed=syncImageGate({episodes:[episode]},operationRequest('image', { phase:'generating', held:true, episodeId:episode.id, itemId:'C01' }))
  assert.equal(failed.phase,'error');assert.equal(failed.error,'图片生成失败')
- episode.plot.characters.items[0].image.error=null;episode.activity='image:C01'
+ episode.plot.characters.items[0].image.error=null;episode.operationActivity='image:C01'
  const running=syncImageGate({episodes:[episode]},null)
  assert.equal(running.phase,'generating');assert.equal(running.error,'')
 })
@@ -902,17 +904,17 @@ test('late draft acknowledgement cannot restore consumed opinion or block a newe
 })
 
 
-test('story result cards keep skills and share the history entry of the generation operation', t => {
+test('story result cards keep skills and expose independent task history beside skills', t => {
  const container = domSetup(t), project = episodeFixture(), calls = []
  const actions = { perform: async () => {}, fail() {}, openHistory: (project, scope) => calls.push(scope), openSkill() {} }
  container.append(renderStage('script', project, actions, {}))
  const rows = [...container.querySelectorAll('.story-node-actions')]
  assert.equal(rows.length, 3)
  for (const row of rows) {
-  assert.equal(row.querySelector('.task-history-entry'), null)
-  assert.equal(row.querySelector('button').textContent, '查看 skill')
+  assert.ok(row.querySelector('.task-history-entry'))
+  assert.ok([...row.querySelectorAll('button')].some(button => button.textContent === '查看 skill'))
  }
- assert.equal(container.querySelectorAll('.task-history-entry').length, 1)
+ assert.equal(container.querySelectorAll('.task-history-entry').length, 5)
  container.querySelector('.stage-history-toolbar .task-history-entry').click()
  assert.deepEqual(calls, ['script'])
 })

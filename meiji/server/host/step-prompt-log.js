@@ -1,7 +1,7 @@
 // 旧任务只从 Harness 公开会话事件读取当时的脱敏请求，不访问其私有存储或重建提示词。
 export function stepPromptsFromLog(session, task, step) {
   if (typeof session?.snapshotEvents !== 'function') return []
-  if (task.steps.filter(item => item.kind === step.kind).length !== 1) return []
+  if (task.nodes.filter(item => item.kind === step.kind).length !== 1) return []
   const active = new Set(), names = new Map(), prompts = []
   let ambiguous = false
   for (const event of session.snapshotEvents()) {

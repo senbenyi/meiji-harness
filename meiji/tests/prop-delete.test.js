@@ -4,7 +4,7 @@ import { setupModel, episodeFixture } from './fixtures/model.js'
 import { cardModel } from '../shared/drama-model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { recordStore } from '../server/data/task-store.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { runOperation, latestTask } from './fixtures/operation.js'
 import { validateOperation } from '../server/flow/operations/operation-registry.js'
 
 const prop = (id, name) => cardModel({ id, type: 'prop', name, category: 'prop', description: name, evidence: `旅人拿起${name}`, ownerId: 'C01' })
@@ -27,10 +27,10 @@ test('prop deletion only removes the selected card and its pending images in the
   assert.deepEqual(after.shots, before.shots)
   assert.deepEqual(after.assembly, before.assembly)
   assert.deepEqual((await e.store.read(e.id)).episodes[1], otherEpisode)
-  const task = await recordStore(e.home, e.id).read('tasks', 'prop-delete-task')
+  const task = await latestTask(recordStore(e.home, e.id), 'props')
   assert.equal(task.status, 'completed')
   assert.equal(task.actor, 'human')
-  assert.deepEqual(task.steps.map(s => [s.kind, s.target, s.actor, s.status]), [['save', 'props', 'human', 'completed']])
+  assert.deepEqual(task.nodes.map(s => [s.kind, s.target, s.actor, s.status]), [['save', 'props', 'human', 'completed']])
 })
 
 test('the last prop can be deleted while existing group review is preserved', async t => {

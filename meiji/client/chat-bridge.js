@@ -1,3 +1,4 @@
+import { operationRequest } from './operation-request.js'
 import { allNodes, shotMap } from '../shared/drama-model.js'
 
 // 剧集是否有进行中的操作：以内容节点上的 operation 为准（等待人工确认的候选图不算）。
@@ -27,14 +28,6 @@ function filmMark(project) {
   return rows.sort().join(',')
 }
 
-function boardMark(project) {
-  const rows = Object.entries(shotMap(project, 'pencil')).map(([track, board]) => `${track}:${board?.url || ''}`)
-  for (const episode of project.episodes || []) {
-    for (const [track, board] of Object.entries(shotMap(episode, 'pencil'))) rows.push(`${episode.id}:${track}:${board?.url || ''}`)
-  }
-  return rows.sort().join(',')
-}
-
 function pendingMark(project) {
   const rows = Object.keys(project.pendingImages || {}).sort().map(id => id)
   for (const episode of project.episodes || []) {
@@ -44,7 +37,7 @@ function pendingMark(project) {
 }
 
 export function projectRefreshMark(project) {
-  return [project.updatedAt, filmMark(project), boardMark(project), pendingMark(project)].join('|')
+  return [project.updatedAt, filmMark(project), pendingMark(project)].join('|')
 }
 
 export function createBridge({ request, jsonBody, showProject, onDeleted, status }) {
@@ -104,7 +97,7 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         const { projects } = await request('projects')
         listBefore = new Set(projects.map(item => item.id))
       }
-      const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, action, projectId: project?.id, ...fields }) })
+      const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, projectId: project?.id, ...operationRequest(action, fields) }) })
       if (result.completed) {
         clearInterval(timer)
         if (result.deleted) await onDeleted()

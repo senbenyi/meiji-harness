@@ -2,18 +2,18 @@
 // 操作状态只由任务状态推导（deriveOperationStatus），记录中的 status 是缓存。
 import { recordStore } from '../data/task-store.js'
 import { notifyProject } from '../data/project-events.js'
-import { recorded, humanActions, manualActions } from './task-state.js'
-import { deriveOperationStatus, deriveTaskStatus } from '../../shared/task-steps.js'
+import { recorded } from './task-state.js'
+import { deriveOperationStatus, deriveTaskStatus } from '../../shared/task-nodes.js'
 
 export const OPERATION_SCHEMA = 1
 const now = () => new Date().toISOString()
 
-export async function createOperationRecord(home, operation, id, { taskIds = [], label = null } = {}) {
+export async function createOperationRecord(home, operation, id, { taskIds = [], label = null, actor = 'model' } = {}) {
   if (!recorded(operation)) return null
   const record = {
     schemaVersion: OPERATION_SCHEMA, id, projectId: operation.projectId, episodeId: operation.episodeId || null, action: operation.action, label,
-    source: operation.origin || 'api', initiator: operation.origin === 'session' ? 'session' : 'panel', actor: humanActions.has(operation.action) ? 'human' : 'model',
-    sessionId: operation.sessionId || null, mode: operation.mode || operation.generationMode || (manualActions.has(operation.action) ? 'edit' : 'generate'),
+    source: operation.origin || 'api', initiator: operation.origin === 'session' ? 'session' : 'panel', actor,
+    sessionId: operation.sessionId || null, mode: operation.mode || operation.generationMode || (actor === 'human' ? 'edit' : 'generate'),
     requirements: operation.requirements || '', opinion: operation.review || operation.instruction || '',
     taskIds, status: 'queued', startedAt: now(), endedAt: null, error: null,
   }
@@ -29,7 +29,7 @@ export async function refreshOperation(home, projectId, id, { ended = false, err
   try { record = await store.read('operations', id) } catch (reason) { if (reason.code === 'ENOENT') return null; throw reason }
   const statuses = []
   for (const taskId of record.taskIds) {
-    try { statuses.push(deriveTaskStatus((await store.read('tasks', taskId)).steps)) } catch (reason) { if (reason.code !== 'ENOENT') throw reason }
+    try { statuses.push(deriveTaskStatus((await store.read('tasks', taskId)).nodes)) } catch (reason) { if (reason.code !== 'ENOENT') throw reason }
   }
   const saved = await store.update('operations', id, current => ({ ...current, status: deriveOperationStatus(statuses), ...(ended ? { endedAt: current.endedAt || now() } : {}), ...(error ? { error } : {}) }))
   notifyProject(home, projectId)

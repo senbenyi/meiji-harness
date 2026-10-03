@@ -1,15 +1,15 @@
 // 操作：编辑文本分镜
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { runStep } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/task-execution.js'
 import { reviewContent } from '../../../runtime/text-generation.js'
 import { storyboardTextPatch } from '../../../../shared/storyboard-edit.js'
-import { editSteps } from '../plan-steps.js'
+import { editSteps } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'storyboard-text')
 export async function opStoryboardText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
-  project = await runStep('save', () => projects.save(project.id, current => ({ ...storyboardTextPatch(current, operation) })), { target: `storyboard:${operation.track}` })
+  project = await runNode('save', () => projects.save(project.id, current => ({ ...storyboardTextPatch(current, operation) })), { target: `storyboard:${operation.track}` })
   const result = await (deps.reviewContent || reviewContent)({ project, stage: 'storyboard', shotId: operation.track, text: operation.text, route: (modelRoutes(await models.read())).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, {}, { final: true })
@@ -18,5 +18,5 @@ export async function opStoryboardText(c) {
 }
 
 export const operations = {
-  'storyboard-text': { label: '编辑文本分镜', scope: 'shot', queue: 'text', agent: false, plan: (_, op) => editSteps(`storyboard:${op.track}`), stage: 'episode', run: opStoryboardText },
+  'storyboard-text': { label: '编辑文本分镜', scope: 'shot', agent: false, plan: (_, op) => editSteps(`storyboard:${op.track}`), stage: 'episode', run: opStoryboardText },
 }

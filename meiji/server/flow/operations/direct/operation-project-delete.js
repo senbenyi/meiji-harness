@@ -24,5 +24,5 @@ export async function opProjectDelete(c) {
 }
 
 export const operations = {
-  'project-delete': { label: '删除项目', scope: 'project', queue: 'text', agent: false, stage: 'project', run: opProjectDelete },
+  'project-delete': { label: '删除项目', scope: 'project', agent: false, stage: 'project', run: opProjectDelete },
 }

@@ -2,8 +2,8 @@
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { clearCharacterImage } from '../../../../shared/image-assets.js'
 import { staleMedia } from '../../../../shared/project-rules.js'
-import { visualPlace } from '../shared/image-files.js'
-import { saveStep } from '../plan-steps.js'
+import { visualPlace } from '../../shared/image-files.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'clear-image')
 export async function opClearImage(c) {
@@ -19,5 +19,5 @@ export async function opClearImage(c) {
 }
 
 export const operations = {
-  'clear-image': { label: '删除图片', scope: 'episode', queue: 'text', agent: false, step: saveStep(null), stage: 'episode', run: opClearImage },
+  'clear-image': { label: '删除图片', scope: 'episode', agent: false, step: saveStep(null), stage: 'episode', run: opClearImage },
 }

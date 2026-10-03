@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
+import { runOperation, latestTask } from './fixtures/operation.js'
 import { recordStore } from '../server/data/task-store.js'
 import { h3PromptFailures } from '../shared/video-rules.js'
-import { filmSubmit } from '../server/flow/operations/video-operations.js'
+import { filmSubmit } from '../server/flow/shared/video-submit.js'
 import { buildEditedContentReview } from '../server/prompts/text-prompts.js'
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
 
@@ -27,9 +27,9 @@ test('storyboard operations plan only program generation and review',async t=>{
  const e=await setupModel(t)
  for(const action of ['shot-storyboard','storyboard-bind']){
   await runOperation(e.op(action,{track:'S01'}),{home:e.home,operationId:action})
-  const task=await recordStore(e.home,e.id).read('tasks',action)
-  assert.equal(task.status,'completed');assert.deepEqual(task.steps.map(s=>s.kind),['generate','review'])
-  assert.ok(task.steps.every(s=>!s.unplanned));assert.deepEqual(task.steps[1].attempts.map(a=>a.label),['程序审核'])
+  const task=await latestTask(recordStore(e.home,e.id),'storyboard:S01')
+  assert.equal(task.status,'completed');assert.deepEqual(task.nodes.map(s=>s.kind),['generate','review'])
+  assert.ok(task.nodes.every(s=>!s.unplanned));assert.deepEqual(task.nodes[1].attempts.map(a=>a.label),['程序审核'])
  }
 })
 test('manual final text still receives semantic review against selected seconds',()=>{

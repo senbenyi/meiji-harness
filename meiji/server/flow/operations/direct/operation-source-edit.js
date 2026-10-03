@@ -1,5 +1,5 @@
 // 操作：修改原始资料
-import { saveStep } from '../plan-steps.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'source')
 export async function opSource(c) {
@@ -11,5 +11,5 @@ export async function opSource(c) {
 }
 
 export const operations = {
-  source: { label: '修改原始资料', scope: 'episode', queue: 'text', agent: false, step: saveStep('summary'), stage: 'episode', run: opSource },
+  source: { label: '修改原始资料', scope: 'episode', agent: false, step: saveStep('summary'), stage: 'episode', run: opSource },
 }

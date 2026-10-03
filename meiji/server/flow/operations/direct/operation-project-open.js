@@ -15,5 +15,5 @@ export async function opOpen(c) {
 }
 
 export const operations = {
-  open: { label: '打开项目', scope: 'project', queue: 'text', agent: true, stage: 'pre', run: opOpen },
+  open: { label: '打开项目', scope: 'project', agent: true, stage: 'pre', run: opOpen },
 }

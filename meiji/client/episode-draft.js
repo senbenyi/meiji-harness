@@ -6,15 +6,15 @@ export async function generateEpisodeDraft(project, input, { signal, onTask }) {
   const sessionId = currentSessionId()
   if (!sessionId) throw new Error('没有打开的会话，无法关联任务日志')
   let operationId
-  const cancel = () => operationId && request('tasks', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId, operationId }) }).catch(() => {})
+  const cancel = () => operationId && request('operations/cancel', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId, operationId }) }).catch(() => {})
   signal.addEventListener('abort', cancel, { once: true })
   try {
     signal.throwIfAborted()
-    const started = await request('turn', { method: 'POST', ...jsonBody({ action: 'episode-summary-draft', projectId: project.id, sessionId, ...input }) })
+    const started = await request('turn', { method: 'POST', ...jsonBody({ action: 'summary', draft: true, projectId: project.id, sessionId, ...input }) })
     operationId = started.operationId
     if (signal.aborted) { await cancel(); signal.throwIfAborted() }
     while (true) {
-      const { task } = await request('tasks?' + new URLSearchParams({ projectId: project.id, sessionId, operationId }), { signal, onTask })
+      const { operation: task } = await request(`operations/${operationId}?` + new URLSearchParams({ projectId: project.id, sessionId }), { signal })
       onTask?.(task)
       if (task.status === 'completed') {
         if (!task.draft) throw new Error('任务未返回摘要草稿')

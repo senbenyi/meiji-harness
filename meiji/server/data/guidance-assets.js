@@ -35,7 +35,7 @@ export function assetsPatch(project, stage, assets) {
     patch.episodes = project.episodes.map(episode => {
       if (!episode.shots?.items?.length) return episode
       const next = { ...episode, shots: structuredClone(episode.shots) }
-      for (const shot of next.shots.items) for (const kind of ['storyboard', 'pencil', 'video', 'tailFrame']) {
+      for (const shot of next.shots.items) for (const kind of ['storyboard', 'video', 'tailFrame']) {
         const target = shot[kind]
         if (!target?.content) continue
         target.stale = true

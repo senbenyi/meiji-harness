@@ -132,6 +132,15 @@ export function renderSession(project, openCreate, actions, context = {}) {
       if (previews) view.append(previews)
     }
   }
+  const activeEpisode = context.character?.episodeId || context.scene?.episodeId || context.episodeId
+  const activeWork = activeEpisode ? episodeWork(project, activeEpisode) : project
+  if (activeWork?.busyOperation) {
+    const operation = activeWork.busyOperation, notice = element('div', '', 'notice operation-occupancy')
+    notice.append(element('span', `正在执行：${operation.label}（${operation.initiator === 'session' ? '会话' : '面板'}发起）`))
+    const open = element('button', '查看'); open.onclick = () => actions.openOperation?.(project, operation.id)
+    const stop = element('button', '停止'); stop.onclick = async () => { stop.disabled = true; try { await actions.stopOperation?.(operation) } catch { stop.disabled = false } }
+    notice.append(open, stop); view.append(notice)
+  }
   const detailContext = onDetail ? { ...context, detailGate: imageGate } : context
   if (context.character) {
     const characterProject = episodeWork(project, context.character.episodeId)

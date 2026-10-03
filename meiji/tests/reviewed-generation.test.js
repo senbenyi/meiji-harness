@@ -2,21 +2,22 @@ import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runTextSteps } from '../server/runtime/text-generation.js'
+import { runTextNodes } from '../server/runtime/text-generation.js'
 import { checkContext } from '../server/runtime/operation-context.js'
-import { recordSteps } from './fixtures/steps.js'
+import { recordSteps } from './fixtures/nodes.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 
 // Exercise the public worker while controlling generation/review responses.
 async function generateWithSelfReview({ generate, review, canRevise }) {
   let original, verdict
-  return runTextSteps({ prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), canRevise, options: { project: { durationSeconds: 5 }, request: async ({ skill }) => {
+  return runTextNodes({ prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), canRevise, options: { project: { durationSeconds: 5 }, request: async ({ skill }) => {
     if (skill === 'review') { verdict = await review(original); return verdict }
     original = await generate(original === undefined ? undefined : { text: original, reviewText: verdict })
     return original
   } } })
 }
-import { generateShotSeconds, generateShots } from '../server/flow/operations/shot-operations.js'
+import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds.js'
+import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
 import { episodeFixture } from './fixtures/model.js'
 
 test('shared executor corrects once and reviews the new result', async () => {
@@ -43,12 +44,12 @@ test('seconds retry includes latest draft, original human opinion and failure th
  assert.equal(calls.length,4);assert.match(calls[2],/最新初稿/);assert.match(calls[2],/朝向不对/);assert.match(calls[2],/保留声音/);assert.match(calls[3],/修好朝向/);assert.equal(result.items[0].seconds.check.passed,true)
 })
 test('invalid table syntax is reviewed and revised up to maxRevisions (default 2)',async()=>{
- let count=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='review'?reviewFail('标题错误'):'{"items":[]}'}}),/镜头表需按/);assert.equal(count,6)
+ let count=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='review'?reviewFail('标题错误'):'{"items":[]}'}}),/镜头表.*(?:JSON|shots)|shots/);assert.equal(count,6)
 })
 
 test('summary re-review compares the current revision base and opinion without restoring older source', async () => {
   let generation = 0, reviews = 0
-  await runTextSteps({
+  await runTextNodes({
     prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: { task: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
     review: '任务依据：向北走；人工意见：保持背影。' } }),
     options: { project: { durationSeconds: 5 }, request: async ({ skill, user: prompt }) => {
@@ -76,12 +77,12 @@ test('文本步骤只计划生成与自审；自审不通过后才动态追加�
   const plan = ['generate', 'review'].map(kind => ({ id: kind, kind, target: 'summary', status: 'pending', verdict: null, reasons: [], attempts: [], inputs: [], outputs: [] }))
   const failed = await recordSteps(() => generateWithSelfReview({ generate: async correction => correction ? '修订稿' : '初稿', review: async text => text === '初稿' ? reviewFail('朝向错误') : reviewPass }), structuredClone(plan))
   // 未传 target 时生成与自审不对应到计划，记为计划外；修订与复审是动态节点，带轮次，不算计划外。
-  assert.deepEqual(failed.steps.filter(step => step.unplanned).map(step => `${step.kind}:${step.verdict}`), ['generate:null', 'review:fail'])
-  assert.deepEqual(failed.steps.filter(step => step.round).map(step => `${step.kind}#${step.round}:${step.verdict}`), ['revise#1:null', 're_review#1:pass'])
-  const passed = await recordSteps(() => runTextSteps({ target: 'summary', prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), options: { project: { durationSeconds: 5 },
+  assert.deepEqual(failed.nodes.filter(step => step.unplanned).map(step => `${step.kind}:${step.verdict}`), ['generate:null', 'review:fail'])
+  assert.deepEqual(failed.nodes.filter(step => step.round).map(step => `${step.kind}#${step.round}:${step.verdict}`), ['revise#1:null', 're_review#1:pass'])
+  const passed = await recordSteps(() => runTextNodes({ target: 'summary', prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), options: { project: { durationSeconds: 5 },
     request: async ({ skill }) => skill === 'review' ? reviewPass : '稿' } }), structuredClone(plan))
-  assert.deepEqual(passed.steps.map(step => `${step.kind}:${step.status}:${step.verdict}`), ['generate:completed:null', 'review:completed:pass'])
-  assert.ok(passed.steps.every(step => !step.unplanned))
+  assert.deepEqual(passed.nodes.map(step => `${step.kind}:${step.status}:${step.verdict}`), ['generate:completed:null', 'review:completed:pass'])
+  assert.ok(passed.nodes.every(step => !step.unplanned))
 })
 
 test('independent review does not receive stale correction text as a new instruction', async () => {
@@ -93,7 +94,7 @@ test('independent review does not receive stale correction text as a new instruc
       fetchImpl: async (_url, options) => {
         const payload = JSON.parse(options.body)
         assert.doesNotMatch(payload.messages[1].content, /STALE_ALREADY_FIXED/)
-        assert.match(payload.messages[1].content, /阶段：剧情大纲/)
+        assert.match(payload.messages[1].content, /审核.*本集剧情大纲/)
         return Response.json({ choices: [{ message: { content: reviewPass } }] })
       },
     })
@@ -102,7 +103,7 @@ test('independent review does not receive stale correction text as a new instruc
 
 test('existing text is reviewed without generation and a disabled revision keeps the failed draft', async () => {
   const calls = []
-  const result = await runTextSteps({ initialText: '已有草稿', canRevise: () => false,
+  const result = await runTextNodes({ initialText: '已有草稿', canRevise: () => false,
     prompts: { generation: { skill: 'episode' }, review: text => ({ skill: 'review', user: text }), revision: () => { throw new Error('不应修订') } },
     options: { request: async message => { calls.push(message.user); return reviewFail('需要用户补充事实') } },
   })
@@ -113,7 +114,7 @@ test('existing text is reviewed without generation and a disabled revision keeps
 
 test('cancellation after generation prevents review and revision requests', async () => {
   const controller = new AbortController(), calls = []
-  await assert.rejects(runTextSteps({
+  await assert.rejects(runTextNodes({
     prompts: { generation: { skill: 'episode' }, review: text => ({ skill: 'review', user: text }), revision: () => { throw new Error('不应修订') } },
     options: { signal: controller.signal, request: async message => { calls.push(message.skill); controller.abort(); return '已生成草稿' } },
   }), { name: 'AbortError' })

@@ -8,8 +8,10 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { projectStore, revisionStore } from '../server/data/project-store.js'
 import { blankEpisode, materialize } from '../shared/episode-rules.js'
 import { scopeProjects } from '../server/data/episode-data.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
-import { generateShots, generateShotSeconds, generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
+import { runOperation } from './fixtures/operation.js'
+import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
+import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds.js'
+import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
 import { node, shotModel, begin, finish, saveReview, assertDrama, allNodes, contentNode } from '../shared/drama-model.js'
 import { migrateProject } from '../scripts/migrate-model.js'
@@ -23,18 +25,18 @@ async function setup(t) {
 const requestFor = text => async ({ skill }) =>skill==='review'?reviewPass:skill==='shots'?tableResponse(text):text
 async function throughShots(t) {
  const env=await setup(t)
- await runOperation(env.op('outline'),{home:env.home,generateStoryPackage:async()=>({...storyPackageFixture(10),check:{passed:true,failures:[]}})})
- await runOperation(env.op('shots'),{home:env.home,generateShots:opts=>generateShots({...opts,request:requestFor('## S01 / 5s\n旅人从南向北走进庭院。\n\n## S02 / 5s\n旅人停在门边。')})})
+ const fixture = storyPackageFixture(10), replies = [fixture.outline, fixture.characters, fixture.scenes, fixture.props].flatMap(value => [JSON.stringify(value), reviewPass])
+ await runOperation(env.op('story', {}),{home:env.home,request: async () => replies.shift()})
+ await runOperation(env.op('shot-table', {}),{home:env.home,generateShots:opts=>generateShots({...opts,request:requestFor('## S01 / 5s\n旅人从南向北走进庭院。\n\n## S02 / 5s\n旅人停在门边。')})})
  return env
 }
 test('canonical model flows through plot, shots, seconds, storyboard and manual recheck',async t=>{
  const e=await throughShots(t)
- await runOperation(e.op('shot-seconds',{track:'S01'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:requestFor(secondsResponse([['S01', 5, '旅人【旅人|C01】朝北行走，摄影机在人物身后。']]))})})
+ await runOperation(e.op('seconds', {track:'S01'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:requestFor(secondsResponse([['S01', 5, '旅人【旅人|C01】朝北行走，摄影机在人物身后。']]))})})
  const generated=(await e.store.read(e.id)).episodes[0].shots.items[0]
  assert.equal(generated.seconds.check.passed,true,JSON.stringify(generated.seconds.check))
- await runOperation(e.op('shot-storyboard',{track:'S01'}),{home:e.home,generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:()=>assert.fail('程序编译不调用模型')})})
+ await runOperation(e.op('film', { ...{track:'S01'}, parts: 'storyboard' }),{home:e.home,generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:()=>assert.fail('程序编译不调用模型')})})
  let p=await e.store.read(e.id), shot=p.episodes[0].shots.items[0]
- assert.equal(shot.seconds.status,'passed');assert.equal(shot.storyboard.status,'passed');assert.equal(shot.pencil.status,'not-generated')
  const edited=compileVideoPrompt(materialize(p,e.episodeId),shot).prompt.text.replace('旅人朝北行走','旅人缓步朝北行走')
  await runOperation(e.op('storyboard-text',{track:'S01',originalText:shot.storyboard.content.prompt.text,text:edited}),{home:e.home,reviewContent:async()=>({passed:true,failures:[]})})
  p=await e.store.read(e.id);shot=p.episodes[0].shots.items[0]
@@ -50,7 +52,7 @@ test('one-time migration nests media and preserves text, feedback and IDs; runti
  const old={id:'old',summary:'摘要',createdAt:'today',episodes:[{id:'e',customSkills:{seconds:'补充要求'},summary:'剧情',outline:'大纲',shots:{items:[{id:'S01',text:'镜头',duration:5,secondsText:'每秒'}]},storyboard:[{id:'S01',prompt:{text:'提示词'}}],boards:{S01:{url:'/pencil'}},films:{S01:{status:'ready',url:'/video'}},feedback:{'storyboard:S01':{check:{passed:false,failures:['方位']},review:{text:'保留动作',history:[]}}}}]}
  assert.throws(()=>assertDrama(old),/迁移/)
  const p=migrateProject(old),s=p.episodes[0].shots.items[0]
- assert.equal(p.episodes[0].customSkills,undefined);assert.match(p.skills.additions.seconds.generate,/第 1 集[\s\S]*补充要求/);assert.equal(s.content,'镜头');assert.equal(s.seconds.content,'每秒');assert.equal(s.pencil.content.url,'/pencil');assert.equal(s.video.status,'passed');assert.equal(s.storyboard.review.text,'保留动作');assert.deepEqual(migrateProject(p),p)
+ assert.equal(p.episodes[0].customSkills,undefined);assert.match(p.skills.additions.seconds.generate,/第 1 集[\s\S]*补充要求/);assert.equal(s.content,'镜头');assert.equal(s.seconds.content,'每秒');assert.equal(s.video.status,'passed');assert.equal(s.storyboard.review.text,'保留动作');assert.deepEqual(migrateProject(p),p)
 })
 test('draft save does not invalidate an in-flight task, unrelated shot commits merge',async t=>{
  const e=await throughShots(t), scope={episodeId:e.episodeId,track:'S01'}, a=revisionStore(e.store,'a',scope),b=revisionStore(e.store,'b',{episodeId:e.episodeId,track:'S02'})

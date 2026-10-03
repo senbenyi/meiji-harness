@@ -95,7 +95,7 @@ test('人物预览选第一张人物卡；没有人物时明确标记为模板�
 
 test('其他图片接口预览保留原来的上下文占位和结构', () => {
   const project = view(character)
-  for (const stage of ['part-image', 'pencil']) {
+  for (const stage of ['part-image']) {
     const result = previewPrompts({ stage, root: project, skillSet: builtinSkillSet(project.skills) }).image
     assert.equal(render(result.user), imageSkillPrompt(stage, '（本次画面要求由程序按卡片或文本分镜生成）', project))
   }

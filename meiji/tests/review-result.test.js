@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { parseReviewResult, reviewProtocol, formatReviewIssue } from '../shared/review-result.js'
 import { buildTextPrompts, buildEditedContentReview } from '../server/prompts/text-prompts.js'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
-import { reviewStep, runTextSteps } from '../server/runtime/text-generation.js'
+import { reviewStep, runTextNodes } from '../server/runtime/text-generation.js'
 import { episodeFixture } from './fixtures/model.js'
 import { reviewPass } from './fixtures/review-result.js'
 
@@ -51,7 +51,7 @@ test('issues and deterministic failures drive one revision and remain readable',
   const prompts = buildTextPrompts({ skill: 'seconds', project: episodeFixture() })
   const messages = [], saved = []
   const replies = ['初稿', JSON.stringify({ passed: false, issues: [issue] }), '修订稿', reviewPass]
-  const result = await runTextSteps({ prompts, retainFailedDraft: true, options: { request: async message => { messages.push(message); return replies.shift() } },
+  const result = await runTextNodes({ prompts, retainFailedDraft: true, options: { request: async message => { messages.push(message); return replies.shift() } },
     check: text => text === '初稿' ? ['缺少结束标记'] : [], persist: (text, check) => saved.push({ text, check }),
   })
   assert.equal(messages.length, 4)
@@ -65,7 +65,7 @@ test('issues and deterministic failures drive one revision and remain readable',
 
 test('invalid JSON review preserves saved draft without correction or false verdict', async () => {
   const saved = [], messages = []
-  await assert.rejects(runTextSteps({ prompts: buildTextPrompts({ skill: 'seconds', project: episodeFixture() }),
+  await assert.rejects(runTextNodes({ prompts: buildTextPrompts({ skill: 'seconds', project: episodeFixture() }),
     options: { request: async message => { messages.push(message); return message.skill === 'review' ? '{"passed":true,"issues":[{}]}' : '生成稿' } },
     persist: (text, check) => saved.push({ text, check }),
   }), /审核返回格式错误/)
@@ -76,7 +76,7 @@ test('invalid JSON review preserves saved draft without correction or false verd
 for (const program of [false, true]) for (const model of [false, true]) test(`review sources are optional per flow: program=${program}, model=${model}`, async () => {
  let programCalls = 0, modelCalls = 0
  const saved = []
- const result = await runTextSteps({
+ const result = await runTextNodes({
   prompts: { generation: { skill: 'seconds', user: '生成' }, ...(model ? { review: text => ({ skill: 'review', user: text }) } : {}) },
   ...(program ? { check: () => { programCalls++; return [] } } : {}),
   options: { request: async m => { if (m.skill === 'review') { modelCalls++; return reviewPass } return '正文' } },
@@ -90,7 +90,7 @@ for (const program of [false, true]) for (const model of [false, true]) test(`re
 
 test('program-only rejection can revise without a model-review request', async () => {
  let generations = 0
- const result = await runTextSteps({
+ const result = await runTextNodes({
   prompts: { generation: { skill: 'seconds' }, revision: (text, opinion) => { assert.match(opinion, /缺少第二镜/); return { skill: 'seconds' } } },
   check: text => { if (text === '缺镜') throw new Error('缺少第二镜'); return [] },
   options: { request: async () => ++generations === 1 ? '缺镜' : '完整' },
@@ -101,7 +101,7 @@ test('program-only rejection can revise without a model-review request', async (
 
 test('a rejecting reviewer without revision configured does not invent a revision call', async () => {
  let requests = 0
- const result = await runTextSteps({ prompts: { generation: { skill: 'seconds' } }, check: () => ['需要调整'], retainFailedDraft: true,
+ const result = await runTextNodes({ prompts: { generation: { skill: 'seconds' } }, check: () => ['需要调整'], retainFailedDraft: true,
   options: { request: async () => { requests++; return '正文' } },
  })
  assert.equal(requests, 1)
@@ -109,9 +109,9 @@ test('a rejecting reviewer without revision configured does not invent a revisio
 })
 
 test('no reviewers record no review step or verdict', async () => {
- const { recordSteps } = await import('./fixtures/steps.js')
- const { result, steps } = await recordSteps(() => runTextSteps({ prompts: { generation: { skill: 'seconds', user: '生成正文' } }, options: { request: async () => '正文' } }))
- assert.deepEqual(steps.map(s => s.kind), ['generate'])
+ const { recordSteps } = await import('./fixtures/nodes.js')
+ const { result, nodes } = await recordSteps(() => runTextNodes({ prompts: { generation: { skill: 'seconds', user: '生成正文' } }, options: { request: async () => '正文' } }))
+ assert.deepEqual(nodes.map(s => s.kind), ['generate'])
  assert.equal(result.check.passed, null)
  assert.equal((await reviewStep({})).check.passed, null)
 })

@@ -22,7 +22,7 @@ export function node(id, content = null) {
 }
 export function shotModel(fields) {
   const { id, text = '', ...content } = fields
-  return { ...node(id, text), ...content, seconds: node(`seconds:${id}`), storyboard: node(`storyboard:${id}`), pencil: node(`pencil:${id}`), video: node(`film:${id}`), tailFrame: node(`tailFrame:${id}`) }
+  return { ...node(id, text), ...content, seconds: node(`seconds:${id}`), storyboard: node(`storyboard:${id}`), video: node(`film:${id}`), tailFrame: node(`tailFrame:${id}`) }
 }
 export function episodeModel(id, fields) {
   return { id, ...fields, supplementalSkills: {}, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
@@ -49,12 +49,12 @@ export function targetNode(project, key) {
   if (kind === 'shot') return shot
   if (!id && /^S\d+$/.test(kind)) return project.shots?.items.find(item => item.id === kind)
   if (!id && /^[CEP]\d+$/.test(kind)) return [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || []), ...(project.plot?.props?.items || [])].find(item => item.id === kind)
-  return shot?.[{ seconds: 'seconds', storyboard: 'storyboard', pencil: 'pencil', film: 'video', tailFrame: 'tailFrame' }[kind]]
+  return shot?.[{ seconds: 'seconds', storyboard: 'storyboard', film: 'video', tailFrame: 'tailFrame' }[kind]]
 }
 export function allNodes(project) {
   const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.plot?.props, project.shots, project.shots?.seconds, project.assembly]
   for (const bag of [project.plot?.characters, project.plot?.scenes, project.plot?.props]) for (const item of bag?.items || []) result.push(item, item.image, ...Object.values(item.parts || {}))
-  for (const shot of project.shots?.items || []) result.push(shot, shot.seconds, shot.storyboard, shot.pencil, shot.video, shot.tailFrame)
+  for (const shot of project.shots?.items || []) result.push(shot, shot.seconds, shot.storyboard, shot.video, shot.tailFrame)
   return result.filter(Boolean)
 }
 export function setContent(target, content, check = emptyCheck()) {
@@ -135,7 +135,7 @@ export function assertDrama(project) {
       const supplements = episode.supplementalSkills
       if (!supplements || typeof supplements !== 'object' || Array.isArray(supplements)) throw new Error('节点补充 skill 格式错误')
       for (const [key, items] of Object.entries(supplements)) {
-        if (!/^(summary|outline|characters|scenes|props|shots|shot|seconds|text-shot|storyboard|film|pencil)(:[A-Za-z0-9_-]+)?$/.test(key) || !Array.isArray(items) || items.length > 20 || new Set(items.map(item => item?.id)).size !== items.length || items.some(item => typeof item?.id !== 'string' || !item.id || typeof item.content !== 'string' || !item.content.trim() || item.content.length > 10000)) throw new Error('节点补充 skill 格式错误')
+        if (!/^(summary|outline|characters|scenes|props|shots|shot|seconds|text-shot|storyboard|film)(:[A-Za-z0-9_-]+)?$/.test(key) || !Array.isArray(items) || items.length > 20 || new Set(items.map(item => item?.id)).size !== items.length || items.some(item => typeof item?.id !== 'string' || !item.id || typeof item.content !== 'string' || !item.content.trim() || item.content.length > 10000)) throw new Error('节点补充 skill 格式错误')
       }
     }
     // 旧字段需迁移；指导素材继续按剧保存（项目 skills），按集的旧字段需先迁移。
@@ -170,6 +170,12 @@ export function modelPatch(project, changes) {
     if (value.check?.passed === false || value.error || value.stale) value.status = GenerationStatus.FAILED
     if (value.operation) value.status = GenerationStatus.GENERATING
   }
+  if (next.shots?.seconds && next.shots.items.length) {
+    const parts = next.shots.items.map(shot => shot.seconds), group = next.shots.seconds
+    group.check = { passed: parts.every(value => value.check.passed === true) ? true : parts.some(value => value.check.passed === false) ? false : null, failures: parts.flatMap(value => value.check.passed === false ? value.check.failures.map(reason => `${value.id.split(':')[1]}：${reason}`) : []), revision: group.revision }
+    group.status = aggregateStatus(parts)
+    group.stale = parts.some(value => value.stale)
+  }
   if (next.plot) next.plot.status = aggregateStatus([next.plot.outline, next.plot.characters, next.plot.scenes, next.plot.props].filter(Boolean))
   next.status = aggregateStatus([next.summary, next.plot, next.shots, next.assembly].filter(Boolean))
   return next
@@ -200,7 +206,6 @@ export function refreshReferences(episode) {
     if (changed) {
       shot.storyboard.revision++
       if (shot.video.content) { shot.video.stale = true; shot.video.status = GenerationStatus.FAILED }
-      if (shot.pencil.content) { shot.pencil.stale = true; shot.pencil.status = GenerationStatus.FAILED }
       if (episode.assembly.content) { episode.assembly.stale = true; episode.assembly.status = GenerationStatus.FAILED }
     }
   }

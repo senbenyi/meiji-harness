@@ -30,7 +30,6 @@ function migrateEpisode(source) {
     shot.seconds.content = secondsText || (seconds?.length ? textOf(seconds) : null)
     const story = storyboard?.find(s => s.id === id)
     if (story) { const { id: _, ...content } = story; shot.storyboard.content = content }
-    shot.pencil.content = boards?.[id] || null
     shot.video.content = films?.[id] || null
     return shot
   })

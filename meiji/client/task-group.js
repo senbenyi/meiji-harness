@@ -1,13 +1,17 @@
+import { operationRequest } from './operation-request.js'
 // 生成按钮与其运行中任务组成一个整体：[生成中] [查看任务] [停止]。
 // 渲染时用 markTask 标记按钮对应的操作与镜头；任务列表刷新或页面重绘后，由 decorateTaskGroups 把
 // 「查看任务 / 停止」放到按钮同一行。没有对应按钮的任务（如在其他页面发起）由调用方另行展示。
 export function markTask(button, action, track = '') {
-  button.dataset.taskAction = action
+  const operation = operationRequest(action, { track })
+  button.dataset.taskAction = operation.action
+  button.dataset.taskParts = operation.parts || ''
+  button.dataset.taskOnly = operation.only || ''
   button.dataset.taskTrack = track || ''
   return button
 }
 
-const matches = (button, task) => task.action === button.dataset.taskAction && String(task.track || '') === button.dataset.taskTrack
+const matches = (button, task) => task.action === button.dataset.taskAction && String(task.track || '') === button.dataset.taskTrack && String(task.parts || '') === button.dataset.taskParts && String(task.only || '') === button.dataset.taskOnly
 
 export function decorateTaskGroups(root, tasks = [], { open, stop } = {}) {
   const attached = new Set()

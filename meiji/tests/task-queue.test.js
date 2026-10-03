@@ -1,19 +1,18 @@
+import { operationRequest } from '../client/operation-request.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createQueue } from '../server/flow/tasks/task-queue.js'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
-import { definitions, queueOf } from '../server/flow/operations/operation-registry.js'
-import { tempHome } from './fixtures/model.js'
+import { taskRegistry } from '../server/flow/tasks/task-registry.js'
+import { tempHome, setupModel } from './fixtures/model.js'
 
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve } }
 
-test('actions map to text, image and video queues', () => {
-  assert.equal(queueOf('shots'), 'text')
-  assert.equal(queueOf('pencil'), 'image')
-  assert.equal(queueOf('films'), 'video')
-  // 只有调用图片或视频接口的操作占用 image / video 名额。
-  const image = new Set(['image', 'revise-image', 'part-image', 'pencil']), video = new Set(['film', 'films', 'produce', 'produce-all', 'tail-frame'])
-  for (const action of Object.keys(definitions)) assert.equal(queueOf(action), image.has(action) ? 'image' : video.has(action) ? 'video' : 'text', action)
+test('队列定义属于独立任务，直接保存不占名额', () => {
+  assert.equal(taskRegistry['shot-table'].queue, 'text')
+  assert.equal(taskRegistry['character-image'].queue, 'image')
+  assert.equal(taskRegistry.video.queue, 'video')
+  assert.equal(taskRegistry.save.queue, null)
 })
 
 test('waiting jobs report their queue position', async () => {
@@ -71,23 +70,23 @@ test('a queued task can be cancelled before it starts', async () => {
 // 入队前要写任务记录，等待到条件成立（最多 2 秒）。
 const until = async predicate => { for (let i = 0; i < 200 && !(await predicate()); i++) await new Promise(resolve => setTimeout(resolve, 10)); assert.ok(await predicate()) }
 
-test('tasks beyond the limit report queued and start when a slot frees', async t => {
-  const gates = new Map(), started = []
-  const tasks = createOperationManager({ home: await tempHome(t), limitOf: () => 1, execute: async operation => {
-    started.push(operation.projectId); const gate = deferred(); gates.set(operation.projectId, gate); await gate.promise; return []
+test('独立任务进入对应队列，等待名额时保持剧集占用', async t => {
+  const e = await setupModel(t), gates = new Map(), started = []
+  const second = { ...structuredClone(e.episode), id: '22222222-2222-4222-8222-222222222222' }
+  await e.store.save(e.id, root => { root.episodes.push(second); return root })
+  const tasks = createOperationManager({ home: e.home, limitOf: () => 1, execute: async (op, deps) => {
+    started.push(op.episodeId); const gate = deferred(); gates.set(op.episodeId, gate); await gate.promise; return []
   } })
-  const a = tasks.start({ action: 'films', projectId: 'a', sessionId: 's' })
-  const b = tasks.start({ action: 'films', projectId: 'b', sessionId: 's' })
-  await until(async () => started.length === 1 && (await tasks.get(b.id, 's')).queuePosition === 1)
-  assert.deepEqual(started, ['a'])
-  assert.equal((await tasks.get(b.id, 's')).queued, true)
-  assert.equal((await tasks.get(b.id, 's')).status, 'queued')
-  gates.get('a').resolve(); await a.done
+  const a = tasks.start(e.op('shot-table', {})), b = tasks.start(e.op('shot-table', { episodeId: second.id }))
+  await until(async () => started.length === 1 && (await tasks.get(b.id)).queuePosition === 1)
+  assert.equal((await tasks.get(b.id)).status, 'queued')
+  assert.equal(tasks.current(e.id, e.episodeId).length, 1)
+  assert.equal(tasks.current(e.id, second.id).length, 1)
+  assert.ok(tasks.current(e.id, e.episodeId)[0].tasks[0].startedAt)
+  assert.throws(() => tasks.start(e.op('seconds', { episodeId: second.id })), { status: 409 })
+  gates.get(e.episodeId).resolve(); await a.done
   await until(() => started.length === 2)
-  assert.deepEqual(started, ['a', 'b'])
-  assert.equal((await tasks.get(b.id, 's')).queued, false)
-  gates.get('b').resolve()
-  assert.equal((await b.done).status, 'completed')
+  gates.get(second.id).resolve(); assert.equal((await b.done).status, 'completed')
 })
 
 test('ffmpeg startup check reports a missing binary instead of throwing', async () => {

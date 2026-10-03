@@ -15,5 +15,5 @@ export async function opCreate(c) {
 }
 
 export const operations = {
-  create: { label: '创建项目', scope: 'project', queue: 'text', agent: true, stage: 'pre', run: opCreate },
+  create: { label: '创建项目', scope: 'project', agent: true, stage: 'pre', run: opCreate },
 }

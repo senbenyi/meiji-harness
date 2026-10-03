@@ -3,12 +3,12 @@ import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, has
 export * from '../shared/generation-gates.js'
 import { feedbackOf } from '../shared/review-feedback.js'
 export const tabs = [
-  { id: 'summary', label: '摘要', steps: ['summary'] },
-  { id: 'script', label: '剧情', steps: ['outline', 'characters', 'scenes'] },
-  { id: 'shots', label: '镜头表', steps: ['shots'] },
-  { id: 'seconds', label: '每秒指令', steps: ['seconds'] },
-  { id: 'film', label: '成片', steps: ['film'] },
-  { id: 'assembly', label: '合成', steps: ['assembly'] },
+  { id: 'summary', label: '摘要', nodes: ['summary'] },
+  { id: 'script', label: '剧情', nodes: ['outline', 'characters', 'scenes'] },
+  { id: 'shots', label: '镜头表', nodes: ['shots'] },
+  { id: 'seconds', label: '每秒指令', nodes: ['seconds'] },
+  { id: 'film', label: '成片', nodes: ['film'] },
+  { id: 'assembly', label: '合成', nodes: ['assembly'] },
 ]
 export function stepRunLabel(project, step) {
   const target = targetNode(project, step === 'summary' ? 'summary' : step)
@@ -19,5 +19,5 @@ export function tabOf(project) {
   const gate = gateOf(project)
   if (gate === 'done') return 'assembly'
   if (gate === 'storyboard') return 'film'
-  return tabs.find(tab => tab.steps.includes(gate))?.id || 'script'
+  return tabs.find(tab => tab.nodes.includes(gate))?.id || 'script'
 }

@@ -12,8 +12,9 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 | `client/` | 原生 ES 模块面板，通过 `panel-api.js` 访问同源接口 |
 | `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游失效；不读写文件 |
 | `server/http/`、`tools/` | 面板与会话入口，复用服务端流程；鉴权与同源检查在 HTTP 层 |
-| `server/flow/operations/` | 操作层：`operation-manager.js` 是面板与会话、生成与直接操作的唯一入口（start 排队执行、run 直接执行、current/list/get/wait、cancel），写操作记录；`operation-occupancy.js` 剧集占用（唯一一把锁，同集同时只允许一个操作，含排队中）；`operation-cancel.js` 停止；`operation-registry.js` 汇总各文件导出的操作定义（label、scope、queue、agent、maxRevisions、plan/step、stage/run）；`direct/operation-*.js` 每个直接操作一个文件；`tasks/` 为生成操作的现有实现（阶段 C 拆为 generate/operation-* 与 flow/tasks/task-*）；`run-operation.js` 执行一个任务（上下文、准备分派、结束释放）。迁移计划见 `docs/plans/计划-操作任务节点三层模型.md` |
-| `server/flow/tasks/` | 任务层：`task-queue.js` text/image/video 全局限流；`task-interrupt.js` 服务重启时取消遗留的操作与任务（阶段 C 起每种任务一个 `task-*.js`） |
+| `server/flow/operations/` | 操作层：manager 统一发起、占用与停止；runner 展开任务并记录；registry 登记操作，generate/ 只声明任务顺序，direct/ 实现人工操作 |
+| `server/flow/tasks/` | 任务层：task-registry 登记职责、队列、节点与修订上限；text/、media/ 执行具体任务；task-queue 限流，task-interrupt 处理重启取消 |
+| `server/flow/shared/` | 独立任务执行器及任务共用的剧情、图片、视频、上传处理；不导出旧操作入口 |
 | `server/gateway/` | 文本/图片/视频网关适配、文本请求入口、视频轮询、请求快照和日志 |
 | `server/media/` | 图片解码/文件处理/压缩，FFmpeg 检查、尾帧提取与视频拼接；不依赖操作、提示词或任务执行 |
 | `server/prompts/` | Model 编排提示词，interfaces 赋值，`prompt-request.js` 统一请求结构，preview 复用实际入口 |
@@ -22,7 +23,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 | `server/host/` | Harness 公开接口适配、工作区与会话查询、日志及归属明确的历史提示词读取 |
 | `models/`、`config/`、`skills/` | 模型路由与默认配置、生产规则、审核规则及会话说明 |
 
-生成主链：`面板/会话工具 → operation-manager.start（剧集占用、操作记录）→ queue → runOperation（任务记录、步骤）→ executeOperation → 领域操作（含业务生成） → 网关/媒体 → 保存结果`。面板编辑、删除、图片确认及会话创建等经 `operation-manager.run` 直接执行（同样占用剧集、写操作记录）；打开项目由 `workspace-links` 处理。不能在页面、网络层或工具中另建生成通路。
+生成主链：`面板/会话 → operation-manager.start → operation-runner 展开任务 → 各任务进入对应队列 → task-executor → 网关/媒体 → 保存结果`。直接操作也走 start，立即执行并等待结果。操作持有同集占用直到全部任务结束；不能在页面或工具中另建执行通路。
 
 ## 2. 提示词 Model
 
@@ -38,22 +39,21 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 参考：`server/prompts/models/`、`server/prompts/interfaces/`、`server/prompts/prompt-request.js`。
 
-## 3. 任务与步骤
+## 3. 操作、任务与节点
 
-registry 定义操作；任务记录一次执行；步骤记录具体工作并关联内容节点。可独立调用、审核或保存的工作拆为独立步骤，后续步骤使用本轮最终结果。
+- 操作表示一次用户发起，任务表示独立职责，节点记录任务内部的生成、自审、修订等工作。内容节点是项目资料，和执行节点分开。
+- 操作开始就建立全部任务记录；逐个任务独立进入 text/image/video 队列。直接操作不排队，但同样遵守占用与留痕。
+- 状态统一由 `shared/task-nodes.js` 自下而上推导。任一任务失败、审核未通过或停止，取消后续任务，已完成结果保留。
+- 文本任务使用 `runTextNodes`：生成 → 自审；失败时动态追加修订 → 复审，默认最多 2 轮。无失败就没有修订节点，程序与媒体任务上限为 0。
+- 操作 ID 由 manager 生成，任务 ID 由 runner 生成。每个任务独立上下文、提示词和产物，不用 scope 伪装多个任务。
+- 图片为生成、下载转 Base64、保存候选；视频为提交、生成保存、提取尾帧。后台工作完成后才释放任务队列名额。
 
-- 任务状态统一由 `shared/task-steps.js` 的 `deriveTaskStatus` 推导，持久化 status 是缓存，不另设状态判定分支。各目标最新审核结论统一由 `reviewPassed/reviewFailures` 读取。
-- 步骤由 `server/runtime/task-execution.js` 的执行器运行，创建与终态规则在 `task-state.js`；文件读写位于 `server/data/task-store.js`，内容版本及草稿快照位于 `content-records.js`；操作计划与 `runStep` 的 target 保持一致，计划外步骤会标记 `unplanned`。
-- 文本流程复用 `runTextSteps`，在同一函数中直接执行：生成 → 自审 → 不通过时最多自动修订一次 → 复审；程序检查和模型审核按流程独立配置，未配置不执行、不伪造通过。
-- 图片拆为请求、下载转换、保存候选；视频拆为提交、生成保存、提取尾帧，不机械套用文本审核。
-- 逐镜制作的子操作共用外层任务，以 scope 区分，不重复建任务或提前结束外层任务。任务管理器等待图片与视频后台工作结束后释放队列名额。
-
-具体状态、步骤和历史结构见[第 17 节](#task-records)。
+接口与存储见第 17 节。
 
 ## 4. 重新生成与按意见修改
 
 - **重新生成**使用当前指定的上游资料，不带目标旧稿及历史意见。`outline/regenerate` 在请求前清空本集 plot、shots、assembly、pendingImages，即旧大纲、人物/场景/道具及图片关联、候选图、镜头和合成；失败或取消也不恢复旧数据，只保留本轮已保存结果。
-- 清空剧情不删除摘要、节点补充、其他剧集、全局素材文件或任务历史。对应实现为 `server/runtime/review-checks.js` 的 `prepareChecks` 与 `server/flow/operations/run-operation.js` 的 `releaseOperation`。
+- 清空剧情不删除摘要、节点补充、其他剧集、全局素材文件或任务历史。对应实现为 `server/runtime/review-checks.js` 的 `prepareChecks` 与 `server/flow/shared/task-executor.js` 的 `releaseOperation`。
 - **按意见修改**提供基稿和本次意见，只改受影响内容及必要关联；自动修订使用本轮失败稿与审核意见，下游不继承上游意见。
 - 成功后只清理已提交的意见，失败保留，不能清除执行期间新输入的意见。其他操作沿用各自保存、回退和下游失效规则。
 
@@ -61,7 +61,7 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 - 生成入口保持可见，前置条件不足时禁用并说明节点与原因；门禁复用 `shared/generation-gates.js`。
 - 每个实际操作提供对应范围的任务历史：操作 → 任务列表 → 步骤详情。详情显示状态、审核与失败原因、时间、内容快照和实际提示词；复用事件推送与任务查询及时更新。
-- 剧情整包的提取历史在顶部生成操作处查看；大纲、人物、场景、道具各节点保留独立 skill 入口。图片历史和 skill 在对应图片详情查看。
+- 剧情顶部查看整次操作；大纲、人物、场景、道具区块各有按 target 查看任务历史与 skill 的入口。人物/场景详情合并文字和图片历史；图片、每秒指令及成片卡按自身 ID 过滤，成片也保留整集入口。
 - 节点 skill 页为「基础 skill / 补充 skill」两个 tab：基础只读，补充整段编辑，空文本保存即清空；切换保留草稿，保存失败保留输入。实际提示词在任务步骤中查看。
 - 意见是本次修订输入，补充 skill 是节点持续规则，分开保存。辅助入口放标题区，不单独占行；窄面板自然换行。
 - 图片候选支持确定/放弃，生成中禁用确认，刷新后可恢复待确认项；放弃保留已用图片，选图不改变文字剧情审核结论。人物附属素材不再单独生成，道具图在道具卡操作。
@@ -112,7 +112,7 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 剧集摘要草稿 `episode-summary-draft` 复用任务、队列与历史，产物为未发布 artifact，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒，不由字数推断。剧集摘要非空、不限字数；项目总摘要上限仍为 10000 字。
 
-剧情依次生成并审核大纲、人物、场景、道具，前项未通过停止后项。大纲依据当前本集摘要，项目摘要与剧本作背景、前后集作衔接，不提前演出后集事件；返回七个固定中文字段的 JSON 对象：主角动机、世界规则、因果剧情、情绪线索、对白节拍、结尾状态、结尾关键画面；值为非空正文字符串。对象直接存 `plot.outline.content`，审核、提取与镜头规划直接使用；展示时才加【字段名】，编辑按字段保存。卡片基于本轮通过的大纲，返回完整 items JSON；目标为 outline/characters/scenes/props，历史保留 story 聚合快照。
+剧情依次生成并审核大纲、人物、场景、道具，前项未通过停止后项。大纲依据当前本集摘要，项目摘要与剧本作背景、前后集作衔接，不提前演出后集事件；返回七个固定中文字段的 JSON 对象：主角动机、世界规则、因果剧情、情绪线索、对白节拍、结尾状态、结尾关键画面；值为非空正文字符串。对象直接存 `plot.outline.content`，审核、提取与镜头规划直接使用；展示时才加【字段名】，编辑按字段保存。卡片基于本轮通过的大纲，返回完整 items JSON；目标为 outline/characters/scenes/props，四类资料分别保存快照，不再记录 story 聚合快照。
 
 镜头表返回 `{"shots":[{"shotId":"S01","durationSeconds":12,"title":"剧情标题","content":"条目正文"}]}`，编号连续、秒数为 1–15 的整数。单镜修订使用同一结构，只返回指定镜头，编号和时长不变。解析后按现有镜头卡片存储标题与正文；非法结构不覆盖有效内容。
 
@@ -122,7 +122,7 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 每秒指令按镜头顺序逐镜生成，每次返回仅含当前镜头的 shots JSON（version: 1），保持上游镜头 ID 与时长；beat 使用正整数 durationMs，由程序累计时间，dialogues 独立保存、beat 引用事件 ID，ambient/music 带时间。`shared/seconds-content.js` 管校验与可读正文，实体标记使用“名字【名字|ID】”，不依赖图片 ID。
 
-程序检查结构、实体、时长与对白，模型审核语义。`seconds-feedback.js` 区分程序问题、语义问题和人工意见并去重；每镜独立生成、自审、至多一次自动修订与复审，通过并保存后才继续下一镜。失败或取消停止后镜，已完成前镜保留。前镜更新使后镜旧指令过期并清除受影响分镜/视频，旧稿仍可用于修改。能唯一对应上游的镜头保留正文与失败原因；不可解析或无法对应上游时只存未发布 artifact，不覆盖旧镜头。生成/修订原始响应另存 seconds-response 快照。
+程序检查结构、实体、时长与对白，模型审核语义。`seconds-feedback.js` 区分程序问题、语义问题和人工意见并去重；每镜独立任务生成、自审、至多两轮自动修订与复审，通过并保存后才继续下一镜。失败或取消停止后镜，已完成前镜保留。前镜更新使后镜旧指令过期并清除受影响分镜/视频，旧稿仍可用于修改。能唯一对应上游的镜头保留正文与失败原因；不可解析或无法对应上游时只存未发布 artifact，不覆盖旧镜头。生成/修订原始响应另存 seconds-response 快照。
 
 最终视频提示词由 `compileVideoPrompt` 直接编译为有图六字段或无图三字段，不调用模型重写。referenceSnapshot 固定 Picture 顺序，Subject 表示实体，服装共享所属角色 Subject、武器独立；sourceMap 记录来源，人工编辑后移除。人工编辑仍需格式与语义审核。版本或素材变化需重新组装；图片在视频提交时按快照读取本地文件并转 Base64。
 
@@ -146,8 +146,8 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 - 按实际调用链组织代码：同一生命周期集中维护，固定顺序用直接调用和条件分支表达，不另建通用步骤调度器；删除纯透传函数和中转导出，调用方直接引用职责模块。校验、快照、并发、记录与持久化等实际业务边界保留。
 - 按第 1 节分层；`client/`、`shared/` 使用平铺 `.js/.css`，不引入 JSX、bundler 或构建步骤。shared 不引用 Node 专属模块、client 或 server。
 - Harness 接入只经 `server/host/` 的公开接口，不读取上游存储文件。
-- 新操作在领域文件登记 `{ stage, run }`，在 registry 登记 label/scope/queue/agent 及 plan 或 step，不在 run 入口加业务分支。人工专属操作标 `agent: false`；步骤规则见第 3 节。
-- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `story-text-operations.js`、`project-store.js`、`character-image-interface.js`，避免孤立的 `run.js`、`request.js` 等泛名。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
+- 生成操作在 generate/ 声明 tasks，任务在 task-registry 登记队列、target、nodes、maxRevisions、run。直接操作在 direct/ 登记；人工专属操作标 agent:false。任务不引用操作定义，不增加旧操作别名或中转导出。
+- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-story.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
 - skill 规则见第 6 节；改正文时用 `tests/fixtures/prompt-scenarios.js` 采集改前/改后请求，运行 `scripts/prompt-diff.js`，核对删除语句的去向或理由。
 - 只改需求范围内代码，同步受影响调用方、测试和文档，不做无关重构。
 
@@ -155,11 +155,11 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 - JSON 通过临时文件 + rename 原子替换，权限 `0600`；素材导入经 `.upload/` 暂存后重命名。
 - 项目读写只经 `projectStore`，布局只由 `project-files.js` 处理；save 按 revision 串行提交，只写变化剧集，最后替换索引。
-- 领域 schemaVersion、存储 layout、任务 schemaVersion 当前均为 2；拒绝旧结构，变更需提供先完整备份、再迁移并读回核对的脚本，不做运行时兼容，不直接改用户数据文件。
+- 领域 schemaVersion 和存储 layout 为 2，任务 schemaVersion 为 3（nodes）。拒绝旧结构，不做运行时兼容。默认离线备份迁移；用户明确授权删除时使用 reset-runtime-data.js，停止服务后清空项目与生成文件，保留素材库和系统配置。
 - 摘要、大纲、人物、场景、道具补充存每集 `supplementalSkills`；其他阶段补充与指导素材暂存项目 `skills`。剧集不接受 customSkills/guidanceAssets，旧数据通过 `migrate-custom-skills.js` 迁移。技能修改层只经 `skill-store.js` 读写。
 - 旧字符串大纲通过 `scripts/migrate-story-outline.js <DSH_HOME>` 离线转换，先备份索引和剧集再写入并读回核对；失败还原，缺少小节保留正文并标为未通过，不修改历史请求。启动与重启脚本自动检查。
 - 新生成素材不覆盖旧素材，参考图变化后关联视频与合成标 stale；剧情重新生成的清空边界见第 4 节。
-- 面板写请求携带 operationId 并校验会话，剧集范围操作携带 episodeId；密钥边界见第 9 节。
+- 发起请求校验会话，返回 operationId；查看/停止请求携带对应 ID，剧集范围操作携带 episodeId；密钥边界见第 9 节。
 
 ## 14. 测试
 
@@ -191,7 +191,7 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 | 镜头表、单镜修订、单镜每秒指令、图片提示词改写 | `interfaces/prompt-interfaces.js` → `models/text-step-model.js` 的配置与 `stepInterface` |
 | 最终文本分镜 | `video-prompt-renderer.js` 程序编译；人工编辑的模型审核用 `models/text-storyboard-model.js` |
 | 人物图、场景图 | `interfaces/character-image-interface.js`、`scene-image-interface.js` → 对应图片 Model |
-| 道具/附属素材图、铅笔分镜 | `interfaces/prompt-interfaces.js` 直接调用 `models/part-image-model.js`、`pencil-storyboard-model.js` |
+| 道具图 | `interfaces/prompt-interfaces.js` → `models/part-image-model.js` |
 
 `generationParts/reviewParts` 提供任务冻结的规则、节点补充、素材、语言和协议片段；Model 选择资料并经 `generationRequest/reviewRequest` 组装。`text-prompts.js` 负责分发和序列化，`server/gateway/model-gateway.js` 的 `runTextRequest` 负责一次网络请求、日志与取消。不能直接读内置 Markdown 绕过技能快照。
 
@@ -220,7 +220,7 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 镜头表基础容量不足时主动丰富现有事件的动作、反应与环境互动，必要时增加有作用的旁白以达到本集预算；不改变主线、结果、人物地点、关键物件或跨集边界。审核接受合理扩充，每秒指令完整继承本镜确定内容。独立旁白存 dialogues，speakerId 为 NARRATOR、delivery 为 off，只作为声音，不建人物卡或图片引用；已有角色画外声使用人物 ID。明确禁旁白/所有人声时改用可见行动补时。
 
-用户提交每秒指令走批量入口，内部逐镜执行，历史步骤和内容快照关联 seconds:Snn；不能因内部存在单镜编排而另开放已被 registry 拒绝的 `shot-seconds` 面板操作。
+每秒指令使用 seconds 操作：整集逐镜建立任务；track 指定单镜修订。未提供新的整集意见时，从第一个未通过、缺失或过期镜头继续到末镜；人工整集意见作用于全部镜头。历史节点和快照关联 seconds:Snn。
 
 ### 16.3 人物与场景图片 Model
 
@@ -245,74 +245,39 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 <a id="task-records"></a>
 
-## 17. 任务记录与状态参考
+## 17. 执行记录与查看接口
 
-### 17.1 操作、步骤与节点
+操作记录含 taskIds；任务记录含 operationId、type、target、nodes、artifacts/latestOutputs 和冻结的 skill 版本。节点 status 表示执行情况，verdict 表示审核结论：自审不通过为 completed + fail，接口失败为 failed。最新复审结论替代旧结论。
 
-操作是 registry 定义，任务是一次执行，步骤是具体工作，内容节点是项目中可被多次任务写入的资料。一次任务可更新多个节点；节点当前是否有效与历史任务是否成功分别记录。
+任务状态由 nodes 推导；操作状态由任务状态推导，失败和审核未通过优先于连带取消。内容状态只经 `shared/content-state.js` 及模型基础转换函数更新；不把操作状态直接覆盖到内容。
 
-registry 字段为 label、scope、queue、agent、plan/step，以及是否允许经任务管理器启动的 task。`agent: false` 禁止会话工具发起；`task: false` 的操作只能直接执行。计划形式为 `[{ kind, target }]`，单步操作默认 execute，人工保存通常为 save。
-
-| 流程 | 步骤 |
+| 记录 | projects/<项目 ID>/history/ 下的路径 |
 |---|---|
-| 文本 | generate → review → 必要时 revise → re_review |
-| 程序文本分镜 | generate → review，phase 为 reference-binding；无模型生成或自动修订 |
-| 图片 | image_generate → image_download → image_save；无需下载的响应在结束时跳过下载步骤 |
-| 视频 | video_submit → video_generate → tail_frame |
-| 单镜/逐镜制作 | 程序文本分镜 → 视频与尾帧，按当前内容跳过已完成部分 |
-| 人工操作 | save、override、confirm；assemble 用于拼接，check 记录未被现有步骤覆盖的内容校验失败 |
+| 操作 | operations/<operationId>.json |
+| 任务 | tasks/<taskId>.json，schemaVersion:3、nodes |
+| 内容快照 | artifacts/<artifactId>.json，target、version、taskId/nodeId、content、published |
+| 实际请求 | prompts/<promptId>.json，关联 taskId/nodeId |
 
-步骤字段包括 id/kind/target/label/status/verdict/reasons/error/actor、attempts、inputs/outputs、startedAt/endedAt、scope，按需附 remoteId、saved、apiFailure、preparing、unplanned、prompts。status 表示执行结果，verdict 表示审核结论；自审不通过是 completed + fail，不等同接口失败。
+快照先写入，项目原子保存后发布；不承诺跨文件事务。大纲、人物、场景、道具分别留版本，图片变化不新增文字版本。非法原文和未发布草稿只存 artifact；所有失败请求仍可查看。无项目归属或删除所属目录的操作不留项目历史。
 
-入队写完整计划，出队按最新内容重建计划；`runStep` 按 kind + target 匹配首个未执行步骤，计划外步骤标 unplanned。preparing 与 finished 只是过程标记。嵌套操作共用外层任务，scope 隔离草稿与失败回退判断，不另加锁或提前收尾。
+实际提示词在发出请求前保存，读取严格校验项目、任务、节点归属，不用当前资料重建或从会话日志猜测。密钥、请求头与参考图 Base64 不存入快照。每个任务启动时冻结自己的规则；在途编辑仅影响之后启动的任务。
 
-### 17.2 状态与结束处理
+以下接口统一加 `/plugins/meiji` 前缀并校验项目/会话：
 
-`deriveTaskStatus` 按以下优先级计算：
-
-| 步骤情况 | 任务状态 |
+| 接口 | 用途 |
 |---|---|
-| 无步骤或全部 pending | queued |
-| 有 running | running |
-| 有 waiting（预留，不代表要求人工审核） | waiting |
-| 有 cancelled | cancelled |
-| 有 failed | failed |
-| 仍有 pending | running |
-| 各目标最新已完成审核中存在 fail | review_failed |
-| 其余 | completed |
+| GET /operations/current | 当前操作、任务、节点与排队位置，含直接操作 |
+| GET /operations?targets=... | 按内容范围过滤操作历史 |
+| GET /operations/:id | 操作及全部任务 |
+| GET /tasks?target=... | 按内容范围过滤任务历史 |
+| GET /tasks/:id | 独立任务详情，可回到所属操作 |
+| GET /tasks/:id/nodes/:nodeId/prompts | 节点实际完整提示词 |
+| GET /artifacts/:id | 内容快照 |
+| POST /operations/cancel | 停止整个操作，可用其任务 ID 定位 |
 
-`reviewPassed` 无审核结论时为 null，否则按各目标最新结论判断；复审通过替代旧失败，未执行复审不参与。查询返回步骤副本，不暴露可变内部对象。
+发起接口等全部任务记录建立后返回 operationId，不等待模型生成。详情、当前任务及历史共用 `client/task-detail.js` 和 `task-nodes.js`，收到 events 后刷新，保留展开状态。失败查看定位最新失败节点，不重复显示原因。
 
-`finalizeSteps` 将中止落为取消；内容校验失败但尚无 fail 结论时补 check；其他异常且尚无 failed 步骤时标记当前或首个未执行步骤失败；剩余未执行步骤收尾为 skipped。服务重启中止未结束任务，远端处理规则见第 15 节。
-
-人工“忽略自审”是可选的 override 操作，不是制作必经审批：只更新当前版本节点，不改原失败任务；保留原自审理由，内容为空、格式错误、生成中或过期时不可忽略，再生成/编辑后重新审核。
-
-### 17.3 历史与提示词快照
-
-以下路径均位于用户数据根 `storages/meiji/`。
-
-| 记录 | 路径与主要内容 |
-|---|---|
-| 任务 | `projects/<projectId>/history/tasks/<taskId>.json`：schemaVersion 2、项目/剧集/会话、action/source/actor、mode/requirements/opinion、状态缓存、步骤、时间、错误、artifacts/latestOutputs、技能版本 |
-| 内容 | `projects/<projectId>/history/artifacts/<artifactId>.json`：target、version/previousArtifactId、taskId/stepId、content/createdAt、published/baseline |
-| 提示词 | `projects/<projectId>/history/prompts/<promptId>.json`：请求发出前保存的完整 messages 或媒体 prompt；步骤仅保存 `{ id, kind, createdAt }` 引用 |
-
-内容快照先以 published=false 落盘，项目原子写入后标记发布并加入步骤 outputs；跨文件不承诺事务。baseline 表示首次留痕前已有内容，不伪造历史任务。保存粒度包括 summary、story（含道具）、shots、seconds、storyboard:Sxx、film:Sxx、assembly；seconds-response 另存模型原始响应。不可发布的草稿只在历史中查看。
-
-无项目归属或会删除所属目录的操作不留项目任务记录。删除项目/剧集同时清理所属历史和提示词；视频快照保留不可变本地文件名。旧 schemaVersion 1/nodes 任务报 OLD_TASK_RECORDS，使用 `scripts/migrate-task-steps.js` 备份迁移，不做运行时兼容。
-
-同一步的多次实际请求分别保存，失败后仍可查看；不保存密钥、请求头和参考图 Base64。读取校验项目、会话、任务与步骤归属。旧步骤无快照时，仅在所属会话公开 snapshotEvents 存在明确任务边界、步骤类型唯一且无并发归属歧义时读取脱敏日志；否则明确无完整记录，不推测、不用当前资料重建。
-
-任务技能在 startExecution 冻结，嵌套子操作沿用；记录 id/layers/hash 及节点来源，编辑不影响在途任务。当前基础生产和审核规则独立只读，节点补充规则见第 6、13 节，不恢复旧的通用/生成/修订字段编辑模式。
-
-### 17.4 查询入口与验证
-
-- `GET /plugins/meiji/tasks/current?projectId&episodeId&sessionId`：当前与排队任务、步骤及队列位置。
-- `GET /plugins/meiji/tasks?projectId&sessionId`：未结束任务；POST 用于停止任务。
-- `GET /plugins/meiji/history?projectId&episodeId&sessionId[&artifactId]`：任务历史或指定内容快照。
-- 当前任务与历史复用 `client/task-steps.js`，按目标分组；收到 events 推送后刷新，展示状态、结论、失败原因、时间、尝试与远端任务编号。
-
-重点测试：`task-steps`、`task-store`、`tasks`、`model-ui`、`api-failure-state`、`node-skills`、`guidance`、`video-prompt-renderer` 和相应迁移测试。完整验证命令见第 14 节。
+会话工具仅发起、等待和停止操作，不提供历史与提示词查询。遇到他方占用返回 busy，可等待，不能停止他方操作。人工忽略自审只作用于当前有效版本，不改历史任务，不能忽略格式错误。
 
 <a id="model-migration-history"></a>
 

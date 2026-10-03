@@ -9,7 +9,7 @@ import characterInterface from '../server/prompts/interfaces/character-image-int
 import { FilmModel } from '../server/prompts/models/video-prompt-model.js'
 import { runTextRequest } from '../server/gateway/model-gateway.js'
 import { imageSkillPrompt } from '../server/prompts/image-prompts.js'
-import { filmSubmit } from '../server/flow/operations/video-operations.js'
+import { filmSubmit } from '../server/flow/shared/video-submit.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { executionContext } from '../server/runtime/task-context.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
@@ -86,7 +86,7 @@ test('人物图可独立取消默认包装，预览同步，场景图不受影�
 })
 
 test('图片接口与预览使用同一基础规则，旧的本剧覆盖不再生效', () => {
-  for (const stage of ['scene-image', 'part-image', 'pencil']) {
+  for (const stage of ['scene-image', 'part-image']) {
     const set = builtinSkillSet({ additions: { [stage]: { generate: '本剧补充' } } })
     set.skills[stage].constraints = `基础规则：${stage}`
     const actual = executionContext.run({ skillSet: set, skills: new Map() }, () => imageSkillPrompt(stage, '画面', project))

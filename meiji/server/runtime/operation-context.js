@@ -2,7 +2,7 @@
 // 执行状态不再放在这里，而是从当前任务的步骤推导：
 //   是否处在文本步骤中（保存的是草稿、推迟报告自检失败）、是否发生接口失败、是否已保存草稿。
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { activeStep, executionSteps } from './task-context.js'
+import { activeNode, executionNodes } from './task-context.js'
 
 export const checkContext = new AsyncLocalStorage()
 
@@ -13,13 +13,13 @@ export function markApiFailure(error) {
   const context = checkContext.getStore()
   if (context?.signal?.aborted || error.name === 'AbortError') return error
   error.apiFailure = true
-  const step = activeStep()
+  const step = activeNode()
   if (step) step.apiFailure = true
   return error
 }
 
 // 本操作的步骤中是否发生过接口失败。
-export const apiFailed = () => executionSteps().some(step => step.apiFailure)
+export const apiFailed = () => executionNodes().some(step => step.apiFailure)
 
 // 当前是否处在生成、修订或审核步骤中。
-export const inTextStep = () => textKinds.has(activeStep()?.kind)
+export const inTextNode = () => textKinds.has(activeNode()?.kind)

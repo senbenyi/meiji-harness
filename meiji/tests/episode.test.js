@@ -1,3 +1,4 @@
+import { operationRequest } from '../client/operation-request.js'
 import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
@@ -81,15 +82,12 @@ for (const mode of ['new', 'regenerate', 'modify']) {
   test(`summary ${mode} runs through the real operation with episode-scoped check context`, async t => {
     const { setupModel } = await import('./fixtures/model.js')
     const { modelStore } = await import('../server/data/model-settings.js')
-    const { runOperation } = await import('../server/flow/operations/run-operation.js')
-    const { generateEpisode } = await import('../server/flow/operations/project-operations.js')
+    const { runOperation } = await import('./fixtures/operation.js')
+    const { generateEpisode } = await import('../server/flow/tasks/text/task-summary.js')
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
     const root = await e.store.read(e.id), old = root.episodes[0].summary.content, calls = []
-    await runOperation({ action: 'episode-generate', projectId: e.id, referenceDurationSeconds: 10,
-      ...(mode === 'new' ? {} : { episodeId: e.episodeId, generationMode: mode }),
-      ...(mode === 'modify' ? { review: '加强悬念' } : {}),
-    }, { home: e.home, generateEpisode: options => generateEpisode({ ...options,
+    await runOperation(operationRequest('episode-generate', { projectId: e.id, referenceDurationSeconds: 10, ...(mode === 'new' ? {} : { episodeId: e.episodeId, generationMode: mode }), ...(mode === 'modify' ? { review: '加强悬念' } : {}) }), { home: e.home, generateEpisode: options => generateEpisode({ ...options,
       request: async message => {
         calls.push(message)
         return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '旅人入院后发现新的线索。', durationSeconds: 10 })
@@ -122,7 +120,7 @@ test('summary checks run after drafting and independent review receives the epis
   const review = prompts.review('{"summary":"待审摘要","durationSeconds":120}')
   assert.ok(review.system.includes(builtinSkill('episode').review))
   assert.ok(!review.system.includes(rules))
-  assert.match(review.system, /说不出具体差异时判为通过/)
+  assert.match(review.system, /没有具体问题就通过/)
   assert.equal(review.system.split('【本次审核协议】').length - 1, 1)
   assert.equal((review.system + review.user).split('"passed":true').length - 1, 1)
   assert.match(review.user, /【本次待审内容】\n.*待审摘要/)
@@ -132,13 +130,11 @@ for (const scenario of ['failed', 'new-opinion']) {
   test(`summary modification keeps opinions when ${scenario}`, async t => {
     const { setupModel } = await import('./fixtures/model.js')
     const { modelStore } = await import('../server/data/model-settings.js')
-    const { runOperation } = await import('../server/flow/operations/run-operation.js')
+    const { runOperation } = await import('./fixtures/operation.js')
     const { saveReview } = await import('../shared/drama-model.js')
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
-    await runOperation({ action: 'episode-generate', projectId: e.id, episodeId: e.episodeId,
-      generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10,
-    }, { home: e.home, generateEpisode: async () => {
+    await runOperation(operationRequest('episode-generate', { projectId: e.id, episodeId: e.episodeId, generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10 }), { home: e.home, generateEpisode: async () => {
       if (scenario === 'new-opinion') await e.store.save(e.id, current => {
         const next = structuredClone(current)
         saveReview(next.episodes.find(item => item.id === e.episodeId).summary, '执行期间新意见')

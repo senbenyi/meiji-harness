@@ -1,15 +1,15 @@
 import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch, episodeModel } from '../../shared/drama-model.js'
 import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shared/review-feedback.js'
-import { checkContext, apiFailed, inTextStep } from './operation-context.js'
+import { checkContext, apiFailed, inTextNode } from './operation-context.js'
 import { markFailed, markGenerating } from '../../shared/content-state.js'
-const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
-const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image', 'pencil'])
-const imageGenerationActions = new Set(['image', 'revise-image', 'part-image', 'pencil'])
-const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
+const batchActions = new Set(['seconds', 'storyboard', 'films'])
+const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image'])
+const imageGenerationActions = new Set(['image', 'revise-image', 'part-image'])
+const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'image', 'revise-image', 'part-image', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
-  if (operation.action === 'outline' || operation.action === 'outline-text') return ['outline', 'characters', 'scenes', 'props']
-  const kind = { seconds: 'seconds', storyboard: 'storyboard', 'shot-boards': 'storyboard', films: 'film' }[operation.action]
+  if (operation.action === 'outline' || operation.action === 'outline-text') return [operation.stageKey || 'outline']
+  const kind = { seconds: 'seconds', storyboard: 'storyboard', films: 'film' }[operation.action]
   const shots = operation.action === 'films' ? project.shots.items.filter(shot => shot.video.content?.status !== 'ready' || shot.video.stale) : project.shots.items
   return kind ? shots.map(shot => `${kind}:${shot.id}`) : [feedbackKey(operation)]
 }
@@ -89,7 +89,7 @@ export async function prepareChecks(store, project, operation) {
     if (operation.action === 'seconds') {
       const group = targetNode(next, 'seconds')
       if (fresh !== undefined) saveReview(group, String(fresh))
-      begin(group, { id: checkContext.getStore()?.operationId || `${Date.now()}`, action: 'seconds', consumesReview: mode === 'modify' })
+      begin(group, { id: checkContext.getStore()?.taskId || `${Date.now()}`, action: 'seconds', consumesReview: mode === 'modify' })
     }
     for (const key of keys(next, operation)) {
       const target = targetNode(next, key)
@@ -97,7 +97,7 @@ export async function prepareChecks(store, project, operation) {
       if (matchingCandidate && target.operation?.phase === 'awaiting-confirmation') target.operation = null
       if (fresh !== undefined && operation.action !== 'seconds') saveReview(target, String(fresh))
       target.dependencies = { summary: next.summary.revision, outline: next.plot.outline.revision, shots: next.shots.revision, ...(operation.track ? { seconds: next.shots.items.find(shot => shot.id === operation.track)?.seconds.revision } : {}) }
-      if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.operationId || `${Date.now()}`, action: operation.action, consumesReview: mode === 'modify' })
+      if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.taskId || `${Date.now()}`, action: operation.action, consumesReview: mode === 'modify' })
     }
     return next
   })
@@ -107,7 +107,7 @@ export async function prepareChecks(store, project, operation) {
     if (!operation.track) return
     await store.save(project.id, current => {
       const next = structuredClone(current), target = targetNode(next, feedbackKey(operation))
-      if (target && !target.operation) begin(target, { id: context.operationId, action: operation.action, consumesReview: mode === 'modify' })
+      if (target && !target.operation) begin(target, { id: context.taskId, action: operation.action, consumesReview: mode === 'modify' })
       return next
     })
   } }
@@ -125,19 +125,19 @@ export async function prepareChecks(store, project, operation) {
       for (const key of keys(next, targetOperation)) {
         const old = targetNode(current, key), value = targetNode(next, key)
         if (!old || !value) continue
-        if (!inTextStep() && value.check?.passed == null && old.check?.passed === false) value.check = structuredClone(old.check)
+        if (!inTextNode() && value.check?.passed == null && old.check?.passed === false) value.check = structuredClone(old.check)
         value.review = structuredClone(old.review)
         value.operation = old.operation
         value.dependencies = old.dependencies
       }
-      if (inTextStep()) {
+      if (inTextNode()) {
         for (const key of keys(next, targetOperation)) {
           const value = targetNode(next, key)
           if (value?.operation) markGenerating(value, value.check?.passed == null ? 'reviewing' : 'reviewed')
         }
       }
       const filmRunning = targetOperation.action === 'film' && target?.content?.status === 'running'
-      if (!inTextStep() && (options.final || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
+      if (!inTextNode() && (options.final || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
         const failed = options.error || target?.content?.error
         const awaitingImage = imageGenerationActions.has(targetOperation.action) && Object.values(next.pendingImages || {}).some(draft => targetOperation.track ? draft.track === targetOperation.track : draft.itemId === targetOperation.itemId)
         if (awaitingImage) {
@@ -157,7 +157,7 @@ export async function prepareChecks(store, project, operation) {
       }
       return modelPatch(current, next)
     })
-    if (!inTextStep() && checkContext.getStore()?.validation?.length && !options.final) throw Object.assign(new Error(`自检未通过：${checkContext.getStore().validation.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
+    if (!inTextNode() && checkContext.getStore()?.validation?.length && !options.final) throw Object.assign(new Error(`自检未通过：${checkContext.getStore().validation.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
     return saved
   }
   return { store: wrapped, project, operation: { ...operation, review } }

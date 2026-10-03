@@ -16,12 +16,12 @@ export function useSkills(entries) {
 }
 
 // 本操作执行过的步骤（执行器之外为空；一键成片的每个子操作只看自己的步骤），以及正在执行的步骤。
-export function executionSteps(context = executionContext.getStore()) {
-  return context ? context.steps.filter(step => step.scope === context.scope) : []
+export function executionNodes(context = executionContext.getStore()) {
+  return context ? context.nodes.filter(step => step.scope === context.scope) : []
 }
-export function activeStep() {
+export function activeNode() {
   const context = executionContext.getStore()
-  return context?.steps.find(item => item.id === context.stepId) || null
+  return context?.nodes.find(item => item.id === context.nodeId) || null
 }
 
 export const usedSkills = context => context.skills?.size ? { skills: [...context.skills.values()] } : {}

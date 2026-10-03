@@ -1,11 +1,12 @@
+import { operationRequest } from '../client/operation-request.js'
 import { secondsResponse, secondsContent } from './fixtures/seconds.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
-import { generateShotSeconds } from '../server/flow/operations/shot-operations.js'
+import { runOperation } from './fixtures/operation.js'
+import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds.js'
 import { prepareChecks, withReviewPrompt } from '../server/runtime/review-checks.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 
@@ -20,7 +21,7 @@ for (const generationMode of ['regenerate', 'modify']) {
       return p
     })
     const calls = []
-    await runOperation(e.op('shot-seconds', { track: 'S01', generationMode }), { home: e.home,
+    await runOperation(e.op('seconds', { track: 'S01', generationMode }), { home: e.home,
       generateShotSeconds: options => generateShotSeconds({ ...options, request: async ({ skill, user: prompt }) => {
         calls.push({ skill, prompt }); return skill === 'review' ? reviewPass : secondsResponse([['S01',5,'NEW_OUTPUT_MARKER']])
       } }),
@@ -40,9 +41,9 @@ test('modify rejects missing original or missing opinion before saving', async t
   const e = await setupModel(t)
   const project = await e.read()
   const store = { save() { assert.fail('invalid modification must not save') } }
-  await assert.rejects(prepareChecks(store, project, { action: 'shot-seconds', track: 'S01', generationMode: 'modify' }), /修改需要/)
+  await assert.rejects(prepareChecks(store, project, { action: 'shot-seconds', ...{ track: 'S01', generationMode: 'modify' } }), /修改需要/)
   project.shots.items[0].seconds.content = null
-  await assert.rejects(prepareChecks(store, project, { action: 'shot-seconds', track: 'S01', generationMode: 'modify', review: '修改方向' }), /修改需要/)
+  await assert.rejects(prepareChecks(store, project, { action: 'shot-seconds', ...{ track: 'S01', generationMode: 'modify', review: '修改方向' } }), /修改需要/)
 })
 
 test('media modifications carry original submitted prompt; reviews exclude it', () => {
@@ -58,9 +59,9 @@ for (const source of ['review', 'instruction', 'saved']) {
     const e = await setupModel(t)
     const project = await e.read()
     const text = '改'.repeat(2001)
-    const operation = { action: 'shot-seconds', track: 'S01', generationMode: 'modify' }
+    const operation = { action: 'shot-seconds', ...{ track: 'S01', generationMode: 'modify' } }
     if (source === 'saved') project.shots.items[0].seconds.review.text = text
-    else if (source === 'instruction') Object.assign(operation, { action: 'revise-image', itemId: 'C01', instruction: text })
+    else if (source === 'instruction') Object.assign(operation, { action: 'revise-image', ...{ itemId: 'C01', instruction: text } })
     else operation.review = text
     const store = { save() { assert.fail('must reject before modifying nodes') } }
     await assert.rejects(prepareChecks(store, project, operation), { message: '审核意见过长', status: 400 })
@@ -72,7 +73,7 @@ test('2000 character human opinion remains valid alongside long model feedback',
   const project = await e.read()
   const human = '改'.repeat(2000), model = '模型问题'.repeat(600)
   project.shots.check = { passed: false, failures: [model] }
-  const result = await prepareChecks({ save: async (id, patch) => patch(project) }, project, { action: 'shots', generationMode: 'modify', review: human })
+  const result = await prepareChecks({ save: async (id, patch) => patch(project) }, project, { action: 'shots', ...{ generationMode: 'modify', review: human } })
   assert.equal(result.operation.review, `${model}\n${human}`)
 })
 
@@ -81,7 +82,7 @@ test('regenerate ignores overlong old opinions and model feedback', async t => {
   const project = await e.read()
   project.shots.review.text = '旧人工意见'.repeat(600)
   project.shots.check = { passed: false, failures: ['旧模型意见'.repeat(600)] }
-  const result = await prepareChecks({ save: async (id, patch) => patch(project) }, project, { action: 'shots', generationMode: 'regenerate', review: project.shots.review.text })
+  const result = await prepareChecks({ save: async (id, patch) => patch(project) }, project, { action: 'shots', ...{ generationMode: 'regenerate', review: project.shots.review.text } })
   assert.equal(result.operation.review, '')
   assert.equal(result.project.shots.review.text, project.shots.review.text)
 })
@@ -94,7 +95,7 @@ test('whole-episode seconds retains its existing human opinion validation', asyn
 
 test('overlong human input does not clear existing downstream shots', async t => {
   const e = await setupModel(t), before = await e.read()
-  await assert.rejects(runOperation(e.op('shots', { generationMode: 'modify', review: '改'.repeat(2001) }), {
+  await assert.rejects(runOperation(e.op('shot-table', { generationMode: 'modify', review: '改'.repeat(2001) }), {
     home: e.home, generateShots: () => assert.fail('must not generate'),
   }), { message: '审核意见过长', status: 400 })
   const after = await e.read()

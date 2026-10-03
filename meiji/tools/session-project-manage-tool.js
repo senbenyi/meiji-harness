@@ -19,7 +19,9 @@ export function projectManageTool({ home, tasks, workspaceController }) {
       let projectId = args.projectId
       await runWithSessionLog(exec.agent.session, async () => {
         if (args.action === 'create') {
-          const trace = await tasks.run({ action: 'create', fields: args.fields, sessionId }, { signal: exec.signal, workspaceController })
+          const started = tasks.start({ action: 'create', fields: args.fields, sessionId }, exec.agent.session, { signal: exec.signal, workspaceController })
+          const trace = await started.done
+          if (started.failure) throw started.failure
           projectId = trace.result.projectId
         }
         if (args.action === 'open') await links.ensureProject(projectId, store)

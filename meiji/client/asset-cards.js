@@ -10,7 +10,7 @@ export { characterSheet }
 
 function imageEntries(project, item, actions) {
   const row = element('div', '', 'story-node-actions')
-  if (actions.openHistory) row.append(historyEntry(project, actions, 'images'))
+  if (actions.openHistory) row.append(historyEntry(project, actions, `image:${item.id}`))
   if (actions.openSkill) {
     const skill = item.type === 'prop' ? 'part-image' : item.type === 'role' ? 'character-image' : 'scene-image'
     const button = element('button', '查看 skill')
@@ -84,7 +84,7 @@ function textMaterials(project, item, actions, hint, busy) {
   // 场景的生图描述即「画面」原文，详情页不再重复展示。
   prompt.hidden = !role
   form.append(head, grid, prompt)
-  const saving = project.activity === (role ? 'character-text' : 'scene-text')
+  const saving = project.operationActivity === (role ? 'character-text' : 'scene-text')
   const save = element('button', saving ? '保存中' : '保存', 'primary')
   save.type = 'submit'
   save.disabled = busy
@@ -134,20 +134,20 @@ export function cardImageGate(project, item, gate) {
   const episodeId = project.episodeId || project.id
   const current = gate?.itemId === item.id && !gate.slot && !gate.track && (!gate.episodeId || gate.episodeId === episodeId) ? gate : null
   const pendingImages = Object.fromEntries(Object.entries(project.pendingImages || {}).filter(([, draft]) => draft.itemId === item.id && !draft.slot && !draft.track))
-  const activity = project.activity === `image:${item.id}` || (current && project.activity === 'confirm-image') ? project.activity : null
-  return syncImageGate({ episodes: [{ ...project, id: episodeId, pendingImages, activity }] }, current)
+  const activity = project.operationActivity === `image:${item.id}` || (current && project.operationActivity === 'confirm-image') ? project.operationActivity : null
+  return syncImageGate({ episodes: [{ ...project, id: episodeId, pendingImages, operationActivity: activity }] }, current)
 }
 
 export function cardImageControls(project, item, actions, gate) {
   if (gate) {
-    const controls = renderDetailImageActions(project, actions, gate, { regenerate: false, blocked: Boolean(project.activity) })
+    const controls = renderDetailImageActions(project, actions, gate, { regenerate: false, blocked: Boolean(project.operationActivity) })
     controls.classList.add('card-image-review')
     return [controls]
   }
   const button = element('button', 'AI生图', 'primary card-image-generate')
   button.type = 'button'
   button.setAttribute('aria-label', `AI生图：${item.name}`)
-  button.disabled = Boolean(project.activity) || !actions.beginImage
+  button.disabled = Boolean(project.operationActivity) || !actions.beginImage
   const error = element('p', '', `hint warn card-image-error${item.type === 'role' ? ' character-error' : ''}`)
   error.hidden = true
   error.setAttribute('role', 'status')
@@ -216,7 +216,7 @@ function sceneCard(project, item, onOpen, actions, imageGate) {
 const aspectChoices = [['9:16', '9:16'], ['3:4', '3:4'], ['1:1', '1:1'], ['4:3', '4:3'], ['16:9', '16:9']]
 
 export function stillCards(project, items, actions, hint, { editable = false, onOpen, imageGate = null } = {}) {
-  const activity = typeof project.activity === 'string' ? project.activity : ''
+  const activity = typeof project.operationActivity === 'string' ? project.operationActivity : ''
   const imaging = activity.startsWith('image:') ? activity.slice(6) : ''
   const busy = Boolean(activity)
   const preview = document.createElement('dialog')

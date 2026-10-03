@@ -1,7 +1,7 @@
 // 操作：保存项目概要
 import { linkStore } from '../../../data/workspace-links.js'
 import { overviewPatch } from '../../../../shared/episode-rules.js'
-import { saveStep } from '../plan-steps.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'overview')
 export async function opOverview(c) {
@@ -16,5 +16,5 @@ export async function opOverview(c) {
 }
 
 export const operations = {
-  overview: { label: '保存项目概要', scope: 'project', queue: 'text', agent: false, step: saveStep(null), stage: 'project', run: opOverview },
+  overview: { label: '保存项目概要', scope: 'project', agent: false, step: saveStep(null), stage: 'project', run: opOverview },
 }

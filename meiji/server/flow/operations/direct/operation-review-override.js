@@ -1,6 +1,6 @@
 // 操作：忽略自审并通过
 import { GenerationStatus } from '../../../../shared/drama-model.js'
-import { runStep } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/task-execution.js'
 import { targetNode } from '../../../../shared/drama-model.js'
 import { overrideBlocker, overrideNodes } from '../../../../shared/review-feedback.js'
 import { markPassed } from '../../../../shared/content-state.js'
@@ -12,7 +12,7 @@ export async function opReviewOverride(c) {
   const key = String(operation.key || '')
   const blocked = overrideBlocker(project, key)
   if (blocked) throw Object.assign(new Error(blocked), { status: 409 })
-  await runStep('override', async () => {
+  await runNode('override', async () => {
     await projects.save(project.id, current => {
       const reason = overrideBlocker(current, key)
       if (reason) throw Object.assign(new Error(reason), { status: 409 })
@@ -30,5 +30,5 @@ export async function opReviewOverride(c) {
 }
 
 export const operations = {
-  'review-override': { label: '忽略自审并通过', scope: 'episode', queue: 'text', agent: false, task: false, plan: (_, op) => [{ kind: 'override', target: op.key }], stage: 'episode', run: opReviewOverride },
+  'review-override': { label: '忽略自审并通过', scope: 'episode', agent: false, plan: (_, op) => [{ kind: 'override', target: op.key }], stage: 'episode', run: opReviewOverride },
 }

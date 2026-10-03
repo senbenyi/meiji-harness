@@ -170,16 +170,5 @@ export const stageCatalog = [
     "order": 11,
     "fixedConstraints": true,
     "constraintFile": "generate-part-image-skill.md"
-  },
-  {
-    "id": "pencil",
-    "kind": "stage",
-    "label": "铅笔分镜",
-    "logLabel": "铅笔分镜",
-    "output": "image",
-    "fields": [],
-    "order": 12,
-    "fixedConstraints": true,
-    "constraintFile": "generate-pencil-storyboard-skill.md"
   }
 ]

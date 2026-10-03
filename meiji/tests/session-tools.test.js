@@ -5,9 +5,9 @@ import { randomUUID } from 'node:crypto'
 import { setupModel } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
-import { generateEpisode } from '../server/flow/operations/project-operations.js'
-import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
+import { runOperation } from './fixtures/operation.js'
+import { generateEpisode } from '../server/flow/tasks/text/task-summary.js'
+import { generateStoryPackage } from './fixtures/story-generation.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { linkStore } from '../server/data/workspace-links.js'
 import { contentGenerateTool } from '../tools/session-content-generate-tool.js'
@@ -25,7 +25,7 @@ async function setup(t, review = reviewPass) {
   const fixture = storyPackageFixture(), storyReplies = [JSON.stringify(outlineFixture()), review, JSON.stringify(fixture.characters), review, JSON.stringify(fixture.scenes), review, JSON.stringify(fixture.props), review]
   const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 150 }) } }),
-    generateStoryPackage: opts => generateStoryPackage({ ...opts, fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: storyReplies.shift() } }] }) } }),
+    fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: storyReplies.shift() } }] }) },
   }) })
   const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ home: e.home, tasks })
   const start = async args => JSON.parse(await generate.execute(args, exec))

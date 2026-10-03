@@ -1,17 +1,17 @@
 // 操作：修改大纲
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { runStep } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/task-execution.js'
 import { reviewContent } from '../../../runtime/text-generation.js'
 import { plotPatch, contentNode } from '../../../../shared/drama-model.js'
-import { editSteps } from '../plan-steps.js'
+import { editSteps } from '../../../../shared/task-plans.js'
 import { normalizeOutline } from '../../../../shared/story-outline.js'
 
 // if (operation.action === 'outline-text')
 export async function opOutlineText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const outline = normalizeOutline(operation.outline, 400)
-  project = await runStep('save', () => projects.writeStep(project.id, 'outline', { ...plotPatch(project, { outline: contentNode(project.plot.outline, outline) }) }), { target: 'story' })
+  project = await runNode('save', () => projects.writeStep(project.id, 'outline', { ...plotPatch(project, { outline: contentNode(project.plot.outline, outline) }) }), { target: 'outline' })
   const result = await (deps.reviewContent || reviewContent)({ project, stage: 'outline', text: JSON.stringify(outline), route: (modelRoutes(await models.read())).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, {}, { final: true })
@@ -20,5 +20,5 @@ export async function opOutlineText(c) {
 }
 
 export const operations = {
-  'outline-text': { label: '修改大纲', scope: 'episode', queue: 'text', agent: false, plan: () => editSteps('story'), stage: 'episode', run: opOutlineText },
+  'outline-text': { label: '修改大纲', scope: 'episode', agent: false, plan: () => editSteps('outline'), stage: 'episode', run: opOutlineText },
 }

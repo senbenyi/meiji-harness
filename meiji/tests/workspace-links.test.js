@@ -1,3 +1,6 @@
+import { episodeFixture } from './fixtures/model.js'
+import { executeTask } from '../server/flow/shared/task-executor.js'
+import { operationRequest } from '../client/operation-request.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises'
@@ -6,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { linkStore } from '../server/data/workspace-links.js'
 import { projectStore } from '../server/data/project-store.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { runOperation } from './fixtures/operation.js'
 import { fakeRegistry } from './fixtures/host.js'
 import { setWorkspaceRegistry } from '../server/host/harness-workspaces.js'
 
@@ -102,7 +105,7 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
       connection: { requestRejection: () => null },
       webServer: { register: route => { handler = route.handler } },
       effect: fn => fn(), on() {}, logger: { warn() {} },
-    }, Promise.resolve(), createOperationManager({ home, workspaceController: controller }))
+    }, Promise.resolve(), createOperationManager({ home, workspaceController: controller, execute: (op, deps) => op.action === 'shot-table' ? Promise.resolve([]) : executeTask(op, deps) }))
   } finally {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous
@@ -127,15 +130,18 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
   assert.equal(edited.project.title, '本地修改')
   assert.equal((await projects.read(project.id)).summary.content, '直接保存的剧情')
   // Generation buttons also bypass the chat controller and return immediately.
-  const generated = await call('turn', { action: 'shots', projectId: project.id, sessionId: first.sessionId })
+  const blocked = await call('turn', operationRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
+  assert.equal(blocked.status, 409)
+  await projects.save(project.id, { episodes: [episodeFixture()] })
+  const generated = await call('turn', operationRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
   assert.equal(generated.status, 202)
   assert.ok(generated.operationId)
   for (let attempt = 0; attempt < 100; attempt++) {
     let result
-    await handler({ url: '/plugins/meiji/tasks?' + new URLSearchParams({ projectId: project.id, sessionId: first.sessionId }), method: 'GET', headers: {} }, {
+    await handler({ url: '/plugins/meiji/operations/current?' + new URLSearchParams({ projectId: project.id, sessionId: first.sessionId }), method: 'GET', headers: {} }, {
       writeHead() {}, end(text) { result = JSON.parse(text) },
     })
-    if (!result.tasks.length) break
+    if (!result.operations.length) break
     await new Promise(resolve => setTimeout(resolve, 5))
     assert.notEqual(attempt, 99, 'background task must settle')
   }

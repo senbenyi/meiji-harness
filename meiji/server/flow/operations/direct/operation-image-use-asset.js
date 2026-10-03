@@ -3,8 +3,8 @@ import { plotPatch } from '../../../../shared/drama-model.js'
 import { pictureReference } from '../../../data/image-storage.js'
 import { pictureRecord } from '../../../../shared/image-assets.js'
 import { staleMedia } from '../../../../shared/project-rules.js'
-import { visualPlace } from '../shared/image-files.js'
-import { saveStep } from '../plan-steps.js'
+import { visualPlace } from '../../shared/image-files.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'use-asset')
 export async function opUseAsset(c) {
@@ -21,5 +21,5 @@ export async function opUseAsset(c) {
 }
 
 export const operations = {
-  'use-asset': { label: '关联图片素材', scope: 'episode', queue: 'text', agent: false, step: saveStep(null), stage: 'episode', run: opUseAsset },
+  'use-asset': { label: '关联图片素材', scope: 'episode', agent: false, step: saveStep(null), stage: 'episode', run: opUseAsset },
 }

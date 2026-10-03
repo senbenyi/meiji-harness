@@ -9,7 +9,7 @@ export function reviewsOf(project) {
 }
 
 const text = value => typeof value === 'string' && value.trim().length > 0
-function outlineUnlocked(project) { return hasSummary(project) }
+function outlineUnlocked(project) { return hasSummary(project) && project.summary.check?.passed === true && !project.summary.stale }
 export function hasSummary(project) { return text(project?.summary?.content) }
 export function hasOutline(project) { return outlineFailures(project?.plot?.outline?.content).length === 0 }
 export function hasCharacters(project) { return Array.isArray(project?.plot?.characters?.items) && project.plot.characters.items.length > 0 }
@@ -79,14 +79,13 @@ export function gateMessage(project, step) {
     if (!hasShots(project)) return '先写镜头表，再逐镜生成每秒指令并逐镜自审。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
     if (!feedbackOf(project, 'shots').check.passed) return '镜头表尚未通过自审，请查看镜头表顶部的审核卡片。'
     if (!hasShotSeconds(project)) return '镜头表已通过自审，请先逐镜生成每秒指令并逐镜审核。'
-    if (shotsReady(project)) return '镜头表已写好。下一步一次生成全部分镜表，每秒指令会一起写上。重新生成镜头表会清掉分镜和成片。'
+    if (shotsReady(project)) return '镜头表已写好。下一步生成每秒指令，再在成片页编排提示词与提交视频。重新生成镜头表会清掉分镜和成片。'
   }
   if (step === 'storyboard') {
     if (!shotsReady(project)) return '请先让镜头表通过自检，再生成分镜表。'
-    if (!hasStoryboard(project)) return '一次生成全部分镜表。缺的每秒指令会先写满，再写成 MiniMax H3 的三段提示词。'
-    if (hasStoryboard(project)) return '文本分镜已写好。它是成片的依据。铅笔分镜可以后补。'
+    if (!hasStoryboard(project)) return '请先完成每秒指令；视频提示词由程序编排并绑定参考素材。'
+    if (hasStoryboard(project)) return '文本分镜已写好。它是成片的依据。。'
   }
-  if (step === 'boards') return '每秒一格的铅笔草图，用来预览这一镜。文本分镜仍是成片依据。'
   if (step === 'film') {
     if (!canGenerate(project, 'film')) return '请先在镜头详情写好文本分镜，再逐镜提交成片。'
     if (hasFilm(project)) return '每条镜头都已生成。下一步是合成。全片拼接和背景音乐后期接入。'

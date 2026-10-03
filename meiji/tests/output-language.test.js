@@ -4,15 +4,15 @@ import assert from 'node:assert/strict'
 import { outputLanguage } from '../shared/output-language.js'
 import { buildGenerationPrompt } from '../server/prompts/text-prompts.js'
 import { materialize } from '../shared/episode-rules.js'
-import { generateEpisode } from '../server/flow/operations/project-operations.js'
+import { generateEpisode } from '../server/flow/tasks/text/task-summary.js'
 import { normalizeScenes } from '../shared/story-content.js'
 
 test('language defaults to Chinese, validates values and follows episode context', () => {
   assert.equal(outputLanguage(), 'zh-CN')
-  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'zh-CN' }, instructions: '' }).system, /Mandarin Chinese/)
-  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'en' }, instructions: '' }).system, /对白语言：English/)
+  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'zh-CN' }, instructions: '' }).user, /Mandarin Chinese/)
+  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'en' }, instructions: '' }).user, /对白语言：English/)
   assert.throws(() => outputLanguage('unknown'), /仅支持/)
-  assert.match(buildGenerationPrompt({ skill: 'episode', project: { outputLanguage: 'en' }, instructions: '' }).system, /本次生成语言：English/)
+  assert.match(buildGenerationPrompt({ skill: 'episode', project: { outputLanguage: 'en' }, instructions: '' }).user, /输出语言：English/)
   assert.equal(materialize({ id: 'p', summary: { content: '' }, outputLanguage: 'en', episodes: [{ id: 'e' }] }, 'e').outputLanguage, 'en')
   assert.equal(normalizeScenes({ items: [{ name: 'Cave', landmark: 'Stone arch', light: 'Moonlight', space: 'Narrow tunnel', look: 'An empty ancient cave with a stone arch and scattered rocks.' }] }).items[0].name, 'Cave')
 })
@@ -29,8 +29,8 @@ test('Chinese input sends English language skill to the model and preserves retu
     route: { baseUrl: 'http://model.test/v1', apiKey: 'test', model: 'test' },
     project: { title: '沙漠', summary: { content: '旅人进入山洞' }, outputLanguage: 'en', episodes: [] },
   })
-  assert.match(payload.messages.find(item => item.role === 'system').content, /本次生成语言：English/)
-  assert.doesNotMatch(payload.messages.find(item => item.role === 'user').content, /本次生成语言/)
+  assert.match(payload.messages.find(item => item.role === 'user').content, /输出语言：English/)
+  assert.doesNotMatch(payload.messages.find(item => item.role === 'system').content, /读取项目 outputLanguage/)
   assert.match(payload.messages.find(item => item.role === 'user').content, /旅人进入山洞/)
   assert.equal(draft.summary, 'A traveler enters a mysterious cave.')
 })
@@ -45,7 +45,7 @@ test('English and Chinese character labels and continuity pass equivalent checks
   for (const continuity of ['接着做，同一画面', 'Continue the action in the same frame']) {
     assert.equal(videoRequestMode({ continuity, hasOpening: true, imageCount: 1 }), 'first_frame')
   }
-  assert.equal(tabOf({ summary: { content: 'English summary' }, plot: {} }), 'script')
+  assert.equal(tabOf({ summary: { content: 'English summary', check: { passed: true } }, plot: {} }), 'script')
 })
 
 test('resolved language is stated directly without asking the model to read configuration', async () => {
@@ -58,8 +58,7 @@ test('resolved language is stated directly without asking the model to read conf
       const prompts = buildStoryPrompts(project)
       const messages = [prompts.generation, prompts.review('最新大纲'), prompts.revision('失败稿', '修正意见')]
       for (const message of messages) {
-        assert.match(message.system, new RegExp(`本次生成语言：${expected}`))
-        assert.match(message.system, /使用此语言生成自然语言内容/)
+        assert.match(message.user, new RegExp(`输出语言：${expected}`))
         assert.doesNotMatch(message.system, /读取项目 outputLanguage|自然语言内容使用项目 outputLanguage|未配置默认 zh-CN|不根据输入材料的语言推断/)
         assert.match(message.system, /既定对白、歌词和画面文字保留原文/)
       }

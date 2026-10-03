@@ -1,7 +1,7 @@
 // 操作：导入素材
 import { rm } from 'node:fs/promises'
 import { createReadStream } from 'node:fs'
-import { openIncoming } from '../shared/incoming.js'
+import { openIncoming } from '../../shared/incoming.js'
 
 // if (operation.action === 'library-import')
 export async function opLibraryImport(c) {
@@ -15,5 +15,5 @@ export async function opLibraryImport(c) {
 }
 
 export const operations = {
-  'library-import': { label: '导入素材', scope: 'project', queue: 'text', agent: false, stage: 'pre', run: opLibraryImport },
+  'library-import': { label: '导入素材', scope: 'project', agent: false, stage: 'pre', run: opLibraryImport },
 }

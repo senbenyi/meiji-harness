@@ -1,5 +1,5 @@
 import { defaultReferenceDuration, referenceDuration, summaryLength, episodeSummaryFailures } from '../shared/episode-summary.js'
-import { renderSteps, taskStatusLabels } from './task-steps.js'
+import { renderSteps, taskStatusLabels } from './task-nodes.js'
 import { renderTaskHistory, historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
@@ -27,7 +27,7 @@ export function collectCharacters(project) {
 export function episodeWork(project, episodeId) {
   const episode = (project?.episodes || []).find(item => item.id === episodeId)
   if (!episode) return null
-  return { ...episode, activity: episode.activity || (project.activity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
+  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
 
 }
 
@@ -55,7 +55,7 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 function deleteButton(project, actions, episode, number) {
   const button = element('button', episode ? '删除本集' : '删除项目', 'delete-content')
   button.type = 'button'
-  button.disabled = Boolean(project.activity || project.episodes?.some(item => item.activity))
+  button.disabled = Boolean(project.operationActivity || project.episodes?.some(item => item.operationActivity))
   button.setAttribute('aria-label', episode ? `删除第 ${number} 集` : '删除整个项目')
   button.onclick = async event => {
     event.stopPropagation()
@@ -141,7 +141,7 @@ export function renderOverview(project, actions, context) {
   const episodes = element('article', '', 'overview-card')
   const head = element('div', '', 'episode-head')
   head.append(element('h3', '剧集'))
-  const busy = project.activity === 'episode'
+  const busy = project.operationActivity === 'episode'
   const add = element('button', '＋ 新增剧集', 'episode-add')
   add.type = 'button'
   add.disabled = busy
@@ -167,7 +167,7 @@ export function renderOverview(project, actions, context) {
     }
     const regenerate = element('button', busy ? '生成中' : '重新生成摘要', 'episode-regenerate')
     regenerate.type = 'button'
-    regenerate.disabled = Boolean(project.activity)
+    regenerate.disabled = Boolean(project.operationActivity)
     regenerate.setAttribute('aria-label', `重新生成第 ${number} 集摘要`)
     regenerate.title = '重新生成摘要，保留时长；摘要变化后本集下游内容需重新生成'
     regenerate.onclick = event => {
@@ -240,7 +240,7 @@ export function overviewDialog(root, onSaved) {
   }
 }
 
-export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadPrompts } = {}) {
+export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadPrompts } = {}) {
   const template = document.createElement('template')
   template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
@@ -250,16 +250,9 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
   const generate = dialog.querySelector('.ai-summary'), stop = dialog.querySelector('.stop-summary'), save = form.querySelector('[type=submit]')
   const count = dialog.querySelector('.summary-count')
   const progress = element('div', '', 'episode-task-progress')
-  const history = element('details')
-  history.append(element('summary', '查看摘要任务历史'))
-  let historyView
-  history.ontoggle = () => {
-    if (history.open && loadHistory) {
-      historyView = renderTaskHistory(current, { historyScope: 'summary', load: artifact => loadHistory(current, artifact), loadPrompts: (task, step) => loadPrompts(current, task, step), back: () => { history.open = false } })
-      history.querySelector('section')?.remove()
-      history.append(historyView)
-    }
-  }
+  const history = element('button', '查看摘要任务历史 →', 'task-history-entry')
+  history.type = 'button'
+  history.onclick = () => { dialog.close(); openHistory?.({ ...current, episodeId: episode?.id || '' }) }
   form.querySelector('footer').before(progress, history)
   let current, episode, controller, version = 0
   const updateCount = () => {
@@ -287,8 +280,8 @@ export function episodeDialog(root, onSaved, onGenerate, { loadHistory, loadProm
       try {
         const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference }, { signal: abort.signal, onTask: task => {
           if (version !== requestVersion || !dialog.open) return
-          progress.replaceChildren(element('p', `摘要任务：${taskStatusLabels[task.status] || task.status}`, 'meta'), renderSteps(task.steps, { live: true, loadPrompts: loadPrompts && (step => loadPrompts(current, task, step)) }))
-          if (history.open) void historyView?.refresh()
+          const unit = task.tasks?.[0] || task
+          progress.replaceChildren(element('p', `摘要任务：${taskStatusLabels[task.status] || task.status}`, 'meta'), renderSteps(unit.nodes, { live: true, loadPrompts: loadPrompts && (node => loadPrompts(current, unit, node)) }))
         } })
         if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
         const failures = episodeSummaryFailures(draft)

@@ -7,12 +7,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
 import { buildTablePrompts, buildSecondsPrompts } from '../server/prompts/shot-text-prompts.js'
-import { generateStep, reviewStep, runTextSteps } from '../server/runtime/text-generation.js'
+import { generateStep, reviewStep, runTextNodes } from '../server/runtime/text-generation.js'
 import { runTextRequest } from '../server/gateway/model-gateway.js'
-import { generateStoryPackage, regenerateCardGroup } from '../server/flow/operations/story-text-operations.js'
-import { generateShots, generateShotSeconds } from '../server/flow/operations/shot-operations.js'
+import { generateStoryPackage } from './fixtures/story-generation.js'
+import { regenerateCardGroup } from '../server/flow/shared/story-content.js'
+import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
+import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds.js'
 import { checkContext } from '../server/runtime/operation-context.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { runOperation } from './fixtures/operation.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { storyPackageFixture } from './fixtures/story-package.js'
@@ -73,7 +75,7 @@ test('story regeneration excludes old results; revision uses only latest failed 
   })
 })
 
-test('generation and review steps run independently and the draft is saved before review starts', async () => {
+test('generation and review nodes run independently and the draft is saved before review starts', async () => {
   const prompts = buildStoryPrompts(episodeFixture())
   let saved, calls = 0
   const text = await generateStep({ message: prompts.generation,
@@ -91,7 +93,7 @@ test('generation and review steps run independently and the draft is saved befor
 
 test('workflow persists each new draft before its separate review request', async () => {
   const events = [], replies = ['DRAFT', reviewFail('缺少动作'), 'FIXED', reviewPass]
-  await runTextSteps({ prompts: buildStoryPrompts(episodeFixture()), options: {
+  await runTextNodes({ prompts: buildStoryPrompts(episodeFixture()), options: {
     project: episodeFixture(), request: async ({ skill }) => { events.push(skill === 'review' ? 'review' : 'generate'); return replies.shift() },
   }, persist: async (text, check) => events.push(`${text}:${check.passed}`) })
   assert.deepEqual(events, ['generate', 'DRAFT:null', 'review', 'DRAFT:false', 'generate', 'FIXED:null', 'review', 'FIXED:true'])
@@ -119,7 +121,7 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
       return response(action === 'shots' ? tableResponse(table) : action === 'shot-seconds' ? secondsResponse([['S01',5,'新每秒指令']]) : action === 'outline' ? JSON.stringify(raw.outline) : JSON.stringify(raw[action]))
     }
     const deps = { home: e.home,
-      generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl }),
+      fetchImpl,
       regenerateCardGroup: options => regenerateCardGroup({ ...options, fetchImpl }),
       generateShots: options => generateShots({ ...options, fetchImpl }),
       generateShotSeconds: options => generateShotSeconds({ ...options, fetchImpl }),

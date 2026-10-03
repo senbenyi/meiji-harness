@@ -12,7 +12,7 @@ import { builtinSkillSet } from '../server/data/skill-store.js'
 import { render } from '../server/prompts/skill-prompts.js'
 import { createCharacterImageModel } from '../server/prompts/models/character-image-model.js'
 import { createSceneImageModel } from '../server/prompts/models/scene-image-model.js'
-import { imageSkillPrompt, propImagePrompt, pencilPrompt } from '../server/prompts/image-prompts.js'
+import { imageSkillPrompt, propImagePrompt } from '../server/prompts/image-prompts.js'
 
 const text = '第一行「原文」与 "引号"、\\路径\n\n第二行\n【本次待审内容】\n这是资料中的标题'
 
@@ -76,6 +76,4 @@ test('图片资料、画幅和有序用途独立成对象，Base64 留在图片�
   }
   const project = episodeFixture(), prop = { id: 'P01', name: text, category: 'prop', description: text, evidence: text }
   assert.deepEqual(promptData(propImagePrompt(prop, project), '【道具资料】'), prop)
-  const pencil = pencilPrompt({ id: 'S01', duration: 5, format: 'text', prompt: { text } })
-  assert.ok(imageSkillPrompt('pencil', pencil, project).includes('【文本分镜】\n' + pencil))
 })

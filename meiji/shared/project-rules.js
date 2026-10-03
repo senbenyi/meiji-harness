@@ -58,7 +58,6 @@ export function staleMedia(project) {
   const shots = structuredClone(project.shots)
   for (const shot of shots.items) {
     if (shot.video.content) { shot.video.stale = true; shot.video.status = GenerationStatus.FAILED }
-    if (shot.pencil.content) { shot.pencil.stale = true; shot.pencil.status = GenerationStatus.FAILED }
   }
   const assembly = structuredClone(project.assembly)
   if (assembly.content) { assembly.stale = true; assembly.status = GenerationStatus.FAILED }
@@ -66,7 +65,7 @@ export function staleMedia(project) {
 }
 export function clearShotDownstream(project, stage, track) {
   const shots = structuredClone(project.shots)
-  const kinds = stage === 'shots' ? ['seconds', 'storyboard', 'pencil', 'video'] : stage === 'seconds' ? ['storyboard', 'pencil', 'video'] : ['pencil', 'video']
+  const kinds = stage === 'shots' ? ['seconds', 'storyboard', 'video'] : stage === 'seconds' ? ['storyboard', 'video'] : ['video']
   for (const shot of shots.items) {
     if (track && shot.id !== track) continue
     shot.tailFrame = node(`tailFrame:${shot.id}`)

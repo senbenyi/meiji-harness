@@ -1,8 +1,8 @@
 // 操作：编辑图片描述
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { partSlots, withPartText } from '../../../../shared/image-assets.js'
-import { visualPlace } from '../shared/image-files.js'
-import { saveStep } from '../plan-steps.js'
+import { visualPlace } from '../../shared/image-files.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 export async function opPartText(c) {
   let { operation, projects, project, trace, note } = c
@@ -17,5 +17,5 @@ export async function opPartText(c) {
 }
 
 export const operations = {
-  'part-text': { label: '编辑图片描述', scope: 'episode', queue: 'text', agent: false, step: saveStep(null), stage: 'episode', run: opPartText },
+  'part-text': { label: '编辑图片描述', scope: 'episode', agent: false, step: saveStep(null), stage: 'episode', run: opPartText },
 }

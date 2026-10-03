@@ -4,13 +4,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { StoryOutlineModel, StoryCharacterModel, StorySceneModel } from '../server/prompts/models/story-model.js'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
-import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
+import { generateStoryPackage } from './fixtures/story-generation.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
-import { definitions } from '../server/flow/operations/operation-registry.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
-import { recordSteps } from './fixtures/steps.js'
+import { planTasks, operations as definitions } from '../server/flow/operations/operation-registry.js'
+import { runOperation } from './fixtures/operation.js'
+import { recordSteps } from './fixtures/nodes.js'
 import { builtinSkill } from '../skills/load-skills.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
@@ -277,16 +277,16 @@ test('每个剧情步骤生成用生产规则、自审用对应审核 skill，�
 })
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
-  assert.deepEqual(definitions.outline.plan().filter(step => step.kind === 'generate').map(step => step.target), ['outline', 'characters', 'scenes', 'props'])
+  assert.deepEqual(definitions.story.tasks(null, {}).map(task => task.type), ['outline', 'characters', 'scenes', 'props'])
   const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('修订稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('二次修订稿')), reviewFail('因果错误')]
   let calls = 0
-  const { result, steps } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
+  const { result, nodes } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
   assert.equal(calls, 6)
   assert.deepEqual(result.outline, outlineFixture('二次修订稿'))
   assert.equal(result.checks.characters.passed, null)
   assert.ok(result.characters.stale)
   assert.equal(result.check.passed, false)
-  assert.ok(steps.every(step => step.target === 'outline'))
+  assert.ok(nodes.every(step => step.target === 'outline'))
 })
 
 test('a card API error retains drafts saved by earlier independent stages', async () => {
@@ -325,8 +325,8 @@ test('real operation persists independent checks and blocks downstream after fai
   const fixture = storyPackageFixture()
   const replies = [outlineResponse('FINAL_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少另一身体'), JSON.stringify(fixture.characters), reviewFail('缺少另一身体'), JSON.stringify(fixture.characters), reviewFail('缺少另一身体')]
   let calls = 0
-  await runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
-    generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
+  await runOperation(e.op('story', { generationMode: 'regenerate' }), { home: e.home,
+    request: async () => { calls++; return replies.shift() },
   })
   const saved = await e.read()
   assert.equal(calls, 8)
@@ -334,19 +334,19 @@ test('real operation persists independent checks and blocks downstream after fai
   assert.equal(saved.plot.outline.check.passed, true)
   assert.equal(saved.plot.characters.check.passed, false)
   assert.equal(saved.plot.scenes.check.passed, null)
-  assert.equal(saved.plot.scenes.stale, true)
+  assert.equal(saved.plot.scenes.items.length, 0)
   assert.equal(saved.shots.items.length, 0)
 })
 
 test('a later API error preserves the passed outline status in the real operation', async t => {
   const e = await setupModel(t)
   let calls = 0
-  await assert.rejects(runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
-    generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
+  await assert.rejects(runOperation(e.op('story', { generationMode: 'regenerate' }), { home: e.home,
+    request: async () => {
       if (++calls === 1) return outlineResponse('PASSED_OUTLINE')
       if (calls === 2) return reviewPass
       throw new Error('CHARACTER_ERROR')
-    } }),
+    },
   }), /CHARACTER_ERROR/)
   const saved = await e.read()
   assert.deepEqual(saved.plot.outline.content, outlineFixture('PASSED_OUTLINE'))
@@ -401,19 +401,19 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
   })
   let calls = 0
   const replies = [outlineResponse('FIXED_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
-  await runOperation(e.op('outline', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
-    generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
+  await runOperation(e.op('story', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
+    request: async () => { calls++; return replies.shift() },
   })
   const saved = await e.read()
   assert.equal(calls, 8)
   for (const kind of ['outline', 'characters', 'scenes', 'props']) assert.equal(saved.plot[kind].check.passed, true)
   const { contentTargets } = await import('../server/data/content-records.js')
   const root = await e.store.read(e.id)
-  assert.equal(contentTargets(root).find(item => item.key === 'story').check.passed, true)
+  assert.equal(contentTargets(root).find(item => item.key === 'scenes').check.passed, true)
   root.episodes[0].plot.scenes.check.passed = null
-  assert.equal(contentTargets(root).find(item => item.key === 'story').check.passed, null)
+  assert.equal(contentTargets(root).find(item => item.key === 'scenes').check.passed, null)
   root.episodes[0].plot.characters.check = { passed: false, failures: ['缺卡'] }
-  assert.equal(contentTargets(root).find(item => item.key === 'story').check.passed, false)
+  assert.equal(contentTargets(root).find(item => item.key === 'characters').check.passed, false)
 })
 
 test('四类剧情资料共用 StoryModel，差异只在 storyKinds 配置中声明', async () => {
@@ -489,7 +489,7 @@ test('new semantic review failure clears old execution errors', async t => {
   const e = await setupModel(t)
   await e.store.save(e.id, p => { p.episodes[0].activityError = '审核返回格式错误'; for (const key of ['outline', 'characters', 'scenes', 'props']) p.episodes[0].plot[key].error = '审核返回格式错误'; return p })
   const replies = [outlineResponse('新稿'), reviewFail('剧情冲突'), outlineResponse('修订稿'), reviewFail('剧情冲突'), outlineResponse('二次修订稿'), reviewFail('剧情冲突')]
-  await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: opts => generateStoryPackage({ ...opts, request: async () => replies.shift() }) })
+  await assert.rejects(runOperation(e.op('story', {}), { home: e.home, request: async () => replies.shift() }), /自检未通过/)
   const saved = await e.read()
   for (const key of ['outline', 'characters', 'scenes', 'props']) assert.equal(saved.plot[key].error, null, key)
   assert.equal(saved.plot.outline.check.passed, false)

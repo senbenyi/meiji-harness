@@ -1,3 +1,4 @@
+import { operationRequest } from '../client/operation-request.js'
 import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
@@ -27,7 +28,7 @@ test('button tasks execute directly with isolated logs, reject duplicates and re
  assert.ok(!signal || signal.aborted)
  assert.deepEqual(tasks.list('p'), [])
  assert.ok(events.every(e => ['command/run', 'command/done'].includes(e.type)))
- assert.ok(events.some(e => e.data.text?.includes('任务已停止')))
+ assert.ok(events.some(e => e.data.text?.includes('操作已停止')))
 })
 
 test('failed log writes do not fail successful tasks; errors settle and release tasks', async t => {
@@ -53,14 +54,14 @@ test('project notification follows a committed revision and subscriptions can di
 })
 
 test('direct generation saves reviewed model and cancellation clears its operation', async t => {
- const { runOperation } = await import('../server/flow/operations/run-operation.js')
- const { generateAllSeconds } = await import('../server/flow/operations/shot-operations.js')
+ const { runOperation } = await import('./fixtures/operation.js')
+ const { generateAllSeconds } = await import('./fixtures/seconds-generation.js')
  const { modelStore } = await import('../server/data/model-settings.js')
  const e = await setupModel(t), models = modelStore(e.home)
  await models.write({ ...await models.read(), apiKey: 'test-only' })
  const events = [], session = { append: (type, data) => events.push({ type, data }) }
  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-  generateAllSeconds: options => generateAllSeconds({ ...options, request: async message => message.skill === 'review' ? reviewPass : secondsForRequest(message) }),
+  request: async message => message.skill === 'review' ? reviewPass : secondsForRequest(message),
  }) })
  const task = tasks.start(e.op('seconds'), session)
  await task.done
@@ -71,7 +72,7 @@ test('direct generation saves reviewed model and cancellation clears its operati
  let entered
  const started = new Promise(resolve => { entered = resolve })
  const cancellable = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-  generateAllSeconds: async () => {
+  generateShotSeconds: async () => {
    entered()
    await new Promise((resolve, reject) => deps.signal.addEventListener('abort', () => reject(deps.signal.reason), { once: true }))
   },
@@ -79,22 +80,26 @@ test('direct generation saves reviewed model and cancellation clears its operati
  const pending = cancellable.start(e.op('seconds'), session)
  await started
  // 内容节点记录的归属是任务记录 id（taskId），操作 id 用于停止与查询。
- assert.equal((await e.read()).shots.seconds.operation.id, pending.taskId)
+ assert.equal((await e.read()).shots.items[0].seconds.operation.id, pending.taskId)
  cancellable.cancel(pending.id, e.id)
  await pending.done
- shot = { seconds: (await e.read()).shots.seconds }
+ shot = (await e.read()).shots.items[0]
  assert.equal(shot.seconds.status, 'failed')
  assert.equal(shot.seconds.operation, null)
  assert.equal('activity' in await e.read(), false)
  assert.ok(events.every(e => e.type.startsWith('command/')))
 })
-test('single-shot seconds submissions are rejected at the panel boundary',()=>{
- const tasks=createOperationManager({home:'/tmp/tasks',execute:()=>assert.fail('must not execute')})
- assert.throws(()=>tasks.start({projectId:'p',episodeId:'e',action:'shot-seconds',track:'S01'}),/卡片集顶部统一提交/)
+test('单镜修订使用独立每秒指令任务', async t => {
+ const e=await setupModel(t)
+ const { planTasks }=await import('../server/flow/operations/operation-registry.js')
+ const tasks=await planTasks(e.home,e.op('seconds',{track:'S01',generationMode:'modify',review:'保留动作'}))
+ assert.deepEqual(tasks.map(task=>task.target),['seconds:S01'])
 })
 
-test('unrecorded task snapshots keep private steps and settle completion and cancellation', async t => {
- const home = await tempHome(t)
+test('unrecorded task snapshots keep private nodes and settle completion and cancellation', async t => {
+ const e = await setupModel(t), home = e.home
+ const { linkStore } = await import('../server/data/workspace-links.js')
+ await linkStore(home).selectProject('session-438a7a11-3984-447d-88df-16d610f8e914', e.id, e.store)
  for (const cancel of [false, true]) {
   const entered = Promise.withResolvers(), gate = Promise.withResolvers()
   const tasks = createOperationManager({ home, execute: async (_operation, { signal }) => {
@@ -103,22 +108,22 @@ test('unrecorded task snapshots keep private steps and settle completion and can
    signal.addEventListener('abort', abort, { once: true })
    try { await gate.promise; return [] } finally { signal.removeEventListener('abort', abort) }
   } })
-  const task = tasks.start({ action: 'open', projectId: 'p', sessionId: 's' })
+  const task = tasks.start({ action: 'open', projectId: e.id, sessionId: 'session-438a7a11-3984-447d-88df-16d610f8e914' })
   await entered.promise
   try {
-   const current = tasks.current('p')[0]
+   const current = tasks.current(e.id)[0]
    assert.equal(current.status, 'running')
-   current.steps[0].status = 'failed'
-   current.steps[0].reasons.push('外部修改')
-   const fresh = await tasks.get(task.id, 's')
+   current.tasks[0].nodes[0].status = 'failed'
+   current.tasks[0].nodes[0].reasons.push('外部修改')
+   const fresh = await tasks.get(task.id, 'session-438a7a11-3984-447d-88df-16d610f8e914')
    assert.equal(fresh.status, 'running')
-   assert.equal(fresh.steps[0].status, 'running')
-   assert.deepEqual(fresh.steps[0].reasons, [])
-   if (cancel) tasks.cancel(task.id, 'p')
+   assert.equal(fresh.tasks[0].nodes[0].status, 'running')
+   assert.deepEqual(fresh.tasks[0].nodes[0].reasons, [])
+   if (cancel) tasks.cancel(task.id, e.id)
   } finally { gate.resolve() }
   const done = await task.done
   assert.equal(done.status, cancel ? 'cancelled' : 'completed')
-  assert.equal(done.steps[0].status, done.status)
-  assert.deepEqual(tasks.current('p'), [])
+  assert.equal(done.tasks[0].nodes[0].status, done.status)
+  assert.deepEqual(tasks.current(e.id), [])
  }
 })

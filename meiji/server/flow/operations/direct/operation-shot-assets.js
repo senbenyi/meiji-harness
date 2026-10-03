@@ -1,6 +1,6 @@
 // 操作：修改镜头素材
 import { clearShotDownstream } from '../../../../shared/project-rules.js'
-import { saveStep } from '../plan-steps.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'shot-assets')
 export async function opShotAssets(c) {
@@ -16,5 +16,5 @@ export async function opShotAssets(c) {
 }
 
 export const operations = {
-  'shot-assets': { label: '修改镜头素材', scope: 'shot', queue: 'text', agent: false, step: saveStep('shots'), stage: 'episode', run: opShotAssets },
+  'shot-assets': { label: '修改镜头素材', scope: 'shot', agent: false, step: saveStep('shots'), stage: 'episode', run: opShotAssets },
 }

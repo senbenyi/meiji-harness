@@ -2,5 +2,5 @@
 import { opProjectDelete } from './operation-project-delete.js'
 
 export const operations = {
-  'episode-delete': { label: '删除剧集', scope: 'episode', queue: 'text', agent: false, stage: 'project', run: opProjectDelete },
+  'episode-delete': { label: '删除剧集', scope: 'episode', agent: false, stage: 'project', run: opProjectDelete },
 }

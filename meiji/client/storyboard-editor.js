@@ -4,7 +4,7 @@ export function storyboardEditor(project, story, originalText, actions) {
   const box = element('div', '', 'storyboard-editor')
   const edit = element('button', '编辑')
   edit.type = 'button'
-  edit.disabled = Boolean(project.activity)
+  edit.disabled = Boolean(project.operationActivity)
   edit.setAttribute('aria-label', `编辑 ${story.id} 文本分镜`)
   const form = element('form')
   form.hidden = true

@@ -1,3 +1,4 @@
+import { operationRequest } from '../client/operation-request.js'
 import { reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -9,9 +10,9 @@ import { scopeProjects } from '../server/data/episode-data.js'
 import { addEpisode } from '../shared/episode-rules.js'
 import { projectStore, revisionStore } from '../server/data/project-store.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
-import { saveIncoming } from '../server/flow/operations/project-operations.js'
-import { produceShots } from '../server/flow/operations/video-operations.js'
+import { runOperation } from './fixtures/operation.js'
+import { saveIncoming } from '../server/flow/shared/incoming.js'
+import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { setContent } from '../shared/drama-model.js'
 import { guidanceTypes } from '../shared/guidance-categories.js'
 
@@ -46,7 +47,7 @@ test('selections are saved per stage for the whole drama and clear without chang
   const cleared = await scopeProjects(e.store, e.episodeId).read(e.id)
   assert.equal(cleared.skills.assets.outline, undefined)
   assert.deepEqual(cleared.skills.assets.seconds, assets)
-  assert.equal(cleared.plot.outline.content, reloaded.plot.outline.content)
+  assert.deepEqual(cleared.plot.outline.content, reloaded.plot.outline.content)
   assert.equal((await assetStore(e.home).list('guidance')).length, 1)
   assert.throws(() => assetsPatch(cleared, 'bad', []), /阶段无效/)
 })
@@ -57,17 +58,17 @@ test('assets are grouped by guidance skill with the same context for generation,
   const task = { project, skill: 'seconds', instructions: '生成当前镜头', opinion: '本次修改' }
   const prompts = buildTextPrompts(task)
   for (const message of [prompts.generation, prompts.review('待审'), prompts.revision('旧稿', reviewFail('缺少动作'))]) {
-    assert.match(message.user, /【expression参考素材】/)
-    assert.match(message.user, /【sound参考素材】/)
-    assert.match(message.user, /【dialogue参考素材】/)
-    assert.match(message.user, /【martial参考素材】/)
-    assert.match(message.user, /【其他参考素材】/)
+    assert.match(message.user, /"expression":/)
+    assert.match(message.user, /"sound":/)
+    assert.match(message.user, /"dialogue":/)
+    assert.match(message.user, /"martial":/)
+    assert.match(message.user, /"other":/)
     assert.doesNotMatch(message.user, /OUTSIDE_STAGE/)
     for (const asset of assets) assert.ok(message.user.includes(asset.content))
   }
   // 动作与特效同属动作指导，声音与配乐同属声音指导：各自只出现在一个分组。
-  assert.equal(prompts.generation.user.match(/【action参考素材】/g).length, 1)
-  assert.ok(prompts.generation.user.indexOf('REFERENCE_effect') < prompts.generation.user.indexOf('【martial参考素材】'))
+  assert.equal(prompts.generation.user.match(/"action":/g).length, 1)
+  assert.ok(prompts.generation.user.indexOf('REFERENCE_effect') < prompts.generation.user.indexOf('"martial":'))
   assert.match(prompts.review('待审').system, /未采用可选参考不判失败/)
 })
 
@@ -83,7 +84,7 @@ test('film selection changes preserve artifacts and production recompiles before
   assert.equal(changed.shots.items[0].storyboard.stale, true)
   assert.equal(changed.shots.items[0].storyboard.check.passed, false)
   const calls = []
-  await produceShots(e.op('produce', { track: 'S01' }), { home: e.home }, async op => {
+  const manager = createOperationManager({ home: e.home, execute: async (_operation, { task }) => { const op = task.operation
     calls.push(op.action)
     await scope.save(e.id, current => {
       const shot = current.shots.items[0]
@@ -95,7 +96,8 @@ test('film selection changes preserve artifacts and production recompiles before
       return { shots: current.shots }
     })
     return []
-  })
+  } })
+  await manager.start(e.op('film', { track: 'S01' })).done
   assert.deepEqual(calls, ['shot-storyboard', 'film'])
   await e.store.save(e.id, current => assetsPatch(current, 'film', [guidance('action')]))
   assert.equal((await e.read()).shots.items[0].storyboard.stale, false)
@@ -104,7 +106,7 @@ test('film selection changes preserve artifacts and production recompiles before
 })
 
 test('guide selection changes do not invalidate an in-flight shot task', async t => {
-  const e = await setupModel(t), job = revisionStore(e.store, 'task', { episodeId: e.episodeId, track: 'S01', action: 'shot-seconds' })
+  const e = await setupModel(t), job = revisionStore(e.store, 'task', operationRequest('shot-seconds', { episodeId: e.episodeId, track: 'S01' }))
   await job.read(e.id)
   await e.store.save(e.id, current => assetsPatch(current, 'seconds', [guidance('new')]))
   await job.save(e.id, { title: '结果' })

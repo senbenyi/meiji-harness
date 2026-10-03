@@ -1,3 +1,4 @@
+import { operationRequest } from '../client/operation-request.js'
 // 状态稳定性基线（计划-操作任务节点三层模型 第 17、18 节，阶段 A0）。
 // 用 todo 记录尚未修复的现有缺陷：失败不计入总失败数；对应阶段修复后去掉 todo，改为普通测试。
 import test from 'node:test'
@@ -6,7 +7,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { runOperation } from './fixtures/operation.js'
 import { setupModel, tempHome } from './fixtures/model.js'
 import { outlineFixture } from './fixtures/story-package.js'
 import { randomUUID } from 'node:crypto'
@@ -24,13 +25,13 @@ test('B1 同一集同一时间只允许一个生成操作，不同镜头也不�
   const tasks = createOperationManager({ home: await tempHome(t), execute: blocking }), started = []
   started.push(tasks.start({ projectId: 'p', episodeId: 'e', action: 'film', track: 'S01' }))
   try {
-    assert.throws(() => started.push(tasks.start({ projectId: 'p', episodeId: 'e', action: 'shot-storyboard', track: 'S02' })), { status: 409 })
+    assert.throws(() => started.push(tasks.start(operationRequest('shot-storyboard', { projectId: 'p', episodeId: 'e', track: 'S02' }))), { status: 409 })
   } finally { await stopAll(tasks, 'p', started) }
 })
 
 test('B3 本集生成操作占用期间，面板直接编辑同一集被拒绝（只有一把锁）', async t => {
   const e = await setupModel(t)
-  const tasks = createOperationManager({ home: e.home, execute: blocking }), started = [tasks.start(e.op('outline'))]
+  const tasks = createOperationManager({ home: e.home, execute: blocking }), started = [tasks.start(e.op('story', {}))]
   try {
     await assert.rejects(runOperation(e.op('outline-text', { outline: outlineFixture('面板改写的大纲') }), { home: e.home, reviewContent: async () => ({ passed: true, failures: [] }) }), { status: 409 })
   } finally { await stopAll(tasks, e.id, started) }
@@ -43,15 +44,15 @@ test('AC-M2 面板占用本集时，会话发起返回 busy；会话可等待但
   let releasePanel
   const gate = new Promise(resolve => { releasePanel = resolve })
   const tasks = createOperationManager({ home: e.home, execute: async operation => { if (operation.origin === 'panel') await gate; return ['完成'] } })
-  const panel = tasks.start({ ...e.op('shots'), origin: 'panel' })
+  const panel = tasks.start({ ...e.op('shot-table', {}), origin: 'panel' })
   const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ home: e.home, tasks })
   const busy = JSON.parse(await generate.execute({ stage: 'shots', episodeNumber: 1, mode: 'regenerate' }, exec))
   assert.equal(busy.status, 'busy'); assert.equal(busy.operationId, panel.id); assert.equal(busy.initiator, 'panel')
-  assert.match(busy.message, /本集正在执行：写镜头表.*（面板发起）/)
+  assert.match(busy.message, /本集正在执行：生成镜头表.*（面板发起）/)
   await assert.rejects(control.execute({ action: 'cancel', operationId: busy.operationId }, exec), { status: 404 })
   setTimeout(releasePanel, 30)
   const waited = JSON.parse(await control.execute({ action: 'wait', operationId: busy.operationId }, exec))
-  assert.equal(waited.status, 'completed'); assert.equal(waited.occupant, true); assert.equal(waited.steps, undefined)
+  assert.equal(waited.status, 'completed'); assert.equal(waited.occupant, true); assert.equal(waited.nodes, undefined)
   const again = JSON.parse(await generate.execute({ stage: 'shots', episodeNumber: 1, mode: 'regenerate' }, exec))
   assert.equal(again.status, 'running')
   assert.equal(JSON.parse(await control.execute({ action: 'wait', operationId: again.operationId }, exec)).status, 'completed')
@@ -59,8 +60,8 @@ test('AC-M2 面板占用本集时，会话发起返回 busy；会话可等待但
 
 test('AC-M4 占用在操作结束或停止后释放；另一集不受影响', async t => {
   const tasks = createOperationManager({ home: await tempHome(t), execute: blocking }), started = []
-  const first = tasks.start({ projectId: 'p', episodeId: 'e1', action: 'shots' }); started.push(first)
-  started.push(tasks.start({ projectId: 'p', episodeId: 'e2', action: 'shots' }))
+  const first = tasks.start(operationRequest('shots', { projectId: 'p', episodeId: 'e1' })); started.push(first)
+  started.push(tasks.start(operationRequest('shots', { projectId: 'p', episodeId: 'e2' })))
   assert.throws(() => tasks.start({ projectId: 'p', episodeId: 'e1', action: 'seconds' }), error => error.status === 409 && error.busy.operationId === first.id)
   tasks.cancel(first.id, 'p'); await first.done
   const next = tasks.start({ projectId: 'p', episodeId: 'e1', action: 'seconds' }); started.push(next)
@@ -69,7 +70,7 @@ test('AC-M4 占用在操作结束或停止后释放；另一集不受影响', as
 
 test('B2 操作失败只记录在任务与内容节点上，不写剧集级 activityError', async t => {
   const e = await setupModel(t)
-  await assert.rejects(runOperation(e.op('shots'), { home: e.home, generateShots: async () => { throw new Error('镜头表生成失败') } }), /镜头表生成失败/)
+  await assert.rejects(runOperation(e.op('shot-table', {}), { home: e.home, generateShots: async () => { throw new Error('镜头表生成失败') } }), /镜头表生成失败/)
   const episode = await e.read(), root = await e.store.read(e.id)
   assert.equal(episode.shots.error, '镜头表生成失败')
   assert.equal(episode.activityError ?? null, null)

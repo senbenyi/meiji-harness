@@ -2,7 +2,7 @@ import { videoSizeOf } from '../../shared/project-rules.js'
 import { markApiFailure, checkContext } from '../runtime/operation-context.js'
 import { insertSessionLog, sessionForLog, logPurpose, runWithLogPurpose } from '../host/session-log.js'
 import { gatewayBaseUrl } from '../../models/model-config.js'
-import { recordStepPrompt, runStep } from '../runtime/task-execution.js'
+import { recordNodePrompt, runNode } from '../runtime/task-execution.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { builtinSkill, isSkill } from '../../skills/load-skills.js'
 
@@ -154,7 +154,7 @@ export async function completeChat({ baseUrl, apiKey, model, system, prompt, jso
   const messages = []
   if (system) messages.push({ role: 'system', content: system })
   messages.push({ role: 'user', content: prompt })
-  await recordStepPrompt({ kind: 'text', messages })
+  await recordNodePrompt({ kind: 'text', messages })
   const payload = { model, messages, ...(json ? { response_format: { type: 'json_object' } } : {}) }
   const result = await requestGateway({
     baseUrl, path: 'chat/completions', method: 'POST', apiKey, fetchImpl, signal, fn: 'completeChat',
@@ -221,9 +221,9 @@ export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, asp
     const body = { model: model, prompt, size, ...(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff ? { seed } : {}) }
     request = { path: 'images/generations', headers: { ...headers, 'Content-Type': 'application/json' }, body }
   }
-  const step = (kind, run) => stepTarget ? runStep(kind, run, { target: stepTarget }) : run()
+  const step = (kind, run) => stepTarget ? runNode(kind, run, { target: stepTarget }) : run()
   const result = await step('image_generate', async () => {
-    await recordStepPrompt({ kind: 'image', prompt })
+    await recordNodePrompt({ kind: 'image', prompt })
     const response = await requestGateway({ baseUrl, method: 'POST', apiKey, fetchImpl, signal, fn: 'generateGatewayImage', ...request })
     if (!response.ok) fail(response.response, response.data, `图片生成失败：HTTP ${response.response.status}`)
     signal?.throwIfAborted()
@@ -274,7 +274,7 @@ export async function submitGatewayVideo({ baseUrl, apiKey, model, prompt, durat
   const size = Buffer.byteLength(JSON.stringify(body))
   if (size > requestByteLimit) throw Object.assign(new Error(`视频请求 ${(size / 1024 / 1024).toFixed(1)} MiB，超过网关 64 MiB 上限，请减少或压缩参考图`), { status: 413 })
   // 提交期间保留连接取得任务 ID，停止时才能如实记录远端任务。
-  await recordStepPrompt({ kind: 'video', prompt })
+  await recordNodePrompt({ kind: 'video', prompt })
   const result = await requestGateway({
     baseUrl, path: 'videos', method: 'POST', apiKey, fetchImpl, signal: AbortSignal.timeout(requestTimeoutMs), fn: 'submitGatewayVideo',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -329,7 +329,7 @@ export async function runTextRequest(message, { request, logPurpose, logStage, .
   options.signal?.throwIfAborted()
   const { route, signal, fetchImpl } = options
   try {
-    if (request) await recordStepPrompt({ kind: 'text', messages: [
+    if (request) await recordNodePrompt({ kind: 'text', messages: [
       ...(message.system ? [{ role: 'system', content: message.system }] : []), { role: 'user', content: message.user },
     ] })
     return await runWithLogPurpose(`${logPurpose || skillLogPurpose(message.stage || message.skill)}${logStage ? '·' + logStage : ''}`, () => request

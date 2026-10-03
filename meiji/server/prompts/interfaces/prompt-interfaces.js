@@ -6,7 +6,6 @@ import { TextStoryboardModel } from '../models/text-storyboard-model.js'
 import characterImage from './character-image-interface.js'
 import sceneImage from './scene-image-interface.js'
 import { PartImageModel } from '../models/part-image-model.js'
-import { PencilImageModel } from '../models/pencil-storyboard-model.js'
 
 // 镜头表、每秒指令、单镜修订、图片提示词改写共用 TextStepModel；文本分镜由程序生成，模型只审核。
 const textInterfaces = {
@@ -21,7 +20,6 @@ const imageInterfaces = {
   'character-image': characterImage,
   'scene-image': sceneImage,
   'part-image': { generate: task => new PartImageModel(task).toGenerateSegments() },
-  pencil: { generate: task => new PencilImageModel(task).toGenerateSegments() },
 }
 
 export function textInterface(stage) {

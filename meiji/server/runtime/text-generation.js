@@ -1,10 +1,10 @@
 import { h3PromptFailures } from '../../shared/video-rules.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
 import { buildEditedContentReview } from '../prompts/text-prompts.js'
-import { runStep, stepAttempt } from './task-execution.js'
+import { runNode, nodeAttempt } from './task-execution.js'
 import { runTextRequest, skillLogPurpose } from '../gateway/model-gateway.js'
 import { parseReviewResult, formatReviewIssue } from '../../shared/review-result.js'
-import { activeStep } from './task-context.js'
+import { activeNode } from './task-context.js'
 import { saveTaskDraft } from '../data/content-records.js'
 import { checkContext } from './operation-context.js'
 import { maxRevisionsOf, roundSuffix } from '../../shared/task-nodes.js'
@@ -12,7 +12,7 @@ import { maxRevisionsOf, roundSuffix } from '../../shared/task-nodes.js'
 export async function reviewContent({ project, stage, shotId, text, route, request }) {
   const board = project.shots?.items.find(shot => shot.id === shotId)?.storyboard.content
   const check = stage === 'storyboard' && board ? value => h3PromptFailures(value, shotReferenceImages(project, board), board.video) : undefined
-  const result = await reviewStep({ check, text, target: shotId ? `storyboard:${shotId}` : 'story', message: buildEditedContentReview({ project, stage, shotId }, text), options: { project, route, request, logStage: '自审' } })
+  const result = await reviewStep({ check, text, target: shotId ? `storyboard:${shotId}` : stage, message: buildEditedContentReview({ project, stage, shotId }, text), options: { project, route, request, logStage: '自审' } })
   return result.check
 }
 
@@ -29,7 +29,7 @@ function canPublish({ check, canPersist, retainFailedDraft }, text) {
 }
 
 export async function generateStep({ kind = 'generate', target = null, phase, label, round, message, options, complete, persist }) {
-  return runStep(kind, async () => {
+  return runNode(kind, async () => {
     let text = await runTextRequest(message, options)
     if (!String(text || '').trim()) throw new Error('模型未返回内容')
     if (complete) text = await complete(text, message, options)
@@ -41,9 +41,9 @@ export async function generateStep({ kind = 'generate', target = null, phase, la
 // 一个自审包含按流程声明的0–2种来源；接口故障或非法审核响应仍是执行错误。
 export async function reviewStep({ kind = 'review', target = null, phase, label, round, message, options, persist, check, text }) {
   if (!check && !message) return { review: null, reviewText: '', check: { passed: null, failures: [] } }
-  return runStep(kind, async () => {
-    const failures = check ? await stepAttempt('程序审核', () => programFailures(check, text)) : []
-    const model = message ? await stepAttempt('大模型审核', async () => parseReviewResult(await runTextRequest(message, options))) : null
+  return runNode(kind, async () => {
+    const failures = check ? await nodeAttempt('程序审核', () => programFailures(check, text)) : []
+    const model = message ? await nodeAttempt('大模型审核', async () => parseReviewResult(await runTextRequest(message, options))) : null
     const issues = [...(model?.issues || []), ...failures.map(reason => ({ location: '程序校验', reason, requirement: '按该校验要求修正正文' }))]
     const review = { passed: issues.length === 0, issues }
     const combined = issues.map(formatReviewIssue)
@@ -54,23 +54,23 @@ export async function reviewStep({ kind = 'review', target = null, phase, label,
 }
 
 function markSaved() {
-  const step = activeStep()
+  const step = activeNode()
   if (step) step.saved = true
 }
 
-export async function runTextSteps(spec) {
+export async function runTextNodes(spec) {
   const { target = null, phase, labelPrefix, prompts, complete, canPersist, canRevise = () => true, initialText, persist, check, retainFailedDraft = false } = spec
   let options = spec.options || {}
   const detail = (kind, round) => ({ phase, round, label: labelPrefix ? `${labelPrefix}·${({ generate: '生成', review: '自审', revise: '修订', re_review: '复审' })[kind]}${roundSuffix({ kind, round })}` : undefined })
   const ctx = checkContext.getStore()
-  // 修订上限：调用方显式传入优先，其次为当前任务定义（run-operation 放入操作上下文），默认 2。
+  // 修订上限：调用方显式传入优先，其次为当前任务定义（任务执行器放入上下文），默认 2。
   // 操作上下文可按目标给出各任务的上限（一个操作含多个任务时）。
   const maxRevisions = maxRevisionsOf(spec.maxRevisions ?? (typeof ctx?.maxRevisions === 'function' ? ctx.maxRevisions(target) : ctx?.maxRevisions))
   options = { ...options, signal: options.signal || ctx?.signal, logPurpose: options.logPurpose || skillLogPurpose(prompts.generation.skill) }
   const save = async (text, verdict) => {
     if (!canPublish({ check, canPersist, retainFailedDraft }, text)) {
       // 保存可追查的原文及结论，不用无法映射的内容覆盖项目。
-      if (activeStep()) await saveTaskDraft(target, { text, check: verdict })
+      if (activeNode()) await saveTaskDraft(target, { text, check: verdict })
       return false
     }
     if (ctx) ctx.validation = verdict.failures

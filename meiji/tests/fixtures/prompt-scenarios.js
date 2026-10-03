@@ -11,7 +11,7 @@ import { buildEpisodePrompts } from '../../server/prompts/episode-summary-prompt
 import { buildSecondsPrompts, buildSingleShotPrompts, buildTablePrompts } from '../../server/prompts/shot-text-prompts.js'
 import { buildEditedContentReview, buildTextPrompts } from '../../server/prompts/text-prompts.js'
 import { characterImagePrompt } from '../../server/prompts/interfaces/character-image-interface.js'
-import { imageSkillPrompt, propImagePrompt, pencilPrompt } from '../../server/prompts/image-prompts.js'
+import { imageSkillPrompt, propImagePrompt } from '../../server/prompts/image-prompts.js'
 import { sceneStillPrompt } from '../../shared/image-assets.js'
 
 const guidance = [{ id: 'g-action', name: '动作参考', guidanceType: 'action', content: '动作参考内容' }, { id: 'g-sound', name: '声音参考', guidanceType: 'sound', content: '声音参考内容' }]
@@ -73,7 +73,6 @@ export async function buildScenarios() {
   add('image:character', { prompt: characterImagePrompt(card, view) })
   add('image:scene', { prompt: imageSkillPrompt('scene-image', sceneStillPrompt(scene), view) })
   add('image:part', { prompt: propImagePrompt({id: 'P01', name: '长衣', category: 'clothing', description: '灰色长衣', evidence: '旅人身穿灰色长衣'}, view) })
-  add('image:pencil', { prompt: imageSkillPrompt('pencil', pencilPrompt(view.shots.items[0].storyboard.content), view) })
   return out
 }
 

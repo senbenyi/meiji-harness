@@ -19,7 +19,13 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   if (record?.error && !(reviewError && failures.length)) area.append(element('p', `执行未通过：${record.error}`, 'hint warn'))
   if (failures.length) area.append(element('p', `自审未通过：${failures.join('；')}`, 'hint warn workflow-review-failures'))
   else if (check?.passed === false && !record?.error) area.append(element('p', '自审未通过，请查看任务历史中的审核详情。', 'hint warn workflow-review-failures'))
-  if (!generated) area.append(element('p', '本次尚未保存可用内容，请查看任务历史中的执行详情，再重新生成。', 'hint'))
+  if (!generated) area.append(element('p', '本次尚未保存可用内容。', 'hint'))
+  if (failed || !generated) {
+    const details = element('button', '查看失败详情', 'workflow-review-detail')
+    details.type = 'button'
+    details.onclick = () => details.dispatchEvent(new CustomEvent('meiji-view-failure', { bubbles: true, composed: true, detail: { target: record?.id, episodeId: area.dataset.episodeId } }))
+    area.append(details)
+  }
   // 人工忽略自审：只在面板上由人操作；放行后显示「人工放行」与原自审意见，与 AI 通过区分。
   const override = overriddenBy(record)
   if (override) area.append(element('p', `人工放行${override.reasons?.length ? `（原自审意见：${override.reasons.join('；')}）` : ''}`, 'hint workflow-review-overridden'))

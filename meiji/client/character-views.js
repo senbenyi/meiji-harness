@@ -1,3 +1,4 @@
+import { historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { element, appendJsonCopy } from './panel-dom.js'
 import { stillCards, characterSheet, cardImageControls, cardImageGate } from './asset-cards.js'
@@ -43,6 +44,7 @@ export function renderCharacterDetail(project, itemId, actions, context) {
   back.onclick = () => context.onBackCharacter?.()
   const item = project?.plot?.characters?.items?.find(item => item.id === itemId)
   head.append(back, element('h2', item ? `${item.name} · 人物详情` : '人物详情'))
+  if (item && actions.openHistory) head.append(historyEntry(project, actions, `characters,image:${item.id}`))
   page.append(head)
   if (!item) {
     page.append(element('p', '该人物已不存在，请返回列表重新选择。', 'notice'))

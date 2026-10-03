@@ -69,8 +69,6 @@ DSH_DATA="${DSH_HOME:-$HOME/.dsh}"
 if [[ -d "$DSH_DATA/storages/meiji/projects" ]]; then
   echo "检查 meiji 项目存储布局"
   node "$PLUGIN/scripts/migrate-layout.js" "$DSH_DATA"
-  echo "检查 meiji 任务记录格式"
-  node "$PLUGIN/scripts/migrate-task-steps.js" "$DSH_DATA"
   echo "检查 meiji 补充 skill 与指导素材（按集 → 按剧）"
   node "$PLUGIN/scripts/migrate-custom-skills.js" "$DSH_DATA"
   echo "检查 meiji 图片网关地址（imageUrl → 本地图片）"

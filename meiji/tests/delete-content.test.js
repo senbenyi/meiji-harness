@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setupModel, episodeFixture } from './fixtures/model.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { runOperation } from './fixtures/operation.js'
 
 async function file(path) {
   await mkdir(join(path, '..'), { recursive: true })

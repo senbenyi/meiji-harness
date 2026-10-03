@@ -1,7 +1,8 @@
+import { operationRequest } from '../client/operation-request.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
-import { renderSteps } from '../client/task-steps.js'
+import { renderSteps } from '../client/task-nodes.js'
 import { renderTaskHistory } from '../client/execution-history.js'
 import { renderCurrentTasks } from '../client/current-task.js'
 
@@ -89,7 +90,7 @@ test('加载失败可以重试；旧记录可查询，未执行和跳过步骤�
 
 test('当前任务和历史共用按钮并传递准确任务与步骤，弹窗留在插件 ShadowRoot', async t => {
   setup(t)
-  const task = { id: 'task', action: 'episode-generate', status: 'completed', steps: [step], artifacts: [], actor: 'model' }
+  const task = operationRequest('episode-generate', { id: 'task', status: 'completed', nodes: [step], artifacts: [], actor: 'model' })
   const host = document.createElement('div'); document.body.append(host)
   const root = host.attachShadow({ mode: 'open' }), seen = []
   const loadPrompts = async (value, selected) => { seen.push([value.id, selected.id]); return { prompts: [{ prompt: '完整内容' }] } }
@@ -99,7 +100,7 @@ test('当前任务和历史共用按钮并传递准确任务与步骤，弹窗�
   assert.ok(root.querySelector('dialog'))
   assert.equal(document.querySelector('dialog'), null)
   root.querySelector('dialog').close()
-  const current = renderCurrentTasks({ id: 'project' }, { load: async () => ({ tasks: [{ ...task, status: 'running' }] }), loadPrompts, stop() {} })
+  const current = renderCurrentTasks({ id: 'project' }, { load: async () => ({ operations: [{ id: 'operation', status: 'running', tasks: [{ ...task, status: 'running' }] }] }), loadPrompts, stop() {} })
   root.append(current); await settle()
   current.querySelector('.task-step-prompt').click(); await settle()
   assert.deepEqual(seen, [['task', 'step'], ['task', 'step']])

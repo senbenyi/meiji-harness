@@ -1,6 +1,6 @@
 // 操作：删除道具
 import { plotPatch } from '../../../../shared/drama-model.js'
-import { saveStep } from '../plan-steps.js'
+import { saveStep } from '../../../../shared/task-plans.js'
 
 export async function opPropDelete(c) {
   const { operation, projects, project, trace, note } = c
@@ -20,5 +20,5 @@ export async function opPropDelete(c) {
 }
 
 export const operations = {
-  'prop-delete': { label: '删除道具', scope: 'episode', queue: 'text', agent: false, step: saveStep('props'), stage: 'episode', run: opPropDelete },
+  'prop-delete': { label: '删除道具', scope: 'episode', agent: false, step: saveStep('props'), stage: 'episode', run: opPropDelete },
 }

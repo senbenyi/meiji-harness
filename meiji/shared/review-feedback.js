@@ -24,10 +24,9 @@ export function feedbackKey({ action, track, itemId, slot }) {
   if (action === 'revise-shot') return `shot:${track}`
   if (action === 'shot-seconds') return `seconds:${track}`
   if (['shot-storyboard', 'storyboard-text', 'storyboard-bind'].includes(action)) return `storyboard:${track}`
-  if (action === 'shot-boards') return 'storyboard'
   if (action === 'revise-image' || action === 'image') return `image:${itemId}`
   if (action === 'part-image') return `image:${itemId}:${slot}`
-  if (action === 'pencil' || action === 'film') return `${action}:${track}`
+  if (action === 'film') return `${action}:${track}`
   if (action === 'assemble') return 'assembly'
   return action
 }
@@ -73,6 +72,8 @@ const hasText = (key, value) => {
 export function overrideBlocker(project, key) {
   const nodes = overrideNodes(project, key)
   if (!nodes.length) return '只有自审未通过的文本内容可以忽略'
+  // 格式错误不能人工放行，即使其他镜头同时已过期也先明确此原因。
+  if (nodes.some(([item]) => item.split(':')[0] === 'seconds') && !validSeconds(project, key.split(':')[1])) return '每秒指令格式错误，不能忽略，请修正后重新审核'
   for (const [item, value] of nodes) {
     if (value.operation) return '内容正在生成，请稍后'
     if (value.stale) return '内容已过期，请重新生成'

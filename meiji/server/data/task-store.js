@@ -1,18 +1,18 @@
 // 任务、提示词和内容记录的文件读写；任务执行位于 runtime/task-execution.js。
-import { deriveTaskStatus } from '../../shared/task-steps.js'
+import { deriveTaskStatus } from '../../shared/task-nodes.js'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { notifyProject } from './project-events.js'
 import { liveTasks as live, usedSkills } from '../runtime/task-context.js'
-import { finalizeSteps, partitionSteps, taskIdOfStep } from '../runtime/task-state.js'
+import { finalizeNodes } from '../runtime/task-state.js'
 
-export const TASK_SCHEMA = 2
+export const TASK_SCHEMA = 3
 const writes = new Map()
 const validId = /^[a-zA-Z0-9_-]+$/
 const now = () => new Date().toISOString()
 function oldTaskRecordsError(projectId) {
-  return Object.assign(new Error(`项目 ${projectId} 的任务记录仍是旧格式，请停止服务后执行：node meiji/scripts/migrate-task-steps.js <DSH_HOME>`), { code: 'OLD_TASK_RECORDS', status: 409 })
+  return Object.assign(new Error(`项目 ${projectId} 的任务记录仍是旧格式，请停止服务后清理旧项目数据`), { code: 'OLD_TASK_RECORDS', status: 409 })
 }
 
 export function recordStore(home, projectId) {
@@ -25,7 +25,7 @@ export function recordStore(home, projectId) {
   const read = async (kind, id) => {
     const value = JSON.parse(await readFile(path(kind, id), 'utf8'))
     if (kind === 'tasks' && value.schemaVersion !== TASK_SCHEMA) throw oldTaskRecordsError(projectId)
-    return value
+    return kind === 'tasks' ? { ...value, status: deriveTaskStatus(value.nodes) } : value
   }
   const update = async (kind, id, change) => {
     const file = path(kind, id)
@@ -59,9 +59,9 @@ export function recordStore(home, projectId) {
     async interrupt() {
       for (const task of await this.list()) {
         if (task.endedAt) continue
-        const steps = structuredClone(task.steps)
-        finalizeSteps(steps, Object.assign(new Error('服务重启，任务已取消'), { code: 'TASK_CANCELLED' }), { aborted: true })
-        await update('tasks', task.id, current => ({ ...current, steps, status: deriveTaskStatus(steps), error: '服务重启，任务已取消', endedAt: now() }))
+        const nodes = structuredClone(task.nodes)
+        finalizeNodes(nodes, Object.assign(new Error('服务重启，任务已取消'), { code: 'TASK_CANCELLED' }), { aborted: true })
+        await update('tasks', task.id, current => ({ ...current, nodes, status: deriveTaskStatus(nodes), error: '服务重启，任务已取消', endedAt: now() }))
         live.delete(task.id)
       }
       // 遗留的未结束操作同样结束，状态由其任务推导（均已取消）。
@@ -74,28 +74,22 @@ export function recordStore(home, projectId) {
 }
 
 // 按任务写回步骤（一个操作的多个任务共用执行上下文，步骤按目标归入各自任务）；extra 只写入当前步骤所属任务。
-export async function writeSteps(context, extra) {
-  const owner = taskIdOfStep(context, context.stepId)
-  let primary = null
-  for (const group of partitionSteps(context.steps, context.tasks)) {
-    const id = group.id || context.taskId
-    const record = await context.store.update('tasks', id, task => ({ ...task, ...(extra && id === owner ? extra(task) : {}), ...usedSkills(context), steps: group.steps, status: deriveTaskStatus(group.steps) }))
-    live.set(id, record)
-    if (id === owner) primary = record
-  }
+export async function writeNodes(context, extra) {
+  const primary = await context.store.update('tasks', context.taskId, task => ({ ...task, ...(extra ? extra(task) : {}), ...usedSkills(context), nodes: context.nodes, status: deriveTaskStatus(context.nodes) }))
+  live.set(context.taskId, primary)
   notifyProject(context.home, context.projectId)
   return primary
 }
 
-export async function readStepPrompts(home, projectId, taskId, stepId) {
+export async function readNodePrompts(home, projectId, taskId, nodeId) {
   const store = recordStore(home, projectId)
   const task = await store.read('tasks', taskId)
   if (task.projectId !== projectId) throw Object.assign(new Error('任务不属于当前项目'), { status: 404 })
-  const step = task.steps.find(item => item.id === stepId)
+  const step = task.nodes.find(item => item.id === nodeId)
   if (!step) throw Object.assign(new Error('任务步骤不存在'), { status: 404 })
   return Promise.all((step.prompts || []).map(async ({ id }) => {
     const value = await store.read('prompts', id)
-    if (value.taskId !== taskId || value.stepId !== stepId) {
+    if (value.taskId !== taskId || value.nodeId !== nodeId) {
       throw Object.assign(new Error('提示词记录不属于当前步骤'), { status: 404 })
     }
     return value

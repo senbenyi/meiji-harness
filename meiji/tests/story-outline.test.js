@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { outlineFields, normalizeOutline, outlineFailures, outlineText } from '../shared/story-outline.js'
 import { outlineFixture } from './fixtures/story-package.js'
 import { setupModel } from './fixtures/model.js'
-import { runOperation } from '../server/flow/operations/run-operation.js'
+import { runOperation } from './fixtures/operation.js'
 import { storyDialog } from '../client/project-session-view.js'
 import { JSDOM } from './fixtures/jsdom.js'
 

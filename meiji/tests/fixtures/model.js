@@ -1,3 +1,4 @@
+import { operationRequest } from '../../client/operation-request.js'
 import { outlineFixture } from './story-package.js'
 import { secondsContent } from './seconds.js'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -31,6 +32,6 @@ export async function setupModel(t) {
   const store = projectStore(home), project = await store.create({ title: '测试剧', summary: '旅人的冒险' }), episode = episodeFixture()
   await store.save(project.id, { episodes: [episode] })
   return { home, store, id: project.id, episodeId: episode.id, episode,
-    op: (action, fields = {}) => ({ action, projectId: project.id, episodeId: episode.id, ...fields }),
+    op: (action, fields = {}) => ({ projectId: project.id, episodeId: episode.id, ...operationRequest(action, fields) }),
     read: async () => materialize(await store.read(project.id), episode.id) }
 }

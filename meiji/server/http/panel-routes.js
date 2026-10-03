@@ -1,5 +1,6 @@
-import { recordStore, readStepPrompts } from '../data/task-store.js'
-import { stepPromptsFromLog } from '../host/step-prompt-log.js'
+import { recordStore, readNodePrompts } from '../data/task-store.js'
+import { readOperation, listHistory, withStatus } from '../data/operation-history.js'
+import { validateOperation } from '../flow/operations/operation-registry.js'
 import { subscribeProject } from '../data/project-events.js'
 import { targetNode } from '../../shared/drama-model.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
@@ -16,7 +17,7 @@ import { modelStore } from '../data/model-settings.js'
 import { projectStore } from '../data/project-store.js'
 import { readStill } from '../media/image-files.js'
 import { cancelOperation } from '../flow/operations/operation-cancel.js'
-import { saveIncoming } from '../flow/operations/project-operations.js'
+import { saveIncoming } from '../flow/shared/incoming.js'
 import { insertSessionLog, runWithSessionLog } from '../host/session-log.js'
 import { hostWorkspaces } from '../host/harness-workspaces.js'
 import { linkStore } from '../data/workspace-links.js'
@@ -24,8 +25,6 @@ import { materialize } from '../../shared/episode-rules.js'
 import { readEpisodeCover } from '../data/episode-data.js'
 import { assetRoutes } from './asset-library-routes.js'
 import { skillRoutes } from './skill-routes.js'
-
-const directActions = new Set(['project-delete', 'episode-delete', 'open', 'overview', 'source', 'outline-text', 'storyboard-text', 'shot-assets', 'episode-add', 'episode-edit', 'library-import', 'import-image', 'part-import', 'part-text', 'set-reference', 'clear-reference', 'use-asset', 'clear-image', 'assemble', 'review-override'])
 
 // 浏览器可加载的两个平铺目录：client/ 为面板界面，shared/ 为前后端共用的领域模块。
 const staticRoots = {
@@ -208,8 +207,10 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         const body = await readJson(req, 8192)
         if (!['confirm-image', 'discard-image'].includes(body.action)) return json(res, 400, { error: '图片操作无效' })
         await links.requireProject(String(body.sessionId || ''), body.projectId)
-        const trace = await tasks.run({ action: body.action, projectId: body.projectId, episodeId: body.episodeId, draftId: body.draftId, sessionId: body.sessionId }, { imageReviewAllowed: true })
-        insertSessionLog(ctx.sessions.get(body.sessionId), trace.join('\n'))
+        const started = tasks.start({ action: body.action, projectId: body.projectId, episodeId: body.episodeId, draftId: body.draftId, sessionId: body.sessionId }, null, { imageReviewAllowed: true })
+        const trace = await started.done
+        if (started.failure) throw started.failure
+        insertSessionLog(ctx.sessions.get(body.sessionId), trace.trace.join('\n'))
         return json(res, 200, { project: await projects.read(body.projectId) })
       }
       if (path === base + '/review-draft') {
@@ -245,28 +246,37 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         res.on('close', () => { clearInterval(heartbeat); unsubscribe() })
         return
       }
-      // 「当前任务」页：本集进行中与排队中的任务及其步骤、排队位置。
-      if (path === base + '/tasks/current') {
-        if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
+      if (path === base + '/operations/current' && req.method === 'GET') {
         const projectId = url.searchParams.get('projectId')
         await links.requireProject(url.searchParams.get('sessionId'), projectId)
-        return json(res, 200, { tasks: tasks.current(projectId, url.searchParams.get('episodeId') || null) })
+        return json(res, 200, { operations: tasks.current(projectId, url.searchParams.get('episodeId') || null).map(({ trace, result, ...operation }) => operation) })
       }
-      if (path === base + '/tasks') {
-        const body = req.method === 'POST' ? await readJson(req, 8192) : Object.fromEntries(url.searchParams)
-        await links.requireProject(body.sessionId, body.projectId)
-        if (req.method === 'GET') {
-          if (body.operationId) {
-            const task = await tasks.get(body.operationId, body.sessionId)
-            if (task.projectId !== body.projectId) return json(res, 404, { error: '任务不属于本项目' })
-            return json(res, 200, { task })
-          }
-          return json(res, 200, { tasks: tasks.list(body.projectId) })
-        }
+      if (path === base + '/operations/cancel') {
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
         if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
-        cancelOperation(tasks, { id: body.operationId, projectId: body.projectId, sessionId: body.sessionId, initiator: 'panel' })
+        const body = await readJson(req, 8192)
+        await links.requireProject(body.sessionId, body.projectId)
+        cancelOperation(tasks, { id: body.operationId, projectId: body.projectId, initiator: 'panel' })
         return json(res, 200, { accepted: true })
+      }
+      const detailRoute = path.match(new RegExp('^' + base + '/(operations|tasks|artifacts)/([A-Za-z0-9_-]+)(?:/nodes/([A-Za-z0-9_-]+)/prompts)?$'))
+      if ((path === base + '/operations' || path === base + '/tasks' || detailRoute) && req.method === 'GET') {
+        const projectId = url.searchParams.get('projectId')
+        await links.requireProject(url.searchParams.get('sessionId'), projectId)
+        const history = recordStore(home, projectId)
+        if (detailRoute) {
+          const [, kind, id, nodeId] = detailRoute
+          if (nodeId) {
+            if (kind !== 'tasks') return json(res, 404, { error: '记录不存在' })
+            return json(res, 200, { prompts: await readNodePrompts(home, projectId, id, nodeId) })
+          }
+          if (kind === 'operations') return json(res, 200, { operation: await readOperation(home, projectId, id) })
+          return json(res, 200, { [kind === 'tasks' ? 'task' : 'artifact']: kind === 'tasks' ? withStatus(await history.read(kind, id)) : await history.read(kind, id) })
+        }
+        const tasksOnly = path === base + '/tasks'
+        const targets = (url.searchParams.get(tasksOnly ? 'target' : 'targets') || '').split(',').filter(Boolean)
+        const records = await listHistory(home, projectId, { episodeId: url.searchParams.get('episodeId'), status: url.searchParams.get('status'), targets, tasksOnly })
+        return json(res, 200, { [tasksOnly ? 'tasks' : 'operations']: records })
       }
       if (path === base + '/turn') {
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
@@ -274,7 +284,9 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const trace = await tasks.run({ action: 'create', fields: body.fields })
+            const started = tasks.start({ action: 'create', fields: body.fields })
+            const trace = await started.done
+            if (started.failure) throw started.failure
             const created = await projects.read(trace.result.projectId)
             const place = await enterProject(created.id)
             insertSessionLog(ctx.sessions.get(place.sessionId), `已创建短剧《${created.title}》`)
@@ -288,49 +300,20 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           if (['project-delete', 'episode-delete'].includes(staged.action) && tasks.list(project.id).length) {
             throw Object.assign(new Error('请先停止生成任务，再删除项目或剧集'), { status: 409 })
           }
-          if (directActions.has(staged.action)) {
-            const session = ctx.sessions.get(sessionId)
-            await runWithSessionLog(session, async () => {
-              try {
-                const trace = await tasks.run(staged, { session })
-                insertSessionLog(session, trace.join('\n'))
-              } catch (error) {
-                insertSessionLog(session, error.message || '操作失败', true)
-                throw error
-              }
-            })
-            return json(res, 200, { accepted: true, completed: true, ...(staged.action === 'project-delete' ? { deleted: true } : project ? { project: await projects.read(project.id) } : {}) })
+          const definition = validateOperation(staged)
+          const started = tasks.start(staged, ctx.sessions.get(sessionId))
+          if (definition.kind === 'direct') {
+            await started.done
+            if (started.failure) throw started.failure
+            return json(res, 200, { accepted: true, completed: true, operationId: started.id, ...(staged.action === 'project-delete' ? { deleted: true } : project ? { project: await projects.read(project.id) } : {}) })
           }
-
-          const task = tasks.start(staged, ctx.sessions.get(sessionId))
-          return json(res, 202, { accepted: true, operationId: task.id })
+          await started.ready
+          return json(res, 202, { accepted: true, operationId: started.id })
         } catch (error) {
           const result = fail(error, '启动任务失败')
           // 本集被占用（面板或会话的操作排队中或执行中）：附带占用者，面板据此提示。
           return json(res, result.status, { error: result.error, ...(error.busy ? { busy: error.busy } : {}) })
         }
-      }
-      if (path === base + '/history' && req.method === 'GET') {
-        const projectId = url.searchParams.get('projectId')
-        await links.requireProject(url.searchParams.get('sessionId'), projectId)
-        await projects.read(projectId)
-        const history = recordStore(home, projectId)
-        const taskId = url.searchParams.get('taskId'), stepId = url.searchParams.get('stepId')
-        if (taskId || stepId) {
-          if (!taskId || !stepId) return json(res, 400, { error: '查看提示词需要任务和步骤编号' })
-          const prompts = await readStepPrompts(home, projectId, taskId, stepId)
-          if (prompts.length) return json(res, 200, { prompts })
-          const task = await history.read('tasks', taskId), step = task.steps.find(item => item.id === stepId)
-          const logged = stepPromptsFromLog(ctx.sessions?.get(task.sessionId), task, step)
-          return json(res, 200, { prompts: logged, message: logged.length
-            ? '来自当时的会话请求日志，可能包含脱敏标记。'
-            : '该步骤没有提示词快照，也未找到能明确关联到该步骤的完整请求日志。旧服务生成的任务可能没有记录；更新后端代码后需要重启服务，新的请求才会保存提示词。' })
-        }
-        const artifactId = url.searchParams.get('artifactId')
-        if (artifactId) return json(res, 200, { artifact: await history.read('artifacts', artifactId) })
-        const episodeId = url.searchParams.get('episodeId')
-        const tasks = (await history.list()).filter(task => !episodeId || task.episodeId === episodeId).sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-        return json(res, 200, { tasks })
       }
       const episodeFilm = path.match(new RegExp('^' + base + '/projects/([^/]+)/films/([^/]+)/([^/]+)$'))
       if (episodeFilm) {
@@ -378,36 +361,6 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           return res.end(file.bytes)
         } catch (error) {
           return json(res, error.code === 'ENOENT' ? 404 : error.status || 400, { error: error.code === 'ENOENT' ? '封面不存在' : error.status ? error.message : '读取封面失败' })
-        }
-      }
-      const boardShot = path.match(new RegExp('^' + base + '/projects/([^/]+)/boards/(S[0-9]{2})$'))
-      if (boardShot) {
-        const id = decodeURIComponent(boardShot[1])
-        const track = boardShot[2]
-        if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
-        try {
-          await projects.read(id)
-          const file = await readStill(join(home, 'storages', 'meiji', 'projects', id, 'boards'), track)
-          res.writeHead(200, { 'Content-Type': file.mime, 'Content-Length': file.bytes.length, 'Cache-Control': 'private, no-cache', 'X-Content-Type-Options': 'nosniff' })
-          return res.end(file.bytes)
-        } catch (error) {
-          return json(res, error.code === 'ENOENT' ? 404 : error.status || 400, { error: error.code === 'ENOENT' ? '铅笔分镜不存在' : error.status ? error.message : '读取铅笔分镜失败' })
-        }
-      }
-      const board = path.match(new RegExp('^' + base + '/projects/([^/]+)/boards/([^/]+)/([^/]+)$'))
-      if (board) {
-        const id = decodeURIComponent(board[1])
-        const episodeId = decodeURIComponent(board[2])
-        const track = decodeURIComponent(board[3])
-        if (!/^[0-9a-f-]{36}$/i.test(episodeId) || !/^S[0-9]{2}$/.test(track)) return json(res, 400, { error: '铅笔分镜不存在' })
-        if (req.method !== 'GET') return json(res, 405, { error: '不支持的请求' })
-        try {
-          await projects.read(id)
-          const file = await readStill(join(home, 'storages', 'meiji', 'projects', id, 'boards', episodeId), track)
-          res.writeHead(200, { 'Content-Type': file.mime, 'Content-Length': file.bytes.length, 'Cache-Control': 'private, no-cache', 'X-Content-Type-Options': 'nosniff' })
-          return res.end(file.bytes)
-        } catch (error) {
-          return json(res, error.code === 'ENOENT' ? 404 : error.status || 400, { error: error.code === 'ENOENT' ? '铅笔分镜不存在' : error.status ? error.message : '读取铅笔分镜失败' })
         }
       }
       const tailRoute = path.match(new RegExp('^' + base + '/projects/([^/]+)/tail-frame/([^/]+)/(S[0-9]+)$'))

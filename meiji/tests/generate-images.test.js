@@ -6,8 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { defaults, normalizeModels } from '../models/model-config.js'
 import { appendImageAsset, imageAsset, imageAssets, imagePrompt, nextPartId, partPrompt, sceneStillPrompt, clearCharacterImage, usableLook, withPartText } from '../shared/image-assets.js'
-import { importAssetImage, saveCharacterReference, submitAssetImage } from '../server/flow/operations/image-operations.js'
-import { pencilPrompt } from '../server/prompts/image-prompts.js'
+import { importAssetImage, saveCharacterReference, submitAssetImage } from '../server/flow/shared/image-files.js'
 import { readStill } from '../server/media/image-files.js'
 import { characterImageSize } from '../server/gateway/model-gateway.js'
 
@@ -20,21 +19,7 @@ const assets = {
   ],
 }
 
-test('a pencil sheet keeps one panel for every second', () => {
-  const prompt = pencilPrompt({
-    id: 'S01', duration: 2, scene: '天台',
-    panels: [
-      { time: '0–1s', pose: '背对镜头走向边缘', camera: '锁定中远景', space: '人在左' },
-      { time: '1–2s', pose: '纵身跃下', camera: '仰角固定', space: '人在中' },
-    ],
-  })
-  assert.match(prompt, /一共 2 格/)
-  assert.match(prompt, /灰白纯色背景/)
-  assert.match(prompt, /0–1s：背对镜头走向边缘/)
-  assert.match(prompt, /1–2s：纵身跃下/)
-  assert.match(prompt, /同一张图/)
-  assert.throws(() => pencilPrompt({ panels: [] }), /文本分镜/)
-})
+
 
 test('gateway image route is stored and a chat model cannot take that slot', async () => {
   const routes = { ...await defaults(), apiKey: 'sk-test-only' }
@@ -224,14 +209,14 @@ test('text-to-image stops at the gateway when credentials are missing or prompt 
 
 
 test('all image entry points save and register candidates inside their third planned step', async t => {
-  const { recordSteps } = await import('./fixtures/steps.js')
-  const { activeStep, executionSteps } = await import('../server/runtime/task-context.js')
-  const { finalizeSteps } = await import('../server/runtime/task-state.js')
-  const { submitPencilBoard, generateStillFile } = await import('../server/flow/operations/image-operations.js')
+  const { recordSteps } = await import('./fixtures/nodes.js')
+  const { activeNode, executionNodes } = await import('../server/runtime/task-context.js')
+  const { finalizeNodes } = await import('../server/runtime/task-state.js')
+  const { generateStillFile } = await import('../server/flow/shared/image-files.js')
   const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
-  for (const [generate, target] of [[submitAssetImage, 'image:A01'], [generateStillFile, 'image:A01:clothes'], [submitPencilBoard, 'pencil:S01']]) {
+  for (const [generate, target] of [[submitAssetImage, 'image:A01'], [generateStillFile, 'image:A01:clothes']]) {
     for (const legacy of [false, true]) {
-      const directory = await mkdtemp(join(tmpdir(), 'meiji-image-steps-'))
+      const directory = await mkdtemp(join(tmpdir(), 'meiji-image-nodes-'))
       t.after(() => rm(directory, { recursive: true, force: true }))
       const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target, status: 'pending' }))
       let registered = false
@@ -241,14 +226,14 @@ test('all image entry points save and register candidates inside their third pla
           ? Response.json({ data: [legacy ? { b64_json: png.toString('base64') } : { url: '/v1/media/image' }] })
           : new Response(png),
         onSaved: async () => {
-          assert.equal(activeStep().kind, 'image_save')
-          assert.equal(executionSteps().filter(step => step.status === 'running').length, 1)
-          assert.deepEqual(await readFile(join(directory, generate === submitPencilBoard ? 'S01.png' : 'A01.png')), png)
+          assert.equal(activeNode().kind, 'image_save')
+          assert.equal(executionNodes().filter(step => step.status === 'running').length, 1)
+          assert.deepEqual(await readFile(join(directory, 'A01.png')), png)
           registered = true
         },
       }), planned)
       assert.equal(registered, true)
-      finalizeSteps(planned)
+      finalizeNodes(planned)
       assert.deepEqual(planned.map(step => step.status), legacy ? ['completed', 'skipped', 'completed'] : ['completed', 'completed', 'completed'])
       assert.ok(planned.every(step => !step.unplanned))
     }
@@ -256,7 +241,7 @@ test('all image entry points save and register candidates inside their third pla
 })
 
 test('candidate registration failure is recorded on the save step', async t => {
-  const { recordSteps } = await import('./fixtures/steps.js')
+  const { recordSteps } = await import('./fixtures/nodes.js')
   const directory = await mkdtemp(join(tmpdir(), 'meiji-image-save-fail-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
   const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target: 'image:A01', status: 'pending' }))

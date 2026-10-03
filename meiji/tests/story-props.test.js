@@ -4,7 +4,7 @@ import { episodeFixture } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
 import { reviewPass } from './fixtures/review-result.js'
 import { normalizeProps } from '../shared/story-content.js'
-import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
+import { generateStoryPackage } from './fixtures/story-generation.js'
 import { preserveStoryAssets } from '../shared/preserve-story-assets.js'
 import { entityCatalog } from '../shared/entity-references.js'
 
