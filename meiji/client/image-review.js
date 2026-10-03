@@ -10,7 +10,7 @@ function generatingOf(project) {
   return (project.episodes || []).flatMap(episode => {
     const activity = typeof episode.activity === 'string' ? episode.activity : ''
     if (!activity.startsWith('image:') && !activity.startsWith('pencil:') && activity !== 'confirm-image') return []
-    return [{ episodeId: episode.id, activity, error: episode.activityError || '' }]
+    return [{ episodeId: episode.id, activity }]
   })
 }
 
@@ -128,7 +128,7 @@ export function syncImageGate(project, gate) {
       draftId: '',
       previewUrl: '',
       review: '',
-      error: entry.error || '',
+      error: '',
     }
   }
 
@@ -154,7 +154,8 @@ export function syncImageGate(project, gate) {
   }
   if (entry || gate.held || gate.phase === 'generating' || gate.phase === 'uploading') {
     const episode = (project.episodes || []).find(item => item.id === gate.episodeId)
-    const error = entry?.error || episode?.activityError || ''
+    // 图片错误只读对应图片节点，不读剧集的剧情错误。
+    const error = (!entry && episode ? feedbackOf(episode, { action: gate.action || (gate.track ? 'pencil' : gate.slot ? 'part-image' : 'image'), track: gate.track, itemId: gate.itemId, slot: gate.slot })?.error : '') || ''
     if (error && !entry) return { ...gate, phase: 'error', held: false, error, previewUrl: '', draftId: '' }
     return { ...gate, phase: 'generating', previewUrl: '', draftId: gate.held ? '' : gate.draftId, error: '' }
   }

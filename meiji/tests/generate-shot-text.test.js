@@ -1,3 +1,4 @@
+import { tableResponse, singleShotResponse } from './fixtures/shot-response.js'
 import { secondsResponse, secondsContent } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
@@ -9,10 +10,10 @@ import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { clearShotDownstream } from '../shared/project-rules.js'
 const ask = (text, verdict=reviewPass) => async ({ skill, user }) => skill==='review'?verdict:skill==='seconds'?secondsResponse([['S01',5,text]]):text
-const table='## S01 / 3s\n旅人朝北走进庭院。\n\n## S02 / 7s\n旅人停下。'
-test('model can choose unequal boundaries and prose remains verbatim',async()=>{const p=episodeFixture();const out=await generateShots({project:p,request:ask(table)});assert.deepEqual(out.items.map(s=>s.duration),[3,7]);assert.equal(out.items[0].content,'旅人朝北走进庭院。');assert.equal(out.check.passed,true);assert.equal(out.failedOutput,'')})
+const table=tableResponse('## S01 / 3s\n标题：进入庭院\n旅人朝北走进庭院。\n\n## S02 / 7s\n标题：停步\n旅人停下。')
+test('model can choose unequal boundaries and prose remains verbatim',async()=>{const p=episodeFixture();const out=await generateShots({project:p,request:ask(table)});assert.deepEqual(out.items.map(s=>s.duration),[3,7]);assert.equal(out.items[0].content,'标题：进入庭院\n旅人朝北走进庭院。');assert.equal(out.check.passed,true);assert.equal(out.failedOutput,'')})
 // 格式错误归入程序自审，一次修订仍错误时不发布。
-for(const raw of ['不是标题','{"items":[]}','## S01 / 16s\n过长'])test(`invalid boundary fails review after one revision: ${raw}`,async()=>{let calls=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill: s }) =>{calls++;return s==='review'?reviewPass:raw}}),/镜头表需按|S01 的编号/);assert.equal(calls,4)})
+for(const raw of ['不是标题','{"items":[]}','## S01 / 16s\n过长'])test(`invalid boundary fails review after one revision: ${raw}`,async()=>{let calls=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill: s }) =>{calls++;return s==='review'?reviewPass:raw}}),/JSON|shots|S01 的编号/);assert.equal(calls,4)})
 test('duration mismatch keeps generated shots',async()=>{const p=episodeFixture();p.durationSeconds=60;const out=await generateShots({project:p,request:ask(table)});assert.equal(out.items.length,2);assert.equal(out.check.passed,false)})
 test('semantic review failure after one correction retains generated text',async()=>{const out=await generateShots({project:episodeFixture(),request:ask(table,reviewFail('缺少原因'))});assert.equal(out.items.length,2);assert.deepEqual(out.check.failures,['位置：本次内容；原因：缺少原因；修正要求：修正上述问题'])})
 test('review network failure stops without a new verdict',async()=>{await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill: s }) =>{if(s==='review')throw new Error('network');return table}}),/network/)})
@@ -57,7 +58,7 @@ for(const durations of [[12000],[7000,8000]])test(`连续动作可用长beat生�
  assert.deepEqual(persisted.items[0].seconds.content.beats.map(b=>b.durationMs),durations)
  assert.deepEqual(result.items[1],project.shots.items[1])
 })
-test('single shot revision preserves selected cast and other shots',async()=>{const p=episodeFixture();const out=await reviseShot({project:p,shotId:'S01',review:'保持方向',request:ask('新的内容')});assert.equal(out.items[0].content,'新的内容');assert.deepEqual(out.items[0].cast,p.shots.items[0].cast);assert.deepEqual(out.items[1],p.shots.items[1])})
+test('single shot revision preserves selected cast and other shots',async()=>{const p=episodeFixture();const out=await reviseShot({project:p,shotId:'S01',review:'保持方向',request:ask(singleShotResponse('标题：进入庭院\n新的内容'))});assert.equal(out.items[0].content,'标题：进入庭院\n新的内容');assert.deepEqual(out.items[0].cast,p.shots.items[0].cast);assert.deepEqual(out.items[1],p.shots.items[1])})
 test('storyboard snapshot fixes the actual picture order and mode',async()=>{const p=episodeFixture();p.plot.characters.items[0].image.content={localPath:'/plugins/meiji/asset-file?category=characters&id=person'};p.plot.scenes.items[0].image.content={localPath:'/plugins/meiji/asset-file?category=scenes&id=scene'};let prompt;const out=await generateShotStoryboard({project:p,shotId:'S01',request:async ({ skill: s, user: v }) =>{if(s==='review')return reviewPass;prompt=v;return storyboardFixture(v)}});const item=out[0];assert.equal(item.video,'reference');assert.deepEqual(item.referenceSnapshot.map(r=>r.url),['/plugins/meiji/asset-file?category=characters&id=person','/plugins/meiji/asset-file?category=scenes&id=scene']);assert.equal(prompt,undefined);assert.match(item.prompt.text,/<Picture 2>/);assert.doesNotMatch(item.prompt.text,/asset-file|base64/);p.plot.characters.items[0].image.content.localPath='/new';assert.equal(item.referenceSnapshot[0].url,'/plugins/meiji/asset-file?category=characters&id=person')})
 test('no picture means text mode; a confirmed local picture means reference mode',async()=>{const p=episodeFixture();assert.equal((await generateShotStoryboard({project:p,shotId:'S01',request:ask('text')}))[0].video,'text');p.plot.characters.items[0].image.content={localPath:'/plugins/meiji/asset-file?category=characters&id=person'};assert.equal((await generateShotStoryboard({project:p,shotId:'S01',request:ask('<Picture 1>')}))[0].video,'reference')})
 test('correction uses original text and opinions and reviews the changed version',async()=>{const p=episodeFixture();p.shots.items[0].seconds.review.text='不要转身';const prompts=[];const next={...p,...clearShotDownstream(p,'seconds','S01')};await checkContext.run({originalProject:p,review:'不要转身'},()=>generateShotSeconds({project:next,shotId:'S01',request:async ({ skill: s, user: v }) =>{prompts.push(v);return s==='review'?reviewPass:secondsResponse([['S01',5,'新的动作']])}}));assert.match(prompts[0],/修改基稿/);assert.match(prompts[0],/不要转身/);assert.match(prompts[1],/新的动作/)})
@@ -74,7 +75,7 @@ test('explicit shot cast excludes names mentioned only as background',async()=>{
 test('local duration failure joins review and automatic revision even when AI returns PASS', async () => {
  const project=episodeFixture();project.durationSeconds=30
  const calls=[]
- const replies=['## S01 / 5s\n过短片段',reviewPass,'## S01 / 15s\n第一段\n\n## S02 / 15s\n第二段',reviewPass]
+ const replies=[tableResponse('## S01 / 5s\n过短片段'),reviewPass,tableResponse('## S01 / 15s\n第一段\n\n## S02 / 15s\n第二段'),reviewPass]
  const saved=[]
  const out=await generateShots({project,request:async message=>{calls.push(message);return replies.shift()},persist:shots=>saved.push(shots)})
  assert.equal(calls.length,4)
@@ -93,7 +94,7 @@ test('镜头表时间不足进入补时修订，扩充动作与完整旁白随�
  const project=episodeFixture();project.durationSeconds=30
  const short='## S01 / 5s\n标题：走近查看\n旅人【旅人|C01】走到门前。'
  const expanded='## S01 / 15s\n标题：走近查看1\n旅人【旅人|C01】沿石径走近紧闭的门，避过路面碎石，观察门上风化的旧痕。独立画外旁白：「旧友的失约，一直让他难以释怀。」\n\n## S02 / 15s\n标题：走近查看2\n旅人【旅人|C01】走到门前，借灯光辨认旧痕，停步确认门仍紧闭，犹豫后决意敲门，尚未敲下。'
- const replies=[short,reviewPass,expanded,reviewPass],saved=[]
+ const replies=[tableResponse(short),reviewPass,tableResponse(expanded),reviewPass],saved=[]
  const result=await generateShots({project,persist:shots=>saved.push(shots),request:async message=>{
   if(replies.length===2){
    assert.match(message.user,/镜头总时长 5s/)

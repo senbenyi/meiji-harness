@@ -59,21 +59,21 @@ export function sceneImageModelSegments(model) {
   const normalized = normalizeModel(model)
   const { width, height } = normalized.canvas
   const orientation = width === height ? '正方形' : width > height ? '横幅' : '竖幅'
-  const facts = sceneFields.filter(([key]) => normalized.scene[key])
-    .map(([key, label]) => `${label}：${normalized.scene[key]}`).join('\n')
+  const facts = Object.fromEntries(sceneFields.filter(([key]) => normalized.scene[key])
+    .map(([key]) => [key, normalized.scene[key]]))
   const task = normalized.mode === 'modify'
     ? '依据本次场景资料、原图和本次修改意见修订场景参考图，遵守基础规则和补充规则。'
     : normalized.mode === 'reference'
       ? '依据本次场景资料，结合参考图片生成一张场景参考图，遵守基础规则和补充规则。'
       : '依据本次场景资料生成一张场景参考图，遵守基础规则和补充规则。'
-  const references = normalized.images.map((image, index) => `输入图片${index + 1}：${image.purpose === 'edit-base' ? '本次编辑原图。' : '场景空间与环境参考。'}`).join('\n')
+  const references = normalized.images.length ? { images: normalized.images.map((image, index) => ({ index: index + 1, purpose: image.purpose })) } : ''
   const rules = [normalized.generationRules, normalized.mode === 'reference'
     ? '参考图片仅提供空间与环境参考；地标、光位、空间布局与画面要求以本次场景资料为准。' : ''].filter(Boolean).join('\n\n')
   return [
     segment('context', '【角色与职责】', `你是一名${normalized.role}。`),
     segment('context', '【本次任务】', task),
     segment('context', '【核心输入：场景资料】', facts),
-    segment('context', '【本次参数】', `画幅：${width} × ${height} 像素，${orientation}。`),
+    segment('context', '【本次参数】', { width, height, orientation }),
     segment('context', '【参考图片】', references),
     segment('context', '【本次修改意见】', normalized.modification?.instruction || ''),
     segment('stage', '【基础规则】', rules, { skill: 'scene-image', field: 'generate' }),

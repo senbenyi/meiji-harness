@@ -1,3 +1,4 @@
+import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass } from './fixtures/review-result.js'
 import { node, cardModel, shotModel, pictureOf } from '../shared/drama-model.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
@@ -12,24 +13,23 @@ import { projectStore } from '../server/data/project-store.js'
 import { blankEpisode } from '../shared/episode-rules.js'
 import { runOperation } from '../server/flow/operations/run-operation.js'
 import { tabs, tabOf, canGenerate } from '../client/flow-view.js'
-import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
 
 test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
   const generated = { ...storyPackageFixture(), outline: outlineFixture('旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。', 'en') }
-  const replies = [generated.outline, reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
+  const replies = [JSON.stringify({ outline: generated.outline }), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
   const result = await generateStoryPackage({ project: { ...episodeFixture(), outputLanguage: 'en' }, route: { baseUrl: 'http://model.test', apiKey: 'test', model: 'test' }, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
     assert.match(body.messages[0].content, /本次生成语言：English/)
     calls++
     if (calls === 2) {
-      assert.ok(body.messages[1].content.endsWith(generated.outline))
-      assert.doesNotMatch(body.messages[1].content, /\"outline\"\s*:/)
+      assert.deepEqual(promptData(body.messages[1].content, '【本次待审内容】'), { outline: generated.outline })
     }
     if (calls > 2) assert.match(body.messages[1].content, /旅人进入山洞，发现陌生脚印/)
     if (calls === 1) {
-      assert.match(body.messages[0].content, /返回大纲纯文本/)
-      assert.equal(body.response_format, undefined)
+      assert.match(body.messages[0].content, /顶层仅含 outline/)
+      assert.deepEqual(body.response_format, { type: 'json_object' })
       assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }
     if (calls === 3) assert.match(body.messages[0].content, /角色卡覆盖大纲/)
@@ -119,7 +119,7 @@ test('regenerate clears old story before requests and extracts same-name cards w
   const e = await withOldStory(t), before = await e.read()
   const generated = storyPackageFixture()
   generated.props = { items: [{ name: '旧道具', category: 'prop', description: '本轮新道具', evidence: '新大纲提到', ownerId: 'C01' }] }
-  const replies = [outlineFixture(), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
+  const replies = [outlineResponse(), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
   let calls = 0
   await runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
@@ -149,7 +149,7 @@ for (const phase of ['first-request', 'characters', 'cancel']) test(`regenerate 
   await assert.rejects(runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home, signal: controller.signal,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
       calls++
-      if (phase === 'characters' && calls <= 2) return calls === 1 ? outlineFixture() : reviewPass
+      if (phase === 'characters' && calls <= 2) return calls === 1 ? outlineResponse() : reviewPass
       if (phase === 'cancel') {
         controller.abort(new Error('本轮停止'))
         throw controller.signal.reason

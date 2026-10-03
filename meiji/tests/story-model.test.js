@@ -1,3 +1,4 @@
+import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -6,7 +7,7 @@ import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
 import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
 import { definitions } from '../server/flow/operations/operation-registry.js'
 import { runOperation } from '../server/flow/operations/run-operation.js'
 import { recordSteps } from './fixtures/steps.js'
@@ -27,7 +28,7 @@ test('outline tasks only describe the action and refer to separate rule blocks',
       assert.match(request.system, /【补充规则】\nSUPPLEMENT_REQUIREMENT/)
       assert.doesNotMatch(request.user, /SUPPLEMENT_REQUIREMENT|OTHER_NODE_RULE/)
       assert.doesNotMatch(request.system, /OTHER_NODE_RULE|【本节点补充要求】/)
-      assert.match(request.system, /返回大纲纯文本/)
+      assert.match(request.system, /顶层仅含 outline/)
     }
     const review = prompts.review('本轮待审稿')
     assert.equal(review.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名独立剧情大纲审核员。')
@@ -76,8 +77,8 @@ for (const [kind, label] of [['characters', '人物角色'], ['scenes', '场景'
           assert.equal(task.split('\n').length, 1)
           assert.match(task, new RegExp(`本集已通过大纲.*${label}资料`))
           assert.doesNotMatch(task, /画外|空间|去重|landmark|items|保留未涉及|不改写/)
-          assert.match(request.user, /【核心输入：本集已通过大纲】\nAPPROVED_CURRENT_OUTLINE/)
-          assert.match(request.user, /【本次参数】\n项目风格：写实电影/)
+          assert.deepEqual(promptData(request.user, '【核心输入：本集已通过大纲】'), { outline: 'APPROVED_CURRENT_OUTLINE' })
+          assert.deepEqual(promptData(request.user, '【本次参数】'), { style: '写实电影' })
           assert.ok(request.user.indexOf('【核心输入：本集已通过大纲】') < request.user.indexOf('【本次参数】'))
           assert.doesNotMatch(request.user, /【本次目标】|【审核目标】|【事实边界】|阶段：|UNNEEDED_TITLE|999x555|第 8 集|38 秒|UNRELATED_/)
           assert.match(request.system, /【补充规则】\n/)
@@ -94,7 +95,7 @@ for (const [kind, label] of [['characters', '人物角色'], ['scenes', '场景'
           assert.doesNotMatch(prompts.generation.user + reviewed.user + revised.user, /OLD_CARD_NAME|HUMAN_OPINION/)
           assert.match(prompts.generation.system, /不沿用旧卡片或历史意见/)
         }
-        assert.match(revised.user, /【最新失败稿（唯一修改基准）】\nLATEST_FAILED_CARDS/)
+        assert.deepEqual(promptData(revised.user, '【最新失败稿（唯一修改基准）】'), { [kind]: 'LATEST_FAILED_CARDS' })
         assert.match(revised.user, /LATEST_AUDIT_ISSUE/)
         assert.doesNotMatch(revised.user, /OLD_CARD_NAME/)
         assert.match(revised.system, /返回完整卡片集合/)
@@ -140,15 +141,15 @@ test('outline merges task and target, uses current summary, and limits parameter
       assert.equal((user.match(/【本次任务】/g) || []).length, 1)
       assert.doesNotMatch(user, /【本次目标】|UNNEEDED_TITLE|999x555|本次生成第 8 集/)
       assert.match(user, /本集摘要.*剧情大纲/)
-      assert.match(user, /【核心输入：本集摘要】\nCURRENT_EPISODE_EVENTS/)
-      assert.match(user, /【本次参数】\n本集总时长：38 秒\n项目风格：写实电影/)
+      assert.deepEqual(promptData(user, '【核心输入：本集摘要】'), { summary: 'CURRENT_EPISODE_EVENTS' })
+      assert.deepEqual(promptData(user, '【本次参数】'), { durationSeconds: 38, style: '写实电影' })
       assert.ok(user.indexOf('【本次任务】') < user.indexOf('【核心输入：本集摘要】'))
       assert.ok(user.indexOf('【核心输入：本集摘要】') < user.indexOf('【本次参数】'))
-      assert.match(user, /【参考：项目背景】\nPROJECT_REFERENCE/)
-      assert.match(user, /本集事件以本集摘要为准/)
-      assert.match(user, /【参考：剧本资料】\nSCRIPT_REFERENCE/)
-      assert.match(user, /【衔接：前集结尾】\nPREVIOUS_FACT/)
-      assert.match(user, /【衔接：后集摘要】\nFOLLOWING_DIRECTION/)
+      assert.deepEqual(promptData(user, '【参考：项目背景】'), { summary: 'PROJECT_REFERENCE' })
+      assert.match(request[0].content, /本集事件以本集摘要为准/)
+      assert.deepEqual(promptData(user, '【参考：剧本资料】'), { script: 'SCRIPT_REFERENCE' })
+      assert.deepEqual(promptData(user, '【衔接：前集结尾】'), { summary: 'PREVIOUS_FACT' })
+      assert.deepEqual(promptData(user, '【衔接：后集摘要】'), { summary: 'FOLLOWING_DIRECTION' })
     }
     const review = model.toReviewMessages({ content: 'LATEST_OUTLINE' })[1].content
     assert.match(review, /【审核目标】/)
@@ -162,7 +163,7 @@ for (const [Model, kind] of [[StoryOutlineModel, 'outline'], [StoryCharacterMode
     const model = new Model({ project: episodeFixture(), mode: 'modify', baseContent: 'BASE', opinion: 'HUMAN', generationRules: 'RULE', reviewRules: 'REVIEW_RULE' })
     const generated = model.toGenerateMessages()
     assert.deepEqual(generated.map(message => message.role), ['system', 'user'])
-    assert.match(generated[0].content, kind === 'outline' ? /返回大纲纯文本/ : /\{"items":\[/)
+    assert.match(generated[0].content, kind === 'outline' ? /顶层仅含 outline/ : /\{"items":\[/)
     assert.match(generated[0].content, /示例（仅示范格式/)
     assert.doesNotMatch(generated[0].content, /【优先级】/)
     const revised = model.toReviseMessages({ baseContent: 'LATEST', opinion: reviewFail('NEW'), automatic: true })
@@ -193,7 +194,7 @@ test('review returning an outline instead of a verdict fails and retains the gen
   let calls = 0
   const saved = []
   await assert.rejects(generateStoryPackage({ project: episodeFixture(), request: async () =>
-    ++calls === 1 ? draft : draft,
+    ++calls === 1 ? JSON.stringify({ outline: draft }) : JSON.stringify({ outline: draft }),
     persist: result => saved.push(structuredClone(result)),
   }), /审核返回格式错误/)
   assert.equal(calls, 2)
@@ -223,7 +224,7 @@ test('每个剧情步骤生成用生产规则、自审用对应审核 skill，�
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
   assert.deepEqual(definitions.outline.plan().filter(step => step.kind === 'generate').map(step => step.target), ['outline', 'characters', 'scenes', 'props'])
-  const replies = ['初稿', reviewFail('因果错误'), '修订稿', reviewFail('因果错误')]
+  const replies = [JSON.stringify({ outline: '初稿' }), reviewFail('因果错误'), JSON.stringify({ outline: '修订稿' }), reviewFail('因果错误')]
   let calls = 0
   const { result, steps } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
   assert.equal(calls, 4)
@@ -238,7 +239,7 @@ test('a card API error retains drafts saved by earlier independent stages', asyn
   let calls = 0
   const saved = []
   await assert.rejects(generateStoryPackage({ project: episodeFixture(), request: async () => {
-    if (++calls === 1) return outlineFixture('已生成大纲')
+    if (++calls === 1) return outlineResponse('已生成大纲')
     if (calls === 2) return reviewPass
     throw new Error('CHARACTER_API_ERROR')
   }, persist: result => saved.push(structuredClone(result)) }), /CHARACTER_API_ERROR/)
@@ -252,7 +253,7 @@ test('extraction after outline modification uses new facts, never stale card bas
   const project = episodeFixture()
   project.plot.outline.content = 'OLD_OUTLINE'
   const fixture = storyPackageFixture()
-  const replies = [outlineFixture('FINAL_NEW_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+  const replies = [outlineResponse('FINAL_NEW_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
   let calls = 0
   await checkContext.run({ generationMode: 'modify', originalProject: project, review: 'CHANGE_OUTLINE' }, () => generateStoryPackage({ project, request: async message => {
     if (++calls === 1) assert.match(message.user, /OLD_OUTLINE.*|CHANGE_OUTLINE/)
@@ -268,7 +269,7 @@ test('extraction after outline modification uses new facts, never stale card bas
 test('real operation persists independent checks and blocks downstream after failed characters', async t => {
   const e = await setupModel(t)
   const fixture = storyPackageFixture()
-  const replies = [outlineFixture('FINAL_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少另一身体'), JSON.stringify(fixture.characters), reviewFail('缺少另一身体')]
+  const replies = [outlineResponse('FINAL_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少另一身体'), JSON.stringify(fixture.characters), reviewFail('缺少另一身体')]
   let calls = 0
   await runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
@@ -288,7 +289,7 @@ test('a later API error preserves the passed outline status in the real operatio
   let calls = 0
   await assert.rejects(runOperation(e.op('outline', { generationMode: 'regenerate' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => {
-      if (++calls === 1) return outlineFixture('PASSED_OUTLINE')
+      if (++calls === 1) return outlineResponse('PASSED_OUTLINE')
       if (calls === 2) return reviewPass
       throw new Error('CHARACTER_ERROR')
     } }),
@@ -308,7 +309,7 @@ test('stopping before the next stage prevents card API requests and keeps the ou
   const saved = []
   await assert.rejects(generateStoryPackage({ project: episodeFixture(), signal: controller.signal, request: async () => {
     calls++
-    return calls === 1 ? outlineFixture('NEW_OUTLINE') : reviewPass
+    return calls === 1 ? outlineResponse('NEW_OUTLINE') : reviewPass
   }, persist: result => {
     saved.push(structuredClone(result))
     if (result.checks.outline.passed) controller.abort()
@@ -345,7 +346,7 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
     return current
   })
   let calls = 0
-  const replies = [outlineFixture('FIXED_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+  const replies = [outlineResponse('FIXED_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
   await runOperation(e.op('outline', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
     generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => { calls++; return replies.shift() } }),
   })
@@ -402,7 +403,7 @@ test('大纲生成与修订都提供正文分节和换行结构', () => {
   for (const request of [model.toGenerateMessages(), model.toReviseMessages({ baseContent: '旧大纲', opinion: '改结尾' })]) {
     assert.match(request[0].content, /【本次输出协议】/)
     assert.match(request[0].content, /小节之间空一行/)
-    assert.match(request[0].content, /【主角动机】\n旅人/)
+    assert.match(JSON.parse(request[0].content.split('示例（仅示范格式，节拍数量按本集时长决定）：\n')[1]).outline, /【主角动机】\n旅人/)
   }
 })
 
@@ -412,7 +413,7 @@ test('outline section structure is checked deterministically and repairs the lat
  assert.equal(outlineStructureFailures(outlineFixture()).length,0)
  assert.ok(outlineStructureFailures('【主角动机】正文挤在同一行').length)
  const fixture=storyPackageFixture(),calls=[]
- const replies=['缺少标题的完整事件稿',reviewPass,outlineFixture(),reviewPass,JSON.stringify(fixture.characters),reviewPass,JSON.stringify(fixture.scenes),reviewPass,JSON.stringify(fixture.props),reviewPass]
+ const replies=[JSON.stringify({ outline: '缺少标题的完整事件稿' }),reviewPass,outlineResponse(),reviewPass,JSON.stringify(fixture.characters),reviewPass,JSON.stringify(fixture.scenes),reviewPass,JSON.stringify(fixture.props),reviewPass]
  const result=await generateStoryPackage({project:episodeFixture(),request:async message=>{calls.push(message);return replies.shift()}})
  assert.equal(result.check.passed,true);assert.match(calls[2].user,/大纲正文结构/);assert.equal(calls.length,10)
 })
@@ -430,7 +431,7 @@ test('extraction rules and review distinguish offscreen voice and empty scenery 
 test('new semantic review failure clears old execution errors', async t => {
   const e = await setupModel(t)
   await e.store.save(e.id, p => { p.episodes[0].activityError = '审核返回格式错误'; for (const key of ['outline', 'characters', 'scenes', 'props']) p.episodes[0].plot[key].error = '审核返回格式错误'; return p })
-  const replies = [outlineFixture('新稿'), reviewFail('剧情冲突'), outlineFixture('修订稿'), reviewFail('剧情冲突')]
+  const replies = [outlineResponse('新稿'), reviewFail('剧情冲突'), outlineResponse('修订稿'), reviewFail('剧情冲突')]
   await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: opts => generateStoryPackage({ ...opts, request: async () => replies.shift() }) })
   const saved = await e.read()
   for (const key of ['outline', 'characters', 'scenes', 'props']) assert.equal(saved.plot[key].error, null, key)

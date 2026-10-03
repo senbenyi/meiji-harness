@@ -7,7 +7,7 @@ import { taskSkillSet, useSkills } from '../runtime/task-context.js'
 import { outputLanguage } from '../../shared/output-language.js'
 import { assetGuidance } from '../../shared/guidance-categories.js'
 
-export const segment = (source, title, text, extra = {}) => ({ source, title, text: String(text ?? '').trim(), ...extra })
+export const segment = (source, title, text, extra = {}) => ({ source, title, text: (text && typeof text === 'object' ? JSON.stringify(text) : String(text ?? '')).trim(), ...extra })
 export const render = segments => segments.filter(item => item.text).map(item => item.title ? `${item.title}\n${item.text}` : item.text).join('\n\n')
 
 // 本次请求使用的技能组合：显式传入（预览）→ 当前任务固定的组合 → 内置 + 本剧（无任务上下文时）。
@@ -54,18 +54,17 @@ export function assetSegments(set, meta, { review = false } = {}) {
   const assets = [...new Map((meta.assetStages || []).flatMap(stage => set.project.assets[stage] || []).map(asset => [asset.id, asset])).values()]
   if (!assets.length) return { rules: [], content: [] }
   const owner = asset => assetGuidance[asset.guidanceType] ? 'guidance-' + assetGuidance[asset.guidanceType] : ''
-  const groups = []
+  const groups = {}
   for (const id of [...new Set(Object.values(assetGuidance).map(name => 'guidance-' + name)), '']) {
     const entries = assets.filter(asset => owner(asset) === id)
     if (!entries.length) continue
-    const title = id ? `【${id.replace('guidance-', '')}参考素材】` : '【其他参考素材】'
-    groups.push(`${title}\n${JSON.stringify(entries.map(({ name, content }) => ({ name, content })))}`)
+    groups[id.replace('guidance-', '') || 'other'] = entries.map(({ name, content }) => ({ name, content }))
   }
   const stageRule = assetStageRules[meta.id] || ''
   const rules = [assetCommonRule, stageRule, review ? assetReviewRule : ''].filter(Boolean).join('\n')
   return {
     rules: [segment('asset', '【指导素材编排规则】', rules)],
-    content: [segment('asset', `【分类指导素材${meta.assetStages.includes('film') ? '（含成片阶段，统一编入最终视频提示词）' : ''}】`, groups.join('\n\n'))],
+    content: [segment('asset', `【分类指导素材${meta.assetStages.includes('film') ? '（含成片阶段，统一编入最终视频提示词）' : ''}】`, groups)],
   }
 }
 
@@ -137,7 +136,7 @@ export function imageParts({ stage, project, request, skillSet }) {
     requirement: segment('stage', '', set.skills[stage]?.constraints || '', { skill: stage, field: 'constraints' }),
     addition: segment('project', '本剧补充要求：', addition(set, stage, 'generate'), { skill: stage, field: 'generate' }),
     language: segment('language', '', `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。`),
-    style: segment('context', '', style ? `项目视觉风格：${style}。画面须符合该风格。` : ''),
+    style: segment('context', '【本次参数】', style ? { style } : ''),
     request: segment('context', '本次画面要求：', request),
   }
 }

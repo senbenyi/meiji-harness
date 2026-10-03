@@ -1,3 +1,4 @@
+import { tableResponse } from './fixtures/shot-response.js'
 import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
 import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
@@ -14,7 +15,7 @@ import { startExecution } from '../server/runtime/task-execution.js'
 import { generateEpisode } from '../server/flow/operations/project-operations.js'
 import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
 import { generateAllSeconds, generateShots } from '../server/flow/operations/shot-operations.js'
-import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
 import { reviewContent } from '../server/runtime/text-generation.js'
 import { interruptRunning } from '../server/flow/tasks/cancel-interrupted-tasks.js'
 import { createTasks } from '../server/flow/tasks/task-manager.js'
@@ -67,7 +68,8 @@ test('manual summary saves a pending version and immutable baseline', async t =>
  const e = await setup(t), before = await e.read()
  await runOperation(e.op('episode-edit', { fields: { summary: '人工新摘要', durationSeconds: 10 } }), { home: e.home })
  const current = await e.read(), [task] = await e.history.list()
- assert.equal(current.summary.check.passed, null)
+ assert.equal(current.summary.check.passed, true)
+ assert.equal(current.summary.status, 'passed')
  assert.equal(task.actor, 'human'); assert.equal(task.status, 'completed')
  const artifact = await e.history.read('artifacts', current.summary.source.artifactId)
  const baseline = await e.history.read('artifacts', artifact.previousArtifactId)
@@ -75,15 +77,31 @@ test('manual summary saves a pending version and immutable baseline', async t =>
  assert.equal(artifact.content.summary, '人工新摘要')
 })
 
+test('manual episode add and edit save as passed and clear failure reasons', async t => {
+ const e = await setup(t)
+ await e.store.save(e.id, project => { const summary = project.episodes[0].summary; summary.check = { passed: false, failures: ['旧的未通过原因'], revision: summary.revision }; summary.status = 'failed'; return project })
+ const current = await e.read()
+ await runOperation(e.op('episode-edit', { fields: { summary: current.summary.content, durationSeconds: current.durationSeconds } }), { home: e.home })
+ const unchanged = (await e.read()).summary
+ assert.equal(unchanged.status, 'passed'); assert.equal(unchanged.check.passed, true); assert.deepEqual(unchanged.check.failures, [])
+ await runOperation(e.op('episode-edit', { fields: { summary: '人工修改后的摘要', durationSeconds: 12 } }), { home: e.home })
+ const edited = (await e.read()).summary
+ assert.equal(edited.status, 'passed'); assert.equal(edited.check.passed, true); assert.deepEqual(edited.check.failures, [])
+ await runOperation(e.op('episode-add', { fields: { summary: '手动新增的第二集', durationSeconds: 10 } }), { home: e.home })
+ const added = (await e.store.read(e.id)).episodes[0].summary
+ assert.equal(added.content, '手动新增的第二集')
+ assert.equal(added.status, 'passed'); assert.equal(added.check.passed, true); assert.deepEqual(added.check.failures, [])
+})
+
 test('story package, shot table and seconds each produce whole-episode records', async t => {
  const e = await setup(t), fixture = storyPackageFixture()
- const replies = [outlineFixture(), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+ const replies = [outlineResponse(), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
  await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl: async () => {
   return Response.json({ choices: [{ message: { content: replies.shift() } }] })
  } }) })
  assert.ok((await e.read()).plot.source)
  const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
- await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({ skill }) => skill === 'review' ? reviewPass : table }) })
+ await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({ skill }) => skill === 'review' ? reviewPass : tableResponse(table) }) })
  assert.ok((await e.read()).shots.source)
  let calls = 0
  await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async message => { calls++; return message.skill === 'review' ? reviewPass : secondsForRequest(message) } }) })
@@ -148,7 +166,7 @@ test('deleting an episode removes its execution history and snapshots', async t 
 
 test('invalid shot table does not replace the current table or downstream content', async t => {
  const e = await setup(t), before = await e.read()
- await assert.rejects(runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({skill}) => skill==='review'?reviewPass:'不是镜头表' }) }), /镜头表/)
+ await assert.rejects(runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({skill}) => skill==='review'?reviewPass:'不是镜头表' }) }), /JSON|镜头表/)
  const after = await e.read()
  assert.equal(after.shots.items[0].content, before.shots.items[0].content)
 })

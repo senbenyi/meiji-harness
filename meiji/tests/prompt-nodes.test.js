@@ -1,3 +1,5 @@
+import { tableResponse } from './fixtures/shot-response.js'
+import { promptData } from './fixtures/prompt-data.js'
 import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
@@ -33,7 +35,7 @@ for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
         assert.equal(payload.messages[1].content, message.user)
         assert.match(message.system, /本次生成语言：English/)
         assert.equal((message.system + message.user).split('CUSTOM_RULE').length - 1, 1)
-        assert.equal(Boolean(payload.response_format), isReview || ['characters', 'scenes', 'seconds'].includes(stage))
+        assert.deepEqual(payload.response_format, { type: 'json_object' })
         if (isReview) {
           assert.match(message.user, /CURRENT_DRAFT/)
           assert.match(message.system, /【审核标准】/)
@@ -57,8 +59,8 @@ test('story regeneration excludes old results; revision uses only latest failed 
   await checkContext.run({ generationMode: 'modify', review: 'HUMAN_OPINION' }, () => {
     const prompts = buildStoryPrompts(project)
     assert.match(prompts.generation.user, /OLD_DRAFT/)
-    assert.doesNotMatch(prompts.generation.user, /\"outline\"\s*:/)
-    assert.equal(prompts.generation.json, false)
+    assert.deepEqual(promptData(prompts.generation.user, '【修改基稿】'), { outline: 'OLD_DRAFT' })
+    assert.equal(prompts.generation.json, true)
     assert.match(prompts.generation.user, /HUMAN_OPINION/)
     const revision = prompts.revision('LATEST_FAILED', reviewFail('NEW_REASON'))
     assert.match(revision.user, /LATEST_FAILED/)
@@ -113,7 +115,7 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
         if (action === 'shot-seconds') assert.equal(saved.shots.items[0].seconds.content.beats[0].action, '新每秒指令')
         throw new Error('REVIEW_UNAVAILABLE')
       }
-      return response(action === 'shots' ? table : action === 'shot-seconds' ? secondsResponse([['S01',5,'新每秒指令']]) : action === 'outline' ? raw.outline : JSON.stringify(raw[action]))
+      return response(action === 'shots' ? tableResponse(table) : action === 'shot-seconds' ? secondsResponse([['S01',5,'新每秒指令']]) : action === 'outline' ? JSON.stringify({ outline: raw.outline }) : JSON.stringify(raw[action]))
     }
     const deps = { home: e.home,
       generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl }),
@@ -141,11 +143,11 @@ test('story regeneration keeps the episode summary as core input and drops the o
     const prompts = buildStoryPrompts(project)
     for (const message of [prompts.generation, prompts.review('NEW_STORY')]) {
       assert.doesNotMatch(message.user, /OLD_STORY|OLD_REVIEW/)
-      assert.match(message.user, /【核心输入：本集摘要】\nEPISODE_SUMMARY/)
-      assert.match(message.user, /【参考：项目背景】\nPROJECT_BACKGROUND/)
+      assert.deepEqual(promptData(message.user, '【核心输入：本集摘要】'), { summary: 'EPISODE_SUMMARY' })
+      assert.deepEqual(promptData(message.user, '【参考：项目背景】'), { summary: 'PROJECT_BACKGROUND' })
       assert.match(message.user, /PREVIOUS_EPISODE/)
       assert.match(message.user, /NEXT_EPISODE/)
-      assert.match(message.user, /本集总时长：10 秒/)
+      assert.equal(promptData(message.user, '【本次参数】').durationSeconds, 10)
     }
     assert.doesNotMatch(prompts.generation.system, /大纲的（N秒）|单类卡片修订|共用生成审核流程|H3 最终|detailed_description|最多自动修订/)
     assert.doesNotMatch(prompts.revision('FAILED_STORY', reviewFail('原因')).user, /重新生成，仅使用/)

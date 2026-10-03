@@ -12,7 +12,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 | `client/` | 原生 ES 模块面板，通过 `panel-api.js` 访问同源接口 |
 | `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游失效；不读写文件 |
 | `server/http/`、`tools/` | 面板与会话入口，复用服务端流程；鉴权与同源检查在 HTTP 层 |
-| `server/flow/operations/` | `operation-registry.js` 定义权限、范围、队列和步骤计划；`run-operation.js` 集中管理执行上下文、准备分派与结束释放；按项目、剧情、镜头、图片、视频集中实现操作与业务生成流程 |
+| `server/flow/operations/` | `tasks/` 每个生成任务、小任务一个文件，`actions/` 每个操作一个文件（按 project/episode/story/image/shot 分组），均导出 `operations`（定义 + stage/run）；`registry.js` 汇总，`operation-registry.js` 提供权限、范围、队列与步骤计划查询，`plan-steps.js` 为计划构造，`shared/` 为任务与操作共用函数；`run-operation.js` 集中管理执行上下文、准备分派与结束释放。`*-operations.js` 仅为兼容出口，拆分计划见 `docs/plans/计划-操作与任务文件拆分.md` |
 | `server/flow/tasks/` | 入队、查询、等待、取消、重启处理及 text/image/video 全局限流 |
 | `server/gateway/` | 文本/图片/视频网关适配、文本请求入口、视频轮询、请求快照和日志 |
 | `server/media/` | 图片解码/文件处理/压缩，FFmpeg 检查、尾帧提取与视频拼接；不依赖操作、提示词或任务执行 |
@@ -29,6 +29,8 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 - 按独立生成目标设计 Model，同类步骤复用 Model 与配置；Model 只编排输入和提示词，不调用 API、不保存项目。
 - 资料使用 `{ task, review, facts }` 等结构化对象传入。生成、修订和审核分别编排；修订携带基稿与意见，审核只检查待审结果，不执行生成指令。
 - 角色、任务、事实、参数、规则、意见和输出协议各有明确位置，避免重复。空上下文省略；输出语言由代码确定，不让模型选择默认值。
+- 同一资料块内需要分类的内容在标题下用具名 JSON 对象包装，例如 `{"summary":"摘要"}`、`{"durationSeconds":150,"style":"写实电影"}`；由代码序列化，保留原文换行与引号。基稿与待审正文同样包装，已有对象不重复编码，列表带具名外层；任务、规则和意见仍用独立文本块。
+- 大模型文本生成、修订和审核统一返回 JSON 对象并启用 `json_object` 模式。解析字段后再保存与展示正文，字符串转义还原成真实换行；不能直接展示响应对象外壳。图片和视频接口沿用各自媒体协议。
 - 文本请求由 `prompt-request.js` 分开组装 system 规则与 user 资料；图片接口接收完整 prompt，参考图 Base64 另传，不写入正文。
 - 预览与提交复用同一组装入口；历史展示实际请求快照，不用当前资料重建。
 
@@ -108,7 +110,9 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 剧集摘要草稿 `episode-summary-draft` 复用任务、队列与历史，产物为未发布 artifact，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒，不由字数推断。剧集摘要非空、不限字数；项目总摘要上限仍为 10000 字。
 
-剧情依次生成并审核大纲、人物、场景、道具，前项未通过停止后项。大纲依据当前本集摘要，项目摘要与剧本作背景、前后集作衔接，不提前演出后集事件；返回七小节正文，存 `plot.outline.content`。卡片基于本轮通过的大纲，返回完整 items JSON；目标为 outline/characters/scenes/props，历史保留 story 聚合快照。
+剧情依次生成并审核大纲、人物、场景、道具，前项未通过停止后项。大纲依据当前本集摘要，项目摘要与剧本作背景、前后集作衔接，不提前演出后集事件；返回 `{"outline":"七小节正文"}`，解析后存 `plot.outline.content`。卡片基于本轮通过的大纲，返回完整 items JSON；目标为 outline/characters/scenes/props，历史保留 story 聚合快照。
+
+镜头表返回 `{"shots":[{"shotId":"S01","durationSeconds":12,"title":"剧情标题","content":"条目正文"}]}`，编号连续、秒数为 1–15 的整数。单镜修订使用同一结构，只返回指定镜头，编号和时长不变。解析后按现有镜头卡片存储标题与正文；非法结构不覆盖有效内容。
 
 人物只提取实际可见身体，场景描述无人物环境。道具存 `plot.props`，类别为 clothing/mount/weapon/accessory/prop，程序分配 P 编号；允许空集合通过。人物/场景目录用于匹配 ownerId，不从外观补造道具；修改保留同名实体 ID，新实体递增。
 
@@ -196,7 +200,7 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 `StoryModel` 通过 `storyKinds` 区分 outline、characters、scenes、props；`StoryOutlineModel/StoryCharacterModel/StorySceneModel/StoryPropsModel` 是指定 kind 的子类。大纲携带摘要、背景与前后集资料，提取模型以已通过大纲为事实来源，避免重复携带无关上下文。
 
-两类 Model 都提供 `toGenerateMessages/toReviseMessages/toReviewMessages` 和对应 `to*Segments`。生成/修订分别输出摘要 JSON、大纲正文或卡片 items JSON；审核一律输出 `{ passed, issues }`，不再使用 PASS/FAIL 文本。生成与修订读取 task 规则，审核读取 review 规则。
+两类 Model 都提供 `toGenerateMessages/toReviseMessages/toReviewMessages` 和对应 `to*Segments`。生成/修订分别输出摘要 summary 对象、大纲 outline 对象或卡片 items 对象；审核一律输出 `{ passed, issues }`。生成与修订读取 task 规则，审核读取 review 规则。
 
 修订参数包括 baseContent、opinion；自动修订使用 `automatic: true`，humanOpinion 保留仍有效的人工要求。复审核对最新失败稿及本轮意见，不把历史失败直接当成新结论。剧情正常执行四次生成、四次审核，失败时按第 3、7 节决定修订与停止。重新生成和修改的素材保留边界见第 4 节。
 

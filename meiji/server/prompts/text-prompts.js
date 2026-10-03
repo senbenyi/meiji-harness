@@ -6,6 +6,7 @@ import { storyboardContext } from './storyboard-context.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
 import { render } from './skill-prompts.js'
 import { textInterface } from './interfaces/prompt-interfaces.js'
+import { contentData } from './prompt-text.js'
 
 function message(stage, { system = [], user = [], json = false }) {
   return { skill: stage, json, system: render(system), user: render(user), segments: { system, user } }
@@ -44,13 +45,13 @@ export function buildEditedContentReview({ project, stage, shotId }, text) {
       instructions: storyboardContext({ project, shot, video: mode,
         characters: board.characterIds || board.characters || shot.cast || [],
         scenes: board.sceneIds || board.scenes || (shot.scene ? [shot.scene] : []),
-        refs: images.map((image, index) => `<Picture ${index + 1}> ${image.label || image.name || image.id || image.sourceShotId || '参考图'}`).join('\n'),
+        refs: images.map((image, index) => ({ reference: `<Picture ${index + 1}>`, label: image.label || image.name || image.id || image.sourceShotId || '参考图' })),
         task: `只审核 ${shot.id} 已编辑的最终提示词是否忠实转写本镜每秒指令、正确绑定素材并符合输出结构。` }),
     }, text)
   }
   return buildReviewPrompt({ project, skill, edited: true,
     instructions: { review: `审核已编辑原文。审核范围：${isSkill(stage) ? builtinSkill(stage).label : stage}`,
-      facts: [{ title: '【上游事实：本集摘要】', text: project.summary.content }, { title: '【上游事实：大纲】', text: project.plot.outline.content || '' }] },
+      facts: [{ title: '【上游事实：本集摘要】', text: { summary: project.summary.content } }, { title: '【上游事实：大纲】', text: project.plot.outline.content ? { outline: project.plot.outline.content } : '' }] },
     reviewContext: continuityReviewContext(project, shotId),
-  }, text)
+  }, contentData(text, /^人物/.test(stage) ? 'characters' : /^场景/.test(stage) ? 'scenes' : 'outline'))
 }

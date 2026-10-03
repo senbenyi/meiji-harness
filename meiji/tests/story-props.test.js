@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
-import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
 import { reviewPass } from './fixtures/review-result.js'
 import { normalizeProps } from '../shared/story-content.js'
 import { generateStoryPackage } from '../server/flow/operations/story-text-operations.js'
@@ -25,7 +25,7 @@ test('four-stage pipeline extracts props from latest approved outline and stable
  const project=episodeFixture(),fixture=storyPackageFixture()
  project.plot.characters.items[0].id='C07'
  fixture.characters.items[0].name='旅人'
- const requests=[],replies=[outlineFixture('NEW_OUTLINE'),reviewPass,JSON.stringify(fixture.characters),reviewPass,JSON.stringify(fixture.scenes),reviewPass,JSON.stringify({items:[prop('长衣','clothing','C07')]}),reviewPass]
+ const requests=[],replies=[outlineResponse('NEW_OUTLINE'),reviewPass,JSON.stringify(fixture.characters),reviewPass,JSON.stringify(fixture.scenes),reviewPass,JSON.stringify({items:[prop('长衣','clothing','C07')]}),reviewPass]
  const result=await generateStoryPackage({project,request:async message=>{requests.push(message);return replies.shift()}})
  assert.equal(requests.length,8);assert.equal(result.check.passed,true)
  assert.match(requests[6].user,/NEW_OUTLINE/);assert.match(requests[6].user,/C07/)

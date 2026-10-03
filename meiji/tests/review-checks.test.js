@@ -1,3 +1,4 @@
+import { tableResponse } from './fixtures/shot-response.js'
 import { secondsResponse } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
@@ -36,7 +37,7 @@ for (const [action, key, fields] of [
     generateShots: opts => generateShots({ ...opts, request: async ({ skill, user }) => {
       if (skill === 'review') return reviewPass
       verify(user)
-      return '## S01 / 5s\n标题：进入庭院\n旅人朝北进入庭院。\n\n## S02 / 5s\n标题：等待回应\n旅人在门外等待。'
+      return tableResponse('## S01 / 5s\n标题：进入庭院\n旅人朝北进入庭院。\n\n## S02 / 5s\n标题：等待回应\n旅人在门外等待。')
     } }),
     generateShotSeconds: opts => generateShotSeconds({ ...opts, request: async ({ skill, user }) => {
       if (skill === 'review') return reviewPass
@@ -72,7 +73,7 @@ test('new human draft during a running operation is never cleared or overwritten
 test('image opinion edits do not change the picture target snapshot',async t=>{const e=await setupModel(t),p=await e.read(),c=p.plot.characters.items[0],snapshot=pictureTargetSnapshot(c);saveReview(c.image,'换背景');begin(c.image,{id:'task'});assert.equal(pictureTargetSnapshot(c),snapshot)})
 test('unrelated metadata save cannot consume model opinions',async t=>{const e=await setupModel(t);await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','新意见',0);await e.store.save(e.id,{title:'改名'});assert.equal((await e.read()).shots.items[0].storyboard.review.text,'新意见')})
 test('draft optimistic revision rejects a stale browser edit',async t=>{const e=await setupModel(t);await e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','新版',0);await assert.rejects(e.store.saveReviewDraft(e.id,e.episodeId,'storyboard:S01','旧版',0),{status:409});assert.equal((await e.read()).shots.items[0].storyboard.review.text,'新版')})
-test('bad shot format fails review, keeps existing shots and opinion after one revision',async t=>{const e=await setupModel(t),before=await e.read();let calls=0;await assert.rejects(runOperation(e.op('shots',{review:'调整'}),{home:e.home,generateShots:opts=>generateShots({...opts,request:async ({ skill: s }) =>{calls++;return s==='review'?reviewPass:'{invalid json'}})}),/镜头表需按/);const p=await e.read();assert.equal(calls,4);assert.deepEqual(p.shots.items.map(s=>s.content),before.shots.items.map(s=>s.content));assert.equal(p.shots.status,'failed');assert.match(p.shots.error,/镜头表需按/);assert.equal(p.shots.review.text,'调整');assert.equal(p.shots.operation,null)})
+test('bad shot format fails review, keeps existing shots and opinion after one revision',async t=>{const e=await setupModel(t),before=await e.read();let calls=0;await assert.rejects(runOperation(e.op('shots',{review:'调整'}),{home:e.home,generateShots:opts=>generateShots({...opts,request:async ({ skill: s }) =>{calls++;return s==='review'?reviewPass:'{invalid json'}})}),/JSON/);const p=await e.read();assert.equal(calls,4);assert.deepEqual(p.shots.items.map(s=>s.content),before.shots.items.map(s=>s.content));assert.equal(p.shots.status,'failed');assert.match(p.shots.error,/JSON/);assert.equal(p.shots.review.text,'调整');assert.equal(p.shots.operation,null)})
 
 test('batch film stays generating until download and local save complete', async t => {
   const e = await setupModel(t)

@@ -1,4 +1,3 @@
-import { secondsText } from '../../shared/seconds-content.js'
 // 引用编排和人工编辑审核共用本镜资料，不引入整集剧情或前镜最终提示词。
 export function storyboardContext({ project, shot, video, characters = [], scenes = [], refs = '', task }) {
   const selected = (cards, names) => (cards || []).filter(card => names.includes(card.id) || names.includes(card.name))
@@ -11,11 +10,11 @@ export function storyboardContext({ project, shot, video, characters = [], scene
     task: task || `仅为 ${shot.id} 将已通过的每秒指令直接编排为时长 ${shot.duration}s 的最终视频提示词，不输出其他镜头。`,
     review: task || '',
     facts: [
-      { title: '【本次参数】', text: [`镜头：${shot.id}；时长：${shot.duration}s；固定模式：${video}。`, project.style ? `视觉风格：${project.style}` : ''].filter(Boolean).join('\n') },
-      { title: '【上游事实：本镜已通过每秒指令（唯一时间线来源）】', text: secondsText(shot.seconds?.content) || '（每秒指令通过后由程序提供）' },
-      { title: '【关联人物资料，仅用于身份与外观】', text: people.length ? JSON.stringify(people) : '' },
-      { title: '【关联场景资料，仅用于环境与地标】', text: places.length ? JSON.stringify(places) : '' },
-      { title: '【程序确定的素材清单，顺序固定】', text: refs || '无参考图片' },
+      { title: '【本次参数】', text: { shotId: shot.id, durationSeconds: shot.duration, mode: video, ...(project.style ? { style: project.style } : {}) } },
+      { title: '【上游事实：本镜已通过每秒指令（唯一时间线来源）】', text: { seconds: shot.seconds?.content || null } },
+      { title: '【关联人物资料，仅用于身份与外观】', text: people.length ? { characters: people } : '' },
+      { title: '【关联场景资料，仅用于环境与地标】', text: places.length ? { scenes: places } : '' },
+      { title: '【程序确定的素材清单，顺序固定】', text: { references: Array.isArray(refs) ? refs : refs ? [{ description: refs }] : [] } },
     ].filter(fact => fact.text),
   }
 }

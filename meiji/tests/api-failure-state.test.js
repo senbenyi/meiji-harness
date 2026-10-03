@@ -52,6 +52,31 @@ test('gateway image error is logged without changing image model state',async t=
  assert.equal(after.activityError,before.activityError)
  assert.ok(JSON.stringify(logs).includes('image unavailable'))
 })
+for(const mode of ['error','stop','draft']) test(`image ${mode} only changes the image node, never the episode story state`,async t=>{
+ const e=await setupModel(t),models=modelStore(e.home)
+ await models.write({...await models.read(),apiKey:'test-only'})
+ await e.store.save(e.id,p=>{p.activityError='剧情旧错误';p.episodes[0].activityError='剧情旧错误';return p})
+ const before=await e.read(),stop=new AbortController()
+ await runOperation(e.op('image',{itemId:'C01'}),{home:e.home,waitForBackground:true,signal:stop.signal,submitAssetImage:async args=>{
+  if(mode==='stop'){stop.abort(new Error('用户停止'));throw new Error('任务已停止')}
+  if(mode==='draft')return args.onSaved({...args.assets,items:args.assets.items.map(item=>item.id===args.itemId?{...item,pendingImage:{draftId:'d1',previewUrl:'/d1.png'}}:item)})
+  throw new Error('HTTP 500 image fail')
+ }})
+ const after=await e.read(),root=await e.store.read(e.id),image=after.plot.characters.items[0].image
+ assert.equal(after.activityError,'剧情旧错误');assert.equal(root.activityError,'剧情旧错误')
+ for(const key of ['outline','characters','scenes','props']){assert.equal(after.plot[key].status,before.plot[key].status);assert.equal(after.plot[key].error,before.plot[key].error)}
+ if(mode==='draft')assert.ok(after.pendingImages.d1)
+ else{assert.equal(image.status,'failed');assert.equal(image.error,mode==='stop'?'任务已停止':'HTTP 500 image fail')}
+})
+test('restart cancel of an interrupted image keeps the episode story error',async t=>{
+ const e=await setupModel(t)
+ const { interruptRunning, RESTART_CANCELLED } = await import('../server/flow/tasks/cancel-interrupted-tasks.js')
+ await e.store.save(e.id,p=>{p.episodes[0].activity='image:C01';p.episodes[0].activityError='剧情旧错误';p.episodes[0].plot.characters.items[0].image.status='generating';return p})
+ await interruptRunning(e.store)
+ const after=await e.read()
+ assert.equal(after.activity,null);assert.equal(after.activityError,'剧情旧错误')
+ assert.equal(after.plot.characters.items[0].image.error,RESTART_CANCELLED)
+})
 // 每镜独立生成与审核。
 test('seconds are reviewed one shot at a time',async t=>{
  const e=await setupModel(t),models=modelStore(e.home)

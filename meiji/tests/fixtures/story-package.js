@@ -11,3 +11,5 @@ export function outlineFixture(content = '旅人在庭院等待回应。', langu
   const headings = language === 'en' ? ['Motivation', 'World Rules', 'Causal Plot', 'Emotional Thread', 'Dialogue Beats', 'Ending State', 'Final Image'] : ['主角动机', '世界规则', '因果剧情', '情绪线索', '对白节拍', '结尾状态', '结尾关键画面']
   return headings.map(title => `【${title}】\n${content}`).join('\n\n')
 }
+
+export const outlineResponse = (...args) => JSON.stringify({ outline: outlineFixture(...args) })

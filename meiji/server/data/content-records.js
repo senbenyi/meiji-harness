@@ -57,7 +57,8 @@ export async function prepareContentRecords(current, next) {
       continue
     }
     if (!target.exists) { delete target.node.source; continue }
-    if (manualActions.has(context.operation.action)) {
+    // 手动保存的剧集摘要视为已通过（由 episode-add/edit 写入），不重置为待审。
+    if (manualActions.has(context.operation.action) && target.key !== 'summary') {
       const episode = next.episodes.find(item => item.id === target.episodeId)
       const nodes = target.key === 'story' ? [episode.plot.outline, episode.plot.characters, episode.plot.scenes, episode.plot.props].filter(Boolean) : [target.node]
       for (const node of nodes) { node.check = { passed: null, failures: [], revision: node.revision }; if (!node.operation) node.status = 'not-generated' }

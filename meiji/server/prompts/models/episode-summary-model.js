@@ -4,6 +4,7 @@ import { segment, render } from '../skill-prompts.js'
 import { outputLanguage } from '../../../shared/output-language.js'
 import { referenceDuration } from '../../../shared/episode-summary.js'
 import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../prompt-request.js'
+import { contentData } from '../prompt-text.js'
 
 export class EpisodeSummaryModel {
   constructor({ project = {}, episodeId, referenceDurationSeconds, generationRules = '', reviewRules = '', outputProtocol = '', mode = 'generate', opinion = '' }) {
@@ -30,14 +31,12 @@ export class EpisodeSummaryModel {
   // 三类请求共用事实与参数；结构由 prompt-request.js 统一组装。
   contextSegments({ instructions = '' } = {}) {
     const { referenceDurationSeconds: duration } = this.target
-    const previous = this.previousEpisodes.map(episode => `第 ${episode.episodeNumber} 集（${episode.durationSeconds} 秒）：${episode.summary}`).join('\n')
-    const following = this.followingEpisodes.map(episode => `第 ${episode.episodeNumber} 集：${episode.summary}`).join('\n')
     return [
-      segment('context', '【核心输入：项目摘要】', this.project.summary || '未提供'),
-      segment('context', '【输入：剧本资料】', this.project.script),
-      segment('context', '【本次参数】', [`本集时长：${duration} 秒`, this.project.style ? `项目风格：${this.project.style}` : ''].filter(Boolean).join('\n')),
-      segment('context', '【衔接：前集已发生事实，按剧情顺序】', previous || '无前集。'),
-      segment('context', '【衔接：后集摘要】', following || '未提供后集剧情。'),
+      segment('context', '【核心输入：项目摘要】', { summary: this.project.summary }),
+      segment('context', '【输入：剧本资料】', this.project.script ? { script: this.project.script } : ''),
+      segment('context', '【本次参数】', { durationSeconds: duration, ...(this.project.style ? { style: this.project.style } : {}) }),
+      segment('context', '【衔接：前集已发生事实，按剧情顺序】', { episodes: this.previousEpisodes }),
+      segment('context', '【衔接：后集摘要】', { episodes: this.followingEpisodes }),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),
     ]
   }
@@ -60,7 +59,7 @@ export class EpisodeSummaryModel {
       language: language || this.languageSegment(),
       protocol: protocol || segment('protocol', '【本次输出协议】', this.outputProtocol),
       task: this.taskSegment(task), requirements: requirementSegment(requirements), facts: this.contextSegments({ instructions }),
-      base: baseSegments({ kind, baseContent, opinion, humanOpinion, automatic }),
+      base: baseSegments({ kind, baseContent, opinion, humanOpinion, automatic, field: 'summary' }),
     })
   }
   toGenerateSegments(parts = {}) {
@@ -84,9 +83,9 @@ export class EpisodeSummaryModel {
         : '只验收本集最新摘要。未提供本集基稿，不要求与旧摘要一致，不声称已验证未改部分保留；合理续写不因未逐字出现在资料中而判失败。')),
       method, criteria, additions: this.supplementSegments(additions), language: language || this.languageSegment(), protocol: segment('protocol', '【本次审核协议】', reviewProtocol),
       task: this.taskSegment(`审核第 ${this.target.episodeNumber} 集摘要的${mode}。`), requirements: requirementSegment(requirements), facts: this.contextSegments({ instructions }),
-      base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion, humanOpinion, automatic }) : [],
+      base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion, humanOpinion, automatic, field: 'summary' }) : [],
       continuity: segment('context', '【补充审核上下文】', reviewContext),
-      content: segment('context', '【本次待审内容】', contentText(content)),
+      content: segment('context', '【本次待审内容】', contentData(content, 'summary')),
     })
   }
   contextText() { return render(this.contextSegments()) }

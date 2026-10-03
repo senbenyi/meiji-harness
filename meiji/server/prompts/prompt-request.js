@@ -5,6 +5,7 @@
 //   user：  阶段 → 本次任务 → 本次生成要求 → 上游事实与上下文 → 指导素材 → 基稿与意见 → 审核上下文 → 待审内容 → 审核收尾
 import { segment } from './skill-prompts.js'
 import { checkContext } from '../runtime/operation-context.js'
+import { contentData } from './prompt-text.js'
 
 const list = value => (Array.isArray(value) ? value : [value]).filter(Boolean)
 
@@ -20,15 +21,15 @@ export const factSegments = facts => (facts || []).map(fact => segment('context'
 // 本次操作附带的生成要求，生成、修订、审核都单独成段，不再拼进任务文本。
 export const requirementSegment = (requirements = checkContext.getStore()?.requirements) => segment('context', '【本次生成要求】', requirements || '')
 
-export function baseSegments({ kind, baseContent = '', opinion = '', humanOpinion = '', automatic = false }) {
+export function baseSegments({ kind, baseContent = '', opinion = '', humanOpinion = '', automatic = false, field = 'content' }) {
   if (kind === 'review') return [
-    segment('context', '【修订基稿（用于对照范围）】', baseContent),
+    segment('context', '【修订基稿（用于对照范围）】', contentData(baseContent, field)),
     segment('context', automatic ? '【本轮修订意见】' : '【本次修改意见】', opinion),
     ...(automatic ? [segment('context', '【本次修改意见】', humanOpinion)] : []),
   ]
   if (kind === 'generate') return [segment('context', '【本次修改意见】', opinion)]
   return [
-    segment('context', automatic ? '【最新失败稿（唯一修改基准）】' : '【修改基稿】', baseContent),
+    segment('context', automatic ? '【最新失败稿（唯一修改基准）】' : '【修改基稿】', contentData(baseContent, field)),
     segment('context', automatic ? '【本轮自审不通过原因】' : '【本次修改意见】', opinion),
     ...(automatic ? [segment('context', '【本次修改意见】', humanOpinion)] : []),
   ]

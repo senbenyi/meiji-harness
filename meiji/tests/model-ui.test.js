@@ -1,3 +1,4 @@
+import { tableResponse, singleShotResponse } from './fixtures/shot-response.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -139,7 +140,7 @@ test('previous tail input is hidden and never replaces missing current video or 
 test('generated and revised shot titles appear on production cards', async t => {
  const { generateShots, reviseShot } = await import('../server/flow/operations/shot-operations.js')
  const container = domSetup(t), project = episodeFixture()
- const request = text => async ({ skill }) => skill === 'review' ? reviewPass : text
+ const request = text => async ({ skill }) => skill === 'review' ? reviewPass : skill === 'shots' ? tableResponse(text) : singleShotResponse(text)
  project.shots = await generateShots({ project, request: request('## S01 / 5s\n标题：夜访庭院\n旅人走到门外。\n\n## S02 / 5s\n标题：叩门待应\n旅人敲门。') })
  assert.match(project.shots.items[0].content, /^标题：夜访庭院/)
  const actions = { perform: async () => {}, fail: () => {} }
@@ -154,12 +155,28 @@ test('generated and revised shot titles appear on production cards', async t => 
  checkCards('风雪抵达')
 })
 
+test('JSON 大纲经解析保存后展示真实换行，不展示对象外壳或转义字符', async t => {
+ const { generateStoryPackage } = await import('../server/flow/operations/story-text-operations.js')
+ const { runOperation } = await import('../server/flow/operations/run-operation.js')
+ const { outlineFixture, storyPackageFixture } = await import('./fixtures/story-package.js')
+ const container = domSetup(t), e = await setupModel(t), fixture = storyPackageFixture()
+ const outline = outlineFixture('旅人读到 "明天见"。\n他收起信，望向紧闭的门。')
+ const replies = [JSON.stringify({ outline }), reviewPass, JSON.stringify(fixture.characters), reviewPass,
+  JSON.stringify(fixture.scenes), reviewPass, JSON.stringify({ items: [] }), reviewPass]
+ await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => replies.shift() }) })
+ const saved = await e.read()
+ assert.equal(saved.plot.outline.content, outline)
+ container.replaceChildren(renderStage('outline', saved, { perform: async () => {}, fail: () => {} }, {}))
+ assert.equal(container.querySelector('pre.story').textContent, outline)
+ assert.equal(container.querySelector('pre.story').textContent.split('\n\n').length, 7)
+})
+
 test('超过15秒的小剧情同名分段标题经保存读回后在各镜头卡片完整展示', async t => {
  const { generateShots,reviseShot }=await import('../server/flow/operations/shot-operations.js')
  const container=domSetup(t), e=await setupModel(t), project=e.episode
  project.durationSeconds=24
  const raw='## S01 / 12s\n标题：发现旧信1\n旅人在木箱里找到旧信，尚未取出。\n\n## S02 / 8s\n标题：发现旧信2\n旅人取出旧信，辨认封面。\n\n## S03 / 4s\n标题：决定拆读\n旅人准备打开旧信。'
- const request=text=>async ({skill})=>skill==='review'?reviewPass:text
+ const request=text=>async ({skill})=>skill==='review'?reviewPass:skill==='shots'?tableResponse(text):singleShotResponse(text,'S02',8)
  const persist=async shots=>{project.shots=shots;await e.store.save(e.id,{episodes:[project]})}
  await generateShots({project,request:request(raw),persist})
  let saved=await e.read()
@@ -851,6 +868,16 @@ test('failed modification preserves persisted opinion, and a new image candidate
  const next=syncImageGate({episodes:[{id:'episode',pendingImages:{new:{draftId:'new',itemId:'C01',previewUrl:'/new.png'}}}]},
   {phase:'generating',episodeId:'episode',itemId:'C01',ignoreDraftId:'old',review:'旧修改意见'})
  assert.equal(next.review,'');assert.equal(next.phase,'ready')
+})
+
+test('image gate reads the image node error and ignores the episode story error', async t => {
+ const { syncImageGate } = await import('../client/image-review.js')
+ const episode=episodeFixture();episode.activityError='剧情旧错误';episode.plot.characters.items[0].image.error='图片生成失败'
+ const failed=syncImageGate({episodes:[episode]},{phase:'generating',held:true,action:'image',episodeId:episode.id,itemId:'C01'})
+ assert.equal(failed.phase,'error');assert.equal(failed.error,'图片生成失败')
+ episode.plot.characters.items[0].image.error=null;episode.activity='image:C01'
+ const running=syncImageGate({episodes:[episode]},null)
+ assert.equal(running.phase,'generating');assert.equal(running.error,'')
 })
 
 test('late draft acknowledgement cannot restore consumed opinion or block a newer draft save', async t => {

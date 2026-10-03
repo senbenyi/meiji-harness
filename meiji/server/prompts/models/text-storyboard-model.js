@@ -1,6 +1,7 @@
 // storyboard 审核：文本分镜由程序编译，这里只组装人工编辑稿的审核请求。
 import { currentSkillSet, reviewParts, segment } from '../skill-prompts.js'
 import { baseSegments, factSegments, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
+import { contentData } from '../prompt-text.js'
 
 function outputStructure(mode = 'text') {
   return `本次固定模式：${mode}。使用真实换行，按顺序输出 ${mode === 'reference' ? 'subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music' : 'integrated_multimodal_description、overall_soundscape、non_diegetic_music'}，每个英文标题后加冒号，另起行写非空正文。${mode === 'reference' ? 'subject_definitions 定义每张 Picture 与 Subject 的真实用途；summary 简述本镜；retention_analysis 说明参考特征的保留与变化；detailed_description 在原时段的动作或环境描述中使用对应 Subject。每张图片都绑定，每个已定义主体都在正文使用，图片与主体的编号体系独立。' : '没有图片，不写 Picture 或 Subject。'}不输出 JSON、代码围栏或额外说明。`
@@ -10,7 +11,7 @@ const conversion = '每段的动作、镜头、空间、声音全部进入对应
 
 // 文本分镜由程序生成；模型只审核人工编辑后的最终提示词。结构与其他步骤一致（prompt-request.js）。
 function review(task, content) {
-  const p = reviewParts({ ...task, stage: 'storyboard' }, content)
+  const p = reviewParts({ ...task, stage: 'storyboard' }, contentData(content, 'prompt'))
   const input = taskInput(task.instructions)
   return reviewRequest({
     role: segment('context', '【角色与职责】', '你是一名视频提示词与引用审核员，验收最新待审内容是否忠实转换本镜每秒指令、正确绑定素材并符合格式。'),
@@ -22,7 +23,7 @@ function review(task, content) {
     protocol: p.protocol,
     stage: p.stage, task: segment('context', '【审核目标】', input.review || input.task), requirements: requirementSegment(),
     facts: factSegments(input.facts), assets: p.assetContent,
-    base: baseSegments({ kind: 'review', baseContent: task.baseContent, opinion: task.opinion }),
+    base: baseSegments({ kind: 'review', baseContent: task.baseContent, opinion: task.opinion, field: 'prompt' }),
     content: p.content,
   })
 }

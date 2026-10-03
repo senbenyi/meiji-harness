@@ -1,3 +1,4 @@
+import { promptData } from './fixtures/prompt-data.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createSceneImageModel, sceneImageModelToPrompt } from '../server/prompts/models/scene-image-model.js'
@@ -19,8 +20,8 @@ test('场景 model 五项资料独立复制，可 JSON 往返，内部生成具�
   assert.deepEqual(Object.keys(model.scene), ['name', 'landmark', 'light', 'space', 'look'])
   assert.equal(model.role, '影视场景设计师')
   assert.equal(model.toPrompt(), sceneImageModelToPrompt(JSON.parse(JSON.stringify(model))))
-  assert.match(model.toPrompt(), /【核心输入：场景资料】\n名称：庭院\n地标：南门北墙\n光位：西侧夕阳/)
-  assert.match(model.toPrompt(), /1600 × 904 像素，横幅/)
+  assert.deepEqual(promptData(model.toPrompt(), '【核心输入：场景资料】'), model.scene)
+  assert.deepEqual(promptData(model.toPrompt(), '【本次参数】'), { width: 1600, height: 904, orientation: '横幅' })
   assert.doesNotMatch(model.toPrompt(), /水彩|【语言】|English|视觉风格|无关数据/)
   model.scene.name = '新院'
   model.canvas.width = 800
@@ -30,7 +31,7 @@ test('场景 model 五项资料独立复制，可 JSON 往返，内部生成具�
 
 test('参考图和原图保持 Base64 顺序但不把数据拼入正文；意见单独保存', () => {
   const reference = createSceneImageModel({ ...input, mode: 'reference', images: [{ purpose: 'scene-reference', base64 }] })
-  assert.match(reference.toPrompt(), /输入图片1：场景空间与环境参考/)
+  assert.deepEqual(promptData(reference.toPrompt(), '【参考图片】'), { images: [{ index: 1, purpose: 'scene-reference' }] })
   assert.doesNotMatch(reference.toPrompt(), /data:image|b3JpZ2luYWw=/)
   const modify = createSceneImageModel({ ...input, mode: 'modify', images: [{ purpose: 'edit-base', base64 }, { purpose: 'scene-reference', base64 }], modification: { instruction: ' 镜头后退，扩大安全边距 ' } })
   assert.match(modify.toPrompt(), /【本次修改意见】\n镜头后退，扩大安全边距/)

@@ -1,3 +1,4 @@
+import { promptData } from './fixtures/prompt-data.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createCharacterImageModel } from '../server/prompts/models/character-image-model.js'
@@ -29,7 +30,7 @@ for (const { label, role, create, purpose, facts } of configurations) {
       const task = prompt.split('【本次任务】\n')[1].split('\n\n')[0]
       assert.doesNotMatch(task, /地标|光位|服装|全景|保留未涉及|只输出|BASE_RULE|CURRENT_OPINION/)
       assert.match(prompt, new RegExp(`【核心输入：${label}资料】\\n`))
-      assert.match(prompt, /【本次参数】\n画幅：1344 × 768 像素，横幅。/)
+      assert.deepEqual(promptData(prompt, '【本次参数】'), { width: 1344, height: 768, orientation: '横幅' })
       assert.match(prompt, /【基础规则】\nBASE_RULE/)
       assert.match(prompt, /【本次输出协议】\n只输出一张图片，不输出解释或审核文字。$/)
       assert.doesNotMatch(prompt, /【资料边界】|【任务】|【生成规则】|【画幅】|【本剧补充】|data:image|base64|未提供的大纲示例/)
@@ -40,13 +41,13 @@ for (const { label, role, create, purpose, facts } of configurations) {
       if (mode === 'generate') assert.doesNotMatch(prompt, /【参考图片】|【本次修改意见】|【本次修订范围】/)
       else {
         assert.equal(model.images[0].base64, base64)
-        assert.ok(prompt.indexOf('输入图片1：') < prompt.indexOf('输入图片2：'))
+        assert.deepEqual(promptData(prompt, '【参考图片】').images, images.map(({ purpose }, index) => ({ index: index + 1, purpose })))
         if (mode === 'reference') {
           assert.match(prompt, /参考图片仅提供/)
           assert.match(prompt, /以本次.*资料为准/)
           assert.doesNotMatch(prompt, /【本次修改意见】|【本次修订范围】/)
         } else {
-          assert.match(prompt, /输入图片1：本次编辑原图/)
+          assert.equal(promptData(prompt, '【参考图片】').images[0].purpose, 'edit-base')
           assert.match(prompt, /【本次修改意见】\nCURRENT_OPINION/)
           assert.match(prompt, /【本次修订范围】/)
           assert.match(prompt, /最新.*资料/)
@@ -65,12 +66,12 @@ test('人物无卡模板也通过 Model 编排角色、资料、画幅和输出�
   const preview = previewPrompts({ stage: 'character-image', root: project, skillSet: set }).image
   const text = render(preview.user)
   assert.equal(text.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名人物角色设计师。')
-  assert.match(text, /【核心输入：人物资料】\n（人物资料将在生成时/)
-  assert.match(text, /【本次参数】\n画幅：768 × 1344/)
+  assert.match(promptData(text, '【核心输入：人物资料】').description, /^（人物资料将在生成时/)
+  assert.deepEqual(promptData(text, '【本次参数】'), { width: 768, height: 1344, orientation: '竖幅' })
   assert.match(text, /【本次输出协议】/)
   assert.doesNotMatch(text, /不注入的风格|【语言】/)
   const actual = render(imageSegments({ stage: 'character-image', project, skillSet: set, request: '明确提供的模板资料' }))
-  assert.match(actual, /【核心输入：人物资料】\n明确提供的模板资料/)
+  assert.deepEqual(promptData(actual, '【核心输入：人物资料】'), { description: '明确提供的模板资料' })
 })
 
 test('场景基本规则不假定存在已给剧情或机位，空图用真实场景尺度', () => {

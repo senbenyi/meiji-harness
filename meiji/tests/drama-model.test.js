@@ -1,3 +1,4 @@
+import { tableResponse } from './fixtures/shot-response.js'
 import { secondsResponse } from './fixtures/seconds.js'
 import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
 import { reviewPass } from './fixtures/review-result.js'
@@ -19,7 +20,7 @@ async function setup(t) {
  await store.save(p.id,{episodes:[episode]})
  return {home,store,id:p.id,episodeId:episode.id, op(action,extra={}){return {action,projectId:p.id,episodeId:episode.id,...extra}}}
 }
-const requestFor = text => async ({ skill }) =>skill==='review'?reviewPass:text
+const requestFor = text => async ({ skill }) =>skill==='review'?reviewPass:skill==='shots'?tableResponse(text):text
 async function throughShots(t) {
  const env=await setup(t)
  await runOperation(env.op('outline'),{home:env.home,generateStoryPackage:async()=>({...storyPackageFixture(10),check:{passed:true,failures:[]}})})

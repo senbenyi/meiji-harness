@@ -83,21 +83,21 @@ export function characterImageModelSegments(model, { factsText } = {}) {
   const normalized = normalizeModel(model)
   const { width, height } = normalized.canvas
   const orientation = width === height ? '正方形' : width > height ? '横幅' : '竖幅'
-  const facts = factsText ?? characterFields.filter(([key]) => normalized.character[key])
-    .map(([key, label]) => `${label}：${normalized.character[key]}`).join('\n')
+  const facts = factsText === undefined ? Object.fromEntries(characterFields.filter(([key]) => normalized.character[key])
+    .map(([key]) => [key, normalized.character[key]])) : { description: factsText }
   const task = normalized.mode === 'modify'
     ? '依据本次人物资料、原图和本次修改意见修订人物参考图，遵守基础规则和补充规则。'
     : normalized.mode === 'reference'
       ? '依据本次人物资料，结合参考图片生成一张人物参考图，遵守基础规则和补充规则。'
       : '依据本次人物资料生成一张人物参考图，遵守基础规则和补充规则。'
-  const references = normalized.images.map((image, index) => `输入图片${index + 1}：${image.purpose === 'edit-base' ? '本次编辑原图。' : '人物外观参考。'}`).join('\n')
+  const references = normalized.images.length ? { images: normalized.images.map((image, index) => ({ index: index + 1, purpose: image.purpose })) } : ''
   const rules = [normalized.generationRules, normalized.mode === 'reference'
     ? '参考图片仅提供人物外观参考；身份与外观属性以本次人物资料为准，构图与背景遵守基础规则和补充规则。' : ''].filter(Boolean).join('\n\n')
   return [
     segment('context', '【角色与职责】', `你是一名${normalized.role}。`),
     segment('context', '【本次任务】', task),
     segment('context', '【核心输入：人物资料】', facts),
-    segment('context', '【本次参数】', `画幅：${width} × ${height} 像素，${orientation}。`),
+    segment('context', '【本次参数】', { width, height, orientation }),
     segment('context', '【参考图片】', references),
     segment('context', '【本次修改意见】', normalized.modification?.instruction || ''),
     segment('constraint', '【基础规则】', rules, { skill: 'character-image', field: 'constraints' }),

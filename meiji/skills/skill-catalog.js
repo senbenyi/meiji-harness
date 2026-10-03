@@ -48,7 +48,7 @@ export const stageCatalog = [
     "kind": "stage",
     "label": "镜头表",
     "logLabel": "镜头表",
-    "output": "text",
+    "output": "json",
     "panel": "shots",
     "assetStages": [
       "shots"
@@ -67,7 +67,7 @@ export const stageCatalog = [
     "kind": "stage",
     "label": "单镜修订",
     "logLabel": "单镜修订",
-    "output": "text",
+    "output": "json",
     "panel": "shots",
     "assetStages": [
       "shots"
@@ -131,7 +131,7 @@ export const stageCatalog = [
     "kind": "stage",
     "label": "图片提示词改写",
     "logLabel": "图片提示词",
-    "output": "text",
+    "output": "json",
     "fields": [],
     "order": 8,
     "fixedConstraints": true,

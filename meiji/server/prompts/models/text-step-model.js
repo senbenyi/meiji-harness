@@ -3,22 +3,23 @@
 import { currentSkillSet, generationParts, reviewParts, segment } from '../skill-prompts.js'
 import { baseSegments, factSegments, generationRequest, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
 import { splitSecondsIssues } from '../seconds-feedback.js'
+import { contentData } from '../prompt-text.js'
 
 const secondsBoundary = '以同编号已通过镜头表的事件、剧情起止状态、实际身体身份和固定时长为上游事实；依据本镜关联资料设计具体机位、景别、剪辑与空间调度，保留上游明确的空间事实与摄影要求，大纲仅作整体参考。程序问题、语义审核问题和人工意见用于修复当前基稿，不能修改上游事实或重排镜头事件。逐项核对意见与同编号镜头表，冲突时以镜头表为准，不采纳要求改写上游的替代方案。上游自身矛盾时不假定已经修正镜头表，不编造新事件掩盖矛盾。'
 const secondsReviewMethod = '按 shotId 将最新待审镜头与同编号镜头表及本镜关联资料逐项对照。每项语义问题必须引用本次待审原文及对应上游事实或审核规则，不能把基稿、历史意见或其他镜头内容冒充该镜头依据；无法证实差异时不判失败。镜头表未规定的机位、景别、剪辑与具体调度由本阶段设计，不因上游缺少这些安排判失败。修正要求不得修改上游事件、剧情起止状态或把事件搬到别的镜头。上游自身矛盾时准确指出镜头表中的冲突来源，不声称待审稿遗漏了不存在的要求。只报告语义问题，不以“程序校验”命名问题；镜头 ID、毫秒时长、必填字段和实体标记由独立程序检查，不能因动作问题将正确时长判为“功能性时长偏差”。同一问题只列一次，不再以时长等名义重复列出。location 必须标明受影响镜头编号，跨镜问题列出相关编号。修订对照问题只用于核对最新稿，不直接复用旧失败结论。'
 
 export const textSteps = {
-  shots: { stage: 'shots', role: '短剧镜头规划师', reviewRole: '独立短剧镜头规划师审核员', json: false,
+  shots: { stage: 'shots', role: '短剧镜头规划师', reviewRole: '独立短剧镜头规划师审核员', json: true,
     reviewTask: '验收本集完整镜头表：剧情覆盖、时长与编号、条目格式及镜头之间的承接。',
     reviseTask: automatic => `依据大纲和${automatic ? '本轮自审意见' : '本次修改意见'}修订本集完整镜头表，遵守基础规则和补充规则。` },
   'shot-seconds': { stage: 'seconds', role: '单镜每秒指令编剧', reviewRole: '独立单镜每秒指令编剧审核员', json: true,
     reviewTask: '验收本镜每秒指令与已通过镜头表的一致性，以及与上一镜已通过指令的衔接。',
     reviseTask: automatic => `依据本镜镜头表和${automatic ? '本轮自审意见' : '本次修改意见'}修订本镜每秒指令，遵守基础规则和补充规则。` },
-  'shot-revise': { stage: 'shot-revise', role: '单镜剧情修订师', reviewRole: '独立单镜剧情修订师审核员', json: false,
+  'shot-revise': { stage: 'shot-revise', role: '单镜剧情修订师', reviewRole: '独立单镜剧情修订师审核员', json: true,
     scope: '只处理本次指定镜头，沿用已保存的编号和时长；未要求改动的剧情事实保持不变，核对前后镜状态、身体身份与空间关系。若需调整跨段边界或其他镜头，指出具体缺口，由镜头表任务重新规划，不在本次修改其他镜头，不将全表问题声称为已经全部修复。',
     reviewTask: '验收本次指定镜头的修订结果：意见落实、改动范围与前后镜衔接。' },
   // 图片提示词改写没有独立基础 skill 文件，生成规则在此定义；自审使用 review-image-prompt-skill.md。
-  'image-prompt': { stage: 'image-prompt', role: '图片提示词设计师', reviewRole: '独立图片提示词设计师审核员', json: false,
+  'image-prompt': { stage: 'image-prompt', role: '图片提示词设计师', reviewRole: '独立图片提示词设计师审核员', json: true,
     rules: '保持同一个人物或场景，只修改用户指定的外观；其他身份、地标和画面事实不变。\n\n描述须足够具体供生图使用，不编造素材 ID 或文件地址。',
     reviewTask: '验收改写后的图片提示词：主体保持、修改落实与可用性。' },
 }
@@ -37,12 +38,12 @@ export class TextStepModel {
   scope() { return segment('context', '【单镜任务范围】', this.config.scope || '') }
 
   base(kind, { baseContent = '', opinion = '', humanOpinion = '', automatic = false } = {}) {
-    if (this.config.stage !== 'seconds') return baseSegments({ kind, baseContent, opinion, humanOpinion, automatic })
+    if (this.config.stage !== 'seconds') return baseSegments({ kind, baseContent, opinion, humanOpinion, automatic, field: this.config.stage === 'image-prompt' ? 'prompt' : 'shotTable' })
     const issues = automatic ? splitSecondsIssues(opinion) : this.task
     return [
-      segment('context', kind === 'review' ? '【修订基稿（用于对照范围）】' : automatic ? '【最新失败稿（唯一修改基准）】' : '【修改基稿】', baseContent),
-      segment('context', '【程序校验问题】', issues.programIssues?.length ? JSON.stringify(issues.programIssues) : ''),
-      segment('context', '【语义审核问题】', issues.semanticIssues?.length ? JSON.stringify(issues.semanticIssues) : ''),
+      segment('context', kind === 'review' ? '【修订基稿（用于对照范围）】' : automatic ? '【最新失败稿（唯一修改基准）】' : '【修改基稿】', contentData(baseContent, 'seconds')),
+      segment('context', '【程序校验问题】', issues.programIssues?.length ? { issues: issues.programIssues } : ''),
+      segment('context', '【语义审核问题】', issues.semanticIssues?.length ? { issues: issues.semanticIssues } : ''),
       segment('context', '【人工修改意见】', automatic ? humanOpinion : opinion),
     ]
   }
@@ -70,7 +71,7 @@ export class TextStepModel {
 
   toReviewSegments(content) {
     const { task } = this
-    const p = reviewParts({ ...task, stage: this.config.stage }, content)
+    const p = reviewParts({ ...task, stage: this.config.stage }, contentData(content, this.config.stage === 'seconds' ? 'seconds' : this.config.stage === 'image-prompt' ? 'prompt' : 'shotTable'))
     const method = this.config.stage === 'seconds' ? { ...p.method, text: `${p.method.text}\n\n${secondsReviewMethod}` } : p.method
     return reviewRequest({
       role: segment('context', '【角色与职责】', `你是一名${this.config.reviewRole}，验收最新待审内容。`),

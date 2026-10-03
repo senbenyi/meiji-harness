@@ -1,3 +1,4 @@
+import { tableResponse } from './fixtures/shot-response.js'
 import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 // 任务与步骤：状态推导、结束落定、计划与执行的对应、逐镜成片单一任务、人工专属操作。
@@ -22,7 +23,7 @@ import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel, tempHome } from './fixtures/model.js'
 
 const step = (status, extra = {}) => ({ kind: 'generate', target: 'summary', status, verdict: null, reasons: [], ...extra })
-const reply = (text, verdict = reviewPass) => async ({ skill, user }) => skill === 'review' ? verdict : skill === 'storyboard' ? storyboardFixture(user) : text
+const reply = (text, verdict = reviewPass) => async ({ skill, user }) => skill === 'review' ? verdict : skill === 'storyboard' ? storyboardFixture(user) : skill === 'shots' ? tableResponse(text) : text
 const prompt = 'integrated_multimodal_description: 旅人朝北进入庭院，摄影机位于旅人身后\noverall_soundscape: 风声\nnon_diegetic_music: N/A'
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 let submitted = 0

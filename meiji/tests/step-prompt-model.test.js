@@ -116,7 +116,7 @@ test('单镜上下文只带本镜及前后镜关联卡片与衔接段，大纲�
  const single=JSON.stringify(shotContext(project,'S01').filter(fact=>fact.title!=='【实体引用清单】'))
  assert.match(single,/旅人/); assert.match(single,/庭院/)
  assert.doesNotMatch(single,/路人|码头|本集摘要/)
- assert.match(single,/S02 开场/); assert.doesNotMatch(single,/S02：事件/)
+ assert.equal(shotContext(project,'S01').find(fact=>fact.title.includes('衔接段')).text.handoffs[0].shotId, 'S02'); assert.equal(shotContext(project,'S01').find(fact=>fact.title.includes('衔接段')).text.handoffs[0].position, 'start'); assert.doesNotMatch(single,/S02：事件/)
  const whole=JSON.stringify(shotContext(project))
  assert.match(whole,/路人/); assert.match(whole,/码头/)
 })
@@ -162,8 +162,8 @@ test('每秒指令三类编排携带当前关联布局并允许独立设计摄�
  for(const message of [prompts.generation,prompts.review('待审内容'),prompts.revision('最新失败稿','补充发现旧信的特写')]) {
   const scene=message.user.match(/【上游事实：本镜关联场景】\n([^\n]+)/)?.[1]
   assert.ok(scene)
-  assert.equal(JSON.parse(scene)[0].landmark,'北侧石拱门')
-  assert.equal(JSON.parse(scene)[0].light,'西侧月光')
+  assert.equal(JSON.parse(scene).scenes[0].landmark,'北侧石拱门')
+  assert.equal(JSON.parse(scene).scenes[0].light,'西侧月光')
   assert.match(message.user,/封口完整的旧信/)
   assert.doesNotMatch(message.user,/无关场景布局|private-scene-image|只供后续镜头的剧情/)
   assert.doesNotMatch(message.system,/切镜发生在镜头表规定的位置|继承镜头表的景别意图|仅在上游明确剪辑时为 cut/)

@@ -3,6 +3,7 @@ import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shar
 import { checkContext, apiFailed, inTextStep } from './operation-context.js'
 const batchActions = new Set(['seconds', 'storyboard', 'shot-boards', 'films'])
 const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image', 'pencil'])
+const imageGenerationActions = new Set(['image', 'revise-image', 'part-image', 'pencil'])
 const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'shot-boards', 'image', 'revise-image', 'part-image', 'pencil', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
@@ -75,7 +76,8 @@ export async function prepareChecks(store, project, operation) {
   const fresh = mode === 'regenerate' ? undefined : operation.review ?? (operation.action === 'revise-image' ? operation.instruction : undefined)
   project = await store.save(project.id, current => {
     const next = structuredClone(current)
-    next.activityError = null
+    // 图片生成不清除剧集的剧情错误。
+    if (!imageGenerationActions.has(operation.action)) next.activityError = null
     // 重新生成剧情先清空本集旧产物；修改模式仍以原稿为基础。
     if (operation.action === 'outline' && mode === 'regenerate') {
       const empty = episodeModel(next.id, {})
@@ -137,7 +139,7 @@ export async function prepareChecks(store, project, operation) {
       const filmRunning = targetOperation.action === 'film' && target?.content?.status === 'running'
       if (!inTextStep() && (changes.activity === null || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
         const failed = changes.activityError || target?.content?.error
-        const awaitingImage = ['image', 'revise-image', 'part-image', 'pencil'].includes(targetOperation.action) && Object.values(next.pendingImages || {}).some(draft => targetOperation.track ? draft.track === targetOperation.track : draft.itemId === targetOperation.itemId)
+        const awaitingImage = imageGenerationActions.has(targetOperation.action) && Object.values(next.pendingImages || {}).some(draft => targetOperation.track ? draft.track === targetOperation.track : draft.itemId === targetOperation.itemId)
         if (awaitingImage) {
           for (const key of keys(next, targetOperation)) {
             const value = targetNode(next, key)
@@ -153,6 +155,8 @@ export async function prepareChecks(store, project, operation) {
           setCheck(next, targetOperation, [...validation, ...(checkContext.getStore()?.validation || [])])
         }
       }
+      // 图片生成的开始、失败与停止只记在图片节点上，不改剧集的剧情状态（activityError）。
+      if (imageGenerationActions.has(targetOperation.action)) next.activityError = current.activityError ?? null
       return modelPatch(current, next)
     })
     if (!inTextStep() && checkContext.getStore()?.validation?.length && saved.activity) throw Object.assign(new Error(`自检未通过：${checkContext.getStore().validation.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })

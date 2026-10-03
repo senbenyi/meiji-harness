@@ -8,6 +8,7 @@ import { executionContext, executionSteps } from '../../runtime/task-context.js'
 import { recorded } from '../../runtime/task-state.js'
 import { checkContext, apiFailed } from '../../runtime/operation-context.js'
 import { planSteps, runnerStep, validateOperation, episodeScoped } from './operation-registry.js'
+import { operations } from './registry.js'
 import { materialize, normalizeProject } from '../../../shared/episode-rules.js'
 import { scopeProjects } from '../../data/episode-data.js'
 import { readImageDraft } from '../../data/image-storage.js'
@@ -17,11 +18,6 @@ import { feedbackOf } from '../../../shared/review-feedback.js'
 import { canGenerate } from '../../../shared/generation-gates.js'
 import { assetStore } from '../../data/asset-library-store.js'
 import { modelStore } from '../../data/model-settings.js'
-import { projectOperations } from './project-operations.js'
-import { storyOperations } from './story-text-operations.js'
-import { shotOperations } from './shot-operations.js'
-import { imageOperations } from './image-operations.js'
-import { filmOperations } from './video-operations.js'
 import { allNodes, GenerationStatus, modelPatch, targetNode } from '../../../shared/drama-model.js'
 
 const running = new Set()
@@ -59,7 +55,6 @@ export async function runOperation(operation, deps) {
   }
 }
 
-const operations = { ...projectOperations, ...storyOperations, ...shotOperations, ...imageOperations, ...filmOperations }
 
 async function executeOperation(operation, deps) {
   const { home } = deps

@@ -1,7 +1,7 @@
 // 剧情四类资料接口：从技能快照取生产规则、审核标准、补充与协议，交给 StoryModel 按统一结构组装。
 import { currentSkillSet, generationParts, reviewParts, segment } from '../skill-prompts.js'
 import { checkContext } from '../../runtime/operation-context.js'
-import { contentText } from '../prompt-text.js'
+import { contentText, contentData } from '../prompt-text.js'
 import { StoryOutlineModel } from '../models/story-model.js'
 import { baseSegments, factSegments, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
@@ -62,9 +62,9 @@ function reviewEditedContent(task, content, p) {
     task: segment('context', '【本次任务】', `${automatic ? '自动修订结果验收' : hasBase ? '人工修订结果验收' : '生成结果验收'}。审核提供的已编辑剧情资料，核对大纲与人物、场景的一致性；不生成或改写原文。${input.review ? `\n${input.review}` : ''}`),
     requirements: requirementSegment(requirements()),
     facts: factSegments(input.facts), assets: p.assetContent,
-    base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion: task.revisionOpinion || task.opinion, humanOpinion: task.opinion, automatic }) : [],
+    base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion: task.revisionOpinion || task.opinion, humanOpinion: task.opinion, automatic, field: 'outline' }) : [],
     continuity: segment('context', '【补充审核上下文】', task.reviewContext),
-    content: segment('context', '【本次待审内容】', contentText(content)),
+    content: segment('context', '【本次待审内容】', contentData(content, 'outline')),
   })
 }
 

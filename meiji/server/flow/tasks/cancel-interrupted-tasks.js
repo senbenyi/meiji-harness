@@ -25,8 +25,9 @@ export async function interruptRunning(store) {
           target.content = { ...target.content, status: 'error', terminal: true, error: remote.get(target.content.promptId) || RESTART_CANCELLED }
         }
       }
+      // 中断的是图片生成时只把图片节点记为失败，不清除剧集的剧情错误。
+      if (!/^(image|pencil):|^confirm-image$/.test(episode.activity || '')) next.activityError = null
       next.activity = null
-      next.activityError = null
       return modelPatch(episode, next)
     }) }))
   }
