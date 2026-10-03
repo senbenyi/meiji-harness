@@ -7,8 +7,8 @@ import { buildTextPrompts } from './text-prompts.js'
 import { feedbackOf } from '../../shared/review-feedback.js'
 import { splitSecondsIssues } from './seconds-feedback.js'
 
-// 镜头相关步骤的上游事实与上下文，按 { title, text } 分段返回，由 prompt-request.js 组装进 user。
-// 整集步骤（镜头表、整集每秒指令）给全部资料；单镜步骤只给衔接所需：本镜及前后镜关联的卡片、
+// 镜头表及单镜镜头表修订的上下文，按 { title, text } 分段交给 prompt-request.js。
+// 镜头表步骤给全部资料；单镜修订只给衔接所需：本镜及前后镜关联的卡片、
 // 前镜末段与后镜开场的每秒指令，不再附相邻镜头的完整每秒指令。大纲存在时不重复附本集摘要。
 const cardKeys = ['id', 'name', 'type', 'look', 'space', 'landmark', 'light', 'description', 'category', 'ownerId', 'evidence', 'identity', 'clothes', 'props', 'hairstyles']
 const cleanCard = card => Object.fromEntries(cardKeys.filter(key => card[key] != null).map(key => [key, Array.isArray(card[key]) ? card[key].map(cleanCard) : card[key]]))
@@ -72,9 +72,9 @@ export function buildShotPrompts(skill, instructions, options) {
   if (skill === 'seconds') {
     const record = feedbackOf(original, `seconds:${options.shotId}`)
     const regenerate = ctx?.generationMode === 'regenerate'
-    const human = regenerate ? '' : options.review ?? ctx?.batchReview ?? record.review.text ?? ''
+    const human = regenerate ? '' : options.review ?? ctx?.batchReview ?? ctx?.review ?? record.review.text ?? ''
     const issues = splitSecondsIssues(regenerate ? [] : record.check?.passed === false ? record.check.failures : [])
-    const modify = Boolean(previous && (human || issues.programIssues.length || issues.semanticIssues.length))
+    const modify = Boolean(previous && (ctx?.generationMode === 'modify' || human || issues.programIssues.length || issues.semanticIssues.length))
     return buildTextPrompts({ skill, project: options.project, shotId: options.shotId, instructions, modify,
       baseContent: modify ? previous : '', opinion: human, ...issues })
   }
@@ -115,32 +115,21 @@ export function buildSingleShotPrompts(options) {
   }, options)
 }
 
-// 每秒指令资料：镜头表为核心输入，随后是参数、相邻镜头衔接、角色/场景/道具卡、大纲参考与实体引用清单。
-const secondsTitles = {
-  '【上下文：前镜已发生，本次不重演】': '【衔接：前镜（已发生，不重演）】',
-  '【上下文：后镜尚未发生，本次不提前演出】': '【衔接：后镜（尚未发生，不提前演出）】',
-  '【上下文：相邻镜头每秒指令的衔接段，不重复执行】': '【衔接：相邻镜头每秒指令】',
-  '【上游事实：大纲】': '【参考：大纲】',
-  '【上游事实：本集摘要】': '【参考：本集摘要】',
-}
-function secondsFacts(context, core, params) {
-  const pick = test => context.filter(fact => test(fact.title)).map(fact => ({ ...fact, title: secondsTitles[fact.title] || fact.title }))
-  return [core, { title: '【本次参数】', text: params.filter(Boolean).join('\n') },
-    ...pick(title => title.startsWith('【上下文：')),
-    ...pick(title => /^【上游事实：.*(人物|场景|道具)/.test(title)),
-    ...pick(title => title === '【上游事实：大纲】' || title === '【上游事实：本集摘要】'),
-    ...pick(title => title === '【实体引用清单】'),
-  ].filter(fact => fact.text)
-}
-
+// 每秒指令只带本镜镜头表、前镜完整指令与大纲，不引入其他镜头的旧稿。
 export function buildSecondsPrompts(options) {
   const { project, shotId } = options
-  const shot = project.shots.items.find(item => item.id === shotId)
+  const index = project.shots.items.findIndex(item => item.id === shotId)
+  const shot = project.shots.items[index], previous = project.shots.items[index - 1]
   return buildShotPrompts('seconds', {
-    task: '依据本镜镜头表生成本镜每秒指令，遵守基础规则和补充规则。',
-    review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：与本镜镜头表的事件、切镜点和起止状态一致，与相邻镜头衔接。`,
-    facts: secondsFacts(shotContext(project, shotId), { title: '【核心输入：本镜镜头表】', text: body(shot) },
-      [`本镜：${shotId}，时长 ${shot.duration} 秒（0–${shot.duration * 1000}ms）`, project.style && `项目风格：${project.style}`]),
+    task: `依据本镜镜头表生成 ${shotId} 的每秒指令，承接上一镜已通过指令，大纲仅作整体内容参考。`,
+    review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：与本镜镜头表的事件、切镜点和起止状态一致，与上一镜已通过指令连续。`,
+    facts: [
+      { title: '【核心输入：本镜镜头表】', text: `## ${shotId} / ${shot.duration}s\n${body(shot)}` },
+      { title: '【连续性参考：上一镜每秒指令】', text: previous?.seconds.check.passed === true && !previous.seconds.stale ? JSON.stringify(previous.seconds.content) : '' },
+      { title: '【整体内容参考：剧情大纲】', text: project.plot.outline.content },
+      { title: '【本次参数】', text: [`本镜：${shotId}，时长 ${shot.duration} 秒（0–${shot.duration * 1000}ms）`, project.style && `项目风格：${project.style}`].filter(Boolean).join('\n') },
+      { title: '【实体引用清单】', text: entityInstructions(project).replace(/^【实体引用清单】\n/, '') },
+    ].filter(fact => fact.text),
   }, options)
 }
 
@@ -148,23 +137,4 @@ export function buildSecondsPrompts(options) {
 // 只提供本镜关联资料与固定素材清单，不再次审核整集剧情与前镜最终稿。
 export function storyboardSource(shot) {
   return secondsText(shot?.seconds?.content)
-}
-
-export function buildAllSecondsPrompts(options, upstream) {
-  const { project } = options
-  const ctx = checkContext.getStore()
-  const instructions = {
-    task: '依据已通过镜头表生成整集每秒指令，遵守基础规则和补充规则。',
-    review: `验收整集每秒指令：覆盖本次固定镜头清单的全部镜头且不增删，逐镜与已通过镜头表的事件、切镜点和起止状态一致，镜头之间交接连续。`,
-    facts: secondsFacts(shotContext(upstream), { title: '【核心输入：已通过镜头表】', text: upstream.shots.items.map(shot => `## ${shot.id} / ${shot.duration}s\n${body(shot)}`).join('\n\n') },
-      [`本集镜头清单：${project.shots.items.map(shot => `${shot.id}/${shot.duration}s`).join('、')}（共 ${project.shots.items.length} 镜、${project.shots.items.reduce((sum, shot) => sum + shot.duration, 0)} 秒）`, project.style && `项目风格：${project.style}`])
-      .filter(fact => fact.title !== '【上游事实：已通过镜头表，同编号是本镜依据】'),
-  }
-  const previous = ctx?.generationMode === 'modify' ? JSON.stringify({ shots: project.shots.items.map(shot => shot.seconds.content).filter(Boolean) }) : ''
-  const record = feedbackOf(ctx?.originalProject || project, 'seconds')
-  return buildTextPrompts({ skill: 'seconds', project, modify: Boolean(previous),
-    instructions, baseContent: previous,
-    opinion: ctx?.generationMode === 'modify' ? options.review ?? ctx.batchReview ?? record.review.text ?? '' : '',
-    ...splitSecondsIssues(ctx?.generationMode === 'modify' ? record.check.failures : []),
-  })
 }

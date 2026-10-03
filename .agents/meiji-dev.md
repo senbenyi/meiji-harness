@@ -114,9 +114,9 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 
 ### 每秒指令与视频提示词
 
-每秒指令为整集 shots JSON（version: 1），覆盖上游镜头 ID 与时长；beat 使用正整数 durationMs，由程序累计时间，dialogues 独立保存、beat 引用事件 ID，ambient/music 带时间。`shared/seconds-content.js` 管校验与可读正文，实体标记使用“名字【名字|ID】”，不依赖图片 ID。
+每秒指令按镜头顺序逐镜生成，每次返回仅含当前镜头的 shots JSON（version: 1），保持上游镜头 ID 与时长；beat 使用正整数 durationMs，由程序累计时间，dialogues 独立保存、beat 引用事件 ID，ambient/music 带时间。`shared/seconds-content.js` 管校验与可读正文，实体标记使用“名字【名字|ID】”，不依赖图片 ID。
 
-程序检查结构、实体、时长与对白，模型审核语义。`seconds-feedback.js` 区分程序问题、语义问题和人工意见并去重；按明确问题位置限定修订镜头，无法定位才覆盖整集，程序合并未修改镜头。能唯一对应上游的镜头保留正文与失败原因；不可解析或无法对应上游时只存未发布 artifact，不覆盖旧镜头。生成/修订原始响应另存 seconds-response 快照。
+程序检查结构、实体、时长与对白，模型审核语义。`seconds-feedback.js` 区分程序问题、语义问题和人工意见并去重；每镜独立生成、自审、至多一次自动修订与复审，通过并保存后才继续下一镜。失败或取消停止后镜，已完成前镜保留。前镜更新使后镜旧指令过期并清除受影响分镜/视频，旧稿仍可用于修改。能唯一对应上游的镜头保留正文与失败原因；不可解析或无法对应上游时只存未发布 artifact，不覆盖旧镜头。生成/修订原始响应另存 seconds-response 快照。
 
 最终视频提示词由 `compileVideoPrompt` 直接编译为有图六字段或无图三字段，不调用模型重写。referenceSnapshot 固定 Picture 顺序，Subject 表示实体，服装共享所属角色 Subject、武器独立；sourceMap 记录来源，人工编辑后移除。人工编辑仍需格式与语义审核。版本或素材变化需重新组装；图片在视频提交时按快照读取本地文件并转 Base64。
 
@@ -181,7 +181,7 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 |---|---|
 | 剧集摘要 | `episode-summary-prompts.js` → `interfaces/episode-summary-interface.js` → `models/episode-summary-model.js` |
 | 大纲、人物、场景、道具 | `story-prompts.js` → `interfaces/story-content-interface.js` → `models/story-model.js` |
-| 镜头表、单镜修订、整集/单镜每秒指令、图片提示词改写 | `interfaces/prompt-interfaces.js` → `models/text-step-model.js` 的配置与 `stepInterface` |
+| 镜头表、单镜修订、单镜每秒指令、图片提示词改写 | `interfaces/prompt-interfaces.js` → `models/text-step-model.js` 的配置与 `stepInterface` |
 | 最终文本分镜 | `video-prompt-renderer.js` 程序编译；人工编辑的模型审核用 `models/text-storyboard-model.js` |
 | 人物图、场景图 | `interfaces/character-image-interface.js`、`scene-image-interface.js` → 对应图片 Model |
 | 道具/附属素材图、铅笔分镜 | `interfaces/prompt-interfaces.js` 直接调用 `models/part-image-model.js`、`pencil-storyboard-model.js` |
@@ -203,10 +203,9 @@ registry 定义操作；任务记录一次执行；步骤记录具体工作并�
 | 镜头任务 | 主要输入顺序 |
 |---|---|
 | 镜头表 | 大纲 → 本集时长、允许范围与风格 → 人物/场景/道具卡 → 实体引用清单 |
-| 整集每秒指令 | 已通过镜头表 → 镜头清单、总时长与风格 → 卡片 → 大纲参考 → 实体引用清单 |
-| 单镜每秒指令内部编排 | 本镜镜头表 → 本镜参数 → 前后镜衔接 → 相关卡片 → 大纲参考 → 实体引用清单 |
+| 每秒指令逐镜编排 | 本镜镜头表 → 上一镜本轮通过的完整每秒指令（首镜无此项） → 剧情大纲整体参考；另附本镜时长、项目风格及实体引用清单 |
 
-用户提交每秒指令走整集入口；不能因内部存在单镜编排而另开放已被 registry 拒绝的 `shot-seconds` 面板操作。
+用户提交每秒指令走批量入口，内部逐镜执行，历史步骤和内容快照关联 seconds:Snn；不能因内部存在单镜编排而另开放已被 registry 拒绝的 `shot-seconds` 面板操作。
 
 ### 16.3 人物与场景图片 Model
 

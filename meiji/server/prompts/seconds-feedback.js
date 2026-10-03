@@ -19,16 +19,3 @@ export function splitSecondsIssues(values = []) {
   }
   return groups
 }
-
-// 语义问题只使用 location 中的镜头；程序问题的镜头 ID 位于 reason。
-// 没有明确位置时修订整集，避免从建议或参考事件中猜出错误范围。
-export function secondsRevisionIds(review, shots) {
-  const { programIssues, semanticIssues } = splitSecondsIssues(review)
-  const ids = new Set()
-  for (const [issues, field] of [[programIssues, 'reason'], [semanticIssues, 'location']]) for (const issue of issues) {
-    const matches = issue[field].match(/\bS\d{2,}\b/g) || []
-    if (!matches.length || matches.some(id => !shots.some(shot => shot.id === id))) return shots.map(shot => shot.id)
-    for (const id of matches) ids.add(id)
-  }
-  return shots.filter(shot => ids.has(shot.id)).map(shot => shot.id)
-}

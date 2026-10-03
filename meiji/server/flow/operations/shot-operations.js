@@ -3,11 +3,10 @@ import { saveTaskDraft } from '../../data/content-records.js'
 import { shotModel, node, setContent, shotResults, updateShotResults, finish } from '../../../shared/drama-model.js'
 import { referencedEntities } from '../../../shared/entity-references.js'
 import { runTextSteps, reviewStep, reviewContent } from '../../runtime/text-generation.js'
-import { buildTablePrompts, buildSingleShotPrompts, buildAllSecondsPrompts, buildSecondsPrompts } from '../../prompts/shot-text-prompts.js'
+import { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts } from '../../prompts/shot-text-prompts.js'
 import { checkContext } from '../../runtime/operation-context.js'
 import { parseSecondsPartial } from '../../../shared/seconds-content.js'
-import { scopedCheck, uniqueFeedback, feedbackOf } from '../../../shared/review-feedback.js'
-import { secondsRevisionIds } from '../../prompts/seconds-feedback.js'
+import { feedbackOf } from '../../../shared/review-feedback.js'
 import { compileVideoPrompt } from '../../prompts/video-prompt-renderer.js'
 import { h3PromptFailures } from '../../../shared/video-rules.js'
 import { shotSecondsReady } from '../../../shared/shot-timing.js'
@@ -72,50 +71,22 @@ export async function reviseShot(options) {
   return { ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, content: result.text, check: result.check } : item), check: result.check }
 }
 
-// Generate, review and revise the complete episode as one version.
+// 每镜通过后才生成下一镜，后镜读取本轮前镜最终稿。
 export async function generateAllSeconds(options) {
-  let { project } = options
-  const ctx = checkContext.getStore()
-  const upstream = { ...project, shots: { ...project.shots, items: project.shots.items.map(shot => ({ ...shot, seconds: { ...shot.seconds, content: null, check: { passed: null } } })) } }
-  if (ctx) ctx.target = { action: 'seconds' }
-  const prompts = buildAllSecondsPrompts(options, upstream)
-  const revise = prompts.revision
-  let base = null, affected = null, correctionError = ''
-  prompts.revision = (text, verdict) => {
-    try { base = JSON.parse(text) } catch { base = null }
-    affected = base?.shots ? secondsRevisionIds(verdict, project.shots.items) : project.shots.items.map(s => s.id)
-    if (!affected.length) affected = project.shots.items.map(s => s.id)
-    return revise(text, verdict, { revisionShotIds: affected })
+  let project = options.project
+  for (const { id } of project.shots.items) {
+    options.signal?.throwIfAborted()
+    await selectCheck(project, { action: 'shot-seconds', track: id })
+    const shots = await generateShotSeconds({ ...options, project, shotId: id,
+      persist: async shots => {
+        project = options.persist ? await options.persist(shots, id) : { ...project, shots }
+      },
+    })
+    const check = shots.items.find(shot => shot.id === id).seconds.check
+    if (!check.passed) throw Object.assign(new Error(`自检未通过：${check.failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
+    // 在文本步骤之外结束本镜状态，仍属于同一个外层任务。
+    project = options.persist ? await options.persist(project.shots, id) : project
   }
-  const complete = async (text, _message, requestOptions) => {
-    await retainSecondsResponse(text)
-    if (requestOptions.logStage !== '自动修订' || !base?.shots) return text
-    let correction
-    try { correction = JSON.parse(text) } catch { return text }
-    if (!Array.isArray(correction.shots)) return text
-    if (correction.shots.some(s => !affected.includes(s.shotId))) { correctionError = '修订包含本轮限定范围外的镜头'; return text }
-    const merged = base.shots.filter(s => !affected.includes(s.shotId))
-    return JSON.stringify({ shots: [...merged, ...correction.shots] })
-  }
-  // 镜头清单可匹配时全部保存；失败镜头也保留正文，审核状态决定是否可用于下游。
-  const partial = text => parseSecondsPartial(text, project.shots.items, project)
-  const result = await runTextSteps({ target: 'seconds', prompts, options, complete, check: text => { if (correctionError) throw new Error(correctionError); return Object.values(partial(text).failures) },
-    canPersist: text => !correctionError && partial(text).sections.length > 0, retainFailedDraft: true,
-    persist: async (text, check) => {
-      const { sections, failures } = partial(text)
-      const shots = { ...project.shots, seconds: setContent(structuredClone(project.shots.seconds), { version: 1, shots: sections }, check), items: project.shots.items.map((shot, i) => {
-        const scoped = scopedCheck(check, shot.id)
-        const failure = failures[shot.id]
-        if (failure) {
-          scoped.passed = false
-          if (!scoped.failures.some(reason => reason.includes(failure))) scoped.failures = uniqueFeedback([...scoped.failures, failure])
-        }
-        return { ...shot, seconds: setContent(structuredClone(shot.seconds), sections[i], scoped) }
-      }) }
-      project = options.persist ? await options.persist(shots, 'draft') : { ...project, shots }
-    },
-  })
-  if (!result.check.passed) throw Object.assign(new Error(`自检未通过：${result.check.failures.join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
   return project.shots
 }
 
@@ -124,7 +95,7 @@ export async function generateShotSeconds(options) {
   const shot = project.shots.items.find(item => item.id === shotId)
   const parse = text => parseSecondsPartial(text, [shot], project)
   const patch = (text, check) => ({ ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, seconds: setContent(structuredClone(item.seconds), parse(text).sections[0], check) } : item) })
-  const result = await runTextSteps({ target: 'seconds', prompts: buildSecondsPrompts(options), options, complete: retainSecondsResponse,
+  const result = await runTextSteps({ target: `seconds:${shotId}`, prompts: buildSecondsPrompts(options), options, complete: retainSecondsResponse,
     check: text => Object.values(parse(text).failures), canPersist: text => parse(text).sections.length > 0, retainFailedDraft: true,
     persist: options.persist && ((text, check) => options.persist(patch(text, check))) })
   return patch(result.text, result.check)
@@ -205,19 +176,31 @@ async function opShots(c) {
   return trace
 }
 
+// 本镜更新会影响后镜连续性；保留后镜旧稿供修改，但清除其下游并标为过期。
+function saveSecondsShot(project, shots, track) {
+  let next = project
+  const index = project.shots.items.findIndex(shot => shot.id === track)
+  for (const shot of project.shots.items.slice(index)) next = { ...next, ...clearShotDownstream(next, 'seconds', shot.id) }
+  next.shots.items[index].seconds = shots.items.find(shot => shot.id === track).seconds
+  for (const shot of next.shots.items.slice(index + 1)) {
+    shot.seconds.stale = Boolean(shot.seconds.content)
+    shot.seconds.check = { passed: null, failures: [] }
+  }
+  next.shots.seconds = setContent(structuredClone(next.shots.seconds), { version: 1, shots: next.shots.items.map(shot => shot.seconds.content).filter(Boolean) }, { passed: null, failures: [] })
+  return { shots: next.shots, assembly: next.assembly, pendingImages: next.pendingImages }
+}
+
 // if (operation.action === 'seconds')
 async function opSeconds(c) {
   let { deps, projects, models, project, trace, note } = c
   const items = project.shots?.items || []
   if (!items.length) throw Object.assign(new Error('请先写好镜头表，再写每秒指令'), { status: 409 })
   project = await projects.save(project.id, { activity: 'seconds', activityError: null })
-  note('整集一次生成每秒指令，整集独立自审')
+  note('按镜头顺序逐镜生成每秒指令，每镜自审通过后继续下一镜')
   await (deps.generateAllSeconds || generateAllSeconds)({ route: (modelRoutes(await models.read())).story, project,
-    persist: (shots, phase) => projects.save(project.id, current => {
-      const patch = phase === 'draft' ? clearShotDownstream(current, 'seconds') : { shots: current.shots }
-      patch.shots.seconds = shots.seconds
-      patch.shots.items = patch.shots.items.map(shot => phase === 'draft' || shot.id === checkContext.getStore()?.target?.track ? { ...shot, seconds: shots.items.find(item => item.id === shot.id).seconds } : shot)
-      return { ...patch, assembly: node('assembly'), activity: 'seconds' }
+    persist: (shots, track) => projects.save(project.id, current => {
+      const patch = saveSecondsShot(current, shots, track)
+      return { ...patch, activity: 'seconds' }
     }),
   })
   await projects.save(project.id, current => {
@@ -310,11 +293,9 @@ async function opShotBoards(c) {
   project = await projects.save(project.id, { activity: 'shot-boards', activityError: null })
   note('按镜头顺序生成所有分镜')
   await (deps.generateAllSeconds || generateAllSeconds)({ route: (modelRoutes(await models.read())).story, project,
-    persist: (shots, phase) => projects.save(project.id, current => {
-      const patch = phase === 'draft' ? clearShotDownstream(current, 'seconds') : { shots: current.shots }
-      patch.shots.seconds = shots.seconds
-      patch.shots.items = patch.shots.items.map(shot => phase === 'draft' || shot.id === checkContext.getStore()?.target?.track ? { ...shot, seconds: shots.items.find(item => item.id === shot.id).seconds } : shot)
-      return { ...patch, assembly: node('assembly'), activity: 'shot-boards' }
+    persist: (shots, track) => projects.save(project.id, current => {
+      const patch = saveSecondsShot(current, shots, track)
+      return { ...patch, activity: 'shot-boards' }
     }),
   })
   const writeBoard = deps.generateShotStoryboard || generateShotStoryboard

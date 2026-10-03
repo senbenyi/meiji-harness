@@ -1,4 +1,4 @@
-// 文本步骤的统一组装器：镜头表、整集/单镜每秒指令、单镜修订、图片提示词改写共用同一套
+// 文本步骤的统一组装器：镜头表、单镜每秒指令、单镜修订、图片提示词改写共用同一套
 // 生成 / 审核 / 修订编排（结构见 prompt-request.js），各步骤只在 textSteps 中声明差异；输出协议统一来自 skills/output-protocols.js。
 import { currentSkillSet, generationParts, reviewParts, segment } from '../skill-prompts.js'
 import { baseSegments, factSegments, generationRequest, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
@@ -11,11 +11,8 @@ export const textSteps = {
   shots: { stage: 'shots', role: '短剧镜头规划师', reviewRole: '独立短剧镜头规划师审核员', json: false,
     reviewTask: '验收本集完整镜头表：剧情覆盖、时长与编号、条目格式及镜头之间的承接。',
     reviseTask: automatic => `依据大纲和${automatic ? '本轮自审意见' : '本次修改意见'}修订本集完整镜头表，遵守基础规则和补充规则。` },
-  'episode-seconds': { stage: 'seconds', role: '整集每秒指令编剧', reviewRole: '独立整集每秒指令编剧审核员', json: true,
-    reviewTask: '验收整集每秒指令：逐镜核对与已通过镜头表的一致性，以及镜头之间的交接。',
-    reviseTask: automatic => `依据已通过镜头表和${automatic ? '本轮自审意见' : '本次修改意见'}修订整集每秒指令，遵守基础规则和补充规则。` },
   'shot-seconds': { stage: 'seconds', role: '单镜每秒指令编剧', reviewRole: '独立单镜每秒指令编剧审核员', json: true,
-    reviewTask: '验收本镜每秒指令与已通过镜头表的一致性，以及与相邻镜头的衔接。',
+    reviewTask: '验收本镜每秒指令与已通过镜头表的一致性，以及与上一镜已通过指令的衔接。',
     reviseTask: automatic => `依据本镜镜头表和${automatic ? '本轮自审意见' : '本次修改意见'}修订本镜每秒指令，遵守基础规则和补充规则。` },
   'shot-revise': { stage: 'shot-revise', role: '单镜剧情修订师', reviewRole: '独立单镜剧情修订师审核员', json: false,
     scope: '只处理本次指定镜头，沿用已保存的编号和时长；未要求改动的剧情事实保持不变，核对前后镜状态、身体身份与空间关系。若需调整跨段边界或其他镜头，指出具体缺口，由镜头表任务重新规划，不在本次修改其他镜头，不将全表问题声称为已经全部修复。',
@@ -54,9 +51,7 @@ export class TextStepModel {
     const { stage, role, json } = this.config
     const p = generationParts({ ...this.task, stage, kind, rules: this.generationRules })
     const seconds = stage === 'seconds'
-    const output = seconds ? segment('protocol', '【本次输出范围】', this.task.revisionShotIds?.length
-      ? `本轮仅返回这些镜头的完整 shots 条目：${this.task.revisionShotIds.join('、')}。其他镜头由程序保留原文并合并复核，不输出范围外镜头。`
-      : '返回本次镜头清单中全部镜头的完整 shots 条目；修订时保留未涉及的正文，不省略、增删或重新编号。') : null
+    const output = seconds ? segment('protocol', '【本次输出范围】', `只返回 ${this.task.shotId || '当前指定镜头'} 的一个完整 shots 条目；生成、修改和自动修订均不得输出其他镜头。`) : null
     return generationRequest({ json,
       role: segment('context', '【角色与职责】', `你是一名${role}。`),
       scope: this.scope(), rules: { ...p.generate, title: '【基础规则】' }, additions: p.additions, assetRules: p.assetRules,
@@ -94,7 +89,6 @@ export class TextStepModel {
 
 const named = kind => class extends TextStepModel { constructor(task) { super(kind, task) } }
 export const ShotTableModel = named('shots')
-export const EpisodeSecondsModel = named('episode-seconds')
 export const ShotSecondsModel = named('shot-seconds')
 export const ShotRevisionModel = named('shot-revise')
 export const ImagePromptModel = named('image-prompt')

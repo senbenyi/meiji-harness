@@ -114,7 +114,7 @@ export function reviewParts({ stage, project, reviewContext = '', skillSet, node
   recordUse(set, meta, [], project, nodeKey, episodeId, reviewRule)
   const assets = assetSegments(set, meta, { review: true })
   return {
-    method: segment('context', '【审核方式】', reviewMethod + (shotStages.has(stage) ? shotReviewMethod : '')),
+    method: segment('context', '【审核方式】', reviewMethod + (stage === 'seconds' ? '只审核本镜，以上一镜已通过指令核对承接；不要求本镜覆盖整个大纲，不重新审核上一镜或未提供的后镜。' : shotStages.has(stage) ? shotReviewMethod : '')),
     assetRules: assets.rules,
     language: languageSegment(set, project, meta),
     protocol: segment('protocol', '【本次审核协议】', reviewProtocol),

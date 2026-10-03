@@ -1,5 +1,5 @@
 import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
-import { secondsResponse } from './fixtures/seconds.js'
+import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -86,10 +86,10 @@ test('story package, shot table and seconds each produce whole-episode records',
  await runOperation(e.op('shots'), { home: e.home, generateShots: options => generateShots({ ...options, request: async ({ skill }) => skill === 'review' ? reviewPass : table }) })
  assert.ok((await e.read()).shots.source)
  let calls = 0
- await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => { calls++; return skill === 'review' ? reviewPass : secondsResponse() } }) })
+ await runOperation(e.op('seconds'), { home: e.home, generateAllSeconds: options => generateAllSeconds({ ...options, request: async message => { calls++; return message.skill === 'review' ? reviewPass : secondsForRequest(message) } }) })
  const seconds = (await e.history.list()).find(task => task.action === 'seconds')
- assert.equal(calls, 2)
- assert.deepEqual(seconds.artifacts.map(item => item.target).sort(), ['seconds', 'seconds-response'])
+ assert.equal(calls, 4)
+ assert.deepEqual(seconds.artifacts.map(item => item.target).sort(), ['seconds', 'seconds', 'seconds-response', 'seconds-response', 'seconds:S01', 'seconds:S02'])
  assert.ok((await e.read()).shots.seconds.source)
 })
 

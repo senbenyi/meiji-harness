@@ -18,7 +18,7 @@ const placeholder = '（任务与上下文由程序在运行时填入：本集�
 const opinion = '（此处为人工修改意见）'
 
 function textBuilder(stage, root, view, mode, nodeKey) {
-  const shot = view?.shots?.items?.[0]
+  const shot = view?.shots?.items?.find(item => `seconds:${item.id}` === nodeKey) || view?.shots?.items?.[0]
   if (stage === 'episode' && view) return () => buildEpisodePrompts(root, view.episodeId)
   if (stage === 'outline' && view?.summary?.content) return () => buildStoryPrompts(view, nodeKey || 'outline', '', { extraction: ['characters', 'scenes', 'props'].includes(nodeKey) && checkContext.getStore()?.generationMode !== 'modify' })
   if (stage === 'shots' && view?.plot?.outline?.content) return () => buildTablePrompts({ project: view })

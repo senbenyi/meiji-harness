@@ -31,7 +31,7 @@ export function contentTargets(project) {
       ['shots', episode.shots, episode.shots.items.map(shot => ({ id: shot.id, duration: shot.duration, content: shot.content, cast: shot.cast, scene: shot.scene, reference_images: shot.reference_images }))],
       ['seconds', episode.shots.seconds, episode.shots.items.map(shot => ({ id: shot.id, duration: shot.duration, content: shot.seconds.content }))],
       ['assembly', episode.assembly, episode.assembly.content],
-      ...episode.shots.items.flatMap(shot => [['storyboard', shot.storyboard], ['film', shot.video]].map(([kind, node]) => [`${kind}:${shot.id}`, node, kind === 'film' ? node.content?.file ? { file: node.content.file, url: node.content.url } : null : node.content])),
+      ...episode.shots.items.flatMap(shot => [['seconds', shot.seconds], ['storyboard', shot.storyboard], ['film', shot.video]].map(([kind, node]) => [`${kind}:${shot.id}`, node, kind === 'film' ? node.content?.file ? { file: node.content.file, url: node.content.url } : null : node.content])),
     ]
     return entries.map(([key, node, content]) => ({ episodeId: episode.id, key, node, content,
       check: key === 'story' ? storyCheck : node.check,

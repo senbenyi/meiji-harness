@@ -75,9 +75,9 @@ export function gateMessage(project, step) {
       })
       return `镜头表暂不可生成：${pending.join('；')}。`
     }
-    if (!hasShots(project)) return '先写镜头表，再整集生成每秒指令并整集自审。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
+    if (!hasShots(project)) return '先写镜头表，再逐镜生成每秒指令并逐镜自审。单镜不超过 15 秒，总时长与本集相差不超过 10 秒。'
     if (!feedbackOf(project, 'shots').check.passed) return '镜头表尚未通过自审，请查看镜头表顶部的审核卡片。'
-    if (!hasShotSeconds(project)) return '镜头表已通过自审，请先整集生成每秒指令并逐镜审核。'
+    if (!hasShotSeconds(project)) return '镜头表已通过自审，请先逐镜生成每秒指令并逐镜审核。'
     if (shotsReady(project)) return '镜头表已写好。下一步一次生成全部分镜表，每秒指令会一起写上。重新生成镜头表会清掉分镜和成片。'
   }
   if (step === 'storyboard') {

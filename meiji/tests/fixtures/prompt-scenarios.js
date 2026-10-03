@@ -8,7 +8,7 @@ import { episodeFixture } from './model.js'
 import { checkContext } from '../../server/runtime/operation-context.js'
 import { buildStoryPrompts } from '../../server/prompts/story-prompts.js'
 import { buildEpisodePrompts } from '../../server/prompts/episode-summary-prompts.js'
-import { buildAllSecondsPrompts, buildSecondsPrompts, buildSingleShotPrompts, buildTablePrompts } from '../../server/prompts/shot-text-prompts.js'
+import { buildSecondsPrompts, buildSingleShotPrompts, buildTablePrompts } from '../../server/prompts/shot-text-prompts.js'
 import { buildEditedContentReview, buildTextPrompts } from '../../server/prompts/text-prompts.js'
 import { characterImagePrompt } from '../../server/prompts/interfaces/character-image-interface.js'
 import { imageSkillPrompt, propImagePrompt, pencilPrompt } from '../../server/prompts/image-prompts.js'
@@ -53,7 +53,6 @@ export async function buildScenarios() {
       add(`scenes:${mode}`, text(buildStoryPrompts(view, 'scenes')))
       add(`props:${mode}`, text(buildStoryPrompts(view, 'props')))
       add(`shots:${mode}`, text(buildTablePrompts({ project: view })))
-      add(`seconds-all:${mode}`, text(buildAllSecondsPrompts({ project: view }, view)))
       add(`seconds-shot:${mode}`, text(buildSecondsPrompts({ project: view, shotId: 'S01' })))
       add(`shot-revise:${mode}`, text(buildSingleShotPrompts({ project: view, shotId: 'S01', review: '【单镜意见】' })))
       add(`storyboard-program:${mode}`, { prompt: compileVideoPrompt(view,view.shots.items[0]).prompt.text })

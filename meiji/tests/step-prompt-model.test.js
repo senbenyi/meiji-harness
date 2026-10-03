@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ShotTableModel, EpisodeSecondsModel, ShotSecondsModel } from '../server/prompts/models/text-step-model.js'
+import { ShotTableModel, ShotSecondsModel } from '../server/prompts/models/text-step-model.js'
 import { TextStoryboardModel } from '../server/prompts/models/text-storyboard-model.js'
 import { render } from '../server/prompts/skill-prompts.js'
 import { builtinSkill } from '../skills/load-skills.js'
-for (const [Model, stage] of [[ShotTableModel, 'shots'], [EpisodeSecondsModel, 'seconds'], [ShotSecondsModel, 'seconds']]) {
+for (const [Model, stage] of [[ShotTableModel, 'shots'], [ShotSecondsModel, 'seconds']]) {
   test(`${Model.name}：生成与修订用生产规则，自审只用审核 skill，人工修订和自动修订使用各自基稿`, () => {
     const model = new Model({ project: { outputLanguage: 'en' }, instructions: 'UPSTREAM', reviewInstructions: 'UPSTREAM', modify: true, baseContent: 'HUMAN_BASE', opinion: 'HUMAN_OPINION' })
     const creation = model.toGenerateSegments(), review = model.toReviewSegments('LATEST'), revised = model.toReviseSegments('FAILED_BASE', 'FAIL_NEW')
@@ -19,9 +19,8 @@ for (const [Model, stage] of [[ShotTableModel, 'shots'], [EpisodeSecondsModel, '
     assert.doesNotMatch(render(revised.user), /HUMAN_BASE/)
   })
 }
-test('整集与单镜每秒指令使用独立职责，单镜正文仍保留给定上下文', () => {
+test('每秒指令使用单镜职责并保留给定上下文', () => {
   const task = { instructions: '只修改 S02，相邻 S01 与 S03 仅作衔接资料', project: {} }
-  assert.match(render(new EpisodeSecondsModel(task).toGenerateSegments().system), /整集每秒指令编剧/)
   const single = new ShotSecondsModel(task).toGenerateSegments()
   assert.match(render(single.system), /单镜每秒指令编剧/)
   assert.match(render(single.user), /只修改 S02/)

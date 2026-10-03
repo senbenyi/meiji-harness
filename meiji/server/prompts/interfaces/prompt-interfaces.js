@@ -13,7 +13,7 @@ const textInterfaces = {
   episode, outline,
   shots: stepInterface(() => 'shots'),
   'shot-revise': stepInterface(() => 'shot-revise'),
-  seconds: stepInterface(task => task.shotId ? 'shot-seconds' : 'episode-seconds'),
+  seconds: stepInterface(() => 'shot-seconds'),
   'image-prompt': stepInterface(() => 'image-prompt'),
   storyboard: { review: (task, content) => new TextStoryboardModel(task).toReviewSegments(content) },
 }

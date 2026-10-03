@@ -1,4 +1,4 @@
-import { secondsResponse } from './fixtures/seconds.js'
+import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -6,7 +6,6 @@ import { setupModel } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { runOperation } from '../server/flow/operations/run-operation.js'
 import { generateAllSeconds, generateShotStoryboard } from '../server/flow/operations/shot-operations.js'
-const output=secondsResponse([['S01',5,'新动作一'],['S02',5,'新动作二']])
 // 保存时会刷新节点的上游依赖版本（dependencies），比较业务内容时忽略该字段。
 const content=({dependencies,...rest})=>rest
 for(const failed of [false,true]) for(const phase of ['generation','review','correction']) {
@@ -15,10 +14,10 @@ for(const failed of [false,true]) for(const phase of ['generation','review','cor
   await models.write({...await models.read(),apiKey:'test-only'})
   if(failed) await e.store.save(e.id,p=>{for(const s of p.episodes[0].shots.items){s.seconds.status='failed';s.seconds.check={passed:false,failures:['旧自审原因'],revision:s.seconds.revision}}return p})
   const before=await e.read(),calls=[]
-  await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:async({ skill })=>{
+  await assert.rejects(runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:async({ skill, user })=>{
    calls.push(skill)
    if(phase==='generation'||phase==='review'&&calls.length===2||phase==='correction'&&calls.length===3)throw new Error('HTTP 503')
-   return skill==='review'?reviewFail('本轮内容问题'):output
+   return skill==='review'?reviewFail('本轮内容问题'):secondsForRequest({user},[['S01',5,'新动作一'],['S02',5,'新动作二']])
   }})}),/HTTP 503/)
   assert.equal(calls.length,{generation:1,review:2,correction:3}[phase])
   const after=await e.read()
@@ -27,7 +26,7 @@ for(const failed of [false,true]) for(const phase of ['generation','review','cor
     assert.deepEqual(content(after.shots.items[i].seconds),content(before.shots.items[i].seconds))
     assert.deepEqual(content(after.shots.items[i].storyboard),content(before.shots.items[i].storyboard))
    } else {
-    assert.equal(after.shots.items[i].seconds.content.beats[0].action, i ? '新动作二' : '新动作一')
+    assert.equal(after.shots.items[i].seconds.content.beats[0].action, i ? before.shots.items[i].seconds.content.beats[0].action : '新动作一')
     assert.notEqual(after.shots.items[i].seconds.check.passed, true)
     assert.equal(after.shots.items[i].seconds.operation, null)
    }
@@ -53,18 +52,18 @@ test('gateway image error is logged without changing image model state',async t=
  assert.equal(after.activityError,before.activityError)
  assert.ok(JSON.stringify(logs).includes('image unavailable'))
 })
-// 整集每秒指令作为一个版本生成和审核：一次审核覆盖全部镜头。
-test('whole-episode seconds are reviewed once as one version',async t=>{
+// 每镜独立生成与审核。
+test('seconds are reviewed one shot at a time',async t=>{
  const e=await setupModel(t),models=modelStore(e.home)
  await models.write({...await models.read(),apiKey:'test-only'})
  let reviews=0
- await runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:async ({ skill }) =>{
-  if(skill!=='review')return output
+ await runOperation(e.op('seconds'),{home:e.home,generateAllSeconds:opts=>generateAllSeconds({...opts,request:async ({ skill, user }) =>{
+  if(skill!=='review')return secondsForRequest({user},[['S01',5,'新动作一'],['S02',5,'新动作二']])
   reviews++
   return reviewPass
  }})})
  const after=await e.read()
- assert.equal(reviews,1)
+ assert.equal(reviews,2)
  assert.deepEqual(after.shots.items.map(s=>[s.seconds.content.beats[0].action,s.seconds.status]),[['新动作一','passed'],['新动作二','passed']])
  assert.ok(after.shots.items.every(s=>s.seconds.operation===null))
 })

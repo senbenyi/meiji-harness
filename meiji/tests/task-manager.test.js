@@ -1,4 +1,4 @@
-import { secondsResponse } from './fixtures/seconds.js'
+import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -60,7 +60,7 @@ test('direct generation saves reviewed model and cancellation clears its operati
  await models.write({ ...await models.read(), apiKey: 'test-only' })
  const events = [], session = { append: (type, data) => events.push({ type, data }) }
  const tasks = createTasks({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-  generateAllSeconds: options => generateAllSeconds({ ...options, request: async ({ skill }) => skill === 'review' ? reviewPass : secondsResponse() }),
+  generateAllSeconds: options => generateAllSeconds({ ...options, request: async message => message.skill === 'review' ? reviewPass : secondsForRequest(message) }),
  }) })
  const task = tasks.start(e.op('seconds'), session)
  await task.done

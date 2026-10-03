@@ -1,4 +1,4 @@
-import { secondsResponse } from './fixtures/seconds.js'
+import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 // 任务与步骤：状态推导、结束落定、计划与执行的对应、逐镜成片单一任务、人工专属操作。
 import test from 'node:test'
@@ -110,7 +110,7 @@ test('text operations execute exactly their planned steps', async t => {
   const e = await setup(t)
   const cases = [
     ['shots', { generateShots: options => generateShots({ ...options, request: reply(table) }) }],
-    ['seconds', { generateAllSeconds: options => generateAllSeconds({ ...options, request: reply(secondsResponse()) }) }],
+    ['seconds', { generateAllSeconds: options => generateAllSeconds({ ...options, request: async message => message.skill === 'review' ? reviewPass : secondsForRequest(message) }) }],
     ['shot-storyboard', { generateShotStoryboard: options => generateShotStoryboard({ ...options, request: reply(prompt) }) }, { track: 'S01' }],
     ['storyboard', { generateStoryboard: options => generateStoryboard({ ...options, request: reply(prompt) }) }],
   ]

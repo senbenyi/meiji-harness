@@ -5,3 +5,11 @@ export function secondsContent(shotId = 'S01', duration = 5, action = '【旅人
 export function secondsResponse(rows = [['S01', 5, '第一镜新动作'], ['S02', 5, '第二镜接续动作']]) {
   return JSON.stringify({ shots: rows.map(([id, duration, action]) => secondsContent(id, duration, action)) })
 }
+
+// 模拟网关按明确的单镜任务返回该镜，默认正文用于集成回归。
+export function secondsForRequest({ user }, rows = [['S01', 5, '第一镜新动作'], ['S02', 5, '第二镜接续动作']]) {
+  const id = /本镜：(S\d+)/.exec(user)?.[1]
+  const row = rows.find(row => row[0] === id)
+  if (!row) throw new Error(`测试未提供 ${id} 的响应`)
+  return secondsResponse([row])
+}
