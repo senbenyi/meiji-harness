@@ -2,6 +2,7 @@ import { node, cardModel } from './drama-model.js'
 import { imageAssets, pictureRecord, usableLook } from './image-assets.js'
 import { videoPromptText as h3PromptText } from './video-prompt-text.js'
 import { episodeSummaryFailures, referenceDuration } from './episode-summary.js'
+import { outlineFailures } from './story-outline.js'
 
 export function required(value, message) {
   const text = String(value || '').trim()
@@ -107,17 +108,4 @@ export function normalizeEpisodeDraft(raw, referenceDurationSeconds = 150) {
 }
 
 // 只检查格式，不依据词语猜测人物或环境的剧情语义。
-export function outlineStructureFailures(text, language = 'zh-CN') {
-  const headings = language === 'en' ? ['Motivation', 'World Rules', 'Causal Plot', 'Emotional Thread', 'Dialogue Beats', 'Ending State', 'Final Image']
-    : ['主角动机', '世界规则', '因果剧情', '情绪线索', '对白节拍', '结尾状态', '结尾关键画面']
-  const lines = String(text || '').split(/\r?\n/)
-  let previous = -1
-  const failures = []
-  for (const title of headings) {
-    const marker = `【${title}】`
-    const index = lines.indexOf(marker)
-    if (index <= previous || !lines[index + 1]?.trim() || /^【/.test(lines[index + 1])) failures.push(`大纲正文结构：${marker}须按顺序独占一行，下一行有正文`)
-    previous = Math.max(previous, index)
-  }
-  return failures
-}
+export const outlineStructureFailures = outlineFailures

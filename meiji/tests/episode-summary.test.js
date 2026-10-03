@@ -44,7 +44,7 @@ test('空摘要即使 AI 审核 PASS 也只修订一次，本集时长始终为�
     request: async message => { messages.push(message); return replies.shift() }, persist: value => saved.push(value) })
   assert.equal(result.durationSeconds, 150)
   assert.equal(messages.length, 4)
-  for (const message of messages) assert.equal(promptData(message.user, '【本次参数】').durationSeconds, 150)
+  for (const message of messages) assert.equal(promptData(message.user, '【本次要求】').durationSeconds, 150)
   for (const message of messages) assert.doesNotMatch(message.user + message.system, /130–170|上下 20/)
   assert.match(messages[2].user, /本集剧情摘要必须为非空字符串/)
   assert.ok(saved.every(value => value.summary === '修正后的事件' && value.durationSeconds === 150))

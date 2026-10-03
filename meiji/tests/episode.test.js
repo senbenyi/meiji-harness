@@ -1,3 +1,4 @@
+import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,12 +27,12 @@ test('a later episode continues from the episodes already shot', () => {
     ],
   })
   assert.match(prompt, /第 3 集/)
-  assert.match(prompt, /【核心输入：项目摘要】\n李伟穿越/)
-  assert.match(prompt, /【衔接：前集已发生事实，按剧情顺序】/)
+  assert.match(prompt, /【项目摘要】\n李伟穿越/)
+  assert.match(prompt, /【前集摘要】/)
   assert.ok(prompt.indexOf('第一集结义') < prompt.indexOf('第二集回头'))
   assert.match(prompt, /不无故重置人物状态/)
-  assert.match(prompt, /第 1 集（120 秒）：第一集结义/)
-  assert.match(prompt, /第 2 集（90 秒）：第二集回头/)
+  assert.deepEqual(promptData(prompt, '【前集摘要】').episodes.map(({ episodeNumber, durationSeconds, summary }) => ({ episodeNumber, durationSeconds, summary })), [{ episodeNumber: 1, durationSeconds: 120, summary: '第一集结义' }, { episodeNumber: 2, durationSeconds: 90, summary: '第二集回头' }])
+
 
 })
 
@@ -43,9 +44,9 @@ test('regeneration targets the selected episode and separates later continuity c
   ] }
   const prompt = episodePrompt(project, 'b')
   assert.match(prompt, /重新生成第 2 集摘要/)
-  assert.match(prompt, /第 1 集（120 秒）：开场/)
-  assert.match(prompt, /【衔接：后集摘要】/)
-  assert.match(prompt, /第 3 集：结尾/)
+  assert.equal(promptData(prompt, '【前集摘要】').episodes[0].summary, '开场')
+  assert.match(prompt, /【后集摘要】/)
+  assert.equal(promptData(prompt, '【后集摘要】').episodes[0].summary, '结尾')
   assert.match(prompt, /项目剧本/)
   assert.throws(() => episodePrompt(project, 'missing'), { status: 404 })
 })

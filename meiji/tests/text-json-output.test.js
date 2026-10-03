@@ -34,15 +34,15 @@ test('所有文本生成/修订都启用 JSON 模式，协议示例为对象', (
 test('大纲修订返回对象，解析换行后审核、提取与保存使用同一正文', async () => {
   const project = episodeFixture(), fixture = storyPackageFixture()
   const draft = outlineFixture('原稿 "引号"\n第二行'), repaired = outlineFixture('最新稿 "引号"\n第二行')
-  const replies = [JSON.stringify({ outline: draft }), reviewFail('修改正文'), JSON.stringify({ outline: repaired }), reviewPass,
+  const replies = [JSON.stringify(draft), reviewFail('修改正文'), JSON.stringify(repaired), reviewPass,
     JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify({ items: [] }), reviewPass]
   const saved = [], calls = []
   const result = await generateStoryPackage({ project, request: async message => { calls.push(message); return replies.shift() }, persist: value => saved.push(structuredClone(value)) })
-  assert.equal(result.outline, repaired)
-  assert.equal(saved.at(-1).outline, repaired)
+  assert.deepEqual(result.outline, repaired)
+  assert.deepEqual(saved.at(-1).outline, repaired)
   assert.equal(result.check.passed, true)
-  assert.ok(calls[4].user.includes(JSON.stringify({ outline: repaired })))
-  assert.ok(saved.some(value => value.outline === draft && value.checks.outline.passed === false))
+  assert.ok(calls[4].user.includes(JSON.stringify(repaired)))
+  assert.ok(saved.some(value => JSON.stringify(value.outline) === JSON.stringify(draft) && value.checks.outline.passed === false))
 })
 
 for (const raw of ['不是 JSON', JSON.stringify({ outline: 123 }), JSON.stringify({ outline: '' }), JSON.stringify({ outline: '正文', extra: true }), JSON.stringify(['正文'])]) {

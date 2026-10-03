@@ -1,3 +1,4 @@
+import { outlineFixture } from './fixtures/story-package.js'
 import { blankEpisode } from '../shared/episode-rules.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { contentNode, plotPatch } from '../shared/drama-model.js'
@@ -42,8 +43,8 @@ test('writeStep stores the outline and resets later stages', () => fixture(async
   const ep = blankEpisode({ summary: '摘要', durationSeconds: 45 })
   await store.save(created.id, { episodes: [ep] })
   const scoped = scopeProjects(store, ep.id)
-  const saved = await scoped.writeStep(created.id, 'outline', plotPatch(ep, { outline: contentNode(ep.plot.outline, '大纲正文') }))
-  assert.equal(saved.plot.outline.content, '大纲正文')
+  const saved = await scoped.writeStep(created.id, 'outline', plotPatch(ep, { outline: contentNode(ep.plot.outline, outlineFixture('大纲正文')) }))
+  assert.deepEqual(saved.plot.outline.content, outlineFixture('大纲正文'))
   assert.equal(saved.shots.items.length, 0)
   assert.deepEqual(await scoped.read(created.id), saved)
 }))

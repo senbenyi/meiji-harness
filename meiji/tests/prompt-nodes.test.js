@@ -1,3 +1,4 @@
+import { outlineFixture } from './fixtures/story-package.js'
 import { tableResponse } from './fixtures/shot-response.js'
 import { promptData } from './fixtures/prompt-data.js'
 import { secondsResponse } from './fixtures/seconds.js'
@@ -33,7 +34,7 @@ for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
         assert.equal('max_tokens' in payload, false)
         assert.equal(payload.messages[0].content, message.system)
         assert.equal(payload.messages[1].content, message.user)
-        assert.match(message.system, /本次生成语言：English/)
+        assert.match(message.user, /输出语言：English/)
         assert.equal((message.system + message.user).split('CUSTOM_RULE').length - 1, 1)
         assert.deepEqual(payload.response_format, { type: 'json_object' })
         if (isReview) {
@@ -50,7 +51,7 @@ for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
 
 test('story regeneration excludes old results; revision uses only latest failed draft and original opinion', async () => {
   const project = episodeFixture()
-  project.plot.outline.content = 'OLD_DRAFT'
+  project.plot.outline.content = outlineFixture('OLD_DRAFT')
   await checkContext.run({ generationMode: 'regenerate', review: 'OLD_OPINION' }, () => {
     const prompts = buildStoryPrompts(project)
     assert.doesNotMatch(prompts.generation.user, /OLD_DRAFT|OLD_OPINION/)
@@ -59,7 +60,7 @@ test('story regeneration excludes old results; revision uses only latest failed 
   await checkContext.run({ generationMode: 'modify', review: 'HUMAN_OPINION' }, () => {
     const prompts = buildStoryPrompts(project)
     assert.match(prompts.generation.user, /OLD_DRAFT/)
-    assert.deepEqual(promptData(prompts.generation.user, '【修改基稿】'), { outline: 'OLD_DRAFT' })
+    assert.deepEqual(promptData(prompts.generation.user, '【修改基稿】'), outlineFixture('OLD_DRAFT'))
     assert.equal(prompts.generation.json, true)
     assert.match(prompts.generation.user, /HUMAN_OPINION/)
     const revision = prompts.revision('LATEST_FAILED', reviewFail('NEW_REASON'))
@@ -101,21 +102,21 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
     const raw = storyPackageFixture()
-    raw.outline = '本轮新大纲'
+    raw.outline = outlineFixture('本轮新大纲')
     raw.characters.items[0].appearance = '本轮新的角色外貌'
     raw.scenes.items[0].look = '本轮新的场景，庭院地标与通路清晰可辨'
     let calls = 0
     const fetchImpl = async () => {
       if (++calls === 2) {
         const saved = await e.read()
-        if (action === 'outline') assert.equal(saved.plot.outline.content, raw.outline)
+        if (action === 'outline') assert.deepEqual(saved.plot.outline.content, raw.outline)
         if (action === 'characters') assert.equal(saved.plot.characters.items[0].appearance, raw.characters.items[0].appearance)
         if (action === 'scenes') assert.equal(saved.plot.scenes.items[0].look, raw.scenes.items[0].look)
         if (action === 'shots') assert.match(saved.shots.items[0].content, /入院/)
         if (action === 'shot-seconds') assert.equal(saved.shots.items[0].seconds.content.beats[0].action, '新每秒指令')
         throw new Error('REVIEW_UNAVAILABLE')
       }
-      return response(action === 'shots' ? tableResponse(table) : action === 'shot-seconds' ? secondsResponse([['S01',5,'新每秒指令']]) : action === 'outline' ? JSON.stringify({ outline: raw.outline }) : JSON.stringify(raw[action]))
+      return response(action === 'shots' ? tableResponse(table) : action === 'shot-seconds' ? secondsResponse([['S01',5,'新每秒指令']]) : action === 'outline' ? JSON.stringify(raw.outline) : JSON.stringify(raw[action]))
     }
     const deps = { home: e.home,
       generateStoryPackage: options => generateStoryPackage({ ...options, fetchImpl }),
@@ -138,16 +139,16 @@ test('story regeneration keeps the episode summary as core input and drops the o
   const project = { ...episodeFixture(), projectSummary: 'PROJECT_BACKGROUND', episodeNumber: 2,
     previousEpisodeSummary: 'PREVIOUS_EPISODE', nextEpisodeSummary: 'NEXT_EPISODE' }
   project.summary.content = 'EPISODE_SUMMARY'
-  project.plot.outline.content = 'OLD_STORY'
+  project.plot.outline.content = outlineFixture('OLD_STORY')
   checkContext.run({ generationMode: 'regenerate', review: 'OLD_REVIEW' }, () => {
     const prompts = buildStoryPrompts(project)
     for (const message of [prompts.generation, prompts.review('NEW_STORY')]) {
       assert.doesNotMatch(message.user, /OLD_STORY|OLD_REVIEW/)
-      assert.deepEqual(promptData(message.user, '【核心输入：本集摘要】'), { summary: 'EPISODE_SUMMARY' })
-      assert.deepEqual(promptData(message.user, '【参考：项目背景】'), { summary: 'PROJECT_BACKGROUND' })
+      assert.deepEqual(promptData(message.user, '【本集摘要】'), 'EPISODE_SUMMARY')
+      assert.deepEqual(promptData(message.user, '【项目背景】'), 'PROJECT_BACKGROUND')
       assert.match(message.user, /PREVIOUS_EPISODE/)
       assert.match(message.user, /NEXT_EPISODE/)
-      assert.equal(promptData(message.user, '【本次参数】').durationSeconds, 10)
+      assert.equal(promptData(message.user, '【本次要求】').durationSeconds, 10)
     }
     assert.doesNotMatch(prompts.generation.system, /大纲的（N秒）|单类卡片修订|共用生成审核流程|H3 最终|detailed_description|最多自动修订/)
     assert.doesNotMatch(prompts.revision('FAILED_STORY', reviewFail('原因')).user, /重新生成，仅使用/)

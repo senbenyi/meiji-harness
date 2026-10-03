@@ -1,6 +1,7 @@
 // 人物图提示词的数据结构与基础转换。调用方负责提供规则正文和画幅；本模块不读取文件或发送请求。
 import { segment, render } from '../skill-prompts.js'
 import { characterFieldValues } from '../../../shared/character-facts.js'
+import { requirementsText } from '../prompt-requirements.js'
 
 const characterFields = [
   ['nationality', '国籍'], ['name', '姓名'], ['role', '身份'],
@@ -96,8 +97,8 @@ export function characterImageModelSegments(model, { factsText } = {}) {
   return [
     segment('context', '【角色与职责】', `你是一名${normalized.role}。`),
     segment('context', '【本次任务】', task),
-    segment('context', '【核心输入：人物资料】', facts),
-    segment('context', '【本次参数】', { width, height, orientation }),
+    segment('context', '【本次要求】', requirementsText({ width, height, orientation })),
+    segment('context', '【人物资料】', facts),
     segment('context', '【参考图片】', references),
     segment('context', '【本次修改意见】', normalized.modification?.instruction || ''),
     segment('constraint', '【基础规则】', rules, { skill: 'character-image', field: 'constraints' }),

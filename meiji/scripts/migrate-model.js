@@ -1,6 +1,7 @@
 import { readFile, writeFile, readdir, mkdir, copyFile, rename } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { convertOutline } from './migrate-story-outline.js'
 import { migrateFeedback } from './migrate-model-feedback.js'
 import { GenerationStatus, schemaVersion, node, episodeModel, cardModel, shotModel, targetNode, allNodes, assertDrama, modelPatch, aggregateStatus, shotResults } from '../shared/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/image-storage.js'
@@ -17,7 +18,7 @@ function migrateEpisode(source) {
   episode.revision = old.revision || 0
   episode.summary.status = GenerationStatus.PASSED
   episode.summary.check.passed = true
-  episode.plot.outline.content = outline
+  episode.plot.outline.content = typeof outline === 'string' ? (outline.trim() ? convertOutline(outline) : null) : outline || null
   for (const key of ['characters', 'scenes']) {
     episode.plot[key].items = (old[key]?.items || []).map(item => cardModel(item))
   }

@@ -62,6 +62,8 @@ for pid in $pids; do
 done
 [[ -z "$(listeners)" ]] || fail "3080 仍被占用，未启动新实例。"
 
+node "$REPO/meiji/scripts/migrate-story-outline.js" "$DSH_HOME"
+
 export PATH="$HARNESS/node_modules/.bin:$PATH"
 echo "使用当前 meiji 代码与 skill 启动 Harness：http://127.0.0.1:3080"
 echo "前台运行，按 Ctrl+C 停止；页面打开后刷新以加载新前端。"

@@ -1,3 +1,5 @@
+import { outlineText } from '../shared/story-outline.js'
+import { outlineFixture } from './fixtures/story-package.js'
 import { tableResponse, singleShotResponse } from './fixtures/shot-response.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
@@ -161,13 +163,13 @@ test('JSON 大纲经解析保存后展示真实换行，不展示对象外壳或
  const { outlineFixture, storyPackageFixture } = await import('./fixtures/story-package.js')
  const container = domSetup(t), e = await setupModel(t), fixture = storyPackageFixture()
  const outline = outlineFixture('旅人读到 "明天见"。\n他收起信，望向紧闭的门。')
- const replies = [JSON.stringify({ outline }), reviewPass, JSON.stringify(fixture.characters), reviewPass,
+ const replies = [JSON.stringify(outline), reviewPass, JSON.stringify(fixture.characters), reviewPass,
   JSON.stringify(fixture.scenes), reviewPass, JSON.stringify({ items: [] }), reviewPass]
  await runOperation(e.op('outline'), { home: e.home, generateStoryPackage: options => generateStoryPackage({ ...options, request: async () => replies.shift() }) })
  const saved = await e.read()
- assert.equal(saved.plot.outline.content, outline)
+ assert.deepEqual(saved.plot.outline.content, outline)
  container.replaceChildren(renderStage('outline', saved, { perform: async () => {}, fail: () => {} }, {}))
- assert.equal(container.querySelector('pre.story').textContent, outline)
+ assert.equal(container.querySelector('pre.story').textContent, outlineText(outline))
  assert.equal(container.querySelector('pre.story').textContent.split('\n\n').length, 7)
 })
 

@@ -6,6 +6,7 @@ import { builtinSkillSet, skillUse } from '../data/skill-store.js'
 import { taskSkillSet, useSkills } from '../runtime/task-context.js'
 import { outputLanguage } from '../../shared/output-language.js'
 import { assetGuidance } from '../../shared/guidance-categories.js'
+import { requirementsText } from './prompt-requirements.js'
 
 export const segment = (source, title, text, extra = {}) => ({ source, title, text: (text && typeof text === 'object' ? JSON.stringify(text) : String(text ?? '')).trim(), ...extra })
 export const render = segments => segments.filter(item => item.text).map(item => item.title ? `${item.title}\n${item.text}` : item.text).join('\n\n')
@@ -21,13 +22,13 @@ const productionRule = (set, stage, nodeKey) => set.skills[stage]?.rules?.[nodeK
 export const reviewRule = (set, stage, nodeKey) => set.skills[stage]?.reviewRules?.[nodeKey] ?? set.skills[stage]?.review ?? part(set, stage, 'review')
 export const addition = (set, id, field) => set.project.additions[id]?.[field] || ''
 
-function languageLines(project, story) {
+function languageLines(project) {
   const language = outputLanguage(project?.outputLanguage)
-  return `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。使用此语言生成自然语言内容。\n对白语言：${language === 'en' ? 'English' : '中文普通话（Mandarin Chinese）'}。固定字段名、协议标签与已有名称不翻译，既定对白、歌词和画面文字保留原文。`
+  return `输出语言：${language === 'en' ? 'English（英文）' : '简体中文'}\n对白语言：${language === 'en' ? 'English' : '中文普通话（Mandarin Chinese）'}`
 }
 
 export function languageSegment(set, project, meta, revise = false) {
-  return segment('language', '【语言】', languageLines(project, meta.languageMode === 'story'))
+  return segment('language', '【语言】', languageLines(project))
 }
 
 export function nodeAddition(project, set, nodeKey, episodeId = project?.episodeId) {
@@ -135,8 +136,7 @@ export function imageParts({ stage, project, request, skillSet }) {
   return {
     requirement: segment('stage', '', set.skills[stage]?.constraints || '', { skill: stage, field: 'constraints' }),
     addition: segment('project', '本剧补充要求：', addition(set, stage, 'generate'), { skill: stage, field: 'generate' }),
-    language: segment('language', '', `本次生成语言：${language === 'en' ? 'English（英文）' : '简体中文'}。`),
-    style: segment('context', '【本次参数】', style ? { style } : ''),
+    requirements: segment('context', '【本次要求】', requirementsText({ style }, `输出语言：${language === 'en' ? 'English（英文）' : '简体中文'}`)),
     request: segment('context', '本次画面要求：', request),
   }
 }

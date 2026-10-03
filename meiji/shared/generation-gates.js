@@ -1,6 +1,7 @@
 import { GenerationStatus, shotResults } from './drama-model.js'
 import { feedbackOf } from './review-feedback.js'
 import { shotSecondsReady } from './shot-timing.js'
+import { outlineFailures } from './story-outline.js'
 export const reviewSteps = ['summary', 'outline', 'characters', 'scenes', 'props', 'shots', 'storyboard', 'film']
 
 export function reviewsOf(project) {
@@ -10,7 +11,7 @@ export function reviewsOf(project) {
 const text = value => typeof value === 'string' && value.trim().length > 0
 function outlineUnlocked(project) { return hasSummary(project) }
 export function hasSummary(project) { return text(project?.summary?.content) }
-export function hasOutline(project) { return text(project?.plot?.outline?.content) }
+export function hasOutline(project) { return outlineFailures(project?.plot?.outline?.content).length === 0 }
 export function hasCharacters(project) { return Array.isArray(project?.plot?.characters?.items) && project.plot.characters.items.length > 0 }
 export function hasScenes(project) { return Array.isArray(project?.plot?.scenes?.items) && project.plot.scenes.items.length > 0 }
 export function hasShots(project) { return Array.isArray(project?.shots?.items) && project.shots.items.length > 0 }

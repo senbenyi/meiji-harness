@@ -1,3 +1,4 @@
+import { outlineFixture } from './fixtures/story-package.js'
 import { promptData } from './fixtures/prompt-data.js'
 import { secondsResponse, secondsContent, secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
@@ -54,7 +55,7 @@ for (const count of [1, 2, 5]) test(`生成 ${count} 镜分别请求，不发整
 
 test('本镜剧情、关联资料与前镜指令用于生成、自审与修订，不带其他镜头表或后镜旧指令', () => {
  const p = episodeFixture()
- p.plot.outline.content = '大纲整体内容'
+ p.plot.outline.content = outlineFixture('大纲整体内容')
  p.shots.items[0].content = '不应提供的前镜镜头表'
  p.shots.items[1].content = '当前镜头表'
  p.shots.items.push({ ...structuredClone(p.shots.items[0]), id: 'S03', content: '不应提供的后镜镜头表', seconds: { ...p.shots.items[0].seconds, content: secondsContent('S03', 5, '不应提供的后镜指令') } })
@@ -72,7 +73,7 @@ test('本镜剧情、关联资料与前镜指令用于生成、自审与修订�
 test('自动修订仅当前镜，后镜使用通过复审的最新前镜', async t => {
  const e = await environment(t); let firstGenerations = 0, firstReviews = 0
  await execute(e, async m => {
-  const first = promptData(m.user, '【本次参数】').shotId === 'S01'
+  const first = promptData(m.user, '【本次要求】').shotId === 'S01'
   if (m.skill === 'review') return first && ++firstReviews === 1 ? reviewFail('动作有误', 'S01') : reviewPass
   if (first) return secondsResponse([['S01', 5, ++firstGenerations === 1 ? '首稿' : '修订最终稿']])
   assert.match(m.user, /修订最终稿/); assert.doesNotMatch(m.user, /首稿/)
@@ -85,7 +86,7 @@ for (const failure of ['review', 'program', 'api', 'cancel']) test(`第二镜 ${
  const e = await environment(t), controller = new AbortController(), visited = []
  await e.store.save(e.id, p => { p.episodes[0].shots.items.push({ ...structuredClone(p.episodes[0].shots.items[1]), id: 'S03' }); return p })
  await assert.rejects(execute(e, async m => {
-  const id = promptData(m.user, '【本次参数】').shotId; visited.push(id)
+  const id = promptData(m.user, '【本次要求】').shotId; visited.push(id)
   if (id === 'S02') {
    if (failure === 'api') throw new Error('HTTP 503')
    if (failure === 'cancel') { controller.abort(); controller.signal.throwIfAborted() }
@@ -142,10 +143,10 @@ test('按意见修改逐镜使用本镜基稿，成功后消费统一意见，�
 test('部分保存后可按失败原因修改，缺失镜头继续生成', async t => {
  const e = await environment(t)
  await e.store.save(e.id, p => { p.episodes[0].shots.items[1].seconds.content = null; return p })
- await assert.rejects(execute(e, async m => promptData(m.user, '【本次参数】').shotId === 'S02' ? m.skill === 'review' ? reviewFail('第二镜失败', 'S02') : secondsResponse([['S02', 4, '失败正文']]) : reply(m)), /自检|自审/)
+ await assert.rejects(execute(e, async m => promptData(m.user, '【本次要求】').shotId === 'S02' ? m.skill === 'review' ? reviewFail('第二镜失败', 'S02') : secondsResponse([['S02', 4, '失败正文']]) : reply(m)), /自检|自审/)
  const calls = []
  await execute(e, async m => { calls.push(m); return reply(m) }, { generationMode: 'modify', review: '' })
- assert.match(calls.find(m => m.skill !== 'review' && promptData(m.user, '【本次参数】').shotId === 'S02').user, /失败正文|4000ms/)
+ assert.match(calls.find(m => m.skill !== 'review' && promptData(m.user, '【本次要求】').shotId === 'S02').user, /失败正文|4000ms/)
  assert.ok((await e.read()).shots.items.every(s => s.seconds.check.passed))
 })
 
@@ -157,7 +158,7 @@ test('storyboard never fills missing seconds in the background', async t => {
 
 test('首镜更新后后镜旧稿过期，失败停止后不能把旧稿用于下游', async t => {
  const e = await environment(t), before = await e.read()
- await assert.rejects(execute(e, async m => { if (promptData(m.user, '【本次参数】').shotId === 'S02') throw new Error('HTTP 503'); return reply(m) }), /HTTP 503/)
+ await assert.rejects(execute(e, async m => { if (promptData(m.user, '【本次要求】').shotId === 'S02') throw new Error('HTTP 503'); return reply(m) }), /HTTP 503/)
  const p = await e.read(), second = p.shots.items[1]
  assert.deepEqual(second.seconds.content, before.shots.items[1].seconds.content)
  assert.equal(second.seconds.stale, true)
@@ -204,7 +205,7 @@ test('运行中新输入的后镜意见不丢失', async t => {
 test('缺少字段的当前镜失败稿仍可查看，不影响已通过前镜', async t => {
  const e = await environment(t), broken = secondsContent('S02', 5, '缺字段稿')
  delete broken.beats[0].dialogueIds
- await assert.rejects(execute(e, async m => m.skill === 'review' ? reviewPass : promptData(m.user, '【本次参数】').shotId === 'S02' ? JSON.stringify({ shots: [broken] }) : secondsForRequest(m)), /dialogueIds/)
+ await assert.rejects(execute(e, async m => m.skill === 'review' ? reviewPass : promptData(m.user, '【本次要求】').shotId === 'S02' ? JSON.stringify({ shots: [broken] }) : secondsForRequest(m)), /dialogueIds/)
  const p = await e.read()
  assert.equal(p.shots.items[0].seconds.check.passed, true)
  assert.deepEqual(p.shots.items[1].seconds.content, broken)
@@ -215,7 +216,7 @@ test('缺失的后镜在修改模式下正常补齐，并使用本轮前镜', as
  const e = await environment(t)
  await e.store.save(e.id, p => { p.episodes[0].shots.items[1].seconds.content = null; return p })
  await execute(e, async m => {
-  if (m.skill !== 'review' && promptData(m.user, '【本次参数】').shotId === 'S02') {
+  if (m.skill !== 'review' && promptData(m.user, '【本次要求】').shotId === 'S02') {
    assert.doesNotMatch(m.user, /【修改基稿】/)
    assert.match(m.user, /第一镜新动作/)
   }

@@ -36,6 +36,7 @@ export function buildTextPrompts(task) {
 // 人工编辑后的审核。stage 为阶段技能 ID（storyboard / outline）或审核范围说明（按剧情整包的验收标准审核）。
 export function buildEditedContentReview({ project, stage, shotId }, text) {
   const skill = isSkill(stage) ? stage : 'outline'
+  if (stage === 'outline') return buildReviewPrompt({ project, skill, edited: true, editedKind: 'outline' }, contentData(text, 'outline'))
   const shot = project.shots?.items.find(item => item.id === shotId)
   if (stage === 'storyboard' && shot) {
     const board = shot.storyboard.content || {}
@@ -49,9 +50,9 @@ export function buildEditedContentReview({ project, stage, shotId }, text) {
         task: `只审核 ${shot.id} 已编辑的最终提示词是否忠实转写本镜每秒指令、正确绑定素材并符合输出结构。` }),
     }, text)
   }
-  return buildReviewPrompt({ project, skill, edited: true,
+  return buildReviewPrompt({ project, skill, edited: true, editedKind: stage,
     instructions: { review: `审核已编辑原文。审核范围：${isSkill(stage) ? builtinSkill(stage).label : stage}`,
-      facts: [{ title: '【上游事实：本集摘要】', text: { summary: project.summary.content } }, { title: '【上游事实：大纲】', text: project.plot.outline.content ? { outline: project.plot.outline.content } : '' }] },
+      facts: [{ title: '【本集摘要】', text: project.summary.content }, { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' }] },
     reviewContext: continuityReviewContext(project, shotId),
   }, contentData(text, /^人物/.test(stage) ? 'characters' : /^场景/.test(stage) ? 'scenes' : 'outline'))
 }

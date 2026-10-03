@@ -33,18 +33,18 @@ test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享�
 
 test('基础转换使用具名人物资料和分节自然语言，不混入剧情服装道具或面向', () => {
   const prompt = characterImageModelToPrompt(createCharacterImageModel(input))
-  assert.deepEqual(promptData(prompt, '【核心输入：人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '180cm', build: '健壮', features: '短发方脸' })
+  assert.deepEqual(promptData(prompt, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '180cm', build: '健壮', features: '短发方脸' })
   assert.doesNotMatch(prompt, /旧外套|木剑|背面|服装：|道具：|面向：/)
-  assert.ok(prompt.indexOf('【本次任务】') < prompt.indexOf('【核心输入：人物资料】'))
-  assert.ok(prompt.indexOf('【核心输入：人物资料】') < prompt.indexOf('【基础规则】'))
-  assert.ok(prompt.indexOf('【核心输入：人物资料】') < prompt.indexOf('【本次参数】'))
-  assert.ok(prompt.indexOf('【本次参数】') < prompt.indexOf('【基础规则】'))
+  assert.ok(prompt.indexOf('【本次任务】') < prompt.indexOf('【人物资料】'))
+  assert.ok(prompt.indexOf('【人物资料】') < prompt.indexOf('【基础规则】'))
+  assert.ok(prompt.indexOf('【本次要求】\n') < prompt.indexOf('【人物资料】\n'))
+  assert.ok(prompt.indexOf('【本次要求】') < prompt.indexOf('【基础规则】'))
 })
 
 test('自定义画幅按像素输出，无固定尺寸枚举，转换时也校验输入', () => {
   for (const [width, height, orientation] of [[1000, 1500, '竖幅'], [1600, 900, '横幅'], [800, 800, '正方形']]) {
     const model = createCharacterImageModel({ ...input, canvas: { width, height } })
-    assert.deepEqual(promptData(characterImageModelToPrompt(model), '【本次参数】'), { width, height, orientation })
+    assert.deepEqual(promptData(characterImageModelToPrompt(model), '【本次要求】'), { width, height, orientation })
   }
   for (const canvas of [undefined, null, { width: 0, height: 10 }, { width: -1, height: 10 }, { width: 1.5, height: 10 }, { width: '1000', height: 10 }, { width: Infinity, height: 10 }, { width: Number.MAX_SAFE_INTEGER + 1, height: 10 }]) {
     assert.throws(() => createCharacterImageModel({ ...input, canvas }), /正整数像素/)
@@ -68,7 +68,7 @@ test('缺少人物资料或规则正文时明确报错，沿用 look 资料解�
   for (const character of [null, '甲', []]) assert.throws(() => createCharacterImageModel({ ...input, character }), /人物资料/)
   assert.throws(() => createCharacterImageModel({ character: input.character, canvas: input.canvas }), /规则必须是字符串/)
   const prompt = characterImageModelToPrompt(createCharacterImageModel({ ...input, character: { look: '姓名：乙 性别：女 年龄：二十岁 面相：圆脸' } }))
-  assert.deepEqual(promptData(prompt, '【核心输入：人物资料】'), { nationality: '中国', name: '乙', gender: '女', age: '二十岁', features: '圆脸' })
+  assert.deepEqual(promptData(prompt, '【人物资料】'), { nationality: '中国', name: '乙', gender: '女', age: '二十岁', features: '圆脸' })
 })
 
 test('修改 model 固定角色职责，Base64 原图与人工意见分开保存，图片数据不进入 prompt', () => {

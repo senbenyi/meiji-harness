@@ -47,7 +47,7 @@ test('人物固定约束只读且不受旧基础覆盖和本剧补充影响', as
   assert.deepEqual(skillUse(set, 'character-image').layers, ['builtin'])
   assert.doesNotMatch(actual, /本次生成语言|English|简体中文/)
   assert.doesNotMatch(actual, /项目视觉风格|水彩/)
-  assert.match(actual, /【核心输入：人物资料】/); assert.deepEqual(promptData(actual, '【核心输入：人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '一米八', build: '健壮', features: '短发方脸' })
+  assert.match(actual, /【人物资料】/); assert.deepEqual(promptData(actual, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '一米八', build: '健壮', features: '短发方脸' })
 })
 
 test('空约束不注入默认值；固定内容纳入技能快照与哈希', () => {
@@ -109,7 +109,7 @@ test('人物资料逐行保留字段名与姓名，空字段省略，最新资�
   assert.doesNotMatch(text, /旧姓名|二十岁|身份：|身高：/)
   const project = view(item), set = builtinSkillSet(project.skills)
   const actual = characterImagePrompt(item, project, set)
-  assert.equal(promptData(actual, '【核心输入：人物资料】').name, '新姓名')
+  assert.equal(promptData(actual, '【人物资料】').name, '新姓名')
   assert.equal(render(preview(project, set).user), actual)
 })
 
@@ -118,7 +118,7 @@ test('generation and reference use the same Model with actual canvas and ordered
  const { characterImageGenerationModel } = await import('../server/prompts/interfaces/character-image-interface.js')
  const canvas={width:900,height:1200}
  const text=characterImagePrompt(character,view(character),undefined,{canvas})
- assert.match(text,/【本次任务】/);assert.deepEqual(promptData(text, '【本次参数】'), { width: 900, height: 1200, orientation: '竖幅' });assert.match(text,/【本次输出协议】/)
+ assert.match(text,/【本次任务】/);assert.deepEqual(promptData(text, '【本次要求】'), { width: 900, height: 1200, orientation: '竖幅' });assert.match(text,/【本次输出协议】/)
  const model=characterImageGenerationModel(character,view(character),{canvas,images:[{purpose:'character-reference',base64:'data:image/png;base64,YQ=='}]})
  assert.equal(model.mode,'reference');assert.deepEqual(promptData(model.toPrompt(), '【参考图片】'), { images: [{ index: 1, purpose: 'character-reference' }] });assert.doesNotMatch(model.toPrompt(),/data:image/)
 })

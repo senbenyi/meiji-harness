@@ -5,6 +5,7 @@ import { tabOf, tabs } from './flow-view.js'
 import { renderShotPage, renderStage, renderSceneDetail } from './generation-stage-views.js'
 import { episodeWork, renderOverview } from './project-overview-view.js'
 import { bindStylePicker } from './style-picks.js'
+import { outlineFields } from '../shared/story-outline.js'
 
 const order = tabs.map(tab => tab.id)
 
@@ -257,9 +258,16 @@ export function sourceDialog(root, onSaved) {
 
 export function storyDialog(root, onSaved) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-story" aria-labelledby="edit-story-title"><div class="modal-head"><h2 id="edit-story-title">编辑大纲</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>只修改故事大纲。保存后角色之后的步骤会重新待审。</p><form class="edit"><label for="edit-plot">大纲</label><textarea id="edit-plot" name="outline" class="plot"></textarea><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-story" aria-labelledby="edit-story-title"><div class="modal-head"><h2 id="edit-story-title">编辑大纲</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>只修改故事大纲。保存后角色之后的步骤会重新待审。</p><form class="edit"><div class="outline-fields"></div><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-story'), form = dialog.querySelector('form')
+  const fields = form.querySelector('.outline-fields')
+  for (const [index, field] of outlineFields.entries()) {
+    const label = element('label', `【${field}】`), input = element('textarea')
+    input.id = `edit-outline-${index}`; input.name = field; input.required = true; input.rows = 4
+    label.htmlFor = input.id
+    fields.append(label, input)
+  }
   const error = dialog.querySelector('.error')
   let current = null
   for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => dialog.close()
@@ -267,14 +275,15 @@ export function storyDialog(root, onSaved) {
     event.preventDefault()
     const button = form.querySelector('[type=submit]'); button.disabled = true; error.textContent = ''
     try {
-      await onSaved(current, { outline: new FormData(form).get('outline').trim() })
+      const data = new FormData(form)
+      await onSaved(current, { outline: Object.fromEntries(outlineFields.map(field => [field, data.get(field).trim()])) })
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
     finally { button.disabled = false }
   }
   return project => {
     current = project
-    form.elements.outline.value = project.plot.outline.content || ''
+    for (const field of outlineFields) form.elements.namedItem(field).value = project.plot.outline.content?.[field] || ''
     error.textContent = ''
     showPanelDialog(dialog)
   }

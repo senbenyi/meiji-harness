@@ -1,11 +1,11 @@
 // 统一的文本请求结构。所有文本步骤（摘要、剧情四类、镜头表、每秒指令、单镜修订、图片提示词改写、文本分镜审核）
 // 都按同一顺序组装三类请求，各步骤只提供内容：
-//   system：角色 → 任务范围 → 规则（生成/修订用生产规则，审核用审核方式与审核标准）→ 本节点补充 → 指导素材规则
-//           →（修订范围）→ 语言 → 正文结构 → 输出协议（写明输出什么并附示例）
-//   user：  阶段 → 本次任务 → 本次生成要求 → 上游事实与上下文 → 指导素材 → 基稿与意见 → 审核上下文 → 待审内容 → 审核收尾
+//   system：角色 → 规则及补充 → 范围边界 → 输出协议。
+//   user：本次任务 → 本次要求（已解析的语言、时长、风格等）→ 具名资料 → 基稿与意见 → 待审内容。
 import { segment } from './skill-prompts.js'
 import { checkContext } from '../runtime/operation-context.js'
 import { contentData } from './prompt-text.js'
+import { requirementsText } from './prompt-requirements.js'
 
 const list = value => (Array.isArray(value) ? value : [value]).filter(Boolean)
 
@@ -20,6 +20,17 @@ export const factSegments = facts => (facts || []).map(fact => segment('context'
 
 // 本次操作附带的生成要求，生成、修订、审核都单独成段，不再拼进任务文本。
 export const requirementSegment = (requirements = checkContext.getStore()?.requirements) => segment('context', '【本次生成要求】', requirements || '')
+
+function requestFacts(facts, language, requirements) {
+  const parameters = {}, data = []
+  for (const fact of list(facts)) {
+    if (fact.title === '【本次参数】') Object.assign(parameters, JSON.parse(fact.text || '{}'))
+    else data.push(fact)
+  }
+  return { facts: data, requirements: segment('context', '【本次要求】', requirementsText(parameters,
+    list(language).map(item => item.text).filter(Boolean).join('\n'), list(requirements).map(item => item.text).filter(Boolean).join('\n'))) }
+}
+const languageRule = language => list(language).length ? [segment('context', '', '自然语言内容及审核意见使用本次要求中的输出语言；固定字段名、协议标签与已有名称不翻译，既定对白、歌词和画面文字保留原文。')] : []
 
 export function baseSegments({ kind, baseContent = '', opinion = '', humanOpinion = '', automatic = false, field = 'content' }) {
   if (kind === 'review') return [
@@ -37,18 +48,20 @@ export function baseSegments({ kind, baseContent = '', opinion = '', humanOpinio
 
 export function generationRequest({ json = false, role, scope, rules, additions, assetRules, boundary, language, structure, protocol,
   task, requirements, facts, assets, base }) {
+  const input = requestFacts(facts, language, requirements)
   return {
     json,
-    system: [role, ...list(scope), ...list(rules), ...list(additions), ...list(assetRules), ...list(boundary), ...list(language), ...list(structure), ...list(protocol)],
-    user: [...list(task), ...list(requirements), ...list(facts), ...list(assets), ...list(base)],
+    system: [role, ...list(scope), ...list(rules), ...list(additions), ...list(assetRules), ...list(boundary), ...languageRule(language), ...list(structure), ...list(protocol)],
+    user: [...list(task), input.requirements, ...input.facts, ...list(assets), ...list(base)],
   }
 }
 
 export function reviewRequest({ role, scope, method, criteria, additions, assetRules, language, structure, protocol,
   stage, task, requirements, facts, assets, base, continuity, content, closing }) {
+  const input = requestFacts(facts, language, requirements)
   return {
     json: true,
-    system: [role, ...list(scope), ...list(method), ...list(criteria), ...list(additions), ...list(assetRules), ...list(language), ...list(structure), ...list(protocol)],
-    user: [...list(stage), ...list(task), ...list(requirements), ...list(facts), ...list(assets), ...list(base), ...list(continuity), ...list(content), ...list(closing)],
+    system: [role, ...list(scope), ...list(method), ...list(criteria), ...list(additions), ...list(assetRules), ...languageRule(language), ...list(structure), ...list(protocol)],
+    user: [...list(stage), ...list(task), input.requirements, ...input.facts, ...list(assets), ...list(base), ...list(continuity), ...list(content), ...list(closing)],
   }
 }

@@ -2,7 +2,7 @@
 import { render } from './skill-prompts.js'
 
 export const contentText = value => typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value)
-// 只包装输入资料；已结构化的结果保留字段，正文原文由 JSON 序列化转义。
+// 已生成的 JSON 保留原结构；单段正文直接取内容，列表保留具名集合。
 export function contentData(value, field = 'content') {
   if (value == null || typeof value === 'string' && !value.trim()) return ''
   if (Array.isArray(value)) return { [field]: value }
@@ -14,7 +14,7 @@ export function contentData(value, field = 'content') {
       if (parsed && typeof parsed === 'object') return parsed
     } catch {}
   }
-  return { [field]: value }
+  return value
 }
 export const messages = ({ system, user }) => [
   { role: 'system', content: render(system) },

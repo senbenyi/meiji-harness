@@ -29,13 +29,13 @@ for (const { label, role, create, purpose, facts } of configurations) {
       assert.match(prompt, /【本次任务】\n依据本次.*资料.*基础规则和补充规则。/)
       const task = prompt.split('【本次任务】\n')[1].split('\n\n')[0]
       assert.doesNotMatch(task, /地标|光位|服装|全景|保留未涉及|只输出|BASE_RULE|CURRENT_OPINION/)
-      assert.match(prompt, new RegExp(`【核心输入：${label}资料】\\n`))
-      assert.deepEqual(promptData(prompt, '【本次参数】'), { width: 1344, height: 768, orientation: '横幅' })
+      assert.match(prompt, new RegExp(`【${label}资料】\\n`))
+      assert.deepEqual(promptData(prompt, '【本次要求】'), { width: 1344, height: 768, orientation: '横幅' })
       assert.match(prompt, /【基础规则】\nBASE_RULE/)
       assert.match(prompt, /【本次输出协议】\n只输出一张图片，不输出解释或审核文字。$/)
       assert.doesNotMatch(prompt, /【资料边界】|【任务】|【生成规则】|【画幅】|【本剧补充】|data:image|base64|未提供的大纲示例/)
       const headers = prompt.match(/^【[^\n]+】$/gm)
-      assert.deepEqual(headers.slice(0, 4), ['【角色与职责】', '【本次任务】', `【核心输入：${label}资料】`, '【本次参数】'])
+      assert.deepEqual(headers.slice(0, 4), ['【角色与职责】', '【本次任务】', '【本次要求】', `【${label}资料】`])
       assert.equal(headers.at(-1), '【本次输出协议】')
       if (label === '场景') assert.match(prompt, /【补充规则】\nSUPPLEMENT_RULE/)
       if (mode === 'generate') assert.doesNotMatch(prompt, /【参考图片】|【本次修改意见】|【本次修订范围】/)
@@ -66,12 +66,12 @@ test('人物无卡模板也通过 Model 编排角色、资料、画幅和输出�
   const preview = previewPrompts({ stage: 'character-image', root: project, skillSet: set }).image
   const text = render(preview.user)
   assert.equal(text.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名人物角色设计师。')
-  assert.match(promptData(text, '【核心输入：人物资料】').description, /^（人物资料将在生成时/)
-  assert.deepEqual(promptData(text, '【本次参数】'), { width: 768, height: 1344, orientation: '竖幅' })
+  assert.match(promptData(text, '【人物资料】').description, /^（人物资料将在生成时/)
+  assert.deepEqual(promptData(text, '【本次要求】'), { width: 768, height: 1344, orientation: '竖幅' })
   assert.match(text, /【本次输出协议】/)
   assert.doesNotMatch(text, /不注入的风格|【语言】/)
   const actual = render(imageSegments({ stage: 'character-image', project, skillSet: set, request: '明确提供的模板资料' }))
-  assert.deepEqual(promptData(actual, '【核心输入：人物资料】'), { description: '明确提供的模板资料' })
+  assert.deepEqual(promptData(actual, '【人物资料】'), { description: '明确提供的模板资料' })
 })
 
 test('场景基本规则不假定存在已给剧情或机位，空图用真实场景尺度', () => {

@@ -40,7 +40,7 @@ test('seconds human correction uses distinct opinions and current base',()=>{
 test('seconds automatic correction and re-review keep sources separate, exclude old issues and declare partial output',()=>{
  const model=new ShotSecondsModel({shotId:'S01',project:episodeFixture(),modify:true,baseContent:'人工基稿',opinion:'保留声音',programIssues:[{...program,reason:'旧校验原因'}]})
  const correction=model.toReviseSegments('本轮失败稿',verdict([semantic,program,semantic]))
- assert.deepEqual(promptData(render(correction.user), '【最新失败稿（唯一修改基准）】'), { seconds: '本轮失败稿' })
+ assert.deepEqual(promptData(render(correction.user), '【最新失败稿（唯一修改基准）】'), '本轮失败稿')
  assert.match(render(correction.user),/【程序校验问题】/)
  assert.match(render(correction.user),/【语义审核问题】/)
  assert.equal(render(correction.user).split(semantic.reason).length-1,1)
@@ -49,7 +49,7 @@ test('seconds automatic correction and re-review keep sources separate, exclude 
  model.task.baseContent='本轮失败稿';model.task.revisionReview=true;model.task.revisionOpinion=verdict([program,semantic])
  const review=model.toReviewSegments('最新修订稿')
  assert.match(render(review.user),/【人工修改意见】\n保留声音/)
- assert.deepEqual(promptData(render(review.user), '【本次待审内容】'), { seconds: '最新修订稿' })
+ assert.deepEqual(promptData(render(review.user), '【本次待审内容】'), '最新修订稿')
  assert.match(render(review.system),/对应上游事实或审核规则/)
  assert.match(render(review.system),/同编号镜头表及本镜关联资料逐项对照/)
  assert.match(render(review.system),/不能因动作问题将正确时长判为/)

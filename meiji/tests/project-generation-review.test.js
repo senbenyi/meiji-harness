@@ -21,7 +21,7 @@ test('episode generation repairs once and records both reviews',async()=>{
 })
 test('story outline repairs once before extracting cards from the final outline', async () => {
  const fixture = storyPackageFixture()
- const replies = ['初稿', reviewFail('因果不完整'), outlineFixture('修订后最终大纲','en'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+ const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果不完整'), JSON.stringify(outlineFixture('修订后最终大纲','en')), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
  let calls=0
  const { result, steps }=await recordSteps(() => generateStoryPackage({project:{...episodeFixture(),outputLanguage:'en'},route,request:async message=>{
    calls++
@@ -40,7 +40,7 @@ test('episode invalid JSON fails program review and receives one revision',async
 
 test('character extraction independently reviews body coverage and stops scene extraction on failure', async () => {
   const fixture = storyPackageFixture()
-  const replies = [outlineFixture('现代旅人穿越到古代武松身体，两个身体均实际出镜。'), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡'), JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡')]
+  const replies = [JSON.stringify(outlineFixture('现代旅人穿越到古代武松身体，两个身体均实际出镜。')), reviewPass, JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡'), JSON.stringify(fixture.characters), reviewFail('缺少新身体的独立角色卡')]
   let calls = 0
   await checkContext.run({}, async () => {
     const result = await generateStoryPackage({ route, project: episodeFixture(), request: async message => {

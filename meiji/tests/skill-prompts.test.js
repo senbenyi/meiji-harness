@@ -50,11 +50,11 @@ test('各文本步骤生成与修订使用生产规则、自审只使用对应�
     for (const request of [prompts.generation, prompts.revision('FAILED', 'REPAIR')]) {
       if (rules) assert.equal(count(request, rules), 1, stage)
       assert.equal(count(request, review), 0, stage)
-      assert.match(request.system + request.user, /本次生成语言：English/)
+      assert.match(request.system + request.user, /输出语言：English/)
     }
     assert.equal(count(prompts.review('LATEST'), review), 1, stage)
     if (rules) assert.equal(count(prompts.review('LATEST'), rules), 0, stage)
-    assert.match(prompts.review('LATEST').system + prompts.review('LATEST').user, /本次生成语言：English/)
+    assert.match(prompts.review('LATEST').system + prompts.review('LATEST').user, /输出语言：English/)
     assert.match(prompts.review('LATEST').system, /【审核方式】/)
     assert.equal(prompts.review('LATEST').system.split('【本次审核协议】').length - 1, 1)
     assert.match(prompts.review('LATEST').system, /passed.*issues/s)

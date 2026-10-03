@@ -4,7 +4,8 @@ import { parseJsonValue } from '../../../gateway/model-gateway.js'
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { buildStoryPrompts } from '../../../prompts/story-prompts.js'
-import { required, normalizeCharacters, normalizeScenes, normalizeProps, outlineStructureFailures } from '../../../../shared/story-content.js'
+import { normalizeCharacters, normalizeScenes, normalizeProps } from '../../../../shared/story-content.js'
+import { normalizeOutline } from '../../../../shared/story-outline.js'
 import { preserveStoryAssets } from '../../../../shared/preserve-story-assets.js'
 import { replaceFrom } from '../../../../shared/project-rules.js'
 import { canGenerate } from '../../../../shared/generation-gates.js'
@@ -14,7 +15,7 @@ export async function generateStoryPackage({ route, project, signal, fetchImpl, 
   const options = { route, project, signal, fetchImpl, request }
   const ctx = checkContext.getStore()
   const pending = () => ({ passed: null, failures: [] })
-  const result = { outline: '', characters: { ...project.plot.characters, check: pending(), stale: true },
+  const result = { outline: null, characters: { ...project.plot.characters, check: pending(), stale: true },
     scenes: { ...project.plot.scenes, check: pending(), stale: true }, checks: { outline: pending(), characters: pending(), scenes: pending(), props: pending() }, props: { ...project.plot.props, check: pending(), stale: true }, check: pending() }
   const save = async (kind, value, check, publish = true) => {
     if (kind === 'outline') result.outline = value
@@ -36,16 +37,13 @@ export async function generateStoryPackage({ route, project, signal, fetchImpl, 
     const input = kind === 'outline' ? project : { ...project, plot: { ...project.plot, outline: { ...project.plot.outline, content: result.outline }, characters: result.characters, scenes: result.scenes } }
     const normalize = text => {
       const raw = parseJsonValue(text)
-      if (kind === 'outline') {
-        if (!raw || Array.isArray(raw) || Object.keys(raw).length !== 1 || typeof raw.outline !== 'string') throw new Error('大纲结果仅允许 outline 字符串')
-        return required(raw.outline, '大纲是空的')
-      }
+      if (kind === 'outline') return normalizeOutline(raw)
       if (Object.keys(raw).length !== 1 || !Array.isArray(raw.items)) throw new Error('提取结果仅允许 items 数组')
       return kind === 'props' ? normalizeProps(raw, input) : (kind === 'characters' ? normalizeCharacters : normalizeScenes)(raw)
     }
     const generated = await runTextSteps({ target: kind,
       prompts: buildStoryPrompts(input, kind, '', { extraction: kind !== 'outline' }), options,
-      check: text => { const value = normalize(text); return kind === 'outline' ? outlineStructureFailures(value, project.outputLanguage) : [] },
+      check: text => { normalize(text); return [] },
       canPersist: text => { normalize(text); return true }, retainFailedDraft: kind === 'outline', persist: persist && ((text, check) => save(kind, normalize(text), check)) })
     await save(kind, normalize(generated.text), generated.check, false)
     if (!generated.check.passed) break

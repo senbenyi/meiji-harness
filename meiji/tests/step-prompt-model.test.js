@@ -72,7 +72,7 @@ test('shot context omits empty blocks and preserves landmark and light facts', a
  const prompt=buildTablePrompts({project}).generation
  assert.match(prompt.user,/固定地标/);assert.match(prompt.user,/东侧光源/)
  assert.doesNotMatch(prompt.user,/【上下文：相邻镜头|【上下文：完整镜头表|首帧接续|多模态参考/)
- assert.ok(prompt.user.indexOf('【本次任务】')<prompt.user.indexOf('【核心输入：大纲】'))
+ assert.ok(prompt.user.indexOf('【本次任务】')<prompt.user.indexOf('【剧情大纲】'))
  assert.doesNotMatch(JSON.stringify(shotContext({...project,shots:{items:[]}})),/上下文与衔接边界/)
  assert.ok(shotContext(project).every(fact => fact.title && fact.text))
  assert.doesNotMatch(render(new TextStoryboardModel({project}).toReviewSegments('正文').system),/镜头表按要求用标题/)

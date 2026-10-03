@@ -346,7 +346,7 @@ export function mount() {
     } finally { if (!created) events.resume() }
   })
   const saved = async (project, input) => {
-    if (typeof input.outline === 'string') await actions.perform(project, 'outline-text', { outline: input.outline })
+    if (input.outline) await actions.perform(project, 'outline-text', { outline: input.outline })
     else await actions.perform(project, 'source', { fields: input })
   }
   actions.openOverview = overviewDialog(shell.root, async (project, input) => {

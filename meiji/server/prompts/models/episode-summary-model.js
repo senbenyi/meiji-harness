@@ -32,11 +32,11 @@ export class EpisodeSummaryModel {
   contextSegments({ instructions = '' } = {}) {
     const { referenceDurationSeconds: duration } = this.target
     return [
-      segment('context', '【核心输入：项目摘要】', { summary: this.project.summary }),
-      segment('context', '【输入：剧本资料】', this.project.script ? { script: this.project.script } : ''),
+      segment('context', '【项目摘要】', this.project.summary),
+      segment('context', '【剧本】', this.project.script),
       segment('context', '【本次参数】', { durationSeconds: duration, ...(this.project.style ? { style: this.project.style } : {}) }),
-      segment('context', '【衔接：前集已发生事实，按剧情顺序】', { episodes: this.previousEpisodes }),
-      segment('context', '【衔接：后集摘要】', { episodes: this.followingEpisodes }),
+      segment('context', '【前集摘要】', this.previousEpisodes.length ? { episodes: this.previousEpisodes } : ''),
+      segment('context', '【后集摘要】', this.followingEpisodes.length ? { episodes: this.followingEpisodes } : ''),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),
     ]
   }
@@ -45,7 +45,7 @@ export class EpisodeSummaryModel {
   }
   languageSegment() {
     const english = this.project.outputLanguage === 'en'
-    return segment('language', '【语言】', `本次生成语言：${english ? 'English（英文）' : '简体中文'}。使用此语言生成自然语言内容。\n对白语言：${english ? 'English' : '中文普通话（Mandarin Chinese）'}。固定字段名、协议标签与已有名称不翻译，既定对白、歌词和画面文字保留原文。`)
+    return segment('language', '', `输出语言：${english ? 'English（英文）' : '简体中文'}\n对白语言：${english ? 'English' : '中文普通话（Mandarin Chinese）'}`)
   }
   supplementSegments(additions) {
     return [additions].flat().filter(Boolean).map(item => ({ ...item, title: '【补充规则】' }))

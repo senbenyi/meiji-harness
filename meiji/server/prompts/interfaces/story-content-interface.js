@@ -34,7 +34,7 @@ function generate(task) {
 function review(task, content) {
   const model = modelOf(task)
   const p = reviewParts({ ...task, stage: 'outline', nodeKey: model.kind }, content)
-  if (task.edited) return reviewEditedContent(task, content, p)
+  if (task.edited && task.editedKind !== 'outline') return reviewEditedContent(task, content, p)
   return model.toReviewSegments({ content, criteria: p.criteria, method: p.method, additions: p.additions, assetRules: p.assetRules, language: p.language, assets: p.assetContent,
     requirements: requirements(), instructions: task.model ? '' : taskInput(task.instructions).review || taskInput(task.instructions).task,
     ...(task.baseContent !== undefined ? { baseContent: task.baseContent } : {}),

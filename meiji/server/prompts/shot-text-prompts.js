@@ -50,8 +50,8 @@ export function shotContext(project, shotId) {
   return [
     ...entityFacts(project),
     { title: '【本次参数】', text: project.style ? { style: project.style } : '' },
-    { title: '【上游事实：本集摘要】', text: !project.plot.outline.content && project.summary?.content ? { summary: project.summary.content } : '' },
-    { title: '【上游事实：大纲】', text: project.plot.outline.content ? { outline: project.plot.outline.content } : '' },
+    { title: '【本集摘要】', text: !project.plot.outline.content && project.summary?.content ? project.summary.content : '' },
+    { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
     { title: single ? '【上游事实：本镜及前后镜关联人物】' : '【上游事实：人物资料】', text: cards('characters') },
     { title: single ? '【上游事实：本镜及前后镜关联道具】' : '【上游事实：道具资料】', text: cards('props') },
     { title: single ? '【上游事实：本镜及前后镜关联场景】' : '【上游事实：场景资料】', text: cards('scenes') },
@@ -92,7 +92,7 @@ function tableFacts(project, min, max) {
   const context = shotContext({ ...project, shots: { ...project.shots, items: [] } })
   const cards = context.filter(fact => /^【上游事实：(人物|场景|道具)资料】$/.test(fact.title))
   return [
-    { title: '【核心输入：大纲】', text: { outline: project.plot.outline.content } },
+    { title: '【剧情大纲】', text: project.plot.outline.content },
     { title: '【本次参数】', text: { durationSeconds: project.durationSeconds, minDurationSeconds: min, maxDurationSeconds: max, minShotDurationSeconds: 1, maxShotDurationSeconds: 15, ...(project.style ? { style: project.style } : {}) } },
     ...cards,
     ...context.filter(fact => ['【实体引用清单】', '【实体标注规则】'].includes(fact.title)),
@@ -133,10 +133,10 @@ export function buildSecondsPrompts(options) {
     task: `依据本镜分段剧情与关联资料生成 ${shotId} 的每秒指令，承接上一镜已通过指令，遵守基础规则和补充规则。`,
     review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：剧情、时长与交接状态符合本镜镜头表，具体镜头设计与空间调度符合关联资料，与上一镜已通过指令连续。`,
     facts: [
-      { title: '【核心输入：本镜镜头表】', text: shotData(shot) },
+      { title: '【本镜镜头表】', text: shotData(shot) },
       { title: '【连续性参考：上一镜每秒指令】', text: previous?.seconds.check.passed === true && !previous.seconds.stale ? { seconds: previous.seconds.content } : '' },
       cards('characters', '【上游事实：本镜关联人物】'), cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】'),
-      { title: '【整体内容参考：剧情大纲】', text: project.plot.outline.content ? { outline: project.plot.outline.content } : '' },
+      { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
       { title: '【本次参数】', text: { shotId, durationSeconds: shot.duration, startMs: 0, endMs: shot.duration * 1000, ...(project.style ? { style: project.style } : {}) } },
       ...entityFacts(project),
     ].filter(fact => fact.text),

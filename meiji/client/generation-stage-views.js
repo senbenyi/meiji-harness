@@ -1,4 +1,5 @@
 import { secondsText } from '../shared/seconds-content.js'
+import { outlineText } from '../shared/story-outline.js'
 import { historyEntry } from './execution-history.js'
 import { GenerationStatus, statusLabels } from '../shared/drama-model.js'
 import { videoPromptText as promptText } from '../shared/video-prompt-text.js'
@@ -144,8 +145,8 @@ function renderOutline(project, actions) {
   view.append(head)
   if (hasOutline(project)) {
     view.dataset.modelKey = `outline:${project.episodeId}`
-    view.append(element('pre', project.plot.outline.content, 'story'))
-    appendJsonCopy(view, { outline: project.plot.outline.content })
+    view.append(element('pre', outlineText(project.plot.outline.content), 'story'))
+    appendJsonCopy(view, project.plot.outline.content)
   }
   return view
 }

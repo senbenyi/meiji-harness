@@ -18,17 +18,17 @@ import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures
 test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
   const generated = { ...storyPackageFixture(), outline: outlineFixture('旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。', 'en') }
-  const replies = [JSON.stringify({ outline: generated.outline }), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
+  const replies = [JSON.stringify(generated.outline), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
   const result = await generateStoryPackage({ project: { ...episodeFixture(), outputLanguage: 'en' }, route: { baseUrl: 'http://model.test', apiKey: 'test', model: 'test' }, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
-    assert.match(body.messages[0].content, /本次生成语言：English/)
+    assert.match(body.messages[1].content, /输出语言：English/)
     calls++
     if (calls === 2) {
-      assert.deepEqual(promptData(body.messages[1].content, '【本次待审内容】'), { outline: generated.outline })
+      assert.deepEqual(promptData(body.messages[1].content, '【本次待审内容】'), generated.outline)
     }
     if (calls > 2) assert.match(body.messages[1].content, /旅人进入山洞，发现陌生脚印/)
     if (calls === 1) {
-      assert.match(body.messages[0].content, /顶层仅含 outline/)
+      assert.match(body.messages[0].content, /顶层恰好包含.*七个中文字段/)
       assert.deepEqual(body.response_format, { type: 'json_object' })
       assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }
@@ -36,7 +36,7 @@ test('outline, characters and scenes use separate generation and review requests
     if (calls === 5) assert.match(body.messages[0].content, /按实际空间覆盖建卡/)
     return Response.json({ choices: [{ message: { content: replies.shift() } }] })
   } })
-  assert.equal(result.outline, generated.outline)
+  assert.deepEqual(result.outline, generated.outline)
   assert.equal(calls, 8)
   assert.equal(result.characters.items.length, 1)
   assert.equal(result.scenes.items.length, 1)
@@ -62,14 +62,14 @@ test('package saves atomically to one episode, retains failed content and clears
   const root = await store.create({ title: '测试', summary: '摘要' })
   const one = blankEpisode({ summary: '本集', durationSeconds: 10 })
   const two = blankEpisode({ summary: '别集', durationSeconds: 10 })
-  one.plot.outline.content = '原大纲'; one.shots.items = [shotModel({ id: 'S01' })]
+  one.plot.outline.content = outlineFixture('原大纲'); one.shots.items = [shotModel({ id: 'S01' })]
   one.plot.characters.items = [cardModel({ id: 'C04', name: '旅人', type: 'role', localPath: '/plugins/meiji/asset-file?category=characters&id=portrait', assetId: 'portrait' })]
   const baseline = await store.save(root.id, { episodes: [one, two] })
   await runOperation({ action: 'outline', projectId: root.id, episodeId: one.id }, { home, generateStoryPackage: async () => ({ ...storyPackageFixture(), check: { passed: false, failures: ['缺少剧情中的另一身份'] } }) })
   const saved = await store.read(root.id)
   assert.deepEqual(saved.episodes[1], baseline.episodes[1])
   const ep = saved.episodes[0]
-  assert.equal(ep.plot.outline.content, storyPackageFixture().outline)
+  assert.deepEqual(ep.plot.outline.content, storyPackageFixture().outline)
   assert.equal(ep.plot.characters.items[0].image.content, null)
   assert.equal(ep.plot.characters.items[0].id, 'C01')
   assert.equal(ep.plot.scenes.items.length, 1)
@@ -79,7 +79,7 @@ test('package saves atomically to one episode, retains failed content and clears
   assert.equal(canGenerate(ep, 'shots'), false)
   await assert.rejects(runOperation({ action: 'outline', projectId: root.id, episodeId: one.id }, { home, generateStoryPackage: async () => { throw new Error('返回数据不完整') } }), /返回数据不完整/)
   const after = (await store.read(root.id)).episodes[0]
-  assert.equal(after.plot.outline.content, null)
+  assert.deepEqual(after.plot.outline.content, null)
   for (const key of ['characters', 'scenes', 'props']) assert.deepEqual(after.plot[key].items, [])
 })
 
@@ -108,7 +108,7 @@ async function withOldStory(t) {
 }
 
 function assertEmptyStory(project) {
-  assert.equal(project.plot.outline.content, null)
+  assert.deepEqual(project.plot.outline.content, null)
   for (const key of ['characters', 'scenes', 'props']) assert.deepEqual(project.plot[key].items, [])
   assert.deepEqual(project.pendingImages, {})
   assert.deepEqual(project.shots.items, [])
@@ -162,8 +162,8 @@ for (const phase of ['first-request', 'characters', 'cancel']) test(`regenerate 
   assert.deepEqual(after.shots.items, [])
   assert.deepEqual(after.pendingImages, {})
   assert.equal(after.assembly.content, null)
-  if (phase === 'characters') assert.equal(after.plot.outline.content, outlineFixture())
-  else assert.equal(after.plot.outline.content, null)
+  if (phase === 'characters') assert.deepEqual(after.plot.outline.content, outlineFixture())
+  else assert.deepEqual(after.plot.outline.content, null)
 })
 
 test('outline modification keeps the original cards and confirmed media', async t => {

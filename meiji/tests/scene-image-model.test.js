@@ -20,8 +20,8 @@ test('场景 model 五项资料独立复制，可 JSON 往返，内部生成具�
   assert.deepEqual(Object.keys(model.scene), ['name', 'landmark', 'light', 'space', 'look'])
   assert.equal(model.role, '影视场景设计师')
   assert.equal(model.toPrompt(), sceneImageModelToPrompt(JSON.parse(JSON.stringify(model))))
-  assert.deepEqual(promptData(model.toPrompt(), '【核心输入：场景资料】'), model.scene)
-  assert.deepEqual(promptData(model.toPrompt(), '【本次参数】'), { width: 1600, height: 904, orientation: '横幅' })
+  assert.deepEqual(promptData(model.toPrompt(), '【场景资料】'), model.scene)
+  assert.deepEqual(promptData(model.toPrompt(), '【本次要求】'), { width: 1600, height: 904, orientation: '横幅' })
   assert.doesNotMatch(model.toPrompt(), /水彩|【语言】|English|视觉风格|无关数据/)
   model.scene.name = '新院'
   model.canvas.width = 800
