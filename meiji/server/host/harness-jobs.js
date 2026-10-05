@@ -4,12 +4,15 @@ import { scriptBlockers } from '../../shared/script-assembly.js'
 
 const terminal = status => !['queued', 'running'].includes(status)
 const unavailable = reason => Object.assign(new Error(`后台任务登记失败：${reason.message}`), { status: 409, code: 'JOBS_UNAVAILABLE', cause: reason })
+const jobLabel = op => op.origin === 'panel' ? `面板单次操作 ${op.action}（完成后汇报并结束，不规划后续）` : op.action
 export function operationResult(operation) {
   const data = operation.result || {}
   return { operationId: operation.operationId || operation.id, projectId: operation.projectId, episodeId: operation.episodeId || data.episodeId || null,
-    action: operation.action, status: operation.status, reviewPassed: operation.reviewPassed ?? null, failures: operation.failures || [],
+    action: operation.action, initiator: operation.initiator, status: operation.status, reviewPassed: operation.reviewPassed ?? null, failures: operation.failures || [],
+    ...(operation.initiator === 'panel' && terminal(operation.status) ? { nextAction: 'end' } : {}),
+    ...(operation.goalRef ? { goalId: operation.goalRef.id } : {}),
     ...(operation.error ? { error: operation.error } : {}),
-    ...(operation.tasks?.some(task => task.type === 'project-summary' && ['failed', 'review_failed'].includes(task.status)) ? { retryable: true } : {}),
+    ...(operation.initiator !== 'panel' && operation.tasks?.some(task => task.type === 'project-summary' && ['failed', 'review_failed'].includes(task.status)) ? { retryable: true } : {}),
     ...Object.fromEntries(['scriptRevision', 'pendingConfirm', 'pendingProposal', 'scriptSyncOperationId', 'scriptSyncError'].filter(key => data[key] !== undefined).map(key => [key, data[key]])) }
 }
 const outcome = result => ({ status: result.status === 'cancelled' ? 'killed' : ['failed', 'review_failed'].includes(result.status) ? 'failed' : 'completed', result: JSON.stringify(result) })
@@ -18,8 +21,9 @@ export function createHarnessJobs({ home, manager, registry, subscribeProject, r
   const observers = new Map()
   const metadata = new Map(), observerIds = new Map()
   // 同一个观察生命周期负责订阅、串行检查、结算和脱离，不执行业务任务。
-  function observe(job, { projectId, operationId, kind, source = 'session', check, completion, cancelOperation = false }) {
+  function observe(job, { projectId, operationId, kind, source = 'session', check, completion, onEnded, cancelOperation = false }) {
     let operationFinished = !operationId
+    let goal
     let stopped = false, resolve, checking = false, again = false
     const done = new Promise(accept => { resolve = accept }), completedTasks = new Set()
     const cleanup = subscribeProject(home, projectId, () => { void inspect() })
@@ -39,7 +43,7 @@ export function createHarnessJobs({ home, manager, registry, subscribeProject, r
             job.updateProgress(`${ended.length}/${value.tasks?.length || 0} ${current?.label || value.label || ''}`)
             for (const task of ended) if (!completedTasks.has(task.id)) { completedTasks.add(task.id); job.append(`${task.label || task.type}：${task.status}\n`) }
           }
-          const result = operationFinished ? completion(value) : null
+          const result = operationFinished ? completion(value, goal) : null
           if (result) {
             settle(kind === 'meiji' ? outcome(result) : { status: 'completed', result: JSON.stringify(result) })
           }
@@ -47,7 +51,7 @@ export function createHarnessJobs({ home, manager, registry, subscribeProject, r
       } catch (error) { settle({ status: 'failed', detail: error.message, result: JSON.stringify({ error: error.message }) }) }
       finally { checking = false }
     }
-    if (operationId) manager.whenEnded(operationId, { projectId }).then(() => { operationFinished = true; return inspect() }, error => settle({ status: 'failed', detail: error.message }))
+    if (operationId) manager.whenEnded(operationId, { projectId }).then(async value => { goal = await onEnded?.(value); operationFinished = true; return inspect() }).catch(error => settle({ status: 'failed', detail: error.message }))
     void inspect()
     metadata.set(job.id, { source, operationId, projectId, kind })
     const hooks = { done, cancel(reason) {
@@ -66,10 +70,11 @@ export function createHarnessJobs({ home, manager, registry, subscribeProject, r
     try { return registry.start({ outputLimitBytes: 16384, ...spec, run: job => { entered = true; return spec.run(job) } }) }
     catch (error) { if (entered) throw error; throw unavailable(error) }
   }
-  const operationObserver = (job, id, op) => observe(job, { kind: 'meiji', source: op.origin || 'session', projectId: op.projectId, operationId: id, cancelOperation: true,
-    check: async () => manager.track(id, { projectId: op.projectId }).snapshot(), completion: value => {
+  const operationObserver = (job, id, op, onEnded) => observe(job, { kind: 'meiji', source: op.origin || 'session', projectId: op.projectId, operationId: id, onEnded, cancelOperation: true,
+    check: async () => manager.track(id, { projectId: op.projectId }).snapshot(), completion: (value, goal) => {
       if (!terminal(value.status)) return null
       const result = operationResult(value)
+      if (goal) result.goal = { id: goal.id, phase: goal.phase, activation: goal.activation }
       if (result.status === 'completed' && op.origin === 'session') {
         try {
           if (result.pendingProposal) adapter.waitScript(op.projectId, op.sessionId)
@@ -85,10 +90,10 @@ export function createHarnessJobs({ home, manager, registry, subscribeProject, r
     return result.result ? JSON.parse(result.result) : null
   }
   const adapter = {
-    async start(op, session, deps = {}) {
+    async start(op, session, deps = {}, onEnded) {
       let started
-      const jobId = register({ kind: 'meiji', label: op.action, owner: op.sessionId,
-        run(job) { started = manager.start(op, session, deps); return operationObserver(job, started.id, op) } })
+      const jobId = register({ kind: 'meiji', label: jobLabel(op), owner: op.sessionId,
+        run(job) { started = manager.start(op, session, deps); return operationObserver(job, started.id, op, onEnded) } })
       try {
         const ready = await started.ready
         if (ready.alreadyCompleted) return { ...await collect(jobId, op.sessionId), alreadyCompleted: true }
@@ -97,7 +102,7 @@ export function createHarnessJobs({ home, manager, registry, subscribeProject, r
     },
     bind(id, op) {
       if (observerIds.has(id)) return observerIds.get(id)
-      const jobId = register({ kind: 'meiji', label: op.action, owner: op.sessionId, run: job => operationObserver(job, id, op) })
+      const jobId = register({ kind: 'meiji', label: jobLabel(op), owner: op.sessionId, run: job => operationObserver(job, id, op) })
       observerIds.set(id, jobId); return jobId
     },
     waitBusy(projectId, operationId, sessionId) {

@@ -15,7 +15,8 @@ test('面板接口读取三层历史、精确提示词和直接图片操作结�
   process.env.DSH_HOME = e.home; t.after(() => { if (previous === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previous })
   await linkStore(e.home).selectProject(sessionId, e.id, e.store)
   const manager = createOperationManager({ home: e.home, execute: (op, deps) => executeTask(op, { ...deps, request: async message => message.skill === 'review' ? reviewPass : secondsForRequest(message) }) }); let handler
-  registerPanel({ connection: { requestRejection: () => null }, logger: { warn() {} }, sessions: new Map(), effect: fn => fn(), on() {}, webServer: { register: value => { handler = value.handler } } }, Promise.resolve(), manager)
+  const panelGoals = { begin: async () => ({ ref: { id: 'goal-api', revision: 1 }, finish() {}, discard() {} }) }
+  registerPanel({ connection: { requestRejection: () => null }, logger: { warn() {} }, sessionController: { resolveAgent: async () => ({ agent: { id: sessionId } }) }, sessions: new Map(), effect: fn => fn(), on() {}, webServer: { register: value => { handler = value.handler } } }, Promise.resolve(), manager, undefined, panelGoals)
   const query = new URLSearchParams({ projectId: e.id, episodeId: e.episodeId, sessionId })
   async function call(path, body) {
     const req = Readable.from(body ? [JSON.stringify(body)] : [])
@@ -26,6 +27,7 @@ test('面板接口读取三层历史、精确提示词和直接图片操作结�
   }
   const admitted = await call('turn', { action: 'seconds', projectId: e.id, episodeId: e.episodeId, sessionId })
   assert.equal(admitted.code, 202)
+  assert.equal(admitted.value.goalId, 'goal-api')
   const immediate = await call(`operations/${admitted.value.operationId}`)
   assert.equal(immediate.code, 200); assert.equal(immediate.value.operation.tasks.length, 2)
   while (manager.current(e.id).length) await new Promise(resolve => setImmediate(resolve))

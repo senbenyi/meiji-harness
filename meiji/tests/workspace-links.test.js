@@ -102,7 +102,7 @@ test('HTTP selection binds current session, creates one only when absent, and re
   try {
     registerPanel({
       workspaceController: controller,
-      sessionController: { async create(input) {
+      sessionController: { resolveAgent: async id => ({ agent: { id } }), async create(input) {
         sessionCreates.push(input)
         const { workspaceId } = input
         const id = `session-${randomUUID()}`
@@ -114,7 +114,7 @@ test('HTTP selection binds current session, creates one only when absent, and re
       connection: { requestRejection: () => null },
       webServer: { register: route => { handler = route.handler } },
       effect: fn => fn(), on() {}, logger: { warn() {} },
-    }, Promise.resolve(), manager = createOperationManager({ home, workspaceController: controller, execute: (op, deps) => op.action === 'shot-table' ? Promise.resolve([]) : executeTask(op, deps) }))
+    }, Promise.resolve(), manager = createOperationManager({ home, workspaceController: controller, execute: (op, deps) => op.action === 'shot-table' ? Promise.resolve([]) : executeTask(op, deps) }), undefined, { begin: async () => ({ ref: { id: 'goal-selection', revision: 1 }, finish() {}, discard() {} }) })
   } finally {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous
@@ -176,8 +176,13 @@ test('HTTP selection binds current session, creates one only when absent, and re
   assert.equal(invalid.status, 400)
   const rejected = await call('turn', { action: 'overview', projectId: project.id, sessionId })
   assert.equal(rejected.status, 409)
-  const created = await call('turn', { action: 'create', fields: { mode: 'free', premise: '人的创作方向', title: '新建短剧', summary: '新的剧情' } })
+  const created = await call('turn', { action: 'create', sessionId: first.sessionId, fields: { mode: 'free', premise: '人的创作方向', title: '新建短剧', summary: '新的剧情' } })
   assert.equal(created.status, 201)
+  assert.notEqual(created.sessionId, first.sessionId)
+  assert.deepEqual(sessionCreates.at(-1), { workspaceId: created.workspace.id })
+  assert.ok(rows[created.workspace.id].sessionIds.includes(created.sessionId))
+  assert.equal((await linkStore(home).projectForSession(created.sessionId)).projectId, created.projectId)
+  assert.equal((await linkStore(home).projectForSession(first.sessionId)).projectId, project.id)
   assert.notEqual(created.workspace.id, first.workspace.id)
   assert.equal((await projects.read(created.projectId)).workspaceId, created.workspace.id)
   const other = await create('待删除的其他项目')

@@ -24,5 +24,7 @@ test('工具图谱覆盖会话操作与所有生成任务，依赖无环且声�
   const seen = new Set()
   for (const row of graph.stages) { for (const dependency of row.after) assert.ok(seen.has(dependency)); seen.add(row.id) }
   assert.equal(operations['character-image'].agent, false); assert.equal(operations['scene-image'].agent, false); assert.equal(operations['prop-image'].agent, false)
-  assert.doesNotMatch(readFileSync(new URL('../skills/session/panel.md', import.meta.url), 'utf8'), /meiji_content_generate|meiji_task_control|job_output/)
+  const session = readFileSync(new URL('../skills/session/panel.md', import.meta.url), 'utf8')
+  assert.doesNotMatch(session, /meiji_content_generate|meiji_task_control|job_wait|job_read/)
+  assert.match(session, /job_output/)
 })

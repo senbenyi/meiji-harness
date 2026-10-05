@@ -49,7 +49,7 @@ test('摘要弹框任务回调实时显示步骤，历史入口不触发表单�
   })
   const dialog = root.querySelector('dialog'); dialog.show = () => { dialog.open = true }
   open({ id: 'p' }); await root.querySelector('.ai-summary').onclick()
-  assert.match(root.textContent, /摘要任务：执行中/)
+  assert.match(root.textContent, /生成剧集摘要：执行中/)
   assert.match(root.textContent, /查看摘要任务历史/)
 })
 test('节点页加载失败可以重试', async t => {

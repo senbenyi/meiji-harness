@@ -131,3 +131,25 @@ test('保存后的强制刷新被后台响应接续时仍显示新版本并解�
   assert.doesNotMatch(view.textContent, /未保存的输入已保留/)
   assert.equal(button(view, '保存为新版本').disabled, false)
 })
+
+test('摘要弹窗分别显示项目前置审核通过和剧集审核失败，返回按钮不串任务', async t => {
+  const root = dom(t), p = project(), loads = []
+  const tasks = [
+    { id: 'project-task', label: '项目摘要', type: 'project-summary', status: 'completed', nodes: [{ id: 'project-review', kind: 'review', target: 'project-summary', status: 'completed', verdict: 'pass', responses: [{ id: 'response-a' }] }] },
+    { id: 'episode-task', label: '剧集摘要', type: 'summary', status: 'failed', nodes: [{ id: 'episode-review', kind: 'review', target: 'summary', status: 'failed', error: 'upstream service error', responses: [{ id: 'response-b' }] }] },
+  ]
+  const open = episodeDialog(root, async () => {}, async (_, __, { onTask }) => {
+    onTask({ status: 'failed', tasks })
+    throw new Error('upstream service error')
+  }, { loadResponses: async (_, task, node) => { loads.push([task.id, node.id]); return { responses: [] } } })
+  open(p, null)
+  const dialog = root.querySelector('#edit-episode')
+  await button(dialog, 'AI 生成').onclick()
+  const sections = [...dialog.querySelectorAll('.episode-summary-task')]
+  assert.equal(sections.length, 2)
+  assert.match(sections[0].textContent, /项目摘要：完成/); assert.match(sections[0].textContent, /审核通过/)
+  assert.match(sections[1].textContent, /剧集摘要：失败/); assert.match(sections[1].textContent, /upstream service error/)
+  assert.equal(dialog.querySelectorAll('.task-step-elapsed').length, 0)
+  for (const section of sections) { button(section, '查看原始返回').click(); await new Promise(resolve => setImmediate(resolve)) }
+  assert.deepEqual(loads, [['project-task', 'project-review'], ['episode-task', 'episode-review']])
+})

@@ -292,8 +292,12 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       try {
         const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference, requirements: form.elements.requirements.value.trim() }, { signal: abort.signal, onTask: task => {
           if (version !== requestVersion || !dialog.open) return
-          const unit = task.tasks?.[0] || task
-          progress.replaceChildren(element('p', `摘要任务：${taskStatusLabels[task.status] || task.status}`, 'meta'), renderSteps(unit.nodes, { live: true, loadPrompts: loadPrompts && (node => loadPrompts(current, unit, node)), loadResponses: loadResponses && (node => loadResponses(current, unit, node)) }))
+          progress.replaceChildren(element('p', `生成剧集摘要：${taskStatusLabels[task.status] || task.status}`, 'meta'))
+          for (const unit of task.tasks || [task]) {
+            const section = element('section', '', 'episode-summary-task')
+            section.append(element('h4', `${unit.label || (unit.type === 'project-summary' ? '项目摘要' : '剧集摘要')}：${taskStatusLabels[unit.status] || unit.status}`), renderSteps(unit.nodes, { live: ['queued', 'running'].includes(unit.status), loadPrompts: loadPrompts && (node => loadPrompts(current, unit, node)), loadResponses: loadResponses && (node => loadResponses(current, unit, node)) }))
+            progress.append(section)
+          }
         } })
         if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
         const failures = episodeSummaryFailures(draft)

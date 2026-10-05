@@ -123,7 +123,7 @@ test('自动回写登记失败仍执行一次并保留原业务结果', async t 
 
 test('失败与审核失败 job 结算为 failed，停止为 killed，返回逐字段失败与重试信息', async t => {
   for (const status of ['failed', 'review_failed', 'cancelled']) {
-    const value = { operationId: 'id', projectId: 'p', episodeId: 'e', action: 'story', status, reviewPassed: false, failures: ['项目摘要不可用'], error: '失败原因', tasks: [{ type: 'project-summary', status }], result: { pendingConfirm: true, pendingProposal: '方案', scriptRevision: 2 } }
+    const value = { operationId: 'id', projectId: 'p', episodeId: 'e', action: 'story', initiator: 'session', status, reviewPassed: false, failures: ['项目摘要不可用'], error: '失败原因', tasks: [{ type: 'project-summary', status }], result: { pendingConfirm: true, pendingProposal: '方案', scriptRevision: 2 } }
     const ended = Promise.resolve(value), manager = { onStarted: () => () => {}, start: () => ({ id: 'id', ready: Promise.resolve({}), done: ended }), track: () => ({ snapshot: () => value }), whenEnded: () => ended }
     const jobs = fakeJobs(), adapter = createHarnessJobs({ manager, registry: jobs, subscribeProject: () => () => {} })
     t.after(() => adapter.dispose())
@@ -133,5 +133,71 @@ test('失败与审核失败 job 结算为 failed，停止为 killed，返回逐�
     assert.equal(read.job.status, status === 'cancelled' ? 'killed' : 'failed')
     assert.deepEqual(JSON.parse(read.result), operationResult(value))
     assert.equal(JSON.parse(read.result).retryable, status === 'cancelled' ? undefined : true)
+  }
+})
+
+
+test('面板 job 保留登记和观察，通知及完成结果限定当前操作并 end；会话结果不结束后续授权', async t => {
+  for (const origin of ['panel', 'session']) {
+    for (const method of ['start', 'bind']) {
+      let runs = 0
+      const e = await setup(t, { execute: async () => { runs++; return [] } })
+      const op = e.op('shot-table', { sessionId, origin })
+      let jobId, operationId
+      if (method === 'start') ({ jobId, operationId } = await e.adapter.start(op))
+      else {
+        const started = e.manager.start(op)
+        operationId = started.id
+        jobId = e.adapter.bind(operationId, op)
+        await started.ready
+      }
+      await e.jobs.wait(jobId, 5000, sessionId)
+      const job = e.jobs.get(jobId, sessionId)
+      const result = JSON.parse(e.jobs.read(jobId, sessionId).result)
+      assert.equal(runs, 1)
+      assert.equal(job.owner, sessionId)
+      assert.equal(result.operationId, operationId)
+      assert.equal(result.initiator, origin)
+      assert.equal(result.status, 'completed')
+      assert.equal(result.nextAction, origin === 'panel' ? 'end' : undefined)
+      if (origin === 'panel') {
+        assert.match(job.label, /面板单次操作 shot-table.*完成后汇报并结束.*不规划后续/)
+        assert.match(e.adapter.guard({ name: 'job_kill', arguments: { job_id: jobId } }), /面板/)
+      } else assert.equal(job.label, 'shot-table')
+    }
+  }
+})
+
+test('面板失败和用户取消仍收到 end 结果，不登记后续等待或自动重试', async t => {
+  for (const mode of ['failed', 'cancelled']) {
+    const gate = Promise.withResolvers()
+    const e = await setup(t, { execute: async () => {
+      if (mode === 'failed') throw new Error('模拟生成失败')
+      await gate.promise
+      return []
+    } })
+    const started = await e.adapter.start(e.op('shot-table', { sessionId, origin: 'panel' }))
+    if (mode === 'cancelled') {
+      e.manager.cancel(started.operationId, e.id)
+      gate.resolve()
+    }
+    await e.jobs.wait(started.jobId, 5000, sessionId)
+    const result = JSON.parse(e.jobs.read(started.jobId, sessionId).result)
+    assert.equal(result.status, mode)
+    assert.equal(result.nextAction, 'end')
+    assert.equal(result.retryable, undefined)
+    assert.equal(e.jobs.rows.size, 1)
+  }
+})
+
+test('面板仅终态返回 end；前置摘要失败不向模型授权自动重试', () => {
+  for (const status of ['queued', 'running', 'completed', 'failed', 'review_failed', 'cancelled']) {
+    const operation = { initiator: 'panel', action: 'summary', status, tasks: [{ type: 'project-summary', status: 'failed' }] }
+    const result = operationResult(operation)
+    assert.equal(result.nextAction, ['queued', 'running'].includes(status) ? undefined : 'end')
+    assert.equal(result.retryable, undefined)
+    const session = operationResult({ ...operation, initiator: 'session' })
+    assert.equal(session.nextAction, undefined)
+    assert.equal(session.retryable, true)
   }
 })

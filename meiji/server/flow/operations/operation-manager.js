@@ -44,6 +44,7 @@ export function createOperationManager({ home, workspaceController, execute = ex
     return { id: entry.id, operationId: entry.id, projectId: entry.op.projectId, episodeId: entry.op.episodeId || entry.result?.episodeId || null,
       action: entry.op.action, kind: entry.op.kind, lock: entry.op.lock, parts: entry.op.parts, only: entry.op.only, draftMode: entry.op.draft, track: entry.op.track || null, itemId: entry.op.itemId || null, label: operationLabel(entry.op), initiator: initiatorOf(entry.op), actor: entry.definition.actor || 'model',
       startedAt: entry.startedAt, endedAt: entry.finished ? entry.endedAt : null, ...result, ...(entry.error ? { error: entry.error } : {}),
+      ...(entry.op.goalRef ? { goalRef: entry.op.goalRef } : {}),
       queued: result.status === 'queued', queuePosition: queue.position(entry.currentTaskId),
       parameters: Object.fromEntries(['action', 'episodeId', 'mode', 'generationMode', 'requirements', 'review', 'track', 'only', 'parts', 'draft'].filter(key => entry.op[key] !== undefined).map(key => [key, entry.op[key]])),
       tasks: tasks.map(({ definition, operation, params, plan, ...task }) => ({ ...task, operationId: task.operationId || entry.id, status: deriveTaskStatus(task.nodes), nodes: structuredClone(task.nodes) })),
@@ -165,7 +166,8 @@ export function createOperationManager({ home, workspaceController, execute = ex
         try { operation = await store.read('operations', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
         if ((operation.sessionId ?? null) !== (sessionId ?? null)) throw Object.assign(new Error('操作不属于当前会话'), { status: 404 })
         const tasks = await Promise.all(operation.taskIds.map(id => store.read('tasks', id)))
-        return { ...operation, operationId: operation.id, ...resultOf(tasks), ...(tasks[0] ? await readTaskDraft(home, tasks[0]) : {}), tasks }
+        const draftTask = tasks.find(task => task.type === operation.action)
+        return { ...operation, operationId: operation.id, ...resultOf(tasks), ...(draftTask ? await readTaskDraft(home, draftTask) : {}), tasks }
       }
       throw Object.assign(new Error('操作不存在'), { status: 404 })
     },

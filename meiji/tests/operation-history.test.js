@@ -112,3 +112,30 @@ test('会话绑定校验先于创建操作和任务历史', async t => {
   assert.deepEqual((await recordStore(e.home, e.id).read('artifacts', output.artifactId)).content, [])
   assert.equal((await e.read()).plot.props.source.taskId, task.id)
  })
+
+test('前置项目摘要与剧集草稿状态独立，历史和重启只返回目标剧集草稿', async t => {
+  const e = await setupModel(t)
+  for (const reviewFails of [false, true]) {
+    const project = await e.store.create({ title: '分阶段摘要', mode: 'script', script: '旅人送信后发现旧案。' })
+    let generated = 0, reviewed = 0
+    const manager = createOperationManager({ home: e.home })
+    const started = manager.start({ action: 'summary', projectId: project.id, draft: true, referenceDurationSeconds: 38 }, null, {
+      request: async message => {
+        if (message.skill === 'review') {
+          if (++reviewed === 2 && reviewFails) throw new Error('upstream service error')
+          return reviewPass
+        }
+        return JSON.stringify({ summary: ++generated === 1 ? '项目背景摘要' : '剧集实际剧情摘要' })
+      },
+    })
+    const result = await started.done
+    assert.deepEqual(result.tasks.map(task => [task.type, task.status]), [['project-summary', 'completed'], ['summary', reviewFails ? 'failed' : 'completed']])
+    assert.equal((await e.store.read(project.id)).summary.status, 'passed')
+    assert.equal(result.tasks[0].nodes.find(node => node.kind === 'review').verdict, 'pass')
+    for (const restored of [await readOperation(e.home, project.id, started.id), await createOperationManager({ home: e.home }).get(started.id)]) {
+      assert.equal(restored.status, reviewFails ? 'failed' : 'completed')
+      if (reviewFails) assert.equal(restored.draft, undefined)
+      else { assert.equal(restored.draft.summary, '剧集实际剧情摘要'); assert.equal(restored.draft.durationSeconds, 38); assert.equal(restored.draft.check.passed, true) }
+    }
+  }
+})

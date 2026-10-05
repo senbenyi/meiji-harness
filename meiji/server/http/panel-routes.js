@@ -100,7 +100,7 @@ function sendVideo(req, res, filePath, size) {
   createReadStream(filePath, { start, end }).pipe(res)
 }
 
-export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
+export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panelGoals) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   const store = modelStore(home)
   const projects = projectStore(home)
@@ -302,7 +302,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const place = await createProject({ home, tasks, fields: body.fields, enter: project => enterProject(project.id, body.sessionId) })
+            const place = await createProject({ home, tasks, fields: body.fields, enter: project => enterProject(project.id) })
             insertSessionLog(ctx.sessions.get(place.sessionId), '已创建短剧')
             return json(res, 201, { ...place, accepted: true })
           }
@@ -324,7 +324,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
             const next = deleting ? { deleted: true, ...(selected.projectId === project.id ? { workspace: null, sessionId: (await ctx.sessionController.create({})).sessionId } : {}) } : project ? { project: await projects.read(project.id) } : {}
             return json(res, 200, { accepted: true, completed: true, operationId: started.id, result: outcome.result, ...next })
           }
-          const started = await startPanelOperation({ ctx, manager: tasks, jobs, operation: staged })
+          const started = await startPanelOperation({ ctx, manager: tasks, jobs, panelGoals, operation: staged })
           return json(res, 202, { accepted: true, ...started })
         } catch (error) {
           const result = fail(error, '启动任务失败')

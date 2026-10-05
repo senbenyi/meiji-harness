@@ -2,6 +2,8 @@ import { modelStore } from './server/data/model-settings.js'
 import { syncChatModel } from './server/host/harness-chat-model.js'
 import { registerPanel } from './server/http/panel-routes.js'
 import { createHarnessJobs } from './server/host/harness-jobs.js'
+import { createPanelGoals } from './server/host/harness-goals.js'
+import { findGoalOperation } from './server/data/operation-history.js'
 import { subscribeProject } from './server/data/project-events.js'
 import { createOperationManager } from './server/flow/operations/operation-manager.js'
 import { interruptRunning } from './server/flow/tasks/task-interrupt.js'
@@ -13,7 +15,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 export const name = 'meiji'
-export const inject = ['webServer', 'connection', 'settings', 'credentials', 'tools', 'sessionController', 'workspaceController', 'workspaceRegistry', 'sessions', 'jobs']
+export const inject = ['webServer', 'connection', 'settings', 'credentials', 'tools', 'sessionController', 'workspaceController', 'workspaceRegistry', 'sessions', 'jobs', 'goals']
 export function apply(ctx) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   setHostLogger(ctx.logger)
@@ -37,6 +39,10 @@ export function apply(ctx) {
   ctx.effect(() => ctx.jobs.attachController('meiji'), 'meiji: jobs controller')
   ctx.effect(() => ctx.tools.guard(exec => jobs.guard(exec)), 'meiji: job kill guard')
   ctx.effect(() => () => jobs.dispose(), 'meiji: jobs observer')
-  registerPanel(ctx, chatReady, tasks, jobs)
+  const panelGoals = createPanelGoals({ goals: ctx.goals, resolveAgent: id => ctx.sessionController.resolveAgent(id), findOperation: (sessionId, goalId) => findGoalOperation(home, sessionId, goalId) })
+  ctx.on('agent/pre-step', (payload, next) => { panelGoals.beforeStep(payload); return next() })
+  ctx.effect(() => ctx.tools.guard(exec => panelGoals.guard(exec)), 'meiji: panel completion scope')
+  ctx.on('agent/created', ({ agent }) => { void chatReady.then(() => panelGoals.reconcile(agent)).catch(error => ctx.logger.warn(`面板目标恢复失败：${error.message}`)) })
+  registerPanel(ctx, chatReady, tasks, jobs, panelGoals)
   ctx.provide('meiji', { home, tasks, jobs, ready: chatReady, workspaceController: ctx.workspaceController })
 }
