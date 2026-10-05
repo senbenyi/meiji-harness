@@ -11,16 +11,20 @@ import { redactJson } from '../server/gateway/redact.js'
 export async function readSessionExport(file) {
   if (!file.toLowerCase().endsWith('.zip')) return readFile(file, 'utf8')
   try {
-    const { stdout } = await promisify(execFile)('unzip', ['-p', resolve(file), '*session.jsonl'], { maxBuffer: 128 * 1024 * 1024 })
-    if (!stdout.trim()) throw new Error('ZIP 中缺少 session.jsonl')
+    const run = promisify(execFile)
+    const { stdout: listing } = await run('unzip', ['-Z1', resolve(file)], { maxBuffer: 4 * 1024 * 1024 })
+    const roots = listing.split(/\r?\n/).filter(name => /^session(?:\.v[1-9]\d*)?\.jsonl$/.test(name))
+    if (roots.length !== 1) throw new Error(roots.length ? 'ZIP 中存在多个根会话日志，无法确定会话归属' : 'ZIP 中缺少根会话日志 session.jsonl 或 session.vN.jsonl')
+    const { stdout } = await run('unzip', ['-p', resolve(file), roots[0]], { maxBuffer: 128 * 1024 * 1024 })
+    if (!stdout.trim()) throw new Error('ZIP 中的根会话日志为空')
     return stdout
-  } catch (error) { throw new Error(`无法读取 ZIP，请先解压 session.jsonl：${error.message}`) }
+  } catch (error) { throw new Error(`无法读取 ZIP，请先解压根会话 JSONL：${error.message}`) }
 }
 
 export async function exportSessionLog({ sessionLog, projectId, home = process.env.DSH_HOME || join(homedir(), '.dsh') }) {
   const lines = (await readSessionExport(sessionLog)).split(/\r?\n/).filter(line => line.trim())
   const entries = lines.map((line, index) => { try { return JSON.parse(line) } catch { throw new Error(`会话导出第 ${index + 1} 行不是有效 JSON`) } })
-  const header = entries.find(entry => !entry.type && (entry.id || entry.sessionId))
+  const header = entries.find(entry => (entry.type === 'session' || !entry.type) && (entry.id || entry.sessionId))
   const sessionId = header?.id || header?.sessionId
   if (!sessionId) throw new Error('公开会话导出缺少会话 ID')
   const history = recordStore(home, projectId)
@@ -37,7 +41,7 @@ export async function exportSessionLog({ sessionLog, projectId, home = process.e
   }
   for (const raw of entries) {
     const event = raw.event || raw
-    if (!event.type) continue
+    if (!event.type || event.type === 'session') continue
     const data = event.data || {}, callId = data.callId || data.toolCallId || data.id
     if (event.type === 'command/run') { commands.set(data.commandId, event); continue }
     if (event.type === 'command/done') {
