@@ -148,6 +148,7 @@ export function syncImageGate(project, gate) {
   if (entry?.operationActivity === 'confirm-image') {
     return { ...gate, phase: 'uploading', held: true, error: '' }
   }
+  if (!entry && gate.phase === 'uploading') return null
   if (entry || gate.held || gate.phase === 'generating' || gate.phase === 'uploading') {
     const episode = (project.episodes || []).find(item => item.id === gate.episodeId)
     // 图片错误只读对应图片节点，不读剧集的剧情错误。

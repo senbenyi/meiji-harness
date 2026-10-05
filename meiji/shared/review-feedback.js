@@ -1,5 +1,7 @@
 import { targetNode, emptyCheck, emptyReview, node, aggregateStatus, GenerationStatus } from './drama-model.js'
 import { validateSeconds } from './seconds-content.js'
+import { h3PromptFailures } from './video-rules.js'
+import { storyboardPromptText } from './story-content.js'
 
 function validSeconds(project, shotId) {
   const shots = (project.shots?.items || []).filter(shot => !shotId || shot.id === shotId)
@@ -39,7 +41,7 @@ export function feedbackOf(project, target) {
     const shared = uniqueFeedback(group.check?.passed === false ? group.check.failures : [])
     const failures = uniqueFeedback([...shared, ...shots.flatMap(shot => shot.seconds.check.passed === false
       ? uniqueFeedback(shot.seconds.check.failures).map(reason => /\bS\d{2,}\b/.test(reason) || shared.includes(reason) ? reason : `${shot.id}：${reason}`) : [])])
-    const errors = shots.filter(shot => shot.seconds.error).map(shot => `${shot.id}：${shot.seconds.error}`)
+    const errors = shots.filter(({ seconds }) => seconds.error && !(seconds.check.passed === false && seconds.check.failures?.length && /^(自检|自审)未通过/.test(seconds.error))).map(shot => `${shot.id}：${shot.seconds.error}`)
     const status = group.operation || group.status === GenerationStatus.PAUSED ? group.status
       : group.status === GenerationStatus.FAILED || group.error || group.check?.passed === false ? GenerationStatus.FAILED : aggregateStatus(shots.map(shot => shot.seconds))
     // 失败正文也可修订；只有程序格式检查通过时才可忽略模型的语义审核。
@@ -48,6 +50,7 @@ export function feedbackOf(project, target) {
       error: group.error || errors.join('；') || null }
   }
   const record = targetNode(project, key)
+  if (record && key.startsWith('storyboard:')) return { ...record, canOverride: overrideBlocker(project, key) === null }
   return record || emptyFeedback()
 }
 
@@ -74,6 +77,7 @@ export function overrideBlocker(project, key) {
   if (!nodes.length) return '只有自审未通过的文本内容可以忽略'
   // 格式错误不能人工放行，即使其他镜头同时已过期也先明确此原因。
   if (nodes.some(([item]) => item.split(':')[0] === 'seconds') && !validSeconds(project, key.split(':')[1])) return '每秒指令格式错误，不能忽略，请修正后重新审核'
+  if (nodes.some(([item, value]) => item.split(':')[0] === 'storyboard' && h3PromptFailures(storyboardPromptText(value.content), value.content?.referenceSnapshot || [], value.content?.video || 'text').length)) return '文本分镜格式错误，不能忽略，请修正后重新审核'
   for (const [item, value] of nodes) {
     if (value.operation) return '内容正在生成，请稍后'
     if (value.stale) return '内容已过期，请重新生成'

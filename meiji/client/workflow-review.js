@@ -1,5 +1,5 @@
 import { GenerationStatus } from '../shared/drama-model.js'
-import { overridable, overriddenBy } from '../shared/review-feedback.js'
+import { overridable, overriddenBy, uniqueFeedback } from '../shared/review-feedback.js'
 import { element } from './panel-dom.js'
 
 export function appendWorkflowReview(parent, record, generated, busy = false, actionButton, { allowFailureOpinion = false } = {}) {
@@ -14,8 +14,8 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     if (actionButton) actionButton.textContent = '重新生成'
   }
   if (failed) area.classList.add('workflow-review-failed')
-  const failures = check?.passed === false ? (check.failures || []).filter(Boolean) : []
-  const reviewError = /^(自检|自审)未通过/.test(record?.error || '')
+  const failures = check?.passed === false ? uniqueFeedback(check.failures || []) : []
+  const reviewError = /^(?:S\d+：)?(?:自检|自审)未通过/.test(record?.error || '')
   if (record?.error && !(reviewError && failures.length)) area.append(element('p', `执行未通过：${record.error}`, 'hint warn'))
   if (failures.length) area.append(element('p', `自审未通过：${failures.join('；')}`, 'hint warn workflow-review-failures'))
   else if (check?.passed === false && !record?.error) area.append(element('p', '自审未通过，请查看任务历史中的审核详情。', 'hint warn workflow-review-failures'))
