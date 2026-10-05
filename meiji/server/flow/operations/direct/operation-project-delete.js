@@ -16,7 +16,8 @@ export async function opProjectDelete(c) {
     if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
     await rootProjects.save(project.id, current => {
       cascade(current.episodes.find(item => item.id === episode.id), { type: 'episode-delete' })
-      return { episodes: current.episodes.filter(item => item.id !== episode.id) }
+      return { episodes: current.episodes.filter(item => item.id !== episode.id),
+        scriptProposals: current.scriptProposals.filter(item => item.episodeId !== episode.id) }
     })
     await recordStore(home, project.id).removeEpisode(episode.id)
     await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'films', episode.id), { recursive: true, force: true })

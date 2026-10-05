@@ -7,6 +7,7 @@ import { recordStore } from '../server/data/task-store.js'
 import { applyScriptChanges, scriptAppendOnly, scriptBlockers } from '../shared/script-assembly.js'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { reviewPass } from './fixtures/review-result.js'
+import { opProjectDelete } from '../server/flow/operations/direct/operation-project-delete.js'
 
 test('导入为第一版，恢复生成新版本，孤立版本不可见', async t => {
   const home = await tempHome(t), projects = projectStore(home), p = await projects.create({ title: '导入', script: '最初剧本' }), store = scriptStore(home, projects)
@@ -57,6 +58,24 @@ test('删集与删除回写事实同次保存，清理历史和重启读取不�
   assert.equal(saved.episodes.length, 0)
   assert.equal(saved.scriptPendingDeletes[0].summaryBefore, before.summary.content)
   assert.ok(scriptBlockers(saved).some(item => item.kind === 'episode-delete-sync'))
+})
+
+test('删集清理方案引用及历史，剧本页剩余方案可读取且版本与删除事实保留', async t => {
+  const e = await setupModel(t), scripts = scriptStore(e.home, e.store), history = recordStore(e.home, e.id)
+  await scripts.commit(e.id, { script: '原文', scriptKind: 'imported' }, { note: '初稿' })
+  const proposal = { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, summaryRevision: e.episode.summary.revision, note: '本集方案', changes: [{ target: { kind: 'body' }, before: '原文', after: '新文' }] }
+  const removed = await scripts.propose(e.id, proposal)
+  const retained = await scripts.propose(e.id, { ...proposal, source: 'edit', episodeId: null, note: '项目方案' })
+  const versions = await scripts.versions(e.id)
+  await opProjectDelete({ home: e.home, project: await e.store.read(e.id), rootProjects: e.store,
+    operation: e.op('episode-delete'), trace: {}, note() {} })
+  const saved = await projectStore(e.home).read(e.id)
+  assert.deepEqual(saved.scriptProposals.map(p => p.id), [retained])
+  await assert.rejects(history.read('artifacts', removed), { code: 'ENOENT' })
+  assert.equal((await Promise.all(saved.scriptProposals.map(p => history.read('artifacts', p.id))))[0].content.id, retained)
+  assert.deepEqual(await scripts.versions(e.id), versions)
+  assert.equal(saved.scriptPendingDeletes[0].episodeId, e.episodeId)
+  assert.ok(scriptBlockers(saved).some(x => x.kind === 'episode-delete-sync'))
 })
 
 test('方案生成、部分确认与放弃保留待回写，旧摘要拒绝确认', async t => {
