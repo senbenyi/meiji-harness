@@ -45,8 +45,12 @@ export function validateSeconds(content, shot, project) {
   const entities = referencedEntities(visual, project)
   referencedEntities([content.summary, ...beats.map(b => b.sound), ...content.ambient.map(e => e.text), ...content.music.map(e => e.text)].join('\n'), project)
   // 已登记人物/场景在正文出现时不能绕过标记；对白原文不参加名称扫描。
-  const unmarked = collapseMentions(visual, project).replace(/【[^【】]+】/g, '')
-  for (const e of entityCatalog(project)) if (e.name && unmarked.includes(e.name)) fail(`${shot.id} 正文中的${e.name}须写为${entityMention(e)}`)
+  const missing = [], catalog = entityCatalog(project)
+  for (const beat of beats) for (const field of ['action', 'camera', 'space', 'endState']) {
+    const text = beat[field], unmarked = collapseMentions(text, project).replace(/【[^【】]+】/g, '')
+    for (const e of catalog) if (e.name && unmarked.includes(e.name)) missing.push(`${shot.id}/${beat.id}.${field} 原文「${text}」中的${e.name}须写为${entityMention(e)}`)
+  }
+  if (missing.length) fail(missing.join('；'))
   return entities
 }
 export function parseSecondsResponse(text, shots, project) {
