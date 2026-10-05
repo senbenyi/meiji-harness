@@ -13,7 +13,7 @@ export async function createOperationRecord(home, operation, id, { taskIds = [],
   const record = {
     schemaVersion: OPERATION_SCHEMA, id, projectId: operation.projectId, episodeId: operation.episodeId || null, action: operation.action, label,
     source: operation.origin || 'api', initiator: operation.origin === 'session' ? 'session' : 'panel', actor,
-    sessionId: operation.sessionId || null, mode: operation.mode || operation.generationMode || (actor === 'human' ? 'edit' : 'generate'),
+    sessionId: operation.sessionId || null, mode: operation.draft ? 'draft' : operation.mode || operation.generationMode || (actor === 'human' ? 'edit' : 'generate'),
     requirements: operation.requirements || '', opinion: operation.review || operation.instruction || '',
     taskIds, status: 'queued', startedAt: now(), endedAt: null, error: null,
   }

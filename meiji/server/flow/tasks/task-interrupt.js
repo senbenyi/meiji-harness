@@ -9,6 +9,7 @@ export const RESTART_CANCELLED = '服务重启，任务已取消，请重新发�
 const running = node => node.operation ? node.operation.phase !== 'awaiting-confirmation' : node.status === GenerationStatus.GENERATING
 
 export async function interruptRunning(store) {
+  await store.interruptDraftRecords?.()
   for (const project of await store.list()) {
     await store.interruptRecords?.(project.id)
     if (!running(project.summary) && !project.episodes.some(e => allNodes(e).some(n => n.operation || n.status === GenerationStatus.GENERATING))) continue

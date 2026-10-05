@@ -9,7 +9,7 @@ export async function opCreate(c) {
     const script = await library.script(fields.scriptAssetId)
     fields = { ...fields, script: script.content, scriptName: script.originalName }
   }
-  if (fields.script?.trim()) fields.summary = ''
+  if (fields.script?.trim()) fields.summary = operation.summaryDraft?.summary || ''
   const created = await projects.create(fields)
   await linkStore(home, deps.workspaceController).ensureProject(created.id, projects)
   note(`请在片库选择《${created.title}》，进入它的专属工作区`)

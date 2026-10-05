@@ -13,7 +13,7 @@ test('约束只放平铺的功能正文，没有通用审核修订指导 skill',
   assert.ok(builtinSkills().every(skill => skill.kind === 'stage' && skill.fixedConstraints && !skill.fields.length))
   assert.deepEqual(stageSkillIds(), ['project-summary', 'episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'video', 'image-prompt', 'character-image', 'scene-image', 'part-image'])
   const files = await readdir(join(skillsDir, 'task'), { withFileTypes: true })
-  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["extract-project-summary","generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","extract-story-props","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image"].map(name => `${name}-skill.md`).sort())
+  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["generate-project-summary","generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","extract-story-props","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image"].map(name => `${name}-skill.md`).sort())
   assert.ok(files.filter(file => !file.name.startsWith('.')).every(file => file.isFile() && file.name.endsWith('-skill.md')))
   for (const skill of builtinSkills()) {
     assert.doesNotMatch(skill.constraints, /^#{1,6}\s/m)

@@ -57,12 +57,12 @@ export async function startExecution(home, operation, id, plan, meta = {}) {
   const store = recordStore(home, operation.projectId)
   const record = await beginTask(home, operation, id, plan, meta)
   const nodes = [...record.nodes]
-  const project = assertDrama(await readProjectFile(home, operation.projectId))
+  const project = operation.projectId ? assertDrama(await readProjectFile(home, operation.projectId)) : null
   const baselines = new Map()
-  await addBaselines(store, project, operation, stage, baselines)
+  if (project) await addBaselines(store, project, operation, stage, baselines)
   // 任务开始时固定技能组合（内置 + 基础 + 本剧），同一任务内的全部请求（含嵌套子操作）使用同一份。
-  const skillSet = await loadSkillSet(home, project.skills)
-  skillSet.nodeSupplements = structuredClone(Object.fromEntries(project.episodes.map(episode => [episode.id, episode.supplementalSkills || {}])))
+  const skillSet = await loadSkillSet(home, project?.skills)
+  skillSet.nodeSupplements = structuredClone(Object.fromEntries((project?.episodes || []).map(episode => [episode.id, episode.supplementalSkills || {}])))
   return { store, home, taskId: id, operationId: meta.operationId, taskType: meta.type, actor: meta.actor, projectId: operation.projectId, operation, stage, baselines, outputs: [], nodes, signal: null, nodeId: null, scope: 'root', skillSet, skills: new Map() }
 }
 

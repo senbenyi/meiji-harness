@@ -134,7 +134,7 @@ export function createOperationManager({ home, workspaceController, execute = ex
     async get(id, sessionId) {
       const entry = find(id)
       if (entry) { owned(entry, sessionId); if (entry.finished) await entry.done; return snapshot(entry) }
-      for (const projectId of await projectIds(home)) {
+      for (const projectId of [null, ...await projectIds(home)]) {
         const store = recordStore(home, projectId)
         let operation
         try { operation = await store.read('operations', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }

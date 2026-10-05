@@ -261,13 +261,34 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
         if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
         const body = await readJson(req, 8192)
-        await links.requireProject(body.sessionId, body.projectId)
-        cancelOperation(tasks, { id: body.operationId, projectId: body.projectId, initiator: 'panel' })
+        if (body.projectId) {
+          await links.requireProject(body.sessionId, body.projectId)
+          cancelOperation(tasks, { id: body.operationId, projectId: body.projectId, initiator: 'panel' })
+        } else {
+          const draft = await tasks.get(body.operationId, body.sessionId)
+          if (draft.projectId || draft.action !== 'project-summary' || !draft.draftMode && draft.mode !== 'draft') throw Object.assign(new Error('草稿任务不存在'), { status: 404 })
+          tasks.cancel(body.operationId, null, { sessionId: body.sessionId })
+        }
         return json(res, 200, { accepted: true })
       }
       const detailRoute = path.match(new RegExp('^' + base + '/(operations|tasks|artifacts)/([A-Za-z0-9_-]+)(?:/nodes/([A-Za-z0-9_-]+)/prompts)?$'))
       if ((path === base + '/operations' || path === base + '/tasks' || detailRoute) && req.method === 'GET') {
         const projectId = url.searchParams.get('projectId')
+        if (!projectId && detailRoute) {
+          const [, kind, id, nodeId] = detailRoute
+          const sessionId = url.searchParams.get('sessionId')
+          if (kind === 'operations' && !nodeId) {
+            const operation = await tasks.get(id, sessionId)
+            if (operation.projectId || operation.action !== 'project-summary' || !operation.draftMode && operation.mode !== 'draft') throw Object.assign(new Error('草稿任务不存在'), { status: 404 })
+            return json(res, 200, { operation })
+          }
+          const history = recordStore(home, null), artifact = kind === 'artifacts' ? await history.read('artifacts', id) : null
+          const task = await history.read('tasks', artifact?.taskId || id)
+          if (task.projectId || task.type !== 'project-summary' || task.mode !== 'draft' || task.sessionId !== sessionId) throw Object.assign(new Error('草稿任务不存在或不属于当前会话'), { status: 404 })
+          if (artifact && !nodeId) return json(res, 200, { artifact })
+          if (kind === 'tasks' && nodeId) return json(res, 200, { prompts: await readNodePrompts(home, null, id, nodeId) })
+          return json(res, 404, { error: '草稿记录不存在' })
+        }
         await links.requireProject(url.searchParams.get('sessionId'), projectId)
         const history = recordStore(home, projectId)
         if (detailRoute) {
@@ -290,7 +311,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const place = await createProject({ home, tasks, fields: body.fields, enter: project => enterProject(project.id), sessionOf: id => ctx.sessions.get(id) })
+            const place = await createProject({ home, tasks, fields: body.fields, sessionId: body.fields?.summaryDraftSessionId, enter: project => enterProject(project.id), sessionOf: id => ctx.sessions.get(id) })
             insertSessionLog(ctx.sessions.get(place.sessionId), '已创建短剧' + (place.operationId ? '，正在从剧本提取项目摘要' : ''))
             return json(res, 201, { ...place, accepted: true })
           }
@@ -299,6 +320,10 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           if (body.projectId) await links.requireProject(sessionId, body.projectId)
           const project = body.projectId ? await projects.read(body.projectId) : null
           const staged = { ...body, projectId: project?.id, origin: 'panel' }
+          if (!project && staged.action === 'project-summary' && staged.draft) {
+            if (!ctx.sessions.get(sessionId)) throw Object.assign(new Error('当前会话不存在'), { status: 409 })
+            staged.projectId = null
+          }
           if (['project-delete', 'episode-delete'].includes(staged.action) && tasks.list(project.id).length) {
             throw Object.assign(new Error('请先停止生成任务，再删除项目或剧集'), { status: 409 })
           }

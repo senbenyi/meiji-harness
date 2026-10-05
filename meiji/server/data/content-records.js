@@ -105,9 +105,28 @@ export async function saveTaskDraft(target, content) {
 }
 
 export async function readTaskDraft(home, task) {
-  if (task.type !== 'summary' || task.mode !== 'draft' || !['completed', 'review_failed'].includes(deriveTaskStatus(task.nodes))) return {}
-  const output = task.latestOutputs.find(item => item.target === 'summary-draft')
+  if (!['summary', 'project-summary'].includes(task.type) || task.mode !== 'draft' || !['completed', 'review_failed'].includes(deriveTaskStatus(task.nodes))) return {}
+  const output = [...task.latestOutputs].reverse().find(item => item.target === (task.type === 'summary' ? 'summary-draft' : 'project-summary'))
   if (!output) return {}
   const artifact = await recordStore(home, task.projectId).read('artifacts', output.artifactId)
   return { draft: artifact.content }
+}
+
+// 创建确认后把预生成记录归入项目，保留实际请求与所有失败稿；未确认的草稿留在独立目录。
+export async function publishProjectSummaryDraft(home, projectId, operation, sessionId) {
+  const source = recordStore(home, null), destination = recordStore(home, projectId)
+  const record = await source.read('operations', operation.id)
+  await destination.update('operations', record.id, { ...record, projectId, sessionId, draftSessionId: record.sessionId })
+  let latest
+  for (const taskId of record.taskIds) {
+    const task = await source.read('tasks', taskId)
+    await destination.update('tasks', taskId, { ...task, projectId, sessionId, draftSessionId: task.sessionId })
+    for (const step of task.nodes) for (const ref of step.prompts || []) await destination.update('prompts', ref.id, await source.read('prompts', ref.id))
+    latest = [...task.latestOutputs].reverse().find(item => item.target === 'project-summary')
+    for (const ref of task.artifacts) {
+      const artifact = await source.read('artifacts', ref.artifactId)
+      await destination.update('artifacts', artifact.id, { ...artifact, projectId, published: artifact.id === latest?.artifactId })
+    }
+  }
+  return latest
 }

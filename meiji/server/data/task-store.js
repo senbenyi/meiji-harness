@@ -1,4 +1,4 @@
-// 任务、提示词和内容记录的文件读写；任务执行位于 runtime/task-execution.js。
+// 任务、提示词和内容记录的文件读写；projectId 为空时使用创建前草稿目录。
 import { deriveTaskStatus } from '../../shared/task-nodes.js'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
@@ -16,8 +16,8 @@ function oldTaskRecordsError(projectId) {
 }
 
 export function recordStore(home, projectId) {
-  if (!validId.test(projectId || '')) throw new Error('项目 ID 无效')
-  const root = join(home, 'storages', 'meiji', 'projects', projectId, 'history')
+  if (projectId != null && !validId.test(projectId)) throw new Error('项目 ID 无效')
+  const root = projectId == null ? join(home, 'storages', 'meiji', 'project-drafts', 'history') : join(home, 'storages', 'meiji', 'projects', projectId, 'history')
   const path = (kind, id) => {
     if (!validId.test(id || '')) throw new Error('记录 ID 无效')
     return join(root, kind, id + '.json')
@@ -84,7 +84,7 @@ export async function writeNodes(context, extra) {
 export async function readNodePrompts(home, projectId, taskId, nodeId) {
   const store = recordStore(home, projectId)
   const task = await store.read('tasks', taskId)
-  if (task.projectId !== projectId) throw Object.assign(new Error('任务不属于当前项目'), { status: 404 })
+  if ((task.projectId ?? null) !== projectId) throw Object.assign(new Error('任务不属于当前项目'), { status: 404 })
   const step = task.nodes.find(item => item.id === nodeId)
   if (!step) throw Object.assign(new Error('任务步骤不存在'), { status: 404 })
   return Promise.all((step.prompts || []).map(async ({ id }) => {

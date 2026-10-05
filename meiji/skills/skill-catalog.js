@@ -2,7 +2,7 @@
 // 自审使用 review 目录中对应的审核 skill（reviewFile / reviewVariants），不复用生成规则。
 export const stageCatalog = [
   { id: 'project-summary', kind: 'stage', label: '项目摘要提取', logLabel: '项目摘要', output: 'json', languageMode: 'story', fields: [], order: 0,
-    fixedConstraints: true, constraintFile: 'extract-project-summary-skill.md', reviewFile: 'review-project-summary-skill.md' },
+    fixedConstraints: true, constraintFile: 'generate-project-summary-skill.md', reviewFile: 'review-project-summary-skill.md' },
   {
     "id": "episode",
     "kind": "stage",

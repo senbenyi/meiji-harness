@@ -44,5 +44,5 @@ export function describeTask(item, op, direct, project) {
   return { ...item, label: item.label || `${definition.label}${operation.track ? ' ' + operation.track : ''}${operation.itemId ? ' ' + operation.itemId : ''}`,
     target, targets: item.targets || [target], queue: definition.queue, actor: definition.actor || 'model', maxRevisions: definition.maxRevisions,
     plan: direct ? direct.plan?.(project, op) || [direct.step?.(op, project) || { kind: 'save', target }] : definition.nodes(operation),
-    operation: { ...operation, action: direct ? op.action : typeof definition.action === 'function' ? definition.action(operation) : definition.action, ...(item.type === 'outline' ? { stageKey: 'outline' } : {}) }, definition: direct ? { ...direct, run: context => runSave(context, direct) } : definition }
+    operation: { ...operation, action: direct ? op.action : typeof definition.action === 'function' ? definition.action(operation) : definition.action, ...(item.type === 'outline' ? { stageKey: 'outline' } : {}) }, definition: direct ? { ...direct, run: context => runSave(context, direct) } : { ...definition, ...(item.type === 'project-summary' && operation.draft && !operation.projectId ? { stage: 'pre' } : {}) } }
 }

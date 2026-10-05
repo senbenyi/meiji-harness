@@ -2,7 +2,7 @@
 
 ## 剧本导入
 
-素材库「剧本」支持导入 UTF-8 TXT/TEXT（最多 1 MB、200000 字符）。创建项目时可导入新文件或选择已有剧本，后台自动提取不超过 500 字的项目摘要；概要提供提取状态、任务历史、skill 和重试入口。
+素材库「剧本」支持导入 UTF-8 TXT/TEXT（最多 1 MB、200000 字符）。创建页设有独立的「剧本」和「摘要」标题。导入或选择已有剧本后自动生成不超过 500 字的项目摘要，确认创建时保存结果，不重复生成。生成失败可重试，移除或关闭弹窗会停止任务；概要保留任务历史、skill 和重试入口。
 
 AI 生成剧集摘要时，有剧本按原文顺序提取参考时长能容纳的剧情，无剧本根据项目摘要创作。完整剧本保存在项目中；500 字限制只用于剧本提取的项目摘要。
 
@@ -22,7 +22,7 @@ Harness 外部插件，源码位于 `Meiji/meiji/`，不修改上游 Harness。�
 
 ## 目录与职责
 
-完整目录、模块职责与依赖方向见仓库根目录的 `.agents/architecture.md`。要点：`client/` 为面板界面，`shared/` 为前后端共用的领域模块（数据模型、门禁规则），`server/host/` 是唯一接触 Harness 的适配层，面板操作按领域位于 `server/flow/operations/`。
+模块职责与依赖方向见仓库根目录的 `.agents/meiji-dev.md` 第 1 节，开发流程见仓库根目录的 `AGENTS.md`。要点：`client/` 为面板界面，`shared/` 为前后端共用的领域模块（数据模型、门禁规则），`server/host/` 是唯一接触 Harness 的适配层，面板操作按领域位于 `server/flow/operations/`。
 
 `server/data/project-store.js` 管理项目（存储布局由 `server/data/project-files.js` 负责），`server/data/asset-library-store.js` 管理素材文件与元数据，`server/http/asset-library-routes.js` 管理导入、读取与分段播放，`server/http/panel-routes.js` 组合鉴权后的 HTTP 路由。浏览器仅加载 `client/`、`shared/` 两个平铺目录中的模块。
 

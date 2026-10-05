@@ -39,6 +39,7 @@ export function projectStore(home) {
     return project
   }
   return {
+    async interruptDraftRecords() { await recordStore(home, null).interrupt() },
     async interruptRecords(id) {
       const history = recordStore(home, id)
       await history.interrupt()

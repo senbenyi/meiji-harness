@@ -1,6 +1,23 @@
 # meiji 开发指引
 
-meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约束与开发规则；两步流程及模板见 [development.md](development.md)，仓库接入与 GitNexus 要求见 [AGENTS.md](../AGENTS.md)。文中源码路径均相对 `meiji/`，不维护目录树。原 `meiji/docs/` 的有效内容统一维护于本文：第 16 节为提示词接口与 Model，第 17 节为任务记录，第 18 节为历史迁移记录，第 19 节为网关接口参考。
+meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配置、模块边界、业务约束、编码与数据规则、测试命令和接口参考；档位、计划、实施、验证与图谱使用的通用流程见 [AGENTS.md](../AGENTS.md)。第 0 节中的路径相对仓库根目录，其余源码路径相对 `meiji/`，不维护目录树。原 `meiji/docs/` 的有效内容统一维护于本文：第 15 节为提示词接口与 Model，第 16 节为任务记录，第 17 节为历史迁移记录，第 18 节为网关接口参考。
+
+## 0. 项目开发配置
+
+- 开发范围为 `meiji/` 下代码、配置、skill 和测试，按 `AGENTS.md` 第 0 节判定档位；`meiji/docs/`、`meiji/reports/` 及其他纯文档修改不要求代码开发计划或业务测试。
+- 计划目录为 `docs/plans/`，实施记录目录为 `docs/implement/`，文件使用 `MMDD-计划-*.md` 和对应的 `MMDD-实施-*.md`。
+
+### GitNexus 配置
+
+- 已配置 GitNexus MCP，不可用时使用本机 `gitnexus` CLI。通用流程中 `<仓库名>` 使用 `llm-dsh-plugins`，索引存于 `$HOME/.gitnexus/indexes`，不写入源码目录。
+- 状态检查及索引更新在仓库根目录执行；索引命令为 `GITNEXUS_STORAGE_ROOT="$HOME/.gitnexus/indexes" gitnexus analyze --index-only`。检查与更新时点按 `AGENTS.md` 第 4 节执行。
+
+### 工具入口与流程钩子
+
+- 根目录 `CLAUDE.md` 只引用 `AGENTS.md`；`.claude/AGENTS.md`、`.cursor/AGENTS.md` 链接到根目录 `AGENTS.md`。
+- `.claude/meiji-dev.md`、`.cursor/meiji-dev.md` 链接到本文。规范只改正文，不维护副本；是否读取业务指引按通用入口的请求分类决定。
+- `.claude/settings.json` 注册 `.claude/guard.mjs`：`UserPromptSubmit` 提醒代码、配置、skill 和测试修改遵守流程；咨询、只读调研和纯文档修改不执行开发流程。
+- `PreToolUse` 检查 `meiji/` 下编辑，排除 `meiji/docs/` 与 `meiji/reports/`；`docs/plans/` 中没有 24 小时内更新的 `MMDD-计划-*.md` 时拒绝修改。通用档位与实施流程引用 `AGENTS.md`，项目范围及测试要求以本文为准。
 
 ## 1. 模块职责与调用链
 
@@ -48,7 +65,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 - 操作 ID 由 manager 生成，任务 ID 由 runner 生成。每个任务独立上下文、提示词和产物，不用 scope 伪装多个任务。
 - 图片为生成、下载转 Base64、保存候选；视频为提交、生成保存、提取尾帧。后台工作完成后才释放任务队列名额。
 
-接口与存储见第 17 节。
+接口与存储见第 16 节。
 
 ## 4. 重新生成与按意见修改
 
@@ -81,7 +98,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 `skill-catalog.js` 管映射，`load-skills.js` 管读取与校验，`output-protocols.js` 管输出协议。基础正文可为空，缺文件或未登记文件报错；角色、语言、修订边界和输出协议由 Model/代码负责。没有模型审核的图片、视频任务不新增审核调用或审核 skill。
 
-任务开始时冻结 skill 内容与来源版本，编辑只影响后续任务。节点补充按项目、剧集、节点校验归属；保存位置见第 13 节，不根据目标名称自行扩展支持范围。技能修改只经面板同源接口，会话工具不提供修改能力。
+任务开始时冻结 skill 内容与来源版本，编辑只影响后续任务。节点补充按项目、剧集、节点校验归属；保存位置见第 12 节，不根据目标名称自行扩展支持范围。技能修改只经面板同源接口，会话工具不提供修改能力。
 
 ## 7. 结果与审核一致性
 
@@ -91,17 +108,16 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 - 草稿保存与审核通过分开，后续失败不抹掉已通过阶段。审核问题和执行错误分别保留，界面不重复显示同一原因；没有可用正文时仍展示失败原因，禁用按意见修改与人工放行。
 - 人工忽略自审仅限面板、仅对当前版本有效，不能忽略格式错误。每秒指令的草稿保存边界见第 10 节。
 
-## 8. 修改时核对
+## 8. 项目修改核对
 
-1. 按第 11 节选择档位，并执行 `development.md`。
-2. 从入口核对 Model、接口、步骤、保存、下游清理与调用方；涉及页面时核对历史、意见和 skill 入口。
-3. 覆盖生成、修订、审核及失败路径，按第 14 节记录验证结果。
-4. 后端改动需重启 Harness 并刷新面板，确认运行服务加载新代码；同步相关文档，按仓库要求更新 GitNexus。
+- 从实际入口核对 Model、接口、执行步骤、保存、下游清理与调用方；涉及页面时核对任务历史、意见和 skill 入口。
+- 覆盖生成、修订、审核与失败路径，确保提示词、解析、保存及展示一致。
+- 后端改动后重启 Harness 并刷新面板，确认服务加载新代码。验证记录按 [AGENTS.md](../AGENTS.md) 执行。
 
 ## 9. 运行数据与请求边界
 
 - 用户数据根为 `$DSH_HOME/storages/meiji/`，DSH_HOME 默认 `~/.dsh`；源码与数据分离，迁移备份放 `$DSH_HOME/backups/`。
-- 项目索引只保存剧集文件引用，每集独立存储。任务、内容和提示词快照放项目 history；步骤保存引用与时间，列表不携带完整提示词、密钥或图片 Base64；提示词读取校验任务归属。
+- 项目索引只保存剧集文件引用，每集独立存储。创建前的项目摘要草稿及快照放 `project-drafts/history/`，按会话校验访问；确认创建后复制到项目 history，重启取消未完成草稿。任务、内容和提示词快照放项目 history；步骤保存引用与时间，列表不携带完整提示词、密钥或图片 Base64；提示词读取校验任务归属。
 - 图片候选放 `image-drafts/`，确认后入全局素材库；导入先暂存。素材库和任务历史不因重新生成而删除。
 - 运行模型配置为 `storages/meiji/models.json`；仓库默认配置为 `config/models.json`，本地覆盖为被 git 忽略的 `config/models.local.json`。密钥不返回浏览器、不写日志或文档。
 - gateway 校验生成请求的地址、密钥和当前模型；轮询、下载不要求生成模型。第三方图片下载不附网关密钥，不做缺密钥时的隐式后端回退。
@@ -110,7 +126,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 ### 摘要与剧情
 
-剧本素材存 `assets/scripts/`，支持 UTF-8 TXT/TEXT，最多 1 MB、200000 字符；列表仅返回元数据，正文按需读取。创建页可导入或选择已有剧本；项目冻结完整正文及 `scriptAssetId/scriptName`，绑定工作区后自动启动 `project-summary` 操作，经生成、自审及至多两轮修订提取非空、最多 500 个非空白 Unicode 字符的项目摘要。失败保留项目、剧本与任务历史，概要可重试。
+剧本素材存 `assets/scripts/`，支持 UTF-8 TXT/TEXT，最多 1 MB、200000 字符；列表仅返回元数据，正文按需读取。创建页分别展示「剧本」与「摘要」；导入或选择剧本后立即启动 `project-summary` 草稿操作，经生成、自审及至多两轮修订提取非空、最多 500 个非空白 Unicode 字符的项目摘要，并回填下方摘要框。草稿通过才允许创建；失败保留表单并可重试，换剧本、移除或关闭弹窗停止旧任务。确认创建时验证会话与剧本匹配，保存完整正文及 `scriptAssetId/scriptName`，关联草稿任务、提示词和内容快照，不重复调用模型。没有预生成草稿的会话创建仍在绑定后自动提取，概要可重试。基础规则为 `skills/task/generate-project-summary-skill.md`，执行为 `server/flow/tasks/text/task-project-summary.js`。
 
 剧集摘要草稿 `episode-summary-draft` 复用任务、队列与历史，产物为未发布 artifact，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒，不由字数推断。剧集摘要非空、不限字数；手填项目总摘要上限仍为 10000 字。有剧本时按原文顺序提取本集时长能容纳的连续剧情，前集定位进度、后集约束结尾，项目摘要仅作设定参考；无剧本时根据项目摘要生成。提取到剧本结尾保留原结局，不另造悬念或续集。
 
@@ -134,26 +150,16 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 视频保存后提取尾帧；FFmpeg 失败保留视频并报错，tail-frame 可单独重试。整集/逐镜制作发现已有视频缺尾帧时只补提取。
 
-## 11. 流程
-
-修改 `meiji/` 下代码、配置、skill 或测试（`docs/`、`reports/` 除外），先读本文与 `development.md`，回复开头写明档位及理由：
-
-- **完整流程**：新功能、根因未知的 Bug、数据结构/存储/接口/门禁/生成流程改动，或涉及至少 3 个文件。
-- **小改动**：文案、样式、单处根因明确的修改，且不超过 2 个文件。拿不准按完整流程。
-
-执行“调研与计划 → 实施与验证”，具体文档要求见 `development.md`；修改业务代码前必须有 `docs/plans/MMDD-计划-*.md`。只回答问题、只调研或只改文档不要求计划。
-
-## 12. 编码规则
+## 11. 编码规则
 
 - 按实际调用链组织代码：同一生命周期集中维护，固定顺序用直接调用和条件分支表达，不另建通用步骤调度器；删除纯透传函数和中转导出，调用方直接引用职责模块。校验、快照、并发、记录与持久化等实际业务边界保留。
 - 按第 1 节分层；`client/`、`shared/` 使用平铺 `.js/.css`，不引入 JSX、bundler 或构建步骤。shared 不引用 Node 专属模块、client 或 server。
 - Harness 接入只经 `server/host/` 的公开接口，不读取上游存储文件。
 - 生成操作在 generate/ 声明 tasks，任务在 task-registry 登记队列、target、nodes、maxRevisions、run。直接操作在 direct/ 登记；人工专属操作标 agent:false。任务不引用操作定义，不增加旧操作别名或中转导出。
 - 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-story.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
-- skill 规则见第 6 节；改正文时用 `tests/fixtures/prompt-scenarios.js` 采集改前/改后请求，运行 `scripts/prompt-diff.js`，核对删除语句的去向或理由。
-- 只改需求范围内代码，同步受影响调用方、测试和文档，不做无关重构。
+- skill 分工与登记规则见第 6 节。
 
-## 13. 数据规则
+## 12. 数据规则
 
 - JSON 通过临时文件 + rename 原子替换，权限 `0600`；素材导入经 `.upload/` 暂存后重命名。
 - 项目读写只经 `projectStore`，布局只由 `project-files.js` 处理；save 按 revision 串行提交，只写变化剧集，最后替换索引。
@@ -163,14 +169,16 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 - 新生成素材不覆盖旧素材，参考图变化后关联视频与合成标 stale；剧情重新生成的清空边界见第 4 节。
 - 发起请求校验会话，返回 operationId；查看/停止请求携带对应 ID，剧集范围操作携带 episodeId；密钥边界见第 9 节。
 
-## 14. 测试
+<a id="test-environment"></a>
 
-- 改代码前运行 `cd meiji && npm test` 记录基线；改后相关测试必须通过，全量不得新增失败，同时检查通过、失败与 cancelled 数。
-- 新功能或修复提供对应测试；无法执行时说明原因并标「未验证」。纯文档修改检查内容、链接与差异，不要求业务测试。
-- 测试固定使用 `tests/fixtures/models.local.json` 的测试密钥，不读真实密钥；UI 测试从同级 deepseek-harness 或 HARNESS_DIR 加载 jsdom。
-- 收尾运行 `git diff --check`，检查本次差异无无关改动或凭据，不覆盖工作区已有修改。
+## 13. 测试环境与命令
 
-## 15. 外部边界
+- 代码、配置、skill 和测试修改前运行全量测试并记录基线，每阶段运行相关测试，完成后运行全量测试；相关测试必须通过，全量不得新增失败，同时记录通过、失败与 cancelled 数。纯文档修改只检查内容、链接与差异。
+- 全量测试命令：在仓库根目录运行 `cd meiji && npm test`；相关测试可在 `meiji/` 下运行 `node --test tests/对应文件.test.js`。何时运行及通过要求见 [AGENTS.md](../AGENTS.md#3-测试与收尾)。
+- 测试固定使用 `tests/fixtures/models.local.json` 的测试密钥，不读真实密钥；UI 测试从同级 deepseek-harness 或 `HARNESS_DIR` 加载 jsdom。
+- skill 正文变更时，用 `tests/fixtures/prompt-scenarios.js` 采集改前/改后请求，运行 `scripts/prompt-diff.js`，核对删除语句的去向或理由。
+
+## 14. 外部边界
 
 - 不修改上游 Harness 源码；`configure-harness.sh` 负责插件链接、迁移与启动，`restart-harness.sh` 校验链接后重启，生成的 `cordis.patch.yml` 不手改。
 - 制作顺序由 `shared/generation-gates.js` 的上游资料与自审条件控制，不要求逐阶段人工审核；图片候选的“确认使用”仅用于素材选用与入库（见第 5、10 节）。
@@ -180,9 +188,9 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 <a id="prompt-models"></a>
 
-## 16. 提示词接口与 Model 参考
+## 15. 提示词接口与 Model 参考
 
-### 16.1 修改入口
+### 15.1 修改入口
 
 `server/prompts/interfaces/prompt-interfaces.js` 只选择接口，未知接口报错，不补默认模板。下表路径相对 `server/prompts/`。
 
@@ -200,7 +208,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 文本接口返回 system/user 分段数组，序列化请求为 `{ skill, system, user, json, segments }`；审核请求标记 `skill: review`。分段保留来源信息；system 为空时可仅发送 user。图片输出单段 prompt，图片字节单独交给生成层。
 
-### 16.2 摘要与剧情 Model
+### 15.2 摘要与剧情 Model
 
 `EpisodeSummaryModel` 保存项目背景、目标集和参考时长、前后集资料、生成/审核规则及修改基稿与意见。实际业务优先经 `buildEpisodePrompts` 赋值，不单独构造而漏掉节点补充或任务技能版本。
 
@@ -225,7 +233,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 每秒指令使用 seconds 操作：整集逐镜建立任务；track 指定单镜修订。未提供新的整集意见时，从第一个未通过、缺失或过期镜头继续到末镜；人工整集意见作用于全部镜头。历史节点和快照关联 seconds:Snn。
 
-### 16.3 人物与场景图片 Model
+### 15.3 人物与场景图片 Model
 
 人物普通生成、参考生成和意见修改均通过 `CharacterImageModel`；场景使用 `SceneImageModel`。两者提供 `toSegments/toPrompt`，可 JSON 序列化后通过创建函数恢复实例；接口负责赋值，模型不读取文件、不请求网关。
 
@@ -248,7 +256,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 <a id="task-records"></a>
 
-## 17. 执行记录与查看接口
+## 16. 执行记录与查看接口
 
 操作记录含 taskIds；任务记录含 operationId、type、target、nodes、artifacts/latestOutputs 和冻结的 skill 版本。节点 status 表示执行情况，verdict 表示审核结论：自审不通过为 completed + fail，接口失败为 failed。最新复审结论替代旧结论。
 
@@ -284,7 +292,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 <a id="model-migration-history"></a>
 
-## 18. 历史迁移记录
+## 17. 历史迁移记录
 
 本节从原 model-refactor-execution 文档归档，只说明 2026-09-27 当时的实施记录，不作为当前结构、测试数量或部署状态的依据。
 
@@ -294,13 +302,13 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 <a id="gateway-api"></a>
 
-## 19. 网关 API 参考
+## 18. 网关 API 参考
 
 以下保留原 gateway-api 文档的接口字段与示例。插件适配已对照 `server/gateway/model-gateway.js` 核查；远端网关源码不在本仓库，本次未重新验证部署地址、公开模型、容量、并发和上游限制。以下“当前”描述均指原接口文档记录，接入时以目标网关部署为准，不视为 meiji 的业务规范。运维命令在网关仓库执行。
 
-### 19.1 接入信息
+### 18.1 接入信息
 
-#### 19.1.1 地址
+#### 18.1.1 地址
 
 | 环境 | Base URL | Playground |
 |---|---|---|
@@ -314,7 +322,7 @@ export GATEWAY_URL=http://127.0.0.1:18090
 export GATEWAY_API_KEY=sk-替换为实际密钥
 ```
 
-#### 19.1.2 鉴权
+#### 18.1.2 鉴权
 
 除 `/health` 和 `/playground` 外，所有接口都需要网关 API Key。
 
@@ -340,7 +348,7 @@ go run ./cmd/gateway -config config/config-local.yaml token add local-client
 
 密钥原文只在创建时输出一次。
 
-#### 19.1.3 通用约定
+#### 18.1.3 通用约定
 
 - JSON 请求使用 `Content-Type: application/json`。
 - 图片编辑以及视频首尾帧文件上传使用 `multipart/form-data`。
@@ -350,7 +358,7 @@ go run ./cmd/gateway -config config/config-local.yaml token add local-client
 - 对外模型名不会替换成内部模型名。
 - 客户端断开会取消当前同步请求，但不会取消已经成功提交的视频任务。
 
-### 19.2 接口总表
+### 18.2 接口总表
 
 | 模块 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|---|
@@ -367,9 +375,9 @@ go run ./cmd/gateway -config config/config-local.yaml token add local-client
 
 当前不提供文件管理、图片异步任务以及图片或视频取消接口。
 
-### 19.3 模型与运维
+### 18.3 模型与运维
 
-#### 19.3.1 健康检查
+#### 18.3.1 健康检查
 
 ```sh
 curl -sS "$GATEWAY_URL/health"
@@ -383,7 +391,7 @@ curl -sS "$GATEWAY_URL/health"
 
 该接口只说明网关进程可以响应，不检查模型上游是否可用。
 
-#### 19.3.2 模型列表
+#### 18.3.2 模型列表
 
 ```sh
 curl -sS "$GATEWAY_URL/v1/models" \
@@ -411,9 +419,9 @@ curl -sS "$GATEWAY_URL/v1/models" \
 | `elysium-image` | 文生图、多参考图编辑 | Images Generations、Images Edits |
 | `elysium-video` | 文生视频、首尾帧、多模态参考 | Videos |
 
-### 19.4 OpenAI Chat Completions
+### 18.4 OpenAI Chat Completions
 
-#### 19.4.1 请求
+#### 18.4.1 请求
 
 `POST /v1/chat/completions`
 
@@ -447,7 +455,7 @@ curl -sS "$GATEWAY_URL/v1/chat/completions" \
 
 响应保持 OpenAI Chat Completions 结构。网关会把响应中的模型名恢复为公开名，并移除 `timings` 和 `system_fingerprint` 等内部字段。
 
-#### 19.4.2 流式响应
+#### 18.4.2 流式响应
 
 ```sh
 curl -N -sS "$GATEWAY_URL/v1/chat/completions" \
@@ -464,7 +472,7 @@ curl -N -sS "$GATEWAY_URL/v1/chat/completions" \
 
 若客户端没有提供 `stream_options`，网关会在发往上游时加入 `include_usage: true` 以记录用量，并对客户端隐藏由此产生的纯用量事件。
 
-#### 19.4.3 并发与后台工作负载
+#### 18.4.3 并发与后台工作负载
 
 当前聊天并发槽为 2。普通请求最多排队 2 分钟；需要低优先级排队时添加：
 
@@ -474,9 +482,9 @@ X-Elysium-Workload: background
 
 后台请求最多排队 30 秒。排队超时返回 `429`、`Retry-After: 5`，并在 `Server-Timing` 中返回排队耗时。当前聊天总时限为 15 分钟。
 
-### 19.5 Anthropic Messages
+### 18.5 Anthropic Messages
 
-#### 19.5.1 请求
+#### 18.5.1 请求
 
 `POST /v1/messages`
 
@@ -522,7 +530,7 @@ curl -sS "$GATEWAY_URL/v1/messages" \
 
 非流式响应为 Anthropic Message 对象，`content` 包含 `text` 或 `tool_use` 块，结束原因映射为 `end_turn`、`max_tokens`、`stop_sequence` 或 `tool_use`，并返回 Anthropic 格式的输入/输出 token 用量。
 
-#### 19.5.2 流式响应
+#### 18.5.2 流式响应
 
 `stream: true` 时返回 `text/event-stream`，事件顺序使用 Anthropic Messages 语义：
 
@@ -535,7 +543,7 @@ curl -sS "$GATEWAY_URL/v1/messages" \
 
 文本增量使用 `text_delta`；工具参数使用 `input_json_delta`。调用方必须按 `index` 合并内容块。
 
-#### 19.5.3 Messages 错误格式
+#### 18.5.3 Messages 错误格式
 
 Messages 使用 Anthropic 风格错误：
 
@@ -551,9 +559,9 @@ Messages 使用 Anthropic 风格错误：
 
 鉴权失败的 `error.type` 为 `authentication_error`；限流为 `rate_limit_error`；上游或网关错误为 `api_error`。
 
-### 19.6 图片
+### 18.6 图片
 
-#### 19.6.1 图片生成
+#### 18.6.1 图片生成
 
 `POST /v1/images/generations`
 
@@ -599,7 +607,7 @@ curl -sS "$GATEWAY_URL/v1/images/generations" \
 
 插件读取 `data[0].url`，下载图片并转为 Base64，再解码交给现有本地保存流程。同源媒体下载使用生成时的 Bearer 密钥并禁止重定向；外部 HTTP(S) 地址不携带网关密钥。下载支持停止与超时，失败不重新提交生成。仍支持已有 `b64_json` 响应。
 
-#### 19.6.2 图片编辑
+#### 18.6.2 图片编辑
 
 `POST /v1/images/edits` 只接受 `multipart/form-data`。
 
@@ -624,9 +632,9 @@ curl -sS "$GATEWAY_URL/v1/images/edits" \
 
 响应格式与图片生成相同。图片接口都是同步接口；网关没有公开图片任务查询或取消接口。
 
-### 19.7 视频
+### 18.7 视频
 
-#### 19.7.1 提交任务
+#### 18.7.1 提交任务
 
 `POST /v1/videos` 返回异步任务对象，HTTP 状态为 `200`。
 
@@ -656,7 +664,7 @@ JSON 请求字段：
 
 视频固定使用 24 fps 和 8 步。帧数会调整为工作流要求的 `17k+5`，因此实际时长可能与请求秒数有轻微差异。
 
-#### 19.7.2 素材规则
+#### 18.7.2 素材规则
 
 | 素材 | 支持格式 | 数量/时长 |
 |---|---|---|
@@ -675,7 +683,7 @@ JSON 请求字段：
 - 网关会完整解码校验素材；视频会规范化为 24 fps，格式声明与实际内容不一致时返回 `400`。
 - 单次请求全部原始素材及全部处理后素材各自受 256 MiB 内部预算约束，但外层 HTTP 请求仍先受 64 MiB 请求体限制。
 
-#### 19.7.3 multipart 首尾帧
+#### 18.7.3 multipart 首尾帧
 
 `POST /v1/videos` 也接受 multipart，但仅用于首尾帧文件上传：
 
@@ -698,7 +706,7 @@ curl -sS "$GATEWAY_URL/v1/videos" \
   -F 'last_frame=@last.png'
 ```
 
-#### 19.7.4 JSON 示例
+#### 18.7.4 JSON 示例
 
 文生视频：
 
@@ -729,7 +737,7 @@ curl -sS "$GATEWAY_URL/v1/videos" \
 }
 ```
 
-#### 19.7.5 任务对象
+#### 18.7.5 任务对象
 
 提交和查询都返回同一种对象：
 
@@ -761,9 +769,9 @@ curl -sS "$GATEWAY_URL/v1/videos" \
 | `failed` | 失败 | 停止轮询，读取 `error.message` |
 | `cancelled` | 已取消的历史或上游状态 | 停止轮询；当前没有公开取消接口 |
 
-### 19.8 视频查询与下载
+### 18.8 视频查询与下载
 
-#### 19.8.1 查询
+#### 18.8.1 查询
 
 ```sh
 curl -sS "$GATEWAY_URL/v1/videos/$TASK_ID" \
@@ -772,7 +780,7 @@ curl -sS "$GATEWAY_URL/v1/videos/$TASK_ID" \
 
 任务只对创建它的 API Key 可见。任务不存在或属于其他密钥都返回 `404 video not found`。建议每 3–5 秒查询一次。
 
-#### 19.8.2 下载
+#### 18.8.2 下载
 
 ```sh
 curl -sS "$GATEWAY_URL/v1/videos/$TASK_ID/content" \
@@ -818,9 +826,9 @@ curl -sS "$GATEWAY_URL/v1/videos/$TASK_ID/content" \
 
 视频提交超时且没有收到任务 ID 时，远端是否接收可能无法确定，不要立即盲目重提；先结合请求日志和业务幂等策略判断。拿到任务 ID 后，查询和下载可以安全重试。
 
-### 19.9 错误与重试
+### 18.9 错误与重试
 
-#### 19.9.1 OpenAI 风格错误
+#### 18.9.1 OpenAI 风格错误
 
 除 Messages 外，JSON 错误格式为：
 
@@ -835,7 +843,7 @@ curl -sS "$GATEWAY_URL/v1/videos/$TASK_ID/content" \
 
 `4xx` 的 `type` 为 `invalid_request_error`；网关或上游 `5xx` 错误为 `upstream_error`。上游内部错误详情不会直接暴露给调用方。
 
-#### 19.9.2 常见状态码
+#### 18.9.2 常见状态码
 
 | 状态码 | 含义 | 是否重试 |
 |---|---|---|
@@ -847,7 +855,7 @@ curl -sS "$GATEWAY_URL/v1/videos/$TASK_ID/content" \
 | `429` | 聊天排队超时或上游限流 | 遵循 `Retry-After` 并退避 |
 | `502` | 上游不可用、响应非法或网关无法完成上游操作 | 指数退避；视频提交先确认是否已有任务 ID |
 
-#### 19.9.3 重试原则
+#### 18.9.3 重试原则
 
 - `GET /v1/models`、视频查询和视频下载可以安全重试。
 - Chat 和 Messages 在尚未收到有效响应时可按业务需要重试，但工具调用场景应由调用方保证幂等。
