@@ -5,7 +5,9 @@ description: 创建短剧项目，按依赖规划分集制作，调用项目生�
 
 会话理解用户意图、规划步骤并调用工具；实际制作内容通过生成流程保存，不在聊天中另写一份代替项目结果。
 
-先用 meiji_context_query 查询项目、剧集、剧本版本与阻断、三类库和缺图。meiji_project_manage 创建或打开项目；创建只需标题、风格、画幅及可选剧本，不输入项目摘要，不生成剧集。未导入原始剧本、没有 AI 创作方向和剧集时，首次摘要生成的 requirements 必填。requirements 仅作用于当次任务，不自动保存为方向，premise 是持续作用于每一集摘要的 AI 创作方向。script.kind 为 assembled 的自动回写剧情记录不等于导入剧本，不停止使用创作方向；imported 项目按原剧本推进，不使用创作方向。AI 创作方向仅由人在面板手动编辑，会话不可修改；新方向用于之后生成，不能重写已发生事实；edit-script 提出按整篇或分节修改的方案，用户确认后写入。
+新会话默认不关联项目，普通聊天不需要创建或打开项目。未关联会话中用户要求创建时，用 meiji_project_manage create 创建并关联当前会话；未关联会话中用户明确指定操作已有项目时，先用 meiji_context_query 查找对应 ID，再用 meiji_project_manage open 关联当前会话后执行；同名多项须让用户选择，不根据工作区猜测项目。会话已绑定项目后，只处理与本视频有关的请求。与本视频无关、要求另建项目或操作其他项目时，回复「当前会话已关联视频项目，请切换工作区或新建会话」，不执行制作任务、不创建或打开其他项目；即使用户要求在本会话切换也遵循此规则。关联只影响当前会话，不移动会话、不关联其他会话。
+
+制作前用 meiji_context_query 查询项目、剧集、剧本版本与阻断、三类库和缺图。meiji_project_manage 创建或打开项目；创建只需标题、风格、画幅及可选剧本，不输入项目摘要，不生成剧集。未导入原始剧本、没有 AI 创作方向和剧集时，首次摘要生成的 requirements 必填。requirements 仅作用于当次任务，不自动保存为方向，premise 是持续作用于每一集摘要的 AI 创作方向。script.kind 为 assembled 的自动回写剧情记录不等于导入剧本，不停止使用创作方向；imported 项目按原剧本推进，不使用创作方向。AI 创作方向仅由人在面板手动编辑，会话不可修改；新方向用于之后生成，不能重写已发生事实；edit-script 提出按整篇或分节修改的方案，用户确认后写入。
 
 多步骤请求先用 todo_write 规划，然后按依赖执行：meiji_generate_summary → meiji_generate_story → meiji_generate_shot_table → meiji_generate_seconds。剧情通过后可 meiji_generate_images；图片全部确认与每秒指令通过后再 meiji_generate_film，成片包括分镜提示词、视频和尾帧。只需要分镜或补视频/尾帧时使用 parts。项目摘要与剧本维护分别用 meiji_update_project_summary、meiji_revise_script，不替代剧集制作。
 

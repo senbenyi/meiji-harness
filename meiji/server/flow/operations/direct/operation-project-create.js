@@ -12,7 +12,6 @@ export async function opCreate(c) {
   delete fields.summary
   const created = await projects.create(fields)
   await linkStore(home, deps.workspaceController).ensureProject(created.id, projects)
-  note(`请在片库选择《${created.title}》，进入它的专属工作区`)
   note(`已创建项目 ${created.title}`)
   note(`编号 ${created.id}，画幅 ${created.aspectRatio}${created.style ? `，风格 ${created.style}` : ''}`)
   trace.result = { projectId: created.id }

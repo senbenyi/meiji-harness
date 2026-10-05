@@ -1,3 +1,4 @@
+import { syncChatModel } from '../host/harness-chat-model.js'
 import { startPanelOperation } from './panel-operation-start.js'
 import { recordStore, readNodePrompts, readNodeResponses } from '../data/task-store.js'
 import { scriptStore } from '../data/script-store.js'
@@ -23,7 +24,6 @@ import { readStill } from '../media/image-files.js'
 import { cancelOperation } from '../flow/operations/operation-cancel.js'
 import { saveIncoming } from '../flow/shared/incoming.js'
 import { insertSessionLog, runWithSessionLog } from '../host/session-log.js'
-import { hostWorkspaces } from '../host/harness-workspaces.js'
 import { linkStore } from '../data/workspace-links.js'
 import { materialize } from '../../shared/episode-rules.js'
 import { readEpisodeCover } from '../data/episode-data.js'
@@ -104,12 +104,11 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   const store = modelStore(home)
   const projects = projectStore(home)
-  const workspaces = hostWorkspaces()
-  const links = linkStore(home, ctx.workspaceController, workspaces)
-  const enterProject = async projectId => {
+  const links = linkStore(home, ctx.workspaceController)
+  const enterProject = async (projectId, currentSessionId) => {
     const place = await links.ensureProject(projectId, projects)
-    const sessionId = workspaces.activeSessions(place.workspace.workspaceId)[0]
-      || (await ctx.sessionController.create({ workspaceId: place.workspace.workspaceId })).sessionId
+    const sessionId = currentSessionId || (await ctx.sessionController.create({ workspaceId: place.workspace.workspaceId })).sessionId
+    await links.selectProject(sessionId, projectId, projects)
     return { workspace: { id: place.workspace.workspaceId, title: place.workspace.title }, projectId, title: place.title, sessionId }
   }
   const base = '/plugins/meiji'
@@ -172,7 +171,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
         if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
         try {
           const body = await readJson(req, 8192)
-          const place = await enterProject(body.projectId)
+          const place = await enterProject(body.projectId, body.sessionId)
           return json(res, 200, place)
         } catch (error) {
           const result = fail(error, '绑定失败')
@@ -303,7 +302,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const place = await createProject({ home, tasks, fields: body.fields, enter: project => enterProject(project.id), sessionOf: id => ctx.sessions.get(id) })
+            const place = await createProject({ home, tasks, fields: body.fields, enter: project => enterProject(project.id, body.sessionId) })
             insertSessionLog(ctx.sessions.get(place.sessionId), '已创建短剧')
             return json(res, 201, { ...place, accepted: true })
           }
@@ -429,7 +428,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
       saving = true
       try {
         const routes = compactModels(normalizeModels(await readJson(req, 8192)))
-        await ctx.settings.update('agent-default-model', { provider: 'qwen38-local', model: routes.chat.model })
+        await syncChatModel(ctx, routes)
         await store.write(routes)
         return json(res, 200, { saved: true })
       } finally { saving = false }

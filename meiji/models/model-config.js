@@ -29,7 +29,7 @@ export async function defaults(local = localConfig) {
   return { ...base, ...override }
 }
 export function catalog(settings) {
-  const providers = settings.get('llm-pi-ai')?.providers ?? {}
+  const providers = settings.describe({ redactSecrets: true }).find(item => item.ns === 'llm-pi-ai')?.value?.providers ?? {}
   return Object.entries(providers).flatMap(([provider, profile]) => (profile.models ?? []).map(model => ({
     provider, model: model.id, label: `${profile.displayName || provider} / ${model.name || model.id}`,
     purposes: ['chat', 'story'],

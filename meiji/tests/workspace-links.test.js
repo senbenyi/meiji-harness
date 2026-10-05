@@ -52,15 +52,20 @@ test('each project owns a stable workspace without moving old conversations', ()
   assert.equal((await links.projectForSession(sessionId)).projectId, null)
 }))
 
-test('new sessions inherit their project; cross-project operations are rejected', () => fixture(async ({ rows, persist, projects, create, links, home }) => {
+test('new sessions stay unbound until explicitly selected; other sessions and cross-project guards stay isolated', () => fixture(async ({ rows, persist, projects, create, links, home }) => {
   const a = await create('短剧 A'), b = await create('短剧 B')
   const place = await links.ensureProject(a.id, projects)
   const newId = `session-${randomUUID()}`
   rows[place.workspace.workspaceId].sessionIds.push(newId)
   await persist()
+  assert.deepEqual(await links.projectForSession(newId), { workspace: null, projectId: null })
+  await links.selectProject(newId, a.id, projects)
   assert.equal((await links.projectForSession(newId)).projectId, a.id)
-  await assert.rejects(() => links.requireProject(newId, b.id), /进入这部短剧/)
-  await assert.rejects(() => runOperation({ action: 'overview', sessionId: newId, projectId: b.id, fields: { title: '错误修改', summary: '错误摘要' } }, { home }), /进入这部短剧/)
+  const otherId = `session-${randomUUID()}`
+  rows[place.workspace.workspaceId].sessionIds.push(otherId)
+  assert.equal((await links.projectForSession(otherId)).projectId, null)
+  await assert.rejects(() => links.requireProject(newId, b.id), /创建或打开这部短剧/)
+  await assert.rejects(() => runOperation({ action: 'overview', sessionId: newId, projectId: b.id, fields: { title: '错误修改', summary: '错误摘要' } }, { home }), /创建或打开这部短剧/)
   assert.equal((await projects.read(b.id)).title, '短剧 B')
 }))
 
@@ -86,7 +91,7 @@ test('legacy workspace mappings do not claim ambiguous sessions', () => fixture(
   assert.equal((await links.projectForSession(sessionId)).projectId, null)
 }))
 
-test('HTTP project selection reuses sessions, creates an owned session and rejects old-workspace writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
+test('HTTP selection binds current session, creates one only when absent, and rejects unrelated writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
   const { registerPanel } = await import('../server/http/panel-routes.js')
   const { createOperationManager } = await import('../server/flow/operations/operation-manager.js')
   let handler, manager
@@ -121,8 +126,14 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
   const first = await call('link', { projectId: project.id })
   assert.equal(first.status, 200)
   assert.ok(rows[first.workspace.id].sessionIds.includes(first.sessionId))
-  const again = await call('link', { projectId: project.id })
+  const again = await call('link', { projectId: project.id, sessionId: first.sessionId })
   assert.equal(again.sessionId, first.sessionId)
+  const before = structuredClone(rows)
+  const explicitId = `session-${randomUUID()}`
+  const selected = await call('link', { projectId: project.id, sessionId: explicitId })
+  assert.equal(selected.sessionId, explicitId)
+  assert.equal((await linkStore(home).projectForSession(explicitId)).projectId, project.id)
+  assert.deepEqual(rows, before, '选择项目不移动会话或自动创建会话')
   // No sessionController.prompt is provided: local edits must execute without a model turn.
   const edited = await call('turn', { action: 'overview', projectId: project.id, sessionId: first.sessionId, fields: { title: '本地修改' } })
   assert.equal(edited.status, 200)

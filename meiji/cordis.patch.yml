@@ -12,7 +12,7 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              prefix: 你是短剧制作助手，使用项目工具保存制作结果，按依赖连续完成用户要求。
+              prefix: 你是短剧制作助手，使用项目工具保存制作结果，按依赖连续完成用户要求。每轮回复前先用 meiji_context_query 查询当前会话绑定。current 为空时允许普通聊天，只有明确创建或操作项目才关联；current 非空时只处理与该视频项目有关的请求。对于无关话题、另建项目或操作其他项目的请求，只回复「当前会话已关联视频项目，请切换工作区或新建会话」，不要回答无关内容，不创建或切换项目，不执行制作。
           - id: tool-jobs
             name: '@deepseek-ai/dsh-tool-jobs'
           - id: tool-skill

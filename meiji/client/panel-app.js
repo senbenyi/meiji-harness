@@ -391,7 +391,7 @@ export function mount() {
     events.pause()
     let created = false
     try {
-      const place = await request('turn', { method: 'POST', ...jsonBody({ action: 'create', fields: input }) })
+      const place = await request('turn', { method: 'POST', ...jsonBody({ action: 'create', sessionId: currentSessionId(), fields: input }) })
       created = true
       enterWorkspace(place)
     } finally { if (!created) events.resume() }
@@ -433,7 +433,7 @@ export function mount() {
     window.location.reload()
   }
   async function bind(project) {
-    const place = await request('link', { method: 'POST', ...jsonBody({ projectId: project.id }) })
+    const place = await request('link', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId() }) })
     enterWorkspace(place)
   }
   async function openCatalog() {
@@ -447,7 +447,6 @@ export function mount() {
   }
   async function follow(force = false) {
     const sessionId = currentSessionId()
-    if (!sessionId) return
     const ticket = navigation
     const place = await request('link?sessionId=' + encodeURIComponent(sessionId))
     if (ticket !== navigation && !force) return
@@ -469,13 +468,6 @@ export function mount() {
     if (!force && next === shown && mark === shownMark) return
     showProject(project, place.workspace)
   }
-  document.addEventListener('click', event => {
-    const button = event.target instanceof Element ? event.target.closest('button[aria-label="选择工作区"]') : null
-    if (!button) return
-    event.preventDefault()
-    event.stopPropagation()
-    openCatalog().catch(error => shell.status(error.message))
-  }, true)
   const languageButton = shell.root.querySelector('.language')
   const setLanguageLabel = outputLanguage => {
     const english = outputLanguage === 'en'

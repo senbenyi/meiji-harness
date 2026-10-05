@@ -49,7 +49,7 @@ function projectMeta(project) {
 
 function workspaceButton(context, project) {
   if (!context.onBind) return null
-  const label = project?.title || (context.workspace ? `工作区 ${context.workspace.title}` : '未选择工作区')
+  const label = project?.title || '未关联项目'
   const button = element('button', label, 'workspace-bind')
   button.type = 'button'
   button.onclick = context.onBind
@@ -59,7 +59,7 @@ function workspaceButton(context, project) {
 function unboundBody(openCreate, context) {
   const body = element('div', '', 'session-body')
   const projects = context.projects || []
-  body.append(element('p', '选择一部短剧，进入它的专属工作区', 'notice'))
+  body.append(element('p', '当前会话未关联项目，可以直接聊天；创建或选择短剧后再开始制作', 'notice'))
   for (const item of projects) {
     const card = element('button', '', 'card')
     card.type = 'button'
@@ -93,7 +93,7 @@ export function catalogDialog(root) {
   root.append(dialog)
   return (projects, workspace, onPick) => {
     title.textContent = '选择短剧'
-    hint.textContent = '选择后进入该短剧的专属工作区；原工作区和会话保持原样。'
+    hint.textContent = '选择后仅关联当前会话，不移动会话，也不影响其他会话。'
     list.replaceChildren()
     for (const project of projects) {
       const card = element('button', '', 'card')

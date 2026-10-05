@@ -101,6 +101,7 @@ test('tools reject skipped episodes, missing opinions and cross-session task acc
 
 test('session creates project using shared operation and selects it without affecting other sessions', async t => {
   const e = await setup(t), workspaceId = randomUUID()
+  e.exec.agent.session.id = 'session-' + randomUUID()
   useWorkspaces(t, { [workspaceId]: { title: '穿越成武松', path: '/project', sessionIds: [] } })
   const workspaceController = { create: async () => ({ workspace: { workspaceId, sessionIds: [] } }), rename: async () => {} }
   const tool = projectManageTool({ home: e.home, tasks: e.tasks, workspaceController })
@@ -126,4 +127,32 @@ test('会话仅可读取有效创作方向，不提供修改方向工具', async
     assert.equal(result.current.premise, scriptKind === 'assembled' ? '人的方向' : '')
     assert.equal((await e.store.read(e.id)).premise, '人的方向')
   }
+})
+
+
+test('未关联会话可创建或打开项目，绑定后拒绝跨项目且不影响其他会话', async t => {
+  const e = await setup(t), workspaceId = randomUUID(), freshId = 'session-' + randomUUID(), siblingId = 'session-' + randomUUID()
+  useWorkspaces(t, { [workspaceId]: { title: '项目工作区', path: '/project', sessionIds: [freshId, siblingId] } })
+  const exec = { ...e.exec, agent: { session: { id: freshId, append() {} } } }
+  const query = contextQueryTool({ home: e.home, tasks: e.tasks })
+  assert.equal(JSON.parse(await query.execute({}, exec)).current, null)
+  const workspaceController = { create: async () => ({ workspace: { workspaceId } }), rename: async () => {} }
+  const tool = projectManageTool({ home: e.home, tasks: e.tasks, workspaceController })
+  const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '打虎英雄武松' } }, exec))
+  assert.equal(created.title, '打虎英雄武松')
+  assert.equal(JSON.parse(await query.execute({}, exec)).current.id, created.projectId)
+  const before = await e.store.list()
+  for (const args of [{ action: 'open', projectId: e.id }, { action: 'create', fields: { title: '无关视频' } }]) {
+    await assert.rejects(tool.execute(args, exec), { status: 409, message: '当前会话已关联视频项目，请切换工作区或新建会话' })
+  }
+  assert.deepEqual(await e.store.list(), before)
+  await tool.execute({ action: 'open', projectId: created.projectId }, exec)
+  assert.equal(JSON.parse(await query.execute({}, exec)).current.id, created.projectId)
+  assert.equal((await linkStore(e.home).projectForSession(siblingId)).projectId, null)
+  await assert.rejects(tool.execute({ action: 'open', projectId: randomUUID() }, exec))
+  assert.equal((await linkStore(e.home).projectForSession(freshId)).projectId, created.projectId)
+  const sibling = { ...exec, agent: { session: { id: siblingId, append() {} } } }
+  await tool.execute({ action: 'open', projectId: e.id }, sibling)
+  assert.equal((await linkStore(e.home).projectForSession(siblingId)).projectId, e.id)
+  assert.equal((await linkStore(e.home).projectForSession(freshId)).projectId, created.projectId)
 })
