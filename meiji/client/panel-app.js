@@ -383,6 +383,7 @@ export function mount() {
       const incomingId = await bridge.stage(file, category)
       await bridge.perform(null, 'library-import', { incomingId, category, name: file.name, ...(guidanceType ? { guidanceType } : {}) })
     },
+    deleteLibrary: asset => bridge.perform(null, 'library-delete', { category: asset.category, assetId: asset.id }),
     fail: error => shell.status(error.message),
   }
   const openCreate = projectDialog(shell.root, async input => {

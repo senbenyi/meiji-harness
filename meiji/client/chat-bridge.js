@@ -93,8 +93,9 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
     async perform(project, action, fields = {}) {
       const sessionId = currentSessionId()
       if (!sessionId) throw new Error('没有打开的会话，无法关联任务日志')
+      const libraryOperation = ['library-import', 'library-delete'].includes(action)
       let listBefore
-      if (!project) {
+      if (!project && !libraryOperation) {
         const { projects } = await request('projects')
         listBefore = new Set(projects.map(item => item.id))
       }
@@ -109,7 +110,7 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         return result
       }
       status('任务已启动')
-      if (!project) watch(project, listBefore)
+      if (!project && !libraryOperation) watch(project, listBefore)
       return result
     },
   }

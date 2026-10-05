@@ -17,6 +17,7 @@ import { operations as actionsImageReference } from './direct/operation-image-re
 import { operations as actionsImageUseAsset } from './direct/operation-image-use-asset.js'
 import { operations as actionsProjectCreate } from './direct/operation-project-create.js'
 import { operations as actionsProjectLibraryImport } from './direct/operation-library-import.js'
+import { operations as libraryDelete } from './direct/operation-library-delete.js'
 import { operations as actionsProjectOpen } from './direct/operation-project-open.js'
 import { operations as actionsProjectOverview } from './direct/operation-project-overview.js'
 import { operations as actionsProjectProjectDelete } from './direct/operation-project-delete.js'
@@ -40,7 +41,7 @@ import { operation as prop_image } from './generate/operation-prop-image.js'
 import { operation as shot_table } from './generate/operation-shot-table.js'
 import { operation as seconds } from './generate/operation-seconds.js'
 import { operation as film } from './generate/operation-film.js'
-const direct = { ...projectLibrary, ...propText, ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
+const direct = { ...libraryDelete, ...projectLibrary, ...propText, ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
 export const operations = { images, 'library-image': { label: '生成库图片', scope: 'project', lock: 'project', kind: 'generate', agent: false, tasks: () => [{ type: 'library-image' }] }, ...Object.fromEntries(Object.entries({ ...direct, ...scriptDirect }).map(([id, value]) => [id, { ...value, kind: 'direct', actor: 'human' }])), summary, 'project-summary': projectSummary, story, 'script-sync': sync, 'script-revise': revise, 'character-image': character_image, 'scene-image': scene_image, 'prop-image': prop_image, 'shot-table': shot_table, seconds, film }
 export const labels = Object.fromEntries(Object.entries(operations).map(([id, value]) => [id, value.label]))
 export function operationLabel(op) { return `${labels[op.action] || op.action}${op.track ? ' ' + op.track : ''}${op.only ? '·' + op.only : ''}${op.draft ? '·草稿' : ''}${op.parts ? '·' + op.parts : ''}` }

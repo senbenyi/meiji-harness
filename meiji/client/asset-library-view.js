@@ -75,7 +75,19 @@ function assetLibrary(actions) {
           else { media.controls = true; media.preload = 'metadata' }
         }
         const download = element('a', '下载原文件'); download.href = url + '&download=1'; download.download = asset.originalName
-        card.append(media, element('strong', asset.originalName), element('p', `${(asset.size / 1024 / 1024).toFixed(2)} MB · ${new Date(asset.createdAt).toLocaleDateString('zh-CN')}`, 'meta'), download)
+        const remove = element('button', '删除', 'danger'); remove.type = 'button'
+        remove.setAttribute('aria-label', `删除素材 ${asset.originalName}`)
+        remove.onclick = async () => {
+          if (remove.disabled || !window.confirm(`确定从素材库移除「${asset.originalName}」？项目已有引用和原文件会保留。`)) return
+          remove.disabled = true; status.textContent = ''
+          try {
+            await actions.deleteLibrary(asset)
+            status.textContent = `已从素材库移除「${asset.originalName}」，项目已有引用保留。`
+            if (selected === category && (selected !== 'guidance' || guidanceType === typeInput.value)) await load()
+          } catch (error) { status.textContent = error.message; remove.disabled = false }
+        }
+        const buttons = element('div', '', 'asset-actions'); buttons.append(download, remove)
+        card.append(media, element('strong', asset.originalName), element('p', `${(asset.size / 1024 / 1024).toFixed(2)} MB · ${new Date(asset.createdAt).toLocaleDateString('zh-CN')}`, 'meta'), buttons)
         list.append(card)
       }
     } catch (error) { if (ticket === loading) list.replaceChildren(element('p', error.message, 'error')) }

@@ -47,6 +47,26 @@ test('audio/video byte ranges support seeking and reject invalid requests', () =
   for (const value of ['bytes=10-', 'bytes=5-2', 'bytes=-0', 'bytes=0-1,3-4', 'bad']) assert.equal(byteRange(value, 10), null)
 })
 
+test('七类素材移出列表后持久化，原文件与剧本仍可通过原 ID 读取', () => fixture(async (store, home) => {
+  for (const [category, suffix] of [['characters', 'png'], ['scenes', 'png'], ['props', 'png'], ['audio', 'mp3'], ['video', 'mp4'], ['guidance', 'md'], ['scripts', 'txt']]) {
+    const asset = await store.import(category, `素材.${suffix}`, stream('原始内容'))
+    const other = await store.import(category, `保留.${suffix}`, stream('其他内容'))
+    await store.remove(category, asset.id)
+    const reopened = assetStore(home)
+    assert.deepEqual((await reopened.list(category)).map(row => row.id), [other.id])
+    const file = await reopened.file(category, asset.id)
+    assert.ok(file.metadata.removedAt)
+    assert.equal(await readFile(file.path, 'utf8'), '原始内容')
+    if (category === 'scripts') assert.equal((await reopened.script(asset.id)).content, '原始内容')
+    await reopened.remove(category, asset.id)
+    assert.equal((await reopened.file(category, asset.id)).metadata.removedAt, file.metadata.removedAt)
+    assert.deepEqual((await readdir(join(home, 'storages/meiji/assets', category, asset.id))).sort(), ['metadata.json', `original.${suffix}`])
+  }
+  await assert.rejects(store.remove('../outside', 'id'), { status: 400 })
+  await assert.rejects(store.remove('characters', '../outside'), { status: 400 })
+  await assert.rejects(store.remove('characters', '00000000-0000-4000-8000-000000000000'), { code: 'ENOENT' })
+}))
+
 test('guidance imports persist category, UTF-8 content and original files locally', () => fixture(async (store, home) => {
   const content = '\ufeff# 声音\n脚步声由远及近。\n'
   const asset = await store.import('guidance', '脚步.markdown', stream(content), undefined, { guidanceType: 'sound' })

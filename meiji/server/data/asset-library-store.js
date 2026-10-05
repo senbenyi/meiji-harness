@@ -31,7 +31,7 @@ export function assetStore(home) {
       try { entries = await readdir(join(root, category)) }
       catch (error) { if (error.code === 'ENOENT') return []; throw error }
       const assets = await Promise.all(entries.filter(id => uuid.test(id)).map(async id => JSON.parse(await readFile(join(root, category, id, 'metadata.json'), 'utf8'))))
-      return assets.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      return assets.filter(asset => !asset.removedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
     async file(category, id) {
       assertCategory(category)
@@ -43,6 +43,15 @@ export function assetStore(home) {
     async script(id) {
       const { metadata, path } = await this.file('scripts', id)
       return { ...metadata, content: scriptText(await readFile(path)) }
+    },
+    async remove(category, id) {
+      const { metadata } = await this.file(category, id)
+      if (metadata.removedAt) return
+      const target = join(root, category, id, 'metadata.json'), temporary = target + '.' + randomUUID() + '.tmp'
+      try {
+        await writeFile(temporary, JSON.stringify({ ...metadata, removedAt: new Date().toISOString() }, null, 2) + '\n', { mode: 0o600 })
+        await rename(temporary, target)
+      } finally { await rm(temporary, { force: true }) }
     },
     async import(category, name, source, maxBytes = MAX_ASSET_BYTES, origin = {}) {
       assertCategory(category)

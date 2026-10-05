@@ -129,6 +129,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 用户数据根为 `$DSH_HOME/storages/meiji/`，DSH_HOME 默认 `~/.dsh`；源码与数据分离，迁移备份放 `$DSH_HOME/backups/`。
 - 项目索引只保存剧集文件引用，每集独立存储。创建只保存标题、风格、画幅及可选剧本，没有创建前摘要草稿或 project-drafts。任务、内容和提示词快照放项目 history；步骤保存引用与时间，列表不携带完整提示词、密钥或图片 Base64；提示词读取校验任务归属。
 - 图片候选放 `image-drafts/`，确认后入全局素材库；导入先暂存。素材库和任务历史不因重新生成而删除。
+- 素材库七类卡片的删除走面板 `library-delete` 直接操作，仅原子写入素材元数据 `removedAt` 并从列表排除；原文件与 `file/script` 按 ID 读取保留，项目已有引用及历史不变，不释放磁盘空间。该可选字段无需旧数据迁移。
 - 运行模型配置为 `storages/meiji/models.json`；仓库默认配置为 `config/models.json`，本地覆盖为被 git 忽略的 `config/models.local.json`。密钥不返回浏览器、不写日志或文档。
 - gateway 校验生成请求的地址、密钥和当前模型；轮询、下载不要求生成模型。第三方图片下载不附网关密钥，不做缺密钥时的隐式后端回退。
 
