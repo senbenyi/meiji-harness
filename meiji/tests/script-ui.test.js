@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { renderScriptView } from '../client/script-view.js'
-import { episodeDialog, renderOverview } from '../client/project-overview-view.js'
+import { episodeDialog, renderOverview, premiseDialog } from '../client/project-overview-view.js'
 import { node } from '../shared/drama-model.js'
 
 function dom(t) {
@@ -17,17 +17,17 @@ function dom(t) {
 const project = () => ({ id: 'p', title: '来信', script: '原剧本', scriptKind: 'imported', scriptRevision: 1, scriptSource: 'import', scriptSections: { sections: [], future: '' }, scriptProposals: [], scriptPendingDeletes: [], summary: node('summary', '项目摘要'), episodes: [] })
 const button = (root, text) => [...root.querySelectorAll('button')].find(item => item.textContent === text)
 
-test('概要顺序与派生状态，独立基调、剧本与摘要意见入口', async t => {
+test('导入剧本项目隐藏创作方向，保留剧本与摘要意见入口', async t => {
   const root = dom(t), p = project(), calls = []
   const view = renderOverview(p, { perform: async (...args) => calls.push(args), openPremise: () => calls.push('premise'), openScript: () => calls.push('script'), fail: error => { throw error } }, {})
   root.append(view)
-  assert.deepEqual([...view.querySelectorAll('h3')].map(item => item.textContent), ['故事基调', '项目摘要', '剧本', '角色库', '场景库', '道具库', '剧集'])
+  assert.deepEqual([...view.querySelectorAll('h3')].map(item => item.textContent), ['项目摘要', '剧本', '角色库', '场景库', '道具库', '剧集'])
   assert.match(view.textContent, /待更新/)
-  button(view, '编辑基调').click(); button(view, '查看与编辑剧本').click()
+  assert.equal(button(view, '编辑创作方向'), undefined); button(view, '查看与编辑剧本').click()
   view.querySelector('[aria-label="项目摘要修改意见"]').value = '补充结局'
   await button(view, '按意见重新生成').onclick()
-  assert.deepEqual(calls.slice(0, 2), ['premise', 'script'])
-  assert.deepEqual(calls[2].slice(1), ['project-summary', { review: '补充结局' }])
+  assert.equal(calls[0], 'script')
+  assert.deepEqual(calls[1].slice(1), ['project-summary', { review: '补充结局' }])
 })
 
 test('剧本正文保存必填说明，旧方案不可确认，任意版本对比及占用门禁', async t => {
@@ -52,17 +52,17 @@ test('剧本正文保存必填说明，旧方案不可确认，任意版本对�
   assert.equal(button(view, '对比所选版本').disabled, false)
 })
 
-test('首集故事设想必填且默认保存基调，草稿携带本次要求', async t => {
-  const root = dom(t), p = { ...project(), script: '' }, calls = []
+test('首集故事设想必填但不保存为创作方向，草稿携带本次要求', async t => {
+  const root = dom(t), p = { ...project(), script: '', scriptKind: 'assembled' }, calls = []
   const open = episodeDialog(root, async (...args) => calls.push(args), async (...args) => { calls.push(args); return { summary: '新剧情' } })
   open(p, null)
   const dialog = root.querySelector('dialog'), form = dialog.querySelector('form')
-  assert.equal(form.elements.requirements.required, true); assert.equal(form.elements.savePremise.checked, true)
+  assert.equal(form.elements.requirements.required, true); assert.equal(form.elements.savePremise, undefined)
   form.elements.requirements.value = '旧信引出往事'
   await button(dialog, 'AI 生成').onclick()
   assert.equal(calls[0][1].requirements, '旧信引出往事')
   await form.onsubmit({ preventDefault() {} })
-  assert.equal(calls[1][1].savePremise, true); assert.equal(dialog.open, false)
+  assert.equal(calls[1][1].savePremise, undefined); assert.equal(dialog.open, false)
 })
 
 test('父保存成功后显示独立回写方案，先保留关闭而不重新保存', async t => {
@@ -76,6 +76,23 @@ test('父保存成功后显示独立回写方案，先保留关闭而不重新�
   assert.equal(dialog.open, true); assert.match(dialog.textContent, /尚未完成同步/)
   assert.ok(button(dialog, '按方案修改剧本')); button(dialog, '先保留').click()
   assert.equal(dialog.open, false); assert.equal(saves, 1)
+})
+
+test('无导入剧本的方向入口在自动回写后仍展示，编辑保存原有方向', async t => {
+  const root = dom(t), calls = [], p = { ...project(), scriptKind: 'assembled', premise: '长期寻找失踪家人', script: '首集已回写剧情' }
+  const open = premiseDialog(root, async (current, text) => calls.push([current.id, text]))
+  const view = renderOverview(p, { openPremise: open }, {})
+  root.append(view)
+  assert.equal(view.querySelector('h3').textContent, 'AI 创作方向')
+  assert.match(view.textContent, /持续指导每一集摘要/)
+  button(view, '编辑创作方向').click()
+  const text = root.querySelector('[aria-label="AI 创作方向"]')
+  assert.equal(text.value, p.premise)
+  text.value = '寻找家人并揭开旧案'
+  await text.form.onsubmit({ preventDefault() {} })
+  assert.deepEqual(calls, [[p.id, '寻找家人并揭开旧案']])
+  const first = renderOverview({ ...p, script: '' }, {}, {})
+  assert.equal(first.querySelector('h3').textContent, 'AI 创作方向')
 })
 
 

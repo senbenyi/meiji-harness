@@ -32,7 +32,7 @@ import { operations as actionsStorySceneText } from './direct/operation-scene-ed
 import { operation as summary } from './generate/operation-summary.js'
 import { sync, revise } from './generate/operation-script.js'
 import { operations as scriptDirect } from './direct/operation-script.js'
-import { scriptBlockers, scriptFreshness } from '../../../shared/script-assembly.js'
+import { scriptBlockers, scriptFreshness, isAiCreation } from '../../../shared/script-assembly.js'
 import { operation as projectSummary } from './generate/operation-project-summary.js'
 import { operation as story } from './generate/operation-story.js'
 import { operation as character_image } from './generate/operation-character-image.js'
@@ -68,8 +68,7 @@ export async function planTasks(home, op) {
     const blockers = scriptBlockers(root).filter(item => !(op.action === 'summary' && op.episodeId && item.episodeId === op.episodeId && ['episode-sync', 'proposal'].includes(item.kind)))
     if (blockers.length) throw Object.assign(new Error('剧本有待处理回写或方案，请处理后继续'), { status: 409, code: 'SCRIPT_PENDING', blockers })
   }
-  if (root && ['summary', 'episode-add'].includes(op.action) && !root.script && !root.premise && !root.episodes.length && !String(op.requirements || op.fields?.requirements || '').trim()) throw Object.assign(new Error('首次生成请填写故事设想'), { status: 400 })
-  if (root && !root.script && !root.premise && !root.episodes.length && (op.savePremise ?? op.fields?.savePremise) !== false && [...String(op.requirements || op.fields?.requirements || '').replace(/\s/g, '')].length > 1000) throw Object.assign(new Error('故事基调最多 1000 字'), { status: 400 })
+  if (root && ['summary', 'episode-add'].includes(op.action) && isAiCreation(root) && !root.premise && !root.episodes.length && !String(op.requirements || op.fields?.requirements || '').trim()) throw Object.assign(new Error('首次生成请填写故事设想'), { status: 400 })
   if (project?.episodeId && !op.episodeId) op.episodeId = project.episodeId
   await definition.precheck?.(project, op)
   if ((op.origin === 'session' && op.mode === 'generate' || op.action === 'images') && definition.completed?.(project, op)) return []

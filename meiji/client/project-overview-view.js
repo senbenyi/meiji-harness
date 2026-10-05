@@ -3,7 +3,7 @@ import { renderSteps, taskStatusLabels } from './task-nodes.js'
 import { renderTaskHistory, historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
-import { scriptFreshness, episodeHints } from '../shared/script-assembly.js'
+import { scriptFreshness, episodeHints, isAiCreation } from '../shared/script-assembly.js'
 import { bindStylePicker } from './style-picks.js'
 
 export function collectCharacters(project) {
@@ -28,7 +28,7 @@ export function collectCharacters(project) {
 export function episodeWork(project, episodeId) {
   const episode = (project?.episodes || []).find(item => item.id === episodeId)
   if (!episode) return null
-  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, projectSummary: project.summary.content, scriptHints: episodeHints(project, episode), pendingScriptProposal: (project.scriptProposals || []).some(item => item.status === 'pending' && item.episodeId === episode.id), skills: project.skills, revision: project.revision }
+  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, projectSummary: project.summary.content, scriptHints: episodeHints(project, episode), pendingScriptProposal: (project.scriptProposals || []).some(item => item.status === 'pending' && item.episodeId === episode.id), skills: project.skills, revision: project.revision }
 
 }
 
@@ -91,12 +91,14 @@ export function renderOverview(project, actions, context) {
   projectActions.append(deleteButton(project, actions))
   page.append(projectActions)
 
-  const premiseCard = element('article', '', 'overview-card')
-  premiseCard.append(element('h3', '故事基调'), preview(project.premise || '在第一集填写故事设想，可保存为故事基调。'))
-  const premiseEdit = element('button', '编辑基调')
-  premiseEdit.disabled = Boolean(project.projectBusy)
-  premiseEdit.onclick = () => actions.openPremise?.(project)
-  premiseCard.append(premiseEdit); page.append(premiseCard)
+  if (isAiCreation(project)) {
+    const premiseCard = element('article', '', 'overview-card')
+    premiseCard.append(element('h3', 'AI 创作方向'), preview(project.premise || '填写题材、人物、核心冲突或希望推进的故事方向。'), element('p', '由你手动编辑，持续指导每一集摘要的 AI 创作；修改后用于后续生成，保留已发生剧情。', 'meta'))
+    const premiseEdit = element('button', '编辑创作方向')
+    premiseEdit.disabled = Boolean(project.projectBusy)
+    premiseEdit.onclick = () => actions.openPremise?.(project)
+    premiseCard.append(premiseEdit); page.append(premiseCard)
+  }
 
   const summaryCard = element('article', '', 'overview-card')
   summaryCard.append(element('h3', '项目摘要'))
@@ -251,7 +253,7 @@ export function overviewDialog(root, onSaved) {
 
 export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadPrompts, loadResponses, observeSync, openScript, regenerate } = {}) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-requirements">本次要求</label><textarea id="episode-requirements" name="requirements"></textarea><label class="premise-option"><input type="checkbox" name="savePremise" checked>保存为故事基调</label><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-requirements">本次要求</label><textarea id="episode-requirements" name="requirements"></textarea><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-episode')
   const form = dialog.querySelector('form')
@@ -310,7 +312,7 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       const summary = form.elements.summary.value.trim()
       if (!summaryLength(summary)) throw new Error('摘要不能为空')
       const durationSeconds = referenceDuration(Number(form.elements.duration.value))
-      const result = await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary, requirements: form.elements.requirements.value.trim(), savePremise: form.elements.savePremise.checked })
+      const result = await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary, requirements: form.elements.requirements.value.trim() })
       if (result?.cancelled) return
       const episodeId = result?.result?.episodeId || episode?.id || result?.project?.episodes?.[0]?.id
       if (result?.result?.scriptSyncOperationId && observeSync) {
@@ -343,12 +345,10 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
     form.elements.duration.value = String(currentEpisode?.durationSeconds ?? defaultReferenceDuration)
     form.elements.summary.value = currentEpisode?.summary?.content || ''
-    const first = !project.script && !project.premise && !project.episodes?.length
+    const first = isAiCreation(project) && !project.premise && !project.episodes?.length
     form.elements.requirements.required = first
     form.elements.requirements.value = ''
-    form.elements.savePremise.checked = true
     dialog.querySelector('label[for=episode-requirements]').textContent = first ? '故事设想（必填）' : '本次要求（选填）'
-    dialog.querySelector('.premise-option').hidden = !first
     updateCount()
     error.textContent = ''
     showPanelDialog(dialog)
@@ -358,9 +358,9 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
 export function premiseDialog(root, onSaved) {
   const dialog = element('dialog'), form = element('form'), text = element('textarea'), error = element('p', '', 'error'), save = element('button', '保存'), cancel = element('button', '取消')
   let current
-  text.setAttribute('aria-label', '故事基调'); text.maxLength = 1000
+  text.setAttribute('aria-label', 'AI 创作方向'); text.maxLength = 1000
   cancel.type = 'button'; cancel.onclick = () => dialog.close()
-  form.append(element('h2', '编辑故事基调'), text, error, cancel, save); dialog.append(form); root.append(dialog)
+  form.append(element('h2', '编辑 AI 创作方向'), element('p', '用于每一集摘要的 AI 创作，不限于首集。最多 1000 字；本次要求和已发生剧情优先。'), text, error, cancel, save); dialog.append(form); root.append(dialog)
   form.onsubmit = async event => { event.preventDefault(); save.disabled = true; try { await onSaved(current, text.value.trim()); dialog.close() } catch (failure) { error.textContent = failure.message } finally { save.disabled = false } }
   return project => { current = project; text.value = project.premise || ''; error.textContent = ''; showPanelDialog(dialog) }
 }

@@ -43,7 +43,6 @@ export async function opEpisodeGenerate(c) {
   const persist = async draft => {
     await rootProjects.save(project.id, current => {
       const patch = episodeId ? editEpisode(current, episodeId, { summary: draft.summary, durationSeconds: draft.durationSeconds }) : addEpisode(current, draft)
-      if (!current.script && !current.premise && !current.episodes.length && operation.savePremise !== false) patch.premise = String(operation.requirements || '').trim()
       const updated = episodeId ? patch.episodes.find(item => item.id === episodeId) : patch.episodes[0]
       episodeId = updated.id
       updated.summary.check = { ...(draft.check || { passed: null, failures: [] }), revision: updated.summary.revision }

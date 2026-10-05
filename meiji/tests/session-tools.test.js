@@ -114,3 +114,16 @@ test('session creates project using shared operation and selects it without affe
   assert.equal(summary.projectId, created.projectId)
   assert.equal(summary.status, 'completed')
 })
+
+
+test('会话仅可读取有效创作方向，不提供修改方向工具', async t => {
+  const e = await setup(t), tool = projectManageTool({ home: e.home, tasks: e.tasks })
+  assert.ok(!tool.parameters.properties.action.enum.includes('set-premise'))
+  await assert.rejects(tool.execute({ action: 'set-premise', text: '模型改写' }, e.exec), /项目操作无效/)
+  for (const scriptKind of ['assembled', 'imported']) {
+    await e.store.save(e.id, { scriptKind, premise: '人的方向' })
+    const result = JSON.parse(await contextQueryTool({ home: e.home, tasks: e.tasks }).execute({}, e.exec))
+    assert.equal(result.current.premise, scriptKind === 'assembled' ? '人的方向' : '')
+    assert.equal((await e.store.read(e.id)).premise, '人的方向')
+  }
+})

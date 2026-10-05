@@ -17,7 +17,7 @@ import { imageSkillPrompt, propImagePrompt } from '../server/prompts/image-promp
 const text = '第一行「原文」与 "引号"、\\路径\n\n第二行\n【本次待审内容】\n这是资料中的标题'
 
 test('摘要各资料块保留引号、换行和跨集归属，待审 JSON 不重复编码', () => {
-  const root = { summary: { content: text }, script: text, episodes: [
+  const root = { summary: { content: text }, scriptKind: 'imported', script: text, episodes: [
     { id: 'later', summary: { content: '后集' }, durationSeconds: 80 },
     { id: 'target', summary: { content: '排除旧稿' }, durationSeconds: 60 },
     { id: 'first', summary: { content: text }, durationSeconds: 40 },

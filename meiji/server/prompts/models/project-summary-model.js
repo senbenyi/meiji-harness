@@ -1,3 +1,4 @@
+import { creativeDirection } from '../../../shared/script-assembly.js'
 import { segment, render } from '../skill-prompts.js'
 import { generationRequest, reviewRequest, baseSegments } from '../prompt-request.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
@@ -13,9 +14,9 @@ export class ProjectSummaryModel {
     this.reviewRules = reviewRules
     this.outputProtocol = outputProtocol
   }
-  facts() { return [segment('context', '【剧本】', this.project.script), segment('context', '【故事基调】', this.project.premise)] }
-  toGenerateSegments(parts = {}) { return this.creation('generate', '从当前剧本加故事基调生成全剧概要的项目摘要，遵守基础规则和补充规则。', parts) }
-  toReviseSegments(parts = {}) { return this.creation('revise', '依据当前剧本、故事基调和本轮意见修订项目摘要，遵守基础规则和补充规则。', parts) }
+  facts() { return [segment('context', '【剧本】', this.project.script), segment('context', '【AI 创作方向】', creativeDirection(this.project))] }
+  toGenerateSegments(parts = {}) { return this.creation('generate', '从当前剧本及适用的 AI 创作方向生成全剧概要的项目摘要，遵守基础规则和补充规则。', parts) }
+  toReviseSegments(parts = {}) { return this.creation('revise', '依据当前剧本、适用的 AI 创作方向和本轮意见修订项目摘要，遵守基础规则和补充规则。', parts) }
   creation(kind, task, { baseContent = '', opinion = '', ...parts }) {
     return generationRequest({ json: true,
       role: segment('context', '【角色与职责】', '你是一名剧本编辑。'),

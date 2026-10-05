@@ -7,9 +7,9 @@ import { createProject } from '../server/flow/project-creation.js'
 export function projectManageTool({ home, tasks, jobs, workspaceController }) {
   return {
     name: 'meiji_project_manage',
-    description: '创建或打开项目；create 只需标题、画幅、风格和可选剧本，不生成摘要或剧集。edit-script 提出剧本修改方案等待用户确认，set-premise 设置最多 1000 字的创作基调。',
+    description: '创建或打开项目；create 只需标题、画幅、风格和可选剧本，不生成摘要或剧集。edit-script 提出剧本修改方案等待用户确认。AI 创作方向仅由用户在面板手动编辑，会话只能读取并据此生成剧集摘要。',
     parameters: { type: 'object', additionalProperties: false, required: ['action'], properties: {
-      action: { type: 'string', enum: ['create', 'open', 'edit-script', 'set-premise'] }, projectId: { type: 'string' },
+      action: { type: 'string', enum: ['create', 'open', 'edit-script'] }, projectId: { type: 'string' },
       text: { type: 'string' }, note: { type: 'string' }, baseRevision: { type: 'integer', minimum: 0 },
       changes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'before', 'after'], properties: { target: { type: 'object', additionalProperties: false, required: ['kind'], properties: { kind: { type: 'string', enum: ['body', 'episode', 'future'] }, episodeId: { type: 'string' } } }, before: { type: 'string' }, after: { type: 'string' } } } },
       fields: { type: 'object', additionalProperties: false, required: ['title'], properties: {
@@ -18,10 +18,10 @@ export function projectManageTool({ home, tasks, jobs, workspaceController }) {
     } }, output: jsonOutput,
     async execute(args, exec) {
       const sessionId = sessionIdOf(exec), store = projectStore(home), links = linkStore(home, workspaceController)
-      if (!['create', 'open', 'edit-script', 'set-premise'].includes(args.action)) throw new Error('项目操作无效')
-      if (['edit-script', 'set-premise'].includes(args.action)) {
+      if (!['create', 'open', 'edit-script'].includes(args.action)) throw new Error('项目操作无效')
+      if (args.action === 'edit-script') {
         const current = await currentProject(home, exec)
-        const started = tasks.start({ action: args.action === 'edit-script' ? 'script-propose' : 'premise-edit', projectId: current.id, sessionId, origin: 'session', callId: exec.callId, text: args.text, changes: args.changes, note: args.note, baseRevision: args.baseRevision }, exec.agent.session)
+        const started = tasks.start({ action: 'script-propose', projectId: current.id, sessionId, origin: 'session', callId: exec.callId, text: args.text, changes: args.changes, note: args.note, baseRevision: args.baseRevision }, exec.agent.session)
         const result = await started.done
         if (started.failure) throw started.failure
         return JSON.stringify({ status: result.status, projectId: current.id, ...result.result, ...(result.result.pendingProposal && jobs ? jobs.waitScript(current.id, sessionId) : {}) })

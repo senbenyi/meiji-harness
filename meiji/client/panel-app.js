@@ -407,7 +407,7 @@ export function mount() {
   actions.openSource = sourceDialog(shell.root, saved)
   actions.openStory = storyDialog(shell.root, saved)
   actions.openEpisode = episodeDialog(shell.root, async (project, input) => {
-    const fields = { durationSeconds: input.durationSeconds, summary: input.summary, requirements: input.requirements, savePremise: input.savePremise }
+    const fields = { durationSeconds: input.durationSeconds, summary: input.summary, requirements: input.requirements }
     if (input.episodeId) return actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
     else return actions.perform(project, 'episode-add', { fields })
   }, generateEpisodeDraft, {

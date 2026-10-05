@@ -10,7 +10,7 @@ const episodePrompt = (project, episodeId) => new EpisodeSummaryModel({ project,
 
 test('the first episode is written from the project summary and keeps the user-set duration', () => {
   const prompt = episodePrompt({ title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
-  assert.match(prompt, /根据故事基调、本次要求与项目摘要/)
+  assert.match(prompt, /依据 AI 创作方向与本次要求/)
   assert.match(prompt, /李伟穿越/)
   assert.match(prompt, /项目风格：写实电影/)
   assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }, 150), { summary: '开场结义', durationSeconds: 150 })

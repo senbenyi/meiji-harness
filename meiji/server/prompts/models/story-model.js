@@ -1,3 +1,4 @@
+import { creativeDirection } from '../../../shared/script-assembly.js'
 import { libraryDirectory, requiredCharacters } from '../../../shared/library-rules.js'
 // 剧情四类资料（大纲、人物、场景、道具）共用一个 Model：资料与差异在 storyKinds 中声明，
 // 三类请求的结构统一由 prompt-request.js 组装（system＝角色/规则/协议，user＝任务/资料/基稿/待审内容）。
@@ -34,7 +35,7 @@ export const storyKinds = {
         segment('context', '【本次参数】', { durationSeconds: p.durationSeconds ?? null, ...(p.style ? { style: p.style } : {}) }),
         segment('context', '【项目背景】', model.project.projectSummary),
         segment('context', '【剧本】', model.project.script),
-        segment('context', '【故事基调】', model.project.premise),
+        segment('context', '【AI 创作方向】', model.project.premise),
         segment('context', '【前集摘要】', model.project.previousEpisodeSummary),
         segment('context', '【后集摘要】', model.project.nextEpisodeSummary),
       ]
@@ -91,7 +92,7 @@ export class StoryModel {
     this.outputProtocol = outputProtocol || config.outputProtocol
     this.source = project
     this.project = kind === 'outline'
-      ? { title: project.title || '', summary: project.summary?.content || '', projectSummary: project.projectSummary || '', premise: project.premise, script: project.script || '',
+      ? { title: project.title || '', summary: project.summary?.content || '', projectSummary: project.projectSummary || '', premise: creativeDirection(project), script: project.script || '',
         previousEpisodeSummary: project.previousEpisodeSummary || '', nextEpisodeSummary: project.nextEpisodeSummary || '' }
       : { title: project.title || '' }
     this.approvedOutline = project.plot?.outline?.content || ''

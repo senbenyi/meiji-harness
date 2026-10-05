@@ -64,7 +64,7 @@ test('导入剧本创建不自动提取，按需提取摘要，有独立任务�
   assert.equal(task.type, 'project-summary')
   assert.deepEqual(task.nodes.map(node => node.kind), ['generate', 'review'])
   const prompts = await readNodePrompts(e.home, root.id, task.id, task.nodes[0].id)
-  assert.match(JSON.stringify(prompts), /从当前剧本加故事基调/)
+  assert.match(JSON.stringify(prompts), /从当前剧本及适用的 AI 创作方向/)
   assert.match(calls[0].user, new RegExp(script))
   assert.equal((await history.read('artifacts', root.summary.source.artifactId)).content.summary, root.summary.content)
   const draft = e.manager.start({ action: 'summary', projectId: root.id, draft: true, referenceDurationSeconds: 38 })
@@ -121,12 +121,12 @@ test('语义审核失败仍保存提取稿，项目状态释放并保留失败�
 })
 
 test('有剧本提取与无剧本创作明确分开，前后集定位范围，不输入旧摘要', () => {
-  const project = { summary: { content: '项目背景' }, script, episodes: [{ id: 'next', durationSeconds: 38, summary: { content: '道别' } }, { id: 'target', durationSeconds: 38, summary: { content: '旧稿不要用' } }, { id: 'first', durationSeconds: 38, summary: { content: '送信' } }] }
+  const project = { summary: { content: '项目背景' }, script, scriptKind: 'imported', episodes: [{ id: 'next', durationSeconds: 38, summary: { content: '道别' } }, { id: 'target', durationSeconds: 38, summary: { content: '旧稿不要用' } }, { id: 'first', durationSeconds: 38, summary: { content: '送信' } }] }
   const prompts = buildEpisodePrompts(project, 'target')
   assert.match(prompts.generation.user, /前集定位已发生进度，后集约束结尾衔接/)
   assert.doesNotMatch(prompts.generation.user, /旧稿不要用/)
   assert.match(prompts.review('待审内容').system, /合理续写/)
-  const manual = buildEpisodePrompts({ ...project, script: '' }, 'target')
+  const manual = buildEpisodePrompts({ ...project, script: '', scriptKind: 'assembled' }, 'target')
   assert.match(manual.generation.user, /第 2 集/)
   assert.doesNotMatch(manual.generation.user, /【剧本】/)
   assert.match(manual.review('待审内容').system, /合理续写/)

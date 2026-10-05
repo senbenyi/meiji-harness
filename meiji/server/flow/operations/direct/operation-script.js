@@ -1,5 +1,5 @@
 import { scriptStore } from '../../../data/script-store.js'
-import { applyScriptChanges } from '../../../../shared/script-assembly.js'
+import { applyScriptChanges, isAiCreation } from '../../../../shared/script-assembly.js'
 
 async function run({ home, project, operation, rootProjects, trace }) {
   const store = scriptStore(home, rootProjects)
@@ -11,8 +11,9 @@ async function run({ home, project, operation, rootProjects, trace }) {
     trace.result = { pendingProposal: id }; return trace
   }
   if (operation.action === 'premise-edit') {
+    if (!isAiCreation(project)) throw Object.assign(new Error('导入剧本的项目不使用 AI 创作方向'), { status: 400 })
     const premise = String(operation.text || '').trim()
-    if ([...premise.replace(/\s/g, '')].length > 1000) throw Object.assign(new Error('故事基调最多 1000 字'), { status: 400 })
+    if ([...premise.replace(/\s/g, '')].length > 1000) throw Object.assign(new Error('AI 创作方向最多 1000 字'), { status: 400 })
     await rootProjects.save(project.id, { premise }); return trace
   }
   if (operation.action === 'script-proposal-confirm' || operation.action === 'script-proposal-discard') await store.resolve(project.id, operation.proposalId, operation.action === 'script-proposal-confirm' ? operation.selected || [] : [])
@@ -26,4 +27,4 @@ async function run({ home, project, operation, rootProjects, trace }) {
   }
   return trace
 }
-export const operations = Object.fromEntries([['script-propose', '提出剧本修改方案'], ['premise-edit', '编辑故事基调'], ['script-proposal-confirm', '写入剧本方案'], ['script-proposal-discard', '放弃剧本方案'], ['script-edit', '编辑剧本'], ['script-restore', '恢复剧本版本']].map(([id, label]) => [id, { label, scope: 'project', lock: 'project', stage: 'project', agent: ['premise-edit', 'script-propose'].includes(id), step: () => ({ kind: 'save', target: 'script' }), run }]))
+export const operations = Object.fromEntries([['script-propose', '提出剧本修改方案'], ['premise-edit', '编辑 AI 创作方向'], ['script-proposal-confirm', '写入剧本方案'], ['script-proposal-discard', '放弃剧本方案'], ['script-edit', '编辑剧本'], ['script-restore', '恢复剧本版本']].map(([id, label]) => [id, { label, scope: 'project', lock: 'project', stage: 'project', agent: id === 'script-propose', step: () => ({ kind: 'save', target: 'script' }), run }]))
