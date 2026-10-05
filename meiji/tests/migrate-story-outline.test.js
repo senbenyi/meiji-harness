@@ -11,7 +11,7 @@ import { convertOutline, migrateStoryOutline } from '../scripts/migrate-story-ou
 
 async function oldProject(t, content) {
   const home = await mkdtemp('/tmp/meiji-outline-migration-');t.after(() => rm(home, { recursive: true, force: true }))
-  const store = projectStore(home), project = await store.create({ title: '迁移测试', summary: '项目摘要' })
+  const store = projectStore(home), project = await store.create({ mode: 'free', premise: '人的创作方向', title: '迁移测试', summary: '项目摘要' })
   project.episodes = [blankEpisode({ summary: '本集摘要', durationSeconds: 38 })]
   project.episodes[0].plot.outline.content = content
   await writeProjectFile(home, project)

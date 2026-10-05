@@ -9,7 +9,7 @@ import { blankEpisode } from '../shared/episode-rules.js'
 
 async function oldLayoutProject(t) {
   const home = await mkdtemp(join(tmpdir(), 'meiji-layout-')); t.after(() => rm(home, { recursive: true, force: true }))
-  const store = projectStore(home), created = await store.create({ title: '旧项目', summary: '摘要' })
+  const store = projectStore(home), created = await store.create({ mode: 'free', premise: '人的创作方向', title: '旧项目', summary: '摘要' })
   const episodes = [blankEpisode({ summary: '第一集', durationSeconds: 10 }), blankEpisode({ summary: '第二集', durationSeconds: 20 })]
   await store.save(created.id, { episodes })
   const expected = await store.read(created.id)

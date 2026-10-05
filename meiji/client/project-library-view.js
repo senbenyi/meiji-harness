@@ -1,5 +1,5 @@
 import { libraryKinds, libraryLinks } from '../shared/library-rules.js'
-import { element, showPanelDialog } from './panel-dom.js'
+import { confirmPanel, element, showPanelDialog } from './panel-dom.js'
 import { request, assetUrl } from './panel-api.js'
 
 const labels = { name: '名称', aliases: '别名（逗号分隔）', nationality: '国籍', gender: '性别', role: '身份', era: '年代', age: '年龄', costume: '着装', height: '身高', build: '体型', features: '面相', appearance: '外形', prop: '随身物件', identity: '身份特征', look: '画面描述', landmark: '地标', light: '光位', space: '空间', description: '描述', evidence: '依据', category: '类别', ownerLibraryId: '归属库 ID', variantLabel: '变体名称' }
@@ -73,15 +73,15 @@ export function renderProjectLibrary(initial, kind, actions) {
       remove.disabled ||= links.length > 0 || entry.variants.length < 2
       edit.onclick = () => openEditor({ entry, variant }); defaults.onclick = () => run('entry-edit', { libraryId: entry.id, variantId: variant.id, fields: { defaultVariantId: variant.id } })
       clear.onclick = () => run('entry-image-clear', { libraryId: entry.id, variantId: variant.id })
-      remove.onclick = () => { if (window.confirm('确定删除该变体？')) void run('entry-variant-delete', { libraryId: entry.id, variantId: variant.id }) }
+      remove.onclick = async () => { if (await confirmPanel('确定删除该变体？')) void run('entry-variant-delete', { libraryId: entry.id, variantId: variant.id }) }
       block.append(generate, edit, defaults, clear, remove); detail.append(block)
     }
     const destination = element('select'); destination.setAttribute('aria-label', '合并目标'); destination.append(element('option', '选择合并目标'))
     for (const target of entries.filter(item => item !== entry)) { const option = element('option', target.name); option.value = target.id; destination.append(option) }
     const merge = element('button', '合并条目'), remove = element('button', '删除条目')
     merge.disabled = Boolean(project.projectBusy); remove.disabled = Boolean(project.projectBusy) || libraryLinks(project, kind, entry.id).length > 0
-    merge.onclick = () => { if (destination.value && window.confirm('合并后将迁移全部变体和关联卡片，保留目标条目的资料。确定继续？')) void run('entry-merge', { libraryId: entry.id, destinationId: destination.value }) }
-    remove.onclick = () => { if (window.confirm('确定删除该库条目？')) void run('entry-delete', { libraryId: entry.id }) }
+    merge.onclick = async () => { if (destination.value && await confirmPanel('合并后将迁移全部变体和关联卡片，保留目标条目的资料。确定继续？')) void run('entry-merge', { libraryId: entry.id, destinationId: destination.value }) }
+    remove.onclick = async () => { if (await confirmPanel('确定删除该库条目？')) void run('entry-delete', { libraryId: entry.id }) }
     detail.append(destination, merge, remove); body.append(detail)
   }
   page.refresh = async () => { if (actions.load) project = (await actions.load()).project; paint() }

@@ -100,11 +100,11 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         listBefore = new Set(projects.map(item => item.id))
       }
       const operation = operationRequest(action, fields)
-      if (project && !confirmOperationDelete(project, operation)) { showProject(project); return { cancelled: true } }
+      if (project && !await confirmOperationDelete(project, operation)) { showProject(project); return { cancelled: true } }
       const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, projectId: project?.id, ...operation }) })
       if (result.completed) {
         clearInterval(timer)
-        if (result.deleted) await onDeleted()
+        if (result.deleted) await onDeleted(currentSessionId() === sessionId ? result : { deleted: true })
         else if (result.project) showProject(result.project)
         status('已完成')
         return result

@@ -16,7 +16,7 @@ function setup(t, create, options) {
   const root = dom.window.document.querySelector('main'), open = projectDialog(root, create, options)
   open()
   const dialog = root.querySelector('dialog'), form = dialog.querySelector('form')
-  form.elements.title.value = '测试项目'; form.elements.style.value = '写实电影'
+  form.elements.premise.value = '人的创作方向'; form.elements.title.value = '测试项目'; form.elements.style.value = '写实电影'
   return { root, dialog, form, open, submit: () => form.onsubmit({ preventDefault() {} }) }
 }
 
@@ -46,6 +46,7 @@ test('创建页选择剧本保留文件名，不发起模型任务；移除和�
   let created
   const e = setup(t, async input => { created = input })
   assert.equal(e.form.elements.summary, undefined)
+  e.form.elements.mode.value = 'script'; e.form.elements.mode.onchange()
   const calls = []
   t.mock.method(globalThis, 'fetch', async url => { calls.push(url); return Response.json({ assets: [{ id: 'script-id', originalName: '来信.txt' }] }) })
   await e.dialog.querySelector('.script-choose').onclick()
@@ -56,15 +57,19 @@ test('创建页选择剧本保留文件名，不发起模型任务；移除和�
   assert.equal(created.scriptAssetId, 'script-id'); assert.equal(created.summary, undefined)
   assert.equal(calls.length, 1)
   e.open(); assert.equal(e.dialog.querySelector('.script-selected').textContent, '')
+  assert.equal(e.form.elements.mode.value, 'free'); assert.equal(e.form.elements.premise.value, '')
+  e.form.elements.mode.value = 'script'; e.form.elements.mode.onchange()
   await e.dialog.querySelector('.script-choose').onclick()
   picker.value = 'script-id'; await picker.onchange()
+  created = null
   e.dialog.querySelector('.script-clear').onclick(); await e.submit()
-  assert.equal(created.scriptAssetId, undefined)
+  assert.equal(created, null); assert.match(e.dialog.querySelector('.error').textContent, /剧本/)
 })
 
 test('导入失败保留表单且可重试', async t => {
   let fail = true, created
   const e = setup(t, async input => { created = input })
+  e.form.elements.mode.value = 'script'; e.form.elements.mode.onchange()
   const source = { name: '来信.txt', size: 12 }, file = e.dialog.querySelector('input[type=file]')
   Object.defineProperty(file, 'files', { value: [source] })
   t.mock.method(globalThis, 'fetch', async () => fail ? Response.json({ error: 'UTF-8编码无效' }, { status: 400 }) : Response.json({ asset: { id: 'imported', originalName: '来信.txt' } }))
@@ -77,6 +82,7 @@ test('导入失败保留表单且可重试', async t => {
 test('关闭创建页后迟到的素材列表不能覆盖新表单', async t => {
   const e = setup(t, async () => {}); let resolve
   t.mock.method(globalThis, 'fetch', () => new Promise(done => { resolve = done }))
+  e.form.elements.mode.value = 'script'; e.form.elements.mode.onchange()
   const pending = e.dialog.querySelector('.script-choose').onclick()
   e.dialog.close(); e.open()
   resolve(Response.json({ assets: [{ id: 'old', originalName: '旧.txt' }] })); await pending
@@ -116,4 +122,27 @@ test('项目摘要失败仅展示一次，概要提供提取、任务历史及sk
   await button('立即更新摘要').onclick()
   button('查看摘要任务历史 →').click(); button('查看 skill').click()
   assert.deepEqual(calls.map(args => args[1]), ['project-summary', 'project-summary', 'project-summary'])
+})
+
+
+test('默认自由模式必填人的方向，切换模式仅提交对应资料', async t => {
+  const created = [], e = setup(t, async input => created.push(input))
+  const mode = e.form.elements.mode, premise = e.form.elements.premise
+  assert.equal(mode.value, 'free')
+  assert.equal(premise.required, true)
+  assert.equal(e.dialog.querySelector('.create-premise-fields').hidden, false)
+  assert.equal(e.dialog.querySelector('.create-script-fields').hidden, true)
+  premise.value = '   '; await e.submit(); assert.equal(created.length, 0)
+  mode.value = 'script'; mode.onchange()
+  assert.equal(premise.required, false); assert.equal(premise.disabled, true)
+  assert.equal(e.dialog.querySelector('.create-premise-fields').hidden, true)
+  assert.equal(e.dialog.querySelector('.create-script-fields').hidden, false)
+  await e.submit(); assert.equal(created.length, 0)
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ assets: [{ id: 'script-id', originalName: '剧本.txt' }] }))
+  await e.dialog.querySelector('.script-choose').onclick()
+  const picker = e.dialog.querySelector('.script-picker'); picker.value = 'script-id'; await picker.onchange()
+  mode.value = 'free'; mode.onchange(); premise.value = '  人写的方向  '
+  await e.submit()
+  assert.equal(created[0].mode, 'free'); assert.equal(created[0].premise, '人写的方向')
+  assert.equal(created[0].scriptAssetId, undefined)
 })

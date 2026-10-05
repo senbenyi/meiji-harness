@@ -73,7 +73,7 @@ const until = async predicate => { for (let i = 0; i < 200 && !(await predicate(
 test('不同项目任务共用队列，等待名额时保持占用', async t => {
   const e = await setupModel(t), gates = new Map(), started = []
   const second = { ...structuredClone(e.episode), id: '22222222-2222-4222-8222-222222222222' }
-  const other = await e.store.create({ title: '另一项目' }); await e.store.save(other.id, { episodes: [second] })
+  const other = await e.store.create({ mode: 'free', premise: '人的创作方向', title: '另一项目' }); await e.store.save(other.id, { episodes: [second] })
   const tasks = createOperationManager({ home: e.home, limitOf: () => 1, execute: async (op, deps) => {
     started.push(op.episodeId); const gate = deferred(); gates.set(op.episodeId, gate); await gate.promise; return []
   } })

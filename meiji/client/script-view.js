@@ -1,26 +1,27 @@
-import { element } from './panel-dom.js'
+import { confirmPanel, element } from './panel-dom.js'
 import { scriptBlockers } from '../shared/script-assembly.js'
 
 export function renderScriptView(project, actions) {
   const page = element('section', '', 'script-page'), back = element('button', '← 返回概要'), message = element('p', '', 'meta')
   back.onclick = actions.back
   page.append(back, element('h2', '项目剧本'), message)
-  let dirty = false, refreshSequence = 0
+  let dirty = false, refreshSequence = 0, forceRefresh = false
   page.addEventListener('input', event => { if (event.target.matches('input, textarea')) dirty = true })
   page.addEventListener('change', event => { if (event.target.closest('form') || event.target.matches('input')) dirty = true })
   const run = async (action, fields) => { try { await actions.perform(project, action, fields); await page.refresh(true) } catch (error) { message.textContent = error.message } }
   const body = element('div'); page.append(body)
   page.refresh = async (force = false) => {
+    forceRefresh ||= force
     const sequence = ++refreshSequence
     try {
       const result = await actions.load()
       if (sequence !== refreshSequence) return
-      if (dirty && !force) {
+      if (dirty && !forceRefresh) {
         for (const button of body.querySelectorAll('button')) if (button.textContent !== '对比所选版本') button.disabled = button.dataset.available !== 'true' || Boolean(result.project.projectBusy || result.project.scriptRevision !== project.scriptRevision)
         if (result.project.scriptRevision !== project.scriptRevision) message.textContent = '剧本已更新，未保存的输入已保留；请重新打开页面核对新版本后保存。'
         return
       }
-      dirty = false; project = result.project
+      dirty = false; forceRefresh = false; message.textContent = ''; project = result.project
       const busy = Boolean(project.projectBusy)
       body.replaceChildren()
       body.append(element('p', `${project.scriptKind === 'imported' ? '导入剧本' : '分节剧本'} · V${project.scriptRevision} · ${project.script.length} 字 · ${project.scriptUpdatedAt || ''}`, 'meta'))
@@ -79,7 +80,7 @@ export function renderScriptView(project, actions) {
         const row = element('details'), restore = element('button', '恢复为新版本'), episodeIndex = project.episodes.findIndex(item => item.id === version.episodeId)
         const associated = version.episodeId ? episodeIndex < 0 ? `已删除剧集 ${version.episodeId}` : `第 ${project.episodes.length - episodeIndex} 集` : '项目'
         row.append(element('summary', `V${version.revision} · ${version.createdAt} · ${version.source} · ${version.note} · ${associated} · +${version.stats.added}/-${version.stats.removed} 字`), element('pre', version.content), restore)
-        restore.onclick = () => { if (window.confirm(`将 V${version.revision} 恢复为新版本，保留所有历史。确认继续？`)) run('script-restore', { revision: version.revision, note: `恢复 V${version.revision}` }) }
+        restore.onclick = async () => { if (await confirmPanel(`将 V${version.revision} 恢复为新版本，保留所有历史。确认继续？`)) run('script-restore', { revision: version.revision, note: `恢复 V${version.revision}` }) }
         versions.append(row)
       }
       compare.onclick = () => { const a = result.versions.find(item => item.revision === Number(left.value)), b = result.versions.find(item => item.revision === Number(right.value)); diff.textContent = a && b ? `V${a.revision}：\n${a.content}\n\nV${b.revision}：\n${b.content}` : '请选择两个版本' }

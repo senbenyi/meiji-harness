@@ -1,7 +1,7 @@
 const failure = message => Object.assign(new Error(message), { status: 400, code: 'SCRIPT_CHANGE_INVALID' })
 const keyOf = target => target?.kind === 'episode' ? `episode:${target.episodeId}` : target?.kind
 // 自动回写的分节剧本是剧情记录，不改变无原始剧本的创作模式。
-export const isAiCreation = project => project.scriptKind !== 'imported'
+export const isAiCreation = project => project.mode === 'free'
 export const creativeDirection = project => isAiCreation(project) ? project.premise || '' : ''
 export const scriptSectionsText = sections => [...(sections?.sections || []).map(item => item.text), sections?.future || ''].filter(Boolean).join('\n\n')
 export function scriptTargets(project) {

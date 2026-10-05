@@ -211,7 +211,7 @@ export function renderSession(project, openCreate, actions, context = {}) {
 
 export function projectDialog(root, onCreated) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>填写标题、画幅、风格，可选导入剧本。创建后添加第一集。</p><form class="create"><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="style">风格</label><input id="style" name="style" required maxlength="120" placeholder="例如：写实电影、国风水墨"><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>选择创作模式，填写标题、画幅和风格。自由模式填写创作方向，剧本模式导入剧本。</p><form class="create"><label for="project-mode">创作模式</label><select id="project-mode" name="mode"><option value="free" selected>自由模式</option><option value="script">剧本模式</option></select><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="style">风格</label><input id="style" name="style" required maxlength="120" placeholder="例如：写实电影、国风水墨"><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#create-project'), form = dialog.querySelector('form')
   const error = dialog.querySelector('.error'), submit = form.querySelector('[type=submit]')
@@ -226,12 +226,24 @@ export function projectDialog(root, onCreated) {
   const scriptTitleRow = scriptTitle
   const footer = form.querySelector('.error')
   scriptRow.append(upload, choose, clear); clear.hidden = true
-  footer.before(scriptTitleRow, scriptRow, file, picker, selected)
+  const scriptGroup = element('div', '', 'create-script-fields')
+  scriptGroup.append(scriptTitleRow, scriptRow, file, picker, selected)
+  const premiseLabel = element('label', 'AI 创作方向（必填）'), premise = element('textarea')
+  premise.id = 'project-premise'; premise.name = 'premise'; premise.maxLength = 1000; premise.required = true
+  premiseLabel.htmlFor = premise.id
+  premise.placeholder = '填写题材、人物、核心冲突与故事方向，最多 1000 字'
+  const premiseGroup = element('div', '', 'create-premise-fields')
+  premiseGroup.append(premiseLabel, premise)
+  footer.before(scriptGroup, premiseGroup)
   let scriptAssetId = '', importing = false, submitting = false, ticket = 0
   const update = () => {
+    const free = form.elements.mode.value === 'free'
+    scriptGroup.hidden = free; premiseGroup.hidden = !free; premise.required = free; premise.disabled = !free || submitting
+    form.elements.mode.disabled = importing || submitting
     upload.disabled = choose.disabled = picker.disabled = clear.disabled = importing || submitting
     submit.disabled = importing || submitting
   }
+  form.elements.mode.onchange = () => { error.textContent = ''; update() }
   const cancel = () => { ticket++ }
   const setScript = async asset => {
     scriptAssetId = asset?.id || ''; selected.textContent = asset?.originalName || ''
@@ -272,11 +284,15 @@ export function projectDialog(root, onCreated) {
   form.onsubmit = async event => {
     event.preventDefault()
     if (submit.disabled) return
-    submitting = true; update(); error.textContent = ''
+    error.textContent = ''
+    const mode = form.elements.mode.value
+    if (mode === 'free' && !premise.value.trim()) { error.textContent = '自由模式的 AI 创作方向必填'; return }
+    if (mode === 'script' && !scriptAssetId) { error.textContent = '剧本模式必须导入或选择剧本'; return }
+    const data = new FormData(form)
+    submitting = true; update()
     try {
-      const data = new FormData(form)
-      const input = { title: data.get('title').trim(), aspectRatio: data.get('aspect'), style: data.get('style').trim(),
-        ...(scriptAssetId ? { scriptAssetId } : {}) }
+      const input = { title: data.get('title').trim(), mode, aspectRatio: data.get('aspect'), style: data.get('style').trim(),
+        ...(mode === 'free' ? { premise: premise.value.trim() } : { scriptAssetId }) }
       await onCreated(input)
       dialog.close()
     } catch (failure) { error.textContent = failure.message }

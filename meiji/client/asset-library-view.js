@@ -1,4 +1,4 @@
-import { element, tabs } from './panel-dom.js'
+import { confirmPanel, element, tabs } from './panel-dom.js'
 import { request, assetUrl } from './panel-api.js'
 import { guidanceTypes } from '../shared/guidance-categories.js'
 
@@ -78,8 +78,10 @@ function assetLibrary(actions) {
         const remove = element('button', '删除', 'danger'); remove.type = 'button'
         remove.setAttribute('aria-label', `删除素材 ${asset.originalName}`)
         remove.onclick = async () => {
-          if (remove.disabled || !window.confirm(`确定从素材库移除「${asset.originalName}」？项目已有引用和原文件会保留。`)) return
-          remove.disabled = true; status.textContent = ''
+          if (remove.disabled) return
+          remove.disabled = true
+          if (!await confirmPanel(`确定从素材库移除「${asset.originalName}」？项目已有引用和原文件会保留。`)) { remove.disabled = false; return }
+          status.textContent = ''
           try {
             await actions.deleteLibrary(asset)
             status.textContent = `已从素材库移除「${asset.originalName}」，项目已有引用保留。`

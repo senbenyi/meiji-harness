@@ -14,7 +14,7 @@ function dom(t) {
   t.after(() => { Object.assign(globalThis, old); env.window.close() })
   return document.querySelector('main')
 }
-const project = () => ({ id: 'p', title: '来信', script: '原剧本', scriptKind: 'imported', scriptRevision: 1, scriptSource: 'import', scriptSections: { sections: [], future: '' }, scriptProposals: [], scriptPendingDeletes: [], summary: node('summary', '项目摘要'), episodes: [] })
+const project = () => ({ mode: 'script', id: 'p', title: '来信', script: '原剧本', scriptKind: 'imported', scriptRevision: 1, scriptSource: 'import', scriptSections: { sections: [], future: '' }, scriptProposals: [], scriptPendingDeletes: [], summary: node('summary', '项目摘要'), episodes: [] })
 const button = (root, text) => [...root.querySelectorAll('button')].find(item => item.textContent === text)
 
 test('导入剧本项目隐藏创作方向，保留剧本与摘要意见入口', async t => {
@@ -52,12 +52,12 @@ test('剧本正文保存必填说明，旧方案不可确认，任意版本对�
   assert.equal(button(view, '对比所选版本').disabled, false)
 })
 
-test('首集故事设想必填但不保存为创作方向，草稿携带本次要求', async t => {
-  const root = dom(t), p = { ...project(), script: '', scriptKind: 'assembled' }, calls = []
+test('自由模式本集要求选填且不改方向，草稿携带本次要求', async t => {
+  const root = dom(t), p = { ...project(), mode: 'free', premise: '人的创作方向', script: '', scriptKind: 'assembled' }, calls = []
   const open = episodeDialog(root, async (...args) => calls.push(args), async (...args) => { calls.push(args); return { summary: '新剧情' } })
   open(p, null)
   const dialog = root.querySelector('dialog'), form = dialog.querySelector('form')
-  assert.equal(form.elements.requirements.required, true); assert.equal(form.elements.savePremise, undefined)
+  assert.equal(form.elements.requirements.required, false); assert.equal(form.elements.savePremise, undefined)
   form.elements.requirements.value = '旧信引出往事'
   await button(dialog, 'AI 生成').onclick()
   assert.equal(calls[0][1].requirements, '旧信引出往事')
@@ -79,7 +79,7 @@ test('父保存成功后显示独立回写方案，先保留关闭而不重新�
 })
 
 test('无导入剧本的方向入口在自动回写后仍展示，编辑保存原有方向', async t => {
-  const root = dom(t), calls = [], p = { ...project(), scriptKind: 'assembled', premise: '长期寻找失踪家人', script: '首集已回写剧情' }
+  const root = dom(t), calls = [], p = { ...project(), mode: 'free', scriptKind: 'assembled', premise: '长期寻找失踪家人', script: '首集已回写剧情' }
   const open = premiseDialog(root, async (current, text) => calls.push([current.id, text]))
   const view = renderOverview(p, { openPremise: open }, {})
   root.append(view)
@@ -108,4 +108,26 @@ test('后台刷新保留尚未保存的正文和说明，新版本到来禁止�
   assert.equal(text.value, '未保存的新内容'); assert.match(view.textContent, /保存失败/)
   p.scriptRevision = 2; await view.refresh()
   assert.equal(text.value, '未保存的新内容'); assert.equal(button(view, '保存为新版本').disabled, true)
+})
+
+
+test('保存后的强制刷新被后台响应接续时仍显示新版本并解除旧版本警告', async t => {
+  const root = dom(t), p = project(), pending = []
+  let defer = false
+  const result = () => ({ project: structuredClone(p), versions: [], proposals: [] })
+  const view = renderScriptView(p, { back() {}, load: () => defer ? new Promise(resolve => pending.push(resolve)) : Promise.resolve(result()), perform: async () => {} })
+  root.append(view); await view.refresh()
+  const input = view.querySelector('[aria-label="剧本正文"]')
+  input.value = '已保存新正文'; input.dispatchEvent(new window.Event('input', { bubbles: true }))
+  p.scriptRevision = 2; p.script = '已保存新正文'
+  await view.refresh()
+  assert.equal(button(view, '保存为新版本').disabled, true)
+  defer = true
+  const saved = view.refresh(true), background = view.refresh()
+  pending[0](result()); await saved
+  pending[1](result()); await background
+  assert.equal(view.querySelector('[aria-label="剧本正文"]').value, p.script)
+  assert.match(view.textContent, /V2/)
+  assert.doesNotMatch(view.textContent, /未保存的输入已保留/)
+  assert.equal(button(view, '保存为新版本').disabled, false)
 })

@@ -61,14 +61,14 @@ export async function planningProject(home, op) {
 }
 export async function planTasks(home, op) {
   const definition = validateOperation(op)
-  if (op.sessionId && op.projectId) await linkStore(home).requireProject(op.sessionId, op.projectId)
+  if (op.sessionId && op.projectId && !(op.origin === 'panel' && op.action === 'project-delete')) await linkStore(home).requireProject(op.sessionId, op.projectId)
   const project = await planningProject(home, op)
   const root = op.projectId ? await projectStore(home).read(op.projectId) : null
   if (root && ['summary', 'story', 'project-summary', 'script-revise', 'episode-add'].includes(op.action)) {
     const blockers = scriptBlockers(root).filter(item => !(op.action === 'summary' && op.episodeId && item.episodeId === op.episodeId && ['episode-sync', 'proposal'].includes(item.kind)))
     if (blockers.length) throw Object.assign(new Error('剧本有待处理回写或方案，请处理后继续'), { status: 409, code: 'SCRIPT_PENDING', blockers })
   }
-  if (root && ['summary', 'episode-add'].includes(op.action) && isAiCreation(root) && !root.premise && !root.episodes.length && !String(op.requirements || op.fields?.requirements || '').trim()) throw Object.assign(new Error('首次生成请填写故事设想'), { status: 400 })
+  if (root && ['summary', 'episode-add'].includes(op.action) && isAiCreation(root) && !root.premise?.trim()) throw Object.assign(new Error('请先填写自由模式的 AI 创作方向'), { status: 400 })
   if (project?.episodeId && !op.episodeId) op.episodeId = project.episodeId
   await definition.precheck?.(project, op)
   if ((op.origin === 'session' && op.mode === 'generate' || op.action === 'images') && definition.completed?.(project, op)) return []

@@ -51,7 +51,7 @@ test('项目摘要1000字按非空白Unicode字符计数，不影响剧集摘要
 test('导入剧本创建不自动提取，按需提取摘要，有独立任务、原文提示词和项目快照', async t => {
   const calls = [], e = await setup(t, async message => { calls.push(message); return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '林舟送旧信，与陈阿婆找到记录，解开误会。' }) })
   const asset = await e.library.import('scripts', '来信.txt', stream(script))
-  const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', scriptAssetId: asset.id, style: '写实电影' }, enter: e.enter })
+  const place = await createProject({ home: e.home, tasks: e.manager, fields: { mode: 'script', title: '来信', scriptAssetId: asset.id, style: '写实电影' }, enter: e.enter })
   assert.equal(calls.length, 0); assert.equal(place.operationId, undefined)
   const result = await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done
   assert.equal(result.status, 'completed', JSON.stringify(result))
@@ -79,7 +79,7 @@ test('超长项目摘要自动修订，保存的摘要和历史版本均可追�
     calls.push(message)
     return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: calls.length === 1 ? '字'.repeat(1001) : '林舟送旧信，与陈阿婆解开误会。' })
   })
-  const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
+  const place = await createProject({ home: e.home, tasks: e.manager, fields: { mode: 'script', title: '来信', script }, enter: e.enter })
   const result = await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done
   assert.equal(result.status, 'completed', JSON.stringify(result))
   assert.equal(calls.length, 4)
@@ -95,7 +95,7 @@ test('超长项目摘要自动修订，保存的摘要和历史版本均可追�
 test('提取失败保留项目和剧本，可重试；无剧本创建不调用模型', async t => {
   let fail = true, calls = 0
   const e = await setup(t, async message => { calls++; if (fail) throw new Error('network'); return message.skill === 'review' ? reviewPass : '{"summary":"忠实摘要"}' })
-  const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
+  const place = await createProject({ home: e.home, tasks: e.manager, fields: { mode: 'script', title: '来信', script }, enter: e.enter })
   assert.equal((await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done).status, 'failed')
   const root = await e.store.read(place.projectId)
   assert.equal(root.script, script); assert.equal(root.summary.operation, null); assert.equal(root.summary.status, 'failed')
@@ -105,13 +105,13 @@ test('提取失败保留项目和剧本，可重试；无剧本创建不调用�
   assert.equal((await retry.done).status, 'completed')
   assert.equal((await e.store.read(root.id)).summary.error, null)
   const before = calls
-  const manual = await createProject({ home: e.home, tasks: e.manager, fields: { title: '无剧本', summary: '自行创作' }, enter: e.enter })
+  const manual = await createProject({ home: e.home, tasks: e.manager, fields: { mode: 'free', premise: '人的创作方向', title: '无剧本', summary: '自行创作' }, enter: e.enter })
   assert.equal(manual.operationId, undefined); assert.equal(calls, before)
 })
 
 test('语义审核失败仍保存提取稿，项目状态释放并保留失败原因', async t => {
   const e = await setup(t, async message => message.skill === 'review' ? reviewFail('遗漏结局') : '{"summary":"林舟送旧信。"}')
-  const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
+  const place = await createProject({ home: e.home, tasks: e.manager, fields: { mode: 'script', title: '来信', script }, enter: e.enter })
   const result = await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done
   assert.equal(result.status, 'review_failed')
   const root = await e.store.read(place.projectId)
@@ -121,12 +121,12 @@ test('语义审核失败仍保存提取稿，项目状态释放并保留失败�
 })
 
 test('有剧本提取与无剧本创作明确分开，前后集定位范围，不输入旧摘要', () => {
-  const project = { summary: { content: '项目背景' }, script, scriptKind: 'imported', episodes: [{ id: 'next', durationSeconds: 38, summary: { content: '道别' } }, { id: 'target', durationSeconds: 38, summary: { content: '旧稿不要用' } }, { id: 'first', durationSeconds: 38, summary: { content: '送信' } }] }
+  const project = { mode: 'script', summary: { content: '项目背景' }, script, scriptKind: 'imported', episodes: [{ id: 'next', durationSeconds: 38, summary: { content: '道别' } }, { id: 'target', durationSeconds: 38, summary: { content: '旧稿不要用' } }, { id: 'first', durationSeconds: 38, summary: { content: '送信' } }] }
   const prompts = buildEpisodePrompts(project, 'target')
   assert.match(prompts.generation.user, /前集定位已发生进度，后集约束结尾衔接/)
   assert.doesNotMatch(prompts.generation.user, /旧稿不要用/)
   assert.match(prompts.review('待审内容').system, /合理续写/)
-  const manual = buildEpisodePrompts({ ...project, script: '', scriptKind: 'assembled' }, 'target')
+  const manual = buildEpisodePrompts({ ...project, mode: 'free', premise: '人的创作方向', script: '', scriptKind: 'assembled' }, 'target')
   assert.match(manual.generation.user, /第 2 集/)
   assert.doesNotMatch(manual.generation.user, /【剧本】/)
   assert.match(manual.review('待审内容').system, /合理续写/)
@@ -162,7 +162,7 @@ test('面板创建导入剧本无后台任务，进入工作区后可实时查�
   assert.equal(importCode, 200)
   const [asset] = await e.library.list('scripts')
   assert.equal((await e.library.script(asset.id)).content, script)
-  const req = stream(JSON.stringify({ action: 'create', fields: { title: '来信', scriptAssetId: asset.id } }))
+  const req = stream(JSON.stringify({ action: 'create', fields: { mode: 'script', title: '来信', scriptAssetId: asset.id } }))
   Object.assign(req, { method: 'POST', url: '/plugins/meiji/turn', headers: { 'x-meiji-request': '1' } })
   let code, value
   await handler(req, { writeHead: status => { code = status }, end: text => { value = JSON.parse(text) } })
@@ -178,7 +178,7 @@ test('会话创建不启动提取任务，记录会话发起且绑定当前项�
   const asset = await e.library.import('scripts', '来信.txt', stream(script))
   const sessionId = 'session-22222222-2222-4222-8222-222222222222'
   const tool = projectManageTool({ home: e.home, tasks: e.manager, workspaceController: e.workspaceController })
-  const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '会话来信', scriptAssetId: asset.id } }, { agent: { session: { id: sessionId, append() {} } }, signal: new AbortController().signal }))
+  const created = JSON.parse(await tool.execute({ action: 'create', fields: { mode: 'script', title: '会话来信', scriptAssetId: asset.id } }, { agent: { session: { id: sessionId, append() {} } }, signal: new AbortController().signal }))
   assert.equal(created.status, 'completed'); assert.equal(created.operationId, undefined)
   assert.equal((await linkStore(e.home).projectForSession(sessionId)).projectId, created.projectId)
 })
@@ -190,7 +190,7 @@ test('停止提取释放项目占用，保留完整剧本且可再次发起', as
     enterRequest()
     return new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }))
   })
-  const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
+  const place = await createProject({ home: e.home, tasks: e.manager, fields: { mode: 'script', title: '来信', script }, enter: e.enter })
   const started = e.manager.start({ action: 'project-summary', projectId: place.projectId })
   await entered
   e.manager.cancel(started.id, place.projectId)

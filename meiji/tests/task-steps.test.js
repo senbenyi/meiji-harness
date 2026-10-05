@@ -260,7 +260,7 @@ test('review override: a new human task passes the current version, keeps the AI
 test('不同项目独立占用，任务按视频队列排队', async t => {
   const e = await setup(t), gate = Promise.withResolvers()
   const { episodeFixture } = await import('./fixtures/model.js')
-  const second = episodeFixture(), other = await e.store.create({ title: '另一项目' }); await e.store.save(other.id, { episodes: [second] })
+  const second = episodeFixture(), other = await e.store.create({ mode: 'free', premise: '人的创作方向', title: '另一项目' }); await e.store.save(other.id, { episodes: [second] })
   const manager = createOperationManager({ home:e.home, limitOf: () => 1, execute: async () => { await gate.promise; return [] } })
   const a=manager.start(e.op('film', { track:'S01', parts:'video' }))
   const b=manager.start(e.op('film', { projectId:other.id, episodeId:second.id, track:'S01', parts:'video' }))
@@ -276,7 +276,7 @@ test('不同项目独立占用，任务按视频队列排队', async t => {
 
 test('operation entry rejects another project before recording or generating and allows the selected project', async t => {
   const e = await setup(t), sessionId = `session-${randomUUID()}`
-  const other = await e.store.create({ title: '另一部剧', summary: '另一段故事' })
+  const other = await e.store.create({ mode: 'free', premise: '人的创作方向', title: '另一部剧', summary: '另一段故事' })
   const links = linkStore(e.home)
   await links.selectProject(sessionId, other.id, e.store)
   let calls = 0

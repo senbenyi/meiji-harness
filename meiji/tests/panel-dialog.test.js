@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
-import { showPanelDialog } from '../client/panel-dom.js'
+import { showPanelDialog, confirmPanel } from '../client/panel-dom.js'
 
 function setup(t) {
   const dom = new JSDOM('<main id="chat"><input></main><meiji-workbench></meiji-workbench>')
@@ -48,4 +48,20 @@ test('Escape closes only the last dialog and honors a prevented cancel', t => {
   showPanelDialog(first)
   e.escape()
   assert.equal(first.open, false)
+})
+
+
+test('面板确认可取消、Escape 和确认，保留会话输入且清理遮罩', async t => {
+  const e = setup(t)
+  for (const action of ['取消', 'Escape', '确认继续']) {
+    const result = confirmPanel('只移除素材列表，保留引用')
+    assert.equal(e.root.querySelectorAll('dialog').length, 1)
+    const chat = e.dom.window.document.querySelector('#chat input')
+    chat.focus(); assert.equal(e.dom.window.document.activeElement, chat)
+    if (action === 'Escape') e.escape()
+    else [...e.root.querySelectorAll('button')].find(button => button.textContent === action).click()
+    assert.equal(await result, action === '确认继续')
+    assert.equal(e.root.querySelector('dialog'), null)
+    assert.equal(e.root.querySelector('.panel-dialog-overlay'), null)
+  }
 })

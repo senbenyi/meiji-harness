@@ -24,9 +24,16 @@ export function validateProject(input) {
   if (!title || title.length > 100) throw new Error('短剧标题需为 1–100 字')
   if (summary.length > 10000) throw new Error('摘要最多 10000 字')
   if (script.length > 200000) throw new Error('剧本过长')
+  const mode = input?.mode ?? 'free'
+  const premise = typeof input?.premise === 'string' ? input.premise.trim() : ''
+  if (!['free', 'script'].includes(mode)) throw Object.assign(new Error('项目模式无效'), { status: 400 })
+  if (mode === 'free' && (!premise || [...premise.replace(/\s/g, '')].length > 1000)) throw Object.assign(new Error('自由模式的 AI 创作方向必填，最多 1000 字'), { status: 400 })
+  if (mode === 'free' && (script || input?.scriptAssetId)) throw Object.assign(new Error('自由模式不导入剧本，请选择剧本模式'), { status: 400 })
+  if (mode === 'script' && !script) throw Object.assign(new Error('剧本模式必须提供剧本'), { status: 400 })
+  if (mode === 'script' && premise) throw Object.assign(new Error('剧本模式不使用 AI 创作方向'), { status: 400 })
   const style = typeof input?.style === 'string' ? input.style.trim() : ''
   if (style.length > 120) throw new Error('风格需为 1–120 字')
-  const fields = { title, summary, script, style, aspectRatio: aspectRatioOf(input?.aspectRatio) }
+  const fields = { title, mode, premise, summary, script, style, aspectRatio: aspectRatioOf(input?.aspectRatio) }
   if (input?.scriptAssetId) fields.scriptAssetId = input.scriptAssetId
   if (input?.scriptName) fields.scriptName = input.scriptName
   if (input?.durationSeconds != null && input.durationSeconds !== '') fields.durationSeconds = durationOf(input.durationSeconds)
@@ -74,7 +81,7 @@ export function projectStore(home) {
         revision: 0,
         id: randomUUID(),
         ...fields,
-        premise: '', scriptKind: fields.script ? 'imported' : 'assembled', scriptSections: { sections: [], future: '' }, scriptRevision: 0,
+        scriptKind: fields.mode === 'script' ? 'imported' : 'assembled', scriptSections: { sections: [], future: '' }, scriptRevision: 0,
         scriptSource: null, scriptProposals: [], scriptPendingDeletes: [], library: { characters: [], scenes: [], props: [] },
         ...initialProjectStates(node('summary', fields.summary)),
         lifecycle: 'in-progress',

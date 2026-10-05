@@ -205,7 +205,7 @@ export function mount() {
       modelStore.accept(result.project)
     } catch (error) { onError(error); shell.status(error.message) }
   })
-  const bridge = createBridge({ request, jsonBody, showProject, onDeleted: () => follow(true), status: message => shell.status(message) })
+  const bridge = createBridge({ request, jsonBody, showProject, onDeleted: result => result.sessionId ? enterWorkspace(result) : follow(true), status: message => shell.status(message) })
   // 人工忽略自审：面板直接执行 review-override（会话工具不能发起）。
   shell.root.addEventListener('meiji-review-override', async event => {
     const { key, onError } = event.detail
@@ -315,7 +315,7 @@ export function mount() {
     },
     skillList,
     reviewImage: async (project, episodeId, draftId, action) => {
-      if (!confirmOperationDelete(rootProject(modelStore, project) || project, { action, episodeId, draftId })) { repaint(project); return project }
+      if (!await confirmOperationDelete(rootProject(modelStore, project) || project, { action, episodeId, draftId })) { repaint(project); return project }
       const result = await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId, action }) })
       imageGate = null
       showProject(result.project)
@@ -466,6 +466,7 @@ export function mount() {
     if (ticket !== navigation && !force) return
     const mark = projectRefreshMark(project)
     if (!force && next === shown && mark === shownMark) return
+    hold = false
     showProject(project, place.workspace)
   }
   const languageButton = shell.root.querySelector('.language')

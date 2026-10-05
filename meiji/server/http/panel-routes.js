@@ -308,7 +308,9 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
           }
           const sessionId = String(body.sessionId || '')
           if (!/^session-[0-9a-f-]{36}$/i.test(sessionId)) return json(res, 409, { error: '没有打开的会话，无法关联任务日志' })
-          if (body.projectId) await links.requireProject(sessionId, body.projectId)
+          const deleting = body.action === 'project-delete'
+          const selected = deleting ? await links.projectForSession(sessionId) : null
+          if (body.projectId && !deleting) await links.requireProject(sessionId, body.projectId)
           const project = body.projectId ? await projects.read(body.projectId) : null
           const staged = { ...body, projectId: project?.id, origin: 'panel' }
           if (['project-delete', 'episode-delete'].includes(staged.action) && tasks.list(project.id).length) {
@@ -319,7 +321,8 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs) {
             const started = tasks.start(staged, ctx.sessions.get(sessionId))
             const outcome = await started.done
             if (started.failure) throw started.failure
-            return json(res, 200, { accepted: true, completed: true, operationId: started.id, result: outcome.result, ...(staged.action === 'project-delete' ? { deleted: true } : project ? { project: await projects.read(project.id) } : {}) })
+            const next = deleting ? { deleted: true, ...(selected.projectId === project.id ? { workspace: null, sessionId: (await ctx.sessionController.create({})).sessionId } : {}) } : project ? { project: await projects.read(project.id) } : {}
+            return json(res, 200, { accepted: true, completed: true, operationId: started.id, result: outcome.result, ...next })
           }
           const started = await startPanelOperation({ ctx, manager: tasks, jobs, operation: staged })
           return json(res, 202, { accepted: true, ...started })

@@ -20,7 +20,7 @@ const supplements = { outline: '【本剧】大纲补充', shots: '【本剧】�
 // 剧集视图（与 materialize 结果同形）：本剧补充、启用的指导与指导素材在 skills（改造前的基线由按集字段生成，内容相同）。
 export function scenarioProject({ language = 'zh-CN', extras = true } = {}) {
   const episode = episodeFixture()
-  const view = { ...episode, id: 'project-1', episodeId: episode.id, title: '测试剧', aspectRatio: '1344x768', style: '写实电影', outputLanguage: language,
+  const view = { ...episode, id: 'project-1', episodeId: episode.id, mode: 'free', title: '测试剧', aspectRatio: '1344x768', style: '写实电影', outputLanguage: language,
     projectSummary: '旅人的冒险', script: '', episodeNumber: 1 }
   if (extras) {
     view.skills = { additions: Object.fromEntries(Object.entries({ outline: 'outline', shots: 'shots', seconds: 'seconds', storyboard: 'storyboard', film: 'video' }).map(([stage, id]) => [id, { generate: supplements[stage] }])),
@@ -30,7 +30,7 @@ export function scenarioProject({ language = 'zh-CN', extras = true } = {}) {
 }
 
 function root(view) {
-  return { title: view.title, summary: { content: view.projectSummary }, aspectRatio: view.aspectRatio, style: view.style, outputLanguage: view.outputLanguage, skills: view.skills,
+  return { mode: 'free', title: view.title, summary: { content: view.projectSummary }, aspectRatio: view.aspectRatio, style: view.style, outputLanguage: view.outputLanguage, skills: view.skills,
     episodes: [{ id: 'e1', summary: { content: '第一集摘要' }, durationSeconds: 60}] }
 }
 
@@ -69,7 +69,7 @@ export async function buildScenarios() {
     add('edited:outline', { review: buildEditedContentReview({ project: view, stage: 'outline' }, '【编辑后正文】') })
     add('image-prompt', text(buildTextPrompts({ skill: 'image-prompt', project: view, instructions: '原提示词：旅人\n新要求：换成夜景' })))
   })
-  const scripted = { ...root(view), scriptKind: 'imported', script: '旅人夜访庭院，敲门无人回应，读到旧友留下的信后离开。' }
+  const scripted = { ...root(view), mode: 'script', scriptKind: 'imported', script: '旅人夜访庭院，敲门无人回应，读到旧友留下的信后离开。' }
   inMode('regenerate', scripted, () => add('episode:script', text(buildEpisodePrompts(scripted, 'e1', 38))))
   inMode('modify', scripted, () => add('episode:script-modify', text(buildEpisodePrompts(scripted, 'e1', 38))))
   add('project-summary:extract', text(buildTextPrompts({ skill: 'project-summary', project: scripted })))

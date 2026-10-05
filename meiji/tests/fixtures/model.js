@@ -30,7 +30,7 @@ export async function tempHome(t) {
 }
 export async function setupModel(t) {
   const home = await mkdtemp('/tmp/meiji-model-test-'); t.after(() => rm(home, { recursive: true, force: true }))
-  const store = projectStore(home), project = await store.create({ title: '测试剧', summary: '旅人的冒险' }), episode = episodeFixture()
+  const store = projectStore(home), project = await store.create({ mode: 'free', premise: '旅人的冒险', title: '测试剧', summary: '旅人的冒险' }), episode = episodeFixture()
   await store.save(project.id, { episodes: [episode] })
   return { home, store, id: project.id, episodeId: episode.id, episode,
     op: (action, fields = {}) => ({ projectId: project.id, episodeId: episode.id, ...operationRequest(action, fields) }),

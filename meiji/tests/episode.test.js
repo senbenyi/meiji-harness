@@ -9,7 +9,7 @@ import { builtinSkill } from '../skills/load-skills.js'
 const episodePrompt = (project, episodeId) => new EpisodeSummaryModel({ project, episodeId, generationRules: builtinSkill('episode').constraints }).toMessages().map(message => message.content).join('\n')
 
 test('the first episode is written from the project summary and keeps the user-set duration', () => {
-  const prompt = episodePrompt({ title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
+  const prompt = episodePrompt({ mode: 'free', premise: '李伟穿越', title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
   assert.match(prompt, /依据 AI 创作方向与本次要求/)
   assert.match(prompt, /李伟穿越/)
   assert.match(prompt, /项目风格：写实电影/)

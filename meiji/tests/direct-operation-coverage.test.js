@@ -90,7 +90,7 @@ test('按标题打开项目绑定专属工作区，拒绝缺失和重名项目',
   assert.equal(Object.values(rows)[0].title, '测试剧')
   assert.match(trace.join('\n'), /专属工作区/)
   await assert.rejects(runOperation({ action: 'open', title: '不存在' }, deps), /没有找到/)
-  await e.store.create({ title: '测试剧', summary: '同名项目' })
+  await e.store.create({ mode: 'free', premise: '人的创作方向', title: '测试剧', summary: '同名项目' })
   await assert.rejects(runOperation({ action: 'open', title: '测试剧' }, deps), /同名短剧/)
 })
 

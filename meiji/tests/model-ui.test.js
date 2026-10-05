@@ -452,19 +452,23 @@ test('overview deletion buttons confirm, target the selected scope and do not op
  const { renderOverview } = await import('../client/project-overview-view.js')
  const container = domSetup(t), episode = episodeFixture()
  const project = { id: 'project', title: '测试', summary: { content: '摘要' }, episodes: [episode] }
- const calls = []; let opened = 0, confirmed = false
- window.confirm = () => confirmed
+ const calls = []; let opened = 0
+ window.HTMLDialogElement.prototype.show = function () { this.open = true }
+ window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')) }
  container.append(renderOverview(project, { perform: async (...args) => calls.push(args), fail: error => { throw error } }, { onOpenEpisode: () => opened++ }))
  const buttons = container.querySelectorAll('.delete-content')
  buttons[1].click()
  assert.equal(calls.length, 0)
- confirmed = true
+ document.querySelector('dialog button').click()
+ await Promise.resolve()
  buttons[1].click()
+ document.querySelectorAll('dialog button')[1].click()
  await Promise.resolve()
  assert.equal(calls[0][1], 'episode-delete')
  assert.equal(calls[0][2].episodeId, episode.id)
  assert.equal(opened, 0)
  buttons[0].click()
+ document.querySelectorAll('dialog button')[1].click()
  await Promise.resolve()
  assert.equal(calls[1][1], 'project-delete')
 })
@@ -683,10 +687,14 @@ test('failed text review offers a human override; an overridden node shows the o
  const container = domSetup(t), events = []
  container.addEventListener('meiji-review-override', event => events.push(event.detail.key))
  const doc = container.ownerDocument, button = () => doc.createElement('button')
- doc.defaultView.confirm = () => true
+ doc.defaultView.HTMLDialogElement.prototype.show = function () { this.open = true }
+ doc.defaultView.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new doc.defaultView.Event('close')) }
  const failed = { id: 'shots', review: { text: '', revision: 0 }, check: { passed: false, failures: ['位置：因果剧情；原因：节奏太快；修正要求：减少事件'] } }
  let area = appendWorkflowReview(container, failed, true, false, button())
  area.querySelector('.workflow-review-override').click()
+ assert.deepEqual(events, [])
+ doc.querySelectorAll('dialog button')[1].click()
+ await Promise.resolve()
  assert.deepEqual(events, ['shots'])
  container.replaceChildren()
  area = appendWorkflowReview(container, failed, true, true, button())

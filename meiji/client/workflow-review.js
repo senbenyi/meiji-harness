@@ -1,6 +1,6 @@
 import { GenerationStatus } from '../shared/drama-model.js'
 import { overridable, overriddenBy, uniqueFeedback } from '../shared/review-feedback.js'
-import { element } from './panel-dom.js'
+import { confirmPanel, element } from './panel-dom.js'
 
 export function appendWorkflowReview(parent, record, generated, busy = false, actionButton, { allowFailureOpinion = false } = {}) {
   const area = element('div', '', 'workflow-review workflow-review-panel')
@@ -34,8 +34,8 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     ignore = element('button', '忽略并通过', 'workflow-review-override')
     ignore.type = 'button'
     ignore.title = '不采纳本次自审意见，视为通过；原自审意见保留在记录中'
-    ignore.onclick = () => {
-      if (!window.confirm('确定忽略本次自审意见并视为通过？内容再次生成或修改后需重新自审。')) return
+    ignore.onclick = async () => {
+      if (!await confirmPanel('确定忽略本次自审意见并视为通过？内容再次生成或修改后需重新自审。')) return
       ignore.disabled = true
       ignore.dispatchEvent(new CustomEvent('meiji-review-override', { bubbles: true, composed: true, detail: { key: record.id, episodeId: area.dataset.episodeId, onError() { ignore.disabled = false } } }))
     }

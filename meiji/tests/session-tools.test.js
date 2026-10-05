@@ -106,7 +106,7 @@ test('session creates project using shared operation and selects it without affe
   const workspaceController = { create: async () => ({ workspace: { workspaceId, sessionIds: [] } }), rename: async () => {} }
   const tool = projectManageTool({ home: e.home, tasks: e.tasks, workspaceController })
   await assert.rejects(tool.execute({ action: 'create', fields: { title: '' } }, e.exec), /标题/)
-  const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '穿越成武松' } }, e.exec))
+  const created = JSON.parse(await tool.execute({ action: 'create', fields: { mode: 'free', premise: '人的创作方向', title: '穿越成武松' } }, e.exec))
   assert.equal(created.status, 'completed')
   assert.equal((await e.store.read(created.projectId)).episodes.length, 0)
   assert.equal((await linkStore(e.home).projectForSession(e.exec.agent.session.id)).projectId, created.projectId)
@@ -122,7 +122,7 @@ test('会话仅可读取有效创作方向，不提供修改方向工具', async
   assert.ok(!tool.parameters.properties.action.enum.includes('set-premise'))
   await assert.rejects(tool.execute({ action: 'set-premise', text: '模型改写' }, e.exec), /项目操作无效/)
   for (const scriptKind of ['assembled', 'imported']) {
-    await e.store.save(e.id, { scriptKind, premise: '人的方向' })
+    await e.store.save(e.id, { mode: scriptKind === 'assembled' ? 'free' : 'script', scriptKind, premise: '人的方向' })
     const result = JSON.parse(await contextQueryTool({ home: e.home, tasks: e.tasks }).execute({}, e.exec))
     assert.equal(result.current.premise, scriptKind === 'assembled' ? '人的方向' : '')
     assert.equal((await e.store.read(e.id)).premise, '人的方向')
@@ -138,7 +138,7 @@ test('未关联会话可创建或打开项目，绑定后拒绝跨项目且不�
   assert.equal(JSON.parse(await query.execute({}, exec)).current, null)
   const workspaceController = { create: async () => ({ workspace: { workspaceId } }), rename: async () => {} }
   const tool = projectManageTool({ home: e.home, tasks: e.tasks, workspaceController })
-  const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '打虎英雄武松' } }, exec))
+  const created = JSON.parse(await tool.execute({ action: 'create', fields: { mode: 'free', premise: '人的创作方向', title: '打虎英雄武松' } }, exec))
   assert.equal(created.title, '打虎英雄武松')
   assert.equal(JSON.parse(await query.execute({}, exec)).current.id, created.projectId)
   const before = await e.store.list()

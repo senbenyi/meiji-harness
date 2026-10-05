@@ -7,6 +7,7 @@ export const scriptSnapshot = project => ({ content: project.script || '', secti
 export async function writeScriptRevision(home, project, next, meta = {}) {
   next = { ...next, scriptKind: next.scriptKind || project.scriptKind, scriptSections: next.scriptSections || project.scriptSections }
   const revision = (project.scriptRevision || 0) + 1, content = next.script || ''
+  if (project.mode === 'script' && !content.trim()) throw Object.assign(new Error('剧本模式必须提供剧本'), { status: 400 })
   const old = project.script || ''
   let prefix = 0, suffix = 0
   while (prefix < Math.min(old.length, content.length) && old[prefix] === content[prefix]) prefix++

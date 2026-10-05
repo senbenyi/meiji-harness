@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { readProjectFile } from './project-files.js'
 
@@ -8,6 +8,15 @@ let workspaceTail = Promise.resolve()
 
 export function linkStore(home, controller) {
   return {
+    async forgetProject(projectId) {
+      const directory = join(home, 'storages', 'meiji', 'session-projects')
+      const files = await readdir(directory).catch(error => { if (error.code === 'ENOENT') return []; throw error })
+      for (const file of files) {
+        const path = join(directory, file)
+        const selected = JSON.parse(await readFile(path, 'utf8'))
+        if (selected.projectId === projectId) await rm(path, { force: true })
+      }
+    },
     async selectProject(sessionId, projectId, projects) {
       if (!sessionPattern.test(sessionId)) throw new Error('当前会话无效')
       await projects.read(projectId)

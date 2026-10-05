@@ -17,7 +17,7 @@ async function fixture(run) {
 
 test('create writes a unique UUID json file that a new store instance can read', () => fixture(async (store, home) => {
   assert.deepEqual(await store.list(), [])
-  const input = { title: ' 同名短剧 ', durationSeconds: 60, summary: '一个故事' }
+  const input = { mode: 'free', premise: '人的创作方向', title: ' 同名短剧 ', durationSeconds: 60, summary: '一个故事' }
   const [a, b] = await Promise.all([store.create(input), store.create(input)])
   assert.notEqual(a.id, b.id)
   assert.match(a.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
@@ -39,7 +39,7 @@ test('create writes a unique UUID json file that a new store instance can read',
 }))
 
 test('writeStep stores the outline and resets later stages', () => fixture(async store => {
-  const created = await store.create({ title: '天下无贼', durationSeconds: 45, summary: '摘要' })
+  const created = await store.create({ mode: 'free', premise: '人的创作方向', title: '天下无贼', durationSeconds: 45, summary: '摘要' })
   const ep = blankEpisode({ summary: '摘要', durationSeconds: 45 })
   await store.save(created.id, { episodes: [ep] })
   const scoped = scopeProjects(store, ep.id)
@@ -50,7 +50,7 @@ test('writeStep stores the outline and resets later stages', () => fixture(async
 }))
 
 test('list ignores junk files and read rejects unknown ids', () => fixture(async (store, home) => {
-  const created = await store.create({ title: '标题', durationSeconds: 12, summary: '摘要' })
+  const created = await store.create({ mode: 'free', premise: '人的创作方向', title: '标题', durationSeconds: 12, summary: '摘要' })
   const root = join(home, 'storages', 'meiji', 'projects')
   await mkdir(root, { recursive: true })
   await writeFile(join(root, 'not-a-uuid.json'), '{"id":"nope"}\n')
@@ -62,14 +62,14 @@ test('list ignores junk files and read rejects unknown ids', () => fixture(async
 }))
 
 test('reject incomplete or invalid project inputs', () => {
-  const input = { title: '标题', summary: '摘要', durationSeconds: 60 }
+  const input = { mode: 'free', premise: '人的创作方向', title: '标题', summary: '摘要', durationSeconds: 60 }
   for (const patch of [{ title: ' ' }, { durationSeconds: 0 }, { durationSeconds: 1.5 }, { durationSeconds: '60.5' }]) {
     assert.throws(() => validateProject({ ...input, ...patch }))
   }
-  assert.deepEqual(validateProject({ ...input, durationSeconds: '60' }), { title: '标题', durationSeconds: 60, summary: '摘要', script: '', style: '', aspectRatio: '1344x768' })
+  assert.deepEqual(validateProject({ ...input, durationSeconds: '60' }), { mode: 'free', premise: '人的创作方向', title: '标题', durationSeconds: 60, summary: '摘要', script: '', style: '', aspectRatio: '1344x768' })
   assert.equal(validateProject({ ...input, style: ' 写实电影 ' }).style, '写实电影')
   assert.throws(() => validateProject({ ...input, style: '风'.repeat(121) }))
-  assert.equal(validateProject({ title: '标题', summary: '摘要' }).durationSeconds, undefined)
+  assert.equal(validateProject({ premise: '人的创作方向', title: '标题', summary: '摘要' }).durationSeconds, undefined)
   assert.equal(validateProject({ ...input, aspectRatio: '768x1344' }).aspectRatio, '768x1344')
   assert.equal(validateProject({ ...input, aspectRatio: '9:16' }).aspectRatio, '768x1344')
   assert.throws(() => validateProject({ ...input, aspectRatio: '3:4' }))
@@ -79,7 +79,7 @@ test('reject incomplete or invalid project inputs', () => {
 // 存储布局 v2：项目索引 + 每集一个文件；只重写有变化的剧集，提交后清理旧文件。
 test('saving one episode rewrites only that episode file and cleans superseded files', () => fixture(async (store, home) => {
   const { readdir } = await import('node:fs/promises')
-  const created = await store.create({ title: '分集', summary: '摘要' })
+  const created = await store.create({ mode: 'free', premise: '人的创作方向', title: '分集', summary: '摘要' })
   const a = blankEpisode({ summary: '第一集', durationSeconds: 10 }), b = blankEpisode({ summary: '第二集', durationSeconds: 10 })
   await store.save(created.id, { episodes: [a, b] })
   const index = async () => JSON.parse(await readFile(join(home, 'storages', 'meiji', 'projects', created.id + '.json'), 'utf8'))
@@ -99,7 +99,7 @@ test('saving one episode rewrites only that episode file and cleans superseded f
 
 test('an interrupted save leaves the previous version readable and its orphan is cleaned later', () => fixture(async (store, home) => {
   const { readdir } = await import('node:fs/promises')
-  const created = await store.create({ title: '中断', summary: '摘要' })
+  const created = await store.create({ mode: 'free', premise: '人的创作方向', title: '中断', summary: '摘要' })
   const episode = blankEpisode({ summary: '原内容', durationSeconds: 10 })
   await store.save(created.id, { episodes: [episode] })
   const dir = join(home, 'storages', 'meiji', 'projects', created.id, 'episodes')
@@ -111,7 +111,7 @@ test('an interrupted save leaves the previous version readable and its orphan is
 }))
 
 test('an old single-file project is rejected with the migration command', () => fixture(async (store, home) => {
-  const created = await store.create({ title: '旧布局', summary: '摘要' })
+  const created = await store.create({ mode: 'free', premise: '人的创作方向', title: '旧布局', summary: '摘要' })
   const file = join(home, 'storages', 'meiji', 'projects', created.id + '.json')
   const { layout, ...old } = JSON.parse(await readFile(file, 'utf8'))
   await writeFile(file, JSON.stringify({ ...old, episodes: [] }))

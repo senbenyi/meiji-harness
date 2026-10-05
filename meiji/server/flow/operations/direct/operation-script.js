@@ -11,9 +11,9 @@ async function run({ home, project, operation, rootProjects, trace }) {
     trace.result = { pendingProposal: id }; return trace
   }
   if (operation.action === 'premise-edit') {
-    if (!isAiCreation(project)) throw Object.assign(new Error('导入剧本的项目不使用 AI 创作方向'), { status: 400 })
+    if (!isAiCreation(project)) throw Object.assign(new Error('剧本模式不使用 AI 创作方向'), { status: 400 })
     const premise = String(operation.text || '').trim()
-    if ([...premise.replace(/\s/g, '')].length > 1000) throw Object.assign(new Error('AI 创作方向最多 1000 字'), { status: 400 })
+    if (!premise || [...premise.replace(/\s/g, '')].length > 1000) throw Object.assign(new Error('自由模式的 AI 创作方向必填，最多 1000 字'), { status: 400 })
     await rootProjects.save(project.id, { premise }); return trace
   }
   if (operation.action === 'script-proposal-confirm' || operation.action === 'script-proposal-discard') await store.resolve(project.id, operation.proposalId, operation.action === 'script-proposal-confirm' ? operation.selected || [] : [])

@@ -5,11 +5,18 @@ import { checkContext } from '../../../runtime/operation-context.js'
 import { recordStore } from '../../../data/task-store.js'
 import { cascade } from '../../../../shared/pipeline-cascade.js'
 import { readImageDraft } from '../../../data/image-storage.js'
+import { linkStore } from '../../../data/workspace-links.js'
 
 // if (['project-delete', 'episode-delete'].includes(operation.action))
 export async function opProjectDelete(c) {
-  let { operation, home, storedProjects, rootProjects, project, trace, note } = c
+  let { operation, deps, home, storedProjects, rootProjects, project, trace, note } = c
   if (operation.action === 'project-delete') {
+    if (project.workspaceId) {
+      if (!deps.workspaceController?.delete) throw Object.assign(new Error('工作区服务不可用'), { status: 503 })
+      try { await deps.workspaceController.delete({ workspaceId: project.workspaceId }) }
+      catch (error) { if (error.code !== 'workspace/not-found') throw error }
+    }
+    await linkStore(home).forgetProject(project.id)
     await storedProjects.remove(project.id)
   } else {
     const episode = project.episodes.find(item => item.id === operation.episodeId)

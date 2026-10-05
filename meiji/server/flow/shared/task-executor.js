@@ -27,7 +27,7 @@ export async function executeTask(operation, deps) {
   const context = { review: '', operationId: deps.operationId, taskId, taskType: task.type, signal: deps.signal,
     requirements: operation.requirements || '', requestedMode: operation.mode, maxRevisions: task.maxRevisions, baseline: deps.baseline }
   try {
-    if (operation.sessionId && operation.projectId) await linkStore(deps.home).requireProject(operation.sessionId, operation.projectId)
+    if (operation.sessionId && operation.projectId && !(operation.origin === 'panel' && operation.action === 'project-delete')) await linkStore(deps.home).requireProject(operation.sessionId, operation.projectId)
     state.execution = await startExecution(deps.home, operation, taskId, task.plan, { operationId: deps.operationId, type: task.type, label: task.label, targets: task.targets, actor: task.actor, maxRevisions: task.maxRevisions, stage: task.target?.split(':')[0] })
     if (state.execution) state.execution.signal = deps.signal
     return await executionContext.run(state.execution, () => checkContext.run(context, async () => {

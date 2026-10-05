@@ -28,7 +28,7 @@ export function contextQueryTool({ home, tasks }) {
       const episode = args.episodeNumber ? [...(project?.episodes || [])].reverse()[args.episodeNumber - 1] : undefined
       if (args.episodeNumber !== undefined && (!Number.isInteger(args.episodeNumber) || !episode)) throw new Error('目标剧集不存在')
       return JSON.stringify({ ...(episode ? { episode } : {}), projects: projects.map(item => ({ id: item.id, title: item.title })), current: project ? {
-        id: project.id, title: project.title, summary: project.summary.content, premise: creativeDirection(project),
+        id: project.id, title: project.title, mode: project.mode, summary: project.summary.content, premise: creativeDirection(project),
         script: { kind: project.scriptKind, revision: project.scriptRevision, proposals: project.scriptProposals.filter(item => item.status === 'pending'), blockers: scriptBlockers(project), ...scriptFreshness(project) },
         library: Object.fromEntries(['characters', 'scenes', 'props'].map(kind => [kind, libraryDirectory(project, kind)])),
         images: { missing: project.episodes.flatMap(episode => imageItems(project, episode).filter(item => !item.ready).map(({ card, ...item }) => ({ ...item, episodeId: episode.id }))) },

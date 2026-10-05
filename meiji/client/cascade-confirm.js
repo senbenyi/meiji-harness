@@ -1,7 +1,8 @@
+import { confirmPanel } from './panel-dom.js'
 import { libraryLinks, libraryKinds } from '../shared/library-rules.js'
 import { operationDeletes } from '../shared/operation-cascade.js'
 
-export function confirmOperationDelete(project, operation, confirm = message => window.confirm(message)) {
+export function confirmOperationDelete(project, operation, confirm = confirmPanel) {
   const deletes = operationDeletes(project, operation)
   if (operation.confirmDelete === true) return true
   const source = project.episodes?.find(episode => episode.id === operation.episodeId), itemId = operation.itemId || source?.pendingImages?.[operation.draftId]?.itemId

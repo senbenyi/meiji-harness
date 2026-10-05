@@ -2,7 +2,7 @@ import { defaultReferenceDuration, referenceDuration, summaryLength, episodeSumm
 import { renderSteps, taskStatusLabels } from './task-nodes.js'
 import { renderTaskHistory, historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
-import { showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
+import { confirmPanel, showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
 import { scriptFreshness, episodeHints, isAiCreation } from '../shared/script-assembly.js'
 import { bindStylePicker } from './style-picks.js'
 
@@ -28,7 +28,7 @@ export function collectCharacters(project) {
 export function episodeWork(project, episodeId) {
   const episode = (project?.episodes || []).find(item => item.id === episodeId)
   if (!episode) return null
-  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, projectSummary: project.summary.content, scriptHints: episodeHints(project, episode), pendingScriptProposal: (project.scriptProposals || []).some(item => item.status === 'pending' && item.episodeId === episode.id), skills: project.skills, revision: project.revision }
+  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, mode: project.mode, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, projectSummary: project.summary.content, scriptHints: episodeHints(project, episode), pendingScriptProposal: (project.scriptProposals || []).some(item => item.status === 'pending' && item.episodeId === episode.id), skills: project.skills, revision: project.revision }
 
 }
 
@@ -62,7 +62,7 @@ function deleteButton(project, actions, episode, number) {
     event.stopPropagation()
     if (button.disabled) return
     const target = episode ? `第 ${number} 集` : `项目《${project.title}》`
-    if (!window.confirm(`确定删除${target}？将删除剧情数据及本地视频，此操作无法撤销。`)) return
+    if (!await confirmPanel(`确定删除${target}？将删除剧情数据及本地视频${episode ? '' : '，并删除对应工作区（保留会话记录）'}，此操作无法撤销。`)) return
     button.disabled = true
     try {
       await actions.perform(project, episode ? 'episode-delete' : 'project-delete', episode ? { episodeId: episode.id, confirmDelete: true } : { confirmDelete: true })
@@ -73,6 +73,7 @@ function deleteButton(project, actions, episode, number) {
 
 export function renderOverview(project, actions, context) {
   const page = element('div', '', 'overview-page')
+  page.append(element('p', project.mode === 'free' ? '自由模式' : '剧本模式', 'meta project-mode'))
   const titleRow = element('div', '', 'title-with-edit')
   titleRow.append(element('h2', project.title || '项目概要'))
   const edit = element('button', '', 'icon-edit')
@@ -93,7 +94,7 @@ export function renderOverview(project, actions, context) {
 
   if (isAiCreation(project)) {
     const premiseCard = element('article', '', 'overview-card')
-    premiseCard.append(element('h3', 'AI 创作方向'), preview(project.premise || '填写题材、人物、核心冲突或希望推进的故事方向。'), element('p', '由你手动编辑，持续指导每一集摘要的 AI 创作；修改后用于后续生成，保留已发生剧情。', 'meta'))
+    premiseCard.append(element('h3', 'AI 创作方向'), preview(project.premise || '请填写 AI 创作方向后开始制作。'), element('p', '由你手动编辑，持续指导每一集摘要的 AI 创作；修改后用于后续生成，保留已发生剧情。', 'meta'))
     const premiseEdit = element('button', '编辑创作方向')
     premiseEdit.disabled = Boolean(project.projectBusy)
     premiseEdit.onclick = () => actions.openPremise?.(project)
@@ -345,10 +346,9 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
     form.elements.duration.value = String(currentEpisode?.durationSeconds ?? defaultReferenceDuration)
     form.elements.summary.value = currentEpisode?.summary?.content || ''
-    const first = isAiCreation(project) && !project.premise && !project.episodes?.length
-    form.elements.requirements.required = first
+    form.elements.requirements.required = false
     form.elements.requirements.value = ''
-    dialog.querySelector('label[for=episode-requirements]').textContent = first ? '故事设想（必填）' : '本次要求（选填）'
+    dialog.querySelector('label[for=episode-requirements]').textContent = '本次要求（选填）'
     updateCount()
     error.textContent = ''
     showPanelDialog(dialog)
@@ -358,9 +358,9 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
 export function premiseDialog(root, onSaved) {
   const dialog = element('dialog'), form = element('form'), text = element('textarea'), error = element('p', '', 'error'), save = element('button', '保存'), cancel = element('button', '取消')
   let current
-  text.setAttribute('aria-label', 'AI 创作方向'); text.maxLength = 1000
+  text.setAttribute('aria-label', 'AI 创作方向'); text.maxLength = 1000; text.required = true
   cancel.type = 'button'; cancel.onclick = () => dialog.close()
   form.append(element('h2', '编辑 AI 创作方向'), element('p', '用于每一集摘要的 AI 创作，不限于首集。最多 1000 字；本次要求和已发生剧情优先。'), text, error, cancel, save); dialog.append(form); root.append(dialog)
-  form.onsubmit = async event => { event.preventDefault(); save.disabled = true; try { await onSaved(current, text.value.trim()); dialog.close() } catch (failure) { error.textContent = failure.message } finally { save.disabled = false } }
+  form.onsubmit = async event => { event.preventDefault(); if (!text.value.trim()) { error.textContent = 'AI 创作方向必填'; return }; save.disabled = true; try { await onSaved(current, text.value.trim()); dialog.close() } catch (failure) { error.textContent = failure.message } finally { save.disabled = false } }
   return project => { current = project; text.value = project.premise || ''; error.textContent = ''; showPanelDialog(dialog) }
 }

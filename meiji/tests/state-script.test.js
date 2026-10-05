@@ -10,7 +10,7 @@ import { reviewPass } from './fixtures/review-result.js'
 import { opProjectDelete } from '../server/flow/operations/direct/operation-project-delete.js'
 
 test('导入为第一版，恢复生成新版本，孤立版本不可见', async t => {
-  const home = await tempHome(t), projects = projectStore(home), p = await projects.create({ title: '导入', script: '最初剧本' }), store = scriptStore(home, projects)
+  const home = await tempHome(t), projects = projectStore(home), p = await projects.create({ mode: 'script', title: '导入', script: '最初剧本' }), store = scriptStore(home, projects)
   assert.equal(p.schemaVersion, 3); assert.equal(p.scriptRevision, 1)
   await store.commit(p.id, { script: '新剧本' }, { baseRevision: 1, note: '人工改稿' })
   await store.restore(p.id, 1, '恢复首稿')

@@ -29,6 +29,7 @@ async function fixture(fn) {
       if (!id) { id = randomUUID(); rows[id] = { path, title: id, sessionIds: [] }; await persist() }
       return { workspace: { workspaceId: id, ...rows[id] } }
     },
+    async delete({ workspaceId }) { delete rows[workspaceId]; return { deleted: true } },
     async rename({ workspaceId, title }) {
       if (Object.entries(rows).some(([id, row]) => id !== workspaceId && row.title === title)) throw Object.assign(new Error('name-conflict'), { code: 'workspace/name-conflict' })
       rows[workspaceId].title = title
@@ -37,7 +38,7 @@ async function fixture(fn) {
   }
   await persist()
   const projects = projectStore(home)
-  const create = title => projects.create({ title, summary: '短剧摘要' })
+  const create = title => projects.create({ mode: 'free', premise: '人的创作方向', title, summary: '短剧摘要' })
   try { await fn({ home, rows, archived, persist, controller, projects, create, links: linkStore(home, controller) }) }
   finally { setWorkspaceRegistry(null); await rm(home, { recursive: true, force: true }) }
 }
@@ -95,14 +96,17 @@ test('HTTP selection binds current session, creates one only when absent, and re
   const { registerPanel } = await import('../server/http/panel-routes.js')
   const { createOperationManager } = await import('../server/flow/operations/operation-manager.js')
   let handler, manager
+  const sessionCreates = []
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
   try {
     registerPanel({
       workspaceController: controller,
-      sessionController: { async create({ workspaceId }) {
+      sessionController: { async create(input) {
+        sessionCreates.push(input)
+        const { workspaceId } = input
         const id = `session-${randomUUID()}`
-        rows[workspaceId].sessionIds.push(id)
+        if (workspaceId) rows[workspaceId].sessionIds.push(id)
         await persist()
         return { sessionId: id }
       } },
@@ -172,9 +176,37 @@ test('HTTP selection binds current session, creates one only when absent, and re
   assert.equal(invalid.status, 400)
   const rejected = await call('turn', { action: 'overview', projectId: project.id, sessionId })
   assert.equal(rejected.status, 409)
-  const created = await call('turn', { action: 'create', fields: { title: '新建短剧', summary: '新的剧情' } })
+  const created = await call('turn', { action: 'create', fields: { mode: 'free', premise: '人的创作方向', title: '新建短剧', summary: '新的剧情' } })
   assert.equal(created.status, 201)
   assert.notEqual(created.workspace.id, first.workspace.id)
   assert.equal((await projects.read(created.projectId)).workspaceId, created.workspace.id)
+  const other = await create('待删除的其他项目')
+  const otherPlace = await linkStore(home, controller).ensureProject(other.id, projects)
+  const beforeOtherDelete = sessionCreates.length
+  const otherDeleted = await call('turn', { action: 'project-delete', projectId: other.id, sessionId: first.sessionId, confirmDelete: true })
+  assert.equal(otherDeleted.status, 200); assert.equal(otherDeleted.deleted, true)
+  assert.equal(otherDeleted.sessionId, undefined); assert.equal(sessionCreates.length, beforeOtherDelete)
+  assert.equal(rows[otherPlace.workspace.workspaceId], undefined)
+  assert.equal((await linkStore(home).projectForSession(first.sessionId)).projectId, project.id)
+  const actualDelete = controller.delete
+  controller.delete = async () => { throw new Error('工作区服务失败') }
+  const failed = await call('turn', { action: 'project-delete', projectId: project.id, sessionId: first.sessionId, confirmDelete: true })
+  assert.equal(failed.deleted, undefined); assert.equal(failed.sessionId, undefined)
+  assert.equal(sessionCreates.length, beforeOtherDelete); assert.ok(await projects.read(project.id))
+  controller.delete = actualDelete
+  const countBeforeDelete = sessionCreates.length
+  const deleted = await call('turn', { action: 'project-delete', projectId: project.id, sessionId: first.sessionId, confirmDelete: true })
+  assert.equal(deleted.status, 200); assert.equal(deleted.deleted, true)
+  assert.notEqual(deleted.sessionId, first.sessionId); assert.equal(deleted.workspace, null)
+  assert.equal(sessionCreates.length, countBeforeDelete + 1); assert.deepEqual(sessionCreates.at(-1), {})
+  assert.equal(rows[first.workspace.id], undefined); assert.ok(rows[created.workspace.id])
+  assert.deepEqual(await linkStore(home).projectForSession(deleted.sessionId), { projectId: null, workspace: null })
+  assert.deepEqual(await linkStore(home).projectForSession(first.sessionId), { projectId: null, workspace: null })
+  await assert.rejects(projects.read(project.id), { status: 404 })
+  const beforeUnboundDelete = sessionCreates.length
+  const unboundDeleted = await call('turn', { action: 'project-delete', projectId: created.projectId, sessionId: deleted.sessionId, confirmDelete: true })
+  assert.equal(unboundDeleted.status, 200); assert.equal(unboundDeleted.deleted, true)
+  assert.equal(unboundDeleted.sessionId, undefined); assert.equal(sessionCreates.length, beforeUnboundDelete)
+
   assert.deepEqual(rows[oldId].sessionIds, [sessionId])
 }))
