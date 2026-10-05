@@ -2,6 +2,7 @@
 import { textNodes } from '../../../shared/task-nodes.js'
 import { imageSteps, videoSteps, storyboardSteps } from '../../../shared/task-plans.js'
 import { runSummary } from './text/task-summary.js'
+import { runProjectSummary } from './text/task-project-summary.js'
 import { runOutline } from './text/task-outline.js'
 import { runCharacters } from './text/task-characters.js'
 import { runScenes } from './text/task-scenes.js'
@@ -19,6 +20,7 @@ import { runSave } from './text/task-save.js'
 const text = (label, run, action, target) => ({ label, run, queue: 'text', maxRevisions: 2, stage: 'episode', action, target, nodes: op => textNodes(typeof target === 'function' ? target(op) : target) })
 const image = (label, run) => ({ label, run, queue: 'image', maxRevisions: 0, stage: 'episode', action: 'image', target: op => `image:${op.itemId}`, nodes: op => imageSteps(`image:${op.itemId}`) })
 export const taskRegistry = {
+  'project-summary': { ...text('项目摘要', runProjectSummary, 'project-summary', 'project-summary'), stage: 'project' },
   summary: { ...text('摘要', runSummary, 'episode-generate', 'summary'), stage: 'project', nodes: op => [...textNodes('summary'), ...(op.draft ? [{ kind: 'save', target: 'summary-draft' }] : [])] },
   outline: text('大纲', runOutline, 'outline', 'outline'),
   characters: text('人物角色', runCharacters, 'characters', 'characters'),

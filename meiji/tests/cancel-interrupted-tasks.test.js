@@ -14,6 +14,20 @@ test('restart cancels orphaned operations, keeps generated content and records t
  assert.equal(v.content.error,`${RESTART_CANCELLED}；网关不提供取消接口，远端任务（remote）可能仍在运行`)
 })
 
+test('restart cancels project-summary extraction and preserves script and saved summary for retry', async t => {
+  const e = await setupModel(t)
+  await e.store.save(e.id, p => { p.script = '完整原始剧本'; begin(p.summary, { id: 'orphan-project-summary' }); return p })
+  await interruptRunning(e.store)
+  const project = await e.store.read(e.id)
+  assert.equal(project.script, '完整原始剧本')
+  assert.equal(project.summary.content, '旅人的冒险')
+  assert.equal(project.summary.operation, null)
+  assert.equal(project.summary.status, 'failed')
+  assert.equal(project.summary.error, RESTART_CANCELLED)
+  begin(project.summary, { id: 'retry' })
+  assert.equal(project.summary.status, 'generating')
+})
+
  test('restart cancels unfinished text work, keeps opinion and content; explicit regeneration can pass', async t => {
  const e = await setupModel(t)
  await e.store.save(e.id, p => { const n=p.episodes[0].shots.items[0].seconds; n.review.text='保留意见'; begin(n,{id:'restart'}); return p })

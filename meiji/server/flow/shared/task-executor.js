@@ -115,6 +115,13 @@ async function releaseOperation({ operation, deps, operationId, context, state }
   await projectStore(deps.home).save(operation.projectId, current => {
     const next = structuredClone(current)
     let changed = false
+    if (next.summary.operation?.id === operationId) {
+      if (restoreOriginal && context.originalRoot?.summary.content) next.summary = structuredClone(context.originalRoot.summary)
+      else if ((state.failure && state.failure.code !== 'CONTENT_CHECK_FAILED') || deps.signal?.aborted) markFailed(next.summary, state.failure?.message || '任务已停止，请重新发起')
+      else if (next.summary.check?.passed != null) settleByCheck(next.summary)
+      else markFailed(next.summary, state.failure?.message || '任务已停止，请重新发起')
+      changed = true
+    }
     for (const episode of next.episodes) {
       if (restoreOriginal) {
         const original = context.originalRoot?.episodes.find(item => item.id === episode.id)

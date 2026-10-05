@@ -1,5 +1,6 @@
 // 仅选择接口，不提供默认模板，也不补充语言、技能或协议。
 import episode from './episode-summary-interface.js'
+import projectSummary from './project-summary-interface.js'
 import outline from './story-content-interface.js'
 import { stepInterface } from '../models/text-step-model.js'
 import { TextStoryboardModel } from '../models/text-storyboard-model.js'
@@ -9,7 +10,7 @@ import { PartImageModel } from '../models/part-image-model.js'
 
 // 镜头表、每秒指令、单镜修订、图片提示词改写共用 TextStepModel；文本分镜由程序生成，模型只审核。
 const textInterfaces = {
-  episode, outline,
+  episode, outline, 'project-summary': projectSummary,
   shots: stepInterface(() => 'shots'),
   'shot-revise': stepInterface(() => 'shot-revise'),
   seconds: stepInterface(() => 'shot-seconds'),

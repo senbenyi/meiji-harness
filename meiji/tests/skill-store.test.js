@@ -60,7 +60,7 @@ test('skill HTTP endpoints: library, detail, confirmed base save, reset and prev
   assert.deepEqual(cleared.items, [])
   const library = await call('GET', 'skills')
   assert.equal(library.status, 200)
-  assert.equal(library.skills.length, 10)
+  assert.equal(library.skills.length, 11)
   assert.ok(library.skills.every(skill => skill.id !== 'text-shot'))
   assert.ok(library.skills.every(skill => skill.id !== 'image-prompt'))
   const detail = await call('GET', `skills/storyboard?projectId=${e.id}&sessionId=${sessionId}`)

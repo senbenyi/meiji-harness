@@ -26,6 +26,7 @@ import { operations as actionsStoryOutlineText } from './direct/operation-outlin
 import { operations as actionsStoryPropDelete } from './direct/operation-prop-delete.js'
 import { operations as actionsStorySceneText } from './direct/operation-scene-edit.js'
 import { operation as summary } from './generate/operation-summary.js'
+import { operation as projectSummary } from './generate/operation-project-summary.js'
 import { operation as story } from './generate/operation-story.js'
 import { operation as character_image } from './generate/operation-character-image.js'
 import { operation as scene_image } from './generate/operation-scene-image.js'
@@ -34,7 +35,7 @@ import { operation as shot_table } from './generate/operation-shot-table.js'
 import { operation as seconds } from './generate/operation-seconds.js'
 import { operation as film } from './generate/operation-film.js'
 const direct = { ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
-export const operations = { ...Object.fromEntries(Object.entries(direct).map(([id, value]) => [id, { ...value, kind: 'direct', actor: 'human' }])), summary, story, 'character-image': character_image, 'scene-image': scene_image, 'prop-image': prop_image, 'shot-table': shot_table, seconds, film }
+export const operations = { ...Object.fromEntries(Object.entries(direct).map(([id, value]) => [id, { ...value, kind: 'direct', actor: 'human' }])), summary, 'project-summary': projectSummary, story, 'character-image': character_image, 'scene-image': scene_image, 'prop-image': prop_image, 'shot-table': shot_table, seconds, film }
 export const labels = Object.fromEntries(Object.entries(operations).map(([id, value]) => [id, value.label]))
 export function operationLabel(op) { return `${labels[op.action] || op.action}${op.track ? ' ' + op.track : ''}${op.only ? '·' + op.only : ''}${op.draft ? '·草稿' : ''}${op.parts ? '·' + op.parts : ''}` }
 export function validateOperation(op) {

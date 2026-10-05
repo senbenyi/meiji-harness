@@ -31,7 +31,7 @@ export function episodeModel(id, fields) {
 }
 export function targetNode(project, key) {
   const [kind, id, slot] = key.split(':')
-  if (kind === 'summary') return project.summary
+  if (kind === 'summary' || kind === 'project-summary') return project.summary
   if (kind === 'plot') return project.plot
   if (kind === 'outline') return project.plot?.outline
   if (kind === 'characters' || kind === 'scenes' || kind === 'props') {

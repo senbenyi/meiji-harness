@@ -3,8 +3,14 @@ import { linkStore } from '../../../data/workspace-links.js'
 
 // if (operation.action === 'create')
 export async function opCreate(c) {
-  let { operation, deps, home, projects, trace, note } = c
-  const created = await projects.create(operation.fields)
+  let { operation, deps, home, projects, library, trace, note } = c
+  let fields = { ...operation.fields }
+  if (fields.scriptAssetId) {
+    const script = await library.script(fields.scriptAssetId)
+    fields = { ...fields, script: script.content, scriptName: script.originalName }
+  }
+  if (fields.script?.trim()) fields.summary = ''
+  const created = await projects.create(fields)
   await linkStore(home, deps.workspaceController).ensureProject(created.id, projects)
   note(`请在片库选择《${created.title}》，进入它的专属工作区`)
   note(`已创建项目 ${created.title}`)

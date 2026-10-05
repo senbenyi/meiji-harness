@@ -11,11 +11,11 @@
 
 ## 强制要求
 
-凡修改 `meiji/` 下代码、配置、skill 或测试（`meiji/docs/`、`meiji/reports/` 除外），必须先读上述两份文档，按 `meiji-dev.md` 第 11 节判定档位，再按 `development.md` 执行：在回复开头写明档位，改代码前必须已有 `docs/plans/计划-*.md`，完成后 `cd meiji && npm test` 不得新增失败。
+凡修改 `meiji/` 下代码、配置、skill 或测试（`meiji/docs/`、`meiji/reports/` 除外），必须先读上述两份文档，按 `meiji-dev.md` 第 11 节判定档位，再按 `development.md` 执行：在回复开头写明档位，改代码前必须已有 `docs/plans/MMDD-计划-*.md`（命名见 `development.md` 第 1 节），完成后 `cd meiji && npm test` 不得新增失败。
 
 Claude Code 通过 `.claude/settings.json` 注册的 `.claude/guard.mjs` 强制执行：
 - **UserPromptSubmit**：每条消息注入流程提醒。
-- **PreToolUse**（Edit / Write / MultiEdit / NotebookEdit）：改 `meiji/` 下文件时，若 `docs/plans/` 中 24 小时内没有更新过的 `计划-*.md`，拒绝修改。
+- **PreToolUse**（Edit / Write / MultiEdit / NotebookEdit）：改 `meiji/` 下文件时，若 `docs/plans/` 中 24 小时内没有更新过的 `MMDD-计划-*.md`，拒绝修改。
 
 ## 通用要求
 

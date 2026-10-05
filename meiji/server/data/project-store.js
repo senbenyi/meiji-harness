@@ -19,11 +19,13 @@ export function validateProject(input) {
   const summary = typeof input?.summary === 'string' ? input.summary.trim() : ''
   const script = typeof input?.script === 'string' ? input.script.trim() : ''
   if (!title || title.length > 100) throw new Error('短剧标题需为 1–100 字')
-  if (!summary || summary.length > 10000) throw new Error('剧本摘要需为 1–10000 字')
+  if ((!summary && !script) || summary.length > 10000) throw new Error('请填写项目摘要或导入剧本（摘要最多 10000 字）')
   if (script.length > 200000) throw new Error('剧本过长')
   const style = typeof input?.style === 'string' ? input.style.trim() : ''
   if (style.length > 120) throw new Error('风格需为 1–120 字')
   const fields = { title, summary, script, style, aspectRatio: aspectRatioOf(input?.aspectRatio) }
+  if (input?.scriptAssetId) fields.scriptAssetId = input.scriptAssetId
+  if (input?.scriptName) fields.scriptName = input.scriptName
   if (input?.durationSeconds != null && input.durationSeconds !== '') fields.durationSeconds = durationOf(input.durationSeconds)
   return fields
 }

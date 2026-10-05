@@ -91,6 +91,24 @@ export function renderOverview(project, actions, context) {
 
   const summaryCard = element('article', '', 'overview-card')
   summaryCard.append(element('h3', '摘要'))
+  if (project.script) {
+    const row = element('div', '', 'workflow-generation-row')
+    const busy = Boolean(project.operationActivity || project.episodes.some(item => item.operationActivity))
+    row.append(element('span', project.summary.operation ? '提取中' : project.summary.error ? '提取失败' : project.summary.check.passed === false ? '自审未通过' : project.summary.check.passed === true ? '已提取' : '待提取', 'meta'))
+    const generate = element('button', project.summary.content ? '重新提取摘要' : '提取摘要')
+    generate.type = 'button'; generate.disabled = busy
+    generate.onclick = async () => {
+      generate.disabled = true
+      try { await actions.perform(project, 'project-summary') }
+      catch (error) { generate.disabled = false; actions.fail(error) }
+    }
+    row.append(generate)
+    if (actions.openHistory) { const history = element('button', '查看摘要任务历史 →'); history.type = 'button'; history.onclick = () => actions.openHistory(project, 'project-summary'); row.append(history) }
+    if (actions.openSkill) { const skill = element('button', '查看 skill'); skill.type = 'button'; skill.onclick = () => actions.openSkill(project, 'project-summary'); row.append(skill) }
+    summaryCard.append(row)
+    const failure = project.summary.error || (project.summary.check.failures || []).join('；')
+    if (failure) summaryCard.append(element('p', failure, 'error'))
+  }
   if (project.summary.content) summaryCard.append(preview(project.summary.content))
   page.append(summaryCard)
 
@@ -141,7 +159,7 @@ export function renderOverview(project, actions, context) {
   const episodes = element('article', '', 'overview-card')
   const head = element('div', '', 'episode-head')
   head.append(element('h3', '剧集'))
-  const busy = project.operationActivity === 'episode'
+  const busy = Boolean(project.operationActivity)
   const add = element('button', '＋ 新增剧集', 'episode-add')
   add.type = 'button'
   add.disabled = busy

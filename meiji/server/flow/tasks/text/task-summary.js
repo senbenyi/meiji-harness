@@ -50,7 +50,7 @@ export async function opEpisodeGenerate(c) {
       return patch
     })
   }
-  const draft = await (deps.generateEpisode || generateEpisode)({ route: (modelRoutes(await models.read())).story, project, episodeId: operation.episodeId, referenceDurationSeconds: operation.referenceDurationSeconds, persist })
+  const draft = await (deps.generateEpisode || generateEpisode)({ route: (modelRoutes(await models.read())).story, project, episodeId: operation.episodeId, referenceDurationSeconds: operation.referenceDurationSeconds, persist, request: deps.request, fetchImpl: deps.fetchImpl })
   await persist(draft)
   if (existing) await rootProjects.save(project.id, current => {
     const next = structuredClone(current)
@@ -70,6 +70,7 @@ export async function opEpisodeSummaryDraft({ operation, deps, models, project, 
   const draft = await (deps.generateEpisode || generateEpisode)({
     route: (modelRoutes(await models.read())).story, project, episodeId: operation.episodeId,
     referenceDurationSeconds: operation.referenceDurationSeconds,
+    request: deps.request, fetchImpl: deps.fetchImpl,
   })
   deps.signal?.throwIfAborted()
   await runNode('save', () => saveTaskDraft('summary-draft', draft), { target: 'summary-draft' })

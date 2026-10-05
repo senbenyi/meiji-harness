@@ -69,6 +69,10 @@ export async function buildScenarios() {
     add('edited:outline', { review: buildEditedContentReview({ project: view, stage: 'outline' }, '【编辑后正文】') })
     add('image-prompt', text(buildTextPrompts({ skill: 'image-prompt', project: view, instructions: '原提示词：旅人\n新要求：换成夜景' })))
   })
+  const scripted = { ...root(view), script: '旅人夜访庭院，敲门无人回应，读到旧友留下的信后离开。' }
+  inMode('regenerate', scripted, () => add('episode:script', text(buildEpisodePrompts(scripted, 'e1', 38))))
+  inMode('modify', scripted, () => add('episode:script-modify', text(buildEpisodePrompts(scripted, 'e1', 38))))
+  add('project-summary:extract', text(buildTextPrompts({ skill: 'project-summary', project: scripted })))
   const card = view.plot.characters.items[0], scene = view.plot.scenes.items[0]
   add('image:character', { prompt: characterImagePrompt(card, view) })
   add('image:scene', { prompt: imageSkillPrompt('scene-image', sceneStillPrompt(scene), view) })

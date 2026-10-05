@@ -110,7 +110,9 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 ### 摘要与剧情
 
-剧集摘要草稿 `episode-summary-draft` 复用任务、队列与历史，产物为未发布 artifact，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒，不由字数推断。剧集摘要非空、不限字数；项目总摘要上限仍为 10000 字。
+剧本素材存 `assets/scripts/`，支持 UTF-8 TXT/TEXT，最多 1 MB、200000 字符；列表仅返回元数据，正文按需读取。创建页可导入或选择已有剧本；项目冻结完整正文及 `scriptAssetId/scriptName`，绑定工作区后自动启动 `project-summary` 操作，经生成、自审及至多两轮修订提取非空、最多 500 个非空白 Unicode 字符的项目摘要。失败保留项目、剧本与任务历史，概要可重试。
+
+剧集摘要草稿 `episode-summary-draft` 复用任务、队列与历史，产物为未发布 artifact，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒，不由字数推断。剧集摘要非空、不限字数；手填项目总摘要上限仍为 10000 字。有剧本时按原文顺序提取本集时长能容纳的连续剧情，前集定位进度、后集约束结尾，项目摘要仅作设定参考；无剧本时根据项目摘要生成。提取到剧本结尾保留原结局，不另造悬念或续集。
 
 剧情依次生成并审核大纲、人物、场景、道具，前项未通过停止后项。大纲依据当前本集摘要，项目摘要与剧本作背景、前后集作衔接，不提前演出后集事件；返回七个固定中文字段的 JSON 对象：主角动机、世界规则、因果剧情、情绪线索、对白节拍、结尾状态、结尾关键画面；值为非空正文字符串。对象直接存 `plot.outline.content`，审核、提取与镜头规划直接使用；展示时才加【字段名】，编辑按字段保存。卡片基于本轮通过的大纲，返回完整 items JSON；目标为 outline/characters/scenes/props，四类资料分别保存快照，不再记录 story 聚合快照。
 
@@ -139,7 +141,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 - **完整流程**：新功能、根因未知的 Bug、数据结构/存储/接口/门禁/生成流程改动，或涉及至少 3 个文件。
 - **小改动**：文案、样式、单处根因明确的修改，且不超过 2 个文件。拿不准按完整流程。
 
-执行“调研与计划 → 实施与验证”，具体文档要求见 `development.md`；修改业务代码前必须有 `docs/plans/计划-*.md`。只回答问题、只调研或只改文档不要求计划。
+执行“调研与计划 → 实施与验证”，具体文档要求见 `development.md`；修改业务代码前必须有 `docs/plans/MMDD-计划-*.md`。只回答问题、只调研或只改文档不要求计划。
 
 ## 12. 编码规则
 
@@ -186,6 +188,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录模块边界、业务约�
 
 | 任务 | 实际编排入口 |
 |---|---|
+| 项目摘要提取 | `interfaces/project-summary-interface.js` → `models/project-summary-model.js` |
 | 剧集摘要 | `episode-summary-prompts.js` → `interfaces/episode-summary-interface.js` → `models/episode-summary-model.js` |
 | 大纲、人物、场景、道具 | `story-prompts.js` → `interfaces/story-content-interface.js` → `models/story-model.js` |
 | 镜头表、单镜修订、单镜每秒指令、图片提示词改写 | `interfaces/prompt-interfaces.js` → `models/text-step-model.js` 的配置与 `stepInterface` |

@@ -25,7 +25,7 @@ test('summary separates identity, one-line tasks, rules, source material and lan
         assert.equal(request.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名短剧分集编剧。')
         const task = request.user.split('【本次任务】\n')[1].split('\n\n')[0]
         assert.equal(task.split('\n').length, 1)
-        assert.match(task, /项目摘要.*剧本.*第 2 集摘要.*基础规则和补充规则/)
+        assert.match(task, /剧本.*第 2 集摘要.*基础规则和补充规则/)
         assert.doesNotMatch(task, /任务模式|旧摘要|历史意见|只处理|只修改|保留未涉及|500/)
         assert.match(request.system, /【基础规则】\n/)
         assert.match(request.system, /【补充规则】\nSUMMARY_SUPPLEMENT/)
@@ -74,7 +74,7 @@ test('model 通过属性和技能文本生成最终消息，参数与故事资�
   assert.match(system.content, /本集时长由用户设定/)
   assert.doesNotMatch(system.content, /故事标题|明确剧本|本集时长：150/)
   assert.match(user.content, /【本次要求】\n输出语言：简体中文/)
-  assert.match(user.content, /依据项目摘要和剧本生成第 1 集摘要/)
+  assert.match(user.content, /从剧本提取参考时长能容纳的连续剧情，生成第 1 集摘要/)
   assert.deepEqual(promptData(user.content, '【项目摘要】'), '项目设定')
   assert.deepEqual(promptData(user.content, '【剧本】'), '明确剧本')
   assert.equal(promptData(user.content, '【本次要求】').durationSeconds, 150)
@@ -109,7 +109,7 @@ test('首集和无后集明确开场与悬念方向，追加新集延续全部�
   assert.match(buildEpisodePrompts(root()).generation.system, /危机、新发现或关键抉择/)
   const project = { ...root(), episodes: [episode('b', '第二集事件'), episode('a', '第一集事件')] }
   const next = buildEpisodePrompts(project).generation.user
-  assert.match(next, /依据项目摘要和剧本生成第 3 集摘要/)
+  assert.match(next, /从剧本提取参考时长能容纳的连续剧情，生成第 3 集摘要/)
   assert.ok(next.indexOf('第一集事件') < next.indexOf('第二集事件'))
   assert.match(buildEpisodePrompts(project).generation.system, /后续各集承接上一集结尾/)
 })

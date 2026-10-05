@@ -2,6 +2,7 @@ import { element } from './panel-dom.js'
 import { renderOperationDetails, renderTaskDetails } from './task-detail.js'
 import { taskStatusLabels } from './task-nodes.js'
 export const historyScopes = { summary: ['摘要', ['summary']], script: ['剧情', ['outline', 'characters', 'scenes', 'props']], outline: ['大纲', ['outline']], characters: ['人物角色', ['characters']], scenes: ['场景', ['scenes']], props: ['道具', ['props']], shots: ['镜头表', ['shots']], seconds: ['每秒指令', ['seconds:*']], film: ['成片', ['storyboard:*', 'film:*']], assembly: ['合成', ['assembly']], images: ['图片', ['image:*']] }
+historyScopes['project-summary'] = ['项目摘要', ['project-summary']]
 export function historyTargets(scope = '') {
   if (scope.includes(',')) return scope.split(',')
   const [kind, id] = scope.split(':')

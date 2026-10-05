@@ -5,6 +5,8 @@ import { subscribeProject } from '../data/project-events.js'
 import { targetNode } from '../../shared/drama-model.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
 import { MAX_GUIDANCE_BYTES } from '../data/asset-library-store.js'
+import { MAX_SCRIPT_BYTES, scriptText } from '../../shared/script-content.js'
+import { createProject } from '../flow/project-creation.js'
 import { readImageDraft, readReferenceImage } from '../data/image-storage.js'
 import { outputLanguage } from '../../shared/output-language.js'
 import { createReadStream } from 'node:fs'
@@ -48,12 +50,12 @@ export function resolveClientFile(file, dir = 'client') {
   return { path: resolved, type }
 }
 
-async function readBytes(req, limit) {
+async function readBytes(req, limit, message = '图片过大') {
   const chunks = []
   let size = 0
   for await (const chunk of req) {
     size += chunk.length
-    if (size > limit) throw Object.assign(new Error('图片过大'), { status: 413 })
+    if (size > limit) throw Object.assign(new Error(message), { status: 413 })
     chunks.push(chunk)
   }
   return Buffer.concat(chunks)
@@ -175,8 +177,12 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
           const name = decodeURIComponent(String(req.headers['x-meiji-name'] || ''))
           const category = String(req.headers['x-meiji-category'] || '')
           const mime = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
-          const limit = category === 'guidance' ? MAX_GUIDANCE_BYTES : category ? 512 * 1024 * 1024 : 12 * 1024 * 1024
-          const bytes = await readBytes(req, limit)
+          const limit = category === 'scripts' ? MAX_SCRIPT_BYTES : category === 'guidance' ? MAX_GUIDANCE_BYTES : category ? 512 * 1024 * 1024 : 12 * 1024 * 1024
+          const bytes = await readBytes(req, limit, category === 'scripts' ? '剧本不能超过 1 MB' : '图片过大')
+          if (category === 'scripts') {
+            if (!/\.(txt|text)$/i.test(name)) throw Object.assign(new Error('剧本仅支持 TXT/TEXT 文件'), { status: 400 })
+            scriptText(bytes)
+          }
           const incomingId = await saveIncoming(home, { name, category, mime, bytes })
           return json(res, 201, { incomingId })
         } catch (error) {
@@ -284,12 +290,8 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks) {
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const started = tasks.start({ action: 'create', fields: body.fields })
-            const trace = await started.done
-            if (started.failure) throw started.failure
-            const created = await projects.read(trace.result.projectId)
-            const place = await enterProject(created.id)
-            insertSessionLog(ctx.sessions.get(place.sessionId), `已创建短剧《${created.title}》`)
+            const place = await createProject({ home, tasks, fields: body.fields, enter: project => enterProject(project.id), sessionOf: id => ctx.sessions.get(id) })
+            insertSessionLog(ctx.sessions.get(place.sessionId), '已创建短剧' + (place.operationId ? '，正在从剧本提取项目摘要' : ''))
             return json(res, 201, { ...place, accepted: true })
           }
           const sessionId = String(body.sessionId || '')

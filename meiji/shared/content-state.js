@@ -61,5 +61,5 @@ export function refreshProjectStatus(project) {
 
 // 新建项目：项目未生成；创建时填写的总摘要视为已通过。
 export function initialProjectStates(summaryNode) {
-  return { status: GenerationStatus.NOT_GENERATED, summary: markPassed(summaryNode) }
+  return { status: GenerationStatus.NOT_GENERATED, summary: summaryNode.content ? markPassed(summaryNode) : markPendingReview(summaryNode) }
 }

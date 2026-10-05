@@ -10,7 +10,7 @@ export const taskStatusLabels = { queued: '排队中', running: '执行中', wai
 export const stepStatusLabels = { pending: '未执行', running: '执行中', waiting: '等待人工', completed: '完成', failed: '失败', cancelled: '已取消', skipped: '已跳过' }
 export const stepKindLabels = { execute: '执行', save: '保存', generate: '生成', review: '自审', revise: '修订', re_review: '复审', check: '内容校验', override: '人工放行',
   video_submit: '提交视频', video_generate: '生成视频', image_generate: '调用图片 API', image_download: '下载图片并转 Base64', image_base64: '转 Base64', image_save: '保存候选图片', tail_frame: '提取尾帧', assemble: '全片拼接', confirm: '处理候选图片', checkpoint: '人工关卡' }
-const targetLabels = { summary: '摘要', story: '剧情', outline: '大纲', characters: '角色', scenes: '场景', props: '道具', shots: '镜头表', seconds: '每秒指令', storyboard: '文本提示词', film: '成片', assembly: '合成视频', image: '图片' }
+const targetLabels = { 'project-summary': '项目摘要', summary: '摘要', story: '剧情', outline: '大纲', characters: '角色', scenes: '场景', props: '道具', shots: '镜头表', seconds: '每秒指令', storyboard: '文本提示词', film: '成片', assembly: '合成视频', image: '图片' }
 
 export function targetLabel(target) {
   if (!target) return '本任务'

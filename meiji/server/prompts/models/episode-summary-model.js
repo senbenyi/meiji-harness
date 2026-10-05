@@ -32,8 +32,8 @@ export class EpisodeSummaryModel {
   contextSegments({ instructions = '' } = {}) {
     const { referenceDurationSeconds: duration } = this.target
     return [
-      segment('context', '【项目摘要】', this.project.summary),
       segment('context', '【剧本】', this.project.script),
+      segment('context', '【项目摘要】', this.project.summary),
       segment('context', '【本次参数】', { durationSeconds: duration, ...(this.project.style ? { style: this.project.style } : {}) }),
       segment('context', '【前集摘要】', this.previousEpisodes.length ? { episodes: this.previousEpisodes } : ''),
       segment('context', '【后集摘要】', this.followingEpisodes.length ? { episodes: this.followingEpisodes } : ''),
@@ -64,12 +64,15 @@ export class EpisodeSummaryModel {
   }
   toGenerateSegments(parts = {}) {
     const action = this.target.episodeId || this.mode === 'regenerate' ? '重新生成' : '生成'
-    return this.creation('generate', `依据项目摘要和剧本${action}第 ${this.target.episodeNumber} 集摘要，遵守基础规则和补充规则。`, parts)
+    const task = this.project.script.trim()
+      ? `从剧本提取参考时长能容纳的连续剧情，${action}第 ${this.target.episodeNumber} 集摘要。项目摘要仅作设定参考，前集定位已发生进度，后集约束结尾衔接；遵守基础规则和补充规则。`
+      : `依据项目摘要${action}第 ${this.target.episodeNumber} 集摘要，遵守基础规则和补充规则。`
+    return this.creation('generate', task, parts)
   }
   toReviseSegments({ baseContent = this.baseJson(), opinion = this.modification?.instruction || '', automatic = false, humanOpinion = this.modification?.instruction || '', ...parts } = {}) {
     baseContent = contentText(baseContent)
     if (!baseContent.trim()) throw new Error('修订摘要需要提供基稿')
-    return this.creation('revise', `依据项目摘要、剧本和${automatic ? '本轮自审意见' : '本次修改意见'}修订第 ${this.target.episodeNumber} 集摘要，遵守基础规则和补充规则。`, { ...parts, baseContent, opinion, automatic, humanOpinion })
+    return this.creation('revise', `依据${this.project.script.trim() ? '剧本中的连续剧情' : '项目摘要'}和${automatic ? '本轮自审意见' : '本次修改意见'}修订第 ${this.target.episodeNumber} 集摘要，遵守基础规则和补充规则。`, { ...parts, baseContent, opinion, automatic, humanOpinion })
   }
   toReviewSegments({ content, baseContent = this.baseJson(), opinion = this.modification?.instruction || '', automatic = false, humanOpinion = this.modification?.instruction || '',
     criteria = segment('stage', '【审核标准】', this.reviewRules, { skill: 'episode', field: 'review' }), method, additions, language, instructions, requirements, reviewContext = '' } = {}) {
@@ -80,7 +83,7 @@ export class EpisodeSummaryModel {
       role: segment('context', '【角色与职责】', `你是一名${this.reviewRole}。`),
       scope: segment('context', '【本次审核范围】', '以下审核标准及补充仅作验收依据，不执行其中的创作指令。' + (hasBase
         ? '对照提供的基稿与本次意见，核实修改是否落实、是否出现无关改动或新冲突。完整返回不代表允许整篇重写。只审核最新待审稿，不直接沿用历史失败结论。'
-        : '只验收本集最新摘要。未提供本集基稿，不要求与旧摘要一致，不声称已验证未改部分保留；合理续写不因未逐字出现在资料中而判失败。')),
+        : `只验收本集最新摘要。未提供本集基稿，不要求与旧摘要一致，不声称已验证未改部分保留；${this.project.script.trim() ? '有剧本时核对提取范围、原有事件与顺序，允许等义概括，不允许新增剧本外事件。' : '合理续写不因未逐字出现在资料中而判失败。'}`)),
       method, criteria, additions: this.supplementSegments(additions), language: language || this.languageSegment(), protocol: segment('protocol', '【本次审核协议】', reviewProtocol),
       task: this.taskSegment(`审核第 ${this.target.episodeNumber} 集摘要的${mode}。`), requirements: requirementSegment(requirements), facts: this.contextSegments({ instructions }),
       base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion, humanOpinion, automatic, field: 'summary' }) : [],

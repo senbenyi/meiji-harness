@@ -5,8 +5,9 @@ import { extname, join } from 'node:path'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { guidanceTypes } from '../../shared/guidance-categories.js'
+import { MAX_SCRIPT_BYTES, scriptText } from '../../shared/script-content.js'
 
-export const categories = ['characters', 'scenes', 'props', 'audio', 'video', 'guidance']
+export const categories = ['characters', 'scenes', 'props', 'audio', 'video', 'guidance', 'scripts']
 export const MAX_GUIDANCE_BYTES = 128 * 1024
 export function guidanceText(bytes) {
   let content
@@ -39,27 +40,33 @@ export function assetStore(home) {
       const metadata = JSON.parse(await readFile(join(directory, 'metadata.json'), 'utf8'))
       return { metadata, path: join(directory, metadata.file) }
     },
+    async script(id) {
+      const { metadata, path } = await this.file('scripts', id)
+      return { ...metadata, content: scriptText(await readFile(path)) }
+    },
     async import(category, name, source, maxBytes = MAX_ASSET_BYTES, origin = {}) {
       assertCategory(category)
       const originalName = typeof name === 'string' ? name.split(/[\\/]/).pop().trim() : ''
       const guidanceType = origin.guidanceType || 'other'
       if (category === 'guidance' && !guidanceTypes.some(([key]) => key === guidanceType)) throw Object.assign(new Error('指导素材分类无效'), { status: 400 })
-      const extension = extname(originalName).toLowerCase(), mime = category === 'guidance' ? ({ '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.markdown': 'text/plain; charset=utf-8' })[extension] : types[extension]
-      const family = category === 'guidance' ? 'text/' : category === 'audio' ? 'audio/' : category === 'video' ? 'video/' : 'image/'
+      const extension = extname(originalName).toLowerCase(), mime = category === 'scripts' ? ({ '.txt': 'text/plain; charset=utf-8', '.text': 'text/plain; charset=utf-8' })[extension] : category === 'guidance' ? ({ '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.markdown': 'text/plain; charset=utf-8' })[extension] : types[extension]
+      const family = ['guidance', 'scripts'].includes(category) ? 'text/' : category === 'audio' ? 'audio/' : category === 'video' ? 'video/' : 'image/'
       if (!originalName || originalName.length > 255 || !mime?.startsWith(family)) throw Object.assign(new Error('文件格式与所选素材分类不匹配'), { status: 400 })
       if (category === 'guidance') maxBytes = Math.min(maxBytes, MAX_GUIDANCE_BYTES)
+      if (category === 'scripts') maxBytes = Math.min(maxBytes, MAX_SCRIPT_BYTES)
       const id = randomUUID(), directory = join(root, category, id), staging = directory + '.upload'
       await mkdir(staging, { recursive: true })
       let size = 0
       try {
         const limiter = new Transform({ transform(chunk, _encoding, callback) {
           size += chunk.length
-          callback(size > maxBytes ? Object.assign(new Error(category === 'guidance' ? '指导素材不能超过 128 KB' : '单个素材不能超过 512 MB'), { status: 413 }) : null, chunk)
+          callback(size > maxBytes ? Object.assign(new Error(category === 'scripts' ? '剧本不能超过 1 MB' : category === 'guidance' ? '指导素材不能超过 128 KB' : '单个素材不能超过 512 MB'), { status: 413 }) : null, chunk)
         } })
         // Keep the incoming HTTP stream alive on a limit error so the handler can send an error response.
         const chunks = async function* () { for await (const chunk of source.iterator({ destroyOnReturn: false })) yield chunk }
         await pipeline(chunks(), limiter, createWriteStream(join(staging, 'original' + extension), { flags: 'wx', mode: 0o600 }))
         if (!size) throw Object.assign(new Error('不能导入空文件'), { status: 400 })
+        if (category === 'scripts') scriptText(await readFile(join(staging, 'original' + extension)))
         const content = category === 'guidance' ? guidanceText(await readFile(join(staging, 'original' + extension))) : undefined
         const metadata = { version: 1, id, category, originalName, file: 'original' + extension, mime, size, ...(content === undefined ? {} : { content, guidanceType }), source: origin.source || 'import', ...(origin.projectId ? { projectId: origin.projectId, episodeId: origin.episodeId || null, itemId: origin.itemId || null, prompt: origin.prompt || '' } : {}), createdAt: new Date().toISOString() }
         await writeFile(join(staging, 'metadata.json'), JSON.stringify(metadata, null, 2) + '\n', { mode: 0o600 })

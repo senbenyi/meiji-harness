@@ -1,6 +1,8 @@
 // 功能技能注册信息。基础生产规则只读，正文只来自 task 的功能文件；
 // 自审使用 review 目录中对应的审核 skill（reviewFile / reviewVariants），不复用生成规则。
 export const stageCatalog = [
+  { id: 'project-summary', kind: 'stage', label: '项目摘要提取', logLabel: '项目摘要', output: 'json', languageMode: 'story', fields: [], order: 0,
+    fixedConstraints: true, constraintFile: 'extract-project-summary-skill.md', reviewFile: 'review-project-summary-skill.md' },
   {
     "id": "episode",
     "kind": "stage",

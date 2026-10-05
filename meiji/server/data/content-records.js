@@ -22,7 +22,7 @@ export async function addBaselines(store, project, operation, stage, baselines) 
 const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'operation', 'error', 'dependencies', 'stale', 'source', 'image', 'parts', 'localPath', 'assetId', 'assetCategory'])
 const textData = value => JSON.parse(JSON.stringify(value, (key, item) => omitted.has(key) ? undefined : item))
 export function contentTargets(project) {
-  return project.episodes.flatMap(episode => {
+  return [{ episodeId: null, key: 'project-summary', node: project.summary, content: { summary: project.summary.content }, check: project.summary.check, exists: Boolean(project.summary.content) }, ...project.episodes.flatMap(episode => {
     const entries = [
       ['summary', episode.summary, { summary: episode.summary.content, durationSeconds: episode.durationSeconds }],
       ['outline', episode.plot.outline, episode.plot.outline.content],
@@ -35,7 +35,7 @@ export function contentTargets(project) {
     return entries.filter(([, node]) => node).map(([key, node, content]) => ({ episodeId: episode.id, key, node, content,
       check: node.check,
       exists: key === 'seconds' ? content.some(item => item.content) : ['shots', 'characters', 'scenes'].includes(key) ? content.length > 0 : key === 'summary' ? Boolean(content.summary) : content != null }))
-  })
+  })]
 }
 
 // Snapshots are written before the project; published is set only after its atomic rename.
@@ -47,7 +47,7 @@ export async function prepareContentRecords(current, next) {
   for (const target of contentTargets(next)) {
     const old = oldTargets.get(`${target.episodeId}:${target.key}`)
     const node = activeNode()
-    const newOutput = target.episodeId === context.operation.episodeId && node?.target === target.key && ['generate', 'revise'].includes(node.kind) && old?.node.source?.taskId !== context.taskId
+    const newOutput = target.episodeId === (context.operation.episodeId || null) && node?.target === target.key && ['generate', 'revise'].includes(node.kind) && old?.node.source?.taskId !== context.taskId
     const changed = JSON.stringify(target.content) !== JSON.stringify(old?.content) || newOutput
     if (!changed) {
       if (old?.node.source) target.node.source = structuredClone(old.node.source)

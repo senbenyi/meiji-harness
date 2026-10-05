@@ -2,8 +2,8 @@ import { element, tabs } from './panel-dom.js'
 import { request, assetUrl } from './panel-api.js'
 import { guidanceTypes } from '../shared/guidance-categories.js'
 
-export const categories = [['characters', '人物'], ['scenes', '场景'], ['props', '道具'], ['audio', '声音'], ['video', '视频'], ['guidance', '指导提示词']]
-const accepts = { characters: '.png,.jpg,.jpeg,.webp,.gif', scenes: '.png,.jpg,.jpeg,.webp,.gif', props: '.png,.jpg,.jpeg,.webp,.gif', audio: '.mp3,.wav,.m4a,.ogg,.flac', video: '.mp4,.webm,.mov', guidance: '.txt,.md,.markdown' }
+export const categories = [['characters', '人物'], ['scenes', '场景'], ['props', '道具'], ['audio', '声音'], ['video', '视频'], ['guidance', '指导提示词'], ['scripts', '剧本']]
+const accepts = { characters: '.png,.jpg,.jpeg,.webp,.gif', scenes: '.png,.jpg,.jpeg,.webp,.gif', props: '.png,.jpg,.jpeg,.webp,.gif', audio: '.mp3,.wav,.m4a,.ogg,.flac', video: '.mp4,.webm,.mov', guidance: '.txt,.md,.markdown', scripts: '.txt,.text' }
 
 function dramaLibrary(onProject) {
   const view = element('section'), list = element('div')
@@ -44,8 +44,8 @@ function assetLibrary(actions) {
   async function load() {
     const ticket = ++loading, selected = category, guidanceType = typeInput.value
     typeLabel.hidden = selected !== 'guidance'
-    limit.textContent = selected === 'guidance' ? '单文件 ≤ 128 KB / 20000 字' : '单文件 ≤ 512 MB'
-    help.textContent = selected === 'guidance' ? '按所选分类导入 UTF-8 TXT/Markdown 提示词，保存在本地；在各阶段「补充 skill」中选择使用。' : selected === 'audio' ? '支持 MP3、WAV、M4A、OGG、FLAC' : selected === 'video' ? '支持 MP4、WebM、MOV；能否播放取决于编码格式' : '支持 PNG、JPG、WebP、GIF 图片'
+    limit.textContent = selected === 'scripts' ? '单文件 ≤ 1 MB / 200000 字符' : selected === 'guidance' ? '单文件 ≤ 128 KB / 20000 字' : '单文件 ≤ 512 MB'
+    help.textContent = selected === 'scripts' ? '支持 UTF-8 TXT/TEXT 剧本。创建项目时选择使用，自动提取项目摘要。' : selected === 'guidance' ? '按所选分类导入 UTF-8 TXT/Markdown 提示词，保存在本地；在各阶段「补充 skill」中选择使用。' : selected === 'audio' ? '支持 MP3、WAV、M4A、OGG、FLAC' : selected === 'video' ? '支持 MP4、WebM、MOV；能否播放取决于编码格式' : '支持 PNG、JPG、WebP、GIF 图片'
     list.replaceChildren(element('p', '正在读取素材…', 'meta'))
     try {
       const { assets } = await request('assets?' + new URLSearchParams({ category: selected }))
@@ -56,7 +56,16 @@ function assetLibrary(actions) {
       for (const asset of visible) {
         const card = element('article', '', 'asset-card'), url = assetUrl(asset)
         let media
-        if (selected === 'guidance') {
+        if (selected === 'scripts') {
+          media = element('details', '', 'guidance-preview')
+          const text = element('pre', '', 'guidance-text')
+          media.append(element('summary', '查看剧本'), text)
+          media.ontoggle = async () => {
+            if (!media.open || text.dataset.loaded) return
+            try { const response = await fetch(url); if (!response.ok) throw new Error('读取剧本失败'); text.textContent = await response.text(); text.dataset.loaded = '1' }
+            catch (error) { text.textContent = error.message }
+          }
+        } else if (selected === 'guidance') {
           media = element('details', '', 'guidance-preview')
           media.append(element('summary', '预览提示词'), element('pre', asset.content, 'guidance-text'))
         } else {
@@ -83,6 +92,7 @@ function assetLibrary(actions) {
       try {
         if (file.size > 512 * 1024 * 1024) throw new Error('文件超过 512 MB')
         if (target === 'guidance' && file.size > 128 * 1024) throw new Error('指导素材超过 128 KB')
+        if (target === 'scripts' && file.size > 1024 * 1024) throw new Error('剧本超过 1 MB')
         await actions.importLibrary(target, file, target === 'guidance' ? guidanceType : undefined)
         success++
       } catch (error) { failures.push(`${file.name}：${error.message}`) }

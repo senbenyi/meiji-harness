@@ -6,6 +6,8 @@ import { renderShotPage, renderStage, renderSceneDetail } from './generation-sta
 import { episodeWork, renderOverview } from './project-overview-view.js'
 import { bindStylePicker } from './style-picks.js'
 import { outlineFields } from '../shared/story-outline.js'
+import { request } from './panel-api.js'
+import { MAX_SCRIPT_BYTES } from '../shared/script-content.js'
 
 const order = tabs.map(tab => tab.id)
 
@@ -207,26 +209,80 @@ export function renderSession(project, openCreate, actions, context = {}) {
 
 export function projectDialog(root, onCreated) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>先记下故事摘要。创建后在项目概要里添加剧集，再进入某一集制作。</p><form class="create"><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="style">风格</label><input id="style" name="style" required maxlength="120" placeholder="例如：写实电影、国风水墨"><label for="summary">摘要</label><textarea id="summary" name="summary" required maxlength="10000" placeholder="故事摘要，或者开场剧情"></textarea><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>填写故事摘要或导入剧本。创建后在项目概要里添加剧集。</p><form class="create"><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="style">风格</label><input id="style" name="style" required maxlength="120" placeholder="例如：写实电影、国风水墨"><label for="summary">摘要</label><textarea id="summary" name="summary" required maxlength="10000" placeholder="故事摘要，或者开场剧情"></textarea><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#create-project'), form = dialog.querySelector('form')
   const error = dialog.querySelector('.error')
   const stylePicker = bindStylePicker(form.elements.style)
+  const scriptRow = element('div', '', 'workflow-generation-row')
+  const upload = element('button', '导入剧本', 'script-import'), choose = element('button', '从素材库选择剧本', 'script-choose'), clear = element('button', '移除剧本', 'script-clear')
+  upload.type = choose.type = clear.type = 'button'
+  const file = element('input'); file.type = 'file'; file.accept = '.txt,.text'; file.hidden = true
+  const picker = element('select', '', 'script-picker'); picker.hidden = true; picker.setAttribute('aria-label', '选择剧本')
+  const selected = element('p', '', 'meta script-selected')
+  clear.hidden = true
+  scriptRow.append(upload, choose, clear, file)
+  form.elements.summary.previousElementSibling.before(scriptRow, picker, selected)
+  let scriptAssetId = '', manualSummary = '', ticket = 0, importing = false
+  const setScript = asset => {
+    if (!scriptAssetId) manualSummary = form.elements.summary.value
+    scriptAssetId = asset?.id || ''
+    selected.textContent = asset ? `剧本：${asset.originalName} · 创建后自动提取项目摘要（不超过500字）` : ''
+    form.elements.summary.required = !asset
+    form.elements.summary.disabled = Boolean(asset)
+    form.elements.summary.value = asset ? '' : manualSummary
+    form.elements.summary.placeholder = asset ? '根据剧本自动提取' : '故事摘要，或者开场剧情'
+    clear.hidden = !asset
+  }
+  const busy = value => {
+    importing = value
+    for (const button of [upload, choose, clear, form.querySelector('[type=submit]')]) button.disabled = value
+  }
+  upload.onclick = () => file.click()
+  file.onchange = async () => {
+    const source = file.files?.[0], version = ticket
+    if (!source) return
+    error.textContent = ''; busy(true)
+    try {
+      if (source.size > MAX_SCRIPT_BYTES) throw new Error('剧本不能超过 1 MB')
+      const { asset } = await request('assets?' + new URLSearchParams({ category: 'scripts', name: source.name }), { method: 'POST', headers: { 'X-Meiji-Request': '1' }, body: source })
+      if (version === ticket) { setScript(asset); picker.hidden = true }
+    } catch (failure) { if (version === ticket) error.textContent = failure.message }
+    finally { if (version === ticket) { file.value = ''; busy(false) } }
+  }
+  choose.onclick = async () => {
+    const version = ticket
+    error.textContent = ''; busy(true)
+    try {
+      const { assets } = await request('assets?category=scripts')
+      if (version !== ticket) return
+      const placeholder = element('option', '请选择剧本'); placeholder.value = ''
+      picker.replaceChildren(placeholder)
+      for (const asset of assets) { const option = element('option', asset.originalName); option.value = asset.id; picker.append(option) }
+      picker.hidden = false
+      picker.value = scriptAssetId
+      picker.onchange = () => { const asset = assets.find(item => item.id === picker.value); if (asset) setScript(asset) }
+      if (!assets.length) selected.textContent = '素材库暂无剧本，可先导入 TXT 文件'
+    } catch (failure) { if (version === ticket) error.textContent = failure.message }
+    finally { if (version === ticket) busy(false) }
+  }
+  clear.onclick = () => { setScript(null); picker.value = ''; error.textContent = '' }
+  dialog.addEventListener('close', () => { ticket++; busy(false) })
   for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => dialog.close()
   form.onsubmit = async event => {
     event.preventDefault()
     const button = form.querySelector('[type=submit]')
-    if (button.disabled) return
+    if (button.disabled || importing) return
     button.disabled = true; error.textContent = ''
     try {
       const data = new FormData(form)
-      const input = { title: data.get('title').trim(), aspectRatio: data.get('aspect'), style: data.get('style').trim(), summary: data.get('summary').trim() }
+      const input = { title: data.get('title').trim(), aspectRatio: data.get('aspect'), style: data.get('style').trim(), ...(scriptAssetId ? { scriptAssetId } : { summary: data.get('summary').trim() }) }
       await onCreated(input)
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
     finally { button.disabled = false }
   }
-  return () => { form.reset(); form.elements.aspect.value = '1344x768'; stylePicker.sync(); error.textContent = ''; showPanelDialog(dialog) }
+  return () => { ticket++; scriptAssetId = ''; manualSummary = ''; setScript(null); picker.hidden = true; file.value = ''; busy(false); form.reset(); form.elements.aspect.value = '1344x768'; stylePicker.sync(); error.textContent = ''; showPanelDialog(dialog) }
 }
 
 export function sourceDialog(root, onSaved) {
