@@ -74,7 +74,7 @@ test('model 通过属性和技能文本生成最终消息，参数与故事资�
   assert.match(system.content, /本集时长由用户设定/)
   assert.doesNotMatch(system.content, /故事标题|明确剧本|本集时长：150/)
   assert.match(user.content, /【本次要求】\n输出语言：简体中文/)
-  assert.match(user.content, /从剧本提取参考时长能容纳的连续剧情，生成第 1 集摘要/)
+  assert.match(user.content, /参考剧本顺序与已发生剧情，按参考时长推进连续剧情，生成第 1 集摘要/)
   assert.deepEqual(promptData(user.content, '【项目摘要】'), '项目设定')
   assert.deepEqual(promptData(user.content, '【剧本】'), '明确剧本')
   assert.equal(promptData(user.content, '【本次要求】').durationSeconds, 150)
@@ -97,7 +97,7 @@ test('实际生成精简重复与审核包装，同时独立审核保留完整�
   assert.match(system, /保持事件因果与时间顺序/)
   assert.doesNotMatch(prompts.review('待审稿').system, /保持事件因果与时间顺序/)
   assert.match(prompts.review('待审稿').system, /【审核标准】/)
-  assert.match(prompts.review('待审稿').system, /后续集没有承接前集结尾/)
+  assert.match(prompts.review('待审稿').system, /无法承接前后集/)
   assert.match(prompts.review('待审稿').system, /passed 和 issues/)
 })
 
@@ -109,9 +109,9 @@ test('首集和无后集明确开场与悬念方向，追加新集延续全部�
   assert.match(buildEpisodePrompts(root()).generation.system, /危机、新发现或关键抉择/)
   const project = { ...root(), episodes: [episode('b', '第二集事件'), episode('a', '第一集事件')] }
   const next = buildEpisodePrompts(project).generation.user
-  assert.match(next, /从剧本提取参考时长能容纳的连续剧情，生成第 3 集摘要/)
+  assert.match(next, /参考剧本顺序与已发生剧情，按参考时长推进连续剧情，生成第 3 集摘要/)
   assert.ok(next.indexOf('第一集事件') < next.indexOf('第二集事件'))
-  assert.match(buildEpisodePrompts(project).generation.system, /后续各集承接上一集结尾/)
+  assert.match(buildEpisodePrompts(project).generation.system, /后续承接上一集结尾/)
 })
 
 test('中间集重新生成使用前后集约束，排除旧稿及历史意见', () => {

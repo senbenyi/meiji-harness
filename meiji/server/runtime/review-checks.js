@@ -5,12 +5,12 @@ import { markFailed, markGenerating } from '../../shared/content-state.js'
 const batchActions = new Set(['seconds', 'storyboard', 'films'])
 const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image'])
 const imageGenerationActions = new Set(['image', 'revise-image', 'part-image'])
-const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'image', 'revise-image', 'part-image', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
+const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'prop-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'image', 'revise-image', 'part-image', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
   if (operation.action === 'outline' || operation.action === 'outline-text') return [operation.stageKey || 'outline']
   const kind = { seconds: 'seconds', storyboard: 'storyboard', films: 'film' }[operation.action]
-  const shots = operation.action === 'films' ? project.shots.items.filter(shot => shot.video.content?.status !== 'ready' || shot.video.stale) : project.shots.items
+  const shots = operation.action === 'films' ? project.shots.items.filter(shot => shot.video.content?.status !== 'ready') : project.shots.items
   return kind ? shots.map(shot => `${kind}:${shot.id}`) : [feedbackKey(operation)]
 }
 export function checkReasons(project, operation) {
@@ -46,7 +46,7 @@ export function withReviewPrompt(prompt, includeOriginal = true) {
 }
 export async function prepareChecks(store, project, operation) {
   if (!generationActions.has(operation.action)) return { store, project, operation }
-  const manual = ['scene-text', 'character-text', 'storyboard-text', 'outline-text', 'assemble'].includes(operation.action)
+  const manual = ['scene-text', 'character-text', 'prop-text', 'storyboard-text', 'outline-text', 'assemble'].includes(operation.action)
   const mode = manual ? 'modify' : operation.generationMode || (operation.review || operation.instruction ? 'modify' : 'regenerate')
   if (!['regenerate', 'modify'].includes(mode)) throw Object.assign(new Error('不支持的生成模式'), { status: 400 })
   // 人工输入限长；自审问题随后完整合并，不套用人工输入上限。
@@ -66,7 +66,8 @@ export async function prepareChecks(store, project, operation) {
       const value = feedbackOf(project, key)
       return [...(value.check.passed === false ? value.check.failures : []), operation.review ?? operation.instruction ?? (operation.action === 'seconds' ? project.shots.seconds?.review.text : value.review.text)]
     }).filter(value => String(value || '').trim())
-    const originals = (operation.action === 'outline' ? ['outline'] : keys(project, operation)).map(key => originalData(project, key))
+    const baseline = checkContext.getStore()?.baseline?.episodes.find(item => item.id === operation.episodeId)
+    const originals = (operation.action === 'outline' ? ['outline'] : keys(project, operation)).map(key => originalData(project, key) || (baseline && originalData(baseline, key)))
     // 整集每秒指令允许部分保存：至少一镜有原内容即可修改，缺失的镜头随意见一起补齐。
     const missing = operation.action === 'seconds' ? originals.every(value => !value) : originals.some(value => !value)
     if (!reasons.length || !originals.length || (!matchingCandidate && missing)) {
@@ -96,14 +97,13 @@ export async function prepareChecks(store, project, operation) {
       if (!target) continue
       if (matchingCandidate && target.operation?.phase === 'awaiting-confirmation') target.operation = null
       if (fresh !== undefined && operation.action !== 'seconds') saveReview(target, String(fresh))
-      target.dependencies = { summary: next.summary.revision, outline: next.plot.outline.revision, shots: next.shots.revision, ...(operation.track ? { seconds: next.shots.items.find(shot => shot.id === operation.track)?.seconds.revision } : {}) }
       if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.taskId || `${Date.now()}`, action: operation.action, consumesReview: mode === 'modify' })
     }
     return next
   })
   const review = mode === 'regenerate' ? '' : checkReasons(project, operation).join('\n')
   const context = checkContext.getStore()
-  if (context) { context.generationMode = mode; context.originalCandidate = matchingCandidate; context.originalOperation = operation; context.originalProject = structuredClone(project); context.review = review; context.batchReview = String(operation.action === 'seconds' ? project.shots.seconds?.review.text || '' : fresh ?? ''); context.startTarget = async operation => {
+  if (context) { context.generationMode = mode; context.originalCandidate = matchingCandidate; context.originalOperation = operation; context.originalProject = structuredClone(project); if (context.baseline && operation.action === 'shot-seconds') { const base = context.baseline.episodes.find(item => item.id === operation.episodeId)?.shots.items.find(item => item.id === operation.track); if (base) context.originalProject.shots.items.find(item => item.id === operation.track).seconds = structuredClone(base.seconds) }; context.review = review; context.batchReview = String(operation.action === 'seconds' ? project.shots.seconds?.review.text || '' : fresh ?? ''); context.startTarget = async operation => {
     if (!operation.track) return
     await store.save(project.id, current => {
       const next = structuredClone(current), target = targetNode(next, feedbackKey(operation))
@@ -128,7 +128,6 @@ export async function prepareChecks(store, project, operation) {
         if (!inTextNode() && value.check?.passed == null && old.check?.passed === false) value.check = structuredClone(old.check)
         value.review = structuredClone(old.review)
         value.operation = old.operation
-        value.dependencies = old.dependencies
       }
       if (inTextNode()) {
         for (const key of keys(next, targetOperation)) {

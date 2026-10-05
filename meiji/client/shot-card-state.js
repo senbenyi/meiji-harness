@@ -24,7 +24,7 @@ export function decorateShotCard(card, model, id, first) {
   const failed = !paused && !generating && (model?.check?.passed === false || Boolean(model?.error))
   const generated = Boolean(model?.content || model?.items?.length)
   const label = paused ? '暂停' : generating ? '生成中' : failed ? (model?.check?.passed === false ? '自审未通过' : '生成失败')
-    : !generated ? '未生成' : model?.stale ? '已过期'
+    : !generated ? '未生成'
       : model?.check?.passed === true ? '已通过' : '待自审'
   card.classList.toggle('shot-unpassed', failed)
   head.append(element('span', label, 'shot-check-badge'))

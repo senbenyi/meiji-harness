@@ -1,3 +1,5 @@
+import { cardLibraryControls } from './project-library-view.js'
+import { operationBlocked } from './live-activity.js'
 import { historyEntry } from './execution-history.js'
 import { reviewFields } from './workflow-review.js'
 import { renderDetailImageActions, syncImageGate } from './image-review.js'
@@ -38,10 +40,10 @@ function materialControl(label, value, { area = false, readOnly = false } = {}) 
 }
 
 function textMaterials(project, item, actions, hint, busy) {
-  const role = item.type === 'role'
+  const role = item.type === 'role', prop = item.type === 'prop'
   const saved = role
     ? characterFieldValues(item)
-    : { name: item.name || '', landmark: item.landmark || '', light: item.light || '', space: item.space || '', look: item.look || '' }
+    : prop ? { name: item.name || '', description: item.description || '', evidence: item.evidence || '' } : { name: item.name || '', landmark: item.landmark || '', light: item.light || '', space: item.space || '', look: item.look || '' }
   const specs = role
     ? [
       ['nationality', '国籍'],
@@ -54,7 +56,7 @@ function textMaterials(project, item, actions, hint, busy) {
       ['build', '体型', true],
       ['features', '面相', true],
     ]
-    : [
+    : prop ? [['name', '名称'], ['description', '描述', true], ['evidence', '依据', true]] : [
       ['name', '名称', false, true],
       ['landmark', '地标', true],
       ['light', '光位', true],
@@ -84,7 +86,7 @@ function textMaterials(project, item, actions, hint, busy) {
   // 场景的生图描述即「画面」原文，详情页不再重复展示。
   prompt.hidden = !role
   form.append(head, grid, prompt)
-  const saving = project.operationActivity === (role ? 'character-text' : 'scene-text')
+  const saving = project.operationActivity === (role ? 'character-text' : prop ? 'prop-text' : 'scene-text')
   const save = element('button', saving ? '保存中' : '保存', 'primary')
   save.type = 'submit'
   save.disabled = busy
@@ -104,7 +106,7 @@ function textMaterials(project, item, actions, hint, busy) {
     save.textContent = '保存中'
     hint.hidden = true
     try {
-      await actions.perform(project, role ? 'character-text' : 'scene-text', { itemId: item.id, original: saved, fields })
+      await actions.perform(project, role ? 'character-text' : prop ? 'prop-text' : 'scene-text', { itemId: item.id, original: saved, fields })
       delete form.dataset.dirty
       for (const input of Object.values(inputs)) delete input.dataset.dirty
     } catch (error) {
@@ -140,14 +142,14 @@ export function cardImageGate(project, item, gate) {
 
 export function cardImageControls(project, item, actions, gate) {
   if (gate) {
-    const controls = renderDetailImageActions(project, actions, gate, { regenerate: false, blocked: Boolean(project.operationActivity) })
+    const controls = renderDetailImageActions(project, actions, gate, { regenerate: false, blocked: operationBlocked(project, { kind: 'direct', lock: 'episode' }) })
     controls.classList.add('card-image-review')
     return [controls]
   }
   const button = element('button', 'AI生图', 'primary card-image-generate')
   button.type = 'button'
   button.setAttribute('aria-label', `AI生图：${item.name}`)
-  button.disabled = Boolean(project.operationActivity) || !actions.beginImage
+  button.disabled = Boolean(project.operationActivity || project.generationBusy) || !actions.beginImage
   const error = element('p', '', `hint warn card-image-error${item.type === 'role' ? ' character-error' : ''}`)
   error.hidden = true
   error.setAttribute('role', 'status')
@@ -328,7 +330,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     const referenceSrc = item.reference?.localPath || ''
     const aiGenerate = element('button', imaging === item.id ? '生成中' : 'AI生成', 'primary')
     aiGenerate.type = 'button'
-    aiGenerate.disabled = controlBusy
+    aiGenerate.disabled = controlBusy || operationBlocked(project, { kind: 'generate', lock: 'episode' })
     aiGenerate.setAttribute('aria-label', 'AI生成')
     aiGenerate.onclick = () => generate(aiGenerate, 'AI生成', Boolean(referenceSrc))
     tools.append(aspectWrap, aiGenerate)
@@ -425,7 +427,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     pair.append(result, reference, tools)
     stage.append(toolbar, pair)
     const materials = textMaterials(project, item, actions, hint, controlBusy)
-    card.append(stage, materials)
+    card.append(cardLibraryControls(project, item, actions), stage, materials)
     appendJsonCopy(card, item)
     return card
   }
@@ -487,14 +489,14 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       }
       heading.append(remove)
     }
-    copy.append(heading)
+    copy.append(heading, cardLibraryControls(project, item, actions))
     if (mainReview) copy.append(renderDetailImageActions(project, actions, imageGate))
-    if (item.type === 'prop') copy.append(element('p', `${item.category} · 所属：${item.ownerId || '未指定'}`, 'meta'), element('p', item.description), element('p', `依据：${item.evidence}`, 'meta'))
+    if (item.type === 'prop') { copy.append(textMaterials(project, item, actions, hint, controlBusy)); copy.append(element('p', `${item.category} · 所属：${item.ownerId || '未指定'}`, 'meta'), element('p', item.description), element('p', `依据：${item.evidence}`, 'meta')) }
     else copy.append(textMaterials(project, item, actions, hint, controlBusy))
     const actionsRow = element('div', '', 'asset-actions')
     const ai = element('button', imaging === item.id ? '生成中' : 'AI生图', 'primary')
     ai.type = 'button'
-    ai.disabled = controlBusy
+    ai.disabled = controlBusy || operationBlocked(project, { kind: 'generate', lock: 'episode' })
     ai.onclick = async () => {
       ai.disabled = true
       ai.textContent = '生成中'

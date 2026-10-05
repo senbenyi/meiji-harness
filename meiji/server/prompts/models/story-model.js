@@ -1,3 +1,4 @@
+import { libraryDirectory, requiredCharacters } from '../../../shared/library-rules.js'
 // 剧情四类资料（大纲、人物、场景、道具）共用一个 Model：资料与差异在 storyKinds 中声明，
 // 三类请求的结构统一由 prompt-request.js 组装（system＝角色/规则/协议，user＝任务/资料/基稿/待审内容）。
 import { reviewMethod, segment } from '../skill-prompts.js'
@@ -33,6 +34,7 @@ export const storyKinds = {
         segment('context', '【本次参数】', { durationSeconds: p.durationSeconds ?? null, ...(p.style ? { style: p.style } : {}) }),
         segment('context', '【项目背景】', model.project.projectSummary),
         segment('context', '【剧本】', model.project.script),
+        segment('context', '【故事基调】', model.project.premise),
         segment('context', '【前集摘要】', model.project.previousEpisodeSummary),
         segment('context', '【后集摘要】', model.project.nextEpisodeSummary),
       ]
@@ -89,7 +91,7 @@ export class StoryModel {
     this.outputProtocol = outputProtocol || config.outputProtocol
     this.source = project
     this.project = kind === 'outline'
-      ? { title: project.title || '', summary: project.summary?.content || '', projectSummary: project.projectSummary || '', script: project.script || '',
+      ? { title: project.title || '', summary: project.summary?.content || '', projectSummary: project.projectSummary || '', premise: project.premise, script: project.script || '',
         previousEpisodeSummary: project.previousEpisodeSummary || '', nextEpisodeSummary: project.nextEpisodeSummary || '' }
       : { title: project.title || '' }
     this.approvedOutline = project.plot?.outline?.content || ''
@@ -103,6 +105,8 @@ export class StoryModel {
     return [
       ...(this.kind === 'props' && !review ? [segment('context', '【本次提取范围】', this.config.target)] : []),
       ...this.config.facts(this),
+      segment('context', this.kind === 'outline' ? '【必须出场角色】' : '【项目库目录】', this.kind === 'outline' ? requiredCharacters(this.source) : libraryDirectory(this.source, this.kind)),
+      ...(this.kind === 'outline' ? [] : [segment('context', '【库关联规则】', '同一身体身份的年龄、着装、身份变化用已有 libraryId 新建变体；独立身体身份才新建角色。两个有效 ID 直接复用库字段与图片；只有 libraryId 则新增变体；无 ID 时名字或别名匹配默认变体，否则新建条目。审核核对剧情与关联依据。')]),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),
       ...(this.config.cardExtraction ? [] : assets),
     ]

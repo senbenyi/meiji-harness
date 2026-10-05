@@ -1,10 +1,7 @@
 import { registerPanel } from './server/http/panel-routes.js'
-import { contextQueryTool } from './tools/session-context-query-tool.js'
-import { projectManageTool } from './tools/session-project-manage-tool.js'
-import { contentGenerateTool } from './tools/session-content-generate-tool.js'
-import { taskControlTool } from './tools/session-task-control-tool.js'
+import { createHarnessJobs } from './server/host/harness-jobs.js'
+import { subscribeProject } from './server/data/project-events.js'
 import { createOperationManager } from './server/flow/operations/operation-manager.js'
-import { sessionSkills, validateSkills } from './skills/load-skills.js'
 import { interruptRunning } from './server/flow/tasks/task-interrupt.js'
 import { projectStore } from './server/data/project-store.js'
 import { ffmpegAvailable } from './server/media/check-ffmpeg.js'
@@ -14,7 +11,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 export const name = 'meiji'
-export const inject = ['webServer', 'connection', 'settings', 'tools', 'sessionController', 'workspaceController', 'workspaceRegistry', 'sessions']
+export const inject = ['webServer', 'connection', 'settings', 'tools', 'sessionController', 'workspaceController', 'workspaceRegistry', 'sessions', 'jobs']
 export function apply(ctx) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   setHostLogger(ctx.logger)
@@ -30,21 +27,10 @@ export function apply(ctx) {
   })
   const tasks = createOperationManager({ home, workspaceController: ctx.workspaceController })
   ctx.effect(() => () => tasks.dispose(), 'meiji: tasks')
-  registerPanel(ctx, ready, tasks)
-  for (const factory of [contextQueryTool, projectManageTool, contentGenerateTool, taskControlTool]) {
-    const tool = factory({ home, tasks, workspaceController: ctx.workspaceController })
-    const execute = tool.execute
-    tool.execute = async (...args) => { await ready; return execute(...args) }
-    ctx.effect(() => ctx.tools.register(tool), `meiji: ${tool.name}`)
-  }
-  // 生成流程由代码直接读取技能（skills/task 平铺的功能文件），不经 Harness；只把会话说明注册给会话 agent。
-  validateSkills()
-  for (const skill of sessionSkills()) {
-    try {
-      const skills = ctx.get('skills')
-      if (skills) skills.register(skill)
-    } catch (error) {
-      ctx.logger.warn('Meiji skill %s not registered: %s', skill.name, error.message)
-    }
-  }
+  const jobs = createHarnessJobs({ home, manager: tasks, registry: ctx.jobs, logger: ctx.logger, subscribeProject, readProject: id => projectStore(home).read(id) })
+  ctx.effect(() => ctx.jobs.attachController('meiji'), 'meiji: jobs controller')
+  ctx.effect(() => ctx.tools.guard(exec => jobs.guard(exec)), 'meiji: job kill guard')
+  ctx.effect(() => () => jobs.dispose(), 'meiji: jobs observer')
+  registerPanel(ctx, ready, tasks, jobs)
+  ctx.provide('meiji', { home, tasks, jobs, ready, workspaceController: ctx.workspaceController })
 }

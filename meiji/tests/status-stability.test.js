@@ -12,8 +12,10 @@ import { setupModel, tempHome } from './fixtures/model.js'
 import { outlineFixture } from './fixtures/story-package.js'
 import { randomUUID } from 'node:crypto'
 import { linkStore } from '../server/data/workspace-links.js'
-import { contentGenerateTool } from '../tools/session-content-generate-tool.js'
-import { taskControlTool } from '../tools/session-task-control-tool.js'
+import { operationTools } from '../tools/session-operation-tools.js'
+import { createHarnessJobs } from '../server/host/harness-jobs.js'
+import { subscribeProject } from '../server/data/project-events.js'
+import { fakeJobs } from './fixtures/fake-jobs.js'
 
 const blocking = async (_operation, deps) => new Promise((_, reject) => deps.signal.addEventListener('abort', () => reject(deps.signal.reason), { once: true }))
 async function stopAll(tasks, projectId, started) {
@@ -44,28 +46,31 @@ test('AC-M2 面板占用本集时，会话发起返回 busy；会话可等待但
   let releasePanel
   const gate = new Promise(resolve => { releasePanel = resolve })
   const tasks = createOperationManager({ home: e.home, execute: async operation => { if (operation.origin === 'panel') await gate; return ['完成'] } })
-  const panel = tasks.start({ ...e.op('shot-table', {}), origin: 'panel' })
-  const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ home: e.home, tasks })
-  const busy = JSON.parse(await generate.execute({ stage: 'shots', episodeNumber: 1, mode: 'regenerate' }, exec))
-  assert.equal(busy.status, 'busy'); assert.equal(busy.operationId, panel.id); assert.equal(busy.initiator, 'panel')
-  assert.match(busy.message, /本集正在执行：生成镜头表.*（面板发起）/)
-  await assert.rejects(control.execute({ action: 'cancel', operationId: busy.operationId }, exec), { status: 404 })
+  const registry = fakeJobs(), jobs = createHarnessJobs({ home: e.home, manager: tasks, registry, subscribeProject, readProject: id => e.store.read(id) })
+  t.after(() => jobs.dispose())
+  const panel = await jobs.start({ ...e.op('shot-table', {}), origin: 'panel', sessionId: exec.agent.session.id })
+  const generate = operationTools({ home: e.home, jobs }).find(tool => tool.name === 'meiji_generate_shot_table')
+  const busy = JSON.parse(await generate.execute({ episodeNumber: 1, mode: 'regenerate', confirmDelete: true }, exec))
+  assert.equal(busy.status, 'running'); assert.equal(busy.occupantOperationId, panel.operationId); assert.equal(busy.busy.initiator, 'panel')
+  assert.match(jobs.guard({ name: 'job_kill', arguments: { job_id: panel.jobId } }), /面板/)
   setTimeout(releasePanel, 30)
-  const waited = JSON.parse(await control.execute({ action: 'wait', operationId: busy.operationId }, exec))
-  assert.equal(waited.status, 'completed'); assert.equal(waited.occupant, true); assert.equal(waited.nodes, undefined)
-  const again = JSON.parse(await generate.execute({ stage: 'shots', episodeNumber: 1, mode: 'regenerate' }, exec))
+  await registry.wait(busy.jobId, 5000, exec.agent.session.id)
+  const waited = JSON.parse(registry.read(busy.jobId, exec.agent.session.id).result)
+  assert.equal(waited.occupantStatus, 'completed'); assert.equal(waited.occupantOperationId, panel.operationId)
+  const again = JSON.parse(await generate.execute({ episodeNumber: 1, mode: 'regenerate', confirmDelete: true }, exec))
   assert.equal(again.status, 'running')
-  assert.equal(JSON.parse(await control.execute({ action: 'wait', operationId: again.operationId }, exec)).status, 'completed')
+  await registry.wait(again.jobId, 5000, exec.agent.session.id)
+  assert.equal(JSON.parse(registry.read(again.jobId, exec.agent.session.id).result).status, 'completed')
 })
 
-test('AC-M4 占用在操作结束或停止后释放；另一集不受影响', async t => {
-  const tasks = createOperationManager({ home: await tempHome(t), execute: blocking }), started = []
-  const first = tasks.start(operationRequest('shots', { projectId: 'p', episodeId: 'e1' })); started.push(first)
-  started.push(tasks.start(operationRequest('shots', { projectId: 'p', episodeId: 'e2' })))
-  assert.throws(() => tasks.start({ projectId: 'p', episodeId: 'e1', action: 'seconds' }), error => error.status === 409 && error.busy.operationId === first.id)
-  tasks.cancel(first.id, 'p'); await first.done
-  const next = tasks.start({ projectId: 'p', episodeId: 'e1', action: 'seconds' }); started.push(next)
-  await stopAll(tasks, 'p', started)
+test('AC-M4 同项目生成互斥，停止后释放；其他集直接编辑可继续', async t => {
+  const tasks = createOperationManager({home:await tempHome(t),execute:blocking}),started=[]
+  const first=tasks.start(operationRequest('shots',{projectId:'p',episodeId:'e1'}));started.push(first)
+  assert.throws(()=>tasks.start(operationRequest('shots',{projectId:'p',episodeId:'e2'})),{status:409})
+  started.push(tasks.start({projectId:'p',episodeId:'e2',action:'scene-text'}))
+  tasks.cancel(first.id,'p');await first.done
+  started.push(tasks.start({projectId:'p',episodeId:'e1',action:'seconds'}))
+  await stopAll(tasks,'p',started)
 })
 
 test('B2 操作失败只记录在任务与内容节点上，不写剧集级 activityError', async t => {

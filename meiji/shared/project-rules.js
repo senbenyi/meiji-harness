@@ -1,14 +1,9 @@
-import { GenerationStatus, node, episodeModel, contentNode } from './drama-model.js'
+import { cascade } from './pipeline-cascade.js'
+import { contentNode } from './drama-model.js'
 
 export function replaceFrom(project, step, data) {
-  let next = structuredClone(project)
-  if (['summary', 'outline'].includes(step)) {
-    if (step === 'summary') next.plot = episodeModel('temporary', {}).plot
-    next.shots = { ...node('shots'), items: [] }
-  }
-  if (['shots', 'storyboard'].includes(step)) next = { ...next, ...clearShotDownstream(next, step === 'shots' ? 'shots' : 'storyboard') }
-  next.assembly = node('assembly')
-  next.pendingImages = {}
+  const type = { summary: 'summary', outline: 'outline', shots: 'shots', storyboard: 'storyboard' }[step]
+  const next = type ? { ...project, ...cascade(project, { type }).patch } : project
   return { ...next, ...data, stage: step }
 }
 
@@ -50,26 +45,12 @@ export function sourcePatch(project, input) {
   const aspectRatio = input?.aspectRatio == null || input.aspectRatio === '' ? storedAspect : aspectRatioOf(input.aspectRatio)
   const changed = summary !== project.summary.content || durationSeconds !== project.durationSeconds || aspectRatio !== storedAspect
   if (!changed) return title === project.title ? { summary: project.summary } : { summary: project.summary, title }
-  return { ...replaceFrom(project, 'summary', {}), summary: contentNode(project.summary, summary, { passed: true, failures: [] }), title, durationSeconds, aspectRatio }
+  const patch = summary !== project.summary.content || durationSeconds !== project.durationSeconds
+    ? replaceFrom(project, 'summary', {}) : cascade(project, { type: 'aspect' }).patch
+  return { ...patch, summary: contentNode(project.summary, summary, { passed: true, failures: [] }), title, durationSeconds, aspectRatio }
 }
 
 
-export function staleMedia(project) {
-  const shots = structuredClone(project.shots)
-  for (const shot of shots.items) {
-    if (shot.video.content) { shot.video.stale = true; shot.video.status = GenerationStatus.FAILED }
-  }
-  const assembly = structuredClone(project.assembly)
-  if (assembly.content) { assembly.stale = true; assembly.status = GenerationStatus.FAILED }
-  return { shots, assembly }
-}
 export function clearShotDownstream(project, stage, track) {
-  const shots = structuredClone(project.shots)
-  const kinds = stage === 'shots' ? ['seconds', 'storyboard', 'video'] : stage === 'seconds' ? ['storyboard', 'video'] : ['video']
-  for (const shot of shots.items) {
-    if (track && shot.id !== track) continue
-    shot.tailFrame = node(`tailFrame:${shot.id}`)
-    for (const kind of kinds) shot[kind] = node(`${kind === 'video' ? 'film' : kind}:${shot.id}`)
-  }
-  return { shots, assembly: node('assembly'), pendingImages: Object.fromEntries(Object.entries(project.pendingImages || {}).filter(([, draft]) => !draft.track || (track && draft.track !== track))) }
+  return cascade(project, { type: stage === 'shots' ? track ? 'shot' : 'shots' : stage === 'seconds' ? 'seconds' : 'storyboard', track }).patch
 }

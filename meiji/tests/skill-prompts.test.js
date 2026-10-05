@@ -9,11 +9,11 @@ import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 import { render } from '../server/prompts/skill-prompts.js'
 const skillsDir = fileURLToPath(new URL('../skills/', import.meta.url))
 test('约束只放平铺的功能正文，没有通用审核修订指导 skill', async () => {
-  assert.equal(validateSkills().length, 12)
+  assert.equal(validateSkills().length, 13)
   assert.ok(builtinSkills().every(skill => skill.kind === 'stage' && skill.fixedConstraints && !skill.fields.length))
-  assert.deepEqual(stageSkillIds(), ['project-summary', 'episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'video', 'image-prompt', 'character-image', 'scene-image', 'part-image'])
+  assert.deepEqual(stageSkillIds(), ['script-revision', 'project-summary', 'episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'video', 'image-prompt', 'character-image', 'scene-image', 'part-image'])
   const files = await readdir(join(skillsDir, 'task'), { withFileTypes: true })
-  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["generate-project-summary","generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","extract-story-props","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image"].map(name => `${name}-skill.md`).sort())
+  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["generate-project-summary","revise-script","generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","extract-story-props","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image"].map(name => `${name}-skill.md`).sort())
   assert.ok(files.filter(file => !file.name.startsWith('.')).every(file => file.isFile() && file.name.endsWith('-skill.md')))
   for (const skill of builtinSkills()) {
     assert.doesNotMatch(skill.constraints, /^#{1,6}\s/m)
@@ -35,14 +35,14 @@ test('基础规则空正文有效，缺失与未登记文件报错', async () =>
     assert.throws(() => validateSkills(dir), /未登记/)
     await rm(join(dir, 'task/unused.md'))
     await writeFile(join(dir, 'task/generate-character-image-skill.md'), '')
-    assert.equal(validateSkills(dir).length, 12)
+    assert.equal(validateSkills(dir).length, 13)
     await rm(join(dir, 'task/generate-character-image-skill.md'))
     assert.throws(() => validateSkills(dir), /ENOENT/)
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 test('各文本步骤生成与修订使用生产规则、自审只使用对应审核 skill，审核使用统一 JSON 协议', () => {
-  for (const stage of ['project-summary', 'episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']) {
-    const prompts = buildTextPrompts({ skill: stage, project: { outputLanguage: 'en' }, instructions: 'UPSTREAM' })
+  for (const stage of ['project-summary', 'script-revision', 'episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']) {
+    const prompts = buildTextPrompts({ skill: stage, project: { outputLanguage: 'en' }, operation: { action: 'script-revise', requirements: '补结局' }, facts: { targets: [{ kind: 'body' }] }, instructions: 'UPSTREAM' })
     const skill = builtinSkill(stage), rules = skill.constraints
     const review = stage === 'outline' ? skill.reviewRules.outline : skill.review
     assert.ok(review.trim(), stage)
@@ -64,7 +64,7 @@ test('各文本步骤生成与修订使用生产规则、自审只使用对应�
 })
 
 test('每个有自审的功能在 review/ 有独立审核 skill，未登记或缺失文件报错', async () => {
-  const reviewed = { 'project-summary': 'review-project-summary-skill.md', episode: 'review-episode-summary-skill.md', shots: 'review-shot-table-skill.md', 'shot-revise': 'review-shot-revision-skill.md',
+  const reviewed = { 'project-summary': 'review-project-summary-skill.md', 'script-revision': 'review-script-revision-skill.md', episode: 'review-episode-summary-skill.md', shots: 'review-shot-table-skill.md', 'shot-revise': 'review-shot-revision-skill.md',
     seconds: 'review-seconds-instructions-skill.md', storyboard: 'review-text-storyboard-skill.md', 'image-prompt': 'review-image-prompt-skill.md' }
   for (const [id, file] of Object.entries(reviewed)) {
     const skill = builtinSkill(id)

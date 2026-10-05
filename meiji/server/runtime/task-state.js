@@ -5,7 +5,7 @@ import { StepStatus, deriveTaskStatus, reviewPassed } from '../../shared/task-no
 const now = () => new Date().toISOString()
 // 创建前的项目摘要草稿独立记录；其他无项目操作或删除操作不留项目记录。
 const unrecorded = new Set(['create', 'open', 'library-import', 'project-delete', 'episode-delete'])
-export const recorded = operation => (Boolean(operation?.projectId) || operation?.action === 'project-summary' && operation.draft) && !unrecorded.has(operation.action)
+export const recorded = operation => Boolean(operation?.projectId) && !unrecorded.has(operation.action)
 export function createNode({ kind, target = null, label = null, phase }, actor) {
   return { id: randomUUID(), kind, target, label, ...(phase ? { phase } : {}), status: StepStatus.PENDING, verdict: null, reasons: [], error: null, actor, attempts: [], inputs: [], outputs: [], startedAt: null, endedAt: null }
 }

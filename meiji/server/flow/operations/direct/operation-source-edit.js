@@ -11,5 +11,5 @@ export async function opSource(c) {
 }
 
 export const operations = {
-  source: { label: '修改原始资料', scope: 'episode', agent: false, step: saveStep('summary'), stage: 'episode', run: opSource },
+  source: { label: '修改原始资料', scope: 'episode', lock: 'project', agent: false, step: saveStep('summary'), stage: 'episode', run: opSource },
 }

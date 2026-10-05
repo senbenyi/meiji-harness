@@ -26,19 +26,8 @@ if [[ ! -f "$PLUGIN/package.json" ]]; then
   exit 1
 fi
 
-node --input-type=module -e '
-import { readFileSync, writeFileSync } from "node:fs"
-const file = process.argv[1]
-const manifest = JSON.parse(readFileSync(file, "utf8"))
-manifest.dsh = { bundle: { patch: "./cordis.patch.yml" } }
-writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n")
-' "$PLUGIN/package.json"
-
-cat > "$PLUGIN/cordis.patch.yml" <<'EOF'
-- insert:
-    - id: meiji
-      name: '@meiji/harness-plugin'
-EOF
+# bundle 和预设补丁由插件源码维护，配置脚本只链接，不覆盖它们。
+[[ -f "$PLUGIN/cordis.patch.yml" && -f "$PLUGIN/session.js" ]] || { echo "缺少 meiji 预设入口" >&2; exit 1; }
 
 if [[ ! -d "$HARNESS/.git" ]]; then
   echo "克隆 DeepSeek Harness 到 $HARNESS"

@@ -77,5 +77,5 @@ export async function readImageDraft(home, id) {
 }
 
 export function pictureTargetSnapshot(item) {
-  return JSON.stringify(item, (key, value) => ['check', 'review', 'draft', 'revision', 'status', 'operation', 'error', 'dependencies', 'stale'].includes(key) ? undefined : value)
+  return JSON.stringify(item, (key, value) => ['check', 'review', 'draft', 'revision', 'status', 'operation', 'error'].includes(key) ? undefined : value)
 }

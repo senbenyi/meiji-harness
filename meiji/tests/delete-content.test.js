@@ -23,10 +23,10 @@ test('episode deletion removes only selected episode data and local videos', asy
   assert.deepEqual((await e.store.read(e.id)).episodes.map(item => item.id), [other.id])
   for (const path of [clip, assembly]) await assert.rejects(access(path), { code: 'ENOENT' })
   await access(kept)
-  await access(image)
+  await assert.rejects(access(image), { code: 'ENOENT' })
 })
 
-test('project deletion removes JSON and all local videos while retaining other projects and images', async t => {
+test('project deletion removes all owned files while retaining other projects', async t => {
   const e = await setupModel(t)
   const other = await e.store.create({ title: '保留项目', summary: '保留内容' })
   const root = join(e.home, 'storages', 'meiji', 'projects')
@@ -35,7 +35,7 @@ test('project deletion removes JSON and all local videos while retaining other p
   await runOperation({ action: 'project-delete', projectId: e.id }, { home: e.home })
   await assert.rejects(e.store.read(e.id), { status: 404 })
   await assert.rejects(access(clip), { code: 'ENOENT' })
-  await access(image)
+  await assert.rejects(access(image), { code: 'ENOENT' })
   assert.equal((await e.store.read(other.id)).title, '保留项目')
 })
 

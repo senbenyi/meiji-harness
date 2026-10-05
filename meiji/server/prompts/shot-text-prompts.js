@@ -30,7 +30,7 @@ function relatedEntities(shots) {
 
 // 前镜最后一段与后镜第一段：只交代衔接状态。
 function handoff(shot, position) {
-  const content = shot?.seconds?.check?.passed === true && !shot.seconds.stale ? shot.seconds.content : null
+  const content = shot?.seconds?.check?.passed === true ? shot.seconds.content : null
   const beats = content?.beats || []
   const beat = position === 'end' ? beats.at(-1) : beats[0]
   if (!beat) return ''
@@ -134,7 +134,7 @@ export function buildSecondsPrompts(options) {
     review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：剧情、时长与交接状态符合本镜镜头表，具体镜头设计与空间调度符合关联资料，与上一镜已通过指令连续。`,
     facts: [
       { title: '【本镜镜头表】', text: shotData(shot) },
-      { title: '【连续性参考：上一镜每秒指令】', text: previous?.seconds.check.passed === true && !previous.seconds.stale ? { seconds: previous.seconds.content } : '' },
+      { title: '【连续性参考：上一镜每秒指令】', text: previous?.seconds.check.passed === true ? { seconds: previous.seconds.content } : '' },
       cards('characters', '【上游事实：本镜关联人物】'), cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】'),
       { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
       { title: '【本次参数】', text: { shotId, durationSeconds: shot.duration, startMs: 0, endMs: shot.duration * 1000, ...(project.style ? { style: project.style } : {}) } },

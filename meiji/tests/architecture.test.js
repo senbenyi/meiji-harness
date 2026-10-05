@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 // 服务端、工具与脚本不得 import client/（浏览器界面）。
 const root = fileURLToPath(new URL('..', import.meta.url))
 const layers = [
-  ['server/http', 7], ['tools', 7], ['index.js', 8],
+  ['server/http', 7], ['tools', 7], ['index.js', 8], ['session.js', 8],
   ['server/flow', 6], ['server/runtime/text-generation.js', 4], ['server/gateway', 3.5], ['server/prompts', 3],
   ['server/media', 1],
   ['server/runtime/task-context.js', 0], ['server/runtime/task-state.js', 0], ['server/runtime/operation-context.js', 0],

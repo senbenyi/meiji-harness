@@ -19,7 +19,7 @@ import { referenceReport } from '../client/storyboard-references.js'
 async function setup(t) {
  const home=await mkdtemp('/tmp/meiji-model-');t.after(()=>rm(home,{recursive:true,force:true}))
  const store=projectStore(home), p=await store.create({title:'测试剧',summary:'本剧摘要'}), episode=blankEpisode({summary:'旅人进入庭院',durationSeconds:10})
- await store.save(p.id,{episodes:[episode]})
+ episode.summary.basis = { scriptSyncedRevision: episode.summary.revision }; await store.save(p.id,{episodes:[episode]})
  return {home,store,id:p.id,episodeId:episode.id, op(action,extra={}){return {action,projectId:p.id,episodeId:episode.id,...extra}}}
 }
 const requestFor = text => async ({ skill }) =>skill==='review'?reviewPass:skill==='shots'?tableResponse(text):text
@@ -42,7 +42,7 @@ test('canonical model flows through plot, shots, seconds, storyboard and manual 
  p=await e.store.read(e.id);shot=p.episodes[0].shots.items[0]
  assert.equal(shot.storyboard.content.prompt.text,edited);assert.equal(shot.storyboard.status,'passed')
  const raw=JSON.parse(await readFile(`${e.home}/storages/meiji/projects/${e.id}.json`,'utf8'))
- assert.equal(raw.schemaVersion,2);assert.equal('feedback' in raw.episodes[0],false);assert.equal('storyboard' in raw.episodes[0],false)
+ assert.equal(raw.schemaVersion,3);assert.equal('feedback' in raw.episodes[0],false);assert.equal('storyboard' in raw.episodes[0],false)
 })
 test('review drafts entered during generation survive success; submitted draft is cleared',()=>{
  const n=node('x','original');saveReview(n,'本次修改');begin(n,{id:'one'});saveReview(n,'下一次修改');finish(n,{passed:true,failures:[]})

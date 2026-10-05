@@ -72,37 +72,14 @@ test('assets are grouped by guidance skill with the same context for generation,
   assert.match(prompts.review('待审').system, /未采用可选参考不判失败/)
 })
 
-test('film selection changes preserve artifacts and production recompiles before resubmission', async t => {
+test('film guidance changes only future tasks, preserving generated artifacts', async t => {
   const e = await setupModel(t), scope = scopeProjects(e.store, e.episodeId)
-  await scope.save(e.id, current => {
-    setContent(current.shots.items[0].video, { status: 'ready', file: 'old.mp4' }, { passed: true, failures: [] })
-    return { shots: current.shots }
-  })
+  await scope.save(e.id, current => { setContent(current.shots.items[0].video, {status:'ready', file:'old.mp4'}, {passed:true,failures:[]}); return {shots:current.shots} })
+  const before = await e.read()
   await e.store.save(e.id, current => assetsPatch(current, 'film', [guidance('action')]))
-  const changed = await e.read()
-  assert.equal(changed.shots.items[0].video.content.file, 'old.mp4')
-  assert.equal(changed.shots.items[0].storyboard.stale, true)
-  assert.equal(changed.shots.items[0].storyboard.check.passed, false)
-  const calls = []
-  const manager = createOperationManager({ home: e.home, execute: async (_operation, { task }) => { const op = task.operation
-    calls.push(op.action)
-    await scope.save(e.id, current => {
-      const shot = current.shots.items[0]
-      if (op.action === 'shot-storyboard') setContent(shot.storyboard, shot.storyboard.content, { passed: true, failures: [] })
-      else {
-        setContent(shot.video, { status: 'ready', file: 'new.mp4' }, { passed: true, failures: [] })
-        setContent(shot.tailFrame, { sourceVideoFile: 'new.mp4', localPath: '/tail.png' }, { passed: true, failures: [] })
-      }
-      return { shots: current.shots }
-    })
-    return []
-  } })
-  await manager.start(e.op('film', { track: 'S01' })).done
-  assert.deepEqual(calls, ['shot-storyboard', 'film'])
-  await e.store.save(e.id, current => assetsPatch(current, 'film', [guidance('action')]))
-  assert.equal((await e.read()).shots.items[0].storyboard.stale, false)
+  assert.deepEqual((await e.read()).shots, before.shots)
   await e.store.save(e.id, current => assetsPatch(current, 'film', []))
-  assert.equal((await e.read()).shots.items[0].storyboard.stale, true)
+  assert.deepEqual((await e.read()).shots, before.shots)
 })
 
 test('guide selection changes do not invalidate an in-flight shot task', async t => {

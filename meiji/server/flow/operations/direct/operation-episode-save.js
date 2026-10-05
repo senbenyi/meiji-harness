@@ -13,6 +13,7 @@ export async function opEpisodeAdd(c) {
   const patch = operation.action === 'episode-add'
     ? addEpisode(project, operation.fields)
     : editEpisode(project, operation.episodeId, operation.fields)
+  if (!project.script && !project.premise && !project.episodes.length && operation.fields.savePremise !== false) patch.premise = String(operation.fields.requirements || '').trim()
   const episode = operation.action === 'episode-add' ? patch.episodes[0] : patch.episodes.find(item => item.id === operation.episodeId)
   if (operation.incomingId) {
     const incoming = await openIncoming(home, operation.incomingId)
@@ -31,6 +32,6 @@ export async function opEpisodeAdd(c) {
 }
 
 export const operations = {
-  'episode-add': { label: '新增剧集', scope: 'project', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
-  'episode-edit': { label: '编辑剧集', scope: 'project', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
+  'episode-add': { label: '新增剧集', scope: 'project', lock: 'project', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
+  'episode-edit': { label: '编辑剧集', scope: 'project', lock: 'project', agent: false, step: saveStep('summary'), stage: 'project', run: opEpisodeAdd },
 }

@@ -8,6 +8,7 @@ import { node, cardModel, shotModel, setContent } from '../../shared/drama-model
 export function episodeFixture() {
   const e = blankEpisode({ summary: '旅人进入庭院', durationSeconds: 10 })
   e.title = '测试剧'
+  e.summary.basis = { scriptRevision: 0, prevSummaryRevision: 0, scriptSyncedRevision: e.summary.revision }
   setContent(e.plot.outline, outlineFixture('旅人进入庭院（10秒）'), { passed: true, failures: [] })
   e.plot.characters.items = [cardModel({ id: 'C01', name: '旅人', type: 'role', look: '国籍：中国 姓名：旅人 身份：探险者 性别：男性 年代：古代 年龄：三十岁 服装：长衣 身高：一米八 体型：结实 面相：方脸', clothes: [], props: [], hairstyles: [] })]
   e.plot.scenes.items = [cardModel({ id: 'E01', name: '庭院', type: 'scene', look: '开阔庭院及远处山脉，完整门墙与通道', space: '南门北墙' })]

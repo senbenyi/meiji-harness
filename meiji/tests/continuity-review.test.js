@@ -36,9 +36,8 @@ test('first shot and unavailable previous shots do not invent continuity evidenc
   const p = episodeFixture()
   assert.match(continuityReviewContext(p, 'S01'), /本镜为第一镜/)
   p.shots.items[0].storyboard.content.prompt.text = '不可用的前镜'
-  for (const state of ['failed', 'stale', 'missing']) {
+  for (const state of ['failed', 'missing']) {
     p.shots.items[0].storyboard.check.passed = state !== 'failed'
-    p.shots.items[0].storyboard.stale = state === 'stale'
     if (state === 'missing') p.shots.items[0].storyboard.content = null
     const text = continuityReviewContext(p, 'S02')
     assert.doesNotMatch(text, /不可用的前镜/)

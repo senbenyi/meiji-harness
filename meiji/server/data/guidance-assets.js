@@ -22,28 +22,11 @@ export async function loadGuidanceAssets(home, ids) {
   return assets
 }
 
-// 保存某阶段选择的指导素材（项目级补丁）。成片素材先编入文本分镜并审核：更换后各集已有的文本分镜及下游标记待更新，
-// 保留旧产物，交给现有一键成片流程更新。
+// 指导素材仅影响之后的任务，不删除已有产物。
 export function assetsPatch(project, stage, assets) {
   if (!assetStages.includes(stage)) throw Object.assign(new Error('指导素材阶段无效'), { status: 400 })
   const skills = projectSkills(project.skills)
-  const before = skills.assets[stage] || []
   if (assets.length) skills.assets[stage] = assets
   else delete skills.assets[stage]
-  const patch = { skills }
-  if (stage === 'film' && JSON.stringify(before) !== JSON.stringify(assets)) {
-    patch.episodes = project.episodes.map(episode => {
-      if (!episode.shots?.items?.length) return episode
-      const next = { ...episode, shots: structuredClone(episode.shots) }
-      for (const shot of next.shots.items) for (const kind of ['storyboard', 'video', 'tailFrame']) {
-        const target = shot[kind]
-        if (!target?.content) continue
-        target.stale = true
-        target.check = { ...target.check, passed: false, failures: ['成片指导素材已更新，需重新编排文本分镜并生成成片'] }
-      }
-      if (next.assembly?.content) next.assembly = { ...next.assembly, stale: true }
-      return next
-    })
-  }
-  return patch
+  return { skills }
 }

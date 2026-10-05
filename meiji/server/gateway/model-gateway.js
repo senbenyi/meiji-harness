@@ -1,8 +1,10 @@
+import { publicHeaders, publicData, redactJson } from './redact.js'
+export { publicData } from './redact.js'
 import { videoSizeOf } from '../../shared/project-rules.js'
 import { markApiFailure, checkContext } from '../runtime/operation-context.js'
 import { insertSessionLog, sessionForLog, logPurpose, runWithLogPurpose } from '../host/session-log.js'
 import { gatewayBaseUrl } from '../../models/model-config.js'
-import { recordNodePrompt, runNode } from '../runtime/task-execution.js'
+import { recordNodePrompt, recordNodeResponse, runNode } from '../runtime/task-execution.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { builtinSkill, isSkill } from '../../skills/load-skills.js'
 
@@ -58,30 +60,14 @@ function endpoint(baseUrl, path) {
 
 async function readBody(response) {
   const text = await response.text()
-  try { return text ? JSON.parse(text) : {} } catch { return { error: { message: text.replace(/\s+/g, ' ').slice(0, 180) } } }
+  try { return text ? JSON.parse(text) : {} } catch { return text }
 }
 
 function fail(response, data, fallback) {
-  const message = data?.error?.message || fallback
+  const message = data?.error?.message || (typeof data === 'string' ? data.replace(/\s+/g, ' ').slice(0, 180) : fallback)
   throw markApiFailure(Object.assign(new Error(message), { status: response.status === 401 ? 401 : 502 }))
 }
 
-function publicHeaders(headers, apiKey) {
-  return Object.fromEntries(Object.entries(headers || {}).map(([key, value]) => {
-    const hidden = /authorization/i.test(key) || (apiKey && String(value).includes(apiKey))
-    return [key, hidden ? '[已隐藏]' : value]
-  }))
-}
-
-function publicData(value, apiKey) {
-  const json = JSON.stringify(value, (key, item) => {
-    if (/api[_-]?key|authorization/i.test(key)) return '[已隐藏]'
-    if ((key === 'b64_json' || key === 'input_reference' || key === 'last_frame') && typeof item === 'string') return `[base64 图片，${item.length} 字符]`
-    if (typeof item === 'string') return item.replace(/data:[^,\s]*;base64,[A-Za-z0-9+/_=-]+/g, data => `[base64 数据，${data.length - data.indexOf(',') - 1} 字符]`)
-    return item
-  })
-  return apiKey ? json.replaceAll(apiKey, '[已隐藏]') : json
-}
 
 function writeApiLog(text, failed) {
   const fn = text.match(/函数：([^\n]+)/)?.[1]
@@ -103,7 +89,7 @@ async function requestGateway(options) {
 }
 
 // body 为 FormData 时按 multipart 发送，logBody 描述其内容；否则按 JSON 发送。
-async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body, logBody, apiKey, fetchImpl, signal, binary = false, binaryLabel = '视频文件', redirect, fn, authenticated = true }) {
+async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body, logBody, apiKey, fetchImpl, signal, binary = false, binaryLabel = '视频文件', redirect, fn, authenticated = true, poll = false, finalPoll = false }) {
   baseUrl = gatewayBaseUrl(baseUrl)
   if (authenticated) {
     apiKey = String(apiKey || '').replace(/^Bearer\s+/i, '').trim()
@@ -129,25 +115,36 @@ async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body,
   if (body !== undefined) sent.push(`参数：${publicData(form ? logBody : body, apiKey)}`)
   writeApiLog(sent.join('\n'))
   let response
+  const startedAt = Date.now()
+  const record = data => recordNodeResponse({ fn, method, path: redactJson(`${url.pathname}${url.search}`, apiKey), durationMs: Date.now() - startedAt, ...data })
   try {
     response = await fetchImpl(url, { method, headers, body: body === undefined ? undefined : form ? body : JSON.stringify(body), signal: requestSignal(signal), ...(redirect ? { redirect } : {}) })
   } catch (error) {
+    await record({ ok: false, status: null, error: redactJson(error?.message || '请求没有完成', apiKey) })
     writeApiLog(`${where}\n失败：${error?.message || '请求没有完成'}`, true)
     throw markApiFailure(error)
   }
-  if (binary && response.ok) {
-    const bytes = Buffer.from(await response.arrayBuffer())
-    writeApiLog(`${where}\n返回：${binaryLabel} ${bytes.length} 字节`)
-    return bytes
+  let data
+  try {
+    if (binary && response.ok) {
+      const bytes = Buffer.from(await response.arrayBuffer())
+      await record({ ok: true, status: response.status, bytes: bytes.length })
+      writeApiLog(`${where}\n返回：${binaryLabel} ${bytes.length} 字节`)
+      return bytes
+    }
+    data = await readBody(response)
+  } catch (error) {
+    await record({ ok: false, status: response.status, error: redactJson(error?.message || '响应读取失败', apiKey) })
+    throw markApiFailure(error)
   }
-  const data = await readBody(response)
+  if (!poll || finalPoll || !response.ok || ['completed', 'failed', 'cancelled', 'canceled', 'expired'].includes(data?.status)) await record({ ok: response.ok, status: response.status, body: redactJson(data, apiKey) })
   if (!response.ok) {
     const message = data?.error?.message || `HTTP ${response.status}`
     writeApiLog(`${where}\n失败：${publicData(message, apiKey)}`, true)
-    return { ok: false, response, data }
+    return { ok: false, response, data, durationMs: Date.now() - startedAt }
   }
   writeApiLog(`${where}\n返回：${publicData(data, apiKey)}`)
-  return { ok: true, response, data }
+  return { ok: true, response, data, durationMs: Date.now() - startedAt }
 }
 
 export async function completeChat({ baseUrl, apiKey, model, system, prompt, json = false, fetchImpl = fetch, signal }) {
@@ -296,12 +293,15 @@ export async function retrieveGatewayVideo({ baseUrl, apiKey, promptId, fetchImp
   const path = `videos/${encodeURIComponent(promptId)}`
   const headers = { Authorization: `Bearer ${apiKey}` }
   let terminal = false
+  let lastPoll = null
   try {
     for (let attempt = 0; attempt < maxPolls; attempt += 1) {
       pollingSignal.throwIfAborted()
-      const result = await requestGateway({ baseUrl, path, apiKey, fetchImpl, signal: pollingSignal, fn, headers })
+      lastPoll = null
+      const result = await requestGateway({ baseUrl, path, apiKey, fetchImpl, signal: pollingSignal, fn, headers, poll: true, finalPoll: attempt + 1 === maxPolls })
       if (!result.ok) fail(result.response, result.data, `视频查询失败：HTTP ${result.response.status}`)
       const data = result.data
+      if (attempt + 1 < maxPolls && !['completed', 'failed', 'cancelled', 'canceled', 'expired'].includes(data.status)) lastPoll = { fn, method: 'GET', path, status: result.response.status, ok: true, body: redactJson(data, apiKey), durationMs: result.durationMs }
       if (['failed', 'cancelled', 'canceled', 'expired'].includes(data.status)) {
         terminal = true
         throw markApiFailure(Object.assign(new Error(`视频生成失败：${data.error?.message || data.status}`), { status: 502, code: 'VIDEO_TASK_TERMINAL' }))
@@ -318,6 +318,7 @@ export async function retrieveGatewayVideo({ baseUrl, apiKey, promptId, fetchImp
     }
     throw markApiFailure(Object.assign(new Error(`视频查询超时，已停止等待，不会自动重新提交；网关不提供取消接口，远端任务可能仍在运行（${promptId}）`), { status: 504 }))
   } catch (error) {
+    if (lastPoll) await recordNodeResponse({ ...lastPoll, error: redactJson(error.message, apiKey) })
     if (!terminal && signal?.aborted && signal.reason?.name !== 'TimeoutError') throw notCancelled(promptId)
     if (!terminal && deadline.aborted) throw markApiFailure(Object.assign(new Error(`视频查询超时，已停止等待，不会自动重新提交；网关不提供取消接口，远端任务可能仍在运行（${promptId}）`), { status: 504 }))
     throw error

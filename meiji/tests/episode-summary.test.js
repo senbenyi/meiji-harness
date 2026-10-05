@@ -88,7 +88,7 @@ test('草稿任务持久化并可重新查询，保存前项目文件不变', as
   const file = join(e.home, 'storages/meiji/projects', e.id + '.json'), before = await readFile(file, 'utf8')
   const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps, generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft()) }) }) })
   const task = tasks.start(operationRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
-  const result = await tasks.wait(task.id)
+  const result = await tasks.whenEnded(task.id)
   assert.equal(result.status, 'completed')
   assert.equal(result.draft.summary, '本集事件')
   assert.equal(await readFile(file, 'utf8'), before)
@@ -116,8 +116,8 @@ test('已有剧集重新生成保留用户设定时长，手工新增、编辑�
     assert.throws(() => editEpisode(root, e.episodeId, draft(invalid)), /非空字符串/)
     if (invalid !== null) await assert.rejects(scopeProjects(e.store, e.episodeId).saveSource(e.id, { summary: invalid }), /非空字符串/)
   }
-  assert.equal(overviewPatch(root, { summary: '字'.repeat(301) }).summary.content.length, 301)
-  assert.throws(() => overviewPatch(root, { summary }), /10000/)
+  assert.throws(() => overviewPatch(root, { summary: '字'.repeat(301) }), /项目摘要由 AI/)
+  assert.throws(() => overviewPatch(root, { summary }), /项目摘要由 AI/)
   await assert.rejects(e.store.saveSource(e.id, { summary }), /10000/)
 })
 
@@ -152,7 +152,7 @@ test('审核失败候选保存在任务历史，原项目不变，也不能伪�
   const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewFail('结尾未衔接') : JSON.stringify(draft()) }) }) })
   const task = tasks.start(operationRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
-  const result = await tasks.wait(task.id)
+  const result = await tasks.whenEnded(task.id)
   assert.equal(result.status, 'review_failed')
   assert.equal(result.draft.check.passed, false)
   assert.deepEqual(await e.store.read(e.id), before)
@@ -170,7 +170,7 @@ test('停止摘要草稿会中止请求，保留已有剧集和下游内容', as
   const task = tasks.start(e.op('summary', { ...{ origin: 'panel' }, draft: true }))
   await ready
   tasks.cancel(task.id, e.id)
-  const result = await tasks.wait(task.id)
+  const result = await tasks.whenEnded(task.id)
   assert.equal(result.status, 'cancelled')
   assert.equal(result.draft, undefined)
   assert.deepEqual(await e.store.read(e.id), before)

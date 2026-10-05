@@ -83,7 +83,7 @@ test('剧情文字版本独立，选择图片不生成文字版本', async t => 
   const source = before.plot.outline.source
   assert.ok(source); assert.equal(before.plot.characters.source, undefined)
   const oldCount = (await history.list('artifacts')).filter(item => item.target === 'outline').length
-  await e.store.save(e.id, root => { root.episodes[0].plot.characters.items[0].image.content = { assetId: 'test', assetCategory: 'characters' }; return root })
+  await e.store.save(e.id, root => { root.episodes[0].plot.characters.items = [structuredClone(e.episode.plot.characters.items[0])]; root.episodes[0].plot.characters.items[0].image.content = { assetId: 'test', assetCategory: 'characters' }; return root })
   const after = await e.read()
   assert.deepEqual(after.plot.outline.source, source)
   assert.equal((await history.list('artifacts')).filter(item => item.target === 'outline').length, oldCount)

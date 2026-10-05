@@ -59,6 +59,7 @@ test('stable identity and confirmed media survive reordering; invented URLs are 
 test('剧情逐任务保存失败稿，前项成功保留，后项停止且不影响另一集', async t => {
   const e = await setupModel(t), other = blankEpisode({ summary: '别集', durationSeconds: 10 })
   await e.store.save(e.id, { episodes: [(await e.store.read(e.id)).episodes[0], other] })
+  await e.store.save(e.id, root => { root.episodes[1].summary.basis = { ...root.episodes[1].summary.basis, scriptSyncedRevision: root.episodes[1].summary.revision }; return root })
   const before = (await e.store.read(e.id)).episodes[1], fixture = storyPackageFixture()
   const replies = [JSON.stringify(fixture.outline), reviewPass, ...Array(3).fill([JSON.stringify(fixture.characters), '{"passed":false,"issues":[{"location":"人物","reason":"缺少身份","requirement":"补全身份"}]}']).flat()]
   await runOperation(e.op('story'), { home: e.home, request: async () => replies.shift() })
@@ -157,10 +158,11 @@ for (const phase of ['first-request', 'characters', 'cancel']) test(`regenerate 
   else assert.deepEqual(after.plot.outline.content, null)
 })
 
-test('outline modification keeps the original cards and confirmed media', async t => {
+test('outline modification deletes dependent cards and retains history', async t => {
   const e = await withOldStory(t), before = await e.read()
   await runOperation(e.op('story', { only: 'outline', generationMode: 'modify', review: '调整剧情节奏' }), { home: e.home,
     request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(skill === 'outline' ? storyPackageFixture().outline : storyPackageFixture()[skill.split('-')[0]]),
   })
-  assert.deepEqual((await e.read()).plot.characters.items[0].image.content, before.plot.characters.items[0].image.content)
+  assert.equal((await e.read()).plot.characters.items.length, 0)
+  assert.ok(before.plot.characters.items[0].image.content)
 })

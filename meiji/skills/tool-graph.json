@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "sessionSkill": "skill-gongyong-panel-generate",
+  "tools": [
+    "meiji_context_query",
+    "meiji_project_manage",
+    "meiji_wait_images"
+  ],
+  "stages": [
+    {
+      "id": "summary",
+      "label": "摘要",
+      "tool": "meiji_generate_summary",
+      "operation": "summary",
+      "tasks": [
+        "summary"
+      ],
+      "skills": [
+        "episode"
+      ],
+      "after": [],
+      "inPanelOrder": true
+    },
+    {
+      "id": "story",
+      "label": "剧情",
+      "tool": "meiji_generate_story",
+      "operation": "story",
+      "tasks": [
+        "outline",
+        "characters",
+        "scenes",
+        "props"
+      ],
+      "skills": [
+        "outline"
+      ],
+      "after": [
+        "summary"
+      ],
+      "inPanelOrder": true
+    },
+    {
+      "id": "shot-table",
+      "label": "镜头表",
+      "tool": "meiji_generate_shot_table",
+      "operation": "shot-table",
+      "tasks": [
+        "shot-table"
+      ],
+      "skills": [
+        "shots",
+        "shot-revise"
+      ],
+      "after": [
+        "story"
+      ],
+      "inPanelOrder": true
+    },
+    {
+      "id": "seconds",
+      "label": "每秒指令",
+      "tool": "meiji_generate_seconds",
+      "operation": "seconds",
+      "tasks": [
+        "shot-seconds"
+      ],
+      "skills": [
+        "seconds"
+      ],
+      "after": [
+        "shot-table"
+      ],
+      "inPanelOrder": true
+    },
+    {
+      "id": "images",
+      "label": "图片",
+      "tool": "meiji_generate_images",
+      "operation": "images",
+      "tasks": [
+        "character-image",
+        "scene-image",
+        "prop-image"
+      ],
+      "skills": [
+        "image-prompt",
+        "character-image",
+        "scene-image"
+      ],
+      "after": [
+        "story"
+      ],
+      "inPanelOrder": true
+    },
+    {
+      "id": "film",
+      "label": "成片",
+      "tool": "meiji_generate_film",
+      "operation": "film",
+      "tasks": [
+        "storyboard-prompt",
+        "video"
+      ],
+      "skills": [
+        "storyboard",
+        "video"
+      ],
+      "after": [
+        "seconds",
+        "images"
+      ],
+      "inPanelOrder": true
+    }
+  ],
+  "maintenance": [
+    {
+      "id": "project-summary",
+      "tool": "meiji_update_project_summary",
+      "operation": "project-summary",
+      "tasks": [
+        "project-summary"
+      ],
+      "skills": [
+        "project-summary"
+      ]
+    },
+    {
+      "id": "script-revise",
+      "tool": "meiji_revise_script",
+      "operation": "script-revise",
+      "tasks": [
+        "script-revise"
+      ],
+      "skills": [
+        "script-revision"
+      ]
+    },
+    {
+      "id": "script-sync",
+      "tool": null,
+      "operation": "script-sync",
+      "tasks": [
+        "script-sync"
+      ],
+      "skills": [
+        "script-revision"
+      ]
+    }
+  ],
+  "panelOnlySkills": [
+    "part-image"
+  ],
+  "panelOnlyTasks": [
+    "library-image"
+  ]
+}

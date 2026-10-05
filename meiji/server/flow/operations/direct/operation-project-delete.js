@@ -3,6 +3,8 @@ import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checkContext } from '../../../runtime/operation-context.js'
 import { recordStore } from '../../../data/task-store.js'
+import { cascade } from '../../../../shared/pipeline-cascade.js'
+import { readImageDraft } from '../../../data/image-storage.js'
 
 // if (['project-delete', 'episode-delete'].includes(operation.action))
 export async function opProjectDelete(c) {
@@ -12,11 +14,17 @@ export async function opProjectDelete(c) {
   } else {
     const episode = project.episodes.find(item => item.id === operation.episodeId)
     if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
-    await rootProjects.save(project.id, async current => {
-      await recordStore(home, project.id).removeEpisode(episode.id)
-      await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'films', episode.id), { recursive: true, force: true })
+    await rootProjects.save(project.id, current => {
+      cascade(current.episodes.find(item => item.id === episode.id), { type: 'episode-delete' })
       return { episodes: current.episodes.filter(item => item.id !== episode.id) }
     })
+    await recordStore(home, project.id).removeEpisode(episode.id)
+    await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'films', episode.id), { recursive: true, force: true })
+    await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'images', episode.id), { recursive: true, force: true })
+    for (const draft of Object.values(episode.pendingImages || {})) {
+      const file = await readImageDraft(home, draft.draftId).catch(() => null)
+      if (file) await rm(file.directory, { recursive: true, force: true })
+    }
   }
   if (operation.action === 'project-delete') checkContext.getStore().projectDeleted = true
   note(operation.action === 'project-delete' ? '已删除项目及本地视频' : '已删除本集及本地视频')

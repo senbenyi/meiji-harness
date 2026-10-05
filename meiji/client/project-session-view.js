@@ -1,4 +1,3 @@
-import { generateProjectSummaryDraft } from './project-summary-draft.js'
 import { renderOperationDetails } from './task-detail.js'
 import { taskStatusLabels } from './task-nodes.js'
 import { renderImageReview, syncImageGate, detailOwnsImage } from './image-review.js'
@@ -210,12 +209,12 @@ export function renderSession(project, openCreate, actions, context = {}) {
   return view
 }
 
-export function projectDialog(root, onCreated, { generateSummary = generateProjectSummaryDraft } = {}) {
+export function projectDialog(root, onCreated) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>填写故事摘要或导入剧本。创建后在项目概要里添加剧集。</p><form class="create"><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="style">风格</label><input id="style" name="style" required maxlength="120" placeholder="例如：写实电影、国风水墨"><label for="summary">摘要</label><textarea id="summary" name="summary" required maxlength="10000" placeholder="故事摘要，或者开场剧情"></textarea><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>填写标题、画幅、风格，可选导入剧本。创建后添加第一集。</p><form class="create"><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="style">风格</label><input id="style" name="style" required maxlength="120" placeholder="例如：写实电影、国风水墨"><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#create-project'), form = dialog.querySelector('form')
-  const error = dialog.querySelector('.error'), summary = form.elements.summary, submit = form.querySelector('[type=submit]')
+  const error = dialog.querySelector('.error'), submit = form.querySelector('[type=submit]')
   const stylePicker = bindStylePicker(form.elements.style)
   const scriptTitle = element('label', '剧本'); scriptTitle.htmlFor = 'project-script'
   const scriptRow = element('div', '', 'workflow-generation-row')
@@ -224,57 +223,20 @@ export function projectDialog(root, onCreated, { generateSummary = generateProje
   const file = element('input'); file.type = 'file'; file.accept = '.txt,.text'; file.hidden = true
   const picker = element('select', '', 'script-picker'); picker.id = 'project-script'; picker.hidden = true; picker.setAttribute('aria-label', '选择剧本')
   const selected = element('p', '', 'meta script-selected')
-  const status = element('span', '', 'meta script-summary-status'); status.setAttribute('role', 'status')
-  const retry = element('button', '重新生成摘要', 'script-summary-retry'); retry.type = 'button'; retry.hidden = true
-  const history = element('details', '', 'script-summary-task'); history.hidden = true
-  const taskBody = element('div'); history.append(element('summary', '查看摘要任务'), taskBody)
-  const summaryRow = element('div', '', 'workflow-generation-row'); summaryRow.append(status, retry)
-  clear.hidden = true
-  scriptRow.append(upload, choose, clear, file)
-  summary.previousElementSibling.before(scriptTitle, scriptRow, picker, selected)
-  summary.after(summaryRow, history)
-  let scriptAssetId = '', manualSummary = '', ticket = 0, importing = false, submitting = false, controller, draft
+  const scriptTitleRow = scriptTitle
+  const footer = form.querySelector('.error')
+  scriptRow.append(upload, choose, clear); clear.hidden = true
+  footer.before(scriptTitleRow, scriptRow, file, picker, selected)
+  let scriptAssetId = '', importing = false, submitting = false, ticket = 0
   const update = () => {
-    upload.disabled = choose.disabled = picker.disabled = importing || submitting
-    clear.disabled = importing || submitting
-    retry.disabled = Boolean(controller) || importing || submitting
-    submit.disabled = importing || submitting || Boolean(scriptAssetId && !draft)
-    summary.disabled = Boolean(controller)
-    summary.readOnly = Boolean(scriptAssetId)
+    upload.disabled = choose.disabled = picker.disabled = clear.disabled = importing || submitting
+    submit.disabled = importing || submitting
   }
-  const cancel = () => { ticket++; controller?.abort(); controller = undefined }
-  const generate = async () => {
-    cancel(); draft = undefined
-    const version = ticket, sourceId = scriptAssetId, active = new AbortController()
-    controller = active; summary.value = ''; status.textContent = '正在生成项目摘要…'; error.textContent = ''; retry.hidden = false; history.hidden = true; taskBody.replaceChildren(); update()
-    try {
-      const result = await generateSummary(sourceId, { signal: active.signal, onTask: (operation, sessionId) => {
-        if (version !== ticket) return
-        status.textContent = taskStatusLabels[operation.status] || operation.status
-        history.hidden = false
-        const params = '?' + new URLSearchParams({ sessionId })
-        taskBody.replaceChildren(renderOperationDetails(operation, {
-          loadPrompts: (task, step) => request(`tasks/${task.id}/nodes/${step.id}/prompts${params}`),
-          loadArtifact: id => request(`artifacts/${id}${params}`),
-        }))
-      } })
-      if (version !== ticket) return
-      draft = result; summary.value = result.summary; status.textContent = '摘要已生成（不超过500字）'
-    } catch (failure) {
-      if (version === ticket && !active.signal.aborted) { status.textContent = '摘要生成失败'; error.textContent = failure.message }
-    } finally { if (version === ticket) { controller = undefined; update() } }
-  }
+  const cancel = () => { ticket++ }
   const setScript = async asset => {
-    cancel()
-    if (!scriptAssetId) manualSummary = summary.value
-    scriptAssetId = asset?.id || ''; draft = undefined
-    selected.textContent = asset?.originalName || ''
-    summary.value = asset ? '' : manualSummary
-    summary.placeholder = asset ? '导入后自动生成项目摘要（不超过500字）' : '故事摘要，或者开场剧情'
-    clear.hidden = !asset; retry.hidden = !asset; history.hidden = true; status.textContent = ''; error.textContent = ''; update()
-    if (asset) await generate()
+    scriptAssetId = asset?.id || ''; selected.textContent = asset?.originalName || ''
+    clear.hidden = !asset; error.textContent = ''; update()
   }
-  retry.onclick = generate
   upload.onclick = () => file.click()
   file.onchange = async () => {
     const source = file.files?.[0], version = ticket
@@ -314,13 +276,13 @@ export function projectDialog(root, onCreated, { generateSummary = generateProje
     try {
       const data = new FormData(form)
       const input = { title: data.get('title').trim(), aspectRatio: data.get('aspect'), style: data.get('style').trim(),
-        ...(scriptAssetId ? { scriptAssetId, summaryDraftOperationId: draft.operationId, summaryDraftSessionId: draft.sessionId } : { summary: data.get('summary').trim() }) }
+        ...(scriptAssetId ? { scriptAssetId } : {}) }
       await onCreated(input)
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
     finally { submitting = false; update() }
   }
-  return () => { cancel(); scriptAssetId = ''; manualSummary = ''; draft = undefined; importing = submitting = false; form.reset(); picker.hidden = true; file.value = ''; selected.textContent = ''; status.textContent = ''; history.hidden = retry.hidden = clear.hidden = true; summary.placeholder = '故事摘要，或者开场剧情'; form.elements.aspect.value = '1344x768'; stylePicker.sync(); error.textContent = ''; update(); showPanelDialog(dialog) }
+  return () => { cancel(); scriptAssetId = ''; importing = submitting = false; form.reset(); picker.hidden = true; file.value = ''; selected.textContent = ''; clear.hidden = true; form.elements.aspect.value = '1344x768'; stylePicker.sync(); error.textContent = ''; update(); showPanelDialog(dialog) }
 }
 
 export function sourceDialog(root, onSaved) {

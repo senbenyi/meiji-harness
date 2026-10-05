@@ -1,3 +1,4 @@
+import { editLinkedCard } from '../../../../shared/library-rules.js'
 // 操作：编辑人物文字
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
@@ -21,8 +22,9 @@ export async function opCharacterText(c) {
   if (project.plot.characters.items.some(item => item.id !== character.id && item.name === values.name)) throw Object.assign(new Error('人物名称重复'), { status: 400 })
   const look = characterLookText(values)
   project = await runNode('save', () => projects.save(project.id, currentProject => {
-    const items = currentProject.plot.characters.items.map(item => item.id === character.id ? { ...item, ...values, figure: '', look } : item)
-    const patch = { ...plotPatch(currentProject, { characters: { ...currentProject.plot.characters, items } }) }
+    const linked = editLinkedCard(currentProject, 'characters', character.id, { ...values, figure: '', look }, { newVariant: operation.newVariant })
+    const items = linked.plot.characters.items.map(item => item.id === character.id ? { ...item, ...values, figure: '', look } : item)
+    const patch = { ...(linked.library ? { library: linked.library } : {}), ...plotPatch(currentProject, { characters: { ...currentProject.plot.characters, items } }) }
     if (values.name === character.name || !currentProject.shots) return patch
     patch.shots = {
       ...currentProject.shots,
@@ -44,5 +46,5 @@ export async function opCharacterText(c) {
 }
 
 export const operations = {
-  'character-text': { label: '编辑人物文字', scope: 'episode', agent: false, plan: () => editSteps('characters'), stage: 'episode', run: opCharacterText },
+  'character-text': { label: '编辑人物文字', scope: 'episode', linkedCard: true, agent: false, plan: () => editSteps('characters'), stage: 'episode', run: opCharacterText },
 }

@@ -19,7 +19,7 @@ export async function addBaselines(store, project, operation, stage, baselines) 
   }
 }
 
-const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'operation', 'error', 'dependencies', 'stale', 'source', 'image', 'parts', 'localPath', 'assetId', 'assetCategory'])
+const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'operation', 'error', 'source', 'image', 'parts', 'localPath', 'assetId', 'assetCategory'])
 const textData = value => JSON.parse(JSON.stringify(value, (key, item) => omitted.has(key) ? undefined : item))
 export function contentTargets(project) {
   return [{ episodeId: null, key: 'project-summary', node: project.summary, content: { summary: project.summary.content }, check: project.summary.check, exists: Boolean(project.summary.content) }, ...project.episodes.flatMap(episode => {
@@ -110,23 +110,4 @@ export async function readTaskDraft(home, task) {
   if (!output) return {}
   const artifact = await recordStore(home, task.projectId).read('artifacts', output.artifactId)
   return { draft: artifact.content }
-}
-
-// 创建确认后把预生成记录归入项目，保留实际请求与所有失败稿；未确认的草稿留在独立目录。
-export async function publishProjectSummaryDraft(home, projectId, operation, sessionId) {
-  const source = recordStore(home, null), destination = recordStore(home, projectId)
-  const record = await source.read('operations', operation.id)
-  await destination.update('operations', record.id, { ...record, projectId, sessionId, draftSessionId: record.sessionId })
-  let latest
-  for (const taskId of record.taskIds) {
-    const task = await source.read('tasks', taskId)
-    await destination.update('tasks', taskId, { ...task, projectId, sessionId, draftSessionId: task.sessionId })
-    for (const step of task.nodes) for (const ref of step.prompts || []) await destination.update('prompts', ref.id, await source.read('prompts', ref.id))
-    latest = [...task.latestOutputs].reverse().find(item => item.target === 'project-summary')
-    for (const ref of task.artifacts) {
-      const artifact = await source.read('artifacts', ref.artifactId)
-      await destination.update('artifacts', artifact.id, { ...artifact, projectId, published: artifact.id === latest?.artifactId })
-    }
-  }
-  return latest
 }

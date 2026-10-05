@@ -20,7 +20,7 @@ export async function createTaskRecord(home, operation, id, plan, meta = {}) {
   if (!recorded(operation)) return null
   const actor = meta.actor || 'model'
   const nodes = (plan?.length ? plan : [{ kind: 'execute' }]).map(step => createNode(step, actor))
-  const record = { schemaVersion: TASK_SCHEMA, id, operationId: meta.operationId || null, type: meta.type || operation.action, label: meta.label || null, targets: meta.targets || null, projectId: operation.projectId, episodeId: operation.episodeId || null,
+  const record = { schemaVersion: TASK_SCHEMA, id, operationId: meta.operationId || null, callId: operation.callId || null, type: meta.type || operation.action, label: meta.label || null, targets: meta.targets || null, projectId: operation.projectId, episodeId: operation.episodeId || null,
     action: operation.action, source: operation.origin || 'api', actor, sessionId: operation.sessionId || null,
     mode: operation.draft ? 'draft' : operation.mode || operation.generationMode || (operation.draft ? 'draft' : meta.actor === 'human' ? 'edit' : 'generate'), requirements: operation.requirements || '', opinion: operation.review || operation.instruction || '',
     target: meta.targets?.[0] ?? null, maxRevisions: meta.maxRevisions ?? 0, status: deriveTaskStatus(nodes), startedAt: now(), endedAt: null, nodes, artifacts: [], latestOutputs: [], error: null }
@@ -78,6 +78,20 @@ export async function recordNodePrompt({ kind, messages, prompt }) {
   await context.store.update('prompts', id, snapshot)
   step.prompts = [...(step.prompts || []), { id, kind, createdAt: snapshot.createdAt }]
   await writeNodes(context)
+}
+
+export async function recordNodeResponse(data) {
+  const context = executionContext.getStore()
+  const step = context?.nodes.find(item => item.id === context.nodeId)
+  if (!step) return
+  try {
+    const id = randomUUID()
+    const snapshot = { ...data, id, taskId: taskIdOfNode(context, step.id), nodeId: step.id,
+      episodeId: context.operation.episodeId || null, createdAt: now() }
+    await context.store.update('responses', id, snapshot)
+    step.responses = [...(step.responses || []), { id, fn: data.fn, createdAt: snapshot.createdAt }]
+    await writeNodes(context)
+  } catch { /* 诊断记录失败不改变网关请求的结果。 */ }
 }
 
 export async function endExecution(context, error, signal) {

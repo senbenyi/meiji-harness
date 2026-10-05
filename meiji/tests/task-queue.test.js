@@ -70,20 +70,20 @@ test('a queued task can be cancelled before it starts', async () => {
 // 入队前要写任务记录，等待到条件成立（最多 2 秒）。
 const until = async predicate => { for (let i = 0; i < 200 && !(await predicate()); i++) await new Promise(resolve => setTimeout(resolve, 10)); assert.ok(await predicate()) }
 
-test('独立任务进入对应队列，等待名额时保持剧集占用', async t => {
+test('不同项目任务共用队列，等待名额时保持占用', async t => {
   const e = await setupModel(t), gates = new Map(), started = []
   const second = { ...structuredClone(e.episode), id: '22222222-2222-4222-8222-222222222222' }
-  await e.store.save(e.id, root => { root.episodes.push(second); return root })
+  const other = await e.store.create({ title: '另一项目' }); await e.store.save(other.id, { episodes: [second] })
   const tasks = createOperationManager({ home: e.home, limitOf: () => 1, execute: async (op, deps) => {
     started.push(op.episodeId); const gate = deferred(); gates.set(op.episodeId, gate); await gate.promise; return []
   } })
-  const a = tasks.start(e.op('shot-table', {})), b = tasks.start(e.op('shot-table', { episodeId: second.id }))
+  const a = tasks.start(e.op('shot-table', {})), b = tasks.start(e.op('shot-table', { projectId: other.id, episodeId: second.id }))
   await until(async () => started.length === 1 && (await tasks.get(b.id)).queuePosition === 1)
   assert.equal((await tasks.get(b.id)).status, 'queued')
   assert.equal(tasks.current(e.id, e.episodeId).length, 1)
-  assert.equal(tasks.current(e.id, second.id).length, 1)
+  assert.equal(tasks.current(other.id, second.id).length, 1)
   assert.ok(tasks.current(e.id, e.episodeId)[0].tasks[0].startedAt)
-  assert.throws(() => tasks.start(e.op('seconds', { episodeId: second.id })), { status: 409 })
+  assert.throws(() => tasks.start(e.op('seconds', { projectId: other.id, episodeId: second.id })), { status: 409 })
   gates.get(e.episodeId).resolve(); await a.done
   await until(() => started.length === 2)
   gates.get(second.id).resolve(); assert.equal((await b.done).status, 'completed')

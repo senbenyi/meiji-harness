@@ -16,5 +16,5 @@ export async function opOverview(c) {
 }
 
 export const operations = {
-  overview: { label: '保存项目概要', scope: 'project', agent: false, step: saveStep(null), stage: 'project', run: opOverview },
+  overview: { label: '保存项目概要', scope: 'project', lock: 'project', agent: false, step: saveStep(null), stage: 'project', run: opOverview },
 }

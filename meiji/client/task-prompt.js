@@ -20,16 +20,20 @@ export function openStepPrompts(anchor, { title, load }) {
   ;(root.body || root).append(dialog)
   dialog.addEventListener('close', () => { dialog.remove(); if (anchor.isConnected) anchor.focus() })
   const refresh = async () => {
-    status.textContent = '加载提示词…'
+    status.textContent = '加载记录…'
     retry.hidden = true
     content.replaceChildren()
     try {
       const result = await load()
-      status.textContent = result.message || (result.prompts.length ? '' : '此步骤没有保存提示词。')
-      for (const [index, entry] of result.prompts.entries()) {
+      const entries = result.responses || result.prompts || []
+      status.textContent = result.message || (entries.length ? '' : '此步骤没有保存提示词。')
+      for (const [index, entry] of entries.entries()) {
         const card = element('section', '', 'task-prompt-request')
         card.append(element('h3', `请求 ${index + 1}`))
-        if (entry.messages) {
+        if (result.responses) {
+          card.append(element('pre', JSON.stringify(entry, null, 2)))
+          appendJsonCopy(card, entry)
+        } else if (entry.messages) {
           for (const message of entry.messages) {
             card.append(element('h4', message.role), element('pre', typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)))
           }

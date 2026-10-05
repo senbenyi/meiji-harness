@@ -1,7 +1,7 @@
 import { element } from './panel-dom.js'
 import { renderOperationDetails } from './task-detail.js'
 import { tickElapsed } from './task-nodes.js'
-export function renderCurrentTasks(project, { load, loadPrompts, loadArtifact, stop, back, openHistory, openOperation }) {
+export function renderCurrentTasks(project, { load, loadPrompts, loadResponses, loadArtifact, stop, back, openHistory, openOperation }) {
   const view = element('section', '', 'task-history-page current-task-page'), header = element('div', '', 'task-history-header')
   const backButton = element('button', '← 返回'), history = element('button', '查看任务历史 →'), refresh = element('button', '刷新')
   backButton.onclick = back; history.onclick = openHistory
@@ -10,7 +10,7 @@ export function renderCurrentTasks(project, { load, loadPrompts, loadArtifact, s
   let requestId = 0
   view.refresh = async () => { const id = ++requestId; refresh.disabled = true
     try { const result = await load(); if (id !== requestId) return; list.replaceChildren(); message.textContent = result.operations.length ? '' : '当前没有进行中或排队中的任务'
-      for (const operation of result.operations) { const detail = renderOperationDetails(operation, { loadPrompts, loadArtifact, stop, openOperation }); detail.classList.add('task-history-item', 'current-task'); list.append(detail) }
+      for (const operation of result.operations) { const detail = renderOperationDetails(operation, { loadPrompts, loadResponses, loadArtifact, stop, openOperation }); detail.classList.add('task-history-item', 'current-task'); list.append(detail) }
     } catch (error) { if (id === requestId) message.textContent = error.message }
     finally { if (id === requestId) refresh.disabled = false }
   }

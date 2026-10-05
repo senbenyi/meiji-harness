@@ -89,7 +89,7 @@ test('legacy workspace mappings do not claim ambiguous sessions', () => fixture(
 test('HTTP project selection reuses sessions, creates an owned session and rejects old-workspace writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
   const { registerPanel } = await import('../server/http/panel-routes.js')
   const { createOperationManager } = await import('../server/flow/operations/operation-manager.js')
-  let handler
+  let handler, manager
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
   try {
@@ -105,7 +105,7 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
       connection: { requestRejection: () => null },
       webServer: { register: route => { handler = route.handler } },
       effect: fn => fn(), on() {}, logger: { warn() {} },
-    }, Promise.resolve(), createOperationManager({ home, workspaceController: controller, execute: (op, deps) => op.action === 'shot-table' ? Promise.resolve([]) : executeTask(op, deps) }))
+    }, Promise.resolve(), manager = createOperationManager({ home, workspaceController: controller, execute: (op, deps) => op.action === 'shot-table' ? Promise.resolve([]) : executeTask(op, deps) }))
   } finally {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous
@@ -115,7 +115,7 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
     await handler({ url: '/plugins/meiji/' + path, method: 'POST', headers: { 'x-meiji-request': '1' }, async *[Symbol.asyncIterator]() { yield JSON.stringify(body) } }, {
       writeHead(code) { status = code }, end(text) { value = JSON.parse(text) },
     })
-    return { status, ...value }
+    return { ...value, status }
   }
   const project = await create('HTTP 短剧')
   const first = await call('link', { projectId: project.id })
@@ -124,11 +124,11 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
   const again = await call('link', { projectId: project.id })
   assert.equal(again.sessionId, first.sessionId)
   // No sessionController.prompt is provided: local edits must execute without a model turn.
-  const edited = await call('turn', { action: 'overview', projectId: project.id, sessionId: first.sessionId, fields: { title: '本地修改', summary: '直接保存的剧情' } })
+  const edited = await call('turn', { action: 'overview', projectId: project.id, sessionId: first.sessionId, fields: { title: '本地修改' } })
   assert.equal(edited.status, 200)
   assert.equal(edited.completed, true)
   assert.equal(edited.project.title, '本地修改')
-  assert.equal((await projects.read(project.id)).summary.content, '直接保存的剧情')
+  assert.equal((await projects.read(project.id)).summary.content, project.summary.content)
   // Generation buttons also bypass the chat controller and return immediately.
   const blocked = await call('turn', operationRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
   assert.equal(blocked.status, 409)
@@ -145,6 +145,7 @@ test('HTTP project selection reuses sessions, creates an owned session and rejec
     await new Promise(resolve => setTimeout(resolve, 5))
     assert.notEqual(attempt, 99, 'background task must settle')
   }
+  await manager.whenEnded(generated.operationId)
   const { EventEmitter } = await import('node:events')
   const stream = new EventEmitter(), updates = []
   stream.writeHead = code => assert.equal(code, 200)

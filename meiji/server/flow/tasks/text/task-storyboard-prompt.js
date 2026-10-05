@@ -15,7 +15,7 @@ import { hasShots } from '../../../../shared/generation-gates.js'
 export async function generateShotStoryboard(options) {
   const { project, shotId } = options
   const shot = project.shots.items.find(item => item.id === shotId)
-  if (!shot || !shotSecondsReady(shot) || shot.seconds.check.passed !== true || shot.seconds.stale) throw Object.assign(new Error('请先生成这一镜的每秒指令并通过自审'), { status: 409 })
+  if (!shot || !shotSecondsReady(shot) || shot.seconds.check.passed !== true) throw Object.assign(new Error('请先生成这一镜的每秒指令并通过自审'), { status: 409 })
   const item = await runNode('generate', () => {
     try { return compileVideoPrompt(project, shot) } catch (error) { return { invalid: error.message } }
   }, { target: `storyboard:${shotId}`, phase: 'reference-binding', label: '程序组装' })
@@ -76,7 +76,7 @@ export async function opStoryboard(c) {
   if (!hasShots(project)) throw Object.assign(new Error('请先写好镜头表，再生成文本分镜'), { status: 409 })
   project = await projects.read(project.id)
   const current = project
-  if (current.shots.items.some(shot => !shotSecondsReady(shot) || shot.seconds.check.passed !== true || shot.seconds.stale)) throw Object.assign(new Error('请先生成整集每秒指令，并使每镜自审通过'), { status: 409 })
+  if (current.shots.items.some(shot => !shotSecondsReady(shot) || shot.seconds.check.passed !== true)) throw Object.assign(new Error('请先生成整集每秒指令，并使每镜自审通过'), { status: 409 })
   await selectCheck(current, { action: 'storyboard' })
   note('按「文本分镜」技能生成全部分镜表，并审核原文剧情与素材关联')
   const storyboard = await (deps.generateStoryboard || generateStoryboard)({ route: (modelRoutes(await models.read())).story, project: current, beforeShot: track => projects.save(project.id, current => clearShotDownstream(current, 'storyboard', track)), persist: storyboard => projects.save(project.id, current => updateShotResults(current, 'storyboard', storyboard)) })

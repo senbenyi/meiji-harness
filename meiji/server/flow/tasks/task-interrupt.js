@@ -6,13 +6,13 @@ import { markFailed } from '../../../shared/content-state.js'
 
 export const RESTART_CANCELLED = '服务重启，任务已取消，请重新发起'
 
+const libraryNodes = project => Object.values(project.library || {}).flatMap(list => list.flatMap(entry => entry.variants.map(variant => variant.image)))
 const running = node => node.operation ? node.operation.phase !== 'awaiting-confirmation' : node.status === GenerationStatus.GENERATING
 
 export async function interruptRunning(store) {
-  await store.interruptDraftRecords?.()
   for (const project of await store.list()) {
     await store.interruptRecords?.(project.id)
-    if (!running(project.summary) && !project.episodes.some(e => allNodes(e).some(n => n.operation || n.status === GenerationStatus.GENERATING))) continue
+    if (!running(project.summary) && !libraryNodes(project).some(running) && !project.episodes.some(e => allNodes(e).some(n => n.operation || n.status === GenerationStatus.GENERATING))) continue
     const remote = new Map()
     for (const episode of project.episodes) for (const target of allNodes(episode)) {
       const promptId = target.content?.promptId
@@ -21,7 +21,9 @@ export async function interruptRunning(store) {
     await store.save(project.id, current => {
       const summary = structuredClone(current.summary)
       if (running(summary)) markFailed(summary, RESTART_CANCELLED)
-      return { summary, episodes: current.episodes.map(episode => {
+      const library = structuredClone(current.library)
+      for (const target of libraryNodes({ library })) if (running(target)) markFailed(target, RESTART_CANCELLED)
+      return { summary, library, episodes: current.episodes.map(episode => {
         const next = structuredClone(episode)
         for (const target of allNodes(next)) {
           if (!running(target)) continue

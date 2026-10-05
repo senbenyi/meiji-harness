@@ -9,7 +9,7 @@ export function reviewsOf(project) {
 }
 
 const text = value => typeof value === 'string' && value.trim().length > 0
-function outlineUnlocked(project) { return hasSummary(project) && project.summary.check?.passed === true && !project.summary.stale }
+function outlineUnlocked(project) { return hasSummary(project) && project.summary.check?.passed === true }
 export function hasSummary(project) { return text(project?.summary?.content) }
 export function hasOutline(project) { return outlineFailures(project?.plot?.outline?.content).length === 0 }
 export function hasCharacters(project) { return Array.isArray(project?.plot?.characters?.items) && project.plot.characters.items.length > 0 }

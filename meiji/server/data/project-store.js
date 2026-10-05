@@ -1,7 +1,10 @@
+import { syncLibraryChanges } from '../../shared/library-rules.js'
+import { cascadeChanges } from '../../shared/pipeline-cascade.js'
+import { writeScriptRevision } from './script-store.js'
 import { prepareContentRecords, commitContentRecords, contentTargets } from './content-records.js'
 import { recordStore } from './task-store.js'
 import { notifyProject } from './project-events.js'
-import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, refreshReferences, aggregateStatus } from '../../shared/drama-model.js'
+import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, aggregateStatus } from '../../shared/drama-model.js'
 import { mkdir, rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
@@ -19,7 +22,7 @@ export function validateProject(input) {
   const summary = typeof input?.summary === 'string' ? input.summary.trim() : ''
   const script = typeof input?.script === 'string' ? input.script.trim() : ''
   if (!title || title.length > 100) throw new Error('短剧标题需为 1–100 字')
-  if ((!summary && !script) || summary.length > 10000) throw new Error('请填写项目摘要或导入剧本（摘要最多 10000 字）')
+  if (summary.length > 10000) throw new Error('摘要最多 10000 字')
   if (script.length > 200000) throw new Error('剧本过长')
   const style = typeof input?.style === 'string' ? input.style.trim() : ''
   if (style.length > 120) throw new Error('风格需为 1–120 字')
@@ -39,7 +42,6 @@ export function projectStore(home) {
     return project
   }
   return {
-    async interruptDraftRecords() { await recordStore(home, null).interrupt() },
     async interruptRecords(id) {
       const history = recordStore(home, id)
       await history.interrupt()
@@ -72,6 +74,8 @@ export function projectStore(home) {
         revision: 0,
         id: randomUUID(),
         ...fields,
+        premise: '', scriptKind: fields.script ? 'imported' : 'assembled', scriptSections: { sections: [], future: '' }, scriptRevision: 0,
+        scriptSource: null, scriptProposals: [], scriptPendingDeletes: [], library: { characters: [], scenes: [], props: [] },
         ...initialProjectStates(node('summary', fields.summary)),
         lifecycle: 'in-progress',
         episodes: [],
@@ -80,6 +84,7 @@ export function projectStore(home) {
         createdAt: now,
         updatedAt: now,
       })
+      if (fields.script) Object.assign(project, await writeScriptRevision(home, { ...project, script: '' }, project, { source: 'import', note: '导入剧本' }))
       await mkdir(root, { recursive: true })
       await writeProjectFile(home, project, null)
       return project
@@ -93,10 +98,11 @@ export function projectStore(home) {
         if (expectedRevision !== undefined && (current.revision || 0) !== expectedRevision) {
           throw Object.assign(new Error('项目已被修改，请刷新后重试，旧结果未覆盖当前数据'), { status: 409 })
         }
+        const original = structuredClone(current)
         const changes = typeof patch === 'function' ? await patch(current) : patch
         if (changes == null) return current
-        const next = assertDrama({ ...current, ...changes, id: current.id, schemaVersion,
-          revision: (current.revision || 0) + 1, createdAt: current.createdAt, updatedAt: new Date().toISOString() })
+        const next = assertDrama(cascadeChanges(original, syncLibraryChanges(original, { ...current, ...changes, id: current.id, schemaVersion,
+          revision: (current.revision || 0) + 1, createdAt: current.createdAt, updatedAt: new Date().toISOString() })))
         for (const episode of next.episodes) {
           const previous = current.episodes.find(e => e.id === episode.id)
           if (!previous) continue
@@ -106,7 +112,6 @@ export function projectStore(home) {
             if (old && old.draft.revision > target.draft.revision) target.draft = structuredClone(old.draft)
           }
         }
-        for (const episode of next.episodes) refreshReferences(episode)
         refreshProjectStatus(next)
         const savedRecords = await prepareContentRecords(current, next)
         await writeProjectFile(home, next, before)
@@ -123,9 +128,8 @@ export function projectStore(home) {
       const key = fileFor(id)
       const job = (writes.get(key) || Promise.resolve()).catch(() => {}).then(async () => {
         await this.read(id)
-        await rm(join(root, id, 'history'), { recursive: true, force: true })
-        await rm(join(root, id, 'films'), { recursive: true, force: true })
         await removeProjectFiles(home, id)
+        await rm(join(root, id), { recursive: true, force: true })
         notifyProject(home, id)
       })
       writes.set(key, job)
@@ -161,7 +165,7 @@ export function revisionStore(store, operationId, scope = {}) {
     const textTask = ['shot-seconds', 'shot-storyboard', 'revise-shot', 'storyboard-text'].includes(scope.action)
     const continuity = episode?.shots.items.map((shot, i) => ({
       id: shot.id, duration: shot.duration, content: shot.content,
-      ...(textTask && Math.abs(i - index) === 1 && shot.seconds.check.passed === true && !shot.seconds.stale ? { seconds: shot.seconds.content } : {}),
+      ...(textTask && Math.abs(i - index) === 1 && shot.seconds.check.passed === true ? { seconds: shot.seconds.content } : {}),
       ...(['shot-storyboard', 'storyboard-text'].includes(scope.action) && i === index - 1 ? { storyboard: shot.storyboard } : {}),
       ...(scope.action === 'film' && i === index - 1 ? { video: shot.video } : {}),
     }))

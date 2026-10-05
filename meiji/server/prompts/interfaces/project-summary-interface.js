@@ -9,7 +9,7 @@ const parts = (task, kind) => {
   return { additions: p.additions, boundary: kind === 'generate' ? [] : p.revisionBoundary, language: p.language, protocol: p.protocol }
 }
 export default {
-  generate: task => modelOf(task).toGenerateSegments(parts(task, 'generate')),
+  generate: task => modelOf(task).toGenerateSegments({ ...parts(task, 'generate'), opinion: task.opinion }),
   revise: (task, content, review) => modelOf(task).toReviseSegments({ ...parts(task, 'revise'), baseContent: content, opinion: review }),
   review: (task, content) => {
     const p = reviewParts({ ...task, stage: 'project-summary', nodeKey: 'project-summary' }, content)

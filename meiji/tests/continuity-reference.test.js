@@ -64,7 +64,7 @@ test('changing shot references keeps downstream invalidation instead of restorin
   await e.store.save(e.id, { episodes: [e.episode] })
   await runOperation({ ...e.op('shot-assets'), track: 'S01', characterIds: ['C01'], sceneId: 'E01' }, { home: e.home })
   const p = await e.read()
-  assert.equal(p.shots.items[0].storyboard.stale, true)
+  assert.equal(p.shots.items[0].storyboard.content, null)
   assert.equal(p.shots.items[0].storyboard.check.passed, null)
   assert.equal(p.shots.items[0].video.content, null)
   assert.equal(p.assembly.content, null)

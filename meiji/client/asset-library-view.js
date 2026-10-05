@@ -45,7 +45,7 @@ function assetLibrary(actions) {
     const ticket = ++loading, selected = category, guidanceType = typeInput.value
     typeLabel.hidden = selected !== 'guidance'
     limit.textContent = selected === 'scripts' ? '单文件 ≤ 1 MB / 200000 字符' : selected === 'guidance' ? '单文件 ≤ 128 KB / 20000 字' : '单文件 ≤ 512 MB'
-    help.textContent = selected === 'scripts' ? '支持 UTF-8 TXT/TEXT 剧本。创建项目时选择使用，自动提取项目摘要。' : selected === 'guidance' ? '按所选分类导入 UTF-8 TXT/Markdown 提示词，保存在本地；在各阶段「补充 skill」中选择使用。' : selected === 'audio' ? '支持 MP3、WAV、M4A、OGG、FLAC' : selected === 'video' ? '支持 MP4、WebM、MOV；能否播放取决于编码格式' : '支持 PNG、JPG、WebP、GIF 图片'
+    help.textContent = selected === 'scripts' ? '支持 UTF-8 TXT/TEXT 剧本。创建项目时可选使用；项目摘要在制作时按需生成。' : selected === 'guidance' ? '按所选分类导入 UTF-8 TXT/Markdown 提示词，保存在本地；在各阶段「补充 skill」中选择使用。' : selected === 'audio' ? '支持 MP3、WAV、M4A、OGG、FLAC' : selected === 'video' ? '支持 MP4、WebM、MOV；能否播放取决于编码格式' : '支持 PNG、JPG、WebP、GIF 图片'
     list.replaceChildren(element('p', '正在读取素材…', 'meta'))
     try {
       const { assets } = await request('assets?' + new URLSearchParams({ category: selected }))

@@ -19,7 +19,7 @@ test('镜头表门禁指出道具缺失或未通过，空集合通过后可继�
   assert.equal(props.items.length, 0)
   assert.equal(canGenerate(project, 'shots'), true)
 })
-test('upstream changes clear only the selected shot descendants',()=>{const p=episodeFixture();const patch=clearShotDownstream(p,'seconds','S01');assert.equal(patch.shots.items[0].storyboard.content,null);assert.deepEqual(patch.shots.items[1],p.shots.items[1]);assert.deepEqual(patch.shots.items[0].seconds.content,p.shots.items[0].seconds.content)})
+test('seconds changes clear later continuity descendants',()=>{const p=episodeFixture();const patch=clearShotDownstream(p,'seconds','S01');assert.equal(patch.shots.items[0].storyboard.content,null);assert.equal(patch.shots.items[1].seconds.content,null);assert.equal(patch.shots.items[1].storyboard.content,null);assert.deepEqual(patch.shots.items[0].seconds.content,p.shots.items[0].seconds.content)})
 test('changing summary resets episode production, retaining new summary',()=>{const p=episodeFixture();const patch=sourcePatch(p,{summary:'新剧情'});assert.equal(patch.summary.content,'新剧情');assert.equal(patch.plot.outline.content,null);assert.equal(patch.shots.items.length,0)})
 test('episode completion requires every shot exactly once, not only existing storyboards', () => {
   const p = episodeFixture()

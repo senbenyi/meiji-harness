@@ -1,3 +1,4 @@
+import { editLinkedCard } from '../../../../shared/library-rules.js'
 // 操作：编辑场景文字
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
@@ -17,7 +18,7 @@ export async function opSceneText(c) {
   if (Object.values(values).some(value => !value || value.length > 10000)) throw Object.assign(new Error('场景字段不能为空或超过10000字'), { status: 400 })
   if (values.name !== scene.name) throw Object.assign(new Error('场景名称用于素材关联，此处仅编辑描述'), { status: 400 })
   if (project.plot.scenes.items.some(item => item.id !== scene.id && item.name === values.name)) throw Object.assign(new Error('场景名称重复'), { status: 400 })
-  project = await runNode('save', () => projects.save(project.id, { ...plotPatch(project, { scenes: { ...project.plot.scenes, items: project.plot.scenes.items.map(item => item.id === scene.id ? { ...item, ...values } : item) } }) }), { target: 'scenes' })
+  project = await runNode('save', () => projects.save(project.id, current => editLinkedCard(current, 'scenes', scene.id, values, { newVariant: operation.newVariant })), { target: 'scenes' })
   const result = await (deps.reviewContent || reviewContent)({ project, stage: '场景文字编辑，仅审场景与大纲一致性，不要求重写大纲或人物卡', text: JSON.stringify(project.plot.scenes.items), route: (modelRoutes(await models.read())).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, {}, { final: true })
@@ -26,5 +27,5 @@ export async function opSceneText(c) {
 }
 
 export const operations = {
-  'scene-text': { label: '编辑场景文字', scope: 'episode', agent: false, plan: () => editSteps('scenes'), stage: 'episode', run: opSceneText },
+  'scene-text': { label: '编辑场景文字', scope: 'episode', linkedCard: true, agent: false, plan: () => editSteps('scenes'), stage: 'episode', run: opSceneText },
 }

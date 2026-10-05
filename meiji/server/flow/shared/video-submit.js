@@ -89,10 +89,9 @@ export function formatFilmRequest(fields) {
 export function filmSubmit(project, item, opening) {
   const images = item.video === 'text' ? [] : shotReferenceImages(project, item)
   const shot = (project.shots?.items || []).find(entry => entry.id === item.id)
-  if (shot?.storyboard.stale) throw Object.assign(new Error('视频提示词已过期，请重新组装'), { status: 409 })
   if (item.compilerVersion === 1) {
     const current = compileVideoPrompt(project, shot)
-    if (shot.seconds.stale || shot.seconds.check.passed !== true || item.secondsRevision !== shot.seconds.revision || JSON.stringify(item.referenceSnapshot) !== JSON.stringify(current.referenceSnapshot)) throw Object.assign(new Error('每秒分镜或参考素材已变化，请重新组装视频提示词'), { status: 409 })
+    if (shot.seconds.check.passed !== true || item.secondsRevision !== shot.seconds.revision || JSON.stringify(item.referenceSnapshot) !== JSON.stringify(current.referenceSnapshot)) throw Object.assign(new Error('每秒分镜或参考素材已变化，请重新组装视频提示词'), { status: 409 })
   }
   const mode = videoRequestMode({
     video: item.video,

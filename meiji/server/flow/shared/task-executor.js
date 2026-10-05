@@ -25,7 +25,7 @@ export async function executeTask(operation, deps) {
   const background = []
   const state = { failure: undefined, execution: undefined }
   const context = { review: '', operationId: deps.operationId, taskId, taskType: task.type, signal: deps.signal,
-    requirements: operation.requirements || '', requestedMode: operation.mode, maxRevisions: task.maxRevisions }
+    requirements: operation.requirements || '', requestedMode: operation.mode, maxRevisions: task.maxRevisions, baseline: deps.baseline }
   try {
     if (operation.sessionId && operation.projectId) await linkStore(deps.home).requireProject(operation.sessionId, operation.projectId)
     state.execution = await startExecution(deps.home, operation, taskId, task.plan, { operationId: deps.operationId, type: task.type, label: task.label, targets: task.targets, actor: task.actor, maxRevisions: task.maxRevisions, stage: task.target?.split(':')[0] })
@@ -35,6 +35,10 @@ export async function executeTask(operation, deps) {
       const outcomes = await Promise.allSettled(background)
       const failure = outcomes.find(item => item.status === 'rejected')
       if (failure) throw failure.reason
+      if (domain.action === 'image' && trace) {
+        const root = await storedImageResult(deps.home, operation.projectId, operation.episodeId, domain.itemId)
+        if (root) trace.result = { ...trace.result, pendingConfirm: true }
+      }
       return trace
     }))
   } catch (error) { state.failure = error; throw error }
@@ -163,3 +167,5 @@ async function releaseOperation({ operation, deps, operationId, context, state }
     return changed ? next : null
   })
 }
+
+async function storedImageResult(home, projectId, episodeId, itemId) { const root = await projectStore(home).read(projectId); return Object.values(root.episodes.find(item => item.id === episodeId)?.pendingImages || {}).some(draft => draft.itemId === itemId) }

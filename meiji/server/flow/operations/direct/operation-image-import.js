@@ -2,7 +2,6 @@
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { plotPatch } from '../../../../shared/drama-model.js'
-import { staleMedia } from '../../../../shared/project-rules.js'
 import { decodeImageData } from '../../../media/decode-image-data.js'
 import { importAssetImage, visualPlace } from '../../shared/image-files.js'
 import { openIncoming } from '../../shared/incoming.js'
@@ -30,12 +29,12 @@ export async function opImportImage(c) {
     assets: place.bag, itemId: operation.itemId, projectId: project.id, episodeId: project.episodeId, directory,
     bytes, mime, home,
   })
-  await projects.save(project.id, { ...staleMedia(project), ...plotPatch(project, { [place.key]: bag }) })
+  await projects.save(project.id, { ...plotPatch(project, { [place.key]: bag }) })
   const item = bag.items.find(entry => entry.id === operation.itemId)
   note(`已用上传的文件替换 ${item?.id || operation.itemId} ${item?.name || ''}`.trim())
   return trace
 }
 
 export const operations = {
-  'import-image': { label: '导入图片', scope: 'episode', agent: false, step: saveStep(null), stage: 'episode', run: opImportImage },
+  'import-image': { label: '导入图片', scope: 'episode', linkedCard: true, agent: false, step: saveStep(null), stage: 'episode', run: opImportImage },
 }

@@ -16,7 +16,7 @@ export function historyEntry(project, actions, scope = '') {
   return button
 }
 export { skillsLine } from './task-nodes.js'
-export function renderTaskHistory(project, { load, loadPrompts, loadArtifact, back, historyScope = '', openOperation, stop }) {
+export function renderTaskHistory(project, { load, loadPrompts, loadResponses, loadArtifact, back, historyScope = '', openOperation, stop }) {
   const view = element('section', '', 'task-history-page')
   const header = element('div', '', 'task-history-header'), backButton = element('button', '← 返回'), refresh = element('button', '刷新')
   backButton.type = refresh.type = 'button'; backButton.onclick = back; header.append(backButton, element('h2', `${historyScope.includes(':') ? historyScope.split(':')[1] + ' · ' : ''}${historyScopes[historyScope.split(':')[0]]?.[0] || '内容'}任务历史`), refresh)
@@ -34,7 +34,7 @@ export function renderTaskHistory(project, { load, loadPrompts, loadArtifact, ba
       const item = element('details', '', 'task-history-item'), row = element('summary', '', 'task-history-row')
       item.dataset.taskId = record.id; item.open = expanded.has(record.id)
       row.append(element('strong', record.label || record.type || record.action), element('span', taskStatusLabels[record.status] || record.status), element('span', new Date(record.startedAt).toLocaleString(), 'meta'))
-      const options = { loadPrompts, loadArtifact: loadArtifact || load, openOperation, stop }
+      const options = { loadPrompts, loadResponses, loadArtifact: loadArtifact || load, openOperation, stop }
       item.append(row, tasksOnly ? renderTaskDetails(record, options) : renderOperationDetails(record, options)); list.append(item)
     }
     for (const snapshot of list.querySelectorAll('details[data-artifact-id]')) if (snapshots.has(snapshot.dataset.artifactId)) snapshot.open = true

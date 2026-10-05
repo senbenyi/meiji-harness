@@ -1,8 +1,10 @@
+import { runLibraryImage } from './media/task-library-image.js'
 // 独立任务注册：队列、基础节点和修订上限在任务层定义。
 import { textNodes } from '../../../shared/task-nodes.js'
 import { imageSteps, videoSteps, storyboardSteps } from '../../../shared/task-plans.js'
 import { runSummary } from './text/task-summary.js'
 import { runProjectSummary } from './text/task-project-summary.js'
+import { runScriptRevision } from './text/task-script-revision.js'
 import { runOutline } from './text/task-outline.js'
 import { runCharacters } from './text/task-characters.js'
 import { runScenes } from './text/task-scenes.js'
@@ -20,6 +22,9 @@ import { runSave } from './text/task-save.js'
 const text = (label, run, action, target) => ({ label, run, queue: 'text', maxRevisions: 2, stage: 'episode', action, target, nodes: op => textNodes(typeof target === 'function' ? target(op) : target) })
 const image = (label, run) => ({ label, run, queue: 'image', maxRevisions: 0, stage: 'episode', action: 'image', target: op => `image:${op.itemId}`, nodes: op => imageSteps(`image:${op.itemId}`) })
 export const taskRegistry = {
+  'library-image': { ...image('库图片', runLibraryImage), stage: 'project', action: 'library-image', target: op => `image:${op.variantId}`, nodes: op => imageSteps(`image:${op.variantId}`) },
+  'script-sync': { ...text('回写剧本', runScriptRevision, 'script-sync', 'script'), stage: 'project' },
+  'script-revise': { ...text('修改剧本', runScriptRevision, 'script-revise', 'script'), stage: 'project' },
   'project-summary': { ...text('项目摘要', runProjectSummary, 'project-summary', 'project-summary'), stage: 'project' },
   summary: { ...text('摘要', runSummary, 'episode-generate', 'summary'), stage: 'project', nodes: op => [...textNodes('summary'), ...(op.draft ? [{ kind: 'save', target: 'summary-draft' }] : [])] },
   outline: text('大纲', runOutline, 'outline', 'outline'),
@@ -44,5 +49,5 @@ export function describeTask(item, op, direct, project) {
   return { ...item, label: item.label || `${definition.label}${operation.track ? ' ' + operation.track : ''}${operation.itemId ? ' ' + operation.itemId : ''}`,
     target, targets: item.targets || [target], queue: definition.queue, actor: definition.actor || 'model', maxRevisions: definition.maxRevisions,
     plan: direct ? direct.plan?.(project, op) || [direct.step?.(op, project) || { kind: 'save', target }] : definition.nodes(operation),
-    operation: { ...operation, action: direct ? op.action : typeof definition.action === 'function' ? definition.action(operation) : definition.action, ...(item.type === 'outline' ? { stageKey: 'outline' } : {}) }, definition: direct ? { ...direct, run: context => runSave(context, direct) } : { ...definition, ...(item.type === 'project-summary' && operation.draft && !operation.projectId ? { stage: 'pre' } : {}) } }
+    operation: { ...operation, action: direct ? op.action : typeof definition.action === 'function' ? definition.action(operation) : definition.action, ...(item.type === 'outline' ? { stageKey: 'outline' } : {}) }, definition: direct ? { ...direct, run: context => runSave(context, direct) } : { ...definition } }
 }

@@ -2,7 +2,6 @@
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { pictureReference } from '../../../data/image-storage.js'
 import { pictureRecord } from '../../../../shared/image-assets.js'
-import { staleMedia } from '../../../../shared/project-rules.js'
 import { visualPlace } from '../../shared/image-files.js'
 import { saveStep } from '../../../../shared/task-plans.js'
 
@@ -15,11 +14,11 @@ export async function opUseAsset(c) {
   if (!file.metadata.mime.startsWith('image/')) throw Object.assign(new Error('请选择图片素材'), { status: 400 })
   const bag = { ...place.bag, items: place.bag.items.map(item => item.id === operation.itemId
     ? pictureRecord({ ...item, ...pictureReference(file.metadata) }) : item) }
-  await projects.save(project.id, { ...staleMedia(project), ...plotPatch(project, { [place.key]: bag }) })
+  await projects.save(project.id, { ...plotPatch(project, { [place.key]: bag }) })
   note('已关联素材 ' + file.metadata.id)
   return trace
 }
 
 export const operations = {
-  'use-asset': { label: '关联图片素材', scope: 'episode', agent: false, step: saveStep(null), stage: 'episode', run: opUseAsset },
+  'use-asset': { label: '关联图片素材', scope: 'episode', linkedCard: true, agent: false, step: saveStep(null), stage: 'episode', run: opUseAsset },
 }

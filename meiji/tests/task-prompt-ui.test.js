@@ -23,6 +23,18 @@ function setup(t) {
 }
 const step = { id: 'step', kind: 'generate', target: 'summary', status: 'completed', prompts: [{ id: 'prompt' }] }
 
+test('原始返回弹层展示状态耗时及完整正文并支持关闭', async t => {
+  setup(t)
+  const view = renderSteps([{ ...step, responses: [{ id: 'response' }] }], { loadResponses: async () => ({ responses: [{ fn: 'completeChat', status: 200, durationMs: 123, body: { text: '完整网关返回' } }] }) })
+  document.body.append(view)
+  view.querySelector('.task-step-response').click(); await settle()
+  const dialog = document.querySelector('dialog')
+  assert.match(dialog.textContent, /完整网关返回/)
+  assert.match(dialog.textContent, /123/)
+  dialog.querySelector('button').click()
+  assert.equal(document.querySelector('dialog'), null)
+})
+
 test('已执行旧步骤可以点击并显示日志来源或缺失原因', async t => {
   setup(t)
   let count = 0
@@ -105,4 +117,18 @@ test('当前任务和历史共用按钮并传递准确任务与步骤，弹窗�
   current.querySelector('.task-step-prompt').click(); await settle()
   assert.deepEqual(seen, [['task', 'step'], ['task', 'step']])
   current.remove()
+})
+
+
+test('项目摘要前置失败可用完整原操作重试，失败保留入口与参数', async t => {
+  setup(t)
+  const { renderOperationDetails } = await import('../client/task-detail.js')
+  const operation = { id: 'operation', action: 'story', status: 'failed', parameters: { episodeId: 'episode', mode: 'modify', review: '保留冲突' }, tasks: [{ id: 'summary', type: 'project-summary', status: 'failed', nodes: [], artifacts: [] }] }
+  const seen = [], view = renderOperationDetails(operation, { retry: async value => { seen.push(value); if (seen.length === 1) throw new Error('网络暂不可用') } })
+  document.body.append(view)
+  const button = view.querySelector('.operation-retry')
+  button.click(); await settle()
+  assert.equal(seen[0], operation); assert.equal(button.disabled, false); assert.match(view.textContent, /网络暂不可用/)
+  button.click(); await settle(); assert.equal(seen[1], operation); assert.equal(button.disabled, true)
+  assert.equal(renderOperationDetails({ ...operation, tasks: [{ ...operation.tasks[0], type: 'story' }] }, { retry() {} }).querySelector('.operation-retry'), null)
 })

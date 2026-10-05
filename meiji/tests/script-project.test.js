@@ -42,52 +42,53 @@ test('剧本素材保留原文件，列表只读元数据，按需加载完整 U
   assert.equal((await e.library.list('scripts')).length, 2)
 })
 
-test('项目摘要500字按非空白Unicode字符计数，不影响剧集摘要', () => {
-  assert.deepEqual(projectSummaryFailures({ summary: '😀 '.repeat(500) }), [])
-  assert.ok(projectSummaryFailures({ summary: '😀'.repeat(501) }).length)
+test('项目摘要1000字按非空白Unicode字符计数，不影响剧集摘要', () => {
+  assert.deepEqual(projectSummaryFailures({ summary: '😀 '.repeat(1000) }), [])
+  assert.ok(projectSummaryFailures({ summary: '😀'.repeat(1001) }).length)
   for (const value of [{ summary: '' }, { summary: '  \n' }, { summary: '故事', other: true }, ['故事']]) assert.ok(projectSummaryFailures(value).length)
 })
 
-test('导入剧本创建项目后自动提取摘要，有独立任务、原文提示词和项目快照', async t => {
+test('导入剧本创建不自动提取，按需提取摘要，有独立任务、原文提示词和项目快照', async t => {
   const calls = [], e = await setup(t, async message => { calls.push(message); return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '林舟送旧信，与陈阿婆找到记录，解开误会。' }) })
   const asset = await e.library.import('scripts', '来信.txt', stream(script))
   const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', scriptAssetId: asset.id, style: '写实电影' }, enter: e.enter })
-  const result = await e.manager.wait(place.operationId)
+  assert.equal(calls.length, 0); assert.equal(place.operationId, undefined)
+  const result = await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done
   assert.equal(result.status, 'completed', JSON.stringify(result))
   assert.equal(calls.length, 2)
   const root = await e.store.read(place.projectId)
   assert.equal(root.script, script); assert.equal(root.scriptAssetId, asset.id); assert.equal(root.scriptName, '来信.txt')
   assert.equal(root.summary.check.passed, true); assert.equal(root.summary.operation, null)
-  assert.ok(summaryLength(root.summary.content) <= 500); assert.equal(root.episodes.length, 0)
+  assert.ok(summaryLength(root.summary.content) <= 1000); assert.equal(root.episodes.length, 0)
   const task = result.tasks[0], history = recordStore(e.home, root.id)
   assert.equal(task.type, 'project-summary')
   assert.deepEqual(task.nodes.map(node => node.kind), ['generate', 'review'])
   const prompts = await readNodePrompts(e.home, root.id, task.id, task.nodes[0].id)
-  assert.match(JSON.stringify(prompts), /从剧本提取完整故事/)
+  assert.match(JSON.stringify(prompts), /从当前剧本加故事基调/)
   assert.match(calls[0].user, new RegExp(script))
   assert.equal((await history.read('artifacts', root.summary.source.artifactId)).content.summary, root.summary.content)
   const draft = e.manager.start({ action: 'summary', projectId: root.id, draft: true, referenceDurationSeconds: 38 })
   const episodeDraft = await draft.done
   assert.equal(episodeDraft.status, 'completed')
-  assert.match(calls[2].user, /从剧本提取参考时长能容纳的连续剧情/)
+  assert.match(calls[2].user, /参考剧本顺序与已发生剧情/)
   assert.match(calls[2].user, /时长：38 秒/)
 })
 
 test('超长项目摘要自动修订，保存的摘要和历史版本均可追查', async t => {
   const calls = [], e = await setup(t, async message => {
     calls.push(message)
-    return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: calls.length === 1 ? '字'.repeat(501) : '林舟送旧信，与陈阿婆解开误会。' })
+    return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: calls.length === 1 ? '字'.repeat(1001) : '林舟送旧信，与陈阿婆解开误会。' })
   })
   const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
-  const result = await e.manager.wait(place.operationId)
+  const result = await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done
   assert.equal(result.status, 'completed', JSON.stringify(result))
   assert.equal(calls.length, 4)
-  assert.match(calls[2].user, /不能超过 500/)
+  assert.match(calls[2].user, /不能超过 1000/)
   assert.match(calls[2].user, /最新失败稿/)
   const root = await e.store.read(place.projectId)
-  assert.ok(summaryLength(root.summary.content) <= 500)
+  assert.ok(summaryLength(root.summary.content) <= 1000)
   const artifacts = await recordStore(e.home, root.id).list('artifacts')
-  assert.ok(artifacts.some(item => item.published === false && item.content.text?.includes('字'.repeat(501))))
+  assert.ok(artifacts.some(item => item.published === false && item.content.text?.includes('字'.repeat(1001))))
   assert.ok(artifacts.some(item => item.published && item.target === 'project-summary'))
 })
 
@@ -95,7 +96,7 @@ test('提取失败保留项目和剧本，可重试；无剧本创建不调用�
   let fail = true, calls = 0
   const e = await setup(t, async message => { calls++; if (fail) throw new Error('network'); return message.skill === 'review' ? reviewPass : '{"summary":"忠实摘要"}' })
   const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
-  assert.equal((await e.manager.wait(place.operationId)).status, 'failed')
+  assert.equal((await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done).status, 'failed')
   const root = await e.store.read(place.projectId)
   assert.equal(root.script, script); assert.equal(root.summary.operation, null); assert.equal(root.summary.status, 'failed')
   assert.match(root.summary.error, /network/)
@@ -111,7 +112,7 @@ test('提取失败保留项目和剧本，可重试；无剧本创建不调用�
 test('语义审核失败仍保存提取稿，项目状态释放并保留失败原因', async t => {
   const e = await setup(t, async message => message.skill === 'review' ? reviewFail('遗漏结局') : '{"summary":"林舟送旧信。"}')
   const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
-  const result = await e.manager.wait(place.operationId)
+  const result = await e.manager.start({ action: 'project-summary', projectId: place.projectId }).done
   assert.equal(result.status, 'review_failed')
   const root = await e.store.read(place.projectId)
   assert.equal(root.summary.content, '林舟送旧信。'); assert.equal(root.summary.check.passed, false)
@@ -124,14 +125,14 @@ test('有剧本提取与无剧本创作明确分开，前后集定位范围，�
   const prompts = buildEpisodePrompts(project, 'target')
   assert.match(prompts.generation.user, /前集定位已发生进度，后集约束结尾衔接/)
   assert.doesNotMatch(prompts.generation.user, /旧稿不要用/)
-  assert.match(prompts.review('待审内容').system, /不允许新增剧本外事件/)
+  assert.match(prompts.review('待审内容').system, /合理续写/)
   const manual = buildEpisodePrompts({ ...project, script: '' }, 'target')
-  assert.match(manual.generation.user, /依据项目摘要重新生成第 2 集摘要/)
+  assert.match(manual.generation.user, /第 2 集/)
   assert.doesNotMatch(manual.generation.user, /【剧本】/)
   assert.match(manual.review('待审内容').system, /合理续写/)
 })
 
-test('面板创建导入剧本返回后台任务，进入工作区后可实时查看并生成剧集', async t => {
+test('面板创建导入剧本无后台任务，进入工作区后可实时查看并生成剧集', async t => {
   let release
   const gate = new Promise(resolve => { release = resolve })
   const e = await setup(t, async message => { await gate; return message.skill === 'review' ? reviewPass : '{"summary":"林舟送信，与陈阿婆解开误会。"}' })
@@ -166,24 +167,19 @@ test('面板创建导入剧本返回后台任务，进入工作区后可实时�
   let code, value
   await handler(req, { writeHead: status => { code = status }, end: text => { value = JSON.parse(text) } })
   assert.equal(code, 201, JSON.stringify(value))
-  assert.ok(value.operationId); assert.ok(value.sessionId)
+  assert.equal(value.operationId, undefined); assert.ok(value.sessionId)
   assert.equal((await linkStore(e.home, e.workspaceController).projectForSession(value.sessionId)).projectId, value.projectId)
   const current = e.manager.current(value.projectId)
-  assert.equal(current.length, 1); assert.equal(current[0].action, 'project-summary')
-  release()
-  assert.equal((await e.manager.wait(value.operationId, value.sessionId)).status, 'completed')
+  assert.equal(current.length, 0); release()
 })
 
-test('会话创建也启动同一个提取任务，记录会话发起且绑定当前项目', async t => {
+test('会话创建不启动提取任务，记录会话发起且绑定当前项目', async t => {
   const e = await setup(t, async message => message.skill === 'review' ? reviewPass : '{"summary":"林舟送旧信，找到记录并解开误会。"}')
   const asset = await e.library.import('scripts', '来信.txt', stream(script))
   const sessionId = 'session-22222222-2222-4222-8222-222222222222'
   const tool = projectManageTool({ home: e.home, tasks: e.manager, workspaceController: e.workspaceController })
   const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '会话来信', scriptAssetId: asset.id } }, { agent: { session: { id: sessionId, append() {} } }, signal: new AbortController().signal }))
-  assert.equal(created.status, 'running'); assert.ok(created.operationId)
-  const result = await e.manager.wait(created.operationId, sessionId)
-  assert.equal(result.status, 'completed', JSON.stringify(result))
-  assert.equal(result.initiator, 'session')
+  assert.equal(created.status, 'completed'); assert.equal(created.operationId, undefined)
   assert.equal((await linkStore(e.home).projectForSession(sessionId)).projectId, created.projectId)
 })
 
@@ -195,108 +191,14 @@ test('停止提取释放项目占用，保留完整剧本且可再次发起', as
     return new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }))
   })
   const place = await createProject({ home: e.home, tasks: e.manager, fields: { title: '来信', script }, enter: e.enter })
+  const started = e.manager.start({ action: 'project-summary', projectId: place.projectId })
   await entered
-  e.manager.cancel(place.operationId, place.projectId)
-  const result = await e.manager.wait(place.operationId)
+  e.manager.cancel(started.id, place.projectId)
+  const result = await started.done
   assert.equal(result.status, 'cancelled')
   const root = await e.store.read(place.projectId)
   assert.equal(root.script, script); assert.equal(root.summary.operation, null)
   assert.equal(e.manager.current(place.projectId).length, 0)
   const retryManager = createOperationManager({ home: e.home, execute: (op, deps) => executeTask(op, { ...deps, request: async message => message.skill === 'review' ? reviewPass : '{"summary":"林舟与陈阿婆解开误会。"}' }) })
   assert.equal((await retryManager.start({ action: 'project-summary', projectId: place.projectId }).done).status, 'completed')
-})
-
-test('创建前生成项目摘要草稿，不创建空项目；确认后复用摘要并保留任务和提示词', async t => {
-  let calls = 0
-  const e = await setup(t, async message => { calls++; return message.skill === 'review' ? reviewPass : '{"summary":"林舟送旧信，找到投递记录，解开误会。"}' })
-  const asset = await e.library.import('scripts', '来信.txt', stream(script))
-  const sessionId = 'session-33333333-3333-4333-8333-333333333333'
-  const started = e.manager.start({ action: 'project-summary', draft: true, projectId: null, scriptAssetId: asset.id, sessionId })
-  const result = await started.done
-  assert.equal(result.status, 'completed', JSON.stringify(result))
-  assert.equal(result.draft.check.passed, true)
-  assert.equal((await e.store.list()).length, 0)
-  assert.deepEqual(result.tasks[0].nodes.map(node => node.kind), ['generate', 'review'])
-  assert.equal(result.tasks[0].mode, 'draft')
-  const recreated = createOperationManager({ home: e.home, workspaceController: e.workspaceController })
-  assert.equal((await recreated.get(started.id, sessionId)).draft.summary, result.draft.summary)
-  const place = await createProject({ home: e.home, tasks: recreated, sessionId, fields: { title: '来信', scriptAssetId: asset.id, summaryDraftOperationId: started.id }, enter: e.enter })
-  const project = await e.store.read(place.projectId)
-  assert.equal(calls, 2)
-  assert.equal(place.operationId, undefined)
-  assert.equal(project.summary.content, result.draft.summary)
-  assert.equal(project.summary.check.passed, true)
-  assert.equal(project.scriptName, '来信.txt')
-  const history = recordStore(e.home, project.id), [task] = await history.list('tasks')
-  assert.equal(task.id, result.tasks[0].id)
-  assert.ok((await readNodePrompts(e.home, project.id, task.id, task.nodes[0].id))[0].messages)
-  const artifact = await history.read('artifacts', project.summary.source.artifactId)
-  assert.equal(artifact.content.summary, result.draft.summary)
-  assert.equal(artifact.published, true)
-})
-
-test('项目摘要草稿必须通过且匹配当前剧本和会话，错误草稿不创建项目', async t => {
-  const e = await setup(t, async message => message.skill === 'review' ? reviewPass : '{"summary":"忠实摘要。"}')
-  const asset = await e.library.import('scripts', '来信.txt', stream(script))
-  const sessionId = 'session-33333333-3333-4333-8333-333333333333'
-  const started = e.manager.start({ action: 'project-summary', projectId: null, draft: true, scriptAssetId: asset.id, sessionId })
-  await started.done
-  const fields = { title: '来信', scriptAssetId: asset.id, summaryDraftOperationId: started.id }
-  await assert.rejects(createProject({ ...e, tasks: e.manager, fields, sessionId: 'session-other', enter: e.enter }), { status: 404 })
-  await assert.rejects(createProject({ ...e, tasks: e.manager, fields: { ...fields, scriptAssetId: 'other' }, sessionId, enter: e.enter }), { status: 400 })
-  assert.equal((await e.store.list()).length, 0)
-})
-
-test('未通过和取消的项目摘要草稿保留记录，能够重试且不创建项目', async t => {
-  const e = await setup(t, async message => message.skill === 'review' ? reviewFail('遗漏结局') : '{"summary":"林舟送信。"}')
-  const asset = await e.library.import('scripts', '来信.txt', stream(script))
-  const op = { action: 'project-summary', draft: true, projectId: null, scriptAssetId: asset.id }
-  const failed = await e.manager.start(op).done
-  assert.equal(failed.status, 'review_failed')
-  assert.equal(failed.draft.check.passed, false)
-  assert.equal(failed.tasks[0].nodes.filter(node => node.kind === 'revise').length, 2)
-  assert.ok((await recordStore(e.home, null).list('artifacts')).length >= 6)
-  await assert.rejects(createProject({ ...e, tasks: e.manager, fields: { title: '来信', scriptAssetId: asset.id, summaryDraftOperationId: failed.id }, enter: e.enter }), { status: 400 })
-  let entered
-  const ready = new Promise(resolve => { entered = resolve })
-  const manager = createOperationManager({ home: e.home, execute: (op, deps) => executeTask(op, { ...deps, request: ({ signal }) => new Promise((resolve, reject) => { entered(); signal.addEventListener('abort', () => reject(signal.reason), { once: true }) }) }) })
-  const pending = manager.start(op)
-  await ready
-  manager.cancel(pending.id, null)
-  assert.equal((await pending.done).status, 'cancelled')
-  assert.equal((await e.store.list()).length, 0)
-  const retry = createOperationManager({ home: e.home, execute: (op, deps) => executeTask(op, { ...deps, request: message => Promise.resolve(message.skill === 'review' ? reviewPass : '{"summary":"完整摘要。"}') }) })
-  assert.equal((await retry.start(op).done).status, 'completed')
-})
-
-test('面板创建前摘要任务可查步骤、提示词与草稿，跨会话拒绝访问', async t => {
-  const e = await setup(t, async message => message.skill === 'review' ? reviewPass : '{"summary":"林舟送旧信，解开误会。"}')
-  const asset = await e.library.import('scripts', '来信.txt', stream(script))
-  const sessionId = 'session-33333333-3333-4333-8333-333333333333'
-  const oldHome = process.env.DSH_HOME
-  process.env.DSH_HOME = e.home
-  t.after(() => { if (oldHome == null) delete process.env.DSH_HOME; else process.env.DSH_HOME = oldHome })
-  let handler
-  const session = { id: sessionId, append() {} }
-  registerPanel({ workspaceController: e.workspaceController, sessionController: {}, sessions: { get: id => id === sessionId ? session : undefined },
-    connection: { requestRejection: () => null }, logger: { warn() {} }, webServer: { register: value => { handler = value.handler } }, effect: fn => fn(), on() {} }, Promise.resolve(), e.manager)
-  const call = async (path, method = 'GET', body) => {
-    const req = stream(body ? JSON.stringify(body) : '')
-    req.method = method; req.url = '/plugins/meiji/' + path; req.headers = { 'x-meiji-request': '1' }
-    let code, value
-    await handler(req, { writeHead: status => { code = status }, end: text => { value = JSON.parse(text) } })
-    return { code, value }
-  }
-  const start = await call('turn', 'POST', { action: 'project-summary', draft: true, scriptAssetId: asset.id, sessionId })
-  assert.equal(start.code, 202)
-  const result = await e.manager.wait(start.value.operationId, sessionId)
-  assert.equal((await call(`operations/${result.id}?sessionId=${sessionId}`)).value.operation.draft.summary, result.draft.summary)
-  const task = result.tasks[0], step = task.nodes[0]
-  assert.ok((await call(`tasks/${task.id}/nodes/${step.id}/prompts?sessionId=${sessionId}`)).value.prompts[0].messages)
-  const id = task.artifacts.at(-1).artifactId
-  assert.equal((await call(`artifacts/${id}?sessionId=${sessionId}`)).value.artifact.content.check.passed, true)
-  assert.equal((await call(`operations/${result.id}?sessionId=session-other`)).code, 404)
-  assert.equal((await call(`tasks/${task.id}/nodes/${step.id}/prompts?sessionId=session-other`)).code, 404)
-  assert.equal((await call(`artifacts/${id}?sessionId=session-other`)).code, 404)
-  assert.equal((await e.store.list()).length, 0)
 })

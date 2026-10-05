@@ -11,5 +11,9 @@
   },
   "scripts": {
     "test": "MEIJI_MODELS_LOCAL=tests/fixtures/models.local.json node --test tests/*.test.js"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./session": "./session.js"
   }
 }

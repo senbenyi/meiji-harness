@@ -1,3 +1,4 @@
+import { renderProjectLibrary } from './project-library-view.js'
 import { renderExecutionDetail } from './task-detail.js'
 import { historyTargets } from './execution-history.js'
 import { taskStatusLabels } from './task-nodes.js'
@@ -17,11 +18,13 @@ import { renderSettings } from './project-settings-view.js'
 import { createShell } from './panel-shell.js'
 import { request, jsonBody } from './panel-api.js'
 import { renderSession, projectDialog, sourceDialog, storyDialog, catalogDialog } from './project-session-view.js'
-import { episodeDialog, overviewDialog } from './project-overview-view.js'
+import { episodeDialog, overviewDialog, premiseDialog } from './project-overview-view.js'
 import { renderLibrary } from './asset-library-view.js'
 import { createBridge, currentSessionId, projectRefreshMark } from './chat-bridge.js'
 import { gateFromAction, regenerateFields, syncImageGate } from './image-review.js'
 import { liveActivityMark, withLiveActivity } from './live-activity.js'
+import { confirmOperationDelete } from './cascade-confirm.js'
+import { renderScriptView } from './script-view.js'
 
 function installLogCards() {
   if (installLogCards.started) return
@@ -172,7 +175,7 @@ export function mount() {
     workspace = nextWorkspace ?? workspace
     const previous = modelStore.get(project.id)
     const accepted = modelStore.accept(project)
-    if (accepted === previous || hold) paintProject(accepted)
+    if (!hold && accepted === previous) paintProject(accepted)
   }
   // 用当前完整项目重绘（参数可以是剧集视图）。
   const repaint = project => {
@@ -218,6 +221,21 @@ export function mount() {
     actions.openLatestTask({ id: root.id, episodeId }, event.detail.target).catch(error => shell.status(error.message))
   })
   const actions = {
+    openLibraryCard: (episodeId, itemId, kind) => { currentPage = null; hold = false; if (kind === 'characters') { openCharacter = { episodeId, itemId }; openScene = null } else if (kind === 'scenes') { openScene = { episodeId, itemId }; openCharacter = null } else { openEpisode = episodeId; openTab = tabs[0].id }; follow(true).catch(error => shell.status(error.message)) },
+    openLibrary: (project, kind) => {
+      hold = true; navigation++
+      currentPage = renderProjectLibrary(rootProject(modelStore, project) || project, kind, { ...actions, load: async () => { const result = await request('projects/' + project.id); result.project = withLiveActivity(result.project, liveTasks); return result }, back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) } })
+      display(currentPage)
+    },
+    openScript: project => {
+      hold = true; navigation++
+      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
+      currentPage = renderScriptView(rootProject(modelStore, project) || project, {
+        perform: actions.perform, load: async () => { const result = await request(`script?${query}`); result.project = withLiveActivity(result.project, liveTasks); return result },
+        back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
+      })
+      display(currentPage)
+    },
     stopOperation: stopTask,
     openOperation: (project, id) => actions.openExecution(project, 'operations', id),
     openExecution: (project, kind, id, focusFailure = false) => {
@@ -227,7 +245,9 @@ export function mount() {
         load: () => request(`${kind}/${id}?${query}`),
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
         loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
+        loadResponses: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?${query}`),
         loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
+        retry: operation => actions.perform(project, operation.action, operation.parameters || {}),
         openOperation: operationId => actions.openOperation(project, operationId), stop: stopTask, focusFailure,
       })
       display(currentPage); shell.content.parentElement.scrollTop = 0
@@ -246,6 +266,7 @@ export function mount() {
       currentPage = renderTaskHistory(project, { historyScope,
         load: () => request(`${contentOnly ? 'tasks' : 'operations'}?${query}&${contentOnly ? 'target' : 'targets'}=${encodeURIComponent(targets)}`),
         loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
+        loadResponses: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?${query}`),
         loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
         openOperation: id => actions.openOperation(project, id), stop: stopTask,
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
@@ -260,6 +281,7 @@ export function mount() {
       currentPage = renderCurrentTasks(project, {
         load: () => request(`operations/current?${query}`),
         loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
+        loadResponses: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?${query}`),
         loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
         openOperation: id => actions.openOperation(project, id), stop: stopTask,
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
@@ -293,6 +315,7 @@ export function mount() {
     },
     skillList,
     reviewImage: async (project, episodeId, draftId, action) => {
+      if (!confirmOperationDelete(rootProject(modelStore, project) || project, { action, episodeId, draftId })) { repaint(project); return project }
       const result = await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId, action }) })
       imageGate = null
       showProject(result.project)
@@ -346,10 +369,11 @@ export function mount() {
       await bridge.perform(project, action, { ...fields, ...options, draftId: gate.draftId, episodeId })
     },
     refresh: () => follow(true),
-    perform: (project, action, fields) => bridge.perform(project, action, {
+    perform: (project, action, fields) => bridge.perform(rootProject(modelStore, project) || project, action, {
       ...fields,
       ...(project?.episodeId ? { episodeId: project.episodeId } : {}),
     }),
+    stage: file => bridge.stage(file),
     importStill: async (project, itemId, file, slot) => {
       const incomingId = await bridge.stage(file)
       const action = slot === 'reference' ? 'set-reference' : slot ? 'part-import' : 'import-image'
@@ -375,17 +399,30 @@ export function mount() {
     if (input.outline) await actions.perform(project, 'outline-text', { outline: input.outline })
     else await actions.perform(project, 'source', { fields: input })
   }
+  actions.openPremise = premiseDialog(shell.root, (project, text) => actions.perform(project, 'premise-edit', { text }))
   actions.openOverview = overviewDialog(shell.root, async (project, input) => {
     await actions.perform(project, 'overview', { fields: input })
   })
   actions.openSource = sourceDialog(shell.root, saved)
   actions.openStory = storyDialog(shell.root, saved)
   actions.openEpisode = episodeDialog(shell.root, async (project, input) => {
-    const fields = { durationSeconds: input.durationSeconds, summary: input.summary }
-    if (input.episodeId) await actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
-    else await actions.perform(project, 'episode-add', { fields })
+    const fields = { durationSeconds: input.durationSeconds, summary: input.summary, requirements: input.requirements, savePremise: input.savePremise }
+    if (input.episodeId) return actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
+    else return actions.perform(project, 'episode-add', { fields })
   }, generateEpisodeDraft, {
+    openScript: actions.openScript,
+    regenerate: (project, fields) => actions.perform(project, 'summary', fields),
+    observeSync: async (project, id, onTask) => {
+      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
+      while (true) {
+        const { operation } = await request(`operations/${id}?${query}`)
+        onTask(operation)
+        if (!['queued', 'running'].includes(operation.status)) return operation
+        await new Promise(resolve => setTimeout(resolve, 800))
+      }
+    },
     openHistory: project => actions.openHistory(project, 'summary'),
+    loadResponses: (project, task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
     loadPrompts: (project, task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
   })
   const openCatalogDialog = catalogDialog(shell.root)

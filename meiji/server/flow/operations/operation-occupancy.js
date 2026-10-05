@@ -1,12 +1,12 @@
 // 剧集占用：面板与会话、生成与直接操作共用的唯一锁。
-// 同一集同一时间只允许一个操作（生成任务从入队起占用，直接操作在执行期间占用）；没有剧集的项目级操作占用整个项目。
-// 冲突时抛出 409（code EPISODE_BUSY），附带占用者信息，供面板提示与会话返回 busy。
+// 按实际写入范围共用一把占用；同项目生成互斥，项目资料修改与所有操作互斥。
 import { resolve } from 'node:path'
+import { conflicts, operationScope } from '../../../shared/operation-conflicts.js'
 
 const holders = new Map()
 const projectKey = (home, projectId) => resolve(home, 'storages', 'meiji', 'projects', projectId)
-const overlaps = (a, b) => a.key === b.key && (!a.episodeId || !b.episodeId || a.episodeId === b.episodeId)
-const entry = (home, operation) => ({ key: projectKey(home, operation.projectId), projectId: operation.projectId, episodeId: operation.episodeId || null })
+const overlaps = (a, b) => a.key === b.key && conflicts(a, b)
+const entry = (home, operation) => ({ key: projectKey(home, operation.projectId), projectId: operation.projectId, ...operationScope(operation) })
 
 export const holderOf = id => holders.get(id) || null
 
@@ -19,10 +19,10 @@ export function occupant(home, operation, exceptId = null) {
 }
 
 export function busyError(holder) {
-  const scope = holder.episodeId ? '本集' : '本项目'
   const by = holder.initiator === 'session' ? '会话' : '面板'
-  return Object.assign(new Error(`${scope}正在执行：${holder.label}（${by}发起），请等待结束或停止后再试`), {
-    status: 409, code: 'EPISODE_BUSY', busy: { operationId: holder.id, label: holder.label, initiator: holder.initiator, episodeId: holder.episodeId },
+  const state = holder.kind === 'generate' ? '本项目正在生成' : holder.lock === 'project' ? '本项目正在修改项目资料' : '本集正在修改'
+  return Object.assign(new Error(`${state}：${holder.label}（${by}发起），请等待结束或停止后再试`), {
+    status: 409, code: 'OPERATION_BUSY', busy: { operationId: holder.id, projectId: holder.projectId, action: holder.action, kind: holder.kind, lock: holder.lock, label: holder.label, initiator: holder.initiator, episodeId: holder.episodeId },
   })
 }
 

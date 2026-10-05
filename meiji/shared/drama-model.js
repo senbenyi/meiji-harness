@@ -1,6 +1,6 @@
 // Shared business model. Persisted data and API responses use this schema only.
-export const schemaVersion = 2
-// FAILED includes rejected checks, execution errors and stale content.
+export const schemaVersion = 3
+// FAILED includes rejected checks and execution errors.
 export const GenerationStatus = Object.freeze({
   NOT_GENERATED: 'not-generated',
   GENERATING: 'generating',
@@ -18,7 +18,7 @@ export const statusLabels = Object.freeze({
 export const emptyCheck = () => ({ passed: null, failures: [], revision: null })
 export const emptyReview = () => ({ text: '', revision: 0, history: [] })
 export function node(id, content = null) {
-  return { id, revision: 0, status: GenerationStatus.NOT_GENERATED, content, check: emptyCheck(), review: emptyReview(), draft: { text: null, revision: 0, baseRevision: null }, operation: null, error: null, dependencies: {}, stale: false }
+  return { id, revision: 0, status: GenerationStatus.NOT_GENERATED, content, check: emptyCheck(), review: emptyReview(), draft: { text: null, revision: 0, baseRevision: null }, operation: null, error: null }
 }
 export function shotModel(fields) {
   const { id, text = '', ...content } = fields
@@ -62,7 +62,6 @@ export function setContent(target, content, check = emptyCheck()) {
   target.revision++
   target.check = { ...check, revision: target.revision }
   target.error = null
-  target.stale = false
   target.status = check.passed === true ? GenerationStatus.PASSED : content == null ? GenerationStatus.NOT_GENERATED : GenerationStatus.FAILED
   return target
 }
@@ -113,7 +112,7 @@ export function updateShotResults(project, kind, results) {
 export function aggregateStatus(nodes) {
   if (nodes.some(item => item.status === GenerationStatus.GENERATING)) return GenerationStatus.GENERATING
   if (nodes.some(item => item.status === GenerationStatus.PAUSED)) return GenerationStatus.PAUSED
-  if (nodes.some(item => item.status === GenerationStatus.FAILED || item.stale)) return GenerationStatus.FAILED
+  if (nodes.some(item => item.status === GenerationStatus.FAILED)) return GenerationStatus.FAILED
   return nodes.length && nodes.every(item => item.status === GenerationStatus.PASSED) ? GenerationStatus.PASSED : GenerationStatus.NOT_GENERATED
 }
 // 旧版网关文件字段：图片远端地址 imageUrl 与上传记录 file（{ id, url }）。网关已不提供文件接口，需迁移删除。
@@ -167,14 +166,13 @@ export function modelPatch(project, changes) {
   for (const value of allNodes(next)) {
     if (value.status === GenerationStatus.PAUSED && !value.operation) continue
     if (value.check?.passed === true) value.status = GenerationStatus.PASSED
-    if (value.check?.passed === false || value.error || value.stale) value.status = GenerationStatus.FAILED
+    if (value.check?.passed === false || value.error) value.status = GenerationStatus.FAILED
     if (value.operation) value.status = GenerationStatus.GENERATING
   }
   if (next.shots?.seconds && next.shots.items.length) {
     const parts = next.shots.items.map(shot => shot.seconds), group = next.shots.seconds
     group.check = { passed: parts.every(value => value.check.passed === true) ? true : parts.some(value => value.check.passed === false) ? false : null, failures: parts.flatMap(value => value.check.passed === false ? value.check.failures.map(reason => `${value.id.split(':')[1]}：${reason}`) : []), revision: group.revision }
     group.status = aggregateStatus(parts)
-    group.stale = parts.some(value => value.stale)
   }
   if (next.plot) next.plot.status = aggregateStatus([next.plot.outline, next.plot.characters, next.plot.scenes, next.plot.props].filter(Boolean))
   next.status = aggregateStatus([next.summary, next.plot, next.shots, next.assembly].filter(Boolean))
@@ -185,28 +183,4 @@ export function saveTextDraft(target, text, expectedRevision) {
   if (text !== null && (typeof text !== 'string' || text.length > 100000)) throw Object.assign(new Error('草稿正文超过 100000 字'), { status: 400 })
   if (expectedRevision !== undefined && expectedRevision !== target.draft.revision) throw Object.assign(new Error('草稿已更新，请刷新后重试'), { status: 409 })
   target.draft = { text, baseRevision: target.draft.text === null ? target.revision : target.draft.baseRevision, revision: target.draft.revision + 1 }
-}
-export function refreshReferences(episode) {
-  for (const shot of episode.shots.items) {
-    const story = shot.storyboard.content
-    if (!story?.referenceSnapshot) continue
-    // 程序编译产物冻结引用；提交时重算验证，不悄悄替换 Picture 内容。
-    if (story.compilerVersion === 1) continue
-    let changed = false
-    story.referenceSnapshot = story.referenceSnapshot.map(ref => {
-      const owner = ref.ownerId ? episode.plot.characters.items.find(item => item.id === ref.ownerId) : (ref.kind === 'scenes' ? episode.plot.scenes : episode.plot.characters).items.find(item => item.id === ref.id)
-      const item = ref.ownerId ? owner?.[ref.slot]?.find(item => item.id === ref.id) : owner
-      if (!item) return ref
-      const media = pictureOf(item)
-      const url = media.localPath || ''
-      if (url === ref.url && media.assetId === ref.assetId) return ref
-      changed = true
-      return { ...ref, url, assetId: media.assetId || null, assetCategory: media.assetCategory || null, localPath: media.localPath || null }
-    })
-    if (changed) {
-      shot.storyboard.revision++
-      if (shot.video.content) { shot.video.stale = true; shot.video.status = GenerationStatus.FAILED }
-      if (episode.assembly.content) { episode.assembly.stale = true; episode.assembly.status = GenerationStatus.FAILED }
-    }
-  }
 }

@@ -130,7 +130,7 @@ test('镜头表旁白进入每秒生成审核并持久保存，读取后可直�
  const stored=await e.read(),shot=stored.shots.items[0]
  assert.equal(calls,2);assert.equal(shot.seconds.check.passed,true)
  assert.deepEqual(shot.seconds.content.dialogues,content.dialogues)
- assert.deepEqual(stored.shots.items[1],originalOther)
+ assert.equal(stored.shots.items[1].seconds.content,null);assert.equal(stored.shots.items[1].content,originalOther.content)
  assert.equal(stored.plot.characters.items.length,1)
  assert.match(compileVideoPrompt(stored,shot).prompt.text,/独立画外旁白，不对口型/)
  assert.equal(compileVideoPrompt(stored,shot).prompt.text.split(narration).length-1,1)

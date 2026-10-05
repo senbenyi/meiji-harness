@@ -3,7 +3,7 @@ import { renderSteps, taskStatusLabels, targetLabel, skillsLine } from './task-n
 import { outlineText } from '../shared/story-outline.js'
 const time = value => value ? new Date(value).toLocaleString() : '—'
 
-export function renderTaskDetails(task, { loadPrompts, loadArtifact, stop, openOperation, focusFailure = false } = {}) {
+export function renderTaskDetails(task, { loadPrompts, loadResponses, loadArtifact, stop, openOperation, focusFailure = false } = {}) {
   const view = element('article', '', 'task-detail')
   const head = element('div', '', 'task-history-row')
   head.append(element('strong', task.label || task.type), element('span', taskStatusLabels[task.status] || task.status, `task-history-status is-${task.status}`))
@@ -16,7 +16,7 @@ export function renderTaskDetails(task, { loadPrompts, loadArtifact, stop, openO
   if (task.error && !task.nodes?.some(node => node.error === task.error || node.reasons?.includes(task.error))) view.append(element('p', task.error, 'error'))
   const skills = skillsLine(task.skills); if (skills) view.append(skills)
   if (task.queuePosition) view.append(element('p', `排队第 ${task.queuePosition} 位`, 'meta'))
-  const nodes = renderSteps(task.nodes, { live: ['queued', 'running'].includes(task.status), loadPrompts: loadPrompts && (node => loadPrompts(task, node)) })
+  const nodes = renderSteps(task.nodes, { live: ['queued', 'running'].includes(task.status), loadPrompts: loadPrompts && (node => loadPrompts(task, node)), loadResponses: loadResponses && (node => loadResponses(task, node)) })
   view.append(nodes)
   for (const output of task.artifacts || []) {
     const snapshot = element('details', '', 'task-history-snapshot')
@@ -42,14 +42,23 @@ export function renderTaskDetails(task, { loadPrompts, loadArtifact, stop, openO
 }
 
 export function renderOperationDetails(operation, options = {}) {
-  if (operation.tasks.length === 1) return renderTaskDetails({ ...operation.tasks[0], queuePosition: operation.queuePosition }, options)
+  const failedSummary = operation.tasks.some(task => task.type === 'project-summary' && ['failed', 'review_failed'].includes(task.status))
+  const retry = view => {
+    if (failedSummary && options.retry) {
+      const button = element('button', '重试原操作', 'operation-retry'), error = element('p', '', 'error')
+      button.onclick = async () => { button.disabled = true; try { await options.retry(operation) } catch (failure) { error.textContent = failure.message; button.disabled = false } }
+      view.prepend(button, error)
+    }
+    return view
+  }
+  if (operation.tasks.length === 1) return retry(renderTaskDetails({ ...operation.tasks[0], queuePosition: operation.queuePosition }, options))
   const view = element('article', '', 'operation-detail')
   const head = element('div', '', 'task-history-row')
   head.append(element('strong', operation.label || operation.action), element('span', taskStatusLabels[operation.status] || operation.status, `task-history-status is-${operation.status}`))
   view.append(head, element('p', `操作编号：${operation.id}`, 'meta'))
   if (options.stop && ['queued', 'running'].includes(operation.status)) { const button = element('button', '停止操作'); button.onclick = () => options.stop(operation); head.append(button) }
   for (const task of operation.tasks) view.append(renderTaskDetails(task, options))
-  return view
+  return retry(view)
 }
 
 export function renderExecutionDetail({ load, back, title = '任务详情', ...options }) {

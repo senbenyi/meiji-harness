@@ -1,22 +1,32 @@
 import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
 import { runWithSessionLog, insertSessionLog } from '../server/host/session-log.js'
-import { jsonOutput, sessionIdOf } from './session-context-query-tool.js'
+import { jsonOutput, sessionIdOf, currentProject } from './session-context-query-tool.js'
 import { createProject } from '../server/flow/project-creation.js'
 
-export function projectManageTool({ home, tasks, workspaceController }) {
+export function projectManageTool({ home, tasks, jobs, workspaceController }) {
   return {
     name: 'meiji_project_manage',
-    description: '创建或打开故事项目，并将当前会话的制作目标选为该项目。create 填写 fields.title，以及 summary 或剧本 script/scriptAssetId；导入剧本后自动启动项目摘要提取（不超过500字），返回 operationId，可等待完成后生成剧集摘要。无剧本时保存总摘要。创建不生成剧集。open 使用查询工具返回的 projectId。',
+    description: '创建或打开项目；create 只需标题、画幅、风格和可选剧本，不生成摘要或剧集。edit-script 提出剧本修改方案等待用户确认，set-premise 设置最多 1000 字的创作基调。',
     parameters: { type: 'object', additionalProperties: false, required: ['action'], properties: {
-      action: { type: 'string', enum: ['create', 'open'] }, projectId: { type: 'string' },
+      action: { type: 'string', enum: ['create', 'open', 'edit-script', 'set-premise'] }, projectId: { type: 'string' },
+      text: { type: 'string' }, note: { type: 'string' }, baseRevision: { type: 'integer', minimum: 0 },
+      changes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['target', 'before', 'after'], properties: { target: { type: 'object', additionalProperties: false, required: ['kind'], properties: { kind: { type: 'string', enum: ['body', 'episode', 'future'] }, episodeId: { type: 'string' } } }, before: { type: 'string' }, after: { type: 'string' } } } },
       fields: { type: 'object', additionalProperties: false, required: ['title'], properties: {
-        title: { type: 'string' }, summary: { type: 'string' }, script: { type: 'string' }, scriptAssetId: { type: 'string' }, style: { type: 'string' }, aspectRatio: { type: 'string', enum: ['1344x768', '768x1344'] },
+        title: { type: 'string' }, script: { type: 'string' }, scriptAssetId: { type: 'string' }, style: { type: 'string' }, aspectRatio: { type: 'string', enum: ['1344x768', '768x1344'] },
       } },
     } }, output: jsonOutput,
     async execute(args, exec) {
       const sessionId = sessionIdOf(exec), store = projectStore(home), links = linkStore(home, workspaceController)
-      if (!['create', 'open'].includes(args.action)) throw new Error('项目操作无效')
+      if (!['create', 'open', 'edit-script', 'set-premise'].includes(args.action)) throw new Error('项目操作无效')
+      if (['edit-script', 'set-premise'].includes(args.action)) {
+        const current = await currentProject(home, exec)
+        const started = tasks.start({ action: args.action === 'edit-script' ? 'script-propose' : 'premise-edit', projectId: current.id, sessionId, origin: 'session', callId: exec.callId, text: args.text, changes: args.changes, note: args.note, baseRevision: args.baseRevision }, exec.agent.session)
+        const result = await started.done
+        if (started.failure) throw started.failure
+        return JSON.stringify({ status: result.status, projectId: current.id, ...result.result, ...(result.result.pendingProposal && jobs ? jobs.waitScript(current.id, sessionId) : {}) })
+      }
+      if (args.action === 'create' && args.fields && Object.keys(args.fields).some(key => !['title', 'script', 'scriptAssetId', 'style', 'aspectRatio'].includes(key))) throw new Error('创建字段无效')
       let projectId = args.projectId
       let operationId
       await runWithSessionLog(exec.agent.session, async () => {

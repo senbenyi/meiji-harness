@@ -32,7 +32,7 @@ test('逐镜生成和审核，后镜引用本轮前镜完整指令，历史按�
  assert.match(calls[2].user, /第一镜新动作/)
  assert.ok(calls[2].user.includes(JSON.stringify(secondsContent('S01', 5, '第一镜新动作'))))
  const p = await e.read()
- assert.ok(p.shots.items.every(s => s.seconds.check.passed && !s.seconds.operation && !s.seconds.stale))
+ assert.ok(p.shots.items.every(s => s.seconds.check.passed && !s.seconds.operation))
  assert.ok(p.shots.items.every(s => s.storyboard.content === null))
  assert.equal(p.shots.seconds.status, 'passed')
  const tasks = (await recordStore(e.home, e.id).list('tasks')).sort((a, b) => a.targets[0].localeCompare(b.targets[0]))
@@ -162,15 +162,14 @@ test('storyboard never fills missing seconds in the background', async t => {
  await assert.rejects(runOperation(e.op('film', { ...{}, parts: 'storyboard' }), { home: e.home, generateAllSeconds: () => assert.fail('no implicit fill') }), /请先.*每秒指令/)
 })
 
-test('首镜更新后后镜旧稿过期，失败停止后不能把旧稿用于下游', async t => {
+test('首镜更新后删除后镜旧稿，失败停止后不能把旧稿用于下游', async t => {
  const e = await environment(t), before = await e.read()
  await assert.rejects(execute(e, async m => { if (promptData(m.user, '【本次要求】').shotId === 'S02') throw new Error('HTTP 503'); return reply(m) }), /HTTP 503/)
  const p = await e.read(), second = p.shots.items[1]
- assert.deepEqual(second.seconds.content, before.shots.items[1].seconds.content)
- assert.equal(second.seconds.stale, true)
+ assert.equal(second.seconds.content, null)
  assert.notEqual(second.seconds.check.passed, true)
  assert.equal(second.storyboard.content, null)
- assert.equal(feedbackOf(p, 'seconds').status, 'failed')
+ assert.equal(feedbackOf(p, 'seconds').status, 'not-generated')
 })
 
 test('取消当前镜审核保留已生成草稿，不开始后镜', async t => {

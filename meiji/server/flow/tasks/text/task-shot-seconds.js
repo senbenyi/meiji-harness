@@ -4,7 +4,6 @@ import { modelRoutes } from '../../../../models/model-config.js'
 import { setContent } from '../../../../shared/drama-model.js'
 import { buildSecondsPrompts } from '../../../prompts/shot-text-prompts.js'
 import { parseSecondsPartial } from '../../../../shared/seconds-content.js'
-import { clearShotDownstream } from '../../../../shared/project-rules.js'
 import { retainSecondsResponse, saveSecondsShot } from '../../shared/seconds-results.js'
 
 export async function generateShotSeconds(options) {
@@ -25,7 +24,6 @@ export async function opShotSeconds(c) {
   const items = project.shots?.items || []
   if (!items.some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
   const review = String(operation.review || '').trim()
-  project = await projects.save(project.id, { ...clearShotDownstream(project, 'seconds', track) })
   note('技能：每秒指令（skills/task/generate-seconds-instructions-skill.md）')
   note('函数：generateShotSeconds（server/flow/tasks/text/task-shot-seconds.js）')
   note(`写 ${track} 的每一秒`)

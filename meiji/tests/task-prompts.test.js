@@ -56,7 +56,7 @@ test('实际摘要生成、自审、修订、复审各记录一份完整提示�
     const content = !body.messages[0].content.includes('【本次审核协议】') ? JSON.stringify({ summary: '旅人进入庭院，发现门后有埋伏，决定先探明敌人的目的。', durationSeconds: 10 }) : messages.length === 2 ? reviewFail('缺少明确的危机') : reviewPass
     return Response.json({ choices: [{ message: { content } }] })
   } }) })
-  const [task] = await recordStore(e.home, e.id).list()
+  const task = (await recordStore(e.home, e.id).list()).find(item => item.type === 'summary')
   assert.deepEqual(task.nodes.map(step => step.kind), ['generate', 'review', 'revise', 're_review'])
   for (const [index, step] of task.nodes.entries()) {
     const entries = await readNodePrompts(e.home, e.id, task.id, step.id)

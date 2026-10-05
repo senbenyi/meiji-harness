@@ -11,5 +11,5 @@ export function scriptText(bytes) {
 }
 export function projectSummaryFailures(value) {
   if (!value || Array.isArray(value) || Object.keys(value).length !== 1 || typeof value.summary !== 'string' || !summaryLength(value.summary)) return ['项目摘要须为仅含非空 summary 字符串的 JSON 对象']
-  return summaryLength(value.summary) > 500 ? ['项目摘要不能超过 500 个非空白 Unicode 字符（标点计入）'] : []
+  return summaryLength(value.summary) > 1000 ? ['项目摘要不能超过 1000 个非空白 Unicode 字符（标点计入）'] : []
 }

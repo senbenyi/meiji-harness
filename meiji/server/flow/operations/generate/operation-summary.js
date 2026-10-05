@@ -1,1 +1,1 @@
-export const operation = { label: '生成摘要', scope: 'project', agent: true, kind: 'generate', tasks: (_project, op) => [{ type: 'summary', params: { draft: Boolean(op.draft) } }] }
+export const operation = { session: {"tool": "meiji_generate_summary", "description": "生成或按意见修改剧集摘要，下一集摘要可以直接创建。", "episode": true, "params": {}, "modes": ["generate", "regenerate", "modify"]}, label: '生成摘要', scope: 'project', lock: 'project', agent: true, kind: 'generate', tasks: (_project, op) => [{ type: 'summary', params: { draft: Boolean(op.draft) } }] }

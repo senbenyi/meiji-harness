@@ -25,7 +25,7 @@ test('create writes a unique UUID json file that a new store instance can read',
   assert.equal(a.lifecycle, 'in-progress')
   assert.equal(a.stage, 'summary')
   assert.equal(a.workflow, 'h3')
-  assert.equal(a.schemaVersion, 2)
+  assert.equal(a.schemaVersion, 3)
   assert.equal(a.summary.content, input.summary)
   const file = join(home, 'storages', 'meiji', 'projects', a.id + '.json')
   const { layout, ...saved } = JSON.parse(await readFile(file, 'utf8'))
@@ -63,7 +63,7 @@ test('list ignores junk files and read rejects unknown ids', () => fixture(async
 
 test('reject incomplete or invalid project inputs', () => {
   const input = { title: '标题', summary: '摘要', durationSeconds: 60 }
-  for (const patch of [{ title: ' ' }, { summary: '' }, { durationSeconds: 0 }, { durationSeconds: 1.5 }, { durationSeconds: '60.5' }]) {
+  for (const patch of [{ title: ' ' }, { durationSeconds: 0 }, { durationSeconds: 1.5 }, { durationSeconds: '60.5' }]) {
     assert.throws(() => validateProject({ ...input, ...patch }))
   }
   assert.deepEqual(validateProject({ ...input, durationSeconds: '60' }), { title: '标题', durationSeconds: 60, summary: '摘要', script: '', style: '', aspectRatio: '1344x768' })

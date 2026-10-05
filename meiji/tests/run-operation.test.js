@@ -66,7 +66,7 @@ test('character text edit keeps the picture and writes values without prompt key
  const after=await e.read(),saved=after.plot.characters.items[0]
  assert.equal(saved.name,'武松');assert.equal(saved.gender,'男');assert.equal(saved.image.content,character.image.content)
  assert.equal(after.shots.items[0].cast[0],'武松')
- assert.deepEqual(after.shots.items[0].storyboard.content.characters,['武松'])
+ assert.equal(after.shots.items[0].storyboard.content,null)
  assert.match(characterFactText(saved),/^中国，武松，/)
  assert.equal(/姓名：|性别：/.test(characterFactText(saved)),false)
  assert.equal(saved.costume,'长衣')

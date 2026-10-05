@@ -1,6 +1,6 @@
 # meiji 开发指引
 
-> 本次重构期间，本文只作参考，用于定位现有模块和业务约定；现状须以当前源码、测试及 Harness 公开接口核实。目标与验收以用户最新要求及[实施计划](../docs/plans/1005-计划-合并实施（基座能力接入、项目剧本与角色库）.md)为准，不用本文中的现有实现约定限制目标方案。阶段完成后按实际结果更新本文，通用开发流程仍见 `AGENTS.md`。
+> 本文按 schemaVersion 3 的当前实现维护。此次集成的自动化与真实运行证据见[实施记录](../docs/implement/1005-实施-合并实施（基座能力接入、项目剧本与角色库）.md)；未完成的真实走查不以自动化结果替代。
 
 meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配置、模块边界、业务约束、编码与数据规则、测试命令和接口参考；档位、计划、实施、验证与图谱使用的通用流程见 [AGENTS.md](../AGENTS.md)。第 0 节中的路径相对仓库根目录，其余源码路径相对 `meiji/`，不维护目录树。原 `meiji/docs/` 的有效内容统一维护于本文：第 15 节为提示词接口与 Model，第 16 节为任务记录，第 17 节为历史迁移记录，第 18 节为网关接口参考。
 
@@ -27,9 +27,13 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 | 位置 | 职责 |
 |---|---|
-| `index.js` | 组合入口：接入 Harness、处理遗留任务、检查 FFmpeg、创建任务管理器、注册面板与四个会话工具、校验并注册会话 skill |
+| `index.js` | 组合入口：接入 Harness、处理遗留任务、检查 FFmpeg、创建操作管理器、注册面板及公开 meiji 服务；会话工具不在主机全局注册 |
+| `session.js` | 短剧制作预设的子插件，等待主机 ready 后注册 11 个 meiji 工具与会话说明，释放时撤销登记 |
+| `server/host/harness-jobs.js` | 通过公开 jobs 登记操作观察与占用、图片、剧本等待，模型停止守卫与 owner 脱离 |
+| `server/data/script-store.js` | 剧本版本、待确认方案与原子提交 |
+| `shared/library-rules.js` | 三类库、变体、关联及跨集同步；库目录只含文字和有图标记 |
 | `client/` | 原生 ES 模块面板，通过 `panel-api.js` 访问同源接口 |
-| `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游失效；不读写文件 |
+| `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游删除；不读写文件 |
 | `server/http/`、`tools/` | 面板与会话入口，复用服务端流程；鉴权与同源检查在 HTTP 层 |
 | `server/flow/operations/` | 操作层：manager 统一发起、占用与停止；runner 展开任务并记录；registry 登记操作，generate/ 只声明任务顺序，direct/ 实现人工操作 |
 | `server/flow/tasks/` | 任务层：task-registry 登记职责、队列、节点与修订上限；text/、media/ 执行具体任务；task-queue 限流，task-interrupt 处理重启取消 |
@@ -42,7 +46,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 | `server/host/` | Harness 公开接口适配、工作区与会话查询、日志及归属明确的历史提示词读取 |
 | `models/`、`config/`、`skills/` | 模型路由与默认配置、生产规则、审核规则及会话说明 |
 
-生成主链：`面板/会话 → operation-manager.start → operation-runner 展开任务 → 各任务进入对应队列 → task-executor → 网关/媒体 → 保存结果`。直接操作也走 start，立即执行并等待结果。操作持有同集占用直到全部任务结束；不能在页面或工具中另建执行通路。
+生成主链：`面板/会话 → operation-manager.start → operation-runner 展开任务 → 各任务进入对应队列 → task-executor → 网关/媒体 → 保存结果`。直接操作也走 start，立即执行并等待结果。操作按实际写入范围持有项目或剧集占用直到全部任务结束；不能在页面或工具中另建执行通路。
 
 ## 2. 提示词 Model
 
@@ -67,6 +71,10 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 操作 ID 由 manager 生成，任务 ID 由 runner 生成。每个任务独立上下文、提示词和产物，不用 scope 伪装多个任务。
 - 图片为生成、下载转 Base64、保存候选；视频为提交、生成保存、提取尾帧。后台工作完成后才释放任务队列名额。
 
+- 同项目生成互斥（含排队），不同项目独立。项目锁与项目内任意操作互斥；剧集直接操作仅与同集或项目锁冲突。summary/story 固定项目锁，关联卡片操作在占用前从已提交存储确认关联后选择项目锁，不升级在途锁。
+- 剧集摘要发生变化后，父操作先保存并释放，再自动启动一次独立 script-sync；失败、取消或遇忙保留回写依据。待回写、待确认方案、待回写删除记录阻断剧情层，镜头、指令、图片和成片仍按自身门禁执行。
+- 会话和面板生成登记 Harness job，job 只观察业务操作。普通 job_kill 经 manager.cancel 停止；模型不能停止面板发起的 job。owner/service 销毁只脱离观察，不取消业务。图片与剧本处理后由事件解除等待，不空转轮询。
+
 接口与存储见第 16 节。
 
 ## 4. 重新生成与按意见修改
@@ -74,7 +82,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - **重新生成**使用当前指定的上游资料，不带目标旧稿及历史意见。`outline/regenerate` 在请求前清空本集 plot、shots、assembly、pendingImages，即旧大纲、人物/场景/道具及图片关联、候选图、镜头和合成；失败或取消也不恢复旧数据，只保留本轮已保存结果。
 - 清空剧情不删除摘要、节点补充、其他剧集、全局素材文件或任务历史。对应实现为 `server/runtime/review-checks.js` 的 `prepareChecks` 与 `server/flow/shared/task-executor.js` 的 `releaseOperation`。
 - **按意见修改**提供基稿和本次意见，只改受影响内容及必要关联；自动修订使用本轮失败稿与审核意见，下游不继承上游意见。
-- 成功后只清理已提交的意见，失败保留，不能清除执行期间新输入的意见。其他操作沿用各自保存、回退和下游失效规则。
+- 成功后只清理已提交的意见，失败保留，不能清除执行期间新输入的意见。其他操作沿用各自保存、回退和下游删除规则。
 
 ## 5. 面板交互
 
@@ -119,7 +127,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 ## 9. 运行数据与请求边界
 
 - 用户数据根为 `$DSH_HOME/storages/meiji/`，DSH_HOME 默认 `~/.dsh`；源码与数据分离，迁移备份放 `$DSH_HOME/backups/`。
-- 项目索引只保存剧集文件引用，每集独立存储。创建前的项目摘要草稿及快照放 `project-drafts/history/`，按会话校验访问；确认创建后复制到项目 history，重启取消未完成草稿。任务、内容和提示词快照放项目 history；步骤保存引用与时间，列表不携带完整提示词、密钥或图片 Base64；提示词读取校验任务归属。
+- 项目索引只保存剧集文件引用，每集独立存储。创建只保存标题、风格、画幅及可选剧本，没有创建前摘要草稿或 project-drafts。任务、内容和提示词快照放项目 history；步骤保存引用与时间，列表不携带完整提示词、密钥或图片 Base64；提示词读取校验任务归属。
 - 图片候选放 `image-drafts/`，确认后入全局素材库；导入先暂存。素材库和任务历史不因重新生成而删除。
 - 运行模型配置为 `storages/meiji/models.json`；仓库默认配置为 `config/models.json`，本地覆盖为被 git 忽略的 `config/models.local.json`。密钥不返回浏览器、不写日志或文档。
 - gateway 校验生成请求的地址、密钥和当前模型；轮询、下载不要求生成模型。第三方图片下载不附网关密钥，不做缺密钥时的隐式后端回退。
@@ -128,21 +136,32 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 ### 摘要与剧情
 
-剧本素材存 `assets/scripts/`，支持 UTF-8 TXT/TEXT，最多 1 MB、200000 字符；列表仅返回元数据，正文按需读取。创建页分别展示「剧本」与「摘要」；导入或选择剧本后立即启动 `project-summary` 草稿操作，经生成、自审及至多两轮修订提取非空、最多 500 个非空白 Unicode 字符的项目摘要，并回填下方摘要框。草稿通过才允许创建；失败保留表单并可重试，换剧本、移除或关闭弹窗停止旧任务。确认创建时验证会话与剧本匹配，保存完整正文及 `scriptAssetId/scriptName`，关联草稿任务、提示词和内容快照，不重复调用模型。没有预生成草稿的会话创建仍在绑定后自动提取，概要可重试。基础规则为 `skills/task/generate-project-summary-skill.md`，执行为 `server/flow/tasks/text/task-project-summary.js`。
+剧本素材存 `assets/scripts/`，支持 UTF-8 TXT/TEXT，最多 1 MB、200000 字符；创建可选导入，不预生成摘要。导入剧本建立第 1 版，素材原文保持不变；无导入时首次回写建立分节剧本。第一集既无剧本、基调、剧集时，本次要求必填且默认保存基调（最多 1000 字）。剧本是参考，沿情节顺序并以已发生剧情为准，审核不因剧本外事件直接判失败。
 
-剧集摘要草稿 `episode-summary-draft` 复用任务、队列与历史，产物为未发布 artifact，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒，不由字数推断。剧集摘要非空、不限字数；手填项目总摘要上限仍为 10000 字。有剧本时按原文顺序提取本集时长能容纳的连续剧情，前集定位进度、后集约束结尾，项目摘要仅作设定参考；无剧本时根据项目摘要生成。提取到剧本结尾保留原结局，不另造悬念或续集。
+项目摘要由当前剧本加基调生成，最多 1000 个非空白 Unicode 字符，记录剧本依据版本；版本增加后待更新，基调变化本身不删除数据。生成剧集摘要/剧情前按需更新，失败取消后续任务；面板按原参数重试，会话说明要求自动重试一次。不能手改项目摘要，只能附意见重新生成。
+
+剧本保存先落版本记录再原子提交项目，读取排除未被提交引用的孤立记录。回写仅追加时自动保存新版本；修改旧正文时建立绑定剧本与摘要依据的逐条方案，部分确认或放弃不解除待回写，旧依据确认被拒。人工编辑、按要求修改、恢复旧版本都保留历史；恢复产生新版本。删除剧集保留删除回写事实，重启后仍可重试。scriptBlockers/scriptFreshness 提供派生提示，不写过期标记。
+
+剧集摘要草稿保留，复用任务、队列与历史，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒；剧集摘要非空、不限字数。人工修改后显示独立回写进度和方案选择。
+
 
 剧情依次生成并审核大纲、人物、场景、道具，前项未通过停止后项。大纲依据当前本集摘要，项目摘要与剧本作背景、前后集作衔接，不提前演出后集事件；返回七个固定中文字段的 JSON 对象：主角动机、世界规则、因果剧情、情绪线索、对白节拍、结尾状态、结尾关键画面；值为非空正文字符串。对象直接存 `plot.outline.content`，审核、提取与镜头规划直接使用；展示时才加【字段名】，编辑按字段保存。卡片基于本轮通过的大纲，返回完整 items JSON；目标为 outline/characters/scenes/props，四类资料分别保存快照，不再记录 story 聚合快照。
 
 镜头表返回 `{"shots":[{"shotId":"S01","durationSeconds":12,"title":"剧情标题","content":"条目正文"}]}`，编号连续、秒数为 1–15 的整数。单镜修订使用同一结构，只返回指定镜头，编号和时长不变。解析后按现有镜头卡片存储标题与正文；非法结构不覆盖有效内容。
 
-人物只提取实际可见身体，场景描述无人物环境。道具存 `plot.props`，类别为 clothing/mount/weapon/accessory/prop，程序分配 P 编号；允许空集合通过。人物/场景目录用于匹配 ownerId，不从外观补造道具；修改保留同名实体 ID，新实体递增。
+人物只提取实际可见身体，场景描述无人物环境。道具须为本集主要且反复使用的物件，或已在项目库中；一般服装写角色造型，不另建道具。道具存 `plot.props`，类别为 clothing/mount/weapon/accessory/prop，程序分配 P 编号；允许空集合通过。人物/场景目录用于匹配 ownerId，不从外观补造道具；修改保留同名实体 ID，新实体递增。
+
+### 三类项目库
+
+角色、场景、道具分别存项目 library；条目含名字、别名、身份字段与多个变体，变体含外貌/状态/样式字段及图片节点。审核通过的提取卡片才并库；有效 ID 显式关联，其次名字/别名匹配默认变体，否则建新条目，明显变化通过新变体表达。关联卡片字段与图片以库为准，图复用无需生成/确认。
+
+修改关联卡片写回库并同步全部关联剧集，保存前显示同步集数与删除清单；本集新变体不影响旧关联。图片确认同步库及关联卡片，删除引用该实体镜头的分镜、视频及合成。导入照片来源为 photo，AI 候选必须人工确认。可改关联、解除、合并迁移；有关联条目/变体不能删除。必须出场的角色进入剧情上下文。下游仍使用剧集卡片 ID，关联列表临时派生，不持久化。
 
 ### 每秒指令与视频提示词
 
 每秒指令按镜头顺序逐镜生成，每次返回仅含当前镜头的 shots JSON（version: 1），保持上游镜头 ID 与时长；beat 使用正整数 durationMs，由程序累计时间，dialogues 独立保存、beat 引用事件 ID，ambient/music 带时间。`shared/seconds-content.js` 管校验与可读正文，实体标记使用“名字【名字|ID】”，不依赖图片 ID。
 
-程序检查结构、实体、时长与对白，模型审核语义。`seconds-feedback.js` 区分程序问题、语义问题和人工意见并去重；每镜独立任务生成、自审、至多两轮自动修订与复审，通过并保存后才继续下一镜。失败或取消停止后镜，已完成前镜保留。前镜更新使后镜旧指令过期并清除受影响分镜/视频，旧稿仍可用于修改。能唯一对应上游的镜头保留正文与失败原因；不可解析或无法对应上游时只存未发布 artifact，不覆盖旧镜头。生成/修订原始响应另存 seconds-response 快照。
+程序检查结构、实体、时长与对白，模型审核语义。`seconds-feedback.js` 区分程序问题、语义问题和人工意见并去重；每镜独立任务生成、自审、至多两轮自动修订与复审，通过并保存后才继续下一镜。失败或取消停止后镜，已完成前镜保留。前镜更新同次删除后镜指令、分镜、视频和合成；清空后的旧稿只留历史。能唯一对应上游的镜头保留正文与失败原因；不可解析或无法对应上游时只存未发布 artifact，不覆盖旧镜头。生成/修订原始响应另存 seconds-response 快照。
 
 最终视频提示词由 `compileVideoPrompt` 直接编译为有图六字段或无图三字段，不调用模型重写。referenceSnapshot 固定 Picture 顺序，Subject 表示实体，服装共享所属角色 Subject、武器独立；sourceMap 记录来源，人工编辑后移除。人工编辑仍需格式与语义审核。版本或素材变化需重新组装；图片在视频提交时按快照读取本地文件并转 Base64。
 
@@ -165,10 +184,10 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 - JSON 通过临时文件 + rename 原子替换，权限 `0600`；素材导入经 `.upload/` 暂存后重命名。
 - 项目读写只经 `projectStore`，布局只由 `project-files.js` 处理；save 按 revision 串行提交，只写变化剧集，最后替换索引。
-- 领域 schemaVersion 和存储 layout 为 2，任务 schemaVersion 为 3（nodes）。拒绝旧结构，不做运行时兼容。默认离线备份迁移；用户明确授权删除时使用 reset-runtime-data.js，停止服务后清空项目与生成文件，保留素材库和系统配置。
+- 领域 schemaVersion 为 3，存储 layout 为 2，任务 schemaVersion 为 3（nodes）。拒绝旧结构，不做运行时兼容。默认离线备份迁移；用户明确授权删除时使用 reset-runtime-data.js，停止服务后清空项目与生成文件，保留素材库和系统配置。
 - 摘要、大纲、人物、场景、道具补充存每集 `supplementalSkills`；其他阶段补充与指导素材暂存项目 `skills`。剧集不接受 customSkills/guidanceAssets，旧数据通过 `migrate-custom-skills.js` 迁移。技能修改层只经 `skill-store.js` 读写。
 - 旧字符串大纲通过 `scripts/migrate-story-outline.js <DSH_HOME>` 离线转换，先备份索引和剧集再写入并读回核对；失败还原，缺少小节保留正文并标为未通过，不修改历史请求。启动与重启脚本自动检查。
-- 新生成素材不覆盖旧素材，参考图变化后关联视频与合成标 stale；剧情重新生成的清空边界见第 4 节。
+- 新生成素材不覆盖旧素材，参考图变化后按 R6 删除引用实体镜头的分镜、视频与合成；剧情重新生成的清空边界见第 4 节。
 - 发起请求校验会话，返回 operationId；查看/停止请求携带对应 ID，剧集范围操作携带 episodeId；密钥边界见第 9 节。
 
 <a id="test-environment"></a>
@@ -182,7 +201,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 ## 14. 外部边界
 
-- 不修改上游 Harness 源码；`configure-harness.sh` 负责插件链接、迁移与启动，`restart-harness.sh` 校验链接后重启，生成的 `cordis.patch.yml` 不手改。
+- 不修改上游 Harness 源码；`configure-harness.sh` 负责插件链接、迁移与启动，`restart-harness.sh` 校验链接后重启，源码 `meiji/cordis.patch.yml` 是预设唯一配置源，configure 只链接，不覆盖；短剧制作默认、standard 保留。
 - 制作顺序由 `shared/generation-gates.js` 的上游资料与自审条件控制，不要求逐阶段人工审核；图片候选的“确认使用”仅用于素材选用与入库（见第 5、10 节）。
 - 网关没有取消接口：停止、关闭或重启只取消本地任务，远端可能仍运行；不续查、不自动恢复，重试重新提交。
 - 网关没有文件接口：图片以本地 localPath/assetId 为准，视频参考图按 Picture 顺序提交 Base64，文本请求不传图片。
@@ -233,7 +252,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 镜头表基础容量不足时主动丰富现有事件的动作、反应与环境互动，必要时增加有作用的旁白以达到本集预算；不改变主线、结果、人物地点、关键物件或跨集边界。审核接受合理扩充，每秒指令完整继承本镜确定内容。独立旁白存 dialogues，speakerId 为 NARRATOR、delivery 为 off，只作为声音，不建人物卡或图片引用；已有角色画外声使用人物 ID。明确禁旁白/所有人声时改用可见行动补时。
 
-每秒指令使用 seconds 操作：整集逐镜建立任务；track 指定单镜修订。未提供新的整集意见时，从第一个未通过、缺失或过期镜头继续到末镜；人工整集意见作用于全部镜头。历史节点和快照关联 seconds:Snn。
+每秒指令使用 seconds 操作：整集逐镜建立任务；track 指定单镜修订。未提供新的整集意见时，从第一个未通过或缺失镜头继续到末镜；人工整集意见作用于全部镜头。历史节点和快照关联 seconds:Snn。
 
 ### 15.3 人物与场景图片 Model
 
@@ -270,6 +289,9 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 | 任务 | tasks/<taskId>.json，schemaVersion:3、nodes |
 | 内容快照 | artifacts/<artifactId>.json，target、version、taskId/nodeId、content、published |
 | 实际请求 | prompts/<promptId>.json，关联 taskId/nodeId |
+| 原始返回 | responses/<responseId>.json，步骤引用，HTTP 状态、耗时、完整脱敏正文/异常；视频只存最终轮询 |
+| 剧本版本 | script-revisions/<revision>.json，先落记录后提交；恢复不覆盖历史 |
+| 剧本方案 | artifacts/<proposalId>.json，项目持有依据与处理状态 |
 
 快照先写入，项目原子保存后发布；不承诺跨文件事务。大纲、人物、场景、道具分别留版本，图片变化不新增文字版本。非法原文和未发布草稿只存 artifact；所有失败请求仍可查看。无项目归属或删除所属目录的操作不留项目历史。
 
@@ -285,16 +307,22 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 | GET /tasks?target=... | 按内容范围过滤任务历史 |
 | GET /tasks/:id | 独立任务详情，可回到所属操作 |
 | GET /tasks/:id/nodes/:nodeId/prompts | 节点实际完整提示词 |
+| GET /tasks/:id/nodes/:nodeId/responses | 节点脱敏原始返回 |
 | GET /artifacts/:id | 内容快照 |
 | POST /operations/cancel | 停止整个操作，可用其任务 ID 定位 |
 
 发起接口等全部任务记录建立后返回 operationId，不等待模型生成。详情、当前任务及历史共用 `client/task-detail.js` 和 `task-nodes.js`，收到 events 后刷新，保留展开状态。失败查看定位最新失败节点，不重复显示原因。
 
-会话工具仅发起、等待和停止操作，不提供历史与提示词查询。遇到他方占用返回 busy，可等待，不能停止他方操作。人工忽略自审只作用于当前有效版本，不改历史任务，不能忽略格式错误。
+会话操作工具按 registry 的 session 元数据派生，批量图片考虑库图与候选，单卡图片仅面板可用。工具返回 jobId 后使用 Harness job_wait/job_read/job_output；占用、图片与剧本处理分别登记等待 job。上下文查询包含剧本版本、方案、阻断、摘要新鲜度和三类库目录。会删除已有产物时无 confirmDelete 只返回清单，不启动操作。人工忽略自审只作用于当前有效版本，不改历史任务，不能忽略格式错误。
 
 <a id="model-migration-history"></a>
 
-## 17. 历史迁移记录
+## 17. 剧本、原始返回与历史迁移记录
+
+操作与任务保留发起 sessionId/callId，responses 严格校验项目/任务/步骤归属，删除剧集清理所属历史。离线 `scripts/export-session-log.js --session-log <公开JSONL或ZIP> --project <项目ID> --home <DSH_HOME> --out <文件>` 合并公开 Harness 会话导出与 meiji 历史，按时间排序、callId 关联；密钥和 Base64 脱敏，工具参数/结果截断 2000 字。不读取 Harness 内部会话存储。
+
+运行时无 stale/dependencies；R1–R18 由 pipeline-cascade 在上游变更的同次保存里删除下游，保护执行中节点，空节点重复清空幂等。具体矩阵与验证见实施计划 3.7 和 state-cascade/state-locks/state-script/state-library 测试。
+
 
 本节从原 model-refactor-execution 文档归档，只说明 2026-09-27 当时的实施记录，不作为当前结构、测试数量或部署状态的依据。
 

@@ -1,20 +1,20 @@
 ---
 name: skill-gongyong-panel-generate
-description: 在 Harness 会话中创建故事项目、规划分集制作任务，并调用已有生成流程完成摘要、剧情或镜头内容。
+description: 创建短剧项目，按依赖规划分集制作，调用项目生成流程并处理剧本和图片确认。
 ---
 
-会话负责理解用户意图、规划业务步骤和调用工具；实际内容由原有生成流程及各阶段 Skill 产生并保存，不在聊天里另写一份代替项目结果。
+会话理解用户意图、规划步骤并调用工具；实际制作内容通过生成流程保存，不在聊天中另写一份代替项目结果。
 
-先调用 meiji_context_query 查询当前项目、剧集及审核状态。创建或打开项目用 meiji_project_manage；创建需要标题和视频总摘要，用户授权构思时可按题材补全，未指定配置使用后端默认值。创建本身不生成剧集。创建或打开会选择当前会话的制作目标，不迁移 Harness 工作目录，也不改变其他会话的目标。
+先用 meiji_context_query 查询项目、剧集、剧本版本与阻断、三类库和缺图。meiji_project_manage 创建或打开项目；创建只需标题、风格、画幅及可选剧本，不输入项目摘要，不生成剧集。没有剧本、基调和剧集时，首次摘要生成的 requirements 必填，默认保存为故事基调。之后 requirements 仅作用于当次任务。set-premise 修改基调；edit-script 提出按整篇或分节修改的方案，用户确认后写入。
 
-多步骤请求使用 Harness 的 todo_write 先规划具体业务步骤，再按依赖顺序调用 meiji_content_generate。例如“完成第一集摘要和剧情”：先生成第一集摘要，等待审核通过，再生成剧情整包（大纲、角色、场景）。按查询结果跳过已经通过且未过期的内容；目标集不明确且无法从上下文确定时才询问。不要把所有步骤合并成一个生成请求。
+多步骤请求先用 todo_write 规划，然后按依赖执行：meiji_generate_summary → meiji_generate_story → meiji_generate_shot_table → meiji_generate_seconds。剧情通过后可 meiji_generate_images；图片全部确认与每秒指令通过后再 meiji_generate_film，成片包括分镜提示词、视频和尾帧。只需要分镜或补视频/尾帧时使用 parts。项目摘要与剧本维护分别用 meiji_update_project_summary、meiji_revise_script，不替代剧集制作。
 
-每次生成工具调用只执行一个业务步骤：summary 摘要，story 剧情整包，shots 镜头表，seconds 每秒指令，storyboard 文本分镜。
-- generate：首次生成。剧情以本集已通过的摘要为输入。
-- regenerate：用户明确要求重做；不传本节点旧结果或历史意见。新创作要求放 requirements。
-- modify：基于当前基稿局部修改；本次意见放 review。保留无关内容。
-本次要求默认仅作用于本次任务，不自动保存为永久配置或 Skill。
+每次只发起一个业务步骤。generate 跳过已经通过的内容；regenerate 按当前上游重新生成，不带旧结果及历史意见；modify 以当前基稿按 review 定向修改，保留无关内容。只有 summary 可以生成最后一集之后的下一集，不能跳集。story 的 only 可指定大纲、人物、场景或道具；单卡图片只由面板操作，会话使用批量图片工具。
 
-返回 running 后使用 meiji_task_control 的 wait（参数 operationId）等待，可继续等待但不能重复提交。返回 busy 表示本集正被其他操作（可能是面板）占用：告诉用户正在执行什么，wait 该 operationId 直到结束，再重新发起本步骤；不能停止他方的操作。任务与步骤详情只在面板查看。只有 completed 且 reviewPassed=true 才把计划步骤标记完成并启动依赖步骤。生成、独立审核和自动修订（次数由各任务配置）由原流程处理；review_failed、failed 或 cancelled 后停止依赖步骤，报告具体原因，不自行循环重试。服务重启后仍可用 operationId 调用 wait 读取已结束操作的结果；interrupted 表示执行中断，不能当作已完成或自行重做。
+needs_confirmation 表示会删除已有内容：向用户说明返回的删除清单，取得授权后带 confirmDelete=true 重发。用户已经明确授权这些删除时直接传 true；不在内部任务之间重复审批。库关联卡片的修改会同步到库和其他关联集；需要只改本集时新增变体。
 
-用户已要求完成的多个步骤连续执行，不在步骤之间重复请求确认。任务日志留在发起任务的会话。最终简要说明已完成的项目、集数和阶段，或未完成的原因，不复述请求参数、密钥和内部日志。
+返回 jobId 后可以结束本轮，完成时会收到通知；需要结果时用 job_wait、job_read，停止本会话发起的任务用 job_kill。面板任务由用户在面板停止。只有 status=completed 且 reviewPassed=true 才启动依赖步骤。retryable=true 表示项目摘要更新失败，重新调用同一工具一次，仍失败则报告原因；其他 failed、review_failed、cancelled 停止依赖步骤，不自行循环重试。busy 已登记占用等待 job，结束后重新发起原操作。
+
+候选图片必须由用户在面板确认或放弃，不能在聊天中代替确认；meiji_wait_images 登记图片等待 job，已有库图可直接复用。待确认剧本方案、摘要待回写或删除待回写会阻断剧情生成，处理后剧本等待 job 通知，再继续原步骤。不要把未确认方案当作已保存剧本，不重做已完成的摘要来消除等待。
+
+用户已要求的多个步骤连续执行；阶段之间不重复确认。最终简要说明项目、集数和已完成阶段，存在失败时说明具体原因，不复述密钥或内部日志。

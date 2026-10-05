@@ -4,7 +4,6 @@ import { join } from 'node:path'
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { savePicture } from '../../../data/image-storage.js'
 import { appendImageAsset, nextPartId, partSlots } from '../../../../shared/image-assets.js'
-import { staleMedia } from '../../../../shared/project-rules.js'
 import { decodeImageData } from '../../../media/decode-image-data.js'
 import { visualPlace } from '../../shared/image-files.js'
 import { openIncoming } from '../../shared/incoming.js'
@@ -42,7 +41,7 @@ export async function opPartImport(c) {
     name: `${partSlots[slot].label}${partId.slice(-2)}`,
     ...reference,
   })
-  await projects.save(project.id, { ...staleMedia(project), ...plotPatch(project, { [place.key]: bag }) })
+  await projects.save(project.id, { ...plotPatch(project, { [place.key]: bag }) })
   note(`已导入 ${character.name} 的${partSlots[slot].label} ${partId}`)
   return trace
 }

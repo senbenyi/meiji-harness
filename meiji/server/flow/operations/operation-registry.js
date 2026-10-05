@@ -1,3 +1,6 @@
+import { operation as images } from './generate/operation-images.js'
+import { operations as projectLibrary } from './direct/operation-project-library.js'
+import { operations as propText } from './direct/operation-prop-edit.js'
 import { linkStore } from '../../data/workspace-links.js'
 import { projectStore } from '../../data/project-store.js'
 import { materialize } from '../../../shared/episode-rules.js'
@@ -26,6 +29,9 @@ import { operations as actionsStoryOutlineText } from './direct/operation-outlin
 import { operations as actionsStoryPropDelete } from './direct/operation-prop-delete.js'
 import { operations as actionsStorySceneText } from './direct/operation-scene-edit.js'
 import { operation as summary } from './generate/operation-summary.js'
+import { sync, revise } from './generate/operation-script.js'
+import { operations as scriptDirect } from './direct/operation-script.js'
+import { scriptBlockers, scriptFreshness } from '../../../shared/script-assembly.js'
 import { operation as projectSummary } from './generate/operation-project-summary.js'
 import { operation as story } from './generate/operation-story.js'
 import { operation as character_image } from './generate/operation-character-image.js'
@@ -34,8 +40,8 @@ import { operation as prop_image } from './generate/operation-prop-image.js'
 import { operation as shot_table } from './generate/operation-shot-table.js'
 import { operation as seconds } from './generate/operation-seconds.js'
 import { operation as film } from './generate/operation-film.js'
-const direct = { ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
-export const operations = { ...Object.fromEntries(Object.entries(direct).map(([id, value]) => [id, { ...value, kind: 'direct', actor: 'human' }])), summary, 'project-summary': projectSummary, story, 'character-image': character_image, 'scene-image': scene_image, 'prop-image': prop_image, 'shot-table': shot_table, seconds, film }
+const direct = { ...projectLibrary, ...propText, ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
+export const operations = { images, 'library-image': { label: '生成库图片', scope: 'project', lock: 'project', kind: 'generate', agent: false, tasks: () => [{ type: 'library-image' }] }, ...Object.fromEntries(Object.entries({ ...direct, ...scriptDirect }).map(([id, value]) => [id, { ...value, kind: 'direct', actor: 'human' }])), summary, 'project-summary': projectSummary, story, 'script-sync': sync, 'script-revise': revise, 'character-image': character_image, 'scene-image': scene_image, 'prop-image': prop_image, 'shot-table': shot_table, seconds, film }
 export const labels = Object.fromEntries(Object.entries(operations).map(([id, value]) => [id, value.label]))
 export function operationLabel(op) { return `${labels[op.action] || op.action}${op.track ? ' ' + op.track : ''}${op.only ? '·' + op.only : ''}${op.draft ? '·草稿' : ''}${op.parts ? '·' + op.parts : ''}` }
 export function validateOperation(op) {
@@ -56,10 +62,18 @@ export async function planTasks(home, op) {
   const definition = validateOperation(op)
   if (op.sessionId && op.projectId) await linkStore(home).requireProject(op.sessionId, op.projectId)
   const project = await planningProject(home, op)
+  const root = op.projectId ? await projectStore(home).read(op.projectId) : null
+  if (root && ['summary', 'story', 'project-summary', 'script-revise', 'episode-add'].includes(op.action)) {
+    const blockers = scriptBlockers(root).filter(item => !(op.action === 'summary' && op.episodeId && item.episodeId === op.episodeId && ['episode-sync', 'proposal'].includes(item.kind)))
+    if (blockers.length) throw Object.assign(new Error('剧本有待处理回写或方案，请处理后继续'), { status: 409, code: 'SCRIPT_PENDING', blockers })
+  }
+  if (root && ['summary', 'episode-add'].includes(op.action) && !root.script && !root.premise && !root.episodes.length && !String(op.requirements || op.fields?.requirements || '').trim()) throw Object.assign(new Error('首次生成请填写故事设想'), { status: 400 })
+  if (root && !root.script && !root.premise && !root.episodes.length && (op.savePremise ?? op.fields?.savePremise) !== false && [...String(op.requirements || op.fields?.requirements || '').replace(/\s/g, '')].length > 1000) throw Object.assign(new Error('故事基调最多 1000 字'), { status: 400 })
   if (project?.episodeId && !op.episodeId) op.episodeId = project.episodeId
   await definition.precheck?.(project, op)
-  if (op.origin === 'session' && op.mode === 'generate' && definition.completed?.(project, op)) return []
+  if ((op.origin === 'session' && op.mode === 'generate' || op.action === 'images') && definition.completed?.(project, op)) return []
   const items = definition.kind === 'direct' ? [{ type: 'save', label: definition.label }] : definition.tasks(project, op)
+  if (root && ['summary', 'story'].includes(op.action) && scriptFreshness(root).summaryNeedsUpdate) items.unshift({ type: 'project-summary', params: { draft: false } })
   if (!items.length) throw new Error('没有可执行的任务')
   return items.map(item => describeTask(item, op, definition.kind === 'direct' ? definition : null, project))
 }

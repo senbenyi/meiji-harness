@@ -3,6 +3,7 @@ import { renderSteps, taskStatusLabels } from './task-nodes.js'
 import { renderTaskHistory, historyEntry } from './execution-history.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
+import { scriptFreshness, episodeHints } from '../shared/script-assembly.js'
 import { bindStylePicker } from './style-picks.js'
 
 export function collectCharacters(project) {
@@ -27,7 +28,7 @@ export function collectCharacters(project) {
 export function episodeWork(project, episodeId) {
   const episode = (project?.episodes || []).find(item => item.id === episodeId)
   if (!episode) return null
-  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
+  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, projectSummary: project.summary.content, scriptHints: episodeHints(project, episode), pendingScriptProposal: (project.scriptProposals || []).some(item => item.status === 'pending' && item.episodeId === episode.id), skills: project.skills, revision: project.revision }
 
 }
 
@@ -55,7 +56,7 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 function deleteButton(project, actions, episode, number) {
   const button = element('button', episode ? '删除本集' : '删除项目', 'delete-content')
   button.type = 'button'
-  button.disabled = Boolean(project.operationActivity || project.episodes?.some(item => item.operationActivity))
+  button.disabled = Boolean(project.projectBusy)
   button.setAttribute('aria-label', episode ? `删除第 ${number} 集` : '删除整个项目')
   button.onclick = async event => {
     event.stopPropagation()
@@ -64,7 +65,7 @@ function deleteButton(project, actions, episode, number) {
     if (!window.confirm(`确定删除${target}？将删除剧情数据及本地视频，此操作无法撤销。`)) return
     button.disabled = true
     try {
-      await actions.perform(project, episode ? 'episode-delete' : 'project-delete', episode ? { episodeId: episode.id } : {})
+      await actions.perform(project, episode ? 'episode-delete' : 'project-delete', episode ? { episodeId: episode.id, confirmDelete: true } : { confirmDelete: true })
     } catch (error) { button.disabled = false; actions.fail(error) }
   }
   return button
@@ -76,8 +77,9 @@ export function renderOverview(project, actions, context) {
   titleRow.append(element('h2', project.title || '项目概要'))
   const edit = element('button', '', 'icon-edit')
   edit.type = 'button'
-  edit.setAttribute('aria-label', '编辑标题、风格和摘要')
+  edit.setAttribute('aria-label', '编辑标题、画幅和风格')
   edit.innerHTML = editIcon
+  edit.disabled = Boolean(project.projectBusy)
   edit.onclick = () => actions.openOverview?.(project)
   titleRow.append(edit)
   page.append(titleRow)
@@ -89,20 +91,31 @@ export function renderOverview(project, actions, context) {
   projectActions.append(deleteButton(project, actions))
   page.append(projectActions)
 
+  const premiseCard = element('article', '', 'overview-card')
+  premiseCard.append(element('h3', '故事基调'), preview(project.premise || '在第一集填写故事设想，可保存为故事基调。'))
+  const premiseEdit = element('button', '编辑基调')
+  premiseEdit.disabled = Boolean(project.projectBusy)
+  premiseEdit.onclick = () => actions.openPremise?.(project)
+  premiseCard.append(premiseEdit); page.append(premiseCard)
+
   const summaryCard = element('article', '', 'overview-card')
-  summaryCard.append(element('h3', '摘要'))
+  summaryCard.append(element('h3', '项目摘要'))
   if (project.script) {
     const row = element('div', '', 'workflow-generation-row')
-    const busy = Boolean(project.operationActivity || project.episodes.some(item => item.operationActivity))
-    row.append(element('span', project.summary.operation ? '提取中' : project.summary.error ? '提取失败' : project.summary.check.passed === false ? '自审未通过' : project.summary.check.passed === true ? '已提取' : '待提取', 'meta'))
-    const generate = element('button', project.summary.content ? '重新提取摘要' : '提取摘要')
+    const busy = Boolean(project.projectBusy)
+    row.append(element('span', project.summary.operation ? '提取中' : project.summary.error ? '提取失败' : project.summary.check.passed === false ? '自审未通过' : scriptFreshness(project).summaryNeedsUpdate ? '待更新' : project.summary.check.passed === true ? '最新' : '待更新', 'meta'))
+    const generate = element('button', project.summary.error ? '重试更新摘要' : '立即更新摘要')
     generate.type = 'button'; generate.disabled = busy
     generate.onclick = async () => {
       generate.disabled = true
       try { await actions.perform(project, 'project-summary') }
       catch (error) { generate.disabled = false; actions.fail(error) }
     }
-    row.append(generate)
+    const opinion = element('input'), revise = element('button', '按意见重新生成')
+    opinion.setAttribute('aria-label', '项目摘要修改意见'); opinion.placeholder = '修改意见'
+    revise.disabled = busy
+    revise.onclick = async () => { if (!opinion.value.trim()) return; try { await actions.perform(project, 'project-summary', { review: opinion.value.trim() }) } catch (error) { actions.fail(error) } }
+    row.append(generate, opinion, revise)
     if (actions.openHistory) { const history = element('button', '查看摘要任务历史 →'); history.type = 'button'; history.onclick = () => actions.openHistory(project, 'project-summary'); row.append(history) }
     if (actions.openSkill) { const skill = element('button', '查看 skill'); skill.type = 'button'; skill.onclick = () => actions.openSkill(project, 'project-summary'); row.append(skill) }
     summaryCard.append(row)
@@ -112,54 +125,31 @@ export function renderOverview(project, actions, context) {
   if (project.summary.content) summaryCard.append(preview(project.summary.content))
   page.append(summaryCard)
 
-  const charactersCard = element('article', '', 'overview-card')
-  charactersCard.append(element('h3', '人物角色'))
-  const characters = collectCharacters(project)
-  if (!characters.length) {
-    charactersCard.append(element('p', '各集写好的主要人物会显示在这里', 'meta'))
-  } else {
-    const strip = element('div', '', 'characters-strip')
-    strip.addEventListener('wheel', event => {
-      if (strip.scrollWidth <= strip.clientWidth) return
-      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
-      if (!delta) return
-      strip.scrollLeft += delta
-      event.preventDefault()
-    }, { passive: false })
-    for (const character of characters) {
-      const item = element('button', '', 'character-item')
-      item.type = 'button'
-      item.setAttribute('aria-label', `人物详情：${character.name}`)
-      item.onclick = () => context.onOpenCharacter?.(character.episodeId, character.id)
-      const avatar = element('div', '', 'character-avatar')
-      if (stillSrc(character)) {
-        const image = element('img', '', 'character-image')
-        image.src = stillSrc(character)
-        image.alt = character.name
-        avatar.append(image)
-      } else {
-        avatar.append(element('div', character.name.charAt(0), 'character-image placeholder'))
-      }
-      item.append(avatar)
-      item.append(element('p', character.name, 'character-name'))
-      strip.append(item)
-    }
-    charactersCard.append(strip)
-  }
-  page.append(charactersCard)
+  const scriptCard = element('article', '', 'overview-card')
+  scriptCard.append(element('h3', '剧本'), element('p', `${project.scriptKind === 'imported' ? '导入剧本' : '分节剧本'} · V${project.scriptRevision || 0} · ${project.scriptSource || '尚未建立'} · ${project.scriptUpdatedAt || ''} · ${(project.scriptProposals || []).filter(item => item.status === 'pending').length} 个待确认方案`, 'meta'))
+  scriptCard.append(preview(project.script || '等待第一集建立剧本。'))
+  const openScript = element('button', '查看与编辑剧本'), direction = element('button', '修改后续剧情')
+  openScript.onclick = direction.onclick = () => actions.openScript?.(project)
+  scriptCard.append(openScript, direction)
+  page.append(scriptCard)
 
-  const script = typeof project.script === 'string' ? project.script.trim() : ''
-  if (script) {
-    const scriptCard = element('article', '', 'overview-card')
-    scriptCard.append(element('h3', '剧本'))
-    scriptCard.append(preview(script))
-    page.append(scriptCard)
+  for (const [kind, title] of [['characters', '角色库'], ['scenes', '场景库'], ['props', '道具库']]) {
+    const card = element('article', '', 'overview-card'), open = element('button', `查看与管理${title}`)
+    card.append(element('h3', title)); open.onclick = () => actions.openLibrary?.(project, kind); card.append(open)
+    const strip = element('div', '', 'characters-strip')
+    for (const entry of project.library?.[kind] || []) {
+      const button = element('button', entry.name, 'character-item'); button.setAttribute('aria-label', `${title}详情：${entry.name}`); button.onclick = () => actions.openLibrary?.(project, kind)
+      const image = entry.variants.find(variant => variant.id === entry.defaultVariantId)?.image.content
+      if (image?.localPath) { const img = element('img', '', 'character-image'); img.src = image.localPath; img.alt = entry.name; button.prepend(img) }
+      strip.append(button)
+    }
+    card.append(strip); page.append(card)
   }
 
   const episodes = element('article', '', 'overview-card')
   const head = element('div', '', 'episode-head')
   head.append(element('h3', '剧集'))
-  const busy = Boolean(project.operationActivity)
+  const busy = Boolean(project.projectBusy)
   const add = element('button', '＋ 新增剧集', 'episode-add')
   add.type = 'button'
   add.disabled = busy
@@ -177,15 +167,18 @@ export function renderOverview(project, actions, context) {
     copy.append(element('strong', `第 ${number} 集`))
     copy.append(element('span', `${episode.durationSeconds || 0} 秒`, 'meta'))
     copy.append(element('p', episode.summary.content || '还没有本集剧情'))
+    const hints = episodeHints(project, episode)
+    copy.append(element('span', [hints.scriptUpdated && '剧本已更新', hints.previousModified && '前集已修改', hints.pendingSync && '待回写'].filter(Boolean).join(' · '), 'meta'))
     const edit = element('button', '编辑', 'episode-edit')
     edit.type = 'button'
+    edit.disabled = busy
     edit.onclick = event => {
       event.stopPropagation()
       actions.openEpisode?.(project, episode)
     }
     const regenerate = element('button', busy ? '生成中' : '重新生成摘要', 'episode-regenerate')
     regenerate.type = 'button'
-    regenerate.disabled = Boolean(project.operationActivity)
+    regenerate.disabled = Boolean(project.projectBusy)
     regenerate.setAttribute('aria-label', `重新生成第 ${number} 集摘要`)
     regenerate.title = '重新生成摘要，保留时长；摘要变化后本集下游内容需重新生成'
     regenerate.onclick = event => {
@@ -220,7 +213,7 @@ export function renderOverview(project, actions, context) {
 
 export function overviewDialog(root, onSaved) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-overview" aria-labelledby="edit-overview-title"><div class="modal-head"><h2 id="edit-overview-title">编辑项目</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><form class="edit"><label for="overview-name">短剧标题</label><input id="overview-name" name="title" required maxlength="100"><label for="overview-aspect">画幅</label><select id="overview-aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="overview-style">风格</label><input id="overview-style" name="style" maxlength="120" placeholder="例如：写实电影、国风水墨"><label for="overview-summary">摘要</label><textarea id="overview-summary" name="summary" required maxlength="10000"></textarea><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-overview" aria-labelledby="edit-overview-title"><div class="modal-head"><h2 id="edit-overview-title">编辑项目</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><form class="edit"><label for="overview-name">短剧标题</label><input id="overview-name" name="title" required maxlength="100"><label for="overview-aspect">画幅</label><select id="overview-aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="overview-style">风格</label><input id="overview-style" name="style" maxlength="120" placeholder="例如：写实电影、国风水墨"><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-overview')
   const form = dialog.querySelector('form')
@@ -239,7 +232,6 @@ export function overviewDialog(root, onSaved) {
         title: data.get('title').trim(),
         aspectRatio: data.get('aspect'),
         style: data.get('style').trim(),
-        summary: data.get('summary').trim(),
       })
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
@@ -252,15 +244,14 @@ export function overviewDialog(root, onSaved) {
     form.elements.aspect.value = ['1344x768', '768x1344'].includes(aspect) ? aspect : '1344x768'
     form.elements.style.value = project.style || ''
     stylePicker.sync()
-    form.elements.summary.value = project.summary.content || ''
     error.textContent = ''
     showPanelDialog(dialog)
   }
 }
 
-export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadPrompts } = {}) {
+export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadPrompts, loadResponses, observeSync, openScript, regenerate } = {}) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-requirements">本次要求</label><textarea id="episode-requirements" name="requirements"></textarea><label class="premise-option"><input type="checkbox" name="savePremise" checked>保存为故事基调</label><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-episode')
   const form = dialog.querySelector('form')
@@ -284,7 +275,7 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
   dialog.addEventListener('close', cancel)
   stop.onclick = cancel
   form.addEventListener('input', event => {
-    if (![form.elements.duration, form.elements.summary].includes(event.target)) return
+    if (![form.elements.duration, form.elements.summary, form.elements.requirements].includes(event.target)) return
     cancel()
     updateCount()
   })
@@ -296,10 +287,10 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       const requestVersion = version, abort = controller = new AbortController()
       busy(true)
       try {
-        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference }, { signal: abort.signal, onTask: task => {
+        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference, requirements: form.elements.requirements.value.trim() }, { signal: abort.signal, onTask: task => {
           if (version !== requestVersion || !dialog.open) return
           const unit = task.tasks?.[0] || task
-          progress.replaceChildren(element('p', `摘要任务：${taskStatusLabels[task.status] || task.status}`, 'meta'), renderSteps(unit.nodes, { live: true, loadPrompts: loadPrompts && (node => loadPrompts(current, unit, node)) }))
+          progress.replaceChildren(element('p', `摘要任务：${taskStatusLabels[task.status] || task.status}`, 'meta'), renderSteps(unit.nodes, { live: true, loadPrompts: loadPrompts && (node => loadPrompts(current, unit, node)), loadResponses: loadResponses && (node => loadResponses(current, unit, node)) }))
         } })
         if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
         const failures = episodeSummaryFailures(draft)
@@ -319,8 +310,26 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       const summary = form.elements.summary.value.trim()
       if (!summaryLength(summary)) throw new Error('摘要不能为空')
       const durationSeconds = referenceDuration(Number(form.elements.duration.value))
-      await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary })
-      dialog.close()
+      const result = await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary, requirements: form.elements.requirements.value.trim(), savePremise: form.elements.savePremise.checked })
+      if (result?.cancelled) return
+      const episodeId = result?.result?.episodeId || episode?.id || result?.project?.episodes?.[0]?.id
+      if (result?.result?.scriptSyncOperationId && observeSync) {
+        progress.replaceChildren(element('p', '摘要已保存，正在独立回写剧本。', 'meta'))
+        const state = await observeSync(current, result.result.scriptSyncOperationId, task => {
+          if (dialog.open) progress.replaceChildren(element('p', `剧本回写：${taskStatusLabels[task.status] || task.status}`, 'meta'))
+        })
+        if (!dialog.open) return
+        if (state.status === 'completed' && !state.result?.pendingProposal) { dialog.close(); return }
+        progress.replaceChildren(element('p', state.result?.pendingProposal ? '回写方案待确认。摘要已保存，尚未完成同步。' : `待回写：${state.error || state.failures?.join('；') || '回写未完成'}`, 'notice'))
+      } else if (!result?.result?.scriptSyncError) { dialog.close(); return }
+      else progress.replaceChildren(element('p', `摘要已保存，待回写：${result.result.scriptSyncError}`, 'notice'))
+      const process = element('button', '按方案修改剧本'), revert = element('button', '把本集改回符合剧本'), keep = element('button', '先保留'), retry = element('button', '重新回写')
+      for (const button of [process, revert, keep, retry]) button.type = 'button'
+      process.onclick = () => { dialog.close(); openScript?.(current) }
+      revert.onclick = () => { dialog.close(); regenerate?.(current, { episodeId, requirements: '将本集改回符合当前剧本' }).catch(failure => { error.textContent = failure.message }) }
+      keep.onclick = () => dialog.close()
+      retry.onclick = () => { dialog.close(); openScript?.(current) }
+      progress.append(process, revert, keep, retry)
     } catch (failure) { error.textContent = failure.message }
     finally { save.disabled = false }
   }
@@ -334,8 +343,24 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
     form.elements.duration.value = String(currentEpisode?.durationSeconds ?? defaultReferenceDuration)
     form.elements.summary.value = currentEpisode?.summary?.content || ''
+    const first = !project.script && !project.premise && !project.episodes?.length
+    form.elements.requirements.required = first
+    form.elements.requirements.value = ''
+    form.elements.savePremise.checked = true
+    dialog.querySelector('label[for=episode-requirements]').textContent = first ? '故事设想（必填）' : '本次要求（选填）'
+    dialog.querySelector('.premise-option').hidden = !first
     updateCount()
     error.textContent = ''
     showPanelDialog(dialog)
   }
+}
+
+export function premiseDialog(root, onSaved) {
+  const dialog = element('dialog'), form = element('form'), text = element('textarea'), error = element('p', '', 'error'), save = element('button', '保存'), cancel = element('button', '取消')
+  let current
+  text.setAttribute('aria-label', '故事基调'); text.maxLength = 1000
+  cancel.type = 'button'; cancel.onclick = () => dialog.close()
+  form.append(element('h2', '编辑故事基调'), text, error, cancel, save); dialog.append(form); root.append(dialog)
+  form.onsubmit = async event => { event.preventDefault(); save.disabled = true; try { await onSaved(current, text.value.trim()); dialog.close() } catch (failure) { error.textContent = failure.message } finally { save.disabled = false } }
+  return project => { current = project; text.value = project.premise || ''; error.textContent = ''; showPanelDialog(dialog) }
 }

@@ -13,16 +13,17 @@ import { liveTask, liveTasks } from '../../runtime/task-context.js'
 import { refreshOperation } from '../../runtime/operation-execution.js'
 import { recordStore } from '../../data/task-store.js'
 import { readTaskDraft } from '../../data/content-records.js'
-import { projectIds } from '../../data/project-files.js'
+import { projectIds, linkedOperationCard } from '../../data/project-files.js'
 import { notifyProject } from '../../data/project-events.js'
 import { insertSessionLog, runWithSessionLog } from '../../host/session-log.js'
 import { StepStatus, deriveOperationStatus, deriveTaskStatus, reviewPassed, reviewFailures } from '../../../shared/task-nodes.js'
 import { feedbackOf } from '../../../shared/review-feedback.js'
+import { operationScope } from '../../../shared/operation-conflicts.js'
 
 export function generationFeedback(episode, action) {
   if (['storyboard', 'seconds'].includes(action)) {
     const nodes = episode.shots.items.map(shot => shot[action])
-    return { stale: nodes.some(node => node.stale), check: { passed: nodes.length > 0 && nodes.every(node => node.check.passed === true && !node.stale), failures: nodes.flatMap(node => node.check.failures) } }
+    return { check: { passed: nodes.length > 0 && nodes.every(node => node.check.passed === true), failures: nodes.flatMap(node => node.check.failures) } }
   }
   return feedbackOf(episode, { action })
 }
@@ -34,15 +35,17 @@ const failureSummary = tasks => tasks.filter(task => ['failed', 'review_failed']
 const resultOf = tasks => ({ status: deriveOperationStatus(tasks.map(task => deriveTaskStatus(task.nodes))), reviewPassed: reviewPassed(tasks.flatMap(task => task.nodes)), failures: failureSummary(tasks) })
 
 export function createOperationManager({ home, workspaceController, execute = executeTask, limitOf = configuredLimit }) {
+  const starts = new Set()
   const entries = new Map(), queue = createQueue(limitOf)
   let admission = Promise.resolve()
   const tasksOf = entry => entry.tasks.map(task => ({ ...task, ...(liveTask(task.id) || {}), nodes: liveTask(task.id)?.nodes || task.nodes }))
   const snapshot = entry => {
     const tasks = tasksOf(entry), result = resultOf(tasks)
     return { id: entry.id, operationId: entry.id, projectId: entry.op.projectId, episodeId: entry.op.episodeId || entry.result?.episodeId || null,
-      action: entry.op.action, parts: entry.op.parts, only: entry.op.only, draftMode: entry.op.draft, track: entry.op.track || null, itemId: entry.op.itemId || null, label: operationLabel(entry.op), initiator: initiatorOf(entry.op), actor: entry.definition.actor || 'model',
+      action: entry.op.action, kind: entry.op.kind, lock: entry.op.lock, parts: entry.op.parts, only: entry.op.only, draftMode: entry.op.draft, track: entry.op.track || null, itemId: entry.op.itemId || null, label: operationLabel(entry.op), initiator: initiatorOf(entry.op), actor: entry.definition.actor || 'model',
       startedAt: entry.startedAt, endedAt: entry.finished ? entry.endedAt : null, ...result, ...(entry.error ? { error: entry.error } : {}),
       queued: result.status === 'queued', queuePosition: queue.position(entry.currentTaskId),
+      parameters: Object.fromEntries(['action', 'episodeId', 'mode', 'generationMode', 'requirements', 'review', 'track', 'only', 'parts', 'draft'].filter(key => entry.op[key] !== undefined).map(key => [key, entry.op[key]])),
       tasks: tasks.map(({ definition, operation, params, plan, ...task }) => ({ ...task, operationId: task.operationId || entry.id, status: deriveTaskStatus(task.nodes), nodes: structuredClone(task.nodes) })),
       ...(entry.result || {}), result: entry.result, trace: entry.trace }
   }
@@ -65,15 +68,10 @@ export function createOperationManager({ home, workspaceController, execute = ex
     return current
   }
   const log = (entry, message, failed = false) => { try { insertSessionLog(entry.session, message, failed, `日志-${operationLabel(entry.op)}`) } catch {} }
-  const waitFor = async (entry, signal) => {
-    signal?.throwIfAborted()
-    let timer, abort
-    try { await Promise.race([entry.done, new Promise((resolve, reject) => { timer = setTimeout(resolve, 25000); abort = () => reject(signal.reason); signal?.addEventListener('abort', abort, { once: true }) })]) }
-    finally { clearTimeout(timer); signal?.removeEventListener('abort', abort) }
-  }
   return {
     start(op, session, deps = {}) {
       const definition = validateOperation(op), id = randomUUID(), controller = new AbortController()
+      op = { ...op, ...operationScope({ ...op, kind: definition.kind, lock: definition.linkedCard && linkedOperationCard(home, op) ? 'project' : definition.lock }) }
       const release = occupy(home, op, { id, label: operationLabel(op) })
       const abort = () => controller.abort(deps.signal.reason)
       if (deps.signal?.aborted) abort()
@@ -88,11 +86,12 @@ export function createOperationManager({ home, workspaceController, execute = ex
           const admitted = admission.then(async () => { controller.signal.throwIfAborted(); return prepareOperation(home, op, id) })
           admission = admitted.catch(() => {})
           const reviewStore = projectStore(home)
-          let groupReview
+          let groupReview, baseline
           entry.tasks = await admitted
+          if (op.projectId && ['summary', 'episode-add', 'episode-edit', 'episode-delete', 'source'].includes(op.action) && !op.draft) entry.syncBefore = await reviewStore.read(op.projectId)
           readyResolve({ alreadyCompleted: entry.tasks.length === 0 })
           if (!entry.tasks.length) Object.assign(entry.result, { alreadyCompleted: true, status: 'completed', reviewPassed: true })
-          if (op.action === 'seconds' && !op.track && (op.mode === 'modify' || op.generationMode === 'modify')) { const root = await reviewStore.read(op.projectId); groupReview = root.episodes.find(item => item.id === op.episodeId)?.shots.seconds.review }
+          if (op.action === 'seconds' && !op.track && (op.mode === 'modify' || op.generationMode === 'modify')) { const root = await reviewStore.read(op.projectId); baseline = root; groupReview = root.episodes.find(item => item.id === op.episodeId)?.shots.seconds.review }
           for (const task of entry.tasks) {
             controller.signal.throwIfAborted()
             entry.currentTaskId = task.id
@@ -102,7 +101,8 @@ export function createOperationManager({ home, workspaceController, execute = ex
               else { task.nodes = task.plan.map(node => createNode(node, task.actor)); Object.assign(task.nodes[0], { status: StepStatus.RUNNING, startedAt: now() }) }
               if (recorded(op)) await refreshOperation(home, op.projectId, id)
               notifyProject(home, op.projectId)
-              const trace = await execute(op, { ...deps, home, workspaceController: deps.workspaceController || workspaceController, session, signal: controller.signal, operationId: id, taskId: task.id, task, waitForBackground: true })
+              controller.signal.throwIfAborted()
+              const trace = await execute(op, { ...deps, home, workspaceController: deps.workspaceController || workspaceController, session, signal: controller.signal, operationId: id, taskId: task.id, task, baseline, waitForBackground: true })
               entry.trace.push(...(trace || [])); Object.assign(entry.result, trace?.result || {})
               await persist(entry, task)
             }
@@ -123,18 +123,43 @@ export function createOperationManager({ home, workspaceController, execute = ex
           if (recorded(op)) await refreshOperation(home, op.projectId, id, { ended: true, error: entry.error }).catch(() => {})
           deps.signal?.removeEventListener('abort', abort)
           entry.finished = true; entry.endedAt = now(); release(); notifyProject(home, op.projectId)
+          // 父操作已经提交并释放占用，独立回写只启动一次；不等待子操作结束。
+          if (entry.syncBefore) {
+            try {
+              const current = await projectStore(home).read(op.projectId)
+              const before = entry.syncBefore
+              const changed = current.episodes.find(episode => episode.summary.revision !== before.episodes.find(item => item.id === episode.id)?.summary.revision)
+              const deleted = current.scriptPendingDeletes.find(item => !before.scriptPendingDeletes.some(old => old.episodeId === item.episodeId))
+              const episodeId = changed?.id || deleted?.episodeId
+              if (episodeId) {
+                const child = this.start({ action: 'script-sync', projectId: op.projectId, episodeId, sessionId: op.sessionId, origin: op.origin, callId: op.callId, followUpOf: id }, session, { ...deps, signal: undefined })
+                entry.result.scriptSyncOperationId = child.id
+                entry.result.episodeId ||= episodeId
+              }
+            } catch (error) { entry.result.scriptSyncError = error.message; log(entry, `剧集已保存，剧本待回写：${error.message}`, true) }
+          }
         }
+        if (recorded(op)) await recordStore(home, op.projectId).update('operations', id, current => { if (!current) throw Object.assign(new Error('操作记录已清理'), { status: 404 }); return { ...current, result: entry.result } }).catch(() => {})
         return snapshot(entry)
       })
+      for (const listener of starts) { try { listener({ id, op, session }) } catch (error) { log(entry, `后台任务登记失败：${error.message}`, true) } }
       notifyProject(home, op.projectId)
       return { id, operationId: id, get taskId() { return entry.tasks[0]?.id }, get failure() { return entry.failure }, ready: entry.ready, done: entry.done }
     },
+    onStarted(listener) { starts.add(listener); return () => starts.delete(listener) },
+    track(id, { projectId, sessionId } = {}) {
+      const entry = find(id)
+      if (!entry || projectId && entry.op.projectId !== projectId) throw Object.assign(new Error('操作不存在或不属于当前项目'), { status: 404 })
+      if (sessionId !== undefined) owned(entry, sessionId)
+      return { snapshot: () => snapshot(entry), ready: entry.ready, done: entry.done }
+    },
+    async whenEnded(id, options = {}) { return this.track(id, options).done },
     list(projectId) { return [...entries.values()].filter(entry => !entry.finished && entry.op.projectId === projectId).map(snapshot) },
     current(projectId, episodeId) { return this.list(projectId).filter(operation => !episodeId || !operation.episodeId || operation.episodeId === episodeId) },
     async get(id, sessionId) {
       const entry = find(id)
       if (entry) { owned(entry, sessionId); if (entry.finished) await entry.done; return snapshot(entry) }
-      for (const projectId of [null, ...await projectIds(home)]) {
+      for (const projectId of await projectIds(home)) {
         const store = recordStore(home, projectId)
         let operation
         try { operation = await store.read('operations', id) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
@@ -144,8 +169,6 @@ export function createOperationManager({ home, workspaceController, execute = ex
       }
       throw Object.assign(new Error('操作不存在'), { status: 404 })
     },
-    async wait(id, sessionId, signal) { const entry = find(id); if (!entry) return this.get(id, sessionId); owned(entry, sessionId); await waitFor(entry, signal); return snapshot(entry) },
-    async waitOccupant(id, signal, { projectId } = {}) { const entry = find(id); if (!entry || projectId && entry.op.projectId !== projectId) throw Object.assign(new Error('操作不存在'), { status: 404 }); await waitFor(entry, signal); return { ...snapshot(entry), occupant: true } },
     cancel(id, projectId, { sessionId } = {}) { const entry = find(id); if (!entry || entry.finished || entry.op.projectId !== projectId) throw Object.assign(new Error('操作已结束或不存在'), { status: 404 }); if (sessionId !== undefined) owned(entry, sessionId); entry.controller.abort(Object.assign(new Error('操作已停止'), { code: 'TASK_CANCELLED' })) },
     dispose() { for (const entry of entries.values()) if (!entry.finished) entry.controller.abort(Object.assign(new Error('服务已停止，操作已取消'), { code: 'TASK_CANCELLED' })) },
   }

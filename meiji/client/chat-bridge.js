@@ -1,4 +1,5 @@
 import { operationRequest } from './operation-request.js'
+import { confirmOperationDelete } from './cascade-confirm.js'
 import { allNodes, shotMap } from '../shared/drama-model.js'
 
 // 剧集是否有进行中的操作：以内容节点上的 operation 为准（等待人工确认的候选图不算）。
@@ -97,16 +98,19 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         const { projects } = await request('projects')
         listBefore = new Set(projects.map(item => item.id))
       }
-      const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, projectId: project?.id, ...operationRequest(action, fields) }) })
+      const operation = operationRequest(action, fields)
+      if (project && !confirmOperationDelete(project, operation)) { showProject(project); return { cancelled: true } }
+      const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, projectId: project?.id, ...operation }) })
       if (result.completed) {
         clearInterval(timer)
         if (result.deleted) await onDeleted()
         else if (result.project) showProject(result.project)
         status('已完成')
-        return
+        return result
       }
       status('任务已启动')
       if (!project) watch(project, listBefore)
+      return result
     },
   }
 }

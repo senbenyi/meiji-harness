@@ -16,7 +16,7 @@ function setup(t, create, options) {
   const root = dom.window.document.querySelector('main'), open = projectDialog(root, create, options)
   open()
   const dialog = root.querySelector('dialog'), form = dialog.querySelector('form')
-  form.elements.title.value = '测试项目'; form.elements.style.value = '写实电影'; form.elements.summary.value = '项目摘要'
+  form.elements.title.value = '测试项目'; form.elements.style.value = '写实电影'
   return { root, dialog, form, open, submit: () => form.onsubmit({ preventDefault() {} }) }
 }
 
@@ -42,51 +42,46 @@ test('failed creation preserves inputs and allows retry', async t => {
   await e.submit(); assert.equal(e.dialog.open, false)
 })
 
-test('创建页选择剧本代替手填摘要，移除及重新打开恢复正常输入', async t => {
+test('创建页选择剧本保留文件名，不发起模型任务；移除和重开清除选择', async t => {
   let created
-  const e = setup(t, async input => { created = input }, { generateSummary: async id => ({ summary: '生成的项目摘要', operationId: 'draft-id', sessionId: 'session-id', scriptAssetId: id }) })
-  const assets = [{ id: 'script-id', originalName: '来信.txt' }]
-  t.mock.method(globalThis, 'fetch', async url => { assert.match(url, /assets\?category=scripts/); return Response.json({ assets }) })
+  const e = setup(t, async input => { created = input })
+  assert.equal(e.form.elements.summary, undefined)
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async url => { calls.push(url); return Response.json({ assets: [{ id: 'script-id', originalName: '来信.txt' }] }) })
   await e.dialog.querySelector('.script-choose').onclick()
   const picker = e.dialog.querySelector('.script-picker')
-  assert.equal(picker.hidden, false)
-  picker.value = assets[0].id; await picker.onchange()
-  assert.equal(e.form.elements.summary.readOnly, true)
-  assert.equal(e.form.elements.summary.value, '生成的项目摘要')
-  assert.equal(e.dialog.querySelector('label[for=project-script]').textContent, '剧本')
+  picker.value = 'script-id'; await picker.onchange()
+  assert.equal(e.dialog.querySelector('.script-selected').textContent, '来信.txt')
   await e.submit()
-  assert.equal(created.scriptAssetId, assets[0].id)
-  assert.equal(created.summary, undefined)
-  assert.equal(created.summaryDraftOperationId, 'draft-id')
-  assert.equal(e.dialog.open, false)
-  e.open()
-  assert.equal(e.form.elements.summary.disabled, false)
-  assert.equal(e.form.elements.summary.required, true)
-  assert.equal(e.dialog.querySelector('.script-clear').hidden, true)
-  e.form.elements.summary.value = '手填内容'
+  assert.equal(created.scriptAssetId, 'script-id'); assert.equal(created.summary, undefined)
+  assert.equal(calls.length, 1)
+  e.open(); assert.equal(e.dialog.querySelector('.script-selected').textContent, '')
   await e.dialog.querySelector('.script-choose').onclick()
-  picker.value = assets[0].id; await picker.onchange()
-  e.dialog.querySelector('.script-clear').onclick()
-  assert.equal(e.form.elements.summary.value, '手填内容')
+  picker.value = 'script-id'; await picker.onchange()
+  e.dialog.querySelector('.script-clear').onclick(); await e.submit()
+  assert.equal(created.scriptAssetId, undefined)
 })
 
-test('创建页直接导入TXT，上传失败保留输入且可再次上传', async t => {
+test('导入失败保留表单且可重试', async t => {
   let fail = true, created
-  const e = setup(t, async input => { created = input }, { generateSummary: async () => ({ summary: '导入后生成的摘要', operationId: 'draft-id', sessionId: 'session-id' }) })
+  const e = setup(t, async input => { created = input })
   const source = { name: '来信.txt', size: 12 }, file = e.dialog.querySelector('input[type=file]')
   Object.defineProperty(file, 'files', { value: [source] })
-  t.mock.method(globalThis, 'fetch', async (url, options) => {
-    assert.match(url, /category=scripts/)
-    assert.equal(options.body, source)
-    assert.equal(options.headers['X-Meiji-Request'], '1')
-    return fail ? Response.json({ error: 'UTF-8编码无效' }, { status: 400 }) : Response.json({ asset: { id: 'imported-script', originalName: '来信.txt' } })
-  })
-  await file.onchange()
-  assert.equal(e.form.elements.summary.value, '项目摘要')
-  assert.match(e.dialog.querySelector('.error').textContent, /UTF-8/)
-  assert.equal(e.form.querySelector('[type=submit]').disabled, false)
+  t.mock.method(globalThis, 'fetch', async () => fail ? Response.json({ error: 'UTF-8编码无效' }, { status: 400 }) : Response.json({ asset: { id: 'imported', originalName: '来信.txt' } }))
+  await file.onchange(); assert.match(e.dialog.querySelector('.error').textContent, /UTF-8/)
+  assert.equal(e.form.elements.title.value, '测试项目')
   fail = false; await file.onchange(); await e.submit()
-  assert.equal(created.scriptAssetId, 'imported-script')
+  assert.equal(created.scriptAssetId, 'imported')
+})
+
+test('关闭创建页后迟到的素材列表不能覆盖新表单', async t => {
+  const e = setup(t, async () => {}); let resolve
+  t.mock.method(globalThis, 'fetch', () => new Promise(done => { resolve = done }))
+  const pending = e.dialog.querySelector('.script-choose').onclick()
+  e.dialog.close(); e.open()
+  resolve(Response.json({ assets: [{ id: 'old', originalName: '旧.txt' }] })); await pending
+  assert.equal(e.dialog.querySelector('.script-picker').hidden, true)
+  assert.equal(e.dialog.querySelector('.script-selected').textContent, '')
 })
 
 test('剧本素材可按需预览和下载，正文使用纯文本避免执行HTML', async t => {
@@ -118,99 +113,7 @@ test('项目摘要失败仅展示一次，概要提供提取、任务历史及sk
   e.root.append(view)
   assert.equal(view.textContent.split('遗漏结局').length - 1, 1)
   const button = text => [...view.querySelectorAll('button')].find(button => button.textContent === text)
-  await button('重新提取摘要').onclick()
+  await button('立即更新摘要').onclick()
   button('查看摘要任务历史 →').click(); button('查看 skill').click()
   assert.deepEqual(calls.map(args => args[1]), ['project-summary', 'project-summary', 'project-summary'])
-})
-
-test('剧本摘要生成失败保留选择与表单，重试成功才允许创建', async t => {
-  let calls = 0, created
-  const e = setup(t, async input => { created = input }, { generateSummary: async () => {
-    if (++calls === 1) throw new Error('摘要接口失败')
-    return { summary: '重新生成的摘要', operationId: 'draft-id', sessionId: 'session-id' }
-  } })
-  const assets = [{ id: 'script-id', originalName: '来信.txt' }]
-  t.mock.method(globalThis, 'fetch', async () => Response.json({ assets }))
-  await e.dialog.querySelector('.script-choose').onclick()
-  const picker = e.dialog.querySelector('.script-picker')
-  picker.value = 'script-id'; await picker.onchange()
-  assert.equal(e.form.elements.title.value, '测试项目')
-  assert.equal(e.dialog.querySelector('.script-selected').textContent, '来信.txt')
-  assert.equal(e.form.querySelector('[type=submit]').disabled, true)
-  assert.match(e.dialog.querySelector('.error').textContent, /摘要接口失败/)
-  await e.submit(); assert.equal(created, undefined)
-  await e.dialog.querySelector('.script-summary-retry').onclick()
-  assert.equal(e.form.elements.summary.value, '重新生成的摘要')
-  assert.equal(e.form.querySelector('[type=submit]').disabled, false)
-  await e.submit(); assert.equal(created.summaryDraftOperationId, 'draft-id')
-})
-
-test('换剧本、移除和关闭弹窗停止摘要生成，迟到响应不能覆盖新摘要', async t => {
-  const pending = []
-  const e = setup(t, async () => {}, { generateSummary: (id, options) => new Promise(resolve => pending.push({ id, ...options, resolve })) })
-  const assets = [{ id: 'a', originalName: '甲.txt' }, { id: 'b', originalName: '乙.txt' }]
-  t.mock.method(globalThis, 'fetch', async () => Response.json({ assets }))
-  await e.dialog.querySelector('.script-choose').onclick()
-  const picker = e.dialog.querySelector('.script-picker')
-  picker.value = 'a'; const first = picker.onchange()
-  assert.equal(e.form.querySelector('[type=submit]').disabled, true)
-  picker.value = 'b'; const second = picker.onchange()
-  assert.equal(pending[0].signal.aborted, true)
-  pending[1].resolve({ summary: '乙摘要', operationId: 'b-task' }); await second
-  pending[0].resolve({ summary: '甲摘要', operationId: 'a-task' }); await first
-  assert.equal(e.form.elements.summary.value, '乙摘要')
-  e.dialog.querySelector('.script-clear').onclick()
-  assert.equal(e.form.elements.summary.value, '项目摘要')
-  assert.equal(e.form.elements.summary.readOnly, false)
-  picker.value = 'a'; const third = picker.onchange()
-  e.dialog.close()
-  assert.equal(pending[2].signal.aborted, true)
-  e.open(); pending[2].resolve({ summary: '迟到摘要' }); await third
-  assert.equal(e.form.elements.summary.value, '')
-  assert.equal(e.dialog.querySelector('.script-selected').textContent, '')
-})
-
-test('默认创建页选中剧本后调用摘要草稿任务并将结果填到摘要框', async t => {
-  const e = setup(t, async () => {})
-  const sessionId = 'session-33333333-3333-4333-8333-333333333333'
-  document.defaultView.localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId }))
-  const calls = []
-  t.mock.method(globalThis, 'fetch', async (url, options) => {
-    calls.push(url)
-    if (url.includes('assets?')) return Response.json({ assets: [{ id: 'script-id', originalName: '来信.txt' }] })
-    if (url.endsWith('/turn')) {
-      assert.deepEqual(JSON.parse(options.body), { action: 'project-summary', draft: true, scriptAssetId: 'script-id', sessionId })
-      return Response.json({ operationId: 'draft-id' })
-    }
-    assert.match(url, /operations\/draft-id\?sessionId=/)
-    return Response.json({ operation: { id: 'draft-id', status: 'completed', draft: { summary: '已通过的摘要', scriptAssetId: 'script-id', check: { passed: true } }, tasks: [{ id: 'task-id', label: '项目摘要', status: 'completed', nodes: [], artifacts: [] }] } })
-  })
-  await e.dialog.querySelector('.script-choose').onclick()
-  const picker = e.dialog.querySelector('.script-picker')
-  picker.value = 'script-id'; await picker.onchange()
-  assert.equal(e.form.elements.summary.value, '已通过的摘要')
-  assert.equal(e.dialog.querySelector('.script-summary-task').hidden, false)
-  assert.equal(e.form.querySelector('[type=submit]').disabled, false)
-  assert.equal(calls.length, 3)
-})
-
-test('摘要草稿启动响应迟到时，移除剧本后仍会取消后台任务', async t => {
-  const e = setup(t, async () => {})
-  const sessionId = 'session-33333333-3333-4333-8333-333333333333'
-  document.defaultView.localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId }))
-  let resolve, cancel
-  t.mock.method(globalThis, 'fetch', async (url, options) => {
-    if (url.includes('assets?')) return Response.json({ assets: [{ id: 'script-id', originalName: '来信.txt' }] })
-    if (url.endsWith('/turn')) return new Promise(done => { resolve = () => done(Response.json({ operationId: 'late-task' })) })
-    assert.match(url, /operations\/cancel$/)
-    cancel = JSON.parse(options.body)
-    return Response.json({ accepted: true })
-  })
-  await e.dialog.querySelector('.script-choose').onclick()
-  const picker = e.dialog.querySelector('.script-picker')
-  picker.value = 'script-id'; const pending = picker.onchange()
-  e.dialog.querySelector('.script-clear').onclick()
-  resolve(); await pending
-  assert.deepEqual(cancel, { sessionId, operationId: 'late-task' })
-  assert.equal(e.form.elements.summary.value, '项目摘要')
 })

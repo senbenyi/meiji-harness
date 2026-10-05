@@ -257,16 +257,16 @@ test('review override: a new human task passes the current version, keeps the AI
   assert.equal(overrideBlocker(await e.read(), 'film:S01'), '只有自审未通过的文本内容可以忽略')
 })
 
-test('同项目不同剧集的操作独立占用，任务按视频队列排队', async t => {
+test('不同项目独立占用，任务按视频队列排队', async t => {
   const e = await setup(t), gate = Promise.withResolvers()
   const { episodeFixture } = await import('./fixtures/model.js')
-  const second = episodeFixture(); await e.store.save(e.id, root => ({ episodes: [...root.episodes, second] }))
+  const second = episodeFixture(), other = await e.store.create({ title: '另一项目' }); await e.store.save(other.id, { episodes: [second] })
   const manager = createOperationManager({ home:e.home, limitOf: () => 1, execute: async () => { await gate.promise; return [] } })
   const a=manager.start(e.op('film', { track:'S01', parts:'video' }))
-  const b=manager.start(e.op('film', { episodeId:second.id, track:'S01', parts:'video' }))
+  const b=manager.start(e.op('film', { projectId:other.id, episodeId:second.id, track:'S01', parts:'video' }))
   try {
-    for(let i=0;i<200 && manager.current(e.id,second.id)[0]?.queuePosition!==1;i++) await new Promise(resolve=>setTimeout(resolve,5))
-    const running=manager.current(e.id,e.episodeId)[0], queued=manager.current(e.id,second.id)[0]
+    for(let i=0;i<200 && manager.current(other.id,second.id)[0]?.queuePosition!==1;i++) await new Promise(resolve=>setTimeout(resolve,5))
+    const running=manager.current(e.id,e.episodeId)[0], queued=manager.current(other.id,second.id)[0]
     assert.equal(running.id,a.id); assert.equal(running.status,'running')
     assert.equal(queued.id,b.id); assert.equal(queued.status,'queued'); assert.equal(queued.queuePosition,1)
     assert.equal(running.tasks.length,1); assert.ok(queued.tasks[0].nodes.every(node=>node.status==='pending'))

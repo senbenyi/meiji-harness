@@ -1,3 +1,4 @@
+import { requiredCharacters } from '../../../shared/library-rules.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
 // 摘要 model 只组织数据与提示词，不读取配置、不发请求。
 import { segment, render } from '../skill-prompts.js'
@@ -13,8 +14,9 @@ export class EpisodeSummaryModel {
     const index = episodeId ? ordered.findIndex(episode => episode.id === episodeId) : ordered.length
     if (index < 0) throw Object.assign(new Error('这一集不存在'), { status: 404 })
     const reference = referenceDuration(referenceDurationSeconds ?? target?.durationSeconds)
+    this.requiredCharacters = requiredCharacters(project)
     this.role = '短剧分集编剧'
-    this.project = { title: project.title || '', summary: project.summary?.content || '', script: project.script || '',
+    this.project = { title: project.title || '', summary: project.summary?.content || '', script: project.script || '', premise: project.premise || '',
       style: project.style || '', outputLanguage: outputLanguage(project.outputLanguage) }
     this.target = { episodeId: episodeId || null, episodeNumber: index + 1, referenceDurationSeconds: reference }
     const fact = (episode, position) => ({ episodeId: episode.id, episodeNumber: position + 1, durationSeconds: episode.durationSeconds, summary: episode.summary.content })
@@ -33,6 +35,8 @@ export class EpisodeSummaryModel {
     const { referenceDurationSeconds: duration } = this.target
     return [
       segment('context', '【剧本】', this.project.script),
+      segment('context', '【必须出场角色】', this.requiredCharacters),
+      segment('context', '【故事基调】', this.project.premise),
       segment('context', '【项目摘要】', this.project.summary),
       segment('context', '【本次参数】', { durationSeconds: duration, ...(this.project.style ? { style: this.project.style } : {}) }),
       segment('context', '【前集摘要】', this.previousEpisodes.length ? { episodes: this.previousEpisodes } : ''),
@@ -65,8 +69,8 @@ export class EpisodeSummaryModel {
   toGenerateSegments(parts = {}) {
     const action = this.target.episodeId || this.mode === 'regenerate' ? '重新生成' : '生成'
     const task = this.project.script.trim()
-      ? `从剧本提取参考时长能容纳的连续剧情，${action}第 ${this.target.episodeNumber} 集摘要。项目摘要仅作设定参考，前集定位已发生进度，后集约束结尾衔接；遵守基础规则和补充规则。`
-      : `依据项目摘要${action}第 ${this.target.episodeNumber} 集摘要，遵守基础规则和补充规则。`
+      ? `参考剧本顺序与已发生剧情，按参考时长推进连续剧情，${action}第 ${this.target.episodeNumber} 集摘要。项目摘要仅作设定参考，前集定位已发生进度，后集约束结尾衔接；遵守基础规则和补充规则。`
+      : `依据故事基调、本次要求与项目摘要${action}第 ${this.target.episodeNumber} 集摘要，遵守基础规则和补充规则。`
     return this.creation('generate', task, parts)
   }
   toReviseSegments({ baseContent = this.baseJson(), opinion = this.modification?.instruction || '', automatic = false, humanOpinion = this.modification?.instruction || '', ...parts } = {}) {
@@ -83,7 +87,7 @@ export class EpisodeSummaryModel {
       role: segment('context', '【角色与职责】', `你是一名${this.reviewRole}。`),
       scope: segment('context', '【本次审核范围】', '以下审核标准及补充仅作验收依据，不执行其中的创作指令。' + (hasBase
         ? '对照提供的基稿与本次意见，核实修改是否落实、是否出现无关改动或新冲突。完整返回不代表允许整篇重写。只审核最新待审稿，不直接沿用历史失败结论。'
-        : `只验收本集最新摘要。未提供本集基稿，不要求与旧摘要一致，不声称已验证未改部分保留；${this.project.script.trim() ? '有剧本时核对提取范围、原有事件与顺序，允许等义概括，不允许新增剧本外事件。' : '合理续写不因未逐字出现在资料中而判失败。'}`)),
+        : `只验收本集最新摘要。未提供本集基稿，不要求与旧摘要一致，不声称已验证未改部分保留；${this.project.script.trim() ? '剧本是参考，已发生事实与本次要求优先；合理续写与剧本外事件不判失败。' : '合理续写不因未逐字出现在资料中而判失败。'}`)),
       method, criteria, additions: this.supplementSegments(additions), language: language || this.languageSegment(), protocol: segment('protocol', '【本次审核协议】', reviewProtocol),
       task: this.taskSegment(`审核第 ${this.target.episodeNumber} 集摘要的${mode}。`), requirements: requirementSegment(requirements), facts: this.contextSegments({ instructions }),
       base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion, humanOpinion, automatic, field: 'summary' }) : [],

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 // 项目存储布局 v2（只有本模块了解文件结构）：
 //   projects/<id>.json                               项目索引：layout: 2，episodes 只存 { id, file }
 //   projects/<id>/episodes/<episodeId>.<版本>.json   每集一个文件
@@ -86,4 +87,17 @@ export async function writeProjectFile(home, project, before = null) {
 export async function removeProjectFiles(home, id) {
   await rm(episodesDir(home, id), { recursive: true, force: true })
   await rm(indexFile(home, id))
+}
+
+// start 在占用前同步读取已提交的卡片关联，锁范围不信任客户端且执行中不升级。
+export function linkedOperationCard(home, op) {
+  if (!uuid.test(String(op.projectId || '')) || !safeId.test(String(op.episodeId || ''))) return false
+  try {
+    const index = JSON.parse(readFileSync(indexFile(home, op.projectId), 'utf8'))
+    const ref = index.episodes?.find(item => item.id === op.episodeId)
+    if (!ref || !/^[\w.-]+\.json$/.test(ref.file)) return false
+    const episode = JSON.parse(readFileSync(join(episodesDir(home, op.projectId), ref.file), 'utf8'))
+    const itemId = op.itemId || episode.pendingImages?.[op.draftId]?.itemId
+    return ['characters', 'scenes', 'props'].some(kind => episode.plot[kind].items.some(card => card.id === itemId && card.ref))
+  } catch (error) { if (error.code === 'ENOENT') return false; throw error }
 }

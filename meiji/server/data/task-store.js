@@ -16,8 +16,8 @@ function oldTaskRecordsError(projectId) {
 }
 
 export function recordStore(home, projectId) {
-  if (projectId != null && !validId.test(projectId)) throw new Error('项目 ID 无效')
-  const root = projectId == null ? join(home, 'storages', 'meiji', 'project-drafts', 'history') : join(home, 'storages', 'meiji', 'projects', projectId, 'history')
+  if (typeof projectId !== 'string' || !validId.test(projectId)) throw new Error('项目 ID 无效')
+  const root = join(home, 'storages', 'meiji', 'projects', projectId, 'history')
   const path = (kind, id) => {
     if (!validId.test(id || '')) throw new Error('记录 ID 无效')
     return join(root, kind, id + '.json')
@@ -51,8 +51,8 @@ export function recordStore(home, projectId) {
     },
     async removeEpisode(episodeId) {
       const taskIds = new Set((await this.list('tasks')).filter(task => task.episodeId === episodeId).map(task => task.id))
-      for (const kind of ['operations', 'tasks', 'artifacts', 'prompts']) for (const value of await this.list(kind)) {
-        if (value.episodeId === episodeId || (kind === 'prompts' && taskIds.has(value.taskId))) await rm(path(kind, value.id), { force: true })
+      for (const kind of ['operations', 'tasks', 'artifacts', 'prompts', 'responses']) for (const value of await this.list(kind)) {
+        if (value.episodeId === episodeId || (['prompts', 'responses'].includes(kind) && taskIds.has(value.taskId))) await rm(path(kind, value.id), { force: true })
       }
     },
     // 服务重启：遗留的进行中或排队中任务一律取消（执行中的步骤记为已取消）。
@@ -92,6 +92,18 @@ export async function readNodePrompts(home, projectId, taskId, nodeId) {
     if (value.taskId !== taskId || value.nodeId !== nodeId) {
       throw Object.assign(new Error('提示词记录不属于当前步骤'), { status: 404 })
     }
+    return value
+  }))
+}
+
+export async function readNodeResponses(home, projectId, taskId, nodeId) {
+  const store = recordStore(home, projectId), task = await store.read('tasks', taskId)
+  if ((task.projectId ?? null) !== projectId) throw Object.assign(new Error('任务不属于当前项目'), { status: 404 })
+  const step = task.nodes.find(item => item.id === nodeId)
+  if (!step) throw Object.assign(new Error('任务步骤不存在'), { status: 404 })
+  return Promise.all((step.responses || []).map(async ({ id }) => {
+    const value = await store.read('responses', id)
+    if (value.taskId !== taskId || value.nodeId !== nodeId) throw Object.assign(new Error('原始返回不属于当前步骤'), { status: 404 })
     return value
   }))
 }

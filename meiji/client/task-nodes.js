@@ -24,7 +24,7 @@ export function elapsedText(startedAt, now = Date.now()) {
   return seconds >= 60 ? `${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, '0')}秒` : `${seconds}秒`
 }
 
-function renderStep(step, current, now, loadPrompts) {
+function renderStep(step, current, now, loadPrompts, loadResponses) {
   const item = element('li', '', `task-step is-${step.status}${current ? ' is-current' : ''}`)
   if (current) item.setAttribute('aria-current', 'step')
   const head = element('div', '', 'task-step-head')
@@ -35,6 +35,12 @@ function renderStep(step, current, now, loadPrompts) {
     button.disabled = !loadPrompts || (!step.prompts?.length && ['pending', 'skipped'].includes(step.status))
     button.title = step.prompts?.length ? '查看该步骤实际提交的完整提示词' : step.status === 'skipped' ? '该步骤已跳过，没有生成提示词' : step.status === 'pending' ? '提示词尚未生成' : '查看该步骤的请求日志；没有记录时显示原因'
     button.onclick = () => openStepPrompts(button, { title: `${stepKindLabels[step.kind] || step.kind} · 完整提示词`, load: () => loadPrompts(step) })
+    head.append(button)
+  }
+  if (step.responses?.length) {
+    const button = element('button', '查看原始返回', 'task-step-response')
+    button.type = 'button'; button.disabled = !loadResponses
+    button.onclick = () => openStepPrompts(button, { title: `${stepKindLabels[step.kind] || step.kind} · 原始返回`, load: () => loadResponses(step) })
     head.append(button)
   }
   if (step.actor === 'human') head.append(element('span', '人工', 'task-step-actor'))
@@ -56,7 +62,7 @@ function renderStep(step, current, now, loadPrompts) {
   return item
 }
 
-export function renderSteps(nodes = [], { live = false, now = Date.now(), loadPrompts } = {}) {
+export function renderSteps(nodes = [], { live = false, now = Date.now(), loadPrompts, loadResponses } = {}) {
   const view = element('div', '', 'task-nodes')
   const current = live ? currentStep(nodes) : null
   for (const group of groupByTarget(nodes)) {
@@ -64,7 +70,7 @@ export function renderSteps(nodes = [], { live = false, now = Date.now(), loadPr
     const head = element('h4', '', 'task-nodes-target')
     head.append(element('span', targetLabel(group.target)), element('span', taskStatusLabels[group.status] || group.status, `task-history-status is-${group.status}`))
     const list = element('ol', '', 'task-nodes-list')
-    for (const step of group.nodes) list.append(renderStep(step, step === current, now, loadPrompts))
+    for (const step of group.nodes) list.append(renderStep(step, step === current, now, loadPrompts, loadResponses))
     section.append(head, list)
     view.append(section)
   }

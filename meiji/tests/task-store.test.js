@@ -34,7 +34,7 @@ test('summary history binds each review to its exact published version and retai
  await runOperation(e.op('summary', { origin: 'panel' }), summaryDeps(e, async ({ skill }) => {
   return skill === 'review' ? reviewFail('缺少因果') : JSON.stringify({ summary: versions[drafts++], durationSeconds: 10 })
  }))
- const [task] = await e.history.list(), artifacts = await e.history.list('artifacts')
+ const task = (await e.history.list()).find(item => item.type === 'summary'), artifacts = (await e.history.list('artifacts')).filter(item => item.target === 'summary')
  assert.equal(task.status, 'review_failed')
  assert.equal(task.source, 'panel')
  assert.equal((await e.read()).summary.content, '二次修订稿')
@@ -62,14 +62,14 @@ test('review API error keeps saved new draft; generation error keeps previous co
  await assert.rejects(runOperation(e.op('summary', {}), summaryDeps(e, async () => { throw new Error('生成断网') })), /生成断网/)
  current = await e.read()
  assert.deepEqual(current.summary.source, source)
- const tasks = await e.history.list()
+ const tasks = (await e.history.list()).filter(item => item.type === 'summary')
  assert.ok(tasks.every(task => task.status === 'failed'))
 })
 
 test('manual summary saves a pending version and immutable baseline', async t => {
  const e = await setup(t), before = await e.read()
  await runOperation(e.op('episode-edit', { fields: { summary: '人工新摘要', durationSeconds: 10 } }), { home: e.home })
- const current = await e.read(), [task] = await e.history.list()
+ const current = await e.read(), task = (await e.history.list()).find(item => item.type === 'save')
  assert.equal(current.summary.check.passed, true)
  assert.equal(current.summary.status, 'passed')
  assert.equal(task.actor, 'human'); assert.equal(task.status, 'completed')
@@ -121,7 +121,7 @@ test('manual text prompt review records the saved version', async t => {
  await runOperation(e.op('storyboard-text', { track: 'S01', originalText: old, text: compileVideoPrompt(project, project.shots.items[0]).prompt.text }), {
   home: e.home, reviewContent: options => reviewContent({ ...options, request: async () => reviewPass }),
  })
- const [task] = await e.history.list(), current = await e.read()
+ const task = (await e.history.list()).find(item => item.type === 'save'), current = await e.read()
  assert.equal(task.actor, 'human')
  assert.deepEqual(task.nodes.map(step => `${step.kind}:${step.target}:${step.status}`), ['save:storyboard:S01:completed', 'review:storyboard:S01:completed'])
  assert.ok(task.nodes[1].inputs.includes(current.shots.items[0].storyboard.source.artifactId))
@@ -164,8 +164,8 @@ test('deleting an episode removes its execution history and snapshots', async t 
  await runOperation(e.op('episode-edit', { fields: { summary: '保存历史', durationSeconds: 10 } }), { home: e.home })
  assert.ok((await e.history.list()).length)
  await runOperation(e.op('episode-delete'), { home: e.home })
- assert.deepEqual(await e.history.list(), [])
- assert.deepEqual(await e.history.list('artifacts'), [])
+ assert.ok((await e.history.list()).every(task => task.type === 'script-sync'))
+ assert.ok((await e.history.list('artifacts')).every(artifact => artifact.kind === 'script-proposal'))
 })
 
 test('invalid shot table does not replace the current table or downstream content', async t => {

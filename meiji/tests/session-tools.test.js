@@ -10,27 +10,39 @@ import { generateEpisode } from '../server/flow/tasks/text/task-summary.js'
 import { generateStoryPackage } from './fixtures/story-generation.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { linkStore } from '../server/data/workspace-links.js'
-import { contentGenerateTool } from '../tools/session-content-generate-tool.js'
+import { operationTools } from '../tools/session-operation-tools.js'
 import { contextQueryTool } from '../tools/session-context-query-tool.js'
 import { projectManageTool } from '../tools/session-project-manage-tool.js'
-import { taskControlTool } from '../tools/session-task-control-tool.js'
+import { createHarnessJobs } from '../server/host/harness-jobs.js'
+import { subscribeProject } from '../server/data/project-events.js'
+import { fakeJobs } from './fixtures/fake-jobs.js'
 import { useWorkspaces } from './fixtures/host.js'
 
 async function setup(t, review = reviewPass) {
   const e = await setupModel(t), calls = [], logs = []
-  await e.store.save(e.id, { episodes: [] })
+  await e.store.save(e.id, root => ({ ...root, episodes: [], scriptPendingDeletes: [], premise: '旅人的冒险' }))
+  await e.store.save(e.id, { scriptPendingDeletes: [] })
   const models = modelStore(e.home); await models.write({ ...await models.read(), apiKey: 'test-only' })
   const exec = { agent: { session: { id: 'session-' + randomUUID(), append: (type, data) => logs.push({ type, data }) } }, signal: new AbortController().signal }
   await linkStore(e.home).selectProject(exec.agent.session.id, e.id, e.store)
   const fixture = storyPackageFixture(), storyReplies = [JSON.stringify(outlineFixture()), review, JSON.stringify(fixture.characters), review, JSON.stringify(fixture.scenes), review, JSON.stringify(fixture.props), review]
   const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
+    ...(['script-sync', 'project-summary'].includes(deps.task.type) ? { request: async message => { if (deps.task.type === 'project-summary') return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '武松穿越' }); if (message.skill === 'review') return reviewPass; const root = await e.store.read(op.projectId), episode = root.episodes.find(item => item.id === op.episodeId); return JSON.stringify(root.script ? { needsChange: false, note: '无需修改', changes: [] } : { needsChange: true, note: '回写', changes: [{ target: { kind: 'episode', episodeId: episode.id }, before: '', after: episode.summary.content }] }) } } : {}),
     generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 150 }) } }),
     fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: storyReplies.shift() } }] }) },
   }) })
-  const generate = contentGenerateTool({ home: e.home, tasks }), control = taskControlTool({ home: e.home, tasks })
-  const start = async args => JSON.parse(await generate.execute(args, exec))
-  const wait = async task => JSON.parse(await control.execute({ action: 'wait', operationId: task.operationId }, exec))
-  return { ...e, exec, calls, logs, tasks, start, wait, control }
+  const registry = fakeJobs(), jobs = createHarnessJobs({ home: e.home, manager: tasks, registry, subscribeProject, readProject: id => e.store.read(id) })
+  t.after(() => jobs.dispose())
+  const generators = operationTools({ home: e.home, jobs }), control = { execute: async (args, context) => { await registry.wait(args.jobId, 5000, context.agent.session.id); return registry.read(args.jobId, context.agent.session.id).result } }
+  const start = async ({ stage, ...args }) => JSON.parse(await generators.find(tool => tool.name === 'meiji_generate_' + stage).execute({ confirmDelete: true, ...args }, exec))
+  const wait = async task => {
+    if (task.alreadyCompleted) return task
+    const result = JSON.parse(await control.execute({ jobId: task.jobId }, exec))
+    const parent = await tasks.get(task.operationId, exec.agent.session.id)
+    if (parent.result?.scriptSyncOperationId) await tasks.whenEnded(parent.result.scriptSyncOperationId, { sessionId: exec.agent.session.id })
+    return result
+  }
+  return { ...e, exec, calls, logs, tasks, start, wait, control, registry }
 }
 
 test('session executes summary then story through real workflows and carries requirements into review', async t => {
@@ -57,7 +69,7 @@ test('session executes summary then story through real workflows and carries req
 
 test('failed summary blocks story and reports review_failed without a tool retry', async t => {
   const e = await setup(t, reviewFail('缺少关键因果'))
-  const result = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
+  const result = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate', requirements: '农民工穿越武松' }))
   assert.equal(result.status, 'review_failed')
   await assert.rejects(e.start({ stage: 'story', episodeNumber: 1, mode: 'generate' }), /摘要尚未通过/)
   // 生成 + 自审 + 默认 2 轮（修订 + 复审）。
@@ -66,10 +78,10 @@ test('failed summary blocks story and reports review_failed without a tool retry
 
 test('regeneration excludes old output and history; modification includes original and new opinion', async t => {
   const e = await setup(t)
-  await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
+  await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate', requirements: '农民工穿越武松' }))
   e.calls.length = 0
   await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'regenerate', requirements: '增加悬念' }))
-  assert.doesNotMatch(e.calls[0].user, /武松带着工地经历醒来/)
+  assert.doesNotMatch(e.calls[0].user, /【本次修订基稿】|【基稿】/)
   assert.match(e.calls[0].user, /增加悬念/)
   e.calls.length = 0
   await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'modify', review: '改变结尾' }))
@@ -80,10 +92,10 @@ test('regeneration excludes old output and history; modification includes origin
 test('tools reject skipped episodes, missing opinions and cross-session task access', async t => {
   const e = await setup(t)
   await assert.rejects(e.start({ stage: 'summary', episodeNumber: 3, mode: 'generate' }), /不能跳集/)
-  await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
+  await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate', requirements: '农民工穿越武松' }))
   await assert.rejects(e.start({ stage: 'summary', episodeNumber: 1, mode: 'modify' }), /修改意见/)
   const task = await e.start({ stage: 'summary', episodeNumber: 1, mode: 'regenerate' })
-  await assert.rejects(e.control.execute({ action: 'cancel', operationId: task.operationId }, { agent: { session: { id: 'other' } } }), { status: 404 })
+  await assert.rejects(e.control.execute({ jobId: task.jobId }, { agent: { session: { id: 'other' } } }), { status: 404 })
   await e.wait(task)
 })
 
@@ -92,13 +104,13 @@ test('session creates project using shared operation and selects it without affe
   useWorkspaces(t, { [workspaceId]: { title: '穿越成武松', path: '/project', sessionIds: [] } })
   const workspaceController = { create: async () => ({ workspace: { workspaceId, sessionIds: [] } }), rename: async () => {} }
   const tool = projectManageTool({ home: e.home, tasks: e.tasks, workspaceController })
-  await assert.rejects(tool.execute({ action: 'create', fields: { title: '缺少摘要' } }, e.exec), /摘要/)
-  const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '穿越成武松', summary: '农民工穿越成为武松' } }, e.exec))
+  await assert.rejects(tool.execute({ action: 'create', fields: { title: '' } }, e.exec), /标题/)
+  const created = JSON.parse(await tool.execute({ action: 'create', fields: { title: '穿越成武松' } }, e.exec))
   assert.equal(created.status, 'completed')
   assert.equal((await e.store.read(created.projectId)).episodes.length, 0)
   assert.equal((await linkStore(e.home).projectForSession(e.exec.agent.session.id)).projectId, created.projectId)
   assert.equal((await linkStore(e.home).projectForSession('session-' + randomUUID())).projectId, null)
-  const summary = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
+  const summary = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate', requirements: '农民工穿越武松' }))
   assert.equal(summary.projectId, created.projectId)
   assert.equal(summary.status, 'completed')
 })

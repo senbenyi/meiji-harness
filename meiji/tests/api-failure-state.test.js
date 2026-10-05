@@ -28,7 +28,8 @@ for(const failed of [false,true]) for(const phase of ['generation','review','cor
     assert.deepEqual(content(after.shots.items[i].seconds),content(before.shots.items[i].seconds))
     assert.deepEqual(content(after.shots.items[i].storyboard),content(before.shots.items[i].storyboard))
    } else {
-    assert.equal(after.shots.items[i].seconds.content.beats[0].action, i ? before.shots.items[i].seconds.content.beats[0].action : '新动作一')
+    if (i) assert.equal(after.shots.items[i].seconds.content, null)
+    else assert.equal(after.shots.items[i].seconds.content.beats[0].action, '新动作一')
     assert.notEqual(after.shots.items[i].seconds.check.passed, true)
     assert.equal(after.shots.items[i].seconds.operation, null)
    }

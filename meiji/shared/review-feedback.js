@@ -20,6 +20,7 @@ export function scopedCheck(check, shotId) {
   return { ...check, passed: failures.length === 0, failures }
 }
 export function feedbackKey({ action, track, itemId, slot }) {
+  if (action === 'prop-text') return 'props'
   if (action === 'scene-text') return 'scenes'
   if (action === 'character-text') return 'characters'
   if (action === 'episode-generate') return 'summary'
@@ -80,7 +81,6 @@ export function overrideBlocker(project, key) {
   if (nodes.some(([item, value]) => item.split(':')[0] === 'storyboard' && h3PromptFailures(storyboardPromptText(value.content), value.content?.referenceSnapshot || [], value.content?.video || 'text').length)) return '文本分镜格式错误，不能忽略，请修正后重新审核'
   for (const [item, value] of nodes) {
     if (value.operation) return '内容正在生成，请稍后'
-    if (value.stale) return '内容已过期，请重新生成'
     if (value.check.revision != null && value.check.revision !== value.revision) return '自审结论不属于当前版本，请重新生成'
     if (!hasText(item, value)) return '内容为空或格式错误，不能忽略，请重新生成'
     if (item.split(':')[0] === 'seconds' && !validSeconds(project, item.split(':')[1])) return '每秒指令格式错误，不能忽略，请修正后重新审核'
@@ -89,4 +89,4 @@ export function overrideBlocker(project, key) {
 }
 export const overriddenBy = record => record?.check?.passed === true && record.check.override ? record.check.override : null
 // 面板是否显示「忽略并通过」按钮（完整校验在服务端 overrideBlocker）。
-export const overridable = record => overrideKinds.has(String(record?.id || '').split(':')[0]) && record.check?.passed === false && !record.stale && !record.operation
+export const overridable = record => overrideKinds.has(String(record?.id || '').split(':')[0]) && record.check?.passed === false && !record.operation

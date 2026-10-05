@@ -6,7 +6,6 @@ import { plotPatch, targetNode } from '../../../../shared/drama-model.js'
 import { finish } from '../../../../shared/drama-model.js'
 import { savePicture, pictureTargetSnapshot, readImageDraft } from '../../../data/image-storage.js'
 import { pictureRecord, appendImageAsset, nextPartId } from '../../../../shared/image-assets.js'
-import { staleMedia } from '../../../../shared/project-rules.js'
 import { feedbackKey } from '../../../../shared/review-feedback.js'
 import { markFailed } from '../../../../shared/content-state.js'
 
@@ -33,8 +32,8 @@ export async function opConfirmImage(c) {
   const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, file.metadata)
   reference.prompt = file.metadata.prompt || ''
   let patch
-  if (draft.slot) patch = { ...staleMedia(project), ...plotPatch(project, { [draft.key]: appendImageAsset(project.plot[draft.key], draft.itemId, draft.slot, { id: nextPartId(target, draft.slot), name: draft.name, ...reference }) }) }
-  else patch = { ...staleMedia(project), ...plotPatch(project, { [draft.key]: { ...project.plot[draft.key], items: project.plot[draft.key].items.map(item => item.id === draft.itemId ? pictureRecord({ ...item, ...reference }) : item) } }) }
+  if (draft.slot) patch = { ...plotPatch(project, { [draft.key]: appendImageAsset(project.plot[draft.key], draft.itemId, draft.slot, { id: nextPartId(target, draft.slot), name: draft.name, ...reference }) }) }
+  else patch = { ...plotPatch(project, { [draft.key]: { ...project.plot[draft.key], items: project.plot[draft.key].items.map(item => item.id === draft.itemId ? pictureRecord({ ...item, ...reference }) : item) } }) }
   try { await projects.save(project.id, current => { const next = { ...current, ...patch, pendingImages }; finish(targetNode(next, targetKey), { passed: true, failures: [] }); return next }) }
   catch (error) {
     await rm(join(home, 'storages', 'meiji', 'assets', reference.assetCategory, reference.assetId), { recursive: true, force: true })
@@ -46,6 +45,6 @@ export async function opConfirmImage(c) {
 }
 
 export const operations = {
-  'confirm-image': { label: '确认使用图片', scope: 'episode', agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}${draft.slot ? `:${draft.slot}` : ''}` : null } }, stage: 'review', run: opConfirmImage },
-  'discard-image': { label: '放弃候选图片', scope: 'episode', agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}${draft.slot ? `:${draft.slot}` : ''}` : null } }, stage: 'review', run: opConfirmImage },
+  'confirm-image': { label: '确认使用图片', scope: 'episode', linkedCard: true, agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}${draft.slot ? `:${draft.slot}` : ''}` : null } }, stage: 'review', run: opConfirmImage },
+  'discard-image': { label: '放弃候选图片', scope: 'episode', linkedCard: true, agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}${draft.slot ? `:${draft.slot}` : ''}` : null } }, stage: 'review', run: opConfirmImage },
 }

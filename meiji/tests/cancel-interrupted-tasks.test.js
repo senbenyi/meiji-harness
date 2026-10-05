@@ -45,16 +45,7 @@ test('restart cancels project-summary extraction and preserves script and saved 
  assert.equal(n.status,'passed')
 })
 
-test('restart cancels project-summary drafts even when no project has been created', async t => {
-  const { beginTask } = await import('../server/runtime/task-execution.js')
-  const { createOperationRecord } = await import('../server/runtime/operation-execution.js')
+test('创建前记录存储拒绝空项目标识', async () => {
   const { recordStore } = await import('../server/data/task-store.js')
-  const e = await setupModel(t)
-  const operation = { action: 'project-summary', draft: true, projectId: null, sessionId: 'session-draft' }
-  await beginTask(e.home, operation, 'draft-task', [{ kind: 'generate', target: 'project-summary' }, { kind: 'review', target: 'project-summary' }], { type: 'project-summary', operationId: 'draft-op', targets: ['project-summary'] })
-  await createOperationRecord(e.home, operation, 'draft-op', { taskIds: ['draft-task'] })
-  await interruptRunning(e.store)
-  const history = recordStore(e.home, null)
-  assert.equal((await history.read('tasks', 'draft-task')).status, 'cancelled')
-  assert.equal((await history.read('operations', 'draft-op')).status, 'cancelled')
+  assert.throws(() => recordStore('/tmp', null), /项目 ID 无效/)
 })

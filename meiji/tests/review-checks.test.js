@@ -148,7 +148,7 @@ test('failed frame extraction keeps newly completed video ready', async t => {
  const deps={home:e.home,submitH3:async()=>({baseUrl:'https://test',shots:[{promptId:'task',duration:5}]}),retrieveGatewayVideo:async()=>Buffer.from('old-video'),saveLastFrame:async()=>Buffer.from('frame')}
  await runOperation(e.op('film', { ...{}, parts: 'video' }),deps)
  const before=(await e.read()).shots.items[0].video.content
- await e.store.save(e.id,p=>{p.episodes[0].shots.items[0].video.stale=true;return p})
+ await e.store.save(e.id,p=>{p.episodes[0].shots.items[0].video.check.passed=false;return p})
  await assert.rejects(runOperation(e.op('film', { ...{}, parts: 'video' }),{...deps,retrieveGatewayVideo:async()=>Buffer.from('new-video'),saveLastFrame:async()=>{throw new Error('frame failed')}}), /frame failed/)
  const after=(await e.read()).shots.items[0].video.content
  assert.notEqual(after.file,before.file)

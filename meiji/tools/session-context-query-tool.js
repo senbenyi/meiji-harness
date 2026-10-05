@@ -1,3 +1,6 @@
+import { scriptFreshness, scriptBlockers, episodeHints } from '../shared/script-assembly.js'
+import { libraryDirectory } from '../shared/library-rules.js'
+import { imageItems } from '../shared/library-images.js'
 import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
 import { generationFeedback } from '../server/flow/operations/operation-manager.js'
@@ -25,9 +28,12 @@ export function contextQueryTool({ home, tasks }) {
       const episode = args.episodeNumber ? [...(project?.episodes || [])].reverse()[args.episodeNumber - 1] : undefined
       if (args.episodeNumber !== undefined && (!Number.isInteger(args.episodeNumber) || !episode)) throw new Error('目标剧集不存在')
       return JSON.stringify({ ...(episode ? { episode } : {}), projects: projects.map(item => ({ id: item.id, title: item.title })), current: project ? {
-        id: project.id, title: project.title, summary: project.summary.content,
-        episodes: [...project.episodes].reverse().map((episode, index) => ({ id: episode.id, episodeNumber: index + 1, summary: episode.summary.content,
-          stages: Object.fromEntries(['summary', 'outline', 'shots', 'seconds', 'storyboard'].map(stage => { const value = generationFeedback(episode, stage); return [stage, { status: value.status, passed: value.check.passed, failures: value.check.failures, stale: Boolean(value.stale) }] })) })),
+        id: project.id, title: project.title, summary: project.summary.content, premise: project.premise,
+        script: { kind: project.scriptKind, revision: project.scriptRevision, proposals: project.scriptProposals.filter(item => item.status === 'pending'), blockers: scriptBlockers(project), ...scriptFreshness(project) },
+        library: Object.fromEntries(['characters', 'scenes', 'props'].map(kind => [kind, libraryDirectory(project, kind)])),
+        images: { missing: project.episodes.flatMap(episode => imageItems(project, episode).filter(item => !item.ready).map(({ card, ...item }) => ({ ...item, episodeId: episode.id }))) },
+        episodes: [...project.episodes].reverse().map((episode, index) => ({ id: episode.id, episodeNumber: index + 1, summary: episode.summary.content, hints: episodeHints(project, episode),
+          stages: Object.fromEntries(['summary', 'outline', 'shots', 'seconds', 'storyboard'].map(stage => { const value = generationFeedback(episode, stage); return [stage, { status: value.status, passed: value.check.passed, failures: value.check.failures }] })) })),
         // 只列进行中操作（用于避免重复发起），不含任务与步骤；详情只在面板查看。
         tasks: tasks.list(project.id).map(item => ({ operationId: item.id, action: item.action, status: item.status, episodeId: item.episodeId || null, initiator: item.initiator })),
       } : null })
