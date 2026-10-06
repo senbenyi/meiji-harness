@@ -269,7 +269,7 @@ body { display: flex; flex-direction: column; }
 .asset-card .info { padding: 8px 10px; flex: 1; }
 .asset-tag {
   display: inline-block;
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 7px;
   border-radius: 20px;
   border: 1px solid var(--border);
@@ -285,19 +285,19 @@ body { display: flex; flex-direction: column; }
 .asset-card .thumb video { max-width: 100%; max-height: 130px; object-fit: contain; }
 .asset-card .thumb .kind-badge {
   position: absolute; top: 6px; right: 6px;
-  font-size: 10px; line-height: 1; padding: 3px 5px; border-radius: 4px;
+  font-size: 12px; line-height: 1; padding: 3px 5px; border-radius: 4px;
   color: var(--text); background: color-mix(in srgb, var(--bg) 75%, transparent);
   border: 1px solid var(--border);
 }
 /* 文本资产没有缩略图：显示正文摘要（左对齐、可折行、最多几行） */
 .asset-card .thumb .text-preview {
-  font-size: 11px; line-height: 1.5; color: var(--muted);
+  font-size: 12px; line-height: 1.5; color: var(--muted);
   padding: 8px 10px; text-align: left; overflow: hidden; width: 100%;
   display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical;
   word-break: break-word;
 }
 .asset-card .name { font-weight: 600; font-size: 13px; word-break: break-all; }
-.asset-card .id { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; word-break: break-all; margin-top: 2px; }
+.asset-card .id { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; word-break: break-all; margin-top: 2px; }
 .asset-card .actions { display: flex; gap: 6px; padding: 0 10px 10px; }
 /* nowrap：宁可让浏览器压缩字距，也不要「＋ 加入画布」断成两行（见上面列宽说明） */
 .asset-card .actions .btn { flex: 1; white-space: nowrap; }
@@ -339,7 +339,7 @@ body { display: flex; flex-direction: column; }
   border-bottom: 1px solid var(--border);
 }
 .node-kind {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--muted);
@@ -355,7 +355,7 @@ body { display: flex; flex-direction: column; }
 .status.ready { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
 .status.failed { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .status.pending { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
-.node-id { font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+.node-id { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
 
 .node-body { padding: 16px; }
 .node-body:empty { display: none; }
@@ -501,7 +501,7 @@ table.node-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 }
 .node-actions .spacer { flex: 1; }
 
-.params { color: var(--muted); font-size: 11px; margin-top: 8px; font-family: ui-monospace, monospace; word-break: break-all; }
+.params { color: var(--muted); font-size: 12px; margin-top: 8px; font-family: ui-monospace, monospace; word-break: break-all; }
 
 .empty { text-align: center; color: var(--muted); padding: 60px 20px; }
 .empty h2 { color: var(--text); font-size: 16px; }
@@ -539,7 +539,7 @@ table.node-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .lane-icon { font-size: 13px; }
 .lane-count {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   padding: 1px 8px;

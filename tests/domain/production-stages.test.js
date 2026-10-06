@@ -198,6 +198,12 @@ test('formal delivery remains distinct from intermediate versions and quality re
   assert.ok(canvas.nodes.some((node) => node.id === 'assembly'))
   assert.equal(canvas.nodes.find((node) => node.id === 'video').presentation.shotId, 's')
   assert.ok(!canvas.nodes.find((node) => node.presentation?.role === 'source').content.includes('SHA-256'))
+  p.legacyCanvas.nodes.push({ id: 'old-video-id', kind: 'video', media: 'shot.mp4' })
+  delete p.assets.board.provenance
+  const historical = canvasReadModel(p)
+  assert.equal(historical.nodes.find((node) => node.id === 'old-video-id').presentation.shotId, 's')
+  assert.equal(historical.nodes.filter((node) => node.media === 'shot.mp4').length, 1)
+  assert.equal(historical.nodes.find((node) => node.id === 'board').stage, 'storyboard')
 })
 
 test('resume preserves remote checkpoints and never steals a live worker lease', () => {

@@ -73,7 +73,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     return activeStageKey + (['scripts', 'storyboard', 'media'].includes(activeStageKey) ? activeEpisodeId : '')
   }
 
-  function renderStageTabs(nodes, production) {
+  function renderStageTabs(production) {
     if (!el.stageTabs) return
     el.stageTabs.innerHTML = ''
     for (const stage of CANVAS_STAGES) {
@@ -360,7 +360,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       } catch (e) {
         const p = document.createElement('p')
         p.className = 'lib-empty-hint'
-        p.textContent = '读取资产库失败：' + (e.message || String(e))
+        p.textContent = '读取公共素材库失败：' + (e.message || String(e))
         body.appendChild(p)
         foot.appendChild(dialogBtn('关闭', () => dlg.close()))
         return
@@ -438,21 +438,23 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         info.className = 'info'
         const tag = document.createElement('span')
         tag.className = 'asset-tag ' + (a.type || '')
-        tag.textContent = ASSET_TYPE_LABEL[a.type] || a.type || 'asset'
+        tag.textContent = ASSET_TYPE_LABEL[a.type] || '其他素材'
         info.appendChild(tag)
         const name = document.createElement('div')
         name.className = 'name'
-        name.textContent = a.name || a.id
+        name.textContent = a.name || '未命名素材'
         info.appendChild(name)
         const idLine = document.createElement('div')
         idLine.className = 'id'
         idLine.textContent = a.id
-        info.appendChild(idLine)
+        const detail = detailSection('素材详情', 'library:' + a.id)
+        detail.appendChild(idLine)
+        info.appendChild(detail)
         card.appendChild(info)
 
         const acts = document.createElement('div')
         acts.className = 'actions'
-        const addBtn = dialogBtn('＋ 加入画布', async () => {
+        const addBtn = dialogBtn('加入项目', async () => {
           addBtn.disabled = true
           addBtn.textContent = '添加中…'
           try {
@@ -468,10 +470,8 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
         const delBtn = dialogBtn('删除', async () => {
           const okToDelete = await confirmBox(
-            '从资产库删除 ' + a.id + ' ？\n\n' +
-            '· 库里的索引会被移除' + (kind === 'text' ? '（文本内容一并删除）' : '，文件同时清理') + '\n' +
-            '· 已经取到画布上的卡片**不受影响**（它们各自持有副本）\n' +
-            '· Agent 之后不能再引用这个资产 id'
+            '从公共素材库删除“' + (a.name || '未命名素材') + '”？\n\n' +
+            '素材及其' + (kind === 'text' ? '文本' : '文件') + '将被删除，之后无法再次添加。已加入项目的副本会保留。'
           )
           if (!okToDelete) return
           delBtn.disabled = true
@@ -490,7 +490,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         grid.appendChild(card)
       }
       body.appendChild(grid)
-      foot.appendChild(dialogBtn('完成（刷新画布）', () => {
+      foot.appendChild(dialogBtn('完成', () => {
         dlg.close()
         load()
       }, 'btn-accent'))
@@ -511,7 +511,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     head.className = 'node-head'
     const title = document.createElement('div')
     title.className = 'node-title'
-    title.textContent = node.title || '(无标题)'
+    title.textContent = node.title || '未命名内容'
     const status = document.createElement('span')
     status.className = 'status ' + (lane === 'discard' ? 'deprecated' : (node.status || 'ready'))
     status.textContent = nodeStatus(node, lane)
@@ -632,7 +632,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     }
     const technical = detailSection('技术详情', 'technical:' + node.id)
     const raw = document.createElement('pre')
-    raw.textContent = JSON.stringify({ id: node.id, status: node.status, params: node.params, media: node.media }, null, 2)
+    raw.textContent = JSON.stringify({ id: node.id, status: node.status, params: node.params, media: node.media, qualityReview: info.qualityReview }, null, 2)
     technical.appendChild(raw)
     foot.appendChild(technical)
     card.appendChild(foot)
@@ -772,7 +772,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     document.getElementById('updates').hidden = true
     el.canvas.innerHTML = ''
     const allNodes = [...(project.nodes || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
-    renderStageTabs(allNodes, project.production)
+    renderStageTabs(project.production)
     const episodes = project.presentation?.episodes || []
     document.getElementById('project-title').textContent = project.presentation?.title || '短剧工作台'
     el.meta.textContent = episodes.length ? `${episodes.length} 集 · ${episodes.reduce((n, ep) => n + ep.shotCount, 0)} 个镜头` : ''
@@ -790,7 +790,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (progress) {
       const summary = document.createElement('span')
       summary.className = 'content-caption'
-      summary.textContent = progressText(progress)
+      summary.textContent = (episodes.length > 1 ? '全项目 · ' : '') + progressText(progress)
       heading.appendChild(summary)
     }
     page.appendChild(heading)
