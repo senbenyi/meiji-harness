@@ -5,7 +5,7 @@ export const CANVAS_STAGES = [
   { key: 'assets', label: '资产设定' },
   { key: 'scripts', label: '分集剧本' },
   { key: 'storyboard', label: '分镜图' },
-  { key: 'media', label: '视频与旁白' },
+  { key: 'media', label: '视频' },
   { key: 'delivery', label: '审核交付' },
 ]
 
