@@ -1,13 +1,13 @@
 import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
 import { runWithSessionLog, insertSessionLog } from '../server/host/session-log.js'
-import { jsonOutput, sessionIdOf, currentProject } from './session-context-query-tool.js'
+import { jsonOutput, sessionIdOf, currentProject } from './operation-context-query.js'
 import { createProject } from '../server/flow/project-creation.js'
 
 export function projectManageTool({ home, tasks, jobs, workspaceController }) {
   return {
-    name: 'meiji_project_manage',
-    description: '仅在用户要求创建或明确操作某项目时创建/open 并关联当前会话，不影响其他会话；普通对话无需项目。已绑定项目时禁止 create 或 open 其他项目；无关请求提示「请切换工作区或新建会话」。open 使用 meiji_context_query 返回的项目 ID，同名不猜测。create 默认自由模式，必须由用户提供 AI 创作方向 premise；选择剧本模式必须提供剧本或 scriptAssetId，缺资料先询问，不代写创作方向。需要标题、画幅、风格，不生成摘要或剧集。edit-script 提出剧本修改方案等待用户确认。AI 创作方向仅由用户在面板手动编辑，会话只能读取并据此生成剧集摘要。',
+    name: 'operation-project-manage',
+    description: '仅在用户要求创建或明确操作某项目时创建/open 并关联当前会话，不影响其他会话；普通对话无需项目。已绑定项目时禁止 create 或 open 其他项目；无关请求提示「请切换工作区或新建会话」。open 使用 operation-context-query 返回的项目 ID，同名不猜测。create 默认自由模式，必须由用户提供 AI 创作方向 premise；选择剧本模式必须提供剧本或 scriptAssetId，缺资料先询问，不代写创作方向。需要标题、画幅、风格，不生成摘要或剧集。edit-script 提出剧本修改方案等待用户确认。AI 创作方向仅由用户在面板手动编辑，会话只能读取并据此生成剧集摘要。',
     parameters: { type: 'object', additionalProperties: false, required: ['action'], properties: {
       action: { type: 'string', enum: ['create', 'open', 'edit-script'] }, projectId: { type: 'string' },
       text: { type: 'string' }, note: { type: 'string' }, baseRevision: { type: 'integer', minimum: 0 },

@@ -16,7 +16,7 @@ async function tools(t) {
   const e = await setupModel(t), sessionId = 'session-11111111-1111-4111-8111-111111111111', calls = []
   await linkStore(e.home).selectProject(sessionId, e.id, e.store)
   const generators = operationTools({ home: e.home, jobs: { start: async op => { calls.push(op); return { status: 'running', jobId: 'job' } } } })
-  return { ...e, calls, exec: { callId: 'call', agent: { session: { id: sessionId } } }, tool: name => generators.find(tool => tool.name === 'meiji_' + name) }
+  return { ...e, calls, exec: { callId: 'call', agent: { session: { id: sessionId } } }, tool: name => generators.find(tool => tool.name === 'operation-' + name.replaceAll('_', '-')) }
 }
 
 test('会话生成删除确认不启动任务，授权后保留 callId、parts 与 track；单卡图片拒绝', async t => {

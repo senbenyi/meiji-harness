@@ -182,7 +182,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 按第 1 节分层；`client/`、`shared/` 使用平铺 `.js/.css`，不引入 JSX、bundler 或构建步骤。shared 不引用 Node 专属模块、client 或 server。
 - Harness 接入只经 `server/host/` 的公开接口，不读取上游存储文件。
 - 生成操作在 generate/ 声明 tasks，任务在 task-registry 登记队列、target、nodes、maxRevisions、run。直接操作在 direct/ 登记；人工专属操作标 agent:false。任务不引用操作定义，不增加旧操作别名或中转导出。
-- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-story.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
+- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-generate-story.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。会话业务工具统一使用 `operation-` 前缀及小写连字符，工具名与对应实现文件主体一致，例如 `operation-generate-story` 对应 `operation-generate-story.js`。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
 - skill 分工与登记规则见第 6 节。
 
 ## 12. 数据规则

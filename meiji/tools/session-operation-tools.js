@@ -1,7 +1,7 @@
 import { materialize } from '../shared/episode-rules.js'
 import { operations } from '../server/flow/operations/operation-registry.js'
 import { operationDeletes } from '../shared/operation-cascade.js'
-import { jsonOutput, sessionIdOf, currentProject } from './session-context-query-tool.js'
+import { jsonOutput, sessionIdOf, currentProject } from './operation-context-query.js'
 
 export function operationTools({ home, jobs }) {
   const names = new Set()
@@ -12,7 +12,7 @@ export function operationTools({ home, jobs }) {
     const properties = { requirements: { type: 'string' }, confirmDelete: { type: 'boolean' }, ...spec.params,
       ...(spec.episode ? { episodeNumber: { type: 'integer', minimum: 1 } } : {}),
       ...(spec.modes ? { mode: { type: 'string', enum: spec.modes }, ...(spec.modes.includes('modify') ? { review: { type: 'string' } } : {}) } : {}) }
-    return { name: spec.tool, description: `${spec.description} 返回 jobId 后可结束本轮，或用 job_wait/job_read 查询；仅 completed 且 reviewPassed=true 可推进。`,
+    return { name: spec.tool, description: `${spec.description} 返回 jobId 后可结束本轮，或用 job_output 读取结果；需要等待时设置 wait=true；仅 completed 且 reviewPassed=true 可推进。`,
       parameters: { type: 'object', additionalProperties: false, required: [...(spec.episode ? ['episodeNumber'] : []), ...(spec.modes ? ['mode'] : []), ...(spec.required || [])], properties }, output: jsonOutput,
       async execute(args, exec) {
         if (Object.keys(args).some(key => !Object.hasOwn(properties, key))) throw new Error('不支持的工具参数')
@@ -42,8 +42,4 @@ export function operationTools({ home, jobs }) {
       },
     }
   })
-}
-export function waitImagesTool({ home, jobs }) {
-  return { name: 'meiji_wait_images', description: '等待指定剧集卡片的图片全部确认，返回等待 job。取消等待不会改图片。', parameters: { type: 'object', additionalProperties: false, required: ['episodeNumber'], properties: { episodeNumber: { type: 'integer', minimum: 1 }, itemIds: { type: 'array', items: { type: 'string' }, uniqueItems: true } } }, output: jsonOutput,
-    async execute(args, exec) { const project = await currentProject(home, exec), episode = [...project.episodes].reverse()[args.episodeNumber - 1]; if (!Number.isInteger(args.episodeNumber) || !episode) throw new Error('目标剧集不存在'); return JSON.stringify(jobs.waitImages(project.id, episode.id, args.itemIds, sessionIdOf(exec))) } }
 }

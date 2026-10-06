@@ -1,7 +1,8 @@
 // 仅由短剧制作预设加载；主机插件提供共享运行时，不向全局注册会话工具。
-import { contextQueryTool } from './tools/session-context-query-tool.js'
-import { projectManageTool } from './tools/session-project-manage-tool.js'
-import { operationTools, waitImagesTool } from './tools/session-operation-tools.js'
+import { contextQueryTool } from './tools/operation-context-query.js'
+import { projectManageTool } from './tools/operation-project-manage.js'
+import { operationTools } from './tools/session-operation-tools.js'
+import { waitImagesTool } from './tools/operation-wait-images.js'
 import { sessionSkills, validateSkills } from './skills/load-skills.js'
 export const name = 'meiji-session'
 export const inject = ['meiji', 'tools', 'skills']

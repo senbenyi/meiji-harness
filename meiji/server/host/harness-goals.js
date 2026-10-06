@@ -30,8 +30,8 @@ export function createPanelGoals({ goals, resolveAgent, findOperation }) {
       else if (messages.some(message => !panelNotice(message))) previous.panelOnly = false
     },
     guard(exec) {
-      if (turns.get(exec.agent)?.panelOnly && !['job_output', 'meiji_context_query', 'get_goal'].includes(exec.name)) {
-        return '本轮仅处理面板单次操作的完成通知，目标已由业务结果结算。只可查询 job_output、meiji_context_query、get_goal，随后汇报并 end；不要更新目标、写计划、重试或启动后续制作。'
+      if (turns.get(exec.agent)?.panelOnly && !['job_output', 'operation-context-query', 'get_goal'].includes(exec.name)) {
+        return '本轮仅处理面板单次操作的完成通知，目标已由业务结果结算。只可查询 job_output、operation-context-query、get_goal，随后汇报并 end；不要更新目标、写计划、重试或启动后续制作。'
       }
     },
     async begin(agent, operation) {

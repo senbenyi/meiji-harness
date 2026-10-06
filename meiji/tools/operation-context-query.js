@@ -18,7 +18,7 @@ export async function currentProject(home, exec) {
 }
 export function contextQueryTool({ home, tasks }) {
   return {
-    name: 'meiji_context_query',
+    name: 'operation-context-query',
     description: '查询当前会话显式关联的项目、按顺序排列的剧集及审核状态，以及可打开的项目；current 为 null 表示尚未关联，普通会话无需关联。多步骤创作先查询，再使用 todo_write 规划业务步骤；内容必须通过生成工具保存。',
     parameters: { type: 'object', additionalProperties: false, properties: { episodeNumber: { type: 'integer', minimum: 1, description: '需要查看当前基稿时指定集数，返回该集完整数据；默认只返回概况' } } }, output: jsonOutput,
     async execute(args, exec) {

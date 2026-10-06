@@ -8,7 +8,7 @@ const targets = (project, op) => {
   })
 }
 export const operation = { label: '生成图片', scope: 'episode', agent: true, kind: 'generate',
-  session: { tool: 'meiji_generate_images', description: '生成本集缺失图片，或重新生成指定图片；候选图由用户确认。', episode: true, modes: ['generate', 'regenerate'], params: { itemIds: { type: 'array', items: { type: 'string' }, uniqueItems: true } } },
+  session: { tool: 'operation-generate-images', description: '生成本集缺失图片，或重新生成指定图片；候选图由用户确认。', episode: true, modes: ['generate', 'regenerate'], params: { itemIds: { type: 'array', items: { type: 'string' }, uniqueItems: true } } },
   completed: (project, op) => targets(project, op).length === 0,
   precheck(project, op) {
     if (!['generate', 'regenerate'].includes(op.mode)) throw new Error('图片模式无效')

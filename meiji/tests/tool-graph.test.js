@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs'
 import { operations } from '../server/flow/operations/operation-registry.js'
 import { taskRegistry } from '../server/flow/tasks/task-registry.js'
 import { stageCatalog } from '../skills/skill-catalog.js'
-import { operationTools, waitImagesTool } from '../tools/session-operation-tools.js'
-import { contextQueryTool } from '../tools/session-context-query-tool.js'
-import { projectManageTool } from '../tools/session-project-manage-tool.js'
+import { operationTools } from '../tools/session-operation-tools.js'
+import { waitImagesTool } from '../tools/operation-wait-images.js'
+import { contextQueryTool } from '../tools/operation-context-query.js'
+import { projectManageTool } from '../tools/operation-project-manage.js'
 const graph = JSON.parse(readFileSync(new URL('../skills/tool-graph.json', import.meta.url)))
 test('工具图谱覆盖会话操作与所有生成任务，依赖无环且声明顺序一致', () => {
   const tools = [...operationTools({}), waitImagesTool({}), contextQueryTool({}), projectManageTool({})]
@@ -27,4 +28,19 @@ test('工具图谱覆盖会话操作与所有生成任务，依赖无环且声�
   const session = readFileSync(new URL('../skills/session/panel.md', import.meta.url), 'utf8')
   assert.doesNotMatch(session, /meiji_content_generate|meiji_task_control|job_wait|job_read/)
   assert.match(session, /job_output/)
+})
+
+test('业务工具名称与实际导出模块同名，不注册旧前缀工具', async () => {
+  for (const definition of Object.values(operations).filter(item => item.session)) {
+    const name = definition.session.tool
+    assert.match(name, /^operation-[a-z]+(?:-[a-z]+)+$/)
+    const module = await import(`../server/flow/operations/generate/${name}.js`)
+    assert.equal(module.operation, definition)
+  }
+  for (const factory of [contextQueryTool, projectManageTool, waitImagesTool]) {
+    const { name } = factory({})
+    assert.match(name, /^operation-[a-z]+(?:-[a-z]+)+$/)
+    const module = await import(`../tools/${name}.js`)
+    assert.ok(Object.values(module).includes(factory))
+  }
 })

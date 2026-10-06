@@ -49,7 +49,7 @@ test('AC-M2 面板占用本集时，会话发起返回 busy；会话可等待但
   const registry = fakeJobs(), jobs = createHarnessJobs({ home: e.home, manager: tasks, registry, subscribeProject, readProject: id => e.store.read(id) })
   t.after(() => jobs.dispose())
   const panel = await jobs.start({ ...e.op('shot-table', {}), origin: 'panel', sessionId: exec.agent.session.id })
-  const generate = operationTools({ home: e.home, jobs }).find(tool => tool.name === 'meiji_generate_shot_table')
+  const generate = operationTools({ home: e.home, jobs }).find(tool => tool.name === 'operation-generate-shot-table')
   const busy = JSON.parse(await generate.execute({ episodeNumber: 1, mode: 'regenerate', confirmDelete: true }, exec))
   assert.equal(busy.status, 'running'); assert.equal(busy.occupantOperationId, panel.operationId); assert.equal(busy.busy.initiator, 'panel')
   assert.match(jobs.guard({ name: 'job_kill', arguments: { job_id: panel.jobId } }), /面板/)

@@ -11,8 +11,8 @@ import { generateStoryPackage } from './fixtures/story-generation.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { linkStore } from '../server/data/workspace-links.js'
 import { operationTools } from '../tools/session-operation-tools.js'
-import { contextQueryTool } from '../tools/session-context-query-tool.js'
-import { projectManageTool } from '../tools/session-project-manage-tool.js'
+import { contextQueryTool } from '../tools/operation-context-query.js'
+import { projectManageTool } from '../tools/operation-project-manage.js'
 import { createHarnessJobs } from '../server/host/harness-jobs.js'
 import { subscribeProject } from '../server/data/project-events.js'
 import { fakeJobs } from './fixtures/fake-jobs.js'
@@ -34,7 +34,7 @@ async function setup(t, review = reviewPass) {
   const registry = fakeJobs(), jobs = createHarnessJobs({ home: e.home, manager: tasks, registry, subscribeProject, readProject: id => e.store.read(id) })
   t.after(() => jobs.dispose())
   const generators = operationTools({ home: e.home, jobs }), control = { execute: async (args, context) => { await registry.wait(args.jobId, 5000, context.agent.session.id); return registry.read(args.jobId, context.agent.session.id).result } }
-  const start = async ({ stage, ...args }) => JSON.parse(await generators.find(tool => tool.name === 'meiji_generate_' + stage).execute({ confirmDelete: true, ...args }, exec))
+  const start = async ({ stage, ...args }) => JSON.parse(await generators.find(tool => tool.name === 'operation-generate-' + stage.replaceAll('_', '-')).execute({ confirmDelete: true, ...args }, exec))
   const wait = async task => {
     if (task.alreadyCompleted) return task
     const result = JSON.parse(await control.execute({ jobId: task.jobId }, exec))

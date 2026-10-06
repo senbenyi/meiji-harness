@@ -35,7 +35,7 @@ class CompletionAdapter extends LlmAdapter {
       yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `call-${randomUUID()}`, name: 'job_output', arguments: JSON.stringify({ job_id: jobId }) } }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
     } else if (attemptMutation && !options.messages.some(message => message.content.some(block => block.type === 'tool-call' && block.name === 'update_goal'))) {
-      for (const [index, name] of ['update_goal', 'create_goal', 'todo_write', 'meiji_generate_story'].entries()) {
+      for (const [index, name] of ['update_goal', 'create_goal', 'todo_write', 'operation-generate-story'].entries()) {
         yield { type: 'block-start', index, blockType: 'tool-call' }
         yield { type: 'block-end', index, block: { type: 'tool-call', id: `call-${randomUUID()}`, name, arguments: '{}' } }
       }
@@ -56,7 +56,7 @@ try {
   ctx.on('agent/error', event => errors.push(event.error))
   ctx.effect(() => ctx.jobs.attachController('meiji'))
   ctx.effect(() => ctx.llm.registerAdapter(['mock'], new CompletionAdapter()))
-  for (const name of ['update_goal', 'create_goal', 'todo_write', 'meiji_generate_story']) ctx.effect(() => ctx.tools.register({ name, description: '测试越界调用', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, execute() { unauthorizedExecutions++; return '不应执行' } }))
+  for (const name of ['update_goal', 'create_goal', 'todo_write', 'operation-generate-story']) ctx.effect(() => ctx.tools.register({ name, description: '测试越界调用', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, execute() { unauthorizedExecutions++; return '不应执行' } }))
   useWorkspaces(test)
   const e = await setupModel(test)
   const resolveAgent = async id => ({ agent: ctx.agents.get(id) })
