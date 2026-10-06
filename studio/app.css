@@ -78,29 +78,18 @@ html, body {
 
 body { display: flex; flex-direction: column; }
 
-/* 顶栏三块：A 品牌(.brand) / B 参数(.meta) / C 按钮(.topbar-bar)
-   宽 → 一行 A B C（B 是 flex:1，吃掉中间剩余空间把 C 推到右端）
-   窄 → 竖直 A B C
-   断点取 960px：三块的内容最小宽度大致是 品牌 ~110 + 参数 ~400 + 按钮 ~450 +
-   gap，再挤就会让参数在行内折成两三行、按钮贴到边缘，不如直接竖排。 */
+/* 项目身份与全局刷新；阶段操作位于各自页面。 */
 .topbar {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 18px 24px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   flex: none;
 }
-/* A 品牌：不参与收缩，也不许折行 */
-.brand { font-weight: 700; font-size: 15px; flex: none; white-space: nowrap; }
-/* B 参数：吃掉剩余空间（因此 C 靠右）；min-width:0 让它可收缩，break-word 兜底防长串
-   （节点多的工程那串「画幅… · 时长… · 节点 141（主线 35 · 抽帧 104 …）」）。
-   实测注意：当这一行的宽度**正好差几像素**装不下时（如盒 488.5 / 文 494.1），Chrome 会让
-   它溢出盒子而不是折行（换 anywhere / break-word / word-break / text-wrap 都不改变）。
-   溢出量落在 B 与 C 之间 10px 的间隙里，压不到按钮、也不会撑出页面横向滚动，故保留此行为；
-   回归断言量的是「不压到按钮 + 不撑破页面」，不是「严格不溢出」。 */
+.brand { font-weight: 600; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
 .meta {
   flex: 1;
   min-width: 0;
@@ -109,7 +98,6 @@ body { display: flex; flex-direction: column; }
   line-height: 1.5;
   overflow-wrap: break-word;
 }
-/* C 按钮 */
 .topbar-bar {
   display: flex;
   align-items: center;
@@ -117,12 +105,11 @@ body { display: flex; flex-direction: column; }
   flex: none;
 }
 
-@media (max-width: 960px) {
-  /* 竖直 A B C：各占一行，谁都不挤谁 */
-  .topbar { flex-direction: column; align-items: stretch; }
-  .brand { white-space: normal; }
-  /* 按钮在自己这一行内换行 */
-  .topbar-bar { flex-wrap: wrap; min-width: 0; }
+@media (max-width: 600px) {
+  .topbar { flex-wrap: wrap; padding: 14px 16px; }
+  .brand { flex: 1; font-size: 18px; }
+  .meta { order: 3; flex-basis: 100%; }
+  .meta:empty { display: none; }
 }
 
 /* 画布内部的制作阶段二级页签；只切换现有节点视图，不改变 Harness 一级 tab。 */
@@ -131,7 +118,7 @@ body { display: flex; flex-direction: column; }
   flex: none;
   min-width: 0;
   overflow-x: auto;
-  padding: 0 14px;
+  padding: 0 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   scrollbar-width: thin;
@@ -140,22 +127,19 @@ body { display: flex; flex-direction: column; }
   appearance: none;
   position: relative;
   flex: 0 0 auto;
-  min-width: 112px;
-  padding: 9px 13px 10px;
+  padding: 14px 16px;
   border: 0;
-  border-right: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
   text-align: left;
   cursor: pointer;
+  font-size: 14px;
+  white-space: nowrap;
 }
-.stage-tab:first-child { border-left: 1px solid var(--border); }
-.stage-tab strong { display: block; color: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.stage-tab span { display: block; margin-top: 3px; font-size: 10px; white-space: nowrap; }
 .stage-tab:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .stage-tab[aria-selected="true"] {
   color: var(--accent-ink);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
 }
 .stage-tab[aria-selected="true"]::after {
   content: '';
@@ -328,11 +312,12 @@ body { display: flex; flex-direction: column; }
 
 .canvas {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
 }
 
 .canvas > * { flex-shrink: 0; }
@@ -341,15 +326,16 @@ body { display: flex; flex-direction: column; }
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   overflow: hidden;
 }
 .node-head {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 10px 14px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 .node-kind {
@@ -362,27 +348,26 @@ body { display: flex; flex-direction: column; }
   background: var(--panel-2);
   border: 1px solid var(--border);
 }
-.node-title { width: 100%; font-weight: 600; overflow-wrap: anywhere; }
+.node-title { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
 .node-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
 .node-meta .params { margin-top: 0; }
-.status { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+.status { font-size: 12px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
 .status.ready { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
 .status.failed { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .status.pending { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
 .node-id { font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
 
-.node-body { padding: 12px 14px; }
+.node-body { padding: 16px; }
+.node-body:empty { display: none; }
 
-.media { display: block; max-width: 100%; border-radius: 8px; background: var(--media-bg); }
+.media { display: block; width: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; background: var(--media-bg); }
 video.media { max-height: 420px; }
 
 .text-content {
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
   color: var(--text);
-  line-height: 1.55;
-  max-height: 360px;
-  overflow: auto;
+  line-height: 1.7;
 }
 /* markdown 渲染结果（studio/markdown.js） */
 .text-content h1, .text-content h2, .text-content h3, .text-content h4 {
@@ -421,6 +406,68 @@ video.media { max-height: 420px; }
 }
 .text-content strong { font-weight: 600; }
 .text-content table { margin: 8px 0; }
+
+/* 各阶段的信息组织与阅读布局。 */
+[hidden] { display: none !important; }
+button, select, summary, a { -webkit-tap-highlight-color: transparent; }
+:is(button, select, summary, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.page-content { width: 100%; max-width: 1120px; margin: 0 auto; min-width: 0; padding-bottom: 40px; }
+.page-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 20px; }
+.page-heading h1 { margin: 0; font-size: 20px; font-weight: 600; }
+.content-caption, .shot-number { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.shot-number { white-space: nowrap; }
+.section-title { font-size: 16px; margin: 24px 0 12px; font-weight: 600; }
+.content-details { min-width: 0; font-size: 12px; color: var(--muted); }
+.content-details summary { cursor: pointer; padding: 4px 0; }
+.content-details[open] > summary { margin-bottom: 8px; }
+.content-details pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; margin: 0; max-height: 320px; overflow-y: auto; }
+.content-details .text-content { font-size: 14px; }
+.node-foot { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0 16px 12px; align-items: baseline; font-size: 12px; }
+.node-foot > details[open] { flex-basis: 100%; }
+.node-foot a { color: var(--accent-ink); text-decoration: none; }
+.node-foot a:hover { text-decoration: underline; }
+.text-excerpt { line-height: 1.7; margin: 0 0 8px; }
+.node-body:has(> details[open]) > .text-excerpt { display: none; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
+.table-scroll table { border-collapse: collapse; }
+.table-scroll th, .table-scroll td { border: 1px solid var(--border); padding: 8px; }
+.canvas[data-stage="scripts"] .page-content, .canvas[data-stage="analysis"] .page-content { max-width: 840px; }
+.overview-summary { padding: 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 20px; }
+.overview-summary h2 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+.overview-summary p { color: var(--muted); margin: 0 0 16px; }
+.overview-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.stage-summary { display: grid; gap: 12px; text-align: left; font: inherit; padding: 20px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.stage-summary:hover { border-color: var(--accent); }
+.stage-summary strong { font-size: 16px; }
+.stage-summary > span { font-size: 12px; color: var(--muted); }
+.stage-summary .stage-link { color: var(--accent-ink); }
+.needs-attention { color: var(--danger); }
+.stage-summary.needs-attention { border-color: var(--danger); }
+.stage-tab.needs-attention::before { content: '· '; color: var(--danger); }
+.stage-errors { border-left: 3px solid var(--danger); padding: 12px 16px; margin-bottom: 20px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--danger); background: var(--panel); }
+.asset-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.update-notice { flex: none; padding: 10px 16px; border: 0; background: var(--panel-2); color: var(--accent-ink); cursor: pointer; font-size: 13px; }
+.entity-card .node-body { display: grid; grid-template-columns: minmax(180px, 32%) minmax(0, 1fr); gap: 20px; align-items: center; }
+.entity-card img { max-height: 260px; }
+.episode-picker { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; font-size: 13px; }
+.episode-picker select { min-width: 0; max-width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; }
+.shot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.shot-grid .node { min-width: 0; margin: 0; }
+.shot-grid .media { aspect-ratio: 16 / 9; }
+.shot-grid + .section-title { margin-top: 24px; }
+.media-placeholder { display: flex; align-items: center; justify-content: center; min-height: 180px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); font-size: 14px; background: var(--panel-2); }
+.review-note { color: var(--warn); font-size: 13px; }
+.status.blocked, .status.invalidated { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.status.review, .status.candidate { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+@media (max-width: 850px) { .overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .canvas { padding: 16px; }
+  .stage-tabs { padding: 0 4px; }
+  .stage-tab { padding: 12px; }
+  .overview-grid, .shot-grid, .entity-card .node-body { grid-template-columns: minmax(0, 1fr); }
+  .overview-summary, .stage-summary { padding: 16px; }
+  .episode-picker select { flex: 1; }
+}
 textarea.edit {
   width: 100%;
   min-height: 200px;

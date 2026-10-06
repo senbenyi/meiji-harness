@@ -164,6 +164,42 @@ test('whole-episode assembly refuses to silently drop a shot', () => {
   assert.throws(() => dramaProductionTasks(p, { runId: 'run', shotIds: ['s'], input: {} }), /partial episode assembly blocked/)
 })
 
+test('operator canvas pairs references and shots using identities without mutating the project', () => {
+  const p = prepared()
+  p.title = 'Operator project'
+  p.episodes.second = { id: 'second', order: 2, title: 'Letter', script: 'A different episode.', shotIds: ['s2'] }
+  p.shots.s2 = { ...p.shots.s, id: 's2', episodeId: 'second', storyboardAssetId: null, approvedAssetId: null }
+  p.assets.orphan = { id: 'orphan', kind: 'image', logicalKey: 'orphan.png', status: 'candidate', provenance: { title: 'Detective' } }
+  p.legacyCanvas = { settings: {}, nodes: [{ id: 's', kind: 'video', title: 'Letter', media: 's.mp4', params: { actualDuration: 6.5 } }] }
+  const original = structuredClone(p)
+  const canvas = canvasReadModel(p)
+  assert.equal(canvas.presentation.title, p.title)
+  assert.deepEqual(canvas.presentation.episodes.map((ep) => [ep.id, ep.number]), [['ep', 1], ['second', 2]])
+  assert.equal(canvas.nodes.find((n) => n.id === 'domain:character:detective').presentation.referenceAssetId, 'detective')
+  assert.equal(canvas.nodes.find((n) => n.id === 'detective').presentation.entityId, 'detective')
+  assert.equal(canvas.nodes.find((n) => n.id === 'board').presentation.shotId, 's')
+  assert.equal(canvas.nodes.find((n) => n.id === 'board').presentation.episodeId, 'ep')
+  assert.equal(canvas.nodes.find((n) => n.id === 'orphan').presentation.role, 'unlinked')
+  assert.equal(canvas.nodes.find((n) => n.id === 's').presentation.actualDuration, 6.5)
+  assert.equal(canvas.nodes.find((n) => n.id === 's2:storyboard').presentation.episodeId, 'second')
+  assert.deepEqual(p, original)
+})
+
+test('formal delivery remains distinct from intermediate versions and quality review', () => {
+  const p = prepared()
+  p.deliverables.final = { id: 'final', status: 'ready', logicalKey: 'final.mp4', contentHash: 'hash', qualityReport: { actualDuration: 7, visualReview: 'not_performed' } }
+  p.legacyCanvas = { nodes: [{ id: 'assembly', kind: 'video', title: '分集成片', media: 'assembly.mp4' }], settings: {} }
+  p.assets.video = { id: 'video', kind: 'video', status: 'approved', logicalKey: 'shot.mp4' }
+  p.shots.s.approvedAssetId = 'video'
+  const canvas = canvasReadModel(p)
+  const delivery = canvas.nodes.find((node) => node.presentation?.role === 'delivery')
+  assert.equal(delivery.presentation.qualityReview, 'not_performed')
+  assert.equal(delivery.presentation.actualDuration, 7)
+  assert.ok(canvas.nodes.some((node) => node.id === 'assembly'))
+  assert.equal(canvas.nodes.find((node) => node.id === 'video').presentation.shotId, 's')
+  assert.ok(!canvas.nodes.find((node) => node.presentation?.role === 'source').content.includes('SHA-256'))
+})
+
 test('resume preserves remote checkpoints and never steals a live worker lease', () => {
   const p = fixture()
   productionCommandHandlers.createProductionRun(p, { runId: 'run', tasks: [{ id: 'reference', kind: 'render-reference' }] })

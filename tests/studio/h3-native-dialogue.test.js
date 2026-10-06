@@ -79,7 +79,7 @@ test('storyboard dialogue stays visible after video generation and only videos e
   ] }
   const view = canvasReadModel(project)
   assert.equal(view.nodes.length, first.nodes.length + 2)
-  assert.equal(CANVAS_STAGES.find((stage) => stage.key === 'media').label, '视频')
+  assert.equal(CANVAS_STAGES.find((stage) => stage.key === 'media').label, '镜头视频')
   assert.deepEqual(nodesForCanvasStage(view.nodes, 'media').map((node) => node.id), ['fox'])
   assert.match(view.nodes.find((node) => node.params?.shotId === 'fox').content, /我要当宇航员！/)
   assert.equal(canvasStageForNode({ kind: 'text', title: '旁白与配音' }), null)

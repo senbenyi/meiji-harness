@@ -1,5 +1,5 @@
 import { markdownToHtml } from './markdown.js'
-import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasStage } from './stages.js?v=12'
+import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasStage } from './stages.js?v=13'
 
 (function () {
   'use strict'
@@ -42,21 +42,40 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     addUpload: document.getElementById('add-upload'),
     addAssets: document.getElementById('add-assets'),
     stageTabs: document.getElementById('stage-tabs'),
+    assetTools: document.getElementById('asset-tools'),
   }
 
-  // 最新主线节点 id（渲染时记录，供空白点击和自动跟随定位）
-  let latestMainNodeId = null
   let followInited = false
   let followTimer = null
-  let lastMainIds = new Set()
   let activeStageKey = 'overview'
+  let activeEpisodeId = ''
   let currentProject = null
+  let pendingProject = null
+  const readingPositions = new Map()
+  const expandedDetails = new Set()
+  const progressLabels = { completed: '已完成', active: '制作中', pending: '待制作', blocked: '需处理' }
+
+  function selectStage(key) {
+    rememberReading()
+    activeStageKey = key
+    render(currentProject)
+  }
+
+  function rememberReading() {
+    readingPositions.set(readingKey(), el.canvas.scrollTop)
+    for (const detail of el.canvas.querySelectorAll('details[data-key]')) {
+      if (detail.open) expandedDetails.add(detail.dataset.key)
+      else expandedDetails.delete(detail.dataset.key)
+    }
+  }
+
+  function readingKey() {
+    return activeStageKey + (['scripts', 'storyboard', 'media'].includes(activeStageKey) ? activeEpisodeId : '')
+  }
 
   function renderStageTabs(nodes, production) {
     if (!el.stageTabs) return
-    const counts = canvasStageCounts(nodes)
     el.stageTabs.innerHTML = ''
-    if (nodes.length === 0) return
     for (const stage of CANVAS_STAGES) {
       const button = document.createElement('button')
       button.type = 'button'
@@ -64,15 +83,15 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       button.setAttribute('role', 'tab')
       button.setAttribute('aria-selected', stage.key === activeStageKey ? 'true' : 'false')
       const progress = production?.stages?.find((item) => item.key === stage.key)
-      const labels = { completed: '已完成', active: '进行中', pending: '待执行', blocked: '已阻塞' }
-      button.innerHTML = '<strong>' + stage.label + '</strong><span>'
-        + (progress ? `${labels[progress.status]} · ${progress.completed}/${progress.total}` : stage.key === 'overview' && production ? `流程${labels[production.status]} · 质量未审核` : (stage.key === 'overview' ? '全部 ' : '') + counts[stage.key] + ' 项产物') + '</span>'
+      button.textContent = stage.label
+      if (progress?.status === 'blocked') {
+        button.classList.add('needs-attention')
+        button.setAttribute('aria-label', stage.label + '，需处理')
+      }
       if (progress?.errors?.length) button.title = progress.errors.map((item) => item.error).join('\n')
       button.onclick = () => {
         if (activeStageKey === stage.key || !currentProject) return
-        activeStageKey = stage.key
-        render(currentProject)
-        el.canvas.scrollTop = 0
+        selectStage(stage.key)
       }
       el.stageTabs.appendChild(button)
     }
@@ -327,7 +346,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
   /** 手动添加资产 ②：从跨会话资产库带缩略图取用 / 删除。 */
   async function openAssetLibrary() {
-    const dlg = openDialog('跨会话资产库 · 点卡片加入画布')
+    const dlg = openDialog('公共素材库')
     const body = dlg.body
     const foot = dlg.foot
 
@@ -350,7 +369,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (!assets.length) {
         const p = document.createElement('p')
         p.className = 'lib-empty-hint'
-        p.innerHTML = '资产库还是空的。'
+        p.textContent = '暂无公共素材。这里保存跨项目使用的素材，当前项目设定请在“角色与场景”查看。'
         body.appendChild(p)
         foot.appendChild(dialogBtn('完成', () => dlg.close()))
         return
@@ -480,14 +499,6 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     await render()
   }
 
-  function paramsSummary(node) {
-    if (!node.params || typeof node.params !== 'object') return ''
-    const keys = ['model', 'seed', 'width', 'height', 'length', 'steps', 'guidance']
-    const parts = keys.filter((k) => node.params[k] !== undefined && node.params[k] !== null)
-      .map((k) => k + '=' + node.params[k])
-    return parts.join(' · ')
-  }
-
   function nodeCard(node) {
     const card = document.createElement('div')
     card.className = 'node'
@@ -503,23 +514,24 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     title.textContent = node.title || '(无标题)'
     const status = document.createElement('span')
     status.className = 'status ' + (lane === 'discard' ? 'deprecated' : (node.status || 'ready'))
-    status.textContent = lane === 'discard' ? '作废' : (node.status || 'ready')
-    const id = document.createElement('span')
-    id.className = 'node-id'
-    id.textContent = (node.id || '').slice(0, 8)
-    head.appendChild(title)
-    head.appendChild(status)
-    const meta = document.createElement('div')
-    meta.className = 'node-meta'
-    meta.appendChild(id)
-    const ps = paramsSummary(node)
-    if (ps) {
-      const p = document.createElement('span')
-      p.className = 'params'
-      p.textContent = ps
-      meta.appendChild(p)
+    status.textContent = nodeStatus(node, lane)
+    const info = node.presentation || {}
+    if (info.shotNumber) {
+      const number = document.createElement('span')
+      number.className = 'shot-number'
+      number.textContent = '镜头 ' + String(info.shotNumber).padStart(2, '0')
+      head.appendChild(number)
+    } else if (info.role === 'outline') {
+      const episode = currentProject?.presentation?.episodes?.find((ep) => ep.id === info.episodeId)
+      if (episode) {
+        const number = document.createElement('span')
+        number.className = 'shot-number'
+        number.textContent = '第 ' + episode.number + ' 集'
+        head.appendChild(number)
+      }
     }
-    head.appendChild(meta)
+    head.appendChild(title)
+    if (status.textContent) head.appendChild(status)
     card.appendChild(head)
 
     const body = document.createElement('div')
@@ -530,12 +542,15 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         const v = document.createElement('video')
         v.className = 'media'
         v.controls = true
+        v.preload = 'metadata'
+        v.playsInline = true
         v.src = mediaUrl(node.media)
         body.appendChild(v)
       } else if (node.kind === 'image') {
         const a = document.createElement('a')
         a.href = mediaUrl(node.media)
         a.target = '_blank'
+        a.rel = 'noopener'
         const img = document.createElement('img')
         img.className = 'media'
         img.src = mediaUrl(node.media)
@@ -552,10 +567,49 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       }
     }
 
+    if (node.placeholder) {
+      const placeholder = document.createElement('div')
+      placeholder.className = 'media-placeholder'
+      placeholder.textContent = node.placeholder
+      body.appendChild(placeholder)
+    }
+
+    if (info.actualDuration || info.plannedDuration) {
+      const duration = document.createElement('p')
+      duration.className = 'content-caption'
+      duration.textContent = (info.actualDuration ? '时长 ' : '计划时长 ') + Number(info.actualDuration || info.plannedDuration).toFixed(1).replace(/\.0$/, '') + ' 秒'
+      body.appendChild(duration)
+    }
+    if (info.role === 'delivery') {
+      const review = document.createElement('p')
+      review.className = 'review-note'
+      review.textContent = info.qualityReview === 'not_performed' ? '内容质量待审核' : '审核记录：请查看交付详情'
+      body.appendChild(review)
+    }
+
     if (node.content) {
       const contentWrap = document.createElement('div')
       contentWrap.innerHTML = renderTextContent(node.content)
-      body.appendChild(contentWrap)
+      for (const table of contentWrap.querySelectorAll('table')) {
+        const scroll = document.createElement('div')
+        scroll.className = 'table-scroll'
+        table.replaceWith(scroll)
+        scroll.appendChild(table)
+      }
+      if (node.content.length > 800) {
+        const full = detailSection('全文', 'text:' + node.id)
+        const summary = full.querySelector('summary')
+        summary.textContent = '展开全文'
+        full.ontoggle = () => { summary.textContent = full.open ? '收起全文' : '展开全文' }
+        const preview = document.createElement('p')
+        preview.className = 'text-excerpt'
+        preview.textContent = node.content.slice(0, 180) + '…'
+        body.appendChild(preview)
+        full.appendChild(contentWrap)
+        body.appendChild(full)
+      } else {
+        body.appendChild(contentWrap)
+      }
     }
 
     if (node.error) {
@@ -566,6 +620,22 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     }
 
     card.appendChild(body)
+
+    const foot = document.createElement('div')
+    foot.className = 'node-foot'
+    if (node.kind === 'video' && node.media) {
+      const download = document.createElement('a')
+      download.href = mediaUrl(node.media)
+      download.download = (node.title || '视频') + '.mp4'
+      download.textContent = '下载视频'
+      foot.appendChild(download)
+    }
+    const technical = detailSection('技术详情', 'technical:' + node.id)
+    const raw = document.createElement('pre')
+    raw.textContent = JSON.stringify({ id: node.id, status: node.status, params: node.params, media: node.media }, null, 2)
+    technical.appendChild(raw)
+    foot.appendChild(technical)
+    card.appendChild(foot)
 
     // Domain projections are read through their owning commands, never edited as canvas copies.
     if (node.domainProjection) return card
@@ -628,8 +698,33 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     down.onclick = () => moveNode(node.id, 1)
     actions.appendChild(down)
 
-    card.appendChild(actions)
+    const more = detailSection('更多', 'actions:' + node.id)
+    more.appendChild(actions)
+    foot.appendChild(more)
     return card
+  }
+
+  function nodeStatus(node, lane) {
+    if (lane === 'discard') return '已作废'
+    const labels = { failed: '生成失败', blocked: '需处理', review: '待审核', pending: '待生成', planned: '待制作', generating: '生成中', running: '生成中', invalidated: '需重新生成', rejected: '未通过', candidate: '待确认', draft: '草稿', cancelled: '已取消' }
+    if (labels[node.status]) return labels[node.status]
+    if (node.status && !['ready', 'approved', 'assembled', 'delivered', 'completed'].includes(node.status)) return '状态待确认'
+    const role = node.presentation?.role
+    if (role === 'script') return '剧本已就绪'
+    if (node.kind === 'text' && role === 'shot') return '已规划'
+    if (role === 'delivery') return '已合成'
+    if (node.media) return '已生成'
+    return node.status ? '已就绪' : ''
+  }
+
+  function detailSection(label, key) {
+    const detail = document.createElement('details')
+    detail.className = 'content-details'
+    detail.dataset.key = key
+    const summary = document.createElement('summary')
+    summary.textContent = label
+    detail.appendChild(summary)
+    return detail
   }
 
   function startEdit(node, card, body) {
@@ -670,75 +765,216 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   }
 
   function render(project) {
+    if (!project) return
+    const playing = [...el.canvas.querySelectorAll('video')].map((video) => ({ id: video.closest('.node').dataset.nodeId, video }))
     currentProject = project
+    pendingProject = null
+    document.getElementById('updates').hidden = true
     el.canvas.innerHTML = ''
     const allNodes = [...(project.nodes || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
     renderStageTabs(allNodes, project.production)
-    const nodes = nodesForCanvasStage(allNodes, activeStageKey)
-    const allMain = allNodes.filter((node) => nodeLane(node) === 'main')
-    const allFrames = allNodes.filter((node) => nodeLane(node) === 'frames')
-    const allDiscards = allNodes.filter((node) => nodeLane(node) === 'discard')
-
-    // 分区：主线（确认/待确认的现行资产）优先；抽帧与作废各自收纳到页尾折叠区
-    const main = []
-    const frames = []
-    const discards = []
-    for (const n of nodes) {
-      const lane = nodeLane(n)
-      if (lane === 'frames') frames.push(n)
-      else if (lane === 'discard') discards.push(n)
-      else main.push(n)
+    const episodes = project.presentation?.episodes || []
+    document.getElementById('project-title').textContent = project.presentation?.title || '短剧工作台'
+    el.meta.textContent = episodes.length ? `${episodes.length} 集 · ${episodes.reduce((n, ep) => n + ep.shotCount, 0)} 个镜头` : ''
+    el.assetTools.hidden = activeStageKey !== 'assets'
+    const stage = CANVAS_STAGES.find((item) => item.key === activeStageKey)
+    el.canvas.setAttribute('aria-label', stage.label)
+    el.canvas.dataset.stage = activeStageKey
+    const page = document.createElement('div')
+    page.className = 'page-content'
+    el.canvas.appendChild(page)
+    const heading = document.createElement('div')
+    heading.className = 'page-heading'
+    heading.innerHTML = '<h1>' + stage.label + '</h1>'
+    const progress = project.production?.stages?.find((item) => item.key === activeStageKey)
+    if (progress) {
+      const summary = document.createElement('span')
+      summary.className = 'content-caption'
+      summary.textContent = progressText(progress)
+      heading.appendChild(summary)
     }
-
-    el.meta.textContent = allNodes.length === 0 ? '' : '画幅 ' + (project.settings?.aspectRatio || '16:9')
-      + (project.settings?.duration ? ' · 时长 ' + project.settings.duration : '')
-      + ' · 音频 ' + (project.settings?.audioMode || 'native')
-      + ' · 档位 ' + (project.settings?.mode || 'quality')
-      + ' · 节点 ' + allNodes.length
-      + (allNodes.length ? '（主线 ' + allMain.length + (allFrames.length ? ' · 抽帧 ' + allFrames.length : '') + (allDiscards.length ? ' · 作废 ' + allDiscards.length : '') + '）' : '')
-
-    if (allNodes.length === 0) {
-      latestMainNodeId = null
-      lastMainIds = new Set()
-      syncJump()
-      return
+    page.appendChild(heading)
+    if (activeStageKey === 'assets') heading.appendChild(el.assetTools)
+    if (progress?.errors?.length) {
+      const error = document.createElement('div')
+      error.className = 'stage-errors'
+      error.textContent = [...new Set(progress.errors.map((item) => item.error))].join('\n')
+      page.appendChild(error)
     }
-
-    if (nodes.length === 0) {
-      latestMainNodeId = allMain.length ? allMain[allMain.length - 1].id : null
-      lastMainIds = new Set(allMain.map((node) => node.id))
-      syncJump()
-      return
+    let nodes = nodesForCanvasStage(allNodes, activeStageKey)
+    if (['scripts', 'storyboard', 'media'].includes(activeStageKey) && episodes.length) {
+      if (!episodes.some((ep) => ep.id === activeEpisodeId)) activeEpisodeId = episodes[0].id
+      const label = document.createElement('label')
+      label.className = 'episode-picker'
+      label.textContent = '分集 '
+      const select = document.createElement('select')
+      for (const ep of episodes) {
+        const option = document.createElement('option')
+        option.value = ep.id
+        option.textContent = `第 ${ep.number} 集 · ${ep.title || '未命名分集'}`
+        select.appendChild(option)
+      }
+      select.value = activeEpisodeId
+      select.onchange = () => { rememberReading(); activeEpisodeId = select.value; render(project) }
+      label.appendChild(select)
+      page.appendChild(label)
+      nodes = nodes.filter((node) => !node.presentation?.episodeId || node.presentation.episodeId === activeEpisodeId)
     }
-
-    for (const n of main) el.canvas.appendChild(nodeCard(n))
-
-    // 页尾收纳区：作废/否定（可还原）与抽帧/检查帧（中间产物），默认折叠，不打断主线预览
-    if (discards.length) el.canvas.appendChild(laneSection('discard', discards))
-    if (frames.length) el.canvas.appendChild(laneSection('frames', frames))
-
-    // 最新主线节点 = 主线里 createdAt / order 最大者（进入画布和主线更新时自动定位）
-    let latestMain = null
-    for (const n of allMain) {
-      if (!latestMain || ((n.createdAt || n.order || 0) >= (latestMain.createdAt || latestMain.order || 0))) latestMain = n
+    const main = nodes.filter((node) => nodeLane(node) === 'main')
+    if (activeStageKey === 'overview') renderOverview(page, allNodes, project)
+    else if (activeStageKey === 'assets') renderAssets(page, main)
+    else if (activeStageKey === 'storyboard' || activeStageKey === 'media') renderShots(page, main, allNodes)
+    else if (activeStageKey === 'delivery') {
+      const finals = main.filter((node) => node.presentation?.role === 'delivery')
+      appendCards(page, finals)
+      if (!finals.length) emptyState(page, '正式成片尚未就绪', '查看项目总览，确认制作进度。', 'overview')
+      const intermediate = main.filter((node) => node.presentation?.role !== 'delivery')
+      if (intermediate.length) {
+        const detail = detailSection('分集合成与其他版本 · ' + intermediate.length, 'delivery-versions')
+        appendCards(detail, intermediate)
+        page.appendChild(detail)
+      }
+    } else {
+      const roles = activeStageKey === 'analysis' ? [['analysis', '故事概述'], ['source', '原始素材信息'], ['outline', '分集规划']] : [['script', '正式剧本'], ['shot', '镜头安排']]
+      for (const [role, title] of roles) {
+        const group = main.filter((node) => node.presentation?.role === role)
+        if (group.length) {
+          if (role !== 'analysis') sectionTitle(page, title)
+          appendCards(page, group)
+        }
+      }
+      appendCards(page, main.filter((node) => !roles.some(([role]) => node.presentation?.role === role)))
+      if (!main.length) emptyState(page, '暂无' + stage.label, '查看项目总览，确认上一步的制作进度。', 'overview')
     }
-    latestMainNodeId = latestMain ? latestMain.id : null
-    lastMainIds = new Set(allMain.map((n) => n.id)) // 跟随模式轮询用：比对主线节点集合，发现新增才刷新
+    if (activeStageKey !== 'overview') {
+      for (const lane of ['discard', 'frames']) {
+        const group = nodes.filter((node) => nodeLane(node) === lane)
+        if (group.length) page.appendChild(laneSection(lane, group))
+      }
+    }
+    for (const detail of page.querySelectorAll('details[data-key]')) detail.open = expandedDetails.has(detail.dataset.key)
+    for (const { id, video } of playing) {
+      const replacement = [...page.querySelectorAll('.node')].find((node) => node.dataset.nodeId === id)?.querySelector('video')
+      if (replacement?.src === video.src) replacement.replaceWith(video)
+    }
+    el.canvas.scrollTop = readingPositions.get(readingKey()) || 0
     syncJump()
+  }
+
+  function progressText(progress) {
+    const units = { analysis: '份分析', assets: '份设定', scripts: '集', storyboard: '个镜头', media: '个镜头', delivery: '份成片' }
+    return `${progressLabels[progress.status] || '状态待确认'} · ${progress.completed} / ${progress.total} ${units[progress.key] || '项'}`
+  }
+
+  function sectionTitle(parent, text) {
+    const title = document.createElement('h2')
+    title.className = 'section-title'
+    title.textContent = text
+    parent.appendChild(title)
+  }
+
+  function appendCards(parent, nodes) {
+    for (const node of nodes) parent.appendChild(nodeCard(node))
+  }
+
+  function emptyState(parent, title, description, stageKey) {
+    const empty = document.createElement('div')
+    empty.className = 'stage-empty'
+    empty.innerHTML = '<h2>' + escapeHtml(title) + '</h2><p>' + escapeHtml(description) + '</p>'
+    if (stageKey) empty.appendChild(dialogBtn('查看' + CANVAS_STAGES.find((stage) => stage.key === stageKey).label, () => selectStage(stageKey)))
+    parent.appendChild(empty)
+  }
+
+  function renderOverview(parent, nodes, project) {
+    const production = project.production
+    const banner = document.createElement('div')
+    banner.className = 'overview-summary'
+    banner.innerHTML = '<h2>' + (production?.status === 'completed' ? '制作已完成' : production?.status === 'blocked' ? '有制作问题需要处理' : nodes.length ? '继续查看制作进度' : '开始制作你的短剧') + '</h2><p>'
+      + (production?.status === 'completed' ? '成片已就绪，内容质量待审核。' : '按阶段查看内容和产物。') + '</p>'
+    if (nodes.some((node) => node.presentation?.role === 'delivery')) banner.appendChild(dialogBtn('查看成片', () => selectStage('delivery')))
+    parent.appendChild(banner)
+    const grid = document.createElement('div')
+    grid.className = 'overview-grid'
+    const counts = canvasStageCounts(nodes.filter((node) => nodeLane(node) === 'main'))
+    for (const [index, stage] of CANVAS_STAGES.slice(1).entries()) {
+      const progress = production?.stages?.find((item) => item.key === stage.key)
+      const card = document.createElement('button')
+      card.type = 'button'
+      card.className = 'stage-summary'
+      card.innerHTML = '<span class="stage-number">0' + (index + 1) + '</span><strong>' + stage.label + '</strong><span>'
+        + escapeHtml(progress ? progressText(progress) : counts[stage.key] ? `${counts[stage.key]} 项内容` : '暂无内容') + '</span><span class="stage-link">查看 →</span>'
+      if (progress?.status === 'blocked') card.classList.add('needs-attention')
+      card.onclick = () => selectStage(stage.key)
+      grid.appendChild(card)
+    }
+    parent.appendChild(grid)
+    const other = nodes.filter((node) => !canvasStageForNode(node) || nodeLane(node) !== 'main')
+    if (other.length) {
+      const detail = detailSection('其他内容与历史记录 · ' + other.length, 'overview-other')
+      appendCards(detail, other)
+      parent.appendChild(detail)
+    }
+  }
+
+  function renderAssets(parent, nodes) {
+    const paired = new Set()
+    for (const [kind, label] of [['character', '角色'], ['location', '场景']]) {
+      const entities = nodes.filter((node) => node.kind === 'text' && node.presentation?.entityKind === kind)
+      if (!entities.length) continue
+      sectionTitle(parent, label)
+      for (const entity of entities) {
+        const reference = nodes.find((node) => node.id === entity.presentation.referenceAssetId && node.media)
+        paired.add(entity.id)
+        if (reference) paired.add(reference.id)
+        const card = nodeCard({ ...entity, kind: 'image', media: reference?.media, status: reference?.status || 'pending', placeholder: reference ? '' : '设定图待生成', params: { ...entity.params, referenceAssetId: reference?.id } })
+        card.classList.add('entity-card')
+        parent.appendChild(card)
+      }
+    }
+    const remaining = nodes.filter((node) => !paired.has(node.id))
+    if (remaining.length) { sectionTitle(parent, '其他素材 · 尚未关联设定'); appendCards(parent, remaining) }
+    if (!nodes.length) emptyState(parent, '暂无角色与场景', '先完成故事分析，也可以上传图片作为参考。', 'analysis')
+  }
+
+  function renderShots(parent, nodes, allNodes) {
+    const stage = activeStageKey
+    const shots = allNodes.filter((node) => node.kind === 'text' && node.presentation?.role === 'shot' && (!activeEpisodeId || node.presentation.episodeId === activeEpisodeId))
+      .sort((a, b) => (a.presentation.shotNumber || 0) - (b.presentation.shotNumber || 0))
+    const used = new Set()
+    const grid = document.createElement('div')
+    grid.className = 'shot-grid'
+    for (const shot of shots) {
+      const matches = nodes.filter((node) => node.presentation?.shotId === shot.presentation.shotId)
+      const media = matches.find((node) => node.media)
+      const issues = matches.filter((node) => node.presentation?.role === 'issue')
+      if (media) used.add(media.id)
+      issues.forEach((node) => used.add(node.id))
+      const node = media ? { ...media, title: shot.title, content: shot.presentation.description } : {
+        id: stage + ':' + shot.id, kind: stage === 'media' ? 'video' : 'image', title: shot.title,
+        status: 'pending', domainProjection: true, presentation: shot.presentation,
+        content: shot.presentation.description, placeholder: stage === 'media' ? '视频待生成' : '分镜图待生成',
+      }
+      if (issues.length) { node.error = issues.map((item) => item.content).join('\n'); node.status = 'blocked' }
+      grid.appendChild(nodeCard(node))
+    }
+    parent.appendChild(grid)
+    const other = nodes.filter((node) => !used.has(node.id))
+    if (other.length) { sectionTitle(parent, '其他素材与版本'); appendCards(parent, other) }
+    if (!shots.length && !other.length) emptyState(parent, stage === 'media' ? '暂无镜头视频' : '暂无分镜', '先完成本集的镜头安排。', 'scripts')
   }
 
   /** 页尾折叠收纳区（作废 / 抽帧各一个）。 */
   function laneSection(lane, list) {
     const det = document.createElement('details')
     det.className = 'lane lane-' + lane
+    det.dataset.key = 'lane:' + activeStageKey + ':' + lane
     const sum = document.createElement('summary')
     const isDiscard = lane === 'discard'
-    const icon = isDiscard ? '♻️' : '🎞'
-    const label = isDiscard ? '作废 / 否定（可还原）' : '抽帧 / 检查帧（中间产物）'
+    const label = isDiscard ? '已作废' : '检查帧'
     sum.title = isDiscard
       ? '被替换的旧版 / 用户否定的资产，折叠保存历史，点卡片「还原」可回到主线'
       : '末帧串联、转场首末帧、AI 自检检查帧等抽帧产物，默认折叠不影响主线预览，确认无用后可删除'
-    sum.innerHTML = '<span class="lane-icon">' + icon + '</span><span class="lane-label">' + label + '</span><span class="lane-count">' + list.length + '</span>'
+    sum.innerHTML = '<span class="lane-label">' + label + '</span><span class="lane-count">' + list.length + '</span>'
     det.appendChild(sum)
     const body = document.createElement('div')
     body.className = 'lane-body'
@@ -757,7 +993,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     await updateNode(id, { params })
   }
 
-  /** 悬浮 top/bottom 按钮：在顶端显示 BOTTOM（到达底部），离开顶端显示 TOP（返回顶端）。 */
+  /** 画布内的顶部与底部定位。 */
   function syncJump() {
     const c = el.canvas
     const canScroll = c.scrollHeight > c.clientHeight + 4
@@ -768,62 +1004,30 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     el.jump.classList.add('show')
     const atTop = c.scrollTop <= 24
     if (atTop) {
-      el.jump.textContent = '↓ BOTTOM'
+      el.jump.textContent = '↓ 到达底部'
       el.jump.title = '到达底部'
     } else {
-      el.jump.textContent = '↑ TOP'
+      el.jump.textContent = '↑ 返回顶部'
       el.jump.title = '返回顶端'
     }
   }
 
-  /** 平滑滚动到指定节点并在卡片上闪一下。 */
-  function locateNode(nodeId) {
-    const card = el.canvas.querySelector('.node[data-node-id="' + nodeId + '"]')
-    if (!card) return
-    const c = el.canvas
-    const rect = card.getBoundingClientRect()
-    const top = rect.top - c.getBoundingClientRect().top + c.scrollTop
-    const target = Math.max(0, top - (c.clientHeight - rect.height) / 2)
-    c.scrollTo({ top: target, behavior: 'smooth' })
-    card.classList.remove('flash')
-    void card.offsetWidth // 重启动画
-    card.classList.add('flash')
-  }
-
-  /** 定位到最新主线节点（进入画布、主线更新或点击空白时共用）。 */
-  function locateLatest() {
-    if (!latestMainNodeId) return
-    if (activeStageKey !== 'overview' && currentProject) {
-      activeStageKey = 'overview'
-      render(currentProject)
-      requestAnimationFrame(() => locateNode(latestMainNodeId))
-      return
-    }
-    locateNode(latestMainNodeId)
-  }
-
-  // 进入或切回画布时定位到最新主线；停留期间每 2.5s 轮询，发现新增主线节点后自动跟随。
+  // 轮询更新只刷新内容，不改变用户选择的阶段和阅读位置。
   function initAutoFollow() {
     if (followInited) return
     followInited = true
 
-    // 切回画布 tab（iframe 由隐藏变可见 / 重挂载可见）→ 定位到最新主线
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        scheduleLocate()
+        pollFollow()
         startFollowTimer()
       } else {
         stopFollowTimer()
       }
     })
     if (document.visibilityState === 'visible') {
-      scheduleLocate()
       startFollowTimer()
     }
-  }
-
-  function scheduleLocate() {
-    setTimeout(() => locateLatest(), 150)
   }
 
   function startFollowTimer() {
@@ -844,28 +1048,23 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return true
     const modalHost = document.getElementById('dsh-svs-modal')
     if (modalHost && modalHost.childElementCount) return true
+    if (document.querySelector('.dialog-host')) return true
     return !!document.querySelector('textarea.edit')
   }
 
-  /** 轮询：Agent 对话期间新增了主线节点 → 重渲染（保留已展开的收纳区）并滚动到新节点。 */
+  /** 同 ID 状态也参与比较；播放期间提示更新，避免重建播放器。 */
   async function pollFollow() {
     if (document.visibilityState !== 'visible' || isBusyEditing()) return
     try {
       const project = await api('/canvas')
-      const mains = (project.nodes || []).filter((n) => nodeLane(n) === 'main')
-      const fresh = mains.filter((n) => !lastMainIds.has(n.id))
-      if (fresh.length === 0) return
-      const target = [...fresh].sort((a, b) => (Number(b.order) || b.createdAt || 0) - (Number(a.order) || a.createdAt || 0))[0]
-      const openLanes = [...el.canvas.querySelectorAll('details.lane[open]')]
-        .map((d) => [...d.classList].find((c) => c.startsWith('lane-')))
-        .filter(Boolean)
-      activeStageKey = canvasStageForNode(target) || 'overview'
-      render(project)
-      for (const name of openLanes) {
-        const d = el.canvas.querySelector('details.' + name)
-        if (d) d.open = true
+      if (JSON.stringify(project) === JSON.stringify(currentProject)) return
+      if (isBusyEditing() || [...el.canvas.querySelectorAll('video')].some((video) => !video.paused)) {
+        pendingProject = project
+        document.getElementById('updates').hidden = false
+        return
       }
-      locateNode(target.id)
+      rememberReading()
+      render(project)
     } catch { /* 单轮轮询失败静默，下轮重试 */ }
   }
 
@@ -873,6 +1072,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     el.refresh.disabled = true
     try {
       const project = await api('/canvas')
+      rememberReading()
       render(project)
       initAutoFollow()
     } catch (err) {
@@ -888,9 +1088,10 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   if (el.addUpload) el.addUpload.addEventListener('click', () => chooseFilesAndUpload())
   if (el.addAssets) el.addAssets.addEventListener('click', () => openAssetLibrary())
 
-  // 点击画布空白处 → 定位到最新主线节点（点卡片/按钮等交互元素不触发）
-  el.canvas.addEventListener('click', (e) => {
-    if (e.target === el.canvas && latestMainNodeId) locateLatest()
+  document.getElementById('updates').addEventListener('click', () => {
+    if (!pendingProject) return
+    rememberReading()
+    render(pendingProject)
   })
   if (el.jump) {
     el.jump.addEventListener('click', () => {

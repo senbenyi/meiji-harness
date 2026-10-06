@@ -1,12 +1,12 @@
 /** 画布二级页签：只负责把现有节点投影到制作阶段，不产生新的业务状态。 */
 export const CANVAS_STAGES = [
-  { key: 'overview', label: '制作总览' },
-  { key: 'analysis', label: '内容分析' },
-  { key: 'assets', label: '资产设定' },
+  { key: 'overview', label: '项目总览' },
+  { key: 'analysis', label: '故事分析' },
+  { key: 'assets', label: '角色与场景' },
   { key: 'scripts', label: '分集剧本' },
-  { key: 'storyboard', label: '分镜图' },
-  { key: 'media', label: '视频' },
-  { key: 'delivery', label: '审核交付' },
+  { key: 'storyboard', label: '分镜预览' },
+  { key: 'media', label: '镜头视频' },
+  { key: 'delivery', label: '成片交付' },
 ]
 
 const DELIVERY_RE = /(审核|交付|成片|剪映|时间线|review|delivery|final|timeline)/i
