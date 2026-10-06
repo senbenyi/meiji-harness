@@ -90,7 +90,7 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
       webServer: { register() { return () => {} } },
     }
     apply(host)
-    const exec = { agent: { id: sessionId, session: { id: sessionId, meta: { cwd: root }, header: {} } }, concludeTurn() {} }
+    const exec = { agent: { id: sessionId, session: { id: sessionId, header: { cwd: root } } }, concludeTurn() {} }
     const call = async (name, args) => {
       const value = await tools.get(name).execute(args, exec)
       assert.equal(value.ok, true, `${name}: ${value.error}`)
@@ -105,8 +105,10 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
       }
       throw new Error('production failed to settle')
     }
-    await writeFile(join(root, 'source.txt'), source)
-    const created = await call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })
+    await writeFile(join(root, 'source.txt'), '\uFEFF' + source)
+    const [created, concurrent] = await Promise.all([0, 1].map(() => call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })))
+    assert.equal(concurrent.projectId, created.projectId)
+    assert.equal(concurrent.runId, created.runId)
     let p = await wait(created.projectId, created.runId)
     assert.equal(p.productionRuns[created.runId].status, 'failed')
     const failed = Object.values(p.productionTasks).filter((task) => task.status === 'failed')
@@ -141,6 +143,9 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
     assert.equal(reused.runId, created.runId)
     assert.equal(graphs.length, before)
     assert.equal(textCalls.length, 5)
+    await rm(join(storageRoot, deliverable.logicalKey))
+    const missing = await tools.get('studio_novel_create').execute({ sourcePath: 'source.txt', title: '流程验收：车站的信封' }, exec)
+    assert.equal(missing.ok, false, 'missing delivery file cannot be reported as successful reuse')
   } finally {
     for (const dispose of disposers.reverse()) await dispose()
     globalThis.fetch = originalFetch

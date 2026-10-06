@@ -28,7 +28,10 @@ test('a failed child is persisted; recovery reruns only the missing task', async
     calls.push(task.label)
     return { label: task.label, value: fail && task.label.startsWith('episode-script:') ? null : valueFor(task.label) }
   }))
+  const materialized = []
+  options.onProposal = async (kind) => { materialized.push(kind) }
   await assert.rejects(novelTextProduction(options), /文本制作失败/)
+  assert.deepEqual(materialized, ['content_analysis', 'episode_plan'], 'completed upstream stages remain visible when script writing fails')
   let p = await options.projects.getProject(options.projectId)
   const failed = Object.values(p.productionTasks).find((task) => task.input.label === 'episode-script:ep')
   assert.equal(failed.status, 'failed')
@@ -77,9 +80,28 @@ test('coverage rejects outline substitution, omitted source, unknown references 
     (v) => { v.episodeScripts[0].script = v.episodePlan.episodes[0].outline },
     (v) => { v.episodePlan.episodes[0].sourceSpans[0].start = 10 },
     (v) => { v.episodeScripts[0].shots[0].referenceBindings[0].entityId = 'unknown' },
+    (v) => { v.episodeScripts[0].shots[0].duration = 30 },
   ]) {
     const broken = structuredClone(value)
     change(broken)
     assert.throws(() => assertNovelCoverage(broken, 'source', 100))
   }
+})
+
+test('empty establishing shots explicitly omit characters, and workflow schemas stay in the supported subset', () => {
+  const value = { analysis: structuredClone(analysis), episodePlan: { episodes: [structuredClone(episode)] }, episodeScripts: [structuredClone(script)] }
+  const shot = value.episodeScripts[0].shots[0]
+  shot.characterIds = []
+  shot.referenceBindings = [{ kind: 'location', entityId: 'station' }]
+  assert.doesNotThrow(() => assertNovelCoverage(value, 'source', 100))
+  shot.characterIds = ['detective']
+  assert.throws(() => assertNovelCoverage(value, 'source', 100), /characterIds/)
+  const allowed = new Set(['type', 'oneOf', 'properties', 'required', 'additionalProperties', 'items', 'enum', 'const', 'description', 'title'])
+  const check = (schema) => {
+    for (const key of Object.keys(schema)) assert.ok(allowed.has(key), `unsupported workflow schema keyword: ${key}`)
+    for (const child of Object.values(schema.properties || {})) check(child)
+    if (schema.items) check(schema.items)
+    for (const child of schema.oneOf || []) check(child)
+  }
+  for (const schema of Object.values(NOVEL_SCHEMAS)) check(schema)
 })

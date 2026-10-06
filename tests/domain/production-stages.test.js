@@ -52,6 +52,9 @@ test('drama completion requires validated delivery covering every formal shot', 
   assert.throws(() => commandHandlers.completeDramaProduction(p, { deliverableId: 'final' }), /incomplete/)
   assert.equal(p.status, 'draft')
   p.deliverables.final.status = 'ready'
+  p.assets.video.status = 'invalidated'
+  assert.throws(() => commandHandlers.completeDramaProduction(p, { deliverableId: 'final' }), /timeline assets must be approved/)
+  p.assets.video.status = 'approved'
   commandHandlers.completeDramaProduction(p, { deliverableId: 'final' })
   assert.equal(p.status, 'completed')
   assert.equal(p.episodes.ep.status, 'delivered')
@@ -159,4 +162,18 @@ test('whole-episode assembly refuses to silently drop a shot', () => {
   const p = prepared()
   p.episodes.ep.shotIds.push('missing')
   assert.throws(() => dramaProductionTasks(p, { runId: 'run', shotIds: ['s'], input: {} }), /partial episode assembly blocked/)
+})
+
+test('resume preserves remote checkpoints and never steals a live worker lease', () => {
+  const p = fixture()
+  productionCommandHandlers.createProductionRun(p, { runId: 'run', tasks: [{ id: 'reference', kind: 'render-reference' }] })
+  productionCommandHandlers.leaseProductionTask(p, { taskId: 'reference', owner: 'worker', leaseMs: 60000 })
+  productionCommandHandlers.startProductionTask(p, { taskId: 'reference', owner: 'worker' })
+  productionCommandHandlers.checkpointProductionTask(p, { taskId: 'reference', owner: 'worker', checkpoint: { attemptId: 'attempt', promptId: 'remote' } })
+  assert.deepEqual(productionCommandHandlers.resumeProductionRun(p, { runId: 'run' }).resumedTaskIds, [])
+  assert.equal(p.productionTasks.reference.owner, 'worker')
+  productionCommandHandlers.failProductionTask(p, { taskId: 'reference', owner: 'worker', error: 'download failed' })
+  productionCommandHandlers.resumeProductionRun(p, { runId: 'run' })
+  assert.deepEqual(p.productionTasks.reference.checkpoint, { attemptId: 'attempt', promptId: 'remote' })
+  assert.throws(() => productionCommandHandlers.recordProductionTaskResult(p, { taskId: 'reference', outputRef: 'invented.png' }), /production worker/)
 })

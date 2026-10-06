@@ -335,6 +335,8 @@ body { display: flex; flex-direction: column; }
   gap: 22px;
 }
 
+.canvas > * { flex-shrink: 0; }
+
 .node {
   background: var(--panel);
   border: 1px solid var(--border);

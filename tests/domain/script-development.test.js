@@ -101,8 +101,8 @@ test('approved proposals materialize analysis, episode plan and formal script in
       episodeId: 'episode-1', script: '林夏走进车站，听见广播。',
       sourceSpans: [{ sourceId: 'source-1', start: 100, end: 500 }],
       shots: [
-        { id: 'draft-1', order: 1, title: '进入车站', duration: 5, shotDescription: '林夏走入废弃站台。', audioDialogue: null },
         { id: 'draft-2', order: 2, title: '广播响起', duration: 5, shotDescription: '镜头推近旧广播。', audioDialogue: '请立即离开。', continuityFrom: 'draft-1' },
+        { id: 'draft-1', order: 1, title: '进入车站', duration: 5, shotDescription: '林夏走入废弃站台。', audioDialogue: null },
       ],
     },
   })
@@ -115,6 +115,7 @@ test('approved proposals materialize analysis, episode plan and formal script in
   const [firstId, secondId] = project.episodes['episode-1'].shotIds
   assert.equal(project.episodes['episode-1'].script, '林夏走进车站，听见广播。')
   assert.equal(project.shots[firstId].status, 'planned')
+  assert.equal(project.shots[firstId].title, '进入车站', 'formal shot order follows explicit order even when child JSON is shuffled')
   assert.equal(project.shots[secondId].continuityFrom, firstId)
   assert.equal(project.shots[secondId].audioDialogue, '请立即离开。')
   assert.equal(project.developmentProposals['script-1'].status, 'approved')
