@@ -4,9 +4,7 @@ export function entityCatalog(project) {
   for (const [group, kind] of [['characters', 'character'], ['scenes', 'scene'], ['props', 'prop']]) {
     for (const card of project.plot?.[group]?.items || []) {
       result.push({ id: card.id, name: card.name, kind: kind === 'prop' && card.category === 'clothing' ? 'clothes' : kind, ownerId: card.ownerId || null, card })
-      if (kind === 'character') for (const slot of ['props', 'clothes', 'hairstyles']) {
-        for (const part of card[slot] || []) result.push({ id: `${card.id}.${slot}.${part.id}`, name: part.name, kind: slot, ownerId: card.id, card: part })
-      }
+      // 历史人物快照可能带有旧部位数据，但新生成链路不再创建或引用这些实体。
     }
   }
   return result
@@ -32,7 +30,7 @@ export function collapseMentions(text, project) {
   for (const e of entityCatalog(project).sort((a, b) => b.name.length - a.name.length)) if (e.name) value = value.split(entityMention(e)).join(entityLabel(e))
   return value
 }
-const kindLabels = { character: '人物', scene: '场景', prop: '道具', clothes: '服装', props: '人物持物', hairstyles: '人物发型' }
+const kindLabels = { character: '人物', scene: '场景', prop: '道具' }
 export function entityInstructions(project) {
   const catalog = entityCatalog(project)
   if (!catalog.length) return '【实体引用清单】\n本集无已登记的人物、场景或道具，正文直接描述。'
@@ -43,4 +41,3 @@ export function entityInstructions(project) {
   const sample = ['character', 'scene', 'prop'].map(kind => catalog.find(e => e.kind === kind)).filter(Boolean).map(entityMention).join('、')
   return `【实体引用清单】\n${lines.join('\n')}\n正文每次提到以上人物、场景、道具或服装，都按清单原样写作「名字【名字|ID】」，例如 ${sample}。清单外的物件写普通描述；台词原文不插标记，说话人单独标注；仅被台词提及的人物不算出镜。`
 }
-

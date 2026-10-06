@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { renderRunList } from '../client/run-list.js'
 import { renderRunDetail } from '../client/run-detail.js'
-import { runInScope, runTargetMatches } from '../shared/run-view.js'
+import { runInScope, runTargetMatches, runDisplayStatus } from '../shared/run-view.js'
 const settle = () => new Promise(resolve => setImmediate(resolve))
 function setup(t) {
   const dom = new JSDOM('<body></body>'), previous = Object.getOwnPropertyDescriptor(globalThis, 'document')
@@ -113,4 +113,10 @@ test('对象通配只匹配给定前缀，项目级只匹配全部、项目级�
   assert.equal(runInScope({ episodeId: null }, 'e2'), false)
   assert.equal(runInScope({ episodeId: null, affectedEpisodes: ['e2'] }, 'e2'), true)
   assert.equal(runInScope({ episodeId: 'e1' }, 'project'), false)
+})
+
+test('被动中断结束的任务显示为未通过，与待处理和已取消区分', () => {
+  assert.deepEqual(runDisplayStatus({ status: 'failed', steps: [] }), { key: 'failed', label: '未通过' })
+  assert.deepEqual(runDisplayStatus({ status: 'paused', pause: { reasons: [{ code: 'wait_confirm' }] }, steps: [] }), { key: 'paused', label: '待处理' })
+  assert.deepEqual(runDisplayStatus({ status: 'cancelled', steps: [] }), { key: 'cancelled', label: '已取消' })
 })

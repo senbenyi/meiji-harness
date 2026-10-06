@@ -31,9 +31,10 @@ test('failed tail step preserves video and a tail-only retry does not submit aga
   const failure = await runOperation(e.op('film', { track: 'S01', parts: 'video' }), { home: e.home, ...filmDeps,
     saveLastFrame: async () => { throw new Error('FFmpeg failed') } }).then(() => null, error => error)
   assert.match(failure.message, /FFmpeg failed/)
-  // 视频步骤完成，尾帧步骤暂停待重试。
-  assert.deepEqual(failure.run.steps.map(step => [step.kind, step.status]), [['video', 'done'], ['tail', 'paused']])
-  assert.deepEqual(failure.run.pause.reasons.map(reason => [reason.code, reason.target, reason.actions]), [['step_failed', 'film:S01', ['retry', 'cancel-branch']]])
+  // 视频步骤完成，尾帧步骤失败后任务直接结束；补尾帧由新任务完成。
+  assert.deepEqual(failure.run.steps.map(step => [step.kind, step.status]), [['video', 'done'], ['tail', 'failed']])
+  assert.equal(failure.run.status, 'failed')
+  assert.deepEqual([failure.run.failure.code, failure.run.failure.target], ['step_failed', 'film:S01'])
   const before = (await e.read()).shots.items[0]
   assert.equal(before.video.content.status, 'ready')
   assert.equal(before.tailFrame.error, 'FFmpeg failed')
@@ -71,7 +72,7 @@ test('a failed storyboard step never submits that shot video', async t => {
   assert.match(failure.message, /未知实体/)
   assert.deepEqual(tracks, [])
   const steps = failure.run.steps
-  assert.deepEqual(steps.map(step => [step.kind, step.status]), [['storyboard', 'paused'], ['video', 'pending'], ['tail', 'pending']])
+  assert.deepEqual(steps.map(step => [step.kind, step.status]), [['storyboard', 'failed'], ['video', 'superseded'], ['tail', 'superseded']])
   assert.ok(steps.slice(1).every(step => !step.startedAt))
 })
 

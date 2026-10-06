@@ -5,7 +5,7 @@ import { GenerationStatus } from '../../../../shared/drama-model.js'
 import { plotPatch, targetNode } from '../../../../shared/drama-model.js'
 import { finish } from '../../../../shared/drama-model.js'
 import { savePicture, pictureTargetSnapshot, readImageDraft } from '../../../data/image-storage.js'
-import { pictureRecord, appendImageAsset, nextPartId } from '../../../../shared/image-assets.js'
+import { pictureRecord } from '../../../../shared/image-assets.js'
 import { feedbackKey } from '../../../../shared/review-feedback.js'
 import { markFailed } from '../../../../shared/content-state.js'
 
@@ -15,7 +15,8 @@ export async function opConfirmImage(c) {
   if (!deps.imageReviewAllowed) throw Object.assign(new Error('请在图片预览中点击确认或放弃'), { status: 403 })
   const draft = project.pendingImages?.[operation.draftId]
   if (!draft) throw Object.assign(new Error('图片已处理或已失效，请刷新'), { status: 409 })
-  const targetKey = feedbackKey({ action: draft.slot ? 'part-image' : 'image', track: draft.track, itemId: draft.itemId, slot: draft.slot })
+  if (draft.slot) throw Object.assign(new Error('人物部位图片已不再支持'), { status: 400 })
+  const targetKey = feedbackKey({ action: 'image', track: draft.track, itemId: draft.itemId })
   const pendingImages = { ...project.pendingImages }
   delete pendingImages[draft.draftId]
   if (operation.action === 'discard-image') {
@@ -31,9 +32,7 @@ export async function opConfirmImage(c) {
   if (file.metadata.projectId !== project.id || file.metadata.episodeId !== project.episodeId) throw Object.assign(new Error('图片不属于当前剧集'), { status: 409 })
   const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, file.metadata)
   reference.prompt = file.metadata.prompt || ''
-  let patch
-  if (draft.slot) patch = { ...plotPatch(project, { [draft.key]: appendImageAsset(project.plot[draft.key], draft.itemId, draft.slot, { id: nextPartId(target, draft.slot), name: draft.name, ...reference }) }) }
-  else patch = { ...plotPatch(project, { [draft.key]: { ...project.plot[draft.key], items: project.plot[draft.key].items.map(item => item.id === draft.itemId ? pictureRecord({ ...item, ...reference }) : item) } }) }
+  const patch = { ...plotPatch(project, { [draft.key]: { ...project.plot[draft.key], items: project.plot[draft.key].items.map(item => item.id === draft.itemId ? pictureRecord({ ...item, ...reference }) : item) } }) }
   try { await projects.save(project.id, current => { const next = { ...current, ...patch, pendingImages }; finish(targetNode(next, targetKey), { passed: true, failures: [] }); return next }) }
   catch (error) {
     await rm(join(home, 'storages', 'meiji', 'assets', reference.assetCategory, reference.assetId), { recursive: true, force: true })
@@ -45,6 +44,6 @@ export async function opConfirmImage(c) {
 }
 
 export const operations = {
-  'confirm-image': { label: '确认使用图片', scope: 'episode', linkedCard: true, agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}${draft.slot ? `:${draft.slot}` : ''}` : null } }, stage: 'review', run: opConfirmImage },
-  'discard-image': { label: '放弃候选图片', scope: 'episode', linkedCard: true, agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}${draft.slot ? `:${draft.slot}` : ''}` : null } }, stage: 'review', run: opConfirmImage },
+  'confirm-image': { label: '确认使用图片', scope: 'episode', linkedCard: true, agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}` : null } }, stage: 'review', run: opConfirmImage },
+  'discard-image': { label: '放弃候选图片', scope: 'episode', linkedCard: true, agent: false, step: (op, project) => { const draft = project?.pendingImages?.[op.draftId]; return { kind: 'confirm', target: draft ? `image:${draft.itemId}` : null } }, stage: 'review', run: opConfirmImage },
 }

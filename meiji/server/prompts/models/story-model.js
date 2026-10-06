@@ -11,6 +11,7 @@ import { protocols } from '../../../skills/output-protocols.js'
 
 // 输出协议取自 skills/output-protocols.js 的 outline 对应小节（写明输出什么并附示例）。
 const protocolSection = title => (protocols.outline.split(/^## /m).find(chunk => chunk.startsWith(title)) || '').slice(title.length).trim()
+const characterOutputProtocol = '只返回一个合法 JSON 对象，顶层仅含 items：{"items":[角色, …]}。items 为本集完整人物角色集合，不输出大纲、其他卡片或解释。每个角色包含 name、nationality、role、gender、era、age、costume、height、build、features、appearance、prop、identity、look、libraryId。libraryId 有值时复用已有单一人物资料；没有时新建人物。不要输出 variantId、variantLabel、clothes、props 或 hairstyles。\n\n示例（仅示范格式）：\n{"items":[{"name":"旅人","nationality":"中国","role":"赶路人","gender":"男性","era":"古代","age":"三十岁","costume":"深灰长衣","height":"一米八","build":"结实","features":"方脸，浓眉","appearance":"三十岁男性，结实，方脸浓眉","prop":"铜灯","identity":"赶路人","look":"国籍：中国\\n姓名：旅人\\n身份：赶路人\\n性别：男性\\n年代：古代\\n年龄：三十岁\\n服装：深灰长衣\\n身高：一米八\\n体型：结实\\n面相：方脸，浓眉","libraryId":""}]}'
 
 const extractTask = '从【剧情大纲】提取道具和着装资料，遵守基础规则和补充规则；大纲是唯一事实来源，【归属目录】仅用于匹配归属 ID。'
 const cardFacts = model => [
@@ -45,7 +46,7 @@ export const storyKinds = {
     role: '短剧角色设计师', reviewRole: '独立人物资料审核员', stage: '人物提取', json: true,
     cardExtraction: true,
     outputProtocol: protocolSection('人物输出'),
-    fields: ['name', 'nationality', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look', 'clothes', 'props', 'hairstyles'],
+    fields: ['name', 'nationality', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look'],
     task: model => `依据本集已通过大纲${model.mode === 'regenerate' ? '重新提取' : '提取'}人物角色资料，遵守基础规则和补充规则。`,
     revisionTask: automatic => `依据本集已通过大纲和${automatic ? '本轮自审意见' : '本次修改意见'}修订人物角色资料，遵守基础规则和补充规则。`,
     reviewTarget: '依据本集已通过大纲审核最新人物角色资料，按审核标准和补充规则验收。',
@@ -89,7 +90,7 @@ export class StoryModel {
     this.mode = mode
     this.generationRules = generationRules
     this.reviewRules = reviewRules
-    this.outputProtocol = outputProtocol || config.outputProtocol
+    this.outputProtocol = outputProtocol || (kind === 'characters' ? characterOutputProtocol : config.outputProtocol)
     this.source = project
     this.project = kind === 'outline'
       ? { title: project.title || '', summary: project.summary?.content || '', projectSummary: project.projectSummary || '', premise: creativeDirection(project), script: project.script || '',
@@ -107,7 +108,7 @@ export class StoryModel {
       ...(this.kind === 'props' && !review ? [segment('context', '【本次提取范围】', this.config.target)] : []),
       ...this.config.facts(this),
       segment('context', this.kind === 'outline' ? '【必须出场角色】' : '【项目库目录】', this.kind === 'outline' ? requiredCharacters(this.source) : libraryDirectory(this.source, this.kind)),
-      ...(this.kind === 'outline' ? [] : [segment('context', '【库关联规则】', '同一身体身份的年龄、着装、身份变化用已有 libraryId 新建变体；独立身体身份才新建角色。两个有效 ID 直接复用库字段与图片；只有 libraryId 则新增变体；无 ID 时名字或别名匹配默认变体，否则新建条目。审核核对剧情与关联依据。')]),
+      ...(this.kind === 'outline' ? [] : [segment('context', '【库关联规则】', '同一人物身份复用已有 libraryId；独立身体身份才新建角色。已有 libraryId 时复用该人物资料与图片；无 ID 时按名字或别名匹配，否则新建条目。审核核对剧情与关联依据。')]),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),
       ...(this.config.cardExtraction ? [] : assets),
     ]

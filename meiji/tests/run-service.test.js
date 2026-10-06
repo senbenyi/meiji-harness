@@ -123,74 +123,46 @@ test('用户意见重插原目标的下游，不丢同 Run 的制作终点；无
   await e.service.drain()
 })
 
-test('每秒指令中间镜头审核暂停后，提交意见会继续后续等待镜头', async t => {
-  let recovering = false
-  const e = await setup(t, { execute: async (_, step) => {
-    if (!recovering && ['review', 're_review'].includes(step.kind) && step.target === 'seconds:S02') return { passed: false, issues: [{ reason: '第二镜需要修改' }] }
-    return ['review', 're_review'].includes(step.kind) ? { passed: true } : {}
-  } })
-  await e.store.save(e.id, current => {
-    const source = current.episodes[0].shots.items[1], third = structuredClone(source)
-    third.id = 'S03'; third.seconds.id = 'seconds:S03'; third.storyboard.id = 'storyboard:S03'; third.video.id = 'film:S03'; third.tailFrame.id = 'tailFrame:S03'
-    current.episodes[0].shots.items.push(third)
-    return current
-  })
-  const preview = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'seconds', mode: 'regenerate' } }, sessionId)
-  await e.service.confirm(e.id, preview.run.id, sessionId, { confirmDelete: true }); await e.service.drain()
-  let paused = await e.service.get(e.id, preview.run.id, sessionId)
-  assert.equal(paused.status, 'paused')
-  assert.ok(paused.steps.some(step => step.target === 'seconds:S03' && step.status === 'pending'))
-
-  const goal = { to: 'seconds', scope: { tracks: ['S02'] }, mode: 'modify', feedback: '修正第二镜并继续后续镜头' }
-  const change = await e.service.preview(e.id, paused.id, sessionId, { goal })
-  assert.ok(change.steps.some(step => step.target === 'seconds:S03' && step.origin === 'cascade'))
-  recovering = true
-  await e.service.amend(e.id, paused.id, sessionId, { goal, confirmDelete: true, projectRevision: change.projectRevision })
-  await e.service.drain()
-  paused = await e.service.get(e.id, preview.run.id, sessionId)
-  assert.equal(paused.status, 'completed')
-  assert.ok(paused.steps.filter(step => step.target === 'seconds:S03').some(step => step.status === 'done'))
-})
-
-test('每秒指令顶部带意见修订从中断镜头继续，不重跑已通过镜头', async t => {
-  let recovering = false; const seen = []
-  const e = await setup(t, { execute: async (_, step) => {
-    seen.push(`${step.kind}:${step.target}`)
-    if (!recovering && ['review', 're_review'].includes(step.kind) && step.target === 'seconds:S02') return { passed: false, issues: [{ reason: '第二镜需要修改' }] }
-    return ['review', 're_review'].includes(step.kind) ? { passed: true } : {}
-  } })
-  await e.store.save(e.id, current => {
-    const source = current.episodes[0].shots.items[1], third = structuredClone(source)
-    third.id = 'S03'; third.seconds.id = 'seconds:S03'; third.storyboard.id = 'storyboard:S03'; third.video.id = 'film:S03'; third.tailFrame.id = 'tailFrame:S03'
-    current.episodes[0].shots.items.push(third)
-    return current
-  })
-  const preview = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'seconds', mode: 'regenerate' } }, sessionId)
-  await e.service.confirm(e.id, preview.run.id, sessionId, { confirmDelete: true }); await e.service.drain()
-  const paused = await e.service.get(e.id, preview.run.id, sessionId)
-  // 模拟真实执行器已经把第一镜落定、第二镜记录为未通过，规划器才能从第二镜定位续跑起点。
-  await e.store.save(e.id, current => {
-    const episode = current.episodes[0]
-    episode.shots.items[0].seconds.content = { version: 1, beats: [{}] }
-    episode.shots.items[0].seconds.check = { passed: true, failures: [], revision: episode.shots.items[0].seconds.revision }
-    episode.shots.items[1].seconds.check = { passed: false, failures: ['第二镜需要修改'], revision: episode.shots.items[1].seconds.revision }
-    episode.shots.items[2].seconds.content = null
-    episode.shots.items[2].seconds.check = { passed: null, failures: [], revision: episode.shots.items[2].seconds.revision }
-    return current
-  })
-  const prepared = await e.store.read(e.id)
-  assert.equal(prepared.episodes[0].shots.items[0].seconds.content?.version, 1)
-  assert.equal(prepared.episodes[0].shots.items[0].seconds.check.passed, true)
-  const goal = { to: 'seconds', mode: 'modify', feedback: '修正第二镜并继续后续镜头' }
-  const change = await e.service.preview(e.id, paused.id, sessionId, { goal })
-  assert.deepEqual([...new Set(change.steps.filter(step => step.origin !== 'cascade').map(step => step.target))], ['seconds:S02', 'seconds:S03'], JSON.stringify(change.steps.map(step => [step.kind, step.target, step.origin])))
-  recovering = true
-  await e.service.amend(e.id, paused.id, sessionId, { goal, confirmDelete: true, projectRevision: change.projectRevision })
-  await e.service.drain()
-  const current = await e.service.get(e.id, preview.run.id, sessionId)
-  assert.equal(current.status, 'completed')
-  assert.equal(seen.filter(item => item === 'generate:seconds:S01').length, 1, JSON.stringify(seen))
-  assert.ok(seen.includes('generate:seconds:S03'))
+test('每秒指令中间镜头审核用尽后任务直接结束；再次修改新建任务，从中断镜头继续，不重跑已通过镜头', async t => {
+  for (const feedback of ['修正第二镜并继续后续镜头', undefined]) {
+    let recovering = false; const seen = []
+    const e = await setup(t, { execute: async (_, step) => {
+      seen.push(`${step.kind}:${step.target}`)
+      if (!recovering && ['review', 're_review'].includes(step.kind) && step.target === 'seconds:S02') return { passed: false, issues: [{ reason: '第二镜需要修改' }] }
+      return ['review', 're_review'].includes(step.kind) ? { passed: true } : {}
+    } })
+    await e.store.save(e.id, current => {
+      const source = current.episodes[0].shots.items[1], third = structuredClone(source)
+      third.id = 'S03'; third.seconds.id = 'seconds:S03'; third.storyboard.id = 'storyboard:S03'; third.video.id = 'film:S03'; third.tailFrame.id = 'tailFrame:S03'
+      current.episodes[0].shots.items.push(third)
+      return current
+    })
+    const preview = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'seconds', mode: 'regenerate' } }, sessionId)
+    await e.service.confirm(e.id, preview.run.id, sessionId, { confirmDelete: true }); await e.service.drain()
+    const failed = await e.service.get(e.id, preview.run.id, sessionId)
+    assert.equal(failed.status, 'failed')
+    assert.equal(failed.failure.code, 'review_exhausted'); assert.equal(failed.failure.target, 'seconds:S02')
+    assert.ok(failed.steps.filter(step => step.target === 'seconds:S03').every(step => step.status === 'superseded'))
+    await assert.rejects(e.service.resume(e.id, failed.id, sessionId, { action: 'override', stepId: failed.failure.stepId }), { status: 409 })
+    // 模拟真实执行器已经把第一镜落定、第二镜记录为未通过，规划器才能从第二镜定位续跑起点。
+    await e.store.save(e.id, current => {
+      const episode = current.episodes[0]
+      episode.shots.items[0].seconds.content = { version: 1, beats: [{}] }
+      episode.shots.items[0].seconds.check = { passed: true, failures: [], revision: episode.shots.items[0].seconds.revision }
+      episode.shots.items[1].seconds.check = { passed: false, failures: ['第二镜需要修改'], revision: episode.shots.items[1].seconds.revision }
+      episode.shots.items[2].seconds.content = null
+      episode.shots.items[2].seconds.check = { passed: null, failures: [], revision: episode.shots.items[2].seconds.revision }
+      return current
+    })
+    recovering = true
+    const next = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'seconds', mode: 'modify', ...(feedback ? { feedback } : {}) } }, sessionId)
+    assert.notEqual(next.run.id, failed.id)
+    assert.deepEqual([...new Set(next.run.steps.map(step => step.target))], ['seconds:S02', 'seconds:S03'])
+    await e.service.confirm(e.id, next.run.id, sessionId, { confirmDelete: true }); await e.service.drain()
+    assert.equal((await e.service.get(e.id, next.run.id, sessionId)).status, 'completed')
+    assert.equal(seen.filter(item => item === 'generate:seconds:S01').length, 1, JSON.stringify(seen))
+    assert.ok(seen.includes('generate:seconds:S03'))
+  }
 })
 
 test('放弃候选图完成对应等待，不无条件要求生成新图', async t => {
@@ -221,7 +193,7 @@ test('Run 与旧直接操作共用步骤锁；旧占用释放并发事件后自�
   assert.equal(occupant(e.home, e.op('outline-text')), null)
 })
 
-test('HTTP 同源/会话保护、确认登记 job、失败分支重试和快照归属', async t => {
+test('HTTP 同源/会话保护、确认登记 job、失败后结束并可重新发起、快照归属', async t => {
   let failed = false
   const e = await setup(t, { execute: async (run, step, { record }) => {
     await record('responses', { text: '运行记录' })
@@ -247,15 +219,19 @@ test('HTTP 同源/会话保护、确认登记 job、失败分支重试和快照�
   assert.equal(confirmed.value.jobId, undefined, '面板不通知会话')
   const observing = e.jobs.bind(created.value.run, sessionId, { source: 'session' })
   await e.service.drain(); await e.registry.wait(observing, 5000, sessionId)
-  assert.equal(JSON.parse(e.registry.read(observing, sessionId).result).status, 'paused')
+  const observed = JSON.parse(e.registry.read(observing, sessionId).result)
+  assert.equal(observed.status, 'failed'); assert.equal(observed.failure.message, '暂时故障')
   assert.equal(e.jobs.guard({ name: 'job_kill', arguments: { job_id: observing } }), undefined)
-  const paused = (await call(`runs/${id}`)).value.run, stepId = paused.pause.reasons[0].stepId
+  const ended = (await call(`runs/${id}`)).value.run, stepId = ended.failure.stepId
   const records = await call(`runs/${id}/steps/${stepId}/responses`)
   assert.equal(records.value.responses.length, 1)
   assert.equal((await call(`runs/${id}/steps/missing/responses`)).code, 404)
-  const following = e.jobs.bind(paused, sessionId, { afterRevision: paused.revision, source: 'session' })
-  const resumed = await call(`runs/${id}/resume`, { projectId: e.id, sessionId, action: 'retry', stepId })
-  assert.equal(resumed.code, 200)
+  // 执行失败后任务已结束：不能在原任务重试，重新发起会新建任务。
+  assert.equal((await call(`runs/${id}/resume`, { projectId: e.id, sessionId, action: 'retry', stepId })).code, 409)
+  const again = await call('runs', { ...e.input, sessionId })
+  assert.equal(again.code, 201); assert.notEqual(again.value.run.id, id)
+  const following = e.jobs.bind(again.value.run, sessionId, { source: 'session' })
+  assert.equal((await call(`runs/${again.value.run.id}/confirm`, { projectId: e.id, sessionId, confirmDelete: true })).code, 200)
   await e.service.drain(); await e.registry.wait(following, 5000, sessionId)
   assert.equal(JSON.parse(e.registry.read(following, sessionId).result).status, 'completed')
 })
@@ -273,7 +249,7 @@ test('jobs owner/service 销毁只脱离观察，普通取消仍取消 Run', asy
   }
 })
 
-test('真实正文快照重启读取走 Run 归属，内容与 Run 均显示中断而非取消', async t => {
+test('真实正文快照重启读取走 Run 归属，内容与 Run 均显示中断结束而非取消，可重新发起', async t => {
   const e = await setup(t, { deps: { request: async message => message.skill === 'review' ? reviewPass : JSON.stringify(outlineFixture('用于重启的正文')) } })
   const { run } = await e.service.plan(e.input, sessionId)
   await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()
@@ -287,11 +263,13 @@ test('真实正文快照重启读取走 Run 归属，内容与 Run 均显示中�
   await interruptRunning(e.store)
   await e.service.recover(e.id); await e.service.drain()
   const current = await e.service.get(e.id, run.id, sessionId)
-  assert.equal(current.status, 'paused'); assert.equal(current.endedAt, null)
-  assert.equal(current.pause.reasons[0].code, 'interrupted')
-  assert.match((await e.read()).plot.outline.error, /任务已暂停/)
-  await e.service.resume(e.id, run.id, sessionId, { action: 'retry', stepId: run.steps[1].id }); await e.service.drain()
-  assert.equal((await e.service.get(e.id, run.id, sessionId)).status, 'completed')
+  assert.equal(current.status, 'failed'); assert.ok(current.endedAt)
+  assert.equal(current.failure.code, 'interrupted')
+  assert.match((await e.read()).plot.outline.error, /任务已结束/)
+  await assert.rejects(e.service.resume(e.id, run.id, sessionId, { action: 'retry', stepId: run.steps[1].id }), { status: 409 })
+  const { run: next } = await e.service.plan(e.input, sessionId)
+  await e.service.confirm(e.id, next.id, sessionId, { confirmDelete: true }); await e.service.drain()
+  assert.equal((await e.service.get(e.id, next.id, sessionId)).status, 'completed')
 })
 
 test('生产面板统一登录保护在 Run 路由前执行', async t => {
@@ -344,18 +322,15 @@ test('取消期间晚到的真实模型正文不会覆盖已保存数据', async
   assert.equal(JSON.stringify((await e.read()).plot.outline.content), baseline)
 })
 
-test('真实审核用尽后人工放行同 Run，保留项目与剧集身份，会话不可放行', async t => {
+test('真实审核用尽后任务直接结束，保留项目与剧集身份，不能在原任务放行', async t => {
   const e = await setup(t, { deps: { request: async message => message.skill === 'review' ? JSON.stringify({ passed: false, issues: [{ location: '转折', reason: '需人工取舍', requirement: '明确转折' }] }) : JSON.stringify(outlineFixture('等待人工确认')) } })
   const { run } = await e.service.plan(e.input, sessionId)
   await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()
-  const paused = await e.service.get(e.id, run.id, sessionId), stepId = paused.pause.reasons[0].stepId
-  assert.equal(paused.pause.reasons[0].code, 'review_exhausted')
-  await assert.rejects(e.service.resume(e.id, run.id, sessionId, { action: 'override', stepId }, 'session'), { status: 403 })
-  await e.service.resume(e.id, run.id, sessionId, { action: 'override', stepId }); await e.service.drain()
+  const ended = await e.service.get(e.id, run.id, sessionId), stepId = ended.failure.stepId
+  assert.equal(ended.status, 'failed'); assert.equal(ended.failure.code, 'review_exhausted')
+  assert.equal(ended.steps.find(step => step.id === stepId).output.passed, false)
+  await assert.rejects(e.service.resume(e.id, run.id, sessionId, { action: 'override', stepId }), { status: 409 })
   const root = await e.store.read(e.id)
   assert.equal(root.id, e.id); assert.equal(root.episodes[0].id, e.episodeId)
-  assert.equal(root.episodes[0].plot.outline.check.passed, true)
-  const saved = await e.service.get(e.id, run.id, sessionId)
-  assert.equal(saved.status, 'completed'); assert.equal(saved.steps.at(-1).kind, 'override')
-  assert.equal(saved.steps.find(step => step.id === stepId).output.passed, false)
+  assert.equal(root.episodes[0].plot.outline.check.passed, false)
 })

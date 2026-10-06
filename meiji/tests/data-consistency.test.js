@@ -28,7 +28,7 @@ test('same asset may be used by two episodes; detach never deletes shared file',
  await runOperation(e.op('clear-image',{itemId:'C01'}),{home:e.home})
  const p=await e.store.read(e.id);assert.equal(p.episodes[0].plot.characters.items[0].image.content,null);assert.equal(p.episodes[1].plot.characters.items[0].image.content.assetId,ref.assetId);assert.ok((await assetStore(e.home).file('characters',ref.assetId)).path)
 })
-for(const kind of ['character','part'])test(`${kind} preview publishes to the local library without a gateway upload`,async t=>{
+for(const kind of ['character'])test(`${kind} preview publishes to the local library without a gateway upload`,async t=>{
  const e=await pending(t,kind);assert.equal((await assetStore(e.home).list('characters')).length,0)
  await runOperation(e.operation,e.deps);const p=await e.read();const media=kind==='part'?p.plot.characters.items[0].clothes[0]:p.plot.characters.items[0].image.content
  assert.equal(Object.hasOwn(media,'imageUrl')||Object.hasOwn(media,'file'),false);assert.ok(media.assetId);assert.match(media.localPath||media.url,/asset-file/);assert.deepEqual(p.pendingImages,{});await assert.rejects(readImageDraft(e.home,e.draft.draftId),{code:'ENOENT'})

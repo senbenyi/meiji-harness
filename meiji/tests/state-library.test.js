@@ -18,6 +18,11 @@ for (const [kind, id, type] of [['characters', 'C01', 'role'], ['scenes', 'E01',
     const alias = mergeLibraryGroup(project, kind, { items: [{ ...card, name: '别名', look: '模型新描述' }] })
     assert.equal(alias.library[kind].length, 1); assert.equal(alias.plot[kind].items[0].name, '名称'); assert.equal(alias.plot[kind].items[0][kind === 'props' ? 'description' : 'look'], kind === 'props' ? '道具描述' : '原描述')
     assert.equal(alias.plot[kind].items[0].ref.linkedBy, 'name')
+    if (kind === 'characters') {
+      assert.throws(() => addLibraryVariant(project, kind, entry.id, { ...card, look: '新变体', variantLabel: '改变状态' }), /不支持多造型/)
+      assert.throws(() => mergeLibraryGroup(project, kind, { items: [{ ...card, libraryId: entry.id, variantLabel: '另一状态' }] }), /变体|造型/)
+      return
+    }
     const variant = addLibraryVariant(project, kind, entry.id, { ...card, look: '新变体', variantLabel: '改变状态' })
     const selected = mergeLibraryGroup(project, kind, { items: [{ ...card, libraryId: entry.id, variantId: variant.variant.id }] })
     assert.equal(selected.plot[kind].items[0].ref.variantId, variant.variant.id)
@@ -48,11 +53,11 @@ test('关联文字和确认图片同次同步所有剧集；关联锁读取存�
   root = await e.store.read(e.id); assert.ok(root.episodes.every(episode => episode.plot.characters.items[0].image.content.assetId === 'photo'))
   assert.equal(root.library.characters[0].variants[0].image.content.assetId, 'photo')
   await e.store.save(e.id, root => {
-    const episode = root.episodes[0], edit = editLinkedCard({ ...episode, library: root.library, episodeId: episode.id }, 'characters', 'C01', { age: '五十岁' }, { newVariant: true })
-    root.library = edit.library; episode.plot = edit.plot; return root
+    const current = root.episodes[0]
+    assert.throws(() => editLinkedCard({ ...current, library: root.library, episodeId: current.id }, 'characters', 'C01', { age: '五十岁' }, { newVariant: true }), /不支持多造型/)
+    return root
   })
-  root = await e.store.read(e.id); assert.equal(root.episodes[0].plot.characters.items[0].age, '五十岁'); assert.equal(root.episodes[1].plot.characters.items[0].age, '四十岁')
-  assert.equal(root.episodes[0].plot.characters.items[0].image.content, null)
+  root = await e.store.read(e.id); assert.equal(root.episodes[0].plot.characters.items[0].age, '四十岁'); assert.equal(root.episodes[1].plot.characters.items[0].age, '四十岁')
 })
 
 test('库变体图片重启释放 operation，保留已确认图片', async t => {
@@ -78,7 +83,7 @@ test('库操作创建、关联、删除保护、合并迁移和解除关联使�
   await run('entry-merge', { libraryId: source.id, destinationId: destination.id })
   root = await e.store.read(e.id)
   assert.equal(root.library.characters.length, 1); assert.equal(root.episodes[0].plot.characters.items[0].ref.libraryId, destination.id)
-  assert.equal(root.episodes[0].plot.characters.items[0].age, '青年'); assert.equal(root.library.characters[0].variants.length, 2)
+  assert.equal(root.episodes[0].plot.characters.items[0].age, ''); assert.equal(root.library.characters[0].variants.length, 1)
   assert.equal(root.episodes[0].shots.items[0].storyboard.content, null)
   await run('card-unlink', { itemId: 'C01' })
   root = await e.store.read(e.id); assert.equal(root.episodes[0].plot.characters.items[0].ref, undefined)

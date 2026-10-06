@@ -47,11 +47,33 @@ export function validateSeconds(content, shot, project) {
   // 已登记人物/场景在正文出现时不能绕过标记；对白原文不参加名称扫描。
   const missing = [], catalog = entityCatalog(project)
   for (const beat of beats) for (const field of ['action', 'camera', 'space', 'endState']) {
-    const text = beat[field], unmarked = collapseMentions(text, project).replace(/【[^【】]+】/g, '')
-    for (const e of catalog) if (e.name && unmarked.includes(e.name)) missing.push(`${shot.id}/${beat.id}.${field} 原文「${text}」中的${e.name}须写为${entityMention(e)}`)
+    for (const { entity, snippet } of bareMentions(beat[field], project, catalog)) missing.push(`${shot.id}/${beat.id}.${field} 片段「${snippet}」中的${entity.name}须写为${entityMention(entity)}（只改这一处，已标记的不动）`)
   }
   if (missing.length) fail(missing.join('；'))
   return entities
+}
+// 找出正文中没有标记的实体名，返回带上下文的片段；已标记部分按名字显示，长名字优先，避免「武松宅邸卧房」里再报「武松」。
+function bareMentions(text, project, catalog) {
+  const parts = collapseMentions(text, project).split(/(【[^【】]+】)/)
+  const shown = parts.map((part, i) => i % 2 ? (part.match(/^【([^【】|]+)\|/)?.[1] ?? part) : part)
+  const full = shown.join(''), names = catalog.filter(e => e.name).sort((a, b) => b.name.length - a.name.length)
+  const hits = [], covered = []
+  let offset = 0
+  parts.forEach((part, i) => {
+    if (!(i % 2)) for (const entity of names) {
+      for (let at = part.indexOf(entity.name); at >= 0; at = part.indexOf(entity.name, at + entity.name.length)) {
+        const start = offset + at, end = start + entity.name.length
+        if (covered.some(([s, e]) => start < e && end > s)) continue
+        covered.push([start, end])
+        hits.push({ entity, start, end })
+      }
+    }
+    offset += shown[i].length
+  })
+  return hits.sort((a, b) => a.start - b.start).map(({ entity, start, end }) => ({
+    entity,
+    snippet: `${start > 12 ? '…' : ''}${full.slice(Math.max(0, start - 12), end + 12)}${end + 12 < full.length ? '…' : ''}`,
+  }))
 }
 export function parseSecondsResponse(text, shots, project) {
   let result

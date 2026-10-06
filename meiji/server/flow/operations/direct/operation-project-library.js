@@ -22,6 +22,7 @@ async function photo(c) {
 }
 export async function opProjectLibrary(c) {
   const { operation: op, projects, project } = c, kind = op.libraryKind, spec = kindOf(kind)
+  if (kind === 'characters' && ['entry-variant-add', 'entry-variant-delete'].includes(op.action)) invalid('人物不支持多造型')
   const image = await photo(c)
   if (['entry-image-confirm', 'entry-image-discard'].includes(op.action)) {
     const pending = project.pendingImages?.[op.draftId], target = pending && libraryTarget(project, pending.libraryKind, pending)
@@ -97,13 +98,22 @@ export async function opProjectLibrary(c) {
         const destination = list.find(item => item.id === op.destinationId)
         if (!destination || destination === entry) invalid('请选择同类目标条目')
         const ids = new Map()
-        for (const variant of entry.variants) {
+        if (kind === 'characters') {
+          for (const variant of entry.variants) ids.set(variant.id, destination.defaultVariantId)
+          const source = entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0]
+          const targetVariant = destination.variants.find(item => item.id === destination.defaultVariantId) || destination.variants[0]
+          if (source && targetVariant) targetVariant.fields = { ...source.fields, ...targetVariant.fields }
+        } else for (const variant of entry.variants) {
           const added = addLibraryVariant(next, kind, destination.id, { fields: variant.fields, label: variant.label, image: variant.image }, variant.createdFrom)
           ids.set(variant.id, added.variant.id)
         }
         destination.aliases = [...new Set([...destination.aliases, entry.name, ...entry.aliases])].filter(name => name !== destination.name)
         if (kind === 'characters') destination.required ||= entry.required
-        for (const episode of next.episodes) for (const card of episode.plot[kind].items) if (card.ref?.libraryId === entry.id) card.ref = { libraryId: destination.id, variantId: ids.get(card.ref.variantId), linkedBy: 'human' }
+        for (const episode of next.episodes) for (const card of episode.plot[kind].items) if (card.ref?.libraryId === entry.id) {
+          const ref = { libraryId: destination.id, variantId: ids.get(card.ref.variantId), linkedBy: 'human' }
+          Object.assign(card, applyLibraryCard(episode, kind, card, libraryTarget(next, kind, ref), 'human'))
+          if (kind === 'characters') Object.assign(card, (entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0])?.fields || {})
+        }
         for (const prop of next.library.props) if (prop.ownerLibraryId === entry.id) prop.ownerLibraryId = destination.id
         next.library[kind] = list.filter(item => item.id !== entry.id)
       } else invalid('不支持的库操作')

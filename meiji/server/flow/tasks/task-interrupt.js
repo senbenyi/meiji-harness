@@ -12,7 +12,7 @@ const running = node => node.operation ? node.operation.phase !== 'awaiting-conf
 export async function interruptRunning(store) {
   for (const project of await store.list()) {
     const records = await store.interruptRecords?.(project.id)
-    const interruptedMessage = target => records?.runStepIds?.has(target.operation?.id) ? '服务重启，步骤执行中断，任务已暂停，请重试' : RESTART_CANCELLED
+    const interruptedMessage = target => records?.runStepIds?.has(target.operation?.id) ? '服务重启，步骤执行中断，任务已结束，请重新发起' : RESTART_CANCELLED
     if (!running(project.summary) && !libraryNodes(project).some(running) && !project.episodes.some(e => allNodes(e).some(n => n.operation || n.status === GenerationStatus.GENERATING))) continue
     const remote = new Map()
     for (const episode of project.episodes) for (const target of allNodes(episode)) {

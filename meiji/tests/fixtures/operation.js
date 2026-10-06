@@ -52,7 +52,7 @@ export async function runOperation(operation, deps) {
     abort = () => { void engine.cancel(root.id, run.id) }
     deps.signal?.addEventListener('abort', abort, { once: true })
     await engine.confirm(root.id, run.id); await engine.drain()
-    const current = await engine.get(root.id, run.id), reason = current.pause?.reasons[0]
+    const current = await engine.get(root.id, run.id), reason = current.failure || current.pause?.reasons[0]
     // 一次调用代表一个独立目标：执行失败与审核用尽都作为拒绝返回，收尾时结束未完成的任务以便测试发起下一个目标。
     if (reason?.code === 'review_exhausted') {
       const issues = current.steps.find(step => step.id === reason.stepId)?.output?.issues || []
@@ -63,7 +63,7 @@ export async function runOperation(operation, deps) {
     const trace = current.steps.flatMap(step => step.output?.trace || []); trace.result = current.steps.findLast(step => step.output?.result)?.output.result || {}; return trace
   } finally {
     deps.signal?.removeEventListener('abort', abort)
-    if (run) { const left = await engine.get(root.id, run.id); if (!['completed', 'cancelled'].includes(left.status)) { await engine.cancel(root.id, run.id); await engine.drain().catch(() => {}) } }
+    if (run) { const left = await engine.get(root.id, run.id); if (!['completed', 'failed', 'cancelled'].includes(left.status)) { await engine.cancel(root.id, run.id); await engine.drain().catch(() => {}) } }
     await engine.dispose()
   }
 }

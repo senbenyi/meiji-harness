@@ -4,6 +4,7 @@ import { completeChat, generateGatewayImage, characterImageSize, gatewayVideoSiz
 import { createRunEngine } from '../server/flow/runs/run-engine.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { tempHome, setupModel } from './fixtures/model.js'
+import { publicData, redactJson } from '../server/gateway/redact.js'
 
 const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key', model: 'elysium-image' }
 const stop = controller => controller.abort(Object.assign(new Error('任务已停止'), { code: 'TASK_CANCELLED' }))
@@ -194,8 +195,9 @@ test('service shutdown aborts the local step and sends no remote cancel', async 
   await paused.promise
   await engine.dispose()
   const stored = await engine.get(e.id, run.id)
-  assert.equal(stored.status, 'paused')
-  assert.deepEqual(stored.pause.reasons.map(reason => [reason.code, reason.actions]), [['step_failed', ['retry', 'cancel-branch']]])
+  // 停服中断属于被动中断：任务直接结束，需要时重新发起。
+  assert.equal(stored.status, 'failed')
+  assert.equal(stored.failure.code, 'step_failed')
   assert.deepEqual(calls, [['/v1/videos/video_1', 'GET']])
 })
 
@@ -313,4 +315,9 @@ test('stopping after receiving image bytes fails the combined download/Base64 ac
     } }), { code: 'TASK_CANCELLED' })
   }, { kind: 'image', target: 'image:C01' })
   assert.deepEqual(nodes.map(step => [step.kind, step.status]), [['image_generate', 'done'], ['image_download', 'paused']])
+})
+
+test('没有请求体的 GET（下载图片/查询视频）留痕时不会因脱敏报错', () => {
+  assert.equal(publicData(undefined, 'test-key'), undefined)
+  assert.equal(redactJson(undefined, 'test-key'), null)
 })

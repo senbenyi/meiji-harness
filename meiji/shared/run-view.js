@@ -1,13 +1,14 @@
 // Run 查询与展示共用的纯规则。
-export const runStatusLabels = { draft: '未生成', running: '生成中', paused: '待处理', completed: '已通过', cancelled: '已取消' }
+export const runStatusLabels = { draft: '未生成', running: '生成中', paused: '待处理', completed: '已通过', failed: '未通过', cancelled: '已取消' }
 export const runStatusFilters = [['draft', '未生成'], ['running', '生成中'], ['failed', '未通过'], ['paused', '待处理'], ['completed', '已通过'], ['cancelled', '已取消']]
 const failedPauseCodes = new Set(['step_failed', 'review_exhausted'])
 export function runDisplayStatus(run) {
+  if (run.status === 'failed') return { key: 'failed', label: '未通过' }
   const failedStep = run.steps?.some(step => step.status === 'paused' && (step.output?.passed === false || step.error))
   if (run.status === 'paused' && (run.pause?.reasons?.some(reason => failedPauseCodes.has(reason.code)) || failedStep)) return { key: 'failed', label: '未通过' }
   return { key: ({ draft: 'not-generated', running: 'generating', paused: 'paused', completed: 'passed', cancelled: 'cancelled' })[run.status] || run.status, label: runStatusLabels[run.status] || run.status }
 }
-export const runStepStatusLabels = { pending: '等待前置', ready: '等待执行', running: '执行中', done: '完成', paused: '待处理', superseded: '已作废', skipped: '已跳过', cancelled: '已取消' }
+export const runStepStatusLabels = { pending: '等待前置', ready: '等待执行', running: '执行中', done: '完成', paused: '待处理', failed: '未通过', superseded: '已作废', skipped: '已跳过', cancelled: '已取消' }
 export const historyScopes = { summary: ['摘要', ['summary']], script: ['剧情', ['outline', 'characters', 'scenes', 'props']], outline: ['大纲', ['outline']], characters: ['人物角色', ['characters']], scenes: ['场景', ['scenes']], props: ['道具', ['props']], shots: ['镜头表', ['shots']], seconds: ['每秒指令', ['seconds:*']], film: ['成片', ['storyboard:*', 'film:*']], assembly: ['合成', ['assembly']], images: ['图片', ['image:*']], 'project-summary': ['项目摘要', ['project-summary']] }
 export function historyTargets(scope = '') {
   if (scope.includes(',')) return scope.split(',')

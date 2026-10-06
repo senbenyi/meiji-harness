@@ -41,10 +41,11 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
     runStatus.className = `task-history-status run-detail-status is-${displayStatus.key}`
     body.append(element('p', `${displayStatus.label} · ${run.initiator === 'session' ? '会话发起' : '面板发起'} · ${time(run.startedAt || run.createdAt)} - ${time(run.endedAt)}`, 'meta run-detail-meta'))
 
-    if (run.pause?.reasons?.length) {
+    const reasonList = run.failure ? [run.failure] : run.pause?.reasons || []
+    if (reasonList.length) {
       const reasons = element('section', '', 'run-readonly-reasons')
-      reasons.append(element('h3', '处理原因'))
-      for (const reason of run.pause.reasons) {
+      reasons.append(element('h3', run.failure ? '结束原因' : '处理原因'))
+      for (const reason of reasonList) {
         const row = element('div', '', 'run-readonly-reason'), text = reason.message || reason.code || '任务需要处理'
         row.append(element('p', text), copyButton('复制', text)); reasons.append(row)
       }

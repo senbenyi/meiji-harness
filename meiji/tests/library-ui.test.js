@@ -32,5 +32,5 @@ test('库详情默认、照片来源、关联删除保护；卡片提供关联�
   assert.match(page.textContent, /必须出场/); assert.match(page.textContent, /指定照片/); assert.match(page.textContent, /关联 1 集/)
   assert.equal([...page.querySelectorAll('button')].find(button => button.textContent === '删除条目').disabled, true)
   const controls = cardLibraryControls(project, card, {})
-  assert.match(controls.textContent, /复用库图/); assert.match(controls.textContent, /解除关联/); assert.match(controls.textContent, /为本集新增造型/)
+  assert.match(controls.textContent, /复用库图/); assert.match(controls.textContent, /解除关联/); assert.doesNotMatch(controls.textContent, /新增造型|改变体/)
 })

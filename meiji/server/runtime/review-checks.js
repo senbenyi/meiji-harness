@@ -4,8 +4,8 @@ import { checkContext, apiFailed, inTextNode } from './operation-context.js'
 import { markFailed, markGenerating, markPendingReview } from '../../shared/content-state.js'
 const batchActions = new Set(['seconds', 'storyboard', 'films'])
 const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image'])
-const imageGenerationActions = new Set(['image', 'revise-image', 'part-image'])
-const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'prop-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'image', 'revise-image', 'part-image', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
+const imageGenerationActions = new Set(['image', 'revise-image'])
+const generationActions = new Set(['characters', 'scenes', 'props', 'scene-text', 'character-text', 'prop-text', 'episode-generate', 'outline', 'shots', 'revise-shot', 'seconds', 'shot-seconds', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'image', 'revise-image', 'film', 'films', 'assemble', 'storyboard-text', 'outline-text'])
 function keys(project, operation) {
   if (operation.action === 'outline' && operation.stageKey) return [operation.stageKey]
   if (operation.action === 'outline' || operation.action === 'outline-text') return [operation.stageKey || 'outline']

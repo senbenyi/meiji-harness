@@ -28,9 +28,9 @@ test('summary history binds each review to its exact published version and retai
  const failure = await runOperation(e.op('summary', { origin: 'panel' }), { home: e.home, request: async ({ skill }) => skill === 'review' ? reviewFail('缺少因果') : JSON.stringify({ summary: versions[drafts++], durationSeconds: 10 }) }).then(() => null, error => error)
  assert.match(failure.message, /自审未通过.*缺少因果/)
  assert.equal((await e.read()).summary.content, '二次修订稿')
- // 计划只含生成与自审；两轮修订与复审按审核结论动态追加并带轮次，最后一次复审用尽修订后暂停。
+ // 计划只含生成与自审；两轮修订与复审按审核结论动态追加并带轮次，最后一次复审用尽修订后任务结束。
  const steps = failure.run.steps.filter(step => step.target === 'summary')
- assert.deepEqual(steps.map(step => `${step.kind}${step.round ? '#' + step.round : ''}:${step.status}`), ['generate:done', 'review:done', 'revise#1:done', 're_review#1:done', 'revise#2:done', 're_review#2:paused'])
+ assert.deepEqual(steps.map(step => `${step.kind}${step.round ? '#' + step.round : ''}:${step.status}`), ['generate:done', 'review:done', 'revise#1:done', 're_review#1:done', 'revise#2:done', 're_review#2:failed'])
  assert.deepEqual(steps.filter(step => step.kind.includes('review')).map(step => step.output.passed), [false, false, false])
  const artifacts = (await stepArtifacts(e, failure.run, 'summary')).filter(item => versions.includes(item.content.summary))
  assert.deepEqual(artifacts.map(item => [item.kind, item.content.summary, item.published]), [['generate', '初稿', true], ['revise', '修订稿', true], ['revise', '二次修订稿', true]])

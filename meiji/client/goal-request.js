@@ -6,7 +6,7 @@ export function actionRequest(action, fields = {}) {
   if (action === 'shot-seconds') return { action: 'seconds', ...fields }
   if (['produce', 'produce-all', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'films', 'tail-frame'].includes(action)) return { action: 'film', ...fields,
     ...(['storyboard', 'shot-storyboard', 'storyboard-bind'].includes(action) ? { parts: 'storyboard' } : action === 'films' ? { parts: 'video' } : action === 'tail-frame' ? { parts: 'tail' } : {}) }
-  if (['image', 'revise-image', 'part-image'].includes(action)) return { action: fields.itemId?.startsWith('E') ? 'scene-image' : fields.itemId?.startsWith('P') ? 'prop-image' : 'character-image', ...fields }
+  if (['image', 'revise-image'].includes(action)) return { action: fields.itemId?.startsWith('E') ? 'scene-image' : fields.itemId?.startsWith('P') ? 'prop-image' : 'character-image', ...fields }
   return { action, ...fields }
 }
 export function goalRequest(action, fields = {}) {

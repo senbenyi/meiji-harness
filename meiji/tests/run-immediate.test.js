@@ -12,25 +12,30 @@ test('即时保存不排队、不建立旧任务；同 Run 的人工编辑需要
   for (const action of ['review', 'override']) {
     const e = await setupModel(t); useWorkspaces(t)
     await linkStore(e.home).selectProject(sessionId, e.id, e.store)
-    let passed = false, calls = 0
-    const runs = createRunService({ home: e.home, execute: async () => { calls++; return { passed } } })
+    // 生成步骤挂起时用户暂停任务；生成收尾后任务停在用户暂停，人工编辑接管同一任务。
+    let calls = 0; const gate = Promise.withResolvers()
+    const runs = createRunService({ home: e.home, execute: async (_run, step) => { calls++; if (calls === 1) await gate.promise; return step.kind.includes('review') ? { passed: true } : {} } })
     const edits = createImmediateService({ home: e.home, runs })
     t.after(async () => { await edits.dispose(); await runs.dispose() })
-    const { run } = await runs.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'outline' }, mode: 'review' } }, sessionId)
-    await runs.confirm(e.id, run.id, sessionId); await runs.drain()
+    const { run } = await runs.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'outline' }, mode: 'regenerate' } }, sessionId)
+    await runs.confirm(e.id, run.id, sessionId, { confirmDelete: true })
+    while (calls < 1) await new Promise(resolve => setTimeout(resolve, 5))
+    await runs.pause(e.id, run.id, sessionId)
+    gate.resolve(); await runs.drain()
+    assert.equal((await runs.get(e.id, run.id, sessionId)).status, 'paused')
     const saved = edits.start({ ...e.op('outline-text', { outline: outlineFixture('人工修改正文') }), sessionId, origin: 'panel' })
     const result = await saved.done
     assert.equal(saved.failure, null)
     assert.equal(result.status, 'completed'); assert.equal(result.continueRun.runId, run.id)
     const edited = await runs.get(e.id, run.id, sessionId)
-    assert.equal(edited.pause.reasons[0].code, 'manual_edit')
+    assert.ok(edited.pause.reasons.some(reason => reason.code === 'manual_edit'))
     assert.equal(calls, 1, '人工保存不调用模型')
-    assert.ok(edited.steps.some(step => step.kind === 'manual_edit' && step.status === 'done'))
     const manual = edited.steps.findLast(step => step.kind === 'manual_edit')
+    assert.equal(manual.status, 'done')
     assert.equal((await e.read()).plot.outline.source.stepId, manual.id)
     assert.equal((await runStore(e.home, e.id).records(run.id, manual.id, 'artifacts')).length, 1)
-    passed = true
-    await runs.resume(e.id, run.id, sessionId, { action, stepId: result.continueRun.stepId }); await runs.drain()
+    await runs.resume(e.id, run.id, sessionId, { action, stepId: result.continueRun.stepId })
+    await runs.resume(e.id, run.id, sessionId, { action: 'resume' }); await runs.drain()
     assert.equal((await runs.get(e.id, run.id, sessionId)).status, 'completed')
     assert.equal(calls, action === 'review' ? 2 : 1)
   }

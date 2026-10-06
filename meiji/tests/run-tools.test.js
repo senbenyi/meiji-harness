@@ -29,16 +29,26 @@ test('会话提交目标即执行：重新生成不询问删除，结果说明�
   const info = JSON.parse(await contextQueryTool({ home: e.home, runs: e.runs }).execute({}, e.exec))
   assert.deepEqual(info.current.runs, [])
 })
-test('同集已有暂停任务时新目标自动并入；缺少的前置自动纳入并执行', async t => {
-  let failing = true, calls = 0
-  const e = await setup(t, async () => { calls++; if (failing) throw new Error('连接失败'); return { passed: true } })
+test('同集已有暂停任务时新目标自动并入；失败结束的任务不并入，重新发起新建任务；缺少的前置自动纳入并执行', async t => {
+  let failing = true
+  const e = await setup(t, async () => { if (failing) throw new Error('连接失败'); return { passed: true } })
   const first = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'shots', mode: 'regenerate' } })
-  await e.runs.drain(); assert.equal((await e.runs.get(e.id, first.runId, sessionId)).status, 'paused')
-  failing = false
-  const merged = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'story', mode: 'regenerate' } })
-  assert.equal(merged.started, true); assert.equal(merged.merged, true); assert.equal(merged.runId, first.runId)
   await e.runs.drain()
-  const run = await e.runs.get(e.id, first.runId, sessionId)
+  const ended = await e.runs.get(e.id, first.runId, sessionId)
+  assert.equal(ended.status, 'failed'); assert.equal(ended.failure.message, '连接失败')
+  failing = false
+  const again = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'shots', mode: 'regenerate' } })
+  assert.equal(again.started, true); assert.equal(again.merged, false); assert.notEqual(again.runId, first.runId)
+  await e.runs.drain()
+  assert.equal((await e.runs.get(e.id, again.runId, sessionId)).status, 'completed')
+  // 用户暂停中的任务仍是进行中：同集新目标并入它。
+  const open = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'shots', mode: 'regenerate' } })
+  await e.runs.pause(e.id, open.runId, sessionId); await e.runs.drain()
+  assert.equal((await e.runs.get(e.id, open.runId, sessionId)).status, 'paused')
+  const merged = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'story', mode: 'regenerate' } })
+  assert.equal(merged.started, true); assert.equal(merged.merged, true); assert.equal(merged.runId, open.runId)
+  await e.call('run-resume', { runId: open.runId, action: 'resume' }); await e.runs.drain()
+  const run = await e.runs.get(e.id, open.runId, sessionId)
   // 剧情重做后，原目标内的镜头表作为下游重做，不会停在「缺少前置」。
   assert.equal(run.status, 'completed', JSON.stringify(run.pause))
   assert.ok(run.steps.some(step => step.target === 'shots' && step.origin === 'cascade' && step.status === 'done'))
@@ -49,6 +59,7 @@ test('同集已有暂停任务时新目标自动并入；缺少的前置自动�
   await e.runs.drain()
   assert.equal((await e.runs.get(e.id, next.runId, sessionId)).status, 'completed')
 })
+
 test('等待前置的任务 authorize 不带参数即补做全部前置；多余参数被忽略；报错附状态且不留后台任务', async t => {
   // 模拟执行器：审核大纲的步骤把大纲置为通过，等待它的镜头表随后自动解除暂停。
   let store, id
@@ -68,19 +79,24 @@ test('等待前置的任务 authorize 不带参数即补做全部前置；多余
   assert.equal(final.status, 'completed', JSON.stringify([final.pause, final.steps.map(step => [step.kind, step.target, step.status, step.origin])]))
 })
 test('面板任务可被会话找到并追加意见，模型不能调用人工放行', async t => {
-  let failing = true
-  const e = await setup(t, async () => { if (failing) throw new Error('连接失败'); return { passed: true } })
+  let calls = 0; const gate = Promise.withResolvers()
+  const e = await setup(t, async () => { calls++; if (calls === 1) await gate.promise; return { passed: true } })
   const preview = await e.runs.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'outline' }, mode: 'regenerate' } }, sessionId, 'panel')
-  await e.runs.confirm(e.id, preview.run.id, sessionId, { confirmDelete: true }); await e.runs.drain()
+  await e.runs.confirm(e.id, preview.run.id, sessionId, { confirmDelete: true })
+  while (calls < 1) await new Promise(resolve => setTimeout(resolve, 5))
+  await e.runs.pause(e.id, preview.run.id, sessionId); gate.resolve(); await e.runs.drain()
   const info = JSON.parse(await contextQueryTool({ home: e.home, runs: e.runs }).execute({}, e.exec))
-  assert.equal(info.current.runs[0].pause.reasons[0].code, 'step_failed')
+  assert.equal(info.current.runs[0].pause.reasons[0].code, 'user_paused')
   await assert.rejects(e.call('run-resume', { runId: preview.run.id, action: 'override', target: 'outline' }), /无效/)
-  failing = false
   const amended = await e.call('run-amend', { runId: preview.run.id, target: 'outline', feedback: '加强因果' })
-  assert.equal(amended.runId, preview.run.id); await e.runs.drain()
-  assert.equal((await e.runs.get(e.id, preview.run.id, sessionId)).status, 'completed')
+  assert.equal(amended.runId, preview.run.id)
+  await e.call('run-resume', { runId: preview.run.id, action: 'resume' }); await e.runs.drain()
+  const done = await e.runs.get(e.id, preview.run.id, sessionId)
+  assert.equal(done.status, 'completed')
+  assert.ok(done.steps.some(step => step.target === 'outline' && step.origin === 'user-feedback' && step.status === 'done'))
   assert.equal(e.runJobs.guard({ name: 'job_kill', arguments: { job_id: amended.jobId } }), undefined)
 })
+
 test('会话忽略未知参数，拒绝跳集及未绑定项目，不接受客户端身份和执行步骤', async t => {
   const e = await setup(t)
   await assert.rejects(e.call('run-plan', { episodeNumber: 1, goal: { to: 'film', actor: 'human' } }), /不支持的字段/)
@@ -92,17 +108,19 @@ test('会话忽略未知参数，拒绝跳集及未绑定项目，不接受客�
   await assert.rejects(tool.execute({ goal: { to: 'film' } }, { agent: { session: { id: 'another' } } }), /没有项目/)
 })
 
-test('会话重试不带对象时重试全部失败步骤；失败的工具调用不留下后台任务', async t => {
+test('执行失败后任务结束：会话不能在原任务继续，用原目标重新 run-plan 新建任务；失败的工具调用不留下后台任务', async t => {
   let fail = true
   const e = await setup(t, async () => { if (fail) throw new Error('upstream service error'); return { passed: true } })
-  const preview = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'story', scope: { only: 'outline' }, mode: 'regenerate' } })
+  const goal = { to: 'story', scope: { only: 'outline' }, mode: 'regenerate' }
+  const preview = await e.call('run-plan', { episodeNumber: 1, goal })
   await e.runs.drain()
-  assert.equal((await e.runs.get(e.id, preview.runId, sessionId)).status, 'paused')
+  assert.equal((await e.runs.get(e.id, preview.runId, sessionId)).status, 'failed')
   const jobs = e.registry.rows.size
-  await assert.rejects(e.call('run-resume', { runId: preview.runId, action: 'resume' }), /不允许该动作/)
+  await assert.rejects(e.call('run-resume', { runId: preview.runId, action: 'resume' }), /任务已经结束/)
+  await assert.rejects(e.call('run-resume', { runId: preview.runId, action: 'retry' }), /retry|action/)
   assert.equal(e.registry.rows.size, jobs)
   fail = false
-  const resumed = await e.call('run-resume', { runId: preview.runId, action: 'retry' })
-  assert.ok(resumed.jobId); await e.runs.drain()
-  assert.equal((await e.runs.get(e.id, preview.runId, sessionId)).status, 'completed')
+  const again = await e.call('run-plan', { episodeNumber: 1, goal })
+  assert.ok(again.jobId); assert.notEqual(again.runId, preview.runId); await e.runs.drain()
+  assert.equal((await e.runs.get(e.id, again.runId, sessionId)).status, 'completed')
 })

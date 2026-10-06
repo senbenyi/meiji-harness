@@ -1,7 +1,7 @@
 // 引用编排和人工编辑审核共用本镜资料，不引入整集剧情或前镜最终提示词。
 export function storyboardContext({ project, shot, video, characters = [], scenes = [], refs = '', task }) {
   const selected = (cards, names) => (cards || []).filter(card => names.includes(card.id) || names.includes(card.name))
-  const clean = card => Object.fromEntries(['id', 'name', 'type', 'look', 'identity', 'space', 'landmark', 'light', 'description', 'clothes', 'props', 'hairstyles']
+  const clean = card => Object.fromEntries(['id', 'name', 'type', 'look', 'identity', 'space', 'landmark', 'light', 'description']
     .filter(key => card[key] != null).map(key => [key, Array.isArray(card[key]) ? card[key].map(clean) : card[key]]))
   const people = selected(project.plot?.characters?.items, characters).map(clean)
   const places = selected(project.plot?.scenes?.items, scenes).map(clean)

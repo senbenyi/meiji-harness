@@ -6,8 +6,6 @@ import { operations as actionsEpisodeSource } from './direct/operation-source-ed
 import { operations as actionsImageClearImage } from './direct/operation-image-clear.js'
 import { operations as actionsImageImageCandidate } from './direct/operation-image-candidate.js'
 import { operations as actionsImageImportImage } from './direct/operation-image-import.js'
-import { operations as actionsImagePartImport } from './direct/operation-image-part-import.js'
-import { operations as actionsImagePartText } from './direct/operation-image-part-text.js'
 import { operations as actionsImageReference } from './direct/operation-image-reference.js'
 import { operations as actionsImageUseAsset } from './direct/operation-image-use-asset.js'
 import { operations as actionsProjectCreate } from './direct/operation-project-create.js'
@@ -25,7 +23,7 @@ import { operations as actionsStoryOutlineText } from './direct/operation-outlin
 import { operations as actionsStoryPropDelete } from './direct/operation-prop-delete.js'
 import { operations as actionsStorySceneText } from './direct/operation-scene-edit.js'
 import { operations as scriptDirect } from './direct/operation-script.js'
-const direct = { ...libraryDelete, ...projectLibrary, ...propText, ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
+const direct = { ...libraryDelete, ...projectLibrary, ...propText, ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
 // 只登记即时保存；制作目标由 shared/run-planner.js 规划，不在这里声明步骤。
 export const operations = Object.fromEntries(Object.entries({ ...direct, ...scriptDirect }).map(([id, value]) => [id, { ...value, kind: 'direct', actor: 'human' }]))
 const goals = new Set(['summary', 'project-summary', 'story', 'script-sync', 'script-revise', 'character-image', 'scene-image', 'prop-image', 'library-image', 'images', 'shot-table', 'seconds', 'film'])

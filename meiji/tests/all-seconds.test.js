@@ -114,13 +114,13 @@ for (const failure of ['review', 'program', 'api', 'cancel']) test(`第二镜 ${
 for (const invalid of ['truncated', 'foreign']) test(`${invalid} 响应不覆盖旧内容，失败原文留在历史`, async t => {
  const e = await environment(t), before = await e.read()
  const text = invalid === 'truncated' ? secondsResponse().slice(0, -8) : secondsResponse([['S02', 5, '错误镜头']])
- // 无法解析或与本镜不对应的原文不保存为正文：生成步骤内按校验问题修订两轮仍不通过后暂停，各轮原文留在未发布快照。
+ // 无法解析或与本镜不对应的原文不保存为正文：生成步骤内按校验问题修订两轮仍不通过后任务结束，各轮原文留在未发布快照。
  await assert.rejects(execute(e, async m => m.skill === 'review' ? reviewPass : text), /格式无效/)
  const p = await e.read()
  assert.deepEqual(p.shots.items.map(s => s.seconds.content), before.shots.items.map(s => s.seconds.content))
  const records = runStore(e.home, e.id), run = await latestRun(e.home, e.id)
- // S01 的步骤暂停，依赖它的 S02 不执行（夹具收尾时取消未完成的任务）。
- assert.ok(run.steps.filter(step => step.target === 'seconds:S02').every(step => step.status === 'cancelled' && !step.startedAt))
+ // S01 失败后任务结束，依赖它的 S02 不执行并作废。
+ assert.ok(run.steps.filter(step => step.target === 'seconds:S02').every(step => step.status === 'superseded' && !step.startedAt))
  const responses = (await Promise.all(run.steps.map(step => records.records(run.id, step.id, 'artifacts')))).flat().filter(a => a.target === 'seconds-response')
  // 生成 + 2 轮修订，各保存一份原始响应。
  assert.equal(responses.length, 3)
@@ -219,15 +219,21 @@ test('缺少字段的当前镜失败稿仍可查看，不影响已通过前镜',
  assert.equal(feedbackOf(p, 'seconds').canModify, true)
 })
 
-test('缺失的后镜在修改模式下正常补齐，并使用本轮前镜', async t => {
- const e = await environment(t)
+test('缺失的后镜在修改模式下从缺失镜头补齐，已通过前镜不重跑并作为连续性参考', async t => {
+ const e = await environment(t), generated = []
  await e.store.save(e.id, p => { p.episodes[0].shots.items[1].seconds.content = null; return p })
+ const first = (await e.read()).shots.items[0].seconds.content
  await execute(e, async m => {
-  if (m.skill !== 'review' && promptData(m.user, '【本次要求】').shotId === 'S02') {
-   assert.doesNotMatch(m.user, /【修改基稿】/)
-   assert.match(m.user, /第一镜新动作/)
+  if (m.skill !== 'review') {
+   const shotId = promptData(m.user, '【本次要求】').shotId
+   generated.push(shotId)
+   if (shotId === 'S02') {
+    assert.doesNotMatch(m.user, /【修改基稿】/)
+    assert.ok(m.user.includes(JSON.stringify(first)))
+   }
   }
   return reply(m)
  }, { generationMode: 'modify', review: '保持方向，补齐缺失镜头' })
+ assert.deepEqual(generated, ['S02'])
  assert.ok((await e.read()).shots.items.every(s => s.seconds.check.passed))
 })

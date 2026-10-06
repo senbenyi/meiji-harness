@@ -1,5 +1,5 @@
 import { node, cardModel } from './drama-model.js'
-import { imageAssets, pictureRecord, usableLook } from './image-assets.js'
+import { pictureRecord, usableLook } from './image-assets.js'
 import { videoPromptText as h3PromptText } from './video-prompt-text.js'
 import { episodeSummaryFailures, referenceDuration } from './episode-summary.js'
 import { outlineFailures } from './story-outline.js'
@@ -34,7 +34,7 @@ export function normalizeCharacters(raw) {
     const parts = characterLookParts(look)
     if (!parts) throw Object.assign(new Error('角色画面提示词要按顺序写明国籍、姓名、身份、性别、年代、年龄、服装、身高、体型和面相'), { status: 502 })
     return {
-      ...libraryFields(item),
+      ...libraryFields(item, 'characters'),
       id: `C${String(index + 1).padStart(2, '0')}`,
       name: required(item?.name || parts?.姓名, `角色 ${index + 1} 没有姓名`),
       type: 'role',
@@ -51,9 +51,10 @@ export function normalizeCharacters(raw) {
       prop: String(item?.prop || '').trim(),
       identity: required(item?.identity, `角色 ${index + 1} 没有身份锁定`),
       look,
-      clothes: imageAssets(item?.clothes),
-      props: imageAssets(item?.props),
-      hairstyles: imageAssets(item?.hairstyles),
+      // 兼容旧项目快照；新输出协议不再生成或使用人物部位/造型素材。
+      clothes: [],
+      props: [],
+      hairstyles: [],
       localPath: item?.localPath || null,
     }
   }).map(pictureRecord)
@@ -64,7 +65,7 @@ export function normalizeScenes(raw) {
   const list = Array.isArray(raw?.items) ? raw.items : []
   if (!list.length) throw Object.assign(new Error('场景卡是空的'), { status: 502 })
   const items = list.map((item, index) => ({
-    ...libraryFields(item),
+    ...libraryFields(item, 'scenes'),
     id: `E${String(index + 1).padStart(2, '0')}`,
     name: required(item?.name, `场景 ${index + 1} 没有名字`),
     type: 'scene',
@@ -88,7 +89,7 @@ export function normalizeProps(raw, project) {
     names.add(name)
     if (!['clothing', 'mount', 'weapon', 'accessory', 'prop'].includes(item.category)) throw new Error('道具类别错误')
     if (item.ownerId && !owners.has(item.ownerId)) throw new Error(`道具所属ID不存在：${item.ownerId}`)
-    return cardModel({ ...libraryFields(item), id: `P${String(index + 1).padStart(2, '0')}`, type: 'prop', name, category: item.category,
+    return cardModel({ ...libraryFields(item, 'props'), id: `P${String(index + 1).padStart(2, '0')}`, type: 'prop', name, category: item.category,
       ownerId: item.ownerId || '', description: required(item.description, '道具缺少描述'), evidence: required(item.evidence, '道具缺少提取依据') })
   })
   return { ...node('props'), items }
@@ -108,4 +109,8 @@ export function normalizeEpisodeDraft(raw, referenceDurationSeconds = 150) {
 // 只检查格式，不依据词语猜测人物或环境的剧情语义。
 export const outlineStructureFailures = outlineFailures
 
-function libraryFields(item) { return Object.fromEntries(['libraryId', 'variantId', 'variantLabel'].map(key => [key, String(item?.[key] || '').trim()])) }
+function libraryFields(item, kind) {
+  const fields = { libraryId: String(item?.libraryId || '').trim() }
+  if (kind !== 'characters') Object.assign(fields, { variantId: String(item?.variantId || '').trim(), variantLabel: String(item?.variantLabel || '').trim() })
+  return fields
+}

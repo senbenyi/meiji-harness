@@ -102,7 +102,7 @@ export function visualPlace(project, itemId) {
 export async function stageImageDraft(projects, project, draft, target) {
   if (!draft?.draftId) throw new Error('生成结果缺少待确认图片')
   await projects.save(project.id, current => {
-    const key = feedbackKey({ action: target.slot ? 'part-image' : 'image', track: target.track, itemId: target.itemId, slot: target.slot })
+    const key = feedbackKey({ action: 'image', track: target.track, itemId: target.itemId })
     consumeReview(targetNode(current, key))
     return { ...current, pendingImages: { ...current.pendingImages, [draft.draftId]: { ...draft, ...target } }}
   }, { final: true })

@@ -12,6 +12,8 @@ export function publicData(value, apiKey) {
     if (typeof item === 'string') return item.replace(/data:[^,\s]*;base64,[A-Za-z0-9+/_=-]+/g, data => `[base64 数据，${data.length - data.indexOf(',') - 1} 字符]`)
     return item
   })
+  // JSON.stringify(undefined) 返回 undefined（如 GET 请求没有 body），直接返回。
+  if (typeof json !== 'string') return json
   return apiKey ? json.replaceAll(apiKey, '[已隐藏]') : json
 }
 

@@ -4,8 +4,8 @@ import { libraryLinks, libraryKinds } from '../shared/library-rules.js'
 import { operationDeletes } from '../shared/operation-cascade.js'
 export function confirmRunPreview(anchor, initial, { refresh } = {}) {
   const steps = initial.steps || initial.run.steps
-  // 没有需要用户决定的内容（前置、删除、硬阻断）时直接执行，不弹确认。
-  if (!initial.prereq?.length && !initial.deletions?.length && !initial.blockers?.length) return Promise.resolve({ authorizePrereq: [], confirmDelete: true, projectRevision: initial.projectRevision })
+  // 生成直接以新数据替换旧数据，被替换的下游内容不再逐项确认；只有前置选择和硬阻断需要弹窗。
+  if (!initial.prereq?.length && !initial.blockers?.length) return Promise.resolve({ authorizePrereq: [], confirmDelete: true, projectRevision: initial.projectRevision })
   const dialog = element('dialog', '', 'run-preview-dialog'), head = element('h2', initial.amend ? '并入当前任务' : '确认制作任务'), body = element('div'), error = element('p', '', 'error')
   const cancel = element('button', '取消'), confirm = element('button', '确认执行', 'primary')
   dialog.append(head, body, error, cancel, confirm)
@@ -32,12 +32,6 @@ export function confirmRunPreview(anchor, initial, { refresh } = {}) {
         }
         label.append(check, document.createTextNode(entry.message)); body.append(label)
       }
-    }
-    if (preview.deletions?.length) {
-      body.append(element('h3', '将删除'))
-      const deletions = element('ul')
-      for (const item of preview.deletions) deletions.append(element('li', `${item.label || item.kind}${item.track ? ` · ${item.track}` : ''}`))
-      body.append(deletions, element('p', '仅清理下游内容，素材与任务历史保留。', 'meta'))
     }
     for (const blocker of preview.blockers || []) body.append(element('p', blocker.message, 'error'))
     confirm.disabled = Boolean(preview.blockers?.length)

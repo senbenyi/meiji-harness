@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { runStore } from '../../data/run-store.js'
 import { createQueue, defaultConcurrency } from '../tasks/task-queue.js'
 import { defaults } from '../../../models/model-config.js'
-import { RUN_SCHEMA, StepStatus, readySteps, isRunEnded, downstreamSteps } from '../../../shared/run-model.js'
+import { RUN_SCHEMA, StepStatus, readySteps, isRunEnded, downstreamSteps, deriveRunStatus, failRun } from '../../../shared/run-model.js'
 
 const now = () => new Date().toISOString()
 const event = (run, type, actor, stepIds, payload) => run.events.push({ at: now(), type, actor, ...(stepIds ? { stepIds } : {}), ...(payload ? { payload } : {}) })
@@ -36,12 +36,17 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
   const mutable = run => { if (isRunEnded(run)) throw error('任务已经结束'); return run }
   const overlap = (run, step, held) => run.projectId === held.run.projectId && (step.scope === 'project' || held.step.scope === 'project' || run.episodeId === held.run.episodeId && (!step.target || !held.step.target || step.target === held.step.target))
 
-  const finish = async (run, selected, result, failure) => update(run.projectId, run.id, current => {
+  // 任务因被动中断结束后，同任务里仍在执行的其他分支一起停止。
+  const abortFailed = (run, finishedId) => {
+    if (deriveRunStatus(run) === 'failed') for (const held of active.values()) if (held.run.projectId === run.projectId && held.run.id === run.id && held.step.id !== finishedId) held.controller.abort(error('任务已结束'))
+    return run
+  }
+  const finish = async (run, selected, result, failure) => abortFailed(await update(run.projectId, run.id, current => {
     const step = current.steps.find(item => item.id === selected.id)
     // 暂停协作式收尾；取消/作废后晚到的结果不能把步骤恢复成 done。
     if (step.status !== 'running' || isRunEnded(current)) return current
     if (!failure && ['review', 're_review'].includes(step.kind) && typeof result?.passed !== 'boolean') failure = new Error('审核步骤缺少有效的 passed 结论')
-    if (failure) pauseStep(current, step, 'step_failed', failure.message || String(failure), ['retry', 'cancel-branch'])
+    if (failure) failRun(current, [step], 'step_failed', failure.message || String(failure), now())
     else {
       step.output = result ?? null; step.endedAt = now(); step.error = null
       if (step.kind === 'wait_script_confirm') { current.affectedEpisodes = result?.affectedEpisodes || []; current.optionalGoals = result?.optionalGoals || [] }
@@ -53,7 +58,7 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
           const review = makeStep({ kind: 're_review', target: step.target, scope: step.scope, queue: step.queue, actor: step.actor, origin: 'review-fail', round: round + 1, input: structuredClone(step.input), after: [revise.id] })
           rewire(current, step, review)
           current.steps.push(revise, review)
-        } else pauseStep(current, step, 'review_exhausted', '审核未通过，已用尽自动修订次数', ['feedback', 'edit', 'override', 'regenerate', 'cancel-branch'])
+        } else failRun(current, [step], 'review_exhausted', '审核未通过，已用尽自动修订次数', now())
       } else step.status = StepStatus.DONE
       if (step.kind === 'expand' && Array.isArray(result?.steps)) {
         const ids = new Map(result.steps.map(item => [item.id, randomUUID()]))
@@ -65,7 +70,7 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
       }
     }
     return current
-  })
+  }), selected.id)
   const dispatch = (run, step) => {
     let release = () => {}
     const id = key(run.projectId, step.id), controller = new AbortController()

@@ -22,12 +22,13 @@ export function createHarnessRunGoals({ goals, resolveAgent, saveBinding, readBi
     },
     observe(run) {
       const binding = attached.get(key(run)) || (run.goalRef && { ref: run.goalRef, sessionId: run.goalSessionId })
-      if (!binding || !['completed', 'cancelled'].includes(run.status)) return
+      if (!binding || !['completed', 'failed', 'cancelled'].includes(run.status)) return
       const previous = pending.get(key(run)) || Promise.resolve()
       const settlement = previous.then(async () => {
         const { agent } = await resolveAgent(binding.sessionId)
         if (!agent || !same(goals.get(agent), binding.ref)) return
         if (run.status === 'completed') goals.complete(agent, binding.ref)
+        else if (run.status === 'failed') goals.block(agent, binding.ref, { code: 'meiji-run-failed', message: `制作任务 ${run.id} 未通过：${run.failure?.message || '执行中断'}` })
         else goals.block(agent, binding.ref, { code: 'meiji-run-cancelled', message: `制作任务 ${run.id} 已取消` })
         attached.delete(key(run))
       })

@@ -28,7 +28,6 @@ export function feedbackKey({ action, track, itemId, slot }) {
   if (action === 'shot-seconds') return `seconds:${track}`
   if (['shot-storyboard', 'storyboard-text', 'storyboard-bind'].includes(action)) return `storyboard:${track}`
   if (action === 'revise-image' || action === 'image') return `image:${itemId}`
-  if (action === 'part-image') return `image:${itemId}:${slot}`
   if (action === 'film') return `${action}:${track}`
   if (action === 'assemble') return 'assembly'
   return action

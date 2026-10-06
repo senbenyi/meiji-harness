@@ -24,8 +24,8 @@ function validate(args, properties, required) {
 export function runTools({ home, runs, runJobs, runGoals }) {
   const specs = [
     ['run-plan', '提交制作目标并立即执行，返回 jobId。用户的请求（生成、重新生成、按意见修改、一键做到）已经包含对所需前置和连带删除的同意：缺少的前置自动纳入，被替换的旧内容自动清理，同集已有任务时自动并入，都不需要再询问用户。只有返回 blockers 时没有执行。', [], { episodeNumber: { type: 'integer', minimum: 1 }, goal: goalSchema }, ['goal']],
-    ['run-amend', '用户对任务中某个对象提出修改意见时使用：target 为对象（如 outline、shots、seconds:S03），feedback 为用户原话。不要用它转述确认或重新生成；重新生成用 run-plan。', ['runId', 'target', 'feedback'], { target: { type: 'string' }, feedback: { type: 'string' } }],
-    ['run-resume', '任务暂停后按用户选择继续：retry 重试失败步骤，authorize 补做缺少的前置，resume 解除用户暂停。都不需要 target；只带 runId 和 action。会话不能忽略审核，也不能确认图片或剧本方案。', ['runId', 'action'], { action: { type: 'string', enum: ['retry', 'resume', 'authorize'] }, target: { type: 'string' } }],
+    ['run-amend', '用户对进行中或暂停中任务的某个对象提出修改意见时使用：target 为对象（如 outline、shots、seconds:S03），feedback 为用户原话。不要用它转述确认或重新生成；重新生成或任务已结束时用 run-plan。', ['runId', 'target', 'feedback'], { target: { type: 'string' }, feedback: { type: 'string' } }],
+    ['run-resume', '任务暂停（paused）后按用户选择继续：authorize 补做缺少的前置，resume 解除用户暂停。都不需要 target；只带 runId 和 action。任务未通过（failed）已经结束，不能在原任务继续，用 run-plan 重新发起。会话不能忽略审核，也不能确认图片或剧本方案。', ['runId', 'action'], { action: { type: 'string', enum: ['resume', 'authorize'] }, target: { type: 'string' } }],
     ['run-cancel', '取消用户指定的任务或对象分支；已完成内容与历史保留。', ['runId'], { target: { type: 'string' } }],
   ]
   return specs.map(([name, description, required, extra, additional = []]) => {

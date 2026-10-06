@@ -56,7 +56,7 @@ test('快照按 Run 和 Step 归属读取，拒绝跨任务伪引用与路径穿
   assert.throws(() => runStore(root, '../project'), /ID/)
 })
 
-test('重启只暂停正在运行的步骤，保留候选分支与历史，不给 Run 写 endedAt', async t => {
+test('重启中断直接结束任务：运行中的步骤记为 failed，未开始的作废，写 endedAt 且只处理一次', async t => {
   const { store } = await setup(t)
   await store.create(value('run'))
   await store.update('run', run => {
@@ -66,9 +66,32 @@ test('重启只暂停正在运行的步骤，保留候选分支与历史，不�
   })
   assert.equal((await store.interrupt()).length, 1)
   const run = await store.read('run')
-  assert.equal(run.status, 'paused'); assert.equal(run.endedAt, null)
-  assert.equal(run.steps[0].status, 'paused'); assert.equal(run.steps[1].status, 'pending')
-  assert.equal(run.pause.reasons[0].code, 'interrupted')
-  assert.deepEqual(run.pause.reasons[0].actions, ['retry'])
+  assert.equal(run.status, 'failed'); assert.ok(run.endedAt)
+  assert.equal(run.steps[0].status, 'failed'); assert.equal(run.steps[1].status, 'superseded')
+  assert.equal(run.pause, null)
+  assert.deepEqual([run.failure.code, run.failure.stepId], ['interrupted', run.steps[0].id])
   assert.deepEqual(await store.interrupt(), [])
+})
+
+test('旧版本因执行失败或审核用尽而暂停的任务在启动恢复时直接结束，等待确认的暂停保留', async t => {
+  const { store } = await setup(t)
+  await store.create(value('run'))
+  await store.update('run', run => {
+    run.events.push({ type: 'confirmed' })
+    run.steps[0].status = 'paused'
+    run.steps.push({ ...run.steps[0], id: 'pending', key: 'generate@pending', status: 'pending' })
+    run.pause = { reasons: [{ code: 'review_exhausted', stepId: run.steps[0].id, target: run.steps[0].target, message: '审核未通过，已用尽自动修订次数', actions: ['feedback'] }] }
+    return run
+  })
+  await store.create(value('waiting', 'other-episode'))
+  await store.update('waiting', run => {
+    run.events.push({ type: 'confirmed' }); run.steps[0].status = 'paused'
+    run.pause = { reasons: [{ code: 'wait_confirm', stepId: run.steps[0].id, target: run.steps[0].target, message: '等待确认', actions: ['cancel-branch'] }] }
+    return run
+  })
+  assert.equal((await store.interrupt()).length, 1)
+  const run = await store.read('run'), waiting = await store.read('waiting')
+  assert.equal(run.status, 'failed'); assert.equal(run.failure.code, 'review_exhausted')
+  assert.deepEqual(run.steps.map(step => step.status), ['failed', 'superseded'])
+  assert.equal(waiting.status, 'paused')
 })

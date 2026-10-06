@@ -40,7 +40,7 @@ export function targetNode(project, key) {
   }
   if (kind === 'image') {
     const item = [...(project.plot?.characters.items || []), ...(project.plot?.scenes.items || []), ...(project.plot?.props?.items || [])].find(item => item.id === id)
-    return slot ? item?.parts?.[slot] : item?.image
+    return item?.image
   }
   if (kind === 'seconds' && !id) return project.shots?.seconds
   if (kind === 'shots') return project.shots
@@ -53,7 +53,7 @@ export function targetNode(project, key) {
 }
 export function allNodes(project) {
   const result = [project.summary, project.plot, project.plot?.outline, project.plot?.characters, project.plot?.scenes, project.plot?.props, project.shots, project.shots?.seconds, project.assembly]
-  for (const bag of [project.plot?.characters, project.plot?.scenes, project.plot?.props]) for (const item of bag?.items || []) result.push(item, item.image, ...Object.values(item.parts || {}))
+  for (const bag of [project.plot?.characters, project.plot?.scenes, project.plot?.props]) for (const item of bag?.items || []) result.push(item, item.image)
   for (const shot of project.shots?.items || []) result.push(shot, shot.seconds, shot.storyboard, shot.video, shot.tailFrame)
   return result.filter(Boolean)
 }

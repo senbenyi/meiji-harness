@@ -71,6 +71,15 @@ test('「名字【名字|ID】」写法通过校验，渲染时名字不重复�
  c.beats[0].action='旅人沿庭院【庭院|E01】朝北行走'
  assert.throws(()=>validateSeconds(c,s,p),/旅人须写为旅人【旅人\|C01】/)
 })
+test('未标记名字的报错只指出未标记的那一处，已标记的和长名字里的短名字不重复报', () => {
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content
+ c.beats[0].action='旅人【旅人|C01】走进庭院【庭院|E01】，此处假设旅人背对镜头'
+ assert.throws(()=>validateSeconds(c,s,p),error=>{
+  assert.match(error.message,/片段「.*此处假设旅人背对镜头」中的旅人须写为旅人【旅人\|C01】/)
+  assert.equal(error.message.split('；').length,1)
+  return true
+ })
+})
 
 for(const reference of [false,true])test(`独立旁白与人物声音分别编译，不新增身体或图片：${reference?'多模态':'文本'}`,()=>{
  const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content

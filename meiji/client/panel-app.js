@@ -349,7 +349,7 @@ export function mount() {
     stage: file => bridge.stage(file),
     importStill: async (project, itemId, file, slot) => {
       const incomingId = await bridge.stage(file)
-      const action = slot === 'reference' ? 'set-reference' : slot ? 'part-import' : 'import-image'
+      const action = slot === 'reference' ? 'set-reference' : 'import-image'
       await actions.perform(project, action, { itemId, incomingId, ...(slot && slot !== 'reference' ? { slot } : {}) })
     },
     importLibrary: async (category, file, guidanceType) => {

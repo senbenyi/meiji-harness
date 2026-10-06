@@ -12,15 +12,20 @@ export function kindOf(kind) { return libraryKinds[kind] || bad('库类型无效
 export function libraryTarget(project, kind, ref) {
   kindOf(kind)
   const entry = project.library?.[kind]?.find(item => item.id === ref?.libraryId)
-  const variant = entry?.variants.find(item => item.id === ref?.variantId)
+  const variant = entry && kind === 'characters'
+    ? entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0]
+    : entry?.variants.find(item => item.id === ref?.variantId)
   return entry && variant ? { entry, variant } : null
 }
 export function libraryLinks(project, kind, libraryId, variantId) {
   return (project.episodes || []).flatMap(episode => (episode.plot[kind]?.items || []).filter(card => card.ref?.libraryId === libraryId && (!variantId || card.ref.variantId === variantId)).map(card => ({ episodeId: episode.id, cardId: card.id, name: card.name })))
 }
 export function libraryDirectory(project, kind) {
-  return (project.library?.[kind] || []).map(({ id, name, aliases, nationality, gender, category, ownerLibraryId, defaultVariantId, variants }) => ({ id, name, aliases, nationality, gender, category, ownerLibraryId, defaultVariantId,
-    variants: variants.map(({ id, label, fields, image }) => ({ id, label, fields, hasImage: Boolean(image?.content?.assetId || image?.content?.localPath || image?.content?.url) })) }))
+  return (project.library?.[kind] || []).map(({ id, name, aliases, nationality, gender, category, ownerLibraryId, defaultVariantId, variants }) => {
+    const rows = kind === 'characters' ? variants.filter(item => item.id === defaultVariantId).slice(0, 1) : variants
+    return { id, name, aliases, nationality, gender, category, ownerLibraryId, defaultVariantId,
+      ...(kind === 'characters' ? {} : { variants: rows.map(({ id, label, fields, image }) => ({ id, label, fields, hasImage: Boolean(image?.content?.assetId || image?.content?.localPath || image?.content?.url) })) }) }
+  })
 }
 export const requiredCharacters = project => (project.library?.characters || []).filter(item => item.required).map(item => ({ ...libraryDirectory(project, 'characters').find(row => row.id === item.id), required: true }))
 function fieldsOf(kind, fields) { return Object.fromEntries(kindOf(kind).fields.map(key => [key, String(fields[key] || '').trim()])) }
@@ -45,6 +50,7 @@ export function createLibraryEntry(project, kind, input, createdFrom) {
   return { entry, variant }
 }
 export function addLibraryVariant(project, kind, libraryId, input, createdFrom) {
+  if (kind === 'characters') bad('人物不支持多造型')
   const entry = project.library[kind].find(item => item.id === libraryId)
   if (!entry) bad('库条目不存在')
   const variant = variantOf(entry, kind, input, createdFrom); entry.variants.push(variant)

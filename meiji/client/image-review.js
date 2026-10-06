@@ -3,7 +3,7 @@ import { feedbackOf } from '../shared/review-feedback.js'
 import { element, appendJsonCopy } from './panel-dom.js'
 
 export function draftsOf(project) {
-  return (project.episodes || []).flatMap(episode => Object.values(episode.pendingImages || {}).map(draft => ({ ...draft, episodeId: episode.id })))
+  return (project.episodes || []).flatMap(episode => Object.values(episode.pendingImages || {}).filter(draft => !draft.slot).map(draft => ({ ...draft, episodeId: episode.id })))
 }
 
 function generatingOf(project) {
@@ -17,7 +17,6 @@ function generatingOf(project) {
 function matchesDraft(draft, gate) {
   if (!gate) return false
   if (gate.episodeId && draft.episodeId !== gate.episodeId) return false
-  if (gate.slot) return draft.itemId === gate.itemId && draft.slot === gate.slot
   if (gate.itemId) return draft.itemId === gate.itemId && !draft.slot && !draft.track
   return true
 }
@@ -26,7 +25,6 @@ function matchesActivity(entry, gate) {
   if (!gate) return false
   if (gate.episodeId && entry.episodeId !== gate.episodeId) return false
   const activity = entry.operationActivity || ''
-  if (gate.slot) return activity === `image:${gate.itemId}:${gate.slot}`
   if (gate.itemId) return activity === `image:${gate.itemId}`
   return activity.startsWith('image:') || activity === 'confirm-image'
 }
@@ -39,7 +37,7 @@ export function gateFromAction(action, fields = {}) {
     episodeId: fields.episodeId || '',
     itemId: fields.itemId || '',
     itemName: fields.itemName || '',
-    slot: fields.slot || '',
+    slot: '',
     track: fields.track || '',
     name: fields.itemName || '图片',
     aspect: fields.aspect || '',
@@ -53,17 +51,6 @@ export function gateFromAction(action, fields = {}) {
 
 export function regenerateFields(gate, review = '') {
   const note = String(review || '').trim()
-  if (gate.slot) {
-    return {
-      action: 'part-image',
-      fields: {
-        itemId: gate.itemId,
-        itemName: gate.itemName || gate.name,
-        slot: gate.slot,
-        ...(note ? { review: note } : {}),
-      },
-    }
-  }
   if (note) {
     return {
       action: 'revise-image',
@@ -87,7 +74,7 @@ export function syncImageGate(project, gate) {
       return {
         phase: 'ready',
         held: false,
-        action: draft.slot ? 'part-image' : 'image',
+        action: 'image',
         episodeId: draft.episodeId,
         itemId: draft.itemId || '',
         itemName: draft.name || '',
@@ -105,20 +92,19 @@ export function syncImageGate(project, gate) {
     const entry = generating[0]
     if (!entry) return null
     const activity = entry.operationActivity || ''
-    let itemId = '', slot = '', track = ''
+    let itemId = '', track = ''
     if (activity.startsWith('image:')) {
       const parts = activity.slice(6).split(':')
       itemId = parts[0] || ''
-      slot = parts[1] || ''
     }
     return {
       phase: activity === 'confirm-image' ? 'uploading' : 'generating',
       held: true,
-      action: slot ? 'part-image' : 'image',
+      action: 'image',
       episodeId: entry.episodeId,
       itemId,
       itemName: '',
-      slot,
+      slot: '',
       track,
       name: '图片',
       draftId: '',
@@ -152,7 +138,7 @@ export function syncImageGate(project, gate) {
   if (entry || gate.held || gate.phase === 'generating' || gate.phase === 'uploading') {
     const episode = (project.episodes || []).find(item => item.id === gate.episodeId)
     // 图片错误只读对应图片节点，不读剧集的剧情错误。
-    const error = (!entry && episode ? feedbackOf(episode, `image:${gate.itemId}${gate.slot ? `:${gate.slot}` : ''}`)?.error : '') || ''
+    const error = (!entry && episode ? feedbackOf(episode, `image:${gate.itemId}`)?.error : '') || ''
     if (error && !entry) return { ...gate, phase: 'error', held: false, error, previewUrl: '', draftId: '' }
     return { ...gate, phase: 'generating', previewUrl: '', draftId: gate.held ? '' : gate.draftId, error: '' }
   }
@@ -203,7 +189,7 @@ export function renderImageReview(project, actions, gate) {
   const discard = element('button', '放弃')
   const regenerate = element('button', '重新生成')
   const owner = project.episodes?.find(episode => episode.id === current.episodeId) || project
-  const target = { action: current.slot ? 'part-image' : 'image', track: current.track, itemId: current.itemId, slot: current.slot }
+  const target = { action: 'image', track: current.track, itemId: current.itemId }
   const record = feedbackOf(owner, target)
   const reviewArea = element('div', '', 'image-review-fields')
   let note

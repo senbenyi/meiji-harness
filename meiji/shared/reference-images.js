@@ -17,16 +17,6 @@ export function shotReferenceImages(project, item) {
     if (scene) add(scene, `场景「${scene.name}」`, 'scenes')
   }
   const selected = item?.reference_images
-  for (const person of people) {
-    for (const [slot, label] of [['clothes', '服装'], ['props', '道具'], ['hairstyles', '发型']]) {
-      for (const part of person[slot] || []) {
-        const key = `${person.name}/${slot}/${part.id}`
-        if (Array.isArray(selected) && !selected.some(ref => ref === key || ref === part.name || ref === part.assetId || ref === part.localPath)) continue
-        add(part, `${person.name}的${label}「${part.name || part.id}」`, slot === 'props' ? 'props' : 'characters', person.id, slot)
-      }
-    }
-  }
-  if (images.length > 9) throw Object.assign(new Error('本镜参考图超过 9 张，请在文本分镜中选择实际使用的服装、道具和发型'), { status: 409 })
+  if (images.length > 9) throw Object.assign(new Error('本镜参考图超过 9 张，请在文本分镜中选择实际使用的素材'), { status: 409 })
   return images
 }
-

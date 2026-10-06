@@ -1,19 +1,33 @@
 // Run 是可恢复的用户目标，Step 是不可删除的执行历史；本模块不做 IO。
 export const RUN_SCHEMA = 1
-export const RunStatus = Object.freeze({ DRAFT: 'draft', RUNNING: 'running', PAUSED: 'paused', COMPLETED: 'completed', CANCELLED: 'cancelled' })
-export const StepStatus = Object.freeze({ PENDING: 'pending', READY: 'ready', RUNNING: 'running', DONE: 'done', PAUSED: 'paused', SUPERSEDED: 'superseded', SKIPPED: 'skipped', CANCELLED: 'cancelled' })
+export const RunStatus = Object.freeze({ DRAFT: 'draft', RUNNING: 'running', PAUSED: 'paused', COMPLETED: 'completed', FAILED: 'failed', CANCELLED: 'cancelled' })
+export const StepStatus = Object.freeze({ PENDING: 'pending', READY: 'ready', RUNNING: 'running', DONE: 'done', PAUSED: 'paused', SUPERSEDED: 'superseded', SKIPPED: 'skipped', FAILED: 'failed', CANCELLED: 'cancelled' })
 export const StepKinds = Object.freeze(['generate', 'review', 'revise', 're_review', 'manual_edit', 'override', 'image', 'wait_confirm', 'wait_script_confirm', 'storyboard', 'video', 'tail', 'assemble', 'sync', 'expand'])
 const success = new Set(['done', 'skipped'])
-const terminal = new Set(['done', 'skipped', 'superseded', 'cancelled'])
-export const isRunEnded = run => ['completed', 'cancelled'].includes(deriveRunStatus(run))
+const terminal = new Set(['done', 'skipped', 'superseded', 'failed', 'cancelled'])
+export const isRunEnded = run => ['completed', 'failed', 'cancelled'].includes(deriveRunStatus(run))
 
 export function deriveRunStatus(run) {
   if (run.events.some(event => event.type === 'cancelled' && !event.stepIds)) return RunStatus.CANCELLED
   if (!run.events.some(event => event.type === 'confirmed')) return RunStatus.DRAFT
+  if (run.failure) return RunStatus.FAILED
   const steps = run.steps.filter(step => step.status !== StepStatus.SUPERSEDED)
   if (run.pause?.reasons?.length || steps.some(step => step.status === StepStatus.PAUSED)) return RunStatus.PAUSED
   if (steps.every(step => terminal.has(step.status))) return steps.some(step => step.status === StepStatus.CANCELLED) ? RunStatus.CANCELLED : RunStatus.COMPLETED
   return RunStatus.RUNNING
+}
+
+// 被动中断（步骤报错、自动修订用尽、服务重启中断）直接结束任务：失败步骤记为 failed，其余未完成步骤全部作废。
+// 等待确认、前置授权和用户暂停不走这里；之后再点生成会新建任务。
+export const failurePauseCodes = Object.freeze(['step_failed', 'review_exhausted', 'interrupted'])
+export function failRun(run, steps, code, message, at = new Date().toISOString()) {
+  const failed = new Set(steps.map(step => step.id))
+  for (const step of steps) { step.status = StepStatus.FAILED; step.error = message; step.endedAt = at }
+  for (const step of run.steps) if (!failed.has(step.id) && !terminal.has(step.status)) { step.status = StepStatus.SUPERSEDED; step.endedAt = at }
+  run.pause = null
+  run.failure = { code, stepId: steps[0]?.id || null, target: steps[0]?.target || null, message, at }
+  run.events.push({ at, type: 'failed', actor: 'engine', stepIds: [...failed], payload: { code, message } })
+  return run
 }
 
 export function readySteps(run) {

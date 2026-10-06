@@ -23,8 +23,8 @@ export function createHarnessRunJobs({ home, registry, readRun, cancelRun, subsc
                 if (stopped) return
                 const steps = current.steps.filter(step => step.status !== 'superseded')
                 job.updateProgress(`${steps.filter(step => ['done', 'skipped'].includes(step.status)).length}/${steps.length}`)
-                if (['paused', 'completed', 'cancelled'].includes(current.status) && !(current.status === 'paused' && afterRevision !== null && current.revision <= afterRevision)) {
-                  const result = { runId: current.id, projectId: current.projectId, episodeId: current.episodeId, status: current.status, pause: current.pause,
+                if (['paused', 'completed', 'failed', 'cancelled'].includes(current.status) && !(current.status === 'paused' && afterRevision !== null && current.revision <= afterRevision)) {
+                  const result = { runId: current.id, projectId: current.projectId, episodeId: current.episodeId, status: current.status, pause: current.pause, failure: current.failure || null,
                     actions: [...new Set(current.pause?.reasons.flatMap(reason => reason.actions) || [])] }
                   settle({ status: current.status === 'cancelled' ? 'killed' : 'completed', result: JSON.stringify(result) })
                 }

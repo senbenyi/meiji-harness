@@ -152,9 +152,9 @@ test('审核失败候选保存在任务历史，原项目不变，也不能伪�
   const e = await setupModel(t), before = await e.store.read(e.id)
   const failure = await runOperation(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }), { home: e.home, request: draftRequest(reviewFail('结尾未衔接')) }).then(() => null, error => error)
   assert.match(failure.message, /自审未通过.*结尾未衔接/)
-  // 修订用尽后任务暂停在审核步骤，不是完成；候选稿留在未发布快照。
-  assert.equal(failure.run.status, 'paused')
-  assert.deepEqual(failure.run.pause.reasons.map(reason => reason.code), ['review_exhausted'])
+  // 修订用尽后任务直接结束为未通过，不是完成；候选稿留在未发布快照。
+  assert.equal(failure.run.status, 'failed')
+  assert.equal(failure.run.failure.code, 'review_exhausted')
   assert.deepEqual(await e.store.read(e.id), before)
   const saved = await draftArtifacts(e, failure.run)
   assert.ok(saved.length >= 1); assert.ok(saved.every(item => item.published === false && item.content.summary === '本集事件'))

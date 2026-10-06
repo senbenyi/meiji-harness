@@ -30,7 +30,7 @@ export async function generateEpisodeDraft(project, input, { signal, onTask }) {
         if (!draft) throw new Error('任务未返回摘要草稿')
         return draft
       }
-      if (['paused', 'cancelled'].includes(task.status)) throw new Error(task.pause?.reasons.map(reason => reason.message).join('；') || '摘要生成未完成')
+      if (['paused', 'failed', 'cancelled'].includes(task.status)) throw new Error(task.failure?.message || task.pause?.reasons.map(reason => reason.message).join('；') || '摘要生成未完成')
       await new Promise((resolve, reject) => {
         const abort = () => { clearTimeout(timer); reject(signal.reason) }
         const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve() }, 800)

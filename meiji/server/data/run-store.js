@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { RUN_SCHEMA, StepStatus, deriveRunStatus, isRunEnded, validateRun } from '../../shared/run-model.js'
+import { RUN_SCHEMA, deriveRunStatus, isRunEnded, validateRun, failRun, failurePauseCodes } from '../../shared/run-model.js'
 
 const writes = new Map()
 const validId = /^[a-zA-Z0-9_-]{1,128}$/
@@ -43,7 +43,7 @@ export function runStore(home, projectId) {
     if (run.projectId !== projectId) throw missing()
     const status = deriveRunStatus(run)
     if (status === 'completed' && !run.events.some(event => event.type === 'completed')) run.events.push({ at: now(), type: 'completed', actor: 'engine' })
-    return write('runs', run.id, { ...run, status, endedAt: ['completed', 'cancelled'].includes(status) ? run.endedAt || now() : null, revision: (run.revision || 0) + 1 })
+    return write('runs', run.id, { ...run, status, endedAt: ['completed', 'failed', 'cancelled'].includes(status) ? run.endedAt || now() : null, revision: (run.revision || 0) + 1 })
   }
   const openRun = async episodeId => (await list()).find(run => run.episodeId === episodeId && !isRunEnded(run)) || null
   return {
@@ -144,14 +144,17 @@ export function runStore(home, projectId) {
         const interrupted = []
         for (const run of await list()) {
           if (isRunEnded(run)) continue
+          // 旧版本因步骤报错、审核用尽或重启中断而暂停的任务，按现行规则直接结束。
+          const legacy = (run.pause?.reasons || []).filter(reason => failurePauseCodes.includes(reason.code))
+          if (legacy.length) {
+            const stepsOf = new Set(legacy.map(reason => reason.stepId))
+            failRun(run, run.steps.filter(step => stepsOf.has(step.id)), legacy[0].code, legacy.map(reason => reason.message).join('；'), now())
+            interrupted.push(await commit(run)); continue
+          }
           const steps = run.steps.filter(step => step.status === 'running')
           if (!steps.length) continue
-          run.pause ||= { reasons: [] }
-          for (const step of steps) {
-            step.status = StepStatus.PAUSED; step.error = '服务重启，步骤执行中断'; step.endedAt = now()
-            run.pause.reasons.push({ code: 'interrupted', stepId: step.id, target: step.target, message: step.error, actions: ['retry'] })
-          }
-          run.events.push({ at: now(), type: 'paused', actor: 'engine', stepIds: steps.map(step => step.id), payload: { code: 'interrupted' } })
+          // 重启中断属于被动中断：任务直接结束，需要时重新发起。
+          failRun(run, steps, 'interrupted', '服务重启，步骤执行中断，任务已结束', now())
           interrupted.push(await commit(run))
         }
         return interrupted

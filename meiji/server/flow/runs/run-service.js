@@ -288,9 +288,11 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
           return publicRun(await runStore(home, projectId).update(id, current => { current.request.goals = goals; current.preview = { deletions: combined.deletions, blockers: combined.blockers }; current.prereq.required = combined.prereq; current.steps = combined.steps.map(step => ({ status: 'pending', prompts: [], responses: [], artifacts: [], startedAt: null, endedAt: null, ...step })); return current }))
         }
         await runStore(home, projectId).update(id, current => { current.request.goals = [...(current.request.goals || [current.request.goal]), goal]; current.prereq.required = [...current.prereq.required, ...plan.prereq.filter(entry => !current.prereq.required.some(prior => prior.key === entry.key))]; current.events.push({ at: new Date().toISOString(), type: 'deletions_confirmed', actor: 'user', payload: { deletions: plan.deletions } }); return current })
-        if (goal.feedback || goal.mode === 'regenerate') {
+        // 修改、重新生成、只审核都要重跑目标：作废同目标旧步骤后插入。直接 amend 会因步骤 key 已存在（如自动修订留下的
+        // revise/re_review）把新步骤全部丢弃，任务停在原暂停处不动。只有补齐生成（generate）沿用已有步骤。
+        if (goal.feedback || goal.mode !== 'generate') {
           const targets = [...new Set(plan.steps.map(step => step.target))]
-          return publicRun(await engine.insert(projectId, id, { targets, steps: plan.steps, type: goal.feedback ? 'feedback' : 'regenerate' }))
+          return publicRun(await engine.insert(projectId, id, { targets, steps: plan.steps, type: goal.feedback ? 'feedback' : goal.mode === 'regenerate' ? 'regenerate' : goal.mode }))
         }
         return publicRun(await engine.amend(projectId, id, { steps: plan.steps }))
       }

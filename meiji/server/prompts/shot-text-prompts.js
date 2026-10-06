@@ -10,7 +10,7 @@ import { splitSecondsIssues } from './seconds-feedback.js'
 // 镜头表及单镜镜头表修订的上下文，按 { title, text } 分段交给 prompt-request.js。
 // 镜头表步骤给全部资料；单镜修订只给衔接所需：本镜及前后镜关联的卡片、
 // 前镜末段与后镜开场的每秒指令，不再附相邻镜头的完整每秒指令。大纲存在时不重复附本集摘要。
-const cardKeys = ['id', 'name', 'type', 'look', 'space', 'landmark', 'light', 'description', 'category', 'ownerId', 'evidence', 'identity', 'clothes', 'props', 'hairstyles']
+const cardKeys = ['id', 'name', 'type', 'look', 'space', 'landmark', 'light', 'description', 'category', 'ownerId', 'evidence', 'identity']
 const cleanCard = card => Object.fromEntries(cardKeys.filter(key => card[key] != null).map(key => [key, Array.isArray(card[key]) ? card[key].map(cleanCard) : card[key]]))
 const shotData = shot => ({ shotId: shot.id, durationSeconds: shot.duration, content: body(shot) })
 const entityFacts = project => [
