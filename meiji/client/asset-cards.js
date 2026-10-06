@@ -443,7 +443,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     const reviewing = Boolean(imageGate && imageGate.itemId === item.id && !imageGate.track)
     const controlBusy = targetBusy(project, `image:${item.id}`) || targetBusy(project, item.type === 'role' ? 'characters' : item.type === 'prop' ? 'props' : 'scenes') || reviewing
     const mainReview = reviewing && !imageGate.slot
-    const card = element('article', '', item.type === 'role' ? 'shot-card story-asset' : `shot-card story-asset scene-asset is-${sceneOrientation(project)}`)
+    const card = element('article', '', item.type === 'role' ? 'shot-card story-asset' : item.type === 'prop' ? 'shot-card story-asset prop-asset' : `shot-card story-asset scene-asset is-${sceneOrientation(project)}`)
     const frame = element('div', '', 'asset-frame')
     const frameSrc = mainReview && imageGate.previewUrl ? imageGate.previewUrl : stillSrc(item)
     if (frameSrc) {

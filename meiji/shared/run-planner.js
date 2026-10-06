@@ -123,8 +123,9 @@ export function planRun(project, rawGoal, policy = {}) {
       }
       else {
         const items = project.shots?.items || []
-        // 整集修改且没有新的整集意见：从第一个未通过或缺失的镜头做到末镜；带意见时作用于全部镜头。
-        const resume = stage === 'seconds' && goal.mode === 'modify' && !goal.feedback && !goal.scope.tracks ? Math.max(0, items.findIndex(shot => !shotSecondsReady(shot) || !passed(shot.seconds))) : 0
+        // 整集修改从第一个未通过或缺失的镜头做到末镜；前面已通过的镜头不因补充意见重复生成。
+        const firstIncomplete = items.findIndex(shot => !shotSecondsReady(shot) || !passed(shot.seconds))
+        const resume = stage === 'seconds' && goal.mode === 'modify' && !goal.scope.tracks ? (firstIncomplete < 0 ? items.length : firstIncomplete) : 0
         const tracks = goal.scope.tracks || items.slice(resume).map(shot => shot.id)
         if (!tracks.length) blockers.push({ message: '没有可执行的镜头；请授权生成镜头表前置' })
         let previous = null

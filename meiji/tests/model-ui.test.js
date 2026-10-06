@@ -118,18 +118,18 @@ test('failed review keeps reasons and accepts an opinion for the unified modific
  assert.equal(calls[0][1],'seconds');assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,'保持朝向')
 })
 
-test('storyboard badges distinguish missing pending and failed content', t => {
+test('storyboard badges distinguish missing pending, revision and failed content', t => {
  const container=domSetup(t),e=episodeFixture();e.episodeId=e.id
  const n=e.shots.items[0].storyboard
- for(const [status,content,passed,label,red] of [
-  ['not-generated',null,null,'未生成',false],
-  ['generating',null,null,'生成中',false],
-  ['generating',{prompt:{text:'旧内容'}},false,'生成中',false],
-  ['not-generated',{prompt:{text:'待审内容'}},null,'待自审',false],
-  ['failed',{prompt:{text:'失败内容'}},false,'自审未通过',true],
-  ['passed',{prompt:{text:'通过内容'}},true,'已通过',false],
+ for(const [status,content,passed,label,red,operation] of [
+  ['not-generated',null,null,'未生成',false,null],
+  ['generating',null,null,'生成中',false,null],
+  ['generating',{prompt:{text:'旧内容'}},false,'修订中',false,{step:'revise'}],
+  ['not-generated',{prompt:{text:'待审内容'}},null,'待自审',false,null],
+  ['failed',{prompt:{text:'失败内容'}},false,'自审未通过',true,null],
+  ['passed',{prompt:{text:'通过内容'}},true,'已通过',false,null],
  ]){
-  Object.assign(n,{status,content,error:null,check:{passed,failures:passed===false?['动作错误']:[]}})
+  Object.assign(n,{status,content,error:null,operation,check:{passed,failures:passed===false?['动作错误']:[]}})
   container.replaceChildren(renderStage('film',e,{perform:async()=>{},fail:()=>{}},{shotsPane:'board'}))
   const card=container.querySelector('.shot-card')
   assert.equal(card.querySelector('.shot-check-badge').textContent,label)
@@ -527,10 +527,8 @@ test('episode detail tabs show clean labels without progress or endpoint selecto
  container.append(renderSession(project, () => {}, { perform: async (...args) => calls.push(args), fail() {} }, { episodeId: episode.id }))
  assert.deepEqual([...container.querySelectorAll('.stage-overview .stage')].map(button => button.textContent), ['摘要', '剧情', '镜头表', '每秒指令', '成片', '合成'])
  assert.equal(container.querySelector('[aria-label="制作终点"]'), null)
- container.querySelector('.stage-overview .primary').click()
- await Promise.resolve()
- assert.equal(calls[0][1], 'run-goal')
- assert.equal(calls[0][2].goal.to, 'assemble')
+ assert.equal(container.querySelector('.stage-overview .primary'), null)
+ assert.equal(calls.length, 0)
 })
 
 test('film history entries stay in each shot header and navigate to the corresponding shot', t => {

@@ -123,6 +123,76 @@ test('用户意见重插原目标的下游，不丢同 Run 的制作终点；无
   await e.service.drain()
 })
 
+test('每秒指令中间镜头审核暂停后，提交意见会继续后续等待镜头', async t => {
+  let recovering = false
+  const e = await setup(t, { execute: async (_, step) => {
+    if (!recovering && ['review', 're_review'].includes(step.kind) && step.target === 'seconds:S02') return { passed: false, issues: [{ reason: '第二镜需要修改' }] }
+    return ['review', 're_review'].includes(step.kind) ? { passed: true } : {}
+  } })
+  await e.store.save(e.id, current => {
+    const source = current.episodes[0].shots.items[1], third = structuredClone(source)
+    third.id = 'S03'; third.seconds.id = 'seconds:S03'; third.storyboard.id = 'storyboard:S03'; third.video.id = 'film:S03'; third.tailFrame.id = 'tailFrame:S03'
+    current.episodes[0].shots.items.push(third)
+    return current
+  })
+  const preview = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'seconds', mode: 'regenerate' } }, sessionId)
+  await e.service.confirm(e.id, preview.run.id, sessionId, { confirmDelete: true }); await e.service.drain()
+  let paused = await e.service.get(e.id, preview.run.id, sessionId)
+  assert.equal(paused.status, 'paused')
+  assert.ok(paused.steps.some(step => step.target === 'seconds:S03' && step.status === 'pending'))
+
+  const goal = { to: 'seconds', scope: { tracks: ['S02'] }, mode: 'modify', feedback: '修正第二镜并继续后续镜头' }
+  const change = await e.service.preview(e.id, paused.id, sessionId, { goal })
+  assert.ok(change.steps.some(step => step.target === 'seconds:S03' && step.origin === 'cascade'))
+  recovering = true
+  await e.service.amend(e.id, paused.id, sessionId, { goal, confirmDelete: true, projectRevision: change.projectRevision })
+  await e.service.drain()
+  paused = await e.service.get(e.id, preview.run.id, sessionId)
+  assert.equal(paused.status, 'completed')
+  assert.ok(paused.steps.filter(step => step.target === 'seconds:S03').some(step => step.status === 'done'))
+})
+
+test('每秒指令顶部带意见修订从中断镜头继续，不重跑已通过镜头', async t => {
+  let recovering = false; const seen = []
+  const e = await setup(t, { execute: async (_, step) => {
+    seen.push(`${step.kind}:${step.target}`)
+    if (!recovering && ['review', 're_review'].includes(step.kind) && step.target === 'seconds:S02') return { passed: false, issues: [{ reason: '第二镜需要修改' }] }
+    return ['review', 're_review'].includes(step.kind) ? { passed: true } : {}
+  } })
+  await e.store.save(e.id, current => {
+    const source = current.episodes[0].shots.items[1], third = structuredClone(source)
+    third.id = 'S03'; third.seconds.id = 'seconds:S03'; third.storyboard.id = 'storyboard:S03'; third.video.id = 'film:S03'; third.tailFrame.id = 'tailFrame:S03'
+    current.episodes[0].shots.items.push(third)
+    return current
+  })
+  const preview = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'seconds', mode: 'regenerate' } }, sessionId)
+  await e.service.confirm(e.id, preview.run.id, sessionId, { confirmDelete: true }); await e.service.drain()
+  const paused = await e.service.get(e.id, preview.run.id, sessionId)
+  // 模拟真实执行器已经把第一镜落定、第二镜记录为未通过，规划器才能从第二镜定位续跑起点。
+  await e.store.save(e.id, current => {
+    const episode = current.episodes[0]
+    episode.shots.items[0].seconds.content = { version: 1, beats: [{}] }
+    episode.shots.items[0].seconds.check = { passed: true, failures: [], revision: episode.shots.items[0].seconds.revision }
+    episode.shots.items[1].seconds.check = { passed: false, failures: ['第二镜需要修改'], revision: episode.shots.items[1].seconds.revision }
+    episode.shots.items[2].seconds.content = null
+    episode.shots.items[2].seconds.check = { passed: null, failures: [], revision: episode.shots.items[2].seconds.revision }
+    return current
+  })
+  const prepared = await e.store.read(e.id)
+  assert.equal(prepared.episodes[0].shots.items[0].seconds.content?.version, 1)
+  assert.equal(prepared.episodes[0].shots.items[0].seconds.check.passed, true)
+  const goal = { to: 'seconds', mode: 'modify', feedback: '修正第二镜并继续后续镜头' }
+  const change = await e.service.preview(e.id, paused.id, sessionId, { goal })
+  assert.deepEqual([...new Set(change.steps.filter(step => step.origin !== 'cascade').map(step => step.target))], ['seconds:S02', 'seconds:S03'], JSON.stringify(change.steps.map(step => [step.kind, step.target, step.origin])))
+  recovering = true
+  await e.service.amend(e.id, paused.id, sessionId, { goal, confirmDelete: true, projectRevision: change.projectRevision })
+  await e.service.drain()
+  const current = await e.service.get(e.id, preview.run.id, sessionId)
+  assert.equal(current.status, 'completed')
+  assert.equal(seen.filter(item => item === 'generate:seconds:S01').length, 1, JSON.stringify(seen))
+  assert.ok(seen.includes('generate:seconds:S03'))
+})
+
 test('放弃候选图完成对应等待，不无条件要求生成新图', async t => {
   const e = await setup(t, { execute: async () => ({}) })
   const preview = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'images', scope: { itemIds: ['C01'] } } }, sessionId)

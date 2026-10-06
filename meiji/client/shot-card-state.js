@@ -19,11 +19,12 @@ export function decorateShotCard(card, model, id, first) {
   head.classList.add('shot-collapse-head')
   card.classList.add('collapsible-shot')
   card.dataset.shotId = id
-  const generating = model?.status === GenerationStatus.GENERATING
-  const paused = model?.status === GenerationStatus.PAUSED
-  const failed = !paused && !generating && (model?.check?.passed === false || Boolean(model?.error))
+  const revising = model?.operation?.step === 'revise' || model?.operation?.kind === 'revise'
+  const failed = !revising && (model?.check?.passed === false || Boolean(model?.error))
+  const generating = !revising && !failed && model?.status === GenerationStatus.GENERATING
+  const paused = !revising && !failed && model?.status === GenerationStatus.PAUSED
   const generated = Boolean(model?.content || model?.items?.length)
-  const label = paused ? '暂停' : generating ? '生成中' : failed ? (model?.check?.passed === false ? '自审未通过' : '生成失败')
+  const label = revising ? '修订中' : paused ? '暂停' : generating ? '生成中' : failed ? (model?.check?.passed === false ? '自审未通过' : '生成失败')
     : !generated ? '未生成'
       : model?.check?.passed === true ? '已通过' : '待自审'
   card.classList.toggle('shot-unpassed', failed)

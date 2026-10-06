@@ -94,11 +94,14 @@ export function renderOverview(project, actions, context) {
 
   if (isAiCreation(project)) {
     const premiseCard = element('article', '', 'overview-card')
-    premiseCard.append(element('h3', 'AI 创作方向'), preview(project.premise || '请填写 AI 创作方向后开始制作。'), element('p', '由你手动编辑，持续指导每一集摘要的 AI 创作；修改后用于后续生成，保留已发生剧情。', 'meta'))
-    const premiseEdit = element('button', '编辑创作方向')
+    const premiseTitle = element('div', '', 'overview-card-title')
+    premiseTitle.append(element('h3', 'AI 创作方向'))
+    const premiseEdit = element('button', '', 'icon-edit')
+    premiseEdit.type = 'button'; premiseEdit.innerHTML = editIcon; premiseEdit.setAttribute('aria-label', '编辑 AI 创作方向'); premiseEdit.title = '编辑 AI 创作方向'
     premiseEdit.disabled = targetBusy(project, 'project')
     premiseEdit.onclick = () => actions.openPremise?.(project)
-    premiseCard.append(premiseEdit); page.append(premiseCard)
+    premiseTitle.append(premiseEdit)
+    premiseCard.append(premiseTitle, preview(project.premise || '请填写 AI 创作方向后开始制作。')); page.append(premiseCard)
   }
 
   const summaryCard = element('article', '', 'overview-card')
@@ -106,15 +109,17 @@ export function renderOverview(project, actions, context) {
   if (project.summary.content) summaryCard.append(preview(project.summary.content))
   page.append(summaryCard)
 
-  const scriptCard = element('article', '', 'overview-card')
-  const scriptName = project.scriptName || (project.scriptKind === 'imported' ? '导入剧本' : '分节剧本')
-  const openScript = () => actions.openScript?.(project)
-  const scriptTitle = element('div', '', 'script-title-row')
-  const scriptFile = element('button', scriptName, 'script-file-name'); scriptFile.type = 'button'; scriptFile.setAttribute('aria-label', `查看剧本：${scriptName}`); scriptFile.onclick = openScript
-  const scriptArrow = element('button', '→', 'script-title-arrow'); scriptArrow.type = 'button'; scriptArrow.setAttribute('aria-label', '打开剧本详情'); scriptArrow.title = '打开剧本详情'; scriptArrow.onclick = openScript
-  scriptTitle.append(scriptFile, scriptArrow)
-  scriptCard.append(element('h3', '剧本'), scriptTitle, element('p', `V${project.scriptRevision || 0} · ${project.scriptSource || '尚未建立'} · ${project.scriptUpdatedAt || ''} · ${(project.scriptProposals || []).filter(item => item.status === 'pending').length} 个待确认方案`, 'meta'))
-  page.append(scriptCard)
+  if (project.mode !== 'free') {
+    const scriptCard = element('article', '', 'overview-card')
+    const scriptName = project.scriptName || (project.scriptKind === 'imported' ? '导入剧本' : '分节剧本')
+    const openScript = () => actions.openScript?.(project)
+    const scriptTitle = element('div', '', 'script-title-row')
+    const scriptFile = element('button', scriptName, 'script-file-name'); scriptFile.type = 'button'; scriptFile.setAttribute('aria-label', `查看剧本：${scriptName}`); scriptFile.onclick = openScript
+    const scriptArrow = element('button', '→', 'script-title-arrow'); scriptArrow.type = 'button'; scriptArrow.setAttribute('aria-label', '打开剧本详情'); scriptArrow.title = '打开剧本详情'; scriptArrow.onclick = openScript
+    scriptTitle.append(scriptFile, scriptArrow)
+    scriptCard.append(element('h3', '剧本'), scriptTitle, element('p', `V${project.scriptRevision || 0} · ${project.scriptSource || '尚未建立'} · ${project.scriptUpdatedAt || ''} · ${(project.scriptProposals || []).filter(item => item.status === 'pending').length} 个待确认方案`, 'meta'))
+    page.append(scriptCard)
+  }
 
   const episodes = element('article', '', 'overview-card')
   const head = element('div', '', 'episode-head')
@@ -169,12 +174,20 @@ export function renderOverview(project, actions, context) {
     if (!entries.length) {
       panel.append(element('p', `暂无${title}数据，将根据剧集自动生成角色、场景和道具。`, 'library-empty'))
     } else {
-      const strip = element('div', '', 'characters-strip')
+      const strip = element('div', '', `characters-strip library-card-strip library-card-strip-${kind}`)
       for (const entry of entries) {
-      const button = element('button', entry.name, 'character-item library-card'); button.setAttribute('aria-label', `${title}详情：${entry.name}`); button.onclick = () => (actions.openLibraryEntry || actions.openLibrary)?.(project, kind, entry.id)
-      const image = entry.variants.find(variant => variant.id === entry.defaultVariantId)?.image.content
-      if (image?.localPath) { const img = element('img', '', 'character-image'); img.src = image.localPath; img.alt = entry.name; button.prepend(img) }
-      strip.append(button)
+        const button = element('button', '', `character-item library-card library-card-${kind}`)
+        button.setAttribute('aria-label', `${title}详情：${entry.name}`); button.onclick = () => (actions.openLibraryEntry || actions.openLibrary)?.(project, kind, entry.id)
+        const variant = entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0]
+        const image = variant?.image?.content
+        const media = element('span', '', kind === 'scenes' ? 'library-card-image' : 'library-card-avatar')
+        if (image?.localPath) { const img = element('img', '', 'character-image'); img.src = image.localPath; img.alt = entry.name; media.append(img) } else media.append(element('span', kind === 'props' ? '道' : (entry.name || title).charAt(0), 'library-card-placeholder'))
+        const info = element('span', '', 'library-card-info')
+        info.append(element('strong', entry.name || '未命名'))
+        const fields = variant?.fields || {}
+        const description = kind === 'characters' ? fields.role || fields.identity || '' : kind === 'scenes' ? fields.look || fields.landmark || fields.space || '' : fields.description || fields.category || ''
+        if (description) info.append(element('span', description, 'meta'))
+        button.append(media, info); strip.append(button)
       }
       panel.append(strip)
     }

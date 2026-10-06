@@ -1,6 +1,6 @@
 import { element, appendJsonCopy } from './panel-dom.js'
-import { targetLabel, stepKindLabels, skillsLine } from './run-labels.js'
-import { runStatusLabels, runStepStatusLabels, runGoalLabel, runTargetMatches } from '../shared/run-view.js'
+import { targetLabel, stepKindLabels, stepLabel, skillsLine } from './run-labels.js'
+import { runDisplayStatus, runStepStatusLabels, runGoalLabel, runTargetMatches } from '../shared/run-view.js'
 import { outlineText } from '../shared/story-outline.js'
 
 const time = value => value ? new Date(value).toLocaleString() : '—'
@@ -36,9 +36,10 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
     const expanded = new Set([...body.querySelectorAll('details[data-step-id][open]')].map(node => node.dataset.stepId))
     body.replaceChildren()
     title.textContent = runGoalLabel(run, project)
-    runStatus.textContent = runStatusLabels[run.status] || run.status
-    runStatus.className = `task-history-status run-detail-status is-${run.status}`
-    body.append(element('p', `${runStatusLabels[run.status]} · ${run.initiator === 'session' ? '会话发起' : '面板发起'} · ${time(run.startedAt || run.createdAt)} - ${time(run.endedAt)}`, 'meta run-detail-meta'))
+    const displayStatus = runDisplayStatus(run)
+    runStatus.textContent = displayStatus.label
+    runStatus.className = `task-history-status run-detail-status is-${displayStatus.key}`
+    body.append(element('p', `${displayStatus.label} · ${run.initiator === 'session' ? '会话发起' : '面板发起'} · ${time(run.startedAt || run.createdAt)} - ${time(run.endedAt)}`, 'meta run-detail-meta'))
 
     if (run.pause?.reasons?.length) {
       const reasons = element('section', '', 'run-readonly-reasons')
@@ -65,7 +66,7 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
           expandState.setAttribute('aria-label', item.open ? '当前已展开' : '当前已收起')
         })
         const heading = element('div', '', 'run-step-heading')
-        heading.append(element('span', runStepStatusLabels[step.status] || step.status, `task-history-status is-${step.status}`), element('strong', `${index + 1}. ${kindLabels[step.kind] || step.kind}${step.round ? ` · 第 ${step.round} 轮` : ''}`))
+        heading.append(element('span', runStepStatusLabels[step.status] || step.status, `task-history-status is-${step.status}`), element('strong', `${index + 1}. ${stepLabel(step)}${step.round ? ` · 第 ${step.round} 轮` : ''}`))
         if (step.output?.passed !== undefined) heading.append(element('span', step.output.passed ? '审核通过' : '审核未通过', `task-history-status run-step-verdict-badge is-${step.output.passed ? 'passed' : 'failed'}`))
         heading.append(expandState)
         summary.append(heading, element('span', `${time(step.startedAt)} - ${time(step.endedAt)}`, 'meta run-step-time'))
@@ -109,10 +110,10 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
 
   const openRecordPage = async (step, kind) => {
     returnAction = draw; returnButton.textContent = '← 返回'
-    title.textContent = `${kindLabels[step.kind] || step.kind} · ${kind === 'responses' ? 'HTTP 请求详情' : kind === 'artifacts' ? '生成快照详情' : '提示词详情'}`
+    title.textContent = `${stepLabel(step)} · ${kind === 'responses' ? 'HTTP 请求详情' : kind === 'artifacts' ? '生成快照详情' : '提示词详情'}`
     body.replaceChildren()
     const page = element('section', '', 'run-record-page')
-    page.append(element('p', `${targetLabel(step.target)} · 步骤 ${kindLabels[step.kind] || step.kind}`, 'meta'))
+    page.append(element('p', `${targetLabel(step.target)} · 步骤 ${stepLabel(step)}`, 'meta'))
     try {
       const result = await loadRecords(run, step, kind), entries = result?.[kind] || []
       if (!entries.length) {

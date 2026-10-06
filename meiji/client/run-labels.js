@@ -9,6 +9,15 @@ export function targetLabel(target) {
   return [targetLabels[kind] || kind, id, slot].filter(Boolean).join(' · ')
 }
 
+// 文本步骤标题带上实际产物，避免任务详情里只看到无法区分的「生成 / 自审 / 修订」。
+export function stepLabel(step) {
+  const base = stepKindLabels[step?.kind] || step?.kind || '步骤'
+  if (!['generate', 'review', 'revise', 're_review'].includes(step?.kind) || !step?.target) return base
+  const [, ...identity] = targetLabel(step.target).split(' · ')
+  const target = targetLabel(step.target).split(' · ')[0]
+  return `${base}${target}${identity.length ? ` · ${identity.join(' · ')}` : ''}`
+}
+
 const skillNames = { episode: '剧集摘要', outline: '剧情整包', shots: '镜头表', 'shot-revise': '单镜修订', seconds: '每秒指令', storyboard: '文本分镜', video: '成片', 'image-prompt': '图片提示词改写', 'character-image': '人物参考图', 'scene-image': '场景参考图', 'part-image': '道具图片',
   'guidance-action': '动作指导', 'guidance-martial': '武术指导', 'guidance-dialogue': '台词指导', 'guidance-expression': '表情指导', 'guidance-sound': '声音指导' }
 

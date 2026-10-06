@@ -179,10 +179,6 @@ export function renderSession(project, openCreate, actions, context = {}) {
       button.onclick = () => { active = tab.id; context.onSelectTab?.(tab.id); paint() }
       overview.append(button)
     }
-    const make = element('button', '一键做到…', 'primary')
-    const stageIds = { script: 'story', assembly: 'assemble' }
-    make.onclick = async () => { make.disabled = true; try { await actions.perform(work, 'run-goal', { goal: { from: stageIds[active] || active, to: 'assemble' } }) } catch (error) { actions.fail?.(error) } finally { make.disabled = false } }
-    overview.append(make)
     if (imageNotice) imageNotice.hidden = active === 'script' && imageGate.episodeId === work.episodeId
     body.replaceChildren(renderStage(active, work, actions, { ...context, imageGate, onGoTab: id => { active = id; context.onSelectTab?.(id); paint() } }))
   }

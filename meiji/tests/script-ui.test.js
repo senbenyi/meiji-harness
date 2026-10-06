@@ -113,8 +113,9 @@ test('无导入剧本的方向入口在自动回写后仍展示，编辑保存�
   const view = renderOverview(p, { openPremise: open }, {})
   root.append(view)
   assert.equal(view.querySelector('h3').textContent, 'AI 创作方向')
-  assert.match(view.textContent, /持续指导每一集摘要/)
-  button(view, '编辑创作方向').click()
+  assert.doesNotMatch(view.textContent, /持续指导每一集摘要/)
+  assert.ok(view.querySelector('[aria-label="编辑 AI 创作方向"]'))
+  view.querySelector('[aria-label="编辑 AI 创作方向"]').click()
   const text = root.querySelector('[aria-label="AI 创作方向"]')
   assert.equal(text.value, p.premise)
   text.value = '寻找家人并揭开旧案'

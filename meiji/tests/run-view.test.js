@@ -58,7 +58,7 @@ test('详情直接展示步骤状态与失败原因，提示词和错误信息�
     calls.push([value.id, step.id, kind]); return kind === 'artifacts' ? { artifacts: [{ target: 'film:S03', published: true, content: '<script>safe()</script>草稿' }] } : kind === 'responses' ? { responses: [{ method: 'POST', path: '/v1/chat', status: 200, request: { body: '原始请求' }, body: '原始全文' }] } : { prompts: [{ body: '原始全文', durationMs: 99, prompt: '完整提示词' }] }
   } }); document.body.append(view); await settle()
   assert.equal(view.querySelectorAll('.task-history-header > button').length, 1)
-  assert.match(view.querySelector('.run-detail-status').textContent, /待处理/)
+  assert.match(view.querySelector('.run-detail-status').textContent, /未通过/)
   assert.equal(view.querySelector('.run-step-card.is-superseded').textContent.includes('已作废'), true); assert.equal(view.querySelector('.is-highlighted').dataset.target, 'film:S03')
   assert.equal(calls.length, 0)
   const detail = view.querySelector('[data-step-id=step]')
@@ -68,6 +68,8 @@ test('详情直接展示步骤状态与失败原因，提示词和错误信息�
   detail.open = false; detail.dispatchEvent(new document.defaultView.Event('toggle')); assert.equal(detail.querySelector('.run-step-expand-state').textContent, '展开详情')
   detail.open = true; detail.dispatchEvent(new document.defaultView.Event('toggle')); assert.equal(detail.querySelector('.run-step-expand-state').textContent, '收起详情')
   assert.match(detail.querySelector('.run-step-heading').textContent, /审核未通过/)
+  assert.match(detail.querySelector('.run-step-heading').textContent, /自审成片 · S03/)
+  assert.match(view.querySelector('[data-step-id=old] .run-step-heading').textContent, /生成成片 · S03/)
   assert.equal(detail.querySelector('.run-step-status-detail').textContent.includes('状态：'), false)
   assert.ok(detail.querySelector('.run-step-detail .run-step-summary-actions'))
   assert.ok(button(detail, '查看提示词')); assert.ok(button(detail, '查看 HTTP 请求')); assert.equal(button(detail, '查看原始返回'), undefined); assert.ok(button(detail, '复制'))

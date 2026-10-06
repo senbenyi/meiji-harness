@@ -91,14 +91,14 @@ export async function prepareChecks(store, project, operation) {
     if (operation.action === 'seconds') {
       const group = targetNode(next, 'seconds')
       if (fresh !== undefined) saveReview(group, String(fresh))
-      begin(group, { id: checkContext.getStore()?.writeToken || `${Date.now()}`, action: 'seconds', consumesReview: mode === 'modify' })
+      begin(group, { id: checkContext.getStore()?.writeToken || `${Date.now()}`, action: 'seconds', step: operation.step, generationMode: mode, consumesReview: mode === 'modify' })
     }
     for (const key of keys(next, operation)) {
       const target = targetNode(next, key)
       if (!target) continue
       if (matchingCandidate && target.operation?.phase === 'awaiting-confirmation') target.operation = null
       if (fresh !== undefined && operation.action !== 'seconds') saveReview(target, String(fresh))
-      if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.writeToken || `${Date.now()}`, action: operation.action, consumesReview: mode === 'modify' })
+      if (!batchActions.has(operation.action) && !target.operation) begin(target, { id: checkContext.getStore()?.writeToken || `${Date.now()}`, action: operation.action, step: operation.step, generationMode: mode, consumesReview: mode === 'modify' })
     }
     return next
   })
@@ -108,7 +108,7 @@ export async function prepareChecks(store, project, operation) {
     if (!operation.track) return
     await store.save(project.id, current => {
       const next = structuredClone(current), target = targetNode(next, feedbackKey(operation))
-      if (target && !target.operation) begin(target, { id: context.writeToken, action: operation.action, consumesReview: mode === 'modify' })
+      if (target && !target.operation) begin(target, { id: context.writeToken, action: operation.action, step: operation.step, generationMode: mode, consumesReview: mode === 'modify' })
       return next
     })
   } }
