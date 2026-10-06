@@ -116,6 +116,7 @@ test('approved proposals materialize analysis, episode plan and formal script in
   assert.equal(project.episodes['episode-1'].script, '林夏走进车站，听见广播。')
   assert.equal(project.shots[firstId].status, 'planned')
   assert.equal(project.shots[secondId].continuityFrom, firstId)
+  assert.equal(project.shots[secondId].audioDialogue, '请立即离开。')
   assert.equal(project.developmentProposals['script-1'].status, 'approved')
 })
 

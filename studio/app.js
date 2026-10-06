@@ -1,5 +1,5 @@
 import { markdownToHtml } from './markdown.js'
-import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasStage } from './stages.js'
+import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasStage } from './stages.js?v=12'
 
 (function () {
   'use strict'
@@ -904,7 +904,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
     el.meta.textContent = allNodes.length === 0 ? '' : '画幅 ' + (project.settings?.aspectRatio || '16:9')
       + (project.settings?.duration ? ' · 时长 ' + project.settings.duration : '')
-      + ' · 音频 ' + (project.settings?.audioMode || 'silent')
+      + ' · 音频 ' + (project.settings?.audioMode || 'native')
       + ' · 档位 ' + (project.settings?.mode || 'quality')
       + ' · 节点 ' + allNodes.length
       + (allNodes.length ? '（主线 ' + allMain.length + (allFrames.length ? ' · 抽帧 ' + allFrames.length : '') + (allDiscards.length ? ' · 作废 ' + allDiscards.length : '') + '）' : '')

@@ -14,15 +14,19 @@ const STORYBOARD_RE = /(分镜|宫格|storyboard)/i
 const SCRIPT_RE = /(分集|剧本|场次|镜头表|episode|script|shotlist)/i
 const ASSET_RE = /(角色|场景|地点|道具|资产|设定|定妆|character|scene|location|prop|asset)/i
 const ANALYSIS_RE = /(分析|简报|规划|大纲|故事圣经|story.?bible|brief|analysis|plan)/i
-const MEDIA_RE = /(视频|旁白|配音|音频|video|audio|voice|speech)/i
 
 export function canvasStageForNode(node = {}) {
+  if (CANVAS_STAGES.some((stage) => stage.key !== 'overview' && stage.key === node.stage)) return node.stage
   const params = node.params || {}
+  if (node.kind === 'audio') return null
+  if (CANVAS_STAGES.some((stage) => stage.key === params.canvasStage && stage.key !== 'overview')) {
+    return params.canvasStage === 'media' && node.kind !== 'video' ? null : params.canvasStage
+  }
   const text = [node.group, node.title, params.capability, params.assetType, params.type]
     .filter(Boolean)
     .join(' ')
   if (DELIVERY_RE.test(text)) return 'delivery'
-  if (MEDIA_RE.test(text) || node.kind === 'video' || node.kind === 'audio') return 'media'
+  if (node.kind === 'video') return 'media'
   if (STORYBOARD_RE.test(text)) return 'storyboard'
   if (SCRIPT_RE.test(text)) return 'scripts'
   if (ASSET_RE.test(text) || node.kind === 'image') return 'assets'
