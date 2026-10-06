@@ -1,5 +1,5 @@
 // 任务：剧集剧情（大纲 → 角色 → 场景 → 道具；阶段 2 拆为四个小任务）
-import { runTextNodes } from '../../server/runtime/text-generation.js'
+import { runTextNodes } from '../../server/flow/tasks/text-workflow.js'
 import { parseJsonValue } from '../../server/gateway/model-gateway.js'
 import { checkContext } from '../../server/runtime/operation-context.js'
 import { modelRoutes } from '../../models/model-config.js'

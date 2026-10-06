@@ -1,4 +1,5 @@
-import { runLibraryImage } from './media/task-library-image.js'
+import { textStepRegistry } from './text-step-registry.js'
+import { runLibraryImage } from '../steps/step-generate-library-image.js'
 // 独立任务注册：队列、基础节点和修订上限在任务层定义。
 import { textNodes } from '../../../shared/task-nodes.js'
 import { imageSteps, videoSteps, storyboardSteps } from '../../../shared/task-plans.js'
@@ -11,12 +12,12 @@ import { runScenes } from './text/task-scenes.js'
 import { runProps } from './text/task-props.js'
 import { runShotTable } from './text/task-shot-table.js'
 import { opShotSeconds } from './text/task-shot-seconds.js'
-import { opShotStoryboard } from './text/task-storyboard-prompt.js'
-import { runCharacterImage } from './media/task-character-image.js'
-import { runSceneImage } from './media/task-scene-image.js'
-import { runPropImage } from './media/task-prop-image.js'
+import { opShotStoryboard } from '../steps/step-generate-storyboard.js'
+import { runCharacterImage } from '../steps/step-generate-character-image.js'
+import { runSceneImage } from '../steps/step-generate-scene-image.js'
+import { runPropImage } from '../steps/step-generate-prop-image.js'
 import { runVideo } from './media/task-video.js'
-import { storyboardReady, videoReady, tailReady } from '../shared/film-freshness.js'
+import { storyboardReady, videoReady, tailReady } from '../steps/shared/film-freshness.js'
 import { runSave } from './text/task-save.js'
 
 const text = (label, run, action, target) => ({ label, run, queue: 'text', maxRevisions: 2, stage: 'episode', action, target, nodes: op => textNodes(typeof target === 'function' ? target(op) : target) })
@@ -47,7 +48,7 @@ export function describeTask(item, op, direct, project) {
   const definition = taskDefinition(item.type), operation = { ...op, ...item.params }
   const target = direct ? direct.step?.(op, project)?.target ?? direct.plan?.(project, op)?.[0]?.target ?? null : typeof definition.target === 'function' ? definition.target(operation) : definition.target
   return { ...item, label: item.label || `${definition.label}${operation.track ? ' ' + operation.track : ''}${operation.itemId ? ' ' + operation.itemId : ''}`,
-    target, targets: item.targets || [target], queue: definition.queue, actor: definition.actor || 'model', maxRevisions: definition.maxRevisions,
-    plan: direct ? direct.plan?.(project, op) || [direct.step?.(op, project) || { kind: 'save', target }] : definition.nodes(operation),
+    target, targets: item.targets || [target], queue: definition.queue, actor: definition.actor || 'model', steps: textStepRegistry[target?.split(':')[0]], maxRevisions: op.step ? 0 : definition.maxRevisions,
+    plan: direct ? direct.plan?.(project, op) || [direct.step?.(op, project) || { kind: 'save', target }] : op.step ? [{ kind: op.step, target }] : definition.nodes(operation),
     operation: { ...operation, action: direct ? op.action : typeof definition.action === 'function' ? definition.action(operation) : definition.action, ...(item.type === 'outline' ? { stageKey: 'outline' } : {}) }, definition: direct ? { ...direct, run: context => runSave(context, direct) } : { ...definition } }
 }

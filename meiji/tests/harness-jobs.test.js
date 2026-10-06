@@ -20,7 +20,7 @@ async function setup(t, options = {}) {
 
 test('统一登记只启动一次、输出进度、逐字段结果与 manager 一致', async t => {
   let runs = 0; const e = await setup(t, { execute: async () => { runs++; const trace = []; trace.result = { scriptRevision: 3, pendingProposal: '方案' }; return trace } })
-  const result = await e.adapter.start(e.op('shot-table', { sessionId: sessionId, origin: 'session', callId: 'call' }))
+  const result = await e.adapter.start(e.op('shot-table', { sessionId: sessionId, origin: 'session', mode: 'regenerate', callId: 'call' }))
   await e.jobs.wait(result.jobId, 5000, sessionId)
   const read = e.jobs.read(result.jobId, sessionId), operation = await e.manager.get(result.operationId, sessionId)
   assert.equal(runs, 1); assert.deepEqual(JSON.parse(read.result), operationResult(operation))
@@ -31,7 +31,7 @@ test('统一登记只启动一次、输出进度、逐字段结果与 manager �
 test('普通停止统一 manager.cancel，owner/service teardown 只脱离', async t => {
   for (const reason of ['用户停止', 'owner disposed', 'jobs service disposed']) {
     const gate = Promise.withResolvers(), e = await setup(t, { execute: async (_op, { signal }) => { await Promise.race([gate.promise, new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }))]); return [] } })
-    const result = await e.adapter.start(e.op('shot-table', { sessionId: sessionId, origin: 'session' }))
+    const result = await e.adapter.start(e.op('shot-table', { sessionId: sessionId, origin: 'session', mode: 'regenerate' }))
     e.jobs.kill(result.jobId, sessionId, reason); await e.jobs.wait(result.jobId, 5000, sessionId)
     assert.equal(e.jobs.get(result.jobId, sessionId).status, 'killed')
     gate.resolve(); const final = await e.manager.whenEnded(result.operationId, { sessionId: sessionId })
@@ -69,11 +69,11 @@ test('自动回写只绑定已有 ID，不重复启动业务', async t => {
   await linkStore(e.home).selectProject(sessionId, e.id, e.store)
   const adapter = createHarnessJobs({ home: e.home, manager, registry: jobs, subscribeProject, readProject: id => projectStore(e.home).read(id) })
   t.after(() => adapter.dispose())
-  const parent = manager.start(e.op('summary', { origin: 'session', sessionId }))
+  const parent = manager.start(e.op('summary', { origin: 'panel', sessionId }))
   const final = await parent.done
   assert.ok(final.result.scriptSyncOperationId)
   // 同一 ID 再次绑定返回已有观察任务。
-  const id = final.result.scriptSyncOperationId, op = { projectId: e.id, action: 'script-sync', origin: 'session' }
+  const id = final.result.scriptSyncOperationId, op = { projectId: e.id, action: 'script-sync', origin: 'session', mode: 'regenerate' }
   const a = adapter.bind(id, op), b = adapter.bind(id, op)
   assert.equal(a, b); await jobs.wait(a, 5000, sessionId)
   assert.equal(manager.list(e.id).length, 0)
@@ -98,7 +98,7 @@ test('剧本等待依事件解除；候选图未确认继续等待；取消等�
 
 test('已完成短路收集并移除 job，callId 写入操作与任务', async t => {
   const e = await setup(t)
-  const result = await e.adapter.start(e.op('story', { sessionId, origin: 'session', mode: 'generate', callId: 'tool-call-id' }))
+  const result = await e.adapter.start(e.op('story', { sessionId, origin: 'session', mode: 'generate', only: 'outline', callId: 'tool-call-id' }))
   assert.equal(result.alreadyCompleted, true); assert.equal(result.status, 'completed'); assert.equal(e.jobs.rows.size, 0)
   const running = await e.adapter.start(e.op('shot-table', { sessionId, origin: 'session', mode: 'regenerate', callId: 'tool-call-id' }))
   await e.jobs.wait(running.jobId, 5000, sessionId)
@@ -115,7 +115,7 @@ test('自动回写登记失败仍执行一次并保留原业务结果', async t 
     if (op.action === 'script-sync') childRuns++
     return []
   } })
-  const parent = e.manager.start(e.op('summary', { sessionId, origin: 'session' })), result = await parent.done
+  const parent = e.manager.start(e.op('summary', { sessionId, origin: 'panel' })), result = await parent.done
   assert.equal(result.status, 'completed'); assert.ok(result.result.scriptSyncOperationId)
   await e.manager.whenEnded(result.result.scriptSyncOperationId)
   assert.equal(childRuns, 1); assert.equal(e.jobs.rows.size, 0)
@@ -142,7 +142,7 @@ test('面板 job 保留登记和观察，通知及完成结果限定当前操作
     for (const method of ['start', 'bind']) {
       let runs = 0
       const e = await setup(t, { execute: async () => { runs++; return [] } })
-      const op = e.op('shot-table', { sessionId, origin })
+      const op = e.op('shot-table', { sessionId, origin, mode: 'regenerate' })
       let jobId, operationId
       if (method === 'start') ({ jobId, operationId } = await e.adapter.start(op))
       else {

@@ -1,20 +1,20 @@
 import { mergeLibraryGroup } from '../../../shared/library-rules.js'
 // 共享函数：任务与操作共用
-import { runTextNodes } from '../../runtime/text-generation.js'
-import { parseJsonValue } from '../../gateway/model-gateway.js'
+import { runTextNodes } from '../tasks/text-workflow.js'
 import { checkContext } from '../../runtime/operation-context.js'
 import { modelRoutes } from '../../../models/model-config.js'
-import { buildStoryPrompts } from '../../prompts/story-prompts.js'
-import { normalizeCharacters, normalizeScenes, normalizeProps } from '../../../shared/story-content.js'
+import { promptsForCharacters, parseCharacters } from '../steps/step-extract-characters.js'
+import { promptsForScenes, parseScenes } from '../steps/step-extract-scenes.js'
+import { promptsForProps, parseProps } from '../steps/step-extract-props.js'
 import { preserveStoryAssets } from '../../../shared/preserve-story-assets.js'
 import { plotPatch } from '../../../shared/drama-model.js'
 import { cascade } from '../../../shared/pipeline-cascade.js'
 
 export async function regenerateCardGroup({ project, kind, route, review, persist, signal, fetchImpl, request, extraction = false }) {
-  const normalize = text => kind === 'props' ? normalizeProps(parseJsonValue(text), project) : (kind === 'characters' ? normalizeCharacters : normalizeScenes)(parseJsonValue(text))
+  const normalize = text => ({ characters: parseCharacters, scenes: parseScenes, props: parseProps })[kind](text, project)
   const result = await runTextNodes({
     target: kind,
-    prompts: buildStoryPrompts(project, kind, review, { extraction }),
+    prompts: ({ characters: promptsForCharacters, scenes: promptsForScenes, props: promptsForProps, parseProps })[kind](project, review, { extraction }),
     options: { route, project, signal, fetchImpl, request }, check: text => { normalize(text); return [] }, persist: persist && ((text, check) => persist({ ...normalize(text), check })),
   })
   return { ...normalize(result.text), check: result.check }

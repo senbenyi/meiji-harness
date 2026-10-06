@@ -94,11 +94,11 @@ test('会话绑定校验先于创建操作和任务历史', async t => {
   setWorkspaceRegistry({ list: () => [], get: () => null }); t.after(() => setWorkspaceRegistry(null))
   const e = await setupModel(t), sessionId = 'session-11111111-1111-4111-8111-111111111111'
   const manager = createOperationManager({ home: e.home })
-  const denied = manager.start(e.op('seconds', { sessionId, origin: 'session' }))
+  const denied = manager.start(e.op('seconds', { sessionId, origin: 'session', mode: 'regenerate', track: 'S01' }))
   await assert.rejects(denied.ready, { status: 409 }); await denied.done
   assert.deepEqual(await recordStore(e.home, e.id).list(), [])
   await linkStore(e.home).selectProject(sessionId, e.id, e.store)
-  const accepted = manager.start(e.op('seconds', { sessionId, origin: 'session' }), null, { request: async message => message.skill === 'review' ? reviewPass : secondsForRequest(message) })
+  const accepted = manager.start(e.op('seconds', { sessionId, origin: 'session', mode: 'regenerate', track: 'S01' }), null, { request: async message => message.skill === 'review' ? reviewPass : secondsForRequest(message) })
   assert.equal((await accepted.done).status, 'completed')
 })
 

@@ -9,15 +9,21 @@ description: 创建短剧项目，按依赖规划分集制作，调用项目生�
 
 制作前用 operation-context-query 查询项目、剧集、剧本版本与阻断、三类库和缺图。operation-project-manage 创建或打开项目；创建须提交标题、模式及对应的必填资料，可设置风格和画幅，不输入项目摘要，不生成剧集。requirements 为本次选填要求，仅作用于当次任务，不自动保存为方向。mode 为 free 时，premise 是持续作用于每一集摘要的 AI 创作方向，自动回写剧情后仍继续使用；mode 为 script 时按原剧本推进，不使用创作方向。AI 创作方向仅由人在面板手动编辑，会话不可修改；新方向用于之后生成，不能重写已发生事实；edit-script 提出按整篇或分节修改的方案，用户确认后写入。
 
-只有用户明确要求多个步骤或完整制作时，才用 todo_write 规划这些已授权步骤，然后按依赖执行：operation-generate-summary → operation-generate-story → operation-generate-shot-table → operation-generate-seconds。剧情通过后可 operation-generate-images；图片全部确认与每秒指令通过后再 operation-generate-film，成片包括分镜提示词、视频和尾帧。只需要分镜或补视频/尾帧时使用 parts。项目摘要与剧本维护分别用 operation-update-project-summary、operation-revise-script，不替代剧集制作。
+每次用户明确发起制作，先说明本次目标、目标对象（项目/剧集/镜头）及完成标准，再用 get_goal 检查当前目标。无目标或前一目标已结束时，用 create_goal 建立本次目标；已有相同目标则沿用，不覆盖不相关目标。然后用 todo_write 列出本次已授权的具体步骤，一步目标也写一项。每项标明内容对象和动作，例如「第1集大纲：审核」，不把「生成并审核」合并成一项。普通聊天和查询不建立制作 goal 或 todo。
 
-每次只发起一个业务步骤。generate 跳过已经通过的内容；regenerate 按当前上游重新生成，不带旧结果及历史意见；modify 以当前基稿按 review 定向修改，保留无关内容。只有 summary 可以生成最后一集之后的下一集，不能跳集。story 的 only 可指定大纲、人物、场景或道具；单卡图片只由面板操作，会话使用批量图片工具。
+文本工具的 mode 精确选择一步：generate 只生成（已通过则跳过），regenerate 只重新生成（不带旧稿与历史意见），modify 只按 review 修订现有稿，review 只审核现有内容（包括再次审核）。生成、重新生成和修订都保存为待审核，不自动审核；审核无论通过与否都不自动修改。story 必须指定 only=outline/characters/scenes/props；seconds 必须指定 track，一次处理一个镜头。只有 summary 的 generate 可创建紧接最后一集的新剧集，其他模式必须选择现有内容。
+
+按目标组织依赖：摘要生成 → 摘要审核 → 明确授权的 operation-sync-script 回写 → 必要的项目摘要生成及审核 → 大纲生成及审核 → 人物、场景各自生成及审核 → 道具生成及审核 → 镜头表生成及审核 → 逐镜每秒指令生成及审核。以上只是可用依赖，不是每次必须完成的计划。缺少前置资料或前置审核时，说明阻断；仅在用户已授权该前置步骤时纳入 todo，不把「提取场景」扩展成完整制作。没有明确“只生成/暂不审核”时，生成某类内容的请求默认规划该内容的生成与审核两项，并在执行前说明。
+
+「只审核大纲」目标以取得审核结论为完成标准：即使 reviewPassed=false，也完成审核 todo 和 goal，报告问题后结束；「生成并审核」先执行生成，再执行审核。只有明确要求“修订到通过”才可在失败后追加修订和复审，最多两轮，仍不通过则将目标 blocked 并汇报。modify 必須携带用户意见或已授权处理的审核问题。修订后需要审核须列为另一项。每个 job 返回后按实际结果更新 todo，全部满足目标标准后用 get_goal 取得最新 id/revision，再调用 update_goal action=complete；执行失败或缺少必要条件则 action=blocked，并说明原因。
+
+图片与视频继续使用 operation-generate-images、operation-generate-film 的媒体流程。剧情审核通过后才可生图，图片确认与每秒指令审核通过后才可生成成片；parts 可选择分镜或补视频/尾帧。项目摘要通过 operation-update-project-summary 的 mode 分步维护。operation-revise-script 和 operation-sync-script 是剧本方案/回写事务，保留内部审核及人工确认，必须有本次授权，不能代替剧集制作。
 
 needs_confirmation 表示会删除已有内容：向用户说明返回的删除清单，取得授权后带 confirmDelete=true 重发。用户已经明确授权这些删除时直接传 true；不在内部任务之间重复审批。库关联卡片的修改会同步到库和其他关联集；需要只改本集时新增变体。
 
 面板按钮是单次操作请求。面板已通过 Harness /goal 建立本次操作目标；业务引擎执行期间目标暂停自动续跑，成功后标记 complete，失败或取消时标记 blocked。收到标为「面板单次操作」的 job 完成通知，先读取该 job 的结果，仅汇报这次操作的成功、失败、审核未通过或取消，然后结束本轮（end）。结果中的 initiator=panel、nextAction=end 明确要求结束，goalId 指向本次目标，goal.phase 给出程序已结算的状态；不要再次调用 update_goal，直接汇报并结束；这是执行结果通知，不是新的制作指令。不要另建 todo 或 goal，不恢复已结束或阻塞的目标，不规划或启动后续剧情、镜头、图片或视频，不自行重试，不新建等待任务。面板操作内部的必要前置与剧本回写由业务流程负责，不要重复调用。用户之后明确提出新请求时，再按新请求执行。
 
-会话主动发起的操作返回 jobId 后可以结束本轮，完成时会收到通知；需要结果时用 job_output；确实需要等待时设置 wait=true，停止本会话发起的任务用 job_kill。面板任务由用户在面板停止。只有用户已经授权该依赖步骤，且 status=completed、reviewPassed=true，才启动依赖步骤；审核通过本身不是继续制作的授权。retryable=true 表示项目摘要更新失败，重新调用同一工具一次，仍失败则报告原因；其他 failed、review_failed、cancelled 停止依赖步骤，不自行循环重试。busy 已登记占用等待 job，结束后重新发起原操作。
+会话步骤返回 jobId 后可等待 job_output（wait=true），或结束本轮等待完成通知；等待期间保留当前目标与未完成 todo。停止本会话发起的任务用 job_kill，面板任务由用户在面板停止。stepCompleted 表示步骤已执行，不等于内容通过审核；生成完成的 reviewPassed=null 表示尚未审核，可以执行目标内的审核步骤，但不能启动依赖审核通过的下游制作。step=review、status=review_failed、stepCompleted=true 表示已得到不通过结论，按本次目标决定结束或授权范围内修订。failed/cancelled 不标 todo 已完成，不自行重试。busy 等待结束后只重发原步骤；不要借完成通知扩展目标。
 
 候选图片必须由用户在面板确认或放弃，不能在聊天中代替确认；operation-wait-images 登记图片等待 job，已有库图可直接复用。待确认剧本方案、摘要待回写或删除待回写会阻断剧情生成，处理后剧本等待 job 通知，再继续原步骤。不要把未确认方案当作已保存剧本，不重做已完成的摘要来消除等待。
 

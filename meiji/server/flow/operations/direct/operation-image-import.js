@@ -3,8 +3,8 @@ import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { decodeImageData } from '../../../media/decode-image-data.js'
-import { importAssetImage, visualPlace } from '../../shared/image-files.js'
-import { openIncoming } from '../../shared/incoming.js'
+import { importAssetImage, visualPlace } from '../../steps/shared/image-files.js'
+import { openIncoming } from '../../steps/shared/incoming.js'
 import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'import-image')

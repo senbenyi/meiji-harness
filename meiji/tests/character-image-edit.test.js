@@ -106,7 +106,7 @@ test('人物修改预览复用实际 model 的组装，Base64 不显示在预览
 
 
 test('人物修改真实生成通路执行三个计划步骤并登记候选图', async t => {
-  const { submitAssetImage } = await import('../server/flow/shared/image-files.js')
+  const { submitAssetImage } = await import('../server/flow/steps/shared/image-files.js')
   const { recordStore } = await import('../server/data/task-store.js')
   const e = await fixture(t)
   const operation = e.op('character-image', { itemId: 'C01', generationMode: 'modify', review: '背景改为白色' })

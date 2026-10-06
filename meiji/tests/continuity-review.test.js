@@ -3,8 +3,8 @@ import { storyboardFixture } from './fixtures/storyboard.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
-import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
-import { reviewContent } from '../server/runtime/text-generation.js'
+import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
+import { reviewContent } from '../server/flow/steps/step-review-edited-content.js'
 import { continuityReviewContext } from '../server/prompts/continuity-review.js'
 
 test('binding generation and review keep the current timeline and exclude previous final prompts', async () => {

@@ -5,8 +5,8 @@ import { plotPatch } from '../../../../shared/drama-model.js'
 import { savePicture } from '../../../data/image-storage.js'
 import { appendImageAsset, nextPartId, partSlots } from '../../../../shared/image-assets.js'
 import { decodeImageData } from '../../../media/decode-image-data.js'
-import { visualPlace } from '../../shared/image-files.js'
-import { openIncoming } from '../../shared/incoming.js'
+import { visualPlace } from '../../steps/shared/image-files.js'
+import { openIncoming } from '../../steps/shared/incoming.js'
 import { saveStep } from '../../../../shared/task-plans.js'
 
 // if (operation.action === 'part-import')

@@ -1,7 +1,7 @@
 // 任务：剧集摘要（生成本集摘要；弹框 AI 草稿为同一任务的草稿模式）
 import { episodeSummaryFailures, referenceDuration } from '../../../../shared/episode-summary.js'
-import { runTextNodes } from '../../../runtime/text-generation.js'
-import { buildEpisodePrompts } from '../../../prompts/episode-summary-prompts.js'
+import { runTextNodes } from '../text-workflow.js'
+import { promptsForSummary } from '../../steps/step-generate-summary.js'
 import { parseJsonValue } from '../../../gateway/model-gateway.js'
 import { normalizeEpisodeDraft } from '../../../../shared/story-content.js'
 import { addEpisode, editEpisode, materialize, normalizeProject } from '../../../../shared/episode-rules.js'
@@ -11,13 +11,13 @@ import { modelRoutes } from '../../../../models/model-config.js'
 import { GenerationStatus, consumeReview } from '../../../../shared/drama-model.js'
 import { runNode } from '../../../runtime/task-execution.js'
 import { saveTaskDraft } from '../../../data/content-records.js'
-import { statusFromCheck } from '../../../../shared/content-state.js'
+import { statusFromCheck, markPendingReview } from '../../../../shared/content-state.js'
 
 export async function generateEpisode({ route, project, episodeId, referenceDurationSeconds, signal, fetchImpl, request, persist }) {
   const reference = referenceDuration(referenceDurationSeconds ?? project.episodes?.find(episode => episode.id === episodeId)?.durationSeconds)
   const result = await runTextNodes({
     target: 'summary',
-    prompts: buildEpisodePrompts(project, episodeId, reference),
+    prompts: promptsForSummary(project, episodeId, reference),
     options: { route, project: { ...project, durationSeconds: reference }, signal, fetchImpl, request },
     check: text => episodeSummaryFailures(parseJsonValue(text)),
     persist: persist && ((text, check) => persist({ ...normalizeEpisodeDraft(parseJsonValue(text), reference), check })),
@@ -46,7 +46,7 @@ export async function opEpisodeGenerate(c) {
       const updated = episodeId ? patch.episodes.find(item => item.id === episodeId) : patch.episodes[0]
       episodeId = updated.id
       updated.summary.check = { ...(draft.check || { passed: null, failures: [] }), revision: updated.summary.revision }
-      statusFromCheck(updated.summary)
+      draft.check?.passed == null && operation.step ? markPendingReview(updated.summary) : statusFromCheck(updated.summary)
       return patch
     })
   }

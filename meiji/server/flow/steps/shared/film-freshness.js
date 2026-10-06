@@ -1,8 +1,8 @@
-import { GenerationStatus } from '../../../shared/drama-model.js'
-import { h3PromptFailures } from '../../../shared/video-rules.js'
-import { storyboardPromptText } from '../../../shared/story-content.js'
-import { previousTail } from '../../../shared/tail-frame.js'
-import { compileVideoPrompt } from '../../prompts/video-prompt-renderer.js'
+import { GenerationStatus } from '../../../../shared/drama-model.js'
+import { h3PromptFailures } from '../../../../shared/video-rules.js'
+import { storyboardPromptText } from '../../../../shared/story-content.js'
+import { previousTail } from '../../../../shared/tail-frame.js'
+import { compileVideoPrompt } from '../../../prompts/video-prompt-renderer.js'
 export const videoReady = shot => shot?.video.content?.status === 'ready'
 export const tailReady = shot => shot?.tailFrame.status === GenerationStatus.PASSED && Boolean(shot.tailFrame.content?.localPath) && shot.tailFrame.content.sourceVideoFile === shot.video.content?.file
 export function storyboardReady(project, track) {

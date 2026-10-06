@@ -1,5 +1,5 @@
 import { shotSecondsReady } from '../../../../shared/shot-timing.js'
-export const operation = { session: {"tool": "operation-generate-seconds", "description": "逐镜生成每秒指令。", "episode": true, "params": {"track": {"type": "string"}}, "modes": ["generate", "regenerate", "modify"]}, label: '生成每秒指令', scope: 'episode', agent: true, kind: 'generate',
+export const operation = { session: {"tool": "operation-generate-seconds", "description": "对指定镜头的每秒指令执行一个文本步骤，track 必填。", "episode": true, "required": ["track"], "params": {"track": {"type": "string"}}, "stepwise": true, "modes": ["generate", "regenerate", "modify", "review"]}, label: '生成每秒指令', scope: 'episode', agent: true, kind: 'generate',
   precheck(project, op) { if (!project.shots.items.length || project.shots.check.passed !== true) throw Object.assign(new Error('请先生成并通过镜头表审核'), { status: 409 }); if (op.track && !project.shots.items.some(shot => shot.id === op.track)) throw new Error('镜头不存在') },
   tasks(project, op) { let shots = project.shots.items
     if (op.track) shots = shots.filter(shot => shot.id === op.track)

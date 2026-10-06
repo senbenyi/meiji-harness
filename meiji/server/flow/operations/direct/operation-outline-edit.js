@@ -2,7 +2,7 @@
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { runNode } from '../../../runtime/task-execution.js'
-import { reviewContent } from '../../../runtime/text-generation.js'
+import { reviewContent } from '../../steps/step-review-edited-content.js'
 import { plotPatch, contentNode } from '../../../../shared/drama-model.js'
 import { editSteps } from '../../../../shared/task-plans.js'
 import { normalizeOutline } from '../../../../shared/story-outline.js'

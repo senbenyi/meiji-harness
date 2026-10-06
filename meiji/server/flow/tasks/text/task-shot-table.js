@@ -1,32 +1,16 @@
 // 任务：镜头表（生成；按审核意见重写单镜）
-import { runTextNodes } from '../../../runtime/text-generation.js'
-import { parseJsonValue } from '../../../gateway/model-gateway.js'
+import { runTextNodes } from '../text-workflow.js'
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { canGenerate } from '../../../../shared/generation-gates.js'
-import { shotModel, node } from '../../../../shared/drama-model.js'
+import { node } from '../../../../shared/drama-model.js'
 import { referencedEntities } from '../../../../shared/entity-references.js'
-import { buildTablePrompts, buildSingleShotPrompts } from '../../../prompts/shot-text-prompts.js'
+import { promptsForShotTable, readShotSections } from '../../steps/step-generate-shot-table.js'
 import { feedbackOf } from '../../../../shared/review-feedback.js'
 import { clearShotDownstream } from '../../../../shared/project-rules.js'
 import { gateMessage } from '../../../../shared/generation-gates.js'
 
 export function body(shot) { return shot?.content || '' }
-
-// JSON 仅用于传输；解析编号、秒数、标题与正文后沿用现有镜头卡片存储。
-export function readShotSections(text, offset = 0) {
-  const raw = parseJsonValue(text)
-  if (!raw || Array.isArray(raw) || Object.keys(raw).length !== 1 || !Array.isArray(raw.shots) || !raw.shots.length) throw new Error('镜头表结果仅允许非空 shots 数组')
-  return raw.shots.map((item, index) => {
-    const id = `S${String(offset + index + 1).padStart(2, '0')}`
-    const keys = ['shotId', 'durationSeconds', 'title', 'content']
-    if (!item || Array.isArray(item) || Object.keys(item).length !== keys.length || keys.some(key => !Object.hasOwn(item, key)) || item.shotId !== id
-      || !Number.isInteger(item.durationSeconds) || item.durationSeconds < 1 || item.durationSeconds > 15
-      || typeof item.title !== 'string' || !item.title.trim() || /[\r\n]/.test(item.title)
-      || typeof item.content !== 'string' || !item.content.trim()) throw new Error(`${id} 的编号、1–15秒时长、标题或正文不完整`)
-    return shotModel({ id, duration: item.durationSeconds, text: `标题：${item.title.trim()}\n${item.content.trim()}`, cast: [], scene: '', format: 'text' })
-  })
-}
 
 export async function generateShots(options) {
   const { project, persist } = options
@@ -44,7 +28,7 @@ export async function generateShots(options) {
     })
     return { ...node('shots'), revision: project.shots.revision + 1, items, failedOutput: '', reviewText, format: 'text', check }
   }
-  const result = await runTextNodes({ target: 'shots', prompts: buildTablePrompts(options), options, check: timingFailures, canPersist: text => Boolean(readShotSections(text)), retainFailedDraft: true, persist: persist && ((text, check) => persist(normalize(text, check))) })
+  const result = await runTextNodes({ target: 'shots', prompts: promptsForShotTable(options), options, check: timingFailures, canPersist: text => Boolean(readShotSections(text)), retainFailedDraft: true, persist: persist && ((text, check) => persist(normalize(text, check))) })
   const shots = normalize(result.text, result.check, result.reviewText)
   const failures = shots.check.failures
   if (persist) {
@@ -64,7 +48,7 @@ export async function reviseShot(options) {
     if (items.length !== 1 || items[0].duration !== shot.duration) throw new Error(`单镜修订只能返回 ${shotId}，时长保持 ${shot.duration} 秒`)
     return items[0].content
   }
-  const result = await runTextNodes({ target: 'shots', prompts: buildSingleShotPrompts(options), options,
+  const result = await runTextNodes({ target: 'shots', prompts: promptsForShotTable(options), options,
     check: text => { referencedEntities(normalize(text), project); return [] },
     persist: options.persist && ((text, check) => options.persist({ ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, content: normalize(text), check } : item), check })) })
   return { ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, content: normalize(result.text), check: result.check } : item), check: result.check }

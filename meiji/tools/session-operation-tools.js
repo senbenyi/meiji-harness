@@ -12,7 +12,7 @@ export function operationTools({ home, jobs }) {
     const properties = { requirements: { type: 'string' }, confirmDelete: { type: 'boolean' }, ...spec.params,
       ...(spec.episode ? { episodeNumber: { type: 'integer', minimum: 1 } } : {}),
       ...(spec.modes ? { mode: { type: 'string', enum: spec.modes }, ...(spec.modes.includes('modify') ? { review: { type: 'string' } } : {}) } : {}) }
-    return { name: spec.tool, description: `${spec.description} 返回 jobId 后可结束本轮，或用 job_output 读取结果；需要等待时设置 wait=true；仅 completed 且 reviewPassed=true 可推进。`,
+    return { name: spec.tool, description: `${spec.stepwise ? "会话每次仅执行一个步骤：generate/regenerate 只生成，modify 只修订，review 只审核现有内容；不自动执行后续步骤。" : ""}${spec.description} 返回 jobId 后可结束本轮，或用 job_output 读取结果；需要等待时设置 wait=true；执行结果区分步骤完成与审核通过；只有已授权且前置审核通过才推进。`,
       parameters: { type: 'object', additionalProperties: false, required: [...(spec.episode ? ['episodeNumber'] : []), ...(spec.modes ? ['mode'] : []), ...(spec.required || [])], properties }, output: jsonOutput,
       async execute(args, exec) {
         if (Object.keys(args).some(key => !Object.hasOwn(properties, key))) throw new Error('不支持的工具参数')
@@ -28,7 +28,7 @@ export function operationTools({ home, jobs }) {
         const project = await currentProject(home, exec), sessionId = sessionIdOf(exec)
         const episode = [...project.episodes].reverse()[args.episodeNumber - 1]
         if (spec.episode && (!Number.isInteger(args.episodeNumber) || args.episodeNumber < 1 || !episode && !(action === 'summary' && args.mode === 'generate' && args.episodeNumber === project.episodes.length + 1))) throw new Error('目标剧集不存在，不能跳集')
-        const op = { ...args, action, origin: 'session', projectId: project.id, episodeId: spec.episode ? episode?.id : undefined, sessionId, callId: exec.callId, generationMode: args.mode === 'modify' ? 'modify' : 'regenerate' }
+        const op = { ...args, action, origin: 'session', projectId: project.id, episodeId: spec.episode ? episode?.id : undefined, sessionId, callId: exec.callId, generationMode: args.mode === 'modify' ? 'modify' : 'regenerate', ...(spec.stepwise ? { step: args.mode === 'review' ? 'review' : args.mode === 'modify' ? 'revise' : 'generate' } : {}) }
         delete op.episodeNumber
         const view = episode && definition.scope !== 'project' ? materialize(project, episode.id) : project
         const deletions = args.mode === 'generate' && definition.completed?.(view, op) ? [] : operationDeletes(project, op)

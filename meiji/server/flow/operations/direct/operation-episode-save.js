@@ -3,7 +3,7 @@ import { rm } from 'node:fs/promises'
 import { addEpisode, editEpisode } from '../../../../shared/episode-rules.js'
 import { writeEpisodeCover } from '../../../data/episode-data.js'
 import { GenerationStatus } from '../../../../shared/drama-model.js'
-import { openIncoming } from '../../shared/incoming.js'
+import { openIncoming } from '../../steps/shared/incoming.js'
 import { saveStep } from '../../../../shared/task-plans.js'
 import { markPassed } from '../../../../shared/content-state.js'
 

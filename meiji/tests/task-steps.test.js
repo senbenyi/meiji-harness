@@ -19,7 +19,7 @@ import { runOperation, latestTask } from './fixtures/operation.js'
 import { operations as definitions, planTasks, validateOperation } from '../server/flow/operations/operation-registry.js'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { generateAllSeconds } from './fixtures/seconds-generation.js'
-import { generateShotStoryboard, generateStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
+import { generateShotStoryboard, generateStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
 import { storyboardFixture } from './fixtures/storyboard.js'
 import { setupModel, tempHome } from './fixtures/model.js'
@@ -207,11 +207,11 @@ test('human-only operations are rejected for the agent and never queued for it',
   for (const action of ['missing', 'constructor', 'toString', '__proto__']) assert.throws(() => validateOperation({ action, origin: 'panel' }), { status: 400 }, action)
   const humanOnly = Object.entries(definitions).filter(([, value]) => value.agent === false).map(([action]) => action)
   assert.ok(humanOnly.includes('review-override') && humanOnly.includes('confirm-image'))
-  for (const action of humanOnly) assert.throws(() => validateOperation({ action, origin: 'session' }), { status: 403 }, action)
+  for (const action of humanOnly) assert.throws(() => validateOperation({ action, origin: 'session', mode: 'regenerate' }), { status: 403 }, action)
   const tasks = createOperationManager({ home: '/tmp/unused', execute: () => assert.fail('must not execute') })
-  assert.throws(() => tasks.start({ action: 'review-override', origin: 'session', projectId: 'p', episodeId: 'e', key: 'summary' }), { status: 403 })
+  assert.throws(() => tasks.start({ action: 'review-override', origin: 'session', mode: 'regenerate', projectId: 'p', episodeId: 'e', key: 'summary' }), { status: 403 })
   const e = await setup(t)
-  await assert.rejects(runOperation(e.op('review-override', { origin: 'session', key: 'summary' }), { home: e.home }), { status: 403 })
+  await assert.rejects(runOperation(e.op('review-override', { origin: 'session', mode: 'regenerate', key: 'summary' }), { home: e.home }), { status: 403 })
   assert.deepEqual(await e.history.list(), [])
 })
 
@@ -284,7 +284,7 @@ test('operation entry rejects another project before recording or generating and
     calls++
     return generateShots({ ...options, request: reply(table) })
   } }
-  const operation = e.op('shot-table', { sessionId, origin: 'session' })
+  const operation = e.op('shot-table', { sessionId, origin: 'session', mode: 'regenerate' })
   const before = await e.store.read(e.id)
   await assert.rejects(runOperation(operation, deps), { status: 409 })
   assert.equal(calls, 0)

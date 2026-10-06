@@ -113,7 +113,7 @@ test('video and reference image logs omit base64 while preserving what was actua
 })
 
 test('generation, review, correction and re-review have distinct request and response titles', async () => {
-  const { runTextNodes } = await import('../server/runtime/text-generation.js')
+  const { runTextNodes } = await import('../server/flow/tasks/text-workflow.js')
   const { buildTextPrompts } = await import('../server/prompts/text-prompts.js')
   const { episodeFixture } = await import('./fixtures/model.js')
   const events = [], replies = ['原文', reviewFail('动作缺失'), '修订正文', reviewPass]

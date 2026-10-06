@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const layers = [
   ['server/http', 7], ['tools', 7], ['index.js', 8], ['session.js', 8],
-  ['server/flow', 6], ['server/runtime/text-generation.js', 4], ['server/gateway', 3.5], ['server/prompts', 3],
+  ['server/flow/steps', 4], ['server/flow', 6], ['server/gateway', 3.5], ['server/prompts', 3],
   ['server/media', 1],
   ['server/runtime/task-context.js', 0], ['server/runtime/task-state.js', 0], ['server/runtime/operation-context.js', 0],
   ['server/runtime', 2.5], ['server/data', 2], ['models', 1], ['skills', 1],

@@ -9,7 +9,7 @@ import characterInterface from '../server/prompts/interfaces/character-image-int
 import { FilmModel } from '../server/prompts/models/video-prompt-model.js'
 import { runTextRequest } from '../server/gateway/model-gateway.js'
 import { imageSkillPrompt } from '../server/prompts/image-prompts.js'
-import { filmSubmit } from '../server/flow/shared/video-submit.js'
+import { filmSubmit } from '../server/flow/steps/shared/video-submit.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { executionContext } from '../server/runtime/task-context.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'

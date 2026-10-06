@@ -46,7 +46,7 @@ export function createOperationManager({ home, workspaceController, execute = ex
       startedAt: entry.startedAt, endedAt: entry.finished ? entry.endedAt : null, ...result, ...(entry.error ? { error: entry.error } : {}),
       ...(entry.op.goalRef ? { goalRef: entry.op.goalRef } : {}),
       queued: result.status === 'queued', queuePosition: queue.position(entry.currentTaskId),
-      parameters: Object.fromEntries(['action', 'episodeId', 'mode', 'generationMode', 'requirements', 'review', 'track', 'only', 'parts', 'draft'].filter(key => entry.op[key] !== undefined).map(key => [key, entry.op[key]])),
+      parameters: Object.fromEntries(['action', 'episodeId', 'mode', 'generationMode', 'requirements', 'review', 'track', 'only', 'parts', 'draft', 'step'].filter(key => entry.op[key] !== undefined).map(key => [key, entry.op[key]])),
       tasks: tasks.map(({ definition, operation, params, plan, ...task }) => ({ ...task, operationId: task.operationId || entry.id, status: deriveTaskStatus(task.nodes), nodes: structuredClone(task.nodes) })),
       ...(entry.result || {}), result: entry.result, trace: entry.trace }
   }
@@ -89,7 +89,7 @@ export function createOperationManager({ home, workspaceController, execute = ex
           const reviewStore = projectStore(home)
           let groupReview, baseline
           entry.tasks = await admitted
-          if (op.projectId && ['summary', 'episode-add', 'episode-edit', 'episode-delete', 'source'].includes(op.action) && !op.draft) entry.syncBefore = await reviewStore.read(op.projectId)
+          if (!op.step && op.projectId && ['summary', 'episode-add', 'episode-edit', 'episode-delete', 'source'].includes(op.action) && !op.draft) entry.syncBefore = await reviewStore.read(op.projectId)
           readyResolve({ alreadyCompleted: entry.tasks.length === 0 })
           if (!entry.tasks.length) Object.assign(entry.result, { alreadyCompleted: true, status: 'completed', reviewPassed: true })
           if (op.action === 'seconds' && !op.track && (op.mode === 'modify' || op.generationMode === 'modify')) { const root = await reviewStore.read(op.projectId); baseline = root; groupReview = root.episodes.find(item => item.id === op.episodeId)?.shots.seconds.review }

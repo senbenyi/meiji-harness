@@ -1,7 +1,7 @@
 import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch, episodeModel } from '../../shared/drama-model.js'
 import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shared/review-feedback.js'
 import { checkContext, apiFailed, inTextNode } from './operation-context.js'
-import { markFailed, markGenerating } from '../../shared/content-state.js'
+import { markFailed, markGenerating, markPendingReview } from '../../shared/content-state.js'
 const batchActions = new Set(['seconds', 'storyboard', 'films'])
 const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image'])
 const imageGenerationActions = new Set(['image', 'revise-image', 'part-image'])
@@ -23,7 +23,8 @@ export function checkReasons(project, operation) {
 export function setCheck(project, operation, reasons) {
   for (const key of keys(project, operation)) {
     const target = targetNode(project, key)
-    if (target) finish(target, operation.action === 'outline' && checkContext.getStore()?.storyStages
+    if (target && ['generate', 'revise'].includes(checkContext.getStore()?.step)) { target.operation = null; target.error = null; markPendingReview(target) }
+    else if (target) finish(target, operation.action === 'outline' && checkContext.getStore()?.storyStages
       ? target.check : operation.action === 'seconds' ? scopedCheck({ passed: reasons.length === 0, failures: uniqueFeedback(reasons) }, key.split(':')[1]) : { passed: reasons.length === 0, failures: uniqueFeedback(reasons) })
   }
   return project

@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture, setupModel } from './fixtures/model.js'
-import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
+import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 import { runOperation, latestTask } from './fixtures/operation.js'
 import { recordStore } from '../server/data/task-store.js'
 import { h3PromptFailures } from '../shared/video-rules.js'
-import { filmSubmit } from '../server/flow/shared/video-submit.js'
+import { filmSubmit } from '../server/flow/steps/shared/video-submit.js'
 import { buildEditedContentReview } from '../server/prompts/text-prompts.js'
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
 

@@ -3,8 +3,8 @@ import { applyScriptChanges, scriptAppendOnly, scriptTargets } from '../../../..
 import { scriptStore } from '../../../data/script-store.js'
 import { recordStore } from '../../../data/task-store.js'
 import { parseJsonValue } from '../../../gateway/model-gateway.js'
-import { runTextNodes } from '../../../runtime/text-generation.js'
-import { buildTextPrompts } from '../../../prompts/text-prompts.js'
+import { runTextNodes } from '../text-workflow.js'
+import { promptsForScriptChanges } from '../../steps/step-generate-script-changes.js'
 
 export async function runScriptRevision({ home, operation, deps, rootProjects, project, models, trace }) {
   const episode = project.episodes.find(item => item.id === operation.episodeId), deletion = project.scriptPendingDeletes.find(item => item.episodeId === operation.episodeId)
@@ -23,7 +23,7 @@ export async function runScriptRevision({ home, operation, deps, rootProjects, p
     if (operation.action === 'script-sync' && project.scriptKind === 'assembled' && episode?.summary.content && !project.scriptSections.sections.find(item => item.episodeId === episode.id)?.text?.trim() && !next.scriptSections.sections.find(item => item.episodeId === episode.id)?.text?.trim()) throw new Error('本集尚无剧本小节，回写必须新增本集正文，不能判为无需修改')
     return value
   }
-  const result = await runTextNodes({ target: 'script', prompts: buildTextPrompts({ skill: 'script-revision', project, operation, facts }),
+  const result = await runTextNodes({ target: 'script', prompts: promptsForScriptChanges(project, operation, facts),
     options: { route: modelRoutes(await models.read()).story, project, signal: deps.signal, fetchImpl: deps.fetchImpl, request: deps.request }, check: text => { parse(text); return [] } })
   if (!result.check.passed) return trace
   const value = parse(result.text), scripts = scriptStore(home, rootProjects)

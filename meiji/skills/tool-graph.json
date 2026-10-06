@@ -138,7 +138,7 @@
     },
     {
       "id": "script-sync",
-      "tool": null,
+      "tool": "operation-sync-script",
       "operation": "script-sync",
       "tasks": [
         "script-sync"

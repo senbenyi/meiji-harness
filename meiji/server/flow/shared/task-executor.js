@@ -12,9 +12,10 @@ import { prepareChecks, setCheck } from '../../runtime/review-checks.js'
 import { feedbackOf } from '../../../shared/review-feedback.js'
 import { canGenerate } from '../../../shared/generation-gates.js'
 import { assetStore } from '../../data/asset-library-store.js'
+import { runContentReview } from '../tasks/task-review-content.js'
 import { modelStore } from '../../data/model-settings.js'
 import { allNodes, GenerationStatus, modelPatch, targetNode } from '../../../shared/drama-model.js'
-import { markFailed, refreshEpisodeStatus, settleByCheck } from '../../../shared/content-state.js'
+import { markFailed, markPendingReview, refreshEpisodeStatus, settleByCheck } from '../../../shared/content-state.js'
 
 
 // taskId 由操作执行器生成；每个任务拥有独立执行上下文，媒体完成及尾帧成功后才释放队列名额。
@@ -25,7 +26,7 @@ export async function executeTask(operation, deps) {
   const background = []
   const state = { failure: undefined, execution: undefined }
   const context = { review: '', operationId: deps.operationId, taskId, taskType: task.type, signal: deps.signal,
-    requirements: operation.requirements || '', requestedMode: operation.mode, maxRevisions: task.maxRevisions, baseline: deps.baseline }
+    requirements: operation.requirements || '', requestedMode: operation.mode, step: operation.step, steps: task.steps, maxRevisions: task.maxRevisions, baseline: deps.baseline }
   try {
     if (operation.sessionId && operation.projectId && !(operation.origin === 'panel' && operation.action === 'project-delete')) await linkStore(deps.home).requireProject(operation.sessionId, operation.projectId)
     state.execution = await startExecution(deps.home, operation, taskId, task.plan, { operationId: deps.operationId, type: task.type, label: task.label, targets: task.targets, actor: task.actor, maxRevisions: task.maxRevisions, stage: task.target?.split(':')[0] })
@@ -64,7 +65,7 @@ async function executeOperation(operation, deps) {
     if (project) checkContext.getStore().originalRoot = structuredClone(project)
     if (!project) throw Object.assign(new Error('没有找到项目'), { status: 404 })
     c.project = project
-    if (handler?.stage === 'project') return await handler.run(c)
+    if (handler?.stage === 'project') return operation.step === 'review' ? await runContentReview(c) : await handler.run(c)
     if (handler.stage !== 'project' && !c.operation.episodeId && (c.operation.sessionId || c.project.episodes.length)) {
       if (c.project.episodes.length !== 1) throw Object.assign(new Error('请指定 episodeId 或从对应剧集面板发起操作'), { status: 409 })
       c.operation = { ...c.operation, episodeId: c.project.episodes[0].id }
@@ -73,6 +74,7 @@ async function executeOperation(operation, deps) {
       c.project = materialize(c.project, c.operation.episodeId)
       c.projects = scopeProjects(rootProjects, c.operation.episodeId, c.operation.action === 'shot-seconds' ? undefined : c.operation.track)
     }
+    if (operation.step === 'review') return await runContentReview(c)
     if (handler?.skip?.(c.project, c.operation)) return c.trace
     if (handler?.stage === 'review') return await handler.run(c)
     if (c.operation.generationMode === 'modify' && c.project.pendingImages?.[c.operation.draftId]) {
@@ -122,6 +124,7 @@ async function releaseOperation({ operation, deps, operationId, context, state }
     if (next.summary.operation?.id === operationId) {
       if (restoreOriginal && context.originalRoot?.summary.content) next.summary = structuredClone(context.originalRoot.summary)
       else if ((state.failure && state.failure.code !== 'CONTENT_CHECK_FAILED') || deps.signal?.aborted) markFailed(next.summary, state.failure?.message || '任务已停止，请重新发起')
+      else if (context.step === 'generate' || context.step === 'revise') { next.summary.operation = null; markPendingReview(next.summary) }
       else if (next.summary.check?.passed != null) settleByCheck(next.summary)
       else markFailed(next.summary, state.failure?.message || '任务已停止，请重新发起')
       changed = true
@@ -157,7 +160,8 @@ async function releaseOperation({ operation, deps, operationId, context, state }
       for (const target of allNodes(episode)) {
         if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
         const completedStoryStage = context.storyStages && target.operation.phase === 'reviewed' && target.check?.passed === true
-        if (completedStoryStage || ((!stopped || state.failure?.code === 'CONTENT_CHECK_FAILED') && target.check?.passed != null)) settleByCheck(target)
+        if (!stopped && ['generate', 'revise'].includes(context.step)) { target.operation = null; target.error = null; markPendingReview(target) }
+        else if (completedStoryStage || ((!stopped || state.failure?.code === 'CONTENT_CHECK_FAILED') && target.check?.passed != null)) settleByCheck(target)
         else markFailed(target, state.failure?.message || '任务已停止，请重新发起')
         episodeChanged = true
         changed = true

@@ -6,8 +6,6 @@ import { setupModel } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture } from './fixtures/story-package.js'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { runOperation } from './fixtures/operation.js'
-import { generateEpisode } from '../server/flow/tasks/text/task-summary.js'
-import { generateStoryPackage } from './fixtures/story-generation.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { linkStore } from '../server/data/workspace-links.js'
 import { operationTools } from '../tools/session-operation-tools.js'
@@ -25,16 +23,24 @@ async function setup(t, review = reviewPass) {
   const models = modelStore(e.home); await models.write({ ...await models.read(), apiKey: 'test-only' })
   const exec = { agent: { session: { id: 'session-' + randomUUID(), append: (type, data) => logs.push({ type, data }) } }, signal: new AbortController().signal }
   await linkStore(e.home).selectProject(exec.agent.session.id, e.id, e.store)
-  const fixture = storyPackageFixture(), storyReplies = [JSON.stringify(outlineFixture()), review, JSON.stringify(fixture.characters), review, JSON.stringify(fixture.scenes), review, JSON.stringify(fixture.props), review]
+  const fixture = storyPackageFixture()
   const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-    ...(['script-sync', 'project-summary'].includes(deps.task.type) ? { request: async message => { if (deps.task.type === 'project-summary') return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '武松穿越' }); if (message.skill === 'review') return reviewPass; const root = await e.store.read(op.projectId), episode = root.episodes.find(item => item.id === op.episodeId); return JSON.stringify(root.script ? { needsChange: false, note: '无需修改', changes: [] } : { needsChange: true, note: '回写', changes: [{ target: { kind: 'episode', episodeId: episode.id }, before: '', after: episode.summary.content }] }) } } : {}),
-    generateEpisode: opts => generateEpisode({ ...opts, request: async message => { calls.push(message); return message.skill === 'review' ? review : JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。', durationSeconds: 150 }) } }),
-    fetchImpl: async (_url, options) => { const payload = JSON.parse(options.body); const [system, user] = payload.messages; calls.push({ system: system.content, user: user.content }); return Response.json({ choices: [{ message: { content: storyReplies.shift() } }] }) },
+    request: async message => {
+      calls.push(message)
+      if (message.skill === 'review') return review
+      if (deps.task.type === 'summary') return JSON.stringify({ summary: '武松带着工地经历醒来，发现自己身处景阳冈。' })
+      if (deps.task.type === 'project-summary') return JSON.stringify({ summary: '武松穿越' })
+      if (deps.task.type === 'script-sync') {
+        const root = await e.store.read(op.projectId), episode = root.episodes.find(item => item.id === op.episodeId)
+        return JSON.stringify({ needsChange: true, note: '回写', changes: [{ target: { kind: 'episode', episodeId: episode.id }, before: '', after: episode.summary.content }] })
+      }
+      return JSON.stringify(deps.task.type === 'outline' ? outlineFixture() : fixture[deps.task.type])
+    },
   }) })
   const registry = fakeJobs(), jobs = createHarnessJobs({ home: e.home, manager: tasks, registry, subscribeProject, readProject: id => e.store.read(id) })
   t.after(() => jobs.dispose())
   const generators = operationTools({ home: e.home, jobs }), control = { execute: async (args, context) => { await registry.wait(args.jobId, 5000, context.agent.session.id); return registry.read(args.jobId, context.agent.session.id).result } }
-  const start = async ({ stage, ...args }) => JSON.parse(await generators.find(tool => tool.name === 'operation-generate-' + stage.replaceAll('_', '-')).execute({ confirmDelete: true, ...args }, exec))
+  const start = async ({ stage, ...args }) => JSON.parse(await generators.find(tool => tool.name === (stage === 'sync-script' ? 'operation-sync-script' : stage === 'project-summary' ? 'operation-update-project-summary' : 'operation-generate-' + stage.replaceAll('_', '-'))).execute({ confirmDelete: true, ...args }, exec))
   const wait = async task => {
     if (task.alreadyCompleted) return task
     const result = JSON.parse(await control.execute({ jobId: task.jobId }, exec))
@@ -45,35 +51,41 @@ async function setup(t, review = reviewPass) {
   return { ...e, exec, calls, logs, tasks, start, wait, control, registry }
 }
 
-test('session executes summary then story through real workflows and carries requirements into review', async t => {
+test('会话逐步骤完成摘要、审核、显式回写、项目摘要与大纲，要求传入各步骤', async t => {
   const e = await setup(t)
   const summary = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate', requirements: '保留工地经历' }))
-  assert.equal(summary.status, 'completed'); assert.equal(summary.reviewPassed, true)
-  assert.ok(summary.episodeId)
-  const story = await e.wait(await e.start({ stage: 'story', episodeNumber: 1, mode: 'generate', requirements: '侧重心理反应' }))
-  assert.equal(story.status, 'completed', JSON.stringify(story)); assert.equal(story.reviewPassed, true)
-  assert.equal(story.episodeId, summary.episodeId)
-  assert.equal(e.calls.length, 10)
-  for (const message of e.calls.slice(0, 2)) assert.match(message.user, /保留工地经历/)
-  for (const message of e.calls.slice(2)) assert.match(message.user, /侧重心理反应/)
-  for (const message of e.calls.slice(2, 4)) assert.match(message.user, /武松带着工地经历醒来/)
-  const duplicate = await e.start({ stage: 'story', episodeNumber: 1, mode: 'generate' })
-  assert.equal(duplicate.alreadyCompleted, true); assert.equal(e.calls.length, 10)
-  const context = JSON.parse(await contextQueryTool({ home: e.home, tasks: e.tasks }).execute({}, e.exec))
-  assert.equal(context.current.episodes[0].episodeNumber, 1)
-  assert.equal(context.current.episodes[0].stages.outline.passed, true)
+  assert.equal(summary.status, 'completed'); assert.equal(summary.reviewPassed, null)
+  assert.equal(e.calls.length, 1); assert.ok(summary.episodeId)
+  assert.equal((await e.store.read(e.id)).script, '')
+  const audit = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'review', requirements: '保留工地经历' }))
+  assert.equal(audit.reviewPassed, true); assert.equal(e.calls.length, 2)
+  await e.wait(await e.start({ stage: 'sync-script', episodeNumber: 1 }))
+  await e.wait(await e.start({ stage: 'project-summary', mode: 'regenerate' }))
+  await e.wait(await e.start({ stage: 'project-summary', mode: 'review' }))
+  const story = await e.wait(await e.start({ stage: 'story', only: 'outline', episodeNumber: 1, mode: 'generate', requirements: '侧重心理反应' }))
+  assert.equal(story.status, 'completed', JSON.stringify(story)); assert.equal(story.reviewPassed, null)
+  const reviewed = await e.wait(await e.start({ stage: 'story', only: 'outline', episodeNumber: 1, mode: 'review', requirements: '侧重心理反应' }))
+  assert.equal(reviewed.reviewPassed, true)
+  for (const message of e.calls.slice(-2)) assert.match(message.user, /侧重心理反应/)
+  const count = e.calls.length
+  const duplicate = await e.start({ stage: 'story', only: 'outline', episodeNumber: 1, mode: 'generate' })
+  assert.equal(duplicate.alreadyCompleted, true); assert.equal(e.calls.length, count)
   const detail = JSON.parse(await contextQueryTool({ home: e.home, tasks: e.tasks }).execute({ episodeNumber: 1 }, e.exec))
-  assert.ok(detail.episode.plot.characters.items.length)
-  assert.ok(e.logs.length > 0)
+  assert.equal(detail.episode.plot.characters.items.length, 0)
 })
 
-test('failed summary blocks story and reports review_failed without a tool retry', async t => {
+test('独立摘要审核失败不重写、不重试，已完成审核 job 与审核通过分开', async t => {
   const e = await setup(t, reviewFail('缺少关键因果'))
-  const result = await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate', requirements: '农民工穿越武松' }))
-  assert.equal(result.status, 'review_failed')
-  await assert.rejects(e.start({ stage: 'story', episodeNumber: 1, mode: 'generate' }), /摘要尚未通过/)
-  // 生成 + 自审 + 默认 2 轮（修订 + 复审）。
-  assert.equal(e.calls.length, 6)
+  await e.wait(await e.start({ stage: 'summary', episodeNumber: 1, mode: 'generate' }))
+  const before = await e.store.read(e.id)
+  const task = await e.start({ stage: 'summary', episodeNumber: 1, mode: 'review' })
+  const result = await e.wait(task)
+  assert.equal(result.status, 'review_failed'); assert.equal(result.stepCompleted, true)
+  assert.equal(e.registry.get(task.jobId, e.exec.agent.session.id).status, 'completed')
+  assert.equal(e.calls.length, 2)
+  assert.equal((await e.store.read(e.id)).episodes[0].summary.content, before.episodes[0].summary.content)
+  const blocked = await e.start({ stage: 'story', only: 'outline', episodeNumber: 1, mode: 'generate' })
+  assert.ok(blocked.blockers?.length); assert.equal(e.calls.length, 2)
 })
 
 test('regeneration excludes old output and history; modification includes original and new opinion', async t => {

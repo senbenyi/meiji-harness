@@ -1,7 +1,7 @@
 // 操作：编辑图片描述
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { partSlots, withPartText } from '../../../../shared/image-assets.js'
-import { visualPlace } from '../../shared/image-files.js'
+import { visualPlace } from '../../steps/shared/image-files.js'
 import { saveStep } from '../../../../shared/task-plans.js'
 
 export async function opPartText(c) {

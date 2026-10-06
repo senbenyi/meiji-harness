@@ -2,7 +2,7 @@ import { operationRequest } from '../client/operation-request.js'
 // 动态修订节点与操作状态推导（计划-操作任务节点三层模型 阶段 A）。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runTextNodes } from '../server/runtime/text-generation.js'
+import { runTextNodes } from '../server/flow/tasks/text-workflow.js'
 import { executionContext } from '../server/runtime/task-context.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { createNode } from '../server/runtime/task-state.js'

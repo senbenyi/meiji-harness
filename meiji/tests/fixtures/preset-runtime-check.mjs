@@ -13,7 +13,7 @@ try {
   await declare(ctx, { id: 'meiji', plugins: [{ name: new URL('../../session.js', import.meta.url).href }] })
   const standard = await agentOn(ctx, 'standard-check', 'standard'), meiji = await agentOn(ctx, 'meiji-check', 'meiji')
   const visible = ctx.tools.schemas(meiji).map(row => row.name)
-  assert.equal(visible.filter(name => name.startsWith('operation-')).length, 11)
+  assert.equal(visible.filter(name => name.startsWith('operation-')).length, 12)
   assert.equal(ctx.tools.schemas(standard).filter(row => row.name.startsWith('operation-')).length, 0)
   assert.equal(ctx.tools.schemas().filter(row => row.name.startsWith('operation-')).length, 0)
   assert.ok((await ctx.skills.list({ scope: meiji })).some(skill => skill.name === 'skill-gongyong-panel-generate'))

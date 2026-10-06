@@ -1,3 +1,4 @@
+import { textStepTarget, requireStepContent } from '../../../shared/text-step-target.js'
 import { operation as images } from './generate/operation-generate-images.js'
 import { operations as projectLibrary } from './direct/operation-project-library.js'
 import { operations as propText } from './direct/operation-prop-edit.js'
@@ -30,7 +31,7 @@ import { operations as actionsStoryOutlineText } from './direct/operation-outlin
 import { operations as actionsStoryPropDelete } from './direct/operation-prop-delete.js'
 import { operations as actionsStorySceneText } from './direct/operation-scene-edit.js'
 import { operation as summary } from './generate/operation-generate-summary.js'
-import { operation as sync } from './generate/operation-script-sync.js'
+import { operation as sync } from './generate/operation-sync-script.js'
 import { operation as revise } from './generate/operation-revise-script.js'
 import { operations as scriptDirect } from './direct/operation-script.js'
 import { scriptBlockers, scriptFreshness, isAiCreation } from '../../../shared/script-assembly.js'
@@ -50,6 +51,11 @@ export function validateOperation(op) {
   const definition = Object.hasOwn(operations, op?.action) ? operations[op.action] : null
   if (!definition) throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
   if (op.origin === 'session' && !definition.agent) throw Object.assign(new Error('该操作只能由人在面板上执行'), { status: 403 })
+  if (op.origin === 'session' && definition.session?.stepwise) {
+    if (!definition.session.modes.includes(op.mode)) throw new Error('请指定生成、重新生成、修改或审核模式')
+    for (const key of definition.session.required || []) if (!op[key]) throw new Error(`会话单步操作必须指定 ${key}`)
+    op.step = op.mode === 'review' ? 'review' : op.mode === 'modify' ? 'revise' : 'generate'
+  } else if (op.step) throw new Error('该操作不支持独立文本步骤')
   if (op.only && op.action !== 'story') throw new Error('only 仅用于剧情')
   if (op.parts && op.action !== 'film') throw new Error('parts 仅用于成片')
   return definition
@@ -61,20 +67,24 @@ export async function planningProject(home, op) {
   return episodeId && operations[op.action]?.scope !== 'project' ? materialize(root, episodeId) : root
 }
 export async function planTasks(home, op) {
-  const definition = validateOperation(op)
   if (op.sessionId && op.projectId && !(op.origin === 'panel' && op.action === 'project-delete')) await linkStore(home).requireProject(op.sessionId, op.projectId)
+  const definition = validateOperation(op)
   const project = await planningProject(home, op)
   const root = op.projectId ? await projectStore(home).read(op.projectId) : null
-  if (root && ['summary', 'story', 'project-summary', 'script-revise', 'episode-add'].includes(op.action)) {
+  if (root && op.step !== 'review' && ['summary', 'story', 'project-summary', 'script-revise', 'episode-add'].includes(op.action)) {
     const blockers = scriptBlockers(root).filter(item => !(op.action === 'summary' && op.episodeId && item.episodeId === op.episodeId && ['episode-sync', 'proposal'].includes(item.kind)))
     if (blockers.length) throw Object.assign(new Error('剧本有待处理回写或方案，请处理后继续'), { status: 409, code: 'SCRIPT_PENDING', blockers })
   }
   if (root && ['summary', 'episode-add'].includes(op.action) && isAiCreation(root) && !root.premise?.trim()) throw Object.assign(new Error('请先填写自由模式的 AI 创作方向'), { status: 400 })
   if (project?.episodeId && !op.episodeId) op.episodeId = project.episodeId
-  await definition.precheck?.(project, op)
+  if (op.step === 'review' || op.step === 'revise') requireStepContent(project, textStepTarget(op), op.episodeId)
+  if (op.step !== 'review') await definition.precheck?.(project, op)
   if ((op.origin === 'session' && op.mode === 'generate' || op.action === 'images') && definition.completed?.(project, op)) return []
   const items = definition.kind === 'direct' ? [{ type: 'save', label: definition.label }] : definition.tasks(project, op)
-  if (root && ['summary', 'story'].includes(op.action) && scriptFreshness(root).summaryNeedsUpdate) items.unshift({ type: 'project-summary', params: { draft: false } })
+  if (root && op.step !== 'review' && ['summary', 'story'].includes(op.action) && scriptFreshness(root).summaryNeedsUpdate) {
+    if (op.step) throw Object.assign(new Error('项目摘要需要更新并审核；请先确认该前置步骤在本次目标范围内'), { code: 'PROJECT_SUMMARY_REQUIRED', status: 409 })
+    items.unshift({ type: 'project-summary', params: { draft: false } })
+  }
   if (!items.length) throw new Error('没有可执行的任务')
   return items.map(item => describeTask(item, op, definition.kind === 'direct' ? definition : null, project))
 }

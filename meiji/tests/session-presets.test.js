@@ -21,3 +21,12 @@ test('预设补丁复制 compaction 组并设默认 meiji，不由配置脚本�
   const index = await readFile(new URL('../index.js', import.meta.url), 'utf8'), configure = await readFile(new URL('../../configure-harness.sh', import.meta.url), 'utf8')
   assert.match(index, /ctx.provide\('meiji'/); assert.doesNotMatch(index, /tools.register/); assert.doesNotMatch(configure, /cat > .*cordis.patch.yml/)
 })
+
+test('真实 Harness goal/todo/job 支持仅审核一项和生成审核两项，目标完成或失败后不续跑', async t => {
+  const home = await mkdtemp(resolve(tmpdir(), 'meiji-step-goal-')); t.after(() => rm(home, { recursive: true, force: true }))
+  const tsx = createRequire(resolve(harness, 'package.json')).resolve('tsx/esm')
+  const { stdout } = await promisify(execFile)(process.execPath, ['--import', tsx, fileURLToPath(new URL('fixtures/session-steps-runtime-check.mjs', import.meta.url)), harness], { cwd: harness, env: { ...process.env, DSH_HOME: home }, timeout: 30000 })
+  const result = JSON.parse(stdout.trim())
+  assert.deepEqual(result.scenarios.map(item => item.steps), [1, 2, 1])
+  assert.deepEqual(result.scenarios.map(item => item.goal), ['complete', 'complete', 'blocked'])
+})

@@ -23,12 +23,12 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 ## 1. 模块职责与调用链
 
-依赖由 `tests/architecture.test.js` 检查：`http/tools → flow/operations → 文本执行/网关/提示词 → runtime → data → models/skills → shared`。存储和执行共用的叶子模块为 `runtime/task-context.js`、`task-state.js`、`operation-context.js`，只能依赖彼此或 shared，不能反向引用存储/执行器。`runtime/text-generation.js` 是上层文本编排，其他 runtime 模块不能反向引用它；media 仅依赖 Node 与 shared。服务端各层可引用这些叶子、`host`、`shared`；`host` 只向下依赖 `shared`，服务端、工具和脚本不得引用 `client`。
+依赖由 `tests/architecture.test.js` 检查：`http/tools → flow/operations → 文本执行/网关/提示词 → runtime → data → models/skills → shared`。存储和执行共用的叶子模块为 `runtime/task-context.js`、`task-state.js`、`operation-context.js`，只能依赖彼此或 shared，不能反向引用存储/执行器。`flow/steps/` 按业务动作集中具体步骤，`flow/tasks/` 组合步骤，runtime 不反向引用步骤层；media 仅依赖 Node 与 shared。服务端各层可引用这些叶子、`host`、`shared`；`host` 只向下依赖 `shared`，服务端、工具和脚本不得引用 `client`。
 
 | 位置 | 职责 |
 |---|---|
 | `index.js` | 组合入口：接入 Harness、处理遗留任务、检查 FFmpeg、创建操作管理器、注册面板及公开 meiji 服务；会话工具不在主机全局注册 |
-| `session.js` | 短剧制作预设的子插件，等待主机 ready 后注册 11 个 meiji 工具与会话说明，释放时撤销登记 |
+| `session.js` | 短剧制作预设的子插件，等待主机 ready 后注册 12 个 operation- 业务工具与会话说明，释放时撤销登记 |
 | `server/host/harness-jobs.js` | 通过公开 jobs 登记操作观察与占用、图片、剧本等待，模型停止守卫与 owner 脱离 |
 | `server/data/script-store.js` | 剧本版本、待确认方案与原子提交 |
 | `shared/library-rules.js` | 三类库、变体、关联及跨集同步；库目录只含文字和有图标记 |
@@ -36,12 +36,13 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 | `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游删除；不读写文件 |
 | `server/http/`、`tools/` | 面板与会话入口，复用服务端流程；鉴权与同源检查在 HTTP 层 |
 | `server/flow/operations/` | 操作层：manager 统一发起、占用与停止；runner 展开任务并记录；registry 登记操作，generate/ 只声明任务顺序，direct/ 实现人工操作 |
-| `server/flow/tasks/` | 任务层：task-registry 登记职责、队列、节点与修订上限；text/、media/ 执行具体任务；task-queue 限流，task-interrupt 处理重启取消 |
-| `server/flow/shared/` | 独立任务执行器及任务共用的剧情、图片、视频、上传处理；不导出旧操作入口 |
+| `server/flow/tasks/` | 任务层：task-registry 登记职责、队列、节点与修订上限；text/、media/ 组合具体业务步骤并保存目标结果；task-queue 限流，task-interrupt 处理重启取消 |
+| `server/flow/shared/` | 任务执行器及任务共用的数据协调；图片、视频等具体步骤与公共执行机制归 steps/，不导出旧操作入口 |
 | `server/gateway/` | 文本/图片/视频网关适配、文本请求入口、视频轮询、请求快照和日志 |
 | `server/media/` | 图片解码/文件处理/压缩，FFmpeg 检查、尾帧提取与视频拼接；不依赖操作、提示词或任务执行 |
 | `server/prompts/` | Model 编排提示词，interfaces 赋值，`prompt-request.js` 统一请求结构，preview 复用实际入口 |
-| `server/runtime/` | 任务/步骤执行、操作上下文和自审状态协调；`text-generation.js` 复用文本生成/自审/修订，调用 prompts 和 gateway；task-context 管内存，task-state 管无 IO 的步骤规则，task-execution 管执行生命周期 |
+| `server/flow/steps/` | 每个业务步骤一个 step 文件（生成大纲、提取人物/场景/道具、审核大纲、修订大纲、生成镜头表、生成图片、提交视频、生成视频、提取尾帧等）；公共机制放 shared/；步骤只执行自身，不安排后续，重新生成复用生成、复审复用审核 |
+| `server/runtime/` | 任务/步骤通用生命周期、上下文、状态与记录基础设施；task-context 管内存，task-state 管无 IO 的规则，task-execution 管执行生命周期 |
 | `server/data/` | 文件与记录持久化、内容快照、剧集存储视图及封面；`projectStore` 管项目保存，`project-files.js` 独占存储布局；不放执行器或纯数据规则 |
 | `server/host/` | Harness 公开接口适配、工作区与会话查询、日志及归属明确的历史提示词读取 |
 | `models/`、`config/`、`skills/` | 模型路由与默认配置、生产规则、审核规则及会话说明 |
@@ -67,12 +68,12 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 操作表示一次用户发起，任务表示独立职责，节点记录任务内部的生成、自审、修订等工作。内容节点是项目资料，和执行节点分开。
 - 操作开始就建立全部任务记录；逐个任务独立进入 text/image/video 队列。直接操作不排队，但同样遵守占用与留痕。
 - 状态统一由 `shared/task-nodes.js` 自下而上推导。任一任务失败、审核未通过或停止，取消后续任务，已完成结果保留。
-- 文本任务使用 `runTextNodes`：生成 → 自审；失败时动态追加修订 → 复审，默认最多 2 轮。无失败就没有修订节点，程序与媒体任务上限为 0。
+- 面板文本任务使用 `flow/tasks/text-workflow.js` 的 `runTextNodes`：生成 → 自审；失败时动态追加修订 → 复审，默认最多 2 轮。会话文本制作按 mode 只执行 generate/regenerate（生成）、modify（修订）或 review（审核），每次一个节点；story 必填 only，seconds 必填 track。生成及修订保存正文但 check.passed=null，独立审核不改写正文或删除下游；通过审核的卡片可发布库关联。程序与媒体任务上限为 0。
 - 操作 ID 由 manager 生成，任务 ID 由 runner 生成。每个任务独立上下文、提示词和产物，不用 scope 伪装多个任务。
 - 图片为生成、下载转 Base64、保存候选；视频为提交、生成保存、提取尾帧。后台工作完成后才释放任务队列名额。
 
 - 同项目生成互斥（含排队），不同项目独立。项目锁与项目内任意操作互斥；剧集直接操作仅与同集或项目锁冲突。summary/story 固定项目锁，关联卡片操作在占用前从已提交存储确认关联后选择项目锁，不升级在途锁。
-- 剧集摘要发生变化后，父操作先保存并释放，再自动启动一次独立 script-sync；失败、取消或遇忙保留回写依据。待回写、待确认方案、待回写删除记录阻断剧情层，镜头、指令、图片和成片仍按自身门禁执行。
+- 面板剧集摘要发生变化后，父操作先保存并释放，再自动启动一次独立 script-sync；会话步骤不会自动回写，需在目标授权范围内显式调用 operation-sync-script；失败、取消或遇忙保留回写依据。待回写、待确认方案、待回写删除记录阻断剧情层，镜头、指令、图片和成片仍按自身门禁执行。
 - 会话和面板生成登记 Harness job，job 只观察业务操作。面板 job 通知标明单次操作，终态结果携带 initiator=panel、nextAction=end；模型读取结果并简短汇报后结束，不规划、重试或发起后续步骤。会话仅继续用户明确授权的步骤。面板生成通过公开 Harness goals 服务创建单次操作目标，执行期间 disarm，成功 complete、失败或取消 blocked，然后 job 才通知会话。operation.goalRef 持久化关联；已有其他目标或被用户修改的目标不覆盖，自有已结束目标可在下次点击时结算或清理。普通 job_kill 经 manager.cancel 停止；模型不能停止面板发起的 job。owner/service 销毁只脱离观察，不取消业务。图片与剧本处理后由事件解除等待，不空转轮询。
 
 接口与存储见第 16 节。
@@ -897,3 +898,7 @@ curl -sS "$GATEWAY_URL/v1/videos/$TASK_ID/content" \
 - 图片生成和图片编辑是同步生成请求，自动重试可能重复计算。
 - 视频创建是非幂等提交；没有任务 ID 时不要无条件自动重试。
 - `400`、`401`、`404`、`413` 必须先修正请求或调用上下文。
+
+### 会话步骤目标
+
+会话制作先明确目标和完成标准，再使用 Harness get_goal/create_goal 与 todo_write（一步也一项）。具体执行范围以本次授权为准，不因依赖隐式扩展目标。stepCompleted 表示执行完成，reviewPassed 表示审核结论：只审核得到不通过结论也完成该目标；生成完成仅允许进入已授权的审核，不能当作下游制作已解锁。修订到通过须明确授权并最多两轮；全部完成后 update_goal complete，缺失条件或失败则 blocked。剧本方案/回写事务与媒体流程继续保留现有内部流程，不属于可拆分文本制作目标。

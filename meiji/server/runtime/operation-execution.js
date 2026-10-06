@@ -17,7 +17,7 @@ export async function createOperationRecord(home, operation, id, { taskIds = [],
     callId: operation.callId || null, followUpOf: operation.followUpOf || null,
     ...(operation.goalRef ? { goalRef: operation.goalRef } : {}),
     requirements: operation.requirements || '', opinion: operation.review || operation.instruction || '',
-    parameters: Object.fromEntries(['action', 'episodeId', 'mode', 'generationMode', 'requirements', 'review', 'track', 'only', 'parts', 'draft'].filter(key => operation[key] !== undefined).map(key => [key, operation[key]])),
+    parameters: Object.fromEntries(['action', 'episodeId', 'mode', 'generationMode', 'requirements', 'review', 'track', 'only', 'parts', 'draft', 'step'].filter(key => operation[key] !== undefined).map(key => [key, operation[key]])),
     taskIds, status: 'queued', startedAt: now(), endedAt: null, error: null,
   }
   await recordStore(home, operation.projectId).update('operations', id, record)

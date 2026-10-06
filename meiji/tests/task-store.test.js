@@ -17,7 +17,7 @@ import { generateStoryPackage } from './fixtures/story-generation.js'
 import { generateAllSeconds } from './fixtures/seconds-generation.js'
 import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
 import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
-import { reviewContent } from '../server/runtime/text-generation.js'
+import { reviewContent } from '../server/flow/steps/step-review-edited-content.js'
 import { interruptRunning } from '../server/flow/tasks/task-interrupt.js'
 import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 

@@ -3,7 +3,7 @@ import { cascadePreview } from './pipeline-cascade.js'
 
 // 一次操作合并所有受影响剧集；面板与会话共用同一份删除清单。
 export function operationDeletes(project, op) {
-  if (!project || op.draft) return []
+  if (!project || op.draft || op.mode === 'review') return []
   const episodes = project.episodes || [project]
   const selected = episodes.filter(episode => episode.id === op.episodeId || episode.episodeId === op.episodeId || (!op.episodeId && episodes.length === 1))
   const fields = op.fields || {}

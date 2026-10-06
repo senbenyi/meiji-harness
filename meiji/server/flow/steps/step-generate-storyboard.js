@@ -1,16 +1,16 @@
 // 小任务：分镜文本提示词
-import { checkContext } from '../../../runtime/operation-context.js'
-import { modelRoutes } from '../../../../models/model-config.js'
-import { runNode } from '../../../runtime/task-execution.js'
-import { node, shotResults, updateShotResults } from '../../../../shared/drama-model.js'
-import { reviewStep } from '../../../runtime/text-generation.js'
-import { feedbackOf } from '../../../../shared/review-feedback.js'
-import { compileVideoPrompt } from '../../../prompts/video-prompt-renderer.js'
-import { h3PromptFailures } from '../../../../shared/video-rules.js'
-import { shotSecondsReady } from '../../../../shared/shot-timing.js'
-import { selectCheck } from '../../../runtime/review-checks.js'
-import { clearShotDownstream } from '../../../../shared/project-rules.js'
-import { hasShots } from '../../../../shared/generation-gates.js'
+import { checkContext } from '../../runtime/operation-context.js'
+import { modelRoutes } from '../../../models/model-config.js'
+import { runNode } from '../../runtime/task-execution.js'
+import { node, shotResults, updateShotResults } from '../../../shared/drama-model.js'
+import { reviewStep } from './shared/text-review.js'
+import { feedbackOf } from '../../../shared/review-feedback.js'
+import { compileVideoPrompt } from '../../prompts/video-prompt-renderer.js'
+import { h3PromptFailures } from '../../../shared/video-rules.js'
+import { shotSecondsReady } from '../../../shared/shot-timing.js'
+import { selectCheck } from '../../runtime/review-checks.js'
+import { clearShotDownstream } from '../../../shared/project-rules.js'
+import { hasShots } from '../../../shared/generation-gates.js'
 
 export async function generateShotStoryboard(options) {
   const { project, shotId } = options
@@ -54,7 +54,7 @@ export async function opShotStoryboard(c) {
   if (review || operation.generationMode === 'modify') throw Object.assign(new Error('视频提示词由程序组装；请在每秒分镜提交修改意见，或直接编辑最终提示词'), { status: 409 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'storyboard', track) })
   note('步骤：每秒指令 → 多模态引用编排')
-  note('函数：generateShotStoryboard（server/flow/tasks/text/task-storyboard-prompt.js）')
+  note('函数：generateShotStoryboard（server/flow/steps/step-generate-storyboard.js）')
   note(`写 ${track} 的文本分镜。每秒指令原样进入面板，并检查身份、声音和参考图绑定`)
   if (review) note(`审核意见：${review}`)
   const storyboard = await (deps.generateShotStoryboard || generateShotStoryboard)({

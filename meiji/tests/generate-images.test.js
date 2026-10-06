@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { defaults, normalizeModels } from '../models/model-config.js'
 import { appendImageAsset, imageAsset, imageAssets, imagePrompt, nextPartId, partPrompt, sceneStillPrompt, clearCharacterImage, usableLook, withPartText } from '../shared/image-assets.js'
-import { importAssetImage, saveCharacterReference, submitAssetImage } from '../server/flow/shared/image-files.js'
+import { importAssetImage, saveCharacterReference, submitAssetImage } from '../server/flow/steps/shared/image-files.js'
 import { readStill } from '../server/media/image-files.js'
 import { characterImageSize } from '../server/gateway/model-gateway.js'
 
@@ -212,7 +212,7 @@ test('all image entry points save and register candidates inside their third pla
   const { recordSteps } = await import('./fixtures/nodes.js')
   const { activeNode, executionNodes } = await import('../server/runtime/task-context.js')
   const { finalizeNodes } = await import('../server/runtime/task-state.js')
-  const { generateStillFile } = await import('../server/flow/shared/image-files.js')
+  const { generateStillFile } = await import('../server/flow/steps/shared/image-files.js')
   const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
   for (const [generate, target] of [[submitAssetImage, 'image:A01'], [generateStillFile, 'image:A01:clothes']]) {
     for (const legacy of [false, true]) {

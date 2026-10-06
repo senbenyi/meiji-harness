@@ -1,26 +1,20 @@
-// 小任务：生成视频（提交、生成保存、尾帧）
+import { storyboardPromptText } from '../../../../shared/story-content.js'
+// 视频请求、产物保存与状态写入的公共机制；步骤调度位于任务层。
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { modelRoutes } from '../../../models/model-config.js'
-import { GenerationStatus } from '../../../shared/drama-model.js'
-import { runNode } from '../../runtime/task-execution.js'
-import { node, shotResults } from '../../../shared/drama-model.js'
-import { feedbackOf } from '../../../shared/review-feedback.js'
-import { compileVideoPrompt } from '../../prompts/video-prompt-renderer.js'
-import { aspectRatioOf } from '../../../shared/project-rules.js'
-import { updateShotResult } from '../../../shared/drama-model.js'
-import { submitGatewayVideo, gatewayVideoSize, retrieveGatewayVideo } from '../../gateway/model-gateway.js'
-import { wantsOpeningFrame, bindReferencePrompt, videoRequestMode } from '../../../shared/video-rules.js'
-import { shotReferenceImages } from '../../../shared/reference-images.js'
-import { render } from '../../prompts/skill-prompts.js'
-import { FilmModel } from '../../prompts/models/video-prompt-model.js'
-import { storyboardPromptText } from '../../../shared/story-content.js'
-import { shotMap } from '../../../shared/drama-model.js'
-import { saveLastFrame } from '../../media/extract-video-tail.js'
-import { referenceImageData } from '../../data/image-storage.js'
-import { insertSessionLog } from '../../host/session-log.js'
-import { markFailed, markGenerating, markPassed } from '../../../shared/content-state.js'
+import { GenerationStatus } from '../../../../shared/drama-model.js'
+import { node } from '../../../../shared/drama-model.js'
+import { compileVideoPrompt } from '../../../prompts/video-prompt-renderer.js'
+import { aspectRatioOf } from '../../../../shared/project-rules.js'
+import { updateShotResult } from '../../../../shared/drama-model.js'
+import { submitGatewayVideo, gatewayVideoSize } from '../../../gateway/model-gateway.js'
+import { wantsOpeningFrame, bindReferencePrompt, videoRequestMode } from '../../../../shared/video-rules.js'
+import { shotReferenceImages } from '../../../../shared/reference-images.js'
+import { render } from '../../../prompts/skill-prompts.js'
+import { FilmModel } from '../../../prompts/models/video-prompt-model.js'
+import { shotMap } from '../../../../shared/drama-model.js'
+import { markFailed, markGenerating, markPassed } from '../../../../shared/content-state.js'
 
 export async function submitH3({ items, route, aspectRatio, fetchImpl = fetch, signal }) {
   if (!Array.isArray(items) || !items.length) throw Object.assign(new Error('没有可提交的镜头提示词'), { status: 409 })
@@ -190,64 +184,3 @@ export async function writeFilm(projects, projectId, track, patch) {
   finally { if (filmWrites.get(projectId) === job) filmWrites.delete(projectId) }
 }
 
-// if (operation.action === 'tail-frame')
-export async function opTailFrame(c) {
-  let { operation, deps, home, projects, project, trace } = c
-  const track = operation.track, clip = project.shots.items.find(s => s.id === track)?.video.content
-  if (clip?.status !== 'ready' || !clip.file) throw new Error('本镜视频尚未完成')
-  await runNode('tail_frame', () => saveTailFrame(projects, project, track, clip.file, join(home, 'storages', 'meiji', 'projects', project.id, 'films', project.episodeId || ''), home, deps.saveLastFrame || saveLastFrame), { target: `film:${track}` })
-  return trace
-}
-
-// if (operation.action === 'film')
-export async function opFilm(c) {
-  let { operation, deps, home, projects, models, project, trace, note } = c
-  if (feedbackOf(project, `storyboard:${operation.track}`).check.passed === false || feedbackOf(project, 'storyboard').check.passed === false) throw Object.assign(new Error('文本分镜自检未通过，请先修正'), { status: 409 })
-  const track = String(operation.track || '')
-  const item = shotResults(project, 'storyboard').find(entry => entry.id === track)
-  if (!item || !/^S[0-9]{2,}$/.test(track)) throw Object.assign(new Error('请在对应镜头上提交这一条成片'), { status: 400 })
-  if (!storyboardPromptText(item).trim()) throw Object.assign(new Error('请先生成这一镜的分镜'), { status: 409 })
-  const route = (modelRoutes(await models.read())).video
-  const images = item.video === 'text' ? [] : shotReferenceImages(project, item)
-  try {
-    const size = aspectRatioOf(project.aspectRatio)
-    let payload
-    // 提交视频步骤包含：准备开场帧、组装参数、读取本地参考图转为 base64 并提交。
-    const queued = await runNode('video_submit', async () => {
-      payload = filmSubmit(project, item, await prepareFilmOpening(project, item, { home, projects, route, deps }))
-      const media = payload.mode === 'reference' ? await referenceImageData(home, project, images) : []
-      return submitFilm(project, track, payload, route, deps, size, media)
-    }, { target: `film:${track}` })
-    const shot = queued.shots[0]
-    await writeFilm(projects, project.id, track, { status: 'running', terminal: false, promptId: shot.promptId, request: { mode: payload.mode, prompt: payload.prompt, referenceImages: payload.referenceImages || [], continuityReference: payload.continuityReference || null }, assetIds: images.map(image => image.assetId).filter(Boolean), error: null })
-    note('已执行：提交成片')
-    note('文件：server/flow/shared/video-submit.js')
-    note('函数：submitH3')
-    note(`${track}，时长 ${shot.duration} 秒`)
-    note(payload.note)
-    note(formatFilmRequest({ model: 'elysium-video', seconds: shot.duration, mode: payload.mode, size: gatewayVideoSize(size), prompt: payload.prompt, referenceImages: payload.referenceImages, inputReference: payload.mode === 'first_frame' ? payload.note : '' }).join('\n'))
-    note('视频还在生成。完成后出现在这一张镜头卡片上。')
-    deps.defer((async () => {
-      let saved
-      try {
-        saved = await runNode('video_generate', async () => {
-          const bytes = await (deps.retrieveGatewayVideo || retrieveGatewayVideo)({ baseUrl: queued.baseUrl, promptId: shot.promptId, provider: queued.provider, apiKey: queued.apiKey, signal: deps.signal })
-          return saveFilmResult(projects, project, track, bytes, home)
-        }, { target: `film:${track}`, remoteId: shot.promptId })
-      } catch (error) {
-        await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
-        throw error
-      }
-      insertSessionLog(deps.session, `${track} 成片已生成，正在提取尾帧`)
-      await runNode('tail_frame', () => saveTailFrame(projects, project, track, saved.file, saved.directory, home, deps.saveLastFrame || saveLastFrame), { target: `film:${track}` })
-      insertSessionLog(deps.session, `${track} 尾帧已提取`)
-    })().catch(async error => {
-      insertSessionLog(deps.session, error.message || '成片生成失败', true)
-      throw error
-    }))
-    return trace
-  } catch (error) {
-    await projects.save(project.id, {}, { final: true, error: error.message }).catch(() => {})
-    throw error
-  }
-}

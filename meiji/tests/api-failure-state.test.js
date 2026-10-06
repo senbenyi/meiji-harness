@@ -7,7 +7,7 @@ import { setupModel } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
 import { runOperation } from './fixtures/operation.js'
 import { feedbackOf } from '../shared/review-feedback.js'
-import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
+import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 // 保存时会刷新节点的上游依赖版本（dependencies），比较业务内容时忽略该字段。
 const content=({dependencies,...rest})=>rest
 for(const failed of [false,true]) for(const phase of ['generation','review','correction']) {

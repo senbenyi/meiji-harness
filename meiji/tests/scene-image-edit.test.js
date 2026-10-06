@@ -5,7 +5,7 @@ import { scopeProjects } from '../server/data/episode-data.js'
 import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/image-storage.js'
 import { recordStore } from '../server/data/task-store.js'
 import { pictureRecord } from '../shared/image-assets.js'
-import { submitAssetImage } from '../server/flow/shared/image-files.js'
+import { submitAssetImage } from '../server/flow/steps/shared/image-files.js'
 import { runOperation, latestTask } from './fixtures/operation.js'
 import { sceneImagePrompt } from '../server/prompts/interfaces/scene-image-interface.js'
 

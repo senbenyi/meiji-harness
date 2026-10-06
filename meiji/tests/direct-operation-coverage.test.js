@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { setupModel } from './fixtures/model.js'
 import { runOperation } from './fixtures/operation.js'
 import { useWorkspaces } from './fixtures/host.js'
-import { saveIncoming, openIncoming } from '../server/flow/shared/incoming.js'
+import { saveIncoming, openIncoming } from '../server/flow/steps/shared/incoming.js'
 import { recordStore } from '../server/data/task-store.js'
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7T8AAAAASUVORK5CYII=', 'base64')

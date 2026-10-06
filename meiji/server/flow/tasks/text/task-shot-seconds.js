@@ -1,8 +1,8 @@
 // 小任务：单镜每秒指令
-import { runTextNodes } from '../../../runtime/text-generation.js'
+import { runTextNodes } from '../text-workflow.js'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { setContent } from '../../../../shared/drama-model.js'
-import { buildSecondsPrompts } from '../../../prompts/shot-text-prompts.js'
+import { promptsForSeconds } from '../../steps/step-generate-seconds.js'
 import { parseSecondsPartial } from '../../../../shared/seconds-content.js'
 import { retainSecondsResponse, saveSecondsShot } from '../../shared/seconds-results.js'
 
@@ -11,7 +11,7 @@ export async function generateShotSeconds(options) {
   const shot = project.shots.items.find(item => item.id === shotId)
   const parse = text => parseSecondsPartial(text, [shot], project)
   const patch = (text, check) => ({ ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, seconds: setContent(structuredClone(item.seconds), parse(text).sections[0], check) } : item) })
-  const result = await runTextNodes({ target: `seconds:${shotId}`, prompts: buildSecondsPrompts(options), options, complete: retainSecondsResponse,
+  const result = await runTextNodes({ target: `seconds:${shotId}`, prompts: promptsForSeconds(options), options, complete: retainSecondsResponse,
     check: text => Object.values(parse(text).failures), canPersist: text => parse(text).sections.length > 0, retainFailedDraft: true,
     persist: options.persist && ((text, check) => options.persist(patch(text, check))) })
   return patch(result.text, result.check)

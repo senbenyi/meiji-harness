@@ -1,7 +1,7 @@
 // 操作：导入素材
 import { rm } from 'node:fs/promises'
 import { createReadStream } from 'node:fs'
-import { openIncoming } from '../../shared/incoming.js'
+import { openIncoming } from '../../steps/shared/incoming.js'
 
 // if (operation.action === 'library-import')
 export async function opLibraryImport(c) {

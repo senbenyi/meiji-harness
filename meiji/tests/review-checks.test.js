@@ -8,7 +8,7 @@ import { setupModel } from './fixtures/model.js'
 import { runOperation } from './fixtures/operation.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds.js'
-import { generateShotStoryboard } from '../server/flow/tasks/text/task-storyboard-prompt.js'
+import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
 import { checkReasons, setCheck } from '../server/runtime/review-checks.js'
 import { targetNode, begin, saveReview, finish } from '../shared/drama-model.js'
@@ -123,7 +123,7 @@ for (const action of ['storyboard']) {
     })
     await e.store.save(e.id,p=>{p.episodes[0].shots.items[0].seconds.content.beats[0].action='【错误|C99】';return p})
     const before = (await e.read()).shots.items[1]
-    const { generateStoryboard } = await import('../server/flow/tasks/text/task-storyboard-prompt.js')
+    const { generateStoryboard } = await import('../server/flow/steps/step-generate-storyboard.js')
     await assert.rejects(runOperation(e.op(action), {
       home: e.home,
       generateShotSeconds: opts => generateShotSeconds({ ...opts, request: reply('新每秒指令') }),
@@ -173,7 +173,7 @@ test('storyboard regenerates all shots even when already passed', async t => {
  const e=await setupModel(t)
  const { modelStore } = await import('../server/data/model-settings.js')
  const models=modelStore(e.home);await models.write({...await models.read(),apiKey:'test-only'})
- const { generateStoryboard } = await import('../server/flow/tasks/text/task-storyboard-prompt.js')
+ const { generateStoryboard } = await import('../server/flow/steps/step-generate-storyboard.js')
  const calls=[]
  const deps={home:e.home,generateStoryboard:opts=>generateStoryboard({...opts,request:async ({ skill, user: prompt }) =>{
   if(skill==='review')return reviewPass

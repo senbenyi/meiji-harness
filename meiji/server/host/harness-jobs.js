@@ -8,14 +8,15 @@ const jobLabel = op => op.origin === 'panel' ? `面板单次操作 ${op.action}�
 export function operationResult(operation) {
   const data = operation.result || {}
   return { operationId: operation.operationId || operation.id, projectId: operation.projectId, episodeId: operation.episodeId || data.episodeId || null,
+    step: operation.parameters?.step || data.step || null, stepCompleted: ['completed', 'review_failed'].includes(operation.status),
     action: operation.action, initiator: operation.initiator, status: operation.status, reviewPassed: operation.reviewPassed ?? null, failures: operation.failures || [],
     ...(operation.initiator === 'panel' && terminal(operation.status) ? { nextAction: 'end' } : {}),
     ...(operation.goalRef ? { goalId: operation.goalRef.id } : {}),
     ...(operation.error ? { error: operation.error } : {}),
-    ...(operation.initiator !== 'panel' && operation.tasks?.some(task => task.type === 'project-summary' && ['failed', 'review_failed'].includes(task.status)) ? { retryable: true } : {}),
+    ...(operation.initiator !== 'panel' && !operation.parameters?.step && operation.tasks?.some(task => task.type === 'project-summary' && ['failed', 'review_failed'].includes(task.status)) ? { retryable: true } : {}),
     ...Object.fromEntries(['scriptRevision', 'pendingConfirm', 'pendingProposal', 'scriptSyncOperationId', 'scriptSyncError'].filter(key => data[key] !== undefined).map(key => [key, data[key]])) }
 }
-const outcome = result => ({ status: result.status === 'cancelled' ? 'killed' : ['failed', 'review_failed'].includes(result.status) ? 'failed' : 'completed', result: JSON.stringify(result) })
+const outcome = result => ({ status: result.status === 'cancelled' ? 'killed' : result.status === 'failed' || result.status === 'review_failed' && result.step !== 'review' ? 'failed' : 'completed', result: JSON.stringify(result) })
 
 export function createHarnessJobs({ home, manager, registry, subscribeProject, readProject, logger = { warn() {} } }) {
   const observers = new Map()

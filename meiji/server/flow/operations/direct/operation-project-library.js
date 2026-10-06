@@ -1,7 +1,7 @@
 import { libraryKinds, kindOf, libraryTarget, libraryLinks, createLibraryEntry, addLibraryVariant, applyLibraryCard } from '../../../../shared/library-rules.js'
 import { node, setContent, cardModel, finish } from '../../../../shared/drama-model.js'
 import { pictureReference, savePicture, readImageDraft, pictureTargetSnapshot } from '../../../data/image-storage.js'
-import { openIncoming } from '../../shared/incoming.js'
+import { openIncoming } from '../../steps/shared/incoming.js'
 import { readFile, rm } from 'node:fs/promises'
 import { decodeImageData } from '../../../media/decode-image-data.js'
 

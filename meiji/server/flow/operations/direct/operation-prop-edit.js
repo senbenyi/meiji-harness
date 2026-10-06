@@ -1,7 +1,7 @@
 import { editLinkedCard } from '../../../../shared/library-rules.js'
 import { editSteps } from '../../../../shared/task-plans.js'
 import { runNode } from '../../../runtime/task-execution.js'
-import { reviewContent } from '../../../runtime/text-generation.js'
+import { reviewContent } from '../../steps/step-review-edited-content.js'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { checkContext } from '../../../runtime/operation-context.js'
 
