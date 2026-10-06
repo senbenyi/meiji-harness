@@ -18,15 +18,25 @@ test('生成按钮转换目标，单镜意见给出 tracks，编辑仍是即时�
   assert.equal(goalRequest('outline-text', { outline: {} }), null)
   assert.equal(goalRequest('image', { itemId: 'C01' }).goal.to, 'images')
 })
-test('前置默认不授权，勾选后重新展示删除清单，确认返回明确选择', async t => {
-  setup(t); let choices
+test('缺少的前置默认纳入并展示随之增加的删除清单，可取消勾选，确认返回明确选择', async t => {
+  setup(t); const choices = []
   const initial = { run: { id: 'run', steps: [{ target: 'outline' }] }, prereq: [{ key: 'summary@all', message: '摘要前置' }], deletions: [], blockers: [] }
-  const promise = confirmRunPreview(document.body, initial, { refresh: async value => { choices = value; return { ...initial, deletions: [{ label: '镜头表' }], projectRevision: 4 } } })
-  const check = document.querySelector('input'); assert.equal(check.checked, false)
-  check.checked = true; check.dispatchEvent(new window.Event('change')); await settle()
+  const promise = confirmRunPreview(document.body, initial, { refresh: async value => { choices.push(value); return { ...initial, deletions: value.length ? [{ label: '镜头表' }] : [], projectRevision: 4 } } })
+  await settle()
+  assert.equal(document.querySelector('input').checked, true)
   assert.match(document.querySelector('dialog').textContent, /镜头表/)
+  const check = document.querySelector('input'); check.checked = false; check.dispatchEvent(new window.Event('change')); await settle()
+  assert.doesNotMatch(document.querySelector('dialog').textContent, /镜头表/)
+  const again = document.querySelector('input'); again.checked = true; again.dispatchEvent(new window.Event('change')); await settle()
   document.querySelector('.primary').click()
-  assert.deepEqual(choices, ['summary@all']); assert.deepEqual(await promise, { authorizePrereq: ['summary@all'], confirmDelete: true, projectRevision: 4 })
+  assert.deepEqual(choices, [['summary@all'], [], ['summary@all']]); assert.deepEqual(await promise, { authorizePrereq: ['summary@all'], confirmDelete: true, projectRevision: 4 })
+})
+test('没有前置、删除和阻断时多个对象或并入任务也不弹窗', async t => {
+  setup(t)
+  const plain = { run: { id: 'run', steps: [{ target: 'outline' }, { target: 'characters' }] }, prereq: [], deletions: [], blockers: [], projectRevision: 2 }
+  assert.deepEqual(await confirmRunPreview(document.body, plain), { authorizePrereq: [], confirmDelete: true, projectRevision: 2 })
+  assert.deepEqual(await confirmRunPreview(document.body, { ...plain, amend: true }), { authorizePrereq: [], confirmDelete: true, projectRevision: 2 })
+  assert.equal(document.querySelector('dialog'), null)
 })
 test('无删除或前置的单对象不弹窗，生成只调用 Run 预览和确认', async t => {
   setup(t); const calls = []

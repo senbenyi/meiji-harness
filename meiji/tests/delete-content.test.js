@@ -47,7 +47,7 @@ test('missing episode does not delete project data or videos', async t => {
 
 test('删除项目同步删除对应工作区和选择记录，保留其他关联与旧会话数据', async t => {
   const e = await setupModel(t), { linkStore } = await import('../server/data/workspace-links.js')
-  const other = await e.store.create({ title: '其他', premise: '另一故事' })
+  const other = await e.store.create({ mode: 'free', title: '其他', premise: '另一故事' })
   const links = linkStore(e.home), selected = 'session-11111111-1111-4111-8111-111111111111', kept = 'session-22222222-2222-4222-8222-222222222222'
   await e.store.save(e.id, { workspaceId: 'project-workspace' })
   await links.selectProject(selected, e.id, e.store); await links.selectProject(kept, other.id, e.store)

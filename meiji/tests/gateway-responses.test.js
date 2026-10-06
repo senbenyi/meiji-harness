@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { runContext } from './fixtures/run-context.js'
 import { executionContext } from '../server/runtime/task-context.js'
 import { runNode, recordNodeResponse } from '../server/runtime/step-execution.js'
-import { completeChat, retrieveGatewayVideo, generateGatewayImage } from '../server/gateway/model-gateway.js'
+import { completeChat, retrieveGatewayVideo, generateGatewayImage, chatRetry } from '../server/gateway/model-gateway.js'
 import { redactJson } from '../server/gateway/redact.js'
 
 const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'secret-test-key', model: 'test-model' }
@@ -28,6 +28,7 @@ test('成功与错误原文完整记录，列表只有引用，密钥和 Base64 
 })
 
 test('非 2xx 和非 JSON 返回不丢失，网络异常也记录', async t => {
+  const delays = chatRetry.delays; chatRetry.delays = []; t.after(() => { chatRetry.delays = delays })
   for (const response of [Response.json({ error: { message: '坏请求' } }, { status: 400 }), new Response('完整错误原文'.repeat(100), { status: 502 })]) {
     const e = await fixture(t)
     await assert.rejects(e.run(() => completeChat({ ...route, prompt: '输入', fetchImpl: async () => response })))
@@ -73,4 +74,18 @@ test('响应正文读取失败仍保存 HTTP 状态和脱敏异常', async t => 
   await assert.rejects(e.run(() => completeChat({ ...route, prompt: '输入', fetchImpl: async () => ({ ok: true, status: 200, text: async () => { throw new Error(`响应中断 ${route.apiKey}`) } }) })), /响应中断/)
   const [entry] = await e.read()
   assert.equal(entry.status, 200); assert.equal(entry.ok, false); assert.match(entry.error, /响应中断/); assert.doesNotMatch(entry.error, /secret-test-key/)
+})
+
+test('文本请求遇到上游 502/503/504 自动重试并逐次留痕，其他错误不重试', async t => {
+  const delays = chatRetry.delays; chatRetry.delays = [1, 1]; t.after(() => { chatRetry.delays = delays })
+  const e = await fixture(t); let calls = 0
+  const text = await e.run(() => completeChat({ ...route, prompt: '输入', fetchImpl: async () => ++calls < 3 ? Response.json({ error: { message: 'upstream service error' } }, { status: calls === 1 ? 502 : 503 }) : Response.json({ choices: [{ message: { content: '结果' } }] }) }))
+  assert.equal(text, '结果'); assert.equal(calls, 3)
+  assert.deepEqual((await e.read()).map(entry => entry.status), [502, 503, 200])
+  const failed = await fixture(t); calls = 0
+  await assert.rejects(failed.run(() => completeChat({ ...route, prompt: '输入', fetchImpl: async () => { calls++; return Response.json({ error: { message: 'upstream service error' } }, { status: 504 }) } })), /upstream service error/)
+  assert.equal(calls, 3)
+  const bad = await fixture(t); calls = 0
+  await assert.rejects(bad.run(() => completeChat({ ...route, prompt: '输入', fetchImpl: async () => { calls++; return Response.json({ error: { message: '坏请求' } }, { status: 400 }) } })), /坏请求/)
+  assert.equal(calls, 1)
 })

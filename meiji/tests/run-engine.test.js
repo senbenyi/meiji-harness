@@ -219,3 +219,22 @@ test('观察者抛错不改变已经提交的结果；无法继续操作终态�
   assert.equal((await e.get(run)).status, 'completed')
   await assert.rejects(e.engine.amend('project', run.id, { steps: [step('b')] }), { code: 'RUN_ACTION_INVALID' })
 })
+
+test('系统前置由步骤检查插入：本步骤等待前置完成后再执行，并发检查复用同一前置', async t => {
+  const order = []; let fresh = false
+  const prerequisite = [{ id: 'p1', key: 'generate@project-summary', kind: 'generate', target: 'project-summary', scope: 'project', queue: 'text', actor: 'model', after: [] },
+    { id: 'p2', key: 'review@project-summary', kind: 'review', target: 'project-summary', scope: 'project', queue: 'text', actor: 'model', after: ['p1'] }]
+  const home = await (await import('./fixtures/model.js')).tempHome(t)
+  const engine = createRunEngine({ home, beforeStep: async (_run, step) => !fresh && ['characters', 'scenes'].includes(step.target) ? { insert: prerequisite } : null,
+    execute: async (_run, step) => { order.push(`${step.kind}@${step.target}`); if (step.key === 'review@project-summary') fresh = true; return { passed: true } } })
+  t.after(() => engine.dispose())
+  const step = target => ({ id: target, key: `generate@${target}`, kind: 'generate', target, scope: 'project', queue: 'text', actor: 'model', after: [] })
+  const run = await engine.create({ projectId: 'project', episodeId: 'episode', steps: [step('characters'), step('scenes')] })
+  await engine.confirm('project', run.id); await engine.drain()
+  const done = await engine.get('project', run.id)
+  assert.equal(done.status, 'completed')
+  assert.deepEqual(order.slice(0, 2), ['generate@project-summary', 'review@project-summary'])
+  assert.deepEqual(order.slice(2).sort(), ['generate@characters', 'generate@scenes'])
+  assert.equal(done.steps.filter(item => item.target === 'project-summary').length, 2)
+  assert.ok(done.steps.filter(item => item.target === 'project-summary').every(item => item.origin === 'prereq'))
+})

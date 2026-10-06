@@ -4,12 +4,14 @@ import { libraryLinks, libraryKinds } from '../shared/library-rules.js'
 import { operationDeletes } from '../shared/operation-cascade.js'
 export function confirmRunPreview(anchor, initial, { refresh } = {}) {
   const steps = initial.steps || initial.run.steps
-  if (!initial.amend && !initial.prereq?.length && !initial.deletions?.length && !initial.blockers?.length && new Set(steps.map(step => step.target)).size <= 1) return Promise.resolve({ authorizePrereq: [], confirmDelete: true, projectRevision: initial.projectRevision })
+  // 没有需要用户决定的内容（前置、删除、硬阻断）时直接执行，不弹确认。
+  if (!initial.prereq?.length && !initial.deletions?.length && !initial.blockers?.length) return Promise.resolve({ authorizePrereq: [], confirmDelete: true, projectRevision: initial.projectRevision })
   const dialog = element('dialog', '', 'run-preview-dialog'), head = element('h2', initial.amend ? '并入当前任务' : '确认制作任务'), body = element('div'), error = element('p', '', 'error')
   const cancel = element('button', '取消'), confirm = element('button', '确认执行', 'primary')
   dialog.append(head, body, error, cancel, confirm)
   ;(anchor.getRootNode().body || anchor.getRootNode()).append(dialog)
-  let preview = initial, version = 0, accepted = false, selected = new Set()
+  // 缺少的前置默认纳入，用户可取消勾选。
+  let preview = initial, version = 0, accepted = false, selected = new Set((initial.prereq || []).map(entry => entry.key))
   const draw = () => {
     body.replaceChildren()
     const counts = new Map()
@@ -18,7 +20,7 @@ export function confirmRunPreview(anchor, initial, { refresh } = {}) {
     for (const [target, count] of counts) planned.append(element('p', `${targetLabel(target)} · ${count} 步`))
     body.append(planned)
     if (preview.prereq?.length) {
-      body.append(element('h3', '缺少前置'), element('p', '未授权的分支会暂停，其余可执行部分继续。', 'meta'))
+      body.append(element('h3', '缺少前置'), element('p', '默认一并完成；取消勾选的前置所在分支会暂停，其余部分继续。', 'meta'))
       for (const entry of preview.prereq) {
         const label = element('label'), check = element('input'); check.type = 'checkbox'; check.value = entry.key; check.checked = selected.has(entry.key)
         check.onchange = async () => {
@@ -41,6 +43,7 @@ export function confirmRunPreview(anchor, initial, { refresh } = {}) {
     confirm.disabled = Boolean(preview.blockers?.length)
   }
   draw()
+  if (selected.size && refresh) { const id = ++version; confirm.disabled = true; refresh([...selected]).then(result => { if (id !== version) return; preview = { ...result, amend: initial.amend }; draw() }, failure => { if (id === version) error.textContent = failure.message }) }
   return new Promise(resolve => {
     cancel.onclick = () => dialog.close()
     confirm.onclick = () => { accepted = true; dialog.close() }

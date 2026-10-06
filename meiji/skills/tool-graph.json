@@ -5,7 +5,6 @@
     "operation-context-query",
     "operation-project-manage",
     "run-plan",
-    "run-confirm",
     "run-amend",
     "run-resume",
     "run-cancel"

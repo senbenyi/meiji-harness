@@ -7,7 +7,7 @@ export function checkShotTable(text, project, options = {}) {
   const rows = items.map(item => ({ content: item.content, durationSeconds: item.duration }))
   referencedEntities(rows.map(row => row.content).join('\n'), project)
   const total = rows.reduce((sum, row) => sum + row.durationSeconds, 0)
-  return [...(rows.some(row => !Number.isInteger(row.durationSeconds) || row.durationSeconds < 1 || row.durationSeconds > 15 || !row.content?.trim()) ? ['镜头时长或正文无效'] : []), ...(Math.abs(total - project.durationSeconds) > 10 ? ['镜头总时长与目标相差超过10秒'] : [])]
+  return [...(rows.some(row => !Number.isInteger(row.durationSeconds) || row.durationSeconds < 1 || row.durationSeconds > 15 || !row.content?.trim()) ? ['镜头时长或正文无效'] : []), ...(Math.abs(total - project.durationSeconds) > 10 ? [`镜头总时长 ${total} 秒，目标 ${project.durationSeconds} 秒，相差超过 10 秒；需${total < project.durationSeconds ? '增加' : '减少'}约 ${Math.abs(total - project.durationSeconds)} 秒（可调整各镜时长或增减镜头，每镜 1–15 秒）`] : [])]
 }
 // 复审复用此步骤，只更新审核结论，不生成或修订正文。
 export function reviewShotTable(input) {

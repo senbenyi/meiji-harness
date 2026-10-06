@@ -84,6 +84,23 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
       if (!claimed) return
       let gate
       try { gate = await beforeStep(current, started) } catch (cause) { await finish(current, started, null, cause); return }
+      if (gate?.insert?.length) {
+        // 系统前置：把前置步骤并入任务，本步骤退回等待它们完成；同一前置已在任务中未结束时直接复用。
+        await update(run.projectId, run.id, value => {
+          const target = value.steps.find(item => item.id === step.id)
+          if (target.status !== StepStatus.RUNNING) return value
+          const live = new Map(value.steps.filter(item => !['done', 'skipped', 'superseded', 'cancelled'].includes(item.status) && item.id !== target.id).map(item => [item.key, item]))
+          const ids = new Map(gate.insert.map(item => [item.id, live.get(item.key)?.id || randomUUID()]))
+          const incoming = gate.insert.filter(item => !live.has(item.key)).map(item => makeStep({ ...item, id: ids.get(item.id), origin: 'prereq', after: item.after.map(parent => ids.get(parent) || parent) }))
+          const tails = gate.insert.filter(item => !gate.insert.some(child => child.after.includes(item.id))).map(item => ids.get(item.id))
+          target.status = StepStatus.PENDING; target.startedAt = null
+          target.after = [...new Set([...target.after, ...tails])]
+          value.steps.push(...incoming)
+          event(value, 'prereq_inserted', 'engine', incoming.map(item => item.id))
+          return value
+        })
+        return
+      }
       if (gate?.pause || gate?.skip) {
         await update(run.projectId, run.id, value => {
           const target = value.steps.find(item => item.id === step.id)
@@ -171,10 +188,12 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
         mutable(run)
         const existing = new Map(run.steps.filter(step => !['superseded', 'cancelled'].includes(step.status)).map(step => [step.key, step]))
         const incoming = steps.map(makeStep), ids = new Map(), added = []
+        const taken = new Set(run.steps.map(step => step.id))
         for (const step of incoming) {
-          const found = existing.get(step.key)
-          ids.set(step.id, found?.id || step.id)
-          if (!found) { existing.set(step.key, step); added.push(step) }
+          // 并入的步骤换用新 ID：规划器的临时编号会与任务里已有步骤重复。
+          const found = existing.get(step.key), id = found?.id || (taken.has(step.id) ? randomUUID() : step.id)
+          ids.set(step.id, id); taken.add(id)
+          if (!found) { step.id = id; existing.set(step.key, step); added.push(step) }
         }
         for (const step of added) step.after = step.after.map(parent => ids.get(parent) || parent)
         run.steps.push(...added)

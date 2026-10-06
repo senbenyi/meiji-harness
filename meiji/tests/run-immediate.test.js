@@ -45,3 +45,23 @@ test('即时创建返回结果且不建立制作任务；生成旧入口被拒�
   assert.equal((await e.store.read(result.result.projectId)).title, '即时创建')
   assert.throws(() => edits.start(e.op('story')), { code: 'RUN_GOAL_REQUIRED' })
 })
+
+test('项目删除不受已有项目占用锁阻塞', async t => {
+  const e = await setupModel(t), pending = Promise.withResolvers()
+  const edits = createImmediateService({ home: e.home, execute: async operation => operation.action === 'overview' ? pending.promise : {} })
+  t.after(() => edits.dispose())
+  const active = edits.start({ ...e.op('overview', { fields: { title: '占用中' } }), origin: 'panel' })
+  const deleted = edits.start({ projectId: e.id, action: 'project-delete', confirmDelete: true, origin: 'panel' })
+  assert.equal((await deleted.done).status, 'completed')
+  pending.resolve({})
+  assert.equal((await active.done).status, 'completed')
+})
+
+test('即时编辑可按剧集停止', async t => {
+  const e = await setupModel(t)
+  const edits = createImmediateService({ home: e.home, execute: async (operation, definition, { signal }) => await new Promise((resolve, reject) => { if (signal.aborted) return reject(signal.reason); signal.addEventListener('abort', () => reject(signal.reason), { once: true }) }) })
+  t.after(() => edits.dispose())
+  const active = edits.start({ ...e.op('overview', { fields: { title: '占用中' } }), origin: 'panel' })
+  await edits.cancel(e.id, e.episodeId)
+  assert.equal((await active.done).status, 'failed')
+})

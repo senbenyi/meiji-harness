@@ -33,7 +33,7 @@ test('工具图谱覆盖会话工具与所有生成职责，依赖无环且声�
 })
 
 test('会话只注册 Run 工具与项目查询管理工具，保留工具导出与模块同名', async () => {
-  assert.deepEqual(runTools({}).map(tool => tool.name), ['run-plan', 'run-confirm', 'run-amend', 'run-resume', 'run-cancel'])
+  assert.deepEqual(runTools({}).map(tool => tool.name), ['run-plan', 'run-amend', 'run-resume', 'run-cancel'])
   const session = readFileSync(new URL('../session.js', import.meta.url), 'utf8')
   assert.doesNotMatch(session, /operationTools|waitImagesTool|legacyScriptTools/)
   for (const factory of [contextQueryTool, projectManageTool]) {

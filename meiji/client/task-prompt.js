@@ -54,3 +54,36 @@ export function openStepPrompts(anchor, { title, load }) {
   void refresh()
   return dialog
 }
+
+export function openStepHttp(anchor, { title, load }) {
+  const dialog = element('dialog', '', 'task-prompt-dialog task-http-dialog')
+  dialog.setAttribute('aria-label', title)
+  const head = element('div', '', 'modal-head')
+  const close = element('button', '关闭')
+  close.type = 'button'; close.onclick = () => dialog.close()
+  head.append(element('h2', title), close)
+  const status = element('p', '', 'meta'); status.setAttribute('role', 'status')
+  const retry = element('button', '重新加载'); retry.type = 'button'; retry.hidden = true
+  const content = element('div', '', 'task-prompt-content')
+  dialog.append(head, status, retry, content)
+  const root = anchor.getRootNode(); (root.body || root).append(dialog)
+  dialog.addEventListener('close', () => { dialog.remove(); if (anchor.isConnected) anchor.focus() })
+  const refresh = async () => {
+    status.textContent = '加载记录…'; retry.hidden = true; content.replaceChildren()
+    try {
+      const result = await load(), entries = result.responses || []
+      status.textContent = result.message || (entries.length ? '' : '此步骤没有保存 HTTP 请求。')
+      for (const [index, entry] of entries.entries()) {
+        const card = element('section', '', 'task-prompt-request')
+        const request = entry.request || { method: entry.method, path: entry.path }
+        const response = { ok: entry.ok, status: entry.status, durationMs: entry.durationMs, body: entry.body, error: entry.error, bytes: entry.bytes }
+        card.append(element('h3', `请求 ${index + 1}`), element('h4', '原始请求'), element('pre', JSON.stringify(request, null, 2)))
+        appendJsonCopy(card, request)
+        card.append(element('h4', '原始返回'), element('pre', JSON.stringify(response, null, 2)))
+        appendJsonCopy(card, response)
+        content.append(card)
+      }
+    } catch (error) { status.textContent = `加载失败：${error.message}`; retry.hidden = false }
+  }
+  retry.onclick = refresh; showPanelDialog(dialog); void refresh(); return dialog
+}

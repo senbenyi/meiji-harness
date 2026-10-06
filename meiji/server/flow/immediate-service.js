@@ -16,7 +16,7 @@ export function createImmediateService({ home, workspaceController, runs, deps =
       const definition = validateOperation(input)
       const id = randomUUID(), controller = new AbortController()
       const operation = { ...input, ...operationScope({ ...input, lock: definition.linkedCard && linkedOperationCard(home, input) ? 'project' : definition.lock }) }
-      const release = occupy(home, operation, { id, label: definition.label }), abort = () => controller.abort(options.signal.reason)
+      const release = operation.action === 'project-delete' ? () => {} : occupy(home, operation, { id, label: definition.label }), abort = () => controller.abort(options.signal.reason)
       if (options.signal?.aborted) abort(); else options.signal?.addEventListener('abort', abort, { once: true })
       const entry = { id, projectId: operation.projectId, episodeId: operation.episodeId, controller, failure: null }
       active.set(id, entry)
@@ -37,6 +37,11 @@ export function createImmediateService({ home, workspaceController, runs, deps =
     },
     list(projectId) { return [...active.values()].filter(entry => entry.projectId === projectId).map(entry => ({ id: entry.id, projectId, episodeId: entry.episodeId, status: 'running' })) },
     current(projectId, episodeId) { return this.list(projectId).filter(entry => !episodeId || !entry.episodeId || entry.episodeId === episodeId) },
+    async cancel(projectId, episodeId = null) {
+      const entries = [...active.values()].filter(entry => entry.projectId === projectId && (!episodeId || !entry.episodeId || entry.episodeId === episodeId))
+      for (const entry of entries) entry.controller.abort(new Error('删除目标，已停止当前编辑'))
+      await Promise.all(entries.map(entry => entry.done))
+    },
     async dispose() { for (const entry of active.values()) entry.controller.abort(new Error('服务已停止')); await Promise.all([...active.values()].map(entry => entry.done)) },
   }
 }

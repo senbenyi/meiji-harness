@@ -283,8 +283,10 @@ export function registerPanel(ctx, ready = Promise.resolve(), edits, runs, runJo
           if (body.projectId && !deleting) await links.requireProject(sessionId, body.projectId)
           const project = body.projectId ? await projects.read(body.projectId) : null
           const staged = { ...body, projectId: project?.id, origin: 'panel' }
-          if (['project-delete', 'episode-delete'].includes(staged.action) && (edits.list(project.id).length || (await runs.list(project.id, sessionId)).some(run => ['draft', 'running', 'paused'].includes(run.status) && (staged.action === 'project-delete' || !run.episodeId || run.episodeId === staged.episodeId)))) {
-            throw Object.assign(new Error('请先停止生成任务，再删除项目或剧集'), { status: 409 })
+          if (['project-delete', 'episode-delete'].includes(staged.action)) {
+            const activeRuns = (await runs.list(project.id, sessionId)).filter(run => ['draft', 'running', 'paused'].includes(run.status) && (staged.action === 'project-delete' || !run.episodeId || run.episodeId === staged.episodeId))
+            await Promise.all(activeRuns.map(run => runs.cancel(project.id, run.id, sessionId)))
+            await edits.cancel(project.id, staged.action === 'project-delete' ? null : staged.episodeId)
           }
           validateOperation(staged)
           const started = edits.start(staged, ctx.sessions.get(sessionId))

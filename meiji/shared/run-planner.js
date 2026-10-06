@@ -60,10 +60,8 @@ export function planRun(project, rawGoal, policy = {}) {
       requireStage(dependency, after, required)
     }
     if (['summary', 'story'].includes(stage) && (policy.projectSummaryRequired ?? (project.episodes ? scriptFreshness(project).summaryNeedsUpdate : false))) {
-      const key = 'project-summary@all', entry = { key, goal: { to: 'project-summary' }, message: '更新并审核项目摘要' }
-      if (!prereq.some(item => item.key === key)) prereq.push(entry)
-      if (authorized.has(key)) after.push(text('project-summary', textTargets['project-summary'], [], [], false))
-      else required.push(entry)
+      // 剧本升版后项目摘要过期：更新项目摘要是系统前置，自动排在摘要与剧情之前，不需要用户逐次授权。
+      if (goal.mode !== 'review') after.push(text('project-summary', textTargets['project-summary'], [], [], false, {}, true))
     }
     if (stage === 'script-sync') {
       const sync = add('sync', 'script', { taskType: 'script-sync', action: 'script-sync', queue: 'text', scope: 'project' }, after)

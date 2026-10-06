@@ -57,13 +57,13 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 function deleteButton(project, actions, episode, number) {
   const button = element('button', episode ? '删除本集' : '删除项目', 'delete-content')
   button.type = 'button'
-  button.disabled = targetBusy(project, 'project')
+  button.disabled = episode ? targetBusy(project, 'project') : false
   button.setAttribute('aria-label', episode ? `删除第 ${number} 集` : '删除整个项目')
   button.onclick = async event => {
     event.stopPropagation()
     if (button.disabled) return
     const target = episode ? `第 ${number} 集` : `项目《${project.title}》`
-    if (!await confirmPanel(`确定删除${target}？将删除剧情数据及本地视频${episode ? '' : '，并删除对应工作区（保留会话记录）'}，删除后无法恢复。`)) return
+    if (!await confirmPanel(`确定删除${target}？将删除剧情数据及本地视频${episode ? '' : '，并清空对应工作区'}，删除后无法恢复。`)) return
     button.disabled = true
     try {
       await actions.perform(project, episode ? 'episode-delete' : 'project-delete', episode ? { episodeId: episode.id, confirmDelete: true } : { confirmDelete: true })

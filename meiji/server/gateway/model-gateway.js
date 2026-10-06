@@ -116,7 +116,7 @@ async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body,
   writeApiLog(sent.join('\n'))
   let response
   const startedAt = Date.now()
-  const record = data => recordNodeResponse({ fn, method, path: redactJson(`${url.pathname}${url.search}`, apiKey), durationMs: Date.now() - startedAt, ...data })
+  const record = data => recordNodeResponse({ fn, method, path: redactJson(`${url.pathname}${url.search}`, apiKey), request: { method, path: redactJson(`${url.pathname}${url.search}`, apiKey), headers: publicHeaders(headers, apiKey), body: redactJson(form ? logBody : body, apiKey) }, durationMs: Date.now() - startedAt, ...data })
   try {
     response = await fetchImpl(url, { method, headers, body: body === undefined ? undefined : form ? body : JSON.stringify(body), signal: requestSignal(signal), ...(redirect ? { redirect } : {}) })
   } catch (error) {
@@ -147,17 +147,29 @@ async function requestGatewayRaw({ baseUrl, path, method = 'GET', headers, body,
   return { ok: true, response, data, durationMs: Date.now() - startedAt }
 }
 
+// 上游偶发错误的重试间隔（毫秒）；测试可改为更短或清空。
+export const chatRetry = { delays: [1000, 3000] }
+
 export async function completeChat({ baseUrl, apiKey, model, system, prompt, json = false, fetchImpl = fetch, signal }) {
   const messages = []
   if (system) messages.push({ role: 'system', content: system })
   messages.push({ role: 'user', content: prompt })
   await recordNodePrompt({ kind: 'text', messages })
   const payload = { model, messages, ...(json ? { response_format: { type: 'json_object' } } : {}) }
-  const result = await requestGateway({
-    baseUrl, path: 'chat/completions', method: 'POST', apiKey, fetchImpl, signal, fn: 'completeChat',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: payload,
-  })
+  // 文本请求可重复提交：网关上游偶发 502/503/504 时自动再试，每次请求各自留痕；图片与视频不在此重试。
+  let result
+  for (const [attempt, delay] of [0, ...chatRetry.delays].entries()) {
+    if (attempt) await new Promise((resolve, reject) => {
+      const abort = () => { clearTimeout(timer); reject(signal.reason) }, timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve() }, delay)
+      if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true })
+    })
+    result = await requestGateway({
+      baseUrl, path: 'chat/completions', method: 'POST', apiKey, fetchImpl, signal, fn: 'completeChat',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: payload,
+    })
+    if (result.ok || ![502, 503, 504].includes(result.response.status)) break
+  }
   if (!result.ok) fail(result.response, result.data, `文本生成失败：HTTP ${result.response.status}`)
   const finish = result.data?.choices?.[0]?.finish_reason
   if (finish && finish !== 'stop') throw Object.assign(new Error(`模型输出未正常完成：${finish}`), { status: 502, code: 'INCOMPLETE_MODEL_OUTPUT' })

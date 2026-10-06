@@ -28,7 +28,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 | 位置 | 职责 |
 |---|---|
 | `index.js` | 组合入口：接入 Harness、处理重启遗留的执行标记、检查 FFmpeg，创建唯一的模型队列、Run 服务（`createRunService`）、即时保存服务（`createImmediateService`）及 Run jobs/goals 观察，注册面板并公开 meiji 服务；会话工具不在主机全局注册 |
-| `session.js` | 短剧制作预设的子插件，等待主机 ready 后注册 `operation-context-query`、`operation-project-manage` 与 5 个 `run-*` 任务工具及会话说明，释放时撤销登记 |
+| `session.js` | 短剧制作预设的子插件，等待主机 ready 后注册 `operation-context-query`、`operation-project-manage` 与 4 个 `run-*` 任务工具及会话说明，释放时撤销登记 |
 | `server/host/harness-run-jobs.js`、`harness-run-goals.js` | 通过公开 jobs/goals 观察 Run：任务暂停或终态时结算 job，会话目标绑定任务并在终态结算；模型停止守卫与 owner 脱离 |
 | `server/data/script-store.js` | 剧本版本、待确认方案与原子提交 |
 | `shared/library-rules.js` | 三类库、变体、关联及跨集同步；库目录只含文字和有图标记 |
@@ -185,7 +185,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 按第 1 节分层；`client/`、`shared/` 使用平铺 `.js/.css`，不引入 JSX、bundler 或构建步骤。shared 不引用 Node 专属模块、client 或 server。
 - Harness 接入只经 `server/host/` 的公开接口，不读取上游存储文件。
 - 制作目标的步骤模板在 `shared/run-templates.js`、`shared/run-planner.js`，单步职责在 task-registry 按 taskType 登记队列与 run。即时保存在 direct/ 登记；人工专属操作标 agent:false。不增加旧操作别名或中转导出。
-- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-outline-edit.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。会话的查询与项目管理工具使用 `operation-` 前缀，任务工具使用 `run-` 前缀，均为小写连字符；`operation-context-query`、`operation-project-manage` 的工具名与实现文件主体一致，5 个任务工具集中在 `tools/run-tools.js`。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
+- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-outline-edit.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。会话的查询与项目管理工具使用 `operation-` 前缀，任务工具使用 `run-` 前缀，均为小写连字符；`operation-context-query`、`operation-project-manage` 的工具名与实现文件主体一致，4 个任务工具集中在 `tools/run-tools.js`。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
 - skill 分工与登记规则见第 6 节。
 
 ## 12. 数据规则
@@ -316,7 +316,7 @@ Run 服务位于 `server/flow/runs/run-service.js`，由 index 创建唯一实�
 | GET /artifacts/:id | 按内容来源读取快照 |
 | POST /turn | 即时保存；制作动作返回 400 `RUN_GOAL_REQUIRED` |
 
-会话工具为 `run-plan`、`run-confirm`、`run-amend`、`run-resume`、`run-cancel` 与查询、项目管理；会话不能人工放行，也不能确认图片或剧本方案。上下文查询包含剧本版本、方案、阻断、摘要新鲜度、三类库目录和当前任务（状态、暂停原因、可用动作）。会删除已有产物时无 confirmDelete 只返回清单，不启动任务。人工忽略自审只作用于当前有效版本，不能忽略格式错误。
+会话工具为 `run-plan`（提交目标并直接执行：缺少的前置自动纳入、连带删除自动确认、同集已有任务自动并入）、`run-amend`、`run-resume`、`run-cancel` 与查询、项目管理；会话不能人工放行，也不能确认图片或剧本方案。上下文查询包含剧本版本、方案、阻断、摘要新鲜度、三类库目录和当前任务（状态、暂停原因、可用动作）。会删除已有产物时无 confirmDelete 只返回清单，不启动任务。人工忽略自审只作用于当前有效版本，不能忽略格式错误。
 
 <a id="model-migration-history"></a>
 

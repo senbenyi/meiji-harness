@@ -192,15 +192,16 @@ test('剧本待回写只暂停剧情层步骤，镜头表等下游步骤照常�
   assert.equal(shots.status, 'completed'); assert.ok(executed > 0)
 })
 
-test('剧本更新后生成摘要须先授权更新项目摘要，不再静默插入；意见进入项目摘要提示词', async t => {
+test('剧本更新后生成摘要自动先更新并审核项目摘要，不需要授权；意见进入项目摘要提示词', async t => {
   const e = await setupModel(t), scripts = scriptStore(e.home, e.store)
   await scripts.commit(e.id, { script: '导入剧本', scriptKind: 'imported' }, { note: '首版' })
-  const root = await e.store.read(e.id), goal = { to: 'summary', mode: 'regenerate' }
-  const plain = planRun(root, goal)
-  assert.deepEqual(plain.prereq.map(item => item.key), ['project-summary@all'])
-  assert.ok(plain.steps.every(step => step.target !== 'project-summary'))
-  const authorized = planRun(root, goal, { authorizePrereq: ['project-summary@all'] })
-  assert.deepEqual(authorized.steps.filter(step => step.target === 'project-summary').map(step => step.kind), ['generate', 'review'])
+  const root = await e.store.read(e.id), plan = planRun(root, { to: 'summary', mode: 'regenerate' })
+  assert.deepEqual(plan.prereq, [])
+  const summary = plan.steps.filter(step => step.target === 'project-summary')
+  assert.deepEqual(summary.map(step => step.kind), ['generate', 'review'])
+  assert.deepEqual(plan.steps.find(step => step.key === 'generate@summary').after, [summary[1].id])
+  // 按意见修改剧集摘要时，意见不套用到项目摘要。
+  assert.ok(planRun(root, { to: 'summary', feedback: '加强悬念' }).steps.filter(step => step.target === 'project-summary').every(step => !step.input.operation.review && step.kind !== 'revise'))
   const { buildTextPrompts } = await import('../server/prompts/text-prompts.js')
   assert.match(buildTextPrompts({ skill: 'project-summary', project: root, opinion: '补结局' }).generation.user, /补结局/)
 })

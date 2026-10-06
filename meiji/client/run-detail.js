@@ -1,136 +1,165 @@
 import { element, appendJsonCopy } from './panel-dom.js'
-import { openStepPrompts } from './task-prompt.js'
 import { targetLabel, stepKindLabels, skillsLine } from './run-labels.js'
 import { runStatusLabels, runStepStatusLabels, runGoalLabel, runTargetMatches } from '../shared/run-view.js'
 import { outlineText } from '../shared/story-outline.js'
-import { goalForRunTarget } from '../shared/run-templates.js'
-import { confirmRunPreview } from './run-preview.js'
+
 const time = value => value ? new Date(value).toLocaleString() : '—'
 const kindLabels = { ...stepKindLabels, manual_edit: '人工编辑', image: '生成图片', wait_confirm: '等待图片确认', wait_script_confirm: '等待剧本确认', storyboard: '文本分镜', video: '生成视频', tail: '提取尾帧', sync: '回写剧本', expand: '展开镜头' }
 const originLabels = { plan: '计划', 'review-fail': '审核反馈', manual: '人工', 'user-feedback': '用户反馈' }
-const eventLabels = { confirmed: '任务已确认', paused: '任务已暂停', resumed: '任务已继续', retry: '重试步骤', cancelled: '任务已取消', completed: '任务已完成', amended: '目标已并入', interrupted: '执行中断', deletions_confirmed: '删除范围已确认', override: '人工放行' }
 
-export function renderRunDetail(project, { load, back, control, loadRecords, preview, edit, followup, target = '' }) {
+async function copyText(value, button, message) {
+  try {
+    if (!globalThis.navigator?.clipboard?.writeText) throw new Error('当前环境不支持复制')
+    await globalThis.navigator.clipboard.writeText(typeof value === 'string' ? value : JSON.stringify(value, null, 2))
+    const original = button.textContent
+    button.textContent = '已复制'
+    setTimeout(() => { button.textContent = original }, 1200)
+  } catch (error) { message.textContent = `复制失败：${error.message}` }
+}
+
+export function renderRunDetail(project, { load, back, loadRecords, target = '' }) {
   const view = element('section', '', 'task-history-page run-detail-page')
-  const header = element('div', '', 'task-history-header'), returnButton = element('button', '← 返回任务列表'), refresh = element('button', '刷新')
-  returnButton.onclick = back; header.append(returnButton, element('h2', '任务详情'), refresh)
+  const header = element('div', '', 'task-history-header'), returnButton = element('button', '← 返回'), title = element('h2', '任务详情'), runStatus = element('span', '', 'task-history-status run-detail-status')
+  returnButton.onclick = back; header.append(returnButton, title, runStatus)
   const message = element('p', '', 'error'), body = element('div')
   view.append(header, message, body)
-  let run, requestId = 0, busy = false
-  async function act(endpoint, fields = {}) {
-    if (busy) return
-    busy = true; message.textContent = ''
-    for (const button of body.querySelectorAll('[data-run-control]')) button.disabled = true
-    try { await control(run, endpoint, fields); await view.refresh() }
-    catch (error) { message.textContent = error.message }
-    finally { busy = false; for (const button of body.querySelectorAll('[data-run-control]')) button.disabled = false }
+  let run, requestId = 0, returnAction = back
+
+  const copyButton = (label, value) => {
+    const button = element('button', label, 'run-copy-button')
+    button.onclick = () => copyText(value, button, message)
+    return button
   }
-  const actionButton = (text, endpoint, fields) => { const button = element('button', text); button.dataset.runControl = endpoint; button.disabled = busy; button.onclick = () => act(endpoint, fields); return button }
+
   const draw = () => {
+    returnAction = back; returnButton.textContent = '← 返回'
     const expanded = new Set([...body.querySelectorAll('details[data-step-id][open]')].map(node => node.dataset.stepId))
-    const drafts = new Map([...body.querySelectorAll('input.run-feedback')].map(node => [node.dataset.stepId, node.value]))
     body.replaceChildren()
-    body.append(element('h3', runGoalLabel(run, project)), element('p', `${runStatusLabels[run.status]} · ${run.initiator === 'session' ? '会话发起' : '面板发起'} · 开始 ${time(run.startedAt || run.createdAt)} · 结束 ${time(run.endedAt)}`, 'meta'))
-    const controls = element('div', '', 'run-controls')
-    if (run.status === 'running') controls.append(actionButton('暂停', 'pause'))
-    if (!['completed', 'cancelled'].includes(run.status)) controls.append(actionButton('取消任务', 'cancel'))
-    body.append(controls)
-    if (run.optionalGoals?.length) {
-      const optional = element('section'); optional.append(element('h3', '可选后续'), element('p', '剧本已更新。这些剧集使用旧依据，可选择预览重新生成。', 'meta'))
-      for (const choice of run.optionalGoals) {
-        const index = [...project.episodes].reverse().findIndex(episode => episode.id === choice.episodeId), button = element('button', `预览重新生成第 ${index + 1} 集摘要`)
-        button.onclick = async () => { button.disabled = true; try { await followup?.(choice) } catch (error) { message.textContent = error.message } finally { button.disabled = false } }; optional.append(button)
+    title.textContent = runGoalLabel(run, project)
+    runStatus.textContent = runStatusLabels[run.status] || run.status
+    runStatus.className = `task-history-status run-detail-status is-${run.status}`
+    body.append(element('p', `${runStatusLabels[run.status]} · ${run.initiator === 'session' ? '会话发起' : '面板发起'} · ${time(run.startedAt || run.createdAt)} - ${time(run.endedAt)}`, 'meta run-detail-meta'))
+
+    if (run.pause?.reasons?.length) {
+      const reasons = element('section', '', 'run-readonly-reasons')
+      reasons.append(element('h3', '处理原因'))
+      for (const reason of run.pause.reasons) {
+        const row = element('div', '', 'run-readonly-reason'), text = reason.message || reason.code || '任务需要处理'
+        row.append(element('p', text), copyButton('复制', text)); reasons.append(row)
       }
-      body.append(optional)
+      body.append(reasons)
     }
-    for (const reason of run.pause?.reasons || []) {
-      const row = element('section', '', 'run-reason'); row.append(element('p', reason.message || reason.code))
-      for (const action of reason.actions || []) {
-        if (['retry', 'resume', 'review'].includes(action)) row.append(actionButton(action === 'retry' ? '重试此步骤' : action === 'review' ? '复审后继续' : '继续任务', 'resume', { action, stepId: reason.stepId }))
-        else if (action === 'cancel-branch') row.append(actionButton('取消此分支', 'cancel', { stepId: reason.stepId }))
-        else if (action === 'override') row.append(actionButton('忽略并通过', 'resume', { action, stepId: reason.stepId }))
-        else if (action === 'edit' && edit) { const button = element('button', '编辑此对象'); button.onclick = () => edit(run, reason.target); row.append(button) }
-        else if (action === 'authorize' && preview) {
-          const button = element('button', '选择前置并继续')
-          button.onclick = async () => {
-            button.disabled = true
-            try {
-              const initial = await preview(run, {}), accepted = await confirmRunPreview(button, initial, { refresh: authorizePrereq => preview(run, { authorizePrereq }) })
-              if (accepted?.authorizePrereq.length) await act('resume', { action, stepId: reason.stepId, ...accepted })
-            } catch (error) { message.textContent = error.message } finally { button.disabled = false }
+
+    const steps = [...(run.steps || [])].sort((a, b) => String(a.startedAt || a.createdAt || '\uffff').localeCompare(String(b.startedAt || b.createdAt || '\uffff')))
+    const stepList = element('ol', '', 'run-step-list')
+    for (const [index, step] of steps.entries()) {
+        const failed = step.status === 'failed' || step.output?.passed === false || Boolean(step.error)
+        const item = element('details', '', `run-step-card is-${step.status}`); item.dataset.stepId = step.id; item.open = expanded.has(step.id) || failed
+        item.dataset.stepNumber = String(index + 1); item.dataset.target = step.target || ''
+        if (target && runTargetMatches(step.target, target)) { item.classList.add('is-highlighted'); item.setAttribute('aria-label', '当前对象') }
+        const summary = element('summary', '', 'run-step-summary')
+        const expandState = element('span', item.open ? '收起详情' : '展开详情', 'run-step-expand-state')
+        expandState.setAttribute('aria-label', item.open ? '当前已展开' : '当前已收起')
+        item.addEventListener('toggle', () => {
+          expandState.textContent = item.open ? '收起详情' : '展开详情'
+          expandState.setAttribute('aria-label', item.open ? '当前已展开' : '当前已收起')
+        })
+        const heading = element('div', '', 'run-step-heading')
+        heading.append(element('span', runStepStatusLabels[step.status] || step.status, `task-history-status is-${step.status}`), element('strong', `${index + 1}. ${kindLabels[step.kind] || step.kind}${step.round ? ` · 第 ${step.round} 轮` : ''}`))
+        if (step.output?.passed !== undefined) heading.append(element('span', step.output.passed ? '审核通过' : '审核未通过', `task-history-status run-step-verdict-badge is-${step.output.passed ? 'passed' : 'failed'}`))
+        heading.append(expandState)
+        summary.append(heading, element('span', `${time(step.startedAt)} - ${time(step.endedAt)}`, 'meta run-step-time'))
+        const promptActions = element('span', '', 'run-step-summary-actions')
+        if (step.prompts?.length) {
+          const open = element('button', '查看提示词')
+          open.onclick = event => { event.preventDefault(); event.stopPropagation(); void openRecordPage(step, 'prompts') }
+          promptActions.append(open)
+        }
+        if (step.responses?.length) {
+          const open = element('button', '查看 HTTP 请求')
+          open.onclick = event => { event.preventDefault(); event.stopPropagation(); void openRecordPage(step, 'responses') }
+          promptActions.append(open)
+        }
+        let snapshotButton = null
+        if (step.artifacts?.length) {
+          snapshotButton = element('button', '查看生成快照')
+          snapshotButton.onclick = event => { event.preventDefault(); event.stopPropagation(); void openRecordPage(step, 'artifacts') }
+          promptActions.append(snapshotButton)
+        }
+        item.append(summary)
+        const details = element('div', '', 'run-step-detail')
+        details.append(element('p', `${targetLabel(step.target)} · ${step.actor === 'human' ? '人工' : step.actor === 'program' ? '程序' : '模型'} · ${originLabels[step.origin] || step.origin || '计划'}`, 'meta run-step-status-detail'))
+        if (step.error) { const error = element('div', '', 'run-step-error'); error.append(element('p', step.error), copyButton('复制', step.error)); details.append(error) }
+        if (step.output?.passed !== undefined) {
+          if (!step.output.passed) {
+            const verdict = element('div', '', 'run-step-verdict')
+            verdict.append(element('p', step.output.issues?.length ? JSON.stringify(step.output.issues, null, 2) : '审核未通过'), copyButton('复制', step.output.issues || '审核未通过'))
+            details.append(verdict)
           }
-          row.append(button)
-        } else if ((action === 'feedback' || action === 'regenerate') && preview) {
-          let input
-          if (action === 'feedback') { input = element('input', '', 'run-feedback'); input.dataset.stepId = reason.stepId; input.value = drafts.get(reason.stepId) || ''; input.placeholder = '本次修改意见'; input.maxLength = 2000; row.append(input) }
-          const button = element('button', action === 'feedback' ? '提交意见并继续' : '重新生成')
-          button.onclick = async () => {
-            const feedback = input?.value.trim()
-            if (input && !feedback) { message.textContent = '请填写本次意见'; return }
-            const goal = goalForRunTarget(reason.target, feedback ? { feedback } : { mode: 'regenerate' })
-            button.disabled = true
-            try {
-              const initial = await preview(run, { goal }), accepted = await confirmRunPreview(button, { ...initial, amend: true }, { refresh: authorizePrereq => preview(run, { goal, authorizePrereq }) })
-              if (accepted) await act('amend', { goal, ...accepted })
-            } catch (error) { message.textContent = error.message } finally { button.disabled = false }
-          }
-          row.append(button)
         }
-      }
-      body.append(row)
+        const skill = skillsLine(step.skills); if (skill) details.append(skill)
+        for (const attempt of step.attempts || []) details.append(element('p', `${attempt.label || '尝试'} · ${runStepStatusLabels[attempt.status] || attempt.status}${attempt.error ? ` · ${attempt.error}` : ''}`, 'meta'))
+        if (promptActions.childElementCount) details.append(promptActions)
+
+        item.append(details)
+        stepList.append(item)
     }
-    const groups = new Map()
-    for (const step of run.steps) { if (!groups.has(step.target)) groups.set(step.target, []); groups.get(step.target).push(step) }
-    const shownEvents = new Set()
-    for (const [key, steps] of groups) {
-      const group = element('section', '', 'run-target-group'); group.dataset.target = key || ''
-      if (target && runTargetMatches(key, target)) { group.classList.add('is-highlighted'); group.setAttribute('aria-label', '当前对象') }
-      group.append(element('h3', targetLabel(key)))
-      for (const step of [...steps].sort((a, b) => String(a.startedAt || a.createdAt || '\uffff').localeCompare(String(b.startedAt || b.createdAt || '\uffff')))) {
-        const item = element('details', '', `run-step is-${step.status}`); item.dataset.stepId = step.id; item.open = expanded.has(step.id)
-        item.append(element('summary', `${kindLabels[step.kind] || step.kind}${step.round ? ` · 第 ${step.round} 轮` : ''} · ${runStepStatusLabels[step.status]} · ${originLabels[step.origin] || step.origin || '计划'}`))
-        item.append(element('p', `${step.actor === 'human' ? '人工' : step.actor === 'program' ? '程序' : '模型'} · 开始 ${time(step.startedAt)} · 结束 ${time(step.endedAt)}`, 'meta'))
-        if (step.error) item.append(element('p', step.error, 'error'))
-        if (step.output?.passed !== undefined) item.append(element('p', step.output.passed ? '审核通过' : '审核未通过', step.output.passed ? 'meta' : 'error'))
-        if (step.output?.issues?.length) { const data = element('pre', JSON.stringify(step.output.issues, null, 2)); item.append(data) }
-        const skill = skillsLine(step.skills); if (skill) item.append(skill)
-        for (const attempt of step.attempts || []) item.append(element('p', `${attempt.label || '尝试'} · ${runStepStatusLabels[attempt.status] || attempt.status}${attempt.error ? ` · ${attempt.error}` : ''}`, 'meta'))
-        for (const [kind, label] of [['prompts', '查看提示词'], ['responses', '查看原始返回']]) {
-          if (!step[kind]?.length) continue
-          const button = element('button', label, `task-step-${kind === 'prompts' ? 'prompt' : 'response'}`)
-          button.onclick = () => openStepPrompts(button, { title: `${kindLabels[step.kind] || step.kind} · ${label}`, load: () => loadRecords(run, step, kind) }); item.append(button)
-        }
-        const snapshot = element('div', '', 'run-artifacts'); let loaded = false
-        item.append(snapshot)
-        item.ontoggle = async () => {
-          if (!item.open || loaded || !step.artifacts?.length) return
-          snapshot.textContent = '加载内容快照…'
-          try {
-            const { artifacts } = await loadRecords(run, step, 'artifacts'); snapshot.replaceChildren()
-            for (const artifact of artifacts || []) {
-              const card = element('section'); card.append(element('h4', `${targetLabel(artifact.target)} · ${artifact.published ? '已保存' : '草稿'}${artifact.version ? ` · V${artifact.version}` : ''}`))
-              const value = artifact.content
-              card.append(element('pre', artifact.target === 'outline' && value && typeof value === 'object' ? outlineText(value) : typeof value === 'string' ? value : JSON.stringify(value, null, 2)))
-              appendJsonCopy(card, value); snapshot.append(card)
-            }
-            loaded = true
-          } catch (error) { snapshot.textContent = `加载失败：${error.message}。收起后展开重试。` }
-        }
-        group.append(item)
-        for (const [index, event] of (run.events || []).entries()) if (event.stepIds?.includes(step.id) && !shownEvents.has(index)) {
-          group.append(element('p', `${time(event.at)} · ${eventLabels[event.type] || event.type}`, 'meta run-event')); shownEvents.add(index)
-        }
-      }
-      body.append(group)
-    }
-    const events = element('details', '', 'run-events'); events.append(element('summary', '任务事件'))
-    for (const event of run.events || []) events.append(element('p', `${time(event.at)} · ${eventLabels[event.type] || event.type}${event.actor ? ` · ${event.actor === 'user' || event.actor === 'human' ? '人工' : '系统'}` : ''}`, 'meta'))
-    body.append(events)
+    body.append(stepList)
   }
-  view.refresh = async () => { const id = ++requestId; refresh.disabled = true
+
+  const openRecordPage = async (step, kind) => {
+    returnAction = draw; returnButton.textContent = '← 返回'
+    title.textContent = `${kindLabels[step.kind] || step.kind} · ${kind === 'responses' ? 'HTTP 请求详情' : kind === 'artifacts' ? '生成快照详情' : '提示词详情'}`
+    body.replaceChildren()
+    const page = element('section', '', 'run-record-page')
+    page.append(element('p', `${targetLabel(step.target)} · 步骤 ${kindLabels[step.kind] || step.kind}`, 'meta'))
+    try {
+      const result = await loadRecords(run, step, kind), entries = result?.[kind] || []
+      if (!entries.length) {
+        const emptyMessage = kind === 'responses' ? '此步骤没有保存 HTTP 请求。' : kind === 'artifacts' ? '此步骤没有保存生成快照。' : '此步骤没有保存提示词。'
+        page.append(element('p', emptyMessage, 'meta')); body.append(page); return
+      }
+      if (kind === 'responses') {
+        const tabs = element('div', '', 'tabs run-record-tabs'), panels = element('div', '', 'run-record-panels')
+        const requestPanel = element('div', '', 'run-record-panel'), responsePanel = element('div', '', 'run-record-panel')
+        for (const [key, label] of [['request', '请求'], ['response', '返回']]) {
+          const tab = element('button', label); tab.setAttribute('aria-selected', String(key === 'request')); tab.onclick = () => {
+            for (const node of tabs.querySelectorAll('button')) node.setAttribute('aria-selected', String(node === tab))
+            requestPanel.hidden = key !== 'request'; responsePanel.hidden = key !== 'response'
+          }; tabs.append(tab)
+        }
+        for (const [index, entry] of entries.entries()) {
+          const request = entry.request || { method: entry.method, path: entry.path, headers: entry.headers }
+          const response = { ok: entry.ok, status: entry.status, durationMs: entry.durationMs, body: entry.body, error: entry.error, bytes: entry.bytes }
+          const requestCard = element('section', '', 'run-record-card'), responseCard = element('section', '', 'run-record-card')
+          requestCard.append(element('h3', `请求 ${index + 1}`), element('pre', JSON.stringify(request, null, 2))); appendJsonCopy(requestCard, request)
+          responseCard.append(element('h3', `返回 ${index + 1}`), element('pre', JSON.stringify(response, null, 2))); appendJsonCopy(responseCard, response)
+          requestPanel.append(requestCard); responsePanel.append(responseCard)
+        }
+        responsePanel.hidden = true; panels.append(requestPanel, responsePanel); page.append(tabs, panels)
+      } else if (kind === 'artifacts') {
+        for (const [index, artifact] of entries.entries()) {
+          const card = element('section', '', 'run-record-card')
+          card.append(element('h3', `${index + 1}. ${targetLabel(artifact.target)} · ${artifact.published ? '已保存' : '草稿'}${artifact.version ? ` · V${artifact.version}` : ''}`))
+          const value = artifact.content
+          card.append(element('pre', artifact.target === 'outline' && value && typeof value === 'object' ? outlineText(value) : typeof value === 'string' ? value : JSON.stringify(value, null, 2)))
+          appendJsonCopy(card, value); page.append(card)
+        }
+      } else {
+        for (const [index, entry] of entries.entries()) {
+          const card = element('section', '', 'run-record-card'); card.append(element('h3', `请求 ${index + 1}`))
+          if (entry.messages) for (const message of entry.messages) card.append(element('h4', message.role), element('pre', typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)))
+          else card.append(element('pre', typeof entry.prompt === 'string' ? entry.prompt : JSON.stringify(entry.prompt ?? entry, null, 2)))
+          appendJsonCopy(card, entry.messages || entry.prompt || entry); page.append(card)
+        }
+      }
+    } catch (error) { page.append(element('p', `加载失败：${error.message}`, 'error')) }
+    body.append(page)
+  }
+
+  view.refresh = async () => { const id = ++requestId
     try { const result = await load(); if (id !== requestId) return; run = result.run; draw() }
     catch (error) { if (id === requestId) message.textContent = `加载失败：${error.message}。点击刷新重试。` }
-    finally { if (id === requestId) refresh.disabled = false }
   }
-  refresh.onclick = view.refresh; void view.refresh(); return view
+  returnButton.onclick = () => returnAction?.(); void view.refresh(); return view
 }

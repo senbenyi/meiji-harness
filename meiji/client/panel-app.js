@@ -22,7 +22,6 @@ import { confirmEditDelete } from './run-preview.js'
 import { renderScriptView } from './script-view.js'
 import { renderRunList } from './run-list.js'
 import { renderRunDetail } from './run-detail.js'
-import { runStatusLabels, runGoalLabel } from '../shared/run-view.js'
 
 function installLogCards() {
   if (installLogCards.started) return
@@ -65,44 +64,19 @@ export function mount() {
   if (document.querySelector('meiji-workbench')) return
   const shell = createShell()
   const modelStore = createModelStore()
-  const taskBar = document.createElement('div')
-  taskBar.className = 'task-status'
-  shell.root.querySelector('.status').before(taskBar)
   let eventKey = '', refreshing = false, refreshAgain = false, currentPage = null
   const events = createPanelEvents({ onResume: () => {
     if (!eventKey) return
     const [sessionId, projectId] = eventKey.split(':')
     Promise.all([follow(), refreshTasks(projectId, sessionId), currentPage?.isConnected ? currentPage.refresh() : null]).catch(error => shell.status(error.message))
   } })
-  // 进行中与暂停的任务常驻底部任务条；点击进入任务详情。
-  let liveRuns = [], liveTaskKey = ''
-  function paintTasks() {
-    const projectId = liveTaskKey.split(':')[1]
-    taskBar.replaceChildren()
-    for (const run of liveRuns) {
-      const row = document.createElement('div'); row.className = 'task-status-row'
-      const label = document.createElement('span'); label.textContent = `${runGoalLabel(run, modelStore.get(projectId))} · ${runStatusLabels[run.status]} · ${run.done}/${run.total}`
-      const view = document.createElement('button'); view.textContent = '查看'; view.onclick = () => actions.openRun({ id: projectId }, run.id)
-      const pause = document.createElement('button'); pause.textContent = run.status === 'paused' ? '处理暂停' : '暂停'
-      pause.onclick = async () => {
-        if (run.status === 'paused') return actions.openRun({ id: projectId }, run.id)
-        pause.disabled = true
-        try { await request(`runs/${run.id}/pause`, { method: 'POST', ...jsonBody({ projectId, sessionId: currentSessionId() }) }) } catch (error) { pause.disabled = false; shell.status(error.message) }
-      }
-      const cancel = document.createElement('button'); cancel.textContent = '取消'
-      cancel.onclick = async () => { cancel.disabled = true; try { await request(`runs/${run.id}/cancel`, { method: 'POST', ...jsonBody({ projectId, sessionId: currentSessionId() }) }) } catch (error) { cancel.disabled = false; shell.status(error.message) } }
-      row.append(label, view, pause, cancel); taskBar.append(row)
-    }
-  }
-
+  let liveRuns = []
   async function refreshTasks(projectId, sessionId) {
     const query = new URLSearchParams({ projectId, sessionId })
     const runResult = await request(`runs?${query}`)
     if (eventKey !== `${sessionId}:${projectId}`) return
 
     liveRuns = runResult.runs.filter(run => ['running', 'paused'].includes(run.status))
-    liveTaskKey = eventKey
-    paintTasks()
     // 进行中的步骤变化时重绘，使按钮禁用状态与实际执行锁一致。
     const root = shownProject && modelStore.get(shownProject)
     if (root && !hold && runActivityMark(liveRuns) !== shownLiveMark) paintProject(root)
@@ -112,8 +86,6 @@ export function mount() {
     if (key === eventKey) return
     eventKey = key
     liveRuns = []
-    liveTaskKey = key
-    taskBar.replaceChildren()
     events.watch(key ? '/plugins/meiji/events?' + new URLSearchParams({ projectId, sessionId }) : '', async () => {
       if (key !== eventKey) return
       if (refreshing) { refreshAgain = true; return }
@@ -132,7 +104,7 @@ export function mount() {
   let openScene = null
   let imageGate = null
   let navigation = 0, library, workspace = null, shown = '', shownMark = '', shownLiveMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', openTab = '', shownProject = ''
-  const display = node => { renderModelView(shell.content, node); paintTasks(); shell.status(''); shell.setOpen(true) }
+  const display = node => { renderModelView(shell.content, node); shell.status(''); shell.setOpen(true) }
   const signature = project => (workspace?.id || '') + ':' + (project?.id || '')
   const contextFor = projects => ({
     workspace,

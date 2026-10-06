@@ -145,11 +145,11 @@ meiji/
 
 ### Harness 会话制作
 
-默认「短剧制作」预设通过 `session.js` 注册 7 个 meiji 工具与会话说明；standard 看不到这些工具。预设配置来自 `cordis.patch.yml`，configure 只链接原配置。主机 index.js 提供公开运行服务，不全局注册业务工具。
+默认「短剧制作」预设通过 `session.js` 注册 6 个 meiji 工具与会话说明；standard 看不到这些工具。预设配置来自 `cordis.patch.yml`，configure 只链接原配置。主机 index.js 提供公开运行服务，不全局注册业务工具。
 
-会话工具为 `operation-context-query`、`operation-project-manage` 和 5 个任务工具 `run-plan`、`run-confirm`、`run-amend`、`run-resume`、`run-cancel`。会话只把请求翻译成制作目标并处理暂停，不逐步调用生产工具；步骤、审核修订和下游重做由引擎负责。阶段依赖维护在 [工具图谱](skills/tool-graph.json)，会话说明见 [panel.md](skills/session/panel.md)。
+会话工具为 `operation-context-query`、`operation-project-manage` 和 4 个任务工具 `run-plan`、`run-amend`、`run-resume`、`run-cancel`。会话只把请求翻译成制作目标并处理暂停，不逐步调用生产工具；步骤、审核修订和下游重做由引擎负责。阶段依赖维护在 [工具图谱](skills/tool-graph.json)，会话说明见 [panel.md](skills/session/panel.md)。
 
-`run-plan` 只预览（步骤、缺少的前置、删除清单、硬阻断），`run-confirm` 取得用户对前置与删除的授权后启动并返回 jobId，用 Harness job_output 读取结果。任务暂停时目标保持进行中，会话汇报原因和可选动作后结束本轮；用户给意见用 `run-amend`，选动作用 `run-resume`。面板发起的任务不创建会话目标；owner 或 jobs 服务销毁只脱离观察，不取消任务。
+`run-plan` 提交目标并直接执行，返回 jobId，用 Harness job_output 读取结果：用户的请求视为已同意所需前置与连带删除，缺少的前置自动纳入，同集已有任务自动并入；只有硬阻断时不执行。任务暂停时目标保持进行中，会话汇报原因和可选动作后结束本轮；用户给意见用 `run-amend`，选动作用 `run-resume`。面板发起的任务不创建会话目标；owner 或 jobs 服务销毁只脱离观察，不取消任务。
 
 查询包含剧本版本、方案、阻断、项目摘要新鲜度、库目录和缺图清单；库中已有图不算缺图。会删除产物时先返回清单，取得用户授权后带 confirmDelete。候选图确认、剧本方案确认和人工放行仅在面板。
 

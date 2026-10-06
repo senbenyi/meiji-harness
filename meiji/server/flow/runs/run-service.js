@@ -73,9 +73,8 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
     if (!step || !run.request?.goal) return null
     const root = await projects.read(run.projectId), view = plannerView(root, run.episodeId)
     if (['outline', 'characters', 'scenes', 'props'].includes(step.target) && !['review', 're_review'].includes(step.kind) && scriptFreshness(root).summaryNeedsUpdate) {
-      const entry = { key: 'project-summary@all', goal: { to: 'project-summary' }, message: '剧本已更新，需要更新并审核项目摘要' }
-      if (!run.prereq.required.some(item => item.key === entry.key)) await runStore(home, run.projectId).update(run.id, current => { current.prereq.required.push(entry); return current })
-      return { pause: { code: 'prereq_required', message: entry.message, actions: ['authorize', 'cancel-branch'] } }
+      // 任务执行中剧本升版（如本任务的摘要回写）：先自动更新并审核项目摘要，再执行本步骤。
+      return { insert: planRun(root, { to: 'project-summary', mode: 'regenerate' }, { ...plannerPolicy(root, run.policy, run.episodeId), projectSummaryRequired: false }).steps }
     }
     const required = step.input?.required || []
     for (const entry of required) {
@@ -219,18 +218,24 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
       const { action, stepId } = options
       const run = await owned(projectId, id, sessionId)
       if (action === 'authorize') {
-        const reason = run.pause?.reasons.find(item => item.stepId === stepId && item.actions.includes('authorize'))
-        if (!reason || !Array.isArray(options.authorizePrereq) || !options.authorizePrereq.length) throw reject('请选择要授权的前置')
-        const root = await projects.read(projectId), authorized = [...new Set([...(run.policy.authorizePrereq || []), ...options.authorizePrereq])]
-        if (authorized.some(key => !run.prereq.required.some(entry => entry.key === key))) throw reject('前置授权无效')
+        // 不指定步骤或前置时，授权所有等待授权的步骤所缺的全部前置。
+        const reasons = (run.pause?.reasons || []).filter(item => item.actions.includes('authorize') && (!stepId || item.stepId === stepId))
+        if (!reasons.length) throw reject('当前没有等待授权前置的步骤')
+        const declared = reasons.flatMap(item => run.steps.find(step => step.id === item.stepId)?.input?.required || [])
+        const known = new Map([...run.prereq.required, ...declared].map(entry => [entry.key, entry]))
+        const keys = Array.isArray(options.authorizePrereq) && options.authorizePrereq.length ? options.authorizePrereq : [...known.keys()]
+        if (!keys.length || keys.some(key => !known.has(key))) throw reject(`前置授权无效；可授权的前置：${[...known.keys()].join('、') || '无'}`)
+        const root = await projects.read(projectId), authorized = [...new Set([...(run.policy.authorizePrereq || []), ...keys])]
         const policy = { ...run.policy, authorizePrereq: authorized }, plan = goalPlan(root, run, policy)
         if (plan.deletions.length && options.confirmDelete !== true) throw Object.assign(reject('请先确认前置删除清单', 'DELETIONS_PENDING'), { deletions: plan.deletions })
         await runStore(home, projectId).update(id, current => { current.policy = policy; current.prereq.authorized = authorized; current.events.push({ at: new Date().toISOString(), type: 'prereq_authorized', actor: 'user', payload: { authorized } }); return current })
-        if (options.authorizePrereq.includes('project-summary@all') && run.steps.some(step => step.target === 'project-summary' && ['done', 'skipped'].includes(step.status))) {
+        if (keys.includes('project-summary@all') && run.steps.some(step => step.target === 'project-summary' && ['done', 'skipped'].includes(step.status))) {
           const prerequisite = planRun(root, { to: 'project-summary', mode: 'regenerate' }, plannerPolicy(root, policy, run.episodeId))
           return publicRun(await engine.insert(projectId, id, { targets: ['project-summary'], steps: prerequisite.steps, type: 'prereq_authorized' }))
         }
-        return publicRun(await engine.amend(projectId, id, { steps: plan.steps }))
+        // 步骤自带、任务规划时未列入的前置，按其目标补入；已满足的会被规划为跳过，等待的步骤随后自动解除。
+        const extras = keys.filter(key => !run.prereq.required.some(entry => entry.key === key)).map(key => planRun(plannerView(root, run.episodeId), known.get(key).goal, plannerPolicy(root, policy, run.episodeId)))
+        return publicRun(await engine.amend(projectId, id, { steps: mergeRunPlans([plan, ...extras]).steps }))
       }
       if (action === 'override') {
         if (initiator !== 'panel') throw Object.assign(new Error('人工放行仅限面板'), { status: 403 })
@@ -259,6 +264,14 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
         } finally { release() }
       }
       if (action === 'cancel-branch') return this.cancel(projectId, id, sessionId, stepId)
+      // 没有指定对象的重试等动作：作用于所有允许该动作的暂停步骤。
+      if (!stepId && action !== 'resume') {
+        const targets = (run.pause?.reasons || []).filter(reason => reason.stepId && reason.actions.includes(action))
+        if (!targets.length) throw reject(`当前没有可${action === 'retry' ? '重试' : '执行该动作'}的暂停步骤；可用动作：${[...new Set((run.pause?.reasons || []).flatMap(reason => reason.actions))].join('、') || '无'}`)
+        let updated
+        for (const reason of targets) updated = await engine.resume(projectId, id, { action, stepId: reason.stepId })
+        return publicRun(updated)
+      }
       return publicRun(await engine.resume(projectId, id, { action, stepId }))
     },
     async amend(projectId, id, sessionId, input) {
