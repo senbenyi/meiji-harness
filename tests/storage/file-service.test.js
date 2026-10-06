@@ -18,14 +18,17 @@ test('FileService confines paths and atomically publishes content', async () => 
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
-test('FileService creates one semantic step tree per project', async () => {
+test('FileService creates project step directories lazily', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-studio-project-tree-'))
   try {
     const files = await new FileService(root).initialize()
     const layout = await files.initializeProject('20261002213427144')
-    for (const path of Object.values(layout)) assert.equal((await stat(path)).isDirectory(), true)
-    assert.match(layout.source, /projects\/20261002213427144\/step-01-source$/)
-    assert.match(layout.delivery, /projects\/20261002213427144\/step-10-delivery$/)
+    await assert.rejects(stat(layout.project))
+    await files.atomicWrite('artifacts/20261002213427144/step-01-source/source.txt', 'source')
+    assert.equal((await stat(layout.source)).isDirectory(), true)
+    await assert.rejects(stat(layout.delivery))
+    assert.match(layout.source, /artifacts\/20261002213427144\/step-01-source$/)
+    assert.match(layout.delivery, /artifacts\/20261002213427144\/step-10-delivery$/)
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 

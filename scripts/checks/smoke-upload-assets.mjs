@@ -63,7 +63,7 @@ try {
     const project = await loadProject(dir, S_A)
     ok(project.nodes.some((n) => n.id === node.id), '节点已写入 Project Domain')
     const uploaded = project.nodes.find((n) => n.id === node.id)
-    ok(uploaded && /^projects\/\d{17}\/step-07-generation\/step-07-/.test(uploaded.media), '媒体路径位于项目生成步骤目录')
+    ok(uploaded && /^artifacts\/\d{17}\/step-07-generation\/step-07-/.test(uploaded.media), '媒体路径位于项目生成步骤目录')
   }
   {
     const noName = await importManualImage(dir, S_A, { dataUrl: 'data:image/png;base64,' + PNG_B64 }, '')
@@ -90,7 +90,7 @@ try {
     nodeB = await copyAssetToCanvas(dir, S_B, 'character:hero', { title: '主角' })
     ok(nodeB.kind === 'image' && nodeB.title === '主角', '物化节点为 image 且标题覆盖')
     ok(nodeB.params && nodeB.params.assetId === 'character:hero', 'params.assetId 绑定资产 id')
-    ok(/^projects\/\d{17}\/step-07-generation\/step-07-/.test(nodeB.media), '库图拷贝进项目生成步骤目录')
+    ok(/^artifacts\/\d{17}\/step-07-generation\/step-07-/.test(nodeB.media), '库图拷贝进项目生成步骤目录')
     const absB = join(dir, ...nodeB.media.split('/'))
     ok(existsSync(absB) && readFileSync(absB).equals(PNG_BUF), '拷贝内容与资产图一致')
     const projectB = await loadProject(dir, S_B)

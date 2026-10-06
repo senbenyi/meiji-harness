@@ -43,7 +43,7 @@ for (const document of Object.values(base.sourceDocuments)) {
   const original = resolveStoredPath(document.logicalKey)
   const extension = extname(original) || '.txt'
   const filename = uniqueName(PROJECT_STEPS.source, `step-01-source-${String(sourceIndex).padStart(3, '0')}-${safeName(document.title, 'source')}`, extension)
-  const logicalKey = `projects/${targetId}/${PROJECT_STEPS.source}/${filename}`
+  const logicalKey = `artifacts/${targetId}/${PROJECT_STEPS.source}/${filename}`
   if (registerCopy(original, join(storageRoot, logicalKey), logicalKey)) document.logicalKey = logicalKey
 }
 
@@ -57,7 +57,7 @@ if (canvas) {
       const step = stepForNode(node)
       const extension = extname(original) || extensionForKind(node.kind)
       const filename = uniqueName(step, `${step.slice(0, 7)}-${safeName(node.title, node.kind || 'artifact')}`, extension)
-      const logicalKey = `projects/${targetId}/${step}/${filename}`
+      const logicalKey = `artifacts/${targetId}/${step}/${filename}`
       if (registerCopy(original, join(storageRoot, logicalKey), logicalKey)) {
         node[field] = logicalKey
       } else if (args.allowMissing) {
@@ -138,7 +138,7 @@ console.log(JSON.stringify({ ...report, backupDirectory: backupDir, status: 'com
 
 function resolveStoredPath(logicalKey) {
   const value = String(logicalKey || '')
-  return value.startsWith('projects/') ? join(storageRoot, value) : join(workspace, value)
+  return value.startsWith('artifacts/') ? join(storageRoot, value) : join(workspace, value)
 }
 
 function registerCopy(original, destination, logicalKey) {

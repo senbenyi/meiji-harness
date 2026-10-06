@@ -56,7 +56,7 @@ test('SourceTextService imports immutable normalized text and reads verified chu
     )
     await assert.rejects(sources.importText({ projectId, sourceId: '../escape', title: '越界', text: '内容' }), /safe storage identifiers/)
     const logicalKey = imported.project.sourceDocuments.novel.logicalKey
-    assert.match(logicalKey, new RegExp(`^projects/${projectId}/step-01-source/step-01-novel-小说\\.txt$`))
+    assert.match(logicalKey, new RegExp(`^artifacts/${projectId}/step-01-source/step-01-novel-小说\\.txt$`))
     assert.equal(await files.readText(logicalKey), '第一行\n第二行🙂')
     await files.replace(logicalKey, '被篡改')
     await assert.rejects(sources.readChunk({ projectId, sourceId: 'novel' }), /hash mismatch/)

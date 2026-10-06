@@ -54,8 +54,8 @@ test('project layout migration merges canvas, retargets bindings, and keeps reco
     await execute(process.execPath, [migrationScript, ...common, '--offline', '--apply'])
     const migrated = JSON.parse(await readFile(join(storage, 'projects', `${targetId}.json`), 'utf8')).record
     assert.equal(migrated.id, targetId)
-    assert.match(migrated.sourceDocuments.source.logicalKey, /^projects\/20261002213427144\/step-01-source\/step-01-source-001-完整剧本-v001\.txt$/)
-    assert.match(migrated.legacyCanvas.nodes[0].file, /^projects\/20261002213427144\/step-03-episode-plan\/step-03-分集大纲-v001\.pdf$/)
+    assert.match(migrated.sourceDocuments.source.logicalKey, /^artifacts\/20261002213427144\/step-01-source\/step-01-source-001-完整剧本-v001\.txt$/)
+    assert.match(migrated.legacyCanvas.nodes[0].file, /^artifacts\/20261002213427144\/step-03-episode-plan\/step-03-分集大纲-v001\.pdf$/)
     assert.equal((JSON.parse(await readFile(bindingFile, 'utf8'))).record.projectId, targetId)
     await assert.rejects(stat(join(storage, 'projects', `${oldProjectId}.json`)))
     await assert.rejects(stat(join(storage, 'projects', `${oldCanvasId}.json`)))
