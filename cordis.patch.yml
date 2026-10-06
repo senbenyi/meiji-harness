@@ -6,5 +6,13 @@
 # /dsh-short-video-studio 路由、Agent 工具），package.json 里的 dsh.client
 # 声明让浏览器半（exports "./client"）以 /plugins/<id>/client.js 载入 Web GUI。
 - insert:
+    # The studio owns a fixed, code-defined novel workflow.  Mount a dedicated
+    # engine at the profile root so the plugin does not depend on the model-facing
+    # workflow tool inside an isolated agent preset.
+    - id: short-video-workflow-engine
+      name: '@deepseek-ai/dsh-workflow-ptc'
+      config:
+        provider: spawn
+
     - id: short-video-studio
       name: 'dsh-short-video-studio'

@@ -1,5 +1,6 @@
 ---
 name: elysium-generate-minimax-h3
+disable-model-invocation: true
 description: Write MiniMax H3 video generation prompts for T2VA, I2VA, FL2VA, L2VA, and Ref2VA. Use when rewriting multimodal requests into H3 prompt structures, composing integrated_multimodal_description, overall_soundscape, and non_diegetic_music, aligning keyframes, or defining reference labels for images, videos, and audio. dsh-short-video-studio 适配版：还负责把画布上的镜头表/分镜/参考绑定重写为 H3 结构化 prompt（见文末「插件对接」适配节）。
 compatibility: Portable to any agent that can read local files — no external API calls, MiniMax Hub tools, or proprietary runtime required. The agents/openai.yaml file only adds optional ChatGPT/Codex UI metadata; it does not restrict the skill to OpenAI agents.
 ---

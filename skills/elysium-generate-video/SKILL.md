@@ -1,5 +1,6 @@
 ---
 name: elysium-generate-video
+disable-model-invocation: true
 description: 把「提示词 + 参考图/首帧图 + 尺寸/档位/时长/比例」等参数生成为一段单镜头视频。支持 r2v（参考图生成，ref_nodes 绑定角色/场景）与 i2v（首帧/末帧生成，first/last_frame 串联）。适用于「输入框手动生成」这条轻量链路：用户在输入框用 `/elysium-generate-video` 斜杠命令加载本 skill、在工具条选参数、写 prompt，发送后由本 skill 解析命令行参数并调度 comfy_generate_video 出片。不适用于完整片型流程（简报/大纲/镜头表/分镜/逐镜交付），那些请用 elysium-generate-video-3d 或 elysium-generate-video-brand。
 whenToUse: |
   用户消息以 `/elysium-generate-video` 斜杠命令开头（内联 `type/tier/ratio/size/length/refs/first/last` 参数 + 空行后的 prompt 正文），或用户要求「用输入框手动生成一段视频 / 参考图生成 / 首帧生成 / 单镜头出片」时使用。档位由注册表决定（一个能力多档，具体见 `comfy_list_workflows`；旧参数 `mode=` 为兼容别名）。

@@ -1,5 +1,6 @@
 ---
 name: elysium-generate-image
+disable-model-invocation: true
 description: 使用 Elysium 的 Qwen Image 2.1 工作流完成输入框手动文生图或参考图改绘；只接受带 elysium 标记的工作流解析结果。
 whenToUse: |
   用户消息以 `/elysium-generate-image` 斜杠命令开头，或明确要求使用 Elysium 图片工作流手动生成、改绘图片时使用。

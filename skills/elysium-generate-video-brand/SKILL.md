@@ -1,5 +1,6 @@
 ---
 name: elysium-generate-video-brand
+disable-model-invocation: true
 description: 使用当前项目已验证的 Elysium 图片与视频工作流制作品牌、产品、网站或个人项目宣传短片。
 trigger: 用户要求把可核验的品牌素材和传播目标制作成宣传短片时使用。
 ---

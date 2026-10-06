@@ -8,6 +8,7 @@ import { MemoryProjectRepository, ProjectService } from '../../lib/domain/servic
 import { FileService } from '../../lib/storage/files.js'
 import { SourceTextService } from '../../lib/script/source-service.js'
 import { reviewQueue } from '../../lib/domain/read-models.js'
+import { makeScriptDevelopmentTools } from '../../lib/script/tools.js'
 
 async function fixture() {
   const service = await new ProjectService(new MemoryProjectRepository()).open()
@@ -115,6 +116,32 @@ test('approved proposals materialize analysis, episode plan and formal script in
   assert.equal(project.shots[firstId].status, 'planned')
   assert.equal(project.shots[secondId].continuityFrom, firstId)
   assert.equal(project.developmentProposals['script-1'].status, 'approved')
+})
+
+test('script proposal tools accept native objects and auto-approve atomically', async () => {
+  const { service, projectId } = await fixture()
+  await registerSource(service, projectId)
+  const tools = makeScriptDevelopmentTools({ projectService: service })
+  const submit = tools.find((tool) => tool.name === 'studio_content_analysis_submit')
+  assert.equal(submit.parameters.properties.payload.type, 'object')
+  assert.equal(submit.parameters.properties.sourceRefs.type, 'array')
+
+  const project = await service.getProject(projectId)
+  const response = await submit.execute({
+    projectId,
+    revision: project.revision,
+    commandId: 'native-object-auto-approve',
+    autoApprove: true,
+    payload: {
+      summary: '原生对象载荷', storyBible: { premise: '可靠提交' }, characters: [], locations: [], beats: [],
+      citations: [{ sourceId: 'source-1', start: 0, end: 10 }],
+    },
+  })
+  assert.equal(response.ok, true, response.error)
+  assert.equal(JSON.parse(response.json).approved, true)
+  const updated = await service.getProject(projectId)
+  assert.equal(updated.storyBible.summary, '原生对象载荷')
+  assert.equal(Object.values(updated.developmentProposals)[0].status, 'approved')
 })
 
 test('rejected or invalid proposals never mutate canonical project data', async () => {
