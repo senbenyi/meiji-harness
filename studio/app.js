@@ -61,6 +61,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (!el.stageTabs) return
     const counts = canvasStageCounts(nodes)
     el.stageTabs.innerHTML = ''
+    if (nodes.length === 0) return
     for (const stage of CANVAS_STAGES) {
       const button = document.createElement('button')
       button.type = 'button'
@@ -901,7 +902,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       else main.push(n)
     }
 
-    el.meta.textContent = '画幅 ' + (project.settings?.aspectRatio || '16:9')
+    el.meta.textContent = allNodes.length === 0 ? '' : '画幅 ' + (project.settings?.aspectRatio || '16:9')
       + (project.settings?.duration ? ' · 时长 ' + project.settings.duration : '')
       + ' · 音频 ' + (project.settings?.audioMode || 'silent')
       + ' · 档位 ' + (project.settings?.mode || 'quality')
@@ -909,41 +910,15 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       + (allNodes.length ? '（主线 ' + allMain.length + (allFrames.length ? ' · 抽帧 ' + allFrames.length : '') + (allDiscards.length ? ' · 作废 ' + allDiscards.length : '') + '）' : '')
 
     if (allNodes.length === 0) {
-      const empty = document.createElement('div')
-      empty.className = 'empty'
-      empty.innerHTML =
-        '<h2>画布为空</h2>' +
-        '<p>在对话里让 Agent 走生产流程（由流程 skill 定义），各步骤产物会落到这里；也可以先把自己的素材放上画布：</p>' +
-        '<p class="empty-actions">' +
-        '<button class="btn btn-accent" id="empty-upload" type="button">＋ 上传图片</button>' +
-        '<button class="btn" id="empty-library" type="button">📚 从资产库添加</button>' +
-        '</p>' +
-        '<p>快速开始：<code>把「一只想当宇航员的小狐狸」做成 30 秒静音 3D 动画短片</code></p>'
-      const eu = empty.querySelector('#empty-upload')
-      if (eu) eu.onclick = () => chooseFilesAndUpload()
-      const elb = empty.querySelector('#empty-library')
-      if (elb) elb.onclick = () => openAssetLibrary()
-      el.canvas.appendChild(empty)
       latestMainNodeId = null
       lastMainIds = new Set()
-      syncLocateButton()
       syncJump()
       return
     }
 
     if (nodes.length === 0) {
-      const stage = CANVAS_STAGES.find((item) => item.key === activeStageKey)
-      const empty = document.createElement('div')
-      empty.className = 'stage-empty'
-      empty.innerHTML = '<h2>「' + stage.label + '」暂无产物</h2><p>现有画布节点不会丢失，可回到制作总览查看全部内容。</p><button class="btn" type="button">返回制作总览</button>'
-      empty.querySelector('button').onclick = () => {
-        activeStageKey = 'overview'
-        render(project)
-      }
-      el.canvas.appendChild(empty)
       latestMainNodeId = allMain.length ? allMain[allMain.length - 1].id : null
       lastMainIds = new Set(allMain.map((node) => node.id))
-      syncLocateButton()
       syncJump()
       return
     }
@@ -1143,7 +1118,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
   el.refresh.addEventListener('click', load)
 
-  // 手动添加资产：顶栏按钮（空画布空态的 CTA 在 render 里单独绑定）
+  // 手动添加资产：顶栏按钮
   if (el.addUpload) el.addUpload.addEventListener('click', () => chooseFilesAndUpload())
   if (el.addAssets) el.addAssets.addEventListener('click', () => openAssetLibrary())
 
@@ -1162,8 +1137,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   window.addEventListener('resize', syncJump)
 
   if (!sessionId) {
-    el.canvas.innerHTML = '<div class="empty"><h2>缺少会话</h2><p>请从工作区打开本会话后重试。</p></div>'
-    syncLocateButton()
+    el.canvas.innerHTML = ''
     syncJump()
   } else {
     load()
