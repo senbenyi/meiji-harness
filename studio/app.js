@@ -52,7 +52,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   let activeStageKey = 'overview'
   let currentProject = null
 
-  function renderStageTabs(nodes) {
+  function renderStageTabs(nodes, production) {
     if (!el.stageTabs) return
     const counts = canvasStageCounts(nodes)
     el.stageTabs.innerHTML = ''
@@ -63,8 +63,11 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       button.className = 'stage-tab'
       button.setAttribute('role', 'tab')
       button.setAttribute('aria-selected', stage.key === activeStageKey ? 'true' : 'false')
+      const progress = production?.stages?.find((item) => item.key === stage.key)
+      const labels = { completed: '已完成', active: '进行中', pending: '待执行', blocked: '已阻塞' }
       button.innerHTML = '<strong>' + stage.label + '</strong><span>'
-        + (stage.key === 'overview' ? '全部 ' : '') + counts[stage.key] + ' 项产物</span>'
+        + (progress ? `${labels[progress.status]} · ${progress.completed}/${progress.total}` : stage.key === 'overview' && production ? `流程${labels[production.status]} · 质量未审核` : (stage.key === 'overview' ? '全部 ' : '') + counts[stage.key] + ' 项产物') + '</span>'
+      if (progress?.errors?.length) button.title = progress.errors.map((item) => item.error).join('\n')
       button.onclick = () => {
         if (activeStageKey === stage.key || !currentProject) return
         activeStageKey = stage.key
@@ -670,7 +673,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     currentProject = project
     el.canvas.innerHTML = ''
     const allNodes = [...(project.nodes || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
-    renderStageTabs(allNodes)
+    renderStageTabs(allNodes, project.production)
     const nodes = nodesForCanvasStage(allNodes, activeStageKey)
     const allMain = allNodes.filter((node) => nodeLane(node) === 'main')
     const allFrames = allNodes.filter((node) => nodeLane(node) === 'frames')
