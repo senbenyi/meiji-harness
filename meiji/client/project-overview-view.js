@@ -4,7 +4,7 @@ import { historyEntry } from './run-history-entry.js'
 import { runStatusLabels, runStepStatusLabels } from '../shared/run-view.js'
 import { renderRunProgress } from './run-progress.js'
 import { pictureOf } from '../shared/drama-model.js'
-import { confirmPanel, showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
+import { confirmPanel, showPanelDialog, element } from './panel-dom.js'
 import { episodeHints, isAiCreation } from '../shared/script-assembly.js'
 
 export function collectCharacters(project) {
@@ -139,46 +139,15 @@ export function renderOverview(project, actions, context) {
   }
   list.forEach((episode, index) => {
     const card = element('div', '', 'episode-card')
-    if (episode.runPauseCount) card.append(element('span', `有暂停任务（${episode.runPauseCount}）`, 'run-paused-badge'))
     card.tabIndex = 0
     card.setAttribute('role', 'link')
     const number = list.length - index
     const copy = element('div', '', 'episode-copy')
-    copy.append(element('strong', `第 ${number} 集`))
-    copy.append(element('span', `${episode.durationSeconds || 0} 秒`, 'meta'))
-    copy.append(element('p', episode.summary.content || '还没有本集剧情'))
-    const hints = episodeHints(project, episode)
-    copy.append(element('span', [hints.scriptUpdated && '剧本已更新', hints.previousModified && '前集已修改', hints.pendingSync && '待回写'].filter(Boolean).join(' · '), 'meta'))
-    const edit = element('button', '编辑', 'episode-edit')
-    edit.type = 'button'
-    edit.disabled = busy
-    edit.onclick = event => {
-      event.stopPropagation()
-      actions.openEpisode?.(project, episode)
-    }
-    const regenerate = element('button', busy ? '生成中' : '重新生成摘要', 'episode-regenerate')
-    regenerate.type = 'button'
-    regenerate.disabled = targetBusy(project, 'project')
-    regenerate.setAttribute('aria-label', `重新生成第 ${number} 集摘要`)
-    regenerate.title = '重新生成摘要，保留时长；摘要变化后本集下游内容需重新生成'
-    regenerate.onclick = event => {
-      event.stopPropagation()
-      if (regenerate.disabled) return
-      regenerate.disabled = true
-      regenerate.textContent = '生成中'
-      actions.perform(project, 'episode-generate', { episodeId: episode.id, generationMode: 'regenerate' }).catch(error => {
-        regenerate.disabled = false
-        regenerate.textContent = '重新生成摘要'
-        actions.fail(error)
-      })
-    }
     const heading = element('div', '', 'workflow-generation-row episode-card-heading')
-    heading.append(copy.querySelector('strong'))
+    heading.append(element('strong', `第 ${number} 集`), element('span', `${episode.durationSeconds || 0} 秒`, 'meta'))
     copy.prepend(heading)
-    appendJsonCopy(heading, episode)
-    const cardActions = element('div', '', 'episode-card-actions')
-    cardActions.append(edit, regenerate, deleteButton(project, actions, episode, number))
-    card.append(coverNode(episode), copy, cardActions)
+    copy.append(element('p', episode.summary.content || '还没有本集剧情'))
+    card.append(coverNode(episode), copy)
     const open = () => context.onOpenEpisode?.(episode.id)
     card.onclick = open
     card.onkeydown = event => {

@@ -436,7 +436,7 @@ test('summary editing and review target the current episode',async t=>{
  assert.equal(calls[1][2].generationMode,'regenerate');assert.equal(calls[1][2].review,undefined)
 })
 
-test('overview deletion buttons confirm, target the selected scope and do not open episodes', async t => {
+test('overview project deletion confirms and does not open episodes', async t => {
  const { renderOverview } = await import('../client/project-overview-view.js')
  const container = domSetup(t), episode = episodeFixture()
  const project = { id: 'project', title: '测试', summary: { content: '摘要' }, episodes: [episode] }
@@ -445,20 +445,30 @@ test('overview deletion buttons confirm, target the selected scope and do not op
  window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')) }
  container.append(renderOverview(project, { perform: async (...args) => calls.push(args), fail: error => { throw error } }, { onOpenEpisode: () => opened++ }))
  const buttons = container.querySelectorAll('.delete-content')
- buttons[1].click()
- assert.equal(calls.length, 0)
- document.querySelector('dialog button').click()
- await Promise.resolve()
- buttons[1].click()
- document.querySelectorAll('dialog button')[1].click()
- await Promise.resolve()
- assert.equal(calls[0][1], 'episode-delete')
- assert.equal(calls[0][2].episodeId, episode.id)
- assert.equal(opened, 0)
+ assert.equal(buttons.length, 1)
  buttons[0].click()
  document.querySelectorAll('dialog button')[1].click()
  await Promise.resolve()
- assert.equal(calls[1][1], 'project-delete')
+ assert.equal(calls[0][1], 'project-delete')
+ assert.equal(opened, 0)
+})
+
+test('episode cards stay clean and open the episode when clicked', async t => {
+ const { renderOverview } = await import('../client/project-overview-view.js')
+ const container = domSetup(t), episode = episodeFixture(), project = { id: 'project', title: '测试', summary: { content: '摘要' }, episodes: [episode] }
+ let opened = 0
+ container.append(renderOverview(project, { fail: error => { throw error } }, { onOpenEpisode: () => { opened++ } }))
+ const card = container.querySelector('.episode-card')
+ assert.ok(card.querySelector('.episode-cover'))
+ assert.match(card.querySelector('.episode-card-heading').textContent, /第 1 集/)
+ assert.equal(card.querySelector('.episode-card-heading .meta').textContent, `${episode.durationSeconds} 秒`)
+ assert.equal(card.querySelector('.delete-content'), null)
+ assert.equal(card.querySelector('.episode-copy p').textContent, episode.summary.content)
+ assert.equal(card.querySelector('.episode-edit'), null)
+ assert.equal(card.querySelector('.episode-regenerate'), null)
+ assert.equal(card.querySelector('.json-copy'), null)
+ card.click()
+ assert.equal(opened, 1)
 })
 
 test('history entry navigates without loading inline history', t => {
@@ -507,6 +517,20 @@ test('stage toolbar groups status, history, skills and generation controls', t =
    }
   }
  }
+})
+
+test('episode detail tabs show clean labels without progress or endpoint selector', async t => {
+ const container = domSetup(t), episode = episodeFixture(), calls = []
+ episode.episodeId = episode.id
+ const project = { id: 'p', title: '剧', revision: 1, episodes: [episode], summary: { content: '' } }
+ const { renderSession } = await import('../client/project-session-view.js')
+ container.append(renderSession(project, () => {}, { perform: async (...args) => calls.push(args), fail() {} }, { episodeId: episode.id }))
+ assert.deepEqual([...container.querySelectorAll('.stage-overview .stage')].map(button => button.textContent), ['摘要', '剧情', '镜头表', '每秒指令', '成片', '合成'])
+ assert.equal(container.querySelector('[aria-label="制作终点"]'), null)
+ container.querySelector('.stage-overview .primary').click()
+ await Promise.resolve()
+ assert.equal(calls[0][1], 'run-goal')
+ assert.equal(calls[0][2].goal.to, 'assemble')
 })
 
 test('film history entries stay in each shot header and navigate to the corresponding shot', t => {

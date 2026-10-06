@@ -171,8 +171,7 @@ export function renderSession(project, openCreate, actions, context = {}) {
   const paint = () => {
     overview.replaceChildren()
     for (const tab of tabs) {
-      const progress = runTabProgress(work, tab.id)
-      const button = element('button', `${tab.label}${progress ? ` · ${progress.done}/${progress.total}${progress.paused ? ' · 待处理' : ''}` : ''}`, 'stage')
+      const button = element('button', tab.label, 'stage')
       button.type = 'button'
       if (tab.id === active) button.setAttribute('aria-current', 'step')
       if (order.indexOf(tab.id) < order.indexOf(current)) button.classList.add('done')
@@ -180,13 +179,10 @@ export function renderSession(project, openCreate, actions, context = {}) {
       button.onclick = () => { active = tab.id; context.onSelectTab?.(tab.id); paint() }
       overview.append(button)
     }
-    const to = element('select'), make = element('button', '一键做到…', 'primary')
-    to.setAttribute('aria-label', '制作终点')
+    const make = element('button', '一键做到…', 'primary')
     const stageIds = { script: 'story', assembly: 'assemble' }
-    for (const tab of tabs.slice(order.indexOf(active))) { const option = element('option', tab.label); option.value = stageIds[tab.id] || tab.id; to.append(option) }
-    to.value = to.options[to.options.length - 1]?.value || stageIds[active] || active
-    make.onclick = async () => { make.disabled = true; try { await actions.perform(work, 'run-goal', { goal: { from: stageIds[active] || active, to: to.value } }) } catch (error) { actions.fail?.(error) } finally { make.disabled = false } }
-    overview.append(to, make)
+    make.onclick = async () => { make.disabled = true; try { await actions.perform(work, 'run-goal', { goal: { from: stageIds[active] || active, to: 'assemble' } }) } catch (error) { actions.fail?.(error) } finally { make.disabled = false } }
+    overview.append(make)
     if (imageNotice) imageNotice.hidden = active === 'script' && imageGate.episodeId === work.episodeId
     body.replaceChildren(renderStage(active, work, actions, { ...context, imageGate, onGoTab: id => { active = id; context.onSelectTab?.(id); paint() } }))
   }

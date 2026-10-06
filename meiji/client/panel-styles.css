@@ -384,3 +384,4 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .run-step pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
 .run-event{margin:8px 12px;font-size:12px}
 .script-title-row{display:flex;align-items:center;gap:6px;min-width:0}.script-title-row .script-file-name{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}.script-title-arrow{flex:none;margin:0;padding:0 4px;border:0;font-size:18px;line-height:1;color:#9b9fab}.script-title-arrow:hover{background:none;color:#dfc196}
+.episode-card{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.episode-cover{width:100%;height:160px}.episode-copy{padding-right:0}.episode-copy p{margin:6px 0 0}.episode-card-heading{justify-content:flex-start;gap:8px;margin:0}.episode-card-heading .meta{font-size:12px;font-weight:400}.episode-card-heading .delete-content{margin:0}
