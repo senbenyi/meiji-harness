@@ -9,7 +9,7 @@
 
 **一个完全本地、免费、零云端依赖的类 MiniMax-Design 短剧 / 动画画布工作室**，以 **DeepSeek Harness 双面插件**（宿主半 + 浏览器半）形式存在。
 
-- **画布页**：每个会话多一个「画布」视图 tab，按生产顺序预览 / 编辑各步骤产物。
+- **创作页**：每个会话多一个「创作」视图 tab，页面内的画布按生产顺序预览 / 编辑各步骤产物。
 - **生成服务**：统一走**本地 ComfyUI API**——图片用本地 FLUX 2，视频用本地 MiniMax H3（音视频 AV 模型，默认带声音、支持参考图绑定与原生字幕）。
 - **Agent 工具**：`comfy_generate_image` / `comfy_generate_video` / `comfy_render` / `canvas_*` / `asset_*`，Agent 与画布页读写同一份持久状态。
 - **自带 skill**：安装插件时自动把 `skills/` 下的 skill 复制到 `~/.dsh/skills/`，供模型 / 技能中心发现；**带版本戳刷新**（见 §3 末），用户改过的副本永不覆盖。
@@ -57,7 +57,7 @@ dsh-short-video-studio/
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │ 展示层（浏览器半）  lib/client.js + studio/                      │
-│  「画布」会话 tab（iframe）+ 「ComfyUI」设置页（配置/注册表/导入） │
+│  「创作」会话 tab（iframe）+ 「ComfyUI」设置页（配置/注册表/导入） │
 ├────────────────────────────────────────────────────────────────┤
 │ 契约层（纯数据 + 校验）  workflows/*.json + lib/manifest.js      │
 │  能力词汇表 · 注入原语 · $model 哨兵 · $assets 占位 · 强校验     │
@@ -176,7 +176,7 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
      胶囊进入，不自造入口。`sidebarRightTabs` 走 `ctx.inject` **软注入**，绝不写进 `exports.inject`
      —— 否则宿主禁用右侧栏插件时整个浏览器半加载失败。
    两种家复用同一个 `CanvasView`（session 作用域的席位同样拿到 `sessionId`/`useWorkspaces`/`inputActions`）。
-1. **`conversation.view` 槽**（id `short-video-canvas`，order 20，label「画布」）：渲染 iframe 指向宿主伺服的 `/dsh-short-video-studio/?sessionId=&workspaceId=`。iframe 内「重做」按钮通过 `postMessage`（channel `dsh-short-video-studio`，type `ask-ai`）把指令回填父页输入框（`inputActions.setDraft`）。
+1. **`conversation.view` 槽**（id `short-video-canvas`，order 20，label「创作」）：渲染 iframe 指向宿主伺服的 `/dsh-short-video-studio/?sessionId=&workspaceId=`。iframe 内「重做」按钮通过 `postMessage`（channel `dsh-short-video-studio`，type `ask-ai`）把指令回填父页输入框（`inputActions.setDraft`）。
 2. **`settings.section` 槽**（id `comfyui`，order 120）：ComfyUI 设置卡——**界面（画布位置 canvasHome）**、连接参数、工作流注册表（按 capability 分组、设默认写回 `preferred`）、资产覆盖（选中工作流后按 manifest 动态渲染 assets 字段）、工作流导入（粘贴 manifest 或 ComfyUI「导出 API」原始 JSON，自动转换）、用户清单删除。
 
 `studio/` 为**自包含无构建**画布页（index.html + app.js + app.css）：读取 `/api/canvas` 全量渲染节点卡（文本/表格 markdown 解析、图片/视频媒体、参数摘要、状态），支持节点内编辑、重做（回填给 AI）、**入库**（表单选资产类型 + 资产名，AI 不自动入库）、分组改名（自由输入 + datalist 候选）、上移/下移/删除；**分组词汇由流程 skill 自由定义**，展示顺序取 `settings.groupOrder`（skill 经 `canvas_set_state` 声明），未声明的分组按首次出现顺序排在其后，缺省分组为 `ungrouped`。iframe 内禁用原生 alert/confirm/prompt，自绘 DOM 模态框。

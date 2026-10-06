@@ -18,6 +18,10 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
   const graphs = []
   const outputs = new Map()
   const textCalls = []
+  const mediaCalls = []
+  const assignedRoles = new Set()
+  let coordinators = 0
+  let disposedCoordinators = 0
   let failDownloads = true
   let videoId
   const source = '小林穿蓝色外套走进车站。她拿起长椅上的信封。'
@@ -29,9 +33,11 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
   const textValue = (label) => {
     if (label.startsWith('source-summary:')) return { facts: [source], characters, locations, beats, citations: [span], openConflicts: [] }
     if (label === 'story-reconcile') return { summary: source, storyBible: { visualStyle: '写实' }, characters, locations, beats, citations: [span] }
+    if (label === 'asset-design') return { characters: characters.map(({ id, description }) => ({ id, visualDescription: description })), locations: locations.map(({ id, description }) => ({ id, visualDescription: description })) }
     if (label === 'episode-plan') return { episodes }
-    const episode = episodes.find((item) => label === `episode-script:${item.id}`)
-    return { episodeId: episode.id, script: `小林在车站${episode.title}。`, sourceSpans: [span], shots: [{ id: 's1', order: 1, duration: 2, title: episode.title, shotDescription: `小林${episode.title}。`, prompt: `A woman in a blue coat at a train station. ${episode.title}`, audioDialogue: '', audioNotes: '车站环境声', beatIds: episode.beatIds, referenceBindings: [{ kind: 'character', entityId: 'lin' }, { kind: 'location', entityId: 'station' }] }] }
+    const episode = episodes.find((item) => label.endsWith(`:${item.id}`))
+    if (label.startsWith('episode-script:')) return { episodeId: episode.id, script: `小林在车站${episode.title}。`, beatIds: episode.beatIds, sourceSpans: [span] }
+    return { episodeId: episode.id, shots: [{ id: 's1', order: 1, duration: 2, title: episode.title, shotDescription: `小林${episode.title}。`, prompt: `A woman in a blue coat at a train station. ${episode.title}`, audioDialogue: '', audioNotes: '车站环境声', beatIds: episode.beatIds, referenceBindings: [{ kind: 'character', entityId: 'lin' }, { kind: 'location', entityId: 'station' }] }] }
   }
   const png = execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64', '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'png', 'pipe:1'])
   globalThis.fetch = async (input, init) => {
@@ -74,12 +80,25 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
     const workflow = { async execute(args) {
       const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
       const run = new AsyncFunction('agent', 'parallel', 'phase', 'args', args.script)
-      const result = await run(async (_prompt, options) => { textCalls.push(options.label); return structuredClone(textValue(options.label)) }, (thunks) => Promise.all(thunks.map((fn) => fn())), () => {}, args.args)
+      const result = await run(async (_prompt, options) => {
+        const task = args.args.tasks.find((item) => item.agentLabel === options.label)
+        assignedRoles.add(task.role)
+        if (!task.schema.properties.inputSignature) { textCalls.push(task.label); return structuredClone(textValue(task.label)) }
+        mediaCalls.push(task.label)
+        const input = JSON.parse(task.prompt.split('\n输入：')[1])
+        return { taskId: task.label, inputSignature: task.prompt.match(/inputSignature=([a-f0-9]+)/)[1], decision: 'ready', reason: '', ...(task.role === 'delivery' ? { nodes: input.nodes, strategy: input.strategy } : { prompt: input.entity.prompt || input.entity.visualDescription || input.entity.description }) }
+      }, (thunks) => Promise.all(thunks.map((fn) => fn())), () => {}, args.args)
       return { kind: 'foreground', runId: 'text-workflow', agentsStarted: args.args.tasks.length, result }
     } }
     const host = {
       effect(callback) { const dispose = callback(); if (typeof dispose === 'function') disposers.push(dispose); return () => {} },
       on() { return () => {} },
+      agentDefaultModel: { currentSelection: () => ({ provider: 'test', model: 'test' }) },
+      agents: { async create(options) {
+        assert.equal(options.meta.parentSession, sessionId)
+        coordinators++
+        return { agent: { id: options.sessionId, session: { id: options.sessionId, header: options.meta } }, async dispose() { disposedCoordinators++ } }
+      } },
       tools: { register(tool) { tools.set(tool.name, tool); return () => {} }, get(name) { return name === 'workflow' ? workflow : tools.get(name) } },
       storage: { domain: { async open() { return { close: async () => {}, table(name) {
         if (name === 'projects') return { get: (id) => repository.get(id), entries: () => repository.projects.entries(), put: (_id, p) => repository.put(p), update: (id, fn) => repository.update(id, fn) }
@@ -142,7 +161,10 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
     const reused = await call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })
     assert.equal(reused.runId, created.runId)
     assert.equal(graphs.length, before)
-    assert.equal(textCalls.length, 5)
+    assert.equal(textCalls.length, 8)
+    assert.deepEqual([...assignedRoles].sort(), ['assets', 'delivery', 'script', 'shot', 'story', 'storyboard'])
+    assert.equal(new Set(mediaCalls).size, mediaCalls.length, 'download retries and host restart must reuse subagent plans')
+    assert.equal(disposedCoordinators, coordinators, 'background coordination contexts must be disposed')
     await rm(join(storageRoot, deliverable.logicalKey))
     const missing = await tools.get('studio_novel_create').execute({ sourcePath: 'source.txt', title: '流程验收：车站的信封' }, exec)
     assert.equal(missing.ok, false, 'missing delivery file cannot be reported as successful reuse')

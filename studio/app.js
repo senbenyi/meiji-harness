@@ -38,7 +38,6 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     canvas: document.getElementById('canvas'),
     meta: document.getElementById('meta'),
     refresh: document.getElementById('refresh'),
-    jump: document.getElementById('jump'),
     addUpload: document.getElementById('add-upload'),
     addAssets: document.getElementById('add-assets'),
     stageTabs: document.getElementById('stage-tabs'),
@@ -638,6 +637,31 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     foot.appendChild(technical)
     card.appendChild(foot)
 
+    if (info.role === 'entity' || info.role === 'shot') {
+      const specification = info.role === 'entity' ? info.generation : node.kind === 'video' ? info.videoGeneration : info.imageGeneration
+      const kind = info.role === 'entity' ? 'asset-prompt' : node.kind === 'video' ? 'video-prompt' : 'image-prompt'
+      const detail = detailSection(specification ? `生成提示词 · v${specification.version}` : '生成提示词 · 待编写', 'prompt:' + node.id)
+      const text = document.createElement('p')
+      text.style.whiteSpace = 'pre-wrap'
+      text.textContent = specification?.prompt || '请先编写完整提示词，再生成媒体。'
+      detail.appendChild(text)
+      if (specification?.negativePrompt) {
+        const negative = document.createElement('p')
+        negative.textContent = '负向提示词：' + specification.negativePrompt
+        detail.appendChild(negative)
+      }
+      if (info.usages?.length) {
+        const uses = document.createElement('p')
+        uses.textContent = '剧本依据：' + info.usages.map((use) => use.quote).join('；')
+        detail.appendChild(uses)
+      }
+      if (!info.historical) {
+        detail.appendChild(dialogBtn('修改完整提示词', () => editProduction({ kind, id: info.entityId || info.shotId })))
+        detail.appendChild(dialogBtn(info.role === 'entity' ? '重新编写提示词' : '重编本集提示词', () => regenerateProduction(info.role === 'entity' ? { kind: 'asset-prompt-author', id: info.entityId } : { kind: 'prompts-author', id: info.episodeId })))
+      }
+      card.appendChild(detail)
+    }
+
     // Domain projections are read through their owning commands, never edited as canvas copies.
     if (node.domainProjection || hasProductionActions || node.presentation?.historical) return card
 
@@ -902,13 +926,16 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       actions.appendChild(dialogBtn(activeStageKey === 'delivery' ? '重新合成' : '重新生成本步骤', () => regenerateProduction({ kind: stageKinds[activeStageKey], id: ['scripts', 'storyboard', 'media'].includes(activeStageKey) ? activeEpisodeId : undefined })))
       if (activeStageKey === 'delivery') actions.appendChild(dialogBtn('合成设置', () => editProduction({ kind: 'delivery', id: project.projectId })))
       if (activeStageKey === 'analysis') actions.appendChild(dialogBtn('重新规划分集', () => regenerateProduction({ kind: 'outline' })))
+      if (activeStageKey === 'assets') actions.appendChild(dialogBtn('从剧本提取资产', () => regenerateProduction({ kind: 'assets-author' })))
+      if (activeStageKey === 'storyboard') actions.appendChild(dialogBtn('重新规划镜头', () => regenerateProduction({ kind: 'shots-author', id: activeEpisodeId })))
       heading.appendChild(actions)
     }
     for (const run of (project.presentation?.runs || []).slice(0, 1)) {
       if (run.status === 'completed') continue
       const status = document.createElement('div')
       status.className = 'rework-status'
-      status.textContent = (run.status === 'failed' ? '重新生成失败' : '正在重新生成') + ` · ${run.completed} / ${run.total}` + (run.errors.length ? '\n' + [...new Set(run.errors)].join('\n') : '')
+      const name = { 'revise-text': '文本', 'render-reference': '设定图', 'render-storyboard': '分镜图', 'render-shot': '镜头视频', 'concat-video': '成片' }[run.kind] || '内容'
+      status.textContent = name + (run.status === 'failed' ? '重新生成失败' : '正在重新生成') + ` · ${run.completed} / ${run.total}` + (run.errors.length ? '\n' + [...new Set(run.errors)].join('\n') : '')
       if (run.status === 'failed') status.appendChild(dialogBtn('重试任务', async () => {
         try { await api(`/projects/${project.projectId}/commands`, { method: 'POST', body: JSON.stringify({ type: 'resumeProductionRun', commandId: crypto.randomUUID(), expectedRevision: currentProject.revision, payload: { runId: run.id } }) }); await load() } catch (error) { await alertBox(error.message) }
       }))
@@ -979,7 +1006,6 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (replacement?.src === video.src) replacement.replaceWith(video)
     }
     el.canvas.scrollTop = readingPositions.get(readingKey()) || 0
-    syncJump()
   }
 
   function progressText(progress) {
@@ -1008,28 +1034,36 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
   function renderOverview(parent, nodes, project) {
     const production = project.production
+    const stages = production?.stages || []
+    const completed = stages.filter((stage) => stage.status === 'completed').length
+    const percent = stages.length ? Math.floor(stages.reduce((sum, stage) => sum + (stage.total > 0 ? Math.min(1, stage.completed / stage.total) : 0), 0) / stages.length * 100) : 0
+    const current = stages.find((stage) => stage.status === 'active') || stages.find((stage) => stage.status === 'blocked') || stages.find((stage) => stage.status !== 'completed')
+    const currentLabel = CANVAS_STAGES.find((stage) => stage.key === current?.key)?.label
     const banner = document.createElement('div')
     banner.className = 'overview-summary'
-    banner.innerHTML = '<h2>' + (production?.status === 'completed' ? '制作已完成' : production?.status === 'blocked' ? '有制作问题需要处理' : nodes.length ? '继续查看制作进度' : '开始制作你的短剧') + '</h2><p>'
-      + (production?.status === 'completed' ? '成片已就绪，内容质量待审核。' : '按阶段查看内容和产物。') + '</p>'
-    if (nodes.some((node) => node.presentation?.role === 'delivery')) banner.appendChild(dialogBtn('查看成片', () => selectStage('delivery')))
+    const description = stages.length
+      ? `已完成 ${completed} / ${stages.length} 个阶段` + (current ? ` · 当前：${currentLabel}（${progressLabels[current.status] || '待制作'}）` : ' · 成片已就绪')
+      : '尚无制作进度，点击下方阶段查看内容。'
+    banner.innerHTML = '<h2>总体制作进度' + (stages.length ? ` · ${percent}%` : '') + '</h2><p>' + escapeHtml(description) + '</p>'
+    const bar = document.createElement('progress')
+    bar.max = 100
+    bar.value = percent
+    bar.setAttribute('aria-label', '总体制作进度，按阶段完成度计算')
+    bar.style.cssText = 'display:block;width:100%;height:14px;accent-color:var(--accent)'
+    banner.appendChild(bar)
     parent.appendChild(banner)
     const grid = document.createElement('div')
     grid.className = 'overview-grid'
     const counts = canvasStageCounts(nodes.filter((node) => nodeLane(node) === 'main'))
     for (const [index, stage] of CANVAS_STAGES.slice(1).entries()) {
       const progress = production?.stages?.find((item) => item.key === stage.key)
-      const card = document.createElement('div')
+      const card = document.createElement('button')
+      card.type = 'button'
       card.className = 'stage-summary'
+      card.onclick = () => selectStage(stage.key)
       card.innerHTML = '<span class="stage-number">0' + (index + 1) + '</span><strong>' + stage.label + '</strong><span>'
-        + escapeHtml(progress ? progressText(progress) : counts[stage.key] ? `${counts[stage.key]} 项内容` : '暂无内容') + '</span>'
+        + escapeHtml(progress ? progress.total > 0 ? progressText(progress) : '待上一步完成' : counts[stage.key] ? `${counts[stage.key]} 项内容` : '暂无内容') + '</span>'
       if (progress?.status === 'blocked') card.classList.add('needs-attention')
-      const actions = document.createElement('div')
-      actions.className = 'production-actions'
-      actions.appendChild(dialogBtn('查看 / 修改', () => selectStage(stage.key)))
-      const kinds = { analysis: 'analysis', assets: 'assets', scripts: 'script', storyboard: 'storyboard', media: 'media', delivery: 'delivery' }
-      actions.appendChild(dialogBtn(stage.key === 'delivery' ? '重新合成' : '重新生成', () => regenerateProduction({ kind: kinds[stage.key] })))
-      card.appendChild(actions)
       grid.appendChild(card)
     }
     parent.appendChild(grid)
@@ -1043,7 +1077,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
   function renderAssets(parent, nodes) {
     const paired = new Set()
-    for (const [kind, label] of [['character', '角色'], ['location', '场景']]) {
+    for (const [kind, label] of [['character', '角色'], ['location', '场景'], ['prop', '道具'], ['variant', '衍生资产']]) {
       const entities = nodes.filter((node) => node.kind === 'text' && node.presentation?.entityKind === kind)
       if (!entities.length) continue
       sectionTitle(parent, label)
@@ -1058,7 +1092,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     }
     const remaining = nodes.filter((node) => !paired.has(node.id))
     if (remaining.length) { sectionTitle(parent, '其他素材 · 尚未关联设定'); appendCards(parent, remaining) }
-    if (!nodes.length) emptyState(parent, '暂无角色与场景', '先完成故事分析，也可以上传图片作为参考。', 'analysis')
+    if (!nodes.length) emptyState(parent, '暂无剧本资产', '先完成分集剧本，再提取角色、场景、道具和衍生状态。', 'scripts')
   }
 
   function renderShots(parent, nodes, allNodes) {
@@ -1116,25 +1150,6 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (deprecated) params.deprecated = true
     else delete params.deprecated
     await updateNode(id, { params })
-  }
-
-  /** 画布内的顶部与底部定位。 */
-  function syncJump() {
-    const c = el.canvas
-    const canScroll = c.scrollHeight > c.clientHeight + 4
-    if (!canScroll) {
-      el.jump.classList.remove('show')
-      return
-    }
-    el.jump.classList.add('show')
-    const atTop = c.scrollTop <= 24
-    if (atTop) {
-      el.jump.textContent = '↓ 到达底部'
-      el.jump.title = '到达底部'
-    } else {
-      el.jump.textContent = '↑ 返回顶部'
-      el.jump.title = '返回顶端'
-    }
   }
 
   // 轮询更新只刷新内容，不改变用户选择的阶段和阅读位置。
@@ -1218,19 +1233,9 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     rememberReading()
     render(pendingProject)
   })
-  if (el.jump) {
-    el.jump.addEventListener('click', () => {
-      const c = el.canvas
-      const atTop = c.scrollTop <= 24
-      c.scrollTo({ top: atTop ? c.scrollHeight : 0, behavior: 'smooth' })
-    })
-  }
-  el.canvas.addEventListener('scroll', syncJump, { passive: true })
-  window.addEventListener('resize', syncJump)
 
   if (!sessionId) {
     el.canvas.innerHTML = ''
-    syncJump()
   } else {
     load()
   }

@@ -90,6 +90,29 @@ test('assembly rework keeps approved clips and contains no render tasks', () => 
   assert.equal(p.deliverables.final.status, 'invalidated')
 })
 
+test('replanning removes obsolete episodes from active production and preserves their history', () => {
+  const p = delivered()
+  const proposal = commandHandlers.submitDevelopmentProposal(p, { proposalId: 'new-plan', kind: 'episode_plan', sourceRefs: [{ sourceId: 'source', contentHash: 'source-hash' }], payload: { episodes: [{ id: 'new-episode', order: 1, title: 'New episode', outline: 'A new plan.', sourceSpans: [{ sourceId: 'source', start: 0, end: 100 }] }] } })
+  commandHandlers.recordReviewDecision(p, { reviewTaskId: proposal.reviewTaskId, decision: 'approved' })
+  assert.equal(p.episodes.ep, undefined)
+  assert.equal(p.contentRevisions['new-plan:ep'].before.script, 'The detective enters the station and opens a letter.')
+  assert.equal(p.shots.s.supersededBy, 'new-plan')
+  assert.equal(p.deliverables.final.status, 'invalidated')
+  assert.deepEqual(canvasReadModel(p).presentation.episodes.map(ep => ep.id), ['new-episode'])
+  assert.ok(!canvasReadModel(p).nodes.some(node => node.presentation?.shotId === 's' && !node.presentation?.historical))
+})
+
+test('regenerated media exposes previous clips as history without legacy draft actions', () => {
+  const p = delivered()
+  p.assets.previous = { ...p.assets.video, id: 'previous', logicalKey: 'previous.mp4', status: 'invalidated' }
+  p.shots.s.assetIds.push('previous')
+  p.legacyCanvas = { nodes: [{ id: 'assembly-copy', kind: 'video', media: 'old-assembly.mp4', params: { sources: ['s'] } }] }
+  const nodes = canvasReadModel(p).nodes
+  assert.equal(nodes.find(node => node.id === 'domain:history:previous').presentation.historical, true)
+  assert.equal(nodes.find(node => node.id === 'assembly-copy').presentation.historical, true)
+  assert.equal(nodes.find(node => node.id === 'domain:script:ep').status, 'ready')
+})
+
 test('display-only shot edits keep media; narrative edits require a synchronized script', () => {
   const p = delivered()
   commandHandlers.editProductionContent(p, { kind: 'shot', id: 's', values: { title: 'New name' } }, { commandId: 'rename' })
@@ -99,6 +122,19 @@ test('display-only shot edits keep media; narrative edits require a synchronized
   commandHandlers.editProductionContent(p, { kind: 'shot', id: 's', values: { shotDescription: 'Changed action', script: 'Updated full script.' } }, { commandId: 'good-edit' })
   assert.equal(p.episodes.ep.script, 'Updated full script.')
   assert.equal(p.assets.video.status, 'invalidated')
+})
+
+test('saving unchanged settings and script preserves approved media', () => {
+  const p = delivered()
+  p.shots.s.title = 'Open the letter'
+  const editor = productionEditor(p, { kind: 'script', id: 'ep' })
+  const values = { script: p.episodes.ep.script, shots: editor.shots.map(shot => ({ id: shot.id, ...Object.fromEntries(shot.fields.map(field => [field.key, field.value])) })) }
+  commandHandlers.editProductionContent(p, { kind: 'character', id: 'detective', values: { name: 'Detective', description: 'Blue coat' } }, { commandId: 'unchanged-character' })
+  commandHandlers.editProductionContent(p, { kind: 'script', id: 'ep', values }, { commandId: 'unchanged-script' })
+  assert.equal(p.assets.video.status, 'approved')
+  assert.equal(p.deliverables.final.status, 'ready')
+  values.shots[0].shotDescription = 'A different action'
+  assert.throws(() => commandHandlers.editProductionContent(p, { kind: 'script', id: 'ep', values }, { commandId: 'inconsistent-script' }), /同步修改/)
 })
 
 test('image replacement updates the formal reference and preserves the old asset', () => {

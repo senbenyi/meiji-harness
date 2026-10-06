@@ -75,7 +75,7 @@ Keep the flying pig exactly as it is, only change the sky from daytime blue to a
 4. **调用生成**（按类型二选一）：
    - t2i：`comfy_generate_image(prompt, tier=档位, width=…, height=…, count=张数, title='手动 t2i · 比例', group='手动生成')`。
    - i2i：`comfy_render(capability='image.image2image', tier=档位, prompt=改动描述, ref_nodes=[参考节点 id], count=张数, title='手动 i2i · 档位 · 参考改绘', group='手动生成')`。档位取消息 `tier` 字段（缺省 fast）；调试/挑构图用 `fast`（768 预算、20 步），定稿用 `quality`（2048 预算）。
-5. **回报结果**：工具已把产物写回画布；回复里给出图片节点标题、媒体相对路径与「画布」tab 入口，一句话说明用了哪个能力与档位。工具返回若带 `warnings`（如某参数未生效、交付尺寸与推导值不同）**必须如实说明**，不要复述一个没生效的档位或尺寸。
+5. **回报结果**：工具已把产物写回画布；回复里给出图片节点标题、媒体相对路径与「创作」tab 入口，一句话说明用了哪个能力与档位。工具返回若带 `warnings`（如某参数未生效、交付尺寸与推导值不同）**必须如实说明**，不要复述一个没生效的档位或尺寸。
 6. **失败不盲重试**：失败先简化改动描述 / 换档位（fast↔quality）/ 换参考图再重试；同一请求不要原样重复提交。
 
 ## 提示词建议

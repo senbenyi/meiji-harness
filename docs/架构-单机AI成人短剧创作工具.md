@@ -216,7 +216,7 @@ Skill 不直接拥有 Project 状态，不应通过聊天文本猜测当前批�
 
 | 文件 | 职责 |
 | --- | --- |
-| `lib/client.js` | 注册画布 tab 或右侧栏、ComfyUI 设置区和输入框生成条 |
+| `lib/client.js` | 注册「创作」tab 或右侧栏入口、ComfyUI 设置区和输入框生成条 |
 | `studio/index.html` | 自包含画布页面入口 |
 | `studio/app.js` | 节点渲染、编辑、重做、替换、废弃、恢复、排序、分组和资产操作 |
 | `studio/app.css` | 画布主题和响应式布局 |

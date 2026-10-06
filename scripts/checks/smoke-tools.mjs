@@ -23,7 +23,6 @@
  */
 
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
 import { _internals, apply as pluginApply } from '../../lib/index.js'
 
 let pass = 0
@@ -79,13 +78,11 @@ ok('makeTools() 返回非空数组', Array.isArray(tools) && tools.length > 0, `
 const names = tools.map((t) => t && t.name)
 ok('工具名唯一', new Set(names).size === names.length, `重复：${names.filter((n, i) => names.indexOf(n) !== i).join(', ')}`)
 {
-  const source = readFileSync(new URL('../../lib/index.js', import.meta.url), 'utf8')
-  const match = source.match(/const script = `([\s\S]*?)`\n      try \{/)
   let parseError = ''
   try {
-    if (!match) throw new Error('fixed novel workflow script not found')
+    const { PRODUCTION_WORKFLOW } = await import('../../lib/agents/workflow.js')
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-    new AsyncFunction(match[1])
+    new AsyncFunction(PRODUCTION_WORKFLOW)
   } catch (error) { parseError = error?.message || String(error) }
   ok('固定整书 Workflow 脚本可解析', parseError === '', parseError)
 }
@@ -230,7 +227,7 @@ if (host && typeof host.mod.validateJsonSchemaValue === 'function') {
   let applyErr = ''
   try { pluginApply(hostCtx) } catch (e) { applyErr = e?.stack?.split('\n').slice(0, 3).join(' | ') || String(e) }
   ok('apply() 全程不抛（抛出 = 工具与路由一起消失）', applyErr === '', applyErr)
-  const domainToolCount = 41
+  const domainToolCount = 45
   ok(`apply() 注册全部 ${tools.length + domainToolCount} 个工具（含 ${domainToolCount} 个 Project Domain 工具）`, registered.length === tools.length + domainToolCount, `实际 ${registered.length}`)
   ok('apply() 注册了 prefix 路由（设置页/画布都要它）', routes.length === 1 && routes[0].path === '/dsh-short-video-studio' && routes[0].kind === 'prefix',
     JSON.stringify(routes.map((r) => r.kind + ':' + r.path)))

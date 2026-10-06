@@ -20,22 +20,23 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 - 仍覆盖整部小说和全部规划分集，只降低每集镜头密度、对白长度和 prompt 长度；不得默认压成单集，也不得把局部样片称为整书完成。只有用户明确要求“浓缩版”时，才可压缩为 1 集、8–12 镜。
 - 分块读取全文并保留区间摘要，后续只携带摘要与当前必要引用，不重复注入全文。
-- 内容分析、分集规划和单集剧本依次提交；工具检查原文区间、情节节点覆盖、正式剧本及角色／场景绑定，通过后使用用户本次授权批准并持久化。
+- 内容分析后分别提交视觉设定与分集规划，再提交正式剧本和分镜；工具检查原文区间、情节节点覆盖、正式剧本及角色／场景绑定，通过后使用用户本次授权批准并持久化。
 - 子 Agent 缺失、失败或输出无效时，对应文本任务必须失败并保留检查点；不得用大纲或“建立场景／情节推进”等模板镜头补齐并自动批准。
 - 正式剧本获批后，工具创建包含“角色／场景参考图 → 分镜图 → 镜头视频 → 分集合成 → 整剧交付”的媒体 ProductionRun；每步检查当前版本与依赖，失败阻断下游。快速模式自动检查、批准媒体，不跳过参考图或分镜图。
 
 ## 多 Agent 编排协议
 
-- 整书快速模式只允许主 Agent 调用一次 `studio_novel_create(sourcePath, title)`；该工具内部完成建 Project、源文导入、分段、多 Agent 编排、Proposal 批准与持久化、镜头批量生成和一次状态查询。成功后直接向用户返回紧凑结果，禁止主 Agent再调用任何 `studio_*` 或 `comfy_*` 工具。
+- 整书快速模式由主 Agent 调用一次 `studio_novel_create(sourcePath, title)`；该工具内部完成建 Project、源文导入、六类专业 Agent 编排、Proposal 批准与持久化、媒体任务创建和一次状态查询。成功后直接向用户返回紧凑结果，本轮不重复执行内部步骤。用户后续查询进度或要求恢复时，主 Agent 根据持久任务状态管理，不能把首次返回当成整剧完成。
 - 整书任务禁止由主 Agent 逐段读取和逐段推理。`studio_novel_create` 内部调用 `studio_novel_orchestrate`，主 Agent不得直接调用这个内部工具。禁止调用通用 `workflow`，禁止由模型生成 JavaScript 编排脚本。只有单集或用户明确要求局部修改时才可直接调用一个 `subagent`。
-- `studio_novel_orchestrate` 内置固定阶段“分段分析 / 故事归并 / 分集规划 / 分集写作”，并发封顶 3，以 schema 和覆盖检查约束输出，每个成功任务立即持久化；恢复复用已完成任务。工具内部完成 Proposal 校验/批准、媒体任务图和一次状态查询，主 Agent 不得重复这些步骤。
+- 六类 subagent：剧情负责故事事实与分析；角色负责角色/场景视觉设定和参考图；剧本负责分集与正式剧本；分镜负责镜头规划和预览；镜头负责视频制作；成片负责合成与交付。主 Agent 统一分派和汇报，子代理不递归调度，不直接写 Project。
+- `studio_novel_orchestrate` 内置固定角色任务。内容分析后视觉设定与分集规划可并行，逐集正式剧本先于分镜规划；文本并发封顶 3，以 schema 和覆盖检查约束输出，每个成功任务立即持久化；恢复复用已完成任务。媒体 subagent 提交制作方案，统一 worker 校验范围与输入版本后执行，不由子代理直接调用媒体工具。
 - 主 Agent 不等待媒体生成：文本工作流前台完成并持久化后，媒体 ProductionRun 使用后台模式，拿到 `runId` 即查询一次 `studio_production_status` 并向用户返回。不得轮询。
 - 主协调 Agent 是唯一写者：只有它可以导入源文、提交 Proposal、审批和写 Project。子 Agent 只读取指定原文区间并推理，禁止写 Project，避免 revision 冲突。
 - 文本与媒体的持久任务图、租约和恢复由 `studio_novel_create` 内部维护。任务引用使用稳定 id，依赖字段为 `dependencies`；恢复只重做失败或未完成任务，主 Agent 不另行创建任务图或从头重跑。
-- 每个 spawn 子 Agent 的固定任务包只含 `{projectId, sourceId, contentHash, start, end, mode, storyBibleDigest?, episodeOutline?, priorStateDigest?, outputSchemaVersion}`，不得携带父对话全文。
+- 子 Agent 任务明确 role、label、phase、schema 和当前范围的必要 prompt；Project 持久任务记录责任角色、依赖与结果。媒体方案绑定 taskId/inputSignature，不得携带父对话全文或改写其他任务。
 - 原文按不超过 `studio_source_read` 单次上限的区间拆包，并行生成紧凑 JSON：`facts/characterStateDelta/locations/beats/citations/openConflicts`。禁止返回原文全文、工具过程或长篇解释。
 - 分段结果过多时使用分层归并 Agent，每个归并输入和输出都有上限；主协调只保留 Story Bible 摘要、任务状态和当前待写集，不把所有分段结果同时回灌上下文。
-- 每个 Episode Writer 使用已批准故事设定、当前集大纲、情节节点和对应原文区间；工具检查规划情节是否全部进入剧本镜头。当前并发写作不构成逐集人物状态连续性的人工验证。
+- 剧本 subagent 使用已批准故事设定、当前集大纲、情节节点和对应原文区间，只写正式剧本；分镜 subagent 依据该剧本与视觉设定另行编排镜头。当前并发写作不构成逐集人物状态连续性的人工验证。
 - 每次写操作先读取最新 revision，并使用可复算 commandId（如 `<projectId>:analysis:v1`、`<projectId>:episode:<episodeId>:script:v1`）；重试必须复用同一个 commandId。
 - 工具返回 `retryable=false`、JSON/schema/参数错误或同一 commandId 已失败时不得重试；只允许修正一次明确指出的字段。revision 冲突先读取一次最新摘要再重放同一逻辑命令；外部瞬态错误最多重试一次。不得通过搜索源码、日志或安装目录来猜参数。
 - 子 Agent 完成后只把结构化结果交回主协调；主协调立即持久化，随后丢弃正文级中间上下文。不得用“继续”维持超长单 Agent 对话。
@@ -47,8 +48,7 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 3. 提交 `studio_content_analysis_submit`：`payload` 与 `sourceRefs` 直接传结构化对象/数组，禁止序列化成 JSON 字符串。内容包含摘要、故事圣经、角色、场景、情节节点和原文引用。故事圣经明确人物动机与关系、时间地点、关键道具、故事规则和用户禁用设定；区分原文事实、改编建议与尚未解释的问题。
 4. 默认停止并等待该 Proposal 在 `studio_review_queue` 中获批；若用户已明确授权整书自动执行，本次提交直接传 `autoApprove=true`，由工具在同一调用内批准并写入正式 Project，不再单独调用审核工具。
 5. 基于已批准分析提交 `studio_episode_plan_submit`：继续直接传结构化 `payload`，自动执行时传 `autoApprove=true`。每集必须有稳定 id、顺序、标题、大纲和原文区间。在大纲中写明允许出场的角色、起止人物状态与知情范围、时间地点、因果链、伏笔及兑现位置、结尾钩子；新悬念不得推翻已经成立的解释，新增设定须作为改编建议交由审核。
-6. 分集规划获批后，逐集提交 `studio_episode_script_submit`，自动执行时同样传 `autoApprove=true`。写当前集时只使用已批准故事圣经、当前集大纲、对应原文区间及必要的前集状态，不重复携带其他集全文。正式剧本至少包含：
-   - 完整 `script`；
+6. 视觉设定通过 `studio_asset_design_submit` 提交，只允许更新当前角色/场景的 `visualDescription`，绑定 `analysisProposalId`。分集规划获批后，剧本 subagent 的结果先经 `studio_episode_draft_submit` 保存完整 `script`、`beatIds` 和 `sourceSpans`，不含 shots；分镜 subagent 再提交镜头表。协调层把原剧本与镜头表合并，经 `studio_episode_script_submit` 提交，并携带 `draftProposalId` 校验未改写正式剧本。自动执行时使用 `autoApprove=true`。镜头表包含：
    - 镜头顺序、时长、画面描述；
    - `audioDialogue`：逐行“说话人：具体台词”，保留原文语言，无对白明确为空字符串；`audioNotes`：语气、音色、环境声及必要音效；
    - 连续镜头引用；

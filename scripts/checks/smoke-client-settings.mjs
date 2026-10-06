@@ -77,7 +77,7 @@ console.log('\n[1] 设置页渲染（精简用户配置）')
   try { tree = await renderStable(settingsComponent, {}) } catch (e) { err = e }
   ok('渲染不抛异常', !err, err && err.stack && err.stack.split('\n').slice(0, 3).join(' | '))
   const text = textOf(tree)
-  ok('保留画布显示位置', text.includes('画布显示位置'))
+  ok('保留创作显示位置', text.includes('创作显示位置'))
   ok('保留 ComfyUI 地址', text.includes('ComfyUI 地址'))
   ok('保留可选 API Key', text.includes('API Key（可留空）'))
   ok('保留保存和刷新入口', text.includes('保存') && text.includes('刷新页面'))
