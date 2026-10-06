@@ -9,6 +9,7 @@ import { FileService } from '../../lib/storage/files.js'
 import { SourceTextService } from '../../lib/script/source-service.js'
 import { reviewQueue } from '../../lib/domain/read-models.js'
 import { makeScriptDevelopmentTools } from '../../lib/script/tools.js'
+import { installNovelChildPolicy } from '../../lib/script/child-policy.js'
 
 async function fixture() {
   const service = await new ProjectService(new MemoryProjectRepository()).open()
@@ -142,6 +143,40 @@ test('script proposal tools accept native objects and auto-approve atomically', 
   const updated = await service.getProject(projectId)
   assert.equal(updated.storyBible.summary, '原生对象载荷')
   assert.equal(Object.values(updated.developmentProposals)[0].status, 'approved')
+})
+
+test('script tools throw terminal input errors instead of returning ok false', async () => {
+  const { service } = await fixture()
+  const tools = makeScriptDevelopmentTools({
+    projectService: service,
+    sourceServiceFor: async () => ({ readChunk: async () => { throw new Error('project not found: missing') } }),
+  })
+  const read = tools.find((tool) => tool.name === 'studio_source_read')
+  await assert.rejects(
+    read.execute({ projectId: 'missing', sourceId: 'novel', cursor: 0, limit: 100 }),
+    (error) => error.code === 'INVALID_REQUEST' && error.retryable === false,
+  )
+})
+
+test('novel child policy isolates tools and enforces structured output and step budgets', async () => {
+  let restriction
+  let guard
+  let preStep
+  const agent = { ctx: {
+    tools: {
+      restrict: (value) => { restriction = value },
+      guard: (value) => { guard = value },
+    },
+    on: (name, listener) => { if (name === 'agent/pre-step') preStep = listener },
+  } }
+  installNovelChildPolicy(agent)
+  assert.deepEqual(restriction, { allow: [] })
+  assert.match(guard({ name: 'studio_source_read' }), /cannot call/)
+  assert.equal(guard({ name: 'structured_output' }), undefined)
+  assert.equal(guard({ name: 'structured_output' }), undefined)
+  assert.match(guard({ name: 'structured_output' }), /exceeded/)
+  assert.deepEqual(await preStep({ step: 7 }, async () => ({ kind: 'enter' })), { kind: 'reject' })
+  assert.deepEqual(await preStep({ step: 6 }, async () => ({ kind: 'enter' })), { kind: 'enter' })
 })
 
 test('rejected or invalid proposals never mutate canonical project data', async () => {
