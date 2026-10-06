@@ -58,6 +58,12 @@ test('scripts use shared modules instead of client/', () => {
   }
 })
 
+test('生产入口不回流旧任务执行链', () => {
+  const entrypoints = ['index.js', 'session.js', 'server/http/panel-routes.js', 'server/http/run-routes.js', 'server/host/harness-run-jobs.js', 'server/host/harness-run-goals.js']
+  const forbidden = /operation-manager|operation-runner|operation-history|task-store|task-execution|run-adapter/
+  for (const file of entrypoints) assert.doesNotMatch(readFileSync(join(root, file), 'utf8'), forbidden, file)
+})
+
 // 上下文/状态是存储与执行共同使用的叶子；不能反向引用 data 或执行器。
 test('runtime context and state stay independent of storage and execution', () => {
   const leaves = ['server/runtime/task-context.js', 'server/runtime/task-state.js', 'server/runtime/operation-context.js']
