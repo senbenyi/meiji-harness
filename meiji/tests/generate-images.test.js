@@ -208,49 +208,46 @@ test('text-to-image stops at the gateway when credentials are missing or prompt 
 })
 
 
-test('all image entry points save and register candidates inside their third planned step', async t => {
+test('all image entry points save and register candidates inside the save action of one image step', async t => {
   const { recordSteps } = await import('./fixtures/nodes.js')
-  const { activeNode, executionNodes } = await import('../server/runtime/task-context.js')
-  const { finalizeNodes } = await import('../server/runtime/task-state.js')
+  const { activeNode } = await import('../server/runtime/task-context.js')
   const { generateStillFile } = await import('../server/flow/steps/shared/image-files.js')
   const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
   for (const [generate, target] of [[submitAssetImage, 'image:A01'], [generateStillFile, 'image:A01:clothes']]) {
     for (const legacy of [false, true]) {
       const directory = await mkdtemp(join(tmpdir(), 'meiji-image-nodes-'))
       t.after(() => rm(directory, { recursive: true, force: true }))
-      const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target, status: 'pending' }))
       let registered = false
-      await recordSteps(() => generate({ assets, itemId: 'A01', track: 'S01', projectId: 'p', directory, prompt: '正面全身人物图', stepTarget: target,
+      const { nodes } = await recordSteps(() => generate({ assets, itemId: 'A01', track: 'S01', projectId: 'p', directory, prompt: '正面全身人物图', stepTarget: target,
         backend: { ...{ baseUrl: 'https://gateway.test/v1', apiKey: 'test-key', model: 'elysium-image' }, provider: 'elysium' },
         fetchImpl: async (_url, options) => options.method === 'POST'
           ? Response.json({ data: [legacy ? { b64_json: png.toString('base64') } : { url: '/v1/media/image' }] })
           : new Response(png),
         onSaved: async () => {
-          assert.equal(activeNode().kind, 'image_save')
-          assert.equal(executionNodes().filter(step => step.status === 'running').length, 1)
+          assert.deepEqual(activeNode().attempts.filter(attempt => attempt.status === 'running').map(attempt => attempt.kind), ['image_save'])
           assert.deepEqual(await readFile(join(directory, 'A01.png')), png)
           registered = true
         },
-      }), planned)
+      }), { kind: 'image', target })
       assert.equal(registered, true)
-      finalizeNodes(planned)
-      assert.deepEqual(planned.map(step => step.status), legacy ? ['completed', 'skipped', 'completed'] : ['completed', 'completed', 'completed'])
-      assert.ok(planned.every(step => !step.unplanned))
+      // 网关直接返回 Base64 时没有下载动作。
+      assert.deepEqual(nodes.map(step => [step.kind, step.status]), (legacy ? ['image_generate', 'image_save'] : ['image_generate', 'image_download', 'image_save']).map(kind => [kind, 'done']))
+      assert.ok(nodes.every(step => step.target === target))
     }
   }
 })
 
-test('candidate registration failure is recorded on the save step', async t => {
+test('candidate registration failure is recorded on the save action', async t => {
   const { recordSteps } = await import('./fixtures/nodes.js')
   const directory = await mkdtemp(join(tmpdir(), 'meiji-image-save-fail-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
-  const planned = ['image_generate', 'image_download', 'image_save'].map((kind, index) => ({ id: String(index), kind, target: 'image:A01', status: 'pending' }))
-  await recordSteps(async () => {
+  const { nodes } = await recordSteps(async () => {
     await assert.rejects(submitAssetImage({ assets, itemId: 'A01', projectId: 'p', directory, prompt: '正面全身人物图', stepTarget: 'image:A01',
       backend: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key', model: 'elysium-image' },
       fetchImpl: async (_url, options) => options.method === 'POST' ? Response.json({ data: [{ url: '/v1/media/image' }] }) : new Response(Buffer.from([137, 80, 78, 71])),
       onSaved: () => { throw new Error('候选登记失败') },
     }), /候选登记失败/)
-  }, planned)
-  assert.deepEqual(planned.map(step => step.status), ['completed', 'completed', 'failed'])
+  }, { kind: 'image', target: 'image:A01' })
+  assert.deepEqual(nodes.map(step => [step.kind, step.status]), [['image_generate', 'done'], ['image_download', 'done'], ['image_save', 'paused']])
+  assert.match(nodes[2].error, /候选登记失败/)
 })

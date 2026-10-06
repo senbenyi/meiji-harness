@@ -100,6 +100,13 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
     if (step.kind === 'wait_script_confirm' && root.scriptProposals.some(item => item.runId === run.id && item.status === 'pending')) return { pause: { code: 'wait_script_confirm', message: '请在剧本页确认或放弃本任务的修改方案', actions: ['cancel-branch'] } }
     return null
   }
+  // 即时编辑对应的任务对象，以及该编辑波及某个任务的范围。
+  const editTarget = (operation, root) => ({ 'outline-text': 'outline', 'character-text': 'characters', 'scene-text': 'scenes', 'prop-text': 'props', source: 'summary', 'episode-edit': 'summary' })[operation.action] || (operation.action === 'storyboard-text' ? `storyboard:${operation.track}` : ['import-image', 'use-asset', 'clear-image', 'confirm-image'].includes(operation.action) ? `image:${operation.itemId || root.episodes.find(episode => episode.id === operation.episodeId)?.pendingImages?.[operation.draftId]?.itemId}` : null)
+  const editReach = (run, operation, deletions, baseTarget) => {
+    const affected = deletions.filter(item => item.episodeId === run.episodeId).map(item => item.track ? `${['video', 'tailFrame'].includes(item.kind) ? 'film' : item.kind}:${item.track}` : item.kind)
+    const covered = new Set(run.steps.filter(step => !['superseded', 'cancelled'].includes(step.status)).map(step => step.target))
+    return { changed: baseTarget && run.episodeId === operation.episodeId ? baseTarget : null, covered, targets: [...new Set(affected.filter(target => covered.has(target)))] }
+  }
   const lockOperation = (run, step) => ({ projectId: run.projectId, episodeId: run.episodeId, target: step.target, action: 'run-step', lock: step.scope, origin: run.initiator, sessionId: run.sessionId })
   const engine = createRunEngine({ home, limitOf, queue,
     beforeStep: checkStep,
@@ -277,9 +284,20 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
       throw reject('并入任务需要制作目标 goal')
     },
     async recover(projectId) { watch(projectId); return engine.recover(projectId) },
+    // 即时文字编辑是否由进行中的任务接管复审；没有任务接管时保存后立即审核。
+    async ownsEdit(operation) {
+      if (!operation.projectId) return false
+      const root = await projects.read(operation.projectId), baseTarget = editTarget(operation, root), deletions = operationDeletes(root, operation)
+      for (const run of await runStore(home, root.id).list()) {
+        if (!run.request?.goal || !['running', 'paused'].includes(run.status)) continue
+        const { changed, covered, targets } = editReach(run, operation, deletions, baseTarget)
+        if (changed && (targets.length || covered.has(changed))) return true
+      }
+      return false
+    },
     async contentChanged(operation, before) {
       const deletions = operationDeletes(before, operation), root = await projects.read(before.id)
-      const baseTarget = { 'outline-text': 'outline', 'character-text': 'characters', 'scene-text': 'scenes', 'prop-text': 'props', source: 'summary', 'episode-edit': 'summary' }[operation.action] || (operation.action === 'storyboard-text' ? `storyboard:${operation.track}` : ['import-image', 'use-asset', 'clear-image', 'confirm-image'].includes(operation.action) ? `image:${operation.itemId || before.episodes.find(episode => episode.id === operation.episodeId)?.pendingImages?.[operation.draftId]?.itemId}` : null)
+      const baseTarget = editTarget(operation, before)
       let continuation = null, summaryOwned = false
       for (const run of await runStore(home, before.id).list()) {
         if (!run.request?.goal || !['running', 'paused'].includes(run.status)) continue
@@ -288,10 +306,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
           const target = `image:${draft?.itemId || operation.variantId}`
           if (run.steps.some(step => step.target === target && step.kind === 'wait_confirm') && (run.episodeId === operation.episodeId || !run.episodeId)) await runStore(home, before.id).update(run.id, current => { current.events.push({ at: new Date().toISOString(), type: 'image_discarded', actor: 'human', payload: { target } }); return current })
         }
-        const view = plannerView(root, run.episodeId), affected = deletions.filter(item => item.episodeId === run.episodeId).map(item => item.track ? `${['video', 'tailFrame'].includes(item.kind) ? 'film' : item.kind}:${item.track}` : item.kind)
-        const changed = baseTarget && run.episodeId === operation.episodeId ? baseTarget : null
-        const covered = new Set(run.steps.filter(step => !['superseded', 'cancelled'].includes(step.status)).map(step => step.target))
-        const targets = [...new Set(affected.filter(target => covered.has(target)))]
+        const view = plannerView(root, run.episodeId), { changed, covered, targets } = editReach(run, operation, deletions, baseTarget)
         if (!targets.length && !(changed && covered.has(changed))) continue
         if (changed === 'summary') summaryOwned = true
         const manualTarget = changed || `image:${operation.itemId || operation.variantId || ''}`

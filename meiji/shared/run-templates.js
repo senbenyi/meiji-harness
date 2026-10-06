@@ -23,7 +23,7 @@ export function normalizeRunGoal(input) {
   goal.mode ||= goal.feedback ? 'modify' : 'generate'
   if (!['generate', 'regenerate', 'modify', 'review'].includes(goal.mode)) throw new Error('制作模式无效')
   if (goal.feedback !== undefined && (typeof goal.feedback !== 'string' || !goal.feedback.trim())) throw new Error('修改意见不能为空')
-  if (goal.mode === 'modify' && !goal.feedback?.trim()) throw new Error('修改需要本次意见')
+  // 修改可不带新意见：此时依据正文上已有的自审问题修订（没有任何问题或意见时由步骤拒绝）。
   if (goal.requirements !== undefined && typeof goal.requirements !== 'string') throw new Error('生成要求须为文字')
   goal.scope ||= {}
   if (typeof goal.scope !== 'object' || Array.isArray(goal.scope) || Object.keys(goal.scope).some(key => !['only', 'tracks', 'itemIds', 'fromEpisode', 'library'].includes(key))) throw new Error('目标范围无效')

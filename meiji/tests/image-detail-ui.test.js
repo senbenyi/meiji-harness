@@ -56,10 +56,10 @@ for (const [itemId, name, kind] of [['C01', '旅人', 'characters'], ['E01', '�
 
 test('list image generation is disabled while busy and restores its button on failure', async t => {
   const project = setup(t)
-  project.operationActivity = 'outline'
+  project.executionLocks = [{ target: 'outline', scope: 'project', episodeId: project.episodeId }] // 剧情步骤持有项目锁
   let page = renderStage('script', project, { beginImage: () => assert.fail('must not generate while busy') }, {})
   for (const button of page.querySelectorAll('.card-image-generate')) { assert.equal(button.disabled, true);button.click() }
-  project.operationActivity = null
+  project.executionLocks = []
   page = renderStage('script', project, { beginImage: async () => { throw new Error('生图请求失败') } }, {})
   const button = page.querySelector('[aria-label="AI生图：旅人"]')
   button.click();await new Promise(resolve => setImmediate(resolve))
@@ -99,7 +99,7 @@ for (const [itemId, name, kind, selector] of [['C01', '旅人', 'characters', '.
 
 test('generating cards disable confirmation and discard until their own candidate is ready', t => {
   const project = setup(t)
-  project.operationActivity = 'image:C01'
+  project.executionLocks = [{ target: 'image:C01', scope: 'episode', episodeId: project.episodeId }]
   const page = renderStage('script', project, { beginImage() {}, reviewImage() { assert.fail('still generating') } }, {
     imageGate: { itemId: 'C01', episodeId: project.episodeId, phase: 'generating', held: true },
   })
@@ -169,10 +169,10 @@ test('character detail orders portrait, reference and a single generation toolba
 
 test('character detail generation is disabled while busy or reviewing and recovers after request failure', async t => {
   const project = setup(t)
-  project.operationActivity = 'image:C01'
+  project.executionLocks = [{ target: 'image:C01', scope: 'episode', episodeId: project.episodeId }]
   let page = renderCharacterDetail(project, 'C01', { beginImage() { assert.fail('busy') } }, {})
   assert.equal(page.querySelector('[aria-label="AI生成"]').disabled, true)
-  project.operationActivity = null
+  project.executionLocks = []
   page = renderCharacterDetail(project, 'C01', {}, { detailGate: { itemId: 'C01', episodeId: project.episodeId, phase: 'ready', previewUrl: '/draft.png', draftId: 'draft' } })
   assert.equal(page.querySelector('[aria-label="AI生成"]').disabled, true)
   assert.deepEqual([...page.querySelectorAll('.studio-tools .detail-image-buttons button')].map(button => button.textContent), ['放弃', '确定'])
@@ -240,7 +240,7 @@ test('prop card deletion sits beside its title, submits once and displays errors
 test('prop deletion is disabled while a production task is running', t => {
   const project = setup(t)
   project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信' }]
-  project.operationActivity = 'outline'
+  project.executionLocks = [{ target: 'outline', scope: 'project', episodeId: project.episodeId }] // 剧情步骤持有项目锁
   const page = renderStage('script', project, { perform: () => assert.fail('must not delete while busy') }, {})
   const remove = page.querySelector('[aria-label="删除道具：旧信"]')
   assert.equal(remove.disabled, true)

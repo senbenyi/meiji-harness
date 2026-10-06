@@ -23,31 +23,32 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 ## 1. 模块职责与调用链
 
-依赖由 `tests/architecture.test.js` 检查：`http/tools → flow/operations → 文本执行/网关/提示词 → runtime → data → models/skills → shared`。存储和执行共用的叶子模块为 `runtime/task-context.js`、`task-state.js`、`operation-context.js`，只能依赖彼此或 shared，不能反向引用存储/执行器。`flow/steps/` 按业务动作集中具体步骤，`flow/tasks/` 组合步骤，runtime 不反向引用步骤层；media 仅依赖 Node 与 shared。服务端各层可引用这些叶子、`host`、`shared`；`host` 只向下依赖 `shared`，服务端、工具和脚本不得引用 `client`。
+依赖由 `tests/architecture.test.js` 检查：`http/tools → flow（runs、operations、tasks、steps）→ 文本执行/网关/提示词 → runtime → data → models/skills → shared`。存储和执行共用的叶子模块为 `runtime/task-context.js`、`operation-context.js`，只能依赖彼此或 shared，不能反向引用存储/执行器。`flow/steps/` 按业务动作集中具体步骤，`flow/tasks/` 组合步骤，runtime 不反向引用步骤层；media 仅依赖 Node 与 shared。服务端各层可引用这些叶子、`host`、`shared`；`host` 只向下依赖 `shared`，服务端、工具和脚本不得引用 `client`。
 
 | 位置 | 职责 |
 |---|---|
-| `index.js` | 组合入口：接入 Harness、处理遗留任务、检查 FFmpeg、创建操作管理器、注册面板及公开 meiji 服务；会话工具不在主机全局注册 |
-| `session.js` | 短剧制作预设的子插件，等待主机 ready 后注册 12 个 operation- 业务工具与会话说明，释放时撤销登记 |
-| `server/host/harness-jobs.js` | 通过公开 jobs 登记操作观察与占用、图片、剧本等待，模型停止守卫与 owner 脱离 |
+| `index.js` | 组合入口：接入 Harness、处理重启遗留的执行标记、检查 FFmpeg，创建唯一的模型队列、Run 服务（`createRunService`）、即时保存服务（`createImmediateService`）及 Run jobs/goals 观察，注册面板并公开 meiji 服务；会话工具不在主机全局注册 |
+| `session.js` | 短剧制作预设的子插件，等待主机 ready 后注册 `operation-context-query`、`operation-project-manage` 与 5 个 `run-*` 任务工具及会话说明，释放时撤销登记 |
+| `server/host/harness-run-jobs.js`、`harness-run-goals.js` | 通过公开 jobs/goals 观察 Run：任务暂停或终态时结算 job，会话目标绑定任务并在终态结算；模型停止守卫与 owner 脱离 |
 | `server/data/script-store.js` | 剧本版本、待确认方案与原子提交 |
 | `shared/library-rules.js` | 三类库、变体、关联及跨集同步；库目录只含文字和有图标记 |
 | `client/` | 原生 ES 模块面板，通过 `panel-api.js` 访问同源接口 |
 | `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游删除；不读写文件 |
 | `server/http/`、`tools/` | 面板与会话入口，复用服务端流程；鉴权与同源检查在 HTTP 层 |
-| `server/flow/operations/` | 操作层：manager 统一发起、占用与停止；runner 展开任务并记录；registry 登记操作，generate/ 只声明任务顺序，direct/ 实现人工操作 |
-| `server/flow/tasks/` | 任务层：task-registry 登记职责、队列、节点与修订上限；text/、media/ 组合具体业务步骤并保存目标结果；task-queue 限流，task-interrupt 处理重启取消 |
-| `server/flow/shared/` | 任务执行器及任务共用的数据协调；图片、视频等具体步骤与公共执行机制归 steps/，不导出旧操作入口 |
+| `server/flow/runs/` | 任务层：run-engine 唯一调度循环（依赖、分支暂停、审核修订、队列与步骤锁）；run-service 负责预览/确认/并入/恢复、会话归属、前置与剧本阻断检查、人工编辑接管 |
+| `server/flow/operations/` | 即时保存：registry 只登记 direct/ 下的人工操作，occupancy 是 Run 步骤与即时保存共用的内存占用；制作目标不在这里声明 |
+| `server/flow/tasks/` | 单步职责：task-registry 按 taskType 登记业务处理与队列；text/、media/ 组合具体业务步骤并保存目标结果；task-queue 限流，task-interrupt 处理重启后内容节点上的遗留执行标记 |
+| `server/flow/shared/` | Run 单步与即时保存共用的执行入口（`executeRunStep`、`executeImmediate`）及数据协调；图片、视频等具体步骤与公共执行机制归 steps/ |
 | `server/gateway/` | 文本/图片/视频网关适配、文本请求入口、视频轮询、请求快照和日志 |
 | `server/media/` | 图片解码/文件处理/压缩，FFmpeg 检查、尾帧提取与视频拼接；不依赖操作、提示词或任务执行 |
 | `server/prompts/` | Model 编排提示词，interfaces 赋值，`prompt-request.js` 统一请求结构，preview 复用实际入口 |
 | `server/flow/steps/` | 每个业务步骤一个 step 文件（生成大纲、提取人物/场景/道具、审核大纲、修订大纲、生成镜头表、生成图片、提交视频、生成视频、提取尾帧等）；公共机制放 shared/；步骤只执行自身，不安排后续，重新生成复用生成、复审复用审核 |
-| `server/runtime/` | 任务/步骤通用生命周期、上下文、状态与记录基础设施；task-context 管内存，task-state 管无 IO 的规则，task-execution 管执行生命周期 |
+| `server/runtime/` | 步骤执行的上下文、请求/响应与内部动作记录、审核准备与落定；task-context 管内存，step-execution 记录步骤内动作（attempts），run-execution 建立单步上下文 |
 | `server/data/` | 文件与记录持久化、内容快照、剧集存储视图及封面；`projectStore` 管项目保存，`project-files.js` 独占存储布局；不放执行器或纯数据规则 |
 | `server/host/` | Harness 公开接口适配、工作区与会话查询、日志及归属明确的历史提示词读取 |
 | `models/`、`config/`、`skills/` | 模型路由与默认配置、生产规则、审核规则及会话说明 |
 
-生成主链：`面板/会话 → operation-manager.start → operation-runner 展开任务 → 各任务进入对应队列 → task-executor → 网关/媒体 → 保存结果`。直接操作也走 start，立即执行并等待结果。操作按实际写入范围持有项目或剧集占用直到全部任务结束；不能在页面或工具中另建执行通路。
+制作主链：`面板/会话提交 goal → run-service.plan（shared/run-planner.js 规划）→ 确认 → run-engine 按依赖调度 → 步骤进入对应队列并取得执行锁 → executeRunStep → 网关/媒体 → 保存结果与 Run/Step 快照`。即时保存走 `immediate-service.start`，立即执行并返回结果；对象属于进行中的任务时由 run-service 接管为人工编辑步骤。不能在页面或工具中另建执行通路。
 
 ## 2. 提示词 Model
 
@@ -55,7 +56,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 资料使用 `{ task, review, facts }` 等结构化对象传入。生成、修订和审核分别编排；修订携带基稿与意见，审核只检查待审结果，不执行生成指令。
 - 角色、任务、事实、参数、规则、意见和输出协议各有明确位置，避免重复。空上下文省略；输出语言由代码确定，不让模型选择默认值。
 - 单段资料（本集摘要、项目摘要、剧本）在具名标题下直接放正文；已有结构化资料直接序列化为 JSON，不重复套包装字段。任务中说明各资料的用途；基稿和待审内容保留实际数据结构，列表用具名集合。
-- system 放角色、基础及补充规则、输出协议；user 按本次任务 → 本次要求 → 具名资料 → 基稿及意见/待审内容排列。本次要求集中写代码已确定的输出语言、适用时长、风格与画幅，不输出默认值选择说明。
+- system 放角色、基础及补充规则、输出协议；user 按本次任务 → 本次要求 → 具名资料 → 基稿及意见/待审内容排列。本次要求集中写代码已确定的输出语言、适用时长与画幅，不输出默认值选择说明。
 - 大模型文本生成、修订和审核统一返回 JSON 对象并启用 `json_object` 模式。解析字段后再保存与展示正文，字符串转义还原成真实换行；不能直接展示响应对象外壳。图片和视频接口沿用各自媒体协议。
 - 文本请求由 `prompt-request.js` 分开组装 system 规则与 user 资料；图片接口接收完整 prompt，参考图 Base64 另传，不写入正文。
 - 预览与提交复用同一组装入口；历史展示实际请求快照，不用当前资料重建。
@@ -63,18 +64,18 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 参考：`server/prompts/models/`、`server/prompts/interfaces/`、`server/prompts/prompt-request.js`。
 
-## 3. 操作、任务与节点
+## 3. 任务与步骤
 
-- 操作表示一次用户发起，任务表示独立职责，节点记录任务内部的生成、自审、修订等工作。内容节点是项目资料，和执行节点分开。
-- 操作开始就建立全部任务记录；逐个任务独立进入 text/image/video 队列。直接操作不排队，但同样遵守占用与留痕。
-- 状态统一由 `shared/task-nodes.js` 自下而上推导。任一任务失败、审核未通过或停止，取消后续任务，已完成结果保留。
-- 面板文本任务使用 `flow/tasks/text-workflow.js` 的 `runTextNodes`：生成 → 自审；失败时动态追加修订 → 复审，默认最多 2 轮。会话文本制作按 mode 只执行 generate/regenerate（生成）、modify（修订）或 review（审核），每次一个节点；story 必填 only，seconds 必填 track。生成及修订保存正文但 check.passed=null，独立审核不改写正文或删除下游；通过审核的卡片可发布库关联。程序与媒体任务上限为 0。
-- 操作 ID 由 manager 生成，任务 ID 由 runner 生成。每个任务独立上下文、提示词和产物，不用 scope 伪装多个任务。
-- 图片为生成、下载转 Base64、保存候选；视频为提交、生成保存、提取尾帧。后台工作完成后才释放任务队列名额。
-
-- 同项目生成互斥（含排队），不同项目独立。项目锁与项目内任意操作互斥；剧集直接操作仅与同集或项目锁冲突。summary/story 固定项目锁，关联卡片操作在占用前从已提交存储确认关联后选择项目锁，不升级在途锁。
-- 面板剧集摘要发生变化后，父操作先保存并释放，再自动启动一次独立 script-sync；会话步骤不会自动回写，需在目标授权范围内显式调用 operation-sync-script；失败、取消或遇忙保留回写依据。待回写、待确认方案、待回写删除记录阻断剧情层，镜头、指令、图片和成片仍按自身门禁执行。
-- 会话和面板生成登记 Harness job，job 只观察业务操作。面板 job 通知标明单次操作，终态结果携带 initiator=panel、nextAction=end；模型读取结果并简短汇报后结束，不规划、重试或发起后续步骤。会话仅继续用户明确授权的步骤。面板生成通过公开 Harness goals 服务创建单次操作目标，执行期间 disarm，成功 complete、失败或取消 blocked，然后 job 才通知会话。operation.goalRef 持久化关联；已有其他目标或被用户修改的目标不覆盖，自有已结束目标可在下次点击时结算或清理。普通 job_kill 经 manager.cancel 停止；模型不能停止面板发起的 job。owner/service 销毁只脱离观察，不取消业务。图片与剧本处理后由事件解除等待，不空转轮询。
+- 任务（Run）是一个可恢复的用户目标，步骤（Step）是不可删除的执行历史；内容节点是项目资料，和执行记录分开。数据结构、状态、暂停原因与锁见[重构计划「总体约定」](../docs/plans/1006-计划-Run步骤引擎基础.md#总体约定)。
+- 步骤只由 `shared/run-planner.js` 按目标规划，客户端不能指定步骤、actor 或锁范围。文本对象为「生成 → 审核」，按意见修改为「修订 → 复审」；图片为「生图 → 等待人工确认」，生成、下载转 Base64、保存候选是生图步骤内的三个动作（attempts）；成片每镜为「分镜 → 视频 → 尾帧」。
+- 任务状态由步骤推导（draft/running/paused/completed/cancelled）。步骤执行失败（`step_failed`）或审核用尽修订（`review_exhausted`）只暂停所在分支及其下游，独立分支继续；取消分支连带取消下游，不视为依赖成功。
+- 审核不通过由引擎追加最多 2 轮「修订 → 复审」，自动修订的意见取自正文节点上的本轮审核结论，不写入人工意见栏；复审带入修订前基稿与本轮意见。程序校验不通过、无法保存的生成稿在生成步骤内按校验问题修订，仍不通过才作为步骤失败。接口故障或审核协议错误属于执行失败，不触发内容修订。
+- 一集只有一个未结束任务（draft、paused 也算），新目标并入当前任务（amend）；项目级任务的 episodeId 为 null。意见、重新生成、人工编辑在同一任务内插入新步骤，被替换的步骤标为 superseded 并保留历史。
+- 执行锁：剧情资料（大纲、人物、场景、道具）、摘要、项目摘要、剧本回写/修改为项目级步骤，与一切互斥；其余按集、按对象互斥。锁等待不占模型队列名额；暂停或取消不提前释放仍在执行的步骤锁。
+- 同一任务内成片按镜头顺序接续尾帧：后一镜的步骤依赖前一镜的尾帧步骤，前一镜未完成（失败、暂停或等待前置）时其后各镜都等待；只做单镜时不等待。视频已完成的镜头在「只做未完成部分」时不重编分镜。
+- 目标范围外未完成的前置（含剧本更新后的项目摘要）列入 `prereq`，须用户授权才纳入；未授权时依赖它的分支暂停 `prereq_required`。剧本有待回写或待确认方案时，剧情层步骤暂停 `script_pending`，镜头、指令、图片和成片步骤照常执行。
+- 即时保存（文字、图片导入/删除、参考图、人工放行等）不建任务，只在 `history/events` 留项目事件。文字编辑若被进行中的任务接管，记为 manual_edit 步骤并由用户选择复审或直接通过；没有任务接管时保存后立即审核。
+- 面板发起的任务不创建会话目标、不通知会话；会话提交或并入过的任务绑定会话目标，暂停时目标保持进行中，完成或取消时结算。job 只观察任务；owner/service 销毁只脱离观察，不取消业务。
 
 接口与存储见第 16 节。
 
@@ -88,7 +89,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 ## 5. 面板交互
 
 - 生成入口保持可见，前置条件不足时禁用并说明节点与原因；门禁复用 `shared/generation-gates.js`。
-- 每个实际操作提供对应范围的任务历史：操作 → 任务列表 → 步骤详情。详情显示状态、审核与失败原因、时间、内容快照和实际提示词；复用事件推送与任务查询及时更新。
+- 任务历史为两层：任务列表 → 步骤详情，可按剧集、状态、发起方和对象筛选；进行中与暂停的任务置顶并常驻任务条。详情按对象分组显示步骤、来源、审核与失败原因、时间、内容快照和实际提示词，暂停原因给出可用动作；复用事件推送及时更新。
 - 剧情顶部查看整次操作；大纲、人物、场景、道具区块各有按 target 查看任务历史与 skill 的入口。人物/场景详情合并文字和图片历史；图片、每秒指令及成片卡按自身 ID 过滤，成片也保留整集入口。
 - 节点 skill 页为「基础 skill / 补充 skill」两个 tab：基础只读，补充整段编辑，空文本保存即清空；切换保留草稿，保存失败保留输入。实际提示词在任务步骤中查看。
 - 意见是本次修订输入，补充 skill 是节点持续规则，分开保存。辅助入口放标题区，不单独占行；窄面板自然换行。
@@ -130,7 +131,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 会话与项目按需关联：仅 session-projects 显式选择有效，新会话不继承工作区项目。绑定后会话只处理本视频相关请求；无关内容、另建或打开其他项目时提示「请切换工作区或新建会话」，项目工具拒绝自动更换绑定。会话工具创建或打开仅绑定当前会话；面板创建项目始终在该项目工作区新建会话并切换，旧会话及其关联保持不变。面板打开已有项目继续绑定当前会话，无会话时才新建。旧 workspace-links 映射退出执行路径，原文件不删除，未显式选择的历史会话需重新打开项目。
 - 删除项目同步注销该项目 workspaceId 对应的 Harness 工作区并清理 session-projects 选择记录，保留旧会话本身及其他工作区。仅删除当前会话关联项目成功后创建不带 workspaceId 的新会话，面板切换到新会话；删除其他项目不新建或切换会话；工作区注销失败时保留项目，已不存在的工作区允许继续删除。删除剧集不触发上述切换。
 - 用户数据根为 `$DSH_HOME/storages/meiji/`，DSH_HOME 默认 `~/.dsh`；源码与数据分离，迁移备份放 `$DSH_HOME/backups/`。
-- 项目索引只保存剧集文件引用，每集独立存储。创建保存标题、模式、风格、画幅及模式对应的必填资料，没有创建前摘要草稿或 project-drafts。任务、内容和提示词快照放项目 history；步骤保存引用与时间，列表不携带完整提示词、密钥或图片 Base64；提示词读取校验任务归属。
+- 项目索引只保存剧集文件引用，每集独立存储。创建保存标题、模式、画幅及模式对应的必填资料，没有创建前摘要草稿或 project-drafts。任务、内容和提示词快照放项目 history；步骤保存引用与时间，列表不携带完整提示词、密钥或图片 Base64；提示词读取校验任务归属。
 - 图片候选放 `image-drafts/`，确认后入全局素材库；导入先暂存。素材库和任务历史不因重新生成而删除。
 - 素材库七类卡片的删除走面板 `library-delete` 直接操作，仅原子写入素材元数据 `removedAt` 并从列表排除；原文件与 `file/script` 按 ID 读取保留，项目已有引用及历史不变，不释放磁盘空间。该可选字段无需旧数据迁移。
 - Harness 会话默认模型由 `server/host/harness-chat-model.js` 同步到 meiji-gateway，使用相同 baseUrl、chat.model 与凭据；启动与模型保存共用入口。凭据仅写 credentials 服务，配置用引用；模型目录用当前 settings.describe，写入用 mutate/update，不使用已移除的 get。
@@ -144,9 +145,9 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 剧本素材存 `assets/scripts/`，支持 UTF-8 TXT/TEXT，最多 1 MB、200000 字符。项目持久化 `mode: free | script`，创建默认 free，暂不支持创建后切换。自由模式必填 AI 创作方向（premise，最多 1000 字），禁止导入剧本；剧本模式必填 script 或 scriptAssetId，禁止设置方向，不预生成摘要。导入剧本建立第 1 版，素材原文保持不变；自由模式首次回写建立分节剧本。scriptKind 仅区分 imported 原始剧本与 assembled 自动回写记录，方向是否参与生成由 mode 决定。自由模式方向持续指导每集摘要，自动回写不改变模式；本次 requirements 选填，不代替方向、不自动保存为方向。方向仅由人提供与编辑，会话不可修改，新方向用于之后生成；本次要求与已发生事实优先于方向，方向优先于回写参考与项目摘要。剧本模式隐藏方向，提示词不注入 premise，方向编辑接口拒绝写入。自由方向禁止清空，剧本模式编辑、方案确认及版本恢复禁止清空剧本。剧本是参考，沿情节顺序并以已发生剧情为准，审核不因剧本外事件直接判失败。
 
-项目摘要由当前剧本与适用的 AI 创作方向生成，最多 1000 个非空白 Unicode 字符，记录剧本依据版本；版本增加后待更新，创作方向变化本身不删除数据。生成剧集摘要/剧情前按需更新，失败取消后续任务；面板按原参数重试，会话说明要求自动重试一次。不能手改项目摘要，只能附意见重新生成。
+项目摘要由当前剧本与适用的 AI 创作方向生成，最多 1000 个非空白 Unicode 字符，记录剧本依据版本；版本增加后待更新，创作方向变化本身不删除数据。剧本升版后生成剧集摘要或剧情时，「更新并审核项目摘要」作为前置列入预览，须用户授权才纳入任务，不再静默插入；未授权时相关分支暂停。不能手改项目摘要，只能附意见重新生成。
 
-剧本保存先落版本记录再原子提交项目，读取排除未被提交引用的孤立记录。回写仅追加时自动保存新版本；修改旧正文时建立绑定剧本与摘要依据的逐条方案，部分确认或放弃不解除待回写，旧依据确认被拒。人工编辑、按要求修改、恢复旧版本都保留历史；恢复产生新版本。删除剧集保留删除回写事实，重启后仍可重试。scriptBlockers/scriptFreshness 提供派生提示，不写过期标记。
+剧本保存先落版本记录再原子提交项目，读取排除未被提交引用的孤立记录。回写仅追加时自动保存新版本；修改旧正文时建立绑定剧本与摘要依据的逐条方案，方案处理完毕（勾选写入或全部放弃）即结束本次回写，等待它的任务步骤随之继续，未勾选的改动不写入；旧依据确认被拒。人工编辑、按要求修改、恢复旧版本都保留历史；恢复产生新版本。删除剧集保留删除回写事实，重启后仍可重试。scriptBlockers/scriptFreshness 提供派生提示，不写过期标记。
 
 剧集摘要草稿保留，复用任务、队列与历史，用户保存才执行 episode-add/edit。默认参考时长 150 秒，可设 1–86400 整数秒；剧集摘要非空、不限字数。人工修改后显示独立回写进度和方案选择。
 
@@ -180,22 +181,22 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 ## 11. 编码规则
 
 - 按实际调用链组织代码：同一生命周期集中维护，固定顺序用直接调用和条件分支表达，不另建通用步骤调度器；删除纯透传函数和中转导出，调用方直接引用职责模块。校验、快照、并发、记录与持久化等实际业务边界保留。
-  - Run/Step 重构按用户授权的[完整重构计划](../docs/plans/1006-计划-Run步骤引擎基础.md)实施：`server/flow/runs/run-engine.js` 专门负责 meiji Run 的依赖、分支暂停和审核修订，不扩展为任意工作流框架。阶段 1A 已完成隔离引擎；阶段 1B 已在组合入口注册 Run 单步执行、HTTP 与 jobs，原面板按钮和会话工具仍走旧链。新旧链共用模型队列与实际步骤占用，待面板及会话迁出后删除旧链。一个运行 home 只由组合入口创建一份 Run 引擎，模型并发队列和执行锁由该实例统一持有。
+  - `server/flow/runs/run-engine.js` 专门负责 meiji 任务的依赖、分支暂停和审核修订，不扩展为任意工作流框架；旧「操作 → 任务 → 节点」执行链已删除，`tests/architecture.test.js` 禁止其模块与执行标识回流。一个运行 home 只由组合入口创建一份 Run 引擎，模型并发队列和执行锁由该实例统一持有。背景与阶段记录见[重构计划](../docs/plans/1006-计划-Run步骤引擎基础.md)。
 - 按第 1 节分层；`client/`、`shared/` 使用平铺 `.js/.css`，不引入 JSX、bundler 或构建步骤。shared 不引用 Node 专属模块、client 或 server。
 - Harness 接入只经 `server/host/` 的公开接口，不读取上游存储文件。
-- 生成操作在 generate/ 声明 tasks，任务在 task-registry 登记队列、target、nodes、maxRevisions、run。直接操作在 direct/ 登记；人工专属操作标 agent:false。任务不引用操作定义，不增加旧操作别名或中转导出。
-- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-generate-story.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。会话业务工具统一使用 `operation-` 前缀及小写连字符，工具名与对应实现文件主体一致，例如 `operation-generate-story` 对应 `operation-generate-story.js`。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
+- 制作目标的步骤模板在 `shared/run-templates.js`、`shared/run-planner.js`，单步职责在 task-registry 按 taskType 登记队列与 run。即时保存在 direct/ 登记；人工专属操作标 agent:false。不增加旧操作别名或中转导出。
+- 文件参照 skills 使用小写连字符命名，优先「动作 + 对象」或「对象 + 职责」，如 `operation-outline-edit.js`、`task-outline.js`、`project-store.js`，避免孤立的 `run.js`、`request.js` 等泛名。会话的查询与项目管理工具使用 `operation-` 前缀，任务工具使用 `run-` 前缀，均为小写连字符；`operation-context-query`、`operation-project-manage` 的工具名与实现文件主体一致，5 个任务工具集中在 `tools/run-tools.js`。迁移脚本使用 `migrate-` 前缀，测试按对应模块或明确主题命名。保留 `index.js`、`README.md` 等标准入口。
 - skill 分工与登记规则见第 6 节。
 
 ## 12. 数据规则
 
 - JSON 通过临时文件 + rename 原子替换，权限 `0600`；素材导入经 `.upload/` 暂存后重命名。
 - 项目读写只经 `projectStore`，布局只由 `project-files.js` 处理；save 按 revision 串行提交，只写变化剧集，最后替换索引。
-- 领域 schemaVersion 为 3，存储 layout 为 2，任务 schemaVersion 为 3（nodes）。拒绝旧结构，不做运行时兼容。默认离线备份迁移；用户明确授权删除时使用 reset-runtime-data.js，停止服务后清空项目与生成文件，保留素材库和系统配置。
+- 领域 schemaVersion 为 3，存储 layout 为 2，任务记录 Run 的 schemaVersion 为 1。拒绝旧结构，不做运行时兼容。默认离线备份迁移；用户明确授权删除时使用 reset-runtime-data.js，停止服务后清空项目与生成文件，保留素材库和系统配置。
 - 摘要、大纲、人物、场景、道具补充存每集 `supplementalSkills`；其他阶段补充与指导素材暂存项目 `skills`。剧集不接受 customSkills/guidanceAssets，旧数据通过 `migrate-custom-skills.js` 迁移。技能修改层只经 `skill-store.js` 读写。
 - 旧字符串大纲通过 `scripts/migrate-story-outline.js <DSH_HOME>` 离线转换，先备份索引和剧集再写入并读回核对；失败还原，缺少小节保留正文并标为未通过，不修改历史请求。启动与重启脚本自动检查。
 - 新生成素材不覆盖旧素材，参考图变化后按 R6 删除引用实体镜头的分镜、视频与合成；剧情重新生成的清空边界见第 4 节。
-- 发起请求校验会话，返回 operationId；查看/停止请求携带对应 ID，剧集范围操作携带 episodeId；密钥边界见第 9 节。
+- 发起请求校验会话与项目绑定；制作任务按 runId 查看与控制，即时保存返回 editId；针对剧集的请求携带 episodeId；密钥边界见第 9 节。
 
 <a id="test-environment"></a>
 
@@ -248,8 +249,8 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 | 镜头任务 | 主要输入顺序 |
 |---|---|
-| 镜头表 | 大纲 → 本集时长、允许范围与风格 → 人物/场景/道具卡 → 实体引用清单 |
-| 每秒指令逐镜编排 | 本镜镜头表 → 上一镜本轮通过的完整每秒指令（首镜无此项） → 本镜关联人物/场景/道具资料 → 剧情大纲整体参考；另附本镜时长、项目风格及实体引用清单 |
+| 镜头表 | 大纲 → 本集时长与允许范围 → 人物/场景/道具卡 → 实体引用清单 |
+| 每秒指令逐镜编排 | 本镜镜头表 → 上一镜本轮通过的完整每秒指令（首镜无此项） → 本镜关联人物/场景/道具资料 → 剧情大纲整体参考；另附本镜时长及实体引用清单 |
 
 镜头表先估算大纲各小剧情的必要动作、完整对白与转场时间，再分配整集预算并拆为 1–15 秒片段。同一小剧情超过 15 秒拆段时，标题使用相同基础名称加 1、2…，例如「发现旧信1」「发现旧信2」；S 编号仍按整集连续递增。
 
@@ -286,52 +287,36 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 ## 16. 执行记录与查看接口
 
-### Run 后端接入（阶段 1B 进行中）
-
-Run 服务位于 `server/flow/runs/run-service.js`，由 index 创建唯一实例；`meiji.runs`、`meiji.runJobs` 是新公开注入服务。`server/http/run-routes.js` 复用面板登录、会话项目绑定和同源请求头。
-
-新接口：`POST /runs` 预览草稿，`GET /runs` 与 `/runs/:id` 查询，`POST /runs/:id/{confirm,resume,pause,cancel,amend}` 控制，`GET /runs/:id/steps/:stepId/{prompts,responses,artifacts}` 按步骤读取快照。查询携带 projectId/sessionId，写请求在正文中携带；预览目前接受旧 action 参数，goal 规划在阶段 2 接入。确认需明确 confirmDelete，删除范围变化时拒绝沿用旧预览。
-
-Run 列表只返回摘要，不返回技能正文或完整步骤；快照文件为 `history/run-prompts/`、`run-responses/`、`run-artifacts/`，正文 source 使用 runId+stepId。Run 状态由引擎维护；runtime 只写尝试、快照和正文。新旧链共用模型队列；ready 期间不锁编辑，出队后获取步骤锁。暂停协作式收尾，取消阻止晚到正文提交。jobs 观察在 paused/completed/cancelled 结算，owner/service 销毁只脱离观察。
-
-制作按钮和会话入口、以下旧任务历史说明仍有效。面板历史主入口已接入 `client/run-list.js` → `run-detail.js` 两层 Run 页面；支持剧集/状态/发起方/对象筛选、步骤快照、retry/resume/pause/cancel，进行中与暂停 Run 在任务条可查看。对象参数支持逗号分隔与末尾 `*` 前缀匹配；剧集范围同时匹配 affectedEpisodes。旧制作链仍需「早期任务记录」入口，待迁出后删除旧组件；不能把查看接入视为制作入口已切换。
-
-
-操作记录含 taskIds；任务记录含 operationId、type、target、nodes、artifacts/latestOutputs 和冻结的 skill 版本。节点 status 表示执行情况，verdict 表示审核结论：自审不通过为 completed + fail，接口失败为 failed。最新复审结论替代旧结论。
-
-任务状态由 nodes 推导；操作状态由任务状态推导，失败和审核未通过优先于连带取消。内容状态只经 `shared/content-state.js` 及模型基础转换函数更新；不把操作状态直接覆盖到内容。
+Run 服务位于 `server/flow/runs/run-service.js`，由 index 创建唯一实例；`meiji.runs`、`meiji.edits`、`meiji.runJobs`、`meiji.runGoals` 是公开注入服务。`server/http/run-routes.js` 复用面板登录、会话项目绑定和同源请求头。
 
 | 记录 | projects/<项目 ID>/history/ 下的路径 |
 |---|---|
-| 操作 | operations/<operationId>.json |
-| 任务 | tasks/<taskId>.json，schemaVersion:3、nodes |
-| 内容快照 | artifacts/<artifactId>.json，target、version、taskId/nodeId、content、published |
-| 实际请求 | prompts/<promptId>.json，关联 taskId/nodeId |
-| 原始返回 | responses/<responseId>.json，步骤引用，HTTP 状态、耗时、完整脱敏正文/异常；视频只存最终轮询 |
+| 任务与步骤 | runs/<runId>.json，schemaVersion:1；步骤含 attempts、输入输出引用和冻结的 skill 版本 |
+| 实际请求 | run-prompts/<id>.json，归属 runId + stepId，请求发出前保存 |
+| 原始返回 | run-responses/<id>.json，HTTP 状态、耗时、完整脱敏正文/异常；视频只存最终轮询 |
+| 内容快照 | run-artifacts/<id>.json，target、version、previousArtifactId、content、published；未通过校验的原文为未发布快照 |
+| 项目事件 | events/<id>.json，即时保存、剧本编辑与恢复等 |
 | 剧本版本 | script-revisions/<revision>.json，先落记录后提交；恢复不覆盖历史 |
-| 剧本方案 | artifacts/<proposalId>.json，项目持有依据与处理状态 |
+| 剧本方案 | 任务产生的方案存 run-artifacts，人工提出的存 script-proposals/<proposalId>.json |
 
-快照先写入，项目原子保存后发布；不承诺跨文件事务。大纲、人物、场景、道具分别留版本，图片变化不新增文字版本。非法原文和未发布草稿只存 artifact；所有失败请求仍可查看。无项目归属或删除所属目录的操作不留项目历史。
+快照先写入，项目原子保存后发布；不承诺跨文件事务。每次生成/修订各留一版并指向上一版，步骤开始前的准备性保存不产生版本；图片变化不新增文字版本。任务列表只返回摘要，不携带正文、提示词或技能快照；读取严格校验项目、任务、步骤归属，不用当前资料重建。密钥、请求头与参考图 Base64 不存入快照。任务首个步骤执行时冻结规则，在途编辑仅影响之后启动的任务。删除剧集同时删除该集的任务、快照与人工方案；项目级任务保留。
 
-实际提示词在发出请求前保存，读取严格校验项目、任务、节点归属，不用当前资料重建或从会话日志猜测。密钥、请求头与参考图 Base64 不存入快照。每个任务启动时冻结自己的规则；在途编辑仅影响之后启动的任务。
-
-以下接口统一加 `/plugins/meiji` 前缀并校验项目/会话：
+以下接口统一加 `/plugins/meiji` 前缀并校验项目/会话，写请求在正文携带 projectId/sessionId：
 
 | 接口 | 用途 |
 |---|---|
-| GET /operations/current | 当前操作、任务、节点与排队位置，含直接操作 |
-| GET /operations?targets=... | 按内容范围过滤操作历史 |
-| GET /operations/:id | 操作及全部任务 |
-| GET /tasks?target=... | 按内容范围过滤任务历史 |
-| GET /tasks/:id | 独立任务详情，可回到所属操作 |
-| GET /tasks/:id/nodes/:nodeId/prompts | 节点实际完整提示词 |
-| GET /tasks/:id/nodes/:nodeId/responses | 节点脱敏原始返回 |
-| GET /artifacts/:id | 内容快照 |
-| POST /operations/cancel | 停止整个操作，可用其任务 ID 定位 |
+| POST /runs | 提交 goal 预览草稿：步骤、缺少前置、删除清单、硬阻断；同集已有任务时返回并入预览 |
+| POST /runs/:id/preview | 按授权的前置或并入的目标重新预览 |
+| POST /runs/:id/confirm | 确认执行；有删除须 confirmDelete，删除范围变化时拒绝沿用旧预览 |
+| POST /runs/:id/amend | 并入新目标或追加意见 |
+| POST /runs/:id/resume | 按暂停原因允许的动作恢复：retry、resume、review、override（仅面板）、authorize、cancel-branch |
+| POST /runs/:id/pause、/cancel | 协作式暂停；取消任务或指定分支，晚到的正文不再提交 |
+| GET /runs、/runs/:id | 列表（剧集/状态/发起方/对象筛选，对象支持逗号分隔与末尾 `*`）与详情 |
+| GET /runs/:id/steps/:stepId/{prompts,responses,artifacts} | 步骤的实际提示词、脱敏原始返回与内容快照 |
+| GET /artifacts/:id | 按内容来源读取快照 |
+| POST /turn | 即时保存；制作动作返回 400 `RUN_GOAL_REQUIRED` |
 
-发起接口等全部任务记录建立后返回 operationId，不等待模型生成。详情、当前任务及历史共用 `client/task-detail.js` 和 `task-nodes.js`，收到 events 后刷新，保留展开状态。失败查看定位最新失败节点，不重复显示原因。
-
-会话操作工具按 registry 的 session 元数据派生，批量图片考虑库图与候选，单卡图片仅面板可用。工具返回 jobId 后使用 Harness job_wait/job_read/job_output；占用、图片与剧本处理分别登记等待 job。上下文查询包含剧本版本、方案、阻断、摘要新鲜度和三类库目录。会删除已有产物时无 confirmDelete 只返回清单，不启动操作。人工忽略自审只作用于当前有效版本，不改历史任务，不能忽略格式错误。
+会话工具为 `run-plan`、`run-confirm`、`run-amend`、`run-resume`、`run-cancel` 与查询、项目管理；会话不能人工放行，也不能确认图片或剧本方案。上下文查询包含剧本版本、方案、阻断、摘要新鲜度、三类库目录和当前任务（状态、暂停原因、可用动作）。会删除已有产物时无 confirmDelete 只返回清单，不启动任务。人工忽略自审只作用于当前有效版本，不能忽略格式错误。
 
 <a id="model-migration-history"></a>
 

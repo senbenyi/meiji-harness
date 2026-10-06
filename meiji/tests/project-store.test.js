@@ -66,10 +66,8 @@ test('reject incomplete or invalid project inputs', () => {
   for (const patch of [{ title: ' ' }, { durationSeconds: 0 }, { durationSeconds: 1.5 }, { durationSeconds: '60.5' }]) {
     assert.throws(() => validateProject({ ...input, ...patch }))
   }
-  assert.deepEqual(validateProject({ ...input, durationSeconds: '60' }), { mode: 'free', premise: '人的创作方向', title: '标题', durationSeconds: 60, summary: '摘要', script: '', style: '', aspectRatio: '1344x768' })
-  assert.equal(validateProject({ ...input, style: ' 写实电影 ' }).style, '写实电影')
-  assert.throws(() => validateProject({ ...input, style: '风'.repeat(121) }))
-  assert.equal(validateProject({ premise: '人的创作方向', title: '标题', summary: '摘要' }).durationSeconds, undefined)
+  assert.deepEqual(validateProject({ ...input, durationSeconds: '60' }), { mode: 'free', premise: '人的创作方向', title: '标题', durationSeconds: 60, summary: '摘要', script: '', aspectRatio: '1344x768' })
+  assert.throws(() => validateProject({ premise: '人的创作方向', title: '标题', summary: '摘要' }), /剧本模式必须提供剧本/)
   assert.equal(validateProject({ ...input, aspectRatio: '768x1344' }).aspectRatio, '768x1344')
   assert.equal(validateProject({ ...input, aspectRatio: '9:16' }).aspectRatio, '768x1344')
   assert.throws(() => validateProject({ ...input, aspectRatio: '3:4' }))

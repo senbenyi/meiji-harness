@@ -2,7 +2,7 @@
 const fields = {
   durationSeconds: ['时长', '秒'], minDurationSeconds: ['总时长下限', '秒'], maxDurationSeconds: ['总时长上限', '秒'],
   minShotDurationSeconds: ['单镜时长下限', '秒'], maxShotDurationSeconds: ['单镜时长上限', '秒'],
-  style: ['项目风格', ''], shotId: ['目标镜头', ''], mode: ['视频生成模式', ''],
+  shotId: ['目标镜头', ''], mode: ['视频生成模式', ''],
   startMs: ['开始时间', '毫秒'], endMs: ['结束时间', '毫秒'],
 }
 export function requirementsText(parameters = {}, language = '', extra = '') {

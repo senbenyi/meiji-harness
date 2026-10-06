@@ -25,6 +25,7 @@ export function historyStore(home, projectId) {
   }
   return { read, update,
     async list(kind) { if (!kinds.has(kind)) throw new Error('记录范围无效'); let names; try { names = await readdir(join(root, kind)) } catch (error) { if (error.code === 'ENOENT') return []; throw error }; return Promise.all(names.filter(name => name.endsWith('.json')).map(name => read(kind, name.slice(0, -5)))) },
+    async remove(kind, id) { await rm(path(kind, id), { force: true }) },
     async event(type, details = {}) { const id = randomUUID(); return update('events', id, { id, type, at: new Date().toISOString(), actor: 'human', ...details }) },
   }
 }

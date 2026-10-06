@@ -6,7 +6,6 @@ import { renderRunProgress } from './run-progress.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { confirmPanel, showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
 import { episodeHints, isAiCreation } from '../shared/script-assembly.js'
-import { bindStylePicker } from './style-picks.js'
 
 export function collectCharacters(project) {
   const characters = []
@@ -30,7 +29,7 @@ export function collectCharacters(project) {
 export function episodeWork(project, episodeId) {
   const episode = (project?.episodes || []).find(item => item.id === episodeId)
   if (!episode) return null
-  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, mode: project.mode, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, projectSummary: project.summary.content, scriptHints: episodeHints(project, episode), pendingScriptProposal: (project.scriptProposals || []).some(item => item.status === 'pending' && item.episodeId === episode.id), skills: project.skills, revision: project.revision }
+  return { ...episode, operationActivity: episode.operationActivity || (project.operationActivity === 'episode' ? 'episode' : null), id: project.id, episodeId: episode.id, title: project.title, aspectRatio: project.aspectRatio, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, mode: project.mode, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, projectSummary: project.summary.content, scriptHints: episodeHints(project, episode), pendingScriptProposal: (project.scriptProposals || []).some(item => item.status === 'pending' && item.episodeId === episode.id), skills: project.skills, revision: project.revision }
 
 }
 
@@ -81,7 +80,7 @@ export function renderOverview(project, actions, context) {
   if (project.runPauseCount) titleRow.append(element('span', `有暂停任务（${project.runPauseCount}）`, 'run-paused-badge'))
   const edit = element('button', '', 'icon-edit')
   edit.type = 'button'
-  edit.setAttribute('aria-label', '编辑标题、画幅和风格')
+  edit.setAttribute('aria-label', '编辑标题和画幅')
   edit.innerHTML = editIcon
   edit.disabled = targetBusy(project, 'project')
   edit.onclick = () => actions.openOverview?.(project)
@@ -91,8 +90,7 @@ export function renderOverview(project, actions, context) {
   titleActions.append(deleteButton(project, actions))
   titleRow.append(titleActions)
   page.append(titleRow)
-  const style = typeof project.style === 'string' && project.style.trim() ? `${project.style.trim()} · ` : ''
-  page.append(element('p', `${project.aspectRatio || '1344x768'} · ${style}${(project.episodes || []).length} 集`, 'meta'))
+  page.append(element('p', `${project.aspectRatio || '1344x768'} · ${(project.episodes || []).length} 集`, 'meta'))
 
   if (isAiCreation(project)) {
     const premiseCard = element('article', '', 'overview-card')
@@ -109,11 +107,13 @@ export function renderOverview(project, actions, context) {
   page.append(summaryCard)
 
   const scriptCard = element('article', '', 'overview-card')
-  scriptCard.append(element('h3', '剧本'), element('p', `${project.scriptKind === 'imported' ? '导入剧本' : '分节剧本'} · V${project.scriptRevision || 0} · ${project.scriptSource || '尚未建立'} · ${project.scriptUpdatedAt || ''} · ${(project.scriptProposals || []).filter(item => item.status === 'pending').length} 个待确认方案`, 'meta'))
-  scriptCard.append(preview(project.script || '等待第一集建立剧本。'))
-  const openScript = element('button', '查看与编辑剧本'), direction = element('button', '修改后续剧情')
-  openScript.onclick = direction.onclick = () => actions.openScript?.(project)
-  scriptCard.append(openScript, direction)
+  const scriptName = project.scriptName || (project.scriptKind === 'imported' ? '导入剧本' : '分节剧本')
+  const openScript = () => actions.openScript?.(project)
+  const scriptTitle = element('div', '', 'script-title-row')
+  const scriptFile = element('button', scriptName, 'script-file-name'); scriptFile.type = 'button'; scriptFile.setAttribute('aria-label', `查看剧本：${scriptName}`); scriptFile.onclick = openScript
+  const scriptArrow = element('button', '→', 'script-title-arrow'); scriptArrow.type = 'button'; scriptArrow.setAttribute('aria-label', '打开剧本详情'); scriptArrow.title = '打开剧本详情'; scriptArrow.onclick = openScript
+  scriptTitle.append(scriptFile, scriptArrow)
+  scriptCard.append(element('h3', '剧本'), scriptTitle, element('p', `V${project.scriptRevision || 0} · ${project.scriptSource || '尚未建立'} · ${project.scriptUpdatedAt || ''} · ${(project.scriptProposals || []).filter(item => item.status === 'pending').length} 个待确认方案`, 'meta'))
   page.append(scriptCard)
 
   const episodes = element('article', '', 'overview-card')
@@ -196,16 +196,20 @@ export function renderOverview(project, actions, context) {
     const tab = element('button', title, 'library-tab')
     tab.type = 'button'; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false')
     const panel = element('div', '', 'library-tab-panel'); panel.setAttribute('role', 'tabpanel'); panel.hidden = index !== 0
-    const open = element('button', `查看与管理${title}`); open.type = 'button'; open.onclick = () => actions.openLibrary?.(project, kind)
-    panel.append(open)
-    const strip = element('div', '', 'characters-strip')
-    for (const entry of project.library?.[kind] || []) {
-      const button = element('button', entry.name, 'character-item'); button.setAttribute('aria-label', `${title}详情：${entry.name}`); button.onclick = () => actions.openLibrary?.(project, kind)
+    const entries = project.library?.[kind] || []
+    if (!entries.length) {
+      panel.append(element('p', `暂无${title}数据，将根据剧集自动生成角色、场景和道具。`, 'library-empty'))
+    } else {
+      const strip = element('div', '', 'characters-strip')
+      for (const entry of entries) {
+      const button = element('button', entry.name, 'character-item library-card'); button.setAttribute('aria-label', `${title}详情：${entry.name}`); button.onclick = () => (actions.openLibraryEntry || actions.openLibrary)?.(project, kind, entry.id)
       const image = entry.variants.find(variant => variant.id === entry.defaultVariantId)?.image.content
       if (image?.localPath) { const img = element('img', '', 'character-image'); img.src = image.localPath; img.alt = entry.name; button.prepend(img) }
       strip.append(button)
+      }
+      panel.append(strip)
     }
-    panel.append(strip); libraryPanels.push(panel); libraryTabs.append(tab)
+    libraryPanels.push(panel); libraryTabs.append(tab)
     tab.onclick = () => libraryPanels.forEach((other, otherIndex) => { other.hidden = otherIndex !== index; libraryTabs.children[otherIndex].setAttribute('aria-selected', otherIndex === index ? 'true' : 'false') })
   }
   libraries.append(libraryTabs, ...libraryPanels)
@@ -215,12 +219,11 @@ export function renderOverview(project, actions, context) {
 
 export function overviewDialog(root, onSaved) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-overview" aria-labelledby="edit-overview-title"><div class="modal-head"><h2 id="edit-overview-title">编辑项目</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><form class="edit"><label for="overview-name">短剧标题</label><input id="overview-name" name="title" required maxlength="100"><label for="overview-aspect">画幅</label><select id="overview-aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="overview-style">风格</label><input id="overview-style" name="style" maxlength="120" placeholder="例如：写实电影、国风水墨"><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-overview" aria-labelledby="edit-overview-title"><div class="modal-head"><h2 id="edit-overview-title">编辑项目</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><form class="edit"><label for="overview-name">短剧标题</label><input id="overview-name" name="title" required maxlength="100"><label for="overview-aspect">画幅</label><select id="overview-aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-overview')
   const form = dialog.querySelector('form')
   const error = dialog.querySelector('.error')
-  const stylePicker = bindStylePicker(form.elements.style)
   let current = null
   for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => dialog.close()
   form.onsubmit = async event => {
@@ -233,7 +236,6 @@ export function overviewDialog(root, onSaved) {
       await onSaved(current, {
         title: data.get('title').trim(),
         aspectRatio: data.get('aspect'),
-        style: data.get('style').trim(),
       })
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
@@ -244,8 +246,6 @@ export function overviewDialog(root, onSaved) {
     form.elements.title.value = project.title || ''
     const aspect = { '16:9': '1344x768', '9:16': '768x1344' }[project.aspectRatio] || project.aspectRatio
     form.elements.aspect.value = ['1344x768', '768x1344'].includes(aspect) ? aspect : '1344x768'
-    form.elements.style.value = project.style || ''
-    stylePicker.sync()
     error.textContent = ''
     showPanelDialog(dialog)
   }

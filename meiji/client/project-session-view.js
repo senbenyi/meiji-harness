@@ -4,7 +4,6 @@ import { showPanelDialog, element } from './panel-dom.js'
 import { tabOf, tabs, runTabProgress } from './flow-view.js'
 import { renderShotPage, renderStage, renderSceneDetail } from './generation-stage-views.js'
 import { episodeWork, renderOverview } from './project-overview-view.js'
-import { bindStylePicker } from './style-picks.js'
 import { outlineFields } from '../shared/story-outline.js'
 import { request } from './panel-api.js'
 import { MAX_SCRIPT_BYTES } from '../shared/script-content.js'
@@ -199,11 +198,11 @@ export function renderSession(project, openCreate, actions, context = {}) {
 
 export function projectDialog(root, onCreated) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>选择创作模式，填写标题、画幅和风格。自由模式填写创作方向，剧本模式导入剧本。</p><form class="create"><label for="project-mode">创作模式</label><select id="project-mode" name="mode"><option value="free" selected>自由模式</option><option value="script">剧本模式</option></select><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="style">风格</label><input id="style" name="style" required maxlength="120" placeholder="例如：写实电影、国风水墨"><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="create-project" aria-labelledby="create-title"><div class="modal-head"><h2 id="create-title">创建短视频项目</h2><button class="cancel" aria-label="关闭创建弹窗">×</button></div><p>选择创作模式，填写标题和画幅。自由模式填写创作方向，剧本模式导入剧本。</p><form class="create"><label for="project-mode">创作模式</label><select id="project-mode" name="mode"><option value="script" selected>剧本模式</option><option value="free">自由模式</option></select><label for="title">短剧标题</label><input id="title" name="title" required maxlength="100" placeholder="给这个故事起个名字" autofocus><label for="aspect">画幅</label><select id="aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">创建项目</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#create-project'), form = dialog.querySelector('form')
   const error = dialog.querySelector('.error'), submit = form.querySelector('[type=submit]')
-  const stylePicker = bindStylePicker(form.elements.style)
+  const footer = form.querySelector('.error')
   const scriptTitle = element('label', '剧本'); scriptTitle.htmlFor = 'project-script'
   const scriptRow = element('div', '', 'workflow-generation-row')
   const upload = element('button', '导入剧本', 'script-import'), choose = element('button', '从素材库选择剧本', 'script-choose'), clear = element('button', '移除剧本', 'script-clear')
@@ -212,7 +211,6 @@ export function projectDialog(root, onCreated) {
   const picker = element('select', '', 'script-picker'); picker.id = 'project-script'; picker.hidden = true; picker.setAttribute('aria-label', '选择剧本')
   const selected = element('p', '', 'meta script-selected')
   const scriptTitleRow = scriptTitle
-  const footer = form.querySelector('.error')
   scriptRow.append(upload, choose, clear); clear.hidden = true
   const scriptGroup = element('div', '', 'create-script-fields')
   scriptGroup.append(scriptTitleRow, scriptRow, file, picker, selected)
@@ -222,7 +220,8 @@ export function projectDialog(root, onCreated) {
   premise.placeholder = '填写题材、人物、核心冲突与故事方向，最多 1000 字'
   const premiseGroup = element('div', '', 'create-premise-fields')
   premiseGroup.append(premiseLabel, premise)
-  footer.before(scriptGroup, premiseGroup)
+  form.insertBefore(scriptGroup, form.querySelector('label[for="title"]'))
+  footer.before(premiseGroup)
   let scriptAssetId = '', importing = false, submitting = false, ticket = 0
   const update = () => {
     const free = form.elements.mode.value === 'free'
@@ -235,6 +234,7 @@ export function projectDialog(root, onCreated) {
   const cancel = () => { ticket++ }
   const setScript = async asset => {
     scriptAssetId = asset?.id || ''; selected.textContent = asset?.originalName || ''
+    if (asset?.originalName) form.elements.title.value = String(asset.originalName).replace(/\.(?:txt|text)$/i, '').slice(0, 100)
     clear.hidden = !asset; error.textContent = ''; update()
   }
   upload.onclick = () => file.click()
@@ -279,14 +279,14 @@ export function projectDialog(root, onCreated) {
     const data = new FormData(form)
     submitting = true; update()
     try {
-      const input = { title: data.get('title').trim(), mode, aspectRatio: data.get('aspect'), style: data.get('style').trim(),
+      const input = { title: data.get('title').trim(), mode, aspectRatio: data.get('aspect'),
         ...(mode === 'free' ? { premise: premise.value.trim() } : { scriptAssetId }) }
       await onCreated(input)
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
     finally { submitting = false; update() }
   }
-  return () => { cancel(); scriptAssetId = ''; importing = submitting = false; form.reset(); picker.hidden = true; file.value = ''; selected.textContent = ''; clear.hidden = true; form.elements.aspect.value = '1344x768'; stylePicker.sync(); error.textContent = ''; update(); showPanelDialog(dialog) }
+  return () => { cancel(); scriptAssetId = ''; importing = submitting = false; form.reset(); picker.hidden = true; file.value = ''; selected.textContent = ''; clear.hidden = true; form.elements.aspect.value = '1344x768'; error.textContent = ''; update(); showPanelDialog(dialog) }
 }
 
 export function sourceDialog(root, onSaved) {

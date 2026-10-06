@@ -8,8 +8,6 @@ const projectKey = (home, projectId) => resolve(home, 'storages', 'meiji', 'proj
 const overlaps = (a, b) => a.key === b.key && conflicts(a, b)
 const entry = (home, operation) => ({ key: projectKey(home, operation.projectId), projectId: operation.projectId, ...operationScope(operation) })
 
-export const holderOf = id => holders.get(id) || null
-
 // 与 operation 冲突的占用者（排除 exceptId 自身）；没有项目归属的操作不占用。
 export function occupant(home, operation, exceptId = null) {
   if (!operation?.projectId) return null

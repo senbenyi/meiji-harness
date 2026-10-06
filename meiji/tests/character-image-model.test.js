@@ -6,7 +6,6 @@ import { createCharacterImageModel, characterImageModelToPrompt } from '../serve
 
 const input = {
   character: { name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '180cm', build: '健壮', features: '短发方脸', costume: '旧外套', prop: '木剑', look: '面向：背面' },
-  style: '不应注入的水彩风格',
   language: 'en',
   generationRules: '正面全身照。\n## 成年人物\n成年规则\n## 未成年或年龄不明\n适龄规则',
   canvas: { width: 1000, height: 1500 },
@@ -16,10 +15,9 @@ test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享�
   const model = createCharacterImageModel(input)
   assert.deepEqual(Object.keys(model), ['character', 'generationRules', 'canvas', 'mode', 'role', 'images', 'modification'])
   assert.deepEqual(Object.keys(model.character), ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features'])
-  assert.equal(Object.hasOwn(model, 'style'), false)
   assert.equal(Object.hasOwn(model, 'language'), false)
   assert.doesNotMatch(model.toPrompt(), /【语言】|本次生成语言|English|简体中文/)
-  assert.doesNotMatch(model.toPrompt(), /视觉风格|不应注入的水彩风格/)
+  assert.doesNotMatch(model.toPrompt(), /视觉风格/)
   assert.equal(model.character.name, '甲')
   assert.equal(model.character.nationality, '中国')
   assert.equal(model.generationRules, input.generationRules)

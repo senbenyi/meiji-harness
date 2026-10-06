@@ -11,7 +11,7 @@ import { builtinSkill } from '../skills/load-skills.js'
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { render } from '../server/prompts/skill-prompts.js'
 
-const root = () => ({ title: '故事标题', summary: { content: '项目设定' }, script: '明确剧本', scriptKind: 'imported', style: '武侠仙侠', outputLanguage: 'zh-CN', aspectRatio: '1344x768', episodes: [] })
+const root = () => ({ title: '故事标题', summary: { content: '项目设定' }, script: '明确剧本', scriptKind: 'imported', outputLanguage: 'zh-CN', aspectRatio: '1344x768', episodes: [] })
 const episode = (id, content, durationSeconds = 150) => ({ id, summary: { content }, durationSeconds })
 const middle = () => ({ ...root(), episodes: [episode('next', '后集开头'), episode('target', '本集旧稿'), episode('first', '前集结尾')] })
 
@@ -34,7 +34,7 @@ test('summary separates identity, one-line tasks, rules, source material and lan
         assert.doesNotMatch(request.user, /本次生成语言|SUPPLEMENT/)
         assert.deepEqual(promptData(request.user, '【项目摘要】'), '项目设定')
         assert.deepEqual(promptData(request.user, '【剧本】'), '明确剧本')
-        assert.deepEqual(promptData(request.user, '【本次要求】'), { durationSeconds: 38, style: '武侠仙侠' })
+        assert.deepEqual(promptData(request.user, '【本次要求】'), { durationSeconds: 38 })
         assert.ok(request.user.indexOf('【本次要求】\n') < request.user.indexOf('【项目摘要】\n'))
       }
       const review = prompts.review('最新摘要')

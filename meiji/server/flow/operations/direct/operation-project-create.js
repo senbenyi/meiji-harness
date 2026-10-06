@@ -13,7 +13,7 @@ export async function opCreate(c) {
   const created = await projects.create(fields)
   await linkStore(home, deps.workspaceController).ensureProject(created.id, projects)
   note(`已创建项目 ${created.title}`)
-  note(`编号 ${created.id}，画幅 ${created.aspectRatio}${created.style ? `，风格 ${created.style}` : ''}`)
+  note(`编号 ${created.id}，画幅 ${created.aspectRatio}`)
   trace.result = { projectId: created.id }
   note('下一步是在项目概要里添加剧集')
   return trace

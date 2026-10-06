@@ -11,7 +11,7 @@ const input = {
   scene: { name: '庭院', landmark: '南门北墙', light: '西侧夕阳', space: '南门通向北墙，中央留出通路', look: '完整门墙与远山', hidden: '无关数据' },
   generationRules: '无人空景，地标和光位保持一致。',
   canvas: { width: 1600, height: 904 },
-  style: '不注入的水彩', language: 'en',
+  language: 'en',
 }
 const base64 = 'data:image/png;base64,b3JpZ2luYWw='
 
@@ -22,7 +22,7 @@ test('场景 model 五项资料独立复制，可 JSON 往返，内部生成具�
   assert.equal(model.toPrompt(), sceneImageModelToPrompt(JSON.parse(JSON.stringify(model))))
   assert.deepEqual(promptData(model.toPrompt(), '【场景资料】'), model.scene)
   assert.deepEqual(promptData(model.toPrompt(), '【本次要求】'), { width: 1600, height: 904, orientation: '横幅' })
-  assert.doesNotMatch(model.toPrompt(), /水彩|【语言】|English|视觉风格|无关数据/)
+  assert.doesNotMatch(model.toPrompt(), /【语言】|English|视觉风格|无关数据/)
   model.scene.name = '新院'
   model.canvas.width = 800
   assert.equal(input.scene.name, '庭院')
@@ -55,7 +55,7 @@ test('模式、画幅和图片用途需有效，空规则不追加默认正文',
 })
 
 test('场景接口保留基础快照，忽略旧本剧覆盖，实际卡与预览同源', () => {
-  const project = { aspectRatio: '1344x768', style: '水彩', outputLanguage: 'en', plot: { scenes: { items: [{ ...input.scene, type: 'scene' }] } } }
+  const project = { aspectRatio: '1344x768', outputLanguage: 'en', plot: { scenes: { items: [{ ...input.scene, type: 'scene' }] } } }
   const set = builtinSkillSet({ additions: { 'scene-image': { generate: '本剧补充：保留真实尺度' } } })
   set.skills['scene-image'].constraints = '基础覆盖：无人空景'
   const model = sceneImageModel(input.scene, project, {}, set)

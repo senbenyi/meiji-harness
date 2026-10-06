@@ -98,10 +98,6 @@ export function storyboardPromptText(item) {
   return h3PromptText(item.prompt)
 }
 
-export function visualStyle(project) {
-  return String(project?.style || '').trim()
-}
-
 // 时长固定为用户设定值；模型返回的时长字段一律忽略。
 export function normalizeEpisodeDraft(raw, referenceDurationSeconds = 150) {
   const failures = episodeSummaryFailures(raw)

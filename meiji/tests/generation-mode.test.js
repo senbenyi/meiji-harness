@@ -21,10 +21,11 @@ for (const generationMode of ['regenerate', 'modify']) {
       return p
     })
     const calls = []
-    await runOperation(e.op('seconds', { track: 'S01', generationMode }), { home: e.home,
-      generateShotSeconds: options => generateShotSeconds({ ...options, request: async ({ skill, user: prompt }) => {
+    // 按意见修改由面板提交当前意见；生成与审核是两个步骤，共用同一个网关请求入口。
+    await runOperation(e.op('seconds', { track: 'S01', generationMode, ...(generationMode === 'modify' ? { review: 'OLD_HUMAN_MARKER' } : {}) }), { home: e.home,
+      request: async ({ skill, user: prompt }) => {
         calls.push({ skill, prompt }); return skill === 'review' ? reviewPass : secondsResponse([['S01',5,'NEW_OUTPUT_MARKER']])
-      } }),
+      },
     })
     const generation = calls[0].prompt
     for (const marker of ['OLD_OUTPUT_MARKER', 'OLD_HUMAN_MARKER', 'OLD_CHECK_MARKER']) assert.equal(generation.includes(marker), generationMode === 'modify', marker)
@@ -97,7 +98,7 @@ test('overlong human input does not clear existing downstream shots', async t =>
   const e = await setupModel(t), before = await e.read()
   await assert.rejects(runOperation(e.op('shot-table', { generationMode: 'modify', review: '改'.repeat(2001) }), {
     home: e.home, generateShots: () => assert.fail('must not generate'),
-  }), { message: '审核意见过长', status: 400 })
+  }), { message: '审核意见过长' })
   const after = await e.read()
   assert.deepEqual(after.shots.items, before.shots.items)
   assert.deepEqual(after.shots.review, before.shots.review)

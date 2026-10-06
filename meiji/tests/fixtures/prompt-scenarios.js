@@ -20,7 +20,7 @@ const supplements = { outline: '【本剧】大纲补充', shots: '【本剧】�
 // 剧集视图（与 materialize 结果同形）：本剧补充、启用的指导与指导素材在 skills（改造前的基线由按集字段生成，内容相同）。
 export function scenarioProject({ language = 'zh-CN', extras = true } = {}) {
   const episode = episodeFixture()
-  const view = { ...episode, id: 'project-1', episodeId: episode.id, mode: 'free', title: '测试剧', aspectRatio: '1344x768', style: '写实电影', outputLanguage: language,
+  const view = { ...episode, id: 'project-1', episodeId: episode.id, mode: 'free', title: '测试剧', aspectRatio: '1344x768', outputLanguage: language,
     projectSummary: '旅人的冒险', script: '', episodeNumber: 1 }
   if (extras) {
     view.skills = { additions: Object.fromEntries(Object.entries({ outline: 'outline', shots: 'shots', seconds: 'seconds', storyboard: 'storyboard', film: 'video' }).map(([stage, id]) => [id, { generate: supplements[stage] }])),
@@ -30,7 +30,7 @@ export function scenarioProject({ language = 'zh-CN', extras = true } = {}) {
 }
 
 function root(view) {
-  return { mode: 'free', title: view.title, summary: { content: view.projectSummary }, aspectRatio: view.aspectRatio, style: view.style, outputLanguage: view.outputLanguage, skills: view.skills,
+  return { mode: 'free', title: view.title, summary: { content: view.projectSummary }, aspectRatio: view.aspectRatio, outputLanguage: view.outputLanguage, skills: view.skills,
     episodes: [{ id: 'e1', summary: { content: '第一集摘要' }, durationSeconds: 60}] }
 }
 

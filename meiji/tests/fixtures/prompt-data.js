@@ -4,7 +4,7 @@ export function promptData(text, title) {
   if (index < 0) throw new Error(`缺少提示词资料块：${title}`)
   const block = text.slice(index + marker.length).split('\n\n')[0]
   if (title === '【本次要求】') {
-    const keys = { 时长: 'durationSeconds', 总时长下限: 'minDurationSeconds', 总时长上限: 'maxDurationSeconds', 单镜时长下限: 'minShotDurationSeconds', 单镜时长上限: 'maxShotDurationSeconds', 项目风格: 'style', 目标镜头: 'shotId', 开始时间: 'startMs', 结束时间: 'endMs' }
+    const keys = { 时长: 'durationSeconds', 总时长下限: 'minDurationSeconds', 总时长上限: 'maxDurationSeconds', 单镜时长下限: 'minShotDurationSeconds', 单镜时长上限: 'maxShotDurationSeconds', 目标镜头: 'shotId', 开始时间: 'startMs', 结束时间: 'endMs' }
     return Object.fromEntries(block.split('\n').flatMap(line => {
       const canvas = line.match(/^画幅：(\d+) × (\d+) 像素，(横幅|竖幅|正方形)$/)
       if (canvas) return [['width', Number(canvas[1])], ['height', Number(canvas[2])], ['orientation', canvas[3]]]

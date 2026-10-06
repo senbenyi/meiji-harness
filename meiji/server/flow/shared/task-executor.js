@@ -20,8 +20,17 @@ import { startRunExecution } from '../../runtime/run-execution.js'
 import { taskDefinition } from '../tasks/task-registry.js'
 import { textStepRegistry } from '../tasks/text-step-registry.js'
 import { operations } from '../operations/operation-registry.js'
+import { requireStepContent } from '../../../shared/text-step-target.js'
 
 
+
+// 修订步骤开始前记下待修订的基稿（与审核输入同一格式），供随后的复审对照修订范围。
+function rememberRevisionBase(c) {
+  const steps = c.deps.task?.steps, context = checkContext.getStore()
+  if (c.operation.step !== 'revise' || !c.deps.runId || !steps?.reviewInput || context.revisionBase !== undefined) return
+  try { context.revisionBase = steps.reviewInput(c.project, c.operation, requireStepContent(c.project, c.deps.task.target, c.operation.episodeId)).text }
+  catch { context.revisionBase = null }
+}
 
 async function executeOperation(operation, deps) {
   const { home } = deps
@@ -49,6 +58,7 @@ async function executeOperation(operation, deps) {
     if (project) checkContext.getStore().originalRoot = structuredClone(project)
     if (!project) throw Object.assign(new Error('没有找到项目'), { status: 404 })
     c.project = project
+    if (handler?.stage === 'project') rememberRevisionBase(c)
     if (handler?.stage === 'project') return operation.step === 'review' && !operation.draft && !(deps.runId && deps.task.target === 'script') ? await runContentReview(c) : await handler.run(c)
     if (handler.stage !== 'project' && !c.operation.episodeId && (c.operation.sessionId || c.project.episodes.length)) {
       if (c.project.episodes.length !== 1) throw Object.assign(new Error('请指定 episodeId 或从对应剧集面板发起操作'), { status: 409 })
@@ -58,6 +68,7 @@ async function executeOperation(operation, deps) {
       c.project = materialize(c.project, c.operation.episodeId)
       c.projects = scopeProjects(rootProjects, c.operation.episodeId, c.operation.action === 'shot-seconds' ? undefined : c.operation.track)
     }
+    rememberRevisionBase(c)
     if (operation.step === 'review') return await runContentReview(c)
     if (handler?.skip?.(c.project, c.operation)) return c.trace
     if (handler?.stage === 'review') return await handler.run(c)
@@ -181,13 +192,14 @@ export async function executeRunStep(run, step, deps) {
   const mode = step.kind === 'revise' ? 'modify' : 'generate'
   const operation = { ...step.input.operation, projectId: run.projectId, episodeId: run.episodeId,
     sessionId: run.sessionId, ...(textKind ? { step: ['review', 're_review'].includes(step.kind) ? 'review' : step.kind, mode, generationMode: mode === 'modify' ? 'modify' : 'regenerate' } : {}) }
-  if (step.kind === 'revise' && step.input.feedback) { operation.review = JSON.stringify(step.input.feedback); operation.instruction = operation.review }
+  // 自动修订的意见取自正文节点上本轮审核结论（prepareChecks 合并）；不写入人工意见栏，也不受人工输入长度限制。
   const task = { type: step.input.taskType, target: step.target, definition, operation, steps: textStepRegistry[step.target?.split(':')[0]] }
   const execution = await startRunExecution(deps.home, run, step, operation)
   execution.signal = deps.signal
   const state = { execution, failure: null }, background = []
   const context = { runId: run.id, writeToken: step.id, taskType: task.type, signal: deps.signal, step: operation.step, steps: task.steps,
-    review: operation.review || '', requirements: operation.requirements || '', maxRevisions: step.kind === 'sync' ? 2 : 0, requestedMode: mode }
+    review: operation.review || '', requirements: operation.requirements || '', maxRevisions: step.kind === 'sync' ? 2 : 0, repairRevisions: run.policy?.maxRevisions ?? 0, requestedMode: mode,
+    ...(step.input.baseNode && operation.track ? { baseline: { episodes: [{ id: run.episodeId, shots: { items: [{ id: operation.track, seconds: step.input.baseNode }] } }] } } : {}) }
   return executionContext.run(execution, () => checkContext.run(context, async () => {
     try {
       if (run.sessionId) await linkStore(deps.home).requireProject(run.sessionId, run.projectId)
@@ -195,7 +207,7 @@ export async function executeRunStep(run, step, deps) {
       const pending = await Promise.allSettled(background), failed = pending.find(item => item.status === 'rejected')
       if (failed) throw failed.reason
       if (step.kind === 'sync' && trace.result?.reviewPassed === false) throw new Error('剧本回写未通过审核，请处理后重试')
-      return textKind && ['review', 're_review'].includes(step.kind) ? { passed: trace.result.reviewPassed, issues: execution.verdict?.issues || [], result: trace.result } : { trace: [...trace], result: trace.result || null }
+      return textKind && ['review', 're_review'].includes(step.kind) ? { passed: trace.result.reviewPassed, issues: execution.verdict?.issues || [], result: trace.result } : { trace: [...trace], result: trace.result || null, ...(context.revisionBase ? { revisionBase: context.revisionBase } : {}) }
     } catch (error) { state.failure = error; throw error }
     finally { await Promise.allSettled(background); await releaseOperation({ operation, deps: { ...deps, writeToken: step.id }, writeToken: step.id, context, state }) }
   }))

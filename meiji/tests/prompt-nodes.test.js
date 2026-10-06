@@ -133,7 +133,8 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
     const node = action === 'outline' ? saved.plot.outline : ['characters', 'scenes'].includes(action) ? saved.plot[action] : action === 'shots' ? saved.shots : saved.shots.items[0].seconds
     assert.notEqual(node.check.passed, true)
     assert.equal(node.operation, null)
-    assert.match(node.error, /REVIEW_UNAVAILABLE/)
+    // 审核接口失败是步骤暂停原因（任务上重试）；正文保持待审，不写成内容错误。
+    assert.equal(node.check.passed, null)
     assert.equal(calls, 2)
   })
 }

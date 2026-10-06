@@ -9,7 +9,7 @@ export function operationDeletes(project, op) {
   const fields = op.fields || {}
   const cardActions = ['character-text', 'scene-text', 'prop-text', 'import-image', 'use-asset', 'clear-image', 'confirm-image']
   const source = selected[0], itemId = op.itemId || source?.pendingImages?.[op.draftId]?.itemId
-  const card = source && Object.keys(libraryKinds).flatMap(key => source.plot[key].items).find(item => item.id === itemId)
+  const card = source && Object.keys(libraryKinds).flatMap(key => source.plot[key]?.items || []).find(item => item.id === itemId)
   if ((cardActions.includes(op.action) && card?.ref && !op.newVariant) || ['entry-edit', 'entry-image', 'entry-image-clear', 'entry-image-confirm', 'entry-merge'].includes(op.action)) {
     const kind = op.libraryKind || Object.keys(libraryKinds).find(key => source?.plot[key].items.includes(card))
     const links = libraryLinks(project, kind, op.libraryId || card.ref.libraryId, op.action === 'entry-merge' || ['name', 'aliases', ...libraryKinds[kind].identity].some(key => fields[key] !== undefined) ? null : op.variantId || card?.ref.variantId)
@@ -20,7 +20,7 @@ export function operationDeletes(project, op) {
   }
   let changes = []
   if (op.action === 'overview') {
-    const type = fields.aspectRatio && fields.aspectRatio !== project.aspectRatio ? 'aspect' : fields.style != null && fields.style !== project.style ? 'style' : null
+    const type = fields.aspectRatio && fields.aspectRatio !== project.aspectRatio ? 'aspect' : null
     if (type) return episodes.flatMap(episode => cascadePreview(episode, { type }))
   }
   if (op.action === 'project-delete') return episodes.flatMap(episode => cascadePreview(episode, { type: 'episode-delete' }))

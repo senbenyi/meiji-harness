@@ -9,7 +9,7 @@ import { normalizeRunGoal } from '../shared/run-templates.js'
 import { contextQueryTool } from '../tools/operation-context-query.js'
 import { projectManageTool } from '../tools/operation-project-manage.js'
 const graph = JSON.parse(readFileSync(new URL('../skills/tool-graph.json', import.meta.url)))
-test('工具图谱覆盖会话操作与所有生成任务，依赖无环且声明顺序一致', () => {
+test('工具图谱覆盖会话工具与所有生成职责，依赖无环且声明顺序一致', () => {
   const tools = [...runTools({}), contextQueryTool({}), projectManageTool({})]
   const names = tools.map(tool => tool.name)
   assert.equal(new Set(names).size, names.length)
@@ -17,7 +17,7 @@ test('工具图谱覆盖会话操作与所有生成任务，依赖无环且声�
   for (const tool of tools) assert.equal(tool.parameters.additionalProperties, false)
   const covered = new Set(['save', ...graph.panelOnlyTasks]), skills = new Set(stageCatalog.map(item => item.id))
   for (const row of [...graph.stages, ...graph.maintenance]) {
-    assert.ok(operations[row.operation]); if (row.tool) assert.equal(row.tool, 'run-plan')
+    if (row.tool) assert.equal(row.tool, 'run-plan')
     assert.equal(normalizeRunGoal({ to: row.id }).to, row.id)
     for (const task of row.tasks) { assert.ok(taskRegistry[task]); covered.add(task) }
     for (const skill of row.skills) assert.ok(skills.has(skill), skill)
@@ -25,7 +25,8 @@ test('工具图谱覆盖会话操作与所有生成任务，依赖无环且声�
   assert.deepEqual(covered, new Set(Object.keys(taskRegistry)))
   const seen = new Set()
   for (const row of graph.stages) { for (const dependency of row.after) assert.ok(seen.has(dependency)); seen.add(row.id) }
-  assert.equal(operations['character-image'].agent, false); assert.equal(operations['scene-image'].agent, false); assert.equal(operations['prop-image'].agent, false)
+  // 制作目标不在即时保存登记表里；会话只能经 run-plan 提交目标。
+  for (const row of [...graph.stages, ...graph.maintenance]) assert.equal(operations[row.id], undefined, row.id)
   const session = readFileSync(new URL('../skills/session/panel.md', import.meta.url), 'utf8')
   assert.doesNotMatch(session, /meiji_content_generate|meiji_task_control|job_wait|job_read/)
   assert.match(session, /job_output/)

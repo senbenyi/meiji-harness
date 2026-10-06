@@ -3,7 +3,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { renderNodeSkill } from '../client/node-skill.js'
-import { renderTaskHistory } from '../client/execution-history.js'
 import { episodeDialog } from '../client/project-overview-view.js'
 const settle = () => new Promise(resolve => setImmediate(resolve))
 function setup(t) {
@@ -30,15 +29,6 @@ test('默认基础 tab，补充整段载入并保存，切换和失败保留输�
   await save.onclick(); assert.match(view.textContent, /保存失败/); assert.equal(input.value, '整段新意见')
   await save.onclick(); assert.deepEqual(calls.at(-1), { content: '整段新意见', replace: true })
   input.value = ''; await save.onclick(); assert.deepEqual(calls.at(-1), { content: '', replace: true })
-})
-test('历史刷新保留任务展开，步骤更新并高亮当前步骤', async t => {
-  const root = setup(t), task = actionRequest('outline', { id: 't', status: 'running', nodes: [{ id: 's', target: 'outline', kind: 'generate', status: 'running' }], artifacts: [] })
-  const view = renderTaskHistory({ title: '测试', episodeId: 'e' }, { load: async () => ({ tasks: [structuredClone(task)] }), back() {}, historyScope: 'outline' })
-  root.append(view); await settle(); view.querySelector('.task-history-item').open = true
-  assert.ok(view.querySelector('[aria-current="step"]'))
-  task.status = 'completed'; task.nodes[0].status = 'completed'; await view.refresh()
-  assert.equal(view.querySelector('.task-history-item').open, true); assert.equal(view.querySelector('[aria-current="step"]'), null)
-  assert.equal(view.querySelector('.task-history-header button:last-child').type, 'button')
 })
 test('摘要弹框任务回调实时显示步骤，历史入口不触发表单提交', async t => {
   const root = setup(t)

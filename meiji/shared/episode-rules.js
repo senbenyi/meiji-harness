@@ -4,13 +4,17 @@ import { cascade } from './pipeline-cascade.js'
 import { aspectRatioOf, durationOf, replaceFrom } from './project-rules.js'
 
 const scriptLimit = 200000
-export function normalizeProject(project) { return assertDrama(project) }
+export function normalizeProject(project) {
+  if (!project || typeof project !== 'object') return assertDrama(project)
+  const { style: _removedStyle, ...withoutStyle } = project
+  return assertDrama(withoutStyle)
+}
 export function materialize(project, episodeId) {
   const episode = project.episodes.find(item => item.id === episodeId)
   if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
   const ordered = [...project.episodes].reverse()
   const index = ordered.findIndex(item => item.id === episodeId)
-  return { ...episode, episodeNumber: index + 1, previousEpisodeSummary: ordered[index - 1]?.summary?.content, nextEpisodeSummary: ordered[index + 1]?.summary?.content, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, style: project.style, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, mode: project.mode, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, libraryPendingImages: project.pendingImages, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
+  return { ...episode, episodeNumber: index + 1, previousEpisodeSummary: ordered[index - 1]?.summary?.content, nextEpisodeSummary: ordered[index + 1]?.summary?.content, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, mode: project.mode, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, libraryPendingImages: project.pendingImages, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
 }
 export function foldEpisode(project, episodeId, view) {
   const episode = project.episodes.find(item => item.id === episodeId)
@@ -58,9 +62,6 @@ export function overviewPatch(project, input) {
   if (!title || title.length > 100) throw Object.assign(new Error('短剧标题需为 1–100 字'), { status: 400 })
   const storedAspect = project?.aspectRatio || '1344x768'
   const aspectRatio = input?.aspectRatio == null || input.aspectRatio === '' ? storedAspect : aspectRatioOf(input.aspectRatio)
-  const style = typeof input?.style === 'string' ? input.style.trim() : (typeof project?.style === 'string' ? project.style.trim() : '')
-  if (style.length > 120) throw Object.assign(new Error('风格需为 1–120 字'), { status: 400 })
-  const changed = aspectRatio !== project.aspectRatio || style !== project.style
-  return { title, aspectRatio, style, ...(changed && Array.isArray(project.episodes) ? { episodes: (project.episodes || []).map(episode => ({ ...episode, ...cascade(episode, { type: 'aspect' }).patch })) } : {}) }
+  const changed = aspectRatio !== project.aspectRatio
+  return { title, aspectRatio, ...(changed && Array.isArray(project.episodes) ? { episodes: (project.episodes || []).map(episode => ({ ...episode, ...cascade(episode, { type: 'aspect' }).patch })) } : {}) }
 }
-

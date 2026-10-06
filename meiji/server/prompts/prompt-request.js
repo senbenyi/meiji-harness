@@ -1,7 +1,7 @@
 // 统一的文本请求结构。所有文本步骤（摘要、剧情四类、镜头表、每秒指令、单镜修订、图片提示词改写、文本分镜审核）
 // 都按同一顺序组装三类请求，各步骤只提供内容：
 //   system：角色 → 规则及补充 → 范围边界 → 输出协议。
-//   user：本次任务 → 本次要求（已解析的语言、时长、风格等）→ 具名资料 → 基稿与意见 → 待审内容。
+//   user：本次任务 → 本次要求（已解析的语言、时长等）→ 具名资料 → 基稿与意见 → 待审内容。
 import { segment } from './skill-prompts.js'
 import { checkContext } from '../runtime/operation-context.js'
 import { contentData } from './prompt-text.js'

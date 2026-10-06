@@ -19,7 +19,7 @@ export function goalRequest(action, fields = {}) {
   if (operation.action === 'library-image') scope.library = { kind: operation.libraryKind, id: operation.libraryId, variantId: operation.variantId }
   if (operation.action === 'script-revise' && operation.fromEpisode !== undefined) scope.fromEpisode = Number(operation.fromEpisode) + 1
   const goal = { to, ...(operation.from ? { from: operation.from } : {}), scope,
-    mode: operation.mode || (feedback ? 'modify' : operation.generationMode === 'regenerate' ? 'regenerate' : 'generate'),
+    mode: operation.mode || (feedback || operation.generationMode === 'modify' ? 'modify' : operation.generationMode === 'regenerate' ? 'regenerate' : 'generate'),
     ...(feedback ? { feedback } : {}), ...(operation.requirements ? { requirements: operation.requirements } : {}), ...(operation.draft ? { draft: true } : {}),
     ...(operation.referenceDurationSeconds || operation.durationSeconds ? { durationSeconds: Number(operation.referenceDurationSeconds || operation.durationSeconds) } : {}), ...(operation.parts ? { parts: operation.parts } : {}),
     ...(to === 'images' && (operation.aspect || operation.useReference !== undefined || operation.draftId) ? { image: { ...(operation.aspect ? { aspect: operation.aspect } : {}), ...(operation.useReference !== undefined ? { useReference: Boolean(operation.useReference) } : {}), ...(operation.draftId ? { draftId: operation.draftId } : {}) } } : {}) }

@@ -25,7 +25,8 @@ export function createImmediateService({ home, workspaceController, runs, deps =
           controller.signal.throwIfAborted()
           if (operation.projectId && operation.sessionId && operation.action !== 'project-delete') await linkStore(home).requireProject(operation.sessionId, operation.projectId)
           const before = operation.projectId ? await projectStore(home).read(operation.projectId) : null
-          const result = await execute(operation, definition, { ...deps, ...options, home, workspaceController: options.workspaceController || workspaceController, editId: id, signal: controller.signal, session, deferReview: reviewedEdits.has(operation.action) })
+          const deferReview = reviewedEdits.has(operation.action) && Boolean(await runs?.ownsEdit(operation))
+          const result = await execute(operation, definition, { ...deps, ...options, home, workspaceController: options.workspaceController || workspaceController, editId: id, signal: controller.signal, session, deferReview })
           if (runs && before && operation.action !== 'project-delete') result.continueRun = await runs.contentChanged(operation, before)
           if (before && operation.action !== 'project-delete') await historyStore(home, before.id).event(operation.action, { episodeId: operation.episodeId || null, ...(result.continueRun ? { runId: result.continueRun.runId } : {}), target: operation.target || operation.track || operation.itemId || null })
           return { ...result, status: 'completed' }

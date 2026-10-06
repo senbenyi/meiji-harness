@@ -1,5 +1,4 @@
 import { episodeFixture } from './fixtures/model.js'
-import { executeTask } from '../server/flow/shared/task-executor.js'
 import { actionRequest } from '../client/goal-request.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -94,8 +93,8 @@ test('legacy workspace mappings do not claim ambiguous sessions', () => fixture(
 
 test('HTTP selection binds current session, creates one only when absent, and rejects unrelated writes', () => fixture(async ({ home, rows, persist, controller, projects, create }) => {
   const { registerPanel } = await import('../server/http/panel-routes.js')
-  const { createOperationManager } = await import('../server/flow/operations/operation-manager.js')
-  let handler, manager
+  const { createImmediateService } = await import('../server/flow/immediate-service.js')
+  let handler
   const sessionCreates = []
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -114,7 +113,7 @@ test('HTTP selection binds current session, creates one only when absent, and re
       connection: { requestRejection: () => null },
       webServer: { register: route => { handler = route.handler } },
       effect: fn => fn(), on() {}, logger: { warn() {} },
-    }, Promise.resolve(), manager = createOperationManager({ home, workspaceController: controller, execute: (op, deps) => op.action === 'shot-table' ? Promise.resolve([]) : executeTask(op, deps) }), undefined, { begin: async () => ({ ref: { id: 'goal-selection', revision: 1 }, finish() {}, discard() {} }) })
+    }, Promise.resolve(), createImmediateService({ home, workspaceController: controller }), { list: async () => [] })
   } finally {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous
@@ -144,23 +143,10 @@ test('HTTP selection binds current session, creates one only when absent, and re
   assert.equal(edited.completed, true)
   assert.equal(edited.project.title, '本地修改')
   assert.equal((await projects.read(project.id)).summary.content, project.summary.content)
-  // Generation buttons also bypass the chat controller and return immediately.
-  const blocked = await call('turn', actionRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
-  assert.equal(blocked.status, 409)
+  // 制作不走即时保存入口：/turn 拒绝制作动作，面板改经 /runs 预览与确认。
+  const refused = await call('turn', actionRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
+  assert.equal(refused.status, 400); assert.equal(refused.code, 'RUN_GOAL_REQUIRED')
   await projects.save(project.id, { episodes: [episodeFixture()] })
-  const generated = await call('turn', actionRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
-  assert.equal(generated.status, 202)
-  assert.ok(generated.operationId)
-  for (let attempt = 0; attempt < 100; attempt++) {
-    let result
-    await handler({ url: '/plugins/meiji/operations/current?' + new URLSearchParams({ projectId: project.id, sessionId: first.sessionId }), method: 'GET', headers: {} }, {
-      writeHead() {}, end(text) { result = JSON.parse(text) },
-    })
-    if (!result.operations.length) break
-    await new Promise(resolve => setTimeout(resolve, 5))
-    assert.notEqual(attempt, 99, 'background task must settle')
-  }
-  await manager.whenEnded(generated.operationId)
   const { EventEmitter } = await import('node:events')
   const stream = new EventEmitter(), updates = []
   stream.writeHead = code => assert.equal(code, 200)

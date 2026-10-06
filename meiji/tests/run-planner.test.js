@@ -50,18 +50,21 @@ test('单镜意见保留之前各镜内容与删除边界，后续镜头仍按�
   assert.ok(!result.deletions.some(item => item.track === 'S01'))
   assert.ok(result.deletions.some(item => item.track === 'S02'))
 })
-test('已满足目标跳过且不删除，成片按引用图片和尾帧依赖，缺一镜指令不阻断另一镜', () => {
+test('已满足目标跳过且不删除，成片按引用图片依赖并逐镜接续前一镜尾帧，前置只挂在缺指令的那一镜', () => {
   const project = view()
   const seconds = checked(planRun(project, { to: 'seconds' }))
   assert.ok(seconds.steps.every(step => step.status === 'skipped')); assert.deepEqual(seconds.deletions, [])
   project.shots.items[0].seconds.check.passed = false
-  project.shots.items[1].storyboard.content.tailReference = { sourceShotId: 'S01' }
+  // 没有既存尾帧引用时，后一镜也等前一镜尾帧：前镜未完成会卡住其后各镜。
   const film = checked(planRun(project, { to: 'film' }))
   const first = film.steps.find(step => step.key === 'storyboard@storyboard:S01')
   const second = film.steps.find(step => step.key === 'storyboard@storyboard:S02')
   assert.ok(first.input.required.some(item => item.key === 'seconds@S01'))
   assert.ok(!second.input.required.some(item => item.key === 'seconds@S01'))
   assert.ok(second.after.includes(film.steps.find(step => step.key === 'tail@film:S01').id))
+  assert.deepEqual(first.after, [])
+  // 只做单镜时没有同任务的前一镜可等。
+  assert.deepEqual(checked(planRun(project, { to: 'film', scope: { tracks: ['S02'] } })).steps.find(step => step.key === 'storyboard@storyboard:S02').after, [])
 })
 test('图片变更只作废引用镜头及其尾帧链，不作废无关镜头', () => {
   const project = view(); project.shots.items[0].content = '旅人【旅人|C01】'; project.shots.items[0].video.content = { status: 'ready', file: 'test.mp4' }; project.shots.items[1].content = '空镜'
@@ -70,5 +73,5 @@ test('图片变更只作废引用镜头及其尾帧链，不作废无关镜头',
   assert.ok(targets.includes('film:S01')); assert.ok(!targets.includes('film:S02'))
 })
 test('目标拒绝任意执行字段、非法范围、空意见与反向链', () => {
-  for (const goal of [{ to: 'film', actor: 'human' }, { to: 'film', scope: { tracks: ['S01', 'S01'] } }, { to: 'story', mode: 'modify' }, { from: 'film', to: 'story' }]) assert.throws(() => normalizeRunGoal(goal))
+  for (const goal of [{ to: 'film', actor: 'human' }, { to: 'film', scope: { tracks: ['S01', 'S01'] } }, { to: 'story', mode: 'modify', feedback: ' ' }, { from: 'film', to: 'story' }]) assert.throws(() => normalizeRunGoal(goal))
 })

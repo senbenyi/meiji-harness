@@ -19,7 +19,7 @@ export class EpisodeSummaryModel {
     this.role = '短剧分集编剧'
     this.aiCreation = isAiCreation(project)
     this.project = { title: project.title || '', summary: project.summary?.content || '', script: project.script || '', premise: creativeDirection(project),
-      style: project.style || '', outputLanguage: outputLanguage(project.outputLanguage) }
+      outputLanguage: outputLanguage(project.outputLanguage) }
     this.target = { episodeId: episodeId || null, episodeNumber: index + 1, referenceDurationSeconds: reference }
     const fact = (episode, position) => ({ episodeId: episode.id, episodeNumber: position + 1, durationSeconds: episode.durationSeconds, summary: episode.summary.content })
     this.previousEpisodes = ordered.slice(0, index).map(fact)
@@ -40,7 +40,7 @@ export class EpisodeSummaryModel {
       segment('context', '【必须出场角色】', this.requiredCharacters),
       segment('context', '【AI 创作方向】', this.project.premise),
       segment('context', '【项目摘要】', this.project.summary),
-      segment('context', '【本次参数】', { durationSeconds: duration, ...(this.project.style ? { style: this.project.style } : {}) }),
+      segment('context', '【本次参数】', { durationSeconds: duration }),
       segment('context', '【前集摘要】', this.previousEpisodes.length ? { episodes: this.previousEpisodes } : ''),
       segment('context', '【后集摘要】', this.followingEpisodes.length ? { episodes: this.followingEpisodes } : ''),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),

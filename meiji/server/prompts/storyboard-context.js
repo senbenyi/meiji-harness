@@ -10,7 +10,7 @@ export function storyboardContext({ project, shot, video, characters = [], scene
     task: task || `仅为 ${shot.id} 将已通过的每秒指令直接编排为时长 ${shot.duration}s 的最终视频提示词，不输出其他镜头。`,
     review: task || '',
     facts: [
-      { title: '【本次参数】', text: { shotId: shot.id, durationSeconds: shot.duration, mode: video, ...(project.style ? { style: project.style } : {}) } },
+      { title: '【本次参数】', text: { shotId: shot.id, durationSeconds: shot.duration, mode: video } },
       { title: '【上游事实：本镜已通过每秒指令（唯一时间线来源）】', text: { seconds: shot.seconds?.content || null } },
       { title: '【关联人物资料，仅用于身份与外观】', text: people.length ? { characters: people } : '' },
       { title: '【关联场景资料，仅用于环境与地标】', text: places.length ? { scenes: places } : '' },

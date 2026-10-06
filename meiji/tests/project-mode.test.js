@@ -5,9 +5,9 @@ import { runOperation } from './fixtures/operation.js'
 import { projectStore, validateProject } from '../server/data/project-store.js'
 import { scriptStore } from '../server/data/script-store.js'
 
-test('默认自由模式，方向必填且持久化原文；两种模式拒绝混合资料', async t => {
+test('自由模式方向必填且持久化原文；两种模式拒绝混合资料', async t => {
   const home = await tempHome(t), projects = projectStore(home)
-  const project = await projects.create({ title: '自由创作', premise: '  主角寻找姐姐，揭开旧案。  ' })
+  const project = await projects.create({ title: '自由创作', mode: 'free', premise: '  主角寻找姐姐，揭开旧案。  ' })
   const saved = await projectStore(home).read(project.id)
   assert.equal(saved.mode, 'free'); assert.equal(saved.premise, '主角寻找姐姐，揭开旧案。')
   assert.equal(saved.scriptKind, 'assembled'); assert.equal(saved.script, '')

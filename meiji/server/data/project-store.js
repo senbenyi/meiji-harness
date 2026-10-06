@@ -24,16 +24,14 @@ export function validateProject(input) {
   if (!title || title.length > 100) throw new Error('短剧标题需为 1–100 字')
   if (summary.length > 10000) throw new Error('摘要最多 10000 字')
   if (script.length > 200000) throw new Error('剧本过长')
-  const mode = input?.mode ?? 'free'
+  const mode = input?.mode ?? 'script'
   const premise = typeof input?.premise === 'string' ? input.premise.trim() : ''
   if (!['free', 'script'].includes(mode)) throw Object.assign(new Error('项目模式无效'), { status: 400 })
   if (mode === 'free' && (!premise || [...premise.replace(/\s/g, '')].length > 1000)) throw Object.assign(new Error('自由模式的 AI 创作方向必填，最多 1000 字'), { status: 400 })
   if (mode === 'free' && (script || input?.scriptAssetId)) throw Object.assign(new Error('自由模式不导入剧本，请选择剧本模式'), { status: 400 })
   if (mode === 'script' && !script) throw Object.assign(new Error('剧本模式必须提供剧本'), { status: 400 })
   if (mode === 'script' && premise) throw Object.assign(new Error('剧本模式不使用 AI 创作方向'), { status: 400 })
-  const style = typeof input?.style === 'string' ? input.style.trim() : ''
-  if (style.length > 120) throw new Error('风格需为 1–120 字')
-  const fields = { title, mode, premise, summary, script, style, aspectRatio: aspectRatioOf(input?.aspectRatio) }
+  const fields = { title, mode, premise, summary, script, aspectRatio: aspectRatioOf(input?.aspectRatio) }
   if (input?.scriptAssetId) fields.scriptAssetId = input.scriptAssetId
   if (input?.scriptName) fields.scriptName = input.scriptName
   if (input?.durationSeconds != null && input.durationSeconds !== '') fields.durationSeconds = durationOf(input.durationSeconds)
@@ -180,7 +178,7 @@ export function revisionStore(store, writeToken, scope = {}) {
     }))
     const group = ['characters', 'scenes', 'props'].includes(scope.action) ? scope.action : null
     const value = group && episode ? { summary: episode.summary, durationSeconds: episode.durationSeconds, outline: episode.plot.outline, group: episode.plot[group], ...(group === 'props' ? { characters: episode.plot.characters, scenes: episode.plot.scenes } : {}) } : episode && scope.track ? { summary: episode.summary, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: selectedShot, ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
-    return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, style: project.style, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision', 'skills', 'supplementalSkills'].includes(key) ? undefined : value)
+    return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision', 'skills', 'supplementalSkills'].includes(key) ? undefined : value)
   }
   const guarded = Object.create(store)
   guarded.read = async id => {

@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { tempHome } from './fixtures/model.js'
 
 const character = { id: 'C01', type: 'role', name: '甲', nationality: '中国', role: '旅人', gender: '男', era: '现代', age: '23', height: '一米八', build: '健壮', features: '短发方脸', costume: '旧外套', prop: '木剑', look: '面向：背面' }
-const view = item => ({ style: '水彩', outputLanguage: 'en', plot: { characters: { items: [item] } }, skills: { additions: { 'character-image': { generate: '本剧人物图补充' } } } })
+const view = item => ({ outputLanguage: 'en', plot: { characters: { items: [item] } }, skills: { additions: { 'character-image': { generate: '本剧人物图补充' } } } })
 const preview = (project, skillSet) => previewPrompts({ stage: 'character-image', root: {}, view: project, skillSet }).image
 
 test('人物模块自行选择外观字段，排除剧情服装、道具与旧面向指令', () => {
@@ -46,7 +46,7 @@ test('人物固定约束只读且不受旧基础覆盖和本剧补充影响', as
   assert.deepEqual((await store.get('character-image')).previous, [])
   assert.deepEqual(skillUse(set, 'character-image').layers, ['builtin'])
   assert.doesNotMatch(actual, /本次生成语言|English|简体中文/)
-  assert.doesNotMatch(actual, /项目视觉风格|水彩/)
+  assert.doesNotMatch(actual, /项目视觉风格/)
   assert.match(actual, /【人物资料】/); assert.deepEqual(promptData(actual, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '一米八', build: '健壮', features: '短发方脸' })
 })
 
@@ -87,7 +87,7 @@ test('人物预览选第一张人物卡；没有人物时明确标记为模板�
   project.plot.characters.items.push({ ...character, id: 'C02', name: '乙' })
   const set = builtinSkillSet(project.skills)
   assert.equal(render(preview(project, set).user), characterImagePrompt(character, project, set))
-  const empty = { style: '水彩', skills: {} }
+  const empty = { skills: {} }
   const template = render(preview(empty, builtinSkillSet()).user)
   assert.match(template, /当前仅预览技能模板/)
   assert.match(template, /具体年龄约束以人物卡为准/)

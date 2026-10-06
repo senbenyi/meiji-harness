@@ -1,7 +1,7 @@
 import { node, allNodes } from './drama-model.js'
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
-const rules = { summary: 1, outline: 2, cards: 3, rename: 4, appearance: 5, image: 6, 'card-delete': 7, shots: 8, shot: 9, seconds: 10, storyboard: 11, video: 12, reference: 13, aspect: 14, style: 15, library: 16, merge: 17, 'episode-delete': 18 }
+const rules = { summary: 1, outline: 2, cards: 3, rename: 4, appearance: 5, image: 6, 'card-delete': 7, shots: 8, shot: 9, seconds: 10, storyboard: 11, video: 12, reference: 13, aspect: 14, library: 16, merge: 17, 'episode-delete': 18 }
 const labels = { outline: '剧情大纲', characters: '人物卡', scenes: '场景卡', props: '道具卡', shots: '镜头表', seconds: '每秒指令', storyboard: '分镜提示词', video: '视频', tailFrame: '尾帧', assembly: '合成' }
 
 export function shotReferences(shot, id) {
@@ -149,7 +149,7 @@ export function cascadeChanges(before, after) {
       const type = !same(previous.seconds.content, shot.seconds.content) ? 'seconds' : !same(previous.storyboard.content, shot.storyboard.content) ? 'storyboard' : !same(previous.video.content, shot.video.content) ? 'video' : null
       if (type) apply({ type, track: shot.id })
     }
-    if (before.aspectRatio !== next.aspectRatio || before.style !== next.style) apply({ type: 'aspect' })
+    if (before.aspectRatio !== next.aspectRatio) apply({ type: 'aspect' })
   }
   return next
 }

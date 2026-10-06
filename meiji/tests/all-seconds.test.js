@@ -6,8 +6,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { runOperation } from './fixtures/operation.js'
-import { recordStore } from '../server/data/task-store.js'
+import { runOperation, latestRun } from './fixtures/operation.js'
+import { runStore } from '../server/data/run-store.js'
 import { generateAllSeconds } from './fixtures/seconds-generation.js'
 import { buildSecondsPrompts } from '../server/prompts/shot-text-prompts.js'
 import { feedbackOf, overrideBlocker } from '../shared/review-feedback.js'
@@ -17,9 +17,11 @@ async function environment(t) {
  await models.write({ ...await models.read(), apiKey: 'test-only' })
  return e
 }
-const execute = (e, request, operation = {}, deps = {}) => runOperation(e.op('seconds', operation), {
- home: e.home, ...deps, request,
-})
+// 面板的整集「按意见修改」提交输入框里的当前整集意见（可为空：只按自审问题修订）。
+const execute = async (e, request, operation = {}, deps = {}) => {
+ const review = operation.generationMode === 'modify' && operation.review === undefined ? (await e.read()).shots.seconds.review.text : operation.review
+ return runOperation(e.op('seconds', { ...operation, ...(review ? { review } : { review: undefined }) }), { home: e.home, ...deps, request })
+}
 const reply = message => message.skill === 'review' ? reviewPass : secondsForRequest(message)
 
 test('逐镜生成和审核，后镜引用本轮前镜完整指令，历史按镜头记录', async t => {
@@ -35,10 +37,11 @@ test('逐镜生成和审核，后镜引用本轮前镜完整指令，历史按�
  assert.ok(p.shots.items.every(s => s.seconds.check.passed && !s.seconds.operation))
  assert.ok(p.shots.items.every(s => s.storyboard.content === null))
  assert.equal(p.shots.seconds.status, 'passed')
- const tasks = (await recordStore(e.home, e.id).list('tasks')).sort((a, b) => a.targets[0].localeCompare(b.targets[0]))
- assert.deepEqual(tasks.map(task => [task.type, task.label, task.status]), [['shot-seconds', '每秒指令 S01', 'completed'], ['shot-seconds', '每秒指令 S02', 'completed']])
- assert.deepEqual(tasks.flatMap(task => task.nodes).filter(s => s.status === 'completed').map(s => `${s.kind}:${s.target}`), ['generate:seconds:S01', 'review:seconds:S01', 'generate:seconds:S02', 'review:seconds:S02'])
- assert.ok(tasks.every(task => task.nodes.every(s => !s.unplanned)))
+ // 一个任务内逐镜生成与审核，后一镜依赖前一镜的审核步骤。
+ const run = await latestRun(e.home, e.id)
+ assert.equal(run.status, 'completed')
+ assert.deepEqual(run.steps.map(step => `${step.kind}:${step.target}:${step.status}`), ['generate:seconds:S01:done', 'review:seconds:S01:done', 'generate:seconds:S02:done', 'review:seconds:S02:done'])
+ assert.deepEqual(run.steps[2].after, [run.steps[1].id])
 })
 
 for (const count of [1, 2, 5]) test(`生成 ${count} 镜分别请求，不发整集请求`, async () => {
@@ -111,16 +114,15 @@ for (const failure of ['review', 'program', 'api', 'cancel']) test(`第二镜 ${
 for (const invalid of ['truncated', 'foreign']) test(`${invalid} 响应不覆盖旧内容，失败原文留在历史`, async t => {
  const e = await environment(t), before = await e.read()
  const text = invalid === 'truncated' ? secondsResponse().slice(0, -8) : secondsResponse([['S02', 5, '错误镜头']])
- await assert.rejects(execute(e, async m => m.skill === 'review' ? reviewPass : text), /自审|自检/)
+ // 无法解析或与本镜不对应的原文不保存为正文：生成步骤内按校验问题修订两轮仍不通过后暂停，各轮原文留在未发布快照。
+ await assert.rejects(execute(e, async m => m.skill === 'review' ? reviewPass : text), /格式无效/)
  const p = await e.read()
  assert.deepEqual(p.shots.items.map(s => s.seconds.content), before.shots.items.map(s => s.seconds.content))
- const records = recordStore(e.home, e.id), tasks = await records.list('tasks')
- // S01 审核不通过（修订用完），其后的 S02 按停止规则取消。
- const status = Object.fromEntries(tasks.map(item => [item.targets[0], item.status]))
- assert.deepEqual(status, { 'seconds:S01': 'review_failed', 'seconds:S02': 'cancelled' })
- const task = { artifacts: tasks.flatMap(item => item.artifacts) }
- const responses = await Promise.all(task.artifacts.filter(a => a.target === 'seconds-response').map(a => records.read('artifacts', a.artifactId)))
- // 生成 + 默认 2 轮修订，各保存一份原始响应。
+ const records = runStore(e.home, e.id), run = await latestRun(e.home, e.id)
+ // S01 的步骤暂停，依赖它的 S02 不执行（夹具收尾时取消未完成的任务）。
+ assert.ok(run.steps.filter(step => step.target === 'seconds:S02').every(step => step.status === 'cancelled' && !step.startedAt))
+ const responses = (await Promise.all(run.steps.map(step => records.records(run.id, step.id, 'artifacts')))).flat().filter(a => a.target === 'seconds-response')
+ // 生成 + 2 轮修订，各保存一份原始响应。
  assert.equal(responses.length, 3)
  assert.ok(responses.every(a => a.content.text === text))
 })

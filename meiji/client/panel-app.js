@@ -234,11 +234,12 @@ export function mount() {
   })
   const actions = {
     openLibraryCard: (episodeId, itemId, kind) => { currentPage = null; hold = false; if (kind === 'characters') { openCharacter = { episodeId, itemId }; openScene = null } else if (kind === 'scenes') { openScene = { episodeId, itemId }; openCharacter = null } else { openEpisode = episodeId; openTab = tabs[0].id }; follow(true).catch(error => shell.status(error.message)) },
-    openLibrary: (project, kind) => {
+    openLibrary: (project, kind, entryId = null) => {
       hold = true; navigation++
-      currentPage = renderProjectLibrary(rootProject(modelStore, project) || project, kind, { ...actions, load: async () => { const result = await request('projects/' + project.id); result.project = withRunActivity(result.project, liveRuns); return result }, back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) } })
+      currentPage = renderProjectLibrary(rootProject(modelStore, project) || project, kind, { ...actions, load: async () => { const result = await request('projects/' + project.id); result.project = withRunActivity(result.project, liveRuns); return result }, back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) } }, { entryId })
       display(currentPage)
     },
+    openLibraryEntry: (project, kind, entryId) => actions.openLibrary(project, kind, entryId),
     openScript: project => {
       hold = true; navigation++
       const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
@@ -395,9 +396,13 @@ export function mount() {
       created = true
       enterWorkspace(place)
       if (input.mode === 'script') {
-        const sessionId = place.sessionId || currentSessionId(), scope = { projectId: place.projectId, sessionId }
-        const planned = await request('runs', { method: 'POST', ...jsonBody({ ...scope, ...goalRequest('project-summary') }) })
-        await request(`runs/${planned.run.id}/confirm`, { method: 'POST', ...jsonBody({ ...scope, authorizePrereq: [], confirmDelete: true }) })
+        void (async () => {
+          try {
+            const sessionId = place.sessionId || currentSessionId(), scope = { projectId: place.projectId, sessionId }
+            const planned = await request('runs', { method: 'POST', ...jsonBody({ ...scope, ...goalRequest('project-summary') }) })
+            await request(`runs/${planned.run.id}/confirm`, { method: 'POST', ...jsonBody({ ...scope, authorizePrereq: [], confirmDelete: true }) })
+          } catch (error) { shell.status(`项目摘要生成启动失败：${error.message}`) }
+        })()
       }
     } finally { if (!created) events.resume() }
   })
@@ -433,9 +438,10 @@ export function mount() {
   })
   const openCatalogDialog = catalogDialog(shell.root)
   function enterWorkspace(place) {
-    // Harness restores the selected session from this persisted selection on boot.
+    // 先切换详情页，再让创建后的后台目标异步启动；避免整页 reload 中断请求。
     localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: place.sessionId }))
-    window.location.reload()
+    events.resume()
+    follow(true).catch(error => shell.status(error.message))
   }
   async function bind(project) {
     const place = await request('link', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId() }) })

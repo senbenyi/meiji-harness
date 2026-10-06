@@ -16,9 +16,19 @@ function setup(t, create, options) {
   const root = dom.window.document.querySelector('main'), open = projectDialog(root, create, options)
   open()
   const dialog = root.querySelector('dialog'), form = dialog.querySelector('form')
-  form.elements.premise.value = '人的创作方向'; form.elements.title.value = '测试项目'; form.elements.style.value = '写实电影'
+  form.elements.premise.value = '人的创作方向'; form.elements.title.value = '测试项目'
+  if (options?.mode !== null) { form.elements.mode.value = options?.mode || 'free'; form.elements.mode.onchange() }
   return { root, dialog, form, open, submit: () => form.onsubmit({ preventDefault() {} }) }
 }
+
+test('创建页默认剧本模式，导入剧本紧跟创作模式且不显示风格字段', async t => {
+  const e = setup(t, async () => {}, { mode: null })
+  assert.equal(e.form.elements.mode.value, 'script')
+  assert.ok(e.form.querySelector('.script-import').compareDocumentPosition(e.form.elements.title) & 4)
+  assert.equal(e.form.elements.style, undefined)
+  e.form.elements.mode.value = 'free'; e.form.elements.mode.onchange()
+  assert.equal(e.form.querySelector('[name="style"]'), null)
+})
 
 test('successful creation closes dialog and overlay and prevents duplicate submissions', async t => {
   let resolve, calls = 0
@@ -53,11 +63,12 @@ test('创建页选择剧本保留文件名，不发起模型任务；移除和�
   const picker = e.dialog.querySelector('.script-picker')
   picker.value = 'script-id'; await picker.onchange()
   assert.equal(e.dialog.querySelector('.script-selected').textContent, '来信.txt')
+  assert.equal(e.form.elements.title.value, '来信')
   await e.submit()
   assert.equal(created.scriptAssetId, 'script-id'); assert.equal(created.summary, undefined)
   assert.equal(calls.length, 1)
   e.open(); assert.equal(e.dialog.querySelector('.script-selected').textContent, '')
-  assert.equal(e.form.elements.mode.value, 'free'); assert.equal(e.form.elements.premise.value, '')
+  assert.equal(e.form.elements.mode.value, 'script'); assert.equal(e.form.elements.premise.value, '')
   e.form.elements.mode.value = 'script'; e.form.elements.mode.onchange()
   await e.dialog.querySelector('.script-choose').onclick()
   picker.value = 'script-id'; await picker.onchange()
@@ -77,6 +88,7 @@ test('导入失败保留表单且可重试', async t => {
   assert.equal(e.form.elements.title.value, '测试项目')
   fail = false; await file.onchange(); await e.submit()
   assert.equal(created.scriptAssetId, 'imported')
+  assert.equal(created.title, '来信')
 })
 
 test('关闭创建页后迟到的素材列表不能覆盖新表单', async t => {
@@ -125,7 +137,7 @@ test('项目摘要只展示正文，不提供生成、历史或 skill 操作', a
 })
 
 
-test('默认自由模式必填人的方向，切换模式仅提交对应资料', async t => {
+test('自由模式必填人的方向，切换模式仅提交对应资料', async t => {
   const created = [], e = setup(t, async input => created.push(input))
   const mode = e.form.elements.mode, premise = e.form.elements.premise
   assert.equal(mode.value, 'free')

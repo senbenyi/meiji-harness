@@ -10,7 +10,6 @@ export async function opOverview(c) {
   if (saved.workspaceId && deps.workspaceController) await linkStore(home, deps.workspaceController).ensureProject(saved.id, rootProjects)
   note(`已保存项目概要：${saved.title}`)
   note(`画幅 ${saved.aspectRatio}`)
-  if (saved.style) note(`风格 ${saved.style}`)
   note(saved.summary.content)
   return trace
 }

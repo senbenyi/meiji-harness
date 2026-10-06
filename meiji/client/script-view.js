@@ -5,7 +5,7 @@ import { scriptBlockers } from '../shared/script-assembly.js'
 export function renderScriptView(project, actions) {
   const page = element('section', '', 'script-page'), back = element('button', '← 返回概要'), message = element('p', '', 'meta')
   back.onclick = actions.back
-  page.append(back, element('h2', '项目剧本'), message)
+  page.append(back, element('h2', '剧本详情'), message)
   let dirty = false, refreshSequence = 0, forceRefresh = false
   page.addEventListener('input', event => { if (event.target.matches('input, textarea')) dirty = true })
   page.addEventListener('change', event => { if (event.target.closest('form') || event.target.matches('input')) dirty = true })

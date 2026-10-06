@@ -54,7 +54,7 @@ test('assembly uses shot order and writes a passed assembly model',async t=>{con
 
 test('group regeneration only replaces selected cards and retains outline and other group',async t=>{
  const e=await setupModel(t),before=await e.read()
- await runOperation(e.op('story', { ...{review:'场景更开阔'}, only: 'scenes' }),{home:e.home,regenerateCardGroup:async()=>({items:before.plot.scenes.items.map(s=>({...s,space:'更开阔的空间'})),check:{passed:true,failures:[]}})})
+ await runOperation(e.op('story', { ...{review:'场景更开阔'}, only: 'scenes' }),{home:e.home,regenerateCardGroup:async()=>({items:before.plot.scenes.items.map(s=>({...s,landmark:'北侧拱门',light:'西侧月光',space:'更开阔的空间'})),check:{passed:true,failures:[]}})})
  const after=await e.read();assert.deepEqual(after.plot.characters,before.plot.characters);assert.deepEqual(after.plot.outline,before.plot.outline);assert.equal(after.plot.scenes.items[0].space,'更开阔的空间')
 })
 test('character text edit keeps the picture and writes values without prompt keys',async t=>{

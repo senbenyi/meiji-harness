@@ -54,11 +54,12 @@ test('真实审核失败触发修订，意见进入修订请求并保留业务�
   await engine.dispose()
 })
 
-test('规划器按镜头生成独立成片分支并拆分视频和尾帧，输入锁由服务端推导', async t => {
+test('规划器按镜头生成成片步骤并拆分视频和尾帧，后一镜接续前一镜尾帧，输入锁由服务端推导', async t => {
   const e = await setupModel(t)
   const plan = await planOperationRun(e, { to: 'film' })
   assert.deepEqual(plan.steps.map(step => step.kind), ['storyboard', 'video', 'tail', 'storyboard', 'video', 'tail'])
-  assert.deepEqual(plan.steps[3].after, [])
+  assert.deepEqual(plan.steps[0].after, [])
+  assert.deepEqual(plan.steps[3].after, [plan.steps[2].id])
   assert.equal(plan.steps[1].input.operation.runVideoOnly, true)
   assert.equal(plan.steps[2].input.operation.parts, 'tail')
   assert.equal(plan.steps[0].actor, 'program')

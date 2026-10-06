@@ -62,14 +62,14 @@ for (const { label, role, create, purpose, facts } of configurations) {
 }
 
 test('人物无卡模板也通过 Model 编排角色、资料、画幅和输出协议', () => {
-  const project = { style: '不注入的风格', outputLanguage: 'en' }, set = builtinSkillSet()
+  const project = { outputLanguage: 'en' }, set = builtinSkillSet()
   const preview = previewPrompts({ stage: 'character-image', root: project, skillSet: set }).image
   const text = render(preview.user)
   assert.equal(text.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名人物角色设计师。')
   assert.match(promptData(text, '【人物资料】').description, /^（人物资料将在生成时/)
   assert.deepEqual(promptData(text, '【本次要求】'), { width: 768, height: 1344, orientation: '竖幅' })
   assert.match(text, /【本次输出协议】/)
-  assert.doesNotMatch(text, /不注入的风格|【语言】/)
+  assert.doesNotMatch(text, /【语言】/)
   const actual = render(imageSegments({ stage: 'character-image', project, skillSet: set, request: '明确提供的模板资料' }))
   assert.deepEqual(promptData(actual, '【人物资料】'), { description: '明确提供的模板资料' })
 })

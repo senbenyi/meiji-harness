@@ -15,7 +15,7 @@ const protocolSection = title => (protocols.outline.split(/^## /m).find(chunk =>
 const extractTask = '从【剧情大纲】提取道具和着装资料，遵守基础规则和补充规则；大纲是唯一事实来源，【归属目录】仅用于匹配归属 ID。'
 const cardFacts = model => [
   segment('context', '【剧情大纲】', model.approvedOutline),
-  segment('context', '【本次参数】', model.parameters.style ? { style: model.parameters.style } : ''),
+  segment('context', '【本次参数】', ''),
 ]
 const reviewTail = hasBase => `${hasBase
   ? '对照基稿及本次意见，检查意见落实、无关改动与新冲突。完整返回不是整篇重写授权。'
@@ -24,7 +24,7 @@ const reviewTail = hasBase => `${hasBase
 export const storyKinds = {
   outline: {
     role: '短剧剧情编剧', reviewRole: '独立剧情大纲审核员', stage: '剧情大纲', json: true,
-    referenceScope: '本集事件以本集摘要为准；项目背景和剧本只用于理解人物、世界与风格。前集作为已发生事实，本集开场承接前集结尾；后集只约束本集结尾衔接，不提前演出后集事件。',
+    referenceScope: '本集事件以本集摘要为准；项目背景和剧本只用于理解人物与世界设定。前集作为已发生事实，本集开场承接前集结尾；后集只约束本集结尾衔接，不提前演出后集事件。',
     outputProtocol: protocolSection('大纲输出'),
     task: model => `根据【本集摘要】${model.mode === 'generate' ? '生成' : '重新生成'}本集剧情大纲，遵守基础规则和补充规则。【项目背景】与【剧本】用于理解设定，【前集摘要】用于承接开场，【后集摘要】用于衔接结尾。`,
     reviewTarget: '审核【本次待审内容】中的本集剧情大纲，按审核标准和补充规则验收。【本集摘要】是本集事件依据，【项目背景】与【剧本】仅作设定参考，【前集摘要】用于核对已发生事实及开场承接，【后集摘要】仅用于核对结尾衔接，不提前演出后集事件。',
@@ -32,7 +32,7 @@ export const storyKinds = {
       const p = model.parameters
       return [
         segment('context', '【本集摘要】', model.project.summary),
-        segment('context', '【本次参数】', { durationSeconds: p.durationSeconds ?? null, ...(p.style ? { style: p.style } : {}) }),
+        segment('context', '【本次参数】', { durationSeconds: p.durationSeconds ?? null }),
         segment('context', '【项目背景】', model.project.projectSummary),
         segment('context', '【剧本】', model.project.script),
         segment('context', '【AI 创作方向】', model.project.premise),
@@ -97,7 +97,7 @@ export class StoryModel {
       : { title: project.title || '' }
     this.approvedOutline = project.plot?.outline?.content || ''
     this.parameters = { episodeNumber: project.episodeNumber, durationSeconds: project.durationSeconds,
-      aspectRatio: project.aspectRatio || '1344x768', style: project.style || '', outputLanguage: outputLanguage(project.outputLanguage) }
+      aspectRatio: project.aspectRatio || '1344x768', outputLanguage: outputLanguage(project.outputLanguage) }
     this.modification = mode === 'modify' ? { baseContent: contentText(baseContent), opinion } : null
   }
 
@@ -125,7 +125,7 @@ export class StoryModel {
     if (this.kind === 'outline' && kind !== 'generate') task = `依据本集摘要和${automatic ? '本轮自审意见' : '本次修改意见'}修订本集完整剧情大纲，遵守基础规则和补充规则。`
     if (this.config.revisionTask && kind !== 'generate') task = this.config.revisionTask(automatic)
     if (this.config.cardExtraction) boundary = segment('context', kind === 'generate' ? '【本次提取范围】' : '【本次修订范围】', kind === 'generate'
-      ? '本次提取仅依据提供的已通过大纲，不沿用旧卡片或历史意见。项目风格仅用于统一表达，不作为新增人物、地点或具体属性的事实依据。'
+      ? '本次提取仅依据提供的已通过大纲，不沿用旧卡片或历史意见。不要从时代常识或旧资料推导大纲未写出的实体或属性。'
       : '以提供的最新基稿为唯一修改基准，按本次意见修正受影响卡片及必要连带关系，保留未涉及卡片与字段；修改意见不能替代大纲事实或改写剧情。返回完整卡片集合，不只返回修改部分。')
     return generationRequest({ json: this.config.json,
       role: segment('context', '【角色与职责】', `你是一名${this.role}。`),

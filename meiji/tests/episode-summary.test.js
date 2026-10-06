@@ -10,9 +10,8 @@ import { buildEpisodePrompts } from '../server/prompts/episode-summary-prompts.j
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { builtinSkillSet, skillStore, additionsPatch } from '../server/data/skill-store.js'
 import { setupModel } from './fixtures/model.js'
-import { createOperationManager } from '../server/flow/operations/operation-manager.js'
-import { runOperation } from './fixtures/operation.js'
-import { recordStore } from '../server/data/task-store.js'
+import { runOperation, latestRun } from './fixtures/operation.js'
+import { runStore } from '../server/data/run-store.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { editEpisode, overviewPatch } from '../shared/episode-rules.js'
 import { modelStore } from '../server/data/model-settings.js'
@@ -83,26 +82,28 @@ test('新建摘要实际与预览共用固定约束；约束不能覆盖或补�
   assert.throws(() => additionsPatch(root.skills, 'episode', { generate: '旧字段' }), /不可补充/)
 })
 
+const draftRequest = review => async ({ skill }) => skill === 'review' ? review : JSON.stringify(draft())
+const draftOf = run => run.steps.findLast(step => ['generate', 'revise'].includes(step.kind))?.output?.result?.draft
+const draftArtifacts = async (e, run) => (await Promise.all(run.steps.map(step => runStore(e.home, e.id).records(run.id, step.id, 'artifacts')))).flat().filter(item => item.target === 'summary-draft')
+
 test('草稿任务持久化并可重新查询，保存前项目文件不变', async t => {
   const e = await setupModel(t)
   const file = join(e.home, 'storages/meiji/projects', e.id + '.json'), before = await readFile(file, 'utf8')
-  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps, generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft()) }) }) })
-  const task = tasks.start(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
-  const result = await tasks.whenEnded(task.id)
-  assert.equal(result.status, 'completed')
-  assert.equal(result.draft.summary, '本集事件')
+  await runOperation(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }), { home: e.home, request: draftRequest(reviewPass) })
+  // 草稿只在任务步骤输出与未发布快照里，不写项目文件；任务记录可从存储重新读取。
+  const run = await latestRun(e.home, e.id)
+  assert.equal(run.status, 'completed'); assert.equal(run.episodeId, null)
+  assert.deepEqual(run.kinds, ['generate', 'review'])
+  assert.equal(draftOf(run).summary, '本集事件')
   assert.equal(await readFile(file, 'utf8'), before)
-  const resumed = await createOperationManager({ home: e.home }).get(task.id, null)
-  assert.deepEqual(resumed.draft, result.draft)
-  const record = await recordStore(e.home, e.id).read('tasks', task.taskId)
-  assert.ok(record.nodes.every(step => !step.unplanned))
-  assert.equal(record.latestOutputs[0].target, 'summary-draft')
+  const saved = await draftArtifacts(e, run)
+  assert.equal(saved.length, 1); assert.equal(saved[0].published, false); assert.equal(saved[0].content.summary, '本集事件')
 })
 
 test('已有剧集重新生成保留用户设定时长，手工新增、编辑及 source 完整保存长摘要', async t => {
   const e = await setupModel(t)
   await runOperation(e.op('summary', { referenceDurationSeconds: 150 }), { home: e.home,
-    generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft('新摘要', 165)) }) })
+    request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft('新摘要', 165)) })
   assert.equal((await e.read()).durationSeconds, 150)
   const root = await e.store.read(e.id)
   const summary = '新的本集剧情。'.repeat(1500)
@@ -127,13 +128,13 @@ test('无密钥时已组装提示词并记录技能，但不 fetch、不改变�
   const original = await e.read()
   let network = 0
   t.mock.method(globalThis, 'fetch', async () => { network++; throw new Error('不应访问网络') })
-  await assert.rejects(runOperation(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150 }), { home: e.home }), /需要网关密钥/)
+  await assert.rejects(runOperation(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150 }), { home: e.home, fetchImpl: (...args) => globalThis.fetch(...args) }), /需要网关密钥/)
   assert.deepEqual(await e.read(), original)
   assert.equal(network, 0)
-  const [record] = await recordStore(e.home, e.id).list()
-  assert.ok(record.skills.some(skill => skill.id === 'episode'))
-  assert.equal(record.nodes[0].kind, 'generate')
-  assert.equal(record.nodes[0].apiFailure, true)
+  const run = await latestRun(e.home, e.id), [step] = run.steps
+  assert.ok(step.skills.some(skill => skill.id === 'episode'))
+  assert.equal(step.kind, 'generate')
+  assert.deepEqual(step.attempts.map(attempt => [attempt.kind, attempt.status]), [['generate', 'paused']])
 })
 
 test('只校验当前路由；图像、编辑、视频提交及轮询在发请求时拒绝空密钥', async () => {
@@ -149,29 +150,27 @@ test('只校验当前路由；图像、编辑、视频提交及轮询在发请�
 
 test('审核失败候选保存在任务历史，原项目不变，也不能伪装成成功', async t => {
   const e = await setupModel(t), before = await e.store.read(e.id)
-  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-    generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewFail('结尾未衔接') : JSON.stringify(draft()) }) }) })
-  const task = tasks.start(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
-  const result = await tasks.whenEnded(task.id)
-  assert.equal(result.status, 'review_failed')
-  assert.equal(result.draft.check.passed, false)
+  const failure = await runOperation(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }), { home: e.home, request: draftRequest(reviewFail('结尾未衔接')) }).then(() => null, error => error)
+  assert.match(failure.message, /自审未通过.*结尾未衔接/)
+  // 修订用尽后任务暂停在审核步骤，不是完成；候选稿留在未发布快照。
+  assert.equal(failure.run.status, 'paused')
+  assert.deepEqual(failure.run.pause.reasons.map(reason => reason.code), ['review_exhausted'])
   assert.deepEqual(await e.store.read(e.id), before)
-  assert.deepEqual((await createOperationManager({ home: e.home }).get(task.id, null)).draft, result.draft)
+  const saved = await draftArtifacts(e, failure.run)
+  assert.ok(saved.length >= 1); assert.ok(saved.every(item => item.published === false && item.content.summary === '本集事件'))
 })
 
 test('停止摘要草稿会中止请求，保留已有剧集和下游内容', async t => {
-  const e = await setupModel(t), before = await e.store.read(e.id)
+  const e = await setupModel(t), before = await e.store.read(e.id), controller = new AbortController()
   let started
   const ready = new Promise(resolve => { started = resolve })
-  const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
-    generateEpisode: opts => generateEpisode({ ...opts, request: ({ signal }) => new Promise((resolve, reject) => {
-      signal.addEventListener('abort', () => reject(signal.reason), { once: true }); started()
-    }) }) }) })
-  const task = tasks.start(e.op('summary', { ...{ origin: 'panel' }, draft: true }))
+  const execution = runOperation(e.op('summary', { origin: 'panel', draft: true }), { home: e.home, signal: controller.signal,
+    request: ({ signal }) => new Promise((resolve, reject) => { signal.addEventListener('abort', () => reject(signal.reason), { once: true }); started() }) })
   await ready
-  tasks.cancel(task.id, e.id)
-  const result = await tasks.whenEnded(task.id)
-  assert.equal(result.status, 'cancelled')
-  assert.equal(result.draft, undefined)
+  controller.abort(Object.assign(new Error('任务已停止'), { code: 'TASK_CANCELLED' }))
+  await assert.rejects(execution, { code: 'TASK_CANCELLED' })
+  const run = await latestRun(e.home, e.id)
+  assert.equal(run.status, 'cancelled')
+  assert.equal(draftOf(run), undefined)
   assert.deepEqual(await e.store.read(e.id), before)
 })

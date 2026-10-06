@@ -9,10 +9,9 @@ import { builtinSkill } from '../skills/load-skills.js'
 const episodePrompt = (project, episodeId) => new EpisodeSummaryModel({ project, episodeId, generationRules: builtinSkill('episode').constraints }).toMessages().map(message => message.content).join('\n')
 
 test('the first episode is written from the project summary and keeps the user-set duration', () => {
-  const prompt = episodePrompt({ mode: 'free', premise: '李伟穿越', title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344', style: '写实电影' })
+  const prompt = episodePrompt({ mode: 'free', premise: '李伟穿越', title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344' })
   assert.match(prompt, /依据 AI 创作方向与本次要求/)
   assert.match(prompt, /李伟穿越/)
-  assert.match(prompt, /项目风格：写实电影/)
   assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }, 150), { summary: '开场结义', durationSeconds: 150 })
   assert.equal(normalizeEpisodeDraft({ summary: '字'.repeat(501) }).summary, '字'.repeat(501))
   assert.throws(() => normalizeEpisodeDraft({ summary: ' ' }), { status: 502 })
@@ -133,15 +132,18 @@ for (const scenario of ['failed', 'new-opinion']) {
     const { saveReview } = await import('../shared/drama-model.js')
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
-    await runOperation(actionRequest('episode-generate', { projectId: e.id, episodeId: e.episodeId, generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10 }), { home: e.home, generateEpisode: async () => {
+    const { reviewPass, reviewFail } = await import('./fixtures/review-result.js')
+    const execution = runOperation(actionRequest('episode-generate', { projectId: e.id, episodeId: e.episodeId, generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10 }), { home: e.home, request: async message => {
+      if (message.skill === 'review') return scenario === 'failed' ? reviewFail('冲突') : reviewPass
       if (scenario === 'new-opinion') await e.store.save(e.id, current => {
         const next = structuredClone(current)
         saveReview(next.episodes.find(item => item.id === e.episodeId).summary, '执行期间新意见')
         return next
       })
-      return { summary: '旅人发现线索。', durationSeconds: 10,
-        check: { passed: scenario !== 'failed', failures: scenario === 'failed' ? ['冲突'] : [] } }
+      return JSON.stringify({ summary: '旅人发现线索。', durationSeconds: 10 })
     } })
+    // 审核用尽修订仍未通过时任务暂停，已提交的意见保留。
+    if (scenario === 'failed') await assert.rejects(execution, /自审未通过/); else await execution
     const saved = await e.store.read(e.id)
     assert.equal(saved.episodes.find(item => item.id === e.episodeId).summary.review.text,
       scenario === 'failed' ? '已提交意见' : '执行期间新意见')

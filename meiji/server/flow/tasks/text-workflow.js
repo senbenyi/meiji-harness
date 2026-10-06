@@ -12,6 +12,12 @@ function canPublish({ check, canPersist, retainFailedDraft }, text) {
   catch { return false }
 }
 
+function unpublishableReasons({ check, canPersist }, text) {
+  const reasons = programFailures(check, text)
+  try { if (canPersist && !canPersist(text)) reasons.push('正文无法解析') } catch (error) { reasons.push(error.message) }
+  return [...new Set(reasons)]
+}
+
 export async function runTextNodes(spec) {
   const { target = null, phase, labelPrefix, prompts, complete, canPersist, canRevise = () => true, initialText, persist, check, retainFailedDraft = false } = spec
   let options = spec.options || {}
@@ -40,7 +46,14 @@ export async function runTextNodes(spec) {
   if (text == null) text = await (ctx?.step === 'revise' ? ctx?.steps?.revise || reviseStep : ctx?.steps?.generate || generateStep)({ prompts, target, ...detail(ctx?.step === 'revise' ? 'revise' : 'generate'), message: prompts.generation,
     options: { ...options, logStage: '生成' }, complete, persist: save })
   if (['generate', 'revise'].includes(ctx?.step)) {
-    if (!canPublish(spec, text)) throw Object.assign(new Error('生成结果格式无效，无法保存'), { code: 'CONTENT_CHECK_FAILED', status: 422 })
+    // 程序校验不通过的稿件无法保存，也就无法交给审核步骤：在本步骤内按校验问题修订，仍不通过才作为步骤失败。
+    for (let round = 1; !canPublish(spec, text) && prompts.revision && round <= (ctx.repairRevisions || 0) && canRevise(text); round++) {
+      const failures = unpublishableReasons(spec, text)
+      const baseContent = text, revisionOpinion = JSON.stringify({ passed: false, issues: failures.map(reason => ({ location: '程序校验', reason, requirement: '按该校验要求修正正文' })) })
+      text = await (ctx?.steps?.revise || reviseStep)({ prompts, baseContent, revisionOpinion, target, ...detail('revise', round), message: prompts.revision(baseContent, revisionOpinion),
+        options: { ...options, logStage: '自动修订' }, complete, persist: save })
+    }
+    if (!canPublish(spec, text)) throw Object.assign(new Error(`生成结果格式无效，无法保存：${unpublishableReasons(spec, text).join('；')}`), { code: 'CONTENT_CHECK_FAILED', status: 422 })
     return { text, review: null, reviewText: '', check: { passed: null, failures: [] } }
   }
   let final = { review: null, reviewText: '', check: { passed: null, failures: [] } }

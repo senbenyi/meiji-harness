@@ -16,8 +16,8 @@ export const outlineResponse = (...args) => JSON.stringify(outlineFixture(...arg
 
 // 剧情请求属于哪一类资料：人物与场景并行执行，测试不能依赖请求先后顺序。
 export function storyKind(message) {
-  const task = String(message.user || '').split('【本次任务】')[1]?.split('【')[0] || ''
-  return /人物/.test(task) ? 'characters' : /场景/.test(task) ? 'scenes' : /道具/.test(task) ? 'props' : 'outline'
+  const task = String(message.user || '').split('【本次任务】')[1]?.slice(0, 40) || ''
+  return /人物角色资料/.test(task) ? 'characters' : /场景资料/.test(task) ? 'scenes' : /道具/.test(task) ? 'props' : 'outline'
 }
 
 // 按资料类别应答的剧情请求；reply(kind, message, phase) 返回文本即覆盖默认应答，phase 为 generate 或 review。

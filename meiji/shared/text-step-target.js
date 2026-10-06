@@ -1,7 +1,6 @@
 import { materialize } from './episode-rules.js'
 import { targetNode } from './drama-model.js'
 
-export const textStepTarget = op => ({ summary: 'summary', 'project-summary': 'project-summary', story: op.only, 'shot-table': 'shots', seconds: `seconds:${op.track}` })[op.action]
 export function textStepNode(project, target, episodeId) {
   if (target === 'project-summary') return project.summary
   const view = project.episodes ? materialize(project, episodeId) : project

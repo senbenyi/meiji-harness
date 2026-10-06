@@ -14,7 +14,7 @@ function dom(t) {
   t.after(() => { Object.assign(globalThis, old); env.window.close() })
   return document.querySelector('main')
 }
-const project = () => ({ mode: 'script', id: 'p', title: '来信', script: '原剧本', scriptKind: 'imported', scriptRevision: 1, scriptSource: 'import', scriptSections: { sections: [], future: '' }, scriptProposals: [], scriptPendingDeletes: [], summary: node('summary', '项目摘要'), episodes: [] })
+const project = () => ({ mode: 'script', id: 'p', title: '来信', script: '原剧本', scriptName: '02-黄蓉身陷江湖劫绿影重重谁知真.txt', scriptKind: 'imported', scriptRevision: 1, scriptSource: 'import', scriptSections: { sections: [], future: '' }, scriptProposals: [], scriptPendingDeletes: [], summary: node('summary', '项目摘要'), episodes: [] })
 const button = (root, text) => [...root.querySelectorAll('button')].find(item => item.textContent === text)
 
 test('导入剧本项目隐藏创作方向，摘要只读并保留剧本入口', async t => {
@@ -27,11 +27,36 @@ test('导入剧本项目隐藏创作方向，摘要只读并保留剧本入口',
   view.querySelectorAll('.library-tab')[1].click()
   assert.equal(view.querySelector('.library-tab[aria-selected="true"]').textContent, '场景库')
   assert.equal(view.querySelectorAll('.library-tab-panel')[0].hidden, true)
+  assert.equal(view.querySelectorAll('.library-empty').length, 3)
+  assert.equal([...view.querySelectorAll('button')].some(item => /查看与管理/.test(item.textContent)), false)
+  assert.match(view.querySelector('.library-empty').textContent, /根据剧集自动生成角色、场景和道具/)
   assert.match(view.querySelector('.episode-placeholder').textContent, /还没有剧集/)
   assert.equal(button(view, '编辑创作方向'), undefined)
   assert.equal([...view.querySelectorAll('button')].some(item => /更新摘要|重新生成|摘要任务历史|查看 skill/.test(item.textContent)), false)
-  button(view, '查看与编辑剧本').click()
+  assert.match(view.querySelector('.script-file-name').textContent, /02-黄蓉身陷江湖劫绿影重重谁知真\.txt/)
+  assert.equal(button(view, '查看全部详情'), undefined)
+  assert.equal(button(view, '修改后续剧情'), undefined)
+  view.querySelector('[aria-label="查看剧本：02-黄蓉身陷江湖劫绿影重重谁知真.txt"]').click()
   assert.equal(calls[0], 'script')
+  view.querySelector('[aria-label="打开剧本详情"]').click()
+  assert.equal(calls[1], 'script')
+})
+
+test('角色场景道具以横向卡片展示并直达条目详情', async t => {
+  const root = dom(t), calls = [], p = { ...project(), library: {
+    characters: [{ id: 'c1', name: '黄蓉', aliases: [], variants: [{ id: 'cv1', label: '默认', image: { content: {} }, fields: {} }], defaultVariantId: 'cv1' }],
+    scenes: [{ id: 's1', name: '桃花岛', aliases: [], variants: [{ id: 'sv1', label: '默认', image: { content: {} }, fields: {} }], defaultVariantId: 'sv1' }],
+    props: [{ id: 'p1', name: '玉箫', aliases: [], variants: [{ id: 'pv1', label: '默认', image: { content: {} }, fields: {} }], defaultVariantId: 'pv1' }],
+  } }
+  const view = renderOverview(p, { openLibraryEntry: (...args) => calls.push(args) }, {})
+  root.append(view)
+  assert.equal(view.querySelectorAll('.library-card').length, 3)
+  assert.equal(view.querySelectorAll('.library-tab-panel .characters-strip').length, 3)
+  view.querySelector('[aria-label="角色库详情：黄蓉"]').click()
+  assert.deepEqual(calls[0], [p, 'characters', 'c1'])
+  view.querySelectorAll('.library-tab')[1].click()
+  view.querySelector('[aria-label="场景库详情：桃花岛"]').click()
+  assert.deepEqual(calls[1], [p, 'scenes', 's1'])
 })
 
 test('剧本正文保存必填说明，旧方案不可确认，任意版本对比及占用门禁', async t => {

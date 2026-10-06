@@ -115,39 +115,6 @@ button.workspace-bind{display:block;width:calc(100% - 32px);margin:12px 16px 0;t
 .actions .language{min-width:0;height:32px;padding:4px 8px;font-size:12px;font-weight:600;color:#dfc196;letter-spacing:.02em}
 
 
-
-.style-picks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 0;
-}
-button.style-pick {
-  margin: 0;
-  padding: 4px 10px;
-  font-size: 12px;
-  line-height: 1.4;
-  border-radius: 6px;
-  color: #b7bcc8;
-  border-color: #444852;
-  background: #23252c;
-}
-button.style-pick:hover {
-  color: #e8e9ed;
-  border-color: #5a5f6b;
-  background: #2a2d35;
-}
-button.style-pick.is-on {
-  color: #23211e;
-  border-color: #dfc196;
-  background: #dfc196;
-}
-button.style-pick.is-on:hover {
-  color: #23211e;
-  background: #ebd2b0;
-  border-color: #ebd2b0;
-}
-
 .asset-stage-title{display:flex;align-items:center;gap:16px;min-width:0}.asset-stage-title .story-status{margin:0;color:#9b9fab;white-space:nowrap}
 
 .json-copy-row{display:flex;justify-content:flex-end;margin-top:8px;flex-basis:100%;grid-column:1/-1}.json-copy-row button{margin:0;padding:4px 8px;font-size:12px}
@@ -404,7 +371,7 @@ button.scene-card-preview{border-radius:0}
 button.character-portrait-open:focus-visible,button.scene-card-preview:focus-visible{outline:2px solid #dfc196;outline-offset:-2px}
 @media(max-width:600px){.character-card-media{width:72px}}
 /* Run 列表和步骤详情复用面板基础布局。 */
-.run-filters,.run-controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.run-filters,.run-controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.run-filters{flex-wrap:nowrap}.run-filters select{flex:1 1 0;min-width:0}
 .run-list-row{display:grid;gap:8px;padding:12px}
 .run-list-row>button{text-align:left}
 .run-target-group{margin:16px 0;padding:12px;border:1px solid #8884;border-radius:8px}
@@ -416,3 +383,4 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .run-step.is-paused,.run-reason{border-left:3px solid #d99430;padding-left:10px}
 .run-step pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
 .run-event{margin:8px 12px;font-size:12px}
+.script-title-row{display:flex;align-items:center;gap:6px;min-width:0}.script-title-row .script-file-name{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}.script-title-arrow{flex:none;margin:0;padding:0 4px;border:0;font-size:18px;line-height:1;color:#9b9fab}.script-title-arrow:hover{background:none;color:#dfc196}

@@ -132,11 +132,10 @@ export function imageParts({ stage, project, request, skillSet }) {
   const set = currentSkillSet(project, skillSet)
   recordUse(set, builtinSkill(stage), [])
   const language = outputLanguage(project?.outputLanguage)
-  const style = String(project?.style || '').trim()
   return {
     requirement: segment('stage', '', set.skills[stage]?.constraints || '', { skill: stage, field: 'constraints' }),
     addition: segment('project', '本剧补充要求：', addition(set, stage, 'generate'), { skill: stage, field: 'generate' }),
-    requirements: segment('context', '【本次要求】', requirementsText({ style }, `输出语言：${language === 'en' ? 'English（英文）' : '简体中文'}`)),
+    requirements: segment('context', '【本次要求】', requirementsText({}, `输出语言：${language === 'en' ? 'English（英文）' : '简体中文'}`)),
     request: segment('context', '本次画面要求：', request),
   }
 }

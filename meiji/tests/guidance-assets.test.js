@@ -12,7 +12,6 @@ import { projectStore, revisionStore } from '../server/data/project-store.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 import { runOperation } from './fixtures/operation.js'
 import { saveIncoming } from '../server/flow/steps/shared/incoming.js'
-import { createOperationManager } from '../server/flow/operations/operation-manager.js'
 import { setContent } from '../shared/drama-model.js'
 import { guidanceTypes } from '../shared/guidance-categories.js'
 

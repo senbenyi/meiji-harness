@@ -40,9 +40,9 @@ export function libraryEditor(project, kind, actions, { entry, variant, newVaria
   }
   dialog.addEventListener('close', () => dialog.remove()); return dialog
 }
-export function renderProjectLibrary(initial, kind, actions) {
+export function renderProjectLibrary(initial, kind, actions, { entryId = null } = {}) {
   const spec = libraryKinds[kind], page = element('section', '', 'task-history-page')
-  let project = initial, selected = null
+  let project = initial, selected = entryId
   const header = element('div', '', 'task-history-header'), back = element('button', '← 返回'), create = element('button', `＋ 新建${spec.label}`)
   back.onclick = actions.back; create.onclick = () => openEditor(); header.append(back, element('h2', `${spec.label}库`), create)
   const body = element('div'); page.append(header, body)

@@ -50,7 +50,9 @@ export async function prepareContentRecords(current, next) {
     const old = oldTargets.get(`${target.episodeId}:${target.key}`)
     const node = activeNode()
     const previousExecutor = old?.node.source?.stepId
-    const newOutput = target.episodeId === (context.operation.episodeId || null) && node?.target === target.key && ['generate', 'revise'].includes(node.kind) && previousExecutor !== context.stepId
+    // 生成/修订步骤即使产出与旧稿相同也记为本步骤的新版本；步骤开始前的准备性保存（尚未进入生成动作）不算产出。
+    const producing = node?.attempts?.some(item => ['generate', 'revise'].includes(item.kind))
+    const newOutput = producing && target.episodeId === (context.operation.episodeId || null) && node?.target === target.key && ['generate', 'revise'].includes(node.kind) && previousExecutor !== context.stepId
     const changed = JSON.stringify(target.content) !== JSON.stringify(old?.content) || newOutput
     if (!changed) {
       if (old?.node.source) target.node.source = structuredClone(old.node.source)

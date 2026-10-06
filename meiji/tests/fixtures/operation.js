@@ -1,5 +1,7 @@
 // 业务职责测试通过真实 Run 单步执行；即时编辑不建立制作记录。
+import { randomUUID } from 'node:crypto'
 import { projectStore } from '../../server/data/project-store.js'
+import { episodeModel } from '../../shared/drama-model.js'
 import { materialize } from '../../shared/episode-rules.js'
 import { goalRequest } from '../../client/goal-request.js'
 import { planRun } from '../../shared/run-planner.js'
@@ -7,6 +9,7 @@ import { createRunEngine } from '../../server/flow/runs/run-engine.js'
 import { executeRunStep } from '../../server/flow/shared/task-executor.js'
 import { createImmediateService } from '../../server/flow/immediate-service.js'
 import { reviewPass } from './review-result.js'
+import { storyboardReady, videoReady, tailReady } from '../../server/flow/steps/shared/film-freshness.js'
 import { runStore } from '../../server/data/run-store.js'
 export async function runOperation(operation, deps) {
   deps.signal?.throwIfAborted()
@@ -19,9 +22,18 @@ export async function runOperation(operation, deps) {
       const trace = result.trace || []; trace.result = result.result; return trace
     } finally { await edits.dispose() }
   }
-  const root = await projectStore(deps.home).read(operation.projectId), episodeId = operation.episodeId || (root.episodes.length === 1 ? root.episodes[0].id : null)
-  const goal = { ...target.goal, mode: target.goal.mode === 'generate' ? 'regenerate' : target.goal.mode }
-  const plan = planRun(episodeId && goal.to !== 'project-summary' && goal.to !== 'script-revise' ? materialize(root, episodeId) : root, goal)
+  let root = await projectStore(deps.home).read(operation.projectId), episodeId = operation.episodeId || (root.episodes.length === 1 && target.goal.to !== 'summary' ? root.episodes[0].id : null)
+  // 未指定剧集的摘要目标新建下一集（与 run-service 确认时一致：先建立空剧集，再由步骤保存正文）。
+  if (!episodeId && target.goal.to === 'summary' && !target.goal.draft) {
+    episodeId = randomUUID()
+    root = await projectStore(deps.home).save(root.id, current => ({ ...current, episodes: [episodeModel(episodeId, { durationSeconds: target.goal.durationSeconds || 150 }), ...current.episodes] }))
+  }
+  // 面板的生成按钮默认重做目标对象；显式 mode: 'generate' 表示只做未满足的部分（已完成的跳过）。
+  const goal = { ...target.goal, mode: target.goal.mode === 'generate' && !operation.mode ? 'regenerate' : target.goal.mode }
+  const view = episodeId && !['project-summary', 'script-revise', 'script-sync'].includes(goal.to) ? materialize(root, episodeId) : root
+  // 与 run-service 相同的就绪判断：已完成的分镜、视频、尾帧在「只做未满足部分」时跳过。
+  const freshness = Object.fromEntries((view.shots?.items || []).map(shot => [shot.id, { storyboard: storyboardReady(view, shot.id), video: videoReady(shot), tail: tailReady(shot) }]))
+  const plan = planRun(view, goal, { freshness })
   const syncRequest = async message => {
     if (message.skill === 'review') return reviewPass
     const project = await projectStore(deps.home).read(root.id), episode = project.episodes.find(item => item.summary.basis?.scriptSyncedRevision !== item.summary.revision)
@@ -30,7 +42,7 @@ export async function runOperation(operation, deps) {
   }
   const engine = createRunEngine({ home: deps.home, execute: (run, step, context) => {
     if (['wait_confirm', 'wait_script_confirm'].includes(step.kind)) return { confirmed: true }
-    if (step.kind === 'expand') return projectStore(deps.home).read(root.id).then(current => ({ steps: planRun(materialize(current, episodeId), step.input.goal).steps }))
+    if (step.kind === 'expand') return projectStore(deps.home).read(root.id).then(current => ({ steps: planRun(materialize(current, episodeId), step.input.goal, { freshness: {} }).steps }))
     const request = step.kind === 'sync' && goal.to !== 'script-sync' ? syncRequest : deps.request || (!deps.fetchImpl ? async message => { if (message.skill === 'review') return reviewPass; throw new Error('未注入测试生成请求') } : undefined)
     return executeRunStep(run, step, { ...deps, ...context, request })
   } })

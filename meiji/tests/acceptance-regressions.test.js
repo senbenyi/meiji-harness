@@ -111,7 +111,7 @@ test('实体修订意见列出全部漏标字段及原文，保留失败正文',
   assert.deepEqual(content, before)
 })
 
-test('真实批量操作在换图后重新编译各镜、提交新图并接续新尾帧', async t => {
+test('真实批量成片在换图后重新编译各镜、提交新图并接续新尾帧', async t => {
   const e = await setupModel(t), submitted = []
   const data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7T8AAAAASUVORK5CYII='
   const upload = () => runOperation(e.op('import-image', { itemId: 'C01', data, mime: 'image/png' }), { home: e.home })
@@ -125,6 +125,7 @@ test('真实批量操作在换图后重新编译各镜、提交新图并接续�
   await upload()
   const newAsset = (await e.read()).plot.characters.items[0].image.content.assetId
   assert.notEqual(newAsset, oldAsset)
+  // 整集成片按镜头顺序接续：后一镜等前一镜尾帧完成后再编译分镜。
   await runOperation(e.op('film'), {
     home: e.home,
     submitH3: async ({ items }) => {

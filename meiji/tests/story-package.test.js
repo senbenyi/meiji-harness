@@ -14,7 +14,7 @@ import { projectStore } from '../server/data/project-store.js'
 import { blankEpisode } from '../shared/episode-rules.js'
 import { runOperation } from './fixtures/operation.js'
 import { tabs, tabOf, canGenerate } from '../client/flow-view.js'
-import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
+import { storyPackageFixture, outlineFixture, outlineResponse, storyRequest } from './fixtures/story-package.js'
 
 test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
@@ -56,18 +56,19 @@ test('stable identity and confirmed media survive reordering; invented URLs are 
   assert.deepEqual(merged.characters.items[1].clothes, [{ id: 'cloth' }])
 })
 
-test('剧情逐任务保存失败稿，前项成功保留，后项停止且不影响另一集', async t => {
+test('剧情逐步骤保存失败稿，前项成功保留，依赖失败项的后项不执行且不影响另一集', async t => {
   const e = await setupModel(t), other = blankEpisode({ summary: '别集', durationSeconds: 10 })
   await e.store.save(e.id, { episodes: [(await e.store.read(e.id)).episodes[0], other] })
   await e.store.save(e.id, root => { root.episodes[1].summary.basis = { ...root.episodes[1].summary.basis, scriptSyncedRevision: root.episodes[1].summary.revision }; return root })
   const before = (await e.store.read(e.id)).episodes[1], fixture = storyPackageFixture()
-  const replies = [JSON.stringify(fixture.outline), reviewPass, ...Array(3).fill([JSON.stringify(fixture.characters), '{"passed":false,"issues":[{"location":"人物","reason":"缺少身份","requirement":"补全身份"}]}']).flat()]
-  await runOperation(e.op('story'), { home: e.home, request: async () => replies.shift() })
+  await assert.rejects(runOperation(e.op('story'), { home: e.home, request: storyRequest(fixture, (kind, _message, phase) => kind === 'characters' && phase === 'review' ? '{"passed":false,"issues":[{"location":"人物","reason":"缺少身份","requirement":"补全身份"}]}' : undefined) }), /自审未通过/)
   const saved = await e.read()
   assert.deepEqual(saved.plot.outline.content, fixture.outline)
   assert.equal(saved.plot.outline.check.passed, true)
   assert.equal(saved.plot.characters.check.passed, false)
-  assert.equal(saved.plot.scenes.items.length, 0)
+  // 场景是独立分支，照常完成；依赖人物的道具不执行。
+  assert.equal(saved.plot.scenes.check.passed, true)
+  assert.equal(saved.plot.props.items.length, 0)
   assert.equal(saved.shots.items.length, 0)
   assert.equal(saved.assembly.content, null)
   assert.equal(canGenerate(saved, 'shots'), false)

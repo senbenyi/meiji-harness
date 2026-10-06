@@ -37,12 +37,14 @@ export function planRun(project, rawGoal, policy = {}) {
       after.push(...tails); stageTails.set(stage, tails); deletions.push(...planned.deletions)
     } else required.push(entry)
   }
-  const text = (target, definition, after = [], required = [], ready = false, operation = {}) => {
-    const mode = target === 'script' && goal.mode === 'modify' ? 'generate' : goal.mode, kinds = mode === 'review' ? ['review'] : [mode === 'modify' ? 'revise' : 'generate', ...(policy.review === false ? [] : [goal.feedback && target !== 'script' ? 're_review' : 'review'])]
+  // regenerateOnly：整包剧情按意见修改时，意见只作用于大纲；人物、场景、道具依据新大纲重新提取，不带意见。
+  const text = (target, definition, after = [], required = [], ready = false, operation = {}, regenerateOnly = false) => {
+    const feedback = regenerateOnly ? '' : goal.feedback
+    const mode = regenerateOnly && goal.mode === 'modify' ? 'regenerate' : target === 'script' && goal.mode === 'modify' ? 'generate' : goal.mode, kinds = mode === 'review' ? ['review'] : [mode === 'modify' ? 'revise' : 'generate', ...(policy.review === false ? [] : [mode === 'modify' && target !== 'script' ? 're_review' : 'review'])]
     ready = ready && !goal.draft && !required.length && after.every(id => steps.find(step => step.id === id)?.status === 'skipped')
     let tail
     for (const kind of kinds) {
-      tail = add(kind, target, { ...definition, operation: { ...operation, ...(goal.feedback ? { review: goal.feedback, instruction: goal.feedback } : {}) } }, tail ? [tail] : after, { ...(mode === 'generate' && ready ? { status: 'skipped' } : {}), input: { taskType: definition.taskType, operation: { action: definition.action, requirements: goal.requirements || '', ...operation, ...(goal.feedback ? { review: goal.feedback, instruction: goal.feedback } : {}) }, required } })
+      tail = add(kind, target, { ...definition, operation: { ...operation, ...(feedback ? { review: feedback, instruction: feedback } : {}) } }, tail ? [tail] : after, { ...(mode === 'generate' && ready ? { status: 'skipped' } : {}), input: { taskType: definition.taskType, operation: { action: definition.action, requirements: goal.requirements || '', ...operation, ...(feedback ? { review: feedback, instruction: feedback } : {}) }, required } })
     }
     return tail
   }
@@ -74,13 +76,13 @@ export function planRun(project, rawGoal, policy = {}) {
         else if (target !== 'outline' && !passed(project.plot?.outline)) requireStage('story', deps, needs, { to: 'story', scope: { only: 'outline' } })
         if (target === 'props') for (const parent of ['characters', 'scenes']) if (roots.has(parent)) deps.push(roots.get(parent)); else if (!passed(project.plot?.[parent])) requireStage('story', deps, needs, { to: 'story', scope: { only: parent } })
         // 剧情资料写入剧情节点并在通过后并入项目库，属于项目级写入：人物与场景在图上并行，执行时由项目锁串行。
-        roots.set(target, text(target, textTargets[target], deps, needs, passed(project.plot?.[target])))
+        roots.set(target, text(target, textTargets[target], deps, needs, passed(project.plot?.[target]), {}, target !== 'outline' && !goal.scope.only))
       }
       tails.push(...[...roots].filter(([target]) => target === 'props' || goal.scope.only).map(([, id]) => id))
     } else if (['summary', 'project-summary', 'script-revise'].includes(stage)) {
       const target = stage === 'script-revise' ? 'script' : stage
       let last = text(target, textTargets[target], after, required, stage === 'summary' ? passed(project.summary) : stage === 'project-summary' ? !scriptFreshness(project).summaryNeedsUpdate && passed(project.summary) : false,
-        { ...(goal.draft ? { draft: true, referenceDurationSeconds: goal.durationSeconds } : {}), ...(stage === 'script-revise' ? { fromEpisode: goal.scope.fromEpisode === undefined ? undefined : goal.scope.fromEpisode - 1, requirements: goal.feedback || goal.requirements || '' } : {}) })
+        { ...(goal.draft ? { draft: true } : {}), ...(goal.durationSeconds && stage === 'summary' ? { referenceDurationSeconds: goal.durationSeconds } : {}), ...(stage === 'script-revise' ? { fromEpisode: goal.scope.fromEpisode === undefined ? undefined : goal.scope.fromEpisode - 1, requirements: goal.feedback || goal.requirements || '' } : {}) })
       if (stage === 'summary' && !goal.draft && goal.mode !== 'review') {
         const skip = steps.find(step => step.id === last)?.status === 'skipped'
         last = add('sync', 'script', { taskType: 'script-sync', action: 'script-sync', queue: 'text', scope: 'project' }, [last], skip ? { status: 'skipped' } : {})
@@ -122,7 +124,10 @@ export function planRun(project, rawGoal, policy = {}) {
         tails.push(add('expand', stage, { queue: null }, after, { input: { goal: { ...goal, from: undefined, to: stage, scope: { tracks: goal.scope.tracks } }, required } }))
       }
       else {
-        const items = project.shots?.items || [], tracks = goal.scope.tracks || items.map(shot => shot.id)
+        const items = project.shots?.items || []
+        // 整集修改且没有新的整集意见：从第一个未通过或缺失的镜头做到末镜；带意见时作用于全部镜头。
+        const resume = stage === 'seconds' && goal.mode === 'modify' && !goal.feedback && !goal.scope.tracks ? Math.max(0, items.findIndex(shot => !shotSecondsReady(shot) || !passed(shot.seconds))) : 0
+        const tracks = goal.scope.tracks || items.slice(resume).map(shot => shot.id)
         if (!tracks.length) blockers.push({ message: '没有可执行的镜头；请授权生成镜头表前置' })
         let previous = null
         for (const track of tracks) {
@@ -131,7 +136,11 @@ export function planRun(project, rawGoal, policy = {}) {
           const deps = [...after], needs = [...required]
           if (stage === 'seconds') {
             if (previous) deps.push(previous)
-            previous = text(`seconds:${track}`, textTargets.seconds, deps, needs, shotSecondsReady(shot) && passed(shot.seconds), { track }); tails.push(previous)
+            // 没有旧稿的镜头无从修订，改为生成。
+            previous = text(`seconds:${track}`, textTargets.seconds, deps, needs, shotSecondsReady(shot) && passed(shot.seconds), { track }, !shot.seconds?.content); tails.push(previous)
+            // 前镜更新会清除后镜旧稿：修订步骤带上规划时的本镜基稿，逐镜仍以各自旧稿为基础修改。
+            const revise = byKey.get(`revise@seconds:${track}`)
+            if (revise && shot.seconds?.content) revise.input.baseNode = structuredClone(shot.seconds)
           } else {
             const seconds = byKey.get(`re_review@seconds:${track}`) || byKey.get(`review@seconds:${track}`) || byKey.get(`generate@seconds:${track}`)
             if (seconds) deps.push(seconds.id)
@@ -146,13 +155,15 @@ export function planRun(project, rawGoal, policy = {}) {
                 else needs.push(requirement)
               }
             }
-            const source = shot.storyboard?.content?.tailReference?.sourceShotId
-            const predecessor = source && byKey.get(`tail@film:${source}`)
-            if (predecessor) deps.push(predecessor.id)
+            // 尾帧衔接：同一任务内后一镜等前一镜尾帧完成后再开始，前一镜未完成时其后各镜都等待；已有尾帧引用的来源镜同样先完成。
+            const source = shot.storyboard?.content?.tailReference?.sourceShotId, before = items[items.indexOf(shot) - 1]?.id
+            for (const id of [before, source]) { const predecessor = id && byKey.get(`tail@film:${id}`); if (predecessor) deps.push(predecessor.id) }
             let last
             const kinds = goal.parts === 'storyboard' ? ['storyboard'] : goal.parts === 'video' ? ['video', 'tail'] : goal.parts === 'tail' ? ['tail'] : ['storyboard', 'video', 'tail']
             for (const kind of kinds) {
-              const ready = policy.freshness?.[track]?.[kind] ?? (kind === 'video' ? shot.video?.content?.status === 'ready' : kind === 'tail' ? passed(shot.tailFrame) && Boolean(shot.tailFrame?.content?.localPath) && shot.tailFrame.content.sourceVideoFile === shot.video?.content?.file : false)
+              const fresh = policy.freshness?.[track] || {}, videoDone = fresh.video ?? shot.video?.content?.status === 'ready'
+              // 视频已完成的镜头不重编分镜：重编会级联删除该视频，而视频步骤已按就绪跳过。
+              const ready = kind === 'storyboard' ? Boolean(fresh.storyboard) || !goal.parts && videoDone : kind === 'video' ? videoDone : fresh.tail ?? (passed(shot.tailFrame) && Boolean(shot.tailFrame?.content?.localPath) && shot.tailFrame.content.sourceVideoFile === shot.video?.content?.file)
               last = add(kind, kind === 'storyboard' ? `storyboard:${track}` : `film:${track}`, { taskType: kind === 'storyboard' ? 'storyboard-prompt' : 'video', action: kind === 'storyboard' ? 'shot-storyboard' : 'film', queue: kind === 'video' ? 'video' : null, operation: { track, parts: kind === 'video' ? 'video' : kind === 'tail' ? 'tail' : 'storyboard', runVideoOnly: kind === 'video' } }, last ? [last] : deps, { ...(goal.mode === 'generate' && ready ? { status: 'skipped' } : {}) })
               byKey.get(`${kind}@${kind === 'storyboard' ? `storyboard:${track}` : `film:${track}`}`).input.required = needs
             }

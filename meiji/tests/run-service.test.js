@@ -36,7 +36,8 @@ test('预览不执行，删除必须确认，客户端指定步骤和锁无效�
   assert.ok(deletions.length)
   assert.equal(calls, 0); assert.equal(run.status, 'draft')
   assert.deepEqual(run.steps.map(step => step.kind), ['generate', 'review'])
-  assert.ok(run.steps.every(step => step.scope === 'episode'))
+  // 锁范围由服务端按对象推导（剧情属于项目级写入），客户端传入的 lock 无效。
+  assert.ok(run.steps.every(step => step.scope === 'project'))
   await assert.rejects(e.service.confirm(e.id, run.id, sessionId), { code: 'DELETIONS_PENDING' })
   await assert.rejects(e.service.get(e.id, run.id, 'unbound'), { status: 409 })
   await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()

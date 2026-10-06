@@ -49,7 +49,6 @@ export function shotContext(project, shotId) {
   const handoffs = [handoff(previous, 'end'), handoff(next, 'start')].filter(Boolean)
   return [
     ...entityFacts(project),
-    { title: '【本次参数】', text: project.style ? { style: project.style } : '' },
     { title: '【本集摘要】', text: !project.plot.outline.content && project.summary?.content ? project.summary.content : '' },
     { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
     { title: single ? '【上游事实：本镜及前后镜关联人物】' : '【上游事实：人物资料】', text: cards('characters') },
@@ -87,13 +86,13 @@ export function buildShotPrompts(skill, instructions, options) {
   })
 }
 
-// 镜头表资料：大纲为核心输入，随后是参数（时长、项目风格）、角色/场景/道具卡与实体引用清单。
+// 镜头表资料：大纲为核心输入，随后是时长参数、角色/场景/道具卡与实体引用清单。
 function tableFacts(project, min, max) {
   const context = shotContext({ ...project, shots: { ...project.shots, items: [] } })
   const cards = context.filter(fact => /^【上游事实：(人物|场景|道具)资料】$/.test(fact.title))
   return [
     { title: '【剧情大纲】', text: project.plot.outline.content },
-    { title: '【本次参数】', text: { durationSeconds: project.durationSeconds, minDurationSeconds: min, maxDurationSeconds: max, minShotDurationSeconds: 1, maxShotDurationSeconds: 15, ...(project.style ? { style: project.style } : {}) } },
+    { title: '【本次参数】', text: { durationSeconds: project.durationSeconds, minDurationSeconds: min, maxDurationSeconds: max, minShotDurationSeconds: 1, maxShotDurationSeconds: 15 } },
     ...cards,
     ...context.filter(fact => ['【实体引用清单】', '【实体标注规则】'].includes(fact.title)),
   ].filter(fact => fact.text)
@@ -115,7 +114,7 @@ export function buildSingleShotPrompts(options) {
   return buildShotPrompts('shot-revise', {
     task: `依据本镜基稿和本次意见修订 ${shotId}，遵守基础规则和补充规则。`,
     review: `验收 ${shotId}（${shot.duration}s）的修订结果：意见落实、只改动指定镜头、标题字段与条目完整、与前后镜衔接。`,
-    facts: [{ title: '【本次参数】', text: { shotId, durationSeconds: shot.duration, ...(project.style ? { style: project.style } : {}) } },
+    facts: [{ title: '【本次参数】', text: { shotId, durationSeconds: shot.duration } },
       ...shotContext(project, shotId).filter(fact => fact.title !== '【本次参数】')],
   }, options)
 }
@@ -137,7 +136,7 @@ export function buildSecondsPrompts(options) {
       { title: '【连续性参考：上一镜每秒指令】', text: previous?.seconds.check.passed === true ? { seconds: previous.seconds.content } : '' },
       cards('characters', '【上游事实：本镜关联人物】'), cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】'),
       { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
-      { title: '【本次参数】', text: { shotId, durationSeconds: shot.duration, startMs: 0, endMs: shot.duration * 1000, ...(project.style ? { style: project.style } : {}) } },
+      { title: '【本次参数】', text: { shotId, durationSeconds: shot.duration, startMs: 0, endMs: shot.duration * 1000 } },
       ...entityFacts(project),
     ].filter(fact => fact.text),
   }, options)
