@@ -78,6 +78,22 @@ test('generation persists attempt before submission and requires human review be
   assert.equal(timeline.project.timelines[timeline.output.timelineId].status, 'ready')
 })
 
+test('batch shot upsert writes one episode shot list atomically', async () => {
+  const { service, projectId } = await fixture()
+  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const episodeId = episode.output.id
+  const result = await command(service, projectId, 'batchUpsertShots', {
+    shots: [
+      { id: 'shot-1', episodeId, title: '开场', duration: 5, status: 'ready' },
+      { id: 'shot-2', episodeId, title: '结局', duration: 5, status: 'ready', dependsOn: ['shot-1'] },
+    ],
+  })
+
+  assert.deepEqual(result.output.ids, ['shot-1', 'shot-2'])
+  assert.deepEqual(result.project.episodes[episodeId].shotIds, ['shot-1', 'shot-2'])
+  assert.equal(result.project.shots['shot-2'].dependsOn[0], 'shot-1')
+})
+
 test('adult project cannot generate without age and rights records', async () => {
   const { service, projectId } = await fixture()
   const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })

@@ -329,30 +329,6 @@ body { display: flex; flex-direction: column; }
 
 .empty-actions { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
 
-/* 跟随最新模式 checkbox */
-.follow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-2);
-  color: var(--muted);
-  font-size: 13px;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  transition: color .15s, border-color .15s, box-shadow .15s;
-}
-.follow input { margin: 0; accent-color: var(--accent); cursor: pointer; }
-.follow:hover { border-color: var(--accent); color: var(--text); }
-.follow.on {
-  color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ok) 25%, transparent);
-}
-
 .canvas {
   flex: 1;
   overflow-y: auto;

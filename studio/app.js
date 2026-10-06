@@ -43,20 +43,14 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     canvas: document.getElementById('canvas'),
     meta: document.getElementById('meta'),
     refresh: document.getElementById('refresh'),
-    locate: document.getElementById('locate'),
     jump: document.getElementById('jump'),
-    autofollow: document.getElementById('autofollow'),
-    followToggle: document.getElementById('follow-toggle'),
     addUpload: document.getElementById('add-upload'),
     addAssets: document.getElementById('add-assets'),
     stageTabs: document.getElementById('stage-tabs'),
   }
 
-  // 最新主线节点 id（渲染时记录，供空白点击 / 顶部按钮 / 跟随模式定位）
+  // 最新主线节点 id（渲染时记录，供空白点击和自动跟随定位）
   let latestMainNodeId = null
-  // 跟随最新模式（checkbox）：勾选后进入画布自动定位 + 停留在画布时轮询新主线节点自动跟随
-  const FOLLOW_KEY = 'dsh-svs-autofollow:' + sessionId
-  let followEnabled = false
   let followInited = false
   let followTimer = null
   let lastMainIds = new Set()
@@ -982,14 +976,13 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (discards.length) el.canvas.appendChild(laneSection('discard', discards))
     if (frames.length) el.canvas.appendChild(laneSection('frames', frames))
 
-    // 最新主线节点 = 主线里 createdAt / order 最大者（点画布空白或「最新主线」定位到它）
+    // 最新主线节点 = 主线里 createdAt / order 最大者（进入画布和主线更新时自动定位）
     let latestMain = null
     for (const n of allMain) {
       if (!latestMain || ((n.createdAt || n.order || 0) >= (latestMain.createdAt || latestMain.order || 0))) latestMain = n
     }
     latestMainNodeId = latestMain ? latestMain.id : null
     lastMainIds = new Set(allMain.map((n) => n.id)) // 跟随模式轮询用：比对主线节点集合，发现新增才刷新
-    syncLocateButton()
     syncJump()
   }
 
@@ -1042,10 +1035,6 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     }
   }
 
-  function syncLocateButton() {
-    if (el.locate) el.locate.disabled = !latestMainNodeId
-  }
-
   /** 平滑滚动到指定节点并在卡片上闪一下。 */
   function locateNode(nodeId) {
     const card = el.canvas.querySelector('.node[data-node-id="' + nodeId + '"]')
@@ -1060,7 +1049,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     card.classList.add('flash')
   }
 
-  /** 定位到最新主线节点（手动：空白点击 / 📍 按钮 / 跟随模式共用）。 */
+  /** 定位到最新主线节点（进入画布、主线更新或点击空白时共用）。 */
   function locateLatest() {
     if (!latestMainNodeId) return
     if (activeStageKey !== 'overview' && currentProject) {
@@ -1072,52 +1061,24 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     locateNode(latestMainNodeId)
   }
 
-  // ---- 跟随最新模式（checkbox）----
-  // 勾选后：立即定位到最新主线；之后每次「切回画布 tab」都定位到当前最新主线；
-  // 停留在画布期间每 2.5s 轮询一次，发现新增主线节点就自动滚动跟随。
-  // 未勾选 = 纯手动（点空白 / 📍 才定位）。状态按 sessionId 记在 localStorage，会话内跨 tab 切换 / 刷新保持。
+  // 进入或切回画布时定位到最新主线；停留期间每 2.5s 轮询，发现新增主线节点后自动跟随。
   function initAutoFollow() {
     if (followInited) return
     followInited = true
 
-    if (sessionId) {
-      try { followEnabled = localStorage.getItem(FOLLOW_KEY) === '1' } catch { followEnabled = false }
-    }
-    if (el.autofollow) {
-      el.autofollow.checked = followEnabled
-      el.autofollow.addEventListener('change', () => {
-        followEnabled = el.autofollow.checked
-        try { localStorage.setItem(FOLLOW_KEY, followEnabled ? '1' : '0') } catch {}
-        syncFollowUi()
-        if (followEnabled) {
-          scheduleLocate() // 勾选当下立即定位
-          startFollowTimer()
-        } else {
-          stopFollowTimer()
-        }
-      })
-    }
-    syncFollowUi()
-
-    // 切回画布 tab（iframe 由隐藏变可见 / 重挂载可见）→ 跟随模式下定位到最新主线
+    // 切回画布 tab（iframe 由隐藏变可见 / 重挂载可见）→ 定位到最新主线
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        if (followEnabled) {
-          scheduleLocate()
-          startFollowTimer()
-        }
+        scheduleLocate()
+        startFollowTimer()
       } else {
         stopFollowTimer()
       }
     })
-    if (document.visibilityState === 'visible' && followEnabled) {
+    if (document.visibilityState === 'visible') {
       scheduleLocate()
       startFollowTimer()
     }
-  }
-
-  function syncFollowUi() {
-    if (el.followToggle) el.followToggle.classList.toggle('on', followEnabled)
   }
 
   function scheduleLocate() {
@@ -1147,7 +1108,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
   /** 轮询：Agent 对话期间新增了主线节点 → 重渲染（保留已展开的收纳区）并滚动到新节点。 */
   async function pollFollow() {
-    if (!followEnabled || document.visibilityState !== 'visible' || isBusyEditing()) return
+    if (document.visibilityState !== 'visible' || isBusyEditing()) return
     try {
       const project = await api('/canvas')
       const mains = (project.nodes || []).filter((n) => nodeLane(n) === 'main')
@@ -1190,7 +1151,6 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   el.canvas.addEventListener('click', (e) => {
     if (e.target === el.canvas && latestMainNodeId) locateLatest()
   })
-  if (el.locate) el.locate.addEventListener('click', () => locateLatest())
   if (el.jump) {
     el.jump.addEventListener('click', () => {
       const c = el.canvas

@@ -31,6 +31,20 @@ trigger: 用户要求制作包含角色、场景、镜头规划、逐镜生成�
 
 三档均为 `fast` / `balanced` / `quality`。缺省固定为 `fast`；只有需要日常或成片档时才显式传 `balanced` / `quality`。
 
+## 整书快速验证模式
+
+用户明确要求整部小说快速验证，并允许降低图片/视频质量、跳过质检时，优先走本模式：
+
+1. 沿用文本开发已经批准的全部分集与镜头；不重新读取全文，也不在媒体阶段重做剧情推理。只有用户明确要求浓缩版时才使用 1 集、8–12 镜。
+2. 每种 capability 只调用一次 `comfy_list_workflows`，确认 `fast` 解析到 Elysium 实现；同一项目不重复核对实现。
+3. 资产上限为 2 张主角单视图卡和 3 张无人场景卡，全部 `tier=fast`；可复用已有合格卡片，不做 quality 重绘、字节一致性比对或逐张确认。
+4. 镜头表只做一次结构自检。逐镜即时生成 H3 prompt，生成完成后不在后续上下文重复携带以前镜头的 prompt。
+5. 所有视频固定 `tier=fast`、124 帧；调用一次 `studio_batch_generate` 创建持久异步任务后立即释放 Agent，不在对话里等待 GPU。后续只用 `studio_production_status` 读取紧凑进度；中断后用 `studio_production_resume` 恢复，禁止重复提交已带 `promptId` 的任务。
+6. 跳过逐镜人工批准和视觉终检。全部成功镜头按顺序调用一次 `video_concat`；失败镜头在交付中列明，不阻塞其余镜头生成。
+7. 镜头用 `studio_shot_batch_upsert` 一次写入，生成用 `studio_batch_generate`，保存返回的 `runId`。后台 Worker 完成后，候选资产用 `studio_review_batch_decide` 按用户本次授权一次批准，再组装 timeline 并导出。
+
+该模式的完成标准是“全部规划分集都已处理，整书主线有开端、冲突、高潮和结局，且成片可播放”，不是只完成局部样片。
+
 ## 工作流
 
 ### 1. 确认生产规格

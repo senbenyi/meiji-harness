@@ -206,7 +206,6 @@ const PAIRS = [
   ['failed chip 字/其底色', 'var(--danger)', 'color-mix(in srgb, var(--danger) 12%, transparent)'],
   ['pending chip 字/其底色', 'var(--warn)', 'color-mix(in srgb, var(--warn) 12%, transparent)'],
   ['作废 chip 字/其底色', 'var(--warn)', 'color-mix(in srgb, var(--warn) 14%, transparent)'],
-  ['「跟随最新」开启态字/按钮底', 'var(--ok)', 'var(--panel-2)'],
   ['角色 tag 字/卡片底', 'var(--tag-character)', 'var(--panel-2)'],
   ['场景 tag 字/卡片底', 'var(--tag-scene)', 'var(--panel-2)'],
   ['风格 tag 字/卡片底', 'var(--tag-style)', 'var(--panel-2)'],

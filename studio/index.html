@@ -17,7 +17,7 @@
       document.documentElement.setAttribute('data-theme', t)
     })()
   </script>
-  <link rel="stylesheet" href="./app.css?v=9">
+  <link rel="stylesheet" href="./app.css?v=10">
 </head>
 <body>
   <script>window.__DSH_SVS_TOKEN__ = "__DSH_SVS_TOKEN_VALUE__";</script>
@@ -32,17 +32,12 @@
     <div class="topbar-bar">
       <button class="btn btn-accent" id="add-upload" type="button" title="从本机选择图片（png/jpg/webp/gif，可多选），直接成为画布上的角色卡/场景卡等资产">＋ 上传图片</button>
       <button class="btn" id="add-assets" type="button" title="把已入库的跨会话资产（角色/场景/风格锚点）取到当前画布">📚 资产库</button>
-      <label class="follow" id="follow-toggle" title="勾选后：进入画布自动定位到最新主线节点；Agent 对话期间新增主线节点会自动滚动跟随（按会话记忆勾选状态）">
-        <input type="checkbox" id="autofollow">
-        <span>跟随最新</span>
-      </label>
-      <button class="btn" id="locate" type="button" title="定位到最新主线节点（主线资产优先展示）">📍 最新主线</button>
       <button class="btn" id="refresh" type="button">刷新</button>
     </div>
   </header>
   <nav id="stage-tabs" class="stage-tabs" role="tablist" aria-label="制作阶段"></nav>
   <main id="canvas" class="canvas"></main>
   <button id="jump" class="jump-btn" type="button" title="返回顶端">↑ TOP</button>
-  <script type="module" src="./app.js?v=9"></script>
+  <script type="module" src="./app.js?v=10"></script>
 </body>
 </html>
