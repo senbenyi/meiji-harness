@@ -8,7 +8,7 @@ import { generateStoryPackage } from './fixtures/story-generation.js'
 import { checkContext } from '../server/runtime/operation-context.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { storyPackageFixture, outlineFixture, outlineResponse } from './fixtures/story-package.js'
-import { planTasks, operations as definitions } from '../server/flow/operations/operation-registry.js'
+import { planRun } from '../shared/run-planner.js'
 import { runOperation } from './fixtures/operation.js'
 import { recordSteps } from './fixtures/nodes.js'
 import { builtinSkill } from '../skills/load-skills.js'
@@ -277,7 +277,7 @@ test('每个剧情步骤生成用生产规则、自审用对应审核 skill，�
 })
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
-  assert.deepEqual(definitions.story.tasks(null, {}).map(task => task.type), ['outline', 'characters', 'scenes', 'props'])
+  assert.deepEqual([...new Set(planRun(episodeFixture(), { to: 'story', mode: 'regenerate' }).steps.map(step => step.target))], ['outline', 'characters', 'scenes', 'props'])
   const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('修订稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('二次修订稿')), reviewFail('因果错误')]
   let calls = 0
   const { result, nodes } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))

@@ -286,15 +286,12 @@ export function registerPanel(ctx, ready = Promise.resolve(), edits, runs, runJo
           if (['project-delete', 'episode-delete'].includes(staged.action) && (edits.list(project.id).length || (await runs.list(project.id, sessionId)).some(run => ['draft', 'running', 'paused'].includes(run.status) && (staged.action === 'project-delete' || !run.episodeId || run.episodeId === staged.episodeId)))) {
             throw Object.assign(new Error('请先停止生成任务，再删除项目或剧集'), { status: 409 })
           }
-          const definition = validateOperation(staged)
-          if (definition.kind === 'direct') {
-            const started = edits.start(staged, ctx.sessions.get(sessionId))
-            const outcome = await started.done
-            if (started.failure) throw started.failure
-            const next = deleting ? { deleted: true, ...(selected.projectId === project.id ? { workspace: null, sessionId: (await ctx.sessionController.create({})).sessionId } : {}) } : project ? { project: await projects.read(project.id) } : {}
-            return json(res, 200, { accepted: true, completed: true, editId: started.id, result: outcome.result, ...(outcome.continueRun ? { continueRun: outcome.continueRun } : {}), ...next })
-          }
-          throw Object.assign(new Error('制作请通过任务目标预览发起'), { status: 400, code: 'RUN_GOAL_REQUIRED' })
+          validateOperation(staged)
+          const started = edits.start(staged, ctx.sessions.get(sessionId))
+          const outcome = await started.done
+          if (started.failure) throw started.failure
+          const next = deleting ? { deleted: true, ...(selected.projectId === project.id ? { workspace: null, sessionId: (await ctx.sessionController.create({})).sessionId } : {}) } : project ? { project: await projects.read(project.id) } : {}
+          return json(res, 200, { accepted: true, completed: true, editId: started.id, result: outcome.result, ...(outcome.continueRun ? { continueRun: outcome.continueRun } : {}), ...next })
         } catch (error) {
           const result = fail(error, '启动任务失败')
           // 本集被占用（面板或会话的操作排队中或执行中）：附带占用者，面板据此提示。

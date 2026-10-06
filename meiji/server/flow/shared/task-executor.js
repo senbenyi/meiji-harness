@@ -1,5 +1,5 @@
-// 面板与会话共用入口：锁定与任务上下文 → 项目/剧集准备 → 领域操作 → 状态释放与任务收尾。
-// 每个任务使用独立上下文；后台图片/视频完成后才释放任务队列名额。
+// Run 单步与即时保存共用：项目/剧集准备 → 领域处理 → 状态释放。
+// 每个步骤使用独立上下文；后台图片/视频完成后才释放队列名额。
 import { linkStore } from '../../data/workspace-links.js'
 import { runNode } from '../../runtime/step-execution.js'
 import { executionContext, executionNodes } from '../../runtime/task-context.js'
@@ -31,10 +31,12 @@ async function executeOperation(operation, deps) {
   const rootProjects = revisionStore(storedProjects, deps.writeToken, operation)
   if (deps.runId) {
     const save = rootProjects.save.bind(rootProjects)
+    // 取消后晚到的正文不再提交；失败事实的落定（settling，如远端视频未取消）仍需写入。
+    const stopLate = () => { if (!checkContext.getStore()?.settling) deps.signal?.throwIfAborted() }
     rootProjects.save = (id, patch) => save(id, async current => {
-      deps.signal?.throwIfAborted()
+      stopLate()
       const changes = typeof patch === 'function' ? await patch(current) : patch
-      deps.signal?.throwIfAborted()
+      stopLate()
       return changes
     })
   }
@@ -90,14 +92,6 @@ async function executeOperation(operation, deps) {
     }
     throw error
   }
-}
-
-// 历史面板管理器的适配入口。生产请求已改走 executeRunStep；该入口只供旧插件与迁移期测试读取。
-export async function executeTask(operation, deps) {
-  const task = deps.task || { type: operation.action, target: null, definition: operations[operation.action] || taskDefinition('save'), nodes: [] }
-  const writeToken = deps.taskId || deps.operationId || deps.writeToken
-  const context = { taskId: task.id || deps.taskId, writeToken, signal: deps.signal, nodes: task.nodes || [], nodeId: task.nodes?.[0]?.id, operation, step: operation.step, steps: task.steps || textStepRegistry[task.target?.split(':')[0]], review: operation.review || '', requirements: operation.requirements || '', maxRevisions: task.definition?.maxRevisions ?? 2, outputs: [], baselines: new Map() }
-  return executionContext.run(context, () => checkContext.run(context, () => executeOperation(operation, { ...deps, task, writeToken })))
 }
 
 async function releaseOperation({ operation, deps, writeToken, context, state }) {

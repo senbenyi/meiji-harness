@@ -7,7 +7,8 @@ import { setupModel } from './fixtures/model.js'
 import { runOperation } from './fixtures/operation.js'
 import { useWorkspaces } from './fixtures/host.js'
 import { saveIncoming, openIncoming } from '../server/flow/steps/shared/incoming.js'
-import { recordStore } from '../server/data/task-store.js'
+import { historyStore } from '../server/data/history-store.js'
+import { runStore } from '../server/data/run-store.js'
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7T8AAAAASUVORK5CYII=', 'base64')
 const image = { data: png.toString('base64'), mime: 'image/png' }
@@ -27,9 +28,9 @@ test('图片导入经操作入口保存人物和场景文件，消费暂存并�
     assert.ok(p.plot[key].items[0].image.content.assetId)
   }
   await assert.rejects(stat(incoming.directory), { code: 'ENOENT' })
-  const tasks = await recordStore(e.home, e.id).list()
-  assert.equal(tasks.length, 2)
-  assert.ok(tasks.every(task => task.status === 'completed'))
+  // 即时保存只留项目事件，不建立制作任务。
+  assert.deepEqual((await historyStore(e.home, e.id).list('events')).map(event => event.type), ['import-image', 'import-image'])
+  assert.deepEqual(await runStore(e.home, e.id).list(), [])
   await assert.rejects(runOperation(e.op('import-image', { itemId: 'C99', ...image }), { home: e.home }), /请先写好角色卡或场景卡/)
 })
 

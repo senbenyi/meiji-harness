@@ -50,7 +50,7 @@ export function renderCharacterDetail(project, itemId, actions, context) {
     page.append(element('p', '该人物已不存在，请返回列表重新选择。', 'notice'))
     return page
   }
-  // 错误显示在对应内容与图片节点上；这里只承载本页操作的即时提示。
+  // 错误显示在对应内容与图片节点上；这里只承载本页的即时提示。
   const hint = element('p', '', 'hint warn')
   hint.hidden = !hint.textContent
   hint.setAttribute('role', 'status')

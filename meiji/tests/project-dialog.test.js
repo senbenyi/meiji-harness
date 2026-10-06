@@ -110,18 +110,18 @@ test('剧本素材可按需预览和下载，正文使用纯文本避免执行HT
   assert.match(view.querySelector('a[download]').href, /category=scripts.*download=1/)
 })
 
-test('项目摘要失败仅展示一次，概要提供提取、任务历史及skill入口', async t => {
+test('项目摘要只展示正文，不提供生成、历史或 skill 操作', async t => {
   const e = setup(t, async () => {}), summary = node('summary', '失败稿')
   summary.check = { passed: false, failures: ['遗漏结局'] }
   const project = { id: 'project-id', title: '来信', script: '完整剧本', summary, episodes: [] }
   const calls = []
   const view = renderOverview(project, { perform: async (...args) => calls.push(args), openHistory: (...args) => calls.push(args), openSkill: (...args) => calls.push(args), fail: error => { throw error } }, {})
   e.root.append(view)
-  assert.equal(view.textContent.split('遗漏结局').length - 1, 1)
-  const button = text => [...view.querySelectorAll('button')].find(button => button.textContent === text)
-  await button('立即更新摘要').onclick()
-  button('查看摘要任务历史 →').click(); button('查看 skill').click()
-  assert.deepEqual(calls.map(args => args[1]), ['project-summary', 'project-summary', 'project-summary'])
+  assert.equal(view.textContent.split('失败稿').length - 1, 1)
+  assert.equal([...view.querySelectorAll('button')].some(button => /更新摘要|重新生成|摘要任务历史|查看 skill/.test(button.textContent)), false)
+  assert.ok(view.querySelector('.title-with-edit > .title-actions'))
+  assert.equal(view.querySelector('.project-actions'), null)
+  assert.deepEqual(calls, [])
 })
 
 

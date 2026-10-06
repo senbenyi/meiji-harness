@@ -1,3 +1,0 @@
-import { canGenerate, gateMessage } from '../../../../shared/generation-gates.js'
-export const operation = { session: {"tool": "operation-generate-shot-table", "description": "生成镜头表。", "episode": true, "params": {}, "stepwise": true, "modes": ["generate", "regenerate", "modify", "review"]}, label: '生成镜头表', scope: 'episode', agent: true, kind: 'generate',
-  precheck(project) { if (!canGenerate(project, 'shots')) throw Object.assign(new Error(gateMessage(project, 'shots')), { status: 409 }) }, tasks: () => [{ type: 'shot-table' }] }

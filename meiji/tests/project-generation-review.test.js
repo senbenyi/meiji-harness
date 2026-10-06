@@ -17,7 +17,7 @@ test('episode generation repairs once and records both reviews',async()=>{
  return JSON.stringify({summary:calls===1?'初稿':'修订稿',durationSeconds:10})
  }})))
  assert.equal(calls,4);assert.equal(result.summary,'修订稿');assert.equal(result.check.passed,true)
- assert.deepEqual(nodes.map(step => `${step.kind}:${step.target}:${step.verdict}`), ['generate:summary:null', 'review:summary:fail', 'revise:summary:null', 're_review:summary:pass'])
+ assert.deepEqual(nodes.map(step => `${step.kind}:${step.target}:${step.verdict ?? null}`), ['generate:summary:null', 'review:summary:fail', 'revise:summary:null', 're_review:summary:pass'])
 })
 test('story outline repairs once before extracting cards from the final outline', async () => {
  const fixture = storyPackageFixture()

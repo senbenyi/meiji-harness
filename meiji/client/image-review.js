@@ -176,7 +176,7 @@ export function renderImageReview(project, actions, gate) {
     'p',
     current.phase === 'error' ? '生成失败，可放弃或重新生成'
       : ready ? '生成完成，请确认、放弃或重新生成'
-        : '正在生成图片，请勿其他操作',
+        : '正在生成图片，请稍候',
     'image-review-tip',
   )
   tip.setAttribute('role', 'status')
@@ -255,7 +255,7 @@ export function renderImageReview(project, actions, gate) {
     if (!canRegenerate) return
     const fields = reviewFields(reviewArea)
     setBusy('正在重新生成…')
-    tip.textContent = '正在生成图片，请勿其他操作'
+    tip.textContent = '正在生成图片，请稍候'
     try { await actions.regenerateImage(project, current, fields) }
     catch (error) {
       status.textContent = error.message

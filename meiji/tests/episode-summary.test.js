@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
@@ -87,7 +87,7 @@ test('草稿任务持久化并可重新查询，保存前项目文件不变', as
   const e = await setupModel(t)
   const file = join(e.home, 'storages/meiji/projects', e.id + '.json'), before = await readFile(file, 'utf8')
   const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps, generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewPass : JSON.stringify(draft()) }) }) })
-  const task = tasks.start(operationRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
+  const task = tasks.start(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
   const result = await tasks.whenEnded(task.id)
   assert.equal(result.status, 'completed')
   assert.equal(result.draft.summary, '本集事件')
@@ -127,7 +127,7 @@ test('无密钥时已组装提示词并记录技能，但不 fetch、不改变�
   const original = await e.read()
   let network = 0
   t.mock.method(globalThis, 'fetch', async () => { network++; throw new Error('不应访问网络') })
-  await assert.rejects(runOperation(operationRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150 }), { home: e.home }), /需要网关密钥/)
+  await assert.rejects(runOperation(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150 }), { home: e.home }), /需要网关密钥/)
   assert.deepEqual(await e.read(), original)
   assert.equal(network, 0)
   const [record] = await recordStore(e.home, e.id).list()
@@ -151,7 +151,7 @@ test('审核失败候选保存在任务历史，原项目不变，也不能伪�
   const e = await setupModel(t), before = await e.store.read(e.id)
   const tasks = createOperationManager({ home: e.home, execute: (op, deps) => runOperation(op, { ...deps,
     generateEpisode: opts => generateEpisode({ ...opts, request: async ({ skill }) => skill === 'review' ? reviewFail('结尾未衔接') : JSON.stringify(draft()) }) }) })
-  const task = tasks.start(operationRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
+  const task = tasks.start(actionRequest('episode-summary-draft', { projectId: e.id, referenceDurationSeconds: 150, origin: 'panel' }))
   const result = await tasks.whenEnded(task.id)
   assert.equal(result.status, 'review_failed')
   assert.equal(result.draft.check.passed, false)

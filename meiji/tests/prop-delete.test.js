@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
 import { cardModel } from '../shared/drama-model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
-import { recordStore } from '../server/data/task-store.js'
-import { runOperation, latestTask } from './fixtures/operation.js'
+import { runOperation, latestRun } from './fixtures/operation.js'
+import { historyStore } from '../server/data/history-store.js'
 import { validateOperation } from '../server/flow/operations/operation-registry.js'
 
 const prop = (id, name) => cardModel({ id, type: 'prop', name, category: 'prop', description: name, evidence: `旅人拿起${name}`, ownerId: 'C01' })
@@ -27,10 +27,9 @@ test('prop deletion only removes the selected card and its pending images in the
   assert.deepEqual(after.shots, before.shots)
   assert.deepEqual(after.assembly, before.assembly)
   assert.deepEqual((await e.store.read(e.id)).episodes[1], otherEpisode)
-  const task = await latestTask(recordStore(e.home, e.id), 'props')
-  assert.equal(task.status, 'completed')
-  assert.equal(task.actor, 'human')
-  assert.deepEqual(task.nodes.map(s => [s.kind, s.target, s.actor, s.status]), [['save', 'props', 'human', 'completed']])
+  // 即时保存不建立制作任务，只在项目事件留痕。
+  assert.equal(await latestRun(e.home, e.id), null)
+  assert.deepEqual((await historyStore(e.home, e.id).list('events')).map(event => [event.type, event.actor, event.target, event.episodeId]), [['prop-delete', 'human', 'P01', e.episodeId]])
 })
 
 test('the last prop can be deleted while existing group review is preserved', async t => {

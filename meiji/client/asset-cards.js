@@ -277,7 +277,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     aspectWrap.append(aspect)
     const pair = element('div', '', 'studio-pair')
     const tools = element('div', '', 'studio-tools')
-    tools.setAttribute('aria-label', '人物图片操作')
+    tools.setAttribute('aria-label', '人物图片工具')
     // 主图为镜头实际使用的人物图，参考图只是可选的生成输入：两者在尺寸、底色和标签上区分主次。
     const pane = (title, src, emptyLabel, onEmpty, { kind, badge, note } = {}) => {
       const box = element('figure', '', `studio-pane is-${kind}`)
@@ -562,7 +562,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     }
     actionsRow.append(choose)
     if (item.type !== 'role') {
-      // 场景详情：图片相关操作集中在图片下方，标题行只留名称。
+      // 场景详情：图片相关按钮集中在图片下方，标题行只留名称。
       const bar = element('div', '', 'scene-image-bar')
       const tools = element('div', '', 'scene-image-tools')
       tools.append(ai, ...actionsRow.children)

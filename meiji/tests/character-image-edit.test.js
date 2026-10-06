@@ -4,8 +4,9 @@ import { setupModel } from './fixtures/model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/image-storage.js'
 import { pictureRecord } from '../shared/image-assets.js'
-import { runOperation } from './fixtures/operation.js'
-import { planTasks } from '../server/flow/operations/operation-registry.js'
+import { runOperation, latestRun } from './fixtures/operation.js'
+import { planRun } from '../shared/run-planner.js'
+import { goalRequest } from '../client/goal-request.js'
 import { previewPrompts } from '../server/prompts/preview-prompts.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 import { render } from '../server/prompts/skill-prompts.js'
@@ -59,8 +60,7 @@ for (const draft of [false, true]) test(`人物修改直接提交意见和${draf
   await e.store.saveReviewDraft(e.id, e.episodeId, 'image:C01', '将头发改为黑色短发', 0)
   const before = await e.read()
   const operation = e.op('character-image', { itemId: 'C01', generationMode: 'modify', review: '将头发改为黑色短发', aspect: '1000x1504', ...(draft ? { draftId: e.draftId } : {}) })
-  const nodes = await planSteps(e.home, operation)
-  assert.deepEqual(nodes.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
+  assert.deepEqual(planSteps(before, operation), [['image', 'image:C01', 'image'], ['wait_confirm', 'image:C01', null]])
   let called = 0
   await runOperation(operation, { home: e.home, waitForBackground: true, submitAssetImage: async args => {
     called++
@@ -88,8 +88,7 @@ for (const draft of [false, true]) test(`人物修改直接提交意见和${draf
 test('人物修改缺少原图时报错，场景修改也使用图片步骤', async t => {
   const e = await setupModel(t)
   await assert.rejects(runOperation(e.op('character-image', { itemId: 'C01', generationMode: 'modify', review: '改头发' }), { home: e.home, waitForBackground: true, submitAssetImage: () => assert.fail('不应提交') }), /原来的数据|原图/)
-  const scene = await planSteps(e.home, e.op('scene-image', { itemId: 'E01', generationMode: 'modify' }))
-  assert.deepEqual(scene.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
+  assert.deepEqual(planSteps(await e.read(), e.op('scene-image', { itemId: 'E01', generationMode: 'modify', review: '镜头后退' })), [['image', 'image:E01', 'image'], ['wait_confirm', 'image:E01', null]])
 })
 
 test('人物修改预览复用实际 model 的组装，Base64 不显示在预览文本', async t => {
@@ -105,9 +104,8 @@ test('人物修改预览复用实际 model 的组装，Base64 不显示在预览
 })
 
 
-test('人物修改真实生成通路执行三个计划步骤并登记候选图', async t => {
+test('人物修改真实生成通路在生图步骤内执行三个动作并登记候选图', async t => {
   const { submitAssetImage } = await import('../server/flow/steps/shared/image-files.js')
-  const { recordStore } = await import('../server/data/task-store.js')
   const e = await fixture(t)
   const operation = e.op('character-image', { itemId: 'C01', generationMode: 'modify', review: '背景改为白色' })
   await runOperation(operation, { home: e.home, operationId: 'image-three-nodes', waitForBackground: true,
@@ -115,12 +113,12 @@ test('人物修改真实生成通路执行三个计划步骤并登记候选图',
       fetchImpl: async (_url, options) => options.method === 'POST' ? Response.json({ data: [{ url: '/v1/media/edited' }] }) : new Response(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
     }),
   })
-  const task = (await recordStore(e.home, e.id).list('tasks'))[0]
-  const planned = task.nodes
+  const task = await latestRun(e.home, e.id, 'image:C01')
   assert.equal(task.status, 'completed')
-  assert.deepEqual(planned.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
-  assert.ok(planned.every(step => step.status === 'completed' && !step.unplanned && step.target === 'image:C01'))
+  assert.deepEqual(task.kinds, ['image', 'wait_confirm'])
+  assert.deepEqual(task.steps[0].attempts.map(step => [step.kind, step.status, step.target]), ['image_generate', 'image_download', 'image_save'].map(kind => [kind, 'done', 'image:C01']))
   assert.equal(Object.keys((await e.read()).pendingImages).length, 1)
 })
 
-async function planSteps(home, operation) { return (await planTasks(home, operation)).flatMap(task => task.plan) }
+// 图片目标规划为「生图 → 等待人工确认」两步；生成、下载、保存是生图步骤内部的三个动作。
+function planSteps(view, operation) { return planRun(view, goalRequest(operation.action, operation).goal).steps.map(step => [step.kind, step.target, step.queue]) }

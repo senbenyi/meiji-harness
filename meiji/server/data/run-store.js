@@ -1,4 +1,4 @@
-// Run 存储独立于旧 task/operation 记录；所有进程内写入按项目串行。
+// 任务（Run）与步骤快照的存储；所有进程内写入按项目串行。
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -75,7 +75,6 @@ export function runStore(home, projectId) {
         const record = { ...snapshot, id: snapshot.id || randomUUID(), runId: id, stepId, projectId, createdAt: snapshot.createdAt || now() }
         requireId(record.id)
         try { await readFile(path('run-' + kind, record.id)); throw new Error('快照 ID 已存在') } catch (error) { if (error.code !== 'ENOENT') throw error }
-        delete record.taskId; delete record.nodeId
         await write('run-' + kind, record.id, record)
         step[kind] ||= []; step[kind].push(record.id)
         await commit(run)
@@ -122,6 +121,22 @@ export function runStore(home, projectId) {
       const run = await read(record.runId), step = run.steps.find(item => item.id === record.stepId)
       if (!step?.[kind]?.includes(recordId)) throw missing()
       return record
+    },
+    // 删除剧集：连同该集的任务及其提示词、原始返回、内容快照一并删除；项目级任务保留。
+    removeEpisode(episodeId) {
+      return serial(async () => {
+        const runIds = new Set((await list()).filter(run => run.episodeId === episodeId).map(run => run.id))
+        for (const kind of ['prompts', 'responses', 'artifacts']) {
+          let names
+          try { names = await readdir(join(root, 'run-' + kind)) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
+          for (const name of names.filter(item => item.endsWith('.json'))) {
+            const file = join(root, 'run-' + kind, name), record = JSON.parse(await readFile(file, 'utf8'))
+            if (runIds.has(record.runId) || record.episodeId === episodeId) await rm(file, { force: true })
+          }
+        }
+        for (const id of runIds) await rm(path('runs', id), { force: true })
+        return [...runIds]
+      })
     },
     async interrupt() {
       // 必须在无执行器运行的启动恢复阶段调用。

@@ -17,17 +17,21 @@ function dom(t) {
 const project = () => ({ mode: 'script', id: 'p', title: '来信', script: '原剧本', scriptKind: 'imported', scriptRevision: 1, scriptSource: 'import', scriptSections: { sections: [], future: '' }, scriptProposals: [], scriptPendingDeletes: [], summary: node('summary', '项目摘要'), episodes: [] })
 const button = (root, text) => [...root.querySelectorAll('button')].find(item => item.textContent === text)
 
-test('导入剧本项目隐藏创作方向，保留剧本与摘要意见入口', async t => {
+test('导入剧本项目隐藏创作方向，摘要只读并保留剧本入口', async t => {
   const root = dom(t), p = project(), calls = []
   const view = renderOverview(p, { perform: async (...args) => calls.push(args), openPremise: () => calls.push('premise'), openScript: () => calls.push('script'), fail: error => { throw error } }, {})
   root.append(view)
-  assert.deepEqual([...view.querySelectorAll('h3')].map(item => item.textContent), ['项目摘要', '剧本', '角色库', '场景库', '道具库', '剧集'])
-  assert.match(view.textContent, /待更新/)
-  assert.equal(button(view, '编辑创作方向'), undefined); button(view, '查看与编辑剧本').click()
-  view.querySelector('[aria-label="项目摘要修改意见"]').value = '补充结局'
-  await button(view, '按意见重新生成').onclick()
+  assert.deepEqual([...view.querySelectorAll('h3')].map(item => item.textContent), ['项目摘要', '剧本', '剧集'])
+  assert.deepEqual([...view.querySelectorAll('.library-tab')].map(item => item.textContent), ['角色库', '场景库', '道具库'])
+  assert.equal(view.querySelector('.library-tab[aria-selected="true"]').textContent, '角色库')
+  view.querySelectorAll('.library-tab')[1].click()
+  assert.equal(view.querySelector('.library-tab[aria-selected="true"]').textContent, '场景库')
+  assert.equal(view.querySelectorAll('.library-tab-panel')[0].hidden, true)
+  assert.match(view.querySelector('.episode-placeholder').textContent, /还没有剧集/)
+  assert.equal(button(view, '编辑创作方向'), undefined)
+  assert.equal([...view.querySelectorAll('button')].some(item => /更新摘要|重新生成|摘要任务历史|查看 skill/.test(item.textContent)), false)
+  button(view, '查看与编辑剧本').click()
   assert.equal(calls[0], 'script')
-  assert.deepEqual(calls[1].slice(1), ['project-summary', { review: '补充结局' }])
 })
 
 test('剧本正文保存必填说明，旧方案不可确认，任意版本对比及占用门禁', async t => {

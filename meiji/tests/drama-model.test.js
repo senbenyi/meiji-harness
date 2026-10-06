@@ -12,7 +12,7 @@ import { runOperation } from './fixtures/operation.js'
 import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
 import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds.js'
 import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
-import { storyPackageFixture } from './fixtures/story-package.js'
+import { storyPackageFixture, storyRequest } from './fixtures/story-package.js'
 import { node, shotModel, begin, finish, saveReview, assertDrama, allNodes, contentNode } from '../shared/drama-model.js'
 import { migrateProject } from '../scripts/migrate-model.js'
 import { referenceReport } from '../client/storyboard-references.js'
@@ -25,8 +25,7 @@ async function setup(t) {
 const requestFor = text => async ({ skill }) =>skill==='review'?reviewPass:skill==='shots'?tableResponse(text):text
 async function throughShots(t) {
  const env=await setup(t)
- const fixture = storyPackageFixture(10), replies = [fixture.outline, fixture.characters, fixture.scenes, fixture.props].flatMap(value => [JSON.stringify(value), reviewPass])
- await runOperation(env.op('story', {}),{home:env.home,request: async () => replies.shift()})
+ await runOperation(env.op('story', {}),{home:env.home,request: storyRequest(storyPackageFixture(10))})
  await runOperation(env.op('shot-table', {}),{home:env.home,generateShots:opts=>generateShots({...opts,request:requestFor('## S01 / 5s\n旅人从南向北走进庭院。\n\n## S02 / 5s\n旅人停在门边。')})})
  return env
 }

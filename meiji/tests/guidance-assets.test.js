@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import { reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -83,7 +83,7 @@ test('film guidance changes only future tasks, preserving generated artifacts', 
 })
 
 test('guide selection changes do not invalidate an in-flight shot task', async t => {
-  const e = await setupModel(t), job = revisionStore(e.store, 'task', operationRequest('shot-seconds', { episodeId: e.episodeId, track: 'S01' }))
+  const e = await setupModel(t), job = revisionStore(e.store, 'task', actionRequest('shot-seconds', { episodeId: e.episodeId, track: 'S01' }))
   await job.read(e.id)
   await e.store.save(e.id, current => assetsPatch(current, 'seconds', [guidance('new')]))
   await job.save(e.id, { title: '结果' })

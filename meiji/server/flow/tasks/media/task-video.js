@@ -12,6 +12,7 @@ import { submitVideo } from '../../steps/step-submit-video.js'
 import { generateVideo } from '../../steps/step-generate-video.js'
 import { extractTailFrame } from '../../steps/step-extract-tail-frame.js'
 import { videoReady } from '../../steps/shared/film-freshness.js'
+import { checkContext } from '../../../runtime/operation-context.js'
 export async function runVideo(context) {
   const shot = context.project.shots.items.find(item => item.id === context.operation.track)
   return context.operation.parts === 'tail' || !context.operation.parts && videoReady(shot) ? opTailFrame(context) : opFilm(context)
@@ -53,7 +54,8 @@ export async function opFilm(c) {
       try {
         saved = await generateVideo({ queued, shot, projects, project, track, home, deps })
       } catch (error) {
-        await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
+        // 取消后仍如实记录失败原因（远端任务可能仍在运行），不受晚到正文拦截。
+        await checkContext.run({ ...checkContext.getStore(), settling: true }, () => writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' })).catch(() => {})
         throw error
       }
       if (operation.runVideoOnly) return

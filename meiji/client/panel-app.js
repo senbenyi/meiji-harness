@@ -18,7 +18,7 @@ import { renderLibrary } from './asset-library-view.js'
 import { createBridge, currentSessionId, projectRefreshMark } from './chat-bridge.js'
 import { gateFromAction, regenerateFields, syncImageGate } from './image-review.js'
 import { withRunActivity, runActivityMark } from './run-activity.js'
-import { confirmOperationDelete } from './cascade-confirm.js'
+import { confirmEditDelete } from './run-preview.js'
 import { renderScriptView } from './script-view.js'
 import { renderRunList } from './run-list.js'
 import { renderRunDetail } from './run-detail.js'
@@ -74,7 +74,7 @@ export function mount() {
     const [sessionId, projectId] = eventKey.split(':')
     Promise.all([follow(), refreshTasks(projectId, sessionId), currentPage?.isConnected ? currentPage.refresh() : null]).catch(error => shell.status(error.message))
   } })
-  // 运行中的任务优先挂到对应生成按钮旁（task-group.js）；找不到按钮的任务（其他页面发起）才放到底部任务栏。
+  // 进行中与暂停的任务常驻底部任务条；点击进入任务详情。
   let liveRuns = [], liveTaskKey = ''
   function paintTasks() {
     const projectId = liveTaskKey.split(':')[1]
@@ -103,7 +103,7 @@ export function mount() {
     liveRuns = runResult.runs.filter(run => ['running', 'paused'].includes(run.status))
     liveTaskKey = eventKey
     paintTasks()
-    // 进行中的操作变化（开始、排队、结束）时重绘，使按钮禁用状态与剧集占用一致。
+    // 进行中的步骤变化时重绘，使按钮禁用状态与实际执行锁一致。
     const root = shownProject && modelStore.get(shownProject)
     if (root && !hold && runActivityMark(liveRuns) !== shownLiveMark) paintProject(root)
   }
@@ -163,7 +163,7 @@ export function mount() {
     shownProject = project?.id || ''
     shown = signature(project)
     shownMark = projectRefreshMark(project)
-    // 「执行中」由进行中的操作（含排队中）推导，不读服务端字段。
+    // 「执行中」由任务的 running 步骤推导，不读服务端字段。
     shownLiveMark = runActivityMark(liveRuns)
     const active = liveRuns.filter(run => run.projectId === project.id)
     const view = { ...withRunActivity(project, active), activeRuns: active, runPauseCount: active.filter(run => run.status === 'paused').length }
@@ -315,7 +315,7 @@ export function mount() {
     },
     skillList,
     reviewImage: async (project, episodeId, draftId, action) => {
-      if (!await confirmOperationDelete(rootProject(modelStore, project) || project, { action, episodeId, draftId })) { repaint(project); return project }
+      if (!await confirmEditDelete(rootProject(modelStore, project) || project, { action, episodeId, draftId })) { repaint(project); return project }
       const result = await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId, action }) })
       imageGate = null
       showProject(result.project)
@@ -394,6 +394,11 @@ export function mount() {
       const place = await request('turn', { method: 'POST', ...jsonBody({ action: 'create', sessionId: currentSessionId(), fields: input }) })
       created = true
       enterWorkspace(place)
+      if (input.mode === 'script') {
+        const sessionId = place.sessionId || currentSessionId(), scope = { projectId: place.projectId, sessionId }
+        const planned = await request('runs', { method: 'POST', ...jsonBody({ ...scope, ...goalRequest('project-summary') }) })
+        await request(`runs/${planned.run.id}/confirm`, { method: 'POST', ...jsonBody({ ...scope, authorizePrereq: [], confirmDelete: true }) })
+      }
     } finally { if (!created) events.resume() }
   })
   const saved = async (project, input) => {

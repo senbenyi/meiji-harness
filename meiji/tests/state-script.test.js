@@ -141,7 +141,7 @@ test('无需修改不产生版本，全部确认才解除回写', async t => {
 test('自动回写启动遇忙不回退摘要，保留依据后可手动重试', async t => {
   const e = await setupModel(t), manager = createOperationManager({ home: e.home }), start = manager.start
   manager.start = function (op, ...args) {
-    if (op.action === 'script-sync') throw Object.assign(new Error('模拟启动遇忙'), { status: 409, code: 'OPERATION_BUSY' })
+    if (op.action === 'script-sync') throw Object.assign(new Error('模拟启动遇忙'), { status: 409, code: 'TARGET_BUSY' })
     return start.call(this, op, ...args)
   }
   const result = await manager.start(e.op('episode-edit', { fields: { summary: '保存成功', durationSeconds: 10 } })).done

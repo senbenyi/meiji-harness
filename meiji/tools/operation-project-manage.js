@@ -32,13 +32,11 @@ export function projectManageTool({ home, edits, workspaceController }) {
       }
       if (args.action === 'create' && args.fields && Object.keys(args.fields).some(key => !['title', 'mode', 'premise', 'script', 'scriptAssetId', 'style', 'aspectRatio'].includes(key))) throw new Error('创建字段无效')
       let projectId = args.projectId
-      let operationId
       await runWithSessionLog(exec.agent.session, async () => {
         if (args.action === 'create') {
           const place = await createProject({ home, edits, fields: args.fields, sessionId, session: exec.agent.session, signal: exec.signal, workspaceController, origin: 'session',
             enter: async project => { await links.selectProject(sessionId, project.id, store); return { projectId: project.id, sessionId, workspaceId: project.workspaceId } } })
           projectId = place.projectId
-          operationId = place.operationId
         }
         if (args.action === 'open') await links.ensureProject(projectId, store)
         const project = await store.read(projectId)
@@ -46,7 +44,7 @@ export function projectManageTool({ home, edits, workspaceController }) {
         insertSessionLog(exec.agent.session, `已${args.action === 'create' ? '创建' : '打开'}项目《${project.title}》`)
       })
       const project = await store.read(projectId)
-      return JSON.stringify({ status: operationId ? 'running' : 'completed', ...(operationId ? { operationId } : {}), projectId, title: project.title, workspaceId: project.workspaceId })
+      return JSON.stringify({ status: 'completed', projectId, title: project.title, workspaceId: project.workspaceId })
     },
   }
 }

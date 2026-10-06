@@ -5,7 +5,7 @@ import { runStatusLabels, runStepStatusLabels } from '../shared/run-view.js'
 import { renderRunProgress } from './run-progress.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { confirmPanel, showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
-import { scriptFreshness, episodeHints, isAiCreation } from '../shared/script-assembly.js'
+import { episodeHints, isAiCreation } from '../shared/script-assembly.js'
 import { bindStylePicker } from './style-picks.js'
 
 export function collectCharacters(project) {
@@ -64,7 +64,7 @@ function deleteButton(project, actions, episode, number) {
     event.stopPropagation()
     if (button.disabled) return
     const target = episode ? `第 ${number} 集` : `项目《${project.title}》`
-    if (!await confirmPanel(`确定删除${target}？将删除剧情数据及本地视频${episode ? '' : '，并删除对应工作区（保留会话记录）'}，此操作无法撤销。`)) return
+    if (!await confirmPanel(`确定删除${target}？将删除剧情数据及本地视频${episode ? '' : '，并删除对应工作区（保留会话记录）'}，删除后无法恢复。`)) return
     button.disabled = true
     try {
       await actions.perform(project, episode ? 'episode-delete' : 'project-delete', episode ? { episodeId: episode.id, confirmDelete: true } : { confirmDelete: true })
@@ -86,14 +86,13 @@ export function renderOverview(project, actions, context) {
   edit.disabled = targetBusy(project, 'project')
   edit.onclick = () => actions.openOverview?.(project)
   titleRow.append(edit)
+  const titleActions = element('div', '', 'title-actions')
+  if (actions.openHistory) titleActions.append(historyEntry(project, actions))
+  titleActions.append(deleteButton(project, actions))
+  titleRow.append(titleActions)
   page.append(titleRow)
   const style = typeof project.style === 'string' && project.style.trim() ? `${project.style.trim()} · ` : ''
   page.append(element('p', `${project.aspectRatio || '1344x768'} · ${style}${(project.episodes || []).length} 集`, 'meta'))
-
-  const projectActions = element('div', '', 'project-actions')
-  if (actions.openHistory) projectActions.append(historyEntry(project, actions))
-  projectActions.append(deleteButton(project, actions))
-  page.append(projectActions)
 
   if (isAiCreation(project)) {
     const premiseCard = element('article', '', 'overview-card')
@@ -106,28 +105,6 @@ export function renderOverview(project, actions, context) {
 
   const summaryCard = element('article', '', 'overview-card')
   summaryCard.append(element('h3', '项目摘要'))
-  if (project.script) {
-    const row = element('div', '', 'workflow-generation-row')
-    const busy = targetBusy(project, 'project')
-    row.append(element('span', project.summary.operation ? '提取中' : project.summary.error ? '提取失败' : project.summary.check.passed === false ? '自审未通过' : scriptFreshness(project).summaryNeedsUpdate ? '待更新' : project.summary.check.passed === true ? '最新' : '待更新', 'meta'))
-    const generate = element('button', project.summary.error ? '重试更新摘要' : '立即更新摘要')
-    generate.type = 'button'; generate.disabled = busy
-    generate.onclick = async () => {
-      generate.disabled = true
-      try { await actions.perform(project, 'project-summary') }
-      catch (error) { generate.disabled = false; actions.fail(error) }
-    }
-    const opinion = element('input'), revise = element('button', '按意见重新生成')
-    opinion.setAttribute('aria-label', '项目摘要修改意见'); opinion.placeholder = '修改意见'
-    revise.disabled = busy
-    revise.onclick = async () => { if (!opinion.value.trim()) return; try { await actions.perform(project, 'project-summary', { review: opinion.value.trim() }) } catch (error) { actions.fail(error) } }
-    row.append(generate, opinion, revise)
-    if (actions.openHistory) { const history = element('button', '查看摘要任务历史 →'); history.type = 'button'; history.onclick = () => actions.openHistory(project, 'project-summary'); row.append(history) }
-    if (actions.openSkill) { const skill = element('button', '查看 skill'); skill.type = 'button'; skill.onclick = () => actions.openSkill(project, 'project-summary'); row.append(skill) }
-    summaryCard.append(row)
-    const failure = project.summary.error || (project.summary.check.failures || []).join('；')
-    if (failure) summaryCard.append(element('p', failure, 'error'))
-  }
   if (project.summary.content) summaryCard.append(preview(project.summary.content))
   page.append(summaryCard)
 
@@ -138,19 +115,6 @@ export function renderOverview(project, actions, context) {
   openScript.onclick = direction.onclick = () => actions.openScript?.(project)
   scriptCard.append(openScript, direction)
   page.append(scriptCard)
-
-  for (const [kind, title] of [['characters', '角色库'], ['scenes', '场景库'], ['props', '道具库']]) {
-    const card = element('article', '', 'overview-card'), open = element('button', `查看与管理${title}`)
-    card.append(element('h3', title)); open.onclick = () => actions.openLibrary?.(project, kind); card.append(open)
-    const strip = element('div', '', 'characters-strip')
-    for (const entry of project.library?.[kind] || []) {
-      const button = element('button', entry.name, 'character-item'); button.setAttribute('aria-label', `${title}详情：${entry.name}`); button.onclick = () => actions.openLibrary?.(project, kind)
-      const image = entry.variants.find(variant => variant.id === entry.defaultVariantId)?.image.content
-      if (image?.localPath) { const img = element('img', '', 'character-image'); img.src = image.localPath; img.alt = entry.name; button.prepend(img) }
-      strip.append(button)
-    }
-    card.append(strip); page.append(card)
-  }
 
   const episodes = element('article', '', 'overview-card')
   const head = element('div', '', 'episode-head')
@@ -163,7 +127,16 @@ export function renderOverview(project, actions, context) {
   add.onclick = () => { if (!busy) actions.openEpisode?.(project, null) }
   head.append(add)
   episodes.append(head)
+  const episodeRail = element('div', '', 'episode-card-list')
+  episodes.append(episodeRail)
   const list = [...(project.episodes || [])]
+  if (!list.length) {
+    const empty = element('div', '', 'episode-placeholder')
+    empty.append(element('strong', '还没有剧集'), element('p', '创建第一集后，这里会展示剧集封面、集数和摘要。'))
+    const createFirst = element('button', '＋ 新增剧集', 'episode-add')
+    createFirst.type = 'button'; createFirst.disabled = busy; createFirst.onclick = () => { if (!busy) actions.openEpisode?.(project, null) }
+    empty.append(createFirst); episodeRail.append(empty)
+  }
   list.forEach((episode, index) => {
     const card = element('div', '', 'episode-card')
     if (episode.runPauseCount) card.append(element('span', `有暂停任务（${episode.runPauseCount}）`, 'run-paused-badge'))
@@ -211,10 +184,32 @@ export function renderOverview(project, actions, context) {
     card.onkeydown = event => {
       if (event.key === 'Enter' && event.target === card) open()
     }
-    episodes.append(card)
+    episodeRail.append(card)
   })
 
   page.append(episodes)
+
+  const libraries = element('article', '', 'overview-card library-tabs-card')
+  const libraryTabs = element('div', '', 'library-tabs')
+  const libraryPanels = []
+  for (const [index, [kind, title]] of [['characters', '角色库'], ['scenes', '场景库'], ['props', '道具库']].entries()) {
+    const tab = element('button', title, 'library-tab')
+    tab.type = 'button'; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false')
+    const panel = element('div', '', 'library-tab-panel'); panel.setAttribute('role', 'tabpanel'); panel.hidden = index !== 0
+    const open = element('button', `查看与管理${title}`); open.type = 'button'; open.onclick = () => actions.openLibrary?.(project, kind)
+    panel.append(open)
+    const strip = element('div', '', 'characters-strip')
+    for (const entry of project.library?.[kind] || []) {
+      const button = element('button', entry.name, 'character-item'); button.setAttribute('aria-label', `${title}详情：${entry.name}`); button.onclick = () => actions.openLibrary?.(project, kind)
+      const image = entry.variants.find(variant => variant.id === entry.defaultVariantId)?.image.content
+      if (image?.localPath) { const img = element('img', '', 'character-image'); img.src = image.localPath; img.alt = entry.name; button.prepend(img) }
+      strip.append(button)
+    }
+    panel.append(strip); libraryPanels.push(panel); libraryTabs.append(tab)
+    tab.onclick = () => libraryPanels.forEach((other, otherIndex) => { other.hidden = otherIndex !== index; libraryTabs.children[otherIndex].setAttribute('aria-selected', otherIndex === index ? 'true' : 'false') })
+  }
+  libraries.append(libraryTabs, ...libraryPanels)
+  page.append(libraries)
   return page
 }
 

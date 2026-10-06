@@ -1,11 +1,10 @@
-import { operationRequest } from './operation-request.js'
-import { confirmOperationDelete } from './cascade-confirm.js'
-import { goalRequest } from './goal-request.js'
+import { confirmEditDelete } from './run-preview.js'
+import { goalRequest, actionRequest } from './goal-request.js'
 import { confirmRunPreview } from './run-preview.js'
 import { chooseEditContinuation } from './run-edit-choice.js'
 import { allNodes, shotMap } from '../shared/drama-model.js'
 
-// 剧集是否有进行中的操作：以内容节点上的 operation 为准（等待人工确认的候选图不算）。
+// 剧集是否有步骤在执行：以内容节点上的执行标记为准（等待人工确认的候选图不算）。
 const episodeRunning = episode => allNodes(episode).some(node => node.operation && node.operation.phase !== 'awaiting-confirmation')
 const sessionPattern = /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -64,7 +63,7 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
           ...(next.episodes || []).flatMap(episode => Object.values(shotMap(episode, 'video'))),
         ]
         const filmRunning = clips.some(clip => clip?.status === 'running')
-        // 是否在执行：内容节点上有进行中的操作（服务端不再保存剧集 activity）。
+        // 是否在执行：内容节点上有执行标记。
         const busy = (next.episodes || []).some(episodeRunning) || filmRunning
         if (busy) sawBusy = true
         const nextMark = projectRefreshMark(next)
@@ -102,7 +101,7 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         const { projects } = await request('projects')
         listBefore = new Set(projects.map(item => item.id))
       }
-      const operation = operationRequest(action, fields)
+      const operation = actionRequest(action, fields)
       const target = goalRequest(action, fields)
       if (target && project) {
         const scope = { sessionId, projectId: project.id }, preview = await request('runs', { method: 'POST', ...jsonBody({ ...scope, ...target }) })
@@ -115,7 +114,7 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         status(result.run.status === 'paused' ? '任务有待处理事项' : '任务已启动')
         return { ...result, accepted: true, runId: preview.run.id }
       }
-      if (project && !await confirmOperationDelete(project, operation)) { showProject(project); return { cancelled: true } }
+      if (project && !await confirmEditDelete(project, operation)) { showProject(project); return { cancelled: true } }
       const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, projectId: project?.id, ...operation }) })
       if (result.completed) {
         clearInterval(timer)

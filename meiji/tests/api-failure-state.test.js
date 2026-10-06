@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import { secondsForRequest } from './fixtures/seconds.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
@@ -9,7 +9,8 @@ import { runOperation } from './fixtures/operation.js'
 import { feedbackOf } from '../shared/review-feedback.js'
 import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 // 保存时会刷新节点的上游依赖版本（dependencies），比较业务内容时忽略该字段。
-const content=({dependencies,...rest})=>rest
+// 执行前登记的不可变基线（source）不属于业务内容。
+const content=({dependencies,source,...rest})=>rest
 for(const failed of [false,true]) for(const phase of ['generation','review','correction']) {
  test(`${phase} API error preserves ${failed?'failed':'passed'} original only before a draft is saved`,async t=>{
   const e=await setupModel(t),models=modelStore(e.home)
@@ -65,7 +66,7 @@ for(const mode of ['error','stop','draft']) test(`image ${mode} only changes the
   throw new Error('HTTP 500 image fail')
  }})
  if(mode==='draft') await execution
- else await assert.rejects(execution, mode==='stop' ? /任务已停止/ : /HTTP 500 image fail/)
+ else await assert.rejects(execution, mode==='stop' ? /用户停止|任务已停止/ : /HTTP 500 image fail/)
  const after=await e.read(),root=await e.store.read(e.id),image=after.plot.characters.items[0].image
  assert.ok(!('activityError' in after) && !('activityError' in root))
  for(const key of ['outline','characters','scenes','props']){assert.equal(after.plot[key].status,before.plot[key].status);assert.equal(after.plot[key].error,before.plot[key].error)}
@@ -75,7 +76,7 @@ for(const mode of ['error','stop','draft']) test(`image ${mode} only changes the
 test('restart cancel of an interrupted image only fails the image node',async t=>{
  const e=await setupModel(t)
  const { interruptRunning, RESTART_CANCELLED } = await import('../server/flow/tasks/task-interrupt.js')
- await e.store.save(e.id,p=>{const image=p.episodes[0].plot.characters.items[0].image;image.status='generating';image.operation=operationRequest('image', { id:'old', phase:'generating' });return p})
+ await e.store.save(e.id,p=>{const image=p.episodes[0].plot.characters.items[0].image;image.status='generating';image.operation=actionRequest('image', { id:'old', phase:'generating' });return p})
  const before=await e.read()
  await interruptRunning(e.store)
  const after=await e.read()

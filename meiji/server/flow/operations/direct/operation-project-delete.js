@@ -5,6 +5,7 @@ import { checkContext } from '../../../runtime/operation-context.js'
 import { cascade } from '../../../../shared/pipeline-cascade.js'
 import { readImageDraft } from '../../../data/image-storage.js'
 import { linkStore } from '../../../data/workspace-links.js'
+import { runStore } from '../../../data/run-store.js'
 
 // if (['project-delete', 'episode-delete'].includes(operation.action))
 export async function opProjectDelete(c) {
@@ -27,6 +28,7 @@ export async function opProjectDelete(c) {
     })
     await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'films', episode.id), { recursive: true, force: true })
     await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'images', episode.id), { recursive: true, force: true })
+    await runStore(home, project.id).removeEpisode(episode.id)
     for (const draft of Object.values(episode.pendingImages || {})) {
       const file = await readImageDraft(home, draft.draftId).catch(() => null)
       if (file) await rm(file.directory, { recursive: true, force: true })

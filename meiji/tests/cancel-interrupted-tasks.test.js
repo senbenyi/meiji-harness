@@ -44,8 +44,3 @@ test('restart cancels project-summary extraction and preserves script and saved 
  finish(n,{passed:true,failures:[]})
  assert.equal(n.status,'passed')
 })
-
-test('创建前记录存储拒绝空项目标识', async () => {
-  const { recordStore } = await import('../server/data/task-store.js')
-  assert.throws(() => recordStore('/tmp', null), /项目 ID 无效/)
-})

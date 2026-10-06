@@ -1,9 +1,7 @@
-// 任务内存上下文；不依赖存储或执行器。
+// 步骤执行的内存上下文；不依赖存储或执行器。
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 export const executionContext = new AsyncLocalStorage()
-export const liveTasks = new Map()
-export const liveTask = id => liveTasks.get(id) || null
 
 // 当前任务固定的技能组合；不在任务中时为 null（由调用方使用内置 + 本剧）。
 export const taskSkillSet = () => executionContext.getStore()?.skillSet || null
@@ -23,5 +21,3 @@ export function activeNode() {
   const context = executionContext.getStore()
   return context?.nodes.find(item => item.id === context.nodeId) || null
 }
-
-export const usedSkills = context => context.skills?.size ? { skills: [...context.skills.values()] } : {}

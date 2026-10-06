@@ -1,18 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { tempHome } from './fixtures/model.js'
+import { runContext } from './fixtures/run-context.js'
 import { executionContext } from '../server/runtime/task-context.js'
-import { recordStore, readNodeResponses, TASK_SCHEMA } from '../server/data/task-store.js'
-import { runNode, recordNodeResponse } from '../server/runtime/task-execution.js'
+import { runNode, recordNodeResponse } from '../server/runtime/step-execution.js'
 import { completeChat, retrieveGatewayVideo, generateGatewayImage } from '../server/gateway/model-gateway.js'
 import { redactJson } from '../server/gateway/redact.js'
 
 const route = { baseUrl: 'https://gateway.test/v1', apiKey: 'secret-test-key', model: 'test-model' }
+// 网关请求在 Run 步骤上下文内执行；原始返回按 runId + stepId 归属读取。
 async function fixture(t) {
-  const home = await tempHome(t), store = recordStore(home, 'project'), taskId = 'task'
-  await store.update('tasks', taskId, { schemaVersion: TASK_SCHEMA, id: taskId, projectId: 'project', episodeId: 'episode', nodes: [] })
-  const context = { store, home, taskId, projectId: 'project', operation: { episodeId: 'episode' }, nodes: [], scope: 'root', outputs: [], baselines: new Map() }
-  return { context, store, home, run: fn => executionContext.run(context, () => runNode('generate', fn)), read: () => readNodeResponses(home, 'project', taskId, context.nodes[0].id) }
+  const e = await runContext(t, { episodeId: 'episode' })
+  return { ...e, run: fn => e.run(() => runNode('generate', fn)), read: () => e.read('responses') }
 }
 
 test('成功与错误原文完整记录，列表只有引用，密钥和 Base64 脱敏', async t => {
@@ -26,9 +24,7 @@ test('成功与错误原文完整记录，列表只有引用，密钥和 Base64 
   assert.ok(entries[0].durationMs >= 0)
   assert.doesNotMatch(JSON.stringify(entries), /secret-test-key|QUJD/)
   assert.equal(e.context.nodes[0].responses[0].body, undefined)
-  await assert.rejects(readNodeResponses(e.home, 'project', 'task', 'other'), { status: 404 })
-  await e.store.update('responses', entries[0].id, { ...entries[0], taskId: 'other' })
-  await assert.rejects(e.read(), { status: 404 })
+  await assert.rejects(e.store.records(e.runId, 'other', 'responses'), { status: 404 })
 })
 
 test('非 2xx 和非 JSON 返回不丢失，网络异常也记录', async t => {
@@ -57,7 +53,7 @@ test('视频轮询只保存终态与下载字节数，中间查询不记录', as
   assert.equal(entries[0].body.status, 'completed')
   assert.equal(entries[1].bytes, 11)
   await e.store.removeEpisode('episode')
-  assert.deepEqual(await e.store.list('responses'), [])
+  assert.deepEqual(await e.store.listRecords('responses'), [])
 })
 
 test('轮询超时保存最后一次，记录写入失败不改变业务结果，无上下文不写入', async t => {
@@ -65,8 +61,8 @@ test('轮询超时保存最后一次，记录写入失败不改变业务结果�
   await assert.rejects(e.run(() => retrieveGatewayVideo({ ...route, promptId: 'video', pause: async () => {}, maxPolls: 2, fetchImpl: async () => Response.json({ status: 'processing' }) })), /超时/)
   assert.equal((await e.read()).length, 1)
   await recordNodeResponse({ fn: 'outside' })
-  assert.equal((await e.store.list('responses')).length, 1)
-  e.store.update = async () => { throw new Error('记录磁盘失败') }
+  assert.equal((await e.store.listRecords('responses')).length, 1)
+  e.context.store.update = async () => { throw new Error('记录磁盘失败') }
   await executionContext.run(e.context, () => recordNodeResponse({ fn: 'safe' }))
   assert.deepEqual(redactJson({ authorization: 'Bearer key', data: 'data:video/mp4;base64,QUJD' }), { authorization: '[已隐藏]', data: '[base64 数据，4 字符]' })
 })

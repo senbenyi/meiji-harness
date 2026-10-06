@@ -8,8 +8,8 @@ export function element(tag, text = '', className) {
 export function confirmPanel(message) {
   const root = document.querySelector('meiji-workbench')?.shadowRoot || document.body
   const dialog = element('dialog'), cancel = element('button', '取消'), confirm = element('button', '确认继续', 'danger')
-  dialog.setAttribute('aria-label', '确认操作')
-  dialog.append(element('h2', '确认操作'), element('p', message), cancel, confirm)
+  dialog.setAttribute('aria-label', '请确认')
+  dialog.append(element('h2', '请确认'), element('p', message), cancel, confirm)
   root.append(dialog)
   return new Promise(resolve => {
     let accepted = false

@@ -7,6 +7,7 @@ import { createRunEngine } from '../../server/flow/runs/run-engine.js'
 import { executeRunStep } from '../../server/flow/shared/task-executor.js'
 import { createImmediateService } from '../../server/flow/immediate-service.js'
 import { reviewPass } from './review-result.js'
+import { runStore } from '../../server/data/run-store.js'
 export async function runOperation(operation, deps) {
   deps.signal?.throwIfAborted()
   const target = goalRequest(operation.action, operation)
@@ -39,12 +40,25 @@ export async function runOperation(operation, deps) {
     abort = () => { void engine.cancel(root.id, run.id) }
     deps.signal?.addEventListener('abort', abort, { once: true })
     await engine.confirm(root.id, run.id); await engine.drain()
-    const current = await engine.get(root.id, run.id), failure = current.pause?.reasons.find(reason => reason.code !== 'review_exhausted')
-    if (failure) throw new Error(failure.message)
+    const current = await engine.get(root.id, run.id), reason = current.pause?.reasons[0]
+    // 一次调用代表一个独立目标：执行失败与审核用尽都作为拒绝返回，收尾时结束未完成的任务以便测试发起下一个目标。
+    if (reason?.code === 'review_exhausted') {
+      const issues = current.steps.find(step => step.id === reason.stepId)?.output?.issues || []
+      throw Object.assign(new Error(`自审未通过：${issues.map(issue => typeof issue === 'string' ? issue : [issue.location, issue.reason, issue.requirement].filter(Boolean).join('；')).join('；') || reason.message}`), { code: 'CONTENT_CHECK_FAILED', status: 422, run: current })
+    }
+    if (reason) throw Object.assign(new Error(reason.message), { code: reason.code, run: current })
     if (current.status === 'cancelled') throw deps.signal?.reason || new Error('任务已取消')
     const trace = current.steps.flatMap(step => step.output?.trace || []); trace.result = current.steps.findLast(step => step.output?.result)?.output.result || {}; return trace
-  } finally { deps.signal?.removeEventListener('abort', abort); await engine.dispose() }
+  } finally {
+    deps.signal?.removeEventListener('abort', abort)
+    if (run) { const left = await engine.get(root.id, run.id); if (!['completed', 'cancelled'].includes(left.status)) { await engine.cancel(root.id, run.id); await engine.drain().catch(() => {}) } }
+    await engine.dispose()
+  }
 }
-export async function latestTask(store, target) {
-  return (await store.list()).filter(run => !target || run.steps?.some(step => step.target === target)).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0]
+// 最近一次涉及 target 的任务；steps 只含该对象的步骤，attempts 为这些步骤内部动作的种类（图片三步、程序审核等）。
+export async function latestRun(home, projectId, target) {
+  const run = (await runStore(home, projectId).list()).filter(item => !target || item.steps.some(step => step.target === target)).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0]
+  if (!run) return null
+  const steps = run.steps.filter(step => !target || step.target === target)
+  return { ...run, steps, kinds: steps.map(step => step.kind), attempts: steps.flatMap(step => (step.attempts || []).map(attempt => attempt.kind || attempt.label)) }
 }

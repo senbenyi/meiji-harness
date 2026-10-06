@@ -1,6 +1,6 @@
 // 技能三层：内置（skills/，只读）→ 基础（面板修改，全局，替换内置）→ 本剧（项目索引 skills，追加）。
 // 基础层存于 $DSH_HOME/storages/meiji/skills/<id>.json，只存改过的字段、内容哈希、所基于的内置哈希与上一版本；
-// 插件升级只更新内置，不覆盖基础层。任务开始时用 loadSkillSet 固定一次组合（见 task-store startExecution）。
+// 插件升级只更新内置，不覆盖基础层。任务开始时用 loadSkillSet 固定一次组合（见 runtime/run-execution.js）。
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'

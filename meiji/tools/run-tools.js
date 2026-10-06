@@ -30,7 +30,7 @@ export function runTools({ home, runs, runJobs, runGoals }) {
         validate(args, properties, requiredKeys)
         const project = await currentProject(home, exec), sessionId = sessionIdOf(exec)
         if (name === 'run-plan') {
-          const result = await runs.plan({ projectId: project.id, ...args }, sessionId, 'session')
+          const result = await runs.plan({ projectId: project.id, ...args, callId: exec.callId }, sessionId, 'session')
           return JSON.stringify({ ...result, runId: result.run.id })
         }
         const current = await runs.get(project.id, args.runId, sessionId)

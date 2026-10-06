@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
@@ -87,12 +87,11 @@ for (const mode of ['new', 'regenerate', 'modify']) {
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
     const root = await e.store.read(e.id), old = root.episodes[0].summary.content, calls = []
-    await runOperation(operationRequest('episode-generate', { projectId: e.id, referenceDurationSeconds: 10, ...(mode === 'new' ? {} : { episodeId: e.episodeId, generationMode: mode }), ...(mode === 'modify' ? { review: '加强悬念' } : {}) }), { home: e.home, generateEpisode: options => generateEpisode({ ...options,
+    await runOperation(actionRequest('episode-generate', { projectId: e.id, referenceDurationSeconds: 10, ...(mode === 'new' ? {} : { episodeId: e.episodeId, generationMode: mode }), ...(mode === 'modify' ? { review: '加强悬念' } : {}) }), { home: e.home,
       request: async message => {
         calls.push(message)
         return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '旅人入院后发现新的线索。', durationSeconds: 10 })
-      },
-    }) })
+      } })
     assert.equal(calls.length, 2)
     assert.equal(calls[0].user.includes('【修改基稿】'), mode === 'modify')
     if (mode === 'modify') { assert.ok(calls[0].user.includes(old)); assert.match(calls[0].user, /加强悬念/) }
@@ -134,7 +133,7 @@ for (const scenario of ['failed', 'new-opinion']) {
     const { saveReview } = await import('../shared/drama-model.js')
     const e = await setupModel(t), models = modelStore(e.home)
     await models.write({ ...await models.read(), apiKey: 'test-only' })
-    await runOperation(operationRequest('episode-generate', { projectId: e.id, episodeId: e.episodeId, generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10 }), { home: e.home, generateEpisode: async () => {
+    await runOperation(actionRequest('episode-generate', { projectId: e.id, episodeId: e.episodeId, generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10 }), { home: e.home, generateEpisode: async () => {
       if (scenario === 'new-opinion') await e.store.save(e.id, current => {
         const next = structuredClone(current)
         saveReview(next.episodes.find(item => item.id === e.episodeId).summary, '执行期间新意见')

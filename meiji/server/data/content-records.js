@@ -3,8 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { executionContext, activeNode } from '../runtime/task-context.js'
 import { writeStep } from './run-records.js'
 import { markPendingReview } from '../../shared/content-state.js'
-import { deriveTaskStatus } from '../../shared/task-nodes.js'
-import { recordStore } from './task-store.js'
 const recordIdentity = context => ({ runId: context.runId, stepId: context.stepId })
 
 const now = () => new Date().toISOString()
@@ -94,7 +92,7 @@ export async function commitContentRecords(saved) {
   }
   const step = context.nodes.find(value => value.id === context.nodeId)
   if (step) step.outputs = [...step.outputs, ...saved.map(item => item.artifactId)]
-  await writeStep(context, task => ({ episodeId: task.episodeId || saved[0].episodeId, artifacts: [...task.artifacts, ...saved] }))
+  await writeStep(context)
 }
 
 // 不发布的弹框草稿及未通过结构校验的生成原文沿用任务 artifact 与 outputs，不写项目或剧集。
@@ -106,14 +104,5 @@ export async function saveTaskDraft(target, content) {
   await context.store.update('artifacts', id, { schemaVersion: 1, id, ...source, projectId: context.projectId, content, createdAt: now(), published: false })
   context.outputs.push(source)
   activeNode().outputs.push(id)
-  await writeStep(context, task => ({ artifacts: [...task.artifacts, source] }))
-}
-
-// 迁移期旧任务详情读取兼容；新的 Run 详情直接读取 artifacts。
-export async function readTaskDraft(home, task) {
-  if (!['summary', 'project-summary'].includes(task.type) || task.mode !== 'draft' || !['completed', 'review_failed'].includes(deriveTaskStatus(task.nodes))) return {}
-  const output = [...(task.latestOutputs || [])].reverse().find(item => item.target === (task.type === 'summary' ? 'summary-draft' : 'project-summary'))
-  if (!output) return {}
-  const artifact = await recordStore(home, task.projectId).read('artifacts', output.artifactId)
-  return { draft: artifact.content }
+  await writeStep(context)
 }

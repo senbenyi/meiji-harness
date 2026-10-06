@@ -12,7 +12,7 @@ const layers = [
   ['server/http', 7], ['tools', 7], ['index.js', 8], ['session.js', 8],
   ['server/flow/steps', 4], ['server/flow', 6], ['server/gateway', 3.5], ['server/prompts', 3],
   ['server/media', 1],
-  ['server/runtime/task-context.js', 0], ['server/runtime/task-state.js', 0], ['server/runtime/operation-context.js', 0],
+  ['server/runtime/task-context.js', 0], ['server/runtime/operation-context.js', 0],
   ['server/runtime', 2.5], ['server/data', 2], ['models', 1], ['skills', 1],
   ['server/host', 0], ['shared', 0],
 ]
@@ -58,15 +58,26 @@ test('scripts use shared modules instead of client/', () => {
   }
 })
 
-test('生产入口不回流旧任务执行链', () => {
-  const entrypoints = ['index.js', 'session.js', 'server/http/panel-routes.js', 'server/http/run-routes.js', 'server/host/harness-run-jobs.js', 'server/host/harness-run-goals.js']
-  const forbidden = /operation-manager|operation-runner|operation-history|task-store|task-execution|run-adapter/
-  for (const file of entrypoints) assert.doesNotMatch(readFileSync(join(root, file), 'utf8'), forbidden, file)
+// 旧「操作 → 任务 → 节点」执行链已删除：模块不得恢复，生产代码不得再出现其执行标识。
+test('生产代码不回流旧任务执行链', () => {
+  const removed = ['server/flow/operations/operation-manager.js', 'server/flow/operations/operation-runner.js', 'server/flow/operations/operation-cancel.js', 'server/flow/operations/generate', 'server/data/operation-history.js', 'server/data/task-store.js',
+    'server/runtime/task-execution.js', 'server/runtime/task-state.js', 'server/runtime/operation-execution.js', 'server/flow/runs/run-adapter.js', 'server/host/harness-jobs.js', 'server/host/harness-goals.js', 'server/http/panel-operation-start.js',
+    'tools/session-operation-tools.js', 'client/current-task.js', 'client/task-detail.js', 'client/task-nodes.js', 'client/execution-history.js', 'client/live-activity.js', 'client/task-group.js', 'client/operation-request.js', 'client/cascade-confirm.js']
+  for (const file of removed) assert.throws(() => statSync(join(root, file)), { code: 'ENOENT' }, file)
+  const modules = /operation-manager|operation-runner|operation-history|task-store|task-execution|task-state|operation-execution|run-adapter|harness-jobs\.js|harness-goals\.js|panel-operation-start|session-operation-tools|operation-request|cascade-confirm/
+  const identifiers = /\b(operationId|taskId|liveOperations|OPERATION_BUSY|stepwise|projectBusy|busyOperation|createPanelGoals|waitBusy|waitScript|syncBefore|SCRIPT_PENDING|PROJECT_SUMMARY_REQUIRED|planTasks|describeTask|renderTaskHistory|renderOperationDetails|TASK_SCHEMA|OLD_TASK_RECORDS)\b/
+  const production = [...sources(), ...readdirSync(join(root, 'client')).filter(name => name.endsWith('.js')).map(name => `client/${name}`)].filter(file => !file.startsWith('scripts/migrate-'))
+  for (const file of production) {
+    const source = readFileSync(join(root, file), 'utf8')
+    assert.doesNotMatch(source, modules, file)
+    assert.doesNotMatch(source, identifiers, file)
+  }
+  assert.doesNotMatch(readFileSync(join(root, 'client/panel-styles.css'), 'utf8') + readdirSync(join(root, 'client')).filter(name => name.endsWith('.js')).map(name => readFileSync(join(root, 'client', name), 'utf8')).join('\n'), /操作/, '界面只使用「任务」「步骤」')
 })
 
 // 上下文/状态是存储与执行共同使用的叶子；不能反向引用 data 或执行器。
 test('runtime context and state stay independent of storage and execution', () => {
-  const leaves = ['server/runtime/task-context.js', 'server/runtime/task-state.js', 'server/runtime/operation-context.js']
+  const leaves = ['server/runtime/task-context.js', 'server/runtime/operation-context.js']
   for (const file of leaves) for (const target of imports(file)) {
     assert.ok(target.startsWith('shared/') || leaves.includes(target), `${file} → ${target}`)
   }

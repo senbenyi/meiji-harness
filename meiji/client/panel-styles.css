@@ -249,11 +249,22 @@ button.delete-content{color:#bba0a4;border-color:transparent;margin-left:auto}
 button.delete-content:not(:disabled):hover{color:#ffc1c1;background:#442c31;border-color:#785056}
 .episode-head .episode-add{width:auto;height:34px;padding:6px 10px;font-size:12px;border:1px solid #383a41;border-radius:8px}
 .episode-card{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px 12px;cursor:pointer}
+.episode-card{flex:0 0 min(140px,41vw);scroll-snap-align:start}
+.episode-card p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:6px 0 0;line-height:1.45}
+.episode-card-list{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 12px;scroll-snap-type:x proximity}
+.episode-placeholder{flex:0 0 min(140px,41vw);min-height:150px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px;padding:18px;border:1px dashed #555a67;border-radius:12px;color:#aeb5c3}
+.episode-placeholder p{margin:0;line-height:1.5;font-size:13px}
+.episode-placeholder .episode-add{margin:4px 0 0}
 .episode-card .episode-cover{width:64px;height:86px}
 .episode-card .episode-copy{padding-right:0}
 .episode-card .episode-edit{position:static;margin:0}
 .episode-card-actions{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:8px;border-top:1px solid #30323a;padding-top:10px}
 .episode-card-actions button{min-height:34px;padding:6px 10px;font-size:12px;white-space:nowrap}
+.library-tabs{display:flex;gap:6px;border-bottom:1px solid #383a41;margin-bottom:12px}
+.library-tab{border:0;border-bottom:2px solid transparent;border-radius:0;margin:0;padding:8px 12px;color:#aeb5c3;background:transparent}
+.library-tab[aria-selected="true"]{border-bottom-color:#dfc196;color:#f0d2a4}
+.library-tab-panel[hidden]{display:none}
+.library-tab-panel>.characters-strip{margin-top:12px}
 .outline-head{flex-wrap:wrap;row-gap:12px}
 .outline-head>h3{flex:1;min-width:100px}
 .outline-head>.section-actions{margin-left:auto}
@@ -327,7 +338,7 @@ dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min
 /* 场景卡：详情页 */
 .character-detail .scene-asset.is-landscape{flex-direction:column;gap:12px;padding:10px}.character-detail .scene-asset.is-landscape .asset-frame{width:100%;max-width:640px}.character-detail .scene-asset.is-landscape .asset-frame>button.asset-still,.character-detail .scene-asset.is-landscape .asset-frame>button.asset-still img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}.character-detail .scene-asset.is-landscape .asset-copy{width:100%}.character-detail .scene-asset.is-portrait .asset-frame{width:120px}.character-detail .scene-asset.is-portrait .asset-frame>button.asset-still,.character-detail .scene-asset.is-portrait .asset-frame>button.asset-still img,.character-detail .scene-asset.is-portrait .asset-frame>button.asset-placeholder{width:120px;height:auto;aspect-ratio:9/16;object-fit:cover}
 
-/* 场景详情：图片 + 操作条 + 纵向资料表单 */
+/* 场景详情：图片 + 按钮条 + 纵向资料表单 */
 .character-detail .scene-asset{gap:14px;padding:12px}.character-detail .scene-asset .asset-frame{display:grid;gap:10px}.character-detail .scene-asset .asset-frame>button.asset-placeholder{width:100%;height:auto;aspect-ratio:16/9}.character-detail .scene-asset.is-portrait .asset-frame>button.asset-placeholder{aspect-ratio:9/16}
 .scene-image-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}.scene-image-tools{display:flex;flex-wrap:wrap;gap:6px}.character-detail .scene-image-bar button{width:auto;height:auto;aspect-ratio:auto;margin:0;padding:5px 10px;font-size:12px;line-height:18px}.character-detail .scene-image-bar .story-node-actions{justify-content:flex-end}.character-detail .scene-asset.is-portrait .scene-image-bar{flex-direction:column;align-items:stretch}.character-detail .scene-asset.is-portrait .scene-image-tools{flex-direction:column}
 .character-detail .scene-asset .workflow-generation-row{margin:0 0 12px}.character-detail .scene-asset .workflow-generation-row h3{font-size:15px}
@@ -368,17 +379,6 @@ dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min
 @container workbench (max-width:520px){.character-studio .studio-pair{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) 96px;gap:6px}.character-studio .studio-pane{padding:6px}.character-studio .is-main .studio-frame,.character-studio .is-main .studio-frame button.asset-still,.character-studio .is-main .studio-frame button.asset-still img{height:240px}.character-studio .is-reference .studio-frame,.character-studio .is-reference .studio-frame button.asset-still,.character-studio .is-reference .studio-frame button.asset-still img,.character-studio .is-reference .studio-frame button.asset-placeholder{height:160px}.character-studio .studio-tools .studio-actions button,.character-studio .studio-tools .story-node-actions button{padding:5px 4px;font-size:11px}}
 
 /* 生成按钮 + 查看任务 + 停止：运行中作为一个整体显示在同一行 */
-.task-group{display:inline-flex;align-items:stretch;flex:none;max-width:100%;vertical-align:middle}
-.task-group>button{margin:0}
-.task-group.is-running>button{border-radius:0}
-.task-group.is-running>button:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px}
-.task-group.is-running>button:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px}
-.task-group.is-running>button:first-child:disabled{opacity:1;cursor:progress}
-.task-group-extra{display:inline-flex;align-items:center;margin:0;padding:4px 10px;border:1px solid #4a3f2c;border-left-width:0;background:#2a261f;color:#dfc196;font-size:12px;line-height:18px;white-space:nowrap;cursor:pointer}
-.task-group-extra:hover{background:#3a3326}
-.task-group-stop{color:#f0a0a0}
-.task-group-stop:hover{background:#3d2528;color:#ffb3b3}
-.task-group-extra:focus-visible{outline:2px solid #dfc196;outline-offset:-2px}
 
 /* 列表卡片左侧图片和快捷生图、右侧资料；生成按钮独立于详情按钮。 */
 .character-card{grid-template-columns:auto minmax(0,1fr);align-items:start}

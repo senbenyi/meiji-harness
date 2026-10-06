@@ -3,41 +3,43 @@ import assert from 'node:assert/strict'
 import { occupy, occupant } from '../server/flow/operations/operation-occupancy.js'
 import { operations } from '../server/flow/operations/operation-registry.js'
 import { conflicts } from '../shared/operation-conflicts.js'
-import { createOperationManager } from '../server/flow/operations/operation-manager.js'
+import { textTargets } from '../shared/run-templates.js'
+import { createImmediateService } from '../server/flow/immediate-service.js'
 import { setupModel } from './fixtures/model.js'
-import { recordStore } from '../server/data/task-store.js'
+import { historyStore } from '../server/data/history-store.js'
 
+// Run 步骤与即时保存共用一把占用：项目级写入与一切互斥，其余按集、按对象互斥。
 const cases = [
-  { kind:'generate', lock:'episode', episodeId:'e1' },
-  { kind:'generate', lock:'episode', episodeId:'e2' },
-  { kind:'generate', lock:'project', episodeId:'e1' },
-  { kind:'direct', lock:'episode', episodeId:'e1' },
-  { kind:'direct', lock:'episode', episodeId:'e2' },
-  { kind:'direct', lock:'project', episodeId:'e1' },
+  { lock: 'episode', episodeId: 'e1', target: 'shots' },
+  { lock: 'episode', episodeId: 'e1', target: 'seconds:S01' },
+  { lock: 'episode', episodeId: 'e1' },
+  { lock: 'episode', episodeId: 'e2', target: 'shots' },
+  { lock: 'project', episodeId: 'e1', target: 'summary' },
 ]
-const expected = [[1,1,1,1,0,1],[1,1,1,0,1,1],[1,1,1,1,1,1],[1,0,1,1,0,1],[0,1,1,0,1,1],[1,1,1,1,1,1]]
-test('single occupancy covers every generation/edit and scope combination', () => {
-  for (const [i,a] of cases.entries()) for (const [j,b] of cases.entries()) {
-    const first = { projectId:'project', ...a }, second = { projectId:'project', ...b }
-    assert.equal(conflicts(first,second), Boolean(expected[i][j]), `${i}/${j}`)
-    const release = occupy('/tmp/lock-table', first, {id:'first',label:'测试'})
-    try { assert.equal(Boolean(occupant('/tmp/lock-table',second)), Boolean(expected[i][j])) }
+const expected = [[1,0,1,0,1],[0,1,1,0,1],[1,1,1,0,1],[0,0,0,1,1],[1,1,1,1,1]]
+test('single occupancy covers every scope and target combination', () => {
+  for (const [i, a] of cases.entries()) for (const [j, b] of cases.entries()) {
+    const first = { projectId: 'project', ...a }, second = { projectId: 'project', ...b }
+    assert.equal(conflicts(first, second), Boolean(expected[i][j]), `${i}/${j}`)
+    const release = occupy('/tmp/lock-table', first, { id: 'first', label: '测试' })
+    try { assert.equal(Boolean(occupant('/tmp/lock-table', second)), Boolean(expected[i][j])) }
     finally { release() }
-    assert.equal(occupant('/tmp/lock-table',second), null)
+    assert.equal(occupant('/tmp/lock-table', second), null)
   }
+  assert.equal(conflicts({ projectId: 'a', lock: 'project' }, { projectId: 'b', lock: 'project' }), false)
 })
 test('project writers explicitly declare their effective lock even with episode ID', () => {
-  for (const key of ['summary','story','project-summary','episode-add','episode-edit','episode-delete','overview','source']) assert.equal(operations[key].lock,'project',key)
+  for (const key of ['episode-add', 'episode-edit', 'episode-delete', 'overview', 'source']) assert.equal(operations[key].lock, 'project', key)
+  for (const key of ['summary', 'project-summary', 'outline', 'characters', 'scenes', 'props', 'script']) assert.equal(textTargets[key].scope, 'project', key)
 })
-test('busy admission creates no records and cancellation releases the same occupancy', async t => {
-  const e = await setupModel(t)
-  const manager = createOperationManager({ home:e.home, execute:async (_op,deps) => new Promise((_,reject) => deps.signal.addEventListener('abort', () => reject(deps.signal.reason),{once:true})) })
-  const first = manager.start(e.op('story'))
-  await first.ready
-  const before = await recordStore(e.home,e.id).list('operations')
-  assert.throws(() => manager.start(e.op('scene-text',{episodeId:'other'})), error => error.code === 'OPERATION_BUSY' && error.busy.kind === 'generate' && error.busy.lock === 'project')
-  assert.deepEqual(await recordStore(e.home,e.id).list('operations'),before)
-  assert.equal(manager.list(e.id)[0].lock,'project')
-  manager.cancel(first.id,e.id); await first.done
-  assert.equal(occupant(e.home,e.op('story')),null)
+test('busy admission records nothing and release frees the same occupancy', async t => {
+  const e = await setupModel(t), edits = createImmediateService({ home: e.home })
+  t.after(() => edits.dispose())
+  const held = { projectId: e.id, episodeId: e.episodeId, target: 'summary', action: 'run-step', lock: 'project' }
+  const release = occupy(e.home, held, { id: 'step', label: '摘要' })
+  assert.throws(() => edits.start(e.op('scene-text', { episodeId: 'other', itemId: 'E01', fields: {} })), error => error.code === 'TARGET_BUSY' && error.busy.lock === 'project' && error.busy.label === '摘要')
+  assert.deepEqual(edits.list(e.id), [])
+  assert.deepEqual(await historyStore(e.home, e.id).list('events'), [])
+  release()
+  assert.equal(occupant(e.home, held), null)
 })

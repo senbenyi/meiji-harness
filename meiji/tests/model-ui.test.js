@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import { outlineText } from '../shared/story-outline.js'
 import { outlineFixture } from './fixtures/story-package.js'
 import { tableResponse, singleShotResponse } from './fixtures/shot-response.js'
@@ -486,7 +486,7 @@ test('history entry navigates without loading inline history', t => {
 test('task history page filters records, loads snapshots, refreshes and returns', async t => {
  const { renderTaskHistory } = await import('../client/execution-history.js')
  const container = domSetup(t), calls = []; let returned = false
- const task = operationRequest('episode-generate', { id: 't1', startedAt: new Date().toISOString(), actor: 'model', status: 'review_failed', nodes: [{ kind: 'generate', target: 'summary', status: 'completed' }, { kind: 'review', target: 'summary', status: 'completed', verdict: 'fail', reasons: ['因果不成立'] }, { kind: 'revise', target: 'summary', status: 'skipped' }], artifacts: [{ target: 'summary', version: 2, artifactId: 'version-2' }] })
+ const task = actionRequest('episode-generate', { id: 't1', startedAt: new Date().toISOString(), actor: 'model', status: 'review_failed', nodes: [{ kind: 'generate', target: 'summary', status: 'completed' }, { kind: 'review', target: 'summary', status: 'completed', verdict: 'fail', reasons: ['因果不成立'] }, { kind: 'revise', target: 'summary', status: 'skipped' }], artifacts: [{ target: 'summary', version: 2, artifactId: 'version-2' }] })
  const view = renderTaskHistory({ id: 'p', episodeId: 'e', episodeNumber: 1, title: '测试项目' }, {
   back: () => { returned = true },
   load: async artifactId => { calls.push(artifactId); return artifactId ? { artifact: { content: '历史摘要原文' } } : { tasks: [task, { ...task, id: 't2', status: 'completed', artifacts: [] }] } },
@@ -724,7 +724,7 @@ test('a ready candidate image can be confirmed even though images have no AI rev
  const root = await e.store.save(e.id, project => {
   const episode = project.episodes[0], image = episode.plot.characters.items[0].image
   episode.pendingImages = { d1: { draftId: 'd1', previewUrl: '/plugins/meiji/image-draft/d1', key: 'characters', itemId: 'C01', name: '旅人', target: 'snapshot' } }
-  image.status = 'generating'; image.operation = operationRequest('image', { id: 'op', phase: 'awaiting-confirmation' })
+  image.status = 'generating'; image.operation = actionRequest('image', { id: 'op', phase: 'awaiting-confirmation' })
   return project
  })
  assert.equal(root.episodes[0].plot.characters.items[0].image.check.passed, null)
@@ -737,7 +737,7 @@ test('a ready candidate image can be confirmed even though images have no AI rev
  assert.deepEqual(calls, [['d1', 'confirm-image']])
  // 仍在生成（还没有候选图）时不能确认或放弃。
  const generating = { ...root, episodes: [{ ...root.episodes[0], pendingImages: {} }] }
- container.replaceChildren(renderImageReview(generating, actions, operationRequest('image', { phase: 'generating', held: true, episodeId: e.episodeId, itemId: 'C01', name: '旅人' })))
+ container.replaceChildren(renderImageReview(generating, actions, actionRequest('image', { phase: 'generating', held: true, episodeId: e.episodeId, itemId: 'C01', name: '旅人' })))
  const [busyConfirm, busyDiscard] = container.querySelectorAll('.image-review-actions button')
  assert.equal(busyConfirm.disabled, true); assert.equal(busyDiscard.disabled, true)
 })
@@ -757,7 +757,7 @@ test('detail page confirms an image without opening the review page', async t =>
   characterImageUrl: () => '',
  }, {
   character: { episodeId: episode.id, itemId: 'C01' },
-  imageGate: operationRequest('image', { phase: 'ready', held: false, episodeId: episode.id, itemId: 'C01', name: '旅人', draftId: 'd1', previewUrl: '/draft.png', slot: '', track: '' }),
+  imageGate: actionRequest('image', { phase: 'ready', held: false, episodeId: episode.id, itemId: 'C01', name: '旅人', draftId: 'd1', previewUrl: '/draft.png', slot: '', track: '' }),
   onBackCharacter() {},
  }))
  assert.equal(container.querySelector('.image-review-overlay'), null)
@@ -897,7 +897,7 @@ test('failed modification preserves persisted opinion, and a new image candidate
 test('image gate reads the image node error and ignores the episode story error', async t => {
  const { syncImageGate } = await import('../client/image-review.js')
  const episode=episodeFixture();episode.activityError='剧情旧错误';episode.plot.characters.items[0].image.error='图片生成失败'
- const failed=syncImageGate({episodes:[episode]},operationRequest('image', { phase:'generating', held:true, episodeId:episode.id, itemId:'C01' }))
+ const failed=syncImageGate({episodes:[episode]},actionRequest('image', { phase:'generating', held:true, episodeId:episode.id, itemId:'C01' }))
  assert.equal(failed.phase,'error');assert.equal(failed.error,'图片生成失败')
  episode.plot.characters.items[0].image.error=null;episode.operationActivity='image:C01'
  const running=syncImageGate({episodes:[episode]},null)

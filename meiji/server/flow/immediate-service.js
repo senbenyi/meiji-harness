@@ -14,9 +14,8 @@ export function createImmediateService({ home, workspaceController, runs, deps =
   return {
     start(input, session, options = {}) {
       const definition = validateOperation(input)
-      if (definition.kind !== 'direct') throw Object.assign(new Error('制作请通过任务目标预览发起'), { status: 400, code: 'RUN_GOAL_REQUIRED' })
       const id = randomUUID(), controller = new AbortController()
-      const operation = { ...input, ...operationScope({ ...input, kind: 'direct', lock: definition.linkedCard && linkedOperationCard(home, input) ? 'project' : definition.lock }) }
+      const operation = { ...input, ...operationScope({ ...input, lock: definition.linkedCard && linkedOperationCard(home, input) ? 'project' : definition.lock }) }
       const release = occupy(home, operation, { id, label: definition.label }), abort = () => controller.abort(options.signal.reason)
       if (options.signal?.aborted) abort(); else options.signal?.addEventListener('abort', abort, { once: true })
       const entry = { id, projectId: operation.projectId, episodeId: operation.episodeId, controller, failure: null }

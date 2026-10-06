@@ -73,16 +73,14 @@ test('summary re-review compares the current revision base and opinion without r
   assert.equal(reviews, 2)
 })
 
-test('文本步骤只计划生成与自审；自审不通过后才动态追加带轮次的修订与复审', async () => {
-  const plan = ['generate', 'review'].map(kind => ({ id: kind, kind, target: 'summary', status: 'pending', verdict: null, reasons: [], attempts: [], inputs: [], outputs: [] }))
-  const failed = await recordSteps(() => generateWithSelfReview({ generate: async correction => correction ? '修订稿' : '初稿', review: async text => text === '初稿' ? reviewFail('朝向错误') : reviewPass }), structuredClone(plan))
-  // 未传 target 时生成与自审不对应到计划，记为计划外；修订与复审是动态节点，带轮次，不算计划外。
-  assert.deepEqual(failed.nodes.filter(step => step.unplanned).map(step => `${step.kind}:${step.verdict}`), ['generate:null', 'review:fail'])
-  assert.deepEqual(failed.nodes.filter(step => step.round).map(step => `${step.kind}#${step.round}:${step.verdict}`), ['revise#1:null', 're_review#1:pass'])
+test('文本流程先生成与自审；自审不通过后才追加带轮次的修订与复审', async () => {
+  const label = step => `${step.kind}${step.round ? '#' + step.round : ''}:${step.status}:${step.verdict || ''}`
+  const failed = await recordSteps(() => generateWithSelfReview({ generate: async correction => correction ? '修订稿' : '初稿', review: async text => text === '初稿' ? reviewFail('朝向错误') : reviewPass }))
+  assert.deepEqual(failed.nodes.map(label), ['generate:done:', 'review:done:fail', 'revise#1:done:', 're_review#1:done:pass'])
   const passed = await recordSteps(() => runTextNodes({ target: 'summary', prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), options: { project: { durationSeconds: 5 },
-    request: async ({ skill }) => skill === 'review' ? reviewPass : '稿' } }), structuredClone(plan))
-  assert.deepEqual(passed.nodes.map(step => `${step.kind}:${step.status}:${step.verdict}`), ['generate:completed:null', 'review:completed:pass'])
-  assert.ok(passed.nodes.every(step => !step.unplanned))
+    request: async ({ skill }) => skill === 'review' ? reviewPass : '稿' } }))
+  assert.deepEqual(passed.nodes.map(label), ['generate:done:', 'review:done:pass'])
+  assert.ok(passed.nodes.every(step => step.target === 'summary'))
 })
 
 test('independent review does not receive stale correction text as a new instruction', async () => {

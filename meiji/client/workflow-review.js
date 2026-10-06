@@ -26,7 +26,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     details.onclick = () => details.dispatchEvent(new CustomEvent('meiji-view-failure', { bubbles: true, composed: true, detail: { target: record?.id, episodeId: area.dataset.episodeId } }))
     area.append(details)
   }
-  // 人工忽略自审：只在面板上由人操作；放行后显示「人工放行」与原自审意见，与 AI 通过区分。
+  // 人工忽略自审：只能由人在面板上点击；放行后显示「人工放行」与原自审意见，与 AI 通过区分。
   const override = overriddenBy(record)
   if (override) area.append(element('p', `人工放行${override.reasons?.length ? `（原自审意见：${override.reasons.join('；')}）` : ''}`, 'hint workflow-review-overridden'))
   let ignore = null

@@ -1,6 +1,6 @@
 import { episodeFixture } from './fixtures/model.js'
 import { executeTask } from '../server/flow/shared/task-executor.js'
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises'
@@ -145,10 +145,10 @@ test('HTTP selection binds current session, creates one only when absent, and re
   assert.equal(edited.project.title, '本地修改')
   assert.equal((await projects.read(project.id)).summary.content, project.summary.content)
   // Generation buttons also bypass the chat controller and return immediately.
-  const blocked = await call('turn', operationRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
+  const blocked = await call('turn', actionRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
   assert.equal(blocked.status, 409)
   await projects.save(project.id, { episodes: [episodeFixture()] })
-  const generated = await call('turn', operationRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
+  const generated = await call('turn', actionRequest('shots', { projectId: project.id, sessionId: first.sessionId }))
   assert.equal(generated.status, 202)
   assert.ok(generated.operationId)
   for (let attempt = 0; attempt < 100; attempt++) {

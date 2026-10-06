@@ -1,5 +1,5 @@
 // 唯一调度循环：持久化先于执行；锁保留到本地执行器真正退出。
-// 阶段 1A 只提供注入接口，生产入口在业务单步执行器接通后统一切换。
+// 单步执行器由组合入口注入（run-service.js 接入 executeRunStep）。
 import { randomUUID } from 'node:crypto'
 import { runStore } from '../../data/run-store.js'
 import { createQueue, defaultConcurrency } from '../tasks/task-queue.js'
@@ -73,7 +73,7 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
     active.set(id, held)
     const job = async () => {
       // ready 期间允许编辑；出队后重新获取实际执行锁，冲突就释放槽位等待事件唤醒。
-      try { release = acquireStep(run, step) } catch (cause) { if (cause.code === 'OPERATION_BUSY') return; throw cause }
+      try { release = acquireStep(run, step) } catch (cause) { if (cause.code === 'TARGET_BUSY') return; throw cause }
       let claimed = false
       const current = await update(run.projectId, run.id, value => {
         const target = value.steps.find(item => item.id === step.id)
@@ -146,7 +146,7 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
       if (disposed) throw error('引擎已经关闭')
       const run = {
         schemaVersion: RUN_SCHEMA, id: randomUUID(), projectId: spec.projectId, episodeId: spec.episodeId ?? null,
-        initiator: spec.initiator || 'panel', sessionId: spec.sessionId || null, goal: structuredClone(spec.goal || {}),
+        initiator: spec.initiator || 'panel', sessionId: spec.sessionId || null, callId: spec.callId || null, goal: structuredClone(spec.goal || {}),
         policy: { review: true, maxRevisions: 2, ...spec.policy }, prereq: structuredClone(spec.prereq || { required: [], authorized: [] }), affectedEpisodes: structuredClone(spec.affectedEpisodes || []),
         pause: null, steps: (spec.steps || []).map(makeStep), request: structuredClone(spec.request || null), preview: structuredClone(spec.preview || null), events: [], createdAt: now(), startedAt: null, endedAt: null, revision: 0,
       }

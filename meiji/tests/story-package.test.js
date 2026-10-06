@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass } from './fixtures/review-result.js'
 import { node, cardModel, shotModel, pictureOf } from '../shared/drama-model.js'

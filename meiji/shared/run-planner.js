@@ -73,8 +73,8 @@ export function planRun(project, rawGoal, policy = {}) {
         if (target !== 'outline' && roots.has('outline')) deps.push(roots.get('outline'))
         else if (target !== 'outline' && !passed(project.plot?.outline)) requireStage('story', deps, needs, { to: 'story', scope: { only: 'outline' } })
         if (target === 'props') for (const parent of ['characters', 'scenes']) if (roots.has(parent)) deps.push(roots.get(parent)); else if (!passed(project.plot?.[parent])) requireStage('story', deps, needs, { to: 'story', scope: { only: parent } })
-        const definition = { ...textTargets[target], scope: project.plot?.[target]?.items?.some(item => item.ref) ? 'project' : 'episode' }
-        roots.set(target, text(target, definition, deps, needs, passed(project.plot?.[target])))
+        // 剧情资料写入剧情节点并在通过后并入项目库，属于项目级写入：人物与场景在图上并行，执行时由项目锁串行。
+        roots.set(target, text(target, textTargets[target], deps, needs, passed(project.plot?.[target])))
       }
       tails.push(...[...roots].filter(([target]) => target === 'props' || goal.scope.only).map(([, id]) => id))
     } else if (['summary', 'project-summary', 'script-revise'].includes(stage)) {
@@ -112,7 +112,7 @@ export function planRun(project, rawGoal, policy = {}) {
           if (seen.has(identity)) continue
           seen.add(identity)
           const target = `image:${entry.card.id}`, definition = { taskType: entry.kind === 'characters' ? 'character-image' : entry.kind === 'scenes' ? 'scene-image' : 'prop-image', action: 'image', queue: 'image', scope: entry.card.ref ? 'project' : 'episode', operation: { itemId: entry.card.id, generationMode: 'regenerate' } }
-          const image = add('image', target, definition, after, { ...(goal.mode === 'generate' && (entry.ready || entry.pending) ? { status: 'skipped' } : {}), input: { taskType: definition.taskType, operation: { action: 'image', itemId: entry.card.id, generationMode: goal.mode === 'modify' ? 'modify' : 'regenerate', review: goal.feedback || '', requirements: goal.requirements || '' }, required } })
+          const image = add('image', target, definition, after, { ...(goal.mode === 'generate' && (entry.ready || entry.pending) ? { status: 'skipped' } : {}), input: { taskType: definition.taskType, operation: { action: 'image', itemId: entry.card.id, generationMode: goal.mode === 'modify' ? 'modify' : 'regenerate', review: goal.feedback || '', requirements: goal.requirements || '', ...(goal.image || {}) }, required } })
           tails.push(add('wait_confirm', target, { queue: null }, [image], { ...(entry.ready && goal.mode === 'generate' ? { status: 'skipped' } : {}), input: { itemId: entry.card.id } }))
         }
       }

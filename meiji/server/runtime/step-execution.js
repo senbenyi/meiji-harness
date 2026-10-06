@@ -34,14 +34,6 @@ export async function recordNodeResponse(data) {
 
 export async function runNode(kind, run, detail = {}) {
   const context = executionContext.getStore()
-  // 旧网关单元测试没有 Run 上下文，保留扁平节点记录以便迁移期验证请求顺序。
-  if (context && !context.runId && context.nodeId == null && Array.isArray(context.nodes)) {
-    const node = { kind, status: 'running', startedAt: now(), endedAt: null, ...detail }
-    context.nodes.push(node)
-    try { const result = await run(); node.status = 'completed'; return result }
-    catch (error) { node.status = 'failed'; node.error = error.message; throw error }
-    finally { node.endedAt = now() }
-  }
   if (!context) return run()
   return nodeAttempt(detail.label || kind, async () => { const result = await run(); if (result?.review) executionContext.getStore().verdict = result.review; return result }, { kind, ...detail })
 }

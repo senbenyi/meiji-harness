@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createQueue } from '../server/flow/tasks/task-queue.js'

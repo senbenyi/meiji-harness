@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 // 状态稳定性基线（计划-操作任务节点三层模型 第 17、18 节，阶段 A0）。
 // 用 todo 记录尚未修复的现有缺陷：失败不计入总失败数；对应阶段修复后去掉 todo，改为普通测试。
 import test from 'node:test'
@@ -27,7 +27,7 @@ test('B1 同一集同一时间只允许一个生成操作，不同镜头也不�
   const tasks = createOperationManager({ home: await tempHome(t), execute: blocking }), started = []
   started.push(tasks.start({ projectId: 'p', episodeId: 'e', action: 'film', track: 'S01' }))
   try {
-    assert.throws(() => started.push(tasks.start(operationRequest('shot-storyboard', { projectId: 'p', episodeId: 'e', track: 'S02' }))), { status: 409 })
+    assert.throws(() => started.push(tasks.start(actionRequest('shot-storyboard', { projectId: 'p', episodeId: 'e', track: 'S02' }))), { status: 409 })
   } finally { await stopAll(tasks, 'p', started) }
 })
 
@@ -65,8 +65,8 @@ test('AC-M2 面板占用本集时，会话发起返回 busy；会话可等待但
 
 test('AC-M4 同项目生成互斥，停止后释放；其他集直接编辑可继续', async t => {
   const tasks = createOperationManager({home:await tempHome(t),execute:blocking}),started=[]
-  const first=tasks.start(operationRequest('shots',{projectId:'p',episodeId:'e1'}));started.push(first)
-  assert.throws(()=>tasks.start(operationRequest('shots',{projectId:'p',episodeId:'e2'})),{status:409})
+  const first=tasks.start(actionRequest('shots',{projectId:'p',episodeId:'e1'}));started.push(first)
+  assert.throws(()=>tasks.start(actionRequest('shots',{projectId:'p',episodeId:'e2'})),{status:409})
   started.push(tasks.start({projectId:'p',episodeId:'e2',action:'scene-text'}))
   tasks.cancel(first.id,'p');await first.done
   started.push(tasks.start({projectId:'p',episodeId:'e1',action:'seconds'}))

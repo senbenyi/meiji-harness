@@ -1,9 +1,6 @@
-// 全局任务队列：按类别（text / image / video）限制同时运行的任务数，超出的任务排队。
-// 空出名额时直接交给排在最前的任务（不重新竞争），排队期间可取消。
-// 服务重启一律取消进行中任务，队列只在内存中。
+// 全局模型队列：按类别（text / image / video）限制同时运行的步骤数，超出的排队。
+// 空出名额时直接交给排在最前的步骤（不重新竞争），排队期间可取消。队列只在内存中。
 export const defaultConcurrency = Object.freeze({ text: 4, image: 2, video: 2 })
-
-// 任务属于哪个类别由操作定义的 queue 字段决定（operations/operation-registry.js 的 queueOf）。
 
 export function createQueue(limitOf = kind => defaultConcurrency[kind]) {
   const active = new Map(), waiting = new Map()

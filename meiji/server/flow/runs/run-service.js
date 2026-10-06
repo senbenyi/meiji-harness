@@ -100,7 +100,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
     if (step.kind === 'wait_script_confirm' && root.scriptProposals.some(item => item.runId === run.id && item.status === 'pending')) return { pause: { code: 'wait_script_confirm', message: '请在剧本页确认或放弃本任务的修改方案', actions: ['cancel-branch'] } }
     return null
   }
-  const lockOperation = (run, step) => ({ projectId: run.projectId, episodeId: run.episodeId, target: step.target, action: 'run-step', kind: 'direct', lock: step.scope, origin: run.initiator, sessionId: run.sessionId })
+  const lockOperation = (run, step) => ({ projectId: run.projectId, episodeId: run.episodeId, target: step.target, action: 'run-step', lock: step.scope, origin: run.initiator, sessionId: run.sessionId })
   const engine = createRunEngine({ home, limitOf, queue,
     beforeStep: checkStep,
     execute: async (run, step, context) => {
@@ -159,7 +159,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
         watch(root.id)
         const current = await runStore(home, root.id).openRun(episodeId)
         if (current) return { run: publicRun(current), amend: true, projectRevision: root.revision, ...continuationPlan(root, current, plan) }
-        const run = await engine.create({ projectId: root.id, episodeId, sessionId, initiator, goal: plan.goal, policy,
+        const run = await engine.create({ projectId: root.id, episodeId, sessionId, initiator, callId: typeof input.callId === 'string' ? input.callId : null, goal: plan.goal, policy,
           request: { goal: plan.goal, ...(newEpisode ? { newEpisode } : {}) }, prereq: { required: plan.prereq, authorized: [] }, preview: { deletions: plan.deletions, blockers: plan.blockers }, steps: plan.steps })
         return { run: publicRun(run), deletions: plan.deletions, prereq: plan.prereq, blockers: plan.blockers }
       }

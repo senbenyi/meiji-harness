@@ -3,10 +3,9 @@ import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { savePicture, saveImageDraft, pictureTargetSnapshot } from '../server/data/image-storage.js'
-import { recordStore } from '../server/data/task-store.js'
 import { pictureRecord } from '../shared/image-assets.js'
 import { submitAssetImage } from '../server/flow/steps/shared/image-files.js'
-import { runOperation, latestTask } from './fixtures/operation.js'
+import { runOperation, latestRun } from './fixtures/operation.js'
 import { sceneImagePrompt } from '../server/prompts/interfaces/scene-image-interface.js'
 
 for (const draft of [false, true]) test(`场景意见修改使用${draft ? '待确认' : '已确认'}原图 Base64，不改写资料，执行三步`, async t => {
@@ -35,10 +34,10 @@ for (const draft of [false, true]) test(`场景意见修改使用${draft ? '待�
       return Response.json({ data: [{ url: '/v1/media/scene' }] })
     } }),
   })
-  const task = await latestTask(recordStore(e.home, e.id), 'image:E01')
+  const task = await latestRun(e.home, e.id, 'image:E01')
   assert.equal(task.status, 'completed')
-  assert.deepEqual(task.nodes.map(step => step.kind), ['image_generate', 'image_download', 'image_save'])
-  assert.ok(task.nodes.every(step => !step.unplanned))
+  assert.deepEqual(task.kinds, ['image', 'wait_confirm'])
+  assert.deepEqual(task.attempts, ['image_generate', 'image_download', 'image_save'])
   const after = await e.read()
   assert.equal(after.plot.scenes.items[0].look, before.plot.scenes.items[0].look)
   assert.equal(after.plot.scenes.items[0].space, before.plot.scenes.items[0].space)

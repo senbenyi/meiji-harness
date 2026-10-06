@@ -1,4 +1,4 @@
-import { operationRequest } from '../client/operation-request.js'
+import { actionRequest } from '../client/goal-request.js'
 import { secondsResponse, secondsContent } from './fixtures/seconds.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
