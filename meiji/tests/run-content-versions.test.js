@@ -84,7 +84,8 @@ test('manual episode add and edit save as passed and clear failure reasons', asy
 test('story, shot table and seconds each record their own versions on the producing steps', async t => {
  const e = await setup(t)
  await runOperation(e.op('story', {}), { home: e.home, request: storyRequest(storyPackageFixture()) })
- for (const key of ['outline', 'characters', 'scenes', 'props']) assert.ok((await e.read()).plot[key].source.stepId, key)
+ for (const key of ['outline', 'characters', 'scenes']) assert.ok((await e.read()).plot[key].source.stepId, key)
+ assert.deepEqual((await e.read()).plot.props.items, [])
  const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
  await runOperation(e.op('shot-table', {}), { home: e.home, request: async ({ skill }) => skill === 'review' ? reviewPass : tableResponse(table) })
  assert.ok((await e.read()).shots.source.stepId)

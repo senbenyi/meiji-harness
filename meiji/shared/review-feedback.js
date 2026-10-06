@@ -61,7 +61,7 @@ const overrideKinds = new Set(['summary', 'outline', 'characters', 'scenes', 'pr
 export function overrideNodes(project, key) {
   const kind = String(key || '').split(':')[0]
   if (!overrideKinds.has(kind)) return []
-  const keys = key === 'outline' ? ['outline', 'characters', 'scenes', 'props'] : key === 'seconds' ? ['seconds', ...(project.shots?.items || []).map(shot => `seconds:${shot.id}`)] : [key]
+  const keys = key === 'outline' ? ['outline', 'characters', 'scenes'] : key === 'seconds' ? ['seconds', ...(project.shots?.items || []).map(shot => `seconds:${shot.id}`)] : [key]
   return keys.map(item => [item, targetNode(project, item)]).filter(([, value]) => value?.check?.passed === false)
 }
 const hasText = (key, value) => {

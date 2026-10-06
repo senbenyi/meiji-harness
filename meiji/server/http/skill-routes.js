@@ -49,7 +49,7 @@ export function skillRoutes({ home, projects, links, json, readJson }) {
       nodeSkills(root, episodeId, nodeKey)
       if (req.method !== 'GET') root = await projects.save(projectId, current => nodeSkillsPatch(current, { ...body, remove: req.method === 'DELETE' }))
       const id = nodeStage(nodeKey), skill = detail(await store.get(id))
-      if (id === 'outline' && ['outline', 'characters', 'scenes', 'props'].includes(nodeKey)) {
+      if (id === 'outline' && ['outline', 'characters', 'scenes'].includes(nodeKey)) {
         skill.constraints = builtinSkill(id).rules[nodeKey]
         skill.review = builtinSkill(id).reviewRules[nodeKey] || ''
         // 输出协议按节点只展示对应小节。

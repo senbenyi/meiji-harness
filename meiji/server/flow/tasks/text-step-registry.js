@@ -10,9 +10,6 @@ import { reviseCharacters } from '../steps/step-revise-characters.js'
 import { extractScenes } from '../steps/step-extract-scenes.js'
 import { reviewScenes, savedScenesInput } from '../steps/step-review-scenes.js'
 import { reviseScenes } from '../steps/step-revise-scenes.js'
-import { extractProps } from '../steps/step-extract-props.js'
-import { reviewProps, savedPropsInput } from '../steps/step-review-props.js'
-import { reviseProps } from '../steps/step-revise-props.js'
 import { generateSummary } from '../steps/step-generate-summary.js'
 import { reviewSummary, savedSummaryInput } from '../steps/step-review-summary.js'
 import { reviseSummary } from '../steps/step-revise-summary.js'
@@ -32,7 +29,6 @@ export const textStepRegistry = {
   'outline': { generate: generateOutline, review: reviewOutline, reviewInput: savedOutlineInput, revise: reviseOutline },
   'characters': { generate: extractCharacters, review: reviewCharacters, reviewInput: savedCharactersInput, revise: reviseCharacters },
   'scenes': { generate: extractScenes, review: reviewScenes, reviewInput: savedScenesInput, revise: reviseScenes },
-  'props': { generate: extractProps, review: reviewProps, reviewInput: savedPropsInput, revise: reviseProps },
   'summary': { generate: generateSummary, review: reviewSummary, reviewInput: savedSummaryInput, revise: reviseSummary },
   'project-summary': { generate: generateProjectSummary, review: reviewProjectSummary, reviewInput: savedProjectSummaryInput, revise: reviseProjectSummary },
   'shots': { generate: generateShotTable, review: reviewShotTable, reviewInput: savedShotTableInput, revise: reviseShotTable },

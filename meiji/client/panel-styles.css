@@ -414,6 +414,11 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .overview-page .episode-card-heading{flex-wrap:wrap}
 .overview-page .characters-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,190px));justify-content:start;gap:8px;padding:4px 0 10px;overflow:visible}
 .overview-page .library-card-strip-scenes{grid-template-columns:repeat(auto-fill,minmax(240px,320px))}
+/* 项目详情页角色库：一行固定 5 个，窄屏同样 5 个，头像随格子缩小。 */
+.overview-page .characters-strip.library-card-strip-characters{grid-template-columns:repeat(5,minmax(0,1fr));justify-content:stretch}
+.overview-page .library-card-characters{padding:10px 6px}
+.overview-page .library-card-characters .library-card-avatar{width:min(56px,100%);height:auto;aspect-ratio:1}
+.overview-page .library-card-characters .library-card-info{width:100%}
 .overview-page .library-card{display:flex;align-items:center;gap:10px;width:100%;min-width:0;padding:10px;border:1px solid #353840;border-radius:10px;background:#1b1c21;text-align:left;color:inherit}
 .overview-page .library-card:hover{border-color:#dfc196;background:#23242a}
 .overview-page .library-card-info{display:grid;gap:4px;min-width:0;text-align:left}.overview-page .library-card-info strong,.overview-page .library-card-info .meta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.overview-page .library-card-avatar{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;overflow:hidden;background:#282b32}.overview-page .library-card-image{display:block;flex:none;width:92px;height:56px;border-radius:7px;overflow:hidden;background:#282b32}.overview-page .library-card-avatar img,.overview-page .library-card-image img{display:block;width:100%;height:100%;object-fit:cover}.overview-page .library-card-placeholder{display:grid;place-items:center;width:100%;height:100%;color:#b7a487;font-size:20px}.overview-page .library-card-characters,.overview-page .library-card-props{flex-direction:column;align-items:center}.overview-page .library-card-characters .library-card-info,.overview-page .library-card-props .library-card-info{text-align:center}.overview-page .library-card-characters .library-card-info strong,.overview-page .library-card-props .library-card-info strong{max-width:100%}

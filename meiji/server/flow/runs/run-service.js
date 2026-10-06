@@ -72,7 +72,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
   const checkStep = async (run, step) => {
     if (!step || !run.request?.goal) return null
     const root = await projects.read(run.projectId), view = plannerView(root, run.episodeId)
-    if (['outline', 'characters', 'scenes', 'props'].includes(step.target) && !['review', 're_review'].includes(step.kind) && scriptFreshness(root).summaryNeedsUpdate) {
+    if (['outline', 'characters', 'scenes'].includes(step.target) && !['review', 're_review'].includes(step.kind) && scriptFreshness(root).summaryNeedsUpdate) {
       // 任务执行中剧本升版（如本任务的摘要回写）：先自动更新并审核项目摘要，再执行本步骤。
       return { insert: planRun(root, { to: 'project-summary', mode: 'regenerate' }, { ...plannerPolicy(root, run.policy, run.episodeId), projectSummaryRequired: false }).steps }
     }

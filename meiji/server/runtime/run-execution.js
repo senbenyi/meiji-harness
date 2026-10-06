@@ -13,7 +13,7 @@ export async function startRunExecution(home, run, step, operation) {
     await runStore(home, run.projectId).update(run.id, current => { current.skillSnapshot ||= skillSet; return current })
   }
   const store = runRecordStore(home, run.projectId, run.id, step.id), baselines = new Map()
-  const stage = ['outline', 'characters', 'scenes', 'props'].includes(step.target) ? 'story' : step.target?.split(':')[0]
+  const stage = ['outline', 'characters', 'scenes'].includes(step.target) ? 'story' : step.target?.split(':')[0]
   await addBaselines(store, project, operation, stage, baselines)
   const node = { ...step, scope: 'root', prompts: [], responses: [], attempts: [], inputs: [], outputs: [] }
   return { runId: run.id, stepId: step.id, store, home, projectId: run.projectId, actor: step.actor, operation,

@@ -16,12 +16,11 @@ test('各业务模板形成可验证 DAG，预览确定且不修改项目', () =
     assert.ok(first.steps.length)
   }
 })
-test('剧情人物与场景并行，道具同时依赖两者，文本 policy 与 review 只执行授权步骤', () => {
+test('剧情人物与场景并行，剧情流程不再生成道具，文本 policy 与 review 只执行授权步骤', () => {
   const result = checked(planRun(view(), { to: 'story', mode: 'regenerate' }))
   const byKey = new Map(result.steps.map(step => [step.key, step]))
   assert.deepEqual(byKey.get('generate@characters').after, byKey.get('generate@scenes').after)
-  assert.ok(byKey.get('generate@props').after.includes(byKey.get('review@characters').id))
-  assert.ok(byKey.get('generate@props').after.includes(byKey.get('review@scenes').id))
+ assert.equal(byKey.has('generate@props'), false)
   assert.deepEqual(planRun(view(), { to: 'story', scope: { only: 'outline' } }, { review: false }).steps.map(step => step.kind), ['generate'])
   assert.deepEqual(planRun(view(), { to: 'story', mode: 'review', scope: { only: 'outline' } }).steps.map(step => step.kind), ['review'])
 })

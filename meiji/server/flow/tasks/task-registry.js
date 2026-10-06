@@ -7,7 +7,6 @@ import { runScriptRevision } from './text/task-script-revision.js'
 import { runOutline } from './text/task-outline.js'
 import { runCharacters } from './text/task-characters.js'
 import { runScenes } from './text/task-scenes.js'
-import { runProps } from './text/task-props.js'
 import { runShotTable } from './text/task-shot-table.js'
 import { opShotSeconds } from './text/task-shot-seconds.js'
 import { opShotStoryboard } from '../steps/step-generate-storyboard.js'
@@ -29,7 +28,6 @@ export const taskRegistry = {
   outline: text('大纲', runOutline, 'outline', 'outline'),
   characters: text('人物角色', runCharacters, 'characters', 'characters'),
   scenes: text('场景', runScenes, 'scenes', 'scenes'),
-  props: text('道具', runProps, 'props', 'props'),
   'shot-table': text('镜头表', runShotTable, op => op.track ? 'revise-shot' : 'shots', 'shots'),
   'shot-seconds': text('每秒指令', opShotSeconds, 'shot-seconds', op => `seconds:${op.track}`),
   'storyboard-prompt': { ...text('分镜提示词', opShotStoryboard, 'shot-storyboard', op => `storyboard:${op.track}`), maxRevisions: 0, skip: (project, op) => !op.parts && (videoReady(project.shots.items.find(item => item.id === op.track)) || storyboardReady(project, op.track)) },

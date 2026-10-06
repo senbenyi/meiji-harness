@@ -7,7 +7,6 @@ export const textTargets = {
   outline: { taskType: 'outline', action: 'outline', scope: 'project' },
   characters: { taskType: 'characters', action: 'characters', scope: 'project' },
   scenes: { taskType: 'scenes', action: 'scenes', scope: 'project' },
-  props: { taskType: 'props', action: 'props', scope: 'project' },
   shots: { taskType: 'shot-table', action: 'shots', scope: 'episode' },
   seconds: { taskType: 'shot-seconds', action: 'shot-seconds', scope: 'episode' },
   script: { taskType: 'script-revise', action: 'script-revise', scope: 'project' },
@@ -29,7 +28,7 @@ export function normalizeRunGoal(input) {
   if (typeof goal.scope !== 'object' || Array.isArray(goal.scope) || Object.keys(goal.scope).some(key => !['only', 'tracks', 'itemIds', 'fromEpisode', 'library'].includes(key))) throw new Error('目标范围无效')
   if (goal.scope.library && (goal.to !== 'images' || typeof goal.scope.library !== 'object' || Object.keys(goal.scope.library).some(key => !['kind', 'id', 'variantId'].includes(key)) || !['characters', 'scenes', 'props'].includes(goal.scope.library.kind) || !goal.scope.library.id || !goal.scope.library.variantId)) throw new Error('库图片范围无效')
   for (const key of ['tracks', 'itemIds']) if (goal.scope[key] !== undefined && (!Array.isArray(goal.scope[key]) || !goal.scope[key].length || goal.scope[key].some(id => typeof id !== 'string' || !id.trim()) || new Set(goal.scope[key]).size !== goal.scope[key].length)) throw new Error('对象范围不存在或重复')
-  if (goal.scope.only && (goal.to !== 'story' || !['outline', 'characters', 'scenes', 'props'].includes(goal.scope.only))) throw new Error('剧情对象无效')
+  if (goal.scope.only && (goal.to !== 'story' || !['outline', 'characters', 'scenes'].includes(goal.scope.only))) throw new Error('剧情对象无效')
   if (goal.scope.tracks && !['shots', 'seconds', 'film'].includes(goal.to)) throw new Error('此目标不支持镜头范围')
   if (goal.scope.itemIds && goal.to !== 'images') throw new Error('此目标不支持图片范围')
   if (goal.scope.fromEpisode !== undefined && (goal.to !== 'script-revise' || !Number.isInteger(goal.scope.fromEpisode) || goal.scope.fromEpisode < 1)) throw new Error('后续剧情起点无效')
@@ -42,6 +41,6 @@ export function normalizeRunGoal(input) {
 }
 export function goalForRunTarget(target, changes = {}) {
   const [kind, id] = String(target).split(':')
-  const to = ['outline', 'characters', 'scenes', 'props'].includes(kind) ? 'story' : ['storyboard', 'film'].includes(kind) ? 'film' : kind === 'image' ? 'images' : kind === 'script' ? 'script-revise' : kind === 'assembly' ? 'assemble' : kind
-  return { to, scope: ['outline', 'characters', 'scenes', 'props'].includes(kind) ? { only: kind } : id ? kind === 'image' ? { itemIds: [id] } : { tracks: [id] } : {}, ...changes }
+  const to = ['outline', 'characters', 'scenes'].includes(kind) ? 'story' : ['storyboard', 'film'].includes(kind) ? 'film' : kind === 'image' ? 'images' : kind === 'script' ? 'script-revise' : kind === 'assembly' ? 'assemble' : kind
+  return { to, scope: ['outline', 'characters', 'scenes'].includes(kind) ? { only: kind } : id ? kind === 'image' ? { itemIds: [id] } : { tracks: [id] } : {}, ...changes }
 }

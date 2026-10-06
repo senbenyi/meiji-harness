@@ -30,7 +30,7 @@ test('single occupancy covers every scope and target combination', () => {
 })
 test('project writers explicitly declare their effective lock even with episode ID', () => {
   for (const key of ['episode-add', 'episode-edit', 'episode-delete', 'overview', 'source']) assert.equal(operations[key].lock, 'project', key)
-  for (const key of ['summary', 'project-summary', 'outline', 'characters', 'scenes', 'props', 'script']) assert.equal(textTargets[key].scope, 'project', key)
+  for (const key of ['summary', 'project-summary', 'outline', 'characters', 'scenes', 'script']) assert.equal(textTargets[key].scope, 'project', key)
 })
 test('busy admission records nothing and release frees the same occupancy', async t => {
   const e = await setupModel(t), edits = createImmediateService({ home: e.home })

@@ -11,7 +11,7 @@ export const tabs = [
   { id: 'assembly', label: '合成', nodes: ['assembly'] },
 ]
 export function runTabProgress(project, tab) {
-  const targets = { summary: ['summary'], script: ['outline', 'characters', 'scenes', 'props'], shots: ['shots'], seconds: ['seconds'], film: ['image', 'storyboard', 'film'], assembly: ['assembly'] }[tab] || []
+  const targets = { summary: ['summary'], script: ['outline', 'characters', 'scenes'], shots: ['shots'], seconds: ['seconds'], film: ['image', 'storyboard', 'film'], assembly: ['assembly'] }[tab] || []
   const progress = (project.activeRuns || []).flatMap(run => run.progress || []).filter(item => targets.includes(item.target?.split(':')[0]) && item.total)
   return progress.length ? { done: progress.reduce((total, item) => total + item.done, 0), total: progress.reduce((total, item) => total + item.total, 0), paused: progress.some(item => item.paused) } : null
 }

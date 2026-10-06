@@ -8,7 +8,7 @@ import { operationDeletes } from './operation-cascade.js'
 import { libraryTarget } from './library-rules.js'
 const passed = node => node?.check?.passed === true
 const unique = entries => [...new Map(entries.map(value => [JSON.stringify(value), value])).values()]
-const stageReady = (project, stage) => stage === 'summary' ? Boolean(project.summary?.content) && passed(project.summary) : stage === 'story' ? ['outline', 'characters', 'scenes', 'props'].every(key => passed(project.plot?.[key])) : stage === 'shots' ? shotsReady(project) : stage === 'seconds' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shotSecondsReady(shot) && passed(shot.seconds)) : stage === 'film' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shot.video?.content?.status === 'ready') : false
+const stageReady = (project, stage) => stage === 'summary' ? Boolean(project.summary?.content) && passed(project.summary) : stage === 'story' ? ['outline', 'characters', 'scenes'].every(key => passed(project.plot?.[key])) : stage === 'shots' ? shotsReady(project) : stage === 'seconds' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shotSecondsReady(shot) && passed(shot.seconds)) : stage === 'film' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shot.video?.content?.status === 'ready') : false
 
 export function planRun(project, rawGoal, policy = {}) {
   const goal = normalizeRunGoal(rawGoal), steps = [], prereq = [], deletions = [], blockers = [], byKey = new Map(), stageTails = new Map()
@@ -67,16 +67,15 @@ export function planRun(project, rawGoal, policy = {}) {
       const sync = add('sync', 'script', { taskType: 'script-sync', action: 'script-sync', queue: 'text', scope: 'project' }, after)
       tails.push(add('wait_script_confirm', 'script', { queue: null, scope: 'project' }, [sync]))
     } else if (stage === 'story') {
-      const chosen = goal.scope.only ? [goal.scope.only] : ['outline', 'characters', 'scenes', 'props'], roots = new Map()
+      const chosen = goal.scope.only ? [goal.scope.only] : ['outline', 'characters', 'scenes'], roots = new Map()
       for (const target of chosen) {
         const deps = [...after], needs = [...required]
         if (target !== 'outline' && roots.has('outline')) deps.push(roots.get('outline'))
         else if (target !== 'outline' && !passed(project.plot?.outline)) requireStage('story', deps, needs, { to: 'story', scope: { only: 'outline' } })
-        if (target === 'props') for (const parent of ['characters', 'scenes']) if (roots.has(parent)) deps.push(roots.get(parent)); else if (!passed(project.plot?.[parent])) requireStage('story', deps, needs, { to: 'story', scope: { only: parent } })
         // 剧情资料写入剧情节点并在通过后并入项目库，属于项目级写入：人物与场景在图上并行，执行时由项目锁串行。
         roots.set(target, text(target, textTargets[target], deps, needs, passed(project.plot?.[target]), {}, target !== 'outline' && !goal.scope.only))
       }
-      tails.push(...[...roots].filter(([target]) => target === 'props' || goal.scope.only).map(([, id]) => id))
+      tails.push(...[...roots].filter(([target]) => target === 'scenes' || goal.scope.only).map(([, id]) => id))
     } else if (['summary', 'project-summary', 'script-revise'].includes(stage)) {
       const target = stage === 'script-revise' ? 'script' : stage
       let last = text(target, textTargets[target], after, required, stage === 'summary' ? passed(project.summary) : stage === 'project-summary' ? !scriptFreshness(project).summaryNeedsUpdate && passed(project.summary) : false,

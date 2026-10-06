@@ -30,8 +30,8 @@ test('all production panes render directly from new models, including video and 
   if(shotsPane==='board'){assert.ok(container.querySelector('.reference-card img'));assert.match(container.textContent,/<Subject 1>/);assert.ok(container.querySelector('.storyboard-editor'))}
  }
 })
-test('镜头表按钮始终可见，缺少道具时禁用，审核通过后刷新启用', async t => {
- const container=domSetup(t), project=episodeFixture(), props=project.plot.props
+test('镜头表按钮不再受道具数据阻塞', async t => {
+ const container=domSetup(t), project=episodeFixture()
  project.shots.items=[]
  delete project.plot.props
  let calls=0
@@ -40,16 +40,9 @@ test('镜头表按钮始终可见，缺少道具时禁用，审核通过后刷�
  renderModelView(container,build())
  let button=container.querySelector('.stage-primary-actions button.primary')
  assert.ok(button)
- assert.equal(button.disabled,true)
- assert.match(container.textContent,/道具尚未提取/)
- assert.match(button.title,/道具尚未提取/)
- button.click()
- assert.equal(calls,0)
- project.plot.props=props
- renderModelView(container,build())
- button=container.querySelector('.stage-primary-actions button.primary')
  assert.equal(button.disabled,false)
  assert.doesNotMatch(container.textContent,/道具尚未提取/)
+ assert.doesNotMatch(button.title,/道具尚未提取/)
  button.click()
  await new Promise(resolve=>setImmediate(resolve))
  assert.equal(calls,1)
@@ -379,7 +372,7 @@ test('plot has one generation entry and one review for outline, characters and s
  const container=domSetup(t),p=episodeFixture(),calls=[]
  p.plot.outline.check={passed:false,failures:['角色与剧情不一致']}
  container.append(renderStage('script',p,{perform:async(...args)=>calls.push(args),beginImage:async()=>{},fail:()=>{}},{}))
- assert.equal(container.querySelectorAll('.workflow-review').length,2)
+ assert.equal(container.querySelectorAll('.workflow-review').length,1)
  const review=container.querySelector('[data-review-target="outline"]')
  assert.ok(review)
  assert.match(review.textContent,/角色与剧情不一致/)
@@ -805,7 +798,7 @@ test('story result cards keep skills and expose independent task history beside 
   assert.ok(row.querySelector('.task-history-entry'))
   assert.ok([...row.querySelectorAll('button')].some(button => button.textContent === '查看 skill'))
  }
- assert.equal(container.querySelectorAll('.task-history-entry').length, 5)
+ assert.equal(container.querySelectorAll('.task-history-entry').length, 4)
  container.querySelector('.stage-history-toolbar .task-history-entry').click()
  assert.deepEqual(calls, ['script'])
 })

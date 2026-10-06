@@ -39,19 +39,16 @@ for (const [category,itemId] of [['characters','C01'],['scenes','E01']]) test(`$
   assert.equal(canGenerate(after,'shots'),true)
   await e.store.save(e.id,p=>{p.episodes[0].plot.props.check.passed=false;return p})
   await runOperation(e.op('use-asset',{category,itemId,assetId:ref.assetId}),{home:e.home})
-  assert.equal(canGenerate(await e.read(),'shots'),false)
-  assert.match(gateMessage(await e.read(),'shots'),/道具自审未通过/)
+  assert.equal(canGenerate(await e.read(),'shots'),true)
+  assert.doesNotMatch(gateMessage(await e.read(),'shots'),/道具自审未通过/)
 })
 
-test('缺少道具时服务端拒绝镜头表生成并说明准确前置原因', async t => {
+test('缺少道具时服务端仍允许镜头表生成并按空集合处理', async t => {
   const e=await setupModel(t)
   await e.store.save(e.id,p=>{delete p.episodes[0].plot.props;return p})
-  await assert.rejects(runOperation(e.op('shot-table', {}),{home:e.home,generateShots:()=>assert.fail('不应调用生成接口')}), /道具尚未提取.*剧情页提取道具/)
-  await runOperation(e.op('story', { ...{}, only: 'props' }),{home:e.home,regenerateCardGroup:async()=>({...node('props'),items:[],check:{passed:true,failures:[]}})})
+  const { generateShots } = await import('../server/flow/tasks/text/task-shot-table.js')
+  await runOperation(e.op('shot-table', {}), { home: e.home, generateShots: options => generateShots({ ...options, request: async message => message.skill === 'review' ? reviewPass : JSON.stringify({ shots: [{ shotId: 'S01', durationSeconds: 5, title: '空道具镜头一', content: '人物走过空旷场景。' }, { shotId: 'S02', durationSeconds: 5, title: '空道具镜头二', content: '人物离开场景。' }] }) }) })
   const after=await e.read()
-  assert.equal(after.plot.props.id,'props')
-  assert.equal(after.plot.props.items.length,0)
-  assert.equal(after.plot.props.check.passed,true)
   assert.equal(canGenerate(after,'shots'),true)
 })
 

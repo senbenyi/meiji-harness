@@ -236,23 +236,16 @@ function renderScenes(project, actions, context) {
   const list = element('div', '', 'scene-list')
   for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { imageGate: context.imageGate, onOpen: id => context.onOpenScene?.(project.episodeId, id) })) (node.tagName === 'DIALOG' || node.tagName === 'INPUT' ? view : list).append(node)
   view.append(list)
+  // 道具不再由剧情流程自动提取；保留已有道具卡的素材维护能力，缺失时按空集合处理。
   const propsView = element('section')
   view.append(propsView)
   const props = project.plot.props
   const propsHead = element('div', '', 'outline-head')
-  propsHead.append(element('h3', '道具（服装、坐骑、武器、饰品）'))
-  const extract = element('button', '提取道具', 'primary')
-  extract.disabled = targetBusy(project, 'props') || project.plot.scenes.check.passed !== true
-  extract.onclick = () => actions.perform(project, 'props', reviewFields(propsView))
+  propsHead.append(element('h3', '道具'))
   const propsSkill = skillField(project, 'props', actions)
-  propsHead.append(extract, propsSkill.querySelector('button'))
-  if (actions.openHistory) propsHead.append(historyEntry(project, actions, 'props'))
+  propsHead.append(propsSkill.querySelector('button'))
   propsView.append(propsHead)
-  if (props) {
-    if (props.check.passed !== null) appendWorkflowReview(propsView, feedbackOf(project, 'props'), true, targetBusy(project, 'props'), extract)
-    propsView.append(...stillCards(project, props.items, actions, hint, { editable: true }))
-    if (props.check.passed === true && !props.items.length) propsView.append(element('p', '本集未提取到需独立登记的道具。', 'meta'))
-  }
+  if (props) propsView.append(...stillCards(project, props.items || [], actions, hint, { editable: true }))
   if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部生成剧情，依次完成大纲、人物提取和场景提取。', 'meta'))
   return view
 }

@@ -2,7 +2,7 @@ import { GenerationStatus, shotResults } from './drama-model.js'
 import { feedbackOf } from './review-feedback.js'
 import { shotSecondsReady } from './shot-timing.js'
 import { outlineFailures } from './story-outline.js'
-export const reviewSteps = ['summary', 'outline', 'characters', 'scenes', 'props', 'shots', 'storyboard', 'film']
+export const reviewSteps = ['summary', 'outline', 'characters', 'scenes', 'shots', 'storyboard', 'film']
 
 export function reviewsOf(project) {
   return Object.fromEntries(reviewSteps.map(id => [id, feedbackOf(project, id).check.passed === true ? 'approved' : 'pending']))
@@ -47,7 +47,7 @@ export function canGenerate(project, step) {
   if (step === 'outline') return outlineUnlocked(project)
   if (step === 'characters') return false
   if (step === 'scenes') return false
-  if (step === 'shots') return hasScenes(project) && ['outline', 'characters', 'scenes', 'props'].every(key => feedbackOf(project, key).check.passed === true)
+  if (step === 'shots') return hasScenes(project) && ['outline', 'characters', 'scenes'].every(key => feedbackOf(project, key).check.passed === true)
   if (step === 'storyboard') return shotsReady(project)
   if (step === 'film') return hasStoryboard(project)
   return false
@@ -60,18 +60,17 @@ export function gateMessage(project, step) {
   }
   if (step === 'outline') {
     if (!canGenerate(project, 'outline')) return '请先写好本集摘要，再写故事大纲。'
-    if (!hasOutline(project)) return '点击 AI生成，依次生成故事大纲、角色卡、场景卡和道具卡，不生成图片或镜头。'
-    if (hasOutline(project)) return '剧情资料已生成；大纲、角色、场景和道具依次独立生成并审核。重新生成会清空镜头及后续内容。'
+    if (!hasOutline(project)) return '点击 AI生成，依次生成故事大纲、角色卡和场景卡，不生成图片或镜头。'
+    if (hasOutline(project)) return '剧情资料已生成；大纲、角色和场景依次独立生成并审核，道具按空集合处理。重新生成会清空镜头及后续内容。'
   }
   if (step === 'characters' || step === 'scenes') return '角色和场景与故事大纲统一生成；图片可在卡片中单独生成。'
   if (step === 'shots') {
     if (!canGenerate(project, 'shots')) {
-      const labels = { outline: '剧情大纲', characters: '人物角色', scenes: '场景卡', props: '道具' }
+      const labels = { outline: '剧情大纲', characters: '人物角色', scenes: '场景卡' }
       const pending = Object.entries(labels).flatMap(([key, label]) => {
         const record = project.plot?.[key]
         if (key === 'scenes' && !hasScenes(project)) return [`${label}尚未生成`]
         if (record?.check?.passed === true) return []
-        if (key === 'props' && (!record || (record.check?.passed == null && record.revision === 0 && !record.items?.length && !record.operation))) return ['道具尚未提取，请到剧情页提取道具并通过自审']
         return [`${label}${record?.check?.passed === false ? '自审未通过' : '尚未通过自审'}`]
       })
       return `镜头表暂不可生成：${pending.join('；')}。`

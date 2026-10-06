@@ -277,7 +277,7 @@ test('每个剧情步骤生成用生产规则、自审用对应审核 skill，�
 })
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
-  assert.deepEqual([...new Set(planRun(episodeFixture(), { to: 'story', mode: 'regenerate' }).steps.map(step => step.target))], ['outline', 'characters', 'scenes', 'props'])
+  assert.deepEqual([...new Set(planRun(episodeFixture(), { to: 'story', mode: 'regenerate' }).steps.map(step => step.target))], ['outline', 'characters', 'scenes'])
   const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('修订稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('二次修订稿')), reviewFail('因果错误')]
   let calls = 0
   const { result, nodes } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
@@ -402,11 +402,11 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
   await runOperation(e.op('story', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
     request: storyRequest({ ...fixture, outline: outlineFixture('FIXED_OUTLINE') }, (kind, message, phase) => { calls++; if (phase === 'generate') prompts.push([kind, message.user]) }),
   })
-  // 意见只进入大纲修订；人物、场景、道具依据新大纲重新提取。
-  assert.deepEqual(prompts.map(([kind, user]) => [kind, user.includes('修正因果')]), [['outline', true], ['characters', false], ['scenes', false], ['props', false]])
+  // 意见只进入大纲修订；人物、场景依据新大纲重新提取，道具按空集合处理。
+  assert.deepEqual(prompts.map(([kind, user]) => [kind, user.includes('修正因果')]), [['outline', true], ['characters', false], ['scenes', false]])
   const saved = await e.read()
-  assert.equal(calls, 8)
-  for (const kind of ['outline', 'characters', 'scenes', 'props']) assert.equal(saved.plot[kind].check.passed, true)
+  assert.equal(calls, 6)
+  for (const kind of ['outline', 'characters', 'scenes']) assert.equal(saved.plot[kind].check.passed, true)
   const { contentTargets } = await import('../server/data/content-records.js')
   const root = await e.store.read(e.id)
   assert.equal(contentTargets(root).find(item => item.key === 'scenes').check.passed, true)

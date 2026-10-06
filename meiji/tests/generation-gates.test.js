@@ -6,15 +6,15 @@ import { clearShotDownstream, sourcePatch } from '../shared/project-rules.js'
 import { setContent } from '../shared/drama-model.js'
 import { stepRunLabel } from '../client/flow-view.js'
 test('AI self-check alone unlocks downstream without manual approval',()=>{const p=episodeFixture();assert.equal(canGenerate(p,'shots'),true);assert.equal(shotsReady(p),true);assert.equal(p.shots.review.text,'');p.shots.check.passed=false;assert.equal(canGenerate(p,'storyboard'),false)})
-test('镜头表门禁指出道具缺失或未通过，空集合通过后可继续', () => {
+test('镜头表门禁不再要求道具，缺失或未通过也可继续', () => {
   const project = episodeFixture(), props = project.plot.props
   delete project.plot.props
-  assert.equal(canGenerate(project, 'shots'), false)
-  assert.match(gateMessage(project, 'shots'), /道具尚未提取.*剧情页提取道具/)
+  assert.equal(canGenerate(project, 'shots'), true)
+  assert.doesNotMatch(gateMessage(project, 'shots'), /道具尚未提取/)
   project.plot.props = props
   props.check.passed = false
-  assert.equal(canGenerate(project, 'shots'), false)
-  assert.match(gateMessage(project, 'shots'), /道具自审未通过/)
+  assert.equal(canGenerate(project, 'shots'), true)
+  assert.doesNotMatch(gateMessage(project, 'shots'), /道具自审未通过/)
   props.check.passed = true
   assert.equal(props.items.length, 0)
   assert.equal(canGenerate(project, 'shots'), true)

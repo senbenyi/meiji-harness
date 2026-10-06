@@ -113,7 +113,7 @@ test('regenerate clears old story before requests and extracts same-name cards w
   const e = await withOldStory(t), before = await e.read()
   const generated = storyPackageFixture()
   generated.props = { items: [{ name: '旧道具', category: 'prop', description: '本轮新道具', evidence: '新大纲提到', ownerId: 'C01' }] }
-  const replies = [outlineResponse(), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
+  const replies = [outlineResponse(), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass]
   let calls = 0
   await runOperation(e.op('story', { generationMode: 'regenerate' }), { home: e.home,
     request: async () => {
@@ -124,14 +124,14 @@ test('regenerate clears old story before requests and extracts same-name cards w
     },
   })
   const after = await e.read()
-  assert.equal(calls, 8)
-  for (const key of ['characters', 'scenes', 'props']) {
+  assert.equal(calls, 6)
+  for (const key of ['characters', 'scenes']) {
     assert.equal(after.plot[key].items.length, 1)
     assert.ok(!after.plot[key].items[0].image.content?.assetId)
     assert.ok(!after.plot[key].items[0].image.content?.localPath)
     assert.ok(Object.values(after.plot[key].items[0].parts).every(part => part.content === null))
   }
-  assert.equal(after.plot.props.items[0].description, '本轮新道具')
+  assert.deepEqual(after.plot.props.items, [])
   assert.deepEqual(after.summary, before.summary)
   assert.deepEqual(after.supplementalSkills, before.supplementalSkills)
 })

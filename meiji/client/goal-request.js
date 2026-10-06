@@ -1,7 +1,7 @@
 // 页面按钮的语义动作先归一成统一参数（actionRequest），制作类再转换成目标（goalRequest）；即时编辑的 goalRequest 返回 null。
 export function actionRequest(action, fields = {}) {
   if (action === 'episode-generate' || action === 'episode-summary-draft') return { action: 'summary', ...fields, ...(action === 'episode-summary-draft' ? { draft: true } : {}) }
-  if (action === 'outline' || ['characters', 'scenes', 'props'].includes(action)) return { action: 'story', ...fields, ...(action !== 'outline' ? { only: action } : {}) }
+  if (action === 'outline' || ['characters', 'scenes'].includes(action)) return { action: 'story', ...fields, ...(action !== 'outline' ? { only: action } : {}) }
   if (action === 'shots' || action === 'revise-shot') return { action: 'shot-table', ...fields }
   if (action === 'shot-seconds') return { action: 'seconds', ...fields }
   if (['produce', 'produce-all', 'storyboard', 'shot-storyboard', 'storyboard-bind', 'films', 'tail-frame'].includes(action)) return { action: 'film', ...fields,

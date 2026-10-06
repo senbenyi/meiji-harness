@@ -8,7 +8,7 @@ const recordIdentity = context => ({ runId: context.runId, stepId: context.stepI
 const now = () => new Date().toISOString()
 export async function addBaselines(store, project, operation, stage, baselines) {
   for (const target of contentTargets(project)) {
-    if (!target.exists || (operation.episodeId && target.episodeId !== operation.episodeId) || !(stage === 'story' ? ['outline', 'characters', 'scenes', 'props'].includes(target.key) : target.key.split(':')[0] === stage) || (operation.track && target.key.includes(':') && target.key.split(':')[1] !== operation.track)) continue
+    if (!target.exists || (operation.episodeId && target.episodeId !== operation.episodeId) || !(stage === 'story' ? ['outline', 'characters', 'scenes'].includes(target.key) : target.key.split(':')[0] === stage) || (operation.track && target.key.includes(':') && target.key.split(':')[1] !== operation.track)) continue
     let source = target.node.source
     if (!source) {
       source = { artifactId: randomUUID(), version: 1, baseline: true }
