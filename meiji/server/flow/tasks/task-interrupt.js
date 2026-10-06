@@ -11,25 +11,27 @@ const running = node => node.operation ? node.operation.phase !== 'awaiting-conf
 
 export async function interruptRunning(store) {
   for (const project of await store.list()) {
-    await store.interruptRecords?.(project.id)
+    const records = await store.interruptRecords?.(project.id)
+    const interruptedMessage = target => records?.runStepIds?.has(target.operation?.id) ? '服务重启，步骤执行中断，任务已暂停，请重试' : RESTART_CANCELLED
     if (!running(project.summary) && !libraryNodes(project).some(running) && !project.episodes.some(e => allNodes(e).some(n => n.operation || n.status === GenerationStatus.GENERATING))) continue
     const remote = new Map()
     for (const episode of project.episodes) for (const target of allNodes(episode)) {
       const promptId = target.content?.promptId
-      if (running(target) && promptId && target.content.status === 'running' && !target.content.terminal) remote.set(promptId, `${RESTART_CANCELLED}；网关不提供取消接口，远端任务（${promptId}）可能仍在运行`)
+      if (running(target) && promptId && target.content.status === 'running' && !target.content.terminal) remote.set(promptId, `${interruptedMessage(target)}；网关不提供取消接口，远端任务（${promptId}）可能仍在运行`)
     }
     await store.save(project.id, current => {
       const summary = structuredClone(current.summary)
-      if (running(summary)) markFailed(summary, RESTART_CANCELLED)
+      if (running(summary)) markFailed(summary, interruptedMessage(summary))
       const library = structuredClone(current.library)
-      for (const target of libraryNodes({ library })) if (running(target)) markFailed(target, RESTART_CANCELLED)
+      for (const target of libraryNodes({ library })) if (running(target)) markFailed(target, interruptedMessage(target))
       return { summary, library, episodes: current.episodes.map(episode => {
         const next = structuredClone(episode)
         for (const target of allNodes(next)) {
           if (!running(target)) continue
-          markFailed(target, RESTART_CANCELLED)
+          const message = interruptedMessage(target)
+          markFailed(target, message)
           if (target.content?.status === 'running') {
-            target.content = { ...target.content, status: 'error', terminal: true, error: remote.get(target.content.promptId) || RESTART_CANCELLED }
+            target.content = { ...target.content, status: 'error', terminal: true, error: remote.get(target.content.promptId) || message }
           }
         }
         return modelPatch(episode, next)

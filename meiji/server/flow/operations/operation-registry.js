@@ -1,11 +1,6 @@
-import { textStepTarget, requireStepContent } from '../../../shared/text-step-target.js'
 import { operation as images } from './generate/operation-generate-images.js'
 import { operations as projectLibrary } from './direct/operation-project-library.js'
 import { operations as propText } from './direct/operation-prop-edit.js'
-import { linkStore } from '../../data/workspace-links.js'
-import { projectStore } from '../../data/project-store.js'
-import { materialize } from '../../../shared/episode-rules.js'
-import { describeTask } from '../tasks/task-registry.js'
 import { operations as actionsEpisodeEpisodeDelete } from './direct/operation-episode-delete.js'
 import { operations as actionsEpisodeEpisodeSave } from './direct/operation-episode-save.js'
 import { operations as actionsEpisodeSource } from './direct/operation-source-edit.js'
@@ -34,7 +29,6 @@ import { operation as summary } from './generate/operation-generate-summary.js'
 import { operation as sync } from './generate/operation-sync-script.js'
 import { operation as revise } from './generate/operation-revise-script.js'
 import { operations as scriptDirect } from './direct/operation-script.js'
-import { scriptBlockers, scriptFreshness, isAiCreation } from '../../../shared/script-assembly.js'
 import { operation as projectSummary } from './generate/operation-update-project-summary.js'
 import { operation as story } from './generate/operation-generate-story.js'
 import { operation as character_image } from './generate/operation-character-image.js'
@@ -43,6 +37,12 @@ import { operation as prop_image } from './generate/operation-prop-image.js'
 import { operation as shot_table } from './generate/operation-generate-shot-table.js'
 import { operation as seconds } from './generate/operation-generate-seconds.js'
 import { operation as film } from './generate/operation-generate-film.js'
+import { textStepTarget, requireStepContent } from '../../../shared/text-step-target.js'
+import { linkStore } from '../../data/workspace-links.js'
+import { projectStore } from '../../data/project-store.js'
+import { materialize } from '../../../shared/episode-rules.js'
+import { describeTask } from '../tasks/task-registry.js'
+import { scriptBlockers, scriptFreshness, isAiCreation } from '../../../shared/script-assembly.js'
 const direct = { ...libraryDelete, ...projectLibrary, ...propText, ...actionsEpisodeEpisodeDelete, ...actionsEpisodeEpisodeSave, ...actionsEpisodeSource, ...actionsImageClearImage, ...actionsImageImageCandidate, ...actionsImageImportImage, ...actionsImagePartImport, ...actionsImagePartText, ...actionsImageReference, ...actionsImageUseAsset, ...actionsProjectCreate, ...actionsProjectLibraryImport, ...actionsProjectOpen, ...actionsProjectOverview, ...actionsProjectProjectDelete, ...actionsReviewOverride, ...actionsShotAssemble, ...actionsShotShotAssets, ...actionsShotStoryboardText, ...actionsStoryCharacterText, ...actionsStoryOutlineText, ...actionsStoryPropDelete, ...actionsStorySceneText }
 export const operations = { images, 'library-image': { label: '生成库图片', scope: 'project', lock: 'project', kind: 'generate', agent: false, tasks: () => [{ type: 'library-image' }] }, ...Object.fromEntries(Object.entries({ ...direct, ...scriptDirect }).map(([id, value]) => [id, { ...value, kind: 'direct', actor: 'human' }])), summary, 'project-summary': projectSummary, story, 'script-sync': sync, 'script-revise': revise, 'character-image': character_image, 'scene-image': scene_image, 'prop-image': prop_image, 'shot-table': shot_table, seconds, film }
 export const labels = Object.fromEntries(Object.entries(operations).map(([id, value]) => [id, value.label]))
@@ -60,12 +60,15 @@ export function validateOperation(op) {
   if (op.parts && op.action !== 'film') throw new Error('parts 仅用于成片')
   return definition
 }
+
+// 保留旧测试与历史插件的规划入口；生产入口已统一走 Run planner。
 export async function planningProject(home, op) {
   if (!op.projectId) return null
   const root = await projectStore(home).read(op.projectId)
   const episodeId = op.episodeId || (root.episodes.length === 1 ? root.episodes[0].id : null)
   return episodeId && operations[op.action]?.scope !== 'project' ? materialize(root, episodeId) : root
 }
+
 export async function planTasks(home, op) {
   if (op.sessionId && op.projectId && !(op.origin === 'panel' && op.action === 'project-delete')) await linkStore(home).requireProject(op.sessionId, op.projectId)
   const definition = validateOperation(op)

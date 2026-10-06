@@ -70,7 +70,7 @@ test('shared rules have no server or Node dependencies', () => {
   for (const file of sources('shared')) {
     for (const target of imports(file)) assert.ok(target.startsWith('shared/'), `${file} → ${target}`)
     const source = readFileSync(join(root, file), 'utf8')
-    const external = [...source.matchAll(/(?:from|import\()\s*['"]([^.'"][^'"]*)['"]/g)]
+    const external = [...source.matchAll(/(?:\bfrom\s+|\bimport\(\s*)['"]([^.'"][^'"]*)['"]/g)]
     assert.deepEqual(external.map(match => match[1]), [], file)
   }
 })

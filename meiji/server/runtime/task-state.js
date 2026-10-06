@@ -48,3 +48,4 @@ export function finalizeNodes(nodes, error, signal) {
 }
 
 export const taskIdOfNode = context => context.taskId
+export const recordIdentity = context => context.runId ? { runId: context.runId, stepId: context.stepId } : { taskId: taskIdOfNode(context), nodeId: context.nodeId || null }

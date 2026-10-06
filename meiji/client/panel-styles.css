@@ -403,3 +403,16 @@ button.character-portrait-open:hover,button.scene-card-preview:hover{background:
 button.scene-card-preview{border-radius:0}
 button.character-portrait-open:focus-visible,button.scene-card-preview:focus-visible{outline:2px solid #dfc196;outline-offset:-2px}
 @media(max-width:600px){.character-card-media{width:72px}}
+/* Run 列表和步骤详情复用面板基础布局。 */
+.run-filters,.run-controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.run-list-row{display:grid;gap:8px;padding:12px}
+.run-list-row>button{text-align:left}
+.run-target-group{margin:16px 0;padding:12px;border:1px solid #8884;border-radius:8px}
+.run-target-group.is-highlighted{border-color:var(--accent,#568ef2);background:#568ef20d}
+.run-step{padding:10px;border-top:1px solid #8883}
+.run-step>summary{cursor:pointer}
+.run-step.is-superseded{opacity:.55}
+.run-step.is-running{border-left:3px solid var(--accent,#568ef2)}
+.run-step.is-paused,.run-reason{border-left:3px solid #d99430;padding-left:10px}
+.run-step pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+.run-event{margin:8px 12px;font-size:12px}

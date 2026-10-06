@@ -44,6 +44,7 @@ export function taskDefinition(type) {
   if (!value) throw new Error(`不支持的任务类型：${type}`)
   return value
 }
+
 export function describeTask(item, op, direct, project) {
   const definition = taskDefinition(item.type), operation = { ...op, ...item.params }
   const target = direct ? direct.step?.(op, project)?.target ?? direct.plan?.(project, op)?.[0]?.target ?? null : typeof definition.target === 'function' ? definition.target(operation) : definition.target

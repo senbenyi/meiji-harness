@@ -2,7 +2,7 @@ import { editLinkedCard } from '../../../../shared/library-rules.js'
 // 操作：编辑人物文字
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { runNode } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/step-execution.js'
 import { reviewContent } from '../../steps/step-review-edited-content.js'
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { characterFieldValues, characterLookText } from '../../../../shared/character-facts.js'
@@ -38,6 +38,7 @@ export async function opCharacterText(c) {
     }
     return patch
   }), { target: 'characters' })
+  if (deps.deferReview) { note('人物文字已保存，等待复审或人工通过'); return trace }
   const result = await (deps.reviewContent || reviewContent)({ project, stage: '人物文字编辑，仅审人物与大纲一致性，不要求重写大纲或场景卡', text: JSON.stringify(project.plot.characters.items), route: (modelRoutes(await models.read())).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, {}, { final: true })

@@ -1,8 +1,5 @@
 import { syncChatModel } from '../host/harness-chat-model.js'
-import { startPanelOperation } from './panel-operation-start.js'
-import { recordStore, readNodePrompts, readNodeResponses } from '../data/task-store.js'
-import { scriptStore } from '../data/script-store.js'
-import { readOperation, listHistory, withStatus } from '../data/operation-history.js'
+import { scriptStore, readScriptProposalArtifact } from '../data/script-store.js'
 import { validateOperation } from '../flow/operations/operation-registry.js'
 import { subscribeProject } from '../data/project-events.js'
 import { targetNode } from '../../shared/drama-model.js'
@@ -21,7 +18,6 @@ import { catalog, compactModels, normalizeModels, purposes } from '../../models/
 import { modelStore } from '../data/model-settings.js'
 import { projectStore } from '../data/project-store.js'
 import { readStill } from '../media/image-files.js'
-import { cancelOperation } from '../flow/operations/operation-cancel.js'
 import { saveIncoming } from '../flow/steps/shared/incoming.js'
 import { insertSessionLog, runWithSessionLog } from '../host/session-log.js'
 import { linkStore } from '../data/workspace-links.js'
@@ -29,6 +25,8 @@ import { materialize } from '../../shared/episode-rules.js'
 import { readEpisodeCover } from '../data/episode-data.js'
 import { assetRoutes } from './asset-library-routes.js'
 import { skillRoutes } from './skill-routes.js'
+import { runRoutes } from './run-routes.js'
+import { runStore } from '../data/run-store.js'
 
 // 浏览器可加载的两个平铺目录：client/ 为面板界面，shared/ 为前后端共用的领域模块。
 const staticRoots = {
@@ -100,7 +98,7 @@ function sendVideo(req, res, filePath, size) {
   createReadStream(filePath, { start, end }).pipe(res)
 }
 
-export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panelGoals) {
+export function registerPanel(ctx, ready = Promise.resolve(), edits, runs, runJobs) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh')
   const store = modelStore(home)
   const projects = projectStore(home)
@@ -119,6 +117,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panel
   }
   const handleAssets = assetRoutes(home, json)
   const handleSkills = skillRoutes({ home, projects, links, json, readJson })
+  const handleRuns = runRoutes({ service: runs, jobs: runJobs, json, readJson, base })
   const serveClient = async (res, file, dir = 'client') => {
     const resolved = resolveClientFile(file, dir)
     if (!resolved) {
@@ -140,9 +139,9 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panel
     return { status: error.status || 400, error: message }
   }
   const handler = async (req, res) => {
-    await ready
     const url = new URL(req.url, 'http://localhost'), path = url.pathname
     try {
+      try { await ready } catch { throw Object.assign(new Error('制作任务服务恢复失败，请检查服务日志'), { status: 503 }) }
       if (path === base + '/panel.js' || path.startsWith(base + '/client/') || path.startsWith(base + '/shared/')) {
         if (req.method !== 'GET') {
           res.writeHead(405, { 'Content-Type': 'text/javascript; charset=utf-8' })
@@ -154,11 +153,12 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panel
       }
       const rejection = ctx.connection.requestRejection(req)
       if (rejection) return json(res, rejection, { error: '请刷新并登录 Harness' })
+      if (await handleRuns(req, res, url)) return
       if (path === base + '/script' && req.method === 'GET') {
         const projectId = url.searchParams.get('projectId')
         await links.requireProject(url.searchParams.get('sessionId'), projectId)
-        const project = await projects.read(projectId), history = recordStore(home, projectId)
-        const proposals = await Promise.all((project.scriptProposals || []).map(async entry => ({ ...(await history.read('artifacts', entry.id)).content, status: entry.status })))
+        const project = await projects.read(projectId)
+        const proposals = await Promise.all((project.scriptProposals || []).map(async entry => ({ ...(await readScriptProposalArtifact(home, projectId, entry.id)).content, ...(entry.runId ? { runId: entry.runId, stepId: entry.stepId } : {}), status: entry.status })))
         return json(res, 200, { project, versions: await scriptStore(home, projects).versions(projectId), proposals })
       }
       if (path === base + '/assets' || path === base + '/asset-file') return handleAssets(req, res, url)
@@ -221,7 +221,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panel
         const body = await readJson(req, 8192)
         if (!['confirm-image', 'discard-image'].includes(body.action)) return json(res, 400, { error: '图片操作无效' })
         await links.requireProject(String(body.sessionId || ''), body.projectId)
-        const started = tasks.start({ action: body.action, projectId: body.projectId, episodeId: body.episodeId, draftId: body.draftId, sessionId: body.sessionId }, null, { imageReviewAllowed: true })
+        const started = edits.start({ action: body.action, projectId: body.projectId, episodeId: body.episodeId, draftId: body.draftId, sessionId: body.sessionId }, null, { imageReviewAllowed: true })
         const trace = await started.done
         if (started.failure) throw started.failure
         insertSessionLog(ctx.sessions.get(body.sessionId), trace.trace.join('\n'))
@@ -260,41 +260,11 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panel
         res.on('close', () => { clearInterval(heartbeat); unsubscribe() })
         return
       }
-      if (path === base + '/operations/current' && req.method === 'GET') {
+      const artifactRoute = path.match(new RegExp('^' + base + '/artifacts/([A-Za-z0-9_-]+)$'))
+      if (artifactRoute && req.method === 'GET') {
         const projectId = url.searchParams.get('projectId')
         await links.requireProject(url.searchParams.get('sessionId'), projectId)
-        return json(res, 200, { operations: tasks.current(projectId, url.searchParams.get('episodeId') || null).map(({ trace, result, ...operation }) => operation) })
-      }
-      if (path === base + '/operations/cancel') {
-        if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
-        if (req.headers['x-meiji-request'] !== '1') return json(res, 403, { error: '需要同源请求' })
-        const body = await readJson(req, 8192)
-        if (body.projectId) {
-          await links.requireProject(body.sessionId, body.projectId)
-          cancelOperation(tasks, { id: body.operationId, projectId: body.projectId, initiator: 'panel' })
-        } else {
-          throw Object.assign(new Error('必须指定项目'), { status: 400 })
-        }
-        return json(res, 200, { accepted: true })
-      }
-      const detailRoute = path.match(new RegExp('^' + base + '/(operations|tasks|artifacts)/([A-Za-z0-9_-]+)(?:/nodes/([A-Za-z0-9_-]+)/(prompts|responses))?$'))
-      if ((path === base + '/operations' || path === base + '/tasks' || detailRoute) && req.method === 'GET') {
-        const projectId = url.searchParams.get('projectId')
-        await links.requireProject(url.searchParams.get('sessionId'), projectId)
-        const history = recordStore(home, projectId)
-        if (detailRoute) {
-          const [, kind, id, nodeId, detailKind] = detailRoute
-          if (nodeId) {
-            if (kind !== 'tasks') return json(res, 404, { error: '记录不存在' })
-            return json(res, 200, { [detailKind]: await (detailKind === 'responses' ? readNodeResponses : readNodePrompts)(home, projectId, id, nodeId) })
-          }
-          if (kind === 'operations') return json(res, 200, { operation: await readOperation(home, projectId, id) })
-          return json(res, 200, { [kind === 'tasks' ? 'task' : 'artifact']: kind === 'tasks' ? withStatus(await history.read(kind, id)) : await history.read(kind, id) })
-        }
-        const tasksOnly = path === base + '/tasks'
-        const targets = (url.searchParams.get(tasksOnly ? 'target' : 'targets') || '').split(',').filter(Boolean)
-        const records = await listHistory(home, projectId, { episodeId: url.searchParams.get('episodeId'), status: url.searchParams.get('status'), targets, tasksOnly })
-        return json(res, 200, { [tasksOnly ? 'tasks' : 'operations']: records })
+        return json(res, 200, { artifact: await runStore(home, projectId).readRecord('artifacts', artifactRoute[1]) })
       }
       if (path === base + '/turn') {
         if (req.method !== 'POST') return json(res, 405, { error: '不支持的请求' })
@@ -302,7 +272,7 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panel
         try {
           const body = await readJson(req, 2000000)
           if (body.action === 'create') {
-            const place = await createProject({ home, tasks, fields: body.fields, enter: project => enterProject(project.id) })
+            const place = await createProject({ home, edits, fields: body.fields, enter: project => enterProject(project.id) })
             insertSessionLog(ctx.sessions.get(place.sessionId), '已创建短剧')
             return json(res, 201, { ...place, accepted: true })
           }
@@ -313,19 +283,18 @@ export function registerPanel(ctx, ready = Promise.resolve(), tasks, jobs, panel
           if (body.projectId && !deleting) await links.requireProject(sessionId, body.projectId)
           const project = body.projectId ? await projects.read(body.projectId) : null
           const staged = { ...body, projectId: project?.id, origin: 'panel' }
-          if (['project-delete', 'episode-delete'].includes(staged.action) && tasks.list(project.id).length) {
+          if (['project-delete', 'episode-delete'].includes(staged.action) && (edits.list(project.id).length || (await runs.list(project.id, sessionId)).some(run => ['draft', 'running', 'paused'].includes(run.status) && (staged.action === 'project-delete' || !run.episodeId || run.episodeId === staged.episodeId)))) {
             throw Object.assign(new Error('请先停止生成任务，再删除项目或剧集'), { status: 409 })
           }
           const definition = validateOperation(staged)
           if (definition.kind === 'direct') {
-            const started = tasks.start(staged, ctx.sessions.get(sessionId))
+            const started = edits.start(staged, ctx.sessions.get(sessionId))
             const outcome = await started.done
             if (started.failure) throw started.failure
             const next = deleting ? { deleted: true, ...(selected.projectId === project.id ? { workspace: null, sessionId: (await ctx.sessionController.create({})).sessionId } : {}) } : project ? { project: await projects.read(project.id) } : {}
-            return json(res, 200, { accepted: true, completed: true, operationId: started.id, result: outcome.result, ...next })
+            return json(res, 200, { accepted: true, completed: true, editId: started.id, result: outcome.result, ...(outcome.continueRun ? { continueRun: outcome.continueRun } : {}), ...next })
           }
-          const started = await startPanelOperation({ ctx, manager: tasks, jobs, panelGoals, operation: staged })
-          return json(res, 202, { accepted: true, ...started })
+          throw Object.assign(new Error('制作请通过任务目标预览发起'), { status: 400, code: 'RUN_GOAL_REQUIRED' })
         } catch (error) {
           const result = fail(error, '启动任务失败')
           // 本集被占用（面板或会话的操作排队中或执行中）：附带占用者，面板据此提示。

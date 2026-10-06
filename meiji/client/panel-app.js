@@ -1,13 +1,8 @@
 import { renderProjectLibrary } from './project-library-view.js'
-import { renderExecutionDetail } from './task-detail.js'
-import { historyTargets } from './execution-history.js'
-import { taskStatusLabels } from './task-nodes.js'
-import { decorateTaskGroups } from './task-group.js'
+import { historyTargets } from '../shared/run-view.js'
 import { createPanelEvents } from './panel-events.js'
 import { renderNodeSkill } from './node-skill.js'
 import { generateEpisodeDraft } from './episode-draft.js'
-import { renderTaskHistory } from './execution-history.js'
-import { renderCurrentTasks } from './current-task.js'
 import { appendLogCopy } from './panel-dom.js'
 import { tabs } from './flow-view.js'
 import { createModelStore, renderModelView, rootProject } from './drama-store.js'
@@ -22,9 +17,12 @@ import { episodeDialog, overviewDialog, premiseDialog } from './project-overview
 import { renderLibrary } from './asset-library-view.js'
 import { createBridge, currentSessionId, projectRefreshMark } from './chat-bridge.js'
 import { gateFromAction, regenerateFields, syncImageGate } from './image-review.js'
-import { liveActivityMark, withLiveActivity } from './live-activity.js'
+import { withRunActivity, runActivityMark } from './run-activity.js'
 import { confirmOperationDelete } from './cascade-confirm.js'
 import { renderScriptView } from './script-view.js'
+import { renderRunList } from './run-list.js'
+import { renderRunDetail } from './run-detail.js'
+import { runStatusLabels, runGoalLabel } from '../shared/run-view.js'
 
 function installLogCards() {
   if (installLogCards.started) return
@@ -77,39 +75,43 @@ export function mount() {
     Promise.all([follow(), refreshTasks(projectId, sessionId), currentPage?.isConnected ? currentPage.refresh() : null]).catch(error => shell.status(error.message))
   } })
   // 运行中的任务优先挂到对应生成按钮旁（task-group.js）；找不到按钮的任务（其他页面发起）才放到底部任务栏。
-  let liveTasks = [], liveTaskKey = ''
-  function stopTask(task) {
-    const [sessionId, projectId] = liveTaskKey.split(':')
-    return request('operations/cancel', { method: 'POST', ...jsonBody({ projectId, sessionId, operationId: task.id }) }).catch(error => { shell.status(error.message); throw error })
-  }
+  let liveRuns = [], liveTaskKey = ''
   function paintTasks() {
     const projectId = liveTaskKey.split(':')[1]
-    decorateTaskGroups(shell.content, liveTasks, { open: task => actions.openOperation({ id: projectId }, task.id), stop: stopTask })
     taskBar.replaceChildren()
-    for (const operation of liveTasks) {
+    for (const run of liveRuns) {
       const row = document.createElement('div'); row.className = 'task-status-row'
-      const label = document.createElement('span'); label.textContent = `${operation.label} · ${taskStatusLabels[operation.status]} · ${operation.initiator === 'session' ? '会话' : '面板'}`
-      const view = document.createElement('button'); view.textContent = '查看'; view.onclick = () => actions.openOperation({ id: projectId }, operation.id)
-      const stop = document.createElement('button'); stop.textContent = '停止'; stop.onclick = async () => { stop.disabled = true; try { await stopTask(operation) } catch { stop.disabled = false } }
-      row.append(label, view, stop); taskBar.append(row)
+      const label = document.createElement('span'); label.textContent = `${runGoalLabel(run, modelStore.get(projectId))} · ${runStatusLabels[run.status]} · ${run.done}/${run.total}`
+      const view = document.createElement('button'); view.textContent = '查看'; view.onclick = () => actions.openRun({ id: projectId }, run.id)
+      const pause = document.createElement('button'); pause.textContent = run.status === 'paused' ? '处理暂停' : '暂停'
+      pause.onclick = async () => {
+        if (run.status === 'paused') return actions.openRun({ id: projectId }, run.id)
+        pause.disabled = true
+        try { await request(`runs/${run.id}/pause`, { method: 'POST', ...jsonBody({ projectId, sessionId: currentSessionId() }) }) } catch (error) { pause.disabled = false; shell.status(error.message) }
+      }
+      const cancel = document.createElement('button'); cancel.textContent = '取消'
+      cancel.onclick = async () => { cancel.disabled = true; try { await request(`runs/${run.id}/cancel`, { method: 'POST', ...jsonBody({ projectId, sessionId: currentSessionId() }) }) } catch (error) { cancel.disabled = false; shell.status(error.message) } }
+      row.append(label, view, pause, cancel); taskBar.append(row)
     }
   }
 
   async function refreshTasks(projectId, sessionId) {
-    const result = await request('operations/current?' + new URLSearchParams({ projectId, sessionId }))
+    const query = new URLSearchParams({ projectId, sessionId })
+    const runResult = await request(`runs?${query}`)
     if (eventKey !== `${sessionId}:${projectId}`) return
-    liveTasks = result.operations
+
+    liveRuns = runResult.runs.filter(run => ['running', 'paused'].includes(run.status))
     liveTaskKey = eventKey
     paintTasks()
     // 进行中的操作变化（开始、排队、结束）时重绘，使按钮禁用状态与剧集占用一致。
     const root = shownProject && modelStore.get(shownProject)
-    if (root && !hold && liveActivityMark(root, liveTasks) !== shownLiveMark) paintProject(root)
+    if (root && !hold && runActivityMark(liveRuns) !== shownLiveMark) paintProject(root)
   }
   function watchProject(projectId, sessionId) {
     const key = projectId ? `${sessionId}:${projectId}` : ''
     if (key === eventKey) return
     eventKey = key
-    liveTasks = []
+    liveRuns = []
     liveTaskKey = key
     taskBar.replaceChildren()
     events.watch(key ? '/plugins/meiji/events?' + new URLSearchParams({ projectId, sessionId }) : '', async () => {
@@ -162,8 +164,10 @@ export function mount() {
     shown = signature(project)
     shownMark = projectRefreshMark(project)
     // 「执行中」由进行中的操作（含排队中）推导，不读服务端字段。
-    shownLiveMark = liveActivityMark(project, liveTasks)
-    const view = withLiveActivity(project, liveTasks)
+    shownLiveMark = runActivityMark(liveRuns)
+    const active = liveRuns.filter(run => run.projectId === project.id)
+    const view = { ...withRunActivity(project, active), activeRuns: active, runPauseCount: active.filter(run => run.status === 'paused').length }
+    view.episodes = view.episodes.map(episode => ({ ...episode, activeRuns: active.filter(run => run.episodeId === episode.id || run.affectedEpisodes?.includes(episode.id)), runPauseCount: active.filter(run => run.status === 'paused' && (run.episodeId === episode.id || run.affectedEpisodes?.includes(episode.id))).length }))
     hold = false
     navigation++
     imageGate = syncImageGate(view, imageGate)
@@ -211,7 +215,15 @@ export function mount() {
     const { key, onError } = event.detail
     const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId || openScene?.episodeId
     if (!projectId || !episodeId) return
-    try { await bridge.perform({ id: projectId }, 'review-override', { key, episodeId }) }
+    try {
+      const scope = { projectId, sessionId: currentSessionId() }, { runs } = await request('runs?' + new URLSearchParams({ ...scope, episodeId, target: key }))
+      const active = runs.find(run => ['running', 'paused'].includes(run.status))
+      if (active) {
+        const { run } = await request(`runs/${active.id}?` + new URLSearchParams(scope)), reason = run.pause?.reasons.find(reason => reason.target === key && reason.actions.includes('override'))
+        if (!reason) throw new Error('当前步骤尚不能人工放行，请查看任务详情')
+        await request(`runs/${active.id}/resume`, { method: 'POST', ...jsonBody({ ...scope, action: 'override', stepId: reason.stepId }) })
+      } else await bridge.perform({ id: projectId }, 'review-override', { key, episodeId })
+    }
     catch (error) { onError?.(); shell.status(error.message) }
   })
   shell.root.addEventListener('meiji-view-failure', event => {
@@ -224,70 +236,58 @@ export function mount() {
     openLibraryCard: (episodeId, itemId, kind) => { currentPage = null; hold = false; if (kind === 'characters') { openCharacter = { episodeId, itemId }; openScene = null } else if (kind === 'scenes') { openScene = { episodeId, itemId }; openCharacter = null } else { openEpisode = episodeId; openTab = tabs[0].id }; follow(true).catch(error => shell.status(error.message)) },
     openLibrary: (project, kind) => {
       hold = true; navigation++
-      currentPage = renderProjectLibrary(rootProject(modelStore, project) || project, kind, { ...actions, load: async () => { const result = await request('projects/' + project.id); result.project = withLiveActivity(result.project, liveTasks); return result }, back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) } })
+      currentPage = renderProjectLibrary(rootProject(modelStore, project) || project, kind, { ...actions, load: async () => { const result = await request('projects/' + project.id); result.project = withRunActivity(result.project, liveRuns); return result }, back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) } })
       display(currentPage)
     },
     openScript: project => {
       hold = true; navigation++
       const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
       currentPage = renderScriptView(rootProject(modelStore, project) || project, {
-        perform: actions.perform, load: async () => { const result = await request(`script?${query}`); result.project = withLiveActivity(result.project, liveTasks); return result },
+        perform: actions.perform, openRun: id => actions.openRun(project, id), load: async () => { const result = await request(`script?${query}`); result.project = withRunActivity(result.project, liveRuns); return result },
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
       })
       display(currentPage)
     },
-    stopOperation: stopTask,
-    openOperation: (project, id) => actions.openExecution(project, 'operations', id),
-    openExecution: (project, kind, id, focusFailure = false) => {
-      hold = true; navigation++
-      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
-      currentPage = renderExecutionDetail({ title: kind === 'operations' ? '操作详情' : '任务详情',
-        load: () => request(`${kind}/${id}?${query}`),
-        back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
-        loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
-        loadResponses: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?${query}`),
-        loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
-        retry: operation => actions.perform(project, operation.action, operation.parameters || {}),
-        openOperation: operationId => actions.openOperation(project, operationId), stop: stopTask, focusFailure,
-      })
-      display(currentPage); shell.content.parentElement.scrollTop = 0
-    },
     openLatestTask: async (project, target) => {
       const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), ...(project.episodeId ? { episodeId: project.episodeId } : {}), target })
-      const result = await request(`tasks?${query}`)
-      if (result.tasks[0]) actions.openExecution(project, 'tasks', result.tasks[0].id, true)
-      else actions.openHistory(project, target)
+      const runs = await request(`runs?${query}`)
+      if (runs.runs[0]) return actions.openRun(project, runs.runs[0].id, target)
+      actions.openHistory(project, target)
     },
     openHistory: (project, historyScope = '') => {
       hold = true; navigation++
-      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId(), ...(project.episodeId ? { episodeId: project.episodeId } : {}) })
-      const contentOnly = ['outline', 'characters', 'scenes', 'props'].includes(historyScope) || historyScope.includes(':') && !historyScope.startsWith('film:')
-      const targets = historyTargets(historyScope).join(',')
-      currentPage = renderTaskHistory(project, { historyScope,
-        load: () => request(`${contentOnly ? 'tasks' : 'operations'}?${query}&${contentOnly ? 'target' : 'targets'}=${encodeURIComponent(targets)}`),
-        loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
-        loadResponses: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?${query}`),
-        loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
-        openOperation: id => actions.openOperation(project, id), stop: stopTask,
+      const root = rootProject(modelStore, project) || project
+      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
+      const target = historyTargets(historyScope).join(',')
+      currentPage = renderRunList(root, { episodeId: project.episodeId || '', target,
+        load: () => request(`runs?${query}`),
+        open: (run, selectedTarget) => actions.openRun(project, run.id, selectedTarget, () => actions.openHistory(project, historyScope)),
         back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
+      })
+      display(currentPage); shell.content.parentElement.scrollTop = 0
+    },
+    openRun: (project, id, target = '', back = () => actions.openHistory(project)) => {
+      hold = true; navigation++
+      const sessionId = currentSessionId(), projectId = project.id
+      const query = new URLSearchParams({ projectId, sessionId })
+      currentPage = renderRunDetail(rootProject(modelStore, project) || project, { target, back,
+        followup: choice => actions.perform({ ...project, episodeId: choice.episodeId }, 'run-goal', { goal: choice.goal }),
+        load: () => request(`runs/${id}?${query}`),
+        loadRecords: (run, step, kind) => request(`runs/${run.id}/steps/${step.id}/${kind}?${query}`),
+        control: (run, endpoint, fields = {}) => request(`runs/${run.id}/${endpoint}`, { method: 'POST', ...jsonBody({ projectId, sessionId, ...fields }) }),
+        preview: (run, fields) => request(`runs/${run.id}/preview`, { method: 'POST', ...jsonBody({ projectId, sessionId, ...fields }) }),
+        edit: (run, target) => {
+          const [kind, track] = target.split(':')
+          openEpisode = run.episodeId || ''; openShot = track && ['shots', 'seconds', 'storyboard', 'film'].includes(kind) ? track : ''; shotTab = kind === 'storyboard' || kind === 'film' ? 'film' : 'seconds'
+          openTab = ['outline', 'characters', 'scenes', 'props'].includes(kind) ? 'script' : kind === 'summary' ? 'summary' : 'shots'
+          currentPage = null; hold = false; follow(true).catch(error => shell.status(error.message))
+        },
       })
       display(currentPage); shell.content.parentElement.scrollTop = 0
     },
     openCurrentTasks: projectId => {
-      hold = true; navigation++
-      const root = modelStore.get(projectId), episodeId = openEpisode || openCharacter?.episodeId || openScene?.episodeId || ''
-      const project = { id: projectId, title: root?.title, episodeId, episodes: root?.episodes }
-      const query = new URLSearchParams({ projectId, sessionId: currentSessionId(), ...(episodeId ? { episodeId } : {}) })
-      currentPage = renderCurrentTasks(project, {
-        load: () => request(`operations/current?${query}`),
-        loadPrompts: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?${query}`),
-        loadResponses: (task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?${query}`),
-        loadArtifact: artifact => request(`artifacts/${artifact}?${query}`),
-        openOperation: id => actions.openOperation(project, id), stop: stopTask,
-        back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) },
-        openHistory: () => actions.openHistory(project),
-      })
-      display(currentPage); shell.content.parentElement.scrollTop = 0
+      const root = modelStore.get(projectId)
+      actions.openHistory({ ...root, id: projectId })
     },
     // 技能详情页：只读展示基础，补充通过既有保存接口写入。
     openSkill: (project, id, back = () => follow(true).catch(error => shell.status(error.message))) => {
@@ -416,15 +416,15 @@ export function mount() {
     observeSync: async (project, id, onTask) => {
       const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
       while (true) {
-        const { operation } = await request(`operations/${id}?${query}`)
-        onTask(operation)
-        if (!['queued', 'running'].includes(operation.status)) return operation
+        const { run } = await request(`runs/${id}?${query}`)
+        onTask(run)
+        if (run.status !== 'running') return run
         await new Promise(resolve => setTimeout(resolve, 800))
       }
     },
     openHistory: project => actions.openHistory(project, 'summary'),
-    loadResponses: (project, task, node) => request(`tasks/${task.id}/nodes/${node.id}/responses?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
-    loadPrompts: (project, task, node) => request(`tasks/${task.id}/nodes/${node.id}/prompts?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
+    loadResponses: (project, task, node) => request(`runs/${task.id}/steps/${node.id}/responses?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
+    loadPrompts: (project, task, node) => request(`runs/${task.id}/steps/${node.id}/prompts?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
   })
   const openCatalogDialog = catalogDialog(shell.root)
   function enterWorkspace(place) {

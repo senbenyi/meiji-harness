@@ -1,7 +1,7 @@
 // 小任务：分镜文本提示词
 import { checkContext } from '../../runtime/operation-context.js'
 import { modelRoutes } from '../../../models/model-config.js'
-import { runNode } from '../../runtime/task-execution.js'
+import { runNode } from '../../runtime/step-execution.js'
 import { node, shotResults, updateShotResults } from '../../../shared/drama-model.js'
 import { reviewStep } from './shared/text-review.js'
 import { feedbackOf } from '../../../shared/review-feedback.js'

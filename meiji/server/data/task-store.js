@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { notifyProject } from './project-events.js'
 import { liveTasks as live, usedSkills } from '../runtime/task-context.js'
 import { finalizeNodes } from '../runtime/task-state.js'
+import { runStore } from './run-store.js'
 
 export const TASK_SCHEMA = 3
 const writes = new Map()
@@ -75,6 +76,15 @@ export function recordStore(home, projectId) {
 
 // 按任务写回步骤（一个操作的多个任务共用执行上下文，步骤按目标归入各自任务）；extra 只写入当前步骤所属任务。
 export async function writeNodes(context, extra) {
+  if (context.runId) {
+    const run = await runStore(context.home, context.projectId).update(context.runId, current => {
+      const step = current.steps.find(item => item.id === context.stepId), node = context.nodes[0]
+      Object.assign(step, { attempts: structuredClone(node.attempts), inputs: [...node.inputs], outputs: [...node.outputs], saved: Boolean(node.saved), skills: [...context.skills.values()] })
+      return current
+    })
+    notifyProject(context.home, context.projectId, run.revision)
+    return run
+  }
   const primary = await context.store.update('tasks', context.taskId, task => ({ ...task, ...(extra ? extra(task) : {}), ...usedSkills(context), nodes: context.nodes, status: deriveTaskStatus(context.nodes) }))
   live.set(context.taskId, primary)
   notifyProject(context.home, context.projectId)

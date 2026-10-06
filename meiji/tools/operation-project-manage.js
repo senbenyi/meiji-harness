@@ -4,7 +4,7 @@ import { runWithSessionLog, insertSessionLog } from '../server/host/session-log.
 import { jsonOutput, sessionIdOf, currentProject } from './operation-context-query.js'
 import { createProject } from '../server/flow/project-creation.js'
 
-export function projectManageTool({ home, tasks, jobs, workspaceController }) {
+export function projectManageTool({ home, edits, workspaceController }) {
   return {
     name: 'operation-project-manage',
     description: '仅在用户要求创建或明确操作某项目时创建/open 并关联当前会话，不影响其他会话；普通对话无需项目。已绑定项目时禁止 create 或 open 其他项目；无关请求提示「请切换工作区或新建会话」。open 使用 operation-context-query 返回的项目 ID，同名不猜测。create 默认自由模式，必须由用户提供 AI 创作方向 premise；选择剧本模式必须提供剧本或 scriptAssetId，缺资料先询问，不代写创作方向。需要标题、画幅、风格，不生成摘要或剧集。edit-script 提出剧本修改方案等待用户确认。AI 创作方向仅由用户在面板手动编辑，会话只能读取并据此生成剧集摘要。',
@@ -21,10 +21,10 @@ export function projectManageTool({ home, tasks, jobs, workspaceController }) {
       if (!['create', 'open', 'edit-script'].includes(args.action)) throw new Error('项目操作无效')
       if (args.action === 'edit-script') {
         const current = await currentProject(home, exec)
-        const started = tasks.start({ action: 'script-propose', projectId: current.id, sessionId, origin: 'session', callId: exec.callId, text: args.text, changes: args.changes, note: args.note, baseRevision: args.baseRevision }, exec.agent.session)
+        const started = edits.start({ action: 'script-propose', projectId: current.id, sessionId, origin: 'session', callId: exec.callId, text: args.text, changes: args.changes, note: args.note, baseRevision: args.baseRevision }, exec.agent.session)
         const result = await started.done
         if (started.failure) throw started.failure
-        return JSON.stringify({ status: result.status, projectId: current.id, ...result.result, ...(result.result.pendingProposal && jobs ? jobs.waitScript(current.id, sessionId) : {}) })
+        return JSON.stringify({ status: result.status, projectId: current.id, ...result.result })
       }
       const selected = await links.projectForSession(sessionId)
       if (selected.projectId && (args.action === 'create' || args.projectId !== selected.projectId)) {
@@ -35,7 +35,7 @@ export function projectManageTool({ home, tasks, jobs, workspaceController }) {
       let operationId
       await runWithSessionLog(exec.agent.session, async () => {
         if (args.action === 'create') {
-          const place = await createProject({ home, tasks, fields: args.fields, sessionId, session: exec.agent.session, signal: exec.signal, workspaceController, origin: 'session',
+          const place = await createProject({ home, edits, fields: args.fields, sessionId, session: exec.agent.session, signal: exec.signal, workspaceController, origin: 'session',
             enter: async project => { await links.selectProject(sessionId, project.id, store); return { projectId: project.id, sessionId, workspaceId: project.workspaceId } } })
           projectId = place.projectId
           operationId = place.operationId

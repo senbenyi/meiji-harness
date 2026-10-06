@@ -1,10 +1,11 @@
 // 内容基线、版本快照与未发布草稿；沿用项目原子保存前准备、保存后发布的顺序。
 import { randomUUID } from 'node:crypto'
-import { deriveTaskStatus } from '../../shared/task-nodes.js'
 import { executionContext, activeNode } from '../runtime/task-context.js'
-import { recordStore, writeNodes } from './task-store.js'
+import { writeStep } from './run-records.js'
 import { markPendingReview } from '../../shared/content-state.js'
-import { taskIdOfNode } from '../runtime/task-state.js'
+import { deriveTaskStatus } from '../../shared/task-nodes.js'
+import { recordStore } from './task-store.js'
+const recordIdentity = context => ({ runId: context.runId, stepId: context.stepId })
 
 const now = () => new Date().toISOString()
 export async function addBaselines(store, project, operation, stage, baselines) {
@@ -12,7 +13,7 @@ export async function addBaselines(store, project, operation, stage, baselines) 
     if (!target.exists || (operation.episodeId && target.episodeId !== operation.episodeId) || !(stage === 'story' ? ['outline', 'characters', 'scenes', 'props'].includes(target.key) : target.key.split(':')[0] === stage) || (operation.track && target.key.includes(':') && target.key.split(':')[1] !== operation.track)) continue
     let source = target.node.source
     if (!source) {
-      source = { artifactId: randomUUID(), version: 1, taskId: null, nodeId: null }
+      source = { artifactId: randomUUID(), version: 1, baseline: true }
       await store.update('artifacts', source.artifactId, { schemaVersion: 1, id: source.artifactId, ...source, projectId: project.id, episodeId: target.episodeId, target: target.key, content: target.content, createdAt: now(), published: true, baseline: true })
     }
     baselines.set(`${target.episodeId}:${target.key}`, source)
@@ -41,13 +42,17 @@ export function contentTargets(project) {
 // Snapshots are written before the project; published is set only after its atomic rename.
 export async function prepareContentRecords(current, next) {
   const context = executionContext.getStore()
-  if (!context) return []
   const oldTargets = new Map(contentTargets(current).map(item => [`${item.episodeId}:${item.key}`, item]))
+  if (!context) {
+    for (const target of contentTargets(next)) if (JSON.stringify(target.content) !== JSON.stringify(oldTargets.get(`${target.episodeId}:${target.key}`)?.content)) delete target.node.source
+    return []
+  }
   const saved = []
   for (const target of contentTargets(next)) {
     const old = oldTargets.get(`${target.episodeId}:${target.key}`)
     const node = activeNode()
-    const newOutput = target.episodeId === (context.operation.episodeId || null) && node?.target === target.key && ['generate', 'revise'].includes(node.kind) && old?.node.source?.taskId !== context.taskId
+    const previousExecutor = old?.node.source?.stepId
+    const newOutput = target.episodeId === (context.operation.episodeId || null) && node?.target === target.key && ['generate', 'revise'].includes(node.kind) && previousExecutor !== context.stepId
     const changed = JSON.stringify(target.content) !== JSON.stringify(old?.content) || newOutput
     if (!changed) {
       if (old?.node.source) target.node.source = structuredClone(old.node.source)
@@ -69,10 +74,10 @@ export async function prepareContentRecords(current, next) {
       previous = history[0] ? { artifactId: history[0].id, version: history[0].version } : null
     }
     if (old?.exists && !previous) {
-      previous = { artifactId: randomUUID(), version: 1, taskId: null, nodeId: null }
+      previous = { artifactId: randomUUID(), version: 1, baseline: true }
       await context.store.update('artifacts', previous.artifactId, { schemaVersion: 1, id: previous.artifactId, ...previous, projectId: current.id, episodeId: target.episodeId, target: target.key, content: old.content, createdAt: now(), published: true, baseline: true })
     }
-    const source = { taskId: taskIdOfNode(context, context.nodeId), nodeId: context.nodeId || null, artifactId: randomUUID(), version: (previous?.version || 0) + 1 }
+    const source = { ...recordIdentity(context), artifactId: randomUUID(), version: (previous?.version || 0) + 1 }
     await context.store.update('artifacts', source.artifactId, { schemaVersion: 1, id: source.artifactId, ...source, projectId: current.id, episodeId: target.episodeId, target: target.key, previousArtifactId: previous?.artifactId || null, content: target.content, createdAt: now(), published: false })
     target.node.source = source
     saved.push({ ...source, episodeId: target.episodeId, target: target.key, reviewPassed: target.check?.passed ?? null })
@@ -89,7 +94,7 @@ export async function commitContentRecords(saved) {
   }
   const step = context.nodes.find(value => value.id === context.nodeId)
   if (step) step.outputs = [...step.outputs, ...saved.map(item => item.artifactId)]
-  await writeNodes(context, task => ({ episodeId: task.episodeId || saved[0].episodeId, artifacts: [...task.artifacts, ...saved] }))
+  await writeStep(context, task => ({ episodeId: task.episodeId || saved[0].episodeId, artifacts: [...task.artifacts, ...saved] }))
 }
 
 // 不发布的弹框草稿及未通过结构校验的生成原文沿用任务 artifact 与 outputs，不写项目或剧集。
@@ -97,16 +102,17 @@ export async function saveTaskDraft(target, content) {
   const context = executionContext.getStore()
   if (!context) throw new Error('草稿需要任务上下文')
   const id = randomUUID()
-  const source = { artifactId: id, taskId: taskIdOfNode(context, context.nodeId), nodeId: context.nodeId, episodeId: context.operation.episodeId || null, target, version: 1, reviewPassed: content.check?.passed ?? null }
+  const source = { artifactId: id, ...recordIdentity(context), episodeId: context.operation.episodeId || null, target, version: 1, reviewPassed: content.check?.passed ?? null }
   await context.store.update('artifacts', id, { schemaVersion: 1, id, ...source, projectId: context.projectId, content, createdAt: now(), published: false })
   context.outputs.push(source)
   activeNode().outputs.push(id)
-  await writeNodes(context, task => ({ artifacts: [...task.artifacts, source] }))
+  await writeStep(context, task => ({ artifacts: [...task.artifacts, source] }))
 }
 
+// 迁移期旧任务详情读取兼容；新的 Run 详情直接读取 artifacts。
 export async function readTaskDraft(home, task) {
   if (!['summary', 'project-summary'].includes(task.type) || task.mode !== 'draft' || !['completed', 'review_failed'].includes(deriveTaskStatus(task.nodes))) return {}
-  const output = [...task.latestOutputs].reverse().find(item => item.target === (task.type === 'summary' ? 'summary-draft' : 'project-summary'))
+  const output = [...(task.latestOutputs || [])].reverse().find(item => item.target === (task.type === 'summary' ? 'summary-draft' : 'project-summary'))
   if (!output) return {}
   const artifact = await recordStore(home, task.projectId).read('artifacts', output.artifactId)
   return { draft: artifact.content }

@@ -9,7 +9,7 @@ import { scopeProjects } from '../../../data/episode-data.js'
 import { prepareChecks } from '../../../runtime/review-checks.js'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { GenerationStatus, consumeReview } from '../../../../shared/drama-model.js'
-import { runNode } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/step-execution.js'
 import { saveTaskDraft } from '../../../data/content-records.js'
 import { statusFromCheck, markPendingReview } from '../../../../shared/content-state.js'
 
@@ -67,6 +67,21 @@ export async function opEpisodeGenerate(c) {
 
 // 弹框草稿：仅记录任务结果，保存按钮才写入剧集。
 export async function opEpisodeSummaryDraft({ operation, deps, models, project, trace }) {
+  if (deps.run && ['review', 're_review', 'revise'].includes(deps.step.kind)) {
+    const previous = deps.run.steps.find(item => item.id === deps.step.after[0])
+    const draft = previous?.output?.result?.draft
+    if (!draft) throw new Error('摘要草稿依据不存在')
+    const prompts = promptsForSummary(project, operation.episodeId, operation.referenceDurationSeconds), options = { route: modelRoutes(await models.read()).story, project, signal: deps.signal, request: deps.request, fetchImpl: deps.fetchImpl }
+    if (deps.step.kind === 'revise') {
+      const opinion = JSON.stringify(deps.step.input.feedback), text = await runNode('revise', () => deps.task.steps.revise({ prompts, message: prompts.revision(JSON.stringify(draft), opinion), baseContent: JSON.stringify(draft), revisionOpinion: opinion, round: deps.step.round, target: 'summary', options }))
+      const revised = normalizeEpisodeDraft(parseJsonValue(text), draft.durationSeconds)
+      const failures = episodeSummaryFailures(revised)
+      if (failures.length) throw new Error(failures.join('；'))
+      await saveTaskDraft('summary-draft', revised); trace.result = { draft: revised }; return trace
+    }
+    const result = await deps.task.steps.review({ prompts, text: JSON.stringify(draft), target: 'summary', options })
+    trace.result = { draft, reviewPassed: result.check.passed }; return trace
+  }
   const draft = await (deps.generateEpisode || generateEpisode)({
     route: (modelRoutes(await models.read())).story, project, episodeId: operation.episodeId,
     referenceDurationSeconds: operation.referenceDurationSeconds,

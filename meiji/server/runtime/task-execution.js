@@ -9,7 +9,7 @@ import { notifyProject } from '../data/project-events.js'
 import { TASK_SCHEMA, recordStore, writeNodes } from '../data/task-store.js'
 import { addBaselines } from '../data/content-records.js'
 import { executionContext, liveTasks as live, usedSkills } from './task-context.js'
-import { recorded, createNode, finalizeNodes, taskIdOfNode, unprepare } from './task-state.js'
+import { recorded, createNode, finalizeNodes, taskIdOfNode, recordIdentity, unprepare } from './task-state.js'
 
 const now = () => new Date().toISOString()
 const stages = { 'episode-generate': 'summary', 'episode-edit': 'summary', 'episode-add': 'summary', source: 'summary', outline: 'story', 'outline-text': 'story', characters: 'story', scenes: 'story', 'scene-text': 'story', 'character-text': 'story', shots: 'shots', 'revise-shot': 'shots', seconds: 'seconds', 'shot-seconds': 'seconds', storyboard: 'storyboard', 'shot-storyboard': 'storyboard', 'storyboard-text': 'storyboard', film: 'film', films: 'film', assemble: 'assembly' }
@@ -73,7 +73,7 @@ export async function recordNodePrompt({ kind, messages, prompt }) {
   if (!step) return
   const content = messages ? { messages: messages.map(({ role, content }) => ({ role, content })) } : { prompt }
   const id = randomUUID()
-  const snapshot = { id, taskId: taskIdOfNode(context, step.id), nodeId: step.id, episodeId: context.operation.episodeId || null,
+  const snapshot = { id, ...recordIdentity(context), episodeId: context.operation.episodeId || null,
     kind, createdAt: now(), ...structuredClone(content) }
   await context.store.update('prompts', id, snapshot)
   step.prompts = [...(step.prompts || []), { id, kind, createdAt: snapshot.createdAt }]
@@ -86,7 +86,7 @@ export async function recordNodeResponse(data) {
   if (!step) return
   try {
     const id = randomUUID()
-    const snapshot = { ...data, id, taskId: taskIdOfNode(context, step.id), nodeId: step.id,
+    const snapshot = { ...data, id, ...recordIdentity(context),
       episodeId: context.operation.episodeId || null, createdAt: now() }
     await context.store.update('responses', id, snapshot)
     step.responses = [...(step.responses || []), { id, fn: data.fn, createdAt: snapshot.createdAt }]
@@ -109,6 +109,11 @@ export async function endExecution(context, error, signal) {
 export async function runNode(kind, run, detail = {}) {
   const context = executionContext.getStore()
   if (!context) return run()
+  if (context.runId) return nodeAttempt(detail.label || kind, async () => {
+    const result = await run()
+    if (result?.review) context.verdict = result.review
+    return result
+  })
   const target = detail.target ?? null
   let step = context.nodes.find(item => (item.status === StepStatus.PENDING || item.preparing) && item.kind === kind && (item.target ?? null) === target && (item.phase ?? null) === (detail.phase ?? null))
   // 开始的不是准备中的步骤时，准备中的步骤恢复为未执行。

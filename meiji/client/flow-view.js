@@ -10,6 +10,11 @@ export const tabs = [
   { id: 'film', label: '成片', nodes: ['film'] },
   { id: 'assembly', label: '合成', nodes: ['assembly'] },
 ]
+export function runTabProgress(project, tab) {
+  const targets = { summary: ['summary'], script: ['outline', 'characters', 'scenes', 'props'], shots: ['shots'], seconds: ['seconds'], film: ['image', 'storyboard', 'film'], assembly: ['assembly'] }[tab] || []
+  const progress = (project.activeRuns || []).flatMap(run => run.progress || []).filter(item => targets.includes(item.target?.split(':')[0]) && item.total)
+  return progress.length ? { done: progress.reduce((total, item) => total + item.done, 0), total: progress.reduce((total, item) => total + item.total, 0), paused: progress.some(item => item.paused) } : null
+}
 export function stepRunLabel(project, step) {
   const target = targetNode(project, step === 'summary' ? 'summary' : step)
   return target ? statusLabels[target.status] : '未生成'

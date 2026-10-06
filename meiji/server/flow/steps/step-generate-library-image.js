@@ -18,7 +18,7 @@ export async function runLibraryImage(c) {
   const card = applyLibraryCard(project, op.libraryKind, cardModel({ id: op.variantId, type }), target)
   const size = gatewayImageSize(project.aspectRatio), [width, height] = size.split('x').map(Number)
   const prompt = type === 'role' ? characterImagePrompt(card, project, undefined, { canvas: { width, height } }) : type === 'scene' ? sceneImagePrompt(card, project, undefined, { canvas: { width, height } }) : propImagePrompt(card, project)
-  await projects.save(project.id, root => { begin(libraryTarget(root, op.libraryKind, op).variant.image, { id: deps.taskId }); return root })
+  await projects.save(project.id, root => { begin(libraryTarget(root, op.libraryKind, op).variant.image, { id: deps.writeToken }); return root })
   try {
     const bag = await (deps.submitAssetImage || submitAssetImage)({ assets: { items: [card] }, itemId: card.id, aspectRatio: size, backend: modelRoutes(await c.models.read()).image, projectId: project.id, home: c.home, directory: join(c.home, 'storages', 'meiji', 'projects', project.id, 'images'), prompt, seed: imageSeed(`${card.id}:${Date.now()}`), fetchImpl: deps.fetchImpl, signal: deps.signal, stepTarget: `image:${card.id}` })
     const draft = bag.items[0].pendingImage

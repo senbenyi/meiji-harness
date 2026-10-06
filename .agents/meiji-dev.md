@@ -180,6 +180,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 ## 11. 编码规则
 
 - 按实际调用链组织代码：同一生命周期集中维护，固定顺序用直接调用和条件分支表达，不另建通用步骤调度器；删除纯透传函数和中转导出，调用方直接引用职责模块。校验、快照、并发、记录与持久化等实际业务边界保留。
+  - Run/Step 重构按用户授权的[完整重构计划](../docs/plans/1006-计划-Run步骤引擎基础.md)实施：`server/flow/runs/run-engine.js` 专门负责 meiji Run 的依赖、分支暂停和审核修订，不扩展为任意工作流框架。阶段 1A 已完成隔离引擎；阶段 1B 已在组合入口注册 Run 单步执行、HTTP 与 jobs，原面板按钮和会话工具仍走旧链。新旧链共用模型队列与实际步骤占用，待面板及会话迁出后删除旧链。一个运行 home 只由组合入口创建一份 Run 引擎，模型并发队列和执行锁由该实例统一持有。
 - 按第 1 节分层；`client/`、`shared/` 使用平铺 `.js/.css`，不引入 JSX、bundler 或构建步骤。shared 不引用 Node 专属模块、client 或 server。
 - Harness 接入只经 `server/host/` 的公开接口，不读取上游存储文件。
 - 生成操作在 generate/ 声明 tasks，任务在 task-registry 登记队列、target、nodes、maxRevisions、run。直接操作在 direct/ 登记；人工专属操作标 agent:false。任务不引用操作定义，不增加旧操作别名或中转导出。
@@ -200,7 +201,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 ## 13. 测试环境与命令
 
-- 代码、配置、skill 和测试修改前运行全量测试并记录基线，每阶段运行相关测试，完成后运行全量测试；相关测试必须通过，全量不得新增失败，同时记录通过、失败与 cancelled 数。纯文档修改只检查内容、链接与差异。
+- 代码、配置、skill 和测试任务开始前运行一次全量测试并记录基线；同一任务分阶段或跨轮继续时沿用已记录的基线，不重复跑全量。每阶段只运行相关测试，整项任务收尾时运行一次全量测试；不因阶段完成或回复用户而要求全量。出现测试失败、影响范围扩大或尚未解决的回归风险时，按实际需要补充测试。相关测试必须通过，全量不得新增失败，同时记录通过、失败与 cancelled 数。纯文档修改只检查内容、链接与差异。
 - 全量测试命令：在仓库根目录运行 `cd meiji && npm test`；相关测试可在 `meiji/` 下运行 `node --test tests/对应文件.test.js`。何时运行及通过要求见 [AGENTS.md](../AGENTS.md#3-测试与收尾)。
 - 测试固定使用 `tests/fixtures/models.local.json` 的测试密钥，不读真实密钥；UI 测试从同级 deepseek-harness 或 `HARNESS_DIR` 加载 jsdom。
 - skill 正文变更时，用 `tests/fixtures/prompt-scenarios.js` 采集改前/改后请求，运行 `scripts/prompt-diff.js`，核对删除语句的去向或理由。
@@ -284,6 +285,17 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 <a id="task-records"></a>
 
 ## 16. 执行记录与查看接口
+
+### Run 后端接入（阶段 1B 进行中）
+
+Run 服务位于 `server/flow/runs/run-service.js`，由 index 创建唯一实例；`meiji.runs`、`meiji.runJobs` 是新公开注入服务。`server/http/run-routes.js` 复用面板登录、会话项目绑定和同源请求头。
+
+新接口：`POST /runs` 预览草稿，`GET /runs` 与 `/runs/:id` 查询，`POST /runs/:id/{confirm,resume,pause,cancel,amend}` 控制，`GET /runs/:id/steps/:stepId/{prompts,responses,artifacts}` 按步骤读取快照。查询携带 projectId/sessionId，写请求在正文中携带；预览目前接受旧 action 参数，goal 规划在阶段 2 接入。确认需明确 confirmDelete，删除范围变化时拒绝沿用旧预览。
+
+Run 列表只返回摘要，不返回技能正文或完整步骤；快照文件为 `history/run-prompts/`、`run-responses/`、`run-artifacts/`，正文 source 使用 runId+stepId。Run 状态由引擎维护；runtime 只写尝试、快照和正文。新旧链共用模型队列；ready 期间不锁编辑，出队后获取步骤锁。暂停协作式收尾，取消阻止晚到正文提交。jobs 观察在 paused/completed/cancelled 结算，owner/service 销毁只脱离观察。
+
+制作按钮和会话入口、以下旧任务历史说明仍有效。面板历史主入口已接入 `client/run-list.js` → `run-detail.js` 两层 Run 页面；支持剧集/状态/发起方/对象筛选、步骤快照、retry/resume/pause/cancel，进行中与暂停 Run 在任务条可查看。对象参数支持逗号分隔与末尾 `*` 前缀匹配；剧集范围同时匹配 affectedEpisodes。旧制作链仍需「早期任务记录」入口，待迁出后删除旧组件；不能把查看接入视为制作入口已切换。
+
 
 操作记录含 taskIds；任务记录含 operationId、type、target、nodes、artifacts/latestOutputs 和冻结的 skill 版本。节点 status 表示执行情况，verdict 表示审核结论：自审不通过为 completed + fail，接口失败为 failed。最新复审结论替代旧结论。
 

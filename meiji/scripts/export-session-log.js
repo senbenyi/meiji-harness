@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { recordStore } from '../server/data/task-store.js'
+import { runStore } from '../server/data/run-store.js'
 import { redactJson } from '../server/gateway/redact.js'
 
 export async function readSessionExport(file) {
@@ -27,11 +27,9 @@ export async function exportSessionLog({ sessionLog, projectId, home = process.e
   const header = entries.find(entry => (entry.type === 'session' || !entry.type) && (entry.id || entry.sessionId))
   const sessionId = header?.id || header?.sessionId
   if (!sessionId) throw new Error('公开会话导出缺少会话 ID')
-  const history = recordStore(home, projectId)
-  const operations = (await history.list('operations')).filter(op => op.sessionId === sessionId)
-  const operationMap = new Map(operations.map(op => [op.id, op]))
-  const tasks = (await history.list('tasks')).filter(task => task.sessionId === sessionId || operationMap.has(task.operationId))
-  const taskMap = new Map(tasks.map(task => [task.id, task]))
+  const history = runStore(home, projectId)
+  const runs = (await history.list()).filter(run => run.sessionId === sessionId || run.goalSessionId === sessionId)
+  const runMap = new Map(runs.map(run => [run.id, run]))
   const rows = [], commands = new Map()
   const timestamp = value => typeof value === 'number' ? value : Date.parse(value || '') || 0
   const add = (type, value, time, callId, limit = false) => {
@@ -52,11 +50,10 @@ export async function exportSessionLog({ sessionLog, projectId, home = process.e
     add(event.type, data, event.time || event.createdAt, callId, /tool/i.test(event.type))
   }
   for (const event of commands.values()) add('未完成命令', event.data, event.time)
-  for (const op of operations) add('meiji 操作', op, op.startedAt, op.callId)
-  for (const task of tasks) add('meiji 任务与步骤', task, task.startedAt, task.callId || operationMap.get(task.operationId)?.callId)
-  for (const kind of ['prompts', 'responses']) for (const record of await history.list(kind)) {
-    const task = taskMap.get(record.taskId)
-    if (task) add(kind === 'prompts' ? 'meiji 提示词' : 'meiji 原始返回', record, record.createdAt, task.callId || operationMap.get(task.operationId)?.callId)
+  for (const run of runs) add('meiji 任务与步骤', run, run.startedAt || run.createdAt, run.callId)
+  for (const kind of ['prompts', 'responses']) for (const record of await history.listRecords(kind)) {
+    const run = runMap.get(record.runId)
+    if (run) add(kind === 'prompts' ? 'meiji 提示词' : 'meiji 原始返回', record, record.createdAt, run.callId)
   }
   rows.sort((a, b) => a.time - b.time)
   const output = [`# 会话调试记录\n\n会话：${sessionId}\n项目：${projectId}`]

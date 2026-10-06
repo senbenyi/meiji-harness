@@ -22,7 +22,7 @@ export function busyError(holder) {
   const by = holder.initiator === 'session' ? '会话' : '面板'
   const state = holder.kind === 'generate' ? '本项目正在生成' : holder.lock === 'project' ? '本项目正在修改项目资料' : '本集正在修改'
   return Object.assign(new Error(`${state}：${holder.label}（${by}发起），请等待结束或停止后再试`), {
-    status: 409, code: 'OPERATION_BUSY', busy: { operationId: holder.id, projectId: holder.projectId, action: holder.action, kind: holder.kind, lock: holder.lock, label: holder.label, initiator: holder.initiator, episodeId: holder.episodeId },
+    status: 409, code: 'OPERATION_BUSY', busy: { writeToken: holder.id, projectId: holder.projectId, action: holder.action, kind: holder.kind, lock: holder.lock, label: holder.label, initiator: holder.initiator, episodeId: holder.episodeId },
   })
 }
 

@@ -1,6 +1,8 @@
 import { defaultReferenceDuration, referenceDuration, summaryLength, episodeSummaryFailures } from '../shared/episode-summary.js'
-import { renderSteps, taskStatusLabels } from './task-nodes.js'
-import { renderTaskHistory, historyEntry } from './execution-history.js'
+import { targetBusy } from './run-activity.js'
+import { historyEntry } from './run-history-entry.js'
+import { runStatusLabels, runStepStatusLabels } from '../shared/run-view.js'
+import { renderRunProgress } from './run-progress.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { confirmPanel, showPanelDialog, element, appendJsonCopy } from './panel-dom.js'
 import { scriptFreshness, episodeHints, isAiCreation } from '../shared/script-assembly.js'
@@ -56,7 +58,7 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 function deleteButton(project, actions, episode, number) {
   const button = element('button', episode ? '删除本集' : '删除项目', 'delete-content')
   button.type = 'button'
-  button.disabled = Boolean(project.projectBusy)
+  button.disabled = targetBusy(project, 'project')
   button.setAttribute('aria-label', episode ? `删除第 ${number} 集` : '删除整个项目')
   button.onclick = async event => {
     event.stopPropagation()
@@ -76,11 +78,12 @@ export function renderOverview(project, actions, context) {
   page.append(element('p', project.mode === 'free' ? '自由模式' : '剧本模式', 'meta project-mode'))
   const titleRow = element('div', '', 'title-with-edit')
   titleRow.append(element('h2', project.title || '项目概要'))
+  if (project.runPauseCount) titleRow.append(element('span', `有暂停任务（${project.runPauseCount}）`, 'run-paused-badge'))
   const edit = element('button', '', 'icon-edit')
   edit.type = 'button'
   edit.setAttribute('aria-label', '编辑标题、画幅和风格')
   edit.innerHTML = editIcon
-  edit.disabled = Boolean(project.projectBusy)
+  edit.disabled = targetBusy(project, 'project')
   edit.onclick = () => actions.openOverview?.(project)
   titleRow.append(edit)
   page.append(titleRow)
@@ -96,7 +99,7 @@ export function renderOverview(project, actions, context) {
     const premiseCard = element('article', '', 'overview-card')
     premiseCard.append(element('h3', 'AI 创作方向'), preview(project.premise || '请填写 AI 创作方向后开始制作。'), element('p', '由你手动编辑，持续指导每一集摘要的 AI 创作；修改后用于后续生成，保留已发生剧情。', 'meta'))
     const premiseEdit = element('button', '编辑创作方向')
-    premiseEdit.disabled = Boolean(project.projectBusy)
+    premiseEdit.disabled = targetBusy(project, 'project')
     premiseEdit.onclick = () => actions.openPremise?.(project)
     premiseCard.append(premiseEdit); page.append(premiseCard)
   }
@@ -105,7 +108,7 @@ export function renderOverview(project, actions, context) {
   summaryCard.append(element('h3', '项目摘要'))
   if (project.script) {
     const row = element('div', '', 'workflow-generation-row')
-    const busy = Boolean(project.projectBusy)
+    const busy = targetBusy(project, 'project')
     row.append(element('span', project.summary.operation ? '提取中' : project.summary.error ? '提取失败' : project.summary.check.passed === false ? '自审未通过' : scriptFreshness(project).summaryNeedsUpdate ? '待更新' : project.summary.check.passed === true ? '最新' : '待更新', 'meta'))
     const generate = element('button', project.summary.error ? '重试更新摘要' : '立即更新摘要')
     generate.type = 'button'; generate.disabled = busy
@@ -152,7 +155,7 @@ export function renderOverview(project, actions, context) {
   const episodes = element('article', '', 'overview-card')
   const head = element('div', '', 'episode-head')
   head.append(element('h3', '剧集'))
-  const busy = Boolean(project.projectBusy)
+  const busy = targetBusy(project, 'project')
   const add = element('button', '＋ 新增剧集', 'episode-add')
   add.type = 'button'
   add.disabled = busy
@@ -163,6 +166,7 @@ export function renderOverview(project, actions, context) {
   const list = [...(project.episodes || [])]
   list.forEach((episode, index) => {
     const card = element('div', '', 'episode-card')
+    if (episode.runPauseCount) card.append(element('span', `有暂停任务（${episode.runPauseCount}）`, 'run-paused-badge'))
     card.tabIndex = 0
     card.setAttribute('role', 'link')
     const number = list.length - index
@@ -181,7 +185,7 @@ export function renderOverview(project, actions, context) {
     }
     const regenerate = element('button', busy ? '生成中' : '重新生成摘要', 'episode-regenerate')
     regenerate.type = 'button'
-    regenerate.disabled = Boolean(project.projectBusy)
+    regenerate.disabled = targetBusy(project, 'project')
     regenerate.setAttribute('aria-label', `重新生成第 ${number} 集摘要`)
     regenerate.title = '重新生成摘要，保留时长；摘要变化后本集下游内容需重新生成'
     regenerate.onclick = event => {
@@ -292,12 +296,12 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       try {
         const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference, requirements: form.elements.requirements.value.trim() }, { signal: abort.signal, onTask: task => {
           if (version !== requestVersion || !dialog.open) return
-          progress.replaceChildren(element('p', `生成剧集摘要：${taskStatusLabels[task.status] || task.status}`, 'meta'))
-          for (const unit of task.tasks || [task]) {
-            const section = element('section', '', 'episode-summary-task')
-            section.append(element('h4', `${unit.label || (unit.type === 'project-summary' ? '项目摘要' : '剧集摘要')}：${taskStatusLabels[unit.status] || unit.status}`), renderSteps(unit.nodes, { live: ['queued', 'running'].includes(unit.status), loadPrompts: loadPrompts && (node => loadPrompts(current, unit, node)), loadResponses: loadResponses && (node => loadResponses(current, unit, node)) }))
-            progress.append(section)
+          progress.replaceChildren(element('p', `生成剧集摘要：${runStatusLabels[task.status] || task.status}`, 'meta'))
+          if (task.steps) {
+            progress.append(renderRunProgress(task, { loadPrompts: loadPrompts && ((run, step) => loadPrompts(current, run, step)), loadResponses: loadResponses && ((run, step) => loadResponses(current, run, step)) }))
+            return
           }
+
         } })
         if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
         const failures = episodeSummaryFailures(draft)
@@ -320,14 +324,15 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       const result = await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary, requirements: form.elements.requirements.value.trim() })
       if (result?.cancelled) return
       const episodeId = result?.result?.episodeId || episode?.id || result?.project?.episodes?.[0]?.id
-      if (result?.result?.scriptSyncOperationId && observeSync) {
-        progress.replaceChildren(element('p', '摘要已保存，正在独立回写剧本。', 'meta'))
-        const state = await observeSync(current, result.result.scriptSyncOperationId, task => {
-          if (dialog.open) progress.replaceChildren(element('p', `剧本回写：${taskStatusLabels[task.status] || task.status}`, 'meta'))
+      if (result?.syncRunId && observeSync) {
+        progress.replaceChildren(element('p', '摘要已保存，正在回写剧本。', 'meta'))
+        const state = await observeSync(current, result.syncRunId, task => {
+          if (dialog.open) progress.replaceChildren(element('p', `剧本回写：${runStatusLabels[task.status] || task.status}`, 'meta'))
         })
         if (!dialog.open) return
-        if (state.status === 'completed' && !state.result?.pendingProposal) { dialog.close(); return }
-        progress.replaceChildren(element('p', state.result?.pendingProposal ? '回写方案待确认。摘要已保存，尚未完成同步。' : `待回写：${state.error || state.failures?.join('；') || '回写未完成'}`, 'notice'))
+        if (state.status === 'completed') { dialog.close(); return }
+        const proposalPending = state.pause?.reasons.some(reason => reason.code === 'wait_script_confirm')
+        progress.replaceChildren(element('p', proposalPending ? '回写方案待确认。摘要已保存，尚未完成同步。' : `待回写：${state.pause?.reasons.map(reason => reason.message).join('；') || '回写未完成'}`, 'notice'))
       } else if (!result?.result?.scriptSyncError) { dialog.close(); return }
       else progress.replaceChildren(element('p', `摘要已保存，待回写：${result.result.scriptSyncError}`, 'notice'))
       const process = element('button', '按方案修改剧本'), revert = element('button', '把本集改回符合剧本'), keep = element('button', '先保留'), retry = element('button', '重新回写')

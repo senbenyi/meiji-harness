@@ -34,9 +34,9 @@ const initiatorOf = op => op.origin === 'session' ? 'session' : 'panel'
 const failureSummary = tasks => tasks.filter(task => ['failed', 'review_failed'].includes(deriveTaskStatus(task.nodes))).map(task => `${task.label || task.type}：${reviewFailures(task.nodes).join('；') || task.error || task.nodes.find(node => node.error)?.error || '执行失败'}`)
 const resultOf = tasks => ({ status: deriveOperationStatus(tasks.map(task => deriveTaskStatus(task.nodes))), reviewPassed: reviewPassed(tasks.flatMap(task => task.nodes)), failures: failureSummary(tasks) })
 
-export function createOperationManager({ home, workspaceController, execute = executeTask, limitOf = configuredLimit }) {
+export function createOperationManager({ home, workspaceController, execute = executeTask, limitOf = configuredLimit, queue: suppliedQueue }) {
   const starts = new Set()
-  const entries = new Map(), queue = createQueue(limitOf)
+  const entries = new Map(), queue = suppliedQueue || createQueue(limitOf)
   let admission = Promise.resolve()
   const tasksOf = entry => entry.tasks.map(task => ({ ...task, ...(liveTask(task.id) || {}), nodes: liveTask(task.id)?.nodes || task.nodes }))
   const snapshot = entry => {

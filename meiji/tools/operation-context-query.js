@@ -3,7 +3,7 @@ import { libraryDirectory } from '../shared/library-rules.js'
 import { imageItems } from '../shared/library-images.js'
 import { projectStore } from '../server/data/project-store.js'
 import { linkStore } from '../server/data/workspace-links.js'
-import { generationFeedback } from '../server/flow/operations/operation-manager.js'
+import { feedbackOf } from '../shared/review-feedback.js'
 
 export const jsonOutput = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
 export function sessionIdOf(exec) {
@@ -16,10 +16,10 @@ export async function currentProject(home, exec) {
   if (!projectId) throw new Error('当前会话没有项目，请先创建或打开项目')
   return projectStore(home).read(projectId)
 }
-export function contextQueryTool({ home, tasks }) {
+export function contextQueryTool({ home, runs }) {
   return {
     name: 'operation-context-query',
-    description: '查询当前会话显式关联的项目、按顺序排列的剧集及审核状态，以及可打开的项目；current 为 null 表示尚未关联，普通会话无需关联。多步骤创作先查询，再使用 todo_write 规划业务步骤；内容必须通过生成工具保存。',
+    description: '查询当前会话显式关联的项目、按顺序排列的剧集及审核状态，以及当前制作任务、暂停原因与可选动作；current 为 null 表示尚未关联，普通会话无需关联。制作通过 run-plan 预览目标。',
     parameters: { type: 'object', additionalProperties: false, properties: { episodeNumber: { type: 'integer', minimum: 1, description: '需要查看当前基稿时指定集数，返回该集完整数据；默认只返回概况' } } }, output: jsonOutput,
     async execute(args, exec) {
       const { projectId } = await linkStore(home).projectForSession(sessionIdOf(exec))
@@ -33,9 +33,8 @@ export function contextQueryTool({ home, tasks }) {
         library: Object.fromEntries(['characters', 'scenes', 'props'].map(kind => [kind, libraryDirectory(project, kind)])),
         images: { missing: project.episodes.flatMap(episode => imageItems(project, episode).filter(item => !item.ready).map(({ card, ...item }) => ({ ...item, episodeId: episode.id }))) },
         episodes: [...project.episodes].reverse().map((episode, index) => ({ id: episode.id, episodeNumber: index + 1, summary: episode.summary.content, hints: episodeHints(project, episode),
-          stages: Object.fromEntries(['summary', 'outline', 'shots', 'seconds', 'storyboard'].map(stage => { const value = generationFeedback(episode, stage); return [stage, { status: value.status, passed: value.check.passed, failures: value.check.failures }] })) })),
-        // 只列进行中操作（用于避免重复发起），不含任务与步骤；详情只在面板查看。
-        tasks: tasks.list(project.id).map(item => ({ operationId: item.id, action: item.action, status: item.status, episodeId: item.episodeId || null, initiator: item.initiator })),
+          stages: Object.fromEntries(['summary', 'outline', 'shots', 'seconds', 'storyboard'].map(stage => { const value = feedbackOf(episode, stage); return [stage, { status: value.status, passed: value.check.passed, failures: value.check.failures }] })) })),
+        runs: runs ? await Promise.all((await runs.list(project.id, sessionIdOf(exec))).filter(run => ['draft', 'running', 'paused'].includes(run.status)).map(async run => { const detail = await runs.get(project.id, run.id, sessionIdOf(exec)); return { ...run, pause: detail.pause, prereq: detail.prereq, actions: [...new Set(detail.pause?.reasons.flatMap(reason => reason.actions) || [])] } })) : [],
       } : null })
     },
   }

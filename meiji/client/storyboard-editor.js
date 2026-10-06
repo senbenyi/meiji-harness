@@ -1,10 +1,11 @@
+import { targetBusy } from './run-activity.js'
 import { element, showToast } from './panel-dom.js'
 
 export function storyboardEditor(project, story, originalText, actions) {
   const box = element('div', '', 'storyboard-editor')
   const edit = element('button', '编辑')
   edit.type = 'button'
-  edit.disabled = Boolean(project.operationActivity)
+  edit.disabled = targetBusy(project, `storyboard:${story.id}`)
   edit.setAttribute('aria-label', `编辑 ${story.id} 文本分镜`)
   const form = element('form')
   form.hidden = true

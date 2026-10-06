@@ -2,7 +2,6 @@ import { syncLibraryChanges } from '../../shared/library-rules.js'
 import { cascadeChanges } from '../../shared/pipeline-cascade.js'
 import { writeScriptRevision } from './script-store.js'
 import { prepareContentRecords, commitContentRecords, contentTargets } from './content-records.js'
-import { recordStore } from './task-store.js'
 import { notifyProject } from './project-events.js'
 import { GenerationStatus, schemaVersion, node, assertDrama, targetNode, saveReview, allNodes, saveTextDraft, aggregateStatus } from '../../shared/drama-model.js'
 import { mkdir, rm } from 'node:fs/promises'
@@ -12,6 +11,7 @@ import { replaceFrom, sourcePatch, aspectRatioOf, durationOf } from '../../share
 import { normalizeProject } from '../../shared/episode-rules.js'
 import { episodeSnapshot, projectIds, readProjectFile, removeProjectFiles, writeProjectFile } from './project-files.js'
 import { initialProjectStates, refreshProjectStatus } from '../../shared/content-state.js'
+import { runRecordStore, runStore } from './run-store.js'
 
 const writes = new Map()
 
@@ -50,12 +50,12 @@ export function projectStore(home) {
   }
   return {
     async interruptRecords(id) {
-      const history = recordStore(home, id)
-      await history.interrupt()
-      for (const target of contentTargets(await this.read(id))) if (target.node.source) {
-        const artifact = await history.read('artifacts', target.node.source.artifactId)
-        if (!artifact.published) await history.update('artifacts', artifact.id, { ...artifact, published: true })
+      for (const target of contentTargets(await this.read(id))) if (target.node.source?.runId) {
+        const source = target.node.source, records = runRecordStore(home, id, source.runId, source.stepId)
+        const artifact = await records.read('artifacts', source.artifactId)
+        if (!artifact.published) await records.update('artifacts', artifact.id, value => ({ ...value, published: true }))
       }
+      return { runStepIds: new Set((await runStore(home, id).list()).filter(run => !run.endedAt).flatMap(run => run.steps.map(step => step.id))) }
     },
     async list() {
       const projects = []
@@ -164,19 +164,22 @@ export function projectStore(home) {
 }
 
 // Compare only business inputs within the task scope. Draft opinions do not invalidate generation.
-export function revisionStore(store, operationId, scope = {}) {
+export function revisionStore(store, writeToken, scope = {}) {
   const observed = new Map()
   const fingerprint = project => {
     const episode = scope.episodeId ? project.episodes.find(e => e.id === scope.episodeId) : null
     const index = episode?.shots.items.findIndex(shot => shot.id === scope.track) ?? -1
-    const textTask = ['shot-seconds', 'shot-storyboard', 'revise-shot', 'storyboard-text'].includes(scope.action)
+    const selectedShot = episode?.shots.items[index]
+    const usesPreviousFilm = selectedShot?.storyboard.content?.tailReference || selectedShot?.storyboard.content?.video === 'first_frame'
+    const textTask = ['shot-seconds', 'revise-shot'].includes(scope.action)
     const continuity = episode?.shots.items.map((shot, i) => ({
       id: shot.id, duration: shot.duration, content: shot.content,
       ...(textTask && Math.abs(i - index) === 1 && shot.seconds.check.passed === true ? { seconds: shot.seconds.content } : {}),
-      ...(['shot-storyboard', 'storyboard-text'].includes(scope.action) && i === index - 1 ? { storyboard: shot.storyboard } : {}),
-      ...(scope.action === 'film' && i === index - 1 ? { video: shot.video } : {}),
+      ...(['shot-storyboard', 'storyboard-text'].includes(scope.action) && usesPreviousFilm && i === index - 1 ? { video: shot.video, tailFrame: shot.tailFrame } : {}),
+      ...(scope.action === 'film' && usesPreviousFilm && i === index - 1 ? { video: shot.video, tailFrame: shot.tailFrame } : {}),
     }))
-    const value = episode && scope.track ? { summary: episode.summary, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: episode.shots.items[index], ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
+    const group = ['characters', 'scenes', 'props'].includes(scope.action) ? scope.action : null
+    const value = group && episode ? { summary: episode.summary, durationSeconds: episode.durationSeconds, outline: episode.plot.outline, group: episode.plot[group], ...(group === 'props' ? { characters: episode.plot.characters, scenes: episode.plot.scenes } : {}) } : episode && scope.track ? { summary: episode.summary, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: selectedShot, ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
     return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, style: project.style, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision', 'skills', 'supplementalSkills'].includes(key) ? undefined : value)
   }
   const guarded = Object.create(store)

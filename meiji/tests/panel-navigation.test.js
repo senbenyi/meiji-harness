@@ -17,7 +17,7 @@ test('片库和设置返回概要，新会话不残留项目，后台刷新不�
     setInterval: callback => { poll ||= callback; return 1 },
     fetch: async url => {
       const path = new URL(url, 'http://localhost').pathname.replace('/plugins/meiji/', '')
-      const data = path === 'link' ? { projectId: linked ? e.id : null, workspace: null } : path === 'projects/' + e.id ? { project } : path === 'operations/current' ? { operations: [] } : path === 'projects' ? { projects: [project] } : path === 'assets' ? { assets: [] } : null
+      const data = path === 'link' ? { projectId: linked ? e.id : null, workspace: null } : path === 'projects/' + e.id ? { project } : path === 'operations/current' ? { operations: [] } : path === 'runs' ? { runs: [] } : path === 'projects' ? { projects: [project] } : path === 'assets' ? { assets: [] } : null
       assert.ok(data, path)
       return { ok: true, json: async () => structuredClone(data) }
     },
@@ -27,6 +27,12 @@ test('片库和设置返回概要，新会话不残留项目，后台刷新不�
   mount(); await settle()
   const root = document.querySelector('meiji-workbench').shadowRoot
   const click = text => [...root.querySelectorAll('button')].find(button => button.textContent === text).click()
+  assert.ok(root.querySelector('.overview-page'))
+  click('查看任务历史 →'); await settle()
+  assert.ok(root.querySelector('.run-list-page'))
+  await poll(); await settle()
+  assert.ok(root.querySelector('.run-list-page'))
+  click('← 返回'); await settle()
   assert.ok(root.querySelector('.overview-page'))
   root.querySelector('.library').click(); await settle()
   await poll(); await settle()

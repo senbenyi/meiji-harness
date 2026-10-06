@@ -1,6 +1,6 @@
 // 操作：忽略自审并通过
 import { GenerationStatus } from '../../../../shared/drama-model.js'
-import { runNode } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/step-execution.js'
 import { targetNode } from '../../../../shared/drama-model.js'
 import { overrideBlocker, overrideNodes } from '../../../../shared/review-feedback.js'
 import { markPassed } from '../../../../shared/content-state.js'

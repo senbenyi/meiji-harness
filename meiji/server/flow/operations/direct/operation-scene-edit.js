@@ -2,7 +2,7 @@ import { editLinkedCard } from '../../../../shared/library-rules.js'
 // 操作：编辑场景文字
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { runNode } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/step-execution.js'
 import { reviewContent } from '../../steps/step-review-edited-content.js'
 import { plotPatch } from '../../../../shared/drama-model.js'
 import { editSteps } from '../../../../shared/task-plans.js'
@@ -19,6 +19,7 @@ export async function opSceneText(c) {
   if (values.name !== scene.name) throw Object.assign(new Error('场景名称用于素材关联，此处仅编辑描述'), { status: 400 })
   if (project.plot.scenes.items.some(item => item.id !== scene.id && item.name === values.name)) throw Object.assign(new Error('场景名称重复'), { status: 400 })
   project = await runNode('save', () => projects.save(project.id, current => editLinkedCard(current, 'scenes', scene.id, values, { newVariant: operation.newVariant })), { target: 'scenes' })
+  if (deps.deferReview) { note('场景文字已保存，等待复审或人工通过'); return trace }
   const result = await (deps.reviewContent || reviewContent)({ project, stage: '场景文字编辑，仅审场景与大纲一致性，不要求重写大纲或人物卡', text: JSON.stringify(project.plot.scenes.items), route: (modelRoutes(await models.read())).story })
   checkContext.getStore().validation = result.failures
   await projects.save(project.id, {}, { final: true })

@@ -1,3 +1,4 @@
+import { targetBusy } from './run-activity.js'
 import { confirmPanel, element } from './panel-dom.js'
 import { scriptBlockers } from '../shared/script-assembly.js'
 
@@ -17,12 +18,12 @@ export function renderScriptView(project, actions) {
       const result = await actions.load()
       if (sequence !== refreshSequence) return
       if (dirty && !forceRefresh) {
-        for (const button of body.querySelectorAll('button')) if (button.textContent !== '对比所选版本') button.disabled = button.dataset.available !== 'true' || Boolean(result.project.projectBusy || result.project.scriptRevision !== project.scriptRevision)
+        for (const button of body.querySelectorAll('button')) if (button.textContent !== '对比所选版本') button.disabled = button.dataset.available !== 'true' || Boolean(targetBusy(result.project, 'project') || result.project.scriptRevision !== project.scriptRevision)
         if (result.project.scriptRevision !== project.scriptRevision) message.textContent = '剧本已更新，未保存的输入已保留；请重新打开页面核对新版本后保存。'
         return
       }
       dirty = false; forceRefresh = false; message.textContent = ''; project = result.project
-      const busy = Boolean(project.projectBusy)
+      const busy = targetBusy(project, 'project')
       body.replaceChildren()
       body.append(element('p', `${project.scriptKind === 'imported' ? '导入剧本' : '分节剧本'} · V${project.scriptRevision} · ${project.script.length} 字 · ${project.scriptUpdatedAt || ''}`, 'meta'))
       if (!project.script) body.append(element('p', '等待第一集建立剧本。', 'notice'))
@@ -59,6 +60,7 @@ export function renderScriptView(project, actions) {
         if (proposal.status !== 'pending') continue
         const card = element('article', '', 'script-proposal'), inputs = []
         card.append(element('h4', proposal.note || '修改方案'), element('p', `${proposal.source} · ${proposal.episodeId || '项目'} · 依据 V${proposal.baseRevision}`, 'meta'))
+        if (proposal.runId && actions.openRun) { const source = element('button', '查看来源任务'); source.onclick = () => actions.openRun(proposal.runId); card.append(source) }
         for (const [index, change] of proposal.changes.entries()) {
           const label = element('label'), checkbox = element('input'); checkbox.type = 'checkbox'; checkbox.checked = true; checkbox.value = index
           label.append(checkbox, element('span', change.target.kind === 'episode' ? change.target.episodeId : change.target.kind)); inputs.push(checkbox)

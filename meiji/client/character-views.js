@@ -1,4 +1,4 @@
-import { historyEntry } from './execution-history.js'
+import { historyEntry } from './run-history-entry.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { element, appendJsonCopy } from './panel-dom.js'
 import { stillCards, characterSheet, cardImageControls, cardImageGate } from './asset-cards.js'

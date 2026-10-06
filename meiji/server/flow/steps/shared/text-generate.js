@@ -1,4 +1,4 @@
-import { runNode } from '../../../runtime/task-execution.js'
+import { runNode } from '../../../runtime/step-execution.js'
 import { runTextRequest } from '../../../gateway/model-gateway.js'
 import { activeNode } from '../../../runtime/task-context.js'
 

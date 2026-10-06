@@ -1,6 +1,6 @@
 import { cardLibraryControls } from './project-library-view.js'
-import { operationBlocked } from './live-activity.js'
-import { historyEntry } from './execution-history.js'
+import { targetBusy } from './run-activity.js'
+import { historyEntry } from './run-history-entry.js'
 import { reviewFields } from './workflow-review.js'
 import { renderDetailImageActions, syncImageGate } from './image-review.js'
 import { pictureOf } from '../shared/drama-model.js'
@@ -142,14 +142,14 @@ export function cardImageGate(project, item, gate) {
 
 export function cardImageControls(project, item, actions, gate) {
   if (gate) {
-    const controls = renderDetailImageActions(project, actions, gate, { regenerate: false, blocked: operationBlocked(project, { kind: 'direct', lock: 'episode' }) })
+    const controls = renderDetailImageActions(project, actions, gate, { regenerate: false, blocked: targetBusy(project, `image:${item.id}`) })
     controls.classList.add('card-image-review')
     return [controls]
   }
   const button = element('button', 'AI生图', 'primary card-image-generate')
   button.type = 'button'
   button.setAttribute('aria-label', `AI生图：${item.name}`)
-  button.disabled = Boolean(project.operationActivity || project.generationBusy) || !actions.beginImage
+  button.disabled = targetBusy(project, `image:${item.id}`) || !actions.beginImage
   const error = element('p', '', `hint warn card-image-error${item.type === 'role' ? ' character-error' : ''}`)
   error.hidden = true
   error.setAttribute('role', 'status')
@@ -220,7 +220,6 @@ const aspectChoices = [['9:16', '9:16'], ['3:4', '3:4'], ['1:1', '1:1'], ['4:3',
 export function stillCards(project, items, actions, hint, { editable = false, onOpen, imageGate = null } = {}) {
   const activity = typeof project.operationActivity === 'string' ? project.operationActivity : ''
   const imaging = activity.startsWith('image:') ? activity.slice(6) : ''
-  const busy = Boolean(activity)
   const preview = document.createElement('dialog')
   preview.className = 'still-preview'
   const closePreview = element('button', '×', 'cancel')
@@ -258,7 +257,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
   }
   const characterStudio = item => {
     const reviewing = Boolean(imageGate && imageGate.itemId === item.id && !imageGate.track)
-    const controlBusy = busy || reviewing
+    const controlBusy = targetBusy(project, `image:${item.id}`) || targetBusy(project, item.type === 'role' ? 'characters' : item.type === 'prop' ? 'props' : 'scenes') || reviewing
     const mainReview = reviewing && !imageGate.slot
     const card = element('article', '', 'character-studio')
     const stage = element('section', '', 'studio-stage')
@@ -330,7 +329,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     const referenceSrc = item.reference?.localPath || ''
     const aiGenerate = element('button', imaging === item.id ? '生成中' : 'AI生成', 'primary')
     aiGenerate.type = 'button'
-    aiGenerate.disabled = controlBusy || operationBlocked(project, { kind: 'generate', lock: 'episode' })
+    aiGenerate.disabled = controlBusy || targetBusy(project, `image:${item.id}`)
     aiGenerate.setAttribute('aria-label', 'AI生成')
     aiGenerate.onclick = () => generate(aiGenerate, 'AI生成', Boolean(referenceSrc))
     tools.append(aspectWrap, aiGenerate)
@@ -442,7 +441,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
       continue
     }
     const reviewing = Boolean(imageGate && imageGate.itemId === item.id && !imageGate.track)
-    const controlBusy = busy || reviewing
+    const controlBusy = targetBusy(project, `image:${item.id}`) || targetBusy(project, item.type === 'role' ? 'characters' : item.type === 'prop' ? 'props' : 'scenes') || reviewing
     const mainReview = reviewing && !imageGate.slot
     const card = element('article', '', item.type === 'role' ? 'shot-card story-asset' : `shot-card story-asset scene-asset is-${sceneOrientation(project)}`)
     const frame = element('div', '', 'asset-frame')
@@ -496,7 +495,7 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     const actionsRow = element('div', '', 'asset-actions')
     const ai = element('button', imaging === item.id ? '生成中' : 'AI生图', 'primary')
     ai.type = 'button'
-    ai.disabled = controlBusy || operationBlocked(project, { kind: 'generate', lock: 'episode' })
+    ai.disabled = controlBusy || targetBusy(project, `image:${item.id}`)
     ai.onclick = async () => {
       ai.disabled = true
       ai.textContent = '生成中'

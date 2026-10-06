@@ -12,6 +12,10 @@ const root = dirname(fileURLToPath(import.meta.url))
 export const editableParts = []
 export const guidanceStages = ['outline', 'shots', 'seconds', 'storyboard']
 export const textHash = text => createHash('sha256').update(String(text || '')).digest('hex').slice(0, 12)
+export function runStageDependencies() {
+  const graph = JSON.parse(readFileSync(join(root, 'tool-graph.json'), 'utf8'))
+  return Object.fromEntries(graph.stages.map(stage => [stage.id, [...stage.after]]))
+}
 const read = path => readFileSync(path, 'utf8').replace(/\s+$/, '')
 const skillError = message => new Error('技能结构错误：' + message)
 function loadCatalog(base) {

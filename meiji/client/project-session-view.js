@@ -1,9 +1,7 @@
-import { renderOperationDetails } from './task-detail.js'
-import { taskStatusLabels } from './task-nodes.js'
 import { renderImageReview, syncImageGate, detailOwnsImage } from './image-review.js'
 import { renderCharacterDetail } from './character-views.js'
 import { showPanelDialog, element } from './panel-dom.js'
-import { tabOf, tabs } from './flow-view.js'
+import { tabOf, tabs, runTabProgress } from './flow-view.js'
 import { renderShotPage, renderStage, renderSceneDetail } from './generation-stage-views.js'
 import { episodeWork, renderOverview } from './project-overview-view.js'
 import { bindStylePicker } from './style-picks.js'
@@ -138,13 +136,6 @@ export function renderSession(project, openCreate, actions, context = {}) {
   }
   const activeEpisode = context.character?.episodeId || context.scene?.episodeId || context.episodeId
   const activeWork = activeEpisode ? episodeWork(project, activeEpisode) : project
-  if (activeWork?.busyOperation) {
-    const operation = activeWork.busyOperation, notice = element('div', '', 'notice operation-occupancy')
-    notice.append(element('span', `正在执行：${operation.label}（${operation.initiator === 'session' ? '会话' : '面板'}发起）`))
-    const open = element('button', '查看'); open.onclick = () => actions.openOperation?.(project, operation.id)
-    const stop = element('button', '停止'); stop.onclick = async () => { stop.disabled = true; try { await actions.stopOperation?.(operation) } catch { stop.disabled = false } }
-    notice.append(open, stop); view.append(notice)
-  }
   const detailContext = onDetail ? { ...context, detailGate: imageGate } : context
   if (context.character) {
     const characterProject = episodeWork(project, context.character.episodeId)
@@ -192,7 +183,8 @@ export function renderSession(project, openCreate, actions, context = {}) {
   const paint = () => {
     overview.replaceChildren()
     for (const tab of tabs) {
-      const button = element('button', tab.label, 'stage')
+      const progress = runTabProgress(work, tab.id)
+      const button = element('button', `${tab.label}${progress ? ` · ${progress.done}/${progress.total}${progress.paused ? ' · 待处理' : ''}` : ''}`, 'stage')
       button.type = 'button'
       if (tab.id === active) button.setAttribute('aria-current', 'step')
       if (order.indexOf(tab.id) < order.indexOf(current)) button.classList.add('done')
@@ -200,6 +192,13 @@ export function renderSession(project, openCreate, actions, context = {}) {
       button.onclick = () => { active = tab.id; context.onSelectTab?.(tab.id); paint() }
       overview.append(button)
     }
+    const to = element('select'), make = element('button', '一键做到…', 'primary')
+    to.setAttribute('aria-label', '制作终点')
+    const stageIds = { script: 'story', assembly: 'assemble' }
+    for (const tab of tabs.slice(order.indexOf(active))) { const option = element('option', tab.label); option.value = stageIds[tab.id] || tab.id; to.append(option) }
+    to.value = to.options[to.options.length - 1]?.value || stageIds[active] || active
+    make.onclick = async () => { make.disabled = true; try { await actions.perform(work, 'run-goal', { goal: { from: stageIds[active] || active, to: to.value } }) } catch (error) { actions.fail?.(error) } finally { make.disabled = false } }
+    overview.append(to, make)
     if (imageNotice) imageNotice.hidden = active === 'script' && imageGate.episodeId === work.episodeId
     body.replaceChildren(renderStage(active, work, actions, { ...context, imageGate, onGoTab: id => { active = id; context.onSelectTab?.(id); paint() } }))
   }

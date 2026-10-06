@@ -10,7 +10,7 @@ import { runTextNodes } from '../text-workflow.js'
 export async function runProjectSummary({ operation, deps, projects, models, library, project, trace }) {
   await projects.save(project.id, current => {
     const next = structuredClone(current)
-    begin(next.summary, { id: deps.taskId, action: operation.action, consumesReview: false })
+    begin(next.summary, { id: deps.writeToken, action: operation.action, consumesReview: false })
     return next
   })
   const parse = text => parseJsonValue(text).summary.trim()

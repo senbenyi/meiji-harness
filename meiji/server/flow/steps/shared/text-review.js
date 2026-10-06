@@ -1,4 +1,4 @@
-import { runNode, nodeAttempt } from '../../../runtime/task-execution.js'
+import { runNode, nodeAttempt } from '../../../runtime/step-execution.js'
 import { runTextRequest } from '../../../gateway/model-gateway.js'
 import { parseReviewResult, formatReviewIssue } from '../../../../shared/review-result.js'
 import { activeNode } from '../../../runtime/task-context.js'

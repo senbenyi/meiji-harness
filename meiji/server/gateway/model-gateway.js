@@ -4,7 +4,7 @@ import { videoSizeOf } from '../../shared/project-rules.js'
 import { markApiFailure, checkContext } from '../runtime/operation-context.js'
 import { insertSessionLog, sessionForLog, logPurpose, runWithLogPurpose } from '../host/session-log.js'
 import { gatewayBaseUrl } from '../../models/model-config.js'
-import { recordNodePrompt, recordNodeResponse, runNode } from '../runtime/task-execution.js'
+import { recordNodePrompt, recordNodeResponse, runNode } from '../runtime/step-execution.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { builtinSkill, isSkill } from '../../skills/load-skills.js'
 

@@ -1,4 +1,4 @@
-import { runNode } from '../../runtime/task-execution.js'
+import { runNode } from '../../runtime/step-execution.js'
 import { saveLastFrame } from '../../media/extract-video-tail.js'
 import { saveTailFrame } from './shared/video-submit.js'
 

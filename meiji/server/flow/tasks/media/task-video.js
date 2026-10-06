@@ -56,6 +56,7 @@ export async function opFilm(c) {
         await writeFilm(projects, project.id, track, { status: 'error', terminal: error.code === 'VIDEO_TASK_TERMINAL', error: error.message || '成片生成失败' }).catch(() => {})
         throw error
       }
+      if (operation.runVideoOnly) return
       insertSessionLog(deps.session, `${track} 成片已生成，正在提取尾帧`)
       await extractTailFrame({ projects, project, track, file: saved.file, directory: saved.directory, home, deps })
       insertSessionLog(deps.session, `${track} 尾帧已提取`)

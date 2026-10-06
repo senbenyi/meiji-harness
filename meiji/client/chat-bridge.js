@@ -1,5 +1,8 @@
 import { operationRequest } from './operation-request.js'
 import { confirmOperationDelete } from './cascade-confirm.js'
+import { goalRequest } from './goal-request.js'
+import { confirmRunPreview } from './run-preview.js'
+import { chooseEditContinuation } from './run-edit-choice.js'
 import { allNodes, shotMap } from '../shared/drama-model.js'
 
 // 剧集是否有进行中的操作：以内容节点上的 operation 为准（等待人工确认的候选图不算）。
@@ -100,13 +103,30 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         listBefore = new Set(projects.map(item => item.id))
       }
       const operation = operationRequest(action, fields)
+      const target = goalRequest(action, fields)
+      if (target && project) {
+        const scope = { sessionId, projectId: project.id }, preview = await request('runs', { method: 'POST', ...jsonBody({ ...scope, ...target }) })
+        const accepted = await confirmRunPreview(document.querySelector('meiji-workbench')?.shadowRoot?.querySelector('.content') || document.body, preview, {
+          refresh: authorizePrereq => request(`runs/${preview.run.id}/preview`, { method: 'POST', ...jsonBody({ ...scope, authorizePrereq, ...(preview.amend ? { goal: target.goal } : {}) }) }),
+        })
+        if (!accepted) { if (!preview.amend) await request(`runs/${preview.run.id}/cancel`, { method: 'POST', ...jsonBody(scope) }); return { cancelled: true } }
+        const result = await request(`runs/${preview.run.id}/${preview.amend ? 'amend' : 'confirm'}`, { method: 'POST', ...jsonBody({ ...scope, ...accepted, ...(preview.amend ? { goal: target.goal } : {}) }) })
+        if (preview.amend && result.run.status === 'draft') await request(`runs/${preview.run.id}/confirm`, { method: 'POST', ...jsonBody({ ...scope, ...accepted }) })
+        status(result.run.status === 'paused' ? '任务有待处理事项' : '任务已启动')
+        return { ...result, accepted: true, runId: preview.run.id }
+      }
       if (project && !await confirmOperationDelete(project, operation)) { showProject(project); return { cancelled: true } }
       const result = await request('turn', { method: 'POST', ...jsonBody({ sessionId, projectId: project?.id, ...operation }) })
       if (result.completed) {
         clearInterval(timer)
         if (result.deleted) await onDeleted(currentSessionId() === sessionId ? result : { deleted: true })
         else if (result.project) showProject(result.project)
-        status('已完成')
+        if (result.continueRun?.kind === 'sync') { result.syncRunId = result.continueRun.runId; status('摘要已保存，剧本回写任务已启动') }
+        else if (result.continueRun) {
+          const action = await chooseEditContinuation(document.querySelector('meiji-workbench')?.shadowRoot?.querySelector('.content') || document.body)
+          if (action) await request(`runs/${result.continueRun.runId}/resume`, { method: 'POST', ...jsonBody({ projectId: project.id, sessionId, action, stepId: result.continueRun.stepId }) })
+          status(action ? '任务已继续' : '编辑已保存，任务待处理')
+        } else status('已完成')
         return result
       }
       status('任务已启动')

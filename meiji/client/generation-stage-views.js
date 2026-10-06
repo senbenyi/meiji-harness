@@ -1,6 +1,7 @@
+import { targetBusy } from './run-activity.js'
 import { secondsText } from '../shared/seconds-content.js'
 import { outlineText } from '../shared/story-outline.js'
-import { historyEntry } from './execution-history.js'
+import { historyEntry } from './run-history-entry.js'
 import { GenerationStatus, statusLabels } from '../shared/drama-model.js'
 import { videoPromptText as promptText } from '../shared/video-prompt-text.js'
 import { videoSizeOf } from '../shared/project-rules.js'
@@ -111,12 +112,12 @@ function renderBrief(project, actions) {
   head.append(element('h3', '本集摘要'))
   const edit = element('button', '编辑摘要')
   edit.type = 'button'
-  edit.disabled = Boolean(project.operationActivity || project.generationBusy)
+  edit.disabled = targetBusy(project, 'summary')
   edit.onclick = () => actions.openEpisode(project, {
     id: project.episodeId, summary: project.summary, durationSeconds: project.durationSeconds,
   })
   const regenerate = markTask(element('button', project.operationActivity === 'episode' ? '生成中' : '重新生成', 'primary'), 'episode-generate')
-  regenerate.disabled = Boolean(project.operationActivity || project.generationBusy)
+  regenerate.disabled = targetBusy(project, 'summary')
   bindBusy(regenerate, async () => {
     try { await actions.perform(project, 'episode-generate', { episodeId: project.episodeId, ...reviewFields(view) }) }
     catch (error) { regenerate.disabled = false; regenerate.textContent = '重新生成'; actions.fail(error) }
@@ -128,13 +129,13 @@ function renderBrief(project, actions) {
   const hints = project.scriptHints || { scriptUpdated: (project.summary.basis?.scriptRevision || 0) < (project.scriptRevision || 0), pendingSync: project.summary.basis?.scriptSyncedRevision !== project.summary.revision }
   view.append(element('p', [`依据 V${project.summary.basis?.scriptRevision || 0} / 当前 V${project.scriptRevision || 0}`, hints.scriptUpdated && '剧本已更新', hints.previousModified && '前集已修改', hints.pendingSync && '待回写', project.pendingScriptProposal && '待确认方案'].filter(Boolean).join(' · '), 'meta'))
   const current = element('button', '按当前剧本重新生成'), process = element('button', '处理方案'), revert = element('button', '把本集改回符合剧本')
-  current.disabled = revert.disabled = Boolean(project.generationBusy || project.operationActivity)
+  current.disabled = revert.disabled = targetBusy(project, 'summary')
   current.onclick = () => actions.perform(project, 'summary', { episodeId: project.episodeId }).catch(actions.fail)
   revert.onclick = () => actions.perform(project, 'summary', { episodeId: project.episodeId, requirements: '将本集改回符合当前剧本' }).catch(actions.fail)
   process.onclick = () => actions.openScript?.(project)
   controls.append(current, process, revert)
   if (project.summary.content) view.append(element('p', project.summary.content, 'summary'))
-  appendWorkflowReview(view, feedbackOf(project, 'summary'), Boolean(project.summary.content), Boolean(project.operationActivity || project.generationBusy), regenerate, { allowFailureOpinion: true })
+  appendWorkflowReview(view, feedbackOf(project, 'summary'), Boolean(project.summary.content), targetBusy(project, 'summary'), regenerate, { allowFailureOpinion: true })
   return view
 }
 
@@ -167,14 +168,14 @@ function renderStory(project, actions, context) {
   const generated = hasOutline(project) || hasCharacters(project) || hasScenes(project)
   const label = generated ? '重新生成剧情' : '生成剧情'
   const generate = markTask(element('button', project.operationActivity === 'outline' ? '生成中' : label, 'primary'), 'outline')
-  generate.disabled = Boolean(project.operationActivity || project.generationBusy) || !canGenerate(project, 'outline')
+  generate.disabled = targetBusy(project, 'summary') || !canGenerate(project, 'outline')
   bindBusy(generate, async () => {
     try { await actions.perform(project, 'outline', reviewFields(controls)) }
     catch (error) { generate.disabled = false; generate.textContent = label; actions.fail(error) }
   }, '生成中')
   head.append(generate)
   controls.append(head, element('p', '依次生成并审核大纲、提取人物角色、提取场景，各步骤独立调用模型。下方意见用于本次剧情修改。', 'meta'))
-  const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, Boolean(project.operationActivity || project.generationBusy), generate, { allowFailureOpinion: true })
+  const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, targetBusy(project, 'summary'), generate, { allowFailureOpinion: true })
   const input = review.querySelector('input')
   if (input) input.placeholder = '填写剧情、角色或场景的修改意见'
   generate.textContent = project.operationActivity === 'outline' ? '生成中' : label
@@ -242,14 +243,14 @@ function renderScenes(project, actions, context) {
   const propsHead = element('div', '', 'outline-head')
   propsHead.append(element('h3', '道具（服装、坐骑、武器、饰品）'))
   const extract = markTask(element('button', '提取道具', 'primary'), 'props')
-  extract.disabled = Boolean(project.operationActivity || project.generationBusy) || project.plot.scenes.check.passed !== true
+  extract.disabled = targetBusy(project, 'props') || project.plot.scenes.check.passed !== true
   extract.onclick = () => actions.perform(project, 'props', reviewFields(propsView))
   const propsSkill = skillField(project, 'props', actions)
   propsHead.append(extract, propsSkill.querySelector('button'))
   if (actions.openHistory) propsHead.append(historyEntry(project, actions, 'props'))
   propsView.append(propsHead)
   if (props) {
-    if (props.check.passed !== null) appendWorkflowReview(propsView, feedbackOf(project, 'props'), true, Boolean(project.operationActivity || project.generationBusy), extract)
+    if (props.check.passed !== null) appendWorkflowReview(propsView, feedbackOf(project, 'props'), true, targetBusy(project, 'props'), extract)
     propsView.append(...stillCards(project, props.items, actions, hint, { editable: true }))
     if (props.check.passed === true && !props.items.length) propsView.append(element('p', '本集未提取到需独立登记的道具。', 'meta'))
   }
@@ -303,7 +304,7 @@ function paintShotTable(view, project, actions) {
   const heading = element('div', '', 'workflow-generation-row')
   heading.append(element('span', stepRunLabel(project, 'shots'), 'story-status'))
   view.append(heading)
-  const tableBusy = Boolean(project.operationActivity || project.generationBusy)
+  const tableBusy = targetBusy(project, 'shots')
   const ready = canGenerate(project, 'shots')
   const hasTable = hasShots(project)
   const label = hasTable ? '重新生成' : '写镜头表'
@@ -359,7 +360,7 @@ function paintSeconds(view, project, actions) {
     appendWorkflowReview(view, feedbackOf(project, 'seconds'), false)
     return
   }
-  const busy = Boolean(project.operationActivity || project.generationBusy)
+  const busy = targetBusy(project, 'seconds:*')
   const controls = element('div', '', 'workflow-generation-row')
   controls.append(element('span', statusLabels[feedbackOf(project, 'seconds').status], 'story-status'))
   const button = markTask(element('button', '整集重新生成', 'primary'), 'seconds')
@@ -394,7 +395,7 @@ function paintSeconds(view, project, actions) {
 function paintBoards(view, project, actions) {
   const shots = project.shots?.items || []
   if (!shots.length) appendWorkflowReview(view, feedbackOf(project, 'storyboard'), false)
-  const tableBusy = Boolean(project.operationActivity || project.generationBusy)
+  const tableBusy = targetBusy(project, 'storyboard:*')
   if (hasShots(project)) {
     const boarding = project.operationActivity === 'storyboard'
     const controls = element('div', '', 'actions')
@@ -446,7 +447,7 @@ function renderFilm(project, actions, context) {
   const view = element('section', '', 'session-project')
   view.append(element('h3', '成片'), skillField(project, 'storyboard', actions), skillField(project, 'film', actions))
   const all = markTask(element('button', '依次生成全部成片', 'primary'), 'produce-all')
-  all.disabled = Boolean(project.operationActivity || project.generationBusy)
+  all.disabled = targetBusy(project, 'film:*') || targetBusy(project, 'storyboard:*')
   bindBusy(all, () => actions.perform(project, 'produce-all'), '任务已启动')
   if (!context.onlyShot) view.append(all)
   for (const shot of project.shots.items.filter(s => !context.onlyShot || s.id === context.onlyShot)) {
@@ -457,7 +458,7 @@ function renderFilm(project, actions, context) {
     const storyHead = element('div', '', 'workflow-generation-row')
     storyHead.append(element('h4', `分镜提示词 · ${statusLabels[shot.storyboard.status]}`))
     const storyGenerate = markTask(element('button', shot.storyboard.content ? '重新生成提示词' : '生成提示词', 'primary'), 'shot-storyboard', shot.id)
-    storyGenerate.disabled = Boolean(project.operationActivity || project.generationBusy) || shot.seconds.check.passed !== true
+    storyGenerate.disabled = targetBusy(project, `storyboard:${shot.id}`) || shot.seconds.check.passed !== true
     bindBusy(storyGenerate, () => actions.perform(project, 'shot-storyboard', { track: shot.id, ...reviewFields(storySection) }), '生成中')
     storyHead.append(storyGenerate)
     storySection.append(storyHead)
@@ -469,7 +470,7 @@ function renderFilm(project, actions, context) {
       appendJsonCopy(storySection, story)
     }
     if (!story?.prompt) storySection.append(element('div', '分镜提示词尚未生成', 'storyboard-empty film-prompt-empty'))
-    appendWorkflowReview(storySection, shot.storyboard, Boolean(story?.prompt), Boolean(project.operationActivity || project.generationBusy), storyGenerate)
+    appendWorkflowReview(storySection, shot.storyboard, Boolean(story?.prompt), targetBusy(project, `storyboard:${shot.id}`), storyGenerate)
     storyGenerate.textContent = story?.prompt ? '重新生成提示词' : '生成提示词'
     storyGenerate.setAttribute('aria-label', storyGenerate.textContent)
     const videoReview = element('section', '', 'film-video-section')
@@ -489,17 +490,17 @@ function renderFilm(project, actions, context) {
     videoReview.append(media)
     const mediaActions = element('div', '', 'film-media-actions')
     const retry = markTask(element('button', clip?.url ? '重新生成视频' : '生成视频', 'primary'), 'film', shot.id)
-    retry.disabled = Boolean(project.operationActivity || project.generationBusy) || shot.storyboard.check.passed !== true
+    retry.disabled = targetBusy(project, `film:${shot.id}`) || shot.storyboard.check.passed !== true
     bindBusy(retry, () => actions.perform(project, 'film', { track: shot.id, ...reviewFields(videoReview) }), '任务已启动')
     mediaActions.append(retry)
     if (clip?.status === 'ready') {
       const retryTail = markTask(element('button', tail?.content?.localPath ? '重新提取尾帧' : '提取尾帧'), 'tail-frame', shot.id)
-      retryTail.disabled = Boolean(project.operationActivity || project.generationBusy)
+      retryTail.disabled = targetBusy(project, `film:${shot.id}`)
       bindBusy(retryTail, () => actions.perform(project, 'tail-frame', { track: shot.id }), '任务已启动')
       mediaActions.append(retryTail)
     }
     videoReview.append(mediaActions)
-    appendWorkflowReview(videoReview, { ...shot.video, error: shot.video.error || clip?.error }, Boolean(clip?.url), Boolean(project.operationActivity || project.generationBusy), retry)
+    appendWorkflowReview(videoReview, { ...shot.video, error: shot.video.error || clip?.error }, Boolean(clip?.url), targetBusy(project, `film:${shot.id}`), retry)
     retry.textContent = clip?.url ? '重新生成视频' : '生成视频'
     retry.setAttribute('aria-label', retry.textContent)
     card.append(videoReview)
@@ -518,7 +519,7 @@ function renderAssembly(project, actions) {
   const busy = project.operationActivity === 'assemble'
   const button = markTask(element('button', busy ? '拼接中' : '全片拼接', 'primary'), 'assemble')
   button.type = 'button'
-  button.disabled = busy || Boolean(project.operationActivity || project.generationBusy) || !hasFilm(project)
+  button.disabled = targetBusy(project, 'assembly') || !hasFilm(project)
   button.onclick = () => {
     if (button.disabled) return
     button.disabled = true

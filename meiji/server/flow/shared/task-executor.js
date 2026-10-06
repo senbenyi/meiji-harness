@@ -1,7 +1,7 @@
 // 面板与会话共用入口：锁定与任务上下文 → 项目/剧集准备 → 领域操作 → 状态释放与任务收尾。
 // 每个任务使用独立上下文；后台图片/视频完成后才释放任务队列名额。
 import { linkStore } from '../../data/workspace-links.js'
-import { endExecution, runNode, startExecution } from '../../runtime/task-execution.js'
+import { runNode } from '../../runtime/step-execution.js'
 import { executionContext, executionNodes } from '../../runtime/task-context.js'
 import { checkContext, apiFailed } from '../../runtime/operation-context.js'
 import { materialize, normalizeProject } from '../../../shared/episode-rules.js'
@@ -16,38 +16,11 @@ import { runContentReview } from '../tasks/task-review-content.js'
 import { modelStore } from '../../data/model-settings.js'
 import { allNodes, GenerationStatus, modelPatch, targetNode } from '../../../shared/drama-model.js'
 import { markFailed, markPendingReview, refreshEpisodeStatus, settleByCheck } from '../../../shared/content-state.js'
+import { startRunExecution } from '../../runtime/run-execution.js'
+import { taskDefinition } from '../tasks/task-registry.js'
+import { textStepRegistry } from '../tasks/text-step-registry.js'
+import { operations } from '../operations/operation-registry.js'
 
-
-// taskId 由操作执行器生成；每个任务拥有独立执行上下文，媒体完成及尾帧成功后才释放队列名额。
-export async function executeTask(operation, deps) {
-  deps.signal?.throwIfAborted()
-  const task = deps.task, taskId = deps.taskId
-  const domain = task.operation
-  const background = []
-  const state = { failure: undefined, execution: undefined }
-  const context = { review: '', operationId: deps.operationId, taskId, taskType: task.type, signal: deps.signal,
-    requirements: operation.requirements || '', requestedMode: operation.mode, step: operation.step, steps: task.steps, maxRevisions: task.maxRevisions, baseline: deps.baseline }
-  try {
-    if (operation.sessionId && operation.projectId && !(operation.origin === 'panel' && operation.action === 'project-delete')) await linkStore(deps.home).requireProject(operation.sessionId, operation.projectId)
-    state.execution = await startExecution(deps.home, operation, taskId, task.plan, { operationId: deps.operationId, type: task.type, label: task.label, targets: task.targets, actor: task.actor, maxRevisions: task.maxRevisions, stage: task.target?.split(':')[0] })
-    if (state.execution) state.execution.signal = deps.signal
-    return await executionContext.run(state.execution, () => checkContext.run(context, async () => {
-      const trace = await executeOperation(domain, { ...deps, defer: job => { background.push(job) } })
-      const outcomes = await Promise.allSettled(background)
-      const failure = outcomes.find(item => item.status === 'rejected')
-      if (failure) throw failure.reason
-      if (domain.action === 'image' && trace) {
-        const root = await storedImageResult(deps.home, operation.projectId, operation.episodeId, domain.itemId)
-        if (root) trace.result = { ...trace.result, pendingConfirm: true }
-      }
-      return trace
-    }))
-  } catch (error) { state.failure = error; throw error }
-  finally {
-    try { await releaseOperation({ operation: domain, deps, operationId: taskId, context, state }) }
-    finally { await endExecution(state.execution, state.failure, deps.signal) }
-  }
-}
 
 
 async function executeOperation(operation, deps) {
@@ -55,7 +28,16 @@ async function executeOperation(operation, deps) {
   const storedProjects = projectStore(home)
   const models = modelStore(home)
   const library = assetStore(home)
-  const rootProjects = revisionStore(storedProjects, deps.taskId, operation)
+  const rootProjects = revisionStore(storedProjects, deps.writeToken, operation)
+  if (deps.runId) {
+    const save = rootProjects.save.bind(rootProjects)
+    rootProjects.save = (id, patch) => save(id, async current => {
+      deps.signal?.throwIfAborted()
+      const changes = typeof patch === 'function' ? await patch(current) : patch
+      deps.signal?.throwIfAborted()
+      return changes
+    })
+  }
   const trace = []
   const c = { operation, deps, home, storedProjects, rootProjects, projects: rootProjects, models, library, project: null, submittedReview: '', trace, note: line => { trace.push(line) } }
   const handler = deps.task.definition
@@ -65,7 +47,7 @@ async function executeOperation(operation, deps) {
     if (project) checkContext.getStore().originalRoot = structuredClone(project)
     if (!project) throw Object.assign(new Error('没有找到项目'), { status: 404 })
     c.project = project
-    if (handler?.stage === 'project') return operation.step === 'review' ? await runContentReview(c) : await handler.run(c)
+    if (handler?.stage === 'project') return operation.step === 'review' && !operation.draft && !(deps.runId && deps.task.target === 'script') ? await runContentReview(c) : await handler.run(c)
     if (handler.stage !== 'project' && !c.operation.episodeId && (c.operation.sessionId || c.project.episodes.length)) {
       if (c.project.episodes.length !== 1) throw Object.assign(new Error('请指定 episodeId 或从对应剧集面板发起操作'), { status: 409 })
       c.operation = { ...c.operation, episodeId: c.project.episodes[0].id }
@@ -101,7 +83,7 @@ async function executeOperation(operation, deps) {
           await scopeProjects(rootProjects, current.episodeId, current.track).save(current.projectId, view => setCheck(structuredClone(view), current, [...feedbackOf(view, current).check.failures, error.message]))
         }
         // 已开始执行（本集有内容节点归本操作所有）的操作：失败原因只记在目标内容节点上；未开始就失败（如参数校验）不写任何数据。
-        if (c.prepared && allNodes(await c.projects.read(current.projectId)).some(node => node.operation?.id === deps.taskId)) {
+        if (c.prepared && allNodes(await c.projects.read(current.projectId)).some(node => node.operation?.id === deps.writeToken)) {
           await c.projects.save(current.projectId, {}, { final: true, ...(error.code === 'CONTENT_CHECK_FAILED' ? {} : { error: error.message }) })
         }
       } catch { /* Conflicting results are discarded; releaseOperation settles owned nodes. */ }
@@ -110,7 +92,15 @@ async function executeOperation(operation, deps) {
   }
 }
 
-async function releaseOperation({ operation, deps, operationId, context, state }) {
+// 历史面板管理器的适配入口。生产请求已改走 executeRunStep；该入口只供旧插件与迁移期测试读取。
+export async function executeTask(operation, deps) {
+  const task = deps.task || { type: operation.action, target: null, definition: operations[operation.action] || taskDefinition('save'), nodes: [] }
+  const writeToken = deps.taskId || deps.operationId || deps.writeToken
+  const context = { taskId: task.id || deps.taskId, writeToken, signal: deps.signal, nodes: task.nodes || [], nodeId: task.nodes?.[0]?.id, operation, step: operation.step, steps: task.steps || textStepRegistry[task.target?.split(':')[0]], review: operation.review || '', requirements: operation.requirements || '', maxRevisions: task.definition?.maxRevisions ?? 2, outputs: [], baselines: new Map() }
+  return executionContext.run(context, () => checkContext.run(context, () => executeOperation(operation, { ...deps, task, writeToken })))
+}
+
+async function releaseOperation({ operation, deps, writeToken, context, state }) {
   if (!operation.projectId || context.projectDeleted || operation.draft) return
   const nodes = executionNodes(state.execution)
   // 步骤之外的接口失败只记在错误上（见 markApiFailure）。
@@ -121,7 +111,7 @@ async function releaseOperation({ operation, deps, operationId, context, state }
   await projectStore(deps.home).save(operation.projectId, current => {
     const next = structuredClone(current)
     let changed = false
-    if (next.summary.operation?.id === operationId) {
+    if (next.summary.operation?.id === writeToken) {
       if (restoreOriginal && context.originalRoot?.summary.content) next.summary = structuredClone(context.originalRoot.summary)
       else if ((state.failure && state.failure.code !== 'CONTENT_CHECK_FAILED') || deps.signal?.aborted) markFailed(next.summary, state.failure?.message || '任务已停止，请重新发起')
       else if (context.step === 'generate' || context.step === 'revise') { next.summary.operation = null; markPendingReview(next.summary) }
@@ -132,7 +122,7 @@ async function releaseOperation({ operation, deps, operationId, context, state }
     for (const episode of next.episodes) {
       if (restoreOriginal) {
         const original = context.originalRoot?.episodes.find(item => item.id === episode.id)
-        const owned = allNodes(episode).filter(target => target.operation?.id === operationId).map(target => target.id)
+        const owned = allNodes(episode).filter(target => target.operation?.id === writeToken).map(target => target.id)
         const restore = new Set(owned)
         for (const id of owned) {
           const [kind, track] = id.split(':')
@@ -142,7 +132,7 @@ async function releaseOperation({ operation, deps, operationId, context, state }
         if (owned.length && original) {
           for (const id of restore) {
             const target = targetNode(episode, id), previous = targetNode(original, id)
-            if (!target || !previous || (target.operation && target.operation.id !== operationId)) continue
+            if (!target || !previous || (target.operation && target.operation.id !== writeToken)) continue
             const review = target.review, draft = target.draft
             Object.assign(target, structuredClone(previous), { review, draft, operation: previous.operation?.phase === 'awaiting-confirmation' ? structuredClone(previous.operation) : null })
           }
@@ -158,7 +148,7 @@ async function releaseOperation({ operation, deps, operationId, context, state }
       let episodeChanged = false
       const stopped = Boolean(state.failure) || Boolean(deps.signal?.aborted)
       for (const target of allNodes(episode)) {
-        if (target.operation?.id !== operationId || target.operation.phase === 'awaiting-confirmation') continue
+        if (target.operation?.id !== writeToken || target.operation.phase === 'awaiting-confirmation') continue
         const completedStoryStage = context.storyStages && target.operation.phase === 'reviewed' && target.check?.passed === true
         if (!stopped && ['generate', 'revise'].includes(context.step)) { target.operation = null; target.error = null; markPendingReview(target) }
         else if (completedStoryStage || ((!stopped || state.failure?.code === 'CONTENT_CHECK_FAILED') && target.check?.passed != null)) settleByCheck(target)
@@ -173,3 +163,46 @@ async function releaseOperation({ operation, deps, operationId, context, state }
 }
 
 async function storedImageResult(home, projectId, episodeId, itemId) { const root = await projectStore(home).read(projectId); return Object.values(root.episodes.find(item => item.id === episodeId)?.pendingImages || {}).some(draft => draft.itemId === itemId) }
+
+// 即时保存只执行业务处理，不建立制作任务、旧任务记录或后台生成队列。
+export async function executeImmediate(operation, definition, deps) {
+  const task = { type: 'save', operation, target: (typeof definition.step === 'function' ? definition.step(operation) : definition.step)?.target || null, definition: { ...definition, run: c => taskDefinition('save').run(c, definition) } }
+  const state = { execution: null, failure: null }, background = []
+  const context = { writeToken: deps.editId, signal: deps.signal, step: deps.deferReview ? 'generate' : undefined, review: '', requirements: '', maxRevisions: 0 }
+  return executionContext.run(null, () => checkContext.run(context, async () => {
+    try {
+      const trace = await executeOperation(operation, { ...deps, immediate: true, task, writeToken: deps.editId, defer: job => background.push(job) })
+      const outcomes = await Promise.allSettled(background), failed = outcomes.find(item => item.status === 'rejected')
+      if (failed) throw failed.reason
+      return { trace: [...trace], result: trace.result || {} }
+    } catch (error) { state.failure = error; throw error }
+    finally { await Promise.allSettled(background); await releaseOperation({ operation, deps, writeToken: deps.editId, context, state }) }
+  }))
+}
+
+// 业务单步沿用正文校验、保存和释放规则，不建立旧任务/操作记录。
+export async function executeRunStep(run, step, deps) {
+  const definition = step.input.directAction ? { ...operations[step.input.directAction], run: c => taskDefinition('save').run(c, operations[step.input.directAction]) } : taskDefinition(step.input.taskType)
+  const textKind = ['generate', 'revise', 'review', 're_review'].includes(step.kind)
+  const mode = step.kind === 'revise' ? 'modify' : 'generate'
+  const operation = { ...step.input.operation, projectId: run.projectId, episodeId: run.episodeId,
+    sessionId: run.sessionId, ...(textKind ? { step: ['review', 're_review'].includes(step.kind) ? 'review' : step.kind, mode, generationMode: mode === 'modify' ? 'modify' : 'regenerate' } : {}) }
+  if (step.kind === 'revise' && step.input.feedback) { operation.review = JSON.stringify(step.input.feedback); operation.instruction = operation.review }
+  const task = { type: step.input.taskType, target: step.target, definition, operation, steps: textStepRegistry[step.target?.split(':')[0]] }
+  const execution = await startRunExecution(deps.home, run, step, operation)
+  execution.signal = deps.signal
+  const state = { execution, failure: null }, background = []
+  const context = { runId: run.id, writeToken: step.id, taskType: task.type, signal: deps.signal, step: operation.step, steps: task.steps,
+    review: operation.review || '', requirements: operation.requirements || '', maxRevisions: step.kind === 'sync' ? 2 : 0, requestedMode: mode }
+  return executionContext.run(execution, () => checkContext.run(context, async () => {
+    try {
+      if (run.sessionId) await linkStore(deps.home).requireProject(run.sessionId, run.projectId)
+      const trace = await executeOperation(operation, { ...deps, run, step, runId: run.id, task, writeToken: step.id, defer: job => background.push(job) })
+      const pending = await Promise.allSettled(background), failed = pending.find(item => item.status === 'rejected')
+      if (failed) throw failed.reason
+      if (step.kind === 'sync' && trace.result?.reviewPassed === false) throw new Error('剧本回写未通过审核，请处理后重试')
+      return textKind && ['review', 're_review'].includes(step.kind) ? { passed: trace.result.reviewPassed, issues: execution.verdict?.issues || [], result: trace.result } : { trace: [...trace], result: trace.result || null }
+    } catch (error) { state.failure = error; throw error }
+    finally { await Promise.allSettled(background); await releaseOperation({ operation, deps: { ...deps, writeToken: step.id }, writeToken: step.id, context, state }) }
+  }))
+}

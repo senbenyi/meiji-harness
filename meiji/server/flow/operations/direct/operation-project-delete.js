@@ -2,7 +2,6 @@
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checkContext } from '../../../runtime/operation-context.js'
-import { recordStore } from '../../../data/task-store.js'
 import { cascade } from '../../../../shared/pipeline-cascade.js'
 import { readImageDraft } from '../../../data/image-storage.js'
 import { linkStore } from '../../../data/workspace-links.js'
@@ -26,7 +25,6 @@ export async function opProjectDelete(c) {
       return { episodes: current.episodes.filter(item => item.id !== episode.id),
         scriptProposals: current.scriptProposals.filter(item => item.episodeId !== episode.id) }
     })
-    await recordStore(home, project.id).removeEpisode(episode.id)
     await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'films', episode.id), { recursive: true, force: true })
     await rm(join(home, 'storages', 'meiji', 'projects', project.id, 'images', episode.id), { recursive: true, force: true })
     for (const draft of Object.values(episode.pendingImages || {})) {
