@@ -338,6 +338,14 @@ body { display: flex; flex-direction: column; }
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
+.production-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.production-actions .btn { font-size: 12px; padding: 4px 8px; }
+.stage-summary .production-actions { margin-left: 0; }
+.editor-field { display: grid; gap: 6px; margin: 14px 0; font-size: 13px; }
+.editor-field :is(input, textarea, select) { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--panel); font: inherit; line-height: 1.6; }
+.editor-field textarea { resize: vertical; }
+.rework-status { margin-bottom: 16px; padding: 12px 16px; border: 1px solid var(--border); background: var(--panel); border-radius: 8px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rework-status .btn { margin-left: 12px; }
 .node-kind {
   font-size: 12px;
   text-transform: uppercase;

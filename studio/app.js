@@ -532,6 +532,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     }
     head.appendChild(title)
     if (status.textContent) head.appendChild(status)
+    const hasProductionActions = productionActions(node, head)
     card.appendChild(head)
 
     const body = document.createElement('div')
@@ -638,7 +639,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     card.appendChild(foot)
 
     // Domain projections are read through their owning commands, never edited as canvas copies.
-    if (node.domainProjection) return card
+    if (node.domainProjection || hasProductionActions || node.presentation?.historical) return card
 
     // actions
     const actions = document.createElement('div')
@@ -727,6 +728,105 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     return detail
   }
 
+  function productionActions(node, head) {
+    const info = node.presentation || {}
+    if (info.historical) return false
+    let edit, regenerate, replace
+    if (info.role === 'source') edit = { kind: 'source', id: info.sourceId, label: '替换原文' }
+    if (info.role === 'analysis') { edit = { kind: 'analysis', id: currentProject.projectId }; regenerate = { kind: 'analysis' } }
+    if (info.role === 'outline' || info.role === 'script') { edit = { kind: info.role, id: info.episodeId }; regenerate = { kind: info.role, id: info.episodeId, label: info.role === 'outline' ? '重新规划' : '重新生成' } }
+    if (info.role === 'entity') { edit = { kind: info.entityKind, id: info.entityId }; regenerate = edit; replace = edit }
+    if (info.role === 'shot') {
+      edit = { kind: node.kind === 'video' ? 'video' : 'shot', id: info.shotId }
+      regenerate = { kind: node.kind === 'video' ? 'video' : node.kind === 'image' ? 'storyboard' : 'script', id: node.kind === 'text' ? info.episodeId : info.shotId, label: node.kind === 'text' ? '重写本集' : '重新生成' }
+      if (node.kind === 'image') replace = { kind: 'storyboard', id: info.shotId }
+    }
+    if (info.role === 'delivery') { edit = { kind: 'delivery', id: currentProject.projectId }; regenerate = { ...edit, label: '重新合成' } }
+    if (!edit && !regenerate) return false
+    const actions = document.createElement('div')
+    actions.className = 'production-actions'
+    if (edit) actions.appendChild(dialogBtn(edit.label || '修改', () => editProduction(edit)))
+    if (regenerate) actions.appendChild(dialogBtn(regenerate.label || '重新生成', () => regenerateProduction(regenerate)))
+    if (replace) actions.appendChild(dialogBtn('替换图片', () => replaceProductionImage(replace)))
+    head.appendChild(actions)
+    return true
+  }
+
+  async function editProduction(target) {
+    const dlg = openDialog(target.label || '修改内容')
+    dlg.body.textContent = '正在读取当前内容…'
+    try {
+      const editor = await api(`/projects/${currentProject.projectId}/editor?kind=${encodeURIComponent(target.kind)}&id=${encodeURIComponent(target.id || '')}`)
+      dlg.body.innerHTML = ''
+      const hint = document.createElement('p')
+      hint.className = 'svs-hint'
+      hint.textContent = target.kind === 'source' ? '替换后需重新分析，旧原文和已有产物会保留为历史版本。' : '修改生成内容后，关联镜头和旧成片会标记为需要更新。只修改镜头名称不会重新生成媒体。'
+      dlg.body.appendChild(hint)
+      const fields = (items, parent) => items.map((field) => {
+        const label = document.createElement('label')
+        label.className = 'editor-field'
+        const text = document.createElement('span')
+        text.textContent = field.label
+        const input = document.createElement(field.type === 'textarea' ? 'textarea' : field.type === 'strategy' ? 'select' : 'input')
+        if (field.type === 'textarea') input.rows = field.key === 'script' ? 12 : 4
+        else if (field.type === 'strategy') input.innerHTML = '<option value="preserve">保持原始时长</option><option value="strict">严格检查时长一致</option>'
+        else input.type = field.type === 'number' ? 'number' : 'text'
+        if (field.type === 'number') { input.min = '0.1'; input.max = '8'; input.step = '0.1' }
+        input.value = field.value
+        label.append(text, input)
+        parent.appendChild(label)
+        return { key: field.key, input }
+      })
+      const main = fields(editor.fields, dlg.body)
+      const shots = (editor.shots || []).map((shot) => {
+        const detail = detailSection(shot.title, 'edit:' + shot.id)
+        detail.open = true
+        dlg.body.appendChild(detail)
+        return { id: shot.id, fields: fields(shot.fields, detail) }
+      })
+      const error = document.createElement('p')
+      error.className = 'error-line'
+      error.setAttribute('role', 'alert')
+      dlg.body.appendChild(error)
+      const commandId = crypto.randomUUID()
+      const save = dialogBtn('保存修改', async () => {
+        save.disabled = true
+        error.textContent = ''
+        try {
+          const values = Object.fromEntries(main.map(({ key, input }) => [key, input.value]))
+          if (shots.length) values.shots = shots.map((shot) => ({ id: shot.id, ...Object.fromEntries(shot.fields.map(({ key, input }) => [key, input.value])) }))
+          const result = await api(`/projects/${currentProject.projectId}/edit`, { method: 'POST', body: JSON.stringify({ ...target, values, revision: editor.revision, commandId }) })
+          rememberReading(); dlg.close(); render(result.canvas)
+        } catch (err) { error.textContent = err.message; save.disabled = false }
+      }, 'btn-accent')
+      dlg.foot.append(dialogBtn('取消', dlg.close), save)
+    } catch (error) { dlg.body.textContent = error.message; dlg.foot.appendChild(dialogBtn('关闭', dlg.close)) }
+  }
+
+  async function regenerateProduction(target) {
+    const label = target.kind === 'delivery' ? '重新合成' : target.kind === 'outline' ? '重新规划全书分集' : '重新生成'
+    if (!await modal(`${label}当前内容？\n\n会建立新任务并保留历史产物。关联下游需重新生成或合成；本次仅执行所选步骤。`, { okText: label, cancel: true })) return
+    try {
+      const result = await api(`/projects/${currentProject.projectId}/regenerate`, { method: 'POST', body: JSON.stringify({ ...target, revision: currentProject.revision, commandId: crypto.randomUUID() }) })
+      rememberReading(); render(result.canvas)
+    } catch (error) { await alertBox('提交失败：' + error.message) }
+  }
+
+  function replaceProductionImage(target) {
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = UPLOAD_ACCEPT
+    input.onchange = async () => {
+      const file = input.files[0]
+      if (!file) return
+      try {
+        if (file.size > UPLOAD_MAX_BYTES) throw new Error('图片超过 24MB 上限')
+        const result = await api(`/projects/${currentProject.projectId}/replace-image`, { method: 'POST', body: JSON.stringify({ ...target, dataUrl: await readFileDataUrl(file), revision: currentProject.revision, commandId: crypto.randomUUID() }) })
+        rememberReading(); render(result.canvas)
+      } catch (error) { await alertBox('替换失败：' + error.message) }
+    }
+    input.click()
+  }
+
   function startEdit(node, card, body) {
     const ta = document.createElement('textarea')
     ta.className = 'edit'
@@ -795,6 +895,25 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     }
     page.appendChild(heading)
     if (activeStageKey === 'assets') heading.appendChild(el.assetTools)
+    const stageKinds = { analysis: 'analysis', assets: 'assets', scripts: 'script', storyboard: 'storyboard', media: 'media', delivery: 'delivery' }
+    if (stageKinds[activeStageKey]) {
+      const actions = document.createElement('div')
+      actions.className = 'production-actions'
+      actions.appendChild(dialogBtn(activeStageKey === 'delivery' ? '重新合成' : '重新生成本步骤', () => regenerateProduction({ kind: stageKinds[activeStageKey], id: ['scripts', 'storyboard', 'media'].includes(activeStageKey) ? activeEpisodeId : undefined })))
+      if (activeStageKey === 'delivery') actions.appendChild(dialogBtn('合成设置', () => editProduction({ kind: 'delivery', id: project.projectId })))
+      if (activeStageKey === 'analysis') actions.appendChild(dialogBtn('重新规划分集', () => regenerateProduction({ kind: 'outline' })))
+      heading.appendChild(actions)
+    }
+    for (const run of (project.presentation?.runs || []).slice(0, 1)) {
+      if (run.status === 'completed') continue
+      const status = document.createElement('div')
+      status.className = 'rework-status'
+      status.textContent = (run.status === 'failed' ? '重新生成失败' : '正在重新生成') + ` · ${run.completed} / ${run.total}` + (run.errors.length ? '\n' + [...new Set(run.errors)].join('\n') : '')
+      if (run.status === 'failed') status.appendChild(dialogBtn('重试任务', async () => {
+        try { await api(`/projects/${project.projectId}/commands`, { method: 'POST', body: JSON.stringify({ type: 'resumeProductionRun', commandId: crypto.randomUUID(), expectedRevision: currentProject.revision, payload: { runId: run.id } }) }); await load() } catch (error) { await alertBox(error.message) }
+      }))
+      page.appendChild(status)
+    }
     if (progress?.errors?.length) {
       const error = document.createElement('div')
       error.className = 'stage-errors'
@@ -820,7 +939,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       page.appendChild(label)
       nodes = nodes.filter((node) => !node.presentation?.episodeId || node.presentation.episodeId === activeEpisodeId)
     }
-    const main = nodes.filter((node) => nodeLane(node) === 'main')
+    const main = nodes.filter((node) => nodeLane(node) === 'main' && !node.presentation?.historical)
     if (activeStageKey === 'overview') renderOverview(page, allNodes, project)
     else if (activeStageKey === 'assets') renderAssets(page, main)
     else if (activeStageKey === 'storyboard' || activeStageKey === 'media') renderShots(page, main, allNodes)
@@ -847,6 +966,8 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (!main.length) emptyState(page, '暂无' + stage.label, '查看项目总览，确认上一步的制作进度。', 'overview')
     }
     if (activeStageKey !== 'overview') {
+      const history = nodes.filter((node) => node.presentation?.historical)
+      if (history.length) { const detail = detailSection('历史版本 · ' + history.length, 'history:' + activeStageKey); appendCards(detail, history); page.appendChild(detail) }
       for (const lane of ['discard', 'frames']) {
         const group = nodes.filter((node) => nodeLane(node) === lane)
         if (group.length) page.appendChild(laneSection(lane, group))
@@ -898,13 +1019,17 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     const counts = canvasStageCounts(nodes.filter((node) => nodeLane(node) === 'main'))
     for (const [index, stage] of CANVAS_STAGES.slice(1).entries()) {
       const progress = production?.stages?.find((item) => item.key === stage.key)
-      const card = document.createElement('button')
-      card.type = 'button'
+      const card = document.createElement('div')
       card.className = 'stage-summary'
       card.innerHTML = '<span class="stage-number">0' + (index + 1) + '</span><strong>' + stage.label + '</strong><span>'
-        + escapeHtml(progress ? progressText(progress) : counts[stage.key] ? `${counts[stage.key]} 项内容` : '暂无内容') + '</span><span class="stage-link">查看 →</span>'
+        + escapeHtml(progress ? progressText(progress) : counts[stage.key] ? `${counts[stage.key]} 项内容` : '暂无内容') + '</span>'
       if (progress?.status === 'blocked') card.classList.add('needs-attention')
-      card.onclick = () => selectStage(stage.key)
+      const actions = document.createElement('div')
+      actions.className = 'production-actions'
+      actions.appendChild(dialogBtn('查看 / 修改', () => selectStage(stage.key)))
+      const kinds = { analysis: 'analysis', assets: 'assets', scripts: 'script', storyboard: 'storyboard', media: 'media', delivery: 'delivery' }
+      actions.appendChild(dialogBtn(stage.key === 'delivery' ? '重新合成' : '重新生成', () => regenerateProduction({ kind: kinds[stage.key] })))
+      card.appendChild(actions)
       grid.appendChild(card)
     }
     parent.appendChild(grid)

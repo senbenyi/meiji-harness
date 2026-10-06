@@ -7,6 +7,8 @@ import { assertProductionStages, preparationSignature } from '../../lib/domain/p
 import { canvasReadModel } from '../../lib/domain/read-models.js'
 import { canvasStageForNode } from '../../studio/stages.js'
 import { dramaProductionTasks } from '../../lib/production/drama.js'
+import { MemoryProjectRepository, ProjectService } from '../../lib/domain/service.js'
+import { productionEditor } from '../../lib/domain/rework.js'
 
 function fixture() {
   const p = createProjectAggregate({ id: 'drama' })
@@ -37,6 +39,76 @@ function prepared() {
   commandHandlers.bindPreparationAsset(p, { kind: 'storyboard', entityId: 's', assetId: 'board' })
   return p
 }
+
+function delivered() {
+  const p = prepared()
+  p.assets.video = { id: 'video', kind: 'video', status: 'approved', logicalKey: 'video.mp4', contentHash: 'video', dependsOn: [] }
+  p.shots.s.approvedAssetId = 'video'
+  p.shots.s.assetIds = ['video']
+  p.shots.s.status = 'assembled'
+  p.timelines.timeline = { id: 'timeline', status: 'ready', assetIds: ['video'] }
+  p.deliverables.final = { id: 'final', status: 'ready', timelineId: 'timeline', logicalKey: 'final.mp4', contentHash: 'final' }
+  p.status = 'completed'
+  p.episodes.ep.status = 'delivered'
+  return p
+}
+
+test('editing an upstream entity invalidates legacy video and delivery with missing dependency arrays', () => {
+  const p = delivered()
+  commandHandlers.editProductionContent(p, { kind: 'character', id: 'detective', values: { description: 'Red coat' } }, { commandId: 'edit-character' })
+  assert.equal(p.shots.s.status, 'invalidated')
+  assert.equal(p.assets.video.status, 'invalidated')
+  assert.equal(p.timelines.timeline.status, 'invalidated')
+  assert.equal(p.deliverables.final.status, 'invalidated')
+  assert.equal(p.status, 'active')
+  assert.equal(canvasReadModel(p).production.stages.find((stage) => stage.key === 'delivery').completed, 0)
+  assert.equal(canvasReadModel(p).nodes.find((node) => node.id === 'domain:delivery:final').presentation.historical, true)
+})
+
+test('completed shot regeneration creates a fresh durable run and duplicate command reuses it', async () => {
+  const p = delivered()
+  const repo = new MemoryProjectRepository()
+  await repo.put(p)
+  const service = new ProjectService(repo)
+  const command = { projectId: p.id, expectedRevision: p.revision, commandId: 'regen-video', type: 'requestProductionRework', payload: { kind: 'video', id: 's', input: {} } }
+  const first = await service.execute(command)
+  const repeat = await service.execute(command)
+  assert.equal(first.output.runId, repeat.output.runId)
+  assert.equal(Object.keys(repeat.project.productionTasks).length, 1)
+  assert.equal(repeat.project.assets.board.status, 'approved')
+  assert.equal(repeat.project.assets.video.status, 'invalidated')
+  assert.equal(repeat.project.deliverables.final.status, 'invalidated')
+  assert.equal(repeat.project.productionTasks[first.output.taskIds[0]].kind, 'render-shot')
+  await assert.rejects(service.execute({ ...command, commandId: 'second-click', expectedRevision: repeat.project.revision }), /仍有制作任务/)
+})
+
+test('assembly rework keeps approved clips and contains no render tasks', () => {
+  const p = delivered()
+  const result = commandHandlers.requestProductionRework(p, { kind: 'delivery', input: {} }, { commandId: 'assembly' })
+  assert.deepEqual(result.taskIds.map((id) => p.productionTasks[id].kind), ['concat-video', 'deliver-drama'])
+  assert.equal(p.assets.video.status, 'approved')
+  assert.equal(p.deliverables.final.status, 'invalidated')
+})
+
+test('display-only shot edits keep media; narrative edits require a synchronized script', () => {
+  const p = delivered()
+  commandHandlers.editProductionContent(p, { kind: 'shot', id: 's', values: { title: 'New name' } }, { commandId: 'rename' })
+  assert.equal(p.assets.video.status, 'approved')
+  assert.throws(() => commandHandlers.editProductionContent(p, { kind: 'shot', id: 's', values: { shotDescription: 'Changed action' } }, { commandId: 'bad-edit' }), /同步修改/)
+  assert.ok(productionEditor(p, { kind: 'shot', id: 's' }).fields.some((field) => field.key === 'script'))
+  commandHandlers.editProductionContent(p, { kind: 'shot', id: 's', values: { shotDescription: 'Changed action', script: 'Updated full script.' } }, { commandId: 'good-edit' })
+  assert.equal(p.episodes.ep.script, 'Updated full script.')
+  assert.equal(p.assets.video.status, 'invalidated')
+})
+
+test('image replacement updates the formal reference and preserves the old asset', () => {
+  const p = delivered()
+  commandHandlers.replacePreparationImage(p, { kind: 'character', id: 'detective', values: { logicalKey: 'new.png', contentHash: 'new', bytes: 100 } }, { commandId: 'replace' })
+  assert.equal(p.characters.detective.referenceAssetId, 'replace:image')
+  assert.equal(p.shots.s.referenceBindings[0].assetId, 'replace:image')
+  assert.equal(p.assets.detective.status, 'invalidated')
+  assert.equal(p.deliverables.final.status, 'invalidated')
+})
 
 test('drama completion requires validated delivery covering every formal shot', () => {
   const p = prepared()

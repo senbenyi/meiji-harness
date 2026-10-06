@@ -48,8 +48,7 @@ test('invalidation uses legal transitions and returns changed entities', () => {
   assert.equal(project.assets.asset.status, 'invalidated')
 })
 
-test('invalidation depth limit prevents infinite loops', () => {
-  // Build a circular dependency chain (A→B→C→A) by having each entity depend on the previous
+test('invalidation visits long graphs and circular dependencies once', () => {
   const project = { shots: {}, assets: {}, timelines: {}, deliverables: {} }
   const ids = []
   for (let i = 0; i < 150; i++) {
@@ -57,6 +56,7 @@ test('invalidation depth limit prevents infinite loops', () => {
     ids.push(id)
     project.assets[id] = { id, status: 'approved', dependsOn: i > 0 ? [`asset-${i - 1}`] : [] }
   }
-  // This chain is 150 deep — should throw at depth 100
-  assert.throws(() => collectDependents(project, ['asset-0']), /invalidation depth exceeded/)
+  assert.equal(collectDependents(project, ['asset-0']).length, 149)
+  project.assets['asset-0'].dependsOn = ['asset-149']
+  assert.equal(collectDependents(project, ['asset-0']).length, 150)
 })
