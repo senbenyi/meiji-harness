@@ -26,8 +26,9 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 ## 多 Agent 编排协议
 
-- 整书任务禁止由主 Agent 逐段读取和逐段推理。导入源文并创建持久任务图后，必须调用 `studio_novel_workflow`；只传 project/source/hash 和覆盖全文的不重叠区间。禁止调用通用 `workflow`，禁止由模型生成 JavaScript 编排脚本。只有单集或用户明确要求局部修改时才可直接调用一个 `subagent`。
-- `studio_novel_workflow` 内置固定阶段“分段分析 / 故事归并 / 分集写作”，并发封顶 3，并以 schema 约束子 Agent 输出；主 Agent 不得重复实现这些步骤。
+- 整书快速模式只允许主 Agent 调用一次 `studio_novel_create(sourcePath, title)`；该工具内部完成建 Project、源文导入、分段、多 Agent 编排、Proposal 批准与持久化、镜头批量生成和一次状态查询。成功后直接向用户返回紧凑结果，禁止主 Agent再调用任何 `studio_*` 或 `comfy_*` 工具。
+- 整书任务禁止由主 Agent 逐段读取和逐段推理。`studio_novel_create` 内部调用 `studio_novel_orchestrate`，主 Agent不得直接调用这个内部工具。禁止调用通用 `workflow`，禁止由模型生成 JavaScript 编排脚本。只有单集或用户明确要求局部修改时才可直接调用一个 `subagent`。
+- `studio_novel_orchestrate` 内置固定阶段“分段分析 / 故事归并 / 分集写作”，并发封顶 3，并以 schema 约束子 Agent 输出；它还会在内部完成 Proposal 校验/批准/持久化、镜头批量生成和一次状态查询，只向主 Agent 返回紧凑的 projectId、数量、runId 与状态。主 Agent 不得重复调用这些工具，也不得在失败后改用近似工具名。
 - 主 Agent 不等待媒体生成：文本工作流前台完成并持久化后，媒体 ProductionRun 使用后台模式，拿到 `runId` 即查询一次 `studio_production_status` 并向用户返回。不得轮询。
 - 主协调 Agent 是唯一写者：只有它可以导入源文、提交 Proposal、审批和写 Project。子 Agent 只读取指定原文区间并推理，禁止写 Project，避免 revision 冲突。
 - 先创建 `studio_production_create` 持久任务图；每个 task 只能使用 `{id, kind, scopeId?, dependencies?, input?, inputRef?}`，区间写入 `input:{start,end}`，依赖字段必须叫 `dependencies`，禁止使用 `type`、`segment` 或 `dependsOn`。稳定任务 id 按 `source-summary:<index>`、`story-reconcile`、`episode-plan`、`episode-script:<episodeId>` 命名。恢复时先调用 `studio_production_status`，只重做未完成任务；失败或租约中断用 `studio_production_resume`，不得从头重跑。
@@ -41,8 +42,8 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 ## 流程
 
-1. 用 `studio_source_import(sourcePath=<用户给出的工作区文件名>)` 直接导入源文，保存返回的 `sourceId` 与 `contentHash`；不得先把全文读入父 Agent 上下文。仅当工具确认文件不存在或格式不支持时才向用户报告阻塞。
-2. 根据 `studio_source_import.characters` 计算固定区间，不在主 Agent 中读取正文、调用 shell 计数或搜索源码；立即调用一次 `studio_novel_workflow`。未读区间不得当作已确认事实。
+1. 找到用户点名的工作区文件后，调用一次 `studio_novel_create(sourcePath=<相对路径>, title=<短剧标题>)`。不得先创建 Project、读取全文、调用 shell 计数、列举媒体能力或搜索源码。
+2. `studio_novel_create` 成功后直接返回其中的 `projectId`、`runId`、集数和状态；不得重复导入、读取 Project、调用 Proposal/validate/batch/status，也不得再次调用内部工具 `studio_novel_orchestrate`。
 3. 提交 `studio_content_analysis_submit`：`payload` 与 `sourceRefs` 直接传结构化对象/数组，禁止序列化成 JSON 字符串。内容包含摘要、故事圣经、角色、场景、情节节点和原文引用。故事圣经明确人物动机与关系、时间地点、关键道具、故事规则和用户禁用设定；区分原文事实、改编建议与尚未解释的问题。
 4. 默认停止并等待该 Proposal 在 `studio_review_queue` 中获批；若用户已明确授权整书自动执行，本次提交直接传 `autoApprove=true`，由工具在同一调用内批准并写入正式 Project，不再单独调用审核工具。
 5. 基于已批准分析提交 `studio_episode_plan_submit`：继续直接传结构化 `payload`，自动执行时传 `autoApprove=true`。每集必须有稳定 id、顺序、标题、大纲和原文区间。在大纲中写明允许出场的角色、起止人物状态与知情范围、时间地点、因果链、伏笔及兑现位置、结尾钩子；新悬念不得推翻已经成立的解释，新增设定须作为改编建议交由审核。
