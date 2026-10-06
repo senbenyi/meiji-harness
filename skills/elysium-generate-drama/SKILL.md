@@ -20,22 +20,22 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 - 仍覆盖整部小说和全部规划分集，只降低每集镜头密度、对白长度和 prompt 长度；不得默认压成单集，也不得把局部样片称为整书完成。只有用户明确要求“浓缩版”时，才可压缩为 1 集、8–12 镜。
 - 分块读取全文并保留区间摘要，后续只携带摘要与当前必要引用，不重复注入全文。
-- 内容分析、单集规划和单集剧本依次提交；每次 schema 校验通过后，使用用户本次明确授权记录批准决定，不停下来等待选项卡。
-- 镜头使用 `studio_shot_batch_upsert` 单次写入，再运行 `studio_shotlist_validate`；结构校验失败必须修正，人工内容质检跳过。
-- 正式剧本获批后直接调用一次 `studio_batch_generate` 创建媒体 ProductionRun；不加载其他 Skill，不逐镜调用媒体工具。
+- 内容分析、分集规划和单集剧本依次提交；工具检查原文区间、情节节点覆盖、正式剧本及角色／场景绑定，通过后使用用户本次授权批准并持久化。
+- 子 Agent 缺失、失败或输出无效时，对应文本任务必须失败并保留检查点；不得用大纲或“建立场景／情节推进”等模板镜头补齐并自动批准。
+- 正式剧本获批后，工具创建包含“角色／场景参考图 → 分镜图 → 镜头视频 → 分集合成 → 整剧交付”的媒体 ProductionRun；每步检查当前版本与依赖，失败阻断下游。快速模式自动检查、批准媒体，不跳过参考图或分镜图。
 
 ## 多 Agent 编排协议
 
 - 整书快速模式只允许主 Agent 调用一次 `studio_novel_create(sourcePath, title)`；该工具内部完成建 Project、源文导入、分段、多 Agent 编排、Proposal 批准与持久化、镜头批量生成和一次状态查询。成功后直接向用户返回紧凑结果，禁止主 Agent再调用任何 `studio_*` 或 `comfy_*` 工具。
 - 整书任务禁止由主 Agent 逐段读取和逐段推理。`studio_novel_create` 内部调用 `studio_novel_orchestrate`，主 Agent不得直接调用这个内部工具。禁止调用通用 `workflow`，禁止由模型生成 JavaScript 编排脚本。只有单集或用户明确要求局部修改时才可直接调用一个 `subagent`。
-- `studio_novel_orchestrate` 内置固定阶段“分段分析 / 故事归并 / 分集写作”，并发封顶 3，并以 schema 约束子 Agent 输出；它还会在内部完成 Proposal 校验/批准/持久化、镜头批量生成和一次状态查询，只向主 Agent 返回紧凑的 projectId、数量、runId 与状态。主 Agent 不得重复调用这些工具，也不得在失败后改用近似工具名。
+- `studio_novel_orchestrate` 内置固定阶段“分段分析 / 故事归并 / 分集规划 / 分集写作”，并发封顶 3，以 schema 和覆盖检查约束输出，每个成功任务立即持久化；恢复复用已完成任务。工具内部完成 Proposal 校验/批准、媒体任务图和一次状态查询，主 Agent 不得重复这些步骤。
 - 主 Agent 不等待媒体生成：文本工作流前台完成并持久化后，媒体 ProductionRun 使用后台模式，拿到 `runId` 即查询一次 `studio_production_status` 并向用户返回。不得轮询。
 - 主协调 Agent 是唯一写者：只有它可以导入源文、提交 Proposal、审批和写 Project。子 Agent 只读取指定原文区间并推理，禁止写 Project，避免 revision 冲突。
-- 先创建 `studio_production_create` 持久任务图；每个 task 只能使用 `{id, kind, scopeId?, dependencies?, input?, inputRef?}`，区间写入 `input:{start,end}`，依赖字段必须叫 `dependencies`，禁止使用 `type`、`segment` 或 `dependsOn`。稳定任务 id 按 `source-summary:<index>`、`story-reconcile`、`episode-plan`、`episode-script:<episodeId>` 命名。恢复时先调用 `studio_production_status`，只重做未完成任务；失败或租约中断用 `studio_production_resume`，不得从头重跑。
+- 文本与媒体的持久任务图、租约和恢复由 `studio_novel_create` 内部维护。任务引用使用稳定 id，依赖字段为 `dependencies`；恢复只重做失败或未完成任务，主 Agent 不另行创建任务图或从头重跑。
 - 每个 spawn 子 Agent 的固定任务包只含 `{projectId, sourceId, contentHash, start, end, mode, storyBibleDigest?, episodeOutline?, priorStateDigest?, outputSchemaVersion}`，不得携带父对话全文。
 - 原文按不超过 `studio_source_read` 单次上限的区间拆包，并行生成紧凑 JSON：`facts/characterStateDelta/locations/beats/citations/openConflicts`。禁止返回原文全文、工具过程或长篇解释。
 - 分段结果过多时使用分层归并 Agent，每个归并输入和输出都有上限；主协调只保留 Story Bible 摘要、任务状态和当前待写集，不把所有分段结果同时回灌上下文。
-- 剧集写作按依赖图执行：人物状态或因果相依的集串行，互不依赖的支线才并行。每个 Episode Writer 只拿当前集大纲、对应引用区间、Story Bible 摘要和必要前置状态。
+- 每个 Episode Writer 使用已批准故事设定、当前集大纲、情节节点和对应原文区间；工具检查规划情节是否全部进入剧本镜头。当前并发写作不构成逐集人物状态连续性的人工验证。
 - 每次写操作先读取最新 revision，并使用可复算 commandId（如 `<projectId>:analysis:v1`、`<projectId>:episode:<episodeId>:script:v1`）；重试必须复用同一个 commandId。
 - 工具返回 `retryable=false`、JSON/schema/参数错误或同一 commandId 已失败时不得重试；只允许修正一次明确指出的字段。revision 冲突先读取一次最新摘要再重放同一逻辑命令；外部瞬态错误最多重试一次。不得通过搜索源码、日志或安装目录来猜参数。
 - 子 Agent 完成后只把结构化结果交回主协调；主协调立即持久化，随后丢弃正文级中间上下文。不得用“继续”维持超长单 Agent 对话。
@@ -60,6 +60,7 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 - source hash 不匹配：停止，重新读取当前源文，不复用旧分析。
 - Proposal schema 失败：根据具体字段错误只修正候选载荷，不修改正式数据或重写无关剧情。
+- 成片后台运行只表示已排队，不能称为整剧完成；只有全部正式镜头与上游素材有效、正式时间线覆盖全部分集、交付文件登记成功后，Project 才能标记完成。自动元数据和覆盖检查不能代替视觉与叙事审核。
 - 审核拒绝：区分原文引用、结构、人物约束、剧情因果或对白问题，保留拒绝记录和已批准事实，只修正失败内容后创建新 Proposal；不得修改或重用已终结 Proposal。
 - 同一原因再次失败且没有新证据或明确修改依据时，停止重试并说明未解决点；不得循环提交或以整集重写掩盖局部问题。
 - 生产会话禁止为排查工具错误而搜索插件源码、安装目录、Profile 或依赖。第一次失败只允许依据错误修正参数；相同 commandId 再次失败则把该任务标记失败并退出当前任务包，由独立工程会话修复。

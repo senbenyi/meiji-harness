@@ -20,7 +20,7 @@ async function exportFixture(root) {
 
   await cmd(projects, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await cmd(projects, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await cmd(projects, projectId, 'upsertEpisode', { title: '集一' })
+  const ep = await cmd(projects, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集一' })
   const s1 = await cmd(projects, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头1', status: 'ready' })
   const s2 = await cmd(projects, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头2', status: 'ready' })
 
@@ -93,7 +93,7 @@ test('DeliveryService.execute marks failed on empty timeline', async () => {
     const projectId = created.project.id
     await cmd(projects, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
     await cmd(projects, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-    const ep = await cmd(projects, projectId, 'upsertEpisode', { title: '集' })
+    const ep = await cmd(projects, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
     const timeline = await cmd(projects, projectId, 'assembleTimeline', { episodeId: ep.output.id, assetIds: [] })
 
     const delivery = new DeliveryService(projects)
@@ -112,7 +112,7 @@ test('startDeliverableExport/completeDeliverableExport/failDeliverableExport tra
   const projectId = created.project.id
   await cmd(projects, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await cmd(projects, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await cmd(projects, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await cmd(projects, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const tl = await cmd(projects, projectId, 'assembleTimeline', { episodeId: ep.output.id, assetIds: [] })
   const plan = await cmd(projects, projectId, 'planDeliverable', { timelineId: tl.output.timelineId })
   const deliverableId = plan.output.deliverableId
@@ -134,7 +134,7 @@ test('DeliveryService.execute rejects path traversal in asset logicalKey', async
     const projectId = created.project.id
     await cmd(projects, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
     await cmd(projects, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-    const ep = await cmd(projects, projectId, 'upsertEpisode', { title: '集' })
+    const ep = await cmd(projects, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
     const shot = await cmd(projects, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
     const attempt = await cmd(projects, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
     await cmd(projects, projectId, 'advanceGenerationAttempt', { attemptId: attempt.output.attemptId, status: 'submitting' })
@@ -168,7 +168,7 @@ test('failDeliverableExport transitions exporting → failed', async () => {
   const projectId = created.project.id
   await cmd(projects, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await cmd(projects, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await cmd(projects, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await cmd(projects, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const tl = await cmd(projects, projectId, 'assembleTimeline', { episodeId: ep.output.id, assetIds: [] })
   const plan = await cmd(projects, projectId, 'planDeliverable', { timelineId: tl.output.timelineId })
   const deliverableId = plan.output.deliverableId

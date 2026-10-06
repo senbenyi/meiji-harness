@@ -16,9 +16,11 @@ const ASSET_RE = /(角色|场景|地点|道具|资产|设定|定妆|character|sc
 const ANALYSIS_RE = /(分析|简报|规划|大纲|故事圣经|story.?bible|brief|analysis|plan)/i
 
 export function canvasStageForNode(node = {}) {
-  if (CANVAS_STAGES.some((stage) => stage.key !== 'overview' && stage.key === node.stage)) return node.stage
-  const params = node.params || {}
   if (node.kind === 'audio') return null
+  if (CANVAS_STAGES.some((stage) => stage.key !== 'overview' && stage.key === node.stage)) {
+    return node.stage === 'media' && node.kind !== 'video' ? null : node.stage
+  }
+  const params = node.params || {}
   if (CANVAS_STAGES.some((stage) => stage.key === params.canvasStage && stage.key !== 'overview')) {
     return params.canvasStage === 'media' && node.kind !== 'video' ? null : params.canvasStage
   }

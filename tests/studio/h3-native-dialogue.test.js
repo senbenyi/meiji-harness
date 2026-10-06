@@ -70,18 +70,21 @@ for (const capability of ['video.reference2video', 'video.image2video']) {
 test('storyboard dialogue stays visible after video generation and only videos enter media', () => {
   const project = fixture()
   const first = canvasReadModel(project)
-  assert.match(first.nodes[0].content, /小狐狸仰望星空。[^]*我要当宇航员！[^]*风声很轻/)
-  assert.equal(canvasStageForNode(first.nodes[0]), 'storyboard')
+  const storyboard = first.nodes.find((node) => node.params?.shotId === 'fox')
+  assert.match(storyboard.content, /小狐狸仰望星空。[^]*我要当宇航员！[^]*风声很轻/)
+  assert.notEqual(canvasStageForNode(storyboard), 'media')
   project.legacyCanvas = { settings: { audioMode: 'native' }, nodes: [
     ...first.nodes, { id: 'fox', kind: 'video', media: 'fox.mp4' },
     { id: 'voice', kind: 'audio', title: '视频旁白' },
   ] }
   const view = canvasReadModel(project)
-  assert.equal(view.nodes.length, 3)
+  assert.equal(view.nodes.length, first.nodes.length + 2)
   assert.equal(CANVAS_STAGES.find((stage) => stage.key === 'media').label, '视频')
   assert.deepEqual(nodesForCanvasStage(view.nodes, 'media').map((node) => node.id), ['fox'])
-  assert.match(nodesForCanvasStage(view.nodes, 'storyboard')[0].content, /我要当宇航员！/)
+  assert.match(view.nodes.find((node) => node.params?.shotId === 'fox').content, /我要当宇航员！/)
   assert.equal(canvasStageForNode({ kind: 'text', title: '旁白与配音' }), null)
+  assert.equal(canvasStageForNode({ kind: 'audio', stage: 'media', title: '旁白' }), null)
+  assert.equal(canvasStageForNode({ kind: 'text', stage: 'media', title: '配音' }), null)
 })
 
 test('all active H3 tiers inject dialogue and save native audio inside video', () => {

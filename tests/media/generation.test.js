@@ -21,7 +21,7 @@ async function generationFixture() {
   const projectId = created.project.id
   await command(projects, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(projects, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const episode = await command(projects, projectId, 'upsertEpisode', { title: '第一集' })
+  const episode = await command(projects, projectId, 'upsertEpisode', { id: 'legacy-main', title: '第一集' })
   const shot = await command(projects, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready' })
   const attempt = await command(projects, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   return { projects, projectId, attemptId: attempt.output.attemptId }

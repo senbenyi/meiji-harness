@@ -57,7 +57,7 @@ test('generation persists attempt before submission and requires human review be
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation', 'delivery'] })
-  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const episode = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '第一集' })
   const episodeId = episode.output.id
   const shot = await command(service, projectId, 'upsertShot', { episodeId, title: '镜头一', status: 'ready' })
   const shotId = shot.output.id
@@ -80,7 +80,7 @@ test('generation persists attempt before submission and requires human review be
 
 test('batch shot upsert writes one episode shot list atomically', async () => {
   const { service, projectId } = await fixture()
-  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const episode = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '第一集' })
   const episodeId = episode.output.id
   const result = await command(service, projectId, 'batchUpsertShots', {
     shots: [
@@ -96,7 +96,7 @@ test('batch shot upsert writes one episode shot list atomically', async () => {
 
 test('adult project cannot generate without age and rights records', async () => {
   const { service, projectId } = await fixture()
-  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const episode = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '第一集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready' })
   await assert.rejects(
     command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'image.text2image' }),
@@ -108,7 +108,7 @@ test('generation attempt freezes a validated prompt snapshot', async () => {
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const episode = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '第一集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready', prompt: 'test prompt' })
   const { compilePromptSnapshot } = await import('../../lib/prompts/compiler.js')
   const project = await service.getProject(projectId)
@@ -127,7 +127,7 @@ test('download failure can resume the same attempt without a new submission', as
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const episode = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '第一集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready' })
   const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   const attemptId = attempt.output.attemptId
@@ -145,7 +145,7 @@ test('failing one of multiple active attempts keeps the shot generating', async 
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const episode = await command(service, projectId, 'upsertEpisode', { title: '第一集' })
+  const episode = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '第一集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: episode.output.id, title: '镜头', status: 'ready' })
   const first = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   const second = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
@@ -161,7 +161,7 @@ test('cancelGenerationAttempt uses transition and enforces state machine', async
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
   const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   const attemptId = attempt.output.attemptId
@@ -183,7 +183,7 @@ test('cancelGenerationAttempt works from downloading state', async () => {
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
   const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   const attemptId = attempt.output.attemptId
@@ -199,7 +199,7 @@ test('batchRecordReviewDecisions processes multiple decisions in one command', a
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
 
   // Create 3 shots, generate, and complete each to get review tasks
   const reviewTaskIds = []
@@ -274,7 +274,7 @@ test('assembleTimeline marks approved shots as assembled', async () => {
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
   const shotId = shot.output.id
   const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId, capability: 'video.image2video' })
@@ -293,7 +293,7 @@ test('recordAutomatedCheck creates reviewDecision audit record on auto-reject', 
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
   const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   await command(service, projectId, 'markAttemptSubmitted', { attemptId: attempt.output.attemptId, promptId: 'p1' })
@@ -316,7 +316,7 @@ test('recordAutomatedCheck rejects on terminal task status', async () => {
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
   const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   await command(service, projectId, 'markAttemptSubmitted', { attemptId: attempt.output.attemptId, promptId: 'p1' })
@@ -338,7 +338,7 @@ test('recordAutomatedCheck pass keeps awaiting_human, fail auto-rejects', async 
   const { service, projectId } = await fixture()
   await command(service, projectId, 'recordRights', { kind: 'age_confirmation', subjectAdult: true })
   await command(service, projectId, 'recordRights', { kind: 'consent', scope: ['generation'] })
-  const ep = await command(service, projectId, 'upsertEpisode', { title: '集' })
+  const ep = await command(service, projectId, 'upsertEpisode', { id: 'legacy-main', title: '集' })
   const shot = await command(service, projectId, 'upsertShot', { episodeId: ep.output.id, title: '镜头', status: 'ready' })
   const attempt = await command(service, projectId, 'createGenerationAttempt', { shotId: shot.output.id, capability: 'video.image2video' })
   await command(service, projectId, 'markAttemptSubmitted', { attemptId: attempt.output.attemptId, promptId: 'p1' })
