@@ -45,15 +45,6 @@ function projectMeta(project) {
 }
 
 
-function workspaceButton(context, project) {
-  if (!context.onBind) return null
-  const label = project?.title || '未关联项目'
-  const button = element('button', label, 'workspace-bind')
-  button.type = 'button'
-  button.onclick = context.onBind
-  return button
-}
-
 function unboundBody(openCreate, context) {
   const body = element('div', '', 'session-body')
   const projects = context.projects || []
@@ -107,9 +98,7 @@ export function catalogDialog(root) {
 
 export function renderSession(project, openCreate, actions, context = {}) {
   const view = element('section', '', 'session-view')
-  const bind = workspaceButton(context, project)
   if (!project) {
-    if (bind) view.append(bind)
     view.append(unboundBody(openCreate, context))
     return view
   }
