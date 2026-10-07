@@ -119,11 +119,10 @@ test('professional text tasks materialize separate script and storyboard through
   await assert.rejects(f.submit('episode_draft', { ...draft, shots: board.shots }), /cannot submit shots/)
 })
 
-test('rendering preserves authored prompts; delivery plans reject cross-scope and stale results', async () => {
+test('rendering preserves authored prompts while deterministic delivery bypasses the model', async () => {
   const project = authorFixture({ id: 'p', productionSpec: {}, storyBible: { proposalId: 'analysis' }, characters: { visitor: structuredClone(analysis.characters[0]) }, locations: {}, shots: { s: { ...board.shots[0], episodeId: 'ep', scriptVersion: 1, storyboardAssetId: 'preview' } }, episodes: { ep: { id: 'ep', script: draft.script } } })
   const seen = new Set()
   let calls = 0
-  let rewrite = (value) => value
   const runWorkflow = async (tasks) => {
     const workflow = fakeWorkflow((_prompt, options) => {
       calls++
@@ -131,7 +130,7 @@ test('rendering preserves authored prompts; delivery plans reject cross-scope an
       const task = tasks.find((task) => options.label.endsWith(`:${task.label}`))
       const signature = task.prompt.match(/inputSignature=([a-f0-9]+)/)[1]
       const input = JSON.parse(task.prompt.split('\n输入：')[1])
-      return rewrite({ taskId: task.label, inputSignature: signature, decision: 'ready', reason: '', ...(task.role === 'delivery' ? { nodes: input.nodes, strategy: input.strategy } : { prompt: 'A faithful production prompt' }) })
+      return { taskId: task.label, inputSignature: signature, decision: 'ready', reason: '', ...(task.role === 'delivery' ? { nodes: input.nodes, strategy: input.strategy } : { prompt: 'A faithful production prompt' }) }
     })
     return (await runProductionWorkflow(workflow, tasks, {})).result
   }
@@ -150,27 +149,18 @@ test('rendering preserves authored prompts; delivery plans reject cross-scope an
     await prepareMediaTask({ project, task, checkpoint, runWorkflow })
     assert.equal(calls, before, 'a retry must reuse the validated plan')
   }
-  assert.deepEqual([...seen], ['成片'], 'rendering must not silently reauthor the saved prompts')
+  assert.deepEqual([...seen], [], 'rendering must not silently reauthor saved prompts and delivery must stay deterministic')
   project.shots.s.duration = 8
   await assert.rejects(prepareMediaTask({ project, task: tasks[2], checkpoint: async () => {}, runWorkflow }), /需更新/)
-  rewrite = (value) => ({ ...value, nodes: [] })
-  await assert.rejects(prepareMediaTask({ project, task: { ...tasks[3], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /遗漏/)
-  rewrite = (value) => ({ ...value, taskId: 'another-task' })
-  await assert.rejects(prepareMediaTask({ project, task: { ...tasks[3], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /错误的任务/)
-  rewrite = (value) => ({ ...value, decision: 'rework', reason: 'Dialogue cannot fit' })
-  await assert.rejects(prepareMediaTask({ project, task: { ...tasks[3], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /请求返工.*Dialogue/)
 })
 
-test('delivery receives completed assembly files and hashes instead of empty shot references', async () => {
+test('delivery preparation does not delegate deterministic assembly data to a model', async () => {
   const project = { id: 'p', episodes: {}, shots: {}, assets: {}, legacyCanvas: { nodes: [{ id: 'episode-film', status: 'ready', media: 'episode.mp4', params: { contentHash: 'film-hash', actualDuration: 12, sources: ['s1', 's2'] } }] } }
   const task = { id: 'delivery', kind: 'deliver-drama', input: { nodes: ['episode-film'], strategy: 'preserve' }, checkpoint: {} }
-  await prepareMediaTask({ project, task, checkpoint: async () => {}, runWorkflow: async ([request]) => {
-    const input = JSON.parse(request.prompt.split('\n输入：')[1])
-    assert.equal(input.assetVersions[0].contentHash, 'film-hash')
-    assert.equal(input.assets[0].media, 'episode.mp4')
-    assert.deepEqual(input.assets[0].sourceNodeIds, ['s1', 's2'])
-    return [{ label: task.id, value: { taskId: task.id, inputSignature: request.prompt.match(/inputSignature=([a-f0-9]+)/)[1], decision: 'ready', nodes: task.input.nodes, strategy: 'preserve' } }]
-  } })
+  let called = false
+  const prepared = await prepareMediaTask({ project, task, checkpoint: async () => {}, runWorkflow: async () => { called = true } })
+  assert.equal(prepared, task)
+  assert.equal(called, false)
 })
 
 test('coordinator repairs only invalid child results once and preserves successful siblings', async () => {

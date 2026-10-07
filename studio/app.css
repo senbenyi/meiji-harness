@@ -433,8 +433,6 @@ button, select, summary, a { -webkit-tap-highlight-color: transparent; }
 .node > .content-details { padding: 0 16px 12px; overflow-wrap: anywhere; }
 .node-foot { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0 16px 12px; align-items: baseline; font-size: 12px; }
 .node-foot > details[open] { flex-basis: 100%; }
-.node-foot a { color: var(--accent-ink); text-decoration: none; }
-.node-foot a:hover { text-decoration: underline; }
 .text-excerpt { line-height: 1.7; margin: 0 0 8px; }
 .node-body:has(> details[open]) > .text-excerpt { display: none; }
 .table-scroll { max-width: 100%; overflow-x: auto; }

@@ -623,13 +623,6 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
     const foot = document.createElement('div')
     foot.className = 'node-foot'
-    if (node.kind === 'video' && node.media) {
-      const download = document.createElement('a')
-      download.href = mediaUrl(node.media)
-      download.download = (node.title || '视频') + '.mp4'
-      download.textContent = '下载视频'
-      foot.appendChild(download)
-    }
     const technical = detailSection('技术详情', 'technical:' + node.id)
     const raw = document.createElement('pre')
     raw.textContent = JSON.stringify({ id: node.id, status: node.status, params: node.params, media: node.media, qualityReview: info.qualityReview }, null, 2)
