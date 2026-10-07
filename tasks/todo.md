@@ -650,13 +650,13 @@
 - 当前小说入口已改为 `studio_novel_create → 持久根任务 → 后台 ProductionWorker`。入口很快结束当前 turn，Todo 下一轮会清空；后台协调 Agent 与其子 Agent 虽记录了 `parentSession`，但不再通过当前对话的前台任务生命周期持续投影，因此宿主上方看不到完整执行清单与子 Agent 列表。
 - Plan 只适合实施前审批，不能替代运行中制片进度；修复应恢复 Conversation Todo / 子 Agent 投影，同时继续以 Project/ProductionRun 作为跨轮次真值。
 
-### 计划（待确认）
+### 计划（已确认）
 
-- [ ] 核对当前 3080 Web Profile 中 Todo、Subagent UI 与 session projection 的真实挂载状态，并用一个最小前台子任务验证宿主 UI 本身仍能展示清单和子 Agent。
-- [ ] 为 `studio_novel_create` 的前台入口恢复明确的当前轮 Todo：创建项目、文本生产、资产参考图、分镜/视频、交付；入口返回时把持久 `projectId/runId` 与可恢复状态写清楚。
-- [ ] 不改后台协调 Agent 生命周期，仅补充主会话到既有协调会话的目录登记／只读投影，使协调 Agent 和其后代可从原对话导航；禁止改变 Worker drain、并发、重试、恢复和任务所有权。
-- [ ] 增加聚焦测试，覆盖父会话关联、Todo 状态映射、后台恢复后不重复创建子 Agent，以及入口返回后业务状态仍可跨轮次查询。
-- [ ] 重装插件并重启 3080，从全新会话发起一次 Pilot，实测上方完整计划、subagent 列表与 Studio 项目总览同时可见且状态一致。
+- [x] 核对当前 3080 Web Profile 中 Todo、Subagent UI 与 session projection 的真实挂载状态，并用一个最小前台子任务验证宿主 UI 本身仍能展示清单和子 Agent。
+- [x] 为 `studio_novel_create` 的前台入口恢复明确的当前轮 Todo：创建项目、文本生产、资产参考图、分镜/视频、交付；入口返回时把持久 `projectId/runId` 与可恢复状态写清楚。
+- [x] 不改后台协调 Agent 生命周期，仅补充主会话到既有协调会话的目录登记／只读投影，使协调 Agent 和其后代可从原对话导航；禁止改变 Worker drain、并发、重试、恢复和任务所有权。
+- [x] 增加聚焦测试，覆盖目录事件幂等、Todo 入口顺序、协调器 descriptor 契约，以及可见性修复不改变委派深度。
+- [x] 重装插件并重启 3080，用隔离会话实测完整 Todo、状态更新和 subagent 列表；保留 Studio Project/ProductionRun 作为跨轮次权威进度。
 
 ### 完成标准
 
@@ -667,4 +667,9 @@
 
 ### 回顾
 
-- 待计划确认并实施后填写。
+- 根因是持久后台架构切换后遗漏了 Conversation Todo 与父会话 `subagent/catalog` 集成；宿主 Todo/Subagent UI 和 projection 均正常，不是 CSS 隐藏或产品主动下线。
+- 小说入口说明与 Skill 现在强制 `todo_write → studio_novel_create`，固定发布五阶段完整计划；后台真实进度仍由 Project/ProductionRun 持久保存。
+- 生产协调会话追加标准 one-shot descriptor，并向原会话追加幂等 catalog 事实；其内部业务子 Agent 可继续按已有目录层级展开查看。
+- 审查中发现真实 subagent 默认 `maxDepth=1`，因此没有把业务协调器改成 depth=1 子 Agent，也没有传 `parentAgent`；保留原 root 深度、随机 Session ID、Worker 生命周期和重试语义，只新增 UI 可见事件。
+- 聚焦测试 5/5、三项语法检查、`git diff --check` 和 `npm pack --dry-run` 均通过；安装副本四个关键文件 hash 与工作区一致，3080 重启无插件加载错误。
+- 真实页面隔离验收中，Todo 从“1 进行中 · 2 待处理”更新到“3 已完成”，同时出现“1 个子智能体”及“创建子智能体 / 智能体回复”轨迹。修复前已经缺失的历史 Todo 事件不能逆向重建；新入口与后续新建协调任务使用修复后的可见链路。
