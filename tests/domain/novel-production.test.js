@@ -127,6 +127,21 @@ test('fixed workflow returns a failed child envelope instead of dropping it', as
   assert.equal(output[1].value, null)
 })
 
+test('workflow runner obeys per-task retry policy compiled from the pipeline', async () => {
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+  const run = new AsyncFunction('agent', 'parallel', 'phase', 'args', PRODUCTION_WORKFLOW)
+  let calls = 0
+  const workflow = { execute: async ({ args }) => ({ kind: 'foreground', result: await run(async () => { calls++; return { valid: false } }, (thunks) => Promise.all(thunks.map((thunk) => thunk())), () => {}, args) }) }
+  const [result] = (await runProductionWorkflow(workflow, [{
+    label: 'once', role: 'story', phase: '故事分析', schema: {}, prompt: 'Task',
+    retry: { maxAttempts: 1, timeoutMs: 1000, retryOn: ['invalid-output'] },
+    validate: () => { throw new Error('invalid') },
+  }], {})).result
+  assert.equal(calls, 1)
+  assert.equal(result.value, null)
+  assert.equal(result.error, 'invalid')
+})
+
 test('coverage rejects outline substitution, omitted source, unknown references and missing episodes', () => {
   const value = { analysis: structuredClone(analysis), episodePlan: { episodes: [structuredClone(episode)] }, episodeScripts: [structuredClone(script)] }
   assert.doesNotThrow(() => assertNovelCoverage(value, 'source', 100))
