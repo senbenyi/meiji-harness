@@ -40,13 +40,14 @@ export function characterSheet(item) {
     ['性别', values.gender],
     ['年代', values.era],
     ['年龄', values.age],
+    ['服装', values.costume],
     ['身高', values.height],
     ['体型', values.build],
     ['面相', values.features],
   ]
 }
 
-const factKeys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features']
+const factKeys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features']
 
 export function characterFactLine(values) {
   return factKeys.map(key => String(values?.[key] || '').trim()).filter(Boolean).join('，')

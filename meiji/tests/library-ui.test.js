@@ -7,6 +7,7 @@ const settle = () => new Promise(resolve => setImmediate(resolve))
 function setup(t) {
   const dom = new JSDOM('<body></body>'), keys = ['document', 'window', 'fetch'], prior = Object.fromEntries(keys.map(key => [key, globalThis[key]]))
   Object.assign(globalThis, { document: dom.window.document, window: dom.window, fetch: async () => ({ ok: true, json: async () => ({ assets: [] }) }) })
+  dom.window.HTMLDialogElement.prototype.show = function() { this.open = true }
   dom.window.HTMLDialogElement.prototype.close = function() { this.dispatchEvent(new dom.window.Event('close')) }
   t.after(() => { Object.assign(globalThis, prior); dom.window.close() })
   const project = { id: 'project', library: { characters: [], scenes: [], props: [] }, episodes: [] }
@@ -33,4 +34,17 @@ test('库详情默认、照片来源、关联删除保护；卡片提供关联�
   assert.equal([...page.querySelectorAll('button')].find(button => button.textContent === '删除条目').disabled, true)
   const controls = cardLibraryControls(project, card, {})
   assert.match(controls.textContent, /复用库图/); assert.match(controls.textContent, /解除关联/); assert.doesNotMatch(controls.textContent, /新增造型|改变体/)
+})
+
+test('项目详情点击角色或场景直达详情，并提供编辑、重新生成和素材库导入', async t => {
+  const { project } = setup(t), { entry } = createLibraryEntry(project, 'scenes', { name: '庭院', landmark: '老宅' })
+  const page = renderProjectLibrary(project, 'scenes', { perform() {}, back() {} }, { entryId: entry.id }); document.body.append(page)
+  assert.match(page.querySelector('h2').textContent, /场景详情/)
+  assert.equal(page.querySelectorAll('.character-item').length, 0)
+  assert.ok([...page.querySelectorAll('button')].some(button => button.textContent === '编辑资料'))
+  assert.ok([...page.querySelectorAll('button')].some(button => button.textContent === '重新生成'))
+  const importButton = [...page.querySelectorAll('button')].find(button => button.textContent === '从素材库导入')
+  assert.ok(importButton)
+  importButton.click()
+  assert.ok(page.querySelector('dialog [aria-label="从素材库选照片"]'))
 })

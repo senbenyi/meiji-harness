@@ -6,6 +6,7 @@ import { requirementsText } from '../prompt-requirements.js'
 const characterFields = [
   ['nationality', '国籍'], ['name', '姓名'], ['role', '身份'],
   ['gender', '性别'], ['era', '年代'], ['age', '年龄'],
+  ['costume', '服装'],
   ['height', '身高'], ['build', '体型'], ['features', '面相'],
 ]
 
@@ -17,6 +18,7 @@ const characterFields = [
  * @property {string} gender 性别
  * @property {string} era 年代
  * @property {string} age 年龄，保留原始描述
+ * @property {string} costume 服装，按人物资料生成
  * @property {string} height 身高，保留原始描述
  * @property {string} build 体型（含已有身型资料）
  * @property {string} features 面相与外观特征

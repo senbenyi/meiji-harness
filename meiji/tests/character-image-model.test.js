@@ -14,7 +14,7 @@ const input = {
 test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享输入对象', () => {
   const model = createCharacterImageModel(input)
   assert.deepEqual(Object.keys(model), ['character', 'generationRules', 'canvas', 'mode', 'role', 'images', 'modification'])
-  assert.deepEqual(Object.keys(model.character), ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features'])
+  assert.deepEqual(Object.keys(model.character), ['nationality', 'name', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features'])
   assert.equal(Object.hasOwn(model, 'language'), false)
   assert.doesNotMatch(model.toPrompt(), /【语言】|本次生成语言|English|简体中文/)
   assert.doesNotMatch(model.toPrompt(), /视觉风格/)
@@ -29,10 +29,10 @@ test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享�
   assert.equal(input.canvas.width, 1000)
 })
 
-test('基础转换使用具名人物资料和分节自然语言，不混入剧情服装道具或面向', () => {
+test('基础转换使用具名人物资料和分节自然语言，纳入服装但不混入道具或面向', () => {
   const prompt = characterImageModelToPrompt(createCharacterImageModel(input))
-  assert.deepEqual(promptData(prompt, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '180cm', build: '健壮', features: '短发方脸' })
-  assert.doesNotMatch(prompt, /旧外套|木剑|背面|服装：|道具：|面向：/)
+  assert.deepEqual(promptData(prompt, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', costume: '旧外套', height: '180cm', build: '健壮', features: '短发方脸' })
+  assert.doesNotMatch(prompt, /木剑|背面|道具：|面向：/)
   assert.ok(prompt.indexOf('【本次任务】') < prompt.indexOf('【人物资料】'))
   assert.ok(prompt.indexOf('【人物资料】') < prompt.indexOf('【基础规则】'))
   assert.ok(prompt.indexOf('【本次要求】\n') < prompt.indexOf('【人物资料】\n'))

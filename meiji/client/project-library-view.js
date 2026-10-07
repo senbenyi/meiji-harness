@@ -8,21 +8,23 @@ function control(form, key, value = '') {
   const wrap = element('label'), input = element(['look', 'description', 'evidence', 'features'].includes(key) ? 'textarea' : 'input')
   wrap.append(element('span', labels[key] || key), input); input.value = value; input.setAttribute('aria-label', labels[key] || key); input.maxLength = 10000; form.append(wrap); return input
 }
-export function libraryEditor(project, kind, actions, { entry, variant, newVariant = false, done } = {}) {
+export function libraryEditor(project, kind, actions, { entry, variant, newVariant = false, importOnly = false, done } = {}) {
   const spec = libraryKinds[kind], dialog = element('dialog'), head = element('div', '', 'modal-head'), close = element('button', '关闭')
   close.onclick = () => dialog.close(); head.append(element('h3', `${entry ? newVariant ? '新增' + spec.variant : '编辑' : '新建'}${spec.label}`), close)
   const form = element('form', '', 'image-text-editor'), inputs = {}
-  if (!newVariant) for (const key of ['name', 'aliases', ...spec.identity.filter(key => key !== 'required')]) inputs[key] = control(form, key, key === 'aliases' ? (entry?.aliases || []).join('，') : entry?.[key] || '')
-  if (kind !== 'characters') inputs.variantLabel = control(form, 'variantLabel', newVariant ? '' : variant?.label || '默认')
-  for (const key of spec.fields) inputs[key] = control(form, key, variant?.fields[key] || '')
+  if (!importOnly) {
+    if (!newVariant) for (const key of ['name', 'aliases', ...spec.identity.filter(key => key !== 'required')]) inputs[key] = control(form, key, key === 'aliases' ? (entry?.aliases || []).join('，') : entry?.[key] || '')
+    if (kind !== 'characters') inputs.variantLabel = control(form, 'variantLabel', newVariant ? '' : variant?.label || '默认')
+    for (const key of spec.fields) inputs[key] = control(form, key, variant?.fields[key] || '')
+  }
   let required
-  if (kind === 'characters' && !newVariant) {
+  if (kind === 'characters' && !newVariant && !importOnly) {
     const wrap = element('label'); required = element('input'); required.type = 'checkbox'; required.checked = entry?.required === true; required.setAttribute('aria-label', '必须出场'); wrap.append(required, element('span', '必须出场')); form.append(wrap)
   }
   const photo = element('input'); photo.type = 'file'; photo.accept = 'image/png,image/jpeg,image/webp'; photo.setAttribute('aria-label', '指定照片')
   const assets = element('select'); assets.setAttribute('aria-label', '从素材库选照片'); assets.append(element('option', '不选择照片'))
   void request(`assets?category=${kind}`).then(({ assets: rows }) => { for (const row of rows) { const option = element('option', row.originalName || row.name || row.id); option.value = row.id; assets.append(option) } }).catch(() => {})
-  form.append(element('p', '可上传照片或从素材库选图，保存后直接使用。', 'meta'), photo, assets)
+  form.append(element('p', importOnly ? '选择素材库中的角色/场景图片，保存后直接使用。' : '可上传照片或从素材库选图，保存后直接使用。', 'meta'), photo, assets)
   const error = element('p', '', 'error'), save = element('button', '保存', 'primary'); save.type = 'submit'; save.disabled = targetBusy(project, 'project')
   form.append(error, save); dialog.append(head, form)
   form.onsubmit = async event => {
@@ -41,18 +43,20 @@ export function libraryEditor(project, kind, actions, { entry, variant, newVaria
   dialog.addEventListener('close', () => dialog.remove()); return dialog
 }
 export function renderProjectLibrary(initial, kind, actions, { entryId = null } = {}) {
-  const spec = libraryKinds[kind], page = element('section', '', 'task-history-page')
+  const spec = libraryKinds[kind], direct = entryId != null, page = element('section', '', 'task-history-page')
   let project = initial, selected = entryId
-  const header = element('div', '', 'task-history-header'), back = element('button', '← 返回'), create = element('button', `＋ 新建${spec.label}`)
-  back.onclick = actions.back; create.onclick = () => openEditor(); header.append(back, element('h2', `${spec.label}库`), create)
+  const header = element('div', '', 'task-history-header'), back = element('button', '← 返回'), title = element('h2', direct ? `${spec.label}详情` : `${spec.label}库`), create = element('button', `＋ 新建${spec.label}`)
+  back.onclick = actions.back; create.onclick = () => openEditor(); create.hidden = direct; header.append(back, title, create)
   const body = element('div'); page.append(header, body)
   async function run(action, fields) { try { const result = await actions.perform(project, action, { libraryKind: kind, ...fields }); if (!result?.cancelled) await page.refresh() } catch (error) { actions.fail?.(error) } }
   function openEditor(options = {}) { const dialog = libraryEditor(project, kind, actions, { ...options, done: page.refresh }); page.append(dialog); showPanelDialog(dialog) }
   function paint() {
     create.disabled = targetBusy(project, 'project'); body.replaceChildren()
     const entries = project.library?.[kind] || [], list = element('div', '', 'characters-strip')
-    for (const entry of entries) { const button = element('button', entry.name, 'character-item'); button.onclick = () => { selected = entry.id; paint() }; list.append(button) }
-    body.append(list)
+    if (!direct) {
+      for (const entry of entries) { const button = element('button', entry.name, 'character-item'); button.onclick = () => { selected = entry.id; paint() }; list.append(button) }
+      body.append(list)
+    }
     const entry = entries.find(item => item.id === selected)
     if (!entry) { body.append(element('p', entries.length ? '选择条目查看详情与变体。' : '暂无条目，可手动新建或从审核通过的剧情卡片建立。')); return }
     const detail = element('article', '', 'overview-card'); detail.append(element('h3', `${entry.id} · ${entry.name}`), element('p', `别名：${entry.aliases.join('、') || '无'}`, 'meta'))
@@ -66,16 +70,18 @@ export function renderProjectLibrary(initial, kind, actions, { entryId = null } 
       block.append(element('pre', Object.entries(variant.fields).filter(([, value]) => value).map(([key, value]) => `${labels[key] || key}：${value}`).join('\n')))
       const links = libraryLinks(project, kind, entry.id, variant.id)
       block.append(element('p', `关联 ${new Set(links.map(item => item.episodeId)).size} 集 · ${links.map(item => item.name + ' ' + item.cardId).join('、')}`, 'meta'))
-      const generate = element('button', 'AI 生成图片'); generate.disabled = targetBusy(project, `image:${variant.id}`); generate.onclick = () => run('library-image', { libraryId: entry.id, variantId: variant.id })
+      const generate = element('button', '重新生成'); generate.setAttribute('aria-label', `重新生成${spec.label}图片：${entry.name}`); generate.disabled = targetBusy(project, `image:${variant.id}`); generate.onclick = () => run('library-image', { libraryId: entry.id, variantId: variant.id })
       const pending = Object.values(project.pendingImages || {}).find(draft => draft.variantId === variant.id)
       if (pending) { const img = element('img'); img.src = '/plugins/meiji/image-draft?id=' + encodeURIComponent(pending.draftId); img.alt = '候选图片'; img.style.maxWidth = '240px'; const confirm = element('button', '确认使用'), discard = element('button', '放弃'); confirm.disabled = discard.disabled = targetBusy(project, 'project'); confirm.onclick = () => run('entry-image-confirm', { libraryId: entry.id, variantId: variant.id, draftId: pending.draftId }); discard.onclick = () => run('entry-image-discard', { libraryId: entry.id, variantId: variant.id, draftId: pending.draftId }); block.append(img, confirm, discard) }
       for (const link of links) { const jump = element('button', `查看 ${link.cardId} · ${link.name}`); jump.onclick = () => actions.openLibraryCard?.(link.episodeId, link.cardId, kind); block.append(jump) }
-      const edit = element('button', '编辑资料与照片'), clear = element('button', '清除照片')
+      const edit = element('button', '编辑资料'), importAsset = element('button', '从素材库导入'), clear = element('button', '清除照片')
       const buttons = kind === 'characters' ? [edit, clear] : [edit, clear]
       for (const button of buttons) button.disabled = targetBusy(project, 'project')
       edit.onclick = () => openEditor({ entry, variant })
+      importAsset.disabled = targetBusy(project, 'project')
+      importAsset.onclick = () => openEditor({ entry, variant, importOnly: true })
       clear.onclick = () => run('entry-image-clear', { libraryId: entry.id, variantId: variant.id })
-      block.append(generate, edit, clear)
+      block.append(generate, edit, importAsset, clear)
       if (kind !== 'characters') {
         const defaults = element('button', '设为默认'), remove = element('button', `删除${spec.variant}`)
         defaults.disabled = remove.disabled = targetBusy(project, 'project'); remove.disabled ||= links.length > 0 || entry.variants.length < 2

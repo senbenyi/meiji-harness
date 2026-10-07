@@ -16,9 +16,9 @@ const character = { id: 'C01', type: 'role', name: '甲', nationality: '中国',
 const view = item => ({ outputLanguage: 'en', plot: { characters: { items: [item] } }, skills: { additions: { 'character-image': { generate: '本剧人物图补充' } } } })
 const preview = (project, skillSet) => previewPrompts({ stage: 'character-image', root: {}, view: project, skillSet }).image
 
-test('人物模块自行选择外观字段，排除剧情服装、道具与旧面向指令', () => {
-  assert.equal(characterStillPrompt(character), '国籍：中国\n姓名：甲\n身份：旅人\n性别：男\n年代：现代\n年龄：23\n身高：一米八\n体型：健壮\n面相：短发方脸')
-  assert.doesNotMatch(characterStillPrompt(character), /旧外套|木剑|背面|面向：/)
+test('人物模块纳入服装资料，排除道具与旧面向指令', () => {
+  assert.equal(characterStillPrompt(character), '国籍：中国\n姓名：甲\n身份：旅人\n性别：男\n年代：现代\n年龄：23\n服装：旧外套\n身高：一米八\n体型：健壮\n面相：短发方脸')
+  assert.doesNotMatch(characterStillPrompt(character), /木剑|背面|面向：/)
 })
 
 test('人物年龄判断迁移后保留数字、中文岁数与未知年龄分支', () => {
@@ -47,7 +47,9 @@ test('人物固定约束只读且不受旧基础覆盖和本剧补充影响', as
   assert.deepEqual(skillUse(set, 'character-image').layers, ['builtin'])
   assert.doesNotMatch(actual, /本次生成语言|English|简体中文/)
   assert.doesNotMatch(actual, /项目视觉风格/)
-  assert.match(actual, /【人物资料】/); assert.deepEqual(promptData(actual, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '一米八', build: '健壮', features: '短发方脸' })
+  assert.match(actual, /【人物资料】/); assert.deepEqual(promptData(actual, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', costume: '旧外套', height: '一米八', build: '健壮', features: '短发方脸' })
+  assert.match(actual, /不是角色设定表、人物资料页或服装设计板/)
+  assert.match(actual, /禁止出现中英文文字、姓名、属性清单、UI排版、表格、箭头、标注线/)
 })
 
 test('空约束不注入默认值；固定内容纳入技能快照与哈希', () => {
