@@ -1,7 +1,7 @@
 # 档位 · 策略 · 工作流：契约定稿
 
-> 状态：**设计冻结**（2026-09，讨论定稿）· **实现完成**（P1–P5 已落地，见 §8）。实现按本文档执行；改设计先改本文档。
-> 背景数据见 `docs/minimax-h3-video-benchmark.md`（耗时/画质/加速实测）与 `docs/minimax-h3-acceleration-lora.md`（Sol-Attn 细则）。
+> 状态： **设计冻结**（2026-09，讨论定稿）· **实现完成**（P1–P5 已落地，见 §8）。实现按本文档执行；改设计先改本文档。
+> 背景数据见 `../../docs/minimax-h3-video-benchmark.md`（耗时/画质/加速实测）与 `docs/minimax-h3-acceleration-lora.md`（Sol-Attn 细则）。
 
 ## 0. 要解决的问题
 
@@ -63,10 +63,10 @@
 ```
 
 - `estSeconds`：内置清单由生成器从 benchmark 数据自动填；用户上传留空 → UI 显示「耗时未知」。
-- 口径：`estSeconds` 是 **16:9 · 124 帧 · 该档长边** 的实测秒数，UI **原样显示**（`lib/client.js` 只做展示，**没有**按帧数或画幅修正的代码——此前文档里写的「× 帧数/124 × 画幅修正」是错的，已更正）。
+- 口径：`estSeconds` 是 **16:9 · 124 帧 · 该档长边** 的实测秒数，UI **原样显示**（`../../lib/client.js` 只做展示， **没有**按帧数或画幅修正的代码——此前文档里写的「× 帧数/124 × 画幅修正」是错的，已更正）。
   所以换比例/换长度时用户看到的数字会偏。实测比例系数（`fast` 档 124 帧、两阶段放大族）：
   **9:16 = 1.03×**（638.5s，像素量与 16:9 相同）· **1:1 = 1.60×**（992.8s，像素量 1.78×）。
-  即 9:16 基本不用改口径，**1:1 要把 `estSeconds` 乘 ≈1.6**。
+  即 9:16 基本不用改口径， **1:1 要把 `estSeconds` 乘 ≈1.6**。
 - **兼容**：`modes` 仅作只读兼容（老的自定义清单仍可跑），**不再参与档位解析**；`preferred` 退化为「未分级清单」的固定选择。
 
 ## 4. 策略（配置页条目）
@@ -206,35 +206,35 @@ video.reference2video
 - ~~i2v 的 `balanced` 是否补~~ → **已补齐**（2026-09，i2v 8 步 768p fl2v LoRA + shift 6/3 专用模板 `minimax-h3-i2v-8step`，实测 177.3s）。
 - **PDD 是否再加档位**：目前 PDD 清单只提供 `balanced`（nfe=8，已实测）。官方还允许 `nfe=4`（块长重排，未实测）——需要更低成本时再补清单，不动现有清单。
 - ~~**「两段式超分」（`MiniMaxH3AVLatentUpscaleBy`）**~~ → **已实现**（2026）：独立家族 `minimax-h3-ref2v-hires` / `minimax-h3-i2v-hires`，只提供 `quality` 档、
-  `priority < 0`（不做隐式默认）。**开源版 H3 原生上限即 768p**，所以首遍锁在 896×512、latent ×1.5 后二遍以 denoise 0.35 重建细节，交付 1344×768。
-  新增 `resolutionLock` 字段（**图锁定**形态：首遍尺寸是图结构的一部分，显式宽高/画布比例不得覆盖；交付尺寸 = graph × scale，且改写必有 warning）。
-  详见 `docs/hires-two-pass-upscale.md`；验收使用离线 smoke。
-- ~~**「>2K」**~~ → **已实现**（2026）：家族 `minimax-h3-{ref2v,i2v}-ctx-{quality,quality-pdd2,balanced,fast}-2k`（**8 份在役**；另有 `-ctx-balanced-pdd-2k` 一对**已弃用**退场——PDD 接首遍更慢且闪烁，改接二遍即 `-quality-pdd2-2k`）。从 **ctx base** 派生。
-  hires 的插值放大器只能把首遍**拉回**原生 768p，交付分辨率仍等于原生上限；要用**学习式 3D 放大器**
+  `priority < 0`（不做隐式默认）。 **开源版 H3 原生上限即 768p**，所以首遍锁在 896×512、latent ×1.5 后二遍以 denoise 0.35 重建细节，交付 1344×768。
+  新增 `resolutionLock` 字段（ **图锁定**形态：首遍尺寸是图结构的一部分，显式宽高/画布比例不得覆盖；交付尺寸 = graph × scale，且改写必有 warning）。
+  详见 `hires-two-pass-upscale.md`；验收使用离线 smoke。
+- ~~**「>2K」**~~ → **已实现**（2026）：家族 `minimax-h3-{ref2v,i2v}-ctx-{quality,quality-pdd2,balanced,fast}-2k`（ **8 份在役**；另有 `-ctx-balanced-pdd-2k` 一对 **已弃用**退场——PDD 接首遍更慢且闪烁，改接二遍即 `-quality-pdd2-2k`）。从 **ctx base** 派生。
+  hires 的插值放大器只能把首遍 **拉回**原生 768p，交付分辨率仍等于原生上限；要用 **学习式 3D 放大器**
   （`MinimaxH3LatentUpscaler3DRefineHandoff` + `minimax_h3_latent_upscaler_3d_conv_v1_bf16`）在 latent 空间真重建，
-  才能**超过**原生上限。`quality`/`balanced` 档长边 1344、×2 → 交付 **2688×1536（带声音）**；
+  才能 **超过**原生上限。`quality`/`balanced` 档长边 1344、×2 → 交付 **2688×1536（带声音）**；
   `fast` 长边 832 → 交付 **1664×960**。
-  **与链式续接可叠用**：放大发生在链式存档之后 ⇒ 判据是**首遍尺寸一致**，交付尺寸不锁。
-  实测 124 帧 1671.2s（56 帧 269.3s ⇒ 精修在 ≈500k token 上**超线性**）；同 seed 原生对照的频带判据：
+  **与链式续接可叠用**：放大发生在链式存档之后 ⇒ 判据是 **首遍尺寸一致**，交付尺寸不锁。
+  实测 124 帧 1671.2s（56 帧 269.3s ⇒ 精修在 ≈500k token 上 **超线性**）；同 seed 原生对照的频带判据：
   0.25 cyc/px 以上能量 6.6–7.7×（≥0.4 cyc/px 在长片上掉到 1.7×，与高码率重编的对照见文档）。
-  详见 `docs/learned-latent-upscale-2k.md`；验收 `scripts/probe-2k.mjs` + `scripts/analysis/analyze-2k-detail.mjs`；
+  详见 `learned-latent-upscale-2k.md`；验收 `scripts/probe-2k.mjs` + `scripts/analysis/analyze-2k-detail.mjs`；
   **画幅比例**出片探针 `scripts/probe-2k-aspect.mjs`（独立进程直连 ComfyUI，绕开插件模块缓存）：
   `--ratio 9:16 --frames 124` 实测 638.5s → 交付 **960×1664** 带音轨（`fast` 档，首遍 480×832）；
-  `--ratio 1:1` 实测 22/56/124 帧都出片（**1664×1664** 带音轨，124 帧 992.8s），
+  `--ratio 1:1` 实测 22/56/124 帧都出片（ **1664×1664** 带音轨，124 帧 992.8s），
   但 124 帧峰值显存 72.6/79.2 GiB（余量 6.6 GiB）且另有一次运行被中断 ⇒ **1:1 尽量压帧数**。
-- **`resolutionLock` 的第二种形态：只锁倍率**（2026-09，本族专用）。首版把首遍**钉死**在它声明的 `graph`
+- **`resolutionLock` 的第二种形态：只锁倍率**（2026-09，本族专用）。首版把首遍 **钉死**在它声明的 `graph`
   上（`constraints.aspectRatios: ['16:9']`）——理由是「倍率与首遍尺寸写死在图里，换比例会让前提失效」。
-  实测推翻了这个理由：把图内目标尺寸从字面量 `2688×1536` 换成**算术模板** `"${width * 2}"` / `"${height * 2}"`
-  （`lib/manifest.js` 的 `evalTemplateArithmetic` 白名单 `[0-9+\-*/().\s]`）之后，同一份图在任意比例下都自动对上首遍。
-  于是 `resolutionLock` 只需声明 `{ scale: 2 }`：**首遍照常推导**（显式宽高 > 画布比例 × 档位长边 > default），
-  交付 = 首遍 × scale。收益：9:16 / 1:1 可用，且**显式 width/height 重新生效**。
+  实测推翻了这个理由：把图内目标尺寸从字面量 `2688×1536` 换成 **算术模板** `"${width * 2}"` / `"${height * 2}"`
+  （`../../lib/manifest.js` 的 `evalTemplateArithmetic` 白名单 `[0-9+\-*/().\s]`）之后，同一份图在任意比例下都自动对上首遍。
+  于是 `resolutionLock` 只需声明 `{ scale: 2 }`： **首遍照常推导**（显式宽高 > 画布比例 × 档位长边 > default），
+  交付 = 首遍 × scale。收益：9:16 / 1:1 可用，且 **显式 width/height 重新生效**。
   代价：1:1 的交付像素量是 16:9 的 **1.78×**（2688×2688），`estSeconds` 未按比例修正（UI 的画幅修正只到 1.08）。
   ⚠️ **hires 族保持图锁定形态不变**（它的放大倍率是插值节点上的字面量，且首遍必须落在原生 ÷1.5）。
 - ~~**「像素空间超分（U3）」**~~ → **已实现**（2026）：能力 `video.upscale` + 工具 `video_upscale`，
   清单 `video-upscale-x2` / `-x4`（`priority` 0 / -10），模型走资产槽 `upscale_x2`/`upscale_x4`。
-  与生成类的差别：**尺寸跟输入视频走**，声明**尺寸来源**（`upscale.sizing`：`factor` = 交付源 × 倍率 / `short-side` = 交付由实现的目标短边推导）与**分块归属**（`upscale.chunking`：`caller` 可由 runner 切 / `internal` 显存归实现自己管），**不得**带 `resolutionLock`；
-  逐帧独立 ⇒ 代价线性、天然可分块（长片切块再拼回，不需要 ffmpeg）。纯逻辑在 `lib/upscale.js`，编排在 `lib/index.js` 的 `runUpscale`。
-  详见 `docs/video-upscale.md`；验收使用离线 smoke。**推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
+  与生成类的差别： **尺寸跟输入视频走**，声明 **尺寸来源**（`upscale.sizing`：`factor` = 交付源 × 倍率 / `short-side` = 交付由实现的目标短边推导）与 **分块归属**（`upscale.chunking`：`caller` 可由 runner 切 / `internal` 显存归实现自己管）， **不得**带 `resolutionLock`；
+  逐帧独立 ⇒ 代价线性、天然可分块（长片切块再拼回，不需要 ffmpeg）。纯逻辑在 `../../lib/upscale.js`，编排在 `lib/index.js` 的 `runUpscale`。
+  详见 `video-upscale.md`；验收使用离线 smoke。 **推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
 - **PDD 的多镜头一致性未验**：现有画质结论来自单帧/单 seed；同一部片子若混用 PDD 与非 PDD 档，观感是否漂移未知（与 Sol 的"不逐镜混用"同理需要一部完整片子验证）。
 - 长 duration（250/372 帧）的耗时线性假设未实测。
 - 多行/竖版字幕在各档的字准样本量不足（n=1）。**当前状态**：配方已单源到 `skills/h3-prompt-writing`「字幕与画面内文案（唯一权威版）」，已实测的是 quality 逐字一致 / balanced 整段未烧 / fast 有错字；样本量为 1，多行与竖版待补测后回填该节。

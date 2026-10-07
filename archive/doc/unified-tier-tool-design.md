@@ -1,7 +1,7 @@
 # 统一档位与工具面：图片/视频一体化（设计定稿 v1.0）
 
-> 状态：**已拍板，待实施**（P0 完成）
-> 关联：[`docs/tier-strategy-design.md`](tier-strategy-design.md)（三层模型原稿）、[`docs/workflow-contract.md`](workflow-contract.md)、[`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
+> 状态： **已拍板，待实施**（P0 完成）
+> 关联：[`tier-strategy-design.md`](tier-strategy-design.md)（三层模型原稿）、[`workflow-contract.md`](workflow-contract.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md)
 
 ---
 
@@ -152,7 +152,7 @@ capability + tier
 - 删：全部 `workflow=` 教学、实现 id 举例、「换模型先查注册表再显式指定 workflow」流程。
 - 改：「生成 = 选能力 + 选档位 + 给画幅 + 给创作参数；实现由配置决定，技能不参与」。
 - 「换工作流」选项卡 → 「该档位不可用时的处置」（改档位 / 改配置 / 跳过）。
-- 范围：`3d-animation-short-generator`、`brand-promo-video-generator`、`video-generate`、`image-generate`、`h3-prompt-writing`（含 references）+ `lib/index.js` 的系统提示词 `GUIDANCE`。
+- 范围：`3d-animation-short-generator`、`brand-promo-video-generator`、`video-generate`、`image-generate`、`h3-prompt-writing`（含 references）+ `../../lib/index.js` 的系统提示词 `GUIDANCE`。
 - 设置页保留实现列表（配置面），仅改文案。
 
 ---
@@ -200,7 +200,7 @@ capability + tier
 
 | 阶段 | 状态 | 证据 |
 |---|---|---|
-| P1 四能力并入 tier（家族清单 + 加载时展开） | ✅ | `workflows/` 4 份家族清单 → 注册表 12 个逐档兼容实现；`smoke-manifest` 同时断言物理文件数与运行时实现数；`pins` / preferred 家族序 / 旧 id 保持兼容 |
+| P1 四能力并入 tier（家族清单 + 加载时展开） | ✅ | `../../workflows` 4 份家族清单 → 注册表 12 个逐档兼容实现；`smoke-manifest` 同时断言物理文件数与运行时实现数；`pins` / preferred 家族序 / 旧 id 保持兼容 |
 | P2 工具面去 workflow/mode | ✅ | 四个生成工具的 schema 无 `workflow`/`mode`（smoke-tools 断言）；runner 收到 `workflow=` **报错**；`comfy_list_workflows` 主输出改为「能力→档位」，实现 id 进 `diagnostics`；GUIDANCE 与 5 个技能改写 |
 | P3 分辨率统一 | ✅ | 图片清单改 `policy=aspect-ratio`；只传一边→另一边按画布比例推导（smoke-render 断言）。实测 9:16 画布下 t2i fast = 576×1024 |
 | P4 记账与告警 | ✅ | `probeImageSize`（PNG/JPEG/WebP）回填真实像素；未支持参数进 warnings（工具返回 + 节点 `params.warnings`）。实测 i2i quality：节点记 1536×2720 == 产物真实像素，且收到「width 未生效」+「交付尺寸以产物为准」两条警告 |

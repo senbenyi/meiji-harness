@@ -4,7 +4,7 @@
 
 实验环境：本机 ComfyUI 0.33.3 / 单卡 Ampere（sm_80）/ `minimax_h3_ref2va_pruned_int8_convrot`，`mode=fast`（4 步 Lightning LoRA），832×480，`length=124`（5.17s），每臂约 28s。
 
-方法：复用项目自身的 `lib/manifest.js` `buildGraphFromManifest()`，跑的就是生产路径。所有臂固定 `seed=42424242`、固定 prompt（J/K 组换 seed 与 prompt，组内固定），只变参考图与参数。额外在 `VAEDecode` 后挂 `ImageFromBatch → SaveImage` 抽帧用于逐帧目视比对。
+方法：复用项目自身的 `../../lib/manifest.js` `buildGraphFromManifest()`，跑的就是生产路径。所有臂固定 `seed=42424242`、固定 prompt（J/K 组换 seed 与 prompt，组内固定），只变参考图与参数。额外在 `VAEDecode` 后挂 `ImageFromBatch → SaveImage` 抽帧用于逐帧目视比对。
 
 > 每个臂都产出了真实音视频 mp4（`tracks=['vide','soun']`、5.17s、带音轨）。报告里的 PNG 是从这些视频里抽出的帧，不是独立生成的静图。
 
@@ -18,8 +18,8 @@
 
 | 位置 | 表述 |
 |---|---|
-| `README.md` §3 标题 | 「角色卡（character cards，**单视图**参考）」 |
-| `README.md` 实战要点 1 | 「参考图用**单视图**」 |
+| `../../README.md` §3 标题 | 「角色卡（character cards，**单视图**参考）」 |
+| `../../README.md` 实战要点 1 | 「参考图用**单视图**」 |
 | `SKILL.md:39` | 「**单视图**正面全身」 |
 | `lib/index.js:1776`（GUIDANCE Step 3） | 「含正/侧/背**三视图**」 |
 
@@ -128,9 +128,9 @@ ref_image_0 指向: ["1001",0]
 
 意义：
 
-- **零 JS 改动**。manifest 的 `preprocess` 原语（`lib/manifest.js` 已实现）本来就是为这类图像预处理设计的，这次验证了它足够表达裁切。
+- **零 JS 改动**。manifest 的 `preprocess` 原语（`../../lib/manifest.js` 已实现）本来就是为这类图像预处理设计的，这次验证了它足够表达裁切。
 - **历史资产可自动救回**。已入库的三视图卡不用重新生成。
-- 印证了 `docs/workflow-contract.md` 的 M5 验收标准：能力扩展只需改 json。
+- 印证了 `workflow-contract.md` 的 M5 验收标准：能力扩展只需改 json。
 
 但**硬编码裁切参数不能直接上生产**——不同卡的视图布局不同。落地方案见 §6。
 
@@ -189,4 +189,4 @@ ref_image_0 指向: ["1001",0]
 
 ## 附：复现
 
-实验脚本在 `/tmp/consistency-exp/`（`run.mjs` A-D、`run2.mjs` E-G、`run3.mjs` H-I、`run4.mjs` J-K），均直接 import 项目的 `lib/manifest.js`。对比图 `grid.png`（A-D）、`grid2.png`（E-G）、`grid3.png`（B/H/I）、`grid4.png`（J/K 转身序列）。
+实验脚本在 `/tmp/consistency-exp/`（`run.mjs` A-D、`run2.mjs` E-G、`run3.mjs` H-I、`run4.mjs` J-K），均直接 import 项目的 `../../lib/manifest.js`。对比图 `grid.png`（A-D）、`grid2.png`（E-G）、`grid3.png`（B/H/I）、`grid4.png`（J/K 转身序列）。

@@ -1,11 +1,11 @@
 # 图生视频（I2V）与参考生视频（Ref2V）：概念差别，以及 LTX-2.5 与 MiniMax H3 的取舍
 
 > **本文性质**：技术选型参考文档，不是插件契约的一部分。
-> 插件本体保持**模型无关**——只说能力（`video.image2video` / `video.reference2video`），模型名只出现在工作流清单里。
-> 因此本文里的模型名（MiniMax H3 / LTX-2.5）**不得**被写进 skill 流程、prompt 模板或工具契约；换模型 = 换 / 加一份 workflow JSON。
+> 插件本体保持 **模型无关**——只说能力（`video.image2video` / `video.reference2video`），模型名只出现在工作流清单里。
+> 因此本文里的模型名（MiniMax H3 / LTX-2.5） **不得**被写进 skill 流程、prompt 模板或工具契约；换模型 = 换 / 加一份 workflow JSON。
 >
-> **数据来源**：① 本机单卡 Ampere（sm_80）+ ComfyUI 0.33.3 实测（`docs/minimax-h3-video-benchmark.md`，H3 侧）；② 两家官方文档 / 模型卡 / 官方博客（分辨率、时长、语言、许可）；③ 社区实测（LTX 本地侧 VRAM 与耗时，非本机、非官方，已标注）。
-> **未做的**：两个模型**同 prompt、同参考图、同 seed 的 A/B**还没跑过——所以「谁更一致」是机制推断 + 公开证据，不是本机实测结论。文末 §10 列了补齐这张表的最小实验。
+> **数据来源**：① 本机单卡 Ampere（sm_80）+ ComfyUI 0.33.3 实测（`../../docs/minimax-h3-video-benchmark.md`，H3 侧）；② 两家官方文档 / 模型卡 / 官方博客（分辨率、时长、语言、许可）；③ 社区实测（LTX 本地侧 VRAM 与耗时，非本机、非官方，已标注）。
+> **未做的**：两个模型 **同 prompt、同参考图、同 seed 的 A/B**还没跑过——所以「谁更一致」是机制推断 + 公开证据，不是本机实测结论。文末 §10 列了补齐这张表的最小实验。
 
 ---
 
@@ -284,8 +284,8 @@
 
 ## 附：参考来源
 
-- 本机实测（H3 侧全部数据）：`docs/minimax-h3-video-benchmark.md`、`docs/minimax-h3-acceleration-lora.md`
-- 插件侧能力与档位契约：`docs/tier-strategy-design.md`、`docs/workflow-contract.md`、`README.md` §内置工作流清单
+- 本机实测（H3 侧全部数据）：`../../docs/minimax-h3-video-benchmark.md`、`docs/minimax-h3-acceleration-lora.md`
+- 插件侧能力与档位契约：`tier-strategy-design.md`、`../archive/doc/workflow-contract.md`、`README.md` §内置工作流清单
 - MiniMax H3 官方开源公告（架构、输入输出规格、模块划分、许可）：[minimax.io/news/minimax-h3-open-source](https://www.minimax.io/news/minimax-h3-open-source)
 - MiniMax H3 系 ComfyUI 官方教程：[Comfy-Org/docs · minimax-h3](https://github.com/Comfy-Org/docs/blob/main/tutorials/video/minimax/minimax-h3.mdx)
 - Ref2VA vs FL2VA 的实用取舍（含"每份参考派一个角色"的写法）：[seedance.tv/blog/minimax-h3-ref2v-vs-fl2va](https://www.seedance.tv/blog/minimax-h3-ref2v-vs-fl2va)

@@ -11,7 +11,7 @@
 | 问题 | 结论 |
 |---|---|
 | 右侧栏能否扩展？ | **能，而且是官方一等公民扩展点**，不是 hack。有完整的「tab 类型注册表 + 两个 keyed 正文席位 + 导航服务」，源码注释明说 key 域保持开放字符串空间**就是为了让产品之外的包注册类型**。 |
-| 把画布放进右栏可行吗？ | **技术上完全可行，改动很小**：只动浏览器半（`lib/client.js` + `package.json` 一行），宿主半与 `studio/` 页零改动，约 60–100 行。 |
+| 把画布放进右栏可行吗？ | **技术上完全可行，改动很小**：只动浏览器半（`../../lib/client.js` + `package.json` 一行），宿主半与 `studio/` 页零改动，约 60–100 行。 |
 | 有硬阻塞吗？ | **没有硬阻塞**。有 3 个软约束：① 布局不持久化（刷新后右栏回到折叠态，要重新打开画布）；② 插件无法以编程方式把右栏切到全屏（只有用户点面板控件）；③ 若「会话区画布 tab」与「右栏画布 tab」同时挂载，同一会话会出现两个 studio 实例（数据安全，但可能显示不同步）。 |
 | 推荐做法？ | **右栏作为画布的新家 + 保留会话区 tab 作为大屏入口，用「一键换家」按钮做互斥**（详见 §6 方案 C 与 **§12**）。右栏的杀手级收益是「**对话与画布同屏**」——今天切到对话会卸载画布 iframe，「跟随最新」自动滚动因此失效；右栏让它真正可用。 |
 | 「画布上放一个换家按钮」可行吗？ | **可行，双向都只用公开 API**（见 **§12**）：句柄是 `conversation.view` 条目手里的 `openView` owner prop。但这个方案已被 **§13 的静态配置方案取代**——后者更简单且结构上排除双实例。 |
@@ -203,7 +203,7 @@ ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
 
 ## 7. 实现草图（可直接落地）
 
-### 7.1 `package.json`
+### 7.1 `../../package.json`
 
 ```jsonc
 "dsh": {
@@ -218,7 +218,7 @@ ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
 }
 ```
 
-### 7.2 `lib/client.js`（在 `apply(ctx)` 里新增，约 40 行）
+### 7.2 `../../lib/client.js`（在 `apply(ctx)` 里新增，约 40 行）
 
 ```js
 const CANVAS_KIND = 'short-video-canvas'
@@ -309,16 +309,16 @@ const [sidebarOwns] = React.useState(() => {
 
 ### 8.1 离线（本仓库已有基础设施，成本极低）
 
-离屏截图工具已经清理；保留 `scripts/lib/react-shim.mjs` 供组件检查脚本使用。离线检查应断言：
+离屏截图工具已经清理；保留 `../../scripts/lib/react-shim.mjs` 供组件检查脚本使用。离线检查应断言：
 
 1. `fakeCtx.slots.register` 收到的注册表里出现 `{ name: 'sidebar.right.pane.tab', key: 'dsh-short-video-studio' }`；
 2. `ctx.sidebarRightTabs.register` 收到的定义含 `kind: 'short-video-canvas'` 与一条 `guide` 入口；
 3. 直接渲染该正文组件（喂假 `sessionId` / `useWorkspaces` / `inputActions` / `useTabInfo`），断言产出 `iframe`，且 `src` 携带正确的 `sessionId` / `workspaceId`，`postMessage({channel,type:'ask-ai'})` 能把文本灌进假 `inputActions.setDraft`；
-建议新增 `scripts/smoke-sidebar-canvas.mjs` 并挂进 `package.json` 的 `smoke` 链。
+   建议新增 `scripts/smoke-sidebar-canvas.mjs` 并挂进 `../../package.json` 的 `smoke` 链。
 
 ### 8.2 真机（Web GUI）
 
-1. 改完 `lib/client.js` 后刷新页面（客户端 bundle 的 `rev` 是内容 sha1，`dsh-client-modules` 会因哈希变化换 URL；若未刷新可重启 dsh）。
+1. 改完 `../../lib/client.js` 后刷新页面（客户端 bundle 的 `rev` 是内容 sha1，`dsh-client-modules` 会因哈希变化换 URL；若未刷新可重启 dsh）。
 2. 会话 header 右上角展开按钮 → 右栏出现引导页 → 点「短视频画布」胶囊 → 画布在右栏打开。
 3. 对照检查：对话与画布同屏；「跟随最新」在对话里跑 Agent 生成时能自动滚动；拖动右栏左缘调宽；点面板全屏按钮；右侧栏 tab 菜单 → 浮出。
 4. 回归：从对话切到会话区「画布」tab，确认互斥守卫生效（右栏已开时第二实例不挂载）。
@@ -334,7 +334,7 @@ const [sidebarOwns] = React.useState(() => {
 
 | 项 | 值 | 依据 |
 |---|---|---|
-| 右侧栏 tab 扩展 API 首次出现 | commit `b67e0a838c`（2026-09-07，"feat(sidebar): add tab navigation, injected information, and fullscreen shell"），首个包含它的 tag：**`dsh-v0.1.5-alpha.1`** | `git log` / `git tag --contains` on `tab-registry.ts`、`service.ts`、`package.json` |
+| 右侧栏 tab 扩展 API 首次出现 | commit `b67e0a838c`（2026-09-07，"feat(sidebar): add tab navigation, injected information, and fullscreen shell"），首个包含它的 tag：**`dsh-v0.1.5-alpha.1`** | `git log` / `git tag --contains` on `tab-registry.ts`、`service.ts`、`../../package.json` |
 | 本机运行时 | `0.1.6-alpha.1` ✅ | 已安装包版本 |
 | 线上 npm 版本 | `@deepseek-ai/dsh@0.1.6-alpha.1`（本机 profile 实际解析到的版本） | `~/.dsh/profiles/web/node_modules/@deepseek-ai/dsh/package.json` |
 | 插件侧新增依赖 | 无运行时 npm 依赖；只是包级依赖边 + 类型/服务引用 | — |
@@ -360,7 +360,7 @@ const [sidebarOwns] = React.useState(() => {
 ## 11. 结论
 
 1. **右侧栏是官方设计的可扩展面**，扩展点清晰（tab 类型两阶段注册 + 4 个 slot + 导航服务），且明确欢迎「产品之外的包」贡献 tab 类型——本插件不需要 fork、不需要 patch 宿主、不需要 monkey-patch。
-2. **把画布放进右栏是可行的，且成本很低**：`CanvasView` 原样复用（它需要的 3 个 props 在右栏同样可得），改动集中在 `lib/client.js` 约 40 行 + `package.json` 一行，宿主半与 `studio/` 页零改动；`docs/ARCHITECTURE.md` 的分层（浏览器半只做视图挂载）不需要调整。
+2. **把画布放进右栏是可行的，且成本很低**：`CanvasView` 原样复用（它需要的 3 个 props 在右栏同样可得），改动集中在 `../../lib/client.js` 约 40 行 + `package.json` 一行，宿主半与 `studio/` 页零改动；`ARCHITECTURE.md` 的分层（浏览器半只做视图挂载）不需要调整。
 3. **真正的设计题不是「能不能」，而是「画布的家放哪」**。建议按 **方案 C**：右栏新增为并行入口（拿到「对话 + 画布同屏」和浮窗这两个新能力），会话区 tab 保留为整屏工作态。而**「一键换家」按钮（§12）是这套方案的粘合剂**：它把「双实例」这个唯一的结构性风险变成了一条不变式——换家即同时切换两处挂载点，任何时刻只有一个 iframe 活着，原先设想的「挂载期互斥守卫」不再需要。
 4. 三处已知代价必须在产品上认账：**刷新后右栏回折叠**（要一键重开）、**无法编程全屏**、**换家句柄（`openView`）是内存缓存，刷新后需要一次退化处理**（§12.4）。前两条是上游限制，若要根治需向上游提需求（右栏布局持久化 / 服务暴露展开与形态控制）。
 
@@ -448,7 +448,7 @@ function moveCanvasBackToTab(sessionId, closeSelf) {
 | 方案 | 做法 | 取舍 |
 |---|---|---|
 | **A（推荐）插件自己的外壳** | 在 `CanvasView` 外层加一个极薄容器，按钮用绝对定位压在 iframe 右上角（不占布局高度） | 零 iframe 协议改动；插件天然知道自己在哪个家；tab/右栏共用同一个组件、只传 `home` 参数 |
-| B 塞进 studio 页顶栏 | 与「📚 资产库 / 跟随最新」并排，需要给 iframe URL 加 `&home=sidebar` 让 studio 知道该显示哪个文案，并新增一种 postMessage 上报点击 | 视觉上更「在画布上」，但要动 `studio/index.html` + `app.js`，且窄列里顶栏已经 5 个控件（`flex-wrap` 会折行，更挤） |
+| B 塞进 studio 页顶栏 | 与「📚 资产库 / 跟随最新」并排，需要给 iframe URL 加 `&home=sidebar` 让 studio 知道该显示哪个文案，并新增一种 postMessage 上报点击 | 视觉上更「在画布上」，但要动 `../../studio/index.html` + `app.js`，且窄列里顶栏已经 5 个控件（`flex-wrap` 会折行，更挤） |
 
 ### 12.6 需要你拍板的三件事
 
@@ -509,15 +509,15 @@ function moveCanvasBackToTab(sessionId, closeSelf) {
 
 三处改动：
 
-1. **`lib/index.js` · `normalizeCfg`（约 L129 一带）** — 白名单兜底：
+1. **`../../lib/index.js` · `normalizeCfg`（约 L129 一带）** — 白名单兜底：
    ```js
    canvasHome: c.canvasHome === 'sidebar' ? 'sidebar' : 'tab',
    ```
-2. **`lib/index.js` · `POST /config`（约 L2836 的 `safe` 白名单）** —
+2. **`../../lib/index.js` · `POST /config`（约 L2836 的 `safe` 白名单）** —
    ```js
    canvasHome: body.canvasHome === 'sidebar' ? 'sidebar' : getCfg().canvasHome,
    ```
-3. **`lib/client.js` · `ComfyUISettings`** — 加一组「界面」（沿用现成的 `grp(...)` + `field(...)` 助手）：
+3. **`../../lib/client.js` · `ComfyUISettings`** — 加一组「界面」（沿用现成的 `grp(...)` + `field(...)` 助手）：
    ```
    界面
      画布位置   [ 会话标签页（默认） ▾ ]   说明：右侧栏需刷新页面后生效
@@ -645,13 +645,13 @@ scope.sidebarRightTabs.register({
 
 | 文件 | 改动 |
 |---|---|
-| `lib/index.js` · `getCfg`（L102-106） | `canvasHome: c.canvasHome === 'sidebar' ? 'sidebar' : 'tab'`（白名单兜底） |
-| `lib/index.js` · `POST /config` 白名单 | `canvasHome: body.canvasHome === 'sidebar' ? 'sidebar' : (body.canvasHome === 'tab' ? 'tab' : getCfg().canvasHome)`——比草稿更保守：**字段缺失时保留原值**，老客户端发来的部分 body 不会把配置冲成 `tab` |
-| `lib/client.js` · `ComfyUISettings` | 新增「界面」段：`canvasHome` 下拉（两项）+ 随取值切换的入口说明 + 「改选即保存，刷新页面后生效」+「立即刷新」按钮。**改选即保存**（同本页策略单选的做法）：换家后用户下一步就是刷新，若还要求先滚到底部点「保存配置」，很容易改完直接刷新 → 改动丢失 |
-| `lib/client.js` · `apply` / 新增 `applyCanvasHome` | 拆出 `registerTabHome` / `registerSidebarHome`；同步注册默认家 → 异步读配置 → 只在读到 `'sidebar'` **且右栏服务确实可用**时，注册右栏家再注销 tab 家（**单向换家**，比草图更短） |
-| `lib/client.js` · 新增 `CanvasGuideIcon` | 28×28 内联 SVG 分镜格（`IconProps` 只有 `size`/`className`） |
-| `lib/client.js` · `shellStyle` | 补 `flex:'1 1 auto'` / `minWidth:0` / `boxSizing` —— 会话区视图槽的父级是 flex 列（靠 `flex:1`），右栏 pane body 是有确定高度的块级容器（靠 `height:100%`），两者同给才在两种家里都铺满 |
-| `scripts/checks/smoke-canvas-home.mjs` | 新增，65 项，已挂进 `npm run smoke` |
+| `../../lib/index.js` · `getCfg`（L102-106） | `canvasHome: c.canvasHome === 'sidebar' ? 'sidebar' : 'tab'`（白名单兜底） |
+| `../../lib/index.js` · `POST /config` 白名单 | `canvasHome: body.canvasHome === 'sidebar' ? 'sidebar' : (body.canvasHome === 'tab' ? 'tab' : getCfg().canvasHome)`——比草稿更保守：**字段缺失时保留原值**，老客户端发来的部分 body 不会把配置冲成 `tab` |
+| `../../lib/client.js` · `ComfyUISettings` | 新增「界面」段：`canvasHome` 下拉（两项）+ 随取值切换的入口说明 + 「改选即保存，刷新页面后生效」+「立即刷新」按钮。**改选即保存**（同本页策略单选的做法）：换家后用户下一步就是刷新，若还要求先滚到底部点「保存配置」，很容易改完直接刷新 → 改动丢失 |
+| `../../lib/client.js` · `apply` / 新增 `applyCanvasHome` | 拆出 `registerTabHome` / `registerSidebarHome`；同步注册默认家 → 异步读配置 → 只在读到 `'sidebar'` **且右栏服务确实可用**时，注册右栏家再注销 tab 家（**单向换家**，比草图更短） |
+| `../../lib/client.js` · 新增 `CanvasGuideIcon` | 28×28 内联 SVG 分镜格（`IconProps` 只有 `size`/`className`） |
+| `../../lib/client.js` · `shellStyle` | 补 `flex:'1 1 auto'` / `minWidth:0` / `boxSizing` —— 会话区视图槽的父级是 flex 列（靠 `flex:1`），右栏 pane body 是有确定高度的块级容器（靠 `height:100%`），两者同给才在两种家里都铺满 |
+| `../../scripts/checks/smoke-canvas-home.mjs` | 新增，65 项，已挂进 `npm run smoke` |
 
 **实现期发现（三处）**
 

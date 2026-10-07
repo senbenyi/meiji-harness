@@ -1,6 +1,6 @@
 # 视频超分（U3）：像素空间放大
 
-> 面向「已经生成的片段提分辨率」这条路：输入是**画布上已有的视频**，输出是它的 ×2 / ×4。
+> 面向「已经生成的片段提分辨率」这条路：输入是 **画布上已有的视频**，输出是它的 ×2 / ×4。
 > 与「生成内两阶段放大」（U1，见 [`learned-latent-upscale-2k.md`](learned-latent-upscale-2k.md)）是两条不同的路线，
 > 取舍见 §6。全部数字都是本机 A800 实测（2026-09-23），不是估算。
 
@@ -38,8 +38,8 @@
 
 * 清单由 `scripts/make-upscale-manifests.mjs` 生成（**没有单独的模板层**）：生成类的图分辨率是图结构的一部分
   （`resolutionLock`），而超分的图分辨率**跟着输入视频走**，清单只能声明尺寸来源 —— 7 个固定节点写在代码里比维护模板更不易失同步。
-* 校验（`lib/manifest.js`）：`capability=video.upscale` **必须**声明尺寸来源（`upscale.sizing` + `factor` / `shortSide`），
-  且**不得**声明 `resolutionLock`（两者的尺寸语义互斥）。两个枚举都 fail-closed。
+* 校验（`../../lib/manifest.js`）：`capability=video.upscale` **必须**声明尺寸来源（`upscale.sizing` + `factor` / `shortSide`），
+  且 **不得**声明 `resolutionLock`（两者的尺寸语义互斥）。两个枚举都 fail-closed。
 * 交付尺寸由 runner 算出后注入（`out_width/out_height`，短边形态还会注入 `out_short_side`）；
   `source_video` 是上传后的 ComfyUI 文件名；`prefix` 决定输出路径。
 * **模型可换**：资产槽 `upscale_x2` / `upscale_x4`（设置页/env `DSH_SVS_UPSCALE_X2`、`DSH_SVS_UPSCALE_X4` 覆盖）。
@@ -105,7 +105,7 @@
   画布标题也会跟着变（「超分 ×2」vs「超分 短边 1088」），这是如实反映，不是 bug。
 
 **当前状态**：SeedVR2 那类实现**尚未加入**（等真机验收：节点是否已装、短边注入后模型是否真按该尺寸渲染）。
-加进 `workflows/` 之后上面三条切换路径立刻可用，**工具签名不变**——用户始终只看到一个 `video_upscale`。
+加进 `../../workflows` 之后上面三条切换路径立刻可用，**工具签名不变**——用户始终只看到一个 `video_upscale`。
 这正是 §2.1 那次契约扩展的目的：把「尺寸从哪来 / 显存归谁管」变成可声明的，从而让异质实现能同台。
 
 ---
@@ -126,7 +126,7 @@
 
 ---
 
-## 4. 实测账本（A800 · 124 帧 ≈ 5.17s · `scripts/probes/probe-4k.mjs`）
+## 4. 实测账本（A800 · 124 帧 ≈ 5.17s · `../../scripts/probes/probe-4k.mjs`）
 
 ### 4.1 耗时与交付（同一条原生 1344×768 源片）
 
@@ -170,8 +170,8 @@
 
 ### 4.3 眼判材料
 
-* 历史四臂对照（原生 / U1 2K / 原生→×4 4032 / U1→×2 4032）：**同归一化区域**的
-  ①1:1 原像素、②缩到同一显示宽 两排对照。生成器 `scripts/analysis/compare-crops.py`（可换帧号与区域）。
+* 历史四臂对照（原生 / U1 2K / 原生→×4 4032 / U1→×2 4032）： **同归一化区域**的
+  ①1:1 原像素、②缩到同一显示宽 两排对照。生成器 `../../scripts/analysis/compare-crops.py`（可换帧号与区域）。
 * **已知瑕疵**：5.4K 路径块效应指标 1.191（偏高），是一次放大 16.5M 像素/帧的代价；
   要更干净就收敛到 4032，或分两步（先 ×2 再 ×2）。
 
@@ -181,7 +181,7 @@
 5.4K 约 **99 MB/帧**，4K 约 **56 MB/帧**。容器里没有可用的分块 SR 节点
 （`IterativeImageUpscale` 需要 Impact 的 `UPSCALER` + VAE，语义不匹配），所以只能靠**分块**。
 
-实测包线：**248 帧 × 5376×3072 = 4.09e9 像素-帧一次通过（无 OOM）**。据此设安全阀（`lib/upscale.js`）：
+实测包线：**248 帧 × 5376×3072 = 4.09e9 像素-帧一次通过（无 OOM）**。据此设安全阀（`../../lib/upscale.js`）：
 
 * 告警/分块线 `PIXEL_FRAME_WARN = 3.0e9`（留在已验证包线以内）
 * 每块预算 `PIXEL_FRAME_CHUNK = 2.0e9` ⇒ 5.4K 每块 ≈121 帧、4K 每块 ≈215 帧
@@ -224,7 +224,7 @@
 2. **U1 的位置变成"生成内"而不是"提分辨率"**：①能与链式续接叠用（见下）；
    ②放大后的 latent 可被第二次 H3 采样消费（U3 只输出像素，做不到）；③少一跳上传/下载。
    **不要再把 U1 当成"上 2K 的手段"**——那条路由已被 U3 取代。
-3. **U1 与链式续接可以叠用**（曾经以为不行）：ctx 图的链式存档读的是**首遍 latent**，
+3. **U1 与链式续接可以叠用**（曾经以为不行）：ctx 图的链式存档读的是 **首遍 latent**，
    放大在它之后 ⇒ **同一条链内只要首遍尺寸一致就能续，交付尺寸不参与**。
    runner 按此判据实现（`chainGraphMismatch`，纯函数 + GPU-free 单测）。实测 fast 档 2K 族 124/56 帧：
    接缝画面差 **13.33** vs 同实现不续接 **79.57**，响度台阶 **+0.68 dB** vs **−6.34 dB**
@@ -259,7 +259,7 @@
 | **`video-upscale-x2`（U3）** | 2218 | ×1.65 | **0.958** | 193.9 | **69.0s** |
 | **`video-upscale-seedvr2-3b`** | **2654** | **×1.975** | 1.045 | **311.3** ⚠ | **483.4s（7.0×）** |
 
-**1:1 眼判**（历史本地产物已清理，可用 `scripts/analysis/compare-crops.py` 重新生成）：
+**1:1 眼判**（历史本地产物已清理，可用 `../../scripts/analysis/compare-crops.py` 重新生成）：
 SeedVR2 的确**更实**——砖墙纹理、伞面布纹、霓虹招牌边缘都比 U3 立体；
 **但平坦区（暗部墙面、伞面、路面）出现可见的细颗粒**，对应表里 311 那个数字
 （与 §4.2 里 4032 那格被判「过锐/振铃」的 362 同一档），平坦区闪烁也比 U3 高（1.045 vs 0.958）。
@@ -326,5 +326,5 @@ node scripts/analysis/analyze-u3.mjs <输入.mp4> <产物.mp4> [目标宽]     #
 * 生成清单：`node scripts/make-upscale-manifests.mjs`（清单是产物，改结构请改脚本）。
 * 短边探针夹具：`scripts/fixtures/upscale-shortside-probe.json`（`internal: true`，永远不出现在用户的工作流清单里；
   由 `smoke-upscale.mjs` 做 GPU-free 校验）。
-* 相关文件：`lib/upscale.js`（纯逻辑）、`lib/index.js` 的 `runUpscale` + `video_upscale`、
+* 相关文件：`../../lib/upscale.js`（纯逻辑）、`lib/index.js` 的 `runUpscale` + `video_upscale`、
   `workflows/video-upscale-x{2,4}.json`、`scripts/smoke-upscale.mjs`。

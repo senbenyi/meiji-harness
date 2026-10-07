@@ -3,7 +3,7 @@
 > 状态：离线实施完成，待 ComfyUI 实机验收
 > 基线：当前插件 `5d1612e`；ArcReel `v0.31.0`；2026-10-02
 > 影响范围：现有 Project Domain、Capability Registry、ComfyUI 执行、Attempt 恢复、相关工具与薄 UI
-> 对应审计：`docs/audits/open-source/ArcReel.md`
+> 对应审计：`../implement/ArcReel.md`
 
 ## 0. 结论
 

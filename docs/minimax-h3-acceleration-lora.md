@@ -1,6 +1,6 @@
 # MiniMax H3 加速方案研究报告（面向 dsh-short-video-studio）
 
-> **⚠️ 历史记录（保留原文 id）**：本报告的 `minimax-h3-ref2v` → 拆分后的 `minimax-h3-ref2v-fast` / `minimax-h3-ref2v-quality`，`minimax-h3-ref2v-8step` → `minimax-h3-ref2v-balanced`，`minimax-h3-ref2v-sol` → `minimax-h3-ref2v-quality-sol`，`minimax-h3-ref2v-8step-sol` → `minimax-h3-ref2v-balanced-sol`，`minimax-h3-i2v` → `minimax-h3-i2v-fast` / `minimax-h3-i2v-quality`，`minimax-h3-i2v-sol` → `minimax-h3-i2v-quality-sol`（**P2 拆分，图形等价**：同一张图，只是「一个 json = 一个档位」）。`minimax-h3-ref2v-sol-stats` 仍存在（`internal: true` 诊断清单，不参与档位解析、不进 UI）。文中 `mode=` 现为 `tier=` 的兼容别名；`priority: -100` 已不再是加速实现的标注方式（改为同档 `-sol` 清单 + 策略投影，缺第三方节点时置灰而非静默回退）。档位契约见 [`docs/tier-strategy-design.md`](tier-strategy-design.md)。
+> **⚠️ 历史记录（保留原文 id）**：本报告的 `minimax-h3-ref2v` → 拆分后的 `minimax-h3-ref2v-fast` / `minimax-h3-ref2v-quality`，`minimax-h3-ref2v-8step` → `minimax-h3-ref2v-balanced`，`minimax-h3-ref2v-sol` → `minimax-h3-ref2v-quality-sol`，`minimax-h3-ref2v-8step-sol` → `minimax-h3-ref2v-balanced-sol`，`minimax-h3-i2v` → `minimax-h3-i2v-fast` / `minimax-h3-i2v-quality`，`minimax-h3-i2v-sol` → `minimax-h3-i2v-quality-sol`（ **P2 拆分，图形等价**：同一张图，只是「一个 json = 一个档位」）。`minimax-h3-ref2v-sol-stats` 仍存在（`internal: true` 诊断清单，不参与档位解析、不进 UI）。文中 `mode=` 现为 `tier=` 的兼容别名；`priority: -100` 已不再是加速实现的标注方式（改为同档 `-sol` 清单 + 策略投影，缺第三方节点时置灰而非静默回退）。档位契约见 [`../archive/doc/tier-strategy-design.md`](../archive/doc/tier-strategy-design.md)。
 
 > 调研时间：2026-09
 > 调研对象：ComfyUI 上 MiniMax H3（FL2VA / Ref2VA 双变体、音视频联合生成）的加速 LoRA 及配套加速手段
@@ -164,7 +164,7 @@ H3 的视频与音频在同一个 forward 里生成。所以步数蒸馏的短�
 
 ### 4.2 本项目自身的基线（可作对照刻度）
 
-`docs/three-view-experiment.md` 记录：**ComfyUI 0.33.3 / 单卡 Ampere（sm_80）/ `minimax_h3_ref2va_pruned_int8_convrot` / mode=fast（4 步 LoRA）/ 832×480 / 124 帧（5.17s）→ 每臂约 28s**。
+`../archive/doc/three-view-experiment.md` 记录：**ComfyUI 0.33.3 / 单卡 Ampere（sm_80）/ `minimax_h3_ref2va_pruned_int8_convrot` / mode=fast（4 步 LoRA）/ 832×480 / 124 帧（5.17s）→ 每臂约 28s**。
 → 即本项目 fast 档单镜 ≈ 28s（单卡 Ampere（sm_80））。quality 档（20 步 + 1344×768）步数 ×5、像素 ×2.6，单镜成本量级明显跃升 —— 这也是"成片档要不要引入 8 步平衡档"这个问题的由来。
 
 ### 4.3 注意力加速的参考数字
@@ -189,7 +189,7 @@ H3 的视频与音频在同一个 forward 里生成。所以步数蒸馏的短�
 
 ## 5. 本项目现状盘点（事实层）
 
-来源：`workflows/minimax-h3-ref2v.json`、`workflows/minimax-h3-i2v.json`、`~/.dsh/dsh-short-video-studio.json`、`docs/ARCHITECTURE.md`、`docs/three-view-experiment.md`。
+来源：`workflows/minimax-h3-ref2v.json`、`workflows/minimax-h3-i2v.json`、`~/.dsh/dsh-short-video-studio.json`、`../archive/doc/ARCHITECTURE.md`、`../archive/doc/three-view-experiment.md`。
 
 | 项 | ref2v（`video.reference2video`） | i2v（`video.image2video`） |
 |---|---|---|
@@ -286,7 +286,7 @@ H3 的视频与音频在同一个 forward 里生成。所以步数蒸馏的短�
 ## 7. 验收协议（换任何一项都要走一遍）
 
 1. **单变量**：一次只改一样（LoRA / shift / 分辨率 / 内核），否则无法归因。若要换 768p LoRA，"LoRA+shift+分辨率"三项属于**一个不可分割的改动包**，一起改、一起验。
-2. **固定变量**：同 seed（如 42424242）、同 prompt（建议用 H3 结构化 prompt，含 `overall_soundscape`）、同 `length=124`、同参考图（单视图！见 `docs/three-view-experiment.md`）。
+2. **固定变量**：同 seed（如 42424242）、同 prompt（建议用 H3 结构化 prompt，含 `overall_soundscape`）、同 `length=124`、同参考图（单视图！见 `../archive/doc/three-view-experiment.md`）。
 3. **对照产物**：视频 + 抽帧（首/中/末各一帧做像素 diff）+ **音轨**（H3 是 AV 模型，音频退化是 4 步档的首要症状）。
 4. **量化指标**：单镜墙钟耗时、跳步密度（Sol-Attn `last_density`）、回退计数（`failed`/`skipped_shape`）、峰值显存。
 5. **回归门槛**：fast 档提速 <10% 的改动不进 fast 档；quality 档任何画面/音频回归直接回退（成片质量不可交易）。
@@ -671,6 +671,6 @@ Fatal Python error: Aborted
 
 **本项目内部依据**
 - `workflows/minimax-h3-ref2v.json`、`workflows/minimax-h3-i2v.json`（当前资产、shift、档位）
-- `docs/ARCHITECTURE.md`（`$model` 哨兵与 `mode.loras` 插链机制）
-- `docs/workflow-contract.md`（manifest 契约、`modes` 字段）
-- `docs/three-view-experiment.md`（单卡 Ampere（sm_80）/ ComfyUI 0.33.3 / fast 档 28s 基线）
+- `../archive/doc/ARCHITECTURE.md`（`$model` 哨兵与 `mode.loras` 插链机制）
+- `../archive/doc/workflow-contract.md`（manifest 契约、`modes` 字段）
+- `../archive/doc/three-view-experiment.md`（单卡 Ampere（sm_80）/ ComfyUI 0.33.3 / fast 档 28s 基线）

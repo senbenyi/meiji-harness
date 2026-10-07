@@ -1,7 +1,7 @@
 # 两阶段潜空间放大（hires）：提升 H3 成片分辨率
 
-> 状态：**已实现**（清单 `minimax-h3-ref2v-hires` / `minimax-h3-i2v-hires`）
-> 契约：`docs/tier-strategy-design.md` §2（档位受控三档）· `docs/workflow-contract.md` §4（清单字段）
+> 状态： **已实现**（清单 `minimax-h3-ref2v-hires` / `minimax-h3-i2v-hires`）
+> 契约：`tier-strategy-design.md` §2（档位受控三档）· `../archive/doc/workflow-contract.md` §4（清单字段）
 > 相关：`docs/minimax-h3-video-benchmark.md`（实测表）· `docs/minimax-h3-acceleration-lora.md`（加速件）
 
 ## 0. 为什么需要它
@@ -49,8 +49,8 @@ node 10 首遍采样（20 步 / denoise 1.0 / shift 12,3）
 
 ## 2. 为什么需要 `resolutionLock`（**图锁定**形态）
 
-> 本文讲的是 `resolutionLock` 的**图锁定**形态（`graph` + `scale`），hires 族用它。
-> 2026-09 起还有第二种**只锁倍率**形态（只给 `scale`，首遍不锁）——learning 式放大族用它来支持
+> 本文讲的是 `resolutionLock` 的 **图锁定**形态（`graph` + `scale`），hires 族用它。
+> 2026-09 起还有第二种 **只锁倍率**形态（只给 `scale`，首遍不锁）——learning 式放大族用它来支持
 > 任意画幅比例，见 [`learned-latent-upscale-2k.md`](learned-latent-upscale-2k.md) §4。
 > 两者的共同点是「交付 = 首遍 × scale 且必有 warning」；差别是首遍尺寸是否可被调用方改写。
 
@@ -68,7 +68,7 @@ node 10 首遍采样（20 步 / denoise 1.0 / shift 12,3）
 }
 ```
 
-语义（实现在 `lib/index.js` 的 `computeManifestSize` / `manifestDeliverySize`）：
+语义（实现在 `../../lib/index.js` 的 `computeManifestSize` / `manifestDeliverySize`）：
 
 | 场景 | 行为 |
 |---|---|

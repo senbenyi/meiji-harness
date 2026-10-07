@@ -13,7 +13,7 @@
   - **文本/表格节点**（简报/大纲/镜头表/分镜）在 `canvas_write_node` 落盘时自动导出为 **.pdf**（零依赖 markdown→HTML 转换 → puppeteer-core 复用本机 Chrome `page.pdf()`，`printBackground` 保留表格样式；puppeteer 未装/失败时降级 Chrome CLI `--print-to-pdf` → soffice → cupsfilter，全无则兜底 .html），随钩子一并送达——飞书可直接预览 PDF。
   - 成功打 `params.deliveredAt` 去重、失败记 `params.deliveryError` 下次重试；模型不再手动 `send_file`（GUIDANCE 已改为"不要手动调"）。Web/TUI 无 `send_file` 时钩子自动跳过。
   - **文件名**：`send_file` 没有 name 参数（`fileName = basename(path)`），钩子把产物以**节点标题**命名的副本放到 workspace 内 `.delivery/<sid>/` 再发送（硬链接零拷贝，如 主角卡.png / 简报.pdf；title 清理非法字符、空标题回退 `kind-id`、重名加 -2 后缀），发完即删；副本建不出来退回原路径发送。
-- 本轮动 `lib/index.js`、`lib/pdf.js`（新）、`package.json`（+puppeteer-core 可选依赖）与 SKILL.md 交付条款对齐，不改 dsh-lark。
+- 本轮动 `../../lib/index.js`、`lib/pdf.js`（新）、`package.json`（+puppeteer-core 可选依赖）与 SKILL.md 交付条款对齐，不改 dsh-lark。
 
 ---
 

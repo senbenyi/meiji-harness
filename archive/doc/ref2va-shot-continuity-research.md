@@ -1,11 +1,11 @@
 # Ref2VA 镜头续接方案研究：Motion Context / Add Guide / 混合 checkpoint
 
-> **本文性质**：技术选型与可行性研究文档，**不是插件契约的一部分**。
-> 插件本体保持模型无关——本文出现的模型名、节点名、包名**不得**写进 skill 流程、prompt 模板或工具契约；
-> 落地形态一律是「新增 workflow JSON 清单」，契约见 `docs/workflow-contract.md` 的 M5（丢 JSON 即可）。
+> **本文性质**：技术选型与可行性研究文档， **不是插件契约的一部分**。
+> 插件本体保持模型无关——本文出现的模型名、节点名、包名 **不得**写进 skill 流程、prompt 模板或工具契约；
+> 落地形态一律是「新增 workflow JSON 清单」，契约见 `workflow-contract.md` 的 M5（丢 JSON 即可）。
 >
 > **触发问题**：当前插件用 `video.reference2video`（Ref2VA，锚身份）与 `video.image2video`（FL2VA，锁首/末帧构图）
-> 两条 capability 分工。希望**在保留参考绑定（角色卡/场景卡）的同时**拿到镜头间的无缝续接——
+> 两条 capability 分工。希望 **在保留参考绑定（角色卡/场景卡）的同时**拿到镜头间的无缝续接——
 > 也就是「Ref2VA + 上一镜尾帧」这种单次生成里两个 checkpoint 互斥、无法同时成立的组合。
 >
 > **证据口径**：① 本机与远程 ComfyUI 现场核查（命令与输出见 §2）；② ComfyUI 核心源码与 release note；
@@ -26,7 +26,7 @@
 | 官方有没有原生答案？ | 有，而且很直接：官方模板 **MiniMax H3 Multiframe Reference** = `ReferenceToVideo` + **链式 Add Guide**，官方定位就是"视频续写与多镜头场景"。它给画面锚点，但**不续接音频**（guide audio 只能从锚点向前铺）。 |
 | 那 Motion Context 到底多给什么？ | 三件事：① 从**上一镜 latent 里切片**而不是"解码→再编码"（省掉一次有损往返，接缝更干净）；② 音频**结束于接缝、向前回溯**（真续接，实测相关性 0.45 → 0.95+）；③ 配套 Trim/Seam Probe 工具。 |
 | 建议怎么走？ | **先量基线（E0），再决定升不升核（E1/E2），第三方包放最后（E3）**，混合 checkpoint 作为"身份/锚帧双要求"的备选（E4）。见 §6。 |
-| 最后怎么走的？ | **R3 已落地**：远端核升到 0.35.2、装 `ComfyUI-H3-Motion-Context`、插件新增链式续接清单（`minimax-h3-ref2v-ctx-*` 四档）+ 工具入参 `continuity_from`；实测与契约见 **§8** 与 `docs/shot-chain-continuity.md`。 |
+| 最后怎么走的？ | **R3 已落地**：远端核升到 0.35.2、装 `ComfyUI-H3-Motion-Context`、插件新增链式续接清单（`minimax-h3-ref2v-ctx-*` 四档）+ 工具入参 `continuity_from`；实测与契约见 **§8** 与 `shot-chain-continuity.md`。 |
 
 ---
 
@@ -184,9 +184,9 @@ latent 用 `…SaveLatent`/`…LoadLatent` 跨运行搬运（首镜 Load 0 / Sav
 
 ## 5. 建议的落地形态（与现有契约对齐）
 
-1. **新增清单，不改 skill 词汇**：把上述路线做成 `workflows/` 里的新 JSON（如 `*-ref2v-ctx-*.json`），用 `requiresNodes` 声明依赖（`MiniMaxH3AddGuide` / `MiniMaxH3MotionContext`），缺依赖时**显式不可用**而不是静默退回。
+1. **新增清单，不改 skill 词汇**：把上述路线做成 `../../workflows` 里的新 JSON（如 `*-ref2v-ctx-*.json`），用 `requiresNodes` 声明依赖（`MiniMaxH3AddGuide` / `MiniMaxH3MotionContext`），缺依赖时 **显式不可用**而不是静默退回。
 2. **R1 先做，因为它几乎只是数据**：清单 + `source_video` 复用（`opts.video_node`）即可，不需要动 JS；若要更语义化的入参，再加一个 `context_video_node`（照 `resolveSourceVideo` 复制一行）。
-3. **R2/R3 需要一个"链状态"概念**：Motion Context 的 Save/Load Latent 是**文件槽位**（`clip_00002.safetensors` + `clip_index`），Add Guide 需要"上一镜尾帧/尾段"作为输入。两者都可以由 runner 从**画布上已存在的上一镜节点**推导（抽帧已有 `extract_frame`），但"哪个镜是上一镜、是否同场景"属于流程策略——按现有设计应来自镜头表的 `continuity` 段（见 `docs/consistency-optimization-plan.md` 的 W3/W4），**不要写进工具描述**。
+3. **R2/R3 需要一个"链状态"概念**：Motion Context 的 Save/Load Latent 是 **文件槽位**（`clip_00002.safetensors` + `clip_index`），Add Guide 需要"上一镜尾帧/尾段"作为输入。两者都可以由 runner 从 **画布上已存在的上一镜节点**推导（抽帧已有 `extract_frame`），但"哪个镜是上一镜、是否同场景"属于流程策略——按现有设计应来自镜头表的 `continuity` 段（见 `consistency-optimization-plan.md` 的 W3/W4）， **不要写进工具描述**。
 4. **口子留干净**：把 `context_length` / `audio_context_length` / `anchor_mode` 一类参数作为清单 `params`（scalar 注入），而不是硬编码进图模板，便于 A/B 与回退。
 5. **加速件与链条的关系要实测**：本机默认档是蒸馏档（4 步/8 步 + PDD 头 + 可选 Sol-Attn），而链条 + 蒸馏对音频是**双重**损失源。建议给"连续性档"单独标注，并保留一条"不蒸馏"的对照。
 
@@ -256,11 +256,11 @@ latent 用 `…SaveLatent`/`…LoadLatent` 跨运行搬运（首镜 Load 0 / Sav
 
 四档结论一致：续接把接缝画面差压到 2.6–7.0，同 seed 对照 32–68；音频在音乐型素材上四档全部正向。
 **续接带来的是"同一段画面"，不是"更高画质"**（MAD 与档位几乎无关）。完整表（含包络相关与耗时）
-见 `docs/shot-chain-continuity.md` 附 B；原始本地产物已清理。
+见 `shot-chain-continuity.md` 附 B；原始本地产物已清理。
 
 **Sol-Attn 叠加未测且不可测**：`…-ctx-balanced-pdd-sol` 会让 ComfyUI 硬崩
 （`CUDA_ERROR_INVALID_VALUE from cuMemFreeAsync` → `Fatal Python error: Aborted`，容器重启），
-带／不带续接都崩 ⇒ 与 Motion Context 无关；该变体已从交付集撤销，见 `docs/minimax-h3-acceleration-lora.md` §9.10。
+带／不带续接都崩 ⇒ 与 Motion Context 无关；该变体已从交付集撤销，见 `../../docs/minimax-h3-acceleration-lora.md` §9.10。
 
 **成本**：多采的 22 帧被裁掉，同档位耗时差异在噪声内（fast 50.8s vs 50.1s；插件路径 38.6s/镜）。
 
@@ -294,6 +294,6 @@ latent 用 `…SaveLatent`/`…LoadLatent` 跨运行搬运（首镜 Load 0 / Sav
 - ethanfel/ComfyUI-MiniMaxH3-Context-Loop（0.6.9，前身名 Contex-Loop）：<https://github.com/ethanfel/ComfyUI-MiniMaxH3-Context-Loop>
 - BigStationW/ComfyUi-MiniMax-H3-Image-And-Reference-To-Video：<https://github.com/BigStationW/ComfyUi-MiniMax-H3-Image-And-Reference-To-Video>
 - 合并权重 `smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models`：<https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models>
-- 插件侧契约：`docs/workflow-contract.md`（M5：加工作流=丢 JSON）、`docs/tier-strategy-design.md`、`docs/consistency-optimization-plan.md`（W3 镜头表 / W4 串联决策）
+- 插件侧契约：`workflow-contract.md`（M5：加工作流=丢 JSON）、`tier-strategy-design.md`、`consistency-optimization-plan.md`（W3 镜头表 / W4 串联决策）
 
 *文档日期：2026-09-15（§8 实测补充）· 环境事实：远端已升到 0.35.2；社区包行为来自其 README/CHANGELOG/源码；R3 的 A/B 见 §8。*

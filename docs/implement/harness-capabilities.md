@@ -143,7 +143,7 @@ Todo 的文本和状态由 Agent 写入，Harness 负责校验、会话日志持
 
 ## 8. 证据
 
-- 当前 Profile：`~/.dsh/profiles/web/package.json`、`cordis.yml`、`cordis.patch.yml`。
+- 当前 Profile：`~/.dsh/profiles/web/package.json`、`cordis.yml`、`../../cordis.patch.yml`。
 - 当前组合：`dsh --profile web --dump-config`。
 - 当前 Standard preset：`@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml`。
 - 本地官方包 README：Todo、Subagent、Goal、Plan、Workflow、Conversation UI 等已安装包。

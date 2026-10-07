@@ -35,7 +35,7 @@
 2. **流程没有可收敛的重试路径**。已完成的文本任务不可变、commandId 写死为 `v1`、自动恢复的 commandId 是常量、批量生成不能对部分完成的项目重跑。只要某一步确定性地失败一次，后续每次重试都会得到同样的结果（A2–A7）。这是“反复打补丁仍走不完”的结构性根因，与具体哪一行写错无关。
 3. **三层校验互不一致**：文本阶段的校验器（novel-production）、领域命令（commands）、阶段门禁（policies）各自定义规则。文本阶段放行的结果，会在 Proposal 落库或媒体建图时才被拒。由于第 2 条，这种拒绝会变成永久失败（A5）。
 4. **分集规划的校验在设计上很难满足**：它要求各集原文区间无缝、精确覆盖 `[0, 原文字符数]`，但规划子 Agent 既拿不到原文，也拿不到总字符数（B1）。
-5. 旧根因报告（`docs/research/2026-10-06-current-drama-root-cause.md`）列出的问题中，“吞掉失败子任务”“模板镜头补缺”“时长不传”“对白不进 prompt”“无参考图/分镜图”“无交付实体”在当前代码中都已有对应实现（见 §4），不要重复修。
+5. 旧根因报告（`../research/2026-10-06-current-drama-root-cause.md`）列出的问题中，“吞掉失败子任务”“模板镜头补缺”“时长不传”“对白不进 prompt”“无参考图/分镜图”“无交付实体”在当前代码中都已有对应实现（见 §4），不要重复修。
 6. 本机 107 个单元测试全部通过（E1），但没有一个测试走完 `studio_novel_create → Worker → deliver` 的真实执行路径。“测试全绿但流程走不完”的原因就在这里（I1）。
 
 严重度：**P0** 必然阻断；**P1** 失败后无法收敛（死循环）；**P2** 结果错误或高概率失败；**P3** 质量、体验或维护问题。
@@ -71,7 +71,7 @@
 
 **A1 · P0 · 已确认（E1+E2）· 10 号小说入口已被旧项目永久锁死**
 - 证据：`~/.dsh/storages/short_video_studio/bindings/novel-25d90eab….json` → 项目 `20261006213635859`。该项目 `status=draft`，Run `61c59134…`（mode fast）`status=completed`，16 个任务全部 completed；12 个视频资产全是 `candidate`；没有参考图、分镜图、Timeline 和 Deliverable；9 个角色的 `description` 长度都是 0。它是旧代码产出的数据。
-- 代码：`lib/index.js` 中 `studio_novel_create.execute` 的 `previousRun` 分支：`previousRun.status === 'completed' && project.status !== 'completed'` 时直接 `throw 'existing media run completed without validated drama delivery…'`。
+- 代码：`../../lib/index.js` 中 `studio_novel_create.execute` 的 `previousRun` 分支：`previousRun.status === 'completed' && project.status !== 'completed'` 时直接 `throw 'existing media run completed without validated drama delivery…'`。
 - 后果：同一工作区里再次发起 10 号小说，必然在第一步报错；没有工具能作废旧项目、开新版本或迁移旧数据。只能手工删除存储。
 - 修复方向：提供显式的“新建版本/作废旧项目”路径（bindingKey 带版本，或允许 `restart=true` 时 `bind(..., {replace:true})`）；不要把“旧版本数据不合规”变成永久异常。
 
@@ -80,7 +80,7 @@
 - 后果：第一次恢复后 Run 又失败；之后每次调用都只回放旧结果，Run 一直是 failed，工具却返回 `ok:true, reused:true`。
 
 **A3 · P1 · 已确认（E2）· 已完成的文本任务永远不能重做，且会被新校验器反复判死**
-- 代码：`lib/script/novel-production.js` 的 `runBatch`：`task.status === 'completed'` 时执行 `request.validate?.(task.outputRef)`，抛错就直接向上冒。`productionTask` 状态机中 `completed: []`；`resumeProductionRun` 只处理 failed/blocked/leased/running。
+- 代码：`../../lib/script/novel-production.js` 的 `runBatch`：`task.status === 'completed'` 时执行 `request.validate?.(task.outputRef)`，抛错就直接向上冒。`productionTask` 状态机中 `completed: []`；`resumeProductionRun` 只处理 failed/blocked/leased/running。
 - 后果：只要校验规则被改（Codex 每次打补丁都在改），或者旧输出不满足新规则，这个项目就每次都在同一处抛错，没有重做入口。
 
 **A4 · P1 · 已确认（E2）· Proposal 的 commandId 写死为 v1**
@@ -151,7 +151,7 @@
 - `render-shot` 的 `refs = [角色卡…, 场景卡, storyboardAssetId]`。分镜图本身就画着这些角色。按 GUIDANCE 的实测硬规则（“参考图里有几个身体，成片就倾向出现几个角色”），这样会产生重复角色。编译出的 `subject_definitions` 也没有描述最后一张分镜图（Picture 序号缺失）。
 
 **C2 · P2 · 已确认（E2）· 卡片和分镜的尺寸不适合作参考**
-- 角色卡继承画布 16:9，fast 档是 1024×576 的横版全身像，人物在画面中占比很小（`docs/open-issues.md` ISSUE-001 未解决）。分镜用 i2i 生成，输出尺寸跟随第一张参考图（角色卡），fast 档 `reference_pixels=768`，分镜分辨率很低。
+- 角色卡继承画布 16:9，fast 档是 1024×576 的横版全身像，人物在画面中占比很小（`../../archive/doc/open-issues.md` ISSUE-001 未解决）。分镜用 i2i 生成，输出尺寸跟随第一张参考图（角色卡），fast 档 `reference_pixels=768`，分镜分辨率很低。
 
 **C3 · P3 · 已确认（E2）· 卡片 prompt 不满足自家硬规则**
 - 角色卡 prompt 是 `name + description + visualStyle + “不要文字”`，没有“单视图、正面全身、纯净背景、单人”等约束。description 来自叙事分析，多是性格和背景，而不是外观。
@@ -199,15 +199,15 @@
 ### F. Agent 指令（父 Agent 行为错乱的来源）
 
 **F1 · P1 · 已确认（E2）· 三份指令互相矛盾**
-- `lib/guidance.js`：“优先用 studio_source_import 的 sourcePath”，以及“文本阶段完成后在同一轮自动加载媒体 Skill”。
-- `lib/index.js` 追加的 systemPrompt：主 Agent 不得直接调用 studio_source_import / studio_novel_orchestrate / studio_batch_generate，不得加载其他媒体 Skill。
+- `../../lib/guidance.js`：“优先用 studio_source_import 的 sourcePath”，以及“文本阶段完成后在同一轮自动加载媒体 Skill”。
+- `../../lib/index.js` 追加的 systemPrompt：主 Agent 不得直接调用 studio_source_import / studio_novel_orchestrate / studio_batch_generate，不得加载其他媒体 Skill。
 - `SKILL.md`：第 1–2 步说调用 `studio_novel_create` 后禁止再调任何 `studio_*`；第 3–7 步却仍让主 Agent 提交内容分析、分集规划、剧本，再调 `studio_batch_generate`；多 Agent 协议一节又在描述主 Agent 根本不该做的任务图细节。
 - 后果：历史日志中父 Agent 猜测不存在的 Skill、重复导入、额外创建失败的 Run（根因报告 §6），都由这里的矛盾诱发。
 
 **F2 · P3 · 已确认（E2）· 文案错误**
 - systemPrompt 后缀写成 `'\\n整书…'`，模型看到的是字面量 `\n`。
 - `comfy_generate_image` 的描述写“默认档 quality”，实际默认是 fast。
-- GUIDANCE 说“由网关拒绝无效配置”，但 `lib/gateway.js` 的 `GatewayClient` 没有被任何代码引用。
+- GUIDANCE 说“由网关拒绝无效配置”，但 `../../lib/gateway.js` 的 `GatewayClient` 没有被任何代码引用。
 
 ### G. 画布展示
 
@@ -264,4 +264,4 @@
 - 只做了静态审查和本机只读数据检查；没有发起任何文本 Agent 或 ComfyUI 生成，所以 D4、D5 的触发概率、C1 的重复角色现象、B4 子 Agent 是否仍然空回，都没有在当前代码上实测。
 - 宿主 API（`exec.concludeTurn`、`tools.restrict`、`structured_output`、workflow foreground 结果、`agent/created` 的 parentSession）已在本机安装的宿主源码中核对确实存在；未核对宿主各版本之间的差异。
 - 审查结束后代码可能还在被其它会话修改，以文首哈希表为准。哈希不一致的文件需要重新核对对应条目。
-- 未审查：超分、抽帧、资产库、飞书送达、`comfy_workflow_*` 检查工具，以及 `studio/app.js` 的大部分交互细节（只审了阶段投影与数据来源）。
+- 未审查：超分、抽帧、资产库、飞书送达、`comfy_workflow_*` 检查工具，以及 `../../studio/app.js` 的大部分交互细节（只审了阶段投影与数据来源）。

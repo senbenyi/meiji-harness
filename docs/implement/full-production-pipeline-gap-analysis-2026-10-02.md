@@ -82,7 +82,7 @@ video_concat 硬切两集与完整片
 | 已确认事实 | 证据等级 | 证据 | 直接影响 |
 | --- | --- | --- | --- |
 | DSH 全局宿主一度不存在 | E1 | `/opt/homebrew/bin/dsh` 对应包需要重新安装 | 插件无法启动，部署状态不可信 |
-| 同版本 `file:` 重装保留旧插件副本 | E1 | profile 中缺少工作区已有的 `lib/prompts/compiler.js`；remove/add 后恢复 | “安装成功”不能证明运行副本等于源码 |
+| 同版本 `file:` 重装保留旧插件副本 | E1 | profile 中缺少工作区已有的 `../../lib/prompts/compiler.js`；remove/add 后恢复 | “安装成功”不能证明运行副本等于源码 |
 | 首轮模型调用走到 `deepseek-official` | E1 | UI 报 `MISSING_CREDENTIAL` | 模型路由没有在执行前锁定 |
 | 项目计划中两集各有 8 个镜头，计划合计 60 秒 | E1 | `studio_shotlist_validate` 和项目读取结果 | 只能证明计划字段完整，不能证明媒体时长 |
 | Canvas projection 返回 `duration: 0`、`audioMode: native` | E1 | Harness 轨迹中的 `studio_project_get projection=canvas` | 项目规格存在多份互相矛盾的表示 |
@@ -90,12 +90,12 @@ video_concat 硬切两集与完整片
 | 现代博物馆修复室镜头绑定了长安城墙节点 | E1 | 轨迹中 `museum_studio = ce24e51b...`，该 ID 实际标题为“长安西门城墙 - 月夜” | 引用绑定缺少语义类型校验 |
 | 每个 H3 视频实际约 6.587 秒 | E1 | 16 个生成媒体及 ffprobe 结果 | 分镜计划时长没有传导到工作流输出 |
 | 原始两集和完整片约为 52.697、52.697、105.395 秒 | E1 | 独立 ffprobe | 原始交付不满足用户要求 |
-| `video_concat` 当前只做硬切 | E2 | `lib/index.js` 系统说明与 `lib/concat.js` 执行路径 | 工具没有目标时长语义 |
+| `video_concat` 当前只做硬切 | E2 | `../../lib/index.js` 系统说明与 `lib/concat.js` 执行路径 | 工具没有目标时长语义 |
 | 重定时过程出现过 0 字节文件和多次错误命令 | E1 | Harness 轨迹 | 失败产物没有通过原子发布隔离 |
 | 声称更新 Canvas 后，回读仍返回旧文件名 | E1 | Harness 轨迹 | 媒体文件与节点元数据不是原子更新 |
 | `~/.dsh/logs/web.log` 当前为空 | E1 | 本机文件检查 | 无法依靠普通服务日志重建事故链 |
-| `compilePromptSnapshot()` 只拼接基础 prompt、风格和引用文本 | E2 | `lib/prompts/compiler.js` | H3 prompt 结构依赖模型运行时手工生成 |
-| Project Domain 已有 attempt、review、approval、timeline 和 recovery 基础 | E2 | `lib/domain/`、`lib/media/` 及相关测试 | 根治可以复用现有领域层，不必推倒重建 |
+| `compilePromptSnapshot()` 只拼接基础 prompt、风格和引用文本 | E2 | `../../lib/prompts/compiler.js` | H3 prompt 结构依赖模型运行时手工生成 |
+| Project Domain 已有 attempt、review、approval、timeline 和 recovery 基础 | E2 | `../../lib/domain`、`lib/media/` 及相关测试 | 根治可以复用现有领域层，不必推倒重建 |
 
 ## 4. 系统缺陷
 
@@ -407,7 +407,7 @@ UI 中可见部分轨迹
 
 ### 8.2 GenerationRunner 的不确定提交处理合理
 
-`lib/media/generation.js` 区分 submit、run、download，并在提交结果不确定时记录 `submissionUnknown`。结合 idempotency key，可以避免盲目重提导致重复计费。
+`../../lib/media/generation.js` 区分 submit、run、download，并在提交结果不确定时记录 `submissionUnknown`。结合 idempotency key，可以避免盲目重提导致重复计费。
 
 这套机制应成为所有 ComfyUI 生成的唯一入口，而不是只存在于领域路径。
 
@@ -427,7 +427,7 @@ Canvas 路由已有相对路径验证和工作区逃逸保护。发布原子性�
 
 ### 8.6 FFmpeg 使用参数数组和超时的方向合理
 
-`lib/concat.js` 没有依赖拼接 Shell 字符串执行 FFmpeg，这降低了注入和转义风险。应继续在该模块内实现正式的 stream mapping、临时文件和验收，而不是把命令重新散落到模型生成的 Bash 中。
+`../../lib/concat.js` 没有依赖拼接 Shell 字符串执行 FFmpeg，这降低了注入和转义风险。应继续在该模块内实现正式的 stream mapping、临时文件和验收，而不是把命令重新散落到模型生成的 Bash 中。
 
 ### 8.7 能力注册和 workflow inspection 合理
 
@@ -571,19 +571,19 @@ Canvas 路由已有相对路径验证和工作区逃逸保护。发布原子性�
 
 ### 本地代码与配置
 
-- `lib/prompts/compiler.js`
-- `lib/prompts/snapshot.js`
-- `lib/concat.js`
-- `lib/media/generation.js`
-- `lib/media/failures.js`
-- `lib/media/recovery.js`
-- `lib/media/batch.js`
-- `lib/timeline/model.js`
-- `lib/domain/tools.js`
-- `lib/domain/invalidation.js`
-- `lib/index.js`
-- `skills/elysium-generate-minimax-h3/SKILL.md`
-- `skills/elysium-generate-minimax-h3/references/studio-mapping.md`
+- `../../lib/prompts/compiler.js`
+- `../../lib/prompts/snapshot.js`
+- `../../lib/concat.js`
+- `../../lib/media/generation.js`
+- `../../lib/media/failures.js`
+- `../../lib/media/recovery.js`
+- `../../lib/media/batch.js`
+- `../../lib/timeline/model.js`
+- `../../lib/domain/tools.js`
+- `../../lib/domain/invalidation.js`
+- `../../lib/index.js`
+- `../../skills/elysium-generate-minimax-h3/SKILL.md`
+- `../../skills/elysium-generate-minimax-h3/references/studio-mapping.md`
 
 ### 实测记录
 

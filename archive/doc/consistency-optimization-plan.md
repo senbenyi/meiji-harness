@@ -2,7 +2,7 @@
 
 针对四个议题的现状审查与改造方案：**角色卡生成 / 跨场景人物一致性 / 多镜头规划 / 切换过渡一致性**。
 
-审查范围：`lib/*.js`、`workflows/*.json`、`schemas/`、`skills/3d-animation-short-generator/`、`studio/`、`docs/workflow-contract.md`。
+审查范围：`lib/*.js`、`workflows/*.json`、`../../schemas`、`skills/3d-animation-short-generator/`、`studio/`、`../archive/doc/workflow-contract.md`。
 
 ---
 
@@ -79,7 +79,7 @@ export function slugifyName(s) {
 
 ### D5 · 无 image2image，换装必然漂移
 
-`CAPABILITIES` 声明了 `image.image2image`，但 `workflows/` 下只有 `flux-text2image.json`。「同一角色换宇航服」只能重新 text2image 抽卡，身份必然漂移。现行对策是"分状态各建一张卡"——把漂移问题转成了"两张卡本来就不是同一只狐狸"的问题。
+`CAPABILITIES` 声明了 `image.image2image`，但 `../../workflows` 下只有 `flux-text2image.json`。「同一角色换宇航服」只能重新 text2image 抽卡，身份必然漂移。现行对策是"分状态各建一张卡"——把漂移问题转成了"两张卡本来就不是同一只狐狸"的问题。
 
 ### D6 · seed 不可复现
 
@@ -95,7 +95,7 @@ export function slugifyName(s) {
 
 把"角色卡 = 一张图片节点"升级为"角色 = 有身份契约的实体"。
 
-在资产库记录上扩展（`lib/assets.js` `registerAsset` 的 `meta` 已经是开放结构，无需改存储格式）：
+在资产库记录上扩展（`../../lib/assets.js` `registerAsset` 的 `meta` 已经是开放结构，无需改存储格式）：
 
 ```jsonc
 {
@@ -147,7 +147,7 @@ export function planRefs(shot, bible) → { refs: string[], warnings: string[] }
 
 同时在 `buildRenderGraph` 前加一次断言：`video.reference2video` 且 prompt 含 `[SPEAKER]` 非 `n/a` 时，refs 必须非空且首位为该说话人的角色资产，否则报错而非静默生成。
 
-关于身份锁（D3 主体）：本地若有 IPAdapter / InstantID 节点，可加一份 `video.reference2video` 的变体 manifest，把角色卡额外接到身份编码器上。这是 manifest 契约层的天然扩展点（丢 json 即可，`docs/workflow-contract.md` 的 M5 验收标准），不需要改 JS。**建议先做 W2 的策略引擎再评估身份锁**——参考顺序和风格锚点两项修好之后，漂移可能已降到可接受范围，避免过早引入重量级依赖。
+关于身份锁（D3 主体）：本地若有 IPAdapter / InstantID 节点，可加一份 `video.reference2video` 的变体 manifest，把角色卡额外接到身份编码器上。这是 manifest 契约层的天然扩展点（丢 json 即可，`workflow-contract.md` 的 M5 验收标准），不需要改 JS。**建议先做 W2 的策略引擎再评估身份锁**——参考顺序和风格锚点两项修好之后，漂移可能已降到可接受范围，避免过早引入重量级依赖。
 
 ### W3 · 结构化镜头清单
 
@@ -242,7 +242,7 @@ if (n.kind !== 'image') throw new Error(
 | **P2** | 抽帧能力（W4.1/W4.3）、`comfy_generate_video(shot_id)` 联动、`compose.concat`（W5） | P1 | 需要 shotlist 的 `continuity` 段 |
 | **P3** | `image.image2image` 换装通道（W1.4）、角色卡 preset（W1.3）、身份锁 manifest 评估（W2 尾） | P2 | 依赖本地权重可用性，先验证再投入 |
 
-P0 之后，skill 与 systemPrompt 里对应的散文条款应同步改写成"调用哪个工具"，避免两套真相并存。这与 `docs/workflow-contract.md` 已规划的 M3（GUIDANCE 改能力词汇表述）是同一件事，建议合并推进。
+P0 之后，skill 与 systemPrompt 里对应的散文条款应同步改写成"调用哪个工具"，避免两套真相并存。这与 `workflow-contract.md` 已规划的 M3（GUIDANCE 改能力词汇表述）是同一件事，建议合并推进。
 
 ---
 

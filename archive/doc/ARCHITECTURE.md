@@ -1,7 +1,7 @@
 # dsh-short-video-studio 架构文档
 
 > 本文档梳理 `dsh-short-video-studio`（v0.1.1）的整体架构：定位、模块划分、分层设计、关键数据流、目录职责与已知架构债。
-> 配套文档：`docs/workflow-contract.md`（工作流契约设计）、`docs/architecture-review.md`（架构审查与优化意见）、`docs/consistency-optimization-plan.md`（一致性与镜头规划方案）、`docs/three-view-experiment.md`（参考图实验）。
+> 配套文档：`workflow-contract.md`（工作流契约设计）、`architecture-review.md`（架构审查与优化意见）、`consistency-optimization-plan.md`（一致性与镜头规划方案）、`../archive/doc/three-view-experiment.md`（参考图实验）。
 
 ---
 
@@ -12,7 +12,7 @@
 - **创作页**：每个会话多一个「创作」视图 tab，页面内的画布按生产顺序预览 / 编辑各步骤产物。
 - **生成服务**：统一走**本地 ComfyUI API**——图片用本地 FLUX 2，视频用本地 MiniMax H3（音视频 AV 模型，默认带声音、支持参考图绑定与原生字幕）。
 - **Agent 工具**：`comfy_generate_image` / `comfy_generate_video` / `comfy_render` / `canvas_*` / `asset_*`，Agent 与画布页读写同一份持久状态。
-- **自带 skill**：安装插件时自动把 `skills/` 下的 skill 复制到 `~/.dsh/skills/`，供模型 / 技能中心发现；**带版本戳刷新**（见 §3 末），用户改过的副本永不覆盖。
+- **自带 skill**：安装插件时自动把 `../../skills` 下的 skill 复制到 `~/.dsh/skills/`，供模型 / 技能中心发现； **带版本戳刷新**（见 §3 末），用户改过的副本永不覆盖。
 
 **核心架构主张**（贯穿全篇）：插件退化为一个**通用 ComfyUI 工作流执行器 + 注册表**。宿主不认识「FLUX」「H3」这些名字，只认识**能力（capability）**与**工作流清单（manifest，数据而非代码）**——换模型 / 换工作流 = 增删一份 JSON，不动 JS、不动工具描述、不动 systemPrompt。
 
@@ -48,7 +48,7 @@ dsh-short-video-studio/
 └── examples/fox/                # 示例片《一只想当宇航员的小狐狸》产物（含反面示例卡）
 ```
 
-**双半装配**：`cordis.patch.yml` 声明插件行 → 宿主 Node 进程加载 `lib/index.js`（`exports "."`），`package.json` 的 `dsh.client` 声明让浏览器半 `lib/client.js`（`exports "./client"`）以 `/plugins/<id>/client.js` 载入 Web GUI。
+**双半装配**：`../../cordis.patch.yml` 声明插件行 → 宿主 Node 进程加载 `lib/index.js`（`exports "."`），`package.json` 的 `dsh.client` 声明让浏览器半 `lib/client.js`（`exports "./client"`）以 `/plugins/<id>/client.js` 载入 Web GUI。
 
 ---
 
@@ -76,7 +76,7 @@ dsh-short-video-studio/
 
 ### 3.1 契约层：三层正交契约（核心设计）
 
-来源：`docs/workflow-contract.md`。**「Agent 想做什么」（语义）与「某个工作流怎么做」（实现）彻底切开。**
+来源：`workflow-contract.md`。**「Agent 想做什么」（语义）与「某个工作流怎么做」（实现）彻底切开。**
 
 | 层 | 内容 | 载体 |
 |---|---|---|
@@ -123,11 +123,11 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
 
 `comfy_generate_image` / `comfy_generate_video` 是**薄别名**：前者固定 `capability=image.text2image`；后者按**显式必填的 `type`** 分派 —— `type=r2v` → `video.reference2video`（参考绑定，配 `ref_nodes`）、`type=i2v` → `video.image2video`（首末帧串联，配 `first_frame_node`）。
 
-形状**不再由「传没传首帧」隐式推断**（旧行为会把冲突参数静默丢弃，见 `docs/video-shape-contract.md`）：真值表集中在 `VIDEO_SHAPES`，校验由 `validateVideoArgs()` 实现，`runRender` 在**上传参考图之前**调用，工具 / HTTP 路由 / 脚本共用同一张表；冲突报错必须带修法。形状与「续接」（`continuity_from`）正交，跨形状续接刻意允许。
+形状**不再由「传没传首帧」隐式推断**（旧行为会把冲突参数静默丢弃，见 `video-shape-contract.md`）：真值表集中在 `VIDEO_SHAPES`，校验由 `validateVideoArgs()` 实现，`runRender` 在**上传参考图之前**调用，工具 / HTTP 路由 / 脚本共用同一张表；冲突报错必须带修法。形状与「续接」（`continuity_from`）正交，跨形状续接刻意允许。
 
 > 注：`runImageGeneration` / `runVideoGeneration` 与三个 legacy builder（`buildFluxImageWorkflow` / `buildH3VideoWorkflow` / `buildH3ImageToVideoWorkflow`）已无生产调用点，仅经 `_internals` 供 `smoke-manifest.mjs` 做「manifest 编译 vs legacy 构造」节点类别等价性比对（见 §7 架构债）。
 
-#### 视频拼接（`runConcat` + `lib/concat.js`）
+#### 视频拼接（`runConcat` + `../../lib/concat.js`）
 
 拼接是 **delivery 层的确定性操作，不是模型能力**，因此刻意不进 manifest 注册表：拼接图的节点数与连线拓扑随片段数变化（变长左折叠），超出 manifest「静态 graph 模板 + 定点注入」的表达能力，为一个确定性后处理扩展契约层不划算。
 
@@ -162,9 +162,9 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
 
 ### 3.4 展示层（浏览器半）
 
-`lib/client.js` 经 `window.__ModuleLoader__.load` 注册（React，无 JSX 语法），三个注入点：
+`../../lib/client.js` 经 `window.__ModuleLoader__.load` 注册（React，无 JSX 语法），三个注入点：
 
-0. **「画布的家」分支**（配置项 `canvasHome`，设置页「界面」段）：启动时**只注册一个家**，
+0. **「画布的家」分支**（配置项 `canvasHome`，设置页「界面」段）：启动时 **只注册一个家**，
    所以两种取值下都只可能有一个 studio iframe 实例（结构上排除双实例，见
    [`right-sidebar-canvas-research.md`](right-sidebar-canvas-research.md) §13）。同步先注册默认家
    `'tab'`，异步读到 `'sidebar'` 时注销它并改注册右栏 —— 零回归、配置请求失败即默认、不需要镜像。
@@ -179,7 +179,7 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
 1. **`conversation.view` 槽**（id `short-video-canvas`，order 20，label「创作」）：渲染 iframe 指向宿主伺服的 `/dsh-short-video-studio/?sessionId=&workspaceId=`。iframe 内「重做」按钮通过 `postMessage`（channel `dsh-short-video-studio`，type `ask-ai`）把指令回填父页输入框（`inputActions.setDraft`）。
 2. **`settings.section` 槽**（id `comfyui`，order 120）：ComfyUI 设置卡——**界面（画布位置 canvasHome）**、连接参数、工作流注册表（按 capability 分组、设默认写回 `preferred`）、资产覆盖（选中工作流后按 manifest 动态渲染 assets 字段）、工作流导入（粘贴 manifest 或 ComfyUI「导出 API」原始 JSON，自动转换）、用户清单删除。
 
-`studio/` 为**自包含无构建**画布页（index.html + app.js + app.css）：读取 `/api/canvas` 全量渲染节点卡（文本/表格 markdown 解析、图片/视频媒体、参数摘要、状态），支持节点内编辑、重做（回填给 AI）、**入库**（表单选资产类型 + 资产名，AI 不自动入库）、分组改名（自由输入 + datalist 候选）、上移/下移/删除；**分组词汇由流程 skill 自由定义**，展示顺序取 `settings.groupOrder`（skill 经 `canvas_set_state` 声明），未声明的分组按首次出现顺序排在其后，缺省分组为 `ungrouped`。iframe 内禁用原生 alert/confirm/prompt，自绘 DOM 模态框。
+`../../studio` 为**自包含无构建**画布页（index.html + app.js + app.css）：读取 `/api/canvas` 全量渲染节点卡（文本/表格 markdown 解析、图片/视频媒体、参数摘要、状态），支持节点内编辑、重做（回填给 AI）、**入库**（表单选资产类型 + 资产名，AI 不自动入库）、分组改名（自由输入 + datalist 候选）、上移/下移/删除；**分组词汇由流程 skill 自由定义**，展示顺序取 `settings.groupOrder`（skill 经 `canvas_set_state` 声明），未声明的分组按首次出现顺序排在其后，缺省分组为 `ungrouped`。iframe 内禁用原生 alert/confirm/prompt，自绘 DOM 模态框。
 
 顶栏三块内容是 **A 品牌（`.brand`）/ B 工程参数（`.meta`）/ C 按钮（`.topbar-bar`）**，DOM 顺序即 A B C，响应式只改排列方向（`app.css` 的 `.topbar` 及其 `@media (max-width: 960px)`）：
 
@@ -209,9 +209,9 @@ studio/app.js      message 监听（同源 + channel/type 双重校验）→ 改
 studio/app.css     两套调色板：:root（浅，默认）/ :root[data-theme="dark"]
 ```
 
-- 两套调色板**变量名必须完全对等**、调色板块之外**零颜色字面量**、低透明度底色一律
+- 两套调色板 **变量名必须完全对等**、调色板块之外 **零颜色字面量**、低透明度底色一律
   `color-mix()` 从语义色派生（DSH 自身也用这个写法）——三条都由
-  `scripts/checks/smoke-canvas-theme.mjs` 强制，因为这类问题的表现是**静默变色**而不是报错。
+  `../../scripts/checks/smoke-canvas-theme.mjs` 强制，因为这类问题的表现是 **静默变色**而不是报错。
 - 宿主读不到主题服务（没装 `ui-theme`）时**不传** `?theme=`，让画布页按系统偏好兜底，不硬猜。
 - 首屏主题**只读一次**：它进了 `src`，跟着变会让 iframe 重载（丢滚动位置）。运行中切换只走
   `postMessage`。`color-scheme` 两套都声明，原生控件（下拉/滚动条/复选框）跟着走。
@@ -223,13 +223,13 @@ studio/app.css     两套调色板：:root（浅，默认）/ :root[data-theme="
   - `/api/config`、`/api/workflows`：**显式 tokenless**（设置页调用；威胁模型见 §7）；
   - `/api/canvas`、`/api/canvas/node`、`/api/canvas/group`、`/api/canvas/reorder`、`DELETE /api/canvas/node`、`GET|POST|DELETE /api/assets`（入库 / 列表 / 删除）、`/api/generate/image|video`：需 `x-dsh-svs-token` 头；
   - `/media`：token 走 query（便于 `<img>/<video>` 直接加载），**路径安全五步校验**（`safeRelative` → `resolve` → `inside` → `realpath` → 再 `inside`，连符号链接逃逸都堵）；
-  - 静态 `studio/`：index.html 注入 token 后伺服，开发期 no-cache。
-- **skill 自动安装 + 版本戳刷新**：`apply()` 时调 `syncBundledSkills()`（`lib/index.js`，本插件 skill 分发的唯一实现，可注入路径以便测试）把 `<包>/skills/<name>` 同步到 `~/.dsh/skills/<name>`：
+  - 静态 `../../studio`：index.html 注入 token 后伺服，开发期 no-cache。
+- **skill 自动安装 + 版本戳刷新**：`apply()` 时调 `syncBundledSkills()`（`../../lib/index.js`，本插件 skill 分发的唯一实现，可注入路径以便测试）把 `<包>/skills/<name>` 同步到 `~/.dsh/skills/<name>`：
   - **判定依据是内容哈希**（`hashSkillDir`：sha256 over 排序后的「相对路径 + 内容」，跳过 `.dsh-studio-manifest` 与 `.DS_Store`；与 mtime / 复制方式无关）；
   - 每个已安装副本的 `.dsh-studio-manifest` 记 `pluginVersion` + `contentHash` + `installedAt`；
   - **五种情形**：① 目标不存在 → 安装 + 落戳；② 有戳且内容 == 记录（用户没改）→ 与源不同则**刷新**（删掉重拷 + 更新戳），相同则只补戳（静默）；③ 有戳但内容 != 记录（**用户改过**）→ **不覆盖**，日志提示取新版的办法；④ 有戳无哈希（旧版安装）→ 内容与源一致只补戳，不一致按「用户改过」保守处理；⑤ 无戳 → 内容与源逐字节一致才**收编补戳**（只写标记，不碰内容），否则视为用户/第三方同名 skill → 冲突提示、不覆盖；
   - `DSH_SVS_SKILL_REFRESH=off` 关掉刷新（只做首次安装 + 冲突提示），`=force` 连用户改过的也覆盖（显式越权）；
-  - 回归：`scripts/checks/smoke-skill-install.mjs`（37 断言，临时目录里自建 bundle + 目标，不碰真实 `~/.dsh/skills`），已进 `npm run smoke`。
+  - 回归：`../../scripts/checks/smoke-skill-install.mjs`（37 断言，临时目录里自建 bundle + 目标，不碰真实 `~/.dsh/skills`），已进 `npm run smoke`。
 - **配置**：插件 `inject = ['webServer', 'tools', 'systemPrompt', 'workspaceRegistry']`（fiber 等待服务就绪）。
 
 ---
@@ -284,7 +284,7 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 **H3 音视频链**是核心卖点：`MiniMaxH3ReferenceToVideo + audio_vae + VAEDecodeAudio → CreateVideo(audio)`，端到端产出**带声音**的单镜头视频（非静音）。
 
-**档位解析**：H3 视频清单已**分档**（`group` / `tier` / `accel` 字段），呼叫时传 `tier=`（`mode=` 为兼容别名）；策略由注册层投影成「（无加速）/（有加速）」条目，加速实现（`-sol`）不暴露给技能。完整契约见 `docs/tier-strategy-design.md`。
+**档位解析**：H3 视频清单已**分档**（`group` / `tier` / `accel` 字段），呼叫时传 `tier=`（`mode=` 为兼容别名）；策略由注册层投影成「（无加速）/（有加速）」条目，加速实现（`-sol`）不暴露给技能。完整契约见 `tier-strategy-design.md`。
 
 **注册表来源优先级**：内置 `workflows/*.json` < 用户 `~/.dsh/dsh-short-video-studio/workflows/*.json`（同名遮蔽）< `assetOverrides` / env 换模型文件名（不动图结构）。
 
@@ -294,38 +294,38 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 | 路径 | 职责 |
 |---|---|
-| `lib/index.js` | 宿主入口：配置、ComfyUI 客户端、渲染编排（runRender + legacy）、画布存储、HTTP 路由、13 个工具、GUIDANCE、skill 安装、`_internals` 测试出口 |
-| `lib/manifest.js` | 契约引擎：`CAPABILITIES` 词汇、`validateManifest`、`resolveAssets`、`buildGraphFromManifest`（注入引擎）、`loadBuiltinManifests` |
-| `lib/convert.js` | ComfyUI 导出 → manifest 机械转换（资产抽取、标量注入点、todos 交人工的语义绑定清单） |
-| `lib/assets.js` | 资产库：load/save/register/remove、id 规范化（`normalizeAssetId`）、`isAssetRef` / `canonicalAssetId`、kind 派生（`assetKind` / `assetTypesForKind` / `TYPE_KINDS` / `NODE_KINDS`）、`assetStoredFile`、`resolveAssetPath`（任意 kind）/ `resolveAssetImagePath`（只认 image，作 ref 安全闸门）、`slugifyName` |
-| `lib/concat.js` | 视频拼接：`buildConcatGraph`（纯函数，变长左折叠图）、`detectFfmpeg`、`ffmpegConcat`（copy 失败降级重编码） |
-| `lib/client.js` | 浏览器半：画布的家（`canvasHome` 决定 `conversation.view` tab 或 `sidebar.right.pane.tab` 右栏类型，两者复用同一个 `CanvasView`）+ 画布主题跟随宿主浅/深（读 `ui-theme` + `?theme=` / postMessage 双通道）+ `settings.section` ComfyUI 设置卡 |
-| `studio/` | 自包含画布页：节点卡渲染、编辑/重做/入库/分组/排序/删除、markdown 表格解析、自绘模态、ask-ai postMessage、**双调色板跟随宿主浅/深**（`<html data-theme>`，app.css 两套调色板 + index.html 首屏脚本 + app.js message 监听） |
-| `workflows/` | 4 份内置 manifest（数据） |
-| `schemas/workflow-manifest.schema.json` | manifest 权威 JSON Schema |
+| `../../lib/index.js` | 宿主入口：配置、ComfyUI 客户端、渲染编排（runRender + legacy）、画布存储、HTTP 路由、13 个工具、GUIDANCE、skill 安装、`_internals` 测试出口 |
+| `../../lib/manifest.js` | 契约引擎：`CAPABILITIES` 词汇、`validateManifest`、`resolveAssets`、`buildGraphFromManifest`（注入引擎）、`loadBuiltinManifests` |
+| `../../lib/convert.js` | ComfyUI 导出 → manifest 机械转换（资产抽取、标量注入点、todos 交人工的语义绑定清单） |
+| `../../lib/assets.js` | 资产库：load/save/register/remove、id 规范化（`normalizeAssetId`）、`isAssetRef` / `canonicalAssetId`、kind 派生（`assetKind` / `assetTypesForKind` / `TYPE_KINDS` / `NODE_KINDS`）、`assetStoredFile`、`resolveAssetPath`（任意 kind）/ `resolveAssetImagePath`（只认 image，作 ref 安全闸门）、`slugifyName` |
+| `../../lib/concat.js` | 视频拼接：`buildConcatGraph`（纯函数，变长左折叠图）、`detectFfmpeg`、`ffmpegConcat`（copy 失败降级重编码） |
+| `../../lib/client.js` | 浏览器半：画布的家（`canvasHome` 决定 `conversation.view` tab 或 `sidebar.right.pane.tab` 右栏类型，两者复用同一个 `CanvasView`）+ 画布主题跟随宿主浅/深（读 `ui-theme` + `?theme=` / postMessage 双通道）+ `settings.section` ComfyUI 设置卡 |
+| `../../studio` | 自包含画布页：节点卡渲染、编辑/重做/入库/分组/排序/删除、markdown 表格解析、自绘模态、ask-ai postMessage、**双调色板跟随宿主浅/深**（`<html data-theme>`，app.css 两套调色板 + index.html 首屏脚本 + app.js message 监听） |
+| `../../workflows` | 4 份内置 manifest（数据） |
+| `../../schemas/workflow-manifest.schema.json` | manifest 权威 JSON Schema |
 | `skills/3d-animation-short-generator/` | 其中一种片型的生产流程 skill（自包含单文件 SKILL.md + meta.yaml）；插件对它零认知 |
-| `scripts/` 冒烟与走查 | `mock-apply`（装配冒烟）、`smoke-manifest`（M1 图编译等价）、`smoke-render`（M2 纯逻辑）、`smoke-concat`（拼接图拓扑）、`smoke-canvas-home`（画布的家 + 主题接线的纯逻辑）、`smoke-canvas-theme`（双调色板对等 / 零颜色字面量 / WCAG）、`smoke-assets`（真路由：三种载体的入库/删除/物化 + 老库兼容）、`probe-concat` / `probe-extract-frame`（实跑，需 ComfyUI）、`smoke-flux2` / `smoke-submit`（需 ComfyUI）、`import-comfy`（CLI 转换） |
-| `scripts/` 模板层（H3 一个 json = 一个档位实现） | `h3-templates/`（手写源）→ 三个生成器 → `workflows/`（产物，勿手改）：`make-h3-variants.mjs`（模板 → 单档清单，自动填 `requiresNodes`/`estSeconds`/`note`）、`make-pdd-template.mjs`（从同族 base 生成 PDD 模板，固定 6 处改动：model 直连 UNETLoader 不走 `$model` 哨兵、插 `MiniMaxH3PDDAccApply`、guider 改用其输出、删 `BasicScheduler`、`sigmas` 接该节点的 1 号输出、采样器强制 euler；shift 固定 12/3，`requiresNodes=['MiniMaxH3PDDAccApply']`，`priority=-30` 不做隐式默认）、`make-sol-attn-variant.mjs`（插 Sol 节点；`--after=<锚点>`，遇到 PDD 模板会自动锚定 PDD 节点、Sol id 改用 `2b`，避免与 Apply 节点的 `2a` 撞号） |
+| `../../scripts` 冒烟与走查 | `mock-apply`（装配冒烟）、`smoke-manifest`（M1 图编译等价）、`smoke-render`（M2 纯逻辑）、`smoke-concat`（拼接图拓扑）、`smoke-canvas-home`（画布的家 + 主题接线的纯逻辑）、`smoke-canvas-theme`（双调色板对等 / 零颜色字面量 / WCAG）、`smoke-assets`（真路由：三种载体的入库/删除/物化 + 老库兼容）、`probe-concat` / `probe-extract-frame`（实跑，需 ComfyUI）、`smoke-flux2` / `smoke-submit`（需 ComfyUI）、`import-comfy`（CLI 转换） |
+| `../../scripts` 模板层（H3 一个 json = 一个档位实现） | `h3-templates/`（手写源）→ 三个生成器 → `../../workflows`（产物，勿手改）：`make-h3-variants.mjs`（模板 → 单档清单，自动填 `requiresNodes`/`estSeconds`/`note`）、`make-pdd-template.mjs`（从同族 base 生成 PDD 模板，固定 6 处改动：model 直连 UNETLoader 不走 `$model` 哨兵、插 `MiniMaxH3PDDAccApply`、guider 改用其输出、删 `BasicScheduler`、`sigmas` 接该节点的 1 号输出、采样器强制 euler；shift 固定 12/3，`requiresNodes=['MiniMaxH3PDDAccApply']`，`priority=-30` 不做隐式默认）、`make-sol-attn-variant.mjs`（插 Sol 节点；`--after=<锚点>`，遇到 PDD 模板会自动锚定 PDD 节点、Sol id 改用 `2b`，避免与 Apply 节点的 `2a` 撞号） |
 | `scripts/bench-h3.mjs` | 实测工具：由**模板**直接组图跑真机并计时（两条臂只要 ref/seed/length/prompt 一致，差异即只来自配方；`--dry` 先核对配方） |
-| `cordis.patch.yml` | bundle patch：插件行插入 web profile roster |
-| `docs/` | 设计文档（workflow-contract）、审查（architecture-review）、方案（consistency-optimization-plan）、实验（three-view-experiment） |
+| `../../cordis.patch.yml` | bundle patch：插件行插入 web profile roster |
+| `../../docs` | 设计文档（workflow-contract）、审查（architecture-review）、方案（consistency-optimization-plan）、实验（three-view-experiment） |
 
 ---
 
-## 7. 已知架构债（来自 `docs/architecture-review.md`，非本文作者新增判断）
+## 7. 已知架构债（来自 `architecture-review.md`，非本文作者新增判断）
 
 | 优先级 | 事项 | 说明 |
 |---|---|---|
 | **P0** ✅ | GUIDANCE 三视图/单视图矛盾 | 已按三视图实验结论修复（单视图 + 参考图零文字 + 多角度无增量价值） |
 | **P0** ✅ | GUIDANCE 与 `SKILL.md` 双份真相 | 已修复：GUIDANCE 收敛为「基本约定 + 工具契约 + 参考图硬规则 + skill 指针」，不再写任何流程；流程唯一真相在 `SKILL.md`（单文件，`references/` 已删除）。GUIDANCE 与 `GROUP_ORDER` 均不再出现片型词汇或具体 skill 名 |
 | **P1** | ~160 行 legacy 死代码 | `runImageGeneration` / `runVideoGeneration` / 三个 builder 已无生产调用点，仅作 smoke 对照；建议改 golden-file 快照断言或移入 test fixtures |
-| **P1** | `lib/index.js` 单文件 8 职责 | 配置 / ComfyUI 客户端 / 图构造 / 存储 / 渲染 / 路由 / 工具 / GUIDANCE；建议拆 comfy.js / canvas.js / render.js / routes.js / tools.js / guidance.js |
-| **P1** | 无 `npm test` / CI | `scripts/` 8 个文件全靠手跑；`smoke-manifest` / `smoke-render` / `mock-apply` 是纯逻辑可 CI |
+| **P1** | `../../lib/index.js` 单文件 8 职责 | 配置 / ComfyUI 客户端 / 图构造 / 存储 / 渲染 / 路由 / 工具 / GUIDANCE；建议拆 comfy.js / canvas.js / render.js / routes.js / tools.js / guidance.js |
+| **P1** | 无 `npm test` / CI | `../../scripts` 8 个文件全靠手跑；`smoke-manifest` / `smoke-render` / `mock-apply` 是纯逻辑可 CI |
 | **P2** | tokenless 路由 `/config` / `/workflows` | `POST /workflows` 会写图文件并 `reloadRegistry`，`POST /config` 可改 baseUrl；建议加 token 或明示威胁模型 |
 | **P2** | `schemaVersion` 无迁移 | 只有写入无检查无 `migrate()`，为将来 shotlist 节点预留 |
 | **P2** | 设置页资产字段仍硬编码 | 应改为按 registry 动态渲染（即 M4）。入库表单化已完成（资产类型下拉 + 资产名，不再从分组名反推类型） |
 
-另外 `docs/consistency-optimization-plan.md` 指出的功能缺口中，「无拼接能力」已由 `runConcat` 解决，「末帧串联链路断裂（无抽帧能力）」已由 `extract-frame` 清单 + `extract_frame` 工具解决；仍未解决：`slugifyName` 对中文标题失效导致入库堵死、无身份锁（仅参考图 + 散文约束）、七列镜头表不可机读（无 shotlist schema）。
+另外 `consistency-optimization-plan.md` 指出的功能缺口中，「无拼接能力」已由 `runConcat` 解决，「末帧串联链路断裂（无抽帧能力）」已由 `extract-frame` 清单 + `extract_frame` 工具解决；仍未解决：`slugifyName` 对中文标题失效导致入库堵死、无身份锁（仅参考图 + 散文约束）、七列镜头表不可机读（无 shotlist schema）。
 
 ---
 
@@ -339,14 +339,14 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 ## 9. skill 层与执行层的配合与解耦
 
-> 深化 `architecture-review.md` §1.2（双份真相）与 `workflow-contract.md` §5（工具契约泛化）的交点：skill 层与执行层如何配合、耦合在哪、如何解耦。
+> 深化 `architecture-review.md` §1.2（双份真相）与 `../archive/doc/workflow-contract.md` §5（工具契约泛化）的交点：skill 层与执行层如何配合、耦合在哪、如何解耦。
 
 ### 9.1 现状：三层各司其职，但边界模糊
 
 | 层 | 载体 | 职责 | 对模型的可见方式 |
 |---|---|---|---|
-| 执行层 | `lib/index.js` 工具 + `lib/manifest.js` + `workflows/*.json` | 能力（capability→manifest→执行）、画布存储、资产库 | 工具 JSON Schema（**硬接口**，每轮必见） |
-| GUIDANCE | `lib/index.js` systemPrompt 段（order 150） | 插件存在声明 + 工具契约摘要 + 流水线摘要 | systemPrompt（每轮注入） |
+| 执行层 | `../../lib/index.js` 工具 + `lib/manifest.js` + `workflows/*.json` | 能力（capability→manifest→执行）、画布存储、资产库 | 工具 JSON Schema（**硬接口**，每轮必见） |
+| GUIDANCE | `../../lib/index.js` systemPrompt 段（order 150） | 插件存在声明 + 工具契约摘要 + 流水线摘要 | systemPrompt（每轮注入） |
 | skill 层 | `SKILL.md` + `references/*.md` | 编排规则：Step 0-8 顺序、门控、镜头表/分镜/QC 规范、失败梯度、模型选择策略 | skill 系统（触发时加载） |
 
 配合链路：模型读 skill → 得到编排规则 → 调执行层工具（经工具系统看到 JSON Schema）→ `runRender` → manifest 引擎 → ComfyUI → 落画布 → 结果回传 → 模型按散文推进；画布页同步渲染同一份 `project.json`。
@@ -401,8 +401,8 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 正式短剧的当前写入事实源为 Project 领域命令，画布为只读投影。主 Agent 通过 Harness 原生 workflow 调度剧情、剧本、角色、镜头、分镜、成片六类职责；角色从正式剧本提取角色/场景/道具与衍生状态，镜头规划先于分镜预览。
 
-`lib/script/asset-production.js` 负责剧本资产提取契约；`shot-production.js` 负责图片/视频独立提示词；`lib/domain/creative.js` 校验成果输入版本并写入；`lib/prompts/specification.js` 校验生成说明。参考图、衍生图、分镜图和视频均须有完整、可编辑的已保存提示词，渲染使用当前说明并保存真实请求快照。旧描述和旧视频 prompt 不自动冒充新的完整提示词。主流程与返工复用同一领域契约、生产队列和失效传播。
+`../../lib/script/asset-production.js` 负责剧本资产提取契约；`shot-production.js` 负责图片/视频独立提示词；`lib/domain/creative.js` 校验成果输入版本并写入；`lib/prompts/specification.js` 校验生成说明。参考图、衍生图、分镜图和视频均须有完整、可编辑的已保存提示词，渲染使用当前说明并保存真实请求快照。旧描述和旧视频 prompt 不自动冒充新的完整提示词。主流程与返工复用同一领域契约、生产队列和失效传播。
 
-实施及实机范围见 [验证记录](research/2026-10-07-creative-production-verification.md)。以下早期总结中的会话画布存储描述不适用于当前正式短剧领域数据链。
+实施及实机范围见 [验证记录](../../docs/research/2026-10-07-creative-production-verification.md)。以下早期总结中的会话画布存储描述不适用于当前正式短剧领域数据链。
 
-`dsh-short-video-studio` 是一个**「契约驱动」的本地生成画布工作室**：Agent 只表达「要什么」（capability + 类型化输入），宿主按注册表把能力解析成具体 ComfyUI 工作流并执行，产物落进会话画布（Agent 工具与画布页共享同一份 `project.json`），角色/场景卡经资产库跨会话复用。其最大架构价值在 manifest 契约层——**加模型即加 JSON**；最大结构风险在散文层双份真相与单文件宿主——均已由 `docs/architecture-review.md` 定位并给出拆分路线。
+`dsh-short-video-studio` 是一个**「契约驱动」的本地生成画布工作室**：Agent 只表达「要什么」（capability + 类型化输入），宿主按注册表把能力解析成具体 ComfyUI 工作流并执行，产物落进会话画布（Agent 工具与画布页共享同一份 `project.json`），角色/场景卡经资产库跨会话复用。其最大架构价值在 manifest 契约层——**加模型即加 JSON**；最大结构风险在散文层双份真相与单文件宿主——均已由 `architecture-review.md` 定位并给出拆分路线。

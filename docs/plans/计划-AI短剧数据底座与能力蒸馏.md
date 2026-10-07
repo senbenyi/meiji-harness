@@ -17,7 +17,7 @@
 5. UI 最后重做，前期只保留最小诊断与验收入口。
 6. 当前插件的 Skills、人工门、画布操作、资产复用、连续性、返工、拼接、终检和渠道交付是迁移基线，不以“新架构”为理由删减。
 7. 现有脚本和旧文件先分类迁移；只有替代测试和数据迁移验收通过后才删除源文件。
-8. 每项通用能力先查 `docs/audits/harness-capabilities.md`：Harness 已提供的 Todo、Goal、Plan、Subagent、Workflow、Job、Approval、Skill、Storage、Projection、Deliverables 等能力直接复用，不在插件内重造。
+8. 每项通用能力先查 `../implement/harness-capabilities.md`：Harness 已提供的 Todo、Goal、Plan、Subagent、Workflow、Job、Approval、Skill、Storage、Projection、Deliverables 等能力直接复用，不在插件内重造。
 9. 存储位置不是领域身份：Project 只以稳定 `projectId` 标识；Domain Storage 保存权威结构化状态，File Service 只保存按 asset id/hash 引用的二进制与导出物。宿主没有提供可写根目录且用户也未显式配置时必须失败并说明修复方法，禁止静默回退到历史目录或 session/workspace 路径。
 
 ## 总体顺序
@@ -38,10 +38,10 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 
 ## 阶段 0：冻结能力基线
 
-1. `docs/audits/plugin-capability-ledger.md` — 新增：逐条登记当前 16 个工具、HTTP 路由、客户端 slots、画布动作、资产类型、8 个 Skills、人工门、连续性规则、交付钩子与对应迁移目标 → AC-7。
+1. `../implement/plugin-capability-ledger.md` — 新增：逐条登记当前 16 个工具、HTTP 路由、客户端 slots、画布动作、资产类型、8 个 Skills、人工门、连续性规则、交付钩子与对应迁移目标 → AC-7。
 2. `tests/characterization/*` — 新增：对当前 `project.json`、节点泳道、资产物化、重做/替换/废弃/恢复、H3 门、逐镜确认、拼接和 ask 前送达建立黑盒特征测试 → AC-7。
-3. `docs/audits/script-migration-matrix.md` — 新增：为全部 smoke/e2e/probe/bench/make/analyze/preview 脚本标注“插件保留、迁插件项目域、迁网关、替代后删除” → AC-7。
-4. `docs/audits/harness-capabilities.md` — 新增：按当前实际版本全量登记 Harness 官方包组，区分已安装、已挂载、Agent 可见、业务已利用，并记录复用、暂不采用和安装门 → AC-1。
+3. `../implement/script-migration-matrix.md` — 新增：为全部 smoke/e2e/probe/bench/make/analyze/preview 脚本标注“插件保留、迁插件项目域、迁网关、替代后删除” → AC-7。
+4. `../implement/harness-capabilities.md` — 新增：按当前实际版本全量登记 Harness 官方包组，区分已安装、已挂载、Agent 可见、业务已利用，并记录复用、暂不采用和安装门 → AC-1。
 5. `docs/audits/gateway-capabilities.md` — 新增：记录网关路由、异步任务、恢复、取消、媒体和能力目录契约 → AC-2。
 6. `scripts/tools/audit-harness.mjs` — 新增：只读解析当前 Profile 组合与本机安装树，验证官方包/子入口是否可解析并输出 enabled/disabled/conditional 状态；同时确认当前版本可用于 Domain Storage 和插件文件根定位的真实注入点，不能用历史路径代替未确认的宿主契约；运行时服务可用性在后续对应能力接入时增加聚焦探针 → AC-1、AC-3。
 7. `llm-modes-gateway/tests/server/server_test.go`、`tests/workflow/image_test.go` — 修改：固定当前 Elysium 能力基线和不泄露 workflow id 的边界 → AC-2。
@@ -133,7 +133,7 @@ Harness 官方插件全量审计与插件/网关能力基线冻结
 
 1. Jellyfish — 领域对象与任务中心。
 2. Story Claw — 角色阶段、声线映射、VLM 质量门、断点续跑。
-3. ArcReel — 只蒸馏与当前架构直接相邻且收益最高的引用/输入快照、ComfyUI workflow 检查与预览、Attempt 对账与恢复投影；不引入通用队列、供应商全集或工程后端。范围见 `docs/audits/open-source/ArcReel.md`，实施设计见 `docs/plans/计划-ArcReel高收益能力蒸馏.md`。
+3. ArcReel — 只蒸馏与当前架构直接相邻且收益最高的引用/输入快照、ComfyUI workflow 检查与预览、Attempt 对账与恢复投影；不引入通用队列、供应商全集或工程后端。范围见 `../implement/ArcReel.md`，实施设计见 `docs/plans/计划-ArcReel高收益能力蒸馏.md`。
 4. ViMax — 长篇上下文压缩、渲染状态持久化和并行续跑。
 
 每项只集成一个可独立验收的能力；未通过金样和故障测试，不进入下一项 → AC-5。

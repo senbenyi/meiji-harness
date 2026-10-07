@@ -28,14 +28,14 @@ ProjectService command
 
 | 当前能力 | 实际落点 | 蒸馏时的约束 |
 | --- | --- | --- |
-| 项目聚合与唯一写入口 | `lib/domain/spec.js`、`lib/domain/service.js`、`lib/domain/commands/` | 不建立 ArcReel ProjectManager 或第二套 project JSON |
-| 生成执行状态 | `lib/domain/state-machines.js`、`lib/media/generation.js` | Attempt 继续表示一次真实供应商调用，不新增竞争性的 Task/Job 真相源 |
-| 未知提交与恢复 | `submission_unknown`、`lib/media/recovery.js` | 不允许因引入队列而自动重复付费提交 |
-| 媒体血缘 | `lib/media/lineage.js` | 新引用和快照进入现有血缘，不建旁路索引 |
-| 工作流选择 | `lib/capabilities/registry.js`、`validation.js` | 保留 configured / manifest_verified / runtime_verified 三层契约 |
-| 审核与权利门 | `lib/review/`、`lib/rights/` | 所有新增生成入口继续经过硬门 |
-| 时间线与交付 | `lib/timeline/`、`lib/delivery/` | 本轮不另建 ArcReel edit timeline |
-| UI 兼容 | `lib/client.js`、`lib/compat/legacy-canvas-adapter.js` | 新 UI 只消费 command/read model，不恢复旧文件双写 |
+| 项目聚合与唯一写入口 | `../../lib/domain/spec.js`、`lib/domain/service.js`、`lib/domain/commands/` | 不建立 ArcReel ProjectManager 或第二套 project JSON |
+| 生成执行状态 | `../../lib/domain/state-machines.js`、`lib/media/generation.js` | Attempt 继续表示一次真实供应商调用，不新增竞争性的 Task/Job 真相源 |
+| 未知提交与恢复 | `submission_unknown`、`../../lib/media/recovery.js` | 不允许因引入队列而自动重复付费提交 |
+| 媒体血缘 | `../../lib/media/lineage.js` | 新引用和快照进入现有血缘，不建旁路索引 |
+| 工作流选择 | `../../lib/capabilities/registry.js`、`validation.js` | 保留 configured / manifest_verified / runtime_verified 三层契约 |
+| 审核与权利门 | `../../lib/review`、`lib/rights/` | 所有新增生成入口继续经过硬门 |
+| 时间线与交付 | `../../lib/timeline`、`lib/delivery/` | 本轮不另建 ArcReel edit timeline |
+| UI 兼容 | `../../lib/client.js`、`lib/compat/legacy-canvas-adapter.js` | 新 UI 只消费 command/read model，不恢复旧文件双写 |
 
 ## 2. 四栏审计
 
@@ -107,7 +107,7 @@ ProjectService command
 
 ## 6. 许可证结论
 
-- ArcReel 仓库声明 AGPL-3.0；当前插件 `package.json` 声明 Apache-2.0。
+- ArcReel 仓库声明 AGPL-3.0；当前插件 `../../package.json` 声明 Apache-2.0。
 - 不复制 ArcReel 源文件、测试、提示词模板或 UI 实现。
 - 只使用公开行为、公开接口形态和已知失败案例形成独立契约与测试。
 - 若未来决定直接链接、修改或分发 ArcReel 代码，需要单独完成法律评估；本审计不提供法律意见。
@@ -128,9 +128,9 @@ ProjectService command
 
 ## 9. 参考来源
 
-- 当前架构：`docs/架构-单机AI成人短剧创作工具.md`
-- 当前实施：`docs/implementation/实施-单机AI成人短剧创作工具.md`
-- 当前总计划：`docs/plans/计划-AI短剧数据底座与能力蒸馏.md`
+- 当前架构：`../架构-单机AI成人短剧创作工具.md`
+- 当前实施：`../implementation/实施-单机AI成人短剧创作工具.md`
+- 当前总计划：`../plans/计划-AI短剧数据底座与能力蒸馏.md`
 - ArcReel README：https://github.com/ArcReel/ArcReel/blob/main/README.en.md
 - ArcReel v0.31.0：https://github.com/ArcReel/ArcReel/releases/tag/v0.31.0
 - ArcReel LICENSE：https://github.com/ArcReel/ArcReel/blob/main/LICENSE

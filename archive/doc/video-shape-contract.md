@@ -1,7 +1,7 @@
 # 视频「形状」(type) 契约：显式声明 + 参数校验
 
 > 状态：已落地（2026-09）。工具面 `comfy_generate_video(type=...)` 必填；所有入口（工具 / HTTP 路由 / 脚本）共用同一张真值表。
-> 相关：`docs/shot-chain-continuity.md`（续接契约）、`docs/i2v-vs-ref2v-and-model-comparison.md`（两条路径的模型差异）。
+> 相关：`shot-chain-continuity.md`（续接契约）、`i2v-vs-ref2v-and-model-comparison.md`（两条路径的模型差异）。
 
 ## 1. 为什么要显式声明
 
@@ -60,13 +60,13 @@ capability = (first_frame_node || last_frame_node) ? 'video.image2video' : 'vide
 
 | 位置 | 作用 |
 |---|---|
-| `lib/index.js` `VIDEO_SHAPES` | 真值表（形状 → capability / require / forbid / forbidHint / chain 支持） |
-| `lib/index.js` `validateVideoArgs(capability, args)` | 唯一校验实现：errors 抛错（带修法），warnings 随结果返回 |
+| `../../lib/index.js` `VIDEO_SHAPES` | 真值表（形状 → capability / require / forbid / forbidHint / chain 支持） |
+| `../../lib/index.js` `validateVideoArgs(capability, args)` | 唯一校验实现：errors 抛错（带修法），warnings 随结果返回 |
 | `runRender` 解析出清单后**立即**调用 | 校验在**上传参考图之前**，非法请求零副作用；所有入口共享同一张表 |
 | `comfy_generate_video` | `type` 进 schema 的 `required` + `enum`；不再做能力推断 |
 | `comfy_render` | `type` 可选别名：传了必须与 `capability` 一致；不传则按 `capability` 推导形状校验 |
 | `POST /generate/video` | 同样要求显式 `type`（缺则 400） |
-| `scripts/checks/smoke-video-shape.mjs` | 31 条断言覆盖真值表 / 合法组合 / 冲突报错 / 工具面文案（不触网） |
+| `../../scripts/checks/smoke-video-shape.mjs` | 31 条断言覆盖真值表 / 合法组合 / 冲突报错 / 工具面文案（不触网） |
 
 ## 5. 流程 skill 的写法
 

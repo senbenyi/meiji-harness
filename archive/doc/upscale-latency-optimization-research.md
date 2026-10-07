@@ -1,9 +1,9 @@
 # 学习式放大为什么慢、能怎么快 —— 优化方案与备选放大器调研
 
-> 状态：**调研（未做本机 A/B 实测）**。本文提出的每一项都标了「实测 / 推算 / 外部实测」三种口径，
-> 并在 §6 给出落地顺序、预估 GPU 时间与验收判据；**任何一条在没有本仓库同 seed A/B 之前不要写进 README/技能**。
-> 相关：`docs/learned-latent-upscale-2k.md`（U1 路线本体）· `docs/2k-acceleration-variants-analysis.md`（PDD 理论）·
-> `docs/2k-pdd-ab-verdict.md`（PDD 实测）· `docs/video-upscale.md`（U3 路线与选型）·
+> 状态： **调研（未做本机 A/B 实测）**。本文提出的每一项都标了「实测 / 推算 / 外部实测」三种口径，
+> 并在 §6 给出落地顺序、预估 GPU 时间与验收判据； **任何一条在没有本仓库同 seed A/B 之前不要写进 README/技能**。
+> 相关：`learned-latent-upscale-2k.md`（U1 路线本体）· `2k-acceleration-variants-analysis.md`（PDD 理论）·
+> `2k-pdd-ab-verdict.md`（PDD 实测）· `video-upscale.md`（U3 路线与选型）·
 > `docs/minimax-h3-acceleration-lora.md` §9（加速清单，本机注意力内核现状）
 
 ---
@@ -25,7 +25,7 @@
 | **L5** | 换架构：VDN-H3 线性注意力（α→1）/ 官方 2K Regenerate / Flow-Aligned 渐进 handoff | 渐进 handoff 外部实测 **1.25×**（≈1 MP）；VDN 无实测 | 外部实测 | 换模型=换分布；官方 2K 只能走 API | 大 |
 | **L6** | **产品口径**：默认不用 U1 提分辨率 | 便宜 **10.7×** 且有效宽更高 | 本仓库实测 | 丢失「H3 自己在目标分辨率收尾」 | 文档/技能（零算力） |
 
-一句话：**L1（开 Sage）是当下唯一「零图形改动、量级最大」的杠杆**（本仓库 `docs/minimax-h3-acceleration-lora.md` §9
+一句话：**L1（开 Sage）是当下唯一「零图形改动、量级最大」的杠杆**（本仓库 `../../docs/minimax-h3-acceleration-lora.md` §9
 也把它标为「当前最大剩余杠杆，仍未做」）；**L3 是唯一能改写成本结构的算法杠杆**，而且它同时是画质纪律；
 **L6 是零成本的正确默认**。另有一节专题讨论「SeedVR2 这类扩散恢复模型能不能做成 `video.upscale` 的可选实现」
 ——结论是**能，但要先扩契约**，见 **§5.1**。
@@ -36,7 +36,7 @@
 
 ### 1.1 本仓库的实测分解（A800 / sm_80 / 2688×1536）
 
-`docs/2k-pdd-ab-verdict.md` §4.1 的自洽分解（56 帧，单位秒）：
+`2k-pdd-ab-verdict.md` §4.1 的自洽分解（56 帧，单位秒）：
 
 ```
 首遍 P1                    =  94.5s
@@ -79,12 +79,12 @@
 Shortening only the first pass does not remove the principal cost of the 2K path.」**
 
 这替本仓库说清了一件事：**只优化首遍（换 Turbo / 换档）在 2K 上没有意义**，因为首遍只占 4–7%。
-本仓库其实早就把结论写在了 `docs/2k-acceleration-variants-analysis.md` §0（「加速只有加在 pass 2 上才有意义」），
+本仓库其实早就把结论写在了 `2k-acceleration-variants-analysis.md` §0（「加速只有加在 pass 2 上才有意义」），
 外部数据独立印证了它。
 
 ### 1.3 成本结构的关键指数 α：本仓库数据反解 ≈ 1.85
 
-`docs/2k-pdd-ab-verdict.md` §4.4 从 56 → 124 帧的实测反解出：**帧数涨 2.21×，二遍每次评估涨价 4.34×**。
+`2k-pdd-ab-verdict.md` §4.4 从 56 → 124 帧的实测反解出：**帧数涨 2.21×，二遍每次评估涨价 4.34×**。
 
 ```
 α = ln(4.34) / ln(2.21) ≈ 1.85
@@ -104,8 +104,8 @@ Shortening only the first pass does not remove the principal cost of the 2K path
 
 ### 2.1 L1 SageAttention —— 最划算的一步，但仍未做
 
-- 本仓库现状（`docs/minimax-h3-acceleration-lora.md` §9.3 / §9.5）：**采样占单镜耗时 63%（480p）～94%（768p）**，
-  而**注意力面完全没动**（既没开 Sage，也没上稀疏/缓存）；该文档把「开 Sage」列为 **P0，且标注仍未做**。
+- 本仓库现状（`../../docs/minimax-h3-acceleration-lora.md` §9.3 / §9.5）： **采样占单镜耗时 63%（480p）～94%（768p）**，
+  而 **注意力面完全没动**（既没开 Sage，也没上稀疏/缓存）；该文档把「开 Sage」列为 **P0，且标注仍未做**。
 - 未做的**真实原因**不是不确定，而是**该测试机没有 nvcc**（Sage 需 CUDA Toolkit 编译）。
   ⇒ 这是一个**环境前提**，不是技术判断；把工具链备齐就能开。
 - 收益量级：SageAttention 官方口径 ~2×；Ampere（sm_80）走**弱路径**（INT8 QK + FP16 PV + FP32 累加，
@@ -132,7 +132,7 @@ PDD 把二遍从 6 次评估压到 2 次（`nfe=8, denoise=0.3 → round(8×0.3)
 | **0.125** | **1** | **0.6316** | **精修段再省一半 NFE** |
 | 0.375 | 3 | 0.8780 | 更贵 |
 
-`docs/2k-pdd-ab-verdict.md` §7 已经把这一档点名「**值得单独看**——入口 σ 0.6316 更接近『只补细节』，
+`2k-pdd-ab-verdict.md` §7 已经把这一档点名「**值得单独看**——入口 σ 0.6316 更接近『只补细节』，
 可能进一步降本，但也可能细节量不足」。这是**一行参数就能跑的 A/B，应该最先做**。
 
 另两个通用 NFE 削减件（都在 H3 生态里现成）：
@@ -150,7 +150,7 @@ PDD 把二遍从 6 次评估压到 2 次（`nfe=8, denoise=0.3 → round(8×0.3)
 ### 2.3 已被证伪/不要做的方向（省得重走）
 
 - **只优化首遍**：2K 上首遍占 4–7%（§1.2），换 Turbo 也救不了 2.0× 那一格（外部实测直接 OOM）。
-- **Sol-Attn 上 2K**：本容器分配器下必崩，且收益/风险不对称（`docs/2k-acceleration-variants-analysis.md` §2）。
+- **Sol-Attn 上 2K**：本容器分配器下必崩，且收益/风险不对称（`2k-acceleration-variants-analysis.md` §2）。
 - **把 PDD 接在首遍**：已实测更慢（1462.3s vs 942.0s）+ 闪烁 +150%，该清单已 `internal: true` 退场。
 - **给 2K 叠第 3 个蒸馏 LoRA / step-caching 与 PDD 同用**：PDD 明确不能与其它蒸馏叠加。
 
@@ -208,7 +208,7 @@ PDD 把二遍从 6 次评估压到 2 次（`nfe=8, denoise=0.3 → round(8×0.3)
 - U1 的 2K（2688×1536）实测有效宽 **1915（×1.425）**，耗时 **1671–2121s**；
 - U3（原生 → ×2 → 2688×1536）实测有效宽 **2218（×1.65）**，耗时 **155.7s**，平坦区闪烁比 0.958（不过关不了）。
 
-也就是说：**在同一个交付格子里，U3 既更便宜、读数还更高**（`docs/video-upscale.md` §6.1 的结论）。
+也就是说：**在同一个交付格子里，U3 既更便宜、读数还更高**（`video-upscale.md` §6.1 的结论）。
 那么「1.5× 精修 + U3 收尾」的动机是：**用 U1 补出 1.5× 这一档的生成式细节（S≈70k，成本 0.34×），
 再用 U3 补到 2688**——既不像纯 U1 那样在 125k 上烧 6 次评估，也不像纯 U3 那样完全没有生成式重建。
 **代价**：两级误差叠加，且 U3 的 upsample 会削掉一部分合成高频（§4.3 已实测：5376→4032 会从 2352 掉到 2268）。
@@ -277,7 +277,7 @@ PDD 把二遍从 6 次评估压到 2 次（`nfe=8, denoise=0.3 → round(8×0.3)
 - ✅ **梯形窗 + 每块独立噪声 + 位置归零**的具体工程细节；
 - ✅ **音频原样穿过**（我们已有 `lock_audio=true`，语义一致）；
 - ✅ **「/64 对齐」式的算术前置**：分块尺寸必须同时满足 lcm(用户 align, VAE 16)，否则尺寸会静默漂；
-- ✅ **「解码也可能 OOM」的意识**：`docs/video-upscale.md` §5 的像素-帧预算（`PIXEL_FRAME_WARN/CHUNK`）是同类机制。
+- ✅ **「解码也可能 OOM」的意识**：`video-upscale.md` §5 的像素-帧预算（`PIXEL_FRAME_WARN/CHUNK`）是同类机制。
 
 **不能借**
 - ❌ **权重不可互换**：LTX 2.5 的 `ltx-2.5-latent-spatial-upscaler-x2-bf16` 作用在 **LTX 的 latent 空间**，
@@ -337,7 +337,7 @@ PDD 把二遍从 6 次评估压到 2 次（`nfe=8, denoise=0.3 → round(8×0.3)
 #### 5.1.2 冲突的部分（这些决定「不能只加一份 json」）
 
 **① `upscale.factor` 是必填的固定数，而 SeedVR2 没有「倍率」这个属性。**
-`lib/manifest.js` 的校验是 fail-closed 的（下面是**扩展前**的原状）：
+`../../lib/manifest.js` 的校验是 fail-closed 的（下面是**扩展前**的原状）：
 
 ```
 if (!Number.isFinite(u.factor) || u.factor <= 0) fail('upscale.factor 必须是正数（交付尺寸 = 源尺寸 × factor）')
@@ -350,10 +350,10 @@ if (m.capability === 'video.upscale') { if (m.upscale === undefined) fail(...必
 而画布正是靠 `width/height` 判断拼接一致性。
 
 **② `planUpscale()` 的 `natural = src × factor` 是整个 runner 的尺寸中枢。**
-`lib/index.js` 的 `runUpscale` 用它推：交付尺寸 → 像素-帧总量 → 分块阈值 → `target_width` 收敛 →
+`../../lib/index.js` 的 `runUpscale` 用它推：交付尺寸 → 像素-帧总量 → 分块阈值 → `target_width` 收敛 →
 「目标宽度超过模型能力」的 warning。SeedVR2 下这条中枢要换成「目标短边 → 交付尺寸」。
 
-**③ 分块归属反了。** `lib/upscale.js` 开头的注释把分块安全的**理由**写得很清楚：
+**③ 分块归属反了。** `../../lib/upscale.js` 开头的注释把分块安全的**理由**写得很清楚：
 「图里没有任何采样器/时间维操作，逐帧独立 ⇒ 任意切点都安全」。SeedVR2 **有跨帧时间先验**：
 `batch_size` 必须是 **4n+1**、`temporal_overlap`（0–16 帧 Hann 混合）、`prepend_frames`，
 显存由它自己的 **VAE tiling / BlockSwap / offload_device** 管。
@@ -431,7 +431,7 @@ SeedVR2 是扩散模型，官方明说 **VAE 常是瓶颈**，且首次跑有 `t
 }
 ```
 
-落地的四条硬约束（都在 `lib/manifest.js` 里 fail-closed，写错会被拒而不是静默忽略）：
+落地的四条硬约束（都在 `../../lib/manifest.js` 里 fail-closed，写错会被拒而不是静默忽略）：
 
 1. `sizing='short-side'` ⇒ **必须**声明 `params.out_short_side`（把解析出的短边注入实现）；
 2. `sizing='short-side'` ⇒ **不得**声明 `factor`（倍率是推导的，写死会与实际交付不符）；
@@ -444,13 +444,13 @@ SeedVR2 是扩散模型，官方明说 **VAE 常是瓶颈**，且首次跑有 `t
   「调用方要一个尺寸」这件事两种形态已经各自覆盖：`factor` 形态是事后收敛（并告警「只是插值」），
   `short-side` 形态是**反解短边回注**（`target_width` 变成让模型按目标渲染）。等真出现只能吃精确 W/H 的实现再加，
   不留没有消费者的死路径。
-* **分块决策被提成了纯函数** `planUpscaleChunks()`（`lib/upscale.js`），而不是写在 runner 里——
+* **分块决策被提成了纯函数** `planUpscaleChunks()`（`../../lib/upscale.js`），而不是写在 runner 里——
   这样「caller 按预算切 / internal 不自动切 / 显式 chunk_frames 仍照办但告警」三条都能 GPU-free 单测。
 
-配套改动：`lib/upscale.js` 的 `planUpscale` 支持两种尺寸来源、`lib/index.js` 的 `runUpscale` 注入 `out_short_side`
+配套改动：`../../lib/upscale.js` 的 `planUpscale` 支持两种尺寸来源、`lib/index.js` 的 `runUpscale` 注入 `out_short_side`
 并把标题/画布 params 按形态如实记录（短边形态下 `factor` 记 `null`，不编一个数出来）、
 `scripts/make-upscale-manifests.mjs` 显式生成 `sizing`/`chunking`（让用户在 `workflows/*.json` 里直接读到契约）、
-`schemas/workflow-manifest.schema.json` 补 `upscale` 定义、`docs/video-upscale.md` 新增 §2.1 契约节、
+`schemas/workflow-manifest.schema.json` 补 `upscale` 定义、`video-upscale.md` 新增 §2.1 契约节、
 `package.json` 的 `npm run smoke` 把 `smoke-upscale.mjs`（与 `smoke-hires-lock.mjs`）纳入 CI 门；
 新增短边探针夹具，以及 `DSH_SVS_USER_WORKFLOWS` 测试接缝（清单装临时目录）。
 
@@ -512,15 +512,15 @@ SeedVR2 的 `sizing` 因此仍声明 `factor: 2`——它的含义退化为「�
 | **E5** | FlashVSR 接入（作为 `video.upscale` 的第 3 个实现） | 新清单 + 新权重 + wheel | 环境为主 | 与 U3 同源片同尺寸比：有效宽、闪烁比、耗时、1:1 裁切眼判 |
 
 判据与工具**全部复用现有脚本**，不要新造：
-`scripts/analysis/analyze-2k-detail.mjs`（有效宽 + 频带）、`scripts/analysis/analyze-hires.mjs`（闪烁/锐度/32px 网格）、
+`../../scripts/analysis/analyze-2k-detail.mjs`（有效宽 + 频带）、`scripts/analysis/analyze-hires.mjs`（闪烁/锐度/32px 网格）、
 `scripts/analysis/analyze-2k-pair.py`（同尺寸两臂，无需原生基线）、`scripts/analysis/eye-crops.py`（1:1 人眼裁切）、
 `scripts/analysis/compare-crops.py`；A/B 骨架照抄 `scripts/ab-2k-pass2-pdd.mjs`（**利用首遍缓存分离出纯二遍时间**）。
 
 契约改动只在 E3/E5 出现：
 - E3 若做成新实现 → 新清单（`resolutionLock.scale` 形态不变，但要新增 tile 参数面），
   并且**要么声明「不支持链式续接」，要么证明精修分块发生在 `MiniMaxH3MotionContextSaveLatent` 之后**（预计成立）；
-- E5 → 新清单必须声明尺寸来源（`upscale.sizing` + `factor`/`shortSide`）且**不得**带 `resolutionLock`；
-  短边形态还要留 `params.out_short_side` 注入点，并按 §5.1.5 声明分块归属（`lib/manifest.js` 的 fail-closed 校验）。
+- E5 → 新清单必须声明尺寸来源（`upscale.sizing` + `factor`/`shortSide`）且 **不得**带 `resolutionLock`；
+  短边形态还要留 `params.out_short_side` 注入点，并按 §5.1.5 声明分块归属（`../../lib/manifest.js` 的 fail-closed 校验）。
 
 ---
 
@@ -528,7 +528,7 @@ SeedVR2 的 `sizing` 因此仍声明 `factor: 2`——它的含义退化为「�
 
 1. **本文没有任何本机实测**：ComfyUI 隧道当前不在，所有「预期收益」都标了推算或外部来源。
    一旦开跑，**外部数字只能当量级参考**（别人的卡、别人的分辨率、别人的步数）。
-2. **α≈1.85 是外推值**：来自 `docs/2k-pdd-ab-verdict.md` 的两个实测点 + 一条 `fD` 线性假设。
+2. **α≈1.85 是外推值**：来自 `2k-pdd-ab-verdict.md` 的两个实测点 + 一条 `fD` 线性假设。
    分块收益对 α 极度敏感（α=1 时分块是白干，α=2 时 2×2 分块能到 2.7×）⇒ **E3 必须先扫 α**。
 3. **分块的接缝是真实的、且是「看不出来」的那一类**（大尺度结构悄悄坏掉）。LTX 因此把 `--spatial-tile off`
    做成报错；我们至少要把「分块」和「不分块」的同 seed 对照留档。
@@ -544,8 +544,8 @@ SeedVR2 的 `sizing` 因此仍声明 `factor: 2`——它的含义退化为「�
 
 ## 8. 参考
 
-**本仓库**：`docs/learned-latent-upscale-2k.md` · `docs/2k-acceleration-variants-analysis.md` · `docs/2k-pdd-ab-verdict.md` ·
-`docs/video-upscale.md` · `docs/minimax-h3-acceleration-lora.md`（§9 加速账本）· `lib/upscale.js`（分块纯逻辑）
+**本仓库**：`learned-latent-upscale-2k.md` · `2k-acceleration-variants-analysis.md` · `2k-pdd-ab-verdict.md` ·
+`video-upscale.md` · `docs/minimax-h3-acceleration-lora.md`（§9 加速账本）· `lib/upscale.js`（分块纯逻辑）
 
 **LTX-2.5 / 分块与 span 纪律**
 - mold：*reach 1440p and 4K by composing, not by denoising bigger* — <https://github.com/utensils/mold/commit/b89a8c2a3caef6c29f84af6ccc652dc5fb8f6029>

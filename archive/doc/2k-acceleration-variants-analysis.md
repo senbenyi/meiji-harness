@@ -1,8 +1,8 @@
 # 2K 路径能不能叠 Sol / PDD？——理论分析
 
-> 结论速览：**PDD 可以做，而且它是理论上最贴合的加速器**（pass 2 正是「训练网格上的部分去噪」）。
+> 结论速览： **PDD 可以做，而且它是理论上最贴合的加速器**（pass 2 正是「训练网格上的部分去噪」）。
 > **Sol-Attn 现在不能做**：不是理论不行，而是它在 2K 上收益最大、崩服务风险也最大，且现有 sol 配置在 pass 2 上调错了方向。
-> 相关：`docs/learned-latent-upscale-2k.md`（2K 路线本体）· `docs/minimax-h3-acceleration-lora.md` §9.9 / §9.10（加速实测与崩溃记录）
+> 相关：`learned-latent-upscale-2k.md`（2K 路线本体）· `docs/minimax-h3-acceleration-lora.md` §9.9 / §9.10（加速实测与崩溃记录）
 
 ## ⚠️ 落地勘误（2026-09-23）：PDD 曾被接到**首遍**，与本文推荐相反
 
@@ -27,8 +27,8 @@
 **修正**：新增 `-ctx-quality-pdd2-2k`（ref2v / i2v），首遍与 `-ctx-quality-2k`
 **逐字节相同**，只把二遍的 model / sigmas 换成 PDD 侧 —— 即本文 §1.6 变体 A 的真正落地。
 A/B：`scripts/ab-2k-pass2-pdd.mjs`（首遍相同 ⇒ 第二臂命中原首遍缓存，可读出纯二遍时间）。
-画质：`scripts/analysis/analyze-2k-pair.py`（同为 2K 的两条片子不能用 `analyze-2k-detail.mjs`，那需要原生基线校准）。
-历史 A/B（PDD 确在二遍，2.91×）见 `docs/2k-pdd-ab-verdict.md`；该文顶部的勘误记录了这次接线错位。
+画质：`../../scripts/analysis/analyze-2k-pair.py`（同为 2K 的两条片子不能用 `analyze-2k-detail.mjs`，那需要原生基线校准）。
+历史 A/B（PDD 确在二遍，2.91×）见 `2k-pdd-ab-verdict.md`；该文顶部的勘误记录了这次接线错位。
 
 **修正版实测**（2026-09-23，seed 20260924，ref2v）：
 
@@ -57,7 +57,7 @@ S ≈ (W/32) × (H/32) × (frames/4)  +  prefix
 | 原生 1344×768 · 124 帧 | 42×24×31 = **31,248** | + prefix ≈ 6.6k ⇒ **S≈37.8k**（与 §9.10 崩溃日志的 `S=37836` 吻合） |
 | 2K 2688×1536 · 124 帧 | 84×48×31 = **124,992** | 换算后 ≈ **3.5×** 原生 |
 
-> 勘误：`docs/learned-latent-upscale-2k.md` 里「精修在 ≈500k token 上跑」说的是 **16× VAE 的 latent cell 数**
+> 勘误：`learned-latent-upscale-2k.md` 里「精修在 ≈500k token 上跑」说的是 **16× VAE 的 latent cell 数**
 > （168×96×31 = 499,968），不是 transformer 的序列长度。真正进注意力的约 125k。
 
 **关键推论**：pass 2 的序列是 pass 1 的 4×（两轴各 2×），而注意力开销随 S 超线性增长。
@@ -235,9 +235,9 @@ SolAttnMiniMaxH3: dense_first_percent=0, dense_first_blocks=2,
 `PYTORCH_CUDA_ALLOC_CONF=backend:cudaMallocAsync` 或设 `backend:native`）并**同 seed 单镜验证通过**之后，
 再按 §2.3 + §2.4 重新调一版。在那之前，Sol 在 2K 上属于「已知会崩且配置不对」。
 
-> **执行结果已出**：变体 A 已落地并实测，结论见 **`docs/2k-pdd-ab-verdict.md`**。
+> **执行结果已出**：变体 A 已落地并实测，结论见 **`2k-pdd-ab-verdict.md`**。
 > 一句话：全长 **1.86×**（415.3s → 223.8s，56 帧 2K），二遍段 **2.91×**，
-> 闪烁 6.645 → 6.595（**未退化**），音轨 PCM 逐样本相同。§4 列的契约改动已按此实现。
+> 闪烁 6.645 → 6.595（ **未退化**），音轨 PCM 逐样本相同。§4 列的契约改动已按此实现。
 
 ## 3. 一句话结论
 

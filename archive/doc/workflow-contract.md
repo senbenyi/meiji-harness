@@ -185,7 +185,7 @@ comfy_render({
 }) -> { ok, nodeId, media, tier, implementation, resolution, warnings }
 ```
 
-> **档位解析**：显式 `workflow` > 配置 `tiers[capability][tier]` > 组内该档标准实现；该档无实现或实现不可用**一律报错**（含可用档位列表 / 缺哪个节点），**不静默跨档替换**。旧 `modes` 仅作只读兼容（未分档清单按 mode 名匹配）。详见 `docs/tier-strategy-design.md`。
+> **档位解析**：显式 `workflow` > 配置 `tiers[capability][tier]` > 组内该档标准实现；该档无实现或实现不可用 **一律报错**（含可用档位列表 / 缺哪个节点）， **不静默跨档替换**。旧 `modes` 仅作只读兼容（未分档清单按 mode 名匹配）。详见 `tier-strategy-design.md`。
 
 ### 5.2 保留旧工具作为薄别名（向后兼容，流水线不中断）
 
@@ -398,7 +398,7 @@ ComfyUI 菜单「导出 API」得到的 JSON 就是我们的 `graph` 格式（`{
   普通工作流硬连线即可，无需 `$model`。
 
 ### 11.5 自动转换脚本
-`scripts/tools/import-comfy.mjs` 自动完成 11.2 + 11.3（资产、标量、prompt、`$assets`/`null` 替换），
+`../../scripts/tools/import-comfy.mjs` 自动完成 11.2 + 11.3（资产、标量、prompt、`$assets`/`null` 替换），
 并打印 11.4 的「需手动补充」清单：
 
 ```

@@ -2,9 +2,9 @@
 
 对 `dsh-short-video-studio` 当前架构的审查。与 `consistency-optimization-plan.md`（功能层：一致性与镜头规划）互补，本文只谈**架构层**：代码组织、真相来源、信任边界、可测试性。
 
-审查基线：`lib/` 2827 行（`index.js` 1905 / `manifest.js` 369 / `client.js` 293 / `convert.js` 142 / `assets.js` 118）。
+审查基线：`../../lib` 2827 行（`index.js` 1905 / `manifest.js` 369 / `client.js` 293 / `convert.js` 142 / `assets.js` 118）。
 
-> **勘误（2026-10-02）**：上述行数和第 3、4 节描述的是早期基线，不能代表当前实现。当前已建立 `npm test` 与 `npm run smoke`；第一批入口拆分已把配置、systemPrompt Guidance、Skill 同步、pre-ask 自动送达和 H3 Prompt Gate 分别迁入 `lib/config.js`、`lib/guidance.js`、`lib/skills/sync.js` 与 `lib/hooks/`。`lib/index.js` 当前仍有 4078 行，ComfyUI、渲染、工具和路由拆分尚未完成。
+> **勘误（2026-10-02）**：上述行数和第 3、4 节描述的是早期基线，不能代表当前实现。当前已建立 `npm test` 与 `npm run smoke`；第一批入口拆分已把配置、systemPrompt Guidance、Skill 同步、pre-ask 自动送达和 H3 Prompt Gate 分别迁入 `../../lib/config.js`、`lib/guidance.js`、`lib/skills/sync.js` 与 `lib/hooks/`。`lib/index.js` 当前仍有 4078 行，ComfyUI、渲染、工具和路由拆分尚未完成。
 
 ---
 
@@ -57,7 +57,7 @@
 
 `runImageGeneration`（586）、`runVideoGeneration`（631）、`buildFluxImageWorkflow`（327）、`buildH3VideoWorkflow`（383）、`buildH3ImageToVideoWorkflow`（436）**已无生产调用点**。全部 12 个工具和 2 条生成路由都走 `runRender`（1018 / 1061 / 1328 / 1697 / 1707）。
 
-这些函数目前只通过 `_internals`（1880）导出给 `scripts/checks/smoke-manifest.mjs` 做「manifest 编译结果 vs legacy 构造结果」的节点类型等价性比对。
+这些函数目前只通过 `_internals`（1880）导出给 `../../scripts/checks/smoke-manifest.mjs` 做「manifest 编译结果 vs legacy 构造结果」的节点类型等价性比对。
 
 问题在于**两套图构造逻辑并存的维护成本**：改 manifest 时不会有人同步改 legacy builder，于是等价性测试从"保护网"退化成"误报源"——它会在一次正当的 manifest 演进后失败，然后被人为放宽或注释掉。
 
@@ -70,7 +70,7 @@
 
 ---
 
-## 3. `lib/index.js` 职责拆分尚未完成（P1）
+## 3. `../../lib/index.js` 职责拆分尚未完成（P1）
 
 当前文件仍包含 ComfyUI HTTP 客户端、工作流构造、画布持久化、渲染编排、HTTP 路由和工具定义。配置解析、systemPrompt 文本、Skill 同步与两个 `tools/pre-execute` Hook 已完成第一批迁移；后续仍需按单向依赖继续收敛。
 
@@ -101,7 +101,7 @@ try { ... } catch (error) { return { ok: false, ..., error: error?.message || St
 
 ## 4. 没有测试入口，也没有 CI（P1）
 
-`package.json` **没有 `scripts` 字段**。`scripts/` 下 8 个文件全靠手动 `node scripts/xxx.mjs` 执行。
+`../../package.json` **没有 `scripts` 字段**。`scripts/` 下 8 个文件全靠手动 `node scripts/xxx.mjs` 执行。
 
 这些文件其实分两类，混在一起是问题所在：
 
@@ -120,7 +120,7 @@ try { ... } catch (error) { return { ok: false, ..., error: error?.message || St
 
 加一个只跑 `npm test` 的 GitHub Action。理由：`consistency-optimization-plan.md` 里提的 `shotlist_validate()`（把七项自检编译成代码断言）价值完全取决于有没有地方持续运行它。没有 `npm test`，新增的校验逻辑第二周就会腐烂。
 
-另外本地生成产物和 `docs/`、`lib/assets.js`、`workflows/` 等一批文件当时未纳入 git（`git status` 显示 untracked）。生成产物不应入库，源码应尽快提交——当时 M1/M2 的成果不在版本控制里。
+另外本地生成产物和 `../../docs`、`lib/assets.js`、`workflows/` 等一批文件当时未纳入 git（`git status` 显示 untracked）。生成产物不应入库，源码应尽快提交——当时 M1/M2 的成果不在版本控制里。
 
 ---
 
@@ -135,7 +135,7 @@ try { ... } catch (error) { return { ok: false, ..., error: error?.message || St
 建议二选一：
 
 - 给这两条路由也加 token（`client.js` 本来就持有 token，成本极低）；
-- 或在 `docs/` 里写清威胁模型，并确认服务绑定 `127.0.0.1`。
+- 或在 `../../docs` 里写清威胁模型，并确认服务绑定 `127.0.0.1`。
 
 倾向前者：成本几乎为零，且移除了一个需要读注释才能理解的例外。
 
@@ -160,12 +160,12 @@ function migrateProject(p) {
 
 ## 7. 前端两处需要在功能改造前先动（P2）
 
-`studio/app.js`：
+`../../studio/app.js`：
 
 - `registerAssetToLibrary`（291）用 `window.prompt` 收资产名、`alert` 报错。iframe 内的 `prompt` 体验差，更关键的是**只能收一个字段**。W1 要求入库时录入 `displayName` / `state` / `identityPrompt` / `speaksOnScreen`，必须改成表单。这是 W1 的前置项。
 - 节点渲染是全量重建（`load()` 后重画）。当前规模没问题，不建议优化。
 
-`lib/client.js` 设置页仍是**固定字段列表**（fluxUnet/h3Clip/... 逐个硬编码），而 manifest 已经声明了 `assets` 及其 `label`/`env`。这正是 `docs/workflow-contract.md` 里 M4 的内容：改为按 registry 动态渲染。当前状态下加一份新 workflow 虽然"零 JS 改动"就能被 `comfy_list_workflows` 看到，但它的资产在设置页里配不了——解耦只做了一半。
+`../../lib/client.js` 设置页仍是**固定字段列表**（fluxUnet/h3Clip/... 逐个硬编码），而 manifest 已经声明了 `assets` 及其 `label`/`env`。这正是 `../archive/doc/workflow-contract.md` 里 M4 的内容：改为按 registry 动态渲染。当前状态下加一份新 workflow 虽然"零 JS 改动"就能被 `comfy_list_workflows` 看到，但它的资产在设置页里配不了——解耦只做了一半。
 
 ---
 
@@ -192,5 +192,5 @@ function migrateProject(p) {
 
 - **不要重写 manifest 契约层**。它是项目最好的一层，后续所有模型扩展（身份锁、image2image、抽帧）都应该以"丢一份 json"的方式接入，而不是加 JS 分支。
 - **不要拆 `project.json` 为 per-node 文件**。当前全量读写 + 写锁 + 原子 rename 对短片规模（数十节点、media 只存相对路径）完全够用。单会话镜头数上到 50+ 再议。
-- **不要引入构建步骤给 `studio/`**。自包含无构建的前端是这个插件能被 `dsh plugin add` 直接装起来的原因之一，加 bundler 得不偿失。
+- **不要引入构建步骤给 `../../studio`**。自包含无构建的前端是这个插件能被 `dsh plugin add` 直接装起来的原因之一，加 bundler 得不偿失。
 - **不要在拆分 `index.js` 的同时改行为**。先纯搬迁 + 跑通 `npm test`，再改逻辑。两件事混做会让 legacy 清理的风险无法界定。

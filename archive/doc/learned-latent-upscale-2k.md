@@ -1,13 +1,13 @@
 # 学习式潜空间放大（>2K）：把 H3 成片推到 2688×1536
 
-> 状态：**已实现**（清单 `minimax-h3-{ref2v,i2v}-ctx-{quality,quality-pdd2,balanced,fast}-2k`，**8 份在役**；`-ctx-balanced-pdd-2k` 一对已弃用退场）
-> 尺寸：**首遍不锁**，交付 = 首遍 ×2 ⇒ 16:9 交付 2688×1536（`fast` 1664×960）、9:16 交付 1536×2688（`fast` 960×1664）、1:1 交付 2688×2688
-> 契约：`resolutionLock` 的**只锁倍率**形态（`docs/tier-strategy-design.md` §3）· 提交流程见 `docs/workflow-contract.md`
-> 相关：`docs/hires-two-pass-upscale.md`（插值版两阶段，图锁定形态）· `docs/minimax-h3-video-benchmark.md`（实测表）
+> 状态： **已实现**（清单 `minimax-h3-{ref2v,i2v}-ctx-{quality,quality-pdd2,balanced,fast}-2k`， **8 份在役**；`-ctx-balanced-pdd-2k` 一对已弃用退场）
+> 尺寸： **首遍不锁**，交付 = 首遍 ×2 ⇒ 16:9 交付 2688×1536（`fast` 1664×960）、9:16 交付 1536×2688（`fast` 960×1664）、1:1 交付 2688×2688
+> 契约：`resolutionLock` 的 **只锁倍率**形态（`tier-strategy-design.md` §3）· 提交流程见 `../archive/doc/workflow-contract.md`
+> 相关：`hires-two-pass-upscale.md`（插值版两阶段，图锁定形态）· `docs/minimax-h3-video-benchmark.md`（实测表）
 
 ## 0. 为什么需要它：hires 到不了 2K
 
-`docs/hires-two-pass-upscale.md` 的 hires 档解决的是「**别在模型没见过的尺寸上采样**」，用的是内置
+`hires-two-pass-upscale.md` 的 hires 档解决的是「**别在模型没见过的尺寸上采样**」，用的是内置
 `MiniMaxH3AVLatentUpscaleBy`——它是**插值**放大（bislerp/bilinear）。插值只保结构、不造细节，所以
 hires 只能把首遍的 896×512 **拉回**模型原生 1344×768，**交付分辨率仍然等于原生上限**。
 
@@ -72,7 +72,7 @@ node 10 首遍采样（20 步 / denoise 1.0 / shift 12,3）   ← 首遍尺寸**
 | OOM | 无 |
 
 **「多出来的是真细节还是插值？」** —— 这是必须回答的问题，因为把 1344×768 用 bicubic 拉大
-在小图上看几乎一样。做法（`scripts/analysis/analyze-2k-detail.mjs`）：
+在小图上看几乎一样。做法（`../../scripts/analysis/analyze-2k-detail.mjs`）：
 
 - A/B 两次跑的**首遍逐像素相同**（同 seed、同步数、同首遍尺寸）⇒ 唯一变量就是「放大 + 精修」；
 - 在 2K 的像素网格上，原生 1344×768 的成片**物理上最高只能含到 0.25 cycles/px**
@@ -130,7 +130,7 @@ node 10 首遍采样（20 步 / denoise 1.0 / shift 12,3）   ← 首遍尺寸**
 「放大倍率与首遍尺寸写死在图里，换比例会让『原生 → ×2』前提失效」。
 
 **这个理由在改成算术模板之后不成立了**：图内 node 17 的目标尺寸从字面量 `2688×1536` 换成
-`"${width * 2}"` / `"${height * 2}"`（`lib/manifest.js` 的 `evalTemplateArithmetic`，白名单
+`"${width * 2}"` / `"${height * 2}"`（`../../lib/manifest.js` 的 `evalTemplateArithmetic`，白名单
 `[0-9+\-*/().\s]`），目标尺寸就跟着**本次请求的首遍尺寸**走，同一份图在任意比例下自动对上。
 于是清单只需声明 `{ scale: 2 }`：
 

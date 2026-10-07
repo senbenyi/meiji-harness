@@ -161,7 +161,7 @@ comfy_render(capability, ..., continuity_from?)
 
 ## 8. 形状（type）与续接的关系
 
-续接与"形状"正交，且**形状现在必须显式传**（见 `docs/video-shape-contract.md`）：
+续接与"形状"正交，且**形状现在必须显式传**（见 `video-shape-contract.md`）：
 
 | | 不传 `continuity_from` | 传 `continuity_from` |
 |---|---|---|
@@ -232,7 +232,7 @@ comfy_render(capability, ..., continuity_from?)
 * **ComfyUI 缓存**：同图同种子直接返回缓存产物（秒级、逐比特相同）；结论有效，但耗时不可比。
 * **`comfy-unreachable: fetch failed` 不一定是网络问题**：本轮两次是远端 ComfyUI 被 Sol-Attn 打崩后重启
   （`CUDA_ERROR_INVALID_VALUE from cuMemFreeAsync` → `Fatal Python error: Aborted`，带／不带续接都崩，
-  连容器一起重启）。详见 `docs/minimax-h3-acceleration-lora.md` §9.10；链式组的 Sol 变体已从交付集撤销。
+  连容器一起重启）。详见 `../../docs/minimax-h3-acceleration-lora.md` §9.10；链式组的 Sol 变体已从交付集撤销。
 
 ## 附 D：复现
 
@@ -314,6 +314,6 @@ h3_motion_context: tail padded 266 zero samples (8.31ms) so audio matches 136 fr
 
 原端到端复现脚本与接缝量化产物已移除，本节仅保留历史实测结论。
 
-**顺带的契约修正**：`docs/` 与 UI 里此前"两阶段放大与链式续接不能叠用"的说法是**错的**，
+**顺带的契约修正**：`../../docs` 与 UI 里此前"两阶段放大与链式续接不能叠用"的说法是**错的**，
 正确口径是「**同一条链内首遍尺寸一致**」。runner 已按此判据实现（`chainGraphMismatch`，纯函数，
 `scripts/smoke-hires-lock.mjs` §9 有 GPU-free 单测）。

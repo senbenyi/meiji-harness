@@ -1,8 +1,8 @@
 # 2K + PDD（变体 A）落地与 56 帧 A/B 实测
 
-> 上游理论：`docs/2k-acceleration-variants-analysis.md`（§1 PDD、§3 决策表、§4 契约改动清单）
-> 本文是那份分析的**执行结果**：两份清单已生成，A/B 已跑，判据已量。
-> 设计文档：`docs/learned-latent-upscale-2k.md`（2K 路线本体）
+> 上游理论：`2k-acceleration-variants-analysis.md`（§1 PDD、§3 决策表、§4 契约改动清单）
+> 本文是那份分析的 **执行结果**：两份清单已生成，A/B 已跑，判据已量。
+> 设计文档：`learned-latent-upscale-2k.md`（2K 路线本体）
 
 ## ⚠️ 勘误（2026-09-23）：本文的 2.91× 结果**没有**落在当前上线的 `-ctx-balanced-pdd-2k` 上
 
@@ -24,12 +24,12 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 | 画质 vs 无 PDD | 有效宽度 **1.00×**（无增益）、平坦区锐度 0.91×（更软）、**闪烁 +32%** | 持平且略优（§0） |
 
 根因：2K 的开销几乎全在二遍（序列 ≈ 首遍 4×，注意力随 S 超线性 ⇒ 二遍占 55%–83%，
-见 `docs/2k-acceleration-variants-analysis.md` §0）。把 PDD 加在便宜的首遍上，
+见 `2k-acceleration-variants-analysis.md` §0）。把 PDD 加在便宜的首遍上，
 **不可能有明显收益**，反而把 §1.4② 预警的「过冲 → 闪烁」实现在了首遍上。
 
 **修正**：新增 `-ctx-quality-pdd2-2k`（ref2v / i2v 各一份）把本文的变体 A 真正落地 ——
 首遍与 `-ctx-quality-2k` **逐字节相同**，只把二遍的 model/sigmas 换成 PDD 侧。
-配套 A/B：`scripts/ab-2k-pass2-pdd.mjs`；画质对比：`scripts/analysis/analyze-2k-pair.py`。
+配套 A/B：`scripts/ab-2k-pass2-pdd.mjs`；画质对比：`../../scripts/analysis/analyze-2k-pair.py`。
 
 ### 修正版复测（2026-09-23，56 帧 / 2688×1536 / seed 20260924）
 
@@ -68,7 +68,7 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 **`-ctx-balanced-pdd-2k` 应当退场**（已标 `internal: true`：不进档位解析、不出现在 UI/技能选项，
 仍可显式 `workflow=` 调用以复现历史）。它相对 `-ctx-balanced-2k` / `-ctx-quality-2k`
 既没有速度优势（实测更慢），又没有画质优势（有效宽度 1.00×、闪烁更差）。
-真正该上线的是 `-ctx-quality-pdd2-2k`。历史眼判图已清理，可用 `scripts/analysis/eye-crops.py` 重新生成。
+真正该上线的是 `-ctx-quality-pdd2-2k`。历史眼判图已清理，可用 `../../scripts/analysis/eye-crops.py` 重新生成。
 
 ---
 
@@ -91,10 +91,10 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 > 后续 `make-2k-template.mjs` 重建时改成了「PDD 在首遍」，见顶部勘误。
 > 真正对应当前 id 语义的变体 A 现为 `-ctx-quality-pdd2-2k`。
 
-> **口径说明**：本文 A/B 先在**非 ctx 基座**上跑通（放大与二遍都在首遍之后，链式存档读的也是首遍采样器输出），
+> **口径说明**：本文 A/B 先在 **非 ctx 基座**上跑通（放大与二遍都在首遍之后，链式存档读的也是首遍采样器输出），
 > 落地时模板改为从 **ctx（链式续接）base** 派生（`scripts/make-2k-template.mjs`），所以最终 id 都带 `-ctx-`。
-> 两阶段尾段逐字节一致；ctx 版多的是 Motion Context 节点与**续接时多采 22 帧**（交付帧数不变）⇒
-> 本文的「二遍成本」与画质结论沿用，**全长耗时**略高于下表。ctx 族续接行为见 `docs/shot-chain-continuity.md` 附 F。
+> 两阶段尾段逐字节一致；ctx 版多的是 Motion Context 节点与 **续接时多采 22 帧**（交付帧数不变）⇒
+> 本文的「二遍成本」与画质结论沿用， **全长耗时**略高于下表。ctx 族续接行为见 `shot-chain-continuity.md` 附 F。
 
 ⚠️ **ref2v 已 A/B 实测；i2v 只是同构编译 + 冒烟验收，尚未跑 A/B**（图结构与 ref2v 完全同形，
 只换 fl2va 权重与 `h3PddFl2v` 文件）。要用 i2v 版请先跑一次同 seed 单镜。
@@ -106,7 +106,7 @@ PDD 被接在了首遍**（`node 10` 的 sigmas ← `2a`、guider ← `2a`），
 **在做任何效果实验之前**必须先证这件事，否则 `on_off_grid='error'` 会在采样时报错，
 或者更糟——静默地用一个不在训练分布上的 σ 序列。
 
-`scripts/probes/probe-pdd-sigmas.mjs`（不出片，秒级）：
+`../../scripts/probes/probe-pdd-sigmas.mjs`（不出片，秒级）：
 
 ```
 PDD 训练网格 (nfe=8) = 1.0000, 0.9882, 0.9730, 0.9524, 0.9231, 0.8780, 0.8000, 0.6316, 0
@@ -198,7 +198,7 @@ PDD 每次评估 p2'   = (129.3 − D) / 2                =  50.25s   ← 与 p2
 `p2` 与 `D` 由两个独立实测联立得到：
 
 - 本次 A 臂：`P1 + 6·p2 + D = 415.3`
-- 早前 `probe-2k.mjs` 的 56 帧 / 20+3 步同构跑：`P1 + 3·p2 + D = 269.3`（`docs/learned-latent-upscale-2k.md` §3）
+- 早前 `probe-2k.mjs` 的 56 帧 / 20+3 步同构跑：`P1 + 3·p2 + D = 269.3`（`learned-latent-upscale-2k.md` §3）
 - 相减 ⇒ `3·p2 = 146.0` ⇒ `p2 = 48.67s`，回代 ⇒ `D = 28.8s`
 - 再用 `B3 − B = P1 = 94.5s` 独立定出首遍
 
@@ -254,7 +254,7 @@ pdd @124 : P1·f1 + 2·p2·f2 + D·fD =  826.0
 
 ## 5. 画质判据（同 seed、首遍相同）
 
-`scripts/analysis/analyze-hires.mjs`（本项目自己的决策工具）：
+`../../scripts/analysis/analyze-hires.mjs`（本项目自己的决策工具）：
 
 | 指标 | A（base 6 步） | B（PDD 2 次） | 判读 |
 |---|---|---|---|
@@ -273,7 +273,7 @@ pdd @124 : P1·f1 + 2·p2·f2 + D·fD =  826.0
 如果 PDD 再加一层闪烁，即使更快也不该发。**实测没有**：闪烁略降。
 按 `analyze-hires.mjs` 的判读表，属于「空间高频持平 + 时间闪烁持平/略低」= **真恢复细节**，不是注入颗粒。
 
-### 5.1 差异归因（`scripts/analysis/analyze-ab-diff.py`）
+### 5.1 差异归因（`../../scripts/analysis/analyze-ab-diff.py`）
 
 两条片子差异到底长什么样，避免把「画质持平」当成「几乎没变」：
 
@@ -356,7 +356,7 @@ python3 scripts/analysis/analyze-ab-diff.py A.mp4 B.mp4
 ### 8.1 已知的会话可见性问题
 
 新生成的清单**在正在运行的插件进程里看不到**（`workflow="…-2k-pdd"` 解析失败）：
-`lib/index.js` 的注册表清单位于模块级缓存，本次已加 `manifestSignature()`
+`../../lib/index.js` 的注册表清单位于模块级缓存，本次已加 `manifestSignature()`
 （按 `workflows/` 与用户目录的文件名+ mtime + 大小做键）在 `getRegistry()` 里自动重载——
 但**正在运行的进程仍是旧模块**，要等插件重新加载（dsh 重启）才生效。
 任何**新开的 node 进程**都能立刻看到这两份清单（本页所有实测都是这样跑的）。
