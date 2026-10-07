@@ -16,31 +16,29 @@ test('各业务模板形成可验证 DAG，预览确定且不修改项目', () =
     assert.ok(first.steps.length)
   }
 })
-test('剧情人物与场景并行，剧情流程不再生成道具，文本 policy 与 review 只执行授权步骤', () => {
+test('剧情只生成审核大纲，文本 policy 与 review 只执行授权步骤', () => {
   const result = checked(planRun(view(), { to: 'story', mode: 'regenerate' }))
-  const byKey = new Map(result.steps.map(step => [step.key, step]))
-  assert.deepEqual(byKey.get('generate@characters').after, byKey.get('generate@scenes').after)
- assert.equal(byKey.has('generate@props'), false)
-  assert.deepEqual(planRun(view(), { to: 'story', scope: { only: 'outline' } }, { review: false }).steps.map(step => step.kind), ['generate'])
-  assert.deepEqual(planRun(view(), { to: 'story', mode: 'review', scope: { only: 'outline' } }).steps.map(step => step.kind), ['review'])
+  assert.deepEqual(result.steps.map(step => step.key), ['generate@outline', 'review@outline'])
+  assert.deepEqual(planRun(view(), { to: 'story' }, { review: false }).steps.map(step => step.kind), ['generate'])
+  assert.deepEqual(planRun(view(), { to: 'story', mode: 'review' }).steps.map(step => step.kind), ['review'])
 })
-test('人物、场景提取通过后各自展开补图：不作为剧情末端，已就绪时跳过，只读审核不补图', () => {
-  const result = checked(planRun(view(), { from: 'story', to: 'shots', mode: 'regenerate' }))
+test('本集人物独立提取审核后补图；剧情及下游前置不会带出人物', () => {
+  const result = checked(planRun(view(), { to: 'story', scope: { only: 'characters' }, mode: 'regenerate' }))
   const byKey = new Map(result.steps.map(step => [step.key, step]))
-  for (const kind of ['characters', 'scenes']) {
-    const expand = byKey.get(`expand@images:${kind}`)
-    assert.deepEqual(expand.after, [byKey.get(`review@${kind}`).id])
-    assert.deepEqual(expand.input.goal, { to: 'images', mode: 'generate', scope: { kinds: [kind] } })
-    assert.deepEqual(expand.input.policy, { imageConfirm: false })
-    assert.notEqual(expand.status, 'skipped')
-  }
-  // 镜头表只等剧情文本，不等补图。
-  const imageIds = new Set(['characters', 'scenes'].map(kind => byKey.get(`expand@images:${kind}`).id))
-  assert.ok(!byKey.get('generate@shots').after.some(id => imageIds.has(id)))
-  // 补齐生成时剧情已通过：提取与补图都跳过，前置检查据此判定剧情就绪。
-  const ready = checked(planRun(view(), { to: 'story' }))
-  assert.ok(ready.steps.length && ready.steps.every(step => step.status === 'skipped'))
-  assert.ok(!checked(planRun(view(), { to: 'story', mode: 'review' })).steps.some(step => step.kind === 'expand'))
+  const expand = byKey.get('expand@images:characters')
+  assert.deepEqual(expand.after, [byKey.get('review@characters').id])
+  assert.deepEqual(expand.input.goal, { to: 'images', mode: 'regenerate', scope: { kinds: ['characters'] } })
+  assert.deepEqual(expand.input.policy, { autoSaveImages: true })
+  assert.equal(byKey.has('generate@outline'), false)
+  const ready = checked(planRun(view(), { to: 'story', scope: { only: 'characters' } }))
+  assert.ok(ready.steps.every(step => step.status === 'skipped'))
+  assert.ok(!checked(planRun(view(), { to: 'story', scope: { only: 'characters' }, mode: 'review' })).steps.some(step => step.kind === 'expand'))
+  const missing = view(); missing.plot.characters.items = []; missing.plot.characters.check.passed = null
+  const shots = checked(planRun(missing, { to: 'shots' }, { authorizePrereq: ['story@all', 'story@characters'] }))
+  assert.match(shots.blockers[0].message, /本集资产/)
+  assert.ok(shots.steps.every(step => step.target === 'shots'))
+  assert.equal(planRun(missing, { to: 'story' }).prereq.length, 0)
+  assert.equal(planRun(view(), { from: 'story', to: 'shots', mode: 'regenerate' }).blockers.length, 1)
 })
 test('补图只处理指定类别、缺图的卡，不等待确认；普通生图仍等待确认', () => {
   const project = view()

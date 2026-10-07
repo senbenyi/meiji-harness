@@ -368,7 +368,7 @@ test('seconds retains failed shot text and reasons without offering a format ove
  assert.match(container.querySelector('.shot-card').textContent,/本次失败正文仍需查看/)
  assert.match(container.querySelector('.shot-card').textContent,/"shotId": "S01"/)
 })
-test('plot has one generation entry and one review for outline, characters and scenes',async t=>{
+test('剧情与本集人物分别有独立生成与审核入口',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
  p.plot.outline.check={passed:false,failures:['角色与剧情不一致']}
  container.append(renderStage('script',p,{perform:async(...args)=>calls.push(args),beginImage:async()=>{},fail:()=>{}},{}))
@@ -387,7 +387,8 @@ test('plot has one generation entry and one review for outline, characters and s
  // 人物、场景卡在本集资产页，剧情页只保留大纲与统一的生成入口。
  assert.equal(container.querySelector('.character-list'),null)
  container.replaceChildren(renderStage('assets',p,{perform:async()=>{},beginImage:async()=>{},fail:()=>{}},{}))
- assert.ok(container.querySelector('.character-list'));assert.equal(container.querySelectorAll('.workflow-review').length,0)
+ assert.ok(container.querySelector('.character-list'));assert.equal(container.querySelectorAll('.workflow-review').length,1)
+ assert.ok(container.querySelector('[aria-label="重新生成人物角色"]'))
 })
 test('empty plot has a unified generate button and no separate card review',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
@@ -637,21 +638,17 @@ test('detail page confirms an image without opening the review page', async t =>
  assert.deepEqual(calls, [[episode.id, 'd1', 'confirm-image']])
 })
 
-test('scene cards stay read only and editing happens on the detail page', async t => {
+test('本集资产只显示人物，不显示已有场景或道具入口', async t => {
  const container = domSetup(t), p = episodeFixture(), opened = []
  p.episodeId = p.id
+ p.plot.scenes.status = 'failed'
  container.append(renderStage('assets', p, { perform: async () => {}, beginImage: async () => {}, fail() {} }, { onOpenScene: (...args) => opened.push(args) }))
  assert.equal(container.querySelector('.image-text-editor'), null)
- assert.match(container.textContent, /南门北墙/)
- assert.match(container.textContent, /开阔庭院及远处山脉/)
- const open = container.querySelector('[aria-label="场景详情：庭院"]')
- open.click()
- assert.deepEqual(opened, [[p.episodeId, 'E01']])
- const { renderSceneDetail } = await import('../client/generation-stage-views.js')
- container.replaceChildren(renderSceneDetail(p, 'E01', { perform: async () => {}, beginImage: async () => {}, fail() {} }, {}))
- const prompt = container.querySelector('.image-text-prompt')
- assert.equal(prompt.textContent, '开阔庭院及远处山脉，完整门墙与通道')
- assert.ok(container.querySelector('[aria-label="地标"]'))
+ assert.doesNotMatch(container.textContent, /南门北墙|开阔庭院及远处山脉|场景卡|本集暂无道具/)
+ assert.deepEqual(opened, [])
+ assert.ok(container.querySelector('.character-list'))
+ assert.equal(container.querySelector('.scene-list'), null)
+ assert.equal(container.querySelector('.stage-status').textContent, '已通过')
  assert.equal(container.querySelector('[aria-label="场景详情：庭院"]'), null)
 })
 
@@ -795,8 +792,8 @@ test('story result cards keep skills and expose independent task history beside 
  const container = domSetup(t), project = episodeFixture(), calls = []
  const actions = { perform: async () => {}, fail() {}, openHistory: (project, scope) => calls.push(scope), openSkill() {} }
  container.append(renderStage('script', project, actions, {}))
- // 剧情页只有大纲一组；角色、场景两组在本集资产页，各自带 skill 与任务历史。
- for (const [step, count] of [['script', 1], ['assets', 2]]) {
+ // 剧情页只有大纲一组；本集资产只有人物一组，各自带 skill 与任务历史。
+ for (const [step, count] of [['script', 1], ['assets', 1]]) {
   container.replaceChildren(renderStage(step, project, actions, {}))
   const rows = [...container.querySelectorAll('.story-node-actions')]
   assert.equal(rows.length, count)
@@ -808,4 +805,87 @@ test('story result cards keep skills and expose independent task history beside 
   container.querySelector('.stage-history-toolbar .task-history-entry').click()
  }
  assert.deepEqual(calls, ['script', 'assets'])
+})
+
+
+test('本集资产生成按钮只提交人物目标，大纲未通过和执行中禁用，失败可重试', async t => {
+ const container = domSetup(t), p = episodeFixture(), calls = [], errors = []
+ p.episodeId = p.id; p.plot.characters.items = []; p.plot.characters.check.passed = null
+ const actions = { perform: async (...args) => calls.push(args), fail: error => errors.push(error) }
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ let button = container.querySelector('[aria-label="生成人物角色"]')
+ assert.ok(button); assert.equal(button.disabled, false)
+ button.click(); await Promise.resolve()
+ assert.equal(calls.length, 1); assert.equal(calls[0][1], 'characters')
+ assert.deepEqual(actionRequest(calls[0][1], calls[0][2]), { action: 'story', generationMode: 'regenerate', only: 'characters' })
+ p.plot.outline.check.passed = false
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ assert.equal(container.querySelector('[aria-label="生成人物角色"]').disabled, true)
+ assert.match(container.textContent, /请先在「剧情」/)
+ p.plot.outline.check.passed = true
+ p.executionLocks = [{ target: 'characters', scope: 'project', episodeId: p.id }]
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ assert.equal(container.querySelector('[aria-label="生成人物角色"]').disabled, true)
+ p.executionLocks = []
+ container.replaceChildren(renderStage('assets', p, { ...actions, perform: async () => { throw new Error('连接失败') } }, {}))
+ button = container.querySelector('[aria-label="生成人物角色"]')
+ button.click(); await new Promise(resolve => setImmediate(resolve))
+ assert.equal(button.disabled, false); assert.equal(button.textContent, '生成人物角色')
+ assert.equal(errors[0].message, '连接失败')
+})
+
+test('本集人物审核意见只用于人物修订；历史与关卡归本集资产', async t => {
+ const { tabOf, runTabProgress } = await import('../client/flow-view.js')
+ const { historyTargets, runGoalLabel } = await import('../shared/run-view.js')
+ const container = domSetup(t), p = episodeFixture(), calls = []
+ p.plot.characters.check = { passed: false, failures: ['角色身份缺失'] }
+ container.replaceChildren(renderStage('assets', p, { perform: async (...args) => calls.push(args), fail: assert.fail }, {}))
+ const review = container.querySelector('[data-review-target="characters"]')
+ assert.match(review.textContent, /角色身份缺失/)
+ review.querySelector('input').value = '补充角色身份'
+ review.querySelector('input').dispatchEvent(new window.Event('input'))
+ review.querySelector('input').onblur()
+ review.querySelector('.workflow-review-action').click(); await Promise.resolve()
+ assert.deepEqual(calls[0].slice(1), ['characters', { generationMode: 'modify', review: '补充角色身份' }])
+ p.plot.characters.items = []; p.plot.characters.check.passed = null
+ assert.equal(tabOf(p), 'assets')
+ assert.deepEqual(historyTargets('script'), ['outline'])
+ assert.deepEqual(historyTargets('assets'), ['characters', 'image:*'])
+ assert.match(runGoalLabel({ goal: { to: 'story', scope: { only: 'characters' } } }), /生成人物角色/)
+ p.activeRuns = [{ progress: [{ target: 'characters', done: 1, total: 2 }] }]
+ assert.equal(runTabProgress(p, 'script'), null)
+ assert.deepEqual(runTabProgress(p, 'assets'), { done: 1, total: 2, paused: false })
+})
+
+
+test('资产页人物未通过原因置于卡片上方，重生成不提交旧修改意见', async t => {
+ const container = domSetup(t), p = episodeFixture(), calls = []
+ p.plot.characters.check = { passed: false, failures: ['缺少主角身体身份', '角色外貌混用'] }
+ p.plot.characters.review.text = '上次修改意见'
+ container.replaceChildren(renderStage('assets', p, { perform: async (...args) => calls.push(args), fail: assert.fail }, {}))
+ const review = container.querySelector('[data-review-target="characters"]'), cards = container.querySelector('.character-list')
+ assert.match(review.textContent, /缺少主角身体身份/); assert.match(review.textContent, /角色外貌混用/)
+ assert.ok(review.compareDocumentPosition(cards) & window.Node.DOCUMENT_POSITION_FOLLOWING)
+ const button = container.querySelector('[aria-label="重新生成人物角色"]')
+ assert.equal(button.disabled, false)
+ button.click(); await Promise.resolve()
+ assert.deepEqual(calls[0].slice(1), ['characters', { generationMode: 'regenerate' }])
+})
+
+test('历史审核异常或无人物失败稿仍显示原因和重生成，忙碌/大纲未通过时禁用', async t => {
+ const container = domSetup(t), p = episodeFixture(), actions = { perform: async () => {}, fail: assert.fail }
+ p.plot.characters.check.passed = null; p.charactersFailure = '人物不支持多造型'
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ assert.match(container.querySelector('.workflow-review-failed').textContent, /人物不支持多造型/)
+ assert.equal(container.querySelector('.stage-status').textContent, '未通过')
+ p.plot.characters.items = []; p.plot.characters.error = '人物提取返回格式错误'; p.charactersFailure = ''
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ assert.match(container.querySelector('.workflow-review-failed').textContent, /人物提取返回格式错误/)
+ assert.ok(container.querySelector('[aria-label="重新生成人物角色"]'))
+ p.executionLocks = [{ target: 'characters', scope: 'project' }]
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ assert.equal(container.querySelector('[aria-label="重新生成人物角色"]').disabled, true)
+ p.executionLocks = []; p.plot.outline.check.passed = false
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ assert.equal(container.querySelector('[aria-label="重新生成人物角色"]').disabled, true)
 })

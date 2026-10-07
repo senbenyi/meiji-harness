@@ -28,10 +28,14 @@ export function characterCard(project, item, actions, context) {
   imageOpen.setAttribute('aria-label', `人物图片详情：${item.name}`)
   imageOpen.onclick = open.onclick
   imageOpen.append(portrait)
-  media.append(imageOpen, ...cardImageControls(project, item, actions, gate))
+  media.append(imageOpen)
+  const footer = element('div', '', 'character-card-footer')
+  const imageActions = element('div', '', 'character-card-actions')
+  imageActions.append(...cardImageControls(project, item, actions, gate))
+  footer.append(imageActions)
+  appendJsonCopy(footer, item)
   open.append(copy)
-  card.append(media, open)
-  appendJsonCopy(card, item)
+  card.append(media, open, footer)
   return card
 }
 

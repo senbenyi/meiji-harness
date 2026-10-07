@@ -55,3 +55,17 @@ test('并入任务关闭预览不会取消原任务；硬阻断禁止确认', as
   ;[...document.querySelectorAll('button')].find(button => button.textContent === '取消').click()
   assert.equal(await promise, null)
 })
+
+test('摘要保存的后台回写不轮询、不弹窗、不显示回写状态', async t => {
+  setup(t); const calls = [], messages = []
+  const project = { id: 'project', episodes: [] }
+  const bridge = createBridge({ request: async (path, options) => {
+    calls.push([path, JSON.parse(options.body)])
+    return { completed: true, project, continueRun: { kind: 'sync', runId: 'background' } }
+  }, jsonBody: body => ({ body: JSON.stringify(body) }), showProject: current => assert.equal(current, project), status: message => messages.push(message) })
+  const result = await bridge.perform(project, 'episode-add', { fields: { summary: '新剧情', durationSeconds: 10 } })
+  assert.deepEqual(calls.map(([path]) => path), ['turn'])
+  assert.deepEqual(messages, ['摘要已保存'])
+  assert.equal(result.continueRun.runId, 'background')
+  assert.equal(document.querySelector('dialog'), null)
+})

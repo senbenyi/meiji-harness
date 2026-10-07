@@ -22,14 +22,12 @@ test('导入剧本项目隐藏创作方向，摘要只读并保留剧本入口',
   const view = renderOverview(p, { perform: async (...args) => calls.push(args), openPremise: () => calls.push('premise'), openScript: () => calls.push('script'), fail: error => { throw error } }, {})
   root.append(view)
   assert.deepEqual([...view.querySelectorAll('h3')].map(item => item.textContent), ['项目摘要', '剧本', '剧集'])
-  assert.deepEqual([...view.querySelectorAll('.library-tab')].map(item => item.textContent), ['角色库', '场景库', '道具库'])
+  assert.deepEqual([...view.querySelectorAll('.library-tab')].map(item => item.textContent), ['角色库'])
   assert.equal(view.querySelector('.library-tab[aria-selected="true"]').textContent, '角色库')
-  view.querySelectorAll('.library-tab')[1].click()
-  assert.equal(view.querySelector('.library-tab[aria-selected="true"]').textContent, '场景库')
-  assert.equal(view.querySelectorAll('.library-tab-panel')[0].hidden, true)
-  assert.equal(view.querySelectorAll('.library-empty').length, 3)
+  assert.equal(view.querySelectorAll('.library-tab-panel')[0].hidden, false)
+  assert.equal(view.querySelectorAll('.library-empty').length, 1)
   assert.equal([...view.querySelectorAll('button')].some(item => /查看与管理/.test(item.textContent)), false)
-  assert.match(view.querySelector('.library-empty').textContent, /根据剧集自动生成角色、场景和道具/)
+  assert.match(view.querySelector('.library-empty').textContent, /根据剧集自动提取人物角色/)
   assert.match(view.querySelector('.episode-placeholder').textContent, /还没有剧集/)
   assert.equal(button(view, '编辑创作方向'), undefined)
   assert.equal([...view.querySelectorAll('button')].some(item => /更新摘要|重新生成|摘要任务历史|查看 skill/.test(item.textContent)), false)
@@ -42,7 +40,7 @@ test('导入剧本项目隐藏创作方向，摘要只读并保留剧本入口',
   assert.equal(calls[1], 'script')
 })
 
-test('角色场景道具以横向卡片展示并直达条目详情', async t => {
+test('项目库只展示人物横向卡片，已有场景道具没有入口', async t => {
   const root = dom(t), calls = [], p = { ...project(), library: {
     characters: [{ id: 'c1', name: '黄蓉', aliases: [], variants: [{ id: 'cv1', label: '默认', image: { content: {} }, fields: {} }], defaultVariantId: 'cv1' }],
     scenes: [{ id: 's1', name: '桃花岛', aliases: [], variants: [{ id: 'sv1', label: '默认', image: { content: {} }, fields: {} }], defaultVariantId: 'sv1' }],
@@ -50,13 +48,12 @@ test('角色场景道具以横向卡片展示并直达条目详情', async t => 
   } }
   const view = renderOverview(p, { openLibraryEntry: (...args) => calls.push(args) }, {})
   root.append(view)
-  assert.equal(view.querySelectorAll('.library-card').length, 3)
-  assert.equal(view.querySelectorAll('.library-tab-panel .characters-strip').length, 3)
+  assert.equal(view.querySelectorAll('.library-card').length, 1)
+  assert.equal(view.querySelectorAll('.library-tab-panel .characters-strip').length, 1)
   view.querySelector('[aria-label="角色库详情：黄蓉"]').click()
   assert.deepEqual(calls[0], [p, 'characters', 'c1'])
-  view.querySelectorAll('.library-tab')[1].click()
-  view.querySelector('[aria-label="场景库详情：桃花岛"]').click()
-  assert.deepEqual(calls[1], [p, 'scenes', 's1'])
+  assert.equal(view.querySelector('[aria-label="场景库详情：桃花岛"]'), null)
+  assert.equal(view.querySelector('[aria-label="道具库详情：玉箫"]'), null)
 })
 
 test('剧本正文保存必填说明，旧方案不可确认，任意版本对比及占用门禁', async t => {
@@ -94,18 +91,19 @@ test('自由模式本集要求选填且不改方向，草稿携带本次要求',
   assert.equal(calls[1][1].savePremise, undefined); assert.equal(dialog.open, false)
 })
 
-test('父保存成功后显示独立回写方案，先保留关闭而不重新保存', async t => {
-  const root = dom(t), p = project(); let saves = 0
-  const open = episodeDialog(root, async () => { saves++; return { syncRunId: 'sync', result: { episodeId: 'e' } } }, async () => {}, {
-    observeSync: async (current, id, update) => { assert.equal(id, 'sync'); update({ status: 'running' }); return { status: 'paused', pause: { reasons: [{ code: 'wait_script_confirm' }] } } }, openScript() {},
+for (const mode of ['free', 'script']) {
+  test(`${mode} 摘要保存成功立即关闭，不等待后台回写或显示回写方案`, async t => {
+    const root = dom(t), p = { ...project(), mode }; let saves = 0, observes = 0
+    const open = episodeDialog(root, async () => { saves++; return { syncRunId: 'sync', result: { episodeId: 'e', scriptSyncError: '后台回写未完成' } } }, async () => {}, {
+      observeSync: async () => { observes++; return new Promise(() => {}) }, openScript() { assert.fail('不能自动打开剧本') },
+    })
+    open(p, { id: 'e', durationSeconds: 10, summary: node('summary', '本集剧情') })
+    const dialog = root.querySelector('dialog')
+    await dialog.querySelector('form').onsubmit({ preventDefault() {} })
+    assert.equal(dialog.open, false); assert.equal(saves, 1); assert.equal(observes, 0)
+    assert.doesNotMatch(dialog.textContent, /回写|按方案修改剧本|尚未完成同步/)
   })
-  open(p, { id: 'e', durationSeconds: 10, summary: node('summary', '本集剧情') })
-  const dialog = root.querySelector('dialog')
-  await dialog.querySelector('form').onsubmit({ preventDefault() {} })
-  assert.equal(dialog.open, true); assert.match(dialog.textContent, /尚未完成同步/)
-  assert.ok(button(dialog, '按方案修改剧本')); button(dialog, '先保留').click()
-  assert.equal(dialog.open, false); assert.equal(saves, 1)
-})
+}
 
 test('无导入剧本的方向入口在自动回写后仍展示，编辑保存原有方向', async t => {
   const root = dom(t), calls = [], p = { ...project(), mode: 'free', scriptKind: 'assembled', premise: '长期寻找失踪家人', script: '首集已回写剧情' }
@@ -162,24 +160,46 @@ test('保存后的强制刷新被后台响应接续时仍显示新版本并解�
   assert.equal(button(view, '保存为新版本').disabled, false)
 })
 
-test('摘要弹窗分别显示项目前置审核通过和剧集审核失败，返回按钮不串任务', async t => {
-  const root = dom(t), p = project(), loads = []
+test('摘要弹窗不显示任务步骤和执行状态，生成失败保留输入和历史入口', async t => {
+  const root = dom(t), p = project(), histories = []
   const steps = [
     { id: 'project-review', kind: 'review', target: 'project-summary', status: 'done', output: { passed: true }, responses: [{ id: 'response-a' }] },
     { id: 'episode-review', kind: 'review', target: 'summary', status: 'paused', error: 'upstream service error', responses: [{ id: 'response-b' }] },
   ]
   const open = episodeDialog(root, async () => {}, async (_, __, { onTask }) => {
-    onTask({ id: 'run', status: 'paused', steps })
+    onTask?.({ id: 'run', status: 'paused', steps })
     throw new Error('upstream service error')
-  }, { loadResponses: async (_, task, node) => { loads.push([task.id, node.id]); return { responses: [] } } })
+  }, { openHistory: current => histories.push(current) })
   open(p, null)
   const dialog = root.querySelector('#edit-episode')
+  dialog.querySelector('form').elements.summary.value = '尚未保存的输入'
   await button(dialog, 'AI 生成').onclick()
   const sections = [...dialog.querySelectorAll('.episode-summary-task')]
-  assert.equal(sections.length, 2)
-  assert.match(sections[0].textContent, /项目摘要：完成/); assert.match(sections[0].textContent, /审核通过/)
-  assert.match(sections[1].textContent, /摘要：待处理/); assert.match(sections[1].textContent, /upstream service error/)
+  assert.equal(sections.length, 0)
+  assert.equal(dialog.querySelector('.episode-task-progress'), null)
+  assert.doesNotMatch(dialog.textContent, /项目摘要：完成|审核通过|摘要：待处理|生成剧集摘要：/)
+  assert.match(dialog.querySelector('.error').textContent, /upstream service error/)
+  assert.equal(dialog.querySelector('form').elements.summary.value, '尚未保存的输入')
+  assert.equal(dialog.open, true)
+  assert.equal(button(dialog, 'AI 生成').disabled, false)
   assert.equal(dialog.querySelectorAll('.task-step-elapsed').length, 0)
-  for (const section of sections) { button(section, '查看原始返回').click(); await new Promise(resolve => setImmediate(resolve)) }
-  assert.deepEqual(loads, [['run', 'project-review'], ['run', 'episode-review']])
+  button(dialog, '查看摘要任务历史 →').click()
+  assert.equal(dialog.open, false); assert.equal(histories[0].id, p.id)
 })
+
+for (const outcome of ['cancelled', 'failed']) {
+  test(`剧集保存 ${outcome} 保留弹框和输入，可再次保存`, async t => {
+    const root = dom(t)
+    const open = episodeDialog(root, async () => {
+      if (outcome === 'failed') throw new Error('模拟保存失败')
+      return { cancelled: true }
+    }, async () => {})
+    open(project(), null)
+    const dialog = root.querySelector('#edit-episode'), form = dialog.querySelector('form')
+    form.elements.summary.value = '尚未保存的剧情'
+    await form.onsubmit({ preventDefault() {} })
+    assert.equal(dialog.open, true); assert.equal(form.elements.summary.value, '尚未保存的剧情')
+    assert.equal(form.querySelector('[type=submit]').disabled, false)
+    if (outcome === 'failed') assert.match(dialog.querySelector('.error').textContent, /模拟保存失败/)
+  })
+}

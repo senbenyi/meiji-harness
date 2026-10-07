@@ -20,7 +20,14 @@ for (const [kind, id, type] of [['characters', 'C01', 'role'], ['scenes', 'E01',
     assert.equal(alias.plot[kind].items[0].ref.linkedBy, 'name')
     if (kind === 'characters') {
       assert.throws(() => addLibraryVariant(project, kind, entry.id, { ...card, look: '新变体', variantLabel: '改变状态' }), /不支持多造型/)
-      assert.throws(() => mergeLibraryGroup(project, kind, { items: [{ ...card, libraryId: entry.id, variantLabel: '另一状态' }] }), /变体|造型/)
+      setContent(entry.variants[0].image, { assetId: 'saved', localPath: '/saved.png' }, { passed: true, failures: [] })
+      const selected = mergeLibraryGroup(project, kind, { items: [{ ...card, name: '模型姓名', libraryId: entry.id, look: '模型新描述', variantLabel: '旧造型字段' }] })
+      assert.equal(selected.library.characters[0].variants.length, 1)
+      assert.equal(selected.plot.characters.items[0].ref.variantId, entry.defaultVariantId)
+      assert.equal(selected.plot.characters.items[0].name, entry.name)
+      assert.equal(selected.plot.characters.items[0].look, '原描述')
+      assert.equal(selected.plot.characters.items[0].image.content.assetId, 'saved')
+      assert.throws(() => mergeLibraryGroup(project, kind, { items: [{ ...card, libraryId: 'missing' }] }), /库条目不存在/)
       return
     }
     const variant = addLibraryVariant(project, kind, entry.id, { ...card, look: '新变体', variantLabel: '改变状态' })

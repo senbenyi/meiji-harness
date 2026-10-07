@@ -79,7 +79,7 @@ export async function opReviseShot(c) {
   const track = String(operation.track || '')
   const items = project.shots?.items || []
   if (!items.some(item => item.id === track)) throw Object.assign(new Error('没有这一镜'), { status: 404 })
-  if (!canGenerate(project, 'shots')) throw Object.assign(new Error('请先写好场景卡，再改镜头'), { status: 409 })
+  if (!canGenerate(project, 'shots')) throw Object.assign(new Error(gateMessage(project, 'shots')), { status: 409 })
   project = await projects.save(project.id, { ...clearShotDownstream(project, 'shots', track) })
   note(`文件：server/flow/tasks/text/task-shot-table.js`)
   note('函数：reviseShot')

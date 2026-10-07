@@ -88,6 +88,14 @@ async function executeOperation(operation, deps) {
     if (handler?.stage === 'episode') return await handler.run(c)
     throw Object.assign(new Error('不支持的面板操作'), { status: 400 })
   } catch (error) {
+    // 人物审核不进入生成准备；步骤异常也要写回当前人物节点，资产页才能展示并重试。
+    if (c.operation.step === 'review' && deps.task.target === 'characters' && c.project) {
+      await c.projects.save(c.operation.projectId, current => {
+        const next = structuredClone(current), target = targetNode(next, 'characters')
+        if (target) markFailed(target, error.message)
+        return next
+      }).catch(() => {}) // 版本冲突时保留新内容，失败仍记在原 Run。
+    }
     if (apiFailed() || error.apiFailure) throw error
     const { operation: current } = c
     if (current.projectId) {

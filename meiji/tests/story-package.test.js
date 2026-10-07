@@ -61,13 +61,15 @@ test('剧情逐步骤保存失败稿，前项成功保留，依赖失败项的�
   await e.store.save(e.id, { episodes: [(await e.store.read(e.id)).episodes[0], other] })
   await e.store.save(e.id, root => { root.episodes[1].summary.basis = { ...root.episodes[1].summary.basis, scriptSyncedRevision: root.episodes[1].summary.revision }; return root })
   const before = (await e.store.read(e.id)).episodes[1], fixture = storyPackageFixture()
-  await assert.rejects(runOperation(e.op('story'), { home: e.home, request: storyRequest(fixture, (kind, _message, phase) => kind === 'characters' && phase === 'review' ? '{"passed":false,"issues":[{"location":"人物","reason":"缺少身份","requirement":"补全身份"}]}' : undefined) }), /自审未通过/)
+  await runOperation(e.op('story'), { home: e.home, request: storyRequest(fixture) })
+  await assert.rejects(runOperation(e.op('characters'), { home: e.home, request: storyRequest(fixture, (kind, _message, phase) => kind === 'characters' && phase === 'review' ? '{"passed":false,"issues":[{"location":"人物","reason":"缺少身份","requirement":"补全身份"}]}' : undefined) }), /自审未通过/)
   const saved = await e.read()
   assert.deepEqual(saved.plot.outline.content, fixture.outline)
   assert.equal(saved.plot.outline.check.passed, true)
   assert.equal(saved.plot.characters.check.passed, false)
-  // 场景是独立分支，照常完成；依赖人物的道具不执行。
-  assert.equal(saved.plot.scenes.check.passed, true)
+  // 不再生成场景和道具；人物审核失败后也不自动补图。
+  assert.equal(saved.plot.scenes.check.passed, null)
+  assert.deepEqual(saved.plot.scenes.items, [])
   assert.equal(saved.plot.props.items.length, 0)
   assert.equal(saved.shots.items.length, 0)
   assert.equal(saved.assembly.content, null)
@@ -123,14 +125,17 @@ test('regenerate clears old story before requests and extracts same-name cards w
       return replies.shift()
     },
   })
+  assert.deepEqual((await e.read()).plot.characters.items, [])
+  await runOperation(e.op('characters'), { home: e.home, request: async () => { calls++; return replies.shift() } })
   const after = await e.read()
-  assert.equal(calls, 6)
-  for (const key of ['characters', 'scenes']) {
+  assert.equal(calls, 4)
+  for (const key of ['characters']) {
     assert.equal(after.plot[key].items.length, 1)
     assert.ok(!after.plot[key].items[0].image.content?.assetId)
     assert.ok(!after.plot[key].items[0].image.content?.localPath)
     assert.ok(Object.values(after.plot[key].items[0].parts).every(part => part.content === null))
   }
+  assert.deepEqual(after.plot.scenes.items, [])
   assert.deepEqual(after.plot.props.items, [])
   assert.deepEqual(after.summary, before.summary)
   assert.deepEqual(after.supplementalSkills, before.supplementalSkills)
@@ -139,10 +144,10 @@ test('regenerate clears old story before requests and extracts same-name cards w
 for (const phase of ['first-request', 'characters', 'cancel']) test(`regenerate does not restore old cards after ${phase}`, async t => {
   const e = await withOldStory(t), controller = new AbortController()
   let calls = 0
-  await assert.rejects(runOperation(e.op('story', { generationMode: 'regenerate' }), { home: e.home, signal: controller.signal,
+  if (phase === 'characters') await runOperation(e.op('story'), { home: e.home, request: async message => message.skill === 'review' ? reviewPass : outlineResponse() })
+  await assert.rejects(runOperation(e.op(phase === 'characters' ? 'characters' : 'story', { generationMode: 'regenerate' }), { home: e.home, signal: controller.signal,
     request: async () => {
       calls++
-      if (phase === 'characters' && calls <= 2) return calls === 1 ? outlineResponse() : reviewPass
       if (phase === 'cancel') {
         controller.abort(new Error('本轮停止'))
         throw controller.signal.reason

@@ -177,8 +177,13 @@ export function revisionStore(store, writeToken, scope = {}) {
       ...(scope.action === 'film' && usesPreviousFilm && i === index - 1 ? { video: shot.video, tailFrame: shot.tailFrame } : {}),
     }))
     const group = ['characters', 'scenes', 'props'].includes(scope.action) ? scope.action : null
-    const value = group && episode ? { summary: episode.summary, durationSeconds: episode.durationSeconds, outline: episode.plot.outline, group: episode.plot[group], ...(group === 'props' ? { characters: episode.plot.characters, scenes: episode.plot.scenes } : {}) } : episode && scope.track ? { summary: episode.summary, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: selectedShot, ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
-    return JSON.stringify({ title: project.title, script: project.script, durationSeconds: project.durationSeconds, language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision', 'skills', 'supplementalSkills'].includes(key) ? undefined : value)
+    const imageTask = episode && scope.itemId && ['image', 'revise-image'].includes(scope.action)
+    const imageInputs = imageTask ? {
+      card: ['characters', 'scenes', 'props'].flatMap(kind => episode.plot[kind]?.items || []).find(card => card.id === scope.itemId),
+      pendingImages: Object.values(episode.pendingImages || {}).filter(draft => draft.itemId === scope.itemId),
+    } : null
+    const value = imageTask ? imageInputs : group && episode ? { summary: episode.summary, durationSeconds: episode.durationSeconds, outline: episode.plot.outline, group: episode.plot[group], ...(group === 'props' ? { characters: episode.plot.characters, scenes: episode.plot.scenes } : {}) } : episode && scope.track ? { summary: episode.summary, durationSeconds: episode.durationSeconds, plot: episode.plot, shot: selectedShot, ...((textTask || scope.action === 'film') ? { continuity } : {}) } : episode || project
+    return JSON.stringify({ ...(imageTask ? {} : { title: project.title, script: project.script, durationSeconds: project.durationSeconds }), language: project.outputLanguage, aspectRatio: project.aspectRatio, value }, (key, value) => ['source', 'review', 'draft', 'operation', 'status', 'activity', 'activeOperation', 'updatedAt', 'activityError', 'revision', 'skills', 'supplementalSkills'].includes(key) ? undefined : value)
   }
   const guarded = Object.create(store)
   guarded.read = async id => {

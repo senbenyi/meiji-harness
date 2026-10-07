@@ -14,7 +14,7 @@ import { runInScope, runTargetMatches, orderRuns } from '../../../shared/run-vie
 import { planRun, mergeRunPlans } from '../../../shared/run-planner.js'
 import { normalizeRunGoal, goalForRunTarget } from '../../../shared/run-templates.js'
 import { imageItems } from '../../../shared/library-images.js'
-import { scriptBlockers, scriptFreshness, episodeHints } from '../../../shared/script-assembly.js'
+import { scriptBlockers, scriptFreshness, episodeHints, isAiCreation } from '../../../shared/script-assembly.js'
 import { randomUUID } from 'node:crypto'
 import { episodeModel, targetNode } from '../../../shared/drama-model.js'
 import { storyboardReady, videoReady, tailReady } from '../steps/shared/film-freshness.js'
@@ -327,7 +327,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
         const manualTarget = changed || `image:${operation.itemId || operation.variantId || ''}`
         const text = ['summary', 'outline', 'characters', 'scenes', 'props', 'storyboard'].includes(manualTarget.split(':')[0])
         const plans = []
-        if (manualTarget === 'summary') plans.push(planRun(view, { to: 'script-sync' }, plannerPolicy(root, run.policy, run.episodeId)))
+        if (manualTarget === 'summary' && isAiCreation(root)) plans.push(planRun(view, { to: 'script-sync' }, plannerPolicy(root, run.policy, run.episodeId)))
         for (const target of targets) {
           if (target === manualTarget || target.startsWith('storyboard:') && targets.includes(target.replace('storyboard:', 'film:'))) continue
           plans.push(planRun(view, goalForRunTarget(target, { mode: 'generate' }), plannerPolicy(root, run.policy, run.episodeId)))
@@ -365,7 +365,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
           continuation = { runId: run.id, stepId: selected.id, target: manualTarget }
         }
       }
-      if (!summaryOwned && ['source', 'episode-add', 'episode-edit', 'episode-delete'].includes(operation.action)) {
+      if (isAiCreation(root) && !summaryOwned && ['source', 'episode-add', 'episode-edit', 'episode-delete'].includes(operation.action)) {
         const changedEpisode = root.episodes.find(episode => episode.summary.revision !== before.episodes.find(item => item.id === episode.id)?.summary.revision)
         const deleted = root.scriptPendingDeletes.find(item => !before.scriptPendingDeletes.some(prior => prior.episodeId === item.episodeId))
         const episodeId = changedEpisode?.id || deleted?.episodeId

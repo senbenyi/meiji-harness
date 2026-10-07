@@ -164,7 +164,7 @@ function renderStory(project, actions, context) {
   const controls = element('section', '', 'session-project story-controls')
   const head = element('div', '', 'outline-head')
   head.append(element('h3', '剧情生成与审核'))
-  const generated = hasOutline(project) || hasCharacters(project) || hasScenes(project)
+  const generated = hasOutline(project)
   const label = generated ? '重新生成剧情' : '生成剧情'
   const generate = element('button', project.operationActivity === 'outline' ? '生成中' : label, 'primary')
   generate.disabled = targetBusy(project, 'summary') || !canGenerate(project, 'outline')
@@ -173,34 +173,56 @@ function renderStory(project, actions, context) {
     catch (error) { generate.disabled = false; generate.textContent = label; actions.fail(error) }
   }, '生成中')
   head.append(generate)
-  controls.append(head, element('p', '依次生成并审核大纲、提取人物角色、提取场景，提取通过后为缺图的角色和场景生成候选图；人物、场景和道具在「本集资产」查看与确认。下方意见用于本次剧情修改。', 'meta'))
+  controls.append(head, element('p', '仅生成并审核故事大纲。人物角色与候选图请到「本集资产」点击生成。下方意见用于本次大纲修改。', 'meta'))
   const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, targetBusy(project, 'summary'), generate, { allowFailureOpinion: true })
   const input = review.querySelector('input')
-  if (input) input.placeholder = '填写剧情、角色或场景的修改意见'
+  if (input) input.placeholder = '填写故事大纲的修改意见'
   generate.textContent = project.operationActivity === 'outline' ? '生成中' : label
   generate.setAttribute('aria-label', label)
   return stack([controls, renderOutline(project, actions)])
 }
 
-// 本集资产：人物角色、场景、道具。生成入口在剧情页，这里查看、编辑、确认候选图。
+// 本集资产独立提取、审核人物并补图，剧情页只生成大纲。
 function renderAssets(project, actions, context) {
-  return stack([renderCharacters(project, actions, context), renderScenes(project, actions, context), renderProps(project, actions)])
+  return stack([renderCharacters(project, actions, context)])
+}
+
+function charactersFeedback(project) {
+  const record = feedbackOf(project, 'characters')
+  return !record.error && record.check?.passed !== true && project.charactersFailure
+    ? { ...record, status: GenerationStatus.FAILED, error: project.charactersFailure } : record
 }
 
 function renderCharacters(project, actions, context) {
   const view = element('section', '', 'session-project')
   const head = element('div', '', 'outline-head')
   const title = element('div', '', 'asset-stage-title')
-  title.append(element('h3', '角色卡'), element('span', stepRunLabel(project, 'characters'), 'story-status'))
-  head.append(title, storyNodeActions(project, actions, 'characters'))
+  const record = charactersFeedback(project)
+  title.append(element('h3', '角色卡'), element('span', statusLabels[record.status] || stepRunLabel(project, 'characters'), 'story-status'))
+  const failed = record.check?.passed === false || Boolean(record.error)
+  const label = hasCharacters(project) || failed ? '重新生成人物角色' : '生成人物角色'
+  const busy = targetBusy(project, 'characters')
+  const generate = element('button', busy ? '生成中' : label, 'primary')
+  generate.disabled = busy || !canGenerate(project, 'characters')
+  bindBusy(generate, async () => {
+    try { await actions.perform(project, 'characters', reviewFields(view)) }
+    catch (error) { generate.disabled = !canGenerate(project, 'characters'); generate.textContent = label; actions.fail(error) }
+  }, '生成中')
+  const controls = storyNodeActions(project, actions, 'characters')
+  controls.append(generate)
+  head.append(title, controls)
   view.append(head)
   const hint = element('p', hasCharacters(project) ? '' : gateMessage(project, 'characters'), 'hint')
   hint.hidden = !hint.textContent
   view.append(hint)
+  const review = appendWorkflowReview(view, record, hasCharacters(project), busy, generate, { allowFailureOpinion: true })
+  const input = review.querySelector('input')
+  if (input) input.placeholder = '填写人物角色的修改意见'
+  generate.textContent = busy ? '生成中' : label
+  generate.setAttribute('aria-label', label)
   const cards = element('div', '', 'character-list')
   for (const item of project.plot.characters?.items || []) cards.append(characterCard(project, item, actions, context))
   view.append(cards)
-  if (!hasCharacters(project)) view.append(element('p', '未生成：在「剧情」页生成剧情，依次完成大纲、人物提取和场景提取，并自动生成角色和场景候选图。', 'meta'))
   return view
 }
 
@@ -589,8 +611,7 @@ export function renderStage(step, project, actions, context) {
   if (header) header.remove()
   scope.querySelector(':scope > h3')?.remove()
   const stage = { summary: 'summary', script: 'outline', shots: 'shots', seconds: 'seconds', assembly: 'assembly' }[step]
-  const assetState = () => { const [characters, scenes] = ['characters', 'scenes'].map(key => stepRunLabel(project, key)); return characters === scenes ? characters : `角色${characters} · 场景${scenes}` }
-  const state = step === 'assets' ? assetState() : stage ? stepRunLabel(project, stage) : project.operationActivity ? '执行中' : hasFilm(project) ? '已完成' : '未完成'
+  const state = step === 'assets' ? statusLabels[charactersFeedback(project).status] || stepRunLabel(project, 'characters') : stage ? stepRunLabel(project, stage) : project.operationActivity ? '执行中' : hasFilm(project) ? '已完成' : '未完成'
   toolbar.prepend(element('span', state, 'stage-status'))
   if (controls.childElementCount) toolbar.append(controls)
   view.prepend(toolbar)

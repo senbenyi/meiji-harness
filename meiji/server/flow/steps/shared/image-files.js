@@ -99,13 +99,19 @@ export function visualPlace(project, itemId) {
   return null
 }
 
-export async function stageImageDraft(projects, project, draft, target) {
+export async function stageImageDraft(projects, project, draft, target, home) {
   if (!draft?.draftId) throw new Error('生成结果缺少待确认图片')
+  const replaced = checkContext.getStore()?.originalCandidate
   await projects.save(project.id, current => {
     const key = feedbackKey({ action: 'image', track: target.track, itemId: target.itemId })
     consumeReview(targetNode(current, key))
-    return { ...current, pendingImages: { ...current.pendingImages, [draft.draftId]: { ...draft, ...target } }}
+    const pendingImages = { ...current.pendingImages, [draft.draftId]: { ...draft, ...target } }
+    if (replaced && replaced.itemId === target.itemId && replaced.draftId !== draft.draftId) delete pendingImages[replaced.draftId]
+    return { ...current, pendingImages }
   }, { final: true })
+  if (home && replaced && replaced.itemId === target.itemId && replaced.draftId !== draft.draftId) {
+    await rm(join(home, 'storages', 'meiji', 'image-drafts', replaced.draftId), { recursive: true, force: true })
+  }
 }
 
 export async function readUploadedImage(operation, home) {

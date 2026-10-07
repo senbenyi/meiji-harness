@@ -19,3 +19,25 @@ test('流程标签只计算当前有效对象进度和暂停点', () => {
   assert.deepEqual(runTabProgress(project, 'seconds'), { done: 5, total: 6, paused: true })
   assert.equal(runTabProgress(project, 'summary'), null)
 })
+test('剧情和资产进度不再计入场景道具提取', () => {
+  const project = { activeRuns: [{ progress: [{ target: 'outline', total: 2, done: 2 }, { target: 'characters', total: 2, done: 1 }, { target: 'scenes', total: 2, done: 0, paused: true }, { target: 'props', total: 2, done: 0 }] }] }
+  assert.deepEqual(runTabProgress(project, 'script'), { done: 2, total: 2, paused: false })
+  assert.deepEqual(runTabProgress(project, 'assets'), { done: 1, total: 2, paused: false })
+})
+
+
+test('既有失败任务只补充当前人物正文版本的原因，成功/新版本/其他集不沿用', () => {
+ const episode = episodeFixture(), characters = episode.plot.characters
+ characters.check.passed = null; characters.source = { runId: 'failed-run' }
+ const root = { id: 'project', episodes: [episode] }
+ const history = [{ id: 'failed-run', status: 'failed', episodeId: episode.id, failure: { target: 'characters', message: '人物不支持多造型' } }]
+ assert.equal(withRunActivity(root, [], history).episodes[0].charactersFailure, '人物不支持多造型')
+ characters.check.passed = true
+ assert.equal(withRunActivity(root, [], history).episodes[0].charactersFailure, '')
+ characters.check.passed = null; characters.source.runId = 'new-run'
+ assert.equal(withRunActivity(root, [], history).episodes[0].charactersFailure, '')
+ characters.source.runId = 'failed-run'; history[0].episodeId = 'other'
+ assert.equal(withRunActivity(root, [], history).episodes[0].charactersFailure, '')
+ history[0].episodeId = episode.id; characters.operation = { id: 'new-step' }
+ assert.equal(withRunActivity(root, [], history).episodes[0].charactersFailure, '')
+})

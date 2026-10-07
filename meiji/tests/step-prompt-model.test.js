@@ -145,6 +145,41 @@ test('镜头表三类编排先规划时间和同名分段，不再要求摄影�
  }
 })
 
+test('镜头表与单镜修订三类请求采用直接叙事，审核兼容旧栏目且只验必要事实', async () => {
+ const { buildTablePrompts, buildSingleShotPrompts, buildSecondsPrompts } = await import('../server/prompts/shot-text-prompts.js')
+ const { episodeFixture } = await import('./fixtures/model.js')
+ const { readShotSections } = await import('../server/flow/steps/step-generate-shot-table.js')
+ const { protocols } = await import('../skills/output-protocols.js')
+ const project = episodeFixture()
+ const narrative = '旅人【旅人|C01】在庭院【庭院|E01】门边取出旧信，说：“这是他的字。”片段结束时信仍未拆封。'
+ project.shots.items[0].content = narrative
+ for (const prompts of [buildTablePrompts({ project }), buildSingleShotPrompts({ project, shotId: 'S01', review: '保留未拆封状态' })]) {
+  for (const message of [prompts.generation, prompts.revision(narrative, '保留原台词')]) {
+   assert.match(message.system, /一段或少量自然段直接叙事/)
+   assert.match(message.system, /不列固定栏目、不解释分段理由/)
+   assert.doesNotMatch(message.system, /content 内依次写以下条目|每段重复同一结构|- 叙事任务与事件过程：/)
+  }
+  const review = prompts.review(narrative)
+  assert.match(review.system, /直接叙事与已保存的旧栏目正文都可验收/)
+  assert.match(review.system, /不.*固定栏目.*分段理由/)
+ }
+ for (const stage of ['shots', 'shot-revise']) {
+  const rows = JSON.parse(protocols[stage].split(/示例[^\n]*：\n/)[1]).shots
+  const parsed = readShotSections(JSON.stringify({ shots: rows }), stage === 'shot-revise' ? 1 : 0)
+  assert.equal(parsed.length, rows.length)
+  assert.equal(parsed.at(-1).content, `标题：${rows.at(-1).title}\n${rows.at(-1).content}`)
+  assert.doesNotMatch(rows.map(r => r.content).join(''), /叙事任务与事件过程：|分段依据：/)
+ }
+ const prompts = buildSecondsPrompts({ project, shotId: 'S02' })
+ assert.match(prompts.generation.system, /不重演其过程或复制摄影安排/)
+ assert.match(prompts.review('待审').system, /允许上游有依据的转场、时间省略与机位变化/)
+ assert.doesNotMatch(prompts.review('待审').system, /以上一镜已通过指令核对承接/)
+ for (const content of [narrative, '- 叙事任务与事件过程：取出旧信。\n- 结束状态与下镜边界：尚未拆封。']) {
+  const [parsed] = readShotSections(JSON.stringify({ shots: [{ shotId: 'S01', durationSeconds: 5, title: '取信', content }] }))
+  assert.equal(parsed.content, `标题：取信\n${content}`)
+ }
+})
+
 test('每秒指令三类编排携带当前关联布局并允许独立设计摄影，排除其他地点资料及图片', async () => {
  const { buildSecondsPrompts }=await import('../server/prompts/shot-text-prompts.js')
  const { episodeFixture }=await import('./fixtures/model.js')

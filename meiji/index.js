@@ -7,6 +7,7 @@ import { createHarnessRunGoals } from './server/host/harness-run-goals.js'
 import { runStore } from './server/data/run-store.js'
 import { interruptRunning } from './server/flow/tasks/task-interrupt.js'
 import { projectStore } from './server/data/project-store.js'
+import { removeSceneData } from './server/data/remove-scene-data.js'
 import { ffmpegAvailable } from './server/media/check-ffmpeg.js'
 import { setHostLogger } from './server/host/session-log.js'
 import { setWorkspaceRegistry } from './server/host/harness-workspaces.js'
@@ -27,7 +28,7 @@ export function apply(ctx) {
   // 启动时取消上次遗留的进行中任务；网关不提供取消接口，已提交的远端视频如实记录可能仍在运行。
   const ready = interruptRunning(projectStore(home)).catch(error => {
     ctx.logger.warn('Meiji interrupt failed: %s', error.message)
-  })
+  }).then(() => removeSceneData(home))
   const chatReady = ready.then(async () => {
     const routes = await modelStore(home).read()
     if (routes.apiKey) await syncChatModel(ctx, routes)

@@ -103,7 +103,7 @@ export function buildTablePrompts(options) {
   const min = Math.max(1, project.durationSeconds - 10), max = project.durationSeconds + 10
   return buildShotPrompts('shots', {
     task: '依据大纲生成本集完整镜头表，遵守基础规则和补充规则。',
-    review: `验收本集完整镜头表：覆盖大纲事件与结尾，编号连续、单镜1–15秒且总时长在 ${min}–${max} 秒内（含边界），条目格式完整，镜头之间起止状态承接。`,
+    review: `验收本集完整镜头表：覆盖大纲事件与结尾，编号连续、单镜1–15秒且总时长在 ${min}–${max} 秒内（含边界），叙事清楚、完整台词保留，镜头之间剧情状态承接；不要求固定栏目或分段理由。`,
     facts: tableFacts(project, min, max),
   }, options)
 }
@@ -113,13 +113,24 @@ export function buildSingleShotPrompts(options) {
   const shot = project.shots.items.find(item => item.id === shotId)
   return buildShotPrompts('shot-revise', {
     task: `依据本镜基稿和本次意见修订 ${shotId}，遵守基础规则和补充规则。`,
-    review: `验收 ${shotId}（${shot.duration}s）的修订结果：意见落实、只改动指定镜头、标题字段与条目完整、与前后镜衔接。`,
+    review: `验收 ${shotId}（${shot.duration}s）的修订结果：意见落实、只改动指定镜头、标题字段与叙事完整、与前后镜衔接；不要求固定栏目或分段理由。`,
     facts: [{ title: '【本次参数】', text: { shotId, durationSeconds: shot.duration } },
       ...shotContext(project, shotId).filter(fact => fact.title !== '【本次参数】')],
   }, options)
 }
 
-// 每秒指令带本镜剧情及关联资料、前镜完整指令与大纲，不引入其他镜头的旧稿。
+// 只提取已通过前镜的切点参考；动作进度由末态表达，不传此前过程或已结束对白。
+function secondsHandoff(shot) {
+  const content = shot?.seconds?.check?.passed === true ? shot.seconds.content : null
+  const beat = content?.beats?.at(-1)
+  if (!beat?.endState) return ''
+  const total = shot.duration * 1000
+  const active = events => (events || []).filter(event => event.startMs < total && event.endMs === total).map(event => event.text)
+  return { shotId: shot.id, endState: beat.endState, camera: beat.camera, space: beat.space, sound: beat.sound,
+    ambient: active(content.ambient), music: active(content.music) }
+}
+
+// 每秒指令带本镜叙事及关联资料、前镜交接摘要与大纲，不引入前镜完整过程或后镜旧稿。
 export function buildSecondsPrompts(options) {
   const { project, shotId } = options
   const index = project.shots.items.findIndex(item => item.id === shotId)
@@ -129,11 +140,11 @@ export function buildSecondsPrompts(options) {
     .filter(card => related.has(card.id) || related.has(card.name) || (card.ownerId && related.has(card.ownerId)))
     .map(cleanCard); return { title, text: items.length ? { [group]: items } : '' } }
   return buildShotPrompts('seconds', {
-    task: `依据本镜分段剧情与关联资料生成 ${shotId} 的每秒指令，承接上一镜已通过指令，遵守基础规则和补充规则。`,
-    review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：剧情、时长与交接状态符合本镜镜头表，具体镜头设计与空间调度符合关联资料，与上一镜已通过指令连续。`,
+    task: `依据本镜叙事与关联资料生成 ${shotId} 的每秒指令，按上一镜交接摘要承接必要状态，遵守基础规则和补充规则。`,
+    review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：剧情、台词、时长与交接状态符合本镜镜头表，具体镜头设计与空间调度符合关联资料，与上一镜交接摘要无实质矛盾。`,
     facts: [
       { title: '【本镜镜头表】', text: shotData(shot) },
-      { title: '【连续性参考：上一镜每秒指令】', text: previous?.seconds.check.passed === true ? { seconds: previous.seconds.content } : '' },
+      { title: '【连续性参考：上一镜交接摘要】', text: secondsHandoff(previous) },
       cards('characters', '【上游事实：本镜关联人物】'), cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】'),
       { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
       { title: '【本次参数】', text: { shotId, durationSeconds: shot.duration, startMs: 0, endMs: shot.duration * 1000 } },

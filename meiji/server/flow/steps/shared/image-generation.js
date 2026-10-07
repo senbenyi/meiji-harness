@@ -1,8 +1,9 @@
 // 任务：角色图 / 场景图 / 道具图（阶段 2 按类型拆为 character-image、scene-image、prop-image）
+import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { pictureTargetSnapshot, readImageDraft, readPicture } from '../../../data/image-storage.js'
+import { applyImageDraft, pictureTargetSnapshot, readImageDraft, readPicture } from '../../../data/image-storage.js'
 import { characterImageSize, gatewayImageSize } from '../../../gateway/model-gateway.js'
 import { readStill } from '../../../media/image-files.js'
 import { usableLook } from '../../../../shared/image-assets.js'
@@ -20,6 +21,7 @@ export async function startImage(operation, project, { projects, models, home, s
   const route = modelRoutes(await models.read())
   const bag = place.bag
   let how = '沿用这张卡已有的中文画面提示词'
+  const autoSave = operation.autoSave === true && item.type === 'role'
   const imageModification = operation.generationMode === 'modify'
   if (!imageModification && !(item.type === 'prop' ? item.description?.trim() : usableLook(item.look))) {
     throw Object.assign(new Error('这张卡还没有可用的中文画面提示词'), { status: 400 })
@@ -89,7 +91,14 @@ export async function startImage(operation, project, { projects, models, home, s
     stepTarget: `image:${item.id}`,
     onSaved: async next => {
       const draft = next.items.find(entry => entry.id === item.id).pendingImage
-      await stageImageDraft(projects, project, draft, { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item), aspect: operation.aspect || (current.type === 'role' ? '9:16' : size), useReference: Boolean(operation.useReference) })
+      const target = { key: place.key, itemId: item.id, name: item.name, target: pictureTargetSnapshot(item), aspect: operation.aspect || (current.type === 'role' ? '9:16' : size), useReference: Boolean(operation.useReference) }
+      if (autoSave) {
+        try { await applyImageDraft(home, projects, project, { ...draft, ...target }, checkContext.getStore()?.signal) }
+        catch (error) {
+          if (draft?.draftId) await rm(join(home, 'storages', 'meiji', 'image-drafts', draft.draftId), { recursive: true, force: true })
+          throw error
+        }
+      } else await stageImageDraft(projects, project, draft, target, home)
     },
   }).catch(async error => {
     await projects.save(project.id, {}, { final: true, error: error.message }).catch(() => {})
@@ -99,7 +108,7 @@ export async function startImage(operation, project, { projects, models, home, s
     `正在生成 ${item.id} ${item.name} 的图片`,
     how,
     '提交的画面提示词：' + submitted,
-    `画幅 ${size}，新种子，生成后等待确认，确认上传后才会入库并使用`,
+    `画幅 ${size}，新种子，${autoSave ? '生成后自动入库并使用' : '生成后等待确认，确认上传后才会入库并使用'}`,
     reference,
   ]
 }

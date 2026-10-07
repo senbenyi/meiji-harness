@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
-import { canGenerate, gateMessage, shotsReady, hasFilm, hasStoryboard } from '../shared/generation-gates.js'
+import { canGenerate, gateMessage, gateOf, shotsReady, hasFilm, hasStoryboard } from '../shared/generation-gates.js'
 import { clearShotDownstream, sourcePatch } from '../shared/project-rules.js'
 import { setContent } from '../shared/drama-model.js'
 import { stepRunLabel } from '../client/flow-view.js'
@@ -20,6 +20,19 @@ test('镜头表门禁不再要求道具，缺失或未通过也可继续', () =>
   assert.equal(canGenerate(project, 'shots'), true)
 })
 test('seconds changes clear later continuity descendants',()=>{const p=episodeFixture();const patch=clearShotDownstream(p,'seconds','S01');assert.equal(patch.shots.items[0].storyboard.content,null);assert.equal(patch.shots.items[1].seconds.content,null);assert.equal(patch.shots.items[1].storyboard.content,null);assert.deepEqual(patch.shots.items[0].seconds.content,p.shots.items[0].seconds.content)})
+test('场景缺失或审核失败不阻断镜头，当前流程跳过场景关卡', () => {
+  const project = episodeFixture()
+  project.shots.items = []
+  project.plot.scenes.items = []; project.plot.scenes.check.passed = false
+  assert.equal(canGenerate(project, 'shots'), true)
+  assert.equal(gateOf(project), 'shots')
+  assert.doesNotMatch(gateMessage(project, 'shots'), /场景卡尚未|场景卡自审未通过/)
+  delete project.plot.scenes
+  assert.equal(canGenerate(project, 'shots'), true)
+  project.plot.characters.check.passed = false
+  assert.equal(canGenerate(project, 'shots'), false)
+  assert.match(gateMessage(project, 'shots'), /人物角色自审未通过/)
+})
 test('changing summary resets episode production, retaining new summary',()=>{const p=episodeFixture();const patch=sourcePatch(p,{summary:'新剧情'});assert.equal(patch.summary.content,'新剧情');assert.equal(patch.plot.outline.content,null);assert.equal(patch.shots.items.length,0)})
 test('episode completion requires every shot exactly once, not only existing storyboards', () => {
   const p = episodeFixture()
@@ -35,4 +48,18 @@ test('episode completion requires every shot exactly once, not only existing sto
   assert.equal(hasFilm(p), false)
   p.shots.status = 'failed'
   assert.equal(stepRunLabel(p, 'shots'), '未通过')
+})
+
+
+test('人物生成独立以通过的大纲为前置', () => {
+ const p = episodeFixture()
+ assert.equal(canGenerate(p, 'characters'), true)
+ p.plot.outline.check.passed = false
+ assert.equal(canGenerate(p, 'characters'), false)
+ assert.equal(gateOf(p), 'outline')
+ p.plot.outline.check.passed = true
+ p.plot.characters.check.passed = false
+ assert.equal(gateOf(p), 'characters')
+ p.plot.outline.content = null
+ assert.equal(canGenerate(p, 'characters'), false)
 })

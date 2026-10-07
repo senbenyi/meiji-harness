@@ -120,7 +120,7 @@ export function createBridge({ request, jsonBody, showProject, onDeleted, status
         clearInterval(timer)
         if (result.deleted) await onDeleted(currentSessionId() === sessionId ? result : { deleted: true })
         else if (result.project) showProject(result.project)
-        if (result.continueRun?.kind === 'sync') { result.syncRunId = result.continueRun.runId; status('摘要已保存，剧本回写任务已启动') }
+        if (result.continueRun?.kind === 'sync') status('摘要已保存')
         else if (result.continueRun) {
           const action = await chooseEditContinuation(document.querySelector('meiji-workbench')?.shadowRoot?.querySelector('.content') || document.body)
           if (action) await request(`runs/${result.continueRun.runId}/resume`, { method: 'POST', ...jsonBody({ projectId: project.id, sessionId, action, stepId: result.continueRun.stepId }) })

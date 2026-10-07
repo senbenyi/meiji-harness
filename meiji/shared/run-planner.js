@@ -4,12 +4,12 @@ import { imageItems } from './library-images.js'
 import { shotsReady } from './generation-gates.js'
 import { shotSecondsReady } from './shot-timing.js'
 import { shotReferences, cascadePreview } from './pipeline-cascade.js'
-import { scriptFreshness } from './script-assembly.js'
+import { scriptFreshness, isAiCreation } from './script-assembly.js'
 import { operationDeletes } from './operation-cascade.js'
 import { libraryTarget } from './library-rules.js'
 const passed = node => node?.check?.passed === true
 const unique = entries => [...new Map(entries.map(value => [JSON.stringify(value), value])).values()]
-const stageReady = (project, stage) => stage === 'summary' ? Boolean(project.summary?.content) && passed(project.summary) : stage === 'story' ? ['outline', 'characters', 'scenes'].every(key => passed(project.plot?.[key])) : stage === 'shots' ? shotsReady(project) : stage === 'seconds' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shotSecondsReady(shot) && passed(shot.seconds)) : stage === 'film' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shot.video?.content?.status === 'ready') : false
+const stageReady = (project, stage) => stage === 'summary' ? Boolean(project.summary?.content) && passed(project.summary) : stage === 'story' ? passed(project.plot?.outline) : stage === 'shots' ? shotsReady(project) : stage === 'seconds' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shotSecondsReady(shot) && passed(shot.seconds)) : stage === 'film' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shot.video?.content?.status === 'ready') : false
 
 export function planRun(project, rawGoal, policy = {}) {
   const goal = normalizeRunGoal(rawGoal), steps = [], prereq = [], deletions = [], blockers = [], byKey = new Map(), stageTails = new Map()
@@ -38,7 +38,7 @@ export function planRun(project, rawGoal, policy = {}) {
       after.push(...tails); stageTails.set(stage, tails); deletions.push(...planned.deletions)
     } else required.push(entry)
   }
-  // regenerateOnly：整包剧情按意见修改时，意见只作用于大纲；人物、场景、道具依据新大纲重新提取，不带意见。
+  // regenerateOnly：未生成基稿的目标按重新生成处理，不带修改意见。
   const text = (target, definition, after = [], required = [], ready = false, operation = {}, regenerateOnly = false) => {
     const feedback = regenerateOnly ? '' : goal.feedback
     const mode = regenerateOnly && goal.mode === 'modify' ? 'regenerate' : target === 'script' && goal.mode === 'modify' ? 'generate' : goal.mode, kinds = mode === 'review' ? ['review'] : [mode === 'modify' ? 'revise' : 'generate', ...(policy.review === false ? [] : [mode === 'modify' && target !== 'script' ? 're_review' : 'review'])]
@@ -69,30 +69,32 @@ export function planRun(project, rawGoal, policy = {}) {
       const sync = add('sync', 'script', { taskType: 'script-sync', action: 'script-sync', queue: 'text', scope: 'project' }, after)
       tails.push(add('wait_script_confirm', 'script', { queue: null, scope: 'project' }, [sync]))
     } else if (stage === 'story') {
-      const chosen = goal.scope.only ? [goal.scope.only] : ['outline', 'characters', 'scenes'], roots = new Map()
+      const chosen = [goal.scope.only || 'outline'], roots = new Map()
       for (const target of chosen) {
         const deps = [...after], needs = [...required]
         if (target !== 'outline' && roots.has('outline')) deps.push(roots.get('outline'))
         else if (target !== 'outline' && !passed(project.plot?.outline)) requireStage('story', deps, needs, { to: 'story', scope: { only: 'outline' } })
-        // 剧情资料写入剧情节点并在通过后并入项目库，属于项目级写入：人物与场景在图上并行，执行时由项目锁串行。
+        // 人物在大纲审核通过后提取并并入项目角色库；不再自动提取场景和道具。
         roots.set(target, text(target, textTargets[target], deps, needs, passed(project.plot?.[target]), {}, target !== 'outline' && !goal.scope.only))
-        // 人物、场景提取通过后接着为本集缺图的卡生成候选图：运行时按提取结果展开，已有图片或候选图的卡跳过；
-        // 只产出候选图、不等待确认，也不作为剧情阶段的末端，镜头表等下游不等图片。
+        // 人物提取通过后为本集所有人物卡生成图片：运行时展开，所有人物重新生图并直接入库使用；
+        // 自动保存，不等待人工确认，也不作为人物文字阶段的末端，镜头表等下游不等图片。
         // 提取步骤被跳过（已通过、补齐生成时不重做）时，补图也跳过，前置检查据此判定剧情已就绪。
-        if (['characters', 'scenes'].includes(target) && goal.mode !== 'review') add('expand', `images:${target}`, { queue: null }, [roots.get(target)], { branch: true, ...(steps.find(step => step.id === roots.get(target))?.status === 'skipped' ? { status: 'skipped' } : {}), input: { goal: { to: 'images', mode: 'generate', scope: { kinds: [target] } }, policy: { imageConfirm: false }, required: [] } })
+        if (target === 'characters' && goal.mode !== 'review') add('expand', `images:${target}`, { queue: null }, [roots.get(target)], { branch: true, ...(steps.find(step => step.id === roots.get(target))?.status === 'skipped' ? { status: 'skipped' } : {}), input: { goal: { to: 'images', mode: 'regenerate', scope: { kinds: [target] } }, policy: { autoSaveImages: true }, required: [] } })
       }
-      tails.push(...[...roots].filter(([target]) => target === 'scenes' || goal.scope.only).map(([, id]) => id))
+      tails.push(...roots.values())
     } else if (['summary', 'project-summary', 'script-revise'].includes(stage)) {
       const target = stage === 'script-revise' ? 'script' : stage
       let last = text(target, textTargets[target], after, required, stage === 'summary' ? passed(project.summary) : stage === 'project-summary' ? !scriptFreshness(project).summaryNeedsUpdate && passed(project.summary) : false,
         { ...(goal.draft ? { draft: true } : {}), ...(goal.durationSeconds && stage === 'summary' ? { referenceDurationSeconds: goal.durationSeconds } : {}), ...(stage === 'script-revise' ? { fromEpisode: goal.scope.fromEpisode === undefined ? undefined : goal.scope.fromEpisode - 1, requirements: goal.feedback || goal.requirements || '' } : {}) })
-      if (stage === 'summary' && !goal.draft && goal.mode !== 'review') {
+      if (stage === 'summary' && isAiCreation(project) && !goal.draft && goal.mode !== 'review') {
         const skip = steps.find(step => step.id === last)?.status === 'skipped'
         last = add('sync', 'script', { taskType: 'script-sync', action: 'script-sync', queue: 'text', scope: 'project' }, [last], skip ? { status: 'skipped' } : {})
         last = add('wait_script_confirm', 'script', { queue: null, scope: 'project' }, [last], skip ? { status: 'skipped' } : {})
       } else if (stage === 'script-revise') last = add('wait_script_confirm', 'script', { queue: null, scope: 'project' }, [last])
       tails.push(last)
     } else if (stage === 'shots') {
+      const outlineStep = byKey.get('generate@outline') || byKey.get('revise@outline')
+      if (goal.mode !== 'review' && (!passed(project.plot?.characters) || !project.plot?.characters?.items.length || outlineStep && outlineStep.status !== 'skipped')) blockers.push({ message: '请先在「本集资产」点击「生成人物角色」，完成人物审核后再生成镜头表' })
       if (goal.scope.tracks) for (const track of goal.scope.tracks) {
         if (!project.shots?.items.some(shot => shot.id === track)) blockers.push({ message: `镜头 ${track} 不存在` })
         tails.push(text(`shots:${track}`, { ...textTargets.shots, action: 'revise-shot' }, after, required, false, { track }))
@@ -114,12 +116,12 @@ export function planRun(project, rawGoal, policy = {}) {
         const seen = new Set()
         for (const entry of entries) {
           const identity = entry.card.ref ? `${entry.card.ref.libraryId}/${entry.card.ref.variantId}` : entry.card.id
-          if (seen.has(identity)) continue
+          if (!policy.autoSaveImages && seen.has(identity)) continue
           seen.add(identity)
           const target = `image:${entry.card.id}`, definition = { taskType: entry.kind === 'characters' ? 'character-image' : entry.kind === 'scenes' ? 'scene-image' : 'prop-image', action: 'image', queue: 'image', scope: entry.card.ref ? 'project' : 'episode', operation: { itemId: entry.card.id, generationMode: 'regenerate' } }
-          const image = add('image', target, definition, after, { ...(goal.mode === 'generate' && (entry.ready || entry.pending) ? { status: 'skipped' } : {}), input: { taskType: definition.taskType, operation: { action: 'image', itemId: entry.card.id, generationMode: goal.mode === 'modify' ? 'modify' : 'regenerate', review: goal.feedback || '', requirements: goal.requirements || '', ...(goal.image || {}) }, required } })
-          // imageConfirm=false：只生成候选图，不在任务里等待确认（剧情任务附带的生图）。
-          if (policy.imageConfirm === false) tails.push(image)
+          const image = add('image', target, definition, after, { ...(goal.mode === 'generate' && (entry.ready || entry.pending) ? { status: 'skipped' } : {}), input: { taskType: definition.taskType, operation: { action: 'image', itemId: entry.card.id, generationMode: goal.mode === 'modify' ? 'modify' : 'regenerate', review: goal.feedback || '', requirements: goal.requirements || '', ...(goal.image || {}), ...(policy.autoSaveImages && entry.kind === 'characters' ? { autoSave: true } : {}) }, required } })
+          // 人物任务自动入库；其他明确不等待确认的图片仍只保存候选。
+          if (policy.autoSaveImages && entry.kind === 'characters' || policy.imageConfirm === false) tails.push(image)
           else tails.push(add('wait_confirm', target, { queue: null }, [image], { ...(entry.ready && goal.mode === 'generate' ? { status: 'skipped' } : {}), input: { itemId: entry.card.id } }))
         }
       }

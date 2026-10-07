@@ -137,7 +137,8 @@ export function cardImageGate(project, item, gate) {
   const current = gate?.itemId === item.id && !gate.slot && !gate.track && (!gate.episodeId || gate.episodeId === episodeId) ? gate : null
   const pendingImages = Object.fromEntries(Object.entries(project.pendingImages || {}).filter(([, draft]) => draft.itemId === item.id && !draft.slot && !draft.track))
   const activity = project.operationActivity === `image:${item.id}` || (current && project.operationActivity === 'confirm-image') ? project.operationActivity : null
-  return syncImageGate({ episodes: [{ ...project, id: episodeId, pendingImages, operationActivity: activity }] }, current)
+  const executionLocks = (project.executionLocks || []).filter(step => step.episodeId === episodeId && step.target === `image:${item.id}`)
+  return syncImageGate({ episodes: [{ ...project, id: episodeId, pendingImages, operationActivity: activity, executionLocks }] }, current)
 }
 
 export function cardImageControls(project, item, actions, gate) {

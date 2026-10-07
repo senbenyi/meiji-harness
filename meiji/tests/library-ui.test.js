@@ -3,7 +3,18 @@ import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { libraryEditor, renderProjectLibrary, cardLibraryControls } from '../client/project-library-view.js'
 import { createLibraryEntry } from '../shared/library-rules.js'
+import { goalRequest } from '../client/goal-request.js'
+import { planRun } from '../shared/run-planner.js'
 const settle = () => new Promise(resolve => setImmediate(resolve))
+
+test('项目库已有图片的重新生成按钮规划实际生图步骤', async t => {
+ const { project } = setup(t), calls = []
+ const { entry } = createLibraryEntry(project, 'characters', { name: '角色', image: { content: { assetId: 'existing', assetCategory: 'characters' } } })
+ const page = renderProjectLibrary(project, 'characters', { perform: async (_project, action, fields) => { calls.push(goalRequest(action, fields).goal); return { cancelled: true } } }, { entryId: entry.id })
+ page.querySelector('[aria-label="重新生成角色图片：角色"]').click(); await settle()
+ assert.equal(calls[0].mode, 'regenerate')
+ assert.notEqual(planRun(project, calls[0]).steps.find(step => step.kind === 'image').status, 'skipped')
+})
 function setup(t) {
   const dom = new JSDOM('<body></body>'), keys = ['document', 'window', 'fetch'], prior = Object.fromEntries(keys.map(key => [key, globalThis[key]]))
   Object.assign(globalThis, { document: dom.window.document, window: dom.window, fetch: async () => ({ ok: true, json: async () => ({ assets: [] }) }) })

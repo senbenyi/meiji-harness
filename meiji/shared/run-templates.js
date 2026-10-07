@@ -38,7 +38,7 @@ export function normalizeRunGoal(input) {
   if (goal.draft !== undefined && (typeof goal.draft !== 'boolean' || goal.to !== 'summary')) throw new Error('仅摘要支持草稿')
   if (goal.parts && (goal.to !== 'film' || !['storyboard', 'video', 'tail'].includes(goal.parts))) throw new Error('成片范围无效')
   // 单卡生图的画面选项：画幅、是否带参考图、以哪张候选图为修改基图。
-  if (goal.image !== undefined && (goal.to !== 'images' || !goal.image || typeof goal.image !== 'object' || Array.isArray(goal.image) || Object.keys(goal.image).some(key => !['aspect', 'useReference', 'draftId'].includes(key)) || goal.image.aspect !== undefined && !/^\d{2,5}x\d{2,5}$/.test(goal.image.aspect) || goal.image.useReference !== undefined && typeof goal.image.useReference !== 'boolean' || goal.image.draftId !== undefined && (typeof goal.image.draftId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(goal.image.draftId)))) throw new Error('图片选项无效')
+  if (goal.image !== undefined && (goal.to !== 'images' || !goal.image || typeof goal.image !== 'object' || Array.isArray(goal.image) || Object.keys(goal.image).some(key => !['aspect', 'useReference', 'draftId'].includes(key)) || goal.image.aspect !== undefined && !/^(?:\d{2,5}x\d{2,5}|9:16|3:4|1:1|4:3|16:9)$/.test(goal.image.aspect) || goal.image.useReference !== undefined && typeof goal.image.useReference !== 'boolean' || goal.image.draftId !== undefined && (typeof goal.image.draftId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(goal.image.draftId)))) throw new Error('图片选项无效')
   return goal
 }
 export function goalForRunTarget(target, changes = {}) {

@@ -4,16 +4,16 @@ export * from '../shared/generation-gates.js'
 import { feedbackOf } from '../shared/review-feedback.js'
 export const tabs = [
   { id: 'summary', label: '摘要', nodes: ['summary'] },
-  { id: 'script', label: '剧情', nodes: ['outline', 'characters', 'scenes'] },
-  // 本集资产只展示与维护人物、场景、道具；生成入口仍在剧情页（一次生成大纲、提取与补图），所以不承接流程关卡。
-  { id: 'assets', label: '本集资产', nodes: [] },
+  { id: 'script', label: '剧情', nodes: ['outline'] },
+  // 人物提取、审核及补图由本集资产独立发起。
+  { id: 'assets', label: '本集资产', nodes: ['characters'] },
   { id: 'shots', label: '镜头表', nodes: ['shots'] },
   { id: 'seconds', label: '每秒指令', nodes: ['seconds'] },
   { id: 'film', label: '成片', nodes: ['film'] },
   { id: 'assembly', label: '合成', nodes: ['assembly'] },
 ]
 export function runTabProgress(project, tab) {
-  const targets = { summary: ['summary'], script: ['outline', 'characters', 'scenes'], assets: ['characters', 'scenes', 'image'], shots: ['shots'], seconds: ['seconds'], film: ['image', 'storyboard', 'film'], assembly: ['assembly'] }[tab] || []
+  const targets = { summary: ['summary'], script: ['outline'], assets: ['characters', 'image'], shots: ['shots'], seconds: ['seconds'], film: ['image', 'storyboard', 'film'], assembly: ['assembly'] }[tab] || []
   const progress = (project.activeRuns || []).flatMap(run => run.progress || []).filter(item => targets.includes(item.target?.split(':')[0]) && item.total)
   return progress.length ? { done: progress.reduce((total, item) => total + item.done, 0), total: progress.reduce((total, item) => total + item.total, 0), paused: progress.some(item => item.paused) } : null
 }

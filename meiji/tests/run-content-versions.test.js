@@ -84,13 +84,15 @@ test('manual episode add and edit save as passed and clear failure reasons', asy
 test('story, shot table and seconds each record their own versions on the producing steps', async t => {
  const e = await setup(t)
  await runOperation(e.op('story', {}), { home: e.home, request: storyRequest(storyPackageFixture()) })
- for (const key of ['outline', 'characters', 'scenes']) assert.ok((await e.read()).plot[key].source.stepId, key)
+ await runOperation(e.op('characters'), { home: e.home, request: storyRequest(storyPackageFixture()) })
+ for (const key of ['outline', 'characters']) assert.ok((await e.read()).plot[key].source.stepId, key)
+ assert.deepEqual((await e.read()).plot.scenes.items, [])
  assert.deepEqual((await e.read()).plot.props.items, [])
  const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
  await runOperation(e.op('shot-table', {}), { home: e.home, request: async ({ skill }) => skill === 'review' ? reviewPass : tableResponse(table) })
  assert.ok((await e.read()).shots.source.stepId)
  let calls = 0
- await runOperation(e.op('seconds'), { home: e.home, request: async message => { calls++; return message.skill === 'review' ? reviewPass : secondsForRequest(message) } })
+ await runOperation(e.op('seconds'), { home: e.home, request: async message => { calls++; return message.skill === 'review' ? reviewPass : secondsForRequest(message).replaceAll('【庭院|E01】', '庭院') } })
  assert.equal(calls, 4)
  // 每镜的生成步骤各保存本镜正文与原始响应。
  const run = await latestRun(e.home, e.id)

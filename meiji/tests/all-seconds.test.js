@@ -24,15 +24,52 @@ const execute = async (e, request, operation = {}, deps = {}) => {
 }
 const reply = message => message.skill === 'review' ? reviewPass : secondsForRequest(message)
 
-test('逐镜生成和审核，后镜引用本轮前镜完整指令，历史按镜头记录', async t => {
+test('交接摘要只携带末态与切点声音，生成审核修订均排除前镜过程及已结束对白', () => {
+ const p = episodeFixture(), previous = p.shots.items[0]
+ const content = secondsContent('S01', 5, '前镜早期动作不可重演')
+ content.summary = '前镜完整概要不应传递'
+ content.beats[0].durationMs = 2000
+ content.beats.push({ ...structuredClone(content.beats[0]), id: 'B02', durationMs: 3000,
+  action: '前镜末段动作不可重演', endState: '面北，右手持未拆封旧信，左手仍在关箱盖',
+  camera: '切点机位在右后侧', space: '切点位于门边木箱前', sound: '切点风声持续' })
+ content.dialogues = [{ id: 'D01', text: '前镜已说完的台词', startMs: 0, endMs: 1000 }]
+ content.ambient = [{ text: '早已结束的铃声', startMs: 0, endMs: 2000 }, { text: '持续到切点的风声', startMs: 500, endMs: 5000 }]
+ content.music = [{ text: '已结束的乐曲', startMs: 0, endMs: 4000 }, { text: '切点仍有低音', startMs: 3000, endMs: 5000 }]
+ previous.seconds.content = content
+ previous.seconds.check.passed = true
+ const prompts = buildSecondsPrompts({ project: p, shotId: 'S02' })
+ for (const message of [prompts.generation, prompts.review('待审'), prompts.revision('失败稿', reviewFail('衔接错误'))]) {
+  assert.deepEqual(promptData(message.user, '【连续性参考：上一镜交接摘要】'), {
+   shotId: 'S01', endState: content.beats[1].endState, camera: content.beats[1].camera,
+   space: content.beats[1].space, sound: content.beats[1].sound,
+   ambient: ['持续到切点的风声'], music: ['切点仍有低音'],
+  })
+  assert.doesNotMatch(message.user, /前镜早期动作|前镜末段动作|前镜完整概要|前镜已说完的台词|早已结束的铃声|已结束的乐曲/)
+  assert.ok(!message.user.includes(JSON.stringify(content)))
+ }
+})
+
+test('首镜、未通过前镜及缺少末段时不提供已确认交接摘要', () => {
+ const p = episodeFixture()
+ const messages = prompts => [prompts.generation, prompts.review('待审'), prompts.revision('失败稿', reviewFail('错误'))]
+ for (const message of messages(buildSecondsPrompts({ project: p, shotId: 'S01' }))) assert.doesNotMatch(message.user, /连续性参考：上一镜/)
+ for (const mutate of [s => { s.check.passed = false }, s => { s.content = null }, s => { s.content.beats = [] }]) {
+  const project = structuredClone(p)
+  mutate(project.shots.items[0].seconds)
+  for (const message of messages(buildSecondsPrompts({ project, shotId: 'S02' }))) assert.doesNotMatch(message.user, /连续性参考：上一镜/)
+ }
+})
+
+test('逐镜生成和审核，后镜引用本轮前镜交接摘要，历史按镜头记录', async t => {
  const e = await environment(t), calls = []
  await execute(e, async message => { calls.push(message); return reply(message) })
  assert.equal(calls.length, 4)
  assert.deepEqual(calls.map(m => m.skill === 'review'), [false, true, false, true])
  assert.doesNotMatch(calls[0].user, /连续性参考：上一镜/)
- assert.match(calls[2].user, /连续性参考：上一镜每秒指令/)
- assert.match(calls[2].user, /第一镜新动作/)
- assert.ok(calls[2].user.includes(JSON.stringify(secondsContent('S01', 5, '第一镜新动作'))))
+ assert.match(calls[2].user, /连续性参考：上一镜交接摘要/)
+ assert.equal(promptData(calls[2].user, '【连续性参考：上一镜交接摘要】').endState, '面北站定')
+ assert.doesNotMatch(calls[2].user, /第一镜新动作/)
+ assert.ok(!calls[2].user.includes(JSON.stringify(secondsContent('S01', 5, '第一镜新动作'))))
  const p = await e.read()
  assert.ok(p.shots.items.every(s => s.seconds.check.passed && !s.seconds.operation))
  assert.ok(p.shots.items.every(s => s.storyboard.content === null))
@@ -57,7 +94,7 @@ for (const count of [1, 2, 5]) test(`生成 ${count} 镜分别请求，不发整
  for (const shot of shots.items) assert.equal(shot.seconds.content.beats[0].durationMs, shot.duration * 1000)
 })
 
-test('本镜剧情、关联资料与前镜指令用于生成、自审与修订，不带其他镜头表或后镜旧指令', () => {
+test('本镜剧情、关联资料与前镜交接用于生成、自审与修订，不带其他镜头表或后镜旧指令', () => {
  const p = episodeFixture()
  p.plot.outline.content = outlineFixture('大纲整体内容')
  p.shots.items[0].content = '不应提供的前镜镜头表'
@@ -67,7 +104,8 @@ test('本镜剧情、关联资料与前镜指令用于生成、自审与修订�
  for (const message of [prompts.generation, prompts.review('待审'), prompts.revision('失败稿', reviewFail('错误'))]) {
   assert.match(message.user, /当前镜头表/)
   assert.match(message.user, /大纲整体内容/)
-  assert.ok(message.user.includes(JSON.stringify(p.shots.items[0].seconds.content)))
+  assert.equal(promptData(message.user, '【连续性参考：上一镜交接摘要】').endState, p.shots.items[0].seconds.content.beats.at(-1).endState)
+  assert.ok(!message.user.includes(JSON.stringify(p.shots.items[0].seconds.content)))
   assert.match(message.user, /上游事实：本镜关联人物/)
   assert.match(message.user, /上游事实：本镜关联场景/)
   assert.doesNotMatch(message.user, /不应提供的/)
@@ -79,8 +117,13 @@ test('自动修订仅当前镜，后镜使用通过复审的最新前镜', async
  await execute(e, async m => {
   const first = promptData(m.user, '【本次要求】').shotId === 'S01'
   if (m.skill === 'review') return first && ++firstReviews === 1 ? reviewFail('动作有误', 'S01') : reviewPass
-  if (first) return secondsResponse([['S01', 5, ++firstGenerations === 1 ? '首稿' : '修订最终稿']])
-  assert.match(m.user, /修订最终稿/); assert.doesNotMatch(m.user, /首稿/)
+  if (first) {
+   const content = secondsContent('S01', 5, ++firstGenerations === 1 ? '首稿' : '修订最终稿')
+   content.beats[0].endState = firstGenerations === 1 ? '面北，首稿末态' : '面北，修订最终末态'
+   return JSON.stringify({ shots: [content] })
+  }
+  assert.equal(promptData(m.user, '【连续性参考：上一镜交接摘要】').endState, '面北，修订最终末态')
+  assert.doesNotMatch(m.user, /首稿|修订最终稿/)
   return secondsForRequest(m)
  })
  assert.equal(firstGenerations, 2)
@@ -229,7 +272,8 @@ test('缺失的后镜在修改模式下从缺失镜头补齐，已通过前镜�
    generated.push(shotId)
    if (shotId === 'S02') {
     assert.doesNotMatch(m.user, /【修改基稿】/)
-    assert.ok(m.user.includes(JSON.stringify(first)))
+    assert.equal(promptData(m.user, '【连续性参考：上一镜交接摘要】').endState, first.beats.at(-1).endState)
+    assert.ok(!m.user.includes(JSON.stringify(first)))
    }
   }
   return reply(m)

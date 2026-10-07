@@ -1,8 +1,6 @@
 import { defaultReferenceDuration, referenceDuration, summaryLength, episodeSummaryFailures } from '../shared/episode-summary.js'
 import { targetBusy } from './run-activity.js'
 import { historyEntry } from './run-history-entry.js'
-import { runStatusLabels, runStepStatusLabels } from '../shared/run-view.js'
-import { renderRunProgress } from './run-progress.js'
 import { pictureOf } from '../shared/drama-model.js'
 import { confirmPanel, showPanelDialog, element } from './panel-dom.js'
 import { episodeHints, isAiCreation } from '../shared/script-assembly.js'
@@ -166,13 +164,13 @@ export function renderOverview(project, actions, context) {
   const libraries = element('article', '', 'overview-card library-tabs-card')
   const libraryTabs = element('div', '', 'library-tabs')
   const libraryPanels = []
-  for (const [index, [kind, title]] of [['characters', '角色库'], ['scenes', '场景库'], ['props', '道具库']].entries()) {
+  for (const [index, [kind, title]] of [['characters', '角色库']].entries()) {
     const tab = element('button', title, 'library-tab')
     tab.type = 'button'; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false')
     const panel = element('div', '', 'library-tab-panel'); panel.setAttribute('role', 'tabpanel'); panel.hidden = index !== 0
     const entries = project.library?.[kind] || []
     if (!entries.length) {
-      panel.append(element('p', `暂无${title}数据，将根据剧集自动生成角色、场景和道具。`, 'library-empty'))
+      panel.append(element('p', `暂无${title}数据，将根据剧集自动提取人物角色。`, 'library-empty'))
     } else {
       const strip = element('div', '', `characters-strip library-card-strip library-card-strip-${kind}`)
       for (const entry of entries) {
@@ -233,7 +231,7 @@ export function overviewDialog(root, onSaved) {
   }
 }
 
-export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadPrompts, loadResponses, observeSync, openScript, regenerate } = {}) {
+export function episodeDialog(root, onSaved, onGenerate, { openHistory } = {}) {
   const template = document.createElement('template')
   template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-requirements">本次要求</label><textarea id="episode-requirements" name="requirements"></textarea><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
@@ -242,11 +240,10 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
   const error = dialog.querySelector('.error')
   const generate = dialog.querySelector('.ai-summary'), stop = dialog.querySelector('.stop-summary'), save = form.querySelector('[type=submit]')
   const count = dialog.querySelector('.summary-count')
-  const progress = element('div', '', 'episode-task-progress')
   const history = element('button', '查看摘要任务历史 →', 'task-history-entry')
   history.type = 'button'
   history.onclick = () => { dialog.close(); openHistory?.({ ...current, episodeId: episode?.id || '' }) }
-  form.querySelector('footer').before(progress, history)
+  form.querySelector('footer').before(history)
   let current, episode, controller, version = 0
   const updateCount = () => {
     const length = summaryLength(form.elements.summary.value)
@@ -271,15 +268,7 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       const requestVersion = version, abort = controller = new AbortController()
       busy(true)
       try {
-        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference, requirements: form.elements.requirements.value.trim() }, { signal: abort.signal, onTask: task => {
-          if (version !== requestVersion || !dialog.open) return
-          progress.replaceChildren(element('p', `生成剧集摘要：${runStatusLabels[task.status] || task.status}`, 'meta'))
-          if (task.steps) {
-            progress.append(renderRunProgress(task, { loadPrompts: loadPrompts && ((run, step) => loadPrompts(current, run, step)), loadResponses: loadResponses && ((run, step) => loadResponses(current, run, step)) }))
-            return
-          }
-
-        } })
+        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference, requirements: form.elements.requirements.value.trim() }, { signal: abort.signal })
         if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
         const failures = episodeSummaryFailures(draft)
         if (failures.length) throw new Error(failures.join('；'))
@@ -300,25 +289,7 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
       const durationSeconds = referenceDuration(Number(form.elements.duration.value))
       const result = await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary, requirements: form.elements.requirements.value.trim() })
       if (result?.cancelled) return
-      const episodeId = result?.result?.episodeId || episode?.id || result?.project?.episodes?.[0]?.id
-      if (result?.syncRunId && observeSync) {
-        progress.replaceChildren(element('p', '摘要已保存，正在回写剧本。', 'meta'))
-        const state = await observeSync(current, result.syncRunId, task => {
-          if (dialog.open) progress.replaceChildren(element('p', `剧本回写：${runStatusLabels[task.status] || task.status}`, 'meta'))
-        })
-        if (!dialog.open) return
-        if (state.status === 'completed') { dialog.close(); return }
-        const proposalPending = state.pause?.reasons.some(reason => reason.code === 'wait_script_confirm')
-        progress.replaceChildren(element('p', proposalPending ? '回写方案待确认。摘要已保存，尚未完成同步。' : `待回写：${state.pause?.reasons.map(reason => reason.message).join('；') || '回写未完成'}`, 'notice'))
-      } else if (!result?.result?.scriptSyncError) { dialog.close(); return }
-      else progress.replaceChildren(element('p', `摘要已保存，待回写：${result.result.scriptSyncError}`, 'notice'))
-      const process = element('button', '按方案修改剧本'), revert = element('button', '把本集改回符合剧本'), keep = element('button', '先保留'), retry = element('button', '重新回写')
-      for (const button of [process, revert, keep, retry]) button.type = 'button'
-      process.onclick = () => { dialog.close(); openScript?.(current) }
-      revert.onclick = () => { dialog.close(); regenerate?.(current, { episodeId, requirements: '将本集改回符合当前剧本' }).catch(failure => { error.textContent = failure.message }) }
-      keep.onclick = () => dialog.close()
-      retry.onclick = () => { dialog.close(); openScript?.(current) }
-      progress.append(process, revert, keep, retry)
+      dialog.close()
     } catch (failure) { error.textContent = failure.message }
     finally { save.disabled = false }
   }
@@ -326,7 +297,6 @@ export function episodeDialog(root, onSaved, onGenerate, { openHistory, loadProm
     cancel()
     current = project
     episode = currentEpisode
-    progress.replaceChildren()
     history.open = false
     history.querySelector('section')?.remove()
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'

@@ -70,22 +70,25 @@ export function mount() {
     const [sessionId, projectId] = eventKey.split(':')
     Promise.all([follow(), refreshTasks(projectId, sessionId), currentPage?.isConnected ? currentPage.refresh() : null]).catch(error => shell.status(error.message))
   } })
-  let liveRuns = []
+  let liveRuns = [], recentRuns = []
   async function refreshTasks(projectId, sessionId) {
     const query = new URLSearchParams({ projectId, sessionId })
     const runResult = await request(`runs?${query}`)
     if (eventKey !== `${sessionId}:${projectId}`) return
 
-    liveRuns = runResult.runs.filter(run => ['running', 'paused'].includes(run.status))
+    const failureMark = runs => runs.filter(run => run.failure?.target === 'characters').map(run => `${run.id}:${run.failure.message}`).join('|')
+    const failuresChanged = failureMark(recentRuns) !== failureMark(runResult.runs)
+    recentRuns = runResult.runs
+    liveRuns = recentRuns.filter(run => ['running', 'paused'].includes(run.status))
     // 进行中的步骤变化时重绘，使按钮禁用状态与实际执行锁一致。
     const root = shownProject && modelStore.get(shownProject)
-    if (root && !hold && runActivityMark(liveRuns) !== shownLiveMark) paintProject(root)
+    if (root && !hold && (runActivityMark(liveRuns) !== shownLiveMark || failuresChanged)) paintProject(root)
   }
   function watchProject(projectId, sessionId) {
     const key = projectId ? `${sessionId}:${projectId}` : ''
     if (key === eventKey) return
     eventKey = key
-    liveRuns = []
+    liveRuns = []; recentRuns = []
     events.watch(key ? '/plugins/meiji/events?' + new URLSearchParams({ projectId, sessionId }) : '', async () => {
       if (key !== eventKey) return
       if (refreshing) { refreshAgain = true; return }
@@ -138,7 +141,7 @@ export function mount() {
     // 「执行中」由任务的 running 步骤推导，不读服务端字段。
     shownLiveMark = runActivityMark(liveRuns)
     const active = liveRuns.filter(run => run.projectId === project.id)
-    const view = { ...withRunActivity(project, active), activeRuns: active, runPauseCount: active.filter(run => run.status === 'paused').length }
+    const view = { ...withRunActivity(project, active, recentRuns), activeRuns: active, runPauseCount: active.filter(run => run.status === 'paused').length }
     view.episodes = view.episodes.map(episode => ({ ...episode, activeRuns: active.filter(run => run.episodeId === episode.id || run.affectedEpisodes?.includes(episode.id)), runPauseCount: active.filter(run => run.status === 'paused' && (run.episodeId === episode.id || run.affectedEpisodes?.includes(episode.id))).length }))
     hold = false
     navigation++
@@ -308,7 +311,10 @@ export function mount() {
       imageGate = gateFromAction(action, { ...fields, episodeId })
       repaint(project)
       try {
-        await bridge.perform(project, action, { ...fields, episodeId })
+        const result = await bridge.perform(project, action, { ...fields, episodeId })
+        if (result?.cancelled) { imageGate = null; repaint(project) }
+        else if (imageGate) imageGate.runId = result?.runId || ''
+        return result
       } catch (error) {
         imageGate = { ...imageGate, phase: 'error', held: false, error: error.message }
         repaint(project)
@@ -336,10 +342,16 @@ export function mount() {
         track: fields.track || gate.track || '',
       }
       repaint(project)
-      if (gate.draftId && options.generationMode !== 'modify') {
-        await request('image-review', { method: 'POST', ...jsonBody({ projectId: project.id, sessionId: currentSessionId(), episodeId, draftId: gate.draftId, action: 'discard-image' }) })
+      try {
+        const result = await bridge.perform(project, action, { ...fields, ...options, draftId: gate.draftId, episodeId })
+        if (result?.cancelled) { imageGate = gate.draftId ? { ...gate, held: false } : null; repaint(project) }
+        else if (imageGate) imageGate.runId = result?.runId || ''
+        return result
+      } catch (error) {
+        imageGate = { ...gate, phase: gate.draftId && gate.previewUrl ? 'ready' : 'error', held: false, ignoreDraftId: '', error: error.message }
+        repaint(project)
+        throw error
       }
-      await bridge.perform(project, action, { ...fields, ...options, draftId: gate.draftId, episodeId })
     },
     refresh: () => follow(true),
     perform: (project, action, fields) => bridge.perform(rootProject(modelStore, project) || project, action, {
@@ -393,20 +405,7 @@ export function mount() {
     if (input.episodeId) return actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
     else return actions.perform(project, 'episode-add', { fields })
   }, generateEpisodeDraft, {
-    openScript: actions.openScript,
-    regenerate: (project, fields) => actions.perform(project, 'summary', fields),
-    observeSync: async (project, id, onTask) => {
-      const query = new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })
-      while (true) {
-        const { run } = await request(`runs/${id}?${query}`)
-        onTask(run)
-        if (run.status !== 'running') return run
-        await new Promise(resolve => setTimeout(resolve, 800))
-      }
-    },
     openHistory: project => actions.openHistory(project, 'summary'),
-    loadResponses: (project, task, node) => request(`runs/${task.id}/steps/${node.id}/responses?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
-    loadPrompts: (project, task, node) => request(`runs/${task.id}/steps/${node.id}/prompts?` + new URLSearchParams({ projectId: project.id, sessionId: currentSessionId() })),
   })
   const openCatalogDialog = catalogDialog(shell.root)
   function enterWorkspace(place) {

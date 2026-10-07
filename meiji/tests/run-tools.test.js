@@ -29,7 +29,7 @@ test('会话提交目标即执行：重新生成不询问删除，结果说明�
   const info = JSON.parse(await contextQueryTool({ home: e.home, runs: e.runs }).execute({}, e.exec))
   assert.deepEqual(info.current.runs, [])
 })
-test('同集已有暂停任务时新目标自动并入；失败结束的任务不并入，重新发起新建任务；缺少的前置自动纳入并执行', async t => {
+test('同集已有暂停任务时新目标自动并入；失败结束的任务不并入，重新发起新建任务；补大纲前置不隐式生成人物', async t => {
   let failing = true
   const e = await setup(t, async () => { if (failing) throw new Error('连接失败'); return { passed: true } })
   const first = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'shots', mode: 'regenerate' } })
@@ -54,14 +54,14 @@ test('同集已有暂停任务时新目标自动并入；失败结束的任务�
   assert.ok(run.steps.some(step => step.target === 'shots' && step.origin === 'cascade' && step.status === 'done'))
   // 补图是旁支：重做的镜头表不挂在补图步骤后面。
   const imageIds = new Set(run.steps.filter(step => step.kind === 'image' || step.target.startsWith('images:')).map(step => step.id))
-  assert.ok(imageIds.size)
+  assert.equal(imageIds.size, 0)
   assert.ok(run.steps.filter(step => step.target === 'shots').every(step => !step.after.some(id => imageIds.has(id))))
-  // 前置未完成时提交下游目标：前置自动纳入。
+  // 大纲需要重做会清空人物：阻断镜头目标，要求到本集资产单独生成。
   await e.store.save(e.id, root => { root.episodes[0].plot.outline.check.passed = false; return root })
   const next = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'shots', mode: 'regenerate' } })
-  assert.equal(next.started, true); assert.ok(next.includedPrereq.length)
-  await e.runs.drain()
-  assert.equal((await e.runs.get(e.id, next.runId, sessionId)).status, 'completed')
+  assert.equal(next.started, false)
+  assert.match(JSON.stringify(next), /本集资产/)
+  assert.ok(!JSON.stringify(next.steps || []).includes('characters'))
 })
 
 test('等待前置的任务 authorize 不带参数即补做全部前置；多余参数被忽略；报错附状态且不留后台任务', async t => {

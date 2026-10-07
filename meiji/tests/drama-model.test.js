@@ -26,12 +26,13 @@ const requestFor = text => async ({ skill }) =>skill==='review'?reviewPass:skill
 async function throughShots(t) {
  const env=await setup(t)
  await runOperation(env.op('story', {}),{home:env.home,request: storyRequest(storyPackageFixture(10))})
+ await runOperation(env.op('characters'),{home:env.home,request: storyRequest(storyPackageFixture(10))})
  await runOperation(env.op('shot-table', {}),{home:env.home,generateShots:opts=>generateShots({...opts,request:requestFor('## S01 / 5s\n旅人从南向北走进庭院。\n\n## S02 / 5s\n旅人停在门边。')})})
  return env
 }
 test('canonical model flows through plot, shots, seconds, storyboard and manual recheck',async t=>{
  const e=await throughShots(t)
- await runOperation(e.op('seconds', {track:'S01'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:requestFor(secondsResponse([['S01', 5, '旅人【旅人|C01】朝北行走，摄影机在人物身后。']]))})})
+ await runOperation(e.op('seconds', {track:'S01'}),{home:e.home,generateShotSeconds:opts=>generateShotSeconds({...opts,request:requestFor(secondsResponse([['S01', 5, '旅人【旅人|C01】朝北行走，摄影机在人物身后。']]).replaceAll('【庭院|E01】', '庭院'))})})
  const generated=(await e.store.read(e.id)).episodes[0].shots.items[0]
  assert.equal(generated.seconds.check.passed,true,JSON.stringify(generated.seconds.check))
  await runOperation(e.op('film', { ...{track:'S01'}, parts: 'storyboard' }),{home:e.home,generateShotStoryboard:opts=>generateShotStoryboard({...opts,request:()=>assert.fail('程序编译不调用模型')})})

@@ -32,9 +32,8 @@ export function hasFilm(project) {
 
 export function gateOf(project) {
   if (!outlineUnlocked(project)) return 'summary'
-  if (!hasOutline(project)) return 'outline'
-  if (!hasCharacters(project)) return 'characters'
-  if (!hasScenes(project)) return 'scenes'
+  if (!hasOutline(project) || feedbackOf(project, 'outline').check.passed !== true) return 'outline'
+  if (!hasCharacters(project) || feedbackOf(project, 'characters').check.passed !== true) return 'characters'
   if (!shotsReady(project)) return 'shots'
   if (!hasShotSeconds(project) || feedbackOf(project, 'seconds').check.passed !== true) return 'seconds'
   if (!hasStoryboard(project)) return 'storyboard'
@@ -45,9 +44,9 @@ export function gateOf(project) {
 export function canGenerate(project, step) {
   if (step === 'summary') return true
   if (step === 'outline') return outlineUnlocked(project)
-  if (step === 'characters') return false
+  if (step === 'characters') return hasOutline(project) && feedbackOf(project, 'outline').check.passed === true
   if (step === 'scenes') return false
-  if (step === 'shots') return hasScenes(project) && ['outline', 'characters', 'scenes'].every(key => feedbackOf(project, key).check.passed === true)
+  if (step === 'shots') return ['outline', 'characters'].every(key => feedbackOf(project, key).check.passed === true)
   if (step === 'storyboard') return shotsReady(project)
   if (step === 'film') return hasStoryboard(project)
   return false
@@ -60,16 +59,16 @@ export function gateMessage(project, step) {
   }
   if (step === 'outline') {
     if (!canGenerate(project, 'outline')) return '请先写好本集摘要，再写故事大纲。'
-    if (!hasOutline(project)) return '点击 AI生成，依次生成故事大纲、角色卡和场景卡，并为缺图的角色和场景生成候选图，不生成镜头。'
-    if (hasOutline(project)) return '剧情资料已生成；大纲、角色和场景依次独立生成并审核，角色和场景通过后自动生成候选图，道具按空集合处理。重新生成会清空镜头及后续内容。'
+    if (!hasOutline(project)) return '点击生成剧情，仅生成并审核故事大纲。人物角色请到「本集资产」点击生成。'
+    if (hasOutline(project)) return '故事大纲已生成。人物角色在「本集资产」单独生成；重新生成大纲会清空人物、镜头及后续内容。'
   }
-  if (step === 'characters' || step === 'scenes') return '角色和场景与故事大纲统一生成；图片可在卡片中单独生成。'
+  if (step === 'characters') return canGenerate(project, 'characters') ? '点击生成人物角色，依据已通过的大纲提取并审核人物，再为所有人物调用 AI 生图并自动保存使用，无需逐个确认。' : '请先在「剧情」生成并审核故事大纲，再在这里生成人物角色。'
+  if (step === 'scenes') return '不再提取场景卡；环境直接写在大纲和镜头叙事中。'
   if (step === 'shots') {
     if (!canGenerate(project, 'shots')) {
-      const labels = { outline: '剧情大纲', characters: '人物角色', scenes: '场景卡' }
+      const labels = { outline: '剧情大纲', characters: '人物角色' }
       const pending = Object.entries(labels).flatMap(([key, label]) => {
         const record = project.plot?.[key]
-        if (key === 'scenes' && !hasScenes(project)) return [`${label}尚未生成`]
         if (record?.check?.passed === true) return []
         return [`${label}${record?.check?.passed === false ? '自审未通过' : '尚未通过自审'}`]
       })

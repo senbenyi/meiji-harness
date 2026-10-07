@@ -30,17 +30,24 @@ test('默认基础 tab，补充整段载入并保存，切换和失败保留输�
   await save.onclick(); assert.deepEqual(calls.at(-1), { content: '整段新意见', replace: true })
   input.value = ''; await save.onclick(); assert.deepEqual(calls.at(-1), { content: '', replace: true })
 })
-test('摘要弹框任务回调实时显示步骤，历史入口不触发表单提交', async t => {
-  const root = setup(t)
-  const open = episodeDialog(root, async () => {}, async (_p, _input, options) => {
-    options.onTask({ id: 't', status: 'running', nodes: [{ id: 's', target: 'summary', kind: 'generate', status: 'running' }] })
-    assert.ok(root.querySelector('[aria-current="step"]'))
+test('摘要弹框不显示步骤，保留生成和停止能力，历史入口不触发表单提交', async t => {
+  const root = setup(t); let saves = 0, histories = 0
+  const open = episodeDialog(root, async () => { saves++ }, async (_p, _input, options) => {
+    assert.equal(options.signal.aborted, false)
+    assert.equal(root.querySelector('.ai-summary').disabled, true)
+    assert.equal(root.querySelector('.stop-summary').hidden, false)
+    assert.equal(root.querySelector('[aria-current="step"]'), null)
     return { summary: '有效摘要', durationSeconds: 150 }
-  })
+  }, { openHistory: () => { histories++ } })
   const dialog = root.querySelector('dialog'); dialog.show = () => { dialog.open = true }
+  dialog.close = () => { dialog.open = false; dialog.dispatchEvent(new document.defaultView.Event('close')) }
   open({ id: 'p' }); await root.querySelector('.ai-summary').onclick()
-  assert.match(root.textContent, /生成剧集摘要：生成中/)
+  assert.doesNotMatch(root.textContent, /生成剧集摘要：生成中/)
+  assert.equal(dialog.querySelector('form').elements.summary.value, '有效摘要')
   assert.match(root.textContent, /查看摘要任务历史/)
+  const history = root.querySelector('.task-history-entry')
+  assert.equal(history.type, 'button'); history.click()
+  assert.equal(saves, 0); assert.equal(histories, 1)
 })
 test('节点页加载失败可以重试', async t => {
   const root = setup(t); let loads = 0

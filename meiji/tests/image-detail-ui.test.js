@@ -13,10 +13,13 @@ function setup(t) {
   t.after(() => { Object.assign(globalThis, prior); dom.window.close() })
   const project = episodeFixture()
   project.episodeId = project.id
+  const second = structuredClone(project.plot.characters.items[0])
+  second.id = 'C02'; second.name = '同行人'; second.image.id = 'image:C02'
+  project.plot.characters.items.push(second)
   return project
 }
 
-test('character and scene lists show IDs and image generation below each picture, while details stay available', t => {
+test('人物卡分离竖幅图片、资料和底部操作，详情与生图各自可点击', t => {
   const project = setup(t), opened = []
   const page = renderStage('assets', project, { fail() {} }, {
     onOpenCharacter: (...args) => opened.push(args), onOpenScene: (...args) => opened.push(args),
@@ -25,22 +28,25 @@ test('character and scene lists show IDs and image generation below each picture
   assert.equal(page.querySelector('.asset-placeholder'), null)
   assert.equal(page.querySelector('.asset-actions'), null)
   assert.equal(page.querySelector('.character-card-id').textContent, 'C01')
-  for (const [selector, media] of [['.character-card', '.character-thumb'], ['.scene-card', '.scene-card-media']]) {
+  for (const [selector, media] of [['.character-card', '.character-thumb']]) {
     const card = page.querySelector(selector), button = card.querySelector('.card-image-generate')
     assert.ok(button);assert.equal(button.textContent, 'AI生图')
-    assert.ok(button.parentElement.contains(card.querySelector(media)))
+    assert.ok(button.closest('.character-card-footer'))
+    assert.ok(card.querySelector('.character-card-footer .json-copy-row'))
+    assert.equal(card.querySelector('.character-card-media .card-image-generate'), null)
     assert.ok(card.querySelector(media).compareDocumentPosition(button) & 4)
     assert.equal(button.closest('button button'), null)
+    assert.equal(button.closest('.character-open'), null)
   }
   page.querySelector('[aria-label="人物详情：旅人"]').click()
-  page.querySelector('[aria-label="场景详情：庭院"]').click()
-  assert.deepEqual(opened, [[project.episodeId, 'C01'], [project.episodeId, 'E01']])
+  assert.equal(page.querySelector('[aria-label="场景详情：庭院"]'), null)
+  assert.deepEqual(opened, [[project.episodeId, 'C01']])
 })
 
-for (const [itemId, name, kind] of [['C01', '旅人', 'characters'], ['E01', '庭院', 'scenes']]) {
+for (const [itemId, name, kind] of [['C01', '旅人', 'characters'], ['C02', '同行人', 'characters']]) {
   test(`${name} list AI image generation always uses text mode, with or without existing pictures`, async t => {
     const project = setup(t), calls = []
-    const item = project.plot[kind].items[0]
+    const item = project.plot[kind].items.find(item => item.id === itemId)
     for (const present of [false, true]) {
       item.image.content = present ? { localPath: '/existing.png' } : null
       item.reference = { localPath: '/reference.png' }
@@ -67,11 +73,11 @@ test('list image generation is disabled while busy and restores its button on fa
   assert.match(page.querySelector('.character-error').textContent, /生图请求失败/)
 })
 
-for (const [itemId, name, kind, selector] of [['C01', '旅人', 'characters', '.character-card'], ['E01', '庭院', 'scenes', '.scene-card']]) {
+for (const [itemId, name, kind] of [['C01', '旅人', 'characters'], ['C02', '同行人', 'characters']]) {
   for (const action of ['confirm-image', 'discard-image']) {
     test(`${name} card previews its candidate and supports ${action} without leaving the list`, async t => {
       const project = setup(t), calls = []
-      const item = project.plot[kind].items[0]
+      const item = project.plot[kind].items.find(item => item.id === itemId)
       item.image.content = { localPath: '/old.png' }
       project.pendingImages = { draft: { draftId: 'draft', itemId, name, previewUrl: '/candidate.png' } }
       const actions = { beginImage() {}, async reviewImage(...args) {
@@ -80,7 +86,7 @@ for (const [itemId, name, kind, selector] of [['C01', '旅人', 'characters', '.
         delete project.pendingImages.draft
       } }
       const page = renderStage('assets', project, actions, {})
-      const card = page.querySelector(selector)
+      const card = [...page.querySelectorAll('.character-card')].find(card => card.querySelector('.character-card-id').textContent === itemId)
       assert.equal(card.querySelector('img').getAttribute('src'), '/candidate.png')
       assert.deepEqual([...card.querySelectorAll('.detail-image-buttons button')].map(button => button.textContent), ['放弃', '确定'])
       assert.equal(card.querySelector('.card-image-generate'), null)
@@ -89,7 +95,7 @@ for (const [itemId, name, kind, selector] of [['C01', '旅人', 'characters', '.
       button.click(); button.click(); await new Promise(resolve => setImmediate(resolve))
       assert.equal(calls.length, 1)
       assert.deepEqual(calls[0].slice(1), [project.episodeId, 'draft', action])
-      const updated = renderStage('assets', project, actions, {}).querySelector(selector)
+      const updated = [...renderStage('assets', project, actions, {}).querySelectorAll('.character-card')].find(card => card.querySelector('.character-card-id').textContent === itemId)
       assert.equal(updated.querySelector('img').getAttribute('src'), action === 'confirm-image' ? '/candidate.png' : '/old.png')
       assert.ok(updated.querySelector('.card-image-generate'))
       assert.equal(updated.querySelector('.detail-image-buttons'), null)
@@ -122,7 +128,7 @@ test('candidate review failure restores the card buttons and preserves the previ
   assert.equal(card.querySelector('img').getAttribute('src'), '/candidate.png')
 })
 
-test('session restores both card candidates and does not use another episode image gate', t => {
+test('会话恢复人物候选，不恢复场景候选且不使用其他集的图片门禁', t => {
   const episode = setup(t)
   episode.pendingImages = {
     character: { draftId: 'character', itemId: 'C01', name: '旅人', previewUrl: '/character.png' },
@@ -133,8 +139,8 @@ test('session restores both card candidates and does not use another episode ima
     itemId: 'C01', episodeId: 'other-episode', phase: 'ready', previewUrl: '/other.png', draftId: 'other',
   } })
   assert.equal(page.querySelector('.character-card img').getAttribute('src'), '/character.png')
-  assert.equal(page.querySelector('.scene-card img').getAttribute('src'), '/scene.png')
-  assert.equal(page.querySelectorAll('.card-image-review').length, 2)
+  assert.equal(page.querySelector('.scene-card'), null)
+  assert.equal(page.querySelectorAll('.card-image-review').length, 1)
   assert.equal(page.querySelector('.image-review-overlay'), null)
   assert.doesNotMatch(page.textContent, /图片任务请在详情页查看与确认/)
 })
@@ -203,46 +209,12 @@ for (const [itemId, name, key, label] of [['C01', '旅人', 'onOpenCharacter', '
 }
 
 
-test('props cards generate images by their independent P ID', async t => {
-  const project = setup(t), calls = []
-  project.plot.props.items = [{ id: 'P01', type: 'prop', name: '长衣', category: 'clothing', description: '灰色长衣', evidence: '旅人身穿灰色长衣', ownerId: 'C01' }]
-  const page = renderStage('assets', project, { fail() {}, beginImage: async (...args) => calls.push(args), openSkill: (...args) => calls.push(args) }, {})
-  page.querySelector('[aria-label="道具图片 skill"]').click()
-  assert.equal(calls[0][1], 'part-image')
-  const button = [...page.querySelectorAll('.story-asset button')].find(b => b.textContent === 'AI生图')
-  assert.ok(button); button.click(); await Promise.resolve()
-  assert.equal(calls[1][1], 'image'); assert.equal(calls[1][2].itemId, 'P01')
-  assert.match(page.textContent, /旅人身穿灰色长衣/)
-})
-
-test('prop card deletion sits beside its title, submits once and displays errors', async t => {
-  const project = setup(t), calls = []
-  project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信', category: 'prop', description: '泛黄旧信', evidence: '旅人拿着旧信' }]
-  let reject
-  const page = renderStage('assets', project, { perform: (...args) => {
-    calls.push(args)
-    return new Promise((resolve, failed) => { reject = failed })
-  } }, {})
-  const remove = page.querySelector('[aria-label="删除道具：旧信"]')
-  assert.ok(remove.closest('.workflow-generation-row').querySelector('h3'))
-  assert.equal(page.querySelector('[aria-label="删除道具：旅人"]'), null)
-  remove.click(); remove.click()
-  assert.equal(calls.length, 1)
-  assert.equal(calls[0][1], 'prop-delete')
-  assert.deepEqual(calls[0][2], { itemId: 'P01', itemName: '旧信' })
-  assert.equal(remove.disabled, true)
-  reject(new Error('保存失败'))
-  await new Promise(resolve => setImmediate(resolve))
-  assert.equal(remove.disabled, false)
-  assert.match(page.textContent, /保存失败/)
-})
-
-test('prop deletion is disabled while a production task is running', t => {
+test('已有道具不再展示、生成或删除，人物入口保留', t => {
   const project = setup(t)
-  project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信' }]
-  project.executionLocks = [{ target: 'outline', scope: 'project', episodeId: project.episodeId }] // 剧情步骤持有项目锁
-  const page = renderStage('assets', project, { perform: () => assert.fail('must not delete while busy') }, {})
-  const remove = page.querySelector('[aria-label="删除道具：旧信"]')
-  assert.equal(remove.disabled, true)
-  remove.click()
+  project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信', category: 'prop', description: '泛黄旧信', evidence: '旅人拿着旧信' }]
+  const page = renderStage('assets', project, { perform: () => assert.fail('不应操作道具'), beginImage: () => assert.fail('不应自动生成') }, {})
+  assert.equal(page.querySelector('[aria-label="道具图片 skill"]'), null)
+  assert.equal(page.querySelector('[aria-label="删除道具：旧信"]'), null)
+  assert.doesNotMatch(page.textContent, /泛黄旧信|道具/)
+  assert.ok(page.querySelector('.character-card'))
 })

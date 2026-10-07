@@ -8,6 +8,8 @@ export function draftsOf(project) {
 
 function generatingOf(project) {
   return (project.episodes || []).flatMap(episode => {
+    const steps = (episode.executionLocks || project.executionLocks || []).filter(step => step.episodeId === episode.id && step.target?.startsWith('image:'))
+    if (steps.length) return steps.map(step => ({ episodeId: episode.id, operationActivity: step.target }))
     const activity = typeof episode.operationActivity === 'string' ? episode.operationActivity : ''
     if (!activity.startsWith('image:') && activity !== 'confirm-image') return []
     return [{ episodeId: episode.id, operationActivity: activity }]
@@ -71,9 +73,10 @@ export function syncImageGate(project, gate) {
   if (!gate) {
     const draft = drafts[0]
     if (draft) {
+      const active = generating.some(entry => matchesActivity(entry, draft))
       return {
-        phase: 'ready',
-        held: false,
+        phase: active ? 'generating' : 'ready',
+        held: active,
         action: 'image',
         episodeId: draft.episodeId,
         itemId: draft.itemId || '',
@@ -114,29 +117,38 @@ export function syncImageGate(project, gate) {
     }
   }
 
+  const entry = generating.find(item => matchesActivity(item, gate)) || generating.find(item => item.episodeId === gate.episodeId && item.operationActivity === 'confirm-image')
+  const episode = (project.episodes || []).find(item => item.id === gate.episodeId)
+  const record = episode ? feedbackOf(episode, `image:${gate.itemId}`) : null
+  const run = [...(project.activeRuns || []), ...(episode?.activeRuns || [])].find(item => gate.runId && item.id === gate.runId)
+  const stopped = !entry && (record?.error || run && ['paused', 'failed', 'cancelled', 'completed'].includes(run.status))
+  if (stopped) {
+    const reason = run?.pause?.reasons.find(item => item.target === `image:${gate.itemId}` && item.code !== 'wait_confirm')
+    gate = { ...gate, phase: 'error', held: false, ignoreDraftId: '', error: record?.error || reason?.message || gate.error || '' }
+  }
   const draft = drafts.find(item => matchesDraft(item, gate) && item.draftId !== gate.ignoreDraftId)
   if (draft) {
+    const retained = Boolean(entry && draft.draftId === gate.draftId)
     return {
       ...gate,
-      phase: 'ready',
-      held: false,
+      phase: retained ? 'generating' : 'ready',
+      held: retained,
       ignoreDraftId: '',
       episodeId: draft.episodeId,
       draftId: draft.draftId,
       previewUrl: draft.previewUrl || '',
       name: draft.name || gate.name,
       review: gate.phase === 'generating' ? '' : gate.review || '',
-      error: '',
+      error: gate.error || '',
     }
   }
 
-  const entry = generating.find(item => matchesActivity(item, gate)) || generating.find(item => item.episodeId === gate.episodeId)
+  if (stopped && ['cancelled', 'completed'].includes(run?.status)) return null
   if (entry?.operationActivity === 'confirm-image') {
     return { ...gate, phase: 'uploading', held: true, error: '' }
   }
   if (!entry && gate.phase === 'uploading') return null
   if (entry || gate.held || gate.phase === 'generating' || gate.phase === 'uploading') {
-    const episode = (project.episodes || []).find(item => item.id === gate.episodeId)
     // 图片错误只读对应图片节点，不读剧集的剧情错误。
     const error = (!entry && episode ? feedbackOf(episode, `image:${gate.itemId}`)?.error : '') || ''
     if (error && !entry) return { ...gate, phase: 'error', held: false, error, previewUrl: '', draftId: '' }

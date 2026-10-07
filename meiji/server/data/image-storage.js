@@ -1,7 +1,8 @@
-import { pictureOf } from '../../shared/drama-model.js'
+import { finish, targetNode, pictureOf } from '../../shared/drama-model.js'
+import { pictureRecord } from '../../shared/image-assets.js'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { assetStore, MAX_ASSET_BYTES } from './asset-library-store.js'
 
@@ -78,4 +79,38 @@ export async function readImageDraft(home, id) {
 
 export function pictureTargetSnapshot(item) {
   return JSON.stringify(item, (key, value) => ['check', 'review', 'draft', 'revision', 'status', 'operation', 'error'].includes(key) ? undefined : value)
+}
+
+// 人工确认和人物自动保存共用同一入库事务；调用方负责确认策略与执行权限。
+export async function applyImageDraft(home, projects, project, draft, signal) {
+  const targetKey = `image:${draft.itemId}`
+  const validate = current => {
+    const item = current.plot[draft.key]?.items.find(item => item.id === draft.itemId)
+    if (!item || pictureTargetSnapshot(item) !== draft.target) throw Object.assign(new Error('图片对应内容已修改，请重新生成'), { status: 409 })
+    return item
+  }
+  validate(project)
+  const file = await readImageDraft(home, draft.draftId)
+  if (file.metadata.projectId !== project.id || file.metadata.episodeId !== project.episodeId || file.metadata.itemId && file.metadata.itemId !== draft.itemId) throw Object.assign(new Error('图片不属于当前剧集或人物'), { status: 409 })
+  signal?.throwIfAborted()
+  const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, file.metadata)
+  reference.prompt = file.metadata.prompt || ''
+  const discarded = new Set([draft.draftId])
+  try {
+    signal?.throwIfAborted()
+    await projects.save(project.id, current => {
+      signal?.throwIfAborted()
+      validate(current)
+      const next = structuredClone(current)
+      next.plot[draft.key].items = next.plot[draft.key].items.map(item => item.id === draft.itemId ? pictureRecord({ ...item, ...reference }) : item)
+      for (const [id, pending] of Object.entries(next.pendingImages || {})) if (pending.itemId === draft.itemId && !pending.slot) { discarded.add(id); delete next.pendingImages[id] }
+      finish(targetNode(next, targetKey), { passed: true, failures: [] })
+      return next
+    }, { final: true })
+  } catch (error) {
+    await rm(join(home, 'storages', 'meiji', 'assets', reference.assetCategory, reference.assetId), { recursive: true, force: true })
+    throw error
+  }
+  for (const id of discarded) await rm(join(home, 'storages', 'meiji', 'image-drafts', id), { recursive: true, force: true })
+  return reference
 }

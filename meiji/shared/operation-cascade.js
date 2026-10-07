@@ -29,7 +29,7 @@ export function operationDeletes(project, op) {
     if (op.action === 'summary') change = { type: 'summary' }
     if (['episode-edit', 'source'].includes(op.action) && (fields.summary != null && fields.summary !== episode.summary.content || fields.durationSeconds != null && Number(fields.durationSeconds) !== episode.durationSeconds)) change = { type: 'summary' }
     else if (op.action === 'source' && fields.aspectRatio && fields.aspectRatio !== project.aspectRatio) change = { type: 'aspect' }
-    if (op.action === 'story') change = { type: op.only ? 'cards' : 'outline', key: op.only }
+    if (op.action === 'story') change = { type: op.only && op.only !== 'outline' ? 'cards' : 'outline', key: op.only }
     if (op.action === 'outline-text' && op.outline !== episode.plot.outline.content) change = { type: 'outline' }
     if (op.action === 'shot-table') change = { type: op.track ? 'shot' : 'shots', track: op.track }
     if (op.action === 'seconds') change = { type: 'seconds', track: op.track || episode.shots.items[0]?.id }

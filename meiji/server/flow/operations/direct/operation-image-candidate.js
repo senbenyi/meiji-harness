@@ -1,11 +1,7 @@
 // 操作：确认 / 放弃候选图片
 import { rm } from 'node:fs/promises'
-import { join } from 'node:path'
-import { GenerationStatus } from '../../../../shared/drama-model.js'
-import { plotPatch, targetNode } from '../../../../shared/drama-model.js'
-import { finish } from '../../../../shared/drama-model.js'
-import { savePicture, pictureTargetSnapshot, readImageDraft } from '../../../data/image-storage.js'
-import { pictureRecord } from '../../../../shared/image-assets.js'
+import { targetNode } from '../../../../shared/drama-model.js'
+import { applyImageDraft, readImageDraft } from '../../../data/image-storage.js'
 import { feedbackKey } from '../../../../shared/review-feedback.js'
 import { markFailed } from '../../../../shared/content-state.js'
 
@@ -26,19 +22,7 @@ export async function opConfirmImage(c) {
     note('已放弃生成图片，原图保持不变')
     return trace
   }
-  const target = project.plot[draft.key]?.items.find(item => item.id === draft.itemId)
-  if (!target || pictureTargetSnapshot(target) !== draft.target) throw Object.assign(new Error('图片对应内容已修改，请放弃预览后重新生成'), { status: 409 })
-  const file = await readImageDraft(home, draft.draftId)
-  if (file.metadata.projectId !== project.id || file.metadata.episodeId !== project.episodeId) throw Object.assign(new Error('图片不属于当前剧集'), { status: 409 })
-  const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, file.metadata)
-  reference.prompt = file.metadata.prompt || ''
-  const patch = { ...plotPatch(project, { [draft.key]: { ...project.plot[draft.key], items: project.plot[draft.key].items.map(item => item.id === draft.itemId ? pictureRecord({ ...item, ...reference }) : item) } }) }
-  try { await projects.save(project.id, current => { const next = { ...current, ...patch, pendingImages }; finish(targetNode(next, targetKey), { passed: true, failures: [] }); return next }) }
-  catch (error) {
-    await rm(join(home, 'storages', 'meiji', 'assets', reference.assetCategory, reference.assetId), { recursive: true, force: true })
-    throw error
-  }
-  await rm(file.directory, { recursive: true, force: true })
+  await applyImageDraft(home, projects, project, draft, deps.signal)
   note('图片已确认：已入素材库并更新关联')
   return trace
 }

@@ -54,7 +54,9 @@ test('镜头输入字段保留编号、秒数与正文，连续性仅带指定�
   assert.equal(promptData(table.user, '【本次要求】').maxShotDurationSeconds, 15)
   const seconds = buildSecondsPrompts({ project, shotId: 'S02' }).generation
   assert.deepEqual(promptData(seconds.user, '【本镜镜头表】'), { shotId: 'S02', durationSeconds: 5, content: text })
-  assert.deepEqual(promptData(seconds.user, '【连续性参考：上一镜每秒指令】'), { seconds: project.shots.items[0].seconds.content })
+  assert.deepEqual(promptData(seconds.user, '【连续性参考：上一镜交接摘要】'), {
+    shotId: 'S01', endState: '面北站定', camera: '摄影机位于身后，固定全景', space: '【庭院|E01】南门北墙', sound: '脚步声', ambient: [], music: [],
+  })
   const single = buildSingleShotPrompts({ project, shotId: 'S02' }).generation
   assert.deepEqual(promptData(single.user, '【本次要求】'), { shotId: 'S02', durationSeconds: 5 })
   assert.doesNotMatch(table.user + seconds.user + single.user, /\[object Object\]/)

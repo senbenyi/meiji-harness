@@ -59,12 +59,12 @@ export function scriptAppendOnly(before, after, episodeId) {
 export function scriptBlockers(project) {
   return [
     ...(project.scriptProposals || []).filter(item => item.status === 'pending').map(item => ({ kind: 'proposal', id: item.id, episodeId: item.episodeId })),
-    ...(project.episodes || []).filter(episode => episode.summary?.content && episode.summary?.basis?.scriptSyncedRevision !== episode.summary.revision).map(episode => ({ kind: 'episode-sync', episodeId: episode.id })),
-    ...(project.scriptPendingDeletes || []).map(item => ({ kind: 'episode-delete-sync', episodeId: item.episodeId })),
+    ...(isAiCreation(project) ? (project.episodes || []).filter(episode => episode.summary?.content && episode.summary?.basis?.scriptSyncedRevision !== episode.summary.revision).map(episode => ({ kind: 'episode-sync', episodeId: episode.id })) : []),
+    ...(isAiCreation(project) ? (project.scriptPendingDeletes || []).map(item => ({ kind: 'episode-delete-sync', episodeId: item.episodeId })) : []),
   ]
 }
 export const scriptFreshness = project => ({ revision: project.scriptRevision || 0, summaryNeedsUpdate: Boolean(project.script) && project.summary.basis?.scriptRevision !== project.scriptRevision })
 export function episodeHints(project, episode) {
   const ordered = [...project.episodes].reverse(), previous = ordered[ordered.findIndex(item => item.id === episode.id) - 1]
-  return { scriptUpdated: (episode.summary?.basis?.scriptRevision || 0) < (project.scriptRevision || 0), previousModified: Boolean(previous && episode.summary?.basis?.prevSummaryRevision !== previous.summary?.revision), pendingSync: episode.summary?.basis?.scriptSyncedRevision !== episode.summary?.revision }
+  return { scriptUpdated: (episode.summary?.basis?.scriptRevision || 0) < (project.scriptRevision || 0), previousModified: Boolean(previous && episode.summary?.basis?.prevSummaryRevision !== previous.summary?.revision), pendingSync: isAiCreation(project) && episode.summary?.basis?.scriptSyncedRevision !== episode.summary?.revision }
 }

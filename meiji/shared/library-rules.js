@@ -80,7 +80,7 @@ export function mergeLibraryGroup(project, kind, group) {
     if (card.libraryId) {
       const entry = next.library[kind].find(item => item.id === card.libraryId)
       if (!entry) bad(`库条目不存在：${card.libraryId}`)
-      target = card.variantId ? libraryTarget(next, kind, { libraryId: card.libraryId, variantId: card.variantId }) : addLibraryVariant(next, kind, entry.id, { ...card, image: null }, { episodeId: project.episodeId, cardId: card.id })
+      target = kind === 'characters' || card.variantId ? libraryTarget(next, kind, { libraryId: card.libraryId, variantId: card.variantId }) : addLibraryVariant(next, kind, entry.id, { ...card, image: null }, { episodeId: project.episodeId, cardId: card.id })
       if (!target) bad(`库变体不存在：${card.variantId}`)
     } else {
       if (card.variantId) bad('变体 ID 必须带库条目 ID')

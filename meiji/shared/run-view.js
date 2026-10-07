@@ -9,7 +9,7 @@ export function runDisplayStatus(run) {
   return { key: ({ draft: 'not-generated', running: 'generating', paused: 'paused', completed: 'passed', cancelled: 'cancelled' })[run.status] || run.status, label: runStatusLabels[run.status] || run.status }
 }
 export const runStepStatusLabels = { pending: '等待前置', ready: '等待执行', running: '执行中', done: '完成', paused: '待处理', failed: '未通过', superseded: '已作废', skipped: '已跳过', cancelled: '已取消' }
-export const historyScopes = { summary: ['摘要', ['summary']], script: ['剧情', ['outline', 'characters', 'scenes', 'props']], assets: ['本集资产', ['characters', 'scenes', 'props', 'image:*']], outline: ['大纲', ['outline']], characters: ['人物角色', ['characters']], scenes: ['场景', ['scenes']], props: ['道具', ['props']], shots: ['镜头表', ['shots']], seconds: ['每秒指令', ['seconds:*']], film: ['成片', ['storyboard:*', 'film:*']], assembly: ['合成', ['assembly']], images: ['图片', ['image:*']], 'project-summary': ['项目摘要', ['project-summary']] }
+export const historyScopes = { summary: ['摘要', ['summary']], script: ['剧情', ['outline']], assets: ['本集资产', ['characters', 'image:*']], outline: ['大纲', ['outline']], characters: ['人物角色', ['characters']], scenes: ['场景', ['scenes']], props: ['道具', ['props']], shots: ['镜头表', ['shots']], seconds: ['每秒指令', ['seconds:*']], film: ['成片', ['storyboard:*', 'film:*']], assembly: ['合成', ['assembly']], images: ['图片', ['image:*']], 'project-summary': ['项目摘要', ['project-summary']] }
 export function historyTargets(scope = '') {
   if (scope.includes(',')) return scope.split(',')
   const [kind, id] = scope.split(':')
@@ -28,5 +28,5 @@ export function runGoalLabel(run, project) {
   const goal = run.goal || {}, verb = { regenerate: '重新生成', modify: '修改', review: '审核' }[goal.mode] || '生成'
   // 跨阶段目标显示起止阶段，如「镜头表 → 全片拼接」。
   if (goal.from && goal.from !== goal.to) return `${runEpisodeLabel(run, project)} · ${goalLabels[goal.from] || goal.from} → ${goalLabels[goal.to] || goal.to}`
-  return `${runEpisodeLabel(run, project)} · ${goal.to === 'assemble' ? '' : verb}${goalLabels[goal.to] || goal.to || '制作任务'}`
+  return `${runEpisodeLabel(run, project)} · ${goal.to === 'assemble' ? '' : verb}${goal.to === 'story' && goal.scope?.only === 'characters' ? '人物角色' : goalLabels[goal.to] || goal.to || '制作任务'}`
 }

@@ -277,7 +277,7 @@ test('每个剧情步骤生成用生产规则、自审用对应审核 skill，�
 })
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
-  assert.deepEqual([...new Set(planRun(episodeFixture(), { to: 'story', mode: 'regenerate' }).steps.map(step => step.target))], ['outline', 'characters', 'images:characters', 'scenes', 'images:scenes'])
+  assert.deepEqual([...new Set(planRun(episodeFixture(), { to: 'story', mode: 'regenerate' }).steps.map(step => step.target))], ['outline'])
   const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('修订稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('二次修订稿')), reviewFail('因果错误')]
   let calls = 0
   const { result, nodes } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
@@ -325,16 +325,17 @@ test('real operation persists independent checks and blocks dependents after fai
   const e = await setupModel(t)
   const fixture = { ...storyPackageFixture(), outline: outlineFixture('FINAL_OUTLINE') }
   let calls = 0
-  await assert.rejects(runOperation(e.op('story', { generationMode: 'regenerate' }), { home: e.home,
+  await runOperation(e.op('story'), { home: e.home, request: storyRequest(fixture) })
+  await assert.rejects(runOperation(e.op('characters', { generationMode: 'regenerate' }), { home: e.home,
     request: storyRequest(fixture, (kind, _message, phase) => { calls++; if (kind === 'characters' && phase === 'review') return reviewFail('缺少另一身体') }),
   }), /自审未通过/)
   const saved = await e.read()
-  // 大纲 2 次；人物生成 + 两轮修订各 1 次生成与 1 次审核共 6 次；场景 2 次。
-  assert.equal(calls, 10)
+  // 大纲 2 次；人物生成 + 两轮修订各 1 次生成与 1 次审核共 6 次；无场景请求。
+  assert.equal(calls, 6)
   assert.deepEqual(saved.plot.outline.content, outlineFixture('FINAL_OUTLINE'))
   assert.equal(saved.plot.outline.check.passed, true)
   assert.equal(saved.plot.characters.check.passed, false)
-  assert.equal(saved.plot.scenes.check.passed, true)
+  assert.equal(saved.plot.scenes.check.passed, null)
   assert.equal(saved.plot.props.check.passed, null)
   assert.equal(saved.plot.props.items.length, 0)
   assert.equal(saved.shots.items.length, 0)
@@ -343,7 +344,8 @@ test('real operation persists independent checks and blocks dependents after fai
 test('a later API error preserves the passed outline status in the real operation', async t => {
   const e = await setupModel(t)
   const fixture = { ...storyPackageFixture(), outline: outlineFixture('PASSED_OUTLINE') }
-  await assert.rejects(runOperation(e.op('story', { generationMode: 'regenerate' }), { home: e.home,
+  await runOperation(e.op('story'), { home: e.home, request: storyRequest(fixture) })
+  await assert.rejects(runOperation(e.op('characters', { generationMode: 'regenerate' }), { home: e.home,
     request: storyRequest(fixture, (kind, _message, phase) => { if (kind === 'characters' && phase === 'generate') throw new Error('CHARACTER_ERROR') }),
   }), /CHARACTER_ERROR/)
   const saved = await e.read()
@@ -402,14 +404,15 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
   await runOperation(e.op('story', { generationMode: 'modify', review: '修正因果' }), { home: e.home,
     request: storyRequest({ ...fixture, outline: outlineFixture('FIXED_OUTLINE') }, (kind, message, phase) => { calls++; if (phase === 'generate') prompts.push([kind, message.user]) }),
   })
-  // 意见只进入大纲修订；人物、场景依据新大纲重新提取，道具按空集合处理。
-  assert.deepEqual(prompts.map(([kind, user]) => [kind, user.includes('修正因果')]), [['outline', true], ['characters', false], ['scenes', false]])
+  // 意见只进入大纲修订；人物依据新大纲重新提取，不提取场景道具。
+  assert.deepEqual(prompts.map(([kind, user]) => [kind, user.includes('修正因果')]), [['outline', true]])
   const saved = await e.read()
-  assert.equal(calls, 6)
-  for (const kind of ['outline', 'characters', 'scenes']) assert.equal(saved.plot[kind].check.passed, true)
+  assert.equal(calls, 2)
+  assert.deepEqual(saved.plot.characters.items, [])
+  for (const kind of ['outline']) assert.equal(saved.plot[kind].check.passed, true)
   const { contentTargets } = await import('../server/data/content-records.js')
   const root = await e.store.read(e.id)
-  assert.equal(contentTargets(root).find(item => item.key === 'scenes').check.passed, true)
+  assert.equal(contentTargets(root).find(item => item.key === 'scenes').check.passed, null)
   root.episodes[0].plot.scenes.check.passed = null
   assert.equal(contentTargets(root).find(item => item.key === 'scenes').check.passed, null)
   root.episodes[0].plot.characters.check = { passed: false, failures: ['缺卡'] }

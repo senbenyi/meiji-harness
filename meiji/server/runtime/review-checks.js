@@ -62,6 +62,7 @@ export async function prepareChecks(store, project, operation) {
   }
   const candidate = operation.draftId && project.pendingImages?.[operation.draftId]
   const matchingCandidate = candidate && (operation.track ? candidate.track === operation.track : candidate.itemId === operation.itemId && (candidate.slot || '') === (operation.slot || '')) ? candidate : null
+  if (imageGenerationActions.has(operation.action) && operation.draftId && !matchingCandidate) throw Object.assign(new Error('候选图片已处理或不属于当前素材，请刷新'), { status: 409 })
   if (!manual && mode === 'modify') {
     const reasons = keys(project, operation).flatMap(key => {
       const value = feedbackOf(project, key)
@@ -87,7 +88,7 @@ export async function prepareChecks(store, project, operation) {
         targetNode(next, key).revision = (targetNode(current, key)?.revision || 0) + 1
       }
     }
-    if (matchingCandidate) delete next.pendingImages[matchingCandidate.draftId]
+    if (matchingCandidate && !imageGenerationActions.has(operation.action)) delete next.pendingImages[matchingCandidate.draftId]
     if (operation.action === 'seconds') {
       const group = targetNode(next, 'seconds')
       if (fresh !== undefined) saveReview(group, String(fresh))
@@ -140,15 +141,15 @@ export async function prepareChecks(store, project, operation) {
       if (!inTextNode() && (options.final || partial) && !filmRunning && !batchActions.has(targetOperation.action)) {
         const failed = options.error || target?.content?.error
         const awaitingImage = imageGenerationActions.has(targetOperation.action) && Object.values(next.pendingImages || {}).some(draft => targetOperation.track ? draft.track === targetOperation.track : draft.itemId === targetOperation.itemId)
-        if (awaitingImage) {
-          for (const key of keys(next, targetOperation)) {
-            const value = targetNode(next, key)
-            if (value?.operation) value.operation.phase = 'awaiting-confirmation'
-          }
-        } else if (failed) {
+        if (failed) {
           for (const key of keys(next, targetOperation)) {
             const value = targetNode(next, key)
             if (value) markFailed(value, failed)
+          }
+        } else if (awaitingImage) {
+          for (const key of keys(next, targetOperation)) {
+            const value = targetNode(next, key)
+            if (value?.operation) value.operation.phase = 'awaiting-confirmation'
           }
         } else {
           const validation = ['shots', 'revise-shot'].includes(targetOperation.action) && next.shots.check.passed === false ? next.shots.check.failures : []
