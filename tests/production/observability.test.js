@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises'
 import {
   productionCoordinatorDescriptor,
   productionCoordinatorLabel,
-  productionCoordinatorSessionId,
   registerProductionCoordinator,
 } from '../../lib/production/observability.js'
 
@@ -28,11 +27,7 @@ test('production coordinator labels are business-facing and deterministic', () =
   assert.equal(productionCoordinatorLabel({ kind: 'unknown' }), '短剧生产协调')
 })
 
-test('production coordinator identity is stable within an attempt and changes on retry', () => {
-  const first = productionCoordinatorSessionId({ id: 'root-task', attemptNumber: 1 })
-  assert.equal(first, productionCoordinatorSessionId({ id: 'root-task', attemptNumber: 1 }))
-  assert.notEqual(first, productionCoordinatorSessionId({ id: 'root-task', attemptNumber: 2 }))
-  assert.match(first, /^studio-production-[a-f0-9]{32}$/)
+test('production coordinator descriptor uses the host one-shot wire contract', () => {
   assert.deepEqual(productionCoordinatorDescriptor('短剧全流程协调'), {
     version: 3,
     mode: 'one-shot',
@@ -54,11 +49,12 @@ test('novel instructions require todo before the terminating entrypoint', async 
   }
 })
 
-test('production coordinator uses the complete Harness child-session contract', async () => {
+test('production coordinator publishes visibility without changing delegation depth', async () => {
   const source = await readFile(new URL('../../lib/index.js', import.meta.url), 'utf8')
   assert.match(source, /parentAgent = ctx\.agents\.get/)
-  assert.match(source, /\{ parentAgent \}/)
-  assert.match(source, /origin: 'subagent'/)
   assert.match(source, /subagent\/descriptor/)
   assert.match(source, /subagentCatalog/)
+  assert.doesNotMatch(source, /\.\.\.\(parentAgent \? \{ parentAgent \}/)
+  assert.doesNotMatch(source, /origin: 'subagent'/)
+  assert.doesNotMatch(source, /delegationDepth:/)
 })
