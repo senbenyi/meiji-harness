@@ -26,6 +26,11 @@ test('pipeline compiler supplies prompt policy, output schema, retry and concurr
   assert.match(request.prompt, /目标：提取当前原文区间/)
   assert.match(request.prompt, /引用不得超出当前原文区间/)
   assert.deepEqual(compiler.batches('source-summary', [1, 2, 3, 4]), [[1, 2, 3], [4]])
+
+  const episodePlan = compiler.request('episode-plan', { label: 'episode-plan', prompt: '完整原文范围 0..100' })
+  assert.equal(episodePlan.role, 'script')
+  assert.match(episodePlan.prompt, /标题、空白和过渡文字并入相邻集/)
+  assert.match(episodePlan.prompt, /分集 id 与 order 必须唯一/)
 })
 
 test('pipeline compiler executes proposal commits declared by agent and barrier nodes', async () => {

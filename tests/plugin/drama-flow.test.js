@@ -24,6 +24,8 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
   let coordinators = 0
   let disposedCoordinators = 0
   let failDownloads = true
+  let failEpisodePlan = false
+  let concludedTurns = 0
   let videoId
   const source = '小林穿蓝色外套走进车站。她拿起长椅上的信封。'
   const span = { sourceId: 'source-001', start: 0, end: source.length }
@@ -90,7 +92,11 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
       const result = await run(async (_prompt, options) => {
         const task = args.args.tasks.find((item) => item.agentLabel === options.label)
         assignedRoles.add(task.role)
-        if (!task.schema.properties.inputSignature) { textCalls.push(task.label); return structuredClone(textValue(task.label, task)) }
+        if (!task.schema.properties.inputSignature) {
+          textCalls.push(task.label)
+          if (failEpisodePlan && task.label === 'episode-plan') return null
+          return structuredClone(textValue(task.label, task))
+        }
         mediaCalls.push(task.label)
         const input = JSON.parse(task.prompt.split('\n输入：')[1])
         return { taskId: task.label, inputSignature: task.prompt.match(/inputSignature=([a-f0-9]+)/)[1], decision: 'ready', reason: '', ...(task.role === 'delivery' ? { nodes: input.nodes, strategy: input.strategy } : { prompt: input.entity.prompt || input.entity.visualDescription || input.entity.description }) }
@@ -116,7 +122,7 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
       webServer: { register() { return () => {} } },
     }
     apply(host)
-    const exec = { agent: { id: sessionId, session: { id: sessionId, header: { cwd: root } } }, concludeTurn() {} }
+    const exec = { agent: { id: sessionId, session: { id: sessionId, header: { cwd: root } } }, concludeTurn() { concludedTurns++ } }
     const call = async (name, args) => {
       const value = await tools.get(name).execute(args, exec)
       assert.equal(value.ok, true, `${name}: ${value.error}`)
@@ -131,6 +137,20 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
       }
       throw new Error('production failed to settle')
     }
+    await writeFile(join(root, 'failing.txt'), '\uFEFF' + source.replace('信封', '纸条'))
+    failEpisodePlan = true
+    const failedCreate = await tools.get('studio_novel_create').execute({ sourcePath: 'failing.txt', title: '失败恢复验收' }, exec)
+    failEpisodePlan = false
+    assert.equal(failedCreate.ok, false)
+    assert.equal(concludedTurns, 1, 'failed novel creation must terminate the agent turn')
+    assert.deepEqual(JSON.parse(failedCreate.json), {
+      projectId: JSON.parse(failedCreate.json).projectId,
+      bindingKey: JSON.parse(failedCreate.json).bindingKey,
+      status: 'failed',
+      recoverable: true,
+    })
+    assert.ok(JSON.parse(failedCreate.json).projectId)
+    textCalls.length = 0
     await writeFile(join(root, 'source.txt'), '\uFEFF' + source)
     const [created, concurrent] = await Promise.all([0, 1].map(() => call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })))
     assert.equal(concurrent.projectId, created.projectId)

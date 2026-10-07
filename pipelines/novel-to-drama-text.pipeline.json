@@ -52,7 +52,7 @@
     {
       "id": "episode-plan",
       "kind": "agent",
-      "role": "story",
+      "role": "script",
       "phase": "episode-planning",
       "concurrency": 1,
       "dependsOn": ["story-reconcile"],
@@ -63,7 +63,7 @@
       "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
       "prompt": {
         "objective": "规划覆盖整部原文的分集结构",
-        "constraints": ["全部关键事件必须分配", "每集保留来源区间", "不设置固定集数上限"]
+        "constraints": ["全部关键事件必须分配", "每集保留来源区间", "全集来源区间必须连续覆盖完整原文，标题、空白和过渡文字并入相邻集", "分集、事件和来源区间不得为空，分集 id 与 order 必须唯一", "不设置固定集数上限"]
       }
     },
     {

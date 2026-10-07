@@ -142,6 +142,38 @@ test('workflow runner obeys per-task retry policy compiled from the pipeline', a
   assert.equal(result.error, 'invalid')
 })
 
+test('workflow retry preserves the complete validation error chain', async () => {
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+  const run = new AsyncFunction('agent', 'parallel', 'phase', 'args', PRODUCTION_WORKFLOW)
+  let calls = 0
+  const prompts = []
+  const workflow = { execute: async ({ args }) => ({ kind: 'foreground', result: await run(async (prompt) => {
+    prompts.push(prompt)
+    calls++
+    return calls === 1 ? { sourceSpans: [] } : null
+  }, (thunks) => Promise.all(thunks.map((thunk) => thunk())), () => {}, args) }) }
+  const [result] = (await runProductionWorkflow(workflow, [{
+    label: 'episode-plan', role: 'script', phase: '分集规划', schema: {}, prompt: 'Task',
+    retry: { maxAttempts: 2, timeoutMs: 1000, retryOn: ['invalid-output'] },
+    validate: () => { throw new Error('分集规划遗漏原文区间：0..22') },
+  }], {})).result
+  assert.equal(calls, 2)
+  assert.match(prompts[1], /必须直接修正现有 JSON/)
+  assert.equal(result.error, '第1次：分集规划遗漏原文区间：0..22；第2次：未返回合法结构化结果')
+})
+
+test('episode plan prompt states the exact full-source coverage contract', async () => {
+  const prompts = []
+  const options = await fixture(async (tasks) => tasks.map((task) => {
+    if (task.label === 'episode-plan') prompts.push(task.prompt)
+    return { label: task.label, value: valueFor(task.label, task) }
+  }))
+  await novelTextProduction(options)
+  assert.equal(prompts.length, 1)
+  assert.match(prompts[0], /从 0 到 100 连续覆盖完整原文/)
+  assert.match(prompts[0], /标题、空白和过渡文字也必须并入相邻集/)
+})
+
 test('coverage rejects outline substitution, omitted source, unknown references and missing episodes', () => {
   const value = { analysis: structuredClone(analysis), episodePlan: { episodes: [structuredClone(episode)] }, episodeScripts: [structuredClone(script)] }
   assert.doesNotThrow(() => assertNovelCoverage(value, 'source', 100))
