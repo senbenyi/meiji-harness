@@ -45,7 +45,10 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
     if (label === 'asset-design') return { characters: characters.map(({ id, description }) => ({ id, visualDescription: description })), locations: locations.map(({ id, description }) => ({ id, visualDescription: description })) }
     if (label === 'episode-plan') return { episodes }
     const episode = episodes.find((item) => label.endsWith(`:${item.id}`))
-    if (label.startsWith('episode-script:')) return { episodeId: episode.id, script: `小林在车站${episode.title}。`, beatIds: episode.beatIds, sourceSpans: [span] }
+    if (label.startsWith('episode-script:')) {
+      const sourceSpans = JSON.parse(task.schema.properties.sourceSpans.description.split('：').at(-1))
+      return { episodeId: episode.id, script: `小林在车站${episode.title}。`, beatIds: episode.beatIds, sourceSpans }
+    }
     return { episodeId: episode.id, shots: [{ id: 's1', order: 1, duration: 2, title: episode.title, shotDescription: `小林${episode.title}。`, prompt: `A woman in a blue coat at a train station. ${episode.title}`, audioDialogue: '', audioNotes: '车站环境声', beatIds: episode.beatIds, referenceBindings: [{ kind: 'character', entityId: 'lin' }, { kind: 'location', entityId: 'station' }] }] }
   }
   const png = execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64', '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'png', 'pipe:1'])

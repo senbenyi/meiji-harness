@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createProjectAggregate, parseProject } from '../../lib/domain/spec.js'
 import { applyCreativeProposal, editGeneration } from '../../lib/domain/creative.js'
-import { assetScriptRefs, assetUsageSegments, extractAssetsByEpisode, materializeAssetUsages, validateAssetExtraction } from '../../lib/script/asset-production.js'
+import { assetScriptRefs, assetUsageSegments, deterministicKnownAssetExtraction, extractAssetsByEpisode, materializeAssetUsages, validateAssetExtraction } from '../../lib/script/asset-production.js'
 import { mergeShotPrompts, shotPromptRequests } from '../../lib/script/shot-production.js'
 import { assertGenerationReady, visibleReferenceBindings } from '../../lib/prompts/specification.js'
 import { productionStageIssues, preparationSignature } from '../../lib/domain/policies.js'
@@ -58,6 +58,19 @@ test('asset usage citations are materialized from exact formal script text', () 
   validateAssetExtraction(value, episodes, false)
   assert.equal(value.characters[0].usages[0].quote, 'Traveler opens the letter.')
   assert.equal(value.locations[0].usages[0].quote, 'INT. ROOM')
+})
+
+test('known asset extraction recovers exact name mentions without inventing assets', () => {
+  const episodes = [{ id: 'ep', script: 'INT. Station\nTraveler opens the letter.' }]
+  const existing = {
+    characters: { traveler: { id: 'traveler', name: 'Traveler', description: 'Blue coat' } },
+    locations: { station: { id: 'station', name: 'Station', description: 'Waiting room' } },
+    props: { letter: { id: 'letter', name: 'Letter', description: 'White envelope' }, unseen: { id: 'unseen', name: 'Watch', description: 'Silver watch' } },
+  }
+  const value = deterministicKnownAssetExtraction(episodes, existing)
+  assert.deepEqual(value.characters.map(({ id, usageRef }) => [id, usageRef]), [['traveler', 'ep:u002']])
+  assert.deepEqual(value.locations.map(({ id, usageRef }) => [id, usageRef]), [['station', 'ep:u001']])
+  assert.deepEqual(value.props.map(({ id, usageRef }) => [id, usageRef]), [['letter', 'ep:u002']])
 })
 
 test('visible references select the authored variant without mixing its base state into the same shot', () => {

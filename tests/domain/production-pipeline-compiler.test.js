@@ -8,8 +8,13 @@ test('pipeline compiler materializes persisted tasks from the bundled manifest',
   assert.deepEqual(task, {
     id: 'run:ep-1', kind: 'novel-text', scopeId: 'ep-1', dependencies: ['plan'],
     input: {
-      pipelineId: 'novel-to-drama-text', pipelineVersion: 5, pipelineNodeId: 'episode-script',
+      pipelineId: 'novel-to-drama-text', pipelineVersion: 6, pipelineNodeId: 'episode-script',
       role: 'script', label: 'episode-script:ep-1', phase: '分集剧本',
+      handler: 'episode-script', concurrency: 3,
+      outputSchema: 'production/novel-output.schema.json#/definitions/script',
+      validators: ['episode-draft'],
+      retry: { maxAttempts: 2, timeoutMs: 300000, retryOn: ['timeout', 'invalid-output', 'retryable-error'] },
+      commit: { handler: 'submit-development-proposal', kind: 'episode_draft' },
     },
   })
 })
@@ -40,7 +45,7 @@ test('pipeline compiler executes proposal commits declared by agent and barrier 
   assert.deepEqual(await compiler.commit('story-reconcile', { summary: 'story' }, submit), { proposalId: 'content_analysis' })
   assert.deepEqual(await compiler.commit('asset-commit', { characters: [] }, submit), { proposalId: 'asset_extraction' })
   assert.deepEqual(submitted, [
-    ['content_analysis', { summary: 'story' }, { pipelineId: 'novel-to-drama-text', pipelineVersion: 5, pipelineNodeId: 'story-reconcile' }],
-    ['asset_extraction', { characters: [] }, { pipelineId: 'novel-to-drama-text', pipelineVersion: 5, pipelineNodeId: 'asset-commit' }],
+    ['content_analysis', { summary: 'story' }, { pipelineId: 'novel-to-drama-text', pipelineVersion: 6, pipelineNodeId: 'story-reconcile' }],
+    ['asset_extraction', { characters: [] }, { pipelineId: 'novel-to-drama-text', pipelineVersion: 6, pipelineNodeId: 'asset-commit' }],
   ])
 })

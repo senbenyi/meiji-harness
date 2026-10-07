@@ -110,7 +110,7 @@ test('professional text tasks materialize separate script and storyboard through
   const storyboardTask = Object.values(p.productionTasks).find((task) => task.input.label === 'episode-storyboard:ep')
   assert.equal(storyboardTask.agentRole, 'shot')
   assert.equal(storyboardTask.input.pipelineId, 'novel-to-drama-text')
-  assert.equal(storyboardTask.input.pipelineVersion, 5)
+  assert.equal(storyboardTask.input.pipelineVersion, 6)
   assert.equal(storyboardTask.input.pipelineNodeId, 'shot-plan')
   assert.equal(result.episodeScripts[0].script, draft.script)
   await assert.rejects(f.submit('episode_script', { ...result.episodeScripts[0], script: 'Changed by storyboard' }), /cannot change/)

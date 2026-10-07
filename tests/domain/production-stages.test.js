@@ -330,3 +330,84 @@ test('resume preserves remote checkpoints and never steals a live worker lease',
   assert.deepEqual(p.productionTasks.reference.checkpoint, { attemptId: 'attempt', promptId: 'remote' })
   assert.throws(() => productionCommandHandlers.recordProductionTaskResult(p, { taskId: 'reference', outputRef: 'invented.png' }), /production worker/)
 })
+
+test('durable task graph appends definitions idempotently and rejects conflicts or cycles atomically', () => {
+  const p = fixture()
+  productionCommandHandlers.createProductionRun(p, { runId: 'run', tasks: [{ id: 'root', kind: 'novel-text' }] })
+  const tasks = [
+    { id: 'child', kind: 'novel-text', dependencies: ['root'], input: { label: 'child' } },
+    { id: 'leaf', kind: 'novel-text', dependencies: ['child'], input: { label: 'leaf' } },
+  ]
+  assert.deepEqual(productionCommandHandlers.appendProductionTasks(p, { runId: 'run', tasks }), {
+    runId: 'run', taskIds: ['child', 'leaf'], appendedTaskIds: ['child', 'leaf'],
+  })
+  assert.deepEqual(productionCommandHandlers.appendProductionTasks(p, { runId: 'run', tasks: structuredClone(tasks) }), {
+    runId: 'run', taskIds: ['child', 'leaf'], appendedTaskIds: [],
+  })
+  assert.deepEqual(p.productionRuns.run.taskIds, ['root', 'child', 'leaf'])
+  assert.throws(() => productionCommandHandlers.appendProductionTasks(p, { runId: 'run', tasks: [{ ...tasks[0], kind: 'render-shot' }] }), /definition conflict/)
+  assert.throws(() => productionCommandHandlers.appendProductionTasks(p, { runId: 'run', tasks: [
+    { id: 'cycle-a', kind: 'novel-text', dependencies: ['cycle-b'] },
+    { id: 'cycle-b', kind: 'novel-text', dependencies: ['cycle-a'] },
+  ] }), /dependency cycle/)
+  assert.equal(p.productionTasks['cycle-a'], undefined)
+  assert.deepEqual(p.productionRuns.run.taskIds, ['root', 'child', 'leaf'])
+})
+
+test('dynamic production runs complete only after they are sealed', () => {
+  const p = fixture()
+  productionCommandHandlers.createProductionRun(p, { runId: 'run', sealed: false, tasks: [{ id: 'first', kind: 'novel-text' }] })
+  productionCommandHandlers.leaseProductionTask(p, { taskId: 'first', owner: 'worker' })
+  productionCommandHandlers.startProductionTask(p, { taskId: 'first', owner: 'worker' })
+  productionCommandHandlers.completeProductionTask(p, { taskId: 'first', owner: 'worker' })
+  assert.equal(p.productionRuns.run.status, 'active')
+  assert.equal(p.productionRuns.run.completedAt, null)
+  productionCommandHandlers.appendProductionTasks(p, { runId: 'run', tasks: [{ id: 'second', kind: 'novel-text', dependencies: ['first'] }] })
+  assert.equal(p.productionRuns.run.status, 'active')
+  productionCommandHandlers.leaseProductionTask(p, { taskId: 'second', owner: 'worker' })
+  productionCommandHandlers.startProductionTask(p, { taskId: 'second', owner: 'worker' })
+  productionCommandHandlers.completeProductionTask(p, { taskId: 'second', owner: 'worker' })
+  assert.equal(p.productionRuns.run.status, 'active')
+  productionCommandHandlers.sealProductionRun(p, { runId: 'run' })
+  assert.equal(p.productionRuns.run.status, 'completed')
+  assert.ok(p.productionRuns.run.completedAt)
+})
+
+test('resuming a failed task includes blocked descendants without disturbing completed tasks or live leases', () => {
+  const p = fixture()
+  productionCommandHandlers.createProductionRun(p, { runId: 'run', tasks: [
+    { id: 'failed', kind: 'novel-text' },
+    { id: 'blocked-child', kind: 'novel-text', dependencies: ['failed'] },
+    { id: 'blocked-leaf', kind: 'novel-text', dependencies: ['blocked-child'] },
+    { id: 'completed', kind: 'novel-text' },
+    { id: 'live', kind: 'novel-text' },
+  ] })
+  for (const id of ['failed', 'completed', 'live']) {
+    productionCommandHandlers.leaseProductionTask(p, { taskId: id, owner: 'worker', leaseMs: 60000 })
+    productionCommandHandlers.startProductionTask(p, { taskId: id, owner: 'worker' })
+  }
+  productionCommandHandlers.completeProductionTask(p, { taskId: 'completed', owner: 'worker' })
+  productionCommandHandlers.failProductionTask(p, { taskId: 'failed', owner: 'worker', error: 'bad input', failureCategory: 'invalid-output' })
+
+  assert.deepEqual(productionCommandHandlers.resumeProductionRun(p, { runId: 'run', taskIds: ['failed', 'completed', 'live'] }).resumedTaskIds, ['failed', 'blocked-child', 'blocked-leaf'])
+  assert.equal(p.productionTasks.failed.status, 'ready')
+  assert.equal(p.productionTasks.failed.lastFailureCategory, 'invalid-output')
+  assert.equal(p.productionTasks['blocked-child'].status, 'pending')
+  assert.equal(p.productionTasks['blocked-leaf'].status, 'pending')
+  assert.equal(p.productionTasks.completed.status, 'completed')
+  assert.equal(p.productionTasks.live.status, 'running')
+  assert.equal(p.productionTasks.live.owner, 'worker')
+})
+
+test('tasks with domain commits require a materialized checkpoint before completion', () => {
+  const p = fixture()
+  productionCommandHandlers.createProductionRun(p, { runId: 'run', tasks: [{
+    id: 'commit', kind: 'novel-text', input: { commit: { handler: 'submit-development-proposal' } },
+  }] })
+  productionCommandHandlers.leaseProductionTask(p, { taskId: 'commit', owner: 'worker' })
+  productionCommandHandlers.startProductionTask(p, { taskId: 'commit', owner: 'worker' })
+  assert.throws(() => productionCommandHandlers.completeProductionTask(p, { taskId: 'commit', owner: 'worker' }), /materialized checkpoint/)
+  productionCommandHandlers.checkpointProductionTask(p, { taskId: 'commit', owner: 'worker', checkpoint: { stage: 'materialized', materializationRef: 'proposal-1' } })
+  productionCommandHandlers.completeProductionTask(p, { taskId: 'commit', owner: 'worker' })
+  assert.equal(p.productionTasks.commit.status, 'completed')
+})

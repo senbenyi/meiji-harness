@@ -27,4 +27,26 @@
 
 ## 回顾
 
-- 待实施和最终实测后填写。
+## Durable Workflow 架构重构
+
+- [x] 定义文本生产根 Run 与节点 DAG，根状态聚合所有文本阶段，禁止 bootstrap Run 提前代表完成。
+- [x] 实现通用有界 `DurableDagExecutor`：单次领取一个 ready 节点，支持 checkpoint 恢复。
+- [x] 将节点成功边界改为 `生成 → Schema 校验 → 业务校验 → Proposal 提交/领域物化 → 物化 checkpoint → completeProductionTask`。
+- [x] 为执行器增加失败分类：invalid-output、no-structured-output、timeout、domain-commit、retryable-error、non-retryable。
+- [x] 将 Pipeline manifest 编译为持久任务及 handler/validator/commit/retry/concurrency 元数据。
+- [x] 统一物化幂等键：绑定 run/task，Proposal 幂等键继续绑定 pipeline/version/node/scope。
+- [ ] 将 `studio_novel_create` 改为后台 enqueue-and-return，并让入口与画布只读取同一 Root Run 聚合状态。
+- [x] 增加迁移兼容：Pipeline v6 建立独立 DAG，不复用旧 v1-v5 任务或副作用。
+- [x] 增加领域、恢复、插件端到端测试；`npm run test:all` 162/162，`npm run smoke` 通过。
+- [ ] 强制重装插件并从干净会话验证《都市生日夜》完整文本与画布流程。
+
+### Durable Workflow 验收标准
+
+- 任一节点仅在正式领域数据已经物化并通过校验后标记 completed。
+- 进程/会话中断后，同一入口能够只恢复未完成节点；failed 与 blocked 能按依赖重新进入 ready。
+- 根 Run 只有在分析、分集、剧本、资产、资产提示词、分镜、图片提示词、视频提示词全部完成后才是 completed。
+- Prompt 不再承担 source offset、usage quote、稳定 id、依赖、版本与状态转移等确定性职责。
+- 画布状态与根 Run/Project 正式状态一致，不读取 Agent 文本作为完成依据。
+
+- 已完成领域层、执行器、单一文本 Run、动态 DAG、barrier、物化门禁与画布 Run 展示。
+- 待完成入口异步化、全量 smoke/test、插件重装及《都市生日夜》最终实测。

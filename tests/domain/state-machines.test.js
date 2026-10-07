@@ -26,6 +26,11 @@ test('automated review and download recovery use explicit state-machine paths', 
   assert.equal(assertTransition('attempt', 'failed', 'downloading'), 'downloading')
 })
 
+test('blocked production tasks can return to pending while an upstream retry runs', () => {
+  assert.equal(assertTransition('productionTask', 'blocked', 'pending'), 'pending')
+  assert.equal(assertTransition('productionTask', 'failed', 'pending'), 'pending')
+})
+
 test('invalidation is atomic when any dependent transition is illegal', () => {
   const project = {
     shots: { shot: { id: 'shot', status: 'ready', dependsOn: ['source'] } },

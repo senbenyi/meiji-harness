@@ -1,6 +1,6 @@
 {
   "id": "novel-to-drama-text",
-  "version": 5,
+  "version": 6,
   "title": "小说到短剧文本生产",
   "description": "把原文转换为可执行的故事分析、分集剧本、资产设定、镜头计划以及独立图片和视频提示词。媒体生成由持久 ProductionRun 接续。",
   "phases": [
