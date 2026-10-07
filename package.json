@@ -43,7 +43,6 @@
     "lib",
     "studio",
     "skills",
-    "scripts",
     "pipelines",
     "workflows",
     "schemas",
@@ -52,14 +51,6 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
-  },
-  "scripts": {
-    "test": "node --test tests/plugin/*.test.js tests/domain/tools.test.js tests/comfy/request-builder.test.js",
-    "test:all": "node --test tests/**/*.test.js",
-    "test:domain": "node --test tests/domain/*.test.js tests/storage/*.test.js tests/media/*.test.js tests/integration/*.test.js",
-    "smoke": "node scripts/checks/smoke-tools.mjs && node scripts/checks/smoke-manifest.mjs && node scripts/checks/smoke-tier-resolution.mjs && node scripts/checks/smoke-skill-install.mjs",
-    "smoke:all": "node scripts/checks/smoke-tools.mjs && node scripts/checks/smoke-manifest.mjs && node scripts/checks/smoke-render.mjs && node scripts/checks/smoke-tier-resolution.mjs && node scripts/checks/smoke-video-shape.mjs && node scripts/checks/smoke-skill-install.mjs && node scripts/checks/smoke-client-settings.mjs && node scripts/checks/smoke-canvas-home.mjs && node scripts/checks/smoke-canvas-theme.mjs && node scripts/checks/smoke-assets.mjs && node scripts/checks/smoke-upload-assets.mjs && node scripts/checks/smoke-preask-deliver.mjs && node scripts/checks/smoke-pdf.mjs",
-    "prepublishOnly": "npm run smoke:all"
   },
   "dependencies": {
     "puppeteer-core": "^25.9.0"

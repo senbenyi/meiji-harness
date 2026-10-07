@@ -6,7 +6,7 @@
 
 ## 0. 结论
 
-- 当前 `web` Profile 的组合配置出现 182 个 `@deepseek-ai/*` 包或子入口，`scripts/tools/audit-harness.mjs web --json` 已全部解析到本机安装树，组合内缺包数为 0；本轮无需安装新依赖。
+- 当前 `web` Profile 的组合配置出现 182 个 `@deepseek-ai/*` 包或子入口；基线审计时均可解析到本机安装树，组合内缺包数为 0，本轮无需安装新依赖。
 - 当前环境不是单一版本：启动器为 `0.1.7-alpha.2`，组合中同时存在 `0.1.2-rc.1`、`0.1.7-alpha.2` 和基础依赖 `1.1.6`。后续文档不得再写成统一的 `0.1.0-rc.7`。
 - Todo、Subagent、Workflow、Goal、Jobs、Plan、Storage Domain、Session Projection、Approval、Skill、Attachment、Deliverables、Compaction 与 Spill 均已有官方实现。当前插件应先利用这些能力，禁止复制任务列表、子代理调度、计划审批、后台作业面板或会话恢复机制。
 - “已安装”“已挂载”“当前 preset 对 Agent 可见”“当前业务已经利用”是四种不同状态。仅存在于 `node_modules` 不能证明可用；宿主层的 disabled 占位也不能证明 Standard preset 未启用。
@@ -19,10 +19,9 @@
 ```shell
 dsh --version
 dsh --profile web --dump-config
-node scripts/tools/audit-harness.mjs web --json
 ```
 
-`audit-harness.mjs` 只读取组合配置和本机包元数据，不输出配置值或凭据。它逐项核对：
+审计时逐项核对：
 
 1. 组合配置是否引用该官方包或子入口。
 2. 本机 pnpm 安装树能否解析其实际包。
@@ -121,7 +120,7 @@ Todo 的文本和状态由 Agent 写入，Harness 负责校验、会话日志持
 2. 当前已挂载能力没有等价实现。
 3. 与当前 `dsh`、bundle 和 preset 版本兼容。
 4. 明确 Host 服务、Agent 工具、UI 三者哪些需要安装和启用。
-5. 安装后通过 `audit-harness.mjs`、`--dump-config` 和最小运行探针。
+5. 安装后通过 `--dump-config`、实际插件加载日志和真实页面最小操作验证。
 
 禁止仅因为包存在于官方仓库就安装；禁止只安装 UI 而没有 Host 服务，或只安装 Host 服务却误报 Agent 可见。
 

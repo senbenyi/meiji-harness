@@ -112,5 +112,4 @@ pdd_denoise=0.3
 
 每次改配方至少验证：实际输出尺寸、帧数/FPS、音轨 md5 或时长、峰值显存、端到端耗时、有效分辨率、闪烁与人物漂移。单帧、单 seed 或不同会话耗时只能作为局部证据，不能直接升级为默认策略。
 
-复现入口以 `scripts/probes/`、workflow manifest 和 schema 为准；生成物清单不得手改。
-
+复现以真实页面、workflow manifest 和 schema 为准；固定输入、实现、seed、帧数与画幅比例后核对真实产物，生成物清单不得手改。

@@ -397,15 +397,8 @@ ComfyUI 菜单「导出 API」得到的 JSON 就是我们的 `graph` 格式（`{
 - **LoRA 换档**：若 fast/quality 靠不同 LoRA 切换，才需要 `$model` 哨兵 + `modes.<mode>.loras`；
   普通工作流硬连线即可，无需 `$model`。
 
-### 11.5 自动转换脚本
-`../../scripts/tools/import-comfy.mjs` 自动完成 11.2 + 11.3（资产、标量、prompt、`$assets`/`null` 替换），
-并打印 11.4 的「需手动补充」清单：
+### 11.5 人工转换与导入
 
-```
-node scripts/tools/import-comfy.mjs exported.json \
-  --id sdxl-text2image --capability image.text2image --name "SDXL 文生图" \
-  --out ~/.dsh/dsh-short-video-studio/workflows/sdxl-text2image.json
-```
-
-产出的清单 `validateManifest` 即通过，可直接被 `comfy_render` 执行；剩下的就是补
-`modes`/`resolution`/`constraints`/`output.hasAudio` 等策略字段，以及按 11.4 完成参考图绑定。
+从 ComfyUI 导出 API JSON 后，按 11.2–11.4 手工完成资产、标量、prompt、`$assets`/`null` 替换和语义绑定，
+再补齐 `id`、`capability`、`name`、`modes`、`resolution`、`constraints` 与 `output.hasAudio` 等策略字段。
+通过设置页导入时会按 `validateManifest` 拒绝结构或引用不完整的清单；导入后必须用真实 provider 生成固定样本确认语义绑定。

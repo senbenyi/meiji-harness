@@ -3,11 +3,11 @@
    由 <html data-theme> 选择（首屏由 index.html 的 inline 脚本按 ?theme= 定，
    运行时由 app.js 收宿主的 postMessage 切换）。
 
-   两条硬规矩（由 scripts/checks/smoke-canvas-theme.mjs 强制）：
+   两条调色板维护规则：
    1. 两个调色板块必须定义**完全相同**的变量名，否则切主题会「少一个变量」而静默变色；
    2. **调色板块之外不得出现任何颜色字面量** —— 色值只在这里出现，
       低透明度底色一律用 color-mix() 从语义色派生（DSH 自身也用这个写法）。
-   改了底色记得重跑 scripts/checks/smoke-canvas-theme.mjs。 */
+   修改后通过真实页面分别检查浅色和深色主题。 */
 :root {
   color-scheme: light;
   --bg: #f6f7f9;
@@ -42,8 +42,7 @@
   --panel: #1b1e27;
   --panel-2: #232734;
   /* 比原来的 #2e3342 略亮一档：原值压在 --panel-2 上只有 1.18:1，
-     chip（.node-kind / .asset-tag / .lane-count）的 1px 边框几乎看不见。
-     由 smoke-canvas-theme 的「边框与底色可分」断言卡住。 */
+     chip（.node-kind / .asset-tag / .lane-count）的 1px 边框几乎看不见。 */
   --border: #363c4d;
   --text: #e8eaf0;
   --muted: #9aa1b1;

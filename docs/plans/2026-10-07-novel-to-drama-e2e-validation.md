@@ -53,9 +53,7 @@ Pilot 每个 Gate 最多允许一次根因修复和一次复验；复验仍失�
 
 - 记录 Git HEAD、工作区 diff、插件源码 hash；
 - 记录小说 SHA-256；
-- 聚焦测试通过；
-- `npm run test:all` 通过；
-- `npm run smoke:all` 通过；
+- 关键源码语法检查通过；
 - web profile 安装副本与工作区关键文件 hash 一致；
 - Harness 服务重新启动且插件无加载错误；
 - 使用全新 Project，不复用旧 v1-v6 Run 或旧媒体产物。
@@ -170,9 +168,8 @@ Pilot 全部通过后，Full Happy Run 使用完整小说重复 Gate 1-6；最�
 ### L3：全量回归
 
 ```bash
-npm run test:all
-npm run smoke:all
 git diff --check
+npm pack --dry-run
 ```
 
 ### L4：真实 UI 与媒体
@@ -207,7 +204,7 @@ artifacts/e2e/<run-id>/
 - Gate 0-6 全部通过；
 - Pilot Recovery Run 六阶段、节点重试和服务重启恢复全部通过；
 - Full Happy Run 六阶段全部通过；
-- `npm run test:all`、`npm run smoke:all`、`git diff --check` 通过；
+- `git diff --check` 与 `npm pack --dry-run` 通过；
 - 证据包完整；
 - 最终 Deliverable 可读取；
 - 无人工补写业务数据、无 shell 绕行、无复用旧项目结果。

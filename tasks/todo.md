@@ -16,6 +16,23 @@
 - 17 个文本节点已持久完成；`prop-upside-down-bowl`、`prop-four-dishes-one-soup` 在 5 分钟边界同时失败。
 - 根因不是“整个 Root Agent 只能运行 5 分钟”，而是 Workflow 执行器把一次调用超时直接上抛，绕过了 manifest 已声明的 timeout 重试策略。
 
+## 2026-10-07 第三次 Clean-room 分镜控制字段修复
+
+- [x] 新建会话并单次调用入口，创建全新 Project `20261007153028053`；轨迹仅为 `glob → skill → studio_novel_create`。
+- [x] 证明 timeout 修复有效：资产提示词从此前 17 节点故障点持续推进到 30/31，无整批回滚、无人工续跑。
+- [x] 保留新的 30/31 失败现场，不点重试：shot-plan 第一次违反 2–3 镜头，第二次遗漏 episode 的事件覆盖。
+- [x] 纠正错误方案：禁止领域层自动补 `shots[].beatIds` 制造假覆盖；事件归属继续由模型按镜头语义提交并由 validator 检查。
+- [x] 将 24 秒 Pilot 预算前移到剧本改编；Storyboard Schema 直接限制 2–3 镜，Prompt 使用精简剧本语义，失败信息列出具体缺失 beat。
+- [x] Pipeline 提升到 v7，避免旧 v6 失败快照与新控制语义混跑。
+- [ ] 运行聚焦与完整自动验证，重装重启后进行第四次单入口 clean-room。
+
+### 第四次 Clean-room 结论
+
+- [x] 全新 Project `20261007154442883` 仍为单入口、零续跑；压缩剧本和全部资产提示词已推进到 24/25。
+- [x] shot-plan 在模型启动前失败：Harness 明确拒绝 `minItems/maxItems`，两次尝试均为 unsupported schema keyword。
+- [x] 删除 Harness 不支持的关键字；数量约束保留在受支持的 `description` 注解、精确 Prompt 和领域 validator 三层，并提升 Pipeline 到 v8。
+- [ ] 重装重启后进行第五次单入口 clean-room；同一契约不再继续扩大修复面。
+
 ## 2026-10-07 自主闭环审计与根因修复
 
 ### 计划
@@ -291,15 +308,15 @@
 - `smoke:all` 约 5 秒，其中 assets 脚本固定空等约 3 秒、PDF fallback 约 1 秒；大量 UI/CSS/注册顺序/字符串断言与人工页面验收重复。
 - 自动化只保留人工难以稳定验证的隐藏不变量：并发/幂等、原子持久化、路径安全、重复提交、DAG/checkpoint、入口权限与 provider 请求门禁。
 
-### 实施计划（等待确认）
+### 实施计划
 
-- [ ] 删除耗时的 `drama-flow` 伪端到端测试；主流程成功与成片质量只通过 `http://127.0.0.1:3080/` 的真实人工验收确认。
-- [ ] 将自动测试精简到约 29 条核心契约：CAS/command 幂等、年龄与权利门、原子失效与 lease、路径穿越与审计链、`submission_unknown` 禁止重提、Pipeline/DAG/checkpoint、唯一入口/阶段门禁、全文覆盖、引用上限、禁止漏镜。
-- [ ] 删除低价值测试文件与同文件内排列组合：配置优先级、Schema 自证、编译器实现细节、read-model 展示计数、BatchRunner 参数组合、concat 拓扑、Canvas tab/投影、H3 tier 笛卡尔积等。
-- [ ] 删除 `smoke:all`、`prepublishOnly` 及 UI/CSS/PDF/assets/upload/preask/render/video-shape/skill-install 等低价值 smoke；仅保留 `tools + manifest + tier-resolution` 三个快速插件契约检查，默认合计约 0.23 秒。
-- [ ] 将 `npm test` 改为唯一核心自动验证入口，删除误导性的 `test:all` / `test:domain` / `smoke:all`；同步 README，不批量改写历史归档中的旧验收记录。
-- [ ] 新增简短人工验收清单：唯一 UI 入口、真实 provider、宿主重启恢复、上游编辑失效传播、远端失败重试、逐镜与最终成片检查；运行时由 Codex 补跑或热修则整次验收失败。
-- [ ] 验证精简后的 `npm test` 与保留的快速 smoke，并记录测试数和墙钟时间；不再运行已删除的完整套件。
+- [x] 删除耗时的 `drama-flow` 伪端到端测试；主流程成功与成片质量只通过 `http://127.0.0.1:3080/` 的真实人工验收确认。
+- [x] 将自动测试精简到核心契约：CAS/command 幂等、年龄与权利门、原子失效与 lease、路径穿越与审计链、`submission_unknown` 禁止重提、Pipeline/DAG/checkpoint、唯一入口/阶段门禁、全文覆盖、引用上限、禁止漏镜。
+- [x] 删除低价值测试文件与同文件内排列组合：配置优先级、Schema 自证、编译器实现细节、read-model 展示计数、BatchRunner 参数组合、concat 拓扑、Canvas tab/投影、H3 tier 笛卡尔积等。
+- [x] 删除 `smoke:all`、`prepublishOnly` 及 UI/CSS/PDF/assets/upload/preask/render/video-shape/skill-install 等低价值 smoke；仅保留 `tools + manifest + tier-resolution` 三个快速插件契约检查。
+- [x] 将 `npm test` 改为唯一核心自动验证入口，删除误导性的 `test:all` / `test:domain` / `smoke:all`；同步 README，不批量改写历史归档中的旧验收记录。
+- [x] 新增简短人工验收清单：唯一 UI 入口、真实 provider、宿主重启恢复、上游编辑失效传播、远端失败重试、逐镜与最终成片检查；运行时由 Codex 补跑或热修则整次验收失败。
+- [x] 验证精简后的 `npm test` 与保留的快速 smoke，并记录测试数和墙钟时间；不再运行已删除的完整套件。
 
 ### 验收标准
 
@@ -310,4 +327,54 @@
 
 ### 回顾
 
-- 待实施完成后填写。
+- 删除 14 个低价值测试文件，21 个测试文件仅保留 31 条运行时核心测试；测试代码收敛到 904 行。
+- 删除 11 个旧 smoke/mock 脚本；`scripts/checks` 仅保留人工验收用 `drama-live.mjs` 和 3 个快速契约 smoke。
+- 移除前端仅供已删除 smoke 使用的 `__test`、`__canvasHome`、`__canvasTheme` 导出，以及 Skill 安装 smoke 专用 `_internals` 暴露。
+- `npm test`：31/31 通过，Node 测试 403 ms、墙钟 0.56 秒。
+- `npm run smoke`：tools/manifest/tier 全部通过，墙钟 0.31 秒。
+- 默认自动验证合计约 0.87 秒，低于 2 秒目标；真实 UI、provider、恢复流程与成片质量明确转为人工验收。
+
+## 2026-10-07 彻底删除自动测试
+
+### 计划（用户已确认）
+
+- [x] 删除 `tests/` 下全部测试与测试 helper。
+- [x] 删除剩余 `smoke-tools`、`smoke-manifest`、`smoke-tier-resolution`，保留人工验收脚本 `drama-live.mjs`。
+- [x] 删除 `package.json` 中全部 test/smoke 命令，并将 README 验证方式统一为真实页面人工验收。
+- [x] 删除生产代码中仅供自动测试使用的注入开关、内部导出和失效注释。
+- [x] 通过语法检查、包清单检查和引用扫描验证清理完整性；不再运行自动测试。
+
+### 回顾
+
+- `tests/` 目录、全部 `.test/.spec` 文件和全部自动 smoke/mock 脚本已删除；仓库自动测试文件数为 0。
+- `package.json` 不再包含 test/smoke scripts；README 与前向架构/实施文档均改为真实页面、真实 provider、重启恢复和最终产物人工验收。
+- 删除 `MemoryProjectRepository`、`__testMemoryProjectDomain`、`initializeTestProjectDomain`、React 测试 shim 及绝大多数测试型 `_internals` 暴露。
+- 本阶段曾暂留 `drama-live` 与 ComfyUI probes；随后按用户要求在“精简 scripts”任务中一并删除。
+- 非测试验证通过：全部 JS/MJS `node --check`、主模块 import、`npm pack --dry-run`、目标 diff whitespace 检查；没有运行任何自动测试。
+
+## 2026-10-07 精简 scripts
+
+### 审计结论
+
+- `scripts/` 当前 16 个脚本均无生产运行时调用者，但整个目录仍通过 `package.json.files` 进入发布包。
+- `analysis/` 中 7 个脚本主要复现一次性 2K/U3/hires benchmark；在全人工操作策略下均非必须。
+- `probes/` 中 5 个脚本均会连接真实 ComfyUI，其中部分会留下队列、输出并消耗 GPU/磁盘；当前没有调用者，且与真实 UI 人工验收重复。
+- `drama-live.mjs` 无活动入口且与 `3080` 手工流程重复；`audit-harness.mjs` 和 `import-comfy.mjs` 只是无人调用的便利 CLI。
+- `migrate-project-layout.mjs` 是旧项目布局迁移与备份工具；用户明确当前流程尚未通过且不需要迁移，删除。
+
+### 实施计划（用户已确认）
+
+- [x] 删除 `analysis/` 全部 7 个一次性分析与质检脚本。
+- [x] 删除整个 `probes/` 目录的 5 个真实提交脚本。
+- [x] 删除 `checks/drama-live.mjs`、对应 fixture、`tools/audit-harness.mjs` 和 `tools/import-comfy.mjs`。
+- [x] 按用户纠正删除 `tools/migrate-project-layout.mjs`，不保留迁移工具例外。
+- [x] 从 `package.json.files` 移除 `scripts`，并删除空的 `scripts/` 目录。
+- [x] 清理前向文档中的失效脚本引用，执行语法、模块导入、包清单、引用和 diff whitespace 检查。
+
+### 回顾
+
+- `scripts/` 全部 16 个脚本与测试 fixture 已删除，目录不存在；`package.json.files` 不再发布 scripts。
+- 删除无人调用的 `_internals` 脚本出口；运行时错误文案和现行架构、workflow、tier、存储、Harness 文档不再指向已删脚本。
+- 按用户纠正未保留质检或迁移例外：画质判断、真实 provider、失败恢复和旧数据处理全部由操作者人工完成。
+- 非测试验证通过：全部 `lib/`、`studio/` JS/MJS 语法检查，主模块 import，`npm pack --dry-run`（110 个文件、无 scripts），目标 diff whitespace 检查。
+- 最终状态：`tests/` 不存在、`scripts/` 不存在、`.test/.spec` 文件数为 0；未运行任何自动测试。

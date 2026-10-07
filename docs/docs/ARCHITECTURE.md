@@ -43,7 +43,6 @@ dsh-short-video-studio/
 │   └── 3d-animation-short-generator/  # 自带 skill（安装时复制到 ~/.dsh/skills/）
 │       ├── SKILL.md             # 流水线散文（Step 0-8、门控纪律、实践要点）
 │       └── references/          # 镜头表规范 / 分镜指南 / QC 清单 / 失败梯度 / 模型选择
-├── scripts/                     # 冒烟 / e2e / 转换脚本（无 npm scripts 编排，手动执行）
 ├── docs/                        # 设计文档与实验报告
 └── examples/fox/                # 示例片《一只想当宇航员的小狐狸》产物（含反面示例卡）
 ```
@@ -125,7 +124,7 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
 
 形状**不再由「传没传首帧」隐式推断**（旧行为会把冲突参数静默丢弃，见 `video-continuity.md`）：真值表集中在 `VIDEO_SHAPES`，校验由 `validateVideoArgs()` 实现，`runRender` 在**上传参考图之前**调用，工具 / HTTP 路由 / 脚本共用同一张表；冲突报错必须带修法。形状与「续接」（`continuity_from`）正交，跨形状续接刻意允许。
 
-> 注：`runImageGeneration` / `runVideoGeneration` 与三个 legacy builder（`buildFluxImageWorkflow` / `buildH3VideoWorkflow` / `buildH3ImageToVideoWorkflow`）已无生产调用点，仅经 `_internals` 供 `smoke-manifest.mjs` 做「manifest 编译 vs legacy 构造」节点类别等价性比对（见 §7 架构债）。
+> 注：`runImageGeneration` / `runVideoGeneration` 与三个 legacy builder（`buildFluxImageWorkflow` / `buildH3VideoWorkflow` / `buildH3ImageToVideoWorkflow`）属于内部兼容路径，不再对外暴露脚本或探针入口。
 
 #### 视频拼接（`runConcat` + `../../lib/concat.js`）
 
@@ -210,8 +209,7 @@ studio/app.css     两套调色板：:root（浅，默认）/ :root[data-theme="
 ```
 
 - 两套调色板 **变量名必须完全对等**、调色板块之外 **零颜色字面量**、低透明度底色一律
-  `color-mix()` 从语义色派生（DSH 自身也用这个写法）——三条都由
-  `../../scripts/checks/smoke-canvas-theme.mjs` 强制，因为这类问题的表现是 **静默变色**而不是报错。
+  `color-mix()` 从语义色派生（DSH 自身也用这个写法）。修改主题后必须在真实页面分别检查浅色、深色和系统偏好回退。
 - 宿主读不到主题服务（没装 `ui-theme`）时**不传** `?theme=`，让画布页按系统偏好兜底，不硬猜。
 - 首屏主题**只读一次**：它进了 `src`，跟着变会让 iframe 重载（丢滚动位置）。运行中切换只走
   `postMessage`。`color-scheme` 两套都声明，原生控件（下拉/滚动条/复选框）跟着走。
@@ -229,7 +227,7 @@ studio/app.css     两套调色板：:root（浅，默认）/ :root[data-theme="
   - 每个已安装副本的 `.dsh-studio-manifest` 记 `pluginVersion` + `contentHash` + `installedAt`；
   - **五种情形**：① 目标不存在 → 安装 + 落戳；② 有戳且内容 == 记录（用户没改）→ 与源不同则**刷新**（删掉重拷 + 更新戳），相同则只补戳（静默）；③ 有戳但内容 != 记录（**用户改过**）→ **不覆盖**，日志提示取新版的办法；④ 有戳无哈希（旧版安装）→ 内容与源一致只补戳，不一致按「用户改过」保守处理；⑤ 无戳 → 内容与源逐字节一致才**收编补戳**（只写标记，不碰内容），否则视为用户/第三方同名 skill → 冲突提示、不覆盖；
   - `DSH_SVS_SKILL_REFRESH=off` 关掉刷新（只做首次安装 + 冲突提示），`=force` 连用户改过的也覆盖（显式越权）；
-  - 回归：`../../scripts/checks/smoke-skill-install.mjs`（37 断言，临时目录里自建 bundle + 目标，不碰真实 `~/.dsh/skills`），已进 `npm run smoke`。
+  - 验收：在真实 profile 中执行安装与升级，核对未修改副本随版本刷新、用户修改副本不被覆盖、冲突有明确日志。
 - **配置**：插件 `inject = ['webServer', 'tools', 'systemPrompt', 'workspaceRegistry']`（fiber 等待服务就绪）。
 
 ---
@@ -294,7 +292,7 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 | 路径 | 职责 |
 |---|---|
-| `../../lib/index.js` | 宿主入口：配置、ComfyUI 客户端、渲染编排（runRender + legacy）、画布存储、HTTP 路由、13 个工具、GUIDANCE、skill 安装、`_internals` 测试出口 |
+| `../../lib/index.js` | 宿主入口：配置、ComfyUI 客户端、渲染编排（runRender + legacy）、画布存储、HTTP 路由、13 个工具、GUIDANCE、skill 安装 |
 | `../../lib/manifest.js` | 契约引擎：`CAPABILITIES` 词汇、`validateManifest`、`resolveAssets`、`buildGraphFromManifest`（注入引擎）、`loadBuiltinManifests` |
 | `../../lib/convert.js` | ComfyUI 导出 → manifest 机械转换（资产抽取、标量注入点、todos 交人工的语义绑定清单） |
 | `../../lib/assets.js` | 资产库：load/save/register/remove、id 规范化（`normalizeAssetId`）、`isAssetRef` / `canonicalAssetId`、kind 派生（`assetKind` / `assetTypesForKind` / `TYPE_KINDS` / `NODE_KINDS`）、`assetStoredFile`、`resolveAssetPath`（任意 kind）/ `resolveAssetImagePath`（只认 image，作 ref 安全闸门）、`slugifyName` |
@@ -304,9 +302,6 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 | `../../workflows` | 4 份内置 manifest（数据） |
 | `../../schemas/workflow-manifest.schema.json` | manifest 权威 JSON Schema |
 | `skills/3d-animation-short-generator/` | 其中一种片型的生产流程 skill（自包含单文件 SKILL.md + meta.yaml）；插件对它零认知 |
-| `../../scripts` 冒烟与走查 | `mock-apply`（装配冒烟）、`smoke-manifest`（M1 图编译等价）、`smoke-render`（M2 纯逻辑）、`smoke-concat`（拼接图拓扑）、`smoke-canvas-home`（画布的家 + 主题接线的纯逻辑）、`smoke-canvas-theme`（双调色板对等 / 零颜色字面量 / WCAG）、`smoke-assets`（真路由：三种载体的入库/删除/物化 + 老库兼容）、`probe-concat` / `probe-extract-frame`（实跑，需 ComfyUI）、`smoke-flux2` / `smoke-submit`（需 ComfyUI）、`import-comfy`（CLI 转换） |
-| `../../scripts` 模板层（H3 一个 json = 一个档位实现） | `h3-templates/`（手写源）→ 三个生成器 → `../../workflows`（产物，勿手改）：`make-h3-variants.mjs`（模板 → 单档清单，自动填 `requiresNodes`/`estSeconds`/`note`）、`make-pdd-template.mjs`（从同族 base 生成 PDD 模板，固定 6 处改动：model 直连 UNETLoader 不走 `$model` 哨兵、插 `MiniMaxH3PDDAccApply`、guider 改用其输出、删 `BasicScheduler`、`sigmas` 接该节点的 1 号输出、采样器强制 euler；shift 固定 12/3，`requiresNodes=['MiniMaxH3PDDAccApply']`，`priority=-30` 不做隐式默认）、`make-sol-attn-variant.mjs`（插 Sol 节点；`--after=<锚点>`，遇到 PDD 模板会自动锚定 PDD 节点、Sol id 改用 `2b`，避免与 Apply 节点的 `2a` 撞号） |
-| `scripts/bench-h3.mjs` | 实测工具：由**模板**直接组图跑真机并计时（两条臂只要 ref/seed/length/prompt 一致，差异即只来自配方；`--dry` 先核对配方） |
 | `../../cordis.patch.yml` | bundle patch：插件行插入 web profile roster |
 | `..` | canonical 设计文档（workflow-contract、tier-strategy-design、video-continuity、video-upscale-guide） |
 
@@ -318,9 +313,9 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 |---|---|---|
 | **P0** ✅ | GUIDANCE 三视图/单视图矛盾 | 已按三视图实验结论修复（单视图 + 参考图零文字 + 多角度无增量价值） |
 | **P0** ✅ | GUIDANCE 与 `SKILL.md` 双份真相 | 已修复：GUIDANCE 收敛为「基本约定 + 工具契约 + 参考图硬规则 + skill 指针」，不再写任何流程；流程唯一真相在 `SKILL.md`（单文件，`references/` 已删除）。GUIDANCE 与 `GROUP_ORDER` 均不再出现片型词汇或具体 skill 名 |
-| **P1** | ~160 行 legacy 死代码 | `runImageGeneration` / `runVideoGeneration` / 三个 builder 已无生产调用点，仅作 smoke 对照；建议改 golden-file 快照断言或移入 test fixtures |
+| **P1** | legacy 兼容路径 | `runImageGeneration` / `runVideoGeneration` / 三个 builder 与 manifest 路径并存；真实探针仍使用其中两个 builder，清理前需先迁移探针 |
 | **P1** | `../../lib/index.js` 单文件 8 职责 | 配置 / ComfyUI 客户端 / 图构造 / 存储 / 渲染 / 路由 / 工具 / GUIDANCE；建议拆 comfy.js / canvas.js / render.js / routes.js / tools.js / guidance.js |
-| **P1** | 无 `npm test` / CI | `../../scripts` 8 个文件全靠手跑；`smoke-manifest` / `smoke-render` / `mock-apply` 是纯逻辑可 CI |
+| **P1** | 无自动 test / smoke | 项目明确以 `3080` 真实页面、真实 provider、重启恢复和最终产物人工验收为准 |
 | **P2** | tokenless 路由 `/config` / `/workflows` | `POST /workflows` 会写图文件并 `reloadRegistry`，`POST /config` 可改 baseUrl；建议加 token 或明示威胁模型 |
 | **P2** | `schemaVersion` 无迁移 | 只有写入无检查无 `migrate()`，为将来 shotlist 节点预留 |
 | **P2** | 设置页资产字段仍硬编码 | 应改为按 registry 动态渲染（即 M4）。入库表单化已完成（资产类型下拉 + 资产名，不再从分组名反推类型） |
@@ -333,7 +328,7 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 1. **工作流契约（M1–M5）**：已完成 M1/M2（manifest 引擎 + 通用 runRender + `comfy_render` / `comfy_list_workflows`）；M3 把 GUIDANCE/skill 改为能力词汇表述；M4 设置页按 registry 动态渲染；M5 验收 = 加第 4 个模型零 JS 改动。
 2. **一致性与镜头规划（W1–W5）**：角色档案（character bible）+ `asset_register` + `preset: character-card` → 参考绑定策略引擎 `planRefs` → 结构化镜头清单 `shotlist` + `shotlist_validate()` → 抽帧打通末帧串联 → seed 纪律与 QC。
-3. **架构清理**：先做 P0（单一真相）+ P1 前两项（npm test/CI、源码入库），再拆分 index.js，最后 P2。
+3. **架构清理**：先做 P0（单一真相）与源码入库，再拆分 index.js，最后 P2；每步通过真实页面和实机探针验收。
 
 ---
 
@@ -415,7 +410,7 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 - `lib/index.js` 虽已拆出配置、Guidance、Skill 同步与 hooks，ComfyUI、渲染、工具和路由仍应按职责继续拆分；不要重写 manifest 系统或引入第二套 registry。
 - 所有新增 schema 字段必须有 `schemaVersion` 与迁移路径；老 `project.json` 不得靠前端猜测兼容。
 - 配置和变更端点统一 token/信任边界；只绑定 `127.0.0.1` 不能替代明确认证策略。
-- `npm test` 与 smoke 是合并门槛；可校验规则应下沉为 schema/领域断言，不只写在 Prompt。
+- 真实页面、真实 provider、重启恢复和最终产物人工验收是合并门槛；机器规则应下沉为 schema/领域断言，不只写在 Prompt。
 - 前端表单必须由 manifest asset metadata 驱动，避免新增 workflow 后设置页仍缺固定字段。
 
 优先级：P0 为单一真相与信任边界；P1 为剩余单文件拆分、schema 迁移和动态设置页；P2 才是性能与非必要 UI 重构。历史审查中约 160 行 legacy 死代码和旧行数只代表当时基线，不再作为当前事实。
