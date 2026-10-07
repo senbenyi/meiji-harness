@@ -42,7 +42,9 @@ export async function runOperation(operation, deps) {
   }
   const engine = createRunEngine({ home: deps.home, execute: (run, step, context) => {
     if (['wait_confirm', 'wait_script_confirm'].includes(step.kind)) return { confirmed: true }
-    if (step.kind === 'expand') return projectStore(deps.home).read(root.id).then(current => ({ steps: planRun(materialize(current, episodeId), step.input.goal, { freshness: {} }).steps }))
+    if (step.kind === 'expand') return projectStore(deps.home).read(root.id).then(current => ({ steps: planRun(materialize(current, episodeId), step.input.goal, { freshness: {}, ...step.input.policy }).steps }))
+    // 剧情任务附带的补图：测试未注入图片接口时不访问网络，按空结果完成。
+    if (step.kind === 'image' && step.origin === 'expand' && !deps.fetchImpl) return {}
     const request = step.kind === 'sync' && goal.to !== 'script-sync' ? syncRequest : deps.request || (!deps.fetchImpl ? async message => { if (message.skill === 'review') return reviewPass; throw new Error('未注入测试生成请求') } : undefined)
     return executeRunStep(run, step, { ...deps, ...context, request })
   } })

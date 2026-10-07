@@ -69,7 +69,9 @@ test('图片资料、画幅和有序用途独立成对象，Base64 留在图片�
     const images = mode === 'generate' ? [] : [{ purpose: mode === 'modify' ? 'edit-base' : purpose, base64 }, { purpose, base64 }]
     const model = create({ ...facts, generationRules: '完整基础规则', canvas: { width: 900, height: 1200 }, mode, images,
       modification: mode === 'modify' ? { instruction: '本次意见' } : null })
-    assert.equal(promptData(model.toPrompt(), `【${field}资料】`).name, text)
+    // 人物资料写成外观描述、不含姓名（避免被画成设定卡文字）；场景资料仍为结构化对象。
+    if (field === '场景') assert.equal(promptData(model.toPrompt(), `【${field}资料】`).name, text)
+    else assert.ok(!model.toPrompt().split('【人物资料】')[1].split('\n\n')[0].includes(text))
     assert.deepEqual(promptData(model.toPrompt(), '【本次要求】'), { width: 900, height: 1200, orientation: '竖幅' })
     if (images.length) assert.deepEqual(promptData(model.toPrompt(), '【参考图片】').images, images.map(({ purpose }, index) => ({ index: index + 1, purpose })))
     assert.doesNotMatch(model.toPrompt(), /data:image|AA==/)

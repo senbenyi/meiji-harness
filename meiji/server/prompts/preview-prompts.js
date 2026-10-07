@@ -20,7 +20,7 @@ const opinion = '（此处为人工修改意见）'
 function textBuilder(stage, root, view, mode, nodeKey) {
   const shot = view?.shots?.items?.find(item => `seconds:${item.id}` === nodeKey) || view?.shots?.items?.[0]
   if (stage === 'episode' && view) return () => buildEpisodePrompts(root, view.episodeId)
-  if (stage === 'outline' && view?.summary?.content) return () => buildStoryPrompts(view, nodeKey || 'outline', '', { extraction: ['characters', 'scenes', 'props'].includes(nodeKey) && checkContext.getStore()?.generationMode !== 'modify' })
+  if (stage === 'outline' && view?.summary?.content) return () => buildStoryPrompts(view, nodeKey || 'outline', '', { extraction: ['characters', 'scenes'].includes(nodeKey) && checkContext.getStore()?.generationMode !== 'modify' })
   if (stage === 'shots' && view?.plot?.outline?.content) return () => buildTablePrompts({ project: view })
   if (stage === 'shot-revise' && shot) return () => buildSingleShotPrompts({ project: view, shotId: shot.id })
   if (stage === 'seconds' && shot) return () => buildSecondsPrompts({ project: view, shotId: shot.id })
@@ -71,7 +71,7 @@ export function previewPrompts({ stage, root, view, skillSet, mode = 'reference'
       revise: request(regenerate.revision('（自审未通过的稿件）', JSON.stringify({ passed: false, issues: [{ location: '本次内容', reason: '（自审不通过原因）', requirement: '修正上述问题' }] }))),
     }
     if (stage === 'outline' && view?.plot && !nodeKey) {
-      for (const kind of ['characters', 'scenes', 'props']) {
+      for (const kind of ['characters', 'scenes']) {
         const extract = checkContext.run({ generationMode: 'regenerate', review: '', requirements: '' }, () => buildStoryPrompts(view, kind, '', { extraction: true }))
         const modify = checkContext.run({ generationMode: 'modify', review: opinion, requirements: '', originalProject: view }, () => buildStoryPrompts(view, kind)).generation
         requests[`${kind}_generate`] = request(extract.generation)

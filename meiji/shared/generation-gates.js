@@ -60,8 +60,8 @@ export function gateMessage(project, step) {
   }
   if (step === 'outline') {
     if (!canGenerate(project, 'outline')) return '请先写好本集摘要，再写故事大纲。'
-    if (!hasOutline(project)) return '点击 AI生成，依次生成故事大纲、角色卡和场景卡，不生成图片或镜头。'
-    if (hasOutline(project)) return '剧情资料已生成；大纲、角色和场景依次独立生成并审核，道具按空集合处理。重新生成会清空镜头及后续内容。'
+    if (!hasOutline(project)) return '点击 AI生成，依次生成故事大纲、角色卡和场景卡，并为缺图的角色和场景生成候选图，不生成镜头。'
+    if (hasOutline(project)) return '剧情资料已生成；大纲、角色和场景依次独立生成并审核，角色和场景通过后自动生成候选图，道具按空集合处理。重新生成会清空镜头及后续内容。'
   }
   if (step === 'characters' || step === 'scenes') return '角色和场景与故事大纲统一生成；图片可在卡片中单独生成。'
   if (step === 'shots') {

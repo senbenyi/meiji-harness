@@ -179,7 +179,7 @@ export function renderSession(project, openCreate, actions, context = {}) {
       button.onclick = () => { active = tab.id; context.onSelectTab?.(tab.id); paint() }
       overview.append(button)
     }
-    if (imageNotice) imageNotice.hidden = active === 'script' && imageGate.episodeId === work.episodeId
+    if (imageNotice) imageNotice.hidden = active === 'assets' && imageGate.episodeId === work.episodeId
     body.replaceChildren(renderStage(active, work, actions, { ...context, imageGate, onGoTab: id => { active = id; context.onSelectTab?.(id); paint() } }))
   }
   view.append(bar, overview, body)

@@ -277,7 +277,7 @@ test('每个剧情步骤生成用生产规则、自审用对应审核 skill，�
 })
 
 test('plan has distinct targets and a failed outline skips all extraction requests', async () => {
-  assert.deepEqual([...new Set(planRun(episodeFixture(), { to: 'story', mode: 'regenerate' }).steps.map(step => step.target))], ['outline', 'characters', 'scenes'])
+  assert.deepEqual([...new Set(planRun(episodeFixture(), { to: 'story', mode: 'regenerate' }).steps.map(step => step.target))], ['outline', 'characters', 'images:characters', 'scenes', 'images:scenes'])
   const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('修订稿')), reviewFail('因果错误'), JSON.stringify(outlineFixture('二次修订稿')), reviewFail('因果错误')]
   let calls = 0
   const { result, nodes } = await recordSteps(() => generateStoryPackage({ project: episodeFixture(), request: async () => { calls++; return replies.shift() } }))
@@ -307,7 +307,7 @@ test('extraction after outline modification uses new facts, never stale card bas
   const project = episodeFixture()
   project.plot.outline.content = outlineFixture('OLD_OUTLINE')
   const fixture = storyPackageFixture()
-  const replies = [outlineResponse('FINAL_NEW_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+  const replies = [outlineResponse('FINAL_NEW_OUTLINE'), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
   let calls = 0
   await checkContext.run({ generationMode: 'modify', originalProject: project, review: 'CHANGE_OUTLINE' }, () => generateStoryPackage({ project, request: async message => {
     if (++calls === 1) assert.match(message.user, /OLD_OUTLINE.*|CHANGE_OUTLINE/)
@@ -317,7 +317,7 @@ test('extraction after outline modification uses new facts, never stale card bas
     }
     return replies.shift()
   } }))
-  assert.equal(calls, 8)
+  assert.equal(calls, 6)
 })
 
 // 人物与场景是独立分支：人物审核用尽后暂停，场景照常完成，依赖两者的道具不执行。
@@ -416,10 +416,10 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
   assert.equal(contentTargets(root).find(item => item.key === 'characters').check.passed, false)
 })
 
-test('四类剧情资料共用 StoryModel，差异只在 storyKinds 配置中声明', async () => {
+test('三类剧情资料共用 StoryModel，差异只在 storyKinds 配置中声明；道具不由 AI 提取', async () => {
   const { StoryModel, storyKinds } = await import('../server/prompts/models/story-model.js')
   const project = { ...episodeFixture(), projectSummary: 'PROJECT_BACKGROUND', script: 'SOURCE_SCRIPT', previousEpisodeSummary: 'PREVIOUS', nextEpisodeSummary: 'FOLLOWING' }
-  assert.deepEqual(Object.keys(storyKinds), ['outline', 'characters', 'scenes', 'props'])
+  assert.deepEqual(Object.keys(storyKinds), ['outline', 'characters', 'scenes'])
   for (const Model of [StoryOutlineModel, StoryCharacterModel, StorySceneModel]) assert.equal(Object.getPrototypeOf(Model.prototype), StoryModel.prototype)
   const outline = new StoryOutlineModel({ project, mode: 'generate' })
   const character = new StoryCharacterModel({ project })
@@ -468,9 +468,9 @@ test('无效大纲对象触发程序校验，修订使用最新失败对象', as
   assert.equal(outlineStructureFailures(outlineFixture()).length, 0)
   assert.ok(outlineStructureFailures('【主角动机】正文').length)
   const fixture = storyPackageFixture(), calls = [], invalid = { ...fixture.outline, 因果剧情: '' }
-  const replies = [JSON.stringify(invalid), reviewPass, outlineResponse(), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+  const replies = [JSON.stringify(invalid), reviewPass, outlineResponse(), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
   const result = await generateStoryPackage({ project: episodeFixture(), request: async message => { calls.push(message); return replies.shift() } })
-  assert.equal(result.check.passed, true);assert.equal(calls.length, 10)
+  assert.equal(result.check.passed, true);assert.equal(calls.length, 8)
   assert.match(calls[2].user, /大纲字段「因果剧情」必须为非空字符串/)
   assert.deepEqual(promptData(calls[2].user, '【最新失败稿（唯一修改基准）】'), invalid)
 })

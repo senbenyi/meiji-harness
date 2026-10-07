@@ -384,7 +384,10 @@ test('plot has one generation entry and one review for outline, characters and s
  review.querySelector('.workflow-review-action').click();await Promise.resolve()
  assert.equal(calls.length,1);assert.equal(calls[0][1],'outline')
  assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,input.value)
- assert.ok(review.compareDocumentPosition(container.querySelector('.character-list'))&4)
+ // 人物、场景卡在本集资产页，剧情页只保留大纲与统一的生成入口。
+ assert.equal(container.querySelector('.character-list'),null)
+ container.replaceChildren(renderStage('assets',p,{perform:async()=>{},beginImage:async()=>{},fail:()=>{}},{}))
+ assert.ok(container.querySelector('.character-list'));assert.equal(container.querySelectorAll('.workflow-review').length,0)
 })
 test('empty plot has a unified generate button and no separate card review',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
@@ -476,7 +479,7 @@ test('history entry navigates without loading inline history', t => {
 
 test('shot table and seconds are separate top-level tabs with scoped history', async t => {
  const { tabs } = await import('../client/flow-view.js')
- assert.deepEqual(tabs.map(tab => tab.label), ['摘要', '剧情', '镜头表', '每秒指令', '成片', '合成'])
+ assert.deepEqual(tabs.map(tab => tab.label), ['摘要', '剧情', '本集资产', '镜头表', '每秒指令', '成片', '合成'])
  const container = domSetup(t), project = episodeFixture(), calls = []
  const actions = {perform:async()=>{},fail:()=>{},openHistory:(project,scope)=>calls.push(scope)}
  for (const [step,label] of [['shots','镜头表'],['seconds','每秒指令']]) {
@@ -502,7 +505,7 @@ test('stage toolbar groups status, history, skills and generation controls', t =
   assert.equal(container.querySelectorAll('.custom-skill-field').length,0)
   if (step === 'script') {
    const groups = container.querySelectorAll('.outline-head > .story-node-actions')
-   assert.equal(groups.length,3)
+   assert.equal(groups.length,1)
    for (const group of groups) {
     assert.ok(group.parentElement.querySelector('h3'))
     assert.ok(group.querySelector('.task-history-entry'))
@@ -518,7 +521,7 @@ test('episode detail tabs show clean labels without progress or endpoint selecto
  const project = { id: 'p', title: '剧', revision: 1, episodes: [episode], summary: { content: '' } }
  const { renderSession } = await import('../client/project-session-view.js')
  container.append(renderSession(project, () => {}, { perform: async (...args) => calls.push(args), fail() {} }, { episodeId: episode.id }))
- assert.deepEqual([...container.querySelectorAll('.stage-overview .stage')].map(button => button.textContent), ['摘要', '剧情', '镜头表', '每秒指令', '成片', '合成'])
+ assert.deepEqual([...container.querySelectorAll('.stage-overview .stage')].map(button => button.textContent), ['摘要', '剧情', '本集资产', '镜头表', '每秒指令', '成片', '合成'])
  assert.equal(container.querySelector('[aria-label="制作终点"]'), null)
  assert.equal(container.querySelector('.stage-overview .primary'), null)
  assert.equal(calls.length, 0)
@@ -637,7 +640,7 @@ test('detail page confirms an image without opening the review page', async t =>
 test('scene cards stay read only and editing happens on the detail page', async t => {
  const container = domSetup(t), p = episodeFixture(), opened = []
  p.episodeId = p.id
- container.append(renderStage('script', p, { perform: async () => {}, beginImage: async () => {}, fail() {} }, { onOpenScene: (...args) => opened.push(args) }))
+ container.append(renderStage('assets', p, { perform: async () => {}, beginImage: async () => {}, fail() {} }, { onOpenScene: (...args) => opened.push(args) }))
  assert.equal(container.querySelector('.image-text-editor'), null)
  assert.match(container.textContent, /南门北墙/)
  assert.match(container.textContent, /开阔庭院及远处山脉/)
@@ -792,13 +795,17 @@ test('story result cards keep skills and expose independent task history beside 
  const container = domSetup(t), project = episodeFixture(), calls = []
  const actions = { perform: async () => {}, fail() {}, openHistory: (project, scope) => calls.push(scope), openSkill() {} }
  container.append(renderStage('script', project, actions, {}))
- const rows = [...container.querySelectorAll('.story-node-actions')]
- assert.equal(rows.length, 3)
- for (const row of rows) {
-  assert.ok(row.querySelector('.task-history-entry'))
-  assert.ok([...row.querySelectorAll('button')].some(button => button.textContent === '查看 skill'))
+ // 剧情页只有大纲一组；角色、场景两组在本集资产页，各自带 skill 与任务历史。
+ for (const [step, count] of [['script', 1], ['assets', 2]]) {
+  container.replaceChildren(renderStage(step, project, actions, {}))
+  const rows = [...container.querySelectorAll('.story-node-actions')]
+  assert.equal(rows.length, count)
+  for (const row of rows) {
+   assert.ok(row.querySelector('.task-history-entry'))
+   assert.ok([...row.querySelectorAll('button')].some(button => button.textContent === '查看 skill'))
+  }
+  assert.equal(container.querySelectorAll('.task-history-entry').length, count + 1)
+  container.querySelector('.stage-history-toolbar .task-history-entry').click()
  }
- assert.equal(container.querySelectorAll('.task-history-entry').length, 4)
- container.querySelector('.stage-history-toolbar .task-history-entry').click()
- assert.deepEqual(calls, ['script'])
+ assert.deepEqual(calls, ['script', 'assets'])
 })

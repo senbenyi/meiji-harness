@@ -252,7 +252,7 @@ export function mount() {
         edit: (run, target) => {
           const [kind, track] = target.split(':')
           openEpisode = run.episodeId || ''; openShot = track && ['shots', 'seconds', 'storyboard', 'film'].includes(kind) ? track : ''; shotTab = kind === 'storyboard' || kind === 'film' ? 'film' : 'seconds'
-          openTab = ['outline', 'characters', 'scenes'].includes(kind) ? 'script' : kind === 'summary' ? 'summary' : 'shots'
+          openTab = kind === 'outline' ? 'script' : ['characters', 'scenes', 'props', 'image'].includes(kind) ? 'assets' : kind === 'summary' ? 'summary' : 'shots'
           currentPage = null; hold = false; follow(true).catch(error => shell.status(error.message))
         },
       })

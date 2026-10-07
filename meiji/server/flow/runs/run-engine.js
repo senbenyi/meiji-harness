@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { runStore } from '../../data/run-store.js'
 import { createQueue, defaultConcurrency } from '../tasks/task-queue.js'
 import { defaults } from '../../../models/model-config.js'
-import { RUN_SCHEMA, StepStatus, readySteps, isRunEnded, downstreamSteps, deriveRunStatus, failRun } from '../../../shared/run-model.js'
+import { RUN_SCHEMA, StepStatus, readySteps, isRunEnded, downstreamSteps, deriveRunStatus, failRun, tailSteps } from '../../../shared/run-model.js'
 
 const now = () => new Date().toISOString()
 const event = (run, type, actor, stepIds, payload) => run.events.push({ at: now(), type, actor, ...(stepIds ? { stepIds } : {}), ...(payload ? { payload } : {}) })
@@ -62,8 +62,8 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
       } else step.status = StepStatus.DONE
       if (step.kind === 'expand' && Array.isArray(result?.steps)) {
         const ids = new Map(result.steps.map(item => [item.id, randomUUID()]))
-        const incoming = result.steps.map(item => makeStep({ ...item, id: ids.get(item.id), origin: 'expand', after: item.after.length ? item.after.map(parent => ids.get(parent)) : [step.id] }))
-        const tails = incoming.filter(item => !incoming.some(child => child.after.includes(item.id))).map(item => item.id)
+        const incoming = result.steps.map(item => makeStep({ ...item, id: ids.get(item.id), origin: 'expand', ...(step.branch ? { branch: true } : {}), after: item.after.length ? item.after.map(parent => ids.get(parent)) : [step.id] }))
+        const tails = (step.branch ? incoming.filter(item => !incoming.some(child => child.after.includes(item.id))) : tailSteps(incoming)).map(item => item.id)
         for (const dependent of current.steps) if (dependent.id !== step.id && dependent.after.includes(step.id)) dependent.after = [...new Set(dependent.after.flatMap(parent => parent === step.id && tails.length ? tails : [parent]))]
         current.steps.push(...incoming)
         event(current, 'expanded', 'engine', incoming.map(item => item.id))
@@ -97,7 +97,7 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
           const live = new Map(value.steps.filter(item => !['done', 'skipped', 'superseded', 'cancelled'].includes(item.status) && item.id !== target.id).map(item => [item.key, item]))
           const ids = new Map(gate.insert.map(item => [item.id, live.get(item.key)?.id || randomUUID()]))
           const incoming = gate.insert.filter(item => !live.has(item.key)).map(item => makeStep({ ...item, id: ids.get(item.id), origin: 'prereq', after: item.after.map(parent => ids.get(parent) || parent) }))
-          const tails = gate.insert.filter(item => !gate.insert.some(child => child.after.includes(item.id))).map(item => ids.get(item.id))
+          const tails = tailSteps(gate.insert).map(item => ids.get(item.id))
           target.status = StepStatus.PENDING; target.startedAt = null
           target.after = [...new Set([...target.after, ...tails])]
           value.steps.push(...incoming)
@@ -227,7 +227,7 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
         const oldIds = new Set(replaced.map(step => step.id))
         const ids = new Map(steps.map(step => [step.id, randomUUID()]))
         const incoming = steps.map(step => makeStep({ ...step, id: ids.get(step.id), origin: step.origin === 'cascade' ? 'cascade' : type === 'manual_edit' ? 'manual' : type === 'invalidate' ? 'cascade' : 'user-feedback', after: step.after.map(parent => ids.get(parent) || parent) }))
-        const tails = incoming.filter(step => !incoming.some(child => child.after.includes(step.id))).map(step => step.id)
+        const tails = tailSteps(incoming).map(step => step.id)
         const targetTails = target => incoming.filter(step => step.target === target && !incoming.some(child => child.target === target && child.after.includes(step.id))).map(step => step.id)
         if (!tails.length) throw error('没有可插入的步骤')
         for (const step of replaced) { step.status = StepStatus.SUPERSEDED; step.endedAt ||= now(); clearReason(run, step.id) }

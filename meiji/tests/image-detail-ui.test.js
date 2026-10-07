@@ -18,7 +18,7 @@ function setup(t) {
 
 test('character and scene lists show IDs and image generation below each picture, while details stay available', t => {
   const project = setup(t), opened = []
-  const page = renderStage('script', project, { fail() {} }, {
+  const page = renderStage('assets', project, { fail() {} }, {
     onOpenCharacter: (...args) => opened.push(args), onOpenScene: (...args) => opened.push(args),
   })
   assert.equal(page.querySelector('.character-refresh'), null)
@@ -44,7 +44,7 @@ for (const [itemId, name, kind] of [['C01', '旅人', 'characters'], ['E01', '�
     for (const present of [false, true]) {
       item.image.content = present ? { localPath: '/existing.png' } : null
       item.reference = { localPath: '/reference.png' }
-      const page = renderStage('script', project, { beginImage: async (...args) => calls.push(args), fail() {} }, {})
+      const page = renderStage('assets', project, { beginImage: async (...args) => calls.push(args), fail() {} }, {})
       const button = page.querySelector(`[aria-label="AI生图：${name}"]`)
       button.click();button.click();await Promise.resolve()
       assert.equal(button.disabled, true)
@@ -57,10 +57,10 @@ for (const [itemId, name, kind] of [['C01', '旅人', 'characters'], ['E01', '�
 test('list image generation is disabled while busy and restores its button on failure', async t => {
   const project = setup(t)
   project.executionLocks = [{ target: 'outline', scope: 'project', episodeId: project.episodeId }] // 剧情步骤持有项目锁
-  let page = renderStage('script', project, { beginImage: () => assert.fail('must not generate while busy') }, {})
+  let page = renderStage('assets', project, { beginImage: () => assert.fail('must not generate while busy') }, {})
   for (const button of page.querySelectorAll('.card-image-generate')) { assert.equal(button.disabled, true);button.click() }
   project.executionLocks = []
-  page = renderStage('script', project, { beginImage: async () => { throw new Error('生图请求失败') } }, {})
+  page = renderStage('assets', project, { beginImage: async () => { throw new Error('生图请求失败') } }, {})
   const button = page.querySelector('[aria-label="AI生图：旅人"]')
   button.click();await new Promise(resolve => setImmediate(resolve))
   assert.equal(button.disabled, false);assert.equal(button.textContent, 'AI生图')
@@ -79,7 +79,7 @@ for (const [itemId, name, kind, selector] of [['C01', '旅人', 'characters', '.
         if (action === 'confirm-image') item.image.content = { localPath: '/candidate.png' }
         delete project.pendingImages.draft
       } }
-      const page = renderStage('script', project, actions, {})
+      const page = renderStage('assets', project, actions, {})
       const card = page.querySelector(selector)
       assert.equal(card.querySelector('img').getAttribute('src'), '/candidate.png')
       assert.deepEqual([...card.querySelectorAll('.detail-image-buttons button')].map(button => button.textContent), ['放弃', '确定'])
@@ -89,7 +89,7 @@ for (const [itemId, name, kind, selector] of [['C01', '旅人', 'characters', '.
       button.click(); button.click(); await new Promise(resolve => setImmediate(resolve))
       assert.equal(calls.length, 1)
       assert.deepEqual(calls[0].slice(1), [project.episodeId, 'draft', action])
-      const updated = renderStage('script', project, actions, {}).querySelector(selector)
+      const updated = renderStage('assets', project, actions, {}).querySelector(selector)
       assert.equal(updated.querySelector('img').getAttribute('src'), action === 'confirm-image' ? '/candidate.png' : '/old.png')
       assert.ok(updated.querySelector('.card-image-generate'))
       assert.equal(updated.querySelector('.detail-image-buttons'), null)
@@ -100,7 +100,7 @@ for (const [itemId, name, kind, selector] of [['C01', '旅人', 'characters', '.
 test('generating cards disable confirmation and discard until their own candidate is ready', t => {
   const project = setup(t)
   project.executionLocks = [{ target: 'image:C01', scope: 'episode', episodeId: project.episodeId }]
-  const page = renderStage('script', project, { beginImage() {}, reviewImage() { assert.fail('still generating') } }, {
+  const page = renderStage('assets', project, { beginImage() {}, reviewImage() { assert.fail('still generating') } }, {
     imageGate: { itemId: 'C01', episodeId: project.episodeId, phase: 'generating', held: true },
   })
   const buttons = page.querySelectorAll('.character-card .detail-image-buttons button')
@@ -112,7 +112,7 @@ test('generating cards disable confirmation and discard until their own candidat
 test('candidate review failure restores the card buttons and preserves the preview', async t => {
   const project = setup(t)
   project.pendingImages = { draft: { draftId: 'draft', itemId: 'C01', name: '旅人', previewUrl: '/candidate.png' } }
-  const page = renderStage('script', project, { async reviewImage() { throw new Error('保存图片失败') } }, {})
+  const page = renderStage('assets', project, { async reviewImage() { throw new Error('保存图片失败') } }, {})
   const card = page.querySelector('.character-card')
   card.querySelector('.detail-image-buttons .primary').click()
   assert.ok([...card.querySelectorAll('.detail-image-buttons button')].every(button => button.disabled))
@@ -129,7 +129,7 @@ test('session restores both card candidates and does not use another episode ima
     scene: { draftId: 'scene', itemId: 'E01', name: '庭院', previewUrl: '/scene.png' },
   }
   const root = { id: 'project', title: '剧', summary: { content: '' }, episodes: [episode] }
-  const page = renderSession(root, () => {}, {}, { episodeId: episode.id, tab: 'script', imageGate: {
+  const page = renderSession(root, () => {}, {}, { episodeId: episode.id, tab: 'assets', imageGate: {
     itemId: 'C01', episodeId: 'other-episode', phase: 'ready', previewUrl: '/other.png', draftId: 'other',
   } })
   assert.equal(page.querySelector('.character-card img').getAttribute('src'), '/character.png')
@@ -206,7 +206,7 @@ for (const [itemId, name, key, label] of [['C01', '旅人', 'onOpenCharacter', '
 test('props cards generate images by their independent P ID', async t => {
   const project = setup(t), calls = []
   project.plot.props.items = [{ id: 'P01', type: 'prop', name: '长衣', category: 'clothing', description: '灰色长衣', evidence: '旅人身穿灰色长衣', ownerId: 'C01' }]
-  const page = renderStage('script', project, { fail() {}, beginImage: async (...args) => calls.push(args), openSkill: (...args) => calls.push(args) }, {})
+  const page = renderStage('assets', project, { fail() {}, beginImage: async (...args) => calls.push(args), openSkill: (...args) => calls.push(args) }, {})
   page.querySelector('[aria-label="道具图片 skill"]').click()
   assert.equal(calls[0][1], 'part-image')
   const button = [...page.querySelectorAll('.story-asset button')].find(b => b.textContent === 'AI生图')
@@ -219,7 +219,7 @@ test('prop card deletion sits beside its title, submits once and displays errors
   const project = setup(t), calls = []
   project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信', category: 'prop', description: '泛黄旧信', evidence: '旅人拿着旧信' }]
   let reject
-  const page = renderStage('script', project, { perform: (...args) => {
+  const page = renderStage('assets', project, { perform: (...args) => {
     calls.push(args)
     return new Promise((resolve, failed) => { reject = failed })
   } }, {})
@@ -241,7 +241,7 @@ test('prop deletion is disabled while a production task is running', t => {
   const project = setup(t)
   project.plot.props.items = [{ id: 'P01', type: 'prop', name: '旧信' }]
   project.executionLocks = [{ target: 'outline', scope: 'project', episodeId: project.episodeId }] // 剧情步骤持有项目锁
-  const page = renderStage('script', project, { perform: () => assert.fail('must not delete while busy') }, {})
+  const page = renderStage('assets', project, { perform: () => assert.fail('must not delete while busy') }, {})
   const remove = page.querySelector('[aria-label="删除道具：旧信"]')
   assert.equal(remove.disabled, true)
   remove.click()

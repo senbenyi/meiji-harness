@@ -28,7 +28,7 @@ const characterFields = [
  * @property {string} generationRules
  * @property {{width: number, height: number}} canvas
  * @property {'generate'|'reference'|'modify'} mode
- * @property {string} role 固定为人物角色设计师，不作为接口字段发送。
+ * @property {string} role 固定为写实电影剧照摄影师，不作为接口字段发送。
  * @property {Array<{purpose: 'edit-base'|'character-reference', base64: string}>} images 有序图片来源
  * @property {{instruction: string, preserveUnspecified: boolean}|null} modification
  */
@@ -67,7 +67,7 @@ function normalizeModel({ character, generationRules, canvas, mode = 'generate',
     generationRules,
     canvas: { width: canvas.width, height: canvas.height },
     mode,
-    role: '人物角色设计师',
+    role: '写实电影剧照摄影师',
     images: images.map(image => ({ purpose: image.purpose, base64: image.base64 })),
     modification: mode === 'modify' ? { instruction, preserveUnspecified: modification?.preserveUnspecified !== false } : null,
   }
@@ -82,17 +82,35 @@ export class CharacterImageModel {
 
 export function createCharacterImageModel(input) { return new CharacterImageModel(input) }
 
+// 资料里的占位说明（如「大纲未说明」）不是外观事实，不发给图片模型。
+const placeholder = value => !value || /^(?:大纲)?未(?:说明|提及|知|定)$|^(?:无|暂无|不详|未知)$/.test(value)
+
+// 人物外观写成一段自然语言：不带字段名、不带 JSON、不写姓名。
+// 结构化的「姓名：…」「服装：…」清单会被图片模型当成角色设定卡，把姓名和属性文字画进图里。
+export function characterDescription(character) {
+  const value = key => placeholder(String(character[key] || '').trim()) ? '' : String(character[key]).trim()
+  const subject = [value('era'), value('nationality'), value('gender') || '人物'].join('')
+  return [
+    `一位${subject}${value('age') ? `，年龄${value('age')}` : ''}`,
+    value('role') && `身份是${value('role')}`,
+    value('height') && `身高${value('height')}`,
+    value('build') && `体型${value('build')}`,
+    value('features') && `外貌特征：${value('features')}`,
+    value('costume') && `身穿${value('costume')}`,
+  ].filter(Boolean).join('；') + '。'
+}
+
 export function characterImageModelSegments(model, { factsText } = {}) {
   const normalized = normalizeModel(model)
   const { width, height } = normalized.canvas
   const orientation = width === height ? '正方形' : width > height ? '横幅' : '竖幅'
-  const facts = factsText === undefined ? Object.fromEntries(characterFields.filter(([key]) => normalized.character[key])
-    .map(([key]) => [key, normalized.character[key]])) : { description: factsText }
+  const facts = factsText === undefined ? characterDescription(normalized.character) : String(factsText)
+  // 任务写成拍一张单人全身照，避免「角色设计 / 参考图」引出设定表式排版。
   const task = normalized.mode === 'modify'
-    ? '依据本次人物资料、原图和本次修改意见修订人物参考图，遵守基础规则和补充规则。'
+    ? '依据本次人物资料、原图和本次修改意见修改这张单人全身照，遵守基础规则和补充规则。'
     : normalized.mode === 'reference'
-      ? '依据本次人物资料，结合参考图片生成一张人物参考图，遵守基础规则和补充规则。'
-      : '依据本次人物资料生成一张人物参考图，遵守基础规则和补充规则。'
+      ? '依据本次人物资料，结合参考图片拍摄一张单人全身照，遵守基础规则和补充规则。'
+      : '依据本次人物资料拍摄一张单人全身照，遵守基础规则和补充规则。'
   const references = normalized.images.length ? { images: normalized.images.map((image, index) => ({ index: index + 1, purpose: image.purpose })) } : ''
   const rules = [normalized.generationRules, normalized.mode === 'reference'
     ? '参考图片仅提供人物外观参考；身份与外观属性以本次人物资料为准，构图与背景遵守基础规则和补充规则。' : ''].filter(Boolean).join('\n\n')

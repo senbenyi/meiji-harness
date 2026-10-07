@@ -36,15 +36,13 @@ export const stageCatalog = [
     "constraintVariants": {
       "outline": "generate-story-outline-skill.md",
       "characters": "extract-story-characters-skill.md",
-      "scenes": "extract-story-scenes-skill.md",
-      "props": "extract-story-props-skill.md"
+      "scenes": "extract-story-scenes-skill.md"
     },
     "reviewFile": "review-story-outline-skill.md",
     "reviewVariants": {
       "outline": "review-story-outline-skill.md",
       "characters": "review-story-characters-skill.md",
-      "scenes": "review-story-scenes-skill.md",
-      "props": "review-story-props-skill.md"
+      "scenes": "review-story-scenes-skill.md"
     }
   },
   {

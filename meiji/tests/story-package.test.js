@@ -19,7 +19,7 @@ import { storyPackageFixture, outlineFixture, outlineResponse, storyRequest } fr
 test('outline, characters and scenes use separate generation and review requests', async () => {
   let calls = 0
   const generated = { ...storyPackageFixture(), outline: outlineFixture('旅人进入山洞，发现陌生脚印，决定循迹寻找失踪同伴。', 'en') }
-  const replies = [JSON.stringify(generated.outline), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass, JSON.stringify(generated.props), reviewPass]
+  const replies = [JSON.stringify(generated.outline), reviewPass, JSON.stringify(generated.characters), reviewPass, JSON.stringify(generated.scenes), reviewPass]
   const result = await generateStoryPackage({ project: { ...episodeFixture(), outputLanguage: 'en' }, route: { baseUrl: 'http://model.test', apiKey: 'test', model: 'test' }, fetchImpl: async (_url, options) => {
     const body = JSON.parse(options.body)
     assert.match(body.messages[1].content, /输出语言：English/)
@@ -38,7 +38,7 @@ test('outline, characters and scenes use separate generation and review requests
     return Response.json({ choices: [{ message: { content: replies.shift() } }] })
   } })
   assert.deepEqual(result.outline, generated.outline)
-  assert.equal(calls, 8)
+  assert.equal(calls, 6)
   assert.equal(result.characters.items.length, 1)
   assert.equal(result.scenes.items.length, 1)
   assert.equal(result.check.passed, true)
@@ -77,8 +77,8 @@ test('剧情逐步骤保存失败稿，前项成功保留，依赖失败项的�
   assert.equal((await e.read()).plot.outline.content, null)
 })
 
-test('characters and scenes belong to the plot tab without a separate cast tab', () => {
-  assert.deepEqual(tabs.map(t => t.id), ['summary', 'script', 'shots', 'seconds', 'film', 'assembly'])
+test('characters and scenes are generated from the plot tab and shown in the episode assets tab', () => {
+  assert.deepEqual(tabs.map(t => t.id), ['summary', 'script', 'assets', 'shots', 'seconds', 'film', 'assembly'])
   assert.equal(tabOf({ summary: { content: '摘要', check: { passed: true } }, plot: {} }), 'script')
   assert.equal(canGenerate({ outline: '大纲' }, 'characters'), false)
 })

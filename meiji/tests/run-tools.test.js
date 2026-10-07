@@ -50,8 +50,12 @@ test('同集已有暂停任务时新目标自动并入；失败结束的任务�
   await e.call('run-resume', { runId: open.runId, action: 'resume' }); await e.runs.drain()
   const run = await e.runs.get(e.id, open.runId, sessionId)
   // 剧情重做后，原目标内的镜头表作为下游重做，不会停在「缺少前置」。
-  assert.equal(run.status, 'completed', JSON.stringify(run.pause))
+  assert.equal(run.status, 'completed', JSON.stringify(run.steps.map(step => [step.id.slice(0,8), step.kind, step.target, step.status, step.origin, step.after.map(id => id.slice(0,8))])))
   assert.ok(run.steps.some(step => step.target === 'shots' && step.origin === 'cascade' && step.status === 'done'))
+  // 补图是旁支：重做的镜头表不挂在补图步骤后面。
+  const imageIds = new Set(run.steps.filter(step => step.kind === 'image' || step.target.startsWith('images:')).map(step => step.id))
+  assert.ok(imageIds.size)
+  assert.ok(run.steps.filter(step => step.target === 'shots').every(step => !step.after.some(id => imageIds.has(id))))
   // 前置未完成时提交下游目标：前置自动纳入。
   await e.store.save(e.id, root => { root.episodes[0].plot.outline.check.passed = false; return root })
   const next = await e.call('run-plan', { episodeNumber: 1, goal: { to: 'shots', mode: 'regenerate' } })

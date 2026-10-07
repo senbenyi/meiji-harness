@@ -24,11 +24,44 @@ test('剧情人物与场景并行，剧情流程不再生成道具，文本 poli
   assert.deepEqual(planRun(view(), { to: 'story', scope: { only: 'outline' } }, { review: false }).steps.map(step => step.kind), ['generate'])
   assert.deepEqual(planRun(view(), { to: 'story', mode: 'review', scope: { only: 'outline' } }).steps.map(step => step.kind), ['review'])
 })
+test('人物、场景提取通过后各自展开补图：不作为剧情末端，已就绪时跳过，只读审核不补图', () => {
+  const result = checked(planRun(view(), { from: 'story', to: 'shots', mode: 'regenerate' }))
+  const byKey = new Map(result.steps.map(step => [step.key, step]))
+  for (const kind of ['characters', 'scenes']) {
+    const expand = byKey.get(`expand@images:${kind}`)
+    assert.deepEqual(expand.after, [byKey.get(`review@${kind}`).id])
+    assert.deepEqual(expand.input.goal, { to: 'images', mode: 'generate', scope: { kinds: [kind] } })
+    assert.deepEqual(expand.input.policy, { imageConfirm: false })
+    assert.notEqual(expand.status, 'skipped')
+  }
+  // 镜头表只等剧情文本，不等补图。
+  const imageIds = new Set(['characters', 'scenes'].map(kind => byKey.get(`expand@images:${kind}`).id))
+  assert.ok(!byKey.get('generate@shots').after.some(id => imageIds.has(id)))
+  // 补齐生成时剧情已通过：提取与补图都跳过，前置检查据此判定剧情就绪。
+  const ready = checked(planRun(view(), { to: 'story' }))
+  assert.ok(ready.steps.length && ready.steps.every(step => step.status === 'skipped'))
+  assert.ok(!checked(planRun(view(), { to: 'story', mode: 'review' })).steps.some(step => step.kind === 'expand'))
+})
+test('补图只处理指定类别、缺图的卡，不等待确认；普通生图仍等待确认', () => {
+  const project = view()
+  const scenesOnly = checked(planRun(project, { to: 'images', mode: 'generate', scope: { kinds: ['scenes'] } }, { imageConfirm: false }))
+  assert.deepEqual(scenesOnly.steps.map(step => [step.key, step.status || 'pending']), [['image@image:E01', 'pending']])
+  project.plot.characters.items[0].image.content = { assetId: 'a', localPath: '/c.png' }
+  const characters = checked(planRun(project, { to: 'images', mode: 'generate', scope: { kinds: ['characters'] } }, { imageConfirm: false }))
+  assert.deepEqual(characters.steps.map(step => [step.key, step.status]), [['image@image:C01', 'skipped']])
+  assert.ok(checked(planRun(view(), { to: 'images', mode: 'generate' })).steps.some(step => step.kind === 'wait_confirm'))
+  // 补图不再要求剧情前置：即使剧情未通过且已授权前置，也不会展开出剧情步骤（防止补图与剧情互相展开）。
+  const unready = view(); unready.plot.outline.check.passed = false
+  const isolated = checked(planRun(unready, { to: 'images', mode: 'generate', scope: { kinds: ['characters'] } }, { imageConfirm: false, authorizePrereq: ['story@all'] }))
+  assert.deepEqual([isolated.prereq, isolated.steps.map(step => step.key)], [[], ['image@image:C01']])
+  assert.throws(() => normalizeRunGoal({ to: 'story', scope: { kinds: ['characters'] } }), /图片类别无效/)
+  assert.throws(() => normalizeRunGoal({ to: 'images', scope: { kinds: ['outline'] } }), /图片类别无效/)
+})
 test('缺前置不暗中执行，授权后只插入明确前置，前置依赖也保持可见', () => {
   const project = view(); project.summary.check.passed = false; project.plot.outline.check.passed = false
   const preview = checked(planRun(project, { to: 'story', scope: { only: 'characters' } }))
   assert.ok(preview.prereq.some(item => item.key === 'summary@all'))
-  assert.equal(preview.steps.length, 2)
+  assert.deepEqual(preview.steps.map(step => step.key), ['generate@characters', 'review@characters', 'expand@images:characters'])
   assert.ok(preview.steps[0].input.required.length)
   const authorized = checked(planRun(project, { to: 'story', scope: { only: 'characters' } }, { authorizePrereq: ['summary@all', 'story@outline'] }))
   assert.ok(authorized.steps.some(step => step.target === 'summary' && step.origin === 'prereq'))

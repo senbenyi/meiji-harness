@@ -13,7 +13,6 @@ import { protocols } from '../../../skills/output-protocols.js'
 const protocolSection = title => (protocols.outline.split(/^## /m).find(chunk => chunk.startsWith(title)) || '').slice(title.length).trim()
 const characterOutputProtocol = '只返回一个合法 JSON 对象，顶层仅含 items：{"items":[角色, …]}。items 为本集完整人物角色集合，不输出大纲、其他卡片或解释。每个角色包含 name、nationality、role、gender、era、age、costume、height、build、features、appearance、prop、identity、look、libraryId。libraryId 有值时复用已有单一人物资料；没有时新建人物。不要输出 variantId、variantLabel、clothes、props 或 hairstyles。\n\n示例（仅示范格式）：\n{"items":[{"name":"旅人","nationality":"中国","role":"赶路人","gender":"男性","era":"古代","age":"三十岁","costume":"深灰长衣","height":"一米八","build":"结实","features":"方脸，浓眉","appearance":"三十岁男性，结实，方脸浓眉","prop":"铜灯","identity":"赶路人","look":"国籍：中国\\n姓名：旅人\\n身份：赶路人\\n性别：男性\\n年代：古代\\n年龄：三十岁\\n服装：深灰长衣\\n身高：一米八\\n体型：结实\\n面相：方脸，浓眉","libraryId":""}]}'
 
-const extractTask = '从【剧情大纲】提取道具和着装资料，遵守基础规则和补充规则；大纲是唯一事实来源，【归属目录】仅用于匹配归属 ID。'
 const cardFacts = model => [
   segment('context', '【剧情大纲】', model.approvedOutline),
   segment('context', '【本次参数】', ''),
@@ -64,18 +63,6 @@ export const storyKinds = {
     reviewScope: '仅验收场景资料，不生成或改写正文，不要求大纲、人物卡或下游制作结果。',
     facts: cardFacts,
   },
-  props: {
-    role: '短剧道具设计师', reviewRole: '独立道具资料审核员', stage: '道具提取', json: true,
-    outputProtocol: protocolSection('道具输出'),
-    task: () => extractTask,
-    target: '只提取已通过大纲明确出现的道具和着装，不补造实体或外观；人物和场景目录仅用于归属ID，不是新增事实来源。大纲未写可返回空items。',
-    revisionTask: automatic => `依据【剧情大纲】和${automatic ? '本轮自审意见' : '本次修改意见'}修订道具和着装资料，遵守基础规则和补充规则；大纲是唯一事实来源，【归属目录】仅用于匹配归属 ID。`,
-    reviewTarget: '审核道具提取：【剧情大纲】是唯一事实来源，逐项核对实体出现、具体属性、归属与遗漏；【归属目录】仅用于匹配 ID。',
-    reviewScope: '无依据内容必须不通过，大纲确无可提取实体时允许空集合。每个失败提供大纲及待审原文证据。',
-    facts: model => [segment('context', '【剧情大纲】', model.approvedOutline),
-      segment('context', '【归属目录】', { characters: (model.source.plot?.characters?.items || []).map(({ id, name }) => ({ id, name })),
-        scenes: (model.source.plot?.scenes?.items || []).map(({ id, name }) => ({ id, name })) })],
-  },
 }
 
 export class StoryModel {
@@ -105,7 +92,6 @@ export class StoryModel {
   // 本步骤资料：目标、上游事实、补充任务资料与指导素材。审核时目标改为审核目标。
   contextSegments({ instructions = '', assets = [], review = false } = {}) {
     return [
-      ...(this.kind === 'props' && !review ? [segment('context', '【本次提取范围】', this.config.target)] : []),
       ...this.config.facts(this),
       segment('context', this.kind === 'outline' ? '【必须出场角色】' : '【项目库目录】', this.kind === 'outline' ? requiredCharacters(this.source) : libraryDirectory(this.source, this.kind)),
       ...(this.kind === 'outline' ? [] : [segment('context', '【库关联规则】', '同一人物身份复用已有 libraryId；独立身体身份才新建角色。已有 libraryId 时复用该人物资料与图片；无 ID 时按名字或别名匹配，否则新建条目。审核核对剧情与关联依据。')]),
@@ -183,4 +169,3 @@ const named = kind => class extends StoryModel { constructor(options) { super(ki
 export const StoryOutlineModel = named('outline')
 export const StoryCharacterModel = named('characters')
 export const StorySceneModel = named('scenes')
-export const StoryPropsModel = named('props')

@@ -47,7 +47,7 @@ test('人物固定约束只读且不受旧基础覆盖和本剧补充影响', as
   assert.deepEqual(skillUse(set, 'character-image').layers, ['builtin'])
   assert.doesNotMatch(actual, /本次生成语言|English|简体中文/)
   assert.doesNotMatch(actual, /项目视觉风格/)
-  assert.match(actual, /【人物资料】/); assert.deepEqual(promptData(actual, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', costume: '旧外套', height: '一米八', build: '健壮', features: '短发方脸' })
+  assert.match(actual, /【人物资料】\n一位现代中国男，年龄23；身份是旅人；身高一米八；体型健壮；外貌特征：短发方脸；身穿旧外套。\n/); assert.doesNotMatch(actual.split('【人物资料】')[1].split('\n\n')[0], /甲|姓名|"name"/)
   assert.match(actual, /不是角色设定表、人物资料页或服装设计板/)
   assert.match(actual, /禁止出现中英文文字、姓名、属性清单、UI排版、表格、箭头、标注线/)
 })
@@ -104,14 +104,15 @@ test('其他图片接口预览保留原来的上下文占位和结构', () => {
 })
 
 
-test('人物资料逐行保留字段名与姓名，空字段省略，最新资料覆盖 look 旧值', () => {
+test('卡片资料逐行保留字段名与姓名；发给图片模型的描述不含姓名，空字段省略，最新资料覆盖 look 旧值', () => {
   const item = { type: 'role', name: '新姓名', age: '24', look: '姓名：旧姓名 性别：女 年龄：二十岁 面相：圆脸' }
   const text = characterStillPrompt(item)
   assert.equal(text, '国籍：中国\n姓名：新姓名\n性别：女\n年龄：24\n面相：圆脸')
   assert.doesNotMatch(text, /旧姓名|二十岁|身份：|身高：/)
   const project = view(item), set = builtinSkillSet(project.skills)
   const actual = characterImagePrompt(item, project, set)
-  assert.equal(promptData(actual, '【人物资料】').name, '新姓名')
+  assert.match(actual, /【人物资料】\n一位中国女，年龄24；外貌特征：圆脸。\n/)
+  assert.doesNotMatch(actual, /新姓名|旧姓名|二十岁/)
   assert.equal(render(preview(project, set).user), actual)
 })
 

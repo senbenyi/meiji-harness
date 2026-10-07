@@ -10,7 +10,7 @@ import { previewPrompts } from '../server/prompts/preview-prompts.js'
 
 const base64 = 'data:image/png;base64,AA=='
 const configurations = [
-  { label: '人物', role: '人物角色设计师', create: createCharacterImageModel, purpose: 'character-reference',
+  { label: '人物', role: '写实电影剧照摄影师', create: createCharacterImageModel, purpose: 'character-reference',
     facts: { character: { name: '新人物', gender: '男', age: '30', features: '短发方脸' } } },
   { label: '场景', role: '影视场景设计师', create: createSceneImageModel, purpose: 'scene-reference',
     facts: { scene: { name: '新场景', landmark: '案、窗、房门', light: '清晨窗外透光', space: '案在窗下', look: '清晨昏暗的长方形卧房' }, additionalInstructions: 'SUPPLEMENT_RULE' } },
@@ -65,13 +65,13 @@ test('人物无卡模板也通过 Model 编排角色、资料、画幅和输出�
   const project = { outputLanguage: 'en' }, set = builtinSkillSet()
   const preview = previewPrompts({ stage: 'character-image', root: project, skillSet: set }).image
   const text = render(preview.user)
-  assert.equal(text.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名人物角色设计师。')
-  assert.match(promptData(text, '【人物资料】').description, /^（人物资料将在生成时/)
+  assert.equal(text.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名写实电影剧照摄影师。')
+  assert.match(text, /【人物资料】\n（人物资料将在生成时/)
   assert.deepEqual(promptData(text, '【本次要求】'), { width: 768, height: 1344, orientation: '竖幅' })
   assert.match(text, /【本次输出协议】/)
   assert.doesNotMatch(text, /【语言】/)
   const actual = render(imageSegments({ stage: 'character-image', project, skillSet: set, request: '明确提供的模板资料' }))
-  assert.deepEqual(promptData(actual, '【人物资料】'), { description: '明确提供的模板资料' })
+  assert.match(actual, /【人物资料】\n明确提供的模板资料\n/)
 })
 
 test('场景基本规则不假定存在已给剧情或机位，空图用真实场景尺度', () => {

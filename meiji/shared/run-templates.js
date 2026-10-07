@@ -25,7 +25,9 @@ export function normalizeRunGoal(input) {
   // 修改可不带新意见：此时依据正文上已有的自审问题修订（没有任何问题或意见时由步骤拒绝）。
   if (goal.requirements !== undefined && typeof goal.requirements !== 'string') throw new Error('生成要求须为文字')
   goal.scope ||= {}
-  if (typeof goal.scope !== 'object' || Array.isArray(goal.scope) || Object.keys(goal.scope).some(key => !['only', 'tracks', 'itemIds', 'fromEpisode', 'library'].includes(key))) throw new Error('目标范围无效')
+  if (typeof goal.scope !== 'object' || Array.isArray(goal.scope) || Object.keys(goal.scope).some(key => !['only', 'tracks', 'itemIds', 'fromEpisode', 'library', 'kinds'].includes(key))) throw new Error('目标范围无效')
+  // kinds：图片目标只处理某几类卡（剧情任务在人物、场景提取后各自补图）。
+  if (goal.scope.kinds !== undefined && (goal.to !== 'images' || !Array.isArray(goal.scope.kinds) || !goal.scope.kinds.length || goal.scope.kinds.some(kind => !['characters', 'scenes', 'props'].includes(kind)) || new Set(goal.scope.kinds).size !== goal.scope.kinds.length)) throw new Error('图片类别无效')
   if (goal.scope.library && (goal.to !== 'images' || typeof goal.scope.library !== 'object' || Object.keys(goal.scope.library).some(key => !['kind', 'id', 'variantId'].includes(key)) || !['characters', 'scenes', 'props'].includes(goal.scope.library.kind) || !goal.scope.library.id || !goal.scope.library.variantId)) throw new Error('库图片范围无效')
   for (const key of ['tracks', 'itemIds']) if (goal.scope[key] !== undefined && (!Array.isArray(goal.scope[key]) || !goal.scope[key].length || goal.scope[key].some(id => typeof id !== 'string' || !id.trim()) || new Set(goal.scope[key]).size !== goal.scope[key].length)) throw new Error('对象范围不存在或重复')
   if (goal.scope.only && (goal.to !== 'story' || !['outline', 'characters', 'scenes'].includes(goal.scope.only))) throw new Error('剧情对象无效')

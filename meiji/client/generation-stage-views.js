@@ -173,13 +173,18 @@ function renderStory(project, actions, context) {
     catch (error) { generate.disabled = false; generate.textContent = label; actions.fail(error) }
   }, '生成中')
   head.append(generate)
-  controls.append(head, element('p', '依次生成并审核大纲、提取人物角色、提取场景，各步骤独立调用模型。下方意见用于本次剧情修改。', 'meta'))
+  controls.append(head, element('p', '依次生成并审核大纲、提取人物角色、提取场景，提取通过后为缺图的角色和场景生成候选图；人物、场景和道具在「本集资产」查看与确认。下方意见用于本次剧情修改。', 'meta'))
   const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, targetBusy(project, 'summary'), generate, { allowFailureOpinion: true })
   const input = review.querySelector('input')
   if (input) input.placeholder = '填写剧情、角色或场景的修改意见'
   generate.textContent = project.operationActivity === 'outline' ? '生成中' : label
   generate.setAttribute('aria-label', label)
-  return stack([controls, renderOutline(project, actions), renderCharacters(project, actions, context), renderScenes(project, actions, context)])
+  return stack([controls, renderOutline(project, actions)])
+}
+
+// 本集资产：人物角色、场景、道具。生成入口在剧情页，这里查看、编辑、确认候选图。
+function renderAssets(project, actions, context) {
+  return stack([renderCharacters(project, actions, context), renderScenes(project, actions, context), renderProps(project, actions)])
 }
 
 function renderCharacters(project, actions, context) {
@@ -195,7 +200,7 @@ function renderCharacters(project, actions, context) {
   const cards = element('div', '', 'character-list')
   for (const item of project.plot.characters?.items || []) cards.append(characterCard(project, item, actions, context))
   view.append(cards)
-  if (!hasCharacters(project)) view.append(element('p', '未生成：点击页面顶部生成剧情，依次完成大纲、人物提取和场景提取。', 'meta'))
+  if (!hasCharacters(project)) view.append(element('p', '未生成：在「剧情」页生成剧情，依次完成大纲、人物提取和场景提取，并自动生成角色和场景候选图。', 'meta'))
   return view
 }
 
@@ -236,17 +241,21 @@ function renderScenes(project, actions, context) {
   const list = element('div', '', 'scene-list')
   for (const node of stillCards(project, project.plot.scenes?.items || [], actions, hint, { imageGate: context.imageGate, onOpen: id => context.onOpenScene?.(project.episodeId, id) })) (node.tagName === 'DIALOG' || node.tagName === 'INPUT' ? view : list).append(node)
   view.append(list)
-  // 道具不再由剧情流程自动提取；保留已有道具卡的素材维护能力，缺失时按空集合处理。
-  const propsView = element('section')
-  view.append(propsView)
-  const props = project.plot.props
-  const propsHead = element('div', '', 'outline-head')
-  propsHead.append(element('h3', '道具'))
-  const propsSkill = skillField(project, 'props', actions)
-  propsHead.append(propsSkill.querySelector('button'))
-  propsView.append(propsHead)
-  if (props) propsView.append(...stillCards(project, props.items || [], actions, hint, { editable: true }))
-  if (!hasScenes(project)) view.append(element('p', '未生成：点击页面顶部生成剧情，依次完成大纲、人物提取和场景提取。', 'meta'))
+  if (!hasScenes(project)) view.append(element('p', '未生成：在「剧情」页生成剧情，依次完成大纲、人物提取和场景提取，并自动生成角色和场景候选图。', 'meta'))
+  return view
+}
+
+// 道具不由 AI 提取；保留已有道具卡的素材维护能力，缺失时按空集合处理。
+function renderProps(project, actions) {
+  const view = element('section', '', 'session-project')
+  const head = element('div', '', 'outline-head')
+  head.append(element('h3', '道具'))
+  view.append(head)
+  const hint = element('p', '', 'hint'); hint.hidden = true
+  view.append(hint)
+  const items = project.plot.props?.items || []
+  if (items.length) view.append(...stillCards(project, items, actions, hint, { editable: true }))
+  else view.append(element('p', '本集暂无道具。', 'meta'))
   return view
 }
 
@@ -551,6 +560,7 @@ function stack(sections) {
 const renderers = {
   summary: renderBrief,
   script: renderStory,
+  assets: renderAssets,
   shots: (project, actions) => renderShots(project, actions),
   seconds: (project, actions) => renderShots(project, actions, 'seconds'),
   film: renderFilm,
@@ -579,7 +589,8 @@ export function renderStage(step, project, actions, context) {
   if (header) header.remove()
   scope.querySelector(':scope > h3')?.remove()
   const stage = { summary: 'summary', script: 'outline', shots: 'shots', seconds: 'seconds', assembly: 'assembly' }[step]
-  const state = stage ? stepRunLabel(project, stage) : project.operationActivity ? '执行中' : hasFilm(project) ? '已完成' : '未完成'
+  const assetState = () => { const [characters, scenes] = ['characters', 'scenes'].map(key => stepRunLabel(project, key)); return characters === scenes ? characters : `角色${characters} · 场景${scenes}` }
+  const state = step === 'assets' ? assetState() : stage ? stepRunLabel(project, stage) : project.operationActivity ? '执行中' : hasFilm(project) ? '已完成' : '未完成'
   toolbar.prepend(element('span', state, 'stage-status'))
   if (controls.childElementCount) toolbar.append(controls)
   view.prepend(toolbar)

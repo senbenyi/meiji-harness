@@ -13,7 +13,7 @@ test('约束只放平铺的功能正文，没有通用审核修订指导 skill',
   assert.ok(builtinSkills().every(skill => skill.kind === 'stage' && skill.fixedConstraints && !skill.fields.length))
   assert.deepEqual(stageSkillIds(), ['script-revision', 'project-summary', 'episode', 'outline', 'shots', 'shot-revise', 'seconds', 'storyboard', 'video', 'image-prompt', 'character-image', 'scene-image', 'part-image'])
   const files = await readdir(join(skillsDir, 'task'), { withFileTypes: true })
-  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["generate-project-summary","revise-script","generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","extract-story-props","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image"].map(name => `${name}-skill.md`).sort())
+  assert.deepEqual(files.filter(file => !file.name.startsWith('.')).map(file => file.name).sort(), ["generate-project-summary","revise-script","generate-episode-summary","generate-story-outline","extract-story-characters","extract-story-scenes","generate-shot-table","generate-seconds-instructions","generate-text-storyboard","generate-video","generate-character-image","generate-scene-image","generate-part-image"].map(name => `${name}-skill.md`).sort())
   assert.ok(files.filter(file => !file.name.startsWith('.')).every(file => file.isFile() && file.name.endsWith('-skill.md')))
   for (const skill of builtinSkills()) {
     assert.doesNotMatch(skill.constraints, /^#{1,6}\s/m)
@@ -74,7 +74,7 @@ test('每个有自审的功能在 review/ 有独立审核 skill，未登记或�
     assert.doesNotMatch(skill.review, /^#{1,6}\s/m)
   }
   const outline = builtinSkill('outline')
-  assert.deepEqual(Object.keys(outline.reviewRules), ['outline', 'characters', 'scenes', 'props'])
+  assert.deepEqual(Object.keys(outline.reviewRules), ['outline', 'characters', 'scenes'])
   for (const [kind, text] of Object.entries(outline.reviewRules)) { assert.ok(text.trim(), kind); assert.notEqual(text, outline.rules[kind]) }
   for (const id of ['video', 'character-image', 'scene-image', 'part-image']) assert.equal(builtinSkill(id).review, '', id)
   const files = (await readdir(join(skillsDir, 'review'))).filter(name => !name.startsWith('.')).sort()

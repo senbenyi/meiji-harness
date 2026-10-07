@@ -21,7 +21,7 @@ test('所有文本生成/修订都启用 JSON 模式，协议示例为对象', (
     assert.equal(model.toReviseSegments('基稿', '意见').json, true)
     assert.equal(model.toReviewSegments('正文').json, true)
   }
-  for (const kind of ['outline', 'characters', 'scenes', 'props']) {
+  for (const kind of ['outline', 'characters', 'scenes']) {
     const model = new StoryModel(kind, { project: episodeFixture() })
     assert.equal(model.toGenerateSegments().json, true)
     assert.equal(model.toReviseSegments({ baseContent: '基稿', opinion: '意见' }).json, true)

@@ -21,7 +21,7 @@ test('episode generation repairs once and records both reviews',async()=>{
 })
 test('story outline repairs once before extracting cards from the final outline', async () => {
  const fixture = storyPackageFixture()
- const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果不完整'), JSON.stringify(outlineFixture('修订后最终大纲','en')), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass, JSON.stringify(fixture.props), reviewPass]
+ const replies = [JSON.stringify(outlineFixture('初稿')), reviewFail('因果不完整'), JSON.stringify(outlineFixture('修订后最终大纲','en')), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
  let calls=0
  const { result, nodes }=await recordSteps(() => generateStoryPackage({project:{...episodeFixture(),outputLanguage:'en'},route,request:async message=>{
    calls++
@@ -29,8 +29,8 @@ test('story outline repairs once before extracting cards from the final outline'
    if(calls>=5) { assert.match(message.user,/修订后最终大纲/); assert.doesNotMatch(message.user,/初稿/) }
    return replies.shift()
  }}))
- assert.equal(calls,10); assert.equal(result.check.passed,true)
- assert.deepEqual(nodes.map(step=>`${step.kind}:${step.target}`), ['generate:outline','review:outline','revise:outline','re_review:outline','generate:characters','review:characters','generate:scenes','review:scenes','generate:props','review:props'])
+ assert.equal(calls,8); assert.equal(result.check.passed,true)
+ assert.deepEqual(nodes.map(step=>`${step.kind}:${step.target}`), ['generate:outline','review:outline','revise:outline','re_review:outline','generate:characters','review:characters','generate:scenes','review:scenes'])
 })
 test('episode invalid JSON fails program review and receives maxRevisions (default 2) revisions',async()=>{
  let calls=0

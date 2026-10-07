@@ -1,4 +1,5 @@
 import { runStages, stageDependencies, textTargets, normalizeRunGoal } from './run-templates.js'
+import { tailSteps } from './run-model.js'
 import { imageItems } from './library-images.js'
 import { shotsReady } from './generation-gates.js'
 import { shotSecondsReady } from './shot-timing.js'
@@ -33,7 +34,7 @@ export function planRun(project, rawGoal, policy = {}) {
       const ids = new Map(planned.steps.map(item => [item.id, `step-${++nextId}`]))
       for (const item of planned.steps) { const existing = byKey.get(item.key); if (existing) ids.set(item.id, existing.id) }
       for (const item of planned.steps) if (!byKey.has(item.key)) { const mapped = { ...item, id: ids.get(item.id), after: item.after.map(id => ids.get(id)), origin: 'prereq' }; steps.push(mapped); byKey.set(mapped.key, mapped) }
-      const tails = planned.steps.filter(item => !planned.steps.some(child => child.after.includes(item.id))).map(item => ids.get(item.id))
+      const tails = tailSteps(planned.steps).map(item => ids.get(item.id))
       after.push(...tails); stageTails.set(stage, tails); deletions.push(...planned.deletions)
     } else required.push(entry)
   }
@@ -53,7 +54,8 @@ export function planRun(project, rawGoal, policy = {}) {
   for (const stage of stages) {
     const after = [], required = [], tails = []
     if (goal.mode !== 'review') for (const dependency of policy.stageDependencies?.[stage] || stageDependencies[stage] || []) {
-      if (stage === 'images' && goal.scope.library) continue
+      // 库单图与剧情附带的补图（kinds）都紧跟在各自的来源之后执行，不再要求剧情阶段前置，避免补图再展开出剧情步骤。
+      if (stage === 'images' && (goal.scope.library || goal.scope.kinds)) continue
       if (stage === 'film' && !stageTails.has('seconds')) continue // 成片前置逐镜检查，允许独立分支先完成。
       if (stage === 'film' && dependency === 'seconds' && !unknownShots && project.shots?.items.length) continue
       if (stage === 'film' && dependency === 'images') continue // 引用图片按镜头判断，不能等待未引用的卡片。
@@ -74,6 +76,10 @@ export function planRun(project, rawGoal, policy = {}) {
         else if (target !== 'outline' && !passed(project.plot?.outline)) requireStage('story', deps, needs, { to: 'story', scope: { only: 'outline' } })
         // 剧情资料写入剧情节点并在通过后并入项目库，属于项目级写入：人物与场景在图上并行，执行时由项目锁串行。
         roots.set(target, text(target, textTargets[target], deps, needs, passed(project.plot?.[target]), {}, target !== 'outline' && !goal.scope.only))
+        // 人物、场景提取通过后接着为本集缺图的卡生成候选图：运行时按提取结果展开，已有图片或候选图的卡跳过；
+        // 只产出候选图、不等待确认，也不作为剧情阶段的末端，镜头表等下游不等图片。
+        // 提取步骤被跳过（已通过、补齐生成时不重做）时，补图也跳过，前置检查据此判定剧情已就绪。
+        if (['characters', 'scenes'].includes(target) && goal.mode !== 'review') add('expand', `images:${target}`, { queue: null }, [roots.get(target)], { branch: true, ...(steps.find(step => step.id === roots.get(target))?.status === 'skipped' ? { status: 'skipped' } : {}), input: { goal: { to: 'images', mode: 'generate', scope: { kinds: [target] } }, policy: { imageConfirm: false }, required: [] } })
       }
       tails.push(...[...roots].filter(([target]) => target === 'scenes' || goal.scope.only).map(([, id]) => id))
     } else if (['summary', 'project-summary', 'script-revise'].includes(stage)) {
@@ -104,7 +110,7 @@ export function planRun(project, rawGoal, policy = {}) {
       } else if (unknownCards || !project.plot?.characters?.items.length && !project.plot?.scenes?.items.length && required.length) tails.push(add('expand', 'images', { queue: null }, after, { input: { goal: { ...goal, from: undefined, to: 'images', scope: {} }, required } }))
       else {
         let entries = []
-        try { entries = imageItems(project, project, goal.scope.itemIds) } catch (error) { blockers.push({ message: error.message }) }
+        try { entries = imageItems(project, project, goal.scope.itemIds).filter(entry => !goal.scope.kinds || goal.scope.kinds.includes(entry.kind)) } catch (error) { blockers.push({ message: error.message }) }
         const seen = new Set()
         for (const entry of entries) {
           const identity = entry.card.ref ? `${entry.card.ref.libraryId}/${entry.card.ref.variantId}` : entry.card.id
@@ -112,7 +118,9 @@ export function planRun(project, rawGoal, policy = {}) {
           seen.add(identity)
           const target = `image:${entry.card.id}`, definition = { taskType: entry.kind === 'characters' ? 'character-image' : entry.kind === 'scenes' ? 'scene-image' : 'prop-image', action: 'image', queue: 'image', scope: entry.card.ref ? 'project' : 'episode', operation: { itemId: entry.card.id, generationMode: 'regenerate' } }
           const image = add('image', target, definition, after, { ...(goal.mode === 'generate' && (entry.ready || entry.pending) ? { status: 'skipped' } : {}), input: { taskType: definition.taskType, operation: { action: 'image', itemId: entry.card.id, generationMode: goal.mode === 'modify' ? 'modify' : 'regenerate', review: goal.feedback || '', requirements: goal.requirements || '', ...(goal.image || {}) }, required } })
-          tails.push(add('wait_confirm', target, { queue: null }, [image], { ...(entry.ready && goal.mode === 'generate' ? { status: 'skipped' } : {}), input: { itemId: entry.card.id } }))
+          // imageConfirm=false：只生成候选图，不在任务里等待确认（剧情任务附带的生图）。
+          if (policy.imageConfirm === false) tails.push(image)
+          else tails.push(add('wait_confirm', target, { queue: null }, [image], { ...(entry.ready && goal.mode === 'generate' ? { status: 'skipped' } : {}), input: { itemId: entry.card.id } }))
         }
       }
     } else if (stage === 'seconds' || stage === 'film') {

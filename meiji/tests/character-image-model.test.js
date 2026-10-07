@@ -29,10 +29,13 @@ test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享�
   assert.equal(input.canvas.width, 1000)
 })
 
-test('基础转换使用具名人物资料和分节自然语言，纳入服装但不混入道具或面向', () => {
+test('人物资料写成一段自然语言外貌描述：不带字段名、JSON 或姓名，纳入服装但不混入道具或面向', () => {
   const prompt = characterImageModelToPrompt(createCharacterImageModel(input))
-  assert.deepEqual(promptData(prompt, '【人物资料】'), { nationality: '中国', name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', costume: '旧外套', height: '180cm', build: '健壮', features: '短发方脸' })
+  assert.match(prompt, /【人物资料】\n一位现代中国男，年龄23；身份是旅人；身高180cm；体型健壮；外貌特征：短发方脸；身穿旧外套。\n/)
+  // 字段清单和姓名会被图片模型画成角色设定卡上的文字。
+  assert.doesNotMatch(prompt, /甲|"name"|nationality|姓名：|国籍：|服装：|\{"/)
   assert.doesNotMatch(prompt, /木剑|背面|道具：|面向：/)
+  assert.doesNotMatch(prompt, /人物角色设计师|人物参考图/)
   assert.ok(prompt.indexOf('【本次任务】') < prompt.indexOf('【人物资料】'))
   assert.ok(prompt.indexOf('【人物资料】') < prompt.indexOf('【基础规则】'))
   assert.ok(prompt.indexOf('【本次要求】\n') < prompt.indexOf('【人物资料】\n'))
@@ -65,23 +68,25 @@ test('缺少人物资料或规则正文时明确报错，沿用 look 资料解�
   assert.throws(() => createCharacterImageModel(), /人物资料/)
   for (const character of [null, '甲', []]) assert.throws(() => createCharacterImageModel({ ...input, character }), /人物资料/)
   assert.throws(() => createCharacterImageModel({ character: input.character, canvas: input.canvas }), /规则必须是字符串/)
-  const prompt = characterImageModelToPrompt(createCharacterImageModel({ ...input, character: { look: '姓名：乙 性别：女 年龄：二十岁 面相：圆脸' } }))
-  assert.deepEqual(promptData(prompt, '【人物资料】'), { nationality: '中国', name: '乙', gender: '女', age: '二十岁', features: '圆脸' })
+  const prompt = characterImageModelToPrompt(createCharacterImageModel({ ...input, character: { look: '姓名：乙 性别：女 年龄：二十岁 服装：大纲未说明 面相：圆脸' } }))
+  // look 中的资料同样转为描述；占位说明不发送。
+  assert.match(prompt, /【人物资料】\n一位中国女，年龄二十岁；外貌特征：圆脸。\n/)
+  assert.doesNotMatch(prompt, /乙|大纲未说明/)
 })
 
 test('修改 model 固定角色职责，Base64 原图与人工意见分开保存，图片数据不进入 prompt', () => {
   const base64 = 'data:image/png;base64,b3JpZ2luYWw='
   const model = createCharacterImageModel({ ...input, mode: 'modify', images: [{ purpose: 'edit-base', base64 }], modification: { instruction: ' 将头发改为黑色短发 ' } })
-  assert.equal(model.role, '人物角色设计师')
+  assert.equal(model.role, '写实电影剧照摄影师')
   assert.equal(model.modification.instruction, '将头发改为黑色短发')
   assert.equal(model.images[0].base64, base64)
   assert.equal(model.toPrompt(), characterImageModelToPrompt(JSON.parse(JSON.stringify(model))))
-  assert.match(model.toPrompt(), /【角色与职责】\n你是一名人物角色设计师/)
+  assert.match(model.toPrompt(), /【角色与职责】\n你是一名写实电影剧照摄影师/)
   assert.deepEqual(promptData(model.toPrompt(), '【参考图片】'), { images: [{ index: 1, purpose: 'edit-base' }] })
   assert.match(model.toPrompt(), /【本次修改意见】\n将头发改为黑色短发/)
   assert.match(model.toPrompt(), /保留原图中未被意见/)
   assert.doesNotMatch(model.toPrompt(), /data:image|b3JpZ2luYWw=/)
-  assert.equal(createCharacterImageModel({ ...JSON.parse(JSON.stringify(model)), role: '导演' }).role, '人物角色设计师')
+  assert.equal(createCharacterImageModel({ ...JSON.parse(JSON.stringify(model)), role: '导演' }).role, '写实电影剧照摄影师')
 })
 
 test('参考与修改模式校验图片用途及意见，不允许缺图后降级生成', () => {

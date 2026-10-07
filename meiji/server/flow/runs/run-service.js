@@ -21,7 +21,7 @@ import { storyboardReady, videoReady, tailReady } from '../steps/shared/film-fre
 import { libraryTarget } from '../../../shared/library-rules.js'
 import { runStageDependencies } from '../../../skills/load-skills.js'
 import { historyStore } from '../../data/history-store.js'
-import { downstreamSteps } from '../../../shared/run-model.js'
+import { downstreamSteps, tailSteps } from '../../../shared/run-model.js'
 
 const reject = (message, code = 'RUN_ACTION_INVALID') => Object.assign(new Error(message), { status: 409, code })
 export const publicRun = run => {
@@ -62,7 +62,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
     const primaryTargets = new Set(primary.steps.map(step => step.target)), continuation = mergeRunPlans((run.request.goals || [run.request.goal]).map(goal => planRun(view, { ...goal, mode: 'generate', feedback: undefined }, { ...plannerPolicy(root, run.policy, run.episodeId), freshness: {} })))
     for (const prior of run.steps.filter(step => primaryTargets.has(step.target) && !['superseded', 'cancelled'].includes(step.status))) for (const dependent of downstreamSteps(run.steps, prior.id)) if (!primaryTargets.has(dependent.target)) affected.add(dependent.target)
     const selected = continuation.steps.filter(step => !primaryTargets.has(step.target) && (own.has(step.target) && affected.has(step.target) || step.kind === 'expand' && [...affected].some(target => target.startsWith(step.target + ':') && own.has(target))))
-    const selectedIds = new Set(selected.map(step => step.id)), primaryTails = primary.steps.filter(step => !primary.steps.some(child => child.after.includes(step.id))).map(step => step.id)
+    const selectedIds = new Set(selected.map(step => step.id)), primaryTails = tailSteps(primary.steps).map(step => step.id)
     // 原目标内的下游在新稿审核后重做；其他目标只展示删除事实。
     const idMap = new Map(selected.map(step => [step.id, `cascade-${step.id}`]))
     const steps = selected.map(step => ({ ...step, id: idMap.get(step.id), origin: 'cascade', after: step.after.filter(id => selectedIds.has(id)).map(id => idMap.get(id)) }))
@@ -111,7 +111,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
     beforeStep: checkStep,
     execute: async (run, step, context) => {
       if (step.kind === 'expand') {
-        const root = await projects.read(run.projectId), plan = planRun(plannerView(root, run.episodeId), step.input.goal, plannerPolicy(root, run.policy, run.episodeId))
+        const root = await projects.read(run.projectId), plan = planRun(plannerView(root, run.episodeId), step.input.goal, { ...plannerPolicy(root, run.policy, run.episodeId), ...step.input.policy })
         if (plan.blockers.length) throw new Error(plan.blockers.map(item => item.message).join('；'))
         return { steps: plan.steps }
       }

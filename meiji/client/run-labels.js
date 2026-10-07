@@ -5,6 +5,9 @@ const targetLabels = { 'project-summary': '项目摘要', summary: '摘要', sto
 
 export function targetLabel(target) {
   if (!target) return '本任务'
+  // 剧情任务附带的补图展开步骤。
+  if (target === 'images:characters') return '角色图片'
+  if (target === 'images:scenes') return '场景图片'
   const [kind, id, slot] = target.split(':')
   return [targetLabels[kind] || kind, id, slot].filter(Boolean).join(' · ')
 }

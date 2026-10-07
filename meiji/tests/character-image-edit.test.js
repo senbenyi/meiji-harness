@@ -63,7 +63,7 @@ for (const draft of [false, true]) test(`人物修改直接提交意见和${draf
     called++
     assert.equal(args.referenceBytes, undefined)
     assert.deepEqual(args.referenceBase64, [`data:image/png;base64,${Buffer.from(draft ? 'candidate' : 'confirmed').toString('base64')}`])
-    assert.match(args.prompt, /你是一名人物角色设计师/)
+    assert.match(args.prompt, /你是一名写实电影剧照摄影师/)
     assert.match(args.prompt, /【本次修改意见】\n将头发改为黑色短发/)
     assert.match(args.prompt, /1000 × 1504 像素/)
     const pendingImage = await saveImageDraft(e.home, Buffer.from('edited'), 'image/png', 'characters', '旅人', { projectId: e.id, episodeId: e.episodeId, itemId: 'C01', prompt: args.prompt })

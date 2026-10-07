@@ -79,22 +79,6 @@ export function normalizeScenes(raw) {
   return { ...node('scenes'), items: items.map(cardModel) }
 }
 
-export function normalizeProps(raw, project) {
-  if (!Array.isArray(raw?.items)) throw new Error('道具提取需要items数组')
-  const owners = new Set([...project.plot.characters.items, ...project.plot.scenes.items].map(item => item.id))
-  const names = new Set()
-  const items = raw.items.map((item, index) => {
-    const name = required(item.name, '道具缺少名称')
-    if (names.has(name)) throw new Error(`道具名称重复：${name}`)
-    names.add(name)
-    if (!['clothing', 'mount', 'weapon', 'accessory', 'prop'].includes(item.category)) throw new Error('道具类别错误')
-    if (item.ownerId && !owners.has(item.ownerId)) throw new Error(`道具所属ID不存在：${item.ownerId}`)
-    return cardModel({ ...libraryFields(item, 'props'), id: `P${String(index + 1).padStart(2, '0')}`, type: 'prop', name, category: item.category,
-      ownerId: item.ownerId || '', description: required(item.description, '道具缺少描述'), evidence: required(item.evidence, '道具缺少提取依据') })
-  })
-  return { ...node('props'), items }
-}
-
 export function storyboardPromptText(item) {
   return h3PromptText(item.prompt)
 }

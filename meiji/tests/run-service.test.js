@@ -334,3 +334,23 @@ test('真实审核用尽后任务直接结束，保留项目与剧集身份，�
   assert.equal(root.id, e.id); assert.equal(root.episodes[0].id, e.episodeId)
   assert.equal(root.episodes[0].plot.outline.check.passed, false)
 })
+
+test('剧情任务在人物、场景通过后自动为缺图的卡生成候选图，任务直接完成不等待确认', async t => {
+  const seen = []
+  const e = await setup(t, { execute: async (_run, step) => { seen.push(`${step.kind}@${step.target}`); return ['review', 're_review'].includes(step.kind) ? { passed: true } : {} } })
+  await e.store.save(e.id, root => { root.episodes[0].plot.characters.items[0].image.content = { assetId: 'existing', localPath: '/existing.png' }; return root })
+  const { run } = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', mode: 'regenerate' } }, sessionId)
+  await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()
+  const done = await e.service.get(e.id, run.id, sessionId)
+  assert.equal(done.status, 'completed', JSON.stringify(done.failure))
+  const plot = (await e.read()).plot, missing = card => !card.image.content?.localPath
+  // 已有图片的人物跳过，其余人物与场景各生成一次候选图。
+  const expected = [...plot.characters.items.filter(missing), ...plot.scenes.items.filter(missing)].map(card => `image@image:${card.id}`)
+  assert.ok(expected.length && plot.characters.items.some(card => !missing(card)))
+  assert.deepEqual(seen.filter(item => item.startsWith('image@')).sort(), expected.sort())
+  assert.ok(!done.steps.some(step => step.kind === 'wait_confirm'))
+  for (const kind of ['characters', 'scenes']) {
+    const first = seen.findIndex(item => plot[kind].items.some(card => item === `image@image:${card.id}`))
+    if (first >= 0) assert.ok(seen.indexOf(`review@${kind}`) < first, `${kind} 补图须在提取审核通过后`)
+  }
+})
