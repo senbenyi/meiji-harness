@@ -30,8 +30,8 @@
 
 ## 历史与研究
 
-- [`../archive/docs/2026-10/README.md`](../archive/docs/2026-10/README.md) — 已完成计划、验收报告与阶段调研。
-- [`research/`](research/) — 仍被当前实施引用的根因、验证与外部调研。
+- 已完成计划、旧验收、上游快照和未验证实验不再占用工作树，需要时从 Git 历史恢复。
+- [`research/`](research/) — 仍被当前实施引用的根因与外部调研。
 - [`plans/`](plans/) — 尚在推进或仍具约束力的方案。
 - [`implement/`](implement/) — 当前实施审计、能力台账与实施记录。
 

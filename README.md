@@ -1,6 +1,6 @@
 # dsh-short-video-studio
 
-DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激活根据当前 GPU 服务器配置的 Elysium 工作流；作者原始和未验证实验工作流保存在 `archive/`，不会进入运行时注册表或 npm 发布包。
+DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只保留根据当前 GPU 服务器配置、直接参与运行的 Elysium 工作流；已淘汰和未验证实验资产仅保留在 Git 历史中。
 
 项目文档统一从 [`docs/README.md`](docs/README.md) 进入；现行规范、实施记录和历史归档在该页分区索引。
 

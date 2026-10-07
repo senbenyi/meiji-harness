@@ -420,4 +420,4 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 - Harness：当前 `web` Profile 的 `dsh --dump-config`、`../implement/harness-capabilities.md`，以及本机已解析的 `@deepseek-ai/*` 包源码和 README；当前为 `0.1.2-rc.1` / `0.1.7-alpha.2` 混合组合。
 - 外部 AI 建议复核的一手入口：`https://github.com/liustack/modlens`、`https://github.com/Anionex/dsh-vision-toolkit`、`https://github.com/JunNanLYS/dsh-layered-memory`、`https://github.com/omdsh-dev/dsh-genui`、`https://github.com/omdsh-dev/dsh-better-sidebar`、`https://github.com/GanyuanRan/Aegis`。这些链接只证明可定位的实现与公开契约，不替代第 9 节要求的版本锁定、许可证审计和本地实测。
 - 网关：`internal/core/gateway.go`、`internal/store/store.go`、`internal/task/poller.go`、`internal/provider/comfyui/executor.go`。
-- 开源项目库存：`archive/docs/2026-10/ai-short-drama-projects-comparison-2026-10-01.md`。
+- 开源项目库存属于一次性历史调研，已从工作树删除，需要时从 Git 历史恢复。
