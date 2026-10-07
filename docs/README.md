@@ -21,6 +21,7 @@
 ## 活跃设计与实施
 
 - [`docs/tier-strategy-design.md`](docs/tier-strategy-design.md) — 统一 capability → tier → manifest 调用面与档位契约。
+- [`plans/2026-10-08-harness-deep-integration-refactor.md`](plans/2026-10-08-harness-deep-integration-refactor.md) — Harness 深度集成重构（做减法），待审核后交 Codex 执行。
 - [`plans/2026-10-07-durable-production-architecture.md`](plans/2026-10-07-durable-production-architecture.md) — 最小持久生产架构。
 - [`plans/2026-10-07-production-agents.md`](plans/2026-10-07-production-agents.md) — Agent、领域命令与 Worker 的职责分离。
 - [`plans/2026-10-07-script-assets-agent-production.md`](plans/2026-10-07-script-assets-agent-production.md) — 剧本到资产、分镜和提示词的生产链。

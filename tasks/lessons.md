@@ -49,6 +49,7 @@
 - 用户指出“子智能体、任务是黑盒”时，目标是对话层 Harness 编排可观测性，不是创作页业务阶段进度。必须优先让会话里的 Agent、Workflow、Todo、Tool Call 可点击、可追踪并显示依赖/耗时/重试/错误；业务 ProductionRun 只能作为关联信息，不能拿业务进度条替代编排执行可视化。
 - Harness 已内置 Workflow Run / Subagent 的持久事件和会话 UI 时，不得在业务插件中另造 Execution Graph、轮询 API 或新视图。先检查业务编排是否因后台 Worker、自建协调会话或嵌套 tool 调用而绕过了 Harness 顶层 workflow 事件边界；修复应优先让内置能力获得真实执行事实。
 - 用户要求提高整体空间利用率时，应只统一收紧布局容器、区块和卡片的 margin、padding、gap，并先排查正文默认 margin 与容器 padding 的叠加；不能顺带改字号、颜色、内容结构或业务逻辑。
+- 用户要求"从架构角度重构"时，不能先给目录拆分或新增 DDD 概念层的方案，那样只会让代码更复杂。动手前必须先读 `tasks/lessons.md`、`tasks/todo.md` 的历史决策和 `docs/research` 的最新分析，再盘点已安装 Harness 的真实能力，先回答三件事：核心模块、真实流程、哪些能力在重造 Harness。重构方向优先做减法，把通用能力交还 Harness。不得推荐用户已明确删除的自动测试作为安全网。
 # 参考图预算必须端到端使用同一规则（2026-10-07）
 
 - 工作流 manifest 的 `refs.max` 不只是提交器参数；Prompt 编译与一致性校验必须对所有图像、视频 capability 使用同一裁剪函数。
@@ -58,3 +59,8 @@
 - 一次 clean-room 自动到成片只证明 happy path 当前可用，不能证明可重复性、故障恢复和并发稳定性。
 - 汇报必须区分：`链路打通`、`基础验收通过`、`稳定性验收通过`；只有连续多轮、无人工干预、无残留任务且恢复场景通过，才能使用“稳定”。
 - 页面或 Harness 仍有非终态显示、revision conflict、内部重试等证据时，必须作为未关闭风险明确列出，不能被最终成片掩盖。
+
+# 断言"缺某能力"前要扫全部注册处（2026-10-08）
+
+- 曾只 grep `lib/index.js` 的工具名就断言"主 Agent 读不到项目结构"，实际 `lib/domain/tools.js` 已注册 `studio_project_get`、`studio_production_status`、`studio_shot_list` 等 32 个工具。
+- 规则：判断工具/能力是否存在，先列出所有注册入口（`makeTools`、`domain/tools.js`、`script/tools.js`、hooks、skills）再下结论；结构上用唯一工具清单（S7）消除这类盲区。
