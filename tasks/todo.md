@@ -641,14 +641,17 @@
 ### 计划（已确认）
 
 - [x] 审计宿主原生 Todo、Subagent Catalog 和 Workflow Run 的数据源与交互边界；确认宿主已有可点击的子会话与 run/phase/member 视图。
-- [ ] 审计当前 `studio_novel_create → ProductionWorker → withProductionAgent → nested workflow` 的事件边界，证明哪一层绕过了 Harness 顶层 durable Workflow Run。
-- [ ] 把真实编排改为 Harness 原生 workflow 所有：父会话直接产生 run/phase/member/child-session 事件，Project/ProductionRun 只做业务状态与恢复，不新建可视化系统。
-- [ ] 删除/禁止任何插件自建 Execution View 或轮询投影，仅补齐 Harness 内置事件所需的编排边界和 Agent label。
-- [ ] 重装、重启并用 3080 新会话验证原生 Workflow Run 可展开、member 可点进子会话、工具与错误可追踪。
+- [x] 审计当前 `studio_novel_create → ProductionWorker → withProductionAgent → nested workflow` 的事件边界，证明 Workflow Run 被写入临时协调会话，而不是用户父会话。
+- [x] 把真实编排改为 Harness 原生 workflow 所有：父会话直接产生 run/phase/member/child-session 事件，Project/ProductionRun 只做业务状态与恢复。
+- [x] 撤回错误的插件自建 Execution View/API 方案；媒体准备 workflow 在根流程活跃时也继承原始 root exec，不再退回隐藏协调会话。
+- [x] 重装、重启并用 3080 新会话验证原生 Workflow Run 可展开、member 可点进子会话、工具调用可追踪；父会话已直接出现 5 个子智能体。
 
 ### 回顾
 
-- 待实现与真实会话验证后填写。
+- 根因不是 Harness 缺少可视化，而是项目将官方 `workflow` 调用放进临时 `studio-production-*` 协调会话，因此内置 durable 事件和 UI 都在第二层。
+- 现在 `studio_novel_create` 在调用者会话中前台执行官方 Workflow；持久根任务仍保留 lease/start/complete/fail，媒体 Worker 仍保留 DAG 门禁与幂等。
+- 3080 实测父 Session `session-68304210-ef69-474c-b183-baf25976a27a` 直接记录 5 个 `tool-workflow/run-start`、5 个 `agent-start`、4 个 `agent-end/run-end`（第 5 个在重启时运行）；UI 中 run 从运行转已完成，成员可点入子会话查看 `structured_output` 工具调用。
+- 已验证活动 lease 不会被第二次入口抢占；进程中断后由同一 `studio_novel_create` 入口恢复过期/失败根任务。
 
 ## 2026-10-07 工作台紧凑布局优化
 
