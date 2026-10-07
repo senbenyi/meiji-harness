@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { MemoryProjectRepository, ProjectService } from '../../lib/domain/service.js'
-import { NOVEL_SCHEMAS, novelTextProduction, assertNovelCoverage } from '../../lib/script/novel-production.js'
+import { NOVEL_SCHEMAS, novelTextProduction, assertNovelCoverage, materializeEpisodeSourceSpans } from '../../lib/script/novel-production.js'
 import { regenerateText } from '../../lib/script/rework.js'
 import { PRODUCTION_WORKFLOW, runProductionWorkflow } from '../../lib/agents/workflow.js'
 import { extractedAssets, promptResponse, generation } from '../helpers/generation.js'
@@ -172,6 +172,31 @@ test('episode plan prompt states the exact full-source coverage contract', async
   assert.equal(prompts.length, 1)
   assert.match(prompts[0], /从 0 到 100 连续覆盖完整原文/)
   assert.match(prompts[0], /标题、空白和过渡文字也必须并入相邻集/)
+})
+
+test('episode source spans are deterministically rebuilt from beat assignments', () => {
+  const plan = { episodes: [
+    { id: 'ep-1', order: 1, beatIds: ['first'], sourceSpans: [{ sourceId: 'source', start: 22, end: 50 }] },
+    { id: 'ep-2', order: 2, beatIds: ['second'], sourceSpans: [{ sourceId: 'source', start: 60, end: 90 }] },
+  ] }
+  const content = { beats: [
+    { id: 'first', sourceSpans: [{ sourceId: 'source', start: 22, end: 50 }] },
+    { id: 'second', sourceSpans: [{ sourceId: 'source', start: 60, end: 90 }] },
+  ] }
+  materializeEpisodeSourceSpans(plan, content, 'source', 100)
+  assert.deepEqual(plan.episodes.map((episode) => episode.sourceSpans), [
+    [{ sourceId: 'source', start: 0, end: 50 }],
+    [{ sourceId: 'source', start: 50, end: 100 }],
+  ])
+  const reversed = { episodes: [
+    { id: 'late', order: 1, beatIds: ['second'], sourceSpans: [] },
+    { id: 'early', order: 2, beatIds: ['first'], sourceSpans: [] },
+  ] }
+  materializeEpisodeSourceSpans(reversed, content, 'source', 100)
+  assert.deepEqual(reversed.episodes.map(({ id, order, sourceSpans }) => ({ id, order, sourceSpans })), [
+    { id: 'early', order: 1, sourceSpans: [{ sourceId: 'source', start: 0, end: 50 }] },
+    { id: 'late', order: 2, sourceSpans: [{ sourceId: 'source', start: 50, end: 100 }] },
+  ])
 })
 
 test('coverage rejects outline substitution, omitted source, unknown references and missing episodes', () => {

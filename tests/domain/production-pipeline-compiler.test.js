@@ -8,7 +8,7 @@ test('pipeline compiler materializes persisted tasks from the bundled manifest',
   assert.deepEqual(task, {
     id: 'run:ep-1', kind: 'novel-text', scopeId: 'ep-1', dependencies: ['plan'],
     input: {
-      pipelineId: 'novel-to-drama-text', pipelineVersion: 1, pipelineNodeId: 'episode-script',
+      pipelineId: 'novel-to-drama-text', pipelineVersion: 5, pipelineNodeId: 'episode-script',
       role: 'script', label: 'episode-script:ep-1', phase: '分集剧本',
     },
   })
@@ -36,11 +36,11 @@ test('pipeline compiler supplies prompt policy, output schema, retry and concurr
 test('pipeline compiler executes proposal commits declared by agent and barrier nodes', async () => {
   const compiler = bundledProductionPipelineCompiler()
   const submitted = []
-  const submit = async (kind, payload) => { submitted.push([kind, payload]); return { proposalId: kind } }
+  const submit = async (kind, payload, pipeline) => { submitted.push([kind, payload, pipeline]); return { proposalId: kind } }
   assert.deepEqual(await compiler.commit('story-reconcile', { summary: 'story' }, submit), { proposalId: 'content_analysis' })
   assert.deepEqual(await compiler.commit('asset-commit', { characters: [] }, submit), { proposalId: 'asset_extraction' })
   assert.deepEqual(submitted, [
-    ['content_analysis', { summary: 'story' }],
-    ['asset_extraction', { characters: [] }],
+    ['content_analysis', { summary: 'story' }, { pipelineId: 'novel-to-drama-text', pipelineVersion: 5, pipelineNodeId: 'story-reconcile' }],
+    ['asset_extraction', { characters: [] }, { pipelineId: 'novel-to-drama-text', pipelineVersion: 5, pipelineNodeId: 'asset-commit' }],
   ])
 })

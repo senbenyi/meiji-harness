@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createProjectAggregate, parseProject } from '../../lib/domain/spec.js'
 import { applyCreativeProposal, editGeneration } from '../../lib/domain/creative.js'
-import { assetScriptRefs, extractAssetsByEpisode } from '../../lib/script/asset-production.js'
+import { assetScriptRefs, assetUsageSegments, extractAssetsByEpisode, materializeAssetUsages, validateAssetExtraction } from '../../lib/script/asset-production.js'
 import { mergeShotPrompts, shotPromptRequests } from '../../lib/script/shot-production.js'
 import { assertGenerationReady, visibleReferenceBindings } from '../../lib/prompts/specification.js'
 import { productionStageIssues, preparationSignature } from '../../lib/domain/policies.js'
@@ -45,6 +45,19 @@ test('asset extraction reads one formal episode at a time and merges shared iden
   assert.deepEqual(seen, ['asset-extraction:ep1', 'asset-extraction:ep2'])
   assert.equal(assets.characters.length, 1)
   assert.deepEqual(assets.characters[0].usages.map((use) => use.episodeId), ['ep1', 'ep2'])
+})
+
+test('asset usage citations are materialized from exact formal script text', () => {
+  const episodes = [{ id: 'ep', script: 'INT. ROOM\nTraveler opens the letter.\nThe light fades.' }]
+  const value = extractedAssets([{ id: 'traveler', name: 'Traveler', description: 'Blue coat' }], [{ id: 'room', name: 'Room', description: 'Small room' }], 'ep', 'invented wording')
+  value.characters[0] = { ...value.characters[0], usageRef: 'ep:u002' }
+  value.locations[0] = { ...value.locations[0], usageRef: 'ep:u001' }
+  delete value.characters[0].usages
+  delete value.locations[0].usages
+  materializeAssetUsages(value, assetUsageSegments(episodes))
+  validateAssetExtraction(value, episodes, false)
+  assert.equal(value.characters[0].usages[0].quote, 'Traveler opens the letter.')
+  assert.equal(value.locations[0].usages[0].quote, 'INT. ROOM')
 })
 
 test('visible references select the authored variant without mixing its base state into the same shot', () => {

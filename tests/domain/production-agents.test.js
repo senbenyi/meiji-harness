@@ -100,7 +100,7 @@ test('professional text tasks materialize separate script and storyboard through
       return saved
     },
   })
-  assert.deepEqual(roles, ['剧情', '剧情', '剧情', '剧本', '角色', '角色', '角色', '镜头', '分镜', '镜头'])
+  assert.deepEqual(roles, ['剧情', '剧情', '剧本', '剧本', '角色', '角色', '角色', '镜头', '分镜', '镜头'])
   const p = await f.projects.getProject(f.projectId)
   assert.equal(p.characters.visitor.description, 'A visitor')
   assert.ok(p.characters.visitor.generation.prompt)
@@ -110,7 +110,7 @@ test('professional text tasks materialize separate script and storyboard through
   const storyboardTask = Object.values(p.productionTasks).find((task) => task.input.label === 'episode-storyboard:ep')
   assert.equal(storyboardTask.agentRole, 'shot')
   assert.equal(storyboardTask.input.pipelineId, 'novel-to-drama-text')
-  assert.equal(storyboardTask.input.pipelineVersion, 1)
+  assert.equal(storyboardTask.input.pipelineVersion, 5)
   assert.equal(storyboardTask.input.pipelineNodeId, 'shot-plan')
   assert.equal(result.episodeScripts[0].script, draft.script)
   await assert.rejects(f.submit('episode_script', { ...result.episodeScripts[0], script: 'Changed by storyboard' }), /cannot change/)

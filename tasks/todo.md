@@ -10,6 +10,7 @@
 - [x] 新建会话并确认唯一入口链路：加载 `elysium-generate-drama` → `studio_novel_create` → Harness Workflow。
 - [x] 实测定位首个断点：`episode-plan` 两次结构化输出失败；失败后主 Agent错误地继续调用其他工具。
 - [ ] 修复 `episode-plan` 动态约束：明确非空、唯一、全部 beat 覆盖及全文 `0..N` 连续覆盖要求。
+- [ ] 提升 Pipeline version，确保契约变化不会复用旧任务快照。
 - [ ] 修复 `studio_novel_create` 失败协议：成功或失败都结束当前轮次；失败结果保留真实 `projectId` 和可恢复状态，禁止主 Agent脱离唯一入口自行补救。
 - [ ] 增加聚焦测试：真实 episode-plan 首次失败后按反馈修正；创建入口失败时终止轮次并返回恢复信息。
 - [ ] 运行聚焦测试、`npm run test:all`、`npm run smoke`。
