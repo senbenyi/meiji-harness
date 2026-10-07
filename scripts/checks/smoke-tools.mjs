@@ -107,7 +107,7 @@ ok('工具名与注册顺序保持稳定', names.join(',') === [
 ].join(','), names.join(' → '))
 
 // ── 调用面契约（P2）：实现选择归配置面，工具面**不得**暴露 workflow ──────────────
-// docs/unified-tier-tool-design.md §5：comfy_render / video_upscale 曾用 workflow= 选实现，
+// docs/docs/tier-strategy-design.md：comfy_render / video_upscale 曾用 workflow= 选实现，
 // 现在只认 capability + tier（实现由 cfg.pins / cfg.tiers / preferred 解析）。
 {
   for (const t of tools) {

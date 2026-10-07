@@ -151,7 +151,7 @@
 - `render-shot` 的 `refs = [角色卡…, 场景卡, storyboardAssetId]`。分镜图本身就画着这些角色。按 GUIDANCE 的实测硬规则（“参考图里有几个身体，成片就倾向出现几个角色”），这样会产生重复角色。编译出的 `subject_definitions` 也没有描述最后一张分镜图（Picture 序号缺失）。
 
 **C2 · P2 · 已确认（E2）· 卡片和分镜的尺寸不适合作参考**
-- 角色卡继承画布 16:9，fast 档是 1024×576 的横版全身像，人物在画面中占比很小（`../../archive/doc/open-issues.md` ISSUE-001 未解决）。分镜用 i2i 生成，输出尺寸跟随第一张参考图（角色卡），fast 档 `reference_pixels=768`，分镜分辨率很低。
+- 角色卡继承画布 16:9，fast 档是 1024×576 的横版全身像，人物在画面中占比很小（`../docs` ISSUE-001 未解决）。分镜用 i2i 生成，输出尺寸跟随第一张参考图（角色卡），fast 档 `reference_pixels=768`，分镜分辨率很低。
 
 **C3 · P3 · 已确认（E2）· 卡片 prompt 不满足自家硬规则**
 - 角色卡 prompt 是 `name + description + visualStyle + “不要文字”`，没有“单视图、正面全身、纯净背景、单人”等约束。description 来自叙事分析，多是性格和背景，而不是外观。

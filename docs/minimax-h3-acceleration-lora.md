@@ -1,6 +1,6 @@
 # MiniMax H3 加速方案研究报告（面向 dsh-short-video-studio）
 
-> **⚠️ 历史记录（保留原文 id）**：本报告的 `minimax-h3-ref2v` → 拆分后的 `minimax-h3-ref2v-fast` / `minimax-h3-ref2v-quality`，`minimax-h3-ref2v-8step` → `minimax-h3-ref2v-balanced`，`minimax-h3-ref2v-sol` → `minimax-h3-ref2v-quality-sol`，`minimax-h3-ref2v-8step-sol` → `minimax-h3-ref2v-balanced-sol`，`minimax-h3-i2v` → `minimax-h3-i2v-fast` / `minimax-h3-i2v-quality`，`minimax-h3-i2v-sol` → `minimax-h3-i2v-quality-sol`（ **P2 拆分，图形等价**：同一张图，只是「一个 json = 一个档位」）。`minimax-h3-ref2v-sol-stats` 仍存在（`internal: true` 诊断清单，不参与档位解析、不进 UI）。文中 `mode=` 现为 `tier=` 的兼容别名；`priority: -100` 已不再是加速实现的标注方式（改为同档 `-sol` 清单 + 策略投影，缺第三方节点时置灰而非静默回退）。档位契约见 [`../archive/doc/tier-strategy-design.md`](../archive/doc/tier-strategy-design.md)。
+> **⚠️ 历史记录（保留原文 id）**：本报告的 `minimax-h3-ref2v` → 拆分后的 `minimax-h3-ref2v-fast` / `minimax-h3-ref2v-quality`，`minimax-h3-ref2v-8step` → `minimax-h3-ref2v-balanced`，`minimax-h3-ref2v-sol` → `minimax-h3-ref2v-quality-sol`，`minimax-h3-ref2v-8step-sol` → `minimax-h3-ref2v-balanced-sol`，`minimax-h3-i2v` → `minimax-h3-i2v-fast` / `minimax-h3-i2v-quality`，`minimax-h3-i2v-sol` → `minimax-h3-i2v-quality-sol`（ **P2 拆分，图形等价**：同一张图，只是「一个 json = 一个档位」）。`minimax-h3-ref2v-sol-stats` 仍存在（`internal: true` 诊断清单，不参与档位解析、不进 UI）。文中 `mode=` 现为 `tier=` 的兼容别名；`priority: -100` 已不再是加速实现的标注方式（改为同档 `-sol` 清单 + 策略投影，缺第三方节点时置灰而非静默回退）。档位契约见 [`docs`](docs/tier-strategy-design.md)。
 
 > 调研时间：2026-09
 > 调研对象：ComfyUI 上 MiniMax H3（FL2VA / Ref2VA 双变体、音视频联合生成）的加速 LoRA 及配套加速手段
@@ -164,7 +164,7 @@ H3 的视频与音频在同一个 forward 里生成。所以步数蒸馏的短�
 
 ### 4.2 本项目自身的基线（可作对照刻度）
 
-`../archive/doc/three-view-experiment.md` 记录：**ComfyUI 0.33.3 / 单卡 Ampere（sm_80）/ `minimax_h3_ref2va_pruned_int8_convrot` / mode=fast（4 步 LoRA）/ 832×480 / 124 帧（5.17s）→ 每臂约 28s**。
+`docs` 记录：**ComfyUI 0.33.3 / 单卡 Ampere（sm_80）/ `minimax_h3_ref2va_pruned_int8_convrot` / mode=fast（4 步 LoRA）/ 832×480 / 124 帧（5.17s）→ 每臂约 28s**。
 → 即本项目 fast 档单镜 ≈ 28s（单卡 Ampere（sm_80））。quality 档（20 步 + 1344×768）步数 ×5、像素 ×2.6，单镜成本量级明显跃升 —— 这也是"成片档要不要引入 8 步平衡档"这个问题的由来。
 
 ### 4.3 注意力加速的参考数字
@@ -189,7 +189,7 @@ H3 的视频与音频在同一个 forward 里生成。所以步数蒸馏的短�
 
 ## 5. 本项目现状盘点（事实层）
 
-来源：`workflows/minimax-h3-ref2v.json`、`workflows/minimax-h3-i2v.json`、`~/.dsh/dsh-short-video-studio.json`、`../archive/doc/ARCHITECTURE.md`、`../archive/doc/three-view-experiment.md`。
+来源：`workflows/minimax-h3-ref2v.json`、`workflows/minimax-h3-i2v.json`、`~/.dsh/dsh-short-video-studio.json`、`docs`、`docs`。
 
 | 项 | ref2v（`video.reference2video`） | i2v（`video.image2video`） |
 |---|---|---|
@@ -286,7 +286,7 @@ H3 的视频与音频在同一个 forward 里生成。所以步数蒸馏的短�
 ## 7. 验收协议（换任何一项都要走一遍）
 
 1. **单变量**：一次只改一样（LoRA / shift / 分辨率 / 内核），否则无法归因。若要换 768p LoRA，"LoRA+shift+分辨率"三项属于**一个不可分割的改动包**，一起改、一起验。
-2. **固定变量**：同 seed（如 42424242）、同 prompt（建议用 H3 结构化 prompt，含 `overall_soundscape`）、同 `length=124`、同参考图（单视图！见 `../archive/doc/three-view-experiment.md`）。
+2. **固定变量**：同 seed（如 42424242）、同 prompt（建议用 H3 结构化 prompt，含 `overall_soundscape`）、同 `length=124`、同参考图（单视图！见 `docs`）。
 3. **对照产物**：视频 + 抽帧（首/中/末各一帧做像素 diff）+ **音轨**（H3 是 AV 模型，音频退化是 4 步档的首要症状）。
 4. **量化指标**：单镜墙钟耗时、跳步密度（Sol-Attn `last_density`）、回退计数（`failed`/`skipped_shape`）、峰值显存。
 5. **回归门槛**：fast 档提速 <10% 的改动不进 fast 档；quality 档任何画面/音频回归直接回退（成片质量不可交易）。
@@ -671,6 +671,45 @@ Fatal Python error: Aborted
 
 **本项目内部依据**
 - `workflows/minimax-h3-ref2v.json`、`workflows/minimax-h3-i2v.json`（当前资产、shift、档位）
-- `../archive/doc/ARCHITECTURE.md`（`$model` 哨兵与 `mode.loras` 插链机制）
-- `../archive/doc/workflow-contract.md`（manifest 契约、`modes` 字段）
-- `../archive/doc/three-view-experiment.md`（单卡 Ampere（sm_80）/ ComfyUI 0.33.3 / fast 档 28s 基线）
+- `docs/docs/workflow-contract.md`（`$model` 哨兵与 LoRA 插链机制）
+- `docs/docs/tier-strategy-design.md`（manifest 与 tier 契约）
+- 本文下方的合并 benchmark（单卡 Ampere、分辨率/档位/LoRA/Sol 实测）
+
+## 合并的 Benchmark 基线
+
+> 历史 id 映射：旧 `minimax-h3-ref2v` 的 fast/quality 已拆为逐档运行时实现；`-8step` 对应 balanced，`-sol` 为显式加速变体；`mode` 只作为 `tier` 的兼容别名。
+
+### 测试条件
+
+- 单卡 Ampere（sm_80），ComfyUI 0.33.3；124 帧 @24fps≈5.17s。
+- seed 42424242、同 prompt、同参考/首帧；取 `/history` 的 execution_start→success。
+- 比较必须同图热态；ref2va/fl2va 首次切换会额外加载约 21GB，不能与热态混比。
+- Sol 会改变采样轨迹，同 seed 不等于同像素；像素差只能判断崩坏，不能单独判断画质。
+
+### 档位与配方
+
+| 档位 | 分辨率 | 配方 | ref2v 实测 | 用途 |
+| --- | --- | --- | ---: | --- |
+| fast | 832×480 | 4 步 LoRA、shift 12/3 | 24.6s | prompt/动作迭代 |
+| balanced | 1344×768 | 8 步 768p LoRA、euler、shift 6/3 | 166.3s | 日常主力 |
+| quality | 1344×768 | 20 步、无 LoRA、shift 12/3 | 396.6s | 正式成片 |
+| quality + Sol | 1344×768 | 20 步 + Sol | 311.2s | 显式加速 |
+
+LoRA 的步数、训练分辨率、shift 与采样器是不可拆的配对。4 步 544p LoRA 跑 768p 虽可用于构图预演（94.8s），材质偏糊，不得作为成片默认。
+
+分辨率是最贵的旋钮：fast 832×480=24.6s、1024×576=42.1s、1344×768=94.8s；token 增长 2.6× 时耗时约 3.85×，经验上接近 `tokens^1.5`。同像素数横竖版成本近似。
+
+Sol 只在 768p 值得启用：quality ref2v/i2v 约 1.27×/1.25×；balanced tau1.2/1.5/2.0 约 1.23×/1.33×/1.38×。1024×576 与 832×480 只有约 1.03×。本栈 `dense_first_percent` 必须为 0；同一部片必须全开或全关，不能逐镜混用。加速变体保持负 priority，不做隐式默认。
+
+PDD nfe=8 的同条件结果：ref2v 394.4s→184.7s，帧锐度 +10.3%、噪声地板更低；叠 Sol 为 137.3s。i2v 392.4s→178.8s，叠 Sol 134.1s。该证据为单 seed、单镜，不代表多镜一致性已验证。
+
+60 镜、每镜约 5.2s 的估算：fast 480p≈24.6 分钟，balanced≈2.8 小时，balanced+Sol≈2.3 小时，quality≈6.6 小时，quality+Sol≈5.2 小时。先降分辨率，再降步数，最后才考虑注意力内核。
+
+### 陷阱与未测项
+
+- 节点 `class_type` 为 `SolAttnMiniMaxH3`；UI 显示名不能当注册名。
+- 换 base 的首次运行、缓存命中与不同会话口径必须单独标注。
+- H3 长度按 17 步进；长时长 250/372 帧成本仍未实测。
+- quality 的低分辨率、多参考图成本、长片一致性、Sage 与 Sol 的公平比较仍待验证。
+
+复现以当前 manifest、`scripts/bench-h3.mjs` 和 Sol 变体生成器为准；旧 benchmark 原文已合并并删除，完整历史仍可由 Git 恢复。

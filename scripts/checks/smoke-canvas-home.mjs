@@ -9,7 +9,7 @@
  *  5) 设置页「界面」组：下拉两项、刷新生效提示、改选后 POST 带 canvasHome。
  *
  * 全程只做一件事的断言：**任何时刻「画布的家」恰好一个**——这是「结构上排除双实例」
- * （同时存在两个 studio iframe）的不变式，见 docs/right-sidebar-canvas-research.md §13。
+ * （同时存在两个 studio iframe）的不变式，见 docs/docs/ARCHITECTURE.md §11.2。
  *
  * 用法：node scripts/checks/smoke-canvas-home.mjs
  */

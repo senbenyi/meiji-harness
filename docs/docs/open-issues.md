@@ -9,7 +9,7 @@
 ## ISSUE-001 · 3d skill 的角色卡/场景卡未定义「档位 + 尺寸 + 张数」（连带一处过时口径）
 
 - **状态**：待实现（用户 2026-09-24 明确「先记录，先不修改」）
-- **发现于**：统一档位重构（`unified-tier-tool-design.md` P1–P5）之后的走查
+- **发现于**：统一档位重构（`tier-strategy-design.md`）之后的走查
 - **位置**：
   - `skills/3d-animation-short-generator/SKILL.md` STEP 3 角色卡（L152–177）、STEP 4 场景卡（L178–195）、工具表 L29
   - 口径过时点：同文件 L47（i2i「尺寸跟随参考图（≤1MP）」）

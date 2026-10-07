@@ -560,6 +560,6 @@
   "tier": "quality",
   "capability": "video.reference2video",
   "estSeconds": 1800,
-  "note": "链式续接 + 学习式 latent ×2 · **PDD 只进二遍**（首遍 20 步与 quality-2k 逐字节相同）· 二遍 sigmas ← PDDAccScheduler(nfe=8, denoise 0.3) ⇒ 2 次评估替代 6 步 · 交付 2688×1536 · 与 quality-2k 只差二遍的 model/sigmas，是「二遍加速值不值」的干净对照（docs/2k-acceleration-variants-analysis.md §1.6 变体 A）· **耗时推算，未实测** · **首遍不锁**：交付 = 首遍 ×2，随画布比例变（16:9 首遍 1344×768、9:16 首遍 768×1344），上面写的交付尺寸是 16:9 口径。9:16 像素量与 16:9 相同（耗时同量级）；**1:1 首遍 1344×1344、交付 2688×2688、像素量 1.78×**，estSeconds 未按比例修正；**1:1 显存余量小（实测峰值 ≈73/79 GiB），尽量压帧数**（高分辨率档的 1:1 未实测）",
+  "note": "链式续接 + 学习式 latent ×2 · **PDD 只进二遍**（首遍 20 步与 quality-2k 逐字节相同）· 二遍 sigmas ← PDDAccScheduler(nfe=8, denoise 0.3) ⇒ 2 次评估替代 6 步 · 交付 2688×1536 · 与 quality-2k 只差二遍的 model/sigmas，是「二遍加速值不值」的干净对照（docs/docs/video-upscale-guide.md §5）· **耗时推算，未实测** · **首遍不锁**：交付 = 首遍 ×2，随画布比例变（16:9 首遍 1344×768、9:16 首遍 768×1344），上面写的交付尺寸是 16:9 口径。9:16 像素量与 16:9 相同（耗时同量级）；**1:1 首遍 1344×1344、交付 2688×2688、像素量 1.78×**，estSeconds 未按比例修正；**1:1 显存余量小（实测峰值 ≈73/79 GiB），尽量压帧数**（高分辨率档的 1:1 未实测）",
   "priority": -60
 }

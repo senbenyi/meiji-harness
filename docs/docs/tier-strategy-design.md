@@ -1,7 +1,7 @@
 # 档位 · 策略 · 工作流：契约定稿
 
 > 状态： **设计冻结**（2026-09，讨论定稿）· **实现完成**（P1–P5 已落地，见 §8）。实现按本文档执行；改设计先改本文档。
-> 背景数据见 `../../docs/minimax-h3-video-benchmark.md`（耗时/画质/加速实测）与 `docs/minimax-h3-acceleration-lora.md`（Sol-Attn 细则）。
+> 背景数据与 Sol-Attn 细则见 `../minimax-h3-acceleration-lora.md` 的合并 benchmark。
 
 ## 0. 要解决的问题
 
@@ -208,7 +208,7 @@ video.reference2video
 - ~~**「两段式超分」（`MiniMaxH3AVLatentUpscaleBy`）**~~ → **已实现**（2026）：独立家族 `minimax-h3-ref2v-hires` / `minimax-h3-i2v-hires`，只提供 `quality` 档、
   `priority < 0`（不做隐式默认）。 **开源版 H3 原生上限即 768p**，所以首遍锁在 896×512、latent ×1.5 后二遍以 denoise 0.35 重建细节，交付 1344×768。
   新增 `resolutionLock` 字段（ **图锁定**形态：首遍尺寸是图结构的一部分，显式宽高/画布比例不得覆盖；交付尺寸 = graph × scale，且改写必有 warning）。
-  详见 `hires-two-pass-upscale.md`；验收使用离线 smoke。
+  详见 `video-upscale-guide.md`；验收使用离线 smoke。
 - ~~**「>2K」**~~ → **已实现**（2026）：家族 `minimax-h3-{ref2v,i2v}-ctx-{quality,quality-pdd2,balanced,fast}-2k`（ **8 份在役**；另有 `-ctx-balanced-pdd-2k` 一对 **已弃用**退场——PDD 接首遍更慢且闪烁，改接二遍即 `-quality-pdd2-2k`）。从 **ctx base** 派生。
   hires 的插值放大器只能把首遍 **拉回**原生 768p，交付分辨率仍等于原生上限；要用 **学习式 3D 放大器**
   （`MinimaxH3LatentUpscaler3DRefineHandoff` + `minimax_h3_latent_upscaler_3d_conv_v1_bf16`）在 latent 空间真重建，
@@ -217,7 +217,7 @@ video.reference2video
   **与链式续接可叠用**：放大发生在链式存档之后 ⇒ 判据是 **首遍尺寸一致**，交付尺寸不锁。
   实测 124 帧 1671.2s（56 帧 269.3s ⇒ 精修在 ≈500k token 上 **超线性**）；同 seed 原生对照的频带判据：
   0.25 cyc/px 以上能量 6.6–7.7×（≥0.4 cyc/px 在长片上掉到 1.7×，与高码率重编的对照见文档）。
-  详见 `learned-latent-upscale-2k.md`；验收 `scripts/probe-2k.mjs` + `scripts/analysis/analyze-2k-detail.mjs`；
+  详见 `video-upscale-guide.md`；验收 `scripts/probe-2k.mjs` + `scripts/analysis/analyze-2k-detail.mjs`；
   **画幅比例**出片探针 `scripts/probe-2k-aspect.mjs`（独立进程直连 ComfyUI，绕开插件模块缓存）：
   `--ratio 9:16 --frames 124` 实测 638.5s → 交付 **960×1664** 带音轨（`fast` 档，首遍 480×832）；
   `--ratio 1:1` 实测 22/56/124 帧都出片（ **1664×1664** 带音轨，124 帧 992.8s），
@@ -234,7 +234,21 @@ video.reference2video
   清单 `video-upscale-x2` / `-x4`（`priority` 0 / -10），模型走资产槽 `upscale_x2`/`upscale_x4`。
   与生成类的差别： **尺寸跟输入视频走**，声明 **尺寸来源**（`upscale.sizing`：`factor` = 交付源 × 倍率 / `short-side` = 交付由实现的目标短边推导）与 **分块归属**（`upscale.chunking`：`caller` 可由 runner 切 / `internal` 显存归实现自己管）， **不得**带 `resolutionLock`；
   逐帧独立 ⇒ 代价线性、天然可分块（长片切块再拼回，不需要 ffmpeg）。纯逻辑在 `../../lib/upscale.js`，编排在 `lib/index.js` 的 `runUpscale`。
-  详见 `video-upscale.md`；验收使用离线 smoke。 **推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
+  详见 `video-upscale-guide.md`；验收使用离线 smoke。 **推荐对单个分镜放大**（成片先拼后放会让失败代价与显存峰值都放大到全片）。
 - **PDD 的多镜头一致性未验**：现有画质结论来自单帧/单 seed；同一部片子若混用 PDD 与非 PDD 档，观感是否漂移未知（与 Sol 的"不逐镜混用"同理需要一部完整片子验证）。
 - 长 duration（250/372 帧）的耗时线性假设未实测。
 - 多行/竖版字幕在各档的字准样本量不足（n=1）。**当前状态**：配方已单源到 `skills/h3-prompt-writing`「字幕与画面内文案（唯一权威版）」，已实测的是 quality 逐字一致 / balanced 整段未烧 / fast 有错字；样本量为 1，多行与竖版待补测后回填该节。
+
+## 统一 capability / tier 工具面（合并结论）
+
+图片与视频统一使用 `capability + tier + 类型化输入`，模型 id 和 workflow id 只属于 manifest/registry。受控档位固定为 `fast | balanced | quality`；调用方传未知档位、档位无实现或实现缺节点时都显式失败，不静默回退。
+
+家族源清单可用 `tiers` 描述多档，加载后生成“每档一个运行时实现”；旧 `modes` 只作兼容输入。图片清单与视频清单遵循同一解析顺序：显式 workflow → capability pin → tier 映射 → preferred family → 内置默认。
+
+统一 resolution 声明必须记录 `graphWidth/graphHeight` 与交付宽高。图内实际尺寸和调用方请求不一致时告警；带 `resolutionLock` 的生成类与带 `upscale` 的后处理类互斥。图片生成器也必须从 manifest 推导尺寸、资产和节点要求，不能在工具层写死。
+
+工具面只保留能力工具；旧模型专用工具作为兼容别名进入同一 registry，不再维护独立执行路径。设置页按 registry/asset metadata 渲染 label、env 与覆盖值，新增 family 不应要求修改固定字段列表。
+
+兼容迁移顺序：先让 loader 同时接受家族源和逐档清单，再迁移调用方到 tier，最后删除旧 modes 专用分支。验收至少覆盖三档解析、显式 workflow、缺节点 fail-closed、graph/交付尺寸记账、旧别名等价性和 `npm pack --dry-run` 发布边界。
+
+本节合并了图片/视频一体化、工具收敛、设置页与迁移矩阵；通用 manifest 注入和 registry 契约仍以 [`workflow-contract.md`](workflow-contract.md) 为准。

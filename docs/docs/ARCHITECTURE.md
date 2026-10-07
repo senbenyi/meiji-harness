@@ -1,7 +1,7 @@
 # dsh-short-video-studio 架构文档
 
 > 本文档梳理 `dsh-short-video-studio`（v0.1.1）的整体架构：定位、模块划分、分层设计、关键数据流、目录职责与已知架构债。
-> 配套文档：`workflow-contract.md`（工作流契约设计）、`architecture-review.md`（架构审查与优化意见）、`consistency-optimization-plan.md`（一致性与镜头规划方案）、`../archive/doc/three-view-experiment.md`（参考图实验）。
+> 配套文档：`workflow-contract.md`（工作流契约）、`tier-strategy-design.md`（档位策略）、`video-continuity.md`（shape 与续接）、`video-upscale-guide.md`（放大与 2K）。
 
 ---
 
@@ -123,7 +123,7 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
 
 `comfy_generate_image` / `comfy_generate_video` 是**薄别名**：前者固定 `capability=image.text2image`；后者按**显式必填的 `type`** 分派 —— `type=r2v` → `video.reference2video`（参考绑定，配 `ref_nodes`）、`type=i2v` → `video.image2video`（首末帧串联，配 `first_frame_node`）。
 
-形状**不再由「传没传首帧」隐式推断**（旧行为会把冲突参数静默丢弃，见 `video-shape-contract.md`）：真值表集中在 `VIDEO_SHAPES`，校验由 `validateVideoArgs()` 实现，`runRender` 在**上传参考图之前**调用，工具 / HTTP 路由 / 脚本共用同一张表；冲突报错必须带修法。形状与「续接」（`continuity_from`）正交，跨形状续接刻意允许。
+形状**不再由「传没传首帧」隐式推断**（旧行为会把冲突参数静默丢弃，见 `video-continuity.md`）：真值表集中在 `VIDEO_SHAPES`，校验由 `validateVideoArgs()` 实现，`runRender` 在**上传参考图之前**调用，工具 / HTTP 路由 / 脚本共用同一张表；冲突报错必须带修法。形状与「续接」（`continuity_from`）正交，跨形状续接刻意允许。
 
 > 注：`runImageGeneration` / `runVideoGeneration` 与三个 legacy builder（`buildFluxImageWorkflow` / `buildH3VideoWorkflow` / `buildH3ImageToVideoWorkflow`）已无生产调用点，仅经 `_internals` 供 `smoke-manifest.mjs` 做「manifest 编译 vs legacy 构造」节点类别等价性比对（见 §7 架构债）。
 
@@ -166,7 +166,7 @@ comfy_render / comfy_generate_* → runRender(ctx, opts)
 
 0. **「画布的家」分支**（配置项 `canvasHome`，设置页「界面」段）：启动时 **只注册一个家**，
    所以两种取值下都只可能有一个 studio iframe 实例（结构上排除双实例，见
-   [`right-sidebar-canvas-research.md`](right-sidebar-canvas-research.md) §13）。同步先注册默认家
+   本文 §11.2）。同步先注册默认家
    `'tab'`，异步读到 `'sidebar'` 时注销它并改注册右栏 —— 零回归、配置请求失败即默认、不需要镜像。
    改动该配置后需刷新页面（启动时读一次），设置页写明并给了一键刷新。
    - `'tab'`（默认）：注入点 1（`conversation.view`）；
@@ -308,11 +308,11 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 | `../../scripts` 模板层（H3 一个 json = 一个档位实现） | `h3-templates/`（手写源）→ 三个生成器 → `../../workflows`（产物，勿手改）：`make-h3-variants.mjs`（模板 → 单档清单，自动填 `requiresNodes`/`estSeconds`/`note`）、`make-pdd-template.mjs`（从同族 base 生成 PDD 模板，固定 6 处改动：model 直连 UNETLoader 不走 `$model` 哨兵、插 `MiniMaxH3PDDAccApply`、guider 改用其输出、删 `BasicScheduler`、`sigmas` 接该节点的 1 号输出、采样器强制 euler；shift 固定 12/3，`requiresNodes=['MiniMaxH3PDDAccApply']`，`priority=-30` 不做隐式默认）、`make-sol-attn-variant.mjs`（插 Sol 节点；`--after=<锚点>`，遇到 PDD 模板会自动锚定 PDD 节点、Sol id 改用 `2b`，避免与 Apply 节点的 `2a` 撞号） |
 | `scripts/bench-h3.mjs` | 实测工具：由**模板**直接组图跑真机并计时（两条臂只要 ref/seed/length/prompt 一致，差异即只来自配方；`--dry` 先核对配方） |
 | `../../cordis.patch.yml` | bundle patch：插件行插入 web profile roster |
-| `../../docs` | 设计文档（workflow-contract）、审查（architecture-review）、方案（consistency-optimization-plan）、实验（three-view-experiment） |
+| `..` | canonical 设计文档（workflow-contract、tier-strategy-design、video-continuity、video-upscale-guide） |
 
 ---
 
-## 7. 已知架构债（来自 `architecture-review.md`，非本文作者新增判断）
+## 7. 已知架构债
 
 | 优先级 | 事项 | 说明 |
 |---|---|---|
@@ -325,7 +325,7 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 | **P2** | `schemaVersion` 无迁移 | 只有写入无检查无 `migrate()`，为将来 shotlist 节点预留 |
 | **P2** | 设置页资产字段仍硬编码 | 应改为按 registry 动态渲染（即 M4）。入库表单化已完成（资产类型下拉 + 资产名，不再从分组名反推类型） |
 
-另外 `consistency-optimization-plan.md` 指出的功能缺口中，「无拼接能力」已由 `runConcat` 解决，「末帧串联链路断裂（无抽帧能力）」已由 `extract-frame` 清单 + `extract_frame` 工具解决；仍未解决：`slugifyName` 对中文标题失效导致入库堵死、无身份锁（仅参考图 + 散文约束）、七列镜头表不可机读（无 shotlist schema）。
+早期功能审计中的「无拼接能力」已由 `runConcat` 解决，「末帧串联链路断裂」已由当前 chain manifest 解决；仍未解决的项目以 `open-issues.md` 和本文审计为准。
 
 ---
 
@@ -339,7 +339,7 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 ## 9. skill 层与执行层的配合与解耦
 
-> 深化 `architecture-review.md` §1.2（双份真相）与 `../archive/doc/workflow-contract.md` §5（工具契约泛化）的交点：skill 层与执行层如何配合、耦合在哪、如何解耦。
+> 本节说明 Skill 与执行层如何配合、耦合在哪、如何解耦；通用工具契约见 `workflow-contract.md` §5。
 
 ### 9.1 现状：三层各司其职，但边界模糊
 
@@ -388,9 +388,9 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 ### 9.4 落地顺序
 
-1. GUIDANCE 瘦身为「工具契约 + 指向 skill」——P0（`architecture-review.md` §8）
+1. GUIDANCE 瘦身为「工具契约 + 指向 skill」——P0
 2. skill 层改用能力词汇、删写死的 workflow id 备注——M3（`workflow-contract.md` §7）
-3. 可校验规则下沉 `shotlist_validate` / `planRefs` / 类型断言——W2/W3（`consistency-optimization-plan.md` §4）
+3. 可校验规则下沉 `shotlist_validate` / `planRefs` / 类型断言
 4. skill 工具映射表合一（不再列签名）——收尾
 
 ---
@@ -403,6 +403,33 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 `../../lib/script/asset-production.js` 负责剧本资产提取契约；`shot-production.js` 负责图片/视频独立提示词；`lib/domain/creative.js` 校验成果输入版本并写入；`lib/prompts/specification.js` 校验生成说明。参考图、衍生图、分镜图和视频均须有完整、可编辑的已保存提示词，渲染使用当前说明并保存真实请求快照。旧描述和旧视频 prompt 不自动冒充新的完整提示词。主流程与返工复用同一领域契约、生产队列和失效传播。
 
-实施及实机范围见 [验证记录](../../docs/research/2026-10-07-creative-production-verification.md)。以下早期总结中的会话画布存储描述不适用于当前正式短剧领域数据链。
+实施及实机范围见 [验证记录](../research/2026-10-07-creative-production-verification.md)。以下早期总结中的会话画布存储描述不适用于当前正式短剧领域数据链。
 
-`dsh-short-video-studio` 是一个**「契约驱动」的本地生成画布工作室**：Agent 只表达「要什么」（capability + 类型化输入），宿主按注册表把能力解析成具体 ComfyUI 工作流并执行，产物落进会话画布（Agent 工具与画布页共享同一份 `project.json`），角色/场景卡经资产库跨会话复用。其最大架构价值在 manifest 契约层——**加模型即加 JSON**；最大结构风险在散文层双份真相与单文件宿主——均已由 `architecture-review.md` 定位并给出拆分路线。
+`dsh-short-video-studio` 是一个**「契约驱动」的本地生成画布工作室**：Agent 只表达「要什么」（capability + 类型化输入），宿主按注册表把能力解析成具体 ComfyUI 工作流并执行，产物落进会话画布（Agent 工具与画布页共享同一份 `project.json`），角色/场景卡经资产库跨会话复用。其最大架构价值在 manifest 契约层——**加模型即加 JSON**；最大结构风险在散文层双份真相与单文件宿主。
+
+## 11. 架构审计与画布入口定稿
+
+### 11.1 仍有效的架构债
+
+- 真相来源必须收敛：manifest 持有机器契约，Skill 只描述能力与创作规则，README/本文只做导航与解释；不得在三处重复清单。
+- `lib/index.js` 虽已拆出配置、Guidance、Skill 同步与 hooks，ComfyUI、渲染、工具和路由仍应按职责继续拆分；不要重写 manifest 系统或引入第二套 registry。
+- 所有新增 schema 字段必须有 `schemaVersion` 与迁移路径；老 `project.json` 不得靠前端猜测兼容。
+- 配置和变更端点统一 token/信任边界；只绑定 `127.0.0.1` 不能替代明确认证策略。
+- `npm test` 与 smoke 是合并门槛；可校验规则应下沉为 schema/领域断言，不只写在 Prompt。
+- 前端表单必须由 manifest asset metadata 驱动，避免新增 workflow 后设置页仍缺固定字段。
+
+优先级：P0 为单一真相与信任边界；P1 为剩余单文件拆分、schema 迁移和动态设置页；P2 才是性能与非必要 UI 重构。历史审查中约 160 行 legacy 死代码和旧行数只代表当时基线，不再作为当前事实。
+
+### 11.2 右侧栏画布的最终选择
+
+右侧栏是 DSH 的公开扩展面，但本项目不同时注册两个画布实例。最终采用插件配置：
+
+```json
+{ "canvasHome": "tab" }
+```
+
+取值仅为 `tab | sidebar`，默认 `tab`。启动时同步注册默认家，再异步读取插件配置并切换注册；配置变更后刷新页面生效。`sidebar` 使用官方 tab definition/guide 入口并复用同一个 `CanvasView`，不 fork、patch 或 monkey-patch 宿主。
+
+该静态单家方案删除了动态 `openView` 句柄缓存、运行时搬家、双实例互斥、冷缓存恢复和额外 iframe 协议。已知上游限制：刷新后右栏折叠、不能编程切全屏、300–450px 窄列仍需真机回归。版本基线为含 sidebar-right tab API 的 DSH `0.1.5-alpha.1+`；插件侧继续用可选注入和失败兜底，右栏缺席时不能拖垮主画布。
+
+验证覆盖：tab/sidebar 两种配置只能出现一个 iframe；右栏 guide 能打开画布；缺右栏插件时 tab 入口仍可用；配置端点和页面加载受既有 token/宿主边界保护。

@@ -97,7 +97,7 @@
 | 2：业务子任务 | `lib/script/novel-production.js`、`lib/script/rework.js`、`lib/script/tools.js`、`lib/script/child-policy.js`；新增 `lib/script/asset-production.js`、`lib/script/shot-production.js`、`lib/agents/contracts.js` | 拆分正式剧本与生产视觉层；分别实现资产和镜头阶段；定义六类角色输入/输出及工具范围 | 调度测试：角色、依赖、输入范围正确，子任务失败不推进、不改其他内容 |
 | 3：生成和恢复 | `lib/production/drama.js`、`lib/production/rework.js`、`lib/production/worker.js`、`lib/index.js`、`lib/prompts/compiler.js`、`lib/prompts/snapshot.js` | 接入提示词编写依赖、基础/衍生图、分镜/视频独立输入；统一主流程和返工；所有媒体生成强制保存执行快照；删掉本次替代的临时拼接 | 请求集成测试：界面确认文本、编译快照和真实提交内容可核对；重试/恢复无重复副作用 |
 | 4：版本与编辑 | `lib/domain/invalidation.js`、`lib/domain/rework.js`、`lib/domain/read-models.js`、`lib/storage/migrations.js`、`studio/app.js`（必要时少量 `studio/app.css`） | 精确失效；提示词详情、编辑和重编写入口；道具/衍生展示；阶段进度；旧数据兼容 | 页面操作、保存刷新、返回重生成、历史折叠和移动端布局验证 |
-| 5：协调指引及验收 | `lib/guidance.js`、`skills/elysium-generate-drama/SKILL.md`、相关 image/video skill、`tests/domain/*.test.js` 与受影响集成测试；`../../archive/doc/ARCHITECTURE.md` | 主 Agent 的职责、工具与新成果契约一致；同步文档和可复现验收记录 | 聚焦测试 → `npm run test:all` → `npm run smoke:all` → 真实模型与媒体验收 |
+| 5：协调指引及验收 | `lib/guidance.js`、`skills/elysium-generate-drama/SKILL.md`、相关 image/video skill、`tests/domain/*.test.js` 与受影响集成测试；`../docs` | 主 Agent 的职责、工具与新成果契约一致；同步文档和可复现验收记录 | 聚焦测试 → `npm run test:all` → `npm run smoke:all` → 真实模型与媒体验收 |
 
 保留 characters/locations 的现有 ID 和数据归属，增加 props 与 assetVariants；现有 characterStates 作为迁移来源，旧写入口转到同一衍生命令，不能维持两份可独立修改的状态。迁移不生成内容、不冒充提示词已完成。已有 shot.prompt 保留为历史视频输入线索，不能机械复制为完整分镜图片提示词。旧产物保留并明确显示待补流程；离线存储写入按现有迁移规范先预演、停服再应用。
 

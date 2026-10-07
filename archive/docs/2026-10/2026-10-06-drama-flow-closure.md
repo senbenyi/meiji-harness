@@ -1,6 +1,6 @@
 # 短剧流程闭环修复
 
-> 状态：已完成流程修复、部署与真实服务验收；内容和画面质量留待下一步。结果见 [闭环验收报告](../research/2026-10-06-drama-flow-closure-verification.md)。
+> 状态：已完成流程修复、部署与真实服务验收；内容和画面质量留待下一步。结果见 [闭环验收报告](2026-10-06-drama-flow-closure-verification.md)。
 > 基线：92aa3293；参考 `/Users/mac/ai/code/ArcReel/lib/workflow/workflow_rules.py` 和 `server/agent_toolset/workflow_completion.py` 的阶段检查点、版本化完成事实。
 
 ## 范围与验收

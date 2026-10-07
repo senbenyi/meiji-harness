@@ -1,5 +1,21 @@
 # 都市生日夜完整流程验收
 
+## 2026-10-07 自主生产第二次 Clean-room 失败与超时语义修复
+
+- [x] 保留第二次 3080 验收失败现场，不点击“重试任务”，确认全新 Project `20261007151416884` 只调用一次 `studio_novel_create`。
+- [x] 定位 17/19 的精确失败链：最后两个资产提示词在一次 Workflow 调用达到 5 分钟后，`runProductionWorkflow` 直接抛错。
+- [x] 复核 manifest：节点已经声明 `retryOn: timeout`、`maxAttempts: 2`，但运行器只实现了 invalid-output 重试，timeout 策略从未执行。
+- [x] 修复运行器：超时按节点的 manifest 策略自动重试，耗尽后才返回具体任务失败；不扩大固定超时时间。
+- [ ] 运行聚焦测试、全量测试和 smoke，重装插件并重启 3080。
+- [ ] 新建第三个干净会话，只调用一次小说入口，零人工续跑验证文本、提示词、媒体、交付和画布。
+
+### 第二次 Clean-room 结论
+
+- 成片质量结论不受影响；自主流程结论为 FAIL。
+- Root Run：`20261007151416884:novel-root:43bbeeac9978:pilot:1:3`，07:14:16 创建，07:23:24 失败。
+- 17 个文本节点已持久完成；`prop-upside-down-bowl`、`prop-four-dishes-one-soup` 在 5 分钟边界同时失败。
+- 根因不是“整个 Root Agent 只能运行 5 分钟”，而是 Workflow 执行器把一次调用超时直接上抛，绕过了 manifest 已声明的 timeout 重试策略。
+
 ## 2026-10-07 自主闭环审计与根因修复
 
 ### 计划
@@ -19,6 +35,12 @@
 - 服务重启后无需新聊天唤醒；同一运行自动恢复未完成项，已完成项不重跑。
 - UI 重试是唯一允许的人工恢复动作，且一次动作同时完成状态恢复与执行唤醒。
 - 任何代码热修、内部工具调用、数据库/JSON 修改或人工补齐都会使该次验收作废，必须修复后从干净运行重新验证。
+
+### 第一轮 clean-room 结果
+
+- `FAIL`：页面轨迹满足单次 `studio_novel_create`，但入口返回旧 Project `20261007141225410`。
+- 根因：绑定键未包含运营 session，新聊天仍按 workspace + source hash + Pilot 参数复用旧 Project。
+- 处理：将入口幂等范围收紧为同一 session；本轮不计入自主验收证据，修复后从新会话重跑。
 
 > 状态：架构重构已落地，真实流程验收进行中（29/31 文本节点）
 > 基线：2026-10-07，`novel-to-drama-text-v1`
@@ -208,3 +230,84 @@
 - 已移除视频节点底部的独立下载链接，并清理因此失去用途的 `.node-foot a` 样式。
 - 保留 `<video controls>`、媒体 URL 和技术详情，浏览器原生下载、播放速度与画中画能力不受影响。
 - 验证通过：`node --check studio/app.js`；静态断言确认冗余下载代码为 0 且原生 controls 仍存在；Studio 测试 11/11、渲染 smoke 24/24、画布主页 smoke 87/87。
+
+## 2026-10-07 文档压缩、合并、归档与删除
+
+### 目标与安全边界
+
+- 目标：把现行项目文档收敛为可导航的 canonical 文档，将完成的计划、调研和验收记录成组归档，并删除已证明无引用、可由 Git 恢复的冗余项。
+- 保护：不覆盖或删除当前 21 个已暂存迁移、12 个未暂存文档/任务文件及 `lib/index.js` 的现有改动。
+- 保护：不把 `AGENTS.md`、`.claude/*`、`skills/*`、`schemas/*`、`pipelines/*`、测试 fixture 当作普通文档清理。
+- 删除门槛：目标必须无运行时引用、无独有信息、可由 Git 恢复；ignored 的 `out/` 产物需单独确认后才删除。
+
+### 实施计划
+
+- [x] 建立 `docs/README.md` 唯一文档地图，区分现行规范、操作指南、设计决策与历史归档。
+- [x] 保留现有 21 个暂存迁移的方向，修复旧归档目录的坏链接，不二次搬动正在编辑的文件。
+- [x] 将四组已完成的 plan/verification 成对移动到 `archive/docs/2026-10/`：drama-flow-closure、drama-stage-gates、studio-edit-regenerate、studio-operator-redesign。
+- [x] 将已完成且未被修改的调研/实施记录移入同一归档，并在 `docs/README.md` 保留一句结论与链接；当前正在修改的文档只索引、不移动。
+- [x] 对 architecture/harness、drama/pipeline、H3、upscale、continuity、tier 六个主题建立 canonical 指针；本轮不重写正在编辑的长文，避免信息损失。
+- [x] 删除仅限经引用扫描证明无引用的重复/低价值项；默认保留上游 Skill 快照，不用符号链接破坏运行时自包含性。
+- [x] 分别复核 staged 与 unstaged diff，扫描 Markdown 链接和代码引用，记录文件数、行数、体积的前后对比。
+
+### 验收标准
+
+- 根 `README.md` 能进入 `docs/README.md`，后者能定位所有现行规范和归档主题。
+- 活跃文档目录不再并列展示已完成的 plan/verification 对；归档保留原始证据和 Git 历史。
+- 没有新增坏链接，没有残留指向旧文档归档目录的路径，没有删除运行时或测试依赖文件。
+- 用户现有 staged/unstaged 内容逐文件保持，所有新增变更都能追溯到本计划。
+
+### 回顾
+
+- 新增 `docs/README.md` 和按月归档索引，根 `README.md` 只保留一个文档入口；现行规范、操作指南、活跃设计和历史记录不再并列堆放。
+- 四组已完成 plan/verification 与两份阶段调研共 10 个文件移入 `archive/docs/2026-10/`；活跃 `docs/` 从 58 份降至 49 份，现为 12,492 行、919,152 字节。
+- 将 `docs/implementation` 的两份实施记录并入 `docs/implement`，删除合并后的空目录；ignored 的 `.pytest_cache` 已移入系统废纸篓，可恢复。
+- 修复 7 处旧归档路径、归档内交叉链接及 3 处活跃文档入站链接；相对 Markdown 链接扫描通过。
+- `ArcReel.md`、`harness-capabilities.md`、运行时 Skills、测试 fixture、`out/` 产物和用户现有未提交内容均保留。
+
+## 2026-10-07 文档实际减量纠正
+
+### 纠正目标
+
+- [x] 以当前 88 份文档类文件为基线，至少删除/合并 15 份，仓库总文档数降到 73 份以内。
+- [x] 2K/超分、视频连续性、workflow/tier、架构/UI、H3 五个主题各只保留 1–2 份 canonical 文档。
+- [x] 合并前检查每个源文件的独有结论和未提交 diff；合并后删除源文件，不用“移动到 archive”冒充减量。
+- [x] 更新所有入站引用与 `docs/README.md`，运行全量相对链接扫描和 Git diff 检查。
+
+### 回顾
+
+- 18 份源文档被实际删除并由 3 份新 canonical 文档及 3 份既有主文档吸收；仓库文档类文件从 88 份降到 71 份，现为 13,654 行、994,250 字节。
+- 超分 6→1：`video-upscale-guide.md`；连续性 6→1：`video-continuity.md`；原生对白计划/验收 2→1：`minimax-h3-native-dialogue.md`。
+- `tier-strategy-design.md` 吸收统一 tier/tool 设计；`ARCHITECTURE.md` 吸收架构审计与右栏决策；`minimax-h3-acceleration-lora.md` 吸收 benchmark 条件、矩阵、成本和复现边界。
+- 所有代码注释、schema 描述、manifest note、脚本和文档入口已改指 canonical；旧文件名残留为 0。
+- 验证：48 个相对 Markdown 链接无断链；JSON 解析通过；worktree/index `git diff --check` 通过；`npm test` 10/10 通过。
+
+## 2026-10-07 精简自动测试与 smoke
+
+### 审计结论
+
+- 当前 `test:all` 覆盖 35 个测试文件、约 171–173 条动态测试；数量本身不是耗时根因。
+- `tests/plugin/drama-flow.test.js` 单条伪端到端约 13.9 秒，其余全部测试合计约 0.9 秒；该测试仍不能替代 `3080` 真实页面与真实 provider 验收。
+- `smoke:all` 约 5 秒，其中 assets 脚本固定空等约 3 秒、PDF fallback 约 1 秒；大量 UI/CSS/注册顺序/字符串断言与人工页面验收重复。
+- 自动化只保留人工难以稳定验证的隐藏不变量：并发/幂等、原子持久化、路径安全、重复提交、DAG/checkpoint、入口权限与 provider 请求门禁。
+
+### 实施计划（等待确认）
+
+- [ ] 删除耗时的 `drama-flow` 伪端到端测试；主流程成功与成片质量只通过 `http://127.0.0.1:3080/` 的真实人工验收确认。
+- [ ] 将自动测试精简到约 29 条核心契约：CAS/command 幂等、年龄与权利门、原子失效与 lease、路径穿越与审计链、`submission_unknown` 禁止重提、Pipeline/DAG/checkpoint、唯一入口/阶段门禁、全文覆盖、引用上限、禁止漏镜。
+- [ ] 删除低价值测试文件与同文件内排列组合：配置优先级、Schema 自证、编译器实现细节、read-model 展示计数、BatchRunner 参数组合、concat 拓扑、Canvas tab/投影、H3 tier 笛卡尔积等。
+- [ ] 删除 `smoke:all`、`prepublishOnly` 及 UI/CSS/PDF/assets/upload/preask/render/video-shape/skill-install 等低价值 smoke；仅保留 `tools + manifest + tier-resolution` 三个快速插件契约检查，默认合计约 0.23 秒。
+- [ ] 将 `npm test` 改为唯一核心自动验证入口，删除误导性的 `test:all` / `test:domain` / `smoke:all`；同步 README，不批量改写历史归档中的旧验收记录。
+- [ ] 新增简短人工验收清单：唯一 UI 入口、真实 provider、宿主重启恢复、上游编辑失效传播、远端失败重试、逐镜与最终成片检查；运行时由 Codex 补跑或热修则整次验收失败。
+- [ ] 验证精简后的 `npm test` 与保留的快速 smoke，并记录测试数和墙钟时间；不再运行已删除的完整套件。
+
+### 验收标准
+
+- 默认自动验证不执行假端到端、浏览器/PDF、UI/CSS 或固定等待脚本，墙钟目标小于 2 秒。
+- 保留的每条测试都对应一个无法由 UI happy path 可靠证明的高风险契约。
+- 页面布局、交互、媒体质量、音画同步和最终成片结论只以真实人工验收为准，自动化不得宣称替代。
+- 不触碰当前工作区中与本任务无关的已暂存/未暂存改动。
+
+### 回顾
+
+- 待实施完成后填写。

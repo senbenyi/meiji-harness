@@ -30,7 +30,7 @@ const DRY = process.argv.includes('--dry')
 
 const GROUP_REF2V = { id: 'minimax-h3-ref2v', displayName: 'MiniMax H3 参考生成视频', capability: 'video.reference2video' }
 const GROUP_I2V = { id: 'minimax-h3-i2v', displayName: 'MiniMax H3 首末帧生成视频', capability: 'video.image2video' }
-// 链式续接家族（R3，见 docs/shot-chain-continuity.md）：**同能力**的第三组实现。
+// 链式续接家族（R3，见 docs/docs/video-continuity.md）：**同能力**的第三组实现。
 // 与其它组的区别只在于「上一镜从哪来」——它消费上一镜的服务端 latent，画面逐帧钉住上一镜结尾、
 // 音频从接缝继续，专治同场景续接镜的跳变。跨场景/首镜请用普通组（未声明 chain 的实现）。
 // priority 全为负 = **永不做隐式默认**：只有显式 workflow= 或带 continuity_from 的请求才会选到它，
@@ -61,7 +61,7 @@ const GROUP_I2V_2K = { id: 'minimax-h3-i2v-ctx-2k', displayName: 'MiniMax H3 首
 
 /**
  * 变体表：一份 = 一个档位实现。
- * estSeconds 口径：16:9 · 124 帧 · 该档长边（来源 docs/minimax-h3-video-benchmark.md 实测）。
+ * estSeconds 口径：16:9 · 124 帧 · 该档长边（来源 docs/minimax-h3-acceleration-lora.md 的合并 benchmark）。
  */
 const VARIANTS = [
   // ref2v ───────────────────────────────────────────────────────────────────
@@ -115,13 +115,13 @@ const VARIANTS = [
   //   再按链式多采 22 帧（22/124 ≈ +17.7%）推算 ctx 版 ⇒ 约 1950s；fast / balanced-pdd 为推算值，
   //   待真机实测后回填（探针：scripts/probe-2k.mjs 传 workflow= 对应清单）。
   { out: 'minimax-h3-ref2v-ctx-quality-2k', group: GROUP_REF2V_2K, tier: 'quality', priority: -60, template: 'minimax-h3-ref2v-ctx-quality-2k.json', mode: 'quality', estSeconds: 2700, note: '链式续接 + 学习式 latent ×2 · 首遍 1344×768 20 步 → 学习式 3D 放大 → 二遍 denoise 0.3 · 交付 2688×1536 · **耗时推算，未实测**：锚点＝同管线非链式的 1671.2s@124 帧，链式多采后 158 采样帧、按二遍超线性（指数 1.6–2.3）外推 ⇒ 2700–3300s 区间' },
-  { out: 'minimax-h3-ref2v-ctx-quality-pdd2-2k', group: GROUP_REF2V_2K, tier: 'quality', priority: -60, template: 'minimax-h3-ref2v-ctx-quality-pdd2-2k.json', mode: 'quality', estSeconds: 1800, note: '链式续接 + 学习式 latent ×2 · **PDD 只进二遍**（首遍 20 步与 quality-2k 逐字节相同）· 二遍 sigmas ← PDDAccScheduler(nfe=8, denoise 0.3) ⇒ 2 次评估替代 6 步 · 交付 2688×1536 · 与 quality-2k 只差二遍的 model/sigmas，是「二遍加速值不值」的干净对照（docs/2k-acceleration-variants-analysis.md §1.6 变体 A）· **耗时推算，未实测**' },
+  { out: 'minimax-h3-ref2v-ctx-quality-pdd2-2k', group: GROUP_REF2V_2K, tier: 'quality', priority: -60, template: 'minimax-h3-ref2v-ctx-quality-pdd2-2k.json', mode: 'quality', estSeconds: 1800, note: '链式续接 + 学习式 latent ×2 · **PDD 只进二遍**（首遍 20 步与 quality-2k 逐字节相同）· 二遍 sigmas ← PDDAccScheduler(nfe=8, denoise 0.3) ⇒ 2 次评估替代 6 步 · 交付 2688×1536 · 与 quality-2k 只差二遍的 model/sigmas，是「二遍加速值不值」的干净对照（docs/docs/video-upscale-guide.md §5）· **耗时推算，未实测**' },
   { out: 'minimax-h3-i2v-ctx-quality-2k', group: GROUP_I2V_2K, tier: 'quality', priority: -60, template: 'minimax-h3-i2v-ctx-quality-2k.json', mode: 'quality', estSeconds: 2700, note: '链式续接 + 学习式 latent ×2 · 同 ref2v 结构（走 FL2VA 权重）· 交付 2688×1536 · **耗时推算，未实测**（沿用 ref2v 口径 2700–3300s）' },
   { out: 'minimax-h3-i2v-ctx-quality-pdd2-2k', group: GROUP_I2V_2K, tier: 'quality', priority: -60, template: 'minimax-h3-i2v-ctx-quality-pdd2-2k.json', mode: 'quality', estSeconds: 1800, note: '链式续接 + 学习式 latent ×2 · **PDD 只进二遍**（走 FL2VA 权重，与 i2v 的 quality-2k 只差二遍的 model/sigmas）· 交付 2688×1536 · **耗时推算，未实测**' },
   // ── 已弃用：PDD 接在**首遍**上，与设计文档 §1.6 变体 A（PDD 只进二遍）相反 ──────────────
   // 实测（56 帧 / 2688×1536，2026-09-23）：比无 PDD 版**更慢**（1462.3s vs 942.0s）、
   // 有效宽度无增益（1.00–1.11×，随 seed 波动）、**时域闪烁 +150%（两组 seed 都恶化）**。
-  // 根因：2K 的开销与画质几乎全由二遍决定（docs/2k-acceleration-variants-analysis.md §0），
+  // 根因：2K 的开销与画质几乎全由二遍决定（docs/docs/video-upscale-guide.md §5），
   // 而这里的 PDD 只改首遍，二遍与无 PDD 版**逐字节相同** ⇒ 不可能有收益，只留下闪烁代价。
   // 替代：`-ctx-quality-pdd2-2k`（PDD 真正接在二遍：二遍 3.06×、画质持平）。
   // 保留 internal 清单只为复现历史 A/B；**不要用于新镜头**。

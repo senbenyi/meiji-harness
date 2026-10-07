@@ -173,6 +173,47 @@ test('workflow retry preserves the complete validation error chain', async () =>
   assert.equal(result.error, '第1次：分集规划遗漏原文区间：0..22；第2次：未返回合法结构化结果')
 })
 
+test('workflow timeout follows the manifest retry policy instead of failing the whole root run', async () => {
+  const calls = new Map()
+  const workflow = { execute: async ({ args }, { signal }) => {
+    const label = args.tasks[0].label
+    calls.set(label, (calls.get(label) || 0) + 1)
+    if (label === 'slow-asset' && calls.get(label) === 1) await new Promise((_resolve, reject) => {
+      const guard = setTimeout(() => reject(new Error('abort signal was not delivered')), 1000)
+      signal.addEventListener('abort', () => { clearTimeout(guard); reject(signal.reason) }, { once: true })
+    })
+    return { kind: 'foreground', result: args.tasks.map((task) => ({ label: task.label, value: { ok: true }, error: '' })) }
+  } }
+  const result = await runProductionWorkflow(workflow, [{
+    label: 'fast-asset', role: 'assets', phase: '资产提示词', schema: {}, prompt: 'Task',
+    retry: { maxAttempts: 2, timeoutMs: 10, retryOn: ['timeout'] },
+  }, {
+    label: 'slow-asset', role: 'assets', phase: '资产提示词', schema: {}, prompt: 'Task',
+    retry: { maxAttempts: 2, timeoutMs: 10, retryOn: ['timeout'] },
+  }], {})
+  assert.equal(calls.get('fast-asset'), 1)
+  assert.equal(calls.get('slow-asset'), 2)
+  assert.deepEqual(result.result.map((item) => item.value), [{ ok: true }, { ok: true }])
+})
+
+test('workflow timeout is returned as a task failure only after retry exhaustion', async () => {
+  let calls = 0
+  const workflow = { execute: async (_request, { signal }) => {
+    calls++
+    await new Promise((_resolve, reject) => {
+      const guard = setTimeout(() => reject(new Error('abort signal was not delivered')), 1000)
+      signal.addEventListener('abort', () => { clearTimeout(guard); reject(signal.reason) }, { once: true })
+    })
+  } }
+  const [result] = (await runProductionWorkflow(workflow, [{
+    label: 'slow-asset', role: 'assets', phase: '资产提示词', schema: {}, prompt: 'Task',
+    retry: { maxAttempts: 2, timeoutMs: 10, retryOn: ['timeout'] },
+  }], {})).result
+  assert.equal(calls, 2)
+  assert.match(result.error, /第1次：创作子任务超过 1 分钟/)
+  assert.match(result.error, /第2次：创作子任务超过 1 分钟/)
+})
+
 test('episode plan prompt states the exact full-source coverage contract', async () => {
   const prompts = []
   const options = await fixture(async (tasks) => tasks.map((task) => {

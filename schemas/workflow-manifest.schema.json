@@ -436,7 +436,7 @@
     },
     "upscale": {
       "type": "object",
-      "description": "视频超分（capability=video.upscale）的尺寸与显存契约。与 resolutionLock 互斥：那种的尺寸来自图结构/档位×画布比例，这里的尺寸**跟着输入视频走**。两个维度必须说清：① sizing = 交付尺寸从哪来（factor = 源 × 倍率，像素空间 CNN；short-side = 由实现的目标短边推导，扩散/恢复类模型，倍率是推导出来的）；② chunking = 显存归谁管（caller = 逐帧独立，runner 可按像素-帧预算自由分块；internal = 自带跨帧时间先验，外层不切，显存交给实现自己）。契约见 docs/video-upscale.md §3。",
+      "description": "视频超分（capability=video.upscale）的尺寸与显存契约。与 resolutionLock 互斥：那种的尺寸来自图结构/档位×画布比例，这里的尺寸**跟着输入视频走**。两个维度必须说清：① sizing = 交付尺寸从哪来（factor = 源 × 倍率，像素空间 CNN；short-side = 由实现的目标短边推导，扩散/恢复类模型，倍率是推导出来的）；② chunking = 显存归谁管（caller = 逐帧独立，runner 可按像素-帧预算自由分块；internal = 自带跨帧时间先验，外层不切，显存交给实现自己）。契约见 docs/docs/video-upscale-guide.md §3。",
       "properties": {
         "sizing": {
           "enum": [
@@ -506,7 +506,7 @@
     },
     "chain": {
       "type": "object",
-      "description": "链式续接声明：本实现消费「上一镜」的产物（服务端 latent）以延续画面与音频，专用于同场景续接镜。不声明=不参与链式续接。契约见 docs/shot-chain-continuity.md。",
+      "description": "链式续接声明：本实现消费「上一镜」的产物（服务端 latent）以延续画面与音频，专用于同场景续接镜。不声明=不参与链式续接。契约见 docs/docs/video-continuity.md。",
       "properties": {
         "source": {
           "enum": [

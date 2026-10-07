@@ -319,7 +319,7 @@ for (const spec of SPECS) {
   // 2b) PDD 只进二遍（`pddPass2`）：把**精修那一步**的 model 与 sigmas 换成 PDD 侧。
   //
   // 为什么这样接：2K 的开销几乎全在二遍（序列 ≈ 首遍 4×，注意力随 S 超线性 ⇒ 二遍占 55%–83%，
-  // 见 docs/2k-acceleration-variants-analysis.md §0）。首遍便宜、又是运动/构图/音轨的来源，
+  // 见 docs/docs/video-upscale-guide.md §5）。首遍便宜、又是运动/构图/音轨的来源，
   // 动它只有风险没有收益（§1.6 变体 A）。这里的挂点正是那份文档推荐的：
   //   PDDAccApply(2a) ──→ RefineHandoff.model     （只喂精修）
   //   PDDAccScheduler(2c) ─→ RefineHandoff.sigmas （训练网格上的 tail）

@@ -2,6 +2,8 @@
 
 DeepSeek Harness 的本地 ComfyUI 图片/视频生成插件。本分支只激活根据当前 GPU 服务器配置的 Elysium 工作流；作者原始和未验证实验工作流保存在 `archive/`，不会进入运行时注册表或 npm 发布包。
 
+项目文档统一从 [`docs/README.md`](docs/README.md) 进入；现行规范、实施记录和历史归档在该页分区索引。
+
 ## 活动工作流
 
 活动目录 `workflows/` 只有 4 份家族清单；加载时展开为 12 个兼容的逐档运行时实现：

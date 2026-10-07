@@ -129,7 +129,7 @@ ProjectService command
 ## 9. 参考来源
 
 - 当前架构：`../架构-单机AI成人短剧创作工具.md`
-- 当前实施：`../implementation/实施-单机AI成人短剧创作工具.md`
+- 当前实施：`实施-单机AI成人短剧创作工具.md`
 - 当前总计划：`../plans/计划-AI短剧数据底座与能力蒸馏.md`
 - ArcReel README：https://github.com/ArcReel/ArcReel/blob/main/README.en.md
 - ArcReel v0.31.0：https://github.com/ArcReel/ArcReel/releases/tag/v0.31.0

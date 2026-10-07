@@ -6,7 +6,7 @@
  *   · 生成类的图分辨率是**图结构的一部分**（resolutionLock / 画布比例推导），图长什么样就是交付什么样，
  *     所以模板（大 JSON）与清单元数据分两层维护；
  *   · 超分的图分辨率**跟着输入视频走**：LoadVideo → GetVideoComponents 拿到的就是源尺寸，
- *     清单声明的是**尺寸来源**（`upscale.sizing`，契约见 docs/video-upscale.md §3）：
+ *     清单声明的是**尺寸来源**（`upscale.sizing`，契约见 docs/docs/video-upscale-guide.md §3）：
  *       · `factor`      交付 = 源尺寸 × factor（像素空间逐帧 CNN；本文件生成的两份就是这一形态）
  *       · `short-side`  交付由实现的**目标短边**推导（扩散/恢复类模型，如 SeedVR2 的 resolution），
  *                       必须配 `params.out_short_side` 让 runner 把解析出的短边回注实现
@@ -25,7 +25,7 @@
  *   7 SaveVideo(mp4/h264)
  *
  * 为什么没有采样器/时间维节点：这是**逐帧** CNN 超分 ⇒ 代价线性、天然可分块
- * （分块与拼接由 runner 负责，见 lib/upscale.js）。实测数据与判据见 docs/video-upscale.md。
+ * （分块与拼接由 runner 负责，见 lib/upscale.js）。实测数据与判据见 docs/docs/video-upscale-guide.md。
  *
  * 用法：node scripts/make-upscale-manifests.mjs
  */

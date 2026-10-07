@@ -415,9 +415,9 @@ Shot 状态不能直接从“模型返回成功”跳到 approved；模型成功
 
 - 当前插件宿主：`lib/index.js` 的项目存储、Gateway render、16 个工具、HTTP 路由、H3 pre-execute 门、自动送达钩子和 system prompt。
 - 当前插件客户端与画布：`lib/client.js`、`studio/app.js`、`lib/assets.js`。
-- 当前插件流程：`skills/*/SKILL.md`、`../../archive/doc/ARCHITECTURE.md`、`docs/consistency-plan.md`、`../../archive/doc/video-shape-contract.md`、`../../archive/doc/shot-chain-continuity.md`、`../../archive/doc/channel-delivery.md`。
+- 当前插件流程：`skills/*/SKILL.md`、`../docs`、`docs/consistency-plan.md`、`../docs`、`../docs`、`../docs`。
 - 当前插件验证资产：`scripts/checks/`、`scripts/probes/`、`scripts/analysis/`。
 - Harness：当前 `web` Profile 的 `dsh --dump-config`、`../implement/harness-capabilities.md`、`scripts/tools/audit-harness.mjs`，以及本机已解析的 `@deepseek-ai/*` 包源码和 README；当前为 `0.1.2-rc.1` / `0.1.7-alpha.2` 混合组合。
 - 外部 AI 建议复核的一手入口：`https://github.com/liustack/modlens`、`https://github.com/Anionex/dsh-vision-toolkit`、`https://github.com/JunNanLYS/dsh-layered-memory`、`https://github.com/omdsh-dev/dsh-genui`、`https://github.com/omdsh-dev/dsh-better-sidebar`、`https://github.com/GanyuanRan/Aegis`。这些链接只证明可定位的实现与公开契约，不替代第 9 节要求的版本锁定、许可证审计和本地实测。
 - 网关：`internal/core/gateway.go`、`internal/store/store.go`、`internal/task/poller.go`、`internal/provider/comfyui/executor.go`。
-- 开源项目库存：`docs/research/ai-short-drama-projects-comparison-2026-10-01.md`。
+- 开源项目库存：`archive/docs/2026-10/ai-short-drama-projects-comparison-2026-10-01.md`。
