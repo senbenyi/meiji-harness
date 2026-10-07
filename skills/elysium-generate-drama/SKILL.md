@@ -26,11 +26,11 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 ## 多 Agent 编排协议
 
-- 整书快速模式在非 Plan 模式下先用 `todo_write` 一次性写入五项清单：①创建项目并导入源文（in_progress）；②完成文本改编与资产设定（pending）；③生成资产参考图（pending）；④生成分镜与视频（pending）；⑤合成并交付成片（pending）。随后主 Agent 调用一次 `studio_novel_create(sourcePath, title)`；固定顺序为 `todo_write → studio_novel_create`，不得把 Todo 留到入口返回后再写。该工具内部完成建 Project、源文导入、六类专业 Agent 编排、Proposal 批准与持久化、媒体任务创建和一次状态查询。成功后直接向用户返回紧凑结果，本轮不重复执行内部步骤。Todo 仅用于当前轮可见性，Project/ProductionRun 仍是跨轮次权威状态。用户后续查询进度或要求恢复时，主 Agent 根据持久任务状态管理，不能把首次返回当成整剧完成。
+- 整书快速模式在非 Plan 模式下先用 `todo_write` 一次性写入五项验收清单：①创建项目并导入源文（in_progress）；②完成文本改编与资产设定（pending）；③生成资产参考图（pending）；④生成分镜与视频（pending）；⑤合成并交付成片（pending）。固定顺序为 `todo_write → studio_novel_create`，随后主 Agent 只调用一次 `studio_novel_create(sourcePath, title)`。该工具在当前调用会话中前台执行官方 Harness Workflow，使 run/phase/member 和子会话由 Harness 原生持久与展示；同时由 Project/ProductionRun 保留幂等、门禁和恢复真值。成功后直接返回交付结果，不重复执行内部步骤。
 - 整书任务禁止由主 Agent 逐段读取和逐段推理。`studio_novel_create` 内部调用 `studio_novel_orchestrate`，主 Agent不得直接调用这个内部工具。禁止调用通用 `workflow`，禁止由模型生成 JavaScript 编排脚本。只有单集或用户明确要求局部修改时才可直接调用一个 `subagent`。
 - 六类 subagent：剧情负责分析与分集规划；剧本负责正式剧本；角色负责从剧本提取三类资产、衍生状态和图片提示词；镜头负责镜头规划、连续性与视频提示词；分镜负责静态图片提示词与预览；成片负责合成与交付。主 Agent 统一分派和汇报，子代理不递归调度，不直接写 Project。
 - `studio_novel_orchestrate` 内置依赖：正式剧本 → 资产提取与图片提示词 → 镜头规划 → 独立图片/视频提示词 → 媒体任务。基础参考图先于衍生图，全部引用参考图先于分镜图，分镜图先于视频。每个成功任务持久化；失败恢复不能用模板补缺。媒体 Worker 消费已保存提示词，不在重新生成时临时改写。
-- 主 Agent 不等待媒体生成：文本工作流前台完成并持久化后，媒体 ProductionRun 使用后台模式，拿到 `runId` 即查询一次 `studio_production_status` 并向用户返回。不得轮询。
+- 主 Agent 不手工轮询或中途补数据：`studio_novel_create` 会在当前工具调用中等待持久媒体任务完成，成功返回即表示基础流程已到成片交付；失败则保留 Project/ProductionRun 状态供下次同入口恢复。
 - 主协调 Agent 是唯一写者：只有它可以导入源文、提交 Proposal、审批和写 Project。子 Agent 只读取指定原文区间并推理，禁止写 Project，避免 revision 冲突。
 - 文本与媒体的持久任务图、租约和恢复由 `studio_novel_create` 内部维护。任务引用使用稳定 id，依赖字段为 `dependencies`；恢复只重做失败或未完成任务，主 Agent 不另行创建任务图或从头重跑。
 - 子 Agent 任务明确 role、label、phase、schema 和当前范围的必要 prompt；Project 持久任务记录责任角色、依赖与结果。媒体方案绑定 taskId/inputSignature，不得携带父对话全文或改写其他任务。
@@ -44,14 +44,14 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 ## 流程
 
 1. 找到用户点名的工作区文件后，调用一次 `studio_novel_create(sourcePath=<路径>, title=<短剧标题>)`。Pilot 请求同时传 `scope=pilot`、`episodeCount=1`、`maxShotsPerEpisode=3`。不得先创建 Project、读取全文、调用 shell 计数、列举媒体能力或搜索源码。
-2. `studio_novel_create` 成功后直接返回其中的 `projectId`、`runId`、集数和状态；不得重复导入、读取 Project、调用 Proposal/validate/batch/status，也不得再次调用内部工具 `studio_novel_orchestrate`。
+2. `studio_novel_create` 成功后直接返回其中的 `projectId`、`runId`、`mediaRunId`、集数和完成状态；不得重复导入、读取 Project、调用 Proposal/validate/batch/status，也不得再次调用内部工具 `studio_novel_orchestrate`。
 3. 后续查询或恢复仍重复调用同一个入口；内部 Workflow 自行复用 Project、检查点和媒体任务，不允许主 Agent 展开内部步骤。
 
 ## 失败处理
 
 - source hash 不匹配：停止，重新读取当前源文，不复用旧分析。
 - Proposal schema 失败：根据具体字段错误只修正候选载荷，不修改正式数据或重写无关剧情。
-- 成片后台运行只表示已排队，不能称为整剧完成；只有全部正式镜头与上游素材有效、正式时间线覆盖全部分集、交付文件登记成功后，Project 才能标记完成。自动元数据和覆盖检查不能代替视觉与叙事审核。
+- 只有全部正式镜头与上游素材有效、正式时间线覆盖全部分集、交付文件登记成功后，Project 才能标记完成。自动元数据和覆盖检查不能代替视觉与叙事审核。
 - 审核拒绝：区分原文引用、结构、人物约束、剧情因果或对白问题，保留拒绝记录和已批准事实，只修正失败内容后创建新 Proposal；不得修改或重用已终结 Proposal。
 - 同一原因再次失败且没有新证据或明确修改依据时，停止重试并说明未解决点；不得循环提交或以整集重写掩盖局部问题。
 - 生产会话禁止为排查工具错误而搜索插件源码、安装目录、Profile 或依赖。第一次失败只允许依据错误修正参数；相同 commandId 再次失败则把该任务标记失败并退出当前任务包，由独立工程会话修复。

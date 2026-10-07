@@ -58,3 +58,14 @@ test('production coordinator publishes visibility without changing delegation de
   assert.doesNotMatch(source, /origin: 'subagent'/)
   assert.doesNotMatch(source, /delegationDepth:/)
 })
+
+test('novel root uses the calling session so native workflow records stay top-level', async () => {
+  const source = await readFile(new URL('../../lib/index.js', import.meta.url), 'utf8')
+  assert.match(source, /runNovelRootInCallingSession/)
+  assert.match(source, /await runNovelRootInCallingSession\(\{ projectId: project\.id, taskId: rootTaskId, exec \}\)/)
+  assert.match(source, /const response = await orchestrator\.execute\(task\.input, \{\s*\.\.\.exec,/)
+  assert.match(source, /activeNovelExecs\.set\(projectId, rootExec\)/)
+  assert.match(source, /const inheritedExec = activeNovelExecs\.get\(task\.input\?\.projectId\)/)
+  assert.doesNotMatch(source, /'novel-production-root': async \(/)
+  assert.doesNotMatch(source, /coordinatorKinds: \['novel-production-root'\]/)
+})
