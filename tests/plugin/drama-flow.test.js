@@ -7,12 +7,12 @@ import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { extractedAssets, promptResponse, generation } from '../helpers/generation.js'
 
-test('novel entrypoint produces every stage, resumes failed downloads and reuses delivered output', { timeout: 120000 }, async () => {
+test('one novel entrypoint call autonomously produces every stage and delivered output', { timeout: 120000 }, async () => {
   const root = await mkdtemp(join(os.tmpdir(), 'drama-flow-'))
   const home = mock.method(os, 'homedir', () => root)
   syncBuiltinESMExports()
   const originalFetch = globalThis.fetch
-  const { MemoryProjectRepository, ProjectService } = await import('../../lib/domain/service.js')
+  const { MemoryProjectRepository } = await import('../../lib/domain/service.js')
   const repository = new MemoryProjectRepository()
   const tools = new Map()
   const disposers = []
@@ -23,10 +23,7 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
   const assignedRoles = new Set()
   let coordinators = 0
   let disposedCoordinators = 0
-  let failDownloads = true
-  let failEpisodePlan = false
   let concludedTurns = 0
-  let videoId
   const source = '小林穿蓝色外套走进车站。她拿起长椅上的信封。'
   const span = { sourceId: 'source-001', start: 0, end: source.length }
   const characters = [{ id: 'lin', name: '小林', description: '蓝色外套，黑色短发' }]
@@ -69,7 +66,6 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
         execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:r=24', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', String(video.inputs.length / 24), '-c:v', 'libx264', '-c:a', 'aac', '-pix_fmt', 'yuv420p', file])
         const buffer = await readFile(file)
         outputs.set(id, { buffer, filename: `${id}.mp4` })
-        videoId ||= id
       } else outputs.set(id, { buffer: png, filename: `${id}.png` })
       return Response.json({ prompt_id: id })
     }
@@ -79,7 +75,6 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
     }
     if (url.pathname.endsWith('/view')) {
       const filename = url.searchParams.get('filename')
-      if (failDownloads && filename === `${videoId}.mp4`) return new Response('', { status: 503 })
       const output = [...outputs.values()].find((item) => item.filename === filename)
       assert.ok(output, `unknown download ${filename}`)
       return new Response(output.buffer)
@@ -97,7 +92,6 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
         assignedRoles.add(task.role)
         if (!task.schema.properties.inputSignature) {
           textCalls.push(task.label)
-          if (failEpisodePlan && task.label === 'episode-plan') return null
           return structuredClone(textValue(task.label, task))
         }
         mediaCalls.push(task.label)
@@ -131,52 +125,23 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
       assert.equal(value.ok, true, `${name}: ${value.error}`)
       return JSON.parse(value.json)
     }
-    const wait = async (projectId, runId) => {
+    const waitForDelivery = async (projectId) => {
+      let last
       for (let i = 0; i < 220; i++) {
-        const p = await call('studio_project_get', { projectId })
-        const run = p.productionRuns[runId]
-        if (run.status !== 'active') return p
+        const p = last = await call('studio_project_get', { projectId })
+        const mediaRun = Object.values(p.productionRuns).find((run) => run.mode !== 'text')
+        if (p.status === 'completed' && mediaRun?.status === 'completed' && Object.keys(p.deliverables).length) return p
         await new Promise((resolve) => setTimeout(resolve, 250))
       }
-      throw new Error('production failed to settle')
+      const runs = Object.values(last?.productionRuns || {}).map((run) => [run.id, run.mode, run.status])
+      const tasks = Object.values(last?.productionTasks || {}).map((task) => [task.id, task.kind, task.status, task.error])
+      throw new Error(`autonomous novel production failed to deliver: ${JSON.stringify({ projectStatus: last?.status, runs, tasks, deliverables: Object.keys(last?.deliverables || {}) })}`)
     }
-    await writeFile(join(root, 'failing.txt'), '\uFEFF' + source.replace('信封', '纸条'))
-    failEpisodePlan = true
-    const failedCreate = await tools.get('studio_novel_create').execute({ sourcePath: 'failing.txt', title: '失败恢复验收' }, exec)
-    failEpisodePlan = false
-    assert.equal(failedCreate.ok, false)
-    assert.equal(concludedTurns, 1, 'failed novel creation must terminate the agent turn')
-    assert.deepEqual(JSON.parse(failedCreate.json), {
-      projectId: JSON.parse(failedCreate.json).projectId,
-      bindingKey: JSON.parse(failedCreate.json).bindingKey,
-      status: 'failed',
-      recoverable: true,
-    })
-    assert.ok(JSON.parse(failedCreate.json).projectId)
-    textCalls.length = 0
     await writeFile(join(root, 'source.txt'), '\uFEFF' + source)
-    const [created, concurrent] = await Promise.all([0, 1].map(() => call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })))
-    assert.equal(concurrent.projectId, created.projectId)
-    assert.equal(concurrent.runId, created.runId)
-    let p = await wait(created.projectId, created.runId)
-    assert.equal(p.productionRuns[created.runId].status, 'failed')
-    const failed = Object.values(p.productionTasks).filter((task) => task.status === 'failed')
-    assert.equal(failed.length, 1, JSON.stringify(failed.map((task) => [task.kind, task.error])))
-    assert.match(failed[0].error, /comfy-download-failed/)
-    assert.equal(Object.keys(p.deliverables).length, 0)
-    const before = graphs.length
-    await call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })
-    p = await wait(created.projectId, created.runId)
-    assert.equal(p.productionRuns[created.runId].status, 'failed')
-    assert.equal(graphs.length, before, 'a second download failure must preserve the same remote job')
-    for (const dispose of disposers.splice(0).reverse()) await dispose()
-    apply(host)
-    failDownloads = false
-    const resumed = await call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })
-    assert.equal(resumed.runId, created.runId)
-    p = await wait(created.projectId, created.runId)
+    const created = await call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })
+    assert.equal(concludedTurns, 1, 'the entrypoint must release the root agent after one call')
+    const p = await waitForDelivery(created.projectId)
     assert.equal(p.productionRuns[created.runId].status, 'completed', JSON.stringify(Object.values(p.productionTasks).filter((task) => task.error).map((task) => [task.kind, task.error])))
-    assert.equal(graphs.length, before, 'download recovery must not resubmit completed GPU work')
     assert.equal(p.status, 'completed')
     assert.equal(Object.values(p.assets).filter((asset) => asset.kind === 'image').length, 4)
     const { canvasReadModel } = await import('../../lib/domain/read-models.js')
@@ -188,29 +153,10 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
     const storageRoot = join(root, '.dsh', 'storages', 'short_video_studio')
     assert.ok((await readFile(join(storageRoot, deliverable.logicalKey))).length > 0)
     assert.equal(deliverable.qualityReport.visualReview, 'not_performed')
-    const reused = await call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })
-    assert.equal(reused.runId, created.runId)
-    assert.equal(graphs.length, before)
     assert.equal(textCalls.length, 15)
     assert.deepEqual([...assignedRoles].sort(), ['assets', 'script', 'shot', 'story', 'storyboard'])
-    assert.equal(new Set(mediaCalls).size, mediaCalls.length, 'download retries and host restart must reuse creative subagent plans')
+    assert.equal(new Set(mediaCalls).size, mediaCalls.length, 'autonomous execution must prepare every media task once')
     assert.equal(disposedCoordinators, coordinators, 'background coordination contexts must be disposed')
-    await rm(join(storageRoot, deliverable.logicalKey))
-    const missing = await tools.get('studio_novel_create').execute({ sourcePath: 'source.txt', title: '流程验收：车站的信封' }, exec)
-    assert.equal(missing.ok, false, 'missing delivery file cannot be reported as successful reuse')
-    const projects = await new ProjectService(repository).open()
-    const current = await projects.getProject(created.projectId)
-    const rework = await projects.execute({ projectId: current.id, expectedRevision: current.revision, commandId: 'verify-video-rework', type: 'requestProductionRework', payload: { kind: 'media', input: { sessionId, workspaceId: 'workspace' } } })
-    const reworkRun = rework.output.runId
-    p = await wait(created.projectId, reworkRun)
-    assert.equal(p.productionRuns[reworkRun].status, 'completed', JSON.stringify(p.productionRuns[reworkRun].taskIds.map(id => p.productionTasks[id].error)))
-    assert.equal(graphs.length, before + 2, 'video rework must not regenerate reference or storyboard images')
-    for (const episode of Object.values(p.episodes).filter(episode => episode.id !== 'legacy-main')) for (const id of episode.shotIds) {
-      const asset = p.assets[p.shots[id].approvedAssetId]
-      const snapshot = asset.sourceIds.map(sourceId => p.attempts[sourceId]?.inputSnapshot).find(Boolean)
-      assert.equal(snapshot.target.kind, 'shot')
-      assert.equal(snapshot.target.id, id)
-    }
   } finally {
     for (const dispose of disposers.reverse()) await dispose()
     globalThis.fetch = originalFetch

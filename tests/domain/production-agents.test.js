@@ -39,6 +39,61 @@ test('a task can persist successive text checkpoints under one phase and reuse i
   assert.deepEqual(saved.checkpoint.textResults, { summary: 'one', analysis: 'two' })
 })
 
+test('started worker automatically consumes ready tasks and reclaims expired leases', async () => {
+  const repository = new MemoryProjectRepository()
+  const projects = await new ProjectService(repository).open()
+  const { project } = await projects.createProject({ payload: { title: 'Autonomous worker' } })
+  const created = await projects.execute({
+    projectId: project.id,
+    expectedRevision: project.revision,
+    commandId: 'run',
+    type: 'createProductionRun',
+    payload: {
+      runId: 'run',
+      mode: 'text',
+      tasks: [
+        { id: 'ready', kind: 'revise-text', input: {}, dependencies: [] },
+        { id: 'expired', kind: 'revise-text', input: {}, dependencies: [] },
+      ],
+    },
+  })
+  await projects.execute({
+    projectId: project.id,
+    expectedRevision: created.project.revision,
+    commandId: 'old-lease',
+    type: 'leaseProductionTask',
+    payload: { taskId: 'expired', owner: 'dead-worker', leaseMs: 60000 },
+  })
+  await repository.update(project.id, (current) => {
+    current.productionTasks.expired.leaseExpiresAt = new Date(Date.now() - 1000).toISOString()
+    return current
+  })
+
+  const handled = []
+  const worker = new ProductionWorker({
+    projectService: projects,
+    pollMs: 250,
+    handlers: { 'revise-text': async ({ task }) => { handled.push(task.id); return { summary: { taskId: task.id } } } },
+  })
+  worker.start()
+  try {
+    for (let i = 0; i < 20; i++) {
+      const saved = await projects.getProject(project.id)
+      if (Object.values(saved.productionTasks).every((task) => task.status === 'completed')) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  } finally {
+    await worker.stop()
+  }
+
+  const saved = await projects.getProject(project.id)
+  assert.deepEqual(handled.sort(), ['expired', 'ready'])
+  assert.equal(saved.productionTasks.ready.status, 'completed')
+  assert.equal(saved.productionTasks.ready.attemptNumber, 1)
+  assert.equal(saved.productionTasks.expired.status, 'completed')
+  assert.equal(saved.productionTasks.expired.attemptNumber, 2)
+})
+
 test('asset authoring resumes individual valid prompts after a sibling fails', async () => {
   const project = { revision: 1, episodes: { ep: { ...episode, script: draft.script } }, characters: {}, locations: {}, props: {}, assetVariants: {}, developmentProposals: {} }
   const task = { id: 'author', scopeId: 'p', input: { phase: 'assets' }, checkpoint: {} }
