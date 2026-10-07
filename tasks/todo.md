@@ -1,5 +1,56 @@
 # 都市生日夜完整流程验收
 
+## 2026-10-07 稳定性收尾与提交
+
+### 计划（已确认）
+
+- [x] 复现并定位生产任务 `revision conflict` 的并发写入路径；用最小原子重试/合并修复，禁止吞错。
+- [x] 定位 Harness Conversation Todo 未随唯一入口完成而收敛的问题；让父会话任务清单在成功、失败时进入真实终态。
+- [x] 增加并发持久化与 Todo 终态的聚焦回归，运行受影响测试和静态检查。
+- [x] 重装并在 3080 新会话快速验证：单次请求完成、无非终态 ProductionTask、Todo 终态一致。
+- [x] 审核变更边界，只提交本任务文件，推送当前 `studio` 分支。
+
+### 完成标准
+
+- 服务日志不再出现 production task failure persistence revision conflict；冲突时不丢失 sibling 结果。
+- Harness 会话结束后 Todo 不再停留在进行中/待处理；成功和失败路径均与实际入口结果一致。
+- 不触碰 `docs/docs/*` 的既有用户改动，不引入新的调度层或业务状态源。
+
+### 回顾
+
+- Project `20261007204339985` 由 3080 全新会话单次请求自主完成；页面显示 46 个 Harness 子智能体、6/6 阶段完成、正式镜头 2/2、成片 1/1，Conversation Todo 收敛为 `5 已完成`。
+- 持久状态为 `completed`，84 个 ProductionTask 全部 `completed`、36 个 Attempt 全部 `completed`，无 failed/blocked 任务、无任务重试；4 个 ProductionRun 全部 `completed`。
+- Deliverable `3a888aa6-2132-47dc-a4f4-f125f45c717e:deliverable` 为 `ready`；成片 16.032 秒、H.264 832×480、AAC、2,710,890 bytes。
+- 根因修复包括：所有 Project CAS 写入统一基于最新 revision 有界重试；画布改为节点级合并；Prompt Snapshot v2 将全局 revision 降为诊断元数据、只用真实生成依据计算身份；入口在结束轮次前同步 Harness 原生 Todo 终态。
+- 第一次新会话暴露根 Agent 违反“不要询问”而重复确认；已把 `todo_write → studio_novel_create` 收紧为唯一合法序列，第二次新会话验证不再询问。
+- 已知非阻塞范围问题：Pilot 正式交付只有 1 集 2 镜，但资产提取仍产生 32 项参考图，导致本轮耗时 23 分 40 秒；这不影响基础流程正确性，后续应单独收敛 Pilot 资产范围。
+
+
+## 2026-10-07 Harness 单会话自动到成片
+
+- [x] 用真实 3080 新会话复现，并确认 Harness 原生 Workflow / 子智能体事件正常可见。
+- [x] 锁定首个自动化断点：资产提取由确定性降级恢复后只剩一种可绑定资产，动态分镜 Schema 生成了单分支 `oneOf`，被 Harness 在 Agent 启动前拒绝。
+- [x] 修复动态 Schema：多种绑定使用 `oneOf`，单种绑定直接使用该对象 Schema，无可用资产时在领域门禁明确失败。
+- [x] 增加单资产分镜 Schema 回归测试，并验证 Workflow 错误不会被伪装成普通无输出。
+- [x] 统一图像/视频参考图预算的提交与编译校验规则，并覆盖超过 provider `refs.max` 的回归。
+- [x] 运行聚焦测试、静态检查和受影响回归（16/16）。
+- [x] 重装插件并重启 3080，从全新会话单次发起 1 集 Pilot，零人工推进直到成片交付。
+
+### 本轮唯一通过条件
+
+- 页面只需一次运营请求；Harness 会话自动完成文本、资产、分镜、视频和交付。
+- 中途不由 Codex 调用业务工具、补数据、点重试或继续对话推动。
+- 原生 Workflow 中每个任务可见；失败必须终止并保留可诊断错误，不能越过门禁。
+- 只有“成片交付”存在可读取 deliverable 才判定 PASS。
+
+### 回顾
+
+- 全新 Harness 会话只提交一次运营请求，耗时 13 分钟；父会话显示 24 个可展开子智能体，期间未发送第二条消息、未点击重试、未调用 Studio 业务工具补数据。
+- Project `20261007195116336` 最终为 `completed`，四个 Production Run 全部 `completed`，Production Task 无非完成项；页面显示 6/6 阶段、资产 11/11、分镜 2/2、视频 2/2、成片交付 1/1。
+- Deliverable `38123ea9-843b-4e93-9b52-fcd17d6646f7:deliverable` 为 `ready`；成片 15.324 秒，H.264 832×480、AAC，页面交付卡显示“正式成片 / 已合成”。
+- 本轮修复的根因是 renderer 已按 image workflow `refs.max` 裁剪，Prompt compiler 却只对 video 应用相同预算。现在所有 capability 统一使用 `limitReferenceIds`，仍保留严格顺序和缺失校验。
+- 已知非阻塞显示问题：会话已经显示“已完成”，但 Conversation Todo 仍停留在“1 进行中 · 4 待处理”；这不影响 Production Run 与交付完成，但需在后续可观测性任务中单独修复 Todo 终态同步。
+
 ## 2026-10-07 资产设定进行中画布修复
 
 - [x] 将当前文本 Run 的资产提取／提示词任务进度投影到资产阶段 detail，区分稳定业务总数与内部动作进度。

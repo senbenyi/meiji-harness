@@ -26,7 +26,8 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 ## 多 Agent 编排协议
 
-- 整书快速模式在非 Plan 模式下先用 `todo_write` 一次性写入五项验收清单：①创建项目并导入源文（in_progress）；②完成文本改编与资产设定（pending）；③生成资产参考图（pending）；④生成分镜与视频（pending）；⑤合成并交付成片（pending）。固定顺序为 `todo_write → studio_novel_create`，随后主 Agent 只调用一次 `studio_novel_create(sourcePath, title)`。该工具在当前调用会话中前台执行官方 Harness Workflow，使 run/phase/member 和子会话由 Harness 原生持久与展示；同时由 Project/ProductionRun 保留幂等、门禁和恢复真值。成功后直接返回交付结果，不重复执行内部步骤。
+- 整书快速模式在非 Plan 模式下先用 `todo_write` 一次性写入五项验收清单：①创建项目并导入源文（in_progress）；②完成文本改编与资产设定（pending）；③生成资产参考图（pending）；④生成分镜与视频（pending）；⑤合成并交付成片（pending）。固定顺序为 `todo_write → studio_novel_create`，随后主 Agent 只调用一次 `studio_novel_create(sourcePath, title)`。该工具在当前调用会话中前台执行官方 Harness Workflow，使 run/phase/member 和子会话由 Harness 原生持久与展示；同时由 Project/ProductionRun 保留幂等、门禁和恢复真值，并在结束当前轮前把 Todo 写成成功或失败终态。成功后直接返回交付结果，不重复执行内部步骤。
+- 点名小说文件并要求成片（包括已给出 Pilot 范围）已经构成完整执行授权。`todo_write` 后下一个且唯一允许的工具调用是 `studio_novel_create`；禁止调用 `ask_user_question`、`request_user_input` 或任何“是否启动／是否继续”的重复确认。用户明确要求自动完成或不要询问时，该禁令优先于通用确认习惯；文件不存在或不可读则直接报告失败。
 - 整书任务禁止由主 Agent 逐段读取和逐段推理。`studio_novel_create` 内部调用 `studio_novel_orchestrate`，主 Agent不得直接调用这个内部工具。禁止调用通用 `workflow`，禁止由模型生成 JavaScript 编排脚本。只有单集或用户明确要求局部修改时才可直接调用一个 `subagent`。
 - 六类 subagent：剧情负责分析与分集规划；剧本负责正式剧本；角色负责从剧本提取三类资产、衍生状态和图片提示词；镜头负责镜头规划、连续性与视频提示词；分镜负责静态图片提示词与预览；成片负责合成与交付。主 Agent 统一分派和汇报，子代理不递归调度，不直接写 Project。
 - `studio_novel_orchestrate` 内置依赖：正式剧本 → 资产提取与图片提示词 → 镜头规划 → 独立图片/视频提示词 → 媒体任务。基础参考图先于衍生图，全部引用参考图先于分镜图，分镜图先于视频。每个成功任务持久化；失败恢复不能用模板补缺。媒体 Worker 消费已保存提示词，不在重新生成时临时改写。
