@@ -1,0 +1,192 @@
+{
+  "id": "novel-to-drama-text",
+  "version": 1,
+  "title": "小说到短剧文本生产",
+  "description": "把原文转换为可执行的故事分析、分集剧本、资产设定、镜头计划以及独立图片和视频提示词。媒体生成由持久 ProductionRun 接续。",
+  "phases": [
+    { "id": "analysis", "title": "故事分析" },
+    { "id": "episode-planning", "title": "分集规划" },
+    { "id": "scripts", "title": "分集剧本" },
+    { "id": "asset-extraction", "title": "剧本资产提取" },
+    { "id": "asset-prompts", "title": "资产图片提示词" },
+    { "id": "shot-planning", "title": "镜头规划" },
+    { "id": "storyboard-prompts", "title": "分镜图片提示词" },
+    { "id": "video-prompts", "title": "镜头视频提示词" }
+  ],
+  "nodes": [
+    {
+      "id": "source-summary",
+      "kind": "agent",
+      "role": "story",
+      "phase": "analysis",
+      "foreach": "source-segments",
+      "concurrency": 3,
+      "dependsOn": [],
+      "inputs": ["source-segment"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/summary",
+      "validators": ["source-summary-boundaries"],
+      "commit": { "handler": "complete-production-task" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "提取当前原文区间内的事实、人物、场景、事件和精确引用",
+        "constraints": ["事件使用稳定 id", "引用不得超出当前原文区间", "不得自行设计视觉造型"]
+      }
+    },
+    {
+      "id": "story-reconcile",
+      "kind": "agent",
+      "role": "story",
+      "phase": "analysis",
+      "concurrency": 1,
+      "dependsOn": ["source-summary"],
+      "inputs": ["source-summaries"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/analysis",
+      "validators": ["content-analysis-coverage"],
+      "commit": { "handler": "submit-development-proposal", "kind": "content_analysis" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "归并全部区间摘要为完整内容分析和故事圣经",
+        "constraints": ["保留所有关键事件及稳定 id", "保留来源区间", "不得把改编建议写成原文事实"]
+      }
+    },
+    {
+      "id": "episode-plan",
+      "kind": "agent",
+      "role": "story",
+      "phase": "episode-planning",
+      "concurrency": 1,
+      "dependsOn": ["story-reconcile"],
+      "inputs": ["content-analysis"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/plan",
+      "validators": ["episode-plan-coverage"],
+      "commit": { "handler": "submit-development-proposal", "kind": "episode_plan" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "规划覆盖整部原文的分集结构",
+        "constraints": ["全部关键事件必须分配", "每集保留来源区间", "不设置固定集数上限"]
+      }
+    },
+    {
+      "id": "episode-script",
+      "kind": "agent",
+      "role": "script",
+      "phase": "scripts",
+      "foreach": "episodes",
+      "concurrency": 3,
+      "dependsOn": ["episode-plan"],
+      "inputs": ["story-bible", "current-episode", "episode-source"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/script",
+      "validators": ["episode-draft"],
+      "commit": { "handler": "submit-development-proposal", "kind": "episode_draft" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "编写当前分集的完整正式剧本、动作和对白",
+        "constraints": ["不得用大纲代替剧本", "不得生成镜头表", "必须覆盖本集全部事件"]
+      }
+    },
+    {
+      "id": "asset-extraction",
+      "kind": "agent",
+      "role": "assets",
+      "phase": "asset-extraction",
+      "foreach": "episodes",
+      "concurrency": 1,
+      "dependsOn": ["episode-script"],
+      "inputs": ["formal-episode", "known-assets"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/asset-extraction",
+      "validators": ["asset-extraction"],
+      "commit": { "handler": "complete-production-task" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "从正式剧本提取角色、场景、道具和衍生状态",
+        "constraints": ["沿用全局稳定 id", "每项保留逐字剧本使用位置", "本阶段不编写图片提示词"]
+      }
+    },
+    {
+      "id": "asset-prompt",
+      "kind": "agent",
+      "role": "assets",
+      "phase": "asset-prompts",
+      "foreach": "assets",
+      "concurrency": 3,
+      "dependsOn": ["asset-extraction"],
+      "inputs": ["asset", "asset-parent", "asset-usages"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/image-generation",
+      "validators": ["image-generation"],
+      "commit": { "handler": "complete-production-task" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "为单个资产编写完整可直接生成的图片提示词",
+        "constraints": ["只描述当前资产", "不得复制剧本或写多个镜头", "基础图不得添加标签文字"]
+      }
+    },
+    {
+      "id": "asset-commit",
+      "kind": "barrier",
+      "phase": "asset-prompts",
+      "dependsOn": ["asset-prompt"],
+      "commit": { "handler": "submit-development-proposal", "kind": "asset_extraction" }
+    },
+    {
+      "id": "shot-plan",
+      "kind": "agent",
+      "role": "shot",
+      "phase": "shot-planning",
+      "foreach": "episodes",
+      "concurrency": 3,
+      "dependsOn": ["episode-script", "asset-commit"],
+      "inputs": ["content-analysis", "formal-episode", "authored-assets"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/storyboard",
+      "validators": ["storyboard"],
+      "commit": { "handler": "submit-development-proposal", "kind": "episode_script" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "把正式剧本规划为完整、可生产的镜头序列",
+        "constraints": ["每镜不超过八秒", "保留全部对白和事件", "不得改变剧本与资产 id"]
+      }
+    },
+    {
+      "id": "storyboard-prompt",
+      "kind": "agent",
+      "role": "storyboard",
+      "phase": "storyboard-prompts",
+      "foreach": "shots",
+      "concurrency": 3,
+      "dependsOn": ["shot-plan"],
+      "inputs": ["formal-episode", "current-shot", "neighbor-shots", "bound-assets"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/image-generation",
+      "validators": ["image-generation"],
+      "commit": { "handler": "complete-production-task" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "为当前镜头编写完整单帧分镜图片提示词",
+        "constraints": ["保持镜头构图和资产状态", "不得写声音或多帧动作", "不得改变镜头顺序和引用"]
+      }
+    },
+    {
+      "id": "video-prompt",
+      "kind": "agent",
+      "role": "shot",
+      "phase": "video-prompts",
+      "foreach": "shots",
+      "concurrency": 3,
+      "dependsOn": ["shot-plan"],
+      "inputs": ["formal-episode", "current-shot", "neighbor-shots", "bound-assets"],
+      "outputSchema": "production/novel-output.schema.json#/definitions/video-generation",
+      "validators": ["video-generation"],
+      "commit": { "handler": "complete-production-task" },
+      "retry": { "maxAttempts": 2, "timeoutMs": 300000, "retryOn": ["timeout", "invalid-output", "retryable-error"] },
+      "prompt": {
+        "objective": "为当前镜头编写完整动态视频提示词",
+        "constraints": ["保留逐字对白与声音", "明确动作时序和镜头衔接", "不得增删剧情或资产引用"]
+      }
+    },
+    {
+      "id": "shot-prompts-commit",
+      "kind": "barrier",
+      "phase": "video-prompts",
+      "dependsOn": ["storyboard-prompt", "video-prompt"],
+      "commit": { "handler": "submit-development-proposal", "kind": "shot_prompts" }
+    }
+  ]
+}

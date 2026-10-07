@@ -1,0 +1,268 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dsh.local/schemas/production/novel-output.schema.json",
+  "title": "Novel Production Structured Outputs",
+  "description": "短剧文本生产各阶段提交给 structured_output 的权威结构契约。语义覆盖、引用范围和跨阶段一致性仍由领域 validator 校验。",
+  "definitions": {
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sourceId": { "type": "string" },
+        "start": { "type": "integer" },
+        "end": { "type": "integer" }
+      },
+      "required": ["sourceId", "start", "end"]
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "name", "description"]
+    },
+    "beat": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "sourceSpans": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/citation" }
+        }
+      },
+      "required": ["id", "description", "sourceSpans"]
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["character", "location", "prop", "variant"] },
+        "entityId": { "type": "string" }
+      },
+      "required": ["kind", "entityId"]
+    },
+    "shot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "order": { "type": "integer" },
+        "duration": { "type": "number" },
+        "title": { "type": "string" },
+        "shotDescription": { "type": "string" },
+        "prompt": { "type": "string" },
+        "audioDialogue": { "type": "string" },
+        "audioNotes": { "type": "string" },
+        "characterIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "本镜实际出镜角色的稳定 id；空镜必须为 []。角色参考绑定须与此列表一致；每镜均绑定场景。"
+        },
+        "beatIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "referenceBindings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/binding" }
+        }
+      },
+      "required": ["id", "order", "duration", "title", "shotDescription", "prompt", "audioDialogue", "audioNotes", "characterIds", "beatIds", "referenceBindings"]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "facts": { "type": "array", "items": { "type": "string" } },
+        "characters": { "type": "array", "items": { "$ref": "#/definitions/entity" } },
+        "locations": { "type": "array", "items": { "$ref": "#/definitions/entity" } },
+        "beats": { "type": "array", "items": { "$ref": "#/definitions/beat" } },
+        "citations": { "type": "array", "items": { "$ref": "#/definitions/citation" } },
+        "openConflicts": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["facts", "characters", "locations", "beats", "citations", "openConflicts"]
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string" },
+        "storyBible": { "type": "object", "additionalProperties": true },
+        "characters": { "type": "array", "items": { "$ref": "#/definitions/entity" } },
+        "locations": { "type": "array", "items": { "$ref": "#/definitions/entity" } },
+        "beats": { "type": "array", "items": { "$ref": "#/definitions/beat" } },
+        "citations": { "type": "array", "items": { "$ref": "#/definitions/citation" } }
+      },
+      "required": ["summary", "storyBible", "characters", "locations", "beats", "citations"]
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "visualDescription": { "type": "string" }
+            },
+            "required": ["id", "visualDescription"]
+          }
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "visualDescription": { "type": "string" }
+            },
+            "required": ["id", "visualDescription"]
+          }
+        }
+      },
+      "required": ["characters", "locations"]
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "episodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "order": { "type": "integer" },
+              "title": { "type": "string" },
+              "outline": { "type": "string" },
+              "beatIds": { "type": "array", "items": { "type": "string" } },
+              "sourceSpans": { "type": "array", "items": { "$ref": "#/definitions/citation" } }
+            },
+            "required": ["id", "order", "title", "outline", "beatIds", "sourceSpans"]
+          }
+        }
+      },
+      "required": ["episodes"]
+    },
+    "script": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "episodeId": { "type": "string" },
+        "script": { "type": "string" },
+        "beatIds": { "type": "array", "items": { "type": "string" } },
+        "sourceSpans": { "type": "array", "items": { "$ref": "#/definitions/citation" } }
+      },
+      "required": ["episodeId", "script", "beatIds", "sourceSpans"]
+    },
+    "storyboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "episodeId": { "type": "string" },
+        "shots": { "type": "array", "items": { "$ref": "#/definitions/shot" } }
+      },
+      "required": ["episodeId", "shots"]
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "episodeId": { "type": "string" },
+        "quote": { "type": "string" }
+      },
+      "required": ["episodeId", "quote"]
+    },
+    "assetEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "usages": { "type": "array", "items": { "$ref": "#/definitions/usage" } }
+      },
+      "required": ["id", "name", "description", "usages"]
+    },
+    "assetVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "usages": { "type": "array", "items": { "$ref": "#/definitions/usage" } },
+        "parentKind": { "type": "string", "enum": ["character", "location", "prop"] },
+        "parentId": { "type": "string" },
+        "changes": { "type": "string" },
+        "preserve": { "type": "string" }
+      },
+      "required": ["id", "name", "description", "usages", "parentKind", "parentId", "changes", "preserve"]
+    },
+    "asset-extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "characters": { "type": "array", "items": { "$ref": "#/definitions/assetEntity" } },
+        "locations": { "type": "array", "items": { "$ref": "#/definitions/assetEntity" } },
+        "props": { "type": "array", "items": { "$ref": "#/definitions/assetEntity" } },
+        "assetVariants": { "type": "array", "items": { "$ref": "#/definitions/assetVariant" } }
+      },
+      "required": ["characters", "locations", "props", "assetVariants"]
+    },
+    "image-generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": { "type": "string", "description": "完整可直接生成的提示词，展开全部细节，不写引用占位符" },
+        "negativePrompt": { "type": "string" },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subject": { "type": "string" },
+            "appearance": { "type": "string" },
+            "composition": { "type": "string" },
+            "lighting": { "type": "string" },
+            "style": { "type": "string" },
+            "constraints": { "type": "string" }
+          },
+          "required": ["subject", "appearance", "composition", "lighting", "style", "constraints"]
+        }
+      },
+      "required": ["prompt", "negativePrompt", "details"]
+    },
+    "video-generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": { "type": "string", "description": "完整可直接生成的提示词，展开全部细节，不写引用占位符" },
+        "negativePrompt": { "type": "string" },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subject": { "type": "string" },
+            "action": { "type": "string" },
+            "camera": { "type": "string" },
+            "timing": { "type": "string" },
+            "continuity": { "type": "string" },
+            "sound": { "type": "string" }
+          },
+          "required": ["subject", "action", "camera", "timing", "continuity", "sound"]
+        }
+      },
+      "required": ["prompt", "negativePrompt", "details"]
+    }
+  }
+}
