@@ -53,3 +53,112 @@
 - 自动化验证为 `npm run test:all` 163/163、`npm run smoke` 通过；web profile 安装副本关键文件 hash 与工作区一致。
 - 真实项目 `20261007112033897` 的 v6 Root Run 从旧版 ep-04 稳定推进到 29/31；ep-09/ep-10 重试成功，ep-12 通过确定性已知资产恢复完成，completed 节点未重跑。
 - 尚未闭环：同步 `studio_novel_create` 结束后，画布“重试任务”只恢复领域状态，无法在没有调用 Agent 上下文时重新启动文本 Workflow；这是下一步入口异步化必须解决的架构断点。
+
+## 2026-10-07 架构复审：彻底闭环生产调度
+
+- [x] 复核真实调用链：入口、Workflow、Worker、领域状态、画布重试及 Agent 生命周期。
+- [x] 定义目标架构与职责边界：唯一 Root Run、持久 Controller、Durable Worker、领域提交门禁、统一读模型。
+- [x] 明确 Prompt/Skill 与 Schema/Workflow/Domain 各自负责的约束，移除 Prompt 承担的控制面职责。
+- [x] 设计崩溃恢复、幂等、并发、版本迁移和人工重试协议。
+- [x] 给出分阶段迁移计划、文件级改造范围、测试矩阵和最终验收门槛。
+- [x] 在本节补充复审结论和推荐实施顺序。
+
+### 复审结论
+
+- P0 根因是文本生产由聊天 Tool call 同步持有、媒体生产由后台 Worker 持有，形成双执行控制面；领域状态持久化但执行所有权不持久。
+- `DurableDagExecutor`、Pipeline Compiler、动态 DAG、物化门禁已有正确基础，不应推倒重来；应将它们接入唯一 `ProductionWorker`。
+- 目标态是一条小说到 Deliverable 的 v7 Root Run；所有文本、提示词、媒体和交付任务属于同一 Run，动态展开后再 seal。
+- `studio_novel_create` 只 enqueue-and-return；后台 Worker 是唯一执行者；画布重试通过专用应用服务完成 resume + durable wake。
+- Skill/Prompt 退回创作与人工交互职责；依赖、重试、幂等、状态、完成门禁全部由 Schema、Pipeline、Validator、Domain 和 Worker 保证。
+- 详细设计、迁移次序和测试矩阵见 `docs/plans/2026-10-07-durable-production-architecture.md`。
+
+> 2026-10-07 用户复核：以上目标设计过度平台化，偏离 AI 短剧核心，撤回作为实施方案；仅保留对“双执行控制面”这一现状问题的证据。
+
+## 简化架构重新设计
+
+- [x] 删除通用调度平台式概念，限定为 AI 短剧固定生产阶段。
+- [x] 以 Harness Workflow 作为唯一多 Agent 编排器，插件不重复实现通用 DAG Scheduler。
+- [x] 只保留阶段级检查点、幂等落库、失败后从首个未完成阶段恢复。
+- [x] 明确 Prompt、Skill、Schema、领域状态和画布的最小职责。
+- [x] 将架构文档重写为可直接实施的最小方案并记录撤回项。
+
+### 简化方案回顾
+
+- 架构收敛为 5 个组件：入口 Tool、Harness Workflow、Stage Runner、Project Store、Canvas Projection。
+- 流程固定为 6 个短剧阶段；episode/shot 只做阶段内 fan-out，不再动态扩展通用 DAG。
+- Project 只增加 `activeWorkflowId` 并保存正式业务产物；Workflow 状态、重试、恢复由 Harness 负责。
+- `/schemas` 只保存输出结构契约；Skill/Prompt 只负责创作，不承担控制面职责。
+- 先验证“小说分析与分集 → 分集剧本”垂直切片，再逐步接入提示词、画布、媒体和交付。
+
+## 《都市生日夜》有限端到端验证计划
+
+- [x] 冻结唯一真实样本、六阶段范围和明确非目标。
+- [x] 为 Gate 0-6 定义机器可判定的通过条件。
+- [x] 限定为一次 Happy Run 和一次 Recovery Run。
+- [x] 定义每个 Gate 最多两轮根因修复和 `BLOCKED` 停止条件。
+- [x] 定义自动化测试层级、真实 UI 验收与证据包结构。
+- [x] 定义最终 `PASS / FAIL / BLOCKED` 判定规则。
+
+### 验证计划回顾
+
+- 先通过测试、smoke、安装 hash 和新 Project 隔离完成 Gate 0，再启动真实媒体生成。
+- Happy Run 必须从源文一直到可读取 Deliverable；Recovery Run 只验证一次文本节点失败和一次服务重启恢复。
+- 不接受“29/31”“基本通过”等中间结论；所有六阶段、恢复、画布和证据包完整才是 PASS。
+- 详细执行清单见 `docs/plans/2026-10-07-novel-to-drama-e2e-validation.md`。
+
+### 3080 真实 Pilot 第一次执行
+
+- [x] 恢复 3080 Harness 服务并从页面创建全新会话。
+- [x] 在页面提交《都市生日夜》1 集、2–3 镜头完整 Pilot 请求。
+- [x] 在“轨迹”页核对实际工具调用，而非依据 Agent 回复。
+- [x] 首个入口门禁判定为 FAIL，并立即停止被污染的运行。
+- 实际轨迹：加载 Skill 后调用 `studio_project_create → bash → studio_source_import → studio_source_read`，没有调用 `studio_novel_create`，没有启动要求的 Harness Workflow。
+- 产生的测试 Project：`20261007134926939`；不得作为成功验收结果复用。
+- 证据记录：`docs/research/2026-10-07-ui-pilot-validation.md`。
+
+## 3080 唯一入口绕行根因定位
+
+- [x] 对比仓库与已安装的 `elysium-generate-drama` Skill，确认是否存在内容漂移或冲突指令。
+- [x] 追踪 `studio_novel_create`、Project/Source 工具和 shell 的注册与可见性策略。
+- [x] 核对 root Agent、novel child、production coordinator 三类 Agent 的工具隔离边界。
+- [x] 结合页面轨迹还原模型选择手工链路的完整因果链。
+- [x] 输出主根因、放大因素、排除项和最小修复边界。
+
+### 根因结论
+
+- P0：所有低层工具对根 Agent 同权可见，唯一入口没有运行时 guard；现有 policy 只保护 orchestrate 启动后的 child。
+- P1：Pilot 的 1 集、2–3 镜头范围无法由只接受 `sourcePath/title` 的整书入口表达。
+- P1：GUIDANCE/Skill 同时保留唯一入口和手工分步链路，模型收到冲突指令。
+- 排除：仓库与已安装 Skill hash 完全一致，工具已注册；不是重装或版本漂移问题。
+- 详细证据：`docs/research/2026-10-07-novel-entry-bypass-root-cause.md`。
+
+## 2026-10-07 最小闭环实施
+
+### 目标与非目标
+
+- 目标：让 `3080` 页面从唯一公开入口启动固定短剧 Workflow，并以 Project 正式数据驱动画布。
+- 目标：用最小阶段/条目状态支持失败定位、重试和重启恢复。
+- 非目标：本轮不重写通用平台，不先批量删除旧模块，不扩展动态 DAG、事件总线或新的调度抽象。
+
+### 实施计划
+
+- [ ] 建立入口绕行的回归测试：根 Agent 不能直接调用 Project/Source/底层编排工具，Pilot 范围可由唯一入口表达。
+- [ ] 收紧公开工具面并统一 Skill/GUIDANCE：`studio_novel_create` 是小说生产唯一公开入口，内部工具只供 Workflow/受限 Agent 使用。
+- [ ] 将入口接入固定 Harness Workflow；Stage 只负责 prompt、Agent 调用、Schema/业务校验，ProjectStore 是唯一提交入口。
+- [ ] 为 Project 增加最小阶段与条目 checkpoint；保留原子写入、输入指纹和媒体任务 ID，不引入通用任务系统。
+- [ ] 运行聚焦测试和受影响回归，核对安装副本与工作区一致。
+- [ ] 重启服务后使用 `http://127.0.0.1:3080/` 和《都市生日夜》执行 Happy Run；从页面轨迹和画布正式数据逐步验收。
+- [ ] 中断并重启一次执行 Recovery Run，确认只恢复未完成阶段/条目，不重复提交已完成媒体任务。
+- [ ] 根据新路径的真实调用证据列出可删除旧模块；本轮只删除已经无引用且有回归保护的代码。
+
+### 完成门槛
+
+- 页面轨迹的首个业务 Tool 必须是 `studio_novel_create`，且可看到固定 Workflow 启动。
+- 文本 Pilot 至少完成分析、分集、单集剧本、角色/场景提示词、2–3 个镜头及图片/视频提示词。
+- 画布只读取 Project 正式数据；Agent 回复文本不能作为完成依据。
+- 服务重启后同一 Project 能继续，已完成阶段不重跑，失败信息能定位到具体阶段/集/镜头。
+- 自动化测试、真实 UI 结果和未验证的外部媒体范围必须分别记录，禁止以 smoke 代替实机结论。
+
+### 回顾
+
+- 待实施完成后填写。

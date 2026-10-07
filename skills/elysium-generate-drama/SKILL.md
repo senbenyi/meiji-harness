@@ -16,7 +16,7 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 ## 整书快速验证模式
 
-用户以“<小说文件名> 做成一部 AI 短剧/成人短剧”提出整书成片请求时自动启用，无需用户补充工程参数。默认全书覆盖、自动分集、fast、16:9、中文对白、原生音频、跳过人工内容质检并自动批准 Proposal；用户显式参数覆盖默认值。不得为这些默认项调用 `ask_user_question`。该模式仍使用 Proposal 和 Review 审计链，不直接写正式故事数据：
+用户以“<小说文件名> 做成一部 AI 短剧/成人短剧”提出成片请求时自动启用，无需用户补充工程参数。默认全书覆盖、自动分集、fast、16:9、中文对白、原生音频、跳过人工内容质检并自动批准 Proposal；用户显式参数覆盖默认值。用户明确要求 Pilot 时，同一入口传 `scope=pilot`，并用 `episodeCount`、`maxShotsPerEpisode` 表达范围。不得为这些默认项调用 `ask_user_question`。该模式仍使用 Proposal 和 Review 审计链，不直接写正式故事数据：
 
 - 仍覆盖整部小说和全部规划分集，只降低每集镜头密度、对白长度和 prompt 长度；不得默认压成单集，也不得把局部样片称为整书完成。只有用户明确要求“浓缩版”时，才可压缩为 1 集、8–12 镜。
 - 分块读取全文并保留区间摘要，后续只携带摘要与当前必要引用，不重复注入全文。
@@ -43,18 +43,9 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 ## 流程
 
-1. 找到用户点名的工作区文件后，调用一次 `studio_novel_create(sourcePath=<相对路径>, title=<短剧标题>)`。不得先创建 Project、读取全文、调用 shell 计数、列举媒体能力或搜索源码。
+1. 找到用户点名的工作区文件后，调用一次 `studio_novel_create(sourcePath=<路径>, title=<短剧标题>)`。Pilot 请求同时传 `scope=pilot`、`episodeCount=1`、`maxShotsPerEpisode=3`。不得先创建 Project、读取全文、调用 shell 计数、列举媒体能力或搜索源码。
 2. `studio_novel_create` 成功后直接返回其中的 `projectId`、`runId`、集数和状态；不得重复导入、读取 Project、调用 Proposal/validate/batch/status，也不得再次调用内部工具 `studio_novel_orchestrate`。
-3. 提交 `studio_content_analysis_submit`：`payload` 与 `sourceRefs` 直接传结构化对象/数组，禁止序列化成 JSON 字符串。内容包含摘要、故事圣经、角色、场景、情节节点和原文引用。故事圣经明确人物动机与关系、时间地点、关键道具、故事规则和用户禁用设定；区分原文事实、改编建议与尚未解释的问题。
-4. 默认停止并等待该 Proposal 在 `studio_review_queue` 中获批；若用户已明确授权整书自动执行，本次提交直接传 `autoApprove=true`，由工具在同一调用内批准并写入正式 Project，不再单独调用审核工具。
-5. 基于已批准分析提交 `studio_episode_plan_submit`：继续直接传结构化 `payload`，自动执行时传 `autoApprove=true`。每集必须有稳定 id、顺序、标题、大纲和原文区间。在大纲中写明允许出场的角色、起止人物状态与知情范围、时间地点、因果链、伏笔及兑现位置、结尾钩子；新悬念不得推翻已经成立的解释，新增设定须作为改编建议交由审核。
-6. 分集规划获批后，剧本结果经 `studio_episode_draft_submit` 保存 `script`、`beatIds` 和 `sourceSpans`，不含 shots。角色 subagent 的 `studio_asset_extraction_submit` 结果必须含 characters/locations/props/assetVariants、逐字剧本使用位置、scriptRefs 和完整 generation。镜头 subagent 规划镜头，协调层把原剧本与镜头表合并经 `studio_episode_script_submit` 提交，携带 `draftProposalId`。随后经 `studio_shot_prompts_submit` 分别保存 imageGeneration/videoGeneration，不改剧情。自动执行时使用本次授权批准。镜头表包含：
-   - 镜头顺序、时长、画面描述；
-   - `audioDialogue`：逐行“说话人：具体台词”，保留原文语言，无对白明确为空字符串；`audioNotes`：语气、音色、环境声及必要音效；
-   - 连续镜头引用；
-   - 角色/场景/道具/衍生状态参考绑定。
-   对白属于分镜，由 MiniMax H3 随视频原生生成语音；不得另设旁白或配音生成步骤。用户明确要求静音时遵循制作规格。提交前逐项核对原文忠实度、角色集合、人物知情状态、动作与道具位置、因果解释、伏笔兑现和禁用设定；对白须可演、动作须可拍。Schema 通过只表示结构合法，不能代替上述内容核对和人工审核。沿用现有字段，不另造质量报告载荷。
-7. 全部剧本获批后逐集运行 `studio_shotlist_validate`。完整成片请求不得在这里停止：只保留 projectId、source/hash、总集数/镜头数和失败项的紧凑摘要，直接调用一次 `studio_batch_generate(tier='fast')` 创建覆盖全部分集的异步媒体 ProductionRun；拿到 `runId` 后调用一次 `studio_production_status` 并返回，不轮询。
+3. 后续查询或恢复仍重复调用同一个入口；内部 Workflow 自行复用 Project、检查点和媒体任务，不允许主 Agent 展开内部步骤。
 
 ## 失败处理
 

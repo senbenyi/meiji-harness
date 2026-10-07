@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { MemoryProjectRepository, ProjectService } from '../../lib/domain/service.js'
-import { NOVEL_SCHEMAS, novelTextProduction, assertNovelCoverage, materializeEpisodeSourceSpans } from '../../lib/script/novel-production.js'
+import { NOVEL_SCHEMAS, novelTextProduction, assertNovelCoverage, assertStoryboard, materializeEpisodeSourceSpans } from '../../lib/script/novel-production.js'
 import { regenerateText } from '../../lib/script/rework.js'
 import { PRODUCTION_WORKFLOW, runProductionWorkflow } from '../../lib/agents/workflow.js'
 import { extractedAssets, promptResponse, generation } from '../helpers/generation.js'
@@ -91,9 +91,10 @@ test('a failed child is persisted; recovery reruns only the missing task', async
 })
 
 test('semantic omissions fail the affected text task before it is recorded as completed', async () => {
+  let invalid = true
   const options = await fixture(async (tasks) => tasks.map((task) => {
     const value = valueFor(task.label, task)
-    if (task.label.startsWith('episode-storyboard:')) value.shots[0].beatIds = []
+    if (invalid && task.label.startsWith('episode-storyboard:')) value.shots[0].beatIds = []
     return { label: task.label, value }
   }))
   await assert.rejects(novelTextProduction(options), /文本制作失败/)
@@ -101,6 +102,10 @@ test('semantic omissions fail the affected text task before it is recorded as co
   const task = Object.values(p.productionTasks).find((task) => task.input.label === 'episode-storyboard:ep')
   assert.equal(task.status, 'failed')
   assert.match(task.error, /分镜未覆盖/)
+  invalid = false
+  const recovered = await novelTextProduction(options)
+  assert.equal(recovered.episodeScripts.length, 1)
+  assert.equal(Object.values((await options.projects.getProject(options.projectId)).productionTasks).filter((item) => item.status === 'failed').length, 0)
 })
 
 test('script rework recovery reuses its validated formal draft', async () => {
@@ -180,6 +185,28 @@ test('episode plan prompt states the exact full-source coverage contract', async
   assert.match(prompts[0], /标题、空白和过渡文字也必须并入相邻集/)
 })
 
+test('pilot scope enforces one episode and two to three shots through the same workflow', async () => {
+  const prompts = []
+  let storyboardSchema
+  const options = await fixture(async (tasks) => tasks.map((task) => {
+    prompts.push(task.prompt)
+    const value = valueFor(task.label, task)
+    if (task.label.startsWith('episode-storyboard:')) {
+      storyboardSchema = task.schema
+      value.shots.push({ ...structuredClone(value.shots[0]), id: 's2', order: 2, title: 'Read the letter' })
+    }
+    return { label: task.label, value }
+  }))
+  options.productionScope = { mode: 'pilot', episodeCount: 1, maxShotsPerEpisode: 3 }
+  const result = await novelTextProduction(options)
+  assert.equal(result.episodePlan.episodes.length, 1)
+  assert.equal(result.episodeScripts[0].shots.length, 2)
+  assert.ok(prompts.some((prompt) => /必须恰好 1 集/.test(prompt)))
+  assert.ok(prompts.some((prompt) => /必须生成 2–3 个镜头/.test(prompt)))
+  assert.equal(JSON.stringify(storyboardSchema).includes('minItems'), false)
+  assert.equal(JSON.stringify(storyboardSchema).includes('maxItems'), false)
+})
+
 test('episode source spans are deterministically rebuilt from beat assignments', () => {
   const plan = { episodes: [
     { id: 'ep-1', order: 1, beatIds: ['first'], sourceSpans: [{ sourceId: 'source', start: 22, end: 50 }] },
@@ -237,4 +264,24 @@ test('empty establishing shots explicitly omit characters, and workflow schemas 
     for (const child of schema.oneOf || []) check(child)
   }
   for (const schema of Object.values(NOVEL_SCHEMAS)) check(schema)
+})
+
+test('storyboard deterministically keeps one current variant per asset parent', () => {
+  const current = structuredClone(board)
+  current.shots[0].referenceBindings.push(
+    { kind: 'variant', entityId: 'detective-wet' },
+    { kind: 'variant', entityId: 'detective-dry' },
+  )
+  const scoped = {
+    ...analysis,
+    props: [],
+    assetVariants: [
+      { id: 'detective-wet', parentKind: 'character', parentId: 'detective' },
+      { id: 'detective-dry', parentKind: 'character', parentId: 'detective' },
+    ],
+  }
+  assert.doesNotThrow(() => assertStoryboard(scoped, episode, draft, current))
+  assert.deepEqual(current.shots[0].referenceBindings.filter((binding) => binding.kind === 'variant'), [
+    { kind: 'variant', entityId: 'detective-dry' },
+  ])
 })
