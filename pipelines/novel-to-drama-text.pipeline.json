@@ -1,6 +1,6 @@
 {
   "id": "novel-to-drama-text",
-  "version": 8,
+  "version": 14,
   "title": "小说到短剧文本生产",
   "description": "把原文转换为可执行的故事分析、分集剧本、资产设定、镜头计划以及独立图片和视频提示词。媒体生成由持久 ProductionRun 接续。",
   "phases": [
@@ -128,13 +128,20 @@
       "commit": { "handler": "submit-development-proposal", "kind": "asset_extraction" }
     },
     {
+      "id": "asset-references-ready",
+      "kind": "barrier",
+      "phase": "asset-prompts",
+      "dependsOn": ["asset-commit"],
+      "commit": { "handler": "complete-production-task" }
+    },
+    {
       "id": "shot-plan",
       "kind": "agent",
       "role": "shot",
       "phase": "shot-planning",
       "foreach": "episodes",
       "concurrency": 3,
-      "dependsOn": ["episode-script", "asset-commit"],
+      "dependsOn": ["episode-script", "asset-references-ready"],
       "inputs": ["content-analysis", "formal-episode", "authored-assets"],
       "outputSchema": "production/novel-output.schema.json#/definitions/storyboard",
       "validators": ["storyboard"],

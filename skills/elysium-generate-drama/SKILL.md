@@ -26,7 +26,7 @@ trigger: 用户给出小说/TXT/Markdown 文件名并要求做成 AI 短剧（�
 
 ## 多 Agent 编排协议
 
-- 整书快速模式由主 Agent 调用一次 `studio_novel_create(sourcePath, title)`；该工具内部完成建 Project、源文导入、六类专业 Agent 编排、Proposal 批准与持久化、媒体任务创建和一次状态查询。成功后直接向用户返回紧凑结果，本轮不重复执行内部步骤。用户后续查询进度或要求恢复时，主 Agent 根据持久任务状态管理，不能把首次返回当成整剧完成。
+- 整书快速模式在非 Plan 模式下先用 `todo_write` 一次性写入五项清单：①创建项目并导入源文（in_progress）；②完成文本改编与资产设定（pending）；③生成资产参考图（pending）；④生成分镜与视频（pending）；⑤合成并交付成片（pending）。随后主 Agent 调用一次 `studio_novel_create(sourcePath, title)`；固定顺序为 `todo_write → studio_novel_create`，不得把 Todo 留到入口返回后再写。该工具内部完成建 Project、源文导入、六类专业 Agent 编排、Proposal 批准与持久化、媒体任务创建和一次状态查询。成功后直接向用户返回紧凑结果，本轮不重复执行内部步骤。Todo 仅用于当前轮可见性，Project/ProductionRun 仍是跨轮次权威状态。用户后续查询进度或要求恢复时，主 Agent 根据持久任务状态管理，不能把首次返回当成整剧完成。
 - 整书任务禁止由主 Agent 逐段读取和逐段推理。`studio_novel_create` 内部调用 `studio_novel_orchestrate`，主 Agent不得直接调用这个内部工具。禁止调用通用 `workflow`，禁止由模型生成 JavaScript 编排脚本。只有单集或用户明确要求局部修改时才可直接调用一个 `subagent`。
 - 六类 subagent：剧情负责分析与分集规划；剧本负责正式剧本；角色负责从剧本提取三类资产、衍生状态和图片提示词；镜头负责镜头规划、连续性与视频提示词；分镜负责静态图片提示词与预览；成片负责合成与交付。主 Agent 统一分派和汇报，子代理不递归调度，不直接写 Project。
 - `studio_novel_orchestrate` 内置依赖：正式剧本 → 资产提取与图片提示词 → 镜头规划 → 独立图片/视频提示词 → 媒体任务。基础参考图先于衍生图，全部引用参考图先于分镜图，分镜图先于视频。每个成功任务持久化；失败恢复不能用模板补缺。媒体 Worker 消费已保存提示词，不在重新生成时临时改写。

@@ -52,7 +52,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   let pendingProject = null
   const readingPositions = new Map()
   const expandedDetails = new Set()
-  const progressLabels = { completed: '已完成', active: '制作中', pending: '待制作', blocked: '需处理' }
+  const progressLabels = { completed: '完成', active: '进行中', pending: '待开始', blocked: '需处理', locked: '待前序' }
 
   function selectStage(key) {
     rememberReading()
@@ -86,6 +86,9 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (progress?.status === 'blocked') {
         button.classList.add('needs-attention')
         button.setAttribute('aria-label', stage.label + '，需处理')
+      } else if (progress?.status === 'locked') {
+        button.classList.add('locked')
+        button.setAttribute('aria-label', stage.label + '：待前序')
       }
       if (progress?.errors?.length) button.title = progress.errors.map((item) => item.error).join('\n')
       button.onclick = () => {
@@ -198,7 +201,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       }
       const yes = document.createElement('button')
       yes.className = 'btn btn-accent'
-      yes.textContent = o.okText || '确定'
+      yes.textContent = o.okText || '确认'
       yes.onclick = () => close(true)
       actions.appendChild(yes)
       box.appendChild(actions)
@@ -207,7 +210,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   }
 
   const confirmBox = (message) => modal(message, { okText: '删除', cancel: true })
-  const alertBox = (message) => modal(message, { okText: '知道了' })
+  const alertBox = (message) => modal(message, { okText: '关闭' })
 
   // ---- 自绘大对话框（资产库取用），返回 body / 底部按钮栏 / close ----
   function openDialog(titleText) {
@@ -273,7 +276,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       const okFiles = files.filter((f) => f.size <= UPLOAD_MAX_BYTES)
       const skipped = files.filter((f) => f.size > UPLOAD_MAX_BYTES).map((f) => f.name)
       if (!okFiles.length) {
-        alertBox('所选图片均超过 24MB，无法上传。')
+        alertBox('图片均超过 24 MB，无法上传。')
         return
       }
       let reading = []
@@ -285,7 +288,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         }
       }
       if (!reading.length) {
-        alertBox('没有可上传的图片。')
+        alertBox('无可用图片。')
         return
       }
       try {
@@ -293,10 +296,10 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
           method: 'POST',
           body: JSON.stringify({ files: reading }),
         })
-        let msg = '已添加 ' + d.added.length + ' 张资产卡'
+        let msg = '已添加 ' + d.added.length + ' 项资产'
         if (d.added.length) msg += '：' + d.added.map((x) => x.title).join('、')
         const problems = (d.errors || []).map((e) => (e.filename || '?') + '（' + e.message + '）').concat(skipped)
-        if (problems.length) msg += '\n失败 ' + problems.length + ' 项：' + problems.join('；')
+        if (problems.length) msg += '\n' + problems.length + ' 项失败：' + problems.join('；')
         alertBox(msg)
       } catch (e) {
         alertBox('上传失败：' + (e.message || String(e)))
@@ -315,7 +318,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       const f = (input.files || [])[0]
       if (!f) return
       if (f.size > UPLOAD_MAX_BYTES) {
-        alertBox('图片超过 24MB 上限，请压缩后再试。')
+        alertBox('图片超过 24 MB，请压缩后重试。')
         return
       }
       let dataUrl
@@ -330,9 +333,9 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
           method: 'POST',
           body: JSON.stringify({ nodeId: node.id, filename: f.name, dataUrl }),
         })
-        let msg = '已用本地上传替换「' + (node.title || node.id) + '」的图片'
+        let msg = '已替换「' + (node.title || node.id) + '」图片'
         if (d.assetIdCleared) {
-          msg += '\n该卡此前已入库（' + d.prevAssetId + '），替换后已解除绑定。'
+          msg += '\n原素材已入库（' + d.prevAssetId + '），现已解除关联。'
         }
         alertBox(msg)
       } catch (e) {
@@ -345,7 +348,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
   /** 手动添加资产 ②：从跨会话资产库带缩略图取用 / 删除。 */
   async function openAssetLibrary() {
-    const dlg = openDialog('公共素材库')
+    const dlg = openDialog('素材库')
     const body = dlg.body
     const foot = dlg.foot
 
@@ -359,7 +362,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       } catch (e) {
         const p = document.createElement('p')
         p.className = 'lib-empty-hint'
-        p.textContent = '读取公共素材库失败：' + (e.message || String(e))
+        p.textContent = '素材库加载失败：' + (e.message || String(e))
         body.appendChild(p)
         foot.appendChild(dialogBtn('关闭', () => dlg.close()))
         return
@@ -368,9 +371,9 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (!assets.length) {
         const p = document.createElement('p')
         p.className = 'lib-empty-hint'
-        p.textContent = '暂无公共素材。这里保存跨项目使用的素材，当前项目设定请在“资产设定”查看。'
+        p.textContent = '暂无素材。跨项目素材会显示在这里；项目设定请前往“资产设定”。'
         body.appendChild(p)
-        foot.appendChild(dialogBtn('完成', () => dlg.close()))
+        foot.appendChild(dialogBtn('关闭', () => dlg.close()))
         return
       }
 
@@ -402,7 +405,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
           const pre = document.createElement('div')
           pre.className = 'text-preview'
           const t = String(a.text || '').replace(/\s+/g, ' ').trim()
-          pre.textContent = t.length > 180 ? t.slice(0, 180) + '…' : (t || '（空文本）')
+          pre.textContent = t.length > 180 ? t.slice(0, 180) + '…' : (t || '（无内容）')
           thumb.appendChild(pre)
         } else {
           const media = kind === 'video' ? document.createElement('video') : document.createElement('img')
@@ -420,7 +423,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
             media.remove()
             const m = document.createElement('span')
             m.className = 'missing'
-            m.textContent = kind === 'video' ? '🎬 视频缺失' : '🖼 图缺失'
+            m.textContent = kind === 'video' ? '缺少视频' : '缺少图片'
             thumb.appendChild(m)
           }
           thumb.appendChild(media)
@@ -446,7 +449,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         const idLine = document.createElement('div')
         idLine.className = 'id'
         idLine.textContent = a.id
-        const detail = detailSection('素材详情', 'library:' + a.id)
+        const detail = detailSection('详情', 'library:' + a.id)
         detail.appendChild(idLine)
         info.appendChild(detail)
         card.appendChild(info)
@@ -458,7 +461,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
           addBtn.textContent = '添加中…'
           try {
             await api('/assets/to-canvas', { method: 'POST', body: JSON.stringify({ id: a.id }) })
-            addBtn.textContent = '已添加 ✓'
+            addBtn.textContent = '已添加'
           } catch (e) {
             addBtn.textContent = '重试'
             addBtn.disabled = false
@@ -469,8 +472,8 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
         const delBtn = dialogBtn('删除', async () => {
           const okToDelete = await confirmBox(
-            '从公共素材库删除“' + (a.name || '未命名素材') + '”？\n\n' +
-            '素材及其' + (kind === 'text' ? '文本' : '文件') + '将被删除，之后无法再次添加。已加入项目的副本会保留。'
+            '删除“' + (a.name || '未命名素材') + '”？\n\n' +
+            '素材及其' + (kind === 'text' ? '文本' : '文件') + '将被永久删除。项目中的副本不受影响。'
           )
           if (!okToDelete) return
           delBtn.disabled = true
@@ -489,7 +492,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         grid.appendChild(card)
       }
       body.appendChild(grid)
-      foot.appendChild(dialogBtn('完成', () => {
+      foot.appendChild(dialogBtn('关闭', () => {
         dlg.close()
         load()
       }, 'btn-accent'))
@@ -503,6 +506,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     card.className = 'node'
     card.dataset.nodeId = node.id
     const lane = nodeLane(node)
+    card.dataset.status = cardState(lane === 'discard' ? 'cancelled' : node.status)
     if (lane === 'discard') card.classList.add('deprecated')
     else if (lane === 'frames') card.classList.add('frame-node')
 
@@ -510,7 +514,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     head.className = 'node-head'
     const title = document.createElement('div')
     title.className = 'node-title'
-    title.textContent = node.title || '未命名内容'
+    title.textContent = node.title || '未命名'
     const status = document.createElement('span')
     status.className = 'status ' + (lane === 'discard' ? 'deprecated' : (node.status || 'ready'))
     status.textContent = nodeStatus(node, lane)
@@ -548,6 +552,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         body.appendChild(v)
       } else if (node.kind === 'image') {
         const a = document.createElement('a')
+        a.className = 'media-link'
         a.href = mediaUrl(node.media)
         a.target = '_blank'
         a.rel = 'noopener'
@@ -562,7 +567,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         const a = document.createElement('a')
         a.href = mediaUrl(node.media)
         a.target = '_blank'
-        a.textContent = '下载媒体'
+        a.textContent = '下载'
         body.appendChild(a)
       }
     }
@@ -577,18 +582,33 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (info.actualDuration || info.plannedDuration) {
       const duration = document.createElement('p')
       duration.className = 'content-caption'
-      duration.textContent = (info.actualDuration ? '时长 ' : '计划时长 ') + Number(info.actualDuration || info.plannedDuration).toFixed(1).replace(/\.0$/, '') + ' 秒'
+      duration.textContent = (info.actualDuration ? '时长 ' : '计划 ') + Number(info.actualDuration || info.plannedDuration).toFixed(1).replace(/\.0$/, '') + ' 秒'
       body.appendChild(duration)
+    }
+    if (info.role === 'entity' || info.role === 'asset-task') {
+      const promptLabels = { ready: '已完成', active: '编写中', failed: '失败', stale: '待更新', pending: '待编写' }
+      const referenceLabels = { ready: '已生成', active: '生成中', failed: '失败', pending: '待生成' }
+      const promptStatus = info.promptStatus || 'pending'
+      const referenceStatus = info.referenceStatus || (node.media ? 'ready' : 'pending')
+      const lifecycle = document.createElement('div')
+      lifecycle.className = 'asset-lifecycle'
+      lifecycle.innerHTML = `<span>提示词 <strong>${escapeHtml(promptLabels[promptStatus] || '待确认')}</strong></span><span>参考图 <strong>${escapeHtml(referenceLabels[referenceStatus] || '待确认')}</strong></span>`
+      const current = document.createElement('p')
+      current.className = 'asset-current-action'
+      current.textContent = referenceStatus === 'ready' ? '设定就绪' : referenceStatus === 'active' ? '参考图生成中' : promptStatus === 'active' ? '提示词编写中' : promptStatus === 'ready' ? '待生成参考图' : '待编写提示词'
+      lifecycle.appendChild(current)
+      body.appendChild(lifecycle)
     }
     if (info.role === 'delivery') {
       const review = document.createElement('p')
       review.className = 'review-note'
-      review.textContent = info.qualityReview === 'not_performed' ? '内容质量待审核' : '审核记录：请查看交付详情'
+      review.textContent = info.qualityReview === 'not_performed' ? '待审核' : '审核记录见交付详情'
       body.appendChild(review)
     }
 
     if (node.content) {
       const contentWrap = document.createElement('div')
+      contentWrap.className = 'node-content'
       contentWrap.innerHTML = renderTextContent(node.content)
       for (const table of contentWrap.querySelectorAll('table')) {
         const scroll = document.createElement('div')
@@ -599,8 +619,8 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (node.content.length > 800) {
         const full = detailSection('全文', 'text:' + node.id)
         const summary = full.querySelector('summary')
-        summary.textContent = '展开全文'
-        full.ontoggle = () => { summary.textContent = full.open ? '收起全文' : '展开全文' }
+        summary.textContent = '展开'
+        full.ontoggle = () => { summary.textContent = full.open ? '收起' : '展开' }
         const preview = document.createElement('p')
         preview.className = 'text-excerpt'
         preview.textContent = node.content.slice(0, 180) + '…'
@@ -615,7 +635,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (node.error) {
       const err = document.createElement('div')
       err.className = 'error-line'
-      err.textContent = '错误: ' + node.error
+      err.textContent = '错误：' + node.error
       body.appendChild(err)
     }
 
@@ -623,7 +643,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
     const foot = document.createElement('div')
     foot.className = 'node-foot'
-    const technical = detailSection('技术详情', 'technical:' + node.id)
+    const technical = detailSection('技术信息', 'technical:' + node.id)
     const raw = document.createElement('pre')
     raw.textContent = JSON.stringify({ id: node.id, status: node.status, params: node.params, media: node.media, qualityReview: info.qualityReview }, null, 2)
     technical.appendChild(raw)
@@ -631,25 +651,25 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     card.appendChild(foot)
 
     if (info.inputSnapshot) {
-      const actual = detailSection('本次实际生成提示词', 'snapshot:' + node.id)
+      const actual = detailSection('实际提示词', 'snapshot:' + node.id)
       const text = document.createElement('p')
       text.style.whiteSpace = 'pre-wrap'
       text.textContent = info.inputSnapshot.prompt + (info.inputSnapshot.negativePrompt ? '\n\n负向提示词：\n' + info.inputSnapshot.negativePrompt : '')
       actual.appendChild(text)
       const references = document.createElement('p')
-      references.textContent = '参考图片：' + (info.inputSnapshot.references || []).map((ref, index) => `${index + 1}. ${ref.entityId}`).join('；')
+      references.textContent = '参考图：' + (info.inputSnapshot.references || []).map((ref, index) => `${index + 1}. ${ref.entityId}`).join('；')
       actual.appendChild(references)
-      card.appendChild(actual)
+      ;(info.role === 'entity' ? foot : card).appendChild(actual)
     }
 
     if (info.role === 'entity' || info.role === 'shot') {
       const specification = info.role === 'entity' ? info.generation : node.kind === 'video' ? info.videoGeneration : info.imageGeneration
       const kind = info.role === 'entity' ? 'asset-prompt' : node.kind === 'video' ? 'video-prompt' : 'image-prompt'
       const promptStatus = info.role === 'entity' ? info.promptStatus : node.kind === 'video' ? info.videoPromptStatus : info.imagePromptStatus
-      const detail = detailSection(specification ? `生成提示词 · v${specification.version}${promptStatus === 'stale' ? ' · 需更新' : ''}` : '生成提示词 · 待编写', 'prompt:' + node.id)
+      const detail = detailSection(specification ? `提示词 · v${specification.version}${promptStatus === 'stale' ? ' · 待更新' : ''}` : '提示词 · 待编写', 'prompt:' + node.id)
       const text = document.createElement('p')
       text.style.whiteSpace = 'pre-wrap'
-      text.textContent = specification?.prompt || '请先编写完整提示词，再生成媒体。'
+      text.textContent = specification?.prompt || '请先完善提示词。'
       detail.appendChild(text)
       if (specification?.negativePrompt) {
         const negative = document.createElement('p')
@@ -658,14 +678,14 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       }
       if (info.usages?.length) {
         const uses = document.createElement('p')
-        uses.textContent = '剧本依据：' + info.usages.map((use) => use.quote).join('；')
+        uses.textContent = '剧本引用：' + info.usages.map((use) => use.quote).join('；')
         detail.appendChild(uses)
       }
       if (!info.historical) {
-        detail.appendChild(dialogBtn('修改完整提示词', () => editProduction({ kind, id: info.entityId || info.shotId })))
-        detail.appendChild(dialogBtn(info.role === 'entity' ? '重新编写提示词' : '重编本集提示词', () => regenerateProduction(info.role === 'entity' ? { kind: 'asset-prompt-author', id: info.entityId } : { kind: 'prompts-author', id: info.episodeId })))
+        detail.appendChild(dialogBtn('编辑提示词', () => editProduction({ kind, id: info.entityId || info.shotId })))
+        detail.appendChild(dialogBtn(info.role === 'entity' ? '重写提示词' : '重写本集提示词', () => regenerateProduction(info.role === 'entity' ? { kind: 'asset-prompt-author', id: info.entityId } : { kind: 'prompts-author', id: info.episodeId })))
       }
-      card.appendChild(detail)
+      ;(info.role === 'entity' ? foot : card).appendChild(detail)
     }
 
     // Domain projections are read through their owning commands, never edited as canvas copies.
@@ -686,7 +706,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       const editBtn = document.createElement('button')
       editBtn.className = 'btn'
       editBtn.textContent = '编辑'
-      editBtn.title = '上传本地图片替换本卡图片（若已入库会解除绑定）'
+      editBtn.title = '上传图片替换当前图片；已入库素材将解除关联'
       editBtn.onclick = () => replaceImageByUpload(node)
       actions.appendChild(editBtn)
     }
@@ -703,7 +723,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       depBtn.className = 'btn'
       const isDep = nodeLane(node) === 'discard'
       depBtn.textContent = isDep ? '还原' : '作废'
-      depBtn.title = isDep ? '恢复到主线（作废标记会清除）' : '移出主线预览（作废/否定，可随时还原）'
+      depBtn.title = isDep ? '恢复到主线' : '移出主线，可随时还原'
       depBtn.onclick = async () => {
         depBtn.disabled = true
         try {
@@ -737,15 +757,25 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
   function nodeStatus(node, lane) {
     if (lane === 'discard') return '已作废'
-    const labels = { failed: '生成失败', blocked: '需处理', review: '待审核', pending: '待生成', planned: '待制作', generating: '生成中', running: '生成中', invalidated: '需重新生成', rejected: '未通过', candidate: '待确认', draft: '草稿', cancelled: '已取消' }
+    const labels = { failed: '生成失败', blocked: '需处理', review: '待审核', pending: '待生成', planned: '待生成', generating: '生成中', running: '生成中', invalidated: '需重新生成', rejected: '未通过', candidate: '待确认', draft: '草稿', cancelled: '已取消' }
     if (labels[node.status]) return labels[node.status]
-    if (node.status && !['ready', 'approved', 'assembled', 'delivered', 'completed'].includes(node.status)) return '状态待确认'
+    if (node.status && !['ready', 'approved', 'assembled', 'delivered', 'completed'].includes(node.status)) return '待确认'
     const role = node.presentation?.role
-    if (role === 'script') return '剧本已就绪'
+    if (role === 'script') return '剧本就绪'
     if (node.kind === 'text' && role === 'shot') return '已规划'
     if (role === 'delivery') return '已合成'
     if (node.media) return '已生成'
     return node.status ? '已就绪' : ''
+  }
+
+  function cardState(status) {
+    if (['ready', 'approved', 'assembled', 'delivered', 'completed'].includes(status) || !status) return 'completed'
+    if (['active', 'generating', 'running'].includes(status)) return 'active'
+    if (status === 'locked') return 'locked'
+    if (['review', 'candidate', 'draft'].includes(status)) return 'review'
+    if (['blocked', 'invalidated', 'rejected'].includes(status)) return 'blocked'
+    if (['failed', 'cancelled'].includes(status)) return 'failed'
+    return 'pending'
   }
 
   function detailSection(label, key) {
@@ -775,7 +805,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     if (!edit && !regenerate) return false
     const actions = document.createElement('div')
     actions.className = 'production-actions'
-    if (edit) actions.appendChild(dialogBtn(edit.label || '修改', () => editProduction(edit)))
+    if (edit) actions.appendChild(dialogBtn(edit.label || '编辑', () => editProduction(edit)))
     if (regenerate) actions.appendChild(dialogBtn(regenerate.label || '重新生成', () => regenerateProduction(regenerate)))
     if (replace) actions.appendChild(dialogBtn('替换图片', () => replaceProductionImage(replace)))
     head.appendChild(actions)
@@ -783,14 +813,14 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   }
 
   async function editProduction(target) {
-    const dlg = openDialog(target.label || '修改内容')
-    dlg.body.textContent = '正在读取当前内容…'
+    const dlg = openDialog(target.label || '编辑内容')
+    dlg.body.textContent = '加载中…'
     try {
       const editor = await api(`/projects/${currentProject.projectId}/editor?kind=${encodeURIComponent(target.kind)}&id=${encodeURIComponent(target.id || '')}`)
       dlg.body.innerHTML = ''
       const hint = document.createElement('p')
       hint.className = 'svs-hint'
-      hint.textContent = target.kind === 'source' ? '替换后需重新分析，旧原文和已有产物会保留为历史版本。' : '修改生成内容后，关联镜头和旧成片会标记为需要更新。只修改镜头名称不会重新生成媒体。'
+      hint.textContent = target.kind === 'source' ? '替换后将重新分析；旧原文和产物保留在历史版本。' : '编辑后，关联镜头和旧成片需更新；仅改镜头名称不会重生成媒体。'
       dlg.body.appendChild(hint)
       const fields = (items, parent) => items.map((field) => {
         const label = document.createElement('label')
@@ -819,7 +849,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       error.setAttribute('role', 'alert')
       dlg.body.appendChild(error)
       const commandId = crypto.randomUUID()
-      const save = dialogBtn('保存修改', async () => {
+      const save = dialogBtn('保存', async () => {
         save.disabled = true
         error.textContent = ''
         try {
@@ -834,8 +864,8 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   }
 
   async function regenerateProduction(target) {
-    const label = target.kind === 'delivery' ? '重新合成' : target.kind === 'outline' ? '重新规划全书分集' : '重新生成'
-    if (!await modal(`${label}当前内容？\n\n会建立新任务并保留历史产物。关联下游需重新生成或合成；本次仅执行所选步骤。`, { okText: label, cancel: true })) return
+    const label = target.kind === 'delivery' ? '重新合成' : target.kind === 'outline' ? '重新规划分集' : '重新生成'
+    if (!await modal(`${label}当前内容？\n\n将创建新任务并保留历史版本。下游内容需重新生成或合成；仅执行当前步骤。`, { okText: label, cancel: true })) return
     try {
       const result = await api(`/projects/${currentProject.projectId}/regenerate`, { method: 'POST', body: JSON.stringify({ ...target, revision: currentProject.revision, commandId: crypto.randomUUID() }) })
       rememberReading(); render(result.canvas)
@@ -905,7 +935,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     renderStageTabs(project.production)
     const episodes = project.presentation?.episodes || []
     document.getElementById('project-title').textContent = project.presentation?.title || '短剧工作台'
-    el.meta.textContent = episodes.length ? `${episodes.length} 集 · ${episodes.reduce((n, ep) => n + ep.shotCount, 0)} 个镜头` : ''
+    el.meta.textContent = episodes.length ? `${episodes.length} 集 · ${episodes.reduce((n, ep) => n + ep.shotCount, 0)} 镜头` : ''
     el.assetTools.hidden = activeStageKey !== 'assets'
     const stage = CANVAS_STAGES.find((item) => item.key === activeStageKey)
     el.canvas.setAttribute('aria-label', stage.label)
@@ -915,49 +945,52 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     el.canvas.appendChild(page)
     const heading = document.createElement('div')
     heading.className = 'page-heading'
-    heading.innerHTML = '<h1>' + stage.label + '</h1>'
     const progress = project.production?.stages?.find((item) => item.key === activeStageKey)
+    const stageIndex = project.production?.stages?.findIndex((item) => item.key === activeStageKey) ?? -1
+    const locked = stageIndex > 0 && project.production.stages.slice(0, stageIndex).some((item) => item.status !== 'completed')
+    el.assetTools.hidden = activeStageKey !== 'assets' || locked
     if (progress) {
       const summary = document.createElement('span')
       summary.className = 'content-caption'
       summary.textContent = (episodes.length > 1 ? '全项目 · ' : '') + progressText(progress)
       heading.appendChild(summary)
     }
-    page.appendChild(heading)
-    if (activeStageKey === 'assets') heading.appendChild(el.assetTools)
+    if (activeStageKey === 'assets' && !locked) heading.appendChild(el.assetTools)
     const stageKinds = { analysis: 'analysis', assets: 'assets', scripts: 'script', storyboard: 'storyboard', media: 'media', delivery: 'delivery' }
-    if (stageKinds[activeStageKey]) {
+    if (stageKinds[activeStageKey] && !locked) {
       const actions = document.createElement('div')
       actions.className = 'production-actions'
-      actions.appendChild(dialogBtn(activeStageKey === 'delivery' ? '重新合成' : '重新生成本步骤', () => regenerateProduction({ kind: stageKinds[activeStageKey], id: ['scripts', 'storyboard', 'media'].includes(activeStageKey) ? activeEpisodeId : undefined })))
+      actions.appendChild(dialogBtn(activeStageKey === 'delivery' ? '重新合成' : '重新生成', () => regenerateProduction({ kind: stageKinds[activeStageKey], id: ['scripts', 'storyboard', 'media'].includes(activeStageKey) ? activeEpisodeId : undefined })))
       if (activeStageKey === 'delivery') actions.appendChild(dialogBtn('合成设置', () => editProduction({ kind: 'delivery', id: project.projectId })))
-      if (activeStageKey === 'analysis') actions.appendChild(dialogBtn('重新规划分集', () => regenerateProduction({ kind: 'outline' })))
-      if (activeStageKey === 'assets') actions.appendChild(dialogBtn('从剧本提取资产', () => regenerateProduction({ kind: 'assets-author' })))
-      if (activeStageKey === 'storyboard') actions.appendChild(dialogBtn('重新规划镜头', () => regenerateProduction({ kind: 'shots-author', id: activeEpisodeId })))
+      if (activeStageKey === 'analysis') actions.appendChild(dialogBtn('规划分集', () => regenerateProduction({ kind: 'outline' })))
+      if (activeStageKey === 'assets') actions.appendChild(dialogBtn('提取资产', () => regenerateProduction({ kind: 'assets-author' })))
+      if (activeStageKey === 'storyboard') actions.appendChild(dialogBtn('规划镜头', () => regenerateProduction({ kind: 'shots-author', id: activeEpisodeId })))
       heading.appendChild(actions)
     }
+    if (heading.childElementCount) page.appendChild(heading)
     for (const run of (project.presentation?.runs || []).slice(0, 1)) {
-      if (run.status === 'completed') continue
+      if (activeStageKey !== 'overview' || run.status !== 'failed') continue
       const status = document.createElement('div')
       status.className = 'rework-status'
-      const name = { 'revise-text': '文本', 'render-reference': '设定图', 'render-storyboard': '分镜图', 'render-shot': '镜头视频', 'concat-video': '成片' }[run.kind] || '内容'
-      status.textContent = name + (run.status === 'failed' ? '重新生成失败' : '正在重新生成') + ` · ${run.completed} / ${run.total}`
+      const name = { 'novel-production-root': '全流程', 'revise-text': '文本', 'render-reference': '设定图', 'render-storyboard': '分镜图', 'render-shot': '视频', 'concat-video': '成片' }[run.kind]
+        || (run.mode === 'text' ? '文本' : '全流程')
+      status.textContent = `${name}失败`
       if (run.errors.length) {
-        const detail = detailSection('查看失败原因', 'run-errors:' + run.id)
+        const detail = detailSection('失败原因', 'run-errors:' + run.id)
         const text = document.createElement('p')
-        text.textContent = [...new Set(run.errors)].map((error) => error === 'dependency failed' ? '前置任务未完成，后续任务已暂停。' : error).join('\n')
+        text.textContent = [...new Set(run.errors)].map((error) => error === 'dependency failed' ? '前序任务未完成，后续已暂停。' : error).join('\n')
         detail.appendChild(text); status.appendChild(detail)
       }
-      if (run.status === 'failed') status.appendChild(dialogBtn('重试任务', async () => {
+      status.appendChild(dialogBtn('重试', async () => {
         try { await api(`/projects/${project.projectId}/commands`, { method: 'POST', body: JSON.stringify({ type: 'resumeProductionRun', commandId: crypto.randomUUID(), expectedRevision: currentProject.revision, payload: { runId: run.id } }) }); await load() } catch (error) { await alertBox(error.message) }
       }))
       page.appendChild(status)
     }
     if (progress?.errors?.length) {
-      const error = detailSection('本阶段有待处理任务', 'stage-errors:' + activeStageKey)
+      const error = detailSection('待处理', 'stage-errors:' + activeStageKey)
       error.className = 'stage-errors'
       const text = document.createElement('p')
-      text.textContent = [...new Set(progress.errors.map((item) => item.error))].map((error) => error === 'dependency failed' ? '前置任务未完成，后续任务已暂停。' : error).join('\n')
+      text.textContent = [...new Set(progress.errors.map((item) => item.error))].map((error) => error === 'dependency failed' ? '前序任务未完成，后续已暂停。' : error).join('\n')
       error.appendChild(text)
       page.appendChild(error)
     }
@@ -966,12 +999,12 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (!episodes.some((ep) => ep.id === activeEpisodeId)) activeEpisodeId = episodes[0].id
       const label = document.createElement('label')
       label.className = 'episode-picker'
-      label.textContent = '分集 '
+      label.setAttribute('aria-label', '分集')
       const select = document.createElement('select')
       for (const ep of episodes) {
         const option = document.createElement('option')
         option.value = ep.id
-        option.textContent = `第 ${ep.number} 集 · ${ep.title || '未命名分集'}`
+        option.textContent = `第 ${ep.number} 集 · ${ep.title || '未命名'}`
         select.appendChild(option)
       }
       select.value = activeEpisodeId
@@ -982,29 +1015,34 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     }
     const main = nodes.filter((node) => nodeLane(node) === 'main' && !node.presentation?.historical)
     if (activeStageKey === 'overview') renderOverview(page, allNodes, project)
-    else if (activeStageKey === 'assets') renderAssets(page, main)
+    else if (locked) {
+      const prior = project.production.stages.slice(0, stageIndex).findLast((item) => item.status !== 'completed')
+      const priorLabel = CANVAS_STAGES.find((item) => item.key === prior?.key)?.label || '前序阶段'
+      emptyState(page, `等待${priorLabel}`, '完成后自动开始。', prior?.key)
+    }
+    else if (activeStageKey === 'assets') renderAssets(page, main, progress)
     else if (activeStageKey === 'storyboard' || activeStageKey === 'media') renderShots(page, main, allNodes)
     else if (activeStageKey === 'delivery') {
       const finals = main.filter((node) => node.presentation?.role === 'delivery')
       appendCards(page, finals)
-      if (!finals.length) emptyState(page, '正式成片尚未就绪', '查看项目总览，确认制作进度。', 'overview')
+      if (!finals.length) emptyState(page, '成片未生成', '请先完成前序阶段。', 'overview')
       const intermediate = main.filter((node) => node.presentation?.role !== 'delivery')
       if (intermediate.length) {
-        const detail = detailSection('分集合成与其他版本 · ' + intermediate.length, 'delivery-versions')
+        const detail = detailSection('其他版本 · ' + intermediate.length, 'delivery-versions')
         appendCards(detail, intermediate)
         page.appendChild(detail)
       }
     } else {
-      const roles = activeStageKey === 'analysis' ? [['analysis', '故事概述'], ['source', '原始素材信息'], ['outline', '分集规划']] : [['script', '正式剧本'], ['shot', '镜头安排']]
+      const roles = activeStageKey === 'analysis' ? [['source', ''], ['analysis', '故事概述'], ['outline', '分集规划']] : [['script', '剧本'], ['shot', '镜头表']]
       for (const [role, title] of roles) {
         const group = main.filter((node) => node.presentation?.role === role)
         if (group.length) {
-          if (role !== 'analysis') sectionTitle(page, title)
+          if (role !== 'analysis' && title) sectionTitle(page, title)
           appendCards(page, group)
         }
       }
       appendCards(page, main.filter((node) => !roles.some(([role]) => node.presentation?.role === role)))
-      if (!main.length) emptyState(page, '暂无' + stage.label, '查看项目总览，确认上一步的制作进度。', 'overview')
+      if (!main.length) emptyState(page, '暂无内容', '请先完成前序阶段。', 'overview')
     }
     if (activeStageKey !== 'overview') {
       const history = nodes.filter((node) => node.presentation?.historical)
@@ -1023,8 +1061,13 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
   }
 
   function progressText(progress) {
-    const units = { analysis: '份分析', assets: '份设定', scripts: '集', storyboard: '个镜头', media: '个镜头', delivery: '份成片' }
-    return `${progressLabels[progress.status] || '状态待确认'} · ${progress.completed} / ${progress.total} ${units[progress.key] || '项'}`
+    if (progress.key === 'assets' && progress.detail) {
+      const action = progress.detail.action
+      const actionText = progress.status === 'active' ? action?.total ? `${action.label} ${action.completed}/${action.total}` : action?.label : ''
+      const totals = progress.total ? `${progress.total} 项 · 提示词 ${progress.detail.promptReady}/${progress.total} · 参考图 ${progress.detail.referenceApproved}/${progress.total}` : `已识别 ${progress.detail.extracted} 项 · 总数统计中`
+      return `${progressLabels[progress.status] || '待确认'} · ${totals}${actionText ? ` · ${actionText}` : ''}`
+    }
+    return `${progressLabels[progress.status] || '待确认'} · ${progress.completed}/${progress.total}`
   }
 
   function sectionTitle(parent, text) {
@@ -1056,13 +1099,13 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     const banner = document.createElement('div')
     banner.className = 'overview-summary'
     const description = stages.length
-      ? `已完成 ${completed} / ${stages.length} 个阶段` + (current ? ` · 当前：${currentLabel}（${progressLabels[current.status] || '待制作'}）` : ' · 成片已就绪')
-      : '尚无制作进度，点击下方阶段查看内容。'
-    banner.innerHTML = '<h2>总体制作进度' + (stages.length ? ` · ${percent}%` : '') + '</h2><p>' + escapeHtml(description) + '</p>'
+      ? `${completed}/${stages.length} 阶段完成` + (current ? ` · ${currentLabel} · ${progressLabels[current.status] || '待开始'}` : ' · 成片就绪')
+      : '暂无进度'
+    banner.innerHTML = '<h2>总体进度' + (stages.length ? ` · ${percent}%` : '') + '</h2><p>' + escapeHtml(description) + '</p>'
     const bar = document.createElement('progress')
     bar.max = 100
     bar.value = percent
-    bar.setAttribute('aria-label', '总体制作进度，按阶段完成度计算')
+    bar.setAttribute('aria-label', '总体进度，按阶段完成度计算')
     bar.style.cssText = 'display:block;width:100%;height:14px;accent-color:var(--accent)'
     banner.appendChild(bar)
     parent.appendChild(banner)
@@ -1074,40 +1117,76 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       const card = document.createElement('button')
       card.type = 'button'
       card.className = 'stage-summary'
+      card.dataset.status = cardState(progress?.status || 'pending')
       card.onclick = () => selectStage(stage.key)
       card.innerHTML = '<span class="stage-number">0' + (index + 1) + '</span><strong>' + stage.label + '</strong><span>'
-        + escapeHtml(progress ? progress.total > 0 ? progressText(progress) : '待上一步完成' : counts[stage.key] ? `${counts[stage.key]} 项内容` : '暂无内容') + '</span>'
+        + escapeHtml(progress ? progress.total > 0 ? progressText(progress) : '待前序' : counts[stage.key] ? `${counts[stage.key]} 项` : '暂无') + '</span>'
       if (progress?.status === 'blocked') card.classList.add('needs-attention')
       grid.appendChild(card)
     }
     parent.appendChild(grid)
     const other = nodes.filter((node) => !canvasStageForNode(node) || nodeLane(node) !== 'main')
     if (other.length) {
-      const detail = detailSection('其他内容与历史记录 · ' + other.length, 'overview-other')
+      const detail = detailSection('其他与历史 · ' + other.length, 'overview-other')
       appendCards(detail, other)
       parent.appendChild(detail)
     }
   }
 
-  function renderAssets(parent, nodes) {
+  function renderAssets(parent, nodes, progress) {
+    const action = progress?.detail?.action
+    if (progress?.status === 'active' && action) {
+      const banner = document.createElement('div')
+      banner.className = 'asset-progress-banner'
+      const title = document.createElement('strong')
+      title.textContent = action.label
+      banner.appendChild(title)
+      if (action.total) {
+        const count = document.createElement('span')
+        count.textContent = `${action.completed} / ${action.total}`
+        banner.appendChild(count)
+        const bar = document.createElement('progress')
+        bar.max = action.total
+        bar.value = action.completed
+        bar.setAttribute('aria-label', `${action.label} ${action.completed} / ${action.total}`)
+        banner.appendChild(bar)
+      }
+      const summary = document.createElement('p')
+      summary.textContent = progress.total
+        ? `${progress.total} 项 · 提示词 ${progress.detail.promptReady}/${progress.total} · 参考图 ${progress.detail.referenceApproved}/${progress.total}`
+        : `已识别 ${progress.detail.extracted} 项；提取完成后锁定总数。`
+      banner.appendChild(summary)
+      parent.appendChild(banner)
+    }
     const paired = new Set()
     for (const [kind, label] of [['character', '角色'], ['location', '场景'], ['prop', '道具'], ['variant', '衍生资产']]) {
       const entities = nodes.filter((node) => node.kind === 'text' && node.presentation?.entityKind === kind)
       if (!entities.length) continue
       sectionTitle(parent, label)
+      const grid = document.createElement('div')
+      grid.className = 'asset-entity-grid'
       for (const entity of entities) {
         const reference = nodes.find((node) => node.id === entity.presentation.referenceAssetId && node.media)
         paired.add(entity.id)
         if (reference) paired.add(reference.id)
-        const status = entity.presentation.promptStatus === 'ready' ? reference?.status || 'pending' : reference ? 'invalidated' : 'pending'
-        const card = nodeCard({ ...entity, kind: 'image', media: reference?.media, status, placeholder: reference ? '' : '设定图待生成', presentation: { ...entity.presentation, inputSnapshot: reference?.presentation?.inputSnapshot }, params: { ...entity.params, referenceAssetId: reference?.id } })
+        const promptStatus = entity.presentation.promptStatus || 'pending'
+        const referenceStatus = reference ? 'ready' : entity.presentation.referenceStatus || 'pending'
+        const status = reference ? reference.status : promptStatus === 'active' || referenceStatus === 'active' ? 'running' : promptStatus === 'failed' || referenceStatus === 'failed' ? 'failed' : 'pending'
+        const placeholder = reference ? '' : referenceStatus === 'active' ? '参考图生成中' : promptStatus === 'active' ? '提示词编写中' : promptStatus === 'ready' ? '待生成参考图' : '待编写提示词'
+        const card = nodeCard({ ...entity, kind: 'image', media: reference?.media, status, placeholder, presentation: { ...entity.presentation, referenceStatus, inputSnapshot: reference?.presentation?.inputSnapshot }, params: { ...entity.params, referenceAssetId: reference?.id } })
         card.classList.add('entity-card')
-        parent.appendChild(card)
+        grid.appendChild(card)
       }
+      parent.appendChild(grid)
     }
     const remaining = nodes.filter((node) => !paired.has(node.id))
-    if (remaining.length) { sectionTitle(parent, '其他素材 · 尚未关联设定'); appendCards(parent, remaining) }
-    if (!nodes.length) emptyState(parent, '暂无剧本资产', '先完成分集剧本，再提取角色、场景、道具和衍生状态。', 'scripts')
+    if (remaining.length) { sectionTitle(parent, '未关联素材'); appendCards(parent, remaining) }
+    if (!nodes.length) {
+      if (progress?.status === 'active') emptyState(parent, '资产生成中', '提取角色、场景、道具并编写提示词。')
+      else if (progress?.status === 'blocked') emptyState(parent, '资产生成失败', '查看原因，修复后继续。')
+      else if (progress?.status === 'completed') emptyState(parent, '无待制作资产', '剧本中未提取到需要生成参考图的资产。')
+      else emptyState(parent, '资产待开始', '剧本完成后自动开始。')
+    }
   }
 
   function renderShots(parent, nodes, allNodes) {
@@ -1126,15 +1205,15 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       const node = media ? { ...media, title: shot.title, content: shot.presentation.description } : {
         id: stage + ':' + shot.id, kind: stage === 'media' ? 'video' : 'image', title: shot.title,
         status: 'pending', domainProjection: true, presentation: shot.presentation,
-        content: shot.presentation.description, placeholder: stage === 'media' ? '视频待生成' : '分镜图待生成',
+        content: shot.presentation.description, placeholder: stage === 'media' ? '待生成视频' : '待生成分镜',
       }
       if (issues.length) { node.error = issues.map((item) => item.content).join('\n'); node.status = 'blocked' }
       grid.appendChild(nodeCard(node))
     }
     parent.appendChild(grid)
     const other = nodes.filter((node) => !used.has(node.id))
-    if (other.length) { sectionTitle(parent, '其他素材与版本'); appendCards(parent, other) }
-    if (!shots.length && !other.length) emptyState(parent, stage === 'media' ? '暂无镜头视频' : '暂无分镜', '先完成本集的镜头安排。', 'scripts')
+    if (other.length) { sectionTitle(parent, '其他与版本'); appendCards(parent, other) }
+    if (!shots.length && !other.length) emptyState(parent, stage === 'media' ? '暂无视频' : '暂无分镜', '请先完成本集镜头表。', 'scripts')
   }
 
   /** 页尾折叠收纳区（作废 / 抽帧各一个）。 */
@@ -1146,8 +1225,8 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     const isDiscard = lane === 'discard'
     const label = isDiscard ? '已作废' : '检查帧'
     sum.title = isDiscard
-      ? '被替换的旧版 / 用户否定的资产，折叠保存历史，点卡片「还原」可回到主线'
-      : '末帧串联、转场首末帧、AI 自检检查帧等抽帧产物，默认折叠不影响主线预览，确认无用后可删除'
+      ? '旧版或已否定内容。点击“还原”可恢复到主线。'
+      : '抽帧产物默认折叠，不影响主线；确认无用后可删除。'
     sum.innerHTML = '<span class="lane-label">' + label + '</span><span class="lane-count">' + list.length + '</span>'
     det.appendChild(sum)
     const body = document.createElement('div')
