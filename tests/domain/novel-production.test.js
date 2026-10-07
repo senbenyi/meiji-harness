@@ -4,6 +4,7 @@ import { MemoryProjectRepository, ProjectService } from '../../lib/domain/servic
 import { NOVEL_SCHEMAS, novelTextProduction, assertNovelCoverage } from '../../lib/script/novel-production.js'
 import { regenerateText } from '../../lib/script/rework.js'
 import { PRODUCTION_WORKFLOW, runProductionWorkflow } from '../../lib/agents/workflow.js'
+import { extractedAssets, promptResponse, generation } from '../helpers/generation.js'
 
 const span = { sourceId: 'source', start: 0, end: 100 }
 const beat = { id: 'letter', description: 'Find a letter', sourceSpans: [span] }
@@ -20,10 +21,19 @@ const assets = { characters: [{ id: 'detective', visualDescription: 'Blue coat' 
 async function fixture(runWorkflow) {
   const projects = await new ProjectService(new MemoryProjectRepository()).open()
   const created = await projects.createProject({ payload: { title: 'Text recovery' } })
-  return { projects, projectId: created.project.id, sourceId: 'source', contentHash: 'source-hash', segments: [{ start: 0, end: 100, text: 'A detective finds a letter.'.padEnd(100, ' ') }], schemas: NOVEL_SCHEMAS, runWorkflow }
+  const projectId = created.project.id
+  const command = async (type, payload, commandId) => projects.execute({ projectId, expectedRevision: (await projects.getProject(projectId)).revision, commandId, type, payload })
+  await command('registerSourceDocument', { sourceId: 'source', logicalKey: 'source.txt', contentHash: 'source-hash', bytes: 100, characters: 100 }, 'source')
+  const onProposal = async (kind, payload) => {
+    const key = `${kind}:${payload.episodeId || 'all'}`
+    const result = await command('submitDevelopmentProposal', { kind, payload, sourceRefs: [{ sourceId: 'source', contentHash: 'source-hash' }] }, key)
+    await command('recordReviewDecision', { reviewTaskId: result.output.reviewTaskId, decision: 'approved' }, `${key}:approve`)
+    return result.output
+  }
+  return { projects, projectId, sourceId: 'source', contentHash: 'source-hash', segments: [{ start: 0, end: 100, text: 'A detective finds a letter.'.padEnd(100, ' ') }], schemas: NOVEL_SCHEMAS, runWorkflow, onProposal }
 }
 
-const valueFor = (label) => structuredClone(label.startsWith('source-summary:') ? summary : label === 'story-reconcile' ? analysis : label === 'asset-design' ? assets : label === 'episode-plan' ? { episodes: [episode] } : label.startsWith('episode-storyboard:') ? board : draft)
+const valueFor = (label, task) => structuredClone(label.startsWith('asset-prompt:') ? generation() : label.includes('-prompts:') ? promptResponse(task) : label.startsWith('source-summary:') ? summary : label === 'story-reconcile' ? analysis : label.startsWith('asset-extraction:') ? extractedAssets(characters, locations, 'ep', script.script) : label === 'episode-plan' ? { episodes: [episode] } : label.startsWith('episode-storyboard:') ? board : draft)
 
 test('text rework targets each stage and rejects mismatched or incomplete scripts', async () => {
   const project = { id: 'p', sourceDocuments: { source: { id: 'source', characters: 100, contentHash: 'hash' } }, storyBible: { summary: analysis.summary, proposalId: 'analysis' }, developmentProposals: { analysis: { payload: analysis } }, characters: Object.fromEntries(characters.map(item => [item.id, item])), locations: Object.fromEntries(locations.map(item => [item.id, item])), episodes: { ep: episode } }
@@ -32,19 +42,19 @@ test('text rework targets each stage and rejects mismatched or incomplete script
   let badScript = null
   const runWorkflow = async tasks => tasks.map(task => {
     calls.push(task.label)
-    return { label: task.label, value: structuredClone(task.label.startsWith('summary:') ? summary : task.label === 'analysis' ? analysis : task.label === 'plan' ? { episodes: [episode] } : task.label === 'storyboard' ? badScript || board : draft) }
+    return { label: task.label, value: structuredClone(task.label.startsWith('summary:') ? summary : task.label === 'analysis' ? analysis : task.label === 'plan' ? { episodes: [episode] } : badScript || draft) }
   })
   const options = { project, sourceService, runWorkflow, id: 'ep' }
   assert.equal((await regenerateText({ ...options, kind: 'analysis' })).kind, 'content_analysis')
   assert.deepEqual(calls.splice(0), ['summary:0', 'analysis'])
   assert.equal((await regenerateText({ ...options, kind: 'outline' })).kind, 'episode_plan')
   assert.deepEqual(calls.splice(0), ['plan'])
-  assert.equal((await regenerateText({ ...options, kind: 'script' })).kind, 'episode_script')
-  assert.deepEqual(calls.splice(0), ['script', 'storyboard'])
-  badScript = { ...board, episodeId: 'wrong' }
-  await assert.rejects(regenerateText({ ...options, kind: 'script' }), /分镜 subagent/)
-  badScript = { ...board, shots: [{ ...script.shots[0], beatIds: [] }] }
-  await assert.rejects(regenerateText({ ...options, kind: 'script' }), /分镜未覆盖/)
+  assert.equal((await regenerateText({ ...options, kind: 'script' })).kind, 'episode_draft')
+  assert.deepEqual(calls.splice(0), ['script'])
+  badScript = { ...draft, episodeId: 'wrong' }
+  await assert.rejects(regenerateText({ ...options, kind: 'script' }), /分集不匹配/)
+  badScript = { ...draft, beatIds: [] }
+  await assert.rejects(regenerateText({ ...options, kind: 'script' }), /未覆盖/)
 })
 
 test('a failed child is persisted; recovery reruns only the missing task', async () => {
@@ -52,29 +62,31 @@ test('a failed child is persisted; recovery reruns only the missing task', async
   let fail = true
   const options = await fixture(async (tasks) => tasks.map((task) => {
     calls.push(task.label)
-    return { label: task.label, value: fail && task.label.startsWith('episode-script:') ? null : valueFor(task.label) }
+    return { label: task.label, value: fail && task.label.startsWith('episode-script:') ? null : valueFor(task.label, task) }
   }))
   const materialized = []
-  options.onProposal = async (kind) => { materialized.push(kind) }
+  const save = options.onProposal
+  options.onProposal = async (kind, payload) => { materialized.push(kind); return save(kind, payload) }
   await assert.rejects(novelTextProduction(options), /文本制作失败/)
-  assert.deepEqual(materialized, ['content_analysis', 'asset_design', 'episode_plan'], 'completed upstream stages remain visible when script writing fails')
+  assert.deepEqual(materialized, ['content_analysis', 'episode_plan'], 'assets cannot precede formal scripts')
   let p = await options.projects.getProject(options.projectId)
   const failed = Object.values(p.productionTasks).find((task) => task.input.label === 'episode-script:ep')
   assert.equal(failed.status, 'failed')
   assert.equal(Object.values(p.productionRuns).find((run) => run.id === failed.runId).status, 'failed')
-  assert.equal(Object.values(p.productionTasks).filter((task) => task.status === 'completed').length, 4)
+  assert.equal(Object.values(p.productionTasks).filter((task) => task.status === 'completed').length, 3)
   fail = false
   const result = await novelTextProduction(options)
   assertNovelCoverage(result, 'source', 100)
-  assert.deepEqual(calls, ['source-summary:0', 'story-reconcile', 'asset-design', 'episode-plan', 'episode-script:ep', 'episode-script:ep', 'episode-storyboard:ep'])
+  assert.deepEqual(calls, ['source-summary:0', 'story-reconcile', 'episode-plan', 'episode-script:ep', 'episode-script:ep', 'asset-extraction:ep', 'asset-prompt:detective', 'asset-prompt:station', 'episode-storyboard:ep', 'image-prompts:ep:ep-script-v001-shot-001', 'video-prompts:ep:ep-script-v001-shot-001'])
   p = await options.projects.getProject(options.projectId)
   assert.ok(Object.values(p.productionRuns).every((run) => run.status === 'completed'))
-  assert.equal(Object.keys(p.shots).length, 0, 'text checkpoints must not fabricate shots or start media')
+  assert.equal(Object.keys(p.shots).length, 1)
+  assert.equal(Object.keys(p.attempts).length, 0, 'authored content must not start media')
 })
 
 test('semantic omissions fail the affected text task before it is recorded as completed', async () => {
   const options = await fixture(async (tasks) => tasks.map((task) => {
-    const value = valueFor(task.label)
+    const value = valueFor(task.label, task)
     if (task.label.startsWith('episode-storyboard:')) value.shots[0].beatIds = []
     return { label: task.label, value }
   }))
@@ -85,7 +97,7 @@ test('semantic omissions fail the affected text task before it is recorded as co
   assert.match(task.error, /分镜未覆盖/)
 })
 
-test('storyboard recovery reuses the approved script instead of invoking its agent again', async () => {
+test('script rework recovery reuses its validated formal draft', async () => {
   const project = { id: 'p', sourceDocuments: { source: { id: 'source', characters: 100, contentHash: 'hash' } }, storyBible: { summary: analysis.summary, proposalId: 'analysis' }, developmentProposals: { analysis: { payload: analysis } }, characters: Object.fromEntries(characters.map(item => [item.id, item])), locations: Object.fromEntries(locations.map(item => [item.id, item])), episodes: { ep: episode } }
   const sourceService = { readChunk: async () => ({ start: 0, end: 100, text: 'Original'.padEnd(100, ' ') }) }
   const calls = []
@@ -95,12 +107,12 @@ test('storyboard recovery reuses the approved script instead of invoking its age
     calls.push(task.role)
     return { label: task.label, value: task.role === 'script' ? draft : fail ? null : board }
   }) }
-  await assert.rejects(regenerateText(options), /没有返回/)
+  await regenerateText(options)
   assert.deepEqual(Object.keys(saved), ['script'])
   fail = false
   const result = await regenerateText({ ...options, completed: saved })
   assert.equal(result.payload.script, draft.script)
-  assert.deepEqual(calls, ['script', 'storyboard', 'storyboard'])
+  assert.deepEqual(calls, ['script'])
 })
 
 test('fixed workflow returns a failed child envelope instead of dropping it', async () => {

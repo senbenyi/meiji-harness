@@ -397,4 +397,12 @@ Agent 调用 comfy_generate_video(prompt, type='r2v', ref_nodes=[角色卡,场�
 
 ## 10. 一句话总结
 
+### 2026-10-07 正式短剧生产链补充
+
+正式短剧的当前写入事实源为 Project 领域命令，画布为只读投影。主 Agent 通过 Harness 原生 workflow 调度剧情、剧本、角色、镜头、分镜、成片六类职责；角色从正式剧本提取角色/场景/道具与衍生状态，镜头规划先于分镜预览。
+
+`lib/script/asset-production.js` 负责剧本资产提取契约；`shot-production.js` 负责图片/视频独立提示词；`lib/domain/creative.js` 校验成果输入版本并写入；`lib/prompts/specification.js` 校验生成说明。参考图、衍生图、分镜图和视频均须有完整、可编辑的已保存提示词，渲染使用当前说明并保存真实请求快照。旧描述和旧视频 prompt 不自动冒充新的完整提示词。主流程与返工复用同一领域契约、生产队列和失效传播。
+
+实施及实机范围见 [验证记录](research/2026-10-07-creative-production-verification.md)。以下早期总结中的会话画布存储描述不适用于当前正式短剧领域数据链。
+
 `dsh-short-video-studio` 是一个**「契约驱动」的本地生成画布工作室**：Agent 只表达「要什么」（capability + 类型化输入），宿主按注册表把能力解析成具体 ComfyUI 工作流并执行，产物落进会话画布（Agent 工具与画布页共享同一份 `project.json`），角色/场景卡经资产库跨会话复用。其最大架构价值在 manifest 契约层——**加模型即加 JSON**；最大结构风险在散文层双份真相与单文件宿主——均已由 `docs/architecture-review.md` 定位并给出拆分路线。

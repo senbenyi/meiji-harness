@@ -9,6 +9,8 @@ import { canvasStageForNode } from '../../studio/stages.js'
 import { dramaProductionTasks } from '../../lib/production/drama.js'
 import { MemoryProjectRepository, ProjectService } from '../../lib/domain/service.js'
 import { productionEditor } from '../../lib/domain/rework.js'
+import { authorFixture } from '../helpers/generation.js'
+import { compilePromptSnapshot } from '../../lib/prompts/compiler.js'
 
 function fixture() {
   const p = createProjectAggregate({ id: 'drama' })
@@ -21,7 +23,7 @@ function fixture() {
   p.locations.station = { id: 'station', name: 'Station', description: 'Old station', sourceRefs }
   p.episodes.ep = { id: 'ep', title: 'Letter', order: 1, status: 'draft', script: 'The detective enters the station and opens a letter.', outline: 'Find a letter.', proposalId: 'script', analysisProposalId: 'analysis', shotIds: ['s'] }
   p.shots.s = { id: 's', episodeId: 'ep', proposalId: 'script', analysisProposalId: 'analysis', status: 'planned', prompt: 'A detective opens a letter.', shotDescription: 'The detective opens the letter in the station.', duration: 7, sourceRefs, referenceBindings: [{ kind: 'character', entityId: 'detective' }, { kind: 'location', entityId: 'station' }], attemptIds: [], assetIds: [] }
-  return p
+  return authorFixture(p)
 }
 
 function image(p, id, entity, kind) {
@@ -196,14 +198,15 @@ test('analysis, script, reference image and storyboard are independently enforce
     [(p) => { p.assets.board.status = 'candidate' }, 'storyboard'],
     [(p) => { p.sourceDocuments.source.contentHash = 'changed' }, 'analysis'],
     [(p) => { p.characters.detective.description = 'Red coat' }, 'assets'],
-    [(p) => { p.shots.s.prompt = 'Different action' }, 'storyboard'],
+    [(p) => { p.shots.s.imageGeneration.prompt = 'Different frame' }, 'storyboard'],
   ]) {
     const p = prepared()
     remove(p)
     assert.throws(() => assertProductionStages(p, 's'), new RegExp(stage))
   }
   const p = prepared()
-  const result = commandHandlers.createGenerationAttempt(p, { shotId: 's', capability: 'video.reference2video' }, { commandId: 'test' })
+  const inputSnapshot = compilePromptSnapshot({ project: p, shotId: 's', capability: 'video.reference2video', parameters: { referenceIds: ['detective', 'station', 'board'] } })
+  const result = commandHandlers.createGenerationAttempt(p, { shotId: 's', capability: 'video.reference2video', inputSnapshot }, { commandId: 'test' })
   assert.ok(result.attemptId)
   assert.equal(p.shots.s.status, 'generating')
 })

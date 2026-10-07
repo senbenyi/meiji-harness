@@ -12,6 +12,8 @@ whenToUse: |
 
 ## Elysium 执行约束
 
+- 正式短剧每镜必须有独立视频提示词、完整动作与声音说明、有效参考图和分镜图。生成使用已保存版本并登记执行快照；改写须先经编辑或重新编写入口，渲染时不得临时替换。图片与视频提示词分别保存。
+
 - 本 Skill 只使用 `elysium-minimax-h3-ref2v-*` 与 `elysium-minimax-h3-i2v-*` 工作流。
 - 首次生成前调用 `comfy_list_workflows` 核对当前 capability + tier 解析结果；若未解析到对应 Elysium 工作流，停止并报告配置问题，禁止回退到无 `elysium` 标记的作者工作流。
 - 模型文件名与节点参数以 Elysium 工作流清单为准，不在 Skill 中改写 checkpoint。

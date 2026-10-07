@@ -5,13 +5,14 @@ import { syncBuiltinESMExports } from 'node:module'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { extractedAssets, promptResponse, generation } from '../helpers/generation.js'
 
 test('novel entrypoint produces every stage, resumes failed downloads and reuses delivered output', { timeout: 120000 }, async () => {
   const root = await mkdtemp(join(os.tmpdir(), 'drama-flow-'))
   const home = mock.method(os, 'homedir', () => root)
   syncBuiltinESMExports()
   const originalFetch = globalThis.fetch
-  const { MemoryProjectRepository } = await import('../../lib/domain/service.js')
+  const { MemoryProjectRepository, ProjectService } = await import('../../lib/domain/service.js')
   const repository = new MemoryProjectRepository()
   const tools = new Map()
   const disposers = []
@@ -30,7 +31,13 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
   const locations = [{ id: 'station', name: '车站', description: '白墙、木长椅' }]
   const beats = [{ id: 'enter', description: '走进车站', sourceSpans: [span] }, { id: 'letter', description: '拿起信封', sourceSpans: [span] }]
   const episodes = beats.map((beat, i) => ({ id: `ep${i + 1}`, order: i + 1, title: beat.description, outline: `${beat.description}的大纲`, beatIds: [beat.id], sourceSpans: [span] }))
-  const textValue = (label) => {
+  const textValue = (label, task) => {
+    if (label.startsWith('asset-prompt:')) return generation()
+    if (label.includes('-prompts:')) return promptResponse(task)
+    if (label.startsWith('asset-extraction:')) {
+      const episode = episodes.find((item) => label.endsWith(`:${item.id}`))
+      return extractedAssets(characters, locations, episode.id, `小林在车站${episode.title}。`)
+    }
     if (label.startsWith('source-summary:')) return { facts: [source], characters, locations, beats, citations: [span], openConflicts: [] }
     if (label === 'story-reconcile') return { summary: source, storyBible: { visualStyle: '写实' }, characters, locations, beats, citations: [span] }
     if (label === 'asset-design') return { characters: characters.map(({ id, description }) => ({ id, visualDescription: description })), locations: locations.map(({ id, description }) => ({ id, visualDescription: description })) }
@@ -83,7 +90,7 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
       const result = await run(async (_prompt, options) => {
         const task = args.args.tasks.find((item) => item.agentLabel === options.label)
         assignedRoles.add(task.role)
-        if (!task.schema.properties.inputSignature) { textCalls.push(task.label); return structuredClone(textValue(task.label)) }
+        if (!task.schema.properties.inputSignature) { textCalls.push(task.label); return structuredClone(textValue(task.label, task)) }
         mediaCalls.push(task.label)
         const input = JSON.parse(task.prompt.split('\n输入：')[1])
         return { taskId: task.label, inputSignature: task.prompt.match(/inputSignature=([a-f0-9]+)/)[1], decision: 'ready', reason: '', ...(task.role === 'delivery' ? { nodes: input.nodes, strategy: input.strategy } : { prompt: input.entity.prompt || input.entity.visualDescription || input.entity.description }) }
@@ -161,13 +168,26 @@ test('novel entrypoint produces every stage, resumes failed downloads and reuses
     const reused = await call('studio_novel_create', { sourcePath: 'source.txt', title: '流程验收：车站的信封' })
     assert.equal(reused.runId, created.runId)
     assert.equal(graphs.length, before)
-    assert.equal(textCalls.length, 8)
+    assert.equal(textCalls.length, 15)
     assert.deepEqual([...assignedRoles].sort(), ['assets', 'delivery', 'script', 'shot', 'story', 'storyboard'])
     assert.equal(new Set(mediaCalls).size, mediaCalls.length, 'download retries and host restart must reuse subagent plans')
     assert.equal(disposedCoordinators, coordinators, 'background coordination contexts must be disposed')
     await rm(join(storageRoot, deliverable.logicalKey))
     const missing = await tools.get('studio_novel_create').execute({ sourcePath: 'source.txt', title: '流程验收：车站的信封' }, exec)
     assert.equal(missing.ok, false, 'missing delivery file cannot be reported as successful reuse')
+    const projects = await new ProjectService(repository).open()
+    const current = await projects.getProject(created.projectId)
+    const rework = await projects.execute({ projectId: current.id, expectedRevision: current.revision, commandId: 'verify-video-rework', type: 'requestProductionRework', payload: { kind: 'media', input: { sessionId, workspaceId: 'workspace' } } })
+    const reworkRun = rework.output.runId
+    p = await wait(created.projectId, reworkRun)
+    assert.equal(p.productionRuns[reworkRun].status, 'completed', JSON.stringify(p.productionRuns[reworkRun].taskIds.map(id => p.productionTasks[id].error)))
+    assert.equal(graphs.length, before + 2, 'video rework must not regenerate reference or storyboard images')
+    for (const episode of Object.values(p.episodes).filter(episode => episode.id !== 'legacy-main')) for (const id of episode.shotIds) {
+      const asset = p.assets[p.shots[id].approvedAssetId]
+      const snapshot = asset.sourceIds.map(sourceId => p.attempts[sourceId]?.inputSnapshot).find(Boolean)
+      assert.equal(snapshot.target.kind, 'shot')
+      assert.equal(snapshot.target.id, id)
+    }
   } finally {
     for (const dispose of disposers.reverse()) await dispose()
     globalThis.fetch = originalFetch

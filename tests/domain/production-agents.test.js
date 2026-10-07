@@ -7,6 +7,9 @@ import { PRODUCTION_ROLES } from '../../lib/agents/roles.js'
 import { PRODUCTION_WORKFLOW, runProductionWorkflow } from '../../lib/agents/workflow.js'
 import { prepareMediaTask } from '../../lib/agents/media.js'
 import { canvasReadModel } from '../../lib/domain/read-models.js'
+import { extractedAssets, promptResponse, authorFixture, generation } from '../helpers/generation.js'
+import { runCreativeTask } from '../../lib/script/creative-rework.js'
+import { ProductionWorker } from '../../lib/production/worker.js'
 
 const span = { sourceId: 'source', start: 0, end: 20 }
 const analysis = { summary: 'A visitor finds a key.', storyBible: {}, characters: [{ id: 'visitor', name: 'Visitor', description: 'A visitor' }], locations: [{ id: 'room', name: 'Room', description: 'A room' }], beats: [{ id: 'key', sourceSpans: [span] }], citations: [span] }
@@ -19,6 +22,43 @@ function fakeWorkflow(respond) {
   const run = new (Object.getPrototypeOf(async function () {}).constructor)('agent', 'parallel', 'phase', 'args', PRODUCTION_WORKFLOW)
   return { execute: async ({ args }) => ({ kind: 'foreground', agentsStarted: args.tasks.length, result: await run((prompt, options) => respond(prompt, options), (tasks) => Promise.all(tasks.map((task) => task())), () => {}, args) }) }
 }
+
+test('a task can persist successive text checkpoints under one phase and reuse identical checkpoints', async () => {
+  const projects = await new ProjectService(new MemoryProjectRepository()).open()
+  const { project } = await projects.createProject({ payload: { title: 'Checkpoint versions' } })
+  const run = await projects.execute({ projectId: project.id, expectedRevision: project.revision, commandId: 'run', type: 'createProductionRun', payload: { runId: 'run', mode: 'text', tasks: [{ id: 'text', kind: 'revise-text', input: { kind: 'analysis' }, dependencies: [] }] } })
+  const worker = new ProductionWorker({ projectService: projects, handlers: { 'revise-text': async ({ checkpoint }) => {
+    await checkpoint('text-results', { textResults: { summary: 'one' } })
+    await checkpoint('text-results', { textResults: { summary: 'one', analysis: 'two' } })
+    await checkpoint('text-results', { textResults: { summary: 'one', analysis: 'two' } })
+    return { summary: { done: true } }
+  } } })
+  await worker.runTask(project.id, run.project.productionTasks.text)
+  const saved = (await projects.getProject(project.id)).productionTasks.text
+  assert.equal(saved.status, 'completed', saved.error)
+  assert.deepEqual(saved.checkpoint.textResults, { summary: 'one', analysis: 'two' })
+})
+
+test('asset authoring resumes individual valid prompts after a sibling fails', async () => {
+  const project = { revision: 1, episodes: { ep: { ...episode, script: draft.script } }, characters: {}, locations: {}, props: {}, assetVariants: {}, developmentProposals: {} }
+  const task = { id: 'author', scopeId: 'p', input: { phase: 'assets' }, checkpoint: {} }
+  const calls = []
+  let fail = true
+  const projects = { getProject: async () => project, execute: async () => ({ output: { reviewTaskId: 'review', proposalId: 'proposal' } }) }
+  const checkpoint = async (_name, value) => Object.assign(task.checkpoint, structuredClone(value))
+  const runWorkflow = async (requests) => requests.map((request) => {
+    calls.push(request.label)
+    if (request.label.startsWith('asset-extraction:')) return { label: request.label, value: extractedAssets(analysis.characters, analysis.locations, 'ep', draft.script) }
+    return { label: request.label, ...(fail && request.label === 'asset-prompt:visitor' ? { error: 'temporary failure' } : { value: generation() }) }
+  })
+  await assert.rejects(runCreativeTask({ projects, projectId: 'p', task, checkpoint, runWorkflow }), /temporary failure/)
+  assert.ok(task.checkpoint.creativeResults['asset-prompt:room'], 'success after a failed sibling must still be checkpointed')
+  fail = false
+  calls.length = 0
+  await runCreativeTask({ projects, projectId: 'p', task, checkpoint, runWorkflow })
+  assert.deepEqual(calls, ['asset-prompt:visitor'])
+  assert.ok(task.checkpoint.proposal.payload.characters[0].generation.prompt)
+})
 
 async function fixture() {
   const projects = await new ProjectService(new MemoryProjectRepository()).open()
@@ -41,11 +81,11 @@ async function fixture() {
 test('professional text tasks materialize separate script and storyboard through domain commands', async () => {
   const f = await fixture()
   const roles = []
-  const workflow = fakeWorkflow((_prompt, options) => {
+  const workflow = fakeWorkflow((prompt, options) => {
     const role = options.label.split(':')[0]
     roles.push(role)
     const label = options.label.slice(role.length + 1)
-    return structuredClone(label.startsWith('source-summary:') ? { ...analysis, facts: [], openConflicts: [] } : label === 'story-reconcile' ? analysis : label === 'asset-design' ? visual : label === 'episode-plan' ? { episodes: [episode] } : label.startsWith('episode-storyboard:') ? board : draft)
+    return structuredClone(label.startsWith('asset-prompt:') ? generation() : label.includes('-prompts:') ? promptResponse({ label, prompt }) : label.startsWith('source-summary:') ? { ...analysis, facts: [], openConflicts: [] } : label === 'story-reconcile' ? analysis : label.startsWith('asset-extraction:') ? extractedAssets(analysis.characters, analysis.locations, 'ep', draft.script) : label === 'episode-plan' ? { episodes: [episode] } : label.startsWith('episode-storyboard:') ? board : draft)
   })
   const result = await novelTextProduction({ ...f, sourceId: 'source', contentHash: 'hash', segments: [{ start: 0, end: 20, text: 'A visitor finds key.' }], schemas: NOVEL_SCHEMAS,
     runWorkflow: async (tasks) => (await runProductionWorkflow(workflow, tasks, {})).result,
@@ -60,14 +100,14 @@ test('professional text tasks materialize separate script and storyboard through
       return saved
     },
   })
-  assert.deepEqual(roles, ['剧情', '剧情', '角色', '剧本', '剧本', '分镜'])
+  assert.deepEqual(roles, ['剧情', '剧情', '剧情', '剧本', '角色', '角色', '角色', '镜头', '分镜', '镜头'])
   const p = await f.projects.getProject(f.projectId)
   assert.equal(p.characters.visitor.description, 'A visitor')
-  assert.equal(p.characters.visitor.visualDescription, 'A blue coat')
+  assert.ok(p.characters.visitor.generation.prompt)
   assert.equal(p.episodes.ep.script, draft.script)
   assert.equal(p.episodes.ep.shotIds.length, 1)
   assert.equal(p.developmentProposals[p.episodes.ep.draftProposalId].kind, 'episode_draft')
-  assert.equal(Object.values(p.productionTasks).find((task) => task.input.label === 'episode-storyboard:ep').agentRole, 'storyboard')
+  assert.equal(Object.values(p.productionTasks).find((task) => task.input.label === 'episode-storyboard:ep').agentRole, 'shot')
   assert.equal(result.episodeScripts[0].script, draft.script)
   await assert.rejects(f.submit('episode_script', { ...result.episodeScripts[0], script: 'Changed by storyboard' }), /cannot change/)
   await assert.rejects(f.submit('asset_design', { ...visual, analysisProposalId: 'stale' }), /stale/)
@@ -75,8 +115,8 @@ test('professional text tasks materialize separate script and storyboard through
   await assert.rejects(f.submit('episode_draft', { ...draft, shots: board.shots }), /cannot submit shots/)
 })
 
-test('media roles use real workflow dispatch, persist plans and reject cross-scope or stale results', async () => {
-  const project = { id: 'p', productionSpec: {}, storyBible: { proposalId: 'analysis' }, characters: { visitor: analysis.characters[0] }, locations: {}, shots: { s: { ...board.shots[0], scriptVersion: 1, storyboardAssetId: 'preview' } }, episodes: {} }
+test('rendering preserves authored prompts; delivery plans reject cross-scope and stale results', async () => {
+  const project = authorFixture({ id: 'p', productionSpec: {}, storyBible: { proposalId: 'analysis' }, characters: { visitor: structuredClone(analysis.characters[0]) }, locations: {}, shots: { s: { ...board.shots[0], episodeId: 'ep', scriptVersion: 1, storyboardAssetId: 'preview' } }, episodes: { ep: { id: 'ep', script: draft.script } } })
   const seen = new Set()
   let calls = 0
   let rewrite = (value) => value
@@ -106,16 +146,43 @@ test('media roles use real workflow dispatch, persist plans and reject cross-sco
     await prepareMediaTask({ project, task, checkpoint, runWorkflow })
     assert.equal(calls, before, 'a retry must reuse the validated plan')
   }
-  assert.deepEqual([...seen], ['角色', '分镜', '镜头', '成片'])
-  project.shots.s.storyboardAssetId = 'preview-new'
-  await prepareMediaTask({ project, task: tasks[1], checkpoint: async () => {}, runWorkflow })
-  await assert.rejects(prepareMediaTask({ project, task: tasks[2], checkpoint: async () => {}, runWorkflow }), /过期/)
+  assert.deepEqual([...seen], ['成片'], 'rendering must not silently reauthor the saved prompts')
+  project.shots.s.duration = 8
+  await assert.rejects(prepareMediaTask({ project, task: tasks[2], checkpoint: async () => {}, runWorkflow }), /需更新/)
   rewrite = (value) => ({ ...value, nodes: [] })
   await assert.rejects(prepareMediaTask({ project, task: { ...tasks[3], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /遗漏/)
   rewrite = (value) => ({ ...value, taskId: 'another-task' })
-  await assert.rejects(prepareMediaTask({ project, task: { ...tasks[2], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /错误的任务/)
+  await assert.rejects(prepareMediaTask({ project, task: { ...tasks[3], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /错误的任务/)
   rewrite = (value) => ({ ...value, decision: 'rework', reason: 'Dialogue cannot fit' })
-  await assert.rejects(prepareMediaTask({ project, task: { ...tasks[2], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /请求返工.*Dialogue/)
+  await assert.rejects(prepareMediaTask({ project, task: { ...tasks[3], checkpoint: {} }, checkpoint: async () => {}, runWorkflow }), /请求返工.*Dialogue/)
+})
+
+test('delivery receives completed assembly files and hashes instead of empty shot references', async () => {
+  const project = { id: 'p', episodes: {}, shots: {}, assets: {}, legacyCanvas: { nodes: [{ id: 'episode-film', status: 'ready', media: 'episode.mp4', params: { contentHash: 'film-hash', actualDuration: 12, sources: ['s1', 's2'] } }] } }
+  const task = { id: 'delivery', kind: 'deliver-drama', input: { nodes: ['episode-film'], strategy: 'preserve' }, checkpoint: {} }
+  await prepareMediaTask({ project, task, checkpoint: async () => {}, runWorkflow: async ([request]) => {
+    const input = JSON.parse(request.prompt.split('\n输入：')[1])
+    assert.equal(input.assetVersions[0].contentHash, 'film-hash')
+    assert.equal(input.assets[0].media, 'episode.mp4')
+    assert.deepEqual(input.assets[0].sourceNodeIds, ['s1', 's2'])
+    return [{ label: task.id, value: { taskId: task.id, inputSignature: request.prompt.match(/inputSignature=([a-f0-9]+)/)[1], decision: 'ready', nodes: task.input.nodes, strategy: 'preserve' } }]
+  } })
+})
+
+test('coordinator repairs only invalid child results once and preserves successful siblings', async () => {
+  const calls = []
+  const workflow = fakeWorkflow((prompt, options) => {
+    const id = options.label.split(':')[1]
+    calls.push(id)
+    return { valid: id === 'good' || prompt.includes('must be valid') }
+  })
+  const tasks = ['good', 'bad'].map((label) => ({ label, role: 'shot', phase: '镜头', schema: {}, prompt: 'Task', validate: (value) => { if (!value.valid) throw new Error('must be valid') } }))
+  const result = await runProductionWorkflow(workflow, tasks, {})
+  assert.deepEqual(calls, ['good', 'bad', 'bad'])
+  assert.ok(result.result.every((item) => item.value.valid))
+  const failed = await runProductionWorkflow(fakeWorkflow(() => null), [tasks[0]], {})
+  assert.equal(failed.agentsStarted, 2)
+  assert.ok(failed.result[0].error)
 })
 
 test('all six named roles are dispatched with scoped instructions; unknown roles never start', async () => {

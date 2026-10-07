@@ -1,5 +1,5 @@
 import { markdownToHtml } from './markdown.js'
-import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasStage } from './stages.js?v=13'
+import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasStage } from './stages.js?v=14'
 
 (function () {
   'use strict'
@@ -368,7 +368,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       if (!assets.length) {
         const p = document.createElement('p')
         p.className = 'lib-empty-hint'
-        p.textContent = '暂无公共素材。这里保存跨项目使用的素材，当前项目设定请在“角色与场景”查看。'
+        p.textContent = '暂无公共素材。这里保存跨项目使用的素材，当前项目设定请在“资产设定”查看。'
         body.appendChild(p)
         foot.appendChild(dialogBtn('完成', () => dlg.close()))
         return
@@ -637,10 +637,23 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
     foot.appendChild(technical)
     card.appendChild(foot)
 
+    if (info.inputSnapshot) {
+      const actual = detailSection('本次实际生成提示词', 'snapshot:' + node.id)
+      const text = document.createElement('p')
+      text.style.whiteSpace = 'pre-wrap'
+      text.textContent = info.inputSnapshot.prompt + (info.inputSnapshot.negativePrompt ? '\n\n负向提示词：\n' + info.inputSnapshot.negativePrompt : '')
+      actual.appendChild(text)
+      const references = document.createElement('p')
+      references.textContent = '参考图片：' + (info.inputSnapshot.references || []).map((ref, index) => `${index + 1}. ${ref.entityId}`).join('；')
+      actual.appendChild(references)
+      card.appendChild(actual)
+    }
+
     if (info.role === 'entity' || info.role === 'shot') {
       const specification = info.role === 'entity' ? info.generation : node.kind === 'video' ? info.videoGeneration : info.imageGeneration
       const kind = info.role === 'entity' ? 'asset-prompt' : node.kind === 'video' ? 'video-prompt' : 'image-prompt'
-      const detail = detailSection(specification ? `生成提示词 · v${specification.version}` : '生成提示词 · 待编写', 'prompt:' + node.id)
+      const promptStatus = info.role === 'entity' ? info.promptStatus : node.kind === 'video' ? info.videoPromptStatus : info.imagePromptStatus
+      const detail = detailSection(specification ? `生成提示词 · v${specification.version}${promptStatus === 'stale' ? ' · 需更新' : ''}` : '生成提示词 · 待编写', 'prompt:' + node.id)
       const text = document.createElement('p')
       text.style.whiteSpace = 'pre-wrap'
       text.textContent = specification?.prompt || '请先编写完整提示词，再生成媒体。'
@@ -935,16 +948,24 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
       const status = document.createElement('div')
       status.className = 'rework-status'
       const name = { 'revise-text': '文本', 'render-reference': '设定图', 'render-storyboard': '分镜图', 'render-shot': '镜头视频', 'concat-video': '成片' }[run.kind] || '内容'
-      status.textContent = name + (run.status === 'failed' ? '重新生成失败' : '正在重新生成') + ` · ${run.completed} / ${run.total}` + (run.errors.length ? '\n' + [...new Set(run.errors)].join('\n') : '')
+      status.textContent = name + (run.status === 'failed' ? '重新生成失败' : '正在重新生成') + ` · ${run.completed} / ${run.total}`
+      if (run.errors.length) {
+        const detail = detailSection('查看失败原因', 'run-errors:' + run.id)
+        const text = document.createElement('p')
+        text.textContent = [...new Set(run.errors)].map((error) => error === 'dependency failed' ? '前置任务未完成，后续任务已暂停。' : error).join('\n')
+        detail.appendChild(text); status.appendChild(detail)
+      }
       if (run.status === 'failed') status.appendChild(dialogBtn('重试任务', async () => {
         try { await api(`/projects/${project.projectId}/commands`, { method: 'POST', body: JSON.stringify({ type: 'resumeProductionRun', commandId: crypto.randomUUID(), expectedRevision: currentProject.revision, payload: { runId: run.id } }) }); await load() } catch (error) { await alertBox(error.message) }
       }))
       page.appendChild(status)
     }
     if (progress?.errors?.length) {
-      const error = document.createElement('div')
+      const error = detailSection('本阶段有待处理任务', 'stage-errors:' + activeStageKey)
       error.className = 'stage-errors'
-      error.textContent = [...new Set(progress.errors.map((item) => item.error))].join('\n')
+      const text = document.createElement('p')
+      text.textContent = [...new Set(progress.errors.map((item) => item.error))].map((error) => error === 'dependency failed' ? '前置任务未完成，后续任务已暂停。' : error).join('\n')
+      error.appendChild(text)
       page.appendChild(error)
     }
     let nodes = nodesForCanvasStage(allNodes, activeStageKey)
@@ -1085,7 +1106,8 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
         const reference = nodes.find((node) => node.id === entity.presentation.referenceAssetId && node.media)
         paired.add(entity.id)
         if (reference) paired.add(reference.id)
-        const card = nodeCard({ ...entity, kind: 'image', media: reference?.media, status: reference?.status || 'pending', placeholder: reference ? '' : '设定图待生成', params: { ...entity.params, referenceAssetId: reference?.id } })
+        const status = entity.presentation.promptStatus === 'ready' ? reference?.status || 'pending' : reference ? 'invalidated' : 'pending'
+        const card = nodeCard({ ...entity, kind: 'image', media: reference?.media, status, placeholder: reference ? '' : '设定图待生成', presentation: { ...entity.presentation, inputSnapshot: reference?.presentation?.inputSnapshot }, params: { ...entity.params, referenceAssetId: reference?.id } })
         card.classList.add('entity-card')
         parent.appendChild(card)
       }

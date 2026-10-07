@@ -12,6 +12,8 @@ whenToUse: |
 
 ## Elysium 执行约束
 
+- 已导入原文的正式短剧，通过资产/分镜制作入口生成；必须先保存对应完整图片提示词、剧本依据和版本。此手动工具不能绕过正式创作链。基础图先于衍生图，衍生图引用本体；重新生成不自动重写已保存提示词。
+
 - 本 Skill 只使用 `elysium-qwen-image-21-t2i-*` 与 `elysium-qwen-image-21-i2i-*` 工作流。
 - 首次生成前调用 `comfy_list_workflows` 核对当前 capability + tier 解析结果；若未解析到对应 Elysium 工作流，停止并报告配置问题，禁止回退到无 `elysium` 标记的作者工作流。
 - 模型文件名与节点参数以 Elysium 工作流清单为准，不在 Skill 中改写 checkpoint。

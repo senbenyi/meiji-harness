@@ -4,7 +4,7 @@ import { CANVAS_STAGES, canvasStageCounts, canvasStageForNode, nodesForCanvasSta
 
 test('canvas stage tabs keep the approved horizontal production order', () => {
   assert.deepEqual(CANVAS_STAGES.map((stage) => stage.key), [
-    'overview', 'analysis', 'assets', 'scripts', 'storyboard', 'media', 'delivery',
+    'overview', 'analysis', 'scripts', 'assets', 'storyboard', 'media', 'delivery',
   ])
 })
 
