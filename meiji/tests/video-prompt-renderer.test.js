@@ -126,3 +126,32 @@ for(const [label,patch,error] of [
  c.beats[0].dialogueIds=['D01']
  assert.throws(()=>validateSeconds(c,s,p),error)
 })
+
+for (const [open, close] of [['“','”'], ['‘','’'], ['"','"'], ["'","'"]]) for (const reference of [false, true]) test(`带引号角色引用 ${open}我${close}：${reference ? '图片' : '文本'}校验与编译`, () => {
+ const p=episodeFixture(),s=p.shots.items[0]
+ p.plot.characters.items[0].name='我'
+ s.seconds.content=JSON.parse(JSON.stringify(s.seconds.content).replaceAll('旅人','我'))
+ const c=s.seconds.content,mention=`${open}我${close}【我|C01】`
+ for (const field of ['action','camera','space','sound','endState']) c.beats[0][field]=`${mention}站在门前`
+ c.dialogues=[{id:'D01',speakerId:'C01',text:'“我”还在这里。',language:'zh-CN',startMs:0,endMs:3000,delivery:'inner',performance:'内心声，嘴部不动'}]
+ c.beats[0].dialogueIds=['D01']
+ if(reference)p.plot.characters.items[0].image.content={assetId:'person',assetCategory:'characters',localPath:'/person.png'}
+ const before=structuredClone(c)
+ assert.doesNotThrow(()=>validateSeconds(c,s,p))
+ const out=compileVideoPrompt(p,s)
+ assert.ok(out.prompt.text.includes(reference ? '<Subject 1>（我）站在门前' : '我站在门前'))
+ assert.ok(!out.prompt.text.includes(`${open}我${close}${reference ? '<Subject' : '我'}`))
+ assert.ok(out.prompt.text.includes(c.dialogues[0].text))
+ assert.deepEqual(out.entityIds,['C01'])
+ assert.deepEqual(c,before)
+ c.beats[0].action+=`，${open}我${close}仍在等候`
+ assert.throws(()=>validateSeconds(c,s,p),error=>{
+  assert.equal(error.message.split('；').length,1)
+  assert.match(error.message,/中的我须写为我【我\|C01】/)
+  return true
+ })
+ c.beats[0].action=`${open}我${close}【我|C99】站在门前`
+ assert.throws(()=>validateSeconds(c,s,p),/未知实体ID/)
+ c.beats[0].action=`${open}我${close}【别人|C01】站在门前`
+ assert.throws(()=>validateSeconds(c,s,p),/实体名称不匹配/)
+})

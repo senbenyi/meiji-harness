@@ -20,7 +20,7 @@ function characterLookParts(look) {
   const ready = marks.every((mark, i) => {
     const value = look.slice(mark.index + mark[0].length, marks[i + 1]?.index ?? look.length).trim()
     parts[characterLookLabels[i].slice(0, -1)] = i === 8 ? value.replace(/\s*身型：/g, '，').replace(/，+/g, '，').replace(/^，|，$/g, '') : value
-    return (value.match(/[\p{L}\p{N}]/gu) || []).length >= (i === 3 ? 1 : 2)
+    return (value.match(/[\p{L}\p{N}]/gu) || []).length >= (i === 1 || i === 3 ? 1 : 2)
   })
   return ready ? parts : null
 }

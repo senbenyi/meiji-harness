@@ -872,6 +872,29 @@ test('资产页人物未通过原因置于卡片上方，重生成不提交旧�
  assert.deepEqual(calls[0].slice(1), ['characters', { generationMode: 'regenerate' }])
 })
 
+test('角色格式失败没有卡片时仍可提交修改意见，不能人工放行', async t => {
+ const container = domSetup(t), p = episodeFixture(), calls = []
+ p.plot.characters.items = []
+ p.plot.characters.error = '生成结果格式无效，无法保存：角色画面提示词要按顺序写明国籍、姓名'
+ const actions = { perform: async (...args) => calls.push(args), fail: assert.fail }
+ container.replaceChildren(renderStage('assets', p, actions, {}))
+ const area = container.querySelector('.workflow-review'), input = area.querySelector('input'), submit = area.querySelector('.workflow-review-action')
+ assert.ok(input); assert.equal(submit.disabled, true)
+ assert.equal(area.querySelector('.workflow-review-override'), null)
+ input.value = '保留单字姓名，补齐角色标签'; input.dispatchEvent(new window.Event('input')); input.onblur()
+ assert.equal(submit.disabled, false)
+ submit.click(); await Promise.resolve()
+ assert.deepEqual(calls[0].slice(1), ['characters', { generationMode: 'modify', review: input.value }])
+ for (const blocked of ['busy', 'outline']) {
+   p.executionLocks = blocked === 'busy' ? [{ target: 'characters', scope: 'project' }] : []
+   p.plot.outline.check.passed = blocked !== 'outline'
+   container.replaceChildren(renderStage('assets', p, actions, {}))
+   const review = container.querySelector('.workflow-review'), field = review.querySelector('input')
+   field.value = '修正格式'; field.dispatchEvent(new window.Event('input')); field.onblur()
+   assert.equal(review.querySelector('.workflow-review-action').disabled, true)
+ }
+})
+
 test('历史审核异常或无人物失败稿仍显示原因和重生成，忙碌/大纲未通过时禁用', async t => {
  const container = domSetup(t), p = episodeFixture(), actions = { perform: async () => {}, fail: assert.fail }
  p.plot.characters.check.passed = null; p.charactersFailure = '人物不支持多造型'

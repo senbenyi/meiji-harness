@@ -13,7 +13,7 @@ export function buildStoryPrompts(project, kind = 'outline', review = '', { extr
   const original = ctx?.originalProject || project
   const baseContent = modify ? kind === 'outline'
     ? original.plot.outline.content
-    : { items: (original.plot[kind].items || []).map(cardContent) } : ''
+    : kind === 'characters' && ctx?.failedCharacterDraft || { items: (original.plot[kind].items || []).map(cardContent) } : ''
   const opinion = modify ? [...new Set([ctx?.review, review].filter(Boolean))].join('\n') : ''
   const mode = modify ? 'modify' : extraction || ctx?.requestedMode === 'generate' || (!project.plot.outline.content && ctx?.requestedMode !== 'regenerate') ? 'generate' : 'regenerate'
   if (!storyKinds[kind]) throw new Error('未知剧情资料类型')

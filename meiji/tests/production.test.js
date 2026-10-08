@@ -49,6 +49,15 @@ test('character and scene cards keep separate jobs and scenes have no people fie
   assert.equal(scenes.items[0].type, 'scene')
 })
 
+test('角色标签接受单字姓名，仍拒绝空姓名、缺失标签和乱序', () => {
+  const parse = look => normalizeCharacters({ items: [{ appearance: '青年', identity: '短黑发', look }] }).items[0]
+  assert.equal(parse(characterLook.replace('姓名：傻根', '姓名：岚')).name, '岚')
+  assert.equal(parse(characterLook.replace('姓名：傻根', '姓名：Q')).name, 'Q')
+  for (const look of [characterLook.replace('姓名：傻根', '姓名：'), characterLook.replace('姓名：傻根\n', ''), characterLook.replace('国籍：中国\n姓名：傻根', '姓名：傻根\n国籍：中国')]) {
+    assert.throws(() => parse(look), /按顺序/)
+  }
+})
+
 test('gateway video submits one shot and downloads the finished mp4', async () => {
   let posted
   const queued = await submitH3({

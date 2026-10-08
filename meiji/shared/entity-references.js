@@ -24,10 +24,15 @@ export function referencedEntities(text, project) {
   return [...found.values()]
 }
 export const entityMention = entity => `${entity.name}${entityLabel(entity)}`
-// 正文写法「名字【名字|ID】」：替换或校验前先收拢成单独标记，避免名字重复出现。
+// 名字可带中英文引号；仅将紧接同名同 ID 标记的前缀收拢，避免校验误报和渲染重名。
 export function collapseMentions(text, project) {
   let value = String(text)
-  for (const e of entityCatalog(project).sort((a, b) => b.name.length - a.name.length)) if (e.name) value = value.split(entityMention(e)).join(entityLabel(e))
+  for (const e of entityCatalog(project).sort((a, b) => b.name.length - a.name.length)) if (e.name) {
+    const label = entityLabel(e)
+    for (const [open, close] of [['', ''], ['“', '”'], ['‘', '’'], ['"', '"'], ["'", "'"]]) {
+      value = value.split(`${open}${e.name}${close}${label}`).join(label)
+    }
+  }
   return value
 }
 const kindLabels = { character: '人物', scene: '场景', prop: '道具' }

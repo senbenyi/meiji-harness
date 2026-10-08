@@ -42,7 +42,8 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   }
   const compiled = record?.content?.compilerVersion === 1
   if (compiled) area.append(element('p', '由每秒分镜程序组装。剧情修改请到每秒分镜提交意见；也可直接编辑最终提示词。', 'meta'))
-  if (generated && !compiled && (!failures.length || allowFailureOpinion)) {
+  const modifiable = generated || record?.canModify === true
+  if (modifiable && !compiled && (!failures.length || allowFailureOpinion)) {
     const input = element('input', '', 'workflow-review-input')
     input.type = 'text'
     input.placeholder = '修改意见（可选）'
@@ -97,7 +98,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
     const modify = element('button', '提交修改', 'workflow-review-action')
     modify.type = 'button'
     const available = !busy && !actionButton.disabled
-    const refresh = () => { modify.disabled = !available || !generated || record?.canModify === false || !(area.querySelector('input')?.value.trim() || (check?.passed === false && check.failures?.some(Boolean))) }
+    const refresh = () => { modify.disabled = !available || !modifiable || record?.canModify === false || !(area.querySelector('input')?.value.trim() || (check?.passed === false && check.failures?.some(Boolean))) }
     area.querySelector('input')?.addEventListener('input', refresh)
     area.querySelector('input')?.addEventListener('meiji-review-cleared', refresh)
     modify.onclick = event => { if (modify.disabled) return; area.dataset.generationMode = 'modify'; const input = area.querySelector('input'); if (input) input.dataset.submittedReview = input.value; return run?.call(actionButton, event) }

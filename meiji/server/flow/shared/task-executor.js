@@ -68,6 +68,17 @@ async function executeOperation(operation, deps) {
       c.project = materialize(c.project, c.operation.episodeId)
       c.projects = scopeProjects(rootProjects, c.operation.episodeId, c.operation.action === 'shot-seconds' ? undefined : c.operation.track)
     }
+    // 未发布的角色原文只作为修订输入，不写回内容节点或角色库。
+    if (c.operation.action === 'characters' && c.operation.generationMode === 'modify' && !c.project.plot.characters.items.length) {
+      const records = await executionContext.getStore().store.list('artifacts')
+      const latest = records.filter(item => item.target === 'characters' && item.episodeId === c.operation.episodeId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+      if (latest?.published === false && latest.content?.text) {
+        const context = checkContext.getStore()
+        context.failedCharacterDraft = latest.content.text
+        context.revisionBase = latest.content.text
+      }
+    }
     rememberRevisionBase(c)
     if (operation.step === 'review') return await runContentReview(c)
     if (handler?.skip?.(c.project, c.operation)) return c.trace

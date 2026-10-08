@@ -189,8 +189,9 @@ function renderAssets(project, actions, context) {
 
 function charactersFeedback(project) {
   const record = feedbackOf(project, 'characters')
-  return !record.error && record.check?.passed !== true && project.charactersFailure
-    ? { ...record, status: GenerationStatus.FAILED, error: project.charactersFailure } : record
+  const error = record.error || (record.check?.passed !== true ? project.charactersFailure : '')
+  return { ...record, ...(error ? { status: GenerationStatus.FAILED, error } : {}),
+    ...(/^生成结果格式无效，无法保存：/.test(error || '') ? { canModify: true } : {}) }
 }
 
 function renderCharacters(project, actions, context) {

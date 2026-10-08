@@ -69,7 +69,7 @@ export async function prepareChecks(store, project, operation) {
       return [...(value.check.passed === false ? value.check.failures : []), operation.review ?? operation.instruction ?? (operation.action === 'seconds' ? project.shots.seconds?.review.text : value.review.text)]
     }).filter(value => String(value || '').trim())
     const baseline = checkContext.getStore()?.baseline?.episodes.find(item => item.id === operation.episodeId)
-    const originals = (operation.action === 'outline' ? ['outline'] : keys(project, operation)).map(key => originalData(project, key) || (baseline && originalData(baseline, key)))
+    const originals = (operation.action === 'outline' ? ['outline'] : keys(project, operation)).map(key => originalData(project, key) || (key === 'characters' && checkContext.getStore()?.failedCharacterDraft) || (baseline && originalData(baseline, key)))
     // 整集每秒指令允许部分保存：至少一镜有原内容即可修改，缺失的镜头随意见一起补齐。
     const missing = operation.action === 'seconds' ? originals.every(value => !value) : originals.some(value => !value)
     if (!reasons.length || !originals.length || (!matchingCandidate && missing)) {

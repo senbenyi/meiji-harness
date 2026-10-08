@@ -12,6 +12,7 @@ import { modelStore } from '../server/data/model-settings.js'
 import { runOperation, latestRun } from './fixtures/operation.js'
 import { operations as definitions, validateOperation } from '../server/flow/operations/operation-registry.js'
 import { setupModel } from './fixtures/model.js'
+import { storyPackageFixture } from './fixtures/story-package.js'
 
 const table = '## S01 / 5s\n第一镜\n## S02 / 5s\n第二镜'
 const shotsRequest = verdict => async ({ skill }) => skill === 'review' ? verdict : tableResponse(table)
@@ -25,6 +26,39 @@ async function setup(t) {
   await models.write({ ...await models.read(), apiKey: 'test-only' })
   return e
 }
+
+test('角色格式失败后从同集最新失败稿修订，原文不发布且复审保留基稿', async t => {
+  const e = await setup(t), valid = storyPackageFixture().characters
+  await e.store.save(e.id, p => { p.episodes[0].plot.characters.items = []; return p })
+  const invalid = structuredClone(valid)
+  invalid.items[0].look = invalid.items[0].look.replace('姓名：旅人', '姓名：')
+  invalid.items[0].identity = '本集失败稿标记'
+  const raw = JSON.stringify(invalid)
+  await assert.rejects(runOperation(e.op('characters'), { home: e.home, request: async () => raw }), /生成结果格式无效/)
+  assert.equal((await e.read()).plot.characters.items.length, 0)
+  const failed = await latestRun(e.home, e.id, 'characters'), store = runStore(e.home, e.id)
+  const artifacts = await store.records(failed.id, failed.steps[0].id, 'artifacts')
+  assert.ok(artifacts.some(item => !item.published && item.content.text === raw))
+  // 更新日期的其他剧集稿件不得成为本集修订输入。
+  await store.record(failed.id, failed.steps[0].id, 'artifacts', { episodeId: 'another-episode', target: 'characters', published: false, content: { text: '其他剧集失败稿' } })
+  let revised = false, reviewed = false
+  await runOperation(e.op('characters', { generationMode: 'modify', review: '补齐姓名标签' }), { home: e.home, request: async message => {
+    assert.match(message.user, /本集失败稿标记/)
+    assert.match(message.user, /补齐姓名标签/)
+    assert.doesNotMatch(message.user, /其他剧集失败稿/)
+    if (message.skill === 'review') { reviewed = true; return reviewPass }
+    revised = true; return JSON.stringify(valid)
+  } })
+  assert.ok(revised && reviewed)
+  assert.equal((await e.read()).plot.characters.items[0].name, '旅人')
+  assert.equal((await e.read()).plot.characters.check.passed, true)
+})
+
+test('角色没有已保存正文或失败稿时拒绝修改，不调用模型', async t => {
+  const e = await setup(t)
+  await e.store.save(e.id, p => { p.episodes[0].plot.characters.items = []; return p })
+  await assert.rejects(runOperation(e.op('characters', { generationMode: 'modify', review: '补充姓名' }), { home: e.home, request: () => assert.fail('不能凭空修订') }), /修改需要原来的数据/)
+})
 
 test('failed tail step preserves video and a tail-only retry does not submit again', async t => {
   const e = await setup(t)
